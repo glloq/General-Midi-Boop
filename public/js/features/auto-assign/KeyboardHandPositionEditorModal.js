@@ -121,7 +121,6 @@
             // it only deals with hand positions.
             this._lookaheadSec = 4;
             this._currentSec = 0;
-            this._noteHits = [];
             this._notePopover = null;
             this._mutedBeforePlay = null;
 
@@ -228,8 +227,8 @@
             this.minimapHost = this.$('.khpe-minimap-host');
             this._mountKeyboard();
             this._mountFingersRenderer();
+            this._mountRollRenderer();
             this._wireToolbar();
-            this._wireRollCanvas();
             this._wireMinimap();
             this._wireKbMini();
             this._wireResizeObserver();
@@ -300,8 +299,8 @@
         }
 
         /** Step lookup delegated to `state` — kept as a thin wrapper
-         *  so the existing `_minimapSamplesFor` / `_laneSamplesFor`
-         *  call sites continue to work without renames. */
+         *  so the minimap (and any future renderer that needs the
+         *  simulator-target anchor) keeps a stable call shape. */
         _targetAnchorAt(handId, atSec) {
             return this.state.targetAnchorAt(handId, atSec);
         }
@@ -522,6 +521,8 @@
             this.keyboard = null;
             this.fingersRenderer?.destroy?.();
             this.fingersRenderer = null;
+            this.rollRenderer?.destroy?.();
+            this.rollRenderer = null;
         }
 
         close() {
@@ -581,8 +582,9 @@
             } else if (window.KeyboardPreview) {
                 // Read-only widget: no `onBandDrag`, no `onKeyClick`.
                 // Every position edit happens on the piano-roll above
-                // (see `_wireRollCanvas`). The keyboard exists purely
-                // to show where the hand currently sits and which keys
+                // (see `KeyboardRollRenderer`). The keyboard exists
+                // purely to show where the hand currently sits and
+                // which keys
                 // are pressed at the playhead.
                 this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
                     rangeMin: ext.lo,
@@ -793,9 +795,9 @@
         }
 
         // Hand-band repositioning lives on the piano-roll now: the
-        // mousedown handler in `_wireRollCanvas` routes a drag inside
-        // a band's reachable window to `_onHandBandDragLive` (live
-        // visual update, no history) and `_commitHandBandDrag`
+        // `KeyboardRollRenderer` mousedown handler routes a drag
+        // inside a band's reachable window to `_onHandBandDragLive`
+        // (live visual update, no history) and `_commitHandBandDrag`
         // (persist + history) on mouseup.
 
         // ----------------------------------------------------------------
@@ -1338,519 +1340,77 @@
             return out;
         }
 
-        /**
-         * Paint each hand's playable window across the visible time
-         * slice as a translucent vertical lane in the roll background.
-         * For every hand we walk the anchor timeline (`shift` and
-         * `chord` events) — between two consecutive samples the anchor
-         * is constant, so each segment is a coloured rectangle with
-         * X = [hand.anchor, hand.anchor + span] and
-         * Y = [seg.startSec, seg.endSec] mapped onto the lookahead
-         * window. The current displayed anchor is used for the
-         * boundary samples (start of view + extrapolation past the
-         * last simulator event) so the lane visibly leaves from where
-         * the live band sits.
-         */
-        _drawHandLanes(ctx, ext, pxPerPitch, startSec, lookaheadSec, H) {
-            if (!Array.isArray(this._hands) || this._hands.length === 0) return;
-            const endSec = startSec + lookaheadSec;
-            const yOf = (sec) => H - ((sec - startSec) / lookaheadSec) * H;
-            for (const hand of this._hands) {
-                const samples = this._laneSamplesFor(hand, startSec, endSec);
-                if (samples.length === 0) continue;
-                const fill = _bandFill(hand.color);
-                const infeasibleFill = 'rgba(220, 38, 38, 0.28)';
-                const w = hand.span * pxPerPitch;
-                for (let i = 0; i < samples.length - 1; i++) {
-                    const cur = samples[i];
-                    const next = samples[i + 1];
-                    if (next.sec <= startSec || cur.sec >= endSec) continue;
-                    // Stable segment between this sample and the start
-                    // of the next shift (or the next sample if that
-                    // sample isn't a shift). Drawn as a vertical
-                    // rectangle — the anchor stays put while the hand
-                    // plays the chords sitting on it.
-                    const stableEndSec = Number.isFinite(next.fromSec) ? next.fromSec : next.sec;
-                    if (stableEndSec > cur.sec) {
-                        const a = Math.max(cur.sec, startSec);
-                        const b = Math.min(stableEndSec, endSec);
-                        if (b > a) {
-                            ctx.fillStyle = fill;
-                            const x = (cur.anchor - ext.lo) * pxPerPitch;
-                            ctx.fillRect(x, yOf(b), w, yOf(a) - yOf(b));
-                        }
-                    }
-                    // Sliding segment — only present when the next
-                    // sample is a shift and carries explicit fromSec /
-                    // fromAnchor. Drawn as a parallelogram interpolating
-                    // both edges between (fromSec, fromAnchor) and
-                    // (sec, toAnchor): the 4 vertices are
-                    //   (fromSec, fromAnchor), (fromSec, fromAnchor+span),
-                    //   (sec,     anchor+span), (sec,     anchor).
-                    // The parallelogram's slope (Δanchor / Δsec) matches
-                    // the configured max hand-move speed when the shift
-                    // is feasible, or is steeper when infeasible — the
-                    // operator can read the speed limit straight off
-                    // the lane geometry.
-                    if (Number.isFinite(next.fromSec) && Number.isFinite(next.fromAnchor)
-                            && next.fromSec < next.sec) {
-                        const a = Math.max(next.fromSec, startSec);
-                        const b = Math.min(next.sec, endSec);
-                        if (b > a) {
-                            // Linear interpolation of the anchor at the
-                            // clipped boundaries so a slide partially
-                            // outside the viewport is rendered correctly.
-                            const slope = (next.anchor - next.fromAnchor) / (next.sec - next.fromSec);
-                            const aAnchor = next.fromAnchor + slope * (a - next.fromSec);
-                            const bAnchor = next.fromAnchor + slope * (b - next.fromSec);
-                            const xA = (aAnchor - ext.lo) * pxPerPitch;
-                            const xB = (bAnchor - ext.lo) * pxPerPitch;
-                            const yA = yOf(a);
-                            const yB = yOf(b);
-                            ctx.fillStyle = next.feasible === false ? infeasibleFill : fill;
-                            ctx.beginPath();
-                            ctx.moveTo(xA, yA);
-                            ctx.lineTo(xA + w, yA);
-                            ctx.lineTo(xB + w, yB);
-                            ctx.lineTo(xB, yB);
-                            ctx.closePath();
-                            ctx.fill();
-                            // Outline the parallelogram in the hand's
-                            // color so the slide leg pops against the
-                            // surrounding stable rectangles. Heavier
-                            // stroke + dashed pattern when infeasible
-                            // so it reads as a warning at a glance.
-                            if (next.feasible === false) {
-                                ctx.save();
-                                ctx.strokeStyle = '#dc2626';
-                                ctx.setLineDash([4, 3]);
-                                ctx.lineWidth = 1.5;
-                            } else {
-                                ctx.strokeStyle = hand.color;
-                                ctx.lineWidth = 1;
-                            }
-                            ctx.beginPath();
-                            ctx.moveTo(xA, yA);
-                            ctx.lineTo(xA + w, yA);
-                            ctx.lineTo(xB + w, yB);
-                            ctx.lineTo(xB, yB);
-                            ctx.closePath();
-                            ctx.stroke();
-                            if (next.feasible === false) ctx.restore();
-                        }
-                    }
-                }
-            }
-        }
+        // ----------------------------------------------------------------
+        //  Piano-roll widget — `KeyboardRollRenderer` owns the canvas,
+        //  the hit-test, the drag/pan/wheel pipeline, and the lane
+        //  geometry. The modal mounts it once on `onOpen`, bridges the
+        //  user gestures back through callbacks, and pushes inputs on
+        //  every state change via `_pushRollState`.
+        // ----------------------------------------------------------------
 
-        /** Build `[{sec, anchor}]` samples covering [startSec, endSec]
-         *  from the simulation's per-hand timeline. The first sample
-         *  is clamped to startSec carrying the most recent anchor,
-         *  the last is clamped to endSec for the segment-pair walk. */
-        _laneSamplesFor(hand, startSec, endSec) {
-            const series = this._handAnchorTimeline?.get(hand.id) || [];
-            const out = [];
-            // Initial anchor at the start of the view: use the displayed
-            // value if known so the lane visibly meets the live band.
-            const first = this._displayedAnchor.has(hand.id)
-                ? this._displayedAnchor.get(hand.id)
-                : (this._targetAnchorAt(hand.id, startSec) ?? hand.anchor);
-            out.push({ sec: startSec, anchor: first });
-            for (const s of series) {
-                // Slide may overlap the visible window even when the
-                // shift's `sec` (= chord tick) falls past `endSec` —
-                // include the entry whenever its slide leg crosses the
-                // window, so a long shift drawn from `fromSec` inside
-                // the view to `sec` outside still renders.
-                const slideStart = Number.isFinite(s.fromSec) ? s.fromSec : s.sec;
-                if (s.sec <= startSec) continue;
-                if (slideStart >= endSec) break;
-                out.push({
-                    sec: s.sec,
-                    anchor: s.anchor,
-                    fromSec: s.fromSec,
-                    fromAnchor: s.fromAnchor,
-                    feasible: s.feasible !== false
-                });
-            }
-            out.push({ sec: endSec, anchor: out[out.length - 1].anchor });
-            return out;
-        }
-
-        _draw() {
+        /** Instantiate the piano-roll widget. No-op when the renderer
+         *  script failed to load — the editor still opens with an
+         *  empty roll area, the rest of the modal stays usable. */
+        _mountRollRenderer() {
             if (!this.rollCanvas || !this.rollHost) return;
-            const dpr = window.devicePixelRatio || 1;
-            const W = this.rollHost.clientWidth;
-            const H = this.rollHost.clientHeight;
-            if (W <= 0 || H <= 0) return;
-
-            // Reallocating canvas.width/height invalidates the backing
-            // store (forces a fresh GPU buffer + resets the context),
-            // so only do it when the size actually changes. Without this
-            // guard a 60 Hz redraw triggers ~120 buffer reallocs/second.
-            const wantW = W * dpr;
-            const wantH = H * dpr;
-            if (this.rollCanvas.width !== wantW || this.rollCanvas.height !== wantH) {
-                this.rollCanvas.width = wantW;
-                this.rollCanvas.height = wantH;
-                this.rollCanvas.style.width = W + 'px';
-                this.rollCanvas.style.height = H + 'px';
-            }
-            const ctx = this.rollCanvas.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, W, H);
-
-            // Roll axis follows the live keyboard view so zooming the
-            // keyboard also zooms the falling-note column on the same
-            // X mapping — operator never has to mentally remap.
-            const ext = this._visibleExtent();
-            // Same X-mapping as a piano: white-key uniform width, black
-            // keys narrower. We reuse a simple linear pitch→x mapping
-            // here (proportional to semitones) since the on-screen
-            // keyboard is a separate widget below — the alignment is
-            // close enough for a visualisation.
-            const semitoneCount = ext.hi - ext.lo + 1;
-            const pxPerPitch = W / semitoneCount;
-
-            // Vertical layout: present is at y = H (just above the keyboard),
-            // future is at y = 0 (top of the roll).
-            const lookaheadSec = this._lookaheadSec;
-            const startSec = this._currentSec;
-            const endSec = startSec + lookaheadSec;
-
-            // Light pitch grid lines (octaves).
-            ctx.strokeStyle = 'rgba(148,163,184,0.15)';
-            ctx.lineWidth = 1;
-            for (let p = ext.lo; p <= ext.hi; p++) {
-                if (p % 12 === 0) {
-                    const x = (p - ext.lo) * pxPerPitch + 0.5;
-                    ctx.beginPath();
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, H);
-                    ctx.stroke();
+            if (typeof window === 'undefined' || !window.KeyboardRollRenderer) return;
+            this.rollRenderer = new window.KeyboardRollRenderer(
+                this.rollCanvas, this.rollHost,
+                {
+                    ticksPerSec: this.ticksPerSec,
+                    totalSec: this._totalSec,
+                    onNoteClick: (note, evt) => this._openNotePopover({ note }, evt),
+                    onBandDragMove: (handId, anchor) => this._onHandBandDragLive(handId, anchor),
+                    onBandDragEnd: (handId) => this._commitHandBandDrag(handId),
+                    onSeek: (sec) => this._seekTo(sec),
+                    onZoom: (factor) => this._zoomLookahead(factor),
+                    getAnchorAt: (handId, sec) => this.state.targetAnchorAt(handId, sec),
+                    getDisplayedAnchor: (handId) => this.state.getDisplayedAnchor(handId)
                 }
-            }
-
-            // Hand position lanes — one translucent stripe per hand
-            // showing where the hand will be at every moment of the
-            // visible window. Drawn under the notes (background) so the
-            // operator can see at a glance which note is "covered" by
-            // which hand and which falls outside any window. Anchor
-            // segments come straight from the simulation timeline so a
-            // shift event produces a visible step in the lane.
-            this._drawHandLanes(ctx, ext, pxPerPitch, startSec, lookaheadSec, H);
-
-            // Playhead line at the bottom of the roll (= present moment).
-            ctx.strokeStyle = 'rgba(248,113,113,0.7)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, H - 1);
-            ctx.lineTo(W, H - 1);
-            ctx.stroke();
-
-            const assignments = this._currentAssignments();
-            const hits = [];
-            for (const n of this.notes) {
-                const noteSec = n.tick / this.ticksPerSec;
-                const dur = (n.duration || 0) / this.ticksPerSec;
-                if (noteSec + dur < startSec) continue; // already past
-                if (noteSec > endSec) continue;          // too far in future
-                // Note rectangle: top = future side (smaller noteSec → higher y),
-                // bottom = present side. We map [startSec, endSec] → [H, 0].
-                const yBottom = H - ((noteSec - startSec) / lookaheadSec) * H;
-                const yTop = H - ((noteSec + dur - startSec) / lookaheadSec) * H;
-                const y = Math.max(0, yTop);
-                const h = Math.min(H, yBottom) - y;
-                if (h <= 0) continue;
-                const x = (n.note - ext.lo) * pxPerPitch;
-                const w = Math.max(2, pxPerPitch - 1);
-                const handId = assignments.get(`${n.tick}:${n.note}`) || null;
-                const isUnplayable = this._unplayableSet.has(`${n.tick}:${n.note}`);
-                if (isUnplayable) {
-                    // Red fill + thicker red border so unplayable notes
-                    // pop visually even when assigned to a hand colour.
-                    ctx.fillStyle = '#dc2626';
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeStyle = '#fecaca';
-                    ctx.lineWidth = 1.5;
-                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-                    ctx.lineWidth = 1;
-                } else {
-                    ctx.fillStyle = handId ? _handColor(handId) : '#94a3b8';
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeStyle = 'rgba(15,23,42,0.6)';
-                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-                }
-                hits.push({ x, y, w, h, note: n });
-            }
-            this._noteHits = hits;
+            );
         }
 
-        /** Map<"tick:note", handId> — delegated to state. */
-        _currentAssignments() { return this.state.currentAssignments(); }
-
-        // ----------------------------------------------------------------
-        //  Interaction — note-click popover, wheel zoom
-        // ----------------------------------------------------------------
-
-        /**
-         * Wire every gesture on the piano-roll:
-         *
-         * - `mousedown` → decide between three drags based on where the
-         *   click landed:
-         *     a. on a hand band → horizontal drag repins the hand
-         *        anchor (X = pitch). The drag updates the live anchor
-         *        every move and only commits / pushes history once on
-         *        mouseup so the undo stack gets one entry per drag, not
-         *        one per pixel.
-         *     b. on a note      → preserved click-popover behaviour
-         *        (see `_openNotePopover`).
-         *     c. anywhere else  → vertical drag pans `_currentSec`
-         *        (Y maps to time). Inverted: dragging upward moves the
-         *        timeline forward (= the future approaches the
-         *        keyboard).
-         *
-         * - `wheel`             → without modifier scrolls the timeline
-         *                         (deltaY > 0 = forward); with `ctrlKey`
-         *                         zooms the lookahead window.
-         *
-         * Click-vs-drag is disambiguated by a small movement threshold
-         * (3 px). Below the threshold a mouseup on a note still opens
-         * the popover, mirroring legacy behaviour.
-         */
-        _wireRollCanvas() {
-            const HIT_BAND = 'band';
-            const HIT_NOTE = 'note';
-            const HIT_PAN  = 'pan';
-
-            const localXY = (e) => {
-                const rect = this.rollCanvas.getBoundingClientRect();
-                return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-            };
-
-            const hitTest = (x, y) => {
-                const note = this._hitNote(x, y);
-                if (note) return { kind: HIT_NOTE, note };
-                const band = this._hitHandBand(x, y);
-                if (band) return { kind: HIT_BAND, ...band };
-                return { kind: HIT_PAN };
-            };
-
-            this.rollCanvas.addEventListener('mousedown', (e) => {
-                if (e.button !== 0) return;
-                const { x, y } = localXY(e);
-                const hit = hitTest(x, y);
-
-                if (hit.kind === HIT_NOTE) {
-                    // Defer to mouseup → click so a drag started ON a
-                    // note doesn't open the popover. We track the
-                    // initial pointer position and cancel the pending
-                    // click if movement exceeds the threshold.
-                    this._armPendingNoteClick(hit.note, e);
-                    return;
-                }
-
-                e.preventDefault();
-                this._closeNotePopover();
-
-                if (hit.kind === HIT_BAND) this._startBandDrag(hit, x);
-                else                       this._startTimePan(y);
-            });
-
-            // Click handler kept only for the deferred note popover.
-            this.rollCanvas.addEventListener('click', (e) => {
-                const pending = this._pendingNoteClick;
-                this._pendingNoteClick = null;
-                if (!pending) return;
-                this._openNotePopover(pending.hit, e);
-            });
-
-            this.rollHost.addEventListener('wheel', (e) => {
-                // Horizontal-only wheel events (touchpad sideways
-                // scroll) carry deltaY === 0 and would otherwise be
-                // consumed for nothing. Skip them so the browser can
-                // fall back to its own behaviour.
-                if (e.deltaY === 0) return;
-                e.preventDefault();
-                if (e.ctrlKey) {
-                    const factor = e.deltaY < 0 ? 1.25 : 0.8;
-                    this._lookaheadSec = Math.max(1, Math.min(30, this._lookaheadSec / factor));
-                    this._redrawAll();
-                    return;
-                }
-                // Wheel scrubs the timeline — one notch ≈ 10 % of the
-                // visible window so a single scroll always moves the
-                // playhead by a noticeable but predictable amount no
-                // matter the zoom level.
-                const step = (this._lookaheadSec || 4) * 0.1;
-                this._currentSec = Math.max(0,
-                    Math.min(this._totalSec || 0,
-                        this._currentSec + Math.sign(e.deltaY) * step));
-                this._ensureAnimLoop();
-                this._draw();
-                this._drawMinimap();
-            }, { passive: false });
+        /** Push every roll-relevant input the renderer needs and
+         *  redraw. The renderer reads only what we hand it; it never
+         *  reaches into the modal or the state for any field. */
+        _pushRollState() {
+            const r = this.rollRenderer;
+            if (!r) return;
+            r.setNotes(this.notes);
+            r.setHands(this.state.hands);
+            r.setHandsTimeline(this.state.simulationTimeline);
+            r.setNoteAssignments(this.state.currentAssignments());
+            r.setUnplayable(this.state.unplayableSet);
+            r.setVisibleExtent(this._visibleExtent());
+            r.setLookahead(this._lookaheadSec);
+            r.setPlayhead(this._currentSec);
+            r.setTotalSec(this._totalSec);
+            r.draw();
         }
 
-        /** Drag-vs-click threshold (CSS pixels). Movement under this
-         *  number of pixels still counts as a stationary click; above
-         *  it cancels the pending note-popover and confirms the drag. */
-        get _DRAG_THRESHOLD_PX() { return 3; }
+        /** Back-compat alias — many call sites still call `_draw()`
+         *  directly. Routes through `_pushRollState` which actually
+         *  drives the renderer. */
+        _draw() { this._pushRollState(); }
 
-        /** Arm a deferred note popover. Mouseup with movement under the
-         *  threshold opens the popover; mouseup past the threshold (or
-         *  any further mousedown) cancels it. Without this guard a
-         *  user dragging across a note still got a popover on release. */
-        _armPendingNoteClick(noteHit, downEvt) {
-            this._pendingNoteClick = { hit: noteHit, evt: downEvt };
-            const startX = downEvt.clientX;
-            const startY = downEvt.clientY;
-            const onMove = (ev) => {
-                const dx = ev.clientX - startX;
-                const dy = ev.clientY - startY;
-                if (dx * dx + dy * dy >= this._DRAG_THRESHOLD_PX * this._DRAG_THRESHOLD_PX) {
-                    this._pendingNoteClick = null;
-                    cleanup();
-                }
-            };
-            const cleanup = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', cleanup);
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', cleanup);
+        /** Wheel / pan target. The renderer hands us a pre-clamped
+         *  value; we re-clamp + restart the anim loop defensively. */
+        _seekTo(sec) {
+            const next = Math.max(0, Math.min(this._totalSec || 0, sec));
+            if (next === this._currentSec) return;
+            this._currentSec = next;
+            this._ensureAnimLoop();
+            this._draw();
+            this._drawMinimap();
         }
 
-        /** Hit-test the hand-position lanes drawn on the roll. Returns
-         *  `{handId, anchorAtClick}` when the (x, y) point lies inside
-         *  the band's reachable window at the corresponding time, or
-         *  null otherwise. We use the EXACT same X mapping the renderer
-         *  uses (`_visibleExtent` + uniform pxPerPitch) so what the
-         *  operator sees == what they grab. The Y matters only for the
-         *  drag's seed time; the click is "valid" anywhere inside the
-         *  vertical lane.
-         *  @private */
-        _hitHandBand(x, y) {
-            if (!this.rollHost || !Array.isArray(this._hands) || this._hands.length === 0) {
-                return null;
-            }
-            const W = this.rollHost.clientWidth;
-            const H = this.rollHost.clientHeight;
-            if (W <= 0 || H <= 0) return null;
-            const ext = this._visibleExtent();
-            const pxPerPitch = W / Math.max(1, ext.hi - ext.lo + 1);
-            // Y → time so we look up the right anchor for the row the
-            // operator clicked on. Top of the roll = future, bottom = now.
-            const tFromBottom = (H - y) / H;
-            const seedSec = this._currentSec + tFromBottom * (this._lookaheadSec || 0);
-            for (const hand of this._hands) {
-                const anchor = this._anchorAtSec(hand, seedSec);
-                if (!Number.isFinite(anchor)) continue;
-                const xLeft  = (anchor - ext.lo) * pxPerPitch;
-                const xRight = (anchor + hand.span - ext.lo + 1) * pxPerPitch;
-                if (x >= xLeft && x <= xRight) {
-                    // Pixel offset between the click and the band's
-                    // left edge so the drag keeps the band visually
-                    // pinned under the cursor.
-                    const offsetPx = x - xLeft;
-                    return { handId: hand.id, anchor, offsetPx, pxPerPitch, ext };
-                }
-            }
-            return null;
-        }
-
-        /** Anchor of `hand` at time `sec`, prefering the simulator
-         *  timeline (so a slide reflects in the lane), then falling
-         *  back to the live in-memory anchor.
-         *  @private */
-        _anchorAtSec(hand, sec) {
-            const t = this._targetAnchorAt(hand.id, sec);
-            return Number.isFinite(t) ? t : hand.anchor;
-        }
-
-        _startBandDrag(hit, startX) {
-            const threshold = this._DRAG_THRESHOLD_PX;
-            const drag = {
-                kind: 'band',
-                handId: hit.handId,
-                offsetPx: hit.offsetPx,
-                pxPerPitch: hit.pxPerPitch,
-                ext: hit.ext,
-                started: false,
-                startX
-            };
-            this._rollDrag = drag;
-            const onMove = (ev) => {
-                // Re-fetch the canvas rect every move: a window resize
-                // or page scroll during the drag would otherwise leave
-                // the band stuck to the old viewport position.
-                const rect = this.rollCanvas.getBoundingClientRect();
-                const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
-                if (!drag.started) {
-                    if (Math.abs(x - drag.startX) < threshold) return;
-                    drag.started = true;
-                }
-                const pitchAtLeftEdge = drag.ext.lo + (x - drag.offsetPx) / drag.pxPerPitch;
-                this._onHandBandDragLive(drag.handId, Math.round(pitchAtLeftEdge));
-            };
-            const onUp = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-                this._rollDrag = null;
-                if (drag.started) {
-                    // One history entry per completed drag — the live
-                    // moves mutated `hand.anchor` in place; commit
-                    // pushes the override + snapshot once.
-                    this._commitHandBandDrag(drag.handId);
-                }
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-        }
-
-        _startTimePan(startY) {
-            const threshold = this._DRAG_THRESHOLD_PX;
-            const drag = {
-                kind: 'pan',
-                startY,
-                startSec: this._currentSec,
-                H: this.rollHost.clientHeight,
-                lookahead: this._lookaheadSec || 4,
-                started: false
-            };
-            this._rollDrag = drag;
-            const onMove = (ev) => {
-                // Re-fetch the rect every move (window resize / scroll
-                // during the drag would otherwise stale the geometry).
-                const rect = this.rollCanvas.getBoundingClientRect();
-                const y = ev.clientY - rect.top;
-                if (!drag.started) {
-                    if (Math.abs(y - drag.startY) < threshold) return;
-                    drag.started = true;
-                    this.rollHost?.classList.add('is-panning');
-                }
-                // Drag DOWN = travel back in time (the strip slides
-                // toward you), drag UP = travel forward — feels like
-                // grabbing the timeline strip itself.
-                const deltaSec = ((y - drag.startY) / drag.H) * drag.lookahead * -1;
-                const newSec = Math.max(0,
-                    Math.min(this._totalSec || 0, drag.startSec + deltaSec));
-                if (newSec !== this._currentSec) {
-                    this._currentSec = newSec;
-                    this._ensureAnimLoop();
-                    this._draw();
-                    this._drawMinimap();
-                }
-            };
-            const onUp = () => {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-                this.rollHost?.classList.remove('is-panning');
-                this._rollDrag = null;
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
+        /** Ctrl+wheel zoom factor on the lookahead window. Larger
+         *  factor = zoom in (smaller window, denser notes). */
+        _zoomLookahead(factor) {
+            const next = Math.max(1, Math.min(30, this._lookaheadSec / factor));
+            if (next === this._lookaheadSec) return;
+            this._lookaheadSec = next;
+            this._redrawAll();
         }
 
         /** Single redraw helper used by every "view-affecting" toolbar
@@ -1894,15 +1454,6 @@
             this._rebuildProblems();
             this._draw();
             this._drawMinimap();
-        }
-
-        _hitNote(x, y) {
-            const hits = this._noteHits || [];
-            for (let i = hits.length - 1; i >= 0; i--) {
-                const h = hits[i];
-                if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h;
-            }
-            return null;
         }
 
         _openNotePopover(hit, evt) {
