@@ -410,11 +410,20 @@
         // Tuning convention: index 0 = lowest pitch. Display lowest at the bottom.
         const stringsTopDown = [...tuning].reverse();
 
-        // Render at least 12 frets even for fretless instruments — the user
-        // still needs a clickable surface and the labels make sliding intent
-        // clear. The `is_fretless` flag drives a CSS class that hides fret bars.
+        // Per-string fret counts: frets_per_string is stored in tuning order
+        // (index 0 = lowest string). Reverse it to match stringsTopDown (highest first).
+        const fretsPerStringRaw = Array.isArray(cfg.frets_per_string) && cfg.frets_per_string.length === numStrings
+            ? cfg.frets_per_string
+            : null;
+        const stringFretCounts = fretsPerStringRaw ? [...fretsPerStringRaw].reverse() : null;
+
         const isFretless = !!cfg.is_fretless || numFrets === 0;
-        const fretCount = Math.max(12, numFrets || 0);
+
+        // The grid must accommodate the widest string. When frets differ per string,
+        // use the max; otherwise use the global numFrets.
+        const maxFretCount = stringFretCounts
+            ? Math.max(12, ...stringFretCounts)
+            : Math.max(12, numFrets || 0);
 
         if (isFretless) container.classList.add('fretless');
         else container.classList.remove('fretless');
@@ -425,7 +434,7 @@
         // express widths as `fr` units so CSS distributes them automatically
         // across whatever width the row has.
         const cellSpans = [];
-        for (let f = 1; f <= fretCount; f++) {
+        for (let f = 1; f <= maxFretCount; f++) {
             const prev = 1 - Math.pow(2, -(f - 1) / 12);
             const curr = 1 - Math.pow(2, -f / 12);
             cellSpans.push(curr - prev);
@@ -445,7 +454,7 @@
         openLbl.className = 'fret-number nut';
         openLbl.textContent = '0';
         header.appendChild(openLbl);
-        for (let f = 1; f <= fretCount; f++) {
+        for (let f = 1; f <= maxFretCount; f++) {
             const cell = document.createElement('div');
             cell.className = 'fret-number';
             cell.textContent = String(f);
@@ -463,16 +472,25 @@
         for (let s = 0; s < totalStrings; s++) {
             const openMidi = stringsTopDown[s];
             const stringNumber = totalStrings - s; // 1-based, lowest = 1
+            // How many frets this string actually has (may differ from maxFretCount).
+            const thisStringFrets = stringFretCounts ? stringFretCounts[s] : maxFretCount;
             const row = document.createElement('div');
             row.className = 'fret-string';
             row.style.gridTemplateColumns = gridCols;
             // Open string cell (fret 0 = the nut)
             const openCell = this._buildFretCell(openMidi, true, stringNumber, 0);
             row.appendChild(openCell);
-            for (let f = 1; f <= fretCount; f++) {
-                const midi = openMidi + f;
-                const cell = this._buildFretCell(midi, false, stringNumber, f);
-                row.appendChild(cell);
+            for (let f = 1; f <= maxFretCount; f++) {
+                if (f > thisStringFrets) {
+                    // This fret doesn't exist on this string — render a dead zone.
+                    const dead = document.createElement('div');
+                    dead.className = 'fret-cell fret-dead';
+                    row.appendChild(dead);
+                } else {
+                    const midi = openMidi + f;
+                    const cell = this._buildFretCell(midi, false, stringNumber, f);
+                    row.appendChild(cell);
+                }
             }
             container.appendChild(row);
         }
