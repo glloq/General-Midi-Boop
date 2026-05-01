@@ -275,19 +275,24 @@
             return Math.max(1, numFingers - 1);
         }
 
+        /** True when MIDI `m` is a black-key pitch class (C#, D#,
+         *  F#, G#, A#). Used by the piano-layout helpers
+         *  (`_whiteKeysFromAnchor`, `_snapAnchor`,
+         *  `_displaySpanFor`). @private */
+        _isBlackKey(midi) {
+            const v = ((midi % 12) + 12) % 12;
+            return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
+        }
+
         /** Walk MIDI from `startMidi` upward, picking `count` whites
          *  in a row. Used by `_displaySpanFor` (and the fingers
          *  renderer mirror). @private */
         _whiteKeysFromAnchor(startMidi, count) {
             const out = [];
-            const isBlack = (m) => {
-                const v = ((m % 12) + 12) % 12;
-                return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
-            };
             let m = Math.max(0, Math.round(startMidi));
-            if (isBlack(m)) m++;
+            if (this._isBlackKey(m)) m++;
             while (out.length < count && m <= 127) {
-                if (!isBlack(m)) out.push(m);
+                if (!this._isBlackKey(m)) out.push(m);
                 m++;
             }
             return out;
@@ -338,17 +343,21 @@
         //  Anchor writes (drag path)
         // -----------------------------------------------------------------
 
-        /** Live update during a band drag. Clamps against the
-         *  instrument's range AND against the immediate neighbours so
-         *  hands cannot cross or stick out of the keyboard. Updates
-         *  the displayed anchor immediately for visual feedback but
-         *  does NOT push history (the commit handles that — keeps
+        /** Live update during a band drag. Snaps the (possibly
+         *  fractional) `newAnchor` to the layout's grid (chromatic
+         *  = nearest semitone, piano = nearest WHITE key — black
+         *  keys are skipped because piano hands move from white to
+         *  white), clamps against the instrument's range AND
+         *  against the immediate neighbours so hands cannot cross
+         *  or stick out of the keyboard, and stores the result.
+         *  Does NOT push history (the commit handles that — keeps
          *  one history entry per drag, not one per pixel). */
         previewAnchor(handId, newAnchor) {
             const idx = this._handIdxById(handId);
             if (idx < 0) return NaN;
             const hand = this.hands[idx];
-            const clamped = this._clampAnchor(idx, newAnchor);
+            const snapped = this._snapAnchor(newAnchor);
+            const clamped = this._clampAnchor(idx, snapped);
             hand.anchor = clamped;
             this._displayedAnchors.set(handId, clamped);
             return clamped;
@@ -626,6 +635,26 @@
                 if (!best || a.tick > best.tick) best = a;
             }
             return best ? best.anchor : null;
+        }
+
+        /** Snap a (possibly fractional) anchor to the layout's
+         *  grid before clamping. Chromatic instruments use one slot
+         *  per semitone, so any integer is fine — we just round.
+         *  Piano keys move from WHITE to WHITE (black keys are
+         *  skipped because the user wants a hand to land on a real
+         *  white-key playing position): if the rounded value lands
+         *  on a black, we shift to the nearer white based on the
+         *  fractional input — anchor < blackMidi → snap down to
+         *  the white below; anchor ≥ blackMidi → snap up to the
+         *  white above. The transition therefore happens at the
+         *  black key's centre, which feels symmetric for both
+         *  drag directions. @private */
+        _snapAnchor(anchor) {
+            if (!Number.isFinite(anchor)) return NaN;
+            if (this.layout !== 'piano') return Math.round(anchor);
+            const m = Math.round(anchor);
+            if (!this._isBlackKey(m)) return m;
+            return (anchor >= m) ? m + 1 : m - 1;
         }
 
         /** Clamp an anchor against the instrument range AND the
