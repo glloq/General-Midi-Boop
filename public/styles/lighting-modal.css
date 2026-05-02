@@ -128,6 +128,31 @@
   background: rgba(255, 50, 50, 0.45);
 }
 
+.lighting-header-btn--toggle {
+  font-weight: 700;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.lighting-header-btn--toggle-on {
+  border-color: rgba(100, 220, 100, 0.7);
+  background: rgba(40, 160, 40, 0.35);
+}
+
+.lighting-header-btn--toggle-on:hover {
+  background: rgba(40, 160, 40, 0.5);
+}
+
+.lighting-header-btn--toggle-off {
+  border-color: rgba(180, 180, 180, 0.5);
+  background: rgba(80, 80, 80, 0.4);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lighting-header-btn--toggle-off:hover {
+  background: rgba(100, 100, 100, 0.55);
+  color: rgba(255, 255, 255, 0.8);
+}
+
 /* .lighting-header-close — styled by universal close button rule in components.css */
 
 /* ==================== MOBILE TABS ==================== */

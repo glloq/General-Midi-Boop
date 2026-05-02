@@ -46,6 +46,7 @@ class LightingManager extends EventEmitter {
     this.activeNotes = new Map();     // deviceId -> Map<note, count> for polyphonic note-off tracking
     this.activeFades = new Map();     // fadeKey -> { interval, driver }
     this.masterDimmer = 255;          // Global master dimmer (0-255)
+    this._systemEnabled = true;       // Global lighting system on/off
     this.deviceGroups = new Map();    // groupName -> Set<deviceId>
     this._healthCheckInterval = null;
     this._reloading = false;
@@ -202,6 +203,7 @@ class LightingManager extends EventEmitter {
   // ==================== RULE EVALUATION ENGINE ====================
 
   _evaluateRoutedEvent(event) {
+    if (!this._systemEnabled) return;
     if (this.allRules.length === 0) return;
 
     const instrumentId = event.destination;
@@ -235,6 +237,7 @@ class LightingManager extends EventEmitter {
   }
 
   _evaluateWildcardEvent(event) {
+    if (!this._systemEnabled) return;
     if (this.allRules.length === 0) return;
 
     const wildcardRules = this.rulesByInstrument.get('*');
@@ -798,6 +801,16 @@ class LightingManager extends EventEmitter {
   enableLedBroadcast(enabled) {
     this._ledBroadcastEnabled = !!enabled;
     return { success: true, enabled: this._ledBroadcastEnabled };
+  }
+
+  setSystemEnabled(enabled) {
+    this._systemEnabled = !!enabled;
+    if (!this._systemEnabled) this.allOff();
+    return { success: true, enabled: this._systemEnabled };
+  }
+
+  getSystemEnabled() {
+    return { success: true, enabled: this._systemEnabled };
   }
 
   _broadcastEffectChange(effectKey, action) {
