@@ -1363,6 +1363,8 @@
     justify-content: center;
     min-height: 0;
     overflow: hidden;
+    /* positioning context for hand coverage overlay */
+    position: relative;
 }
 
 /* ============================================================================
@@ -1371,13 +1373,13 @@
 
 .fretboard-hand-widget {
     flex-shrink: 0;
-    height: 32px;
+    height: 44px;
     display: flex;
     background: linear-gradient(to bottom, #7a4e20, #5a3010);
     border-bottom: 1px solid rgba(0, 0, 0, 0.4);
     margin-bottom: 4px;
     border-radius: 4px 4px 0 0;
-    overflow: hidden;
+    overflow: visible;  /* allow finger stubs to bleed into string rows */
     position: relative;
 }
 
@@ -1390,7 +1392,7 @@
 .hand-frets-area {
     flex: 1;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .hand-fret-line {
@@ -1406,31 +1408,104 @@
 .hand-band {
     position: absolute;
     top: 2px;
-    bottom: 2px;
-    background: rgba(16, 185, 129, 0.3);
+    bottom: 0;
+    background: rgba(16, 185, 129, 0.28);
     border: 1.5px solid rgba(52, 211, 153, 0.75);
-    border-radius: 3px;
+    border-bottom: none;
+    border-radius: 3px 3px 0 0;
     cursor: ew-resize;
     display: flex;
-    align-items: center;
-    justify-content: space-evenly;
-    padding: 0 2px;
-    z-index: 2;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 3px 3px 0;
+    z-index: 3;
     transition: background 0.1s;
     touch-action: none;
 }
 
 .hand-band:hover {
-    background: rgba(16, 185, 129, 0.45);
+    background: rgba(16, 185, 129, 0.42);
 }
 
-.hand-finger-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.7);
+/* Upper palm area inside the band */
+.hand-palm-indicator {
+    flex: 1;
+    background: rgba(52, 211, 153, 0.18);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    border-radius: 2px 2px 0 0;
+    min-height: 0;
+}
+
+/* Row of finger stubs at the bottom of the band, pointing downward */
+.hand-fingers-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-evenly;
+    height: 14px;
+    padding: 0 2px;
+    gap: 2px;
     flex-shrink: 0;
+}
+
+.hand-finger-stub {
+    flex: 1;
+    height: 12px;
+    background: linear-gradient(to bottom, rgba(52, 211, 153, 0.7), rgba(16, 185, 129, 0.9));
+    border: 1px solid rgba(52, 211, 153, 0.85);
+    border-bottom: none;
+    border-radius: 2px 2px 0 0;
     pointer-events: none;
+    max-width: 14px;
+}
+
+/* ============================================================================
+   HAND COVERAGE OVERLAY  (on the string rows, below the drag handle)
+   ============================================================================ */
+
+/* The overlay is positioned in JS (_updateCoverageOverlayPosition).
+   top / bottom use fixed pixel values that match the hand-widget height (44px)
+   + its margin-bottom (4px), and the fret-header height (22px). */
+.hand-coverage-overlay {
+    position: absolute;
+    top: 48px;    /* hand-widget 44px + margin-bottom 4px */
+    bottom: 22px; /* fret-header height */
+    /* left / width set by JS */
+    pointer-events: none;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(16, 185, 129, 0.10);
+    border-left: 1.5px solid rgba(52, 211, 153, 0.55);
+    border-right: 1.5px solid rgba(52, 211, 153, 0.55);
+    border-bottom: 1.5px solid rgba(52, 211, 153, 0.55);
+    border-radius: 0 0 3px 3px;
+    overflow: hidden;
+    /* Smooth movement when hand is dragged */
+    transition: left 0.05s linear, width 0.05s linear;
+}
+
+/* One segment per string — horizontal band across the full overlay width */
+.hand-coverage-string-seg {
+    flex: 1;
+    position: relative;
+    border-bottom: 1px solid rgba(52, 211, 153, 0.15);
+}
+
+.hand-coverage-string-seg:last-child {
+    border-bottom: none;
+}
+
+/* Thin horizontal highlight line at the vertical center (= string position) */
+.hand-coverage-string-seg::after {
+    content: '';
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    background: rgba(52, 211, 153, 0.45);
+    border-radius: 1px;
 }
 
 /* ============================================================================
