@@ -235,10 +235,10 @@
       "stableChannel": "Stable version",
       "stableDescription": "Official updates with version number",
       "stableButton": "Install stable",
-      "betaChannel": "Beta version",
-      "betaDescription": "Latest development commits",
-      "betaButton": "Install beta",
-      "confirmTitleBeta": "Install beta version",
+      "betaChannel": "Latest version",
+      "betaDescription": "Latest commits (beta / patches)",
+      "betaButton": "Install latest",
+      "confirmTitleBeta": "Install latest version",
       "newVersion": "New version",
       "currentVersion": "currently"
     }
