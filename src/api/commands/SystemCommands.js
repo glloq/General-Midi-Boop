@@ -186,7 +186,14 @@ async function systemCheckUpdate(app) {
     }
 
     const stableUpToDate = localHash === stableRemoteHashFull;
-    const stableVersionChanged = !stableUpToDate && stableRemoteVersion !== null && stableRemoteVersion !== APP_VERSION;
+
+    // A "stable" release is defined by a change in the first two version components
+    // (MAJOR.MINOR). A change only in the patch segment is a beta/hotfix, not a
+    // stable release. Helper kept local to avoid polluting module scope.
+    const _majorMinor = (v) => { const p = (v || '').split('.'); return `${p[0]||'0'}.${p[1]||'0'}`; };
+    const stableMajorMinorChanged = !stableUpToDate
+      && stableRemoteVersion !== null
+      && _majorMinor(stableRemoteVersion) !== _majorMinor(APP_VERSION);
 
     // ── Beta channel: current branch (only when different from main) ──
     // Validate branch name against a safe pattern before interpolating into shell commands.
@@ -227,7 +234,9 @@ async function systemCheckUpdate(app) {
         upToDate: stableUpToDate,
         remoteHash: stableRemoteHashFull.substring(0, 7),
         remoteVersion: stableRemoteVersion,
-        versionChanged: stableVersionChanged,
+        majorMinorChanged: stableMajorMinorChanged,
+        localMajorMinor: _majorMinor(APP_VERSION),
+        remoteMajorMinor: stableRemoteVersion ? _majorMinor(stableRemoteVersion) : null,
         behindCount: stableBehindCount,
         remoteDate: stableRemoteDate
       },

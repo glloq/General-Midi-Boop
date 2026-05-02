@@ -27,7 +27,7 @@
 
     SettingsUpdate._getUpdateBtnLabel = function() {
         if (this._updateType === 'beta') {
-            return '🧪 ' + (i18n.t('settings.update.betaButton') || 'Installer bêta');
+            return '🔄 ' + (i18n.t('settings.update.betaButton') || 'Installer la dernière version');
         }
         return '📦 ' + (i18n.t('settings.update.stableButton') || 'Installer stable');
     };
@@ -411,124 +411,111 @@
     // ─────────────────────────────────────────────────────────────────
 
     /**
-     * Query the backend for stable + beta update status and populate both
-     * channel panels in the settings modal.
+     * Query the backend for stable + beta update status.
+     *
+     * Display logic (mutually exclusive):
+     *  - MAJOR.MINOR changed on main → show stableUpdateChannel (highlighted),
+     *    hide betaUpdateChannel.
+     *  - Otherwise (patch/beta commits, or up to date) → hide stableUpdateChannel,
+     *    show betaUpdateChannel with current status.
+     *
+     * When the user is on main (beta=null) and there are non-major-minor commits
+     * on main, a synthetic beta object is built so the beta channel still shows
+     * the available updates.
      */
     SettingsUpdate.checkForUpdates = async function() {
         if (this._updateInProgress) return;
 
-        const stableStatusEl = this.modal.querySelector('#stableVersionStatus');
-        if (!stableStatusEl) return;
         const betaStatusEl = this.modal.querySelector('#betaVersionStatus');
+        if (!betaStatusEl) return;
 
+        const STATUS_CSS = 'padding: 8px 12px; border-radius: 6px; font-size: 12px; display: flex; align-items: center; gap: 8px;';
+        const LOADING_CSS = STATUS_CSS + ' background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666);';
         const loadingHtml = `<span style="animation: pulse 1.5s infinite;">⏳</span><span>${i18n.t('settings.update.checking') || 'Vérification...'}</span>`;
-        const STATUS_LOADING_CSS = 'padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;';
-        stableStatusEl.style.cssText = STATUS_LOADING_CSS;
-        stableStatusEl.innerHTML = loadingHtml;
-        if (betaStatusEl) {
-            betaStatusEl.style.cssText = STATUS_LOADING_CSS;
-            betaStatusEl.innerHTML = loadingHtml;
-        }
 
-        // Reset button states and channel styling from any previous check
-        const _stableBtn = this.modal.querySelector('#stableUpdateBtn');
-        if (_stableBtn) {
-            _stableBtn.disabled = false;
-            _stableBtn.innerHTML = '📦 ' + (i18n.t('settings.update.stableButton') || 'Installer stable');
-            _stableBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            _stableBtn.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
+        // ── Reset from any previous check ──
+        // Stable channel always starts hidden; only shown on MAJOR.MINOR bump.
+        const stableChannel = this.modal.querySelector('#stableUpdateChannel');
+        if (stableChannel) { stableChannel.style.display = 'none'; stableChannel.style.borderColor = ''; stableChannel.style.boxShadow = ''; }
+        const stableBtn = this.modal.querySelector('#stableUpdateBtn');
+        if (stableBtn) {
+            stableBtn.disabled = false;
+            stableBtn.innerHTML = '📦 ' + (i18n.t('settings.update.stableButton') || 'Installer stable');
+            stableBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            stableBtn.style.boxShadow = '0 2px 8px rgba(102,126,234,0.3)';
         }
-        const _betaBtn = this.modal.querySelector('#betaUpdateBtn');
-        if (_betaBtn) { _betaBtn.disabled = false; }
-        const _stableChannel = this.modal.querySelector('#stableUpdateChannel');
-        if (_stableChannel) { _stableChannel.style.borderColor = ''; _stableChannel.style.boxShadow = ''; }
-        const _betaChannel = this.modal.querySelector('#betaUpdateChannel');
-        if (_betaChannel) { _betaChannel.style.display = ''; }
+        const stableStatusEl = this.modal.querySelector('#stableVersionStatus');
+
+        // Beta channel always visible; reset its state.
+        const betaChannel = this.modal.querySelector('#betaUpdateChannel');
+        if (betaChannel) betaChannel.style.display = '';
+        const betaBtn = this.modal.querySelector('#betaUpdateBtn');
+        if (betaBtn) betaBtn.disabled = false;
+        betaStatusEl.style.cssText = LOADING_CSS;
+        betaStatusEl.innerHTML = loadingHtml;
+
+        const _errBeta = (msg) => {
+            betaStatusEl.style.cssText = STATUS_CSS + ' background: #fefce8; color: #a16207;';
+            betaStatusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier'} (${escapeHtml(msg)})</span>`;
+        };
 
         try {
             const api = window.api || window.apiClient;
-            if (!api || !api.sendCommand) {
-                const errHtml = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier'} (API non disponible)</span>`;
-                stableStatusEl.style.background = '#fefce8';
-                stableStatusEl.style.color = '#a16207';
-                stableStatusEl.innerHTML = errHtml;
-                if (betaStatusEl) { betaStatusEl.style.background = '#fefce8'; betaStatusEl.style.color = '#a16207'; betaStatusEl.innerHTML = errHtml; }
-                return;
-            }
+            if (!api || !api.sendCommand) { _errBeta('API non disponible'); return; }
 
             const result = await api.sendCommand('system_check_update', {}, 20000);
+            if (result.error) { _errBeta(result.error); return; }
 
-            if (result.error) {
-                const errHtml = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier'} (${escapeHtml(result.error)})</span>`;
-                stableStatusEl.style.background = '#fefce8'; stableStatusEl.style.color = '#a16207';
-                stableStatusEl.innerHTML = errHtml;
-                if (betaStatusEl) { betaStatusEl.style.background = '#fefce8'; betaStatusEl.style.color = '#a16207'; betaStatusEl.innerHTML = errHtml; }
-                return;
-            }
-
-            // ── Stable channel ──
             const stable = result.stable || {
                 upToDate: result.upToDate,
                 behindCount: result.behindCount || 0,
                 remoteHash: result.remoteHash,
-                versionChanged: false,
+                majorMinorChanged: false,
                 remoteVersion: null
             };
-            const stableChannel = this.modal.querySelector('#stableUpdateChannel');
-            const stableBtn = this.modal.querySelector('#stableUpdateBtn');
 
-            if (stable.upToDate) {
-                stableStatusEl.style.background = '#f0fdf4'; stableStatusEl.style.color = '#16a34a';
-                stableStatusEl.innerHTML = `<span>✅</span><span><strong>${i18n.t('settings.update.upToDate') || 'À jour'}</strong> — v${escapeHtml(result.version)} (${escapeHtml(stable.remoteHash || result.localHash)})</span>`;
-                if (stableBtn) stableBtn.disabled = true;
-            } else if (stable.versionChanged) {
-                // New version number — highlight prominently
-                stableStatusEl.style.background = '#dcfce7'; stableStatusEl.style.color = '#15803d';
-                stableStatusEl.innerHTML = `<span>🆕</span><span><strong>${i18n.t('settings.update.newVersion') || 'Nouvelle version'} : v${escapeHtml(stable.remoteVersion)}</strong> — ${i18n.t('settings.update.currentVersion') || 'actuellement'} v${escapeHtml(result.version)}</span>`;
+            // When on main (beta=null) and there are non-major-minor commits, synthesize
+            // a beta object from stable so the beta channel still shows updates.
+            const beta = result.beta ||
+                (!stable.upToDate && !stable.majorMinorChanged
+                    ? { upToDate: false, behindCount: stable.behindCount, remoteHash: stable.remoteHash, branch: result.currentBranch || 'main' }
+                    : null);
+
+            if (stable.majorMinorChanged) {
+                // ── New MAJOR.MINOR: show stable channel, hide beta ──
                 if (stableChannel) {
+                    stableChannel.style.display = '';
                     stableChannel.style.borderColor = '#16a34a';
-                    stableChannel.style.boxShadow = '0 0 0 3px rgba(22, 163, 74, 0.15)';
+                    stableChannel.style.boxShadow = '0 0 0 3px rgba(22,163,74,0.15)';
+                }
+                if (stableStatusEl) {
+                    stableStatusEl.style.cssText = STATUS_CSS + ' background: #dcfce7; color: #15803d;';
+                    stableStatusEl.innerHTML = `<span>🆕</span><span><strong>${i18n.t('settings.update.newVersion') || 'Nouvelle version'} : v${escapeHtml(stable.remoteVersion)}</strong> — ${i18n.t('settings.update.currentVersion') || 'actuellement'} v${escapeHtml(result.version)} (${escapeHtml(stable.localMajorMinor)} → ${escapeHtml(stable.remoteMajorMinor)})</span>`;
                 }
                 if (stableBtn) {
                     stableBtn.style.background = 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)';
-                    stableBtn.style.boxShadow = '0 2px 12px rgba(22, 163, 74, 0.4)';
+                    stableBtn.style.boxShadow = '0 2px 12px rgba(22,163,74,0.4)';
                     stableBtn.innerHTML = `🆕 v${escapeHtml(stable.remoteVersion)}`;
                 }
-            } else {
-                const count = stable.behindCount || 0;
-                const plural = count > 1 ? 's' : '';
-                stableStatusEl.style.background = '#fef3c7'; stableStatusEl.style.color = '#92400e';
-                stableStatusEl.innerHTML = `<span>🔶</span><span><strong>${i18n.t('settings.update.updateAvailable') || 'Mise à jour disponible'}</strong> — ${count} commit${plural} (${escapeHtml(result.localHash)} → ${escapeHtml(stable.remoteHash)})</span>`;
-            }
-
-            // ── Beta channel ──
-            const betaChannel = this.modal.querySelector('#betaUpdateChannel');
-            if (!result.beta) {
-                // Not on a beta branch — hide the canal entirely
                 if (betaChannel) betaChannel.style.display = 'none';
+
+            } else if (beta && !beta.upToDate) {
+                // ── Beta/patch commits available ──
+                const count = beta.behindCount || 0;
+                const plural = count > 1 ? 's' : '';
+                betaStatusEl.style.cssText = STATUS_CSS + ' background: #fef3c7; color: #92400e;';
+                betaStatusEl.innerHTML = `<span>🔶</span><span><strong>${count} commit${plural} ${i18n.t('settings.update.updateAvailable') || 'disponibles'}</strong> — v${escapeHtml(result.version)} → ${escapeHtml(beta.remoteHash)}</span>`;
+
             } else {
-                const beta = result.beta;
-                if (betaStatusEl) {
-                    if (beta.upToDate) {
-                        betaStatusEl.style.background = '#f0fdf4'; betaStatusEl.style.color = '#16a34a';
-                        betaStatusEl.innerHTML = `<span>✅</span><span>${i18n.t('settings.update.upToDate') || 'À jour'} (${escapeHtml(beta.remoteHash)})</span>`;
-                        const betaBtn = this.modal.querySelector('#betaUpdateBtn');
-                        if (betaBtn) betaBtn.disabled = true;
-                    } else {
-                        const count = beta.behindCount || 0;
-                        const plural = count > 1 ? 's' : '';
-                        betaStatusEl.style.background = '#fef3c7'; betaStatusEl.style.color = '#92400e';
-                        betaStatusEl.innerHTML = `<span>🔶</span><span><strong>${count} commit${plural}</strong> bêta disponibles (→ ${escapeHtml(beta.remoteHash)})</span>`;
-                    }
-                }
+                // ── Up to date ──
+                betaStatusEl.style.cssText = STATUS_CSS + ' background: #f0fdf4; color: #16a34a;';
+                betaStatusEl.innerHTML = `<span>✅</span><span><strong>${i18n.t('settings.update.upToDate') || 'À jour'}</strong> — v${escapeHtml(result.version)} (${escapeHtml(result.localHash)})</span>`;
+                if (betaBtn) betaBtn.disabled = true;
             }
 
         } catch (error) {
             this.logger?.error('checkForUpdates: exception', error.message);
-            const errHtml = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier'} (${escapeHtml(error.message)})</span>`;
-            stableStatusEl.style.background = '#fefce8'; stableStatusEl.style.color = '#a16207';
-            stableStatusEl.innerHTML = errHtml;
-            if (betaStatusEl) { betaStatusEl.style.background = '#fefce8'; betaStatusEl.style.color = '#a16207'; betaStatusEl.innerHTML = errHtml; }
+            _errBeta(error.message);
         }
     };
 

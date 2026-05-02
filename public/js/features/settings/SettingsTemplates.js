@@ -567,8 +567,8 @@
                     🔄 ${i18n.t('settings.update.title') || 'Mises à jour'}
                 </h2>
 
-                <!-- Canal stable -->
-                <div id="stableUpdateChannel" style="padding: 14px; border: 2px solid var(--border-color, #e5e7eb); border-radius: 10px; background: var(--bg-secondary, white); transition: border-color 0.3s, box-shadow 0.3s;">
+                <!-- Canal stable — caché par défaut, affiché uniquement si MAJOR.MINOR change -->
+                <div id="stableUpdateChannel" style="display:none; padding: 14px; border: 2px solid var(--border-color, #e5e7eb); border-radius: 10px; background: var(--bg-secondary, white); transition: border-color 0.3s, box-shadow 0.3s;">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
                         <div style="flex: 1;">
                             <div style="font-size: 14px; font-weight: 600; color: var(--text-primary, #333);">📦 ${i18n.t('settings.update.stableChannel') || 'Version stable'}</div>
@@ -598,8 +598,8 @@
                 <div id="betaUpdateChannel" style="margin-top: 10px; padding: 14px; border: 2px solid var(--border-color, #e5e7eb); border-radius: 10px; background: var(--bg-secondary, white); transition: border-color 0.3s;">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
                         <div style="flex: 1;">
-                            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary, #333);">🧪 ${i18n.t('settings.update.betaChannel') || 'Version bêta'}</div>
-                            <div style="font-size: 12px; color: var(--text-secondary, #666); margin-top: 2px;">${i18n.t('settings.update.betaDescription') || 'Derniers commits de développement'}</div>
+                            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary, #333);">🔄 ${i18n.t('settings.update.betaChannel') || 'Dernière version'}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary, #666); margin-top: 2px;">${i18n.t('settings.update.betaDescription') || 'Derniers commits (bêta / correctifs)'}</div>
                         </div>
                         <button id="betaUpdateBtn" style="
                             padding: 10px 18px;
@@ -612,7 +612,7 @@
                             font-weight: 600;
                             transition: all 0.2s;
                             white-space: nowrap;
-                        ">🧪 ${i18n.t('settings.update.betaButton') || 'Installer bêta'}</button>
+                        ">🔄 ${i18n.t('settings.update.betaButton') || 'Installer la dernière version'}</button>
                     </div>
                     <div id="betaVersionStatus" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;">
                         <span style="animation: pulse 1.5s infinite;">⏳</span>
