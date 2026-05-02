@@ -11,6 +11,59 @@ moment où on attaque l'item.
 
 ---
 
+## Banques son des drum kits — vérification CDN et évolutions
+
+**Constat.**  Avant ce fix, `_buildDrumPresetEntry` codait en dur
+`FluidR3_GM` pour tous les kits de batterie, quelle que soit la banque
+sélectionnée par l'utilisateur.  Le cache drums n'était pas vidé lors
+d'un changement de banque.
+
+**Ce qui a été corrigé (branche `claude/fix-drum-kits-soundbank-apqYK`).**
+
+- `MidiSynthesizerConstants.js` : chaque banque porte maintenant un
+  tableau `drumKits` `[{midiProgram, bankIndex, verified}]` indiquant
+  quels kits GM sont disponibles et à quel index WAF.
+- `MidiSynthesizer._buildDrumPresetEntry(suffix, bankIndex, note)` :
+  signature étendue pour accepter n'importe quelle banque.
+- `MidiSynthesizer._getDrumKitEntry(midiProgram)` : nouveau helper qui
+  cherche l'entrée drum de la banque courante.
+- `MidiSynthesizer._loadDrumPreset` : chaîne de candidats priorisée —
+  banque courante d'abord, FluidR3_GM en repli, kit Standard en second
+  repli, JCLive en dernier recours.
+- `MidiSynthesizer._applyBankSwitch` : vide `drumPresets` et
+  `_drumLoading` à chaque changement de banque.
+
+**Valeurs `bankIndex` à vérifier sur le CDN.**
+
+Seuls FluidR3_GM (tous les kits) et JCLive (bankIndex 12) ont
+`verified: true`.  Les banques suivantes sont marquées
+`verified: false` avec bankIndex 0 supposé — à confirmer en chargeant
+`https://surikov.github.io/webaudiofontdata/sound/12836_0_{suffix}.js`
+et en vérifiant que la variable `_drum_36_0_{suffix}` existe :
+
+| Banque          | suffix                    | bankIndex supposé |
+|-----------------|---------------------------|-------------------|
+| GeneralUserGS   | `GeneralUserGS_sf2_file`  | 0                 |
+| Aspirin         | `Aspirin_sf2_file`        | 0                 |
+| SBLive          | `SBLive_sf2`              | 0                 |
+| Chaos           | `Chaos_sf2_file`          | 0                 |
+| SoundBlasterOld | `SoundBlasterOld_sf2`     | 0                 |
+
+Si un bankIndex est incorrect, la tentative échouera silencieusement et
+la chaîne de repli passera à FluidR3_GM — comportement safe.  Une fois
+confirmé, mettre `verified: true` dans `MidiSynthesizerConstants.js`.
+
+**Évolutions envisagées.**
+
+| # | Idée | Priorité |
+|---|------|----------|
+| A | Script de vérification automatique (`scripts/verify-drum-banks.js`) qui HEAD chaque URL CDN et met à jour `verified` dans les constantes | Basse |
+| B | Exposer dans l'UI (modal réglages) un badge « banque utilisée pour les drums » sur chaque kit — utile quand la banque courante ne supporte pas le kit demandé | Basse |
+| C | Ajouter les kits de batterie supplémentaires de GeneralUserGS (Room, Jazz…) si confirmés présents sur le CDN | Moyenne |
+| D | Permettre une banque drums indépendante de la banque melodique (réglage avancé) | Basse |
+
+---
+
 ## CC main absents de l'éditeur CC après routage
 
 **Constat.** Les events `controller` pour les CC main
