@@ -567,6 +567,18 @@
                     🔄 ${i18n.t('settings.update.title') || 'Mises à jour'}
                 </h2>
 
+                <!-- Notifications au démarrage -->
+                <div style="margin-bottom: 14px; padding: 10px 14px; background: var(--bg-tertiary, #f3f4f6); border-radius: 8px; display: flex; flex-direction: column; gap: 8px;">
+                    <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; gap: 8px;">
+                        <span style="font-size: 13px; color: var(--text-primary, #333);">🔔 ${i18n.t('settings.update.startupCheck') || 'Vérifier les mises à jour au démarrage'}</span>
+                        <input type="checkbox" id="startupUpdateCheckToggle" class="toggle-checkbox">
+                    </label>
+                    <label id="startupBetaNotifRow" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; gap: 8px; padding-left: 16px;">
+                        <span style="font-size: 12px; color: var(--text-secondary, #666);">↳ ${i18n.t('settings.update.startupBetaNotif') || 'Notifier aussi les mises à jour bêta'}</span>
+                        <input type="checkbox" id="startupBetaNotifToggle" class="toggle-checkbox">
+                    </label>
+                </div>
+
                 <!-- Canal stable — caché par défaut, affiché uniquement si MAJOR.MINOR change -->
                 <div id="stableUpdateChannel" style="display:none; padding: 14px; border: 2px solid var(--border-color, #e5e7eb); border-radius: 10px; background: var(--bg-secondary, white); transition: border-color 0.3s, box-shadow 0.3s;">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">

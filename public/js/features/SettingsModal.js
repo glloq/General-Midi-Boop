@@ -58,7 +58,9 @@ class SettingsModal {
             midiClockEnabled: false,
             serialMidiEnabled: false,
             showLoadingAnimation: true,
-            soundBank: 'FluidR3_GM'
+            soundBank: 'FluidR3_GM',
+            startupUpdateCheck: true,
+            startupBetaNotif: false
         };
 
         try {
@@ -244,6 +246,14 @@ class SettingsModal {
         if (typeof this.attachHotspotListeners === 'function') {
             this.attachHotspotListeners();
         }
+
+        const startupUpdateCheckToggle = this.modal.querySelector('#startupUpdateCheckToggle');
+        const startupBetaNotifToggle = this.modal.querySelector('#startupBetaNotifToggle');
+        if (startupUpdateCheckToggle && startupBetaNotifToggle) {
+            startupUpdateCheckToggle.addEventListener('change', () => {
+                startupBetaNotifToggle.disabled = !startupUpdateCheckToggle.checked;
+            });
+        }
     }
 
     /**
@@ -304,6 +314,14 @@ class SettingsModal {
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
         if (loadingAnimationToggle) loadingAnimationToggle.checked = this.settings.showLoadingAnimation;
 
+        const startupUpdateCheckToggle = this.modal.querySelector('#startupUpdateCheckToggle');
+        if (startupUpdateCheckToggle) startupUpdateCheckToggle.checked = this.settings.startupUpdateCheck;
+        const startupBetaNotifToggle = this.modal.querySelector('#startupBetaNotifToggle');
+        if (startupBetaNotifToggle) {
+            startupBetaNotifToggle.checked = this.settings.startupBetaNotif;
+            startupBetaNotifToggle.disabled = !this.settings.startupUpdateCheck;
+        }
+
         const soundBankSelect = this.modal.querySelector('#soundBankSelect');
         if (soundBankSelect) soundBankSelect.value = this.settings.soundBank;
 
@@ -358,6 +376,8 @@ class SettingsModal {
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         const midiClockToggle = this.modal.querySelector('#midiClockToggle');
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
+        const startupUpdateCheckToggle = this.modal.querySelector('#startupUpdateCheckToggle');
+        const startupBetaNotifToggle = this.modal.querySelector('#startupBetaNotifToggle');
         const soundBankSelect = this.modal.querySelector('#soundBankSelect');
 
         // The virtual-instrument flag is owned by the Gestion des instruments
@@ -388,7 +408,9 @@ class SettingsModal {
             midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled,
             showLoadingAnimation: loadingAnimationToggle ? loadingAnimationToggle.checked : this.settings.showLoadingAnimation,
-            soundBank: soundBankSelect ? soundBankSelect.value : this.settings.soundBank
+            soundBank: soundBankSelect ? soundBankSelect.value : this.settings.soundBank,
+            startupUpdateCheck: startupUpdateCheckToggle ? startupUpdateCheckToggle.checked : this.settings.startupUpdateCheck,
+            startupBetaNotif: startupBetaNotifToggle ? startupBetaNotifToggle.checked : this.settings.startupBetaNotif
         };
 
         const themeChanged = newSettings.theme !== this.settings.theme;

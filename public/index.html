@@ -6060,6 +6060,7 @@
     <script src="js/features/settings/SettingsTheme.js"></script>
     <script src="js/features/settings/SettingsSerial.js"></script>
     <script src="js/features/settings/SettingsUpdate.js"></script>
+    <script src="js/features/StartupUpdateNotif.js"></script>
     <script src="js/features/settings/SettingsTemplates.js"></script>
     <script src="js/features/settings/SettingsBankEffects.js"></script>
     <script src="js/features/settings/SettingsHotspot.js"></script>
@@ -13627,6 +13628,11 @@
                     setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 5000);
                 }
             } catch(e) {}
+
+            // Startup update check — once per page load
+            if (typeof StartupUpdateNotif !== 'undefined') {
+                StartupUpdateNotif.run(api);
+            }
 
             // 🆕 Initialiser la modal Bluetooth après connexion WebSocket
             if (typeof BluetoothScanModal !== 'undefined') {

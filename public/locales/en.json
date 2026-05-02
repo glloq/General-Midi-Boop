@@ -240,7 +240,9 @@
       "betaButton": "Install latest",
       "confirmTitleBeta": "Install latest version",
       "newVersion": "New version",
-      "currentVersion": "currently"
+      "currentVersion": "currently",
+      "startupCheck": "Check for updates at startup",
+      "startupBetaNotif": "Also notify beta updates"
     }
   },
   "bluetooth": {
