@@ -119,24 +119,27 @@
     KeyboardControlsMixin.updateSlidersVisibility = function() {
         const velocityPanel = document.getElementById('velocity-control-panel');
         const modulationPanel = document.getElementById('modulation-control-panel');
+        const pitchBendPanel = document.getElementById('pitch-bend-control-panel');
 
         if (!velocityPanel || !modulationPanel) return;
 
         const caps = this.selectedDeviceCapabilities;
 
         const enableTransitionsNextFrame = () => {
-            // After the initial layout settles, re-enable transitions so that
-            // later visibility changes animate smoothly.
             requestAnimationFrame(() => {
                 velocityPanel.classList.remove('no-transition');
                 modulationPanel.classList.remove('no-transition');
+                if (pitchBendPanel) pitchBendPanel.classList.remove('no-transition');
             });
         };
 
         if (!caps) {
-            // No capabilities: show velocity, hide modulation
             velocityPanel.classList.remove('slider-hidden');
             modulationPanel.classList.add('slider-hidden');
+            if (pitchBendPanel) pitchBendPanel.classList.add('slider-hidden');
+            if (typeof this._updatePianoSliderGroupVisibility === 'function') {
+                this._updatePianoSliderGroupVisibility();
+            }
             enableTransitionsNextFrame();
             return;
         }
@@ -145,11 +148,7 @@
         const hasNotes = (caps.note_range_min !== null && caps.note_range_min !== undefined) ||
                          (caps.note_range_max !== null && caps.note_range_max !== undefined) ||
                          caps.note_selection_mode === 'discrete';
-        if (hasNotes) {
-            velocityPanel.classList.remove('slider-hidden');
-        } else {
-            velocityPanel.classList.add('slider-hidden');
-        }
+        velocityPanel.classList.toggle('slider-hidden', !hasNotes);
 
         // Modulation: visible if CC#1 is in supported_ccs
         let supportsCCs = [];
@@ -162,14 +161,128 @@
                 supportsCCs = [];
             }
         }
+        modulationPanel.classList.toggle('slider-hidden', !(Array.isArray(supportsCCs) && supportsCCs.includes(1)));
 
-        if (Array.isArray(supportsCCs) && supportsCCs.includes(1)) {
-            modulationPanel.classList.remove('slider-hidden');
-        } else {
-            modulationPanel.classList.add('slider-hidden');
+        // Pitch bend wheel: visible if pitch_bend_enabled is set on the instrument
+        if (pitchBendPanel) {
+            pitchBendPanel.classList.toggle('slider-hidden', !caps.pitch_bend_enabled);
+        }
+
+        // Piano slider toggle visibility
+        if (typeof this._updatePianoSliderGroupVisibility === 'function') {
+            this._updatePianoSliderGroupVisibility();
         }
 
         enableTransitionsNextFrame();
+    }
+
+    /**
+     * Initialise la roue de pitch bend (verticalslider, retour au centre à la release).
+     */
+    KeyboardControlsMixin.initPitchBendWheel = function() {
+        const track = document.getElementById('pitch-bend-track');
+        const thumb = document.getElementById('pitch-bend-thumb');
+        const fill = document.getElementById('pitch-bend-fill');
+        const display = document.getElementById('keyboard-pitchbend-display');
+        if (!track || !thumb) return;
+
+        this._updatePitchBendWheelPosition(64); // center = 64 maps to bend 0
+
+        const getValueFromY = (clientY) => {
+            const rect = track.getBoundingClientRect();
+            const relativeY = clientY - rect.top;
+            const ratio = 1 - (relativeY / rect.height);
+            return Math.max(0, Math.min(1, ratio));
+        };
+
+        const ratiaToBend = (ratio) => Math.round((ratio - 0.5) * 2 * 8191);
+        const ratioToDisplay = (ratio) => {
+            const bend = ratiaToBend(ratio);
+            return bend > 0 ? `+${bend}` : String(bend);
+        };
+
+        const onMove = (clientY) => {
+            if (!this._pitchBendDragging) return;
+            const ratio = getValueFromY(clientY);
+            const uiVal = Math.round(ratio * 127); // for position
+            this._updatePitchBendWheelPosition(uiVal);
+            if (display) display.textContent = ratioToDisplay(ratio);
+            this._sendPitchBend(ratiaToBend(ratio));
+        };
+
+        const onEnd = () => {
+            if (!this._pitchBendDragging) return;
+            this._pitchBendDragging = false;
+            document.removeEventListener('mousemove', this._pitchBendOnMove);
+            document.removeEventListener('mouseup', this._pitchBendOnEnd);
+            document.removeEventListener('touchmove', this._pitchBendOnTouchMove);
+            document.removeEventListener('touchend', this._pitchBendOnEnd);
+            document.removeEventListener('touchcancel', this._pitchBendOnEnd);
+            thumb.classList.remove('dragging');
+            thumb.classList.add('returning');
+            if (fill) fill.classList.add('returning');
+            this._updatePitchBendWheelPosition(64);
+            if (display) display.textContent = '0';
+            this._sendPitchBend(0);
+            setTimeout(() => {
+                thumb.classList.remove('returning');
+                if (fill) fill.classList.remove('returning');
+            }, 300);
+        };
+
+        this._pitchBendOnTrackDown = (e) => {
+            e.preventDefault();
+            this._pitchBendDragging = true;
+            thumb.classList.add('dragging');
+            thumb.classList.remove('returning');
+            if (fill) fill.classList.remove('returning');
+            onMove(e.clientY);
+            document.addEventListener('mousemove', this._pitchBendOnMove);
+            document.addEventListener('mouseup', this._pitchBendOnEnd);
+        };
+        this._pitchBendOnMove = (e) => onMove(e.clientY);
+        this._pitchBendOnEnd = onEnd;
+        this._pitchBendOnTouchStart = (e) => {
+            e.preventDefault();
+            this._pitchBendDragging = true;
+            thumb.classList.add('dragging');
+            thumb.classList.remove('returning');
+            if (fill) fill.classList.remove('returning');
+            onMove(e.touches[0].clientY);
+            document.addEventListener('touchmove', this._pitchBendOnTouchMove, { passive: false });
+            document.addEventListener('touchend', this._pitchBendOnEnd);
+            document.addEventListener('touchcancel', this._pitchBendOnEnd);
+        };
+        this._pitchBendOnTouchMove = (e) => {
+            if (this._pitchBendDragging) onMove(e.touches[0].clientY);
+        };
+
+        track.addEventListener('mousedown', this._pitchBendOnTrackDown);
+        track.addEventListener('touchstart', this._pitchBendOnTouchStart, { passive: false });
+    }
+
+    KeyboardControlsMixin._updatePitchBendWheelPosition = function(value) {
+        const track = document.getElementById('pitch-bend-track');
+        const thumb = document.getElementById('pitch-bend-thumb');
+        const fill = document.getElementById('pitch-bend-fill');
+        if (!track || !thumb) return;
+
+        const trackHeight = track.clientHeight;
+        const ratio = value / 127;
+        const topPx = trackHeight * (1 - ratio);
+
+        thumb.style.top = topPx + 'px';
+
+        if (fill) {
+            const centerPx = trackHeight * 0.5;
+            if (topPx < centerPx) {
+                fill.style.top = topPx + 'px';
+                fill.style.height = (centerPx - topPx) + 'px';
+            } else {
+                fill.style.top = centerPx + 'px';
+                fill.style.height = (topPx - centerPx) + 'px';
+            }
+        }
     }
 
     // ========================================================================

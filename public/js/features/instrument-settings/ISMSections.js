@@ -680,6 +680,19 @@
                 </label>
             </div>` : ''}
 
+            <div class="ism-subsection ism-hands-movement-card" id="pitchBendSubsection">
+                <label class="ism-hands-movement-toggle" for="pitchBendEnabled">
+                    <div class="ism-hands-movement-info">
+                        <h4 class="ism-subsection-title" style="margin:0 0 6px 0;">🎵 ${this.t('instrumentSettings.pitchBendTitle') || 'Pitch Bend'}</h4>
+                        <p class="ism-form-hint" style="margin:4px 0 0 0;">${this.t('instrumentSettings.pitchBendHint') || 'Active la roue de pitch bend et le mode slider (touches égales) dans le clavier virtuel.'}</p>
+                    </div>
+                    <span class="ism-toggle-switch">
+                        <input type="checkbox" id="pitchBendEnabled" ${settings.pitch_bend_enabled === true ? 'checked' : ''}>
+                        <span class="ism-toggle-slider" aria-hidden="true"></span>
+                    </span>
+                </label>
+            </div>
+
             <div class="ism-subsection" id="timingsSubsection">
                 <h4 class="ism-subsection-title">⏱️ ${this.t('instrumentSettings.sectionTimingsPerGm') || 'Temporisations par instrument GM'}</h4>
                 <p class="ism-subsection-hint">${this.t('instrumentSettings.timingsPerGmHint') || 'Chaque voix GM peut avoir ses propres contraintes de timing (utile quand les instruments ont des temps de réponse différents).'}</p>
