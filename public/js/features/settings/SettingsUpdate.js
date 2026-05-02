@@ -422,12 +422,28 @@
         const betaStatusEl = this.modal.querySelector('#betaVersionStatus');
 
         const loadingHtml = `<span style="animation: pulse 1.5s infinite;">⏳</span><span>${i18n.t('settings.update.checking') || 'Vérification...'}</span>`;
-        stableStatusEl.style.cssText = 'padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;';
+        const STATUS_LOADING_CSS = 'padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;';
+        stableStatusEl.style.cssText = STATUS_LOADING_CSS;
         stableStatusEl.innerHTML = loadingHtml;
         if (betaStatusEl) {
-            betaStatusEl.style.cssText = 'padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;';
+            betaStatusEl.style.cssText = STATUS_LOADING_CSS;
             betaStatusEl.innerHTML = loadingHtml;
         }
+
+        // Reset button states and channel styling from any previous check
+        const _stableBtn = this.modal.querySelector('#stableUpdateBtn');
+        if (_stableBtn) {
+            _stableBtn.disabled = false;
+            _stableBtn.innerHTML = '📦 ' + (i18n.t('settings.update.stableButton') || 'Installer stable');
+            _stableBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            _stableBtn.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
+        }
+        const _betaBtn = this.modal.querySelector('#betaUpdateBtn');
+        if (_betaBtn) { _betaBtn.disabled = false; }
+        const _stableChannel = this.modal.querySelector('#stableUpdateChannel');
+        if (_stableChannel) { _stableChannel.style.borderColor = ''; _stableChannel.style.boxShadow = ''; }
+        const _betaChannel = this.modal.querySelector('#betaUpdateChannel');
+        if (_betaChannel) { _betaChannel.style.display = ''; }
 
         try {
             const api = window.api || window.apiClient;
