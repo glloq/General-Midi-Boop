@@ -89,16 +89,11 @@
                     ? { upToDate: false, behindCount: stable.behindCount, remoteHash: stable.remoteHash }
                     : null);
 
-            const openSettings = () => {
-                if (window.settingsModal) window.settingsModal.open();
-            };
-
             if (stable.majorMinorChanged) {
                 _showBanner(
                     `🆕 Nouvelle version v${stable.remoteVersion} disponible !`,
                     'linear-gradient(135deg, #16a34a, #15803d)',
-                    '⚙️ Voir',
-                    openSettings,
+                    null, null,
                     8000
                 );
             } else if (showBeta && beta && !beta.upToDate) {
@@ -106,8 +101,7 @@
                 _showBanner(
                     `🔶 ${n} commit${n > 1 ? 's' : ''} bêta disponible${n > 1 ? 's' : ''} — ${beta.remoteHash || ''}`,
                     'linear-gradient(135deg, #d97706, #b45309)',
-                    '⚙️ Voir',
-                    openSettings,
+                    null, null,
                     5000
                 );
             }
