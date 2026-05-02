@@ -541,62 +541,81 @@
         band.id = 'fretboard-hand-band';
         band.title = (typeof this.t === 'function') ? this.t('keyboard.chordHandDrag') : 'Drag to move hand';
 
-        // Palm body (upper part of the band) — contains string-lines so the hand
-        // looks like it's gripping the neck across all strings.
+        // Palm body — empty block with left/right arrows indicating possible movement.
         const palm = document.createElement('div');
         palm.className = 'hand-palm-indicator';
-        // One string line per string, evenly distributed vertically in the palm.
-        for (let i = 0; i < numStrings; i++) {
-            const sl = document.createElement('div');
-            sl.className = 'hand-palm-string-line';
-            sl.style.top = `${(i + 0.5) / numStrings * 100}%`;
-            palm.appendChild(sl);
-        }
-        band.appendChild(palm);
 
-        // Finger stubs at the bottom of the band — one per string, pointing down
-        // so they visually connect to the string rows below.
-        const fingersRow = document.createElement('div');
-        fingersRow.className = 'hand-fingers-row';
-        fingersRow.id = 'hand-fingers-row';
-        for (let i = 0; i < numStrings; i++) {
-            const stub = document.createElement('div');
-            stub.className = 'hand-finger-stub';
-            fingersRow.appendChild(stub);
-        }
-        band.appendChild(fingersRow);
+        const arrowL = document.createElement('button');
+        arrowL.type = 'button';
+        arrowL.className = 'hand-palm-arrow hand-palm-arrow-left';
+        arrowL.id = 'hand-palm-arrow-left';
+        arrowL.title = (typeof this.t === 'function') ? this.t('keyboard.handMoveLeft') : 'Déplacer la main vers la gauche';
+        arrowL.textContent = '◄';
+        palm.appendChild(arrowL);
+
+        const palmBody = document.createElement('div');
+        palmBody.className = 'hand-palm-body';
+        palm.appendChild(palmBody);
+
+        const arrowR = document.createElement('button');
+        arrowR.type = 'button';
+        arrowR.className = 'hand-palm-arrow hand-palm-arrow-right';
+        arrowR.id = 'hand-palm-arrow-right';
+        arrowR.title = (typeof this.t === 'function') ? this.t('keyboard.handMoveRight') : 'Déplacer la main vers la droite';
+        arrowR.textContent = '►';
+        palm.appendChild(arrowR);
+
+        band.appendChild(palm);
 
         fretsArea.appendChild(band);
         widget.appendChild(fretsArea);
         stringsArea.appendChild(widget);
 
         // ── Coverage overlay (on the string rows) ────────────────────────────
-        // Semi-transparent rectangle that shows the hand's reachable zone on the
-        // actual strings.  Positioned in JavaScript (see _updateCoverageOverlayPosition)
-        // because pixel coordinates depend on the rendered DOM width.
+        // Single rectangle spanning the full hand width across all strings.
+        // Positioned in JavaScript (_updateCoverageOverlayPosition).
         const overlay = document.createElement('div');
         overlay.className = 'hand-coverage-overlay';
         overlay.id = 'hand-coverage-overlay';
 
-        // One segment per string — contains a finger track (horizontal range line)
-        // and a finger-position dot showing where the finger currently rests.
-        for (let i = 0; i < numStrings; i++) {
-            const seg = document.createElement('div');
-            seg.className = 'hand-coverage-string-seg';
+        // Single range rectangle that fills the overlay — shows the plage de
+        // déplacement des doigts on the full width of the hand.
+        const rangeRect = document.createElement('div');
+        rangeRect.className = 'hand-finger-range-rect';
+        rangeRect.id = 'hand-finger-range-rect';
 
-            // Full-width track: shows the complete range of movement for this finger.
-            const track = document.createElement('div');
-            track.className = 'hand-finger-track';
-            seg.appendChild(track);
+        // Single finger-position dot — shows the current finger position
+        // (8mm before the activated fret wire).
+        const dot = document.createElement('div');
+        dot.className = 'hand-finger-dot-pos';
+        dot.id = 'hand-finger-dot-pos';
+        rangeRect.appendChild(dot);
 
-            // Dot at the leftmost position (= anchor fret / home position).
-            const dot = document.createElement('div');
-            dot.className = 'hand-finger-dot-pos';
-            seg.appendChild(dot);
-
-            overlay.appendChild(seg);
-        }
+        overlay.appendChild(rangeRect);
         stringsArea.appendChild(overlay);
+
+        // ── Arrow button events ───────────────────────────────────────────────
+        arrowL.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const newAnchor = Math.max(0, this.handAnchorFret - 1);
+            if (newAnchor !== this.handAnchorFret) {
+                this.handAnchorFret = newAnchor;
+                this._updateHandWidgetPosition();
+                this._sendHandPositionCC(newAnchor);
+            }
+        });
+
+        arrowR.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const newAnchor = Math.min(this._maxHandAnchorFret(), this.handAnchorFret + 1);
+            if (newAnchor !== this.handAnchorFret) {
+                this.handAnchorFret = newAnchor;
+                this._updateHandWidgetPosition();
+                this._sendHandPositionCC(newAnchor);
+            }
+        });
 
         this._updateHandWidgetPosition();
         this._attachHandWidgetEvents(band, fretsArea);
@@ -640,6 +659,12 @@
             band.style.left  = leftPct + '%';
             band.style.width = widthPct + '%';
         }
+
+        // Update arrow enabled/disabled state.
+        const arrowL = document.getElementById('hand-palm-arrow-left');
+        const arrowR = document.getElementById('hand-palm-arrow-right');
+        if (arrowL) arrowL.disabled = anchor <= 0;
+        if (arrowR) arrowR.disabled = anchor >= this._maxHandAnchorFret();
 
         // Update the coverage overlay — requires rendered widths, so use rAF
         // for the initial call (DOM not yet laid out) and direct call for drags.
@@ -765,36 +790,28 @@
     };
 
     /**
-     * Update each per-string finger dot in the coverage overlay.
+     * Update the single finger-position dot in the coverage overlay.
      * activeFrets: { [stringNum]: fret } — strings with an active pressed fret.
-     * Inactive dots → white, centered in the hand span.
-     * Active dots   → blue, positioned at the pressed fret.
+     * When active: dot moves to 8mm before the lowest pressed fret (index finger).
+     * When idle:   dot sits at the center of the hand span.
      */
     KeyboardChordsMixin._updateFingerDotPositions = function (activeFrets) {
-        const overlay = document.getElementById('hand-coverage-overlay');
-        if (!overlay) return;
-        const segs = overlay.querySelectorAll('.hand-coverage-string-seg');
-        const numStrings = segs.length;
-        const centerPct = this._fingerCenterPct();
+        const dot = document.getElementById('hand-finger-dot-pos');
+        if (!dot) return;
 
-        for (let segIdx = 0; segIdx < numStrings; segIdx++) {
-            const seg = segs[segIdx];
-            if (!seg) continue;
-            const dot = seg.querySelector('.hand-finger-dot-pos');
-            if (!dot) continue;
+        const frets = Object.values(activeFrets || {}).filter(f => Number.isFinite(f) && f > 0);
 
-            // segIdx 0 = top of overlay = highest-pitched string = string #numStrings
-            const stringNum = numStrings - segIdx;
-            const fret = activeFrets && activeFrets[stringNum] != null ? activeFrets[stringNum] : null;
-
-            if (fret != null && fret > 0) {
-                dot.style.left = this._fretToOverlayPct(fret) + '%';
-                dot.classList.add('active');
-            } else {
-                dot.style.left = centerPct + '%';
-                dot.classList.remove('active');
-            }
+        if (frets.length === 0) {
+            dot.style.left = this._fingerCenterPct() + '%';
+            dot.classList.remove('active');
+            return;
         }
+
+        // Position at the lowest active fret — the index finger sits 8mm before
+        // the fret wire, which _fretToOverlayPct accounts for via displayLeftMm.
+        const minFret = Math.min(...frets);
+        dot.style.left = this._fretToOverlayPct(minFret) + '%';
+        dot.classList.add('active');
     };
 
     /**
@@ -954,31 +971,35 @@
     // ── Auto-move hand on out-of-range fret click ─────────────────────────────
 
     /**
-     * If `fret` is outside the current hand window, recentre the hand and send CC.
+     * If `fret` is outside the current hand window, move the hand by the
+     * minimum number of frets needed to make it reachable — never more.
+     *
+     * - Fret to the LEFT  → anchor slides left so fret lands at the leftmost
+     *   reachable position (anchor = fret).
+     * - Fret to the RIGHT → anchor slides right so fret lands at the rightmost
+     *   reachable position (anchor = fret − floor(span)).
+     *
+     * Moving by just 1 fret is naturally the result when that 1-fret shift is
+     * sufficient (no special-casing needed).
      */
     KeyboardChordsMixin._maybeAutoMoveHand = function (fret) {
         if (fret <= 0) return;
-        const anchor = this.handAnchorFret || 0;
+        if (!(this.stringInstrumentConfig?.hands_config?.enabled)) return;
+        if (this._isReachableWithoutHandMove(fret)) return;
 
-        // Effective span in frets at the current anchor position.
-        let span;
-        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
-            const anchorMm = this._scaleLengthMm * (1 - Math.pow(2, -anchor / 12));
-            const endMm    = anchorMm + this._handSpanMm;
-            if (endMm < this._scaleLengthMm) {
-                span = -12 * Math.log2(1 - endMm / this._scaleLengthMm) - anchor;
-            } else {
-                span = (this._cachedMaxFrets || 22) - anchor;
-            }
+        const anchor = this.handAnchorFret || 0;
+        const span   = this._handEffectiveSpanFrets();
+        let newAnchor;
+
+        if (fret < anchor) {
+            // Move left: place fret at the left edge of the window.
+            newAnchor = fret;
         } else {
-            span = this._handSpanFrets || 4;
+            // Move right: place fret at the right edge of the window.
+            newAnchor = Math.max(0, fret - Math.floor(span));
         }
 
-        if (this._isReachableWithoutHandMove(fret)) return; // already reachable
-        const newAnchor = Math.max(0, Math.min(
-            this._maxHandAnchorFret(),
-            fret - Math.floor(span / 2)
-        ));
+        newAnchor = Math.max(0, Math.min(this._maxHandAnchorFret(), newAnchor));
         this.handAnchorFret = newAnchor;
         this._updateHandWidgetPosition();
         this._sendHandPositionCC(newAnchor);
