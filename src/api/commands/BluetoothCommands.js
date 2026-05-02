@@ -163,6 +163,12 @@ async function bleStatus(app) {
     };
   }
 
+  // Wait for adapter initialization so the status reflects the real state,
+  // not the transient false/_ready=false during boot.
+  if (app.bluetoothManager._initPromise) {
+    await app.bluetoothManager._initPromise.catch(() => {});
+  }
+
   return app.bluetoothManager.getStatus();
 }
 

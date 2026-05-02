@@ -13638,7 +13638,8 @@
                 api.on('bluetooth:scan_requested', async () => {
                     try {
                         log('🔍 Starting Bluetooth scan...', 'info');
-                        const response = await api.sendCommand('ble_scan_start', { duration: 5, filter: '' });
+                        // Timeout: scan duration (5s) + 10s overhead for BLE init + D-Bus on Pi
+                        const response = await api.sendCommand('ble_scan_start', { duration: 5, filter: '' }, 20000);
 
                         // Le backend retourne { success: true, data: { devices: [...] } }
                         const devices = (response.success && response.data && response.data.devices) ? response.data.devices : [];
@@ -13757,6 +13758,8 @@
                         api.emit('bluetooth:status', response);
                     } catch (error) {
                         log(`❌ Error fetching Bluetooth status: ${error.message}`, 'error');
+                        // Emit a fallback so the modal doesn't stay stuck on the empty state
+                        api.emit('bluetooth:status', { enabled: false, available: false, state: 'error' });
                     }
                 });
 
