@@ -294,15 +294,9 @@
         this._strumTimeouts.forEach(t => clearTimeout(t));
         this._strumTimeouts = [];
 
-        // Stop notes still ringing from a previous strum
-        [...(this.activeNotes || [])].forEach(n => this.stopNote(n));
-
-        // Clear any previous per-string strum animations + fret positions
+        // Clear previous strum positions BEFORE stopping notes so that the
+        // updatePianoDisplay() calls inside stopNote() see a clean state.
         const container = document.getElementById('fretboard-container');
-        if (container) {
-            container.querySelectorAll('.fret-dot.chord-strum-active')
-                .forEach(d => d.classList.remove('chord-strum-active'));
-        }
         if (this._strumActiveFretPositions && this.activeFretPositions) {
             this._strumActiveFretPositions.forEach(pos => this.activeFretPositions.delete(pos));
             if (this._strumActiveFretPositions.size > 0 && typeof this.updatePianoDisplay === 'function') {
@@ -310,6 +304,15 @@
             }
         }
         this._strumActiveFretPositions = new Set();
+
+        // Stop notes still ringing from a previous strum
+        [...(this.activeNotes || [])].forEach(n => this.stopNote(n));
+
+        // Clear animation classes from any dot that still carries them
+        if (container) {
+            container.querySelectorAll('.fret-dot.chord-strum-active')
+                .forEach(d => d.classList.remove('chord-strum-active'));
+        }
 
         // ── Resolve instrument config ──
         const cfg = this.stringInstrumentConfig || {};
@@ -375,8 +378,42 @@
         ordered.forEach((item, idx) => {
             const humanize = Math.round(Math.random() * 4 - 2); // ±2 ms jitter
             const delay    = idx * delayMs + Math.max(0, humanize);
+            const posKey   = `${item.string}:${item.fret}`;
 
-            // Audio: note-on
+            // Visual FIRST (registered before audio so it fires first on equal delays).
+            // This guarantees .active + string vibe are set before playNote() calls
+            // updatePianoDisplay() for the same string.
+            const tv = setTimeout(() => {
+                if (!container) return;
+                const dot = container.querySelector(
+                    `.fret-dot[data-string="${item.string}"][data-fret="${item.fret}"]`
+                );
+                // Guard: if no dot exists for this string:fret there is nothing to show.
+                if (!dot) return;
+
+                // Restart the strum-hit CSS animation (handles rapid re-strum).
+                dot.classList.remove('chord-strum-active');
+                void dot.offsetWidth;
+                dot.classList.add('chord-strum-active');
+
+                // Register in activeFretPositions (keeps .active alive across
+                // subsequent updatePianoDisplay() calls from playNote/stopNote).
+                this._strumActiveFretPositions.add(posKey);
+                this.activeFretPositions.add(posKey);
+
+                // Set .active directly — do not wait for the next updatePianoDisplay()
+                // cycle, which would otherwise run AFTER playNote() below and could
+                // find the position missing at the moment it reads activeFretPositions.
+                dot.classList.add('active');
+
+                // Trigger the string-vibe overlay for this row immediately.
+                if (typeof this._updateFretboardStringColors === 'function') {
+                    this._updateFretboardStringColors();
+                }
+            }, delay);
+            this._strumTimeouts.push(tv);
+
+            // Audio: note-on (registered after visual; fires after visual on same delay).
             const t = setTimeout(() => {
                 if (item.note >= 21 && item.note <= 108) {
                     this.playNote(item.note);
@@ -384,28 +421,6 @@
                 }
             }, delay);
             this._strumTimeouts.push(t);
-
-            // Visual: light up fret-dot + activate string vibe in strum order
-            const posKey = `${item.string}:${item.fret}`;
-            const tv = setTimeout(() => {
-                if (!container) return;
-                const dot = container.querySelector(
-                    `.fret-dot[data-string="${item.string}"][data-fret="${item.fret}"]`
-                );
-                if (dot) {
-                    dot.classList.remove('chord-strum-active');
-                    void dot.offsetWidth; // restart animation on rapid re-strum
-                    dot.classList.add('chord-strum-active');
-                }
-                // Register in activeFretPositions so updatePianoDisplay activates .active
-                // on the dot and _updateFretboardStringColors shows the string vibe.
-                if (this.activeFretPositions) {
-                    this._strumActiveFretPositions.add(posKey);
-                    this.activeFretPositions.add(posKey);
-                    if (typeof this.updatePianoDisplay === 'function') this.updatePianoDisplay();
-                }
-            }, delay);
-            this._strumTimeouts.push(tv);
         });
 
         // ── Auto-release audio ──
@@ -420,14 +435,16 @@
         const visualClearMs = Math.min(lastNoteDelay + 1500, 2000);
         const clearT = setTimeout(() => {
             if (container) {
+                // Remove both animation class and the .active we set directly.
                 container.querySelectorAll('.fret-dot.chord-strum-active')
-                    .forEach(d => d.classList.remove('chord-strum-active'));
+                    .forEach(d => d.classList.remove('chord-strum-active', 'active'));
             }
             if (this._strumActiveFretPositions && this.activeFretPositions) {
                 this._strumActiveFretPositions.forEach(pos => this.activeFretPositions.delete(pos));
                 this._strumActiveFretPositions.clear();
-                if (typeof this.updatePianoDisplay === 'function') this.updatePianoDisplay();
             }
+            // Full display refresh hides string vibes for now-inactive rows.
+            if (typeof this.updatePianoDisplay === 'function') this.updatePianoDisplay();
         }, visualClearMs);
         this._strumTimeouts.push(clearT);
     };
