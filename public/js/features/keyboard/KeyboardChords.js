@@ -584,12 +584,17 @@
         rangeRect.className = 'hand-finger-range-rect';
         rangeRect.id = 'hand-finger-range-rect';
 
-        // Single finger-position dot — shows the current finger position
-        // (8mm before the activated fret wire).
-        const dot = document.createElement('div');
-        dot.className = 'hand-finger-dot-pos';
-        dot.id = 'hand-finger-dot-pos';
-        rangeRect.appendChild(dot);
+        // One finger-position dot per string — distributed vertically across the
+        // overlay. String 1 (lowest pitch) at the bottom, string N at the top.
+        // Each dot shows where that string's finger sits (8mm before its fret).
+        for (let s = 1; s <= numStrings; s++) {
+            const dot = document.createElement('div');
+            dot.className = 'hand-finger-dot-pos';
+            dot.dataset.string = String(s);
+            // top: string N → near top (small %), string 1 → near bottom (large %)
+            dot.style.top = ((numStrings - s + 0.5) / numStrings * 100) + '%';
+            rangeRect.appendChild(dot);
+        }
 
         overlay.appendChild(rangeRect);
         stringsArea.appendChild(overlay);
@@ -790,28 +795,32 @@
     };
 
     /**
-     * Update the single finger-position dot in the coverage overlay.
+     * Update per-string finger dots in the coverage overlay.
      * activeFrets: { [stringNum]: fret } — strings with an active pressed fret.
-     * When active: dot moves to 8mm before the lowest pressed fret (index finger).
-     * When idle:   dot sits at the center of the hand span.
+     *
+     * Each dot sits at:
+     *   - Horizontal: 8mm before the activated fret wire (_fretToOverlayPct),
+     *     or at the center of the span when the string is idle.
+     *   - Vertical: fixed at construction time (one row per string).
      */
     KeyboardChordsMixin._updateFingerDotPositions = function (activeFrets) {
-        const dot = document.getElementById('hand-finger-dot-pos');
-        if (!dot) return;
+        const rangeRect = document.getElementById('hand-finger-range-rect');
+        if (!rangeRect) return;
+        const dots = rangeRect.querySelectorAll('.hand-finger-dot-pos[data-string]');
+        const centerPct = this._fingerCenterPct();
 
-        const frets = Object.values(activeFrets || {}).filter(f => Number.isFinite(f) && f > 0);
-
-        if (frets.length === 0) {
-            dot.style.left = this._fingerCenterPct() + '%';
-            dot.classList.remove('active');
-            return;
-        }
-
-        // Position at the lowest active fret — the index finger sits 8mm before
-        // the fret wire, which _fretToOverlayPct accounts for via displayLeftMm.
-        const minFret = Math.min(...frets);
-        dot.style.left = this._fretToOverlayPct(minFret) + '%';
-        dot.classList.add('active');
+        dots.forEach(dot => {
+            const stringNum = parseInt(dot.dataset.string, 10);
+            const fret = activeFrets && activeFrets[stringNum] != null
+                ? activeFrets[stringNum] : null;
+            if (fret != null && fret > 0) {
+                dot.style.left = this._fretToOverlayPct(fret) + '%';
+                dot.classList.add('active');
+            } else {
+                dot.style.left = centerPct + '%';
+                dot.classList.remove('active');
+            }
+        });
     };
 
     /**
@@ -984,7 +993,6 @@
      */
     KeyboardChordsMixin._maybeAutoMoveHand = function (fret) {
         if (fret <= 0) return;
-        if (!(this.stringInstrumentConfig?.hands_config?.enabled)) return;
         if (this._isReachableWithoutHandMove(fret)) return;
 
         const anchor = this.handAnchorFret || 0;
