@@ -2271,16 +2271,16 @@ body.dark-mode .keyboard-modal-info .info-text strong {
    KEYBOARD LIST VIEW — Clavier horizontal compact avec fondu entre les notes
    ============================================================================ */
 
-/* Container: hauteur fixe, fond sombre, overflow caché pour isoler le glow */
+/* Container: suit la hauteur du parent (identique au piano-container) */
 .keyboard-list-container {
     width: 100%;
-    height: 88px;
-    flex-shrink: 0;
-    align-self: flex-start;
+    max-width: 100%;
+    box-sizing: border-box;
     position: relative;
     overflow: hidden;
     background: #111827;
     border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Glow layer: gradient radial centré sur --glow-x → fondu vers les notes voisines */
