@@ -1557,12 +1557,98 @@
    * @param {string} opts.summaryTableHTML
    * @param {string} opts.detailPanelHTML
    */
+  /**
+   * Controls for the auto-routing panel shown in the modal footer.
+   * Each entry defines one toggle chip.
+   */
+  const AUTO_ROUTING_CONTROLS = [
+    {
+      key: 'allowInstrumentReuse',
+      defaultActive: true,
+      icon: '\u{1F517}',
+      labelKey: 'routingSummary.strategy.share',
+      labelFallback: 'Partage',
+      descKey: 'scoringSettings.allowInstrumentReuseDesc'
+    },
+    {
+      key: 'allowTransposition',
+      defaultActive: true,
+      icon: '↕️',
+      labelKey: 'routingSummary.strategy.transposition',
+      labelFallback: 'Transposition',
+      descKey: 'routingSummary.strategy.transpositionDesc'
+    },
+    {
+      key: 'autoSplitAvoidTransposition',
+      defaultActive: false,
+      icon: '✂️',
+      labelKey: 'routingSummary.strategy.split',
+      labelFallback: 'Découpage',
+      descKey: 'scoringSettings.autoSplitAvoidTranspositionDesc'
+    },
+    {
+      key: 'preferSingleInstrument',
+      defaultActive: true,
+      icon: '\u{1F3AF}',
+      labelKey: 'routingSummary.strategy.single',
+      labelFallback: 'Unique',
+      descKey: 'scoringSettings.preferSingleInstrumentDesc'
+    },
+    {
+      key: 'preferSimilarGMType',
+      defaultActive: true,
+      icon: '\u{1F3BC}',
+      labelKey: 'routingSummary.strategy.sameType',
+      labelFallback: 'Type GM',
+      descKey: 'scoringSettings.preferSimilarGMTypeDesc'
+    }
+  ];
+
+  /**
+   * Render the auto-routing control panel shown in the modal footer.
+   * Contains toggleable strategy chips and the "Auto" action button.
+   *
+   * @param {Object} opts
+   * @param {Object} [opts.routing={}]  - scoringOverrides.routing values
+   * @param {boolean} [opts.dirty=false] - whether strategy changed since last run
+   */
+  function renderAutoRoutingPanel(opts) {
+    const { routing = {}, dirty = false } = opts;
+
+    const chipsHTML = AUTO_ROUTING_CONTROLS.map(ctrl => {
+      const val = routing[ctrl.key];
+      const active = val !== undefined ? !!val : ctrl.defaultActive;
+      const label = _tOr(ctrl.labelKey, ctrl.labelFallback);
+      const desc = _tOr(ctrl.descKey, label);
+      return `<button type="button"
+                 class="rs-auto-chip${active ? ' active' : ''}"
+                 data-auto-key="${ctrl.key}"
+                 aria-pressed="${active}"
+                 title="${desc}">
+          <span class="rs-auto-chip-icon" aria-hidden="true">${ctrl.icon}</span>
+          <span class="rs-auto-chip-label">${label}</span>
+        </button>`;
+    }).join('');
+
+    const btnLabel = _tOr('routingSummary.autoBtn', 'Auto');
+    const panelLabel = _tOr('routingSummary.autoPanelLabel', 'Routage auto');
+
+    return `<div class="rs-auto-routing-panel">
+      <span class="rs-auto-panel-label">${panelLabel}</span>
+      <div class="rs-auto-chips">${chipsHTML}</div>
+      <button type="button" class="rs-auto-btn${dirty ? ' dirty' : ''}" id="rsAutoRoutingBtn">
+        &#9889; ${btnLabel}
+      </button>
+    </div>`;
+  }
+
   function renderContentShell(opts) {
     const {
       hasDetail, hasMidiData, autoAdaptation, isOverrideModified,
       displayScore, selectedChannel, scoreLabel,
       headerButtonsHTML, scoreDetailHTML,
-      summaryTableHTML, detailPanelHTML
+      summaryTableHTML, detailPanelHTML,
+      autoRoutingPanelHTML = ''
     } = opts;
     const { getScoreBgClass } = window.RoutingSummaryConstants;
 
@@ -1609,7 +1695,7 @@
 
         <div class="rs-footer">
           <button class="btn" id="rsSummaryCancel">${_t('common.cancel')}</button>
-          <div class="rs-footer-center"></div>
+          <div class="rs-footer-center">${autoRoutingPanelHTML}</div>
           <div class="rs-footer-right">
             <button class="btn btn-primary" id="rsSummaryApply">
               ${_t('routingSummary.applyAll')}
@@ -1699,6 +1785,7 @@
     renderDetailPlaceholder,
     renderHeaderButtons,
     renderStrategyChips,
+    renderAutoRoutingPanel,
     renderLoadingScreen,
     renderErrorScreen,
     renderInstrumentChips,

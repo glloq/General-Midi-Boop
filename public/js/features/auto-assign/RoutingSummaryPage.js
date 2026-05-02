@@ -36,7 +36,7 @@ const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : 
 // Pure HTML renderers extracted to RoutingSummaryRenderers.js (P2-F.4/F.4b..F.4t).
 const {
   renderMiniKeyboard, renderChannelHistogram, renderMiniRange,
-  renderDetailPlaceholder, renderHeaderButtons,
+  renderDetailPlaceholder, renderHeaderButtons, renderAutoRoutingPanel,
   renderLoadingScreen, renderErrorScreen,
   renderInstrumentChips, renderPolyReductionSection,
   renderRangeBars, renderDrumMappingSection, renderCCSection,
@@ -113,6 +113,8 @@ class RoutingSummaryPage {
 
     // Scoring overrides (loaded from localStorage, sent to API)
     this.scoringOverrides = this._loadScoringOverrides();
+
+    this._autoStrategyDirty = false; // Auto button needs re-run when strategy changed
   }
 
   // ============================================================================
@@ -170,6 +172,7 @@ class RoutingSummaryPage {
     this.channels = channels;
     this.onApplyCallback = onApply || null;
     this.loading = true;
+    this._ensureRoutingDefaults();
 
     this._renderModal();
     this._showLoading();
@@ -182,14 +185,14 @@ class RoutingSummaryPage {
         if (saved && JSON.parse(saved).virtualInstrument) excludeVirtual = false;
       } catch (e) { /* ignore */ }
 
-      // Generate auto-assignment suggestions (splits disabled — user adds instruments manually)
+      // Generate suggestions and channel analyses (auto-selection applied only when user clicks Auto)
       const response = await this.apiClient.generateSuggestions({
         fileId,
         topN: 5,
         minScore: 30,
         excludeVirtual,
         includeMatrix: false,
-        scoringOverrides: this.scoringOverrides
+        scoringOverrides: this._buildScoringOverridesForRequest()
       });
 
       if (!response.success) {
@@ -245,17 +248,12 @@ class RoutingSummaryPage {
             usedChannels.add(r.channel);
           }
         }
-        // For channels not in saved routings, fall back to auto-selection
-        for (const [ch, assignment] of Object.entries(this.autoSelection)) {
-          if (!this.selectedAssignments[ch]) {
-            this.selectedAssignments[ch] = JSON.parse(JSON.stringify(assignment));
-          }
-        }
-        this.skippedChannels = new Set(autoSkippedChannels);
+        this.skippedChannels = new Set();
         this.autoSkippedChannels = new Set(autoSkippedChannels);
       } else {
-        this.selectedAssignments = JSON.parse(JSON.stringify(this.autoSelection));
-        this.skippedChannels = new Set(autoSkippedChannels);
+        // No saved routings → empty state; user clicks Auto to get routing proposals
+        this.selectedAssignments = {};
+        this.skippedChannels = new Set();
         this.autoSkippedChannels = new Set(autoSkippedChannels);
       }
 
@@ -416,7 +414,8 @@ class RoutingSummaryPage {
           summaryTableHTML: this._renderSummaryTable(channelKeys),
           detailPanelHTML: this.selectedChannel !== null
             ? this._safeRenderDetailPanel(this.selectedChannel)
-            : this._renderDetailPlaceholder()
+            : this._renderDetailPlaceholder(),
+          autoRoutingPanelHTML: this._renderAutoRoutingPanel()
         });
 
         this._bindGlobalEvents(channelKeys);
@@ -1389,6 +1388,9 @@ class RoutingSummaryPage {
         this._refreshUI(channelKeys);
       });
     }
+
+    // Auto routing panel (chips + Auto button)
+    this._bindAutoRoutingEvents(channelKeys);
   }
 
   /**
@@ -3136,6 +3138,167 @@ class RoutingSummaryPage {
   }
 
   // ============================================================================
+  // Auto routing controls
+  // ============================================================================
+
+  /**
+   * Ensure scoringOverrides.routing has all required keys with defaults.
+   * Called at show() time and whenever routing settings are used.
+   */
+  _ensureRoutingDefaults() {
+    if (!this.scoringOverrides.routing) this.scoringOverrides.routing = {};
+    const r = this.scoringOverrides.routing;
+    if (r.allowInstrumentReuse === undefined) r.allowInstrumentReuse = true;
+    if (r.allowTransposition === undefined) r.allowTransposition = true;
+    if (r.autoSplitAvoidTransposition === undefined) r.autoSplitAvoidTransposition = false;
+    if (r.preferSingleInstrument === undefined) r.preferSingleInstrument = true;
+    if (r.preferSimilarGMType === undefined) r.preferSimilarGMType = true;
+  }
+
+  /**
+   * Build scoring overrides for API request, translating UI-only flags to
+   * backend parameters (e.g. allowTransposition → penalties.maxTranspositionOctaves).
+   */
+  _buildScoringOverridesForRequest() {
+    const overrides = JSON.parse(JSON.stringify(this.scoringOverrides));
+    const routing = overrides.routing || {};
+    if (routing.allowTransposition === false) {
+      overrides.penalties = overrides.penalties || {};
+      overrides.penalties.maxTranspositionOctaves = 0;
+    }
+    return overrides;
+  }
+
+  /** Render the auto-routing panel HTML for the footer. */
+  _renderAutoRoutingPanel() {
+    return renderAutoRoutingPanel({
+      routing: this.scoringOverrides.routing || {},
+      dirty: this._autoStrategyDirty
+    });
+  }
+
+  /** Bind events for the auto-routing panel chips and Auto button. */
+  _bindAutoRoutingEvents(channelKeys) {
+    const modal = this.modal;
+    if (!modal) return;
+
+    const DEFAULTS = {
+      allowInstrumentReuse: true,
+      allowTransposition: true,
+      autoSplitAvoidTransposition: false,
+      preferSingleInstrument: true,
+      preferSimilarGMType: true
+    };
+
+    modal.querySelectorAll('.rs-auto-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const key = chip.dataset.autoKey;
+        const routing = this.scoringOverrides.routing || {};
+        const currentVal = routing[key] !== undefined ? routing[key] : (DEFAULTS[key] !== undefined ? DEFAULTS[key] : true);
+        routing[key] = !currentVal;
+        this.scoringOverrides.routing = routing;
+        this._saveScoringOverrides();
+        this._autoStrategyDirty = true;
+        chip.classList.toggle('active', !currentVal);
+        chip.setAttribute('aria-pressed', String(!currentVal));
+        const autoBtn = modal.querySelector('#rsAutoRoutingBtn');
+        if (autoBtn) autoBtn.classList.add('dirty');
+      });
+    });
+
+    const autoBtn = modal.querySelector('#rsAutoRoutingBtn');
+    if (autoBtn) {
+      autoBtn.addEventListener('click', async () => {
+        autoBtn.disabled = true;
+        autoBtn.classList.remove('dirty');
+        await this._applyAutoRouting();
+        autoBtn.disabled = false;
+      });
+    }
+  }
+
+  /**
+   * Apply auto-routing: if strategy changed, re-run generateSuggestions;
+   * otherwise apply the cached autoSelection directly.
+   */
+  async _applyAutoRouting() {
+    if (this._autoStrategyDirty) {
+      this._autoStrategyDirty = false;
+      await this._recalculate();
+    } else {
+      this._applyStoredAutoSelection();
+      const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
+      this._refreshUI(channelKeys);
+    }
+  }
+
+  /**
+   * Apply the stored autoSelection to selectedAssignments without a server round-trip.
+   * Enriches assignments and reinitializes adaptation settings.
+   */
+  _applyStoredAutoSelection() {
+    const autoSkippedChannels = (this.autoSelection || {})._autoSkipped || [];
+    const cleanAutoSelection = { ...this.autoSelection };
+    delete cleanAutoSelection._autoSkipped;
+
+    this.selectedAssignments = JSON.parse(JSON.stringify(cleanAutoSelection));
+    this.skippedChannels = new Set(autoSkippedChannels);
+    this.autoSkippedChannels = new Set(autoSkippedChannels);
+    this.splitChannels = new Set();
+    this.splitAssignments = {};
+
+    for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
+      if (!assignment || !assignment.instrumentId) continue;
+      const options = this.suggestions[ch] || [];
+      const lowOptions = this.lowScoreSuggestions[ch] || [];
+      const matched = options.find(o => o.instrument.id === assignment.instrumentId)
+        || lowOptions.find(o => o.instrument.id === assignment.instrumentId);
+      const inst = matched?.instrument
+        || (this.allInstruments || []).find(i => i.id === assignment.instrumentId);
+      if (inst) {
+        assignment.gmProgram = inst.gm_program;
+        assignment.noteRangeMin = inst.note_range_min;
+        assignment.noteRangeMax = inst.note_range_max;
+        assignment.noteSelectionMode = inst.note_selection_mode;
+        assignment.polyphony = inst.polyphony;
+        const fullInst = (this.allInstruments || []).find(i => i.id === assignment.instrumentId);
+        assignment.supportedCcs = fullInst?.supported_ccs || inst.supported_ccs || null;
+        if (!assignment.customName) assignment.customName = inst.custom_name || null;
+        assignment.instrumentDisplayName = this._getInstrumentDisplayName(inst);
+      }
+      if (matched?.compatibility?.scoreBreakdown) {
+        assignment.scoreBreakdown = matched.compatibility.scoreBreakdown;
+      }
+    }
+
+    const channelKeys = Object.keys(this.suggestions);
+    for (const ch of channelKeys) {
+      const assignment = this.selectedAssignments[ch];
+      const adapt = {
+        pitchShift: assignment?.transposition?.semitones ? 'auto' : 'none',
+        transpositionSemitones: assignment?.transposition?.semitones || 0,
+        oorHandling: 'passThrough',
+        polyReduction: 'none',
+        polyStrategy: 'shorten',
+        polyTarget: null
+      };
+      if (this.autoAdaptation) {
+        const chPoly = this._getChannelPolyphony(parseInt(ch));
+        const instPoly = this._getInstrumentPolyphony(parseInt(ch))
+          || getGmDefaultPolyphony(assignment?.gmProgram);
+        if (chPoly && instPoly && chPoly > instPoly) {
+          adapt.polyReduction = 'auto';
+          adapt.polyTarget = instPoly;
+          adapt.polyStrategy = chPoly > instPoly * 2 ? 'drop' : 'shorten';
+        }
+      }
+      this.adaptationSettings[ch] = adapt;
+    }
+
+    this._instrumentOptionsCache = {};
+  }
+
+  // ============================================================================
   // Recalculate
   // ============================================================================
 
@@ -3157,7 +3320,7 @@ class RoutingSummaryPage {
         minScore: this.scoringOverrides.scoreThresholds?.minimum || 30,
         excludeVirtual,
         includeMatrix: false,
-        scoringOverrides: this.scoringOverrides
+        scoringOverrides: this._buildScoringOverridesForRequest()
       });
 
       if (!response.success) {

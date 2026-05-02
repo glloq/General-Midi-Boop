@@ -4321,6 +4321,119 @@ body.dark-mode .aa-channel-card.skipped {
   gap: 8px;
 }
 
+/* Auto routing panel */
+.rs-auto-routing-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rs-auto-panel-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.rs-auto-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.rs-auto-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted, #888);
+  background: var(--bg-secondary, #f5f5f5);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+  user-select: none;
+  white-space: nowrap;
+  opacity: 0.65;
+}
+
+.rs-auto-chip:hover {
+  opacity: 1;
+  border-color: var(--accent-color, #4285f4);
+}
+
+.rs-auto-chip.active {
+  color: var(--accent-color, #4285f4);
+  background: var(--accent-bg, rgba(66,133,244,0.1));
+  border-color: var(--accent-color, #4285f4);
+  opacity: 1;
+}
+
+.rs-auto-chip-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.rs-auto-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent-color, #4285f4);
+  border: 1px solid var(--accent-color, #4285f4);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rs-auto-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #3574e2);
+  border-color: var(--accent-hover, #3574e2);
+}
+
+.rs-auto-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.rs-auto-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rs-auto-btn.dirty {
+  background: #e09c3d;
+  border-color: #e09c3d;
+}
+
+.rs-auto-btn.dirty:hover:not(:disabled) {
+  background: #c8882a;
+  border-color: #c8882a;
+}
+
+@media (max-width: 640px) {
+  .rs-auto-panel-label {
+    display: none;
+  }
+  .rs-auto-chip-label {
+    display: none;
+  }
+  .rs-auto-chip {
+    padding: 4px 6px;
+  }
+}
+
 .rs-split-info {
   color: var(--color-split, #f0ad4e);
   font-weight: 500;
