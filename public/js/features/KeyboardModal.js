@@ -206,6 +206,9 @@ class KeyboardModalNew {
         // Clean up string slide mode
         if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
 
+        // Clean up keyboard list view interaction
+        if (typeof this._destroyKeyboardListInteraction === 'function') this._destroyKeyboardListInteraction();
+
         // Stop all active notes
         this.activeNotes.forEach(note => this.stopNote(note));
 
@@ -278,6 +281,12 @@ class KeyboardModalNew {
             if (typeof this.generatePianoSlider === 'function') this.generatePianoSlider();
             if (typeof this.renderMinimap === 'function') this.renderMinimap();
             if (typeof this.renderOctaveBar === 'function') this.renderOctaveBar();
+            return;
+        }
+
+        if (this.viewMode === 'keyboard-list') {
+            if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
+            if (typeof this.renderMinimap === 'function') this.renderMinimap();
             return;
         }
 
@@ -955,4 +964,7 @@ if (typeof KeyboardChordsMixin !== 'undefined') {
 }
 if (typeof KeyboardSliderMixin !== 'undefined') {
     Object.assign(KeyboardModalNew.prototype, KeyboardSliderMixin);
+}
+if (typeof KeyboardListViewMixin !== 'undefined') {
+    Object.assign(KeyboardModalNew.prototype, KeyboardListViewMixin);
 }
