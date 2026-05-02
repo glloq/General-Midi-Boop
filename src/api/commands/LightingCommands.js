@@ -837,4 +837,12 @@ export function register(registry, app) {
     if (!app.lightingManager) return { success: true, bpm: 120 };
     return { success: true, bpm: app.lightingManager.effectsEngine.getBpm() };
   });
+  registry.register('lighting_set_enabled', (data) => {
+    if (!app.lightingManager) return { success: true, enabled: true };
+    return app.lightingManager.setSystemEnabled(data?.enabled !== false);
+  });
+  registry.register('lighting_get_enabled', () => {
+    if (!app.lightingManager) return { success: true, enabled: true };
+    return app.lightingManager.getSystemEnabled();
+  });
 }

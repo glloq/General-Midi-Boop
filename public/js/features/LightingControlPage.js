@@ -21,6 +21,7 @@ class LightingControlPage {
     this.presets = [];
     this.selectedDeviceId = null;
     this.mobilePanelView = 'devices'; // 'devices' or 'rules'
+    this.lightingEnabled = true;
   }
 
   // ==================== THEME DETECTION ====================
@@ -149,6 +150,7 @@ class LightingControlPage {
             <div class="lighting-header-row">
               <h2>💡 ${i18n.t('lighting.title') || 'Contrôle Lumière'}</h2>
               <div class="lighting-header-actions">
+                <button id="lightingSystemToggleBtn" class="lighting-header-btn lighting-header-btn--toggle lighting-header-btn--toggle-on" data-action="toggleLightingEnabled" title="${i18n.t('lighting.toggleSystem') || 'Activer/Désactiver la gestion des lumières'}">✅ ${i18n.t('lighting.systemOn') || 'Actif'}</button>
                 <button class="lighting-header-btn" data-action="showEffectsPanel">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
                 <button class="lighting-header-btn" data-action="showGroupsPanel">🔗 ${i18n.t('lighting.groups') || 'Groupes'}</button>
                 <button class="lighting-header-btn" data-action="showPresetsPanel">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
@@ -273,7 +275,8 @@ class LightingControlPage {
         'blackout', 'allOff', 'close', 'testDevice',
         'showAddDeviceForm', 'showEditDeviceForm', 'showAddRuleForm',
         'scanDevices', 'reconnectDevice',
-        '_testPreviewRainbow', '_clearPreview'
+        '_testPreviewRainbow', '_clearPreview',
+        'toggleLightingEnabled'
       ];
       if (simpleMethods.includes(action) && typeof this[action] === 'function') {
         this[action]();
@@ -356,15 +359,18 @@ class LightingControlPage {
 
   async loadData() {
     try {
-      const [devicesRes, instrumentsRes, presetsRes] = await Promise.all([
+      const [devicesRes, instrumentsRes, presetsRes, enabledRes] = await Promise.all([
         this.apiClient.sendCommand('lighting_device_list'),
         this.apiClient.sendCommand('instrument_list_registered'),
-        this.apiClient.sendCommand('lighting_preset_list')
+        this.apiClient.sendCommand('lighting_preset_list'),
+        this.apiClient.sendCommand('lighting_get_enabled')
       ]);
 
       this.devices = devicesRes.devices || [];
       this.instruments = instrumentsRes.instruments || [];
       this.presets = presetsRes.presets || [];
+      this.lightingEnabled = enabledRes.enabled !== false;
+      this._updateToggleBtn();
       this.renderDeviceList();
 
       if (this.selectedDeviceId) {
@@ -372,6 +378,38 @@ class LightingControlPage {
       }
     } catch (error) {
       console.error('Failed to load lighting data:', error);
+    }
+  }
+
+  async toggleLightingEnabled() {
+    const newState = !this.lightingEnabled;
+    try {
+      const res = await this.apiClient.sendCommand('lighting_set_enabled', { enabled: newState });
+      this.lightingEnabled = res.enabled;
+      this._updateToggleBtn();
+      this.showToast(
+        this.lightingEnabled
+          ? (i18n.t('lighting.systemEnabled') || 'Gestion des lumières activée')
+          : (i18n.t('lighting.systemDisabled') || 'Gestion des lumières désactivée'),
+        this.lightingEnabled ? 'success' : 'warning'
+      );
+    } catch (error) {
+      console.error('Failed to toggle lighting system:', error);
+      this.showToast(i18n.t('lighting.toggleError') || 'Erreur lors du changement d\'état', 'error');
+    }
+  }
+
+  _updateToggleBtn() {
+    const btn = document.getElementById('lightingSystemToggleBtn');
+    if (!btn) return;
+    if (this.lightingEnabled) {
+      btn.textContent = `✅ ${i18n.t('lighting.systemOn') || 'Actif'}`;
+      btn.classList.remove('lighting-header-btn--toggle-off');
+      btn.classList.add('lighting-header-btn--toggle-on');
+    } else {
+      btn.textContent = `⏸ ${i18n.t('lighting.systemOff') || 'Inactif'}`;
+      btn.classList.remove('lighting-header-btn--toggle-on');
+      btn.classList.add('lighting-header-btn--toggle-off');
     }
   }
 
