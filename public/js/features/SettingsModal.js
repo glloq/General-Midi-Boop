@@ -119,6 +119,10 @@ class SettingsModal {
         header.className = 'settings-modal-header';
         header.innerHTML = `
             <h2 class="settings-title" data-i18n="settings.title">⚙️ ${i18n.t('settings.title')}</h2>
+            <div id="stableUpdateHeaderBanner" style="display:none; align-items:center; gap:10px; background: linear-gradient(135deg, #dcfce7, #bbf7d0); border: 1.5px solid #16a34a; border-radius: 20px; padding: 6px 12px 6px 14px; font-size: 13px; color: #15803d; font-weight: 600; animation: pulse-green 2s ease-in-out infinite;">
+                <span id="stableUpdateHeaderLabel">🆕 ${i18n.t('settings.update.newVersion') || 'Nouvelle version'}</span>
+                <button id="stableUpdateHeaderBtn" style="padding: 4px 12px; border: none; border-radius: 12px; background: #16a34a; color: white; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; transition: background 0.2s;">📦 ${i18n.t('settings.update.stableButton') || 'Installer stable'}</button>
+            </div>
             <button class="settings-close-btn">×</button>
         `;
 
@@ -227,6 +231,10 @@ class SettingsModal {
         const stableUpdateBtn = this.modal.querySelector('#stableUpdateBtn');
         if (stableUpdateBtn) {
             stableUpdateBtn.addEventListener('click', () => this.triggerSystemUpdate('stable'));
+        }
+        const stableUpdateHeaderBtn = this.modal.querySelector('#stableUpdateHeaderBtn');
+        if (stableUpdateHeaderBtn) {
+            stableUpdateHeaderBtn.addEventListener('click', () => this.triggerSystemUpdate('stable'));
         }
         const betaUpdateBtn = this.modal.querySelector('#betaUpdateBtn');
         if (betaUpdateBtn) {
