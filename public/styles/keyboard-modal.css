@@ -2266,3 +2266,159 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 .keyboard-modal .pitch-bend-control-vertical.no-transition {
     transition: none !important;
 }
+
+/* ============================================================================
+   KEYBOARD LIST VIEW
+   ============================================================================ */
+
+.keyboard-list-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 8px;
+    gap: 2px;
+    background: #1a1a2e;
+    min-height: 0;
+}
+
+.keyboard-list-container::-webkit-scrollbar { width: 6px; }
+.keyboard-list-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+.keyboard-list-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+.keyboard-list-key {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-height: 22px;
+    border-radius: 5px;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+    transition: background 0.07s, box-shadow 0.07s;
+}
+
+.keyboard-list-white {
+    background: linear-gradient(to right, #f0f0f0 0%, #e0e0e0 100%);
+    border: 1px solid #bbb;
+    color: #333;
+}
+
+.keyboard-list-white:hover {
+    background: linear-gradient(to right, #e8f5e9 0%, #d5e8d5 100%);
+}
+
+.keyboard-list-black {
+    background: linear-gradient(to right, #2a2a2a 0%, #1a1a1a 100%);
+    border: 1px solid #555;
+    color: #ccc;
+}
+
+.keyboard-list-black:hover {
+    background: linear-gradient(to right, #3a3a3a 0%, #2a2a2a 100%);
+}
+
+/* C notes get a green left border to mark octave boundaries */
+.keyboard-list-c {
+    border-left: 3px solid #10b981 !important;
+}
+
+.keyboard-list-key.active.keyboard-list-white {
+    background: linear-gradient(to right, #10b981 0%, #059669 100%) !important;
+    border-color: #047857;
+    color: white;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.2), 0 0 6px rgba(16,185,129,0.5);
+}
+
+.keyboard-list-key.active.keyboard-list-black {
+    background: linear-gradient(to right, #059669 0%, #047857 100%) !important;
+    border-color: #065f46;
+    color: white;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.3), 0 0 6px rgba(16,185,129,0.5);
+}
+
+.keyboard-list-key.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.keyboard-list-key.disabled:hover {
+    background: inherit;
+}
+
+.keyboard-list-key-label {
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    pointer-events: none;
+    z-index: 1;
+    min-width: 52px;
+    flex-shrink: 0;
+}
+
+/* Velocity gradient hint: top = louder (green tint), bottom = softer */
+.keyboard-list-white::after,
+.keyboard-list-black::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.keyboard-list-white::after {
+    background: linear-gradient(
+        to bottom,
+        rgba(16, 185, 129, 0.13) 0%,
+        transparent 45%,
+        rgba(0, 0, 0, 0.05) 100%
+    );
+}
+
+.keyboard-list-black::after {
+    background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.08) 0%,
+        transparent 45%,
+        rgba(0, 0, 0, 0.15) 100%
+    );
+}
+
+/* Pitch bend cursor: vertical amber line */
+.keyboard-list-pb-cursor {
+    display: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #f59e0b;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 3;
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.85);
+}
+
+/* List-view toggle button in the header */
+.keyboard-header-controls .btn-list-view-toggle {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+.keyboard-header-controls .btn-list-view-toggle:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.keyboard-header-controls .btn-list-view-toggle.active {
+    background: white;
+    color: #047857;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}

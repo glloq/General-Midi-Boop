@@ -49,7 +49,7 @@
         const canvasContainer = document.getElementById('keyboard-canvas-container');
         if (canvasContainer) {
             this._canvasWheelHandler = (e) => {
-                if (this.viewMode !== 'piano' && this.viewMode !== 'piano-slider') return;
+                if (this.viewMode !== 'piano' && this.viewMode !== 'piano-slider' && this.viewMode !== 'keyboard-list') return;
                 e.preventDefault();
                 const delta = Math.sign(e.deltaY);
                 if (delta < 0) {
@@ -155,6 +155,15 @@
                 this.setViewMode('piano');
             } else {
                 this.setViewMode('piano-slider');
+            }
+        });
+
+        // List view toggle
+        document.getElementById('keyboard-list-view-toggle')?.addEventListener('click', () => {
+            if (this.viewMode === 'keyboard-list') {
+                this.setViewMode('piano');
+            } else {
+                this.setViewMode('keyboard-list');
             }
         });
 

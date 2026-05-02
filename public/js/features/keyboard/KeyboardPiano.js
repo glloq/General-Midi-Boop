@@ -65,6 +65,11 @@
                                 <button class="btn-piano-slider-toggle" id="keyboard-piano-slider-toggle" title="${this.t('keyboard.pianoSliderToggle') || 'Mode slider — touches égales + pitch bend'}">⟺</button>
                             </div>
 
+                            <div class="control-group list-view-group" id="keyboard-list-view-group">
+                                <label>${this.t('keyboard.listView') || 'Liste'}</label>
+                                <button class="btn-list-view-toggle" id="keyboard-list-view-toggle" aria-pressed="false" title="${this.t('keyboard.listViewToggle') || 'Vue liste — vélocité (hauteur du clic) et pitch bend (gauche/droite)'}">☰</button>
+                            </div>
+
                             <div class="control-group note-color-group" id="keyboard-note-color-group">
                                 <label>${this.t('keyboard.noteColors') || 'Colors'}</label>
                                 <button class="btn-note-colors" id="keyboard-note-colors-toggle" title="${this.t('keyboard.toggleNoteColors') || 'Toggle note colors'}">🎨</button>
@@ -151,6 +156,7 @@
                                 <div id="piano-slider-container" class="piano-slider-container hidden"></div>
                                 <div id="fretboard-container" class="fretboard-container hidden"></div>
                                 <div id="drumpad-container" class="drumpad-container hidden"></div>
+                                <div id="keyboard-list-container" class="keyboard-list-container hidden"></div>
                             </div>
                             <div class="octave-bar" id="keyboard-octave-bar"></div>
                         </div>
@@ -399,12 +405,17 @@
      * @param {string} mode
      */
     KeyboardPianoMixin.setViewMode = function(mode) {
-        const validModes = ['piano', 'piano-slider', 'fretboard', 'drumpad'];
+        const validModes = ['piano', 'piano-slider', 'fretboard', 'drumpad', 'keyboard-list'];
         if (!validModes.includes(mode)) mode = 'piano';
 
         // Cleanup string slide mode when leaving fretboard
         if (this.viewMode === 'fretboard' && mode !== 'fretboard') {
             if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
+        }
+
+        // Cleanup list view interaction when leaving list mode
+        if (this.viewMode === 'keyboard-list' && mode !== 'keyboard-list') {
+            if (typeof this._destroyKeyboardListInteraction === 'function') this._destroyKeyboardListInteraction();
         }
 
         this.viewMode = mode;
@@ -413,6 +424,7 @@
         const pianoSlider = document.getElementById('piano-slider-container');
         const fretboard = document.getElementById('fretboard-container');
         const drumpad = document.getElementById('drumpad-container');
+        const keyboardList = document.getElementById('keyboard-list-container');
         const octaveBar = document.getElementById('keyboard-octave-bar');
         const minimap = document.getElementById('keyboard-minimap-row');
         if (!piano || !fretboard || !drumpad) return;
@@ -421,17 +433,19 @@
         if (pianoSlider) pianoSlider.classList.toggle('hidden', mode !== 'piano-slider');
         fretboard.classList.toggle('hidden', mode !== 'fretboard');
         drumpad.classList.toggle('hidden', mode !== 'drumpad');
+        if (keyboardList) keyboardList.classList.toggle('hidden', mode !== 'keyboard-list');
 
-        const isPianoFamily = mode === 'piano' || mode === 'piano-slider';
-        // Octave bar + minimap make sense for both piano modes.
-        if (octaveBar) octaveBar.classList.toggle('hidden', !isPianoFamily);
+        // Minimap visible for all piano-family modes (list view uses same note range)
+        const isPianoFamily = mode === 'piano' || mode === 'piano-slider' || mode === 'keyboard-list';
+        // Octave bar only for standard piano modes (list view labels notes directly)
+        if (octaveBar) octaveBar.classList.toggle('hidden', mode !== 'piano' && mode !== 'piano-slider');
         if (minimap) minimap.classList.toggle('hidden', !isPianoFamily);
 
-        // Note-color toggle is relevant in piano and fretboard modes (not piano-slider, not drumpad).
+        // Note-color toggle: not useful for piano-slider, drumpad, or list view
         const noteColorGroup = document.getElementById('keyboard-note-color-group');
-        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode === 'drumpad' || mode === 'piano-slider');
+        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode === 'drumpad' || mode === 'piano-slider' || mode === 'keyboard-list');
 
-        // Update toggle button label (piano-slider shows as 🎹 since it's piano family)
+        // Update view-mode toggle button label (piano-slider/list show 🎹 since they're piano family)
         const btn = document.getElementById('keyboard-view-toggle');
         if (btn) {
             if (mode === 'fretboard') btn.textContent = '🎸';
@@ -446,6 +460,19 @@
             sliderToggle.setAttribute('aria-pressed', mode === 'piano-slider' ? 'true' : 'false');
         }
 
+        // Update list-view toggle button active state
+        const listToggle = document.getElementById('keyboard-list-view-toggle');
+        if (listToggle) {
+            listToggle.classList.toggle('active', mode === 'keyboard-list');
+            listToggle.setAttribute('aria-pressed', mode === 'keyboard-list' ? 'true' : 'false');
+        }
+
+        // Hide list-view toggle when in fretboard/drumpad context
+        const listViewGroup = document.getElementById('keyboard-list-view-group');
+        if (listViewGroup) {
+            listViewGroup.classList.toggle('hidden', mode === 'fretboard' || mode === 'drumpad');
+        }
+
         if (typeof this._updateSlideModeGroupVisibility === 'function') {
             this._updateSlideModeGroupVisibility();
         }
@@ -456,6 +483,9 @@
         if (mode === 'fretboard') this.renderFretboard();
         if (mode === 'drumpad') this.renderDrumPad();
         if (mode === 'piano-slider') this.generatePianoSlider();
+        if (mode === 'keyboard-list') {
+            if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
+        }
         // Regenerate piano keys so colors/state are always in sync when returning to piano view.
         if (mode === 'piano') this.regeneratePianoKeys();
     }
