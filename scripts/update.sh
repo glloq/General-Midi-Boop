@@ -314,10 +314,13 @@ print_info "Current branch: $CURRENT_BRANCH"
 UPDATE_TYPE="${UPDATE_TYPE:-stable}"
 print_info "Update type: $UPDATE_TYPE"
 
-if [ "$UPDATE_TYPE" = "beta" ]; then
+if [ "$UPDATE_TYPE" = "beta" ] && [ -n "$CURRENT_BRANCH" ]; then
     TARGET_BRANCH="$CURRENT_BRANCH"
     print_info "Beta update: staying on branch '$TARGET_BRANCH'"
 else
+    if [ "$UPDATE_TYPE" = "beta" ] && [ -z "$CURRENT_BRANCH" ]; then
+        print_warning "Detached HEAD detected, falling back to stable (main) update"
+    fi
     TARGET_BRANCH="main"
     if [ "$CURRENT_BRANCH" != "main" ]; then
         print_warning "Not on main branch, switching to main..."

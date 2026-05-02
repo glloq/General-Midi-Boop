@@ -189,8 +189,10 @@ async function systemCheckUpdate(app) {
     const stableVersionChanged = !stableUpToDate && stableRemoteVersion !== null && stableRemoteVersion !== APP_VERSION;
 
     // ── Beta channel: current branch (only when different from main) ──
+    // Validate branch name against a safe pattern before interpolating into shell commands.
+    const SAFE_BRANCH_RE = /^[a-zA-Z0-9/_.-]+$/;
     let betaInfo = null;
-    if (currentBranch && currentBranch !== 'main') {
+    if (currentBranch && currentBranch !== 'main' && SAFE_BRANCH_RE.test(currentBranch)) {
       try {
         const lsRemoteBeta = execSync(`git ls-remote origin refs/heads/${currentBranch}`, { cwd, encoding: 'utf8', timeout: 15000 }).trim();
         const betaRemoteHashFull = lsRemoteBeta.split(/\s/)[0] || '';
