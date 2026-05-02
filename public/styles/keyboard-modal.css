@@ -2428,3 +2428,22 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     color: #047857;
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
 }
+
+/* ── Fingers overlay canvas — shown when the instrument has hands_config ── */
+
+/* The canvas is appended inside .piano-container (position:relative) by
+   _mountFingersOverlay().  It must be a replaced-element-safe absolute
+   layer so it floats above the DIV piano keys without blocking clicks.
+   The 10 px inset on left/right matches piano-container's padding so the
+   renderer's per-white-key pixel math aligns with the actual key positions. */
+.km-fingers-canvas {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 0;
+    bottom: 0;
+    /* `width` and `height` are set by the browser from the CSS geometry above;
+       `KeyboardFingersRenderer` reads clientWidth/clientHeight in draw(). */
+    pointer-events: none;
+    z-index: 10;
+}

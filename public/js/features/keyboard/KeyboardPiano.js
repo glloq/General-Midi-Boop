@@ -272,6 +272,13 @@
 
             pianoContainer.appendChild(blackKey);
         }
+
+        // Fingers overlay — mount after keys are in the DOM so the canvas
+        // is appended last (stacked on top visually) and the container has
+        // its layout geometry when requestAnimationFrame fires.
+        if (typeof this._mountFingersOverlay === 'function') {
+            this._mountFingersOverlay();
+        }
     }
 
     /**
@@ -416,6 +423,12 @@
         // Cleanup list view interaction when leaving list mode
         if (this.viewMode === 'keyboard-list' && mode !== 'keyboard-list') {
             if (typeof this._destroyKeyboardListInteraction === 'function') this._destroyKeyboardListInteraction();
+        }
+
+        // Destroy the fingers overlay when leaving piano view — the canvas
+        // lives inside piano-container which will be hidden or regenerated.
+        if (this.viewMode === 'piano' && mode !== 'piano') {
+            if (typeof this._cleanFingersCanvas === 'function') this._cleanFingersCanvas();
         }
 
         this.viewMode = mode;
@@ -1138,4 +1151,110 @@
     }
 
     if (typeof window !== 'undefined') window.KeyboardPianoMixin = KeyboardPianoMixin;
+
+    // ────────────────────────────────────────────────────────────────────────
+    //  Fingers overlay — shows hand / finger positions on the piano keys
+    //  when the selected instrument has hands_config.enabled === true.
+    //  The overlay is a canvas absolutely positioned over the piano-container
+    //  content area (inset: 10 px on left/right to match the container padding).
+    //  KeyboardFingersRenderer handles both `piano` and `chromatic` layouts.
+    // ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Mount (or remount) the canvas + KeyboardFingersRenderer over the piano
+     * keys for the currently selected instrument's hands_config.
+     *
+     * Called at the end of every generatePianoKeys() so it survives the
+     * `pianoContainer.innerHTML = ''` reset.  A no-op when the instrument
+     * has no hands or when KeyboardFingersRenderer isn't loaded.
+     */
+    KeyboardPianoMixin._mountFingersOverlay = function() {
+        if (this.viewMode !== 'piano') return;
+        if (typeof window === 'undefined' || typeof window.KeyboardFingersRenderer !== 'function') return;
+
+        const caps = this.selectedDeviceCapabilities;
+        const handsConfig = caps && caps.hands_config;
+        if (!handsConfig || handsConfig.enabled === false || !Array.isArray(handsConfig.hands) || handsConfig.hands.length === 0) {
+            this._cleanFingersCanvas();
+            return;
+        }
+
+        const pianoContainer = document.getElementById('piano-container');
+        if (!pianoContainer) return;
+
+        // Destroy any previous renderer before creating a new canvas.
+        if (this._fingersRenderer) {
+            this._fingersRenderer.destroy();
+            this._fingersRenderer = null;
+            this._fingersCanvas = null;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'km-fingers-canvas';
+        pianoContainer.appendChild(canvas);
+        this._fingersCanvas = canvas;
+
+        const keyboardType = handsConfig.keyboard_type === 'piano' ? 'piano' : 'chromatic';
+        const rangeMin = this.startNote;
+        const rangeMax = this.startNote + this.visibleNoteCount - 1;
+        const BAND_H = 22;
+
+        const renderer = new window.KeyboardFingersRenderer(canvas, { bandHeight: BAND_H });
+        this._fingersRenderer = renderer;
+
+        renderer.setLayout(keyboardType);
+        // The renderer reads `rangeMin`/`rangeMax` from the kb-widget stub for
+        // white-key geometry; it never calls `keyXAt` so a plain object suffices.
+        renderer.setKeyboardWidget({ rangeMin, rangeMax });
+        renderer.setVisibleExtent({ lo: rangeMin, hi: rangeMax });
+        renderer.setActiveNotes(this.activeNotes instanceof Set ? this.activeNotes : new Set());
+
+        const HAND_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+        const rawHands = handsConfig.hands;
+        const count = rawHands.length;
+        const range = Math.max(1, rangeMax - rangeMin);
+
+        const rendererHands = rawHands.map(function(h, i) {
+            const numFingers = Number.isFinite(h.num_fingers) ? h.num_fingers : 5;
+            const span = Number.isFinite(h.hand_span_semitones)
+                ? h.hand_span_semitones
+                : Math.max(0, numFingers - 1);
+            const center = rangeMin + Math.round(range * (i + 1) / (count + 1));
+            const anchor = Math.max(rangeMin, Math.min(rangeMax - span, center - Math.round(span / 2)));
+            return { id: h.id || ('h' + (i + 1)), span, numFingers, color: HAND_COLORS[i] || '#6b7280', anchor };
+        });
+
+        renderer.setHands(rendererHands);
+        renderer.setAnchors(new Map(rendererHands.map(function(h) { return [h.id, h.anchor]; })));
+
+        requestAnimationFrame(function() {
+            renderer.draw();
+        });
+    };
+
+    /**
+     * Destroy the fingers renderer and remove its canvas from the DOM.
+     * Safe to call multiple times.
+     */
+    KeyboardPianoMixin._cleanFingersCanvas = function() {
+        if (this._fingersRenderer) {
+            this._fingersRenderer.destroy();
+            this._fingersRenderer = null;
+        }
+        if (this._fingersCanvas) {
+            this._fingersCanvas.remove();
+            this._fingersCanvas = null;
+        }
+    };
+
+    /**
+     * Refresh the active-notes state on the overlay so fingers that map to
+     * currently-sounding keys highlight in the accent colour.
+     * Called from updatePianoDisplay() on every note-on / note-off.
+     */
+    KeyboardPianoMixin._updateFingersActiveNotes = function() {
+        if (!this._fingersRenderer) return;
+        this._fingersRenderer.setActiveNotes(this.activeNotes instanceof Set ? this.activeNotes : new Set());
+        this._fingersRenderer.draw();
+    };
 })();
