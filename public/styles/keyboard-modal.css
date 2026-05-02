@@ -2268,79 +2268,100 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 }
 
 /* ============================================================================
-   KEYBOARD LIST VIEW
+   KEYBOARD LIST VIEW — Clavier horizontal compact avec fondu entre les notes
    ============================================================================ */
 
+/* Container: hauteur fixe, fond sombre, overflow caché pour isoler le glow */
 .keyboard-list-container {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 6px 8px;
-    gap: 2px;
-    background: #1a1a2e;
-    min-height: 0;
+    width: 100%;
+    height: 88px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    position: relative;
+    overflow: hidden;
+    background: #111827;
+    border-radius: 8px;
 }
 
-.keyboard-list-container::-webkit-scrollbar { width: 6px; }
-.keyboard-list-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-.keyboard-list-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+/* Glow layer: gradient radial centré sur --glow-x → fondu vers les notes voisines */
+.keyboard-list-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse var(--glow-w, 10%) 110% at var(--glow-x, 50%) 50%,
+        rgba(16, 185, 129, 0.60) 0%,
+        rgba(16, 185, 129, 0.22) 45%,
+        transparent 72%
+    );
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.08s, background-position 0.03s;
+}
 
+.keyboard-list-container.has-active-note::before {
+    opacity: 1;
+}
+
+/* Ligne de touches: flex horizontal */
+.keyboard-list-keys-row {
+    display: flex;
+    height: 100%;
+    position: relative;
+    z-index: 2;
+}
+
+/* Touche individuelle */
 .keyboard-list-key {
+    flex: 1;
     position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    flex: 1;
-    min-height: 22px;
-    border-radius: 5px;
+    justify-content: flex-end;
+    padding-bottom: 5px;
     cursor: pointer;
     user-select: none;
     overflow: hidden;
-    transition: background 0.07s, box-shadow 0.07s;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.06s;
+}
+
+.keyboard-list-key:last-child {
+    border-right: none;
 }
 
 .keyboard-list-white {
-    background: linear-gradient(to right, #f0f0f0 0%, #e0e0e0 100%);
-    border: 1px solid #bbb;
-    color: #333;
+    background: rgba(255, 255, 255, 0.075);
+    color: rgba(255, 255, 255, 0.65);
 }
 
 .keyboard-list-white:hover {
-    background: linear-gradient(to right, #e8f5e9 0%, #d5e8d5 100%);
+    background: rgba(255, 255, 255, 0.13);
 }
 
 .keyboard-list-black {
-    background: linear-gradient(to right, #2a2a2a 0%, #1a1a1a 100%);
-    border: 1px solid #555;
-    color: #ccc;
+    background: rgba(0, 0, 0, 0.32);
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .keyboard-list-black:hover {
-    background: linear-gradient(to right, #3a3a3a 0%, #2a2a2a 100%);
+    background: rgba(0, 0, 0, 0.16);
 }
 
-/* C notes get a green left border to mark octave boundaries */
+/* Marqueur d'octave : bordure gauche verte sur chaque Do */
 .keyboard-list-c {
-    border-left: 3px solid #10b981 !important;
+    border-left: 2px solid rgba(16, 185, 129, 0.55) !important;
 }
 
-.keyboard-list-key.active.keyboard-list-white {
-    background: linear-gradient(to right, #10b981 0%, #059669 100%) !important;
-    border-color: #047857;
-    color: white;
-    box-shadow: inset 0 1px 4px rgba(0,0,0,0.2), 0 0 6px rgba(16,185,129,0.5);
-}
-
-.keyboard-list-key.active.keyboard-list-black {
-    background: linear-gradient(to right, #059669 0%, #047857 100%) !important;
-    border-color: #065f46;
-    color: white;
-    box-shadow: inset 0 1px 4px rgba(0,0,0,0.3), 0 0 6px rgba(16,185,129,0.5);
+/* Touche active (note jouée) */
+.keyboard-list-key.active {
+    background: rgba(16, 185, 129, 0.28) !important;
 }
 
 .keyboard-list-key.disabled {
-    opacity: 0.3;
+    opacity: 0.2;
     cursor: not-allowed;
 }
 
@@ -2348,45 +2369,35 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     background: inherit;
 }
 
+/* Étiquette de note (C uniquement par défaut, ou toutes si peu de notes) */
 .keyboard-list-key-label {
-    padding: 0 10px;
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 600;
     font-family: 'Courier New', monospace;
+    color: rgba(255, 255, 255, 0.5);
     pointer-events: none;
+    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
     z-index: 1;
-    min-width: 52px;
-    flex-shrink: 0;
 }
 
-/* Velocity gradient hint: top = louder (green tint), bottom = softer */
-.keyboard-list-white::after,
-.keyboard-list-black::after {
+/* Dégradé vélocité: haut = plus fort (teinte verte), bas = plus doux */
+.keyboard-list-key::after {
     content: '';
     position: absolute;
     inset: 0;
+    background: linear-gradient(
+        to bottom,
+        rgba(16, 185, 129, 0.09) 0%,
+        transparent 50%,
+        rgba(0, 0, 0, 0.09) 100%
+    );
     pointer-events: none;
+    z-index: 0;
 }
 
-.keyboard-list-white::after {
-    background: linear-gradient(
-        to bottom,
-        rgba(16, 185, 129, 0.13) 0%,
-        transparent 45%,
-        rgba(0, 0, 0, 0.05) 100%
-    );
-}
-
-.keyboard-list-black::after {
-    background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.08) 0%,
-        transparent 45%,
-        rgba(0, 0, 0, 0.15) 100%
-    );
-}
-
-/* Pitch bend cursor: vertical amber line */
+/* Curseur pitch bend: ligne verticale ambrée qui suit le X dans la touche */
 .keyboard-list-pb-cursor {
     display: none;
     position: absolute;
@@ -2396,11 +2407,11 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     background: #f59e0b;
     transform: translateX(-50%);
     pointer-events: none;
-    z-index: 3;
-    box-shadow: 0 0 5px rgba(245, 158, 11, 0.85);
+    z-index: 4;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.9);
 }
 
-/* List-view toggle button in the header */
+/* Bouton de bascule vue liste dans le header */
 .keyboard-header-controls .btn-list-view-toggle {
     padding: 4px 10px;
     background: rgba(255, 255, 255, 0.2);
