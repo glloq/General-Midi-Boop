@@ -308,28 +308,39 @@ _update_status "pulling"
 CURRENT_BRANCH=$(git branch --show-current)
 print_info "Current branch: $CURRENT_BRANCH"
 
-# Switch to main if not already on it
-if [ "$CURRENT_BRANCH" != "main" ]; then
-    print_warning "Not on main branch, switching to main..."
-    if git checkout main; then
-        print_success "Switched to main branch"
-    else
-        abort_and_restart "Failed to switch to main branch"
-    fi
+# Determine target branch from UPDATE_TYPE env var
+# stable (default) → always update from main
+# beta             → stay on current branch and pull latest
+UPDATE_TYPE="${UPDATE_TYPE:-stable}"
+print_info "Update type: $UPDATE_TYPE"
+
+if [ "$UPDATE_TYPE" = "beta" ]; then
+    TARGET_BRANCH="$CURRENT_BRANCH"
+    print_info "Beta update: staying on branch '$TARGET_BRANCH'"
 else
-    print_success "Already on main branch"
+    TARGET_BRANCH="main"
+    if [ "$CURRENT_BRANCH" != "main" ]; then
+        print_warning "Not on main branch, switching to main..."
+        if git checkout main; then
+            print_success "Switched to main branch"
+        else
+            abort_and_restart "Failed to switch to main branch"
+        fi
+    else
+        print_success "Already on main branch"
+    fi
 fi
 
 # Fetch latest changes
-print_info "Fetching from origin/main..."
-git fetch origin main || true
+print_info "Fetching from origin/$TARGET_BRANCH..."
+git fetch origin "$TARGET_BRANCH" || true
 
-# Pull changes from main
-print_info "Pulling latest changes from main..."
-if git pull origin main; then
-    print_success "Successfully pulled latest changes from main"
+# Pull changes
+print_info "Pulling latest changes from $TARGET_BRANCH..."
+if git pull origin "$TARGET_BRANCH"; then
+    print_success "Successfully pulled latest changes from $TARGET_BRANCH"
 else
-    abort_and_restart "Failed to pull changes from main"
+    abort_and_restart "Failed to pull changes from $TARGET_BRANCH"
 fi
 
 # Show what changed

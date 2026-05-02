@@ -16,22 +16,48 @@
     // Maximum time to wait for the update to complete (5 minutes)
     const UPDATE_TIMEOUT_MS = 5 * 60 * 1000;
 
+    // ─────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    SettingsUpdate._getUpdateBtn = function() {
+        const btnId = (this._updateType === 'beta') ? '#betaUpdateBtn' : '#stableUpdateBtn';
+        return this.modal?.querySelector(btnId);
+    };
+
+    SettingsUpdate._getUpdateBtnLabel = function() {
+        if (this._updateType === 'beta') {
+            return '🧪 ' + (i18n.t('settings.update.betaButton') || 'Installer bêta');
+        }
+        return '📦 ' + (i18n.t('settings.update.stableButton') || 'Installer stable');
+    };
+
+    // ─────────────────────────────────────────────────────────────────
+    // Trigger update
+    // ─────────────────────────────────────────────────────────────────
+
     /**
-     * Trigger system update via backend
+     * Trigger system update via backend.
+     * @param {'stable'|'beta'} type
      */
-    SettingsUpdate.triggerSystemUpdate = async function() {
+    SettingsUpdate.triggerSystemUpdate = async function(type) {
         if (this._updateInProgress) return;
 
-        const btn = this.modal.querySelector('#systemUpdateBtn');
+        this._updateType = type || 'stable';
+
+        const btn = this._getUpdateBtn();
         const statusEl = this.modal.querySelector('#updateStatus');
         if (!btn || !statusEl) return;
 
-        // Confirm with project modal
+        const confirmTitle = this._updateType === 'beta'
+            ? (i18n.t('settings.update.confirmTitleBeta') || 'Installer la version bêta')
+            : (i18n.t('settings.update.confirmTitle') || 'Installer la mise à jour stable');
+
         const confirmed = await window.showConfirm(
             i18n.t('settings.update.confirmMessage') || 'Le système va télécharger la dernière version, mettre à jour les dépendances et redémarrer le serveur.\n\nL\'application sera temporairement indisponible pendant la mise à jour.',
             {
-                title: i18n.t('settings.update.confirmTitle') || 'Installer la mise à jour',
-                icon: '🔄',
+                title: confirmTitle,
+                icon: this._updateType === 'beta' ? '🧪' : '🔄',
                 okText: i18n.t('settings.update.confirmOk') || 'Lancer la mise à jour',
                 cancelText: i18n.t('common.cancel') || 'Annuler',
                 danger: false
@@ -50,7 +76,7 @@
         // Take over the confirm modal to show update progress
         this._showUpdateInModal();
 
-        // Also update the settings modal button (for when it's reopened)
+        // Also update the button (for when the modal is reopened)
         btn.disabled = true;
         btn.innerHTML = '⏳ ' + (i18n.t('settings.update.inProgress') || 'Mise à jour en cours...');
         btn.style.opacity = '0.7';
@@ -64,32 +90,36 @@
             if (!api || !api.sendCommand) {
                 throw new Error('API not available');
             }
-            console.log('[SystemUpdate] Sending system_update command...');
-            const result = await api.sendCommand('system_update', {}, 300000);
+            console.log(`[SystemUpdate] Sending system_update command (type: ${this._updateType})...`);
+            const result = await api.sendCommand('system_update', { type: this._updateType }, 300000);
             console.log('[SystemUpdate] Response received:', JSON.stringify(result));
             if (result && result.success === false) {
                 throw new Error(result.error || 'Update failed to start');
             }
-            // Backend accepted the update — status polling handles the rest
             console.log('[SystemUpdate] Update command accepted, polling active');
         } catch (error) {
             console.error('[SystemUpdate] Error:', error.message);
             const msg = (error.message || '').toLowerCase();
-            // WebSocket disconnect or timeout during update = server is restarting, polling continues
             if (msg.includes('websocket') || msg.includes('connection') || msg.includes('closed') || msg.includes('disconnected') || msg.includes('timeout')) {
                 console.log('[SystemUpdate] Connection lost during update — polling continues');
             } else {
-                // Real error — stop everything
                 console.error('[SystemUpdate] Real error, showing failure UI');
                 this._cleanupUpdatePolling();
                 this._showUpdateErrorInModal(error.message);
-                btn.disabled = false;
-                btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
-                btn.style.opacity = '1';
+                const b = this._getUpdateBtn();
+                if (b) {
+                    b.disabled = false;
+                    b.innerHTML = this._getUpdateBtnLabel();
+                    b.style.opacity = '1';
+                }
                 this._updateInProgress = false;
             }
         }
     };
+
+    // ─────────────────────────────────────────────────────────────────
+    // Progress modal
+    // ─────────────────────────────────────────────────────────────────
 
     /**
      * Take over the confirm modal to display update progress
@@ -103,26 +133,21 @@
 
         if (!modal || !icon || !title || !messageEl || !buttons) return;
 
-        // Show the modal
         modal.classList.add('visible');
 
-        // Block ESC key during update
         this._updateModalEscHandler = (e) => {
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
         };
         document.addEventListener('keydown', this._updateModalEscHandler, true);
 
-        // Block overlay click during update
         this._updateModalClickHandler = (e) => {
             if (e.target === modal) { e.preventDefault(); e.stopPropagation(); }
         };
         modal.addEventListener('click', this._updateModalClickHandler, true);
 
-        // Set initial content
-        icon.textContent = '🔄';
+        icon.textContent = this._updateType === 'beta' ? '🧪' : '🔄';
         title.textContent = i18n.t('settings.update.inProgress') || 'Mise à jour en cours...';
 
-        // Insert persistent cache tip banner at the very top of the modal
         const modalInner = modal.querySelector('.confirm-modal');
         let tipBanner = modal.querySelector('#updateCacheTip');
         if (!tipBanner && modalInner) {
@@ -142,35 +167,31 @@
             </div>
             <div style="text-align: center; margin-top: 8px; font-size: 12px; opacity: 0.6;">5%</div>
         `;
-        buttons.innerHTML = ''; // No buttons during update
+        buttons.innerHTML = '';
 
-        // Store refs for status updates
         this._updateModalRefs = { modal, icon, title, messageEl, buttons };
 
-        // Start the single polling loop that handles the entire update lifecycle
         this._startUpdatePolling();
     };
 
+    // ─────────────────────────────────────────────────────────────────
+    // Polling loop
+    // ─────────────────────────────────────────────────────────────────
+
     /**
-     * Single polling loop that handles the entire update lifecycle:
-     * - Shows step progress when server responds
-     * - Shows "waiting for restart" when server is down
-     * - Triggers reload when "done" is detected
-     * - Shows error when "failed" is detected
-     * - Times out after 5 minutes
+     * Single polling loop handling the entire update lifecycle.
      */
     SettingsUpdate._startUpdatePolling = function() {
         this._cleanupUpdatePolling();
 
         const startTime = Date.now();
         let serverDownSince = null;
-        let restartingSince = null;  // Track when "restarting" was first seen
-        let serverWasDown = false;   // Track if we ever lost contact
+        let restartingSince = null;
+        let serverWasDown = false;
 
         const poll = async () => {
             if (!this._updateModalRefs || this._reloadTriggered) return;
 
-            // Global timeout
             if (Date.now() - startTime > UPDATE_TIMEOUT_MS) {
                 this._updateInProgress = false;
                 this._showUpdateTimeoutInModal();
@@ -189,7 +210,6 @@
                 if (resp.ok) {
                     const data = await resp.json();
 
-                    // Server is responding
                     const wasDown = serverDownSince !== null;
                     if (wasDown) serverWasDown = true;
                     serverDownSince = null;
@@ -202,49 +222,40 @@
                             step = 'script_started';
                         }
 
-                        // Handle failure
                         if (step === 'failed') {
                             const reason = rawStatus.replace(/^failed:\s*/, '');
                             this._showUpdateErrorInModal(reason);
                             this._updateInProgress = false;
-                            const btn = this.modal?.querySelector('#systemUpdateBtn');
-                            if (btn) {
-                                btn.disabled = false;
-                                btn.innerHTML = '🔄 ' + (i18n.t('settings.update.button') || 'Installer la mise à jour');
-                                btn.style.opacity = '1';
+                            const b = this._getUpdateBtn();
+                            if (b) {
+                                b.disabled = false;
+                                b.innerHTML = this._getUpdateBtnLabel();
+                                b.style.opacity = '1';
                             }
-                            return; // Stop polling
+                            return;
                         }
 
-                        // Handle done — trigger reload
                         if (step === 'done') {
                             console.log('[SystemUpdate] Status polling detected "done" — reloading');
                             this._updateInProgress = false;
                             this._doCacheClearAndReload();
-                            return; // Stop polling
+                            return;
                         }
 
-                        // Track "restarting" stuck state:
-                        // The update script can be killed by PM2 treekill during server restart,
-                        // leaving the status file stuck on "restarting" forever.
-                        // If the server is back online and status is still "restarting" for 20s+,
-                        // OR if the server was down and came back (restart confirmed), trigger reload.
                         if (step === 'restarting') {
                             if (!restartingSince) restartingSince = Date.now();
-
                             const stuckDuration = Date.now() - restartingSince;
                             if (serverWasDown || stuckDuration > 20000) {
                                 console.log('[SystemUpdate] Status stuck on "restarting" — server is back, triggering reload',
                                     '(serverWasDown:', serverWasDown, 'stuckMs:', stuckDuration, ')');
                                 this._updateInProgress = false;
                                 this._doCacheClearAndReload();
-                                return; // Stop polling
+                                return;
                             }
                         } else {
                             restartingSince = null;
                         }
 
-                        // Show step progress
                         const stepInfo = UPDATE_STEPS[step];
                         if (stepInfo && this._updateModalRefs) {
                             const { messageEl } = this._updateModalRefs;
@@ -263,13 +274,11 @@
                     }
                 }
             } catch (e) {
-                // Any fetch error = server is down (network error, timeout, abort)
                 if (!serverDownSince) {
                     serverDownSince = Date.now();
                     console.log('[SystemUpdate] Server unreachable — waiting for restart');
                 }
 
-                // Show "waiting for restart" with elapsed time
                 if (this._updateModalRefs) {
                     const elapsedSec = Math.round((Date.now() - serverDownSince) / 1000);
                     const mins = Math.floor(elapsedSec / 60);
@@ -290,20 +299,18 @@
                 }
             }
 
-            // Schedule next poll (recursive setTimeout = no overlap)
             this._updatePollTimer = setTimeout(poll, 2000);
         };
 
-        // Start first poll
         this._updatePollTimer = setTimeout(poll, 1000);
     };
 
-    /**
-     * Show timeout state in modal
-     */
+    // ─────────────────────────────────────────────────────────────────
+    // Modal states
+    // ─────────────────────────────────────────────────────────────────
+
     SettingsUpdate._showUpdateTimeoutInModal = function() {
         if (!this._updateModalRefs) return;
-
         const { icon, title, messageEl, buttons } = this._updateModalRefs;
         icon.textContent = '⚠️';
         title.textContent = i18n.t('settings.update.restartTimeout') || 'Le serveur ne répond pas';
@@ -322,9 +329,6 @@
         this._removeUpdateModalBlockers();
     };
 
-    /**
-     * Show success in modal, clear caches, and reload the page
-     */
     SettingsUpdate._doCacheClearAndReload = function() {
         if (this._reloadTriggered) return;
         this._reloadTriggered = true;
@@ -361,12 +365,8 @@
         }, 1000);
     };
 
-    /**
-     * Show error state in the confirm modal
-     */
     SettingsUpdate._showUpdateErrorInModal = function(errorMessage) {
         if (!this._updateModalRefs) return;
-
         const { icon, title, messageEl, buttons } = this._updateModalRefs;
         icon.textContent = '❌';
         title.textContent = i18n.t('settings.update.failed') || 'Échec de la mise à jour';
@@ -385,9 +385,6 @@
         this._removeUpdateModalBlockers();
     };
 
-    /**
-     * Remove ESC and overlay click blockers from the confirm modal
-     */
     SettingsUpdate._removeUpdateModalBlockers = function() {
         if (this._updateModalEscHandler) {
             document.removeEventListener('keydown', this._updateModalEscHandler, true);
@@ -399,12 +396,8 @@
         }
     };
 
-    /**
-     * Clean up the confirm modal and restore it to its default state
-     */
     SettingsUpdate._cleanupUpdateModal = function() {
         this._removeUpdateModalBlockers();
-        // Remove the cache tip banner
         const tip = document.getElementById('updateCacheTip');
         if (tip) tip.remove();
         if (this._updateModalRefs) {
@@ -413,61 +406,120 @@
         }
     };
 
+    // ─────────────────────────────────────────────────────────────────
+    // Check for updates
+    // ─────────────────────────────────────────────────────────────────
+
     /**
-     * Check for available updates
+     * Query the backend for stable + beta update status and populate both
+     * channel panels in the settings modal.
      */
     SettingsUpdate.checkForUpdates = async function() {
         if (this._updateInProgress) return;
 
-        const statusEl = this.modal.querySelector('#versionStatus');
-        if (!statusEl) return;
+        const stableStatusEl = this.modal.querySelector('#stableVersionStatus');
+        if (!stableStatusEl) return;
+        const betaStatusEl = this.modal.querySelector('#betaVersionStatus');
 
-        statusEl.style.background = '#f3f4f6';
-        statusEl.style.color = '#666';
-        statusEl.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span><span>${i18n.t('settings.update.checking') || 'Vérification des mises à jour...'}</span>`;
+        const loadingHtml = `<span style="animation: pulse 1.5s infinite;">⏳</span><span>${i18n.t('settings.update.checking') || 'Vérification...'}</span>`;
+        stableStatusEl.style.cssText = 'padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;';
+        stableStatusEl.innerHTML = loadingHtml;
+        if (betaStatusEl) {
+            betaStatusEl.style.cssText = 'padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;';
+            betaStatusEl.innerHTML = loadingHtml;
+        }
 
         try {
             const api = window.api || window.apiClient;
             if (!api || !api.sendCommand) {
-                this.logger?.error('checkForUpdates: API not available', { api: !!api, sendCommand: !!(api && api.sendCommand) });
-                statusEl.style.background = '#fefce8';
-                statusEl.style.color = '#a16207';
-                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (API non disponible)</span>`;
+                const errHtml = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier'} (API non disponible)</span>`;
+                stableStatusEl.style.background = '#fefce8';
+                stableStatusEl.style.color = '#a16207';
+                stableStatusEl.innerHTML = errHtml;
+                if (betaStatusEl) { betaStatusEl.style.background = '#fefce8'; betaStatusEl.style.color = '#a16207'; betaStatusEl.innerHTML = errHtml; }
                 return;
             }
 
             const result = await api.sendCommand('system_check_update', {}, 20000);
 
             if (result.error) {
-                this.logger?.error('checkForUpdates: backend error', result.error);
-                statusEl.style.background = '#fefce8';
-                statusEl.style.color = '#a16207';
-                statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (${escapeHtml(result.error)})</span>`;
+                const errHtml = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier'} (${escapeHtml(result.error)})</span>`;
+                stableStatusEl.style.background = '#fefce8'; stableStatusEl.style.color = '#a16207';
+                stableStatusEl.innerHTML = errHtml;
+                if (betaStatusEl) { betaStatusEl.style.background = '#fefce8'; betaStatusEl.style.color = '#a16207'; betaStatusEl.innerHTML = errHtml; }
                 return;
             }
 
-            if (result.upToDate) {
-                statusEl.style.background = '#f0fdf4';
-                statusEl.style.color = '#16a34a';
-                statusEl.innerHTML = `<span>✅</span><span><strong>${i18n.t('settings.update.upToDate') || 'Le système est à jour'}</strong> — v${escapeHtml(result.version)} (${escapeHtml(result.localHash)})</span>`;
+            // ── Stable channel ──
+            const stable = result.stable || {
+                upToDate: result.upToDate,
+                behindCount: result.behindCount || 0,
+                remoteHash: result.remoteHash,
+                versionChanged: false,
+                remoteVersion: null
+            };
+            const stableChannel = this.modal.querySelector('#stableUpdateChannel');
+            const stableBtn = this.modal.querySelector('#stableUpdateBtn');
+
+            if (stable.upToDate) {
+                stableStatusEl.style.background = '#f0fdf4'; stableStatusEl.style.color = '#16a34a';
+                stableStatusEl.innerHTML = `<span>✅</span><span><strong>${i18n.t('settings.update.upToDate') || 'À jour'}</strong> — v${escapeHtml(result.version)} (${escapeHtml(stable.remoteHash || result.localHash)})</span>`;
+                if (stableBtn) stableBtn.disabled = true;
+            } else if (stable.versionChanged) {
+                // New version number — highlight prominently
+                stableStatusEl.style.background = '#dcfce7'; stableStatusEl.style.color = '#15803d';
+                stableStatusEl.innerHTML = `<span>🆕</span><span><strong>${i18n.t('settings.update.newVersion') || 'Nouvelle version'} : v${escapeHtml(stable.remoteVersion)}</strong> — ${i18n.t('settings.update.currentVersion') || 'actuellement'} v${escapeHtml(result.version)}</span>`;
+                if (stableChannel) {
+                    stableChannel.style.borderColor = '#16a34a';
+                    stableChannel.style.boxShadow = '0 0 0 3px rgba(22, 163, 74, 0.15)';
+                }
+                if (stableBtn) {
+                    stableBtn.style.background = 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)';
+                    stableBtn.style.boxShadow = '0 2px 12px rgba(22, 163, 74, 0.4)';
+                    stableBtn.innerHTML = `🆕 v${escapeHtml(stable.remoteVersion)}`;
+                }
             } else {
-                const count = result.behindCount || 0;
+                const count = stable.behindCount || 0;
                 const plural = count > 1 ? 's' : '';
-                statusEl.style.background = '#fef3c7';
-                statusEl.style.color = '#92400e';
-                statusEl.innerHTML = `<span>🔶</span><span><strong>${i18n.t('settings.update.updateAvailable') || 'Mise à jour disponible'}</strong> — ${count} commit${plural} en retard (${escapeHtml(result.localHash)} → ${escapeHtml(result.remoteHash)})</span>`;
+                stableStatusEl.style.background = '#fef3c7'; stableStatusEl.style.color = '#92400e';
+                stableStatusEl.innerHTML = `<span>🔶</span><span><strong>${i18n.t('settings.update.updateAvailable') || 'Mise à jour disponible'}</strong> — ${count} commit${plural} (${escapeHtml(result.localHash)} → ${escapeHtml(stable.remoteHash)})</span>`;
             }
+
+            // ── Beta channel ──
+            const betaChannel = this.modal.querySelector('#betaUpdateChannel');
+            if (!result.beta) {
+                // Not on a beta branch — hide the canal entirely
+                if (betaChannel) betaChannel.style.display = 'none';
+            } else {
+                const beta = result.beta;
+                if (betaStatusEl) {
+                    if (beta.upToDate) {
+                        betaStatusEl.style.background = '#f0fdf4'; betaStatusEl.style.color = '#16a34a';
+                        betaStatusEl.innerHTML = `<span>✅</span><span>${i18n.t('settings.update.upToDate') || 'À jour'} (${escapeHtml(beta.remoteHash)})</span>`;
+                        const betaBtn = this.modal.querySelector('#betaUpdateBtn');
+                        if (betaBtn) betaBtn.disabled = true;
+                    } else {
+                        const count = beta.behindCount || 0;
+                        const plural = count > 1 ? 's' : '';
+                        betaStatusEl.style.background = '#fef3c7'; betaStatusEl.style.color = '#92400e';
+                        betaStatusEl.innerHTML = `<span>🔶</span><span><strong>${count} commit${plural}</strong> bêta disponibles (→ ${escapeHtml(beta.remoteHash)})</span>`;
+                    }
+                }
+            }
+
         } catch (error) {
             this.logger?.error('checkForUpdates: exception', error.message);
-            statusEl.style.background = '#fefce8';
-            statusEl.style.color = '#a16207';
-            statusEl.innerHTML = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier les mises à jour'} (${escapeHtml(error.message)})</span>`;
+            const errHtml = `<span>⚠️</span><span>${i18n.t('settings.update.checkFailed') || 'Impossible de vérifier'} (${escapeHtml(error.message)})</span>`;
+            stableStatusEl.style.background = '#fefce8'; stableStatusEl.style.color = '#a16207';
+            stableStatusEl.innerHTML = errHtml;
+            if (betaStatusEl) { betaStatusEl.style.background = '#fefce8'; betaStatusEl.style.color = '#a16207'; betaStatusEl.innerHTML = errHtml; }
         }
     };
 
-    /**
-     * Stop update polling
-     */
+    // ─────────────────────────────────────────────────────────────────
+    // Cleanup
+    // ─────────────────────────────────────────────────────────────────
+
     SettingsUpdate._cleanupUpdatePolling = function() {
         if (this._updatePollTimer) {
             clearTimeout(this._updatePollTimer);
