@@ -323,6 +323,81 @@ class FileManager {
     return { success: true };
   }
 
+  /**
+   * Bake all adaptation CC events (string/fret/hand-position) into the MIDI
+   * file and replace the stored blob in-place. Uses {@link MidiBaker} to
+   * generate the enriched binary, then follows the same persist + broadcast
+   * flow as {@link FileManager#saveFile}.
+   *
+   * @param {number|string} fileId
+   * @returns {Promise<{success:true, stats:{cc_events_added:number}}>}
+   */
+  async bakeAndSave(fileId) {
+    const file = this.app.database.getFile(fileId);
+    if (!file) throw new Error(`File not found: ${fileId}`);
+
+    const { buffer, stats } = await this.app.midiBaker.bake(Number(fileId));
+
+    const newBlob = this.app.blobStore.write(buffer);
+
+    if (newBlob.hash !== file.content_hash) {
+      const collision = this.app.database.midiDB.getFileByContentHash(newBlob.hash);
+      if (collision && collision.id !== file.id) {
+        if (!newBlob.deduplicated) this._safeBlobDelete(newBlob.relativePath);
+        throw new Error(
+          `Baked file would collide with existing file id=${collision.id} (identical content hash)`
+        );
+      }
+    }
+
+    const parsed = parseMidi(buffer);
+    const metadata = this.midiFileParser.extractMetadata(parsed);
+    const tempoMap = this.midiFileParser.extractTempoMap(parsed);
+    const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
+
+    const oldBlobPath = file.blob_path;
+    const persist = this.app.database.transaction(() => {
+      this.app.database.updateFile(fileId, {
+        blob_path: newBlob.relativePath,
+        size: buffer.length,
+        tracks: parsed.tracks.length,
+        duration: metadata.duration,
+        tempo: metadata.tempo,
+        ppq: parsed.header.ticksPerBeat || 480,
+        ...instrumentMetadata.fileMetadata
+      });
+      if (newBlob.hash !== file.content_hash) {
+        this.app.database.db
+          .prepare('UPDATE midi_files SET content_hash = ? WHERE id = ?')
+          .run(newBlob.hash, fileId);
+      }
+      this.app.database.deleteFileChannels(fileId);
+      if (instrumentMetadata.channelDetails.length > 0) {
+        this.app.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
+      }
+      this.app.database.midiDB.deleteFileTempoMap(fileId);
+      if (tempoMap.length > 0) {
+        this.app.database.midiDB.insertFileTempoMap(fileId, tempoMap);
+      }
+    });
+    persist();
+
+    if (oldBlobPath && oldBlobPath !== newBlob.relativePath) {
+      this._safeBlobDelete(oldBlobPath);
+    }
+
+    if (this.app.autoAssigner) this.app.autoAssigner.invalidateCache(fileId);
+
+    this.app.logger.info(
+      `File baked: ${fileId} (+${stats.cc_events_added} CC events, hash=${newBlob.hash.slice(0, 8)}…)`
+    );
+    if (this.app.eventBus) {
+      this.app.eventBus.emit('file_write', { fileId, contentHash: newBlob.hash });
+    }
+    this.broadcastFileList();
+    return { success: true, stats };
+  }
+
   async renameFile(fileId, newFilename) {
     const file = this.app.database.getFileInfo(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
