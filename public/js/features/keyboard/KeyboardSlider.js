@@ -199,6 +199,142 @@
         if (indicator) indicator.style.display = 'none';
     };
 
+    // ── Piano slider (equal-width keys + pitch bend) ──────────────────────────
+
+    /**
+     * Show or hide the piano-slider toggle button.
+     * Visible only when in piano family modes and `pitch_bend_enabled` is set.
+     */
+    KeyboardSliderMixin._updatePianoSliderGroupVisibility = function () {
+        const group = document.getElementById('keyboard-piano-slider-group');
+        if (!group) return;
+        const isPianoFamily = this.viewMode === 'piano' || this.viewMode === 'piano-slider';
+        const caps = this.selectedDeviceCapabilities;
+        const enabled = !!(caps && caps.pitch_bend_enabled);
+        const show = isPianoFamily && enabled;
+        group.classList.toggle('hidden', !show);
+        // If pitch bend was just disabled while slider mode is active, revert to piano.
+        if (!show && this.viewMode === 'piano-slider') {
+            this.setViewMode('piano');
+        }
+    };
+
+    /**
+     * Initialize drag handlers on the piano slider strip.
+     * Called by generatePianoSlider() after building the DOM.
+     * @param {HTMLElement} strip
+     */
+    KeyboardSliderMixin.initPianoSliderDrag = function (strip) {
+        // Tear down any previous handlers
+        this._destroyPianoSliderDrag(strip);
+
+        let activeNote = null;
+
+        const getPos = (clientX) => {
+            const rect = strip.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1 - 1e-9, (clientX - rect.left) / rect.width));
+            const exactOffset = ratio * this.visibleNoteCount;
+            const noteOffset = Math.floor(exactOffset);
+            const fraction = exactOffset - noteOffset;        // 0..1 within cell
+            const note = Math.min(127, Math.max(0, this.startNote + noteOffset));
+            // bend: center of cell = 0, right edge = +4096 (≈1 semitone up)
+            const bend = Math.round(fraction * 4096);
+            const cursorPct = (exactOffset / this.visibleNoteCount) * 100;
+            return { note, bend, cursorPct };
+        };
+
+        const updateCursor = (pct) => {
+            const cursor = document.getElementById('piano-slider-cursor');
+            if (cursor) {
+                cursor.style.left = pct + '%';
+                cursor.style.display = 'block';
+            }
+        };
+
+        const hideCursor = () => {
+            const cursor = document.getElementById('piano-slider-cursor');
+            if (cursor) cursor.style.display = 'none';
+        };
+
+        const updateActiveKey = (note) => {
+            strip.querySelectorAll('.piano-slider-key.active').forEach(k => k.classList.remove('active'));
+            const key = strip.querySelector(`.piano-slider-key[data-note="${note}"]`);
+            if (key) key.classList.add('active');
+        };
+
+        const onDown = (clientX) => {
+            const { note, bend, cursorPct } = getPos(clientX);
+            activeNote = note;
+            this._sendPitchBend(bend);
+            this.playNote(note);
+            updateActiveKey(note);
+            updateCursor(cursorPct);
+        };
+
+        const onMove = (clientX) => {
+            if (activeNote === null) return;
+            const { note, bend, cursorPct } = getPos(clientX);
+            this._sendPitchBend(bend);
+            if (note !== activeNote) {
+                this.stopNote(activeNote);
+                activeNote = note;
+                this.playNote(note);
+                updateActiveKey(note);
+            }
+            updateCursor(cursorPct);
+        };
+
+        const onUp = () => {
+            if (activeNote !== null) {
+                this._sendPitchBend(0);
+                this.stopNote(activeNote);
+                activeNote = null;
+            }
+            strip.querySelectorAll('.piano-slider-key.active').forEach(k => k.classList.remove('active'));
+            hideCursor();
+        };
+
+        const mouseDown = (e) => {
+            e.preventDefault();
+            onDown(e.clientX);
+            const moveH = (ev) => onMove(ev.clientX);
+            const upH = () => {
+                onUp();
+                document.removeEventListener('mousemove', moveH);
+                document.removeEventListener('mouseup', upH);
+            };
+            document.addEventListener('mousemove', moveH);
+            document.addEventListener('mouseup', upH);
+        };
+
+        const touchStart = (e) => {
+            e.preventDefault();
+            onDown(e.touches[0].clientX);
+        };
+        const touchMove = (e) => {
+            e.preventDefault();
+            onMove(e.touches[0].clientX);
+        };
+        const touchEnd = () => onUp();
+
+        strip.addEventListener('mousedown', mouseDown);
+        strip.addEventListener('touchstart', touchStart, { passive: false });
+        strip.addEventListener('touchmove', touchMove, { passive: false });
+        strip.addEventListener('touchend', touchEnd);
+
+        strip._pianoSliderHandlers = { mouseDown, touchStart, touchMove, touchEnd };
+    };
+
+    KeyboardSliderMixin._destroyPianoSliderDrag = function (strip) {
+        if (!strip || !strip._pianoSliderHandlers) return;
+        const { mouseDown, touchStart, touchMove, touchEnd } = strip._pianoSliderHandlers;
+        strip.removeEventListener('mousedown', mouseDown);
+        strip.removeEventListener('touchstart', touchStart);
+        strip.removeEventListener('touchmove', touchMove);
+        strip.removeEventListener('touchend', touchEnd);
+        strip._pianoSliderHandlers = null;
+    };
+
     // ── Cleanup ───────────────────────────────────────────────────────────────
 
     KeyboardSliderMixin.destroyStringSliders = function () {

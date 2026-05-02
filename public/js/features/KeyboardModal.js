@@ -273,6 +273,14 @@ class KeyboardModalNew {
     }
 
     regeneratePianoKeys() {
+        if (this.viewMode === 'piano-slider') {
+            // In slider mode, regenerate the equal-width strip instead
+            if (typeof this.generatePianoSlider === 'function') this.generatePianoSlider();
+            if (typeof this.renderMinimap === 'function') this.renderMinimap();
+            if (typeof this.renderOctaveBar === 'function') this.renderOctaveBar();
+            return;
+        }
+
         this.generatePianoKeys();
 
         // Event delegation: a single listener on the container instead of 6 per key
@@ -730,6 +738,7 @@ class KeyboardModalNew {
             });
             if (resp && resp.instrument) {
                 this.stringInstrumentConfig = resp.instrument;
+                this._mergeHandsConfigFromCapabilities();
                 if (typeof this._updateSlideModeGroupVisibility === 'function') {
                     this._updateSlideModeGroupVisibility();
                 }
@@ -744,8 +753,22 @@ class KeyboardModalNew {
         if (preset) {
             this.stringInstrumentConfig = preset;
         }
+        this._mergeHandsConfigFromCapabilities();
         if (typeof this._updateSlideModeGroupVisibility === 'function') {
             this._updateSlideModeGroupVisibility();
+        }
+    }
+
+    /**
+     * Merge hands_config from selectedDeviceCapabilities into stringInstrumentConfig.
+     * This is needed because hands_config is saved via the instrument settings modal
+     * (instrument_save_all) but stringInstrumentConfig is loaded from string_instrument_get.
+     */
+    _mergeHandsConfigFromCapabilities() {
+        if (!this.stringInstrumentConfig) return;
+        const caps = this.selectedDeviceCapabilities;
+        if (caps && caps.hands_config) {
+            this.stringInstrumentConfig.hands_config = caps.hands_config;
         }
     }
 

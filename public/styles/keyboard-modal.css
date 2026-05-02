@@ -752,7 +752,8 @@
 
 /* Show/hide animation for slider panels */
 .velocity-control-vertical,
-.modulation-control-vertical {
+.modulation-control-vertical,
+.pitch-bend-control-vertical {
     transition: min-width 0.25s ease, padding 0.25s ease, opacity 0.2s ease, border-width 0.25s ease;
     overflow: hidden;
 }
@@ -769,7 +770,8 @@
 /* Disable the open transition so the modulation panel doesn't briefly
    flash visible before being hidden when no instrument exposes CC#1. */
 .keyboard-modal .velocity-control-vertical.no-transition,
-.keyboard-modal .modulation-control-vertical.no-transition {
+.keyboard-modal .modulation-control-vertical.no-transition,
+.keyboard-modal .pitch-bend-control-vertical.no-transition {
     transition: none !important;
 }
 
@@ -1973,4 +1975,148 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     transform: translateX(-50%);
     transition: left 0.02s linear;
     display: none;
+}
+
+/* ============================================================================
+   PIANO SLIDER VIEW  (equal-width chromatic keys + pitch-bend slide)
+   ============================================================================ */
+
+.piano-slider-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e2e;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+.piano-slider-strip {
+    display: flex;
+    flex: 1;
+    min-height: 80px;
+    position: relative;
+    cursor: crosshair;
+    user-select: none;
+    touch-action: none;
+}
+
+.piano-slider-key {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 6px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+    transition: background 0.05s;
+    cursor: crosshair;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.piano-slider-key:last-child {
+    border-right: none;
+}
+
+/* White semitones (C D E F G A B) */
+.piano-slider-key.is-white {
+    background: #2a2a3e;
+}
+
+/* Black semitones (C# D# F# G# A#) */
+.piano-slider-key.is-black {
+    background: #131320;
+}
+
+/* C note marker */
+.piano-slider-key.is-c .piano-slider-label {
+    color: #f97316;
+    font-weight: bold;
+}
+
+.piano-slider-key.active {
+    background: rgba(59, 130, 246, 0.45) !important;
+}
+
+.piano-slider-key.active.is-black {
+    background: rgba(59, 130, 246, 0.6) !important;
+}
+
+.piano-slider-label {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
+    text-align: center;
+}
+
+/* Position cursor (vertical bar) */
+.piano-slider-cursor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #fbbf24;
+    box-shadow: 0 0 6px #fbbf24;
+    pointer-events: none;
+    z-index: 10;
+    transform: translateX(-50%);
+    display: none;
+}
+
+/* Octave separator lines */
+.piano-slider-key.is-c::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(249, 115, 22, 0.5);
+}
+
+/* Toggle button style (mirrors btn-slide-toggle) */
+.keyboard-header-controls .btn-piano-slider-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 8px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.keyboard-header-controls .btn-piano-slider-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .btn-piano-slider-toggle.active {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: #3b82f6;
+    color: #93c5fd;
+}
+
+/* ============================================================================
+   PITCH BEND WHEEL  (vertical, springs back to center — like a mod wheel)
+   ============================================================================ */
+
+.pitch-bend-control-vertical {
+    border-right: 1px solid #333;
+}
+
+/* LED display — amber for pitch bend */
+.pitch-bend-value-vertical {
+    color: #f59e0b !important;
+    border-color: #333 !important;
+    text-shadow: 0 0 8px rgba(245, 158, 11, 0.5) !important;
+}
+
+.keyboard-modal .pitch-bend-control-vertical.no-transition {
+    transition: none !important;
 }

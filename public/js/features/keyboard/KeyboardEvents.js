@@ -49,7 +49,7 @@
         const canvasContainer = document.getElementById('keyboard-canvas-container');
         if (canvasContainer) {
             this._canvasWheelHandler = (e) => {
-                if (this.viewMode !== 'piano') return;
+                if (this.viewMode !== 'piano' && this.viewMode !== 'piano-slider') return;
                 e.preventDefault();
                 const delta = Math.sign(e.deltaY);
                 if (delta < 0) {
@@ -149,10 +149,19 @@
             }
         });
 
+        // Piano slider toggle (equal-width chromatic keys + pitch bend)
+        document.getElementById('keyboard-piano-slider-toggle')?.addEventListener('click', () => {
+            if (this.viewMode === 'piano-slider') {
+                this.setViewMode('piano');
+            } else {
+                this.setViewMode('piano-slider');
+            }
+        });
+
         // View mode toggle (piano <-> fretboard / drumpad)
+        // piano-slider is treated as part of piano family → exits to fretboard/drumpad normally
         document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {
             const info = this.getInstrumentViewInfo();
-            // Cycle: piano -> fretboard (if string) or drumpad (if drum) -> piano
             if (info.isDrum) {
                 this.setViewMode(this.viewMode === 'drumpad' ? 'piano' : 'drumpad');
             } else if (info.canFretboard) {
@@ -199,6 +208,11 @@
 
         // Modulation wheel (custom drag)
         this.initModWheel();
+
+        // Pitch bend wheel (custom drag, springs back to center)
+        if (typeof this.initPitchBendWheel === 'function') {
+            this.initPitchBendWheel();
+        }
 
         // Piano keys - use delegated listeners on the container (not individual per key)
         this._setupPianoDelegation();

@@ -61,6 +61,9 @@
                 if (supportedCCs.length === 0) supportedCCs = null;
             }
 
+            // Pitch bend enabled
+            const pitchBendEnabled = !!(this.$('#pitchBendEnabled')?.checked);
+
             // Validate range
             if (noteSelectionMode === 'range') {
                 if (parsedMin !== null && (parsedMin < 0 || parsedMin > 127)) throw new Error('Note min: 0-127');
@@ -278,6 +281,7 @@
                     ? stringSelectedNotes
                     : ((noteSelectionMode === 'discrete' || gmDecoded.isDrumKit) ? selectedNotes : null),
                 supported_ccs: supportedCCs,
+                pitch_bend_enabled: pitchBendEnabled,
                 capabilities_source: 'manual',
                 // voices + string (optional)
                 voices: voicesPayload,
