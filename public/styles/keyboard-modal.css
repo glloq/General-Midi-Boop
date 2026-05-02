@@ -1509,15 +1509,15 @@
     align-items: center;
 }
 
-/* Finger-position dot — shows where the index finger currently sits inside
-   the hand span (8mm before the activated fret wire).
-   Default (no chord active): centered in the hand span, white = idle.
-   Active (chord playing): blue, positioned at the pressed fret. */
+/* Per-string finger-position dots — one per string, vertical position set by JS
+   (top = (numStrings - s + 0.5) / numStrings * 100%).
+   Horizontal position: 8mm before the activated fret wire, or center when idle.
+   Default (idle): white dot.  Active (chord playing): blue dot. */
 .hand-finger-dot-pos {
     position: absolute;
-    top: 50%;
-    width: 12px;
-    height: 12px;
+    /* top set by JS per string; transform centers the dot on that point */
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     transform: translate(-50%, -50%);
     background: rgba(255, 255, 255, 0.90);
