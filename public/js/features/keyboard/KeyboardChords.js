@@ -55,6 +55,7 @@
     KeyboardChordsMixin._cachedMaxFrets = 22;
     KeyboardChordsMixin._handSpanMm = 0;        // physical hand span in mm (0 = not set)
     KeyboardChordsMixin._scaleLengthMm = 0;     // instrument scale length in mm (0 = not set)
+    KeyboardChordsMixin._currentActiveFrets = {}; // string → fret map for active chord (dots)
 
     // Physical offset: finger rests this many mm before the target fret wire.
     const HAND_FINGER_BEFORE_FRET_MM = 8;
@@ -357,13 +358,16 @@
             // Move hand to cover the chord (only when completely outside the window).
             this._autoPositionHandForChord(stringNotes);
 
-            // Remove notes whose frets can't be reached with the current hand window.
-            const anchor = this.handAnchorFret || 0;
-            const span   = this._handEffectiveSpanFrets();
+            // Remove notes that can't be reached (includes extended right-side reach).
             stringNotes = stringNotes.filter(item =>
-                item.fret === 0 ||                         // open string: always playable
-                (item.fret >= anchor && item.fret <= anchor + span)
+                item.fret === 0 || this._isReachableWithoutHandMove(item.fret)
             );
+
+            // Show active fret dots on the coverage overlay.
+            const activeFretsMap = {};
+            stringNotes.forEach(item => { if (item.fret > 0) activeFretsMap[item.string] = item.fret; });
+            this._currentActiveFrets = activeFretsMap;
+            this._updateFingerDotPositions(activeFretsMap);
         }
 
         // ── Highlight voicing on fretboard ──
@@ -463,6 +467,9 @@
             }
             // Full display refresh hides string vibes for now-inactive rows.
             if (typeof this.updatePianoDisplay === 'function') this.updatePianoDisplay();
+            // Reset finger dots to center (inactive) after chord release.
+            this._currentActiveFrets = {};
+            this._updateFingerDotPositions({});
         }, visualClearMs);
         this._strumTimeouts.push(clearT);
     };
@@ -692,6 +699,102 @@
                 }
             }
         }
+        this._updateFingerDotPositions(this._currentActiveFrets || {});
+    };
+
+    /**
+     * Returns the center position of the hand span as a % of the overlay width.
+     * Fingers default here when no chord is active.
+     */
+    KeyboardChordsMixin._fingerCenterPct = function () {
+        const anchor = this.handAnchorFret || 0;
+        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+            const L = this._scaleLengthMm;
+            const anchorMm = L * (1 - Math.pow(2, -anchor / 12));
+            const displayLeftMm = Math.max(0, anchorMm - HAND_FINGER_BEFORE_FRET_MM);
+            const centerMm = anchorMm + this._handSpanMm / 2;
+            return Math.max(0, Math.min(100, (centerMm - displayLeftMm) / this._handSpanMm * 100));
+        }
+        return 50;
+    };
+
+    /**
+     * Converts a fret number to a % position within the coverage overlay width.
+     * Used to place finger dots at the correct horizontal position.
+     */
+    KeyboardChordsMixin._fretToOverlayPct = function (fret) {
+        const anchor = this.handAnchorFret || 0;
+        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+            const L = this._scaleLengthMm;
+            const anchorMm = L * (1 - Math.pow(2, -anchor / 12));
+            const displayLeftMm = Math.max(0, anchorMm - HAND_FINGER_BEFORE_FRET_MM);
+            const fretMm = L * (1 - Math.pow(2, -fret / 12));
+            return Math.max(0, Math.min(100, (fretMm - displayLeftMm) / this._handSpanMm * 100));
+        }
+        const maxFrets = this._cachedMaxFrets || 22;
+        const displayAnchor = Math.max(0, anchor - 0.25);
+        const overlayWidthPct = fretPct(anchor + this._handSpanFrets, maxFrets) - fretPct(displayAnchor, maxFrets);
+        if (overlayWidthPct <= 0) return 50;
+        return Math.max(0, Math.min(100, (fretPct(fret, maxFrets) - fretPct(displayAnchor, maxFrets)) / overlayWidthPct * 100));
+    };
+
+    /**
+     * Returns true if `fret` can be played without moving the hand.
+     * Includes direct reach (fret within anchor..anchor+span) and an extended
+     * right-side rule: if the right edge of the hand band reaches past the
+     * midpoint of the fret cell, the finger can stretch to press it.
+     */
+    KeyboardChordsMixin._isReachableWithoutHandMove = function (fret) {
+        if (fret === 0) return true;
+        const anchor = this.handAnchorFret || 0;
+        const span = this._handEffectiveSpanFrets();
+
+        if (fret >= anchor && fret <= anchor + span) return true;
+
+        // Extended right-side reach: hand right edge reaches midpoint of the fret cell.
+        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+            const L = this._scaleLengthMm;
+            const anchorMm = L * (1 - Math.pow(2, -anchor / 12));
+            const handRightMm = anchorMm + this._handSpanMm;
+            const prevFretMm = fret > 1 ? L * (1 - Math.pow(2, -(fret - 1) / 12)) : 0;
+            const thisFretMm = L * (1 - Math.pow(2, -fret / 12));
+            if (handRightMm >= (prevFretMm + thisFretMm) / 2) return true;
+        }
+
+        return false;
+    };
+
+    /**
+     * Update each per-string finger dot in the coverage overlay.
+     * activeFrets: { [stringNum]: fret } — strings with an active pressed fret.
+     * Inactive dots → white, centered in the hand span.
+     * Active dots   → blue, positioned at the pressed fret.
+     */
+    KeyboardChordsMixin._updateFingerDotPositions = function (activeFrets) {
+        const overlay = document.getElementById('hand-coverage-overlay');
+        if (!overlay) return;
+        const segs = overlay.querySelectorAll('.hand-coverage-string-seg');
+        const numStrings = segs.length;
+        const centerPct = this._fingerCenterPct();
+
+        for (let segIdx = 0; segIdx < numStrings; segIdx++) {
+            const seg = segs[segIdx];
+            if (!seg) continue;
+            const dot = seg.querySelector('.hand-finger-dot-pos');
+            if (!dot) continue;
+
+            // segIdx 0 = top of overlay = highest-pitched string = string #numStrings
+            const stringNum = numStrings - segIdx;
+            const fret = activeFrets && activeFrets[stringNum] != null ? activeFrets[stringNum] : null;
+
+            if (fret != null && fret > 0) {
+                dot.style.left = this._fretToOverlayPct(fret) + '%';
+                dot.classList.add('active');
+            } else {
+                dot.style.left = centerPct + '%';
+                dot.classList.remove('active');
+            }
+        }
     };
 
     /**
@@ -741,12 +844,10 @@
         if (fretted.length === 0) return; // all open strings
 
         const minFret = Math.min(...fretted.map(n => n.fret));
-        const maxFret = Math.max(...fretted.map(n => n.fret));
         const anchor  = this.handAnchorFret || 0;
-        const span    = this._handEffectiveSpanFrets();
 
-        // Already covered — don't disturb the player's manual position.
-        if (minFret >= anchor && maxFret <= anchor + span) return;
+        // Already covered (with extended reach) — don't disturb the player's position.
+        if (fretted.every(n => this._isReachableWithoutHandMove(n.fret))) return;
 
         // Place the index finger one fret before the lowest needed fret.
         const newAnchor = Math.max(0, Math.min(this._maxHandAnchorFret(), minFret - 1));
@@ -873,7 +974,7 @@
             span = this._handSpanFrets || 4;
         }
 
-        if (fret >= anchor && fret <= anchor + span - 1) return; // already in range
+        if (this._isReachableWithoutHandMove(fret)) return; // already reachable
         const newAnchor = Math.max(0, Math.min(
             this._maxHandAnchorFret(),
             fret - Math.floor(span / 2)
