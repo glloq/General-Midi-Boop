@@ -116,6 +116,40 @@
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
+/* ========== Compact header-button toggle list ========== */
+.settings-btn-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settings-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  background: var(--bg-secondary, white);
+  transition: background 0.15s;
+}
+
+.settings-btn-row:last-child {
+  border-bottom: none;
+}
+
+.settings-btn-row:hover {
+  background: var(--bg-tertiary, #f9fafb);
+}
+
+.settings-btn-label {
+  font-size: 14px;
+  color: var(--text-primary, #333);
+  user-select: none;
+}
+
 /* ========== Responsive: tablet and below ========== */
 @media (max-width: 768px) {
   .settings-modal {
