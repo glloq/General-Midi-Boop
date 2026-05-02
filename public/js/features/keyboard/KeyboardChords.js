@@ -517,9 +517,17 @@
         band.id = 'fretboard-hand-band';
         band.title = (typeof this.t === 'function') ? this.t('keyboard.chordHandDrag') : 'Drag to move hand';
 
-        // Palm body (upper part of the band)
+        // Palm body (upper part of the band) — contains string-lines so the hand
+        // looks like it's gripping the neck across all strings.
         const palm = document.createElement('div');
         palm.className = 'hand-palm-indicator';
+        // One string line per string, evenly distributed vertically in the palm.
+        for (let i = 0; i < numStrings; i++) {
+            const sl = document.createElement('div');
+            sl.className = 'hand-palm-string-line';
+            sl.style.top = `${(i + 0.5) / numStrings * 100}%`;
+            palm.appendChild(sl);
+        }
         band.appendChild(palm);
 
         // Finger stubs at the bottom of the band — one per string, pointing down
@@ -546,10 +554,22 @@
         overlay.className = 'hand-coverage-overlay';
         overlay.id = 'hand-coverage-overlay';
 
-        // One segment per string — used to show per-string reach highlights.
+        // One segment per string — contains a finger track (horizontal range line)
+        // and a finger-position dot showing where the finger currently rests.
         for (let i = 0; i < numStrings; i++) {
             const seg = document.createElement('div');
             seg.className = 'hand-coverage-string-seg';
+
+            // Full-width track: shows the complete range of movement for this finger.
+            const track = document.createElement('div');
+            track.className = 'hand-finger-track';
+            seg.appendChild(track);
+
+            // Dot at the leftmost position (= anchor fret / home position).
+            const dot = document.createElement('div');
+            dot.className = 'hand-finger-dot-pos';
+            seg.appendChild(dot);
+
             overlay.appendChild(seg);
         }
         stringsArea.appendChild(overlay);
@@ -606,28 +626,55 @@
     };
 
     /**
-     * Sync the coverage overlay's left/width with the hand band.
+     * Sync the coverage overlay's position with the hand band.
+     *
+     * left / width are derived from the band's % position within hand-frets-area.
+     * top  / bottom are measured from the DOM so they adapt to justify-content:center
+     * offsets in fretboard-strings-area (the actual start of string rows varies with
+     * the number of strings and the modal height).
+     *
      * Safe to call before the DOM is laid out (returns early when width is 0).
      */
     KeyboardChordsMixin._updateCoverageOverlayPosition = function () {
-        const overlay  = document.getElementById('hand-coverage-overlay');
-        const band     = document.getElementById('fretboard-hand-band');
+        const overlay   = document.getElementById('hand-coverage-overlay');
+        const band      = document.getElementById('fretboard-hand-band');
         const fretsArea = document.getElementById('hand-frets-area');
-        if (!overlay || !band || !fretsArea) return;
+        const widget    = document.getElementById('fretboard-hand-widget');
+        if (!overlay || !band || !fretsArea || !widget) return;
 
         const faWidth = fretsArea.clientWidth;
         if (faWidth <= 0) return; // not laid out yet
 
+        // ── Horizontal: left / width ──────────────────────────────────────────
         const leftPct  = parseFloat(band.style.left)  || 0;
         const widthPct = parseFloat(band.style.width) || 0;
 
         // The frets-area starts at 48 px (nut gap) within the strings-area.
         const NUT_GAP_PX = 48;
-        const overlayLeft  = NUT_GAP_PX + (leftPct  / 100) * faWidth;
-        const overlayWidth = (widthPct / 100) * faWidth;
+        overlay.style.left  = (NUT_GAP_PX + (leftPct  / 100) * faWidth) + 'px';
+        overlay.style.width = ((widthPct / 100) * faWidth) + 'px';
 
-        overlay.style.left  = overlayLeft  + 'px';
-        overlay.style.width = overlayWidth + 'px';
+        // ── Vertical: top / bottom ────────────────────────────────────────────
+        // fretboard-strings-area uses justify-content:center, so the hand widget
+        // may not start at y=0.  Measure actual positions via getBoundingClientRect.
+        const stringsArea = fretsArea.closest('.fretboard-strings-area');
+        if (stringsArea) {
+            const saRect = stringsArea.getBoundingClientRect();
+            const wRect  = widget.getBoundingClientRect();
+            if (saRect.height > 0 && wRect.height > 0) {
+                // top of overlay = bottom of the hand widget, relative to stringsArea
+                overlay.style.top = (wRect.bottom - saRect.top) + 'px';
+
+                // bottom of overlay = top of the fret-header row, or fallback
+                const header = stringsArea.querySelector('.fret-header');
+                if (header) {
+                    const hRect = header.getBoundingClientRect();
+                    overlay.style.bottom = Math.max(0, saRect.bottom - hRect.top) + 'px';
+                } else {
+                    overlay.style.bottom = '22px';
+                }
+            }
+        }
     };
 
     /**
