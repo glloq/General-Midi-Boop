@@ -140,15 +140,16 @@ class MidiSynthesizer {
     }
 
     /**
-     * Build the WebAudioFont URL/variable for a (kitProgram, note) pair.
-     * Uses FluidR3_GM, which is the only WAF soundfont that ships every GM
-     * drum kit (programs 0, 8, 16, 24, 25, 32, 40, 48, 56). The kit program
-     * is the bank index in WAF's `128{note}_{bank}_{soundfont}_sf2_file.js`
-     * filename convention.
+     * Build a WAF drum preset entry for a given bank suffix + bank index + note.
+     * WAF filename convention: 128{note}_{bankIndex}_{suffix}.js
+     *
+     * @param {string} suffix    - Bank suffix (e.g. 'FluidR3_GM_sf2_file')
+     * @param {number} bankIndex - WAF bank index for this kit in the font
+     * @param {number} note      - MIDI note number (35-81)
      */
-    _buildDrumPresetEntry(kitProgram, note) {
+    _buildDrumPresetEntry(suffix, bankIndex, note) {
         const base = 'https://surikov.github.io/webaudiofontdata/sound/';
-        const key = `${note}_${kitProgram}_FluidR3_GM_sf2_file`;
+        const key = `${note}_${bankIndex}_${suffix}`;
         return {
             url: `${base}128${key}.js`,
             variable: `_drum_${key}`
@@ -156,9 +157,20 @@ class MidiSynthesizer {
     }
 
     /**
-     * Legacy per-note JCLive entry — used as a final fallback for any
-     * (kit, note) combo missing on the CDN. This preserves the original
-     * sound when nothing else is available.
+     * Look up a drum kit entry in the current bank's drumKits list.
+     * Returns {midiProgram, bankIndex, verified} or null if unsupported.
+     *
+     * @param {number} midiProgram - GM kit program (0=Standard, 8=Room…)
+     */
+    _getDrumKitEntry(midiProgram) {
+        const bank = SOUND_BANKS.find(b => b.id === this.currentBankId);
+        if (!bank || !bank.drumKits) return null;
+        return bank.drumKits.find(k => k.midiProgram === midiProgram) || null;
+    }
+
+    /**
+     * Legacy per-note JCLive entry — kept as absolute last-resort fallback.
+     * JCLive drums sit at bankIndex 12 in the WAF CDN.
      */
     _legacyJCLiveEntry(note) {
         const base = 'https://surikov.github.io/webaudiofontdata/sound/';
@@ -231,6 +243,9 @@ class MidiSynthesizer {
     _applyBankSwitch(bank) {
         this.log('info', `Switching sound bank to ${bank.id}`);
         this._clearInstrumentCache();
+        // Drums must also reload so they use the new bank's samples.
+        this.drumPresets.clear();
+        this._drumLoading.clear();
         this.currentBankId = bank.id;
         this.currentBankSuffix = bank.suffix;
         this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
@@ -395,8 +410,13 @@ class MidiSynthesizer {
 
     /**
      * Load a single drum preset for a (kitProgram, note) pair.
-     * Falls back to kit 0 (Standard) and then to the legacy JCLive bank 12
-     * preset when a specific (kit, note) file is missing on the CDN.
+     *
+     * Candidate order (duplicates skipped via URL dedup):
+     *   1. Current bank  + requested kit  (if the bank lists this kit)
+     *   2. FluidR3_GM    + requested kit  (only bank with all 9 GM kits)
+     *   3. Current bank  + Standard Kit   (bankIndex for midiProgram 0, if kit≠0)
+     *   4. FluidR3_GM    + Standard Kit   (if kit≠0)
+     *   5. Legacy JCLive bankIndex 12     (absolute last resort)
      */
     _loadDrumPreset(note, kitProgram = 0) {
         if (note < 35 || note > 81) return Promise.resolve(null);
@@ -410,12 +430,33 @@ class MidiSynthesizer {
             return this._drumLoading.get(cacheKey);
         }
 
-        // Try in order: requested kit → Standard Kit (0) → legacy JCLive
-        const candidates = [this._buildDrumPresetEntry(kit, note)];
-        if (kit !== 0) {
-            candidates.push(this._buildDrumPresetEntry(0, note));
+        const FLUID = 'FluidR3_GM_sf2_file';
+        const candidates = [];
+        const seen = new Set();
+        const addCandidate = (entry) => {
+            if (!seen.has(entry.url)) { seen.add(entry.url); candidates.push(entry); }
+        };
+
+        // 1. Current bank + requested kit
+        const currentKitEntry = this._getDrumKitEntry(kit);
+        if (currentKitEntry) {
+            addCandidate(this._buildDrumPresetEntry(this.currentBankSuffix, currentKitEntry.bankIndex, note));
         }
-        candidates.push(this._legacyJCLiveEntry(note));
+
+        // 2. FluidR3_GM + requested kit (covers all 9 GM kits)
+        addCandidate(this._buildDrumPresetEntry(FLUID, kit, note));
+
+        // 3 & 4. Standard Kit fallbacks when the requested kit is absent
+        if (kit !== 0) {
+            const stdEntry = this._getDrumKitEntry(0);
+            if (stdEntry) {
+                addCandidate(this._buildDrumPresetEntry(this.currentBankSuffix, stdEntry.bankIndex, note));
+            }
+            addCandidate(this._buildDrumPresetEntry(FLUID, 0, note));
+        }
+
+        // 5. Absolute last resort
+        addCandidate(this._legacyJCLiveEntry(note));
 
         const tryLoad = (idx) => new Promise((resolve) => {
             if (idx >= candidates.length) {
@@ -480,7 +521,7 @@ class MidiSynthesizer {
             [35, 36, 38, 42, 44, 46, 49, 51].forEach(n => usedNotes.add(n));
         }
 
-        this.log('info', `Loading ${usedNotes.size} drum presets for kit ${kit} (FluidR3_GM)`);
+        this.log('info', `Loading ${usedNotes.size} drum presets for kit ${kit} (bank: ${this.currentBankId})`);
 
         const promises = [];
         for (const note of usedNotes) {
