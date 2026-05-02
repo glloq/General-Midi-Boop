@@ -1194,7 +1194,10 @@
         pianoContainer.appendChild(canvas);
         this._fingersCanvas = canvas;
 
-        const keyboardType = handsConfig.keyboard_type === 'piano' ? 'piano' : 'chromatic';
+        // The virtual keyboard always renders piano-style DIV keys (white keys
+        // wider than black), so the overlay must always use 'piano' geometry
+        // regardless of the instrument's keyboard_type setting.
+        const keyboardType = 'piano';
         const rangeMin = this.startNote;
         const rangeMax = this.startNote + this.visibleNoteCount - 1;
         const BAND_H = 22;
