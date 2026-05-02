@@ -435,6 +435,9 @@
 
         // ── Reset from any previous check ──
         // Stable channel always starts hidden; only shown on MAJOR.MINOR bump.
+        const headerBanner = this.modal.querySelector('#stableUpdateHeaderBanner');
+        if (headerBanner) headerBanner.style.display = 'none';
+
         const stableChannel = this.modal.querySelector('#stableUpdateChannel');
         if (stableChannel) { stableChannel.style.display = 'none'; stableChannel.style.borderColor = ''; stableChannel.style.boxShadow = ''; }
         const stableBtn = this.modal.querySelector('#stableUpdateBtn');
@@ -482,7 +485,14 @@
                     : null);
 
             if (stable.majorMinorChanged) {
-                // ── New MAJOR.MINOR: show stable channel, hide beta ──
+                // ── New MAJOR.MINOR: show header banner + stable channel, hide beta ──
+                if (headerBanner) {
+                    const headerLabel = this.modal.querySelector('#stableUpdateHeaderLabel');
+                    if (headerLabel) headerLabel.textContent = `🆕 v${stable.remoteVersion} disponible`;
+                    const headerBtn = this.modal.querySelector('#stableUpdateHeaderBtn');
+                    if (headerBtn) headerBtn.textContent = `📦 ${i18n.t('settings.update.stableButton') || 'Installer stable'}`;
+                    headerBanner.style.display = 'flex';
+                }
                 if (stableChannel) {
                     stableChannel.style.display = '';
                     stableChannel.style.borderColor = '#16a34a';
