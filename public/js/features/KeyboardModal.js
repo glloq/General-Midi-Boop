@@ -209,6 +209,9 @@ class KeyboardModalNew {
         // Clean up keyboard list view interaction
         if (typeof this._destroyKeyboardListInteraction === 'function') this._destroyKeyboardListInteraction();
 
+        // Destroy the fingers overlay renderer
+        if (typeof this._cleanFingersCanvas === 'function') this._cleanFingersCanvas();
+
         // Stop all active notes
         this.activeNotes.forEach(note => this.stopNote(note));
 
@@ -247,6 +250,11 @@ class KeyboardModalNew {
         // Color the string line to the right of the active fret.
         if (this.viewMode === 'fretboard' && typeof this._updateFretboardStringColors === 'function') {
             this._updateFretboardStringColors();
+        }
+
+        // Keep the fingers overlay in sync with the currently-sounding keys.
+        if (typeof this._updateFingersActiveNotes === 'function') {
+            this._updateFingersActiveNotes();
         }
     }
 
