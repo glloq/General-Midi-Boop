@@ -1660,6 +1660,33 @@
     animation: strum-rl var(--strum-dur, 200ms) ease-out forwards;
 }
 
+/* ── Per-string strum hit animation ──────────────────────────────────────── */
+
+@keyframes chord-strum-hit {
+    0%   { background: linear-gradient(135deg, #34d399, #059669);
+           transform: scale(1.65);
+           box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.65), 0 0 20px rgba(52, 211, 153, 0.95);
+           border-color: #fff; }
+    40%  { background: linear-gradient(135deg, #34d399, #059669);
+           transform: scale(1.55);
+           box-shadow: 0 0 0 7px rgba(52, 211, 153, 0.25), 0 0 32px rgba(52, 211, 153, 1.00);
+           border-color: #fff; }
+    75%  { background: linear-gradient(135deg, #34d399, #059669);
+           transform: scale(1.45);
+           box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.10), 0 0 12px rgba(52, 211, 153, 0.35);
+           border-color: rgba(255, 255, 255, 0.4); }
+    100% { background: linear-gradient(to bottom, #f5f5f5, #c8c8c8);
+           transform: scale(1);
+           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.50);
+           border-color: #333; }
+}
+
+.fret-dot.chord-strum-active {
+    animation: chord-strum-hit 1.5s ease-out forwards;
+    border-width: 2px;
+    z-index: 5;
+}
+
 /* Dark-mode fine-tuning */
 body.dark-mode .chord-buttons-bar {
     background: rgba(0, 0, 0, 0.55);

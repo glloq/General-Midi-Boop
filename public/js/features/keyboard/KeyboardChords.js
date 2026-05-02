@@ -296,6 +296,13 @@
         // Stop notes still ringing from a previous strum
         [...(this.activeNotes || [])].forEach(n => this.stopNote(n));
 
+        // Clear any previous per-string strum animations
+        const container = document.getElementById('fretboard-container');
+        if (container) {
+            container.querySelectorAll('.fret-dot.chord-strum-active')
+                .forEach(d => d.classList.remove('chord-strum-active'));
+        }
+
         // ── Resolve instrument config ──
         const cfg = this.stringInstrumentConfig || {};
         const numStrings = Math.max(1, cfg.num_strings || 6);
@@ -353,7 +360,7 @@
             });
         }
 
-        // ── Schedule note-ons ──
+        // ── Schedule note-ons + per-string strum animations ──
         const notesPlayed = new Set();
         const holdMs = 650; // sustain duration before auto-release
 
@@ -361,6 +368,7 @@
             const humanize = Math.round(Math.random() * 4 - 2); // ±2 ms jitter
             const delay    = idx * delayMs + Math.max(0, humanize);
 
+            // Audio: note-on
             const t = setTimeout(() => {
                 if (item.note >= 21 && item.note <= 108) {
                     this.playNote(item.note);
@@ -368,14 +376,38 @@
                 }
             }, delay);
             this._strumTimeouts.push(t);
+
+            // Visual: light up fret-dot in strum order
+            const tv = setTimeout(() => {
+                if (!container) return;
+                const dot = container.querySelector(
+                    `.fret-dot[data-string="${item.string}"][data-fret="${item.fret}"]`
+                );
+                if (dot) {
+                    dot.classList.remove('chord-strum-active');
+                    void dot.offsetWidth; // restart animation on rapid re-strum
+                    dot.classList.add('chord-strum-active');
+                }
+            }, delay);
+            this._strumTimeouts.push(tv);
         });
 
-        // ── Auto-release ──
+        // ── Auto-release audio ──
         const stopDelay = (ordered.length > 0 ? ordered.length - 1 : 0) * delayMs + holdMs;
         const stopT = setTimeout(() => {
             notesPlayed.forEach(n => this.stopNote(n));
         }, stopDelay);
         this._strumTimeouts.push(stopT);
+
+        // ── Clear strum animations (1–2 s max after last string hit) ──
+        const lastNoteDelay = (ordered.length > 0 ? ordered.length - 1 : 0) * delayMs;
+        const visualClearMs = Math.min(lastNoteDelay + 1500, 2000);
+        const clearT = setTimeout(() => {
+            if (!container) return;
+            container.querySelectorAll('.fret-dot.chord-strum-active')
+                .forEach(d => d.classList.remove('chord-strum-active'));
+        }, visualClearMs);
+        this._strumTimeouts.push(clearT);
     };
 
     // ── Hand position widget ─────────────────────────────────────────────────
