@@ -56,6 +56,9 @@
     KeyboardChordsMixin._handSpanMm = 0;        // physical hand span in mm (0 = not set)
     KeyboardChordsMixin._scaleLengthMm = 0;     // instrument scale length in mm (0 = not set)
 
+    // Physical offset: finger rests this many mm before the target fret wire.
+    const HAND_FINGER_BEFORE_FRET_MM = 8;
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     KeyboardChordsMixin._chordRootName = function (noteClass) {
@@ -346,7 +349,22 @@
         const intervals = intervalsMap[chordType];
         if (!intervals) return;
 
-        const stringNotes = this._mapChordToStrings(rootClass, intervals, tuning, maxPoly);
+        let stringNotes = this._mapChordToStrings(rootClass, intervals, tuning, maxPoly);
+
+        // ── Hand position: auto-move if chord is outside the window, then filter ──
+        const handsConfig = cfg.hands_config;
+        if (handsConfig && handsConfig.enabled === true) {
+            // Move hand to cover the chord (only when completely outside the window).
+            this._autoPositionHandForChord(stringNotes);
+
+            // Remove notes whose frets can't be reached with the current hand window.
+            const anchor = this.handAnchorFret || 0;
+            const span   = this._handEffectiveSpanFrets();
+            stringNotes = stringNotes.filter(item =>
+                item.fret === 0 ||                         // open string: always playable
+                (item.fret >= anchor && item.fret <= anchor + span)
+            );
+        }
 
         // ── Highlight voicing on fretboard ──
         this._showChordVoicing(stringNotes);
@@ -461,7 +479,8 @@
     }
 
     /**
-     * Render the hand position widget above the string rows.
+     * Render the hand position widget above the string rows, plus a coverage
+     * overlay on the string rows showing the hand's reachable zone.
      * Called from KeyboardPiano.renderFretboard() before the string loop.
      */
     KeyboardChordsMixin.renderHandWidget = function (stringsArea, opts) {
@@ -485,6 +504,9 @@
         // Fallback: fret-based span (legacy field).
         if (hand.hand_span_frets > 0) this._handSpanFrets = hand.hand_span_frets;
 
+        const numStrings = Math.max(1, cfg.num_strings || 6);
+
+        // ── Drag handle widget (above strings) ───────────────────────────────
         const widget = document.createElement('div');
         widget.className = 'fretboard-hand-widget';
         widget.id = 'fretboard-hand-widget';
@@ -497,7 +519,7 @@
         fretsArea.className = 'hand-frets-area';
         fretsArea.id = 'hand-frets-area';
 
-        // Fret dividers
+        // Fret dividers (light guide lines)
         if (!isFretless) {
             for (let f = 1; f <= maxFretCount; f++) {
                 const line = document.createElement('div');
@@ -512,47 +534,117 @@
         band.id = 'fretboard-hand-band';
         band.title = (typeof this.t === 'function') ? this.t('keyboard.chordHandDrag') : 'Drag to move hand';
 
-        // Finger dots (one per string, using num_strings)
-        const numStrings = Math.max(1, cfg.num_strings || 6);
+        // Palm body (upper part of the band)
+        const palm = document.createElement('div');
+        palm.className = 'hand-palm-indicator';
+        band.appendChild(palm);
+
+        // Finger stubs at the bottom of the band — one per string, pointing down
+        // so they visually connect to the string rows below.
+        const fingersRow = document.createElement('div');
+        fingersRow.className = 'hand-fingers-row';
+        fingersRow.id = 'hand-fingers-row';
         for (let i = 0; i < numStrings; i++) {
-            const dot = document.createElement('div');
-            dot.className = 'hand-finger-dot';
-            band.appendChild(dot);
+            const stub = document.createElement('div');
+            stub.className = 'hand-finger-stub';
+            fingersRow.appendChild(stub);
         }
+        band.appendChild(fingersRow);
 
         fretsArea.appendChild(band);
         widget.appendChild(fretsArea);
         stringsArea.appendChild(widget);
+
+        // ── Coverage overlay (on the string rows) ────────────────────────────
+        // Semi-transparent rectangle that shows the hand's reachable zone on the
+        // actual strings.  Positioned in JavaScript (see _updateCoverageOverlayPosition)
+        // because pixel coordinates depend on the rendered DOM width.
+        const overlay = document.createElement('div');
+        overlay.className = 'hand-coverage-overlay';
+        overlay.id = 'hand-coverage-overlay';
+
+        // One segment per string — used to show per-string reach highlights.
+        for (let i = 0; i < numStrings; i++) {
+            const seg = document.createElement('div');
+            seg.className = 'hand-coverage-string-seg';
+            overlay.appendChild(seg);
+        }
+        stringsArea.appendChild(overlay);
 
         this._updateHandWidgetPosition();
         this._attachHandWidgetEvents(band, fretsArea);
     };
 
     /**
-     * Reposition the .hand-band.
-     * When hand_span_mm and scale_length_mm are available the width is a fixed
-     * physical fraction of the fretboard (independent of fret position).
-     * Otherwise falls back to the legacy fret-count approach.
+     * Reposition the .hand-band and update the coverage overlay.
+     *
+     * The DISPLAY position is shifted ~8mm before the anchor fret so the band
+     * reads as a finger resting just behind the fret wire — matching the
+     * physical convention and the FretboardHandPreview editor.
+     * The logical `handAnchorFret` is unchanged (used for CC and chord logic).
+     *
+     * When hand_span_mm / scale_length_mm are set the width is a fixed physical
+     * fraction of the fretboard; otherwise falls back to the fret-count approach.
      */
     KeyboardChordsMixin._updateHandWidgetPosition = function () {
         const band = document.getElementById('fretboard-hand-band');
         if (!band) return;
-        const maxFrets  = this._cachedMaxFrets || 22;
-        const leftPct   = fretPct(this.handAnchorFret, maxFrets);
+        const maxFrets = this._cachedMaxFrets || 22;
+        const anchor   = this.handAnchorFret;
+
+        let leftPct, widthPct;
 
         if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
-            // Physical width: hand_span_mm as a fraction of the fretboard length.
-            // The rendered fretboard covers scaleLengthMm * (1 - 2^(-maxFrets/12)).
-            const fretboardFraction = 1 - Math.pow(2, -maxFrets / 12);
-            const widthPct = (this._handSpanMm / this._scaleLengthMm) / fretboardFraction * 100;
+            const L               = this._scaleLengthMm;
+            const totalDistMm     = L * (1 - Math.pow(2, -maxFrets / 12));
+            const anchorMm        = L * (1 - Math.pow(2, -anchor / 12));
+            // Shift left edge by HAND_FINGER_BEFORE_FRET_MM toward the nut
+            const displayLeftMm   = Math.max(0, anchorMm - HAND_FINGER_BEFORE_FRET_MM);
+            leftPct   = (displayLeftMm / totalDistMm) * 100;
+            widthPct  = (this._handSpanMm / totalDistMm) * 100;
             band.style.left  = leftPct + '%';
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         } else {
-            // Fallback: fret-based (non-physical, width varies with fret spacing).
-            const rightPct = fretPct(this.handAnchorFret + this._handSpanFrets, maxFrets);
+            // Fret-based fallback: shift ~¼ fret visually toward the nut.
+            const displayAnchor = Math.max(0, anchor - 0.25);
+            leftPct  = fretPct(displayAnchor, maxFrets);
+            const rightPct = fretPct(anchor + this._handSpanFrets, maxFrets);
+            widthPct = rightPct - leftPct;
             band.style.left  = leftPct + '%';
-            band.style.width = (rightPct - leftPct) + '%';
+            band.style.width = widthPct + '%';
         }
+
+        // Update the coverage overlay — requires rendered widths, so use rAF
+        // for the initial call (DOM not yet laid out) and direct call for drags.
+        this._updateCoverageOverlayPosition();
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(() => this._updateCoverageOverlayPosition());
+        }
+    };
+
+    /**
+     * Sync the coverage overlay's left/width with the hand band.
+     * Safe to call before the DOM is laid out (returns early when width is 0).
+     */
+    KeyboardChordsMixin._updateCoverageOverlayPosition = function () {
+        const overlay  = document.getElementById('hand-coverage-overlay');
+        const band     = document.getElementById('fretboard-hand-band');
+        const fretsArea = document.getElementById('hand-frets-area');
+        if (!overlay || !band || !fretsArea) return;
+
+        const faWidth = fretsArea.clientWidth;
+        if (faWidth <= 0) return; // not laid out yet
+
+        const leftPct  = parseFloat(band.style.left)  || 0;
+        const widthPct = parseFloat(band.style.width) || 0;
+
+        // The frets-area starts at 48 px (nut gap) within the strings-area.
+        const NUT_GAP_PX = 48;
+        const overlayLeft  = NUT_GAP_PX + (leftPct  / 100) * faWidth;
+        const overlayWidth = (widthPct / 100) * faWidth;
+
+        overlay.style.left  = overlayLeft  + 'px';
+        overlay.style.width = overlayWidth + 'px';
     };
 
     /**
@@ -570,6 +662,50 @@
             return -12 * Math.log2(1 - maxStartMm / this._scaleLengthMm);
         }
         return maxFrets - this._handSpanFrets;
+    };
+
+    /**
+     * Effective span of the hand in frets at the current anchor position.
+     * Used for chord filtering and playability checks.
+     */
+    KeyboardChordsMixin._handEffectiveSpanFrets = function () {
+        const anchor = this.handAnchorFret || 0;
+        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+            const L       = this._scaleLengthMm;
+            const anchorMm = L * (1 - Math.pow(2, -anchor / 12));
+            const endMm    = anchorMm + this._handSpanMm;
+            if (endMm < L) return -12 * Math.log2(1 - endMm / L) - anchor;
+            return (this._cachedMaxFrets || 22) - anchor;
+        }
+        return this._handSpanFrets || 4;
+    };
+
+    /**
+     * Move the hand so it covers the given chord string-notes if they are fully
+     * outside the current window.  Only fires when hands_config is enabled.
+     * Does NOT move if the chord is already partially covered (let the player
+     * decide in ambiguous cases).
+     */
+    KeyboardChordsMixin._autoPositionHandForChord = function (stringNotes) {
+        const handsConfig = (this.stringInstrumentConfig || {}).hands_config;
+        if (!handsConfig || handsConfig.enabled !== true) return;
+
+        const fretted = stringNotes.filter(n => n.fret > 0);
+        if (fretted.length === 0) return; // all open strings
+
+        const minFret = Math.min(...fretted.map(n => n.fret));
+        const maxFret = Math.max(...fretted.map(n => n.fret));
+        const anchor  = this.handAnchorFret || 0;
+        const span    = this._handEffectiveSpanFrets();
+
+        // Already covered — don't disturb the player's manual position.
+        if (minFret >= anchor && maxFret <= anchor + span) return;
+
+        // Place the index finger one fret before the lowest needed fret.
+        const newAnchor = Math.max(0, Math.min(this._maxHandAnchorFret(), minFret - 1));
+        this.handAnchorFret = newAnchor;
+        this._updateHandWidgetPosition();
+        this._sendHandPositionCC(newAnchor);
     };
 
     /**
