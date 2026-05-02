@@ -1291,6 +1291,15 @@
             .map(n => `<option value="${n}" ${n === count ? 'selected' : ''}>${n}</option>`)
             .join('');
 
+        // Note range for the preview keyboard. Read from the tab when the
+        // modal instance is available (this = modal); fall back to a 3-octave
+        // default so the preview is still useful before the user sets a range.
+        const _previewTab = typeof this?._getActiveTab === 'function' ? this._getActiveTab() : null;
+        const previewRangeMin = Number.isFinite(_previewTab?.settings?.note_range_min)
+            ? _previewTab.settings.note_range_min : 36;
+        const previewRangeMax = Number.isFinite(_previewTab?.settings?.note_range_max)
+            ? _previewTab.settings.note_range_max : 84;
+
         return `
             <h3 class="ism-section-title"><span class="ism-section-title-icon">🫱</span> ${t('instrumentSettings.sectionHands') || 'Mains'}</h3>
             <input type="hidden" id="handsMode" value="semitones">
@@ -1323,6 +1332,17 @@
                 <label>${t('instrumentSettings.handsMoveSpeedSemitones') || 'Vitesse de déplacement (demi-tons/s)'}</label>
                 <input type="number" id="handsMoveSpeed" value="${commonSpeed}" min="1" max="500">
                 <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedHint') || 'Vitesse commune à toutes les mains, utilisée pour signaler les déplacements trop rapides.'}</span>
+            </div>
+
+            <div class="ism-hands-preview-block">
+                <span class="ism-preview-label">${t('instrumentSettings.handsPreviewLabel') || 'Aperçu de la position des doigts'}</span>
+                <div class="ism-hands-kb-host"
+                     data-range-min="${previewRangeMin}"
+                     data-range-max="${previewRangeMax}"
+                     data-keyboard-type="${keyboardType}">
+                    <canvas id="ismHandsKbCanvas" class="ism-hands-kb-canvas"></canvas>
+                    <canvas id="ismHandsFingersCanvas" class="ism-hands-fingers-canvas"></canvas>
+                </div>
             </div>
 
             <div class="ism-hands-list">

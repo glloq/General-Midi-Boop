@@ -1395,6 +1395,10 @@
         this._attachHandsGeometryListeners(handsSection);
         this._attachHandsCountListener(handsSection);
         this._attachHandsKeyboardTypeListener(handsSection);
+        this._attachHandsFieldListeners(handsSection);
+        // Mount the static preview after all form listeners are wired so
+        // they can call _mountHandsPreview when inputs change.
+        this._mountHandsPreview();
     };
 
     /**
@@ -1586,6 +1590,141 @@
         if (typeof this._attachHandsSectionListeners === 'function') {
             this._attachHandsSectionListeners();
         }
+    };
+
+    /**
+     * Mount (or remount) the static hands preview in the Hands section.
+     * Instantiates a `KeyboardPreview` (piano layout) or
+     * `KeyboardChromaticPreview` (chromatic layout) and a
+     * `KeyboardFingersRenderer` overlay so the operator can immediately
+     * see how the configured number of fingers maps onto the keyboard.
+     *
+     * Called once from `_attachHandsSectionListeners` after each full
+     * re-render of the section and again from `_attachHandsFieldListeners`
+     * every time a finger-count or span input changes.
+     * @private
+     */
+    ISMListeners._mountHandsPreview = function() {
+        const handsSection = this.$('.ism-section[data-section="hands"]');
+        if (!handsSection) return;
+        if (typeof window === 'undefined') return;
+
+        const tab = this._getActiveTab();
+        if (!tab || !tab.settings) return;
+        const cfg = tab.settings.hands_config;
+        if (!cfg || cfg.enabled === false) return;
+
+        const kbCanvas = handsSection.querySelector('#ismHandsKbCanvas');
+        const fingersCanvas = handsSection.querySelector('#ismHandsFingersCanvas');
+        const host = handsSection.querySelector('.ism-hands-kb-host');
+        if (!kbCanvas || !fingersCanvas || !host) return;
+
+        // Resolve the note range from data-attrs written by the renderer
+        // (they mirror the instrument's note_range_min/max at render time).
+        const rangeMin = parseInt(host.dataset.rangeMin, 10) || 36;
+        const rangeMax = parseInt(host.dataset.rangeMax, 10) || 84;
+        const keyboardType = host.dataset.keyboardType === 'piano' ? 'piano' : 'chromatic';
+        const BAND_H = 22;
+
+        // Build the keyboard widget — piano keys or flat chromatic strip.
+        let kbWidget = null;
+        if (keyboardType === 'piano' && typeof window.KeyboardPreview === 'function') {
+            kbWidget = new window.KeyboardPreview(kbCanvas, {
+                rangeMin, rangeMax,
+                bandHeight: BAND_H,
+                bandsOnSingleRow: true
+            });
+        } else if (typeof window.KeyboardChromaticPreview === 'function') {
+            kbWidget = new window.KeyboardChromaticPreview(kbCanvas, {
+                rangeMin, rangeMax,
+                bandHeight: BAND_H
+            });
+        }
+        if (!kbWidget) return;
+
+        // Build the fingers overlay renderer.
+        if (typeof window.KeyboardFingersRenderer !== 'function') return;
+        const fingersRenderer = new window.KeyboardFingersRenderer(fingersCanvas, {
+            bandHeight: BAND_H
+        });
+        fingersRenderer.setLayout(keyboardType);
+        fingersRenderer.setKeyboardWidget(kbWidget);
+        fingersRenderer.setVisibleExtent({ lo: rangeMin, hi: rangeMax });
+        fingersRenderer.setActiveNotes(new Set());
+
+        // Colours assigned per hand index, matching the rest of the app.
+        const HAND_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+        const rawHands = Array.isArray(cfg.hands) ? cfg.hands : [];
+        const count = rawHands.length || 1;
+        const range = Math.max(1, rangeMax - rangeMin);
+
+        // Spread hands evenly across the instrument's note range so
+        // the operator sees realistic overlap without needing a real file.
+        const rendererHands = rawHands.map(function(h, i) {
+            const numFingers = Number.isFinite(h.num_fingers) ? h.num_fingers : 5;
+            const span = Number.isFinite(h.hand_span_semitones)
+                ? h.hand_span_semitones
+                : Math.max(0, numFingers - 1);
+            const center = rangeMin + Math.round(range * (i + 1) / (count + 1));
+            const anchor = Math.max(rangeMin, Math.min(rangeMax - span, center - Math.round(span / 2)));
+            return {
+                id: h.id || ('h' + (i + 1)),
+                span,
+                numFingers,
+                color: HAND_COLORS[i] || '#6b7280',
+                anchor
+            };
+        });
+
+        fingersRenderer.setHands(rendererHands);
+        fingersRenderer.setAnchors(new Map(rendererHands.map(function(h) { return [h.id, h.anchor]; })));
+
+        // Paint hand bands on the keyboard widget (coloured strip under the keys).
+        if (typeof kbWidget.setHandBands === 'function') {
+            kbWidget.setHandBands(rendererHands.map(function(h) {
+                return {
+                    id: h.id,
+                    low:  Math.max(rangeMin, h.anchor),
+                    high: Math.min(rangeMax, h.anchor + h.span),
+                    color: h.color
+                };
+            }));
+        }
+
+        // Defer the first draw to the next animation frame so the canvases
+        // have been painted by the browser (they may have zero clientWidth
+        // during the same synchronous paint that inserted the DOM).
+        requestAnimationFrame(function() {
+            kbWidget.draw();
+            fingersRenderer.draw();
+        });
+    };
+
+    /**
+     * Wire `input` event listeners on the per-hand finger-count and span
+     * fields so the preview canvas updates in real time as the operator
+     * types, without a full section re-render.
+     * @private
+     */
+    ISMListeners._attachHandsFieldListeners = function(handsSection) {
+        if (!handsSection) return;
+        const self = this;
+
+        handsSection.querySelectorAll('.ism-hand-fingers, .ism-hand-span').forEach(function(input) {
+            input.addEventListener('input', function() {
+                const v = parseInt(input.value, 10);
+                if (!Number.isFinite(v) || v < 1) return;
+                const handId = input.dataset.hand;
+                const field  = input.dataset.field;
+                const tab = self._getActiveTab();
+                if (!tab || !tab.settings || !tab.settings.hands_config) return;
+                const hand = (tab.settings.hands_config.hands || []).find(function(h) {
+                    return h.id === handId;
+                });
+                if (hand && field) hand[field] = v;
+                self._mountHandsPreview();
+            });
+        });
     };
 
     if (typeof window !== 'undefined') window.ISMListeners = ISMListeners;
