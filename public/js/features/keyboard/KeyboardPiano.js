@@ -397,7 +397,7 @@
                 lbl.className = 'octave-label';
                 lbl.style.left = `${leftPct}%`;
                 lbl.style.width = `${widthPct}%`;
-                lbl.textContent = `C${octave}` === 'NaN' ? '' : (
+                lbl.textContent = isNaN(octave) ? '' : (
                     this.noteLabelFormat === 'solfege' ? `Do${octave}` :
                     this.noteLabelFormat === 'midi' ? String(midi) :
                     `C${octave}`
@@ -1023,12 +1023,18 @@
             }
         };
         this._pianoTouchStart = (e) => {
-            const key = getKey(e);
-            if (key) { e.preventDefault(); this.handlePianoKeyDown({ currentTarget: key, preventDefault: () => {} }); }
+            e.preventDefault();
+            for (const touch of e.changedTouches) {
+                const key = getKey(touch);
+                if (key) this.handlePianoKeyDown({ currentTarget: key, preventDefault: () => {} });
+            }
         };
         this._pianoTouchEnd = (e) => {
-            const key = getKey(e);
-            if (key) { e.preventDefault(); this.handlePianoKeyUp({ currentTarget: key }); }
+            e.preventDefault();
+            for (const touch of e.changedTouches) {
+                const key = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.piano-key');
+                if (key) this.handlePianoKeyUp({ currentTarget: key });
+            }
         };
 
         container.addEventListener('mousedown', this._pianoMouseDown);

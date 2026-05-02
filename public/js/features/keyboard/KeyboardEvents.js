@@ -286,6 +286,20 @@
             document.removeEventListener('touchend', this._modWheelOnEnd);
             document.removeEventListener('touchcancel', this._modWheelOnEnd);
         }
+
+        // Cleanup pitch bend wheel listeners
+        if (this._pitchBendOnMove) {
+            const pbTrack = document.getElementById('pitch-bend-track');
+            if (pbTrack) {
+                pbTrack.removeEventListener('mousedown', this._pitchBendOnTrackDown);
+                pbTrack.removeEventListener('touchstart', this._pitchBendOnTouchStart);
+            }
+            document.removeEventListener('mousemove', this._pitchBendOnMove);
+            document.removeEventListener('mouseup', this._pitchBendOnEnd);
+            document.removeEventListener('touchmove', this._pitchBendOnTouchMove);
+            document.removeEventListener('touchend', this._pitchBendOnEnd);
+            document.removeEventListener('touchcancel', this._pitchBendOnEnd);
+        }
     }
 
     /**
@@ -348,7 +362,7 @@
     }
 
     KeyboardEventsMixin.playNote = function(note) {
-        if (note < 21 || note > 108) return;
+        if (note < 0 || note > 127) return;
 
         // Add to active notes
         this.activeNotes.add(note);
