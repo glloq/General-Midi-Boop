@@ -443,7 +443,7 @@
 
         // Note-color toggle: not useful for piano-slider, drumpad, or list view
         const noteColorGroup = document.getElementById('keyboard-note-color-group');
-        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode === 'drumpad' || mode === 'piano-slider' || mode === 'keyboard-list');
+        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode === 'drumpad' || mode === 'piano-slider');
 
         // Update view-mode toggle button label (piano-slider/list show 🎹 since they're piano family)
         const btn = document.getElementById('keyboard-view-toggle');

@@ -139,7 +139,9 @@
             const btn = document.getElementById('keyboard-note-colors-toggle');
             if (btn) btn.classList.toggle('active', this.showNoteColors);
             if (this.viewMode === 'fretboard') this.renderFretboard();
-            else if (this.viewMode === 'piano') this.regeneratePianoKeys();
+            else if (this.viewMode === 'keyboard-list') {
+                if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
+            } else if (this.viewMode === 'piano') this.regeneratePianoKeys();
         });
 
         // String slide mode toggle
