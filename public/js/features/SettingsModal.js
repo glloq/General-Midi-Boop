@@ -224,9 +224,13 @@ class SettingsModal {
             this.attachBankEffectsListeners();
         }
 
-        const updateBtn = this.modal.querySelector('#systemUpdateBtn');
-        if (updateBtn) {
-            updateBtn.addEventListener('click', () => this.triggerSystemUpdate());
+        const stableUpdateBtn = this.modal.querySelector('#stableUpdateBtn');
+        if (stableUpdateBtn) {
+            stableUpdateBtn.addEventListener('click', () => this.triggerSystemUpdate('stable'));
+        }
+        const betaUpdateBtn = this.modal.querySelector('#betaUpdateBtn');
+        if (betaUpdateBtn) {
+            betaUpdateBtn.addEventListener('click', () => this.triggerSystemUpdate('beta'));
         }
 
         if (typeof this.attachHotspotListeners === 'function') {

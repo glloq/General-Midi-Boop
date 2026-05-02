@@ -125,72 +125,120 @@ async function systemShutdown(app) {
 }
 
 /**
- * Compare local HEAD against `origin/main` to detect available updates.
- * Uses `git ls-remote` (no write to `.git/`) plus a best-effort `git
- * fetch` for the remote date and behind count when write access exists.
+ * Compare local HEAD against origin/main (stable) and the current branch
+ * (beta) to detect available updates on both channels.
+ *
+ * Returns structured `stable` and `beta` objects plus legacy flat fields
+ * for backward compatibility.  `stable.versionChanged` is true when the
+ * version string in origin/main's package.json differs from the running
+ * version, signalling an official release.
  *
  * @param {Object} app
  * @returns {Promise<{
+ *   version: string,
+ *   localHash: string,
+ *   localDate: string,
+ *   currentBranch: string,
+ *   stable: {upToDate:boolean, remoteHash:string, remoteVersion:string|null,
+ *            versionChanged:boolean, behindCount:number, remoteDate:string},
+ *   beta: {upToDate:boolean, remoteHash:string, behindCount:number,
+ *          remoteDate:string, branch:string}|null,
  *   upToDate: boolean|null,
- *   localHash?: string,
- *   remoteHash?: string,
- *   localDate?: string,
- *   remoteDate?: string,
- *   behindCount?: number,
- *   error?: string,
- *   version: string
- * }>} `upToDate: null` indicates the comparison could not be made.
+ *   remoteHash: string,
+ *   behindCount: number,
+ *   error?: string
+ * }>}
  */
 async function systemCheckUpdate(app) {
   const { execSync } = await import('child_process');
   const cwd = PROJECT_ROOT;
 
   try {
-    // Get local commit info
     const localHash = execSync('git rev-parse HEAD', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
     const localDate = execSync('git log -1 --format=%ci HEAD', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+    const currentBranch = execSync('git branch --show-current', { cwd, encoding: 'utf8', timeout: 5000 }).trim() || 'main';
 
-    // Query remote without writing to .git/ (avoids permission issues)
-    const lsRemote = execSync('git ls-remote origin refs/heads/main', { cwd, encoding: 'utf8', timeout: 15000 }).trim();
-    const remoteHash = lsRemote.split(/\s/)[0] || '';
+    // ── Stable channel: origin/main ──
+    const lsRemoteMain = execSync('git ls-remote origin refs/heads/main', { cwd, encoding: 'utf8', timeout: 15000 }).trim();
+    const stableRemoteHashFull = lsRemoteMain.split(/\s/)[0] || '';
 
-    if (!remoteHash) {
+    if (!stableRemoteHashFull) {
       return { upToDate: null, error: 'Impossible de lire le hash distant', version: APP_VERSION };
     }
 
-    let behindCount = 0;
-    let remoteDate = '';
+    let stableBehindCount = 0;
+    let stableRemoteDate = '';
+    let stableRemoteVersion = null;
 
-    // Try to get remote date and behind count using local refs (may be stale but no write needed)
     try {
-      // Fetch to update refs if we have write access
       execSync('git fetch origin main', { cwd, timeout: 15000, stdio: 'pipe' });
-      remoteDate = execSync('git log -1 --format=%ci origin/main', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
-      if (localHash !== remoteHash) {
+      stableRemoteDate = execSync('git log -1 --format=%ci origin/main', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      if (localHash !== stableRemoteHashFull) {
         const behind = execSync('git rev-list --count HEAD..origin/main', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
-        behindCount = parseInt(behind) || 0;
+        stableBehindCount = parseInt(behind) || 0;
+        try {
+          const remotePkgRaw = execSync('git show origin/main:package.json', { cwd, encoding: 'utf8', timeout: 5000 });
+          stableRemoteVersion = JSON.parse(remotePkgRaw).version || null;
+        } catch { /* ignore */ }
       }
     } catch {
-      // No write access to .git/, use ls-remote result only
-      // remoteDate stays empty, behindCount stays 0
+      // No write access — use ls-remote result only
+    }
+
+    const stableUpToDate = localHash === stableRemoteHashFull;
+    const stableVersionChanged = !stableUpToDate && stableRemoteVersion !== null && stableRemoteVersion !== APP_VERSION;
+
+    // ── Beta channel: current branch (only when different from main) ──
+    let betaInfo = null;
+    if (currentBranch && currentBranch !== 'main') {
+      try {
+        const lsRemoteBeta = execSync(`git ls-remote origin refs/heads/${currentBranch}`, { cwd, encoding: 'utf8', timeout: 15000 }).trim();
+        const betaRemoteHashFull = lsRemoteBeta.split(/\s/)[0] || '';
+        if (betaRemoteHashFull) {
+          let betaBehindCount = 0;
+          let betaRemoteDate = '';
+          try {
+            execSync(`git fetch origin ${currentBranch}`, { cwd, timeout: 15000, stdio: 'pipe' });
+            betaRemoteDate = execSync(`git log -1 --format=%ci origin/${currentBranch}`, { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+            if (localHash !== betaRemoteHashFull) {
+              const behind = execSync(`git rev-list --count HEAD..origin/${currentBranch}`, { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+              betaBehindCount = parseInt(behind) || 0;
+            }
+          } catch { /* ignore */ }
+          betaInfo = {
+            upToDate: localHash === betaRemoteHashFull,
+            remoteHash: betaRemoteHashFull.substring(0, 7),
+            behindCount: betaBehindCount,
+            remoteDate: betaRemoteDate,
+            branch: currentBranch
+          };
+        }
+      } catch { /* beta check failed silently */ }
     }
 
     return {
-      upToDate: localHash === remoteHash,
+      version: APP_VERSION,
       localHash: localHash.substring(0, 7),
-      remoteHash: remoteHash.substring(0, 7),
       localDate,
-      remoteDate,
-      behindCount,
-      version: APP_VERSION
+      currentBranch,
+      stable: {
+        upToDate: stableUpToDate,
+        remoteHash: stableRemoteHashFull.substring(0, 7),
+        remoteVersion: stableRemoteVersion,
+        versionChanged: stableVersionChanged,
+        behindCount: stableBehindCount,
+        remoteDate: stableRemoteDate
+      },
+      beta: betaInfo,
+      // Legacy flat fields for backward compatibility
+      upToDate: stableUpToDate,
+      remoteHash: stableRemoteHashFull.substring(0, 7),
+      remoteDate: stableRemoteDate,
+      behindCount: stableBehindCount
     };
   } catch (error) {
     app.logger.warn('Check update failed:', error.message);
-    return {
-      upToDate: null,
-      error: error.message,
-      version: APP_VERSION
-    };
+    return { upToDate: null, error: error.message, version: APP_VERSION };
   }
 }
 
@@ -203,12 +251,15 @@ async function systemCheckUpdate(app) {
  * up.
  *
  * @param {Object} app
+ * @param {{type?: 'stable'|'beta'}} [data]  `type='beta'` stays on the
+ *   current branch; `type='stable'` (default) switches to main.
  * @returns {Promise<{success:boolean, message?:string, error?:string}>}
  * @throws {AuthenticationError}
  */
-async function systemUpdate(app) {
+async function systemUpdate(app, data = {}) {
   requireTokenConfigured();
-  app.logger.info('System update requested');
+  const updateType = (data?.type === 'beta') ? 'beta' : 'stable';
+  app.logger.info(`System update requested (type: ${updateType})`);
 
   // Prevent concurrent updates
   if (_updateInProgress) {
@@ -277,7 +328,7 @@ async function systemUpdate(app) {
     return { success: false, error: `Cannot open update log: ${err.message}` };
   }
 
-  app.logger.info(`Spawning update script: bash ${scriptPath} --non-interactive (cwd: ${cwd})`);
+  app.logger.info(`Spawning update script: bash ${scriptPath} --non-interactive (cwd: ${cwd}, type: ${updateType})`);
 
   // Launch update script detached so it survives server restart
   const child = spawn('bash', [scriptPath, '--non-interactive'], {
@@ -289,7 +340,8 @@ async function systemUpdate(app) {
       DEBIAN_FRONTEND: 'noninteractive',
       NON_INTERACTIVE: '1',
       SERVER_PORT: String(serverPort),
-      UPDATE_DELAY_SECONDS: '3'
+      UPDATE_DELAY_SECONDS: '3',
+      UPDATE_TYPE: updateType
     }
   });
 
@@ -471,7 +523,7 @@ export function register(registry, app) {
   registry.register('system_info', () => systemInfo(app));
   registry.register('system_restart', () => systemRestart(app));
   registry.register('system_shutdown', () => systemShutdown(app));
-  registry.register('system_update', () => systemUpdate(app));
+  registry.register('system_update', (data) => systemUpdate(app, data));
   registry.register('system_check_update', () => systemCheckUpdate(app));
   registry.register('system_backup', (data) => systemBackup(app, data));
   registry.register('system_restore', (data) => systemRestore(app, data));

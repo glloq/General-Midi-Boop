@@ -559,30 +559,61 @@
 
                 <!-- Mise à jour -->
                 <div class="settings-section" style="margin-top: 16px;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
-                    <div id="versionStatus" style="margin-bottom: 12px; padding: 10px 14px; border-radius: 8px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 13px; display: flex; align-items: center; gap: 10px;">
-                        <span style="animation: pulse 1.5s infinite;">⏳</span>
-                        <span>${i18n.t('settings.update.checking') || 'Vérification des mises à jour...'}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-                        <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.update.description') || 'Télécharger et installer la dernière version'}</p>
-                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.update.warning') || 'Récupère les dernières modifications, met à jour les dépendances et redémarre le serveur'}</p>
+                    <h3 style="margin: 0 0 12px 0; font-size: 15px; color: var(--text-primary, #333);">🔄 ${i18n.t('settings.update.title') || 'Mise à jour du système'}</h3>
+
+                    <!-- Canal stable -->
+                    <div id="stableUpdateChannel" style="padding: 14px; border: 2px solid var(--border-color, #e5e7eb); border-radius: 10px; background: var(--bg-secondary, white); transition: border-color 0.3s, box-shadow 0.3s;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary, #333);">📦 ${i18n.t('settings.update.stableChannel') || 'Version stable'}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary, #666); margin-top: 2px;">${i18n.t('settings.update.stableDescription') || 'Mises à jour officielles avec numéro de version'}</div>
+                            </div>
+                            <button id="stableUpdateBtn" style="
+                                padding: 10px 18px;
+                                border: none;
+                                border-radius: 8px;
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                color: white;
+                                cursor: pointer;
+                                font-size: 13px;
+                                font-weight: 600;
+                                transition: all 0.3s;
+                                white-space: nowrap;
+                                box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                            ">📦 ${i18n.t('settings.update.stableButton') || 'Installer stable'}</button>
                         </div>
-                        <button id="systemUpdateBtn" style="
-                            padding: 12px 24px;
-                            border: none;
-                            border-radius: 8px;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            color: white;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: 600;
-                            transition: all 0.2s;
-                            white-space: nowrap;
-                            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-                        ">🔄 ${i18n.t('settings.update.button') || 'Installer la mise à jour'}</button>
+                        <div id="stableVersionStatus" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span style="animation: pulse 1.5s infinite;">⏳</span>
+                            <span>${i18n.t('settings.update.checking') || 'Vérification...'}</span>
+                        </div>
                     </div>
+
+                    <!-- Canal bêta -->
+                    <div id="betaUpdateChannel" style="margin-top: 10px; padding: 14px; border: 2px solid var(--border-color, #e5e7eb); border-radius: 10px; background: var(--bg-secondary, white); transition: border-color 0.3s;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
+                            <div style="flex: 1;">
+                                <div style="font-size: 14px; font-weight: 600; color: var(--text-primary, #333);">🧪 ${i18n.t('settings.update.betaChannel') || 'Version bêta'}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary, #666); margin-top: 2px;">${i18n.t('settings.update.betaDescription') || 'Derniers commits de développement'}</div>
+                            </div>
+                            <button id="betaUpdateBtn" style="
+                                padding: 10px 18px;
+                                border: 2px solid #667eea;
+                                border-radius: 8px;
+                                background: transparent;
+                                color: #667eea;
+                                cursor: pointer;
+                                font-size: 13px;
+                                font-weight: 600;
+                                transition: all 0.2s;
+                                white-space: nowrap;
+                            ">🧪 ${i18n.t('settings.update.betaButton') || 'Installer bêta'}</button>
+                        </div>
+                        <div id="betaVersionStatus" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-tertiary, #f3f4f6); color: var(--text-secondary, #666); font-size: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span style="animation: pulse 1.5s infinite;">⏳</span>
+                            <span>${i18n.t('settings.update.checking') || 'Vérification...'}</span>
+                        </div>
+                    </div>
+
                     <div id="updateStatus" style="display: none; margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px;"></div>
                 </div>
             </div>
