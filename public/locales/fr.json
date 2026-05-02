@@ -231,7 +231,16 @@
       "updateAvailable": "Mise à jour disponible",
       "checkFailed": "Impossible de vérifier les mises à jour",
       "complete": "Mise à jour terminée !",
-      "manualReload": "Recharger manuellement"
+      "manualReload": "Recharger manuellement",
+      "stableChannel": "Version stable",
+      "stableDescription": "Mises à jour officielles avec numéro de version",
+      "stableButton": "Installer stable",
+      "betaChannel": "Version bêta",
+      "betaDescription": "Derniers commits de développement",
+      "betaButton": "Installer bêta",
+      "confirmTitleBeta": "Installer la version bêta",
+      "newVersion": "Nouvelle version",
+      "currentVersion": "actuellement"
     }
   },
   "bluetooth": {
