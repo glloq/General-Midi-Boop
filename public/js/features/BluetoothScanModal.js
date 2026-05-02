@@ -620,10 +620,20 @@ class BluetoothScanModal {
 
         this.logger.error('BluetoothScanModal', 'Scan error:', data.error);
 
-        // Check whether this is a Bluetooth-disabled error
-        if (data.error && data.error.includes('poweredOff')) {
-            this.bluetoothEnabled = false;
-            this.bluetoothState = 'poweredOff';
+        // Mark Bluetooth as unavailable only for errors that indicate the adapter
+        // itself is off or unreachable (not for transient errors like timeouts).
+        if (data.error) {
+            const msg = data.error.toLowerCase();
+            const isAdapterDown = msg.includes('poweredoff') ||
+                msg.includes('powered off') ||
+                msg.includes('d-bus') ||
+                msg.includes('dbus') ||
+                msg.includes('no adapter') ||
+                msg.includes('adapter disposed');
+            if (isAdapterDown) {
+                this.bluetoothEnabled = false;
+                this.bluetoothState = 'poweredOff';
+            }
         }
 
         this.updateModalContent();
