@@ -49,6 +49,7 @@
     KeyboardChordsMixin.chordRoot = 0;          // semitone class 0–11 (0 = C)
     KeyboardChordsMixin._activeChordType = 'Maj'; // last chord type used (for voicing refresh)
     KeyboardChordsMixin._strumTimeouts = [];    // pending timeout handles
+    KeyboardChordsMixin._strumActiveFretPositions = null; // positions added to activeFretPositions by last strum
     KeyboardChordsMixin.handAnchorFret = 0;     // leftmost fret of the hand window
     KeyboardChordsMixin._handSpanFrets = 4;     // frets covered by the hand (fallback)
     KeyboardChordsMixin._cachedMaxFrets = 22;
@@ -296,12 +297,19 @@
         // Stop notes still ringing from a previous strum
         [...(this.activeNotes || [])].forEach(n => this.stopNote(n));
 
-        // Clear any previous per-string strum animations
+        // Clear any previous per-string strum animations + fret positions
         const container = document.getElementById('fretboard-container');
         if (container) {
             container.querySelectorAll('.fret-dot.chord-strum-active')
                 .forEach(d => d.classList.remove('chord-strum-active'));
         }
+        if (this._strumActiveFretPositions && this.activeFretPositions) {
+            this._strumActiveFretPositions.forEach(pos => this.activeFretPositions.delete(pos));
+            if (this._strumActiveFretPositions.size > 0 && typeof this.updatePianoDisplay === 'function') {
+                this.updatePianoDisplay();
+            }
+        }
+        this._strumActiveFretPositions = new Set();
 
         // ── Resolve instrument config ──
         const cfg = this.stringInstrumentConfig || {};
@@ -377,7 +385,8 @@
             }, delay);
             this._strumTimeouts.push(t);
 
-            // Visual: light up fret-dot in strum order
+            // Visual: light up fret-dot + activate string vibe in strum order
+            const posKey = `${item.string}:${item.fret}`;
             const tv = setTimeout(() => {
                 if (!container) return;
                 const dot = container.querySelector(
@@ -387,6 +396,13 @@
                     dot.classList.remove('chord-strum-active');
                     void dot.offsetWidth; // restart animation on rapid re-strum
                     dot.classList.add('chord-strum-active');
+                }
+                // Register in activeFretPositions so updatePianoDisplay activates .active
+                // on the dot and _updateFretboardStringColors shows the string vibe.
+                if (this.activeFretPositions) {
+                    this._strumActiveFretPositions.add(posKey);
+                    this.activeFretPositions.add(posKey);
+                    if (typeof this.updatePianoDisplay === 'function') this.updatePianoDisplay();
                 }
             }, delay);
             this._strumTimeouts.push(tv);
@@ -399,13 +415,19 @@
         }, stopDelay);
         this._strumTimeouts.push(stopT);
 
-        // ── Clear strum animations (1–2 s max after last string hit) ──
+        // ── Clear strum animations + string vibes (1–2 s max after last string hit) ──
         const lastNoteDelay = (ordered.length > 0 ? ordered.length - 1 : 0) * delayMs;
         const visualClearMs = Math.min(lastNoteDelay + 1500, 2000);
         const clearT = setTimeout(() => {
-            if (!container) return;
-            container.querySelectorAll('.fret-dot.chord-strum-active')
-                .forEach(d => d.classList.remove('chord-strum-active'));
+            if (container) {
+                container.querySelectorAll('.fret-dot.chord-strum-active')
+                    .forEach(d => d.classList.remove('chord-strum-active'));
+            }
+            if (this._strumActiveFretPositions && this.activeFretPositions) {
+                this._strumActiveFretPositions.forEach(pos => this.activeFretPositions.delete(pos));
+                this._strumActiveFretPositions.clear();
+                if (typeof this.updatePianoDisplay === 'function') this.updatePianoDisplay();
+            }
         }, visualClearMs);
         this._strumTimeouts.push(clearT);
     };
