@@ -1232,19 +1232,15 @@
 
         const handRow = (h, index) => {
             const idLabel = ISMSections._handLabel(index, count, t);
-            // V1 'aligned_fingers' + chromatic keyboard: fingers map
-            // onto consecutive semitones, so num_fingers fully
-            // determines the playable window (span = num_fingers − 1).
-            // We expose only 'Number of fingers'; hand_span_semitones
-            // is recomputed from it at save time.
-            // V1 'aligned_fingers' + piano keyboard: span is bigger
-            // than num_fingers - 1 (white-key stretch), so we expose
-            // both inputs.
+            // V1 'aligned_fingers': span is always derived automatically
+            // from num_fingers at save time (chromatic: span = f−1;
+            // piano: span ≈ f×2). The span input is hidden for all
+            // aligned-finger instruments — only 'Number of fingers' is shown.
             // V2 'independent_fingers_5' (not yet released) always
             // exposes both fields because the fingers can stretch
             // within a wider window even on chromatic instruments.
             const isAligned = mechanism === 'aligned_fingers';
-            const hideSpanField = isAligned && keyboardType === 'chromatic';
+            const hideSpanField = isAligned;
             const numFingers = Number.isFinite(h.num_fingers)
                 ? h.num_fingers
                 : (Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones + 1 : 5);
@@ -1999,7 +1995,7 @@
         // hand stretches across more semitones than fingers — the
         // operator types the span explicitly.
         const isAligned = kbMechanism === 'aligned_fingers';
-        const deriveSpanFromFingers = isAligned && keyboardType === 'chromatic';
+        const deriveSpanFromFingers = isAligned;
         const hands = rows.map((row, idx) => {
             const id = ISMSections._handIdAt(idx);
             const readInt = (field, dflt) => {
@@ -2012,12 +2008,15 @@
             };
             const numFingersOpt = readOptInt('num_fingers');
             // span = num_fingers − 1 only on chromatic + aligned_fingers
-            // (one note per finger). Piano-style layouts and V2 mechanism
-            // both expose the span input, so we read it directly.
+            // all aligned instruments now derive span automatically.
             let span;
             if (deriveSpanFromFingers) {
                 const f = numFingersOpt != null ? numFingersOpt : 5;
-                span = Math.max(1, f - 1);
+                // Chromatic: one note per finger → span = f − 1.
+                // Piano: alternating W–G pattern; each white key pair spans
+                // ≈2 semitones on average → use f * 2 as a generous estimate
+                // that keeps the off-screen check correct for all octaves.
+                span = keyboardType === 'piano' ? f * 2 : Math.max(1, f - 1);
             } else {
                 span = readInt('hand_span_semitones', 14);
             }

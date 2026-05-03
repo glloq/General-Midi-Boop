@@ -1317,7 +1317,7 @@
         const renderer = new window.KeyboardFingersRenderer(canvas, {
             bandHeight: 80,
             whiteTipFraction: 0.25,
-            blackTipFraction: 0.40,
+            blackTipFraction: 0.08,
             chromaticTipFraction: 0.25,
             knuckleHeight: 8,
         });
