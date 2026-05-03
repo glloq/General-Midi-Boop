@@ -1269,13 +1269,13 @@
             const _canvas = this._fingersCanvas;
             const _renderer = this._fingersRenderer;
             requestAnimationFrame(() => {
-                if (layout === 'piano') {
-                    const pianoEl = document.getElementById('piano-container');
-                    if (pianoEl && pianoEl.clientHeight > 0) {
-                        const keyH = pianoEl.clientHeight;
-                        _canvas.style.top    = `-${keyH}px`;
-                        _canvas.style.height = `calc(100% + ${keyH}px)`;
-                    }
+                const _keyContainerId = layout === 'piano'
+                    ? 'piano-container' : 'keyboard-list-container';
+                const _keyEl = document.getElementById(_keyContainerId);
+                if (_keyEl && _keyEl.clientHeight > 0) {
+                    const keyH = _keyEl.clientHeight;
+                    _canvas.style.top    = `-${keyH}px`;
+                    _canvas.style.height = `calc(100% + ${keyH}px)`;
                 }
                 _renderer.draw();
             });
@@ -1369,18 +1369,15 @@
         this._updateFingersViewToggle();
 
         requestAnimationFrame(() => {
-            // For piano layout: resize the canvas to match the actual piano
-            // key area height so the T-shapes span the full key height.
-            // Reading clientHeight inside draw() triggers a synchronous reflow,
-            // so setting the style here (before draw()) is enough — no second
-            // rAF needed.
-            if (layout === 'piano') {
-                const pianoEl = document.getElementById('piano-container');
-                if (pianoEl && pianoEl.clientHeight > 0) {
-                    const keyH = pianoEl.clientHeight;
-                    canvas.style.top    = `-${keyH}px`;
-                    canvas.style.height = `calc(100% + ${keyH}px)`;
-                }
+            // Resize the canvas to match the actual key-area height so
+            // T-shapes span the full key height in both layouts.
+            const keyContainerId = layout === 'piano'
+                ? 'piano-container' : 'keyboard-list-container';
+            const keyEl = document.getElementById(keyContainerId);
+            if (keyEl && keyEl.clientHeight > 0) {
+                const keyH = keyEl.clientHeight;
+                canvas.style.top    = `-${keyH}px`;
+                canvas.style.height = `calc(100% + ${keyH}px)`;
             }
             renderer.draw();
         });
