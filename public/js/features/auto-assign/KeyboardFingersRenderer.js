@@ -218,7 +218,7 @@
         }
 
         // -----------------------------------------------------------------
-        //  Piano layout — strict W/B alternation
+        //  Piano layout — fingers distributed across the declared span
         // -----------------------------------------------------------------
 
         _drawPiano(ctx, W, H) {
@@ -234,49 +234,46 @@
             const handY = Math.max(0, H - bandH);
             const keysH = handY;
             const blackH = keysH * opts.blackHeightRatio;
-            const knuckleTop = handY;          // flush with band top
-            const whiteTipY = Math.max(0, keysH * opts.whiteTipFraction);
-            const blackTipY = Math.max(0, blackH * opts.blackTipFraction);
+            const knuckleTop = handY;
+            const whiteTipY  = Math.max(0, keysH * opts.whiteTipFraction);
+            const blackTipY  = Math.max(0, blackH * opts.blackTipFraction);
             const whiteFingerH = Math.max(2, handY - whiteTipY);
             const blackFingerH = Math.max(2, handY - blackTipY);
             const kb = this._kb;
 
-            // White-key geometry computed FROM THE FINGERS CANVAS
-            // WIDTH, not from `kb.keyXAt`. Reason: `KeyboardPreview`
-            // caches its geometry off its own canvas's clientWidth,
-            // and the keyboard canvas can momentarily have a
-            // different width than the fingers overlay during
-            // layout / open animations. The fingers would then
-            // render at positions calibrated to the keyboard
-            // canvas's stale width — a hand whose pixel range fell
-            // past the fingers canvas's right edge looked completely
-            // missing on screen even though the renderer reported
-            // it as drawn. Computing positions directly here against
-            // `W` keeps the fingers ALWAYS aligned with whatever
-            // the fingers canvas actually displays, regardless of
-            // the keyboard widget's internal cache.
-            //
-            // We still read `kb.rangeMin`/`rangeMax` (which don't
-            // depend on canvas width) so the white-key indexing
-            // matches the range the keyboard widget renders. When
-            // `_kbView` is null those equal the full instrument
-            // range, so the fingers and the keyboard's keys still
-            // line up on the X axis.
             const rangeMin = Number.isFinite(kb.rangeMin) ? kb.rangeMin : this._extent.lo;
             const rangeMax = Number.isFinite(kb.rangeMax) ? kb.rangeMax : this._extent.hi;
-            const whiteIdxArr = new Int16Array(128);
-            let idx = 0;
+
+            // Build a white-key index table. Only white keys get an index ≥ 0;
+            // black key entries stay -1 so `keyCenter` can branch on it.
+            const whiteIdxOf = new Int16Array(128).fill(-1);
+            let wIdx = 0;
             for (let m = rangeMin; m <= rangeMax; m++) {
-                whiteIdxArr[m] = idx;
-                if (!this._isBlackKey(m)) idx++;
+                if (!this._isBlackKey(m)) whiteIdxOf[m] = wIdx++;
             }
-            const numWhitesInRange = idx;
-            if (numWhitesInRange <= 0) return;
-            const ww = W / numWhitesInRange;
-            const whiteCenter = (midi) => {
+            const numWhites = wIdx;
+            if (numWhites <= 0) return;
+            const ww = W / numWhites;          // pixels per white key
+
+            // Pixel centre of any key (white or black).
+            // White  → index × ww + half white key.
+            // Black  → midpoint of its two surrounding white key centres,
+            //          which matches the DOM placement of `left: (i+0.7)*ww%`.
+            const keyCenter = (midi) => {
                 const m = Math.max(rangeMin, Math.min(rangeMax, Math.round(midi)));
-                return whiteIdxArr[m] * ww + ww / 2;
+                if (!this._isBlackKey(m)) {
+                    const i = whiteIdxOf[m];
+                    return (i >= 0 ? i : 0) * ww + ww * 0.5;
+                }
+                const wL = m - 1, wR = m + 1;
+                const xL = (wL >= rangeMin && whiteIdxOf[wL] >= 0)
+                    ? whiteIdxOf[wL] * ww + ww * 0.5 : 0;
+                const xR = (wR <= rangeMax && whiteIdxOf[wR] >= 0)
+                    ? whiteIdxOf[wR] * ww + ww * 0.5 : W;
+                return (xL + xR) * 0.5;
             };
+
+            const fingerW = Math.max(3, ww * 0.55);
 
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
@@ -287,57 +284,42 @@
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
                 if (this._isOffScreen(lowMidi, highMidi)) continue;
 
-                // Build the white-key sequence for this hand. Slots
-                // alternate: even = white, odd = between adjacent
-                // whites. Need floor(N/2) + 1 whites total.
-                const numWhites = Math.floor(numFingers / 2) + 1;
-                const whites = this._whiteKeysFromAnchor(lowMidi, numWhites);
-                if (whites.length < 2) continue;
+                // Assign each finger a MIDI note, evenly distributed across
+                // the declared span. This keeps fingers spread over the full
+                // hand range instead of being clustered at the anchor.
+                const fingerMidis = [];
+                for (let i = 0; i < numFingers; i++) {
+                    fingerMidis.push(this._slotMidi(a, hand.span, numFingers, i));
+                }
 
-                // Pixel centres computed against the fingers canvas
-                // width (see comment above).
-                const whiteCenters = whites.map(m => whiteCenter(m));
-
-                const slotCenterX = (i) => {
-                    if ((i & 1) === 0) return whiteCenters[i >> 1];
-                    return (whiteCenters[i >> 1] + whiteCenters[(i >> 1) + 1]) / 2;
-                };
-
-                // Slot → MIDI for the active-note lookup. Odd slots
-                // map to the real black between the surrounding
-                // whites; null when no black exists (E–F, B–C) — the
-                // finger still draws but never lights up.
-                const slotMidi = (i) => {
-                    if ((i & 1) === 0) return whites[i >> 1];
-                    const wLo = whites[i >> 1];
-                    const wHi = whites[(i >> 1) + 1];
-                    return (Number.isFinite(wLo) && Number.isFinite(wHi)
-                            && wHi - wLo === 2) ? wLo + 1 : null;
-                };
-
-                // Finger body width = ~55 % of a white-key width so
-                // W and B fingers stay visually balanced.
-                const fingerW = Math.max(3, ww * 0.55);
-
-                const leftX = slotCenterX(0) - fingerW / 2;
-                const rightX = slotCenterX(numFingers - 1) + fingerW / 2;
-                this._drawKnuckleBar(ctx, hand.color, leftX, rightX,
+                // Knuckle bar: from first to last finger centre, padded by half
+                // the key width (white = ww/2, black = ww*0.3 ≈ half black key).
+                const halfKey = (m) => this._isBlackKey(Math.round(m)) ? ww * 0.3 : ww * 0.5;
+                const kLeft  = Number.isFinite(fingerMidis[0])
+                    ? keyCenter(fingerMidis[0]) - halfKey(fingerMidis[0]) : 0;
+                const kRight = Number.isFinite(fingerMidis[numFingers - 1])
+                    ? keyCenter(fingerMidis[numFingers - 1]) + halfKey(fingerMidis[numFingers - 1]) : W;
+                this._drawKnuckleBar(ctx, hand.color, kLeft, kRight,
                                       knuckleTop, opts.knuckleHeight, W);
 
-                // Pass 1 — black fingers (odd slot indices). Drawn
-                // first so the white fingers cap their bottom.
-                for (let i = 1; i < numFingers; i += 2) {
-                    const m = slotMidi(i);
-                    const isActive = Number.isFinite(m) && this._activeNotes.has(m);
-                    this._drawFingerBar(ctx, slotCenterX(i), blackTipY, blackFingerH,
-                                         fingerW, isActive, W);
+                // Pass 1 — black-key fingers first so white fingers overdraw
+                // their bottom (same visual layering as real piano keys).
+                for (let i = 0; i < numFingers; i++) {
+                    const m = fingerMidis[i];
+                    if (!Number.isFinite(m)) continue;
+                    const mi = Math.round(m);
+                    if (!this._isBlackKey(mi) || mi < rangeMin || mi > rangeMax) continue;
+                    this._drawFingerBar(ctx, keyCenter(mi), blackTipY, blackFingerH,
+                                         fingerW, this._activeNotes.has(mi), W);
                 }
-                // Pass 2 — white fingers (even slot indices) on top.
-                for (let i = 0; i < numFingers; i += 2) {
-                    const m = slotMidi(i);
-                    const isActive = Number.isFinite(m) && this._activeNotes.has(m);
-                    this._drawFingerBar(ctx, slotCenterX(i), whiteTipY, whiteFingerH,
-                                         fingerW, isActive, W);
+                // Pass 2 — white-key fingers on top.
+                for (let i = 0; i < numFingers; i++) {
+                    const m = fingerMidis[i];
+                    if (!Number.isFinite(m)) continue;
+                    const mi = Math.round(m);
+                    if (this._isBlackKey(mi) || mi < rangeMin || mi > rangeMax) continue;
+                    this._drawFingerBar(ctx, keyCenter(mi), whiteTipY, whiteFingerH,
+                                         fingerW, this._activeNotes.has(mi), W);
                 }
             }
         }
