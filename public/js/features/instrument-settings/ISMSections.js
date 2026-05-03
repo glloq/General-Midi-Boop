@@ -2012,11 +2012,11 @@
             let span;
             if (deriveSpanFromFingers) {
                 const f = numFingersOpt != null ? numFingersOpt : 5;
-                // Chromatic: one note per finger → span = f − 1.
-                // Piano: alternating W–G pattern; each white key pair spans
-                // ≈2 semitones on average → use f * 2 as a generous estimate
-                // that keeps the off-screen check correct for all octaves.
-                span = keyboardType === 'piano' ? f * 2 : Math.max(1, f - 1);
+                // Piano: W-G alternating pattern uses ceil(nf/2) white keys
+                // and floor(nf/2) gap slots → total span ≈ nf-1 semitones.
+                // (Using f*2 was wrong — it counted nf intervals of 2 semitones
+                //  instead of ceil(nf/2)-1 intervals.)
+                span = keyboardType === 'piano' ? Math.max(0, f - 1) : Math.max(1, f - 1);
             } else {
                 span = readInt('hand_span_semitones', 14);
             }
