@@ -1491,14 +1491,23 @@
                 while (lo < hi) { const m = (lo + hi) >> 1; if (wn[m] < midi) lo = m + 1; else hi = m; }
                 return lo;
             };
-            // MIDI note of the white key one slot past hand h's last finger.
+            // How many white-key slots does the W–G–W–G pattern occupy for
+            // a hand with nf fingers? ceil(nf/2) whites + one extra when
+            // the pattern ends on a gap (even nf: trailing gap needs the
+            // next white as its right boundary).
+            const slotsOf = (h) => {
+                const nw = Math.ceil(h.nf / 2);
+                const ng = Math.floor(h.nf / 2);
+                return nw + (ng >= nw ? 1 : 0);
+            };
+            // MIDI note of the first white key that doesn't overlap with hand h.
             const minNextAnchor = (h) => {
-                const ni = lowerBound(h.anchor) + h.nf;
+                const ni = lowerBound(h.anchor) + slotsOf(h);
                 return ni < wn.length ? wn[ni] : rangeMax + 1;
             };
-            // Max anchor for hand h so its last finger falls before rightBoundaryMidi.
+            // Max anchor for hand h so its visual extent fits before rightBoundaryMidi.
             const maxAnchorBefore = (h, rightBoundaryMidi) => {
-                const startIdx = lowerBound(rightBoundaryMidi) - h.nf;
+                const startIdx = lowerBound(rightBoundaryMidi) - slotsOf(h);
                 return startIdx >= 0 ? wn[startIdx] : rangeMin;
             };
 
