@@ -21,7 +21,7 @@
 (function() {
     'use strict';
 
-    const FINGER_BEFORE_FRET_MM = 10;
+    const FINGER_BEFORE_FRET_MM = 8;
     const HAND_BAND_X_OVERFLOW = 6;
 
     class VerticalFretboardPreview {
@@ -424,7 +424,7 @@
             //                               sticks to the fret as the
             //                               band slides — see commit C).
             const rectW = 8;
-            const restY = (y0 + y1) / 2;
+            const restY = y0;
             // Source of truth for finger state: the sustaining map
             // (notes currently sounding, anchored or not). The
             // chord-event activeFret map is used as a fallback for
@@ -485,19 +485,21 @@
 
         _drawFretSlidingFingerRange(fbX, fbW, y0, y1) {
             const ctx = this.ctx;
-            const cx = fbX + fbW / 2;
-            const cy = (y0 + y1) / 2;
-            const rectW = fbW * 0.9;
-            const rectH = Math.min(y1 - y0, 14);
-            ctx.fillRect(cx - rectW / 2, cy - rectH / 2, rectW, rectH);
-            ctx.strokeRect(cx - rectW / 2, cy - rectH / 2, rectW, rectH);
-            ctx.save();
-            ctx.setLineDash([]);
-            ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
-            ctx.beginPath();
-            ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            const numF = Math.max(1, this.maxFingers);
+            const slotH = (y1 - y0) / numF;
+            const stripeH = Math.min(slotH * 0.55, 10);
+            for (let i = 0; i < numF; i++) {
+                const sy = y0 + i * slotH;
+                ctx.fillRect(fbX, sy, fbW, stripeH);
+                ctx.strokeRect(fbX, sy, fbW, stripeH);
+                ctx.save();
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
+                ctx.beginPath();
+                ctx.arc(fbX + fbW * 0.5, sy + stripeH / 2, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
         }
 
         _drawFretLines(fbX, fbW) {
