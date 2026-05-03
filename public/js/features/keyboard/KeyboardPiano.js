@@ -1278,6 +1278,18 @@
         this._fingersHands = rendererHands;
         this._handCurrentAnchors = new Map(rendererHands.map(h => [h.id, h.anchor]));
 
+        // Resolve initial overlaps: sort by anchor, push right neighbours away.
+        const sortedInit = [...rendererHands].sort((a, b) => a.anchor - b.anchor);
+        for (let i = 0; i < sortedInit.length - 1; i++) {
+            const left  = sortedInit[i];
+            const right = sortedInit[i + 1];
+            const minRight = (this._handCurrentAnchors.get(left.id) || left.anchor) + left.span + 1;
+            const curRight = this._handCurrentAnchors.get(right.id) ?? right.anchor;
+            if (curRight < minRight) {
+                this._handCurrentAnchors.set(right.id, Math.min(rangeMax - right.span, minRight));
+            }
+        }
+
         renderer.setHands(rendererHands);
         renderer.setAnchors(this._handCurrentAnchors);
 
@@ -1315,10 +1327,16 @@
         const activeNotes = this.activeNotes instanceof Set ? this.activeNotes : new Set();
         this._fingersRenderer.setActiveNotes(activeNotes);
 
-        // Animate each active note: move the nearest hand so the note is reachable.
+        // Move hands so every active note falls under at least one finger.
+        // Skip notes already covered to avoid displacing a hand that is already
+        // correctly positioned (e.g. chord with notes on the same hand).
         if (activeNotes.size > 0 && this._handCurrentAnchors && this._fingersHands) {
             for (const note of activeNotes) {
-                this._moveNearestHandToNote(note);
+                const covered = this._fingersHands.some(h => {
+                    const a = this._handCurrentAnchors.get(h.id);
+                    return Number.isFinite(a) && note >= a && note <= a + h.span;
+                });
+                if (!covered) this._moveNearestHandToNote(note);
             }
             this._fingersRenderer.setAnchors(this._handCurrentAnchors);
         }
@@ -1365,6 +1383,45 @@
 
         newAnchor = Math.max(rangeMin, Math.min(rangeMax - span, newAnchor));
         this._handCurrentAnchors.set(nearestHand.id, newAnchor);
+        this._resolveHandCollisions(nearestHand.id);
+    };
+
+    /**
+     * After a hand anchor changes, push neighbouring hands outward so no two
+     * hands overlap. Enforces a 1-semitone minimum gap and cascades in both
+     * directions from the moved hand.
+     * @param {string} movedHandId
+     */
+    KeyboardPianoMixin._resolveHandCollisions = function(movedHandId) {
+        if (!this._fingersHands || !this._handCurrentAnchors) return;
+        const rangeMin = this.startNote;
+        const rangeMax = this.startNote + this.visibleNoteCount - 1;
+
+        const sorted = this._fingersHands
+            .map(h => ({ id: h.id, span: h.span, anchor: this._handCurrentAnchors.get(h.id) }))
+            .filter(h => Number.isFinite(h.anchor))
+            .sort((a, b) => a.anchor - b.anchor);
+
+        const movedIdx = sorted.findIndex(h => h.id === movedHandId);
+        if (movedIdx < 0) return;
+
+        // Push hands to the RIGHT of the moved hand rightward.
+        for (let i = movedIdx; i < sorted.length - 1; i++) {
+            const minRight = sorted[i].anchor + sorted[i].span + 1;
+            if (sorted[i + 1].anchor < minRight) {
+                sorted[i + 1].anchor = Math.min(rangeMax - sorted[i + 1].span, minRight);
+                this._handCurrentAnchors.set(sorted[i + 1].id, sorted[i + 1].anchor);
+            } else break;
+        }
+
+        // Push hands to the LEFT of the moved hand leftward.
+        for (let i = movedIdx; i > 0; i--) {
+            const maxLeft = sorted[i].anchor - sorted[i - 1].span - 1;
+            if (sorted[i - 1].anchor > maxLeft) {
+                sorted[i - 1].anchor = Math.max(rangeMin, maxLeft);
+                this._handCurrentAnchors.set(sorted[i - 1].id, sorted[i - 1].anchor);
+            } else break;
+        }
     };
 
     /**
@@ -1439,6 +1496,7 @@
             const newAnchor = Math.max(rangeMin,
                 Math.min(rangeMax - drag.span, drag.startAnchor + deltaSt));
             this._handCurrentAnchors.set(drag.handId, newAnchor);
+            this._resolveHandCollisions(drag.handId);
             this._fingersRenderer.setAnchors(this._handCurrentAnchors);
             this._fingersRenderer.draw();
             e.stopPropagation();
