@@ -293,13 +293,22 @@
                     .filter(m => m >= rangeMin && m <= rangeMax);
                 if (whiteFingers.length === 0) continue;
 
-                const blackFingers = [];
+                // Between every pair of consecutive white fingers, always draw
+                // a black-key-style finger — at the midpoint x between the two
+                // white key centres. Where a real black key exists there it can
+                // light up; over E–F / B–C gaps (no black key) the slot is drawn
+                // but never activates. This keeps the alternating white/black
+                // pattern uniform across the full hand span.
+                const gapSlots = [];
                 for (let i = 0; i < whiteFingers.length - 1; i++) {
-                    const mid = whiteFingers[i] + 1;
-                    if (mid < whiteFingers[i + 1] && this._isBlackKey(mid)
-                            && mid >= rangeMin && mid <= rangeMax) {
-                        blackFingers.push(mid);
-                    }
+                    const blackMidi = whiteFingers[i] + 1;
+                    const hasBlack = this._isBlackKey(blackMidi)
+                                  && blackMidi < whiteFingers[i + 1]
+                                  && blackMidi >= rangeMin && blackMidi <= rangeMax;
+                    gapSlots.push({
+                        xCenter: (keyCenter(whiteFingers[i]) + keyCenter(whiteFingers[i + 1])) * 0.5,
+                        isActive: hasBlack && this._activeNotes.has(blackMidi),
+                    });
                 }
 
                 const halfKey = (m) => this._isBlackKey(m) ? ww * 0.3 : ww * 0.5;
@@ -309,11 +318,11 @@
                 this._drawKnuckleBar(ctx, hand.color, kLeft, kRight,
                                       knuckleTop, opts.knuckleHeight, W);
 
-                // Pass 1 — black-key fingers first so white fingers overdraw
-                // their bottom (same visual layering as real piano keys).
-                for (const mi of blackFingers) {
-                    this._drawFingerBar(ctx, keyCenter(mi), blackTipY, blackFingerH,
-                                         fingerW, this._activeNotes.has(mi), W);
+                // Pass 1 — gap (black-key-style) fingers first so white fingers
+                // overdraw their bottom (same layering as real piano keys).
+                for (const slot of gapSlots) {
+                    this._drawFingerBar(ctx, slot.xCenter, blackTipY, blackFingerH,
+                                         fingerW, slot.isActive, W);
                 }
                 // Pass 2 — white-key fingers on top.
                 for (const mi of whiteFingers) {

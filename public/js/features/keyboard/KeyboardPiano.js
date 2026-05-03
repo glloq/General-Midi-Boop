@@ -1193,6 +1193,33 @@
      * left/right inset to align fingers with the active key view, then initialises
      * the renderer and the drag interaction.
      */
+    /** True when the currently loaded instrument declares hands with fingers. */
+    KeyboardPianoMixin._instrumentHasFingers = function() {
+        const hc = this.selectedDeviceCapabilities && this.selectedDeviceCapabilities.hands_config;
+        return !!(hc && hc.enabled !== false && Array.isArray(hc.hands) && hc.hands.length > 0);
+    };
+
+    /**
+     * Disable the keyboard-list view toggle when the instrument has fingers.
+     * Switching between piano and chromatic-list layouts mid-session is blocked
+     * because finger positions cannot be adapted across the two key geometries.
+     */
+    KeyboardPianoMixin._updateFingersViewToggle = function() {
+        const btn = document.getElementById('keyboard-list-view-toggle');
+        if (!btn) return;
+        const locked = this._instrumentHasFingers();
+        btn.disabled = locked;
+        if (locked) {
+            btn.setAttribute('title',
+                this.t('keyboard.listViewLockedFingers')
+                || 'Vue liste désactivée : l\'instrument a des doigts configurés');
+        } else {
+            btn.setAttribute('title',
+                this.t('keyboard.listViewToggle')
+                || 'Vue liste — vélocité (hauteur du clic) et pitch bend (gauche/droite)');
+        }
+    };
+
     KeyboardPianoMixin._mountFingersOverlay = function(layout) {
         layout = (layout === 'chromatic') ? 'chromatic' : 'piano';
 
@@ -1279,16 +1306,16 @@
 
         // The canvas extends 60 px above the band into the piano-container area
         // (see CSS .km-fingers-canvas top:-60px), so its total clientHeight is
-        // band-height(60) + overlap(60) = 120 px.
+        // band-height(80) + overlap(60) = 140 px.
         //
-        // Renderer geometry with H=120:
-        //   bandH=60  → keysH=60, knuckle at y=60 (= band top, flush)
+        // Renderer geometry with H=140:
+        //   bandH=80  → keysH=60, knuckle at y=60 (= band top, flush)
         //   whiteTipFraction=0.25 → tipY=15 (screen: 15-60=-45 → 45 px into key area)
         //   blackTipFraction=0.40 → black tipY≈14.4 (screen: ≈-45.6 → into key area)
         //   knuckleHeight=8 → visible bar at band top
-        //   Palm area: y=68..120 → screen 8..60 → 52 px hand body below knuckle
+        //   Palm area: y=68..140 → screen 8..80 → 72 px hand body below knuckle
         const renderer = new window.KeyboardFingersRenderer(canvas, {
-            bandHeight: 60,
+            bandHeight: 80,
             whiteTipFraction: 0.25,
             blackTipFraction: 0.40,
             chromaticTipFraction: 0.25,
@@ -1338,6 +1365,7 @@
         renderer.setAnchors(this._handCurrentAnchors);
 
         this._initFingersOverlayDrag();
+        this._updateFingersViewToggle();
 
         requestAnimationFrame(() => renderer.draw());
     };
@@ -1358,6 +1386,7 @@
         }
         this._fingersHands = null;
         this._handCurrentAnchors = null;
+        this._updateFingersViewToggle();
     };
 
     /**
@@ -1440,31 +1469,71 @@
         if (!this._fingersHands || !this._handCurrentAnchors) return;
         const rangeMin = this.startNote;
         const rangeMax = this.startNote + this.visibleNoteCount - 1;
+        const isPiano = this._fingersLayout === 'piano';
+        const wn = (isPiano && Array.isArray(this.visibleWhiteNotes) && this.visibleWhiteNotes.length)
+                   ? this.visibleWhiteNotes : null;
 
         const sorted = this._fingersHands
-            .map(h => ({ id: h.id, span: h.span, anchor: this._handCurrentAnchors.get(h.id) }))
+            .map(h => ({ id: h.id, span: h.span, nf: h.numFingers || 5,
+                         anchor: this._handCurrentAnchors.get(h.id) }))
             .filter(h => Number.isFinite(h.anchor))
             .sort((a, b) => a.anchor - b.anchor);
 
         const movedIdx = sorted.findIndex(h => h.id === movedHandId);
         if (movedIdx < 0) return;
 
-        // Push hands to the RIGHT of the moved hand rightward.
-        for (let i = movedIdx; i < sorted.length - 1; i++) {
-            const minRight = sorted[i].anchor + sorted[i].span + 1;
-            if (sorted[i + 1].anchor < minRight) {
-                sorted[i + 1].anchor = Math.min(rangeMax - sorted[i + 1].span, minRight);
-                this._handCurrentAnchors.set(sorted[i + 1].id, sorted[i + 1].anchor);
-            } else break;
-        }
+        if (wn) {
+            // Piano: boundaries measured in white-key slots so pushed hands
+            // always land on a white key and never visually overlap.
+            const lowerBound = (midi) => {
+                // First index in wn where wn[i] >= midi (binary search).
+                let lo = 0, hi = wn.length;
+                while (lo < hi) { const m = (lo + hi) >> 1; if (wn[m] < midi) lo = m + 1; else hi = m; }
+                return lo;
+            };
+            // MIDI note of the white key one slot past hand h's last finger.
+            const minNextAnchor = (h) => {
+                const ni = lowerBound(h.anchor) + h.nf;
+                return ni < wn.length ? wn[ni] : rangeMax + 1;
+            };
+            // Max anchor for hand h so its last finger falls before rightBoundaryMidi.
+            const maxAnchorBefore = (h, rightBoundaryMidi) => {
+                const startIdx = lowerBound(rightBoundaryMidi) - h.nf;
+                return startIdx >= 0 ? wn[startIdx] : rangeMin;
+            };
 
-        // Push hands to the LEFT of the moved hand leftward.
-        for (let i = movedIdx; i > 0; i--) {
-            const maxLeft = sorted[i].anchor - sorted[i - 1].span - 1;
-            if (sorted[i - 1].anchor > maxLeft) {
-                sorted[i - 1].anchor = Math.max(rangeMin, maxLeft);
-                this._handCurrentAnchors.set(sorted[i - 1].id, sorted[i - 1].anchor);
-            } else break;
+            // Push right neighbours rightward.
+            for (let i = movedIdx; i < sorted.length - 1; i++) {
+                const minRight = minNextAnchor(sorted[i]);
+                if (sorted[i + 1].anchor < minRight) {
+                    sorted[i + 1].anchor = Math.min(rangeMax, minRight);
+                    this._handCurrentAnchors.set(sorted[i + 1].id, sorted[i + 1].anchor);
+                } else break;
+            }
+            // Push left neighbours leftward.
+            for (let i = movedIdx; i > 0; i--) {
+                const maxLeft = maxAnchorBefore(sorted[i - 1], sorted[i].anchor);
+                if (sorted[i - 1].anchor > maxLeft) {
+                    sorted[i - 1].anchor = Math.max(rangeMin, maxLeft);
+                    this._handCurrentAnchors.set(sorted[i - 1].id, sorted[i - 1].anchor);
+                } else break;
+            }
+        } else {
+            // Chromatic: semitone-granularity boundaries.
+            for (let i = movedIdx; i < sorted.length - 1; i++) {
+                const minRight = sorted[i].anchor + sorted[i].span + 1;
+                if (sorted[i + 1].anchor < minRight) {
+                    sorted[i + 1].anchor = Math.min(rangeMax - sorted[i + 1].span, minRight);
+                    this._handCurrentAnchors.set(sorted[i + 1].id, sorted[i + 1].anchor);
+                } else break;
+            }
+            for (let i = movedIdx; i > 0; i--) {
+                const maxLeft = sorted[i].anchor - sorted[i - 1].span - 1;
+                if (sorted[i - 1].anchor > maxLeft) {
+                    sorted[i - 1].anchor = Math.max(rangeMin, maxLeft);
+                    this._handCurrentAnchors.set(sorted[i - 1].id, sorted[i - 1].anchor);
+                } else break;
+            }
         }
     };
 
