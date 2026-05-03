@@ -102,13 +102,17 @@ class HandPositionPlanner {
     }
 
     // Mechanism discriminator (frets-mode only). The window-based
-    // planning logic is shared between `string_sliding_fingers` and
-    // `fret_sliding_fingers` for V1 — both produce the same CC22
-    // sequence (lowest fret of the reachable window). The difference
-    // is in how the hardware interprets the CC: the same value is sent,
-    // the actuators react differently. `independent_fingers` is V2 and
-    // explicitly rejected here so a config that slipped past validation
-    // never produces a nonsense CC stream.
+    // planning logic is shared between `string_sliding_fingers`,
+    // `fret_sliding_fingers`, and `vertical_bar` for V1 — all produce the
+    // same CC sequence (bar/anchor fret number). The hardware interprets the
+    // value differently per mechanism. `independent_fingers` is V2 and
+    // explicitly rejected so a config that slipped past validation never
+    // produces a nonsense CC stream.
+    //
+    // vertical_bar semantics: one actuator presses ALL strings at a single
+    // fret simultaneously (mechanical slide/capo bar). The CC value is the
+    // bar fret. The planner additionally warns when a chord requires notes
+    // on more than one fret (vertical_bar_fret_conflict).
     this.mechanism = this.unit === 'frets'
       ? (this.config.mechanism || 'string_sliding_fingers')
       : null;
@@ -363,6 +367,24 @@ class HandPositionPlanner {
               message: `Chord requires ${frettedCount} fingers, hand has ${fingerCap}`
             });
           }
+        }
+      }
+
+      // vertical_bar: all fretted notes in the group must share the same fret
+      // (the bar presses every string at once). Warn when that is violated so
+      // the operator knows the adaptation will have to drop or transpose notes.
+      if (this.mechanism === 'vertical_bar') {
+        const pressedFrets = g.notes
+          .map(i => notes[i].fretPosition)
+          .filter(f => Number.isFinite(f) && f > 0);
+        const uniqueFrets = [...new Set(pressedFrets)];
+        if (uniqueFrets.length > 1) {
+          warnings.push({
+            time: g.time, hand: g.hand, note: null,
+            code: 'vertical_bar_fret_conflict',
+            frets: uniqueFrets,
+            message: `Vertical bar chord spans frets [${uniqueFrets.join(', ')}] — only one fret can be pressed simultaneously`
+          });
         }
       }
 

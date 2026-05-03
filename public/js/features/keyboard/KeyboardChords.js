@@ -59,6 +59,7 @@
     KeyboardChordsMixin._mechanism = 'string_sliding_fingers'; // active mechanism
     KeyboardChordsMixin._maxFingers = 4;        // max simultaneous fingers (string_sliding)
     KeyboardChordsMixin._numFingers = 4;        // number of fingers/fret-offsets (fret_sliding)
+    // vertical_bar: the bar IS at handAnchorFret; no separate state needed.
 
     // Physical offset: finger rests this many mm before the target fret wire.
     const HAND_FINGER_BEFORE_FRET_MM = 8;
@@ -268,6 +269,88 @@
         return result;
     };
 
+    // ── Vertical bar chord mapping ───────────────────────────────────────────
+
+    /**
+     * Map chord notes to strings under the vertical_bar constraint:
+     * ALL pressed strings must share the SAME fret (the bar presses every
+     * string at once at a single fret position — like a mechanical capo).
+     * Open strings (fret 0) that produce a chord tone are also included.
+     *
+     * Algorithm — for each candidate fret 1..maxFrets:
+     *   1. Count distinct chord classes covered by pressing at that fret.
+     *   2. Add bonus for open strings that independently cover missing classes.
+     *   3. Pick the fret that maximises coverage (ties broken by lower fret).
+     *
+     * The bar fret is stored in `this.handAnchorFret` so the widget and CC
+     * logic work without extra plumbing.
+     *
+     * @param {number}   rootClass  - Root semitone class (0–11)
+     * @param {number[]} intervals  - Semitone intervals from root
+     * @param {number[]} tuning     - Open-string MIDI pitches (index 0 = lowest)
+     * @param {number}   maxPoly    - Max simultaneous strings
+     * @returns {Array<{string, note, fret, time}>}
+     */
+    KeyboardChordsMixin._mapChordToStringsVerticalBar = function (rootClass, intervals, tuning, maxPoly) {
+        const chordClasses = new Set(intervals.map(i => (rootClass + i) % 12));
+        const maxFrets = this._cachedMaxFrets || 22;
+
+        let bestFret = this.handAnchorFret || 1; // prefer current position on tie
+        let bestScore = -Infinity;
+
+        for (let f = 1; f <= maxFrets; f++) {
+            const coveredClasses = new Set();
+            let pressedChordTones = 0;
+
+            // Pressed strings at fret f
+            for (const openPitch of tuning) {
+                const cls = (openPitch + f) % 12;
+                if (chordClasses.has(cls)) {
+                    coveredClasses.add(cls);
+                    pressedChordTones++;
+                }
+            }
+            // Open strings contribute additional coverage
+            for (const openPitch of tuning) {
+                const cls = openPitch % 12;
+                if (chordClasses.has(cls)) coveredClasses.add(cls);
+            }
+
+            // Maximise chord-class coverage, then pressed tone count; penalise
+            // distance from current bar position so the bar is stable when several
+            // frets score equally well.
+            const movePenalty = Math.abs(f - (this.handAnchorFret || 1)) * 0.01;
+            const score = coveredClasses.size * 1000 + pressedChordTones * 10 - movePenalty;
+            if (score > bestScore) {
+                bestScore = score;
+                bestFret = f;
+            }
+        }
+
+        // Store the chosen fret so widget + CC updates are consistent.
+        this.handAnchorFret = bestFret;
+
+        // Build result: pressed strings first, then open-string chord tones.
+        const result = [];
+        const usedStrings = new Set();
+
+        for (let s = 0; s < tuning.length && result.length < maxPoly; s++) {
+            const cls = (tuning[s] + bestFret) % 12;
+            if (chordClasses.has(cls)) {
+                result.push({ string: s + 1, note: tuning[s] + bestFret, fret: bestFret, time: 0 });
+                usedStrings.add(s);
+            }
+        }
+        for (let s = 0; s < tuning.length && result.length < maxPoly; s++) {
+            if (usedStrings.has(s)) continue;
+            if (chordClasses.has(tuning[s] % 12)) {
+                result.push({ string: s + 1, note: tuning[s], fret: 0, time: 0 });
+            }
+        }
+
+        return result;
+    };
+
     // ── Chord voicing display ────────────────────────────────────────────────
 
     KeyboardChordsMixin._showChordVoicing = function (stringNotes) {
@@ -353,24 +436,39 @@
         const intervals = intervalsMap[chordType];
         if (!intervals) return;
 
-        let stringNotes = this._mapChordToStrings(rootClass, intervals, tuning, maxPoly);
-
-        // ── Hand position: auto-move if chord is outside the window, then filter ──
+        // ── Build chord + hand position ──────────────────────────────────────
         const handsConfig = cfg.hands_config;
-        if (handsConfig && handsConfig.enabled === true) {
-            // Move hand to cover the chord (only when completely outside the window).
-            this._autoPositionHandForChord(stringNotes);
+        let stringNotes;
 
-            // Remove notes that can't be reached (includes extended right-side reach).
-            stringNotes = stringNotes.filter(item =>
-                item.fret === 0 || this._isReachableWithoutHandMove(item.fret)
-            );
+        if (this._mechanism === 'vertical_bar') {
+            // Single bar at one fret across all strings — find the optimal fret,
+            // then immediately update the widget and send the CC.
+            stringNotes = this._mapChordToStringsVerticalBar(rootClass, intervals, tuning, maxPoly);
+            if (handsConfig && handsConfig.enabled === true) {
+                this._updateHandWidgetPosition();
+                this._sendHandPositionCC(this.handAnchorFret);
+                const activeFretsMap = {};
+                stringNotes.forEach(item => { if (item.fret > 0) activeFretsMap[item.string] = item.fret; });
+                this._currentActiveFrets = activeFretsMap;
+                this._updateFingerDotPositions(activeFretsMap);
+            }
+        } else {
+            stringNotes = this._mapChordToStrings(rootClass, intervals, tuning, maxPoly);
+            if (handsConfig && handsConfig.enabled === true) {
+                // Move hand to cover the chord (only when completely outside the window).
+                this._autoPositionHandForChord(stringNotes);
 
-            // Show active fret dots on the coverage overlay.
-            const activeFretsMap = {};
-            stringNotes.forEach(item => { if (item.fret > 0) activeFretsMap[item.string] = item.fret; });
-            this._currentActiveFrets = activeFretsMap;
-            this._updateFingerDotPositions(activeFretsMap);
+                // Remove notes that can't be reached (includes extended right-side reach).
+                stringNotes = stringNotes.filter(item =>
+                    item.fret === 0 || this._isReachableWithoutHandMove(item.fret)
+                );
+
+                // Show active fret dots on the coverage overlay.
+                const activeFretsMap = {};
+                stringNotes.forEach(item => { if (item.fret > 0) activeFretsMap[item.string] = item.fret; });
+                this._currentActiveFrets = activeFretsMap;
+                this._updateFingerDotPositions(activeFretsMap);
+            }
         }
 
         // ── Highlight voicing on fretboard ──
@@ -532,6 +630,12 @@
             this._handSpanMm = 0;
         }
 
+        // vertical_bar: single actuator spans 0 frets (the bar IS the fret cell).
+        if (mechanism === 'vertical_bar') {
+            this._handSpanFrets = 0;
+            this._handSpanMm = 0;
+        }
+
         // ── Drag handle widget (above strings) ───────────────────────────────
         const widget = document.createElement('div');
         widget.className = 'fretboard-hand-widget';
@@ -558,6 +662,7 @@
         const band = document.createElement('div');
         band.className = 'hand-band';
         band.id = 'fretboard-hand-band';
+        band.dataset.mechanism = mechanism; // CSS hook for per-mechanism band styling
         band.title = (typeof this.t === 'function') ? this.t('keyboard.chordHandDrag') : 'Drag to move hand';
 
         // Palm body — empty block with left/right arrows indicating possible movement.
@@ -625,9 +730,10 @@
                 else if (i === numF - 1) dot.style.transform = 'translate(-100%, -50%)';
                 rangeRect.appendChild(dot);
             }
-        } else {
+        } else if (mechanism !== 'vertical_bar') {
             // One finger-position dot per string — distributed vertically across the
             // overlay. String 1 (lowest pitch) at the bottom, string N at the top.
+            // (vertical_bar uses a full-height stripe instead — no per-string dots.)
             for (let s = 1; s <= numStrings; s++) {
                 const dot = document.createElement('div');
                 dot.className = 'hand-finger-dot-pos';
@@ -687,7 +793,13 @@
         rangeRect.querySelectorAll('.hand-finger-range-string, .hand-finger-range-fret')
             .forEach(el => el.remove());
 
-        if (this._mechanism === 'string_sliding_fingers') {
+        if (this._mechanism === 'vertical_bar') {
+            // Single full-height bar spanning all strings — the mechanical actuator
+            // presses every string simultaneously at one fret.
+            const stripe = document.createElement('div');
+            stripe.className = 'hand-finger-range-bar';
+            rangeRect.appendChild(stripe);
+        } else if (this._mechanism === 'string_sliding_fingers') {
             const count = Math.min(Math.max(1, this._maxFingers), numStrings);
             for (let s = 1; s <= count; s++) {
                 const stripe = document.createElement('div');
@@ -740,7 +852,16 @@
 
         let leftPct, widthPct;
 
-        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
+        if (this._mechanism === 'vertical_bar') {
+            // Band = exactly one fret cell centred on the bar fret.
+            // The cell runs from fretPct(anchor-1) to fretPct(anchor).
+            const leftEdgePct  = anchor > 1 ? fretPct(anchor - 1, maxFrets) : 0;
+            const rightEdgePct = fretPct(anchor, maxFrets);
+            leftPct  = leftEdgePct;
+            widthPct = Math.max(0.5, rightEdgePct - leftEdgePct); // min visible width
+            band.style.left  = leftPct + '%';
+            band.style.width = widthPct + '%';
+        } else if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
             const L               = this._scaleLengthMm;
             const totalDistMm     = L * (1 - Math.pow(2, -maxFrets / 12));
             const anchorMm        = L * (1 - Math.pow(2, -anchor / 12));
@@ -873,6 +994,8 @@
      */
     KeyboardChordsMixin._isReachableWithoutHandMove = function (fret) {
         if (fret === 0) return true;
+        // vertical_bar: only the exact bar fret is reachable (all strings, 1 fret).
+        if (this._mechanism === 'vertical_bar') return fret === (this.handAnchorFret || 1);
         const anchor = this.handAnchorFret || 0;
         const span = this._handEffectiveSpanFrets();
 
@@ -903,6 +1026,14 @@
     KeyboardChordsMixin._updateFingerDotPositions = function (activeFrets) {
         const rangeRect = document.getElementById('hand-finger-range-rect');
         if (!rangeRect) return;
+
+        // vertical_bar: toggle the bar stripe active state (no per-string dots).
+        if (this._mechanism === 'vertical_bar') {
+            const barStripe = rangeRect.querySelector('.hand-finger-range-bar');
+            const hasActive = activeFrets && Object.values(activeFrets).some(f => f != null && f > 0);
+            if (barStripe) barStripe.classList.toggle('active', hasActive);
+            return;
+        }
 
         // fret_sliding_fingers: dots are fixed at their stripe positions; just
         // toggle the active class when any string is being pressed.
@@ -955,6 +1086,8 @@
      * Used for chord filtering and playability checks.
      */
     KeyboardChordsMixin._handEffectiveSpanFrets = function () {
+        // vertical_bar occupies exactly one fret cell — span = 0.
+        if (this._mechanism === 'vertical_bar') return 0;
         const anchor = this.handAnchorFret || 0;
         if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
             const L       = this._scaleLengthMm;
