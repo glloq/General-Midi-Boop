@@ -486,17 +486,17 @@
         _drawFretSlidingFingerRange(fbX, fbW, y0, y1) {
             const ctx = this.ctx;
             const numF = Math.max(1, this.maxFingers);
-            const slotH = (y1 - y0) / numF;
-            const stripeH = Math.min(slotH * 0.65, 14);
+            const lineH = 3;
             for (let i = 0; i < numF; i++) {
-                const sy = y0 + i * slotH;
-                ctx.fillRect(fbX, sy, fbW, stripeH);
-                ctx.strokeRect(fbX, sy, fbW, stripeH);
+                // First finger at y0, last at y1, middle ones evenly interpolated.
+                const cy = numF === 1 ? y0 : y0 + (i / (numF - 1)) * (y1 - y0);
+                ctx.fillRect(fbX, cy - lineH / 2, fbW, lineH);
+                ctx.strokeRect(fbX, cy - lineH / 2, fbW, lineH);
                 ctx.save();
                 ctx.setLineDash([]);
                 ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
                 ctx.beginPath();
-                ctx.arc(fbX + fbW * 0.5, sy + stripeH / 2, 2.5, 0, Math.PI * 2);
+                ctx.arc(fbX + fbW / 2, cy, 2.5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             }
