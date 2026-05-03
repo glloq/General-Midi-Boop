@@ -719,8 +719,14 @@
             band.style.left  = leftPct + '%';
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         } else {
-            // Fret-based fallback: shift ~¼ fret visually toward the nut.
-            const displayAnchor = Math.max(0, anchor - 0.25);
+            // Fret-based fallback.
+            // string_sliding: shift left ~¼ fret (≈8mm) so the first finger
+            //   lands just before the anchor fret wire.
+            // fret_sliding: no shift — the band's left edge IS the first finger;
+            //   the right edge lands exactly on fret anchor+numFingers.
+            const displayAnchor = this._mechanism === 'fret_sliding_fingers'
+                ? anchor
+                : Math.max(0, anchor - 0.25);
             leftPct  = fretPct(displayAnchor, maxFrets);
             const rightPct = fretPct(anchor + this._handSpanFrets, maxFrets);
             widthPct = rightPct - leftPct;
@@ -817,7 +823,9 @@
             return Math.max(0, Math.min(100, (fretMm - displayLeftMm) / this._handSpanMm * 100));
         }
         const maxFrets = this._cachedMaxFrets || 22;
-        const displayAnchor = Math.max(0, anchor - 0.25);
+        const displayAnchor = this._mechanism === 'fret_sliding_fingers'
+            ? anchor
+            : Math.max(0, anchor - 0.25);
         const overlayWidthPct = fretPct(anchor + this._handSpanFrets, maxFrets) - fretPct(displayAnchor, maxFrets);
         if (overlayWidthPct <= 0) return 50;
         return Math.max(0, Math.min(100, (fretPct(fret, maxFrets) - fretPct(displayAnchor, maxFrets)) / overlayWidthPct * 100));
