@@ -398,7 +398,7 @@
             if (this.mechanism === 'string_sliding_fingers') {
                 this._drawStringSlidingFingerRanges(y0, y1);
             } else if (this.mechanism === 'fret_sliding_fingers') {
-                this._drawFretSlidingFingerRange(fbX, fbW, y0, y1);
+                this._drawFretSlidingFingerRange(fbX, fbW, anchor);
             }
             ctx.setLineDash([]);
             ctx.restore();
@@ -483,13 +483,16 @@
             }
         }
 
-        _drawFretSlidingFingerRange(fbX, fbW, y0, y1) {
+        _drawFretSlidingFingerRange(fbX, fbW, anchor) {
             const ctx = this.ctx;
             const numF = Math.max(1, this.maxFingers);
             const lineH = 3;
             for (let i = 0; i < numF; i++) {
-                // First finger at y0, last at y1, middle ones evenly interpolated.
-                const cy = numF === 1 ? y0 : y0 + (i / (numF - 1)) * (y1 - y0);
+                // Place each line at the physical fret position anchor+i, matching
+                // the 8mm-before-fret convention. Linear y0→y1 interpolation was
+                // wrong: y1 = _fretY(anchor+numFingers), placing the last stripe
+                // one fret too far (at anchor+numFingers instead of anchor+numFingers-1).
+                const cy = this._fretY(anchor + i);
                 ctx.fillRect(fbX, cy - lineH / 2, fbW, lineH);
                 ctx.strokeRect(fbX, cy - lineH / 2, fbW, lineH);
                 ctx.save();
