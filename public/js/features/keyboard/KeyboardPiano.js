@@ -1572,24 +1572,44 @@
             if (!this._fingersHands || !this._handCurrentAnchors) return null;
             const W = canvas.clientWidth;
             if (W <= 0) return null;
-            const rMin = liveRangeMin();
-            const rMax = liveRangeMax();
-            const semitones = Math.max(1, rMax - rMin + 1);
-            const pxPerSt = W / semitones;
 
             let best = null;
             let bestDist = Infinity;
-            for (const hand of this._fingersHands) {
-                const anchor = this._handCurrentAnchors.get(hand.id);
-                if (!Number.isFinite(anchor)) continue;
-                const leftPx  = (anchor - rMin) * pxPerSt;
-                const rightPx = (anchor + hand.span - rMin + 1) * pxPerSt;
-                const centerPx = (leftPx + rightPx) / 2;
-                if (xInCanvas >= leftPx - 12 && xInCanvas <= rightPx + 12) {
-                    const dist = Math.abs(xInCanvas - centerPx);
-                    if (dist < bestDist) {
-                        bestDist = dist;
-                        best = hand;
+
+            if (this._fingersLayout === 'piano'
+                    && this.visibleWhiteNotes && this.visibleWhiteNotes.length > 0) {
+                // Piano: hit-test in white-key pixel space so the touch target
+                // matches the actual visual extent of each hand.
+                const wn = this.visibleWhiteNotes;
+                const ww = W / wn.length;
+                for (const hand of this._fingersHands) {
+                    const anchor = this._handCurrentAnchors.get(hand.id);
+                    if (!Number.isFinite(anchor)) continue;
+                    const numWhites = Math.ceil((hand.numFingers || 5) / 2);
+                    let si = wn.indexOf(anchor);
+                    if (si < 0) si = wn.findIndex(m => m >= anchor);
+                    if (si < 0) continue;
+                    const ei  = Math.min(wn.length - 1, si + numWhites - 1);
+                    const lPx = si * ww;
+                    const rPx = (ei + 1) * ww;
+                    if (xInCanvas >= lPx - 8 && xInCanvas <= rPx + 8) {
+                        const dist = Math.abs(xInCanvas - (lPx + rPx) * 0.5);
+                        if (dist < bestDist) { bestDist = dist; best = hand; }
+                    }
+                }
+            } else {
+                // Chromatic: semitone-based pixel extent.
+                const rMin = liveRangeMin();
+                const rMax = liveRangeMax();
+                const pxPerSt = W / Math.max(1, rMax - rMin + 1);
+                for (const hand of this._fingersHands) {
+                    const anchor = this._handCurrentAnchors.get(hand.id);
+                    if (!Number.isFinite(anchor)) continue;
+                    const lPx = (anchor - rMin) * pxPerSt;
+                    const rPx = (anchor + hand.span - rMin + 1) * pxPerSt;
+                    if (xInCanvas >= lPx - 12 && xInCanvas <= rPx + 12) {
+                        const dist = Math.abs(xInCanvas - (lPx + rPx) * 0.5);
+                        if (dist < bestDist) { bestDist = dist; best = hand; }
                     }
                 }
             }
@@ -1604,11 +1624,17 @@
             if (!handId) return;
             const hand = this._fingersHands.find(h => h.id === handId);
             if (!hand) return;
-            // Freeze the range at drag-start so delta calculations stay consistent
-            // even if the view scrolls during the drag (very unlikely but safe).
+            const startAnchor = this._handCurrentAnchors.get(handId);
+            // Pre-compute the anchor's white-key index for delta dragging in piano mode.
+            let startWhiteIdx = -1;
+            if (this._fingersLayout === 'piano' && this.visibleWhiteNotes) {
+                const wn = this.visibleWhiteNotes;
+                startWhiteIdx = wn.indexOf(startAnchor);
+                if (startWhiteIdx < 0) startWhiteIdx = wn.findIndex(m => m >= startAnchor);
+            }
             drag = {
                 handId, startX: xInCanvas,
-                startAnchor: this._handCurrentAnchors.get(handId),
+                startAnchor, startWhiteIdx,
                 span: hand.span,
                 rangeMin: liveRangeMin(), rangeMax: liveRangeMax(),
             };
@@ -1625,15 +1651,14 @@
             const xInCanvas = (e.clientX - rect.left) - canvasInset;
             let newAnchor;
             if (this._fingersLayout === 'piano'
-                    && this.visibleWhiteNotes && this.visibleWhiteNotes.length > 0) {
-                // Piano: map x → white key index → MIDI note, so the anchor
-                // always snaps to a white key regardless of drag distance.
-                const ww = W / this.visibleWhiteNotes.length;
-                const idx = Math.max(0, Math.min(
-                    this.visibleWhiteNotes.length - 1,
-                    Math.floor(xInCanvas / ww)
-                ));
-                const rawAnchor = this.visibleWhiteNotes[idx];
+                    && this.visibleWhiteNotes && this.visibleWhiteNotes.length > 0
+                    && drag.startWhiteIdx >= 0) {
+                // Piano: delta from grab point in white-key units → snap to white key.
+                const wn = this.visibleWhiteNotes;
+                const ww = W / wn.length;
+                const deltaWhite = Math.round((xInCanvas - drag.startX) / ww);
+                const newIdx = Math.max(0, Math.min(wn.length - 1, drag.startWhiteIdx + deltaWhite));
+                const rawAnchor = wn[newIdx];
                 newAnchor = Math.max(drag.rangeMin,
                     Math.min(drag.rangeMax - drag.span, rawAnchor));
             } else {
