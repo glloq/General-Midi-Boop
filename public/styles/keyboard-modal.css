@@ -1554,18 +1554,20 @@
     pointer-events: none;
 }
 
-/* fret_sliding_fingers: thin vertical stripe at each fret-offset's X position.
+/* fret_sliding_fingers: vertical stripe at each fret-offset's X position.
+   Width is set inline by JS (proportional to finger count).
    Spans the full string height (= full overlay height), shows the string-axis
    range of motion for that finger. */
 .hand-finger-range-fret {
     position: absolute;
     top: 2px;
     bottom: 2px;
-    width: 3px;
+    /* width set inline by JS */
     transform: translateX(-50%);
-    background: rgba(37, 99, 235, 0.55);
-    border-radius: 2px;
-    box-shadow: 0 0 5px rgba(37, 99, 235, 0.35);
+    background: rgba(37, 99, 235, 0.22);
+    border: 1.5px solid rgba(37, 99, 235, 0.70);
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(37, 99, 235, 0.30);
     pointer-events: none;
 }
 

@@ -605,16 +605,36 @@
         // Per-mechanism finger displacement range shapes (drawn first, behind dots).
         this._renderFingerRangeRects(rangeRect, numStrings);
 
-        // One finger-position dot per string — distributed vertically across the
-        // overlay. String 1 (lowest pitch) at the bottom, string N at the top.
-        // Each dot shows where that string's finger sits (8mm before its fret).
-        for (let s = 1; s <= numStrings; s++) {
-            const dot = document.createElement('div');
-            dot.className = 'hand-finger-dot-pos';
-            dot.dataset.string = String(s);
-            // top: string N → near top (small %), string 1 → near bottom (large %)
-            dot.style.top = ((numStrings - s + 0.5) / numStrings * 100) + '%';
-            rangeRect.appendChild(dot);
+        if (mechanism === 'fret_sliding_fingers') {
+            // One dot per finger, centred vertically at its stripe's horizontal position.
+            const numF   = Math.max(1, this._numFingers);
+            const anchor0 = this.handAnchorFret || 0;
+            const mf0     = this._cachedMaxFrets || 22;
+            const da0     = Math.max(0, anchor0 - 0.25);
+            const bl0     = fretPct(da0, mf0);
+            const br0     = fretPct(da0 + numF - 1, mf0);
+            const bw0     = br0 - bl0;
+            for (let i = 0; i < numF; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'hand-finger-dot-pos';
+                dot.dataset.finger = String(i);
+                dot.style.top  = '50%';
+                const pct = numF === 1 ? 0
+                    : bw0 > 0 ? (fretPct(da0 + i, mf0) - bl0) / bw0 * 100
+                    : i / (numF - 1) * 100;
+                dot.style.left = pct + '%';
+                rangeRect.appendChild(dot);
+            }
+        } else {
+            // One finger-position dot per string — distributed vertically across the
+            // overlay. String 1 (lowest pitch) at the bottom, string N at the top.
+            for (let s = 1; s <= numStrings; s++) {
+                const dot = document.createElement('div');
+                dot.className = 'hand-finger-dot-pos';
+                dot.dataset.string = String(s);
+                dot.style.top = ((numStrings - s + 0.5) / numStrings * 100) + '%';
+                rangeRect.appendChild(dot);
+            }
         }
 
         overlay.appendChild(rangeRect);
@@ -686,13 +706,15 @@
             const bandLeft  = fretPct(da, maxFrets);
             const bandRight = fretPct(da + count - 1, maxFrets);
             const bandW     = bandRight - bandLeft;
+            const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
                 const pct = count === 1 ? 0
                     : bandW > 0 ? (fretPct(da + i, maxFrets) - bandLeft) / bandW * 100
                     : i / (count - 1) * 100;
-                stripe.style.left = pct + '%';
+                stripe.style.left  = pct + '%';
+                stripe.style.width = stripeWPct + '%';
                 rangeRect.appendChild(stripe);
             }
         }
@@ -878,6 +900,19 @@
     KeyboardChordsMixin._updateFingerDotPositions = function (activeFrets) {
         const rangeRect = document.getElementById('hand-finger-range-rect');
         if (!rangeRect) return;
+
+        // fret_sliding_fingers: dots are fixed at their stripe positions; just
+        // toggle the active class when any string is being pressed.
+        const fingerDots = rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]');
+        if (fingerDots.length > 0) {
+            const hasActive = activeFrets && Object.values(activeFrets).some(f => f != null && f > 0);
+            fingerDots.forEach(dot => {
+                if (hasActive) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+            return;
+        }
+
         const dots = rangeRect.querySelectorAll('.hand-finger-dot-pos[data-string]');
         const centerPct = this._fingerCenterPct();
 
