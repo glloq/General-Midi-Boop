@@ -1580,11 +1580,14 @@
 }
 
 /* vertical_bar band: narrow single-fret indicator instead of the wide palm view.
-   Uses a blue-tinted scheme to distinguish it from the green hand-span band. */
+   Uses a blue-tinted scheme to distinguish it from the green hand-span band.
+   min-width ensures the arrow buttons remain usable even at high fret positions
+   where one fret cell can be only ~10px wide. */
 .hand-band[data-mechanism="vertical_bar"] {
     background: rgba(37, 99, 235, 0.22);
     border-color: rgba(99, 140, 255, 0.80);
     cursor: ew-resize;
+    min-width: 36px;
 }
 
 .hand-band[data-mechanism="vertical_bar"]:hover {

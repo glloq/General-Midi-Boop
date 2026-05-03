@@ -295,7 +295,7 @@
         const chordClasses = new Set(intervals.map(i => (rootClass + i) % 12));
         const maxFrets = this._cachedMaxFrets || 22;
 
-        let bestFret = this.handAnchorFret || 1; // prefer current position on tie
+        let bestFret = 1;
         let bestScore = -Infinity;
 
         for (let f = 1; f <= maxFrets; f++) {
@@ -316,9 +316,9 @@
                 if (chordClasses.has(cls)) coveredClasses.add(cls);
             }
 
-            // Maximise chord-class coverage, then pressed tone count; penalise
-            // distance from current bar position so the bar is stable when several
-            // frets score equally well.
+            // Maximise chord-class coverage, then pressed tone count; the
+            // movePenalty breaks exact ties in favour of the current bar position
+            // so the bar stays put when multiple frets score equally.
             const movePenalty = Math.abs(f - (this.handAnchorFret || 1)) * 0.01;
             const score = coveredClasses.size * 1000 + pressedChordTones * 10 - movePenalty;
             if (score > bestScore) {
@@ -327,10 +327,9 @@
             }
         }
 
-        // Store the chosen fret so widget + CC updates are consistent.
-        this.handAnchorFret = bestFret;
-
         // Build result: pressed strings first, then open-string chord tones.
+        // NOTE: handAnchorFret is NOT set here — the caller updates it so that
+        // this function remains a pure mapping step with no observable side effects.
         const result = [];
         const usedStrings = new Set();
 
@@ -348,6 +347,9 @@
             }
         }
 
+        // Attach the chosen bar fret as a non-enumerable property so the caller
+        // can update handAnchorFret without inspecting individual note items.
+        Object.defineProperty(result, 'barFret', { value: bestFret, enumerable: false });
         return result;
     };
 
@@ -444,6 +446,8 @@
             // Single bar at one fret across all strings — find the optimal fret,
             // then immediately update the widget and send the CC.
             stringNotes = this._mapChordToStringsVerticalBar(rootClass, intervals, tuning, maxPoly);
+            // Explicit state update: decoupled from the mapping function.
+            this.handAnchorFret = stringNotes.barFret;
             if (handsConfig && handsConfig.enabled === true) {
                 this._updateHandWidgetPosition();
                 this._sendHandPositionCC(this.handAnchorFret);
@@ -970,6 +974,8 @@
      * Used to place finger dots at the correct horizontal position.
      */
     KeyboardChordsMixin._fretToOverlayPct = function (fret) {
+        // vertical_bar overlay IS the bar fret cell — everything maps to 50%.
+        if (this._mechanism === 'vertical_bar') return 50;
         const anchor = this.handAnchorFret || 0;
         if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
             const L = this._scaleLengthMm;
@@ -1106,6 +1112,9 @@
      * decide in ambiguous cases).
      */
     KeyboardChordsMixin._autoPositionHandForChord = function (stringNotes) {
+        // vertical_bar positioning is handled inside _playChordStrum via
+        // _mapChordToStringsVerticalBar — this function must never run for it.
+        if (this._mechanism === 'vertical_bar') return;
         const handsConfig = (this.stringInstrumentConfig || {}).hands_config;
         if (!handsConfig || handsConfig.enabled !== true) return;
 
