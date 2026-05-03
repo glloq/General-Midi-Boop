@@ -607,22 +607,22 @@
 
         if (mechanism === 'fret_sliding_fingers') {
             // One dot per finger, centred vertically at its stripe's horizontal position.
-            const numF   = Math.max(1, this._numFingers);
-            const anchor0 = this.handAnchorFret || 0;
-            const mf0     = this._cachedMaxFrets || 22;
-            const da0     = Math.max(0, anchor0 - 0.25);
-            const bl0     = fretPct(da0, mf0);
-            const br0     = fretPct(da0 + numF - 1, mf0);
-            const bw0     = br0 - bl0;
+            // Positions use the fret-0 reference to match the constant band width.
+            const numF = Math.max(1, this._numFingers);
+            const mf0  = this._cachedMaxFrets || 22;
+            const refW0 = numF > 1 ? fretPct(numF - 1, mf0) : 1;
             for (let i = 0; i < numF; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'hand-finger-dot-pos';
                 dot.dataset.finger = String(i);
                 dot.style.top  = '50%';
-                const pct = numF === 1 ? 0
-                    : bw0 > 0 ? (fretPct(da0 + i, mf0) - bl0) / bw0 * 100
+                const pct = numF === 1 ? 50
+                    : refW0 > 0 ? fretPct(i, mf0) / refW0 * 100
                     : i / (numF - 1) * 100;
                 dot.style.left = pct + '%';
+                // Extreme fingers: flush to edge so the dot stays fully visible.
+                if (i === 0) dot.style.transform = 'translate(0%, -50%)';
+                else if (i === numF - 1) dot.style.transform = 'translate(-100%, -50%)';
                 rangeRect.appendChild(dot);
             }
         } else {
@@ -696,25 +696,24 @@
                 rangeRect.appendChild(stripe);
             }
         } else if (this._mechanism === 'fret_sliding_fingers') {
-            const count  = Math.max(1, this._numFingers);
-            const anchor = this.handAnchorFret || 0;
+            const count    = Math.max(1, this._numFingers);
             const maxFrets = this._cachedMaxFrets || 22;
-            // da = display anchor = 8mm before fret A = the contact point of finger 0.
-            // Finger i contact = da + i frets from nut = fretPct(da + i).
-            // Band spans da → da+N-1, so finger 0 = 0%, finger N-1 = 100%.
-            const da        = Math.max(0, anchor - 0.25);
-            const bandLeft  = fretPct(da, maxFrets);
-            const bandRight = fretPct(da + count - 1, maxFrets);
-            const bandW     = bandRight - bandLeft;
+            // Positions use the fret-0 reference to match the constant band width
+            // (fretPct(N-1) from fret 0). Finger i → fretPct(i)/fretPct(N-1).
+            const refW = count > 1 ? fretPct(count - 1, maxFrets) : 1;
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                const pct = count === 1 ? 0
-                    : bandW > 0 ? (fretPct(da + i, maxFrets) - bandLeft) / bandW * 100
+                const pct = count === 1 ? 50
+                    : refW > 0 ? fretPct(i, maxFrets) / refW * 100
                     : i / (count - 1) * 100;
                 stripe.style.left  = pct + '%';
                 stripe.style.width = stripeWPct + '%';
+                // Extreme fingers: flush to the overlay edge so the full stripe
+                // stays visible instead of being half-clipped by overflow:hidden.
+                if (i === 0) stripe.style.transform = 'translateX(0%)';
+                else if (i === count - 1) stripe.style.transform = 'translateX(-100%)';
                 rangeRect.appendChild(stripe);
             }
         }
@@ -751,19 +750,16 @@
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         } else {
             // Fret-based fallback.
-            // Both mechanisms shift the left edge ~¼ fret (≈8mm) toward the nut
-            // so the first finger lands just before the anchor fret wire.
-            // string_sliding: right edge = anchor + handSpanFrets (furthest fret wire).
-            // fret_sliding:   right edge = displayAnchor + handSpanFrets
-            //                 = (anchor-0.25) + (N-1) = anchor+N-1-0.25
-            //                 (the contact point of the last finger, flush with right edge).
+            // Left edge shifted ~¼ fret (≈8mm) toward the nut so the first
+            // finger lands just before the anchor fret wire.
+            // Width uses the fret-0 reference (fretPct(span) from fret 0) so it
+            // stays constant as the hand moves — fretPct differences shrink toward
+            // the bridge due to equal-tempered logarithmic spacing.
             const displayAnchor = Math.max(0, anchor - 0.25);
-            leftPct = fretPct(displayAnchor, maxFrets);
-            const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
-            const rightPct  = fretPct(rightBase + this._handSpanFrets, maxFrets);
-            widthPct = rightPct - leftPct;
+            leftPct  = fretPct(displayAnchor, maxFrets);
+            widthPct = fretPct(this._handSpanFrets, maxFrets);
             band.style.left  = leftPct + '%';
-            band.style.width = widthPct + '%';
+            band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         }
 
         // Update arrow enabled/disabled state.
@@ -856,8 +852,8 @@
         }
         const maxFrets = this._cachedMaxFrets || 22;
         const displayAnchor = Math.max(0, anchor - 0.25);
-        const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
-        const overlayWidthPct = fretPct(rightBase + this._handSpanFrets, maxFrets) - fretPct(displayAnchor, maxFrets);
+        // Constant overlay width: fret-0 reference matches the fixed band width.
+        const overlayWidthPct = fretPct(this._handSpanFrets, maxFrets);
         if (overlayWidthPct <= 0) return 50;
         return Math.max(0, Math.min(100, (fretPct(fret, maxFrets) - fretPct(displayAnchor, maxFrets)) / overlayWidthPct * 100));
     };
