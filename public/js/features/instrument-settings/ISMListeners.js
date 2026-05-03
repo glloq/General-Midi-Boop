@@ -1626,6 +1626,17 @@
         const keyboardType = host.dataset.keyboardType === 'piano' ? 'piano' : 'chromatic';
         const BAND_H = 22;
 
+        // Destroy any previous instances before creating new ones so we don't
+        // accumulate resize observers / RAF loops on detached canvases.
+        if (this._ismFingersRenderer && typeof this._ismFingersRenderer.destroy === 'function') {
+            this._ismFingersRenderer.destroy();
+        }
+        if (this._ismKbWidget && typeof this._ismKbWidget.destroy === 'function') {
+            this._ismKbWidget.destroy();
+        }
+        this._ismFingersRenderer = null;
+        this._ismKbWidget = null;
+
         // Build the keyboard widget — piano keys or flat chromatic strip.
         let kbWidget = null;
         if (keyboardType === 'piano' && typeof window.KeyboardPreview === 'function') {
@@ -1641,6 +1652,7 @@
             });
         }
         if (!kbWidget) return;
+        this._ismKbWidget = kbWidget;
 
         // Build the fingers overlay renderer.
         if (typeof window.KeyboardFingersRenderer !== 'function') return;
@@ -1676,6 +1688,7 @@
             };
         });
 
+        this._ismFingersRenderer = fingersRenderer;
         fingersRenderer.setHands(rendererHands);
         fingersRenderer.setAnchors(new Map(rendererHands.map(function(h) { return [h.id, h.anchor]; })));
 
