@@ -235,10 +235,6 @@
             const keysH = handY;
             const blackH = keysH * opts.blackHeightRatio;
             const knuckleTop = handY;
-            const whiteTipY  = Math.max(0, keysH * opts.whiteTipFraction);
-            const blackTipY  = Math.max(0, blackH * opts.blackTipFraction);
-            const whiteFingerH = Math.max(2, handY - whiteTipY);
-            const blackFingerH = Math.max(2, handY - blackTipY);
             const kb = this._kb;
 
             const rangeMin = Number.isFinite(kb.rangeMin) ? kb.rangeMin : this._extent.lo;
@@ -273,7 +269,16 @@
                 return (xL + xR) * 0.5;
             };
 
-            const fingerW = Math.max(3, ww * 0.55);
+            // T-shape dimensions (shared across all hands in this draw call).
+            // Gap slots (black-key positions): bar tip at the bottom of black keys.
+            // White-key fingers: bar tip at the vertical centre of the white-only
+            // area (the wider lower section of each white key, below black keys).
+            const blackSlotTipY = blackH;
+            const whiteKeyTipY  = Math.round((blackH + keysH) * 0.5);
+            const tBarH   = Math.max(5, Math.round(keysH * 0.14));  // ≈8 px bar height
+            const whiteBarW = Math.max(5, ww * 0.82);   // nearly full white key
+            const gapBarW   = Math.max(4, ww * 0.52);   // ≈ black key width
+            const tStemW    = Math.max(2, ww * 0.34);   // narrower than bar
 
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
@@ -321,16 +326,17 @@
                 this._drawKnuckleBar(ctx, hand.color, kLeft, kRight,
                                       knuckleTop, opts.knuckleHeight, W);
 
-                // Pass 1 — gap (black-key-style) fingers first so white fingers
-                // overdraw their bottom (same layering as real piano keys).
+                // Pass 1 — gap (black-key position) T-shapes first so white
+                // fingers overdraw their stem bottoms (same layering as real keys).
                 for (const slot of gapSlots) {
-                    this._drawFingerBar(ctx, slot.xCenter, blackTipY, blackFingerH,
-                                         fingerW, slot.isActive, W);
+                    this._drawPianoFinger(ctx, slot.xCenter,
+                        blackSlotTipY, keysH, gapBarW, tStemW, tBarH, slot.isActive, W);
                 }
-                // Pass 2 — white-key fingers on top.
+                // Pass 2 — white-key T-shapes on top.
                 for (const mi of whiteFingers) {
-                    this._drawFingerBar(ctx, keyCenter(mi), whiteTipY, whiteFingerH,
-                                         fingerW, this._activeNotes.has(mi), W);
+                    this._drawPianoFinger(ctx, keyCenter(mi),
+                        whiteKeyTipY, keysH, whiteBarW, tStemW, tBarH,
+                        this._activeNotes.has(mi), W);
                 }
             }
         }
@@ -477,6 +483,39 @@
             if (x1 <= x0) return;
             ctx.fillStyle = color;
             ctx.fillRect(x0, top, x1 - x0, height);
+        }
+
+        /** Draw a T-shaped piano finger.
+         *  The wide horizontal bar represents the fingertip pressing the key;
+         *  the narrower stem below connects to the knuckle band.
+         *  `tipY`  — top of the bar (where the finger meets the key surface).
+         *  `handY` — bottom of the stem (= knuckle line = keysH).
+         *  `barW`  — full width of the horizontal bar.
+         *  `stemW` — width of the stem (narrower than the bar).
+         *  `barH`  — height of the horizontal bar. */
+        _drawPianoFinger(ctx, xCenter, tipY, handY, barW, stemW, barH, isActive, W) {
+            if (xCenter < -barW || xCenter > W + barW) return;
+            const opts = this.options;
+            const barBottom = Math.min(tipY + barH, handY);
+            const bL = xCenter - barW  * 0.5;
+            const bR = xCenter + barW  * 0.5;
+            const sL = xCenter - stemW * 0.5;
+            const sR = xCenter + stemW * 0.5;
+            ctx.fillStyle = isActive ? opts.activeFingerFill : opts.idleFingerFill;
+            ctx.beginPath();
+            ctx.moveTo(bL, tipY);
+            ctx.lineTo(bR, tipY);
+            ctx.lineTo(bR, barBottom);
+            ctx.lineTo(sR, barBottom);
+            ctx.lineTo(sR, handY);
+            ctx.lineTo(sL, handY);
+            ctx.lineTo(sL, barBottom);
+            ctx.lineTo(bL, barBottom);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = opts.fingerStroke;
+            ctx.lineWidth = 1;
+            ctx.stroke();
         }
 
         /** Draw a single finger rectangle (body + outline). Skips
