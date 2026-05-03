@@ -315,9 +315,9 @@
                             && wHi - wLo === 2) ? wLo + 1 : null;
                 };
 
-                // Finger body width = ~32 % of a white-key width so
+                // Finger body width = ~55 % of a white-key width so
                 // W and B fingers stay visually balanced.
-                const fingerW = Math.max(3, ww * 0.32);
+                const fingerW = Math.max(3, ww * 0.55);
 
                 const leftX = slotCenterX(0) - fingerW / 2;
                 const rightX = slotCenterX(numFingers - 1) + fingerW / 2;
@@ -381,15 +381,20 @@
                 const handRightX = xRightOf(Math.floor(a) + Math.round(hand.span));
                 if (!(handRightX > handLeftX)) continue;
                 const handPxW = handRightX - handLeftX;
-                const slotW = handPxW / numFingers;
-                const fingerW = Math.max(3, slotW * opts.fingerWidthRatio);
+                // Finger width = one semitone cell × ratio; keeps each finger
+                // proportional to the note cell it sits over regardless of span.
+                const fingerW = Math.max(3, pxPerPitch * opts.fingerWidthRatio);
 
                 this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX,
                                       knuckleTop, opts.knuckleHeight, W);
 
                 for (let i = 0; i < numFingers; i++) {
-                    const xCenter = handLeftX + (i + 0.5) * slotW;
                     const m = this._slotMidi(a, hand.span, numFingers, i);
+                    // Align finger centre with its MIDI note cell; fall back to
+                    // uniform spacing when the slot midi is not finite.
+                    const xCenter = Number.isFinite(m)
+                        ? (m - rangeMin + 0.5) * pxPerPitch
+                        : handLeftX + (i + 0.5) * (handPxW / numFingers);
                     const isActive = Number.isFinite(m) && this._activeNotes.has(m);
                     this._drawFingerBar(ctx, xCenter, tipY, fingerH,
                                          fingerW, isActive, W);
@@ -454,13 +459,15 @@
 
         /** Walk MIDI from `startMidi` upward, collecting `count`
          *  consecutive white keys. If `startMidi` happens to be on
-         *  a black key (rare anchor position) we skip up to the
-         *  next white. Returns fewer than `count` only when we run
-         *  out of MIDI space (>127). */
+         *  a black key (rare anchor position) we snap back to the
+         *  preceding white so the pattern stays in phase with the
+         *  keyboard (e.g. C# anchor → thumb on C, index on C#).
+         *  Returns fewer than `count` only when we run out of MIDI
+         *  space (>127). */
         _whiteKeysFromAnchor(startMidi, count) {
             const out = [];
             let m = Math.max(0, Math.round(startMidi));
-            if (this._isBlackKey(m)) m++;
+            if (this._isBlackKey(m)) m--;
             while (out.length < count && m <= 127) {
                 if (!this._isBlackKey(m)) out.push(m);
                 m++;
