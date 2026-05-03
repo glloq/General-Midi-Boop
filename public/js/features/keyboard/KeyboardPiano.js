@@ -1210,10 +1210,10 @@
         const canvas = document.createElement('canvas');
         canvas.className = 'km-fingers-canvas';
         // Piano keys are inside piano-container which has 10 px left/right padding;
-        // the band sits alongside that container (same parent, same CSS left edge),
-        // so indent the canvas 10 px each side to align fingers with white keys.
-        // Chromatic (list) keys span the full keyboard-list-container with no extra
-        // padding, so the canvas fills the band edge-to-edge.
+        // the band sits in the same flex column (same CSS left edge), so indent the
+        // canvas 10 px each side so fingers align exactly with white keys.
+        // Chromatic (list) keys span the full keyboard-list-container with no padding,
+        // so the canvas fills the band edge-to-edge.
         const inset = (layout === 'piano') ? '10px' : '0px';
         canvas.style.left = inset;
         canvas.style.right = inset;
@@ -1223,14 +1223,22 @@
         const rangeMin = this.startNote;
         const rangeMax = this.startNote + this.visibleNoteCount - 1;
 
-        // Renderer options: fingers fill most of the 88 px band (top 15 % empty gap,
-        // bottom 20 px knuckle area). This gives ~55 px finger bodies — tall enough
-        // to be readable at any keyboard width.
+        // The canvas extends 35 px above the band into the piano-container area
+        // (see CSS .km-fingers-canvas top:-35px), so its total clientHeight is
+        // band-height(110) + overlap(35) = 145 px.
+        //
+        // Renderer geometry with H=145:
+        //   bandH=40  → keysH=105, knuckle at y=105 (screen: 70 px into band)
+        //   whiteTipFraction=0.20 → tipY=21 (screen: 21-35=-14 → 14 px into key area)
+        //   blackTipFraction=0.45 → black tipY≈30 (screen: -5 → just inside key area)
+        //   knuckleHeight=10 → thick, clearly visible knuckle bar
+        //   Palm area: y=115..145 → screen 80..110 → 30 px at band bottom
         const renderer = new window.KeyboardFingersRenderer(canvas, {
-            bandHeight: 20,
-            whiteTipFraction: 0.15,
+            bandHeight: 40,
+            whiteTipFraction: 0.20,
             blackTipFraction: 0.45,
-            chromaticTipFraction: 0.15,
+            chromaticTipFraction: 0.20,
+            knuckleHeight: 10,
         });
         this._fingersRenderer = renderer;
 
@@ -1350,8 +1358,9 @@
     };
 
     /**
-     * Attach pointer-event drag handlers to the fingers canvas so the user can
-     * reposition hands by clicking and dragging left/right in the band.
+     * Attach pointer-event drag handlers to the km-hand-band element so the user
+     * can reposition hands by clicking and dragging in the visible band area.
+     * The canvas itself has pointer-events:none so piano-key clicks are unaffected.
      * @param {number} rangeMin  MIDI note at the left edge of the visible range
      * @param {number} rangeMax  MIDI note at the right edge of the visible range
      */
@@ -1359,11 +1368,16 @@
         this._destroyFingersOverlayDrag();
 
         const canvas = this._fingersCanvas;
-        if (!canvas) return;
+        const band   = document.getElementById('km-hand-band');
+        if (!canvas || !band) return;
+
+        // For piano layout the canvas has a 10 px left inset; mouse X coordinates
+        // relative to the band must be adjusted to match the canvas coordinate space.
+        const canvasInset = parseFloat(canvas.style.left) || 0;
 
         let drag = null;   // { handId, startX, startAnchor, span }
 
-        const hitTestHand = (x) => {
+        const hitTestHand = (xInCanvas) => {
             if (!this._fingersHands || !this._handCurrentAnchors) return null;
             const W = canvas.clientWidth;
             if (W <= 0) return null;
@@ -1378,9 +1392,8 @@
                 const leftPx  = (anchor - rangeMin) * pxPerSt;
                 const rightPx = (anchor + hand.span - rangeMin + 1) * pxPerSt;
                 const centerPx = (leftPx + rightPx) / 2;
-                // Accept clicks within the hand's pixel width + 12 px margin
-                if (x >= leftPx - 12 && x <= rightPx + 12) {
-                    const dist = Math.abs(x - centerPx);
+                if (xInCanvas >= leftPx - 12 && xInCanvas <= rightPx + 12) {
+                    const dist = Math.abs(xInCanvas - centerPx);
                     if (dist < bestDist) {
                         bestDist = dist;
                         best = hand;
@@ -1392,14 +1405,14 @@
 
         const onDown = (e) => {
             if (!this._fingersHands) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left);
-            const handId = hitTestHand(x);
+            const rect = band.getBoundingClientRect();
+            const xInCanvas = (e.clientX - rect.left) - canvasInset;
+            const handId = hitTestHand(xInCanvas);
             if (!handId) return;
             const hand = this._fingersHands.find(h => h.id === handId);
             if (!hand) return;
-            drag = { handId, startX: x, startAnchor: this._handCurrentAnchors.get(handId), span: hand.span };
-            canvas.setPointerCapture(e.pointerId);
+            drag = { handId, startX: xInCanvas, startAnchor: this._handCurrentAnchors.get(handId), span: hand.span };
+            band.setPointerCapture(e.pointerId);
             e.stopPropagation();
             e.preventDefault();
         };
@@ -1408,11 +1421,11 @@
             if (!drag || !this._fingersRenderer) return;
             const W = canvas.clientWidth;
             if (W <= 0) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left);
+            const rect = band.getBoundingClientRect();
+            const xInCanvas = (e.clientX - rect.left) - canvasInset;
             const semitones = Math.max(1, rangeMax - rangeMin + 1);
             const pxPerSt = W / semitones;
-            const deltaSt = Math.round((x - drag.startX) / pxPerSt);
+            const deltaSt = Math.round((xInCanvas - drag.startX) / pxPerSt);
             const newAnchor = Math.max(rangeMin,
                 Math.min(rangeMax - drag.span, drag.startAnchor + deltaSt));
             this._handCurrentAnchors.set(drag.handId, newAnchor);
@@ -1427,16 +1440,16 @@
             e.stopPropagation();
         };
 
-        canvas.addEventListener('pointerdown', onDown);
-        canvas.addEventListener('pointermove', onMove);
-        canvas.addEventListener('pointerup', onUp);
-        canvas.addEventListener('pointercancel', onUp);
+        band.addEventListener('pointerdown', onDown);
+        band.addEventListener('pointermove', onMove);
+        band.addEventListener('pointerup', onUp);
+        band.addEventListener('pointercancel', onUp);
 
         this._fingersOverlayDragCleanup = () => {
-            canvas.removeEventListener('pointerdown', onDown);
-            canvas.removeEventListener('pointermove', onMove);
-            canvas.removeEventListener('pointerup', onUp);
-            canvas.removeEventListener('pointercancel', onUp);
+            band.removeEventListener('pointerdown', onDown);
+            band.removeEventListener('pointermove', onMove);
+            band.removeEventListener('pointerup', onUp);
+            band.removeEventListener('pointercancel', onUp);
         };
     };
 
