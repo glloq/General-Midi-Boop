@@ -108,6 +108,11 @@
 
         container.appendChild(keysRow);
         this._initKeyboardListInteraction(container);
+
+        // Mount the fingers overlay below the list keys if the instrument has hands.
+        if (typeof this._mountFingersOverlay === 'function') {
+            this._mountFingersOverlay('chromatic');
+        }
     };
 
     // -------------------------------------------------------------------------
