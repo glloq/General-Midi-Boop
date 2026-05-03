@@ -1468,16 +1468,13 @@
         this._fingersRenderer.draw();
     };
 
-    /**
-     * Move the hand whose midpoint is closest to `note` so that `note` falls
-     * within [anchor, anchor + span] using the shortest possible shift.
-     * @param {number} note  MIDI note number
-     */
     KeyboardPianoMixin._moveNearestHandToNote = function(note) {
         if (!this._fingersHands || !this._handCurrentAnchors) return;
 
         const rangeMin = this.startNote;
         const rangeMax = this.startNote + this.visibleNoteCount - 1;
+        const isPiano = this._fingersLayout === 'piano';
+        const wn = isPiano ? this.visibleWhiteNotes : null;
 
         // Find the hand whose current midpoint is nearest to the note.
         let nearestHand = null;
@@ -1495,15 +1492,40 @@
         if (!nearestHand) return;
 
         const span = nearestHand.span;
+        const nf   = nearestHand.numFingers || 5;
         const anchor = this._handCurrentAnchors.get(nearestHand.id);
         let newAnchor = anchor;
 
-        if (note < anchor) {
-            newAnchor = note;                       // shift left: thumb on note
-        } else if (note > anchor + span) {
-            newAnchor = note - span;                // shift right: pinky on note
+        if (isPiano && wn && wn.length > 0) {
+            // Piano: use exact finger coverage; anchor must land on a white key.
+            if (!this._pianoHandCoversNote(anchor, nf, note)) {
+                const isBlackKey = (m) => { const v=((m%12)+12)%12; return v===1||v===3||v===6||v===8||v===10; };
+                if (note < anchor) {
+                    // Shift left: anchor on note's white key (black key → preceding white).
+                    newAnchor = isBlackKey(note) ? note - 1 : note;
+                } else {
+                    // Shift right: walk forward from current anchor and find the
+                    // first (leftmost = minimum shift) white key that covers note.
+                    let si = wn.indexOf(anchor);
+                    if (si < 0) si = wn.findIndex(m => m >= anchor);
+                    if (si < 0) si = 0;
+                    const limit = si + Math.ceil(nf / 2) + 1;
+                    for (let i = si; i < Math.min(wn.length, limit); i++) {
+                        if (this._pianoHandCoversNote(wn[i], nf, note)) {
+                            newAnchor = wn[i];
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            // Chromatic / fallback: semitone range.
+            if (note < anchor) {
+                newAnchor = note;
+            } else if (note > anchor + span) {
+                newAnchor = note - span;
+            }
         }
-        // else note is already within range — no movement needed
 
         newAnchor = Math.max(rangeMin, Math.min(rangeMax - span, newAnchor));
         this._handCurrentAnchors.set(nearestHand.id, newAnchor);
