@@ -518,6 +518,7 @@
         const mechanism = (handsConfig.mechanism) || 'string_sliding_fingers';
         this._mechanism = mechanism;
         const numStrings = Math.max(1, cfg.num_strings || 6);
+        this._cachedNumStrings = numStrings;
         this._maxFingers = Number.isFinite(hand.max_fingers) && hand.max_fingers > 0
             ? Math.min(hand.max_fingers, numStrings) : numStrings;
         this._numFingers = Number.isFinite(hand.num_fingers) && hand.num_fingers > 0
@@ -607,17 +608,19 @@
 
         if (mechanism === 'fret_sliding_fingers') {
             // One dot per finger, centred vertically at its stripe's horizontal position.
-            // Positions use the fret-0 reference to match the constant band width.
-            const numF = Math.max(1, this._numFingers);
-            const mf0  = this._cachedMaxFrets || 22;
-            const refW0 = numF > 1 ? fretPct(numF - 1, mf0) : 1;
+            // Uses the same anchor-dependent formula as _renderFingerRangeRects.
+            const numF   = Math.max(1, this._numFingers);
+            const mf0    = this._cachedMaxFrets || 22;
+            const anchor0 = this.handAnchorFret || 1;
+            const da0    = Math.max(0, anchor0 - 0.25);
+            const refW0  = numF > 1 ? fretPct(numF - 1, mf0) : 1;
             for (let i = 0; i < numF; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'hand-finger-dot-pos';
                 dot.dataset.finger = String(i);
                 dot.style.top  = '50%';
                 const pct = numF === 1 ? 50
-                    : refW0 > 0 ? fretPct(i, mf0) / refW0 * 100
+                    : refW0 > 0 ? (fretPct(da0 + i, mf0) - fretPct(da0, mf0)) / refW0 * 100
                     : i / (numF - 1) * 100;
                 dot.style.left = pct + '%';
                 // Extreme fingers: flush to edge so the dot stays fully visible.
@@ -698,15 +701,19 @@
         } else if (this._mechanism === 'fret_sliding_fingers') {
             const count    = Math.max(1, this._numFingers);
             const maxFrets = this._cachedMaxFrets || 22;
-            // Positions use the fret-0 reference to match the constant band width
-            // (fretPct(N-1) from fret 0). Finger i → fretPct(i)/fretPct(N-1).
+            const anchor   = this.handAnchorFret || 1;
+            const da       = Math.max(0, anchor - 0.25);
+            // Band width uses fret-0 reference (constant visual width).
+            // Positions are anchor-dependent: fretPct(da+i)-fretPct(da) scales
+            // by 2^(-da/12), so fingers cluster toward the left near the bridge
+            // where frets are physically closer together.
             const refW = count > 1 ? fretPct(count - 1, maxFrets) : 1;
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
                 const pct = count === 1 ? 50
-                    : refW > 0 ? fretPct(i, maxFrets) / refW * 100
+                    : refW > 0 ? (fretPct(da + i, maxFrets) - fretPct(da, maxFrets)) / refW * 100
                     : i / (count - 1) * 100;
                 stripe.style.left  = pct + '%';
                 stripe.style.width = stripeWPct + '%';
@@ -774,6 +781,10 @@
         if (typeof requestAnimationFrame !== 'undefined') {
             requestAnimationFrame(() => this._updateCoverageOverlayPosition());
         }
+
+        // Re-render fret_sliding_fingers stripes/dots with the new anchor so
+        // finger spacing adapts to the logarithmic fret spacing at this position.
+        this._refreshFretSlidingLayout();
     };
 
     /**
@@ -1051,6 +1062,38 @@
             band.addEventListener('touchmove', onMove, { passive: false });
             band.addEventListener('touchend', onEnd);
         }, { passive: false });
+    };
+
+    /**
+     * Re-render fret_sliding_fingers stripes and dots with the current anchor.
+     * Called after every hand move so positions adapt to the logarithmic fret
+     * spacing at the new hand location (fingers cluster toward the bridge).
+     */
+    KeyboardChordsMixin._refreshFretSlidingLayout = function () {
+        if (this._mechanism !== 'fret_sliding_fingers') return;
+        const rangeRect = document.getElementById('hand-finger-range-rect');
+        if (!rangeRect) return;
+
+        // Re-render stripes (removes old ones internally).
+        this._renderFingerRangeRects(rangeRect, this._cachedNumStrings || 6);
+
+        // Update existing dot positions to match.
+        const numF    = Math.max(1, this._numFingers);
+        const maxFrets = this._cachedMaxFrets || 22;
+        const anchor  = this.handAnchorFret || 1;
+        const da      = Math.max(0, anchor - 0.25);
+        const refW    = numF > 1 ? fretPct(numF - 1, maxFrets) : 1;
+        rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]').forEach(dot => {
+            const i = parseInt(dot.dataset.finger, 10);
+            if (!Number.isFinite(i)) return;
+            const pct = numF === 1 ? 50
+                : refW > 0 ? (fretPct(da + i, maxFrets) - fretPct(da, maxFrets)) / refW * 100
+                : i / (numF - 1) * 100;
+            dot.style.left = pct + '%';
+            if (i === 0) dot.style.transform = 'translate(0%, -50%)';
+            else if (i === numF - 1) dot.style.transform = 'translate(-100%, -50%)';
+            else dot.style.removeProperty('transform');
+        });
     };
 
     /**
