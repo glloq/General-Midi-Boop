@@ -284,40 +284,39 @@
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
                 if (this._isOffScreen(lowMidi, highMidi)) continue;
 
-                // Assign each finger a MIDI note, evenly distributed across
-                // the declared span. This keeps fingers spread over the full
-                // hand range instead of being clustered at the anchor.
-                const fingerMidis = [];
-                for (let i = 0; i < numFingers; i++) {
-                    fingerMidis.push(this._slotMidi(a, hand.span, numFingers, i));
+                // Piano mode: fingers always land on consecutive white keys
+                // starting from the anchor. Between each pair of adjacent
+                // white-key fingers, a black-key marker is added automatically
+                // when a black key exists between them (E–F and B–C gaps are
+                // skipped automatically).
+                const whiteFingers = this._whiteKeysFromAnchor(a, numFingers)
+                    .filter(m => m >= rangeMin && m <= rangeMax);
+                if (whiteFingers.length === 0) continue;
+
+                const blackFingers = [];
+                for (let i = 0; i < whiteFingers.length - 1; i++) {
+                    const mid = whiteFingers[i] + 1;
+                    if (mid < whiteFingers[i + 1] && this._isBlackKey(mid)
+                            && mid >= rangeMin && mid <= rangeMax) {
+                        blackFingers.push(mid);
+                    }
                 }
 
-                // Knuckle bar: from first to last finger centre, padded by half
-                // the key width (white = ww/2, black = ww*0.3 ≈ half black key).
-                const halfKey = (m) => this._isBlackKey(Math.round(m)) ? ww * 0.3 : ww * 0.5;
-                const kLeft  = Number.isFinite(fingerMidis[0])
-                    ? keyCenter(fingerMidis[0]) - halfKey(fingerMidis[0]) : 0;
-                const kRight = Number.isFinite(fingerMidis[numFingers - 1])
-                    ? keyCenter(fingerMidis[numFingers - 1]) + halfKey(fingerMidis[numFingers - 1]) : W;
+                const halfKey = (m) => this._isBlackKey(m) ? ww * 0.3 : ww * 0.5;
+                const kLeft  = keyCenter(whiteFingers[0]) - halfKey(whiteFingers[0]);
+                const kRight = keyCenter(whiteFingers[whiteFingers.length - 1])
+                             + halfKey(whiteFingers[whiteFingers.length - 1]);
                 this._drawKnuckleBar(ctx, hand.color, kLeft, kRight,
                                       knuckleTop, opts.knuckleHeight, W);
 
                 // Pass 1 — black-key fingers first so white fingers overdraw
                 // their bottom (same visual layering as real piano keys).
-                for (let i = 0; i < numFingers; i++) {
-                    const m = fingerMidis[i];
-                    if (!Number.isFinite(m)) continue;
-                    const mi = Math.round(m);
-                    if (!this._isBlackKey(mi) || mi < rangeMin || mi > rangeMax) continue;
+                for (const mi of blackFingers) {
                     this._drawFingerBar(ctx, keyCenter(mi), blackTipY, blackFingerH,
                                          fingerW, this._activeNotes.has(mi), W);
                 }
                 // Pass 2 — white-key fingers on top.
-                for (let i = 0; i < numFingers; i++) {
-                    const m = fingerMidis[i];
-                    if (!Number.isFinite(m)) continue;
-                    const mi = Math.round(m);
-                    if (this._isBlackKey(mi) || mi < rangeMin || mi > rangeMax) continue;
+                for (const mi of whiteFingers) {
                     this._drawFingerBar(ctx, keyCenter(mi), whiteTipY, whiteFingerH,
                                          fingerW, this._activeNotes.has(mi), W);
                 }
