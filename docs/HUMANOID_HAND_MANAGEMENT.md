@@ -84,6 +84,79 @@ considérée hors-sujet ici).
 - Maximum standard : **4 doigts** (accord complexe, toutes cordes frettées).
 - `max_fingers` dans `hands_config` continue de plafonner ce nombre.
 
+### 3.1.1 Limites de déplacement par doigt — instruments à cordes
+
+Chaque doigt possède une **position naturelle de repos** et une **plage
+d'extension** exprimées en offset depuis l'ancrage de main (`anchor_mm`).
+Les valeurs ci-dessous sont indicatives pour une main humanoïde standard
+avec `hand_span_mm = 80` (guitare) ; elles sont à calibrer selon le
+gabarit mécanique réel.
+
+#### Offsets de repos et plages (en mm depuis l'ancrage)
+
+| Doigt | Id | Position repos | Étendue min | Étendue max | Commentaire |
+|-------|----|---------------|-------------|-------------|-------------|
+| Index | `1` | 0 mm | 0 mm | 30 mm | Ancré au sillet de la main ; ne recule pas sous l'ancrage |
+| Majeur | `2` | 22 mm | 5 mm | 50 mm | Doigt le plus long ; meilleure portée vers l'aigu |
+| Annulaire | `3` | 44 mm | 28 mm | 65 mm | Moins indépendant du majeur (tendons liés) |
+| Auriculaire | `4` | 65 mm | 48 mm | 80 mm | Doigt court et faible ; limité à l'extrémité du span |
+
+> **Lecture :** avec `hand_span_mm = 80`, l'auriculaire peut couvrir
+> entre 48 mm et 80 mm depuis l'ancrage ; l'index entre 0 mm et 30 mm.
+> Un accord qui demanderait l'index à 35 mm est **injouable** pour ce gabarit.
+
+#### Contrainte d'ordre (invariant strict)
+
+```
+offset(d1) < offset(d2) < offset(d3) < offset(d4)
+```
+
+Deux doigts ne peuvent pas se croiser ni être à la même position en
+mode standard (hors barré V2).
+
+#### Écart maximal entre doigts adjacents (`max_adjacent_stretch_mm`)
+
+| Paire | Écart naturel | Écart maximal | Remarque |
+|-------|--------------|--------------|---------|
+| Index ↔ Majeur | ≈ 22 mm | 35 mm | Doigts indépendants, bonne extensibilité |
+| Majeur ↔ Annulaire | ≈ 22 mm | 28 mm | Tendons partiellement solidaires — portée réduite |
+| Annulaire ↔ Auriculaire | ≈ 21 mm | 25 mm | Auriculaire court, extension limitée |
+
+Un accord dont deux doigts adjacents sont distants de plus de
+`max_adjacent_stretch_mm` est **injouable**, même si le span global
+reste sous `hand_span_mm`.
+
+#### Équivalent en frettes (mode physique, diapason 650 mm)
+
+Les distances mm se traduisent en un nombre de frettes variable selon la
+position sur le manche (frettes plus serrées vers l'aigu) :
+
+| Position main (ancrage) | Étendue index (frettes) | Étendue totale index→auriculaire (frettes) |
+|------------------------|------------------------|------------------------------------------|
+| Frette 1 (sillet) | 0 – 1,6 | ≈ 2,2 frettes |
+| Frette 5 | 0 – 2,0 | ≈ 3,0 frettes |
+| Frette 12 | 0 – 2,9 | ≈ 4,4 frettes |
+| Frette 17 | 0 – 3,5 | ≈ 5,5 frettes |
+
+> Plus la main monte vers le corps, plus les frettes sont rapprochées et
+> plus le span en frettes augmente — cohérent avec le modèle physique
+> existant.
+
+#### Mode strict vs mode étendu
+
+| Mode | Description | Usage |
+|------|-------------|-------|
+| **Strict** | Chaque doigt est affecté à un offset fixe (d1=0, d2=span/3, d3=2·span/3, d4=span) | Algorithme greedy, V1 |
+| **Étendu** | Chaque doigt peut se déplacer dans sa plage `[min_offset, max_offset]` | Optimisation V2, doigts indépendants |
+
+En mode strict, l'assignation `doigt → frette` suit simplement :
+
+```
+fret(d_i) = anchor + round(i-1) × (hand_span_frets / 3)
+```
+
+---
+
 ### 3.2 Instruments à clavier — mains gauche et droite
 
 Chaque main dispose de **5 doigts** :
@@ -105,6 +178,64 @@ Chaque main dispose de **5 doigts** :
   (octave de concert ≈ 160 mm sur un piano standard à touches 23 mm).
 - Les doigts d'une même main ne peuvent pas se croiser (contrainte
   anatomique : l'ordre des doigts sur le clavier suit l'ordre des touches).
+
+### 3.2.1 Limites de déplacement par doigt — clavier
+
+Les offsets sont exprimés depuis la **position du pouce** (extrémité basse
+de la main gauche, extrémité haute de la main droite). La largeur d'une
+touche blanche est ≈ 23 mm sur un piano standard.
+
+#### Main gauche — offsets depuis le pouce (L1) vers l'aigu
+
+| Doigt | Id | Position repos | Étendue min | Étendue max | En touches blanches (≈23 mm) |
+|-------|----|---------------|-------------|-------------|------------------------------|
+| Pouce | `L1` | 0 mm | 0 mm | 40 mm | 0 – 1,7 touches |
+| Index | `L2` | 30 mm | 15 mm | 65 mm | 0,7 – 2,8 touches |
+| Majeur | `L3` | 60 mm | 40 mm | 100 mm | 1,7 – 4,3 touches |
+| Annulaire | `L4` | 95 mm | 70 mm | 130 mm | 3,0 – 5,7 touches |
+| Auriculaire | `L5` | 130 mm | 100 mm | 160 mm | 4,3 – 7,0 touches |
+
+#### Main droite — offsets depuis le pouce (R1) vers le grave
+
+La main droite est symétrique : le pouce est à droite (touche la plus
+aiguë de la zone), l'auriculaire est à gauche. Les mêmes plages
+s'appliquent en valeur absolue, avec une direction inversée.
+
+| Doigt | Id | Position repos | Étendue min | Étendue max |
+|-------|----|---------------|-------------|-------------|
+| Pouce | `R1` | 0 mm (vers aigu) | 0 mm | 40 mm |
+| Index | `R2` | 30 mm (vers grave) | 15 mm | 65 mm |
+| Majeur | `R3` | 60 mm | 40 mm | 100 mm |
+| Annulaire | `R4` | 95 mm | 70 mm | 130 mm |
+| Auriculaire | `R5` | 130 mm | 100 mm | 160 mm |
+
+#### Écart maximal entre doigts adjacents — clavier
+
+| Paire | Écart naturel | Écart maximal | Remarque |
+|-------|--------------|--------------|---------|
+| Pouce ↔ Index | ≈ 30 mm | 80 mm | Le pouce pivote indépendamment — extension importante |
+| Index ↔ Majeur | ≈ 30 mm | 45 mm | |
+| Majeur ↔ Annulaire | ≈ 35 mm | 42 mm | Tendons partiellement liés |
+| Annulaire ↔ Auriculaire | ≈ 35 mm | 38 mm | Auriculaire peu extensible |
+
+> **Octave de concert (do–do, ≈ 160 mm)** : jouable en extension maximale
+> pouce–auriculaire. Le planner doit signaler l'accord injouable si
+> `span_demandé > hand_span_mm` ou si un écart adjacent dépasse son
+> `max_adjacent_stretch_mm`.
+
+#### Synthèse — règles de jouabilité clavier
+
+Un accord est **jouable par une seule main** si et seulement si :
+
+1. `span_total ≤ hand_span_mm` (distance pouce–auriculaire).
+2. Pour chaque paire de doigts adjacents assignés : distance ≤
+   `max_adjacent_stretch_mm` de la paire.
+3. L'ordre anatomique est respecté : les notes attribuées à des doigts
+   successifs sont dans l'ordre croissant des touches (pas de croisement).
+4. Pas plus de 5 notes simultanées (nombre de doigts disponibles).
+
+Si l'une de ces conditions échoue, le système doit soit répartir les notes
+entre les deux mains, soit signaler la note injouable.
 
 ---
 
