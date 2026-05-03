@@ -160,8 +160,10 @@
             }
         });
 
-        // List view toggle
+        // List view toggle — disabled when the instrument has fingers configured
+        // (switching between piano and chromatic-list layouts cannot adapt finger positions).
         document.getElementById('keyboard-list-view-toggle')?.addEventListener('click', () => {
+            if (typeof this._instrumentHasFingers === 'function' && this._instrumentHasFingers()) return;
             if (this.viewMode === 'keyboard-list') {
                 this.setViewMode('piano');
             } else {

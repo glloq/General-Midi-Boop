@@ -2435,6 +2435,11 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
+.keyboard-header-controls .btn-list-view-toggle:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
 /* ── Hand band — strip below the keyboard that shows the hand/finger overlay ── */
 
 /* Sits inside .keyboard-canvas-container (flex-column) after all the mode

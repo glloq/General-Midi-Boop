@@ -1185,6 +1185,33 @@
      * left/right inset to align fingers with the active key view, then initialises
      * the renderer and the drag interaction.
      */
+    /** True when the currently loaded instrument declares hands with fingers. */
+    KeyboardPianoMixin._instrumentHasFingers = function() {
+        const hc = this.selectedDeviceCapabilities && this.selectedDeviceCapabilities.hands_config;
+        return !!(hc && hc.enabled !== false && Array.isArray(hc.hands) && hc.hands.length > 0);
+    };
+
+    /**
+     * Disable the keyboard-list view toggle when the instrument has fingers.
+     * Switching between piano and chromatic-list layouts mid-session is blocked
+     * because finger positions cannot be adapted across the two key geometries.
+     */
+    KeyboardPianoMixin._updateFingersViewToggle = function() {
+        const btn = document.getElementById('keyboard-list-view-toggle');
+        if (!btn) return;
+        const locked = this._instrumentHasFingers();
+        btn.disabled = locked;
+        if (locked) {
+            btn.setAttribute('title',
+                this.t('keyboard.listViewLockedFingers')
+                || 'Vue liste désactivée : l\'instrument a des doigts configurés');
+        } else {
+            btn.setAttribute('title',
+                this.t('keyboard.listViewToggle')
+                || 'Vue liste — vélocité (hauteur du clic) et pitch bend (gauche/droite)');
+        }
+    };
+
     KeyboardPianoMixin._mountFingersOverlay = function(layout) {
         layout = (layout === 'chromatic') ? 'chromatic' : 'piano';
 
@@ -1330,6 +1357,7 @@
         renderer.setAnchors(this._handCurrentAnchors);
 
         this._initFingersOverlayDrag();
+        this._updateFingersViewToggle();
 
         requestAnimationFrame(() => renderer.draw());
     };
@@ -1350,6 +1378,7 @@
         }
         this._fingersHands = null;
         this._handCurrentAnchors = null;
+        this._updateFingersViewToggle();
     };
 
     /**
