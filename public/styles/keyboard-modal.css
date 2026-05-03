@@ -2444,7 +2444,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 .km-hand-band {
     flex-shrink: 0;
     width: 100%;
-    height: 110px;
+    height: 60px;
     position: relative;
     background: #1e293b;
     border-radius: 0 0 8px 8px;
@@ -2454,14 +2454,14 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 }
 .km-hand-band:active { cursor: grabbing; }
 
-/* Canvas extends 35 px above the band into the piano-container space so
-   finger tips overlap the bottom of the keys. pointer-events:none keeps
-   the piano keys fully clickable even in the overlap zone. The z-index
+/* Canvas extends 60 px above the band into the piano-container space so
+   finger tips reach roughly the bottom third of the keys. pointer-events:none
+   keeps the piano keys fully clickable even in the overlap zone. The z-index
    is not needed (km-hand-band is a later DOM sibling than piano-container
    so it naturally paints on top). left/right are set inline by JS. */
 .km-fingers-canvas {
     position: absolute;
-    top: -35px;
+    top: -60px;
     bottom: 0;
     pointer-events: none;
 }
