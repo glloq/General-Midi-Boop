@@ -86,6 +86,7 @@
 
             this.activePositions = [];
             this.unplayablePositions = [];
+            this.barreFingers = [];
 
             // Single source of truth for the hand band. Position is
             // DERIVED from `_trajectory` + `_currentSec`; level is
@@ -151,6 +152,24 @@
             this.unplayablePositions = Array.isArray(positions)
                 ? positions.filter(p => p
                     && Number.isFinite(p.string) && Number.isFinite(p.fret)).slice()
+                : [];
+            this.draw();
+        }
+
+        /**
+         * Set barre finger bars to display on the fretboard.
+         * Each entry: `{fret, strings, pressed, velocity?}`.
+         *   - fret: 1-based fret number
+         *   - strings: array of 1-based string indices covered by this finger
+         *   - pressed: true = blue (active), false = white (hovering above fret)
+         *   - velocity: optional 0-127, affects opacity
+         * Up to 6 fingers supported. Bar width adapts to fret spacing.
+         */
+        setBarreFingers(positions) {
+            this.barreFingers = Array.isArray(positions)
+                ? positions.filter(p => p
+                    && Number.isFinite(p.fret) && Array.isArray(p.strings)
+                    && p.strings.length > 0).slice()
                 : [];
             this.draw();
         }
@@ -402,6 +421,8 @@
 
             // Active note positions.
             this._drawActivePositions();
+            // Barre finger bars with vertical displacement range.
+            this._drawBarreFingers();
             // Unplayable overlay (red discs on top of the active dots).
             this._drawUnplayablePositions();
 
@@ -848,6 +869,85 @@
                 const fretW = this._fretX(f) - this._fretX(f - 1);
                 if (fretW < 8) continue; // skip cramped frets at the high end
                 ctx.fillText(f.toString(), cx, fbY + fbH + 3);
+            }
+        }
+
+        /**
+         * Draw barre finger bars set via `setBarreFingers()`.
+         *
+         * Each bar is a rounded rectangle spanning the covered strings at
+         * the given fret. Width tracks the logarithmic fret spacing so bars
+         * are wider near the nut and narrower toward the body.
+         *
+         * Visual states:
+         *   pressed=true  → blue bar (#667eea) aligned with the string lines
+         *   pressed=false → white bar offset upward by ~½ string-spacing
+         *                   plus dashed drop-lines showing the travel range
+         */
+        _drawBarreFingers() {
+            if (!this.barreFingers.length) return;
+            const ctx = this.ctx;
+            const usableH = this._usableHeight();
+            const strSpacing = usableH / Math.max(1, this.numStrings - 1);
+            // hover height ≈ half a string-spacing (≈ 5-8 mm on a real guitar)
+            const hoverPx = strSpacing * 0.5;
+
+            for (const bar of this.barreFingers) {
+                const { fret, strings, pressed, velocity } = bar;
+                if (!Number.isFinite(fret) || fret < 1) continue;
+                const sortedStrings = strings.slice().sort((a, b) => a - b);
+                if (!sortedStrings.length) continue;
+
+                const fretW = this._fretX(fret) - this._fretX(fret - 1);
+                const cx = (this._fretX(fret - 1) + this._fretX(fret)) / 2;
+                // Bar width is 60% of the fret cell; narrower near the body.
+                const barW = Math.max(5, fretW * 0.6);
+                // Bar thickness (small so it sits on the string line cleanly).
+                const barThick = Math.max(5, barW * 0.35);
+
+                // y-range of covered strings (s=numStrings is top of canvas)
+                const ys = sortedStrings.map(s => this._stringY(s));
+                const yTop    = Math.min(...ys);
+                const yBottom = Math.max(...ys);
+                const spanH   = yBottom - yTop + barThick;
+                const halfT   = barThick / 2;
+
+                const alpha = Math.min(1, 0.55 + (velocity || 100) / 254);
+                ctx.globalAlpha = alpha;
+
+                if (pressed) {
+                    // Blue bar centred on the string(s).
+                    ctx.fillStyle = '#667eea';
+                    ctx.beginPath();
+                    ctx.roundRect(cx - barW / 2, yTop - halfT, barW, spanH, 3);
+                    ctx.fill();
+                } else {
+                    // White bar displaced upward (hovering above fret wire).
+                    const yShift = -hoverPx;
+
+                    // Dashed drop-lines from hover bar bottom to each string.
+                    ctx.strokeStyle = 'rgba(140, 140, 210, 0.55)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([2, 2]);
+                    for (const y of ys) {
+                        ctx.beginPath();
+                        ctx.moveTo(cx, y + yShift + halfT);
+                        ctx.lineTo(cx, y - halfT);
+                        ctx.stroke();
+                    }
+                    ctx.setLineDash([]);
+
+                    // White rounded bar at hover height.
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+                    ctx.strokeStyle = 'rgba(160, 160, 220, 0.75)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.roundRect(cx - barW / 2, yTop + yShift - halfT, barW, spanH, 3);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                ctx.globalAlpha = 1;
             }
         }
 
