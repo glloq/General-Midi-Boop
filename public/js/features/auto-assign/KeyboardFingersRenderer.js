@@ -273,9 +273,9 @@
             // Gap slots (black-key positions): bar tip at the bottom of black keys.
             // White-key fingers: bar tip at the vertical centre of the white-only
             // area (the wider lower section of each white key, below black keys).
-            const blackSlotTipY = blackH;
-            const whiteKeyTipY  = Math.round((blackH + keysH) * 0.5);
-            const tBarH     = Math.max(5, Math.round(keysH * 0.14));  // ≈8 px bar
+            const blackSlotTipY = Math.round(keysH * 0.78);
+            const whiteKeyTipY  = Math.round(keysH * 0.85);
+            const tBarH     = Math.max(4, Math.round(keysH * 0.09));
             const whiteBarW = Math.max(4, ww * 0.52);   // moderate width for white key
             const gapBarW   = Math.max(3, ww * 0.52);   // ≈ black key width
             const tStemW    = Math.max(2, ww * 0.18);   // thin stem for all fingers

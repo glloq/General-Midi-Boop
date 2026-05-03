@@ -1327,7 +1327,7 @@
             bandHeight: 80,
             whiteTipFraction: 0.25,
             blackTipFraction: 0.08,
-            chromaticTipFraction: 0.25,
+            chromaticTipFraction: 0.65,
             knuckleHeight: 8,
         });
         this._fingersRenderer = renderer;
