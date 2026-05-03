@@ -1190,6 +1190,16 @@
 
         if (typeof window === 'undefined' || typeof window.KeyboardFingersRenderer !== 'function') return;
 
+        // String instruments (fretboard) have their own finger display — never
+        // show the piano-style hand overlay for them.
+        if (typeof this.getInstrumentViewInfo === 'function'
+                && this.getInstrumentViewInfo().canFretboard) {
+            this._cleanFingersCanvas();
+            const handBand = document.getElementById('km-hand-band');
+            if (handBand) handBand.classList.add('hidden');
+            return;
+        }
+
         const caps = this.selectedDeviceCapabilities;
         const handsConfig = caps && caps.hands_config;
         const band = document.getElementById('km-hand-band');
