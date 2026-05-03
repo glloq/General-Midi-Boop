@@ -1492,14 +1492,10 @@
                 return lo;
             };
             // How many white-key slots does the W–G–W–G pattern occupy for
-            // a hand with nf fingers? ceil(nf/2) whites + one extra when
-            // the pattern ends on a gap (even nf: trailing gap needs the
-            // next white as its right boundary).
-            const slotsOf = (h) => {
-                const nw = Math.ceil(h.nf / 2);
-                const ng = Math.floor(h.nf / 2);
-                return nw + (ng >= nw ? 1 : 0);
-            };
+            // a hand with nf fingers? Only the white fingers (ceil(nf/2)) need
+            // reserved space; trailing gap slots for even nf sit in the neutral
+            // zone between hands and do not require an extra slot.
+            const slotsOf = (h) => Math.ceil(h.nf / 2);
             // MIDI note of the first white key that doesn't overlap with hand h.
             const minNextAnchor = (h) => {
                 const ni = lowerBound(h.anchor) + slotsOf(h);
