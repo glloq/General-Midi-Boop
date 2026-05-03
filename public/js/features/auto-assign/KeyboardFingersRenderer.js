@@ -284,37 +284,40 @@
                 const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
                 if (this._isOffScreen(lowMidi, highMidi)) continue;
 
-                // Piano mode: fingers always land on consecutive white keys
-                // starting from the anchor. Between each pair of adjacent
-                // white-key fingers, a black-key marker is added automatically
-                // when a black key exists between them (E–F and B–C gaps are
-                // skipped automatically).
-                const whiteFingers = this._whiteKeysFromAnchor(a, numFingers)
+                // Piano mode: alternating W–G–W–G–W pattern gives exactly
+                // numFingers visual elements. ceil(n/2) fall on consecutive
+                // white keys; floor(n/2) fall in the gaps between them as
+                // virtual black-key-style slots (real black key if it exists,
+                // empty visual slot over E–F / B–C gaps).
+                const numWhites = Math.ceil(numFingers / 2);
+                const numGaps   = Math.floor(numFingers / 2);
+                // Even numFingers ends on a gap, which needs the next white
+                // key (after the last finger) to compute its x position.
+                const keysToFetch = numWhites + (numGaps >= numWhites ? 1 : 0);
+                const fetchedWhites = this._whiteKeysFromAnchor(a, keysToFetch)
                     .filter(m => m >= rangeMin && m <= rangeMax);
+
+                const whiteFingers = fetchedWhites.slice(0, numWhites);
                 if (whiteFingers.length === 0) continue;
 
-                // Between every pair of consecutive white fingers, always draw
-                // a black-key-style finger — at the midpoint x between the two
-                // white key centres. Where a real black key exists there it can
-                // light up; over E–F / B–C gaps (no black key) the slot is drawn
-                // but never activates. This keeps the alternating white/black
-                // pattern uniform across the full hand span.
                 const gapSlots = [];
-                for (let i = 0; i < whiteFingers.length - 1; i++) {
-                    const blackMidi = whiteFingers[i] + 1;
-                    const hasBlack = this._isBlackKey(blackMidi)
-                                  && blackMidi < whiteFingers[i + 1]
-                                  && blackMidi >= rangeMin && blackMidi <= rangeMax;
+                for (let i = 0; i < numGaps && (i + 1) < fetchedWhites.length; i++) {
+                    const left  = whiteFingers[i];
+                    const right = fetchedWhites[i + 1];
+                    const blackMidi = left + 1;
+                    const hasBlack = this._isBlackKey(blackMidi) && blackMidi < right
+                                     && blackMidi >= rangeMin && blackMidi <= rangeMax;
                     gapSlots.push({
-                        xCenter: (keyCenter(whiteFingers[i]) + keyCenter(whiteFingers[i + 1])) * 0.5,
+                        xCenter: (keyCenter(left) + keyCenter(right)) * 0.5,
                         isActive: hasBlack && this._activeNotes.has(blackMidi),
                     });
                 }
 
-                const halfKey = (m) => this._isBlackKey(m) ? ww * 0.3 : ww * 0.5;
-                const kLeft  = keyCenter(whiteFingers[0]) - halfKey(whiteFingers[0]);
-                const kRight = keyCenter(whiteFingers[whiteFingers.length - 1])
-                             + halfKey(whiteFingers[whiteFingers.length - 1]);
+                const kLeft  = keyCenter(whiteFingers[0]) - ww * 0.5;
+                const kRight = Math.max(
+                    keyCenter(whiteFingers[whiteFingers.length - 1]) + ww * 0.5,
+                    gapSlots.length > 0 ? gapSlots[gapSlots.length - 1].xCenter + ww * 0.3 : 0
+                );
                 this._drawKnuckleBar(ctx, hand.color, kLeft, kRight,
                                       knuckleTop, opts.knuckleHeight, W);
 
