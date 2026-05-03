@@ -2435,33 +2435,33 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
-/* ── Hand band — strip below the keyboard keys that shows hand/finger overlay ── */
+/* ── Hand band — strip below the keyboard that shows the hand/finger overlay ── */
 
 /* Sits inside .keyboard-canvas-container (flex-column) after all the mode
-   containers. Shown only in piano and keyboard-list modes. The canvas inside
-   is positioned absolute so JS can set left/right to align with the key area
-   of whichever mode is active (piano: 10px inset; chromatic/list: 0). */
+   containers. Shown only in piano and keyboard-list modes.
+   overflow:visible lets the canvas extend 35 px upward into the piano-container
+   area so finger tips visually reach the bottom of the keys. */
 .km-hand-band {
     flex-shrink: 0;
     width: 100%;
-    height: 88px;
+    height: 110px;
     position: relative;
     background: #1e293b;
     border-radius: 0 0 8px 8px;
     box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
-    overflow: hidden;
+    overflow: visible;
     cursor: grab;
 }
 .km-hand-band:active { cursor: grabbing; }
 
-/* Canvas fills the band; left/right set by JS per layout mode */
+/* Canvas extends 35 px above the band into the piano-container space so
+   finger tips overlap the bottom of the keys. pointer-events:none keeps
+   the piano keys fully clickable even in the overlap zone. The z-index
+   is not needed (km-hand-band is a later DOM sibling than piano-container
+   so it naturally paints on top). left/right are set inline by JS. */
 .km-fingers-canvas {
     position: absolute;
-    top: 0;
+    top: -35px;
     bottom: 0;
-    /* left and right are set inline by _mountFingersOverlay() */
-    pointer-events: auto;
-    z-index: 5;
-    cursor: grab;
+    pointer-events: none;
 }
-.km-fingers-canvas:active { cursor: grabbing; }
