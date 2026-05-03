@@ -33,6 +33,7 @@ import MidiPlayer from '../midi/playback/MidiPlayer.js';
 import LatencyCompensator from '../midi/adaptation/LatencyCompensator.js';
 import DelayCalibrator from '../audio/DelayCalibrator.js';
 import FileManager from '../files/FileManager.js';
+import MidiBaker from '../files/MidiBaker.js';
 import BlobStore from '../files/BlobStore.js';
 import UploadQueue from '../files/UploadQueue.js';
 import path from 'path';
@@ -279,6 +280,7 @@ class Application {
         })
       );
       this._registerService('fileManager', new FileManager(deps));
+      this._registerService('midiBaker', new MidiBaker(deps));
 
       // Initialize Bluetooth (optional - may not be available on all systems)
       try {

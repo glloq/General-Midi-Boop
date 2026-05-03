@@ -150,6 +150,19 @@ async function fileExport(app, data) {
 }
 
 /**
+ * Bake all adaptation CC events (string/fret select + hand position) into the
+ * MIDI file, replacing the stored blob in-place.
+ *
+ * @param {Object} app
+ * @param {{fileId:(string|number)}} data
+ * @returns {Promise<{success:true, stats:{cc_events_added:number}}>}
+ */
+async function fileBakeCC(app, data) {
+  if (!data.fileId) throw new Error('fileId is required');
+  return app.fileManager.bakeAndSave(data.fileId);
+}
+
+/**
  * @param {Object} app
  * @param {{query:string}} data
  * @returns {Promise<{files: Object[]}>}
@@ -428,6 +441,7 @@ export function register(registry, app) {
   registry.register('file_move', (data) => fileMove(app, data));
   registry.register('file_duplicate', (data) => fileDuplicate(app, data));
   registry.register('file_export', (data) => fileExport(app, data));
+  registry.register('file_bake_cc', (data) => fileBakeCC(app, data));
   registry.register('file_search', (data) => fileSearch(app, data));
   registry.register('file_filter', (data) => fileFilter(app, data));
   registry.register('file_channels', (data) => fileChannels(app, data));
