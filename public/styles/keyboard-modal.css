@@ -1536,6 +1536,36 @@
     box-shadow: 0 0 6px rgba(59, 130, 246, 0.70);
 }
 
+/* string_sliding_fingers: thin horizontal stripe at each string's Y position.
+   Spans the full hand width (= full overlay width), shows the fret-axis range
+   of motion for that string's finger. */
+.hand-finger-range-string {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    height: 6px;
+    transform: translateY(-50%);
+    background: rgba(37, 99, 235, 0.07);
+    border: 1px dashed rgba(37, 99, 235, 0.42);
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+/* fret_sliding_fingers: thin vertical stripe at each fret-offset's X position.
+   Spans the full string height (= full overlay height), shows the string-axis
+   range of motion for that finger. */
+.hand-finger-range-fret {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    width: 8px;
+    transform: translateX(-50%);
+    background: rgba(37, 99, 235, 0.07);
+    border: 1px dashed rgba(37, 99, 235, 0.42);
+    border-radius: 3px;
+    pointer-events: none;
+}
+
 /* ============================================================================
    CHORD BUTTONS BAR  (fretboard view — string instruments only)
    ============================================================================ */
