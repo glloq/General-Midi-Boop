@@ -1294,26 +1294,21 @@
         canvas.style.right = inset;
         // Canvas is a replaced element with an HTML-default intrinsic size of
         // 300×150 — left/right alone don't force it to fill the host on every
-        // browser (Firefox keeps the intrinsic 300 px width). Explicit width and
-        // height bypass the intrinsic size so the canvas stretches to match the
-        // key area exactly. The height accounts for the 60 px upward extension
-        // (top:-60px in CSS) plus the 60 px band height.
+        // browser (Firefox keeps the intrinsic 300 px width). Set explicit
+        // width now; height is finalised in the requestAnimationFrame below
+        // after the piano-container height can be measured.
         const insetPx = layout === 'piano' ? 10 : 0;
         canvas.style.width = insetPx > 0 ? `calc(100% - ${2 * insetPx}px)` : '100%';
+        // Chromatic layout: use a fixed 60 px upward overlap (uniform bars
+        // don't need to match the real key height). Piano layout: measured
+        // dynamically in the rAF so T-shapes span the full key height.
         canvas.style.height = 'calc(100% + 60px)';
         band.appendChild(canvas);
         this._fingersCanvas = canvas;
 
-        // The canvas extends 60 px above the band into the piano-container area
-        // (see CSS .km-fingers-canvas top:-60px), so its total clientHeight is
-        // band-height(80) + overlap(60) = 140 px.
-        //
-        // Renderer geometry with H=140:
-        //   bandH=80  → keysH=60, knuckle at y=60 (= band top, flush)
-        //   whiteTipFraction=0.25 → tipY=15 (screen: 15-60=-45 → 45 px into key area)
-        //   blackTipFraction=0.40 → black tipY≈14.4 (screen: ≈-45.6 → into key area)
-        //   knuckleHeight=8 → visible bar at band top
-        //   Palm area: y=68..140 → screen 8..80 → 72 px hand body below knuckle
+        // bandHeight=80 means the renderer places the knuckle bar at
+        // H - 80 from the canvas top, which = the band's top edge regardless
+        // of how tall the canvas is (piano key height is variable).
         const renderer = new window.KeyboardFingersRenderer(canvas, {
             bandHeight: 80,
             whiteTipFraction: 0.25,
@@ -1367,7 +1362,22 @@
         this._initFingersOverlayDrag();
         this._updateFingersViewToggle();
 
-        requestAnimationFrame(() => renderer.draw());
+        requestAnimationFrame(() => {
+            // For piano layout: resize the canvas to match the actual piano
+            // key area height so the T-shapes span the full key height.
+            // Reading clientHeight inside draw() triggers a synchronous reflow,
+            // so setting the style here (before draw()) is enough — no second
+            // rAF needed.
+            if (layout === 'piano') {
+                const pianoEl = document.getElementById('piano-container');
+                if (pianoEl && pianoEl.clientHeight > 0) {
+                    const keyH = pianoEl.clientHeight;
+                    canvas.style.top    = `-${keyH}px`;
+                    canvas.style.height = `calc(100% + ${keyH}px)`;
+                }
+            }
+            renderer.draw();
+        });
     };
 
     /**
