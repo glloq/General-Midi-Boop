@@ -678,8 +678,10 @@
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                stripe.style.left  = (i / count * 100) + '%';
-                stripe.style.width = (100 / count) + '%';
+                // First finger at left edge (0%), last at right edge (100%),
+                // middle fingers evenly interpolated.
+                const pct = count === 1 ? 0 : (i / (count - 1)) * 100;
+                stripe.style.left = pct + '%';
                 rangeRect.appendChild(stripe);
             }
         }

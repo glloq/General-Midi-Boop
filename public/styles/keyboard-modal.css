@@ -1559,10 +1559,11 @@
     position: absolute;
     top: 2px;
     bottom: 2px;
-    background: rgba(37, 99, 235, 0.20);
-    border: 1.5px solid rgba(37, 99, 235, 0.70);
-    border-radius: 3px;
-    box-shadow: 0 0 4px rgba(37, 99, 235, 0.25);
+    width: 3px;
+    transform: translateX(-50%);
+    background: rgba(37, 99, 235, 0.55);
+    border-radius: 2px;
+    box-shadow: 0 0 5px rgba(37, 99, 235, 0.35);
     pointer-events: none;
 }
 
