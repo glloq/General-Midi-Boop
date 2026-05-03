@@ -275,10 +275,10 @@
             // area (the wider lower section of each white key, below black keys).
             const blackSlotTipY = blackH;
             const whiteKeyTipY  = Math.round((blackH + keysH) * 0.5);
-            const tBarH   = Math.max(5, Math.round(keysH * 0.14));  // ≈8 px bar height
-            const whiteBarW = Math.max(5, ww * 0.82);   // nearly full white key
-            const gapBarW   = Math.max(4, ww * 0.52);   // ≈ black key width
-            const tStemW    = Math.max(2, ww * 0.34);   // narrower than bar
+            const tBarH     = Math.max(5, Math.round(keysH * 0.14));  // ≈8 px bar
+            const whiteBarW = Math.max(4, ww * 0.52);   // moderate width for white key
+            const gapBarW   = Math.max(3, ww * 0.52);   // ≈ black key width
+            const tStemW    = Math.max(2, ww * 0.18);   // thin stem for all fingers
 
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
@@ -323,8 +323,10 @@
                     keyCenter(whiteFingers[whiteFingers.length - 1]) + ww * 0.5,
                     gapSlots.length > 0 ? gapSlots[gapSlots.length - 1].xCenter + ww * 0.3 : 0
                 );
+                // Fill the full band height so the hand body is visible
+                // across the entire km-hand-band area.
                 this._drawKnuckleBar(ctx, hand.color, kLeft, kRight,
-                                      knuckleTop, opts.knuckleHeight, W);
+                                      knuckleTop, H - knuckleTop, W);
 
                 // Pass 1 — gap (black-key position) T-shapes first so white
                 // fingers overdraw their stem bottoms (same layering as real keys).
