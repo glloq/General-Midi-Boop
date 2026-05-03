@@ -1669,25 +1669,11 @@
                            value="${hand.cc_position_number}" min="0" max="127">
                     <span class="ism-form-hint">${t('instrumentSettings.handsFretsCcPositionHint', 'CC envoyé. Valeur = frette absolue la plus basse (capo inclus).')}</span>
                 </div>
-                <div>
-                    <label>${t('instrumentSettings.handsHandSpanMm', 'Largeur de la main (mm)')}</label>
-                    <input type="number" data-hand="fretting" data-field="hand_span_mm"
-                           value="${handSpanMm}" min="30" max="200">
-                    <span class="ism-form-hint">${t('instrumentSettings.handsHandSpanMmHint', 'Empan physique total couvert par la main.')}</span>
-                </div>
+                <div></div>
             </div>
-            <div class="ism-form-group ism-form-grid-2">
-                <div>
-                    <label>${t('instrumentSettings.handsMoveSpeedMm', 'Vitesse main (mm/s)')}</label>
-                    <input type="number" id="handsMoveMmPerSec" value="${moveMmPerSec}" min="50" max="2000">
-                    <span class="ism-form-hint">${t('instrumentSettings.handsMoveSpeedMmHint', 'Vitesse mécanique de la main le long du manche.')}</span>
-                </div>
-                <div>
-                    <label>${t('instrumentSettings.handsFingerMoveSpeedMm', 'Vitesse doigt sur la main (mm/s)')}</label>
-                    <input type="number" id="handsFingerMoveMmPerSec" value="${fingerMoveMmPerSec}" min="50" max="5000">
-                    <span class="ism-form-hint">${t('instrumentSettings.handsFingerMoveSpeedMmHint', "Vitesse maximale d'un doigt par rapport à la main. Limite la vitesse effective de la main quand un doigt est ancré sur une note tenue.")}</span>
-                </div>
-            </div>
+            <input type="hidden" data-hand="fretting" data-field="hand_span_mm" value="${handSpanMm}">
+            <input type="hidden" id="handsMoveMmPerSec" value="${moveMmPerSec}">
+            <input type="hidden" id="handsFingerMoveMmPerSec" value="${fingerMoveMmPerSec}">
         `;
 
         let mechanismFields = '';
@@ -1695,10 +1681,10 @@
             mechanismFields = `
                 <div class="ism-form-group ism-form-grid-2">
                     <div>
-                        <label>${t('instrumentSettings.handsMaxFingers', 'Doigts disponibles')}</label>
+                        <label>${t('instrumentSettings.handsMaxFingers', 'Nombre de doigts / frettes contrôlables')}</label>
                         <input type="number" class="ism-hand-fingers" data-hand="fretting" data-field="max_fingers"
                                value="${maxFingers}" min="1" max="${maxFingersUpper}">
-                        <span class="ism-form-hint">${t('instrumentSettings.handsMaxFingersHint', 'Nombre maximal de cordes pressées en même temps. Par défaut = nombre de cordes.')}</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsMaxFingersHint', 'Nombre maximal de cordes pouvant être pressées simultanément.')}</span>
                     </div>
                     <div></div>
                 </div>
@@ -1707,18 +1693,15 @@
             mechanismFields = `
                 <div class="ism-form-group ism-form-grid-2">
                     <div>
-                        <label>${t('instrumentSettings.handsFretSlidingNumFingers', 'Nombre de doigts (frettes couvertes)')}</label>
+                        <label>${t('instrumentSettings.handsFretSlidingNumFingers', 'Nombre de doigts / frettes contrôlables')}</label>
                         <input type="number" data-hand="fretting" data-field="num_fingers"
                                value="${numFingers}" min="1" max="8">
                         <span class="ism-form-hint">${t('instrumentSettings.handsFretSlidingNumFingersHint', 'Chaque doigt est positionné à un offset de frette fixe et glisse entre les cordes.')}</span>
                     </div>
-                    <div>
-                        <label>${t('instrumentSettings.handsVariableHeightFingers', 'Doigts à hauteur variable')}</label>
-                        <input type="number" data-hand="fretting" data-field="variable_height_fingers_count"
-                               value="${variableHeightFingers}" min="0" max="${numFingers}">
-                        <span class="ism-form-hint">${t('instrumentSettings.handsVariableHeightFingersHint', 'Parmi les doigts ci-dessus, combien ont un offset de frette ajustable (0 = tous fixes).')}</span>
-                    </div>
+                    <div></div>
                 </div>
+                <input type="hidden" data-hand="fretting" data-field="variable_height_fingers_count"
+                       value="${variableHeightFingers}">
             `;
         }
 
