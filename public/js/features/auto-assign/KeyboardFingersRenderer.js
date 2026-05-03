@@ -366,8 +366,12 @@
             const bandH = opts.bandHeight;
             const handY = Math.max(0, H - bandH);
             const knuckleTop = handY;
-            const tipY = handY * opts.chromaticTipFraction;
-            const fingerH = Math.max(2, handY - tipY);
+            const tipY = Math.round(handY * opts.chromaticTipFraction);
+
+            // T-shape dimensions — same visual style as piano fingers.
+            const tBarH = Math.max(5, Math.round(handY * 0.14));
+            const barW  = Math.max(4, pxPerPitch * 0.70);
+            const stemW = Math.max(2, pxPerPitch * 0.30);
 
             for (const hand of this._hands) {
                 const numFingers = this._effectiveNumFingers(hand);
@@ -382,12 +386,10 @@
                 const handRightX = xRightOf(Math.floor(a) + Math.round(hand.span));
                 if (!(handRightX > handLeftX)) continue;
                 const handPxW = handRightX - handLeftX;
-                // Finger width = one semitone cell × ratio; keeps each finger
-                // proportional to the note cell it sits over regardless of span.
-                const fingerW = Math.max(3, pxPerPitch * opts.fingerWidthRatio);
 
+                // Knuckle bar fills the full band height, matching piano style.
                 this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX,
-                                      knuckleTop, opts.knuckleHeight, W);
+                                      knuckleTop, H - knuckleTop, W);
 
                 for (let i = 0; i < numFingers; i++) {
                     const m = this._slotMidi(a, hand.span, numFingers, i);
@@ -397,8 +399,8 @@
                         ? (m - rangeMin + 0.5) * pxPerPitch
                         : handLeftX + (i + 0.5) * (handPxW / numFingers);
                     const isActive = Number.isFinite(m) && this._activeNotes.has(m);
-                    this._drawFingerBar(ctx, xCenter, tipY, fingerH,
-                                         fingerW, isActive, W);
+                    this._drawPianoFinger(ctx, xCenter, tipY, handY,
+                                          barW, stemW, tBarH, isActive, W);
                 }
             }
         }
