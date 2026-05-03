@@ -1245,26 +1245,40 @@
         const rangeMax = this.startNote + this.visibleNoteCount - 1;
 
         // FAST PATH — range scroll within the same layout (e.g. octave change).
-        // Preserve the current hand positions: clamp anchors to the new visible
-        // range and redraw without destroying/recreating the canvas or renderer.
-        // This keeps hands "attached" to their MIDI notes rather than resetting
-        // to defaults every time the view scrolls.
+        // Update the renderer's visible range and redraw without destroying or
+        // recreating the canvas. True anchors in _handCurrentAnchors are NOT
+        // mutated — we build a temporary displayAnchors map clamped to the new
+        // visible range so hands "dock" at the view edges when out of range
+        // without permanently drifting their stored MIDI positions.
         if (this._fingersRenderer && this._fingersCanvas
                 && this._fingersLayout === layout && this._fingersHands) {
             this._fingersRenderer.setKeyboardWidget(
                 { rangeMin, rangeMax, keyXAt: () => 0, keyWidth: () => 0 });
             this._fingersRenderer.setVisibleExtent({ lo: rangeMin, hi: rangeMax });
             if (this._handCurrentAnchors) {
+                const displayAnchors = new Map();
                 for (const hand of this._fingersHands) {
                     const a = this._handCurrentAnchors.get(hand.id);
                     if (Number.isFinite(a)) {
-                        this._handCurrentAnchors.set(hand.id,
+                        displayAnchors.set(hand.id,
                             Math.max(rangeMin, Math.min(rangeMax - hand.span, a)));
                     }
                 }
-                this._fingersRenderer.setAnchors(this._handCurrentAnchors);
+                this._fingersRenderer.setAnchors(displayAnchors);
             }
-            this._fingersRenderer.draw();
+            const _canvas = this._fingersCanvas;
+            const _renderer = this._fingersRenderer;
+            requestAnimationFrame(() => {
+                if (layout === 'piano') {
+                    const pianoEl = document.getElementById('piano-container');
+                    if (pianoEl && pianoEl.clientHeight > 0) {
+                        const keyH = pianoEl.clientHeight;
+                        _canvas.style.top    = `-${keyH}px`;
+                        _canvas.style.height = `calc(100% + ${keyH}px)`;
+                    }
+                }
+                _renderer.draw();
+            });
             return;
         }
 
