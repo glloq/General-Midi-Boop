@@ -1228,13 +1228,13 @@
         // band-height(110) + overlap(35) = 145 px.
         //
         // Renderer geometry with H=145:
-        //   bandH=40  → keysH=105, knuckle at y=105 (screen: 70 px into band)
-        //   whiteTipFraction=0.20 → tipY=21 (screen: 21-35=-14 → 14 px into key area)
-        //   blackTipFraction=0.45 → black tipY≈30 (screen: -5 → just inside key area)
-        //   knuckleHeight=10 → thick, clearly visible knuckle bar
-        //   Palm area: y=115..145 → screen 80..110 → 30 px at band bottom
+        //   bandH=110 → keysH=35, knuckle at y=35 (= band top, flush)
+        //   whiteTipFraction=0.20 → tipY=7 (screen: 7-35=-28 → 28 px into key area)
+        //   blackTipFraction=0.45 → black tipY≈9.5 (screen: ≈-25.5 px into key area)
+        //   knuckleHeight=10 → thin bar at band top edge
+        //   Palm area: y=45..145 → screen 10..110 → 100 px hand body below knuckle
         const renderer = new window.KeyboardFingersRenderer(canvas, {
-            bandHeight: 40,
+            bandHeight: 110,
             whiteTipFraction: 0.20,
             blackTipFraction: 0.45,
             chromaticTipFraction: 0.20,

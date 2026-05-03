@@ -804,7 +804,7 @@
     box-sizing: border-box;
     background: #2c2c2c;
     border-radius: 8px;
-    padding: 10px;
+    padding: 10px 10px 0 10px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     overflow: hidden;
     min-height: 0;
