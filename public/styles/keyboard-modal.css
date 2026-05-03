@@ -1554,6 +1554,58 @@
     pointer-events: none;
 }
 
+/* vertical_bar: single full-height bar spanning ALL strings at one fret.
+   The mechanical actuator presses every string simultaneously at one position.
+   The bar fills the overlay (which is already sized to one fret cell).
+   Active state: bar lights up in blue when a chord is being played. */
+.hand-finger-range-bar {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 50%;
+    width: 10px;
+    transform: translateX(-50%);
+    background: rgba(37, 99, 235, 0.25);
+    border: 2px solid rgba(37, 99, 235, 0.75);
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(37, 99, 235, 0.30);
+    pointer-events: none;
+    transition: background 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.hand-finger-range-bar.active {
+    background: rgba(37, 99, 235, 0.60);
+    border-color: rgba(37, 99, 235, 1.0);
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.65);
+}
+
+/* vertical_bar band: narrow single-fret indicator instead of the wide palm view.
+   Uses a blue-tinted scheme to distinguish it from the green hand-span band. */
+.hand-band[data-mechanism="vertical_bar"] {
+    background: rgba(37, 99, 235, 0.22);
+    border-color: rgba(99, 140, 255, 0.80);
+    cursor: ew-resize;
+}
+
+.hand-band[data-mechanism="vertical_bar"]:hover {
+    background: rgba(37, 99, 235, 0.38);
+}
+
+/* In vertical_bar mode the palm-indicator label adapts to a narrower band. */
+.hand-band[data-mechanism="vertical_bar"] .hand-palm-indicator {
+    background: rgba(99, 140, 255, 0.15);
+    border-color: rgba(99, 140, 255, 0.35);
+}
+
+.hand-band[data-mechanism="vertical_bar"] .hand-palm-arrow {
+    color: rgba(99, 140, 255, 0.85);
+}
+
+.hand-band[data-mechanism="vertical_bar"] .hand-palm-arrow:hover:not(:disabled) {
+    background: rgba(99, 140, 255, 0.25);
+    color: rgba(99, 140, 255, 1);
+}
+
 /* fret_sliding_fingers: vertical stripe at each fret-offset's X position.
    Width is set inline by JS (proportional to finger count).
    Spans the full string height (= full overlay height), shows the string-axis
