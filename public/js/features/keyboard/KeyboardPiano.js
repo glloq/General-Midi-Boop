@@ -1257,6 +1257,15 @@
         const inset = (layout === 'piano') ? '10px' : '0px';
         canvas.style.left = inset;
         canvas.style.right = inset;
+        // Canvas is a replaced element with an HTML-default intrinsic size of
+        // 300×150 — left/right alone don't force it to fill the host on every
+        // browser (Firefox keeps the intrinsic 300 px width). Explicit width and
+        // height bypass the intrinsic size so the canvas stretches to match the
+        // key area exactly. The height accounts for the 60 px upward extension
+        // (top:-60px in CSS) plus the 60 px band height.
+        const insetPx = layout === 'piano' ? 10 : 0;
+        canvas.style.width = insetPx > 0 ? `calc(100% - ${2 * insetPx}px)` : '100%';
+        canvas.style.height = 'calc(100% + 60px)';
         band.appendChild(canvas);
         this._fingersCanvas = canvas;
 
