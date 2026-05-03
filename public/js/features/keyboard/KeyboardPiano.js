@@ -157,6 +157,7 @@
                                 <div id="fretboard-container" class="fretboard-container hidden"></div>
                                 <div id="drumpad-container" class="drumpad-container hidden"></div>
                                 <div id="keyboard-list-container" class="keyboard-list-container hidden"></div>
+                                <div id="km-hand-band" class="km-hand-band hidden"></div>
                             </div>
                             <div class="octave-bar" id="keyboard-octave-bar"></div>
                         </div>
@@ -273,11 +274,10 @@
             pianoContainer.appendChild(blackKey);
         }
 
-        // Fingers overlay — mount after keys are in the DOM so the canvas
-        // is appended last (stacked on top visually) and the container has
-        // its layout geometry when requestAnimationFrame fires.
+        // Fingers overlay — mount after keys are in the DOM so the container
+        // has its layout geometry when requestAnimationFrame fires.
         if (typeof this._mountFingersOverlay === 'function') {
-            this._mountFingersOverlay();
+            this._mountFingersOverlay('piano');
         }
     }
 
@@ -425,10 +425,17 @@
             if (typeof this._destroyKeyboardListInteraction === 'function') this._destroyKeyboardListInteraction();
         }
 
-        // Destroy the fingers overlay when leaving piano view — the canvas
-        // lives inside piano-container which will be hidden or regenerated.
-        if (this.viewMode === 'piano' && mode !== 'piano') {
+        // Destroy the fingers overlay when leaving a mode that supports it.
+        // The canvas lives in km-hand-band (not inside piano-container), so
+        // it must be explicitly cleaned and the band hidden whenever we enter
+        // a mode without hands. _mountFingersOverlay() is responsible for
+        // un-hiding the band when a hands-enabled instrument is loaded.
+        const modesWithHands = ['piano', 'keyboard-list'];
+        const enteringHandsMode = modesWithHands.includes(mode);
+        if (modesWithHands.includes(this.viewMode) && !enteringHandsMode) {
             if (typeof this._cleanFingersCanvas === 'function') this._cleanFingersCanvas();
+            const handBand = document.getElementById('km-hand-band');
+            if (handBand) handBand.classList.add('hidden');
         }
 
         this.viewMode = mode;
@@ -1167,54 +1174,71 @@
     // ────────────────────────────────────────────────────────────────────────
 
     /**
-     * Mount (or remount) the canvas + KeyboardFingersRenderer over the piano
-     * keys for the currently selected instrument's hands_config.
+     * Mount (or remount) the canvas + KeyboardFingersRenderer in the km-hand-band
+     * below the keyboard for the currently selected instrument's hands_config.
      *
-     * Called at the end of every generatePianoKeys() so it survives the
-     * `pianoContainer.innerHTML = ''` reset.  A no-op when the instrument
-     * has no hands or when KeyboardFingersRenderer isn't loaded.
+     * @param {'piano'|'chromatic'} layout  'piano' when called from generatePianoKeys();
+     *                                      'chromatic' when called from renderKeyboardList().
+     *
+     * The band element (#km-hand-band) must already exist in the DOM (created in
+     * createModal()). This method shows it, appends a canvas with the correct
+     * left/right inset to align fingers with the active key view, then initialises
+     * the renderer and the drag interaction.
      */
-    KeyboardPianoMixin._mountFingersOverlay = function() {
-        if (this.viewMode !== 'piano') return;
+    KeyboardPianoMixin._mountFingersOverlay = function(layout) {
+        layout = (layout === 'chromatic') ? 'chromatic' : 'piano';
+
         if (typeof window === 'undefined' || typeof window.KeyboardFingersRenderer !== 'function') return;
 
         const caps = this.selectedDeviceCapabilities;
         const handsConfig = caps && caps.hands_config;
-        if (!handsConfig || handsConfig.enabled === false || !Array.isArray(handsConfig.hands) || handsConfig.hands.length === 0) {
+        const band = document.getElementById('km-hand-band');
+        if (!handsConfig || handsConfig.enabled === false
+                || !Array.isArray(handsConfig.hands) || handsConfig.hands.length === 0) {
             this._cleanFingersCanvas();
+            if (band) band.classList.add('hidden');
             return;
         }
 
-        const pianoContainer = document.getElementById('piano-container');
-        if (!pianoContainer) return;
+        if (!band) return;
 
-        // Destroy any previous renderer before creating a new canvas.
-        if (this._fingersRenderer) {
-            this._fingersRenderer.destroy();
-            this._fingersRenderer = null;
-            this._fingersCanvas = null;
-        }
+        band.classList.remove('hidden');
+
+        // Destroy any previous renderer / listeners before recreating.
+        this._cleanFingersCanvas();
 
         const canvas = document.createElement('canvas');
         canvas.className = 'km-fingers-canvas';
-        pianoContainer.appendChild(canvas);
+        // Piano keys are inside piano-container which has 10 px left/right padding;
+        // the band sits alongside that container (same parent, same CSS left edge),
+        // so indent the canvas 10 px each side to align fingers with white keys.
+        // Chromatic (list) keys span the full keyboard-list-container with no extra
+        // padding, so the canvas fills the band edge-to-edge.
+        const inset = (layout === 'piano') ? '10px' : '0px';
+        canvas.style.left = inset;
+        canvas.style.right = inset;
+        band.appendChild(canvas);
         this._fingersCanvas = canvas;
 
-        // The virtual keyboard always renders piano-style DIV keys (white keys
-        // wider than black), so the overlay must always use 'piano' geometry
-        // regardless of the instrument's keyboard_type setting.
-        const keyboardType = 'piano';
         const rangeMin = this.startNote;
         const rangeMax = this.startNote + this.visibleNoteCount - 1;
-        const BAND_H = 22;
 
-        const renderer = new window.KeyboardFingersRenderer(canvas, { bandHeight: BAND_H });
+        // Renderer options: fingers fill most of the 88 px band (top 15 % empty gap,
+        // bottom 20 px knuckle area). This gives ~55 px finger bodies — tall enough
+        // to be readable at any keyboard width.
+        const renderer = new window.KeyboardFingersRenderer(canvas, {
+            bandHeight: 20,
+            whiteTipFraction: 0.15,
+            blackTipFraction: 0.45,
+            chromaticTipFraction: 0.15,
+        });
         this._fingersRenderer = renderer;
 
-        renderer.setLayout(keyboardType);
-        // The renderer reads `rangeMin`/`rangeMax` from the kb-widget stub for
-        // white-key geometry; it never calls `keyXAt` so a plain object suffices.
-        renderer.setKeyboardWidget({ rangeMin, rangeMax });
+        // Provide rangeMin/rangeMax via a stub widget so _drawPiano can compute
+        // white-key geometry. keyXAt/keyWidth dummies satisfy the validator but are
+        // never actually called (the renderer measures positions from canvas.clientWidth).
+        renderer.setLayout(layout);
+        renderer.setKeyboardWidget({ rangeMin, rangeMax, keyXAt: () => 0, keyWidth: () => 0 });
         renderer.setVisibleExtent({ lo: rangeMin, hi: rangeMax });
         renderer.setActiveNotes(this.activeNotes instanceof Set ? this.activeNotes : new Set());
 
@@ -1233,19 +1257,23 @@
             return { id: h.id || ('h' + (i + 1)), span, numFingers, color: HAND_COLORS[i] || '#6b7280', anchor };
         });
 
-        renderer.setHands(rendererHands);
-        renderer.setAnchors(new Map(rendererHands.map(function(h) { return [h.id, h.anchor]; })));
+        this._fingersHands = rendererHands;
+        this._handCurrentAnchors = new Map(rendererHands.map(h => [h.id, h.anchor]));
 
-        requestAnimationFrame(function() {
-            renderer.draw();
-        });
+        renderer.setHands(rendererHands);
+        renderer.setAnchors(this._handCurrentAnchors);
+
+        this._initFingersOverlayDrag(rangeMin, rangeMax);
+
+        requestAnimationFrame(() => renderer.draw());
     };
 
     /**
-     * Destroy the fingers renderer and remove its canvas from the DOM.
+     * Destroy the fingers renderer, remove its canvas, and tear down drag listeners.
      * Safe to call multiple times.
      */
     KeyboardPianoMixin._cleanFingersCanvas = function() {
+        this._destroyFingersOverlayDrag();
         if (this._fingersRenderer) {
             this._fingersRenderer.destroy();
             this._fingersRenderer = null;
@@ -1254,16 +1282,171 @@
             this._fingersCanvas.remove();
             this._fingersCanvas = null;
         }
+        this._fingersHands = null;
+        this._handCurrentAnchors = null;
     };
 
     /**
-     * Refresh the active-notes state on the overlay so fingers that map to
-     * currently-sounding keys highlight in the accent colour.
+     * Refresh the active-notes state on the overlay and move the nearest hand
+     * so each sounding note falls under one of its fingers.
      * Called from updatePianoDisplay() on every note-on / note-off.
      */
     KeyboardPianoMixin._updateFingersActiveNotes = function() {
         if (!this._fingersRenderer) return;
-        this._fingersRenderer.setActiveNotes(this.activeNotes instanceof Set ? this.activeNotes : new Set());
+
+        const activeNotes = this.activeNotes instanceof Set ? this.activeNotes : new Set();
+        this._fingersRenderer.setActiveNotes(activeNotes);
+
+        // Animate each active note: move the nearest hand so the note is reachable.
+        if (activeNotes.size > 0 && this._handCurrentAnchors && this._fingersHands) {
+            for (const note of activeNotes) {
+                this._moveNearestHandToNote(note);
+            }
+            this._fingersRenderer.setAnchors(this._handCurrentAnchors);
+        }
+
         this._fingersRenderer.draw();
+    };
+
+    /**
+     * Move the hand whose midpoint is closest to `note` so that `note` falls
+     * within [anchor, anchor + span] using the shortest possible shift.
+     * @param {number} note  MIDI note number
+     */
+    KeyboardPianoMixin._moveNearestHandToNote = function(note) {
+        if (!this._fingersHands || !this._handCurrentAnchors) return;
+
+        const rangeMin = this.startNote;
+        const rangeMax = this.startNote + this.visibleNoteCount - 1;
+
+        // Find the hand whose current midpoint is nearest to the note.
+        let nearestHand = null;
+        let minDist = Infinity;
+        for (const hand of this._fingersHands) {
+            const anchor = this._handCurrentAnchors.get(hand.id);
+            if (!Number.isFinite(anchor)) continue;
+            const midpoint = anchor + hand.span / 2;
+            const dist = Math.abs(note - midpoint);
+            if (dist < minDist) {
+                minDist = dist;
+                nearestHand = hand;
+            }
+        }
+        if (!nearestHand) return;
+
+        const span = nearestHand.span;
+        const anchor = this._handCurrentAnchors.get(nearestHand.id);
+        let newAnchor = anchor;
+
+        if (note < anchor) {
+            newAnchor = note;                       // shift left: thumb on note
+        } else if (note > anchor + span) {
+            newAnchor = note - span;                // shift right: pinky on note
+        }
+        // else note is already within range — no movement needed
+
+        newAnchor = Math.max(rangeMin, Math.min(rangeMax - span, newAnchor));
+        this._handCurrentAnchors.set(nearestHand.id, newAnchor);
+    };
+
+    /**
+     * Attach pointer-event drag handlers to the fingers canvas so the user can
+     * reposition hands by clicking and dragging left/right in the band.
+     * @param {number} rangeMin  MIDI note at the left edge of the visible range
+     * @param {number} rangeMax  MIDI note at the right edge of the visible range
+     */
+    KeyboardPianoMixin._initFingersOverlayDrag = function(rangeMin, rangeMax) {
+        this._destroyFingersOverlayDrag();
+
+        const canvas = this._fingersCanvas;
+        if (!canvas) return;
+
+        let drag = null;   // { handId, startX, startAnchor, span }
+
+        const hitTestHand = (x) => {
+            if (!this._fingersHands || !this._handCurrentAnchors) return null;
+            const W = canvas.clientWidth;
+            if (W <= 0) return null;
+            const semitones = Math.max(1, rangeMax - rangeMin + 1);
+            const pxPerSt = W / semitones;
+
+            let best = null;
+            let bestDist = Infinity;
+            for (const hand of this._fingersHands) {
+                const anchor = this._handCurrentAnchors.get(hand.id);
+                if (!Number.isFinite(anchor)) continue;
+                const leftPx  = (anchor - rangeMin) * pxPerSt;
+                const rightPx = (anchor + hand.span - rangeMin + 1) * pxPerSt;
+                const centerPx = (leftPx + rightPx) / 2;
+                // Accept clicks within the hand's pixel width + 12 px margin
+                if (x >= leftPx - 12 && x <= rightPx + 12) {
+                    const dist = Math.abs(x - centerPx);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        best = hand;
+                    }
+                }
+            }
+            return best ? best.id : null;
+        };
+
+        const onDown = (e) => {
+            if (!this._fingersHands) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left);
+            const handId = hitTestHand(x);
+            if (!handId) return;
+            const hand = this._fingersHands.find(h => h.id === handId);
+            if (!hand) return;
+            drag = { handId, startX: x, startAnchor: this._handCurrentAnchors.get(handId), span: hand.span };
+            canvas.setPointerCapture(e.pointerId);
+            e.stopPropagation();
+            e.preventDefault();
+        };
+
+        const onMove = (e) => {
+            if (!drag || !this._fingersRenderer) return;
+            const W = canvas.clientWidth;
+            if (W <= 0) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left);
+            const semitones = Math.max(1, rangeMax - rangeMin + 1);
+            const pxPerSt = W / semitones;
+            const deltaSt = Math.round((x - drag.startX) / pxPerSt);
+            const newAnchor = Math.max(rangeMin,
+                Math.min(rangeMax - drag.span, drag.startAnchor + deltaSt));
+            this._handCurrentAnchors.set(drag.handId, newAnchor);
+            this._fingersRenderer.setAnchors(this._handCurrentAnchors);
+            this._fingersRenderer.draw();
+            e.stopPropagation();
+        };
+
+        const onUp = (e) => {
+            if (!drag) return;
+            drag = null;
+            e.stopPropagation();
+        };
+
+        canvas.addEventListener('pointerdown', onDown);
+        canvas.addEventListener('pointermove', onMove);
+        canvas.addEventListener('pointerup', onUp);
+        canvas.addEventListener('pointercancel', onUp);
+
+        this._fingersOverlayDragCleanup = () => {
+            canvas.removeEventListener('pointerdown', onDown);
+            canvas.removeEventListener('pointermove', onMove);
+            canvas.removeEventListener('pointerup', onUp);
+            canvas.removeEventListener('pointercancel', onUp);
+        };
+    };
+
+    /**
+     * Remove pointer-event drag handlers from the fingers canvas.
+     */
+    KeyboardPianoMixin._destroyFingersOverlayDrag = function() {
+        if (this._fingersOverlayDragCleanup) {
+            this._fingersOverlayDragCleanup();
+            this._fingersOverlayDragCleanup = null;
+        }
     };
 })();

@@ -928,6 +928,11 @@ class KeyboardModalNew {
 
         const info = this.getInstrumentViewInfo();
         const viewGroup = document.getElementById('keyboard-view-mode-group');
+        // keyboard_type:'chromatic' instruments (xylophone, marimba, hangdrum …) use
+        // the equal-width list view as their default so fingers align with uniform slots.
+        const caps = this.selectedDeviceCapabilities;
+        const handsKbType = caps && caps.hands_config && caps.hands_config.keyboard_type;
+        const isChromatic = handsKbType === 'chromatic' || caps && caps.keyboard_type === 'chromatic';
         if (info.isDrum) {
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.stringInstrumentConfig = null;
@@ -936,6 +941,10 @@ class KeyboardModalNew {
             await this.loadStringInstrumentConfig();
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.setViewMode('fretboard');
+        } else if (isChromatic) {
+            this.stringInstrumentConfig = null;
+            if (viewGroup) viewGroup.classList.add('hidden');
+            this.setViewMode('keyboard-list');
         } else {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');

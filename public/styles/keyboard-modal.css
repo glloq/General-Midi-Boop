@@ -790,12 +790,13 @@
     padding: 12px;
     overflow: hidden;
     display: flex;
+    flex-direction: column;
     align-items: stretch;
-    justify-content: center;
     min-height: 0;
 }
 
 .piano-container {
+    flex: 1;
     position: relative;
     display: flex;
     width: 100%;
@@ -806,6 +807,7 @@
     padding: 10px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     overflow: hidden;
+    min-height: 0;
 }
 
 /* Help bar below keyboard */
@@ -2110,6 +2112,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
    ============================================================================ */
 
 .piano-slider-container {
+    flex: 1;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -2117,6 +2120,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     border-radius: 8px;
     overflow: hidden;
     position: relative;
+    min-height: 0;
 }
 
 .piano-slider-strip {
@@ -2255,6 +2259,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 
 /* Container: suit la hauteur du parent (identique au piano-container) */
 .keyboard-list-container {
+    flex: 1;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -2263,6 +2268,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     background: #111827;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-height: 0;
 }
 
 /* Glow layer: gradient radial centré sur --glow-x → fondu vers les notes voisines.
@@ -2429,21 +2435,33 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
-/* ── Fingers overlay canvas — shown when the instrument has hands_config ── */
+/* ── Hand band — strip below the keyboard keys that shows hand/finger overlay ── */
 
-/* The canvas is appended inside .piano-container (position:relative) by
-   _mountFingersOverlay().  It must be a replaced-element-safe absolute
-   layer so it floats above the DIV piano keys without blocking clicks.
-   The 10 px inset on left/right matches piano-container's padding so the
-   renderer's per-white-key pixel math aligns with the actual key positions. */
+/* Sits inside .keyboard-canvas-container (flex-column) after all the mode
+   containers. Shown only in piano and keyboard-list modes. The canvas inside
+   is positioned absolute so JS can set left/right to align with the key area
+   of whichever mode is active (piano: 10px inset; chromatic/list: 0). */
+.km-hand-band {
+    flex-shrink: 0;
+    width: 100%;
+    height: 88px;
+    position: relative;
+    background: #1e293b;
+    border-radius: 0 0 8px 8px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    cursor: grab;
+}
+.km-hand-band:active { cursor: grabbing; }
+
+/* Canvas fills the band; left/right set by JS per layout mode */
 .km-fingers-canvas {
     position: absolute;
-    left: 10px;
-    right: 10px;
     top: 0;
     bottom: 0;
-    /* `width` and `height` are set by the browser from the CSS geometry above;
-       `KeyboardFingersRenderer` reads clientWidth/clientHeight in draw(). */
-    pointer-events: none;
-    z-index: 10;
+    /* left and right are set inline by _mountFingersOverlay() */
+    pointer-events: auto;
+    z-index: 5;
+    cursor: grab;
 }
+.km-fingers-canvas:active { cursor: grabbing; }
