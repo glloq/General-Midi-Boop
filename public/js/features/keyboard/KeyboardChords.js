@@ -50,7 +50,7 @@
     KeyboardChordsMixin._activeChordType = 'Maj'; // last chord type used (for voicing refresh)
     KeyboardChordsMixin._strumTimeouts = [];    // pending timeout handles
     KeyboardChordsMixin._strumActiveFretPositions = null; // positions added to activeFretPositions by last strum
-    KeyboardChordsMixin.handAnchorFret = 0;     // leftmost fret of the hand window
+    KeyboardChordsMixin.handAnchorFret = 1;     // leftmost fret of the hand window (min 1, fret 0 = open string)
     KeyboardChordsMixin._handSpanFrets = 4;     // frets covered by the hand (fallback)
     KeyboardChordsMixin._cachedMaxFrets = 22;
     KeyboardChordsMixin._handSpanMm = 0;        // physical hand span in mm (0 = not set)
@@ -644,7 +644,7 @@
         arrowL.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const newAnchor = Math.max(0, this.handAnchorFret - 1);
+            const newAnchor = Math.max(1, this.handAnchorFret - 1);
             if (newAnchor !== this.handAnchorFret) {
                 this.handAnchorFret = newAnchor;
                 this._updateHandWidgetPosition();
@@ -765,7 +765,7 @@
         // Update arrow enabled/disabled state.
         const arrowL = document.getElementById('hand-palm-arrow-left');
         const arrowR = document.getElementById('hand-palm-arrow-right');
-        if (arrowL) arrowL.disabled = anchor <= 0;
+        if (arrowL) arrowL.disabled = anchor <= 1;
         if (arrowR) arrowR.disabled = anchor >= this._maxHandAnchorFret();
 
         // Update the coverage overlay — requires rendered widths, so use rAF
@@ -978,8 +978,8 @@
         // Already covered (with extended reach) — don't disturb the player's position.
         if (fretted.every(n => this._isReachableWithoutHandMove(n.fret))) return;
 
-        // Place the index finger one fret before the lowest needed fret.
-        const newAnchor = Math.max(0, Math.min(this._maxHandAnchorFret(), minFret - 1));
+        // Place the index finger one fret before the lowest needed fret (min fret 1).
+        const newAnchor = Math.max(1, Math.min(this._maxHandAnchorFret(), minFret - 1));
         this.handAnchorFret = newAnchor;
         this._updateHandWidgetPosition();
         this._sendHandPositionCC(newAnchor);
@@ -1001,7 +1001,7 @@
                 const dx        = mv.clientX - startX;
                 const areaW     = fretsArea.clientWidth || 1;
                 const fretDelta = Math.round(dx / (areaW / maxFrets));
-                const newAnchor = Math.max(0, Math.min(
+                const newAnchor = Math.max(1, Math.min(
                     this._maxHandAnchorFret(),
                     startAnchor + fretDelta
                 ));
@@ -1032,7 +1032,7 @@
                 const dx        = mv.touches[0].clientX - startX;
                 const areaW     = fretsArea.clientWidth || 1;
                 const fretDelta = Math.round(dx / (areaW / maxFrets));
-                const newAnchor = Math.max(0, Math.min(
+                const newAnchor = Math.max(1, Math.min(
                     this._maxHandAnchorFret(),
                     startAnchor + fretDelta
                 ));
@@ -1107,10 +1107,10 @@
             newAnchor = fret;
         } else {
             // Move right: place fret at the right edge of the window.
-            newAnchor = Math.max(0, fret - Math.floor(span));
+            newAnchor = Math.max(1, fret - Math.floor(span));
         }
 
-        newAnchor = Math.max(0, Math.min(this._maxHandAnchorFret(), newAnchor));
+        newAnchor = Math.max(1, Math.min(this._maxHandAnchorFret(), newAnchor));
         this.handAnchorFret = newAnchor;
         this._updateHandWidgetPosition();
         this._sendHandPositionCC(newAnchor);
