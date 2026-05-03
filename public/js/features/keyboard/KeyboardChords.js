@@ -522,10 +522,12 @@
             ? Math.min(hand.max_fingers, numStrings) : numStrings;
         this._numFingers = Number.isFinite(hand.num_fingers) && hand.num_fingers > 0
             ? hand.num_fingers : 4;
-        // fret_sliding_fingers: band width = num_fingers frets (one per fixed fret offset).
-        // Disable mm-based width so _handSpanFrets drives the band geometry.
+        // fret_sliding_fingers: band spans from 8mm before fret A to 8mm before
+        // fret A+N-1 (first finger at left edge, last finger at right edge, both
+        // at their contact points = 8mm before their fret wire).
+        // Width = N-1 fret intervals between the two contact points.
         if (mechanism === 'fret_sliding_fingers') {
-            this._handSpanFrets = this._numFingers;
+            this._handSpanFrets = Math.max(1, this._numFingers - 1);
             this._handSpanMm = 0;
         }
 
@@ -674,16 +676,23 @@
                 rangeRect.appendChild(stripe);
             }
         } else if (this._mechanism === 'fret_sliding_fingers') {
-            const count = Math.max(1, this._numFingers);
+            const count  = Math.max(1, this._numFingers);
             const anchor = this.handAnchorFret || 0;
+            const maxFrets = this._cachedMaxFrets || 22;
+            // da = display anchor = 8mm before fret A = the contact point of finger 0.
+            // Finger i contact = da + i frets from nut = fretPct(da + i).
+            // Band spans da → da+N-1, so finger 0 = 0%, finger N-1 = 100%.
+            const da        = Math.max(0, anchor - 0.25);
+            const bandLeft  = fretPct(da, maxFrets);
+            const bandRight = fretPct(da + count - 1, maxFrets);
+            const bandW     = bandRight - bandLeft;
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                // Place each stripe at the physical fret position within the overlay
-                // (anchor+i). _fretToOverlayPct handles the 8mm left-shift so
-                // finger i lands just before fret wire anchor+i, not at fret
-                // anchor+numFingers which was the bug with linear 0%→100%.
-                stripe.style.left = this._fretToOverlayPct(anchor + i) + '%';
+                const pct = count === 1 ? 0
+                    : bandW > 0 ? (fretPct(da + i, maxFrets) - bandLeft) / bandW * 100
+                    : i / (count - 1) * 100;
+                stripe.style.left = pct + '%';
                 rangeRect.appendChild(stripe);
             }
         }
@@ -720,15 +729,16 @@
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         } else {
             // Fret-based fallback.
-            // string_sliding: shift left ~¼ fret (≈8mm) so the first finger
-            //   lands just before the anchor fret wire.
-            // fret_sliding: no shift — the band's left edge IS the first finger;
-            //   the right edge lands exactly on fret anchor+numFingers.
-            const displayAnchor = this._mechanism === 'fret_sliding_fingers'
-                ? anchor
-                : Math.max(0, anchor - 0.25);
-            leftPct  = fretPct(displayAnchor, maxFrets);
-            const rightPct = fretPct(anchor + this._handSpanFrets, maxFrets);
+            // Both mechanisms shift the left edge ~¼ fret (≈8mm) toward the nut
+            // so the first finger lands just before the anchor fret wire.
+            // string_sliding: right edge = anchor + handSpanFrets (furthest fret wire).
+            // fret_sliding:   right edge = displayAnchor + handSpanFrets
+            //                 = (anchor-0.25) + (N-1) = anchor+N-1-0.25
+            //                 (the contact point of the last finger, flush with right edge).
+            const displayAnchor = Math.max(0, anchor - 0.25);
+            leftPct = fretPct(displayAnchor, maxFrets);
+            const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
+            const rightPct  = fretPct(rightBase + this._handSpanFrets, maxFrets);
             widthPct = rightPct - leftPct;
             band.style.left  = leftPct + '%';
             band.style.width = widthPct + '%';
@@ -823,10 +833,9 @@
             return Math.max(0, Math.min(100, (fretMm - displayLeftMm) / this._handSpanMm * 100));
         }
         const maxFrets = this._cachedMaxFrets || 22;
-        const displayAnchor = this._mechanism === 'fret_sliding_fingers'
-            ? anchor
-            : Math.max(0, anchor - 0.25);
-        const overlayWidthPct = fretPct(anchor + this._handSpanFrets, maxFrets) - fretPct(displayAnchor, maxFrets);
+        const displayAnchor = Math.max(0, anchor - 0.25);
+        const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
+        const overlayWidthPct = fretPct(rightBase + this._handSpanFrets, maxFrets) - fretPct(displayAnchor, maxFrets);
         if (overlayWidthPct <= 0) return 50;
         return Math.max(0, Math.min(100, (fretPct(fret, maxFrets) - fretPct(displayAnchor, maxFrets)) / overlayWidthPct * 100));
     };

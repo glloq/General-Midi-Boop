@@ -234,13 +234,17 @@
         /** Returns `{y0, y1}` of the hand band given a fret anchor. */
         _handWindowY(anchor) {
             const safe = Math.max(0, anchor);
+            // fret_sliding: band runs from _fretY(anchor) to _fretY(anchor+N-1).
+            // First finger (i=0) at top, last finger (i=N-1) at bottom — both
+            // at 8mm before their respective fret wire (approximated by _fretY).
+            if (this.mechanism === 'fret_sliding_fingers') {
+                const y0 = this._fretY(safe);
+                const lastFret = Math.min(safe + Math.max(1, this.maxFingers) - 1, this.numFrets);
+                const y1 = this._fretY(lastFret);
+                return { y0, y1 };
+            }
             const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -safe / 12));
-            // fret_sliding: band starts at the anchor fret (first finger at left
-            // edge of the band, no pre-fret margin needed here).
-            // string_sliding: band starts FINGER_BEFORE_FRET_MM before the anchor
-            // fret so the first finger lands just behind the fret wire.
-            const offsetMm = this.mechanism === 'fret_sliding_fingers' ? 0 : FINGER_BEFORE_FRET_MM;
-            const topMm = Math.max(0, anchorMm - offsetMm);
+            const topMm = Math.max(0, anchorMm - FINGER_BEFORE_FRET_MM);
             const y0 = this._yFromMm(topMm);
             const bottomMm = topMm + this.handSpanMm;
             const totalDistMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
