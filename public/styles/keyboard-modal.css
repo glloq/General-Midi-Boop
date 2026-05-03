@@ -1541,13 +1541,14 @@
    of motion for that string's finger. */
 .hand-finger-range-string {
     position: absolute;
-    left: 3px;
-    right: 3px;
-    height: 6px;
+    left: 2px;
+    right: 2px;
+    height: 7px;
     transform: translateY(-50%);
-    background: rgba(37, 99, 235, 0.07);
-    border: 1px dashed rgba(37, 99, 235, 0.42);
+    background: rgba(37, 99, 235, 0.20);
+    border: 1.5px solid rgba(37, 99, 235, 0.70);
     border-radius: 3px;
+    box-shadow: 0 0 4px rgba(37, 99, 235, 0.25);
     pointer-events: none;
 }
 
@@ -1556,11 +1557,12 @@
    range of motion for that finger. */
 .hand-finger-range-fret {
     position: absolute;
-    top: 3px;
-    bottom: 3px;
-    background: rgba(37, 99, 235, 0.07);
-    border: 1px dashed rgba(37, 99, 235, 0.42);
+    top: 2px;
+    bottom: 2px;
+    background: rgba(37, 99, 235, 0.20);
+    border: 1.5px solid rgba(37, 99, 235, 0.70);
     border-radius: 3px;
+    box-shadow: 0 0 4px rgba(37, 99, 235, 0.25);
     pointer-events: none;
 }
 

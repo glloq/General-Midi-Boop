@@ -391,10 +391,10 @@
             if (!Number.isFinite(y0) || !Number.isFinite(y1)) return;
             const ctx = this.ctx;
             ctx.save();
-            ctx.strokeStyle = 'rgba(37, 99, 235, 0.8)';
-            ctx.fillStyle = 'rgba(37, 99, 235, 0.10)';
-            ctx.lineWidth = 1.2;
-            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = 'rgba(37, 99, 235, 0.85)';
+            ctx.fillStyle = 'rgba(37, 99, 235, 0.22)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([]);
             if (this.mechanism === 'string_sliding_fingers') {
                 this._drawStringSlidingFingerRanges(y0, y1);
             } else if (this.mechanism === 'fret_sliding_fingers') {
@@ -423,7 +423,7 @@
             //                               anchored fret (the finger
             //                               sticks to the fret as the
             //                               band slides — see commit C).
-            const rectW = 8;
+            const rectW = 10;
             const restY = y0;
             // Source of truth for finger state: the sustaining map
             // (notes currently sounding, anchored or not). The
@@ -487,7 +487,7 @@
             const ctx = this.ctx;
             const numF = Math.max(1, this.maxFingers);
             const slotH = (y1 - y0) / numF;
-            const stripeH = Math.min(slotH * 0.55, 10);
+            const stripeH = Math.min(slotH * 0.65, 14);
             for (let i = 0; i < numF; i++) {
                 const sy = y0 + i * slotH;
                 ctx.fillRect(fbX, sy, fbW, stripeH);
