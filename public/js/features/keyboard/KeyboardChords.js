@@ -675,13 +675,15 @@
             }
         } else if (this._mechanism === 'fret_sliding_fingers') {
             const count = Math.max(1, this._numFingers);
+            const anchor = this.handAnchorFret || 0;
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                // First finger at left edge (0%), last at right edge (100%),
-                // middle fingers evenly interpolated.
-                const pct = count === 1 ? 0 : (i / (count - 1)) * 100;
-                stripe.style.left = pct + '%';
+                // Place each stripe at the physical fret position within the overlay
+                // (anchor+i). _fretToOverlayPct handles the 8mm left-shift so
+                // finger i lands just before fret wire anchor+i, not at fret
+                // anchor+numFingers which was the bug with linear 0%→100%.
+                stripe.style.left = this._fretToOverlayPct(anchor + i) + '%';
                 rangeRect.appendChild(stripe);
             }
         }
