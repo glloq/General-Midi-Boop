@@ -1667,7 +1667,6 @@
                 </div>
                 <div></div>
             </div>
-            <input type="hidden" data-hand="fretting" data-field="hand_span_mm" value="${handSpanMm}">
             <input type="hidden" id="handsMoveMmPerSec" value="${moveMmPerSec}">
             <input type="hidden" id="handsFingerMoveMmPerSec" value="${fingerMoveMmPerSec}">
         `;
@@ -1681,6 +1680,15 @@
                         <input type="number" class="ism-hand-fingers" data-hand="fretting" data-field="max_fingers"
                                value="${maxFingers}" min="1" max="${maxFingersUpper}">
                         <span class="ism-form-hint">${t('instrumentSettings.handsMaxFingersHint', 'Nombre maximal de cordes pouvant être pressées simultanément.')}</span>
+                    </div>
+                    <div></div>
+                </div>
+                <div class="ism-form-group ism-form-grid-2">
+                    <div>
+                        <label>${t('instrumentSettings.handsSpanMm', 'Largeur de la main (mm)')}</label>
+                        <input type="number" data-hand="fretting" data-field="hand_span_mm"
+                               value="${handSpanMm}" min="30" max="200">
+                        <span class="ism-form-hint">${t('instrumentSettings.handsSpanMmHint', 'Portée physique de la main le long des cordes. Détermine combien de frettes sont accessibles sans déplacer la main.')}</span>
                     </div>
                     <div></div>
                 </div>
@@ -1698,6 +1706,7 @@
                 </div>
                 <input type="hidden" data-hand="fretting" data-field="variable_height_fingers_count"
                        value="${variableHeightFingers}">
+                <input type="hidden" data-hand="fretting" data-field="hand_span_mm" value="${handSpanMm}">
             `;
         }
 
