@@ -56,6 +56,9 @@
     KeyboardChordsMixin._handSpanMm = 0;        // physical hand span in mm (0 = not set)
     KeyboardChordsMixin._scaleLengthMm = 0;     // instrument scale length in mm (0 = not set)
     KeyboardChordsMixin._currentActiveFrets = {}; // string → fret map for active chord (dots)
+    KeyboardChordsMixin._mechanism = 'string_sliding_fingers'; // active mechanism
+    KeyboardChordsMixin._maxFingers = 4;        // max simultaneous fingers (string_sliding)
+    KeyboardChordsMixin._numFingers = 4;        // number of fingers/fret-offsets (fret_sliding)
 
     // Physical offset: finger rests this many mm before the target fret wire.
     const HAND_FINGER_BEFORE_FRET_MM = 8;
@@ -511,7 +514,20 @@
         // Fallback: fret-based span (legacy field).
         if (hand.hand_span_frets > 0) this._handSpanFrets = hand.hand_span_frets;
 
+        // Mechanism awareness: read active mechanism + per-mechanism finger counts.
+        const mechanism = (handsConfig.mechanism) || 'string_sliding_fingers';
+        this._mechanism = mechanism;
         const numStrings = Math.max(1, cfg.num_strings || 6);
+        this._maxFingers = Number.isFinite(hand.max_fingers) && hand.max_fingers > 0
+            ? Math.min(hand.max_fingers, numStrings) : numStrings;
+        this._numFingers = Number.isFinite(hand.num_fingers) && hand.num_fingers > 0
+            ? hand.num_fingers : 4;
+        // fret_sliding_fingers: band width = num_fingers frets (one per fixed fret offset).
+        // Disable mm-based width so _handSpanFrets drives the band geometry.
+        if (mechanism === 'fret_sliding_fingers') {
+            this._handSpanFrets = this._numFingers;
+            this._handSpanMm = 0;
+        }
 
         // ── Drag handle widget (above strings) ───────────────────────────────
         const widget = document.createElement('div');
@@ -578,11 +594,14 @@
         overlay.className = 'hand-coverage-overlay';
         overlay.id = 'hand-coverage-overlay';
 
-        // Single range rectangle that fills the overlay — shows the plage de
-        // déplacement des doigts on the full width of the hand.
+        // Range container: holds both the per-mechanism displacement stripes and
+        // the per-string finger-position dots (dots painted on top of stripes).
         const rangeRect = document.createElement('div');
         rangeRect.className = 'hand-finger-range-rect';
         rangeRect.id = 'hand-finger-range-rect';
+
+        // Per-mechanism finger displacement range shapes (drawn first, behind dots).
+        this._renderFingerRangeRects(rangeRect, numStrings);
 
         // One finger-position dot per string — distributed vertically across the
         // overlay. String 1 (lowest pitch) at the bottom, string N at the top.
@@ -624,6 +643,45 @@
 
         this._updateHandWidgetPosition();
         this._attachHandWidgetEvents(band, fretsArea);
+    };
+
+    /**
+     * Populate `rangeRect` with per-mechanism displacement shapes, drawn below
+     * the finger-position dots so they read as "background guides".
+     *
+     *   string_sliding_fingers — one thin HORIZONTAL stripe per max_fingers
+     *     string. Each stripe spans the full overlay width and sits at the same
+     *     Y position as its string's finger dot. Shows how far the finger can
+     *     slide along the string within the hand span.
+     *
+     *   fret_sliding_fingers — one thin VERTICAL stripe per num_fingers fret
+     *     offset. Each stripe spans the full overlay height and is evenly spaced
+     *     across the overlay width. Shows how far the finger can slide across
+     *     strings at its fixed fret offset.
+     */
+    KeyboardChordsMixin._renderFingerRangeRects = function (rangeRect, numStrings) {
+        if (!rangeRect) return;
+        // Remove any previously created range shapes (not dots — they're separate).
+        rangeRect.querySelectorAll('.hand-finger-range-string, .hand-finger-range-fret')
+            .forEach(el => el.remove());
+
+        if (this._mechanism === 'string_sliding_fingers') {
+            const count = Math.min(Math.max(1, this._maxFingers), numStrings);
+            for (let s = 1; s <= count; s++) {
+                const stripe = document.createElement('div');
+                stripe.className = 'hand-finger-range-string';
+                stripe.style.top = ((numStrings - s + 0.5) / numStrings * 100) + '%';
+                rangeRect.appendChild(stripe);
+            }
+        } else if (this._mechanism === 'fret_sliding_fingers') {
+            const count = Math.max(1, this._numFingers);
+            for (let i = 0; i < count; i++) {
+                const stripe = document.createElement('div');
+                stripe.className = 'hand-finger-range-fret';
+                stripe.style.left = ((i + 0.5) / count * 100) + '%';
+                rangeRect.appendChild(stripe);
+            }
+        }
     };
 
     /**

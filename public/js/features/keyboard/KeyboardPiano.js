@@ -642,6 +642,14 @@
 
         container.appendChild(stringsArea);
 
+        // The hand overlay relies on getBoundingClientRect() measurements that
+        // are only valid after the element is in the DOM and laid out. Register
+        // a rAF here (AFTER appendChild) so the overlay position is set even
+        // if the initial rAF inside renderHandWidget fired before layout.
+        if (typeof this._updateHandWidgetPosition === 'function') {
+            requestAnimationFrame(() => this._updateHandWidgetPosition());
+        }
+
         // Chord buttons bar (rendered by KeyboardChordsMixin if loaded)
         if (typeof this.renderChordButtons === 'function') {
             this.renderChordButtons();
