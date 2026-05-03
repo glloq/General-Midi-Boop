@@ -1347,9 +1347,12 @@
 
         const rendererHands = rawHands.map(function(h, i) {
             const numFingers = Number.isFinite(h.num_fingers) ? h.num_fingers : 5;
-            const span = Number.isFinite(h.hand_span_semitones)
-                ? h.hand_span_semitones
-                : Math.max(0, numFingers - 1);
+            // Piano: derive span from finger count (nf-1 semitones for W-G pattern).
+            // Ignore hand_span_semitones for piano — legacy data may store f*2 which
+            // is twice what the W-G pattern actually covers.
+            const span = layout === 'piano'
+                ? Math.max(0, numFingers - 1)
+                : (Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones : Math.max(0, numFingers - 1));
             const center = rangeMin + Math.round(range * (i + 1) / (count + 1));
             const anchor = Math.max(rangeMin, Math.min(rangeMax - span, center - Math.round(span / 2)));
             return { id: h.id || ('h' + (i + 1)), span, numFingers, color: HAND_COLORS[i] || '#6b7280', anchor };
@@ -1411,6 +1414,37 @@
     };
 
     /**
+     * Returns true when `note` falls exactly on one of the visual finger
+     * positions for a piano-mode hand anchored at `anchor` with `numFingers`.
+     * White fingers land on white keys; gap fingers land on the black key
+     * between two adjacent white fingers (if one exists).
+     */
+    KeyboardPianoMixin._pianoHandCoversNote = function(anchor, numFingers, note) {
+        if (note < anchor) return false;
+        const wn = this.visibleWhiteNotes;
+        if (!wn || wn.length === 0) return note <= anchor + numFingers - 1;
+        let si = wn.indexOf(anchor);
+        if (si < 0) si = wn.findIndex(m => m >= anchor);
+        if (si < 0) return false;
+        const nf = numFingers || 5;
+        const numWhites = Math.ceil(nf / 2);
+        const numGaps   = Math.floor(nf / 2);
+        const isBlack = (m) => { const v = ((m % 12) + 12) % 12; return v===1||v===3||v===6||v===8||v===10; };
+        for (let wi = 0; wi < numWhites; wi++) {
+            const idx = si + wi;
+            if (idx >= wn.length) break;
+            const w = wn[idx];
+            if (note === w) return true;
+            if (wi < numGaps) {
+                const nextW = (idx + 1 < wn.length) ? wn[idx + 1] : Infinity;
+                const bk = w + 1;
+                if (isBlack(bk) && bk < nextW && note === bk) return true;
+            }
+        }
+        return false;
+    };
+
+    /**
      * Refresh the active-notes state on the overlay and move the nearest hand
      * so each sounding note falls under one of its fingers.
      * Called from updatePianoDisplay() on every note-on / note-off.
@@ -1428,7 +1462,11 @@
             for (const note of activeNotes) {
                 const covered = this._fingersHands.some(h => {
                     const a = this._handCurrentAnchors.get(h.id);
-                    return Number.isFinite(a) && note >= a && note <= a + h.span;
+                    if (!Number.isFinite(a)) return false;
+                    if (this._fingersLayout === 'piano') {
+                        return this._pianoHandCoversNote(a, h.numFingers, note);
+                    }
+                    return note >= a && note <= a + h.span;
                 });
                 if (!covered) this._moveNearestHandToNote(note);
             }
