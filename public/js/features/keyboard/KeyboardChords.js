@@ -678,7 +678,8 @@
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                stripe.style.left = ((i + 0.5) / count * 100) + '%';
+                stripe.style.left  = (i / count * 100) + '%';
+                stripe.style.width = (100 / count) + '%';
                 rangeRect.appendChild(stripe);
             }
         }
@@ -795,15 +796,7 @@
      * Fingers default here when no chord is active.
      */
     KeyboardChordsMixin._fingerCenterPct = function () {
-        const anchor = this.handAnchorFret || 0;
-        if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
-            const L = this._scaleLengthMm;
-            const anchorMm = L * (1 - Math.pow(2, -anchor / 12));
-            const displayLeftMm = Math.max(0, anchorMm - HAND_FINGER_BEFORE_FRET_MM);
-            const centerMm = anchorMm + this._handSpanMm / 2;
-            return Math.max(0, Math.min(100, (centerMm - displayLeftMm) / this._handSpanMm * 100));
-        }
-        return 50;
+        return this._fretToOverlayPct(this.handAnchorFret || 0);
     };
 
     /**
