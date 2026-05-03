@@ -607,20 +607,17 @@
         this._renderFingerRangeRects(rangeRect, numStrings);
 
         if (mechanism === 'fret_sliding_fingers') {
-            // One dot per finger, centred vertically at its stripe's horizontal position.
-            // Uses the same anchor-dependent formula as _renderFingerRangeRects.
-            const numF   = Math.max(1, this._numFingers);
-            const mf0    = this._cachedMaxFrets || 22;
-            const anchor0 = this.handAnchorFret || 1;
-            const da0    = Math.max(0, anchor0 - 0.25);
-            const refW0  = numF > 1 ? fretPct(numF - 1, mf0) : 1;
+            // One dot per finger at the same proportional position as its stripe.
+            const numF = Math.max(1, this._numFingers);
+            const mf0  = this._cachedMaxFrets || 22;
+            const refW0 = numF > 1 ? fretPct(numF - 1, mf0) : 1;
             for (let i = 0; i < numF; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'hand-finger-dot-pos';
                 dot.dataset.finger = String(i);
                 dot.style.top  = '50%';
                 const pct = numF === 1 ? 50
-                    : refW0 > 0 ? (fretPct(da0 + i, mf0) - fretPct(da0, mf0)) / refW0 * 100
+                    : refW0 > 0 ? fretPct(i, mf0) / refW0 * 100
                     : i / (numF - 1) * 100;
                 dot.style.left = pct + '%';
                 // Extreme fingers: flush to edge so the dot stays fully visible.
@@ -701,19 +698,17 @@
         } else if (this._mechanism === 'fret_sliding_fingers') {
             const count    = Math.max(1, this._numFingers);
             const maxFrets = this._cachedMaxFrets || 22;
-            const anchor   = this.handAnchorFret || 1;
-            const da       = Math.max(0, anchor - 0.25);
-            // Band width uses fret-0 reference (constant visual width).
-            // Positions are anchor-dependent: fretPct(da+i)-fretPct(da) scales
-            // by 2^(-da/12), so fingers cluster toward the left near the bridge
-            // where frets are physically closer together.
+            // Proportional positions within the band: (fretPct(da+i)-fretPct(da)) /
+            // (fretPct(da+N-1)-fretPct(da)) always simplifies to fretPct(i)/fretPct(N-1)
+            // regardless of the current anchor. Visual adaptation (fingers clustering
+            // toward the bridge) comes from the band itself narrowing with position.
             const refW = count > 1 ? fretPct(count - 1, maxFrets) : 1;
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
                 const pct = count === 1 ? 50
-                    : refW > 0 ? (fretPct(da + i, maxFrets) - fretPct(da, maxFrets)) / refW * 100
+                    : refW > 0 ? fretPct(i, maxFrets) / refW * 100
                     : i / (count - 1) * 100;
                 stripe.style.left  = pct + '%';
                 stripe.style.width = stripeWPct + '%';
@@ -758,13 +753,14 @@
         } else {
             // Fret-based fallback.
             // Left edge shifted ~¼ fret (≈8mm) toward the nut so the first
-            // finger lands just before the anchor fret wire.
-            // Width uses the fret-0 reference (fretPct(span) from fret 0) so it
-            // stays constant as the hand moves — fretPct differences shrink toward
-            // the bridge due to equal-tempered logarithmic spacing.
+            // finger lands just before the anchor fret wire. Band width follows
+            // the logarithmic fret spacing so it narrows toward the bridge,
+            // matching the physical compression of frets at higher positions.
             const displayAnchor = Math.max(0, anchor - 0.25);
             leftPct  = fretPct(displayAnchor, maxFrets);
-            widthPct = fretPct(this._handSpanFrets, maxFrets);
+            const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
+            const rightPct  = fretPct(rightBase + this._handSpanFrets, maxFrets);
+            widthPct = rightPct - leftPct;
             band.style.left  = leftPct + '%';
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         }
@@ -863,8 +859,8 @@
         }
         const maxFrets = this._cachedMaxFrets || 22;
         const displayAnchor = Math.max(0, anchor - 0.25);
-        // Constant overlay width: fret-0 reference matches the fixed band width.
-        const overlayWidthPct = fretPct(this._handSpanFrets, maxFrets);
+        const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
+        const overlayWidthPct = fretPct(rightBase + this._handSpanFrets, maxFrets) - fretPct(displayAnchor, maxFrets);
         if (overlayWidthPct <= 0) return 50;
         return Math.max(0, Math.min(100, (fretPct(fret, maxFrets) - fretPct(displayAnchor, maxFrets)) / overlayWidthPct * 100));
     };
@@ -1073,27 +1069,9 @@
         if (this._mechanism !== 'fret_sliding_fingers') return;
         const rangeRect = document.getElementById('hand-finger-range-rect');
         if (!rangeRect) return;
-
-        // Re-render stripes (removes old ones internally).
+        // Stripe proportional positions are constant (anchor cancels in the ratio);
+        // re-rendering re-applies the correct flush transforms for extreme fingers.
         this._renderFingerRangeRects(rangeRect, this._cachedNumStrings || 6);
-
-        // Update existing dot positions to match.
-        const numF    = Math.max(1, this._numFingers);
-        const maxFrets = this._cachedMaxFrets || 22;
-        const anchor  = this.handAnchorFret || 1;
-        const da      = Math.max(0, anchor - 0.25);
-        const refW    = numF > 1 ? fretPct(numF - 1, maxFrets) : 1;
-        rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]').forEach(dot => {
-            const i = parseInt(dot.dataset.finger, 10);
-            if (!Number.isFinite(i)) return;
-            const pct = numF === 1 ? 50
-                : refW > 0 ? (fretPct(da + i, maxFrets) - fretPct(da, maxFrets)) / refW * 100
-                : i / (numF - 1) * 100;
-            dot.style.left = pct + '%';
-            if (i === 0) dot.style.transform = 'translate(0%, -50%)';
-            else if (i === numF - 1) dot.style.transform = 'translate(-100%, -50%)';
-            else dot.style.removeProperty('transform');
-        });
     };
 
     /**
