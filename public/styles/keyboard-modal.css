@@ -41,11 +41,12 @@
     background: white;
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    /* Use as much horizontal room as possible, but keep a sensible fixed
-       height so the keyboard / fretboard / drum-pad doesn't get stretched
-       awkwardly tall on big screens. */
     width: calc(100vw - 24px);
     max-width: calc(100vw - 24px);
+    /* Fill available viewport height so the fretboard / piano / drum-pad
+       can use all the vertical space. The flex chain below distributes this
+       height to the keyboard canvas. */
+    height: 90vh;
     max-height: 90vh;
     display: flex !important;
     flex-direction: column !important;
@@ -1181,13 +1182,14 @@
     margin-bottom: 6px;
 }
 
-/* Each string row stretches to fill the remaining height up to a cap so
-   the fretboard adapts to any number of strings (4 for a bass, 47 for a
-   harp) without becoming awkwardly tall when there are only a few. */
+/* Each string row fills the remaining height up to a cap so the fretboard
+   adapts to any number of strings without becoming unwieldy on harp-like
+   instruments (47 strings). Cap raised so a typical 4–7 string instrument
+   uses the full modal height. */
 .fretboard-container .fret-string {
     flex: 1;
     min-height: 22px;
-    max-height: 48px;
+    max-height: 90px;
 }
 
 .fretboard-container .fret-number {
@@ -1362,7 +1364,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     min-height: 0;
     overflow: hidden;
     /* positioning context for hand coverage overlay */
@@ -1375,7 +1377,7 @@
 
 .fretboard-hand-widget {
     flex-shrink: 0;
-    height: 44px;
+    height: 60px;
     display: flex;
     background: linear-gradient(to bottom, #7a4e20, #5a3010);
     border-bottom: 1px solid rgba(0, 0, 0, 0.4);
