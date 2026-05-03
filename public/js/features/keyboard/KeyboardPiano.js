@@ -1547,11 +1547,27 @@
             if (W <= 0) return;
             const rect = band.getBoundingClientRect();
             const xInCanvas = (e.clientX - rect.left) - canvasInset;
-            const semitones = Math.max(1, drag.rangeMax - drag.rangeMin + 1);
-            const pxPerSt = W / semitones;
-            const deltaSt = Math.round((xInCanvas - drag.startX) / pxPerSt);
-            const newAnchor = Math.max(drag.rangeMin,
-                Math.min(drag.rangeMax - drag.span, drag.startAnchor + deltaSt));
+            let newAnchor;
+            if (this._fingersLayout === 'piano'
+                    && this.visibleWhiteNotes && this.visibleWhiteNotes.length > 0) {
+                // Piano: map x → white key index → MIDI note, so the anchor
+                // always snaps to a white key regardless of drag distance.
+                const ww = W / this.visibleWhiteNotes.length;
+                const idx = Math.max(0, Math.min(
+                    this.visibleWhiteNotes.length - 1,
+                    Math.floor(xInCanvas / ww)
+                ));
+                const rawAnchor = this.visibleWhiteNotes[idx];
+                newAnchor = Math.max(drag.rangeMin,
+                    Math.min(drag.rangeMax - drag.span, rawAnchor));
+            } else {
+                // Chromatic: semitone-granularity delta drag.
+                const semitones = Math.max(1, drag.rangeMax - drag.rangeMin + 1);
+                const pxPerSt = W / semitones;
+                const deltaSt = Math.round((xInCanvas - drag.startX) / pxPerSt);
+                newAnchor = Math.max(drag.rangeMin,
+                    Math.min(drag.rangeMax - drag.span, drag.startAnchor + deltaSt));
+            }
             this._handCurrentAnchors.set(drag.handId, newAnchor);
             this._resolveHandCollisions(drag.handId);
             this._fingersRenderer.setAnchors(this._handCurrentAnchors);
