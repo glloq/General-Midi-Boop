@@ -826,15 +826,14 @@
             const finger = row.querySelector('.fret-slide-finger');
             if (!finger || finger.style.display === 'none') return;
 
-            // Find the active fret on this string (open-string fret 0 = not pressing)
+            // Only move on an active fret press (fret > 0). Open string and
+            // note-off leave the dot at its current position.
             const activeDot = row.querySelector('.fret-dot.active');
-            const activeFret = activeDot ? parseInt(activeDot.dataset.fret ?? '-1', 10) : -1;
-            const targetCell = (activeFret > 0)
-                ? activeDot.closest('.fret-cell')
-                : row.querySelector('.fret-dot[data-fret="1"]')?.closest('.fret-cell');
+            const activeFret = activeDot ? parseInt(activeDot.dataset.fret ?? '0', 10) : 0;
+            if (activeFret <= 0) return;
 
+            const targetCell = activeDot.closest('.fret-cell');
             if (!targetCell) return;
-
             finger.style.left = (targetCell.offsetLeft + targetCell.offsetWidth * 0.85) + 'px';
         });
     };
