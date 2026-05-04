@@ -2969,10 +2969,12 @@ body.dark-mode .ism-mech-card-illu {
 }
 
 /* Container: positions the keyboard canvas and the fingers overlay
-   identically so their coordinate spaces match exactly. */
+   identically so their coordinate spaces match exactly.
+   Height 140 px = 60 px key area + 80 px hand band, matching the
+   km-hand-band (80 px) + 60 px upward overlap used in the virtual piano. */
 .ism-hands-kb-host {
   position: relative;
-  height: 90px;
+  height: 140px;
   border-radius: 6px;
   overflow: hidden;
   background: #0f172a;
@@ -2980,7 +2982,7 @@ body.dark-mode .ism-mech-card-illu {
 }
 
 /* Keyboard canvas fills the host — drawn by KeyboardPreview or
-   KeyboardChromaticPreview.  The band area (bottom 22 px) is included
+   KeyboardChromaticPreview.  The band area (bottom 80 px) is included
    inside the canvas, rendered by the keyboard widget itself. */
 .ism-hands-kb-canvas {
   display: block;

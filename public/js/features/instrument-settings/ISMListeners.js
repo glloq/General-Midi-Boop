@@ -1624,7 +1624,9 @@
         const rangeMin = parseInt(host.dataset.rangeMin, 10) || 36;
         const rangeMax = parseInt(host.dataset.rangeMax, 10) || 84;
         const keyboardType = host.dataset.keyboardType === 'piano' ? 'piano' : 'chromatic';
-        const BAND_H = 22;
+        // 80 px band matches the km-hand-band height in the virtual piano so
+        // the finger T-shapes occupy the same proportion of the key area.
+        const BAND_H = 80;
 
         // Destroy any previous instances before creating new ones so we don't
         // accumulate resize observers / RAF loops on detached canvases.
@@ -1654,10 +1656,13 @@
         if (!kbWidget) return;
         this._ismKbWidget = kbWidget;
 
-        // Build the fingers overlay renderer.
+        // Build the fingers overlay renderer — same options as the virtual piano
+        // (KeyboardPiano._mountFingersOverlay) so the visual appearance is identical.
         if (typeof window.KeyboardFingersRenderer !== 'function') return;
         const fingersRenderer = new window.KeyboardFingersRenderer(fingersCanvas, {
-            bandHeight: BAND_H
+            bandHeight: BAND_H,
+            chromaticTipFraction: 0.65,
+            knuckleHeight: 8
         });
         fingersRenderer.setLayout(keyboardType);
         fingersRenderer.setKeyboardWidget(kbWidget);
@@ -1674,9 +1679,11 @@
         // the operator sees realistic overlap without needing a real file.
         const rendererHands = rawHands.map(function(h, i) {
             const numFingers = Number.isFinite(h.num_fingers) ? h.num_fingers : 5;
-            const span = Number.isFinite(h.hand_span_semitones)
-                ? h.hand_span_semitones
-                : Math.max(0, numFingers - 1);
+            // Piano: span is always numFingers-1 (W–G alternation, same logic as
+            // virtual piano's _mountFingersOverlay). Chromatic: use the stored span.
+            const span = keyboardType === 'piano'
+                ? Math.max(0, numFingers - 1)
+                : (Number.isFinite(h.hand_span_semitones) ? h.hand_span_semitones : Math.max(0, numFingers - 1));
             const center = rangeMin + Math.round(range * (i + 1) / (count + 1));
             const anchor = Math.max(rangeMin, Math.min(rangeMax - span, center - Math.round(span / 2)));
             return {
