@@ -977,6 +977,76 @@ body.dark-mode .ism-drum-category {
   border-color: var(--border-color, #374151);
 }
 
+/* ========== String Slide System Preview ========== */
+.ism-string-slide-card {
+  border-color: rgba(59, 130, 246, 0.30);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(99, 102, 241, 0.04));
+}
+
+.ism-string-slide-card:hover {
+  border-color: rgba(59, 130, 246, 0.55);
+}
+
+.ism-string-slide-preview {
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.ism-string-slide-canvas-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.20);
+  background: var(--bg-secondary, #f8fafc);
+  padding: 10px 10px 6px;
+}
+
+.ism-string-slide-canvas-wrap canvas {
+  display: block;
+  max-width: none;
+}
+
+.ism-string-slide-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+}
+
+.ism-ssl-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ism-ssl-dot-rest {
+  background: #ffffff;
+  border: 1.5px solid rgba(59, 130, 246, 0.85);
+}
+
+.ism-ssl-dot-press {
+  background: rgb(59, 130, 246);
+  border: 1.5px solid rgba(59, 130, 246, 0.85);
+}
+
+.ism-ssl-label {
+  margin-right: 8px;
+}
+
+body.dark-mode .ism-string-slide-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.10), rgba(99, 102, 241, 0.07));
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+body.dark-mode .ism-string-slide-canvas-wrap {
+  background: var(--bg-secondary, #1e293b);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
 body.dark-mode .ism-drum-cat-header:hover {
   background: rgba(255, 255, 255, 0.03);
 }

@@ -888,8 +888,204 @@
                     <input type="hidden" id="ism-cc-fret-max" value="${ccFretMax}">
                     <input type="hidden" id="ism-cc-fret-offset" value="${ccFretOff}">
                 </div>
+
+                ${ISMSections._renderStringSlideCard.call(this, config)}
             </div>
         `;
+    };
+
+    /**
+     * Card toggle for the "système de glissière" (one motor per string).
+     * Renders the toggle switch + the canvas preview area (hidden until enabled).
+     */
+    ISMSections._renderStringSlideCard = function(config) {
+        const enabled = !!(config && config.string_sliding_system_enabled);
+        const t = ISMSections._tHelper(this);
+        return `
+            <div class="ism-subsection ism-hands-movement-card ism-string-slide-card" style="margin-top:12px;padding:14px 18px;">
+                <label class="ism-hands-movement-toggle" for="ismStringSlideSystem">
+                    <div class="ism-hands-movement-info">
+                        <h4 class="ism-subsection-title" style="margin:0 0 4px 0;">
+                            ⚙️ ${t('instrumentSettings.stringSlidingSystemTitle', 'Système de glissière')}
+                        </h4>
+                        <p class="ism-form-hint" style="margin:0">
+                            ${t('instrumentSettings.stringSlidingSystemDesc', 'Un moteur par corde déplace un doigt le long des frettes configurées dans cet onglet.')}
+                        </p>
+                    </div>
+                    <span class="ism-toggle-switch">
+                        <input type="checkbox" id="ismStringSlideSystem" ${enabled ? 'checked' : ''}>
+                        <span class="ism-toggle-slider" aria-hidden="true"></span>
+                    </span>
+                </label>
+                <div class="ism-string-slide-preview" id="ismStringSlidePreview"${enabled ? '' : ' style="display:none"'}>
+                    <p class="ism-form-hint" style="margin:10px 0 6px">
+                        ${t('instrumentSettings.stringSlidingSystemHint', 'Zone de déplacement (bleu) et position du doigt (point) par corde sur le clavier virtuel.')}
+                    </p>
+                    <div class="ism-string-slide-canvas-wrap">
+                        <canvas id="ismStringSlideCanvas" style="display:block"></canvas>
+                    </div>
+                    <div class="ism-string-slide-legend">
+                        <span class="ism-ssl-dot ism-ssl-dot-rest"></span>
+                        <span class="ism-ssl-label">${t('instrumentSettings.stringSlidingFingerRest', 'Doigt en déplacement')}</span>
+                        <span class="ism-ssl-dot ism-ssl-dot-press"></span>
+                        <span class="ism-ssl-label">${t('instrumentSettings.stringSlidingFingerPress', 'Doigt en contact')}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    /**
+     * Draw the slide-system preview on `#ismStringSlideCanvas`.
+     * Shows a mini piano keyboard with, per string, a translucent blue travel
+     * zone and a white finger-position dot (8 mm before the target fret).
+     *
+     * @param {object} config - tab.stringInstrumentConfig
+     */
+    ISMSections._initStringSlidePreview = function(config) {
+        const canvas = document.getElementById('ismStringSlideCanvas');
+        if (!canvas) return;
+
+        const numStrings = (config && config.num_strings) || 6;
+        const tuning = (config && config.tuning) || [40, 45, 50, 55, 59, 64];
+        const numFrets = (config && config.num_frets) || 24;
+        const fretsPerString = (config && config.frets_per_string) || null;
+
+        // Per-string note ranges
+        const ranges = [];
+        let globalMin = 127, globalMax = 0;
+        for (let i = 0; i < numStrings; i++) {
+            const open = tuning[i] != null ? tuning[i] : 40;
+            const frets = fretsPerString ? (fretsPerString[i] != null ? fretsPerString[i] : numFrets) : numFrets;
+            const high = Math.min(127, open + frets);
+            ranges.push({ open, high });
+            if (open < globalMin) globalMin = open;
+            if (high > globalMax) globalMax = high;
+        }
+        // Add 1-semitone padding each side
+        globalMin = Math.max(0, globalMin - 1);
+        globalMax = Math.min(127, globalMax + 1);
+        const noteCount = globalMax - globalMin + 1;
+
+        // Layout
+        const NOTE_W    = 13;   // px per semitone
+        const BAND_H    = 22;
+        const BAND_GAP  = 6;
+        const TOP_PAD   = 10;
+        const LABEL_W   = 26;   // left label column
+        const PIANO_H   = 46;
+        const BOT_PAD   = 4;
+
+        const cssW = LABEL_W + noteCount * NOTE_W;
+        const cssH = TOP_PAD + numStrings * (BAND_H + BAND_GAP) - BAND_GAP + 10 + PIANO_H + BOT_PAD;
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width  = Math.round(cssW * dpr);
+        canvas.height = Math.round(cssH * dpr);
+        canvas.style.width  = cssW  + 'px';
+        canvas.style.height = cssH + 'px';
+
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, cssW, cssH);
+
+        // Map note → x (left edge of the note column)
+        const noteX = function(note) { return LABEL_W + (note - globalMin) * NOTE_W; };
+
+        // ── Piano keyboard ──────────────────────────────────────────────────
+        // Black-key pattern (C=0 … B=11)
+        const BLACK = [false, true, false, true, false, false, true, false, true, false, true, false];
+        const pianoY = TOP_PAD + numStrings * (BAND_H + BAND_GAP) - BAND_GAP + 10;
+        const WHITE_H = PIANO_H;
+        const BLACK_H = Math.round(PIANO_H * 0.6);
+
+        // White keys
+        for (let n = globalMin; n <= globalMax; n++) {
+            if (BLACK[n % 12]) continue;
+            const x = noteX(n);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x, pianoY, NOTE_W, WHITE_H);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 0.5, pianoY + 0.5, NOTE_W - 1, WHITE_H - 1);
+        }
+        // Black keys
+        ctx.fillStyle = '#1e293b';
+        for (let n = globalMin; n <= globalMax; n++) {
+            if (!BLACK[n % 12]) continue;
+            const x = noteX(n) + Math.round(NOTE_W * 0.15);
+            ctx.fillRect(x, pianoY, Math.round(NOTE_W * 0.7), BLACK_H);
+        }
+        // C note labels
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        for (let n = globalMin; n <= globalMax; n++) {
+            if (n % 12 !== 0) continue;
+            const octave = Math.floor(n / 12) - 1;
+            ctx.fillText('C' + octave, noteX(n) + NOTE_W / 2, pianoY + WHITE_H - 2);
+        }
+
+        // ── String bands ────────────────────────────────────────────────────
+        // Helper: rounded rect path (safe fallback instead of ctx.roundRect)
+        function roundedRect(cx, x, y, w, h, r) {
+            if (w <= 0 || h <= 0) return;
+            r = Math.min(r, w / 2, h / 2);
+            cx.beginPath();
+            cx.moveTo(x + r, y);
+            cx.lineTo(x + w - r, y);
+            cx.quadraticCurveTo(x + w, y, x + w, y + r);
+            cx.lineTo(x + w, y + h - r);
+            cx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            cx.lineTo(x + r, y + h);
+            cx.quadraticCurveTo(x, y + h, x, y + h - r);
+            cx.lineTo(x, y + r);
+            cx.quadraticCurveTo(x, y, x + r, y);
+            cx.closePath();
+        }
+
+        for (let i = 0; i < numStrings; i++) {
+            const { open, high } = ranges[i];
+            const bandX = noteX(open);
+            const bandW = noteX(high + 1) - bandX;   // +1 so last fret is fully covered
+            const bandY = TOP_PAD + i * (BAND_H + BAND_GAP);
+
+            // Translucent blue fill
+            ctx.fillStyle = 'rgba(59,130,246,0.13)';
+            roundedRect(ctx, bandX, bandY, bandW, BAND_H, 6);
+            ctx.fill();
+
+            // Blue border
+            ctx.strokeStyle = 'rgba(59,130,246,0.70)';
+            ctx.lineWidth = 1.5;
+            roundedRect(ctx, bandX + 0.75, bandY + 0.75, bandW - 1.5, BAND_H - 1.5, 5.5);
+            ctx.stroke();
+
+            // String number label (left column)
+            const strNum = numStrings - i;
+            ctx.fillStyle = 'rgba(59,130,246,0.85)';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('' + strNum, LABEL_W / 2, bandY + BAND_H / 2);
+
+            // Finger dot: positioned ~85% into fret 1 (≈8mm before the fret boundary)
+            // Open string is at noteX(open), fret 1 is at noteX(open+1).
+            // We place the dot at open+1 - 15% of NOTE_W (slightly before the fret line).
+            const dotCX = noteX(open + 1) - NOTE_W * 0.15;
+            const dotCY = bandY + BAND_H / 2;
+            const dotR  = 5;
+
+            // White dot (finger in transit — not pressing)
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = 'rgba(59,130,246,0.85)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(dotCX, dotCY, dotR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
     };
 
     // ===== Voices subsection (multi-GM alternatives) =====

@@ -143,6 +143,36 @@
 
         // Init neck diagram
         this._initNeckDiagram();
+
+        // Slide system toggle
+        const slideToggle = this.$('#ismStringSlideSystem');
+        if (slideToggle) {
+            const getConfig = function() {
+                const tab = this._getActiveTab();
+                return tab ? tab.stringInstrumentConfig : null;
+            }.bind(this);
+
+            // Draw preview if already enabled on mount
+            if (slideToggle.checked) {
+                requestAnimationFrame(function() {
+                    if (typeof ISMSections !== 'undefined' && ISMSections._initStringSlidePreview) {
+                        ISMSections._initStringSlidePreview(getConfig());
+                    }
+                });
+            }
+
+            slideToggle.addEventListener('change', function(e) {
+                const config = getConfig();
+                if (config) config.string_sliding_system_enabled = e.target.checked;
+                const preview = this.$('#ismStringSlidePreview');
+                if (preview) preview.style.display = e.target.checked ? '' : 'none';
+                if (e.target.checked && typeof ISMSections !== 'undefined' && ISMSections._initStringSlidePreview) {
+                    requestAnimationFrame(function() {
+                        ISMSections._initStringSlidePreview(getConfig());
+                    });
+                }
+            }.bind(this));
+        }
     };
 
     /**
