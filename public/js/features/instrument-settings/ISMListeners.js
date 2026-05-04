@@ -1624,9 +1624,11 @@
         const rangeMin = parseInt(host.dataset.rangeMin, 10) || 36;
         const rangeMax = parseInt(host.dataset.rangeMax, 10) || 84;
         const keyboardType = host.dataset.keyboardType === 'piano' ? 'piano' : 'chromatic';
-        // 80 px band matches the km-hand-band height in the virtual piano so
-        // the finger T-shapes occupy the same proportion of the key area.
-        const BAND_H = 80;
+        // 22 px band: in the canvas-based preview the keyboard widget and the
+        // fingers renderer share the same coordinate space, so a small band
+        // leaves most of the canvas height (≈98 px) for visible T-shapes.
+        // (The virtual piano uses 80 px because its canvas extends above DOM keys.)
+        const BAND_H = 22;
 
         // Destroy any previous instances before creating new ones so we don't
         // accumulate resize observers / RAF loops on detached canvases.
@@ -1656,13 +1658,13 @@
         if (!kbWidget) return;
         this._ismKbWidget = kbWidget;
 
-        // Build the fingers overlay renderer — same options as the virtual piano
-        // (KeyboardPiano._mountFingersOverlay) so the visual appearance is identical.
+        // Fingers overlay: same visual options as KeyboardHandPositionEditorModal
+        // (_mountFingersRenderer) — bandHeight matches the keyboard widget so
+        // T-shapes span the full key area (handY ≈ 98 px with a 120 px canvas).
         if (typeof window.KeyboardFingersRenderer !== 'function') return;
         const fingersRenderer = new window.KeyboardFingersRenderer(fingersCanvas, {
             bandHeight: BAND_H,
-            chromaticTipFraction: 0.65,
-            knuckleHeight: 8
+            chromaticTipFraction: 0.65
         });
         fingersRenderer.setLayout(keyboardType);
         fingersRenderer.setKeyboardWidget(kbWidget);
