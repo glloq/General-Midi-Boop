@@ -1357,6 +1357,45 @@
 }
 
 /* ============================================================================
+   STRING SLIDE SYSTEM — travel zone + finger dot (fretboard view)
+   ============================================================================ */
+
+/* Blue translucent band spanning fret 1 → last fret of the string */
+.fretboard-container .fret-slide-zone {
+    display: none;
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    background: rgba(59, 130, 246, 0.13);
+    border: 1.5px solid rgba(59, 130, 246, 0.62);
+    border-radius: 5px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* White dot = finger in transit; turns blue when string-active (pressing) */
+.fretboard-container .fret-slide-finger {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    border: 2px solid rgba(59, 130, 246, 0.85);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 4;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+    transition: background-color 0.08s ease, box-shadow 0.08s ease;
+}
+
+.fretboard-container .fret-string.string-active .fret-slide-finger {
+    background: rgb(59, 130, 246);
+    box-shadow: 0 0 6px 2px rgba(59, 130, 246, 0.55);
+}
+
+/* ============================================================================
    FRETBOARD STRINGS AREA (wrapper introduced for chord-bar layout)
    ============================================================================ */
 

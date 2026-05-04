@@ -523,6 +523,7 @@
         stringsArea.className = 'fretboard-strings-area';
 
         const cfg = this.stringInstrumentConfig || {};
+        const slideEnabled = !!cfg.string_sliding_system_enabled;
         const numStrings = Math.max(1, cfg.num_strings || 6);
         const numFrets = Math.max(0, cfg.num_frets ?? 22);
         // Standard guitar tuning fallback (low → high E-A-D-G-B-E)
@@ -634,6 +635,16 @@
                     row.appendChild(cell);
                 }
             }
+            // Slide-system overlays (blue travel zone + finger dot)
+            if (slideEnabled) {
+                const zoneEl = document.createElement('div');
+                zoneEl.className = 'fret-slide-zone';
+                row.appendChild(zoneEl);
+                const fingerEl = document.createElement('div');
+                fingerEl.className = 'fret-slide-finger';
+                row.appendChild(fingerEl);
+            }
+
             stringsArea.appendChild(row);
         }
 
@@ -648,6 +659,10 @@
         // if the initial rAF inside renderHandWidget fired before layout.
         if (typeof this._updateHandWidgetPosition === 'function') {
             requestAnimationFrame(() => this._updateHandWidgetPosition());
+        }
+
+        if (slideEnabled) {
+            requestAnimationFrame(() => this._positionSlideZones());
         }
 
         // Chord buttons bar (rendered by KeyboardChordsMixin if loaded)
@@ -745,6 +760,56 @@
             row.classList.add('string-active');
         });
     }
+
+    /**
+     * Position the blue travel-zone band and the white finger dot for each
+     * string row in the fretboard when string_sliding_system_enabled is set.
+     * Uses offsetLeft measurements (same pattern as _updateFretboardStringColors)
+     * so it must be called after the DOM is laid out.
+     */
+    KeyboardPianoMixin._positionSlideZones = function() {
+        const cfg = this.stringInstrumentConfig || {};
+        if (!cfg.string_sliding_system_enabled) return;
+
+        const numFrets   = Math.max(0, cfg.num_frets ?? 22);
+        const numStrings = Math.max(1, cfg.num_strings || 6);
+        const fpRaw = Array.isArray(cfg.frets_per_string) && cfg.frets_per_string.length === numStrings
+            ? [...cfg.frets_per_string].reverse()   // match stringsTopDown (highest first)
+            : null;
+
+        const rows = document.querySelectorAll('.fretboard-container .fret-string');
+        rows.forEach((row, s) => {
+            const zone   = row.querySelector('.fret-slide-zone');
+            const finger = row.querySelector('.fret-slide-finger');
+            if (!zone && !finger) return;
+
+            const thisStringFrets = fpRaw ? (fpRaw[s] ?? numFrets) : numFrets;
+
+            const fret1Dot    = row.querySelector('.fret-dot[data-fret="1"]');
+            const lastFretDot = row.querySelector(`.fret-dot[data-fret="${thisStringFrets}"]`);
+            if (!fret1Dot) return;
+
+            const fret1Cell    = fret1Dot.closest('.fret-cell');
+            const lastFretCell = lastFretDot ? lastFretDot.closest('.fret-cell') : null;
+            if (!fret1Cell) return;
+
+            const startX = fret1Cell.offsetLeft;
+            const endX   = lastFretCell
+                ? lastFretCell.offsetLeft + lastFretCell.offsetWidth
+                : row.scrollWidth;
+
+            if (zone) {
+                zone.style.left  = startX + 'px';
+                zone.style.width = (endX - startX) + 'px';
+                zone.style.display = 'block';
+            }
+            if (finger) {
+                // 85% into fret-1 width ≈ 8 mm before the fret boundary
+                finger.style.left = (startX + fret1Cell.offsetWidth * 0.85) + 'px';
+                finger.style.display = 'block';
+            }
+        });
+    };
 
     /**
      * Resolve the SVG asset path for a given GM drum MIDI note.
