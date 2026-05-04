@@ -812,6 +812,34 @@
     };
 
     /**
+     * Move each string's finger dot to 85 % of the active fret cell width
+     * (≈ 8 mm before the fret boundary).  Returns to fret-1 rest position
+     * when no fret is pressed on that string (open string counts as "not
+     * pressing").  Called from updatePianoDisplay() on every note event.
+     */
+    KeyboardPianoMixin._updateSlideFingerPositions = function() {
+        const cfg = this.stringInstrumentConfig || {};
+        if (!cfg.string_sliding_system_enabled) return;
+
+        const rows = document.querySelectorAll('.fretboard-container .fret-string');
+        rows.forEach(row => {
+            const finger = row.querySelector('.fret-slide-finger');
+            if (!finger || finger.style.display === 'none') return;
+
+            // Find the active fret on this string (open-string fret 0 = not pressing)
+            const activeDot = row.querySelector('.fret-dot.active');
+            const activeFret = activeDot ? parseInt(activeDot.dataset.fret ?? '-1', 10) : -1;
+            const targetCell = (activeFret > 0)
+                ? activeDot.closest('.fret-cell')
+                : row.querySelector('.fret-dot[data-fret="1"]')?.closest('.fret-cell');
+
+            if (!targetCell) return;
+
+            finger.style.left = (targetCell.offsetLeft + targetCell.offsetWidth * 0.85) + 'px';
+        });
+    };
+
+    /**
      * Resolve the SVG asset path for a given GM drum MIDI note.
      * Returns null when no specific SVG is available (caller falls back to
      * the kit_standard placeholder).

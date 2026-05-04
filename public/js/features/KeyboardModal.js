@@ -252,6 +252,11 @@ class KeyboardModalNew {
             this._updateFretboardStringColors();
         }
 
+        // Move slide-system finger dots to the active fret position (≈8 mm before fret).
+        if (this.viewMode === 'fretboard' && typeof this._updateSlideFingerPositions === 'function') {
+            this._updateSlideFingerPositions();
+        }
+
         // Keep the fingers overlay in sync with the currently-sounding keys.
         if (typeof this._updateFingersActiveNotes === 'function') {
             this._updateFingersActiveNotes();
