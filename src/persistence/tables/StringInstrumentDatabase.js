@@ -141,8 +141,9 @@ class StringInstrumentDatabase {
           tuning, is_fretless, capo_fret, cc_enabled, tab_algorithm,
           cc_string_number, cc_string_min, cc_string_max, cc_string_offset,
           cc_fret_number, cc_fret_min, cc_fret_max, cc_fret_offset,
-          frets_per_string, scale_length_mm, string_slider_enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          frets_per_string, scale_length_mm, string_slider_enabled,
+          string_sliding_system_enabled
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(device_id, channel) DO UPDATE SET
           instrument_name = excluded.instrument_name,
           num_strings = excluded.num_strings,
@@ -162,7 +163,8 @@ class StringInstrumentDatabase {
           cc_fret_offset = excluded.cc_fret_offset,
           frets_per_string = excluded.frets_per_string,
           scale_length_mm = excluded.scale_length_mm,
-          string_slider_enabled = excluded.string_slider_enabled
+          string_slider_enabled = excluded.string_slider_enabled,
+          string_sliding_system_enabled = excluded.string_sliding_system_enabled
       `);
 
       const result = stmt.run(
@@ -186,7 +188,8 @@ class StringInstrumentDatabase {
         config.cc_fret_offset || 0,
         fretsPerStringJson,
         scaleLengthMm,
-        config.string_slider_enabled ? 1 : 0
+        config.string_slider_enabled ? 1 : 0,
+        config.string_sliding_system_enabled ? 1 : 0
       );
 
       this.logger.info(`String instrument created/updated for ${config.device_id} ch${config.channel}`);
@@ -386,6 +389,11 @@ class StringInstrumentDatabase {
       if (updates.string_slider_enabled !== undefined) {
         fields.push('string_slider_enabled = ?');
         values.push(updates.string_slider_enabled ? 1 : 0);
+      }
+
+      if (updates.string_sliding_system_enabled !== undefined) {
+        fields.push('string_sliding_system_enabled = ?');
+        values.push(updates.string_sliding_system_enabled ? 1 : 0);
       }
 
       if (fields.length === 0) return false;
@@ -656,6 +664,7 @@ class StringInstrumentDatabase {
       // or types a value; in that case the planner falls back to constant frets.
       scale_length_mm: Number.isFinite(row.scale_length_mm) ? row.scale_length_mm : null,
       string_slider_enabled: !!row.string_slider_enabled,
+      string_sliding_system_enabled: !!row.string_sliding_system_enabled,
       created_at: row.created_at,
       updated_at: row.updated_at
     };
