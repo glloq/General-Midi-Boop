@@ -60,7 +60,8 @@ async function stringInstrumentCreate(app, data) {
     cc_fret_offset: data.cc_fret_offset,
     frets_per_string: data.frets_per_string,
     scale_length_mm: data.scale_length_mm,
-    string_slider_enabled: data.string_slider_enabled
+    string_slider_enabled: data.string_slider_enabled,
+    string_sliding_system_enabled: data.string_sliding_system_enabled
   });
   return { success: true, id };
 }
@@ -95,7 +96,8 @@ async function stringInstrumentUpdate(app, data) {
     cc_fret_offset: data.cc_fret_offset,
     frets_per_string: data.frets_per_string,
     scale_length_mm: data.scale_length_mm,
-    string_slider_enabled: data.string_slider_enabled
+    string_slider_enabled: data.string_slider_enabled,
+    string_sliding_system_enabled: data.string_sliding_system_enabled
   });
   return { success: updated };
 }

@@ -147,9 +147,26 @@
         // Slide system toggle
         const slideToggle = this.$('#ismStringSlideSystem');
         if (slideToggle) {
+            // Build a config snapshot from current DOM values so the canvas always
+            // reflects what the user sees, even before saving.
             const getConfig = function() {
                 const tab = this._getActiveTab();
-                return tab ? tab.stringInstrumentConfig : null;
+                const base = (tab && tab.stringInstrumentConfig)
+                    ? Object.assign({}, tab.stringInstrumentConfig)
+                    : {};
+                const numStrings = parseInt(this.$('#siNumStrings')?.value) || base.num_strings || 6;
+                base.num_strings = numStrings;
+                const tuning = [];
+                for (let i = 0; i < numStrings; i++) {
+                    const el = this.$(`#siTuning${i}`);
+                    tuning.push(el ? (parseInt(el.value) || 40) : (base.tuning ? (base.tuning[i] || 40) : 40));
+                }
+                base.tuning = tuning;
+                // Prefer live frets from the neck diagram widget
+                if (this._neckDiagram && typeof this._neckDiagram.getFretsPerString === 'function') {
+                    base.frets_per_string = this._neckDiagram.getFretsPerString();
+                }
+                return base;
             }.bind(this);
 
             // Draw preview if already enabled on mount
