@@ -666,7 +666,8 @@
             </div>` : ''}
 
             ${ISMSections._handsTabEligible(tab) ? `
-            <div class="ism-subsection ism-hands-movement-card" id="handsMovementSubsection">
+            <div class="ism-subsection ism-hands-movement-card" id="handsMovementSubsection"
+                 style="${tab.stringInstrumentConfig?.string_sliding_system_enabled ? 'display:none' : ''}">
                 <label class="ism-hands-movement-toggle" for="handsMovementEnabled">
                     <div class="ism-hands-movement-info">
                         <h4 class="ism-subsection-title" style="margin:0 0 6px 0;">🫱 ${this.t('instrumentSettings.handsMovementTitle') || 'Gestion du déplacement des mains'}</h4>
