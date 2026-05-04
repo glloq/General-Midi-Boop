@@ -199,7 +199,8 @@
                     cc_fret_max:      _int(this.$('#ism-cc-fret-max')?.value, 36),
                     cc_fret_offset:   _int(this.$('#ism-cc-fret-offset')?.value, 0),
                     frets_per_string: fretsPerStringData,
-                    scale_length_mm: scaleLengthMm
+                    scale_length_mm: scaleLengthMm,
+                    string_sliding_system_enabled: !!(this.$('#ismStringSlideSystem')?.checked)
                 };
             }
 
