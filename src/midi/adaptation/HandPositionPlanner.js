@@ -348,7 +348,8 @@ class HandPositionPlanner {
       //
       //   - string_sliding_fingers: 1 finger per string → cap is `max_fingers`.
       //   - fret_sliding_fingers:   1 finger per fret-offset → cap is `num_fingers`.
-      if (this.unit === 'frets') {
+      //   - vertical_bar: 1 bar presses ALL strings at once — no per-finger cap.
+      if (this.unit === 'frets' && this.mechanism !== 'vertical_bar') {
         const fingerCap = this.mechanism === 'fret_sliding_fingers'
           ? (Number.isFinite(hand.num_fingers) && hand.num_fingers > 0 ? hand.num_fingers : null)
           : (Number.isFinite(hand.max_fingers) && hand.max_fingers > 0 ? hand.max_fingers : null);
