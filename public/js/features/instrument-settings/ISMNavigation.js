@@ -16,6 +16,13 @@
         if (sectionId === 'notes') {
             this._initPianoForActiveTab();
         }
+        // Mount the hands preview when switching to the hands section: the section
+        // is display:none on initial render so canvas clientWidth/Height are 0 and
+        // requestAnimationFrame draws nothing. We remount here when the section
+        // becomes visible so the keyboard widget and fingers overlay render correctly.
+        if (sectionId === 'hands' && typeof this._mountHandsPreview === 'function') {
+            this._mountHandsPreview();
+        }
     };
 
     ISMNavigation._switchTab = async function(channel) {
