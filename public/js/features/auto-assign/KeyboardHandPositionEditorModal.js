@@ -19,6 +19,9 @@
 (function() {
     'use strict';
 
+    const _KB_BLACK = new Set([1, 3, 6, 8, 10]);
+    function _kbIsBlackKey(m) { return _KB_BLACK.has(((m % 12) + 12) % 12); }
+
     function _t(key, fallback) {
         if (window.i18n && typeof window.i18n.t === 'function') {
             const v = window.i18n.t(key);
@@ -486,10 +489,13 @@
                 // Every position edit happens on the piano-roll above
                 // (see `KeyboardRollRenderer`). The keyboard exists
                 // purely to show where the hand currently sits and
-                // which keys
-                // are pressed at the playhead.
+                // which keys are pressed at the playhead.
+                // Snap rangeMin to a white key so KeyboardPreview never
+                // renders the first key at the wrong x position.
+                let kbLo = ext.lo;
+                while (_kbIsBlackKey(kbLo) && kbLo > 0) kbLo--;
                 this.keyboard = new window.KeyboardPreview(this.keyboardCanvas, {
-                    rangeMin: ext.lo,
+                    rangeMin: kbLo,
                     rangeMax: ext.hi,
                     bandHeight: 22,
                     bandsOnSingleRow: true
@@ -652,6 +658,10 @@
             if (hi > full.hi) { lo -= hi - full.hi; hi = full.hi; }
             lo = Math.max(full.lo, lo);
             hi = Math.min(full.hi, hi);
+            // Snap lo to the nearest white key (downward) for piano layout.
+            if (this._keyboardLayoutType() === 'piano') {
+                while (_kbIsBlackKey(lo) && lo > full.lo) lo--;
+            }
             this._kbView = { lo, hi };
             this.keyboard?.setRange(lo, hi);
             this.keyboard?.draw();
@@ -671,6 +681,14 @@
             let hi = lo + span;
             if (lo < full.lo) { hi += full.lo - lo; lo = full.lo; }
             if (hi > full.hi) { lo -= hi - full.hi; hi = full.hi; }
+            // Snap lo to the nearest white key (downward) for piano layout.
+            // KeyboardPreview renders a black rangeMin at the wrong x position
+            // (whiteIdx[rangeMin-1] defaults to 0, so it appears to the right
+            // of the first white key instead of to its left), causing the
+            // fingers overlay to appear misaligned with the visible keys.
+            if (this._keyboardLayoutType() === 'piano') {
+                while (_kbIsBlackKey(lo) && lo > full.lo) lo--;
+            }
             this._kbView = { lo, hi };
             this.keyboard?.setRange(lo, hi);
             this.keyboard?.draw();
