@@ -1387,7 +1387,7 @@
     pointer-events: none;
     z-index: 4;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
-    transition: background-color 0.08s ease, box-shadow 0.08s ease;
+    transition: left 0.09s ease, background-color 0.08s ease, box-shadow 0.08s ease;
 }
 
 .fretboard-container .fret-string.string-active .fret-slide-finger {
