@@ -80,6 +80,9 @@
                 case 'cycle-snap':
                     this.modal.editActions?.cycleSnap();
                     break;
+                case 'show-info':
+                    this.modal.infoModal?.show();
+                    break;
                 case 'rename-file':
                     this.modal.fileOps.showRenameDialog();
                     break;
