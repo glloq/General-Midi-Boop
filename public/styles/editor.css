@@ -1793,10 +1793,10 @@ body.dark-mode .snap-select option {
     position: fixed;
     inset: 0;
     z-index: 10100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0,0,0,0.55);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 32px 16px;
+    background: rgba(0,0,0,0.6);
     opacity: 0;
     transition: opacity 0.2s ease;
 }
@@ -1810,13 +1810,11 @@ body.dark-mode .snap-select option {
     color: var(--text-primary, #2c3e50);
     border: 1px solid var(--border-color, #e0e0e0);
     border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
     width: min(720px, 94vw);
-    height: 82vh;
-    max-height: 82vh;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
     transform: translateY(8px);
     transition: transform 0.2s ease;
 }
@@ -1863,13 +1861,7 @@ body.dark-mode .snap-select option {
     color: var(--text-primary, #2c3e50);
 }
 
-/* Body scrollable — flex: 1 + min-height: 0 sont indispensables pour que
-   overflow-y: auto fonctionne dans un conteneur flex */
 .file-info-modal-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
