@@ -94,7 +94,10 @@ class CommandRegistry {
       this.versionedHandlers[key] = handler;
     } else {
       if (this.handlers[command]) {
-        this.app.logger.warn(`CommandRegistry: overwriting handler for '${command}'`);
+        throw new Error(
+          `CommandRegistry: duplicate handler registration for '${command}'. ` +
+          `Each command name must be registered by exactly one module.`
+        );
       }
       this.handlers[command] = handler;
     }

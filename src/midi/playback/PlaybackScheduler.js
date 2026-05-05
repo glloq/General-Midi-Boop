@@ -11,8 +11,6 @@
  *     without leaking timers across stop/start cycles.
  *
  * Caches keyed by `device:channel`:
- *   - `_syncDelayCache` — combined user `sync_delay` + measured hardware
- *     latency, clamped to ±`MAX_COMPENSATION_MS`.
  *   - `_stringCCCache`  — whether CC 20/21 (string/fret select) should be
  *     forwarded for the target instrument.
  *   - `_timingConstraintCache` — `min_note_interval`, `min_note_duration`
@@ -28,41 +26,57 @@
  * silenced for the rest of the playback.
  */
 import { performance } from 'perf_hooks';
-import { TIMING, MIDI_CC } from '../../core/constants.js';
+import { TIMING, MIDI_CC, MIDI_EVENT_TYPES, DEVICE_MSG_TYPES } from '../../core/constants.js';
 
-const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, MAX_COMPENSATION_MS } = TIMING;
+const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
 const MIDI_CC_STRING_SELECT = MIDI_CC.STRING_SELECT;
 const MIDI_CC_FRET_SELECT = MIDI_CC.FRET_SELECT;
 
 class PlaybackScheduler {
   /**
-   * @param {Object} app - Application context (logger, database, eventBus, wsServer, deviceManager, latencyCompensator)
+   * @param {Object} deps - Explicit dependency bag.
+   * @param {Object} deps.logger
+   * @param {Object} deps.database
+   * @param {Object} deps.eventBus
+   * @param {Object} [deps.wsServer]
+   * @param {Object} deps.deviceManager
+   * @param {Object} [deps.compensationService]
+   * @param {Object} [deps.capabilityResolver]
+   * @param {Object} [deps.midiClockGenerator]
+   * @param {Object} [deps.eventLoopMonitor]  - Optional; reduces lookahead when event loop is lagging.
    */
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this.logger              = deps.logger;
+    this.database            = deps.database;
+    this.eventBus            = deps.eventBus;
+    this.wsServer            = deps.wsServer;
+    this.deviceManager       = deps.deviceManager;
+    this.compensationService = deps.compensationService   || null;
+    this.capabilityResolver  = deps.capabilityResolver    || null;
+    this.midiClockGenerator  = deps.midiClockGenerator    || null;
+    this.eventLoopMonitor    = deps.eventLoopMonitor      || null;
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
-    this._syncDelayCache = new Map(); // Cache sync_delay per device to avoid DB queries per event
-    this._stringCCCache = new Map(); // Cache string instrument CC allowed per device:channel
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
     this._unroutedChannels = new Set(); // Track channels with no routing (notify once per playback)
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
 
     // Timing constraint enforcement: track last noteOn timestamp per (device:channel)
     this._lastNoteOnTime = new Map(); // key: "device:channel" -> timestamp (ms)
-    this._timingConstraintCache = new Map(); // key: "device:channel" -> { minNoteInterval, minNoteDuration, polyphony }
     // Polyphony enforcement: track active notes per (device:channel)
     this._activeNotes = new Map(); // key: "device:channel" -> Set of active note numbers
 
-    // Invalidate sync_delay cache immediately when instrument settings change
+    // Invalidate caches immediately when instrument settings change.
+    // Note: _syncDelayCache is removed — compensation is now handled by
+    // CompensationService. The remaining caches (string CC, timing constraints)
+    // still need local invalidation.
     this._onSettingsChanged = () => {
-      this._syncDelayCache.clear();
-      this._stringCCCache.clear();
-      this._timingConstraintCache.clear();
+      // CapabilityResolver handles its own invalidation via the same event.
+      // We only need to reset the local per-playback aggregate here.
       this._maxCompensationMs = 0;
     };
-    this.app.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
+    this.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
   }
 
   /**
@@ -92,66 +106,30 @@ class PlaybackScheduler {
    * Reset caches at the start of playback.
    */
   resetForPlayback() {
-    this._syncDelayCache.clear();
-    this._stringCCCache.clear();
     this._failedDevices.clear();
     this._unroutedChannels.clear();
     this._maxCompensationMs = 0;
     this._lastNoteOnTime.clear();
-    this._timingConstraintCache.clear();
     this._activeNotes.clear();
+    // CapabilityResolver caches survive across playbacks (invalidated on settings change).
+    // No need to clear them here — they hold per-device capability data, not per-file state.
   }
 
   /**
-   * Check if CC 20/21 (string/fret select) is allowed for a given device+channel.
-   * Returns true only if a string instrument with cc_enabled exists for that pair.
+   * Delegates to CapabilityResolver. Falls back to false when the resolver
+   * is unavailable (tests without full DI wiring).
    */
   _isStringCCAllowed(deviceId, channel) {
-    const cacheKey = `${deviceId}:${channel}`;
-    if (this._stringCCCache.has(cacheKey)) {
-      return this._stringCCCache.get(cacheKey);
-    }
-    let allowed = false;
-    try {
-      const instrument = this.app.database?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
-      allowed = instrument != null && instrument.cc_enabled !== false;
-    } catch (e) {
-      allowed = false;
-    }
-    this._stringCCCache.set(cacheKey, allowed);
-    return allowed;
+    return this.capabilityResolver?.isStringCCAllowed(deviceId, channel) ?? false;
   }
 
   /**
-   * Get timing and polyphony constraints for a given device+channel.
-   * Cached per playback session to avoid DB queries per event.
-   * @param {string} deviceId
-   * @param {number} channel
-   * @returns {{ minNoteInterval: number|null, minNoteDuration: number|null, polyphony: number|null }}
+   * Delegates to CapabilityResolver. Returns null-constraint object when
+   * the resolver is unavailable.
    */
   _getTimingConstraints(deviceId, channel) {
-    const cacheKey = `${deviceId}:${channel}`;
-    if (this._timingConstraintCache.has(cacheKey)) {
-      return this._timingConstraintCache.get(cacheKey);
-    }
-    let constraints = { minNoteInterval: null, minNoteDuration: null, polyphony: null };
-    try {
-      const capDB = this.app.database?.instrumentCapabilitiesDB;
-      if (capDB) {
-        const instrument = capDB.getInstrumentCapabilities(deviceId, channel);
-        if (instrument) {
-          constraints = {
-            minNoteInterval: instrument.min_note_interval || null,
-            minNoteDuration: instrument.min_note_duration || null,
-            polyphony: instrument.polyphony || null
-          };
-        }
-      }
-    } catch (e) {
-      // Silently ignore — no constraints applied
-    }
-    this._timingConstraintCache.set(cacheKey, constraints);
-    return constraints;
+    return this.capabilityResolver?.getTimingConstraints(deviceId, channel)
+      ?? { minNoteInterval: null, minNoteDuration: null, polyphony: null };
   }
 
   /**
@@ -167,14 +145,14 @@ class PlaybackScheduler {
     const cacheKey = `${deviceId}:${channel}`;
     const constraints = this._getTimingConstraints(deviceId, channel);
 
-    if (eventType === 'noteOff') {
+    if (eventType === MIDI_EVENT_TYPES.NOTE_OFF) {
       // Track noteOff for polyphony counting
       const activeSet = this._activeNotes.get(cacheKey);
       if (activeSet) activeSet.delete(note);
       return false; // Never gate noteOff
     }
 
-    // eventType === 'noteOn'
+    // eventType === MIDI_EVENT_TYPES.NOTE_ON
     const now = performance.now();
 
     // Check min_note_interval: if the last noteOn on this device:channel was too recent, drop
@@ -203,10 +181,12 @@ class PlaybackScheduler {
 
   /**
    * Invalidate compensation caches (e.g., when routing changes).
+   * CompensationService has its own invalidate(); this resets the local
+   * per-playback max-compensation aggregate.
    */
   invalidateCompensationCache() {
     this._maxCompensationMs = 0;
-    this._syncDelayCache.clear();
+    this.compensationService?.invalidate();
   }
 
   /**
@@ -239,9 +219,15 @@ class PlaybackScheduler {
       return state.currentEventIndex;
     }
 
-    // Dynamic lookahead: extend beyond base to accommodate large sync_delay compensations
+    // Dynamic lookahead: extend beyond base to accommodate large sync_delay compensations.
+    // Under event-loop pressure, reduce the lookahead window to avoid queuing too many
+    // setTimeout callbacks that will pile up and worsen the lag.
     const maxCompSec = this._getMaxActiveCompensation(state, getOutputForChannel) / 1000;
-    const targetTime = state.position + LOOKAHEAD_SECONDS + maxCompSec;
+    const lagMs = this.eventLoopMonitor?.currentLag ?? 0;
+    const effectiveLookahead = lagMs > 20
+      ? Math.max(0.05, LOOKAHEAD_SECONDS - lagMs / 1000)
+      : LOOKAHEAD_SECONDS;
+    const targetTime = state.position + effectiveLookahead + maxCompSec;
 
     let idx = state.currentEventIndex;
     while (idx < state.events.length) {
@@ -274,12 +260,12 @@ class PlaybackScheduler {
    */
   scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
     // Handle tempo change events (for MIDI clock synchronization)
-    if (event.type === 'setTempo') {
+    if (event.type === MIDI_EVENT_TYPES.SET_TEMPO) {
       const delay = Math.max(0, event.time - currentPosition);
       const timeoutId = setTimeout(() => {
         this.pendingTimeouts.delete(timeoutId);
-        if (this.app.midiClockGenerator) {
-          this.app.midiClockGenerator.setTempo(event.tempo);
+        if (this.midiClockGenerator) {
+          this.midiClockGenerator.setTempo(event.tempo);
         }
       }, delay * 1000);
       this.pendingTimeouts.add(timeoutId);
@@ -311,15 +297,15 @@ class PlaybackScheduler {
     }
 
     // For note events, pass the note and event type to routing for split support
-    const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';
+    const isNoteEvent = event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
     const note = isNoteEvent ? (event.note ?? null) : null;
     const routing = getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
 
     if (!routing) {
       if (!this._unroutedChannels.has(event.channel)) {
         this._unroutedChannels.add(event.channel);
-        this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping events`);
-        this.app.wsServer?.broadcast('playback_channel_skipped', {
+        this.logger.warn(`No output device for channel ${event.channel + 1}, skipping events`);
+        this.wsServer?.broadcast('playback_channel_skipped', {
           channel: event.channel,
           channelDisplay: event.channel + 1,
           reason: 'no_routing'
@@ -345,7 +331,7 @@ class PlaybackScheduler {
     }
 
     if (!routing.device) {
-      this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
+      this.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
       return;
     }
 
@@ -356,7 +342,7 @@ class PlaybackScheduler {
     const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
 
     if (syncDelay > 0 && delay < syncDelay / 1000) {
-      this.app.logger.debug(
+      this.logger.debug(
         `Compensation ${syncDelay.toFixed(0)}ms exceeds delay ${(delay * 1000).toFixed(0)}ms for ch${event.channel + 1}, sending immediately`
       );
     }
@@ -384,7 +370,7 @@ class PlaybackScheduler {
       return;
     }
 
-    const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';
+    const isNoteEvent = event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
     const note = isNoteEvent ? (event.note ?? null) : null;
     const routing = getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
 
@@ -401,8 +387,8 @@ class PlaybackScheduler {
     if (!routing || !routing.device) {
       if (!this._unroutedChannels.has(event.channel)) {
         this._unroutedChannels.add(event.channel);
-        this.app.logger.warn(`No output device for channel ${event.channel + 1}`);
-        this.app.wsServer?.broadcast('playback_channel_skipped', {
+        this.logger.warn(`No output device for channel ${event.channel + 1}`);
+        this.wsServer?.broadcast('playback_channel_skipped', {
           channel: event.channel,
           channelDisplay: event.channel + 1,
           reason: 'no_routing'
@@ -413,7 +399,7 @@ class PlaybackScheduler {
 
     // Use targetChannel from routing
     const outChannel = routing.targetChannel;
-    const device = this.app.deviceManager;
+    const device = this.deviceManager;
     let sendResult = true;
 
     // Per-channel transposition: applied to note pitches just before
@@ -424,70 +410,70 @@ class PlaybackScheduler {
     // note if the device's polyphony / spacing rules reject it.
     const transposeSemis = state.channelTransposition
       ? (state.channelTransposition.get(event.channel) || 0) : 0;
-    const outNote = (event.type === 'noteOn' || event.type === 'noteOff' || event.type === 'noteAftertouch')
+    const outNote = (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF || event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH)
       ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
       : event.note;
 
     // Enforce timing and polyphony constraints for note events
-    if (event.type === 'noteOn' || event.type === 'noteOff') {
-      const isNoteOn = event.type === 'noteOn' && (event.velocity ?? 0) > 0;
-      const evtType = isNoteOn ? 'noteOn' : 'noteOff';
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      const isNoteOn = event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) > 0;
+      const evtType = isNoteOn ? MIDI_EVENT_TYPES.NOTE_ON : MIDI_EVENT_TYPES.NOTE_OFF;
       if (this._shouldGateNote(routing.device, outChannel, outNote, evtType)) {
         return; // Gated: note dropped due to timing or polyphony constraint
       }
     }
 
-    if (event.type === 'noteOn') {
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON) {
       if (event.velocity === 0) {
         // velocity 0 noteOn = noteOff, track for polyphony
-        this._shouldGateNote(routing.device, outChannel, outNote, 'noteOff');
-        sendResult = device.sendMessage(routing.device, 'noteoff', {
+        this._shouldGateNote(routing.device, outChannel, outNote, MIDI_EVENT_TYPES.NOTE_OFF);
+        sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, {
           channel: outChannel,
           note: outNote,
           velocity: 0
         });
       } else {
-        sendResult = device.sendMessage(routing.device, 'noteon', {
+        sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_ON, {
           channel: outChannel,
           note: outNote,
           velocity: event.velocity
         });
       }
-    } else if (event.type === 'noteOff') {
-      sendResult = device.sendMessage(routing.device, 'noteoff', {
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, {
         channel: outChannel,
         note: outNote,
         velocity: event.velocity
       });
-    } else if (event.type === 'programChange') {
-      sendResult = device.sendMessage(routing.device, 'program', {
+    } else if (event.type === MIDI_EVENT_TYPES.PROGRAM_CHANGE) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.PROGRAM, {
         channel: outChannel,
         program: event.program
       });
-    } else if (event.type === 'controller') {
+    } else if (event.type === MIDI_EVENT_TYPES.CONTROLLER) {
       // Filter CC 20/21 (string/fret select): only send for string instruments with cc_enabled
       if (event.controller === MIDI_CC_STRING_SELECT || event.controller === MIDI_CC_FRET_SELECT) {
         if (!this._isStringCCAllowed(routing.device, outChannel)) {
           return;
         }
       }
-      sendResult = device.sendMessage(routing.device, 'cc', {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.CC, {
         channel: outChannel,
         controller: event.controller,
         value: event.value
       });
-    } else if (event.type === 'pitchBend') {
-      sendResult = device.sendMessage(routing.device, 'pitchbend', {
+    } else if (event.type === MIDI_EVENT_TYPES.PITCH_BEND) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.PITCH_BEND, {
         channel: outChannel,
         value: event.value
       });
-    } else if (event.type === 'channelAftertouch') {
-      sendResult = device.sendMessage(routing.device, 'channel aftertouch', {
+    } else if (event.type === MIDI_EVENT_TYPES.CHANNEL_AFTERTOUCH) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.CHANNEL_AFTERTOUCH, {
         channel: outChannel,
         pressure: event.value
       });
-    } else if (event.type === 'noteAftertouch') {
-      sendResult = device.sendMessage(routing.device, 'poly aftertouch', {
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.POLY_AFTERTOUCH, {
         channel: outChannel,
         note: outNote,
         pressure: event.value
@@ -497,12 +483,12 @@ class PlaybackScheduler {
     // Notify once per device if send fails, apply disconnect policy
     if (!sendResult && !this._failedDevices.has(routing.device)) {
       this._failedDevices.add(routing.device);
-      this.app.logger.warn(`Device unreachable during playback: ${routing.device}`);
+      this.logger.warn(`Device unreachable during playback: ${routing.device}`);
 
       const policy = state.disconnectedPolicy || 'skip';
 
       if (policy === 'pause') {
-        this.app.wsServer?.broadcast('playback_device_disconnected', {
+        this.wsServer?.broadcast('playback_device_disconnected', {
           deviceId: routing.device,
           channel: event.channel,
           policy: 'pause',
@@ -522,7 +508,7 @@ class PlaybackScheduler {
             }
           }
         }
-        this.app.wsServer?.broadcast('playback_device_disconnected', {
+        this.wsServer?.broadcast('playback_device_disconnected', {
           deviceId: routing.device,
           channel: event.channel,
           policy: 'mute',
@@ -531,7 +517,7 @@ class PlaybackScheduler {
         });
       } else {
         // 'skip' - existing behavior
-        this.app.wsServer?.broadcast('playback_device_error', {
+        this.wsServer?.broadcast('playback_device_error', {
           deviceId: routing.device,
           channel: event.channel,
           message: `Device ${routing.device} is unreachable`
@@ -550,51 +536,51 @@ class PlaybackScheduler {
     if (!state.playing) return;
     if (state.mutedChannels && state.mutedChannels.has(event.channel)) return;
 
-    const device = this.app.deviceManager;
+    const device = this.deviceManager;
     const outChannel = routing.targetChannel;
 
     // Apply per-channel transposition for note pitches (see sendEvent
     // for the rationale: routing decisions stay in source-note space).
     const transposeSemis = state.channelTransposition
       ? (state.channelTransposition.get(event.channel) || 0) : 0;
-    const outNote = (event.type === 'noteOn' || event.type === 'noteOff' || event.type === 'noteAftertouch')
+    const outNote = (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF || event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH)
       ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
       : event.note;
 
     // Enforce timing and polyphony constraints for note events
-    if (event.type === 'noteOn' || event.type === 'noteOff') {
-      const isNoteOn = event.type === 'noteOn' && (event.velocity ?? 0) > 0;
-      const evtType = isNoteOn ? 'noteOn' : 'noteOff';
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      const isNoteOn = event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) > 0;
+      const evtType = isNoteOn ? MIDI_EVENT_TYPES.NOTE_ON : MIDI_EVENT_TYPES.NOTE_OFF;
       if (this._shouldGateNote(routing.device, outChannel, outNote, evtType)) {
         return; // Gated: note dropped due to timing or polyphony constraint
       }
     }
 
-    if (event.type === 'noteOn') {
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON) {
       if (event.velocity === 0) {
-        this._shouldGateNote(routing.device, outChannel, outNote, 'noteOff');
-        device.sendMessage(routing.device, 'noteoff', { channel: outChannel, note: outNote, velocity: 0 });
+        this._shouldGateNote(routing.device, outChannel, outNote, MIDI_EVENT_TYPES.NOTE_OFF);
+        device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, { channel: outChannel, note: outNote, velocity: 0 });
       } else {
-        device.sendMessage(routing.device, 'noteon', { channel: outChannel, note: outNote, velocity: event.velocity });
+        device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_ON, { channel: outChannel, note: outNote, velocity: event.velocity });
       }
-    } else if (event.type === 'noteOff') {
-      device.sendMessage(routing.device, 'noteoff', { channel: outChannel, note: outNote, velocity: event.velocity });
-    } else if (event.type === 'controller') {
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, { channel: outChannel, note: outNote, velocity: event.velocity });
+    } else if (event.type === MIDI_EVENT_TYPES.CONTROLLER) {
       // Filter CC 20/21 (string/fret select): only send for string instruments with cc_enabled
       if (event.controller === MIDI_CC_STRING_SELECT || event.controller === MIDI_CC_FRET_SELECT) {
         if (!this._isStringCCAllowed(routing.device, outChannel)) {
           return;
         }
       }
-      device.sendMessage(routing.device, 'cc', { channel: outChannel, controller: event.controller, value: event.value });
-    } else if (event.type === 'programChange') {
-      device.sendMessage(routing.device, 'program', { channel: outChannel, program: event.program });
-    } else if (event.type === 'pitchBend') {
-      device.sendMessage(routing.device, 'pitchbend', { channel: outChannel, value: event.value });
-    } else if (event.type === 'channelAftertouch') {
-      device.sendMessage(routing.device, 'channel aftertouch', { channel: outChannel, pressure: event.value });
-    } else if (event.type === 'noteAftertouch') {
-      device.sendMessage(routing.device, 'poly aftertouch', { channel: outChannel, note: outNote, pressure: event.value });
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.CC, { channel: outChannel, controller: event.controller, value: event.value });
+    } else if (event.type === MIDI_EVENT_TYPES.PROGRAM_CHANGE) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.PROGRAM, { channel: outChannel, program: event.program });
+    } else if (event.type === MIDI_EVENT_TYPES.PITCH_BEND) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.PITCH_BEND, { channel: outChannel, value: event.value });
+    } else if (event.type === MIDI_EVENT_TYPES.CHANNEL_AFTERTOUCH) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.CHANNEL_AFTERTOUCH, { channel: outChannel, pressure: event.value });
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.POLY_AFTERTOUCH, { channel: outChannel, note: outNote, pressure: event.value });
     }
   }
 
@@ -609,7 +595,7 @@ class PlaybackScheduler {
       return;
     }
 
-    const device = this.app.deviceManager;
+    const device = this.deviceManager;
 
     // Build map of device -> target channels actually routed to it
     const channelsPerDevice = new Map();
@@ -696,54 +682,17 @@ class PlaybackScheduler {
 
   /**
    * Get total timing compensation for a device+channel in milliseconds.
-   * Combines sync_delay + hardware latency. Clamped to MAX_COMPENSATION_MS.
-   * @param {string} deviceId - Device identifier
-   * @param {number} channel - MIDI channel
+   * Delegates to CompensationService (shared with MidiRouter) so both hot
+   * paths read from the same cache.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
    * @returns {number} Compensation in ms
    */
   _getSyncDelay(deviceId, channel) {
-    const cacheKey = channel !== undefined ? `${deviceId}_${channel}` : deviceId;
-    if (this._syncDelayCache.has(cacheKey)) {
-      return this._syncDelayCache.get(cacheKey);
-    }
-
-    let syncDelay = 0;
-
-    // 1. User-configured sync_delay (per instrument/channel)
-    if (this.app.database) {
-      try {
-        const settings = this.app.database.getInstrumentSettings(deviceId, channel);
-        if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
-          syncDelay = settings.sync_delay;
-        }
-      } catch (error) {
-        this.app.logger.warn(`Failed to get sync_delay for device ${deviceId}: ${error.message}`);
-      }
-    }
-
-    // 2. Add measured hardware latency (from LatencyCompensator loopback test)
-    if (this.app.latencyCompensator) {
-      const hwLatency = this.app.latencyCompensator.getLatency(deviceId);
-      if (hwLatency > 0) {
-        syncDelay += hwLatency;
-      }
-    }
-
-    // Clamp to maximum allowed compensation (both positive and negative)
-    if (syncDelay > MAX_COMPENSATION_MS) {
-      this.app.logger.warn(`Compensation ${syncDelay.toFixed(0)}ms for device ${deviceId} ch ${channel} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
-      syncDelay = MAX_COMPENSATION_MS;
-    } else if (syncDelay < -MAX_COMPENSATION_MS) {
-      this.app.logger.warn(`Compensation ${syncDelay.toFixed(0)}ms for device ${deviceId} ch ${channel} exceeds min -${MAX_COMPENSATION_MS}ms, clamping`);
-      syncDelay = -MAX_COMPENSATION_MS;
-    }
-
-    if (syncDelay !== 0) {
-      this.app.logger.debug(`Total compensation ${syncDelay.toFixed(1)}ms for device ${deviceId} ch ${channel}`);
-    }
-
-    this._syncDelayCache.set(cacheKey, syncDelay);
-    return syncDelay;
+    const svc = this.compensationService;
+    if (!svc) return 0;
+    return svc.getDelay(deviceId, channel);
   }
 
   /**
@@ -751,9 +700,8 @@ class PlaybackScheduler {
    */
   destroy() {
     this.stopScheduler();
-    this._syncDelayCache.clear();
     if (this._onSettingsChanged) {
-      this.app.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
+      this.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
     }
   }
 }

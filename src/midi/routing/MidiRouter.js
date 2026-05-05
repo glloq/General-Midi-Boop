@@ -22,10 +22,6 @@
  *   - subscribes to `instrument_settings_changed` to refresh the
  *     compensation cache.
  */
-import { TIMING } from '../../core/constants.js';
-
-/** Hard ceiling on per-message compensation; logged + clamped above this. */
-const MAX_COMPENSATION_MS = TIMING.MAX_COMPENSATION_MS;
 
 /**
  * Stateful router. One instance per process; registered in the DI
@@ -40,10 +36,11 @@ class MidiRouter {
    */
   constructor(deps) {
     this.logger = deps.logger;
-    this.database = deps.database;
     this.eventBus = deps.eventBus;
-    // Lazy-resolved deps (deviceManager, latencyCompensator, wsServer).
+    // Resolved lazily: deviceManager, wsServer, compensationService.
     this._deps = deps;
+    // Route persistence — DeviceRouteRepository wraps the `routes` table.
+    this._routeRepo = deps.deviceRouteRepository;
     /** @type {Map<string, Object>} routeId → route record. */
     this.routes = new Map();
     /** @type {Map<string, Set<string>>} sourceId → set of routeIds. */
@@ -54,20 +51,6 @@ class MidiRouter {
     this.monitorAll = false;
     /** @type {Set<NodeJS.Timeout>} Pending compensation timers. */
     this.pendingTimeouts = new Set();
-    /**
-     * Compensation cache `(deviceId[_channel]) → ms`. Refreshed every
-     * 30 s and invalidated on `instrument_settings_changed`.
-     * @type {Map<string, number>}
-     */
-    this._compensationCache = new Map();
-    this._compensationCacheTimer = setInterval(() => {
-      this._compensationCache.clear();
-    }, 30000);
-
-    this._onSettingsChanged = () => {
-      this._compensationCache.clear();
-    };
-    this.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
 
     this.loadRoutesFromDB();
     this.logger.info('MidiRouter initialized');
@@ -81,7 +64,7 @@ class MidiRouter {
    */
   loadRoutesFromDB() {
     try {
-      const routes = this.database.getRoutes();
+      const routes = this._routeRepo.findAll();
       let loadedCount = 0;
       routes.forEach(route => {
         try {
@@ -136,7 +119,7 @@ class MidiRouter {
     // Save to database if new route
     if (!route.id) {
       try {
-        this.database.insertRoute({
+        this._routeRepo.insert({
           id: routeId,
           source_device: route.source,
           destination_device: route.destination,
@@ -176,7 +159,7 @@ class MidiRouter {
 
     const route = this.routes.get(routeId);
 
-    this.database.deleteRoute(routeId);
+    this._routeRepo.delete(routeId);
 
     // Remove from source index
     const sourceSet = this.routesBySource.get(route.source);
@@ -204,7 +187,7 @@ class MidiRouter {
     }
 
     route.enabled = enabled;
-    this.database.updateRoute(routeId, { enabled: enabled ? 1 : 0 });
+    this._routeRepo.update(routeId, { enabled: enabled ? 1 : 0 });
     this.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
   }
 
@@ -221,9 +204,7 @@ class MidiRouter {
     }
 
     route.filter = filter;
-    this.database.updateRoute(routeId, {
-      filter: JSON.stringify(filter)
-    });
+    this._routeRepo.update(routeId, { filter: JSON.stringify(filter) });
     this.logger.info(`Filter updated for route ${routeId}`);
   }
 
@@ -240,9 +221,7 @@ class MidiRouter {
     }
 
     route.channelMap = channelMap;
-    this.database.updateRoute(routeId, {
-      channel_mapping: JSON.stringify(channelMap)
-    });
+    this._routeRepo.update(routeId, { channel_mapping: JSON.stringify(channelMap) });
     this.logger.info(`Channel map updated for route ${routeId}`);
   }
 
@@ -467,9 +446,10 @@ class MidiRouter {
     if (this._deps.wsServer) {
       // Resolve instrument name from database
       let instrumentName = null;
-      if (this.database && msg && msg.channel !== undefined) {
+      const db = this._deps.database;
+      if (db && msg && msg.channel !== undefined) {
         try {
-          const settings = this.database.getInstrumentSettings(deviceId, msg.channel);
+          const settings = db.getInstrumentSettings(deviceId, msg.channel);
           if (settings) instrumentName = settings.custom_name || settings.name;
         } catch (e) { /* instrument name lookup is optional for monitor events */ }
       }
@@ -485,52 +465,17 @@ class MidiRouter {
 
   /**
    * Get latency compensation offset for a destination device + channel (in ms).
-   * In real-time routing, we cannot send events "earlier", so instead we compute
-   * the relative delay needed: fastest device gets max delay, slowest gets 0.
-   * This is cached per routing session and refreshed when routes change.
+   * Delegates to CompensationService (shared with PlaybackScheduler) so the
+   * two hot paths always read the same cached value.
+   *
    * @param {string} deviceId - Destination device
    * @param {number} channel - MIDI channel
-   * @returns {number} Compensation delay in milliseconds (0 = send immediately)
+   * @returns {number} Compensation delay in milliseconds (≥ 0)
    */
   _getRouteCompensation(deviceId, channel) {
-    // Only apply compensation if latencyCompensator or database are available
-    if (!this._deps.latencyCompensator && !this.database) {
-      return 0;
-    }
-
-    const cacheKey = channel !== undefined ? `${deviceId}_${channel}` : deviceId;
-    if (this._compensationCache.has(cacheKey)) {
-      return this._compensationCache.get(cacheKey);
-    }
-
-    let totalLatency = 0;
-
-    // Hardware latency from LatencyCompensator
-    if (this._deps.latencyCompensator) {
-      totalLatency += this._deps.latencyCompensator.getLatency(deviceId) || 0;
-    }
-
-    // User-configured sync_delay from database
-    if (this.database) {
-      try {
-        const settings = this.database.getInstrumentSettings(deviceId, channel);
-        if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
-          totalLatency += settings.sync_delay;
-        }
-      } catch (e) {
-        // Ignore DB errors in hot path
-      }
-    }
-
-    // For real-time routing, negative compensation = this device is faster
-    // We store the raw value; the caller decides how to use it
-    // (In routeMessage, we only delay if compensation > 0)
-    const clamped = Math.min(Math.max(0, totalLatency), MAX_COMPENSATION_MS);
-    if (totalLatency > MAX_COMPENSATION_MS) {
-      this.logger.warn(`Compensation ${totalLatency.toFixed(0)}ms for device ${deviceId} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
-    }
-    this._compensationCache.set(cacheKey, clamped);
-    return clamped;
+    const svc = this._deps.compensationService;
+    if (!svc) return 0;
+    return Math.max(0, svc.getDelay(deviceId, channel));
   }
 
   /**
@@ -599,20 +544,6 @@ class MidiRouter {
       clearTimeout(timeoutId);
     }
     this.pendingTimeouts.clear();
-
-    // Clear compensation cache timer
-    if (this._compensationCacheTimer) {
-      clearInterval(this._compensationCacheTimer);
-      this._compensationCacheTimer = null;
-    }
-    if (this._compensationCache) {
-      this._compensationCache.clear();
-    }
-
-    // Remove event listeners (use stored reference for proper cleanup)
-    if (this._onSettingsChanged) {
-      this.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
-    }
 
     this.routes.clear();
     this.routesBySource.clear();

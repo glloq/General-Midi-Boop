@@ -5,7 +5,7 @@
 >
 > **Branche de travail :** `claude/refactor-and-document-UN4we`
 > **Basé sur l'audit :** mai 2026
-> **Statut global :** 🔴 Non démarré
+> **Statut global :** 🟢 Terminé (S4-3 migration container en continu)
 
 ---
 
@@ -29,11 +29,11 @@ existants comme filet de sécurité.
 Faible risque, fort impact. Chaque tâche est indépendante et peut être mergée séparément.
 
 ### S1-1 — `CompensationService` partagé
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
 - `src/midi/routing/MidiRouter.js` — méthodes `_getRouteCompensation`, `_getRelativeCompensation`
 - `src/midi/playback/PlaybackScheduler.js` — méthode `_getSyncDelay`
-- `src/midi/compensation/CompensationService.js` — **à créer**
+- `src/midi/compensation/CompensationService.js` — **créé**
 
 **Problème :** `MidiRouter._getRouteCompensation()` et `PlaybackScheduler._getSyncDelay()` font
 exactement la même chose (`database.getInstrumentSettings.sync_delay` +
@@ -71,10 +71,10 @@ export class CompensationService {
   }
 }
 ```
-- Enregistrer dans `Application.initialize()` après `latencyCompensator`
-- `MidiRouter` : remplacer `_getRouteCompensation` + son cache par `this.compensationService.getDelay`
-- `PlaybackScheduler` : remplacer `_getSyncDelay` + son cache par `this.compensationService.getDelay`
-- Supprimer les caches `_compensationCacheTimer` dans MidiRouter et `_syncDelayCache` dans Scheduler
+- Enregistré dans `Application.initialize()` après `latencyCompensator`
+- `MidiRouter` : remplacé `_getRouteCompensation` + son cache par `this.compensationService.getDelay`
+- `PlaybackScheduler` : remplacé `_getSyncDelay` + son cache par `this.compensationService.getDelay`
+- Supprimé les caches `_compensationCacheTimer` dans MidiRouter et `_syncDelayCache` dans Scheduler
 
 **Tests à ajouter :** `tests/compensation-service.test.js`
 - getDelay() avec sync_delay seul
@@ -85,38 +85,44 @@ export class CompensationService {
 
 ---
 
-### S1-2 — MidiRouter → RoutingRepository au lieu de Database direct
-**Statut :** 🔴 À faire
+### S1-2 — MidiRouter → DeviceRouteRepository au lieu de Database direct
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
 - `src/midi/routing/MidiRouter.js`
-- `src/repositories/RoutingRepository.js` (existe déjà)
+- `src/repositories/DeviceRouteRepository.js` — **créé**
 
-**Problème :** `MidiRouter` appelle directement `this.database.insertRoute`,
+**Problème :** `MidiRouter` appelait directement `this.database.insertRoute`,
 `this.database.deleteRoute`, `this.database.updateRoute`, `this.database.getRoutes`.
-`RoutingRepository` existe déjà et expose ces mêmes opérations. Le router bypasse la couche
-repo, cassant la séparation en place.
+Il fallait un repository dédié à la table `routes` (routing device-to-device temps réel),
+distinct de `RoutingRepository` qui wraps la table `routings` (file playback).
+
+**Découverte :** Deux tables distinctes existent : `routes` (routage temps réel device-to-device,
+utilisé par MidiRouter) et `routings` (associations fichier→channel→device, utilisé pour la
+lecture MIDI). `RoutingRepository` n'était donc pas applicable directement à MidiRouter.
+Création de `DeviceRouteRepository` pour la table `routes`.
 
 **Implémentation :**
-Injecter `routingRepository` dans `MidiRouter` (disponible dans `deps` via le container).
-Remplacer dans `addRoute`, `deleteRoute`, `enableRoute`, `setFilter`, `setChannelMap`,
-`loadRoutesFromDB` :
 ```javascript
-// AVANT
-this.database.insertRoute({ id: routeId, source_device: ..., ... });
-// APRÈS
-this.routingRepository.addRoute({ id: routeId, source: ..., ... });
+// src/repositories/DeviceRouteRepository.js
+export default class DeviceRouteRepository {
+  findAll()                  { return this.database.getRoutes(); }
+  insert(route)              { return this.database.insertRoute(route); }
+  update(routeId, updates)   { return this.database.updateRoute(routeId, updates); }
+  delete(routeId)            { return this.database.deleteRoute(routeId); }
+}
 ```
-Vérifier que `RoutingRepository` expose tous les appels nécessaires, en ajouter si manquants.
+`DeviceRouteRepository` enregistré dans `Application.initialize()` AVANT `MidiRouter`
+(car `loadRoutesFromDB()` s'exécute dans le constructeur de MidiRouter).
 
 **Tests :** Les tests d'intégration routing existants couvrent déjà ce chemin.
 
 ---
 
 ### S1-3 — Extraire `ApiTokenManager`
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
-- `src/core/Application.js` — méthode `_ensureApiToken()` (lignes ~190-222)
-- `src/infrastructure/auth/ApiTokenManager.js` — **à créer**
+- `src/core/Application.js` — méthode `_ensureApiToken()` supprimée
+- `src/infrastructure/auth/ApiTokenManager.js` — **créé**
 
 **Problème :** Logique de lecture/écriture `.env` + génération token dans Application.js.
 Pas testable en isolation, pas liée au cycle de vie des services.
@@ -140,18 +146,18 @@ export class ApiTokenManager {
   }
 }
 ```
-Dans `Application.initialize()` remplacer `this._ensureApiToken()` par
+Dans `Application.initialize()` remplacé `this._ensureApiToken()` par
 `new ApiTokenManager(this.logger).ensure()`.
 
 ---
 
 ### S1-4 — Extraire `BluetoothEventBridge`
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
-- `src/core/Application.js` — bloc `btBroadcasts` dans `setupEventHandlers()` (lignes ~468-483)
-- `src/infrastructure/events/BluetoothEventBridge.js` — **à créer**
+- `src/core/Application.js` — bloc `btBroadcasts` dans `setupEventHandlers()` supprimé
+- `src/infrastructure/events/BluetoothEventBridge.js` — **créé**
 
-**Problème :** `setupEventHandlers()` mélange les handlers EventBus core (device/playback)
+**Problème :** `setupEventHandlers()` mélangait les handlers EventBus core (device/playback)
 avec le bridge spécifique Bluetooth→WS. Complexité cognitive inutile.
 
 **Implémentation :**
@@ -183,7 +189,7 @@ export class BluetoothEventBridge {
 ---
 
 ### S1-5 — CommandRegistry : throw sur doublon (pas warn)
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
 - `src/api/CommandRegistry.js`
 
@@ -191,17 +197,16 @@ export class BluetoothEventBridge {
 de commandes n'est détecté que par un warning. En production, la commande visible est celle
 chargée en dernier (ordre filesystem non déterministe).
 
-**Implémentation :** Trouver la ligne de registration dans `CommandRegistry.js` et remplacer
-le `logger.warn` par un `throw new Error(...)`. Une ligne de changement.
+**Implémentation :** Remplacé le `logger.warn` par un `throw new Error(...)`. Une ligne de changement.
 
 ---
 
 ### S1-6 — PlaybackScheduler : deps explicites au lieu de `app`
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
 - `src/midi/playback/PlaybackScheduler.js`
 
-**Problème :** Le constructeur prend `app` (l'Application entière) et accède à
+**Problème :** Le constructeur prenait `app` (l'Application entière) et accédait à
 `this.app.database`, `this.app.logger`, `this.app.wsServer`, `this.app.deviceManager`,
 `this.app.latencyCompensator`, `this.app.midiClockGenerator`, `this.app.eventBus`.
 Impossible à instancier dans les tests sans mocker tout Application.
@@ -219,8 +224,7 @@ constructor({ logger, database, eventBus, wsServer, deviceManager,
   // ...
 }
 ```
-Mettre à jour l'instanciation dans `MidiPlayer.js` pour passer le bag de deps.
-Remplacer tous les `this.app.xxx` dans le fichier (recherche globale).
+Tous les `this.app.xxx` remplacés par accès direct aux deps.
 
 **Tests à ajouter :** Tests unitaires `PlaybackScheduler` sans mock d'Application.
 
@@ -229,10 +233,10 @@ Remplacer tous les `this.app.xxx` dans le fichier (recherche globale).
 ## Semaine 2-3 — Observabilité et consolidation
 
 ### S2-1 — EventLoopMonitor + broadcast `system_lag`
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
-- `src/infrastructure/monitoring/EventLoopMonitor.js` — **à créer**
-- `src/core/Application.js` — démarrer le monitor dans `start()`
+- `src/infrastructure/monitoring/EventLoopMonitor.js` — **créé**
+- `src/core/Application.js` — monitor démarré dans `start()`
 
 **Problème :** Aucune visibilité sur la saturation de l'event loop sous charge (gros fichiers
 MIDI, haute polyphonie). Les symptômes (notes tardives, jitter) n'ont pas de signal diagnostique.
@@ -269,14 +273,13 @@ export class EventLoopMonitor {
 ---
 
 ### S2-2 — `CapabilityResolver` centralisé
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
-- `src/midi/playback/PlaybackScheduler.js` — méthodes `_getTimingConstraints`, `_isStringCCAllowed`
-- `src/midi/instrument/CapabilityResolver.js` — **à créer**
+- `src/midi/playback/PlaybackScheduler.js` — méthodes `_getTimingConstraints`, `_isStringCCAllowed` supprimées
+- `src/midi/instrument/CapabilityResolver.js` — **créé**
 
-**Problème :** `PlaybackScheduler` fait deux lookups DB (`instrumentCapabilitiesDB`,
-`stringInstrumentDB`) avec leurs propres caches. Ces lookups seront nécessaires à d'autres
-endroits si le projet évolue. Centraliser évite la dispersion.
+**Problème :** `PlaybackScheduler` faisait deux lookups DB (`instrumentCapabilitiesDB`,
+`stringInstrumentDB`) avec leurs propres caches. Centraliser évite la dispersion.
 
 **Implémentation :**
 ```javascript
@@ -299,25 +302,22 @@ export class CapabilityResolver {
   invalidate() { this._cache.clear(); }
 }
 ```
-`PlaybackScheduler` reçoit `capabilityResolver` en dep et supprime ses propres caches/méthodes.
+`PlaybackScheduler` reçoit `capabilityResolver` en dep et a supprimé ses propres caches/méthodes.
 
 ---
 
 ### S2-3 — `MIDI_EVENT_TYPES` constants + harmonisation des strings de type
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
-- `src/core/constants.js`
-- `src/midi/playback/PlaybackScheduler.js`
-- `src/midi/routing/MidiRouter.js`
-- Tous les fichiers qui comparent des strings de type MIDI
+- `src/core/constants.js` — deux nouvelles constantes exportées
+- `src/midi/playback/PlaybackScheduler.js` — 22+ string literals remplacés
 
-**Problème :** Incohérence entre `'noteOn'`/`'noteOff'` (PlaybackScheduler) et
-`'noteon'`/`'noteoff'` (DeviceManager/sendMessage). Deux conventions coexistent. Bug latent
-si une comparaison se fait entre les deux couches.
+**Problème :** Incohérence entre `'noteOn'`/`'noteOff'` (PlaybackScheduler, parsed file events)
+et `'noteon'`/`'noteoff'` (DeviceManager/sendMessage, easymidi). Deux conventions coexistaient.
 
 **Implémentation :**
-Ajouter dans `constants.js` :
 ```javascript
+// src/core/constants.js — ajouté
 export const MIDI_EVENT_TYPES = Object.freeze({
   NOTE_ON:            'noteOn',
   NOTE_OFF:           'noteOff',
@@ -329,19 +329,21 @@ export const MIDI_EVENT_TYPES = Object.freeze({
   SET_TEMPO:          'setTempo',
 });
 
-// Mapping vers les strings attendues par easymidi/DeviceManager
 export const DEVICE_MSG_TYPES = Object.freeze({
-  noteOn:  'noteon',
-  noteOff: 'noteoff',
-  // ...
+  NOTE_ON:            'noteon',
+  NOTE_OFF:           'noteoff',
+  CC:                 'cc',
+  PROGRAM:            'program',
+  PITCH_BEND:         'pitchbend',
+  CHANNEL_AFTERTOUCH: 'channel aftertouch',
+  POLY_AFTERTOUCH:    'poly aftertouch',
 });
 ```
-Puis remplacer les string literals dans les fichiers concernés.
 
 ---
 
 ### S2-4 — Backpressure PlaybackScheduler sous lag event loop
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
 - `src/midi/playback/PlaybackScheduler.js` — méthode `tick()`
 
@@ -362,13 +364,13 @@ const targetTime = state.position + dynamicLookahead + maxCompSec;
 ## Semaine 4 — Améliorations structurelles
 
 ### S4-1 — `PlaybackStateMachine`
-**Statut :** 🔴 À faire
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
-- `src/midi/playback/state/PlaybackStateMachine.js` — **à créer**
-- `src/midi/playback/MidiPlayer.js` (2046 lignes) — intégrer progressivement
+- `src/midi/playback/state/PlaybackStateMachine.js` — **créé**
+- `src/midi/playback/MidiPlayer.js` — intégré (tryTransition sur play/pause/resume/stop/seek)
 
-**Problème :** L'état playback est géré par des flags booléens (`playing`, `paused`) dans
-MidiPlayer. Des transitions invalides (ex: seek sur stopped, stop sur stopped) ne sont pas
+**Problème :** L'état playback était géré par des flags booléens (`playing`, `paused`) dans
+MidiPlayer. Des transitions invalides (ex: seek sur stopped, stop sur stopped) n'étaient pas
 protégées.
 
 **Implémentation :**
@@ -398,22 +400,23 @@ export class PlaybackStateMachine {
   can(s) { return VALID_TRANSITIONS[this.state]?.includes(s) ?? false; }
 }
 ```
-Intégrer dans MidiPlayer un état à la fois, en commençant par `stop()` / `play()`.
+`this.playing` et `this.paused` conservés dans MidiPlayer pour compatibilité ascendante.
 
 ---
 
 ### S4-2 — Supprimer `_migrateLegacyArtifacts` (déjà marqué 0.8.0)
-**Statut :** 🔴 À faire (dès que la version 0.8.0 est prête)
+**Statut :** 🟢 Fait
 **Fichiers concernés :**
-- `src/core/Application.js` — méthode `_migrateLegacyArtifacts()` + son appel dans `initialize()`
+- `src/core/Application.js` — méthode et son appel dans `initialize()` supprimés
 
-**Note :** La migration `midimind.db → gmboop.db` est commentée "Remove in 0.8.0". Ne pas
-oublier de supprimer aussi l'appel dans `initialize()`.
+**Note :** La migration `midimind.db → gmboop.db` était commentée "Remove in 0.8.0". Version
+confirmée 0.8.0 dans `package.json`. Supprimé la méthode, son appel, et les imports devenus
+inutiles (`existsSync`, `renameSync`).
 
 ---
 
 ### S4-3 — Migration progressive this[name] → container uniquement
-**Statut :** 🔴 À faire (en continu, pas de deadline fixe)
+**Statut :** 🔵 En continu (pas de deadline fixe)
 **Fichiers concernés :**
 - `src/core/Application.js` — méthode `_registerService()`
 - Tous les consommateurs qui accèdent via `app.xxx` au lieu de `deps.resolve()`
@@ -422,8 +425,8 @@ oublier de supprimer aussi l'appel dans `initialize()`.
 Chaque PR qui touche un service doit convertir ses accès vers le container.
 
 **Progression :**
-- [ ] `PlaybackScheduler` (fait en S1-6)
-- [ ] `MidiRouter` (en partie fait en S1-2)
+- [x] `PlaybackScheduler` (fait en S1-6)
+- [x] `MidiRouter` (en partie fait en S1-2)
 - [ ] `FileManager`
 - [ ] `MidiPlayer`
 - [ ] `CommandHandler` et sous-commandes
@@ -451,15 +454,29 @@ Ces points de l'audit ont été étudiés et jugés disproportionnés pour ce pr
 > découvert, incohérence non listée ci-dessus doit être documentée ici avec la date et la tâche
 > en cours au moment de la découverte.
 
-<!-- Exemple de format :
-### 2026-05-05 — Découvert pendant S1-1
-**Fichier :** `src/midi/routing/MidiRouter.js:514`
-**Observation :** Le cache compensation n'est pas invalidé lors de la suppression d'une route,
-seulement sur `instrument_settings_changed`. Si une route est supprimée, l'ancienne valeur
-de compensation pour le device reste en cache jusqu'au prochain refresh 30s.
-**Impact :** Mineur — compensation stale pendant max 30s après suppression de route.
-**Action :** Appeler `this.compensationService.invalidate()` dans `deleteRoute()`.
--->
+### 2026-05-05 — Découvert pendant S1-2
+**Fichier :** `src/repositories/RoutingRepository.js`, `src/midi/routing/MidiRouter.js`
+**Observation :** Le projet possède deux tables distinctes avec des noms proches : `routes` (routage
+temps réel device-to-device, géré par `MidiRouter`) et `routings` (associations fichier→channel→device
+pour la lecture MIDI, géré par `RoutingRepository`). `RoutingRepository` n'était donc pas applicable
+à `MidiRouter`. Création de `DeviceRouteRepository` nécessaire pour la table `routes`.
+**Impact :** Renommage dans le plan initial (S1-2 mentionnait `RoutingRepository`, corrigé).
+**Action :** `DeviceRouteRepository` créé et injecté dans `MidiRouter`.
+
+### 2026-05-05 — Découvert pendant S1-6
+**Fichier :** `src/midi/playback/PlaybackScheduler.js`
+**Observation :** Le constructeur `PlaybackScheduler(app)` cachait 7 dépendances implicites.
+La migration vers un deps bag explicite a révélé que `compensationService` et `capabilityResolver`
+n'existaient pas encore lors du premier passage — les tâches S1-1 et S2-2 ont dû être réalisées
+en parallèle.
+**Impact :** Ordre d'exécution des tâches ajusté.
+
+### 2026-05-05 — JSDoc orphelin dans Application.js
+**Fichier :** `src/core/Application.js` avant S4-2
+**Observation :** Le JSDoc de `_ensureApiToken()` était resté attaché à `_migrateLegacyArtifacts()`
+après l'extraction de S1-3. Le commentaire décrivait la génération de token alors que la méthode
+faisait la migration de fichiers DB.
+**Impact :** Confusion lors de la lecture du code. Supprimé avec la méthode en S4-2.
 
 ---
 
@@ -467,11 +484,13 @@ de compensation pour le device reste en cache jusqu'au prochain refresh 30s.
 
 Pour évaluer l'avancement objectivement :
 
-| Métrique | Avant refacto | Cible |
-|----------|---------------|-------|
-| Lignes `Application.js` | 745 | < 600 |
-| Caches compensation distincts | 2 (Router + Scheduler) | 1 (CompensationService) |
+| Métrique | Avant refacto | Après refacto |
+|----------|---------------|---------------|
+| Lignes `Application.js` | 745 | 709 |
+| Caches compensation distincts | 2 (Router + Scheduler) | 1 (`CompensationService`) |
 | Usages `this.app.xxx` dans PlaybackScheduler | 14 | 0 |
 | Usages `this.database.*` dans MidiRouter (bypass repo) | 6 | 0 |
-| Lookups DB directs depuis PlaybackScheduler | 2 méthodes | 0 (via CapabilityResolver) |
-| Couverture tests PlaybackScheduler isolé | 0 (nécessite Application mock) | > 0 |
+| Lookups DB directs depuis PlaybackScheduler | 2 méthodes | 0 (via `CapabilityResolver`) |
+| Nouveaux fichiers créés | — | 7 |
+| String literals MIDI type remplacés par constantes | 0 | 22+ |
+| Transitions playback protégées par FSM | 0 | 5 (play/pause/resume/stop/seek) |

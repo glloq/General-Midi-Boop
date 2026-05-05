@@ -19,10 +19,10 @@
  * LightingManager) are loaded inside try/catch — missing native deps on a
  * given host are logged as warnings, not fatal errors.
  */
-import { randomBytes } from 'crypto';
-import { existsSync, readFileSync, appendFileSync, writeFileSync, renameSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync } from 'fs';
 import Config from './Config.js';
+import { ApiTokenManager } from '../infrastructure/auth/ApiTokenManager.js';
+import { BluetoothEventBridge } from '../infrastructure/events/BluetoothEventBridge.js';
 import Logger from './Logger.js';
 import EventBus from './EventBus.js';
 import ServiceContainer from './ServiceContainer.js';
@@ -46,6 +46,7 @@ import AutoAssigner from '../midi/adaptation/AutoAssigner.js';
 import MidiAdaptationService from '../midi/adaptation/MidiAdaptationService.js';
 import FileRepository from '../repositories/FileRepository.js';
 import RoutingRepository from '../repositories/RoutingRepository.js';
+import DeviceRouteRepository from '../repositories/DeviceRouteRepository.js';
 import InstrumentRepository from '../repositories/InstrumentRepository.js';
 import PresetRepository from '../repositories/PresetRepository.js';
 import SessionRepository from '../repositories/SessionRepository.js';
@@ -60,6 +61,9 @@ import DeviceReconciliationService from '../midi/devices/DeviceReconciliationSer
 import FileRoutingStatusService from '../midi/files/FileRoutingStatusService.js';
 import MidiClockGenerator from '../midi/playback/MidiClockGenerator.js';
 import BackupScheduler from '../persistence/BackupScheduler.js';
+import { CompensationService } from '../midi/compensation/CompensationService.js';
+import { EventLoopMonitor } from '../infrastructure/monitoring/EventLoopMonitor.js';
+import { CapabilityResolver } from '../midi/instrument/CapabilityResolver.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -106,6 +110,8 @@ class Application {
 
     // Track bound event handlers for cleanup
     this._eventHandlers = [];
+    /** @type {BluetoothEventBridge|null} */
+    this._btBridge = null;
 
     this.version = (() => {
       try {
@@ -162,66 +168,6 @@ class Application {
   }
 
   /**
-   * Ensure an API bearer token exists. If `GMBOOP_API_TOKEN` is not set,
-   * a 32-byte random hex token is generated, written to `.env`, exported
-   * via `process.env` so the HTTP / WebSocket servers pick it up, and
-   * logged as a one-shot warning so the operator can copy it.
-   *
-   * @returns {void}
-   * @private
-   */
-  _migrateLegacyArtifacts() {
-    const pairs = [
-      ['./data/midimind.db', './data/gmboop.db'],
-      ['./logs/midimind.log', './logs/gmboop.log']
-    ];
-    for (const [oldPath, newPath] of pairs) {
-      if (existsSync(oldPath) && !existsSync(newPath)) {
-        try {
-          renameSync(oldPath, newPath);
-          this.logger.warn(`Migrated legacy artifact ${oldPath} -> ${newPath}`);
-        } catch (error) {
-          this.logger.warn(`Legacy migration failed for ${oldPath}: ${error.message}`);
-        }
-      }
-    }
-  }
-
-  _ensureApiToken() {
-    if (process.env.GMBOOP_API_TOKEN) {
-      this.logger.info('API token already configured');
-      return;
-    }
-
-    const token = randomBytes(32).toString('hex');
-    const envPath = resolve('.env');
-
-    try {
-      if (existsSync(envPath)) {
-        const content = readFileSync(envPath, 'utf8');
-        if (content.includes('GMBOOP_API_TOKEN')) {
-          // Variable already declared (likely empty after `.env.example`
-          // copy) — overwrite the existing line in place.
-          const updated = content.replace(/^GMBOOP_API_TOKEN=.*$/m, `GMBOOP_API_TOKEN=${token}`);
-          writeFileSync(envPath, updated, 'utf8');
-        } else {
-          appendFileSync(envPath, `\nGMBOOP_API_TOKEN=${token}\n`, 'utf8');
-        }
-      } else {
-        writeFileSync(envPath, `GMBOOP_API_TOKEN=${token}\n`, 'utf8');
-      }
-    } catch (err) {
-      this.logger.warn(`Could not persist API token to .env: ${err.message}`);
-    }
-
-    process.env.GMBOOP_API_TOKEN = token;
-    this.logger.warn(`=== AUTO-GENERATED API TOKEN ===`);
-    this.logger.warn(`Token: ${token}`);
-    this.logger.warn(`Save this token — it is required to access the API.`);
-    this.logger.warn(`================================`);
-  }
-
-  /**
    * Build every backend service and wire EventBus subscriptions. Safe to
    * call only once per Application instance — call {@link Application#stop}
    * before re-initialising.
@@ -240,11 +186,8 @@ class Application {
     try {
       this.logger.info('Initializing application...');
 
-      // One-shot rebrand migration (v5.x -> 0.7.x). Remove in 0.8.0.
-      this._migrateLegacyArtifacts();
-
       // Ensure API authentication is configured
-      this._ensureApiToken();
+      new ApiTokenManager(this.logger).ensure();
 
       // Create the app facade — a Proxy that resolves properties from the
       // container first, falling back to the Application instance.  Services
@@ -256,6 +199,10 @@ class Application {
       // Initialize database (uses deps.config, deps.logger)
       this._registerService('database', new Database(deps));
 
+      // DeviceRouteRepository must be registered before MidiRouter because
+      // MidiRouter.loadRoutesFromDB() runs in the constructor.
+      this._registerService('deviceRouteRepository', new DeviceRouteRepository(this.database));
+
       // Initialize MIDI components
       this._registerService('deviceManager', new DeviceManager(deps));
       this._registerService('midiRouter', new MidiRouter(deps));
@@ -266,6 +213,14 @@ class Application {
         'delayCalibrator',
         new DelayCalibrator(this.deviceManager, this.logger)
       );
+
+      // Shared compensation cache (sync_delay + hw latency) used by both
+      // MidiRouter and PlaybackScheduler to avoid duplicated DB lookups.
+      this._registerService('compensationService', new CompensationService(deps));
+
+      // Centralised instrument capability lookups (string CC, timing constraints)
+      // replacing duplicated private caches in PlaybackScheduler.
+      this._registerService('capabilityResolver', new CapabilityResolver(deps));
 
       // Initialize storage: BlobStore lives next to the SQLite file.
       const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
@@ -461,24 +416,12 @@ class Application {
       this._eventHandlers.push({ event, handler });
     }
 
-    // Bridge BluetoothManager events to WebSocket clients so the frontend
-    // receives real-time updates (device connects, power state changes, etc.)
-    // without having to poll. wsServer may not exist yet during setup, so the
-    // optional-chaining broadcast is intentionally a no-op until it starts.
+    // Bridge BluetoothManager events to WS clients via dedicated bridge.
+    // wsServer may not exist yet during setup — BluetoothEventBridge uses
+    // optional-chaining on broadcast so early events are silently dropped.
     if (this.bluetoothManager) {
-      const btBroadcasts = [
-        'bluetooth:powered_on',
-        'bluetooth:powered_off',
-        'bluetooth:connected',
-        'bluetooth:disconnected',
-        'bluetooth:unpaired'
-      ];
-      for (const event of btBroadcasts) {
-        const handler = (data) => this.wsServer?.broadcast(event, data || {});
-        this.bluetoothManager.on(event, handler);
-        this._btEventHandlers = this._btEventHandlers || [];
-        this._btEventHandlers.push({ event, handler });
-      }
+      this._btBridge = new BluetoothEventBridge(this.bluetoothManager, this.wsServer);
+      this._btBridge.attach();
     }
   }
 
@@ -496,11 +439,9 @@ class Application {
       }
       this._eventHandlers = [];
     }
-    if (this._btEventHandlers && this.bluetoothManager) {
-      for (const { event, handler } of this._btEventHandlers) {
-        this.bluetoothManager.off(event, handler);
-      }
-      this._btEventHandlers = [];
+    if (this._btBridge) {
+      this._btBridge.detach();
+      this._btBridge = null;
     }
   }
 
@@ -537,6 +478,13 @@ class Application {
         })
       );
       this.backupScheduler.start();
+
+      // Start event-loop lag monitoring (broadcasts system_lag over WS when lag > threshold)
+      this._registerService(
+        'eventLoopMonitor',
+        new EventLoopMonitor({ logger: this.logger, wsServer: this.wsServer })
+      );
+      this.eventLoopMonitor.start();
 
       this.running = true;
       this.logger.info(`=== GeneralMidiBoop ${this.version} Running ===`);
@@ -583,6 +531,11 @@ class Application {
     try {
       this.logger.info('Stopping application...');
       this.running = false;
+
+      // Stop event-loop monitor
+      if (this.eventLoopMonitor) {
+        this.eventLoopMonitor.stop();
+      }
 
       // Stop backup scheduler
       if (this.backupScheduler) {
@@ -631,6 +584,16 @@ class Application {
       // Destroy auto-assigner (cleanup intervals and cache)
       if (this.autoAssigner) {
         this.autoAssigner.destroy();
+      }
+
+      // Destroy shared compensation cache
+      if (this.compensationService) {
+        this.compensationService.destroy();
+      }
+
+      // Destroy capability resolver (detach eventBus listener)
+      if (this.capabilityResolver) {
+        this.capabilityResolver.destroy(this.eventBus);
       }
 
       // Remove event handlers to prevent leaks on restart
