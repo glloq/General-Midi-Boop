@@ -19,10 +19,9 @@
  * LightingManager) are loaded inside try/catch — missing native deps on a
  * given host are logged as warnings, not fatal errors.
  */
-import { randomBytes } from 'crypto';
-import { existsSync, readFileSync, appendFileSync, writeFileSync, renameSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync, renameSync } from 'fs';
 import Config from './Config.js';
+import { ApiTokenManager } from '../infrastructure/auth/ApiTokenManager.js';
 import Logger from './Logger.js';
 import EventBus from './EventBus.js';
 import ServiceContainer from './ServiceContainer.js';
@@ -187,40 +186,6 @@ class Application {
     }
   }
 
-  _ensureApiToken() {
-    if (process.env.GMBOOP_API_TOKEN) {
-      this.logger.info('API token already configured');
-      return;
-    }
-
-    const token = randomBytes(32).toString('hex');
-    const envPath = resolve('.env');
-
-    try {
-      if (existsSync(envPath)) {
-        const content = readFileSync(envPath, 'utf8');
-        if (content.includes('GMBOOP_API_TOKEN')) {
-          // Variable already declared (likely empty after `.env.example`
-          // copy) — overwrite the existing line in place.
-          const updated = content.replace(/^GMBOOP_API_TOKEN=.*$/m, `GMBOOP_API_TOKEN=${token}`);
-          writeFileSync(envPath, updated, 'utf8');
-        } else {
-          appendFileSync(envPath, `\nGMBOOP_API_TOKEN=${token}\n`, 'utf8');
-        }
-      } else {
-        writeFileSync(envPath, `GMBOOP_API_TOKEN=${token}\n`, 'utf8');
-      }
-    } catch (err) {
-      this.logger.warn(`Could not persist API token to .env: ${err.message}`);
-    }
-
-    process.env.GMBOOP_API_TOKEN = token;
-    this.logger.warn(`=== AUTO-GENERATED API TOKEN ===`);
-    this.logger.warn(`Token: ${token}`);
-    this.logger.warn(`Save this token — it is required to access the API.`);
-    this.logger.warn(`================================`);
-  }
-
   /**
    * Build every backend service and wire EventBus subscriptions. Safe to
    * call only once per Application instance — call {@link Application#stop}
@@ -244,7 +209,7 @@ class Application {
       this._migrateLegacyArtifacts();
 
       // Ensure API authentication is configured
-      this._ensureApiToken();
+      new ApiTokenManager(this.logger).ensure();
 
       // Create the app facade — a Proxy that resolves properties from the
       // container first, falling back to the Application instance.  Services
