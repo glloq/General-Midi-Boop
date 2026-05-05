@@ -119,6 +119,9 @@
                         <span class="tempo-unit">BPM</span>
                     </div>
                     <div class="header-right-actions">
+                        <button class="header-info-btn" data-action="show-info" title="Informations du fichier">
+                            📝
+                        </button>
                         <button class="header-save-btn" data-action="save" id="save-btn" title="${this.modal.t('midiEditor.save')}">
                             💾 ${this.modal.t('midiEditor.save')}
                         </button>

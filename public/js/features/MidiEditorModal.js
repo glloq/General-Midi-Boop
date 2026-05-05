@@ -102,6 +102,7 @@ class MidiEditorModal {
         this.events       = typeof MidiEditorEvents          !== 'undefined' ? new MidiEditorEvents(this)          : null;
         this.tablatureOps = typeof MidiEditorTablature !== 'undefined' ? new MidiEditorTablature(this) : null;
         this.lifecycle    = typeof MidiEditorLifecycle       !== 'undefined' ? new MidiEditorLifecycle(this)       : null;
+        this.infoModal    = typeof MidiEditorInfoModal       !== 'undefined' ? new MidiEditorInfoModal(this)       : null;
 
         // Tablature editor (for string instruments)
         this.tablatureEditor = null;
