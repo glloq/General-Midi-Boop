@@ -36,12 +36,11 @@ class MidiRouter {
    */
   constructor(deps) {
     this.logger = deps.logger;
-    this.database = deps.database;
     this.eventBus = deps.eventBus;
-    // Lazy-resolved deps (deviceManager, latencyCompensator, wsServer,
-    // compensationService). Resolved at first use so construction order
-    // in Application.initialize() stays flexible.
+    // Resolved lazily: deviceManager, wsServer, compensationService.
     this._deps = deps;
+    // Route persistence — DeviceRouteRepository wraps the `routes` table.
+    this._routeRepo = deps.deviceRouteRepository;
     /** @type {Map<string, Object>} routeId → route record. */
     this.routes = new Map();
     /** @type {Map<string, Set<string>>} sourceId → set of routeIds. */
@@ -65,7 +64,7 @@ class MidiRouter {
    */
   loadRoutesFromDB() {
     try {
-      const routes = this.database.getRoutes();
+      const routes = this._routeRepo.findAll();
       let loadedCount = 0;
       routes.forEach(route => {
         try {
@@ -120,7 +119,7 @@ class MidiRouter {
     // Save to database if new route
     if (!route.id) {
       try {
-        this.database.insertRoute({
+        this._routeRepo.insert({
           id: routeId,
           source_device: route.source,
           destination_device: route.destination,
@@ -160,7 +159,7 @@ class MidiRouter {
 
     const route = this.routes.get(routeId);
 
-    this.database.deleteRoute(routeId);
+    this._routeRepo.delete(routeId);
 
     // Remove from source index
     const sourceSet = this.routesBySource.get(route.source);
@@ -188,7 +187,7 @@ class MidiRouter {
     }
 
     route.enabled = enabled;
-    this.database.updateRoute(routeId, { enabled: enabled ? 1 : 0 });
+    this._routeRepo.update(routeId, { enabled: enabled ? 1 : 0 });
     this.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
   }
 
@@ -205,9 +204,7 @@ class MidiRouter {
     }
 
     route.filter = filter;
-    this.database.updateRoute(routeId, {
-      filter: JSON.stringify(filter)
-    });
+    this._routeRepo.update(routeId, { filter: JSON.stringify(filter) });
     this.logger.info(`Filter updated for route ${routeId}`);
   }
 
@@ -224,9 +221,7 @@ class MidiRouter {
     }
 
     route.channelMap = channelMap;
-    this.database.updateRoute(routeId, {
-      channel_mapping: JSON.stringify(channelMap)
-    });
+    this._routeRepo.update(routeId, { channel_mapping: JSON.stringify(channelMap) });
     this.logger.info(`Channel map updated for route ${routeId}`);
   }
 
@@ -451,9 +446,10 @@ class MidiRouter {
     if (this._deps.wsServer) {
       // Resolve instrument name from database
       let instrumentName = null;
-      if (this.database && msg && msg.channel !== undefined) {
+      const db = this._deps.database;
+      if (db && msg && msg.channel !== undefined) {
         try {
-          const settings = this.database.getInstrumentSettings(deviceId, msg.channel);
+          const settings = db.getInstrumentSettings(deviceId, msg.channel);
           if (settings) instrumentName = settings.custom_name || settings.name;
         } catch (e) { /* instrument name lookup is optional for monitor events */ }
       }

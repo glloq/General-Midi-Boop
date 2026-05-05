@@ -46,6 +46,7 @@ import AutoAssigner from '../midi/adaptation/AutoAssigner.js';
 import MidiAdaptationService from '../midi/adaptation/MidiAdaptationService.js';
 import FileRepository from '../repositories/FileRepository.js';
 import RoutingRepository from '../repositories/RoutingRepository.js';
+import DeviceRouteRepository from '../repositories/DeviceRouteRepository.js';
 import InstrumentRepository from '../repositories/InstrumentRepository.js';
 import PresetRepository from '../repositories/PresetRepository.js';
 import SessionRepository from '../repositories/SessionRepository.js';
@@ -224,6 +225,10 @@ class Application {
 
       // Initialize database (uses deps.config, deps.logger)
       this._registerService('database', new Database(deps));
+
+      // DeviceRouteRepository must be registered before MidiRouter because
+      // MidiRouter.loadRoutesFromDB() runs in the constructor.
+      this._registerService('deviceRouteRepository', new DeviceRouteRepository(this.database));
 
       // Initialize MIDI components
       this._registerService('deviceManager', new DeviceManager(deps));
