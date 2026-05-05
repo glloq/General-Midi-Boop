@@ -102,11 +102,12 @@ class FileManager {
     const metadata = this.midiFileParser.extractMetadata(midi);
     const tempoMap = this.midiFileParser.extractTempoMap(midi);
     const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
+    const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(midi);
     const analysisMs = Date.now() - analysisStart;
     report('analyzed');
 
-    // Single transaction: file row + channels + tempo map. Either everything
-    // commits or nothing does — no orphan rows.
+    // Single transaction: file row + channels + tempo map + text events.
+    // Either everything commits or nothing does — no orphan rows.
     const dbStart = Date.now();
     const persist = this.app.database.transaction(() => {
       const id = this.app.database.insertFile({
@@ -120,6 +121,8 @@ class FileManager {
         tempo: metadata.tempo,
         ppq: midi.header.ticksPerBeat || 480,
         ...instrumentMetadata.fileMetadata,
+        title: textSummary.title ?? null,
+        copyright: textSummary.copyright ?? null,
         uploaded_at: new Date().toISOString()
       });
       if (instrumentMetadata.channelDetails.length > 0) {
@@ -127,6 +130,9 @@ class FileManager {
       }
       if (tempoMap.length > 0) {
         this.app.database.midiDB.insertFileTempoMap(id, tempoMap);
+      }
+      if (textEvents.length > 0) {
+        this.app.database.midiDB.insertFileTextEvents(id, textEvents);
       }
       return id;
     });
@@ -281,6 +287,7 @@ class FileManager {
     const metadata = this.midiFileParser.extractMetadata(parsed);
     const tempoMap = this.midiFileParser.extractTempoMap(parsed);
     const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
+    const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(parsed);
 
     const oldBlobPath = file.blob_path;
     const persist = this.app.database.transaction(() => {
@@ -291,7 +298,9 @@ class FileManager {
         duration: metadata.duration,
         tempo: metadata.tempo,
         ppq: parsed.header.ticksPerBeat || 480,
-        ...instrumentMetadata.fileMetadata
+        ...instrumentMetadata.fileMetadata,
+        title: textSummary.title ?? null,
+        copyright: textSummary.copyright ?? null
       });
       // content_hash is UNIQUE — not in updateFile's allow-list, raw UPDATE.
       if (newBlob.hash !== file.content_hash) {
@@ -306,6 +315,10 @@ class FileManager {
       this.app.database.midiDB.deleteFileTempoMap(fileId);
       if (tempoMap.length > 0) {
         this.app.database.midiDB.insertFileTempoMap(fileId, tempoMap);
+      }
+      this.app.database.midiDB.deleteFileTextEvents(fileId);
+      if (textEvents.length > 0) {
+        this.app.database.midiDB.insertFileTextEvents(fileId, textEvents);
       }
     });
     persist();
@@ -354,6 +367,7 @@ class FileManager {
     const metadata = this.midiFileParser.extractMetadata(parsed);
     const tempoMap = this.midiFileParser.extractTempoMap(parsed);
     const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
+    const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(parsed);
 
     const oldBlobPath = file.blob_path;
     const persist = this.app.database.transaction(() => {
@@ -364,7 +378,9 @@ class FileManager {
         duration: metadata.duration,
         tempo: metadata.tempo,
         ppq: parsed.header.ticksPerBeat || 480,
-        ...instrumentMetadata.fileMetadata
+        ...instrumentMetadata.fileMetadata,
+        title: textSummary.title ?? null,
+        copyright: textSummary.copyright ?? null
       });
       if (newBlob.hash !== file.content_hash) {
         this.app.database.db
@@ -378,6 +394,10 @@ class FileManager {
       this.app.database.midiDB.deleteFileTempoMap(fileId);
       if (tempoMap.length > 0) {
         this.app.database.midiDB.insertFileTempoMap(fileId, tempoMap);
+      }
+      this.app.database.midiDB.deleteFileTextEvents(fileId);
+      if (textEvents.length > 0) {
+        this.app.database.midiDB.insertFileTextEvents(fileId, textEvents);
       }
     });
     persist();
@@ -456,9 +476,14 @@ class FileManager {
         const midi = parseMidi(buffer);
         const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
         const tempoMap = this.midiFileParser.extractTempoMap(midi);
+        const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(midi);
 
         const persist = this.app.database.transaction(() => {
-          this.app.database.updateFile(file.id, instrumentMetadata.fileMetadata);
+          this.app.database.updateFile(file.id, {
+            ...instrumentMetadata.fileMetadata,
+            title: textSummary.title ?? null,
+            copyright: textSummary.copyright ?? null
+          });
           this.app.database.deleteFileChannels(file.id);
           if (instrumentMetadata.channelDetails.length > 0) {
             this.app.database.insertFileChannels(file.id, instrumentMetadata.channelDetails);
@@ -466,6 +491,10 @@ class FileManager {
           this.app.database.midiDB.deleteFileTempoMap(file.id);
           if (tempoMap.length > 0) {
             this.app.database.midiDB.insertFileTempoMap(file.id, tempoMap);
+          }
+          this.app.database.midiDB.deleteFileTextEvents(file.id);
+          if (textEvents.length > 0) {
+            this.app.database.midiDB.insertFileTextEvents(file.id, textEvents);
           }
         });
         persist();
@@ -713,6 +742,7 @@ class FileManager {
   // Pass-through helpers used by other modules / tests.
   extractMetadata(midi) { return this.midiFileParser.extractMetadata(midi); }
   extractInstrumentMetadata(midi) { return this.midiFileParser.extractInstrumentMetadata(midi); }
+  extractTextEvents(midi) { return this.midiFileParser.extractTextEvents(midi); }
   convertMidiToJSON(midi) { return this.midiFileParser.convertMidiToJSON(midi); }
   extractTrackName(track) { return this.midiFileParser.extractTrackName(track); }
 

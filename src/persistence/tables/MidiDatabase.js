@@ -21,7 +21,8 @@ const LIST_COLUMNS = `id, content_hash, blob_path, filename, size, tracks,
   duration, tempo, ppq, uploaded_at, folder,
   is_original, parent_file_id,
   instrument_types, channel_count, note_range_min, note_range_max,
-  has_drums, has_melody, has_bass`;
+  has_drums, has_melody, has_bass,
+  title, copyright`;
 
 class MidiDatabase {
   /**
@@ -51,8 +52,9 @@ class MidiDatabase {
           tracks, duration, tempo, ppq,
           channel_count, note_range_min, note_range_max,
           instrument_types, has_drums, has_melody, has_bass,
-          is_original, parent_file_id, uploaded_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          is_original, parent_file_id, uploaded_at,
+          title, copyright
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const result = stmt.run(
@@ -74,7 +76,9 @@ class MidiDatabase {
         file.has_bass ? 1 : 0,
         file.is_original === false ? 0 : 1,
         file.parent_file_id || null,
-        file.uploaded_at || new Date().toISOString()
+        file.uploaded_at || new Date().toISOString(),
+        file.title ?? null,
+        file.copyright ?? null
       );
 
       return result.lastInsertRowid;
@@ -159,7 +163,8 @@ class MidiDatabase {
         'filename', 'folder', 'blob_path', 'size', 'tracks', 'duration',
         'tempo', 'ppq', 'is_original', 'parent_file_id',
         'instrument_types', 'channel_count',
-        'note_range_min', 'note_range_max', 'has_drums', 'has_melody', 'has_bass'
+        'note_range_min', 'note_range_max', 'has_drums', 'has_melody', 'has_bass',
+        'title', 'copyright'
       ]);
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, fileId);
@@ -895,6 +900,97 @@ class MidiDatabase {
       this.logger.error(`Failed to delete tempo map: ${error.message}`);
     }
   }
+
+  // ==================== MIDI FILE TEXT EVENTS ====================
+
+  /**
+   * Persist text meta events for a file. Replaces any existing rows.
+   * @param {number} fileId
+   * @param {Array<{track:number, tick:number, eventType:string, text:string}>} events
+   */
+  insertFileTextEvents(fileId, events) {
+    if (!Array.isArray(events) || events.length === 0) return;
+    try {
+      const del = this.db.prepare('DELETE FROM midi_file_text_events WHERE midi_file_id = ?');
+      const ins = this.db.prepare(
+        'INSERT INTO midi_file_text_events (midi_file_id, track, tick, event_type, text) VALUES (?, ?, ?, ?, ?)'
+      );
+      const run = this.db.transaction((id, rows) => {
+        del.run(id);
+        for (const e of rows) {
+          ins.run(id, e.track | 0, e.tick | 0, String(e.eventType), String(e.text));
+        }
+      });
+      run(fileId, events);
+    } catch (error) {
+      this.logger.error(`Failed to insert text events: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch text events for a file, optionally filtered by event type.
+   * @param {number} fileId
+   * @param {string|null} [eventType] - Optional filter (e.g. 'lyrics', 'marker')
+   * @returns {Array<{id, midi_file_id, track, tick, event_type, text}>}
+   */
+  getFileTextEvents(fileId, eventType = null) {
+    try {
+      if (eventType) {
+        return this.db
+          .prepare('SELECT * FROM midi_file_text_events WHERE midi_file_id = ? AND event_type = ? ORDER BY tick, track')
+          .all(fileId, eventType);
+      }
+      return this.db
+        .prepare('SELECT * FROM midi_file_text_events WHERE midi_file_id = ? ORDER BY tick, track')
+        .all(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to get text events: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Delete text events for a file (used on save/re-analyse).
+   * @param {number} fileId
+   */
+  deleteFileTextEvents(fileId) {
+    try {
+      this.db.prepare('DELETE FROM midi_file_text_events WHERE midi_file_id = ?').run(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to delete text events: ${error.message}`);
+    }
+  }
+
+  /**
+   * Search files by text event content (title, lyrics, markers, etc.).
+   * @param {string} query - Substring to search for
+   * @param {string|null} [eventType] - Restrict to a specific event type
+   * @returns {Array<{midi_file_id, event_type, text}>}
+   */
+  searchTextEvents(query, eventType = null) {
+    try {
+      if (eventType) {
+        return this.db
+          .prepare(`SELECT DISTINCT midi_file_id, event_type, text
+                    FROM midi_file_text_events
+                    WHERE event_type = ? AND text LIKE ?
+                    ORDER BY midi_file_id`)
+          .all(eventType, `%${query}%`);
+      }
+      return this.db
+        .prepare(`SELECT DISTINCT midi_file_id, event_type, text
+                  FROM midi_file_text_events
+                  WHERE text LIKE ?
+                  ORDER BY midi_file_id`)
+        .all(`%${query}%`);
+    } catch (error) {
+      this.logger.error(`Failed to search text events: ${error.message}`);
+      return [];
+    }
+  }
+
+  // ==================== BLOB MANIFEST ====================
 
   /**
    * Snapshot of every file's blob pointer, for a backup manifest. The
