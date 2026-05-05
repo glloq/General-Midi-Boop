@@ -62,6 +62,7 @@ import FileRoutingStatusService from '../midi/files/FileRoutingStatusService.js'
 import MidiClockGenerator from '../midi/playback/MidiClockGenerator.js';
 import BackupScheduler from '../persistence/BackupScheduler.js';
 import { CompensationService } from '../midi/compensation/CompensationService.js';
+import { EventLoopMonitor } from '../infrastructure/monitoring/EventLoopMonitor.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -502,6 +503,13 @@ class Application {
       );
       this.backupScheduler.start();
 
+      // Start event-loop lag monitoring (broadcasts system_lag over WS when lag > threshold)
+      this._registerService(
+        'eventLoopMonitor',
+        new EventLoopMonitor({ logger: this.logger, wsServer: this.wsServer })
+      );
+      this.eventLoopMonitor.start();
+
       this.running = true;
       this.logger.info(`=== GeneralMidiBoop ${this.version} Running ===`);
       this.logger.info(`HTTP/WebSocket server: http://localhost:${this.config.server.port}`);
@@ -547,6 +555,11 @@ class Application {
     try {
       this.logger.info('Stopping application...');
       this.running = false;
+
+      // Stop event-loop monitor
+      if (this.eventLoopMonitor) {
+        this.eventLoopMonitor.stop();
+      }
 
       // Stop backup scheduler
       if (this.backupScheduler) {
