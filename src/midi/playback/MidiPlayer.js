@@ -24,6 +24,7 @@
 import { parseMidi } from 'midi-file';
 import { performance } from 'perf_hooks';
 import PlaybackScheduler from './PlaybackScheduler.js';
+import { PlaybackStateMachine, PLAYBACK_STATES } from './state/PlaybackStateMachine.js';
 import HandAssigner from '../adaptation/HandAssigner.js';
 import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
 import LongitudinalPlanner from '../adaptation/LongitudinalPlanner.js';
@@ -92,6 +93,8 @@ class MidiPlayer {
     this._deps = deps; // For lazy resolution of wsServer, deviceManager
     this.playing = false;
     this.paused = false;
+    /** State machine for validated lifecycle transitions. */
+    this.stateMachine = new PlaybackStateMachine(PLAYBACK_STATES.STOPPED);
     this.position = 0; // seconds
     this.duration = 0; // seconds
     this.tempo = 120; // BPM — effective (originalTempo * playbackRate)
@@ -862,6 +865,7 @@ class MidiPlayer {
       throw new Error('Output device required');
     }
 
+    this.stateMachine.tryTransition(PLAYBACK_STATES.PLAYING);
     this.outputDevice = outputDevice;
     this.playing = true;
     this.paused = false;
@@ -955,6 +959,7 @@ class MidiPlayer {
       return;
     }
 
+    this.stateMachine.tryTransition(PLAYBACK_STATES.PAUSED);
     this.paused = true;
     this.pauseTime = performance.now();
     this.scheduler.stopScheduler();
@@ -981,6 +986,7 @@ class MidiPlayer {
       return;
     }
 
+    this.stateMachine.tryTransition(PLAYBACK_STATES.PLAYING);
     this.paused = false;
     const pauseDuration = performance.now() - this.pauseTime;
     this.startTime += pauseDuration;
@@ -1011,6 +1017,7 @@ class MidiPlayer {
       return;
     }
 
+    this.stateMachine.tryTransition(PLAYBACK_STATES.STOPPED);
     this.playing = false;
     this.paused = false;
     this.position = 0;
@@ -1063,6 +1070,8 @@ class MidiPlayer {
     const wasPlaying = this.playing;
     const seekPosition = Math.max(0, Math.min(position, this.duration));
     const savedOutputDevice = this.outputDevice;
+
+    this.stateMachine.tryTransition(PLAYBACK_STATES.SEEKING);
 
     if (this.playing) {
       this.scheduler.stopScheduler();
