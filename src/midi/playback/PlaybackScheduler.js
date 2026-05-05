@@ -35,10 +35,23 @@ const MIDI_CC_FRET_SELECT = MIDI_CC.FRET_SELECT;
 
 class PlaybackScheduler {
   /**
-   * @param {Object} app - Application context (logger, database, eventBus, wsServer, deviceManager, latencyCompensator)
+   * @param {Object} deps - Explicit dependency bag.
+   * @param {Object} deps.logger
+   * @param {Object} deps.database
+   * @param {Object} deps.eventBus
+   * @param {Object} [deps.wsServer]
+   * @param {Object} deps.deviceManager
+   * @param {Object} [deps.compensationService]
+   * @param {Object} [deps.midiClockGenerator]
    */
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this.logger            = deps.logger;
+    this.database          = deps.database;
+    this.eventBus          = deps.eventBus;
+    this.wsServer          = deps.wsServer;
+    this.deviceManager     = deps.deviceManager;
+    this.compensationService = deps.compensationService || null;
+    this.midiClockGenerator  = deps.midiClockGenerator  || null;
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
     this._stringCCCache = new Map(); // Cache string instrument CC allowed per device:channel
@@ -61,7 +74,7 @@ class PlaybackScheduler {
       this._timingConstraintCache.clear();
       this._maxCompensationMs = 0;
     };
-    this.app.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
+    this.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
   }
 
   /**
@@ -111,7 +124,7 @@ class PlaybackScheduler {
     }
     let allowed = false;
     try {
-      const instrument = this.app.database?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
+      const instrument = this.database?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
       allowed = instrument != null && instrument.cc_enabled !== false;
     } catch (e) {
       allowed = false;
@@ -134,7 +147,7 @@ class PlaybackScheduler {
     }
     let constraints = { minNoteInterval: null, minNoteDuration: null, polyphony: null };
     try {
-      const capDB = this.app.database?.instrumentCapabilitiesDB;
+      const capDB = this.database?.instrumentCapabilitiesDB;
       if (capDB) {
         const instrument = capDB.getInstrumentCapabilities(deviceId, channel);
         if (instrument) {
@@ -206,7 +219,7 @@ class PlaybackScheduler {
    */
   invalidateCompensationCache() {
     this._maxCompensationMs = 0;
-    this.app.compensationService?.invalidate();
+    this.compensationService?.invalidate();
   }
 
   /**
@@ -278,8 +291,8 @@ class PlaybackScheduler {
       const delay = Math.max(0, event.time - currentPosition);
       const timeoutId = setTimeout(() => {
         this.pendingTimeouts.delete(timeoutId);
-        if (this.app.midiClockGenerator) {
-          this.app.midiClockGenerator.setTempo(event.tempo);
+        if (this.midiClockGenerator) {
+          this.midiClockGenerator.setTempo(event.tempo);
         }
       }, delay * 1000);
       this.pendingTimeouts.add(timeoutId);
@@ -318,8 +331,8 @@ class PlaybackScheduler {
     if (!routing) {
       if (!this._unroutedChannels.has(event.channel)) {
         this._unroutedChannels.add(event.channel);
-        this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping events`);
-        this.app.wsServer?.broadcast('playback_channel_skipped', {
+        this.logger.warn(`No output device for channel ${event.channel + 1}, skipping events`);
+        this.wsServer?.broadcast('playback_channel_skipped', {
           channel: event.channel,
           channelDisplay: event.channel + 1,
           reason: 'no_routing'
@@ -345,7 +358,7 @@ class PlaybackScheduler {
     }
 
     if (!routing.device) {
-      this.app.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
+      this.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
       return;
     }
 
@@ -356,7 +369,7 @@ class PlaybackScheduler {
     const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
 
     if (syncDelay > 0 && delay < syncDelay / 1000) {
-      this.app.logger.debug(
+      this.logger.debug(
         `Compensation ${syncDelay.toFixed(0)}ms exceeds delay ${(delay * 1000).toFixed(0)}ms for ch${event.channel + 1}, sending immediately`
       );
     }
@@ -401,8 +414,8 @@ class PlaybackScheduler {
     if (!routing || !routing.device) {
       if (!this._unroutedChannels.has(event.channel)) {
         this._unroutedChannels.add(event.channel);
-        this.app.logger.warn(`No output device for channel ${event.channel + 1}`);
-        this.app.wsServer?.broadcast('playback_channel_skipped', {
+        this.logger.warn(`No output device for channel ${event.channel + 1}`);
+        this.wsServer?.broadcast('playback_channel_skipped', {
           channel: event.channel,
           channelDisplay: event.channel + 1,
           reason: 'no_routing'
@@ -413,7 +426,7 @@ class PlaybackScheduler {
 
     // Use targetChannel from routing
     const outChannel = routing.targetChannel;
-    const device = this.app.deviceManager;
+    const device = this.deviceManager;
     let sendResult = true;
 
     // Per-channel transposition: applied to note pitches just before
@@ -497,12 +510,12 @@ class PlaybackScheduler {
     // Notify once per device if send fails, apply disconnect policy
     if (!sendResult && !this._failedDevices.has(routing.device)) {
       this._failedDevices.add(routing.device);
-      this.app.logger.warn(`Device unreachable during playback: ${routing.device}`);
+      this.logger.warn(`Device unreachable during playback: ${routing.device}`);
 
       const policy = state.disconnectedPolicy || 'skip';
 
       if (policy === 'pause') {
-        this.app.wsServer?.broadcast('playback_device_disconnected', {
+        this.wsServer?.broadcast('playback_device_disconnected', {
           deviceId: routing.device,
           channel: event.channel,
           policy: 'pause',
@@ -522,7 +535,7 @@ class PlaybackScheduler {
             }
           }
         }
-        this.app.wsServer?.broadcast('playback_device_disconnected', {
+        this.wsServer?.broadcast('playback_device_disconnected', {
           deviceId: routing.device,
           channel: event.channel,
           policy: 'mute',
@@ -531,7 +544,7 @@ class PlaybackScheduler {
         });
       } else {
         // 'skip' - existing behavior
-        this.app.wsServer?.broadcast('playback_device_error', {
+        this.wsServer?.broadcast('playback_device_error', {
           deviceId: routing.device,
           channel: event.channel,
           message: `Device ${routing.device} is unreachable`
@@ -550,7 +563,7 @@ class PlaybackScheduler {
     if (!state.playing) return;
     if (state.mutedChannels && state.mutedChannels.has(event.channel)) return;
 
-    const device = this.app.deviceManager;
+    const device = this.deviceManager;
     const outChannel = routing.targetChannel;
 
     // Apply per-channel transposition for note pitches (see sendEvent
@@ -609,7 +622,7 @@ class PlaybackScheduler {
       return;
     }
 
-    const device = this.app.deviceManager;
+    const device = this.deviceManager;
 
     // Build map of device -> target channels actually routed to it
     const channelsPerDevice = new Map();
@@ -704,7 +717,7 @@ class PlaybackScheduler {
    * @returns {number} Compensation in ms
    */
   _getSyncDelay(deviceId, channel) {
-    const svc = this.app.compensationService;
+    const svc = this.compensationService;
     if (!svc) return 0;
     return svc.getDelay(deviceId, channel);
   }
@@ -715,7 +728,7 @@ class PlaybackScheduler {
   destroy() {
     this.stopScheduler();
     if (this._onSettingsChanged) {
-      this.app.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
+      this.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
     }
   }
 }
