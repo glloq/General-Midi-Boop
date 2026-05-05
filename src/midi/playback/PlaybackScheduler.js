@@ -44,6 +44,7 @@ class PlaybackScheduler {
    * @param {Object} [deps.compensationService]
    * @param {Object} [deps.capabilityResolver]
    * @param {Object} [deps.midiClockGenerator]
+   * @param {Object} [deps.eventLoopMonitor]  - Optional; reduces lookahead when event loop is lagging.
    */
   constructor(deps) {
     this.logger              = deps.logger;
@@ -54,6 +55,7 @@ class PlaybackScheduler {
     this.compensationService = deps.compensationService   || null;
     this.capabilityResolver  = deps.capabilityResolver    || null;
     this.midiClockGenerator  = deps.midiClockGenerator    || null;
+    this.eventLoopMonitor    = deps.eventLoopMonitor      || null;
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
@@ -217,9 +219,15 @@ class PlaybackScheduler {
       return state.currentEventIndex;
     }
 
-    // Dynamic lookahead: extend beyond base to accommodate large sync_delay compensations
+    // Dynamic lookahead: extend beyond base to accommodate large sync_delay compensations.
+    // Under event-loop pressure, reduce the lookahead window to avoid queuing too many
+    // setTimeout callbacks that will pile up and worsen the lag.
     const maxCompSec = this._getMaxActiveCompensation(state, getOutputForChannel) / 1000;
-    const targetTime = state.position + LOOKAHEAD_SECONDS + maxCompSec;
+    const lagMs = this.eventLoopMonitor?.currentLag ?? 0;
+    const effectiveLookahead = lagMs > 20
+      ? Math.max(0.05, LOOKAHEAD_SECONDS - lagMs / 1000)
+      : LOOKAHEAD_SECONDS;
+    const targetTime = state.position + effectiveLookahead + maxCompSec;
 
     let idx = state.currentEventIndex;
     while (idx < state.events.length) {
