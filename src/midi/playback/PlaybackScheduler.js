@@ -26,7 +26,7 @@
  * silenced for the rest of the playback.
  */
 import { performance } from 'perf_hooks';
-import { TIMING, MIDI_CC } from '../../core/constants.js';
+import { TIMING, MIDI_CC, MIDI_EVENT_TYPES, DEVICE_MSG_TYPES } from '../../core/constants.js';
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
@@ -143,14 +143,14 @@ class PlaybackScheduler {
     const cacheKey = `${deviceId}:${channel}`;
     const constraints = this._getTimingConstraints(deviceId, channel);
 
-    if (eventType === 'noteOff') {
+    if (eventType === MIDI_EVENT_TYPES.NOTE_OFF) {
       // Track noteOff for polyphony counting
       const activeSet = this._activeNotes.get(cacheKey);
       if (activeSet) activeSet.delete(note);
       return false; // Never gate noteOff
     }
 
-    // eventType === 'noteOn'
+    // eventType === MIDI_EVENT_TYPES.NOTE_ON
     const now = performance.now();
 
     // Check min_note_interval: if the last noteOn on this device:channel was too recent, drop
@@ -252,7 +252,7 @@ class PlaybackScheduler {
    */
   scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
     // Handle tempo change events (for MIDI clock synchronization)
-    if (event.type === 'setTempo') {
+    if (event.type === MIDI_EVENT_TYPES.SET_TEMPO) {
       const delay = Math.max(0, event.time - currentPosition);
       const timeoutId = setTimeout(() => {
         this.pendingTimeouts.delete(timeoutId);
@@ -289,7 +289,7 @@ class PlaybackScheduler {
     }
 
     // For note events, pass the note and event type to routing for split support
-    const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';
+    const isNoteEvent = event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
     const note = isNoteEvent ? (event.note ?? null) : null;
     const routing = getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
 
@@ -362,7 +362,7 @@ class PlaybackScheduler {
       return;
     }
 
-    const isNoteEvent = event.type === 'noteOn' || event.type === 'noteOff';
+    const isNoteEvent = event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
     const note = isNoteEvent ? (event.note ?? null) : null;
     const routing = getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
 
@@ -402,70 +402,70 @@ class PlaybackScheduler {
     // note if the device's polyphony / spacing rules reject it.
     const transposeSemis = state.channelTransposition
       ? (state.channelTransposition.get(event.channel) || 0) : 0;
-    const outNote = (event.type === 'noteOn' || event.type === 'noteOff' || event.type === 'noteAftertouch')
+    const outNote = (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF || event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH)
       ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
       : event.note;
 
     // Enforce timing and polyphony constraints for note events
-    if (event.type === 'noteOn' || event.type === 'noteOff') {
-      const isNoteOn = event.type === 'noteOn' && (event.velocity ?? 0) > 0;
-      const evtType = isNoteOn ? 'noteOn' : 'noteOff';
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      const isNoteOn = event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) > 0;
+      const evtType = isNoteOn ? MIDI_EVENT_TYPES.NOTE_ON : MIDI_EVENT_TYPES.NOTE_OFF;
       if (this._shouldGateNote(routing.device, outChannel, outNote, evtType)) {
         return; // Gated: note dropped due to timing or polyphony constraint
       }
     }
 
-    if (event.type === 'noteOn') {
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON) {
       if (event.velocity === 0) {
         // velocity 0 noteOn = noteOff, track for polyphony
-        this._shouldGateNote(routing.device, outChannel, outNote, 'noteOff');
-        sendResult = device.sendMessage(routing.device, 'noteoff', {
+        this._shouldGateNote(routing.device, outChannel, outNote, MIDI_EVENT_TYPES.NOTE_OFF);
+        sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, {
           channel: outChannel,
           note: outNote,
           velocity: 0
         });
       } else {
-        sendResult = device.sendMessage(routing.device, 'noteon', {
+        sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_ON, {
           channel: outChannel,
           note: outNote,
           velocity: event.velocity
         });
       }
-    } else if (event.type === 'noteOff') {
-      sendResult = device.sendMessage(routing.device, 'noteoff', {
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, {
         channel: outChannel,
         note: outNote,
         velocity: event.velocity
       });
-    } else if (event.type === 'programChange') {
-      sendResult = device.sendMessage(routing.device, 'program', {
+    } else if (event.type === MIDI_EVENT_TYPES.PROGRAM_CHANGE) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.PROGRAM, {
         channel: outChannel,
         program: event.program
       });
-    } else if (event.type === 'controller') {
+    } else if (event.type === MIDI_EVENT_TYPES.CONTROLLER) {
       // Filter CC 20/21 (string/fret select): only send for string instruments with cc_enabled
       if (event.controller === MIDI_CC_STRING_SELECT || event.controller === MIDI_CC_FRET_SELECT) {
         if (!this._isStringCCAllowed(routing.device, outChannel)) {
           return;
         }
       }
-      sendResult = device.sendMessage(routing.device, 'cc', {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.CC, {
         channel: outChannel,
         controller: event.controller,
         value: event.value
       });
-    } else if (event.type === 'pitchBend') {
-      sendResult = device.sendMessage(routing.device, 'pitchbend', {
+    } else if (event.type === MIDI_EVENT_TYPES.PITCH_BEND) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.PITCH_BEND, {
         channel: outChannel,
         value: event.value
       });
-    } else if (event.type === 'channelAftertouch') {
-      sendResult = device.sendMessage(routing.device, 'channel aftertouch', {
+    } else if (event.type === MIDI_EVENT_TYPES.CHANNEL_AFTERTOUCH) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.CHANNEL_AFTERTOUCH, {
         channel: outChannel,
         pressure: event.value
       });
-    } else if (event.type === 'noteAftertouch') {
-      sendResult = device.sendMessage(routing.device, 'poly aftertouch', {
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH) {
+      sendResult = device.sendMessage(routing.device, DEVICE_MSG_TYPES.POLY_AFTERTOUCH, {
         channel: outChannel,
         note: outNote,
         pressure: event.value
@@ -535,44 +535,44 @@ class PlaybackScheduler {
     // for the rationale: routing decisions stay in source-note space).
     const transposeSemis = state.channelTransposition
       ? (state.channelTransposition.get(event.channel) || 0) : 0;
-    const outNote = (event.type === 'noteOn' || event.type === 'noteOff' || event.type === 'noteAftertouch')
+    const outNote = (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF || event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH)
       ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
       : event.note;
 
     // Enforce timing and polyphony constraints for note events
-    if (event.type === 'noteOn' || event.type === 'noteOff') {
-      const isNoteOn = event.type === 'noteOn' && (event.velocity ?? 0) > 0;
-      const evtType = isNoteOn ? 'noteOn' : 'noteOff';
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      const isNoteOn = event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) > 0;
+      const evtType = isNoteOn ? MIDI_EVENT_TYPES.NOTE_ON : MIDI_EVENT_TYPES.NOTE_OFF;
       if (this._shouldGateNote(routing.device, outChannel, outNote, evtType)) {
         return; // Gated: note dropped due to timing or polyphony constraint
       }
     }
 
-    if (event.type === 'noteOn') {
+    if (event.type === MIDI_EVENT_TYPES.NOTE_ON) {
       if (event.velocity === 0) {
-        this._shouldGateNote(routing.device, outChannel, outNote, 'noteOff');
-        device.sendMessage(routing.device, 'noteoff', { channel: outChannel, note: outNote, velocity: 0 });
+        this._shouldGateNote(routing.device, outChannel, outNote, MIDI_EVENT_TYPES.NOTE_OFF);
+        device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, { channel: outChannel, note: outNote, velocity: 0 });
       } else {
-        device.sendMessage(routing.device, 'noteon', { channel: outChannel, note: outNote, velocity: event.velocity });
+        device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_ON, { channel: outChannel, note: outNote, velocity: event.velocity });
       }
-    } else if (event.type === 'noteOff') {
-      device.sendMessage(routing.device, 'noteoff', { channel: outChannel, note: outNote, velocity: event.velocity });
-    } else if (event.type === 'controller') {
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, { channel: outChannel, note: outNote, velocity: event.velocity });
+    } else if (event.type === MIDI_EVENT_TYPES.CONTROLLER) {
       // Filter CC 20/21 (string/fret select): only send for string instruments with cc_enabled
       if (event.controller === MIDI_CC_STRING_SELECT || event.controller === MIDI_CC_FRET_SELECT) {
         if (!this._isStringCCAllowed(routing.device, outChannel)) {
           return;
         }
       }
-      device.sendMessage(routing.device, 'cc', { channel: outChannel, controller: event.controller, value: event.value });
-    } else if (event.type === 'programChange') {
-      device.sendMessage(routing.device, 'program', { channel: outChannel, program: event.program });
-    } else if (event.type === 'pitchBend') {
-      device.sendMessage(routing.device, 'pitchbend', { channel: outChannel, value: event.value });
-    } else if (event.type === 'channelAftertouch') {
-      device.sendMessage(routing.device, 'channel aftertouch', { channel: outChannel, pressure: event.value });
-    } else if (event.type === 'noteAftertouch') {
-      device.sendMessage(routing.device, 'poly aftertouch', { channel: outChannel, note: outNote, pressure: event.value });
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.CC, { channel: outChannel, controller: event.controller, value: event.value });
+    } else if (event.type === MIDI_EVENT_TYPES.PROGRAM_CHANGE) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.PROGRAM, { channel: outChannel, program: event.program });
+    } else if (event.type === MIDI_EVENT_TYPES.PITCH_BEND) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.PITCH_BEND, { channel: outChannel, value: event.value });
+    } else if (event.type === MIDI_EVENT_TYPES.CHANNEL_AFTERTOUCH) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.CHANNEL_AFTERTOUCH, { channel: outChannel, pressure: event.value });
+    } else if (event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH) {
+      device.sendMessage(routing.device, DEVICE_MSG_TYPES.POLY_AFTERTOUCH, { channel: outChannel, note: outNote, pressure: event.value });
     }
   }
 

@@ -166,6 +166,36 @@ const LIMITS = {
 };
 
 // ============================================
+// MIDI EVENT TYPE STRINGS
+// ============================================
+// MIDI_EVENT_TYPES — strings used in parsed MIDI file events (camelCase).
+// These are the event.type values produced by MidiFileParser and consumed
+// by PlaybackScheduler when dispatching events from a loaded file.
+const MIDI_EVENT_TYPES = Object.freeze({
+  NOTE_ON:             'noteOn',
+  NOTE_OFF:            'noteOff',
+  CONTROLLER:          'controller',
+  PROGRAM_CHANGE:      'programChange',
+  PITCH_BEND:          'pitchBend',
+  CHANNEL_AFTERTOUCH:  'channelAftertouch',
+  NOTE_AFTERTOUCH:     'noteAftertouch',
+  SET_TEMPO:           'setTempo',
+});
+
+// DEVICE_MSG_TYPES — strings used when calling DeviceManager.sendMessage().
+// These are the lowercase/spaced type names expected by the easymidi/midi
+// output adapter layer.
+const DEVICE_MSG_TYPES = Object.freeze({
+  NOTE_ON:             'noteon',
+  NOTE_OFF:            'noteoff',
+  CC:                  'cc',
+  PROGRAM:             'program',
+  PITCH_BEND:          'pitchbend',
+  CHANNEL_AFTERTOUCH:  'channel aftertouch',
+  POLY_AFTERTOUCH:     'poly aftertouch',
+});
+
+// ============================================
 // EVENT NAMES
 // ============================================
 const EVENTS = {
@@ -190,5 +220,7 @@ export {
   TIMING,
   CALIBRATION,
   LIMITS,
-  EVENTS
+  EVENTS,
+  MIDI_EVENT_TYPES,
+  DEVICE_MSG_TYPES
 };
