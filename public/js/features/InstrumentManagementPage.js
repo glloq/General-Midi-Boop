@@ -629,7 +629,10 @@ class InstrumentManagementPage {
         gap: 12px;
         font-size: 13px;
         min-height: 64px;
-      ">
+        cursor: pointer;
+      "
+        onclick="instrumentManagementPageInstance.editInstrument('${esc(instrument._deviceId || instrument.device_id || instrument.id)}', ${channel})"
+      >
         <!-- Main-voice SVG: full card height, on the left -->
         <div class="instrument-sub-card-icon" style="
           flex-shrink: 0;
@@ -669,13 +672,6 @@ class InstrumentManagementPage {
             </span>
           </div>
         </div>
-
-        <!-- Edit -->
-        <button class="btn btn-primary" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0; align-self: center;"
-                onclick="event.stopPropagation(); instrumentManagementPageInstance.editInstrument('${esc(instrument._deviceId || instrument.device_id || instrument.id)}', ${channel})"
-                title="${i18n.t('instrumentManagement.edit') || 'Modifier'}">
-          ⚙️
-        </button>
 
         <!-- Delete -->
         <button class="btn btn-danger" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0; align-self: center;"
