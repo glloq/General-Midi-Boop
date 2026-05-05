@@ -60,6 +60,7 @@ import DeviceReconciliationService from '../midi/devices/DeviceReconciliationSer
 import FileRoutingStatusService from '../midi/files/FileRoutingStatusService.js';
 import MidiClockGenerator from '../midi/playback/MidiClockGenerator.js';
 import BackupScheduler from '../persistence/BackupScheduler.js';
+import { CompensationService } from '../midi/compensation/CompensationService.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -234,6 +235,10 @@ class Application {
         'delayCalibrator',
         new DelayCalibrator(this.deviceManager, this.logger)
       );
+
+      // Shared compensation cache (sync_delay + hw latency) used by both
+      // MidiRouter and PlaybackScheduler to avoid duplicated DB lookups.
+      this._registerService('compensationService', new CompensationService(deps));
 
       // Initialize storage: BlobStore lives next to the SQLite file.
       const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
@@ -585,6 +590,11 @@ class Application {
       // Destroy auto-assigner (cleanup intervals and cache)
       if (this.autoAssigner) {
         this.autoAssigner.destroy();
+      }
+
+      // Destroy shared compensation cache
+      if (this.compensationService) {
+        this.compensationService.destroy();
       }
 
       // Remove event handlers to prevent leaks on restart

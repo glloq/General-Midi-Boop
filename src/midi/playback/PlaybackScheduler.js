@@ -11,8 +11,6 @@
  *     without leaking timers across stop/start cycles.
  *
  * Caches keyed by `device:channel`:
- *   - `_syncDelayCache` — combined user `sync_delay` + measured hardware
- *     latency, clamped to ±`MAX_COMPENSATION_MS`.
  *   - `_stringCCCache`  — whether CC 20/21 (string/fret select) should be
  *     forwarded for the target instrument.
  *   - `_timingConstraintCache` — `min_note_interval`, `min_note_duration`
@@ -30,7 +28,7 @@
 import { performance } from 'perf_hooks';
 import { TIMING, MIDI_CC } from '../../core/constants.js';
 
-const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, MAX_COMPENSATION_MS } = TIMING;
+const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
 const MIDI_CC_STRING_SELECT = MIDI_CC.STRING_SELECT;
 const MIDI_CC_FRET_SELECT = MIDI_CC.FRET_SELECT;
@@ -43,7 +41,6 @@ class PlaybackScheduler {
     this.app = app;
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
-    this._syncDelayCache = new Map(); // Cache sync_delay per device to avoid DB queries per event
     this._stringCCCache = new Map(); // Cache string instrument CC allowed per device:channel
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
     this._unroutedChannels = new Set(); // Track channels with no routing (notify once per playback)
@@ -55,9 +52,11 @@ class PlaybackScheduler {
     // Polyphony enforcement: track active notes per (device:channel)
     this._activeNotes = new Map(); // key: "device:channel" -> Set of active note numbers
 
-    // Invalidate sync_delay cache immediately when instrument settings change
+    // Invalidate caches immediately when instrument settings change.
+    // Note: _syncDelayCache is removed — compensation is now handled by
+    // CompensationService. The remaining caches (string CC, timing constraints)
+    // still need local invalidation.
     this._onSettingsChanged = () => {
-      this._syncDelayCache.clear();
       this._stringCCCache.clear();
       this._timingConstraintCache.clear();
       this._maxCompensationMs = 0;
@@ -92,7 +91,6 @@ class PlaybackScheduler {
    * Reset caches at the start of playback.
    */
   resetForPlayback() {
-    this._syncDelayCache.clear();
     this._stringCCCache.clear();
     this._failedDevices.clear();
     this._unroutedChannels.clear();
@@ -203,10 +201,12 @@ class PlaybackScheduler {
 
   /**
    * Invalidate compensation caches (e.g., when routing changes).
+   * CompensationService has its own invalidate(); this resets the local
+   * per-playback max-compensation aggregate.
    */
   invalidateCompensationCache() {
     this._maxCompensationMs = 0;
-    this._syncDelayCache.clear();
+    this.app.compensationService?.invalidate();
   }
 
   /**
@@ -696,54 +696,17 @@ class PlaybackScheduler {
 
   /**
    * Get total timing compensation for a device+channel in milliseconds.
-   * Combines sync_delay + hardware latency. Clamped to MAX_COMPENSATION_MS.
-   * @param {string} deviceId - Device identifier
-   * @param {number} channel - MIDI channel
+   * Delegates to CompensationService (shared with MidiRouter) so both hot
+   * paths read from the same cache.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
    * @returns {number} Compensation in ms
    */
   _getSyncDelay(deviceId, channel) {
-    const cacheKey = channel !== undefined ? `${deviceId}_${channel}` : deviceId;
-    if (this._syncDelayCache.has(cacheKey)) {
-      return this._syncDelayCache.get(cacheKey);
-    }
-
-    let syncDelay = 0;
-
-    // 1. User-configured sync_delay (per instrument/channel)
-    if (this.app.database) {
-      try {
-        const settings = this.app.database.getInstrumentSettings(deviceId, channel);
-        if (settings && settings.sync_delay !== undefined && settings.sync_delay !== null) {
-          syncDelay = settings.sync_delay;
-        }
-      } catch (error) {
-        this.app.logger.warn(`Failed to get sync_delay for device ${deviceId}: ${error.message}`);
-      }
-    }
-
-    // 2. Add measured hardware latency (from LatencyCompensator loopback test)
-    if (this.app.latencyCompensator) {
-      const hwLatency = this.app.latencyCompensator.getLatency(deviceId);
-      if (hwLatency > 0) {
-        syncDelay += hwLatency;
-      }
-    }
-
-    // Clamp to maximum allowed compensation (both positive and negative)
-    if (syncDelay > MAX_COMPENSATION_MS) {
-      this.app.logger.warn(`Compensation ${syncDelay.toFixed(0)}ms for device ${deviceId} ch ${channel} exceeds max ${MAX_COMPENSATION_MS}ms, clamping`);
-      syncDelay = MAX_COMPENSATION_MS;
-    } else if (syncDelay < -MAX_COMPENSATION_MS) {
-      this.app.logger.warn(`Compensation ${syncDelay.toFixed(0)}ms for device ${deviceId} ch ${channel} exceeds min -${MAX_COMPENSATION_MS}ms, clamping`);
-      syncDelay = -MAX_COMPENSATION_MS;
-    }
-
-    if (syncDelay !== 0) {
-      this.app.logger.debug(`Total compensation ${syncDelay.toFixed(1)}ms for device ${deviceId} ch ${channel}`);
-    }
-
-    this._syncDelayCache.set(cacheKey, syncDelay);
-    return syncDelay;
+    const svc = this.app.compensationService;
+    if (!svc) return 0;
+    return svc.getDelay(deviceId, channel);
   }
 
   /**
@@ -751,7 +714,6 @@ class PlaybackScheduler {
    */
   destroy() {
     this.stopScheduler();
-    this._syncDelayCache.clear();
     if (this._onSettingsChanged) {
       this.app.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
     }
