@@ -42,26 +42,26 @@ class PlaybackScheduler {
    * @param {Object} [deps.wsServer]
    * @param {Object} deps.deviceManager
    * @param {Object} [deps.compensationService]
+   * @param {Object} [deps.capabilityResolver]
    * @param {Object} [deps.midiClockGenerator]
    */
   constructor(deps) {
-    this.logger            = deps.logger;
-    this.database          = deps.database;
-    this.eventBus          = deps.eventBus;
-    this.wsServer          = deps.wsServer;
-    this.deviceManager     = deps.deviceManager;
-    this.compensationService = deps.compensationService || null;
-    this.midiClockGenerator  = deps.midiClockGenerator  || null;
+    this.logger              = deps.logger;
+    this.database            = deps.database;
+    this.eventBus            = deps.eventBus;
+    this.wsServer            = deps.wsServer;
+    this.deviceManager       = deps.deviceManager;
+    this.compensationService = deps.compensationService   || null;
+    this.capabilityResolver  = deps.capabilityResolver    || null;
+    this.midiClockGenerator  = deps.midiClockGenerator    || null;
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
-    this._stringCCCache = new Map(); // Cache string instrument CC allowed per device:channel
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
     this._unroutedChannels = new Set(); // Track channels with no routing (notify once per playback)
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
 
     // Timing constraint enforcement: track last noteOn timestamp per (device:channel)
     this._lastNoteOnTime = new Map(); // key: "device:channel" -> timestamp (ms)
-    this._timingConstraintCache = new Map(); // key: "device:channel" -> { minNoteInterval, minNoteDuration, polyphony }
     // Polyphony enforcement: track active notes per (device:channel)
     this._activeNotes = new Map(); // key: "device:channel" -> Set of active note numbers
 
@@ -70,8 +70,8 @@ class PlaybackScheduler {
     // CompensationService. The remaining caches (string CC, timing constraints)
     // still need local invalidation.
     this._onSettingsChanged = () => {
-      this._stringCCCache.clear();
-      this._timingConstraintCache.clear();
+      // CapabilityResolver handles its own invalidation via the same event.
+      // We only need to reset the local per-playback aggregate here.
       this._maxCompensationMs = 0;
     };
     this.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
@@ -104,65 +104,30 @@ class PlaybackScheduler {
    * Reset caches at the start of playback.
    */
   resetForPlayback() {
-    this._stringCCCache.clear();
     this._failedDevices.clear();
     this._unroutedChannels.clear();
     this._maxCompensationMs = 0;
     this._lastNoteOnTime.clear();
-    this._timingConstraintCache.clear();
     this._activeNotes.clear();
+    // CapabilityResolver caches survive across playbacks (invalidated on settings change).
+    // No need to clear them here — they hold per-device capability data, not per-file state.
   }
 
   /**
-   * Check if CC 20/21 (string/fret select) is allowed for a given device+channel.
-   * Returns true only if a string instrument with cc_enabled exists for that pair.
+   * Delegates to CapabilityResolver. Falls back to false when the resolver
+   * is unavailable (tests without full DI wiring).
    */
   _isStringCCAllowed(deviceId, channel) {
-    const cacheKey = `${deviceId}:${channel}`;
-    if (this._stringCCCache.has(cacheKey)) {
-      return this._stringCCCache.get(cacheKey);
-    }
-    let allowed = false;
-    try {
-      const instrument = this.database?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
-      allowed = instrument != null && instrument.cc_enabled !== false;
-    } catch (e) {
-      allowed = false;
-    }
-    this._stringCCCache.set(cacheKey, allowed);
-    return allowed;
+    return this.capabilityResolver?.isStringCCAllowed(deviceId, channel) ?? false;
   }
 
   /**
-   * Get timing and polyphony constraints for a given device+channel.
-   * Cached per playback session to avoid DB queries per event.
-   * @param {string} deviceId
-   * @param {number} channel
-   * @returns {{ minNoteInterval: number|null, minNoteDuration: number|null, polyphony: number|null }}
+   * Delegates to CapabilityResolver. Returns null-constraint object when
+   * the resolver is unavailable.
    */
   _getTimingConstraints(deviceId, channel) {
-    const cacheKey = `${deviceId}:${channel}`;
-    if (this._timingConstraintCache.has(cacheKey)) {
-      return this._timingConstraintCache.get(cacheKey);
-    }
-    let constraints = { minNoteInterval: null, minNoteDuration: null, polyphony: null };
-    try {
-      const capDB = this.database?.instrumentCapabilitiesDB;
-      if (capDB) {
-        const instrument = capDB.getInstrumentCapabilities(deviceId, channel);
-        if (instrument) {
-          constraints = {
-            minNoteInterval: instrument.min_note_interval || null,
-            minNoteDuration: instrument.min_note_duration || null,
-            polyphony: instrument.polyphony || null
-          };
-        }
-      }
-    } catch (e) {
-      // Silently ignore — no constraints applied
-    }
-    this._timingConstraintCache.set(cacheKey, constraints);
-    return constraints;
+    return this.capabilityResolver?.getTimingConstraints(deviceId, channel)
+      ?? { minNoteInterval: null, minNoteDuration: null, polyphony: null };
   }
 
   /**

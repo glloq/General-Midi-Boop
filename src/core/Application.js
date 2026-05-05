@@ -63,6 +63,7 @@ import MidiClockGenerator from '../midi/playback/MidiClockGenerator.js';
 import BackupScheduler from '../persistence/BackupScheduler.js';
 import { CompensationService } from '../midi/compensation/CompensationService.js';
 import { EventLoopMonitor } from '../infrastructure/monitoring/EventLoopMonitor.js';
+import { CapabilityResolver } from '../midi/instrument/CapabilityResolver.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -245,6 +246,10 @@ class Application {
       // Shared compensation cache (sync_delay + hw latency) used by both
       // MidiRouter and PlaybackScheduler to avoid duplicated DB lookups.
       this._registerService('compensationService', new CompensationService(deps));
+
+      // Centralised instrument capability lookups (string CC, timing constraints)
+      // replacing duplicated private caches in PlaybackScheduler.
+      this._registerService('capabilityResolver', new CapabilityResolver(deps));
 
       // Initialize storage: BlobStore lives next to the SQLite file.
       const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
@@ -613,6 +618,11 @@ class Application {
       // Destroy shared compensation cache
       if (this.compensationService) {
         this.compensationService.destroy();
+      }
+
+      // Destroy capability resolver (detach eventBus listener)
+      if (this.capabilityResolver) {
+        this.capabilityResolver.destroy(this.eventBus);
       }
 
       // Remove event handlers to prevent leaks on restart
