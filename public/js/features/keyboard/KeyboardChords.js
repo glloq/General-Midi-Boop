@@ -1031,14 +1031,36 @@
             return;
         }
 
-        // fret_sliding_fingers: dots are fixed at their stripe positions; just
-        // toggle the active class when any string is being pressed.
+        // fret_sliding_fingers: move each dot to the string it's pressing and
+        // keep it there after the note stops (dots remember their last string).
         const fingerDots = rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]');
         if (fingerDots.length > 0) {
-            const hasActive = activeFrets && Object.values(activeFrets).some(f => f != null && f > 0);
+            const anchor     = this.handAnchorFret || 0;
+            const numStrings = this._cachedNumStrings || 6;
+
+            // Build fingerIndex → stringNum for every currently active note.
+            const fingerToString = {};
+            if (activeFrets) {
+                for (const [strKey, fret] of Object.entries(activeFrets)) {
+                    if (fret == null || fret <= 0) continue;
+                    const idx = Math.round(fret - anchor);
+                    if (idx >= 0 && idx < fingerDots.length) {
+                        fingerToString[idx] = parseInt(strKey, 10);
+                    }
+                }
+            }
+
             fingerDots.forEach(dot => {
-                if (hasActive) dot.classList.add('active');
-                else dot.classList.remove('active');
+                const idx       = parseInt(dot.dataset.finger, 10);
+                const stringNum = fingerToString[idx];
+                if (stringNum != null) {
+                    // Move dot to the Y of the pressed string and activate.
+                    dot.style.top = ((numStrings - stringNum + 0.5) / numStrings * 100) + '%';
+                    dot.classList.add('active');
+                } else {
+                    // Deactivate but keep the last top (string stays visible).
+                    dot.classList.remove('active');
+                }
             });
             return;
         }
