@@ -716,22 +716,16 @@
         this._renderFingerRangeRects(rangeRect, numStrings);
 
         if (mechanism === 'fret_sliding_fingers') {
-            // One dot per finger at the same proportional position as its stripe.
+            // One dot per finger, centered in its uniformly-spaced slot.
             const numF = Math.max(1, this._numFingers);
-            const mf0  = this._cachedMaxFrets || 22;
-            const refW0 = numF > 1 ? fretPct(numF - 1, mf0) : 1;
             for (let i = 0; i < numF; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'hand-finger-dot-pos';
                 dot.dataset.finger = String(i);
                 dot.style.top  = '50%';
-                const pct = numF === 1 ? 50
-                    : refW0 > 0 ? fretPct(i, mf0) / refW0 * 100
-                    : i / (numF - 1) * 100;
+                const pct = numF === 1 ? 50 : (i + 0.5) / numF * 100;
                 dot.style.left = pct + '%';
-                // Extreme fingers: flush to edge so the dot stays fully visible.
-                if (i === 0) dot.style.transform = 'translate(0%, -50%)';
-                else if (i === numF - 1) dot.style.transform = 'translate(-100%, -50%)';
+                dot.style.transform = 'translate(-50%, -50%)';
                 rangeRect.appendChild(dot);
             }
         } else if (mechanism !== 'vertical_bar') {
@@ -812,26 +806,18 @@
                 rangeRect.appendChild(stripe);
             }
         } else if (this._mechanism === 'fret_sliding_fingers') {
-            const count    = Math.max(1, this._numFingers);
-            const maxFrets = this._cachedMaxFrets || 22;
-            // Proportional positions within the band: (fretPct(da+i)-fretPct(da)) /
-            // (fretPct(da+N-1)-fretPct(da)) always simplifies to fretPct(i)/fretPct(N-1)
-            // regardless of the current anchor. Visual adaptation (fingers clustering
-            // toward the bridge) comes from the band itself narrowing with position.
-            const refW = count > 1 ? fretPct(count - 1, maxFrets) : 1;
+            const count      = Math.max(1, this._numFingers);
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                const pct = count === 1 ? 50
-                    : refW > 0 ? fretPct(i, maxFrets) / refW * 100
-                    : i / (count - 1) * 100;
-                stripe.style.left  = pct + '%';
-                stripe.style.width = stripeWPct + '%';
-                // Extreme fingers: flush to the overlay edge so the full stripe
-                // stays visible instead of being half-clipped by overflow:hidden.
-                if (i === 0) stripe.style.transform = 'translateX(0%)';
-                else if (i === count - 1) stripe.style.transform = 'translateX(-100%)';
+                // Uniform spacing: divide the overlay into `count` equal slots.
+                // Right edge of each stripe at (i+1)/count — the slot boundary
+                // that represents the fret wire the finger presses against.
+                const pct = count === 1 ? 50 : (i + 1) / count * 100;
+                stripe.style.left      = pct + '%';
+                stripe.style.width     = stripeWPct + '%';
+                stripe.style.transform = 'translateX(-100%)';
                 rangeRect.appendChild(stripe);
             }
         }
@@ -878,14 +864,18 @@
         } else {
             // Fret-based fallback.
             // Left edge shifted ~¼ fret (≈8mm) toward the nut so the first
-            // finger lands just before the anchor fret wire. Band width follows
-            // the logarithmic fret spacing so it narrows toward the bridge,
-            // matching the physical compression of frets at higher positions.
+            // finger lands just before the anchor fret wire.
             const displayAnchor = Math.max(0, anchor - 0.25);
             leftPct  = fretPct(displayAnchor, maxFrets);
-            const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
-            const rightPct  = fretPct(rightBase + this._handSpanFrets, maxFrets);
-            widthPct = rightPct - leftPct;
+            if (this._mechanism === 'fret_sliding_fingers') {
+                // Fixed width: use the span measured from the nut so the band
+                // keeps a constant visual size regardless of anchor position
+                // (fret cells shrink logarithmically toward the bridge but the
+                // finger spacing inside the overlay is always uniform).
+                widthPct = fretPct(this._handSpanFrets, maxFrets);
+            } else {
+                widthPct = fretPct(anchor + this._handSpanFrets, maxFrets) - leftPct;
+            }
             band.style.left  = leftPct + '%';
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         }
@@ -1203,16 +1193,14 @@
     };
 
     /**
-     * Re-render fret_sliding_fingers stripes and dots with the current anchor.
-     * Called after every hand move so positions adapt to the logarithmic fret
-     * spacing at the new hand location (fingers cluster toward the bridge).
+     * Re-render fret_sliding_fingers stripes with the current anchor.
+     * Finger positions are uniformly spaced (anchor-independent), so this is
+     * mainly called to keep the DOM consistent after programmatic hand moves.
      */
     KeyboardChordsMixin._refreshFretSlidingLayout = function () {
         if (this._mechanism !== 'fret_sliding_fingers') return;
         const rangeRect = document.getElementById('hand-finger-range-rect');
         if (!rangeRect) return;
-        // Stripe proportional positions are constant (anchor cancels in the ratio);
-        // re-rendering re-applies the correct flush transforms for extreme fingers.
         this._renderFingerRangeRects(rangeRect, this._cachedNumStrings || 6);
     };
 
