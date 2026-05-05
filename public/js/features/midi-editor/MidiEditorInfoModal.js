@@ -66,9 +66,7 @@
         async _fetchTextEvents() {
             const fileId = this.modal.currentFile;
             if (!fileId) return null;
-            const resp = await fetch(`/api/files/${encodeURIComponent(fileId)}/text-events`);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            return resp.json();
+            return this.modal.api.sendCommand('file_text_events', { fileId });
         }
 
         // ------------------------------------------------------------------ //

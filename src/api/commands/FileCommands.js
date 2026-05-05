@@ -18,6 +18,7 @@
  *   - `file_search`              — substring match over names
  *   - `file_filter`              — multi-criterion filter (see handler)
  *   - `file_channels`            — analyzed channel summary
+ *   - `file_text_events`         — text meta events (lyrics, markers, copyright…)
  *   - `file_reanalyze_all`       — replay analysis over every file
  *   - `file_reanalyze_check`     — count files needing reanalysis
  *   - `file_routing_status`      — playable routings for one file
@@ -341,6 +342,43 @@ async function fileChannels(app, data) {
 }
 
 /**
+ * Return all text meta events for a file (lyrics, markers, copyright, etc.)
+ * Optionally filtered by event type via data.eventType.
+ *
+ * @param {Object} app
+ * @param {{ fileId: number|string, eventType?: string }} data
+ */
+async function fileTextEvents(app, data) {
+  if (!data.fileId) {
+    throw new ValidationError('fileId is required', 'fileId');
+  }
+
+  const file = app.database.getFileInfo(data.fileId);
+  if (!file) {
+    throw new ValidationError(`File not found: ${data.fileId}`, 'fileId');
+  }
+
+  const eventType = data.eventType || null;
+  const events = app.database.midiDB.getFileTextEvents(data.fileId, eventType);
+
+  const grouped = {};
+  for (const e of events) {
+    if (!grouped[e.event_type]) grouped[e.event_type] = [];
+    grouped[e.event_type].push({ tick: e.tick, track: e.track, text: e.text });
+  }
+
+  return {
+    success: true,
+    fileId: data.fileId,
+    filename: file.filename,
+    title: file.title ?? null,
+    copyright: file.copyright ?? null,
+    events,
+    grouped
+  };
+}
+
+/**
  * Re-run channel analysis over every file in the library. Long-running.
  *
  * @param {Object} app
@@ -445,6 +483,7 @@ export function register(registry, app) {
   registry.register('file_search', (data) => fileSearch(app, data));
   registry.register('file_filter', (data) => fileFilter(app, data));
   registry.register('file_channels', (data) => fileChannels(app, data));
+  registry.register('file_text_events', (data) => fileTextEvents(app, data));
   registry.register('file_reanalyze_all', () => fileReanalyzeAll(app));
   registry.register('file_reanalyze_check', () => fileReanalyzeCheck(app));
   registry.register('file_routing_status', (data) => fileRoutingStatus(app, data));
