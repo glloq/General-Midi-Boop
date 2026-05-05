@@ -22,6 +22,7 @@
 import { existsSync, readFileSync, renameSync } from 'fs';
 import Config from './Config.js';
 import { ApiTokenManager } from '../infrastructure/auth/ApiTokenManager.js';
+import { BluetoothEventBridge } from '../infrastructure/events/BluetoothEventBridge.js';
 import Logger from './Logger.js';
 import EventBus from './EventBus.js';
 import ServiceContainer from './ServiceContainer.js';
@@ -105,6 +106,8 @@ class Application {
 
     // Track bound event handlers for cleanup
     this._eventHandlers = [];
+    /** @type {BluetoothEventBridge|null} */
+    this._btBridge = null;
 
     this.version = (() => {
       try {
@@ -426,24 +429,12 @@ class Application {
       this._eventHandlers.push({ event, handler });
     }
 
-    // Bridge BluetoothManager events to WebSocket clients so the frontend
-    // receives real-time updates (device connects, power state changes, etc.)
-    // without having to poll. wsServer may not exist yet during setup, so the
-    // optional-chaining broadcast is intentionally a no-op until it starts.
+    // Bridge BluetoothManager events to WS clients via dedicated bridge.
+    // wsServer may not exist yet during setup — BluetoothEventBridge uses
+    // optional-chaining on broadcast so early events are silently dropped.
     if (this.bluetoothManager) {
-      const btBroadcasts = [
-        'bluetooth:powered_on',
-        'bluetooth:powered_off',
-        'bluetooth:connected',
-        'bluetooth:disconnected',
-        'bluetooth:unpaired'
-      ];
-      for (const event of btBroadcasts) {
-        const handler = (data) => this.wsServer?.broadcast(event, data || {});
-        this.bluetoothManager.on(event, handler);
-        this._btEventHandlers = this._btEventHandlers || [];
-        this._btEventHandlers.push({ event, handler });
-      }
+      this._btBridge = new BluetoothEventBridge(this.bluetoothManager, this.wsServer);
+      this._btBridge.attach();
     }
   }
 
@@ -461,11 +452,9 @@ class Application {
       }
       this._eventHandlers = [];
     }
-    if (this._btEventHandlers && this.bluetoothManager) {
-      for (const { event, handler } of this._btEventHandlers) {
-        this.bluetoothManager.off(event, handler);
-      }
-      this._btEventHandlers = [];
+    if (this._btBridge) {
+      this._btBridge.detach();
+      this._btBridge = null;
     }
   }
 
