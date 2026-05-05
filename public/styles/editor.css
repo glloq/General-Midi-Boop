@@ -1965,13 +1965,35 @@ body.dark-mode .snap-select option {
     width: 1%;
 }
 
-/* Groupe signature */
-.fi-sig-group {
-    margin-bottom: 12px;
+/* Scroll horizontal pour tableaux larges (ex: canaux) */
+.fi-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
-.fi-sig-group:last-child {
-    margin-bottom: 0;
+/* Badge confiance type estimé */
+.fi-conf {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 5px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    background: var(--accent-primary, #667eea);
+    color: #fff;
+    vertical-align: middle;
+    opacity: 0.85;
+}
+
+/* Colonnes côte à côte pour les signatures */
+.fi-sig-cols {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.fi-sig-group {
+    flex: 1;
+    min-width: 160px;
 }
 
 .fi-sig-group > strong {
