@@ -144,6 +144,43 @@ export function createApiRouter(app) {
     }
   });
 
+  // GET /api/files/:id/text-events
+  // Returns all text meta events for a file (lyrics, markers, copyright, etc.)
+  // Optional query param: ?type=lyrics|marker|text|copyright|...
+  router.get('/files/:id/text-events', (req, res) => {
+    try {
+      const fileId = Number(req.params.id);
+      if (!Number.isFinite(fileId) || fileId <= 0) {
+        return res.status(400).json({ error: 'Invalid file id' });
+      }
+      const file = app.database.getFileInfo(fileId);
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      const eventType = req.query.type ? String(req.query.type) : null;
+      const events = app.database.midiDB.getFileTextEvents(fileId, eventType);
+
+      // Group by event type for convenient consumption
+      const grouped = {};
+      for (const e of events) {
+        if (!grouped[e.event_type]) grouped[e.event_type] = [];
+        grouped[e.event_type].push({ tick: e.tick, track: e.track, text: e.text });
+      }
+
+      res.json({
+        fileId,
+        filename: file.filename,
+        title: file.title ?? null,
+        copyright: file.copyright ?? null,
+        events,
+        grouped
+      });
+    } catch (err) {
+      app.logger.error(`GET /api/files/${req.params.id}/text-events failed: ${err.message}`);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.get('/files/:id/blob', (req, res) => {
     try {
       const fileId = Number(req.params.id);

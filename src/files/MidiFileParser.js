@@ -252,6 +252,91 @@ class MidiFileParser {
   }
 
   /**
+   * Collect all text-bearing meta events from every track.
+   *
+   * Returns two things:
+   *   - `events`  — flat list of {track, tick, eventType, text} rows ready to
+   *                 persist in `midi_file_text_events`.
+   *   - `summary` — file-level aggregates (title, copyright, markers, etc.)
+   *                 for quick display without a second DB query.
+   *
+   * Event types captured:
+   *   text | copyright | trackName | instrumentName | lyrics |
+   *   marker | cuePoint | programName | deviceName
+   *
+   * Structural events (timeSignature, keySignature) are returned only in
+   * `summary` because they carry numeric fields, not free text.
+   *
+   * @param {Object} midi - Parsed MIDI object
+   * @returns {{ events: Array, summary: Object }}
+   */
+  extractTextEvents(midi) {
+    const TEXT_TYPES = new Set([
+      'text', 'copyright', 'trackName', 'instrumentName',
+      'lyrics', 'marker', 'cuePoint', 'programName', 'deviceName'
+    ]);
+
+    const events = [];
+    const timeSignatures = [];
+    const keySignatures = [];
+
+    for (let trackIdx = 0; trackIdx < (midi.tracks || []).length; trackIdx++) {
+      let tick = 0;
+      for (const event of midi.tracks[trackIdx]) {
+        tick += event.deltaTime || 0;
+
+        if (TEXT_TYPES.has(event.type) && event.text != null) {
+          const text = String(event.text).trim();
+          if (text.length > 0) {
+            events.push({ track: trackIdx, tick, eventType: event.type, text });
+          }
+        } else if (event.type === 'timeSignature') {
+          timeSignatures.push({
+            tick,
+            numerator: event.numerator,
+            denominator: event.denominator,
+            metronome: event.metronome,
+            thirtyseconds: event.thirtyseconds
+          });
+        } else if (event.type === 'keySignature') {
+          keySignatures.push({
+            tick,
+            key: event.key,
+            scale: event.scale
+          });
+        }
+      }
+    }
+
+    // Build summary from raw events
+    const byType = (type) => events.filter(e => e.eventType === type).map(e => e.text);
+
+    // Title = first trackName on track 0 (SMF convention), fallback to any trackName
+    const track0Names = events.filter(e => e.eventType === 'trackName' && e.track === 0);
+    const title = track0Names.length > 0
+      ? track0Names[0].text
+      : (events.find(e => e.eventType === 'trackName')?.text ?? null);
+
+    const copyrightTexts = byType('copyright');
+
+    return {
+      events,
+      summary: {
+        title,
+        copyright: copyrightTexts.length > 0 ? copyrightTexts.join(' | ') : null,
+        markers: events
+          .filter(e => e.eventType === 'marker')
+          .map(e => ({ tick: e.tick, text: e.text })),
+        lyrics: events
+          .filter(e => e.eventType === 'lyrics')
+          .map(e => ({ tick: e.tick, track: e.track, text: e.text })),
+        timeSignatures,
+        keySignatures
+      }
+    };
+  }
+
+  /**
    * Extract the tempo map as a flat array of absolute-tick BPM points.
    * Result is ready to persist in `midi_file_tempo_map` so playback
    * can seek without re-parsing the binary.
