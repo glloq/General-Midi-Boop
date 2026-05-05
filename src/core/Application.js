@@ -19,7 +19,7 @@
  * LightingManager) are loaded inside try/catch — missing native deps on a
  * given host are logged as warnings, not fatal errors.
  */
-import { existsSync, readFileSync, renameSync } from 'fs';
+import { readFileSync } from 'fs';
 import Config from './Config.js';
 import { ApiTokenManager } from '../infrastructure/auth/ApiTokenManager.js';
 import { BluetoothEventBridge } from '../infrastructure/events/BluetoothEventBridge.js';
@@ -168,32 +168,6 @@ class Application {
   }
 
   /**
-   * Ensure an API bearer token exists. If `GMBOOP_API_TOKEN` is not set,
-   * a 32-byte random hex token is generated, written to `.env`, exported
-   * via `process.env` so the HTTP / WebSocket servers pick it up, and
-   * logged as a one-shot warning so the operator can copy it.
-   *
-   * @returns {void}
-   * @private
-   */
-  _migrateLegacyArtifacts() {
-    const pairs = [
-      ['./data/midimind.db', './data/gmboop.db'],
-      ['./logs/midimind.log', './logs/gmboop.log']
-    ];
-    for (const [oldPath, newPath] of pairs) {
-      if (existsSync(oldPath) && !existsSync(newPath)) {
-        try {
-          renameSync(oldPath, newPath);
-          this.logger.warn(`Migrated legacy artifact ${oldPath} -> ${newPath}`);
-        } catch (error) {
-          this.logger.warn(`Legacy migration failed for ${oldPath}: ${error.message}`);
-        }
-      }
-    }
-  }
-
-  /**
    * Build every backend service and wire EventBus subscriptions. Safe to
    * call only once per Application instance — call {@link Application#stop}
    * before re-initialising.
@@ -211,9 +185,6 @@ class Application {
   async initialize() {
     try {
       this.logger.info('Initializing application...');
-
-      // One-shot rebrand migration (v5.x -> 0.7.x). Remove in 0.8.0.
-      this._migrateLegacyArtifacts();
 
       // Ensure API authentication is configured
       new ApiTokenManager(this.logger).ensure();
