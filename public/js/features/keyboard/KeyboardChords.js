@@ -867,15 +867,11 @@
             // finger lands just before the anchor fret wire.
             const displayAnchor = Math.max(0, anchor - 0.25);
             leftPct  = fretPct(displayAnchor, maxFrets);
-            if (this._mechanism === 'fret_sliding_fingers') {
-                // Fixed width: use the span measured from the nut so the band
-                // keeps a constant visual size regardless of anchor position
-                // (fret cells shrink logarithmically toward the bridge but the
-                // finger spacing inside the overlay is always uniform).
-                widthPct = fretPct(this._handSpanFrets, maxFrets);
-            } else {
-                widthPct = fretPct(anchor + this._handSpanFrets, maxFrets) - leftPct;
-            }
+            // For fret_sliding_fingers the right edge is measured from
+            // displayAnchor (not anchor) so the band covers exactly the N-1
+            // fret intervals between the first and last finger contact points.
+            const rightBase = this._mechanism === 'fret_sliding_fingers' ? displayAnchor : anchor;
+            widthPct = fretPct(rightBase + this._handSpanFrets, maxFrets) - leftPct;
             band.style.left  = leftPct + '%';
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         }
