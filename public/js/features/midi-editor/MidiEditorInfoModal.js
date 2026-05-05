@@ -1,13 +1,77 @@
 // ============================================================================
 // File: public/js/features/midi-editor/MidiEditorInfoModal.js
-// Description: Popup d'informations du fichier MIDI — affiche toutes les
-//   métadonnées (tempo, durée, canaux, titre, copyright, paroles, marqueurs…)
-//   récupérées depuis les données déjà chargées + l'endpoint
-//   GET /api/files/:id/text-events.
+// Description: Popup d'informations complètes du fichier MIDI.
+//   Combine trois sources de données :
+//     1. file_metadata  (WS) — taille, routing, durée DB
+//     2. file_channels  (WS) — analyse par canal (type, polyphonie, densité)
+//     3. file_text_events (WS) — titre, copyright, paroles, marqueurs…
+//     4. midiData (local) — statistiques calculées depuis les tracks brutes
 // ============================================================================
 
 (function () {
     'use strict';
+
+    // ── Constantes de décodage MIDI ──────────────────────────────────────── //
+
+    const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+    const CC_NAMES = {
+        0:'Bank Select', 1:'Modulation', 2:'Breath', 4:'Foot Ctrl',
+        5:'Portamento Time', 6:'Data Entry', 7:'Volume', 8:'Balance',
+        10:'Pan', 11:'Expression', 12:'Effect 1', 13:'Effect 2',
+        64:'Sustain', 65:'Portamento', 66:'Sostenuto', 67:'Soft Pedal',
+        68:'Legato', 70:'Sound Variation', 71:'Résonance', 72:'Release',
+        73:'Attack', 74:'Cutoff', 75:'Decay', 76:'Vibrato Rate',
+        77:'Vibrato Depth', 78:'Vibrato Delay', 84:'Portamento Ctrl',
+        91:'Reverb', 92:'Tremolo', 93:'Chorus', 94:'Detune', 95:'Phaser',
+        120:'All Sound Off', 121:'Reset Ctrl', 123:'All Notes Off'
+    };
+
+    const TYPE_LABELS = {
+        drums:'Percussions', bass:'Basse', melody:'Mélodie',
+        harmony:'Harmonie', percussive:'Percussif'
+    };
+
+    const ROUTING_LABELS = {
+        unrouted:'Non routé', partial:'Partiel',
+        playable:'Prêt', routed_incomplete:'Incomplet', auto_assigned:'Auto-assigné'
+    };
+
+    // ── Helpers ───────────────────────────────────────────────────────────── //
+
+    function midiNote(n) {
+        if (n == null) return '—';
+        return NOTE_NAMES[n % 12] + Math.floor(n / 12 - 1) + ` (${n})`;
+    }
+
+    function esc(s) {
+        return String(s ?? '')
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function fmt(v, fb = '—') {
+        return (v !== null && v !== undefined && String(v).trim() !== '') ? v : fb;
+    }
+
+    function fmtSize(bytes) {
+        if (!bytes) return '—';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function fmtDuration(sec) {
+        if (!sec || sec <= 0) return '—';
+        const m = Math.floor(sec / 60);
+        const s = String(Math.floor(sec % 60)).padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    function fmtPct(v) {
+        return v != null ? Math.round(v) + ' %' : '—';
+    }
+
+    // ── Classe principale ─────────────────────────────────────────────────── //
 
     class MidiEditorInfoModal {
         constructor(modal) {
@@ -15,11 +79,11 @@
         }
 
         // ------------------------------------------------------------------ //
-        // PUBLIC: ouvrir le popup                                             //
+        // PUBLIC                                                              //
         // ------------------------------------------------------------------ //
 
         async show() {
-            if (document.querySelector('.file-info-modal-overlay')) return; // déjà ouvert
+            if (document.querySelector('.file-info-modal-overlay')) return;
 
             const overlay = document.createElement('div');
             overlay.className = 'file-info-modal-overlay';
@@ -33,100 +97,273 @@
                     <div class="file-info-modal-body">
                         <div class="file-info-loading">⏳ Chargement…</div>
                     </div>
-                </div>
-            `;
+                </div>`;
             document.body.appendChild(overlay);
             requestAnimationFrame(() => overlay.classList.add('visible'));
 
-            // Fermeture
             const close = () => {
                 overlay.classList.remove('visible');
                 setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 200);
             };
             overlay.querySelector('.file-info-modal-close').addEventListener('click', close);
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-            document.addEventListener('keydown', function onKey(e) {
-                if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
-            });
+            overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+            const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+            document.addEventListener('keydown', onKey);
 
-            // Remplir le contenu
             try {
-                const textData = await this._fetchTextEvents();
-                overlay.querySelector('.file-info-modal-body').innerHTML = this._renderBody(textData);
+                const [textData, channelData, metaData] = await this._fetchAll();
+                const localStats = this._computeLocalStats();
+                overlay.querySelector('.file-info-modal-body').innerHTML =
+                    this._renderBody(textData, channelData, metaData, localStats);
             } catch (err) {
                 overlay.querySelector('.file-info-modal-body').innerHTML =
-                    `<p class="file-info-error">Impossible de charger les métadonnées : ${err.message}</p>`;
+                    `<p class="file-info-error">Impossible de charger les métadonnées : ${esc(err.message)}</p>`;
             }
         }
 
         // ------------------------------------------------------------------ //
-        // PRIVÉ : récupération des text events via HTTP                       //
+        // DONNÉES — requêtes WS parallèles                                   //
         // ------------------------------------------------------------------ //
 
-        async _fetchTextEvents() {
-            const fileId = this.modal.currentFile;
-            if (!fileId) return null;
-            return this.modal.api.sendCommand('file_text_events', { fileId });
+        async _fetchAll() {
+            const id = this.modal.currentFile;
+            if (!id) return [null, null, null];
+            return Promise.all([
+                this.modal.api.sendCommand('file_text_events', { fileId: id }).catch(() => null),
+                this.modal.api.sendCommand('file_channels',    { fileId: id }).catch(() => null),
+                this.modal.api.sendCommand('file_metadata',    { fileId: id }).catch(() => null)
+            ]);
         }
 
         // ------------------------------------------------------------------ //
-        // PRIVÉ : rendu HTML du corps                                         //
+        // STATISTIQUES calculées localement depuis midiData.tracks           //
         // ------------------------------------------------------------------ //
 
-        _renderBody(textData) {
-            const m = this.modal;
-            const midi = m.midiData;
-            const header = midi?.header || {};
+        _computeLocalStats() {
+            const tracks = this.modal.midiData?.tracks || [];
+            const stats = {
+                eventCounts: {},   // type → count
+                ccUsage:     {},   // ccNumber → { count, channels: Set }
+                timeSigs:    [],   // { tick, num, den }
+                keySigs:     [],   // { tick, key, scale }
+                progChanges: [],   // { tick, channel, program }
+                sysexCount:  0,
+                hasPitchBend:false,
+                velMin: 127, velMax: 0, velSum: 0, velCount: 0,
+                noteMin: 127, noteMax: 0,
+                totalNotes: 0,
+                polyMax: 0,        // max simultaneous noteOn across all channels
+                tempoChanges: 0
+            };
 
-            const fmt = (v, fallback = '—') => (v !== null && v !== undefined && v !== '') ? v : fallback;
-            const esc = (s) => String(s)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Active note tracking for polyphony
+            let activeNotes = 0;
 
-            // Durée formatée
-            const totalTicks = this._computeTotalTicks();
-            const durationSec = this._ticksToSeconds(totalTicks);
-            const durationFmt = durationSec > 0
-                ? `${Math.floor(durationSec / 60)}:${String(Math.floor(durationSec % 60)).padStart(2, '0')}`
-                : '—';
+            for (const track of tracks) {
+                let tick = 0;
+                for (const ev of (track.events || track || [])) {
+                    tick += ev.deltaTime || 0;
+                    const t = ev.type;
 
-            // Titre / copyright depuis l'API ou depuis les tracks chargés
-            const title     = textData?.title     || this._extractLocalText('trackName',  0) || '—';
-            const copyright = textData?.copyright || this._extractLocalText('copyright') || '—';
+                    // Count every event type
+                    stats.eventCounts[t] = (stats.eventCounts[t] || 0) + 1;
+
+                    if (t === 'noteOn' && ev.velocity > 0) {
+                        stats.totalNotes++;
+                        stats.velSum += ev.velocity;
+                        stats.velCount++;
+                        if (ev.velocity < stats.velMin) stats.velMin = ev.velocity;
+                        if (ev.velocity > stats.velMax) stats.velMax = ev.velocity;
+                        if (ev.noteNumber < stats.noteMin) stats.noteMin = ev.noteNumber;
+                        if (ev.noteNumber > stats.noteMax) stats.noteMax = ev.noteNumber;
+                        activeNotes++;
+                        if (activeNotes > stats.polyMax) stats.polyMax = activeNotes;
+                    } else if (t === 'noteOff' || (t === 'noteOn' && ev.velocity === 0)) {
+                        if (activeNotes > 0) activeNotes--;
+                    } else if (t === 'controller') {
+                        const cc = ev.controllerType;
+                        if (!stats.ccUsage[cc]) stats.ccUsage[cc] = { count: 0, channels: new Set() };
+                        stats.ccUsage[cc].count++;
+                        stats.ccUsage[cc].channels.add(ev.channel + 1);
+                    } else if (t === 'pitchBend') {
+                        stats.hasPitchBend = true;
+                    } else if (t === 'sysEx' || t === 'endSysEx') {
+                        stats.sysexCount++;
+                    } else if (t === 'timeSignature') {
+                        stats.timeSigs.push({ tick, num: ev.numerator, den: ev.denominator });
+                    } else if (t === 'keySignature') {
+                        stats.keySigs.push({ tick, key: ev.key, scale: ev.scale });
+                    } else if (t === 'programChange') {
+                        stats.progChanges.push({ tick, channel: (ev.channel ?? 0) + 1, program: ev.programNumber });
+                    } else if (t === 'setTempo') {
+                        stats.tempoChanges++;
+                    }
+                }
+            }
+
+            if (stats.velCount === 0) { stats.velMin = 0; stats.velMax = 0; }
+            if (stats.noteMin > stats.noteMax) { stats.noteMin = 0; stats.noteMax = 0; }
+
+            return stats;
+        }
+
+        // ------------------------------------------------------------------ //
+        // RENDU HTML                                                          //
+        // ------------------------------------------------------------------ //
+
+        _renderBody(textData, channelData, metaData, ls) {
+            const m   = this.modal;
+            const hdr = m.midiData?.header || {};
+            const meta = metaData?.metadata || {};
+
+            const title     = textData?.title     || '—';
+            const copyright = textData?.copyright || '—';
 
             let html = '';
 
-            // ── Section : Fichier ──────────────────────────────────────────
+            // ── 🗂 Fichier ───────────────────────────────────────────────── //
+            const routingLabel = ROUTING_LABELS[meta.routingStatus] || meta.routingStatus || '—';
+            const adaptedLabel = meta.isAdapted ? 'Oui' : (meta.isAdapted === false ? 'Non' : '—');
             html += this._section('🗂 Fichier', `
-                ${this._row('Nom',      esc(m.currentFilename || m.currentFile))}
-                ${this._row('Titre',    esc(title))}
-                ${this._row('Copyright', esc(copyright))}
-                ${this._row('Format MIDI', fmt(header.format !== undefined ? `Type ${header.format}` : null))}
-                ${this._row('Pistes',   fmt(header.numTracks))}
-                ${this._row('Durée',    durationFmt)}
-                ${this._row('Tempo',    m.tempo ? `${Math.round(m.tempo)} BPM` : '—')}
-                ${this._row('PPQ',      fmt(header.ticksPerBeat))}
+                ${this._row('Nom',           esc(m.currentFilename || m.currentFile))}
+                ${this._row('Titre',         esc(title))}
+                ${this._row('Copyright',     esc(copyright))}
+                ${this._row('Taille',        fmtSize(meta.size))}
+                ${this._row('Format MIDI',   hdr.format !== undefined ? `Type ${hdr.format}` : '—')}
+                ${this._row('Pistes SMF',    fmt(hdr.numTracks ?? meta.tracks))}
+                ${this._row('Durée',         fmtDuration(meta.duration))}
+                ${this._row('Tempo initial', m.tempo ? `${Math.round(m.tempo)} BPM` : '—')}
+                ${this._row('Changements tempo', ls.tempoChanges > 1 ? `${ls.tempoChanges} changements` : (ls.tempoChanges === 1 ? 'Fixe' : '—'))}
+                ${this._row('PPQ',           fmt(hdr.ticksPerBeat ?? meta.ppq))}
+                ${this._row('Statut routing',routingLabel)}
+                ${this._row('Adapté',        adaptedLabel)}
             `);
 
-            // ── Section : Canaux ──────────────────────────────────────────
-            if (m.channels && m.channels.length > 0) {
-                const rows = m.channels.map(ch => {
-                    const name = m.getInstrumentName?.(ch.program) || ch.instrument || `Programme ${ch.program}`;
-                    const isDrum = ch.channel === 9;
+            // ── 📊 Statistiques ──────────────────────────────────────────── //
+            const velAvg = ls.velCount > 0 ? Math.round(ls.velSum / ls.velCount) : 0;
+            html += this._section('📊 Statistiques', `
+                ${this._row('Notes totales',  fmt(ls.totalNotes || meta.noteCount))}
+                ${this._row('Note la plus basse', midiNote(ls.noteMin > ls.noteMax ? null : ls.noteMin))}
+                ${this._row('Note la plus haute', midiNote(ls.noteMin > ls.noteMax ? null : ls.noteMax))}
+                ${this._row('Polyphonie max', ls.polyMax > 0 ? `${ls.polyMax} voix simultanées` : '—')}
+                ${this._row('Vélocité min / moy / max',
+                    ls.velCount > 0 ? `${ls.velMin} / ${velAvg} / ${ls.velMax}` : '—')}
+                ${this._row('Pitch Bend',     ls.hasPitchBend ? 'Oui' : 'Non')}
+                ${this._row('Messages SysEx', ls.sysexCount > 0 ? ls.sysexCount : 'Aucun')}
+                ${this._row('Canaux actifs',  fmt(meta.channelCount))}
+            `);
+
+            // ── 🎹 Canaux ────────────────────────────────────────────────── //
+            const dbChannels = channelData?.channels || [];
+            const uiChannels = m.channels || [];
+
+            if (uiChannels.length > 0 || dbChannels.length > 0) {
+                const merged = this._mergeChannels(uiChannels, dbChannels);
+                const rows = merged.map(ch => {
+                    const instName = m.getInstrumentName?.(ch.program) || ch.instrument || `Prog. ${ch.program ?? '?'}`;
+                    const isDrum   = ch.channel === 9;
+                    const typeRaw  = ch.estimated_type;
+                    const typeStr  = typeRaw ? (TYPE_LABELS[typeRaw] || typeRaw) : '—';
+                    const conf     = ch.type_confidence != null ? `<span class="fi-conf">${ch.type_confidence}%</span>` : '';
+                    const range    = (ch.note_range_min != null && ch.note_range_max != null)
+                        ? `${NOTE_NAMES[ch.note_range_min % 12]}${Math.floor(ch.note_range_min/12-1)}–${NOTE_NAMES[ch.note_range_max % 12]}${Math.floor(ch.note_range_max/12-1)}`
+                        : '—';
+                    const poly     = ch.polyphony_max > 0 ? ch.polyphony_max : '—';
+                    const dens     = ch.density != null ? ch.density.toFixed(2) : '—';
                     return `<tr>
-                        <td class="fi-td-num">Canal ${ch.channel + 1}${isDrum ? ' 🥁' : ''}</td>
-                        <td>${esc(name)}</td>
-                        <td class="fi-td-num">${ch.noteCount || 0} notes</td>
+                        <td class="fi-td-num">CH${ch.channel + 1}${isDrum ? '🥁' : ''}</td>
+                        <td>${esc(instName)}</td>
+                        <td>${esc(ch.gm_category || '—')}</td>
+                        <td>${typeStr}${conf}</td>
+                        <td class="fi-td-num">${range}</td>
+                        <td class="fi-td-num">${fmt(ch.total_notes ?? ch.noteCount)}</td>
+                        <td class="fi-td-num">${poly}</td>
+                        <td class="fi-td-num">${dens}</td>
                     </tr>`;
                 }).join('');
                 html += this._section('🎹 Canaux', `
+                    <div class="fi-scroll-x">
                     <table class="file-info-table">
-                        <thead><tr><th>Canal</th><th>Instrument</th><th>Notes</th></tr></thead>
+                        <thead><tr>
+                            <th>Canal</th><th>Instrument</th><th>Catégorie</th>
+                            <th>Type estimé</th><th>Plage</th>
+                            <th>Notes</th><th>Poly.</th><th>Densité</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    </div>
+                `);
+            }
+
+            // ── 🎛 Contrôleurs CC ────────────────────────────────────────── //
+            const ccEntries = Object.entries(ls.ccUsage)
+                .sort((a, b) => b[1].count - a[1].count);
+            if (ccEntries.length > 0) {
+                const rows = ccEntries.map(([cc, info]) => {
+                    const name = CC_NAMES[cc] || `CC${cc}`;
+                    const chans = Array.from(info.channels).sort((a,b)=>a-b).join(', ');
+                    return `<tr>
+                        <td class="fi-td-num">CC${cc}</td>
+                        <td>${esc(name)}</td>
+                        <td class="fi-td-num">${info.count}</td>
+                        <td class="fi-td-num">${chans}</td>
+                    </tr>`;
+                }).join('');
+                html += this._section('🎛 Contrôleurs (CC)', `
+                    <table class="file-info-table">
+                        <thead><tr><th>#</th><th>Nom</th><th>Événements</th><th>Canaux</th></tr></thead>
                         <tbody>${rows}</tbody>
                     </table>
                 `);
             }
 
-            // ── Section : Marqueurs ───────────────────────────────────────
+            // ── 🎼 Signatures ────────────────────────────────────────────── //
+            const KEY_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+            if (ls.timeSigs.length > 0 || ls.keySigs.length > 0) {
+                let sigHtml = '<div class="fi-sig-cols">';
+                if (ls.timeSigs.length > 0) {
+                    const rows = ls.timeSigs.map(s =>
+                        `<tr><td class="fi-td-num">${s.tick}</td><td>${s.num}/${s.den}</td></tr>`
+                    ).join('');
+                    sigHtml += `<div class="fi-sig-group"><strong>Mesure</strong>
+                        <table class="file-info-table"><thead><tr><th>Tick</th><th>Signature</th></tr></thead>
+                        <tbody>${rows}</tbody></table></div>`;
+                }
+                if (ls.keySigs.length > 0) {
+                    const rows = ls.keySigs.map(s => {
+                        const ni = ((s.key % 12) + 12) % 12;
+                        const ton = KEY_NAMES[ni] + (s.scale === 0 ? ' Maj' : ' min');
+                        const acc = s.key > 0 ? `${s.key}#` : s.key < 0 ? `${Math.abs(s.key)}♭` : '';
+                        return `<tr><td class="fi-td-num">${s.tick}</td><td>${ton}</td><td class="fi-td-num">${acc}</td></tr>`;
+                    }).join('');
+                    sigHtml += `<div class="fi-sig-group"><strong>Tonalité</strong>
+                        <table class="file-info-table"><thead><tr><th>Tick</th><th>Tonalité</th><th>Armure</th></tr></thead>
+                        <tbody>${rows}</tbody></table></div>`;
+                }
+                sigHtml += '</div>';
+                html += this._section('🎼 Signatures', sigHtml);
+            }
+
+            // ── 🔄 Changements de programme ─────────────────────────────── //
+            if (ls.progChanges.length > 0) {
+                const rows = ls.progChanges.map(p => {
+                    const name = m.getInstrumentName?.(p.program) || `Prog. ${p.program}`;
+                    return `<tr>
+                        <td class="fi-td-num">${p.tick}</td>
+                        <td class="fi-td-num">CH${p.channel}</td>
+                        <td>${esc(name)}</td>
+                        <td class="fi-td-num">${p.program}</td>
+                    </tr>`;
+                }).join('');
+                html += this._section('🔄 Changements de programme', `
+                    <table class="file-info-table">
+                        <thead><tr><th>Tick</th><th>Canal</th><th>Instrument</th><th>Prog#</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                `);
+            }
+
+            // ── 📍 Marqueurs ──────────────────────────────────────────────── //
             const markers = textData?.grouped?.marker || [];
             if (markers.length > 0) {
                 const rows = markers.map(e =>
@@ -140,7 +377,7 @@
                 `);
             }
 
-            // ── Section : Paroles ─────────────────────────────────────────
+            // ── 🎤 Paroles ────────────────────────────────────────────────── //
             const lyrics = textData?.grouped?.lyrics || [];
             if (lyrics.length > 0) {
                 const rows = lyrics.map(e =>
@@ -154,11 +391,11 @@
                 `);
             }
 
-            // ── Section : Autres événements texte ─────────────────────────
+            // ── 📄 Autres textes ──────────────────────────────────────────── //
             const otherTypes = ['text', 'instrumentName', 'cuePoint', 'programName', 'deviceName'];
-            const otherEvents = (textData?.events || []).filter(e => otherTypes.includes(e.event_type));
-            if (otherEvents.length > 0) {
-                const rows = otherEvents.map(e =>
+            const others = (textData?.events || []).filter(e => otherTypes.includes(e.event_type));
+            if (others.length > 0) {
+                const rows = others.map(e =>
                     `<tr><td class="fi-td-tag">${esc(e.event_type)}</td><td class="fi-td-num">${e.tick}</td><td>${esc(e.text)}</td></tr>`
                 ).join('');
                 html += this._section('📄 Autres textes', `
@@ -169,39 +406,24 @@
                 `);
             }
 
-            // ── Section : Signatures ──────────────────────────────────────
-            const timeSigs = textData?.summary?.timeSignatures || [];
-            const keySigs  = textData?.summary?.keySignatures  || [];
-            if (timeSigs.length > 0 || keySigs.length > 0) {
-                const KEY_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-                let sigHtml = '';
-                if (timeSigs.length > 0) {
-                    const rows = timeSigs.map(s =>
-                        `<tr><td class="fi-td-num">${s.tick}</td><td>${s.numerator}/${s.denominator}</td></tr>`
-                    ).join('');
-                    sigHtml += `<div class="fi-sig-group"><strong>Mesure</strong>
-                        <table class="file-info-table"><thead><tr><th>Tick</th><th>Signature</th></tr></thead>
-                        <tbody>${rows}</tbody></table></div>`;
-                }
-                if (keySigs.length > 0) {
-                    const rows = keySigs.map(s => {
-                        const noteIdx = ((s.key % 12) + 12) % 12;
-                        const tonality = KEY_NAMES[noteIdx] + (s.scale === 0 ? ' Maj' : ' min');
-                        return `<tr><td class="fi-td-num">${s.tick}</td><td>${tonality}</td></tr>`;
-                    }).join('');
-                    sigHtml += `<div class="fi-sig-group"><strong>Tonalité</strong>
-                        <table class="file-info-table"><thead><tr><th>Tick</th><th>Tonalité</th></tr></thead>
-                        <tbody>${rows}</tbody></table></div>`;
-                }
-                html += this._section('🎼 Signatures', sigHtml);
-            }
-
             return html || '<p class="file-info-empty">Aucune métadonnée disponible.</p>';
         }
 
         // ------------------------------------------------------------------ //
-        // HELPERS                                                              //
+        // HELPERS                                                             //
         // ------------------------------------------------------------------ //
+
+        _mergeChannels(uiChannels, dbChannels) {
+            const byChannel = {};
+            for (const ch of uiChannels) {
+                byChannel[ch.channel] = { ...ch };
+            }
+            for (const ch of dbChannels) {
+                const c = ch.channel ?? ch.channel;
+                byChannel[c] = { ...(byChannel[c] || {}), ...ch };
+            }
+            return Object.values(byChannel).sort((a, b) => a.channel - b.channel);
+        }
 
         _section(title, content) {
             return `<div class="file-info-section">
@@ -215,34 +437,6 @@
                 <span class="fi-label">${label}</span>
                 <span class="fi-value">${value}</span>
             </div>`;
-        }
-
-        // Extrait un texte directement depuis midiData.tracks (fallback sans API)
-        _extractLocalText(eventType, trackIndex = null) {
-            const tracks = this.modal.midiData?.tracks || [];
-            for (let i = 0; i < tracks.length; i++) {
-                if (trackIndex !== null && i !== trackIndex) continue;
-                for (const ev of tracks[i]?.events || []) {
-                    if (ev.type === eventType && ev.text) return ev.text;
-                }
-            }
-            return null;
-        }
-
-        _computeTotalTicks() {
-            let max = 0;
-            for (const track of (this.modal.midiData?.tracks || [])) {
-                let t = 0;
-                for (const ev of track?.events || []) t += ev.deltaTime || 0;
-                if (t > max) max = t;
-            }
-            return max;
-        }
-
-        _ticksToSeconds(ticks) {
-            const ppq = this.modal.midiData?.header?.ticksPerBeat || 480;
-            const bpm = this.modal.tempo || 120;
-            return (ticks / ppq) * (60 / bpm);
         }
     }
 
