@@ -1811,10 +1811,12 @@ body.dark-mode .snap-select option {
     border: 1px solid var(--border-color, #e0e0e0);
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    width: min(680px, 92vw);
+    width: min(720px, 94vw);
+    height: 82vh;
     max-height: 82vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     transform: translateY(8px);
     transition: transform 0.2s ease;
 }
@@ -1861,9 +1863,13 @@ body.dark-mode .snap-select option {
     color: var(--text-primary, #2c3e50);
 }
 
-/* Body scrollable */
+/* Body scrollable — flex: 1 + min-height: 0 sont indispensables pour que
+   overflow-y: auto fonctionne dans un conteneur flex */
 .file-info-modal-body {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
