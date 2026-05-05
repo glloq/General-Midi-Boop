@@ -169,27 +169,9 @@
                 return base;
             }.bind(this);
 
-            // Draw preview if already enabled on mount
-            if (slideToggle.checked) {
-                requestAnimationFrame(function() {
-                    if (typeof ISMSections !== 'undefined' && ISMSections._initStringSlidePreview) {
-                        ISMSections._initStringSlidePreview(getConfig());
-                    }
-                });
-            }
-
             slideToggle.addEventListener('change', function(e) {
                 const config = getConfig();
                 if (config) config.string_sliding_system_enabled = e.target.checked;
-
-                // Show/hide canvas preview
-                const preview = this.$('#ismStringSlidePreview');
-                if (preview) preview.style.display = e.target.checked ? '' : 'none';
-                if (e.target.checked && typeof ISMSections !== 'undefined' && ISMSections._initStringSlidePreview) {
-                    requestAnimationFrame(function() {
-                        ISMSections._initStringSlidePreview(getConfig());
-                    });
-                }
 
                 // Hide hands management card when slide system is active
                 const handsCard = this.$('#handsMovementSubsection');
