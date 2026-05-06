@@ -1577,6 +1577,27 @@
     box-shadow: 0 0 6px rgba(59, 130, 246, 0.70);
 }
 
+/* fret_sliding_fingers: finger indicators are full-height vertical bars,
+   one per finger, centered at that finger's fret cell position. */
+.hand-finger-dot-pos[data-finger] {
+    width: 8px;
+    height: auto;
+    top: 3px;
+    bottom: 3px;
+    border-radius: 4px;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.25);
+    border: 1.5px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.12);
+    transition: left 0.12s ease, background 0.10s ease, box-shadow 0.10s ease;
+}
+
+.hand-finger-dot-pos[data-finger].active {
+    background: rgba(59, 130, 246, 0.70);
+    border-color: rgba(255, 255, 255, 0.90);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.65);
+}
+
 /* string_sliding_fingers: thin horizontal stripe at each string's Y position.
    Spans the full hand width (= full overlay width), shows the fret-axis range
    of motion for that string's finger. */

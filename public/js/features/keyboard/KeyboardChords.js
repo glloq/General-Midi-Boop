@@ -724,18 +724,16 @@
             const bandRight = fretPct(anchor + numF - 1, maxFrets);
             const bandWidth = bandRight - bandLeft;
             for (let i = 0; i < numF; i++) {
-                const dot = document.createElement('div');
-                dot.className = 'hand-finger-dot-pos';
-                dot.dataset.finger = String(i);
-                dot.style.top  = '50%';
+                const bar = document.createElement('div');
+                bar.className = 'hand-finger-dot-pos';
+                bar.dataset.finger = String(i);
                 const prevWire = fretPct(anchor + i - 1, maxFrets);
                 const currWire = fretPct(anchor + i,     maxFrets);
                 const pct = bandWidth > 0
                     ? ((prevWire + currWire) / 2 - bandLeft) / bandWidth * 100
                     : (i + 0.5) / numF * 100;
-                dot.style.left = pct + '%';
-                dot.style.transform = 'translate(-50%, -50%)';
-                rangeRect.appendChild(dot);
+                bar.style.left = pct + '%';
+                rangeRect.appendChild(bar);
             }
         } else if (mechanism !== 'vertical_bar') {
             // One finger-position dot per string — distributed vertically across the
@@ -1055,36 +1053,25 @@
             return;
         }
 
-        // fret_sliding_fingers: move each dot to the string it's pressing and
-        // keep it there after the note stops (dots remember their last string).
-        const fingerDots = rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]');
-        if (fingerDots.length > 0) {
-            const anchor     = this.handAnchorFret || 0;
-            const numStrings = this._cachedNumStrings || 6;
+        // fret_sliding_fingers: highlight the bar for each finger that is
+        // currently pressing a string. The bar spans the full height (all strings)
+        // so no vertical movement is needed — only the active state changes.
+        const fingerBars = rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]');
+        if (fingerBars.length > 0) {
+            const anchor = this.handAnchorFret || 0;
 
-            // Build fingerIndex → stringNum for every currently active note.
-            const fingerToString = {};
+            // Build fingerIndex → pressed fret for every currently active note.
+            const activeIdx = new Set();
             if (activeFrets) {
-                for (const [strKey, fret] of Object.entries(activeFrets)) {
+                for (const [, fret] of Object.entries(activeFrets)) {
                     if (fret == null || fret <= 0) continue;
                     const idx = Math.round(fret - anchor);
-                    if (idx >= 0 && idx < fingerDots.length) {
-                        fingerToString[idx] = parseInt(strKey, 10);
-                    }
+                    if (idx >= 0 && idx < fingerBars.length) activeIdx.add(idx);
                 }
             }
 
-            fingerDots.forEach(dot => {
-                const idx       = parseInt(dot.dataset.finger, 10);
-                const stringNum = fingerToString[idx];
-                if (stringNum != null) {
-                    // Move dot to the Y of the pressed string and activate.
-                    dot.style.top = ((numStrings - stringNum + 0.5) / numStrings * 100) + '%';
-                    dot.classList.add('active');
-                } else {
-                    // Deactivate but keep the last top (string stays visible).
-                    dot.classList.remove('active');
-                }
+            fingerBars.forEach(bar => {
+                bar.classList.toggle('active', activeIdx.has(parseInt(bar.dataset.finger, 10)));
             });
             return;
         }
