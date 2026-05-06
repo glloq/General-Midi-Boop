@@ -716,17 +716,23 @@
         this._renderFingerRangeRects(rangeRect, numStrings);
 
         if (mechanism === 'fret_sliding_fingers') {
-            // One dot per finger, centered in its equal-width slot.
-            // Uniform spacing: dot i at (i+0.5)/N × 100% of the band width.
-            // The band extends half a slot on each side of the first/last contact
-            // point so both edge dots are fully visible (not clipped).
-            const numF  = Math.max(1, this._numFingers);
+            // One dot per finger, centered at the midpoint of its fret cell.
+            const numF     = Math.max(1, this._numFingers);
+            const anchor   = this.handAnchorFret || 1;
+            const maxFrets = this._cachedMaxFrets || 22;
+            const bandLeft  = anchor > 1 ? fretPct(anchor - 1, maxFrets) : 0;
+            const bandRight = fretPct(anchor + numF - 1, maxFrets);
+            const bandWidth = bandRight - bandLeft;
             for (let i = 0; i < numF; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'hand-finger-dot-pos';
                 dot.dataset.finger = String(i);
                 dot.style.top  = '50%';
-                const pct = numF === 1 ? 50 : (i + 0.5) / numF * 100;
+                const prevWire = fretPct(anchor + i - 1, maxFrets);
+                const currWire = fretPct(anchor + i,     maxFrets);
+                const pct = bandWidth > 0
+                    ? ((prevWire + currWire) / 2 - bandLeft) / bandWidth * 100
+                    : (i + 0.5) / numF * 100;
                 dot.style.left = pct + '%';
                 dot.style.transform = 'translate(-50%, -50%)';
                 rangeRect.appendChild(dot);
@@ -811,16 +817,34 @@
         } else if (this._mechanism === 'fret_sliding_fingers') {
             const count      = Math.max(1, this._numFingers);
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
-            // Stripe i is centered on its dot at (i+0.5)/N × 100%.
+            const anchor     = this.handAnchorFret || 1;
+            const maxFrets   = this._cachedMaxFrets || 22;
+            const bandLeft   = anchor > 1 ? fretPct(anchor - 1, maxFrets) : 0;
+            const bandRight  = fretPct(anchor + count - 1, maxFrets);
+            const bandWidth  = bandRight - bandLeft;
+            // Stripe i is centered at the midpoint of fret cell i.
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                const centerPct = count === 1 ? 50 : (i + 0.5) / count * 100;
-                stripe.style.left      = centerPct + '%';
+                const prevWire = fretPct(anchor + i - 1, maxFrets);
+                const currWire = fretPct(anchor + i,     maxFrets);
+                const posPct   = bandWidth > 0
+                    ? ((prevWire + currWire) / 2 - bandLeft) / bandWidth * 100
+                    : (i + 0.5) / count * 100;
+                stripe.style.left      = posPct + '%';
                 stripe.style.width     = stripeWPct + '%';
                 stripe.style.transform = 'translateX(-50%)';
                 rangeRect.appendChild(stripe);
             }
+            // Keep existing dot horizontal positions in sync with the new anchor.
+            rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]').forEach(dot => {
+                const i = parseInt(dot.dataset.finger, 10);
+                if (i >= 0 && i < count && bandWidth > 0) {
+                    const prevWire = fretPct(anchor + i - 1, maxFrets);
+                    const currWire = fretPct(anchor + i,     maxFrets);
+                    dot.style.left = ((prevWire + currWire) / 2 - bandLeft) / bandWidth * 100 + '%';
+                }
+            });
         }
     };
 
