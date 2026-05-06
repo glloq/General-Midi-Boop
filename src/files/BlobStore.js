@@ -12,6 +12,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { ConfigurationError } from '../core/errors/index.js';
 
 class BlobStore {
   /**
@@ -96,7 +97,7 @@ class BlobStore {
   resolve(relativePath) {
     const abs = path.join(this.baseDir, relativePath);
     if (!fs.existsSync(abs)) {
-      throw new Error(`BlobStore: blob missing on disk: ${relativePath}`);
+      throw new ConfigurationError(`BlobStore: blob missing on disk: ${relativePath}`);
     }
     return abs;
   }
