@@ -2569,6 +2569,50 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     cursor: not-allowed;
 }
 
+/* ============================================================================
+   LIST VIEW EXTRA CONTROLS — CC selector (Y-axis) & pitch bend toggle (X-axis)
+   ============================================================================ */
+
+/* CC select dropdown */
+.keyboard-header-controls .list-cc-select {
+    padding: 3px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    font-size: 11px;
+    color: #1f2937;
+    background: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    max-width: 120px;
+}
+
+.keyboard-header-controls .list-cc-select:focus {
+    outline: none;
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+}
+
+/* Pitch bend toggle button (mirrors btn-slide-toggle style) */
+.keyboard-header-controls .btn-list-pb-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 8px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.keyboard-header-controls .btn-list-pb-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .btn-list-pb-toggle.active {
+    background: rgba(251, 191, 36, 0.3);
+    border-color: #fbbf24;
+    color: #fbbf24;
+}
+
 /* ── Hand band — strip below the keyboard that shows the hand/finger overlay ── */
 
 /* Sits inside .keyboard-canvas-container (flex-column) after all the mode

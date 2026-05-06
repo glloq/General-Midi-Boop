@@ -171,6 +171,26 @@
             }
         });
 
+        // List view: CC selector for Y-axis
+        document.getElementById('keyboard-list-cc-select')?.addEventListener('change', (e) => {
+            const val = e.target.value;
+            this.listViewYCC = val === '' ? null : parseInt(val, 10);
+        });
+
+        // List view: pitch bend toggle for X-axis
+        document.getElementById('keyboard-list-pb-toggle')?.addEventListener('click', () => {
+            this.listViewPitchBendEnabled = !this.listViewPitchBendEnabled;
+            const btn = document.getElementById('keyboard-list-pb-toggle');
+            if (btn) {
+                btn.classList.toggle('active', this.listViewPitchBendEnabled);
+                btn.setAttribute('aria-pressed', String(this.listViewPitchBendEnabled));
+            }
+            // Reset pitch bend to centre si on désactive
+            if (!this.listViewPitchBendEnabled && typeof this._sendPitchBend === 'function') {
+                this._sendPitchBend(0);
+            }
+        });
+
         // View mode toggle (piano <-> fretboard / drumpad)
         // piano-slider is treated as part of piano family → exits to fretboard/drumpad normally
         document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {

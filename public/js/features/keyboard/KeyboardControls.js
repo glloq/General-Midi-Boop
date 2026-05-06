@@ -173,6 +173,9 @@
             this._updatePianoSliderGroupVisibility();
         }
 
+        // List view controls (CC selector for Y, pitch bend toggle for X)
+        this._updateListViewControls();
+
         enableTransitionsNextFrame();
     }
 
@@ -451,6 +454,73 @@
             this.devices = [];
         }
     }
+
+    // Noms humains pour les CC courants
+    const CC_NAMES = {
+        1: 'Modulation', 2: 'Breath', 4: 'Foot', 5: 'Portamento Time',
+        7: 'Volume', 10: 'Pan', 11: 'Expression', 64: 'Sustain',
+        65: 'Portamento', 71: 'Resonance', 72: 'Release', 73: 'Attack',
+        74: 'Brightness', 75: 'Decay', 76: 'Vibrato Rate', 77: 'Vibrato Depth'
+    };
+
+    /**
+     * Met à jour les contrôles spécifiques à la vue liste :
+     * - Sélecteur de CC pour l'axe Y (variation en hauteur)
+     * - Bouton d'activation du pitch bend pour l'axe X (déplacement horizontal)
+     *
+     * Appelé par updateSlidersVisibility() et setViewMode().
+     */
+    KeyboardControlsMixin._updateListViewControls = function () {
+        const ccGroup  = document.getElementById('keyboard-list-cc-group');
+        const pbGroup  = document.getElementById('keyboard-list-pb-group');
+        const ccSelect = document.getElementById('keyboard-list-cc-select');
+        const pbToggle = document.getElementById('keyboard-list-pb-toggle');
+
+        const isListView = this.viewMode === 'keyboard-list';
+        const caps = this.selectedDeviceCapabilities;
+
+        // Récupère les CC supportés par l'instrument
+        let supportsCCs = [];
+        if (caps && caps.supported_ccs) {
+            try {
+                supportsCCs = typeof caps.supported_ccs === 'string'
+                    ? JSON.parse(caps.supported_ccs)
+                    : caps.supported_ccs;
+            } catch (e) { supportsCCs = []; }
+        }
+        const hasCCs = Array.isArray(supportsCCs) && supportsCCs.length > 0;
+        const hasPB  = !!(caps && caps.pitch_bend_enabled);
+
+        // --- Groupe CC (axe Y) : visible en vue liste si l'instrument a des CC ---
+        if (ccGroup) ccGroup.classList.toggle('hidden', !isListView || !hasCCs);
+
+        if (ccSelect && isListView && hasCCs) {
+            const previousVal = ccSelect.value;
+            ccSelect.innerHTML = '<option value="">Vélocité</option>';
+            for (const cc of supportsCCs) {
+                const opt = document.createElement('option');
+                opt.value = String(cc);
+                opt.textContent = CC_NAMES[cc] ? `CC#${cc} — ${CC_NAMES[cc]}` : `CC#${cc}`;
+                ccSelect.appendChild(opt);
+            }
+            // Restaure la sélection précédente si elle est encore disponible
+            const stillAvailable = [...ccSelect.options].some(o => o.value === previousVal);
+            if (stillAvailable) {
+                ccSelect.value = previousVal;
+            } else {
+                ccSelect.value = '';
+                this.listViewYCC = null;
+            }
+        }
+
+        // --- Groupe Pitch Bend (axe X) : visible en vue liste si pitch_bend_enabled ---
+        if (pbGroup) pbGroup.classList.toggle('hidden', !isListView || !hasPB);
+
+        if (pbToggle) {
+            pbToggle.classList.toggle('active', this.listViewPitchBendEnabled);
+            pbToggle.setAttribute('aria-pressed', String(this.listViewPitchBendEnabled));
+        }
+    };
 
     if (typeof window !== 'undefined') window.KeyboardControlsMixin = KeyboardControlsMixin;
 })();

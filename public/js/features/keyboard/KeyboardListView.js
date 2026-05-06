@@ -127,7 +127,7 @@
 
         const hasPitchBend = () => {
             const caps = this.selectedDeviceCapabilities;
-            return !!(caps && caps.pitch_bend_enabled);
+            return !!(caps && caps.pitch_bend_enabled) && this.listViewPitchBendEnabled;
         };
 
         // Y → vélocité (haut = 127, bas = 1)
@@ -191,6 +191,12 @@
             if (slider) slider.value = vel;
         };
 
+        const sendYCC = (key, clientY) => {
+            if (this.listViewYCC === null) return;
+            const val = getVelocityFromY(key, clientY); // même mapping 1-127
+            if (typeof this.sendCC === 'function') this.sendCC(this.listViewYCC, val);
+        };
+
         const onDown = (key, clientX, clientY) => {
             const note = parseInt(key.dataset.note, 10);
             if (isNaN(note) || key.classList.contains('disabled')) return;
@@ -207,6 +213,8 @@
 
             updateGlow(clientX, note);
 
+            sendYCC(key, clientY);
+
             if (hasPitchBend()) {
                 this._sendPitchBend(getPitchBendFromX(key, clientX));
                 showPBCursor(key, clientX);
@@ -217,6 +225,8 @@
             if (activeNote === null || !activeKey) return;
 
             updateGlow(clientX, activeNote);
+
+            sendYCC(activeKey, clientY);
 
             if (hasPitchBend()) {
                 this._sendPitchBend(getPitchBendFromX(activeKey, clientX));
