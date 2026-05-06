@@ -9968,6 +9968,9 @@
 
         // 🆕 Lire un fichier avec vérification du routage
         async function playFile(fileId, filename) {
+            // Sélectionner le fichier pour que l'en-tête soit correct même en cas d'erreur
+            selectFile(fileId);
+
             // Vérifier que le fichier a un routage configuré (backend DB est la source de vérité)
             const backendStatus = fileRoutingStatusCache.get(String(fileId));
             const routed = (backendStatus && backendStatus !== 'unrouted') || isFileRouted(fileId);
@@ -10052,8 +10055,12 @@
             } catch (error) {
                 log(`Playback error: ${error.message}`, 'error');
                 currentFileId = null;
-                document.getElementById('headerFileName').textContent = i18n.t('ui.noFileSelected');
                 updatePlaybackControls();
+                updateHeaderSelectedFile();
+                const errMsg = error.message === 'No output devices available'
+                    ? i18n.t('ui.noMidiOutput')
+                    : error.message;
+                await showAlert(errMsg, { title: i18n.t('common.error'), icon: '❌' });
             }
         }
 
