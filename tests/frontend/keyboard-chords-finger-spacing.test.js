@@ -1,7 +1,12 @@
 // tests/frontend/keyboard-chords-finger-spacing.test.js
-// Guards the logarithmic finger spacing for fret_sliding_fingers in the
-// virtual piano modal.  Previously stripes/dots were uniformly distributed
-// inside the hand band; they now follow equal-tempered fret geometry.
+// Guards finger layout for fret_sliding_fingers in the virtual piano modal.
+//
+// Invariants under test:
+//  - Stripes/dots are UNIFORMLY spaced within the band (equal slots)
+//  - The band extends half a slot beyond the first and last contact points
+//    so both edge dots are fully visible (not clipped)
+//  - First finger: contact point exactly 8mm before anchor fret wire
+//  - Last finger : contact point exactly 8mm before (anchor + N-1) fret wire
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
@@ -11,9 +16,6 @@ const src = readFileSync(
     resolve(__dirname, '../../public/js/features/keyboard/KeyboardChords.js'),
     'utf8'
 );
-
-// ── DOM stub ──────────────────────────────────────────────────────────────────
-// We only need getElementById + createElement; jsdom provides the rest.
 
 beforeAll(() => {
     new Function(src)();
@@ -30,11 +32,10 @@ function makeMixin(overrides = {}) {
     for (const k of Object.getOwnPropertyNames(mixin)) {
         obj[k] = typeof mixin[k] === 'function' ? mixin[k].bind(obj) : mixin[k];
     }
-    // Reset state to known values
     obj.handAnchorFret    = 5;
     obj._cachedMaxFrets   = 22;
     obj._numFingers       = 4;
-    obj._handSpanFrets    = 3; // numFingers - 1
+    obj._handSpanFrets    = 3;
     obj._handSpanMm       = 0;
     obj._scaleLengthMm    = 0;
     obj._mechanism        = 'fret_sliding_fingers';
@@ -45,7 +46,9 @@ function makeMixin(overrides = {}) {
     return obj;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Parse 'NN.N%' → number
+function pct(str) { return parseFloat(str); }
+
 function buildCoverageDOM() {
     const rect = document.createElement('div');
     rect.className = 'hand-finger-range-rect';
@@ -63,50 +66,24 @@ function buildBandDOM() {
     return band;
 }
 
-// Parse 'NN.N%' → number
-function pct(str) { return parseFloat(str); }
-
-// ── _renderFingerRangeRects ───────────────────────────────────────────────────
+// ── _renderFingerRangeRects : uniform slot stripes ────────────────────────────
 describe('_renderFingerRangeRects — fret_sliding_fingers stripe spacing', () => {
-    it('places 4 stripes with logarithmically increasing gaps (not uniform)', () => {
-        const obj = makeMixin({ _numFingers: 4 });
-        const rect = buildCoverageDOM();
-        obj._renderFingerRangeRects(rect, 6);
-
-        const stripes = rect.querySelectorAll('.hand-finger-range-fret');
-        expect(stripes.length).toBe(4);
-
-        const positions = Array.from(stripes).map(s => pct(s.style.left));
-        // Sorted ascending (they should already be)
-        const sorted = [...positions].sort((a, b) => a - b);
-        expect(positions).toEqual(sorted);
-
-        // Log spacing: gaps should NOT be uniform.
-        const gaps = sorted.slice(1).map((v, i) => v - sorted[i]);
-        // First gap (fret 0→1 interval) should be larger than the last gap (fret 2→3),
-        // because frets get narrower toward the body.
-        expect(gaps[0]).toBeGreaterThan(gaps[gaps.length - 1]);
-    });
-
-    it('stripe positions match the equal-tempered formula', () => {
-        // wire_pct_i = (1 − 2^(-(i+0.25)/12)) / (1 − 2^(-3/12)) × 100
+    it('places N stripes with uniform right-edge positions (i+1)/N', () => {
         const count = 4;
-        const denom = 1 - Math.pow(2, -3 / 12);
-        const expected = Array.from({ length: count }, (_, i) =>
-            (1 - Math.pow(2, -(i + 0.25) / 12)) / denom * 100
-        );
-
         const obj = makeMixin({ _numFingers: count });
         const rect = buildCoverageDOM();
         obj._renderFingerRangeRects(rect, 6);
 
         const stripes = rect.querySelectorAll('.hand-finger-range-fret');
-        Array.from(stripes).forEach((s, i) => {
-            expect(pct(s.style.left)).toBeCloseTo(expected[i], 2);
-        });
+        expect(stripes.length).toBe(count);
+
+        for (let i = 0; i < count; i++) {
+            const expected = (i + 1) / count * 100;
+            expect(pct(stripes[i].style.left)).toBeCloseTo(expected, 4);
+        }
     });
 
-    it('places a single stripe at 50% for numFingers=1', () => {
+    it('single stripe at 50% for numFingers=1', () => {
         const obj = makeMixin({ _numFingers: 1 });
         const rect = buildCoverageDOM();
         obj._renderFingerRangeRects(rect, 6);
@@ -116,49 +93,25 @@ describe('_renderFingerRangeRects — fret_sliding_fingers stripe spacing', () =
         expect(pct(stripes[0].style.left)).toBeCloseTo(50, 1);
     });
 
-    it('places 2 stripes with correct log positions', () => {
-        // For N=2: denom = 1-2^(-1/12) = 0.05612
-        // stripe 0: (1-2^(-0.25/12))/0.05612 * 100 ≈ 25.5%
-        // stripe 1: (1-2^(-1.25/12))/0.05612 * 100 ≈ 123.7% (beyond band)
-        const count = 2;
-        const denom = 1 - Math.pow(2, -1 / 12);
-        const expected = [
-            (1 - Math.pow(2, -0.25 / 12)) / denom * 100,
-            (1 - Math.pow(2, -1.25 / 12)) / denom * 100,
-        ];
-
+    it('gaps between consecutive stripe right edges are equal', () => {
+        const count = 5;
         const obj = makeMixin({ _numFingers: count });
         const rect = buildCoverageDOM();
         obj._renderFingerRangeRects(rect, 6);
 
-        const stripes = rect.querySelectorAll('.hand-finger-range-fret');
-        expect(pct(stripes[0].style.left)).toBeCloseTo(expected[0], 2);
-        expect(pct(stripes[1].style.left)).toBeCloseTo(expected[1], 2);
-    });
+        const positions = Array.from(
+            rect.querySelectorAll('.hand-finger-range-fret')
+        ).map(s => pct(s.style.left));
 
-    it('positions are anchor-independent (same % regardless of handAnchorFret)', () => {
-        const count = 4;
-
-        const objA = makeMixin({ _numFingers: count, handAnchorFret: 1 });
-        const rectA = buildCoverageDOM();
-        objA._renderFingerRangeRects(rectA, 6);
-        const posA = Array.from(rectA.querySelectorAll('.hand-finger-range-fret')).map(s => pct(s.style.left));
-
-        rectA.remove();
-
-        const objB = makeMixin({ _numFingers: count, handAnchorFret: 12 });
-        const rectB = buildCoverageDOM();
-        objB._renderFingerRangeRects(rectB, 6);
-        const posB = Array.from(rectB.querySelectorAll('.hand-finger-range-fret')).map(s => pct(s.style.left));
-
-        posA.forEach((v, i) => expect(v).toBeCloseTo(posB[i], 4));
+        const gaps = positions.slice(1).map((v, i) => v - positions[i]);
+        const expected = 100 / count;
+        gaps.forEach(g => expect(g).toBeCloseTo(expected, 4));
     });
 });
 
-// ── _updateHandWidgetPosition — mm-based fret_sliding_fingers ─────────────────
-describe('_updateHandWidgetPosition — fret_sliding_fingers physical mm band', () => {
+// ── _updateHandWidgetPosition — band covers half-slot on each side ─────────────
+describe('_updateHandWidgetPosition — fret_sliding_fingers band with half-slot padding', () => {
     function buildBandContext(overrides = {}) {
-        // Stub elements that _updateHandWidgetPosition accesses but we don't care about
         const arrowL = document.createElement('button');
         arrowL.id = 'hand-palm-arrow-left';
         const arrowR = document.createElement('button');
@@ -166,9 +119,8 @@ describe('_updateHandWidgetPosition — fret_sliding_fingers physical mm band', 
         document.body.appendChild(arrowL);
         document.body.appendChild(arrowR);
 
-        // Stub _updateCoverageOverlayPosition and _refreshFretSlidingLayout
         const obj = makeMixin({
-            _scaleLengthMm : 648,   // standard guitar
+            _scaleLengthMm : 648,
             _handSpanMm    : 0,
             _numFingers    : 4,
             handAnchorFret : 5,
@@ -182,82 +134,100 @@ describe('_updateHandWidgetPosition — fret_sliding_fingers physical mm band', 
         return obj;
     }
 
-    it('uses physical mm: leftPct = (anchorMm − 8mm) / totalFretboardMm × 100', () => {
-        const band = buildBandDOM();
-        const obj  = buildBandContext({ handAnchorFret: 5 });
-
-        obj._updateHandWidgetPosition();
-
-        const L        = 648;
-        const maxFrets = 22;
-        const totalMm  = L * (1 - Math.pow(2, -maxFrets / 12));
-        const anchorMm = L * (1 - Math.pow(2, -5 / 12));
-        const firstContactMm = anchorMm - 8;
-        const expectedLeft   = firstContactMm / totalMm * 100;
-
-        expect(pct(band.style.left)).toBeCloseTo(expectedLeft, 2);
-    });
-
-    it('band right edge = (lastFretMm − 8mm), giving correct width', () => {
+    it('mm path: band left = firstContact − halfSlot', () => {
         const band = buildBandDOM();
         const obj  = buildBandContext({ handAnchorFret: 5, _numFingers: 4 });
-
         obj._updateHandWidgetPosition();
 
-        const L          = 648;
-        const maxFrets   = 22;
-        const totalMm    = L * (1 - Math.pow(2, -maxFrets / 12));
-        const anchorMm   = L * (1 - Math.pow(2, -5 / 12));
-        const lastFretMm = L * (1 - Math.pow(2, -8 / 12)); // fret 5+4-1=8
-        const firstContactMm = anchorMm   - 8;
-        const lastContactMm  = lastFretMm - 8;
-        const expectedWidth  = (lastContactMm - firstContactMm) / totalMm * 100;
-
-        expect(pct(band.style.width)).toBeCloseTo(expectedWidth, 2);
-    });
-
-    it('first and last contact points are symmetrically 8mm before their fret', () => {
-        const band = buildBandDOM();
-        const obj  = buildBandContext({ handAnchorFret: 3, _numFingers: 3 });
-
-        obj._updateHandWidgetPosition();
-
-        const L          = 648;
-        const maxFrets   = 22;
-        const totalMm    = L * (1 - Math.pow(2, -maxFrets / 12));
-
-        // Finger 0: fret 3 → contact at (fret3_mm − 8mm)
-        const fret3mm  = L * (1 - Math.pow(2, -3 / 12));
-        // Finger 2: fret 5 → contact at (fret5_mm − 8mm)
-        const fret5mm  = L * (1 - Math.pow(2, -5 / 12));
-        const expectedLeft  = (fret3mm - 8) / totalMm * 100;
-        const expectedRight = (fret5mm - 8) / totalMm * 100;
-        const expectedWidth = expectedRight - expectedLeft;
+        const L = 648, maxFrets = 22, N = 4;
+        const totalMm      = L * (1 - Math.pow(2, -maxFrets / 12));
+        const anchorMm     = L * (1 - Math.pow(2, -5 / 12));
+        const lastFretMm   = L * (1 - Math.pow(2, -8 / 12)); // fret 5+3
+        const firstContact = anchorMm   - 8;
+        const lastContact  = lastFretMm - 8;
+        const halfSlot     = (lastContact - firstContact) / (2 * (N - 1));
+        const expectedLeft = Math.max(0, firstContact - halfSlot) / totalMm * 100;
 
         expect(pct(band.style.left)).toBeCloseTo(expectedLeft, 2);
+    });
+
+    it('mm path: band right = lastContact + halfSlot', () => {
+        const band = buildBandDOM();
+        const obj  = buildBandContext({ handAnchorFret: 5, _numFingers: 4 });
+        obj._updateHandWidgetPosition();
+
+        const L = 648, maxFrets = 22, N = 4;
+        const totalMm      = L * (1 - Math.pow(2, -maxFrets / 12));
+        const anchorMm     = L * (1 - Math.pow(2, -5 / 12));
+        const lastFretMm   = L * (1 - Math.pow(2, -8 / 12));
+        const firstContact = anchorMm   - 8;
+        const lastContact  = lastFretMm - 8;
+        const halfSlot     = (lastContact - firstContact) / (2 * (N - 1));
+        const paddedLeft   = Math.max(0, firstContact - halfSlot) / totalMm * 100;
+        const paddedRight  = Math.min(totalMm, lastContact + halfSlot) / totalMm * 100;
+        const expectedWidth = paddedRight - paddedLeft;
+
         expect(pct(band.style.width)).toBeCloseTo(expectedWidth, 2);
     });
 
-    it('falls back to fret-count path when scaleLengthMm is 0', () => {
+    it('mm path: first/last contact points are at 0.5/N and (N-0.5)/N within band', () => {
         const band = buildBandDOM();
-        const obj  = buildBandContext({ _scaleLengthMm: 0, handAnchorFret: 5 });
-
+        const N = 4;
+        const obj = buildBandContext({ handAnchorFret: 5, _numFingers: N });
         obj._updateHandWidgetPosition();
 
-        // In fret-count fallback, left ≈ fretPct(anchor - 0.25, maxFrets)
+        const L = 648, maxFrets = 22;
+        const totalMm      = L * (1 - Math.pow(2, -maxFrets / 12));
+        const anchorMm     = L * (1 - Math.pow(2, -5 / 12));
+        const lastFretMm   = L * (1 - Math.pow(2, -8 / 12));
+        const firstContact = anchorMm   - 8;
+        const lastContact  = lastFretMm - 8;
+        const halfSlot     = (lastContact - firstContact) / (2 * (N - 1));
+        const paddedLeftMm = Math.max(0, firstContact - halfSlot);
+        const paddedWidth  = (Math.min(totalMm, lastContact + halfSlot) - paddedLeftMm);
+
+        // first contact relative to padded band
+        const firstPct = (firstContact - paddedLeftMm) / paddedWidth * 100;
+        // last contact relative to padded band
+        const lastPct  = (lastContact  - paddedLeftMm) / paddedWidth * 100;
+
+        expect(firstPct).toBeCloseTo(0.5 / N * 100, 1);
+        expect(lastPct).toBeCloseTo((N - 0.5) / N * 100, 1);
+    });
+
+    it('fret-count fallback: left = fretPct(displayAnchor − 0.5)', () => {
+        const band = buildBandDOM();
+        const obj  = buildBandContext({ _scaleLengthMm: 0, handAnchorFret: 5, _numFingers: 4 });
+        obj._updateHandWidgetPosition();
+
         const maxFrets = 22;
-        const total    = 1 - Math.pow(2, -maxFrets / 12);
+        const total = 1 - Math.pow(2, -maxFrets / 12);
         const displayAnchor = 5 - 0.25;
-        const expectedLeft = (1 - Math.pow(2, -displayAnchor / 12)) / total * 100;
+        const expectedLeft = (1 - Math.pow(2, -(displayAnchor - 0.5) / 12)) / total * 100;
 
         expect(pct(band.style.left)).toBeCloseTo(expectedLeft, 2);
+    });
+
+    it('fret-count fallback: band spans N slots (displayAnchor−0.5 to displayAnchor+N−0.5)', () => {
+        const band = buildBandDOM();
+        const N = 4;
+        const obj = buildBandContext({ _scaleLengthMm: 0, handAnchorFret: 5, _numFingers: N });
+        obj._updateHandWidgetPosition();
+
+        const maxFrets = 22;
+        const total = 1 - Math.pow(2, -maxFrets / 12);
+        const displayAnchor = 5 - 0.25;
+        const leftPct  = (1 - Math.pow(2, -(displayAnchor - 0.5) / 12)) / total * 100;
+        const rightPct = (1 - Math.pow(2, -(displayAnchor + N - 0.5) / 12)) / total * 100;
+        const expectedWidth = rightPct - leftPct;
+
+        expect(pct(band.style.width)).toBeCloseTo(expectedWidth, 2);
     });
 });
 
-// ── Dot positions in renderHandWidget (via DOM inspection) ────────────────────
+// ── renderHandWidget — dot positions ─────────────────────────────────────────
 describe('renderHandWidget — fret_sliding_fingers dot positions', () => {
     function makeDomContext() {
-        // Minimal DOM that renderHandWidget builds into
         const stringsArea = document.createElement('div');
         stringsArea.className = 'fretboard-strings-area';
         document.body.appendChild(stringsArea);
@@ -286,7 +256,6 @@ describe('renderHandWidget — fret_sliding_fingers dot positions', () => {
                 num_strings: 6,
             },
         });
-        // Stub methods called by renderHandWidget that we don't test here
         obj._updateHandWidgetPosition     = () => {};
         obj._attachHandWidgetEvents       = () => {};
         obj._updateCoverageOverlayPosition = () => {};
@@ -295,62 +264,42 @@ describe('renderHandWidget — fret_sliding_fingers dot positions', () => {
         return obj;
     }
 
-    it('dot positions follow log formula for N=4', () => {
-        const numF  = 4;
-        const denom = 1 - Math.pow(2, -(numF - 1) / 12);
-        const expected = Array.from({ length: numF }, (_, i) =>
-            i === 0 ? 0 : (1 - Math.pow(2, -i / 12)) / denom * 100
-        );
-
+    it('dot i is at (i+0.5)/N × 100% for N=4', () => {
+        const numF = 4;
         const stringsArea = makeDomContext();
-        const obj = buildRenderObj(numF);
-        obj.renderHandWidget(stringsArea, { maxFretCount: 22, isFretless: false });
+        buildRenderObj(numF).renderHandWidget(stringsArea, { maxFretCount: 22 });
 
         const dots = collectDots(stringsArea);
         expect(dots.length).toBe(numF);
         dots.forEach((d, i) => {
-            expect(pct(d.style.left)).toBeCloseTo(expected[i], 2);
+            expect(pct(d.style.left)).toBeCloseTo((i + 0.5) / numF * 100, 4);
         });
     });
 
-    it('first dot at 0%, last dot at 100% for any N >= 2', () => {
-        [2, 3, 4, 5].forEach(numF => {
+    it('all N values 1–6 produce (i+0.5)/N spacing', () => {
+        [1, 2, 3, 4, 5, 6].forEach(numF => {
             document.body.innerHTML = '';
             const stringsArea = makeDomContext();
-            const obj = buildRenderObj(numF);
-            obj.renderHandWidget(stringsArea, { maxFretCount: 22 });
+            buildRenderObj(numF).renderHandWidget(stringsArea, { maxFretCount: 22 });
 
             const dots = collectDots(stringsArea);
             expect(dots.length).toBe(numF);
-            expect(pct(dots[0].style.left)).toBeCloseTo(0, 2);
-            expect(pct(dots[numF - 1].style.left)).toBeCloseTo(100, 2);
+            dots.forEach((d, i) => {
+                const expected = numF === 1 ? 50 : (i + 0.5) / numF * 100;
+                expect(pct(d.style.left)).toBeCloseTo(expected, 4);
+            });
         });
     });
 
-    it('single finger dot at 50%', () => {
+    it('gaps between consecutive dots are equal', () => {
+        const numF = 4;
         const stringsArea = makeDomContext();
-        const obj = buildRenderObj(1);
-        obj.renderHandWidget(stringsArea, { maxFretCount: 22 });
-
-        const dots = collectDots(stringsArea);
-        expect(dots.length).toBe(1);
-        expect(pct(dots[0].style.left)).toBeCloseTo(50, 1);
-    });
-
-    it('dot positions are NOT uniform for N=4 (log ≠ linear)', () => {
-        const stringsArea = makeDomContext();
-        const obj = buildRenderObj(4);
-        obj.renderHandWidget(stringsArea, { maxFretCount: 22 });
+        buildRenderObj(numF).renderHandWidget(stringsArea, { maxFretCount: 22 });
 
         const dots = collectDots(stringsArea);
         const positions = dots.map(d => pct(d.style.left));
         const gaps = positions.slice(1).map((v, i) => v - positions[i]);
-
-        // Log gap[0] > gap[1] (wider at low fret numbers)
-        expect(gaps[0]).toBeGreaterThan(gaps[1]);
-
-        // Sanity: NOT uniform — first gap and last gap differ by > 3%.
-        // (uniform gaps would each be 33.33%; log gaps are 35.27%, 33.3%, 31.43%)
-        expect(gaps[0] - gaps[gaps.length - 1]).toBeGreaterThan(3);
+        const expected = 100 / numF;
+        gaps.forEach(g => expect(g).toBeCloseTo(expected, 4));
     });
 });
