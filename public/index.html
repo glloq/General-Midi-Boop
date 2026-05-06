@@ -5643,6 +5643,7 @@
                         <span>Hide Clock</span>
                     </label>
                     <button id="debugPause" class="debug-filter-btn" title="Pause / Resume scrolling">⏸️</button>
+                    <button id="debugCopy" class="debug-filter-btn" title="Copy logs">📋</button>
                     <button id="debugClear" class="debug-filter-btn" title="Clear console">🗑️</button>
                 </div>
                 <!-- Instrument filter grid -->
@@ -7096,6 +7097,11 @@
                     if (source === 'midi') {
                         const typeFilters = document.getElementById('midiTypeFilters');
                         if (typeFilters) typeFilters.style.opacity = debugFilters.sources.midi ? '1' : '0.3';
+                        const instrumentBar = document.getElementById('debugInstrumentBar');
+                        if (instrumentBar) {
+                            instrumentBar.style.opacity = debugFilters.sources.midi ? '1' : '0.3';
+                            instrumentBar.style.pointerEvents = debugFilters.sources.midi ? '' : 'none';
+                        }
                     }
                     applyDebugFiltersToExisting();
                     saveDebugFilters();
@@ -7145,6 +7151,20 @@
                 });
             }
 
+            // Copy button
+            const copyBtn = document.getElementById('debugCopy');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', () => {
+                    const logEl = document.getElementById('logConsole');
+                    const text = logEl.innerText || logEl.textContent || '';
+                    navigator.clipboard.writeText(text).then(() => {
+                        const prev = copyBtn.textContent;
+                        copyBtn.textContent = '✅';
+                        setTimeout(() => { copyBtn.textContent = prev; }, 1200);
+                    }).catch(() => {});
+                });
+            }
+
             // Clear button
             const clearBtn = document.getElementById('debugClear');
             if (clearBtn) {
@@ -7154,10 +7174,15 @@
                 });
             }
 
-            // Restore MIDI type pills opacity
+            // Restore MIDI type pills and instrument bar opacity
             if (!debugFilters.sources.midi) {
                 const typeFilters = document.getElementById('midiTypeFilters');
                 if (typeFilters) typeFilters.style.opacity = '0.3';
+                const instrumentBar = document.getElementById('debugInstrumentBar');
+                if (instrumentBar) {
+                    instrumentBar.style.opacity = '0.3';
+                    instrumentBar.style.pointerEvents = 'none';
+                }
             }
         }
 
