@@ -64,12 +64,10 @@ export class PlaybackStateMachine {
    * @returns {boolean}
    */
   tryTransition(next) {
-    try {
-      this.transition(next);
-      return true;
-    } catch {
-      return false;
-    }
+    const allowed = VALID_TRANSITIONS[this.state];
+    if (!allowed || !allowed.includes(next)) return false;
+    this.transition(next);
+    return true;
   }
 
   /**

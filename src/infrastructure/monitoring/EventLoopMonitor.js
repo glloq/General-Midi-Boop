@@ -50,6 +50,7 @@ export class EventLoopMonitor {
       }
       last = now;
     }, TICK_MS);
+    this._interval.unref();
   }
 
   /**

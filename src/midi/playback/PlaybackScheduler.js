@@ -85,6 +85,7 @@ class PlaybackScheduler {
    */
   startScheduler(tickCallback) {
     this.scheduler = setInterval(tickCallback, SCHEDULER_TICK_MS);
+    this.scheduler.unref();
   }
 
   /**

@@ -35,10 +35,11 @@ export class CompensationService {
     this._db = database;
     this._lc = latencyCompensator || null;
     this._log = logger;
+    this._eventBus = eventBus ?? null;
     /** @type {Map<string, number>} */
     this._cache = new Map();
 
-    this._cacheTimer = setInterval(() => this._cache.clear(), CACHE_TTL_MS);
+    this._cacheTimer = setInterval(() => this._cache.clear(), CACHE_TTL_MS).unref();
 
     this._onSettingsChanged = () => this._cache.clear();
     eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
@@ -78,9 +79,7 @@ export class CompensationService {
       clearInterval(this._cacheTimer);
       this._cacheTimer = null;
     }
-    // eventBus ref is not stored — caller must pass eventBus to detach if needed.
-    // In practice Application.stop() destroys services in reverse order so the
-    // EventBus outlives this service.
+    this._eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
   }
 
   // ---------------------------------------------------------------------------
