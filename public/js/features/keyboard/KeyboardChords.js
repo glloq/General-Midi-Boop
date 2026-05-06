@@ -811,14 +811,19 @@
         } else if (this._mechanism === 'fret_sliding_fingers') {
             const count      = Math.max(1, this._numFingers);
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
-            // Uniform spacing: divide the band into N equal slots.
-            // Right edge of stripe i at the slot boundary (i+1)/N × 100%.
-            // Matches the dot centres which are at (i+0.5)/N × 100%.
+            const anchor     = this.handAnchorFret || 1;
+            const maxFrets   = this._cachedMaxFrets || 22;
+            const bandLeft   = anchor > 1 ? fretPct(anchor - 1, maxFrets) : 0;
+            const bandRight  = fretPct(anchor + count - 1, maxFrets);
+            const bandWidth  = bandRight - bandLeft;
+            // One stripe per finger, at the fret wire to its right (aligned with fretboard grid).
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                const pct = count === 1 ? 50 : (i + 1) / count * 100;
-                stripe.style.left      = pct + '%';
+                const wirePct = bandWidth > 0
+                    ? (fretPct(anchor + i, maxFrets) - bandLeft) / bandWidth * 100
+                    : (i + 1) / count * 100;
+                stripe.style.left      = wirePct + '%';
                 stripe.style.width     = stripeWPct + '%';
                 stripe.style.transform = 'translateX(-100%)';
                 rangeRect.appendChild(stripe);
@@ -854,6 +859,12 @@
             widthPct = Math.max(0.5, rightEdgePct - leftEdgePct); // min visible width
             band.style.left  = leftPct + '%';
             band.style.width = widthPct + '%';
+        } else if (this._mechanism === 'fret_sliding_fingers') {
+            // Band spans exactly N fret cells aligned with the visible fret wires.
+            leftPct  = anchor > 1 ? fretPct(anchor - 1, maxFrets) : 0;
+            widthPct = fretPct(anchor + this._numFingers - 1, maxFrets) - leftPct;
+            band.style.left  = leftPct + '%';
+            band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         } else if (this._handSpanMm > 0 && this._scaleLengthMm > 0) {
             const L               = this._scaleLengthMm;
             const totalDistMm     = L * (1 - Math.pow(2, -maxFrets / 12));
@@ -862,34 +873,6 @@
             const displayLeftMm   = Math.max(0, anchorMm - HAND_FINGER_BEFORE_FRET_MM);
             leftPct   = (displayLeftMm / totalDistMm) * 100;
             widthPct  = (this._handSpanMm / totalDistMm) * 100;
-            band.style.left  = leftPct + '%';
-            band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
-        } else if (this._mechanism === 'fret_sliding_fingers' && this._scaleLengthMm > 0) {
-            // Physical mm: first and last fingers exactly 8mm before their fret wire.
-            // The band is padded by half a slot on each side so both edge dots are
-            // fully visible (slot = physical distance between adjacent contact points).
-            const L              = this._scaleLengthMm;
-            const totalMm        = L * (1 - Math.pow(2, -maxFrets / 12));
-            const anchorMm       = L * (1 - Math.pow(2, -anchor / 12));
-            const lastFretMm     = L * (1 - Math.pow(2, -(anchor + this._numFingers - 1) / 12));
-            const firstContactMm = Math.max(0, anchorMm   - HAND_FINGER_BEFORE_FRET_MM);
-            const lastContactMm  = Math.max(firstContactMm, lastFretMm - HAND_FINGER_BEFORE_FRET_MM);
-            const N              = Math.max(2, this._numFingers);
-            const halfSlotMm     = (lastContactMm - firstContactMm) / (2 * (N - 1));
-            const paddedLeftMm   = Math.max(0, firstContactMm - halfSlotMm);
-            const paddedRightMm  = Math.min(totalMm, lastContactMm + halfSlotMm);
-            leftPct  = (paddedLeftMm / totalMm) * 100;
-            widthPct = ((paddedRightMm - paddedLeftMm) / totalMm) * 100;
-            band.style.left  = leftPct + '%';
-            band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
-        } else if (this._mechanism === 'fret_sliding_fingers') {
-            // Fret-count fallback for fret_sliding_fingers.
-            // Band spans from half a slot before the first contact point to half a
-            // slot after the last contact point, so edge dots are fully visible.
-            // Slot width ≈ 1 fret; half-slot ≈ 0.5 fret.
-            const displayAnchor = Math.max(0, anchor - 0.25);
-            leftPct  = fretPct(Math.max(0, displayAnchor - 0.5), maxFrets);
-            widthPct = fretPct(displayAnchor + this._numFingers - 0.5, maxFrets) - leftPct;
             band.style.left  = leftPct + '%';
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         } else {
