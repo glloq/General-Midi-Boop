@@ -58,9 +58,49 @@ Configure drivers (GPIO LED strips, ArtNet, sACN, OSC, HTTP, MQTT), build effect
 
 ## Virtual Keyboard
 
-![Keyboard](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/clavier.png?raw=true)
+![Virtual keyboard — base](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%20base.png?raw=true)
 
 Test devices from the browser using mouse drag or computer keyboard (AZERTY/QWERTY). Adjustable octave and velocity.
+
+The display adapts to the instrument type assigned to the selected channel:
+
+**Piano — two-hands overlay (piano keys)**
+
+![Virtual keyboard — 2 hands piano keys](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%202%20mains%20touches%20piano.png?raw=true)
+
+Left-hand and right-hand finger assignments are shown directly on the standard piano keys.
+
+**Piano — two-hands overlay (chromatic strip)**
+
+![Virtual keyboard — 2 hands chromatic](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%202%20mains%20touches%20chromatique.png?raw=true)
+
+Same hand positions on a flat chromatic strip — useful when the hand-position model assigns notes without a piano-key layout.
+
+**Drums**
+
+![Virtual keyboard — drums](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%20drums.png?raw=true)
+
+GM drum map: each pad shows the instrument name; click to trigger the corresponding MIDI note.
+
+**Guitar / string — hand on strings (horizontal)**
+
+![Virtual keyboard — guitar hand strings](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%20guitare%20main%20cordes.png?raw=true)
+
+Fretboard view with the fretting hand overlaid on the strings.
+
+**Guitar / string — motor per string**
+
+![Virtual keyboard — guitar motor per string](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%20guitare%20moteur%20par%20corde.png?raw=true)
+
+For automated string instruments: shows the actuator position per string.
+
+**String instrument — hand vertical + all frets & strings**
+
+![Virtual keyboard — string hand vertical](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%20cordes%20main%20verti.png?raw=true)
+
+![Virtual keyboard — all frets and strings](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%20cordes%20toutes%20frettes%20et%20cordes.png?raw=true)
+
+Full fret grid showing all reachable notes across every string; active notes are highlighted.
 
 ## Debug Console
 

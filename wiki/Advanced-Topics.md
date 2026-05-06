@@ -30,6 +30,8 @@ For motorised keyboards or automated pianos, the system plans hand placement bef
 
 Source: [`src/audio/DelayCalibrator.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/audio/DelayCalibrator.js).
 
+![Calibration modal](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/microphone/micro%20calibration%20global.png?raw=true)
+
 How it works:
 
 1. The system sends a probe note to the device.
@@ -39,12 +41,57 @@ How it works:
 5. Steps 1–4 repeat N times; the **median** is taken with a confidence score derived from the spread.
 6. The result is written to the device's `latency` field; playback compensation kicks in immediately.
 
+The calibration modal groups all steps in one place:
+
+- **ALSA device selector** — auto-selects the first detected USB microphone; any ALSA capture device is available in the dropdown.
+- **VU-meter + threshold slider** — real-time input level bar with an inline draggable threshold so you can verify the mic picks up the instrument before measuring.
+- **Per-instrument "Measure" button** — triggers a measurement run for each connected instrument independently; status indicators show `idle` / `running` / `success` / `error`.
+- **Canvas chart** — plots round-trip delay and confidence score for each measurement run.
+- **"Apply delays" button** — appears once at least one measurement succeeds; writes all pending latency values to the device settings in one step.
+
 Tunables:
 
 - Number of measurements
 - Detection threshold (dBFS)
 - Probe note (default A4)
 - Recalibration reminder interval
+
+## Chromatic Tuner
+
+Accessible via the **"Open Tuner"** banner at the top of the calibration modal (or directly from the device panel). Audio is captured by ALSA on the Raspberry Pi and pitch detection runs server-side using the **MPM algorithm**; the frontend subscribes to `tuner:pitch` WebSocket events.
+
+Three operating modes:
+
+| Mode | Description |
+|------|-------------|
+| **Auto** | No target — shows the nearest chromatic note to the detected frequency with cents deviation. |
+| **Note** | User picks a target from a chromatic strip (E1–C6); display shows up/down guidance and a needle against the chosen pitch. |
+| **Instrument** | User selects a connected MIDI instrument or a generic preset. For stringed instruments with a configured tuning the picker exposes the open-string notes; for melodic instruments it falls back to the chromatic row. |
+
+### Auto mode (free tuning)
+
+![Tuner — auto mode](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/microphone/tuner%20free.png?raw=true)
+
+Play any note; the display locks onto the closest pitch and shows the deviation in cents.
+
+### Note / Instrument mode (target tuning)
+
+![Tuner — target mode](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/microphone/tuner%20target.png?raw=true)
+
+Select a target note or open string. The needle and colour indicator guide you to the exact pitch.
+
+Built-in instrument presets (open strings in standard tuning):
+
+| Preset | Strings |
+|--------|---------|
+| Guitar | E2 A2 D3 G3 B3 E4 |
+| Bass | E1 A1 D2 G2 |
+| Violin | G3 D4 A4 E5 |
+| Viola | C3 G3 D4 A4 |
+| Cello | C2 G2 D3 A3 |
+| Ukulele | G4 C4 E4 A4 |
+
+Note names are displayed in the locale format chosen in Settings (US, FR/solfège, or raw MIDI number). Reference pitch is A4 = 440 Hz.
 
 ## Reserved MIDI CC Ranges
 
