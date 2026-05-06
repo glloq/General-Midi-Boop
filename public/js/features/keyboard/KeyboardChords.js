@@ -716,14 +716,17 @@
         this._renderFingerRangeRects(rangeRect, numStrings);
 
         if (mechanism === 'fret_sliding_fingers') {
-            // One dot per finger, centered in its uniformly-spaced slot.
-            const numF = Math.max(1, this._numFingers);
+            // One dot per finger at its contact point (8mm before its fret wire).
+            // Logarithmic spacing — anchor-independent:
+            //   contact_pct_i = (1 − 2^(-i/12)) / (1 − 2^(-(N-1)/12)) × 100
+            const numF  = Math.max(1, this._numFingers);
+            const denom = numF === 1 ? 1 : (1 - Math.pow(2, -(numF - 1) / 12));
             for (let i = 0; i < numF; i++) {
                 const dot = document.createElement('div');
                 dot.className = 'hand-finger-dot-pos';
                 dot.dataset.finger = String(i);
                 dot.style.top  = '50%';
-                const pct = numF === 1 ? 50 : (i + 0.5) / numF * 100;
+                const pct = numF === 1 ? 50 : (1 - Math.pow(2, -i / 12)) / denom * 100;
                 dot.style.left = pct + '%';
                 dot.style.transform = 'translate(-50%, -50%)';
                 rangeRect.appendChild(dot);
@@ -808,13 +811,17 @@
         } else if (this._mechanism === 'fret_sliding_fingers') {
             const count      = Math.max(1, this._numFingers);
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
+            // Logarithmic spacing: right edge of stripe i aligns with the fret
+            // wire for finger i, expressed as a fraction of the band width.
+            // The band spans contact0 → contactN-1 (both 8mm before their wire,
+            // equivalent to a -0.25-fret shift from the wire in fretPct space).
+            // Formula is anchor-independent — depends only on i and count:
+            //   wire_pct_i = (1 − 2^(-(i+0.25)/12)) / (1 − 2^(-(count-1)/12)) × 100
+            const denominator = count === 1 ? 1 : (1 - Math.pow(2, -(count - 1) / 12));
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                // Uniform spacing: divide the overlay into `count` equal slots.
-                // Right edge of each stripe at (i+1)/count — the slot boundary
-                // that represents the fret wire the finger presses against.
-                const pct = count === 1 ? 50 : (i + 1) / count * 100;
+                const pct = count === 1 ? 50 : (1 - Math.pow(2, -(i + 0.25) / 12)) / denominator * 100;
                 stripe.style.left      = pct + '%';
                 stripe.style.width     = stripeWPct + '%';
                 stripe.style.transform = 'translateX(-100%)';
@@ -861,6 +868,19 @@
             widthPct  = (this._handSpanMm / totalDistMm) * 100;
             band.style.left  = leftPct + '%';
             band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
+        } else if (this._mechanism === 'fret_sliding_fingers' && this._scaleLengthMm > 0) {
+            // Physical mm: first finger exactly 8mm before fret `anchor`,
+            // last finger exactly 8mm before fret `anchor + numFingers − 1`.
+            const L              = this._scaleLengthMm;
+            const totalMm        = L * (1 - Math.pow(2, -maxFrets / 12));
+            const anchorMm       = L * (1 - Math.pow(2, -anchor / 12));
+            const lastFretMm     = L * (1 - Math.pow(2, -(anchor + this._numFingers - 1) / 12));
+            const firstContactMm = Math.max(0, anchorMm   - HAND_FINGER_BEFORE_FRET_MM);
+            const lastContactMm  = Math.max(firstContactMm, lastFretMm - HAND_FINGER_BEFORE_FRET_MM);
+            leftPct  = (firstContactMm / totalMm) * 100;
+            widthPct = ((lastContactMm - firstContactMm) / totalMm) * 100;
+            band.style.left  = leftPct + '%';
+            band.style.width = Math.min(widthPct, 100 - leftPct) + '%';
         } else {
             // Fret-based fallback.
             // Left edge shifted ~¼ fret (≈8mm) toward the nut so the first
@@ -889,8 +909,9 @@
             requestAnimationFrame(() => this._updateCoverageOverlayPosition());
         }
 
-        // Re-render fret_sliding_fingers stripes/dots with the new anchor so
-        // finger spacing adapts to the logarithmic fret spacing at this position.
+        // Re-render fret_sliding_fingers stripes after a band move.
+        // Stripe positions are anchor-independent (log ratios are constant),
+        // but the DOM is rebuilt to stay in sync with _numFingers changes.
         this._refreshFretSlidingLayout();
     };
 
