@@ -154,6 +154,13 @@ export default class NobleBleAdapter extends EventEmitter {
     // its own map, but the port's snapshot is the source of truth).
     this._discovered.clear();
 
+    // On Raspberry Pi and similar Linux systems, BlueZ needs a short moment
+    // after StartDiscovery() before advertisement data starts populating the
+    // managed-objects tree.  Without this pause the first harvest() call
+    // always returns an empty list and devices discovered in the first ~500 ms
+    // are silently dropped.
+    await new Promise((r) => setTimeout(r, 500));
+
     // Poll BlueZ's device tree every ~750ms so we surface devices as soon
     // as they show up rather than only at the very end of the window.
     // BlueZ populates its tree as advertisements arrive — polling is the
@@ -166,7 +173,7 @@ export default class NobleBleAdapter extends EventEmitter {
       try {
         addresses = await this._adapter.devices();
       } catch (e) {
-        this.logger.debug(`adapter.devices() failed: ${e.message}`);
+        this.logger.warn(`BLE harvest: adapter.devices() failed: ${e.message}`);
         return;
       }
       for (const address of addresses) {
@@ -189,7 +196,7 @@ export default class NobleBleAdapter extends EventEmitter {
           // Re-allow a retry next tick: the device might just not be
           // fully populated in BlueZ yet.
           seen.delete(address);
-          this.logger.debug(`Could not read device ${address}: ${e.message}`);
+          this.logger.warn(`BLE harvest: could not read device ${address}: ${e.message}`);
         }
       }
     };

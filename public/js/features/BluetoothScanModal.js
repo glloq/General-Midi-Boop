@@ -25,6 +25,7 @@ class BluetoothScanModal {
         this.bluetoothState = 'unknown'; // Detailed state
         this.availableDevices = [];
         this.pairedDevices = [];
+        this.scanError = null;
 
         this.setupEventListeners();
 
@@ -268,6 +269,16 @@ class BluetoothScanModal {
             `;
         }
 
+        if (this.scanError) {
+            return `
+                <div class="devices-empty">
+                    <div class="empty-icon">⚠️</div>
+                    <p>${t('bluetooth.scanFailed') || 'Scan failed'}</p>
+                    <p class="text-muted">${escapeHtml(this.scanError)}</p>
+                </div>
+            `;
+        }
+
         if (this.availableDevices.length === 0) {
             return `
                 <div class="devices-empty">
@@ -427,6 +438,7 @@ class BluetoothScanModal {
 
         this.scanning = true;
         this.availableDevices = [];
+        this.scanError = null;
         this.updateModalContent();
 
         this.logger.info('BluetoothScanModal', 'Starting Bluetooth scan');
@@ -565,6 +577,7 @@ class BluetoothScanModal {
      */
     handleScanComplete(data) {
         this.scanning = false;
+        this.scanError = null;
         const allDevices = data.devices || [];
 
         // Filter out already-paired devices to avoid duplicates
@@ -617,6 +630,7 @@ class BluetoothScanModal {
      */
     handleScanError(data) {
         this.scanning = false;
+        this.scanError = data.error || 'Scan failed';
 
         this.logger.error('BluetoothScanModal', 'Scan error:', data.error);
 
@@ -629,7 +643,8 @@ class BluetoothScanModal {
                 msg.includes('d-bus') ||
                 msg.includes('dbus') ||
                 msg.includes('no adapter') ||
-                msg.includes('adapter disposed');
+                msg.includes('adapter disposed') ||
+                msg.includes('ble scan error');
             if (isAdapterDown) {
                 this.bluetoothEnabled = false;
                 this.bluetoothState = 'poweredOff';
