@@ -72,11 +72,21 @@ function buildBandDOM() {
     return band;
 }
 
-// ── _renderFingerRangeRects : stripes centered on dot positions ───────────────
+// Computes expected cell-midpoint position within the band for finger i.
+function cellMidPct(anchor, numF, i, maxFrets) {
+    const bandLeft  = anchor > 1 ? fretPct(anchor - 1, maxFrets) : 0;
+    const bandRight = fretPct(anchor + numF - 1, maxFrets);
+    const bandWidth = bandRight - bandLeft;
+    const prevWire  = fretPct(anchor + i - 1, maxFrets);
+    const currWire  = fretPct(anchor + i,     maxFrets);
+    return ((prevWire + currWire) / 2 - bandLeft) / bandWidth * 100;
+}
+
+// ── _renderFingerRangeRects : stripes at fret cell midpoints ─────────────────
 describe('_renderFingerRangeRects — fret_sliding_fingers stripe spacing', () => {
-    it('places N stripes centered at (i+0.5)/N positions', () => {
-        const count = 4;
-        const obj = makeMixin({ _numFingers: count });
+    it('places N stripes centered at fret cell midpoints', () => {
+        const count = 4, anchor = 5, maxFrets = 22;
+        const obj = makeMixin({ _numFingers: count, handAnchorFret: anchor, _cachedMaxFrets: maxFrets });
         const rect = buildCoverageDOM();
         obj._renderFingerRangeRects(rect, 6);
 
@@ -84,13 +94,14 @@ describe('_renderFingerRangeRects — fret_sliding_fingers stripe spacing', () =
         expect(stripes.length).toBe(count);
 
         for (let i = 0; i < count; i++) {
-            const expected = (i + 0.5) / count * 100;
-            expect(pct(stripes[i].style.left)).toBeCloseTo(expected, 4);
+            expect(pct(stripes[i].style.left)).toBeCloseTo(cellMidPct(anchor, count, i, maxFrets), 4);
         }
     });
 
     it('single stripe at 50% for numFingers=1', () => {
-        const obj = makeMixin({ _numFingers: 1 });
+        // For N=1, the band is exactly one fret cell; its midpoint is 50%.
+        const anchor = 5, maxFrets = 22;
+        const obj = makeMixin({ _numFingers: 1, handAnchorFret: anchor, _cachedMaxFrets: maxFrets });
         const rect = buildCoverageDOM();
         obj._renderFingerRangeRects(rect, 6);
 
@@ -99,19 +110,17 @@ describe('_renderFingerRangeRects — fret_sliding_fingers stripe spacing', () =
         expect(pct(stripes[0].style.left)).toBeCloseTo(50, 1);
     });
 
-    it('gaps between consecutive stripe centers are equal', () => {
-        const count = 5;
-        const obj = makeMixin({ _numFingers: count });
+    it('stripe positions are strictly inside [0, 100]', () => {
+        const count = 6, anchor = 3, maxFrets = 22;
+        const obj = makeMixin({ _numFingers: count, handAnchorFret: anchor, _cachedMaxFrets: maxFrets });
         const rect = buildCoverageDOM();
         obj._renderFingerRangeRects(rect, 6);
 
-        const positions = Array.from(
-            rect.querySelectorAll('.hand-finger-range-fret')
-        ).map(s => pct(s.style.left));
-
-        const gaps = positions.slice(1).map((v, i) => v - positions[i]);
-        const expected = 100 / count;
-        gaps.forEach(g => expect(g).toBeCloseTo(expected, 4));
+        Array.from(rect.querySelectorAll('.hand-finger-range-fret')).forEach(s => {
+            const p = pct(s.style.left);
+            expect(p).toBeGreaterThan(0);
+            expect(p).toBeLessThan(100);
+        });
     });
 });
 
@@ -246,19 +255,28 @@ describe('renderHandWidget — fret_sliding_fingers dot positions', () => {
         return obj;
     }
 
-    it('dot i is at (i+0.5)/N × 100% for N=4', () => {
-        const numF = 4;
+    it('dot i is at the fret cell midpoint for N=4', () => {
+        const numF = 4, anchor = 5, maxFrets = 22;
         const stringsArea = makeDomContext();
-        buildRenderObj(numF).renderHandWidget(stringsArea, { maxFretCount: 22 });
+        buildRenderObj(numF).renderHandWidget(stringsArea, { maxFretCount: maxFrets });
 
         const dots = collectDots(stringsArea);
         expect(dots.length).toBe(numF);
         dots.forEach((d, i) => {
-            expect(pct(d.style.left)).toBeCloseTo((i + 0.5) / numF * 100, 4);
+            expect(pct(d.style.left)).toBeCloseTo(cellMidPct(anchor, numF, i, maxFrets), 4);
         });
     });
 
-    it('all N values 1–6 produce (i+0.5)/N spacing', () => {
+    it('single dot at 50% for N=1 (midpoint of the single fret cell)', () => {
+        const stringsArea = makeDomContext();
+        buildRenderObj(1).renderHandWidget(stringsArea, { maxFretCount: 22 });
+
+        const dots = collectDots(stringsArea);
+        expect(dots.length).toBe(1);
+        expect(pct(dots[0].style.left)).toBeCloseTo(50, 1);
+    });
+
+    it('dot positions match stripe positions for all N values 1–6', () => {
         [1, 2, 3, 4, 5, 6].forEach(numF => {
             document.body.innerHTML = '';
             const stringsArea = makeDomContext();
@@ -267,21 +285,8 @@ describe('renderHandWidget — fret_sliding_fingers dot positions', () => {
             const dots = collectDots(stringsArea);
             expect(dots.length).toBe(numF);
             dots.forEach((d, i) => {
-                const expected = numF === 1 ? 50 : (i + 0.5) / numF * 100;
-                expect(pct(d.style.left)).toBeCloseTo(expected, 4);
+                expect(pct(d.style.left)).toBeCloseTo(cellMidPct(5, numF, i, 22), 4);
             });
         });
-    });
-
-    it('gaps between consecutive dots are equal', () => {
-        const numF = 4;
-        const stringsArea = makeDomContext();
-        buildRenderObj(numF).renderHandWidget(stringsArea, { maxFretCount: 22 });
-
-        const dots = collectDots(stringsArea);
-        const positions = dots.map(d => pct(d.style.left));
-        const gaps = positions.slice(1).map((v, i) => v - positions[i]);
-        const expected = 100 / numF;
-        gaps.forEach(g => expect(g).toBeCloseTo(expected, 4));
     });
 });
