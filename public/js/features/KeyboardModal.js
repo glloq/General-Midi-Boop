@@ -257,6 +257,18 @@ class KeyboardModalNew {
             this._updateSlideFingerPositions();
         }
 
+        // Move fret_sliding_fingers overlay dots to match active string:fret presses.
+        if (this.viewMode === 'fretboard' && typeof this._updateFingerDotPositions === 'function') {
+            const activeFrets = {};
+            for (const pos of this.activeFretPositions) {
+                const parts = pos.split(':');
+                const str  = parseInt(parts[0], 10);
+                const fret = parseInt(parts[1], 10);
+                if (!isNaN(str) && !isNaN(fret) && fret > 0) activeFrets[str] = fret;
+            }
+            this._updateFingerDotPositions(activeFrets);
+        }
+
         // Keep the fingers overlay in sync with the currently-sounding keys.
         if (typeof this._updateFingersActiveNotes === 'function') {
             this._updateFingersActiveNotes();

@@ -811,21 +811,14 @@
         } else if (this._mechanism === 'fret_sliding_fingers') {
             const count      = Math.max(1, this._numFingers);
             const stripeWPct = Math.max(4, Math.min(15, Math.round(100 / count * 0.4)));
-            const anchor     = this.handAnchorFret || 1;
-            const maxFrets   = this._cachedMaxFrets || 22;
-            const bandLeft   = anchor > 1 ? fretPct(anchor - 1, maxFrets) : 0;
-            const bandRight  = fretPct(anchor + count - 1, maxFrets);
-            const bandWidth  = bandRight - bandLeft;
-            // One stripe per finger, at the fret wire to its right (aligned with fretboard grid).
+            // Stripe i is centered on its dot at (i+0.5)/N × 100%.
             for (let i = 0; i < count; i++) {
                 const stripe = document.createElement('div');
                 stripe.className = 'hand-finger-range-fret';
-                const wirePct = bandWidth > 0
-                    ? (fretPct(anchor + i, maxFrets) - bandLeft) / bandWidth * 100
-                    : (i + 1) / count * 100;
-                stripe.style.left      = wirePct + '%';
+                const centerPct = count === 1 ? 50 : (i + 0.5) / count * 100;
+                stripe.style.left      = centerPct + '%';
                 stripe.style.width     = stripeWPct + '%';
-                stripe.style.transform = 'translateX(-100%)';
+                stripe.style.transform = 'translateX(-50%)';
                 rangeRect.appendChild(stripe);
             }
         }
