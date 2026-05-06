@@ -70,6 +70,20 @@
                                 <button class="btn-list-view-toggle" id="keyboard-list-view-toggle" aria-pressed="false" title="${this.t('keyboard.listViewToggle') || 'Vue liste — vélocité (hauteur du clic) et pitch bend (gauche/droite)'}">☰</button>
                             </div>
 
+                            <!-- List view: CC selector for Y-axis (shown only in list view) -->
+                            <div class="control-group list-cc-group hidden" id="keyboard-list-cc-group">
+                                <label>Y → CC</label>
+                                <select id="keyboard-list-cc-select" class="list-cc-select" title="CC envoyé lors du drag vertical (Y)">
+                                    <option value="">Vélocité</option>
+                                </select>
+                            </div>
+
+                            <!-- List view: pitch bend toggle for X-axis -->
+                            <div class="control-group list-pb-group hidden" id="keyboard-list-pb-group">
+                                <label>Pitch X</label>
+                                <button class="btn-list-pb-toggle active" id="keyboard-list-pb-toggle" aria-pressed="true" title="Activer/désactiver le pitch bend sur le drag horizontal (X)">↔</button>
+                            </div>
+
                             <div class="control-group note-color-group" id="keyboard-note-color-group">
                                 <label>${this.t('keyboard.noteColors') || 'Colors'}</label>
                                 <button class="btn-note-colors" id="keyboard-note-colors-toggle" title="${this.t('keyboard.toggleNoteColors') || 'Toggle note colors'}">🎨</button>
@@ -491,6 +505,11 @@
         const listViewGroup = document.getElementById('keyboard-list-view-group');
         if (listViewGroup) {
             listViewGroup.classList.toggle('hidden', mode === 'fretboard' || mode === 'drumpad');
+        }
+
+        // List view extra controls: shown/hidden via _updateListViewControls (called after caps load)
+        if (typeof this._updateListViewControls === 'function') {
+            this._updateListViewControls();
         }
 
         if (typeof this._updateSlideModeGroupVisibility === 'function') {

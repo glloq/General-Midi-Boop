@@ -25,6 +25,9 @@ class KeyboardModalNew {
         this.velocity = 80;
         this.modulation = 64; // CC#1 modulation wheel value (center)
         this._modWheelDragging = false;
+        // List view controls
+        this.listViewYCC = null;              // null = vélocité, number = CC# pour l'axe Y
+        this.listViewPitchBendEnabled = true; // pitch bend actif sur le drag horizontal (X)
         this.keyboardLayout = 'azerty';
         this.isMouseDown = false; // For dragging on the keyboard
 
@@ -619,6 +622,19 @@ class KeyboardModalNew {
         }).catch(err => {
             this.logger.error('[KeyboardModal] Modulation CC send failed:', err);
         });
+    }
+
+    sendCC(controller, value) {
+        if (!this.selectedDevice || !this.backend) return;
+        if (this.selectedDevice.isVirtual) {
+            this.logger.info(`🎹 [Virtual] CC#${controller} = ${value}`);
+            return;
+        }
+        const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+        const channel = this.getSelectedChannel();
+        this.backend.sendCommand('midi_send_cc', {
+            deviceId, channel, controller, value
+        }).catch(err => this.logger.error('[KeyboardModal] CC send failed:', err));
     }
 
     /**
