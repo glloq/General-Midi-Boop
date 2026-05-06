@@ -70,12 +70,6 @@ The display adapts to the instrument type assigned to the selected channel:
 
 Left-hand and right-hand finger assignments are shown directly on the standard piano keys.
 
-**Piano — two-hands overlay (chromatic strip)**
-
-![Virtual keyboard — 2 hands chromatic](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%202%20mains%20touches%20chromatique.png?raw=true)
-
-Same hand positions on a flat chromatic strip — useful when the hand-position model assigns notes without a piano-key layout.
-
 **Drums**
 
 ![Virtual keyboard — drums](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/virtual%20keyboard/piano%20virtuel%20drums.png?raw=true)
