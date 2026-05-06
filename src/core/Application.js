@@ -593,7 +593,7 @@ class Application {
 
       // Destroy capability resolver (detach eventBus listener)
       if (this.capabilityResolver) {
-        this.capabilityResolver.destroy(this.eventBus);
+        this.capabilityResolver.destroy();
       }
 
       // Remove event handlers to prevent leaks on restart

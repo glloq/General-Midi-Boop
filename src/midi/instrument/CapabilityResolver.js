@@ -10,8 +10,14 @@
  * `instrument_settings_changed`. A single cache guarantees that capability
  * data is always consistent between the two callers.
  *
+ * Cache policy mirrors CompensationService: event-driven invalidation +
+ * 30-second periodic sweep to recover from missed events (direct DB writes
+ * in tests, etc.).
+ *
  * @see PlaybackScheduler — primary consumer.
  */
+
+const CACHE_TTL_MS = 30_000;
 
 export class CapabilityResolver {
   /**
@@ -21,10 +27,13 @@ export class CapabilityResolver {
    */
   constructor({ database, eventBus }) {
     this._db = database;
+    this._eventBus = eventBus ?? null;
     /** @type {Map<string, boolean>} */
     this._stringCCCache = new Map();
     /** @type {Map<string, {minNoteInterval:number|null, minNoteDuration:number|null, polyphony:number|null}>} */
     this._timingCache = new Map();
+
+    this._cacheTimer = setInterval(() => this.invalidate(), CACHE_TTL_MS).unref();
 
     this._onSettingsChanged = () => this.invalidate();
     eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
@@ -96,14 +105,15 @@ export class CapabilityResolver {
   }
 
   /**
-   * Detach EventBus listener. Call during application shutdown.
-   * @param {Object} eventBus
+   * Cancel background timer and detach EventBus listener. Call during shutdown.
    * @returns {void}
    */
-  destroy(eventBus) {
-    if (this._onSettingsChanged && eventBus) {
-      eventBus.off('instrument_settings_changed', this._onSettingsChanged);
+  destroy() {
+    if (this._cacheTimer) {
+      clearInterval(this._cacheTimer);
+      this._cacheTimer = null;
     }
+    this._eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
     this.invalidate();
   }
 }

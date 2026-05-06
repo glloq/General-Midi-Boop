@@ -23,6 +23,8 @@
  *     compensation cache.
  */
 
+import { DEVICE_MSG_TYPES } from '../../core/constants.js';
+
 /**
  * Stateful router. One instance per process; registered in the DI
  * container as `midiRouter`.
@@ -344,7 +346,7 @@ class MidiRouter {
 
     // Filter by note range (for noteon/noteoff)
     if (filter.noteRange) {
-      if (type === 'noteon' || type === 'noteoff') {
+      if (type === DEVICE_MSG_TYPES.NOTE_ON || type === DEVICE_MSG_TYPES.NOTE_OFF) {
         const note = msg.note;
         if (note < filter.noteRange.min || note > filter.noteRange.max) {
           return false;
@@ -354,7 +356,7 @@ class MidiRouter {
 
     // Filter by velocity range (for noteon)
     if (filter.velocityRange) {
-      if (type === 'noteon') {
+      if (type === DEVICE_MSG_TYPES.NOTE_ON) {
         const velocity = msg.velocity;
         if (velocity < filter.velocityRange.min || velocity > filter.velocityRange.max) {
           return false;
