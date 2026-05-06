@@ -28,6 +28,7 @@ import { PlaybackStateMachine, PLAYBACK_STATES } from './state/PlaybackStateMach
 import HandAssigner from '../adaptation/HandAssigner.js';
 import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
 import LongitudinalPlanner from '../adaptation/LongitudinalPlanner.js';
+import { ConfigurationError, NotFoundError, ValidationError } from '../../core/errors/index.js';
 
 /** Used to convert MIDI `microsecondsPerBeat` into BPM. */
 const MICROSECONDS_PER_MINUTE = 60000000;
@@ -154,10 +155,10 @@ class MidiPlayer {
     try {
       const file = this.database.getFile(fileId);
       if (!file) {
-        throw new Error(`File not found: ${fileId}`);
+        throw new NotFoundError('file', fileId);
       }
       if (!file.blob_path) {
-        throw new Error(`File ${fileId} (${file.filename}) has no blob_path`);
+        throw new ConfigurationError(`File ${fileId} (${file.filename}) has no blob_path`);
       }
 
       // Bytes live on disk under data/midi/<sha[0..1]>/<sha>.mid; resolved
@@ -167,7 +168,7 @@ class MidiPlayer {
       const midi = parseMidi(buffer);
 
       if (!midi || !midi.header || !Array.isArray(midi.tracks)) {
-        throw new Error(`File ${fileId} (${file.filename}) contains invalid MIDI data`);
+        throw new ValidationError(`File ${fileId} (${file.filename}) contains invalid MIDI data`);
       }
 
       this.ppq = midi.header.ticksPerBeat || 480;
@@ -862,7 +863,7 @@ class MidiPlayer {
     }
 
     if (!outputDevice) {
-      throw new Error('Output device required');
+      throw new ConfigurationError('Output device required');
     }
 
     this.stateMachine.tryTransition(PLAYBACK_STATES.PLAYING);
@@ -1857,7 +1858,7 @@ class MidiPlayer {
    */
   async playQueueItem(index) {
     if (index < 0 || index >= this.queue.length) {
-      throw new Error(`Queue index out of range: ${index}`);
+      throw new ConfigurationError(`Queue index out of range: ${index}`);
     }
 
     // Cancel any pending gap timer
@@ -1886,7 +1887,7 @@ class MidiPlayer {
       const devices = this._deps.deviceManager.getDeviceList();
       const outputDevices = devices.filter(d => d.output && d.enabled);
       if (outputDevices.length === 0) {
-        throw new Error('No output devices available');
+        throw new ConfigurationError('No output devices available');
       }
       outputDevice = outputDevices[0].id;
     }
