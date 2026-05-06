@@ -33,14 +33,18 @@ async function bleScanStart(app, data) {
   const duration = data.duration || 5;
   const filter = data.filter || '';
 
-  const devices = await app.bluetoothManager.startScan(duration, filter);
-
-  return {
-    success: true,
-    data: {
-      devices: devices
-    }
-  };
+  try {
+    const devices = await app.bluetoothManager.startScan(duration, filter);
+    return {
+      success: true,
+      data: {
+        devices: devices
+      }
+    };
+  } catch (error) {
+    if (error instanceof ConfigurationError) throw error;
+    throw new ConfigurationError(`BLE scan error: ${error.message}`);
+  }
 }
 
 /**
