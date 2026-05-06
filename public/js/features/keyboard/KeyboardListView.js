@@ -124,6 +124,7 @@
 
         let activeNote = null;
         let activeKey = null;
+        let startX = null; // X de référence pour le pitch bend relatif
 
         const hasPitchBend = () => {
             const caps = this.selectedDeviceCapabilities;
@@ -137,11 +138,11 @@
             return Math.max(1, Math.min(127, Math.round(ratio * 127)));
         };
 
-        // X → pitch bend (gauche = -8191, centre = 0, droite = +8191)
-        const getPitchBendFromX = (key, clientX) => {
+        // Δx relatif au clic initial → pitch bend (±largeur de touche = ±8191)
+        const getPitchBendFromDelta = (key, deltaX) => {
             const rect = key.getBoundingClientRect();
-            const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-            return Math.round((ratio - 0.5) * 2 * 8191);
+            const ratio = Math.max(-1, Math.min(1, deltaX / rect.width));
+            return Math.round(ratio * 8191);
         };
 
         // Met à jour le glow : position X + couleur adaptée à la note si colors actifs
@@ -203,6 +204,7 @@
 
             activeNote = note;
             activeKey = key;
+            startX = clientX; // référence pour le pitch bend relatif
 
             const vel = getVelocityFromY(key, clientY);
             this.velocity = vel;
@@ -215,21 +217,20 @@
 
             sendYCC(key, clientY);
 
-            if (hasPitchBend()) {
-                this._sendPitchBend(getPitchBendFromX(key, clientX));
-                showPBCursor(key, clientX);
-            }
+            // Clic = note exacte → pitch bend à zéro, curseur masqué jusqu'au drag
+            if (hasPitchBend()) this._sendPitchBend(0);
         };
 
         const onMove = (clientX, clientY) => {
-            if (activeNote === null || !activeKey) return;
+            if (activeNote === null || !activeKey || startX === null) return;
 
             updateGlow(clientX, activeNote);
 
             sendYCC(activeKey, clientY);
 
             if (hasPitchBend()) {
-                this._sendPitchBend(getPitchBendFromX(activeKey, clientX));
+                const bend = getPitchBendFromDelta(activeKey, clientX - startX);
+                this._sendPitchBend(bend);
                 showPBCursor(activeKey, clientX);
             }
 
@@ -245,6 +246,7 @@
                 this.stopNote(activeNote);
                 activeNote = null;
                 activeKey = null;
+                startX = null;
             }
         };
 
