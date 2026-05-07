@@ -662,6 +662,7 @@ class AudioPreview {
     if (this.synthesizer) {
       this.synthesizer.onTickUpdate = null;
       this.synthesizer.onPlaybackEnd = null;
+      this.synthesizer.dispose();
       this.synthesizer = null;
     }
     this.onProgress = null;

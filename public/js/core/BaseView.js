@@ -345,11 +345,22 @@ class BaseView {
             this.log('warn', `Cannot subscribe to ${event}: EventBus not available`);
             return () => {};
         }
-        
-        const unsub = this.eventBus.once(event, handler);
+
+        let unsub;
+        const wrappedHandler = (data) => {
+            const idx = this.eventSubscriptions.indexOf(unsub);
+            if (idx !== -1) this.eventSubscriptions.splice(idx, 1);
+            handler(data);
+        };
+        unsub = this.eventBus.once(event, wrappedHandler);
         this.eventSubscriptions.push(unsub);
-        
-        return unsub;
+
+        // Return a wrapper so manual cancellation also cleans eventSubscriptions
+        return () => {
+            const idx = this.eventSubscriptions.indexOf(unsub);
+            if (idx !== -1) this.eventSubscriptions.splice(idx, 1);
+            unsub();
+        };
     }
     
     /**

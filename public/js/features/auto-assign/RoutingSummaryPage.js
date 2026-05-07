@@ -3415,6 +3415,10 @@ class RoutingSummaryPage {
 
   close() {
     this._stopPreview();
+    if (this.audioPreview) {
+      this.audioPreview.destroy();
+      this.audioPreview = null;
+    }
     // Abort all delegated event listeners
     if (this._summaryAbort) { this._summaryAbort.abort(); this._summaryAbort = null; }
     if (this._detailAbort) { this._detailAbort.abort(); this._detailAbort = null; }

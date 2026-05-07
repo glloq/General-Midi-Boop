@@ -41,37 +41,27 @@ class NetworkScanModal {
     setupEventListeners() {
         if (!this.eventBus) return;
 
-        // Network scan response
-        this.eventBus.on('network:scanned', (data) => {
-            this.handleScanComplete(data);
-        });
+        this._eventUnsubs = [
+            this.eventBus.on('network:scanned',         (data) => this.handleScanComplete(data)),
+            this.eventBus.on('network:connected_list',  (data) => this.handleConnectedList(data)),
+            this.eventBus.on('network:connected',       (data) => this.handleDeviceConnected(data)),
+            this.eventBus.on('network:disconnected',    (data) => this.handleDeviceDisconnected(data)),
+            this.eventBus.on('network:scan_error',      (data) => this.handleScanError(data)),
+        ];
 
-        // Connected devices list response
-        this.eventBus.on('network:connected_list', (data) => {
-            this.handleConnectedList(data);
-        });
-
-        // Connection succeeded
-        this.eventBus.on('network:connected', (data) => {
-            this.handleDeviceConnected(data);
-        });
-
-        // Disconnection succeeded
-        this.eventBus.on('network:disconnected', (data) => {
-            this.handleDeviceDisconnected(data);
-        });
-
-        // Scan error
-        this.eventBus.on('network:scan_error', (data) => {
-            this.handleScanError(data);
-        });
-
-        // Listen for language changes
         if (typeof i18n !== 'undefined') {
             this._localeUnsubscribe = i18n.onLocaleChange(() => this.updateModalContent());
         }
 
         this.logger.debug('NetworkScanModal', 'Event listeners configured');
+    }
+
+    destroy() {
+        this.close();
+        if (this._eventUnsubs) {
+            this._eventUnsubs.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+            this._eventUnsubs = [];
+        }
     }
 
     // ========================================================================
@@ -418,13 +408,6 @@ class NetworkScanModal {
         const fullScanCheckbox = this.container ? this.container.querySelector('#fullScanCheckbox') : null;
         const fullScan = fullScanCheckbox ? fullScanCheckbox.checked : false;
 
-        // Debug: Confirm checkbox state
-        console.log('='.repeat(80));
-        console.log('🔍 DÉMARRAGE DU SCAN');
-        console.log(`   Checkbox trouvée: ${fullScanCheckbox ? 'OUI' : 'NON'}`);
-        console.log(`   fullScan activé: ${fullScan ? 'OUI ✅' : 'NON ❌'}`);
-        console.log('='.repeat(80));
-
         this.updateModalContent();
 
         this.logger.info('NetworkScanModal', `Starting network scan (fullScan: ${fullScan})`);
@@ -581,15 +564,6 @@ class NetworkScanModal {
         this.availableDevices = data.devices || [];
 
         this.logger.info('NetworkScanModal', `Scan complete: ${this.availableDevices.length} devices found`);
-
-        // Debug: Display received devices
-        console.log('='.repeat(80));
-        console.log('📡 SCAN TERMINÉ - Devices reçus du backend:');
-        console.log(`   Total: ${this.availableDevices.length} devices`);
-        this.availableDevices.forEach((device, index) => {
-            console.log(`   ${index + 1}. ${device.name} (${device.ip}) - Type: ${device.type}`);
-        });
-        console.log('='.repeat(80));
 
         this.updateModalContent();
     }

@@ -581,6 +581,10 @@
         // ----------------------------------------------------------------
 
         destroy() {
+            if (this._rafHandle != null) {
+                cancelAnimationFrame(this._rafHandle);
+                this._rafHandle = null;
+            }
             this._chords = [];
             this._shifts = [];
             this._trajectory = [];

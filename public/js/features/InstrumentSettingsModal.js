@@ -1174,4 +1174,12 @@ Object.assign(InstrumentSettingsModal.prototype, ISMListeners);
 // Expose globally
 if (typeof window !== 'undefined') {
     window.InstrumentSettingsModal = InstrumentSettingsModal;
+    // Dispose the lazily-created preview synth on page unload to close its AudioContext.
+    window.addEventListener('beforeunload', () => {
+        if (window.__ismPreviewSynth) {
+            try { window.__ismPreviewSynth.dispose(); } catch (e) {}
+            window.__ismPreviewSynth = null;
+            window.__ismPreviewSynthInit = null;
+        }
+    }, { once: true });
 }
