@@ -226,6 +226,7 @@ class BackendAPIClient {
 
             const onConnected = () => {
                 clearTimeout(timer);
+                this.off('connected', onConnected);
                 resolve();
             };
 

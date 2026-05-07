@@ -1311,6 +1311,12 @@ class MidiSynthesizer {
         this.stop();
         this.cancelAllNotes();
 
+        // Remove injected <script> tags and clear instrument caches
+        this._clearInstrumentCache();
+        const drumScripts = document.querySelectorAll('script[src*="surikov.github.io/webaudiofontdata/sound/128"]');
+        drumScripts.forEach(s => s.remove());
+        this._drumLoading.clear();
+
         // Disconnect audio bus nodes
         if (this.drumDryGain) { try { this.drumDryGain.disconnect(); } catch(e) {} }
         if (this.drumReverbGain) { try { this.drumReverbGain.disconnect(); } catch(e) {} }
