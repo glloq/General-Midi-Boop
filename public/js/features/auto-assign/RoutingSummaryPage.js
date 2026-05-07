@@ -96,6 +96,7 @@ class RoutingSummaryPage {
     this.autoAdaptation = true; // Toggle for automatic MIDI channel adaptation
     this.channelVolumes = {}; // Per-channel volume overrides (CC7, 0-127, default 100)
     this._instrumentOptionsCache = {}; // Memoized <option> HTML per channel for summary dropdowns
+    this._channelNotesCache = {}; // Memoized note arrays per channel for hands preview
 
     // Preview state
     this.midiData = null;
@@ -1070,6 +1071,7 @@ class RoutingSummaryPage {
    */
   _getChannelNotesForPreview(channel) {
     if (!this.midiData?.tracks) return [];
+    if (this._channelNotesCache[channel]) return this._channelNotesCache[channel];
     const notes = [];
     for (const track of this.midiData.tracks) {
       let absoluteTick = 0;
@@ -1094,6 +1096,7 @@ class RoutingSummaryPage {
       }
     }
     notes.sort((a, b) => a.tick - b.tick);
+    this._channelNotesCache[channel] = notes;
     return notes;
   }
 
@@ -2117,13 +2120,32 @@ class RoutingSummaryPage {
   // Actions
   // ============================================================================
 
+  /**
+   * Toggle the `selected` CSS class on summary rows without a full
+   * summary rebuild. Called synchronously inside `_selectChannel` so
+   * the highlight updates on the same frame as the click — before the
+   * RAF-deferred detail render fires.
+   */
+  _updateSummarySelection(prevChannel, newChannel) {
+    const panel = this.modal?.querySelector('#rsSummaryPanel');
+    if (!panel) return;
+    if (prevChannel != null) {
+      const row = panel.querySelector(`.rs-row[data-channel="${prevChannel}"]`);
+      if (row) row.classList.remove('selected');
+    }
+    if (newChannel != null) {
+      const row = panel.querySelector(`.rs-row[data-channel="${newChannel}"]`);
+      if (row) row.classList.add('selected');
+    }
+  }
+
   _selectChannel(channel) {
     const prevChannel = this.selectedChannel;
+    if (prevChannel === channel) return; // no-op if same channel clicked
     this.selectedChannel = channel;
     const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
-    // Optimize: when opening/switching detail, render detail first, then defer summary update.
-    // This avoids a long synchronous block rebuilding both panels at once.
     const layoutChanged = (prevChannel === null) !== (channel === null);
+
     if (layoutChanged) {
       // Layout structure changes (full↔condensed): render detail immediately, defer summary
       this._refreshUI(channelKeys, 'detail');
@@ -2132,6 +2154,22 @@ class RoutingSummaryPage {
       if (container) container.classList.toggle('rs-with-detail', channel !== null);
       // Defer summary rebuild to next frame so detail appears first
       requestAnimationFrame(() => this._refreshUI(channelKeys, 'summary'));
+    } else if (prevChannel !== null && channel !== null) {
+      // Fast path: switching between two channels — the condensed summary
+      // only differs in which row carries `selected`; avoid a full rebuild.
+      this._updateSummarySelection(prevChannel, channel);
+      // Show a loading placeholder immediately so the user sees instant
+      // feedback before the RAF-deferred detail render fires.
+      const detailPanel = this.modal?.querySelector('#rsDetailPanel');
+      if (detailPanel) {
+        if (this._handsPreviewPanel) {
+          this._handsPreviewPanel.destroy();
+          this._handsPreviewPanel = null;
+          this._handsPreviewChannel = null;
+        }
+        detailPanel.innerHTML = this._renderDetailPlaceholder();
+      }
+      this._refreshUI(channelKeys, 'detail');
     } else {
       this._refreshUI(channelKeys, 'both-panels');
     }
