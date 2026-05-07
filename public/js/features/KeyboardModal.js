@@ -212,6 +212,9 @@ class KeyboardModalNew {
         // Destroy the fingers overlay renderer
         if (typeof this._cleanFingersCanvas === 'function') this._cleanFingersCanvas();
 
+        // Clean up wind instrument controls and staccato timers
+        if (typeof this._hideWindControls === 'function') this._hideWindControls();
+
         // Stop all active notes
         this.activeNotes.forEach(note => this.stopNote(note));
 

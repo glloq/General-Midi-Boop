@@ -8,10 +8,10 @@
 
     // Articulation definitions matching WindArticulationPanel presets
     const WIND_ARTICULATIONS = {
-        normal:   { velocityFactor: 1.0,  staccato: false },
-        legato:   { velocityFactor: 1.0,  staccato: false },
-        staccato: { velocityFactor: 0.9,  staccato: true  },
-        accent:   { velocityFactor: 1.2,  staccato: false },
+        normal:   { velocityFactor: 1.0 },
+        legato:   { velocityFactor: 1.0 },
+        staccato: { velocityFactor: 0.9, staccato: true },
+        accent:   { velocityFactor: 1.2 },
     };
 
     // Max duration for staccato auto-stop (ms)
@@ -30,7 +30,6 @@
 
     KeyboardWindMixin._showWindControls = function (preset) {
         this.windPreset = preset || null;
-        if (!this.currentArticulation) this.currentArticulation = 'normal';
 
         const panel = document.getElementById('wind-instrument-panel');
         if (!panel) return;
@@ -41,10 +40,10 @@
 
         const rangeEl = document.getElementById('wind-range-display');
         if (rangeEl && preset) {
-            const rMin = typeof this.getNoteLabel === 'function' ? this.getNoteLabel(preset.rangeMin) : preset.rangeMin;
-            const rMax = typeof this.getNoteLabel === 'function' ? this.getNoteLabel(preset.rangeMax) : preset.rangeMax;
-            const cMin = typeof this.getNoteLabel === 'function' ? this.getNoteLabel(preset.comfortMin) : preset.comfortMin;
-            const cMax = typeof this.getNoteLabel === 'function' ? this.getNoteLabel(preset.comfortMax) : preset.comfortMax;
+            const rMin = this.getNoteLabel(preset.rangeMin);
+            const rMax = this.getNoteLabel(preset.rangeMax);
+            const cMin = this.getNoteLabel(preset.comfortMin);
+            const cMax = this.getNoteLabel(preset.comfortMax);
             rangeEl.innerHTML = `<span class="wind-range-full">${rMin}–${rMax}</span>`
                 + `<span class="wind-range-sep"> · </span>`
                 + `<span class="wind-range-comfort" title="Comfort zone">${cMin}–${cMax}</span>`;
@@ -54,10 +53,11 @@
     };
 
     KeyboardWindMixin._hideWindControls = function () {
+        this._clearWindComfortZone();
+        this._cancelStaccatoTimers();
         this.windPreset = null;
         const panel = document.getElementById('wind-instrument-panel');
         if (panel) panel.classList.add('hidden');
-        this._clearWindComfortZone();
     };
 
     // ── Articulation management ───────────────────────────────────────────────
@@ -91,8 +91,18 @@
     };
 
     KeyboardWindMixin._clearWindComfortZone = function () {
-        document.querySelectorAll('.piano-slider-key.wind-comfort-zone, .piano-slider-key.wind-out-of-range')
+        const strip = document.getElementById('piano-slider-strip');
+        if (!strip) return;
+        strip.querySelectorAll('.piano-slider-key.wind-comfort-zone, .piano-slider-key.wind-out-of-range')
             .forEach(k => k.classList.remove('wind-comfort-zone', 'wind-out-of-range'));
+    };
+
+    // ── Staccato timer management ─────────────────────────────────────────────
+
+    KeyboardWindMixin._cancelStaccatoTimers = function () {
+        if (!this._staccatoTimers) return;
+        this._staccatoTimers.forEach(id => clearTimeout(id));
+        this._staccatoTimers.clear();
     };
 
     // ── Piano-slider toggle visibility override ───────────────────────────────
@@ -105,8 +115,7 @@
         const isPianoFamily = this.viewMode === 'piano' || this.viewMode === 'piano-slider';
         const caps = this.selectedDeviceCapabilities;
         const pitchBendEnabled = !!(caps && caps.pitch_bend_enabled);
-        const isWind = !!this.windPreset;
-        const show = isPianoFamily && (pitchBendEnabled || isWind);
+        const show = isPianoFamily && (pitchBendEnabled || !!this.windPreset);
         group.classList.toggle('hidden', !show);
         if (!show && this.viewMode === 'piano-slider') {
             this.setViewMode('piano');
@@ -116,23 +125,18 @@
     // ── playNote override — apply articulation velocity factor ────────────────
 
     KeyboardWindMixin.playNote = function (note) {
-        if (!this.windPreset || !this.currentArticulation) {
-            if (typeof this._windOrigPlayNote === 'function') {
-                this._windOrigPlayNote.call(this, note);
-            }
+        const orig = this._windOrigPlayNote;
+        if (!this.windPreset) {
+            orig.call(this, note);
             return;
         }
 
         if (note < 0 || note > 127) return;
 
         const art = WIND_ARTICULATIONS[this.currentArticulation] || WIND_ARTICULATIONS.normal;
-        const adjustedVelocity = Math.min(127, Math.round(this.velocity * art.velocityFactor));
-
         const savedVelocity = this.velocity;
-        this.velocity = adjustedVelocity;
-        if (typeof this._windOrigPlayNote === 'function') {
-            this._windOrigPlayNote.call(this, note);
-        }
+        this.velocity = Math.min(127, Math.round(savedVelocity * art.velocityFactor));
+        orig.call(this, note);
         this.velocity = savedVelocity;
 
         // Staccato: schedule automatic note-off after STACCATO_MAX_MS
