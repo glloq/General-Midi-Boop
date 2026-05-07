@@ -2698,3 +2698,124 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     flex: 1;
     opacity: 0.85;
 }
+
+/* ============================================================================
+   WIND INSTRUMENT PANEL  (articulation + range display)
+   ============================================================================ */
+
+.wind-instrument-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #1a1a2e;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.wind-instrument-panel.hidden {
+    display: none;
+}
+
+.wind-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    min-width: 0;
+}
+
+.wind-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.wind-instrument-name {
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wind-range-display {
+    margin-left: auto;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.wind-range-full {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.wind-range-sep {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.wind-range-comfort {
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.wind-articulation-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.wind-art-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-right: 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.wind-art-btn {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 3px 10px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.wind-art-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.wind-art-btn.active {
+    background: rgba(99, 102, 241, 0.28);
+    border-color: #6366f1;
+    color: #a5b4fc;
+}
+
+/* ── Comfort zone & range highlighting in piano-slider ─────────────────────── */
+
+.piano-slider-key.wind-comfort-zone.is-white {
+    background: rgba(74, 222, 128, 0.18) !important;
+}
+
+.piano-slider-key.wind-comfort-zone.is-black {
+    background: rgba(74, 222, 128, 0.28) !important;
+}
+
+.piano-slider-key.wind-out-of-range {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.piano-slider-key.wind-out-of-range.is-white {
+    background: #1c1c2a !important;
+}
+
+.piano-slider-key.wind-out-of-range.is-black {
+    background: #0e0e1a !important;
+}

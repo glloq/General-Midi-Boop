@@ -1019,15 +1019,20 @@
         this.modal.sequenceOps.updateSequenceFromActiveChannels(new Set([channel]), specialtyEditorWasActive);
         this.modal.editActions.refreshChannelButtons();
 
-    // Determine wind preset from channel's GM program
+    // Determine wind preset — use the same effective-program logic as the
+    // button display: prefer the routed GM program over the raw MIDI channel
+    // program so that routing-assigned wind instruments open correctly even
+    // when the MIDI file itself carries a different (or absent) program change.
         const channelInfo = this.modal.channels?.find(c => c.channel === channel);
-        const gmProgram = channelInfo?.program;
+        const hasRouting = this.modal.channelRouting?.has(channel);
+        const routedGm = this.modal._routedGmPrograms?.get(channel);
+        const effectiveGmProgram = (hasRouting && routedGm != null) ? routedGm : (channelInfo?.program ?? null);
         const windPreset = typeof WindInstrumentDatabase !== 'undefined'
-            ? WindInstrumentDatabase.getPresetByProgram(gmProgram)
+            ? WindInstrumentDatabase.getPresetByProgram(effectiveGmProgram)
             : null;
 
         if (!windPreset) {
-            this.modal.log('warn', `No wind preset for program ${gmProgram} on channel ${channel}`);
+            this.modal.log('warn', `No wind preset for effective program ${effectiveGmProgram} on channel ${channel}`);
             return;
         }
 

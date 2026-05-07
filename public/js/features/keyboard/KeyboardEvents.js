@@ -239,6 +239,11 @@
             document.getElementById('keyboard-velocity-display').textContent = this.velocity;
         });
 
+        // Wind instrument panel (articulation buttons)
+        if (typeof this._initWindPanel === 'function') {
+            this._initWindPanel();
+        }
+
         // Modulation wheel (custom drag)
         this.initModWheel();
 

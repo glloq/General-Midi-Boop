@@ -92,6 +92,11 @@
       "enable": "Show virtual keyboard button",
       "description": "Shows the virtual MIDI keyboard button in the navigation bar"
     },
+    "instrumentsButton": {
+      "title": "Instruments Button",
+      "enable": "Show instruments button",
+      "description": "Shows the instrument management button in the navigation bar"
+    },
     "groups": {
       "appearance": "Appearance",
       "playback": "Playback & Display",
