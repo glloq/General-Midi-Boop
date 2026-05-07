@@ -35,6 +35,7 @@ class MidiSynthesizer {
         this.isInitialized = false;
         this.isPlaying = false;
         this.isPaused = false;
+        this._isDisposed = false;
 
         // Playback state
         this.currentTick = 0;
@@ -97,6 +98,7 @@ class MidiSynthesizer {
         this.drumPresets = new Map(); // "kitProgram:note" → loaded preset
         this._drumLoading = new Map(); // "kitProgram:note" → in-flight Promise
         this._drumVariables = new Map(); // "kitProgram:note" → window variable name
+        this._injectedScripts = new Set(); // <script> elements injected by this instance
 
         // Drum audio processing
         this.drumReverbNode = null;     // ConvolverNode for cymbal reverb
@@ -365,7 +367,9 @@ class MidiSynthesizer {
             // Load the instrument script
             const script = document.createElement('script');
             script.src = instrumentInfo.url;
+            this._injectedScripts.add(script);
             script.onload = () => {
+                if (this._isDisposed) { resolve(null); return; }
                 const instrument = window[instrumentInfo.variable];
                 if (instrument) {
                     // Adjust the instrument zones
@@ -379,6 +383,7 @@ class MidiSynthesizer {
                 }
             };
             script.onerror = () => {
+                if (this._isDisposed) { resolve(null); return; }
                 this.loadingInstruments.delete(program);
                 // Fallback to FluidR3_GM if the current bank doesn't have this instrument
                 if (this.currentBankId !== DEFAULT_BANK_ID) {
@@ -387,7 +392,9 @@ class MidiSynthesizer {
                     const fallbackFile = `${num}_${DEFAULT_BANK_SUFFIX}`;
                     const fallbackScript = document.createElement('script');
                     fallbackScript.src = `https://surikov.github.io/webaudiofontdata/sound/${fallbackFile}.js`;
+                    this._injectedScripts.add(fallbackScript);
                     fallbackScript.onload = () => {
+                        if (this._isDisposed) { resolve(null); return; }
                         const fallbackInstrument = window[`_tone_${fallbackFile}`];
                         if (fallbackInstrument) {
                             this.player.adjustPreset(this.audioContext, fallbackInstrument);
@@ -476,7 +483,9 @@ class MidiSynthesizer {
             }
             const script = document.createElement('script');
             script.src = info.url;
+            this._injectedScripts.add(script);
             script.onload = () => {
+                if (this._isDisposed) { resolve({ preset: null, variable: null }); return; }
                 const preset = window[info.variable];
                 if (preset) {
                     this.player.adjustPreset(this.audioContext, preset);
@@ -493,7 +502,7 @@ class MidiSynthesizer {
 
         const loadPromise = tryLoad(0).then(({ preset, variable }) => {
             this._drumLoading.delete(cacheKey);
-            if (preset) {
+            if (preset && !this._isDisposed) {
                 this.drumPresets.set(cacheKey, preset);
                 this._drumVariables.set(cacheKey, variable);
             }
@@ -1313,34 +1322,43 @@ class MidiSynthesizer {
      * Release resources
      */
     dispose() {
+        if (this._isDisposed) return;
+        this._isDisposed = true;
+
         this.stop();
         this.cancelAllNotes();
 
-        // Remove injected <script> tags and clear instrument caches
-        this._clearInstrumentCache();
-        const drumScripts = document.querySelectorAll('script[src*="surikov.github.io/webaudiofontdata/sound/128"]');
-        drumScripts.forEach(s => s.remove());
-        this._drumLoading.clear();
-
-        // Free window globals for audio sample data (can be 15–40 MB total).
-        // Only delete a global if no other live instance still references it.
+        // Free window globals for audio sample data (15–40 MB total).
+        // Must happen BEFORE clearing the Maps — collect while Maps still have data.
+        // Only delete globals not referenced by another live instance.
         const otherInstances = [...MidiSynthesizer._instances].filter(inst => inst !== this);
 
         for (const program of this.loadedInstruments.keys()) {
-            const usedByOther = otherInstances.some(inst => inst.loadedInstruments.has(program));
-            if (!usedByOther) {
+            if (!otherInstances.some(inst => inst.loadedInstruments.has(program))) {
                 const variable = this.gmInstrumentMap[program]?.variable;
                 if (variable) delete window[variable];
             }
         }
 
         for (const cacheKey of this.drumPresets.keys()) {
-            const usedByOther = otherInstances.some(inst => inst.drumPresets.has(cacheKey));
-            if (!usedByOther) {
+            if (!otherInstances.some(inst => inst.drumPresets.has(cacheKey))) {
                 const varName = this._drumVariables.get(cacheKey);
                 if (varName) delete window[varName];
             }
         }
+
+        // Remove only the <script> tags injected by this instance
+        for (const script of this._injectedScripts) {
+            try { script.remove(); } catch (e) {}
+        }
+        this._injectedScripts.clear();
+
+        // Clear Maps (in-flight promises check _isDisposed before writing back)
+        this.loadedInstruments.clear();
+        this.loadingInstruments.clear();
+        this.drumPresets.clear();
+        this._drumLoading.clear();
+        this._drumVariables.clear();
 
         // Disconnect audio bus nodes
         if (this.drumDryGain) { try { this.drumDryGain.disconnect(); } catch(e) {} }
@@ -1369,10 +1387,7 @@ class MidiSynthesizer {
 
         this.audioContext = null;
         this.player = null;
-        this.loadedInstruments.clear();
         this.drumKit = null;
-        this.drumPresets.clear();
-        this._drumVariables.clear();
         this.isInitialized = false;
 
         MidiSynthesizer._instances.delete(this);

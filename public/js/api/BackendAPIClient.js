@@ -300,6 +300,7 @@ class BackendAPIClient {
         this._reconnecting = false;
         this.reconnectAttempts = this.maxReconnectAttempts; // Empecher la reconnexion
         this._rejectPendingRequests('Connection closed');
+        this.eventHandlers.clear();
         if (this.ws) {
             this.ws.onclose = null; // Eviter le cycle reconnexion
             this.ws.close();

@@ -355,7 +355,12 @@ class BaseView {
         unsub = this.eventBus.once(event, wrappedHandler);
         this.eventSubscriptions.push(unsub);
 
-        return unsub;
+        // Return a wrapper so manual cancellation also cleans eventSubscriptions
+        return () => {
+            const idx = this.eventSubscriptions.indexOf(unsub);
+            if (idx !== -1) this.eventSubscriptions.splice(idx, 1);
+            unsub();
+        };
     }
     
     /**
