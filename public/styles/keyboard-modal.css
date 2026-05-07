@@ -2797,6 +2797,38 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     color: #a5b4fc;
 }
 
+/* ── Breath slider (CC#2) row ────────────────────────────────────────────────── */
+
+.wind-breath-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wind-breath-slider {
+    flex: 1;
+    height: 4px;
+    accent-color: #4ade80;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.wind-breath-display {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.wind-breath-capacity {
+    font-size: 10px;
+    color: #4ade80;
+    letter-spacing: -1px;
+    flex-shrink: 0;
+    min-width: 52px;
+}
+
 /* ── Comfort zone & range highlighting in piano-slider ─────────────────────── */
 
 .piano-slider-key.wind-comfort-zone.is-white {
