@@ -1577,19 +1577,18 @@
     box-shadow: 0 0 6px rgba(59, 130, 246, 0.70);
 }
 
-/* fret_sliding_fingers: finger indicators are full-height vertical bars,
-   one per finger, centered at that finger's fret cell position. */
+/* fret_sliding_fingers: finger indicators are single-string-height vertical bars.
+   They slide vertically to follow the pressed string, like dots did before,
+   but are rectangular instead of circular. */
 .hand-finger-dot-pos[data-finger] {
     width: 8px;
-    height: auto;
-    top: 3px;
-    bottom: 3px;
-    border-radius: 4px;
-    transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.25);
-    border: 1.5px solid rgba(255, 255, 255, 0.55);
-    box-shadow: 0 0 4px rgba(255, 255, 255, 0.12);
-    transition: left 0.12s ease, background 0.10s ease, box-shadow 0.10s ease;
+    height: 14px;
+    border-radius: 3px;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.30);
+    border: 1.5px solid rgba(255, 255, 255, 0.60);
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.15);
+    transition: left 0.12s ease, top 0.12s ease, background 0.10s ease, box-shadow 0.10s ease;
 }
 
 .hand-finger-dot-pos[data-finger].active {
