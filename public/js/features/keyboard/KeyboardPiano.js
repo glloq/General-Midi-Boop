@@ -1936,8 +1936,9 @@
                 `<span class="km-hand-arrow">►</span>`;
             band.appendChild(el);
         }
-
-        this._positionHandArrows();
+        // Do NOT call _positionHandArrows here: canvas.clientWidth is 0 at this
+        // point (layout has not settled yet). The requestAnimationFrame in the
+        // FULL MOUNT path calls it after fitCanvas() has run.
     };
 
     /**
@@ -1983,9 +1984,10 @@
 
             // Stretch the group from the hand's left edge to its right edge so
             // justify-content:space-between places ◄ at leftX and ► at rightX.
-            el.style.left      = `${canvasLeft + leftX}px`;
-            el.style.width     = `${Math.max(0, rightX - leftX)}px`;
-            el.style.transform = 'none';
+            // Do NOT touch `transform` — the CSS rule sets translateY(-50%) for
+            // vertical centring and overwriting it would break the alignment.
+            el.style.left  = `${canvasLeft + leftX}px`;
+            el.style.width = `${Math.max(0, rightX - leftX)}px`;
         }
     };
 
