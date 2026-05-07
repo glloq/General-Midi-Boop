@@ -39,62 +39,32 @@ class BluetoothScanModal {
     setupEventListeners() {
         if (!this.eventBus) return;
 
-        // Bluetooth scan response
-        this.eventBus.on('bluetooth:scanned', (data) => {
-            this.handleScanComplete(data);
-        });
+        this._eventUnsubs = [
+            this.eventBus.on('bluetooth:scanned',      (data) => this.handleScanComplete(data)),
+            this.eventBus.on('bluetooth:paired_list',  (data) => this.handlePairedList(data)),
+            this.eventBus.on('bluetooth:paired',       (data) => this.handleDevicePaired(data)),
+            this.eventBus.on('bluetooth:scan_error',   (data) => this.handleScanError(data)),
+            this.eventBus.on('bluetooth:status',       (data) => this.handleBluetoothStatus(data)),
+            this.eventBus.on('bluetooth:powered_on',   (data) => this.handleBluetoothPoweredOn(data)),
+            this.eventBus.on('bluetooth:powered_off',  (data) => this.handleBluetoothPoweredOff(data)),
+            this.eventBus.on('bluetooth:unpaired',     (data) => this.handleDeviceUnpaired(data)),
+            this.eventBus.on('bluetooth:connected',    (data) => this.handleDeviceConnected(data)),
+            this.eventBus.on('bluetooth:disconnected', (data) => this.handleDeviceDisconnected(data)),
+        ];
 
-        // Paired-devices list response
-        this.eventBus.on('bluetooth:paired_list', (data) => {
-            this.handlePairedList(data);
-        });
-
-        // Pairing succeeded
-        this.eventBus.on('bluetooth:paired', (data) => {
-            this.handleDevicePaired(data);
-        });
-
-        // Scan error
-        this.eventBus.on('bluetooth:scan_error', (data) => {
-            this.handleScanError(data);
-        });
-
-        // Bluetooth state
-        this.eventBus.on('bluetooth:status', (data) => {
-            this.handleBluetoothStatus(data);
-        });
-
-        // Bluetooth powered on
-        this.eventBus.on('bluetooth:powered_on', (data) => {
-            this.handleBluetoothPoweredOn(data);
-        });
-
-        // Bluetooth powered off
-        this.eventBus.on('bluetooth:powered_off', (data) => {
-            this.handleBluetoothPoweredOff(data);
-        });
-
-        // Device forgotten
-        this.eventBus.on('bluetooth:unpaired', (data) => {
-            this.handleDeviceUnpaired(data);
-        });
-
-        // Device connected
-        this.eventBus.on('bluetooth:connected', (data) => {
-            this.handleDeviceConnected(data);
-        });
-
-        // Device disconnected
-        this.eventBus.on('bluetooth:disconnected', (data) => {
-            this.handleDeviceDisconnected(data);
-        });
-
-        // Listen for language changes
         if (typeof i18n !== 'undefined') {
             this._localeUnsubscribe = i18n.onLocaleChange(() => this.updateModalContent());
         }
 
         this.logger.debug('BluetoothScanModal', 'Event listeners configured');
+    }
+
+    destroy() {
+        this.close();
+        if (this._eventUnsubs) {
+            this._eventUnsubs.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+            this._eventUnsubs = [];
+        }
     }
 
     // ========================================================================

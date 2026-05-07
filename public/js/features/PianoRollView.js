@@ -125,64 +125,66 @@ class PianoRollView {
     setupEvents() {
         if (!this.eventBus) return;
 
-        // Settings
-        this.eventBus.on('settings:piano_roll_changed', (d) => {
-            this.isEnabled = d.enabled;
-            if (!this.isEnabled && this.isVisible) this.hide();
-        });
+        this._eventUnsubs = [
+            // Settings
+            this.eventBus.on('settings:piano_roll_changed', (d) => {
+                this.isEnabled = d.enabled;
+                if (!this.isEnabled && this.isVisible) this.hide();
+            }),
 
-        // Display time in preview
-        this.eventBus.on('settings:display_time_changed', (d) => {
-            if (d.time) {
-                this.displayWindowSeconds = d.time;
-                this.log('info', `Display window set to ${d.time}s`);
-            }
-        });
+            // Display time in preview
+            this.eventBus.on('settings:display_time_changed', (d) => {
+                if (d.time) {
+                    this.displayWindowSeconds = d.time;
+                    this.log('info', `Display window set to ${d.time}s`);
+                }
+            }),
 
-        // File loaded - USE parsedEvents if available (timing IDENTICAL to audio)
-        this.eventBus.on('file:selected', (data) => {
-            if (data.tempo) this.tempo = data.tempo;
-            if (data.ticksPerBeat) this.ticksPerBeat = data.ticksPerBeat;
+            // File loaded - USE parsedEvents if available (timing IDENTICAL to audio)
+            this.eventBus.on('file:selected', (data) => {
+                if (data.tempo) this.tempo = data.tempo;
+                if (data.ticksPerBeat) this.ticksPerBeat = data.ticksPerBeat;
 
-            // PRIORITY: use parsedEvents if they exist (exact timing from VirtualMidiPlayer)
-            if (data.parsedEvents && data.parsedEvents.length > 0) {
-                this.loadFromParsedEvents(data.parsedEvents);
-                this.log('info', `Using pre-parsed events: ${this.notes.length} notes`);
-            } else if (data.midiData) {
-                this.loadMidiData(data.midiData);
-                this.log('info', `Parsed MIDI: ${this.notes.length} notes`);
-            }
-        });
+                // PRIORITY: use parsedEvents if they exist (exact timing from VirtualMidiPlayer)
+                if (data.parsedEvents && data.parsedEvents.length > 0) {
+                    this.loadFromParsedEvents(data.parsedEvents);
+                    this.log('info', `Using pre-parsed events: ${this.notes.length} notes`);
+                } else if (data.midiData) {
+                    this.loadMidiData(data.midiData);
+                    this.log('info', `Parsed MIDI: ${this.notes.length} notes`);
+                }
+            }),
 
-        // Play - start our own animation loop
-        this.eventBus.on('playback:play', () => {
-            this.isPlaying = true;
-            if (this.isEnabled && this.notes.length > 0) {
-                this.show();
-                this.startAnimationLoop();
-            }
-        });
+            // Play - start our own animation loop
+            this.eventBus.on('playback:play', () => {
+                this.isPlaying = true;
+                if (this.isEnabled && this.notes.length > 0) {
+                    this.show();
+                    this.startAnimationLoop();
+                }
+            }),
 
-        // Pause - immediate stop
-        this.eventBus.on('playback:pause', () => {
-            this.isPlaying = false;
-            this.stopAnimationLoop();
-        });
+            // Pause - immediate stop
+            this.eventBus.on('playback:pause', () => {
+                this.isPlaying = false;
+                this.stopAnimationLoop();
+            }),
 
-        // Stop
-        this.eventBus.on('playback:stop', () => {
-            this.isPlaying = false;
-            this.currentTime = 0;
-            this.stopAnimationLoop();
-            this.hide();
-        });
+            // Stop
+            this.eventBus.on('playback:stop', () => {
+                this.isPlaying = false;
+                this.currentTime = 0;
+                this.stopAnimationLoop();
+                this.hide();
+            }),
 
-        // Time - use as a DIRECT timing source
-        this.eventBus.on('playback:time', (data) => {
-            if (data.time !== undefined) {
-                this.currentTime = data.time;
-            }
-        });
+            // Time - use as a DIRECT timing source
+            this.eventBus.on('playback:time', (data) => {
+                if (data.time !== undefined) {
+                    this.currentTime = data.time;
+                }
+            }),
+        ];
     }
 
     // Animation loop specific to the piano roll - READS TIME DIRECTLY from audio
@@ -539,6 +541,11 @@ class PianoRollView {
         if (this._onThemeChanged) {
             document.removeEventListener('theme-changed', this._onThemeChanged);
         }
+        if (this._eventUnsubs) {
+            this._eventUnsubs.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+            this._eventUnsubs = [];
+        }
+        this.notes = [];
         if (this.container && this.container.parentNode) {
             this.container.parentNode.removeChild(this.container);
         }

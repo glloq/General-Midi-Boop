@@ -133,30 +133,18 @@ class KeyboardModalNew {
             return;
         }
 
-        // Listen for Bluetooth connects/disconnects to refresh the list
-        this.eventBus.on('bluetooth:connected', async (_data) => {
-            this.logger.info('[KeyboardModal] Bluetooth device connected, refreshing device list...');
+        const refresh = async () => {
             if (this.isOpen) {
                 await this.loadDevices();
                 this.populateDeviceSelect();
             }
-        });
+        };
 
-        this.eventBus.on('bluetooth:disconnected', async (_data) => {
-            this.logger.info('[KeyboardModal] Bluetooth device disconnected, refreshing device list...');
-            if (this.isOpen) {
-                await this.loadDevices();
-                this.populateDeviceSelect();
-            }
-        });
-
-        this.eventBus.on('bluetooth:unpaired', async (_data) => {
-            this.logger.info('[KeyboardModal] Bluetooth device unpaired, refreshing device list...');
-            if (this.isOpen) {
-                await this.loadDevices();
-                this.populateDeviceSelect();
-            }
-        });
+        this._eventUnsubs = [
+            this.eventBus.on('bluetooth:connected',    async (_data) => { this.logger.info('[KeyboardModal] Bluetooth device connected, refreshing device list...'); await refresh(); }),
+            this.eventBus.on('bluetooth:disconnected', async (_data) => { this.logger.info('[KeyboardModal] Bluetooth device disconnected, refreshing device list...'); await refresh(); }),
+            this.eventBus.on('bluetooth:unpaired',     async (_data) => { this.logger.info('[KeyboardModal] Bluetooth device unpaired, refreshing device list...'); await refresh(); }),
+        ];
 
         this.logger.debug('[KeyboardModal] Event listeners configured');
     }
@@ -204,6 +192,12 @@ class KeyboardModalNew {
         if (this.localeUnsubscribe) {
             this.localeUnsubscribe();
             this.localeUnsubscribe = null;
+        }
+
+        // Unsubscribe from EventBus events
+        if (this._eventUnsubs) {
+            this._eventUnsubs.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+            this._eventUnsubs = [];
         }
 
         // Clean up string slide mode

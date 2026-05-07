@@ -41,37 +41,27 @@ class NetworkScanModal {
     setupEventListeners() {
         if (!this.eventBus) return;
 
-        // Network scan response
-        this.eventBus.on('network:scanned', (data) => {
-            this.handleScanComplete(data);
-        });
+        this._eventUnsubs = [
+            this.eventBus.on('network:scanned',         (data) => this.handleScanComplete(data)),
+            this.eventBus.on('network:connected_list',  (data) => this.handleConnectedList(data)),
+            this.eventBus.on('network:connected',       (data) => this.handleDeviceConnected(data)),
+            this.eventBus.on('network:disconnected',    (data) => this.handleDeviceDisconnected(data)),
+            this.eventBus.on('network:scan_error',      (data) => this.handleScanError(data)),
+        ];
 
-        // Connected devices list response
-        this.eventBus.on('network:connected_list', (data) => {
-            this.handleConnectedList(data);
-        });
-
-        // Connection succeeded
-        this.eventBus.on('network:connected', (data) => {
-            this.handleDeviceConnected(data);
-        });
-
-        // Disconnection succeeded
-        this.eventBus.on('network:disconnected', (data) => {
-            this.handleDeviceDisconnected(data);
-        });
-
-        // Scan error
-        this.eventBus.on('network:scan_error', (data) => {
-            this.handleScanError(data);
-        });
-
-        // Listen for language changes
         if (typeof i18n !== 'undefined') {
             this._localeUnsubscribe = i18n.onLocaleChange(() => this.updateModalContent());
         }
 
         this.logger.debug('NetworkScanModal', 'Event listeners configured');
+    }
+
+    destroy() {
+        this.close();
+        if (this._eventUnsubs) {
+            this._eventUnsubs.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+            this._eventUnsubs = [];
+        }
     }
 
     // ========================================================================
