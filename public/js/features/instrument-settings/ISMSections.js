@@ -5,20 +5,17 @@
     ISMSections._renderAllSections = function() {
         const tab = this._getActiveTab();
         const showHands = ISMSections._shouldShowHandsSection(tab);
+        // Only the active section is rendered immediately; others are injected on
+        // first visit via _switchSection() to avoid expensive upfront template work.
+        const renderSection = (id, renderFn) => {
+            const isActive = this.activeSection === id;
+            return `<div class="ism-section${isActive ? ' active' : ''}" data-section="${id}"${isActive ? '' : ' data-lazy="true"'}>${isActive ? renderFn.call(this) : ''}</div>`;
+        };
         return `
-            <div class="ism-section ${this.activeSection === 'identity' ? 'active' : ''}" data-section="identity">
-                ${this._renderIdentitySection()}
-            </div>
-            <div class="ism-section ${this.activeSection === 'notes' ? 'active' : ''}" data-section="notes">
-                ${this._renderNotesSection()}
-            </div>
-            ${showHands ? `
-            <div class="ism-section ${this.activeSection === 'hands' ? 'active' : ''}" data-section="hands">
-                ${this._renderHandsSection()}
-            </div>` : ''}
-            <div class="ism-section ${this.activeSection === 'advanced' ? 'active' : ''}" data-section="advanced">
-                ${this._renderAdvancedSection()}
-            </div>
+            ${renderSection('identity', this._renderIdentitySection)}
+            ${renderSection('notes', this._renderNotesSection)}
+            ${showHands ? renderSection('hands', this._renderHandsSection) : ''}
+            ${renderSection('advanced', this._renderAdvancedSection)}
         `;
     };
 
