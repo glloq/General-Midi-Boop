@@ -96,6 +96,7 @@ class MidiSynthesizer {
         this.drumKit = null; // Legacy single-kit (unused, kept for compat)
         this.drumPresets = new Map(); // "kitProgram:note" → loaded preset
         this._drumLoading = new Map(); // "kitProgram:note" → in-flight Promise
+        this._drumVariables = new Map(); // "kitProgram:note" → window variable name
 
         // Drum audio processing
         this.drumReverbNode = null;     // ConvolverNode for cymbal reverb
@@ -246,6 +247,7 @@ class MidiSynthesizer {
         // Drums must also reload so they use the new bank's samples.
         this.drumPresets.clear();
         this._drumLoading.clear();
+        this._drumVariables.clear();
         this.currentBankId = bank.id;
         this.currentBankSuffix = bank.suffix;
         this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
@@ -461,7 +463,7 @@ class MidiSynthesizer {
         const tryLoad = (idx) => new Promise((resolve) => {
             if (idx >= candidates.length) {
                 this.log('warn', `No drum preset available for kit ${kit} note ${note}`);
-                resolve(null);
+                resolve({ preset: null, variable: null });
                 return;
             }
             const info = candidates[idx];
@@ -469,7 +471,7 @@ class MidiSynthesizer {
             if (window[info.variable]) {
                 const preset = window[info.variable];
                 this.player.adjustPreset(this.audioContext, preset);
-                resolve(preset);
+                resolve({ preset, variable: info.variable });
                 return;
             }
             const script = document.createElement('script');
@@ -478,7 +480,7 @@ class MidiSynthesizer {
                 const preset = window[info.variable];
                 if (preset) {
                     this.player.adjustPreset(this.audioContext, preset);
-                    resolve(preset);
+                    resolve({ preset, variable: info.variable });
                 } else {
                     tryLoad(idx + 1).then(resolve);
                 }
@@ -489,9 +491,12 @@ class MidiSynthesizer {
             document.head.appendChild(script);
         });
 
-        const loadPromise = tryLoad(0).then((preset) => {
+        const loadPromise = tryLoad(0).then(({ preset, variable }) => {
             this._drumLoading.delete(cacheKey);
-            if (preset) this.drumPresets.set(cacheKey, preset);
+            if (preset) {
+                this.drumPresets.set(cacheKey, preset);
+                this._drumVariables.set(cacheKey, variable);
+            }
             return preset;
         });
         this._drumLoading.set(cacheKey, loadPromise);
@@ -1317,6 +1322,26 @@ class MidiSynthesizer {
         drumScripts.forEach(s => s.remove());
         this._drumLoading.clear();
 
+        // Free window globals for audio sample data (can be 15–40 MB total).
+        // Only delete a global if no other live instance still references it.
+        const otherInstances = [...MidiSynthesizer._instances].filter(inst => inst !== this);
+
+        for (const program of this.loadedInstruments.keys()) {
+            const usedByOther = otherInstances.some(inst => inst.loadedInstruments.has(program));
+            if (!usedByOther) {
+                const variable = this.gmInstrumentMap[program]?.variable;
+                if (variable) delete window[variable];
+            }
+        }
+
+        for (const cacheKey of this.drumPresets.keys()) {
+            const usedByOther = otherInstances.some(inst => inst.drumPresets.has(cacheKey));
+            if (!usedByOther) {
+                const varName = this._drumVariables.get(cacheKey);
+                if (varName) delete window[varName];
+            }
+        }
+
         // Disconnect audio bus nodes
         if (this.drumDryGain) { try { this.drumDryGain.disconnect(); } catch(e) {} }
         if (this.drumReverbGain) { try { this.drumReverbGain.disconnect(); } catch(e) {} }
@@ -1347,6 +1372,7 @@ class MidiSynthesizer {
         this.loadedInstruments.clear();
         this.drumKit = null;
         this.drumPresets.clear();
+        this._drumVariables.clear();
         this.isInitialized = false;
 
         MidiSynthesizer._instances.delete(this);
