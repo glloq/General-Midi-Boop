@@ -203,6 +203,12 @@ class Application {
       // MidiRouter.loadRoutesFromDB() runs in the constructor.
       this._registerService('deviceRouteRepository', new DeviceRouteRepository(this.database));
 
+      // Initialize storage: BlobStore lives next to the SQLite file.
+      // Must be registered before MidiPlayer so deps.blobStore resolves
+      // at construction time (the facade Proxy evaluates eagerly on assignment).
+      const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
+      this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
+
       // Initialize MIDI components
       this._registerService('deviceManager', new DeviceManager(deps));
       this._registerService('midiRouter', new MidiRouter(deps));
@@ -222,9 +228,6 @@ class Application {
       // replacing duplicated private caches in PlaybackScheduler.
       this._registerService('capabilityResolver', new CapabilityResolver(deps));
 
-      // Initialize storage: BlobStore lives next to the SQLite file.
-      const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
-      this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
       this._registerService(
         'uploadQueue',
         new UploadQueue({
