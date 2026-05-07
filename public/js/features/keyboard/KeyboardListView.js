@@ -126,10 +126,9 @@
         let activeKey = null;
         let startX = null; // X de référence pour le pitch bend relatif
 
-        const hasPitchBend = () => {
-            const caps = this.selectedDeviceCapabilities;
-            return !!(caps && caps.pitch_bend_enabled) && this.listViewPitchBendEnabled;
-        };
+        // Le toggle seul contrôle l'envoi du pitch bend.
+        // _sendPitchBend() gère lui-même les cas non supportés (virtuel, etc.).
+        const hasPitchBend = () => this.listViewPitchBendEnabled;
 
         // Y → vélocité (haut = 127, bas = 1)
         const getVelocityFromY = (key, clientY) => {

@@ -463,11 +463,15 @@
         74: 'Brightness', 75: 'Decay', 76: 'Vibrato Rate', 77: 'Vibrato Depth'
     };
 
+    // Liste de CC proposée quand l'instrument n'en déclare aucun
+    const DEFAULT_CC_LIST = [1, 2, 7, 10, 11, 64, 71, 72, 73, 74, 75, 76, 77];
+
     /**
      * Met à jour les contrôles spécifiques à la vue liste :
      * - Sélecteur de CC pour l'axe Y (variation en hauteur)
      * - Bouton d'activation du pitch bend pour l'axe X (déplacement horizontal)
      *
+     * Toujours visibles en vue liste, indépendamment des capacités déclarées.
      * Appelé par updateSlidersVisibility() et setViewMode().
      */
     KeyboardControlsMixin._updateListViewControls = function () {
@@ -479,7 +483,7 @@
         const isListView = this.viewMode === 'keyboard-list';
         const caps = this.selectedDeviceCapabilities;
 
-        // Récupère les CC supportés par l'instrument
+        // CC déclarés par l'instrument ; si aucun, on utilise la liste standard
         let supportsCCs = [];
         if (caps && caps.supported_ccs) {
             try {
@@ -488,16 +492,17 @@
                     : caps.supported_ccs;
             } catch (e) { supportsCCs = []; }
         }
-        const hasCCs = Array.isArray(supportsCCs) && supportsCCs.length > 0;
-        const hasPB  = !!(caps && caps.pitch_bend_enabled);
+        const ccList = (Array.isArray(supportsCCs) && supportsCCs.length > 0)
+            ? supportsCCs
+            : DEFAULT_CC_LIST;
 
-        // --- Groupe CC (axe Y) : visible en vue liste si l'instrument a des CC ---
-        if (ccGroup) ccGroup.classList.toggle('hidden', !isListView || !hasCCs);
+        // --- Groupe CC (axe Y) : toujours visible en vue liste ---
+        if (ccGroup) ccGroup.classList.toggle('hidden', !isListView);
 
-        if (ccSelect && isListView && hasCCs) {
+        if (ccSelect && isListView) {
             const previousVal = ccSelect.value;
             ccSelect.innerHTML = '<option value="">Vélocité</option>';
-            for (const cc of supportsCCs) {
+            for (const cc of ccList) {
                 const opt = document.createElement('option');
                 opt.value = String(cc);
                 opt.textContent = CC_NAMES[cc] ? `CC#${cc} — ${CC_NAMES[cc]}` : `CC#${cc}`;
@@ -513,8 +518,8 @@
             }
         }
 
-        // --- Groupe Pitch Bend (axe X) : visible en vue liste si pitch_bend_enabled ---
-        if (pbGroup) pbGroup.classList.toggle('hidden', !isListView || !hasPB);
+        // --- Groupe Pitch Bend (axe X) : toujours visible en vue liste ---
+        if (pbGroup) pbGroup.classList.toggle('hidden', !isListView);
 
         if (pbToggle) {
             pbToggle.classList.toggle('active', this.listViewPitchBendEnabled);
