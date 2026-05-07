@@ -2665,24 +2665,27 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     z-index: 12;
 }
 
-/* Decorative drag indicators — one group per hand, centred on the hand's
-   pixel position. Pure visual hints; pointer-events:none keeps piano keys
-   fully interactive beneath the band. */
+/* Decorative drag indicators — one group per hand, stretched to the hand's
+   full pixel width so ◄ lands on the left edge and ► on the right edge.
+   pointer-events:none keeps piano keys fully interactive beneath the band. */
 .km-hand-arrows {
     position: absolute;
-    bottom: 8px;
+    bottom: 6px;
     display: flex;
     align-items: center;
-    gap: 3px;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: 0 3px;
     z-index: 14;
     pointer-events: none;
     user-select: none;
 }
 
 .km-hand-arrow {
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1;
-    color: rgba(226, 232, 240, 0.55);
+    color: rgba(226, 232, 240, 0.6);
+    flex-shrink: 0;
 }
 
 .km-hand-label {
@@ -2690,7 +2693,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    min-width: 18px;
     text-align: center;
-    opacity: 0.8;
+    flex: 1;
+    opacity: 0.85;
 }
