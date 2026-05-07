@@ -1941,8 +1941,9 @@
     };
 
     /**
-     * Reposition each arrow group so it stays centred on its hand's current
-     * pixel location inside km-hand-band. Call after any anchor change or resize.
+     * Reposition each arrow group so it spans exactly the hand's pixel extent:
+     * ◄ lands on the left edge, ► lands on the right edge, label is centred.
+     * Call after any anchor change or resize.
      */
     KeyboardPianoMixin._positionHandArrows = function() {
         const band = document.getElementById('km-hand-band');
@@ -1960,7 +1961,7 @@
             const anchor = this._handCurrentAnchors.get(hand.id);
             if (!Number.isFinite(anchor)) continue;
 
-            let centerX;
+            let leftX, rightX;
             if (this._fingersLayout === 'piano'
                     && this.visibleWhiteNotes && this.visibleWhiteNotes.length > 0) {
                 const wn = this.visibleWhiteNotes;
@@ -1970,16 +1971,21 @@
                 if (si < 0) si = 0;
                 const numWhites = Math.ceil((hand.numFingers || 5) / 2);
                 const ei = Math.min(wn.length - 1, si + numWhites - 1);
-                centerX = (si + (ei - si + 1) * 0.5) * ww;
+                leftX  = si * ww;
+                rightX = (ei + 1) * ww;
             } else {
                 const rMin = this.startNote;
                 const rMax = this.startNote + this.visibleNoteCount - 1;
                 const pxPerSt = W / Math.max(1, rMax - rMin + 1);
-                centerX = (anchor - rMin + (Number.isFinite(hand.span) ? hand.span : 0) * 0.5) * pxPerSt;
+                leftX  = (anchor - rMin) * pxPerSt;
+                rightX = (anchor - rMin + (Number.isFinite(hand.span) ? hand.span : 0) + 1) * pxPerSt;
             }
 
-            el.style.left = `${canvasLeft + centerX}px`;
-            el.style.transform = 'translateX(-50%)';
+            // Stretch the group from the hand's left edge to its right edge so
+            // justify-content:space-between places ◄ at leftX and ► at rightX.
+            el.style.left      = `${canvasLeft + leftX}px`;
+            el.style.width     = `${Math.max(0, rightX - leftX)}px`;
+            el.style.transform = 'none';
         }
     };
 
