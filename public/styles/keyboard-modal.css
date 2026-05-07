@@ -2665,3 +2665,51 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     pointer-events: none;
     z-index: 12;
 }
+
+/* Arrow controls — one group per hand, centred on the hand's pixel position. */
+.km-hand-arrows {
+    position: absolute;
+    bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 14;
+    pointer-events: auto;
+}
+
+.km-hand-arrow-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    background: rgba(30, 41, 59, 0.85);
+    color: #e2e8f0;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.12s, border-color 0.12s;
+    flex-shrink: 0;
+}
+
+.km-hand-arrow-btn:hover {
+    background: rgba(71, 85, 105, 0.95);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.km-hand-arrow-btn:active {
+    background: rgba(100, 116, 139, 0.95);
+}
+
+.km-hand-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    min-width: 18px;
+    text-align: center;
+    user-select: none;
+}

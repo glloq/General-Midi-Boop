@@ -270,10 +270,10 @@
             };
 
             // T-shape dimensions (shared across all hands in this draw call).
-            // Gap slots (black-key positions): bar tip at the bottom of black keys.
-            // White-key fingers: bar tip at the vertical centre of the white-only
-            // area (the wider lower section of each white key, below black keys).
-            const blackSlotTipY = Math.round(keysH * 0.78);
+            // Black-key fingers: tip within the black-key zone (top blackHeightRatio
+            // of the key area) so they appear above/on the black keys.
+            // White-key fingers: tip in the lower white-only zone (unchanged).
+            const blackSlotTipY = Math.round(blackH * opts.blackTipFraction);
             const whiteKeyTipY  = Math.round(keysH * 0.85);
             const tBarH     = Math.max(4, Math.round(keysH * 0.09));
             const whiteBarW = Math.max(4, ww * 0.52);   // moderate width for white key
