@@ -134,6 +134,12 @@
                         <button class="wind-art-btn" data-art="staccato" title="Staccato (×0.9 vel, notes courtes)">· Staccato</button>
                         <button class="wind-art-btn" data-art="accent" title="Accent (×1.2 vel)">&gt; Accent</button>
                     </div>
+                    <div class="wind-breath-row">
+                        <span class="wind-art-label">CC#2 Souffle</span>
+                        <input type="range" id="keyboard-wind-breath" class="wind-breath-slider" min="0" max="127" value="0">
+                        <span class="wind-breath-display" id="keyboard-wind-breath-display">0</span>
+                        <span class="wind-breath-capacity" id="keyboard-wind-breath-capacity" title="Breath capacity"></span>
+                    </div>
                 </div>
 
                 <div class="modal-body">
