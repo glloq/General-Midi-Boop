@@ -727,6 +727,7 @@
                 const bar = document.createElement('div');
                 bar.className = 'hand-finger-dot-pos';
                 bar.dataset.finger = String(i);
+                bar.style.top = '50%';
                 const prevWire = fretPct(anchor + i - 1, maxFrets);
                 const currWire = fretPct(anchor + i,     maxFrets);
                 const pct = bandWidth > 0
@@ -1053,25 +1054,34 @@
             return;
         }
 
-        // fret_sliding_fingers: highlight the bar for each finger that is
-        // currently pressing a string. The bar spans the full height (all strings)
-        // so no vertical movement is needed — only the active state changes.
+        // fret_sliding_fingers: slide each bar to the string being pressed,
+        // keeping it there after the note stops (bar remembers its last string).
         const fingerBars = rangeRect.querySelectorAll('.hand-finger-dot-pos[data-finger]');
         if (fingerBars.length > 0) {
-            const anchor = this.handAnchorFret || 0;
+            const anchor     = this.handAnchorFret || 0;
+            const numStrings = this._cachedNumStrings || 6;
 
-            // Build fingerIndex → pressed fret for every currently active note.
-            const activeIdx = new Set();
+            // Build fingerIndex → stringNum for every currently active note.
+            const fingerToString = {};
             if (activeFrets) {
-                for (const [, fret] of Object.entries(activeFrets)) {
+                for (const [strKey, fret] of Object.entries(activeFrets)) {
                     if (fret == null || fret <= 0) continue;
                     const idx = Math.round(fret - anchor);
-                    if (idx >= 0 && idx < fingerBars.length) activeIdx.add(idx);
+                    if (idx >= 0 && idx < fingerBars.length) {
+                        fingerToString[idx] = parseInt(strKey, 10);
+                    }
                 }
             }
 
             fingerBars.forEach(bar => {
-                bar.classList.toggle('active', activeIdx.has(parseInt(bar.dataset.finger, 10)));
+                const idx       = parseInt(bar.dataset.finger, 10);
+                const stringNum = fingerToString[idx];
+                if (stringNum != null) {
+                    bar.style.top = ((numStrings - stringNum + 0.5) / numStrings * 100) + '%';
+                    bar.classList.add('active');
+                } else {
+                    bar.classList.remove('active');
+                }
             });
             return;
         }
