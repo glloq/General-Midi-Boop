@@ -165,7 +165,12 @@ class MidiPlayer {
       // by BlobStore. Re-parsed every load — for typical files this is
       // 5-15 ms on a Pi 4, well below playback startup budget.
       const buffer = this.blobStore.read(file.blob_path);
-      const midi = parseMidi(buffer);
+      let midi;
+      try {
+        midi = parseMidi(buffer);
+      } catch (parseError) {
+        throw new ValidationError(`File ${fileId} (${file.filename}) contains invalid MIDI data: ${parseError.message}`);
+      }
 
       if (!midi || !midi.header || !Array.isArray(midi.tracks)) {
         throw new ValidationError(`File ${fileId} (${file.filename}) contains invalid MIDI data`);
