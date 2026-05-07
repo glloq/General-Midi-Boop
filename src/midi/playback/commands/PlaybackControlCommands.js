@@ -12,7 +12,7 @@
  *   - `playback_set_loop`     — toggle loop-on-end behaviour
  *   - `playback_set_tempo` / `_transpose` / `_set_volume` — placeholders
  */
-import { ValidationError, ConfigurationError } from '../../../core/errors/index.js';
+import { ValidationError, ConfigurationError, MidiError, ApplicationError } from '../../../core/errors/index.js';
 
 /**
  * Load a file, restore any persisted per-channel routings (with
@@ -30,6 +30,16 @@ async function playbackStart(app, data) {
     throw new ValidationError('fileId is required', 'fileId');
   }
 
+  try {
+    return await _playbackStartInner(app, data);
+  } catch (error) {
+    if (error instanceof ApplicationError) throw error;
+    // Re-wrap any unexpected plain Error so the message reaches the client
+    throw new MidiError(error.message || 'Playback failed');
+  }
+}
+
+async function _playbackStartInner(app, data) {
   app.logger.info(`Loading file ${data.fileId} for playback...`);
   const fileInfo = await app.midiPlayer.loadFile(data.fileId);
 
