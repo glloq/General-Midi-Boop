@@ -1397,6 +1397,7 @@
                     _canvas.style.height = `calc(100% + ${keyH}px)`;
                 }
                 _renderer.draw();
+                this._positionHandArrows();
             });
             return;
         }
@@ -1436,8 +1437,8 @@
         // of how tall the canvas is (piano key height is variable).
         const renderer = new window.KeyboardFingersRenderer(canvas, {
             bandHeight: 80,
-            whiteTipFraction: 0.25,
-            blackTipFraction: 0.08,
+            whiteTipFraction: 0.85,
+            blackTipFraction: 0.65,
             chromaticTipFraction: 0.65,
             knuckleHeight: 8,
         });
@@ -1489,6 +1490,7 @@
 
         this._initFingersOverlayDrag();
         this._updateFingersViewToggle();
+        this._renderHandArrows();
 
         requestAnimationFrame(() => {
             // Resize the canvas to match the actual key-area height so
@@ -1502,6 +1504,7 @@
                 canvas.style.height = `calc(100% + ${keyH}px)`;
             }
             renderer.draw();
+            this._positionHandArrows();
         });
     };
 
@@ -1518,6 +1521,15 @@
         if (this._fingersCanvas) {
             this._fingersCanvas.remove();
             this._fingersCanvas = null;
+        }
+        // Remove arrow buttons created for the previous mount.
+        const band = document.getElementById('km-hand-band');
+        if (band) {
+            band.querySelectorAll('.km-hand-arrows').forEach(el => el.remove());
+            if (band._handArrowHandler) {
+                band.removeEventListener('click', band._handArrowHandler);
+                band._handArrowHandler = null;
+            }
         }
         this._fingersHands = null;
         this._handCurrentAnchors = null;
@@ -1863,6 +1875,7 @@
             this._resolveHandCollisions(drag.handId);
             this._fingersRenderer.setAnchors(this._handCurrentAnchors);
             this._fingersRenderer.draw();
+            this._positionHandArrows();
             e.stopPropagation();
         };
 
@@ -1883,6 +1896,123 @@
             band.removeEventListener('pointerup', onUp);
             band.removeEventListener('pointercancel', onUp);
         };
+    };
+
+    /**
+     * Create (or recreate) the arrow button pairs for each hand inside km-hand-band.
+     * Each pair has a ◄ and ► button centered on the hand's current pixel position.
+     */
+    KeyboardPianoMixin._renderHandArrows = function() {
+        const band = document.getElementById('km-hand-band');
+        if (!band || !this._fingersHands) return;
+
+        band.querySelectorAll('.km-hand-arrows').forEach(el => el.remove());
+
+        // Wire a single delegated click handler on the band (persists across remounts).
+        if (!band._handArrowHandler) {
+            band._handArrowHandler = (e) => {
+                const btn = e.target.closest('.km-hand-arrow-btn');
+                if (!btn) return;
+                e.stopPropagation();
+                this._shiftHandByOne(btn.dataset.hand, parseInt(btn.dataset.dir, 10));
+            };
+            band.addEventListener('click', band._handArrowHandler);
+        }
+
+        for (const hand of this._fingersHands) {
+            const el = document.createElement('div');
+            el.className = 'km-hand-arrows';
+            el.dataset.handId = hand.id;
+            el.innerHTML =
+                `<button type="button" class="km-hand-arrow-btn" data-hand="${hand.id}" data-dir="-1" title="Déplacer à gauche">◄</button>` +
+                `<span class="km-hand-label" style="color:${hand.color}">${hand.id}</span>` +
+                `<button type="button" class="km-hand-arrow-btn" data-hand="${hand.id}" data-dir="1" title="Déplacer à droite">►</button>`;
+            band.appendChild(el);
+        }
+
+        this._positionHandArrows();
+    };
+
+    /**
+     * Reposition each arrow group so it stays centred on its hand's current
+     * pixel location inside km-hand-band. Call after any anchor change or resize.
+     */
+    KeyboardPianoMixin._positionHandArrows = function() {
+        const band = document.getElementById('km-hand-band');
+        if (!band || !this._fingersHands || !this._handCurrentAnchors) return;
+        const canvas = this._fingersCanvas;
+        if (!canvas) return;
+
+        const W = canvas.clientWidth;
+        if (W <= 0) return;
+        const canvasLeft = parseFloat(canvas.style.left) || 0;
+
+        for (const hand of this._fingersHands) {
+            const el = band.querySelector(`.km-hand-arrows[data-hand-id="${hand.id}"]`);
+            if (!el) continue;
+            const anchor = this._handCurrentAnchors.get(hand.id);
+            if (!Number.isFinite(anchor)) continue;
+
+            let centerX;
+            if (this._fingersLayout === 'piano'
+                    && this.visibleWhiteNotes && this.visibleWhiteNotes.length > 0) {
+                const wn = this.visibleWhiteNotes;
+                const ww = W / wn.length;
+                let si = wn.indexOf(anchor);
+                if (si < 0) si = wn.findIndex(m => m >= anchor);
+                if (si < 0) si = 0;
+                const numWhites = Math.ceil((hand.numFingers || 5) / 2);
+                const ei = Math.min(wn.length - 1, si + numWhites - 1);
+                centerX = (si + (ei - si + 1) * 0.5) * ww;
+            } else {
+                const rMin = this.startNote;
+                const rMax = this.startNote + this.visibleNoteCount - 1;
+                const pxPerSt = W / Math.max(1, rMax - rMin + 1);
+                centerX = (anchor - rMin + (Number.isFinite(hand.span) ? hand.span : 0) * 0.5) * pxPerSt;
+            }
+
+            el.style.left = `${canvasLeft + centerX}px`;
+            el.style.transform = 'translateX(-50%)';
+        }
+    };
+
+    /**
+     * Shift a hand one step left (-1) or right (+1).
+     * In piano layout the step is one white key; in chromatic it is one semitone.
+     */
+    KeyboardPianoMixin._shiftHandByOne = function(handId, direction) {
+        if (!this._fingersHands || !this._handCurrentAnchors) return;
+        const hand = this._fingersHands.find(h => h.id === handId);
+        if (!hand) return;
+        const anchor = this._handCurrentAnchors.get(handId);
+        if (!Number.isFinite(anchor)) return;
+
+        const rangeMin = this.startNote;
+        const rangeMax = this.startNote + this.visibleNoteCount - 1;
+        let newAnchor;
+
+        if (this._fingersLayout === 'piano'
+                && this.visibleWhiteNotes && this.visibleWhiteNotes.length > 0) {
+            const wn = this.visibleWhiteNotes;
+            let si = wn.indexOf(anchor);
+            if (si < 0) si = wn.findIndex(m => m >= anchor);
+            if (si < 0) si = 0;
+            const newIdx = Math.max(0, Math.min(wn.length - 1, si + direction));
+            newAnchor = wn[newIdx];
+        } else {
+            newAnchor = anchor + direction;
+        }
+
+        newAnchor = Math.max(rangeMin, Math.min(rangeMax - (Number.isFinite(hand.span) ? hand.span : 0), newAnchor));
+        if (newAnchor === anchor) return;
+
+        this._handCurrentAnchors.set(handId, newAnchor);
+        this._resolveHandCollisions(handId);
+        if (this._fingersRenderer) {
+            this._fingersRenderer.setAnchors(this._handCurrentAnchors);
+            this._fingersRenderer.draw();
+        }
+        this._positionHandArrows();
     };
 
     /**
