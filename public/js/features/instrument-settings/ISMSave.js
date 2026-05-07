@@ -329,48 +329,41 @@
     };
 
     ISMSave._loadChannelData = async function(deviceId, channel, deviceType) {
-        let settings = {};
-        try {
-            const response = await this.api.sendCommand('instrument_get_settings', { deviceId, channel });
-            const rawSettings = response && response.settings ? response.settings : {};
-            let capabilities = {};
-            try {
-                const capResponse = await this.api.sendCommand('instrument_get_capabilities', { deviceId, channel });
-                capabilities = capResponse.capabilities || {};
-            } catch (e) { /* ignore */ }
-            settings = { ...rawSettings, ...capabilities };
-        } catch (e) { /* ignore */ }
+        // All four backend calls are independent — fire in parallel.
+        const [settingsResp, capResp, siResp, voicesResp] = await Promise.all([
+            this.api.sendCommand('instrument_get_settings', { deviceId, channel }).catch(() => null),
+            this.api.sendCommand('instrument_get_capabilities', { deviceId, channel }).catch(() => null),
+            this.api.sendCommand('string_instrument_get', { device_id: deviceId, channel }).catch(() => null),
+            this.api.sendCommand('instrument_voice_list', { deviceId, channel }).catch(() => null),
+        ]);
+
+        const rawSettings = (settingsResp && settingsResp.settings) ? settingsResp.settings : {};
+        const capabilities = (capResp && capResp.capabilities) ? capResp.capabilities : {};
+        const settings = { ...rawSettings, ...capabilities };
 
         const isBleDevice = !!(deviceType && (deviceType.toLowerCase().includes('ble') || deviceType.toLowerCase().includes('bluetooth'))) ||
                             !!(settings.mac_address);
 
-        let stringInstrumentConfig = null;
-        try {
-            const siResp = await this.api.sendCommand('string_instrument_get', { device_id: deviceId, channel });
-            if (siResp && siResp.instrument) stringInstrumentConfig = siResp.instrument;
-        } catch (e) { /* no config */ }
+        const stringInstrumentConfig = (siResp && siResp.instrument) ? siResp.instrument : null;
 
         // Load secondary GM voices (multi-GM alternatives) for this (device, channel)
         let voices = [];
-        try {
-            const voicesResp = await this.api.sendCommand('instrument_voice_list', { deviceId, channel });
-            if (voicesResp && Array.isArray(voicesResp.voices)) {
-                voices = voicesResp.voices.map(function(v) {
-                    return {
-                        id: v.id != null ? v.id : null,
-                        gm_program: v.gm_program,
-                        min_note_interval: v.min_note_interval,
-                        min_note_duration: v.min_note_duration,
-                        supported_ccs: Array.isArray(v.supported_ccs) ? v.supported_ccs : null,
-                        note_selection_mode: v.note_selection_mode != null ? v.note_selection_mode : null,
-                        note_range_min: v.note_range_min != null ? v.note_range_min : null,
-                        note_range_max: v.note_range_max != null ? v.note_range_max : null,
-                        selected_notes: Array.isArray(v.selected_notes) ? v.selected_notes : null,
-                        octave_mode: v.octave_mode != null ? v.octave_mode : null
-                    };
-                });
-            }
-        } catch (e) { /* no voices yet or backend not ready */ }
+        if (voicesResp && Array.isArray(voicesResp.voices)) {
+            voices = voicesResp.voices.map(function(v) {
+                return {
+                    id: v.id != null ? v.id : null,
+                    gm_program: v.gm_program,
+                    min_note_interval: v.min_note_interval,
+                    min_note_duration: v.min_note_duration,
+                    supported_ccs: Array.isArray(v.supported_ccs) ? v.supported_ccs : null,
+                    note_selection_mode: v.note_selection_mode != null ? v.note_selection_mode : null,
+                    note_range_min: v.note_range_min != null ? v.note_range_min : null,
+                    note_range_max: v.note_range_max != null ? v.note_range_max : null,
+                    selected_notes: Array.isArray(v.selected_notes) ? v.selected_notes : null,
+                    octave_mode: v.octave_mode != null ? v.octave_mode : null
+                };
+            });
+        }
 
         return { channel, settings, stringInstrumentConfig, isBleDevice, voices };
     };

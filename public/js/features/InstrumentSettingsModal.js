@@ -294,33 +294,28 @@ class InstrumentSettingsModal extends BaseModal {
         try {
             this.tuningPresets = {};
             this.scaleLengthPresets = {};
-            try {
-                const resp = await this.api.sendCommand('string_instrument_get_presets', {});
-                if (resp && resp.presets) this.tuningPresets = resp.presets;
-            } catch (e) { /* no presets */ }
-            try {
-                const resp = await this.api.sendCommand('string_instrument_get_scale_length_presets', {});
-                if (resp && resp.presets) this.scaleLengthPresets = resp.presets;
-            } catch (e) { /* no presets */ }
-
             this.instrumentTabs = [];
             const instrumentChannel = device.channel !== undefined ? device.channel : 0;
-            try {
-                const listResp = await this.api.sendCommand('instrument_list_by_device', { deviceId: device.id });
-                if (listResp && listResp.instruments && listResp.instruments.length > 0) {
-                    for (const inst of listResp.instruments) {
-                        const tabData = await this._loadChannelData(device.id, inst.channel, device.type);
-                        this.instrumentTabs.push(tabData);
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to load device instruments:', e);
-            }
 
-            if (this.instrumentTabs.length === 0) {
-                const tabData = await this._loadChannelData(device.id, instrumentChannel, device.type);
-                this.instrumentTabs.push(tabData);
-            }
+            // Three independent top-level calls — fire in parallel.
+            const [presetsResp, scaleLengthResp, listResp] = await Promise.all([
+                this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),
+                this.api.sendCommand('string_instrument_get_scale_length_presets', {}).catch(() => null),
+                this.api.sendCommand('instrument_list_by_device', { deviceId: device.id }).catch(e => {
+                    console.warn('Failed to load device instruments:', e);
+                    return null;
+                }),
+            ]);
+            if (presetsResp && presetsResp.presets) this.tuningPresets = presetsResp.presets;
+            if (scaleLengthResp && scaleLengthResp.presets) this.scaleLengthPresets = scaleLengthResp.presets;
+
+            // Load all channels in parallel.
+            const instruments = (listResp && listResp.instruments && listResp.instruments.length > 0)
+                ? listResp.instruments
+                : [{ channel: instrumentChannel }];
+            this.instrumentTabs = await Promise.all(
+                instruments.map(inst => this._loadChannelData(device.id, inst.channel, device.type))
+            );
 
             this.instrumentTabs.sort((a, b) => a.channel - b.channel);
             const requestedTab = this.instrumentTabs.find(t => t.channel === instrumentChannel);
@@ -337,7 +332,6 @@ class InstrumentSettingsModal extends BaseModal {
             // Piano will be initialized when user switches to Notes section
             // (viewport needs to be visible for correct size calculation)
 
-
         } catch (error) {
             console.error('Error opening instrument settings:', error);
             if (typeof showAlert === 'function') {
@@ -351,14 +345,13 @@ class InstrumentSettingsModal extends BaseModal {
         try {
             this.tuningPresets = {};
             this.scaleLengthPresets = {};
-            try {
-                const resp = await this.api.sendCommand('string_instrument_get_presets', {});
-                if (resp && resp.presets) this.tuningPresets = resp.presets;
-            } catch (e) { /* no presets */ }
-            try {
-                const resp = await this.api.sendCommand('string_instrument_get_scale_length_presets', {});
-                if (resp && resp.presets) this.scaleLengthPresets = resp.presets;
-            } catch (e) { /* no presets */ }
+            // Two independent calls — fire in parallel.
+            const [presetsResp, scaleLengthResp] = await Promise.all([
+                this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),
+                this.api.sendCommand('string_instrument_get_scale_length_presets', {}).catch(() => null),
+            ]);
+            if (presetsResp && presetsResp.presets) this.tuningPresets = presetsResp.presets;
+            if (scaleLengthResp && scaleLengthResp.presets) this.scaleLengthPresets = scaleLengthResp.presets;
 
             // Start with empty defaults on channel 0
             const defaultSettings = {

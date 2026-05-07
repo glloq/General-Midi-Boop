@@ -8,9 +8,30 @@
         this.$$('.ism-nav-item').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.section === sectionId);
         });
-        // Update content sections
+        // Inject content for lazy sections on first visit, then toggle active.
+        const renderMap = {
+            notes: '_renderNotesSection',
+            hands: '_renderHandsSection',
+            advanced: '_renderAdvancedSection',
+        };
+        const listenerMap = {
+            notes: '_attachNotesSectionListeners',
+            hands: '_attachHandsSectionListeners',
+        };
         this.$$('.ism-section').forEach(sec => {
-            sec.classList.toggle('active', sec.dataset.section === sectionId);
+            const isTarget = sec.dataset.section === sectionId;
+            if (isTarget && sec.dataset.lazy) {
+                sec.removeAttribute('data-lazy');
+                const renderFn = renderMap[sectionId];
+                if (renderFn && typeof this[renderFn] === 'function') {
+                    sec.innerHTML = this[renderFn]();
+                }
+                const listenerFn = listenerMap[sectionId];
+                if (listenerFn && typeof this[listenerFn] === 'function') {
+                    this[listenerFn]();
+                }
+            }
+            sec.classList.toggle('active', isTarget);
         });
         // Init piano when switching to notes section (needs visible viewport for size calc)
         if (sectionId === 'notes') {
