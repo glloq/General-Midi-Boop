@@ -74,8 +74,11 @@
         // Black fingers reach into the black-key zone: tip at the
         // bottom of the black key (blackH × 0.85) so the finger
         // appears resting against the lower part of the black key.
-        blackTipFraction: 0.85,
-        blackHeightRatio: 0.6,
+        // Finger tip at 90 % of the black key height → right at the bottom
+        // of the black key (just before it meets the white-key body).
+        blackTipFraction: 0.9,
+        // Must match the CSS .black-key { height: 65% } rule exactly.
+        blackHeightRatio: 0.65,
         chromaticTipFraction: 0.55,
         // Cosmetic — kept here so the editor can theme the widget
         // without re-opening the renderer's source file later.

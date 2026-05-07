@@ -1436,9 +1436,10 @@
         // H - 80 from the canvas top, which = the band's top edge regardless
         // of how tall the canvas is (piano key height is variable).
         const renderer = new window.KeyboardFingersRenderer(canvas, {
-            bandHeight: 80,
+            bandHeight: 50,
             whiteTipFraction: 0.85,
-            blackTipFraction: 0.85,
+            blackTipFraction: 0.9,
+            blackHeightRatio: 0.65,
             chromaticTipFraction: 0.65,
             knuckleHeight: 8,
         });
@@ -1492,20 +1493,38 @@
         this._updateFingersViewToggle();
         this._renderHandArrows();
 
-        requestAnimationFrame(() => {
-            // Resize the canvas to match the actual key-area height so
-            // T-shapes span the full key height in both layouts.
-            const keyContainerId = layout === 'piano'
-                ? 'piano-container' : 'keyboard-list-container';
+        const keyContainerId = layout === 'piano'
+            ? 'piano-container' : 'keyboard-list-container';
+
+        const fitCanvas = () => {
             const keyEl = document.getElementById(keyContainerId);
-            if (keyEl && keyEl.clientHeight > 0) {
-                const keyH = keyEl.clientHeight;
-                canvas.style.top    = `-${keyH}px`;
-                canvas.style.height = `calc(100% + ${keyH}px)`;
-            }
+            if (!keyEl || !this._fingersCanvas) return;
+            const keyH = keyEl.clientHeight;
+            if (keyH <= 0) return;
+            this._fingersCanvas.style.top    = `-${keyH}px`;
+            this._fingersCanvas.style.height = `calc(100% + ${keyH}px)`;
+        };
+
+        requestAnimationFrame(() => {
+            fitCanvas();
             renderer.draw();
             this._positionHandArrows();
         });
+
+        // Keep canvas dimensions in sync when the modal or window is resized.
+        if (typeof ResizeObserver === 'function') {
+            const keyEl = document.getElementById(keyContainerId);
+            if (keyEl) {
+                if (this._fingersResizeObserver) this._fingersResizeObserver.disconnect();
+                this._fingersResizeObserver = new ResizeObserver(() => {
+                    if (!this._fingersCanvas || !this._fingersRenderer) return;
+                    fitCanvas();
+                    this._fingersRenderer.draw();
+                    this._positionHandArrows();
+                });
+                this._fingersResizeObserver.observe(keyEl);
+            }
+        }
     };
 
     /**
@@ -1514,6 +1533,10 @@
      */
     KeyboardPianoMixin._cleanFingersCanvas = function() {
         this._destroyFingersOverlayDrag();
+        if (this._fingersResizeObserver) {
+            this._fingersResizeObserver.disconnect();
+            this._fingersResizeObserver = null;
+        }
         if (this._fingersRenderer) {
             this._fingersRenderer.destroy();
             this._fingersRenderer = null;
