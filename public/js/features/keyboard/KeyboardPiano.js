@@ -120,6 +120,22 @@
                     </div>
                 </div>
 
+                <!-- Wind instrument panel (shown when a wind GM instrument is selected) -->
+                <div class="wind-instrument-panel hidden" id="wind-instrument-panel">
+                    <div class="wind-info-row">
+                        <span class="wind-icon">🎺</span>
+                        <span class="wind-instrument-name" id="wind-instrument-name"></span>
+                        <span class="wind-range-display" id="wind-range-display"></span>
+                    </div>
+                    <div class="wind-articulation-row">
+                        <span class="wind-art-label">Articulation</span>
+                        <button class="wind-art-btn active" data-art="normal" title="Normal (×1.0 vel)">● Normal</button>
+                        <button class="wind-art-btn" data-art="legato" title="Legato (×1.0 vel, notes liées)">∪ Legato</button>
+                        <button class="wind-art-btn" data-art="staccato" title="Staccato (×0.9 vel, notes courtes)">· Staccato</button>
+                        <button class="wind-art-btn" data-art="accent" title="Accent (×1.2 vel)">&gt; Accent</button>
+                    </div>
+                </div>
+
                 <div class="modal-body">
                     <div class="keyboard-layout">
                         <!-- Vertical velocity slider on the left -->
@@ -1279,6 +1295,11 @@
         // Wire up drag events
         if (typeof this.initPianoSliderDrag === 'function') {
             this.initPianoSliderDrag(strip);
+        }
+
+        // Apply wind instrument comfort zone highlighting if active
+        if (typeof this._applyWindComfortZone === 'function') {
+            this._applyWindComfortZone();
         }
     }
 

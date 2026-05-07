@@ -53,8 +53,11 @@ class KeyboardModalNew {
 
         // Note label format: 'english' (C/D/E), 'solfege' (Do/Ré/Mi), 'midi' (60)
         this.noteLabelFormat = 'english';
-        // View mode: 'piano' (default), 'fretboard' (string instr.), 'drumpad' (drum)
+        // View mode: 'piano' (default), 'fretboard' (string instr.), 'drumpad' (drum), 'piano-slider' (wind)
         this.viewMode = 'piano';
+        // Wind instrument state (set when a wind GM instrument is selected)
+        this.windPreset = null;
+        this.currentArticulation = 'normal';
         // Fretboard: show chromatic note colors (12 colors, one per semitone)
         this.showNoteColors = false;
         // String instrument config (loaded when fretboard mode is enabled)
@@ -706,7 +709,13 @@ class KeyboardModalNew {
                 gmProgram === 110    // fiddle
             );
         const canFretboard = type === 'string' || !!this.stringInstrumentConfig || stringByGm;
-        return { canFretboard, isDrum, instrumentType: type, instrumentSubtype: subtype, gmProgram };
+        // Wind: GM programs 56–79 (brass, reeds, pipe) — only when not drum or string
+        const isWind = !isDrum && !canFretboard
+            && gmProgram !== undefined && gmProgram !== null
+            && typeof WindInstrumentDatabase !== 'undefined'
+            && WindInstrumentDatabase.isWindInstrument(gmProgram);
+        const windPreset = isWind ? WindInstrumentDatabase.getPresetByProgram(gmProgram) : null;
+        return { canFretboard, isDrum, isWind, windPreset, instrumentType: type, instrumentSubtype: subtype, gmProgram };
     }
 
     /**
@@ -960,6 +969,10 @@ class KeyboardModalNew {
         const caps = this.selectedDeviceCapabilities;
         const handsKbType = caps && caps.hands_config && caps.hands_config.keyboard_type;
         const isChromatic = handsKbType === 'chromatic' || caps && caps.keyboard_type === 'chromatic';
+
+        // Always reset wind controls before re-evaluating the new instrument
+        if (typeof this._hideWindControls === 'function') this._hideWindControls();
+
         if (info.isDrum) {
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.stringInstrumentConfig = null;
@@ -968,6 +981,15 @@ class KeyboardModalNew {
             await this.loadStringInstrumentConfig();
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.setViewMode('fretboard');
+        } else if (info.isWind) {
+            this.stringInstrumentConfig = null;
+            if (viewGroup) viewGroup.classList.add('hidden');
+            // Show wind articulation panel and switch to piano-slider (chromatic keys)
+            if (typeof this._showWindControls === 'function') {
+                this._showWindControls(info.windPreset);
+            }
+            this.setViewMode('piano-slider');
+            // Comfort zone is applied inside generatePianoSlider via _applyWindComfortZone
         } else if (isChromatic) {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
@@ -1011,4 +1033,9 @@ if (typeof KeyboardSliderMixin !== 'undefined') {
 }
 if (typeof KeyboardListViewMixin !== 'undefined') {
     Object.assign(KeyboardModalNew.prototype, KeyboardListViewMixin);
+}
+if (typeof KeyboardWindMixin !== 'undefined') {
+    // Save the playNote from KeyboardEventsMixin before the wind mixin overrides it
+    KeyboardModalNew.prototype._windOrigPlayNote = KeyboardModalNew.prototype.playNote;
+    Object.assign(KeyboardModalNew.prototype, KeyboardWindMixin);
 }
