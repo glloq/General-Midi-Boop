@@ -71,11 +71,10 @@
         // makes the finger occupy the bottom quarter of the keys
         // area; half the height of the older 0.5 layout.
         whiteTipFraction: 0.75,
-        // Black fingers reach much further forward, into the black-
-        // key zone (which spans the top 60 % of the keys area).
-        // tipY = blackH × 2/3 lands the tip 1/3 of the way into the
-        // black key, leaving its top two thirds visible above.
-        blackTipFraction: 2 / 3,
+        // Black fingers reach into the black-key zone: tip at the
+        // bottom of the black key (blackH × 0.85) so the finger
+        // appears resting against the lower part of the black key.
+        blackTipFraction: 0.85,
         blackHeightRatio: 0.6,
         chromaticTipFraction: 0.55,
         // Cosmetic — kept here so the editor can theme the widget
