@@ -233,6 +233,7 @@ class BaseController {
      */
     handleError(context, error, showNotification = true) {
         this.metrics.errorsHandled++;
+        if (this.state.errors.length >= 100) this.state.errors.shift();
         this.state.errors.push({
             context,
             error,

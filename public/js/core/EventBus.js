@@ -43,7 +43,6 @@ class EventBus {
             eventsProcessed: 0,
             eventsDropped: 0,
             averageLatency: { high: 0, normal: 0, low: 0 },
-            latencyHistory: { high: [], normal: [], low: [] }
         };
 
         // Incremental event ID counter (cheaper than Date.now() + Math.random())

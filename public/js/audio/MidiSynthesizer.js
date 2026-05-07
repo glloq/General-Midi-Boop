@@ -247,9 +247,7 @@ class MidiSynthesizer {
         this.log('info', `Switching sound bank to ${bank.id}`);
         this._clearInstrumentCache();
         // Drums must also reload so they use the new bank's samples.
-        this.drumPresets.clear();
-        this._drumLoading.clear();
-        this._drumVariables.clear();
+        this._clearDrumCache();
         this.currentBankId = bank.id;
         this.currentBankSuffix = bank.suffix;
         this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
@@ -278,14 +276,38 @@ class MidiSynthesizer {
     _clearInstrumentCache() {
         this.loadedInstruments.clear();
         this.loadingInstruments.clear();
-        // Remove old melodic <script> elements to free memory
-        const scripts = document.querySelectorAll('script[src*="surikov.github.io/webaudiofontdata/sound/"]');
-        scripts.forEach(s => {
-            // Only remove melodic scripts (not drums which start with /128)
-            if (!s.src.includes('/128')) {
-                s.remove();
+        // Remove only the melodic <script> elements injected by this instance
+        for (const script of [...this._injectedScripts]) {
+            if (script.src && !script.src.includes('/128')) {
+                try { script.remove(); } catch (e) {}
+                this._injectedScripts.delete(script);
             }
-        });
+        }
+    }
+
+    /**
+     * Free drum sample data for this instance during a bank switch.
+     * Deletes window globals not referenced by any other live instance,
+     * removes the drum <script> tags this instance injected, and clears
+     * the three drum Maps.
+     */
+    _clearDrumCache() {
+        const otherInstances = [...MidiSynthesizer._instances].filter(inst => inst !== this);
+        for (const cacheKey of this.drumPresets.keys()) {
+            if (!otherInstances.some(inst => inst.drumPresets.has(cacheKey))) {
+                const varName = this._drumVariables.get(cacheKey);
+                if (varName) delete window[varName];
+            }
+        }
+        for (const script of [...this._injectedScripts]) {
+            if (script.src && script.src.includes('/128')) {
+                try { script.remove(); } catch (e) {}
+                this._injectedScripts.delete(script);
+            }
+        }
+        this.drumPresets.clear();
+        this._drumLoading.clear();
+        this._drumVariables.clear();
     }
 
     /**
@@ -1304,7 +1326,7 @@ class MidiSynthesizer {
         this.schedulePointer = i;
 
         // In-place cleanup: remove finished envelopes without allocating a new array
-        if (this.activeEnvelopes.length > 100) {
+        if (this.activeEnvelopes.length > 50) {
             const now = this.audioContext.currentTime;
             const envelopes = this.activeEnvelopes;
             let writeIdx = 0;

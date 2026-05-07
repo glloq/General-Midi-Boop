@@ -554,5 +554,4 @@ class PianoRollView {
 
 if (typeof window !== 'undefined') {
     window.PianoRollView = PianoRollView;
-    console.log('✓ PianoRollView v6 loaded (direct audio timing)');
 }

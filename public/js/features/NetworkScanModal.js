@@ -408,13 +408,6 @@ class NetworkScanModal {
         const fullScanCheckbox = this.container ? this.container.querySelector('#fullScanCheckbox') : null;
         const fullScan = fullScanCheckbox ? fullScanCheckbox.checked : false;
 
-        // Debug: Confirm checkbox state
-        console.log('='.repeat(80));
-        console.log('🔍 DÉMARRAGE DU SCAN');
-        console.log(`   Checkbox trouvée: ${fullScanCheckbox ? 'OUI' : 'NON'}`);
-        console.log(`   fullScan activé: ${fullScan ? 'OUI ✅' : 'NON ❌'}`);
-        console.log('='.repeat(80));
-
         this.updateModalContent();
 
         this.logger.info('NetworkScanModal', `Starting network scan (fullScan: ${fullScan})`);
@@ -571,15 +564,6 @@ class NetworkScanModal {
         this.availableDevices = data.devices || [];
 
         this.logger.info('NetworkScanModal', `Scan complete: ${this.availableDevices.length} devices found`);
-
-        // Debug: Display received devices
-        console.log('='.repeat(80));
-        console.log('📡 SCAN TERMINÉ - Devices reçus du backend:');
-        console.log(`   Total: ${this.availableDevices.length} devices`);
-        this.availableDevices.forEach((device, index) => {
-            console.log(`   ${index + 1}. ${device.name} (${device.ip}) - Type: ${device.type}`);
-        });
-        console.log('='.repeat(80));
 
         this.updateModalContent();
     }
