@@ -10,7 +10,54 @@
     max-height: 100vh !important;
     border-radius: 0;
     margin: 0;
+    display: flex;
+    flex-direction: column;
 }
+
+/* ── Header with tabs ── */
+.loop-creator-modal .modal-header.lc-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    height: 46px;
+    min-height: 46px;
+    background: var(--bg-tertiary, #f0f1f3);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    flex-shrink: 0;
+}
+.lc-header-left { display: flex; align-items: center; flex-shrink: 0; }
+.lc-header-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--accent-color, #4a90d9);
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+.lc-header-tabs {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+}
+.lc-header-tabs .lc-tab {
+    border-radius: 6px;
+    border-bottom: 1px solid transparent;
+    padding: 6px 16px;
+}
+.lc-header-tabs .lc-tab--active {
+    background: var(--accent-color, #4a90d9);
+    color: #fff;
+    border-color: var(--accent-color, #4a90d9);
+}
+.lc-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.lc-btn-sm { padding: 4px 10px; font-size: 0.8rem; }
 
 /* ── Shell ── */
 .loop-creator-modal .modal-body {
@@ -18,7 +65,11 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+}
+.loop-creator-modal .modal-footer {
+    flex-shrink: 0;
 }
 
 .lc-layout {
@@ -29,34 +80,42 @@
     background: var(--bg-secondary, #f4f5f7);
 }
 
-/* ── Tabs ── */
-.lc-tabs {
-    display: flex;
-    gap: 2px;
-    padding: 6px 12px 0;
-    background: var(--bg-tertiary, #f0f1f3);
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
-    flex-shrink: 0;
-}
-
+/* ── Tabs (header) ── */
 .lc-tab {
-    padding: 7px 18px;
+    padding: 6px 14px;
     border: 1px solid transparent;
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
-    background: var(--bg-secondary, #e8eaed);
+    border-radius: 6px;
+    background: transparent;
     color: var(--text-secondary, #666);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 500;
     transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
 }
 .lc-tab:hover { background: var(--bg-hover, #dde0e6); color: var(--text-primary, #333); }
 .lc-tab--active {
-    background: var(--bg-primary, #fff);
-    color: var(--accent-color, #4a90d9);
-    border-color: var(--border-color, #e0e0e0);
+    background: var(--accent-color, #4a90d9);
+    color: #fff;
+    border-color: var(--accent-color, #4a90d9);
     font-weight: 600;
+}
+
+/* ── Toolbar separator ── */
+.lc-toolbar-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border-color, #dde0e6);
+    flex-shrink: 0;
+    align-self: center;
+    margin: 0 2px;
+}
+
+/* ── Active edit-mode button ── */
+.lc-btn-icon[aria-pressed="true"] {
+    background: var(--accent-color, #4a90d9) !important;
+    color: #fff !important;
+    border-color: var(--accent-color, #4a90d9) !important;
 }
 
 /* ── Tab content ── */
@@ -408,10 +467,12 @@ body.theme-dark .la-track-label {
 /* ── Dark theme ── */
 body.theme-dark .lc-layout,
 body.theme-dark .lc-pane { background: #1a1a2e; }
-body.theme-dark .lc-tabs { background: #12122a; border-color: #333355; }
-body.theme-dark .lc-tab { background: #1c1c38; color: #aaa; }
+body.theme-dark .loop-creator-modal .modal-header.lc-header { background: #12122a; border-color: #333355; }
+body.theme-dark .lc-header-title { color: #6aadff; }
+body.theme-dark .lc-tab { color: #aaa; }
 body.theme-dark .lc-tab:hover { background: #22223e; color: #eee; }
-body.theme-dark .lc-tab--active { background: #1a1a2e; color: #6aadff; border-color: #333355; }
+body.theme-dark .lc-tab--active { background: #4a7fbf; color: #fff; border-color: #4a7fbf; }
+body.theme-dark .lc-toolbar-sep { background: #333355; }
 body.theme-dark .lc-editor-toolbar,
 body.theme-dark .lc-arranger-toolbar,
 body.theme-dark .lc-library-toolbar,
