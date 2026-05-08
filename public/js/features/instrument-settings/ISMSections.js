@@ -1913,6 +1913,10 @@
     ISMSections._collectHandsConfig = function(rootEl) {
         const section = rootEl?.querySelector('.ism-section[data-section="hands"]');
         if (!section) return undefined; // no-op: section not rendered
+        // Section exists but was never visited (lazy, content not injected yet).
+        // #handsMode is the first hidden input the renderer writes; its absence
+        // means the form is empty → preserve the existing DB value.
+        if (!rootEl.querySelector('#handsMode')) return undefined;
 
         const mode = rootEl.querySelector('#handsMode')?.value === 'frets'
             ? 'frets'
