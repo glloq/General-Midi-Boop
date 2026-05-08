@@ -12,7 +12,13 @@
  */
 import { randomBytes } from 'crypto';
 import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Resolve .env relative to the project root (three levels up from src/infrastructure/auth/)
+const ENV_PATH = resolve(join(__dirname, '../../../.env'));
 
 export class ApiTokenManager {
   /** @param {Object} logger */
@@ -31,7 +37,7 @@ export class ApiTokenManager {
     }
 
     const token = randomBytes(32).toString('hex');
-    const envPath = resolve('.env');
+    const envPath = ENV_PATH;
 
     try {
       if (existsSync(envPath)) {
@@ -50,9 +56,6 @@ export class ApiTokenManager {
     }
 
     process.env.GMBOOP_API_TOKEN = token;
-    this.logger.warn(`=== AUTO-GENERATED API TOKEN ===`);
-    this.logger.warn(`Token: ${token}`);
-    this.logger.warn(`Save this token — it is required to access the API.`);
-    this.logger.warn(`================================`);
+    this.logger.info(`API token auto-generated and saved to ${envPath}`);
   }
 }
