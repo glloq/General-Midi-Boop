@@ -86,15 +86,20 @@
         119: 'reverse_cymbal'
     };
 
-    // Drum kit list — only kits whose WAF CDN files (128{note}_{bankIndex}_FluidR3_GM_sf2_file.js)
-    // actually exist on surikov.github.io. Kits at bankIndex 32/40/48/56 return 404 on the CDN
-    // and fall back to Standard Kit sounds, so they are omitted from the UI selector.
+    // Drum kit list (mirror of window.GM_DRUM_KITS defined in index.html; kept
+    // locally so this module is self-sufficient if loaded before index.html body).
+    // Note: WAF CDN only has files for bankIndex 0/8/16/24/25 (FluidR3_GM).
+    // Programs 32/40/48/56 fall back to Standard Kit sounds at playback time.
     const GM_DRUM_KITS_LIST = [
         { program: 0,  name: 'Standard Kit' },
         { program: 8,  name: 'Room Kit' },
         { program: 16, name: 'Power Kit' },
         { program: 24, name: 'Electronic Kit' },
-        { program: 25, name: 'TR-808 Kit' }
+        { program: 25, name: 'TR-808 Kit' },
+        { program: 32, name: 'Jazz Kit' },
+        { program: 40, name: 'Brush Kit' },
+        { program: 48, name: 'Orchestra Kit' },
+        { program: 56, name: 'SFX Kit' }
     ];
 
     // ===== HELPERS =====
