@@ -5,6 +5,16 @@
 - [[Installation]]
 - [[Usage-Guide]]
 
+**Interface — Pages & Modals**
+- [[Interface-Main-Page]]
+- [[Interface-Instrument-Creation]]
+- [[Interface-Virtual-Piano]]
+- [[Interface-Lighting-Control]]
+- [[Interface-Playlist]]
+- [[Interface-Microphone]]
+- [[Interface-Settings]]
+- [[Interface-Hand-Management]]
+
 **Core Concepts**
 - [[Architecture]]
 - [[MIDI-Editor]]
@@ -15,6 +25,7 @@
 - [[API-Reference]]
 - [[Hardware-Integration]]
 - [[Advanced-Topics]]
+- [[Instrument-Developer-Guide]]
 
 **Operations**
 - [[Deployment]]
