@@ -19,6 +19,7 @@ import LightingDatabase from './tables/LightingDatabase.js';
 import StringInstrumentDatabase from './tables/StringInstrumentDatabase.js';
 import DeviceSettingsDB from './tables/DeviceSettingsDB.js';
 import BankEffectsDB from './tables/BankEffectsDB.js';
+import CustomSF2DB from './tables/CustomSF2DB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,6 +45,7 @@ class DatabaseManager {
     this.stringInstrumentDB = null;
     this.deviceSettingsDB = null;
     this.bankEffectsDB = null;
+    this.customSF2DB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -55,6 +57,7 @@ class DatabaseManager {
     this.stringInstrumentDB = new StringInstrumentDatabase(this.db, this.logger);
     this.deviceSettingsDB = new DeviceSettingsDB(this.db, this.logger);
     this.bankEffectsDB = new BankEffectsDB(this.db, this.logger);
+    this.customSF2DB = new CustomSF2DB(this.db, this.logger);
 
     this.logger.info('Database initialized');
   }

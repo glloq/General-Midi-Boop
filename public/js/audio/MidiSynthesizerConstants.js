@@ -97,9 +97,36 @@
   const DEFAULT_BANK_ID = 'FluidR3_GM';
   const DEFAULT_BANK_SUFFIX = 'FluidR3_GM_sf2_file';
 
-  window.MidiSynthesizerConstants = Object.freeze({
+  // Custom SF2 banks registered at runtime by SettingsSF2.loadCustomBanks()
+  let _customBanks = [];
+
+  function setCustomBanks(banks) {
+    _customBanks = (banks || []).map(function(b) {
+      return {
+        id:         'sf2:' + b.id,
+        label:      b.label + ' [SF2]',
+        suffix:     null,
+        quality:    'custom',
+        sizeMB:     Math.round((b.size || 0) / (1024 * 1024)),
+        reverbMix:  b.reverbMix != null ? b.reverbMix : 0.12,
+        isCustom:   true,
+        sf2Id:      b.id,
+        drumKits: [0, 8, 16, 24, 25, 32, 40, 48, 56].map(function(p) {
+          return { midiProgram: p, bankIndex: p, verified: false };
+        }),
+      };
+    });
+  }
+
+  function getAvailableBanks() {
+    return SOUND_BANKS.concat(_customBanks);
+  }
+
+  window.MidiSynthesizerConstants = {
     SOUND_BANKS: Object.freeze(SOUND_BANKS.map((b) => Object.freeze(b))),
     DEFAULT_BANK_ID,
-    DEFAULT_BANK_SUFFIX
-  });
+    DEFAULT_BANK_SUFFIX,
+    setCustomBanks,
+    getAvailableBanks,
+  };
 })();

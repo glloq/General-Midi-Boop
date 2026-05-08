@@ -247,6 +247,10 @@ class SettingsModal {
             this.attachHotspotListeners();
         }
 
+        if (typeof this.attachSF2Listeners === 'function') {
+            this.attachSF2Listeners();
+        }
+
         const startupUpdateCheckToggle = this.modal.querySelector('#startupUpdateCheckToggle');
         const startupBetaNotifToggle = this.modal.querySelector('#startupBetaNotifToggle');
         if (startupUpdateCheckToggle && startupBetaNotifToggle) {
@@ -328,6 +332,11 @@ class SettingsModal {
         // Load per-bank effect slider values for the current bank.
         if (typeof this.hydrateBankEffects === 'function') {
             this.hydrateBankEffects();
+        }
+
+        // Load custom SF2 soundfonts and repopulate the bank dropdown.
+        if (typeof this.loadCustomBanks === 'function') {
+            this.loadCustomBanks();
         }
 
         this.logger?.info('Settings modal opened');
@@ -532,6 +541,9 @@ if (typeof SettingsBankEffects !== 'undefined') {
 }
 if (typeof SettingsHotspot !== 'undefined') {
     Object.assign(SettingsModal.prototype, SettingsHotspot);
+}
+if (typeof SettingsSF2 !== 'undefined') {
+    Object.assign(SettingsModal.prototype, SettingsSF2);
 }
 
 // Export global

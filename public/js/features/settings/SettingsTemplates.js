@@ -282,6 +282,22 @@
                             </button>
                         </div>
                     </details>
+
+                    <!-- Custom SF2 soundfonts -->
+                    <div id="sf2Panel" style="margin-top: 16px; border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="font-size: 13px; font-weight: 600;">🎵 Soundfonts SF2</span>
+                            <label style="padding: 6px 14px; border: 1px solid #667eea; border-radius: 6px; cursor: pointer; font-size: 13px; color: #667eea; white-space: nowrap;">
+                                + Upload SF2
+                                <input type="file" id="sf2FileInput" accept=".sf2" style="display: none;">
+                            </label>
+                        </div>
+                        <div id="sf2UploadProgress" style="display: none; margin-bottom: 8px; font-size: 12px; color: var(--text-secondary, #666);"></div>
+                        <div id="sf2BankList">
+                            <p style="font-size: 12px; color: var(--text-secondary, #666); margin: 4px 0;">Aucun soundfont personnalisé.</p>
+                        </div>
+                        <p style="margin: 8px 0 0; font-size: 11px; color: var(--text-muted, #999);">Max 500 MB &middot; Presets convertis à la demande par le serveur.</p>
+                    </div>
                 </div>
 
                 <!-- MIDI Clock -->

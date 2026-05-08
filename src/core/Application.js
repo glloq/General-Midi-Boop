@@ -35,6 +35,7 @@ import DelayCalibrator from '../audio/DelayCalibrator.js';
 import FileManager from '../files/FileManager.js';
 import MidiBaker from '../files/MidiBaker.js';
 import BlobStore from '../files/BlobStore.js';
+import { SF2PresetService } from '../files/SF2PresetService.js';
 import UploadQueue from '../files/UploadQueue.js';
 import path from 'path';
 import BluetoothManager from '../transports/BluetoothManager.js';
@@ -208,6 +209,7 @@ class Application {
       // at construction time (the facade Proxy evaluates eagerly on assignment).
       const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
       this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
+      this._registerService('sf2PresetService', new SF2PresetService({ dataDir, database: this.database, logger: this.logger }));
 
       // Initialize MIDI components
       this._registerService('deviceManager', new DeviceManager(deps));
