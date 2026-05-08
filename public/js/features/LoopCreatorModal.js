@@ -125,15 +125,7 @@ class LoopCreatorModal extends BaseModal {
         </div>`;
     }
 
-    renderFooter() {
-        return `
-            <div class="lc-footer-left">
-                <span class="lc-status" id="lc-status"></span>
-            </div>
-            <div class="lc-footer-right">
-                <button class="lc-btn" data-action="close">${this.t('common.close')}</button>
-            </div>`;
-    }
+    renderFooter() { return ''; }  // footer hidden via CSS; status lives in ctrl-bar
 
     // =========================================================
     // RENDERING — TAB 1: CREATE
@@ -151,8 +143,10 @@ class LoopCreatorModal extends BaseModal {
         return `
         <div class="lc-pane" id="lc-pane-create">
 
-            <!-- ── Instrument picker ── -->
-            <div class="lc-instr-bar">
+            <!-- ── Single control bar ── -->
+            <div class="lc-ctrl-bar">
+
+                <!-- Instrument picker (compact inline) -->
                 <div class="lc-instr-picker" id="lc-instr-picker">
                     <button class="lc-instr-trigger" id="lc-instr-trigger" data-action="instr-picker-toggle" type="button">
                         <span class="lc-instr-icon">
@@ -165,49 +159,70 @@ class LoopCreatorModal extends BaseModal {
                     <div class="lc-instr-dropdown" id="lc-instr-dropdown"></div>
                 </div>
                 <span class="lc-instr-info" id="lc-instr-info"></span>
-            </div>
 
-            <!-- ── Editor toolbar ── -->
-            <div class="lc-editor-toolbar">
+                <div class="lc-ctrl-sep"></div>
+
+                <!-- Loop name -->
                 <input type="text" class="lc-name-input" id="lc-name-input"
                     value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
-                    placeholder="${this.t('loopCreator.namePlaceholder')}"
-                    aria-label="${this.t('loopCreator.loopName')}" />
+                    placeholder="${this.t('loopCreator.namePlaceholder')}" />
 
-                <div class="lc-toolbar-sep"></div>
+                <div class="lc-ctrl-sep"></div>
 
-                <label class="lc-label">${this.t('loopCreator.tempo')}</label>
+                <!-- Tempo -->
                 <div class="lc-spinbox">
                     <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
-                    <input type="number" id="lc-tempo" class="lc-spin-input" value="${this.tempo}" min="20" max="300" step="1" />
+                    <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />
                     <button class="lc-spin-btn" data-action="tempo-inc">›</button>
                 </div>
                 <span class="lc-unit">BPM</span>
 
-                <div class="lc-toolbar-sep"></div>
+                <!-- Time signature -->
+                <select id="lc-timesig" class="lc-select lc-select-xs" title="${this.t('loopCreator.timeSignature')}">${timeSigHtml}</select>
 
-                <label class="lc-label">${this.t('loopCreator.timeSignature')}</label>
-                <select id="lc-timesig" class="lc-select">${timeSigHtml}</select>
-
-                <label class="lc-label">${this.t('loopCreator.bars')}</label>
+                <!-- Bars -->
                 <div class="lc-spinbox">
                     <button class="lc-spin-btn" data-action="bars-dec">‹</button>
-                    <input type="number" id="lc-bars" class="lc-spin-input" value="${this.bars}" min="1" max="32" step="1" />
+                    <input type="number" id="lc-bars" class="lc-spin-input lc-spin-input--sm" value="${this.bars}" min="1" max="32" step="1" />
                     <button class="lc-spin-btn" data-action="bars-inc">›</button>
                 </div>
-                <span class="lc-unit">${this.t('loopCreator.barsUnit')}</span>
+                <span class="lc-unit" title="${this.t('loopCreator.bars')}">M</span>
 
-                <div class="lc-toolbar-sep"></div>
-
-                <label class="lc-label">${this.t('loopCreator.snap')}</label>
-                <select id="lc-snap" class="lc-select">
+                <!-- Snap -->
+                <select id="lc-snap" class="lc-select lc-select-xs" title="${this.t('loopCreator.snap')}">
                     <option value="480">1/1</option><option value="240">1/2</option>
                     <option value="120" selected>1/4</option><option value="60">1/8</option>
                     <option value="30">1/16</option>
                 </select>
 
-                <div class="lc-toolbar-sep"></div>
+                <div class="lc-ctrl-sep"></div>
 
+                <!-- Playback controls -->
+                <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
+                    <span class="lc-rec-dot"></span>
+                </button>
+                <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')}">▶</button>
+                <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')}">⏹</button>
+                <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
+                    <span class="lc-rec-dot lc-rec-dot--pulse"></span>
+                </span>
+
+                <!-- Quantize -->
+                <select id="lc-quantize" class="lc-select lc-select-xs" title="${this.t('loopCreator.quantize')}">
+                    <option value="0">Q:—</option>
+                    <option value="480">Q:1/1</option><option value="240">Q:1/2</option>
+                    <option value="120" selected>Q:1/4</option><option value="60">Q:1/8</option>
+                    <option value="30">Q:1/16</option>
+                </select>
+
+                <!-- MIDI In -->
+                <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
+                    <option value="">IN:—</option>
+                </select>
+
+                <div class="lc-ctrl-sep"></div>
+
+                <!-- Edit tools -->
                 <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
                 <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
                 <button class="lc-btn lc-btn-icon" data-action="select-all" title="${this.t('loopCreator.selectAll')}">⊞</button>
@@ -215,38 +230,14 @@ class LoopCreatorModal extends BaseModal {
                 <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
                 <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
                 <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
+
+                <!-- Status (pushed right) -->
+                <span class="lc-ctrl-spacer"></span>
+                <span class="lc-status" id="lc-status"></span>
             </div>
 
             <!-- ── Piano roll ── -->
             <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap"></div>
-
-            <!-- ── Transport ── -->
-            <div class="lc-transport">
-                <div class="lc-transport-left">
-                    <button class="lc-btn lc-btn-record" id="lc-record-btn" data-action="record">
-                        <span class="lc-rec-dot"></span> ${this.t('loopCreator.record')}
-                    </button>
-                    <button class="lc-btn" data-action="preview">▶ ${this.t('loopCreator.preview')}</button>
-                    <button class="lc-btn" data-action="stop-all">⏹</button>
-                    <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
-                        <span class="lc-rec-dot lc-rec-dot--pulse"></span> ${this.t('loopCreator.recording')}
-                    </span>
-                </div>
-                <div class="lc-transport-right">
-                    <label class="lc-label">${this.t('loopCreator.quantize')}</label>
-                    <select id="lc-quantize" class="lc-select">
-                        <option value="0">${this.t('loopCreator.quantizeNone')}</option>
-                        <option value="480">1/1</option><option value="240">1/2</option>
-                        <option value="120" selected>1/4</option><option value="60">1/8</option>
-                        <option value="30">1/16</option>
-                    </select>
-                    <div class="lc-toolbar-sep"></div>
-                    <label class="lc-label">${this.t('loopCreator.midiIn')}</label>
-                    <select id="lc-midi-in-device" class="lc-select">
-                        <option value="">${this.t('loopCreator.midiInNone')}</option>
-                    </select>
-                </div>
-            </div>
 
             <!-- ── Keyboard ── -->
             <div class="lc-keyboard-wrap">
@@ -262,9 +253,10 @@ class LoopCreatorModal extends BaseModal {
     _renderLibraryTab() {
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-library">
-            <div class="lc-library-toolbar">
-                <h3 class="lc-section-title">${this.t('loopCreator.library')}</h3>
-                <button class="lc-btn lc-btn-primary" data-action="new-loop">+ ${this.t('loopCreator.newLoop')}</button>
+            <div class="lc-ctrl-bar lc-ctrl-bar--lib">
+                <span class="lc-section-title">${this.t('loopCreator.library')}</span>
+                <span class="lc-ctrl-spacer"></span>
+                <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="new-loop">+ ${this.t('loopCreator.newLoop')}</button>
             </div>
             <div class="lc-library-grid" id="lc-library-grid">
                 <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
@@ -280,35 +272,28 @@ class LoopCreatorModal extends BaseModal {
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger">
             <!-- ── Arranger toolbar ── -->
-            <div class="lc-arranger-toolbar">
-                <div class="lc-toolbar-left">
-                    <input type="text" class="lc-name-input" id="la-name-input"
-                        value="${this.escape(this.arrangementName || this.t('loopCreator.untitledArrangement'))}"
-                        placeholder="${this.t('loopCreator.arrangementName')}" />
+            <div class="lc-ctrl-bar lc-ctrl-bar--arr">
+                <input type="text" class="lc-name-input" id="la-name-input"
+                    value="${this.escape(this.arrangementName || this.t('loopCreator.untitledArrangement'))}"
+                    placeholder="${this.t('loopCreator.arrangementName')}" />
+                <div class="lc-ctrl-sep"></div>
+                <div class="lc-spinbox">
+                    <button class="lc-spin-btn" data-action="arr-tempo-dec">‹</button>
+                    <input type="number" id="la-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementTempo}" min="20" max="300" />
+                    <button class="lc-spin-btn" data-action="arr-tempo-inc">›</button>
                 </div>
-                <div class="lc-toolbar-center">
-                    <label class="lc-label">${this.t('loopCreator.tempo')}</label>
-                    <div class="lc-spinbox">
-                        <button class="lc-spin-btn" data-action="arr-tempo-dec">‹</button>
-                        <input type="number" id="la-tempo" class="lc-spin-input" value="${this.arrangementTempo}" min="20" max="300" />
-                        <button class="lc-spin-btn" data-action="arr-tempo-inc">›</button>
-                    </div>
-                    <span class="lc-unit">BPM</span>
-
-                    <label class="lc-label">${this.t('loopCreator.totalBars')}</label>
-                    <div class="lc-spinbox">
-                        <button class="lc-spin-btn" data-action="arr-bars-dec">‹</button>
-                        <input type="number" id="la-bars" class="lc-spin-input" value="${this.arrangementBars}" min="4" max="256" step="4" />
-                        <button class="lc-spin-btn" data-action="arr-bars-inc">›</button>
-                    </div>
-                    <span class="lc-unit">${this.t('loopCreator.barsUnit')}</span>
+                <span class="lc-unit">BPM</span>
+                <div class="lc-spinbox">
+                    <button class="lc-spin-btn" data-action="arr-bars-dec">‹</button>
+                    <input type="number" id="la-bars" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementBars}" min="4" max="256" step="4" />
+                    <button class="lc-spin-btn" data-action="arr-bars-inc">›</button>
                 </div>
-                <div class="lc-toolbar-right">
-                    <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}">＋ Track</button>
-                    <button class="lc-btn" data-action="arr-play" id="la-play-btn">▶ ${this.t('loopCreator.play')}</button>
-                    <button class="lc-btn" data-action="arr-stop">⏹ ${this.t('loopCreator.stop')}</button>
-                    <button class="lc-btn" data-action="arr-new">🆕 ${this.t('loopCreator.newArrangement')}</button>
-                </div>
+                <span class="lc-unit" title="${this.t('loopCreator.totalBars')}">M</span>
+                <div class="lc-ctrl-sep"></div>
+                <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')}">▶</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')}">⏹</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}">＋</button>
+                <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}">🆕</button>
             </div>
 
             <!-- ── Main area: sidebar + timeline ── -->
@@ -824,8 +809,8 @@ class LoopCreatorModal extends BaseModal {
             const midiInSel = this.$('#lc-midi-in-device');
             if (midiInSel) {
                 const prev = midiInSel.value;
-                midiInSel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` +
-                    this.devices.map(d => `<option value="${this.escape(d.id)}">${this.escape(d.name || d.id)}</option>`).join('');
+                midiInSel.innerHTML = `<option value="">IN:—</option>` +
+                    this.devices.map(d => `<option value="${this.escape(d.id)}">IN: ${this.escape(d.name || d.id)}</option>`).join('');
                 if (prev) midiInSel.value = prev;
             }
             // Instrument output selector
