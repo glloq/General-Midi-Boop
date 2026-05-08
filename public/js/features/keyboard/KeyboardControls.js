@@ -160,12 +160,10 @@
             return;
         }
 
-        // Velocity: visible whenever a device is selected — hide only when
-        // the instrument explicitly declares no playable notes at all (no range
-        // AND no discrete list). A null range means "all notes" and must show.
-        const noNotes = caps.note_selection_mode === 'range'
-            && caps.note_range_min === null && caps.note_range_min === undefined
-            && caps.note_range_max === null && caps.note_range_max === undefined
+        // Velocity: always visible when a device is selected. Hide only when
+        // the instrument is in discrete mode with an empty note list (truly no
+        // playable notes). A null range means "all notes" and must show velocity.
+        const noNotes = caps.note_selection_mode === 'discrete'
             && (!Array.isArray(caps.selected_notes) || caps.selected_notes.length === 0);
         velocityPanel.classList.toggle('slider-hidden', !!noNotes);
 
@@ -412,7 +410,8 @@
 
             if (virtualEnabled) {
                 try {
-                    const capsResponse = await this.backend.sendCommand('instrument_list_capabilities');
+                    // Reuse the capabilities already fetched above — no extra API call needed.
+                    const capsResponse = capsResp;
                     if (capsResponse && capsResponse.instruments) {
                         const existingIds = new Set(this.devices.map(d => d.id || d.device_id));
                         for (const dbInst of capsResponse.instruments) {
