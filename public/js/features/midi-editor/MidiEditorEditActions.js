@@ -874,11 +874,13 @@
 
     setupKeyboardShortcuts() {
         this.modal.keyboardHandler = (e) => {
-    // Escape closes the modal — but not if a sub-dialog is currently open
+    // Escape closes the modal — but not if a sub-dialog is currently open.
+    // Use .visible for dialogs that fade-out (opacity:0 + pointer-events:none
+    // while fading) so a dismissing dialog doesn't block the editor close.
             if (e.key === 'Escape') {
                 const hasOpenOverlay = document.querySelector(
-                    '.confirm-modal-overlay, .rename-dialog-overlay, ' +
-                    '.unsaved-changes-modal, .file-info-modal-overlay'
+                    '.confirm-modal-overlay.visible, .rename-dialog-overlay, ' +
+                    '.unsaved-changes-modal, .file-info-modal-overlay.visible'
                 );
                 if (!hasOpenOverlay) {
                     this.modal.close();
