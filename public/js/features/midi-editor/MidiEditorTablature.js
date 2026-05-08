@@ -810,11 +810,6 @@
                     btn.dataset.channel = ch;
                     btn.title = this.modal.t('drumPattern.toggleEditor');
                     btn.textContent = this.modal.t('midiEditor.drumButton');
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        this._openDrumPatternForChannel(ch);
-                    });
                     group.appendChild(btn);
                 }
                 return;
@@ -844,11 +839,6 @@
                 btn.dataset.color = color;
                 btn.title = this.modal.t('tablature.tabButton', { instrument: channelInfo?.instrument || this.modal.t('stringInstrument.string') });
                 btn.textContent = this.modal.t('midiEditor.tabButton');
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this._openTablatureForChannel(ch);
-                });
                 group.appendChild(btn);
             } else if (!isStringInstrument && existingTabBtn) {
     // Remove TAB button: not a string instrument or routing overrides GM type
@@ -867,11 +857,6 @@
                     windBtn.dataset.channel = ch;
                     windBtn.title = this.modal.t('windEditor.windEditorTitle', { name: WindInstrumentDatabase.getPresetByProgram(effectiveProgram)?.name || this.modal.t('windEditor.icon') });
                     windBtn.textContent = this.modal.t('midiEditor.windButton');
-                    windBtn.addEventListener('click', (ev) => {
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        this._openWindEditorForChannel(ch);
-                    });
                     group.appendChild(windBtn);
                 } else if (!isWind && existingWindBtn) {
                     existingWindBtn.remove();
@@ -890,11 +875,6 @@
                 editBtn.dataset.channel = ch;
                 editBtn.title = this.modal.t('midiEditor.editChannel');
                 editBtn.textContent = this.modal.t('midiEditor.editButton');
-                editBtn.addEventListener('click', (ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    this._openPianoRollForChannel(ch);
-                });
                 group.appendChild(editBtn);
             } else if ((hasTab || hasWind || hasDrum) && existingEditBtn) {
                 existingEditBtn.remove();

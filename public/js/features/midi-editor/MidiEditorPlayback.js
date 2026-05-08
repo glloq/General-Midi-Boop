@@ -11,7 +11,10 @@
 //   - MidiSynthesizer integration
 // ============================================================================
 
-class MidiEditorPlayback {
+(function() {
+    'use strict';
+
+    class MidiEditorPlayback {
     constructor(modal) {
         this.modal = modal;
     }
@@ -583,14 +586,7 @@ class MidiEditorPlayback {
     }
 }
 
-// ============================================================================
-// EXPORT
-// ============================================================================
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = MidiEditorPlayback;
-}
-
-if (typeof window !== 'undefined') {
-    window.MidiEditorPlayback = MidiEditorPlayback;
-}
+    if (typeof window !== 'undefined') {
+        window.MidiEditorPlayback = MidiEditorPlayback;
+    }
+})();

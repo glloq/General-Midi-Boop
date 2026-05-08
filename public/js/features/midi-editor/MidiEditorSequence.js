@@ -197,12 +197,12 @@
 
             if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible) {
                 this.modal.tablatureEditor.hide();
-                this.modal._updateTabButtonState(false);
+                this.modal.tablatureOps._updateTabButtonState(false);
             }
 
             if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible) {
                 this.modal.drumPatternEditor.hide();
-                this.modal._updateDrumButtonState(false);
+                this.modal.tablatureOps._updateDrumButtonState(false);
             }
 
             this.updateSequenceFromActiveChannels(previousActiveChannels);
@@ -215,7 +215,7 @@
 
             this.modal.ccPicker.updateCCEditorChannel();
             this.modal.syncMutedChannels();
-            this.modal._updateChannelDisabledVisual(channel);
+            this.modal.tablatureOps._updateChannelDisabledVisual(channel);
 
             // Sync popover checkbox if open for this channel
             if (this.modal._channelSettingsOpen === channel && this.modal._channelSettingsPopoverEl) {
@@ -224,7 +224,7 @@
             }
 
             if (this.modal.channelPlayableHighlights.size > 0) {
-                this.modal._syncPianoRollHighlights();
+                this.modal.tablatureOps._syncPianoRollHighlights();
             }
         }
 

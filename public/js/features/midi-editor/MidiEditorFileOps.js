@@ -380,6 +380,7 @@
     // Synchronize data from piano roll
             this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
             this.modal.ccPicker.syncCCEventsFromEditor();
+            this.modal.ccPicker.syncTempoEventsFromEditor();
             this.modal.ccPicker.updateChannelsFromSequence();
 
             this.modal.log('info', `Saving ${this.modal.fullSequence.length} notes across ${this.modal.channels.length} channels`);

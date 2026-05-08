@@ -208,8 +208,8 @@
             return;
         }
 
-    // Get the current cursor position
-        const currentTime = this.modal.pianoRoll.xoffset || 0;
+    // Get the current cursor (playhead) position
+        const currentTime = this.modal.pianoRoll.cursor || 0;
 
     // Use the piano roll's method
         this.modal.pianoRoll.pasteNotes(this.modal.clipboard, currentTime);
@@ -874,7 +874,13 @@
 
     setupKeyboardShortcuts() {
         this.modal.keyboardHandler = (e) => {
-    // Skip when focus is inside an input/textarea
+    // Escape closes the modal regardless of focus
+            if (e.key === 'Escape') {
+                this.modal.close();
+                return;
+            }
+
+    // Skip remaining shortcuts when focus is inside an input/textarea
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }

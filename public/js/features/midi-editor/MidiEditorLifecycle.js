@@ -261,12 +261,6 @@
             this.modal._resizeStopResize = null;
         }
 
-    // Remove the escape listener
-        if (this.modal.escapeHandler) {
-            document.removeEventListener('keydown', this.modal.escapeHandler);
-            this.modal.escapeHandler = null;
-        }
-
     // Retirer les raccourcis clavier
         if (this.modal.keyboardHandler) {
             document.removeEventListener('keydown', this.modal.keyboardHandler);
@@ -331,7 +325,7 @@
 
     showNotification(message, type = 'info') {
         if (window.app?.notifications) {
-            window.app.notifications.show('Éditeur MIDI', message, type, 3000);
+            window.app.notifications.show(this.modal.t('midiEditor.title'), message, type, 3000);
         } else {
             this.log('info', message);
         }

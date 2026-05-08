@@ -480,13 +480,7 @@
     // Attach events
         this.modal.events.attachEvents();
 
-    // Close with Escape
-        this.modal.escapeHandler = (e) => {
-            if (e.key === 'Escape') this.modal.close();
-        };
-        document.addEventListener('keydown', this.modal.escapeHandler);
-
-    // Raccourcis clavier
+    // Keyboard shortcuts (includes Escape → close)
         this.modal.editActions?.setupKeyboardShortcuts();
     }
 
@@ -534,7 +528,7 @@
     // At 480 ticks/beat and 120 BPM: 20s = 9600 ticks
         const ticksPerBeat = this.modal.midiData.header?.ticksPerBeat || 480;
         const twentySeconds = ticksPerBeat * 40; // ~20 seconds at 120 BPM
-        const xrange = Math.max(twentySeconds, Math.min(maxTick, twentySeconds)); // View over the first 20 seconds
+        const xrange = Math.min(maxTick > 0 ? maxTick : twentySeconds, twentySeconds); // View over the first 20s (or less for short files)
 
     // Vertically centered view that keeps every note of visible channels onscreen
         const noteRange = Math.max(24, maxNote - minNote + 4); // +4 note margin instead of +24
@@ -817,13 +811,13 @@
             const promises = [];
             for (const [channel] of this.modal.channelRouting) {
                 if (!this.modal.channelPlayableHighlights.has(channel)) {
-                    promises.push(this.modal._toggleChannelPlayableHighlight(channel));
+                    promises.push(this.modal.tablatureOps._toggleChannelPlayableHighlight(channel));
                 }
             }
             await Promise.all(promises);
         } else {
             this.modal.channelPlayableHighlights.clear();
-            this.modal._syncPianoRollHighlights();
+            this.modal.tablatureOps._syncPianoRollHighlights();
         }
 
         this.updateChannelButtons();
