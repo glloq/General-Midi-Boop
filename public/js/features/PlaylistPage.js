@@ -380,11 +380,7 @@ class PlaylistPage {
       this.apiClient.sendCommand('get_file_routings', { fileId: item.midi_id })
         .then(res => {
           const routings = res.routings || [];
-          // C.8: aggregate the worst hand-position feasibility across
-          // every routing of the file so the playlist can show a
-          // single badge per file. Levels are persisted per-routing
-          // by D.1; rows from before that migration carry null and
-          // are reported as 'unknown'.
+          // C.8: aggregate worst hand-position feasibility for the badge.
           const order = { unknown: 0, ok: 1, warning: 2, infeasible: 3 };
           let worst = null;
           for (const r of routings) {
@@ -392,13 +388,27 @@ class PlaylistPage {
             if (!lvl) continue;
             if (worst == null || (order[lvl] || 0) > (order[worst] || 0)) worst = lvl;
           }
-          return { midi_id: item.midi_id, count: routings.length, handLevel: worst };
+          return {
+            midi_id: item.midi_id,
+            count: routings.length,
+            handLevel: worst,
+            // New summary fields from enhanced get_file_routings response.
+            status: res.status || (routings.length > 0 ? 'playable' : 'unrouted'),
+            routedCount: res.routedCount ?? routings.length,
+            channelCount: res.channelCount ?? routings.length,
+            avgScore: res.avgScore ?? null,
+            transpositions: res.transpositions || [],
+          };
         })
-        .catch(() => ({ midi_id: item.midi_id, count: 0, handLevel: null }))
+        .catch(() => ({
+          midi_id: item.midi_id, count: 0, handLevel: null,
+          status: 'unrouted', routedCount: 0, channelCount: 0,
+          avgScore: null, transpositions: [],
+        }))
     );
 
     Promise.all(routingChecks).then(results => {
-      const routingMap = new Map(results.map(r => [r.midi_id, { count: r.count, handLevel: r.handLevel }]));
+      const routingMap = new Map(results.map(r => [r.midi_id, r]));
       this._renderPlaylistItemsWithRouting(container, routingMap);
     });
   }
@@ -410,14 +420,9 @@ class PlaylistPage {
    * @private
    */
   _renderHandFeasibilityBadge(level) {
-    if (!level || level === 'unknown' || level === 'ok') {
-      // 'ok' intentionally renders nothing — green dots would compete
-      // with the existing green routing dot. Keep the column quiet
-      // unless something is actually wrong.
-      return '';
-    }
+    if (!level || level === 'unknown' || level === 'ok') return '';
     const t = (k, fb) => (window.i18n?.t ? (window.i18n.t(k) || fb) : fb);
-    const colors = { warning: '#f59e0b', infeasible: '#ef4444' };
+    const colors = { warning: 'var(--status-warning, #f39c12)', infeasible: 'var(--status-critical, #e8365d)' };
     const titles = {
       warning:    t('handPosition.badgeWarning',    'Hand-position warning'),
       infeasible: t('handPosition.badgeInfeasible', 'Hand-position infeasible')
@@ -428,22 +433,80 @@ class PlaylistPage {
       style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:3px;background:${colors[level]};color:white;font-size:10px;font-weight:bold;flex-shrink:0;">${glyph}</span>`;
   }
 
+  /**
+   * Render the routing status indicator group (score + 3 icons).
+   * Format: [score%] [🎵✓/⚠/✗] [📢✓/⚠/✗] [↕+N] — replaces the old binary dot.
+   * @private
+   */
+  _renderRoutingStatusIndicator(entry) {
+    if (!entry) {
+      return `<span title="Checking…" style="font-size:11px;color:var(--status-none,#8c8c8c);">…</span>`;
+    }
+
+    const { status, routedCount, channelCount, avgScore, transpositions } = entry;
+
+    // Score color: ≥70% green, 40–69% orange, <40% red, null = none.
+    const scoreColor = avgScore === null
+      ? 'var(--status-none,#8c8c8c)'
+      : avgScore >= 70 ? 'var(--status-ok,#27ae60)'
+      : avgScore >= 40 ? 'var(--status-warning,#f39c12)'
+      : 'var(--status-critical,#e8365d)';
+
+    const scorePart = avgScore !== null
+      ? `<span style="font-weight:700;color:${scoreColor};font-size:11px;">${avgScore}%</span>`
+      : `<span style="font-size:11px;color:var(--status-none,#8c8c8c);">—</span>`;
+
+    // 🎵 notes indicator: based on score level.
+    const notesGlyph = avgScore === null
+      ? '✗'
+      : avgScore >= 70 ? '✓'
+      : avgScore >= 40 ? '⚠'
+      : '✗';
+    const notesColor = avgScore === null
+      ? 'var(--status-none,#8c8c8c)'
+      : avgScore >= 70 ? 'var(--status-ok,#27ae60)'
+      : avgScore >= 40 ? 'var(--status-warning,#f39c12)'
+      : 'var(--status-critical,#e8365d)';
+    const notesTooltip = avgScore === null
+      ? 'No note coverage data'
+      : avgScore >= 70 ? 'Notes: all in playable range'
+      : avgScore >= 40 ? 'Notes: partial coverage'
+      : 'Notes: poor coverage';
+    const notesPart = `<span title="${notesTooltip}" style="font-size:11px;color:${notesColor};white-space:nowrap;">🎵${notesGlyph}</span>`;
+
+    // 📢 channels indicator: based on routedCount vs channelCount.
+    let chGlyph, chColor, chTooltip;
+    if (status === 'unrouted' || routedCount === 0) {
+      chGlyph = '✗'; chColor = 'var(--status-critical,#e8365d)';
+      chTooltip = 'Channels: no routing configured';
+    } else if (status === 'partial') {
+      chGlyph = '⚠'; chColor = 'var(--status-warning,#f39c12)';
+      chTooltip = `Channels: ${routedCount}/${channelCount} assigned`;
+    } else {
+      chGlyph = '✓'; chColor = 'var(--status-ok,#27ae60)';
+      chTooltip = `Channels: all ${routedCount} assigned`;
+    }
+    const chPart = `<span title="${chTooltip}" style="font-size:11px;color:${chColor};white-space:nowrap;">📢${chGlyph}</span>`;
+
+    // ↕ transposition: gray, shown only if any non-zero transposition.
+    let transPart = '';
+    if (transpositions && transpositions.length > 0) {
+      const val = transpositions[0];
+      const sign = val > 0 ? '+' : '';
+      const label = transpositions.length > 1 ? `↕${sign}${val}…` : `↕${sign}${val}`;
+      const allVals = transpositions.map(t => (t > 0 ? `+${t}` : `${t}`)).join(', ');
+      transPart = `<span title="Transposition applied: ${allVals} semitones" style="font-size:11px;color:var(--status-info,#6b7280);white-space:nowrap;">${label}</span>`;
+    }
+
+    return `<span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">${scorePart}${notesPart}${chPart}${transPart}</span>`;
+  }
+
   _renderPlaylistItemsWithRouting(container, routingMap) {
     container.innerHTML = this.playlistItems.map((item, index) => {
-      const entry = routingMap.get(item.midi_id);
-      // Backward compat: older callers stored a bare count number.
-      const routingCount = (entry && typeof entry === 'object') ? entry.count : entry;
-      const handLevel = (entry && typeof entry === 'object') ? entry.handLevel : null;
-
-      let routingDot = '';
-      if (routingCount === undefined) {
-        routingDot = '<span title="Checking..." style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#adb5bd;flex-shrink:0;"></span>';
-      } else if (routingCount > 0) {
-        routingDot = `<span title="Routed (${routingCount} ch)" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#28a745;flex-shrink:0;"></span>`;
-      } else {
-        routingDot = '<span title="Not routed" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc3545;flex-shrink:0;"></span>';
-      }
+      const entry = routingMap.get(item.midi_id) || null;
+      const handLevel = entry?.handLevel ?? null;
       const handBadge = this._renderHandFeasibilityBadge(handLevel);
+      const statusIndicator = this._renderRoutingStatusIndicator(entry);
 
       return `
         <div class="playlist-file-item" data-item-id="${item.id}" data-position="${item.position}"
@@ -451,7 +514,7 @@ class PlaylistPage {
              style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;border:1px solid var(--border-color, #dee2e6);background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);cursor:grab;transition:all 0.2s;">
           <span class="file-drag-handle" style="cursor:grab;opacity:0.4;">⠿</span>
           <span style="background:var(--accent-primary, #667eea);color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
-          ${routingDot}
+          ${statusIndicator}
           ${handBadge}
           <div style="flex:1;min-width:0;">
             <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary, #2c3e50);">${this._escapeHtml(item.filename)}</div>

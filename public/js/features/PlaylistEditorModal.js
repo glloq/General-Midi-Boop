@@ -180,14 +180,17 @@ class PlaylistEditorModal extends BaseModal {
     // Batch check routing for all files
     const checks = files.map(f =>
       this.apiClient.sendCommand('get_file_routings', { fileId: f.id })
-        .then(res => ({ id: f.id, count: (res.routings || []).length }))
-        .catch(() => ({ id: f.id, count: 0 }))
+        .then(res => ({ id: f.id, count: (res.routings || []).length, status: res.status }))
+        .catch(() => ({ id: f.id, count: 0, status: 'unrouted' }))
     );
 
     const results = await Promise.all(checks);
     this.routingStatusMap.clear();
     for (const r of results) {
-      this.routingStatusMap.set(r.id, r.count > 0 ? 'routed' : 'unrouted');
+      // Store the full status from the enhanced get_file_routings response.
+      // Falls back to binary logic for older API responses.
+      const status = r.status || (r.count > 0 ? 'routed' : 'unrouted');
+      this.routingStatusMap.set(r.id, status);
     }
   }
 
@@ -208,15 +211,17 @@ class PlaylistEditorModal extends BaseModal {
     if (this.searchQuery) {
       files = files.filter(f => (f.filename || '').toLowerCase().includes(this.searchQuery));
     }
+    const isStatusRouted = (s) => s && s !== 'unrouted';
+
     if (this.showRoutedOnly) {
-      files = files.filter(f => this.routingStatusMap.get(f.id) === 'routed');
+      files = files.filter(f => isStatusRouted(this.routingStatusMap.get(f.id)));
     }
 
     const addedIds = new Set(this.playlistItems.map(i => i.midi_id));
 
     if (countEl) {
       const totalCount = files.length;
-      const routedCount = files.filter(f => this.routingStatusMap.get(f.id) === 'routed').length;
+      const routedCount = files.filter(f => isStatusRouted(this.routingStatusMap.get(f.id))).length;
       countEl.textContent = this.showRoutedOnly
         ? `${totalCount} routed file(s)`
         : `${totalCount} file(s) (${routedCount} routed)`;
@@ -229,12 +234,19 @@ class PlaylistEditorModal extends BaseModal {
 
     container.innerHTML = files.map(f => {
       const isAdded = addedIds.has(f.id);
-      const isRouted = (this.routingStatusMap.get(f.id) || 'unrouted') === 'routed';
-      const itemBorder = isAdded ? '#28a745' : 'var(--border-color, #dee2e6)';
-      const itemBg = isAdded ? 'rgba(40,167,69,0.08)' : 'var(--bg-secondary, #fff)';
-      const dot = isRouted
-        ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#28a745;flex-shrink:0;" title="Routed"></span>'
-        : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc3545;flex-shrink:0;" title="Not routed"></span>';
+      const fileStatus = this.routingStatusMap.get(f.id) || 'unrouted';
+      const itemBorder = isAdded ? 'var(--status-ok,#27ae60)' : 'var(--border-color, #dee2e6)';
+      const itemBg = isAdded ? 'var(--status-ok-bg,rgba(39,174,96,0.08))' : 'var(--bg-secondary, #fff)';
+      const dotColor = fileStatus === 'playable'
+        ? 'var(--status-ok,#27ae60)'
+        : (fileStatus === 'partial' || fileStatus === 'routed_incomplete')
+          ? 'var(--status-warning,#f39c12)'
+          : 'var(--status-critical,#e8365d)';
+      const dotTitle = fileStatus === 'playable' ? 'Routed — all channels'
+        : fileStatus === 'routed_incomplete' ? 'Routed — low compatibility'
+        : fileStatus === 'partial' ? 'Partially routed'
+        : 'Not routed';
+      const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
 
       return `
         <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid ${itemBorder};background:${itemBg};color:var(--text-primary, #2c3e50);transition:all 0.15s;">
@@ -271,10 +283,17 @@ class PlaylistEditorModal extends BaseModal {
     }
 
     container.innerHTML = this.playlistItems.map((item, index) => {
-      const isRouted = (this.routingStatusMap.get(item.midi_id) || 'unrouted') === 'routed';
-      const dot = isRouted
-        ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#28a745;flex-shrink:0;" title="Routed"></span>'
-        : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#dc3545;flex-shrink:0;" title="Not routed"></span>';
+      const fileStatus = this.routingStatusMap.get(item.midi_id) || 'unrouted';
+      const dotColor = fileStatus === 'playable'
+        ? 'var(--status-ok,#27ae60)'
+        : (fileStatus === 'partial' || fileStatus === 'routed_incomplete')
+          ? 'var(--status-warning,#f39c12)'
+          : 'var(--status-critical,#e8365d)';
+      const dotTitle = fileStatus === 'playable' ? 'Routed — all channels'
+        : fileStatus === 'routed_incomplete' ? 'Routed — low compatibility'
+        : fileStatus === 'partial' ? 'Partially routed'
+        : 'Not routed';
+      const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
 
       return `
         <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid var(--border-color, #dee2e6);background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);transition:all 0.15s;">
@@ -304,7 +323,10 @@ class PlaylistEditorModal extends BaseModal {
     const statsEl = this.$('#playlistEditorStats');
     if (!statsEl) return;
     const totalDuration = this.playlistItems.reduce((sum, item) => sum + (item.duration || 0), 0);
-    const routedCount = this.playlistItems.filter(i => this.routingStatusMap.get(i.midi_id) === 'routed').length;
+    const routedCount = this.playlistItems.filter(i => {
+      const s = this.routingStatusMap.get(i.midi_id);
+      return s && s !== 'unrouted';
+    }).length;
     statsEl.textContent = `${this.playlistItems.length} file(s) - ${this._formatDuration(totalDuration)} total - ${routedCount} routed`;
   }
 
