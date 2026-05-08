@@ -185,23 +185,38 @@ class LyricsView {
   }
 
   _buildRibbon() {
-    const PPS = LyricsView.PPS;
+    const PPS     = LyricsView.PPS;
+    const MIN_GAP = 12; // minimum px between token right edge and next token left edge
     this._trackEl.innerHTML = '';
 
+    // 1. Insert all spans (hidden) so the browser can measure their widths
     this.lyrics.forEach(item => {
       const span = document.createElement('span');
       span.className = 'lyrics-ribbon-token';
       span.textContent = item.text;
-      span.style.left = `${item.startSec * PPS}px`;
+      span.style.visibility = 'hidden';
+      span.style.left = '0px';
       item._el = span;
       this._trackEl.appendChild(span);
     });
 
-    // Track width = last token end time + some buffer
-    const last = this.lyrics[this.lyrics.length - 1];
-    this._trackEl.style.width = `${(last.endSec + 10) * PPS}px`;
+    // 2. Force layout reflow, then position each span — never overlapping the previous one
+    let prevRight = -Infinity;
+    this.lyrics.forEach(item => {
+      const rawX   = item.startSec * PPS;
+      const w      = item._el.offsetWidth;
+      const finalX = Math.max(rawX, prevRight + MIN_GAP);
+      item._el.style.left       = `${finalX}px`;
+      item._el.style.visibility = '';
+      item._visualLeft = finalX;
+      prevRight = finalX + w;
+    });
 
-    // Reset position to start
+    // 3. Track width = right edge of last token + generous buffer
+    const last = this.lyrics[this.lyrics.length - 1];
+    this._trackEl.style.width = `${last._visualLeft + last._el.offsetWidth + 800}px`;
+
+    // Reset display position
     this._updateRibbon(0);
   }
 
