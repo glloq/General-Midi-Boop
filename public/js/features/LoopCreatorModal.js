@@ -1070,6 +1070,7 @@ class LoopCreatorModal extends BaseModal {
 
     _buildInstrDropdown() {
         const dropdown = this.$('#lc-instr-dropdown');
+        console.log('[LoopCreator] _buildInstrDropdown: dropdown found=', !!dropdown, '| devices=', this.devices.length);
         if (!dropdown) return;
         dropdown.innerHTML = '';
 
@@ -1085,13 +1086,20 @@ class LoopCreatorModal extends BaseModal {
         // MIDI device options — devices are already expanded (1 entry per instrument)
         for (const device of this.devices) {
             const did = device.device_id || device.id;
-            const name = device.displayName || device.name || did;
+            const name = device.displayName || device.name || String(did);
             const ch = device.channel ?? 0;
             const value = `device::${did}::${ch}`;
             const isSelected = this.outputMode === 'device' && this.outputDeviceId === did && this.outputChannel === ch;
             const chLabel = device._multiInstrument ? `Ch${ch + 1}` : '';
-            dropdown.appendChild(this._buildInstrOption(value, name, chLabel, isSelected, device.gm_program, ch));
+            console.log('[LoopCreator]   → adding option:', name, '| did:', did, '| value:', value);
+            try {
+                const btn = this._buildInstrOption(value, name, chLabel, isSelected, device.gm_program, ch);
+                dropdown.appendChild(btn);
+            } catch (err) {
+                console.error('[LoopCreator]   ✗ error building option for', name, err);
+            }
         }
+        console.log('[LoopCreator] dropdown.children.length =', dropdown.children.length);
     }
 
     _buildInstrOption(value, name, chLabel, isSelected, gmProgram, channel) {
