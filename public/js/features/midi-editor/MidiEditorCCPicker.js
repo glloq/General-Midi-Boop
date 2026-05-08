@@ -646,20 +646,26 @@
     updateChannelsFromSequence() {
         const channelNoteCount = new Map();
         const channelPrograms = new Map();
+        const channelExplicit = new Map();
+
+    // Snapshot existing channel metadata before the rebuild so it survives the clear below
+        const existingByChannel = new Map();
+        this.modal.channels.forEach(ch => existingByChannel.set(ch.channel, ch));
 
     // Count notes per channel and preserve existing programs
         this.modal.fullSequence.forEach(note => {
             const channel = note.c !== undefined ? note.c : 0;
             channelNoteCount.set(channel, (channelNoteCount.get(channel) || 0) + 1);
 
-    // Trouver le programme pour ce canal (depuis this.modal.channels existants)
             if (!channelPrograms.has(channel)) {
-                const existingChannel = this.modal.channels.find(ch => ch.channel === channel);
-                if (existingChannel) {
-                    channelPrograms.set(channel, existingChannel.program);
+                const existing = existingByChannel.get(channel);
+                if (existing) {
+                    channelPrograms.set(channel, existing.program);
+                    channelExplicit.set(channel, !!existing.hasExplicitProgram);
                 } else {
-    // New channel: use the selected program
-                    channelPrograms.set(channel, this.modal.selectedInstrument || 0);
+                    const si = this.modal.selectedInstrument;
+                    channelPrograms.set(channel, si || 0);
+                    channelExplicit.set(channel, si !== null && si !== undefined && si !== 0);
                 }
             }
         });
@@ -674,7 +680,8 @@
                 channel: channel,
                 program: program,
                 instrument: instrumentName,
-                noteCount: count
+                noteCount: count,
+                hasExplicitProgram: channelExplicit.get(channel) ?? false
             });
         });
 
