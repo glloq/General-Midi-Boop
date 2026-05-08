@@ -963,87 +963,89 @@ class LoopCreatorModal extends BaseModal {
     }
 
     async _loadDevices() {
+        // Step 1 — raw device list + capabilities in parallel
+        let rawDevices = [];
+        let capsResp   = null;
         try {
-            // Mirror KeyboardControls.loadDevices: parallel fetch + full enrichment
-            const [rawDevices, capsResp] = await Promise.all([
-                this.api.listDevices(),
-                this.api.sendCommand('instrument_list_capabilities').catch(() => null)
-            ]);
-
-            // Build custom_name lookup from capabilities
-            const customNameMap = {};
-            if (capsResp && Array.isArray(capsResp.instruments)) {
-                for (const inst of capsResp.instruments) {
-                    const id = inst.device_id || inst.id;
-                    if (id && inst.custom_name && !customNameMap[id]) {
-                        customNameMap[id] = inst.custom_name;
-                    }
-                }
-            }
-
-            // Active devices only, deduplicated by ID
-            const activeDevices = rawDevices.filter(d => d.status === 2);
-            const uniqueDevices = [];
-            const seenIds = new Set();
-            for (const d of activeDevices) {
-                const key = d.id || d.device_id || d.name;
-                if (!seenIds.has(key)) { seenIds.add(key); uniqueDevices.push(d); }
-            }
-
-            // Expand multi-instrument devices
-            const expanded = [];
-            for (const d of uniqueDevices) {
-                if (d.instruments && d.instruments.length > 0) {
-                    for (const inst of d.instruments) {
-                        expanded.push({
-                            ...d,
-                            channel: inst.channel ?? 0,
-                            displayName: inst.custom_name || inst.name || d.name,
-                            gm_program: inst.gm_program,
-                            _multiInstrument: true
-                        });
-                    }
-                } else {
-                    expanded.push(d);
-                }
-            }
-
-            // Virtual instruments (from DB, if enabled in settings)
-            let virtualEnabled = false;
-            try {
-                const s = localStorage.getItem('gmboop_settings');
-                if (s) virtualEnabled = !!JSON.parse(s).virtualInstrument;
-            } catch (_) {}
-
-            if (virtualEnabled && capsResp?.instruments) {
-                const existingIds = new Set(expanded.map(d => d.id || d.device_id));
-                for (const inst of capsResp.instruments) {
-                    const devId = inst.device_id || inst.id;
-                    if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
-                        expanded.push({
-                            id: devId, device_id: devId,
-                            name: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
-                            displayName: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
-                            status: 2, isVirtual: true,
-                            channel: inst.channel || 0,
-                            gm_program: inst.gm_program
-                        });
-                    }
-                }
-            }
-
-            // Enrich with custom names, normalize id/device_id
-            this.devices = expanded.map(d => {
-                const did = d.id || d.device_id;
-                if (d.isVirtual || d._multiInstrument) return { ...d, id: did, device_id: did };
-                return {
-                    ...d, id: did, device_id: did,
-                    displayName: customNameMap[did] || d.name
-                };
-            });
-        } catch (_) {
-            this.devices = [];
+            const result = await this.api.sendCommand('device_list');
+            rawDevices = result.devices || [];
+        } catch (err) {
+            console.error('[LoopCreator] device_list failed:', err);
         }
+        try {
+            capsResp = await this.api.sendCommand('instrument_list_capabilities');
+        } catch (_) {}
+
+        console.log('[LoopCreator] raw devices:', rawDevices.length, rawDevices.map(d => `${d.name}(status=${d.status},connected=${d.connected})`));
+
+        // Step 2 — active devices: status===2 OR connected flag (CalibrationModal pattern)
+        const activeDevices = rawDevices.filter(d => d.status === 2 || d.connected === true);
+        console.log('[LoopCreator] active devices:', activeDevices.length);
+
+        // Step 3 — deduplicate by ID
+        const uniqueDevices = [];
+        const seenIds = new Set();
+        for (const d of activeDevices) {
+            const key = d.id || d.device_id || d.name;
+            if (!seenIds.has(key)) { seenIds.add(key); uniqueDevices.push(d); }
+        }
+
+        // Step 4 — expand multi-instrument devices (one entry per instrument/channel)
+        const expanded = [];
+        for (const d of uniqueDevices) {
+            if (Array.isArray(d.instruments) && d.instruments.length > 0) {
+                for (const inst of d.instruments) {
+                    expanded.push({
+                        ...d,
+                        channel: inst.channel ?? 0,
+                        displayName: inst.custom_name || inst.name || d.displayName || d.name,
+                        gm_program: inst.gm_program ?? d.gm_program,
+                        _multiInstrument: true
+                    });
+                }
+            } else {
+                expanded.push(d);
+            }
+        }
+
+        // Step 5 — virtual instruments from DB (if enabled in settings)
+        let virtualEnabled = false;
+        try {
+            const s = localStorage.getItem('gmboop_settings');
+            if (s) virtualEnabled = !!JSON.parse(s).virtualInstrument;
+        } catch (_) {}
+        if (virtualEnabled && capsResp?.instruments) {
+            const existingIds = new Set(expanded.map(d => d.id || d.device_id));
+            for (const inst of capsResp.instruments) {
+                const devId = inst.device_id || inst.id;
+                if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
+                    expanded.push({
+                        id: devId, device_id: devId,
+                        name: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
+                        displayName: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
+                        status: 2, connected: true, isVirtual: true,
+                        channel: inst.channel || 0,
+                        gm_program: inst.gm_program
+                    });
+                }
+            }
+        }
+
+        // Step 6 — enrich custom names + normalize id/device_id
+        const customNameMap = {};
+        if (capsResp?.instruments) {
+            for (const inst of capsResp.instruments) {
+                const id = inst.device_id || inst.id;
+                if (id && inst.custom_name && !customNameMap[id]) customNameMap[id] = inst.custom_name;
+            }
+        }
+        this.devices = expanded.map(d => {
+            const did = d.id || d.device_id;
+            if (d.isVirtual || d._multiInstrument) return { ...d, id: did, device_id: did };
+            return { ...d, id: did, device_id: did, displayName: customNameMap[did] || d.displayName || d.name };
+        });
+
+        console.log('[LoopCreator] final instruments:', this.devices.length, this.devices.map(d => d.displayName || d.name));
 
         // Update MIDI In selector
         const midiInSel = this.$('#lc-midi-in-device');
