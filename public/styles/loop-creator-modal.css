@@ -252,14 +252,30 @@
     border-color: var(--accent-color, #4a90d9) !important;
 }
 
-/* ── Piano roll ── */
+/* ── Piano roll area (roll + minimap stacked) ── */
+.lc-pianoroll-area {
+    flex: 1 1 0; min-height: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+}
 .lc-pianoroll-wrap {
-    flex: 1 1 0; min-height: 140px; overflow: hidden; position: relative;
+    flex: 1 1 0; min-height: 120px; overflow: hidden; position: relative;
 }
 .lc-pianoroll-wrap webaudio-pianoroll { display: block; width: 100%; height: 100%; }
 .lc-pianoroll-error {
     display: flex; align-items: center; justify-content: center;
     height: 100%; color: var(--text-secondary, #888); font-size: 0.9rem;
+}
+
+/* ── Minimap ── */
+.lc-minimap {
+    flex-shrink: 0;
+    height: 44px;
+    width: 100%;
+    display: block;
+    cursor: crosshair;
+    border-top: 1px solid var(--border-color, #dde0e6);
+    background: var(--bg-tertiary, #eef0f4);
+    user-select: none;
 }
 
 /* ── Mini keyboard ── */
@@ -472,3 +488,4 @@ body.theme-dark .la-arr-item--active { background: #1c1c40; }
 body.theme-dark .la-arr-name  { color: #eee; }
 body.theme-dark .lc-key-white { background: #e4e4f0; }
 body.theme-dark .lc-key-black { background: #111120; }
+body.theme-dark .lc-minimap   { background: #0f0f22; border-color: #333355; }
