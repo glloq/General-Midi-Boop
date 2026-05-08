@@ -110,7 +110,8 @@
         body.theme-dark .btn-instruments-toggle,
         body.theme-dark .btn-calibration-toggle,
         body.theme-dark .btn-lighting-toggle,
-        body.theme-dark .btn-playlist-toggle {
+        body.theme-dark .btn-playlist-toggle,
+        body.theme-dark .btn-loop-creator-toggle {
             background: #3d3d3d;
             border-color: #4d4d4d;
             color: #ffffff;
@@ -1195,6 +1196,30 @@
             background: #667eea;
             border-color: #667eea;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-loop-creator-toggle {
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            z-index: 10;
+            letter-spacing: -1px;
+        }
+        .btn-loop-creator-toggle:hover {
+            background: #10b981;
+            border-color: #10b981;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .btn-lighting-toggle {
@@ -5329,6 +5354,7 @@
     <link rel="stylesheet" href="styles/tuner-modal.css">
     <link rel="stylesheet" href="styles/playlist.css">
     <link rel="stylesheet" href="styles/modal-playlist.css">
+    <link rel="stylesheet" href="styles/loop-creator-modal.css">
     <link rel="stylesheet" href="styles/settings-modal.css">
     <link rel="stylesheet" href="styles/keyboard-hand-position-editor.css">
 </head>
@@ -5460,6 +5486,10 @@
 
                 <button class="btn-playlist-toggle" id="playlistBtn" data-i18n-title="playlist.title" title="Playlists" aria-label="Playlists">
                     🎶
+                </button>
+
+                <button class="btn-loop-creator-toggle" id="loopCreatorBtn" data-i18n-title="loopCreator.title" title="Loop Creator" aria-label="Loop Creator">
+                    ∞
                 </button>
 
                 <button class="btn-lighting-toggle" id="lightingBtn" data-i18n-title="lighting.title" title="Contrôle Lumière" aria-label="Lighting control">
@@ -6050,6 +6080,9 @@
 
     <!-- Tuner Modal Component -->
     <script src="js/features/TunerModal.js"></script>
+
+    <!-- Loop Creator Modal -->
+    <script src="js/features/LoopCreatorModal.js"></script>
 
     <!-- Network Scan Modal Component -->
     <script src="js/features/NetworkScanModal.js"></script>
@@ -12450,6 +12483,12 @@
         const calibrationModal = new CalibrationModal(api, window.eventBus);
         document.getElementById('calibrationBtn').addEventListener('click', () => {
             calibrationModal.open();
+        });
+
+        // Loop Creator (∞)
+        const loopCreatorModal = new LoopCreatorModal(api, window.eventBus);
+        document.getElementById('loopCreatorBtn').addEventListener('click', () => {
+            loopCreatorModal.open();
         });
 
         // Event listeners pour les contrôles du header

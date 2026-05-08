@@ -20,6 +20,7 @@ import StringInstrumentDatabase from './tables/StringInstrumentDatabase.js';
 import DeviceSettingsDB from './tables/DeviceSettingsDB.js';
 import BankEffectsDB from './tables/BankEffectsDB.js';
 import CustomSF2DB from './tables/CustomSF2DB.js';
+import LoopsDB from './tables/LoopsDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,6 +47,7 @@ class DatabaseManager {
     this.deviceSettingsDB = null;
     this.bankEffectsDB = null;
     this.customSF2DB = null;
+    this.loopsDB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -58,6 +60,7 @@ class DatabaseManager {
     this.deviceSettingsDB = new DeviceSettingsDB(this.db, this.logger);
     this.bankEffectsDB = new BankEffectsDB(this.db, this.logger);
     this.customSF2DB = new CustomSF2DB(this.db, this.logger);
+    this.loopsDB = new LoopsDB(this.db, this.logger);
 
     this.logger.info('Database initialized');
   }
@@ -888,6 +891,14 @@ class DatabaseManager {
       throw error;
     }
   }
+
+  // ==================== LOOPS ====================
+
+  insertLoop(loop) { return this.loopsDB.insertLoop(loop); }
+  getLoop(id) { return this.loopsDB.getLoop(id); }
+  getLoops() { return this.loopsDB.getLoops(); }
+  updateLoop(id, fields) { return this.loopsDB.updateLoop(id, fields); }
+  deleteLoop(id) { return this.loopsDB.deleteLoop(id); }
 
   getStats() {
     try {

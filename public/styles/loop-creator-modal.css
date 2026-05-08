@@ -1,0 +1,417 @@
+/* ===================================================
+   Loop Creator Modal — loop-creator-modal.css
+   =================================================== */
+
+/* ── Layout root ── */
+.loop-creator-modal .modal-body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.lc-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-secondary, #f4f5f7);
+}
+
+/* ── Zone 1 : Editor ── */
+.lc-editor {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    background: var(--bg-primary, #fff);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.lc-editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary, #f8f9fa);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    flex-wrap: wrap;
+}
+
+.lc-toolbar-left  { display: flex; align-items: center; gap: 6px; flex: 1 1 180px; }
+.lc-toolbar-center { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lc-toolbar-right { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+
+.lc-name-input {
+    font-size: 1rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-primary, #333);
+    padding: 4px 6px;
+    border-radius: 4px;
+    min-width: 120px;
+    max-width: 220px;
+    transition: border-color 0.15s;
+}
+.lc-name-input:focus {
+    outline: none;
+    border-color: var(--accent-color, #4a90d9);
+    background: var(--bg-primary, #fff);
+}
+
+.lc-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #666);
+    white-space: nowrap;
+}
+
+.lc-unit {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #666);
+}
+
+.lc-spinbox {
+    display: flex;
+    align-items: center;
+}
+
+.lc-spin-btn {
+    width: 22px;
+    height: 26px;
+    border: 1px solid var(--border-color, #ccc);
+    background: var(--bg-secondary, #f4f5f7);
+    color: var(--text-primary, #333);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+}
+.lc-spin-btn:first-child { border-radius: 4px 0 0 4px; }
+.lc-spin-btn:last-child  { border-radius: 0 4px 4px 0; }
+.lc-spin-btn:hover { background: var(--accent-color, #4a90d9); color: #fff; }
+
+.lc-spin-input {
+    width: 44px;
+    height: 26px;
+    border: 1px solid var(--border-color, #ccc);
+    border-left: none;
+    border-right: none;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-primary, #333);
+    background: var(--bg-primary, #fff);
+    -moz-appearance: textfield;
+}
+.lc-spin-input::-webkit-inner-spin-button,
+.lc-spin-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.lc-spin-input:focus { outline: none; background: var(--bg-secondary, #f4f5f7); }
+
+.lc-select {
+    height: 26px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #333);
+    font-size: 0.82rem;
+    padding: 0 4px;
+    cursor: pointer;
+}
+.lc-select:focus { outline: 1px solid var(--accent-color, #4a90d9); }
+
+/* ── Buttons ── */
+.lc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 5px;
+    background: var(--bg-secondary, #f4f5f7);
+    color: var(--text-primary, #333);
+    font-size: 0.83rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.lc-btn:hover  { background: var(--bg-hover, #e8ecf0); border-color: var(--accent-color, #4a90d9); }
+.lc-btn:active { transform: translateY(1px); }
+
+.lc-btn-primary {
+    background: var(--accent-color, #4a90d9);
+    color: #fff;
+    border-color: var(--accent-color, #4a90d9);
+}
+.lc-btn-primary:hover { background: var(--accent-hover, #357abd); border-color: var(--accent-hover, #357abd); }
+
+.lc-btn-icon {
+    padding: 4px 8px;
+    font-size: 1rem;
+    min-width: 30px;
+    justify-content: center;
+}
+
+.lc-btn-record { color: #c0392b; border-color: #c0392b; }
+.lc-btn-record:hover { background: #c0392b; color: #fff; }
+.lc-btn-record--active { background: #c0392b !important; color: #fff !important; }
+
+/* ── Piano roll wrapper ── */
+.lc-pianoroll-wrap {
+    flex: 1 1 0;
+    min-height: 200px;
+    overflow: hidden;
+    position: relative;
+}
+.lc-pianoroll-wrap webaudio-pianoroll {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.lc-pianoroll-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary, #888);
+    font-size: 0.9rem;
+}
+
+/* ── Zone 2 : Keyboard ── */
+.lc-keyboard-zone {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-primary, #fff);
+}
+
+.lc-transport {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-tertiary, #f8f9fa);
+}
+.lc-transport-left, .lc-transport-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Recording indicator */
+.lc-rec-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #c0392b;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.lc-rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c0392b;
+    display: inline-block;
+}
+.lc-rec-dot--pulse {
+    animation: lc-pulse 0.7s infinite alternate;
+}
+@keyframes lc-pulse {
+    from { opacity: 1; }
+    to   { opacity: 0.2; }
+}
+
+/* ── Mini Piano Keyboard ── */
+.lc-keyboard-wrap {
+    padding: 8px 12px 10px;
+    overflow-x: auto;
+}
+
+.lc-keyboard {
+    position: relative;
+    height: 80px;
+    min-width: 600px;
+    user-select: none;
+}
+
+.lc-key {
+    position: absolute;
+    height: 100%;
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 0 0 4px 4px;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: background 0.05s;
+}
+
+.lc-key-white {
+    background: var(--key-white-bg, #fdfdfd);
+    z-index: 1;
+}
+.lc-key-white:hover { background: var(--key-white-hover, #e8f0ff); }
+.lc-key-white.lc-key--active { background: var(--accent-color, #4a90d9) !important; }
+
+.lc-key-black {
+    background: var(--key-black-bg, #2a2a2a);
+    height: 55%;
+    z-index: 2;
+    border-color: transparent;
+    border-radius: 0 0 3px 3px;
+}
+.lc-key-black:hover { background: var(--key-black-hover, #444); }
+.lc-key-black.lc-key--active { background: var(--accent-color, #4a90d9) !important; }
+
+/* ── Zone 3 : Library ── */
+.lc-library {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    overflow: hidden;
+    background: var(--bg-secondary, #f4f5f7);
+}
+
+.lc-library-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-tertiary, #f8f9fa);
+}
+
+.lc-library-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    margin: 0;
+}
+
+.lc-library-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+    overflow-y: auto;
+    flex: 1 1 0;
+    align-content: flex-start;
+}
+
+.lc-library-empty {
+    color: var(--text-secondary, #888);
+    font-size: 0.87rem;
+    padding: 20px 0;
+    width: 100%;
+    text-align: center;
+}
+
+/* Loop cards */
+.lc-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 160px;
+    min-height: 80px;
+    border: 1px solid var(--border-color, #dde0e6);
+    border-radius: 8px;
+    padding: 10px 12px 8px;
+    background: var(--bg-primary, #fff);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.lc-card:hover {
+    border-color: var(--accent-color, #4a90d9);
+    box-shadow: 0 2px 8px rgba(74,144,217,0.15);
+}
+.lc-card--active {
+    border-color: var(--accent-color, #4a90d9);
+    background: var(--accent-light, #eef4fd);
+}
+
+.lc-card-name {
+    font-size: 0.87rem;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+}
+.lc-card-meta {
+    font-size: 0.72rem;
+    color: var(--text-secondary, #888);
+    margin-bottom: 6px;
+}
+.lc-card-actions {
+    display: flex;
+    gap: 4px;
+}
+.lc-card-btn {
+    padding: 2px 6px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.78rem;
+    transition: background 0.12s;
+}
+.lc-card-btn:hover { background: var(--bg-hover, #e8ecf0); }
+.lc-card-btn--danger:hover { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+
+/* ── Footer ── */
+.loop-creator-modal .modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    gap: 10px;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-tertiary, #f8f9fa);
+}
+.lc-footer-left  { display: flex; align-items: center; }
+.lc-footer-right { display: flex; align-items: center; gap: 8px; }
+
+.lc-status {
+    font-size: 0.82rem;
+    color: var(--text-secondary, #666);
+    font-style: italic;
+}
+
+/* ── Utility ── */
+.hidden { display: none !important; }
+
+/* ── Dark theme overrides ── */
+body.theme-dark .lc-layout,
+body.theme-dark .lc-editor,
+body.theme-dark .lc-keyboard-zone,
+body.theme-dark .lc-library {
+    background: var(--bg-primary-dark, #1a1a2e);
+}
+body.theme-dark .lc-editor-toolbar,
+body.theme-dark .lc-transport,
+body.theme-dark .lc-library-header {
+    background: var(--bg-tertiary-dark, #12122a);
+    border-color: var(--border-dark, #333355);
+}
+body.theme-dark .lc-layout { background: var(--bg-secondary-dark, #14142a); }
+body.theme-dark .lc-name-input { color: var(--text-dark, #eee); }
+body.theme-dark .lc-name-input:focus { background: var(--bg-tertiary-dark, #12122a); }
+body.theme-dark .lc-spin-btn  { background: var(--bg-secondary-dark, #14142a); color: var(--text-dark, #eee); border-color: #333355; }
+body.theme-dark .lc-spin-input { background: var(--bg-primary-dark, #1a1a2e); color: var(--text-dark, #eee); border-color: #333355; }
+body.theme-dark .lc-select    { background: var(--bg-primary-dark, #1a1a2e); color: var(--text-dark, #eee); border-color: #333355; }
+body.theme-dark .lc-btn       { background: var(--bg-secondary-dark, #14142a); color: var(--text-dark, #eee); border-color: #333355; }
+body.theme-dark .lc-btn:hover { background: #1e1e38; }
+body.theme-dark .lc-key-white { background: #e8e8f0; }
+body.theme-dark .lc-key-black { background: #111120; }
+body.theme-dark .lc-card      { background: var(--bg-secondary-dark, #14142a); border-color: #333355; }
+body.theme-dark .lc-card--active { background: #1c1c40; }
+body.theme-dark .lc-card-name { color: var(--text-dark, #eee); }
+body.theme-dark .loop-creator-modal .modal-footer { background: var(--bg-tertiary-dark, #12122a); border-color: #333355; }
