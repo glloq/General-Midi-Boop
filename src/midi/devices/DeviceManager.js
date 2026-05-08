@@ -56,6 +56,8 @@ class DeviceManager {
     this.inputs = new Map();
     this.outputs = new Map();
     this.virtualDevices = new Map();
+    /** Soft virtual devices — no MIDI port, messages logged to debug monitor. */
+    this.softVirtualDevices = new Map();
 
     this.midiAvailable = midiAvailable;
 
@@ -253,7 +255,7 @@ class DeviceManager {
       }
     }
 
-    // Add virtual devices
+    // Add virtual devices (easymidi ports)
     this.virtualDevices.forEach((vdev, name) => {
       this.devices.set(name, {
         id: name,
@@ -262,6 +264,21 @@ class DeviceManager {
         input: vdev.input !== null,
         output: vdev.output !== null,
         enabled: true,
+        connected: true,
+        status: DEVICE_STATUS.CONNECTED,
+        usbSerialNumber: null
+      });
+    });
+
+    // Add soft virtual devices (no MIDI port, debug-monitor sink)
+    this.softVirtualDevices.forEach((vdev, id) => {
+      this.devices.set(id, {
+        id: id,
+        name: vdev.name,
+        type: 'virtual',
+        input: false,
+        output: true,
+        enabled: vdev.enabled,
         connected: true,
         status: DEVICE_STATUS.CONNECTED,
         usbSerialNumber: null
@@ -486,6 +503,31 @@ class DeviceManager {
           return false;
         }
       }
+    }
+
+    // Check soft virtual device — log message to debug monitor instead of hardware
+    const softVirtual = this.softVirtualDevices.get(deviceName);
+    if (softVirtual) {
+      let instrumentName = null;
+      if (this.app.database && data && data.channel !== undefined) {
+        try {
+          const settings = this.app.database.getInstrumentSettings(deviceName, data.channel);
+          if (settings) instrumentName = settings.custom_name || settings.name;
+        } catch (e) { /* optional */ }
+      }
+      this.app.logger.info(`[virtual:${instrumentName || softVirtual.name}] ${type} ${JSON.stringify(data)}`);
+      if (this.app.wsServer) {
+        this.app.wsServer.broadcast('monitor_event', {
+          device: deviceName,
+          instrumentName: instrumentName || softVirtual.name,
+          type: type,
+          data: data,
+          timestamp: Date.now(),
+          direction: 'out',
+          virtual: true
+        });
+      }
+      return true;
     }
 
     this.app.logger.warn(`Output device not found: ${deviceName}`);
@@ -779,6 +821,51 @@ class DeviceManager {
     this.broadcastDeviceList();
 
     this.app.logger.info(`Virtual device deleted: ${name}`);
+  }
+
+  /**
+   * Register a soft virtual device (no MIDI port). MIDI messages sent to
+   * this device are broadcast as monitor events and logged instead of being
+   * forwarded to hardware.
+   *
+   * @param {string} deviceId
+   * @param {{name?:string, type?:string, enabled?:boolean}} opts
+   * @returns {void}
+   */
+  addVirtualDevice(deviceId, opts = {}) {
+    this.softVirtualDevices.set(deviceId, {
+      id: deviceId,
+      name: opts.name || deviceId,
+      type: 'virtual',
+      enabled: opts.enabled !== false
+    });
+    this.devices.set(deviceId, {
+      id: deviceId,
+      name: opts.name || deviceId,
+      type: 'virtual',
+      input: false,
+      output: true,
+      enabled: opts.enabled !== false,
+      connected: true,
+      status: DEVICE_STATUS.CONNECTED,
+      usbSerialNumber: null
+    });
+    this.app.logger.info(`Soft virtual device registered: ${deviceId}`);
+    this.broadcastDeviceList();
+  }
+
+  /**
+   * Unregister a soft virtual device previously added with
+   * {@link DeviceManager#addVirtualDevice}.
+   *
+   * @param {string} deviceId
+   * @returns {void}
+   */
+  removeVirtualDevice(deviceId) {
+    this.softVirtualDevices.delete(deviceId);
+    this.devices.delete(deviceId);
+    this.app.logger.info(`Soft virtual device unregistered: ${deviceId}`);
+    this.broadcastDeviceList();
   }
 
   /**
