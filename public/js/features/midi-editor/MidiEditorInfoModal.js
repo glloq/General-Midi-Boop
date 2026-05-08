@@ -96,6 +96,29 @@
         return `${m}:${s}`;
     }
 
+    /**
+     * Strip KAR-format markers from a lyric token.
+     * KAR embeds chord symbols as %chordName and uses < to separate
+     * chord info from the lyric syllable: e.g. "%F%Gm<Hello world"
+     *   → "Hello world"
+     * Lines starting with @ are KAR metadata (title, artist) → "".
+     * Tokens that are only chord markers (no <) → "".
+     */
+    function stripKarMarkers(text) {
+        if (!text) return '';
+        // Skip KAR metadata lines (@LENGL, @T title, etc.)
+        if (text.startsWith('@')) return '';
+        // If token contains <, the lyric syllable is everything after it
+        if (text.includes('<')) {
+            text = text.slice(text.indexOf('<') + 1);
+        } else if (text.startsWith('%')) {
+            // Pure chord marker — no lyric syllable
+            return '';
+        }
+        // Strip any trailing/embedded %chord tokens
+        return text.replace(/%[A-Za-z0-9#b+°øΔ/-]+/g, '').trim();
+    }
+
     // ── Classe principale ─────────────────────────────────────────────────── //
 
     class MidiEditorInfoModal {
@@ -559,8 +582,10 @@
                 const verseBreakChar = /^[\n\/\\]|[\n\/\\]$/.test(text);
                 const lineBreakChar  = /^\r|\r$/.test(text);
 
-                // Nettoyer le texte (retirer marqueurs de rupture et caractères de contrôle)
-                const clean = text.replace(/[\r\n\/\\]/g, '').replace(/[\x00-\x1f]/g, '').trim();
+                // Nettoyer : ruptures de ligne + caractères de contrôle + marqueurs KAR (%chord<)
+                const clean = stripKarMarkers(
+                    text.replace(/[\r\n\/\\]/g, '').replace(/[\x00-\x1f]/g, '')
+                );
 
                 // Priorité : grande pause → couplet ; pause moyenne → ligne
                 if (gap > VERSE_GAP || verseBreakChar) {
