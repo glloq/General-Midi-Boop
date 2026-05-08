@@ -810,7 +810,10 @@ class LoopCreatorModal extends BaseModal {
             if (midiInSel) {
                 const prev = midiInSel.value;
                 midiInSel.innerHTML = `<option value="">IN:—</option>` +
-                    this.devices.map(d => `<option value="${this.escape(d.id)}">IN: ${this.escape(d.name || d.id)}</option>`).join('');
+                    this.devices.map(d => {
+                        const did = d.device_id || d.id;
+                        return `<option value="${this.escape(did)}">IN: ${this.escape(d.name || did)}</option>`;
+                    }).join('');
                 if (prev) midiInSel.value = prev;
             }
             // Instrument output selector
@@ -839,19 +842,20 @@ class LoopCreatorModal extends BaseModal {
 
         // MIDI device options
         for (const device of this.devices) {
-            const name = device.displayName || device.name || device.id;
+            const did = device.device_id || device.id;
+            const name = device.displayName || device.name || did;
             if (Array.isArray(device.instruments) && device.instruments.length > 1) {
                 for (const instr of device.instruments) {
                     const ch = instr.channel ?? 0;
-                    const value = `device::${device.id}::${ch}`;
+                    const value = `device::${did}::${ch}`;
                     const label = instr.name ? `${name} — ${instr.name}` : `${name}`;
-                    const isSelected = this.outputMode === 'device' && this.outputDeviceId === device.id && this.outputChannel === ch;
-                    dropdown.appendChild(this._buildInstrOption(value, label, `Ch${ch + 1}`, isSelected, device.gm_program, ch));
+                    const isSelected = this.outputMode === 'device' && this.outputDeviceId === did && this.outputChannel === ch;
+                    dropdown.appendChild(this._buildInstrOption(value, label, `Ch${ch + 1}`, isSelected, instr.gm_program ?? device.gm_program, ch));
                 }
             } else {
                 const ch = device.channel ?? 0;
-                const value = `device::${device.id}::${ch}`;
-                const isSelected = this.outputMode === 'device' && this.outputDeviceId === device.id;
+                const value = `device::${did}::${ch}`;
+                const isSelected = this.outputMode === 'device' && this.outputDeviceId === did;
                 dropdown.appendChild(this._buildInstrOption(value, name, `Ch${ch + 1}`, isSelected, device.gm_program, ch));
             }
         }
@@ -885,7 +889,7 @@ class LoopCreatorModal extends BaseModal {
             return;
         }
 
-        const device = this.devices.find(d => d.id === this.outputDeviceId);
+        const device = this.devices.find(d => (d.device_id || d.id) === this.outputDeviceId);
         const icon = window.InstrumentFamilies?.resolveInstrumentIcon?.({ gmProgram: device?.gm_program, channel: this.outputChannel })
             || { svgUrl: null, emoji: '🎵' };
 
@@ -901,7 +905,7 @@ class LoopCreatorModal extends BaseModal {
             if (svg)   svg.style.display = 'none';
             if (emoji) { emoji.textContent = icon.emoji; emoji.style.display = ''; }
         }
-        nameEl.textContent = (device?.displayName || device?.name || this.outputDeviceId) + ` — Ch${this.outputChannel + 1}`;
+        nameEl.textContent = (device?.displayName || device?.name || device?.device_id || this.outputDeviceId) + ` — Ch${this.outputChannel + 1}`;
     }
 
     _toggleInstrPicker() {
@@ -944,7 +948,7 @@ class LoopCreatorModal extends BaseModal {
         this.outputChannel = channel;
 
         // Use note range from device_list if available, else fetch capabilities
-        const device = this.devices.find(d => d.id === deviceId);
+        const device = this.devices.find(d => (d.device_id || d.id) === deviceId);
         let noteMin = device?.note_range_min ?? null;
         let noteMax = device?.note_range_max ?? null;
         let gmProgram = device?.gm_program ?? 0;
