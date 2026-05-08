@@ -3,7 +3,7 @@
    =================================================== */
 
 /* ── Full screen dialog ── */
-.loop-creator-modal .modal-dialog {
+.modal-dialog.loop-creator-modal {
     max-width: 100vw !important;
     width: 100vw !important;
     height: 100vh !important;
