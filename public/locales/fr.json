@@ -2459,6 +2459,24 @@
     "statusLoaded": "Boucle chargée.",
     "statusNoNotes": "Aucune note à jouer.",
     "statusNoSynth": "Synthétiseur non disponible.",
-    "statusError": "Erreur"
+    "statusError": "Erreur",
+    "tabCreate": "Créer",
+    "tabLibrary": "Boucles",
+    "tabArranger": "Arranger",
+    "midiIn": "MIDI In",
+    "midiInNone": "— Clavier virtuel —",
+    "addTrack": "Ajouter une piste",
+    "deleteTrack": "Supprimer la piste",
+    "deleteBlock": "Supprimer le bloc",
+    "play": "Jouer",
+    "totalBars": "Durée totale",
+    "newArrangement": "Nouvel arrangement",
+    "saveArrangement": "Sauvegarder l'arrangement",
+    "arrangementName": "Nom de l'arrangement...",
+    "untitledArrangement": "Nouvel arrangement",
+    "palette": "Boucles disponibles",
+    "arrangements": "Arrangements",
+    "arrangementsEmpty": "Aucun arrangement.",
+    "close": "Fermer"
   }
 }

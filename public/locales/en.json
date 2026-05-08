@@ -2459,6 +2459,24 @@
     "statusLoaded": "Loop loaded.",
     "statusNoNotes": "No notes to play.",
     "statusNoSynth": "Synthesizer unavailable.",
-    "statusError": "Error"
+    "statusError": "Error",
+    "tabCreate": "Create",
+    "tabLibrary": "Loops",
+    "tabArranger": "Arranger",
+    "midiIn": "MIDI In",
+    "midiInNone": "— Virtual keyboard —",
+    "addTrack": "Add track",
+    "deleteTrack": "Delete track",
+    "deleteBlock": "Delete block",
+    "play": "Play",
+    "totalBars": "Total bars",
+    "newArrangement": "New arrangement",
+    "saveArrangement": "Save arrangement",
+    "arrangementName": "Arrangement name...",
+    "untitledArrangement": "New arrangement",
+    "palette": "Available loops",
+    "arrangements": "Arrangements",
+    "arrangementsEmpty": "No arrangements yet.",
+    "close": "Close"
   }
 }

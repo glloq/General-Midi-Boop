@@ -1,8 +1,10 @@
 /**
  * LoopCreatorModal — Loop Creator (∞)
- * Zone 1: Piano roll editor (webaudio-pianoroll)
- * Zone 2: Mini piano keyboard + recording transport
- * Zone 3: Loop library (saved loops)
+ *
+ * Three tabs:
+ *   Tab 1 "Créer"     — Piano roll editor + mini keyboard + MIDI In recording
+ *   Tab 2 "Boucles"   — Loop library (cards)
+ *   Tab 3 "Arranger"  — Multi-track timeline with loop blocks
  */
 class LoopCreatorModal extends BaseModal {
     constructor(api, eventBus) {
@@ -16,14 +18,14 @@ class LoopCreatorModal extends BaseModal {
         this.api = api;
         this.eventBus = eventBus || window.eventBus || null;
 
-        // Piano roll element
-        this.pianoRoll = null;
-        // Current note sequence [{t, n, v, g}]
-        this.sequence = [];
+        // Active tab
+        this.activeTab = 'create';
 
-        // Loop metadata
+        // ── Creator state ──
+        this.pianoRoll = null;
+        this.sequence = [];
         this.currentLoopId = null;
-        this.loopName = this.t('loopCreator.untitled');
+        this.loopName = '';
         this.tempo = 120;
         this.timeSigNum = 4;
         this.timeSigDen = 4;
@@ -31,152 +33,67 @@ class LoopCreatorModal extends BaseModal {
         this.ppq = 480;
         this.instrumentProgram = 0;
 
-        // Recording state
+        // Recording
         this.isRecording = false;
         this.recordStartTime = 0;
-        this.recordedNotes = [];    // in-flight note-ons (not yet closed)
-        this._recordingTick = 0;    // tick offset at recording start
-        this._metronomeInterval = null;
-        this._metronomeStep = 0;
+        this.recordedNotes = [];
+        this._recordingTick = 0;
+        this._midiInDevice = null;     // selected device ID for MIDI in
+        this._monitorActive = false;
+        this._midiInHandler = null;    // bound api event handler
 
-        // Playback state
+        // Playback
         this.isPlaying = false;
-        this._playbackTimer = null;
+        this._playbackTimers = [];
         this._synth = null;
-        this._gainNode = null;
-        this._audioCtx = null;
 
-        // Active notes on mini keyboard (for sustained highlight)
+        // Keyboard
         this._activeKeys = new Set();
         this._mouseDownNote = null;
 
         // Library
         this.library = [];
+        this.devices = [];
 
-        // Bound handlers for cleanup
+        // ── Arranger state ──
+        this.currentArrangementId = null;
+        this.arrangementName = '';
+        this.arrangementTempo = 120;
+        this.arrangementBars = 16;
+        this.tracks = [];           // [{id, track_index, label}]
+        this.blocks = [];           // [{id, track_id, loop_id, position_bar, repetitions, loop_name, loop_bars}]
+        this.isArrangerPlaying = false;
+        this._arrangerTimers = [];
+        this._dragInfo = null;      // drag state for blocks
+        this._dropPreview = null;
+
+        // Bound handlers
         this._boundDocMouseUp = this._onDocMouseUp.bind(this);
+        this._boundDocMouseMove = this._onDocMouseMove.bind(this);
     }
 
     // =========================================================
-    // RENDERING
+    // RENDERING — SHELL
     // =========================================================
 
     renderBody() {
-        const timeSigOptions = [
-            ['2/4','2','4'], ['3/4','3','4'], ['4/4','4','4'],
-            ['5/4','5','4'], ['6/8','6','8'], ['7/8','7','8']
-        ];
-        const timeSigHtml = timeSigOptions.map(([label, num, den]) =>
-            `<option value="${num}:${den}" ${this.timeSigNum == num && this.timeSigDen == den ? 'selected' : ''}>${label}</option>`
-        ).join('');
-
         return `
         <div class="lc-layout">
-
-            <!-- ── ZONE 1 : EDITOR ── -->
-            <div class="lc-editor" id="lc-editor">
-                <div class="lc-editor-toolbar">
-                    <div class="lc-toolbar-left">
-                        <input type="text" class="lc-name-input" id="lc-name-input"
-                            value="${this.escape(this.loopName)}"
-                            placeholder="${this.t('loopCreator.namePlaceholder')}"
-                            aria-label="${this.t('loopCreator.loopName')}" />
-                    </div>
-                    <div class="lc-toolbar-center">
-                        <label class="lc-label">${this.t('loopCreator.tempo')}</label>
-                        <div class="lc-spinbox">
-                            <button class="lc-spin-btn" data-action="tempo-dec" aria-label="Decrease tempo">‹</button>
-                            <input type="number" id="lc-tempo" class="lc-spin-input"
-                                value="${this.tempo}" min="20" max="300" step="1"
-                                aria-label="Tempo BPM" />
-                            <button class="lc-spin-btn" data-action="tempo-inc" aria-label="Increase tempo">›</button>
-                        </div>
-                        <span class="lc-unit">BPM</span>
-
-                        <label class="lc-label">${this.t('loopCreator.timeSignature')}</label>
-                        <select id="lc-timesig" class="lc-select" aria-label="Time signature">
-                            ${timeSigHtml}
-                        </select>
-
-                        <label class="lc-label">${this.t('loopCreator.bars')}</label>
-                        <div class="lc-spinbox">
-                            <button class="lc-spin-btn" data-action="bars-dec" aria-label="Decrease bars">‹</button>
-                            <input type="number" id="lc-bars" class="lc-spin-input"
-                                value="${this.bars}" min="1" max="32" step="1"
-                                aria-label="Number of bars" />
-                            <button class="lc-spin-btn" data-action="bars-inc" aria-label="Increase bars">›</button>
-                        </div>
-                        <span class="lc-unit">${this.t('loopCreator.barsUnit')}</span>
-
-                        <label class="lc-label">${this.t('loopCreator.snap')}</label>
-                        <select id="lc-snap" class="lc-select" aria-label="Snap">
-                            <option value="480">1/1</option>
-                            <option value="240">1/2</option>
-                            <option value="120" selected>1/4</option>
-                            <option value="60">1/8</option>
-                            <option value="30">1/16</option>
-                            <option value="15">1/32</option>
-                        </select>
-                    </div>
-                    <div class="lc-toolbar-right">
-                        <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
-                        <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
-                        <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
-                        <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
-                        <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
-                    </div>
-                </div>
-                <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap">
-                    <!-- webaudio-pianoroll inserted here -->
-                </div>
+            <div class="lc-tabs" role="tablist">
+                <button class="lc-tab lc-tab--active" data-tab="create" role="tab" aria-selected="true">
+                    ✏️ ${this.t('loopCreator.tabCreate')}
+                </button>
+                <button class="lc-tab" data-tab="library" role="tab" aria-selected="false">
+                    🗂 ${this.t('loopCreator.tabLibrary')}
+                </button>
+                <button class="lc-tab" data-tab="arranger" role="tab" aria-selected="false">
+                    ∞ ${this.t('loopCreator.tabArranger')}
+                </button>
             </div>
-
-            <!-- ── ZONE 2 : KEYBOARD + TRANSPORT ── -->
-            <div class="lc-keyboard-zone" id="lc-keyboard-zone">
-                <div class="lc-transport" id="lc-transport">
-                    <div class="lc-transport-left">
-                        <button class="lc-btn lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
-                            <span class="lc-rec-dot"></span> ${this.t('loopCreator.record')}
-                        </button>
-                        <button class="lc-btn" id="lc-preview-btn" data-action="preview" title="${this.t('loopCreator.preview')}">
-                            ▶ ${this.t('loopCreator.preview')}
-                        </button>
-                        <button class="lc-btn" id="lc-stop-btn" data-action="stop-all" title="${this.t('loopCreator.stop')}">
-                            ⏹ ${this.t('loopCreator.stop')}
-                        </button>
-                    </div>
-                    <div class="lc-transport-right">
-                        <label class="lc-label">${this.t('loopCreator.quantize')}</label>
-                        <select id="lc-quantize" class="lc-select" aria-label="Quantize">
-                            <option value="0">${this.t('loopCreator.quantizeNone')}</option>
-                            <option value="480">1/1</option>
-                            <option value="240">1/2</option>
-                            <option value="120" selected>1/4</option>
-                            <option value="60">1/8</option>
-                            <option value="30">1/16</option>
-                        </select>
-                        <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
-                            <span class="lc-rec-dot lc-rec-dot--pulse"></span>
-                            ${this.t('loopCreator.recording')}
-                        </span>
-                    </div>
-                </div>
-                <div class="lc-keyboard-wrap" id="lc-keyboard-wrap">
-                    ${this._renderMiniKeyboard()}
-                </div>
-            </div>
-
-            <!-- ── ZONE 3 : LIBRARY ── -->
-            <div class="lc-library" id="lc-library">
-                <div class="lc-library-header">
-                    <h3 class="lc-library-title">${this.t('loopCreator.library')}</h3>
-                    <button class="lc-btn lc-btn-primary" data-action="new-loop" id="lc-new-loop-btn">
-                        + ${this.t('loopCreator.newLoop')}
-                    </button>
-                </div>
-                <div class="lc-library-grid" id="lc-library-grid">
-                    <div class="lc-library-empty">${this.t('loopCreator.libraryEmpty')}</div>
-                </div>
+            <div class="lc-tab-content" id="lc-tab-content">
+                ${this._renderCreateTab()}
+                ${this._renderLibraryTab()}
+                ${this._renderArrangerTab()}
             </div>
         </div>`;
     }
@@ -186,66 +103,229 @@ class LoopCreatorModal extends BaseModal {
             <div class="lc-footer-left">
                 <span class="lc-status" id="lc-status"></span>
             </div>
-            <div class="lc-footer-right">
-                <button class="lc-btn" data-action="close">${this.t('common.cancel')}</button>
-                <button class="lc-btn lc-btn-primary" data-action="save" id="lc-save-btn">
-                    💾 ${this.t('loopCreator.save')}
-                </button>
+            <div class="lc-footer-right" id="lc-footer-right">
+                ${this._renderFooterForTab(this.activeTab)}
             </div>`;
     }
 
-    // =========================================================
-    // MINI KEYBOARD RENDER
-    // =========================================================
-
-    _renderMiniKeyboard() {
-        // 4 octaves starting at C3 (MIDI 48)
-        const startNote = 36; // C2
-        const endNote = 84;   // C6
-        const whites = [];
-        const blacks = [];
-        const WHITE_SEMIS = [0, 2, 4, 5, 7, 9, 11];
-        const BLACK_SEMIS = { 1: 0, 3: 1, 6: 3, 8: 4, 10: 5 };
-        let whiteIndex = 0;
-
-        for (let n = startNote; n <= endNote; n++) {
-            const semi = n % 12;
-            if (WHITE_SEMIS.includes(semi)) {
-                whites.push({ n, whiteIndex });
-                whiteIndex++;
-            }
+    _renderFooterForTab(tab) {
+        if (tab === 'create') {
+            return `<button class="lc-btn" data-action="close">${this.t('common.cancel')}</button>
+                    <button class="lc-btn lc-btn-primary" data-action="save-loop">💾 ${this.t('loopCreator.save')}</button>`;
         }
+        if (tab === 'arranger') {
+            return `<button class="lc-btn" data-action="close">${this.t('common.cancel')}</button>
+                    <button class="lc-btn lc-btn-primary" data-action="save-arrangement">💾 ${this.t('loopCreator.saveArrangement')}</button>`;
+        }
+        return `<button class="lc-btn" data-action="close">${this.t('common.close')}</button>`;
+    }
 
+    // =========================================================
+    // RENDERING — TAB 1: CREATE
+    // =========================================================
+
+    _renderCreateTab() {
+        const timeSigOptions = [
+            ['2/4','2','4'], ['3/4','3','4'], ['4/4','4','4'],
+            ['5/4','5','4'], ['6/8','6','8'], ['7/8','7','8']
+        ];
+        const timeSigHtml = timeSigOptions.map(([label, num, den]) =>
+            `<option value="${num}:${den}" ${this.timeSigNum == num && this.timeSigDen == den ? 'selected' : ''}>${label}</option>`
+        ).join('');
+
+        return `
+        <div class="lc-pane" id="lc-pane-create">
+            <!-- ── Editor toolbar ── -->
+            <div class="lc-editor-toolbar">
+                <div class="lc-toolbar-left">
+                    <input type="text" class="lc-name-input" id="lc-name-input"
+                        value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
+                        placeholder="${this.t('loopCreator.namePlaceholder')}"
+                        aria-label="${this.t('loopCreator.loopName')}" />
+                </div>
+                <div class="lc-toolbar-center">
+                    <label class="lc-label">${this.t('loopCreator.tempo')}</label>
+                    <div class="lc-spinbox">
+                        <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
+                        <input type="number" id="lc-tempo" class="lc-spin-input" value="${this.tempo}" min="20" max="300" step="1" />
+                        <button class="lc-spin-btn" data-action="tempo-inc">›</button>
+                    </div>
+                    <span class="lc-unit">BPM</span>
+
+                    <label class="lc-label">${this.t('loopCreator.timeSignature')}</label>
+                    <select id="lc-timesig" class="lc-select">${timeSigHtml}</select>
+
+                    <label class="lc-label">${this.t('loopCreator.bars')}</label>
+                    <div class="lc-spinbox">
+                        <button class="lc-spin-btn" data-action="bars-dec">‹</button>
+                        <input type="number" id="lc-bars" class="lc-spin-input" value="${this.bars}" min="1" max="32" step="1" />
+                        <button class="lc-spin-btn" data-action="bars-inc">›</button>
+                    </div>
+                    <span class="lc-unit">${this.t('loopCreator.barsUnit')}</span>
+
+                    <label class="lc-label">${this.t('loopCreator.snap')}</label>
+                    <select id="lc-snap" class="lc-select">
+                        <option value="480">1/1</option><option value="240">1/2</option>
+                        <option value="120" selected>1/4</option><option value="60">1/8</option>
+                        <option value="30">1/16</option>
+                    </select>
+                </div>
+                <div class="lc-toolbar-right">
+                    <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
+                    <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
+                    <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
+                    <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
+                    <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
+                </div>
+            </div>
+
+            <!-- ── Piano roll ── -->
+            <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap"></div>
+
+            <!-- ── Transport ── -->
+            <div class="lc-transport">
+                <div class="lc-transport-left">
+                    <button class="lc-btn lc-btn-record" id="lc-record-btn" data-action="record">
+                        <span class="lc-rec-dot"></span> ${this.t('loopCreator.record')}
+                    </button>
+                    <button class="lc-btn" data-action="preview">▶ ${this.t('loopCreator.preview')}</button>
+                    <button class="lc-btn" data-action="stop-all">⏹ ${this.t('loopCreator.stop')}</button>
+                    <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
+                        <span class="lc-rec-dot lc-rec-dot--pulse"></span> ${this.t('loopCreator.recording')}
+                    </span>
+                </div>
+                <div class="lc-transport-right">
+                    <label class="lc-label">${this.t('loopCreator.quantize')}</label>
+                    <select id="lc-quantize" class="lc-select">
+                        <option value="0">${this.t('loopCreator.quantizeNone')}</option>
+                        <option value="480">1/1</option><option value="240">1/2</option>
+                        <option value="120" selected>1/4</option><option value="60">1/8</option>
+                        <option value="30">1/16</option>
+                    </select>
+                    <label class="lc-label">${this.t('loopCreator.midiIn')}</label>
+                    <select id="lc-midi-in-device" class="lc-select">
+                        <option value="">${this.t('loopCreator.midiInNone')}</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ── Keyboard ── -->
+            <div class="lc-keyboard-wrap">
+                <div class="lc-keyboard" id="lc-keyboard">${this._buildKeyboardHtml(36, 84)}</div>
+            </div>
+        </div>`;
+    }
+
+    // =========================================================
+    // RENDERING — TAB 2: LIBRARY
+    // =========================================================
+
+    _renderLibraryTab() {
+        return `
+        <div class="lc-pane lc-pane--hidden" id="lc-pane-library">
+            <div class="lc-library-toolbar">
+                <h3 class="lc-section-title">${this.t('loopCreator.library')}</h3>
+                <button class="lc-btn lc-btn-primary" data-action="new-loop">+ ${this.t('loopCreator.newLoop')}</button>
+            </div>
+            <div class="lc-library-grid" id="lc-library-grid">
+                <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
+            </div>
+        </div>`;
+    }
+
+    // =========================================================
+    // RENDERING — TAB 3: ARRANGER
+    // =========================================================
+
+    _renderArrangerTab() {
+        return `
+        <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger">
+            <!-- ── Arranger toolbar ── -->
+            <div class="lc-arranger-toolbar">
+                <div class="lc-toolbar-left">
+                    <input type="text" class="lc-name-input" id="la-name-input"
+                        value="${this.escape(this.arrangementName || this.t('loopCreator.untitledArrangement'))}"
+                        placeholder="${this.t('loopCreator.arrangementName')}" />
+                </div>
+                <div class="lc-toolbar-center">
+                    <label class="lc-label">${this.t('loopCreator.tempo')}</label>
+                    <div class="lc-spinbox">
+                        <button class="lc-spin-btn" data-action="arr-tempo-dec">‹</button>
+                        <input type="number" id="la-tempo" class="lc-spin-input" value="${this.arrangementTempo}" min="20" max="300" />
+                        <button class="lc-spin-btn" data-action="arr-tempo-inc">›</button>
+                    </div>
+                    <span class="lc-unit">BPM</span>
+
+                    <label class="lc-label">${this.t('loopCreator.totalBars')}</label>
+                    <div class="lc-spinbox">
+                        <button class="lc-spin-btn" data-action="arr-bars-dec">‹</button>
+                        <input type="number" id="la-bars" class="lc-spin-input" value="${this.arrangementBars}" min="4" max="256" step="4" />
+                        <button class="lc-spin-btn" data-action="arr-bars-inc">›</button>
+                    </div>
+                    <span class="lc-unit">${this.t('loopCreator.barsUnit')}</span>
+                </div>
+                <div class="lc-toolbar-right">
+                    <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}">＋ Track</button>
+                    <button class="lc-btn" data-action="arr-play" id="la-play-btn">▶ ${this.t('loopCreator.play')}</button>
+                    <button class="lc-btn" data-action="arr-stop">⏹ ${this.t('loopCreator.stop')}</button>
+                    <button class="lc-btn" data-action="arr-new">🆕 ${this.t('loopCreator.newArrangement')}</button>
+                </div>
+            </div>
+
+            <!-- ── Main area: sidebar + timeline ── -->
+            <div class="la-area" id="la-area">
+                <!-- Loop palette (drag source) -->
+                <div class="la-palette" id="la-palette">
+                    <div class="la-palette-title">${this.t('loopCreator.palette')}</div>
+                    <div class="la-palette-grid" id="la-palette-grid">
+                        <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
+                    </div>
+                </div>
+
+                <!-- Timeline -->
+                <div class="la-timeline-wrap" id="la-timeline-wrap">
+                    <div class="la-ruler" id="la-ruler"></div>
+                    <div class="la-tracks" id="la-tracks">
+                        <!-- tracks inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arrangement library -->
+            <div class="la-arr-list-wrap">
+                <div class="la-arr-list-title">${this.t('loopCreator.arrangements')}</div>
+                <div class="la-arr-list" id="la-arr-list"></div>
+            </div>
+        </div>`;
+    }
+
+    // =========================================================
+    // KEYBOARD HTML BUILDER
+    // =========================================================
+
+    _buildKeyboardHtml(startNote, endNote) {
+        const WHITE_SEMIS = [0, 2, 4, 5, 7, 9, 11];
+        const whites = [], blacks = [];
         let wIdx = 0;
         for (let n = startNote; n <= endNote; n++) {
             const semi = n % 12;
-            if (WHITE_SEMIS.includes(semi)) wIdx++;
-            if (semi in BLACK_SEMIS) {
-                blacks.push({ n, leftWhiteIndex: wIdx - 1 });
-            }
+            if (WHITE_SEMIS.includes(semi)) { whites.push({ n, wi: wIdx++ }); }
         }
-
-        const whiteCount = whites.length;
-        const whiteW = 100 / whiteCount;
-
-        const whiteKeys = whites.map(({ n, whiteIndex: wi }) =>
-            `<div class="lc-key lc-key-white" data-note="${n}"
-                style="left:${wi * whiteW}%; width:${whiteW}%"
-                aria-label="Note ${n}"></div>`
+        let wi2 = 0;
+        for (let n = startNote; n <= endNote; n++) {
+            const semi = n % 12;
+            if (WHITE_SEMIS.includes(semi)) wi2++;
+            else blacks.push({ n, li: wi2 - 1 });
+        }
+        const ww = 100 / whites.length;
+        const wKeys = whites.map(({ n, wi }) =>
+            `<div class="lc-key lc-key-white" data-note="${n}" style="left:${wi*ww}%;width:${ww}%"></div>`
         ).join('');
-
-        const blackKeys = blacks.map(({ n, leftWhiteIndex: li }) => {
-            const bw = whiteW * 0.58;
-            const left = li * whiteW + whiteW * 0.71;
-            return `<div class="lc-key lc-key-black" data-note="${n}"
-                style="left:${left}%; width:${bw}%"
-                aria-label="Note ${n}"></div>`;
+        const bKeys = blacks.map(({ n, li }) => {
+            const bw = ww * 0.58;
+            return `<div class="lc-key lc-key-black" data-note="${n}" style="left:${li*ww+ww*0.71}%;width:${bw}%"></div>`;
         }).join('');
-
-        return `<div class="lc-keyboard" id="lc-keyboard" role="group" aria-label="${this.t('loopCreator.keyboard')}">
-            ${whiteKeys}
-            ${blackKeys}
-        </div>`;
+        return wKeys + bKeys;
     }
 
     // =========================================================
@@ -256,91 +336,39 @@ class LoopCreatorModal extends BaseModal {
         this._initSynth();
         this._attachEvents();
         this._initPianoRoll();
+        this._loadDevices();
         this._loadLibrary();
         document.addEventListener('mouseup', this._boundDocMouseUp);
+        document.addEventListener('mousemove', this._boundDocMouseMove);
     }
 
     onClose() {
         this._stopAll();
-        this._stopMetronome();
+        this._stopArrangerPlay();
+        this._stopMidiInMonitor();
         document.removeEventListener('mouseup', this._boundDocMouseUp);
-        if (this._gainNode) {
-            try { this._gainNode.disconnect(); } catch (_) {}
-            this._gainNode = null;
-        }
+        document.removeEventListener('mousemove', this._boundDocMouseMove);
     }
 
     // =========================================================
-    // PIANO ROLL INIT
+    // TAB SWITCHING
     // =========================================================
 
-    _initPianoRoll() {
-        const container = this.$('#lc-pianoroll-wrap');
-        if (!container) return;
+    _switchTab(tab) {
+        this.activeTab = tab;
+        this.$$('.lc-tab').forEach(btn => {
+            const active = btn.dataset.tab === tab;
+            btn.classList.toggle('lc-tab--active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        this.$$('.lc-pane').forEach(pane => {
+            pane.classList.toggle('lc-pane--hidden', !pane.id.endsWith(tab));
+        });
+        const footer = this.$('#lc-footer-right');
+        if (footer) footer.innerHTML = this._renderFooterForTab(tab);
 
-        if (typeof customElements === 'undefined' ||
-            typeof customElements.get === 'undefined' ||
-            !customElements.get('webaudio-pianoroll')) {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-
-        this.pianoRoll = document.createElement('webaudio-pianoroll');
-        const totalTicks = this._totalTicks();
-
-        this.pianoRoll.setAttribute('width', container.clientWidth || 900);
-        this.pianoRoll.setAttribute('height', container.clientHeight || 200);
-        this.pianoRoll.setAttribute('editmode', 'dragpoly');
-        this.pianoRoll.setAttribute('xrange', totalTicks.toString());
-        this.pianoRoll.setAttribute('yrange', '36');
-        this.pianoRoll.setAttribute('yoffset', '48');
-        this.pianoRoll.setAttribute('wheelzoom', '1');
-        this.pianoRoll.setAttribute('xscroll', '1');
-        this.pianoRoll.setAttribute('yscroll', '1');
-        this.pianoRoll.setAttribute('xruler', '1');
-        this.pianoRoll.setAttribute('cursor', '0');
-        this.pianoRoll.setAttribute('markstart', '0');
-        this.pianoRoll.setAttribute('markend', totalTicks.toString());
-        this.pianoRoll.setAttribute('snap', '120');
-        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo', this.tempo.toString());
-
-        this._applyPianoRollTheme();
-
-        container.appendChild(this.pianoRoll);
-
-        this.pianoRoll.sequence = this.sequence;
-        if (typeof this.pianoRoll.redraw === 'function') {
-            this.pianoRoll.redraw();
-        }
-    }
-
-    _applyPianoRollTheme() {
-        if (!this.pianoRoll) return;
-        const dark = document.body.classList.contains('theme-dark');
-        this.pianoRoll.setAttribute('colnote', dark ? '#5b9bd5' : '#4a90d9');
-        this.pianoRoll.setAttribute('colnotesel', dark ? '#f5a623' : '#e8931a');
-        this.pianoRoll.setAttribute('colbg', dark ? '#1a1a2e' : '#f8f9fa');
-        this.pianoRoll.setAttribute('colline', dark ? '#333355' : '#dde0e6');
-        this.pianoRoll.setAttribute('colrulerbg', dark ? '#12122a' : '#eef0f4');
-        this.pianoRoll.setAttribute('colrulerfg', dark ? '#8888aa' : '#666677');
-        this.pianoRoll.setAttribute('colkeybg', dark ? '#1e1e38' : '#f0f0f4');
-        this.pianoRoll.setAttribute('colkeyfg', dark ? '#ccccee' : '#333344');
-        this.pianoRoll.setAttribute('colkeyblack', dark ? '#0d0d1a' : '#303040');
-    }
-
-    _totalTicks() {
-        return this.ppq * this.timeSigNum * this.bars;
-    }
-
-    _refreshPianoRollRange() {
-        if (!this.pianoRoll) return;
-        const total = this._totalTicks();
-        this.pianoRoll.setAttribute('xrange', total.toString());
-        this.pianoRoll.setAttribute('markend', total.toString());
-        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo', this.tempo.toString());
-        if (typeof this.pianoRoll.redraw === 'function') this.pianoRoll.redraw();
+        if (tab === 'library')  this._renderLibrary();
+        if (tab === 'arranger') this._initArrangerTab();
     }
 
     // =========================================================
@@ -348,85 +376,152 @@ class LoopCreatorModal extends BaseModal {
     // =========================================================
 
     _attachEvents() {
-        // Toolbar spinners and selects
-        this.dialog.addEventListener('click', (e) => this._onToolbarClick(e));
-        this.dialog.addEventListener('change', (e) => this._onToolbarChange(e));
-        this.dialog.addEventListener('input', (e) => this._onToolbarInput(e));
+        this.dialog.addEventListener('click', (e) => this._onClick(e));
+        this.dialog.addEventListener('change', (e) => this._onChange(e));
+        this.dialog.addEventListener('input',  (e) => this._onInput(e));
 
-        // Mini keyboard mouse events
         const kb = this.$('#lc-keyboard');
         if (kb) {
             kb.addEventListener('mousedown', (e) => this._onKeyMouseDown(e));
             kb.addEventListener('mouseover', (e) => this._onKeyMouseOver(e));
-            kb.addEventListener('touchstart', (e) => this._onKeyTouchStart(e), { passive: false });
-            kb.addEventListener('touchmove', (e) => this._onKeyTouchMove(e), { passive: false });
-            kb.addEventListener('touchend', (e) => this._onKeyTouchEnd(e));
+            kb.addEventListener('touchstart', (e) => { e.preventDefault(); this._onKeyTouchStart(e); }, { passive: false });
+            kb.addEventListener('touchmove',  (e) => { e.preventDefault(); this._onKeyTouchMove(e);  }, { passive: false });
+            kb.addEventListener('touchend',   (e) => this._onKeyTouchEnd(e));
         }
     }
 
-    _onToolbarClick(e) {
-        const action = e.target.closest('[data-action]')?.dataset?.action;
-        if (!action) return;
-
-        switch (action) {
-            case 'tempo-dec': this._adjustTempo(-1); break;
-            case 'tempo-inc': this._adjustTempo(+1); break;
-            case 'bars-dec':  this._adjustBars(-1);  break;
-            case 'bars-inc':  this._adjustBars(+1);  break;
-            case 'mode-draw': this._setEditMode('dragpoly'); break;
-            case 'mode-select': this._setEditMode('select'); break;
-            case 'undo':  if (this.pianoRoll?.undo) this.pianoRoll.undo(); break;
-            case 'redo':  if (this.pianoRoll?.redo) this.pianoRoll.redo(); break;
-            case 'clear-notes': this._clearNotes(); break;
-            case 'record': this._toggleRecording(); break;
-            case 'preview': this._previewLoop(); break;
-            case 'stop-all': this._stopAll(); break;
-            case 'new-loop': this._newLoop(); break;
-            case 'save': this._saveLoop(); break;
+    _onClick(e) {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const a = btn.dataset.action;
+        switch (a) {
+            // Tabs
+            case undefined: break;
+            // Creator
+            case 'tempo-dec':    this._adjustTempo(-1);    break;
+            case 'tempo-inc':    this._adjustTempo(+1);    break;
+            case 'bars-dec':     this._adjustBars(-1);     break;
+            case 'bars-inc':     this._adjustBars(+1);     break;
+            case 'mode-draw':    this._setEditMode('dragpoly'); break;
+            case 'mode-select':  this._setEditMode('select');   break;
+            case 'undo':         this.pianoRoll?.undo?.();  break;
+            case 'redo':         this.pianoRoll?.redo?.();  break;
+            case 'clear-notes':  this._clearNotes();        break;
+            case 'record':       this._toggleRecording();  break;
+            case 'preview':      this._previewLoop();       break;
+            case 'stop-all':     this._stopAll();           break;
+            case 'save-loop':    this._saveLoop();          break;
+            case 'new-loop':     this._newLoop();           break;
+            // Arranger
+            case 'arr-tempo-dec':  this._adjustArrTempo(-1); break;
+            case 'arr-tempo-inc':  this._adjustArrTempo(+1); break;
+            case 'arr-bars-dec':   this._adjustArrBars(-4);  break;
+            case 'arr-bars-inc':   this._adjustArrBars(+4);  break;
+            case 'arr-add-track':  this._addTrack();          break;
+            case 'arr-play':       this._playArrangement();   break;
+            case 'arr-stop':       this._stopArrangerPlay();  break;
+            case 'arr-new':        this._newArrangement();    break;
+            case 'save-arrangement': this._saveArrangement(); break;
             case 'close': this.close(); break;
         }
+        // Tab switching
+        const tabBtn = e.target.closest('.lc-tab[data-tab]');
+        if (tabBtn) this._switchTab(tabBtn.dataset.tab);
     }
 
-    _onToolbarChange(e) {
+    _onChange(e) {
         const id = e.target.id;
         if (id === 'lc-timesig') {
             const [num, den] = e.target.value.split(':').map(Number);
-            this.timeSigNum = num;
-            this.timeSigDen = den;
+            this.timeSigNum = num; this.timeSigDen = den;
             this._refreshPianoRollRange();
         } else if (id === 'lc-snap') {
-            const ticks = parseInt(e.target.value);
-            if (this.pianoRoll) {
-                this.pianoRoll.snap = ticks;
-                this.pianoRoll.setAttribute('snap', ticks.toString());
-            }
+            if (this.pianoRoll) { this.pianoRoll.snap = parseInt(e.target.value); }
+        } else if (id === 'lc-midi-in-device') {
+            this._midiInDevice = e.target.value || null;
         }
     }
 
-    _onToolbarInput(e) {
+    _onInput(e) {
         const id = e.target.id;
-        if (id === 'lc-tempo') {
-            const v = parseInt(e.target.value);
-            if (v >= 20 && v <= 300) { this.tempo = v; this._refreshPianoRollRange(); }
-        } else if (id === 'lc-bars') {
-            const v = parseInt(e.target.value);
-            if (v >= 1 && v <= 32) { this.bars = v; this._refreshPianoRollRange(); }
-        } else if (id === 'lc-name-input') {
-            this.loopName = e.target.value;
-        }
+        if (id === 'lc-tempo')    { const v = parseInt(e.target.value); if (v>=20&&v<=300) { this.tempo=v; this._refreshPianoRollRange(); } }
+        if (id === 'lc-bars')     { const v = parseInt(e.target.value); if (v>=1&&v<=32)   { this.bars=v;  this._refreshPianoRollRange(); } }
+        if (id === 'lc-name-input') this.loopName = e.target.value;
+        if (id === 'la-name-input') this.arrangementName = e.target.value;
+        if (id === 'la-tempo')    { const v = parseInt(e.target.value); if (v>=20&&v<=300) this.arrangementTempo=v; }
+        if (id === 'la-bars')     { const v = parseInt(e.target.value); if (v>=4&&v<=256)  { this.arrangementBars=v; this._renderTimeline(); } }
     }
 
-    _adjustTempo(delta) {
-        const input = this.$('#lc-tempo');
-        this.tempo = Math.max(20, Math.min(300, this.tempo + delta));
-        if (input) input.value = this.tempo;
+    // =========================================================
+    // PIANO ROLL
+    // =========================================================
+
+    _initPianoRoll() {
+        const container = this.$('#lc-pianoroll-wrap');
+        if (!container) return;
+        if (!customElements?.get?.('webaudio-pianoroll')) {
+            container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
+            return;
+        }
+        this.pianoRoll = document.createElement('webaudio-pianoroll');
+        const total = this._totalTicks();
+        this.pianoRoll.setAttribute('width',    container.clientWidth  || 900);
+        this.pianoRoll.setAttribute('height',   container.clientHeight || 200);
+        this.pianoRoll.setAttribute('editmode', 'dragpoly');
+        this.pianoRoll.setAttribute('xrange',   total.toString());
+        this.pianoRoll.setAttribute('yrange',   '36');
+        this.pianoRoll.setAttribute('yoffset',  '48');
+        this.pianoRoll.setAttribute('wheelzoom','1');
+        this.pianoRoll.setAttribute('xscroll',  '1');
+        this.pianoRoll.setAttribute('yscroll',  '1');
+        this.pianoRoll.setAttribute('xruler',   '1');
+        this.pianoRoll.setAttribute('cursor',   '0');
+        this.pianoRoll.setAttribute('markstart','0');
+        this.pianoRoll.setAttribute('markend',  total.toString());
+        this.pianoRoll.setAttribute('snap',     '120');
+        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
+        this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
+        this._applyPianoRollTheme();
+        container.appendChild(this.pianoRoll);
+        this.pianoRoll.sequence = this.sequence;
+        this.pianoRoll.redraw?.();
+    }
+
+    _applyPianoRollTheme() {
+        if (!this.pianoRoll) return;
+        const dark = document.body.classList.contains('theme-dark');
+        this.pianoRoll.setAttribute('colnote',    dark ? '#5b9bd5' : '#4a90d9');
+        this.pianoRoll.setAttribute('colnotesel', dark ? '#f5a623' : '#e8931a');
+        this.pianoRoll.setAttribute('colbg',      dark ? '#1a1a2e' : '#f8f9fa');
+        this.pianoRoll.setAttribute('colline',    dark ? '#333355' : '#dde0e6');
+        this.pianoRoll.setAttribute('colrulerbg', dark ? '#12122a' : '#eef0f4');
+        this.pianoRoll.setAttribute('colrulerfg', dark ? '#8888aa' : '#666677');
+        this.pianoRoll.setAttribute('colkeybg',   dark ? '#1e1e38' : '#f0f0f4');
+        this.pianoRoll.setAttribute('colkeyfg',   dark ? '#ccccee' : '#333344');
+        this.pianoRoll.setAttribute('colkeyblack',dark ? '#0d0d1a' : '#303040');
+    }
+
+    _totalTicks()  { return this.ppq * this.timeSigNum * this.bars; }
+
+    _refreshPianoRollRange() {
+        if (!this.pianoRoll) return;
+        const total = this._totalTicks();
+        this.pianoRoll.setAttribute('xrange',   total.toString());
+        this.pianoRoll.setAttribute('markend',  total.toString());
+        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
+        this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
+        this.pianoRoll.redraw?.();
+    }
+
+    _adjustTempo(d) {
+        this.tempo = Math.max(20, Math.min(300, this.tempo + d));
+        const el = this.$('#lc-tempo'); if (el) el.value = this.tempo;
         this._refreshPianoRollRange();
     }
 
-    _adjustBars(delta) {
-        const input = this.$('#lc-bars');
-        this.bars = Math.max(1, Math.min(32, this.bars + delta));
-        if (input) input.value = this.bars;
+    _adjustBars(d) {
+        this.bars = Math.max(1, Math.min(32, this.bars + d));
+        const el = this.$('#lc-bars'); if (el) el.value = this.bars;
         this._refreshPianoRollRange();
     }
 
@@ -439,82 +534,55 @@ class LoopCreatorModal extends BaseModal {
 
     _clearNotes() {
         this.sequence = [];
-        if (this.pianoRoll) {
-            this.pianoRoll.sequence = [];
-            if (typeof this.pianoRoll.redraw === 'function') this.pianoRoll.redraw();
-        }
+        if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
     }
 
     // =========================================================
-    // MINI KEYBOARD
+    // KEYBOARD (mini piano)
     // =========================================================
 
-    _noteFromEl(el) {
-        const key = el.closest('.lc-key');
-        return key ? parseInt(key.dataset.note) : null;
-    }
+    _noteFromEl(el) { const k = el?.closest?.('.lc-key'); return k ? parseInt(k.dataset.note) : null; }
 
     _onKeyMouseDown(e) {
-        const note = this._noteFromEl(e.target);
-        if (note == null) return;
-        e.preventDefault();
-        this._mouseDownNote = note;
-        this._playNote(note);
+        const n = this._noteFromEl(e.target);
+        if (n == null) return;
+        e.preventDefault(); this._mouseDownNote = n; this._playNote(n);
     }
-
     _onKeyMouseOver(e) {
         if (this._mouseDownNote == null) return;
-        const note = this._noteFromEl(e.target);
-        if (note == null || note === this._mouseDownNote) return;
-        this._stopNote(this._mouseDownNote);
-        this._mouseDownNote = note;
-        this._playNote(note);
+        const n = this._noteFromEl(e.target);
+        if (n == null || n === this._mouseDownNote) return;
+        this._stopNote(this._mouseDownNote); this._mouseDownNote = n; this._playNote(n);
     }
-
     _onDocMouseUp() {
-        if (this._mouseDownNote != null) {
-            this._stopNote(this._mouseDownNote);
-            this._mouseDownNote = null;
-        }
+        if (this._mouseDownNote != null) { this._stopNote(this._mouseDownNote); this._mouseDownNote = null; }
     }
-
     _onKeyTouchStart(e) {
-        e.preventDefault();
-        for (const touch of e.changedTouches) {
-            const el = document.elementFromPoint(touch.clientX, touch.clientY);
-            const note = this._noteFromEl(el);
-            if (note != null) this._playNote(note);
+        for (const t of e.changedTouches) {
+            const n = this._noteFromEl(document.elementFromPoint(t.clientX, t.clientY));
+            if (n != null) this._playNote(n);
         }
     }
-
     _onKeyTouchMove(e) {
-        e.preventDefault();
-        for (const touch of e.changedTouches) {
-            const el = document.elementFromPoint(touch.clientX, touch.clientY);
-            const note = this._noteFromEl(el);
-            if (note != null && !this._activeKeys.has(note)) this._playNote(note);
+        for (const t of e.changedTouches) {
+            const n = this._noteFromEl(document.elementFromPoint(t.clientX, t.clientY));
+            if (n != null && !this._activeKeys.has(n)) this._playNote(n);
         }
     }
-
     _onKeyTouchEnd(e) {
-        for (const touch of e.changedTouches) {
-            const el = document.elementFromPoint(touch.clientX, touch.clientY);
-            const note = this._noteFromEl(el);
-            if (note != null) this._stopNote(note);
+        for (const t of e.changedTouches) {
+            const n = this._noteFromEl(document.elementFromPoint(t.clientX, t.clientY));
+            if (n != null) this._stopNote(n);
         }
     }
 
     _playNote(note) {
         this._activeKeys.add(note);
         this._highlightKey(note, true);
-
-        if (this._synth) {
-            try { this._synth.noteOn(0, note, 80, 0); } catch (_) {}
-        }
-
+        try { this._synth?.noteOn(0, note, 80, 0); } catch (_) {}
         if (this.isRecording) {
             const elapsed = (performance.now() - this.recordStartTime) / 1000;
-            const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq) + this._recordingTick;
+            const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
             this.recordedNotes.push({ note, tick, startMs: performance.now() });
         }
     }
@@ -522,28 +590,24 @@ class LoopCreatorModal extends BaseModal {
     _stopNote(note) {
         this._activeKeys.delete(note);
         this._highlightKey(note, false);
-
-        if (this._synth) {
-            try { this._synth.noteOff(0, note, 0); } catch (_) {}
-        }
-
-        if (this.isRecording) {
-            const idx = this.recordedNotes.findIndex(r => r.note === note);
-            if (idx !== -1) {
-                const rec = this.recordedNotes.splice(idx, 1)[0];
-                const durationMs = performance.now() - rec.startMs;
-                const durationTicks = Math.max(30, Math.round(durationMs / 1000 * (this.tempo / 60) * this.ppq));
-                const quantize = parseInt(this.$('#lc-quantize')?.value ?? 0);
-                const t = quantize > 0 ? Math.round(rec.tick / quantize) * quantize : rec.tick;
-                const g = quantize > 0 ? Math.max(quantize, Math.round(durationTicks / quantize) * quantize) : durationTicks;
-                this._addNoteToRoll({ t, n: note, v: 80, g });
-            }
-        }
+        try { this._synth?.noteOff(0, note, 0); } catch (_) {}
+        if (this.isRecording) this._finalizeNoteOff(note);
     }
 
     _highlightKey(note, on) {
-        const key = this.dialog?.querySelector(`.lc-key[data-note="${note}"]`);
-        if (key) key.classList.toggle('lc-key--active', on);
+        this.dialog?.querySelector(`.lc-key[data-note="${note}"]`)?.classList.toggle('lc-key--active', on);
+    }
+
+    _finalizeNoteOff(note) {
+        const idx = this.recordedNotes.findIndex(r => r.note === note);
+        if (idx === -1) return;
+        const rec = this.recordedNotes.splice(idx, 1)[0];
+        const durMs = performance.now() - rec.startMs;
+        const durTicks = Math.max(30, Math.round(durMs / 1000 * (this.tempo / 60) * this.ppq));
+        const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
+        const t = q > 0 ? Math.round(rec.tick / q) * q : rec.tick;
+        const g = q > 0 ? Math.max(q, Math.round(durTicks / q) * q) : durTicks;
+        this._addNoteToRoll({ t, n: note, v: 80, g });
     }
 
     _addNoteToRoll(noteObj) {
@@ -551,71 +615,90 @@ class LoopCreatorModal extends BaseModal {
         const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
         seq.push(noteObj);
         this.pianoRoll.sequence = seq;
-        if (typeof this.pianoRoll.redraw === 'function') this.pianoRoll.redraw();
+        this.pianoRoll.redraw?.();
     }
 
     // =========================================================
-    // RECORDING
+    // RECORDING + MIDI IN (P3)
     // =========================================================
 
     _toggleRecording() {
-        if (this.isRecording) {
-            this._stopRecording();
-        } else {
-            this._startRecording();
-        }
+        this.isRecording ? this._stopRecording() : this._startRecording();
     }
 
     _startRecording() {
         this.isRecording = true;
         this.recordedNotes = [];
         this.recordStartTime = performance.now();
-        this._recordingTick = 0;
 
-        const btn = this.$('#lc-record-btn');
-        const indicator = this.$('#lc-rec-indicator');
-        if (btn) btn.classList.add('lc-btn-record--active');
-        if (indicator) indicator.classList.remove('hidden');
+        this.$('#lc-record-btn')?.classList.add('lc-btn-record--active');
+        this.$('#lc-rec-indicator')?.classList.remove('hidden');
 
-        this._startMetronome();
+        // Enable MIDI In monitor if a device is selected
+        if (this._midiInDevice) this._startMidiInMonitor();
         this._setStatus(this.t('loopCreator.statusRecording'));
     }
 
     _stopRecording() {
         this.isRecording = false;
-        // Close any still-open notes
-        for (const rec of this.recordedNotes) {
-            const durationMs = performance.now() - rec.startMs;
-            const durationTicks = Math.max(30, Math.round(durationMs / 1000 * (this.tempo / 60) * this.ppq));
-            const quantize = parseInt(this.$('#lc-quantize')?.value ?? 0);
-            const t = quantize > 0 ? Math.round(rec.tick / quantize) * quantize : rec.tick;
-            const g = quantize > 0 ? Math.max(quantize, Math.round(durationTicks / quantize) * quantize) : durationTicks;
-            this._addNoteToRoll({ t, n: rec.note, v: 80, g });
-        }
+        // Close still-open notes
+        for (const rec of [...this.recordedNotes]) this._finalizeNoteOff(rec.note);
         this.recordedNotes = [];
 
-        const btn = this.$('#lc-record-btn');
-        const indicator = this.$('#lc-rec-indicator');
-        if (btn) btn.classList.remove('lc-btn-record--active');
-        if (indicator) indicator.classList.add('hidden');
+        this.$('#lc-record-btn')?.classList.remove('lc-btn-record--active');
+        this.$('#lc-rec-indicator')?.classList.add('hidden');
 
-        this._stopMetronome();
+        this._stopMidiInMonitor();
         this._setStatus(this.t('loopCreator.statusRecordingDone'));
     }
 
-    _startMetronome() {
-        this._metronomeStep = 0;
-        const stepMs = (60 / this.tempo) * 1000;
-        this._metronomeInterval = setInterval(() => {
-            this._metronomeStep++;
-        }, stepMs);
+    async _startMidiInMonitor() {
+        if (!this._midiInDevice || this._monitorActive) return;
+        try {
+            await this.api.sendCommand('monitor_start', { deviceId: this._midiInDevice });
+            this._monitorActive = true;
+
+            this._midiInHandler = (data) => {
+                if (data.device !== this._midiInDevice) return;
+                if (!this.isRecording) return;
+                const type = (data.type || '').toLowerCase();
+                const note = data.data?.note ?? data.data?.n;
+                const vel  = data.data?.velocity ?? data.data?.v ?? 64;
+                if (note == null) return;
+                if (type === 'noteon' && vel > 0) {
+                    this._playNote(note);
+                } else if (type === 'noteoff' || (type === 'noteon' && vel === 0)) {
+                    this._stopNote(note);
+                }
+            };
+            this.api.on('monitor_event', this._midiInHandler);
+        } catch (_) {}
     }
 
-    _stopMetronome() {
-        if (this._metronomeInterval) {
-            clearInterval(this._metronomeInterval);
-            this._metronomeInterval = null;
+    async _stopMidiInMonitor() {
+        if (!this._monitorActive) return;
+        this._monitorActive = false;
+        if (this._midiInHandler) {
+            this.api.off?.('monitor_event', this._midiInHandler);
+            this._midiInHandler = null;
         }
+        if (this._midiInDevice) {
+            try { await this.api.sendCommand('monitor_stop', { deviceId: this._midiInDevice }); } catch (_) {}
+        }
+    }
+
+    async _loadDevices() {
+        try {
+            const result = await this.api.sendCommand('device_list');
+            this.devices = result.devices || [];
+            const sel = this.$('#lc-midi-in-device');
+            if (!sel) return;
+            const prev = sel.value;
+            sel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` +
+                this.devices.map(d =>
+                    `<option value="${this.escape(d.id)}" ${d.id === prev ? 'selected' : ''}>${this.escape(d.name || d.id)}</option>`
+                ).join('');
+        } catch (_) {}
     }
 
     // =========================================================
@@ -624,191 +707,127 @@ class LoopCreatorModal extends BaseModal {
 
     _initSynth() {
         if (typeof MidiSynthesizer !== 'undefined') {
-            try {
-                this._synth = new MidiSynthesizer();
-                this._synth.setInstrument(0, this.instrumentProgram);
-            } catch (_) {}
+            try { this._synth = new MidiSynthesizer(); this._synth.setInstrument(0, this.instrumentProgram); } catch (_) {}
         }
     }
 
     _previewLoop() {
-        if (!this.pianoRoll) return;
         this._stopAll();
-
-        const sequence = this.pianoRoll.sequence || [];
-        if (!sequence.length) {
-            this._setStatus(this.t('loopCreator.statusNoNotes'));
-            return;
-        }
-
-        if (!this._synth) {
-            this._setStatus(this.t('loopCreator.statusNoSynth'));
-            return;
-        }
-
-        const secPerTick = 60 / (this.tempo * this.ppq);
-        const totalTicks = this._totalTicks();
+        const seq = this.pianoRoll?.sequence ?? [];
+        if (!seq.length) { this._setStatus(this.t('loopCreator.statusNoNotes')); return; }
+        if (!this._synth) { this._setStatus(this.t('loopCreator.statusNoSynth')); return; }
+        const spt = 60 / (this.tempo * this.ppq);
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
-
-        const timers = [];
-        for (const note of sequence) {
-            const onMs = note.t * secPerTick * 1000;
-            const offMs = (note.t + (note.g || note.l || 120)) * secPerTick * 1000;
-            timers.push(setTimeout(() => {
-                if (!this.isPlaying) return;
-                try { this._synth.noteOn(0, note.n, note.v || 80, 0); } catch (_) {}
-            }, onMs));
-            timers.push(setTimeout(() => {
-                if (!this.isPlaying) return;
-                try { this._synth.noteOff(0, note.n, 0); } catch (_) {}
-            }, offMs));
+        for (const note of seq) {
+            const onMs  = note.t * spt * 1000;
+            const offMs = (note.t + (note.g || note.l || 120)) * spt * 1000;
+            this._playbackTimers.push(setTimeout(() => { if (!this.isPlaying) return; try { this._synth.noteOn(0, note.n, note.v||80, 0); } catch(_) {} }, onMs));
+            this._playbackTimers.push(setTimeout(() => { if (!this.isPlaying) return; try { this._synth.noteOff(0, note.n, 0); } catch(_) {} }, offMs));
         }
-
-        // Stop marker
-        timers.push(setTimeout(() => {
-            this.isPlaying = false;
-            this._setStatus(this.t('loopCreator.statusIdle'));
-        }, totalTicks * secPerTick * 1000));
-
-        this._playbackTimer = timers;
+        this._playbackTimers.push(setTimeout(() => {
+            this.isPlaying = false; this._setStatus('');
+        }, this._totalTicks() * spt * 1000));
     }
 
     _stopAll() {
-        if (this._playbackTimer) {
-            (this._playbackTimer instanceof Array ? this._playbackTimer : [this._playbackTimer])
-                .forEach(t => clearTimeout(t));
-            this._playbackTimer = null;
-        }
+        this._playbackTimers.forEach(t => clearTimeout(t));
+        this._playbackTimers = [];
         if (this.isRecording) this._stopRecording();
         this.isPlaying = false;
-
-        if (this._synth) {
-            try { this._synth.allNotesOff(); } catch (_) {}
-        }
-        // Clear all key highlights
+        try { this._synth?.allNotesOff?.(); } catch (_) {}
         this.$$('.lc-key--active').forEach(k => k.classList.remove('lc-key--active'));
         this._activeKeys.clear();
         this._setStatus('');
     }
 
     // =========================================================
-    // SAVE / LOAD
+    // SAVE / LOAD — LOOPS
     // =========================================================
 
     async _saveLoop() {
-        const name = this.$('#lc-name-input')?.value?.trim() || this.t('loopCreator.untitled');
-        this.loopName = name;
-
-        const sequence = this.pianoRoll?.sequence ?? [];
-
+        this.loopName = (this.$('#lc-name-input')?.value?.trim()) || this.t('loopCreator.untitled');
+        const seq = this.pianoRoll?.sequence ?? [];
         const payload = {
-            name,
-            tempo: this.tempo,
-            time_sig_num: this.timeSigNum,
-            time_sig_den: this.timeSigDen,
-            bars: this.bars,
-            ppq: this.ppq,
+            name: this.loopName, tempo: this.tempo,
+            time_sig_num: this.timeSigNum, time_sig_den: this.timeSigDen,
+            bars: this.bars, ppq: this.ppq,
             instrument_program: this.instrumentProgram,
-            midi_data: JSON.stringify(sequence)
+            midi_data: JSON.stringify(seq)
         };
-
         try {
             if (this.currentLoopId) {
                 await this.api.sendCommand('loop_update', { loopId: this.currentLoopId, ...payload });
-                this._setStatus(this.t('loopCreator.statusSaved'));
             } else {
-                const result = await this.api.sendCommand('loop_create', payload);
-                this.currentLoopId = result.loopId;
-                this._setStatus(this.t('loopCreator.statusSaved'));
+                const r = await this.api.sendCommand('loop_create', payload);
+                this.currentLoopId = r.loopId;
             }
+            this._setStatus(this.t('loopCreator.statusSaved'));
             await this._loadLibrary();
-        } catch (err) {
-            this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`);
-        }
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
     }
 
     async _loadLibrary() {
         try {
-            const result = await this.api.sendCommand('loop_list');
-            this.library = result.loops || [];
-            this._renderLibrary();
+            const r = await this.api.sendCommand('loop_list');
+            this.library = r.loops || [];
+            if (this.activeTab === 'library') this._renderLibrary();
+            this._renderPalette();
         } catch (_) {}
     }
 
     _renderLibrary() {
         const grid = this.$('#lc-library-grid');
         if (!grid) return;
-
         if (!this.library.length) {
-            grid.innerHTML = `<div class="lc-library-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
+            grid.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
             return;
         }
-
-        grid.innerHTML = this.library.map(loop => {
-            const active = loop.id === this.currentLoopId ? ' lc-card--active' : '';
-            const timeSig = `${loop.time_sig_num}/${loop.time_sig_den}`;
-            return `
-                <div class="lc-card${active}" data-loop-id="${loop.id}" role="button" tabindex="0"
-                    aria-label="${this.escape(loop.name)}" aria-pressed="${active ? 'true' : 'false'}">
-                    <div class="lc-card-name">${this.escape(loop.name)}</div>
-                    <div class="lc-card-meta">${loop.tempo} BPM · ${timeSig} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
-                    <div class="lc-card-actions">
-                        <button class="lc-card-btn" data-loop-action="load" data-loop-id="${loop.id}"
-                            title="${this.t('loopCreator.loadLoop')}">✏️</button>
-                        <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}"
-                            title="${this.t('loopCreator.deleteLoop')}">🗑</button>
-                    </div>
-                </div>`;
-        }).join('');
-
+        grid.innerHTML = this.library.map(loop => this._loopCardHtml(loop, true)).join('');
         grid.addEventListener('click', (e) => {
-            const action = e.target.closest('[data-loop-action]')?.dataset;
-            if (!action) return;
-            if (action.loopAction === 'load') this._loadLoopById(parseInt(action.loopId));
-            if (action.loopAction === 'delete') this._deleteLoopById(parseInt(action.loopId));
-        }, { once: true });
+            const btn = e.target.closest('[data-loop-action]');
+            if (!btn) return;
+            const id = parseInt(btn.dataset.loopId);
+            if (btn.dataset.loopAction === 'load')   { this._loadLoopById(id); this._switchTab('create'); }
+            if (btn.dataset.loopAction === 'delete')   this._deleteLoopById(id);
+        });
+    }
+
+    _loopCardHtml(loop, showActions = false) {
+        const active = loop.id === this.currentLoopId ? ' lc-card--active' : '';
+        const ts = `${loop.time_sig_num}/${loop.time_sig_den}`;
+        const actions = showActions ? `
+            <div class="lc-card-actions">
+                <button class="lc-card-btn" data-loop-action="load" data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
+                <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
+            </div>` : '';
+        return `<div class="lc-card${active}" data-loop-id="${loop.id}">
+            <div class="lc-card-name">${this.escape(loop.name)}</div>
+            <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
+            ${actions}
+        </div>`;
     }
 
     async _loadLoopById(id) {
         try {
-            const result = await this.api.sendCommand('loop_get', { loopId: id });
-            const loop = result.loop;
-            if (!loop) return;
-
-            this.currentLoopId = loop.id;
-            this.loopName = loop.name;
-            this.tempo = loop.tempo;
-            this.timeSigNum = loop.time_sig_num;
-            this.timeSigDen = loop.time_sig_den;
-            this.bars = loop.bars;
-            this.ppq = loop.ppq;
+            const r = await this.api.sendCommand('loop_get', { loopId: id });
+            const loop = r.loop; if (!loop) return;
+            this.currentLoopId   = loop.id;
+            this.loopName        = loop.name;
+            this.tempo           = loop.tempo;
+            this.timeSigNum      = loop.time_sig_num;
+            this.timeSigDen      = loop.time_sig_den;
+            this.bars            = loop.bars;
+            this.ppq             = loop.ppq;
             this.instrumentProgram = loop.instrument_program ?? 0;
-
-            // Update UI controls
-            const nameInput = this.$('#lc-name-input');
-            const tempoInput = this.$('#lc-tempo');
-            const barsInput = this.$('#lc-bars');
-            const timeSigSel = this.$('#lc-timesig');
-            if (nameInput) nameInput.value = loop.name;
-            if (tempoInput) tempoInput.value = loop.tempo;
-            if (barsInput) barsInput.value = loop.bars;
-            if (timeSigSel) timeSigSel.value = `${loop.time_sig_num}:${loop.time_sig_den}`;
-
             const seq = typeof loop.midi_data === 'string' ? JSON.parse(loop.midi_data) : (loop.midi_data || []);
             this.sequence = seq;
-
-            if (this.pianoRoll) {
-                this._refreshPianoRollRange();
-                this.pianoRoll.sequence = seq;
-                if (typeof this.pianoRoll.redraw === 'function') this.pianoRoll.redraw();
-            }
-
-            this._renderLibrary();
+            const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
+            f('#lc-name-input', loop.name); f('#lc-tempo', loop.tempo); f('#lc-bars', loop.bars);
+            const ts = this.$('#lc-timesig'); if (ts) ts.value = `${loop.time_sig_num}:${loop.time_sig_den}`;
+            if (this.pianoRoll) { this._refreshPianoRollRange(); this.pianoRoll.sequence = seq; this.pianoRoll.redraw?.(); }
             this._setStatus(this.t('loopCreator.statusLoaded'));
-        } catch (err) {
-            this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`);
-        }
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
     }
 
     async _deleteLoopById(id) {
@@ -816,45 +835,431 @@ class LoopCreatorModal extends BaseModal {
             await this.api.sendCommand('loop_delete', { loopId: id });
             if (this.currentLoopId === id) this._newLoop();
             await this._loadLibrary();
-        } catch (err) {
-            this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`);
-        }
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
     }
 
     _newLoop() {
-        this.currentLoopId = null;
-        this.loopName = this.t('loopCreator.untitled');
-        this.tempo = 120;
-        this.timeSigNum = 4;
-        this.timeSigDen = 4;
-        this.bars = 2;
-        this.ppq = 480;
-        this.sequence = [];
-
-        const nameInput = this.$('#lc-name-input');
-        const tempoInput = this.$('#lc-tempo');
-        const barsInput = this.$('#lc-bars');
-        const timeSigSel = this.$('#lc-timesig');
-        if (nameInput) nameInput.value = this.loopName;
-        if (tempoInput) tempoInput.value = this.tempo;
-        if (barsInput) barsInput.value = this.bars;
-        if (timeSigSel) timeSigSel.value = '4:4';
-
-        this._clearNotes();
-        this._refreshPianoRollRange();
-        this._renderLibrary();
+        this.currentLoopId = null; this.loopName = ''; this.tempo = 120;
+        this.timeSigNum = 4; this.timeSigDen = 4; this.bars = 2; this.ppq = 480; this.sequence = [];
+        const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
+        f('#lc-name-input', ''); f('#lc-tempo', 120); f('#lc-bars', 2);
+        const ts = this.$('#lc-timesig'); if (ts) ts.value = '4:4';
+        this._clearNotes(); this._refreshPianoRollRange();
     }
 
     // =========================================================
-    // STATUS
+    // ARRANGER — INIT
     // =========================================================
 
-    _setStatus(msg) {
-        const el = this.$('#lc-status');
-        if (el) el.textContent = msg;
+    async _initArrangerTab() {
+        await this._loadLibrary();
+        await this._loadArrangements();
+        if (!this.currentArrangementId) await this._newArrangement();
+        else await this._loadArrangementById(this.currentArrangementId);
     }
+
+    async _loadArrangements() {
+        try {
+            const r = await this.api.sendCommand('arrangement_list');
+            this._renderArrList(r.arrangements || []);
+        } catch (_) {}
+    }
+
+    _renderArrList(arrs) {
+        const el = this.$('#la-arr-list');
+        if (!el) return;
+        if (!arrs.length) { el.innerHTML = `<div class="lc-empty">${this.t('loopCreator.arrangementsEmpty')}</div>`; return; }
+        el.innerHTML = arrs.map(a => `
+            <div class="la-arr-item${a.id === this.currentArrangementId ? ' la-arr-item--active' : ''}"
+                data-arr-id="${a.id}" role="button" tabindex="0">
+                <span class="la-arr-name">${this.escape(a.name)}</span>
+                <span class="la-arr-meta">${a.global_tempo} BPM · ${a.total_bars} ${this.t('loopCreator.barsUnit')}</span>
+                <button class="lc-card-btn lc-card-btn--danger" data-arr-action="delete" data-arr-id="${a.id}">🗑</button>
+            </div>`).join('');
+        el.addEventListener('click', (e) => {
+            const del = e.target.closest('[data-arr-action="delete"]');
+            if (del) { this._deleteArrangement(parseInt(del.dataset.arrId)); return; }
+            const item = e.target.closest('[data-arr-id]');
+            if (item) this._loadArrangementById(parseInt(item.dataset.arrId));
+        });
+    }
+
+    async _newArrangement() {
+        try {
+            const r = await this.api.sendCommand('arrangement_create', {
+                name: this.t('loopCreator.untitledArrangement'),
+                global_tempo: this.arrangementTempo,
+                total_bars: this.arrangementBars
+            });
+            this.currentArrangementId = r.arrangementId;
+            await this._loadArrangementById(r.arrangementId);
+            await this._loadArrangements();
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    async _loadArrangementById(id) {
+        try {
+            const r = await this.api.sendCommand('arrangement_get', { arrangementId: id });
+            const { arrangement, tracks, blocks } = r;
+            this.currentArrangementId = arrangement.id;
+            this.arrangementName  = arrangement.name;
+            this.arrangementTempo = arrangement.global_tempo;
+            this.arrangementBars  = arrangement.total_bars;
+            this.tracks = tracks;
+            this.blocks = blocks;
+            const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
+            f('#la-name-input', arrangement.name);
+            f('#la-tempo', arrangement.global_tempo);
+            f('#la-bars', arrangement.total_bars);
+            this._renderTimeline();
+            this._renderArrList([arrangement]);
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    // =========================================================
+    // ARRANGER — PALETTE
+    // =========================================================
+
+    _renderPalette() {
+        const grid = this.$('#la-palette-grid');
+        if (!grid) return;
+        if (!this.library.length) { grid.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`; return; }
+        grid.innerHTML = this.library.map(loop =>
+            `<div class="la-palette-chip" draggable="true" data-loop-id="${loop.id}"
+                data-loop-bars="${loop.bars}" data-loop-name="${this.escape(loop.name)}">
+                <div class="la-chip-name">${this.escape(loop.name)}</div>
+                <div class="la-chip-meta">${loop.bars}${this.t('loopCreator.barsUnit')}</div>
+            </div>`
+        ).join('');
+
+        grid.querySelectorAll('.la-palette-chip').forEach(chip => {
+            chip.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    loopId: parseInt(chip.dataset.loopId),
+                    loopBars: parseInt(chip.dataset.loopBars),
+                    loopName: chip.dataset.loopName
+                }));
+            });
+        });
+    }
+
+    // =========================================================
+    // ARRANGER — TIMELINE
+    // =========================================================
+
+    _renderTimeline() {
+        this._renderRuler();
+        this._renderTracks();
+        this._renderPalette();
+    }
+
+    _renderRuler() {
+        const ruler = this.$('#la-ruler');
+        if (!ruler) return;
+        const BAR_W = this._barWidth();
+        let html = '';
+        for (let b = 0; b < this.arrangementBars; b++) {
+            const marker = (b % 4 === 0) ? `<span class="la-ruler-label">${b + 1}</span>` : '';
+            html += `<div class="la-ruler-cell" style="width:${BAR_W}px">${marker}</div>`;
+        }
+        ruler.style.width = (BAR_W * this.arrangementBars) + 'px';
+        ruler.innerHTML = html;
+    }
+
+    _renderTracks() {
+        const container = this.$('#la-tracks');
+        if (!container) return;
+        container.innerHTML = '';
+
+        for (const track of this.tracks) {
+            const trackEl = this._buildTrackEl(track);
+            container.appendChild(trackEl);
+        }
+    }
+
+    _buildTrackEl(track) {
+        const BAR_W = this._barWidth();
+        const totalW = BAR_W * this.arrangementBars;
+
+        const trackEl = document.createElement('div');
+        trackEl.className = 'la-track';
+        trackEl.dataset.trackId = track.id;
+        trackEl.innerHTML = `
+            <div class="la-track-label">
+                <input type="text" class="la-track-name-input lc-name-input" value="${this.escape(track.label)}"
+                    data-track-id="${track.id}" />
+                <button class="lc-card-btn lc-card-btn--danger" data-track-action="delete" data-track-id="${track.id}" title="${this.t('loopCreator.deleteTrack')}">✕</button>
+            </div>
+            <div class="la-track-cells" data-track-id="${track.id}" style="width:${totalW}px">
+                ${this._buildCells(track.id, BAR_W)}
+            </div>`;
+
+        // Drop zone
+        const cells = trackEl.querySelector('.la-track-cells');
+        cells.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            const bar = this._barFromX(e.offsetX, BAR_W);
+            this._showDropPreview(cells, bar, BAR_W);
+        });
+        cells.addEventListener('dragleave', () => this._hideDropPreview());
+        cells.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this._hideDropPreview();
+            const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+            if (!data.loopId) return;
+            const bar = this._barFromX(e.offsetX, BAR_W);
+            this._addBlock(track.id, data.loopId, bar, data.loopBars || 2);
+        });
+
+        // Track label change
+        const nameInput = trackEl.querySelector('.la-track-name-input');
+        nameInput?.addEventListener('change', async () => {
+            try { await this.api.sendCommand('arrangement_update_track', { trackId: track.id, label: nameInput.value }); } catch (_) {}
+        });
+
+        // Delete track
+        trackEl.querySelector('[data-track-action="delete"]')?.addEventListener('click', () => this._deleteTrack(track.id));
+
+        return trackEl;
+    }
+
+    _buildCells(trackId, BAR_W) {
+        const trackBlocks = this.blocks.filter(b => b.track_id === trackId);
+        const BLOCK_COLORS = ['#4a90d9','#e8931a','#27ae60','#9b59b6','#e74c3c','#1abc9c','#f39c12','#2980b9'];
+        let html = '';
+        trackBlocks.forEach((block, i) => {
+            const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
+            const blockW = block.loop_bars * block.repetitions * BAR_W;
+            const blockL = block.position_bar * BAR_W;
+            html += `<div class="la-block" data-block-id="${block.id}"
+                style="left:${blockL}px;width:${blockW}px;background:${color}">
+                <div class="la-block-label">${this.escape(block.loop_name)} ×${block.repetitions}</div>
+                <div class="la-block-actions">
+                    <button class="la-block-btn" data-block-action="reps-dec" data-block-id="${block.id}" title="-1 rep">−</button>
+                    <span class="la-block-reps">${block.repetitions}</span>
+                    <button class="la-block-btn" data-block-action="reps-inc" data-block-id="${block.id}" title="+1 rep">+</button>
+                    <button class="la-block-btn la-block-btn--del" data-block-action="delete" data-block-id="${block.id}" title="${this.t('loopCreator.deleteBlock')}">✕</button>
+                </div>
+            </div>`;
+        });
+        // Attach block action handlers after injection
+        setTimeout(() => {
+            this.$$(`[data-track-id="${trackId}"] .la-block`).forEach(blockEl => {
+                blockEl.querySelectorAll('[data-block-action]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const bid = parseInt(btn.dataset.blockId);
+                        if (btn.dataset.blockAction === 'reps-inc')   this._changeReps(bid, +1);
+                        if (btn.dataset.blockAction === 'reps-dec')   this._changeReps(bid, -1);
+                        if (btn.dataset.blockAction === 'delete')     this._deleteBlock(bid);
+                    });
+                });
+            });
+        }, 0);
+        return html;
+    }
+
+    _barWidth() {
+        const wrap = this.$('#la-timeline-wrap');
+        const available = (wrap?.clientWidth || 800) - 140; // minus palette
+        return Math.max(24, Math.min(60, Math.floor(available / this.arrangementBars)));
+    }
+
+    _barFromX(offsetX, barW) {
+        return Math.max(0, Math.min(this.arrangementBars - 1, Math.floor(offsetX / barW)));
+    }
+
+    _showDropPreview(cells, bar, barW) {
+        this._hideDropPreview();
+        const preview = document.createElement('div');
+        preview.className = 'la-drop-preview';
+        preview.style.left = (bar * barW) + 'px';
+        preview.style.width = barW + 'px';
+        cells.appendChild(preview);
+        this._dropPreview = preview;
+    }
+
+    _hideDropPreview() {
+        this._dropPreview?.remove();
+        this._dropPreview = null;
+    }
+
+    // =========================================================
+    // ARRANGER — CRUD
+    // =========================================================
+
+    async _addTrack() {
+        if (!this.currentArrangementId) return;
+        try {
+            await this.api.sendCommand('arrangement_add_track', {
+                arrangementId: this.currentArrangementId,
+                label: `Track ${this.tracks.length + 1}`
+            });
+            await this._loadArrangementById(this.currentArrangementId);
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    async _deleteTrack(trackId) {
+        try {
+            await this.api.sendCommand('arrangement_delete_track', { trackId });
+            this.tracks = this.tracks.filter(t => t.id !== trackId);
+            this.blocks = this.blocks.filter(b => b.track_id !== trackId);
+            this._renderTimeline();
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    async _addBlock(trackId, loopId, positionBar, loopBars) {
+        try {
+            const r = await this.api.sendCommand('arrangement_add_block', {
+                trackId, loopId, position_bar: positionBar, repetitions: 1
+            });
+            // Fetch the loop name from library
+            const loop = this.library.find(l => l.id === loopId);
+            this.blocks.push({
+                id: r.blockId, track_id: trackId, loop_id: loopId,
+                position_bar: positionBar, repetitions: 1,
+                loop_name: loop?.name || '?', loop_bars: loop?.bars || loopBars
+            });
+            this._renderTimeline();
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    async _changeReps(blockId, delta) {
+        const block = this.blocks.find(b => b.id === blockId);
+        if (!block) return;
+        const newReps = Math.max(1, block.repetitions + delta);
+        try {
+            await this.api.sendCommand('arrangement_update_block', { blockId, repetitions: newReps });
+            block.repetitions = newReps;
+            this._renderTimeline();
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    async _deleteBlock(blockId) {
+        try {
+            await this.api.sendCommand('arrangement_delete_block', { blockId });
+            this.blocks = this.blocks.filter(b => b.id !== blockId);
+            this._renderTimeline();
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    async _saveArrangement() {
+        this.arrangementName = this.$('#la-name-input')?.value?.trim() || this.t('loopCreator.untitledArrangement');
+        const tempo = parseInt(this.$('#la-tempo')?.value) || this.arrangementTempo;
+        const bars  = parseInt(this.$('#la-bars')?.value)  || this.arrangementBars;
+        try {
+            if (this.currentArrangementId) {
+                await this.api.sendCommand('arrangement_update', {
+                    arrangementId: this.currentArrangementId,
+                    name: this.arrangementName, global_tempo: tempo, total_bars: bars
+                });
+                this._setStatus(this.t('loopCreator.statusSaved'));
+                await this._loadArrangements();
+            }
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    async _deleteArrangement(id) {
+        try {
+            await this.api.sendCommand('arrangement_delete', { arrangementId: id });
+            if (this.currentArrangementId === id) await this._newArrangement();
+            await this._loadArrangements();
+        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    }
+
+    _adjustArrTempo(d) {
+        this.arrangementTempo = Math.max(20, Math.min(300, this.arrangementTempo + d));
+        const el = this.$('#la-tempo'); if (el) el.value = this.arrangementTempo;
+    }
+
+    _adjustArrBars(d) {
+        this.arrangementBars = Math.max(4, Math.min(256, this.arrangementBars + d));
+        const el = this.$('#la-bars'); if (el) el.value = this.arrangementBars;
+        this._renderTimeline();
+    }
+
+    // =========================================================
+    // ARRANGER — PLAYBACK
+    // =========================================================
+
+    async _playArrangement() {
+        this._stopArrangerPlay();
+        if (!this._synth || !this.blocks.length) {
+            this._setStatus(this.t('loopCreator.statusNoNotes')); return;
+        }
+        this.isArrangerPlaying = true;
+        this.$('#la-play-btn')?.classList.add('lc-btn-record--active');
+
+        const secPerBar = (60 / this.arrangementTempo) * this.timeSigNum;
+
+        // Build flat event list from all blocks
+        const events = [];
+        for (const block of this.blocks) {
+            const loopData = await this._fetchLoopData(block.loop_id);
+            if (!loopData) continue;
+            const seq = typeof loopData.midi_data === 'string'
+                ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
+            const loopPPQ  = loopData.ppq || 480;
+            const loopTempo= loopData.tempo || 120;
+            const secPerTick = 60 / (loopTempo * loopPPQ);
+            const loopDurSec = loopData.bars * (60 / loopTempo) * 4;
+
+            for (let rep = 0; rep < block.repetitions; rep++) {
+                const offsetSec = block.position_bar * secPerBar + rep * loopDurSec;
+                for (const note of seq) {
+                    events.push({ ms: (offsetSec + note.t * secPerTick) * 1000, note: note.n, vel: note.v || 80, type: 'on' });
+                    events.push({ ms: (offsetSec + (note.t + (note.g || note.l || 120)) * secPerTick) * 1000, note: note.n, vel: 0, type: 'off' });
+                }
+            }
+        }
+
+        for (const ev of events) {
+            this._arrangerTimers.push(setTimeout(() => {
+                if (!this.isArrangerPlaying) return;
+                try {
+                    if (ev.type === 'on') this._synth.noteOn(0, ev.note, ev.vel, 0);
+                    else this._synth.noteOff(0, ev.note, 0);
+                } catch (_) {}
+            }, ev.ms));
+        }
+
+        const totalMs = this.arrangementBars * secPerBar * 1000;
+        this._arrangerTimers.push(setTimeout(() => this._stopArrangerPlay(), totalMs));
+        this._setStatus(this.t('loopCreator.statusPlaying'));
+    }
+
+    _stopArrangerPlay() {
+        this._arrangerTimers.forEach(t => clearTimeout(t));
+        this._arrangerTimers = [];
+        this.isArrangerPlaying = false;
+        this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
+        try { this._synth?.allNotesOff?.(); } catch (_) {}
+        this._setStatus('');
+    }
+
+    _fetchLoopDataCache = new Map();
+    async _fetchLoopData(loopId) {
+        if (this._fetchLoopDataCache.has(loopId)) return this._fetchLoopDataCache.get(loopId);
+        try {
+            const r = await this.api.sendCommand('loop_get', { loopId });
+            this._fetchLoopDataCache.set(loopId, r.loop);
+            return r.loop;
+        } catch (_) { return null; }
+    }
+
+    // =========================================================
+    // DRAG (doc-level for block moves — future)
+    // =========================================================
+
+    _onDocMouseMove() {}
+
+    // =========================================================
+    // STATUS + HELPERS
+    // =========================================================
+
+    _setStatus(msg) { const el = this.$('#lc-status'); if (el) el.textContent = msg; }
 }
 
-if (typeof window !== 'undefined') {
-    window.LoopCreatorModal = LoopCreatorModal;
-}
+if (typeof window !== 'undefined') window.LoopCreatorModal = LoopCreatorModal;
