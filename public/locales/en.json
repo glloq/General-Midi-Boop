@@ -243,6 +243,13 @@
       "currentVersion": "currently",
       "startupCheck": "Check for updates at startup",
       "startupBetaNotif": "Also notify beta updates"
+    },
+    "lyrics": {
+      "title": "Karaoke",
+      "enable": "Show lyrics during playback",
+      "description": "Displays a synced lyrics panel for karaoke MIDI files",
+      "enabled": "Lyrics enabled",
+      "disabled": "Lyrics disabled"
     }
   },
   "bluetooth": {
