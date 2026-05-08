@@ -21,6 +21,21 @@ Then open `http://<Raspberry-Pi-IP>:8080`. Full instructions in [[Installation]]
 
 ## What's Inside
 
+### Interface — Pages & Modals
+
+| Page | Description |
+|------|-------------|
+| [[Interface-Main-Page]] | Dashboard layout, transport controls, device status strip |
+| [[Interface-Instrument-Creation]] | Register, configure and calibrate instruments |
+| [[Interface-Virtual-Piano]] | Play notes from the browser — piano, guitar, drums, string views |
+| [[Interface-Lighting-Control]] | Configure drivers, fixtures, effects and MIDI-triggered cues |
+| [[Interface-Playlist]] | Upload, organise, search and queue MIDI files |
+| [[Interface-Microphone]] | Microphone-based latency calibration and chromatic tuner |
+| [[Interface-Settings]] | Theme, language, keyboard preferences |
+| [[Interface-Hand-Management]] | Plan and visualise hand/actuator positions for piano and string robots |
+
+### Core Concepts & Reference
+
 | Area | Page |
 |------|------|
 | Set up a Pi from scratch | [[Installation]] |
@@ -32,6 +47,7 @@ Then open `http://<Raspberry-Pi-IP>:8080`. Full instructions in [[Installation]]
 | Wire USB / BLE / RTP-MIDI / GPIO UART | [[Hardware-Integration]] |
 | Control lights (DMX, sACN, OSC, MQTT…) | [[Lighting]] |
 | Tablature, hand-position, calibration | [[Advanced-Topics]] |
+| **Build a GMBoop-compatible instrument** | [[Instrument-Developer-Guide]] |
 | Run in production | [[Deployment]] |
 | Hack on the project | [[Contributing]] |
 | Fix common problems | [[Troubleshooting]] |
