@@ -247,6 +247,15 @@
                 const modalEl = this.$('.modal-content') || document;
                 handsConfigPayload = window.ISMSections._collectHandsConfig(modalEl);
             }
+            // Safety guard: if the collector produced an enabled config with no
+            // hands (can happen when the section DOM is empty/stale), discard it
+            // so the existing DB value is preserved rather than triggering a
+            // backend validation error.
+            if (handsConfigPayload !== undefined
+                    && handsConfigPayload.enabled !== false
+                    && (!Array.isArray(handsConfigPayload.hands) || handsConfigPayload.hands.length === 0)) {
+                handsConfigPayload = undefined;
+            }
             // The Mains section is hidden when the "Gestion du déplacement
             // des mains" toggle is off, so the collector returns undefined
             // and the disable would not reach the DB. Detect that case and
