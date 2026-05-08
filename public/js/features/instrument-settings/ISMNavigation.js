@@ -128,13 +128,24 @@
             // we still need to clear the debounce flag so `+` keeps working.
             const dismissClosedWithoutPick = function() {
                 overlay.remove();
+                document.removeEventListener('keydown', escHandler);
                 self._addingTab = false;
             };
+            // ESC key closes the overlay
+            const escHandler = function(e) {
+                if (e.key === 'Escape') dismissClosedWithoutPick();
+            };
+            document.addEventListener('keydown', escHandler);
+            // Click outside the modal-content closes the overlay
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) dismissClosedWithoutPick();
+            });
             overlay.querySelector('[data-close-add]').addEventListener('click', dismissClosedWithoutPick);
             overlay.querySelectorAll('.add-inst-channel-btn:not([disabled])').forEach(function(btn) {
                 btn.addEventListener('click', async function() {
                     const ch = parseInt(btn.dataset.channel);
                     overlay.remove();
+                    document.removeEventListener('keydown', escHandler);
                     try {
                         await self.api.sendCommand('instrument_add_to_device', {
                             deviceId: self.device.id,

@@ -1059,20 +1059,8 @@ class InstrumentSettingsModal extends BaseModal {
         if (isDrum) return;
 
         const self = this;
-        let attempts = 0;
 
-        function tryInit() {
-            attempts++;
-            const viewport = document.querySelector('.piano-viewport');
-
-            // Wait until viewport is visible and has width (section must be active)
-            if (!viewport || viewport.offsetWidth < 20) {
-                if (attempts < 10) {
-                    setTimeout(tryInit, 80);
-                }
-                return;
-            }
-
+        function doInit(viewport) {
             // 1) Compute center note
             let centerNote = 60;
             if (s.note_selection_mode === 'discrete' && s.selected_notes && s.selected_notes.length > 0) {
@@ -1105,13 +1093,45 @@ class InstrumentSettingsModal extends BaseModal {
             }
 
             // 5) Apply octave mode highlighting after piano is rendered
-            setTimeout(function() {
+            requestAnimationFrame(function() {
                 self._applyOctaveModeHighlight();
-            }, 20);
+            });
         }
 
-        // Start trying after a short delay
-        setTimeout(tryInit, 30);
+        // Wait for the piano viewport to have a real layout width.
+        // Using ResizeObserver avoids the brittle fixed-interval polling loop:
+        // the observer fires as soon as the CSS layout assigns a non-zero width
+        // to the viewport (typically after the first paint of the Notes section).
+        function tryInit() {
+            const viewport = document.querySelector('.piano-viewport');
+            if (!viewport) {
+                // Section not mounted yet — retry once on the next frame
+                requestAnimationFrame(tryInit);
+                return;
+            }
+
+            if (viewport.offsetWidth >= 20) {
+                doInit(viewport);
+                return;
+            }
+
+            // Viewport exists but has no width yet (section just became active,
+            // layout not computed). Observe it and fire doInit on first resize.
+            const ro = new ResizeObserver(function(entries) {
+                const w = entries[0] && entries[0].contentRect.width;
+                if (w >= 20) {
+                    ro.disconnect();
+                    clearTimeout(roTimeout);
+                    doInit(viewport);
+                }
+            });
+            ro.observe(viewport);
+            // Safety valve: disconnect after 2 s so the observer is never leaked
+            // if the section is hidden again before layout fires.
+            const roTimeout = setTimeout(function() { ro.disconnect(); }, 2000);
+        }
+
+        requestAnimationFrame(tryInit);
     }
 
     _applyOctaveModeHighlight() {

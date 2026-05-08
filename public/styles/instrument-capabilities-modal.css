@@ -1,55 +1,37 @@
 /* ==========================================================================
    Instrument Capabilities Modal Styles
+   Targets .icm-modal (BaseModal customClass on the .modal-dialog element)
    ========================================================================== */
 
-.instrument-capabilities-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.instrument-capabilities-modal .modal-container {
-  background: white;
-  border-radius: 12px;
+/* Dialog sizing */
+.icm-modal {
   max-width: 700px;
   width: 90%;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-.instrument-capabilities-modal .modal-header {
+/* Header — gradient brand style */
+.icm-modal .modal-header {
   padding: 10px 16px;
   border-bottom: 2px solid #e5e7eb;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
 }
 
-.instrument-capabilities-modal .modal-header h2 {
-  margin: 0 0 4px 0;
-  font-size: 20px;
-}
-
-.instrument-capabilities-modal .modal-header p {
+.icm-modal .modal-header h2 {
   margin: 0;
-  opacity: 0.9;
-  font-size: 13px;
+  font-size: 20px;
+  color: white;
 }
 
-.instrument-capabilities-modal .modal-body {
+/* Body */
+.icm-modal .modal-body {
   padding: 10px 16px;
   max-height: 60vh;
   overflow-y: auto;
 }
 
-.instrument-capabilities-modal .modal-footer {
+/* Footer */
+.icm-modal .modal-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -58,8 +40,37 @@
   background: #f9fafb;
 }
 
+/* Subtitle below header */
+.icm-subtitle {
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+/* Progress text (footer left) */
+.icm-progress {
+  color: #666;
+  font-size: 13px;
+}
+
+/* Footer button group */
+.icm-footer-btns {
+  display: flex;
+  gap: 8px;
+}
+
+/* Loading indicator */
+.icm-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: #666;
+  font-size: 13px;
+}
+
 /* Instrument info card */
-.instrument-capabilities-modal .instrument-info {
+.icm-modal .instrument-info {
   margin-bottom: 8px;
   padding: 8px;
   background: #f0f7ff;
@@ -67,23 +78,23 @@
   border-radius: 8px;
 }
 
-.instrument-capabilities-modal .instrument-info h3 {
+.icm-modal .instrument-info h3 {
   margin: 0 0 4px 0;
   color: #1e40af;
   font-size: 16px;
 }
 
-.instrument-capabilities-modal .instrument-info .meta {
+.icm-modal .instrument-info .meta {
   color: #666;
   font-size: 12px;
 }
 
 /* Form fields */
-.instrument-capabilities-modal .field-group {
+.icm-modal .field-group {
   margin-bottom: 8px;
 }
 
-.instrument-capabilities-modal .field-group label {
+.icm-modal .field-group label {
   display: block;
   margin-bottom: 4px;
   font-weight: 600;
@@ -91,49 +102,89 @@
   font-size: 13px;
 }
 
-.instrument-capabilities-modal .field-group input,
-.instrument-capabilities-modal .field-group select,
-.instrument-capabilities-modal .field-group textarea {
+.icm-input,
+.icm-select,
+.icm-textarea {
   width: 100%;
   padding: 8px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
+  box-sizing: border-box;
 }
 
-.instrument-capabilities-modal .field-group textarea {
+.icm-textarea {
   font-family: monospace;
   font-size: 13px;
   min-height: 60px;
+  resize: vertical;
 }
 
 /* Section headers */
-.instrument-capabilities-modal .section-required h4 {
+.icm-modal .section-required h4 {
   margin: 0 0 6px 0;
   color: #dc2626;
   font-size: 14px;
 }
 
-.instrument-capabilities-modal .section-recommended h4 {
+.icm-modal .section-recommended h4 {
   margin: 0 0 6px 0;
   color: #f59e0b;
   font-size: 14px;
 }
 
-.instrument-capabilities-modal .section-recommended .hint {
+.icm-modal .section-recommended .hint {
   margin: 0 0 8px 0;
   color: #666;
   font-size: 12px;
 }
 
+/* Required asterisk / optional badge */
+.icm-required {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.icm-optional {
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+/* Field hint text */
+.icm-field-hint {
+  color: #9ca3af;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* Note row: number input + live note name */
+.icm-note-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icm-note-row .icm-input {
+  width: 80px;
+  flex: 0 0 80px;
+}
+
+.icm-note-name {
+  color: #666;
+  font-size: 13px;
+  font-family: monospace;
+  min-width: 32px;
+}
+
 /* CC checkbox grid */
-.instrument-capabilities-modal .cc-grid {
+.icm-modal .cc-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
 
-.instrument-capabilities-modal .cc-grid label {
+.icm-modal .cc-grid label {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -147,7 +198,7 @@
 }
 
 /* Defaults section */
-.instrument-capabilities-modal .defaults-section {
+.icm-modal .defaults-section {
   margin-top: 8px;
   padding: 8px;
   background: #f9fafb;
@@ -155,102 +206,123 @@
   border-radius: 8px;
 }
 
-.instrument-capabilities-modal .defaults-section button {
+.icm-modal .defaults-section button {
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
-.instrument-capabilities-modal .defaults-section .hint {
-  color: #666;
-  font-size: 11px;
-  margin-top: 6px;
-  text-align: center;
+/* String instrument auto-create banner */
+.icm-string-banner {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  color: #166534;
+  font-size: 13px;
 }
 
 /* ==========================================================================
-   Dark Mode - Instrument Capabilities Modal
+   Dark Mode — Instrument Capabilities Modal
    ========================================================================== */
 
-body.dark-mode .instrument-capabilities-modal .modal-container {
-  background: var(--bg-secondary) !important;
-  color: var(--text-primary);
-}
-
-body.dark-mode .instrument-capabilities-modal .modal-body {
-  color: var(--text-primary);
-}
-
-/* Form labels */
-body.dark-mode .instrument-capabilities-modal label {
-  color: var(--text-primary) !important;
-}
-
-/* Form inputs */
-body.dark-mode .instrument-capabilities-modal input[type="text"],
-body.dark-mode .instrument-capabilities-modal input[type="number"],
-body.dark-mode .instrument-capabilities-modal select,
-body.dark-mode .instrument-capabilities-modal textarea {
-  background: var(--bg-tertiary) !important;
-  border-color: var(--border-color) !important;
-  color: var(--text-primary) !important;
-}
-
-body.dark-mode .instrument-capabilities-modal select option {
+body.dark-mode .icm-modal {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-/* CC checkbox labels - fixes white-on-white */
-body.dark-mode .instrument-capabilities-modal div[style*="grid"] > label {
+body.dark-mode .icm-modal .modal-body {
+  color: var(--text-primary);
+}
+
+body.dark-mode .icm-modal label {
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode .icm-modal input[type="text"],
+body.dark-mode .icm-modal input[type="number"],
+body.dark-mode .icm-modal select,
+body.dark-mode .icm-modal textarea,
+body.dark-mode .icm-input,
+body.dark-mode .icm-select,
+body.dark-mode .icm-textarea {
   background: var(--bg-tertiary) !important;
   border-color: var(--border-color) !important;
   color: var(--text-primary) !important;
 }
 
-body.dark-mode .instrument-capabilities-modal div[style*="grid"] > label span {
+body.dark-mode .icm-modal select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* CC checkbox labels */
+body.dark-mode .icm-modal .cc-grid label {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode .icm-modal .cc-grid label span {
   color: var(--text-primary) !important;
 }
 
 /* Instrument info card */
-body.dark-mode .instrument-capabilities-modal div[style*="background: #f0f7ff"] {
+body.dark-mode .icm-modal .instrument-info {
   background: rgba(59, 130, 246, 0.15) !important;
   border-color: #3b82f6 !important;
 }
 
-body.dark-mode .instrument-capabilities-modal div[style*="background: #f0f7ff"] h3 {
+body.dark-mode .icm-modal .instrument-info h3 {
   color: #93b8f8 !important;
 }
 
-body.dark-mode .instrument-capabilities-modal div[style*="background: #f0f7ff"] div {
+body.dark-mode .icm-modal .instrument-info .meta {
   color: var(--text-secondary) !important;
 }
 
-/* Section headers */
-body.dark-mode .instrument-capabilities-modal h4 {
-  color: inherit;
-}
-
 /* Footer */
-body.dark-mode .instrument-capabilities-modal .modal-footer {
+body.dark-mode .icm-modal .modal-footer {
   background: var(--bg-tertiary) !important;
   border-top-color: var(--border-color) !important;
+}
+
+body.dark-mode .icm-progress {
   color: var(--text-secondary) !important;
 }
 
 /* Defaults section */
-body.dark-mode .instrument-capabilities-modal div[style*="background: #f9fafb"] {
+body.dark-mode .icm-modal .defaults-section {
   background: var(--bg-tertiary) !important;
   border-color: var(--border-color) !important;
 }
 
-/* Note name spans */
-body.dark-mode .instrument-capabilities-modal span[style*="color: #666"] {
+/* Note name */
+body.dark-mode .icm-note-name {
   color: var(--text-secondary) !important;
 }
 
-/* Muted text */
-body.dark-mode .instrument-capabilities-modal p[style*="color: #666"] {
-  color: var(--text-secondary) !important;
+/* Subtitle */
+body.dark-mode .icm-subtitle {
+  color: var(--text-secondary);
+}
+
+/* Field hint / optional badge */
+body.dark-mode .icm-field-hint,
+body.dark-mode .icm-optional {
+  color: var(--text-secondary);
+}
+
+/* Loading */
+body.dark-mode .icm-loading {
+  color: var(--text-secondary);
+}
+
+/* String banner */
+body.dark-mode .icm-string-banner {
+  background: rgba(134, 239, 172, 0.1) !important;
+  border-color: #4ade80 !important;
+  color: #86efac !important;
 }
 
 /* .modal-close dark mode — styled by universal close button rule in components.css */
