@@ -11,7 +11,8 @@
                 this._commitCurrentNotesEditor();
             }
             const customName = (this.$('#customName')?.value || '').trim();
-            const syncDelay = parseInt(this.$('#syncDelay')?.value) || 0;
+            const syncDelayRaw = (this.$('#syncDelay')?.value || '').trim();
+            const syncDelay = syncDelayRaw !== '' ? (parseInt(syncDelayRaw, 10) || 0) : 0;
             const macAddress = (this.$('#macAddress')?.value || '').trim();
 
             // GM Program
@@ -66,9 +67,12 @@
 
             // Validate range
             if (noteSelectionMode === 'range') {
-                if (parsedMin !== null && (parsedMin < 0 || parsedMin > 127)) throw new Error('Note min: 0-127');
-                if (parsedMax !== null && (parsedMax < 0 || parsedMax > 127)) throw new Error('Note max: 0-127');
-                if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax) throw new Error('Min > Max');
+                if (parsedMin !== null && (isNaN(parsedMin) || parsedMin < 0 || parsedMin > 127))
+                    throw new Error(this.t('instrumentSettings.errorNoteMin') || 'Note min invalide : doit être entre 0 et 127');
+                if (parsedMax !== null && (isNaN(parsedMax) || parsedMax < 0 || parsedMax > 127))
+                    throw new Error(this.t('instrumentSettings.errorNoteMax') || 'Note max invalide : doit être entre 0 et 127');
+                if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax)
+                    throw new Error(this.t('instrumentSettings.errorNoteMinMax') || 'La note min ne peut pas être supérieure à la note max');
             }
 
             // Channel

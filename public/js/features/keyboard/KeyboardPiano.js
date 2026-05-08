@@ -72,16 +72,16 @@
 
                             <!-- List view: CC selector for Y-axis (shown only in list view) -->
                             <div class="control-group list-cc-group hidden" id="keyboard-list-cc-group">
-                                <label>Y → CC</label>
-                                <select id="keyboard-list-cc-select" class="list-cc-select" title="CC envoyé lors du drag vertical (Y)">
-                                    <option value="">Vélocité</option>
+                                <label>${this.t('keyboard.listCCLabel') || 'Y → CC'}</label>
+                                <select id="keyboard-list-cc-select" class="list-cc-select" title="${this.t('keyboard.listCCTitle') || 'CC envoyé lors du drag vertical (Y)'}">
+                                    <option value="">${this.t('keyboard.velocity') || 'Vélocité'}</option>
                                 </select>
                             </div>
 
                             <!-- List view: pitch bend toggle for X-axis -->
                             <div class="control-group list-pb-group hidden" id="keyboard-list-pb-group">
-                                <label>Pitch X</label>
-                                <button class="btn-list-pb-toggle active" id="keyboard-list-pb-toggle" aria-pressed="true" title="Activer/désactiver le pitch bend sur le drag horizontal (X)">↔</button>
+                                <label>${this.t('keyboard.listPBLabel') || 'Pitch X'}</label>
+                                <button class="btn-list-pb-toggle active" id="keyboard-list-pb-toggle" aria-pressed="true" title="${this.t('keyboard.listPBTitle') || 'Activer/désactiver le pitch bend sur le drag horizontal (X)'}">↔</button>
                             </div>
 
                             <div class="control-group note-color-group" id="keyboard-note-color-group">

@@ -8,6 +8,7 @@
 'use strict';
 
 const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
+const _esc = (str) => typeof escapeHtml === 'function' ? escapeHtml(str || '') : String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 class InstrumentCapabilitiesModal {
   constructor(apiClient) {
@@ -161,11 +162,11 @@ class InstrumentCapabilitiesModal {
     return `
       <div style="margin-bottom: 12px; padding: 12px; background: rgba(102, 126, 234, 0.08); border: 2px solid var(--accent-primary, #3b82f6); border-radius: 8px;">
         <h3 style="margin: 0 0 4px 0; color: var(--accent-primary, #1e40af); font-size: 16px;">
-          ${escapeHtml(instrument.custom_name || instrument.name)}
+          ${_esc(instrument.custom_name || instrument.name)}
         </h3>
         <div style="color: var(--text-muted, #666); font-size: 12px;">
-          ${_t('instrumentCapabilities.type')}: ${escapeHtml(instrument.type || _t('common.unknown'))} •
-          ${_t('instrumentCapabilities.manufacturer')}: ${escapeHtml(instrument.manufacturer || _t('common.unknown'))}
+          ${_t('instrumentCapabilities.type')}: ${_esc(instrument.type || _t('common.unknown'))} •
+          ${_t('instrumentCapabilities.manufacturer')}: ${_esc(instrument.manufacturer || _t('common.unknown'))}
         </div>
       </div>
 
@@ -506,7 +507,12 @@ class InstrumentCapabilitiesModal {
       }
     } catch (error) {
       console.error('Failed to get defaults:', error);
-      alert(_t('instrumentCapabilities.defaultsFailed'));
+      const msg = _t('instrumentCapabilities.defaultsFailed');
+      if (typeof window.showAlert === 'function') {
+        await window.showAlert(msg, { title: _t('common.error') || 'Erreur', icon: '❌' });
+      } else {
+        alert(msg);
+      }
     }
   }
 
@@ -581,7 +587,12 @@ class InstrumentCapabilitiesModal {
    * Finish and save all modifications
    */
   async complete() {
-    // Send the updates to the server
+    const nextBtn = document.getElementById('nextBtn');
+    const originalText = nextBtn ? nextBtn.textContent : null;
+    if (nextBtn) {
+      nextBtn.disabled = true;
+      nextBtn.textContent = '⏳';
+    }
     try {
       const response = await this.apiClient.sendCommand('update_instrument_capabilities', {
         updates: this.updates
@@ -589,16 +600,30 @@ class InstrumentCapabilitiesModal {
 
       if (response && response.success) {
         this.close();
-
         if (this.onComplete) {
           this.onComplete(this.updates);
         }
       } else {
-        alert(_t('instrumentCapabilities.saveFailed') + ': ' + (response?.error || _t('common.unknownError')));
+        const msg = _t('instrumentCapabilities.saveFailed') + ': ' + (response?.error || _t('common.unknownError'));
+        if (typeof window.showAlert === 'function') {
+          await window.showAlert(msg, { title: _t('common.error') || 'Erreur', icon: '❌' });
+        } else {
+          alert(msg);
+        }
       }
     } catch (error) {
       console.error('Failed to save capabilities:', error);
-      alert(_t('instrumentCapabilities.saveFailed'));
+      const msg = _t('instrumentCapabilities.saveFailed');
+      if (typeof window.showAlert === 'function') {
+        await window.showAlert(msg, { title: _t('common.error') || 'Erreur', icon: '❌' });
+      } else {
+        alert(msg);
+      }
+    } finally {
+      if (nextBtn && originalText) {
+        nextBtn.disabled = false;
+        nextBtn.textContent = originalText;
+      }
     }
   }
 

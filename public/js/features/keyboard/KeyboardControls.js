@@ -113,6 +113,22 @@
     }
 
     /**
+     * Parse supported_ccs from instrument capabilities.
+     * Handles both JSON-string and plain array forms from the backend.
+     * @param {Object} caps - Instrument capabilities object
+     * @returns {number[]}
+     */
+    KeyboardControlsMixin._parseSupportedCCs = function(caps) {
+        if (!caps || !caps.supported_ccs) return [];
+        try {
+            const raw = caps.supported_ccs;
+            return Array.isArray(raw) ? raw : JSON.parse(raw);
+        } catch (e) {
+            return [];
+        }
+    };
+
+    /**
      * Update the visibility of the velocity and modulation sliders
      * based on the selected instrument's capabilities
      */
@@ -144,23 +160,17 @@
             return;
         }
 
-        // Velocity: always visible if the instrument supports notes
-        const hasNotes = (caps.note_range_min !== null && caps.note_range_min !== undefined) ||
-                         (caps.note_range_max !== null && caps.note_range_max !== undefined) ||
-                         caps.note_selection_mode === 'discrete';
-        velocityPanel.classList.toggle('slider-hidden', !hasNotes);
+        // Velocity: visible whenever a device is selected — hide only when
+        // the instrument explicitly declares no playable notes at all (no range
+        // AND no discrete list). A null range means "all notes" and must show.
+        const noNotes = caps.note_selection_mode === 'range'
+            && caps.note_range_min === null && caps.note_range_min === undefined
+            && caps.note_range_max === null && caps.note_range_max === undefined
+            && (!Array.isArray(caps.selected_notes) || caps.selected_notes.length === 0);
+        velocityPanel.classList.toggle('slider-hidden', !!noNotes);
 
         // Modulation: visible if CC#1 is in supported_ccs
-        let supportsCCs = [];
-        if (caps.supported_ccs) {
-            try {
-                supportsCCs = typeof caps.supported_ccs === 'string'
-                    ? JSON.parse(caps.supported_ccs)
-                    : caps.supported_ccs;
-            } catch (e) {
-                supportsCCs = [];
-            }
-        }
+        const supportsCCs = this._parseSupportedCCs(caps);
         modulationPanel.classList.toggle('slider-hidden', !(Array.isArray(supportsCCs) && supportsCCs.includes(1)));
 
         // Pitch bend wheel: visible if pitch_bend_enabled is set on the instrument
@@ -332,17 +342,20 @@
             const devices = await this.backend.listDevices();
             let activeDevices = devices.filter(d => d.status === 2); // Active only
 
-            // Deduplicate by name (in case the backend didn't fully deduplicate)
+            // Deduplicate by device ID (primary key), falling back to name only
+            // when no ID is available. Deduplicating by name alone would merge
+            // two distinct physical devices that happen to share the same label.
             const uniqueDevices = [];
-            const seenNames = new Set();
+            const seenIds = new Set();
 
             for (const device of activeDevices) {
-                if (!seenNames.has(device.name)) {
-                    seenNames.add(device.name);
+                const key = device.id || device.device_id || device.name;
+                if (!seenIds.has(key)) {
+                    seenIds.add(key);
                     uniqueDevices.push(device);
-                    this.logger.debug('[KeyboardModal] ✓ Device kept:', device.name);
+                    this.logger.debug('[KeyboardModal] ✓ Device kept:', device.name, '(id:', key, ')');
                 } else {
-                    this.logger.debug('[KeyboardModal] ✗ Device skipped (duplicate):', device.name);
+                    this.logger.debug('[KeyboardModal] ✗ Device skipped (duplicate):', device.name, '(id:', key, ')');
                 }
             }
 
@@ -484,14 +497,7 @@
         const caps = this.selectedDeviceCapabilities;
 
         // CC déclarés par l'instrument ; si aucun, on utilise la liste standard
-        let supportsCCs = [];
-        if (caps && caps.supported_ccs) {
-            try {
-                supportsCCs = typeof caps.supported_ccs === 'string'
-                    ? JSON.parse(caps.supported_ccs)
-                    : caps.supported_ccs;
-            } catch (e) { supportsCCs = []; }
-        }
+        const supportsCCs = this._parseSupportedCCs(caps);
         const ccList = (Array.isArray(supportsCCs) && supportsCCs.length > 0)
             ? supportsCCs
             : DEFAULT_CC_LIST;
@@ -501,7 +507,8 @@
 
         if (ccSelect && isListView) {
             const previousVal = ccSelect.value;
-            ccSelect.innerHTML = '<option value="">Vélocité</option>';
+            const velocityLabel = (typeof this.t === 'function') ? (this.t('keyboard.velocity') || 'Vélocité') : 'Vélocité';
+            ccSelect.innerHTML = `<option value="">${velocityLabel}</option>`;
             for (const cc of ccList) {
                 const opt = document.createElement('option');
                 opt.value = String(cc);
