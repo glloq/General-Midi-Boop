@@ -421,12 +421,14 @@ class LoopCreatorModal extends BaseModal {
     }
 
     _onClick(e) {
+        // Tab switching — .lc-tab buttons carry data-tab, not data-action
+        const tabBtn = e.target.closest('.lc-tab[data-tab]');
+        if (tabBtn) { this._switchTab(tabBtn.dataset.tab); return; }
+
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
         const a = btn.dataset.action;
         switch (a) {
-            // Tabs
-            case undefined: break;
             // Creator
             case 'tempo-dec':    this._adjustTempo(-1);    break;
             case 'tempo-inc':    this._adjustTempo(+1);    break;
@@ -456,9 +458,6 @@ class LoopCreatorModal extends BaseModal {
             case 'save-arrangement': this._saveArrangement(); break;
             case 'close': this.close(); break;
         }
-        // Tab switching
-        const tabBtn = e.target.closest('.lc-tab[data-tab]');
-        if (tabBtn) this._switchTab(tabBtn.dataset.tab);
     }
 
     _onChange(e) {

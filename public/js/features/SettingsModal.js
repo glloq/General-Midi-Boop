@@ -56,6 +56,7 @@ class SettingsModal {
             showPlaylistButton: true,
             showKeyboardButton: true,
             showInstrumentsButton: true,
+            showLoopCreatorButton: true,
             midiClockEnabled: false,
             serialMidiEnabled: false,
             showLoadingAnimation: true,
@@ -305,6 +306,9 @@ class SettingsModal {
         const keyboardButtonToggle = this.modal.querySelector('#showKeyboardButtonToggle');
         if (keyboardButtonToggle) keyboardButtonToggle.checked = this.settings.showKeyboardButton;
 
+        const loopCreatorButtonToggle = this.modal.querySelector('#showLoopCreatorButtonToggle');
+        if (loopCreatorButtonToggle) loopCreatorButtonToggle.checked = this.settings.showLoopCreatorButton;
+
         const keyboardLayoutSelect = this.modal.querySelector('#keyboardLayoutSelect');
         if (keyboardLayoutSelect) keyboardLayoutSelect.value = this.settings.keyboardLayout || 'azerty';
 
@@ -387,6 +391,7 @@ class SettingsModal {
         const keyboardButtonToggle = this.modal.querySelector('#showKeyboardButtonToggle');
         const keyboardLayoutSelect = this.modal.querySelector('#keyboardLayoutSelect');
         const instrumentsButtonToggle = this.modal.querySelector('#showInstrumentsButtonToggle');
+        const loopCreatorButtonToggle = this.modal.querySelector('#showLoopCreatorButtonToggle');
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         const midiClockToggle = this.modal.querySelector('#midiClockToggle');
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
@@ -420,6 +425,7 @@ class SettingsModal {
             showKeyboardButton: keyboardButtonToggle ? keyboardButtonToggle.checked : this.settings.showKeyboardButton,
             keyboardLayout: keyboardLayoutSelect ? keyboardLayoutSelect.value : (this.settings.keyboardLayout || 'azerty'),
             showInstrumentsButton: instrumentsButtonToggle ? instrumentsButtonToggle.checked : this.settings.showInstrumentsButton,
+            showLoopCreatorButton: loopCreatorButtonToggle ? loopCreatorButtonToggle.checked : this.settings.showLoopCreatorButton,
             midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled,
             showLoadingAnimation: loadingAnimationToggle ? loadingAnimationToggle.checked : this.settings.showLoadingAnimation,
@@ -438,6 +444,7 @@ class SettingsModal {
         const playlistButtonChanged = newSettings.showPlaylistButton !== this.settings.showPlaylistButton;
         const keyboardButtonChanged = newSettings.showKeyboardButton !== this.settings.showKeyboardButton;
         const instrumentsButtonChanged = newSettings.showInstrumentsButton !== this.settings.showInstrumentsButton;
+        const loopCreatorButtonChanged = newSettings.showLoopCreatorButton !== this.settings.showLoopCreatorButton;
         const midiClockChanged = newSettings.midiClockEnabled !== this.settings.midiClockEnabled;
         const serialMidiChanged = newSettings.serialMidiEnabled !== this.settings.serialMidiEnabled;
         const soundBankChanged = newSettings.soundBank !== this.settings.soundBank;
@@ -480,6 +487,10 @@ class SettingsModal {
             this.eventBus?.emit('settings:instruments_button_changed', { enabled: newSettings.showInstrumentsButton });
             this.applyInstrumentsButton(newSettings.showInstrumentsButton);
         }
+        if (loopCreatorButtonChanged) {
+            this.eventBus?.emit('settings:loop_creator_button_changed', { enabled: newSettings.showLoopCreatorButton });
+            this.applyLoopCreatorButton(newSettings.showLoopCreatorButton);
+        }
         if (midiClockChanged) this.eventBus?.emit('settings:midi_clock_changed', { enabled: newSettings.midiClockEnabled });
         if (serialMidiChanged) this.eventBus?.emit('settings:serial_midi_changed', { enabled: newSettings.serialMidiEnabled });
         if (soundBankChanged) {
@@ -502,6 +513,12 @@ class SettingsModal {
         this.applyPlaylistButton(this.settings.showPlaylistButton);
         this.applyKeyboardButton(this.settings.showKeyboardButton);
         this.applyInstrumentsButton(this.settings.showInstrumentsButton);
+        this.applyLoopCreatorButton(this.settings.showLoopCreatorButton);
+    }
+
+    applyLoopCreatorButton(show) {
+        const loopCreatorBtn = document.getElementById('loopCreatorBtn');
+        if (loopCreatorBtn) loopCreatorBtn.style.display = show ? 'flex' : 'none';
     }
 
     applyDebugButton(show) {
