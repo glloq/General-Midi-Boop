@@ -56,7 +56,7 @@ Common variables:
 | `GMBOOP_BLE_ENABLED` | Enable Bluetooth LE MIDI |
 | `GMBOOP_SERIAL_ENABLED` | Enable GPIO UART MIDI |
 | `GMBOOP_SERIAL_BAUD_RATE` | Serial baud rate (default 31250) |
-| `GMBOOP_API_TOKEN` | Bearer token for `/api/*` and WS `?token=` |
+| `GMBOOP_API_TOKEN` | Token pour `/api/*` et WS `?token=` — **généré automatiquement** au premier démarrage et sauvegardé dans `.env`. Vous pouvez le remplacer par un token personnalisé si besoin (accès distant, scripts CI, etc.). |
 
 ## Accessing the Interface
 
