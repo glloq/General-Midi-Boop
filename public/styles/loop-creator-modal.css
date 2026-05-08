@@ -442,39 +442,38 @@ body.theme-dark .loop-creator-modal .modal-footer { background: #12122a; border-
 body.theme-dark .lc-key-white { background: #e4e4f0; }
 body.theme-dark .lc-key-black { background: #111120; }
 
-/* ── Output mode toggle ── */
-.lc-output-mode {
-    display: flex;
-    border: 1px solid var(--border-color, #ccc);
-    border-radius: 5px;
-    overflow: hidden;
-    margin-left: 6px;
-}
-.lc-output-btn {
-    border: none;
-    border-radius: 0;
-    padding: 4px 10px;
-    font-size: 0.8rem;
-    background: var(--bg-secondary, #f4f5f7);
-    color: var(--text-primary, #333);
-}
-.lc-output-btn + .lc-output-btn { border-left: 1px solid var(--border-color, #ccc); }
-.lc-output-btn--active {
-    background: var(--accent-color, #4a90d9);
-    color: #fff;
-}
-.lc-output-btn:hover:not(.lc-output-btn--active) { background: var(--bg-hover, #e8ecf0); }
-
-.lc-device-picker {
+/* ── Instrument selector ── */
+.lc-instrument-selector {
     display: flex;
     align-items: center;
-    gap: 4px;
-    margin-left: 4px;
+    gap: 6px;
+    margin-left: 8px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border-color, #e0e0e0);
+}
+.lc-instrument-select {
+    height: 26px;
+    min-width: 170px;
+    max-width: 280px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #333);
+    font-size: 0.82rem;
+    padding: 0 4px;
+    cursor: pointer;
+}
+.lc-instrument-select:focus { outline: 1px solid var(--accent-color, #4a90d9); }
+.lc-instrument-info {
+    font-size: 0.72rem;
+    color: var(--accent-color, #4a90d9);
+    font-style: italic;
+    white-space: nowrap;
+    font-weight: 500;
 }
 
-body.theme-dark .lc-output-mode { border-color: #333355; }
-body.theme-dark .lc-output-btn  { background: #14142a; color: #eee; border-color: #333355; }
-body.theme-dark .lc-output-btn--active { background: #4a90d9; color: #fff; }
+body.theme-dark .lc-instrument-selector { border-color: #333355; }
+body.theme-dark .lc-instrument-select { background: #1a1a2e; color: #eee; border-color: #333355; }
 
 /* ── Loop creator button ── */
 .btn-loop-creator-toggle {

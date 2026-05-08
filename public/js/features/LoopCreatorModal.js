@@ -57,6 +57,9 @@ class LoopCreatorModal extends BaseModal {
         this.outputMode = 'synth';
         this.outputDeviceId = null;
         this.outputChannel = 0;
+        this.outputNoteMin = 36;   // keyboard range (adapted per instrument)
+        this.outputNoteMax = 84;
+        this.outputGmProgram = 0;
 
         // Library
         this.library = [];
@@ -203,25 +206,13 @@ class LoopCreatorModal extends BaseModal {
                     <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                         <span class="lc-rec-dot lc-rec-dot--pulse"></span> ${this.t('loopCreator.recording')}
                     </span>
-                    <div class="lc-output-mode" role="group" aria-label="${this.t('loopCreator.outputMode')}">
-                        <button class="lc-btn lc-output-btn lc-output-btn--active" id="lc-out-synth"
-                            data-action="out-synth" title="${this.t('loopCreator.outSynthTitle')}">
-                            🎹 ${this.t('loopCreator.outSynth')}
-                        </button>
-                        <button class="lc-btn lc-output-btn" id="lc-out-device"
-                            data-action="out-device" title="${this.t('loopCreator.outDeviceTitle')}">
-                            🎛 ${this.t('loopCreator.outDevice')}
-                        </button>
-                    </div>
-                    <div class="lc-device-picker" id="lc-device-picker" style="display:none">
-                        <select id="lc-out-device-sel" class="lc-select"
-                            aria-label="${this.t('loopCreator.outputDevice')}">
-                            <option value="">${this.t('loopCreator.midiInNone')}</option>
+                    <div class="lc-instrument-selector">
+                        <label class="lc-label">${this.t('loopCreator.outputLabel')}</label>
+                        <select id="lc-instrument-sel" class="lc-select lc-instrument-select"
+                            aria-label="${this.t('loopCreator.outputLabel')}">
+                            <option value="synth">🎹 ${this.t('loopCreator.synthVirtual')}</option>
                         </select>
-                        <select id="lc-out-channel" class="lc-select"
-                            aria-label="${this.t('loopCreator.outputChannel')}">
-                            ${[...Array(16)].map((_,i) => `<option value="${i}"${i===0?' selected':''}>Ch ${i+1}</option>`).join('')}
-                        </select>
+                        <span class="lc-instrument-info" id="lc-instrument-info"></span>
                     </div>
                 </div>
                 <div class="lc-transport-right">
@@ -442,8 +433,6 @@ class LoopCreatorModal extends BaseModal {
             case 'record':       this._toggleRecording();  break;
             case 'preview':      this._previewLoop();       break;
             case 'stop-all':     this._stopAll();           break;
-            case 'out-synth':    this._setOutputMode('synth');  break;
-            case 'out-device':   this._setOutputMode('device'); break;
             case 'save-loop':    this._saveLoop();          break;
             case 'new-loop':     this._newLoop();           break;
             // Arranger
@@ -470,11 +459,8 @@ class LoopCreatorModal extends BaseModal {
             if (this.pianoRoll) { this.pianoRoll.snap = parseInt(e.target.value); }
         } else if (id === 'lc-midi-in-device') {
             this._midiInDevice = e.target.value || null;
-        } else if (id === 'lc-out-device-sel') {
-            this.outputDeviceId = e.target.value || null;
-        } else if (id === 'lc-out-channel') {
-            const v = parseInt(e.target.value);
-            this.outputChannel = (Number.isInteger(v) && v >= 0 && v <= 15) ? v : 0;
+        } else if (id === 'lc-instrument-sel') {
+            this._onInstrumentSelect(e.target.value);
         }
     }
 
@@ -546,6 +532,11 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.setAttribute('markend',  total.toString());
         this.pianoRoll.setAttribute('timebase', this.ppq.toString());
         this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
+        // Adapt Y axis to instrument note range
+        const noteSpan = this.outputNoteMax - this.outputNoteMin;
+        const yrange = Math.min(noteSpan + 1, 36);  // show at most 3 octaves at once
+        this.pianoRoll.setAttribute('yrange',   yrange.toString());
+        this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
         this.pianoRoll.redraw?.();
     }
 
@@ -747,43 +738,108 @@ class LoopCreatorModal extends BaseModal {
         try {
             const result = await this.api.sendCommand('device_list');
             this.devices = result.devices || [];
-            const deviceOptions = this.devices.map(d =>
-                `<option value="${this.escape(d.id)}">${this.escape(d.name || d.id)}</option>`
-            ).join('');
+            // MIDI In selector
             const midiInSel = this.$('#lc-midi-in-device');
             if (midiInSel) {
                 const prev = midiInSel.value;
-                midiInSel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` + deviceOptions;
+                midiInSel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` +
+                    this.devices.map(d => `<option value="${this.escape(d.id)}">${this.escape(d.name || d.id)}</option>`).join('');
                 if (prev) midiInSel.value = prev;
             }
-            this._populateOutDevicePicker();
+            // Instrument output selector
+            this._populateInstrumentSelector();
         } catch (_) {}
     }
 
-    _setOutputMode(mode) {
-        if (mode === this.outputMode) return;
-        // Stop everything cleanly before switching to avoid stuck notes on the previous output
-        this._stopAll();
-        this.outputMode = mode;
-        this.$('#lc-out-synth')?.classList.toggle('lc-output-btn--active', mode === 'synth');
-        this.$('#lc-out-device')?.classList.toggle('lc-output-btn--active', mode === 'device');
-        const picker = this.$('#lc-device-picker');
-        if (picker) picker.style.display = mode === 'device' ? 'flex' : 'none';
-        if (mode === 'device') this._populateOutDevicePicker();
+    _populateInstrumentSelector() {
+        const sel = this.$('#lc-instrument-sel');
+        if (!sel) return;
+        const prevVal = sel.value;
+        let html = `<option value="synth">🎹 ${this.t('loopCreator.synthVirtual')}</option>`;
+        for (const device of this.devices) {
+            const name = device.displayName || device.name || device.id;
+            // Multi-instrument devices (e.g. hardware synth with multiple timbres)
+            if (Array.isArray(device.instruments) && device.instruments.length > 1) {
+                for (const instr of device.instruments) {
+                    const ch = instr.channel ?? 0;
+                    const label = instr.name ? `${this.escape(name)} — ${this.escape(instr.name)} (Ch ${ch + 1})`
+                                             : `${this.escape(name)} — Ch ${ch + 1}`;
+                    html += `<option value="device::${this.escape(device.id)}::${ch}">${label}</option>`;
+                }
+            } else {
+                const ch = device.channel ?? 0;
+                html += `<option value="device::${this.escape(device.id)}::${ch}">${this.escape(name)} — Ch ${ch + 1}</option>`;
+            }
+        }
+        sel.innerHTML = html;
+        // Restore or keep 'synth'
+        if (prevVal && sel.querySelector(`option[value="${CSS.escape(prevVal)}"]`)) sel.value = prevVal;
     }
 
-    _populateOutDevicePicker() {
-        const sel = this.$('#lc-out-device-sel');
-        if (!sel) return;
-        const prev = sel.value || this.outputDeviceId || '';
-        sel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` +
-            this.devices.map(d =>
-                `<option value="${this.escape(d.id)}">${this.escape(d.name || d.id)}</option>`
-            ).join('');
-        if (prev) sel.value = prev;
-        this.outputDeviceId = sel.value || null;
-        const chSel = this.$('#lc-out-channel');
-        if (chSel) chSel.value = String(this.outputChannel);
+    async _onInstrumentSelect(value) {
+        this._stopAll();
+        if (value === 'synth' || !value) {
+            this.outputMode = 'synth';
+            this.outputDeviceId = null;
+            this.outputChannel = 0;
+            this.outputNoteMin = 36;
+            this.outputNoteMax = 84;
+            this.outputGmProgram = 0;
+            this._setInstrumentInfo('');
+            this._rebuildKeyboard();
+            return;
+        }
+        // value = "device::deviceId::channel"
+        const parts = value.split('::');
+        const deviceId = parts[1];
+        const channel = parseInt(parts[2] ?? 0);
+        this.outputMode = 'device';
+        this.outputDeviceId = deviceId;
+        this.outputChannel = channel;
+
+        // Use note range from device_list if available, else fetch capabilities
+        const device = this.devices.find(d => d.id === deviceId);
+        let noteMin = device?.note_range_min ?? null;
+        let noteMax = device?.note_range_max ?? null;
+        let gmProgram = device?.gm_program ?? 0;
+
+        if (noteMin == null || noteMax == null) {
+            try {
+                const r = await this.api.sendCommand('instrument_get_capabilities', { deviceId, channel });
+                const caps = r.capabilities || {};
+                noteMin = caps.note_range_min ?? 21;
+                noteMax = caps.note_range_max ?? 108;
+                gmProgram = caps.gm_program ?? gmProgram;
+            } catch (_) {
+                noteMin = 21;
+                noteMax = 108;
+            }
+        }
+
+        this.outputNoteMin = noteMin;
+        this.outputNoteMax = noteMax;
+        this.outputGmProgram = gmProgram;
+
+        const infoText = `${this._midiNoteToName(noteMin)} – ${this._midiNoteToName(noteMax)} · Ch ${channel + 1}`;
+        this._setInstrumentInfo(infoText);
+        this._rebuildKeyboard();
+        this._refreshPianoRollRange();
+    }
+
+    _rebuildKeyboard() {
+        const kb = this.$('#lc-keyboard');
+        if (!kb) return;
+        kb.innerHTML = this._buildKeyboardHtml(this.outputNoteMin, this.outputNoteMax);
+    }
+
+    _setInstrumentInfo(text) {
+        const el = this.$('#lc-instrument-info');
+        if (el) el.textContent = text;
+    }
+
+    _midiNoteToName(midi) {
+        const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        return names[midi % 12] + (Math.floor(midi / 12) - 1);
     }
 
     // =========================================================

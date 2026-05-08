@@ -2478,6 +2478,8 @@
     "arrangements": "Arrangements",
     "arrangementsEmpty": "No arrangements yet.",
     "close": "Close",
+    "outputLabel": "Output",
+    "synthVirtual": "Virtual synthesizer",
     "outputMode": "Audio output",
     "outSynth": "Synth",
     "outSynthTitle": "Use the virtual synthesizer",
