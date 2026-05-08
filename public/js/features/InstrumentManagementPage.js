@@ -85,21 +85,39 @@ class InstrumentManagementPage {
           <!-- Connections toolbar -->
           <div class="inst-mgmt-toolbar" style="padding: 10px 24px; border-bottom: 2px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <span class="inst-mgmt-scan-label" style="font-size: 13px; color: #666; font-weight: 600;">${i18n.t('instrumentManagement.scanLabel') || 'Scanner :'}</span>
-              <button class="btn" onclick="instrumentManagementPageInstance.scanDevices()" style="padding: 6px 14px; font-size: 13px;">
-                🔌 USB
-              </button>
-              <button class="btn" onclick="instrumentManagementPageInstance.scanBluetooth()" style="padding: 6px 14px; font-size: 13px;">
-                📡 Bluetooth
-              </button>
-              <button class="btn" onclick="instrumentManagementPageInstance.scanNetwork()" style="padding: 6px 14px; font-size: 13px;">
-                🌐 WiFi / Réseau
-              </button>
-              <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
-                <button class="btn btn-primary" id="addVirtualInstrumentBtn" onclick="instrumentManagementPageInstance.addVirtualInstrument()" style="padding: 6px 14px; font-size: 13px; ${this._isVirtualEnabled() ? '' : 'display:none;'}">
-                  ➕ ${i18n.t('instrumentManagement.addVirtual') || 'Ajouter un instrument virtuel'}
+              <span class="inst-mgmt-scan-label" style="font-size: 12px; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${i18n.t('instrumentManagement.scanLabel') || 'Scanner :'}</span>
+              <div style="display: flex; gap: 4px; background: rgba(0,0,0,0.05); border-radius: 10px; padding: 4px;">
+                <button onclick="instrumentManagementPageInstance.scanDevices()"
+                  style="padding: 6px 14px; font-size: 13px; font-weight: 600; border: none; border-radius: 7px; cursor: pointer; background: #2563eb; color: white; transition: all 0.15s ease; box-shadow: 0 1px 3px rgba(37,99,235,0.3);"
+                  onmouseover="this.style.background='#1d4ed8';this.style.boxShadow='0 3px 8px rgba(37,99,235,0.4)';this.style.transform='translateY(-1px)'"
+                  onmouseout="this.style.background='#2563eb';this.style.boxShadow='0 1px 3px rgba(37,99,235,0.3)';this.style.transform='translateY(0)'">
+                  🔌 USB
                 </button>
-                <button class="btn" onclick="instrumentManagementPageInstance.refresh()" style="padding: 6px 14px; font-size: 13px;">
+                <button onclick="instrumentManagementPageInstance.scanBluetooth()"
+                  style="padding: 6px 14px; font-size: 13px; font-weight: 600; border: none; border-radius: 7px; cursor: pointer; background: #4f46e5; color: white; transition: all 0.15s ease; box-shadow: 0 1px 3px rgba(79,70,229,0.3);"
+                  onmouseover="this.style.background='#4338ca';this.style.boxShadow='0 3px 8px rgba(79,70,229,0.4)';this.style.transform='translateY(-1px)'"
+                  onmouseout="this.style.background='#4f46e5';this.style.boxShadow='0 1px 3px rgba(79,70,229,0.3)';this.style.transform='translateY(0)'">
+                  📡 Bluetooth
+                </button>
+                <button onclick="instrumentManagementPageInstance.scanNetwork()"
+                  style="padding: 6px 14px; font-size: 13px; font-weight: 600; border: none; border-radius: 7px; cursor: pointer; background: #0891b2; color: white; transition: all 0.15s ease; box-shadow: 0 1px 3px rgba(8,145,178,0.3);"
+                  onmouseover="this.style.background='#0e7490';this.style.boxShadow='0 3px 8px rgba(8,145,178,0.4)';this.style.transform='translateY(-1px)'"
+                  onmouseout="this.style.background='#0891b2';this.style.boxShadow='0 1px 3px rgba(8,145,178,0.3)';this.style.transform='translateY(0)'">
+                  🌐 WiFi / Réseau
+                </button>
+              </div>
+              <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+                <button id="addVirtualInstrumentBtn" onclick="instrumentManagementPageInstance.addVirtualInstrument()"
+                  style="padding: 6px 16px; font-size: 13px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; background: linear-gradient(135deg, #7c3aed, #8b5cf6); color: white; transition: all 0.15s ease; box-shadow: 0 2px 6px rgba(124,58,237,0.3); ${this._isVirtualEnabled() ? '' : 'display:none;'}"
+                  onmouseover="this.style.boxShadow='0 4px 12px rgba(124,58,237,0.45)';this.style.transform='translateY(-1px)'"
+                  onmouseout="this.style.boxShadow='0 2px 6px rgba(124,58,237,0.3)';this.style.transform='translateY(0)'">
+                  🎛️ ${i18n.t('instrumentManagement.addVirtual') || 'Ajouter un instrument virtuel'}
+                </button>
+                <button onclick="instrumentManagementPageInstance.refresh()"
+                  style="padding: 6px 10px; font-size: 16px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; background: white; color: #6b7280; transition: all 0.15s ease;"
+                  onmouseover="this.style.background='#f3f4f6';this.style.borderColor='#d1d5db'"
+                  onmouseout="this.style.background='white';this.style.borderColor='#e5e7eb'"
+                  title="Rafraîchir">
                   🔄
                 </button>
               </div>
@@ -480,9 +498,11 @@ class InstrumentManagementPage {
       const totalInst = connectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
         <div style="margin-bottom: 32px;">
-          <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #10b981; color: #10b981; font-size: 16px;">
-            🔌 ${i18n.t('instrumentManagement.connectedInstruments') || 'Instruments connectés'} (${totalInst})
-          </h3>
+          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 16px 0; padding: 10px 16px; background: rgba(16,185,129,0.08); border-radius: 10px; border-left: 4px solid #10b981;">
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.25); flex-shrink: 0; animation: pulse 2s infinite;"></span>
+            <span style="font-size: 15px; font-weight: 700; color: #059669;">${i18n.t('instrumentManagement.connectedInstruments') || 'Instruments connectés'}</span>
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #10b981; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
+          </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
             ${connectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
@@ -495,9 +515,11 @@ class InstrumentManagementPage {
       const totalInst = virtualGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
         <div style="margin-bottom: 32px;">
-          <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #8b5cf6; color: #7c3aed; font-size: 16px;">
-            🖥️ ${i18n.t('instrumentManagement.virtualInstruments') || 'Instruments virtuels'} (${totalInst})
-          </h3>
+          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 16px 0; padding: 10px 16px; background: rgba(139,92,246,0.08); border-radius: 10px; border-left: 4px solid #8b5cf6;">
+            <span style="font-size: 18px; line-height: 1; flex-shrink: 0;">🎛️</span>
+            <span style="font-size: 15px; font-weight: 700; color: #7c3aed;">${i18n.t('instrumentManagement.virtualInstruments') || 'Instruments virtuels'}</span>
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #8b5cf6; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
+          </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
             ${virtualGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
@@ -510,9 +532,11 @@ class InstrumentManagementPage {
       const totalInst = disconnectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
         <div>
-          <h3 class="inst-mgmt-section-title" style="margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid #94a3b8; color: #64748b; font-size: 16px;">
-            ⚫ ${i18n.t('instrumentManagement.disconnectedInstruments') || 'Instruments déconnectés'} (${totalInst})
-          </h3>
+          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 16px 0; padding: 10px 16px; background: rgba(148,163,184,0.1); border-radius: 10px; border-left: 4px solid #94a3b8;">
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; flex-shrink: 0;"></span>
+            <span style="font-size: 15px; font-weight: 700; color: #64748b;">${i18n.t('instrumentManagement.disconnectedInstruments') || 'Instruments déconnectés'}</span>
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #94a3b8; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
+          </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
             ${disconnectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
@@ -537,6 +561,17 @@ class InstrumentManagementPage {
     const isVirtual = this.isVirtualInstrument(first);
     const connType = this.getConnectionTypeInfo(first);
     const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
+    const headerBg = isVirtual
+      ? 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(139,92,246,0.05))'
+      : (isConnected
+        ? 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.04))'
+        : 'rgba(0,0,0,0.02)');
+    const headerBorder = isVirtual ? '1px solid rgba(139,92,246,0.2)' : (isConnected ? '1px solid rgba(16,185,129,0.2)' : '1px solid #e5e7eb');
+    const statusDot = isVirtual
+      ? `<span style="font-size:18px;line-height:1;">🎛️</span>`
+      : (isConnected
+        ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.25);animation:pulse 2s infinite;flex-shrink:0;"></span>`
+        : `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8;flex-shrink:0;"></span>`);
 
     return `
       <div class="device-block" style="
@@ -544,30 +579,30 @@ class InstrumentManagementPage {
         border: 2px solid ${borderColor};
         border-radius: 12px;
         overflow: hidden;
-        transition: box-shadow 0.2s;
-        ${!isConnected ? 'opacity: 0.7;' : ''}
-      " onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
+        transition: box-shadow 0.2s, transform 0.2s;
+        ${!isConnected ? 'opacity: 0.75;' : ''}
+      " onmouseover="this.style.boxShadow='0 6px 20px rgba(0,0,0,0.12)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='none';this.style.transform='translateY(0)'">
 
         <!-- Device header -->
-        <div style="padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(0,0,0,0.02), rgba(0,0,0,0.04)); border-bottom: 1px solid #e5e7eb;">
-          <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-            <span style="font-size: 20px;">${isVirtual ? '🖥️' : (isConnected ? '🟢' : '⚫')}</span>
+        <div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; background: ${headerBg}; border-bottom: ${headerBorder};">
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+            ${statusDot}
             <div style="min-width: 0;">
-              <h4 style="margin: 0; font-size: 15px; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(deviceName)}</h4>
-              <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
-                ${!isVirtual ? `<span style="display:inline-block;padding:1px 6px;background:#e5e7eb;border-radius:4px;font-size:10px;font-weight:600;color:#475569;">${esc(connType.label)}</span>` : ''}
-                <span style="font-size: 11px; color: #9ca3af;">${instruments.length} inst.</span>
+              <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(deviceName)}</h4>
+              <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+                ${!isVirtual ? `<span style="display:inline-block;padding:2px 7px;background:rgba(0,0,0,0.07);border-radius:4px;font-size:10px;font-weight:700;color:#475569;letter-spacing:0.3px;">${esc(connType.label)}</span>` : ''}
+                <span style="display:inline-flex;align-items:center;padding:2px 7px;background:rgba(0,0,0,0.05);border-radius:4px;font-size:10px;font-weight:600;color:#6b7280;">${instruments.length} instrument${instruments.length > 1 ? 's' : ''}</span>
               </div>
             </div>
           </div>
           <button onclick="event.stopPropagation(); instrumentManagementPageInstance.openDeviceSettings('${escAttr(deviceId)}', '${escAttr(rawDeviceName)}')"
-            style="background:none; border:none; cursor:pointer; font-size:18px; padding:4px 8px; border-radius:6px; transition:background 0.2s; flex-shrink:0;"
-            onmouseover="this.style.background='rgba(0,0,0,0.08)'" onmouseout="this.style.background='none'"
+            style="background:none; border:1px solid transparent; cursor:pointer; font-size:16px; padding:5px 8px; border-radius:7px; transition:all 0.15s; flex-shrink:0; color:#6b7280;"
+            onmouseover="this.style.background='rgba(0,0,0,0.07)';this.style.borderColor='rgba(0,0,0,0.1)'" onmouseout="this.style.background='none';this.style.borderColor='transparent'"
             title="${typeof i18n !== 'undefined' ? (i18n.t('instruments.deviceSettings') || 'Réglages du périphérique') : 'Réglages du périphérique'}">⚙️</button>
         </div>
 
         <!-- Instrument sub-cards -->
-        <div style="padding: 8px;">
+        <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px;">
           ${instruments.map(inst => this.renderInstrumentSubCard(inst)).join('')}
         </div>
       </div>
@@ -617,32 +652,42 @@ class InstrumentManagementPage {
       ? `<span title="${handsCount} ${handsCount > 1 ? 'mains configurées' : 'main configurée'}" style="font-size:14px;line-height:1;">${handsEmoji}</span>`
       : '';
 
+    const cardBg = `rgba(${this._hexToRgb(channelColor)}, 0.06)`;
+    const cardBorder = `1px solid rgba(${this._hexToRgb(channelColor)}, 0.2)`;
+    const iconBg = `rgba(${this._hexToRgb(channelColor)}, 0.12)`;
+
     return `
       <div class="instrument-sub-card" style="
-        padding: 10px 12px;
-        margin: 4px 0;
+        padding: 10px 14px;
         border-left: 4px solid ${channelColor};
-        border-radius: 6px;
-        background: var(--card-bg, #fafbfc);
+        border-top: ${cardBorder};
+        border-right: ${cardBorder};
+        border-bottom: ${cardBorder};
+        border-radius: 8px;
+        background: ${cardBg};
         display: flex;
         align-items: stretch;
         gap: 12px;
         font-size: 13px;
         min-height: 64px;
         cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
       "
         onclick="instrumentManagementPageInstance.editInstrument('${esc(instrument._deviceId || instrument.device_id || instrument.id)}', ${channel})"
+        onmouseover="this.style.background='rgba(${this._hexToRgb(channelColor)}, 0.12)';this.style.boxShadow='0 3px 10px rgba(0,0,0,0.1)';this.style.transform='translateY(-1px)'"
+        onmouseout="this.style.background='${cardBg}';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)';this.style.transform='translateY(0)'"
       >
         <!-- Main-voice SVG: full card height, on the left -->
         <div class="instrument-sub-card-icon" style="
           flex-shrink: 0;
-          width: 56px;
+          width: 54px;
           align-self: stretch;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(0,0,0,0.03);
-          border-radius: 6px;
+          background: ${iconBg};
+          border-radius: 7px;
           padding: 4px;
         ">
           ${iconHtml}
@@ -652,15 +697,15 @@ class InstrumentManagementPage {
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px;">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
             ${gmProgram !== null && gmProgram !== undefined
-              ? `<span style="color: var(--text-primary, #374151); font-weight: 600; font-size: 14px;">${esc(displayName)}</span>`
+              ? `<span style="color: var(--text-primary, #1f2937); font-weight: 700; font-size: 14px;">${esc(displayName)}</span>`
               : `<span style="color: var(--text-muted, #9ca3af); font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
             ${handsBadgeHtml}
             ${isComplete
-              ? `<span style="display:inline-block;padding:1px 6px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:600;">✓</span>`
-              : `<span style="display:inline-block;padding:1px 6px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:600;">⚠</span>`}
+              ? `<span style="display:inline-block;padding:2px 7px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:700;">✓</span>`
+              : `<span style="display:inline-block;padding:2px 7px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:700;">⚠</span>`}
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="display: inline-flex; align-items: center; padding: 2px 8px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 36px; justify-content: center;">Ch ${channel + 1}</span>
+            <span style="display: inline-flex; align-items: center; padding: 2px 9px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 38px; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Ch ${channel + 1}</span>
             <span style="display: flex; gap: 8px; font-size: 11px; color: var(--text-secondary, #9ca3af);">
               ${instrument.note_range_min != null && instrument.note_range_max != null
                 ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
@@ -674,8 +719,10 @@ class InstrumentManagementPage {
         </div>
 
         <!-- Delete -->
-        <button class="btn btn-danger" style="font-size: 11px; padding: 4px 8px; flex-shrink: 0; align-self: center;"
+        <button style="font-size: 14px; padding: 5px 9px; flex-shrink: 0; align-self: center; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2); color: #dc2626; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
                 onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
+                onmouseover="this.style.background='#dc2626';this.style.color='white';this.style.borderColor='#dc2626'"
+                onmouseout="this.style.background='rgba(220,38,38,0.08)';this.style.color='#dc2626';this.style.borderColor='rgba(220,38,38,0.2)'"
                 title="${i18n.t('common.delete') || 'Supprimer'}">
           🗑️
         </button>
@@ -709,6 +756,17 @@ class InstrumentManagementPage {
       '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
     ];
     return colors[channel % colors.length];
+  }
+
+  /**
+   * Convert a hex color string to "r,g,b" for use in rgba()
+   */
+  _hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `${r},${g},${b}`;
   }
 
   /**
