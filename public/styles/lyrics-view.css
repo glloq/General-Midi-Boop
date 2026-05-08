@@ -1,105 +1,152 @@
 /* ============================================================================
-   Lyrics View — karaoke panel shown during playback
+   Lyrics ribbon — karaoke scrolling band (fixed at viewport bottom)
    ============================================================================ */
 
-/* ---- Panel container ---- */
-.lyrics-view {
-    width: 100%;
-    background: var(--bg-primary-flat);
-    border-radius: 12px;
-    box-shadow: var(--shadow-medium);
-    overflow: hidden;
+/* ---- Container ---- */
+.lyrics-ribbon {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    z-index: 60;   /* above piano-roll-view.fullscreen (z-index: 50) */
     display: flex;
-    flex-direction: column;
-    margin-top: 8px;
+    align-items: stretch;
+    background: var(--bg-primary-flat, #1a1a2e);
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
 }
 
-.lyrics-view.hidden {
+.lyrics-ribbon.hidden {
     display: none !important;
 }
 
-/* ---- Header ---- */
-.lyrics-view-header {
+/* ---- Left icon ---- */
+.lyrics-ribbon-icon {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
+    justify-content: center;
+    width: 48px;
     flex-shrink: 0;
+    font-size: 1.25rem;
+    border-right: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
 }
 
-.lyrics-view-icon {
-    font-size: 1.1rem;
-}
-
-.lyrics-view-title {
+/* ---- Scrollable stage ---- */
+.lyrics-ribbon-stage {
     flex: 1;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    position: relative;
+    overflow: hidden;
 }
 
-.lyrics-view-close {
+/* Gradient fade on left and right edges */
+.lyrics-ribbon-stage::before,
+.lyrics-ribbon-stage::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 72px;
+    z-index: 2;
+    pointer-events: none;
+}
+.lyrics-ribbon-stage::before {
+    left: 0;
+    background: linear-gradient(to right, var(--bg-primary-flat, #1a1a2e) 30%, transparent);
+}
+.lyrics-ribbon-stage::after {
+    right: 0;
+    background: linear-gradient(to left, var(--bg-primary-flat, #1a1a2e) 30%, transparent);
+}
+
+/* ---- "Now" marker line ---- */
+.lyrics-ribbon-marker {
+    position: absolute;
+    left: 140px;   /* must match LyricsView.MARKER_LEFT */
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: var(--accent-color, #7c3aed);
+    border-radius: 1px;
+    box-shadow: 0 0 10px var(--accent-color, #7c3aed);
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* ---- Scrolling track ---- */
+.lyrics-ribbon-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    will-change: transform;
+}
+
+/* ---- Individual lyric tokens ---- */
+.lyrics-ribbon-token {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-primary, #e0e0e0);
+    opacity: 0.55;
+    white-space: nowrap;
+    padding: 0 5px;
+    user-select: none;
+    cursor: default;
+    transition: opacity 0.12s, color 0.12s, font-size 0.1s, font-weight 0.1s;
+}
+
+.lyrics-ribbon-token.past {
+    opacity: 0.18;
+    color: var(--text-secondary, #888);
+}
+
+.lyrics-ribbon-token.active {
+    opacity: 1;
+    color: var(--accent-color, #7c3aed);
+    font-weight: 700;
+    font-size: 1.25rem;
+    text-shadow: 0 0 14px rgba(124, 58, 237, 0.55);
+}
+
+/* ---- Close button ---- */
+.lyrics-ribbon-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    flex-shrink: 0;
     background: none;
     border: none;
-    color: var(--text-secondary);
+    border-left: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    color: var(--text-secondary, #999);
     cursor: pointer;
-    font-size: 1rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    line-height: 1;
-    transition: background 0.15s, color 0.15s;
+    font-size: 0.85rem;
+    transition: color 0.15s, background 0.15s;
+}
+.lyrics-ribbon-close:hover {
+    color: var(--text-primary, #fff);
+    background: var(--bg-hover, rgba(255, 255, 255, 0.08));
 }
 
-.lyrics-view-close:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+/* ---- Piano roll shifts up when ribbon is visible ---- */
+body.lyrics-visible .piano-roll-view.fullscreen {
+    bottom: 56px;
 }
 
-/* ---- Content: three lines (prev / current / next) ---- */
-.lyrics-view-content {
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    min-height: 90px;
-    justify-content: center;
+/* ---- Dark theme ---- */
+body.theme-dark .lyrics-ribbon-token.active {
+    color: #a78bfa;
+    text-shadow: 0 0 14px rgba(167, 139, 250, 0.55);
+}
+body.theme-dark .lyrics-ribbon-marker {
+    background: #a78bfa;
+    box-shadow: 0 0 10px #a78bfa;
 }
 
-.lyrics-prev-line,
-.lyrics-next-line {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    opacity: 0.55;
-    text-align: center;
-    white-space: pre-wrap;
-    min-height: 1.3em;
-    transition: opacity 0.3s;
-}
-
-.lyrics-current-line {
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: var(--accent-color, #7c3aed);
-    text-align: center;
-    white-space: pre-wrap;
-    min-height: 1.5em;
-    letter-spacing: 0.02em;
-    transition: color 0.2s;
-}
-
-/* Empty state */
-.lyrics-current-line:empty::after {
-    content: '♫';
-    opacity: 0.25;
-    font-weight: 400;
-}
-
-/* ---- Karaoke tag on file cards ---- */
+/* ---- Mic tag on file cards (inline before filename) ---- */
 .lyrics-tag {
     display: inline-block;
     vertical-align: middle;
@@ -108,9 +155,3 @@
     margin-right: 4px;
     pointer-events: none;
 }
-
-/* Dark theme tweaks */
-body.theme-dark .lyrics-current-line {
-    color: #a78bfa;
-}
-
