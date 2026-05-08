@@ -302,8 +302,27 @@
 }
 
 .la-track-label {
-    width: 0; flex-shrink: 0; /* hidden — labels on left via sticky trick */
-    display: none; /* simplified: palette is the label */
+    width: 130px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    background: var(--bg-tertiary, #f0f1f3);
+    border-right: 1px solid var(--border-color, #e0e0e0);
+    position: sticky;
+    left: 0;
+    z-index: 4;
+}
+.la-track-label .la-track-name-input {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+body.theme-dark .la-track-label {
+    background: #12122a;
+    border-color: #333355;
 }
 
 .la-track-cells {
