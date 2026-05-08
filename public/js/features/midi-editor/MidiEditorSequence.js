@@ -77,8 +77,11 @@
 
                     if (event.type === 'programChange') {
                         const channel = event.channel ?? 0;
-                        channelInstruments.set(channel, event.programNumber);
-                        this.modal.log('debug', `Channel ${channel}: program ${event.programNumber} (${this.modal.getInstrumentName(event.programNumber)})`);
+                        const pn = event.programNumber ?? event.program;
+                        if (pn !== undefined) {
+                            channelInstruments.set(channel, pn);
+                            this.modal.log('debug', `Channel ${channel}: program ${pn} (${this.modal.getInstrumentName(pn)})`);
+                        }
                     }
 
                     if (event.type === 'noteOn' && event.velocity > 0) {
