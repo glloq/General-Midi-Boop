@@ -566,7 +566,22 @@
     "routedSource": "🔊 Routé",
     "gmSource": "🔊 GM",
     "playableOn": "ON",
-    "playableOff": "OFF"
+    "playableOff": "OFF",
+    "mixedChannels": "Canaux mixtes",
+    "channelWithInstrument": "Canal {channel} ({instrument})",
+    "moveNotesToChannel": "Déplacer <strong>{count}</strong> note(s) vers le <strong>Canal {channel}</strong> ?",
+    "fromChannel": "Depuis :",
+    "toChannel": "Vers :",
+    "changeInstrumentTo": "Changer l'instrument vers <strong>{instrument}</strong> ?",
+    "currentInstrument": "Instrument actuel :",
+    "newInstrumentLabel": "Nouvel instrument :",
+    "channelNoteCount": "Canal {channel} contient <strong>{count}</strong> note(s) au total",
+    "applyToSelection": "Sélection ({count})",
+    "applyToChannel": "Tout le canal ({count})",
+    "changeInstrumentOfChannel": "Changer l'instrument du <strong>Canal {channel}</strong> ?",
+    "affectedNotes": "Notes affectées :",
+    "fileInfoLoadFailed": "Impossible de charger les métadonnées : {error}",
+    "fileInfoNoMetadata": "Aucune métadonnée disponible."
   },
   "errors": {
     "deviceNotFound": "Périphérique non trouvé: {deviceId}",

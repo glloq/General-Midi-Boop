@@ -566,7 +566,22 @@
     "routedSource": "🔊 Routed",
     "gmSource": "🔊 GM",
     "playableOn": "ON",
-    "playableOff": "OFF"
+    "playableOff": "OFF",
+    "mixedChannels": "Mixed channels",
+    "channelWithInstrument": "Channel {channel} ({instrument})",
+    "moveNotesToChannel": "Move <strong>{count}</strong> note(s) to <strong>Channel {channel}</strong>?",
+    "fromChannel": "From:",
+    "toChannel": "To:",
+    "changeInstrumentTo": "Change instrument to <strong>{instrument}</strong>?",
+    "currentInstrument": "Current instrument:",
+    "newInstrumentLabel": "New instrument:",
+    "channelNoteCount": "Channel {channel} contains <strong>{count}</strong> note(s) total",
+    "applyToSelection": "Selection ({count})",
+    "applyToChannel": "Whole channel ({count})",
+    "changeInstrumentOfChannel": "Change the instrument of <strong>Channel {channel}</strong>?",
+    "affectedNotes": "Affected notes:",
+    "fileInfoLoadFailed": "Unable to load metadata: {error}",
+    "fileInfoNoMetadata": "No metadata available."
   },
   "errors": {
     "deviceNotFound": "Device not found: {deviceId}",

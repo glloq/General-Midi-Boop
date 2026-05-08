@@ -477,7 +477,7 @@
                 chip.appendChild(trEl);
             }
             trEl.textContent = `${semis > 0 ? '+' : ''}${semis}st`;
-            trEl.title = `Transposition: ${semis > 0 ? '+' : ''}${semis} demi-tons`;
+            trEl.title = `${this.modal.t('autoAssign.transposition')}: ${semis > 0 ? '+' : ''}${semis}st`;
         } else if (trEl) {
             trEl.remove();
         }
@@ -509,16 +509,16 @@
 
     // Parse deviceId and optional sub-channel
         let deviceId = routedValue;
-        let devChannel = undefined;
+        let devChannel = NaN;
         if (routedValue.includes('::')) {
             const parts = routedValue.split('::');
             deviceId = parts[0];
-            devChannel = parseInt(parts[1]);
+            devChannel = parseInt(parts[1], 10);
         }
 
         try {
             const params = { deviceId };
-            if (devChannel !== undefined) params.channel = devChannel;
+            if (!isNaN(devChannel)) params.channel = devChannel;
             const response = await this.modal.api.sendCommand('instrument_get_capabilities', params);
 
             if (response && response.capabilities) {
@@ -810,11 +810,6 @@
                     btn.dataset.channel = ch;
                     btn.title = this.modal.t('drumPattern.toggleEditor');
                     btn.textContent = this.modal.t('midiEditor.drumButton');
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        this._openDrumPatternForChannel(ch);
-                    });
                     group.appendChild(btn);
                 }
                 return;
@@ -844,11 +839,6 @@
                 btn.dataset.color = color;
                 btn.title = this.modal.t('tablature.tabButton', { instrument: channelInfo?.instrument || this.modal.t('stringInstrument.string') });
                 btn.textContent = this.modal.t('midiEditor.tabButton');
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this._openTablatureForChannel(ch);
-                });
                 group.appendChild(btn);
             } else if (!isStringInstrument && existingTabBtn) {
     // Remove TAB button: not a string instrument or routing overrides GM type
@@ -867,11 +857,6 @@
                     windBtn.dataset.channel = ch;
                     windBtn.title = this.modal.t('windEditor.windEditorTitle', { name: WindInstrumentDatabase.getPresetByProgram(effectiveProgram)?.name || this.modal.t('windEditor.icon') });
                     windBtn.textContent = this.modal.t('midiEditor.windButton');
-                    windBtn.addEventListener('click', (ev) => {
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        this._openWindEditorForChannel(ch);
-                    });
                     group.appendChild(windBtn);
                 } else if (!isWind && existingWindBtn) {
                     existingWindBtn.remove();
@@ -890,11 +875,6 @@
                 editBtn.dataset.channel = ch;
                 editBtn.title = this.modal.t('midiEditor.editChannel');
                 editBtn.textContent = this.modal.t('midiEditor.editButton');
-                editBtn.addEventListener('click', (ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    this._openPianoRollForChannel(ch);
-                });
                 group.appendChild(editBtn);
             } else if ((hasTab || hasWind || hasDrum) && existingEditBtn) {
                 existingEditBtn.remove();

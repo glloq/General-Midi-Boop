@@ -180,7 +180,7 @@
                     this.modal.channelDisabled.delete(ch.channel);
                 });
                 this.modal.sequenceOps.updateSequenceFromActiveChannels(previousActiveChannels);
-                this.modal.updateChannelButtons();
+                this.modal.routingOps.updateChannelButtons();
                 this.modal.renderer.updateInstrumentSelector();
                 this.modal.syncMutedChannels();
                 return;
@@ -240,7 +240,7 @@
                         }
                     });
                     this.modal.sequenceOps.updateSequenceFromActiveChannels(previousActiveChannels);
-                    this.modal.updateChannelButtons();
+                    this.modal.routingOps.updateChannelButtons();
                     this.modal.renderer.updateInstrumentSelector();
                     this.modal.syncMutedChannels();
                 }
@@ -257,7 +257,7 @@
     // Toggle playable notes global
         const playableToggle = document.getElementById('playable-notes-toggle');
         if (playableToggle) {
-            playableToggle.addEventListener('click', () => this.modal.togglePlayableNotesGlobal());
+            playableToggle.addEventListener('click', () => this.modal.routingOps.togglePlayableNotesGlobal());
         }
 
     // Toggle touch mode

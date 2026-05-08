@@ -110,8 +110,8 @@
         async showChangeChannelModal(noteCount, currentChannel, newChannel) {
             const m = this.modal;
             const currentChannelText = currentChannel >= 0
-                ? `Canal ${currentChannel + 1}`
-                : 'Canaux mixtes';
+                ? m.t('midiEditor.channelTip', { channel: currentChannel + 1 })
+                : m.t('midiEditor.mixedChannels');
 
             const channelInfo = m.channels.find(ch => ch.channel === newChannel);
             const newChannelInstrument = channelInfo
@@ -121,15 +121,15 @@
             return this.showConfirmModal({
                 title: m.t('midiEditor.changeChannelTitle'),
                 icon: '🎹',
-                message: `Déplacer <strong>${noteCount}</strong> note(s) vers le <strong>Canal ${newChannel + 1}</strong> ?`,
+                message: m.t('midiEditor.moveNotesToChannel', { count: noteCount, channel: newChannel + 1 }),
                 details: `
                     <div class="confirm-detail-row">
-                        <span class="confirm-detail-label">Depuis :</span>
+                        <span class="confirm-detail-label">${m.t('midiEditor.fromChannel')}</span>
                         <span class="confirm-detail-value">${currentChannelText}</span>
                     </div>
                     <div class="confirm-detail-row">
-                        <span class="confirm-detail-label">Vers :</span>
-                        <span class="confirm-detail-value">Canal ${newChannel + 1} (${newChannelInstrument})</span>
+                        <span class="confirm-detail-label">${m.t('midiEditor.toChannel')}</span>
+                        <span class="confirm-detail-value">${m.t('midiEditor.channelWithInstrument', { channel: newChannel + 1, instrument: newChannelInstrument })}</span>
                     </div>
                 `,
                 confirmText: m.t('midiEditor.apply'),
@@ -155,25 +155,25 @@
                 return this.showConfirmModal({
                     title: m.t('midiEditor.changeInstrumentTitle'),
                     icon: '🎵',
-                    message: `Changer l'instrument vers <strong>${newInstrument}</strong> ?`,
+                    message: m.t('midiEditor.changeInstrumentTo', { instrument: newInstrument }),
                     details: `
                         <div class="confirm-detail-row">
-                            <span class="confirm-detail-label">Instrument actuel :</span>
+                            <span class="confirm-detail-label">${m.t('midiEditor.currentInstrument')}</span>
                             <span class="confirm-detail-value">${currentInstrument}</span>
                         </div>
                         <div class="confirm-detail-row">
-                            <span class="confirm-detail-label">Nouvel instrument :</span>
+                            <span class="confirm-detail-label">${m.t('midiEditor.newInstrumentLabel')}</span>
                             <span class="confirm-detail-value">${newInstrument}</span>
                         </div>
                         <div class="confirm-choice-info">
-                            <p>📌 <strong>${noteCount}</strong> note(s) sélectionnée(s)</p>
-                            <p>📋 Canal ${channel + 1} contient <strong>${channelNoteCount}</strong> note(s) au total</p>
+                            <p>📌 ${m.t('midiEditor.applyToSelection', { count: noteCount })}</p>
+                            <p>📋 ${m.t('midiEditor.channelNoteCount', { channel: channel + 1, count: channelNoteCount })}</p>
                         </div>
                     `,
-                    confirmText: `Sélection (${noteCount})`,
+                    confirmText: m.t('midiEditor.applyToSelection', { count: noteCount }),
                     confirmClass: 'success',
                     extraButtons: [
-                        { text: `Tout le canal (${channelNoteCount})`, class: 'primary', value: 'channel' }
+                        { text: m.t('midiEditor.applyToChannel', { count: channelNoteCount }), class: 'primary', value: 'channel' }
                     ]
                 });
             }
@@ -181,18 +181,18 @@
             return this.showConfirmModal({
                 title: m.t('midiEditor.changeInstrumentTitle'),
                 icon: '🎵',
-                message: `Changer l'instrument du <strong>Canal ${channel + 1}</strong> ?`,
+                message: m.t('midiEditor.changeInstrumentOfChannel', { channel: channel + 1 }),
                 details: `
                     <div class="confirm-detail-row">
-                        <span class="confirm-detail-label">Instrument actuel :</span>
+                        <span class="confirm-detail-label">${m.t('midiEditor.currentInstrument')}</span>
                         <span class="confirm-detail-value">${currentInstrument}</span>
                     </div>
                     <div class="confirm-detail-row">
-                        <span class="confirm-detail-label">Nouvel instrument :</span>
+                        <span class="confirm-detail-label">${m.t('midiEditor.newInstrumentLabel')}</span>
                         <span class="confirm-detail-value">${newInstrument}</span>
                     </div>
                     <div class="confirm-detail-row">
-                        <span class="confirm-detail-label">Notes affectées :</span>
+                        <span class="confirm-detail-label">${m.t('midiEditor.affectedNotes')}</span>
                         <span class="confirm-detail-value">${channelNoteCount} note(s)</span>
                     </div>
                 `,
