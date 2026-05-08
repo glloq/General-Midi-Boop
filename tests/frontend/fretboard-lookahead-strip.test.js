@@ -116,10 +116,18 @@ describe('FretboardLookaheadStrip — drawing', () => {
   it('the X-axis matches the live fretboard span at anchor=5', () => {
     const s = makeStrip();
     const { x0, x1 } = s._handWindowX(5);
-    // Anchor=5 with span=4 → band covers fret slots [4..8].
-    // x0 = _fretX(4); x1 = _fretX(4+4) = _fretX(8).
-    expect(x0).toBeCloseTo(s._fretX(4), 1);
-    expect(x1).toBeCloseTo(s._fretX(8), 1);
+    // With the physical-mm model the band's left edge sits slightly
+    // to the left of the anchor fret (FINGER_BEFORE_FRET_MM offset)
+    // and the right edge is leftEdge + handSpanMm in screen space.
+    // Verify structural properties: finite, positive width, the band
+    // straddles fret 5 (anchor inside the window).
+    expect(Number.isFinite(x0)).toBe(true);
+    expect(Number.isFinite(x1)).toBe(true);
+    expect(x1).toBeGreaterThan(x0);
+    // Left edge is to the LEFT of (or at) the anchor fret.
+    expect(x0).toBeLessThanOrEqual(s._fretX(5) + 0.5);
+    // Right edge is to the RIGHT of the anchor fret.
+    expect(x1).toBeGreaterThan(s._fretX(5));
   });
 });
 

@@ -162,12 +162,19 @@
             this.container.innerHTML = '';
             this.container.classList.add('hands-preview-panel');
 
-            // The detail panel only mounts this widget when the routed
-            // instrument actually has a hands_config enabled, so a
-            // 'unknown' mode here means the upstream check changed but
-            // the geometry isn't ready — bail without rendering an
-            // empty/clutter section.
-            if (this.mode === 'unknown') return;
+            // When no hands_config is present, show an informational message
+            // so the operator knows hand-position tracking is not configured.
+            if (this.mode === 'unknown') {
+                const body = document.createElement('div');
+                body.className = 'hpp-body';
+                body.style.cssText = 'padding:8px;';
+                body.textContent = _t
+                    ? _t('handPosition.noHandsConfig', 'Aucune configuration de main (hand position) disponible.')
+                    : 'Aucune configuration de main (hand position) disponible.';
+                this.container.appendChild(body);
+                this._body = body;
+                return;
+            }
 
             const header = document.createElement('div');
             header.className = 'hpp-header';

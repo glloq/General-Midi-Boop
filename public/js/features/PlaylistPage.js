@@ -422,7 +422,7 @@ class PlaylistPage {
   _renderHandFeasibilityBadge(level) {
     if (!level || level === 'unknown' || level === 'ok') return '';
     const t = (k, fb) => (window.i18n?.t ? (window.i18n.t(k) || fb) : fb);
-    const colors = { warning: 'var(--status-warning, #f39c12)', infeasible: 'var(--status-critical, #e8365d)' };
+    const colors = { warning: 'var(--status-warning, #f59e0b)', infeasible: 'var(--status-critical, #ef4444)' };
     const titles = {
       warning:    t('handPosition.badgeWarning',    'Hand-position warning'),
       infeasible: t('handPosition.badgeInfeasible', 'Hand-position infeasible')
