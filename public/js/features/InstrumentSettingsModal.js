@@ -279,6 +279,7 @@ class InstrumentSettingsModal extends BaseModal {
         this.activeChannel = 0;
         this.tuningPresets = {};
         this.scaleLengthPresets = {};
+        this._sf2Banks = [];
         this.activeSection = 'identity';
         this.isCreationMode = false;
         // Identity picker state: { step: 'family'|'instruments'|'selected', currentFamilySlug }
@@ -297,17 +298,19 @@ class InstrumentSettingsModal extends BaseModal {
             this.instrumentTabs = [];
             const instrumentChannel = device.channel !== undefined ? device.channel : 0;
 
-            // Three independent top-level calls — fire in parallel.
-            const [presetsResp, scaleLengthResp, listResp] = await Promise.all([
+            // Four independent top-level calls — fire in parallel.
+            const [presetsResp, scaleLengthResp, listResp, sf2Resp] = await Promise.all([
                 this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),
                 this.api.sendCommand('string_instrument_get_scale_length_presets', {}).catch(() => null),
                 this.api.sendCommand('instrument_list_by_device', { deviceId: device.id }).catch(e => {
                     console.warn('Failed to load device instruments:', e);
                     return null;
                 }),
+                fetch('/api/sf2').then(r => r.ok ? r.json() : { banks: [] }).catch(() => ({ banks: [] })),
             ]);
             if (presetsResp && presetsResp.presets) this.tuningPresets = presetsResp.presets;
             if (scaleLengthResp && scaleLengthResp.presets) this.scaleLengthPresets = scaleLengthResp.presets;
+            this._sf2Banks = (sf2Resp && sf2Resp.banks) ? sf2Resp.banks : [];
 
             // Load all channels in parallel.
             const instruments = (listResp && listResp.instruments && listResp.instruments.length > 0)
@@ -345,6 +348,7 @@ class InstrumentSettingsModal extends BaseModal {
         try {
             this.tuningPresets = {};
             this.scaleLengthPresets = {};
+            this._sf2Banks = [];
             // Two independent calls — fire in parallel.
             const [presetsResp, scaleLengthResp] = await Promise.all([
                 this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),

@@ -456,13 +456,6 @@
             wrap.insertAdjacentHTML('beforeend', html);
         }
         this._wireIdentityPickerListeners();
-        // Refresh the section-title emoji based on current program
-        const tab = this._getActiveTab();
-        const gmProgram = tab ? tab.settings.gm_program : null;
-        const catKey = this._getGmCategoryKey(gmProgram);
-        const gmEmoji = catKey ? (InstrumentSettingsModal.GM_CATEGORY_EMOJIS[catKey] || '🎵') : '🎵';
-        const titleIcon = this.$('.ism-section[data-section="identity"] .ism-section-title-icon');
-        if (titleIcon) titleIcon.textContent = gmEmoji;
     };
 
     ISMListeners._refreshNotesSectionForProgram = function() {

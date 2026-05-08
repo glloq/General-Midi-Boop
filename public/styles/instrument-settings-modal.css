@@ -156,27 +156,35 @@
   color: var(--text-secondary, #4b5563);
   text-align: left;
   width: 100%;
-  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   border-left: 3px solid transparent;
 }
 
 .ism-nav-item:hover {
-  background: rgba(102, 126, 234, 0.06);
+  background: rgba(102, 126, 234, 0.07);
   color: var(--text-primary, #1f2937);
 }
 
 .ism-nav-item.active {
-  background: rgba(102, 126, 234, 0.1);
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.16) 0%, rgba(102, 126, 234, 0.06) 100%);
   color: var(--accent-primary, #667eea);
-  font-weight: 600;
-  border-left-color: var(--accent-primary, #667eea);
+  font-weight: 700;
+  font-size: 14px;
+  border-left: 4px solid var(--accent-primary, #667eea);
+  box-shadow: inset 0 0 0 1px rgba(102, 126, 234, 0.12);
+}
+
+.ism-nav-item.active .ism-nav-icon {
+  font-size: 20px;
+  filter: drop-shadow(0 1px 2px rgba(102, 126, 234, 0.35));
 }
 
 .ism-nav-icon {
   font-size: 16px;
-  width: 20px;
+  width: 22px;
   text-align: center;
   flex-shrink: 0;
+  transition: font-size 0.15s ease;
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiSymbols', sans-serif;
   -webkit-text-fill-color: initial;
   color: initial;
@@ -210,41 +218,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ========== Section Title ========== */
-.ism-section-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary, #1f2937);
-  margin: 0 0 20px 0;
-  padding-bottom: 12px;
-  border-bottom: 2px solid var(--border-color, #e5e7eb);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.ism-section-title-icon {
-  font-size: 22px;
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiSymbols', sans-serif;
-  -webkit-text-fill-color: initial;
-  color: initial;
-}
-
-.ism-section-title-icon-img {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.ism-section-title-svg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
 
 /* ========== Form Groups ========== */
 .ism-form-group {
@@ -969,8 +942,9 @@ body.dark-mode .ism-nav-item {
 }
 
 body.dark-mode .ism-nav-item.active {
-  background: rgba(102, 126, 234, 0.15);
-  color: var(--accent-primary, #667eea);
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.22) 0%, rgba(102, 126, 234, 0.08) 100%);
+  color: var(--accent-primary, #818cf8);
+  box-shadow: inset 0 0 0 1px rgba(102, 126, 234, 0.18);
 }
 
 body.dark-mode .ism-drum-category {
@@ -1050,9 +1024,6 @@ body.dark-mode .ism-tab:hover {
   background: rgba(255, 255, 255, 0.05) !important;
 }
 
-body.dark-mode .ism-section-title {
-  color: var(--text-primary, #e0e0e0);
-}
 
 body.dark-mode .ism-form-group label {
   color: var(--text-primary, #e0e0e0);
