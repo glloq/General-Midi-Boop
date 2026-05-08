@@ -2477,6 +2477,13 @@
     "palette": "Available loops",
     "arrangements": "Arrangements",
     "arrangementsEmpty": "No arrangements yet.",
-    "close": "Close"
+    "close": "Close",
+    "outputMode": "Audio output",
+    "outSynth": "Synth",
+    "outSynthTitle": "Use the virtual synthesizer",
+    "outDevice": "MIDI",
+    "outDeviceTitle": "Play on a connected MIDI instrument",
+    "outputDevice": "Output device",
+    "outputChannel": "Channel"
   }
 }

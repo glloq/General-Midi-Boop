@@ -50,6 +50,12 @@ class LoopCreatorModal extends BaseModal {
         // Keyboard
         this._activeKeys = new Set();
         this._mouseDownNote = null;
+        this._activeKeyEnvelopes = new Map();
+
+        // Output mode: 'synth' | 'device'
+        this.outputMode = 'synth';
+        this.outputDeviceId = null;
+        this.outputChannel = 1;
 
         // Library
         this.library = [];
@@ -64,8 +70,11 @@ class LoopCreatorModal extends BaseModal {
         this.blocks = [];           // [{id, track_id, loop_id, position_bar, repetitions, loop_name, loop_bars}]
         this.isArrangerPlaying = false;
         this._arrangerTimers = [];
-        this._dragInfo = null;      // drag state for blocks
+        this._dragInfo = null;
         this._dropPreview = null;
+
+        // Cache (must be in constructor, not class field)
+        this._fetchLoopDataCache = new Map();
 
         // Bound handlers
         this._boundDocMouseUp = this._onDocMouseUp.bind(this);
@@ -193,6 +202,26 @@ class LoopCreatorModal extends BaseModal {
                     <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                         <span class="lc-rec-dot lc-rec-dot--pulse"></span> ${this.t('loopCreator.recording')}
                     </span>
+                    <div class="lc-output-mode" role="group" aria-label="${this.t('loopCreator.outputMode')}">
+                        <button class="lc-btn lc-output-btn lc-output-btn--active" id="lc-out-synth"
+                            data-action="out-synth" title="${this.t('loopCreator.outSynthTitle')}">
+                            🎹 ${this.t('loopCreator.outSynth')}
+                        </button>
+                        <button class="lc-btn lc-output-btn" id="lc-out-device"
+                            data-action="out-device" title="${this.t('loopCreator.outDeviceTitle')}">
+                            🎛 ${this.t('loopCreator.outDevice')}
+                        </button>
+                    </div>
+                    <div class="lc-device-picker" id="lc-device-picker" style="display:none">
+                        <select id="lc-out-device-sel" class="lc-select"
+                            aria-label="${this.t('loopCreator.outputDevice')}">
+                            <option value="">${this.t('loopCreator.midiInNone')}</option>
+                        </select>
+                        <select id="lc-out-channel" class="lc-select"
+                            aria-label="${this.t('loopCreator.outputChannel')}">
+                            ${[...Array(16)].map((_,i) => `<option value="${i+1}"${i===0?' selected':''}>Ch ${i+1}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
                 <div class="lc-transport-right">
                     <label class="lc-label">${this.t('loopCreator.quantize')}</label>
@@ -410,6 +439,8 @@ class LoopCreatorModal extends BaseModal {
             case 'record':       this._toggleRecording();  break;
             case 'preview':      this._previewLoop();       break;
             case 'stop-all':     this._stopAll();           break;
+            case 'out-synth':    this._setOutputMode('synth');  break;
+            case 'out-device':   this._setOutputMode('device'); break;
             case 'save-loop':    this._saveLoop();          break;
             case 'new-loop':     this._newLoop();           break;
             // Arranger
@@ -439,6 +470,10 @@ class LoopCreatorModal extends BaseModal {
             if (this.pianoRoll) { this.pianoRoll.snap = parseInt(e.target.value); }
         } else if (id === 'lc-midi-in-device') {
             this._midiInDevice = e.target.value || null;
+        } else if (id === 'lc-out-device-sel') {
+            this.outputDeviceId = e.target.value || null;
+        } else if (id === 'lc-out-channel') {
+            this.outputChannel = parseInt(e.target.value) || 1;
         }
     }
 
@@ -577,9 +612,19 @@ class LoopCreatorModal extends BaseModal {
     }
 
     _playNote(note) {
+        if (this._activeKeys.has(note)) return;
         this._activeKeys.add(note);
         this._highlightKey(note, true);
-        try { this._synth?.noteOn(0, note, 80, 0); } catch (_) {}
+        if (this.outputMode === 'device' && this.outputDeviceId) {
+            this.api.sendCommand('midi_send_note', {
+                deviceId: this.outputDeviceId, channel: this.outputChannel, note, velocity: 80
+            }).catch(() => {});
+        } else if (this._synth) {
+            try {
+                const env = this._synth.playNote(note, 80, 0, 9999);
+                if (env) this._activeKeyEnvelopes.set(note, env);
+            } catch (_) {}
+        }
         if (this.isRecording) {
             const elapsed = (performance.now() - this.recordStartTime) / 1000;
             const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
@@ -590,7 +635,17 @@ class LoopCreatorModal extends BaseModal {
     _stopNote(note) {
         this._activeKeys.delete(note);
         this._highlightKey(note, false);
-        try { this._synth?.noteOff(0, note, 0); } catch (_) {}
+        if (this.outputMode === 'device' && this.outputDeviceId) {
+            this.api.sendCommand('midi_send_note', {
+                deviceId: this.outputDeviceId, channel: this.outputChannel, note, velocity: 0
+            }).catch(() => {});
+        } else {
+            const env = this._activeKeyEnvelopes.get(note);
+            if (env) {
+                try { env.forEach(e => e.cancel()); } catch (_) {}
+                this._activeKeyEnvelopes.delete(note);
+            }
+        }
         if (this.isRecording) this._finalizeNoteOff(note);
     }
 
@@ -691,14 +746,40 @@ class LoopCreatorModal extends BaseModal {
         try {
             const result = await this.api.sendCommand('device_list');
             this.devices = result.devices || [];
-            const sel = this.$('#lc-midi-in-device');
-            if (!sel) return;
-            const prev = sel.value;
-            sel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` +
-                this.devices.map(d =>
-                    `<option value="${this.escape(d.id)}" ${d.id === prev ? 'selected' : ''}>${this.escape(d.name || d.id)}</option>`
-                ).join('');
+            const deviceOptions = this.devices.map(d =>
+                `<option value="${this.escape(d.id)}">${this.escape(d.name || d.id)}</option>`
+            ).join('');
+            const midiInSel = this.$('#lc-midi-in-device');
+            if (midiInSel) {
+                const prev = midiInSel.value;
+                midiInSel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` + deviceOptions;
+                if (prev) midiInSel.value = prev;
+            }
+            this._populateOutDevicePicker();
         } catch (_) {}
+    }
+
+    _setOutputMode(mode) {
+        this.outputMode = mode;
+        this.$('#lc-out-synth')?.classList.toggle('lc-output-btn--active', mode === 'synth');
+        this.$('#lc-out-device')?.classList.toggle('lc-output-btn--active', mode === 'device');
+        const picker = this.$('#lc-device-picker');
+        if (picker) picker.style.display = mode === 'device' ? 'flex' : 'none';
+        if (mode === 'device') this._populateOutDevicePicker();
+    }
+
+    _populateOutDevicePicker() {
+        const sel = this.$('#lc-out-device-sel');
+        if (!sel) return;
+        const prev = sel.value || this.outputDeviceId || '';
+        sel.innerHTML = `<option value="">${this.t('loopCreator.midiInNone')}</option>` +
+            this.devices.map(d =>
+                `<option value="${this.escape(d.id)}">${this.escape(d.name || d.id)}</option>`
+            ).join('');
+        if (prev) sel.value = prev;
+        this.outputDeviceId = sel.value || null;
+        const chSel = this.$('#lc-out-channel');
+        if (chSel) chSel.value = String(this.outputChannel);
     }
 
     // =========================================================
@@ -707,7 +788,10 @@ class LoopCreatorModal extends BaseModal {
 
     _initSynth() {
         if (typeof MidiSynthesizer !== 'undefined') {
-            try { this._synth = new MidiSynthesizer(); this._synth.setInstrument(0, this.instrumentProgram); } catch (_) {}
+            try {
+                this._synth = new MidiSynthesizer();
+                this._synth.setChannelInstrument(0, this.instrumentProgram);
+            } catch (_) {}
         }
     }
 
@@ -715,15 +799,39 @@ class LoopCreatorModal extends BaseModal {
         this._stopAll();
         const seq = this.pianoRoll?.sequence ?? [];
         if (!seq.length) { this._setStatus(this.t('loopCreator.statusNoNotes')); return; }
+        if (this.outputMode === 'device' && this.outputDeviceId) {
+            this._previewViaDevice(seq); return;
+        }
         if (!this._synth) { this._setStatus(this.t('loopCreator.statusNoSynth')); return; }
+        this.isPlaying = true;
+        this._setStatus(this.t('loopCreator.statusPlaying'));
+        this._synth.loadSequence(seq, this.tempo, this.ppq);
+        this._synth.play().then(() => {
+            if (this.isPlaying) { this.isPlaying = false; this._setStatus(''); }
+        }).catch(() => { this.isPlaying = false; this._setStatus(''); });
+    }
+
+    _previewViaDevice(seq) {
         const spt = 60 / (this.tempo * this.ppq);
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
         for (const note of seq) {
             const onMs  = note.t * spt * 1000;
             const offMs = (note.t + (note.g || note.l || 120)) * spt * 1000;
-            this._playbackTimers.push(setTimeout(() => { if (!this.isPlaying) return; try { this._synth.noteOn(0, note.n, note.v||80, 0); } catch(_) {} }, onMs));
-            this._playbackTimers.push(setTimeout(() => { if (!this.isPlaying) return; try { this._synth.noteOff(0, note.n, 0); } catch(_) {} }, offMs));
+            this._playbackTimers.push(setTimeout(() => {
+                if (!this.isPlaying) return;
+                this.api.sendCommand('midi_send_note', {
+                    deviceId: this.outputDeviceId, channel: this.outputChannel,
+                    note: note.n, velocity: note.v || 80
+                }).catch(() => {});
+            }, onMs));
+            this._playbackTimers.push(setTimeout(() => {
+                if (!this.isPlaying) return;
+                this.api.sendCommand('midi_send_note', {
+                    deviceId: this.outputDeviceId, channel: this.outputChannel,
+                    note: note.n, velocity: 0
+                }).catch(() => {});
+            }, offMs));
         }
         this._playbackTimers.push(setTimeout(() => {
             this.isPlaying = false; this._setStatus('');
@@ -735,7 +843,16 @@ class LoopCreatorModal extends BaseModal {
         this._playbackTimers = [];
         if (this.isRecording) this._stopRecording();
         this.isPlaying = false;
-        try { this._synth?.allNotesOff?.(); } catch (_) {}
+        try { this._synth?.stop?.(); } catch (_) {}
+        try { this._synth?.cancelAllNotes?.(); } catch (_) {}
+        this._activeKeyEnvelopes.clear();
+        if (this.outputMode === 'device' && this.outputDeviceId) {
+            for (const n of this._activeKeys) {
+                this.api.sendCommand('midi_send_note', {
+                    deviceId: this.outputDeviceId, channel: this.outputChannel, note: n, velocity: 0
+                }).catch(() => {});
+            }
+        }
         this.$$('.lc-key--active').forEach(k => k.classList.remove('lc-key--active'));
         this._activeKeys.clear();
         this._setStatus('');
@@ -1186,31 +1303,38 @@ class LoopCreatorModal extends BaseModal {
 
     async _playArrangement() {
         this._stopArrangerPlay();
-        if (!this._synth || !this.blocks.length) {
+        if (!this.blocks.length) {
             this._setStatus(this.t('loopCreator.statusNoNotes')); return;
+        }
+        const useDevice = this.outputMode === 'device' && this.outputDeviceId;
+        if (!useDevice && !this._synth) {
+            this._setStatus(this.t('loopCreator.statusNoSynth')); return;
         }
         this.isArrangerPlaying = true;
         this.$('#la-play-btn')?.classList.add('lc-btn-record--active');
 
-        const secPerBar = (60 / this.arrangementTempo) * this.timeSigNum;
+        // FIX: arrangements are always 4/4; was incorrectly using this.timeSigNum
+        const secPerBar = (60 / this.arrangementTempo) * 4;
 
-        // Build flat event list from all blocks
         const events = [];
         for (const block of this.blocks) {
             const loopData = await this._fetchLoopData(block.loop_id);
             if (!loopData) continue;
             const seq = typeof loopData.midi_data === 'string'
                 ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
-            const loopPPQ  = loopData.ppq || 480;
-            const loopTempo= loopData.tempo || 120;
+            const loopPPQ   = loopData.ppq || 480;
+            const loopTempo = loopData.tempo || 120;
             const secPerTick = 60 / (loopTempo * loopPPQ);
             const loopDurSec = loopData.bars * (60 / loopTempo) * 4;
 
             for (let rep = 0; rep < block.repetitions; rep++) {
                 const offsetSec = block.position_bar * secPerBar + rep * loopDurSec;
                 for (const note of seq) {
-                    events.push({ ms: (offsetSec + note.t * secPerTick) * 1000, note: note.n, vel: note.v || 80, type: 'on' });
-                    events.push({ ms: (offsetSec + (note.t + (note.g || note.l || 120)) * secPerTick) * 1000, note: note.n, vel: 0, type: 'off' });
+                    const durSec = (note.g || note.l || 120) * secPerTick;
+                    events.push({
+                        ms: (offsetSec + note.t * secPerTick) * 1000,
+                        note: note.n, vel: note.v || 80, durSec
+                    });
                 }
             }
         }
@@ -1218,10 +1342,23 @@ class LoopCreatorModal extends BaseModal {
         for (const ev of events) {
             this._arrangerTimers.push(setTimeout(() => {
                 if (!this.isArrangerPlaying) return;
-                try {
-                    if (ev.type === 'on') this._synth.noteOn(0, ev.note, ev.vel, 0);
-                    else this._synth.noteOff(0, ev.note, 0);
-                } catch (_) {}
+                if (useDevice) {
+                    this.api.sendCommand('midi_send_note', {
+                        deviceId: this.outputDeviceId, channel: this.outputChannel,
+                        note: ev.note, velocity: ev.vel
+                    }).catch(() => {});
+                    // Schedule noteOff for device mode
+                    const offTimer = setTimeout(() => {
+                        if (!this.isArrangerPlaying) return;
+                        this.api.sendCommand('midi_send_note', {
+                            deviceId: this.outputDeviceId, channel: this.outputChannel,
+                            note: ev.note, velocity: 0
+                        }).catch(() => {});
+                    }, ev.durSec * 1000);
+                    this._arrangerTimers.push(offTimer);
+                } else {
+                    try { this._synth.playNote(ev.note, ev.vel, 0, ev.durSec); } catch (_) {}
+                }
             }, ev.ms));
         }
 
@@ -1235,11 +1372,11 @@ class LoopCreatorModal extends BaseModal {
         this._arrangerTimers = [];
         this.isArrangerPlaying = false;
         this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
-        try { this._synth?.allNotesOff?.(); } catch (_) {}
+        try { this._synth?.stop?.(); } catch (_) {}
+        try { this._synth?.cancelAllNotes?.(); } catch (_) {}
         this._setStatus('');
     }
 
-    _fetchLoopDataCache = new Map();
     async _fetchLoopData(loopId) {
         if (this._fetchLoopDataCache.has(loopId)) return this._fetchLoopDataCache.get(loopId);
         try {

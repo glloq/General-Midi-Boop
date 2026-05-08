@@ -2477,6 +2477,13 @@
     "palette": "Boucles disponibles",
     "arrangements": "Arrangements",
     "arrangementsEmpty": "Aucun arrangement.",
-    "close": "Fermer"
+    "close": "Fermer",
+    "outputMode": "Sortie audio",
+    "outSynth": "Synth",
+    "outSynthTitle": "Utiliser le synthétiseur virtuel",
+    "outDevice": "MIDI",
+    "outDeviceTitle": "Jouer sur un instrument MIDI connecté",
+    "outputDevice": "Périphérique de sortie",
+    "outputChannel": "Canal"
   }
 }
