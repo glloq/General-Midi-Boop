@@ -150,6 +150,23 @@ class LoopCreatorModal extends BaseModal {
 
         return `
         <div class="lc-pane" id="lc-pane-create">
+
+            <!-- ── Instrument picker ── -->
+            <div class="lc-instr-bar">
+                <div class="lc-instr-picker" id="lc-instr-picker">
+                    <button class="lc-instr-trigger" id="lc-instr-trigger" data-action="instr-picker-toggle" type="button">
+                        <span class="lc-instr-icon">
+                            <img class="lc-instr-svg" id="lc-instr-svg" src="" style="display:none" alt="">
+                            <span class="lc-instr-emoji" id="lc-instr-emoji">🎹</span>
+                        </span>
+                        <span class="lc-instr-name" id="lc-instr-name">${this.t('loopCreator.synthVirtual')}</span>
+                        <span class="lc-instr-chevron">▾</span>
+                    </button>
+                    <div class="lc-instr-dropdown" id="lc-instr-dropdown"></div>
+                </div>
+                <span class="lc-instr-info" id="lc-instr-info"></span>
+            </div>
+
             <!-- ── Editor toolbar ── -->
             <div class="lc-editor-toolbar">
                 <input type="text" class="lc-name-input" id="lc-name-input"
@@ -210,18 +227,10 @@ class LoopCreatorModal extends BaseModal {
                         <span class="lc-rec-dot"></span> ${this.t('loopCreator.record')}
                     </button>
                     <button class="lc-btn" data-action="preview">▶ ${this.t('loopCreator.preview')}</button>
-                    <button class="lc-btn" data-action="stop-all">⏹ ${this.t('loopCreator.stop')}</button>
+                    <button class="lc-btn" data-action="stop-all">⏹</button>
                     <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                         <span class="lc-rec-dot lc-rec-dot--pulse"></span> ${this.t('loopCreator.recording')}
                     </span>
-                    <div class="lc-instrument-selector">
-                        <label class="lc-label">${this.t('loopCreator.outputLabel')}</label>
-                        <select id="lc-instrument-sel" class="lc-select lc-instrument-select"
-                            aria-label="${this.t('loopCreator.outputLabel')}">
-                            <option value="synth">🎹 ${this.t('loopCreator.synthVirtual')}</option>
-                        </select>
-                        <span class="lc-instrument-info" id="lc-instrument-info"></span>
-                    </div>
                 </div>
                 <div class="lc-transport-right">
                     <label class="lc-label">${this.t('loopCreator.quantize')}</label>
@@ -231,6 +240,7 @@ class LoopCreatorModal extends BaseModal {
                         <option value="120" selected>1/4</option><option value="60">1/8</option>
                         <option value="30">1/16</option>
                     </select>
+                    <div class="lc-toolbar-sep"></div>
                     <label class="lc-label">${this.t('loopCreator.midiIn')}</label>
                     <select id="lc-midi-in-device" class="lc-select">
                         <option value="">${this.t('loopCreator.midiInNone')}</option>
@@ -433,6 +443,9 @@ class LoopCreatorModal extends BaseModal {
     }
 
     _onClick(e) {
+        // Close instrument picker on click outside it
+        if (!e.target.closest('#lc-instr-picker')) this._closeInstrPicker();
+
         // Tab switching — .lc-tab buttons carry data-tab, not data-action
         const tabBtn = e.target.closest('.lc-tab[data-tab]');
         if (tabBtn) { this._switchTab(tabBtn.dataset.tab); return; }
@@ -442,6 +455,7 @@ class LoopCreatorModal extends BaseModal {
         const a = btn.dataset.action;
         switch (a) {
             // Creator
+            case 'instr-picker-toggle': this._toggleInstrPicker(); break;
             case 'tempo-dec':    this._adjustTempo(-1);    break;
             case 'tempo-inc':    this._adjustTempo(+1);    break;
             case 'bars-dec':     this._adjustBars(-1);     break;
@@ -482,8 +496,6 @@ class LoopCreatorModal extends BaseModal {
             if (this.pianoRoll) { this.pianoRoll.snap = parseInt(e.target.value); }
         } else if (id === 'lc-midi-in-device') {
             this._midiInDevice = e.target.value || null;
-        } else if (id === 'lc-instrument-sel') {
-            this._onInstrumentSelect(e.target.value);
         }
     }
 
@@ -822,32 +834,110 @@ class LoopCreatorModal extends BaseModal {
     }
 
     _populateInstrumentSelector() {
-        const sel = this.$('#lc-instrument-sel');
-        if (!sel) return;
-        const prevVal = sel.value;
-        let html = `<option value="synth">🎹 ${this.t('loopCreator.synthVirtual')}</option>`;
+        this._buildInstrDropdown();
+        this._updateInstrTrigger();
+    }
+
+    _buildInstrDropdown() {
+        const dropdown = this.$('#lc-instr-dropdown');
+        if (!dropdown) return;
+        dropdown.innerHTML = '';
+
+        // Synth option
+        const synthBtn = document.createElement('button');
+        synthBtn.type = 'button';
+        synthBtn.className = 'lc-instr-option' + (this.outputMode === 'synth' ? ' selected' : '');
+        synthBtn.innerHTML = `<div class="lc-instr-opt-icon"><span class="lc-instr-opt-emoji">🎹</span></div>
+            <span class="lc-instr-opt-name">${this.t('loopCreator.synthVirtual')}</span>`;
+        synthBtn.addEventListener('click', () => { this._onInstrumentSelect('synth'); });
+        dropdown.appendChild(synthBtn);
+
+        // MIDI device options
         for (const device of this.devices) {
             const name = device.displayName || device.name || device.id;
-            // Multi-instrument devices (e.g. hardware synth with multiple timbres)
             if (Array.isArray(device.instruments) && device.instruments.length > 1) {
                 for (const instr of device.instruments) {
                     const ch = instr.channel ?? 0;
-                    const label = instr.name ? `${this.escape(name)} — ${this.escape(instr.name)} (Ch ${ch + 1})`
-                                             : `${this.escape(name)} — Ch ${ch + 1}`;
-                    html += `<option value="device::${this.escape(device.id)}::${ch}">${label}</option>`;
+                    const value = `device::${device.id}::${ch}`;
+                    const label = instr.name ? `${name} — ${instr.name}` : `${name}`;
+                    const isSelected = this.outputMode === 'device' && this.outputDeviceId === device.id && this.outputChannel === ch;
+                    dropdown.appendChild(this._buildInstrOption(value, label, `Ch${ch + 1}`, isSelected, device.gm_program, ch));
                 }
             } else {
                 const ch = device.channel ?? 0;
-                html += `<option value="device::${this.escape(device.id)}::${ch}">${this.escape(name)} — Ch ${ch + 1}</option>`;
+                const value = `device::${device.id}::${ch}`;
+                const isSelected = this.outputMode === 'device' && this.outputDeviceId === device.id;
+                dropdown.appendChild(this._buildInstrOption(value, name, `Ch${ch + 1}`, isSelected, device.gm_program, ch));
             }
         }
-        sel.innerHTML = html;
-        // Restore or keep 'synth'
-        if (prevVal && sel.querySelector(`option[value="${CSS.escape(prevVal)}"]`)) sel.value = prevVal;
+    }
+
+    _buildInstrOption(value, name, chLabel, isSelected, gmProgram, channel) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'lc-instr-option' + (isSelected ? ' selected' : '');
+        const icon = window.InstrumentFamilies?.resolveInstrumentIcon?.({ gmProgram, channel }) || { svgUrl: null, emoji: '🎵' };
+        const imgHtml = icon.svgUrl
+            ? `<img src="${icon.svgUrl}" alt="" class="lc-instr-opt-svg" onerror="this.style.display='none';this.nextElementSibling.style.display=''"><span class="lc-instr-opt-emoji" style="display:none">${icon.emoji}</span>`
+            : `<span class="lc-instr-opt-emoji">${icon.emoji}</span>`;
+        btn.innerHTML = `<div class="lc-instr-opt-icon">${imgHtml}</div>
+            <span class="lc-instr-opt-name">${this.escape(name)}</span>
+            <span class="lc-instr-opt-ch">${chLabel}</span>`;
+        btn.addEventListener('click', () => { this._onInstrumentSelect(value); });
+        return btn;
+    }
+
+    _updateInstrTrigger() {
+        const emoji = this.$('#lc-instr-emoji');
+        const svg   = this.$('#lc-instr-svg');
+        const nameEl = this.$('#lc-instr-name');
+        if (!nameEl) return;
+
+        if (this.outputMode !== 'device' || !this.outputDeviceId) {
+            if (svg)   { svg.style.display = 'none'; }
+            if (emoji) { emoji.textContent = '🎹'; emoji.style.display = ''; }
+            nameEl.textContent = this.t('loopCreator.synthVirtual');
+            return;
+        }
+
+        const device = this.devices.find(d => d.id === this.outputDeviceId);
+        const icon = window.InstrumentFamilies?.resolveInstrumentIcon?.({ gmProgram: device?.gm_program, channel: this.outputChannel })
+            || { svgUrl: null, emoji: '🎵' };
+
+        if (icon.svgUrl && svg) {
+            svg.src = icon.svgUrl;
+            svg.style.display = '';
+            svg.onerror = () => {
+                svg.style.display = 'none';
+                if (emoji) { emoji.textContent = icon.emoji; emoji.style.display = ''; }
+            };
+            if (emoji) emoji.style.display = 'none';
+        } else {
+            if (svg)   svg.style.display = 'none';
+            if (emoji) { emoji.textContent = icon.emoji; emoji.style.display = ''; }
+        }
+        nameEl.textContent = (device?.displayName || device?.name || this.outputDeviceId) + ` — Ch${this.outputChannel + 1}`;
+    }
+
+    _toggleInstrPicker() {
+        const picker = this.$('#lc-instr-picker');
+        if (!picker) return;
+        const opening = !picker.classList.contains('open');
+        if (opening) {
+            this._buildInstrDropdown();
+            picker.classList.add('open');
+        } else {
+            picker.classList.remove('open');
+        }
+    }
+
+    _closeInstrPicker() {
+        this.$('#lc-instr-picker')?.classList.remove('open');
     }
 
     async _onInstrumentSelect(value) {
         this._stopAll();
+        this._closeInstrPicker();
         if (value === 'synth' || !value) {
             this.outputMode = 'synth';
             this.outputDeviceId = null;
@@ -855,6 +945,7 @@ class LoopCreatorModal extends BaseModal {
             this.outputNoteMin = 36;
             this.outputNoteMax = 84;
             this.outputGmProgram = 0;
+            this._updateInstrTrigger();
             this._setInstrumentInfo('');
             this._rebuildKeyboard();
             return;
@@ -890,7 +981,8 @@ class LoopCreatorModal extends BaseModal {
         this.outputNoteMax = noteMax;
         this.outputGmProgram = gmProgram;
 
-        const infoText = `${this._midiNoteToName(noteMin)} – ${this._midiNoteToName(noteMax)} · Ch ${channel + 1}`;
+        const infoText = `${this._midiNoteToName(noteMin)} – ${this._midiNoteToName(noteMax)}`;
+        this._updateInstrTrigger();
         this._setInstrumentInfo(infoText);
         this._rebuildKeyboard();
         this._refreshPianoRollRange();
@@ -903,7 +995,7 @@ class LoopCreatorModal extends BaseModal {
     }
 
     _setInstrumentInfo(text) {
-        const el = this.$('#lc-instrument-info');
+        const el = this.$('#lc-instr-info');
         if (el) el.textContent = text;
     }
 
