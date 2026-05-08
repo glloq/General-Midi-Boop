@@ -146,6 +146,11 @@ class MidiSynthesizer {
      * Build a WAF drum preset entry for a given bank suffix + bank index + note.
      * WAF filename convention: 128{note}_{bankIndex}_{suffix}.js
      *
+     * Two variable naming conventions exist on the WAF CDN:
+     *   - Legacy:   _drum_{note}_{bankIndex}_{suffix}    (e.g. _drum_36_0_FluidR3_GM_sf2_file)
+     *   - Standard: _tone_128{note}_{bankIndex}_{suffix} (e.g. _tone_12836_0_FluidR3_GM_sf2_file)
+     * Both are tried; `altVariable` holds the standard WAF form.
+     *
      * @param {string} suffix    - Bank suffix (e.g. 'FluidR3_GM_sf2_file')
      * @param {number} bankIndex - WAF bank index for this kit in the font
      * @param {number} note      - MIDI note number (35-81)
@@ -155,7 +160,8 @@ class MidiSynthesizer {
         const key = `${note}_${bankIndex}_${suffix}`;
         return {
             url: `${base}128${key}.js`,
-            variable: `_drum_${key}`
+            variable: `_drum_${key}`,
+            altVariable: `_tone_128${key}`
         };
     }
 
@@ -180,7 +186,8 @@ class MidiSynthesizer {
         const key = `${note}_12_JCLive_sf2_file`;
         return {
             url: `${base}128${key}.js`,
-            variable: `_drum_${key}`
+            variable: `_drum_${key}`,
+            altVariable: `_tone_128${key}`
         };
     }
 
@@ -497,10 +504,13 @@ class MidiSynthesizer {
             }
             const info = candidates[idx];
             // If the variable is already on window (a previous load), reuse it.
-            if (window[info.variable]) {
-                const preset = window[info.variable];
+            // Try both _drum_ (legacy) and _tone_128 (standard WAF) conventions.
+            const preLoaded = window[info.variable] || (info.altVariable && window[info.altVariable]);
+            if (preLoaded) {
+                const resolvedVar = window[info.variable] ? info.variable : info.altVariable;
+                const preset = window[resolvedVar];
                 this.player.adjustPreset(this.audioContext, preset);
-                resolve({ preset, variable: info.variable });
+                resolve({ preset, variable: resolvedVar });
                 return;
             }
             const script = document.createElement('script');
@@ -508,10 +518,16 @@ class MidiSynthesizer {
             this._injectedScripts.add(script);
             script.onload = () => {
                 if (this._isDisposed) { resolve({ preset: null, variable: null }); return; }
-                const preset = window[info.variable];
+                let preset = window[info.variable];
+                let resolvedVar = info.variable;
+                // Fall back to standard WAF _tone_128 naming if legacy _drum_ not found
+                if (!preset && info.altVariable && window[info.altVariable]) {
+                    preset = window[info.altVariable];
+                    resolvedVar = info.altVariable;
+                }
                 if (preset) {
                     this.player.adjustPreset(this.audioContext, preset);
-                    resolve({ preset, variable: info.variable });
+                    resolve({ preset, variable: resolvedVar });
                 } else {
                     tryLoad(idx + 1).then(resolve);
                 }
