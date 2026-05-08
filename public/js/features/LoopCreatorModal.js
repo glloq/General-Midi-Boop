@@ -964,22 +964,101 @@ class LoopCreatorModal extends BaseModal {
 
     async _loadDevices() {
         try {
-            const result = await this.api.sendCommand('device_list');
-            this.devices = result.devices || [];
-            // MIDI In selector
-            const midiInSel = this.$('#lc-midi-in-device');
-            if (midiInSel) {
-                const prev = midiInSel.value;
-                midiInSel.innerHTML = `<option value="">IN:—</option>` +
-                    this.devices.map(d => {
-                        const did = d.device_id || d.id;
-                        return `<option value="${this.escape(did)}">IN: ${this.escape(d.name || did)}</option>`;
-                    }).join('');
-                if (prev) midiInSel.value = prev;
+            // Mirror KeyboardControls.loadDevices: parallel fetch + full enrichment
+            const [rawDevices, capsResp] = await Promise.all([
+                this.api.listDevices(),
+                this.api.sendCommand('instrument_list_capabilities').catch(() => null)
+            ]);
+
+            // Build custom_name lookup from capabilities
+            const customNameMap = {};
+            if (capsResp && Array.isArray(capsResp.instruments)) {
+                for (const inst of capsResp.instruments) {
+                    const id = inst.device_id || inst.id;
+                    if (id && inst.custom_name && !customNameMap[id]) {
+                        customNameMap[id] = inst.custom_name;
+                    }
+                }
             }
-            // Instrument output selector
-            this._populateInstrumentSelector();
-        } catch (_) {}
+
+            // Active devices only, deduplicated by ID
+            const activeDevices = rawDevices.filter(d => d.status === 2);
+            const uniqueDevices = [];
+            const seenIds = new Set();
+            for (const d of activeDevices) {
+                const key = d.id || d.device_id || d.name;
+                if (!seenIds.has(key)) { seenIds.add(key); uniqueDevices.push(d); }
+            }
+
+            // Expand multi-instrument devices
+            const expanded = [];
+            for (const d of uniqueDevices) {
+                if (d.instruments && d.instruments.length > 0) {
+                    for (const inst of d.instruments) {
+                        expanded.push({
+                            ...d,
+                            channel: inst.channel ?? 0,
+                            displayName: inst.custom_name || inst.name || d.name,
+                            gm_program: inst.gm_program,
+                            _multiInstrument: true
+                        });
+                    }
+                } else {
+                    expanded.push(d);
+                }
+            }
+
+            // Virtual instruments (from DB, if enabled in settings)
+            let virtualEnabled = false;
+            try {
+                const s = localStorage.getItem('gmboop_settings');
+                if (s) virtualEnabled = !!JSON.parse(s).virtualInstrument;
+            } catch (_) {}
+
+            if (virtualEnabled && capsResp?.instruments) {
+                const existingIds = new Set(expanded.map(d => d.id || d.device_id));
+                for (const inst of capsResp.instruments) {
+                    const devId = inst.device_id || inst.id;
+                    if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
+                        expanded.push({
+                            id: devId, device_id: devId,
+                            name: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
+                            displayName: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
+                            status: 2, isVirtual: true,
+                            channel: inst.channel || 0,
+                            gm_program: inst.gm_program
+                        });
+                    }
+                }
+            }
+
+            // Enrich with custom names, normalize id/device_id
+            this.devices = expanded.map(d => {
+                const did = d.id || d.device_id;
+                if (d.isVirtual || d._multiInstrument) return { ...d, id: did, device_id: did };
+                return {
+                    ...d, id: did, device_id: did,
+                    displayName: customNameMap[did] || d.name
+                };
+            });
+        } catch (_) {
+            this.devices = [];
+        }
+
+        // Update MIDI In selector
+        const midiInSel = this.$('#lc-midi-in-device');
+        if (midiInSel) {
+            const prev = midiInSel.value;
+            midiInSel.innerHTML = `<option value="">IN:—</option>` +
+                this.devices.map(d => {
+                    const did = d.device_id || d.id;
+                    return `<option value="${this.escape(did)}">IN: ${this.escape(d.displayName || d.name || did)}</option>`;
+                }).join('');
+            if (prev) midiInSel.value = prev;
+        }
+
+        // Refresh instrument picker
+        this._populateInstrumentSelector();
     }
 
     _populateInstrumentSelector() {
@@ -1001,24 +1080,15 @@ class LoopCreatorModal extends BaseModal {
         synthBtn.addEventListener('click', () => { this._onInstrumentSelect('synth'); });
         dropdown.appendChild(synthBtn);
 
-        // MIDI device options
+        // MIDI device options — devices are already expanded (1 entry per instrument)
         for (const device of this.devices) {
             const did = device.device_id || device.id;
             const name = device.displayName || device.name || did;
-            if (Array.isArray(device.instruments) && device.instruments.length > 1) {
-                for (const instr of device.instruments) {
-                    const ch = instr.channel ?? 0;
-                    const value = `device::${did}::${ch}`;
-                    const label = instr.name ? `${name} — ${instr.name}` : `${name}`;
-                    const isSelected = this.outputMode === 'device' && this.outputDeviceId === did && this.outputChannel === ch;
-                    dropdown.appendChild(this._buildInstrOption(value, label, `Ch${ch + 1}`, isSelected, instr.gm_program ?? device.gm_program, ch));
-                }
-            } else {
-                const ch = device.channel ?? 0;
-                const value = `device::${did}::${ch}`;
-                const isSelected = this.outputMode === 'device' && this.outputDeviceId === did;
-                dropdown.appendChild(this._buildInstrOption(value, name, `Ch${ch + 1}`, isSelected, device.gm_program, ch));
-            }
+            const ch = device.channel ?? 0;
+            const value = `device::${did}::${ch}`;
+            const isSelected = this.outputMode === 'device' && this.outputDeviceId === did && this.outputChannel === ch;
+            const chLabel = device._multiInstrument ? `Ch${ch + 1}` : '';
+            dropdown.appendChild(this._buildInstrOption(value, name, chLabel, isSelected, device.gm_program, ch));
         }
     }
 
