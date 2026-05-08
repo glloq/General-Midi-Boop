@@ -14012,6 +14012,7 @@
                 };
 
                 keyboardModal = new KeyboardModalNew(keyboardLogger, api);
+                window.keyboardModal = keyboardModal;
                 log('✓ MIDI keyboard modal initialized', 'info');
             } else {
                 log('⚠️ KeyboardModalNew not available', 'warning');

@@ -76,6 +76,12 @@ class KeyboardModalNew {
 
         this.container = null;
 
+        // Panel mode (embedded in a host container)
+        this._panelMode = false;
+        this._panelCallbacks = null;
+        this._panelDialogEl = null;
+        this._panelHostEl = null;
+
         // Setup event listeners
         this.setupEventListeners();
     }
@@ -1004,6 +1010,14 @@ class KeyboardModalNew {
         }
 
         this.regeneratePianoKeys();
+
+        if (this._panelCallbacks?.onInstrumentSelected) {
+            this._panelCallbacks.onInstrumentSelected({
+                deviceId: this.selectedDevice?.device_id || this.selectedDevice?.id || null,
+                channel: this.getSelectedChannel(),
+                gmProgram: this.selectedDeviceCapabilities?.gm_program ?? 0
+            });
+        }
     }
 
     /**
@@ -1015,6 +1029,47 @@ class KeyboardModalNew {
         this.logger.info('[KeyboardModal] Refreshing devices...');
         await this.loadDevices();
         this.populateDeviceSelect();
+    }
+
+    mountAsPanel(panelContainer, callbacks = {}) {
+        if (this._panelMode) return;
+        if (this.isOpen) this.close();
+
+        this._panelCallbacks = callbacks;
+        this._panelMode = true;
+        this._panelHostEl = panelContainer;
+
+        this.loadSettings();
+        this.createModal(); // appends this.container (.keyboard-modal) to document.body
+        this.isOpen = true;
+
+        const dialogEl = this.container.querySelector('.modal-dialog');
+        if (dialogEl) {
+            dialogEl.classList.add('km-panel-mode');
+            panelContainer.appendChild(dialogEl);
+            this._panelDialogEl = dialogEl;
+        }
+        this.container.style.display = 'none'; // hide the empty overlay shell
+
+        this.loadDevices().then(() => this.populateDeviceSelect());
+        this.attachEvents();
+        this.updateSlidersVisibility();
+    }
+
+    unmountPanel() {
+        if (!this._panelMode) return;
+
+        if (this._panelDialogEl && this.container) {
+            this._panelDialogEl.classList.remove('km-panel-mode');
+            this.container.style.display = '';
+            this.container.appendChild(this._panelDialogEl);
+            this._panelDialogEl = null;
+        }
+
+        this._panelMode = false;
+        this._panelCallbacks = null;
+        this._panelHostEl = null;
+        this.close(); // detachEvents, stop notes, removes this.container
     }
 }
 

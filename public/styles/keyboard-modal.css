@@ -2851,3 +2851,14 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 .piano-slider-key.wind-out-of-range.is-black {
     background: #0e0e1a !important;
 }
+
+/* ── Panel mode: keyboard embedded inside a host container ── */
+.modal-dialog.km-panel-mode {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    animation: none !important;
+}
