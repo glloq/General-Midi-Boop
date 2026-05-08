@@ -839,6 +839,12 @@
     "omniMode": "Omni · accept all channels",
     "omniModeHelp": "This instrument accepts notes on any MIDI channel (useful when it is the only instrument on the device)",
     "omniModeActiveHint": "This instrument receives notes on any channel — the channel selection above is ignored.",
+    "connectionType": {
+      "bluetooth": "Bluetooth",
+      "usb": "USB",
+      "network": "WiFi / Network",
+      "virtual": "Virtual instrument"
+    },
     "addGmInstrument": "Add a GM instrument",
     "secondaryVoices": "Additional voices",
     "previewThisVoice": "Click to preview this voice on the keyboard",
