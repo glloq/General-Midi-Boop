@@ -35,17 +35,18 @@
     {
       id: 'FluidR3_GM', label: 'FluidR3 GM', suffix: 'FluidR3_GM_sf2_file',
       quality: 'high', sizeMB: 141, descKey: 'settings.soundBank.banks.FluidR3_GM', reverbMix: 0.08,
-      // Only bank with all 9 GM drum kits; bankIndex === midiProgram for every kit.
+      // 5 of 9 GM drum kits have files on the WAF CDN (128{note}_{bankIndex}_FluidR3_GM_sf2_file.js).
+      // bankIndexes 32/40/48/56 return 404; they fall back to Standard Kit in _loadDrumPreset.
       drumKits: [
         { midiProgram:  0, bankIndex:  0, verified: true  },  // Standard Kit
         { midiProgram:  8, bankIndex:  8, verified: true  },  // Room Kit
         { midiProgram: 16, bankIndex: 16, verified: true  },  // Power Kit
         { midiProgram: 24, bankIndex: 24, verified: true  },  // Electronic Kit
         { midiProgram: 25, bankIndex: 25, verified: true  },  // TR-808 Kit
-        { midiProgram: 32, bankIndex: 32, verified: true  },  // Jazz Kit
-        { midiProgram: 40, bankIndex: 40, verified: true  },  // Brush Kit
-        { midiProgram: 48, bankIndex: 48, verified: true  },  // Orchestra Kit
-        { midiProgram: 56, bankIndex: 56, verified: true  }   // SFX Kit
+        { midiProgram: 32, bankIndex: 32, verified: false },  // Jazz Kit       — no CDN file
+        { midiProgram: 40, bankIndex: 40, verified: false },  // Brush Kit      — no CDN file
+        { midiProgram: 48, bankIndex: 48, verified: false },  // Orchestra Kit  — no CDN file
+        { midiProgram: 56, bankIndex: 56, verified: false }   // SFX Kit        — no CDN file
       ]
     },
     {
@@ -96,9 +97,36 @@
   const DEFAULT_BANK_ID = 'FluidR3_GM';
   const DEFAULT_BANK_SUFFIX = 'FluidR3_GM_sf2_file';
 
-  window.MidiSynthesizerConstants = Object.freeze({
+  // Custom SF2 banks registered at runtime by SettingsSF2.loadCustomBanks()
+  let _customBanks = [];
+
+  function setCustomBanks(banks) {
+    _customBanks = (banks || []).map(function(b) {
+      return {
+        id:         'sf2:' + b.id,
+        label:      b.label + ' [SF2]',
+        suffix:     null,
+        quality:    'custom',
+        sizeMB:     Math.round((b.size || 0) / (1024 * 1024)),
+        reverbMix:  b.reverbMix != null ? b.reverbMix : 0.12,
+        isCustom:   true,
+        sf2Id:      b.id,
+        drumKits: [0, 8, 16, 24, 25, 32, 40, 48, 56].map(function(p) {
+          return { midiProgram: p, bankIndex: p, verified: false };
+        }),
+      };
+    });
+  }
+
+  function getAvailableBanks() {
+    return SOUND_BANKS.concat(_customBanks);
+  }
+
+  window.MidiSynthesizerConstants = {
     SOUND_BANKS: Object.freeze(SOUND_BANKS.map((b) => Object.freeze(b))),
     DEFAULT_BANK_ID,
-    DEFAULT_BANK_SUFFIX
-  });
+    DEFAULT_BANK_SUFFIX,
+    setCustomBanks,
+    getAvailableBanks,
+  };
 })();

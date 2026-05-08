@@ -1,0 +1,223 @@
+// Custom SF2 soundfont management — mixed into SettingsModal.prototype.
+//
+// Responsibilities:
+//  - Fetch the list of custom SF2 banks from the server (GET /api/sf2)
+//    and register them in MidiSynthesizerConstants so all synth instances
+//    can use them.
+//  - Render the #sf2BankList in the Settings → Son panel.
+//  - Handle file upload (POST /api/sf2) with progress feedback.
+//  - Handle delete (DELETE /api/sf2/:id) with a simple confirm.
+//  - Rebuild the #soundBankSelect dropdown after any change.
+
+(function () {
+    'use strict';
+    const SettingsSF2 = {};
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function _fmt(bytes) {
+        if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        return Math.round(bytes / 1024) + ' KB';
+    }
+
+    // ── Core ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Fetch SF2 list, register custom banks, repopulate the dropdown and list.
+     * Called by SettingsModal.open() and after any upload/delete.
+     */
+    SettingsSF2.loadCustomBanks = async function () {
+        try {
+            const res = await fetch('/api/sf2');
+            if (!res.ok) return;
+            const { banks } = await res.json();
+
+            // Register banks in the constants module so MidiSynthesizer can find them
+            if (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.setCustomBanks) {
+                window.MidiSynthesizerConstants.setCustomBanks(banks);
+            }
+
+            // Re-apply the current bank in case it is an SF2 bank that was
+            // not available when the synth was constructed (e.g. after page reload).
+            const savedBank = typeof MidiSynthesizer !== 'undefined'
+                ? MidiSynthesizer.getSavedBank()
+                : null;
+            if (savedBank && savedBank.startsWith('sf2:') && typeof MidiSynthesizer !== 'undefined') {
+                for (const inst of MidiSynthesizer._instances) {
+                    try { inst.setSoundBank(savedBank); } catch (e) {}
+                }
+            }
+
+            this._rebuildBankDropdown();
+            this._renderSF2List(banks);
+        } catch (e) {
+            // Non-fatal: SF2 feature is optional
+        }
+    };
+
+    /**
+     * Rebuild the #soundBankSelect options to include custom SF2 banks.
+     */
+    SettingsSF2._rebuildBankDropdown = function () {
+        const select = this.modal && this.modal.querySelector('#soundBankSelect');
+        if (!select) return;
+        const banks = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
+            ? MidiSynthesizer.getAvailableBanks()
+            : [];
+        const currentVal = select.value || (this.settings && this.settings.soundBank) || 'FluidR3_GM';
+        const i18n = window.i18n || { t: k => k };
+
+        select.innerHTML = banks.map(function (bank) {
+            const qualityLabel = i18n.t('settings.soundBank.quality.' + (bank.quality || 'medium')) || bank.quality || '';
+            const sizeLabel = bank.sizeMB ? '~' + bank.sizeMB + ' MB' : '';
+            const suffix = (qualityLabel || sizeLabel)
+                ? ' (' + [qualityLabel, sizeLabel].filter(Boolean).join(' · ') + ')'
+                : '';
+            const sel = bank.id === currentVal ? ' selected' : '';
+            // C-1: escape both id and label to prevent stored XSS via innerHTML
+            return '<option value="' + _esc(String(bank.id)) + '"' + sel + '>' + _esc(bank.label) + _esc(suffix) + '</option>';
+        }).join('');
+    };
+
+    /**
+     * Render the #sf2BankList DOM element.
+     */
+    SettingsSF2._renderSF2List = function (banks) {
+        const list = this.modal && this.modal.querySelector('#sf2BankList');
+        if (!list) return;
+
+        if (!banks || banks.length === 0) {
+            list.innerHTML = '<p style="font-size:12px; color:var(--text-secondary,#666); margin:4px 0;">Aucun soundfont personnalisé.</p>';
+            return;
+        }
+
+        list.innerHTML = banks.map(function (b) {
+            return [
+                '<div style="display:flex; align-items:center; gap:8px; padding:6px 0;',
+                'border-bottom:1px solid var(--border-color,#e5e7eb);">',
+                '<span style="flex:1; font-size:13px;">',
+                _esc(b.label),
+                ' <span style="font-size:11px; color:#999;">(' + _fmt(b.size) + ')</span>',
+                '</span>',
+                '<button data-sf2-delete="' + b.id + '" style="',
+                'color:#ef4444; background:none; border:none; cursor:pointer; font-size:12px;">',
+                'Supprimer',
+                '</button>',
+                '</div>'
+            ].join('');
+        }).join('');
+    };
+
+    function _esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // ── Event listeners ───────────────────────────────────────────────────────
+
+    /**
+     * Attach upload + delete listeners inside the modal.
+     * Called by SettingsModal.attachContentEventListeners().
+     */
+    SettingsSF2.attachSF2Listeners = function () {
+        const modal = this.modal;
+        if (!modal) return;
+
+        // Upload
+        const fileInput = modal.querySelector('#sf2FileInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', this._onSF2FileSelected.bind(this));
+        }
+
+        // Delete (event delegation on #sf2BankList)
+        const list = modal.querySelector('#sf2BankList');
+        if (list) {
+            list.addEventListener('click', this._onSF2DeleteClick.bind(this));
+        }
+    };
+
+    SettingsSF2._onSF2FileSelected = async function (evt) {
+        const file = evt.target.files && evt.target.files[0];
+        evt.target.value = ''; // reset so same file can be re-uploaded
+        if (!file) return;
+
+        const progressEl = this.modal && this.modal.querySelector('#sf2UploadProgress');
+        const show = (msg) => { if (progressEl) { progressEl.style.display = ''; progressEl.textContent = msg; } };
+        const hide = () => { if (progressEl) progressEl.style.display = 'none'; };
+
+        if (!file.name.toLowerCase().endsWith('.sf2')) {
+            show('Erreur : seuls les fichiers .sf2 sont acceptés.');
+            return;
+        }
+
+        show('Lecture du fichier…');
+
+        let buf;
+        try {
+            buf = await file.arrayBuffer();
+        } catch (e) {
+            show('Erreur de lecture du fichier.');
+            return;
+        }
+
+        const MAX = 500 * 1024 * 1024;
+        if (buf.byteLength > MAX) {
+            show('Erreur : fichier trop volumineux (max 500 MB).');
+            return;
+        }
+
+        show('Upload en cours… (' + _fmt(buf.byteLength) + ')');
+        try {
+            const res = await fetch('/api/sf2?filename=' + encodeURIComponent(file.name), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: buf,
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                show('Erreur : ' + (data.error || res.status));
+                return;
+            }
+            hide();
+            await this.loadCustomBanks();
+        } catch (e) {
+            show('Erreur réseau : ' + e.message);
+        }
+    };
+
+    SettingsSF2._onSF2DeleteClick = async function (evt) {
+        const btn = evt.target.closest('[data-sf2-delete]');
+        if (!btn) return;
+        const sf2Id = btn.dataset.sf2Delete;
+        if (!confirm('Supprimer ce soundfont ? Les sons seront perdus.')) return;
+
+        try {
+            const res = await fetch('/api/sf2/' + sf2Id, { method: 'DELETE' });
+            if (!res.ok && res.status !== 404) {
+                const data = await res.json().catch(() => ({}));
+                alert('Erreur : ' + (data.error || res.status));
+                return;
+            }
+            // Switch away from the deleted bank if it is currently selected
+            const savedBank = 'sf2:' + sf2Id;
+            if (this.settings && this.settings.soundBank === savedBank) {
+                this.settings.soundBank = 'FluidR3_GM';
+                try { localStorage.setItem('gmboop_settings', JSON.stringify(this.settings)); } catch (e) {}
+                if (typeof MidiSynthesizer !== 'undefined') {
+                    for (const inst of MidiSynthesizer._instances) {
+                        try { inst.setSoundBank('FluidR3_GM'); } catch (e) {}
+                    }
+                }
+            }
+            await this.loadCustomBanks();
+        } catch (e) {
+            alert('Erreur réseau : ' + e.message);
+        }
+    };
+
+    window.SettingsSF2 = SettingsSF2;
+})();

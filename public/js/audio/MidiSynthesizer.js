@@ -6,7 +6,7 @@
 
 // Constants extracted to MidiSynthesizerConstants.js (P2-F.8).
 // Loaded earlier in index.html so window.MidiSynthesizerConstants is available.
-const { SOUND_BANKS, DEFAULT_BANK_ID, DEFAULT_BANK_SUFFIX } = window.MidiSynthesizerConstants;
+const { SOUND_BANKS, DEFAULT_BANK_ID, DEFAULT_BANK_SUFFIX, getAvailableBanks } = window.MidiSynthesizerConstants;
 
 /**
  * MidiSynthesizer - MIDI synthesizer using WebAudioFont
@@ -81,7 +81,7 @@ class MidiSynthesizer {
 
         // Current sound bank (read from localStorage)
         const savedBank = MidiSynthesizer.getSavedBank();
-        const bankInfo = SOUND_BANKS.find(b => b.id === savedBank);
+        const bankInfo = getAvailableBanks().find(b => b.id === savedBank);
         this.currentBankId = bankInfo ? bankInfo.id : DEFAULT_BANK_ID;
         this.currentBankSuffix = bankInfo ? bankInfo.suffix : DEFAULT_BANK_SUFFIX;
         this._pendingBankSwitch = null;
@@ -172,7 +172,7 @@ class MidiSynthesizer {
      * @param {number} midiProgram - GM kit program (0=Standard, 8=Room…)
      */
     _getDrumKitEntry(midiProgram) {
-        const bank = SOUND_BANKS.find(b => b.id === this.currentBankId);
+        const bank = getAvailableBanks().find(b => b.id === this.currentBankId);
         if (!bank || !bank.drumKits) return null;
         return bank.drumKits.find(k => k.midiProgram === midiProgram) || null;
     }
@@ -230,7 +230,7 @@ class MidiSynthesizer {
      * @returns {boolean} true if the change is accepted
      */
     setSoundBank(bankId) {
-        const bank = SOUND_BANKS.find(b => b.id === bankId);
+        const bank = getAvailableBanks().find(b => b.id === bankId);
         if (!bank) {
             this.log('warn', `Unknown sound bank: ${bankId}`);
             return false;
@@ -257,7 +257,12 @@ class MidiSynthesizer {
         this._clearDrumCache();
         this.currentBankId = bank.id;
         this.currentBankSuffix = bank.suffix;
-        this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
+        if (bank.isCustom) {
+            // SF2: melodic map is a placeholder — actual loading is done lazily via HTTP
+            this.gmInstrumentMap = Array.from({ length: 128 }, () => ({ url: null, variable: null }));
+        } else {
+            this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
+        }
 
         // Reset the saved reverb_mix so applyBankEffects(null) would fall
         // back to the new bank's built-in default. External listeners
@@ -333,11 +338,11 @@ class MidiSynthesizer {
     }
 
     /**
-     * Get the list of available sound banks
+     * Get the list of available sound banks (WAF built-ins + custom SF2)
      * @returns {Array} List of banks {id, label, suffix}
      */
     static getAvailableBanks() {
-        return SOUND_BANKS;
+        return getAvailableBanks();
     }
 
     /**
@@ -388,6 +393,11 @@ class MidiSynthesizer {
         // Currently loading?
         if (this.loadingInstruments.has(program)) {
             return this.loadingInstruments.get(program);
+        }
+
+        // SF2 bank: load preset via HTTP instead of WAF CDN script injection
+        if (this.currentBankId.startsWith('sf2:')) {
+            return this._loadSF2MelodicPreset(program);
         }
 
         const instrumentInfo = this.gmInstrumentMap[program];
@@ -466,6 +476,11 @@ class MidiSynthesizer {
         }
         if (this._drumLoading.has(cacheKey)) {
             return this._drumLoading.get(cacheKey);
+        }
+
+        // SF2 bank: load preset via HTTP instead of WAF CDN script injection
+        if (this.currentBankId.startsWith('sf2:')) {
+            return this._loadSF2DrumPreset(note, kit);
         }
 
         const FLUID = 'FluidR3_GM_sf2_file';
@@ -548,6 +563,58 @@ class MidiSynthesizer {
         });
         this._drumLoading.set(cacheKey, loadPromise);
         return loadPromise;
+    }
+
+    // ── SF2 custom bank loaders ────────────────────────────────────────────
+
+    /**
+     * Fetch a melodic preset from the server's SF2 converter endpoint and
+     * cache it the same way WAF presets are cached.
+     */
+    _loadSF2MelodicPreset(program) {
+        const sf2Id = this.currentBankId.slice(4); // strip 'sf2:'
+        const p = fetch(`/api/sf2/${sf2Id}/preset/melodic/${program}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(preset => {
+                if (!preset || this._isDisposed) {
+                    this.loadingInstruments.delete(program);
+                    return null;
+                }
+                for (const z of (preset.zones || [])) {
+                    if (Array.isArray(z.sample)) z.sample = new Float32Array(z.sample);
+                }
+                this.player.adjustPreset(this.audioContext, preset);
+                this.loadedInstruments.set(program, preset);
+                this.loadingInstruments.delete(program);
+                return preset;
+            })
+            .catch(() => { this.loadingInstruments.delete(program); return null; });
+        this.loadingInstruments.set(program, p);
+        return p;
+    }
+
+    /**
+     * Fetch a drum note preset from the server's SF2 converter endpoint and
+     * cache it the same way WAF drum presets are cached.
+     */
+    _loadSF2DrumPreset(note, kit) {
+        const cacheKey = `${kit}:${note}`;
+        const sf2Id = this.currentBankId.slice(4);
+        const p = fetch(`/api/sf2/${sf2Id}/preset/drum/${kit}/${note}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(preset => {
+                this._drumLoading.delete(cacheKey);
+                if (!preset || this._isDisposed) return null;
+                for (const z of (preset.zones || [])) {
+                    if (Array.isArray(z.sample)) z.sample = new Float32Array(z.sample);
+                }
+                this.player.adjustPreset(this.audioContext, preset);
+                this.drumPresets.set(cacheKey, preset);
+                return preset;
+            })
+            .catch(() => { this._drumLoading.delete(cacheKey); return null; });
+        this._drumLoading.set(cacheKey, p);
+        return p;
     }
 
     /**
@@ -839,7 +906,7 @@ class MidiSynthesizer {
         }
 
         // --- Melody bus (per-bank reverb normalization) ---
-        const bankInfo = SOUND_BANKS.find(b => b.id === this.currentBankId);
+        const bankInfo = getAvailableBanks().find(b => b.id === this.currentBankId);
         const reverbMix = this.bankEffects.reverb_mix ?? bankInfo?.reverbMix ?? 0.12;
 
         this.melodyDryGain = ctx.createGain();
@@ -913,7 +980,7 @@ class MidiSynthesizer {
      *   or null to reset to bank defaults.
      */
     applyBankEffects(effects) {
-        const bank = SOUND_BANKS.find(b => b.id === this.currentBankId);
+        const bank = getAvailableBanks().find(b => b.id === this.currentBankId);
         const defaultReverbMix = bank?.reverbMix ?? 0.12;
 
         const src = effects || {};

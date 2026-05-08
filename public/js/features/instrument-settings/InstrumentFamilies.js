@@ -87,7 +87,9 @@
     };
 
     // Drum kit list (mirror of window.GM_DRUM_KITS defined in index.html; kept
-    // locally so this module is self-sufficient if loaded before index.html body)
+    // locally so this module is self-sufficient if loaded before index.html body).
+    // Note: WAF CDN only has files for bankIndex 0/8/16/24/25 (FluidR3_GM).
+    // Programs 32/40/48/56 fall back to Standard Kit sounds at playback time.
     const GM_DRUM_KITS_LIST = [
         { program: 0,  name: 'Standard Kit' },
         { program: 8,  name: 'Room Kit' },

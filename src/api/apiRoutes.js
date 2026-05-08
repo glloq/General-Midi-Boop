@@ -19,6 +19,7 @@
  */
 import { Router, raw as expressRaw } from 'express';
 import { randomBytes } from 'crypto';
+import { createSF2Router } from './sf2Routes.js';
 import { readFileSync, existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -207,6 +208,9 @@ export function createApiRouter(app) {
       res.status(500).json({ error: err.message });
     }
   });
+
+  // SF2 soundfont management
+  router.use('/sf2', createSF2Router(app));
 
   // Update status (public — no auth, used by frontend during update)
   router.get('/update-status', (_req, res) => {
