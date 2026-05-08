@@ -49,6 +49,7 @@ class SettingsModal {
             noteDisplayTime: 20, // seconds
             virtualInstrument: false,
             showPianoRoll: false,
+            showLyrics: false,
             showDebugButton: true,
             showCalibrationButton: false,
             showLightingButton: false,
@@ -286,6 +287,9 @@ class SettingsModal {
         const pianoRollToggle = this.modal.querySelector('#showPianoRollToggle');
         if (pianoRollToggle) pianoRollToggle.checked = this.settings.showPianoRoll;
 
+        const lyricsToggle = this.modal.querySelector('#showLyricsToggle');
+        if (lyricsToggle) lyricsToggle.checked = this.settings.showLyrics;
+
         const debugButtonToggle = this.modal.querySelector('#showDebugButtonToggle');
         if (debugButtonToggle) debugButtonToggle.checked = this.settings.showDebugButton;
 
@@ -375,6 +379,7 @@ class SettingsModal {
         const darkModeToggle = this.modal.querySelector('#darkModeToggle');
         const timeRange = this.modal.querySelector('#noteDisplayTimeRange');
         const pianoRollToggle = this.modal.querySelector('#showPianoRollToggle');
+        const lyricsToggle = this.modal.querySelector('#showLyricsToggle');
         const debugButtonToggle = this.modal.querySelector('#showDebugButtonToggle');
         const calibrationButtonToggle = this.modal.querySelector('#showCalibrationButtonToggle');
         const lightingButtonToggle = this.modal.querySelector('#showLightingButtonToggle');
@@ -407,6 +412,7 @@ class SettingsModal {
             noteDisplayTime: timeRange ? parseInt(timeRange.value) : this.settings.noteDisplayTime,
             virtualInstrument: currentVirtual,
             showPianoRoll: pianoRollToggle ? pianoRollToggle.checked : this.settings.showPianoRoll,
+            showLyrics: lyricsToggle ? lyricsToggle.checked : this.settings.showLyrics,
             showDebugButton: debugButtonToggle ? debugButtonToggle.checked : this.settings.showDebugButton,
             showCalibrationButton: calibrationButtonToggle ? calibrationButtonToggle.checked : this.settings.showCalibrationButton,
             showLightingButton: lightingButtonToggle ? lightingButtonToggle.checked : this.settings.showLightingButton,
@@ -425,6 +431,7 @@ class SettingsModal {
         const themeChanged = newSettings.theme !== this.settings.theme;
         const timeChanged = newSettings.noteDisplayTime !== this.settings.noteDisplayTime;
         const pianoRollChanged = newSettings.showPianoRoll !== this.settings.showPianoRoll;
+        const lyricsChanged = newSettings.showLyrics !== this.settings.showLyrics;
         const debugButtonChanged = newSettings.showDebugButton !== this.settings.showDebugButton;
         const calibrationButtonChanged = newSettings.showCalibrationButton !== this.settings.showCalibrationButton;
         const lightingButtonChanged = newSettings.showLightingButton !== this.settings.showLightingButton;
@@ -444,6 +451,10 @@ class SettingsModal {
         if (pianoRollChanged) {
             this.eventBus?.emit('settings:piano_roll_changed', { enabled: newSettings.showPianoRoll });
             this.logger?.info(`🎹 ${i18n.t(newSettings.showPianoRoll ? 'settings.pianoRoll.enabled' : 'settings.pianoRoll.disabled')}`);
+        }
+        if (lyricsChanged) {
+            this.eventBus?.emit('settings:lyrics_changed', { enabled: newSettings.showLyrics });
+            this.logger?.info(`🎤 ${i18n.t(newSettings.showLyrics ? 'settings.lyrics.enabled' : 'settings.lyrics.disabled')}`);
         }
         if (debugButtonChanged) {
             this.eventBus?.emit('settings:debug_button_changed', { enabled: newSettings.showDebugButton });

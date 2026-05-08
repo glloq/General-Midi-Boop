@@ -243,6 +243,13 @@
       "currentVersion": "actuellement",
       "startupCheck": "Vérifier les mises à jour au démarrage",
       "startupBetaNotif": "Notifier aussi les mises à jour bêta"
+    },
+    "lyrics": {
+      "title": "Karaoké",
+      "enable": "Afficher les paroles pendant la lecture",
+      "description": "Affiche un panneau de paroles synchronisées pour les fichiers karaoké",
+      "enabled": "Paroles activées",
+      "disabled": "Paroles désactivées"
     }
   },
   "bluetooth": {
