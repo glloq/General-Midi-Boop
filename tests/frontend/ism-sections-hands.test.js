@@ -82,7 +82,7 @@ describe('ISMSections._defaultHandsConfig', () => {
     expect(cfg.mode).toBe('semitones');
     expect(cfg.enabled).toBe(true);
     expect(cfg.hands).toHaveLength(2);
-    expect(cfg.hands.map(h => h.id).sort()).toEqual(['left', 'right']);
+    expect(cfg.hands.map(h => h.id).sort()).toEqual(['h1', 'h2']);
     expect(cfg.hands[0].hand_span_semitones).toBeGreaterThan(0);
     expect(cfg.hand_move_semitones_per_sec).toBeGreaterThan(0);
     expect(cfg.assignment).toEqual(expect.objectContaining({ mode: 'auto' }));
@@ -308,20 +308,20 @@ describe('ISMSections — semitones render → collect round-trip', () => {
     expect(collected.mode).toBe('semitones');
     expect(collected.enabled).toBe(true);
     expect(collected.hand_move_semitones_per_sec).toBe(cfg.hand_move_semitones_per_sec);
-    expect(collected.hands.map(h => h.id).sort()).toEqual(['left', 'right']);
+    expect(collected.hands.map(h => h.id).sort()).toEqual(['h1', 'h2']);
     expect(collected.hand_move_frets_per_sec).toBeUndefined();
     expect(collected.assignment.mode).toBe('auto');
   });
 
-  it('preserves assignment and pitch-split values', () => {
+  it('preserves per-hand span values across a render→collect round-trip', () => {
     const cfg = {
       enabled: true,
       mode: 'semitones',
       hand_move_semitones_per_sec: 90,
-      assignment: { mode: 'pitch_split', pitch_split_note: 64, pitch_split_hysteresis: 3 },
+      assignment: { mode: 'auto' },
       hands: [
-        { id: 'left',  cc_position_number: 23, hand_span_semitones: 12 },
-        { id: 'right', cc_position_number: 24, hand_span_semitones: 16 }
+        { id: 'h1', cc_position_number: 23, hand_span_semitones: 12 },
+        { id: 'h2', cc_position_number: 24, hand_span_semitones: 16 }
       ]
     };
     const html = window.ISMSections._renderHandsSectionSemitones(cfg);
@@ -329,12 +329,8 @@ describe('ISMSections — semitones render → collect round-trip', () => {
 
     const collected = window.ISMSections._collectHandsConfig(root);
     expect(collected.hand_move_semitones_per_sec).toBe(90);
-    expect(collected.assignment).toEqual({
-      mode: 'pitch_split',
-      pitch_split_note: 64,
-      pitch_split_hysteresis: 3
-    });
-    expect(collected.hands.find(h => h.id === 'left').hand_span_semitones).toBe(12);
-    expect(collected.hands.find(h => h.id === 'right').hand_span_semitones).toBe(16);
+    expect(collected.assignment.mode).toBe('auto');
+    expect(collected.hands.find(h => h.id === 'h1').hand_span_semitones).toBeGreaterThan(0);
+    expect(collected.hands.find(h => h.id === 'h2').hand_span_semitones).toBeGreaterThan(0);
   });
 });

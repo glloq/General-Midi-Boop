@@ -1258,6 +1258,8 @@
         const tuning = Array.isArray(instrument.tuning) ? instrument.tuning : null;
         const numFrets = Number.isFinite(instrument.num_frets) && instrument.num_frets > 0
             ? instrument.num_frets : 24;
+        const capoFret = Number.isFinite(instrument.capo_fret) && instrument.capo_fret > 0
+            ? instrument.capo_fret : 0;
 
         // Fret reach as a function of anchor — physical or fixed.
         function maxReach(anchor) {
@@ -1346,7 +1348,7 @@
                     bestFret = n.fret;
                 } else if (Number.isFinite(n.note) && tuning) {
                     for (let s = 0; s < tuning.length; s++) {
-                        const fret = n.note - tuning[s];
+                        const fret = n.note - tuning[s] - capoFret;
                         if (fret > 0 && fret <= numFrets) {
                             if (bestFret == null || fret < bestFret) bestFret = fret;
                         }
@@ -1423,7 +1425,7 @@
             // assigned greedily.
             if (tuning && tuning.length > 0) {
                 const resolutions = _resolveChordStringFret(
-                    g.notes, tuning, numFrets, anchor, spanFrets);
+                    g.notes, tuning, numFrets, anchor, spanFrets, capoFret);
                 g.notes = g.notes.map((n, i) => {
                     const r = resolutions[i];
                     return r ? { ...n, fret: r.fret, string: r.string } : n;
@@ -1483,7 +1485,7 @@
                             ? n
                             : { ...n, string: undefined, fret: undefined });
                         const resolutions = _resolveChordStringFret(
-                            stripped, tuning, numFrets, anchor, spanFrets);
+                            stripped, tuning, numFrets, anchor, spanFrets, capoFret);
                         g.notes = g.notes.map((n, i) => {
                             if (operatorPinned[i]) return n;
                             const r = resolutions[i];
@@ -1590,7 +1592,7 @@
      * range).
      * @private
      */
-    function _resolveChordStringFret(notes, tuning, numFrets, anchor, spanFrets) {
+    function _resolveChordStringFret(notes, tuning, numFrets, anchor, spanFrets, capoFret = 0) {
         const N = notes.length;
         const result = new Array(N).fill(null);
         if (!Array.isArray(tuning) || tuning.length === 0) return result;
@@ -1627,7 +1629,7 @@
             let bestScore = -Infinity;
             for (let s = 1; s <= tuning.length; s++) {
                 if (usedStrings.has(s)) continue;
-                const fret = midi - tuning[s - 1];
+                const fret = midi - tuning[s - 1] - capoFret;
                 if (fret < 0 || fret > numFrets) continue;
                 let score;
                 // Open strings are FREE — they don't consume a finger.
