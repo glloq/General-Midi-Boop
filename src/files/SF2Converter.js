@@ -12,9 +12,14 @@
  * the client reconstructs it with `new Float32Array(zone.sample)`.
  */
 
-import { SoundFont2, GeneratorType, DEFAULT_GENERATOR_VALUES } from 'soundfont2';
+import { SoundFont2, GeneratorType } from 'soundfont2';
 
 const GT = GeneratorType;
+
+// H-3: output limits to prevent DoS from malicious/oversized SF2 files
+const MAX_ZONES       = 512;                       // max zones per preset
+const MAX_SAMPLE_SECS = 10;                        // max sample duration per zone (seconds)
+const MAX_TOTAL_SAMPLES = 20 * 1024 * 1024 / 4;  // ~20 MB of Float32 data total
 
 /**
  * Convert one SF2 preset (identified by bankNumber + presetNumber) into a
@@ -34,6 +39,7 @@ export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
   if (!preset) return null;
 
   const zones = [];
+  let totalSamples = 0;
 
   for (const presetZone of preset.zones) {
     const instrument = presetZone.instrument;
@@ -46,7 +52,6 @@ export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
       if (!sample) continue;
 
       const hdr = sample.header;
-      // soundfont2 already normalises startLoop/endLoop relative to data start
       const gens = instrZone.generators || {};
 
       // Merge preset-level generators into instrument-level (instrument wins per SF2 spec)
@@ -73,11 +78,10 @@ export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
       const fineTune   = merged[GT.FineTune]?.value   ?? 0;
 
       // ── Loop ───────────────────────────────────────────────────────
-      // Fine offsets (in samples) + coarse offsets (in 32768-sample blocks)
-      const loopFineStart  = merged[GT.StartLoopAddrsOffset]?.value       ?? 0;
-      const loopFineEnd    = merged[GT.EndLoopAddrsOffset]?.value         ?? 0;
-      const loopCoarseStart= merged[GT.StartLoopAddrsCoarseOffset]?.value ?? 0;
-      const loopCoarseEnd  = merged[GT.EndLoopAddrsCoarseOffset]?.value   ?? 0;
+      const loopFineStart   = merged[GT.StartLoopAddrsOffset]?.value       ?? 0;
+      const loopFineEnd     = merged[GT.EndLoopAddrsOffset]?.value         ?? 0;
+      const loopCoarseStart = merged[GT.StartLoopAddrsCoarseOffset]?.value ?? 0;
+      const loopCoarseEnd   = merged[GT.EndLoopAddrsCoarseOffset]?.value   ?? 0;
 
       const loopStart = hdr.startLoop + loopFineStart + loopCoarseStart * 32768;
       const loopEnd   = hdr.endLoop   + loopFineEnd   + loopCoarseEnd   * 32768;
@@ -86,16 +90,25 @@ export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
       const sampleModes = merged[GT.SampleModes]?.value ?? 0;
       const loopsEnabled = (sampleModes & 1) !== 0;
 
-      // ── Convert Int16 PCM → JSON-serialisable plain Array (Float32) ─
+      // ── H-3: enforce per-zone sample length cap ────────────────────
       const int16 = sample.data; // Int16Array already sliced to [start, end)
-      const float32arr = [];
-      for (let i = 0; i < int16.length; i++) {
-        float32arr.push(int16[i] / 32768);
+      const sampleRate = hdr.sampleRate > 0 ? hdr.sampleRate : 44100;
+      const maxSamples = Math.ceil(MAX_SAMPLE_SECS * sampleRate);
+      const sampleLength = Math.min(int16.length, maxSamples);
+
+      // H-3: enforce total output size cap (abandon conversion if exceeded)
+      totalSamples += sampleLength;
+      if (zones.length >= MAX_ZONES || totalSamples > MAX_TOTAL_SAMPLES) break;
+
+      // ── Convert Int16 PCM → JSON-serialisable plain Array (Float32) ─
+      const float32arr = new Array(sampleLength);
+      for (let i = 0; i < sampleLength; i++) {
+        float32arr[i] = int16[i] / 32768;
       }
 
       zones.push({
         sample:       float32arr,
-        sampleRate:   hdr.sampleRate,
+        sampleRate:   sampleRate,
         loopStart:    loopsEnabled ? loopStart : 0,
         loopEnd:      loopsEnabled ? loopEnd   : 0,
         keyRangeLow:  keyLo,
@@ -107,6 +120,8 @@ export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
         fineTune:     fineTune,
       });
     }
+    // Also break outer loop if limits are reached
+    if (zones.length >= MAX_ZONES || totalSamples > MAX_TOTAL_SAMPLES) break;
   }
 
   return zones.length ? { zones } : null;

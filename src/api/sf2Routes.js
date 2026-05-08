@@ -10,8 +10,25 @@
  * GET    /api/sf2/:id/preset/drum/:kit/:note   → WAF preset JSON
  */
 
-import { Router, raw as expressRaw } from 'express';
+import { Router, raw as expressRaw, json as expressJson } from 'express';
 import { LIMITS } from '../core/constants.js';
+
+// Strip HTML-significant chars from user-supplied label (server-side XSS guard).
+function sanitizeLabel(raw) {
+  return String(raw).replace(/[<>"'&]/g, '').trim().slice(0, 128);
+}
+
+// Safely project only public fields from a DB row.
+function publicRow(r) {
+  return {
+    id:         r.id,
+    label:      r.label,
+    filename:   r.filename,
+    size:       r.size,
+    reverbMix:  r.reverb_mix,
+    uploadedAt: r.uploaded_at,
+  };
+}
 
 /**
  * @param {Object} app - Application facade exposing `sf2PresetService`, `logger`
@@ -25,18 +42,10 @@ export function createSF2Router(app) {
   router.get('/', (_req, res) => {
     try {
       const rows = app.sf2PresetService.listAll();
-      const banks = rows.map(r => ({
-        id:         r.id,
-        label:      r.label,
-        filename:   r.filename,
-        size:       r.size,
-        reverbMix:  r.reverb_mix,
-        uploadedAt: r.uploaded_at,
-      }));
-      res.json({ banks });
+      res.json({ banks: rows.map(publicRow) });
     } catch (err) {
       app.logger.error(`GET /api/sf2 failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 
@@ -49,9 +58,15 @@ export function createSF2Router(app) {
       if (req.body.length > LIMITS.MAX_SF2_FILE_SIZE) {
         return res.status(413).json({ error: `File too large. Max ${LIMITS.MAX_SF2_FILE_SIZE / (1024 * 1024)} MB.` });
       }
-      // Quick magic-byte validation: SF2 files start with 'RIFF'
-      if (req.body.slice(0, 4).toString('ascii') !== 'RIFF') {
-        return res.status(415).json({ error: 'Not a valid SF2 file (missing RIFF header).' });
+      // H-1: validate both RIFF container header and sfbk type field
+      if (req.body.slice(0, 4).toString('ascii') !== 'RIFF' ||
+          req.body.slice(8, 12).toString('ascii') !== 'sfbk') {
+        return res.status(415).json({ error: 'Not a valid SF2 file.' });
+      }
+      // L-2: enforce per-server total storage quota (1 GB default)
+      const totalStored = app.sf2PresetService.getTotalStoredSize();
+      if (totalStored + req.body.length > LIMITS.MAX_SF2_TOTAL_SIZE) {
+        return res.status(413).json({ error: 'Server SF2 storage quota reached.' });
       }
       const filename = String(req.query.filename || 'upload.sf2').trim();
       const result = await app.sf2PresetService.storeUpload(filename, req.body);
@@ -59,7 +74,7 @@ export function createSF2Router(app) {
       res.status(status).json(result);
     } catch (err) {
       app.logger.error(`POST /api/sf2 failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 
@@ -76,12 +91,13 @@ export function createSF2Router(app) {
       res.status(204).end();
     } catch (err) {
       app.logger.error(`DELETE /api/sf2/${req.params.id} failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 
   // ── Update label / reverb ─────────────────────────────────────────────────
-  router.patch('/:id', (req, res) => {
+  // L-3: explicit JSON body parser on this route
+  router.patch('/:id', expressJson({ limit: '4kb' }), (req, res) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
@@ -91,7 +107,8 @@ export function createSF2Router(app) {
       if (!row) return res.status(404).json({ error: 'Not found' });
 
       const updates = {};
-      if (req.body?.label != null) updates.label = String(req.body.label).trim().slice(0, 128);
+      // C-1: sanitize label to prevent stored XSS via innerHTML injection
+      if (req.body?.label != null) updates.label = sanitizeLabel(req.body.label);
       if (req.body?.reverb_mix != null) {
         const v = Number(req.body.reverb_mix);
         if (Number.isFinite(v) && v >= 0 && v <= 1) updates.reverb_mix = v;
@@ -99,10 +116,11 @@ export function createSF2Router(app) {
       if (Object.keys(updates).length) {
         app.database.customSF2DB.update(id, updates);
       }
-      res.json(app.database.customSF2DB.getById(id));
+      // M-3: return only public fields, not blob_path / content_hash
+      res.json(publicRow(app.database.customSF2DB.getById(id)));
     } catch (err) {
       app.logger.error(`PATCH /api/sf2/${req.params.id} failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 
@@ -119,7 +137,7 @@ export function createSF2Router(app) {
       res.json(preset);
     } catch (err) {
       app.logger.error(`GET /api/sf2/${req.params.id}/preset/melodic/${req.params.program} failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 
@@ -139,7 +157,7 @@ export function createSF2Router(app) {
       res.json(preset);
     } catch (err) {
       app.logger.error(`GET /api/sf2/${req.params.id}/preset/drum/${req.params.kit}/${req.params.note} failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 

@@ -74,7 +74,8 @@
                 ? ' (' + [qualityLabel, sizeLabel].filter(Boolean).join(' · ') + ')'
                 : '';
             const sel = bank.id === currentVal ? ' selected' : '';
-            return '<option value="' + bank.id + '"' + sel + '>' + bank.label + suffix + '</option>';
+            // C-1: escape both id and label to prevent stored XSS via innerHTML
+            return '<option value="' + _esc(String(bank.id)) + '"' + sel + '>' + _esc(bank.label) + _esc(suffix) + '</option>';
         }).join('');
     };
 
@@ -108,7 +109,12 @@
     };
 
     function _esc(str) {
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // ── Event listeners ───────────────────────────────────────────────────────
