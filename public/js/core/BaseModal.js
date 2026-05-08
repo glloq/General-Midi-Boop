@@ -217,9 +217,10 @@ class BaseModal {
         // Dialog
         const sizeClass = this.options.size !== 'md' ? `modal-${this.options.size}` : '';
         const customClass = this.options.customClass;
+        const dialogClass = ['modal-dialog', sizeClass, customClass].filter(Boolean).join(' ');
 
         this.container.innerHTML = `
-            <div class="modal-dialog ${sizeClass} ${customClass}".trim()>
+            <div class="${dialogClass}">
                 ${this._renderHeader()}
                 <div class="modal-body">
                     ${this.renderBody()}

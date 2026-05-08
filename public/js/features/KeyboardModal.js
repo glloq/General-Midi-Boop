@@ -1038,7 +1038,16 @@ if (typeof KeyboardListViewMixin !== 'undefined') {
     Object.assign(KeyboardModalNew.prototype, KeyboardListViewMixin);
 }
 if (typeof KeyboardWindMixin !== 'undefined') {
-    // Save the playNote from KeyboardEventsMixin before the wind mixin overrides it
-    KeyboardModalNew.prototype._windOrigPlayNote = KeyboardModalNew.prototype.playNote;
+    // Capture the pre-wind playNote in a closure so the reference is immutable.
+    // Using Object.defineProperty with writable:false prevents any instance from
+    // accidentally shadowing _windOrigPlayNote with its own property, which would
+    // silently break the articulation call chain.
+    const _prevPlayNote = KeyboardModalNew.prototype.playNote;
     Object.assign(KeyboardModalNew.prototype, KeyboardWindMixin);
+    Object.defineProperty(KeyboardModalNew.prototype, '_windOrigPlayNote', {
+        value: _prevPlayNote,
+        writable: false,
+        configurable: false,
+        enumerable: false
+    });
 }

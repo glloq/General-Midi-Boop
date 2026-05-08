@@ -339,7 +339,26 @@
 
     KeyboardControlsMixin.loadDevices = async function() {
         try {
-            const devices = await this.backend.listDevices();
+            // Fire device list and capabilities list in parallel.
+            // instrument_list_capabilities already contains custom_name for every
+            // registered (deviceId, channel) — we use it to build a lookup map so
+            // we avoid making one instrument_get_settings call per device below.
+            const [devices, capsResp] = await Promise.all([
+                this.backend.listDevices(),
+                this.backend.sendCommand('instrument_list_capabilities').catch(() => null)
+            ]);
+
+            // Build a lookup: deviceId → custom_name (from the first channel row)
+            const customNameMap = {};
+            if (capsResp && Array.isArray(capsResp.instruments)) {
+                for (const inst of capsResp.instruments) {
+                    const id = inst.device_id || inst.id;
+                    if (id && inst.custom_name && !customNameMap[id]) {
+                        customNameMap[id] = inst.custom_name;
+                    }
+                }
+            }
+
             let activeDevices = devices.filter(d => d.status === 2); // Active only
 
             // Deduplicate by device ID (primary key), falling back to name only
@@ -425,8 +444,9 @@
                 this.logger.info('[KeyboardModal] Virtual instruments disabled in settings, skipping');
             }
 
-            // Enrich with custom names
-            this.devices = await Promise.all(this.devices.map(async (device) => {
+            // Enrich with custom names using the pre-fetched capabilities map —
+            // avoids N individual instrument_get_settings calls (one per device).
+            this.devices = this.devices.map((device) => {
                 const deviceId = device.id || device.device_id;
                 const normalizedDevice = {
                     ...device,
@@ -434,34 +454,18 @@
                     device_id: deviceId
                 };
 
-                // Don't call the API for the virtual device
-                if (device.isVirtual) {
+                // Virtual and multi-instrument devices already carry their displayName.
+                if (device.isVirtual || device._multiInstrument) {
                     return normalizedDevice;
                 }
 
-                // Multi-instrument devices already have their displayName from expansion
-                if (device._multiInstrument) {
-                    return normalizedDevice;
-                }
-
-                try {
-                    const response = await this.backend.sendCommand('instrument_get_settings', {
-                        deviceId: deviceId
-                    });
-                    const settings = response.settings || {};
-                    return {
-                        ...normalizedDevice,
-                        displayName: settings.custom_name || device.name,
-                        customName: settings.custom_name
-                    };
-                } catch (error) {
-                    return {
-                        ...normalizedDevice,
-                        displayName: device.name,
-                        customName: null
-                    };
-                }
-            }));
+                const customName = customNameMap[deviceId] || null;
+                return {
+                    ...normalizedDevice,
+                    displayName: customName || device.name,
+                    customName: customName
+                };
+            });
         } catch (error) {
             this.logger.error('[KeyboardModal] Failed to load devices:', error);
             this.devices = [];
