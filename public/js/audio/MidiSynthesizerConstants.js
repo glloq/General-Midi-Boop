@@ -35,17 +35,18 @@
     {
       id: 'FluidR3_GM', label: 'FluidR3 GM', suffix: 'FluidR3_GM_sf2_file',
       quality: 'high', sizeMB: 141, descKey: 'settings.soundBank.banks.FluidR3_GM', reverbMix: 0.08,
-      // Only bank with all 9 GM drum kits; bankIndex === midiProgram for every kit.
+      // 5 of 9 GM drum kits have files on the WAF CDN (128{note}_{bankIndex}_FluidR3_GM_sf2_file.js).
+      // bankIndexes 32/40/48/56 return 404; they fall back to Standard Kit in _loadDrumPreset.
       drumKits: [
         { midiProgram:  0, bankIndex:  0, verified: true  },  // Standard Kit
         { midiProgram:  8, bankIndex:  8, verified: true  },  // Room Kit
         { midiProgram: 16, bankIndex: 16, verified: true  },  // Power Kit
         { midiProgram: 24, bankIndex: 24, verified: true  },  // Electronic Kit
         { midiProgram: 25, bankIndex: 25, verified: true  },  // TR-808 Kit
-        { midiProgram: 32, bankIndex: 32, verified: true  },  // Jazz Kit
-        { midiProgram: 40, bankIndex: 40, verified: true  },  // Brush Kit
-        { midiProgram: 48, bankIndex: 48, verified: true  },  // Orchestra Kit
-        { midiProgram: 56, bankIndex: 56, verified: true  }   // SFX Kit
+        { midiProgram: 32, bankIndex: 32, verified: false },  // Jazz Kit       — no CDN file
+        { midiProgram: 40, bankIndex: 40, verified: false },  // Brush Kit      — no CDN file
+        { midiProgram: 48, bankIndex: 48, verified: false },  // Orchestra Kit  — no CDN file
+        { midiProgram: 56, bankIndex: 56, verified: false }   // SFX Kit        — no CDN file
       ]
     },
     {
