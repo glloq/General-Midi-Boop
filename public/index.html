@@ -8468,15 +8468,7 @@
             stateDot.className = `file-state-dot ${stateClass}`;
             stateDot.dataset.fileId = file.id;
 
-            // Lyrics (karaoke) tag
             const hasLyrics = file.hasLyrics || file.has_lyrics;
-            if (hasLyrics) {
-                const lyricsTag = document.createElement('span');
-                lyricsTag.className = 'lyrics-tag';
-                lyricsTag.title = 'Ce fichier contient des paroles (karaoké)';
-                lyricsTag.textContent = '🎤';
-                li.appendChild(lyricsTag);
-            }
 
             const fileNameSpan = document.createElement('span');
             fileNameSpan.className = 'file-name';
@@ -8486,9 +8478,10 @@
                    <span title="Tempo">♩ ${file.tempo || 120} BPM</span>`
                 : `<span>⏳ Chargement...</span>`;
             const displayName = file.filename.replace(/\.(midi|mid)$/i, '');
+            const lyricsPrefix = hasLyrics ? '<span class="lyrics-tag" title="Karaoké">🎤</span>' : '';
             fileNameSpan.innerHTML = `
                 <div class="file-name-text" style="cursor: pointer;" title="Double-cliquer pour renommer (ou F2)">
-                    ${displayName}
+                    ${lyricsPrefix}${displayName}
                 </div>
                 <div class="file-metadata" id="metadata-${file.id}">
                     ${metadataHtml}
