@@ -100,6 +100,11 @@
         const usedChannels = this.instrumentTabs.map(function(t) { return t.channel; }).filter(function(ch) { return ch !== channel; });
         const colors = InstrumentSettingsModal.CHANNEL_COLORS;
         const omniMode = !!settings.omni_mode;
+        // Omni mode is incompatible with multi-instrument devices: a second
+        // instrument already occupies other channels, so accepting all of them
+        // would cause collisions. Hide the toggle when more than one instrument
+        // is registered on this device.
+        const showOmni = this.instrumentTabs.length <= 1;
         let channelGrid = '';
         for (let ch = 0; ch < 16; ch++) {
             const isUsed = usedChannels.includes(ch);
@@ -161,19 +166,19 @@
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.midiChannel') || 'Canal MIDI'}</label>
                 <div class="ism-channel-grid ${omniMode ? 'ism-channel-grid-disabled' : ''}" id="channelGrid">${channelGrid}</div>
-                <button type="button"
+                ${showOmni ? `<button type="button"
                         id="omniModeToggle"
                         class="ism-omni-toggle ${omniMode ? 'active' : ''}"
                         aria-pressed="${omniMode ? 'true' : 'false'}"
                         title="${this.escape(this.t('instrumentSettings.omniModeHelp') || 'L\'instrument accepte les notes sur n\'importe quel canal MIDI')}">
                     <span class="ism-omni-dot"></span>
                     <span class="ism-omni-label">${this.escape(this.t('instrumentSettings.omniMode') || 'Omni · accepter tous les canaux')}</span>
-                </button>
-                <span class="ism-form-hint">${omniMode
+                </button>` : ''}
+                <span class="ism-form-hint">${omniMode && showOmni
                     ? (this.t('instrumentSettings.omniModeActiveHint') || 'Cet instrument reçoit les notes sur n\'importe quel canal — le choix du canal est ignoré.')
                     : (this.t('instrumentSettings.midiChannelHelp') || 'Canal MIDI utilisé par cet instrument')}</span>
                 <input type="hidden" id="channelSelect" value="${channel}">
-                <input type="hidden" id="omniModeInput" value="${omniMode ? '1' : '0'}">
+                <input type="hidden" id="omniModeInput" value="${omniMode && showOmni ? '1' : '0'}">
             </div>
 
             ${this._renderSF2PickerSection(settings)}
@@ -674,6 +679,7 @@
                 </label>
             </div>` : ''}
 
+            ${!(isString && (settings.hands_config?.enabled || tab.stringInstrumentConfig?.string_sliding_system_enabled)) ? `
             <div class="ism-subsection ism-hands-movement-card" id="pitchBendSubsection">
                 <label class="ism-hands-movement-toggle" for="pitchBendEnabled">
                     <div class="ism-hands-movement-info">
@@ -685,7 +691,7 @@
                         <span class="ism-toggle-slider" aria-hidden="true"></span>
                     </span>
                 </label>
-            </div>
+            </div>` : ''}
 
             <div class="ism-subsection" id="timingsSubsection">
                 <h4 class="ism-subsection-title">⏱️ ${this.t('instrumentSettings.sectionTimingsPerGm') || 'Temporisations par instrument GM'}</h4>
@@ -824,6 +830,10 @@
                     <div class="ism-form-group ism-narrow">
                         <label>${this.t('stringInstrument.numStrings') || 'Cordes'}</label>
                         <input type="number" id="siNumStrings" value="${numStrings}" min="1" max="12">
+                    </div>
+                    <div class="ism-form-group ism-narrow">
+                        <label>${this.t('stringInstrument.numFrets') || 'Frettes'}</label>
+                        <input type="number" id="siNumFrets" value="${numFrets}" min="0" max="36">
                     </div>
                 </div>
 
@@ -1617,24 +1627,13 @@
                     <label for="handsGeometryPreset">${t('instrumentSettings.handsGeometryPresetLabel', 'Preset')}</label>
                     <select id="handsGeometryPreset">${presetOptions}</select>
                 </div>
-                <div class="ism-form-group ism-form-grid-3">
-                    <div>
-                        <label for="handsGeometryScaleLength">${t('instrumentSettings.handsGeometryScaleLengthLabel', 'Longueur de corde (mm)')}</label>
-                        <input type="number" id="handsGeometryScaleLength"
-                               value="${scaleLengthMm}" min="100" max="2000">
-                    </div>
-                    <div>
-                        <label for="handsGeometryNumStrings">${t('instrumentSettings.handsGeometryNumStringsLabel', 'Nombre de cordes')}</label>
-                        <input type="number" id="handsGeometryNumStrings"
-                               value="${numStrings}" min="1" max="64">
-                    </div>
-                    <div>
-                        <label for="handsGeometryNumFrets">${t('instrumentSettings.handsGeometryNumFretsLabel', 'Nombre de frettes')}</label>
-                        <input type="number" id="handsGeometryNumFrets"
-                               value="${numFrets}" min="0" max="36">
-                        <span class="ism-form-hint">${t('instrumentSettings.handsGeometryNumFretsHint', '0 pour les instruments sans frettes (violon, alto, …).')}</span>
-                    </div>
+                <div class="ism-form-group">
+                    <label for="handsGeometryScaleLength">${t('instrumentSettings.handsGeometryScaleLengthLabel', 'Longueur de corde (mm)')}</label>
+                    <input type="number" id="handsGeometryScaleLength"
+                           value="${scaleLengthMm}" min="100" max="2000">
                 </div>
+                <input type="hidden" id="handsGeometryNumStrings" value="${numStrings}">
+                <input type="hidden" id="handsGeometryNumFrets" value="${numFrets}">
             </div>
         `;
     };
@@ -1706,10 +1705,10 @@
                 </div>
                 <div class="ism-form-group ism-form-grid-2">
                     <div>
-                        <label>${t('instrumentSettings.handsSpanMm', 'Largeur de la main (mm)')}</label>
+                        <label>${t('instrumentSettings.handsHandSpanMm', 'Hand width (mm)')}</label>
                         <input type="number" data-hand="fretting" data-field="hand_span_mm"
                                value="${handSpanMm}" min="30" max="200">
-                        <span class="ism-form-hint">${t('instrumentSettings.handsSpanMmHint', 'Portée physique de la main le long des cordes. Détermine combien de frettes sont accessibles sans déplacer la main.')}</span>
+                        <span class="ism-form-hint">${t('instrumentSettings.handsHandSpanMmHint', 'Total physical span covered by the hand.')}</span>
                     </div>
                     <div></div>
                 </div>
@@ -1776,15 +1775,7 @@
             <input type="hidden" id="handsMode" value="frets">
             <input type="hidden" id="handsMechanismInput" value="${mechanism}">
             <input type="hidden" id="handsPhysicalAvailable" value="${physicalAvailable ? '1' : '0'}">
-            <div class="ism-form-group">
-                <label>
-                    <input type="checkbox" id="handsEnabled" ${enabled ? 'checked' : ''}>
-                    ${t('instrumentSettings.handsFretsEnableLabel', 'Activer le contrôle de position de la main')}
-                </label>
-                <span class="ism-form-hint">
-                    ${t('instrumentSettings.handsFretsEnableHint', 'Si activé, le lecteur envoie un CC avec la frette absolue la plus basse de la fenêtre dès que la main doit se déplacer.')}
-                </span>
-            </div>
+            <input type="hidden" id="handsEnabled" value="${enabled ? '1' : '0'}">
 
             ${ISMSections._renderMechanismCards.call(this, mechanism)}
 
@@ -1922,6 +1913,10 @@
     ISMSections._collectHandsConfig = function(rootEl) {
         const section = rootEl?.querySelector('.ism-section[data-section="hands"]');
         if (!section) return undefined; // no-op: section not rendered
+        // Section exists but was never visited (lazy, content not injected yet).
+        // #handsMode is the first hidden input the renderer writes; its absence
+        // means the form is empty → preserve the existing DB value.
+        if (!rootEl.querySelector('#handsMode')) return undefined;
 
         const mode = rootEl.querySelector('#handsMode')?.value === 'frets'
             ? 'frets'

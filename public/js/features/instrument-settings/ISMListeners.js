@@ -107,6 +107,40 @@
             }.bind(this));
         }
 
+        const siNumFrets = this.$('#siNumFrets');
+        if (siNumFrets) {
+            siNumFrets.addEventListener('change', function() {
+                const num = parseInt(siNumFrets.value);
+                if (isNaN(num) || num < 0 || num > 36) return;
+
+                const tab = this._getActiveTab();
+                if (!tab) return;
+                if (!tab.stringInstrumentConfig) {
+                    tab.stringInstrumentConfig = { num_strings: 6, num_frets: 24,
+                        tuning: [40, 45, 50, 55, 59, 64], is_fretless: false, capo_fret: 0, cc_enabled: true };
+                }
+                const cfg = tab.stringInstrumentConfig;
+                cfg.num_frets = num;
+
+                // Keep per-string fret values in sync.
+                if (cfg.frets_per_string) {
+                    cfg.frets_per_string = cfg.frets_per_string.map(() => num);
+                }
+
+                // Re-render so hidden siFrets inputs reflect the new value.
+                const stringsSubsection = this.$('#stringsSubsection');
+                if (stringsSubsection) {
+                    const titleHtml = stringsSubsection.querySelector('.ism-subsection-title');
+                    const titleOuter = titleHtml ? titleHtml.outerHTML : '';
+                    stringsSubsection.innerHTML = titleOuter + this._renderStringsContent();
+                    this._attachStringsSectionListeners();
+                }
+                // Keep the hands-section hidden input in sync if present.
+                const handsFretsInput = this.$('#handsGeometryNumFrets');
+                if (handsFretsInput) handsFretsInput.value = String(num);
+            }.bind(this));
+        }
+
         // Preset change -> update config then re-render
         const siPreset = this.$('#siPresetSelect');
         if (siPreset) {
@@ -1557,16 +1591,31 @@
                     cfg.scale_length_mm = scaleMm;
                     if (scaleInput) scaleInput.value = String(scaleMm);
                 }
+                let notesNeedRerender = false;
                 if (Number.isFinite(numStrings)) {
                     cfg.num_strings = numStrings;
                     if (stringsInput) stringsInput.value = String(numStrings);
                     // String instruments pin polyphony to the string count
                     // — keep the hidden Notes-tab field in sync.
                     self._syncPolyphonyToNumStrings(numStrings);
+                    notesNeedRerender = true;
                 }
                 if (Number.isFinite(numFrets)) {
                     cfg.num_frets = numFrets;
+                    cfg.frets_per_string = null; // reset so hidden inputs regenerate
                     if (fretsInput) fretsInput.value = String(numFrets);
+                    notesNeedRerender = true;
+                }
+                // Re-render the Notes-tab strings subsection so the tuning
+                // inputs and hidden siFrets values stay coherent.
+                if (notesNeedRerender) {
+                    const stringsSubsection = self.$('#stringsSubsection');
+                    if (stringsSubsection) {
+                        const titleHtml = stringsSubsection.querySelector('.ism-subsection-title');
+                        const titleOuter = titleHtml ? titleHtml.outerHTML : '';
+                        stringsSubsection.innerHTML = titleOuter + self._renderStringsContent();
+                        self._attachStringsSectionListeners();
+                    }
                 }
 
                 // Apply the recommended mechanism only when the user
