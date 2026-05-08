@@ -110,7 +110,8 @@
         body.theme-dark .btn-instruments-toggle,
         body.theme-dark .btn-calibration-toggle,
         body.theme-dark .btn-lighting-toggle,
-        body.theme-dark .btn-playlist-toggle {
+        body.theme-dark .btn-playlist-toggle,
+        body.theme-dark .btn-loop-creator-toggle {
             background: #3d3d3d;
             border-color: #4d4d4d;
             color: #ffffff;
@@ -5329,6 +5330,7 @@
     <link rel="stylesheet" href="styles/tuner-modal.css">
     <link rel="stylesheet" href="styles/playlist.css">
     <link rel="stylesheet" href="styles/modal-playlist.css">
+    <link rel="stylesheet" href="styles/loop-creator-modal.css">
     <link rel="stylesheet" href="styles/settings-modal.css">
     <link rel="stylesheet" href="styles/keyboard-hand-position-editor.css">
 </head>
@@ -5484,6 +5486,10 @@
                 </div>
 
                 <div class="header-tools-right">
+                <button class="btn-loop-creator-toggle" id="loopCreatorBtn" data-i18n-title="loopCreator.title" title="Loop Creator" aria-label="Loop Creator">
+                    ∞
+                </button>
+
                 <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)" aria-label="Delay calibration">
                     🎤
                 </button>
@@ -6050,6 +6056,9 @@
 
     <!-- Tuner Modal Component -->
     <script src="js/features/TunerModal.js"></script>
+
+    <!-- Loop Creator Modal -->
+    <script src="js/features/LoopCreatorModal.js"></script>
 
     <!-- Network Scan Modal Component -->
     <script src="js/features/NetworkScanModal.js"></script>
@@ -12450,6 +12459,12 @@
         const calibrationModal = new CalibrationModal(api, window.eventBus);
         document.getElementById('calibrationBtn').addEventListener('click', () => {
             calibrationModal.open();
+        });
+
+        // Loop Creator (∞)
+        const loopCreatorModal = new LoopCreatorModal(api, window.eventBus);
+        document.getElementById('loopCreatorBtn').addEventListener('click', () => {
+            loopCreatorModal.open();
         });
 
         // Event listeners pour les contrôles du header

@@ -20,6 +20,8 @@ import StringInstrumentDatabase from './tables/StringInstrumentDatabase.js';
 import DeviceSettingsDB from './tables/DeviceSettingsDB.js';
 import BankEffectsDB from './tables/BankEffectsDB.js';
 import CustomSF2DB from './tables/CustomSF2DB.js';
+import LoopsDB from './tables/LoopsDB.js';
+import LoopArrangementsDB from './tables/LoopArrangementsDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,6 +48,8 @@ class DatabaseManager {
     this.deviceSettingsDB = null;
     this.bankEffectsDB = null;
     this.customSF2DB = null;
+    this.loopsDB = null;
+    this.loopArrangementsDB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -58,6 +62,8 @@ class DatabaseManager {
     this.deviceSettingsDB = new DeviceSettingsDB(this.db, this.logger);
     this.bankEffectsDB = new BankEffectsDB(this.db, this.logger);
     this.customSF2DB = new CustomSF2DB(this.db, this.logger);
+    this.loopsDB = new LoopsDB(this.db, this.logger);
+    this.loopArrangementsDB = new LoopArrangementsDB(this.db, this.logger);
 
     this.logger.info('Database initialized');
   }
@@ -888,6 +894,31 @@ class DatabaseManager {
       throw error;
     }
   }
+
+  // ==================== LOOP ARRANGEMENTS ====================
+
+  insertArrangement(a)          { return this.loopArrangementsDB.insertArrangement(a); }
+  getArrangement(id)            { return this.loopArrangementsDB.getArrangement(id); }
+  getArrangements()             { return this.loopArrangementsDB.getArrangements(); }
+  updateArrangement(id, f)      { return this.loopArrangementsDB.updateArrangement(id, f); }
+  deleteArrangement(id)         { return this.loopArrangementsDB.deleteArrangement(id); }
+  insertTrack(t)                { return this.loopArrangementsDB.insertTrack(t); }
+  getTracks(arrId)              { return this.loopArrangementsDB.getTracks(arrId); }
+  updateTrack(id, f)            { return this.loopArrangementsDB.updateTrack(id, f); }
+  deleteTrack(id)               { return this.loopArrangementsDB.deleteTrack(id); }
+  insertBlock(b)                { return this.loopArrangementsDB.insertBlock(b); }
+  getBlocks(trackId)            { return this.loopArrangementsDB.getBlocks(trackId); }
+  getAllBlocksForArrangement(id) { return this.loopArrangementsDB.getAllBlocksForArrangement(id); }
+  updateBlock(id, f)            { return this.loopArrangementsDB.updateBlock(id, f); }
+  deleteBlock(id)               { return this.loopArrangementsDB.deleteBlock(id); }
+
+  // ==================== LOOPS ====================
+
+  insertLoop(loop) { return this.loopsDB.insertLoop(loop); }
+  getLoop(id) { return this.loopsDB.getLoop(id); }
+  getLoops() { return this.loopsDB.getLoops(); }
+  updateLoop(id, fields) { return this.loopsDB.updateLoop(id, fields); }
+  deleteLoop(id) { return this.loopsDB.deleteLoop(id); }
 
   getStats() {
     try {

@@ -52,6 +52,8 @@ import InstrumentRepository from '../repositories/InstrumentRepository.js';
 import PresetRepository from '../repositories/PresetRepository.js';
 import SessionRepository from '../repositories/SessionRepository.js';
 import PlaylistRepository from '../repositories/PlaylistRepository.js';
+import LoopRepository from '../repositories/LoopRepository.js';
+import LoopArrangementRepository from '../repositories/LoopArrangementRepository.js';
 import DeviceSettingsRepository from '../repositories/DeviceSettingsRepository.js';
 import LightingRepository from '../repositories/LightingRepository.js';
 import StringInstrumentRepository from '../repositories/StringInstrumentRepository.js';
@@ -296,6 +298,8 @@ class Application {
       this._registerService('presetRepository', new PresetRepository(this.database));
       this._registerService('sessionRepository', new SessionRepository(this.database));
       this._registerService('playlistRepository', new PlaylistRepository(this.database));
+      this._registerService('loopRepository', new LoopRepository(this.database));
+      this._registerService('loopArrangementRepository', new LoopArrangementRepository(this.database));
       this._registerService(
         'deviceSettingsRepository',
         new DeviceSettingsRepository(this.database)
