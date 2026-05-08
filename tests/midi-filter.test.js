@@ -58,7 +58,9 @@ function createTestDb() {
       is_original BOOLEAN NOT NULL DEFAULT 1,
       parent_file_id INTEGER,
       uploaded_at TEXT,
-      updated_at TEXT
+      updated_at TEXT,
+      title TEXT,
+      copyright TEXT
     );
 
     CREATE TABLE midi_file_channels (
