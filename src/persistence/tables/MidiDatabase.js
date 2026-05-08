@@ -21,7 +21,7 @@ const LIST_COLUMNS = `id, content_hash, blob_path, filename, size, tracks,
   duration, tempo, ppq, uploaded_at, folder,
   is_original, parent_file_id,
   instrument_types, channel_count, note_range_min, note_range_max,
-  has_drums, has_melody, has_bass,
+  has_drums, has_melody, has_bass, has_lyrics,
   title, copyright`;
 
 class MidiDatabase {
@@ -51,10 +51,10 @@ class MidiDatabase {
           content_hash, filename, folder, blob_path, size,
           tracks, duration, tempo, ppq,
           channel_count, note_range_min, note_range_max,
-          instrument_types, has_drums, has_melody, has_bass,
+          instrument_types, has_drums, has_melody, has_bass, has_lyrics,
           is_original, parent_file_id, uploaded_at,
           title, copyright
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const result = stmt.run(
@@ -74,6 +74,7 @@ class MidiDatabase {
         file.has_drums ? 1 : 0,
         file.has_melody ? 1 : 0,
         file.has_bass ? 1 : 0,
+        file.has_lyrics ? 1 : 0,
         file.is_original === false ? 0 : 1,
         file.parent_file_id || null,
         file.uploaded_at || new Date().toISOString(),
@@ -163,7 +164,7 @@ class MidiDatabase {
         'filename', 'folder', 'blob_path', 'size', 'tracks', 'duration',
         'tempo', 'ppq', 'is_original', 'parent_file_id',
         'instrument_types', 'channel_count',
-        'note_range_min', 'note_range_max', 'has_drums', 'has_melody', 'has_bass',
+        'note_range_min', 'note_range_max', 'has_drums', 'has_melody', 'has_bass', 'has_lyrics',
         'title', 'copyright'
       ]);
       if (!result) return;
@@ -365,6 +366,10 @@ class MidiDatabase {
       if (filters.hasBass !== undefined) {
         wheres.push('COALESCE(mf.has_bass, 0) = ?');
         params.push(filters.hasBass ? 1 : 0);
+      }
+      if (filters.hasLyrics !== undefined) {
+        wheres.push('COALESCE(mf.has_lyrics, 0) = ?');
+        params.push(filters.hasLyrics ? 1 : 0);
       }
 
       // Instrument types filter (legacy broad categories)

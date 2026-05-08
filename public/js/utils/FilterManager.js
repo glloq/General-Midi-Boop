@@ -71,6 +71,7 @@ class FilterManager {
       hasDrums: null,
       hasMelody: null,
       hasBass: null,
+      hasLyrics: null,
 
       // Sorting
       sortBy: 'uploaded_at',
@@ -273,6 +274,8 @@ class FilterManager {
         return t('filters.labelWithMelody');
       case 'hasBass':
         return t('filters.labelWithBass');
+      case 'hasLyrics':
+        return value ? t('filters.labelWithLyrics') : t('filters.labelWithoutLyrics');
       case 'gmInstruments':
         return t('filters.labelGmInstruments', { value: value.join(', '), mode: this.filters.gmMode });
       case 'gmCategories':
@@ -335,7 +338,8 @@ class FilterManager {
       this.filters.channelCountMax !== null ||
       this.filters.hasDrums !== null ||
       this.filters.hasMelody !== null ||
-      this.filters.hasBass !== null
+      this.filters.hasBass !== null ||
+      this.filters.hasLyrics !== null
     );
   }
 

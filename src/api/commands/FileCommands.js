@@ -226,6 +226,7 @@ async function fileFilter(app, data) {
     hasDrums: data.hasDrums,
     hasMelody: data.hasMelody,
     hasBass: data.hasBass,
+    hasLyrics: data.hasLyrics,
 
     // Sorting and pagination
     sortBy: data.sortBy || 'uploaded_at',
@@ -272,6 +273,7 @@ async function fileFilter(app, data) {
     uploadedAt: file.uploaded_at,
     folder: file.folder,
     is_original: file.is_original,
+    hasLyrics: file.has_lyrics === 1,
     routingStatus: routingMap.get(file.id) || 'unrouted',
     // Keep snake_case aliases for backward compatibility
     channel_count: file.channel_count || 0,
@@ -339,6 +341,21 @@ async function fileChannels(app, data) {
     channels: channels,
     total: channels.length
   };
+}
+
+/**
+ * Return the stored tempo map for a file (list of {tick, bpm} points).
+ * Used by the lyrics view to convert tick offsets to seconds accurately.
+ *
+ * @param {Object} app
+ * @param {{ fileId: number|string }} data
+ */
+async function fileTempoMap(app, data) {
+  if (!data.fileId) {
+    throw new ValidationError('fileId is required', 'fileId');
+  }
+  const tempoMap = app.database.midiDB.getFileTempoMap(data.fileId);
+  return { success: true, fileId: data.fileId, tempoMap };
 }
 
 /**
@@ -484,6 +501,7 @@ export function register(registry, app) {
   registry.register('file_filter', (data) => fileFilter(app, data));
   registry.register('file_channels', (data) => fileChannels(app, data));
   registry.register('file_text_events', (data) => fileTextEvents(app, data));
+  registry.register('file_tempo_map', (data) => fileTempoMap(app, data));
   registry.register('file_reanalyze_all', () => fileReanalyzeAll(app));
   registry.register('file_reanalyze_check', () => fileReanalyzeCheck(app));
   registry.register('file_routing_status', (data) => fileRoutingStatus(app, data));
