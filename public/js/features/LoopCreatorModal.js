@@ -53,9 +53,10 @@ class LoopCreatorModal extends BaseModal {
         this._activeKeyEnvelopes = new Map();
 
         // Output mode: 'synth' | 'device'
+        // outputChannel uses MIDI base-0 (0..15) to match backend; UI displays as 1..16
         this.outputMode = 'synth';
         this.outputDeviceId = null;
-        this.outputChannel = 1;
+        this.outputChannel = 0;
 
         // Library
         this.library = [];
@@ -219,7 +220,7 @@ class LoopCreatorModal extends BaseModal {
                         </select>
                         <select id="lc-out-channel" class="lc-select"
                             aria-label="${this.t('loopCreator.outputChannel')}">
-                            ${[...Array(16)].map((_,i) => `<option value="${i+1}"${i===0?' selected':''}>Ch ${i+1}</option>`).join('')}
+                            ${[...Array(16)].map((_,i) => `<option value="${i}"${i===0?' selected':''}>Ch ${i+1}</option>`).join('')}
                         </select>
                     </div>
                 </div>
@@ -473,7 +474,8 @@ class LoopCreatorModal extends BaseModal {
         } else if (id === 'lc-out-device-sel') {
             this.outputDeviceId = e.target.value || null;
         } else if (id === 'lc-out-channel') {
-            this.outputChannel = parseInt(e.target.value) || 1;
+            const v = parseInt(e.target.value);
+            this.outputChannel = (Number.isInteger(v) && v >= 0 && v <= 15) ? v : 0;
         }
     }
 
@@ -621,7 +623,7 @@ class LoopCreatorModal extends BaseModal {
             }).catch(() => {});
         } else if (this._synth) {
             try {
-                const env = this._synth.playNote(note, 80, 0, 9999);
+                const env = this._synth.playNote(note, 80, 0, 60);
                 if (env) this._activeKeyEnvelopes.set(note, env);
             } catch (_) {}
         }
@@ -760,6 +762,9 @@ class LoopCreatorModal extends BaseModal {
     }
 
     _setOutputMode(mode) {
+        if (mode === this.outputMode) return;
+        // Stop everything cleanly before switching to avoid stuck notes on the previous output
+        this._stopAll();
         this.outputMode = mode;
         this.$('#lc-out-synth')?.classList.toggle('lc-output-btn--active', mode === 'synth');
         this.$('#lc-out-device')?.classList.toggle('lc-output-btn--active', mode === 'device');
@@ -901,13 +906,16 @@ class LoopCreatorModal extends BaseModal {
             return;
         }
         grid.innerHTML = this.library.map(loop => this._loopCardHtml(loop, true)).join('');
-        grid.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-loop-action]');
-            if (!btn) return;
-            const id = parseInt(btn.dataset.loopId);
-            if (btn.dataset.loopAction === 'load')   { this._loadLoopById(id); this._switchTab('create'); }
-            if (btn.dataset.loopAction === 'delete')   this._deleteLoopById(id);
-        });
+        if (!grid.dataset.lcWired) {
+            grid.dataset.lcWired = '1';
+            grid.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-loop-action]');
+                if (!btn) return;
+                const id = parseInt(btn.dataset.loopId);
+                if (btn.dataset.loopAction === 'load')   { this._loadLoopById(id); this._switchTab('create'); }
+                if (btn.dataset.loopAction === 'delete') this._deleteLoopById(id);
+            });
+        }
     }
 
     _loopCardHtml(loop, showActions = false) {
@@ -951,7 +959,12 @@ class LoopCreatorModal extends BaseModal {
         try {
             await this.api.sendCommand('loop_delete', { loopId: id });
             if (this.currentLoopId === id) this._newLoop();
+            this._fetchLoopDataCache.delete(id);
             await this._loadLibrary();
+            // Backend cascades blocks; refresh local arranger view to drop orphan blocks
+            if (this.currentArrangementId && this.blocks.some(b => b.loop_id === id)) {
+                await this._loadArrangementById(this.currentArrangementId);
+            }
         } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
     }
 
@@ -993,12 +1006,15 @@ class LoopCreatorModal extends BaseModal {
                 <span class="la-arr-meta">${a.global_tempo} BPM · ${a.total_bars} ${this.t('loopCreator.barsUnit')}</span>
                 <button class="lc-card-btn lc-card-btn--danger" data-arr-action="delete" data-arr-id="${a.id}">🗑</button>
             </div>`).join('');
-        el.addEventListener('click', (e) => {
-            const del = e.target.closest('[data-arr-action="delete"]');
-            if (del) { this._deleteArrangement(parseInt(del.dataset.arrId)); return; }
-            const item = e.target.closest('[data-arr-id]');
-            if (item) this._loadArrangementById(parseInt(item.dataset.arrId));
-        });
+        if (!el.dataset.lcWired) {
+            el.dataset.lcWired = '1';
+            el.addEventListener('click', (e) => {
+                const del = e.target.closest('[data-arr-action="delete"]');
+                if (del) { this._deleteArrangement(parseInt(del.dataset.arrId)); return; }
+                const item = e.target.closest('[data-arr-id]');
+                if (item) this._loadArrangementById(parseInt(item.dataset.arrId));
+            });
+        }
     }
 
     async _newArrangement() {
