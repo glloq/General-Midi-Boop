@@ -12,7 +12,8 @@
  * the client reconstructs it with `new Float32Array(zone.sample)`.
  */
 
-import { SoundFont2, GeneratorType } from 'soundfont2';
+import pkg from 'soundfont2';
+const { SoundFont2, GeneratorType } = pkg;
 
 const GT = GeneratorType;
 
