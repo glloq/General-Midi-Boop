@@ -1308,7 +1308,13 @@
     "sectionRoutingDetail": "Routage détaillé",
     "routingDetailHint": "Ces options remplacent le statut de jeu en haut.",
     "rangeAny": "Tous",
-    "clearAll": "Tout effacer"
+    "clearAll": "Tout effacer",
+    "hasLyrics": "Paroles (karaoké)",
+    "hasLyricsAll": "Tous",
+    "hasLyricsYes": "Avec paroles",
+    "hasLyricsNo": "Sans paroles",
+    "labelWithLyrics": "Avec paroles",
+    "labelWithoutLyrics": "Sans paroles"
   },
   "pianoRoll": {
     "title": "Notes à venir",

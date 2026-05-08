@@ -2022,3 +2022,234 @@ body.dark-mode .file-info-table th,
 body.dark-mode .file-info-table td {
     border-color: var(--border-color, #3a3a3a);
 }
+
+/* ── Tick column (secondary, lighter) ─────────────────────────────────── */
+.fi-td-tick {
+    color: var(--text-secondary, #aaa);
+    font-size: 0.78rem;
+    opacity: 0.7;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SECTIONS COLLAPSIBLES
+   ══════════════════════════════════════════════════════════════════════ */
+
+.file-info-section.fi-collapsible .file-info-section-title {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.file-info-section.fi-collapsible .file-info-section-title:hover {
+    background: var(--bg-hover, #ebebeb);
+}
+
+/* Chevron arrow — rotated when open */
+.fi-section-chevron {
+    font-size: 0.6rem;
+    color: var(--text-secondary, #999);
+    transition: transform 0.2s ease;
+    transform: rotate(90deg); /* open = pointing down */
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+
+.file-info-section.fi-collapsible.collapsed .fi-section-chevron {
+    transform: rotate(0deg); /* collapsed = pointing right */
+}
+
+.fi-section-label {
+    flex: 1;
+}
+
+/* Count badge */
+.fi-section-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: var(--bg-tertiary, #e8e8e8);
+    color: var(--text-secondary, #666);
+    border-radius: 10px;
+    padding: 1px 7px;
+    flex-shrink: 0;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* Body hidden when collapsed */
+.file-info-section.fi-collapsible.collapsed .file-info-section-body {
+    display: none;
+}
+
+/* Karaoke badge inside File section title */
+.fi-karaoke-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(124, 58, 237, 0.12);
+    color: var(--accent-color, #7c3aed);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    border-radius: 10px;
+    padding: 1px 7px;
+    margin-left: 6px;
+    text-transform: none;
+    letter-spacing: 0;
+    vertical-align: middle;
+}
+
+/* Highlighted row (title, copyright) */
+.fi-row-highlight {
+    padding: 4px 0 6px;
+    border-bottom: 1px solid var(--border-color, #eee);
+    margin-bottom: 4px;
+}
+
+.fi-value-highlight {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary, #1a1a1a);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   VUE PAROLES — affichage formaté en couplets
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Barre d'outils Paroles */
+.fi-lyrics-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.fi-btn {
+    background: var(--bg-secondary, #f0f0f0);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    color: var(--text-primary, #333);
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.fi-btn:hover:not(:disabled) {
+    background: var(--bg-hover, #e4e4e4);
+    border-color: var(--border-color-active, #bbb);
+}
+
+.fi-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.fi-lyrics-stats {
+    font-size: 0.78rem;
+    color: var(--text-secondary, #999);
+    margin-left: auto;
+}
+
+/* Conteneur vue texte */
+.fi-lyrics-display {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Un couplet */
+.fi-lyrics-verse {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Numéro de couplet */
+.fi-lyrics-verse-num {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-color, #7c3aed);
+    opacity: 0.75;
+    margin-bottom: 2px;
+}
+
+/* Une ligne de paroles */
+.fi-lyrics-line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+/* Horodatage MM:SS */
+.fi-lyrics-time {
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: var(--text-secondary, #aaa);
+    min-width: 32px;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+/* Texte de la ligne */
+.fi-lyrics-text {
+    font-size: 0.95rem;
+    color: var(--text-primary, #222);
+    line-height: 1.5;
+}
+
+/* Ligne vide (aucune parole avant couplet) */
+.fi-lyrics-display:empty::after {
+    content: 'Aucune parole trouvée.';
+    color: var(--text-secondary, #aaa);
+    font-size: 0.85rem;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────── */
+
+body.dark-mode .fi-section-badge {
+    background: var(--bg-tertiary, #2a2a2a);
+    color: var(--text-secondary, #aaa);
+}
+
+body.dark-mode .fi-karaoke-badge {
+    background: rgba(167, 139, 250, 0.15);
+    color: #a78bfa;
+    border-color: rgba(167, 139, 250, 0.3);
+}
+
+body.dark-mode .fi-value-highlight {
+    color: var(--text-primary, #eee);
+}
+
+body.dark-mode .fi-row-highlight {
+    border-color: var(--border-color, #3a3a3a);
+}
+
+body.dark-mode .fi-btn {
+    background: var(--bg-secondary, #2a2a2a);
+    border-color: var(--border-color, #444);
+    color: var(--text-primary, #ddd);
+}
+
+body.dark-mode .fi-btn:hover:not(:disabled) {
+    background: var(--bg-hover, #333);
+}
+
+body.dark-mode .fi-lyrics-verse-num {
+    color: #a78bfa;
+}
+
+body.dark-mode .fi-lyrics-text {
+    color: var(--text-primary, #e0e0e0);
+}
+
+body.dark-mode .file-info-section.fi-collapsible .file-info-section-title:hover {
+    background: var(--bg-hover, #2a2a2a);
+}

@@ -10,7 +10,7 @@
  *   playback:play          { fileId }
  *   playback:pause         {}
  *   playback:stop          {}
- *   playback:tick          { currentTime }   (seconds, from MidiSynthesizer)
+ *   playback:time          { time }          (seconds, from MidiSynthesizer)
  *   settings:lyrics_changed { enabled }
  *
  * Tick→second conversion uses the tempo map embedded in file:selected.
@@ -37,7 +37,6 @@ class LyricsView {
     this.ticksPerBeat = 480;
     this.tempoMap = [];     // [{tick, bpm}] from file:selected
 
-    this._animFrame = null;
     this._eventUnsubs = [];
 
     this.loadSettings();
@@ -123,9 +122,7 @@ class LyricsView {
       }),
 
       this.eventBus.on('playback:pause', () => {
-        // Keep visible but stop animating
-        cancelAnimationFrame(this._animFrame);
-        this._animFrame = null;
+        // Keep visible, nothing to cancel
       }),
 
       this.eventBus.on('playback:stop', () => {
@@ -135,9 +132,9 @@ class LyricsView {
         this._renderLines();
       }),
 
-      this.eventBus.on('playback:tick', (data) => {
+      this.eventBus.on('playback:time', (data) => {
         if (!this.isVisible) return;
-        this.currentTime = data.currentTime || 0;
+        this.currentTime = data.time || 0;
         this._renderLines();
       }),
     ];
@@ -213,7 +210,7 @@ class LyricsView {
     if (this.tempoMap && this.tempoMap.length > 0) {
       let elapsedSec = 0;
       let prevTick = 0;
-      let prevBpm  = this.tempoMap[0].bpm;
+      let prevBpm  = 120;
 
       for (const point of this.tempoMap) {
         if (point.tick >= tick) break;
@@ -246,7 +243,6 @@ class LyricsView {
   }
 
   destroy() {
-    cancelAnimationFrame(this._animFrame);
     this._eventUnsubs.forEach(fn => fn && fn());
     this._eventUnsubs = [];
     this.container?.remove();
