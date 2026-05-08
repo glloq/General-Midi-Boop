@@ -126,11 +126,54 @@ class DeviceManager {
     const deviceList = this.getDeviceList();
     this.app.logger.info(`Scan complete: ${deviceList.length} device(s) found`);
 
+    // Re-register virtual instruments from DB so they survive restarts
+    await this._restoreVirtualDevicesFromDB();
+
     // Restart hot-plug monitoring with fresh device lists
     this.discovery.stopHotPlugMonitoring();
     this.discovery.startHotPlugMonitoring(this.inputs, this.outputs);
 
-    return deviceList;
+    return this.getDeviceList();
+  }
+
+  /**
+   * Re-hydrate softVirtualDevices from the instruments_latency table so
+   * virtual instruments created in previous sessions are still reachable
+   * after a server restart.
+   *
+   * @returns {Promise<void>}
+   */
+  async _restoreVirtualDevicesFromDB() {
+    if (!this.app.instrumentRepository) return;
+    try {
+      const instruments = this.app.instrumentRepository.findAllWithCapabilities();
+      const seen = new Set();
+      for (const inst of instruments) {
+        const deviceId = inst.device_id;
+        if (!deviceId?.startsWith('virtual_') || seen.has(deviceId)) continue;
+        seen.add(deviceId);
+        if (!this.softVirtualDevices.has(deviceId)) {
+          const name = inst.custom_name || inst.name || deviceId;
+          this.softVirtualDevices.set(deviceId, { id: deviceId, name, type: 'virtual', enabled: true });
+          this.devices.set(deviceId, {
+            id: deviceId,
+            name,
+            type: 'virtual',
+            input: false,
+            output: true,
+            enabled: true,
+            connected: true,
+            status: DEVICE_STATUS.CONNECTED,
+            usbSerialNumber: null
+          });
+        }
+      }
+      if (seen.size > 0) {
+        this.app.logger.info(`Restored ${seen.size} virtual device(s) from database`);
+      }
+    } catch (e) {
+      this.app.logger.warn(`Failed to restore virtual devices from DB: ${e.message}`);
+    }
   }
 
   /**

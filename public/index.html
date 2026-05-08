@@ -9297,48 +9297,37 @@
                 let connectedDevices = devices.filter(d => d.status === 2 || d.connected);
                 console.log('✅ Connected devices after filter:', connectedDevices.length, connectedDevices);
 
-                // Charger les instruments virtuels de la DB (crees via Gestion des instruments)
-                // Respecter le réglage "virtualInstrument" de SettingsModal
-                let virtualEnabled = false;
+                // Toujours charger les instruments virtuels créés via "Gestion des instruments"
+                // Le toggle "virtualInstrument" dans les réglages ne cache plus ces devices :
+                // ils sont déjà enregistrés côté serveur et retournés par device_list.
+                // Ce bloc ajoute uniquement ceux absents de la liste serveur (retro-compatibilité).
                 try {
-                    const savedSettings = localStorage.getItem('gmboop_settings');
-                    if (savedSettings) {
-                        const parsed = JSON.parse(savedSettings);
-                        virtualEnabled = !!parsed.virtualInstrument;
-                    }
-                } catch (e) { /* ignore */ }
-
-                if (virtualEnabled) {
-                    try {
-                        const capsResponse = await api.sendCommand('instrument_list_capabilities');
-                        if (capsResponse && capsResponse.instruments) {
-                            const connectedIds = new Set(devices.map(d => d.id));
-                            for (const dbInst of capsResponse.instruments) {
-                                const devId = dbInst.device_id || dbInst.id;
-                                if (devId && devId.startsWith('virtual_') && !connectedIds.has(devId)) {
-                                    const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
-                                    const virtualDbDevice = {
-                                        id: devId,
-                                        name: `🖥️ ${vName}`,
-                                        displayName: `🖥️ ${vName}`,
-                                        type: 'Virtual',
-                                        status: 2,
-                                        connected: true,
-                                        isVirtual: true,
-                                        channel: dbInst.channel || 0,
-                                        gm_program: dbInst.gm_program
-                                    };
-                                    connectedDevices.push(virtualDbDevice);
-                                    devices.push(virtualDbDevice);
-                                }
+                    const capsResponse = await api.sendCommand('instrument_list_capabilities');
+                    if (capsResponse && capsResponse.instruments) {
+                        const connectedIds = new Set(devices.map(d => d.id));
+                        for (const dbInst of capsResponse.instruments) {
+                            const devId = dbInst.device_id || dbInst.id;
+                            if (devId && devId.startsWith('virtual_') && !connectedIds.has(devId)) {
+                                const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
+                                const virtualDbDevice = {
+                                    id: devId,
+                                    name: `🖥️ ${vName}`,
+                                    displayName: `🖥️ ${vName}`,
+                                    type: 'Virtual',
+                                    status: 2,
+                                    connected: true,
+                                    isVirtual: true,
+                                    channel: dbInst.channel || 0,
+                                    gm_program: dbInst.gm_program
+                                };
+                                connectedDevices.push(virtualDbDevice);
+                                devices.push(virtualDbDevice);
                             }
-                            console.log('✅ Virtual DB instruments loaded for routing');
                         }
-                    } catch (e) {
-                        console.warn('Could not load virtual DB instruments:', e);
+                        console.log('✅ Virtual DB instruments loaded for routing');
                     }
-                } else {
-                    console.log('ℹ️ Virtual instruments disabled in settings, skipping');
+                } catch (e) {
+                    console.warn('Could not load virtual DB instruments:', e);
                 }
 
                 if (connectedDevices.length === 0) {
@@ -9839,45 +9828,22 @@
                     await loadDevices();
                 }
 
-                // Vérifier qu'on a des périphériques de sortie (accepter tous sauf 'input')
-                // Note : on accepte aussi le périphérique virtuel (type = 'Virtual')
-                const outputDevices = availableDevices.filter(d => d.type !== 'input');
+                // Vérifier qu'on a des périphériques de sortie (USB, réseau, bluetooth, virtuels)
+                let outputDevices = availableDevices.filter(d => d.type !== 'input');
 
-                // Si aucun périphérique réel, vérifier si l'instrument virtuel est activé
+                // Si aucun device trouvé, recharger (les virtuels ont pu être enregistrés entre-temps)
                 if (outputDevices.length === 0) {
-                    // Essayer de charger l'instrument virtuel depuis localStorage
-                    let virtualInstrumentEnabled = false;
-                    try {
-                        const saved = localStorage.getItem('gmboop_settings');
-                        if (saved) {
-                            const settings = JSON.parse(saved);
-                            virtualInstrumentEnabled = settings.virtualInstrument || false;
-                        }
-                    } catch (error) {
-                        console.warn('Could not load virtual instrument setting:', error);
-                    }
+                    log(i18n.t('ui.reloadingDevices'), 'info');
+                    await loadDevices();
+                    outputDevices = availableDevices.filter(d => d.type !== 'input');
+                }
 
-                    if (!virtualInstrumentEnabled) {
-                        await showAlert(i18n.t('ui.noMidiOutput'), {
-                            title: i18n.t('ui.midiDevices'),
-                            icon: '🎛️'
-                        });
-                        return;
-                    } else {
-                        // L'instrument virtuel est activé mais pas encore dans availableDevices
-                        // Recharger les devices
-                        log(i18n.t('ui.reloadingDevices'), 'info');
-                        await loadDevices();
-
-                        const outputDevicesAfterReload = availableDevices.filter(d => d.type !== 'input');
-                        if (outputDevicesAfterReload.length === 0) {
-                            await showAlert(i18n.t('ui.virtualInstrumentLoadError'), {
-                                title: i18n.t('common.error'),
-                                icon: '❌'
-                            });
-                            return;
-                        }
-                    }
+                if (outputDevices.length === 0) {
+                    await showAlert(i18n.t('ui.noMidiOutput'), {
+                        title: i18n.t('ui.midiDevices'),
+                        icon: '🎛️'
+                    });
+                    return;
                 }
 
                 // Charger le fichier et récupérer ses canaux (sans lancer la lecture)
