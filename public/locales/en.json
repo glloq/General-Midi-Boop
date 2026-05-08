@@ -1308,7 +1308,13 @@
     "sectionRoutingDetail": "Detailed routing",
     "routingDetailHint": "These options replace the Play status above.",
     "rangeAny": "Any",
-    "clearAll": "Clear all"
+    "clearAll": "Clear all",
+    "hasLyrics": "Lyrics (karaoke)",
+    "hasLyricsAll": "All",
+    "hasLyricsYes": "With lyrics",
+    "hasLyricsNo": "Without lyrics",
+    "labelWithLyrics": "With lyrics",
+    "labelWithoutLyrics": "Without lyrics"
   },
   "pianoRoll": {
     "title": "Upcoming Notes",

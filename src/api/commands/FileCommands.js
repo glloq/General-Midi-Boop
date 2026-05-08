@@ -354,6 +354,10 @@ async function fileTempoMap(app, data) {
   if (!data.fileId) {
     throw new ValidationError('fileId is required', 'fileId');
   }
+  const file = app.database.getFileInfo(data.fileId);
+  if (!file) {
+    throw new ValidationError(`File not found: ${data.fileId}`, 'fileId');
+  }
   const tempoMap = app.database.midiDB.getFileTempoMap(data.fileId);
   return { success: true, fileId: data.fileId, tempoMap };
 }
