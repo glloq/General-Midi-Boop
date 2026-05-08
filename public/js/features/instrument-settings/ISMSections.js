@@ -118,7 +118,20 @@
         }
 
         // Device info card
+        const _connTypeMap = { bluetooth: 'bluetooth', usb: 'usb', network: 'wifi', virtual: 'virtual' };
+        const _connKey = _connTypeMap[this.device.type] || null;
+        const _connFallbacks = { bluetooth: '📡', usb: '🔌', network: '🌐', virtual: '🖥️' };
+        const _connEmoji = _connFallbacks[this.device.type] || '';
         let deviceInfoHtml = '';
+        if (_connKey) {
+            const _connLabel = this.t('instrumentSettings.connectionType.' + this.device.type) || this.device.type;
+            deviceInfoHtml += `<span class="ism-device-chip ism-conn-type-chip" title="${this.escape(_connLabel)}">
+                <img class="ism-conn-svg" src="/assets/connection/${_connKey}.svg" alt="" width="16" height="16"
+                    onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+                <span class="ism-conn-emoji" style="display:none">${_connEmoji}</span>
+                <span class="ism-conn-label">${this.escape(_connLabel)}</span>
+            </span>`;
+        }
         if (microprocessor) {
             deviceInfoHtml += `<span class="ism-device-chip" title="Microprocesseur détecté">🔧 ${this.escape(microprocessor.name)}${microprocessor.variant ? ' ' + this.escape(microprocessor.variant) : ''}</span>`;
         }

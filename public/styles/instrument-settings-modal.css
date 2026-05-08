@@ -1194,6 +1194,18 @@ body.dark-mode .ism-drum-kit-desc {
   font-weight: 600;
 }
 
+.ism-conn-type-chip {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--text-secondary, #6b7280);
+  font-weight: 500;
+}
+
+.ism-conn-svg {
+  display: inline-block;
+  vertical-align: middle;
+  opacity: 0.75;
+}
+
 .ism-sysex-features {
   display: flex;
   gap: 4px;
