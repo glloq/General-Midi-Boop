@@ -128,7 +128,7 @@
     renderChannelOptions() {
         let options = '';
         for (let i = 0; i < 16; i++) {
-            options += `<option value="${i}">Canal ${i + 1}${i === 9 ? ' (Drums)' : ''}</option>`;
+            options += `<option value="${i}">${this.modal.t('midiEditor.channelTip', { channel: i + 1 })}${i === 9 ? ` (${this.modal.t('midiEditor.drumKit')})` : ''}</option>`;
         }
         return options;
     }

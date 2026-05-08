@@ -477,7 +477,7 @@
                 chip.appendChild(trEl);
             }
             trEl.textContent = `${semis > 0 ? '+' : ''}${semis}st`;
-            trEl.title = `Transposition: ${semis > 0 ? '+' : ''}${semis} demi-tons`;
+            trEl.title = `${this.modal.t('autoAssign.transposition')}: ${semis > 0 ? '+' : ''}${semis}st`;
         } else if (trEl) {
             trEl.remove();
         }
@@ -509,16 +509,16 @@
 
     // Parse deviceId and optional sub-channel
         let deviceId = routedValue;
-        let devChannel = undefined;
+        let devChannel = NaN;
         if (routedValue.includes('::')) {
             const parts = routedValue.split('::');
             deviceId = parts[0];
-            devChannel = parseInt(parts[1]);
+            devChannel = parseInt(parts[1], 10);
         }
 
         try {
             const params = { deviceId };
-            if (devChannel !== undefined) params.channel = devChannel;
+            if (!isNaN(devChannel)) params.channel = devChannel;
             const response = await this.modal.api.sendCommand('instrument_get_capabilities', params);
 
             if (response && response.capabilities) {

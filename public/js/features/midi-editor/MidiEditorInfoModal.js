@@ -102,12 +102,13 @@
             requestAnimationFrame(() => overlay.classList.add('visible'));
 
             const close = () => {
+                document.removeEventListener('keydown', onKey);
                 overlay.classList.remove('visible');
                 setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 200);
             };
             overlay.querySelector('.file-info-modal-close').addEventListener('click', close);
             overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-            const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+            const onKey = e => { if (e.key === 'Escape') close(); };
             document.addEventListener('keydown', onKey);
 
             try {
@@ -117,7 +118,7 @@
                     this._renderBody(textData, channelData, metaData, localStats);
             } catch (err) {
                 overlay.querySelector('.file-info-modal-body').innerHTML =
-                    `<p class="file-info-error">Impossible de charger les métadonnées : ${esc(err.message)}</p>`;
+                    `<p class="file-info-error">${this.modal.t('midiEditor.fileInfoLoadFailed', { error: esc(err.message) })}</p>`;
             }
         }
 
@@ -406,7 +407,7 @@
                 `);
             }
 
-            return html || '<p class="file-info-empty">Aucune métadonnée disponible.</p>';
+            return html || `<p class="file-info-empty">${this.modal.t('midiEditor.fileInfoNoMetadata')}</p>`;
         }
 
         // ------------------------------------------------------------------ //
@@ -419,7 +420,7 @@
                 byChannel[ch.channel] = { ...ch };
             }
             for (const ch of dbChannels) {
-                const c = ch.channel ?? ch.channel;
+                const c = ch.channel;
                 byChannel[c] = { ...(byChannel[c] || {}), ...ch };
             }
             return Object.values(byChannel).sort((a, b) => a.channel - b.channel);

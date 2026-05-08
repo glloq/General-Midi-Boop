@@ -375,7 +375,7 @@
                                 <div class="cc-header-channels" id="editor-channel-selector">
                                     <!-- Channels are added dynamically -->
                                 </div>
-                                <button class="cc-settings-btn" id="cc-draw-settings-btn" title="${this.modal.t('midiEditor.drawSettings') || 'Réglages de dessin'}">⚙</button>
+                                <button class="cc-settings-btn" id="cc-draw-settings-btn" title="${this.modal.t('midiEditor.drawSettings')}">⚙</button>
                             </div>
 
                             <!-- CC/Velocity editor content -->
@@ -428,7 +428,7 @@
                                         <div class="cc-btn-group" data-group="custom">
                                             <span class="cc-group-label">&nbsp;</span>
                                             <div class="cc-btn-group-buttons">
-                                                <button class="cc-type-btn cc-add-btn" id="cc-add-btn" title="${this.modal.t('midiEditor.addCC') || 'Ajouter un CC'}">+</button>
+                                                <button class="cc-type-btn cc-add-btn" id="cc-add-btn" title="${this.modal.t('midiEditor.addCC')}">+</button>
                                             </div>
                                         </div>
 
@@ -738,12 +738,12 @@
         const btn = this.modal.container?.querySelector('#preview-source-toggle');
         if (this.modal.previewSource === 'gm') {
             this.modal.previewSource = 'routed';
-            if (btn) { btn.dataset.source = 'routed'; btn.textContent = this.modal.t('midiEditor.routedSource') || '🔊 Routé'; }
+            if (btn) { btn.dataset.source = 'routed'; btn.textContent = this.modal.t('midiEditor.routedSource'); }
             // Fetch playable note ranges for all routed channels
             await this._loadRoutedPlayableNotes();
         } else {
             this.modal.previewSource = 'gm';
-            if (btn) { btn.dataset.source = 'gm'; btn.textContent = this.modal.t('midiEditor.gmSource') || '🔊 GM'; }
+            if (btn) { btn.dataset.source = 'gm'; btn.textContent = this.modal.t('midiEditor.gmSource'); }
             this.modal._routedPlayableNotes.clear();
         }
         if (this.modal._playback) this.modal._playback._feedbackInstrumentsLoaded = false;
@@ -797,8 +797,8 @@
         const btn = this.modal.container?.querySelector('#playable-notes-toggle');
         if (btn) {
             btn.dataset.active = String(this.modal.showPlayableNotes);
-            const onLabel = this.modal.t('midiEditor.playableOn') || 'ON';
-            const offLabel = this.modal.t('midiEditor.playableOff') || 'OFF';
+            const onLabel = this.modal.t('midiEditor.playableOn');
+            const offLabel = this.modal.t('midiEditor.playableOff');
             const srLabel = btn.querySelector('.sr-only');
             if (srLabel) {
                 srLabel.textContent = this.modal.showPlayableNotes ? onLabel : offLabel;

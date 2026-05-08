@@ -255,7 +255,7 @@
             const midiData = this.convertSequenceToMidi();
 
             if (!midiData) {
-                throw new Error('Échec de conversion en format MIDI');
+                throw new Error('MIDI conversion failed');
             }
 
             this.modal.log('debug', `MIDI data to save: ${midiData.tracks.length} tracks`);
