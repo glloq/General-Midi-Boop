@@ -83,26 +83,40 @@ class LoopCreatorModal extends BaseModal {
         // Bound handlers
         this._boundDocMouseUp = this._onDocMouseUp.bind(this);
         this._boundDocMouseMove = this._onDocMouseMove.bind(this);
+        this._playheadRAF = null;
+        this._playheadStartTime = 0;
     }
 
     // =========================================================
     // RENDERING — SHELL
     // =========================================================
 
+    _renderHeader() {
+        const saveLabel = this.activeTab === 'arranger'
+            ? `💾 ${this.t('loopCreator.saveArrangement')}`
+            : `💾 ${this.t('loopCreator.save')}`;
+        const saveAction = this.activeTab === 'arranger' ? 'save-arrangement' : 'save-loop';
+        const saveDisplay = this.activeTab === 'library' ? ' style="display:none"' : '';
+        return `
+        <div class="modal-header lc-header">
+            <div class="lc-header-left">
+                <span class="lc-header-title">∞</span>
+            </div>
+            <div class="lc-header-tabs" role="tablist">
+                <button class="lc-tab${this.activeTab === 'create'   ? ' lc-tab--active' : ''}" data-tab="create"   role="tab" aria-selected="${this.activeTab === 'create'}">✏️ ${this.t('loopCreator.tabCreate')}</button>
+                <button class="lc-tab${this.activeTab === 'library'  ? ' lc-tab--active' : ''}" data-tab="library"  role="tab" aria-selected="${this.activeTab === 'library'}">🗂 ${this.t('loopCreator.tabLibrary')}</button>
+                <button class="lc-tab${this.activeTab === 'arranger' ? ' lc-tab--active' : ''}" data-tab="arranger" role="tab" aria-selected="${this.activeTab === 'arranger'}">∞ ${this.t('loopCreator.tabArranger')}</button>
+            </div>
+            <div class="lc-header-actions">
+                <button class="lc-btn lc-btn-primary lc-btn-sm" id="lc-header-save" data-action="${saveAction}"${saveDisplay}>${saveLabel}</button>
+                <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
+            </div>
+        </div>`;
+    }
+
     renderBody() {
         return `
         <div class="lc-layout">
-            <div class="lc-tabs" role="tablist">
-                <button class="lc-tab lc-tab--active" data-tab="create" role="tab" aria-selected="true">
-                    ✏️ ${this.t('loopCreator.tabCreate')}
-                </button>
-                <button class="lc-tab" data-tab="library" role="tab" aria-selected="false">
-                    🗂 ${this.t('loopCreator.tabLibrary')}
-                </button>
-                <button class="lc-tab" data-tab="arranger" role="tab" aria-selected="false">
-                    ∞ ${this.t('loopCreator.tabArranger')}
-                </button>
-            </div>
             <div class="lc-tab-content" id="lc-tab-content">
                 ${this._renderCreateTab()}
                 ${this._renderLibraryTab()}
@@ -116,21 +130,9 @@ class LoopCreatorModal extends BaseModal {
             <div class="lc-footer-left">
                 <span class="lc-status" id="lc-status"></span>
             </div>
-            <div class="lc-footer-right" id="lc-footer-right">
-                ${this._renderFooterForTab(this.activeTab)}
+            <div class="lc-footer-right">
+                <button class="lc-btn" data-action="close">${this.t('common.close')}</button>
             </div>`;
-    }
-
-    _renderFooterForTab(tab) {
-        if (tab === 'create') {
-            return `<button class="lc-btn" data-action="close">${this.t('common.cancel')}</button>
-                    <button class="lc-btn lc-btn-primary" data-action="save-loop">💾 ${this.t('loopCreator.save')}</button>`;
-        }
-        if (tab === 'arranger') {
-            return `<button class="lc-btn" data-action="close">${this.t('common.cancel')}</button>
-                    <button class="lc-btn lc-btn-primary" data-action="save-arrangement">💾 ${this.t('loopCreator.saveArrangement')}</button>`;
-        }
-        return `<button class="lc-btn" data-action="close">${this.t('common.close')}</button>`;
     }
 
     // =========================================================
@@ -150,46 +152,52 @@ class LoopCreatorModal extends BaseModal {
         <div class="lc-pane" id="lc-pane-create">
             <!-- ── Editor toolbar ── -->
             <div class="lc-editor-toolbar">
-                <div class="lc-toolbar-left">
-                    <input type="text" class="lc-name-input" id="lc-name-input"
-                        value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
-                        placeholder="${this.t('loopCreator.namePlaceholder')}"
-                        aria-label="${this.t('loopCreator.loopName')}" />
-                </div>
-                <div class="lc-toolbar-center">
-                    <label class="lc-label">${this.t('loopCreator.tempo')}</label>
-                    <div class="lc-spinbox">
-                        <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
-                        <input type="number" id="lc-tempo" class="lc-spin-input" value="${this.tempo}" min="20" max="300" step="1" />
-                        <button class="lc-spin-btn" data-action="tempo-inc">›</button>
-                    </div>
-                    <span class="lc-unit">BPM</span>
+                <input type="text" class="lc-name-input" id="lc-name-input"
+                    value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
+                    placeholder="${this.t('loopCreator.namePlaceholder')}"
+                    aria-label="${this.t('loopCreator.loopName')}" />
 
-                    <label class="lc-label">${this.t('loopCreator.timeSignature')}</label>
-                    <select id="lc-timesig" class="lc-select">${timeSigHtml}</select>
+                <div class="lc-toolbar-sep"></div>
 
-                    <label class="lc-label">${this.t('loopCreator.bars')}</label>
-                    <div class="lc-spinbox">
-                        <button class="lc-spin-btn" data-action="bars-dec">‹</button>
-                        <input type="number" id="lc-bars" class="lc-spin-input" value="${this.bars}" min="1" max="32" step="1" />
-                        <button class="lc-spin-btn" data-action="bars-inc">›</button>
-                    </div>
-                    <span class="lc-unit">${this.t('loopCreator.barsUnit')}</span>
+                <label class="lc-label">${this.t('loopCreator.tempo')}</label>
+                <div class="lc-spinbox">
+                    <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
+                    <input type="number" id="lc-tempo" class="lc-spin-input" value="${this.tempo}" min="20" max="300" step="1" />
+                    <button class="lc-spin-btn" data-action="tempo-inc">›</button>
+                </div>
+                <span class="lc-unit">BPM</span>
 
-                    <label class="lc-label">${this.t('loopCreator.snap')}</label>
-                    <select id="lc-snap" class="lc-select">
-                        <option value="480">1/1</option><option value="240">1/2</option>
-                        <option value="120" selected>1/4</option><option value="60">1/8</option>
-                        <option value="30">1/16</option>
-                    </select>
+                <div class="lc-toolbar-sep"></div>
+
+                <label class="lc-label">${this.t('loopCreator.timeSignature')}</label>
+                <select id="lc-timesig" class="lc-select">${timeSigHtml}</select>
+
+                <label class="lc-label">${this.t('loopCreator.bars')}</label>
+                <div class="lc-spinbox">
+                    <button class="lc-spin-btn" data-action="bars-dec">‹</button>
+                    <input type="number" id="lc-bars" class="lc-spin-input" value="${this.bars}" min="1" max="32" step="1" />
+                    <button class="lc-spin-btn" data-action="bars-inc">›</button>
                 </div>
-                <div class="lc-toolbar-right">
-                    <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
-                    <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
-                    <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
-                    <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
-                    <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
-                </div>
+                <span class="lc-unit">${this.t('loopCreator.barsUnit')}</span>
+
+                <div class="lc-toolbar-sep"></div>
+
+                <label class="lc-label">${this.t('loopCreator.snap')}</label>
+                <select id="lc-snap" class="lc-select">
+                    <option value="480">1/1</option><option value="240">1/2</option>
+                    <option value="120" selected>1/4</option><option value="60">1/8</option>
+                    <option value="30">1/16</option>
+                </select>
+
+                <div class="lc-toolbar-sep"></div>
+
+                <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
+                <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
+                <button class="lc-btn lc-btn-icon" data-action="select-all" title="${this.t('loopCreator.selectAll')}">⊞</button>
+                <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">✂</button>
+                <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
+                <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
+                <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
             </div>
 
             <!-- ── Piano roll ── -->
@@ -385,9 +393,22 @@ class LoopCreatorModal extends BaseModal {
         this.$$('.lc-pane').forEach(pane => {
             pane.classList.toggle('lc-pane--hidden', !pane.id.endsWith(tab));
         });
-        const footer = this.$('#lc-footer-right');
-        if (footer) footer.innerHTML = this._renderFooterForTab(tab);
-
+        // Update header save button
+        const saveBtn = this.$('#lc-header-save');
+        if (saveBtn) {
+            if (tab === 'create') {
+                saveBtn.dataset.action = 'save-loop';
+                saveBtn.textContent = '';
+                saveBtn.innerHTML = `💾 ${this.t('loopCreator.save')}`;
+                saveBtn.style.display = '';
+            } else if (tab === 'arranger') {
+                saveBtn.dataset.action = 'save-arrangement';
+                saveBtn.innerHTML = `💾 ${this.t('loopCreator.saveArrangement')}`;
+                saveBtn.style.display = '';
+            } else {
+                saveBtn.style.display = 'none';
+            }
+        }
         if (tab === 'library')  this._renderLibrary();
         if (tab === 'arranger') this._initArrangerTab();
     }
@@ -425,11 +446,13 @@ class LoopCreatorModal extends BaseModal {
             case 'tempo-inc':    this._adjustTempo(+1);    break;
             case 'bars-dec':     this._adjustBars(-1);     break;
             case 'bars-inc':     this._adjustBars(+1);     break;
-            case 'mode-draw':    this._setEditMode('dragpoly'); break;
-            case 'mode-select':  this._setEditMode('select');   break;
-            case 'undo':         this.pianoRoll?.undo?.();  break;
-            case 'redo':         this.pianoRoll?.redo?.();  break;
-            case 'clear-notes':  this._clearNotes();        break;
+            case 'mode-draw':       this._setEditMode('dragpoly'); break;
+            case 'mode-select':     this._setEditMode('select');   break;
+            case 'select-all':      this._selectAll();             break;
+            case 'delete-selected': this._deleteSelected();        break;
+            case 'undo':            this.pianoRoll?.undo?.();  break;
+            case 'redo':            this.pianoRoll?.redo?.();  break;
+            case 'clear-notes':     this._clearNotes();        break;
             case 'record':       this._toggleRecording();  break;
             case 'preview':      this._previewLoop();       break;
             case 'stop-all':     this._stopAll();           break;
@@ -490,9 +513,11 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.setAttribute('width',    container.clientWidth  || 900);
         this.pianoRoll.setAttribute('height',   container.clientHeight || 200);
         this.pianoRoll.setAttribute('editmode', 'dragpoly');
+        const noteSpan0 = this.outputNoteMax - this.outputNoteMin;
+        const yrange0   = Math.min(noteSpan0 + 1, 36);
         this.pianoRoll.setAttribute('xrange',   total.toString());
-        this.pianoRoll.setAttribute('yrange',   '36');
-        this.pianoRoll.setAttribute('yoffset',  '48');
+        this.pianoRoll.setAttribute('yrange',   yrange0.toString());
+        this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
         this.pianoRoll.setAttribute('wheelzoom','1');
         this.pianoRoll.setAttribute('xscroll',  '1');
         this.pianoRoll.setAttribute('yscroll',  '1');
@@ -562,6 +587,51 @@ class LoopCreatorModal extends BaseModal {
     _clearNotes() {
         this.sequence = [];
         if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
+    }
+
+    _selectAll() {
+        if (!this.pianoRoll) return;
+        const seq = Array.isArray(this.pianoRoll.sequence) ? this.pianoRoll.sequence : [];
+        seq.forEach(note => { note.f = 1; });
+        this.pianoRoll.sequence = seq;
+        this.pianoRoll.redraw?.();
+    }
+
+    _deleteSelected() {
+        if (!this.pianoRoll) return;
+        const seq = (this.pianoRoll.sequence || []).filter(note => !note.f);
+        this.pianoRoll.sequence = seq;
+        this.pianoRoll.redraw?.();
+    }
+
+    _startPlayheadAnimation() {
+        if (this._playheadRAF) return;
+        this._playheadStartTime = performance.now();
+        const animate = () => {
+            if (!this.isPlaying) {
+                this._playheadRAF = null;
+                return;
+            }
+            if (this.pianoRoll) {
+                const elapsed = (performance.now() - this._playheadStartTime) / 1000;
+                const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
+                this.pianoRoll.cursor = Math.min(tick, this._totalTicks());
+                this.pianoRoll.redrawMarker?.();
+            }
+            this._playheadRAF = requestAnimationFrame(animate);
+        };
+        this._playheadRAF = requestAnimationFrame(animate);
+    }
+
+    _stopPlayheadAnimation() {
+        if (this._playheadRAF) {
+            cancelAnimationFrame(this._playheadRAF);
+            this._playheadRAF = null;
+        }
+        if (this.pianoRoll) {
+            this.pianoRoll.cursor = 0;
+            this.pianoRoll.redrawMarker?.();
+        }
     }
 
     // =========================================================
@@ -865,16 +935,18 @@ class LoopCreatorModal extends BaseModal {
         if (!this._synth) { this._setStatus(this.t('loopCreator.statusNoSynth')); return; }
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
+        this._startPlayheadAnimation();
         this._synth.loadSequence(seq, this.tempo, this.ppq);
         this._synth.play().then(() => {
-            if (this.isPlaying) { this.isPlaying = false; this._setStatus(''); }
-        }).catch(() => { this.isPlaying = false; this._setStatus(''); });
+            if (this.isPlaying) { this.isPlaying = false; this._stopPlayheadAnimation(); this._setStatus(''); }
+        }).catch(() => { this.isPlaying = false; this._stopPlayheadAnimation(); this._setStatus(''); });
     }
 
     _previewViaDevice(seq) {
         const spt = 60 / (this.tempo * this.ppq);
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
+        this._startPlayheadAnimation();
         for (const note of seq) {
             const onMs  = note.t * spt * 1000;
             const offMs = (note.t + (note.g || note.l || 120)) * spt * 1000;
@@ -903,6 +975,7 @@ class LoopCreatorModal extends BaseModal {
         this._playbackTimers = [];
         if (this.isRecording) this._stopRecording();
         this.isPlaying = false;
+        this._stopPlayheadAnimation();
         try { this._synth?.stop?.(); } catch (_) {}
         try { this._synth?.cancelAllNotes?.(); } catch (_) {}
         this._activeKeyEnvelopes.clear();
