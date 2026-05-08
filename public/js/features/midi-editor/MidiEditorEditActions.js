@@ -874,9 +874,15 @@
 
     setupKeyboardShortcuts() {
         this.modal.keyboardHandler = (e) => {
-    // Escape closes the modal regardless of focus
+    // Escape closes the modal — but not if a sub-dialog is currently open
             if (e.key === 'Escape') {
-                this.modal.close();
+                const hasOpenOverlay = document.querySelector(
+                    '.confirm-modal-overlay, .rename-dialog-overlay, ' +
+                    '.unsaved-changes-modal, .file-info-modal-overlay'
+                );
+                if (!hasOpenOverlay) {
+                    this.modal.close();
+                }
                 return;
             }
 
