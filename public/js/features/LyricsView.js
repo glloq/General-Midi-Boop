@@ -164,11 +164,20 @@ class LyricsView {
       return;
     }
 
-    // Convert ticks → seconds for each lyric event
-    const converted = rawLyrics.map(ev => ({
-      startSec: this._ticksToSeconds(ev.tick),
-      text: ev.text
-    }));
+    // Convert ticks → seconds, strip KAR chord markers, filter chord-only events
+    const converted = rawLyrics
+      .map(ev => ({
+        tick: ev.tick,
+        startSec: this._ticksToSeconds(ev.tick),
+        text: this._stripKarMarkers(ev.text)
+      }))
+      .filter(ev => ev.text.length > 0);
+
+    if (converted.length === 0) {
+      this.lyrics = [];
+      if (this.isVisible) this.hide();
+      return;
+    }
 
     // Compute end time of each line = start of next line (last ends at +999s)
     this.lyrics = converted.map((ev, i) => ({
@@ -203,6 +212,25 @@ class LyricsView {
   }
 
   // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // KAR format cleaning
+  // ---------------------------------------------------------------------------
+
+  _stripKarMarkers(text) {
+    if (!text) return '';
+    // KAR metadata lines (@T, @A, @LENGL, etc.)
+    if (text.startsWith('@')) return '';
+    // Chord/lyric separator: %chord1[%chord2...]<syllable → take after <
+    if (text.includes('<')) {
+      text = text.slice(text.indexOf('<') + 1);
+    } else if (text.startsWith('%')) {
+      // Pure chord marker, no lyric syllable
+      return '';
+    }
+    // Strip any trailing / embedded %chord tokens and control chars
+    return text.replace(/%[A-Za-z0-9#b+°øΔ/-]+/g, '').replace(/[\x00-\x1f]/g, '').trim();
+  }
+
   // Tick → second conversion (mirrors MidiSynthesizer logic)
   // ---------------------------------------------------------------------------
 
