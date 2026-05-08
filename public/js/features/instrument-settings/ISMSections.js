@@ -46,7 +46,7 @@
      * in the Notes section (hands_config.enabled === true).
      */
     ISMSections._shouldShowHandsSection = function(tab) {
-        return ISMSections._handsTabEligible(tab);
+        return ISMSections._handsTabEligible(tab) && tab?.settings?.hands_config?.enabled === true;
     };
 
     /**
