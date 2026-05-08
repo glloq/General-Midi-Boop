@@ -5314,6 +5314,7 @@
     <link rel="stylesheet" href="styles/keyboard-modal.css">
     <link rel="stylesheet" href="styles/cc-pitchbend-editor.css">
     <link rel="stylesheet" href="styles/piano-roll-view.css">
+    <link rel="stylesheet" href="styles/lyrics-view.css">
     <link rel="stylesheet" href="styles/auto-assign-modal.css">
     <link rel="stylesheet" href="styles/scoring-settings-modal.css">
     <link rel="stylesheet" href="styles/instrument-capabilities-modal.css">
@@ -5816,6 +5817,16 @@
                                 <label><input type="radio" name="isOriginal" value="false"> <span data-i18n="filters.fileTypeAdapted">Adaptés</span></label>
                             </div>
                         </div>
+
+                        <!-- Karaoké / Paroles -->
+                        <div class="filter-subgroup">
+                            <label class="filter-label">🎤 <span>Karaoké</span></label>
+                            <div class="checkbox-group">
+                                <label><input type="radio" name="hasLyrics" value="all" checked> Tous</label>
+                                <label><input type="radio" name="hasLyrics" value="true"> Avec paroles</label>
+                                <label><input type="radio" name="hasLyrics" value="false"> Sans paroles</label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -6073,6 +6084,7 @@
 
     <!-- Piano Roll View Component -->
     <script src="js/features/PianoRollView.js"></script>
+    <script src="js/features/LyricsView.js"></script>
 
     <script>
         // Timestamp de debut pour la barre de progression du loading screen
@@ -8456,6 +8468,16 @@
             stateDot.className = `file-state-dot ${stateClass}`;
             stateDot.dataset.fileId = file.id;
 
+            // Lyrics (karaoke) tag
+            const hasLyrics = file.hasLyrics || file.has_lyrics;
+            if (hasLyrics) {
+                const lyricsTag = document.createElement('span');
+                lyricsTag.className = 'lyrics-tag';
+                lyricsTag.title = 'Ce fichier contient des paroles (karaoké)';
+                lyricsTag.textContent = '🎤';
+                li.appendChild(lyricsTag);
+            }
+
             const fileNameSpan = document.createElement('span');
             fileNameSpan.className = 'file-name';
             const metadataHtml = file.durationFormatted
@@ -9998,6 +10020,23 @@
                         }
                         console.log(`[Playback] File tempo: ${currentTempo} BPM, PPQ: ${currentTicksPerBeat}`);
 
+                        // Charger les paroles (karaoké) si disponibles
+                        let lyricsEvents = [];
+                        let tempoMapForLyrics = [];
+                        try {
+                            const textData = await api.sendCommand('file_text_events', { fileId, eventType: 'lyrics' });
+                            if (textData && textData.grouped && textData.grouped.lyrics) {
+                                lyricsEvents = textData.grouped.lyrics; // [{tick, track, text}]
+                            }
+                            // Fetch tempo map for accurate tick→second conversion
+                            const tempoMapData = await api.sendCommand('file_tempo_map', { fileId }).catch(() => null);
+                            if (tempoMapData && tempoMapData.tempoMap) {
+                                tempoMapForLyrics = tempoMapData.tempoMap;
+                            }
+                        } catch (lyricsError) {
+                            console.debug('Could not load lyrics:', lyricsError);
+                        }
+
                         // IMPORTANT: Envoyer tempo et ticksPerBeat pour synchronisation
                         if (window.eventBus) {
                             window.eventBus.emit('file:selected', {
@@ -10005,7 +10044,9 @@
                                 filename: filename,
                                 midiData: midiData,
                                 tempo: currentTempo,
-                                ticksPerBeat: currentTicksPerBeat
+                                ticksPerBeat: currentTicksPerBeat,
+                                lyrics: lyricsEvents,
+                                tempoMap: tempoMapForLyrics
                             });
                         }
                     }
@@ -13049,6 +13090,19 @@
                 });
             });
 
+            // Karaoke / hasLyrics filter
+            const lyricsRadios = document.querySelectorAll('input[name="hasLyrics"]');
+            lyricsRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const value = radio.value;
+                    if (value === 'all') {
+                        filterManager.setFilter('hasLyrics', null);
+                    } else {
+                        filterManager.setFilter('hasLyrics', value === 'true');
+                    }
+                });
+            });
+
             // Reset filters button
             resetFiltersBtn.addEventListener('click', async () => {
                 // Reset range sliders to extremes
@@ -13068,6 +13122,9 @@
                 playableModeSelect.value = 'routed';
                 // File type
                 document.querySelector('input[name="isOriginal"][value="all"]').checked = true;
+                // Karaoke
+                const lyricsAllRadio = document.querySelector('input[name="hasLyrics"][value="all"]');
+                if (lyricsAllRadio) lyricsAllRadio.checked = true;
 
                 // Reset filter manager
                 filterManager.resetFilters();
@@ -13315,6 +13372,10 @@
                 const originalRadio = document.querySelector('input[name="isOriginal"][value="all"]');
                 if (originalRadio) originalRadio.checked = true;
                 filterManager.setFilter('isOriginal', null);
+            } else if (key === 'hasLyrics') {
+                const lyricsAllRadio = document.querySelector('input[name="hasLyrics"][value="all"]');
+                if (lyricsAllRadio) lyricsAllRadio.checked = true;
+                filterManager.setFilter('hasLyrics', null);
             } else if (key === 'hasDrums' || key === 'hasMelody' || key === 'hasBass') {
                 // Legacy quick filters — UI removed; just clear stale state.
                 filterManager.setFilter(key, null);
@@ -14057,6 +14118,29 @@
             } else {
                 console.warn('⚠️ PianoRollView non disponible - PianoRollView:', typeof PianoRollView, ', eventBus:', !!window.eventBus);
                 log('⚠️ PianoRollView not available', 'warning');
+            }
+
+            // Initialiser le LyricsView (karaoké)
+            let lyricsView = null;
+            if (typeof LyricsView !== 'undefined' && window.eventBus) {
+                try {
+                    lyricsView = new LyricsView(window.eventBus, {
+                        info:  (msg) => { console.log(msg); log(msg, 'info'); },
+                        warn:  (msg) => { console.warn(msg); log(msg, 'warning'); },
+                        error: (msg) => { console.error(msg); log(msg, 'error'); }
+                    });
+                    // Propagate setting from saved settings
+                    window.eventBus.on('settings:lyrics_changed', (data) => {
+                        try {
+                            const s = JSON.parse(localStorage.getItem('gmboop_settings') || '{}');
+                            s.showLyrics = data.enabled;
+                            localStorage.setItem('gmboop_settings', JSON.stringify(s));
+                        } catch (e) {}
+                    });
+                    log('✓ Lyrics View initialized', 'info');
+                } catch (error) {
+                    console.error('❌ Erreur création LyricsView:', error);
+                }
             }
 
         });

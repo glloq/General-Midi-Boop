@@ -123,6 +123,7 @@ class FileManager {
         ...instrumentMetadata.fileMetadata,
         title: textSummary.title ?? null,
         copyright: textSummary.copyright ?? null,
+        has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0,
         uploaded_at: new Date().toISOString()
       });
       if (instrumentMetadata.channelDetails.length > 0) {
@@ -300,7 +301,8 @@ class FileManager {
         ppq: parsed.header.ticksPerBeat || 480,
         ...instrumentMetadata.fileMetadata,
         title: textSummary.title ?? null,
-        copyright: textSummary.copyright ?? null
+        copyright: textSummary.copyright ?? null,
+        has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
       });
       // content_hash is UNIQUE — not in updateFile's allow-list, raw UPDATE.
       if (newBlob.hash !== file.content_hash) {
@@ -380,7 +382,8 @@ class FileManager {
         ppq: parsed.header.ticksPerBeat || 480,
         ...instrumentMetadata.fileMetadata,
         title: textSummary.title ?? null,
-        copyright: textSummary.copyright ?? null
+        copyright: textSummary.copyright ?? null,
+        has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
       });
       if (newBlob.hash !== file.content_hash) {
         this.app.database.db
@@ -482,7 +485,8 @@ class FileManager {
           this.app.database.updateFile(file.id, {
             ...instrumentMetadata.fileMetadata,
             title: textSummary.title ?? null,
-            copyright: textSummary.copyright ?? null
+            copyright: textSummary.copyright ?? null,
+            has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
           });
           this.app.database.deleteFileChannels(file.id);
           if (instrumentMetadata.channelDetails.length > 0) {
@@ -530,6 +534,7 @@ class FileManager {
       channelCount: file.channel_count || 0,
       uploadedAt: file.uploaded_at,
       folder: file.folder,
+      hasLyrics: file.has_lyrics === 1,
       routingStatus: routingMap.get(file.id) || 'unrouted'
     }));
   }
