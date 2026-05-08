@@ -12461,9 +12461,12 @@
             calibrationModal.open();
         });
 
-        // Loop Creator (∞)
-        const loopCreatorModal = new LoopCreatorModal(api, window.eventBus);
+        // Loop Creator (∞) — created lazily on first click so api is defined
+        let loopCreatorModal = null;
         document.getElementById('loopCreatorBtn').addEventListener('click', () => {
+            if (!loopCreatorModal) {
+                loopCreatorModal = new LoopCreatorModal(window.api, window.eventBus);
+            }
             loopCreatorModal.open();
         });
 

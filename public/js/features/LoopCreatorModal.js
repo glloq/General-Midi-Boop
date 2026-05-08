@@ -85,6 +85,11 @@ class LoopCreatorModal extends BaseModal {
         this._boundDocMouseMove = this._onDocMouseMove.bind(this);
         this._playheadRAF = null;
         this._playheadStartTime = 0;
+
+        // Minimap
+        this._minimapCanvas = null;
+        this._minimapObserver = null;
+        this._minimapDragging = false;
     }
 
     // =========================================================
@@ -236,8 +241,11 @@ class LoopCreatorModal extends BaseModal {
                 <span class="lc-status" id="lc-status"></span>
             </div>
 
-            <!-- ── Piano roll ── -->
-            <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap"></div>
+            <!-- ── Piano roll + minimap ── -->
+            <div class="lc-pianoroll-area">
+                <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap"></div>
+                <canvas class="lc-minimap" id="lc-minimap"></canvas>
+            </div>
 
             <!-- ── Keyboard ── -->
             <div class="lc-keyboard-wrap">
@@ -372,6 +380,11 @@ class LoopCreatorModal extends BaseModal {
         this._stopMidiInMonitor();
         document.removeEventListener('mouseup', this._boundDocMouseUp);
         document.removeEventListener('mousemove', this._boundDocMouseMove);
+        if (this._minimapObserver) {
+            this._minimapObserver.disconnect();
+            this._minimapObserver = null;
+        }
+        this._minimapCanvas = null;
     }
 
     // =========================================================
@@ -525,10 +538,12 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.setAttribute('snap',     '120');
         this.pianoRoll.setAttribute('timebase', this.ppq.toString());
         this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
+        this.pianoRoll.setAttribute('colcursor', '#e74c3c');
         this._applyPianoRollTheme();
         container.appendChild(this.pianoRoll);
         this.pianoRoll.sequence = this.sequence;
         this.pianoRoll.redraw?.();
+        this._initMinimap();
     }
 
     _applyPianoRollTheme() {
@@ -560,6 +575,7 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.setAttribute('yrange',   yrange.toString());
         this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
         this.pianoRoll.redraw?.();
+        this._drawMinimap();
     }
 
     _adjustTempo(d) {
@@ -584,6 +600,7 @@ class LoopCreatorModal extends BaseModal {
     _clearNotes() {
         this.sequence = [];
         if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
+        this._drawMinimap();
     }
 
     _selectAll() {
@@ -599,6 +616,7 @@ class LoopCreatorModal extends BaseModal {
         const seq = (this.pianoRoll.sequence || []).filter(note => !note.f);
         this.pianoRoll.sequence = seq;
         this.pianoRoll.redraw?.();
+        this._drawMinimap();
     }
 
     _startPlayheadAnimation() {
@@ -615,6 +633,7 @@ class LoopCreatorModal extends BaseModal {
                 this.pianoRoll.cursor = Math.min(tick, this._totalTicks());
                 this.pianoRoll.redrawMarker?.();
             }
+            this._drawMinimap();
             this._playheadRAF = requestAnimationFrame(animate);
         };
         this._playheadRAF = requestAnimationFrame(animate);
@@ -628,6 +647,147 @@ class LoopCreatorModal extends BaseModal {
         if (this.pianoRoll) {
             this.pianoRoll.cursor = 0;
             this.pianoRoll.redrawMarker?.();
+        }
+        this._drawMinimap();
+    }
+
+    // =========================================================
+    // MINIMAP
+    // =========================================================
+
+    _initMinimap() {
+        const canvas = this.$('#lc-minimap');
+        if (!canvas) return;
+        this._minimapCanvas = canvas;
+
+        const resize = () => {
+            canvas.width  = canvas.offsetWidth  || 900;
+            canvas.height = canvas.offsetHeight || 44;
+            this._drawMinimap();
+        };
+        resize();
+
+        // Observe piano roll attribute changes to sync viewport rect
+        if (this.pianoRoll) {
+            this._minimapObserver = new MutationObserver(() => this._drawMinimap());
+            this._minimapObserver.observe(this.pianoRoll, {
+                attributes: true, attributeFilter: ['xoffset', 'yoffset']
+            });
+        }
+
+        // Redraw minimap when user scrolls the piano roll
+        const wrap = this.$('#lc-pianoroll-wrap');
+        if (wrap) {
+            wrap.addEventListener('wheel', () => requestAnimationFrame(() => this._drawMinimap()), { passive: true });
+        }
+
+        // Click / drag to seek
+        const onSeek = (e) => {
+            if (!this._minimapDragging) return;
+            this._minimapSeek(e);
+        };
+        canvas.addEventListener('mousedown', (e) => { this._minimapDragging = true; this._minimapSeek(e); });
+        canvas.addEventListener('mousemove', onSeek);
+        canvas.addEventListener('mouseup',   () => { this._minimapDragging = false; });
+        canvas.addEventListener('mouseleave',() => { this._minimapDragging = false; });
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this._minimapDragging = true;
+            this._minimapSeek(e.touches[0]);
+        }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (this._minimapDragging) this._minimapSeek(e.touches[0]);
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => { this._minimapDragging = false; });
+    }
+
+    _minimapSeek(e) {
+        if (!this._minimapCanvas || !this.pianoRoll) return;
+        const rect = this._minimapCanvas.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const totalTicks = this._totalTicks();
+        const xrange = parseFloat(this.pianoRoll.getAttribute('xrange') || totalTicks) || totalTicks;
+        const half = xrange / 2;
+        const newOffset = Math.max(0, Math.min(totalTicks - xrange, Math.round(ratio * totalTicks - half)));
+        this.pianoRoll.setAttribute('xoffset', newOffset.toString());
+        this.pianoRoll.redraw?.();
+        this._drawMinimap();
+    }
+
+    _drawMinimap() {
+        const canvas = this._minimapCanvas;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width;
+        const H = canvas.height;
+        const totalTicks = this._totalTicks();
+        const dark = document.body.classList.contains('theme-dark');
+
+        // Background
+        ctx.fillStyle = dark ? '#0f0f22' : '#eef0f4';
+        ctx.fillRect(0, 0, W, H);
+
+        // Beat lines (subtle)
+        const ticksPerBeat = this.ppq;
+        const ticksPerBar  = ticksPerBeat * this.timeSigNum;
+        ctx.lineWidth = 1;
+        for (let t = 0; t < totalTicks; t += ticksPerBeat) {
+            const x = (t / totalTicks) * W;
+            const isBar = (t % ticksPerBar) === 0;
+            ctx.strokeStyle = isBar
+                ? (dark ? 'rgba(150,150,220,0.35)' : 'rgba(100,110,140,0.3)')
+                : (dark ? 'rgba(100,100,180,0.12)' : 'rgba(160,170,200,0.15)');
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+
+        // Bar number labels
+        ctx.fillStyle = dark ? 'rgba(180,180,220,0.5)' : 'rgba(100,110,140,0.55)';
+        ctx.font = `${Math.min(10, H * 0.27)}px sans-serif`;
+        ctx.textBaseline = 'top';
+        for (let b = 0; b < this.bars; b++) {
+            const x = (b * ticksPerBar / totalTicks) * W;
+            ctx.fillText(b + 1, x + 2, 2);
+        }
+
+        // Notes
+        const seq = this.pianoRoll?.sequence ?? [];
+        const noteMin = this.outputNoteMin;
+        const noteMax = this.outputNoteMax;
+        const noteSpan = Math.max(noteMax - noteMin, 1);
+        const noteH = Math.max(2, H * 0.08);
+        const noteArea = H * 0.78; // use 78% of height for notes, top reserved for labels
+
+        ctx.fillStyle = dark ? '#5b9bd5' : '#4a90d9';
+        for (const note of seq) {
+            const x = (note.t / totalTicks) * W;
+            const w = Math.max(2, ((note.g || note.l || 120) / totalTicks) * W);
+            const ny = H * 0.18 + noteArea - ((note.n - noteMin) / noteSpan) * noteArea;
+            ctx.fillRect(x, ny - noteH, w, noteH);
+        }
+
+        // Viewport rect (which portion of the loop is visible in the piano roll)
+        if (this.pianoRoll) {
+            const xoff   = parseFloat(this.pianoRoll.getAttribute('xoffset') || 0);
+            const xrange = parseFloat(this.pianoRoll.getAttribute('xrange')  || totalTicks);
+            const vx = (xoff / totalTicks) * W;
+            const vw = Math.min(W, (xrange / totalTicks) * W);
+            ctx.fillStyle = 'rgba(74,144,217,0.12)';
+            ctx.fillRect(vx, 0, vw, H);
+            ctx.strokeStyle = 'rgba(74,144,217,0.7)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(vx + 0.5, 0.5, Math.max(2, vw - 1), H - 1);
+        }
+
+        // Playhead
+        const cursor = this.pianoRoll?.cursor ?? 0;
+        if (cursor > 0 || this.isPlaying) {
+            const px = (cursor / totalTicks) * W;
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
         }
     }
 
@@ -730,6 +890,7 @@ class LoopCreatorModal extends BaseModal {
         seq.push(noteObj);
         this.pianoRoll.sequence = seq;
         this.pianoRoll.redraw?.();
+        this._drawMinimap();
     }
 
     // =========================================================
@@ -803,22 +964,101 @@ class LoopCreatorModal extends BaseModal {
 
     async _loadDevices() {
         try {
-            const result = await this.api.sendCommand('device_list');
-            this.devices = result.devices || [];
-            // MIDI In selector
-            const midiInSel = this.$('#lc-midi-in-device');
-            if (midiInSel) {
-                const prev = midiInSel.value;
-                midiInSel.innerHTML = `<option value="">IN:—</option>` +
-                    this.devices.map(d => {
-                        const did = d.device_id || d.id;
-                        return `<option value="${this.escape(did)}">IN: ${this.escape(d.name || did)}</option>`;
-                    }).join('');
-                if (prev) midiInSel.value = prev;
+            // Mirror KeyboardControls.loadDevices: parallel fetch + full enrichment
+            const [rawDevices, capsResp] = await Promise.all([
+                this.api.listDevices(),
+                this.api.sendCommand('instrument_list_capabilities').catch(() => null)
+            ]);
+
+            // Build custom_name lookup from capabilities
+            const customNameMap = {};
+            if (capsResp && Array.isArray(capsResp.instruments)) {
+                for (const inst of capsResp.instruments) {
+                    const id = inst.device_id || inst.id;
+                    if (id && inst.custom_name && !customNameMap[id]) {
+                        customNameMap[id] = inst.custom_name;
+                    }
+                }
             }
-            // Instrument output selector
-            this._populateInstrumentSelector();
-        } catch (_) {}
+
+            // Active devices only, deduplicated by ID
+            const activeDevices = rawDevices.filter(d => d.status === 2);
+            const uniqueDevices = [];
+            const seenIds = new Set();
+            for (const d of activeDevices) {
+                const key = d.id || d.device_id || d.name;
+                if (!seenIds.has(key)) { seenIds.add(key); uniqueDevices.push(d); }
+            }
+
+            // Expand multi-instrument devices
+            const expanded = [];
+            for (const d of uniqueDevices) {
+                if (d.instruments && d.instruments.length > 0) {
+                    for (const inst of d.instruments) {
+                        expanded.push({
+                            ...d,
+                            channel: inst.channel ?? 0,
+                            displayName: inst.custom_name || inst.name || d.name,
+                            gm_program: inst.gm_program,
+                            _multiInstrument: true
+                        });
+                    }
+                } else {
+                    expanded.push(d);
+                }
+            }
+
+            // Virtual instruments (from DB, if enabled in settings)
+            let virtualEnabled = false;
+            try {
+                const s = localStorage.getItem('gmboop_settings');
+                if (s) virtualEnabled = !!JSON.parse(s).virtualInstrument;
+            } catch (_) {}
+
+            if (virtualEnabled && capsResp?.instruments) {
+                const existingIds = new Set(expanded.map(d => d.id || d.device_id));
+                for (const inst of capsResp.instruments) {
+                    const devId = inst.device_id || inst.id;
+                    if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
+                        expanded.push({
+                            id: devId, device_id: devId,
+                            name: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
+                            displayName: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
+                            status: 2, isVirtual: true,
+                            channel: inst.channel || 0,
+                            gm_program: inst.gm_program
+                        });
+                    }
+                }
+            }
+
+            // Enrich with custom names, normalize id/device_id
+            this.devices = expanded.map(d => {
+                const did = d.id || d.device_id;
+                if (d.isVirtual || d._multiInstrument) return { ...d, id: did, device_id: did };
+                return {
+                    ...d, id: did, device_id: did,
+                    displayName: customNameMap[did] || d.name
+                };
+            });
+        } catch (_) {
+            this.devices = [];
+        }
+
+        // Update MIDI In selector
+        const midiInSel = this.$('#lc-midi-in-device');
+        if (midiInSel) {
+            const prev = midiInSel.value;
+            midiInSel.innerHTML = `<option value="">IN:—</option>` +
+                this.devices.map(d => {
+                    const did = d.device_id || d.id;
+                    return `<option value="${this.escape(did)}">IN: ${this.escape(d.displayName || d.name || did)}</option>`;
+                }).join('');
+            if (prev) midiInSel.value = prev;
+        }
+
+        // Refresh instrument picker
+        this._populateInstrumentSelector();
     }
 
     _populateInstrumentSelector() {
@@ -840,24 +1080,15 @@ class LoopCreatorModal extends BaseModal {
         synthBtn.addEventListener('click', () => { this._onInstrumentSelect('synth'); });
         dropdown.appendChild(synthBtn);
 
-        // MIDI device options
+        // MIDI device options — devices are already expanded (1 entry per instrument)
         for (const device of this.devices) {
             const did = device.device_id || device.id;
             const name = device.displayName || device.name || did;
-            if (Array.isArray(device.instruments) && device.instruments.length > 1) {
-                for (const instr of device.instruments) {
-                    const ch = instr.channel ?? 0;
-                    const value = `device::${did}::${ch}`;
-                    const label = instr.name ? `${name} — ${instr.name}` : `${name}`;
-                    const isSelected = this.outputMode === 'device' && this.outputDeviceId === did && this.outputChannel === ch;
-                    dropdown.appendChild(this._buildInstrOption(value, label, `Ch${ch + 1}`, isSelected, instr.gm_program ?? device.gm_program, ch));
-                }
-            } else {
-                const ch = device.channel ?? 0;
-                const value = `device::${did}::${ch}`;
-                const isSelected = this.outputMode === 'device' && this.outputDeviceId === did;
-                dropdown.appendChild(this._buildInstrOption(value, name, `Ch${ch + 1}`, isSelected, device.gm_program, ch));
-            }
+            const ch = device.channel ?? 0;
+            const value = `device::${did}::${ch}`;
+            const isSelected = this.outputMode === 'device' && this.outputDeviceId === did && this.outputChannel === ch;
+            const chLabel = device._multiInstrument ? `Ch${ch + 1}` : '';
+            dropdown.appendChild(this._buildInstrOption(value, name, chLabel, isSelected, device.gm_program, ch));
         }
     }
 
@@ -1159,7 +1390,7 @@ class LoopCreatorModal extends BaseModal {
             const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
             f('#lc-name-input', loop.name); f('#lc-tempo', loop.tempo); f('#lc-bars', loop.bars);
             const ts = this.$('#lc-timesig'); if (ts) ts.value = `${loop.time_sig_num}:${loop.time_sig_den}`;
-            if (this.pianoRoll) { this._refreshPianoRollRange(); this.pianoRoll.sequence = seq; this.pianoRoll.redraw?.(); }
+            if (this.pianoRoll) { this._refreshPianoRollRange(); this.pianoRoll.sequence = seq; this.pianoRoll.redraw?.(); this._drawMinimap(); }
             this._setStatus(this.t('loopCreator.statusLoaded'));
         } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
     }
