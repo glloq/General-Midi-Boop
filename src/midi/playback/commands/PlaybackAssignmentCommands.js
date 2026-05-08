@@ -15,6 +15,7 @@ import InstrumentCapabilitiesValidator from '../../adaptation/InstrumentCapabili
 import InstrumentMatcher from '../../adaptation/InstrumentMatcher.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
+import { computeRoutingStatus } from '../../files/FileRoutingStatusService.js';
 
 /**
  * Build a per-channel hand-position feasibility summary for an apply
@@ -657,7 +658,34 @@ async function getFileRoutings(app, data) {
   }
 
   const routings = app.routingRepository.findByFileId(data.fileId);
-  return { success: true, routings, count: routings.length };
+
+  // Compute summary metrics for the playlist status indicators.
+  const file = app.fileRepository.findById(data.fileId);
+  const statusResult = file
+    ? computeRoutingStatus({ file, routings })
+    : { status: 'unrouted', routedCount: 0, channelCount: 0 };
+
+  const scores = routings
+    .map(r => r.compatibility_score)
+    .filter(s => s !== null && s !== undefined);
+  const avgScore = scores.length > 0
+    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+    : null;
+
+  const transpositions = [...new Set(
+    routings.map(r => r.transposition_applied || 0).filter(t => t !== 0)
+  )];
+
+  return {
+    success: true,
+    routings,
+    count: routings.length,
+    status: statusResult.status,
+    routedCount: statusResult.routedCount,
+    channelCount: statusResult.channelCount,
+    avgScore,
+    transpositions,
+  };
 }
 
 /**

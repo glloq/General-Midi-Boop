@@ -57,6 +57,17 @@
     --danger-color: #e8365d;
     --info-color: #0d8ecf;
 
+    /* Routing status — palette canonique pour les indicateurs de fichier MIDI.
+       Utilisée dans PlaylistPage, PlaylistEditorModal et auto-assign. */
+    --status-ok:       #27ae60;   /* ≥70% score — tout jouable */
+    --status-warning:  #f39c12;   /* 40–69% — partiel / dégradé */
+    --status-critical: #e8365d;   /* <40%  — inutilisable */
+    --status-none:     #8c8c8c;   /* aucun routage configuré */
+    --status-info:     #6b7280;   /* info neutre (ex: transposition) */
+    --status-ok-bg:       rgba(39, 174,  96, 0.12);
+    --status-warning-bg:  rgba(243,156,  18, 0.12);
+    --status-critical-bg: rgba(232, 54,  93, 0.12);
+
     /* Close / X button */
     --close-btn-bg: #dc2626;
     --close-btn-bg-hover: #b91c1c;
