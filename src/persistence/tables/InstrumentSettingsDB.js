@@ -47,7 +47,7 @@ class InstrumentSettingsDB {
           'name', 'gm_program', 'octave_mode', 'comm_timeout',
           'instrument_type', 'instrument_subtype',
           'min_note_interval', 'min_note_duration', 'omni_mode',
-          'voices_share_notes'
+          'voices_share_notes', 'custom_sf2_id'
         ], { whereClause: 'device_id = ? AND channel = ?' });
 
         if (!result) return existing.id;
@@ -280,7 +280,7 @@ class InstrumentSettingsDB {
         'name', 'custom_name', 'instrument_type', 'instrument_subtype',
         'sync_delay', 'mac_address', 'usb_serial_number',
         'gm_program', 'octave_mode', 'comm_timeout', 'midi_clock_enabled',
-        'min_note_interval', 'min_note_duration', 'enabled'
+        'min_note_interval', 'min_note_duration', 'enabled', 'custom_sf2_id'
       ]);
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, instrumentId);

@@ -127,6 +127,15 @@ async function instrumentUpdateSettings(app, data) {
     data.voices_share_notes = data.voices_share_notes ? 1 : 0;
   }
 
+  // Validate custom_sf2_id (must be a positive integer or null)
+  if (data.custom_sf2_id !== undefined && data.custom_sf2_id !== null) {
+    const sf2Id = parseInt(data.custom_sf2_id);
+    if (isNaN(sf2Id) || sf2Id <= 0) {
+      throw new ValidationError('custom_sf2_id must be a positive integer', 'custom_sf2_id');
+    }
+    data.custom_sf2_id = sf2Id;
+  }
+
   // `instruments_latency.device_id` has a FK to `devices(id)`. Ensure
   // the parent row exists (idempotent INSERT OR IGNORE) before the
   // settings row is upserted — otherwise the first save for a newly
@@ -150,7 +159,8 @@ async function instrumentUpdateSettings(app, data) {
     octave_mode: data.octave_mode,
     comm_timeout: data.comm_timeout,
     omni_mode: data.omni_mode,
-    voices_share_notes: data.voices_share_notes
+    voices_share_notes: data.voices_share_notes,
+    custom_sf2_id: data.custom_sf2_id !== undefined ? data.custom_sf2_id : undefined
   });
 
   // Notify routing/playback systems to invalidate cached compensation values

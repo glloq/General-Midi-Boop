@@ -162,7 +162,7 @@
 
             <div class="ism-form-group ism-identity-picker-wrap">
                 <div class="ism-identity-header-row">
-                    <label>${this.t('instrumentSettings.gmCategory') || 'Instrument'}</label>
+                    <label>${this.t('instrumentSettings.gmCategory') || 'Type MIDI (GM)'}</label>
                     <div class="ism-preview-slot" id="ismPreviewSlot"></div>
                 </div>
                 ${pickerHtml}
@@ -170,6 +170,7 @@
                 <div id="drumKitNotice" class="ism-drum-notice" style="display: none;">
                     ${this.t('instrumentSettings.drumKitNotice') || 'Les kits de batterie utilisent le canal MIDI 10 et le mode notes individuelles.'}
                 </div>
+                <span class="ism-form-hint">${this.t('instrumentSettings.gmCategoryHelp') || 'Utilisé pour la prévisualisation sonore et le routage automatique des fichiers MIDI. Ne correspond pas forcément au son réel de votre instrument.'}</span>
             </div>
 
             <div class="ism-form-group">
@@ -195,6 +196,8 @@
                 <input type="hidden" id="channelSelect" value="${channel}">
                 <input type="hidden" id="omniModeInput" value="${omniMode ? '1' : '0'}">
             </div>
+
+            ${this._renderSF2PickerSection(settings)}
 
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.deviceName') || 'Appareil'}</label>
@@ -433,6 +436,37 @@
         const listHtml = `<div class="ism-selected-list">${primaryHtml}${voiceRows}</div>`;
 
         return listHtml + addBtnHtml;
+    };
+
+    ISMSections._renderSF2PickerSection = function(settings) {
+        const banks = (this._sf2Banks && this._sf2Banks.length > 0) ? this._sf2Banks : null;
+        const currentSf2Id = settings ? (settings.custom_sf2_id || null) : null;
+
+        if (!banks) {
+            return `
+            <div class="ism-form-group ism-sf2-picker-section">
+                <label>${this.t('instrumentSettings.customSf2') || 'Soundfont personnalisé (SF2)'}</label>
+                <div class="ism-info-card" style="font-size:12px; color:var(--text-secondary,#666);">
+                    ${this.t('instrumentSettings.customSf2None') || 'Aucun soundfont SF2 disponible. Ajoutez-en via'} <a href="#" class="ism-open-settings-link" data-open-settings="son">${this.t('instrumentSettings.customSf2SettingsLink') || 'Réglages → Son'}</a>.
+                </div>
+                <input type="hidden" id="customSf2Id" value="">
+                <span class="ism-form-hint">${this.t('instrumentSettings.customSf2Help') || 'Pour les instruments hors norme GM : assignez un soundfont SF2 spécifique utilisé lors de la prévisualisation.'}</span>
+            </div>`;
+        }
+
+        let options = `<option value="">${this.t('instrumentSettings.customSf2Default') || '— Soundfont global (par défaut) —'}</option>`;
+        for (const b of banks) {
+            const sel = currentSf2Id === b.id ? ' selected' : '';
+            const sizeLabel = b.size ? ' (' + (b.size >= 1024 * 1024 ? (b.size / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(b.size / 1024) + ' KB') + ')' : '';
+            options += `<option value="${this.escape(String(b.id))}"${sel}>${this.escape(b.label)}${this.escape(sizeLabel)}</option>`;
+        }
+
+        return `
+            <div class="ism-form-group ism-sf2-picker-section">
+                <label>${this.t('instrumentSettings.customSf2') || 'Soundfont personnalisé (SF2)'}</label>
+                <select id="customSf2Id">${options}</select>
+                <span class="ism-form-hint">${this.t('instrumentSettings.customSf2Help') || 'Pour les instruments hors norme GM : assignez un soundfont SF2 spécifique utilisé lors de la prévisualisation. Laissez sur «&nbsp;par défaut&nbsp;» si votre instrument utilise un son GM standard.'}</span>
+            </div>`;
     };
 
     ISMSections._renderSysexIdentityCard = function(identity) {

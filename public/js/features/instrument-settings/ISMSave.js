@@ -130,6 +130,11 @@
             const minNoteDurationVal = this.$('#minNoteDuration')?.value?.trim();
             const minNoteDuration = minNoteDurationVal !== '' && minNoteDurationVal != null ? parseInt(minNoteDurationVal) : null;
 
+            // Custom SF2 soundfont override (for non-GM instruments)
+            const sf2El = this.$('#customSf2Id');
+            const sf2Raw = sf2El ? sf2El.value.trim() : '';
+            const customSf2Id = sf2Raw !== '' ? (parseInt(sf2Raw) || null) : null;
+
             // Omni mode (accept notes on any channel — useful for devices hosting a single instrument)
             const omniModeVal = this.$('#omniModeInput')?.value;
             const omniMode = omniModeVal === '1' || omniModeVal === 'true';
@@ -271,6 +276,7 @@
                 min_note_duration: minNoteDuration,
                 omni_mode: omniMode,
                 voices_share_notes: voicesShareNotes,
+                custom_sf2_id: customSf2Id,
                 // capabilities
                 polyphony: effectivePolyphony,
                 note_selection_mode: isStringInst
