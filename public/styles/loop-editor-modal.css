@@ -218,6 +218,39 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
 .loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode > .modal-header {
     position: relative;
     z-index: 5;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    min-height: 32px !important;
+}
+
+/* Single-row header: instrument selector + controls share one line so
+   the editor recovers ~28px of vertical space. */
+.loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode #header-instrument-selector {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    max-width: 240px !important;
+    min-width: 140px !important;
+    order: 0 !important;
+    border-bottom: none !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+.loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode .instrument-trigger {
+    height: 32px !important;
+    width: 100% !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
+}
+.loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode .instrument-trigger-name {
+    font-size: 0.78rem !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode .keyboard-header-row {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 0 6px !important;
+    min-height: 32px !important;
 }
 .loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode > .modal-body {
     flex: 1 1 0 !important;
