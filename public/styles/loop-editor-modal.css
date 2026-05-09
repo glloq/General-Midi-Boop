@@ -190,14 +190,17 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
    flex-direction: column` from `.keyboard-modal .modal-dialog`, but in
    panel mode it is reparented out of `.keyboard-modal` and loses that
    rule — so its `.modal-body { flex: 1 }` chain stops working. We force
-   the flex layout back here. */
+   the flex layout back here.
+   NOTE: keep `overflow: visible` on the dialog so the instrument
+   dropdown (which opens upward in panel mode via `bottom: 100%`) can
+   escape the panel bounds. */
 .loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode {
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
     width: 100% !important;
     min-height: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: white;
     margin: 0 !important;
     padding: 0 !important;
@@ -210,6 +213,12 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
 .loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode > .wind-instrument-panel {
     flex: 0 0 auto;
 }
+/* Keep the header above the dialog body so the open instrument dropdown
+   stacks on top of the piano keys area. */
+.loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode > .modal-header {
+    position: relative;
+    z-index: 5;
+}
 .loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode > .modal-body {
     flex: 1 1 0 !important;
     min-height: 0 !important;
@@ -217,6 +226,11 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
     flex-direction: column !important;
     overflow: hidden !important;
 }
+
+/* The host panel itself must not clip the dropdown that flips upward.
+   Its content (the inner modal-body) is what should clip the keys area,
+   not the panel boundary. */
+.loop-editor-modal .lc-kb-panel { overflow: visible; }
 
 /* ── Keyboard panel header: gradient accent ── */
 .loop-editor-modal .lc-kb-panel .modal-header {
