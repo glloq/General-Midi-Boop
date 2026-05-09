@@ -52,6 +52,7 @@
                 this._onTouchStart = (e) => { e.preventDefault(); this._dragging = true;  this._seek(e.touches[0].clientX); };
                 this._onTouchMove  = (e) => { e.preventDefault(); if (this._dragging) this._seek(e.touches[0].clientX); };
                 this._onTouchEnd   = ()  => { this._dragging = false; };
+                this._onKeyDown    = (e) => this._handleKeyDown(e);
 
                 canvas.addEventListener('mousedown',  this._onMouseDown);
                 canvas.addEventListener('mousemove',  this._onMouseMove);
@@ -60,6 +61,7 @@
                 canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
                 canvas.addEventListener('touchmove',  this._onTouchMove,  { passive: false });
                 canvas.addEventListener('touchend',   this._onTouchEnd);
+                canvas.addEventListener('keydown',    this._onKeyDown);
             }
         }
 
@@ -119,6 +121,27 @@
             const newOffset = Math.max(0, Math.min(total - xrange,
                 Math.round(ratio * total - xrange / 2)));
             this.onSeek(newOffset);
+        }
+
+        // Keyboard navigation: Left/Right ±beat, Shift+Left/Right ±bar, Home/End extremes.
+        _handleKeyDown(e) {
+            if (!this.onSeek) return;
+            const total  = this._totalTicks();
+            const xrange = this._xrange || total;
+            const maxOff = Math.max(0, total - xrange);
+            const beat   = this.ppq;
+            const bar    = beat * this.timeSigNum;
+            const step   = e.shiftKey ? bar : beat;
+            let next = this._xoffset;
+            switch (e.key) {
+                case 'ArrowLeft':  next = this._xoffset - step; break;
+                case 'ArrowRight': next = this._xoffset + step; break;
+                case 'Home':       next = 0; break;
+                case 'End':        next = maxOff; break;
+                default: return;
+            }
+            e.preventDefault();
+            this.onSeek(Math.max(0, Math.min(maxOff, Math.round(next))));
         }
 
         _totalTicks() { return this.ppq * this.timeSigNum * this.bars; }
@@ -231,6 +254,7 @@
                 c.removeEventListener('touchstart', this._onTouchStart);
                 c.removeEventListener('touchmove',  this._onTouchMove);
                 c.removeEventListener('touchend',   this._onTouchEnd);
+                c.removeEventListener('keydown',    this._onKeyDown);
             }
             this._notes = [];
             this.canvas = null;
