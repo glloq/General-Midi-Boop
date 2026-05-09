@@ -47,25 +47,11 @@
     };
     function _handColor(id) { return HAND_COLORS[id] || '#6b7280'; }
 
-    /** Translucent fill of a hand colour for the roll-background lanes.
-     *  Cached so the per-frame draw doesn't re-parse the hex on every
-     *  segment. Alpha 0.18 is light enough that note rectangles drawn
-     *  on top remain readable. */
-    const _BAND_FILL_CACHE = new Map();
-    function _bandFill(hex) {
-        let v = _BAND_FILL_CACHE.get(hex);
-        if (v) return v;
-        if (typeof hex !== 'string' || hex.length !== 7 || hex[0] !== '#') {
-            v = 'rgba(107,114,128,0.18)';
-        } else {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            v = `rgba(${r}, ${g}, ${b}, 0.18)`;
-        }
-        _BAND_FILL_CACHE.set(hex, v);
-        return v;
-    }
+    // Delegate hex→rgba caching to the shared utility (MinimapUtils.js).
+    const _bandFill = (hex) =>
+        (typeof window !== 'undefined' && window.MinimapUtils)
+            ? window.MinimapUtils.bandFillRgba(hex, 0.18)
+            : 'rgba(107,114,128,0.18)';
 
     class KeyboardHandPositionEditorModal extends window.BaseModal {
         constructor(opts = {}) {

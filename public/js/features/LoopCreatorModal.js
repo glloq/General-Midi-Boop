@@ -84,9 +84,8 @@ class LoopCreatorModal extends BaseModal {
         this._playheadStartTime = 0;
 
         // Minimap
-        this._minimapCanvas = null;
+        this._minimap = null;
         this._minimapObserver = null;
-        this._minimapDragging = false;
     }
 
     // =========================================================
@@ -336,7 +335,8 @@ class LoopCreatorModal extends BaseModal {
             this._minimapObserver.disconnect();
             this._minimapObserver = null;
         }
-        this._minimapCanvas = null;
+        this._minimap?.destroy();
+        this._minimap = null;
     }
 
     // =========================================================
@@ -514,7 +514,7 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.setAttribute('yrange',   yrange.toString());
         this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
         this.pianoRoll.redraw?.();
-        this._drawMinimap();
+        this._syncMinimap();
     }
 
     _adjustTempo(d) {
@@ -539,7 +539,7 @@ class LoopCreatorModal extends BaseModal {
     _clearNotes() {
         this.sequence = [];
         if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
-        this._drawMinimap();
+        this._syncMinimap();
     }
 
     _selectAll() {
@@ -555,7 +555,7 @@ class LoopCreatorModal extends BaseModal {
         const seq = (this.pianoRoll.sequence || []).filter(note => !note.f);
         this.pianoRoll.sequence = seq;
         this.pianoRoll.redraw?.();
-        this._drawMinimap();
+        this._syncMinimap();
     }
 
     _startPlayheadAnimation() {
@@ -572,7 +572,7 @@ class LoopCreatorModal extends BaseModal {
                 this.pianoRoll.cursor = Math.min(tick, this._totalTicks());
                 this.pianoRoll.redrawMarker?.();
             }
-            this._drawMinimap();
+            this._syncMinimap();
             this._playheadRAF = requestAnimationFrame(animate);
         };
         this._playheadRAF = requestAnimationFrame(animate);
@@ -587,7 +587,7 @@ class LoopCreatorModal extends BaseModal {
             this.pianoRoll.cursor = 0;
             this.pianoRoll.redrawMarker?.();
         }
-        this._drawMinimap();
+        this._syncMinimap();
     }
 
     // =========================================================
@@ -597,137 +597,49 @@ class LoopCreatorModal extends BaseModal {
     _initMinimap() {
         const canvas = this.$('#lc-minimap');
         if (!canvas) return;
-        this._minimapCanvas = canvas;
 
-        const resize = () => {
-            canvas.width  = canvas.offsetWidth  || 900;
-            canvas.height = canvas.offsetHeight || 44;
-            this._drawMinimap();
-        };
-        resize();
+        this._minimap = new window.LoopCreatorMinimap(canvas, {
+            ppq:        this.ppq,
+            timeSigNum: this.timeSigNum,
+            bars:       this.bars,
+            noteMin:    this.outputNoteMin,
+            noteMax:    this.outputNoteMax,
+            onSeek: (newOffset) => {
+                if (!this.pianoRoll) return;
+                this.pianoRoll.setAttribute('xoffset', newOffset.toString());
+                this.pianoRoll.redraw?.();
+                this._syncMinimap();
+            }
+        });
 
-        // Observe piano roll attribute changes to sync viewport rect
         if (this.pianoRoll) {
-            this._minimapObserver = new MutationObserver(() => this._drawMinimap());
+            this._minimapObserver = new MutationObserver(() => this._syncMinimap());
             this._minimapObserver.observe(this.pianoRoll, {
-                attributes: true, attributeFilter: ['xoffset', 'yoffset']
+                attributes: true, attributeFilter: ['xoffset', 'xrange']
             });
         }
 
-        // Redraw minimap when user scrolls the piano roll
         const wrap = this.$('#lc-pianoroll-wrap');
         if (wrap) {
-            wrap.addEventListener('wheel', () => requestAnimationFrame(() => this._drawMinimap()), { passive: true });
+            wrap.addEventListener('wheel', () => requestAnimationFrame(() => this._syncMinimap()), { passive: true });
         }
 
-        // Click / drag to seek
-        const onSeek = (e) => {
-            if (!this._minimapDragging) return;
-            this._minimapSeek(e);
-        };
-        canvas.addEventListener('mousedown', (e) => { this._minimapDragging = true; this._minimapSeek(e); });
-        canvas.addEventListener('mousemove', onSeek);
-        canvas.addEventListener('mouseup',   () => { this._minimapDragging = false; });
-        canvas.addEventListener('mouseleave',() => { this._minimapDragging = false; });
-
-        // Touch support
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this._minimapDragging = true;
-            this._minimapSeek(e.touches[0]);
-        }, { passive: false });
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (this._minimapDragging) this._minimapSeek(e.touches[0]);
-        }, { passive: false });
-        canvas.addEventListener('touchend', () => { this._minimapDragging = false; });
+        this._syncMinimap();
     }
 
-    _minimapSeek(e) {
-        if (!this._minimapCanvas || !this.pianoRoll) return;
-        const rect = this._minimapCanvas.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        const totalTicks = this._totalTicks();
-        const xrange = parseFloat(this.pianoRoll.getAttribute('xrange') || totalTicks) || totalTicks;
-        const half = xrange / 2;
-        const newOffset = Math.max(0, Math.min(totalTicks - xrange, Math.round(ratio * totalTicks - half)));
-        this.pianoRoll.setAttribute('xoffset', newOffset.toString());
-        this.pianoRoll.redraw?.();
-        this._drawMinimap();
-    }
-
-    _drawMinimap() {
-        const canvas = this._minimapCanvas;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        const W = canvas.width;
-        const H = canvas.height;
-        const totalTicks = this._totalTicks();
-        const dark = document.body.classList.contains('theme-dark');
-
-        // Background
-        ctx.fillStyle = dark ? '#0f0f22' : '#eef0f4';
-        ctx.fillRect(0, 0, W, H);
-
-        // Beat lines (subtle)
-        const ticksPerBeat = this.ppq;
-        const ticksPerBar  = ticksPerBeat * this.timeSigNum;
-        ctx.lineWidth = 1;
-        for (let t = 0; t < totalTicks; t += ticksPerBeat) {
-            const x = (t / totalTicks) * W;
-            const isBar = (t % ticksPerBar) === 0;
-            ctx.strokeStyle = isBar
-                ? (dark ? 'rgba(150,150,220,0.35)' : 'rgba(100,110,140,0.3)')
-                : (dark ? 'rgba(100,100,180,0.12)' : 'rgba(160,170,200,0.15)');
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-        }
-
-        // Bar number labels
-        ctx.fillStyle = dark ? 'rgba(180,180,220,0.5)' : 'rgba(100,110,140,0.55)';
-        ctx.font = `${Math.min(10, H * 0.27)}px sans-serif`;
-        ctx.textBaseline = 'top';
-        for (let b = 0; b < this.bars; b++) {
-            const x = (b * ticksPerBar / totalTicks) * W;
-            ctx.fillText(b + 1, x + 2, 2);
-        }
-
-        // Notes
-        const seq = this.pianoRoll?.sequence ?? [];
-        const noteMin = this.outputNoteMin;
-        const noteMax = this.outputNoteMax;
-        const noteSpan = Math.max(noteMax - noteMin, 1);
-        const noteH = Math.max(2, H * 0.08);
-        const noteArea = H * 0.78; // use 78% of height for notes, top reserved for labels
-
-        ctx.fillStyle = dark ? '#5b9bd5' : '#4a90d9';
-        for (const note of seq) {
-            const x = (note.t / totalTicks) * W;
-            const w = Math.max(2, ((note.g || note.l || 120) / totalTicks) * W);
-            const ny = H * 0.18 + noteArea - ((note.n - noteMin) / noteSpan) * noteArea;
-            ctx.fillRect(x, ny - noteH, w, noteH);
-        }
-
-        // Viewport rect (which portion of the loop is visible in the piano roll)
-        if (this.pianoRoll) {
-            const xoff   = parseFloat(this.pianoRoll.getAttribute('xoffset') || 0);
-            const xrange = parseFloat(this.pianoRoll.getAttribute('xrange')  || totalTicks);
-            const vx = (xoff / totalTicks) * W;
-            const vw = Math.min(W, (xrange / totalTicks) * W);
-            ctx.fillStyle = 'rgba(74,144,217,0.12)';
-            ctx.fillRect(vx, 0, vw, H);
-            ctx.strokeStyle = 'rgba(74,144,217,0.7)';
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(vx + 0.5, 0.5, Math.max(2, vw - 1), H - 1);
-        }
-
-        // Playhead
-        const cursor = this.pianoRoll?.cursor ?? 0;
-        if (cursor > 0 || this.isPlaying) {
-            const px = (cursor / totalTicks) * W;
-            ctx.strokeStyle = '#e74c3c';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
-        }
+    _syncMinimap() {
+        const m = this._minimap;
+        if (!m) return;
+        const total  = this._totalTicks();
+        const xoff   = parseFloat(this.pianoRoll?.getAttribute?.('xoffset') || 0);
+        const xrange = parseFloat(this.pianoRoll?.getAttribute?.('xrange')  || total) || total;
+        m.setConfig({
+            ppq: this.ppq, timeSigNum: this.timeSigNum, bars: this.bars,
+            noteMin: this.outputNoteMin, noteMax: this.outputNoteMax
+        });
+        m.setNotes(this.pianoRoll?.sequence ?? []);
+        m.setViewport(xoff, xrange);
+        m.setPlayhead(this.pianoRoll?.cursor ?? 0, this.isPlaying);
     }
 
     // =========================================================
@@ -769,7 +681,7 @@ class LoopCreatorModal extends BaseModal {
         seq.push(noteObj);
         this.pianoRoll.sequence = seq;
         this.pianoRoll.redraw?.();
-        this._drawMinimap();
+        this._syncMinimap();
     }
 
     // =========================================================
@@ -1037,7 +949,7 @@ class LoopCreatorModal extends BaseModal {
             const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
             f('#lc-name-input', loop.name); f('#lc-tempo', loop.tempo); f('#lc-bars', loop.bars);
             const ts = this.$('#lc-timesig'); if (ts) ts.value = `${loop.time_sig_num}:${loop.time_sig_den}`;
-            if (this.pianoRoll) { this._refreshPianoRollRange(); this.pianoRoll.sequence = seq; this.pianoRoll.redraw?.(); this._drawMinimap(); }
+            if (this.pianoRoll) { this._refreshPianoRollRange(); this.pianoRoll.sequence = seq; this.pianoRoll.redraw?.(); this._syncMinimap(); }
             this._setStatus(this.t('loopCreator.statusLoaded'));
         } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
     }
