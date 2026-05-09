@@ -181,12 +181,7 @@ class KeyboardModalNew {
         this.updateSlidersVisibility();
 
         // Subscribe to locale changes
-        if (typeof i18n !== 'undefined') {
-            this.localeUnsubscribe = i18n.onLocaleChange(() => {
-                this.updateTranslations();
-                this.populateDeviceSelect();
-            });
-        }
+        this._subscribeLocale();
 
         this.logger.info('[KeyboardModal] Opened');
     }
@@ -1030,6 +1025,15 @@ class KeyboardModalNew {
         this.populateDeviceSelect();
     }
 
+    _subscribeLocale() {
+        if (typeof i18n !== 'undefined') {
+            this.localeUnsubscribe = i18n.onLocaleChange(() => {
+                this.updateTranslations();
+                this.populateDeviceSelect();
+            });
+        }
+    }
+
     mountAsPanel(panelContainer, callbacks = {}) {
         if (this._panelMode) return;
         if (this.isOpen) this.close();
@@ -1040,7 +1044,7 @@ class KeyboardModalNew {
         this.loadSettings();
         this.createModal();
         this.isOpen = true;
-        this.container.style.display = 'none'; // hide overlay shell before any layout pass
+        this.container.style.display = 'none'; // keep the empty overlay shell invisible in body
 
         const dialogEl = this.container.querySelector('.modal-dialog');
         if (dialogEl) {
@@ -1052,13 +1056,7 @@ class KeyboardModalNew {
         this.loadDevices().then(() => this.populateDeviceSelect());
         this.attachEvents();
         this.updateSlidersVisibility();
-
-        if (typeof i18n !== 'undefined') {
-            this.localeUnsubscribe = i18n.onLocaleChange(() => {
-                this.updateTranslations();
-                this.populateDeviceSelect();
-            });
-        }
+        this._subscribeLocale();
     }
 
     unmountPanel() {
