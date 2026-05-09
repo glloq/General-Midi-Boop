@@ -153,31 +153,45 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
     border-color: rgba(74, 90, 212, 0.35);
 }
 
-/* ── Keyboard panel: tall enough to show the piano keys fully ──
-   Breakdown: instrument header ~32px + controls row ~28px + minimap row
-   ~30px + keys + padding ≈ 200-220px → ~290-320px total. We give the
-   panel a generous default and a hard floor so the keys are never clipped. */
+/* ── Keyboard panel: fluid, adaptive height ──
+   The embedded keyboard already chains its own flex (modal-body →
+   keyboard-layout → keyboard-main → keyboard-canvas-container →
+   piano-container, each `flex:1; min-height:0`). We just need its host
+   panel to follow the viewport.
+
+   Strategy: take a viewport-proportional preferred size, allow shrinking
+   down to a guaranteed floor, and let it grow when the user collapses
+   the piano roll. */
 .loop-editor-modal .lc-kb-panel {
-    flex-grow: 0;
-    flex-shrink: 0;
-    flex-basis: 380px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: clamp(320px, 45vh, 52vh);
     height: auto;
     min-height: 320px;
 }
 
 .loop-editor-modal .lc-kb-panel--expanded {
-    flex: 1 1 0 !important;
+    flex: 1 1 auto !important;
     height: auto !important;
     min-height: 320px !important;
 }
 
-/* When the embedded keyboard runs in panel mode inside the editor, ensure
-   the inner keyboard container can fill the available height (the global
-   #keyboard-modal-container min-height:0 reset still applies). */
-.loop-editor-modal .lc-kb-panel #keyboard-modal-container {
-    flex: 1 1 auto;
-    height: 100%;
-    min-height: 220px;
+/* Piano roll area: also fluid, but tighter floor + give the keyboard
+   priority when both are visible (keyboard grows 1.5x as fast). */
+.loop-editor-modal .lc-pianoroll-area {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: clamp(140px, 30vh, 40vh);
+    min-height: 140px;
+}
+
+/* The embedded keyboard's modal-dialog must fill its host panel without
+   adding its own scrollbars (the inner flex chain already handles
+   distribution). */
+.loop-editor-modal .lc-kb-panel .modal-dialog.km-panel-mode {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }
 
 /* ── Keyboard panel header: gradient accent ── */
