@@ -543,9 +543,12 @@ class LoopManagerModal extends BaseModal {
     // PAD TAB
     // =========================================================
 
-    _initPadSynth() {
+    async _initPadSynth() {
         if (typeof MidiSynthesizer !== 'undefined' && !this._padSynth) {
-            try { this._padSynth = new MidiSynthesizer(); } catch (_) {}
+            try {
+                this._padSynth = new MidiSynthesizer();
+                await this._padSynth.initialize();
+            } catch (_) {}
         }
     }
 
@@ -606,6 +609,15 @@ class LoopManagerModal extends BaseModal {
 
         const loopData = await this._fetchLoopData(slot.loopId);
         if (!loopData) return;
+
+        // Ensure synth is ready and instrument is loaded
+        if (this._padSynth) {
+            const prog = loopData.instrument_program ?? 0;
+            this._padSynth.setChannelInstrument(0, prog);
+            if (!this._padSynth.loadedInstruments?.has(prog)) {
+                await this._padSynth.loadInstrument(prog).catch(() => {});
+            }
+        }
 
         this._padPlayingIndex.add(index);
         this._updatePadCell(index);
@@ -757,9 +769,12 @@ class LoopManagerModal extends BaseModal {
     // LIVE TAB
     // =========================================================
 
-    _initLiveSynth() {
+    async _initLiveSynth() {
         if (typeof MidiSynthesizer !== 'undefined' && !this._liveSynth) {
-            try { this._liveSynth = new MidiSynthesizer(); } catch (_) {}
+            try {
+                this._liveSynth = new MidiSynthesizer();
+                await this._liveSynth.initialize();
+            } catch (_) {}
         }
     }
 
@@ -806,6 +821,15 @@ class LoopManagerModal extends BaseModal {
         }
         const loopData = await this._fetchLoopData(loopId);
         if (!loopData) return;
+
+        // Ensure synth is ready and instrument is loaded
+        if (this._liveSynth) {
+            const prog = loopData.instrument_program ?? 0;
+            this._liveSynth.setChannelInstrument(0, prog);
+            if (!this._liveSynth.loadedInstruments?.has(prog)) {
+                await this._liveSynth.loadInstrument(prog).catch(() => {});
+            }
+        }
 
         this._livePlayingLoops.set(loopId, { timers: [] });
         this._updateLiveButton(loopId, true);
@@ -871,9 +895,13 @@ class LoopManagerModal extends BaseModal {
     // ARRANGER — INIT
     // =========================================================
 
-    _initArrangerSynth() {
+    async _initArrangerSynth() {
         if (typeof MidiSynthesizer !== 'undefined' && !this._arrangerSynth) {
-            try { this._arrangerSynth = new MidiSynthesizer(); } catch (_) {}
+            try {
+                this._arrangerSynth = new MidiSynthesizer();
+                await this._arrangerSynth.initialize();
+                await this._arrangerSynth.loadInstrument(0).catch(() => {});
+            } catch (_) {}
         }
     }
 
@@ -1188,9 +1216,13 @@ class LoopManagerModal extends BaseModal {
 
         const secPerBar  = 60 / this.arrangementTempo * 4;
         const events = [];
+        const programsToLoad = new Set([0]);
+
         for (const block of this.blocks) {
             const loopData = await this._fetchLoopData(block.loop_id);
             if (!loopData) continue;
+            const prog      = loopData.instrument_program ?? 0;
+            programsToLoad.add(prog);
             const seq       = typeof loopData.midi_data === 'string' ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
             const loopTempo = loopData.tempo || 120;
             const loopPPQ   = loopData.ppq   || 480;
@@ -1199,14 +1231,30 @@ class LoopManagerModal extends BaseModal {
             for (let rep = 0; rep < block.repetitions; rep++) {
                 const offsetSec = block.position_bar * secPerBar + rep * loopDurSec;
                 for (const note of seq) {
-                    events.push({ ms: (offsetSec + note.t * spt) * 1000, note: note.n, vel: note.v || 80, durSec: (note.g || note.l || 120) * spt });
+                    events.push({ ms: (offsetSec + note.t * spt) * 1000, note: note.n, vel: note.v || 80, durSec: (note.g || note.l || 120) * spt, prog });
                 }
             }
         }
+
+        // Preload all instruments used, set channel instrument per event
+        if (this._arrangerSynth) {
+            for (const prog of programsToLoad) {
+                if (!this._arrangerSynth.loadedInstruments?.has(prog)) {
+                    await this._arrangerSynth.loadInstrument(prog).catch(() => {});
+                }
+            }
+        }
+
+        // Sort by time so channel switches happen in order
+        events.sort((a, b) => a.ms - b.ms);
+
         for (const ev of events) {
             this._arrangerTimers.push(setTimeout(() => {
                 if (!this.isArrangerPlaying) return;
-                try { this._arrangerSynth?.playNote?.(ev.note, ev.vel, 0, ev.durSec); } catch (_) {}
+                try {
+                    this._arrangerSynth?.setChannelInstrument?.(0, ev.prog);
+                    this._arrangerSynth?.playNote?.(ev.note, ev.vel, 0, ev.durSec);
+                } catch (_) {}
             }, ev.ms));
         }
         const totalMs = this.arrangementBars * secPerBar * 1000;
