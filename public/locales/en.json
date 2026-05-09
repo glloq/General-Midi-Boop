@@ -2445,6 +2445,8 @@
     "undo": "Undo",
     "redo": "Redo",
     "clearNotes": "Clear all notes",
+    "showPianoRoll": "Show piano roll",
+    "hidePianoRoll": "Hide piano roll",
     "record": "Record",
     "preview": "Preview",
     "stop": "Stop",

@@ -86,6 +86,9 @@ class LoopCreatorModal extends BaseModal {
         // Minimap
         this._minimap = null;
         this._minimapObserver = null;
+
+        // Piano roll visibility (hidden by default — keyboard panel takes full space)
+        this._pianoRollVisible = false;
     }
 
     // =========================================================
@@ -207,25 +210,47 @@ class LoopCreatorModal extends BaseModal {
 
                 <div class="lc-ctrl-sep"></div>
 
-                <!-- Edit tools -->
-                <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
-                <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
-                <button class="lc-btn lc-btn-icon" data-action="select-all" title="${this.t('loopCreator.selectAll')}">⊞</button>
-                <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">✂</button>
-                <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
-                <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
-                <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
+                <!-- Edit mode group -->
+                <div class="lc-btn-group">
+                    <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
+                    <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
+                </div>
+
+                <!-- Note actions group -->
+                <div class="lc-btn-group">
+                    <button class="lc-btn lc-btn-icon" data-action="select-all" title="${this.t('loopCreator.selectAll')}">⊞</button>
+                    <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">✂</button>
+                    <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
+                    <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
+                    <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
+                </div>
+
+                <div class="lc-ctrl-sep"></div>
+
+                <!-- Zoom group -->
+                <div class="lc-btn-group">
+                    <button class="lc-btn lc-btn-icon" data-action="zoom-h-out" title="Zoom horizontal out">−H</button>
+                    <button class="lc-btn lc-btn-icon" data-action="zoom-h-in"  title="Zoom horizontal in">+H</button>
+                    <button class="lc-btn lc-btn-icon" data-action="zoom-v-out" title="Zoom vertical out">−V</button>
+                    <button class="lc-btn lc-btn-icon" data-action="zoom-v-in"  title="Zoom vertical in">+V</button>
+                </div>
+
+                <!-- Piano roll toggle -->
+                <button class="lc-btn lc-btn-icon" data-action="toggle-piano-roll" id="lc-toggle-roll"
+                    title="${this.t('loopCreator.showPianoRoll')}" aria-pressed="false">🎹</button>
 
                 <!-- Status (pushed right) -->
                 <span class="lc-ctrl-spacer"></span>
                 <span class="lc-status" id="lc-status"></span>
             </div>
 
-            <!-- ── Piano roll + minimap ── -->
-            <div class="lc-pianoroll-area">
+            <!-- ── Piano roll (collapsible) ── -->
+            <div class="lc-pianoroll-area" id="lc-pianoroll-area">
                 <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap"></div>
-                <canvas class="lc-minimap" id="lc-minimap"></canvas>
             </div>
+
+            <!-- ── Minimap (always visible) ── -->
+            <canvas class="lc-minimap" id="lc-minimap"></canvas>
 
             <!-- ── Keyboard panel (KeyboardModal embedded) ── -->
             <div class="lc-kb-panel" id="lc-kb-panel"></div>
@@ -317,6 +342,7 @@ class LoopCreatorModal extends BaseModal {
         this._initSynth();
         this._attachEvents();
         this._initPianoRoll();
+        this._applyPianoRollVisibility();
         this._loadMidiInDevices();
         this._mountKeyboardPanel();
         this._loadLibrary();
@@ -404,6 +430,11 @@ class LoopCreatorModal extends BaseModal {
             case 'undo':            this.pianoRoll?.undo?.();  break;
             case 'redo':            this.pianoRoll?.redo?.();  break;
             case 'clear-notes':     this._clearNotes();        break;
+            case 'toggle-piano-roll': this._togglePianoRoll(); break;
+            case 'zoom-h-in':       this._zoomH(0.5);          break;
+            case 'zoom-h-out':      this._zoomH(2.0);          break;
+            case 'zoom-v-in':       this._zoomV(0.75);         break;
+            case 'zoom-v-out':      this._zoomV(1.5);          break;
             case 'record':       this._toggleRecording();  break;
             case 'preview':      this._previewLoop();       break;
             case 'stop-all':     this._stopAll();           break;
@@ -556,6 +587,56 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.sequence = seq;
         this.pianoRoll.redraw?.();
         this._syncMinimap();
+    }
+
+    _applyPianoRollVisibility() {
+        const area      = this.$('#lc-pianoroll-area');
+        const kbPanel   = this.$('#lc-kb-panel');
+        const toggleBtn = this.$('#lc-toggle-roll');
+        const vis = this._pianoRollVisible;
+        if (area)    area.classList.toggle('lc-pianoroll-area--hidden', !vis);
+        if (kbPanel) kbPanel.classList.toggle('lc-kb-panel--expanded',  !vis);
+        if (toggleBtn) {
+            toggleBtn.setAttribute('aria-pressed', vis ? 'true' : 'false');
+            toggleBtn.title = vis
+                ? this.t('loopCreator.hidePianoRoll')
+                : this.t('loopCreator.showPianoRoll');
+        }
+    }
+
+    _togglePianoRoll() {
+        this._pianoRollVisible = !this._pianoRollVisible;
+        this._applyPianoRollVisibility();
+        if (this._pianoRollVisible && this.pianoRoll) {
+            // Re-measure after becoming visible
+            requestAnimationFrame(() => {
+                const wrap = this.$('#lc-pianoroll-wrap');
+                if (wrap) {
+                    this.pianoRoll.setAttribute('width',  (wrap.clientWidth  || 900).toString());
+                    this.pianoRoll.setAttribute('height', (wrap.clientHeight || 200).toString());
+                    this.pianoRoll.redraw?.();
+                    this._syncMinimap();
+                }
+            });
+        }
+    }
+
+    _zoomH(factor) {
+        if (!this.pianoRoll) return;
+        const total = this._totalTicks();
+        const cur   = parseFloat(this.pianoRoll.getAttribute('xrange') || total);
+        const next  = Math.max(Math.ceil(total / 32), Math.min(total, Math.round(cur * factor)));
+        this.pianoRoll.setAttribute('xrange', next.toString());
+        this.pianoRoll.redraw?.();
+        this._syncMinimap();
+    }
+
+    _zoomV(factor) {
+        if (!this.pianoRoll) return;
+        const cur  = parseFloat(this.pianoRoll.getAttribute('yrange') || 36);
+        const next = Math.max(6, Math.min(128, Math.round(cur * factor)));
+        this.pianoRoll.setAttribute('yrange', next.toString());
+        this.pianoRoll.redraw?.();
     }
 
     _startPlayheadAnimation() {

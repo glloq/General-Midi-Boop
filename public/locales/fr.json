@@ -2445,6 +2445,8 @@
     "undo": "Annuler",
     "redo": "Refaire",
     "clearNotes": "Effacer toutes les notes",
+    "showPianoRoll": "Afficher le piano roll",
+    "hidePianoRoll": "Masquer le piano roll",
     "record": "Enregistrer",
     "preview": "Écouter",
     "stop": "Stop",
