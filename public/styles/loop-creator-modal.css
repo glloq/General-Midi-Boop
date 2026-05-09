@@ -36,6 +36,32 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-bottom: none;
     flex-shrink: 0;
+    position: relative;
+}
+
+/* ── Playback timeline bar (bottom of header) ── */
+.lc-playbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.18);
+    pointer-events: none;
+    overflow: hidden;
+}
+.lc-playbar-fill {
+    height: 100%;
+    width: 0%;
+    background: rgba(255,255,255,0.92);
+    border-radius: 0 2px 2px 0;
+    will-change: width;
+}
+@keyframes lc-playbar-loop {
+    0%   { width: 0%; opacity: 1; }
+    85%  { opacity: 1; }
+    100% { width: 100%; opacity: 0.5; }
+}
+.lc-playbar-fill--looping {
+    animation: lc-playbar-loop var(--playbar-dur, 2s) linear infinite;
 }
 .lc-header-left { display: flex; align-items: center; flex-shrink: 0; }
 .lc-header-title {

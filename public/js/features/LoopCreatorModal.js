@@ -110,8 +110,13 @@ class LoopManagerModal extends BaseModal {
         this._padPickerIndex  = null; // pad index whose assignment picker is open
 
         // ── Live state ──
-        this._livePlayingLoops = new Map(); // loopId → { timers: [] }
+        this._livePlayingLoops = new Map(); // loopId → { timers, ch, startMs, durMs }
         this._liveSynth        = null;
+
+        // ── Playback timeline bar ──
+        this._padPlayTimes      = new Map(); // padIndex → { startMs, durMs }
+        this._arrangerStartTime = 0;
+        this._playbarRAF        = null;
 
         // Arranger output (synth by default)
         this.outputMode     = 'synth';
@@ -150,6 +155,9 @@ class LoopManagerModal extends BaseModal {
                     data-action="save-arrangement"
                     style="${showSave ? '' : 'display:none'}">💾 ${this.t('loopCreator.saveArrangement')}</button>
                 <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
+            </div>
+            <div class="lc-playbar" id="lc-playbar">
+                <div class="lc-playbar-fill" id="lc-playbar-fill"></div>
             </div>
         </div>`;
     }
@@ -307,6 +315,7 @@ class LoopManagerModal extends BaseModal {
         this._liveStopAll();
         this._stopArrangerPlay();
         this._stopPadMidiMonitor();
+        this._stopPlaybarRAF();
         document.removeEventListener('mouseup',   this._boundDocMouseUp);
         document.removeEventListener('mousemove', this._boundDocMouseMove);
     }
@@ -625,10 +634,11 @@ class LoopManagerModal extends BaseModal {
         const loopData = await this._fetchLoopData(slot.loopId);
         if (!loopData) return;
 
-        // Ensure synth is ready and instrument is loaded
+        // Each pad uses its own MIDI channel (0-15) so multiple instruments can play simultaneously
+        const ch = index;
         if (this._padSynth) {
             const prog = loopData.instrument_program ?? 0;
-            this._padSynth.setChannelInstrument(0, prog);
+            this._padSynth.setChannelInstrument(ch, prog);
             if (!this._padSynth.loadedInstruments?.has(prog)) {
                 await this._padSynth.loadInstrument(prog).catch(() => {});
             }
@@ -636,29 +646,34 @@ class LoopManagerModal extends BaseModal {
 
         this._padPlayingIndex.add(index);
         this._updatePadCell(index);
-        this._schedulePad(index, loopData);
+        this._schedulePad(index, loopData, ch);
     }
 
-    _schedulePad(index, loopData) {
+    _schedulePad(index, loopData, channel = 0) {
         const seq = typeof loopData.midi_data === 'string'
             ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
         const spt       = 60 / ((loopData.tempo || 120) * (loopData.ppq || 480));
         const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
+
+        this._padPlayTimes.set(index, { startMs: performance.now(), durMs: loopDurMs });
+        this._renderPlaybar();
 
         const timers = [];
         for (const note of seq) {
             const durSec = (note.g || note.l || 120) * spt;
             timers.push(setTimeout(() => {
                 if (!this._padPlayingIndex.has(index)) return;
-                try { this._padSynth?.playNote?.(note.n, note.v || 80, 0, durSec); } catch (_) {}
+                try { this._padSynth?.playNote?.(note.n, note.v || 80, channel, durSec); } catch (_) {}
             }, note.t * spt * 1000));
         }
         // Auto-stop after one loop
         timers.push(setTimeout(() => {
             this._padPlayingIndex.delete(index);
+            this._padPlayTimes.delete(index);
             (this._padPlaybackTimers.get(index) || []).forEach(t => clearTimeout(t));
             this._padPlaybackTimers.delete(index);
             this._updatePadCell(index);
+            this._renderPlaybar();
         }, loopDurMs + 50));
 
         this._padPlaybackTimers.set(index, timers);
@@ -668,11 +683,14 @@ class LoopManagerModal extends BaseModal {
         (this._padPlaybackTimers.get(index) || []).forEach(t => clearTimeout(t));
         this._padPlaybackTimers.delete(index);
         this._padPlayingIndex.delete(index);
+        this._padPlayTimes.delete(index);
         this._updatePadCell(index);
+        this._renderPlaybar();
     }
 
     _stopAllPads() {
         for (let i = 0; i < 16; i++) this._stopPad(i);
+        this._padPlayTimes.clear();
         try { this._padSynth?.cancelAllNotes?.(); } catch (_) {}
     }
 
@@ -839,38 +857,44 @@ class LoopManagerModal extends BaseModal {
         const loopData = await this._fetchLoopData(loopId);
         if (!loopData) return;
 
-        // Ensure synth is ready and instrument is loaded
+        // Allocate a unique channel so multiple instruments can play simultaneously
+        const ch = this._allocLiveChannel();
         if (this._liveSynth) {
             const prog = loopData.instrument_program ?? 0;
-            this._liveSynth.setChannelInstrument(0, prog);
+            this._liveSynth.setChannelInstrument(ch, prog);
             if (!this._liveSynth.loadedInstruments?.has(prog)) {
                 await this._liveSynth.loadInstrument(prog).catch(() => {});
             }
         }
 
-        this._livePlayingLoops.set(loopId, { timers: [] });
+        const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
+        this._livePlayingLoops.set(loopId, { timers: [], ch, startMs: performance.now(), durMs: loopDurMs });
         this._updateLiveButton(loopId, true);
         this._scheduleLiveLoop(loopId, loopData);
+        this._renderPlaybar();
     }
 
     _scheduleLiveLoop(loopId, loopData) {
         if (!this._livePlayingLoops.has(loopId)) return;
         const state = this._livePlayingLoops.get(loopId);
+        const ch    = state.ch ?? 0;
 
         const seq       = typeof loopData.midi_data === 'string'
             ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
         const spt       = 60 / ((loopData.tempo || 120) * (loopData.ppq || 480));
         const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
 
-        // Clear old timers
+        // Reset cycle start time and clear old timers
         state.timers.forEach(t => clearTimeout(t));
-        state.timers = [];
+        state.timers  = [];
+        state.startMs = performance.now();
+        state.durMs   = loopDurMs;
 
         for (const note of seq) {
             const durSec = (note.g || note.l || 120) * spt;
             state.timers.push(setTimeout(() => {
                 if (!this._livePlayingLoops.has(loopId)) return;
-                try { this._liveSynth?.playNote?.(note.n, note.v || 80, 0, durSec); } catch (_) {}
+                try { this._liveSynth?.playNote?.(note.n, note.v || 80, ch, durSec); } catch (_) {}
             }, note.t * spt * 1000));
         }
 
@@ -886,6 +910,7 @@ class LoopManagerModal extends BaseModal {
         state.timers.forEach(t => clearTimeout(t));
         this._livePlayingLoops.delete(loopId);
         this._updateLiveButton(loopId, false);
+        this._renderPlaybar();
     }
 
     _liveStopAll() {
@@ -1253,7 +1278,7 @@ class LoopManagerModal extends BaseModal {
             }
         }
 
-        // Preload all instruments used, set channel instrument per event
+        // Preload all instruments used
         if (this._arrangerSynth) {
             for (const prog of programsToLoad) {
                 if (!this._arrangerSynth.loadedInstruments?.has(prog)) {
@@ -1262,20 +1287,32 @@ class LoopManagerModal extends BaseModal {
             }
         }
 
-        // Sort by time so channel switches happen in order
+        // Assign each unique program to its own MIDI channel so they play simultaneously
+        const programChannelMap = new Map();
+        let chIdx = 0;
+        for (const prog of programsToLoad) {
+            const ch = chIdx++ % 16;
+            programChannelMap.set(prog, ch);
+            this._arrangerSynth?.setChannelInstrument?.(ch, prog);
+        }
+
+        // Sort by time and schedule notes on their assigned channels
         events.sort((a, b) => a.ms - b.ms);
 
         for (const ev of events) {
+            const evCh = programChannelMap.get(ev.prog) ?? 0;
             this._arrangerTimers.push(setTimeout(() => {
                 if (!this.isArrangerPlaying) return;
                 try {
-                    this._arrangerSynth?.setChannelInstrument?.(0, ev.prog);
-                    this._arrangerSynth?.playNote?.(ev.note, ev.vel, 0, ev.durSec);
+                    this._arrangerSynth?.playNote?.(ev.note, ev.vel, evCh, ev.durSec);
                 } catch (_) {}
             }, ev.ms));
         }
         const totalMs = this.arrangementBars * secPerBar * 1000;
         this._arrangerTimers.push(setTimeout(() => this._stopArrangerPlay(), totalMs));
+
+        this._arrangerStartTime = performance.now();
+        this._startPlaybarRAF();
     }
 
     _stopArrangerPlay() {
@@ -1284,6 +1321,77 @@ class LoopManagerModal extends BaseModal {
         this.isArrangerPlaying = false;
         this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
         try { this._arrangerSynth?.cancelAllNotes?.(); } catch (_) {}
+        this._stopPlaybarRAF();
+        this._renderPlaybar();
+    }
+
+    // =========================================================
+    // LIVE — CHANNEL ALLOCATION
+    // =========================================================
+
+    _allocLiveChannel() {
+        const used = new Set([...this._livePlayingLoops.values()].map(s => s.ch).filter(c => c != null));
+        for (let c = 0; c < 16; c++) {
+            if (!used.has(c)) return c;
+        }
+        return 0; // all 16 channels in use: wrap around
+    }
+
+    // =========================================================
+    // PLAYBACK TIMELINE BAR
+    // =========================================================
+
+    _startPlaybarRAF() {
+        if (this._playbarRAF) return;
+        const tick = () => {
+            this._renderPlaybar();
+            if (this.isArrangerPlaying) {
+                this._playbarRAF = requestAnimationFrame(tick);
+            } else {
+                this._playbarRAF = null;
+            }
+        };
+        this._playbarRAF = requestAnimationFrame(tick);
+    }
+
+    _stopPlaybarRAF() {
+        if (this._playbarRAF) { cancelAnimationFrame(this._playbarRAF); this._playbarRAF = null; }
+    }
+
+    _renderPlaybar() {
+        const fill = this.$('#lc-playbar-fill');
+        if (!fill) return;
+
+        if (this.isArrangerPlaying && this._arrangerStartTime) {
+            fill.classList.remove('lc-playbar-fill--looping');
+            fill.style.removeProperty('--playbar-dur');
+            const secPerBar = 60 / this.arrangementTempo * 4;
+            const totalMs   = this.arrangementBars * secPerBar * 1000;
+            const pct = Math.min(100, (performance.now() - this._arrangerStartTime) / totalMs * 100);
+            fill.style.width = pct + '%';
+            return;
+        }
+
+        const hasPad  = this._padPlayingIndex.size > 0;
+        const hasLive = this._livePlayingLoops.size > 0;
+        if (hasPad || hasLive) {
+            // Use the shortest active loop duration to pace the fill animation
+            let minDurMs = Infinity;
+            for (const [idx, data] of this._padPlayTimes) {
+                if (this._padPlayingIndex.has(idx) && data.durMs < minDurMs) minDurMs = data.durMs;
+            }
+            for (const [, state] of this._livePlayingLoops) {
+                if (state.durMs && state.durMs < minDurMs) minDurMs = state.durMs;
+            }
+            if (!isFinite(minDurMs)) minDurMs = 2000;
+            fill.style.setProperty('--playbar-dur', (minDurMs / 1000).toFixed(3) + 's');
+            if (!fill.classList.contains('lc-playbar-fill--looping')) {
+                fill.classList.add('lc-playbar-fill--looping');
+            }
+        } else {
+            fill.classList.remove('lc-playbar-fill--looping');
+            fill.style.width = '0%';
+        }
     }
 
     // =========================================================
