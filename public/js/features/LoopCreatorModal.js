@@ -672,7 +672,7 @@ class LoopCreatorModal extends BaseModal {
         const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
         const t = q > 0 ? Math.round(rec.tick / q) * q : rec.tick;
         const g = q > 0 ? Math.max(q, Math.round(durTicks / q) * q) : durTicks;
-        this._addNoteToRoll({ t, n: note, v: rec.velocity ?? 80, g });
+        this._addNoteToRoll({ t, n: note, v: rec.velocity, g });
     }
 
     _addNoteToRoll(noteObj) {
