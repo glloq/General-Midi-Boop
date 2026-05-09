@@ -8,6 +8,7 @@
  *   Tab 4 "Arranger" — multi-track timeline with loop blocks
  *
  * Loop creation/editing is delegated to LoopEditorModal.
+ * Shared utilities live in LoopUtils.js.
  */
 
 // ── GM program data ───────────────────────────────────────────
@@ -38,30 +39,9 @@ const GM_PROGRAM_NAMES = [
     'Guitar Fret Noise','Breath Noise','Seashore','Bird Tweet','Telephone Ring','Helicopter','Applause','Gunshot'
 ];
 
-const GM_FAMILIES = [
-    { name: 'Piano',         icon: '🎹', start: 0   },
-    { name: 'Chromatic Perc',icon: '🔔', start: 8   },
-    { name: 'Organ',         icon: '🎹', start: 16  },
-    { name: 'Guitar',        icon: '🎸', start: 24  },
-    { name: 'Bass',          icon: '🎸', start: 32  },
-    { name: 'Strings',       icon: '🎻', start: 40  },
-    { name: 'Ensemble',      icon: '🎻', start: 48  },
-    { name: 'Brass',         icon: '🎺', start: 56  },
-    { name: 'Reed',          icon: '🎷', start: 64  },
-    { name: 'Pipe',          icon: '🪗', start: 72  },
-    { name: 'Synth Lead',    icon: '🎹', start: 80  },
-    { name: 'Synth Pad',     icon: '🎹', start: 88  },
-    { name: 'Synth FX',      icon: '✨', start: 96  },
-    { name: 'Ethnic',        icon: '🥁', start: 104 },
-    { name: 'Percussive',    icon: '🥁', start: 112 },
-    { name: 'Sound FX',      icon: '🔊', start: 120 },
-];
+const GM_FAMILIES = (typeof window !== 'undefined' && window.LoopUtils && window.LoopUtils.GM_FAMILIES) || [];
 
-// MIDI note number → note label (C3 = 48)
-function _midiNoteLabel(n) {
-    const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    return NOTES[n % 12] + Math.floor(n / 12 - 2);
-}
+const ARRANGER_HISTORY_LIMIT = 50;
 
 class LoopManagerModal extends BaseModal {
     constructor(api, eventBus) {
@@ -96,6 +76,11 @@ class LoopManagerModal extends BaseModal {
         this._dragInfo    = null;
         this._dropPreview = null;
 
+        // Arranger undo/redo (local to current arrangement)
+        this._arrHistory     = [];
+        this._arrHistoryIdx  = -1;
+        this._selectedBlocks = new Set();
+
         // Shared loop data cache (pad + live + arranger)
         this._fetchLoopDataCache = new Map();
 
@@ -108,6 +93,7 @@ class LoopManagerModal extends BaseModal {
         this._padPlaybackTimers = new Map(); // padIndex → [timerIds]
         this._padSynth        = null;
         this._padPickerIndex  = null; // pad index whose assignment picker is open
+        this._padPickerHandler = null; // bound click handler so we can detach
 
         // ── Live state ──
         this._livePlayingLoops = new Map(); // loopId → { timers, ch, startMs, durMs }
@@ -126,6 +112,7 @@ class LoopManagerModal extends BaseModal {
         // Bound doc handlers for arranger drag
         this._boundDocMouseUp   = this._onDocMouseUp.bind(this);
         this._boundDocMouseMove = this._onDocMouseMove.bind(this);
+        this._boundKeyDown      = this._onKeyDown.bind(this);
 
         // Loop editor — created once, shared across sessions
         this._loopEditor = new LoopEditorModal(api, eventBus, {
@@ -212,6 +199,17 @@ class LoopManagerModal extends BaseModal {
     _renderPadTab() {
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-pad">
+            <div class="lc-ctrl-bar lc-ctrl-bar--pad">
+                <select id="lm-pad-midi-in" class="lc-select lc-select-midi" title="${this.t('loopManager.padMidiIn')}">
+                    <option value="">${this.t('loopManager.padMidiInNone')}</option>
+                </select>
+                <span class="lc-status" id="lm-pad-midi-status"></span>
+                <span class="lc-ctrl-spacer"></span>
+                <button class="lc-btn lc-btn-sm" data-action="pad-export" title="${this.t('loopManager.exportPadLayout')}">📤</button>
+                <button class="lc-btn lc-btn-sm" data-action="pad-import" title="${this.t('loopManager.importPadLayout')}">📥</button>
+                <button class="lc-btn lc-btn-sm" data-action="pad-clear-all" title="${this.t('loopManager.clearAllPads')}">🗑</button>
+                <button class="lc-btn lc-btn-sm" data-action="pad-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
+            </div>
             <div class="lm-pad-grid" id="lm-pad-grid"></div>
             <div class="lm-pad-picker" id="lm-pad-picker" style="display:none"></div>
         </div>`;
@@ -262,8 +260,11 @@ class LoopManagerModal extends BaseModal {
                 </div>
                 <span class="lc-unit" title="${this.t('loopCreator.totalBars')}">M</span>
                 <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')}">▶</button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')}">⏹</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn" title="${this.t('loopCreator.undo')} (⌘Z)" disabled>↶</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn" title="${this.t('loopCreator.redo')} (⌘⇧Z)" disabled>↷</button>
+                <div class="lc-ctrl-sep"></div>
+                <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')} (Space)">▶</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
                 <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}">＋</button>
                 <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}">🆕</button>
             </div>
@@ -293,6 +294,7 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     onOpen() {
+        this._loadPadLayout();
         this._initArrangerSynth();
         this._initPadSynth();
         this._initLiveSynth();
@@ -300,6 +302,7 @@ class LoopManagerModal extends BaseModal {
         this._loadLibrary();
         document.addEventListener('mouseup',    this._boundDocMouseUp);
         document.addEventListener('mousemove',  this._boundDocMouseMove);
+        document.addEventListener('keydown',    this._boundKeyDown);
     }
 
     onClose() {
@@ -308,8 +311,53 @@ class LoopManagerModal extends BaseModal {
         this._stopArrangerPlay();
         this._stopPadMidiMonitor();
         this._stopPlaybarRAF();
+        this._closePadPicker();
         document.removeEventListener('mouseup',   this._boundDocMouseUp);
         document.removeEventListener('mousemove', this._boundDocMouseMove);
+        document.removeEventListener('keydown',   this._boundKeyDown);
+    }
+
+    // =========================================================
+    // KEYBOARD SHORTCUTS
+    // =========================================================
+
+    _onKeyDown(e) {
+        const t = e.target;
+        const tag = (t?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || t?.isContentEditable) return;
+        if (this._loopEditor?.isOpen) return; // editor handles its own shortcuts
+
+        const mod = e.ctrlKey || e.metaKey;
+
+        if (this.activeTab === 'arranger') {
+            if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); this._arrUndo(); return; }
+            if (mod && e.key.toLowerCase() === 'z' &&  e.shiftKey) { e.preventDefault(); this._arrRedo(); return; }
+            if (mod && e.key.toLowerCase() === 'y')                { e.preventDefault(); this._arrRedo(); return; }
+            if (mod && e.key.toLowerCase() === 's')                { e.preventDefault(); this._saveArrangement(); return; }
+            if (e.key === ' ') { e.preventDefault(); this.isArrangerPlaying ? this._stopArrangerPlay() : this._playArrangement(); return; }
+            if (e.key === 'Escape') { this._stopArrangerPlay(); this._clearBlockSelection(); return; }
+            if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedBlocks.size) {
+                e.preventDefault(); this._deleteSelectedBlocks(); return;
+            }
+            if (mod && e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                this._selectedBlocks = new Set(this.blocks.map(b => b.id));
+                this._refreshBlockSelectionUI();
+                return;
+            }
+        }
+
+        if (this.activeTab === 'pad') {
+            if (e.key === 'Escape') { this._stopAllPads(); return; }
+            // Number keys 1-9, 0 trigger pads 0-9; q-y trigger 10-15
+            const padMap = { '1':0, '2':1, '3':2, '4':3, 'q':4, 'w':5, 'e':6, 'r':7, 'a':8, 's':9, 'd':10, 'f':11, 'z':12, 'x':13, 'c':14, 'v':15 };
+            const idx = padMap[e.key.toLowerCase()];
+            if (idx != null) { e.preventDefault(); this._triggerPad(idx); return; }
+        }
+
+        if (this.activeTab === 'live') {
+            if (e.key === 'Escape') { this._liveStopAll(); return; }
+        }
     }
 
     // =========================================================
@@ -330,7 +378,7 @@ class LoopManagerModal extends BaseModal {
         if (saveBtn) saveBtn.style.display = tab === 'arranger' ? '' : 'none';
 
         if (tab === 'library')  this._filterAndRenderLibrary();
-        if (tab === 'pad')      this._renderPadGrid();
+        if (tab === 'pad')    { this._renderPadGrid(); this._loadPadMidiInDevices(); }
         if (tab === 'live')     this._renderLiveArea();
         if (tab === 'arranger') this._initArrangerTab();
     }
@@ -365,6 +413,9 @@ class LoopManagerModal extends BaseModal {
             case 'new-loop':  this._loopEditor.open(); break;
             // Pad
             case 'pad-stop-all': this._stopAllPads(); break;
+            case 'pad-export':   this._exportPadLayout(); break;
+            case 'pad-import':   this._importPadLayout(); break;
+            case 'pad-clear-all':this._clearAllPads(); break;
             // Live
             case 'live-toggle-output': this._liveToggleOutput(); break;
             case 'live-stop-all':      this._liveStopAll(); break;
@@ -382,6 +433,8 @@ class LoopManagerModal extends BaseModal {
             case 'arr-play':         this._playArrangement();   break;
             case 'arr-stop':         this._stopArrangerPlay();  break;
             case 'arr-new':          this._newArrangement();    break;
+            case 'arr-undo':         this._arrUndo();           break;
+            case 'arr-redo':         this._arrRedo();           break;
             case 'save-arrangement': this._saveArrangement();   break;
             case 'close':            this.close();              break;
         }
@@ -407,8 +460,15 @@ class LoopManagerModal extends BaseModal {
             if (this._padMidiInDevice) this._startPadMidiMonitor();
             else                       this._stopPadMidiMonitor();
         } else if (id === 'la-bars') {
-            const v = parseInt(e.target.value);
-            if (v>=4&&v<=256) { this.arrangementBars=v; this._renderTimeline(); }
+            const v = LoopUtils.validate.arrBars(e.target.value, this.arrangementBars);
+            if (v !== this.arrangementBars) {
+                this.arrangementBars = v;
+                e.target.value = v;
+                this._renderTimeline();
+            } else {
+                // Re-sync UI in case clamp produced same value but input is out-of-range
+                e.target.value = v;
+            }
         }
     }
 
@@ -420,8 +480,8 @@ class LoopManagerModal extends BaseModal {
         } else if (id === 'la-name-input') {
             this.arrangementName = e.target.value;
         } else if (id === 'la-tempo') {
-            const v = parseInt(e.target.value);
-            if (v>=20&&v<=300) this.arrangementTempo = v;
+            const v = LoopUtils.validate.tempo(e.target.value, this.arrangementTempo);
+            if (v !== this.arrangementTempo) this.arrangementTempo = v;
         }
     }
 
@@ -436,7 +496,11 @@ class LoopManagerModal extends BaseModal {
             if (this.activeTab === 'library') this._filterAndRenderLibrary();
             if (this.activeTab === 'live')    this._renderLiveArea();
             this._renderPalette();
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'manager.loadLibrary', {
+                toast: this.t('loopManager.errLoadLibrary')
+            });
+        }
     }
 
     _filterAndRenderLibrary() {
@@ -477,7 +541,12 @@ class LoopManagerModal extends BaseModal {
                 if (btn.dataset.loopAction === 'delete') this._deleteLoopById(id);
                 if (btn.dataset.loopAction === 'pad') {
                     const firstEmpty = this._padSlots.findIndex(s => s === null);
-                    if (firstEmpty !== -1) this._assignPadSlot(firstEmpty, id);
+                    if (firstEmpty !== -1) {
+                        this._assignPadSlot(firstEmpty, id);
+                        LoopUtils.toast(this.t('loopManager.assignedToPad', { index: firstEmpty + 1 }), 'success');
+                    } else {
+                        LoopUtils.toast(this.t('loopManager.padFull'), 'info');
+                    }
                 }
             });
         }
@@ -501,12 +570,12 @@ class LoopManagerModal extends BaseModal {
     _loopCardHtml(loop) {
         const ts     = `${loop.time_sig_num}/${loop.time_sig_den}`;
         const prog   = loop.instrument_program ?? 0;
-        const family = GM_FAMILIES.slice().reverse().find(f => prog >= f.start) || GM_FAMILIES[0];
+        const family = LoopUtils.familyForProgram(prog);
         const instrName = this._gmProgramName(prog);
         const densityHtml = loop.note_count != null
-            ? `<div class="lc-card-density"><div class="lc-card-density-fill" style="width:${Math.min(100, (loop.note_count / Math.max(1, (loop.bars || 2) * 8)) * 100)}%"></div></div>`
+            ? `<div class="lc-card-density"><div class="lc-card-density-fill" style="width:${Math.min(100, (loop.note_count / Math.max(1, (loop.bars || 2) * 8)) * 100)}%; background:${family.color}"></div></div>`
             : '';
-        return `<div class="lc-card" data-loop-id="${loop.id}">
+        return `<div class="lc-card" data-loop-id="${loop.id}" style="--family-color:${family.color}">
             <div class="lc-card-name">${this.escape(loop.name)}</div>
             <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
             <div class="lc-card-instr">${family.icon} ${this.escape(instrName)}</div>
@@ -524,19 +593,26 @@ class LoopManagerModal extends BaseModal {
             await this.api.sendCommand('loop_delete', { loopId: id });
             this._fetchLoopDataCache.delete(id);
             // Remove from pad slots if assigned
+            let padChanged = false;
             for (let i = 0; i < this._padSlots.length; i++) {
                 if (this._padSlots[i]?.loopId === id) {
                     this._stopPad(i);
                     this._padSlots[i] = null;
+                    padChanged = true;
                 }
             }
+            if (padChanged) this._persistPadLayout();
             // Remove from live playing
             this._liveStop(id);
             await this._loadLibrary();
             if (this.currentArrangementId && this.blocks.some(b => b.loop_id === id)) {
                 await this._loadArrangementById(this.currentArrangementId);
             }
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'manager.deleteLoop', {
+                toast: this.t('loopManager.errDeleteLoop')
+            });
+        }
     }
 
     _onLoopSaved(loopId) {
@@ -553,12 +629,7 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     async _initPadSynth() {
-        if (typeof MidiSynthesizer !== 'undefined' && !this._padSynth) {
-            try {
-                this._padSynth = new MidiSynthesizer();
-                await this._padSynth.initialize();
-            } catch (_) {}
-        }
+        if (!this._padSynth) this._padSynth = await LoopUtils.createSynth();
     }
 
     _renderPadGrid() {
@@ -568,14 +639,17 @@ class LoopManagerModal extends BaseModal {
             const playing     = this._padPlayingIndex.has(i);
             const assigned    = slot !== null;
             const octaveGroup = Math.floor(i / 4);
-            let iconHtml = '';
+            let iconHtml = '', familyColor = '';
             if (assigned) {
-                const prog   = slot.instrument_program ?? 0;
-                const family = GM_FAMILIES.slice().reverse().find(f => prog >= f.start) || GM_FAMILIES[0];
+                const family = LoopUtils.familyForProgram(slot.instrument_program ?? 0);
                 iconHtml = `<span class="lm-pad-icon">${family.icon}</span>`;
+                familyColor = family.color;
             }
+            const styleAttr = familyColor ? `style="--family-color:${familyColor}"` : '';
             return `<div class="lm-pad-cell${assigned ? ' lm-pad-cell--assigned' : ''}${playing ? ' lm-pad-cell--playing' : ''}"
-                data-pad-index="${i}" data-octave-group="${octaveGroup}"
+                data-pad-index="${i}" data-octave-group="${octaveGroup}" ${styleAttr}
+                tabindex="0" role="button"
+                aria-label="${assigned ? this.escape(slot.name) : this.t('loopManager.emptyPad', { index: i + 1 })}"
                 title="${assigned ? this.escape(slot.name) : ''}">
                 ${iconHtml}
                 <span class="lm-pad-name">${assigned ? this.escape(slot.name) : '+'}</span>
@@ -589,6 +663,11 @@ class LoopManagerModal extends BaseModal {
                 const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
                 if (cell) this._triggerPad(parseInt(cell.dataset.padIndex));
             });
+            grid.addEventListener('keydown', (e) => {
+                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
+                if (!cell) return;
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._triggerPad(parseInt(cell.dataset.padIndex)); }
+            });
         }
     }
 
@@ -599,7 +678,7 @@ class LoopManagerModal extends BaseModal {
             const allDevices = await this.api.listDevices();
             const devices = allDevices.filter(d => d.status === 2 || d.connected === true);
             const existing = sel.value;
-            sel.innerHTML = `<option value="">—</option>`;
+            sel.innerHTML = `<option value="">${this.t('loopManager.padMidiInNone')}</option>`;
             for (const d of devices) {
                 const id  = d.device_id || d.id;
                 const opt = document.createElement('option');
@@ -608,7 +687,9 @@ class LoopManagerModal extends BaseModal {
                 if (id === existing) opt.selected = true;
                 sel.appendChild(opt);
             }
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'pad.midiIn.list');
+        }
     }
 
     async _triggerPad(index) {
@@ -621,15 +702,20 @@ class LoopManagerModal extends BaseModal {
         }
 
         const loopData = await this._fetchLoopData(slot.loopId);
-        if (!loopData) return;
+        if (!loopData) {
+            LoopUtils.toast(this.t('loopManager.errLoopUnavailable'), 'error');
+            return;
+        }
 
         // Each pad uses its own MIDI channel (0-15) so multiple instruments can play simultaneously
         const ch = index;
         if (this._padSynth) {
             const prog = loopData.instrument_program ?? 0;
-            this._padSynth.setChannelInstrument(ch, prog);
+            try { this._padSynth.setChannelInstrument(ch, prog); }
+            catch (err) { LoopUtils.handleError(err, 'pad.synth.setChannelInstrument'); }
             if (!this._padSynth.loadedInstruments?.has(prog)) {
-                await this._padSynth.loadInstrument(prog).catch(() => {});
+                await this._padSynth.loadInstrument(prog).catch(err =>
+                    LoopUtils.handleError(err, 'pad.synth.loadInstrument'));
             }
         }
 
@@ -639,31 +725,30 @@ class LoopManagerModal extends BaseModal {
     }
 
     _schedulePad(index, loopData, channel = 0) {
-        const seq = typeof loopData.midi_data === 'string'
-            ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
-        const spt       = 60 / ((loopData.tempo || 120) * (loopData.ppq || 480));
-        const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
+        const seq       = LoopUtils.parseSequence(loopData.midi_data);
+        const loopDurMs = LoopUtils.loopDurationMs(loopData);
 
         this._padPlayTimes.set(index, { startMs: performance.now(), durMs: loopDurMs });
         this._renderPlaybar();
 
-        const timers = [];
-        for (const note of seq) {
-            const durSec = (note.g || note.l || 120) * spt;
-            timers.push(setTimeout(() => {
-                if (!this._padPlayingIndex.has(index)) return;
-                try { this._padSynth?.playNote?.(note.n, note.v || 80, channel, durSec); } catch (_) {}
-            }, note.t * spt * 1000));
-        }
-        // Auto-stop after one loop
-        timers.push(setTimeout(() => {
-            this._padPlayingIndex.delete(index);
-            this._padPlayTimes.delete(index);
-            (this._padPlaybackTimers.get(index) || []).forEach(t => clearTimeout(t));
-            this._padPlaybackTimers.delete(index);
-            this._updatePadCell(index);
-            this._renderPlaybar();
-        }, loopDurMs + 50));
+        const isAlive = () => this._padPlayingIndex.has(index);
+        const timers = LoopUtils.scheduleSequence({
+            synth: this._padSynth,
+            sequence: seq,
+            tempo: loopData.tempo || 120,
+            ppq:   loopData.ppq   || 480,
+            channel,
+            isAlive,
+            cycleMs: loopDurMs + 50,
+            onCycleEnd: () => {
+                this._padPlayingIndex.delete(index);
+                this._padPlayTimes.delete(index);
+                (this._padPlaybackTimers.get(index) || []).forEach(t => clearTimeout(t));
+                this._padPlaybackTimers.delete(index);
+                this._updatePadCell(index);
+                this._renderPlaybar();
+            }
+        });
 
         this._padPlaybackTimers.set(index, timers);
     }
@@ -680,7 +765,8 @@ class LoopManagerModal extends BaseModal {
     _stopAllPads() {
         for (let i = 0; i < 16; i++) this._stopPad(i);
         this._padPlayTimes.clear();
-        try { this._padSynth?.cancelAllNotes?.(); } catch (_) {}
+        try { this._padSynth?.cancelAllNotes?.(); }
+        catch (err) { LoopUtils.handleError(err, 'pad.synth.cancelAllNotes'); }
     }
 
     _updatePadCell(index) {
@@ -703,9 +789,12 @@ class LoopManagerModal extends BaseModal {
         };
         this._renderPadGrid();
         this._closePadPicker();
+        this._persistPadLayout();
     }
 
     _openPadPicker(index, anchorEl) {
+        // Reset any previous picker handler
+        this._detachPadPickerHandler();
         this._padPickerIndex = index;
         const picker = this.$('#lm-pad-picker');
         if (!picker) return;
@@ -723,7 +812,7 @@ class LoopManagerModal extends BaseModal {
                 </div>
             </div>`;
 
-        picker.addEventListener('click', (e) => {
+        this._padPickerHandler = (e) => {
             const item = e.target.closest('[data-assign-loop]');
             if (!item) return;
             const val = item.dataset.assignLoop;
@@ -732,10 +821,12 @@ class LoopManagerModal extends BaseModal {
                 this._padSlots[index] = null;
                 this._renderPadGrid();
                 this._closePadPicker();
+                this._persistPadLayout();
             } else {
                 this._assignPadSlot(index, parseInt(val));
             }
-        }, { once: true });
+        };
+        picker.addEventListener('click', this._padPickerHandler);
 
         // Position near anchor (fixed so it escapes any overflow:hidden containers)
         const rect = anchorEl.getBoundingClientRect();
@@ -744,10 +835,98 @@ class LoopManagerModal extends BaseModal {
         picker.style.display = 'block';
     }
 
+    _detachPadPickerHandler() {
+        if (this._padPickerHandler) {
+            const picker = this.$('#lm-pad-picker');
+            picker?.removeEventListener('click', this._padPickerHandler);
+            this._padPickerHandler = null;
+        }
+    }
+
     _closePadPicker() {
+        this._detachPadPickerHandler();
         this._padPickerIndex = null;
         const picker = this.$('#lm-pad-picker');
         if (picker) picker.style.display = 'none';
+    }
+
+    // ── Pad layout persistence (T2.3) ──────────────────────────
+    _persistPadLayout() {
+        LoopUtils.PadStorage.save(this._padSlots);
+    }
+
+    _loadPadLayout() {
+        const saved = LoopUtils.PadStorage.load();
+        if (Array.isArray(saved) && saved.length === 16) {
+            this._padSlots = saved.map(s => s ? {
+                loopId: s.loopId, name: s.name,
+                tempo: s.tempo, bars: s.bars,
+                instrument_program: s.instrument_program ?? 0
+            } : null);
+        }
+    }
+
+    _clearAllPads() {
+        if (!confirm(this.t('loopManager.confirmClearAllPads'))) return;
+        for (let i = 0; i < 16; i++) {
+            this._stopPad(i);
+            this._padSlots[i] = null;
+        }
+        this._renderPadGrid();
+        this._persistPadLayout();
+        LoopUtils.toast(this.t('loopManager.padsCleared'), 'success');
+    }
+
+    _exportPadLayout() {
+        const json = LoopUtils.PadStorage.export(this._padSlots);
+        try {
+            const blob = new Blob([json], { type: 'application/json' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = `gmboop-pad-layout-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            LoopUtils.toast(this.t('loopManager.padLayoutExported'), 'success');
+        } catch (err) {
+            LoopUtils.handleError(err, 'pad.export', {
+                toast: this.t('loopManager.errExport')
+            });
+        }
+    }
+
+    _importPadLayout() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const slots = LoopUtils.PadStorage.import(String(reader.result || ''));
+                if (!slots || !Array.isArray(slots) || slots.length !== 16) {
+                    LoopUtils.toast(this.t('loopManager.errImport'), 'error');
+                    return;
+                }
+                this._stopAllPads();
+                this._padSlots = slots.map(s => s ? {
+                    loopId: s.loopId, name: s.name,
+                    tempo: s.tempo, bars: s.bars,
+                    instrument_program: s.instrument_program ?? 0
+                } : null);
+                this._renderPadGrid();
+                this._persistPadLayout();
+                LoopUtils.toast(this.t('loopManager.padLayoutImported'), 'success');
+            };
+            reader.onerror = (err) => LoopUtils.handleError(err, 'pad.import.read', {
+                toast: this.t('loopManager.errImport')
+            });
+            reader.readAsText(file);
+        });
+        input.click();
     }
 
     // MIDI In for pads
@@ -770,7 +949,11 @@ class LoopManagerModal extends BaseModal {
             this.api.on('monitor_event', this._padMidiInHandler);
             const status = this.$('#lm-pad-midi-status');
             if (status) status.textContent = '● MIDI';
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'pad.midiIn.start', {
+                toast: this.t('loopManager.errMidiIn')
+            });
+        }
     }
 
     async _stopPadMidiMonitor() {
@@ -781,7 +964,8 @@ class LoopManagerModal extends BaseModal {
             this._padMidiInHandler = null;
         }
         if (this._padMidiInDevice) {
-            try { await this.api.sendCommand('monitor_stop', { deviceId: this._padMidiInDevice }); } catch (_) {}
+            try { await this.api.sendCommand('monitor_stop', { deviceId: this._padMidiInDevice }); }
+            catch (err) { LoopUtils.handleError(err, 'pad.midiIn.stop'); }
         }
         const status = this.$('#lm-pad-midi-status');
         if (status) status.textContent = '';
@@ -792,12 +976,7 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     async _initLiveSynth() {
-        if (typeof MidiSynthesizer !== 'undefined' && !this._liveSynth) {
-            try {
-                this._liveSynth = new MidiSynthesizer();
-                await this._liveSynth.initialize();
-            } catch (_) {}
-        }
+        if (!this._liveSynth) this._liveSynth = await LoopUtils.createSynth();
     }
 
     _renderLiveArea() {
@@ -811,14 +990,13 @@ class LoopManagerModal extends BaseModal {
         // Group loops by GM family
         const groups = new Map(); // familyName → { family, loops[] }
         for (const loop of this.library) {
-            const prog   = loop.instrument_program ?? 0;
-            const family = GM_FAMILIES.slice().reverse().find(f => prog >= f.start) || GM_FAMILIES[0];
+            const family = LoopUtils.familyForProgram(loop.instrument_program ?? 0);
             if (!groups.has(family.name)) groups.set(family.name, { family, loops: [] });
             groups.get(family.name).loops.push(loop);
         }
 
         area.innerHTML = [...groups.values()].map(({ family, loops }) => `
-        <div class="lm-live-group">
+        <div class="lm-live-group" style="--family-color:${family.color}">
             <div class="lm-live-group-header">
                 <span class="lm-live-group-icon">${family.icon}</span>
                 <span class="lm-live-group-name">${family.name}</span>
@@ -844,19 +1022,24 @@ class LoopManagerModal extends BaseModal {
             return;
         }
         const loopData = await this._fetchLoopData(loopId);
-        if (!loopData) return;
+        if (!loopData) {
+            LoopUtils.toast(this.t('loopManager.errLoopUnavailable'), 'error');
+            return;
+        }
 
         // Allocate a unique channel so multiple instruments can play simultaneously
         const ch = this._allocLiveChannel();
         if (this._liveSynth) {
             const prog = loopData.instrument_program ?? 0;
-            this._liveSynth.setChannelInstrument(ch, prog);
+            try { this._liveSynth.setChannelInstrument(ch, prog); }
+            catch (err) { LoopUtils.handleError(err, 'live.synth.setChannelInstrument'); }
             if (!this._liveSynth.loadedInstruments?.has(prog)) {
-                await this._liveSynth.loadInstrument(prog).catch(() => {});
+                await this._liveSynth.loadInstrument(prog).catch(err =>
+                    LoopUtils.handleError(err, 'live.synth.loadInstrument'));
             }
         }
 
-        const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
+        const loopDurMs = LoopUtils.loopDurationMs(loopData);
         this._livePlayingLoops.set(loopId, { timers: [], ch, startMs: performance.now(), durMs: loopDurMs });
         this._updateLiveButton(loopId, true);
         this._scheduleLiveLoop(loopId, loopData);
@@ -868,29 +1051,25 @@ class LoopManagerModal extends BaseModal {
         const state = this._livePlayingLoops.get(loopId);
         const ch    = state.ch ?? 0;
 
-        const seq       = typeof loopData.midi_data === 'string'
-            ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
-        const spt       = 60 / ((loopData.tempo || 120) * (loopData.ppq || 480));
-        const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
+        const seq       = LoopUtils.parseSequence(loopData.midi_data);
+        const loopDurMs = LoopUtils.loopDurationMs(loopData);
 
         // Reset cycle start time and clear old timers
         state.timers.forEach(t => clearTimeout(t));
-        state.timers  = [];
         state.startMs = performance.now();
         state.durMs   = loopDurMs;
 
-        for (const note of seq) {
-            const durSec = (note.g || note.l || 120) * spt;
-            state.timers.push(setTimeout(() => {
-                if (!this._livePlayingLoops.has(loopId)) return;
-                try { this._liveSynth?.playNote?.(note.n, note.v || 80, ch, durSec); } catch (_) {}
-            }, note.t * spt * 1000));
-        }
-
-        // Reschedule after loop duration
-        state.timers.push(setTimeout(() => {
-            if (this._livePlayingLoops.has(loopId)) this._scheduleLiveLoop(loopId, loopData);
-        }, loopDurMs));
+        const isAlive = () => this._livePlayingLoops.has(loopId);
+        state.timers = LoopUtils.scheduleSequence({
+            synth: this._liveSynth,
+            sequence: seq,
+            tempo: loopData.tempo || 120,
+            ppq:   loopData.ppq   || 480,
+            channel: ch,
+            isAlive,
+            cycleMs: loopDurMs,
+            onCycleEnd: () => { if (isAlive()) this._scheduleLiveLoop(loopId, loopData); }
+        });
     }
 
     _liveStop(loopId) {
@@ -904,7 +1083,8 @@ class LoopManagerModal extends BaseModal {
 
     _liveStopAll() {
         for (const loopId of [...this._livePlayingLoops.keys()]) this._liveStop(loopId);
-        try { this._liveSynth?.cancelAllNotes?.(); } catch (_) {}
+        try { this._liveSynth?.cancelAllNotes?.(); }
+        catch (err) { LoopUtils.handleError(err, 'live.synth.cancelAllNotes'); }
     }
 
     _liveToggleOutput() {
@@ -927,13 +1107,7 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     async _initArrangerSynth() {
-        if (typeof MidiSynthesizer !== 'undefined' && !this._arrangerSynth) {
-            try {
-                this._arrangerSynth = new MidiSynthesizer();
-                await this._arrangerSynth.initialize();
-                await this._arrangerSynth.loadInstrument(0).catch(() => {});
-            } catch (_) {}
-        }
+        if (!this._arrangerSynth) this._arrangerSynth = await LoopUtils.createSynth({ initialProgram: 0 });
     }
 
     async _initArrangerTab() {
@@ -947,7 +1121,9 @@ class LoopManagerModal extends BaseModal {
         try {
             const r = await this.api.sendCommand('arrangement_list');
             this._renderArrList(r.arrangements || []);
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.list');
+        }
     }
 
     _renderArrList(arrs) {
@@ -981,7 +1157,11 @@ class LoopManagerModal extends BaseModal {
             this.currentArrangementId = r.arrangementId;
             await this._loadArrangementById(r.arrangementId);
             await this._loadArrangements();
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.new', {
+                toast: this.t('loopManager.errCreateArrangement')
+            });
+        }
     }
 
     async _loadArrangementById(id) {
@@ -994,13 +1174,79 @@ class LoopManagerModal extends BaseModal {
             this.arrangementBars  = arrangement.total_bars;
             this.tracks = tracks;
             this.blocks = blocks;
+            this._resetArrHistory();
+            this._selectedBlocks.clear();
             const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
             f('#la-name-input', arrangement.name);
             f('#la-tempo',      arrangement.global_tempo);
             f('#la-bars',       arrangement.total_bars);
             this._renderTimeline();
             this._renderArrList([arrangement]);
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.load', {
+                toast: this.t('loopManager.errLoadArrangement')
+            });
+        }
+    }
+
+    // =========================================================
+    // ARRANGER — UNDO/REDO HISTORY (T3)
+    // =========================================================
+
+    _snapshotArr() {
+        return {
+            tracks: this.tracks.map(t => ({ ...t })),
+            blocks: this.blocks.map(b => ({ ...b }))
+        };
+    }
+
+    _resetArrHistory() {
+        this._arrHistory = [this._snapshotArr()];
+        this._arrHistoryIdx = 0;
+        this._refreshUndoButtons();
+    }
+
+    _pushArrHistory() {
+        // Drop forward history if we branched
+        this._arrHistory = this._arrHistory.slice(0, this._arrHistoryIdx + 1);
+        this._arrHistory.push(this._snapshotArr());
+        if (this._arrHistory.length > ARRANGER_HISTORY_LIMIT) {
+            this._arrHistory.shift();
+        } else {
+            this._arrHistoryIdx++;
+        }
+        this._refreshUndoButtons();
+    }
+
+    _arrUndo() {
+        if (this._arrHistoryIdx <= 0) return;
+        this._arrHistoryIdx--;
+        this._restoreArrSnapshot(this._arrHistory[this._arrHistoryIdx]);
+    }
+
+    _arrRedo() {
+        if (this._arrHistoryIdx >= this._arrHistory.length - 1) return;
+        this._arrHistoryIdx++;
+        this._restoreArrSnapshot(this._arrHistory[this._arrHistoryIdx]);
+    }
+
+    _restoreArrSnapshot(snap) {
+        if (!snap) return;
+        this.tracks = snap.tracks.map(t => ({ ...t }));
+        this.blocks = snap.blocks.map(b => ({ ...b }));
+        this._selectedBlocks.clear();
+        this._renderTimeline();
+        this._refreshUndoButtons();
+        // Note: undo/redo is local-only and does not auto-sync to the backend.
+        // The user must hit Save to persist.
+        LoopUtils.toast(this.t('loopManager.arrLocalOnly'), 'info', 2200);
+    }
+
+    _refreshUndoButtons() {
+        const u = this.$('#la-undo-btn');
+        const r = this.$('#la-redo-btn');
+        if (u) u.disabled = this._arrHistoryIdx <= 0;
+        if (r) r.disabled = this._arrHistoryIdx >= this._arrHistory.length - 1;
     }
 
     // =========================================================
@@ -1011,13 +1257,15 @@ class LoopManagerModal extends BaseModal {
         const grid = this.$('#la-palette-grid');
         if (!grid) return;
         if (!this.library.length) { grid.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`; return; }
-        grid.innerHTML = this.library.map(loop =>
-            `<div class="la-palette-chip" draggable="true" data-loop-id="${loop.id}"
-                data-loop-bars="${loop.bars}" data-loop-name="${this.escape(loop.name)}">
-                <div class="la-chip-name">${this.escape(loop.name)}</div>
+        grid.innerHTML = this.library.map(loop => {
+            const family = LoopUtils.familyForProgram(loop.instrument_program ?? 0);
+            return `<div class="la-palette-chip" draggable="true" data-loop-id="${loop.id}"
+                data-loop-bars="${loop.bars}" data-loop-name="${this.escape(loop.name)}"
+                style="--family-color:${family.color}">
+                <div class="la-chip-name">${family.icon} ${this.escape(loop.name)}</div>
                 <div class="la-chip-meta">${loop.bars}${this.t('loopCreator.barsUnit')}</div>
-            </div>`
-        ).join('');
+            </div>`;
+        }).join('');
         grid.querySelectorAll('.la-palette-chip').forEach(chip => {
             chip.addEventListener('dragstart', (e) => {
                 e.dataTransfer.effectAllowed = 'copy';
@@ -1034,7 +1282,7 @@ class LoopManagerModal extends BaseModal {
     // ARRANGER — TIMELINE
     // =========================================================
 
-    _renderTimeline() { this._renderRuler(); this._renderTracks(); this._renderPalette(); }
+    _renderTimeline() { this._renderRuler(); this._renderTracks(); this._renderPalette(); this._refreshBlockSelectionUI(); }
 
     _renderRuler() {
         const ruler = this.$('#la-ruler');
@@ -1076,27 +1324,61 @@ class LoopManagerModal extends BaseModal {
         cells.addEventListener('dragleave', () => this._hideDropPreview());
         cells.addEventListener('drop',      (e) => {
             e.preventDefault(); this._hideDropPreview();
-            const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
-            if (data.loopId) this._addBlock(track.id, data.loopId, this._barFromX(e.offsetX, BAR_W), data.loopBars || 2);
+            try {
+                const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+                if (data.loopId) this._addBlock(track.id, data.loopId, this._barFromX(e.offsetX, BAR_W), data.loopBars || 2);
+            } catch (err) {
+                LoopUtils.handleError(err, 'arr.drop.parse');
+            }
+        });
+
+        // Wire block actions and selection (single delegated listener — no setTimeout race)
+        cells.addEventListener('click', (e) => {
+            const actionBtn = e.target.closest('[data-block-action]');
+            if (actionBtn) {
+                e.stopPropagation();
+                const bid = parseInt(actionBtn.dataset.blockId);
+                if (actionBtn.dataset.blockAction === 'reps-inc') this._changeReps(bid, +1);
+                if (actionBtn.dataset.blockAction === 'reps-dec') this._changeReps(bid, -1);
+                if (actionBtn.dataset.blockAction === 'delete')   this._deleteBlock(bid);
+                return;
+            }
+            const blockEl = e.target.closest('.la-block[data-block-id]');
+            if (blockEl) {
+                const bid = parseInt(blockEl.dataset.blockId);
+                this._toggleBlockSelection(bid, e.shiftKey || e.metaKey || e.ctrlKey);
+            }
         });
 
         const nameInput = trackEl.querySelector('.la-track-name-input');
         nameInput?.addEventListener('change', async () => {
-            try { await this.api.sendCommand('arrangement_update_track', { trackId: track.id, label: nameInput.value }); } catch (_) {}
+            try {
+                await this.api.sendCommand('arrangement_update_track', { trackId: track.id, label: nameInput.value });
+                const t = this.tracks.find(x => x.id === track.id);
+                if (t) t.label = nameInput.value;
+                this._pushArrHistory();
+            } catch (err) {
+                LoopUtils.handleError(err, 'arr.track.rename', {
+                    toast: this.t('loopManager.errSave')
+                });
+            }
         });
         trackEl.querySelector('[data-track-action="delete"]')?.addEventListener('click', () => this._deleteTrack(track.id));
         return trackEl;
     }
 
     _buildCells(trackId, BAR_W) {
-        const BLOCK_COLORS = ['#667eea','#e8931a','#27ae60','#764ba2','#e74c3c','#1abc9c','#f0b429','#2980b9'];
         let html = '';
-        this.blocks.filter(b => b.track_id === trackId).forEach((block, i) => {
-            const color  = BLOCK_COLORS[i % BLOCK_COLORS.length];
+        this.blocks.filter(b => b.track_id === trackId).forEach((block) => {
+            const loop   = this.library.find(l => l.id === block.loop_id);
+            const family = LoopUtils.familyForProgram(loop?.instrument_program ?? 0);
             const blockW = block.loop_bars * block.repetitions * BAR_W;
             const blockL = block.position_bar * BAR_W;
-            html += `<div class="la-block" data-block-id="${block.id}" data-wide="${blockW >= 70 ? 'true' : 'false'}" style="left:${blockL}px;width:${blockW}px;background:${color}">
-                <div class="la-block-label">${this.escape(block.loop_name)} ×${block.repetitions}</div>
+            const selected = this._selectedBlocks.has(block.id);
+            html += `<div class="la-block${selected ? ' la-block--selected' : ''}"
+                data-block-id="${block.id}" data-wide="${blockW >= 70 ? 'true' : 'false'}"
+                style="left:${blockL}px;width:${blockW}px;background:${family.color}">
+                <div class="la-block-label">${family.icon} ${this.escape(block.loop_name)} ×${block.repetitions}</div>
                 <div class="la-block-actions">
                     <button class="la-block-btn" data-block-action="reps-dec" data-block-id="${block.id}">−</button>
                     <span class="la-block-reps">${block.repetitions}</span>
@@ -1105,20 +1387,50 @@ class LoopManagerModal extends BaseModal {
                 </div>
             </div>`;
         });
-        setTimeout(() => {
-            this.$$(`[data-track-id="${trackId}"] .la-block`).forEach(blockEl => {
-                blockEl.querySelectorAll('[data-block-action]').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const bid = parseInt(btn.dataset.blockId);
-                        if (btn.dataset.blockAction === 'reps-inc') this._changeReps(bid, +1);
-                        if (btn.dataset.blockAction === 'reps-dec') this._changeReps(bid, -1);
-                        if (btn.dataset.blockAction === 'delete')   this._deleteBlock(bid);
-                    });
-                });
-            });
-        }, 0);
         return html;
+    }
+
+    _toggleBlockSelection(blockId, additive) {
+        if (additive) {
+            if (this._selectedBlocks.has(blockId)) this._selectedBlocks.delete(blockId);
+            else this._selectedBlocks.add(blockId);
+        } else {
+            const onlyOne = this._selectedBlocks.size === 1 && this._selectedBlocks.has(blockId);
+            this._selectedBlocks.clear();
+            if (!onlyOne) this._selectedBlocks.add(blockId);
+        }
+        this._refreshBlockSelectionUI();
+    }
+
+    _clearBlockSelection() {
+        if (!this._selectedBlocks.size) return;
+        this._selectedBlocks.clear();
+        this._refreshBlockSelectionUI();
+    }
+
+    _refreshBlockSelectionUI() {
+        this.$$('.la-block').forEach(el => {
+            const bid = parseInt(el.dataset.blockId);
+            el.classList.toggle('la-block--selected', this._selectedBlocks.has(bid));
+        });
+    }
+
+    async _deleteSelectedBlocks() {
+        const ids = [...this._selectedBlocks];
+        if (!ids.length) return;
+        for (const bid of ids) {
+            try {
+                await this.api.sendCommand('arrangement_delete_block', { blockId: bid });
+            } catch (err) {
+                LoopUtils.handleError(err, 'arr.block.deleteMulti', {
+                    toast: this.t('loopManager.errSave')
+                });
+            }
+        }
+        this.blocks = this.blocks.filter(b => !this._selectedBlocks.has(b.id));
+        this._selectedBlocks.clear();
+        this._renderTimeline();
+        this._pushArrHistory();
     }
 
     _barWidth() {
@@ -1155,7 +1467,12 @@ class LoopManagerModal extends BaseModal {
                 label: `Track ${this.tracks.length + 1}`
             });
             await this._loadArrangementById(this.currentArrangementId);
-        } catch (_) {}
+            this._pushArrHistory();
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.track.add', {
+                toast: this.t('loopManager.errSave')
+            });
+        }
     }
 
     async _deleteTrack(trackId) {
@@ -1164,7 +1481,12 @@ class LoopManagerModal extends BaseModal {
             this.tracks = this.tracks.filter(t => t.id !== trackId);
             this.blocks = this.blocks.filter(b => b.track_id !== trackId);
             this._renderTimeline();
-        } catch (_) {}
+            this._pushArrHistory();
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.track.delete', {
+                toast: this.t('loopManager.errSave')
+            });
+        }
     }
 
     async _addBlock(trackId, loopId, positionBar, loopBars) {
@@ -1179,7 +1501,12 @@ class LoopManagerModal extends BaseModal {
                 loop_name: loop?.name || '?', loop_bars: loop?.bars || loopBars
             });
             this._renderTimeline();
-        } catch (_) {}
+            this._pushArrHistory();
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.block.add', {
+                toast: this.t('loopManager.errSave')
+            });
+        }
     }
 
     async _changeReps(blockId, delta) {
@@ -1190,21 +1517,32 @@ class LoopManagerModal extends BaseModal {
             await this.api.sendCommand('arrangement_update_block', { blockId, repetitions: newReps });
             block.repetitions = newReps;
             this._renderTimeline();
-        } catch (_) {}
+            this._pushArrHistory();
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.block.update', {
+                toast: this.t('loopManager.errSave')
+            });
+        }
     }
 
     async _deleteBlock(blockId) {
         try {
             await this.api.sendCommand('arrangement_delete_block', { blockId });
             this.blocks = this.blocks.filter(b => b.id !== blockId);
+            this._selectedBlocks.delete(blockId);
             this._renderTimeline();
-        } catch (_) {}
+            this._pushArrHistory();
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.block.delete', {
+                toast: this.t('loopManager.errSave')
+            });
+        }
     }
 
     async _saveArrangement() {
         this.arrangementName = this.$('#la-name-input')?.value?.trim() || this.t('loopCreator.untitledArrangement');
-        const tempo = parseInt(this.$('#la-tempo')?.value) || this.arrangementTempo;
-        const bars  = parseInt(this.$('#la-bars')?.value)  || this.arrangementBars;
+        const tempo = LoopUtils.validate.tempo(this.$('#la-tempo')?.value, this.arrangementTempo);
+        const bars  = LoopUtils.validate.arrBars(this.$('#la-bars')?.value, this.arrangementBars);
         try {
             if (this.currentArrangementId) {
                 await this.api.sendCommand('arrangement_update', {
@@ -1212,8 +1550,13 @@ class LoopManagerModal extends BaseModal {
                     name: this.arrangementName, global_tempo: tempo, total_bars: bars
                 });
                 await this._loadArrangements();
+                LoopUtils.toast(this.t('loopCreator.statusSaved'), 'success');
             }
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.save', {
+                toast: `${this.t('loopCreator.statusError')}: ${err.message}`
+            });
+        }
     }
 
     async _deleteArrangement(id) {
@@ -1221,16 +1564,20 @@ class LoopManagerModal extends BaseModal {
             await this.api.sendCommand('arrangement_delete', { arrangementId: id });
             if (this.currentArrangementId === id) await this._newArrangement();
             await this._loadArrangements();
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.delete', {
+                toast: this.t('loopManager.errSave')
+            });
+        }
     }
 
     _adjustArrTempo(d) {
-        this.arrangementTempo = Math.max(20, Math.min(300, this.arrangementTempo + d));
+        this.arrangementTempo = LoopUtils.validate.tempo(this.arrangementTempo + d, this.arrangementTempo);
         const el = this.$('#la-tempo'); if (el) el.value = this.arrangementTempo;
     }
 
     _adjustArrBars(d) {
-        this.arrangementBars = Math.max(4, Math.min(256, this.arrangementBars + d));
+        this.arrangementBars = LoopUtils.validate.arrBars(this.arrangementBars + d, this.arrangementBars);
         const el = this.$('#la-bars'); if (el) el.value = this.arrangementBars;
         this._renderTimeline();
     }
@@ -1254,7 +1601,7 @@ class LoopManagerModal extends BaseModal {
             if (!loopData) continue;
             const prog      = loopData.instrument_program ?? 0;
             programsToLoad.add(prog);
-            const seq       = typeof loopData.midi_data === 'string' ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
+            const seq       = LoopUtils.parseSequence(loopData.midi_data);
             const loopTempo = loopData.tempo || 120;
             const loopPPQ   = loopData.ppq   || 480;
             const spt       = 60 / (loopTempo * loopPPQ);
@@ -1271,7 +1618,8 @@ class LoopManagerModal extends BaseModal {
         if (this._arrangerSynth) {
             for (const prog of programsToLoad) {
                 if (!this._arrangerSynth.loadedInstruments?.has(prog)) {
-                    await this._arrangerSynth.loadInstrument(prog).catch(() => {});
+                    await this._arrangerSynth.loadInstrument(prog).catch(err =>
+                        LoopUtils.handleError(err, 'arr.synth.loadInstrument'));
                 }
             }
         }
@@ -1282,7 +1630,8 @@ class LoopManagerModal extends BaseModal {
         for (const prog of programsToLoad) {
             const ch = chIdx++ % 16;
             programChannelMap.set(prog, ch);
-            this._arrangerSynth?.setChannelInstrument?.(ch, prog);
+            try { this._arrangerSynth?.setChannelInstrument?.(ch, prog); }
+            catch (err) { LoopUtils.handleError(err, 'arr.synth.setChannelInstrument'); }
         }
 
         // Sort by time and schedule notes on their assigned channels
@@ -1292,9 +1641,8 @@ class LoopManagerModal extends BaseModal {
             const evCh = programChannelMap.get(ev.prog) ?? 0;
             this._arrangerTimers.push(setTimeout(() => {
                 if (!this.isArrangerPlaying) return;
-                try {
-                    this._arrangerSynth?.playNote?.(ev.note, ev.vel, evCh, ev.durSec);
-                } catch (_) {}
+                try { this._arrangerSynth?.playNote?.(ev.note, ev.vel, evCh, ev.durSec); }
+                catch (err) { LoopUtils.handleError(err, 'arr.synth.playNote'); }
             }, ev.ms));
         }
         const totalMs = this.arrangementBars * secPerBar * 1000;
@@ -1309,7 +1657,8 @@ class LoopManagerModal extends BaseModal {
         this._arrangerTimers = [];
         this.isArrangerPlaying = false;
         this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
-        try { this._arrangerSynth?.cancelAllNotes?.(); } catch (_) {}
+        try { this._arrangerSynth?.cancelAllNotes?.(); }
+        catch (err) { LoopUtils.handleError(err, 'arr.synth.cancelAllNotes'); }
         this._stopPlaybarRAF();
         this._renderPlaybar();
     }
@@ -1393,7 +1742,10 @@ class LoopManagerModal extends BaseModal {
             const r = await this.api.sendCommand('loop_get', { loopId });
             this._fetchLoopDataCache.set(loopId, r.loop);
             return r.loop;
-        } catch (_) { return null; }
+        } catch (err) {
+            LoopUtils.handleError(err, 'loop.fetch');
+            return null;
+        }
     }
 
     // =========================================================

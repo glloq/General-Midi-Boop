@@ -44,6 +44,7 @@ class LoopEditorModal extends BaseModal {
 
         // Keyboard
         this._activeKeys = new Set();
+        this._keyHandler = null;
 
         // Output
         this.outputMode = 'synth';
@@ -67,6 +68,9 @@ class LoopEditorModal extends BaseModal {
         this._playheadRAF = null;
         this._playheadStartTime = 0;
         this._recordingRAF = null;
+
+        // Debounced piano-roll refresh (for fast keystrokes on tempo/bars)
+        this._refreshTimer = null;
     }
 
     // =========================================================
@@ -98,12 +102,15 @@ class LoopEditorModal extends BaseModal {
             this.bars              = loop.bars;
             this.ppq               = loop.ppq;
             this.instrumentProgram = loop.instrument_program ?? 0;
-            this.sequence = typeof loop.midi_data === 'string'
-                ? JSON.parse(loop.midi_data) : (loop.midi_data || []);
+            this.sequence          = LoopUtils.parseSequence(loop.midi_data);
             const range = this._gmNoteRange(this.instrumentProgram);
             this.outputNoteMin = range.min;
             this.outputNoteMax = range.max;
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'editor.load', {
+                toast: this.t('loopEditor.errLoad')
+            });
+        }
     }
 
     _gmNoteRange(program) {
@@ -210,8 +217,8 @@ class LoopEditorModal extends BaseModal {
                         <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
                             <span class="lc-rec-dot"></span>
                         </button>
-                        <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')}">▶</button>
-                        <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')}">⏹</button>
+                        <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')} (Space)">▶</button>
+                        <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
                     </div>
                     <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                         <span class="lc-rec-dot lc-rec-dot--pulse"></span>
@@ -227,6 +234,8 @@ class LoopEditorModal extends BaseModal {
                         <option value="30">Q:1/16</option>
                     </select>
 
+                    <button class="lc-btn lc-btn-icon" data-action="quantize-selection" title="${this.t('loopEditor.quantizeSelection')}">⊞</button>
+
                     <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
                         <option value="">IN:—</option>
                     </select>
@@ -240,22 +249,22 @@ class LoopEditorModal extends BaseModal {
                     </div>
 
                     <div class="lc-btn-group">
-                        <button class="lc-btn lc-btn-icon" data-action="undo"            title="${this.t('loopCreator.undo')}">↶</button>
-                        <button class="lc-btn lc-btn-icon" data-action="redo"            title="${this.t('loopCreator.redo')}">↷</button>
-                        <button class="lc-btn lc-btn-icon" data-action="select-all"      title="${this.t('loopCreator.selectAll')}">▣</button>
-                        <button class="lc-btn lc-btn-icon" data-action="copy-notes"      id="lc-copy-btn"  title="${this.t('loopCreator.copy')}">📋</button>
-                        <button class="lc-btn lc-btn-icon" data-action="paste-notes"     id="lc-paste-btn" title="${this.t('loopCreator.paste')}">📄</button>
-                        <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">🗑</button>
+                        <button class="lc-btn lc-btn-icon" data-action="undo"            title="${this.t('loopCreator.undo')} (⌘Z)">↶</button>
+                        <button class="lc-btn lc-btn-icon" data-action="redo"            title="${this.t('loopCreator.redo')} (⌘⇧Z)">↷</button>
+                        <button class="lc-btn lc-btn-icon" data-action="select-all"      title="${this.t('loopCreator.selectAll')} (⌘A)">▣</button>
+                        <button class="lc-btn lc-btn-icon" data-action="copy-notes"      id="lc-copy-btn"  title="${this.t('loopCreator.copy')} (⌘C)">📋</button>
+                        <button class="lc-btn lc-btn-icon" data-action="paste-notes"     id="lc-paste-btn" title="${this.t('loopCreator.paste')} (⌘V)">📄</button>
+                        <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')} (⌫)">🗑</button>
                         <button class="lc-btn lc-btn-icon" data-action="clear-notes"     title="${this.t('loopCreator.clearNotes')}">⊠</button>
                     </div>
 
                     <div class="lc-ctrl-sep"></div>
 
                     <div class="lc-btn-group">
-                        <button class="lc-btn lc-btn-icon" data-action="zoom-h-out" title="Zoom horizontal out">−H</button>
-                        <button class="lc-btn lc-btn-icon" data-action="zoom-h-in"  title="Zoom horizontal in">+H</button>
-                        <button class="lc-btn lc-btn-icon" data-action="zoom-v-out" title="Zoom vertical out">−V</button>
-                        <button class="lc-btn lc-btn-icon" data-action="zoom-v-in"  title="Zoom vertical in">+V</button>
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-h-out" title="${this.t('loopEditor.zoomHOut')}">−H</button>
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-h-in"  title="${this.t('loopEditor.zoomHIn')}">+H</button>
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-v-out" title="${this.t('loopEditor.zoomVOut')}">−V</button>
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-v-in"  title="${this.t('loopEditor.zoomVIn')}">+V</button>
                     </div>
 
                     <button class="lc-btn lc-btn-icon" data-action="toggle-piano-roll" id="lc-toggle-roll"
@@ -272,7 +281,9 @@ class LoopEditorModal extends BaseModal {
             </div>
 
             <!-- ── Minimap (always visible) ── -->
-            <canvas class="lc-minimap" id="lc-minimap"></canvas>
+            <canvas class="lc-minimap" id="lc-minimap"
+                    role="slider" tabindex="0"
+                    aria-label="${this.t('loopEditor.minimapAria')}"></canvas>
 
             <!-- ── Keyboard panel (KeyboardModal embedded) ── -->
             <div class="lc-kb-panel" id="lc-kb-panel"></div>
@@ -292,9 +303,11 @@ class LoopEditorModal extends BaseModal {
         this._applyPianoRollVisibility();
         this._loadMidiInDevices();
         this._mountKeyboardPanel();
+        this._attachKeyboardShortcuts();
     }
 
     onClose() {
+        this._detachKeyboardShortcuts();
         this._unmountKeyboardPanel();
         this._stopAll();
         this._stopRecordingAnimation();
@@ -306,6 +319,7 @@ class LoopEditorModal extends BaseModal {
         this._minimap?.destroy();
         this._minimap = null;
         this.pianoRoll = null;
+        if (this._refreshTimer) { clearTimeout(this._refreshTimer); this._refreshTimer = null; }
     }
 
     // =========================================================
@@ -346,6 +360,7 @@ class LoopEditorModal extends BaseModal {
             case 'preview':           this._previewLoop();           break;
             case 'stop-all':          this._stopAll();               break;
             case 'save-loop':         this._saveLoop();              break;
+            case 'quantize-selection':this._quantizeSelection();     break;
             case 'close':             this.close();                  break;
         }
     }
@@ -365,9 +380,66 @@ class LoopEditorModal extends BaseModal {
 
     _onInput(e) {
         const id = e.target.id;
-        if (id === 'lc-tempo')     { const v = parseInt(e.target.value); if (v>=20&&v<=300) { this.tempo=v; this._refreshPianoRollRange(); } }
-        if (id === 'lc-bars')      { const v = parseInt(e.target.value); if (v>=1&&v<=32)   { this.bars=v;  this._refreshPianoRollRange(); } }
-        if (id === 'lc-name-input') this.loopName = e.target.value;
+        if (id === 'lc-tempo') {
+            const v = LoopUtils.validate.tempo(e.target.value, this.tempo);
+            if (v !== this.tempo) { this.tempo = v; this._scheduleRefreshRange(); }
+        } else if (id === 'lc-bars') {
+            const v = LoopUtils.validate.editorBars(e.target.value, this.bars);
+            if (v !== this.bars) { this.bars = v; this._scheduleRefreshRange(); }
+        } else if (id === 'lc-name-input') {
+            this.loopName = e.target.value;
+        }
+    }
+
+    _scheduleRefreshRange() {
+        if (this._refreshTimer) clearTimeout(this._refreshTimer);
+        this._refreshTimer = setTimeout(() => {
+            this._refreshTimer = null;
+            this._refreshPianoRollRange();
+        }, 200);
+    }
+
+    // =========================================================
+    // KEYBOARD SHORTCUTS
+    // =========================================================
+
+    _attachKeyboardShortcuts() {
+        if (this._keyHandler) return;
+        this._keyHandler = (e) => {
+            // Don't intercept while typing in a text/number input
+            const t = e.target;
+            const tag = (t?.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || t?.isContentEditable) return;
+            if (!this.isOpen) return;
+
+            const mod = e.ctrlKey || e.metaKey;
+            // Only act if the editor modal is the front-most loop modal
+            const front = document.querySelector('.modal-overlay:not(.hidden) .loop-editor-modal');
+            if (!front || !front.contains(this.dialog || front)) {
+                // Defensive: if our dialog isn't visible, skip
+                if (!this.dialog || !this.dialog.offsetParent) return;
+            }
+
+            if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); this.pianoRoll?.undo?.(); return; }
+            if (mod && e.key.toLowerCase() === 'z' &&  e.shiftKey) { e.preventDefault(); this.pianoRoll?.redo?.(); return; }
+            if (mod && e.key.toLowerCase() === 'y')                { e.preventDefault(); this.pianoRoll?.redo?.(); return; }
+            if (mod && e.key.toLowerCase() === 'a')                { e.preventDefault(); this._selectAll();        return; }
+            if (mod && e.key.toLowerCase() === 'c')                { e.preventDefault(); this._copyNotes();        return; }
+            if (mod && e.key.toLowerCase() === 'v')                { e.preventDefault(); this._pasteNotes();       return; }
+            if (mod && e.key.toLowerCase() === 's')                { e.preventDefault(); this._saveLoop();         return; }
+            if (e.key === 'Delete' || e.key === 'Backspace')       { e.preventDefault(); this._deleteSelected();   return; }
+            if (e.key === ' ')                                     { e.preventDefault(); this.isPlaying ? this._stopAll() : this._previewLoop(); return; }
+            if (e.key === 'Escape')                                { this._stopAll();                              return; }
+            if (e.key.toLowerCase() === 'r')                       { this._toggleRecording();                      return; }
+        };
+        document.addEventListener('keydown', this._keyHandler);
+    }
+
+    _detachKeyboardShortcuts() {
+        if (this._keyHandler) {
+            document.removeEventListener('keydown', this._keyHandler);
+            this._keyHandler = null;
+        }
     }
 
     // =========================================================
@@ -449,13 +521,13 @@ class LoopEditorModal extends BaseModal {
     }
 
     _adjustTempo(d) {
-        this.tempo = Math.max(20, Math.min(300, this.tempo + d));
+        this.tempo = LoopUtils.validate.tempo(this.tempo + d, this.tempo);
         const el = this.$('#lc-tempo'); if (el) el.value = this.tempo;
         this._refreshPianoRollRange();
     }
 
     _adjustBars(d) {
-        this.bars = Math.max(1, Math.min(32, this.bars + d));
+        this.bars = LoopUtils.validate.editorBars(this.bars + d, this.bars);
         const el = this.$('#lc-bars'); if (el) el.value = this.bars;
         this._refreshPianoRollRange();
     }
@@ -482,7 +554,7 @@ class LoopEditorModal extends BaseModal {
         } else {
             this._clipboard = (this.pianoRoll.sequence || []).filter(n => n.f).map(n => ({...n}));
         }
-        this._setStatus(`${this._clipboard.length} notes copiées`);
+        this._setStatus(this.t('loopEditor.notesCopied', { count: this._clipboard.length }));
     }
 
     _pasteNotes() {
@@ -497,6 +569,29 @@ class LoopEditorModal extends BaseModal {
         }
         this.pianoRoll.redraw?.();
         this._syncMinimap();
+    }
+
+    _quantizeSelection() {
+        if (!this.pianoRoll) return;
+        const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
+        if (!q || q <= 0) {
+            this._setStatus(this.t('loopEditor.quantizeNoGrid'));
+            return;
+        }
+        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
+        const selected = seq.filter(n => n.f);
+        const target = selected.length ? selected : seq;
+        let count = 0;
+        for (const note of target) {
+            const before = note.t;
+            note.t = Math.round(note.t / q) * q;
+            note.g = Math.max(q, Math.round((note.g || note.l || 120) / q) * q);
+            if (note.t !== before) count++;
+        }
+        this.pianoRoll.sequence = seq;
+        this.pianoRoll.redraw?.();
+        this._syncMinimap();
+        this._setStatus(this.t('loopEditor.quantizedNotes', { count }));
     }
 
     _toggleOutput() {
@@ -750,7 +845,11 @@ class LoopEditorModal extends BaseModal {
                 else if (type === 'noteoff' || (type === 'noteon' && vel === 0)) this._stopNote(note);
             };
             this.api.on('monitor_event', this._midiInHandler);
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'editor.midiIn.start', {
+                toast: this.t('loopEditor.errMidiIn')
+            });
+        }
     }
 
     async _stopMidiInMonitor() {
@@ -761,7 +860,8 @@ class LoopEditorModal extends BaseModal {
             this._midiInHandler = null;
         }
         if (this._midiInDevice) {
-            try { await this.api.sendCommand('monitor_stop', { deviceId: this._midiInDevice }); } catch (_) {}
+            try { await this.api.sendCommand('monitor_stop', { deviceId: this._midiInDevice }); }
+            catch (err) { LoopUtils.handleError(err, 'editor.midiIn.stop'); }
         }
     }
 
@@ -781,7 +881,9 @@ class LoopEditorModal extends BaseModal {
                 if (id === existing) opt.selected = true;
                 sel.appendChild(opt);
             }
-        } catch (_) {}
+        } catch (err) {
+            LoopUtils.handleError(err, 'editor.midiIn.list');
+        }
     }
 
     _mountKeyboardPanel() {
@@ -797,7 +899,8 @@ class LoopEditorModal extends BaseModal {
                 this.outputChannel     = channel ?? 0;
                 this.outputGmProgram   = gmProgram ?? 0;
                 this.instrumentProgram = gmProgram ?? 0;
-                this._synth?.setChannelInstrument?.(0, this.instrumentProgram);
+                try { this._synth?.setChannelInstrument?.(0, this.instrumentProgram); }
+                catch (err) { LoopUtils.handleError(err, 'editor.synth.setChannelInstrument'); }
                 const range = this._gmNoteRange(this.instrumentProgram);
                 this.outputNoteMin = range.min;
                 this.outputNoteMax = range.max;
@@ -815,13 +918,7 @@ class LoopEditorModal extends BaseModal {
     // =========================================================
 
     async _initSynth() {
-        if (typeof MidiSynthesizer === 'undefined') return;
-        try {
-            this._synth = new MidiSynthesizer();
-            await this._synth.initialize();
-            this._synth.setChannelInstrument(0, this.instrumentProgram);
-            await this._synth.loadInstrument(this.instrumentProgram).catch(() => {});
-        } catch (_) {}
+        this._synth = await LoopUtils.createSynth({ initialProgram: this.instrumentProgram });
     }
 
     _previewLoop() {
@@ -837,13 +934,19 @@ class LoopEditorModal extends BaseModal {
             this._stopPlayheadAnimation();
             this._setStatus('');
         };
-        this._synth.setChannelInstrument(0, this.instrumentProgram);
+        try { this._synth.setChannelInstrument(0, this.instrumentProgram); }
+        catch (err) { LoopUtils.handleError(err, 'editor.preview.setChannelInstrument'); }
         this._synth.onPlaybackEnd = done;
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
         this._startPlayheadAnimation();
         this._synth.loadSequence([...seq], this.tempo, this.ppq);
-        this._synth.play().catch(done);
+        this._synth.play().catch(err => {
+            LoopUtils.handleError(err, 'editor.preview.play', {
+                toast: this.t('loopEditor.errPreview')
+            });
+            done();
+        });
     }
 
     _previewViaDevice(seq) {
@@ -856,11 +959,17 @@ class LoopEditorModal extends BaseModal {
             const offMs = (note.t + (note.g || note.l || 120)) * spt * 1000;
             this._playbackTimers.push(setTimeout(() => {
                 if (!this.isPlaying) return;
-                this.api.sendCommand('midi_send_note', { deviceId: this.outputDeviceId, channel: this.outputChannel, note: note.n, velocity: note.v || 80 }).catch(() => {});
+                this.api.sendCommand('midi_send_note', {
+                    deviceId: this.outputDeviceId, channel: this.outputChannel,
+                    note: note.n, velocity: note.v || 80
+                }).catch(err => LoopUtils.handleError(err, 'editor.device.noteOn'));
             }, onMs));
             this._playbackTimers.push(setTimeout(() => {
                 if (!this.isPlaying) return;
-                this.api.sendCommand('midi_send_note', { deviceId: this.outputDeviceId, channel: this.outputChannel, note: note.n, velocity: 0 }).catch(() => {});
+                this.api.sendCommand('midi_send_note', {
+                    deviceId: this.outputDeviceId, channel: this.outputChannel,
+                    note: note.n, velocity: 0
+                }).catch(err => LoopUtils.handleError(err, 'editor.device.noteOff'));
             }, offMs));
         }
         this._playbackTimers.push(setTimeout(() => {
@@ -876,8 +985,10 @@ class LoopEditorModal extends BaseModal {
         this._stopPlayheadAnimation();
         if (this._synth) {
             this._synth.onPlaybackEnd = null;
-            try { this._synth.stop?.(); } catch (_) {}
-            try { this._synth.cancelAllNotes?.(); } catch (_) {}
+            try { this._synth.stop?.(); }
+            catch (err) { LoopUtils.handleError(err, 'editor.synth.stop'); }
+            try { this._synth.cancelAllNotes?.(); }
+            catch (err) { LoopUtils.handleError(err, 'editor.synth.cancelAllNotes'); }
         }
         this._activeKeys.clear();
         this._setStatus('');
@@ -907,9 +1018,13 @@ class LoopEditorModal extends BaseModal {
             const titleEl = this.dialog?.querySelector('.le-header-title');
             if (titleEl) titleEl.textContent = `✏️ ${this.loopName}`;
             this._setStatus(this.t('loopCreator.statusSaved'));
+            LoopUtils.toast(this.t('loopCreator.statusSaved'), 'success');
             this.onSaved?.(this.currentLoopId);
         } catch (err) {
             this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`);
+            LoopUtils.handleError(err, 'editor.save', {
+                toast: `${this.t('loopCreator.statusError')}: ${err.message}`
+            });
         }
     }
 
