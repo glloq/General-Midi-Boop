@@ -43,22 +43,11 @@
 (function() {
     'use strict';
 
-    const _BAND_FILL_CACHE = new Map();
-    function _bandFill(hex, alpha) {
-        const key = `${hex}|${alpha}`;
-        let v = _BAND_FILL_CACHE.get(key);
-        if (v) return v;
-        if (typeof hex !== 'string' || hex.length !== 7 || hex[0] !== '#') {
-            v = `rgba(107,114,128,${alpha})`;
-        } else {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            v = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-        _BAND_FILL_CACHE.set(key, v);
-        return v;
-    }
+    // Delegate hex→rgba caching to the shared utility (MinimapUtils.js).
+    const _bandFill = (hex, alpha) =>
+        (typeof window !== 'undefined' && window.MinimapUtils)
+            ? window.MinimapUtils.bandFillRgba(hex, alpha)
+            : `rgba(107,114,128,${alpha ?? 0.18})`;
 
     class KeyboardMinimapRenderer {
         /**
