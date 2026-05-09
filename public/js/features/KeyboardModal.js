@@ -1044,7 +1044,7 @@ class KeyboardModalNew {
         this.loadSettings();
         this.createModal();
         this.isOpen = true;
-        this.container.style.display = 'none'; // keep the empty overlay shell invisible in body
+        this.container.classList.add('km-panel-host'); // hide overlay shell — display:flex!important in CSS would override style.display
 
         const dialogEl = this.container.querySelector('.modal-dialog');
         if (dialogEl) {
@@ -1064,7 +1064,7 @@ class KeyboardModalNew {
 
         if (this._panelDialogEl && this.container) {
             this._panelDialogEl.classList.remove('km-panel-mode');
-            this.container.style.display = '';
+            this.container.classList.remove('km-panel-host');
             this.container.appendChild(this._panelDialogEl);
             this._panelDialogEl = null;
         }

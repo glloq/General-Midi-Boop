@@ -2853,6 +2853,14 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 }
 
 /* ── Panel mode: keyboard embedded inside a host container ── */
+
+/* The overlay shell stays in <body> but must be fully hidden.
+   display:flex !important on .keyboard-modal would override a JS style.display,
+   so we use a class with !important to win the specificity race. */
+.keyboard-modal.km-panel-host {
+    display: none !important;
+}
+
 .modal-dialog.km-panel-mode {
     width: 100% !important;
     max-width: 100% !important;
