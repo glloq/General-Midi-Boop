@@ -2957,3 +2957,13 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     border-bottom: none !important;
     max-height: 260px !important;
 }
+
+/* Remove fixed min-heights so the keyboard body fits in a compact panel */
+.modal-dialog.km-panel-mode .velocity-slider-wrapper,
+.modal-dialog.km-panel-mode .velocity-slider-vertical,
+.modal-dialog.km-panel-mode .mod-wheel-wrapper {
+    min-height: 80px !important;
+}
+#keyboard-modal-container {
+    min-height: 0;
+}

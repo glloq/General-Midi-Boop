@@ -153,15 +153,60 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
     border-color: rgba(74, 90, 212, 0.35);
 }
 
-/* ── Keyboard panel: shrink-to-fit so bottom is never clipped ── */
+/* ── Keyboard panel: flex-shrink allowed, sensible minimum ── */
 .loop-editor-modal .lc-kb-panel {
     flex-shrink: 1;
-    height: clamp(140px, 28vh, 300px);
-    min-height: 120px;
+    flex-basis: 300px;
+    height: auto;
+    min-height: 220px;
 }
 
 .loop-editor-modal .lc-kb-panel--expanded {
     flex: 1 1 0 !important;
     height: auto !important;
-    min-height: 140px !important;
+    min-height: 220px !important;
+}
+
+/* ── Keyboard panel header: gradient accent ── */
+.loop-editor-modal .lc-kb-panel .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: #fff !important;
+}
+
+.loop-editor-modal .lc-kb-panel .instrument-trigger {
+    background: rgba(255,255,255,0.15) !important;
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.30) !important;
+}
+.loop-editor-modal .lc-kb-panel .instrument-trigger-name {
+    color: #fff !important;
+}
+.loop-editor-modal .lc-kb-panel .trigger-chevron {
+    stroke: rgba(255,255,255,0.80) !important;
+}
+.loop-editor-modal .lc-kb-panel .keyboard-header-row {
+    background: rgba(255,255,255,0.08) !important;
+    border-top: 1px solid rgba(255,255,255,0.15) !important;
+}
+.loop-editor-modal .lc-kb-panel .keyboard-header-controls label {
+    color: rgba(255,255,255,0.70) !important;
+}
+.loop-editor-modal .lc-kb-panel .keyboard-header-controls button {
+    background: rgba(255,255,255,0.18) !important;
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.25) !important;
+}
+.loop-editor-modal .lc-kb-panel .keyboard-header-controls button:hover {
+    background: rgba(255,255,255,0.30) !important;
+}
+.loop-editor-modal .lc-kb-panel .keyboard-header-controls .notation-btn.active,
+.loop-editor-modal .lc-kb-panel .keyboard-header-controls button[aria-pressed="true"] {
+    background: rgba(255,255,255,0.40) !important;
+    font-weight: 700 !important;
+}
+
+/* ── Dark mode ── */
+body.theme-dark .loop-editor-modal .lc-kb-panel .modal-header,
+body.dark-mode   .loop-editor-modal .lc-kb-panel .modal-header {
+    background: linear-gradient(135deg, #4a5ad4 0%, #5a3a8a 100%) !important;
 }
