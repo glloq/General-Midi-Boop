@@ -71,6 +71,31 @@
 .lc-header-tabs { display: flex; gap: 4px; flex: 1; justify-content: center; align-items: center; }
 .lc-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
+/* Buttons inside the gradient header get a glass look */
+.lc-header-actions .lc-btn {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.30);
+    color: #fff;
+}
+.lc-header-actions .lc-btn:hover {
+    background: rgba(255,255,255,0.28);
+    border-color: rgba(255,255,255,0.50);
+    transform: none;
+    box-shadow: none;
+}
+.lc-header-actions .lc-btn-primary {
+    background: rgba(255,255,255,0.25);
+    border-color: rgba(255,255,255,0.50);
+    color: #fff;
+    box-shadow: none;
+}
+.lc-header-actions .lc-btn-primary:hover {
+    background: rgba(255,255,255,0.38);
+    border-color: rgba(255,255,255,0.65);
+    transform: none;
+    box-shadow: none;
+}
+
 /* ── Tabs (on gradient header) ── */
 .lc-tab {
     padding: 5px 14px;
@@ -470,15 +495,15 @@
 .lm-pad-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 16px;
+    grid-template-rows: repeat(4, 1fr);
+    gap: 8px;
+    padding: 12px;
     flex: 1 1 0;
-    align-content: start;
-    overflow-y: auto;
+    min-height: 0;
+    overflow: hidden;
     position: relative;
 }
 .lm-pad-cell {
-    aspect-ratio: 1;
     border-radius: 10px;
     border: 2px solid var(--border-color, #dde0e6);
     background: var(--bg-primary, #fff);
@@ -488,6 +513,7 @@
     transition: background 0.1s, border-color 0.1s, transform 0.08s;
     padding: 8px;
     position: relative;
+    min-height: 0;
 }
 /* Empty cells: dashed border, large faded "+" */
 .lm-pad-cell:not(.lm-pad-cell--assigned) {
@@ -528,9 +554,8 @@
 /* GM family icon inside assigned pad */
 .lm-pad-icon { font-size: 1.1rem; opacity: 0.7; margin-bottom: 2px; }
 
-.lm-pad-name { font-size: 0.78rem; font-weight: 600; text-align: center; word-break: break-word; line-height: 1.2; }
-.lm-pad-meta { font-size: 0.62rem; opacity: 0.65; margin-top: 3px; }
-.lm-pad-note { font-size: 0.58rem; opacity: 0.45; position: absolute; bottom: 5px; right: 7px; }
+.lm-pad-name { font-size: 0.82rem; font-weight: 600; text-align: center; word-break: break-word; line-height: 1.2; }
+.lm-pad-meta { font-size: 0.65rem; opacity: 0.65; margin-top: 3px; }
 
 /* Pad assignment picker */
 .lm-pad-picker {
