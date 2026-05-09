@@ -395,6 +395,8 @@
         this.activeNotes.add(note);
         this.updatePianoDisplay();
 
+        if (this._panelCallbacks?.onNoteOn) this._panelCallbacks.onNoteOn(note, this.velocity);
+
         // Send MIDI if a device is selected
         if (this.selectedDevice && this.backend) {
             const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
@@ -423,6 +425,8 @@
         // Remove from active notes
         this.activeNotes.delete(note);
         this.updatePianoDisplay();
+
+        if (this._panelCallbacks?.onNoteOff) this._panelCallbacks.onNoteOff(note);
 
         // Send MIDI if a device is selected
         if (this.selectedDevice && this.backend) {

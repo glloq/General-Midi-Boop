@@ -49,8 +49,6 @@ class LoopCreatorModal extends BaseModal {
 
         // Keyboard
         this._activeKeys = new Set();
-        this._mouseDownNote = null;
-        this._activeKeyEnvelopes = new Map();
 
         // Output mode: 'synth' | 'device'
         // outputChannel uses MIDI base-0 (0..15) to match backend; UI displays as 1..16
@@ -63,7 +61,6 @@ class LoopCreatorModal extends BaseModal {
 
         // Library
         this.library = [];
-        this.devices = [];
 
         // ── Arranger state ──
         this.currentArrangementId = null;
@@ -151,22 +148,6 @@ class LoopCreatorModal extends BaseModal {
             <!-- ── Single control bar ── -->
             <div class="lc-ctrl-bar">
 
-                <!-- Instrument picker (compact inline) -->
-                <div class="lc-instr-picker" id="lc-instr-picker">
-                    <button class="lc-instr-trigger" id="lc-instr-trigger" data-action="instr-picker-toggle" type="button">
-                        <span class="lc-instr-icon">
-                            <img class="lc-instr-svg" id="lc-instr-svg" src="" style="display:none" alt="">
-                            <span class="lc-instr-emoji" id="lc-instr-emoji">🎹</span>
-                        </span>
-                        <span class="lc-instr-name" id="lc-instr-name">${this.t('loopCreator.synthVirtual')}</span>
-                        <span class="lc-instr-chevron">▾</span>
-                    </button>
-                    <div class="lc-instr-dropdown" id="lc-instr-dropdown"></div>
-                </div>
-                <span class="lc-instr-info" id="lc-instr-info"></span>
-
-                <div class="lc-ctrl-sep"></div>
-
                 <!-- Loop name -->
                 <input type="text" class="lc-name-input" id="lc-name-input"
                     value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
@@ -247,10 +228,8 @@ class LoopCreatorModal extends BaseModal {
                 <canvas class="lc-minimap" id="lc-minimap"></canvas>
             </div>
 
-            <!-- ── Keyboard ── -->
-            <div class="lc-keyboard-wrap">
-                <div class="lc-keyboard" id="lc-keyboard">${this._buildKeyboardHtml(36, 84)}</div>
-            </div>
+            <!-- ── Keyboard panel (KeyboardModal embedded) ── -->
+            <div class="lc-kb-panel" id="lc-kb-panel"></div>
         </div>`;
     }
 
@@ -332,35 +311,6 @@ class LoopCreatorModal extends BaseModal {
     }
 
     // =========================================================
-    // KEYBOARD HTML BUILDER
-    // =========================================================
-
-    _buildKeyboardHtml(startNote, endNote) {
-        const WHITE_SEMIS = [0, 2, 4, 5, 7, 9, 11];
-        const whites = [], blacks = [];
-        let wIdx = 0;
-        for (let n = startNote; n <= endNote; n++) {
-            const semi = n % 12;
-            if (WHITE_SEMIS.includes(semi)) { whites.push({ n, wi: wIdx++ }); }
-        }
-        let wi2 = 0;
-        for (let n = startNote; n <= endNote; n++) {
-            const semi = n % 12;
-            if (WHITE_SEMIS.includes(semi)) wi2++;
-            else blacks.push({ n, li: wi2 - 1 });
-        }
-        const ww = 100 / whites.length;
-        const wKeys = whites.map(({ n, wi }) =>
-            `<div class="lc-key lc-key-white" data-note="${n}" style="left:${wi*ww}%;width:${ww}%"></div>`
-        ).join('');
-        const bKeys = blacks.map(({ n, li }) => {
-            const bw = ww * 0.58;
-            return `<div class="lc-key lc-key-black" data-note="${n}" style="left:${li*ww+ww*0.71}%;width:${bw}%"></div>`;
-        }).join('');
-        return wKeys + bKeys;
-    }
-
-    // =========================================================
     // LIFECYCLE
     // =========================================================
 
@@ -368,13 +318,15 @@ class LoopCreatorModal extends BaseModal {
         this._initSynth();
         this._attachEvents();
         this._initPianoRoll();
-        this._loadDevices();
+        this._loadMidiInDevices();
+        this._mountKeyboardPanel();
         this._loadLibrary();
         document.addEventListener('mouseup', this._boundDocMouseUp);
         document.addEventListener('mousemove', this._boundDocMouseMove);
     }
 
     onClose() {
+        this._unmountKeyboardPanel();
         this._stopAll();
         this._stopArrangerPlay();
         this._stopMidiInMonitor();
@@ -429,21 +381,9 @@ class LoopCreatorModal extends BaseModal {
         this.dialog.addEventListener('click', (e) => this._onClick(e));
         this.dialog.addEventListener('change', (e) => this._onChange(e));
         this.dialog.addEventListener('input',  (e) => this._onInput(e));
-
-        const kb = this.$('#lc-keyboard');
-        if (kb) {
-            kb.addEventListener('mousedown', (e) => this._onKeyMouseDown(e));
-            kb.addEventListener('mouseover', (e) => this._onKeyMouseOver(e));
-            kb.addEventListener('touchstart', (e) => { e.preventDefault(); this._onKeyTouchStart(e); }, { passive: false });
-            kb.addEventListener('touchmove',  (e) => { e.preventDefault(); this._onKeyTouchMove(e);  }, { passive: false });
-            kb.addEventListener('touchend',   (e) => this._onKeyTouchEnd(e));
-        }
     }
 
     _onClick(e) {
-        // Close instrument picker on click outside it
-        if (!e.target.closest('#lc-instr-picker')) this._closeInstrPicker();
-
         // Tab switching — .lc-tab buttons carry data-tab, not data-action
         const tabBtn = e.target.closest('.lc-tab[data-tab]');
         if (tabBtn) { this._switchTab(tabBtn.dataset.tab); return; }
@@ -453,7 +393,6 @@ class LoopCreatorModal extends BaseModal {
         const a = btn.dataset.action;
         switch (a) {
             // Creator
-            case 'instr-picker-toggle': this._toggleInstrPicker(); break;
             case 'tempo-dec':    this._adjustTempo(-1);    break;
             case 'tempo-inc':    this._adjustTempo(+1);    break;
             case 'bars-dec':     this._adjustBars(-1);     break;
@@ -792,84 +731,24 @@ class LoopCreatorModal extends BaseModal {
     }
 
     // =========================================================
-    // KEYBOARD (mini piano)
+    // NOTE RECORDING (keyboard panel handles MIDI output and display)
     // =========================================================
 
-    _noteFromEl(el) { const k = el?.closest?.('.lc-key'); return k ? parseInt(k.dataset.note) : null; }
+    _onDocMouseUp() {}
 
-    _onKeyMouseDown(e) {
-        const n = this._noteFromEl(e.target);
-        if (n == null) return;
-        e.preventDefault(); this._mouseDownNote = n; this._playNote(n);
-    }
-    _onKeyMouseOver(e) {
-        if (this._mouseDownNote == null) return;
-        const n = this._noteFromEl(e.target);
-        if (n == null || n === this._mouseDownNote) return;
-        this._stopNote(this._mouseDownNote); this._mouseDownNote = n; this._playNote(n);
-    }
-    _onDocMouseUp() {
-        if (this._mouseDownNote != null) { this._stopNote(this._mouseDownNote); this._mouseDownNote = null; }
-    }
-    _onKeyTouchStart(e) {
-        for (const t of e.changedTouches) {
-            const n = this._noteFromEl(document.elementFromPoint(t.clientX, t.clientY));
-            if (n != null) this._playNote(n);
-        }
-    }
-    _onKeyTouchMove(e) {
-        for (const t of e.changedTouches) {
-            const n = this._noteFromEl(document.elementFromPoint(t.clientX, t.clientY));
-            if (n != null && !this._activeKeys.has(n)) this._playNote(n);
-        }
-    }
-    _onKeyTouchEnd(e) {
-        for (const t of e.changedTouches) {
-            const n = this._noteFromEl(document.elementFromPoint(t.clientX, t.clientY));
-            if (n != null) this._stopNote(n);
-        }
-    }
-
-    _playNote(note) {
+    _playNote(note, velocity = 80) {
         if (this._activeKeys.has(note)) return;
         this._activeKeys.add(note);
-        this._highlightKey(note, true);
-        if (this.outputMode === 'device' && this.outputDeviceId) {
-            this.api.sendCommand('midi_send_note', {
-                deviceId: this.outputDeviceId, channel: this.outputChannel, note, velocity: 80
-            }).catch(() => {});
-        } else if (this._synth) {
-            try {
-                const env = this._synth.playNote(note, 80, 0, 60);
-                if (env) this._activeKeyEnvelopes.set(note, env);
-            } catch (_) {}
-        }
         if (this.isRecording) {
             const elapsed = (performance.now() - this.recordStartTime) / 1000;
             const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
-            this.recordedNotes.push({ note, tick, startMs: performance.now() });
+            this.recordedNotes.push({ note, velocity, tick, startMs: performance.now() });
         }
     }
 
     _stopNote(note) {
         this._activeKeys.delete(note);
-        this._highlightKey(note, false);
-        if (this.outputMode === 'device' && this.outputDeviceId) {
-            this.api.sendCommand('midi_send_note', {
-                deviceId: this.outputDeviceId, channel: this.outputChannel, note, velocity: 0
-            }).catch(() => {});
-        } else {
-            const env = this._activeKeyEnvelopes.get(note);
-            if (env) {
-                try { env.forEach(e => e.cancel()); } catch (_) {}
-                this._activeKeyEnvelopes.delete(note);
-            }
-        }
         if (this.isRecording) this._finalizeNoteOff(note);
-    }
-
-    _highlightKey(note, on) {
-        this.dialog?.querySelector(`.lc-key[data-note="${note}"]`)?.classList.toggle('lc-key--active', on);
     }
 
     _finalizeNoteOff(note) {
@@ -881,7 +760,7 @@ class LoopCreatorModal extends BaseModal {
         const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
         const t = q > 0 ? Math.round(rec.tick / q) * q : rec.tick;
         const g = q > 0 ? Math.max(q, Math.round(durTicks / q) * q) : durTicks;
-        this._addNoteToRoll({ t, n: note, v: 80, g });
+        this._addNoteToRoll({ t, n: note, v: rec.velocity ?? 80, g });
     }
 
     _addNoteToRoll(noteObj) {
@@ -941,7 +820,7 @@ class LoopCreatorModal extends BaseModal {
                 const vel  = data.data?.velocity ?? data.data?.v ?? 64;
                 if (note == null) return;
                 if (type === 'noteon' && vel > 0) {
-                    this._playNote(note);
+                    this._playNote(note, vel);
                 } else if (type === 'noteoff' || (type === 'noteon' && vel === 0)) {
                     this._stopNote(note);
                 }
@@ -962,276 +841,43 @@ class LoopCreatorModal extends BaseModal {
         }
     }
 
-    async _loadDevices() {
-        // Step 1 — raw device list + capabilities in parallel
-        let rawDevices = [];
-        let capsResp   = null;
+    async _loadMidiInDevices() {
+        const sel = this.$('#lc-midi-in-device');
+        if (!sel) return;
         try {
-            const result = await this.api.sendCommand('device_list');
-            rawDevices = result.devices || [];
-        } catch (err) {
-            console.error('[LoopCreator] device_list failed:', err);
-        }
-        try {
-            capsResp = await this.api.sendCommand('instrument_list_capabilities');
+            const allDevices = await this.api.listDevices();
+            const devices = allDevices.filter(d => d.status === 2 || d.connected === true);
+            const existing = sel.value;
+            sel.innerHTML = `<option value="">IN:—</option>`;
+            for (const d of devices) {
+                const id = d.device_id || d.id;
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = `IN: ${d.name || id}`;
+                if (id === existing) opt.selected = true;
+                sel.appendChild(opt);
+            }
         } catch (_) {}
+    }
 
-        console.log('[LoopCreator] raw devices:', rawDevices.length, rawDevices.map(d => `${d.name}(status=${d.status},connected=${d.connected})`));
-
-        // Step 2 — active devices: status===2 OR connected flag (CalibrationModal pattern)
-        const activeDevices = rawDevices.filter(d => d.status === 2 || d.connected === true);
-        console.log('[LoopCreator] active devices:', activeDevices.length);
-
-        // Step 3 — deduplicate by ID
-        const uniqueDevices = [];
-        const seenIds = new Set();
-        for (const d of activeDevices) {
-            const key = d.id || d.device_id || d.name;
-            if (!seenIds.has(key)) { seenIds.add(key); uniqueDevices.push(d); }
-        }
-
-        // Step 4 — expand multi-instrument devices (one entry per instrument/channel)
-        const expanded = [];
-        for (const d of uniqueDevices) {
-            if (Array.isArray(d.instruments) && d.instruments.length > 0) {
-                for (const inst of d.instruments) {
-                    expanded.push({
-                        ...d,
-                        channel: inst.channel ?? 0,
-                        displayName: inst.custom_name || inst.name || d.displayName || d.name,
-                        gm_program: inst.gm_program ?? d.gm_program,
-                        _multiInstrument: true
-                    });
-                }
-            } else {
-                expanded.push(d);
+    _mountKeyboardPanel() {
+        if (!window.keyboardModal) return;
+        const container = this.$('#lc-kb-panel');
+        if (!container) return;
+        window.keyboardModal.mountAsPanel(container, {
+            onNoteOn:  (note, vel) => this._playNote(note, vel),
+            onNoteOff: (note)      => this._stopNote(note),
+            onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
+                this.outputMode      = deviceId ? 'device' : 'synth';
+                this.outputDeviceId  = deviceId || null;
+                this.outputChannel   = channel ?? 0;
+                this.outputGmProgram = gmProgram ?? 0;
             }
-        }
-
-        // Step 5 — virtual instruments from DB (if enabled in settings)
-        let virtualEnabled = false;
-        try {
-            const s = localStorage.getItem('gmboop_settings');
-            if (s) virtualEnabled = !!JSON.parse(s).virtualInstrument;
-        } catch (_) {}
-        if (virtualEnabled && capsResp?.instruments) {
-            const existingIds = new Set(expanded.map(d => d.id || d.device_id));
-            for (const inst of capsResp.instruments) {
-                const devId = inst.device_id || inst.id;
-                if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
-                    expanded.push({
-                        id: devId, device_id: devId,
-                        name: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
-                        displayName: `🖥️ ${inst.custom_name || inst.name || 'Virtual'}`,
-                        status: 2, connected: true, isVirtual: true,
-                        channel: inst.channel || 0,
-                        gm_program: inst.gm_program
-                    });
-                }
-            }
-        }
-
-        // Step 6 — enrich custom names + normalize id/device_id
-        const customNameMap = {};
-        if (capsResp?.instruments) {
-            for (const inst of capsResp.instruments) {
-                const id = inst.device_id || inst.id;
-                if (id && inst.custom_name && !customNameMap[id]) customNameMap[id] = inst.custom_name;
-            }
-        }
-        this.devices = expanded.map(d => {
-            const did = d.id || d.device_id;
-            if (d.isVirtual || d._multiInstrument) return { ...d, id: did, device_id: did };
-            return { ...d, id: did, device_id: did, displayName: customNameMap[did] || d.displayName || d.name };
         });
-
-        console.log('[LoopCreator] final instruments:', this.devices.length, this.devices.map(d => d.displayName || d.name));
-
-        // Update MIDI In selector
-        const midiInSel = this.$('#lc-midi-in-device');
-        if (midiInSel) {
-            const prev = midiInSel.value;
-            midiInSel.innerHTML = `<option value="">IN:—</option>` +
-                this.devices.map(d => {
-                    const did = d.device_id || d.id;
-                    return `<option value="${this.escape(did)}">IN: ${this.escape(d.displayName || d.name || did)}</option>`;
-                }).join('');
-            if (prev) midiInSel.value = prev;
-        }
-
-        // Refresh instrument picker
-        this._populateInstrumentSelector();
     }
 
-    _populateInstrumentSelector() {
-        this._buildInstrDropdown();
-        this._updateInstrTrigger();
-    }
-
-    _buildInstrDropdown() {
-        const dropdown = this.$('#lc-instr-dropdown');
-        console.log('[LoopCreator] _buildInstrDropdown: dropdown found=', !!dropdown, '| devices=', this.devices.length);
-        if (!dropdown) return;
-        dropdown.innerHTML = '';
-
-        // Synth option
-        const synthBtn = document.createElement('button');
-        synthBtn.type = 'button';
-        synthBtn.className = 'lc-instr-option' + (this.outputMode === 'synth' ? ' selected' : '');
-        synthBtn.innerHTML = `<div class="lc-instr-opt-icon"><span class="lc-instr-opt-emoji">🎹</span></div>
-            <span class="lc-instr-opt-name">${this.t('loopCreator.synthVirtual')}</span>`;
-        synthBtn.addEventListener('click', () => { this._onInstrumentSelect('synth'); });
-        dropdown.appendChild(synthBtn);
-
-        // MIDI device options — devices are already expanded (1 entry per instrument)
-        for (const device of this.devices) {
-            const did = device.device_id || device.id;
-            const name = device.displayName || device.name || String(did);
-            const ch = device.channel ?? 0;
-            const value = `device::${did}::${ch}`;
-            const isSelected = this.outputMode === 'device' && this.outputDeviceId === did && this.outputChannel === ch;
-            const chLabel = device._multiInstrument ? `Ch${ch + 1}` : '';
-            console.log('[LoopCreator]   → adding option:', name, '| did:', did, '| value:', value);
-            try {
-                const btn = this._buildInstrOption(value, name, chLabel, isSelected, device.gm_program, ch);
-                dropdown.appendChild(btn);
-            } catch (err) {
-                console.error('[LoopCreator]   ✗ error building option for', name, err);
-            }
-        }
-        console.log('[LoopCreator] dropdown.children.length =', dropdown.children.length);
-    }
-
-    _buildInstrOption(value, name, chLabel, isSelected, gmProgram, channel) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'lc-instr-option' + (isSelected ? ' selected' : '');
-        const icon = window.InstrumentFamilies?.resolveInstrumentIcon?.({ gmProgram, channel }) || { svgUrl: null, emoji: '🎵' };
-        const imgHtml = icon.svgUrl
-            ? `<img src="${icon.svgUrl}" alt="" class="lc-instr-opt-svg" onerror="this.style.display='none';this.nextElementSibling.style.display=''"><span class="lc-instr-opt-emoji" style="display:none">${icon.emoji}</span>`
-            : `<span class="lc-instr-opt-emoji">${icon.emoji}</span>`;
-        btn.innerHTML = `<div class="lc-instr-opt-icon">${imgHtml}</div>
-            <span class="lc-instr-opt-name">${this.escape(name)}</span>
-            <span class="lc-instr-opt-ch">${chLabel}</span>`;
-        btn.addEventListener('click', () => { this._onInstrumentSelect(value); });
-        return btn;
-    }
-
-    _updateInstrTrigger() {
-        const emoji = this.$('#lc-instr-emoji');
-        const svg   = this.$('#lc-instr-svg');
-        const nameEl = this.$('#lc-instr-name');
-        if (!nameEl) return;
-
-        if (this.outputMode !== 'device' || !this.outputDeviceId) {
-            if (svg)   { svg.style.display = 'none'; }
-            if (emoji) { emoji.textContent = '🎹'; emoji.style.display = ''; }
-            nameEl.textContent = this.t('loopCreator.synthVirtual');
-            return;
-        }
-
-        const device = this.devices.find(d => (d.device_id || d.id) === this.outputDeviceId);
-        const icon = window.InstrumentFamilies?.resolveInstrumentIcon?.({ gmProgram: device?.gm_program, channel: this.outputChannel })
-            || { svgUrl: null, emoji: '🎵' };
-
-        if (icon.svgUrl && svg) {
-            svg.src = icon.svgUrl;
-            svg.style.display = '';
-            svg.onerror = () => {
-                svg.style.display = 'none';
-                if (emoji) { emoji.textContent = icon.emoji; emoji.style.display = ''; }
-            };
-            if (emoji) emoji.style.display = 'none';
-        } else {
-            if (svg)   svg.style.display = 'none';
-            if (emoji) { emoji.textContent = icon.emoji; emoji.style.display = ''; }
-        }
-        nameEl.textContent = (device?.displayName || device?.name || device?.device_id || this.outputDeviceId) + ` — Ch${this.outputChannel + 1}`;
-    }
-
-    _toggleInstrPicker() {
-        const picker = this.$('#lc-instr-picker');
-        if (!picker) return;
-        const opening = !picker.classList.contains('open');
-        if (opening) {
-            this._buildInstrDropdown();
-            picker.classList.add('open');
-        } else {
-            picker.classList.remove('open');
-        }
-    }
-
-    _closeInstrPicker() {
-        this.$('#lc-instr-picker')?.classList.remove('open');
-    }
-
-    async _onInstrumentSelect(value) {
-        this._stopAll();
-        this._closeInstrPicker();
-        if (value === 'synth' || !value) {
-            this.outputMode = 'synth';
-            this.outputDeviceId = null;
-            this.outputChannel = 0;
-            this.outputNoteMin = 36;
-            this.outputNoteMax = 84;
-            this.outputGmProgram = 0;
-            this._updateInstrTrigger();
-            this._setInstrumentInfo('');
-            this._rebuildKeyboard();
-            return;
-        }
-        // value = "device::deviceId::channel"
-        const parts = value.split('::');
-        const deviceId = parts[1];
-        const channel = parseInt(parts[2] ?? 0);
-        this.outputMode = 'device';
-        this.outputDeviceId = deviceId;
-        this.outputChannel = channel;
-
-        // Use note range from device_list if available, else fetch capabilities
-        const device = this.devices.find(d => (d.device_id || d.id) === deviceId);
-        let noteMin = device?.note_range_min ?? null;
-        let noteMax = device?.note_range_max ?? null;
-        let gmProgram = device?.gm_program ?? 0;
-
-        if (noteMin == null || noteMax == null) {
-            try {
-                const r = await this.api.sendCommand('instrument_get_capabilities', { deviceId, channel });
-                const caps = r.capabilities || {};
-                noteMin = caps.note_range_min ?? 21;
-                noteMax = caps.note_range_max ?? 108;
-                gmProgram = caps.gm_program ?? gmProgram;
-            } catch (_) {
-                noteMin = 21;
-                noteMax = 108;
-            }
-        }
-
-        this.outputNoteMin = noteMin;
-        this.outputNoteMax = noteMax;
-        this.outputGmProgram = gmProgram;
-
-        const infoText = `${this._midiNoteToName(noteMin)} – ${this._midiNoteToName(noteMax)}`;
-        this._updateInstrTrigger();
-        this._setInstrumentInfo(infoText);
-        this._rebuildKeyboard();
-        this._refreshPianoRollRange();
-    }
-
-    _rebuildKeyboard() {
-        const kb = this.$('#lc-keyboard');
-        if (!kb) return;
-        kb.innerHTML = this._buildKeyboardHtml(this.outputNoteMin, this.outputNoteMax);
-    }
-
-    _setInstrumentInfo(text) {
-        const el = this.$('#lc-instr-info');
-        if (el) el.textContent = text;
-    }
-
-    _midiNoteToName(midi) {
-        const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-        return names[midi % 12] + (Math.floor(midi / 12) - 1);
+    _unmountKeyboardPanel() {
+        window.keyboardModal?.unmountPanel();
     }
 
     // =========================================================
@@ -1300,15 +946,6 @@ class LoopCreatorModal extends BaseModal {
         this._stopPlayheadAnimation();
         try { this._synth?.stop?.(); } catch (_) {}
         try { this._synth?.cancelAllNotes?.(); } catch (_) {}
-        this._activeKeyEnvelopes.clear();
-        if (this.outputMode === 'device' && this.outputDeviceId) {
-            for (const n of this._activeKeys) {
-                this.api.sendCommand('midi_send_note', {
-                    deviceId: this.outputDeviceId, channel: this.outputChannel, note: n, velocity: 0
-                }).catch(() => {});
-            }
-        }
-        this.$$('.lc-key--active').forEach(k => k.classList.remove('lc-key--active'));
         this._activeKeys.clear();
         this._setStatus('');
     }
