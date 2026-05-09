@@ -90,17 +90,39 @@ class LoopEditorModal extends BaseModal {
             const r = await this.api.sendCommand('loop_get', { loopId: id });
             const loop = r.loop;
             if (!loop) return;
-            this.currentLoopId = loop.id;
-            this.loopName      = loop.name;
-            this.tempo         = loop.tempo;
-            this.timeSigNum    = loop.time_sig_num;
-            this.timeSigDen    = loop.time_sig_den;
-            this.bars          = loop.bars;
-            this.ppq           = loop.ppq;
+            this.currentLoopId     = loop.id;
+            this.loopName          = loop.name;
+            this.tempo             = loop.tempo;
+            this.timeSigNum        = loop.time_sig_num;
+            this.timeSigDen        = loop.time_sig_den;
+            this.bars              = loop.bars;
+            this.ppq               = loop.ppq;
             this.instrumentProgram = loop.instrument_program ?? 0;
             this.sequence = typeof loop.midi_data === 'string'
                 ? JSON.parse(loop.midi_data) : (loop.midi_data || []);
+            const range = this._gmNoteRange(this.instrumentProgram);
+            this.outputNoteMin = range.min;
+            this.outputNoteMax = range.max;
         } catch (_) {}
+    }
+
+    _gmNoteRange(program) {
+        if (program >= 120) return { min: 36, max: 84 };   // Sound FX
+        if (program >= 112) return { min: 35, max: 81 };   // Percussive
+        if (program >= 104) return { min: 36, max: 84 };   // Ethnic
+        if (program >=  96) return { min: 36, max: 84 };   // Synth FX
+        if (program >=  88) return { min: 36, max: 84 };   // Synth Pad
+        if (program >=  80) return { min: 36, max: 96 };   // Synth Lead
+        if (program >=  72) return { min: 60, max: 96 };   // Pipe (flutes)
+        if (program >=  64) return { min: 41, max: 87 };   // Reed (sax, oboe)
+        if (program >=  56) return { min: 40, max: 84 };   // Brass
+        if (program >=  48) return { min: 36, max: 96 };   // Ensemble / Choir
+        if (program >=  40) return { min: 55, max: 95 };   // Strings
+        if (program >=  32) return { min: 28, max: 60 };   // Bass
+        if (program >=  24) return { min: 40, max: 84 };   // Guitar
+        if (program >=  16) return { min: 36, max: 96 };   // Organ
+        if (program >=   8) return { min: 48, max: 84 };   // Chromatic Perc
+        return { min: 21, max: 108 };                       // Piano
     }
 
     _resetLoopState() {
@@ -764,10 +786,16 @@ class LoopEditorModal extends BaseModal {
             onNoteOn:  (note, vel) => this._playNote(note, vel),
             onNoteOff: (note)      => this._stopNote(note),
             onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
-                this.outputMode      = deviceId ? 'device' : 'synth';
-                this.outputDeviceId  = deviceId || null;
-                this.outputChannel   = channel ?? 0;
-                this.outputGmProgram = gmProgram ?? 0;
+                this.outputMode        = deviceId ? 'device' : 'synth';
+                this.outputDeviceId    = deviceId || null;
+                this.outputChannel     = channel ?? 0;
+                this.outputGmProgram   = gmProgram ?? 0;
+                this.instrumentProgram = gmProgram ?? 0;
+                this._synth?.setChannelInstrument?.(0, this.instrumentProgram);
+                const range = this._gmNoteRange(this.instrumentProgram);
+                this.outputNoteMin = range.min;
+                this.outputNoteMax = range.max;
+                this._refreshPianoRollRange();
             }
         });
     }
@@ -780,13 +808,14 @@ class LoopEditorModal extends BaseModal {
     // PREVIEW PLAYBACK
     // =========================================================
 
-    _initSynth() {
-        if (typeof MidiSynthesizer !== 'undefined') {
-            try {
-                this._synth = new MidiSynthesizer();
-                this._synth.setChannelInstrument(0, this.instrumentProgram);
-            } catch (_) {}
-        }
+    async _initSynth() {
+        if (typeof MidiSynthesizer === 'undefined') return;
+        try {
+            this._synth = new MidiSynthesizer();
+            await this._synth.initialize();
+            this._synth.setChannelInstrument(0, this.instrumentProgram);
+            await this._synth.loadInstrument(this.instrumentProgram).catch(() => {});
+        } catch (_) {}
     }
 
     _previewLoop() {
@@ -797,13 +826,18 @@ class LoopEditorModal extends BaseModal {
             this._previewViaDevice(seq); return;
         }
         if (!this._synth) { this._setStatus(this.t('loopCreator.statusNoSynth')); return; }
+        const done = () => {
+            this.isPlaying = false;
+            this._stopPlayheadAnimation();
+            this._setStatus('');
+        };
+        this._synth.setChannelInstrument(0, this.instrumentProgram);
+        this._synth.onPlaybackEnd = done;
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
         this._startPlayheadAnimation();
-        this._synth.loadSequence(seq, this.tempo, this.ppq);
-        this._synth.play().then(() => {
-            if (this.isPlaying) { this.isPlaying = false; this._stopPlayheadAnimation(); this._setStatus(''); }
-        }).catch(() => { this.isPlaying = false; this._stopPlayheadAnimation(); this._setStatus(''); });
+        this._synth.loadSequence([...seq], this.tempo, this.ppq);
+        this._synth.play().catch(done);
     }
 
     _previewViaDevice(seq) {
@@ -834,8 +868,11 @@ class LoopEditorModal extends BaseModal {
         if (this.isRecording) this._stopRecording();
         this.isPlaying = false;
         this._stopPlayheadAnimation();
-        try { this._synth?.stop?.(); } catch (_) {}
-        try { this._synth?.cancelAllNotes?.(); } catch (_) {}
+        if (this._synth) {
+            this._synth.onPlaybackEnd = null;
+            try { this._synth.stop?.(); } catch (_) {}
+            try { this._synth.cancelAllNotes?.(); } catch (_) {}
+        }
         this._activeKeys.clear();
         this._setStatus('');
     }
