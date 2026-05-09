@@ -2502,5 +2502,31 @@
     "outDeviceTitle": "Jouer sur un instrument MIDI connecté",
     "outputDevice": "Périphérique de sortie",
     "outputChannel": "Canal"
+  },
+  "loopManager": {
+    "title": "Gestionnaire de boucles",
+    "tabLibrary": "Bibliothèque",
+    "tabPad": "Pad",
+    "tabLive": "Live",
+    "tabArranger": "Arranger",
+    "search": "Rechercher des boucles…",
+    "allInstruments": "Tous les instruments",
+    "sortName": "Nom",
+    "sortTempo": "Tempo",
+    "sortBars": "Durée",
+    "sortInstrument": "Instrument",
+    "newLoop": "Nouvelle boucle",
+    "addToPad": "Ajouter au pad",
+    "stopAll": "Tout arrêter",
+    "padMidiIn": "MIDI In",
+    "assignPad": "Assigner une boucle",
+    "clearPad": "Vider le pad",
+    "liveOutput": "Sortie",
+    "outputSynth": "Synth",
+    "outputLive": "Live"
+  },
+  "loopEditor": {
+    "title": "Éditeur de boucle",
+    "back": "Retour"
   }
 }

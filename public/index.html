@@ -5331,6 +5331,7 @@
     <link rel="stylesheet" href="styles/playlist.css">
     <link rel="stylesheet" href="styles/modal-playlist.css">
     <link rel="stylesheet" href="styles/loop-creator-modal.css">
+    <link rel="stylesheet" href="styles/loop-editor-modal.css">
     <link rel="stylesheet" href="styles/settings-modal.css">
     <link rel="stylesheet" href="styles/keyboard-hand-position-editor.css">
 </head>
@@ -6058,8 +6059,9 @@
     <!-- Tuner Modal Component -->
     <script src="js/features/TunerModal.js"></script>
 
-    <!-- Loop Creator Modal -->
+    <!-- Loop Manager + Editor -->
     <script src="js/features/LoopCreatorMinimap.js"></script>
+    <script src="js/features/LoopEditorModal.js"></script>
     <script src="js/features/LoopCreatorModal.js"></script>
 
     <!-- Network Scan Modal Component -->
@@ -12463,13 +12465,13 @@
             calibrationModal.open();
         });
 
-        // Loop Creator (∞) — created lazily on first click so api is defined
-        let loopCreatorModal = null;
+        // Loop Manager (∞) — created lazily on first click so api is defined
+        let loopManagerModal = null;
         document.getElementById('loopCreatorBtn').addEventListener('click', () => {
-            if (!loopCreatorModal) {
-                loopCreatorModal = new LoopCreatorModal(window.api, window.eventBus);
+            if (!loopManagerModal) {
+                loopManagerModal = new LoopManagerModal(window.api, window.eventBus);
             }
-            loopCreatorModal.open();
+            loopManagerModal.open();
         });
 
         // Event listeners pour les contrôles du header

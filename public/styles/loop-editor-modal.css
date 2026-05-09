@@ -1,0 +1,88 @@
+/* ===================================================
+   Loop Editor Modal — loop-editor-modal.css
+   Full-screen dedicated loop editor opened from LoopManagerModal.
+   Reuses lc-* utility classes from loop-creator-modal.css.
+   =================================================== */
+
+/* ── Full-screen dialog ── */
+.modal-dialog.loop-editor-modal {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.loop-editor-modal .modal-footer { display: none; }
+
+.loop-editor-modal .modal-body {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+/* ── Editor header ── */
+.loop-editor-modal .modal-header.le-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    height: 46px;
+    min-height: 46px;
+    background: var(--bg-tertiary, #f0f1f3);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    flex-shrink: 0;
+}
+
+.le-back-btn {
+    flex-shrink: 0;
+}
+
+.le-header-title {
+    flex: 1 1 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.le-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* ── Editor layout shell ── */
+.le-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-secondary, #f4f5f7);
+}
+
+/* ================================================================
+   DARK THEME
+   ================================================================ */
+
+body.theme-dark .loop-editor-modal .modal-header.le-header {
+    background: #12122a;
+    border-color: #333355;
+}
+
+body.theme-dark .le-header-title {
+    color: #eee;
+}
+
+body.theme-dark .le-layout {
+    background: #1a1a2e;
+}

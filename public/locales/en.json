@@ -2502,5 +2502,31 @@
     "outDeviceTitle": "Play on a connected MIDI instrument",
     "outputDevice": "Output device",
     "outputChannel": "Channel"
+  },
+  "loopManager": {
+    "title": "Loop Manager",
+    "tabLibrary": "Library",
+    "tabPad": "Pad",
+    "tabLive": "Live",
+    "tabArranger": "Arranger",
+    "search": "Search loops…",
+    "allInstruments": "All instruments",
+    "sortName": "Name",
+    "sortTempo": "Tempo",
+    "sortBars": "Duration",
+    "sortInstrument": "Instrument",
+    "newLoop": "New Loop",
+    "addToPad": "Add to pad",
+    "stopAll": "Stop All",
+    "padMidiIn": "MIDI In",
+    "assignPad": "Assign loop",
+    "clearPad": "Clear pad",
+    "liveOutput": "Output",
+    "outputSynth": "Synth",
+    "outputLive": "Live"
+  },
+  "loopEditor": {
+    "title": "Loop Editor",
+    "back": "Back"
   }
 }
