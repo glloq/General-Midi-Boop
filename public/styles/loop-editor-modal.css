@@ -153,18 +153,31 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
     border-color: rgba(74, 90, 212, 0.35);
 }
 
-/* ── Keyboard panel: flex-shrink allowed, sensible minimum ── */
+/* ── Keyboard panel: tall enough to show the piano keys fully ──
+   Breakdown: instrument header ~32px + controls row ~28px + minimap row
+   ~30px + keys + padding ≈ 200-220px → ~290-320px total. We give the
+   panel a generous default and a hard floor so the keys are never clipped. */
 .loop-editor-modal .lc-kb-panel {
-    flex-shrink: 1;
-    flex-basis: 300px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    flex-basis: 380px;
     height: auto;
-    min-height: 220px;
+    min-height: 320px;
 }
 
 .loop-editor-modal .lc-kb-panel--expanded {
     flex: 1 1 0 !important;
     height: auto !important;
-    min-height: 220px !important;
+    min-height: 320px !important;
+}
+
+/* When the embedded keyboard runs in panel mode inside the editor, ensure
+   the inner keyboard container can fill the available height (the global
+   #keyboard-modal-container min-height:0 reset still applies). */
+.loop-editor-modal .lc-kb-panel #keyboard-modal-container {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 220px;
 }
 
 /* ── Keyboard panel header: gradient accent ── */
