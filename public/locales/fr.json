@@ -2560,6 +2560,14 @@
     "minimapAria": "Barre de navigation. Flèches gauche/droite pour avancer/reculer ; Maj+flèches pour mesure complète.",
     "errLoad": "Impossible de charger la boucle.",
     "errMidiIn": "Impossible de démarrer le MIDI In.",
-    "errPreview": "Échec de l'aperçu."
+    "errPreview": "Échec de l'aperçu.",
+    "groupLoop": "Boucle",
+    "groupTransport": "Transport",
+    "groupMode": "Mode",
+    "groupHistory": "Historique",
+    "groupEdit": "Édition",
+    "groupGrid": "Grille",
+    "groupInput": "Entrée",
+    "groupView": "Affichage"
   }
 }

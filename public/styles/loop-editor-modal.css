@@ -71,54 +71,163 @@
     background: var(--bg-secondary, #f4f5f7);
 }
 
-/* ── Two-row control bar (LR-1) ── */
+/* ── Toolbar shell (2 organised rows + status) ── */
 .loop-editor-modal .lc-ctrl-bar {
-    flex-wrap: wrap;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
     height: auto;
-    min-height: 44px;
-    padding: 4px 8px;
-    row-gap: 2px;
+    padding: 4px 6px 2px;
+    gap: 4px;
     overflow: visible;
 }
 
-.lc-ctrl-row {
+.loop-editor-modal .lc-ctrl-row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+    min-height: 38px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: thin;
+}
+.loop-editor-modal .lc-ctrl-row::-webkit-scrollbar { height: 4px; }
+.loop-editor-modal .lc-ctrl-row::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.35); border-radius: 2px;
+}
+
+/* ── Grouped sections (label above the controls) ── */
+.le-group {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 4px;
-    width: 100%;
-    min-height: 36px;
+    padding: 12px 6px 4px;
+    border-radius: 6px;
+    background: var(--le-group-bg, #f1f3f7);
+    border: 1px solid var(--le-group-border, #dee3ec);
     flex-shrink: 0;
-    flex-wrap: nowrap;
-    overflow: hidden;
+}
+.le-group-label {
+    position: absolute;
+    top: 1px; left: 6px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--le-group-label, #5a6275);
+    pointer-events: none;
+    white-space: nowrap;
 }
 
-/* ── Pastel group colors for editor toolbar (MI-6) ── */
-.loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action="mode-view"]) {
-    background: #d4f0e8;
-    border-color: #b2ddd0;
+/* Loop metadata group: name input takes priority */
+.le-group-meta {
+    flex: 1 1 auto;
+    min-width: 0;
 }
-.loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action="undo"]) {
-    background: #f4dce2;
-    border-color: #e8c0c8;
-}
-.loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action="zoom-h-out"]) {
-    background: #dce3f8;
-    border-color: #c0cef0;
+.le-name-input {
+    flex: 1 1 160px;
+    min-width: 120px;
+    max-width: 280px;
 }
 
-/* Buttons inside pastel groups inherit transparent bg */
-.loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action="mode-view"]) > .lc-btn,
-.loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action="undo"]) > .lc-btn,
-.loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action="zoom-h-out"]) > .lc-btn {
+/* Per-group accent palette */
+.le-group-meta      { --le-group-bg: #fdf6e8; --le-group-border: #f0d8a4; --le-group-label: #8a6320; }
+.le-group-transport { --le-group-bg: #e9ecf8; --le-group-border: #c8d0ee; --le-group-label: #3d4a8a; }
+.le-group-mode      { --le-group-bg: #d4f0e8; --le-group-border: #b2ddd0; --le-group-label: #1f6f55; }
+.le-group-history   { --le-group-bg: #f4dce2; --le-group-border: #e8c0c8; --le-group-label: #8c2c40; }
+.le-group-edit      { --le-group-bg: #fde7d4; --le-group-border: #f0c8a0; --le-group-label: #8a4a14; }
+.le-group-grid      { --le-group-bg: #e3edff; --le-group-border: #c4d6f4; --le-group-label: #2c4a8a; }
+.le-group-input     { --le-group-bg: #efe5fb; --le-group-border: #d4c4f0; --le-group-label: #5a3aa0; }
+.le-group-view      { --le-group-bg: #dce3f8; --le-group-border: #c0cef0; --le-group-label: #2a3e8a; }
+
+/* Buttons / button-groups inside .le-group blend with their host */
+.le-group .lc-btn-group {
     background: transparent;
     border-color: transparent;
 }
+.le-group .lc-btn-group > .lc-btn {
+    background: transparent;
+    border-color: transparent;
+}
+.le-group .lc-btn-group > .lc-btn:hover {
+    background: rgba(255, 255, 255, 0.6);
+}
+.le-group .lc-btn:not(.lc-btn-group .lc-btn) {
+    background: rgba(255, 255, 255, 0.55);
+    border-color: rgba(0, 0, 0, 0.05);
+}
+.le-group .lc-btn:not(.lc-btn-group .lc-btn):hover {
+    background: rgba(255, 255, 255, 0.85);
+}
 
-/* Active mode button inside pastel group */
-.loop-editor-modal .lc-ctrl-bar .lc-btn-group .lc-btn-icon[aria-pressed="true"] {
+/* Active mode/toggle buttons get the accent treatment everywhere */
+.loop-editor-modal .le-group .lc-btn[aria-pressed="true"],
+.loop-editor-modal .le-group .lc-btn--active,
+.loop-editor-modal .le-group .lc-btn-output--active {
     background: var(--accent-color, #667eea) !important;
     color: #fff !important;
     border-color: var(--accent-color, #667eea) !important;
+}
+
+/* Status line — slim, persistent, full width */
+.le-status-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    min-height: 18px;
+    padding: 0 8px;
+    font-size: 0.72rem;
+    color: var(--text-secondary, #5a6275);
+    border-top: 1px dashed transparent;
+}
+.le-status-bar .lc-status {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.le-status-bar:has(.lc-status:not(:empty)) {
+    border-top-color: var(--border-color, #dde0e6);
+}
+
+/* Dark theme accents */
+body.theme-dark .le-group,
+body.dark-mode  .le-group {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+body.theme-dark .le-group-meta,
+body.dark-mode  .le-group-meta      { --le-group-bg: rgba(240, 180, 60, 0.10); --le-group-border: rgba(240, 180, 60, 0.30); --le-group-label: #f0c970; }
+body.theme-dark .le-group-transport,
+body.dark-mode  .le-group-transport { --le-group-bg: rgba(102, 126, 234, 0.15); --le-group-border: rgba(102, 126, 234, 0.30); --le-group-label: #a8b3e8; }
+body.theme-dark .le-group-mode,
+body.dark-mode  .le-group-mode      { --le-group-bg: rgba(39, 174, 96, 0.15);  --le-group-border: rgba(39, 174, 96, 0.30);  --le-group-label: #6fd9a8; }
+body.theme-dark .le-group-history,
+body.dark-mode  .le-group-history   { --le-group-bg: rgba(192, 57, 43, 0.15);  --le-group-border: rgba(192, 57, 43, 0.30);  --le-group-label: #f0a0aa; }
+body.theme-dark .le-group-edit,
+body.dark-mode  .le-group-edit      { --le-group-bg: rgba(230, 126, 34, 0.15); --le-group-border: rgba(230, 126, 34, 0.30); --le-group-label: #f0c090; }
+body.theme-dark .le-group-grid,
+body.dark-mode  .le-group-grid      { --le-group-bg: rgba(74, 90, 212, 0.18);  --le-group-border: rgba(74, 90, 212, 0.35);  --le-group-label: #a8c0f0; }
+body.theme-dark .le-group-input,
+body.dark-mode  .le-group-input     { --le-group-bg: rgba(155, 89, 182, 0.18); --le-group-border: rgba(155, 89, 182, 0.35); --le-group-label: #d4b0f0; }
+body.theme-dark .le-group-view,
+body.dark-mode  .le-group-view      { --le-group-bg: rgba(74, 90, 212, 0.15);  --le-group-border: rgba(74, 90, 212, 0.30);  --le-group-label: #a8b8e8; }
+
+body.theme-dark .le-group .lc-btn:not(.lc-btn-group .lc-btn),
+body.dark-mode  .le-group .lc-btn:not(.lc-btn-group .lc-btn) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: #e8e8f0;
+}
+body.theme-dark .le-group .lc-btn-group > .lc-btn:hover,
+body.dark-mode  .le-group .lc-btn-group > .lc-btn:hover,
+body.theme-dark .le-group .lc-btn:not(.lc-btn-group .lc-btn):hover,
+body.dark-mode  .le-group .lc-btn:not(.lc-btn-group .lc-btn):hover {
+    background: rgba(255, 255, 255, 0.18);
 }
 
 /* ================================================================

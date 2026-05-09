@@ -2560,6 +2560,14 @@
     "minimapAria": "Navigation slider. Left/right arrows to scroll; shift+arrow for full bar.",
     "errLoad": "Could not load the loop.",
     "errMidiIn": "Could not start MIDI In.",
-    "errPreview": "Preview failed."
+    "errPreview": "Preview failed.",
+    "groupLoop": "Loop",
+    "groupTransport": "Transport",
+    "groupMode": "Mode",
+    "groupHistory": "History",
+    "groupEdit": "Edit",
+    "groupGrid": "Grid",
+    "groupInput": "Input",
+    "groupView": "View"
   }
 }
