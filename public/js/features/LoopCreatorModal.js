@@ -1,95 +1,131 @@
 /**
- * LoopCreatorModal — Loop Creator (∞)
+ * LoopManagerModal — Loop / Sample Manager (∞)
  *
- * Three tabs:
- *   Tab 1 "Créer"     — Piano roll editor + mini keyboard + MIDI In recording
- *   Tab 2 "Boucles"   — Loop library (cards)
- *   Tab 3 "Arranger"  — Multi-track timeline with loop blocks
+ * Four tabs:
+ *   Tab 1 "Library"  — searchable/sortable loop grid, opens LoopEditorModal
+ *   Tab 2 "Pad"      — 4×4 trigger pad grid + MIDI In mapping
+ *   Tab 3 "Live"     — loops grouped by GM instrument for quick performance
+ *   Tab 4 "Arranger" — multi-track timeline with loop blocks
+ *
+ * Loop creation/editing is delegated to LoopEditorModal.
  */
-class LoopCreatorModal extends BaseModal {
+
+// ── GM program data ───────────────────────────────────────────
+const GM_PROGRAM_NAMES = [
+    'Acoustic Grand Piano','Bright Acoustic Piano','Electric Grand Piano','Honky-tonk Piano',
+    'Electric Piano 1','Electric Piano 2','Harpsichord','Clavinet',
+    'Celesta','Glockenspiel','Music Box','Vibraphone','Marimba','Xylophone','Tubular Bells','Dulcimer',
+    'Drawbar Organ','Percussive Organ','Rock Organ','Church Organ','Reed Organ','Accordion','Harmonica','Tango Accordion',
+    'Acoustic Guitar (nylon)','Acoustic Guitar (steel)','Electric Guitar (jazz)','Electric Guitar (clean)',
+    'Electric Guitar (muted)','Overdriven Guitar','Distortion Guitar','Guitar Harmonics',
+    'Acoustic Bass','Electric Bass (finger)','Electric Bass (pick)','Fretless Bass',
+    'Slap Bass 1','Slap Bass 2','Synth Bass 1','Synth Bass 2',
+    'Violin','Viola','Cello','Contrabass','Tremolo Strings','Pizzicato Strings','Orchestral Harp','Timpani',
+    'String Ensemble 1','String Ensemble 2','Synth Strings 1','Synth Strings 2',
+    'Choir Aahs','Voice Oohs','Synth Voice','Orchestra Hit',
+    'Trumpet','Trombone','Tuba','Muted Trumpet','French Horn','Brass Section','Synth Brass 1','Synth Brass 2',
+    'Soprano Sax','Alto Sax','Tenor Sax','Baritone Sax',
+    'Oboe','English Horn','Bassoon','Clarinet',
+    'Piccolo','Flute','Recorder','Pan Flute','Blown Bottle','Shakuhachi','Whistle','Ocarina',
+    'Lead 1 (square)','Lead 2 (sawtooth)','Lead 3 (calliope)','Lead 4 (chiff)',
+    'Lead 5 (charang)','Lead 6 (voice)','Lead 7 (fifths)','Lead 8 (bass + lead)',
+    'Pad 1 (new age)','Pad 2 (warm)','Pad 3 (polysynth)','Pad 4 (choir)',
+    'Pad 5 (bowed)','Pad 6 (metallic)','Pad 7 (halo)','Pad 8 (sweep)',
+    'FX 1 (rain)','FX 2 (soundtrack)','FX 3 (crystal)','FX 4 (atmosphere)',
+    'FX 5 (brightness)','FX 6 (goblins)','FX 7 (echoes)','FX 8 (sci-fi)',
+    'Sitar','Banjo','Shamisen','Koto','Kalimba','Bag pipe','Fiddle','Shanai',
+    'Tinkle Bell','Agogo','Steel Drums','Woodblock','Taiko Drum','Melodic Tom','Synth Drum','Reverse Cymbal',
+    'Guitar Fret Noise','Breath Noise','Seashore','Bird Tweet','Telephone Ring','Helicopter','Applause','Gunshot'
+];
+
+const GM_FAMILIES = [
+    { name: 'Piano',         icon: '🎹', start: 0   },
+    { name: 'Chromatic Perc',icon: '🔔', start: 8   },
+    { name: 'Organ',         icon: '🎹', start: 16  },
+    { name: 'Guitar',        icon: '🎸', start: 24  },
+    { name: 'Bass',          icon: '🎸', start: 32  },
+    { name: 'Strings',       icon: '🎻', start: 40  },
+    { name: 'Ensemble',      icon: '🎻', start: 48  },
+    { name: 'Brass',         icon: '🎺', start: 56  },
+    { name: 'Reed',          icon: '🎷', start: 64  },
+    { name: 'Pipe',          icon: '🪗', start: 72  },
+    { name: 'Synth Lead',    icon: '🎹', start: 80  },
+    { name: 'Synth Pad',     icon: '🎹', start: 88  },
+    { name: 'Synth FX',      icon: '✨', start: 96  },
+    { name: 'Ethnic',        icon: '🥁', start: 104 },
+    { name: 'Percussive',    icon: '🥁', start: 112 },
+    { name: 'Sound FX',      icon: '🔊', start: 120 },
+];
+
+// MIDI note number → note label (C3 = 48)
+function _midiNoteLabel(n) {
+    const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    return NOTES[n % 12] + Math.floor(n / 12 - 2);
+}
+
+class LoopManagerModal extends BaseModal {
     constructor(api, eventBus) {
         super({
-            id: 'loop-creator-modal',
+            id: 'loop-manager-modal',
             size: 'full',
-            title: 'loopCreator.title',
+            title: 'loopManager.title',
             closeOnOverlay: false,
             customClass: 'loop-creator-modal'
         });
         this.api = api;
         this.eventBus = eventBus || window.eventBus || null;
 
-        // Active tab
-        this.activeTab = 'create';
+        this.activeTab = 'library';
 
-        // ── Creator state ──
-        this.pianoRoll = null;
-        this.sequence = [];
-        this.currentLoopId = null;
-        this.loopName = '';
-        this.tempo = 120;
-        this.timeSigNum = 4;
-        this.timeSigDen = 4;
-        this.bars = 2;
-        this.ppq = 480;
-        this.instrumentProgram = 0;
-
-        // Recording
-        this.isRecording = false;
-        this.recordStartTime = 0;
-        this.recordedNotes = [];
-        this._recordingTick = 0;
-        this._midiInDevice = null;     // selected device ID for MIDI in
-        this._monitorActive = false;
-        this._midiInHandler = null;    // bound api event handler
-
-        // Playback
-        this.isPlaying = false;
-        this._playbackTimers = [];
-        this._synth = null;
-
-        // Keyboard
-        this._activeKeys = new Set();
-
-        // Output mode: 'synth' | 'device'
-        // outputChannel uses MIDI base-0 (0..15) to match backend; UI displays as 1..16
-        this.outputMode = 'synth';
-        this.outputDeviceId = null;
-        this.outputChannel = 0;
-        this.outputNoteMin = 36;   // keyboard range (adapted per instrument)
-        this.outputNoteMax = 84;
-        this.outputGmProgram = 0;
-
-        // Library
+        // ── Library state ──
         this.library = [];
+        this._libSearch  = '';
+        this._libFilter  = '';  // instrument_program string ('') or number
+        this._libSort    = 'name';
 
         // ── Arranger state ──
         this.currentArrangementId = null;
-        this.arrangementName = '';
-        this.arrangementTempo = 120;
-        this.arrangementBars = 16;
-        this.tracks = [];           // [{id, track_index, label}]
-        this.blocks = [];           // [{id, track_id, loop_id, position_bar, repetitions, loop_name, loop_bars}]
+        this.arrangementName      = '';
+        this.arrangementTempo     = 120;
+        this.arrangementBars      = 16;
+        this.tracks  = [];
+        this.blocks  = [];
         this.isArrangerPlaying = false;
-        this._arrangerTimers = [];
-        this._dragInfo = null;
+        this._arrangerTimers   = [];
+        this._arrangerSynth    = null;
+        this._dragInfo    = null;
         this._dropPreview = null;
 
-        // Cache (must be in constructor, not class field)
+        // Shared loop data cache (pad + live + arranger)
         this._fetchLoopDataCache = new Map();
 
-        // Bound handlers
-        this._boundDocMouseUp = this._onDocMouseUp.bind(this);
+        // ── Pad state ──
+        this._padSlots        = Array(16).fill(null); // { loopId, name, tempo, bars, instrument_program }
+        this._padPlayingIndex = new Set();
+        this._padMidiInDevice = null;
+        this._padMidiInHandler = null;
+        this._padMonitorActive = false;
+        this._padPlaybackTimers = new Map(); // padIndex → [timerIds]
+        this._padSynth        = null;
+        this._padPickerIndex  = null; // pad index whose assignment picker is open
+
+        // ── Live state ──
+        this._livePlayingLoops = new Map(); // loopId → { timers: [] }
+        this._liveSynth        = null;
+
+        // Arranger output (synth by default)
+        this.outputMode     = 'synth';
+        this.outputDeviceId = null;
+        this.outputChannel  = 0;
+
+        // Bound doc handlers for arranger drag
+        this._boundDocMouseUp   = this._onDocMouseUp.bind(this);
         this._boundDocMouseMove = this._onDocMouseMove.bind(this);
-        this._playheadRAF = null;
-        this._playheadStartTime = 0;
-        this._recordingRAF = null;
 
-        // Minimap
-        this._minimap = null;
-        this._minimapObserver = null;
-
-        // Piano roll visibility (hidden by default — keyboard panel takes full space)
-        this._pianoRollVisible = false;
+        // Loop editor — created once, shared across sessions
+        this._loopEditor = new LoopEditorModal(api, eventBus, {
+            onSaved: (loopId) => this._onLoopSaved(loopId)
+        });
     }
 
     // =========================================================
@@ -97,23 +133,22 @@ class LoopCreatorModal extends BaseModal {
     // =========================================================
 
     _renderHeader() {
-        const saveLabel = this.activeTab === 'arranger'
-            ? `💾 ${this.t('loopCreator.saveArrangement')}`
-            : `💾 ${this.t('loopCreator.save')}`;
-        const saveAction = this.activeTab === 'arranger' ? 'save-arrangement' : 'save-loop';
-        const saveDisplay = this.activeTab === 'library' ? ' style="display:none"' : '';
+        const showSave = this.activeTab === 'arranger';
         return `
         <div class="modal-header lc-header">
             <div class="lc-header-left">
                 <span class="lc-header-title">∞</span>
             </div>
             <div class="lc-header-tabs" role="tablist">
-                <button class="lc-tab${this.activeTab === 'create'   ? ' lc-tab--active' : ''}" data-tab="create"   role="tab" aria-selected="${this.activeTab === 'create'}">✏️ ${this.t('loopCreator.tabCreate')}</button>
-                <button class="lc-tab${this.activeTab === 'library'  ? ' lc-tab--active' : ''}" data-tab="library"  role="tab" aria-selected="${this.activeTab === 'library'}">🗂 ${this.t('loopCreator.tabLibrary')}</button>
-                <button class="lc-tab${this.activeTab === 'arranger' ? ' lc-tab--active' : ''}" data-tab="arranger" role="tab" aria-selected="${this.activeTab === 'arranger'}">∞ ${this.t('loopCreator.tabArranger')}</button>
+                <button class="lc-tab${this.activeTab==='library'  ? ' lc-tab--active':''}" data-tab="library"  role="tab" aria-selected="${this.activeTab==='library'}">🗂 ${this.t('loopManager.tabLibrary')}</button>
+                <button class="lc-tab${this.activeTab==='pad'      ? ' lc-tab--active':''}" data-tab="pad"      role="tab" aria-selected="${this.activeTab==='pad'}">🎛 ${this.t('loopManager.tabPad')}</button>
+                <button class="lc-tab${this.activeTab==='live'     ? ' lc-tab--active':''}" data-tab="live"     role="tab" aria-selected="${this.activeTab==='live'}">⚡ ${this.t('loopManager.tabLive')}</button>
+                <button class="lc-tab${this.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" aria-selected="${this.activeTab==='arranger'}">∞ ${this.t('loopManager.tabArranger')}</button>
             </div>
             <div class="lc-header-actions">
-                <button class="lc-btn lc-btn-primary lc-btn-sm" id="lc-header-save" data-action="${saveAction}"${saveDisplay}>${saveLabel}</button>
+                <button class="lc-btn lc-btn-primary lc-btn-sm" id="lc-header-save"
+                    data-action="save-arrangement"
+                    style="${showSave ? '' : 'display:none'}">💾 ${this.t('loopCreator.saveArrangement')}</button>
                 <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
             </div>
         </div>`;
@@ -123,167 +158,92 @@ class LoopCreatorModal extends BaseModal {
         return `
         <div class="lc-layout">
             <div class="lc-tab-content" id="lc-tab-content">
-                ${this._renderCreateTab()}
                 ${this._renderLibraryTab()}
+                ${this._renderPadTab()}
+                ${this._renderLiveTab()}
                 ${this._renderArrangerTab()}
             </div>
         </div>`;
     }
 
-    renderFooter() { return ''; }  // footer hidden via CSS; status lives in ctrl-bar
+    renderFooter() { return ''; }
 
     // =========================================================
-    // RENDERING — TAB 1: CREATE
-    // =========================================================
-
-    _renderCreateTab() {
-        const timeSigOptions = [
-            ['2/4','2','4'], ['3/4','3','4'], ['4/4','4','4'],
-            ['5/4','5','4'], ['6/8','6','8'], ['7/8','7','8']
-        ];
-        const timeSigHtml = timeSigOptions.map(([label, num, den]) =>
-            `<option value="${num}:${den}" ${this.timeSigNum == num && this.timeSigDen == den ? 'selected' : ''}>${label}</option>`
-        ).join('');
-
-        return `
-        <div class="lc-pane" id="lc-pane-create">
-
-            <!-- ── Single control bar ── -->
-            <div class="lc-ctrl-bar">
-
-                <!-- Loop name -->
-                <input type="text" class="lc-name-input" id="lc-name-input"
-                    value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
-                    placeholder="${this.t('loopCreator.namePlaceholder')}" />
-
-                <div class="lc-ctrl-sep"></div>
-
-                <!-- Tempo -->
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
-                    <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />
-                    <button class="lc-spin-btn" data-action="tempo-inc">›</button>
-                </div>
-                <span class="lc-unit">BPM</span>
-
-                <!-- Time signature -->
-                <select id="lc-timesig" class="lc-select lc-select-xs" title="${this.t('loopCreator.timeSignature')}">${timeSigHtml}</select>
-
-                <!-- Bars -->
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="bars-dec">‹</button>
-                    <input type="number" id="lc-bars" class="lc-spin-input lc-spin-input--sm" value="${this.bars}" min="1" max="32" step="1" />
-                    <button class="lc-spin-btn" data-action="bars-inc">›</button>
-                </div>
-                <span class="lc-unit" title="${this.t('loopCreator.bars')}">M</span>
-
-                <!-- Snap -->
-                <select id="lc-snap" class="lc-select lc-select-xs" title="${this.t('loopCreator.snap')}">
-                    <option value="480">1/1</option><option value="240">1/2</option>
-                    <option value="120" selected>1/4</option><option value="60">1/8</option>
-                    <option value="30">1/16</option>
-                </select>
-
-                <div class="lc-ctrl-sep"></div>
-
-                <!-- Playback controls -->
-                <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
-                    <span class="lc-rec-dot"></span>
-                </button>
-                <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')}">▶</button>
-                <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')}">⏹</button>
-                <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
-                    <span class="lc-rec-dot lc-rec-dot--pulse"></span>
-                </span>
-
-                <!-- Quantize -->
-                <select id="lc-quantize" class="lc-select lc-select-xs" title="${this.t('loopCreator.quantize')}">
-                    <option value="0">Q:—</option>
-                    <option value="480">Q:1/1</option><option value="240">Q:1/2</option>
-                    <option value="120" selected>Q:1/4</option><option value="60">Q:1/8</option>
-                    <option value="30">Q:1/16</option>
-                </select>
-
-                <!-- MIDI In -->
-                <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
-                    <option value="">IN:—</option>
-                </select>
-
-                <div class="lc-ctrl-sep"></div>
-
-                <!-- Edit mode group -->
-                <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
-                    <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
-                </div>
-
-                <!-- Note actions group -->
-                <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="select-all" title="${this.t('loopCreator.selectAll')}">⊞</button>
-                    <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">✂</button>
-                    <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
-                    <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
-                    <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
-                </div>
-
-                <div class="lc-ctrl-sep"></div>
-
-                <!-- Zoom group -->
-                <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-h-out" title="Zoom horizontal out">−H</button>
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-h-in"  title="Zoom horizontal in">+H</button>
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-v-out" title="Zoom vertical out">−V</button>
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-v-in"  title="Zoom vertical in">+V</button>
-                </div>
-
-                <!-- Piano roll toggle -->
-                <button class="lc-btn lc-btn-icon" data-action="toggle-piano-roll" id="lc-toggle-roll"
-                    title="${this.t('loopCreator.showPianoRoll')}" aria-pressed="false">🎹</button>
-
-                <!-- Status (pushed right) -->
-                <span class="lc-ctrl-spacer"></span>
-                <span class="lc-status" id="lc-status"></span>
-            </div>
-
-            <!-- ── Piano roll (collapsible) ── -->
-            <div class="lc-pianoroll-area" id="lc-pianoroll-area">
-                <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap"></div>
-            </div>
-
-            <!-- ── Minimap (always visible) ── -->
-            <canvas class="lc-minimap" id="lc-minimap"></canvas>
-
-            <!-- ── Keyboard panel (KeyboardModal embedded) ── -->
-            <div class="lc-kb-panel" id="lc-kb-panel"></div>
-        </div>`;
-    }
-
-    // =========================================================
-    // RENDERING — TAB 2: LIBRARY
+    // RENDERING — TAB 1: LIBRARY
     // =========================================================
 
     _renderLibraryTab() {
         return `
-        <div class="lc-pane lc-pane--hidden" id="lc-pane-library">
+        <div class="lc-pane${this.activeTab==='library' ? '' : ' lc-pane--hidden'}" id="lc-pane-library">
             <div class="lc-ctrl-bar lc-ctrl-bar--lib">
-                <span class="lc-section-title">${this.t('loopCreator.library')}</span>
+                <input type="text" id="lm-lib-search" class="lc-name-input lm-lib-search"
+                    placeholder="${this.t('loopManager.search')}" value="${this.escape(this._libSearch)}" />
+                <select id="lm-lib-filter" class="lc-select lm-lib-filter">
+                    <option value="">— ${this.t('loopManager.allInstruments')} —</option>
+                </select>
+                <select id="lm-lib-sort" class="lc-select lm-lib-sort">
+                    <option value="name"       ${this._libSort==='name'       ?'selected':''}>↕ ${this.t('loopManager.sortName')}</option>
+                    <option value="tempo"      ${this._libSort==='tempo'      ?'selected':''}>↕ ${this.t('loopManager.sortTempo')}</option>
+                    <option value="bars"       ${this._libSort==='bars'       ?'selected':''}>↕ ${this.t('loopManager.sortBars')}</option>
+                    <option value="instrument" ${this._libSort==='instrument' ?'selected':''}>↕ ${this.t('loopManager.sortInstrument')}</option>
+                </select>
                 <span class="lc-ctrl-spacer"></span>
-                <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="new-loop">+ ${this.t('loopCreator.newLoop')}</button>
+                <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="new-loop">+ ${this.t('loopManager.newLoop')}</button>
             </div>
-            <div class="lc-library-grid" id="lc-library-grid">
+            <div class="lm-library-grid" id="lm-library-grid">
                 <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
             </div>
         </div>`;
     }
 
     // =========================================================
-    // RENDERING — TAB 3: ARRANGER
+    // RENDERING — TAB 2: PAD
+    // =========================================================
+
+    _renderPadTab() {
+        return `
+        <div class="lc-pane lc-pane--hidden" id="lc-pane-pad">
+            <div class="lc-ctrl-bar">
+                <span class="lc-label">${this.t('loopManager.padMidiIn')}:</span>
+                <select id="lm-pad-midi-in" class="lc-select lc-select-midi">
+                    <option value="">—</option>
+                </select>
+                <span class="lc-unit" id="lm-pad-midi-status"></span>
+                <span class="lc-ctrl-spacer"></span>
+                <button class="lc-btn lc-btn-sm" data-action="pad-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
+            </div>
+            <div class="lm-pad-grid" id="lm-pad-grid"></div>
+            <div class="lm-pad-picker" id="lm-pad-picker" style="display:none"></div>
+        </div>`;
+    }
+
+    // =========================================================
+    // RENDERING — TAB 3: LIVE
+    // =========================================================
+
+    _renderLiveTab() {
+        return `
+        <div class="lc-pane lc-pane--hidden" id="lc-pane-live">
+            <div class="lc-ctrl-bar">
+                <span class="lc-label">${this.t('loopManager.liveOutput')}:</span>
+                <button class="lc-btn lc-btn-icon lc-btn-output" id="lm-live-output-btn" data-action="live-toggle-output">🔊</button>
+                <span class="lc-unit" id="lm-live-output-label">${this.t('loopManager.outputSynth')}</span>
+                <span class="lc-ctrl-spacer"></span>
+                <button class="lc-btn lc-btn-sm" data-action="live-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
+            </div>
+            <div class="lm-live-area" id="lm-live-area">
+                <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
+            </div>
+        </div>`;
+    }
+
+    // =========================================================
+    // RENDERING — TAB 4: ARRANGER
     // =========================================================
 
     _renderArrangerTab() {
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger">
-            <!-- ── Arranger toolbar ── -->
             <div class="lc-ctrl-bar lc-ctrl-bar--arr">
                 <input type="text" class="lc-name-input" id="la-name-input"
                     value="${this.escape(this.arrangementName || this.t('loopCreator.untitledArrangement'))}"
@@ -308,26 +268,19 @@ class LoopCreatorModal extends BaseModal {
                 <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}">🆕</button>
             </div>
 
-            <!-- ── Main area: sidebar + timeline ── -->
             <div class="la-area" id="la-area">
-                <!-- Loop palette (drag source) -->
                 <div class="la-palette" id="la-palette">
                     <div class="la-palette-title">${this.t('loopCreator.palette')}</div>
                     <div class="la-palette-grid" id="la-palette-grid">
                         <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
                     </div>
                 </div>
-
-                <!-- Timeline -->
                 <div class="la-timeline-wrap" id="la-timeline-wrap">
                     <div class="la-ruler" id="la-ruler"></div>
-                    <div class="la-tracks" id="la-tracks">
-                        <!-- tracks inserted here -->
-                    </div>
+                    <div class="la-tracks" id="la-tracks"></div>
                 </div>
             </div>
 
-            <!-- Arrangement library -->
             <div class="la-arr-list-wrap">
                 <div class="la-arr-list-title">${this.t('loopCreator.arrangements')}</div>
                 <div class="la-arr-list" id="la-arr-list"></div>
@@ -340,31 +293,22 @@ class LoopCreatorModal extends BaseModal {
     // =========================================================
 
     onOpen() {
-        this._initSynth();
+        this._initArrangerSynth();
+        this._initPadSynth();
+        this._initLiveSynth();
         this._attachEvents();
-        this._initPianoRoll();
-        this._applyPianoRollVisibility();
-        this._loadMidiInDevices();
-        this._mountKeyboardPanel();
         this._loadLibrary();
-        document.addEventListener('mouseup', this._boundDocMouseUp);
-        document.addEventListener('mousemove', this._boundDocMouseMove);
+        document.addEventListener('mouseup',    this._boundDocMouseUp);
+        document.addEventListener('mousemove',  this._boundDocMouseMove);
     }
 
     onClose() {
-        this._unmountKeyboardPanel();
-        this._stopAll();
-        this._stopRecordingAnimation();
+        this._stopAllPads();
+        this._liveStopAll();
         this._stopArrangerPlay();
-        this._stopMidiInMonitor();
-        document.removeEventListener('mouseup', this._boundDocMouseUp);
+        this._stopPadMidiMonitor();
+        document.removeEventListener('mouseup',   this._boundDocMouseUp);
         document.removeEventListener('mousemove', this._boundDocMouseMove);
-        if (this._minimapObserver) {
-            this._minimapObserver.disconnect();
-            this._minimapObserver = null;
-        }
-        this._minimap?.destroy();
-        this._minimap = null;
     }
 
     // =========================================================
@@ -381,23 +325,12 @@ class LoopCreatorModal extends BaseModal {
         this.$$('.lc-pane').forEach(pane => {
             pane.classList.toggle('lc-pane--hidden', !pane.id.endsWith(tab));
         });
-        // Update header save button
         const saveBtn = this.$('#lc-header-save');
-        if (saveBtn) {
-            if (tab === 'create') {
-                saveBtn.dataset.action = 'save-loop';
-                saveBtn.textContent = '';
-                saveBtn.innerHTML = `💾 ${this.t('loopCreator.save')}`;
-                saveBtn.style.display = '';
-            } else if (tab === 'arranger') {
-                saveBtn.dataset.action = 'save-arrangement';
-                saveBtn.innerHTML = `💾 ${this.t('loopCreator.saveArrangement')}`;
-                saveBtn.style.display = '';
-            } else {
-                saveBtn.style.display = 'none';
-            }
-        }
-        if (tab === 'library')  this._renderLibrary();
+        if (saveBtn) saveBtn.style.display = tab === 'arranger' ? '' : 'none';
+
+        if (tab === 'library')  this._filterAndRenderLibrary();
+        if (tab === 'pad')      this._renderPadGrid();
+        if (tab === 'live')     this._renderLiveArea();
         if (tab === 'arranger') this._initArrangerTab();
     }
 
@@ -406,13 +339,18 @@ class LoopCreatorModal extends BaseModal {
     // =========================================================
 
     _attachEvents() {
-        this.dialog.addEventListener('click', (e) => this._onClick(e));
+        this.dialog.addEventListener('click',  (e) => this._onClick(e));
         this.dialog.addEventListener('change', (e) => this._onChange(e));
         this.dialog.addEventListener('input',  (e) => this._onInput(e));
+        this.dialog.addEventListener('contextmenu', (e) => this._onContextMenu(e));
     }
 
     _onClick(e) {
-        // Tab switching — .lc-tab buttons carry data-tab, not data-action
+        // Close pad picker on outside click
+        if (this._padPickerIndex !== null && !e.target.closest('#lm-pad-picker') && !e.target.closest('.lm-pad-cell')) {
+            this._closePadPicker();
+        }
+
         const tabBtn = e.target.closest('.lc-tab[data-tab]');
         if (tabBtn) { this._switchTab(tabBtn.dataset.tab); return; }
 
@@ -420,675 +358,524 @@ class LoopCreatorModal extends BaseModal {
         if (!btn) return;
         const a = btn.dataset.action;
         switch (a) {
-            // Creator
-            case 'tempo-dec':    this._adjustTempo(-1);    break;
-            case 'tempo-inc':    this._adjustTempo(+1);    break;
-            case 'bars-dec':     this._adjustBars(-1);     break;
-            case 'bars-inc':     this._adjustBars(+1);     break;
-            case 'mode-draw':       this._setEditMode('dragpoly'); break;
-            case 'mode-select':     this._setEditMode('select');   break;
-            case 'select-all':      this._selectAll();             break;
-            case 'delete-selected': this._deleteSelected();        break;
-            case 'undo':            this.pianoRoll?.undo?.();  break;
-            case 'redo':            this.pianoRoll?.redo?.();  break;
-            case 'clear-notes':     this._clearNotes();        break;
-            case 'toggle-piano-roll': this._togglePianoRoll(); break;
-            case 'zoom-h-in':       this._zoomH(0.5);          break;
-            case 'zoom-h-out':      this._zoomH(2.0);          break;
-            case 'zoom-v-in':       this._zoomV(0.75);         break;
-            case 'zoom-v-out':      this._zoomV(1.5);          break;
-            case 'record':       this._toggleRecording();  break;
-            case 'preview':      this._previewLoop();       break;
-            case 'stop-all':     this._stopAll();           break;
-            case 'save-loop':    this._saveLoop();          break;
-            case 'new-loop':     this._newLoop();           break;
+            // Library
+            case 'new-loop':  this._loopEditor.open(); break;
+            // Pad
+            case 'pad-stop-all': this._stopAllPads(); break;
+            // Live
+            case 'live-toggle-output': this._liveToggleOutput(); break;
+            case 'live-stop-all':      this._liveStopAll(); break;
+            case 'live-trigger': {
+                const loopId = parseInt(btn.dataset.loopId);
+                if (!isNaN(loopId)) this._liveTrigger(loopId);
+                break;
+            }
             // Arranger
-            case 'arr-tempo-dec':  this._adjustArrTempo(-1); break;
-            case 'arr-tempo-inc':  this._adjustArrTempo(+1); break;
-            case 'arr-bars-dec':   this._adjustArrBars(-4);  break;
-            case 'arr-bars-inc':   this._adjustArrBars(+4);  break;
-            case 'arr-add-track':  this._addTrack();          break;
-            case 'arr-play':       this._playArrangement();   break;
-            case 'arr-stop':       this._stopArrangerPlay();  break;
-            case 'arr-new':        this._newArrangement();    break;
-            case 'save-arrangement': this._saveArrangement(); break;
-            case 'close': this.close(); break;
+            case 'arr-tempo-dec':    this._adjustArrTempo(-1); break;
+            case 'arr-tempo-inc':    this._adjustArrTempo(+1); break;
+            case 'arr-bars-dec':     this._adjustArrBars(-4);  break;
+            case 'arr-bars-inc':     this._adjustArrBars(+4);  break;
+            case 'arr-add-track':    this._addTrack();          break;
+            case 'arr-play':         this._playArrangement();   break;
+            case 'arr-stop':         this._stopArrangerPlay();  break;
+            case 'arr-new':          this._newArrangement();    break;
+            case 'save-arrangement': this._saveArrangement();   break;
+            case 'close':            this.close();              break;
         }
+    }
+
+    _onContextMenu(e) {
+        const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
+        if (!cell) return;
+        e.preventDefault();
+        this._openPadPicker(parseInt(cell.dataset.padIndex), cell);
     }
 
     _onChange(e) {
         const id = e.target.id;
-        if (id === 'lc-timesig') {
-            const [num, den] = e.target.value.split(':').map(Number);
-            this.timeSigNum = num; this.timeSigDen = den;
-            this._refreshPianoRollRange();
-        } else if (id === 'lc-snap') {
-            if (this.pianoRoll) { this.pianoRoll.snap = parseInt(e.target.value); }
-        } else if (id === 'lc-midi-in-device') {
-            this._midiInDevice = e.target.value || null;
+        if (id === 'lm-lib-filter') {
+            this._libFilter = e.target.value;
+            this._filterAndRenderLibrary();
+        } else if (id === 'lm-lib-sort') {
+            this._libSort = e.target.value;
+            this._filterAndRenderLibrary();
+        } else if (id === 'lm-pad-midi-in') {
+            this._padMidiInDevice = e.target.value || null;
+            if (this._padMidiInDevice) this._startPadMidiMonitor();
+            else                       this._stopPadMidiMonitor();
+        } else if (id === 'la-bars') {
+            const v = parseInt(e.target.value);
+            if (v>=4&&v<=256) { this.arrangementBars=v; this._renderTimeline(); }
         }
     }
 
     _onInput(e) {
         const id = e.target.id;
-        if (id === 'lc-tempo')    { const v = parseInt(e.target.value); if (v>=20&&v<=300) { this.tempo=v; this._refreshPianoRollRange(); } }
-        if (id === 'lc-bars')     { const v = parseInt(e.target.value); if (v>=1&&v<=32)   { this.bars=v;  this._refreshPianoRollRange(); } }
-        if (id === 'lc-name-input') this.loopName = e.target.value;
-        if (id === 'la-name-input') this.arrangementName = e.target.value;
-        if (id === 'la-tempo')    { const v = parseInt(e.target.value); if (v>=20&&v<=300) this.arrangementTempo=v; }
-        if (id === 'la-bars')     { const v = parseInt(e.target.value); if (v>=4&&v<=256)  { this.arrangementBars=v; this._renderTimeline(); } }
+        if (id === 'lm-lib-search') {
+            this._libSearch = e.target.value;
+            this._filterAndRenderLibrary();
+        } else if (id === 'la-name-input') {
+            this.arrangementName = e.target.value;
+        } else if (id === 'la-tempo') {
+            const v = parseInt(e.target.value);
+            if (v>=20&&v<=300) this.arrangementTempo = v;
+        }
     }
 
     // =========================================================
-    // PIANO ROLL
+    // LIBRARY
     // =========================================================
 
-    _initPianoRoll() {
-        const container = this.$('#lc-pianoroll-wrap');
-        if (!container) return;
-        if (!customElements?.get?.('webaudio-pianoroll')) {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-        this.pianoRoll = document.createElement('webaudio-pianoroll');
-        const total = this._totalTicks();
-        this.pianoRoll.setAttribute('width',    container.clientWidth  || 900);
-        this.pianoRoll.setAttribute('height',   container.clientHeight || 200);
-        this.pianoRoll.setAttribute('editmode', 'dragpoly');
-        const noteSpan0 = this.outputNoteMax - this.outputNoteMin;
-        const yrange0   = Math.min(noteSpan0 + 1, 36);
-        this.pianoRoll.setAttribute('xrange',   total.toString());
-        this.pianoRoll.setAttribute('yrange',   yrange0.toString());
-        this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
-        this.pianoRoll.setAttribute('wheelzoom','1');
-        this.pianoRoll.setAttribute('xscroll',  '1');
-        this.pianoRoll.setAttribute('yscroll',  '1');
-        this.pianoRoll.setAttribute('xruler',   '1');
-        this.pianoRoll.setAttribute('cursor',   '0');
-        this.pianoRoll.setAttribute('markstart','0');
-        this.pianoRoll.setAttribute('markend',  total.toString());
-        this.pianoRoll.setAttribute('snap',     '120');
-        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
-        this.pianoRoll.setAttribute('colcursor', '#e74c3c');
-        this._applyPianoRollTheme();
-        container.appendChild(this.pianoRoll);
-        this.pianoRoll.sequence = this.sequence;
-        this.pianoRoll.redraw?.();
-        this._initMinimap();
-    }
-
-    _applyPianoRollTheme() {
-        if (!this.pianoRoll) return;
-        const dark = document.body.classList.contains('theme-dark');
-        this.pianoRoll.setAttribute('colnote',    dark ? '#5b9bd5' : '#4a90d9');
-        this.pianoRoll.setAttribute('colnotesel', dark ? '#f5a623' : '#e8931a');
-        this.pianoRoll.setAttribute('colbg',      dark ? '#1a1a2e' : '#f8f9fa');
-        this.pianoRoll.setAttribute('colline',    dark ? '#333355' : '#dde0e6');
-        this.pianoRoll.setAttribute('colrulerbg', dark ? '#12122a' : '#eef0f4');
-        this.pianoRoll.setAttribute('colrulerfg', dark ? '#8888aa' : '#666677');
-        this.pianoRoll.setAttribute('colkeybg',   dark ? '#1e1e38' : '#f0f0f4');
-        this.pianoRoll.setAttribute('colkeyfg',   dark ? '#ccccee' : '#333344');
-        this.pianoRoll.setAttribute('colkeyblack',dark ? '#0d0d1a' : '#303040');
-    }
-
-    _totalTicks()  { return this.ppq * this.timeSigNum * this.bars; }
-
-    _refreshPianoRollRange() {
-        if (!this.pianoRoll) return;
-        const total = this._totalTicks();
-        this.pianoRoll.setAttribute('xrange',   total.toString());
-        this.pianoRoll.setAttribute('markend',  total.toString());
-        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
-        // Adapt Y axis to instrument note range
-        const noteSpan = this.outputNoteMax - this.outputNoteMin;
-        const yrange = Math.min(noteSpan + 1, 36);  // show at most 3 octaves at once
-        this.pianoRoll.setAttribute('yrange',   yrange.toString());
-        this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-    }
-
-    _adjustTempo(d) {
-        this.tempo = Math.max(20, Math.min(300, this.tempo + d));
-        const el = this.$('#lc-tempo'); if (el) el.value = this.tempo;
-        this._refreshPianoRollRange();
-    }
-
-    _adjustBars(d) {
-        this.bars = Math.max(1, Math.min(32, this.bars + d));
-        const el = this.$('#lc-bars'); if (el) el.value = this.bars;
-        this._refreshPianoRollRange();
-    }
-
-    _setEditMode(mode) {
-        if (!this.pianoRoll) return;
-        this.pianoRoll.setAttribute('editmode', mode);
-        this.$('#lc-mode-draw')?.setAttribute('aria-pressed', mode === 'dragpoly' ? 'true' : 'false');
-        this.$('#lc-mode-select')?.setAttribute('aria-pressed', mode === 'select' ? 'true' : 'false');
-    }
-
-    _clearNotes() {
-        this.sequence = [];
-        if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
-        this._syncMinimap();
-    }
-
-    _selectAll() {
-        if (!this.pianoRoll) return;
-        const seq = Array.isArray(this.pianoRoll.sequence) ? this.pianoRoll.sequence : [];
-        seq.forEach(note => { note.f = 1; });
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
-    }
-
-    _deleteSelected() {
-        if (!this.pianoRoll) return;
-        const seq = (this.pianoRoll.sequence || []).filter(note => !note.f);
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-    }
-
-    _applyPianoRollVisibility() {
-        const area      = this.$('#lc-pianoroll-area');
-        const kbPanel   = this.$('#lc-kb-panel');
-        const toggleBtn = this.$('#lc-toggle-roll');
-        const vis = this._pianoRollVisible;
-        if (area)    area.classList.toggle('lc-pianoroll-area--hidden', !vis);
-        if (kbPanel) kbPanel.classList.toggle('lc-kb-panel--expanded',  !vis);
-        if (toggleBtn) {
-            toggleBtn.setAttribute('aria-pressed', vis ? 'true' : 'false');
-            toggleBtn.title = vis
-                ? this.t('loopCreator.hidePianoRoll')
-                : this.t('loopCreator.showPianoRoll');
-        }
-    }
-
-    _togglePianoRoll() {
-        this._pianoRollVisible = !this._pianoRollVisible;
-        this._applyPianoRollVisibility();
-        if (this._pianoRollVisible && this.pianoRoll) {
-            // Re-measure after becoming visible
-            requestAnimationFrame(() => {
-                const wrap = this.$('#lc-pianoroll-wrap');
-                if (wrap) {
-                    this.pianoRoll.setAttribute('width',  (wrap.clientWidth  || 900).toString());
-                    this.pianoRoll.setAttribute('height', (wrap.clientHeight || 200).toString());
-                    this.pianoRoll.redraw?.();
-                    this._syncMinimap();
-                }
-            });
-        }
-    }
-
-    _zoomH(factor) {
-        if (!this.pianoRoll) return;
-        const total = this._totalTicks();
-        const cur   = parseFloat(this.pianoRoll.getAttribute('xrange') || total);
-        const next  = Math.max(Math.ceil(total / 32), Math.min(total, Math.round(cur * factor)));
-        this.pianoRoll.setAttribute('xrange', next.toString());
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-    }
-
-    _zoomV(factor) {
-        if (!this.pianoRoll) return;
-        const cur  = parseFloat(this.pianoRoll.getAttribute('yrange') || 36);
-        const next = Math.max(6, Math.min(128, Math.round(cur * factor)));
-        this.pianoRoll.setAttribute('yrange', next.toString());
-        this.pianoRoll.redraw?.();
-    }
-
-    _startPlayheadAnimation() {
-        if (this._playheadRAF) return;
-        this._playheadStartTime = performance.now();
-        const animate = () => {
-            if (!this.isPlaying) {
-                this._playheadRAF = null;
-                return;
-            }
-            if (this.pianoRoll) {
-                const elapsed = (performance.now() - this._playheadStartTime) / 1000;
-                const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
-                this.pianoRoll.cursor = Math.min(tick, this._totalTicks());
-                this.pianoRoll.redrawMarker?.();
-            }
-            this._syncMinimap();
-            this._playheadRAF = requestAnimationFrame(animate);
-        };
-        this._playheadRAF = requestAnimationFrame(animate);
-    }
-
-    _stopPlayheadAnimation() {
-        if (this._playheadRAF) {
-            cancelAnimationFrame(this._playheadRAF);
-            this._playheadRAF = null;
-        }
-        if (this.pianoRoll) {
-            this.pianoRoll.cursor = 0;
-            this.pianoRoll.redrawMarker?.();
-        }
-        this._syncMinimap();
-    }
-
-    // =========================================================
-    // MINIMAP
-    // =========================================================
-
-    _initMinimap() {
-        const canvas = this.$('#lc-minimap');
-        if (!canvas) return;
-
-        this._minimap = new window.LoopCreatorMinimap(canvas, {
-            ppq:        this.ppq,
-            timeSigNum: this.timeSigNum,
-            bars:       this.bars,
-            noteMin:    this.outputNoteMin,
-            noteMax:    this.outputNoteMax,
-            onSeek: (newOffset) => {
-                if (!this.pianoRoll) return;
-                this.pianoRoll.setAttribute('xoffset', newOffset.toString());
-                this.pianoRoll.redraw?.();
-                this._syncMinimap();
-            }
-        });
-
-        if (this.pianoRoll) {
-            this._minimapObserver = new MutationObserver(() => this._syncMinimap());
-            this._minimapObserver.observe(this.pianoRoll, {
-                attributes: true, attributeFilter: ['xoffset', 'xrange']
-            });
-        }
-
-        const wrap = this.$('#lc-pianoroll-wrap');
-        if (wrap) {
-            wrap.addEventListener('wheel', () => requestAnimationFrame(() => this._syncMinimap()), { passive: true });
-        }
-
-        this._syncMinimap();
-    }
-
-    _syncMinimap() {
-        const m = this._minimap;
-        if (!m) return;
-        const total  = this._totalTicks();
-        const xoff   = parseFloat(this.pianoRoll?.getAttribute?.('xoffset') || 0);
-        const xrange = parseFloat(this.pianoRoll?.getAttribute?.('xrange')  || total) || total;
-        m.setConfig({
-            ppq: this.ppq, timeSigNum: this.timeSigNum, bars: this.bars,
-            noteMin: this.outputNoteMin, noteMax: this.outputNoteMax
-        });
-        m.setNotes(this.pianoRoll?.sequence ?? []);
-        m.setViewport(xoff, xrange);
-        // During recording, compute elapsed ticks from wall-clock time
-        if (this.isRecording) {
-            const recTick = Math.min(total, Math.round(
-                (performance.now() - this.recordStartTime) / 1000 * (this.tempo / 60) * this.ppq
-            ));
-            m.setPlayhead(recTick, true);
-        } else {
-            m.setPlayhead(this.pianoRoll?.cursor ?? 0, this.isPlaying);
-        }
-    }
-
-    _startRecordingAnimation() {
-        const frame = () => {
-            if (!this.isRecording) { this._recordingRAF = null; return; }
-            this._syncMinimap();
-            this._recordingRAF = requestAnimationFrame(frame);
-        };
-        this._recordingRAF = requestAnimationFrame(frame);
-    }
-
-    _stopRecordingAnimation() {
-        if (this._recordingRAF) {
-            cancelAnimationFrame(this._recordingRAF);
-            this._recordingRAF = null;
-        }
-        this._syncMinimap();
-    }
-
-    // =========================================================
-    // NOTE RECORDING (keyboard panel handles MIDI output and display)
-    // =========================================================
-
-    _onDocMouseUp() {}
-
-    _playNote(note, velocity = 80) {
-        if (this._activeKeys.has(note)) return;
-        this._activeKeys.add(note);
-        if (this.isRecording) {
-            const elapsed = (performance.now() - this.recordStartTime) / 1000;
-            const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
-            this.recordedNotes.push({ note, velocity, tick, startMs: performance.now() });
-        }
-    }
-
-    _stopNote(note) {
-        this._activeKeys.delete(note);
-        if (this.isRecording) this._finalizeNoteOff(note);
-    }
-
-    _finalizeNoteOff(note) {
-        const idx = this.recordedNotes.findIndex(r => r.note === note);
-        if (idx === -1) return;
-        const rec = this.recordedNotes.splice(idx, 1)[0];
-        const durMs = performance.now() - rec.startMs;
-        const durTicks = Math.max(30, Math.round(durMs / 1000 * (this.tempo / 60) * this.ppq));
-        const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
-        const t = q > 0 ? Math.round(rec.tick / q) * q : rec.tick;
-        const g = q > 0 ? Math.max(q, Math.round(durTicks / q) * q) : durTicks;
-        this._addNoteToRoll({ t, n: note, v: rec.velocity, g });
-    }
-
-    _addNoteToRoll(noteObj) {
-        if (!this.pianoRoll) return;
-        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
-        seq.push(noteObj);
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-    }
-
-    // =========================================================
-    // RECORDING + MIDI IN (P3)
-    // =========================================================
-
-    _toggleRecording() {
-        this.isRecording ? this._stopRecording() : this._startRecording();
-    }
-
-    _startRecording() {
-        this.isRecording = true;
-        this.recordedNotes = [];
-        this.recordStartTime = performance.now();
-
-        this.$('#lc-record-btn')?.classList.add('lc-btn-record--active');
-        this.$('#lc-rec-indicator')?.classList.remove('hidden');
-
-        // Enable MIDI In monitor if a device is selected
-        if (this._midiInDevice) this._startMidiInMonitor();
-        this._startRecordingAnimation();
-        this._setStatus(this.t('loopCreator.statusRecording'));
-    }
-
-    _stopRecording() {
-        this.isRecording = false;
-        // Close still-open notes
-        for (const rec of [...this.recordedNotes]) this._finalizeNoteOff(rec.note);
-        this.recordedNotes = [];
-
-        this.$('#lc-record-btn')?.classList.remove('lc-btn-record--active');
-        this.$('#lc-rec-indicator')?.classList.add('hidden');
-
-        this._stopMidiInMonitor();
-        this._stopRecordingAnimation();
-        this._setStatus(this.t('loopCreator.statusRecordingDone'));
-    }
-
-    async _startMidiInMonitor() {
-        if (!this._midiInDevice || this._monitorActive) return;
+    async _loadLibrary() {
         try {
-            await this.api.sendCommand('monitor_start', { deviceId: this._midiInDevice });
-            this._monitorActive = true;
-
-            this._midiInHandler = (data) => {
-                if (data.device !== this._midiInDevice) return;
-                if (!this.isRecording) return;
-                const type = (data.type || '').toLowerCase();
-                const note = data.data?.note ?? data.data?.n;
-                const vel  = data.data?.velocity ?? data.data?.v ?? 64;
-                if (note == null) return;
-                if (type === 'noteon' && vel > 0) {
-                    this._playNote(note, vel);
-                } else if (type === 'noteoff' || (type === 'noteon' && vel === 0)) {
-                    this._stopNote(note);
-                }
-            };
-            this.api.on('monitor_event', this._midiInHandler);
+            const r = await this.api.sendCommand('loop_list');
+            this.library = r.loops || [];
+            if (this.activeTab === 'library') this._filterAndRenderLibrary();
+            if (this.activeTab === 'live')    this._renderLiveArea();
+            this._renderPalette();
         } catch (_) {}
     }
 
-    async _stopMidiInMonitor() {
-        if (!this._monitorActive) return;
-        this._monitorActive = false;
-        if (this._midiInHandler) {
-            this.api.off?.('monitor_event', this._midiInHandler);
-            this._midiInHandler = null;
+    _filterAndRenderLibrary() {
+        const grid = this.$('#lm-library-grid');
+        if (!grid) return;
+
+        this._populateInstrumentFilter();
+
+        let items = [...this.library];
+        if (this._libSearch) {
+            const q = this._libSearch.toLowerCase();
+            items = items.filter(l => l.name.toLowerCase().includes(q));
         }
-        if (this._midiInDevice) {
-            try { await this.api.sendCommand('monitor_stop', { deviceId: this._midiInDevice }); } catch (_) {}
+        if (this._libFilter !== '') {
+            const prog = parseInt(this._libFilter);
+            items = items.filter(l => (l.instrument_program ?? 0) === prog);
+        }
+        items.sort((a, b) => {
+            if (this._libSort === 'tempo')      return a.tempo - b.tempo;
+            if (this._libSort === 'bars')       return a.bars  - b.bars;
+            if (this._libSort === 'instrument') return (a.instrument_program ?? 0) - (b.instrument_program ?? 0);
+            return a.name.localeCompare(b.name);
+        });
+
+        if (!items.length) {
+            grid.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
+            return;
+        }
+        grid.innerHTML = items.map(loop => this._loopCardHtml(loop)).join('');
+
+        if (!grid.dataset.lmWired) {
+            grid.dataset.lmWired = '1';
+            grid.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-loop-action]');
+                if (!btn) return;
+                const id = parseInt(btn.dataset.loopId);
+                if (btn.dataset.loopAction === 'edit')   this._loopEditor.open({ loopId: id });
+                if (btn.dataset.loopAction === 'delete') this._deleteLoopById(id);
+                if (btn.dataset.loopAction === 'pad') {
+                    const firstEmpty = this._padSlots.findIndex(s => s === null);
+                    if (firstEmpty !== -1) this._assignPadSlot(firstEmpty, id);
+                }
+            });
         }
     }
 
-    async _loadMidiInDevices() {
-        const sel = this.$('#lc-midi-in-device');
+    _populateInstrumentFilter() {
+        const sel = this.$('#lm-lib-filter');
+        if (!sel) return;
+        const programs = [...new Set(this.library.map(l => l.instrument_program ?? 0))].sort((a, b) => a - b);
+        const current = sel.value;
+        sel.innerHTML = `<option value="">— ${this.t('loopManager.allInstruments')} —</option>`;
+        for (const prog of programs) {
+            const opt = document.createElement('option');
+            opt.value = prog;
+            opt.textContent = this._gmProgramName(prog);
+            if (String(prog) === (current || String(this._libFilter))) opt.selected = true;
+            sel.appendChild(opt);
+        }
+    }
+
+    _loopCardHtml(loop) {
+        const ts   = `${loop.time_sig_num}/${loop.time_sig_den}`;
+        const prog = this._gmProgramName(loop.instrument_program ?? 0);
+        return `<div class="lc-card" data-loop-id="${loop.id}">
+            <div class="lc-card-name">${this.escape(loop.name)}</div>
+            <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
+            <div class="lc-card-instr">${this.escape(prog)}</div>
+            <div class="lc-card-actions">
+                <button class="lc-card-btn" data-loop-action="edit"   data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
+                <button class="lc-card-btn" data-loop-action="pad"    data-loop-id="${loop.id}" title="${this.t('loopManager.addToPad')}">🎛</button>
+                <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
+            </div>
+        </div>`;
+    }
+
+    async _deleteLoopById(id) {
+        try {
+            await this.api.sendCommand('loop_delete', { loopId: id });
+            this._fetchLoopDataCache.delete(id);
+            // Remove from pad slots if assigned
+            for (let i = 0; i < this._padSlots.length; i++) {
+                if (this._padSlots[i]?.loopId === id) {
+                    this._stopPad(i);
+                    this._padSlots[i] = null;
+                }
+            }
+            // Remove from live playing
+            this._liveStop(id);
+            await this._loadLibrary();
+            if (this.currentArrangementId && this.blocks.some(b => b.loop_id === id)) {
+                await this._loadArrangementById(this.currentArrangementId);
+            }
+        } catch (_) {}
+    }
+
+    _onLoopSaved(loopId) {
+        this._fetchLoopDataCache.delete(loopId);
+        this._loadLibrary();
+    }
+
+    _gmProgramName(prog) {
+        return GM_PROGRAM_NAMES[prog] || `Program ${prog}`;
+    }
+
+    // =========================================================
+    // PAD TAB
+    // =========================================================
+
+    _initPadSynth() {
+        if (typeof MidiSynthesizer !== 'undefined' && !this._padSynth) {
+            try { this._padSynth = new MidiSynthesizer(); } catch (_) {}
+        }
+    }
+
+    _renderPadGrid() {
+        const grid = this.$('#lm-pad-grid');
+        if (!grid) return;
+        grid.innerHTML = this._padSlots.map((slot, i) => {
+            const noteLabel = _midiNoteLabel(48 + i);
+            const playing   = this._padPlayingIndex.has(i);
+            const assigned  = slot !== null;
+            return `<div class="lm-pad-cell${assigned ? ' lm-pad-cell--assigned' : ''}${playing ? ' lm-pad-cell--playing' : ''}"
+                data-pad-index="${i}" title="${assigned ? this.escape(slot.name) : noteLabel}">
+                <span class="lm-pad-name">${assigned ? this.escape(slot.name) : '+'}</span>
+                <span class="lm-pad-meta">${assigned ? `${slot.tempo}♩·${slot.bars}M` : ''}</span>
+                <span class="lm-pad-note">${noteLabel}</span>
+            </div>`;
+        }).join('');
+
+        if (!grid.dataset.lmPadWired) {
+            grid.dataset.lmPadWired = '1';
+            grid.addEventListener('click', (e) => {
+                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
+                if (cell) this._triggerPad(parseInt(cell.dataset.padIndex));
+            });
+        }
+
+        // Load MIDI In devices
+        this._loadPadMidiInDevices();
+    }
+
+    async _loadPadMidiInDevices() {
+        const sel = this.$('#lm-pad-midi-in');
         if (!sel) return;
         try {
             const allDevices = await this.api.listDevices();
             const devices = allDevices.filter(d => d.status === 2 || d.connected === true);
             const existing = sel.value;
-            sel.innerHTML = `<option value="">IN:—</option>`;
+            sel.innerHTML = `<option value="">—</option>`;
             for (const d of devices) {
-                const id = d.device_id || d.id;
+                const id  = d.device_id || d.id;
                 const opt = document.createElement('option');
                 opt.value = id;
-                opt.textContent = `IN: ${d.name || id}`;
+                opt.textContent = d.name || id;
                 if (id === existing) opt.selected = true;
                 sel.appendChild(opt);
             }
         } catch (_) {}
     }
 
-    _mountKeyboardPanel() {
-        if (!window.keyboardModal) return;
-        const container = this.$('#lc-kb-panel');
-        if (!container) return;
-        window.keyboardModal.mountAsPanel(container, {
-            onNoteOn:  (note, vel) => this._playNote(note, vel),
-            onNoteOff: (note)      => this._stopNote(note),
-            onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
-                this.outputMode      = deviceId ? 'device' : 'synth';
-                this.outputDeviceId  = deviceId || null;
-                this.outputChannel   = channel ?? 0;
-                this.outputGmProgram = gmProgram ?? 0;
-            }
-        });
-    }
+    async _triggerPad(index) {
+        const slot = this._padSlots[index];
+        if (!slot) return;
 
-    _unmountKeyboardPanel() {
-        window.keyboardModal?.unmountPanel();
-    }
-
-    // =========================================================
-    // PREVIEW PLAYBACK
-    // =========================================================
-
-    _initSynth() {
-        if (typeof MidiSynthesizer !== 'undefined') {
-            try {
-                this._synth = new MidiSynthesizer();
-                this._synth.setChannelInstrument(0, this.instrumentProgram);
-            } catch (_) {}
+        if (this._padPlayingIndex.has(index)) {
+            this._stopPad(index);
+            return;
         }
+
+        const loopData = await this._fetchLoopData(slot.loopId);
+        if (!loopData) return;
+
+        this._padPlayingIndex.add(index);
+        this._updatePadCell(index);
+        this._schedulePad(index, loopData);
     }
 
-    _previewLoop() {
-        this._stopAll();
-        const seq = this.pianoRoll?.sequence ?? [];
-        if (!seq.length) { this._setStatus(this.t('loopCreator.statusNoNotes')); return; }
-        if (this.outputMode === 'device' && this.outputDeviceId) {
-            this._previewViaDevice(seq); return;
-        }
-        if (!this._synth) { this._setStatus(this.t('loopCreator.statusNoSynth')); return; }
-        this.isPlaying = true;
-        this._setStatus(this.t('loopCreator.statusPlaying'));
-        this._startPlayheadAnimation();
-        this._synth.loadSequence(seq, this.tempo, this.ppq);
-        this._synth.play().then(() => {
-            if (this.isPlaying) { this.isPlaying = false; this._stopPlayheadAnimation(); this._setStatus(''); }
-        }).catch(() => { this.isPlaying = false; this._stopPlayheadAnimation(); this._setStatus(''); });
-    }
+    _schedulePad(index, loopData) {
+        const seq = typeof loopData.midi_data === 'string'
+            ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
+        const spt       = 60 / ((loopData.tempo || 120) * (loopData.ppq || 480));
+        const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
 
-    _previewViaDevice(seq) {
-        const spt = 60 / (this.tempo * this.ppq);
-        this.isPlaying = true;
-        this._setStatus(this.t('loopCreator.statusPlaying'));
-        this._startPlayheadAnimation();
+        const timers = [];
         for (const note of seq) {
-            const onMs  = note.t * spt * 1000;
-            const offMs = (note.t + (note.g || note.l || 120)) * spt * 1000;
-            this._playbackTimers.push(setTimeout(() => {
-                if (!this.isPlaying) return;
-                this.api.sendCommand('midi_send_note', {
-                    deviceId: this.outputDeviceId, channel: this.outputChannel,
-                    note: note.n, velocity: note.v || 80
-                }).catch(() => {});
-            }, onMs));
-            this._playbackTimers.push(setTimeout(() => {
-                if (!this.isPlaying) return;
-                this.api.sendCommand('midi_send_note', {
-                    deviceId: this.outputDeviceId, channel: this.outputChannel,
-                    note: note.n, velocity: 0
-                }).catch(() => {});
-            }, offMs));
+            const durSec = (note.g || note.l || 120) * spt;
+            timers.push(setTimeout(() => {
+                if (!this._padPlayingIndex.has(index)) return;
+                try { this._padSynth?.playNote?.(note.n, note.v || 80, 0, durSec); } catch (_) {}
+            }, note.t * spt * 1000));
         }
-        this._playbackTimers.push(setTimeout(() => {
-            this.isPlaying = false; this._setStatus('');
-        }, this._totalTicks() * spt * 1000));
+        // Auto-stop after one loop
+        timers.push(setTimeout(() => {
+            this._padPlayingIndex.delete(index);
+            (this._padPlaybackTimers.get(index) || []).forEach(t => clearTimeout(t));
+            this._padPlaybackTimers.delete(index);
+            this._updatePadCell(index);
+        }, loopDurMs + 50));
+
+        this._padPlaybackTimers.set(index, timers);
     }
 
-    _stopAll() {
-        this._playbackTimers.forEach(t => clearTimeout(t));
-        this._playbackTimers = [];
-        if (this.isRecording) this._stopRecording();
-        this.isPlaying = false;
-        this._stopPlayheadAnimation();
-        try { this._synth?.stop?.(); } catch (_) {}
-        try { this._synth?.cancelAllNotes?.(); } catch (_) {}
-        this._activeKeys.clear();
-        this._setStatus('');
+    _stopPad(index) {
+        (this._padPlaybackTimers.get(index) || []).forEach(t => clearTimeout(t));
+        this._padPlaybackTimers.delete(index);
+        this._padPlayingIndex.delete(index);
+        this._updatePadCell(index);
     }
 
-    // =========================================================
-    // SAVE / LOAD — LOOPS
-    // =========================================================
+    _stopAllPads() {
+        for (let i = 0; i < 16; i++) this._stopPad(i);
+        try { this._padSynth?.cancelAllNotes?.(); } catch (_) {}
+    }
 
-    async _saveLoop() {
-        this.loopName = (this.$('#lc-name-input')?.value?.trim()) || this.t('loopCreator.untitled');
-        const seq = this.pianoRoll?.sequence ?? [];
-        const payload = {
-            name: this.loopName, tempo: this.tempo,
-            time_sig_num: this.timeSigNum, time_sig_den: this.timeSigDen,
-            bars: this.bars, ppq: this.ppq,
-            instrument_program: this.instrumentProgram,
-            midi_data: JSON.stringify(seq)
+    _updatePadCell(index) {
+        const cell = this.$(`#lm-pad-grid .lm-pad-cell[data-pad-index="${index}"]`);
+        if (!cell) return;
+        const slot    = this._padSlots[index];
+        const playing = this._padPlayingIndex.has(index);
+        cell.classList.toggle('lm-pad-cell--playing', playing);
+        cell.classList.toggle('lm-pad-cell--assigned', slot !== null);
+    }
+
+    _assignPadSlot(index, loopId) {
+        const loop = this.library.find(l => l.id === loopId);
+        if (!loop) return;
+        this._stopPad(index);
+        this._padSlots[index] = {
+            loopId: loop.id, name: loop.name,
+            tempo: loop.tempo, bars: loop.bars,
+            instrument_program: loop.instrument_program ?? 0
         };
-        try {
-            if (this.currentLoopId) {
-                await this.api.sendCommand('loop_update', { loopId: this.currentLoopId, ...payload });
-            } else {
-                const r = await this.api.sendCommand('loop_create', payload);
-                this.currentLoopId = r.loopId;
-            }
-            this._setStatus(this.t('loopCreator.statusSaved'));
-            await this._loadLibrary();
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        this._renderPadGrid();
+        this._closePadPicker();
     }
 
-    async _loadLibrary() {
+    _openPadPicker(index, anchorEl) {
+        this._padPickerIndex = index;
+        const picker = this.$('#lm-pad-picker');
+        if (!picker) return;
+
+        picker.innerHTML = `
+            <div class="lm-picker-title">${this.t('loopManager.assignPad')}</div>
+            <div class="lm-picker-list">
+                ${this.library.map(l => `
+                <div class="lm-picker-item" data-assign-loop="${l.id}">
+                    <span class="lm-picker-name">${this.escape(l.name)}</span>
+                    <span class="lm-picker-meta">${l.tempo}♩·${l.bars}M</span>
+                </div>`).join('')}
+                <div class="lm-picker-item lm-picker-item--clear" data-assign-loop="__clear__">
+                    ${this.t('loopManager.clearPad')}
+                </div>
+            </div>`;
+
+        picker.addEventListener('click', (e) => {
+            const item = e.target.closest('[data-assign-loop]');
+            if (!item) return;
+            const val = item.dataset.assignLoop;
+            if (val === '__clear__') {
+                this._stopPad(index);
+                this._padSlots[index] = null;
+                this._renderPadGrid();
+                this._closePadPicker();
+            } else {
+                this._assignPadSlot(index, parseInt(val));
+            }
+        }, { once: true });
+
+        // Position near anchor (fixed so it escapes any overflow:hidden containers)
+        const rect = anchorEl.getBoundingClientRect();
+        picker.style.left = rect.left + 'px';
+        picker.style.top  = (rect.bottom + 4) + 'px';
+        picker.style.display = 'block';
+    }
+
+    _closePadPicker() {
+        this._padPickerIndex = null;
+        const picker = this.$('#lm-pad-picker');
+        if (picker) picker.style.display = 'none';
+    }
+
+    // MIDI In for pads
+    async _startPadMidiMonitor() {
+        if (!this._padMidiInDevice || this._padMonitorActive) return;
         try {
-            const r = await this.api.sendCommand('loop_list');
-            this.library = r.loops || [];
-            if (this.activeTab === 'library') this._renderLibrary();
-            this._renderPalette();
+            await this.api.sendCommand('monitor_start', { deviceId: this._padMidiInDevice });
+            this._padMonitorActive = true;
+            this._padMidiInHandler = (data) => {
+                if (data.device !== this._padMidiInDevice) return;
+                const type = (data.type || '').toLowerCase();
+                const note = data.data?.note ?? data.data?.n;
+                const vel  = data.data?.velocity ?? data.data?.v ?? 0;
+                if (note == null) return;
+                if (type === 'noteon' && vel > 0) {
+                    const padIndex = note - 48; // C3 = pad 0
+                    if (padIndex >= 0 && padIndex < 16) this._triggerPad(padIndex);
+                }
+            };
+            this.api.on('monitor_event', this._padMidiInHandler);
+            const status = this.$('#lm-pad-midi-status');
+            if (status) status.textContent = '● MIDI';
         } catch (_) {}
     }
 
-    _renderLibrary() {
-        const grid = this.$('#lc-library-grid');
-        if (!grid) return;
+    async _stopPadMidiMonitor() {
+        if (!this._padMonitorActive) return;
+        this._padMonitorActive = false;
+        if (this._padMidiInHandler) {
+            this.api.off?.('monitor_event', this._padMidiInHandler);
+            this._padMidiInHandler = null;
+        }
+        if (this._padMidiInDevice) {
+            try { await this.api.sendCommand('monitor_stop', { deviceId: this._padMidiInDevice }); } catch (_) {}
+        }
+        const status = this.$('#lm-pad-midi-status');
+        if (status) status.textContent = '';
+    }
+
+    // =========================================================
+    // LIVE TAB
+    // =========================================================
+
+    _initLiveSynth() {
+        if (typeof MidiSynthesizer !== 'undefined' && !this._liveSynth) {
+            try { this._liveSynth = new MidiSynthesizer(); } catch (_) {}
+        }
+    }
+
+    _renderLiveArea() {
+        const area = this.$('#lm-live-area');
+        if (!area) return;
         if (!this.library.length) {
-            grid.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
+            area.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
             return;
         }
-        grid.innerHTML = this.library.map(loop => this._loopCardHtml(loop, true)).join('');
-        if (!grid.dataset.lcWired) {
-            grid.dataset.lcWired = '1';
-            grid.addEventListener('click', (e) => {
-                const btn = e.target.closest('[data-loop-action]');
-                if (!btn) return;
-                const id = parseInt(btn.dataset.loopId);
-                if (btn.dataset.loopAction === 'load')   { this._loadLoopById(id); this._switchTab('create'); }
-                if (btn.dataset.loopAction === 'delete') this._deleteLoopById(id);
-            });
+
+        // Group loops by GM family
+        const groups = new Map(); // familyName → { family, loops[] }
+        for (const loop of this.library) {
+            const prog   = loop.instrument_program ?? 0;
+            const family = GM_FAMILIES.slice().reverse().find(f => prog >= f.start) || GM_FAMILIES[0];
+            if (!groups.has(family.name)) groups.set(family.name, { family, loops: [] });
+            groups.get(family.name).loops.push(loop);
         }
+
+        area.innerHTML = [...groups.values()].map(({ family, loops }) => `
+        <div class="lm-live-group">
+            <div class="lm-live-group-header">
+                <span class="lm-live-group-icon">${family.icon}</span>
+                <span class="lm-live-group-name">${family.name}</span>
+            </div>
+            <div class="lm-live-loops">
+                ${loops.map(l => {
+                    const playing = this._livePlayingLoops.has(l.id);
+                    return `<button class="lm-live-loop-btn${playing ? ' lm-live-loop-btn--playing' : ''}"
+                        data-action="live-trigger" data-loop-id="${l.id}">
+                        <span class="lm-live-loop-name">${this.escape(l.name)}</span>
+                        <span class="lm-live-loop-meta">${l.tempo}♩·${l.bars}M</span>
+                    </button>`;
+                }).join('')}
+            </div>
+        </div>`).join('');
     }
 
-    _loopCardHtml(loop, showActions = false) {
-        const active = loop.id === this.currentLoopId ? ' lc-card--active' : '';
-        const ts = `${loop.time_sig_num}/${loop.time_sig_den}`;
-        const actions = showActions ? `
-            <div class="lc-card-actions">
-                <button class="lc-card-btn" data-loop-action="load" data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
-                <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
-            </div>` : '';
-        return `<div class="lc-card${active}" data-loop-id="${loop.id}">
-            <div class="lc-card-name">${this.escape(loop.name)}</div>
-            <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
-            ${actions}
-        </div>`;
+    async _liveTrigger(loopId) {
+        if (this._livePlayingLoops.has(loopId)) {
+            this._liveStop(loopId);
+            return;
+        }
+        const loopData = await this._fetchLoopData(loopId);
+        if (!loopData) return;
+
+        this._livePlayingLoops.set(loopId, { timers: [] });
+        this._updateLiveButton(loopId, true);
+        this._scheduleLiveLoop(loopId, loopData);
     }
 
-    async _loadLoopById(id) {
-        try {
-            const r = await this.api.sendCommand('loop_get', { loopId: id });
-            const loop = r.loop; if (!loop) return;
-            this.currentLoopId   = loop.id;
-            this.loopName        = loop.name;
-            this.tempo           = loop.tempo;
-            this.timeSigNum      = loop.time_sig_num;
-            this.timeSigDen      = loop.time_sig_den;
-            this.bars            = loop.bars;
-            this.ppq             = loop.ppq;
-            this.instrumentProgram = loop.instrument_program ?? 0;
-            const seq = typeof loop.midi_data === 'string' ? JSON.parse(loop.midi_data) : (loop.midi_data || []);
-            this.sequence = seq;
-            const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
-            f('#lc-name-input', loop.name); f('#lc-tempo', loop.tempo); f('#lc-bars', loop.bars);
-            const ts = this.$('#lc-timesig'); if (ts) ts.value = `${loop.time_sig_num}:${loop.time_sig_den}`;
-            if (this.pianoRoll) { this._refreshPianoRollRange(); this.pianoRoll.sequence = seq; this.pianoRoll.redraw?.(); this._syncMinimap(); }
-            this._setStatus(this.t('loopCreator.statusLoaded'));
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    _scheduleLiveLoop(loopId, loopData) {
+        if (!this._livePlayingLoops.has(loopId)) return;
+        const state = this._livePlayingLoops.get(loopId);
+
+        const seq       = typeof loopData.midi_data === 'string'
+            ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
+        const spt       = 60 / ((loopData.tempo || 120) * (loopData.ppq || 480));
+        const loopDurMs = (loopData.time_sig_num || 4) * loopData.bars * 60000 / (loopData.tempo || 120);
+
+        // Clear old timers
+        state.timers.forEach(t => clearTimeout(t));
+        state.timers = [];
+
+        for (const note of seq) {
+            const durSec = (note.g || note.l || 120) * spt;
+            state.timers.push(setTimeout(() => {
+                if (!this._livePlayingLoops.has(loopId)) return;
+                try { this._liveSynth?.playNote?.(note.n, note.v || 80, 0, durSec); } catch (_) {}
+            }, note.t * spt * 1000));
+        }
+
+        // Reschedule after loop duration
+        state.timers.push(setTimeout(() => {
+            if (this._livePlayingLoops.has(loopId)) this._scheduleLiveLoop(loopId, loopData);
+        }, loopDurMs));
     }
 
-    async _deleteLoopById(id) {
-        try {
-            await this.api.sendCommand('loop_delete', { loopId: id });
-            if (this.currentLoopId === id) this._newLoop();
-            this._fetchLoopDataCache.delete(id);
-            await this._loadLibrary();
-            // Backend cascades blocks; refresh local arranger view to drop orphan blocks
-            if (this.currentArrangementId && this.blocks.some(b => b.loop_id === id)) {
-                await this._loadArrangementById(this.currentArrangementId);
-            }
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+    _liveStop(loopId) {
+        const state = this._livePlayingLoops.get(loopId);
+        if (!state) return;
+        state.timers.forEach(t => clearTimeout(t));
+        this._livePlayingLoops.delete(loopId);
+        this._updateLiveButton(loopId, false);
     }
 
-    _newLoop() {
-        this.currentLoopId = null; this.loopName = ''; this.tempo = 120;
-        this.timeSigNum = 4; this.timeSigDen = 4; this.bars = 2; this.ppq = 480; this.sequence = [];
-        const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
-        f('#lc-name-input', ''); f('#lc-tempo', 120); f('#lc-bars', 2);
-        const ts = this.$('#lc-timesig'); if (ts) ts.value = '4:4';
-        this._clearNotes(); this._refreshPianoRollRange();
+    _liveStopAll() {
+        for (const loopId of [...this._livePlayingLoops.keys()]) this._liveStop(loopId);
+        try { this._liveSynth?.cancelAllNotes?.(); } catch (_) {}
+    }
+
+    _liveToggleOutput() {
+        // Placeholder: toggle between synth and live output
+        const btn   = this.$('#lm-live-output-btn');
+        const label = this.$('#lm-live-output-label');
+        const isLive = btn?.textContent === '🔌';
+        if (btn)   btn.textContent = isLive ? '🔊' : '🔌';
+        if (label) label.textContent = isLive ? this.t('loopManager.outputSynth') : this.t('loopManager.outputLive');
+        if (btn)   btn.classList.toggle('lc-btn-output--active', !isLive);
+    }
+
+    _updateLiveButton(loopId, playing) {
+        const btn = this.$(`[data-action="live-trigger"][data-loop-id="${loopId}"]`);
+        if (btn) btn.classList.toggle('lm-live-loop-btn--playing', playing);
     }
 
     // =========================================================
     // ARRANGER — INIT
     // =========================================================
+
+    _initArrangerSynth() {
+        if (typeof MidiSynthesizer !== 'undefined' && !this._arrangerSynth) {
+            try { this._arrangerSynth = new MidiSynthesizer(); } catch (_) {}
+        }
+    }
 
     async _initArrangerTab() {
         await this._loadLibrary();
@@ -1109,7 +896,7 @@ class LoopCreatorModal extends BaseModal {
         if (!el) return;
         if (!arrs.length) { el.innerHTML = `<div class="lc-empty">${this.t('loopCreator.arrangementsEmpty')}</div>`; return; }
         el.innerHTML = arrs.map(a => `
-            <div class="la-arr-item${a.id === this.currentArrangementId ? ' la-arr-item--active' : ''}"
+            <div class="la-arr-item${a.id===this.currentArrangementId ? ' la-arr-item--active':''}"
                 data-arr-id="${a.id}" role="button" tabindex="0">
                 <span class="la-arr-name">${this.escape(a.name)}</span>
                 <span class="la-arr-meta">${a.global_tempo} BPM · ${a.total_bars} ${this.t('loopCreator.barsUnit')}</span>
@@ -1130,13 +917,12 @@ class LoopCreatorModal extends BaseModal {
         try {
             const r = await this.api.sendCommand('arrangement_create', {
                 name: this.t('loopCreator.untitledArrangement'),
-                global_tempo: this.arrangementTempo,
-                total_bars: this.arrangementBars
+                global_tempo: this.arrangementTempo, total_bars: this.arrangementBars
             });
             this.currentArrangementId = r.arrangementId;
             await this._loadArrangementById(r.arrangementId);
             await this._loadArrangements();
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     async _loadArrangementById(id) {
@@ -1151,11 +937,11 @@ class LoopCreatorModal extends BaseModal {
             this.blocks = blocks;
             const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
             f('#la-name-input', arrangement.name);
-            f('#la-tempo', arrangement.global_tempo);
-            f('#la-bars', arrangement.total_bars);
+            f('#la-tempo',      arrangement.global_tempo);
+            f('#la-bars',       arrangement.total_bars);
             this._renderTimeline();
             this._renderArrList([arrangement]);
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     // =========================================================
@@ -1173,7 +959,6 @@ class LoopCreatorModal extends BaseModal {
                 <div class="la-chip-meta">${loop.bars}${this.t('loopCreator.barsUnit')}</div>
             </div>`
         ).join('');
-
         grid.querySelectorAll('.la-palette-chip').forEach(chip => {
             chip.addEventListener('dragstart', (e) => {
                 e.dataTransfer.effectAllowed = 'copy';
@@ -1190,11 +975,7 @@ class LoopCreatorModal extends BaseModal {
     // ARRANGER — TIMELINE
     // =========================================================
 
-    _renderTimeline() {
-        this._renderRuler();
-        this._renderTracks();
-        this._renderPalette();
-    }
+    _renderTimeline() { this._renderRuler(); this._renderTracks(); this._renderPalette(); }
 
     _renderRuler() {
         const ruler = this.$('#la-ruler');
@@ -1202,7 +983,7 @@ class LoopCreatorModal extends BaseModal {
         const BAR_W = this._barWidth();
         let html = '';
         for (let b = 0; b < this.arrangementBars; b++) {
-            const marker = (b % 4 === 0) ? `<span class="la-ruler-label">${b + 1}</span>` : '';
+            const marker = (b % 4 === 0) ? `<span class="la-ruler-label">${b+1}</span>` : '';
             html += `<div class="la-ruler-cell" style="width:${BAR_W}px">${marker}</div>`;
         }
         ruler.style.width = (BAR_W * this.arrangementBars) + 'px';
@@ -1213,89 +994,67 @@ class LoopCreatorModal extends BaseModal {
         const container = this.$('#la-tracks');
         if (!container) return;
         container.innerHTML = '';
-
-        for (const track of this.tracks) {
-            const trackEl = this._buildTrackEl(track);
-            container.appendChild(trackEl);
-        }
+        for (const track of this.tracks) container.appendChild(this._buildTrackEl(track));
     }
 
     _buildTrackEl(track) {
-        const BAR_W = this._barWidth();
+        const BAR_W  = this._barWidth();
         const totalW = BAR_W * this.arrangementBars;
-
         const trackEl = document.createElement('div');
         trackEl.className = 'la-track';
         trackEl.dataset.trackId = track.id;
         trackEl.innerHTML = `
             <div class="la-track-label">
-                <input type="text" class="la-track-name-input lc-name-input" value="${this.escape(track.label)}"
-                    data-track-id="${track.id}" />
+                <input type="text" class="la-track-name-input lc-name-input" value="${this.escape(track.label)}" data-track-id="${track.id}" />
                 <button class="lc-card-btn lc-card-btn--danger" data-track-action="delete" data-track-id="${track.id}" title="${this.t('loopCreator.deleteTrack')}">✕</button>
             </div>
             <div class="la-track-cells" data-track-id="${track.id}" style="width:${totalW}px">
                 ${this._buildCells(track.id, BAR_W)}
             </div>`;
 
-        // Drop zone
         const cells = trackEl.querySelector('.la-track-cells');
-        cells.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-            const bar = this._barFromX(e.offsetX, BAR_W);
-            this._showDropPreview(cells, bar, BAR_W);
-        });
+        cells.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect='copy'; this._showDropPreview(cells, this._barFromX(e.offsetX, BAR_W), BAR_W); });
         cells.addEventListener('dragleave', () => this._hideDropPreview());
-        cells.addEventListener('drop', (e) => {
-            e.preventDefault();
-            this._hideDropPreview();
+        cells.addEventListener('drop',      (e) => {
+            e.preventDefault(); this._hideDropPreview();
             const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
-            if (!data.loopId) return;
-            const bar = this._barFromX(e.offsetX, BAR_W);
-            this._addBlock(track.id, data.loopId, bar, data.loopBars || 2);
+            if (data.loopId) this._addBlock(track.id, data.loopId, this._barFromX(e.offsetX, BAR_W), data.loopBars || 2);
         });
 
-        // Track label change
         const nameInput = trackEl.querySelector('.la-track-name-input');
         nameInput?.addEventListener('change', async () => {
             try { await this.api.sendCommand('arrangement_update_track', { trackId: track.id, label: nameInput.value }); } catch (_) {}
         });
-
-        // Delete track
         trackEl.querySelector('[data-track-action="delete"]')?.addEventListener('click', () => this._deleteTrack(track.id));
-
         return trackEl;
     }
 
     _buildCells(trackId, BAR_W) {
-        const trackBlocks = this.blocks.filter(b => b.track_id === trackId);
         const BLOCK_COLORS = ['#4a90d9','#e8931a','#27ae60','#9b59b6','#e74c3c','#1abc9c','#f39c12','#2980b9'];
         let html = '';
-        trackBlocks.forEach((block, i) => {
-            const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
+        this.blocks.filter(b => b.track_id === trackId).forEach((block, i) => {
+            const color  = BLOCK_COLORS[i % BLOCK_COLORS.length];
             const blockW = block.loop_bars * block.repetitions * BAR_W;
             const blockL = block.position_bar * BAR_W;
-            html += `<div class="la-block" data-block-id="${block.id}"
-                style="left:${blockL}px;width:${blockW}px;background:${color}">
+            html += `<div class="la-block" data-block-id="${block.id}" style="left:${blockL}px;width:${blockW}px;background:${color}">
                 <div class="la-block-label">${this.escape(block.loop_name)} ×${block.repetitions}</div>
                 <div class="la-block-actions">
-                    <button class="la-block-btn" data-block-action="reps-dec" data-block-id="${block.id}" title="-1 rep">−</button>
+                    <button class="la-block-btn" data-block-action="reps-dec" data-block-id="${block.id}">−</button>
                     <span class="la-block-reps">${block.repetitions}</span>
-                    <button class="la-block-btn" data-block-action="reps-inc" data-block-id="${block.id}" title="+1 rep">+</button>
+                    <button class="la-block-btn" data-block-action="reps-inc" data-block-id="${block.id}">+</button>
                     <button class="la-block-btn la-block-btn--del" data-block-action="delete" data-block-id="${block.id}" title="${this.t('loopCreator.deleteBlock')}">✕</button>
                 </div>
             </div>`;
         });
-        // Attach block action handlers after injection
         setTimeout(() => {
             this.$$(`[data-track-id="${trackId}"] .la-block`).forEach(blockEl => {
                 blockEl.querySelectorAll('[data-block-action]').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const bid = parseInt(btn.dataset.blockId);
-                        if (btn.dataset.blockAction === 'reps-inc')   this._changeReps(bid, +1);
-                        if (btn.dataset.blockAction === 'reps-dec')   this._changeReps(bid, -1);
-                        if (btn.dataset.blockAction === 'delete')     this._deleteBlock(bid);
+                        if (btn.dataset.blockAction === 'reps-inc') this._changeReps(bid, +1);
+                        if (btn.dataset.blockAction === 'reps-dec') this._changeReps(bid, -1);
+                        if (btn.dataset.blockAction === 'delete')   this._deleteBlock(bid);
                     });
                 });
             });
@@ -1305,7 +1064,7 @@ class LoopCreatorModal extends BaseModal {
 
     _barWidth() {
         const wrap = this.$('#la-timeline-wrap');
-        const available = (wrap?.clientWidth || 800) - 140; // minus palette
+        const available = (wrap?.clientWidth || 800) - 140;
         return Math.max(24, Math.min(60, Math.floor(available / this.arrangementBars)));
     }
 
@@ -1316,17 +1075,14 @@ class LoopCreatorModal extends BaseModal {
     _showDropPreview(cells, bar, barW) {
         this._hideDropPreview();
         const preview = document.createElement('div');
-        preview.className = 'la-drop-preview';
-        preview.style.left = (bar * barW) + 'px';
+        preview.className  = 'la-drop-preview';
+        preview.style.left  = (bar * barW) + 'px';
         preview.style.width = barW + 'px';
         cells.appendChild(preview);
         this._dropPreview = preview;
     }
 
-    _hideDropPreview() {
-        this._dropPreview?.remove();
-        this._dropPreview = null;
-    }
+    _hideDropPreview() { this._dropPreview?.remove(); this._dropPreview = null; }
 
     // =========================================================
     // ARRANGER — CRUD
@@ -1340,7 +1096,7 @@ class LoopCreatorModal extends BaseModal {
                 label: `Track ${this.tracks.length + 1}`
             });
             await this._loadArrangementById(this.currentArrangementId);
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     async _deleteTrack(trackId) {
@@ -1349,7 +1105,7 @@ class LoopCreatorModal extends BaseModal {
             this.tracks = this.tracks.filter(t => t.id !== trackId);
             this.blocks = this.blocks.filter(b => b.track_id !== trackId);
             this._renderTimeline();
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     async _addBlock(trackId, loopId, positionBar, loopBars) {
@@ -1357,7 +1113,6 @@ class LoopCreatorModal extends BaseModal {
             const r = await this.api.sendCommand('arrangement_add_block', {
                 trackId, loopId, position_bar: positionBar, repetitions: 1
             });
-            // Fetch the loop name from library
             const loop = this.library.find(l => l.id === loopId);
             this.blocks.push({
                 id: r.blockId, track_id: trackId, loop_id: loopId,
@@ -1365,7 +1120,7 @@ class LoopCreatorModal extends BaseModal {
                 loop_name: loop?.name || '?', loop_bars: loop?.bars || loopBars
             });
             this._renderTimeline();
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     async _changeReps(blockId, delta) {
@@ -1376,7 +1131,7 @@ class LoopCreatorModal extends BaseModal {
             await this.api.sendCommand('arrangement_update_block', { blockId, repetitions: newReps });
             block.repetitions = newReps;
             this._renderTimeline();
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     async _deleteBlock(blockId) {
@@ -1384,7 +1139,7 @@ class LoopCreatorModal extends BaseModal {
             await this.api.sendCommand('arrangement_delete_block', { blockId });
             this.blocks = this.blocks.filter(b => b.id !== blockId);
             this._renderTimeline();
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     async _saveArrangement() {
@@ -1397,10 +1152,9 @@ class LoopCreatorModal extends BaseModal {
                     arrangementId: this.currentArrangementId,
                     name: this.arrangementName, global_tempo: tempo, total_bars: bars
                 });
-                this._setStatus(this.t('loopCreator.statusSaved'));
                 await this._loadArrangements();
             }
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     async _deleteArrangement(id) {
@@ -1408,7 +1162,7 @@ class LoopCreatorModal extends BaseModal {
             await this.api.sendCommand('arrangement_delete', { arrangementId: id });
             if (this.currentArrangementId === id) await this._newArrangement();
             await this._loadArrangements();
-        } catch (err) { this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`); }
+        } catch (_) {}
     }
 
     _adjustArrTempo(d) {
@@ -1427,69 +1181,36 @@ class LoopCreatorModal extends BaseModal {
     // =========================================================
 
     async _playArrangement() {
+        if (!this.currentArrangementId || this.isArrangerPlaying) return;
         this._stopArrangerPlay();
-        if (!this.blocks.length) {
-            this._setStatus(this.t('loopCreator.statusNoNotes')); return;
-        }
-        const useDevice = this.outputMode === 'device' && this.outputDeviceId;
-        if (!useDevice && !this._synth) {
-            this._setStatus(this.t('loopCreator.statusNoSynth')); return;
-        }
         this.isArrangerPlaying = true;
         this.$('#la-play-btn')?.classList.add('lc-btn-record--active');
 
-        // FIX: arrangements are always 4/4; was incorrectly using this.timeSigNum
-        const secPerBar = (60 / this.arrangementTempo) * 4;
-
+        const secPerBar  = 60 / this.arrangementTempo * 4;
         const events = [];
         for (const block of this.blocks) {
             const loopData = await this._fetchLoopData(block.loop_id);
             if (!loopData) continue;
-            const seq = typeof loopData.midi_data === 'string'
-                ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
-            const loopPPQ   = loopData.ppq || 480;
+            const seq       = typeof loopData.midi_data === 'string' ? JSON.parse(loopData.midi_data) : (loopData.midi_data || []);
             const loopTempo = loopData.tempo || 120;
-            const secPerTick = 60 / (loopTempo * loopPPQ);
+            const loopPPQ   = loopData.ppq   || 480;
+            const spt       = 60 / (loopTempo * loopPPQ);
             const loopDurSec = loopData.bars * (60 / loopTempo) * 4;
-
             for (let rep = 0; rep < block.repetitions; rep++) {
                 const offsetSec = block.position_bar * secPerBar + rep * loopDurSec;
                 for (const note of seq) {
-                    const durSec = (note.g || note.l || 120) * secPerTick;
-                    events.push({
-                        ms: (offsetSec + note.t * secPerTick) * 1000,
-                        note: note.n, vel: note.v || 80, durSec
-                    });
+                    events.push({ ms: (offsetSec + note.t * spt) * 1000, note: note.n, vel: note.v || 80, durSec: (note.g || note.l || 120) * spt });
                 }
             }
         }
-
         for (const ev of events) {
             this._arrangerTimers.push(setTimeout(() => {
                 if (!this.isArrangerPlaying) return;
-                if (useDevice) {
-                    this.api.sendCommand('midi_send_note', {
-                        deviceId: this.outputDeviceId, channel: this.outputChannel,
-                        note: ev.note, velocity: ev.vel
-                    }).catch(() => {});
-                    // Schedule noteOff for device mode
-                    const offTimer = setTimeout(() => {
-                        if (!this.isArrangerPlaying) return;
-                        this.api.sendCommand('midi_send_note', {
-                            deviceId: this.outputDeviceId, channel: this.outputChannel,
-                            note: ev.note, velocity: 0
-                        }).catch(() => {});
-                    }, ev.durSec * 1000);
-                    this._arrangerTimers.push(offTimer);
-                } else {
-                    try { this._synth.playNote(ev.note, ev.vel, 0, ev.durSec); } catch (_) {}
-                }
+                try { this._arrangerSynth?.playNote?.(ev.note, ev.vel, 0, ev.durSec); } catch (_) {}
             }, ev.ms));
         }
-
         const totalMs = this.arrangementBars * secPerBar * 1000;
         this._arrangerTimers.push(setTimeout(() => this._stopArrangerPlay(), totalMs));
-        this._setStatus(this.t('loopCreator.statusPlaying'));
     }
 
     _stopArrangerPlay() {
@@ -1497,10 +1218,12 @@ class LoopCreatorModal extends BaseModal {
         this._arrangerTimers = [];
         this.isArrangerPlaying = false;
         this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
-        try { this._synth?.stop?.(); } catch (_) {}
-        try { this._synth?.cancelAllNotes?.(); } catch (_) {}
-        this._setStatus('');
+        try { this._arrangerSynth?.cancelAllNotes?.(); } catch (_) {}
     }
+
+    // =========================================================
+    // SHARED — FETCH LOOP DATA
+    // =========================================================
 
     async _fetchLoopData(loopId) {
         if (this._fetchLoopDataCache.has(loopId)) return this._fetchLoopDataCache.get(loopId);
@@ -1512,16 +1235,15 @@ class LoopCreatorModal extends BaseModal {
     }
 
     // =========================================================
-    // DRAG (doc-level for block moves — future)
+    // DRAG (doc-level for arranger block moves — future)
     // =========================================================
 
+    _onDocMouseUp()   {}
     _onDocMouseMove() {}
-
-    // =========================================================
-    // STATUS + HELPERS
-    // =========================================================
-
-    _setStatus(msg) { const el = this.$('#lc-status'); if (el) el.textContent = msg; }
 }
 
-if (typeof window !== 'undefined') window.LoopCreatorModal = LoopCreatorModal;
+// Expose both names for backward compatibility
+if (typeof window !== 'undefined') {
+    window.LoopManagerModal  = LoopManagerModal;
+    window.LoopCreatorModal  = LoopManagerModal;
+}
