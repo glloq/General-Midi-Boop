@@ -154,6 +154,7 @@ class LoopManagerModal extends BaseModal {
                 <button class="lc-btn lc-btn-primary lc-btn-sm" id="lc-header-save"
                     data-action="save-arrangement"
                     style="${showSave ? '' : 'display:none'}">💾 ${this.t('loopCreator.saveArrangement')}</button>
+                <button class="lc-btn lc-btn-sm lc-btn-icon" data-action="stop-all-playback" title="${this.t('loopManager.stopAll')}">⏹</button>
                 <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
             </div>
             <div class="lc-playbar" id="lc-playbar">
@@ -211,15 +212,6 @@ class LoopManagerModal extends BaseModal {
     _renderPadTab() {
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-pad">
-            <div class="lc-ctrl-bar">
-                <span class="lc-label">${this.t('loopManager.padMidiIn')}:</span>
-                <select id="lm-pad-midi-in" class="lc-select lc-select-midi">
-                    <option value="">—</option>
-                </select>
-                <span class="lc-unit" id="lm-pad-midi-status"></span>
-                <span class="lc-ctrl-spacer"></span>
-                <button class="lc-btn lc-btn-sm" data-action="pad-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
-            </div>
             <div class="lm-pad-grid" id="lm-pad-grid"></div>
             <div class="lm-pad-picker" id="lm-pad-picker" style="display:none"></div>
         </div>`;
@@ -367,6 +359,8 @@ class LoopManagerModal extends BaseModal {
         if (!btn) return;
         const a = btn.dataset.action;
         switch (a) {
+            // Global stop (header button)
+            case 'stop-all-playback': this._stopAllPads(); this._liveStopAll(); this._stopArrangerPlay(); break;
             // Library
             case 'new-loop':  this._loopEditor.open(); break;
             // Pad
@@ -571,7 +565,6 @@ class LoopManagerModal extends BaseModal {
         const grid = this.$('#lm-pad-grid');
         if (!grid) return;
         grid.innerHTML = this._padSlots.map((slot, i) => {
-            const noteLabel   = _midiNoteLabel(48 + i);
             const playing     = this._padPlayingIndex.has(i);
             const assigned    = slot !== null;
             const octaveGroup = Math.floor(i / 4);
@@ -583,11 +576,10 @@ class LoopManagerModal extends BaseModal {
             }
             return `<div class="lm-pad-cell${assigned ? ' lm-pad-cell--assigned' : ''}${playing ? ' lm-pad-cell--playing' : ''}"
                 data-pad-index="${i}" data-octave-group="${octaveGroup}"
-                title="${assigned ? this.escape(slot.name) : noteLabel}">
+                title="${assigned ? this.escape(slot.name) : ''}">
                 ${iconHtml}
                 <span class="lm-pad-name">${assigned ? this.escape(slot.name) : '+'}</span>
                 <span class="lm-pad-meta">${assigned ? `${slot.tempo}♩·${slot.bars}M` : ''}</span>
-                <span class="lm-pad-note">${noteLabel}</span>
             </div>`;
         }).join('');
 
@@ -598,9 +590,6 @@ class LoopManagerModal extends BaseModal {
                 if (cell) this._triggerPad(parseInt(cell.dataset.padIndex));
             });
         }
-
-        // Load MIDI In devices
-        this._loadPadMidiInDevices();
     }
 
     async _loadPadMidiInDevices() {
