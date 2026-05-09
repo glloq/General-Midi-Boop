@@ -152,3 +152,16 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
     background: rgba(74, 90, 212, 0.18);
     border-color: rgba(74, 90, 212, 0.35);
 }
+
+/* ── Keyboard panel: shrink-to-fit so bottom is never clipped ── */
+.loop-editor-modal .lc-kb-panel {
+    flex-shrink: 1;
+    height: clamp(140px, 28vh, 300px);
+    min-height: 120px;
+}
+
+.loop-editor-modal .lc-kb-panel--expanded {
+    flex: 1 1 0 !important;
+    height: auto !important;
+    min-height: 140px !important;
+}
