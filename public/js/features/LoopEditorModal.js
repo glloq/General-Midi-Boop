@@ -46,6 +46,10 @@ class LoopEditorModal extends BaseModal {
         this._activeKeys = new Set();
         this._keyHandler = null;
 
+        // Live preview envelopes (note → [envelope, ...]) so a key release
+        // can cancel the still-ringing voice on the local synth.
+        this._liveEnvelopes = new Map();
+
         // Output
         this.outputMode = 'synth';
         this.outputDeviceId = null;
@@ -625,7 +629,20 @@ class LoopEditorModal extends BaseModal {
     }
 
     _toggleOutput() {
-        this._outputTarget = this._outputTarget === 'synth' ? 'live' : 'synth';
+        // Flush any held preview notes on the previous target so we don't leave
+        // stuck voices on the synth or hanging note-ons on the MIDI device.
+        const previouslyLive = this._outputTarget === 'live';
+        if (previouslyLive && this.outputDeviceId) {
+            for (const n of this._activeKeys) {
+                this.api.sendCommand('midi_send_note', {
+                    deviceId: this.outputDeviceId, channel: this.outputChannel ?? 0,
+                    note: n, velocity: 0
+                }).catch(err => LoopUtils.handleError(err, 'editor.live.toggle.noteOff'));
+            }
+        }
+        this._previewStopAll();
+
+        this._outputTarget = previouslyLive ? 'synth' : 'live';
         const btn = this.$('#lc-output-toggle');
         const isLive = this._outputTarget === 'live';
         if (btn) {
@@ -801,11 +818,64 @@ class LoopEditorModal extends BaseModal {
             const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
             this.recordedNotes.push({ note, velocity, tick, startMs: performance.now() });
         }
+        this._previewNoteOn(note, velocity);
     }
 
     _stopNote(note) {
         this._activeKeys.delete(note);
         if (this.isRecording) this._finalizeNoteOff(note);
+        this._previewNoteOff(note);
+    }
+
+    // ── Live preview: route note on/off to the active output target ──
+    _previewNoteOn(note, velocity) {
+        // Route to a connected MIDI device when output is set to "live"
+        if (this._outputTarget === 'live' && this.outputMode === 'device' && this.outputDeviceId) {
+            this.api.sendCommand('midi_send_note', {
+                deviceId: this.outputDeviceId,
+                channel:  this.outputChannel ?? 0,
+                note, velocity
+            }).catch(err => LoopUtils.handleError(err, 'editor.live.noteOn'));
+            return;
+        }
+        // Otherwise play through the local synth so the user hears their input
+        if (!this._synth) return;
+        try {
+            // Long duration acts as "until cancelled"; we cancel on note-off.
+            const envelopes = this._synth.playNote(note, velocity, 0, 9999);
+            if (envelopes) this._liveEnvelopes.set(note, envelopes);
+        } catch (err) {
+            LoopUtils.handleError(err, 'editor.live.synth.playNote');
+        }
+    }
+
+    _previewNoteOff(note) {
+        if (this._outputTarget === 'live' && this.outputMode === 'device' && this.outputDeviceId) {
+            this.api.sendCommand('midi_send_note', {
+                deviceId: this.outputDeviceId,
+                channel:  this.outputChannel ?? 0,
+                note, velocity: 0
+            }).catch(err => LoopUtils.handleError(err, 'editor.live.noteOff'));
+            return;
+        }
+        const envelopes = this._liveEnvelopes.get(note);
+        if (!envelopes) return;
+        for (const env of envelopes) {
+            try { env?.cancel?.(); }
+            catch (err) { LoopUtils.handleError(err, 'editor.live.synth.cancel'); }
+        }
+        this._liveEnvelopes.delete(note);
+    }
+
+    _previewStopAll() {
+        if (this._liveEnvelopes.size) {
+            for (const envelopes of this._liveEnvelopes.values()) {
+                for (const env of envelopes) {
+                    try { env?.cancel?.(); } catch (_) { /* best-effort cleanup */ }
+                }
+            }
+            this._liveEnvelopes.clear();
+        }
     }
 
     _finalizeNoteOff(note) {
@@ -924,6 +994,10 @@ class LoopEditorModal extends BaseModal {
             onNoteOn:  (note, vel) => this._playNote(note, vel),
             onNoteOff: (note)      => this._stopNote(note),
             onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
+                // Cancel held preview voices so they don't ring on with the
+                // previous instrument / device after the switch.
+                this._previewStopAll();
+
                 this.outputMode        = deviceId ? 'device' : 'synth';
                 this.outputDeviceId    = deviceId || null;
                 this.outputChannel     = channel ?? 0;
@@ -931,6 +1005,12 @@ class LoopEditorModal extends BaseModal {
                 this.instrumentProgram = gmProgram ?? 0;
                 try { this._synth?.setChannelInstrument?.(0, this.instrumentProgram); }
                 catch (err) { LoopUtils.handleError(err, 'editor.synth.setChannelInstrument'); }
+                // Make sure the new program is loaded so the very first key press
+                // produces sound (otherwise playNote returns null silently).
+                if (this._synth && !this._synth.loadedInstruments?.has(this.instrumentProgram)) {
+                    this._synth.loadInstrument(this.instrumentProgram).catch(err =>
+                        LoopUtils.handleError(err, 'editor.synth.loadInstrument'));
+                }
                 const range = this._gmNoteRange(this.instrumentProgram);
                 this.outputNoteMin = range.min;
                 this.outputNoteMax = range.max;
@@ -1020,6 +1100,8 @@ class LoopEditorModal extends BaseModal {
             try { this._synth.cancelAllNotes?.(); }
             catch (err) { LoopUtils.handleError(err, 'editor.synth.cancelAllNotes'); }
         }
+        // Cancel sustained live-preview voices that were still ringing
+        this._previewStopAll();
         this._activeKeys.clear();
         this._setStatus('');
     }
