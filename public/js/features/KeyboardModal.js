@@ -80,7 +80,6 @@ class KeyboardModalNew {
         this._panelMode = false;
         this._panelCallbacks = null;
         this._panelDialogEl = null;
-        this._panelHostEl = null;
 
         // Setup event listeners
         this.setupEventListeners();
@@ -1037,11 +1036,11 @@ class KeyboardModalNew {
 
         this._panelCallbacks = callbacks;
         this._panelMode = true;
-        this._panelHostEl = panelContainer;
 
         this.loadSettings();
-        this.createModal(); // appends this.container (.keyboard-modal) to document.body
+        this.createModal();
         this.isOpen = true;
+        this.container.style.display = 'none'; // hide overlay shell before any layout pass
 
         const dialogEl = this.container.querySelector('.modal-dialog');
         if (dialogEl) {
@@ -1049,11 +1048,17 @@ class KeyboardModalNew {
             panelContainer.appendChild(dialogEl);
             this._panelDialogEl = dialogEl;
         }
-        this.container.style.display = 'none'; // hide the empty overlay shell
 
         this.loadDevices().then(() => this.populateDeviceSelect());
         this.attachEvents();
         this.updateSlidersVisibility();
+
+        if (typeof i18n !== 'undefined') {
+            this.localeUnsubscribe = i18n.onLocaleChange(() => {
+                this.updateTranslations();
+                this.populateDeviceSelect();
+            });
+        }
     }
 
     unmountPanel() {
@@ -1068,7 +1073,6 @@ class KeyboardModalNew {
 
         this._panelMode = false;
         this._panelCallbacks = null;
-        this._panelHostEl = null;
         this.close(); // detachEvents, stop notes, removes this.container
     }
 }

@@ -736,13 +736,13 @@ class LoopCreatorModal extends BaseModal {
 
     _onDocMouseUp() {}
 
-    _playNote(note) {
+    _playNote(note, velocity = 80) {
         if (this._activeKeys.has(note)) return;
         this._activeKeys.add(note);
         if (this.isRecording) {
             const elapsed = (performance.now() - this.recordStartTime) / 1000;
             const tick = Math.round(elapsed * (this.tempo / 60) * this.ppq);
-            this.recordedNotes.push({ note, tick, startMs: performance.now() });
+            this.recordedNotes.push({ note, velocity, tick, startMs: performance.now() });
         }
     }
 
@@ -760,7 +760,7 @@ class LoopCreatorModal extends BaseModal {
         const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
         const t = q > 0 ? Math.round(rec.tick / q) * q : rec.tick;
         const g = q > 0 ? Math.max(q, Math.round(durTicks / q) * q) : durTicks;
-        this._addNoteToRoll({ t, n: note, v: 80, g });
+        this._addNoteToRoll({ t, n: note, v: rec.velocity ?? 80, g });
     }
 
     _addNoteToRoll(noteObj) {
@@ -820,7 +820,7 @@ class LoopCreatorModal extends BaseModal {
                 const vel  = data.data?.velocity ?? data.data?.v ?? 64;
                 if (note == null) return;
                 if (type === 'noteon' && vel > 0) {
-                    this._playNote(note);
+                    this._playNote(note, vel);
                 } else if (type === 'noteoff' || (type === 'noteon' && vel === 0)) {
                     this._stopNote(note);
                 }
@@ -845,8 +845,8 @@ class LoopCreatorModal extends BaseModal {
         const sel = this.$('#lc-midi-in-device');
         if (!sel) return;
         try {
-            const result = await this.api.sendCommand('device_list');
-            const devices = (result.devices || []).filter(d => d.status === 2 || d.connected === true);
+            const allDevices = await this.api.listDevices();
+            const devices = allDevices.filter(d => d.status === 2 || d.connected === true);
             const existing = sel.value;
             sel.innerHTML = `<option value="">IN:—</option>`;
             for (const d of devices) {
@@ -865,7 +865,7 @@ class LoopCreatorModal extends BaseModal {
         const container = this.$('#lc-kb-panel');
         if (!container) return;
         window.keyboardModal.mountAsPanel(container, {
-            onNoteOn:  (note, vel) => this._playNote(note),
+            onNoteOn:  (note, vel) => this._playNote(note, vel),
             onNoteOff: (note)      => this._stopNote(note),
             onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
                 this.outputMode      = deviceId ? 'device' : 'synth';
@@ -877,7 +877,7 @@ class LoopCreatorModal extends BaseModal {
     }
 
     _unmountKeyboardPanel() {
-        if (window.keyboardModal?._panelMode) window.keyboardModal.unmountPanel();
+        window.keyboardModal?.unmountPanel();
     }
 
     // =========================================================
