@@ -82,6 +82,7 @@ class LoopCreatorModal extends BaseModal {
         this._boundDocMouseMove = this._onDocMouseMove.bind(this);
         this._playheadRAF = null;
         this._playheadStartTime = 0;
+        this._recordingRAF = null;
 
         // Minimap
         this._minimap = null;
@@ -353,6 +354,7 @@ class LoopCreatorModal extends BaseModal {
     onClose() {
         this._unmountKeyboardPanel();
         this._stopAll();
+        this._stopRecordingAnimation();
         this._stopArrangerPlay();
         this._stopMidiInMonitor();
         document.removeEventListener('mouseup', this._boundDocMouseUp);
@@ -720,7 +722,32 @@ class LoopCreatorModal extends BaseModal {
         });
         m.setNotes(this.pianoRoll?.sequence ?? []);
         m.setViewport(xoff, xrange);
-        m.setPlayhead(this.pianoRoll?.cursor ?? 0, this.isPlaying);
+        // During recording, compute elapsed ticks from wall-clock time
+        if (this.isRecording) {
+            const recTick = Math.min(total, Math.round(
+                (performance.now() - this.recordStartTime) / 1000 * (this.tempo / 60) * this.ppq
+            ));
+            m.setPlayhead(recTick, true);
+        } else {
+            m.setPlayhead(this.pianoRoll?.cursor ?? 0, this.isPlaying);
+        }
+    }
+
+    _startRecordingAnimation() {
+        const frame = () => {
+            if (!this.isRecording) { this._recordingRAF = null; return; }
+            this._syncMinimap();
+            this._recordingRAF = requestAnimationFrame(frame);
+        };
+        this._recordingRAF = requestAnimationFrame(frame);
+    }
+
+    _stopRecordingAnimation() {
+        if (this._recordingRAF) {
+            cancelAnimationFrame(this._recordingRAF);
+            this._recordingRAF = null;
+        }
+        this._syncMinimap();
     }
 
     // =========================================================
@@ -783,6 +810,7 @@ class LoopCreatorModal extends BaseModal {
 
         // Enable MIDI In monitor if a device is selected
         if (this._midiInDevice) this._startMidiInMonitor();
+        this._startRecordingAnimation();
         this._setStatus(this.t('loopCreator.statusRecording'));
     }
 
@@ -796,6 +824,7 @@ class LoopCreatorModal extends BaseModal {
         this.$('#lc-rec-indicator')?.classList.add('hidden');
 
         this._stopMidiInMonitor();
+        this._stopRecordingAnimation();
         this._setStatus(this.t('loopCreator.statusRecordingDone'));
     }
 

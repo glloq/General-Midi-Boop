@@ -2869,4 +2869,59 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     border-radius: 0 !important;
     box-shadow: none !important;
     animation: none !important;
+    overflow: visible !important;
+}
+
+/* ── Panel mode overrides ── */
+
+/* Hide the standalone close button — panel is closed by LoopCreatorModal */
+.modal-dialog.km-panel-mode #keyboard-close-btn {
+    display: none !important;
+}
+
+/* Header: two-row layout — instrument selector full-width on top, controls below */
+.modal-dialog.km-panel-mode .modal-header {
+    flex-wrap: wrap !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    gap: 0 !important;
+}
+
+/* Instrument selector: full-width first row */
+.modal-dialog.km-panel-mode #header-instrument-selector {
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+    order: -1 !important;
+}
+
+.modal-dialog.km-panel-mode .instrument-trigger {
+    border-radius: 0 !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 36px !important;
+    padding: 0 12px !important;
+    gap: 8px !important;
+}
+
+/* Controls row: fills remaining header width */
+.modal-dialog.km-panel-mode .keyboard-header-row {
+    flex: 1 1 100% !important;
+    padding: 0 8px !important;
+    min-height: 32px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+/* Instrument dropdown: open upward to avoid clipping by the panel container */
+.modal-dialog.km-panel-mode .instrument-dropdown.open {
+    top: auto !important;
+    bottom: 100% !important;
+    border-radius: 8px 8px 0 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-bottom: none !important;
+    max-height: 260px !important;
 }

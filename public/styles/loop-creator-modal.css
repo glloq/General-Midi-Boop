@@ -221,10 +221,12 @@
 .lc-kb-panel {
     flex-shrink: 0;
     height: 260px;
-    overflow: hidden;
+    /* overflow: visible lets the instrument dropdown escape upward into the roll area */
+    overflow: visible;
     display: flex;
     flex-direction: column;
     border-top: 1px solid var(--border-color, #dde0e6);
+    position: relative;
 }
 /* When piano roll is hidden, keyboard panel expands to fill the freed space */
 .lc-kb-panel--expanded {

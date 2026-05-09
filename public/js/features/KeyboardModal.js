@@ -563,6 +563,7 @@ class KeyboardModalNew {
 
     handleKeyDown(e) {
         if (!this.isOpen) return;
+        if (document.activeElement?.matches('input, textarea, [contenteditable]')) return;
 
         const note = this._resolveKeyToNote(e.code);
         if (note === null) return;
@@ -576,6 +577,7 @@ class KeyboardModalNew {
 
     handleKeyUp(e) {
         if (!this.isOpen) return;
+        if (document.activeElement?.matches('input, textarea, [contenteditable]')) return;
 
         const note = this._resolveKeyToNote(e.code);
         if (note === null) return;
