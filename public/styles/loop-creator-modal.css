@@ -167,6 +167,8 @@
 .lc-btn-record { color: #c0392b; border-color: #c0392b; }
 .lc-btn-record:hover { background: #c0392b; color: #fff; }
 .lc-btn-record--active { background: #c0392b !important; color: #fff !important; }
+.lc-btn-output { color: var(--text-secondary, #666); }
+.lc-btn-output--active { background: var(--accent-color, #4a90d9) !important; color: #fff !important; border-color: var(--accent-color, #4a90d9) !important; }
 
 /* Active edit-mode button */
 .lc-btn-icon[aria-pressed="true"] {
@@ -220,7 +222,7 @@
 /* ── Keyboard panel (embedded KeyboardModal) ── */
 .lc-kb-panel {
     flex-shrink: 0;
-    height: 260px;
+    height: 300px;
     /* overflow: visible lets the instrument dropdown escape upward into the roll area */
     overflow: visible;
     display: flex;

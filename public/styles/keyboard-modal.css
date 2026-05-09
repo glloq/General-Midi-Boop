@@ -2888,7 +2888,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     gap: 0 !important;
 }
 
-/* Instrument selector: full-width first row */
+/* Instrument selector: full-width first row, compressed height */
 .modal-dialog.km-panel-mode #header-instrument-selector {
     width: 100% !important;
     flex-shrink: 0 !important;
@@ -2902,18 +2902,50 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     min-width: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
-    height: 36px !important;
-    padding: 0 12px !important;
-    gap: 8px !important;
+    height: 30px !important;
+    padding: 0 10px !important;
+    gap: 6px !important;
+}
+.modal-dialog.km-panel-mode .instrument-trigger-name {
+    font-size: 0.8rem !important;
 }
 
-/* Controls row: fills remaining header width */
+/* Controls row: compressed height, scrollable, hide non-critical groups */
 .modal-dialog.km-panel-mode .keyboard-header-row {
     flex: 1 1 100% !important;
-    padding: 0 8px !important;
-    min-height: 32px !important;
+    padding: 0 6px !important;
+    min-height: 26px !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
+}
+.modal-dialog.km-panel-mode .keyboard-header-controls {
+    gap: 4px !important;
+    padding: 2px 0 !important;
+}
+.modal-dialog.km-panel-mode .control-group {
+    gap: 2px !important;
+}
+/* Hide decorative / rarely-used controls in panel mode to save space */
+.modal-dialog.km-panel-mode #keyboard-latency-group,
+.modal-dialog.km-panel-mode .notation-group {
+    display: none !important;
+}
+
+/* Minimap / octave navigation row: compressed */
+.modal-dialog.km-panel-mode .keyboard-minimap-row {
+    padding: 3px 8px !important;
+    gap: 6px !important;
+    min-height: 0 !important;
+}
+.modal-dialog.km-panel-mode .keyboard-minimap-row .btn-octave-up,
+.modal-dialog.km-panel-mode .keyboard-minimap-row .btn-octave-down,
+.modal-dialog.km-panel-mode .keyboard-minimap-row .btn-zoom {
+    padding: 1px 5px !important;
+    font-size: 0.72rem !important;
+    line-height: 1.4 !important;
+}
+.modal-dialog.km-panel-mode .keyboard-minimap-row .octave-display {
+    font-size: 0.72rem !important;
 }
 
 /* Instrument dropdown: open upward to avoid clipping by the panel container */

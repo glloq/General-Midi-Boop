@@ -55,6 +55,11 @@ class LoopCreatorModal extends BaseModal {
         this.outputMode = 'synth';
         this.outputDeviceId = null;
         this.outputChannel = 0;
+        // Preview target: 'synth' (internal) | 'live' (send to instrument)
+        // The user can override via toggle button; defaults to synth preview
+        this._outputTarget = 'synth';
+        // Copy/paste clipboard
+        this._clipboard = [];
         this.outputNoteMin = 36;   // keyboard range (adapted per instrument)
         this.outputNoteMax = 84;
         this.outputGmProgram = 0;
@@ -186,12 +191,18 @@ class LoopCreatorModal extends BaseModal {
 
                 <div class="lc-ctrl-sep"></div>
 
+                <!-- Output target toggle: synth preview vs live instrument -->
+                <button class="lc-btn lc-btn-icon lc-btn-output" id="lc-output-toggle"
+                    data-action="toggle-output" title="${this.t('loopCreator.outputSynth')}">🔊</button>
+
                 <!-- Playback controls -->
-                <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
-                    <span class="lc-rec-dot"></span>
-                </button>
-                <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')}">▶</button>
-                <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')}">⏹</button>
+                <div class="lc-btn-group">
+                    <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
+                        <span class="lc-rec-dot"></span>
+                    </button>
+                    <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')}">▶</button>
+                    <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')}">⏹</button>
+                </div>
                 <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                     <span class="lc-rec-dot lc-rec-dot--pulse"></span>
                 </span>
@@ -211,19 +222,22 @@ class LoopCreatorModal extends BaseModal {
 
                 <div class="lc-ctrl-sep"></div>
 
-                <!-- Edit mode group -->
+                <!-- Edit mode group (mirrors MidiEditorModal) -->
                 <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="mode-draw" id="lc-mode-draw" title="${this.t('loopCreator.modeDraw')}" aria-pressed="true">✏️</button>
-                    <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">⬚</button>
+                    <button class="lc-btn lc-btn-icon" data-action="mode-view"   id="lc-mode-view"   title="${this.t('loopCreator.modeView')}"   aria-pressed="false">👁</button>
+                    <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">◻</button>
+                    <button class="lc-btn lc-btn-icon" data-action="mode-draw"   id="lc-mode-draw"   title="${this.t('loopCreator.modeDraw')}"   aria-pressed="true">✏️</button>
                 </div>
 
                 <!-- Note actions group -->
                 <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="select-all" title="${this.t('loopCreator.selectAll')}">⊞</button>
-                    <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">✂</button>
-                    <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')}">↩</button>
-                    <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')}">↪</button>
-                    <button class="lc-btn lc-btn-icon" data-action="clear-notes" title="${this.t('loopCreator.clearNotes')}">🗑</button>
+                    <button class="lc-btn lc-btn-icon" data-action="undo"            title="${this.t('loopCreator.undo')}">↶</button>
+                    <button class="lc-btn lc-btn-icon" data-action="redo"            title="${this.t('loopCreator.redo')}">↷</button>
+                    <button class="lc-btn lc-btn-icon" data-action="select-all"      title="${this.t('loopCreator.selectAll')}">▣</button>
+                    <button class="lc-btn lc-btn-icon" data-action="copy-notes"      id="lc-copy-btn"  title="${this.t('loopCreator.copy')}">📋</button>
+                    <button class="lc-btn lc-btn-icon" data-action="paste-notes"     id="lc-paste-btn" title="${this.t('loopCreator.paste')}">📄</button>
+                    <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">🗑</button>
+                    <button class="lc-btn lc-btn-icon" data-action="clear-notes"     title="${this.t('loopCreator.clearNotes')}">⊠</button>
                 </div>
 
                 <div class="lc-ctrl-sep"></div>
@@ -425,13 +439,17 @@ class LoopCreatorModal extends BaseModal {
             case 'tempo-inc':    this._adjustTempo(+1);    break;
             case 'bars-dec':     this._adjustBars(-1);     break;
             case 'bars-inc':     this._adjustBars(+1);     break;
+            case 'mode-view':       this._setEditMode('view');     break;
             case 'mode-draw':       this._setEditMode('dragpoly'); break;
             case 'mode-select':     this._setEditMode('select');   break;
             case 'select-all':      this._selectAll();             break;
+            case 'copy-notes':      this._copyNotes();             break;
+            case 'paste-notes':     this._pasteNotes();            break;
             case 'delete-selected': this._deleteSelected();        break;
             case 'undo':            this.pianoRoll?.undo?.();  break;
             case 'redo':            this.pianoRoll?.redo?.();  break;
             case 'clear-notes':     this._clearNotes();        break;
+            case 'toggle-output':   this._toggleOutput();      break;
             case 'toggle-piano-roll': this._togglePianoRoll(); break;
             case 'zoom-h-in':       this._zoomH(0.5);          break;
             case 'zoom-h-out':      this._zoomH(2.0);          break;
@@ -497,20 +515,24 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.setAttribute('editmode', 'dragpoly');
         const noteSpan0 = this.outputNoteMax - this.outputNoteMin;
         const yrange0   = Math.min(noteSpan0 + 1, 36);
+        const yoffset0  = this._centeredYOffset(this.outputNoteMin, this.outputNoteMax, yrange0);
         this.pianoRoll.setAttribute('xrange',   total.toString());
         this.pianoRoll.setAttribute('yrange',   yrange0.toString());
-        this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
+        this.pianoRoll.setAttribute('yoffset',  yoffset0.toString());
         this.pianoRoll.setAttribute('wheelzoom','1');
         this.pianoRoll.setAttribute('xscroll',  '1');
         this.pianoRoll.setAttribute('yscroll',  '1');
         this.pianoRoll.setAttribute('xruler',   '1');
         this.pianoRoll.setAttribute('cursor',   '0');
+        // Markers hidden — minimap handles the full-range overview
         this.pianoRoll.setAttribute('markstart','0');
         this.pianoRoll.setAttribute('markend',  total.toString());
         this.pianoRoll.setAttribute('snap',     '120');
         this.pianoRoll.setAttribute('timebase', this.ppq.toString());
         this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
-        this.pianoRoll.setAttribute('colcursor', '#e74c3c');
+        // Cursor/marker triangles hidden — playhead shown in minimap instead
+        this.pianoRoll.setAttribute('colcursor', 'rgba(0,0,0,0)');
+        this.pianoRoll.setAttribute('colmark',   'rgba(0,0,0,0)');
         this._applyPianoRollTheme();
         container.appendChild(this.pianoRoll);
         this.pianoRoll.sequence = this.sequence;
@@ -534,6 +556,11 @@ class LoopCreatorModal extends BaseModal {
 
     _totalTicks()  { return this.ppq * this.timeSigNum * this.bars; }
 
+    _centeredYOffset(noteMin, noteMax, yrange) {
+        const center = (noteMin + noteMax) / 2;
+        return Math.max(0, Math.min(127 - yrange, Math.round(center - yrange / 2)));
+    }
+
     _refreshPianoRollRange() {
         if (!this.pianoRoll) return;
         const total = this._totalTicks();
@@ -541,11 +568,12 @@ class LoopCreatorModal extends BaseModal {
         this.pianoRoll.setAttribute('markend',  total.toString());
         this.pianoRoll.setAttribute('timebase', this.ppq.toString());
         this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
-        // Adapt Y axis to instrument note range
+        // Adapt Y axis — centered on the instrument's playable range
         const noteSpan = this.outputNoteMax - this.outputNoteMin;
         const yrange = Math.min(noteSpan + 1, 36);  // show at most 3 octaves at once
+        const yoffset = this._centeredYOffset(this.outputNoteMin, this.outputNoteMax, yrange);
         this.pianoRoll.setAttribute('yrange',   yrange.toString());
-        this.pianoRoll.setAttribute('yoffset',  this.outputNoteMin.toString());
+        this.pianoRoll.setAttribute('yoffset',  yoffset.toString());
         this.pianoRoll.redraw?.();
         this._syncMinimap();
     }
@@ -564,15 +592,57 @@ class LoopCreatorModal extends BaseModal {
 
     _setEditMode(mode) {
         if (!this.pianoRoll) return;
-        this.pianoRoll.setAttribute('editmode', mode);
-        this.$('#lc-mode-draw')?.setAttribute('aria-pressed', mode === 'dragpoly' ? 'true' : 'false');
-        this.$('#lc-mode-select')?.setAttribute('aria-pressed', mode === 'select' ? 'true' : 'false');
+        // 'view' = read-only navigation: use 'select' underneath so clicks don't draw notes
+        const prMode = mode === 'view' ? 'select' : mode;
+        this.pianoRoll.setAttribute('editmode', prMode);
+        this.$('#lc-mode-view')?.setAttribute('aria-pressed',   mode === 'view'     ? 'true' : 'false');
+        this.$('#lc-mode-select')?.setAttribute('aria-pressed', mode === 'select'   ? 'true' : 'false');
+        this.$('#lc-mode-draw')?.setAttribute('aria-pressed',   mode === 'dragpoly' ? 'true' : 'false');
     }
 
     _clearNotes() {
         this.sequence = [];
         if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
         this._syncMinimap();
+    }
+
+    _copyNotes() {
+        if (!this.pianoRoll) return;
+        if (typeof this.pianoRoll.copySelection === 'function') {
+            this._clipboard = this.pianoRoll.copySelection() ?? [];
+        } else {
+            // Fallback: copy flagged notes
+            this._clipboard = (this.pianoRoll.sequence || []).filter(n => n.f).map(n => ({...n}));
+        }
+        this._setStatus(`${this._clipboard.length} notes copiées`);
+    }
+
+    _pasteNotes() {
+        if (!this.pianoRoll || !this._clipboard.length) return;
+        const cursor = this.pianoRoll.cursor ?? 0;
+        if (typeof this.pianoRoll.pasteNotes === 'function') {
+            this.pianoRoll.pasteNotes(this._clipboard, cursor);
+        } else {
+            // Fallback: insert copies at cursor position
+            const minT = Math.min(...this._clipboard.map(n => n.t));
+            const pasted = this._clipboard.map(n => ({ ...n, t: n.t - minT + cursor }));
+            const seq = [...(this.pianoRoll.sequence || []), ...pasted];
+            this.pianoRoll.sequence = seq;
+        }
+        this.pianoRoll.redraw?.();
+        this._syncMinimap();
+    }
+
+    _toggleOutput() {
+        this._outputTarget = this._outputTarget === 'synth' ? 'live' : 'synth';
+        const btn = this.$('#lc-output-toggle');
+        const isLive = this._outputTarget === 'live';
+        if (btn) {
+            btn.textContent = isLive ? '🔌' : '🔊';
+            btn.title = isLive ? this.t('loopCreator.outputLive') : this.t('loopCreator.outputSynth');
+            btn.classList.toggle('lc-btn-output--active', isLive);
+        }
+        this._setStatus(isLive ? this.t('loopCreator.outputLive') : this.t('loopCreator.outputSynth'));
     }
 
     _selectAll() {
@@ -919,7 +989,8 @@ class LoopCreatorModal extends BaseModal {
         this._stopAll();
         const seq = this.pianoRoll?.sequence ?? [];
         if (!seq.length) { this._setStatus(this.t('loopCreator.statusNoNotes')); return; }
-        if (this.outputMode === 'device' && this.outputDeviceId) {
+        // Route to live instrument only when user explicitly chose 'live' AND a device is selected
+        if (this._outputTarget === 'live' && this.outputMode === 'device' && this.outputDeviceId) {
             this._previewViaDevice(seq); return;
         }
         if (!this._synth) { this._setStatus(this.t('loopCreator.statusNoSynth')); return; }
