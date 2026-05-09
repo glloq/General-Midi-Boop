@@ -168,96 +168,102 @@ class LoopEditorModal extends BaseModal {
 
         return `
         <div class="le-layout">
-            <!-- ── Control bar ── -->
+            <!-- ── Control bar (2 rows) ── -->
             <div class="lc-ctrl-bar">
 
-                <input type="text" class="lc-name-input" id="lc-name-input"
-                    value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
-                    placeholder="${this.t('loopCreator.namePlaceholder')}" />
+                <!-- Row 1: name / tempo / timesig / bars / snap / output / transport -->
+                <div class="lc-ctrl-row">
+                    <input type="text" class="lc-name-input" id="lc-name-input"
+                        value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
+                        placeholder="${this.t('loopCreator.namePlaceholder')}" />
 
-                <div class="lc-ctrl-sep"></div>
+                    <div class="lc-ctrl-sep"></div>
 
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
-                    <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />
-                    <button class="lc-spin-btn" data-action="tempo-inc">›</button>
-                </div>
-                <span class="lc-unit">BPM</span>
+                    <div class="lc-spinbox">
+                        <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
+                        <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />
+                        <button class="lc-spin-btn" data-action="tempo-inc">›</button>
+                    </div>
+                    <span class="lc-unit">BPM</span>
 
-                <select id="lc-timesig" class="lc-select lc-select-xs" title="${this.t('loopCreator.timeSignature')}">${timeSigHtml}</select>
+                    <select id="lc-timesig" class="lc-select lc-select-xs" title="${this.t('loopCreator.timeSignature')}">${timeSigHtml}</select>
 
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="bars-dec">‹</button>
-                    <input type="number" id="lc-bars" class="lc-spin-input lc-spin-input--sm" value="${this.bars}" min="1" max="32" step="1" />
-                    <button class="lc-spin-btn" data-action="bars-inc">›</button>
-                </div>
-                <span class="lc-unit" title="${this.t('loopCreator.bars')}">M</span>
+                    <div class="lc-spinbox">
+                        <button class="lc-spin-btn" data-action="bars-dec">‹</button>
+                        <input type="number" id="lc-bars" class="lc-spin-input lc-spin-input--sm" value="${this.bars}" min="1" max="32" step="1" />
+                        <button class="lc-spin-btn" data-action="bars-inc">›</button>
+                    </div>
+                    <span class="lc-unit" title="${this.t('loopCreator.bars')}">M</span>
 
-                <select id="lc-snap" class="lc-select lc-select-xs" title="${this.t('loopCreator.snap')}">
-                    <option value="480">1/1</option><option value="240">1/2</option>
-                    <option value="120" selected>1/4</option><option value="60">1/8</option>
-                    <option value="30">1/16</option>
-                </select>
+                    <select id="lc-snap" class="lc-select lc-select-xs" title="${this.t('loopCreator.snap')}">
+                        <option value="480">1/1</option><option value="240">1/2</option>
+                        <option value="120" selected>1/4</option><option value="60">1/8</option>
+                        <option value="30">1/16</option>
+                    </select>
 
-                <div class="lc-ctrl-sep"></div>
+                    <div class="lc-ctrl-sep"></div>
 
-                <button class="lc-btn lc-btn-icon lc-btn-output" id="lc-output-toggle"
-                    data-action="toggle-output" title="${this.t('loopCreator.outputSynth')}">🔊</button>
+                    <button class="lc-btn lc-btn-icon lc-btn-output" id="lc-output-toggle"
+                        data-action="toggle-output" title="${this.t('loopCreator.outputSynth')}">🔊</button>
 
-                <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
-                        <span class="lc-rec-dot"></span>
-                    </button>
-                    <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')}">▶</button>
-                    <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')}">⏹</button>
-                </div>
-                <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
-                    <span class="lc-rec-dot lc-rec-dot--pulse"></span>
-                </span>
-
-                <select id="lc-quantize" class="lc-select lc-select-xs" title="${this.t('loopCreator.quantize')}">
-                    <option value="0">Q:—</option>
-                    <option value="480">Q:1/1</option><option value="240">Q:1/2</option>
-                    <option value="120" selected>Q:1/4</option><option value="60">Q:1/8</option>
-                    <option value="30">Q:1/16</option>
-                </select>
-
-                <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
-                    <option value="">IN:—</option>
-                </select>
-
-                <div class="lc-ctrl-sep"></div>
-
-                <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="mode-view"   id="lc-mode-view"   title="${this.t('loopCreator.modeView')}"   aria-pressed="false">👁</button>
-                    <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">◻</button>
-                    <button class="lc-btn lc-btn-icon" data-action="mode-draw"   id="lc-mode-draw"   title="${this.t('loopCreator.modeDraw')}"   aria-pressed="true">✏️</button>
+                    <div class="lc-btn-group">
+                        <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')}">
+                            <span class="lc-rec-dot"></span>
+                        </button>
+                        <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')}">▶</button>
+                        <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')}">⏹</button>
+                    </div>
+                    <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
+                        <span class="lc-rec-dot lc-rec-dot--pulse"></span>
+                    </span>
                 </div>
 
-                <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="undo"            title="${this.t('loopCreator.undo')}">↶</button>
-                    <button class="lc-btn lc-btn-icon" data-action="redo"            title="${this.t('loopCreator.redo')}">↷</button>
-                    <button class="lc-btn lc-btn-icon" data-action="select-all"      title="${this.t('loopCreator.selectAll')}">▣</button>
-                    <button class="lc-btn lc-btn-icon" data-action="copy-notes"      id="lc-copy-btn"  title="${this.t('loopCreator.copy')}">📋</button>
-                    <button class="lc-btn lc-btn-icon" data-action="paste-notes"     id="lc-paste-btn" title="${this.t('loopCreator.paste')}">📄</button>
-                    <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">🗑</button>
-                    <button class="lc-btn lc-btn-icon" data-action="clear-notes"     title="${this.t('loopCreator.clearNotes')}">⊠</button>
+                <!-- Row 2: quantize / midi-in / modes / clipboard / zoom / piano-roll toggle / status -->
+                <div class="lc-ctrl-row">
+                    <select id="lc-quantize" class="lc-select lc-select-xs" title="${this.t('loopCreator.quantize')}">
+                        <option value="0">Q:—</option>
+                        <option value="480">Q:1/1</option><option value="240">Q:1/2</option>
+                        <option value="120" selected>Q:1/4</option><option value="60">Q:1/8</option>
+                        <option value="30">Q:1/16</option>
+                    </select>
+
+                    <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
+                        <option value="">IN:—</option>
+                    </select>
+
+                    <div class="lc-ctrl-sep"></div>
+
+                    <div class="lc-btn-group">
+                        <button class="lc-btn lc-btn-icon" data-action="mode-view"   id="lc-mode-view"   title="${this.t('loopCreator.modeView')}"   aria-pressed="false">👁</button>
+                        <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')}" aria-pressed="false">◻</button>
+                        <button class="lc-btn lc-btn-icon" data-action="mode-draw"   id="lc-mode-draw"   title="${this.t('loopCreator.modeDraw')}"   aria-pressed="true">✏️</button>
+                    </div>
+
+                    <div class="lc-btn-group">
+                        <button class="lc-btn lc-btn-icon" data-action="undo"            title="${this.t('loopCreator.undo')}">↶</button>
+                        <button class="lc-btn lc-btn-icon" data-action="redo"            title="${this.t('loopCreator.redo')}">↷</button>
+                        <button class="lc-btn lc-btn-icon" data-action="select-all"      title="${this.t('loopCreator.selectAll')}">▣</button>
+                        <button class="lc-btn lc-btn-icon" data-action="copy-notes"      id="lc-copy-btn"  title="${this.t('loopCreator.copy')}">📋</button>
+                        <button class="lc-btn lc-btn-icon" data-action="paste-notes"     id="lc-paste-btn" title="${this.t('loopCreator.paste')}">📄</button>
+                        <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')}">🗑</button>
+                        <button class="lc-btn lc-btn-icon" data-action="clear-notes"     title="${this.t('loopCreator.clearNotes')}">⊠</button>
+                    </div>
+
+                    <div class="lc-ctrl-sep"></div>
+
+                    <div class="lc-btn-group">
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-h-out" title="Zoom horizontal out">−H</button>
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-h-in"  title="Zoom horizontal in">+H</button>
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-v-out" title="Zoom vertical out">−V</button>
+                        <button class="lc-btn lc-btn-icon" data-action="zoom-v-in"  title="Zoom vertical in">+V</button>
+                    </div>
+
+                    <button class="lc-btn lc-btn-icon" data-action="toggle-piano-roll" id="lc-toggle-roll"
+                        title="${this.t('loopCreator.showPianoRoll')}" aria-pressed="false">🎹</button>
+
+                    <span class="lc-ctrl-spacer"></span>
+                    <span class="lc-status" id="lc-status"></span>
                 </div>
-
-                <div class="lc-ctrl-sep"></div>
-
-                <div class="lc-btn-group">
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-h-out" title="Zoom horizontal out">−H</button>
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-h-in"  title="Zoom horizontal in">+H</button>
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-v-out" title="Zoom vertical out">−V</button>
-                    <button class="lc-btn lc-btn-icon" data-action="zoom-v-in"  title="Zoom vertical in">+V</button>
-                </div>
-
-                <button class="lc-btn lc-btn-icon" data-action="toggle-piano-roll" id="lc-toggle-roll"
-                    title="${this.t('loopCreator.showPianoRoll')}" aria-pressed="false">🎹</button>
-
-                <span class="lc-ctrl-spacer"></span>
-                <span class="lc-status" id="lc-status"></span>
             </div>
 
             <!-- ── Piano roll (collapsible) ── -->

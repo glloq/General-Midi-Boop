@@ -496,17 +496,23 @@ class LoopManagerModal extends BaseModal {
     }
 
     _loopCardHtml(loop) {
-        const ts   = `${loop.time_sig_num}/${loop.time_sig_den}`;
-        const prog = this._gmProgramName(loop.instrument_program ?? 0);
+        const ts     = `${loop.time_sig_num}/${loop.time_sig_den}`;
+        const prog   = loop.instrument_program ?? 0;
+        const family = GM_FAMILIES.slice().reverse().find(f => prog >= f.start) || GM_FAMILIES[0];
+        const instrName = this._gmProgramName(prog);
+        const densityHtml = loop.note_count != null
+            ? `<div class="lc-card-density"><div class="lc-card-density-fill" style="width:${Math.min(100, (loop.note_count / Math.max(1, (loop.bars || 2) * 8)) * 100)}%"></div></div>`
+            : '';
         return `<div class="lc-card" data-loop-id="${loop.id}">
             <div class="lc-card-name">${this.escape(loop.name)}</div>
             <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
-            <div class="lc-card-instr">${this.escape(prog)}</div>
+            <div class="lc-card-instr">${family.icon} ${this.escape(instrName)}</div>
             <div class="lc-card-actions">
                 <button class="lc-card-btn" data-loop-action="edit"   data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
                 <button class="lc-card-btn" data-loop-action="pad"    data-loop-id="${loop.id}" title="${this.t('loopManager.addToPad')}">🎛</button>
                 <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
             </div>
+            ${densityHtml}
         </div>`;
     }
 
@@ -556,11 +562,20 @@ class LoopManagerModal extends BaseModal {
         const grid = this.$('#lm-pad-grid');
         if (!grid) return;
         grid.innerHTML = this._padSlots.map((slot, i) => {
-            const noteLabel = _midiNoteLabel(48 + i);
-            const playing   = this._padPlayingIndex.has(i);
-            const assigned  = slot !== null;
+            const noteLabel   = _midiNoteLabel(48 + i);
+            const playing     = this._padPlayingIndex.has(i);
+            const assigned    = slot !== null;
+            const octaveGroup = Math.floor(i / 4);
+            let iconHtml = '';
+            if (assigned) {
+                const prog   = slot.instrument_program ?? 0;
+                const family = GM_FAMILIES.slice().reverse().find(f => prog >= f.start) || GM_FAMILIES[0];
+                iconHtml = `<span class="lm-pad-icon">${family.icon}</span>`;
+            }
             return `<div class="lm-pad-cell${assigned ? ' lm-pad-cell--assigned' : ''}${playing ? ' lm-pad-cell--playing' : ''}"
-                data-pad-index="${i}" title="${assigned ? this.escape(slot.name) : noteLabel}">
+                data-pad-index="${i}" data-octave-group="${octaveGroup}"
+                title="${assigned ? this.escape(slot.name) : noteLabel}">
+                ${iconHtml}
                 <span class="lm-pad-name">${assigned ? this.escape(slot.name) : '+'}</span>
                 <span class="lm-pad-meta">${assigned ? `${slot.tempo}♩·${slot.bars}M` : ''}</span>
                 <span class="lm-pad-note">${noteLabel}</span>
@@ -803,9 +818,11 @@ class LoopManagerModal extends BaseModal {
             </div>
             <div class="lm-live-loops">
                 ${loops.map(l => {
-                    const playing = this._livePlayingLoops.has(l.id);
+                    const playing    = this._livePlayingLoops.has(l.id);
+                    const tempoRange = l.tempo < 90 ? 'slow' : l.tempo < 140 ? 'medium' : 'fast';
                     return `<button class="lm-live-loop-btn${playing ? ' lm-live-loop-btn--playing' : ''}"
-                        data-action="live-trigger" data-loop-id="${l.id}">
+                        data-action="live-trigger" data-loop-id="${l.id}"
+                        data-tempo-range="${tempoRange}">
                         <span class="lm-live-loop-name">${this.escape(l.name)}</span>
                         <span class="lm-live-loop-meta">${l.tempo}♩·${l.bars}M</span>
                     </button>`;
@@ -1058,13 +1075,13 @@ class LoopManagerModal extends BaseModal {
     }
 
     _buildCells(trackId, BAR_W) {
-        const BLOCK_COLORS = ['#4a90d9','#e8931a','#27ae60','#9b59b6','#e74c3c','#1abc9c','#f39c12','#2980b9'];
+        const BLOCK_COLORS = ['#667eea','#e8931a','#27ae60','#764ba2','#e74c3c','#1abc9c','#f0b429','#2980b9'];
         let html = '';
         this.blocks.filter(b => b.track_id === trackId).forEach((block, i) => {
             const color  = BLOCK_COLORS[i % BLOCK_COLORS.length];
             const blockW = block.loop_bars * block.repetitions * BAR_W;
             const blockL = block.position_bar * BAR_W;
-            html += `<div class="la-block" data-block-id="${block.id}" style="left:${blockL}px;width:${blockW}px;background:${color}">
+            html += `<div class="la-block" data-block-id="${block.id}" data-wide="${blockW >= 70 ? 'true' : 'false'}" style="left:${blockL}px;width:${blockW}px;background:${color}">
                 <div class="la-block-label">${this.escape(block.loop_name)} ×${block.repetitions}</div>
                 <div class="la-block-actions">
                     <button class="la-block-btn" data-block-action="reps-dec" data-block-id="${block.id}">−</button>
