@@ -10216,7 +10216,12 @@
         let currentSettingsModal = null;
         let currentDeviceSettings = null;
 
-        // Liste des instruments General MIDI (fallback)
+        // Liste des instruments General MIDI — fallback hors-ligne utilisé
+        // uniquement quand i18n.t('instruments.list') n'est pas encore prêt.
+        // Source canonique : shared/gm-instrument-names.json (le test
+        // tests/frontend/gm-instrument-names-sync.test.js bloque toute
+        // dérive entre les trois listes : JSON canon, locale en.json,
+        // et ce tableau).
         const GM_INSTRUMENTS = [
             // Piano (0-7)
             'Acoustic Grand Piano', 'Bright Acoustic Piano', 'Electric Grand Piano', 'Honky-tonk Piano',
@@ -10248,7 +10253,7 @@
             // Synth Effects (96-103)
             'FX 1 (rain)', 'FX 2 (soundtrack)', 'FX 3 (crystal)', 'FX 4 (atmosphere)', 'FX 5 (brightness)', 'FX 6 (goblins)', 'FX 7 (echoes)', 'FX 8 (sci-fi)',
             // Ethnic (104-111)
-            'Sitar', 'Banjo', 'Shamisen', 'Koto', 'Kalimba', 'Bag Pipe', 'Fiddle', 'Shanai',
+            'Sitar', 'Banjo', 'Shamisen', 'Koto', 'Kalimba', 'Bagpipe', 'Fiddle', 'Shanai',
             // Percussive (112-119)
             'Tinkle Bell', 'Agogo', 'Steel Drums', 'Woodblock', 'Taiko Drum', 'Melodic Tom', 'Synth Drum', 'Reverse Cymbal',
             // Sound Effects (120-127)
