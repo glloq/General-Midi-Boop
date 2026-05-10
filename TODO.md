@@ -176,7 +176,12 @@ quelqu'un attaque le sujet.
   que de les ré-exporter. Voir AUDIT.md §3.2.
 - **Fichiers volumineux** : 11 fichiers backend et 3 frontend dépassent
   700 lignes. Candidats à la découpe par responsabilité. Voir
-  AUDIT.md §3.8.
+  AUDIT.md §3.8. Progression : `RoutingSummaryPage.js` est passé de
+  3477 → ~2980 lignes (AUDIT 2026-05-10 §32, extraction du mixin
+  preview/minimap dans `RoutingSummaryPreviewControls.js`). Reste à
+  faire : ISMSections (2213), ISMListeners (1830), MidiPlayer (2061),
+  TablatureConverter (1617), HandPositionFeasibility (1682),
+  LoopCreatorModal (1944).
 
 ### Éditeurs / UI
 

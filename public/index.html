@@ -5993,6 +5993,10 @@
     <script src="js/features/auto-assign/RoutingSummaryMinimapNotes.js"></script>
     <script src="js/features/auto-assign/RoutingSummaryMinimapRenderer.js"></script>
     <script src="js/features/auto-assign/RoutingSummaryPreview.js"></script>
+    <!-- Preview / minimap mixin — must load BEFORE RoutingSummaryPage so the
+         Object.assign at the bottom of RoutingSummaryPage.js finds it
+         (AUDIT 2026-05-10 §32). -->
+    <script src="js/features/auto-assign/RoutingSummaryPreviewControls.js"></script>
     <script src="js/features/auto-assign/RoutingSummaryPage.js"></script>
 
     <!-- MIDI Editor Sub-Components -->
