@@ -196,7 +196,13 @@ class MidiUtils {
   }
 
   /**
-   * GM instrument categories by program range
+   * GM 1 program categories — sixteen consecutive 8-program blocks
+   * (indices match `Math.floor(program / 8)`). The display labels and
+   * the slug keys live side-by-side so consumers can pick whichever
+   * shape they need:
+   *   - {@link GMCategories} — human-readable labels for UI / logs.
+   *   - {@link GM_CATEGORY_SLUGS} — snake_case keys used by the matcher
+   *     (`piano`, `chromatic`, `synth_lead`, …).
    */
   static GMCategories = [
     'Piano',              // 0-7
@@ -217,14 +223,34 @@ class MidiUtils {
     'Sound Effects'       // 120-127
   ];
 
+  static GM_CATEGORY_SLUGS = [
+    'piano', 'chromatic', 'organ', 'guitar',
+    'bass', 'strings', 'ensemble', 'brass',
+    'reed', 'pipe', 'synth_lead', 'synth_pad',
+    'synth_effects', 'ethnic', 'percussive', 'sound_effects',
+  ];
+
   /**
-   * Get GM category for a program number
+   * Get GM category display label for a program number.
    * @param {number} program - Program number (0-127)
-   * @returns {string} Category name
+   * @returns {string} Category name (`"Piano"`, `"Chromatic Percussion"`…)
    */
   static getGMCategory(program) {
     if (program < 0 || program > 127) return 'Unknown';
     return this.GMCategories[Math.floor(program / 8)];
+  }
+
+  /**
+   * Get GM category slug for a program number (snake_case, matches
+   * {@link GM_CATEGORY_SLUGS}). Used by the matcher to compare
+   * channel/instrument categories without string-matching display
+   * names.
+   * @param {number} program - Program number (0-127)
+   * @returns {string|null} Slug, or null when out of range.
+   */
+  static getGMCategorySlug(program) {
+    if (program < 0 || program > 127) return null;
+    return this.GM_CATEGORY_SLUGS[Math.floor(program / 8)];
   }
 
 }

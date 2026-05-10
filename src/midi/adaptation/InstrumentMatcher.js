@@ -32,27 +32,15 @@ class InstrumentMatcher {
     this.config = config || ScoringConfig;
     this.drumMapper = new DrumNoteMapper(logger);
 
-    // General MIDI categories — each is an 8-program block, indexed by
-    // its starting program number.
-    const range8 = (start) => Array.from({ length: 8 }, (_, i) => start + i);
-    this.GM_CATEGORIES = {
-      piano: range8(0),
-      chromatic: range8(8),
-      organ: range8(16),
-      guitar: range8(24),
-      bass: range8(32),
-      strings: range8(40),
-      ensemble: range8(48),
-      brass: range8(56),
-      reed: range8(64),
-      pipe: range8(72),
-      synth_lead: range8(80),
-      synth_pad: range8(88),
-      synth_effects: range8(96),
-      ethnic: range8(104),
-      percussive: range8(112),
-      sound_effects: range8(120),
-    };
+    // General MIDI categories — derive the slug→programs map from the
+    // canonical {@link MidiUtils.GM_CATEGORY_SLUGS} so the order, slug
+    // spelling and ranges live in a single source of truth.
+    this.GM_CATEGORIES = Object.fromEntries(
+      MidiUtils.GM_CATEGORY_SLUGS.map((slug, i) => [
+        slug,
+        Array.from({ length: 8 }, (_, j) => i * 8 + j),
+      ])
+    );
   }
 
   /**
@@ -427,17 +415,14 @@ class InstrumentMatcher {
   }
 
   /**
-   * Determines the GM category of a program
+   * Determines the GM category slug of a program. Thin wrapper around
+   * {@link MidiUtils.getGMCategorySlug} kept for callers that read the
+   * matcher's interface — the slug list lives there.
    * @param {number} program
    * @returns {string|null}
    */
   getProgramCategory(program) {
-    for (const [category, programs] of Object.entries(this.GM_CATEGORIES)) {
-      if (programs.includes(program)) {
-        return category;
-      }
-    }
-    return null;
+    return MidiUtils.getGMCategorySlug(program);
   }
 
   /**
