@@ -149,7 +149,14 @@ class WebSocketServer {
             tokenBuf.length !== apiTokenBuf.length ||
             !timingSafeEqual(tokenBuf, apiTokenBuf)
           ) {
-            this.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
+            // Include the headers we just compared so operators can tell
+            // apart "running the old build" from "headers don't actually
+            // match" without instrumenting the runtime.
+            this.logger.warn(
+              `WebSocket auth rejected: ip=${req.socket.remoteAddress} ` +
+              `origin=${req.headers.origin || '(none)'} host=${req.headers.host || '(none)'} ` +
+              `expectedPort=${serverPort}`
+            );
             done(false, 401, 'Unauthorized');
           } else {
             done(true);
