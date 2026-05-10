@@ -28,11 +28,7 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/**
- * Currently advertised API version. Versioned handlers registered with a
- * different version are kept in a separate map and only invoked when the
- * client requests them explicitly.
- */
+/** Currently advertised API version, returned alongside every response. */
 const CURRENT_API_VERSION = 1;
 
 /**
@@ -64,42 +60,26 @@ class CommandRegistry {
   constructor(app) {
     this.app = app;
     /**
-     * @type {Object<string, Function>} Default (current-version) handlers.
+     * @type {Object<string, Function>} Registered command handlers.
      */
     this.handlers = {};
-    /**
-     * @type {Object<string, Function>} Versioned handlers keyed by
-     *   `"v<version>:<command>"`.
-     */
-    this.versionedHandlers = {};
   }
 
   /**
-   * Register a command handler. When `version` is omitted (or equal to
-   * {@link CURRENT_API_VERSION}), the handler becomes the default. A
-   * different version stashes it in {@link CommandRegistry#versionedHandlers}
-   * so existing default handlers stay untouched.
-   *
-   * Re-registering an existing default handler logs a warning — useful to
-   * catch accidental double-loads during hot-reload.
+   * Register a command handler. Re-registering an existing handler logs a
+   * warning — useful to catch accidental double-loads during hot-reload.
    *
    * @param {string} command - Command name (e.g. `"file_upload"`).
    * @param {Function} handler - Async function `(data) => result`.
-   * @param {number} [version] - Optional API version.
    * @returns {void}
    */
-  register(command, handler, version) {
-    if (version && version !== CURRENT_API_VERSION) {
-      const key = `v${version}:${command}`;
-      this.versionedHandlers[key] = handler;
-    } else {
-      if (this.handlers[command]) {
-        this.app.logger.warn(
-          `CommandRegistry: overwriting handler for '${command}'.`
-        );
-      }
-      this.handlers[command] = handler;
+  register(command, handler) {
+    if (this.handlers[command]) {
+      this.app.logger.warn(
+        `CommandRegistry: overwriting handler for '${command}'.`
+      );
     }
+    this.handlers[command] = handler;
   }
 
   /**
@@ -163,7 +143,10 @@ class CommandRegistry {
     const tag = `[cmd=${cmd} cid=${cid}]`;
 
     try {
-      this.app.logger.info(`${tag} Handling command`);
+      // Per-message tracing belongs to `debug` (Logger.js convention:
+      // info = operator milestone, not per-iteration). 60 cmd/s × 4 lines
+      // would saturate INFO and bury the actual lifecycle events.
+      this.app.logger.debug(`${tag} Handling command`);
 
       // Envelope validation: message must be an object with a string `command`.
       const validation = JsonValidator.validateCommand(message);
@@ -179,24 +162,13 @@ class CommandRegistry {
         throw new ValidationError(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
       }
 
-      // Versioned handler takes priority when the client requests a
-      // non-current version; fall back to the default handler otherwise.
-      let handler;
-      if (message.version && message.version !== CURRENT_API_VERSION) {
-        const versionedKey = `v${message.version}:${message.command}`;
-        handler = this.versionedHandlers[versionedKey];
-      }
-      handler = handler || this.handlers[message.command];
+      const handler = this.handlers[message.command];
       if (!handler) {
         throw new NotFoundError('command', message.command);
       }
 
-      this.app.logger.info(`${tag} Executing handler`);
-
       // Execute handler
       const result = await handler(message.data || {});
-
-      this.app.logger.info(`${tag} Handler executed, sending response`);
 
       // Send response with request ID for client to match
       if (ws.readyState === 1) {
@@ -214,7 +186,7 @@ class CommandRegistry {
       }
 
       const duration = Date.now() - startTime;
-      this.app.logger.info(`${tag} Command completed in ${duration}ms`);
+      this.app.logger.debug(`${tag} Command completed in ${duration}ms`);
       // P2-OBS.2/3 : emit a metric event for any interested subscriber
       // (dashboards, Prometheus exporter, etc.). Payload kept minimal to
       // avoid log-level bloat.

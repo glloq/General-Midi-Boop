@@ -415,7 +415,8 @@ class Application {
       [
         'error',
         (error) => {
-          this.logger.error(`Application error: ${error.message}`);
+          const msg = (error && error.message) ? error.message : String(error);
+          this.logger.error(`Application error: ${msg}`);
         }
       ]
     ];

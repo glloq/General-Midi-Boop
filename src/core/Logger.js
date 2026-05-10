@@ -141,7 +141,9 @@ class Logger {
     const levelStr = level.toUpperCase().padEnd(5);
     let logMessage = `[${timestamp}] ${levelStr} ${message}`;
 
-    if (data) {
+    // Falsy payloads (0, '', false) are valid information — only skip
+    // when no payload was passed at all.
+    if (data !== null && data !== undefined) {
       if (data instanceof Error) {
         logMessage += `\n  Error: ${data.message}\n  Stack: ${data.stack}`;
       } else if (typeof data === 'object') {

@@ -242,7 +242,7 @@ class WebSocketServer {
     try {
       parsedMessage = JSON.parse(data.toString());
 
-      this.logger.info(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
+      this.logger.debug(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
 
       // Awaited so async errors (rejections inside handlers) are caught here
       // instead of becoming unhandled rejections on the Node process.
