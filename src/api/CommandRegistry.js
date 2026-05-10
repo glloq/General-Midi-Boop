@@ -54,11 +54,16 @@ function _generateCid() {
  */
 class CommandRegistry {
   /**
-   * @param {Object} app - Application facade; needs `logger` and
-   *   (optionally) `eventBus` for the metric event.
+   * @param {Object} deps - DI bag (or Application facade). Needs
+   *   `logger`; `eventBus` is consumed when present (metrics event).
+   *   The whole bag is forwarded to each command module's `register()`
+   *   under the historical `app` parameter name — handlers read
+   *   `app.foo` to resolve their own dependencies.
    */
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this._deps = deps;
+    this.logger = deps.logger;
+    this.eventBus = deps.eventBus ?? null;
     /**
      * @type {Object<string, Function>} Registered command handlers.
      */
@@ -75,7 +80,7 @@ class CommandRegistry {
    */
   register(command, handler) {
     if (this.handlers[command]) {
-      this.app.logger.warn(
+      this.logger.warn(
         `CommandRegistry: overwriting handler for '${command}'.`
       );
     }
@@ -99,16 +104,20 @@ class CommandRegistry {
       const mod = await import(modulePath);
 
       if (typeof mod.register === 'function') {
-        mod.register(this, this.app);
-        this.app.logger.debug(`CommandRegistry: loaded module ${file}`);
+        // The second arg keeps the historical `app` name — every command
+        // module signature is `register(registry, app)`. The value we
+        // pass is the DI facade itself, so handlers can do
+        // `app.fileManager` etc.
+        mod.register(this, this._deps);
+        this.logger.debug(`CommandRegistry: loaded module ${file}`);
       } else {
-        this.app.logger.warn(
+        this.logger.warn(
           `CommandRegistry: ${file} does not export a register() function, skipping`
         );
       }
     }
 
-    this.app.logger.info(
+    this.logger.info(
       `CommandRegistry initialized with ${Object.keys(this.handlers).length} commands`
     );
   }
@@ -146,7 +155,7 @@ class CommandRegistry {
       // Per-message tracing belongs to `debug` (Logger.js convention:
       // info = operator milestone, not per-iteration). 60 cmd/s × 4 lines
       // would saturate INFO and bury the actual lifecycle events.
-      this.app.logger.debug(`${tag} Handling command`);
+      this.logger.debug(`${tag} Handling command`);
 
       // Envelope validation: message must be an object with a string `command`.
       const validation = JsonValidator.validateCommand(message);
@@ -186,11 +195,11 @@ class CommandRegistry {
       }
 
       const duration = Date.now() - startTime;
-      this.app.logger.debug(`${tag} Command completed in ${duration}ms`);
+      this.logger.debug(`${tag} Command completed in ${duration}ms`);
       // P2-OBS.2/3 : emit a metric event for any interested subscriber
       // (dashboards, Prometheus exporter, etc.). Payload kept minimal to
       // avoid log-level bloat.
-      this.app.eventBus?.emit?.('ws.command.completed', {
+      this.eventBus?.emit?.('ws.command.completed', {
         command: cmd,
         cid,
         duration,
@@ -198,9 +207,9 @@ class CommandRegistry {
       });
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.app.logger.error(`${tag} Command failed: ${error.message}`);
-      this.app.logger.error(error.stack);
-      this.app.eventBus?.emit?.('ws.command.completed', {
+      this.logger.error(`${tag} Command failed: ${error.message}`);
+      this.logger.error(error.stack);
+      this.eventBus?.emit?.('ws.command.completed', {
         command: cmd,
         cid,
         duration,

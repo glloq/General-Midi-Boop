@@ -168,8 +168,9 @@ quelqu'un attaque le sujet.
 ### Architecture
 
 - ~~**God Object `Application`** : ~10 services utilisent encore
-  `this.app`~~ — résolu. Le seul rest est `src/api/CommandRegistry.js`
-  (11 occurrences) qui peut migrer vers `deps` dans un patch dédié.
+  `this.app`~~ — entièrement résolu. `src/api/CommandRegistry.js` lit
+  désormais `this.logger` / `this.eventBus` directement (AUDIT
+  2026-05-10 §31) ; `grep -rn "this\.app\." src/` ne renvoie plus rien.
 - **Façade `Database`** : ~960 lignes de wrappers passthrough.
   Enregistrer les sous-modules directement dans `ServiceContainer` plutôt
   que de les ré-exporter. Voir AUDIT.md §3.2.
