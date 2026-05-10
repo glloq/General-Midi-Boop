@@ -36,9 +36,15 @@ class MidiClockGenerator {
     this.logger = deps.logger;
     this.eventBus = deps.eventBus;
     this.database = deps.database;
-    this.latencyCompensator = deps.latencyCompensator;
+    // `latencyCompensator` is registered AFTER this service in
+    // Application.initialize (line 221 vs 219) — eager capture would
+    // freeze `undefined`, silently disabling per-device clock-tick
+    // latency compensation. Same story for the four transport
+    // managers. Use lazy getters so we always pick up the live
+    // instance.
     for (const name of ['deviceManager', 'networkManager',
-                        'serialMidiManager', 'bluetoothManager']) {
+                        'serialMidiManager', 'bluetoothManager',
+                        'latencyCompensator']) {
       Object.defineProperty(this, name, {
         get: () => deps[name],
         configurable: true,

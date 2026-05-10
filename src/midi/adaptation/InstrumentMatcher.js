@@ -78,12 +78,16 @@ class InstrumentMatcher {
     score += familyScore.score;
     if (familyScore.info) info.push(familyScore.info);
 
-    // 2. Note compatibility (+40 points max)
-    const parsedSelectedNotes = safeJsonParse(instrument.selected_notes);
-    if (instrument.selected_notes && parsedSelectedNotes === null
-        && typeof instrument.selected_notes === 'string') {
+    // 2. Note compatibility (+40 points max).
+    // Use a unique sentinel so we can distinguish a genuine JSON parse
+    // failure (warn-worthy) from the legitimate `"null"` literal —
+    // `safeJsonParse` only returns `fallback` on a thrown parse error.
+    const _PARSE_FAIL = Symbol('parse-fail');
+    const _raw = safeJsonParse(instrument.selected_notes, _PARSE_FAIL);
+    if (_raw === _PARSE_FAIL) {
       this.logger.warn(`Failed to parse selected_notes for ${instrument.device_id}`);
     }
+    const parsedSelectedNotes = _raw === _PARSE_FAIL ? null : _raw;
     const noteScore = this.scoreNoteCompatibility(
       channelAnalysis.noteRange,
       {

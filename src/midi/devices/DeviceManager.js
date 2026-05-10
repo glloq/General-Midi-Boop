@@ -58,9 +58,14 @@ class DeviceManager {
     this.logger = deps.logger;
     this.eventBus = deps.eventBus;
     this.database = deps.database;
-    this.instrumentRepository = deps.instrumentRepository;
+    // `instrumentRepository` is registered AFTER DeviceManager in
+    // Application.initialize (line 297 vs 217) — eager capture would
+    // freeze `undefined` and `_restoreVirtualDevicesFromDB` would
+    // permanently short-circuit. Lazy getter so the live repo is
+    // picked up when it appears.
     for (const name of ['wsServer', 'midiRouter', 'networkManager',
-                        'serialMidiManager', 'bluetoothManager']) {
+                        'serialMidiManager', 'bluetoothManager',
+                        'instrumentRepository']) {
       Object.defineProperty(this, name, {
         get: () => deps[name],
         configurable: true,

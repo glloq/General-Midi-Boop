@@ -28,8 +28,13 @@ class FileManager {
     this.database = deps.database;
     this.blobStore = deps.blobStore;
     this.eventBus = deps.eventBus;
-    this.autoAssigner = deps.autoAssigner;
-    for (const name of ['wsServer', 'deviceManager', 'midiBaker']) {
+    // `autoAssigner` is registered AFTER FileManager in
+    // Application.initialize (line 284 vs 244) — eager capture would
+    // freeze `undefined` and the cache-invalidation hooks would never
+    // fire, leaving the matcher with stale suggestions after file
+    // edits. Lazy getter to pick up the live instance.
+    for (const name of ['wsServer', 'deviceManager', 'midiBaker',
+                        'autoAssigner']) {
       Object.defineProperty(this, name, {
         get: () => deps[name],
         configurable: true,
