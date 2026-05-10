@@ -98,6 +98,7 @@ class LoopManagerModal extends BaseModal {
         // ── Live state ──
         this._livePlayingLoops = new Map(); // loopId → { timers, ch, startMs, durMs }
         this._liveSynth        = null;
+        this._liveSearch       = '';
 
         // ── Keyboard tab state (live performance alongside loops) ──
         this._kbdSynth          = null;
@@ -140,6 +141,7 @@ class LoopManagerModal extends BaseModal {
         <div class="modal-header lc-header">
             <div class="lc-header-left">
                 <span class="lc-header-title">∞</span>
+                <span class="lc-header-subtitle">${this.t('loopManager.title')}</span>
             </div>
             <div class="lc-header-tabs" role="tablist">
                 <button class="lc-tab${this.activeTab==='library'  ? ' lc-tab--active':''}" data-tab="library"  role="tab" aria-selected="${this.activeTab==='library'}">🗂 ${this.t('loopManager.tabLibrary')}</button>
@@ -255,6 +257,9 @@ class LoopManagerModal extends BaseModal {
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-live">
             <div class="lc-ctrl-bar">
+                <input type="text" id="lm-live-search" class="lc-name-input lm-lib-search"
+                    placeholder="${this.t('loopManager.search')}" value="${this.escape(this._liveSearch || '')}" autocomplete="off" />
+                <span class="lc-ctrl-sep"></span>
                 <span class="lc-label">${this.t('loopManager.liveOutput')}:</span>
                 <button class="lc-btn lc-btn-icon lc-btn-output" id="lm-live-output-btn" data-action="live-toggle-output">🔊</button>
                 <span class="lc-unit" id="lm-live-output-label">${this.t('loopManager.outputSynth')}</span>
@@ -474,7 +479,7 @@ class LoopManagerModal extends BaseModal {
             case 'arr-add-track':    this._addTrack();          break;
             case 'arr-play':         this._playArrangement();   break;
             case 'arr-stop':         this._stopArrangerPlay();  break;
-            case 'arr-new':          this._newArrangement();    break;
+            case 'arr-new':          this._newArrangementConfirm(); break;
             case 'arr-undo':         this._arrUndo();           break;
             case 'arr-redo':         this._arrRedo();           break;
             case 'save-arrangement': this._saveArrangement();   break;
@@ -519,6 +524,9 @@ class LoopManagerModal extends BaseModal {
         if (id === 'lm-lib-search') {
             this._libSearch = e.target.value;
             this._filterAndRenderLibrary();
+        } else if (id === 'lm-live-search') {
+            this._liveSearch = e.target.value;
+            this._renderLiveArea();
         } else if (id === 'la-name-input') {
             this.arrangementName = e.target.value;
         } else if (id === 'la-tempo') {
@@ -617,11 +625,19 @@ class LoopManagerModal extends BaseModal {
         const densityHtml = loop.note_count != null
             ? `<div class="lc-card-density"><div class="lc-card-density-fill" style="width:${Math.min(100, (loop.note_count / Math.max(1, (loop.bars || 2) * 8)) * 100)}%; background:${family.color}"></div></div>`
             : '';
+        const padIndexes = this._padSlots
+            .map((s, i) => s?.loopId === loop.id ? (i + 1) : null)
+            .filter(x => x != null);
+        const padTagHtml = padIndexes.length
+            ? `<span class="lc-card-pad-tag" title="${this.t('loopManager.assignedPadsTitle', { pads: padIndexes.join(', ') })}">📌 ${padIndexes.join(',')}</span>`
+            : '';
+        const playing = this._livePlayingLoops.has(loop.id);
         return `<div class="lc-card" data-loop-id="${loop.id}" style="--family-color:${family.color}">
-            <div class="lc-card-name">${this.escape(loop.name)}</div>
+            <div class="lc-card-name">${this.escape(loop.name)}${padTagHtml}</div>
             <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
             <div class="lc-card-instr">${family.icon} ${this.escape(instrName)}</div>
             <div class="lc-card-actions">
+                <button class="lc-card-btn lc-card-btn--play${playing ? ' lc-card-btn--playing' : ''}" data-action="live-trigger" data-loop-id="${loop.id}" title="${this.t('loopCreator.preview')}">${playing ? '⏹' : '▶'}</button>
                 <button class="lc-card-btn" data-loop-action="edit"   data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
                 <button class="lc-card-btn" data-loop-action="pad"    data-loop-id="${loop.id}" title="${this.t('loopManager.addToPad')}">🎛</button>
                 <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
@@ -677,6 +693,7 @@ class LoopManagerModal extends BaseModal {
     _renderPadGrid() {
         const grid = this.$('#lm-pad-grid');
         if (!grid) return;
+        const SHORTCUTS = ['1','2','3','4','q','w','e','r','a','s','d','f','z','x','c','v'];
         grid.innerHTML = this._padSlots.map((slot, i) => {
             const playing     = this._padPlayingIndex.has(i);
             const assigned    = slot !== null;
@@ -688,11 +705,13 @@ class LoopManagerModal extends BaseModal {
                 familyColor = family.color;
             }
             const styleAttr = familyColor ? `style="--family-color:${familyColor}"` : '';
+            const shortcut = SHORTCUTS[i];
             return `<div class="lm-pad-cell${assigned ? ' lm-pad-cell--assigned' : ''}${playing ? ' lm-pad-cell--playing' : ''}"
                 data-pad-index="${i}" data-octave-group="${octaveGroup}" ${styleAttr}
                 tabindex="0" role="button"
                 aria-label="${assigned ? this.escape(slot.name) : this.t('loopManager.emptyPad', { index: i + 1 })}"
-                title="${assigned ? this.escape(slot.name) : ''}">
+                title="${assigned ? this.escape(slot.name) : this.t('loopManager.padHint')}">
+                <span class="lm-pad-shortcut" aria-hidden="true">${shortcut.toUpperCase()}</span>
                 ${iconHtml}
                 <span class="lm-pad-name">${assigned ? this.escape(slot.name) : '+'}</span>
                 <span class="lm-pad-meta">${assigned ? `${slot.tempo}♩·${slot.bars}M` : ''}</span>
@@ -832,6 +851,7 @@ class LoopManagerModal extends BaseModal {
         this._renderPadGrid();
         this._closePadPicker();
         this._persistPadLayout();
+        if (this.activeTab === 'library') this._filterAndRenderLibrary();
     }
 
     _openPadPicker(index, anchorEl) {
@@ -843,9 +863,11 @@ class LoopManagerModal extends BaseModal {
 
         picker.innerHTML = `
             <div class="lm-picker-title">${this.t('loopManager.assignPad')}</div>
+            <input type="text" class="lm-picker-search" id="lm-picker-search"
+                placeholder="${this.t('loopManager.search')}" autocomplete="off" />
             <div class="lm-picker-list">
                 ${this.library.map(l => `
-                <div class="lm-picker-item" data-assign-loop="${l.id}">
+                <div class="lm-picker-item" data-assign-loop="${l.id}" data-search-name="${this.escape(l.name.toLowerCase())}">
                     <span class="lm-picker-name">${this.escape(l.name)}</span>
                     <span class="lm-picker-meta">${l.tempo}♩·${l.bars}M</span>
                 </div>`).join('')}
@@ -853,6 +875,17 @@ class LoopManagerModal extends BaseModal {
                     ${this.t('loopManager.clearPad')}
                 </div>
             </div>`;
+
+        const search = picker.querySelector('#lm-picker-search');
+        if (search) {
+            search.addEventListener('input', () => {
+                const q = search.value.trim().toLowerCase();
+                picker.querySelectorAll('.lm-picker-item[data-search-name]').forEach(el => {
+                    el.style.display = (!q || el.dataset.searchName.includes(q)) ? '' : 'none';
+                });
+            });
+            requestAnimationFrame(() => search.focus());
+        }
 
         this._padPickerHandler = (e) => {
             const item = e.target.closest('[data-assign-loop]');
@@ -1029,9 +1062,19 @@ class LoopManagerModal extends BaseModal {
             return;
         }
 
+        const q = (this._liveSearch || '').trim().toLowerCase();
+        const filtered = q
+            ? this.library.filter(l => l.name.toLowerCase().includes(q))
+            : this.library;
+
+        if (!filtered.length) {
+            area.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
+            return;
+        }
+
         // Group loops by GM family
         const groups = new Map(); // familyName → { family, loops[] }
-        for (const loop of this.library) {
+        for (const loop of filtered) {
             const family = LoopUtils.familyForProgram(loop.instrument_program ?? 0);
             if (!groups.has(family.name)) groups.set(family.name, { family, loops: [] });
             groups.get(family.name).loops.push(loop);
@@ -1140,8 +1183,14 @@ class LoopManagerModal extends BaseModal {
     }
 
     _updateLiveButton(loopId, playing) {
-        const btn = this.$(`[data-action="live-trigger"][data-loop-id="${loopId}"]`);
-        if (btn) btn.classList.toggle('lm-live-loop-btn--playing', playing);
+        const buttons = this.$$(`[data-action="live-trigger"][data-loop-id="${loopId}"]`);
+        buttons.forEach(btn => {
+            btn.classList.toggle('lm-live-loop-btn--playing', playing);
+            if (btn.classList.contains('lc-card-btn--play')) {
+                btn.classList.toggle('lc-card-btn--playing', playing);
+                btn.textContent = playing ? '⏹' : '▶';
+            }
+        });
     }
 
     // =========================================================
@@ -1188,6 +1237,14 @@ class LoopManagerModal extends BaseModal {
                 if (item) this._loadArrangementById(parseInt(item.dataset.arrId));
             });
         }
+    }
+
+    _newArrangementConfirm() {
+        const hasContent = (this.blocks?.length || 0) > 0 || (this.tracks?.length || 0) > 0;
+        if (hasContent && this._arrDirty) {
+            if (!confirm(this.t('loopManager.confirmNewArrangement'))) return;
+        }
+        this._newArrangement();
     }
 
     async _newArrangement() {
@@ -1246,6 +1303,7 @@ class LoopManagerModal extends BaseModal {
         this._arrHistory = [this._snapshotArr()];
         this._arrHistoryIdx = 0;
         this._refreshUndoButtons();
+        this._markArrDirty(false);
     }
 
     _pushArrHistory() {
@@ -1258,6 +1316,7 @@ class LoopManagerModal extends BaseModal {
             this._arrHistoryIdx++;
         }
         this._refreshUndoButtons();
+        this._markArrDirty(true);
     }
 
     _arrUndo() {
@@ -1279,9 +1338,13 @@ class LoopManagerModal extends BaseModal {
         this._selectedBlocks.clear();
         this._renderTimeline();
         this._refreshUndoButtons();
-        // Note: undo/redo is local-only and does not auto-sync to the backend.
-        // The user must hit Save to persist.
-        LoopUtils.toast(this.t('loopManager.arrLocalOnly'), 'info', 2200);
+        this._markArrDirty(true);
+    }
+
+    _markArrDirty(dirty) {
+        this._arrDirty = !!dirty;
+        const saveBtn = this.$('#lc-header-save');
+        if (saveBtn) saveBtn.classList.toggle('lc-btn--dirty', this._arrDirty);
     }
 
     _refreshUndoButtons() {
@@ -1592,6 +1655,7 @@ class LoopManagerModal extends BaseModal {
                     name: this.arrangementName, global_tempo: tempo, total_bars: bars
                 });
                 await this._loadArrangements();
+                this._markArrDirty(false);
                 LoopUtils.toast(this.t('loopCreator.statusSaved'), 'success');
             }
         } catch (err) {
