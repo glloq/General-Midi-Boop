@@ -1,0 +1,12 @@
+-- Per-instrument SF2 soundfont override.
+-- Allows assigning a specific custom SF2 bank to an instrument for cases
+-- where the instrument is not covered by General MIDI (e.g. custom tunings,
+-- non-standard timbres). NULL = use the global soundbank setting.
+--
+-- Originally numbered 016 — collided with 016_has_lyrics.sql so the runner
+-- silently skipped this file on fresh installs (column never created).
+-- Renumbered to 019 so it runs once on every install. Existing DBs that
+-- already had the column applied via an earlier non-colliding install raise
+-- `duplicate column name`, which the runner treats as a no-op (see
+-- Database.runMigration "duplicate column name" branch).
+ALTER TABLE instruments_latency ADD COLUMN custom_sf2_id INTEGER REFERENCES custom_sf2(id) ON DELETE SET NULL;

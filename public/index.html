@@ -12779,6 +12779,12 @@
 
             filterManager = new FilterManager(api);
 
+            // Release debounce timers + cached presets on tab close so the
+            // method is actually wired (see AUDIT 2026-05-10 §4).
+            window.addEventListener('beforeunload', () => {
+                try { filterManager?.destroy(); } catch { /* best-effort */ }
+            });
+
             const filtersPanel = document.getElementById('filtersPanel');
             const filtersPanelOverlay = document.getElementById('filtersPanelOverlay');
             const applyFiltersBtn = document.getElementById('applyFiltersBtn');

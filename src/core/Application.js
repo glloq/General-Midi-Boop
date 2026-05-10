@@ -556,6 +556,13 @@ class Application {
         this.midiPlayer.destroy();
       }
 
+      // Cancel pending compensation timers and drop route indexes.
+      // Without this, setTimeouts from MidiRouter outlive the deviceManager
+      // close below and fire sendMessage on closed ports.
+      if (this.midiRouter) {
+        this.midiRouter.destroy();
+      }
+
       // Close servers
       if (this.wsServer) {
         this.wsServer.close();
@@ -696,9 +703,14 @@ class Application {
       this.logger.error(error.stack);
       shutdown('uncaughtException').catch(() => process.exit(1));
     };
+    // A rejected promise in a third-party lib (noble, serialport, dgram...)
+    // should NOT tear down the whole MIDI server. Log and continue; the
+    // upcoming Node default `--unhandled-rejections=throw` will still
+    // promote truly fatal cases to `uncaughtException`, which we do handle.
     const onUnhandled = (reason) => {
-      this.logger.error(`Unhandled rejection: ${reason}`);
-      shutdown('unhandledRejection').catch(() => process.exit(1));
+      const msg = (reason && reason.message) ? reason.message : String(reason);
+      this.logger.error(`Unhandled rejection (continuing): ${msg}`);
+      if (reason && reason.stack) this.logger.error(reason.stack);
     };
 
     process.on('SIGTERM', onSigterm);
