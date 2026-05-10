@@ -870,7 +870,8 @@ class LightingManager extends EventEmitter {
       this.database.insertLightingGroup(name, deviceIds);
       this.deviceGroups.set(name, new Set(deviceIds));
     } catch (error) {
-      this.logger.warn(`Failed to persist group "${name}": ${error.message}`);
+      // Caller does not get the result (we re-throw) — log at error.
+      this.logger.error(`Failed to persist group "${name}": ${error.message}`);
       throw error;
     }
     return { success: true };
@@ -884,7 +885,9 @@ class LightingManager extends EventEmitter {
     } catch (error) {
       // Restore memory state on DB failure
       if (backup) this.deviceGroups.set(name, backup);
-      this.logger.warn(`Failed to delete group "${name}" from DB: ${error.message}`);
+      // Per Logger.js conventions: the caller does NOT get the result
+      // they asked for (we re-throw), so this is an error, not a warn.
+      this.logger.error(`Failed to delete group "${name}" from DB: ${error.message}`);
       throw error;
     }
     return { success: true };
