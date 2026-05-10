@@ -81,13 +81,20 @@ class WebSocketServer {
     const apiToken = process.env.GMBOOP_API_TOKEN;
     const serverPort = this.config?.server?.port || 8080;
 
-    // Fail-closed: ApiTokenManager.ensure() is expected to run during boot
-    // and populate GMBOOP_API_TOKEN. If we somehow reach WS start without a
-    // token, refuse to start the server rather than accepting every client.
+    // Soft-warn rather than fail-closed when the token is missing.
+    // ApiTokenManager.ensure() runs during boot and is supposed to
+    // populate this env, but a misconfigured deployment (token forced
+    // to empty in .env, or chmod 000 on .env preventing the write)
+    // should not silently lock the user out of their MIDI box. Without
+    // a token, only the loopback bypass and the same-origin bypass
+    // below remain — that's the legacy behaviour and the SPA served
+    // from the same host still works.
     if (!apiToken) {
-      const msg = 'GMBOOP_API_TOKEN is not set — refusing to start WebSocket server (fail-closed).';
-      this.logger.error(msg);
-      throw new Error(msg);
+      this.logger.warn(
+        'GMBOOP_API_TOKEN is empty — cross-origin clients will be rejected ' +
+        'since timingSafeEqual against an empty key always fails. Verify ' +
+        'ApiTokenManager.ensure() ran successfully.'
+      );
     }
 
     // Always-loopback whitelist. `localhost`, `127.0.0.1`, `::1` are safe
