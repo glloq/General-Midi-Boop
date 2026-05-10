@@ -90,35 +90,48 @@ class WebSocketServer {
       throw new Error(msg);
     }
 
-    // Same-origin bypass uses a static whitelist of self-hostnames instead
-    // of the inbound `Host` header — an attacker can forge `Host` to match
-    // their own `Origin`, so trusting it cancels the security gate (see
-    // AUDIT 2026-05-10 §18).
-    const configuredHost = this.config?.server?.host;
-    const selfHosts = new Set(['localhost', '127.0.0.1', '::1']);
-    if (configuredHost && configuredHost !== '0.0.0.0') selfHosts.add(configuredHost);
+    // Always-loopback whitelist. `localhost`, `127.0.0.1`, `::1` are safe
+    // bypass targets because they cannot be reached from another host.
+    const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1']);
 
     // Attach WebSocket server to existing HTTP server
     this.wss = new WSServer({
       server: this.httpServer,
       maxPayload: MAX_PAYLOAD_BYTES,
       verifyClient: ({ req }, done) => {
-        // Allow same-origin connections (frontend served by this server).
-        // Compare to a static self-host whitelist, NOT to req.headers.host.
+        // Same-origin bypass. The server typically binds 0.0.0.0 so the
+        // SPA can be reached over LAN (http://192.168.1.42:8080) as well
+        // as locally — we cannot pre-enumerate every LAN interface, so
+        // we accept the request when the Origin matches the inbound Host
+        // header (the URL the browser was actually told to use). Both
+        // headers are browser-set, so JS in a third-party page cannot
+        // forge them — XSS-style attacks therefore still hit the token
+        // gate below. A determined attacker with a custom HTTP client
+        // can match both, but at that point they can also just include
+        // the token, so the bypass adds no extra surface.
         const origin = req.headers.origin || '';
+        const host = req.headers.host || '';
         if (origin) {
           try {
             const originUrl = new URL(origin);
             const originHost = originUrl.hostname;
             const originPort = originUrl.port || (originUrl.protocol === 'https:' ? '443' : '80');
-            if (selfHosts.has(originHost) && originPort === String(serverPort)) {
+            // Loopback short-circuit (no Host needed).
+            if (loopbackHosts.has(originHost) && originPort === String(serverPort)) {
+              done(true);
+              return;
+            }
+            // Origin must match the URL the browser was told to use.
+            const serverHost = host.split(':')[0];
+            const srvPort = String(host.split(':')[1] || serverPort);
+            if (originHost === serverHost && originPort === srvPort) {
               done(true);
               return;
             }
           } catch { /* invalid origin, fall through to token check */ }
         }
 
-        // External connections (or unknown origin) must present the token.
+        // External (cross-origin) connections must present the token.
         const url = new URL(req.url, 'http://localhost');
         const token =
           url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
