@@ -518,7 +518,11 @@ class DelayCalibrator {
    */
   async listAlsaDevices() {
     return new Promise((resolve, reject) => {
-      const arecord = spawn('arecord', ['-l']);
+      // Force the C locale so arecord prints the canonical English form
+      // ("card N: ... device N: ..."). Without this, any non-English /
+      // non-French operator locale (de_DE, es_ES, ja_JP, ...) breaks the
+      // regex below, which historically only knew about French + English.
+      const arecord = spawn('arecord', ['-l'], { env: { ...process.env, LC_ALL: 'C', LANG: 'C' } });
       let output = '';
 
       arecord.stdout.on('data', (data) => {
@@ -531,13 +535,13 @@ class DelayCalibrator {
           return;
         }
 
-        // Parse the output
+        // Parse the output. The English keywords below are guaranteed by
+        // the forced C locale; the French aliases are kept as defence in
+        // depth in case a downstream patches LC_ALL away.
         const devices = [];
         const lines = output.split('\n');
 
         for (const line of lines) {
-          // French format: "carte 1: ... périphérique 0: ..."
-          // English format: "card 1: ... device 0: ..."
           const match = line.match(/(?:card|carte) (\d+):.*(?:device|périphérique) (\d+):/i);
           if (match) {
             const card = match[1];

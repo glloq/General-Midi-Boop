@@ -152,9 +152,11 @@ quelqu'un attaque le sujet.
 
 ### Sécurité
 
-- **`MidiMessage.parseObject()` sans whitelist de propriétés**
-  (`src/midi/messages/`). Risque d'injection de propriétés arbitraires
-  via un payload JSON malveillant.
+- ~~**`MidiMessage.parseObject()` sans whitelist de propriétés**~~ — déjà
+  corrigé. `src/midi/messages/MidiMessage.js:134-142` énumère
+  explicitement les clés autorisées (`note`, `velocity`, `pressure`,
+  `controller`, `value`, `program`, `data`, `song`, `timestamp`, `raw`)
+  et ignore le reste.
 
 ### MIDI core
 
@@ -163,7 +165,13 @@ quelqu'un attaque le sujet.
   documenter.
 - **Wrapping d'octave doublonnant** : plusieurs notes source peuvent
   wrapper sur la même note cible, créant des collisions silencieuses.
-  Voir `src/midi/adaptation/MidiTransposer.js`.
+  Voir `src/midi/adaptation/MidiTransposer.js`. Telemetry ajoutée :
+  `compressChannel().stats.compressionCollisions` compte maintenant le
+  nombre de notes cibles avec plusieurs sources — l'UI peut afficher
+  un avertissement quand `> 0`. Reste à faire : décider si on remap
+  intelligemment vers une note cible libre la plus proche (= éviter la
+  collision) ou si l'on garde le comportement actuel et on affiche
+  juste le warning.
 
 ### Architecture
 
@@ -185,15 +193,25 @@ quelqu'un attaque le sujet.
 
 ### Éditeurs / UI
 
-- **Drum editor** : le sélecteur Quantize n'est pas branché à
-  `DrumGridRenderer`. Le réglage est lu mais ignoré.
-- **Wind editor** : le mode d'édition est figé sur `'pan'`, ce qui
-  empêche le drag des notes.
-- **Tablature editor** : raccourcis `Delete` / `Backspace` et `Ctrl+A`
-  manquants. Le Piano Roll a la liste complète et sert de référence.
-- **Cohérence raccourcis clavier** : Piano Roll a tout, les autres
-  éditeurs n'ont pas `Ctrl+Shift+Z` (redo). Mutualiser le registre de
-  raccourcis.
+- ~~**Drum editor** : le sélecteur Quantize n'est pas branché à
+  `DrumGridRenderer`~~ — déjà branché.
+  `DrumPatternEditor.js:262-271` propage `quantizeDiv` au renderer et
+  déclenche `redraw()` ; `DrumGridRenderer.js:434` et `:937` consomment
+  effectivement la valeur (subdivisions + snap au clic).
+- ~~**Wind editor** : le mode d'édition est figé sur `'pan'`~~ — déjà
+  corrigé. `WindInstrumentEditor.js:171-172` expose deux boutons toolbar
+  (`pan` / `select`) ; `_setEditMode` propage la valeur au renderer
+  (`renderer.tool`) et `WindMelodyRenderer.js:639-693` branche
+  effectivement le mousedown : `pan` → scroll, `select` → drag /
+  sélection rectangulaire.
+- ~~**Tablature editor** : raccourcis `Delete` / `Backspace` et `Ctrl+A`
+  manquants~~ — déjà présents.
+  `TablatureEditor.js:765-806` couvre Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z,
+  Ctrl+C, Ctrl+V, Ctrl+A, Delete/Backspace, ArrowUp/Down.
+- ~~**Cohérence raccourcis clavier** : Ctrl+Shift+Z absent ailleurs~~ —
+  déjà présent dans Drum (`DrumPatternEditor.js:685-690`), Wind
+  (`WindInstrumentEditor.js:694-702`) et Tablature. Un registre commun
+  reste un nice-to-have mais n'est plus une régression utilisateur.
 
 ### CSS / accessibilité
 
@@ -226,10 +244,10 @@ quelqu'un attaque le sujet.
 - **`DelayCalibrator`** : la regex de parsing ALSA utilise le mot-clé
   français `carte` qui échoue sur un système anglais. Multilinguer
   ou parser la sortie machine plutôt que humaine.
-- **Double tracking de migrations** : table `migrations` ET
-  `schema_version` cohabitent. Unifier sur une seule source de vérité.
-  (À vérifier : le runner actuel n'utilise plus que `schema_version` ;
-  s'assurer qu'aucun code mort ne lit encore `migrations`.)
+- ~~**Double tracking de migrations**~~ — confirmé résolu. `grep -rn
+  "migrations" src/ migrations/*.sql` ne renvoie que `schema_version`
+  comme table de tracking ; aucune table `migrations` n'est créée ni
+  lue. Le baseline v6.0 (`001_baseline.sql`) a fini la consolidation.
 - **Dépendances datées** : Express 4.x (5.x dispo), `better-sqlite3` 9.x
   (12.x dispo). Vérifier les breaking changes avant l'upgrade. Voir
   AUDIT.md §3.13.
