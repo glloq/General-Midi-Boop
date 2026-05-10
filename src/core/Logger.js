@@ -33,6 +33,32 @@ const ROTATION_CHECK_INTERVAL = 100;
  *
  * Levels (ascending): `debug` < `info` < `warn` < `error`. A configured
  * `level` filters out everything below it.
+ *
+ * **Level conventions** (used consistently across `src/` to keep noise
+ * tractable when an operator tails the log):
+ *
+ *   | Level   | When to use                                              |
+ *   |---------|----------------------------------------------------------|
+ *   | `debug` | Per-message tracing (every MIDI byte, every WS frame),   |
+ *   |         | cache hits, low-level state transitions. Filtered out    |
+ *   |         | in production. Cheap to add; never include in a hot path |
+ *   |         | without gating on `shouldLog('debug')`.                  |
+ *   | `info`  | Lifecycle events that matter for an operator: service    |
+ *   |         | initialised, device connected, file uploaded, rule       |
+ *   |         | loaded. One line per logical milestone — not per         |
+ *   |         | iteration.                                               |
+ *   | `warn`  | A degradation the system recovers from on its own.       |
+ *   |         | Examples: malformed CSV value silently dropped, optional |
+ *   |         | dependency missing, retry after a transient failure.     |
+ *   |         | The caller MUST still return a usable value.             |
+ *   | `error` | An operation failed and the failure surfaces to the      |
+ *   |         | caller (returned `null`, threw, rejected). The log line  |
+ *   |         | is the *root-cause record* — include the full error      |
+ *   |         | message + stack via the `data` argument when available.  |
+ *
+ * A useful mental check: if the same line could plausibly be either
+ * `warn` or `error`, ask "does the caller still get the result they
+ * asked for?". Yes → `warn`. No → `error`.
  */
 class Logger {
   /**

@@ -25,10 +25,31 @@ const MIDI_CLOCK_PPQ = TIMING.MIDI_CLOCK_PPQ;
 
 class MidiClockGenerator {
   /**
-   * @param {Object} app - Application context (deviceManager, database, latencyCompensator, logger, eventBus)
+   * @param {Object} deps - Service-container facade. The clock reads
+   *   `logger`, `eventBus`, `database` and `latencyCompensator` at
+   *   construction; the transports (deviceManager, network/serial/
+   *   bluetooth managers) are looked up lazily through getters because
+   *   they may register after the clock or be entirely absent on
+   *   non-Pi hosts.
    */
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.eventBus = deps.eventBus;
+    this.database = deps.database;
+    // `latencyCompensator` is registered AFTER this service in
+    // Application.initialize (line 221 vs 219) — eager capture would
+    // freeze `undefined`, silently disabling per-device clock-tick
+    // latency compensation. Same story for the four transport
+    // managers. Use lazy getters so we always pick up the live
+    // instance.
+    for (const name of ['deviceManager', 'networkManager',
+                        'serialMidiManager', 'bluetoothManager',
+                        'latencyCompensator']) {
+      Object.defineProperty(this, name, {
+        get: () => deps[name],
+        configurable: true,
+      });
+    }
     this._enabled = false;
     this._running = false;
     this._paused = false;
@@ -57,15 +78,15 @@ class MidiClockGenerator {
       this._compensationCache.clear();
       this._invalidateDeviceCache();
     };
-    this.app.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
-    this.app.eventBus?.on('device_settings_changed', this._onSettingsChanged);
+    this.eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
+    this.eventBus?.on('device_settings_changed', this._onSettingsChanged);
 
     // Invalidate device cache when devices connect/disconnect
     this._onDeviceChanged = () => {
       this._invalidateDeviceCache();
     };
-    this.app.eventBus?.on('device_connected', this._onDeviceChanged);
-    this.app.eventBus?.on('device_disconnected', this._onDeviceChanged);
+    this.eventBus?.on('device_connected', this._onDeviceChanged);
+    this.eventBus?.on('device_disconnected', this._onDeviceChanged);
   }
 
   // ─── Configuration ──────────────────────────────────────────
@@ -81,7 +102,7 @@ class MidiClockGenerator {
   setEnabled(enabled) {
     const wasEnabled = this._enabled;
     this._enabled = !!enabled;
-    this.app.logger.info(`MIDI Clock ${this._enabled ? 'enabled' : 'disabled'}`);
+    this.logger.info(`MIDI Clock ${this._enabled ? 'enabled' : 'disabled'}`);
 
     // If disabled while running, stop
     if (wasEnabled && !this._enabled && this._running) {
@@ -130,9 +151,9 @@ class MidiClockGenerator {
    * @private
    */
   _isDeviceClockEnabledInDB(deviceId) {
-    if (!this.app.database) return false;
+    if (!this.database) return false;
     try {
-      const settings = this.app.database.getDeviceSettings(deviceId);
+      const settings = this.database.getDeviceSettings(deviceId);
       return settings && !!settings.midi_clock_enabled;
     } catch (_e) { /* device settings may not exist yet */ }
     return false;
@@ -165,7 +186,7 @@ class MidiClockGenerator {
     this._sendTransportToAll('start');
     this._startClockTimer();
 
-    this.app.logger.info(`MIDI Clock started at ${tempo.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
+    this.logger.info(`MIDI Clock started at ${tempo.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
   }
 
   /**
@@ -180,7 +201,7 @@ class MidiClockGenerator {
     this._running = false;
     this._paused = false;
 
-    this.app.logger.info('MIDI Clock stopped');
+    this.logger.info('MIDI Clock stopped');
   }
 
   /**
@@ -194,7 +215,7 @@ class MidiClockGenerator {
     this._sendTransportToAll('stop');
     this._paused = true;
 
-    this.app.logger.info('MIDI Clock paused');
+    this.logger.info('MIDI Clock paused');
   }
 
   /**
@@ -208,7 +229,7 @@ class MidiClockGenerator {
     this._sendTransportToAll('continue');
     this._startClockTimer();
 
-    this.app.logger.info('MIDI Clock resumed');
+    this.logger.info('MIDI Clock resumed');
   }
 
   // ─── Tempo ──────────────────────────────────────────────────
@@ -223,7 +244,7 @@ class MidiClockGenerator {
     this._tempo = bpm;
     this._tickIntervalMs = this._calcTickInterval(bpm);
 
-    this.app.logger.debug(`MIDI Clock tempo changed to ${bpm.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
+    this.logger.debug(`MIDI Clock tempo changed to ${bpm.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
   }
 
   /** @returns {number} Current tempo in BPM. */
@@ -355,9 +376,9 @@ class MidiClockGenerator {
    */
   _sendClockToDevice(deviceId) {
     try {
-      this.app.deviceManager.sendMessage(deviceId, 'clock', {});
+      this.deviceManager.sendMessage(deviceId, 'clock', {});
     } catch (err) {
-      this.app.logger.debug(`Failed to send clock to ${deviceId}: ${err.message}`);
+      this.logger.debug(`Failed to send clock to ${deviceId}: ${err.message}`);
     }
   }
 
@@ -368,9 +389,9 @@ class MidiClockGenerator {
    */
   _sendTransportToDevice(deviceId, type) {
     try {
-      this.app.deviceManager.sendMessage(deviceId, type, {});
+      this.deviceManager.sendMessage(deviceId, type, {});
     } catch (err) {
-      this.app.logger.debug(`Failed to send ${type} to ${deviceId}: ${err.message}`);
+      this.logger.debug(`Failed to send ${type} to ${deviceId}: ${err.message}`);
     }
   }
 
@@ -413,21 +434,21 @@ class MidiClockGenerator {
    * @returns {string[]}
    */
   _resolveClockTargetDevices() {
-    const deviceManager = this.app.deviceManager;
+    const deviceManager = this.deviceManager;
     if (!deviceManager) return [];
 
     // Get all connected output devices
     const allOutputs = Array.from(deviceManager.outputs?.keys() || []);
 
     // Also include BLE, network, serial devices
-    const bleDevices = this.app.bluetoothManager
-      ? this.app.bluetoothManager.getPairedDevices().filter(d => d.connected).map(d => d.address || d.name)
+    const bleDevices = this.bluetoothManager
+      ? this.bluetoothManager.getPairedDevices().filter(d => d.connected).map(d => d.address || d.name)
       : [];
-    const networkDevices = this.app.networkManager
-      ? this.app.networkManager.getConnectedDevices().map(d => d.ip || d.name)
+    const networkDevices = this.networkManager
+      ? this.networkManager.getConnectedDevices().map(d => d.ip || d.name)
       : [];
-    const serialDevices = this.app.serialMidiManager
-      ? this.app.serialMidiManager.getConnectedPorts().map(p => p.path || p.name)
+    const serialDevices = this.serialMidiManager
+      ? this.serialMidiManager.getConnectedPorts().map(p => p.path || p.name)
       : [];
 
     const allDevices = [...allOutputs, ...bleDevices, ...networkDevices, ...serialDevices];
@@ -453,11 +474,11 @@ class MidiClockGenerator {
     let compensation = 0;
 
     // Find the maximum sync_delay across all channels for this device
-    if (this.app.database) {
+    if (this.database) {
       try {
         // Try channels 0-15 to find the max sync_delay configured for this device
         for (let ch = 0; ch < 16; ch++) {
-          const settings = this.app.database.getInstrumentSettings(deviceId, ch);
+          const settings = this.database.getInstrumentSettings(deviceId, ch);
           if (settings && settings.sync_delay != null) {
             if (settings.sync_delay > compensation) {
               compensation = settings.sync_delay;
@@ -468,8 +489,8 @@ class MidiClockGenerator {
     }
 
     // Add measured hardware latency
-    if (this.app.latencyCompensator) {
-      const hwLatency = this.app.latencyCompensator.getLatency(deviceId);
+    if (this.latencyCompensator) {
+      const hwLatency = this.latencyCompensator.getLatency(deviceId);
       if (hwLatency > 0) {
         compensation += hwLatency;
       }
@@ -498,11 +519,11 @@ class MidiClockGenerator {
     this._cachedTargetDevices = null;
     this._cachedDeviceCompensations = null;
     if (this._onSettingsChanged) {
-      this.app.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
+      this.eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
     }
     if (this._onDeviceChanged) {
-      this.app.eventBus?.off('device_connected', this._onDeviceChanged);
-      this.app.eventBus?.off('device_disconnected', this._onDeviceChanged);
+      this.eventBus?.off('device_connected', this._onDeviceChanged);
+      this.eventBus?.off('device_disconnected', this._onDeviceChanged);
     }
   }
 }

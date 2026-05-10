@@ -5,6 +5,17 @@
  * Sub-module of {@link InstrumentDatabase}; consumed via the
  * `InstrumentRepository` and the {@link InstrumentMatcher} scoring
  * code path.
+ *
+ * **Naming convention for the supported-CC list** — this property
+ * crosses the SQLite ↔ API ↔ frontend boundary, so the spelling must
+ * stay stable everywhere:
+ *   - SQL column / JSON-payload field : `supported_ccs` (snake_case)
+ *   - Backend JS local variables       : `supportedCcs` / `supportedCcsJson`
+ *   - Frontend hidden input id         : `#supportedCCs` (legacy double-cap)
+ *   - Frontend JS local variables      : `supportedCcs`
+ * The double-cap `CCs` is reserved for the DOM id (which must match
+ * the existing HTML) and the matcher's `_parseSupportedCCs` method
+ * name. Everywhere else, prefer `Ccs`/`supportedCcs`.
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
 

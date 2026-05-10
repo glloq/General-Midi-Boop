@@ -49,9 +49,20 @@ const STATUS_TO_TYPE = {
 };
 
 class SerialMidiManager extends EventEmitter {
-  constructor(app) {
+  /**
+   * @param {Object} deps - Service-container facade. The manager reads
+   *   `logger` and `config` at construction, then accesses
+   *   `deviceManager` lazily through a getter because it registers
+   *   later in the boot order.
+   */
+  constructor(deps) {
     super();
-    this.app = app;
+    this.logger = deps.logger;
+    this.config = deps.config;
+    Object.defineProperty(this, 'deviceManager', {
+      get: () => deps.deviceManager,
+      configurable: true,
+    });
     this.enabled = false;
     this.scanning = false;
     this.SerialPort = null; // Loaded dynamically
@@ -61,7 +72,7 @@ class SerialMidiManager extends EventEmitter {
     this.knownPorts = new Set();
 
     // Load config
-    const serialConfig = this.app.config.serial || {};
+    const serialConfig = this.config.serial || {};
     this.enabled = serialConfig.enabled || false;
     this.configuredPorts = serialConfig.ports || [];
 
@@ -70,7 +81,7 @@ class SerialMidiManager extends EventEmitter {
 
   async _initialize() {
     if (!this.enabled) {
-      this.app.logger.info('SerialMidiManager: disabled in config');
+      this.logger.info('SerialMidiManager: disabled in config');
       return;
     }
 
@@ -78,7 +89,7 @@ class SerialMidiManager extends EventEmitter {
       // Dynamic import of serialport (may not be installed)
       const serialportModule = await import('serialport');
       this.SerialPort = serialportModule.SerialPort;
-      this.app.logger.info('SerialMidiManager: serialport library loaded');
+      this.logger.info('SerialMidiManager: serialport library loaded');
 
       // Open configured ports
       await this._openConfiguredPorts();
@@ -86,12 +97,12 @@ class SerialMidiManager extends EventEmitter {
       // Start hot-plug monitoring
       this.startHotPlugMonitoring();
 
-      this.app.logger.info(`SerialMidiManager initialized (${this.openPorts.size} port(s) open)`);
+      this.logger.info(`SerialMidiManager initialized (${this.openPorts.size} port(s) open)`);
     } catch (error) {
       if (error.code === 'ERR_MODULE_NOT_FOUND' || error.code === 'MODULE_NOT_FOUND') {
-        this.app.logger.warn('SerialMidiManager: serialport package not installed. Run: npm install serialport');
+        this.logger.warn('SerialMidiManager: serialport package not installed. Run: npm install serialport');
       } else {
-        this.app.logger.error(`SerialMidiManager init error: ${error.message}`);
+        this.logger.error(`SerialMidiManager init error: ${error.message}`);
       }
       this.enabled = false;
     }
@@ -103,7 +114,7 @@ class SerialMidiManager extends EventEmitter {
       try {
         await this.openPort(portConfig.path, portConfig.name, portConfig.direction || 'both');
       } catch (error) {
-        this.app.logger.warn(`Failed to open configured port ${portConfig.path}: ${error.message}`);
+        this.logger.warn(`Failed to open configured port ${portConfig.path}: ${error.message}`);
       }
     }
   }
@@ -160,9 +171,9 @@ class SerialMidiManager extends EventEmitter {
         }
       }
 
-      this.app.logger.info(`Serial scan: ${availablePorts.length} port(s) found`);
+      this.logger.info(`Serial scan: ${availablePorts.length} port(s) found`);
     } catch (error) {
-      this.app.logger.error(`Serial scan error: ${error.message}`);
+      this.logger.error(`Serial scan error: ${error.message}`);
     } finally {
       this.scanning = false;
     }
@@ -190,7 +201,7 @@ class SerialMidiManager extends EventEmitter {
         }
       }
     } catch (error) {
-      this.app.logger.debug(`Cannot scan /dev: ${error.message}`);
+      this.logger.debug(`Cannot scan /dev: ${error.message}`);
     }
 
     return candidates;
@@ -287,13 +298,13 @@ class SerialMidiManager extends EventEmitter {
 
         // Handle port errors
         port.on('error', (error) => {
-          this.app.logger.error(`Serial port error ${portPath}: ${error.message}`);
+          this.logger.error(`Serial port error ${portPath}: ${error.message}`);
           this.emit('serial:error', { path: portPath, error: error.message });
         });
 
         // Handle port close
         port.on('close', () => {
-          this.app.logger.info(`Serial port closed: ${portPath}`);
+          this.logger.info(`Serial port closed: ${portPath}`);
           this.openPorts.delete(portPath);
           this.emit('serial:disconnected', { path: portPath, name: portInfo.name });
           this._broadcastDeviceList();
@@ -302,7 +313,7 @@ class SerialMidiManager extends EventEmitter {
         this.openPorts.set(portPath, portInfo);
         this.knownPorts.add(portPath);
 
-        this.app.logger.info(`Serial MIDI port opened: ${portPath} (${portInfo.name}, ${direction}, ${MIDI_BAUD_RATE} baud)`);
+        this.logger.info(`Serial MIDI port opened: ${portPath} (${portInfo.name}, ${direction}, ${MIDI_BAUD_RATE} baud)`);
         this.emit('serial:connected', { path: portPath, name: portInfo.name });
         this._broadcastDeviceList();
 
@@ -335,7 +346,7 @@ class SerialMidiManager extends EventEmitter {
     return new Promise((resolve) => {
       portInfo.port.close((err) => {
         if (err) {
-          this.app.logger.warn(`Error closing ${portPath}: ${err.message}`);
+          this.logger.warn(`Error closing ${portPath}: ${err.message}`);
         }
         this._broadcastDeviceList();
         resolve();
@@ -397,7 +408,7 @@ class SerialMidiManager extends EventEmitter {
       } else {
         // SysEx data byte - enforce size limit to prevent unbounded growth
         if (state.sysExBuffer.length >= MAX_SYSEX_BUFFER_SIZE) {
-          this.app.logger.warn(`SysEx buffer overflow on ${portPath} (>${MAX_SYSEX_BUFFER_SIZE} bytes), discarding`);
+          this.logger.warn(`SysEx buffer overflow on ${portPath} (>${MAX_SYSEX_BUFFER_SIZE} bytes), discarding`);
           state.inSysEx = false;
           state.sysExBuffer = [];
           return;
@@ -505,8 +516,8 @@ class SerialMidiManager extends EventEmitter {
       const deviceName = portInfo?.name || portPath;
 
       // Forward to DeviceManager's message handler
-      if (this.app.deviceManager) {
-        this.app.deviceManager.handleMidiMessage(deviceName, type, data);
+      if (this.deviceManager) {
+        this.deviceManager.handleMidiMessage(deviceName, type, data);
       }
     }
   }
@@ -518,8 +529,8 @@ class SerialMidiManager extends EventEmitter {
     const portInfo = this.openPorts.get(portPath);
     const deviceName = portInfo?.name || portPath;
 
-    if (this.app.deviceManager) {
-      this.app.deviceManager.handleMidiMessage(deviceName, 'sysex', bytes);
+    if (this.deviceManager) {
+      this.deviceManager.handleMidiMessage(deviceName, 'sysex', bytes);
     }
   }
 
@@ -541,8 +552,8 @@ class SerialMidiManager extends EventEmitter {
       const portInfo = this.openPorts.get(portPath);
       const deviceName = portInfo?.name || portPath;
 
-      if (this.app.deviceManager) {
-        this.app.deviceManager.handleMidiMessage(deviceName, type, {});
+      if (this.deviceManager) {
+        this.deviceManager.handleMidiMessage(deviceName, type, {});
       }
     }
   }
@@ -563,8 +574,8 @@ class SerialMidiManager extends EventEmitter {
       const portInfo = this.openPorts.get(portPath);
       const deviceName = portInfo?.name || portPath;
 
-      if (this.app.deviceManager) {
-        this.app.deviceManager.handleMidiMessage(deviceName, type, { bytes: dataBytes });
+      if (this.deviceManager) {
+        this.deviceManager.handleMidiMessage(deviceName, type, { bytes: dataBytes });
       }
     }
   }
@@ -610,7 +621,7 @@ class SerialMidiManager extends EventEmitter {
   _convertToMidiBytes(type, data) {
     const bytes = MidiUtils.convertToMidiBytes(type, data);
     if (!bytes) {
-      this.app.logger.warn(`Unknown MIDI type for serial: ${type}`);
+      this.logger.warn(`Unknown MIDI type for serial: ${type}`);
     }
     return bytes;
   }
@@ -624,7 +635,7 @@ class SerialMidiManager extends EventEmitter {
       this._checkPortChanges();
     }, HOT_PLUG_CHECK_INTERVAL_MS);
 
-    this.app.logger.info(`Serial hot-plug monitoring started (${HOT_PLUG_CHECK_INTERVAL_MS}ms interval)`);
+    this.logger.info(`Serial hot-plug monitoring started (${HOT_PLUG_CHECK_INTERVAL_MS}ms interval)`);
   }
 
   stopHotPlugMonitoring() {
@@ -646,7 +657,7 @@ class SerialMidiManager extends EventEmitter {
     }
 
     for (const portPath of removedPorts) {
-      this.app.logger.info(`Serial port disconnected: ${portPath}`);
+      this.logger.info(`Serial port disconnected: ${portPath}`);
       const portInfo = this.openPorts.get(portPath);
       // Remove from maps first to prevent concurrent access
       this.openPorts.delete(portPath);
@@ -717,8 +728,8 @@ class SerialMidiManager extends EventEmitter {
    * Broadcast device list update
    */
   _broadcastDeviceList() {
-    if (this.app.deviceManager) {
-      this.app.deviceManager.broadcastDeviceList();
+    if (this.deviceManager) {
+      this.deviceManager.broadcastDeviceList();
     }
   }
 
@@ -734,7 +745,7 @@ class SerialMidiManager extends EventEmitter {
         new Promise((resolve) => {
           portInfo.port.close((err) => {
             if (err) {
-              this.app.logger.warn(`Error closing serial port ${portPath}: ${err.message}`);
+              this.logger.warn(`Error closing serial port ${portPath}: ${err.message}`);
             }
             resolve();
           });
@@ -744,7 +755,7 @@ class SerialMidiManager extends EventEmitter {
 
     await Promise.all(closePromises);
     this.openPorts.clear();
-    this.app.logger.info('SerialMidiManager shut down');
+    this.logger.info('SerialMidiManager shut down');
   }
 }
 

@@ -19,12 +19,15 @@ const MidiConstants = {
     },
 
     /**
-     * Verifier si une note MIDI est une touche noire
+     * Verifier si une note MIDI est une touche noire.
+     * Accepte les valeurs negatives ou hors plage : on normalise le
+     * pitch-class avant de tester, ce qui evite de dupliquer le pattern
+     * `((m % 12) + 12) % 12` chez chaque appelant.
      * @param {number} note - Numero de note MIDI
      * @returns {boolean}
      */
     isBlackKey(note) {
-        const n = note % 12;
+        const n = ((note % 12) + 12) % 12;
         return n === 1 || n === 3 || n === 6 || n === 8 || n === 10;
     }
 };

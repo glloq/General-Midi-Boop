@@ -23,12 +23,13 @@ const PORT_RELEASE_DELAY_MS = 250;
 
 class DeviceDiscovery {
   /**
-   * @param {Object} app - Application context (logger, wsServer, etc.)
+   * @param {Object} deps - Service-container facade. Only `logger` is
+   *   read off it.
    * @param {Object} easymidi - The easymidi module (or stub)
    * @param {boolean} midiAvailable - Whether native MIDI is available
    */
-  constructor(app, easymidi, midiAvailable) {
-    this.app = app;
+  constructor(deps, easymidi, midiAvailable) {
+    this.logger = deps.logger;
     this.easymidi = easymidi;
     this.midiAvailable = midiAvailable;
 
@@ -51,12 +52,12 @@ class DeviceDiscovery {
    */
   async scanAndReopen(inputs, outputs, addInput, addOutput) {
     if (!this.midiAvailable) {
-      this.app.logger.warn('MIDI scan skipped: native MIDI library not available');
+      this.logger.warn('MIDI scan skipped: native MIDI library not available');
       return;
     }
 
     // Close all existing connections first to ensure clean state
-    this.app.logger.info('Closing existing MIDI connections...');
+    this.logger.info('Closing existing MIDI connections...');
 
     // Close inputs with error handling
     const inputsToClose = Array.from(inputs.entries());
@@ -64,9 +65,9 @@ class DeviceDiscovery {
       try {
         input.removeAllListeners();
         input.close();
-        this.app.logger.info(`✓ Closed input: ${name}`);
+        this.logger.info(`✓ Closed input: ${name}`);
       } catch (error) {
-        this.app.logger.warn(`Failed to close input ${name}: ${error.message}`);
+        this.logger.warn(`Failed to close input ${name}: ${error.message}`);
       }
     }
 
@@ -75,9 +76,9 @@ class DeviceDiscovery {
     for (const [name, output] of outputsToClose) {
       try {
         output.close();
-        this.app.logger.info(`✓ Closed output: ${name}`);
+        this.logger.info(`✓ Closed output: ${name}`);
       } catch (error) {
-        this.app.logger.warn(`Failed to close output ${name}: ${error.message}`);
+        this.logger.warn(`Failed to close output ${name}: ${error.message}`);
       }
     }
 
@@ -86,42 +87,42 @@ class DeviceDiscovery {
     outputs.clear();
 
     // Longer delay to ensure ports are properly released
-    this.app.logger.info('Waiting for ports to release...');
+    this.logger.info('Waiting for ports to release...');
     await new Promise(resolve => setTimeout(resolve, PORT_RELEASE_DELAY_MS));
 
     // USB MIDI devices - get fresh list
     const inputNames = this.easymidi.getInputs();
     const outputNames = this.easymidi.getOutputs();
 
-    this.app.logger.info(`Scanning devices: ${inputNames.length} inputs, ${outputNames.length} outputs`);
-    this.app.logger.info(`Input devices found: ${JSON.stringify(inputNames)}`);
-    this.app.logger.info(`Output devices found: ${JSON.stringify(outputNames)}`);
+    this.logger.info(`Scanning devices: ${inputNames.length} inputs, ${outputNames.length} outputs`);
+    this.logger.info(`Input devices found: ${JSON.stringify(inputNames)}`);
+    this.logger.info(`Output devices found: ${JSON.stringify(outputNames)}`);
 
     // Add inputs (filter out system devices)
     for (const name of inputNames) {
       if (this.isSystemDevice(name)) {
-        this.app.logger.info(`Skipping system device (input): ${name}`);
+        this.logger.info(`Skipping system device (input): ${name}`);
         continue;
       }
       try {
         addInput(name);
-        this.app.logger.info(`✓ Input device added: ${name}`);
+        this.logger.info(`✓ Input device added: ${name}`);
       } catch (error) {
-        this.app.logger.error(`✗ Failed to add input ${name}: ${error.message}`);
+        this.logger.error(`✗ Failed to add input ${name}: ${error.message}`);
       }
     }
 
     // Add outputs (filter out system devices)
     for (const name of outputNames) {
       if (this.isSystemDevice(name)) {
-        this.app.logger.info(`Skipping system device (output): ${name}`);
+        this.logger.info(`Skipping system device (output): ${name}`);
         continue;
       }
       try {
         addOutput(name);
-        this.app.logger.info(`✓ Output device added: ${name}`);
+        this.logger.info(`✓ Output device added: ${name}`);
       } catch (error) {
-        this.app.logger.error(`✗ Failed to add output ${name}: ${error.message}`);
+        this.logger.error(`✗ Failed to add output ${name}: ${error.message}`);
       }
     }
   }
@@ -170,10 +171,10 @@ class DeviceDiscovery {
               const serialNumber = match[3];
               serialNumbers[realPath] = serialNumber;
               serialNumbers[path.basename(realPath)] = serialNumber;
-              this.app.logger.debug(`Found USB device: ${device} -> ${serialNumber}`);
+              this.logger.debug(`Found USB device: ${device} -> ${serialNumber}`);
             }
           } catch (error) {
-            this.app.logger.warn(`Failed to read serial device ${device}: ${error.message}`);
+            this.logger.warn(`Failed to read serial device ${device}: ${error.message}`);
           }
         }
       }
@@ -204,14 +205,14 @@ class DeviceDiscovery {
             if (serialNum) {
               serialNumbers[`/dev/${tty}`] = serialNum;
               serialNumbers[tty] = serialNum;
-              this.app.logger.debug(`Found USB serial for ${tty}: ${serialNum}`);
+              this.logger.debug(`Found USB serial for ${tty}: ${serialNum}`);
             }
           } catch (error) {
             // Ignore errors for individual devices
           }
         }
       } catch (error) {
-        this.app.logger.warn(`udevadm not available: ${error.message}`);
+        this.logger.warn(`udevadm not available: ${error.message}`);
       }
 
       // Method 3: Check /sys/class/sound/ for USB MIDI class-compliant devices
@@ -243,18 +244,18 @@ class DeviceDiscovery {
                 cardId = fs.readFileSync(idFile, 'utf8').trim();
               }
               serialNumbers[cardId] = serial;
-              this.app.logger.debug(`Found USB MIDI serial for ${cardId}: ${serial}`);
+              this.logger.debug(`Found USB MIDI serial for ${cardId}: ${serial}`);
             }
           } catch (error) {
             // Skip individual card errors
           }
         }
       } catch (error) {
-        this.app.logger.debug(`/sys/class/sound not available: ${error.message}`);
+        this.logger.debug(`/sys/class/sound not available: ${error.message}`);
       }
 
     } catch (error) {
-      this.app.logger.warn(`Failed to get USB serial numbers: ${error.message}`);
+      this.logger.warn(`Failed to get USB serial numbers: ${error.message}`);
     }
 
     return serialNumbers;
@@ -320,7 +321,7 @@ class DeviceDiscovery {
       return; // Already running
     }
 
-    this.app.logger.info(`Starting hot-plug monitoring (check every ${this.hotPlugCheckIntervalMs}ms)`);
+    this.logger.info(`Starting hot-plug monitoring (check every ${this.hotPlugCheckIntervalMs}ms)`);
 
     // Initialize known devices from current inputs/outputs maps
     this.knownInputs = new Set(inputs.keys());
@@ -340,7 +341,7 @@ class DeviceDiscovery {
     if (this.hotPlugInterval) {
       clearInterval(this.hotPlugInterval);
       this.hotPlugInterval = null;
-      this.app.logger.info('Hot-plug monitoring stopped');
+      this.logger.info('Hot-plug monitoring stopped');
     }
   }
 
@@ -391,7 +392,7 @@ class DeviceDiscovery {
         return { cardIds: midiDeviceNames, method: 'proc' };
       }
     } catch (e) {
-      this.app.logger.debug(`/proc/asound not available: ${e.message}`);
+      this.logger.debug(`/proc/asound not available: ${e.message}`);
     }
 
     // Method 2: Fallback to easymidi
@@ -400,7 +401,7 @@ class DeviceDiscovery {
       const currentOutputs = new Set(this.easymidi.getOutputs().filter(name => !this.isSystemDevice(name)));
       return { inputs: currentInputs, outputs: currentOutputs, method: 'easymidi' };
     } catch (e) {
-      this.app.logger.error(`Failed to enumerate MIDI ports: ${e.message}`);
+      this.logger.error(`Failed to enumerate MIDI ports: ${e.message}`);
       return null;
     }
   }
@@ -415,7 +416,7 @@ class DeviceDiscovery {
       if (!ports) {
         this.hotPlugFailures++;
         if (this.hotPlugFailures >= 5) {
-          this.app.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
+          this.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
           this.stopHotPlugMonitoring();
         }
         return;
@@ -442,14 +443,14 @@ class DeviceDiscovery {
         }
 
         for (const name of removedInputs) {
-          this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
+          this.logger.info(`🔌 MIDI input disconnected: ${name}`);
           const input = inputs.get(name);
           if (input) {
             try {
               input.removeAllListeners();
               input.close();
             } catch (error) {
-              this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
+              this.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
             }
             inputs.delete(name);
           }
@@ -471,13 +472,13 @@ class DeviceDiscovery {
         }
 
         for (const name of removedOutputs) {
-          this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
+          this.logger.info(`🔌 MIDI output disconnected: ${name}`);
           const output = outputs.get(name);
           if (output) {
             try {
               output.close();
             } catch (error) {
-              this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
+              this.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
             }
             outputs.delete(name);
           }
@@ -498,7 +499,7 @@ class DeviceDiscovery {
             cardId.toLowerCase().includes(known)
           );
           if (!isKnown) {
-            this.app.logger.info(`🔌 New MIDI card detected: ${cardId} - rescanning...`);
+            this.logger.info(`🔌 New MIDI card detected: ${cardId} - rescanning...`);
             if (this._onFullRescan) {
               await this._onFullRescan();
             }
@@ -513,14 +514,14 @@ class DeviceDiscovery {
         // Check for new inputs
         for (const name of currentInputs) {
           if (!this.knownInputs.has(name)) {
-            this.app.logger.info(`🔌 New MIDI input detected: ${name}`);
+            this.logger.info(`🔌 New MIDI input detected: ${name}`);
             if (this._onDeviceChange) {
               try {
                 await this._onDeviceChange({ type: 'addInput', name });
                 this.knownInputs.add(name);
                 hasChanges = true;
               } catch (error) {
-                this.app.logger.error(`Failed to add new input ${name}: ${error.message}`);
+                this.logger.error(`Failed to add new input ${name}: ${error.message}`);
               }
             }
           }
@@ -529,14 +530,14 @@ class DeviceDiscovery {
         // Check for removed inputs
         const removedInputs = [...this.knownInputs].filter(name => !currentInputs.has(name));
         for (const name of removedInputs) {
-          this.app.logger.info(`🔌 MIDI input disconnected: ${name}`);
+          this.logger.info(`🔌 MIDI input disconnected: ${name}`);
           const input = inputs.get(name);
           if (input) {
             try {
               input.removeAllListeners();
               input.close();
             } catch (error) {
-              this.app.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
+              this.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
             }
             inputs.delete(name);
           }
@@ -547,14 +548,14 @@ class DeviceDiscovery {
         // Check for new outputs
         for (const name of currentOutputs) {
           if (!this.knownOutputs.has(name)) {
-            this.app.logger.info(`🔌 New MIDI output detected: ${name}`);
+            this.logger.info(`🔌 New MIDI output detected: ${name}`);
             if (this._onDeviceChange) {
               try {
                 await this._onDeviceChange({ type: 'addOutput', name });
                 this.knownOutputs.add(name);
                 hasChanges = true;
               } catch (error) {
-                this.app.logger.error(`Failed to add new output ${name}: ${error.message}`);
+                this.logger.error(`Failed to add new output ${name}: ${error.message}`);
               }
             }
           }
@@ -563,13 +564,13 @@ class DeviceDiscovery {
         // Check for removed outputs
         const removedOutputs = [...this.knownOutputs].filter(name => !currentOutputs.has(name));
         for (const name of removedOutputs) {
-          this.app.logger.info(`🔌 MIDI output disconnected: ${name}`);
+          this.logger.info(`🔌 MIDI output disconnected: ${name}`);
           const output = outputs.get(name);
           if (output) {
             try {
               output.close();
             } catch (error) {
-              this.app.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
+              this.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
             }
             outputs.delete(name);
           }
@@ -586,10 +587,10 @@ class DeviceDiscovery {
       }
 
     } catch (error) {
-      this.app.logger.error(`Error checking device changes: ${error.message}`);
+      this.logger.error(`Error checking device changes: ${error.message}`);
       this.hotPlugFailures++;
       if (this.hotPlugFailures >= 5) {
-        this.app.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
+        this.logger.error('Hot-plug monitoring: too many consecutive failures, stopping');
         this.stopHotPlugMonitoring();
       }
     }

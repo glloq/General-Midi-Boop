@@ -559,8 +559,8 @@ class DatabaseManager {
   getFiles(folder) {
     return this.midiDB.getFiles(folder);
   }
-  getAllFiles(options) {
-    return this.midiDB.getAllFiles(options);
+  getAllFiles() {
+    return this.midiDB.getAllFiles();
   }
   updateFile(fileId, updates) {
     return this.midiDB.updateFile(fileId, updates);

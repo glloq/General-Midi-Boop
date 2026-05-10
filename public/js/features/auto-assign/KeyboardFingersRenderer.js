@@ -458,8 +458,7 @@
          *  F#, G#, A#). Used by `_whiteKeysFromAnchor` to skip
          *  blacks while building the alternation sequence. */
         _isBlackKey(midi) {
-            const v = ((midi % 12) + 12) % 12;
-            return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
+            return MidiConstants.isBlackKey(midi);
         }
 
         /** Walk MIDI from `startMidi` upward, collecting `count`
@@ -472,7 +471,9 @@
         _whiteKeysFromAnchor(startMidi, count) {
             const out = [];
             let m = Math.max(0, Math.round(startMidi));
-            if (this._isBlackKey(m)) m--;
+            // Snap FORWARD on black anchors so the sequence stays in phase
+            // with KeyboardHandPositionState._whiteKeysFromAnchor.
+            if (this._isBlackKey(m)) m++;
             while (out.length < count && m <= 127) {
                 if (!this._isBlackKey(m)) out.push(m);
                 m++;

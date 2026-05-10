@@ -8,6 +8,7 @@
  */
 
 import BaseLightingDriver from './BaseLightingDriver.js';
+import { clamp } from '../utils/MathUtils.js';
 
 class MqttLightDriver extends BaseLightingDriver {
   constructor(device, logger) {
@@ -132,7 +133,7 @@ class MqttLightDriver extends BaseLightingDriver {
     // WLED JSON API over MQTT
     const payload = {
       on: true,
-      bri: Math.max(0, Math.min(255, brightness)),
+      bri: clamp(brightness),
       seg: [{
         id: 0,
         i: [ledIndex, [r, g, b]]
@@ -144,7 +145,7 @@ class MqttLightDriver extends BaseLightingDriver {
   _publishWledRange(startLed, endLed, r, g, b, brightness) {
     const payload = {
       on: true,
-      bri: Math.max(0, Math.min(255, brightness)),
+      bri: clamp(brightness),
       seg: [{
         id: 0,
         i: [startLed, endLed + 1, [r, g, b]]

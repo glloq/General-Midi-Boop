@@ -47,11 +47,31 @@ try {
  */
 class DeviceManager {
   /**
-   * @param {Object} app - Application facade. Needs `logger`,
-   *   `eventBus`, `database`, `wsServer`.
+   * @param {Object} deps - Service-container facade. The manager
+   *   reads `logger`, `eventBus`, `database`, `instrumentRepository`
+   *   at construction time, and looks up `wsServer`, `midiRouter`,
+   *   `networkManager`, `serialMidiManager`, `bluetoothManager`
+   *   lazily through getters (those may register after the device
+   *   manager or be entirely absent on non-Pi hosts).
    */
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.eventBus = deps.eventBus;
+    this.database = deps.database;
+    // `instrumentRepository` is registered AFTER DeviceManager in
+    // Application.initialize (line 297 vs 217) — eager capture would
+    // freeze `undefined` and `_restoreVirtualDevicesFromDB` would
+    // permanently short-circuit. Lazy getter so the live repo is
+    // picked up when it appears.
+    for (const name of ['wsServer', 'midiRouter', 'networkManager',
+                        'serialMidiManager', 'bluetoothManager',
+                        'instrumentRepository']) {
+      Object.defineProperty(this, name, {
+        get: () => deps[name],
+        configurable: true,
+      });
+    }
+
     this.devices = new Map();
     this.inputs = new Map();
     this.outputs = new Map();
@@ -66,12 +86,12 @@ class DeviceManager {
     this._rateLimitCache = new Map();    // deviceId -> limit (0 = unlimited)
 
     // Listen for device settings changes to refresh rate limit cache
-    this.app.eventBus?.on('device_settings_changed', ({ deviceId }) => {
+    this.eventBus?.on('device_settings_changed', ({ deviceId }) => {
       this._rateLimitCache.delete(deviceId);
     });
 
     // Delegate discovery, hot-plug monitoring, and USB serial detection
-    this.discovery = new DeviceDiscovery(app, easymidi, midiAvailable);
+    this.discovery = new DeviceDiscovery(deps, easymidi, midiAvailable);
     this.discovery.setChangeCallbacks(
       async (change) => {
         // Handle individual device changes from hot-plug monitoring
@@ -82,7 +102,7 @@ class DeviceManager {
         } else if (change.type === 'update') {
           await this.updateDeviceMap();
           this.broadcastDeviceList();
-          this.app.logger.info(`Device list updated: ${this.devices.size} device(s)`);
+          this.logger.info(`Device list updated: ${this.devices.size} device(s)`);
         }
       },
       async () => {
@@ -92,9 +112,9 @@ class DeviceManager {
     );
 
     if (!midiAvailable) {
-      this.app.logger.warn('DeviceManager initialized WITHOUT hardware MIDI support (native library not available)');
+      this.logger.warn('DeviceManager initialized WITHOUT hardware MIDI support (native library not available)');
     } else {
-      this.app.logger.info('DeviceManager initialized');
+      this.logger.info('DeviceManager initialized');
     }
   }
 
@@ -124,7 +144,7 @@ class DeviceManager {
     this.broadcastDeviceList();
 
     const deviceList = this.getDeviceList();
-    this.app.logger.info(`Scan complete: ${deviceList.length} device(s) found`);
+    this.logger.info(`Scan complete: ${deviceList.length} device(s) found`);
 
     // Re-register virtual instruments from DB so they survive restarts
     await this._restoreVirtualDevicesFromDB();
@@ -144,9 +164,9 @@ class DeviceManager {
    * @returns {Promise<void>}
    */
   async _restoreVirtualDevicesFromDB() {
-    if (!this.app.instrumentRepository) return;
+    if (!this.instrumentRepository) return;
     try {
-      const instruments = this.app.instrumentRepository.findAllWithCapabilities();
+      const instruments = this.instrumentRepository.findAllWithCapabilities();
       const seen = new Set();
       for (const inst of instruments) {
         const deviceId = inst.device_id;
@@ -169,10 +189,10 @@ class DeviceManager {
         }
       }
       if (seen.size > 0) {
-        this.app.logger.info(`Restored ${seen.size} virtual device(s) from database`);
+        this.logger.info(`Restored ${seen.size} virtual device(s) from database`);
       }
     } catch (e) {
-      this.app.logger.warn(`Failed to restore virtual devices from DB: ${e.message}`);
+      this.logger.warn(`Failed to restore virtual devices from DB: ${e.message}`);
     }
   }
 
@@ -194,7 +214,7 @@ class DeviceManager {
 
       // Add error listener to detect device issues
       input.on('error', (error) => {
-        this.app.logger.error(`Input device error ${name}: ${error.message}`);
+        this.logger.error(`Input device error ${name}: ${error.message}`);
       });
 
       // Handle MIDI messages
@@ -209,7 +229,7 @@ class DeviceManager {
 
       this.inputs.set(name, input);
     } catch (error) {
-      this.app.logger.error(`Cannot open input ${name}: ${error.message}`);
+      this.logger.error(`Cannot open input ${name}: ${error.message}`);
       throw error;
     }
   }
@@ -230,7 +250,7 @@ class DeviceManager {
       const output = new easymidi.Output(name);
       this.outputs.set(name, output);
     } catch (error) {
-      this.app.logger.error(`Cannot open output ${name}: ${error.message}`);
+      this.logger.error(`Cannot open output ${name}: ${error.message}`);
       throw error;
     }
   }
@@ -246,9 +266,9 @@ class DeviceManager {
   async updateDeviceMap() {
     this.devices.clear();
 
-    this.app.logger.debug(`Updating device map: ${this.inputs.size} inputs, ${this.outputs.size} outputs`);
-    this.app.logger.debug(`Input names: ${Array.from(this.inputs.keys()).join(', ')}`);
-    this.app.logger.debug(`Output names: ${Array.from(this.outputs.keys()).join(', ')}`);
+    this.logger.debug(`Updating device map: ${this.inputs.size} inputs, ${this.outputs.size} outputs`);
+    this.logger.debug(`Input names: ${Array.from(this.inputs.keys()).join(', ')}`);
+    this.logger.debug(`Output names: ${Array.from(this.outputs.keys()).join(', ')}`);
 
     // Get USB serial numbers for all connected devices
     const serialNumbers = await this.discovery.getUsbSerialNumbers();
@@ -271,7 +291,7 @@ class DeviceManager {
         });
 
         if (serialNumber) {
-          this.app.logger.info(`USB device ${name} has serial number: ${serialNumber}`);
+          this.logger.info(`USB device ${name} has serial number: ${serialNumber}`);
         }
       }
     }
@@ -293,7 +313,7 @@ class DeviceManager {
         });
 
         if (serialNumber) {
-          this.app.logger.info(`USB device ${name} has serial number: ${serialNumber}`);
+          this.logger.info(`USB device ${name} has serial number: ${serialNumber}`);
         }
       }
     }
@@ -338,8 +358,8 @@ class DeviceManager {
     const allDevices = [...usbDevices];
 
     // Add paired and connected Bluetooth devices
-    if (this.app.bluetoothManager) {
-      const pairedDevices = this.app.bluetoothManager.getPairedDevices() || [];
+    if (this.bluetoothManager) {
+      const pairedDevices = this.bluetoothManager.getPairedDevices() || [];
 
       const connectedBluetoothDevices = pairedDevices
         .filter(device => device.connected)
@@ -360,8 +380,8 @@ class DeviceManager {
     }
 
     // Add connected network devices
-    if (this.app.networkManager) {
-      const networkDevices = (this.app.networkManager.getConnectedDevices() || [])
+    if (this.networkManager) {
+      const networkDevices = (this.networkManager.getConnectedDevices() || [])
         .map(device => ({
           id: device.ip,
           name: device.name || `Network MIDI (${device.ip})`,
@@ -380,8 +400,8 @@ class DeviceManager {
     }
 
     // Add serial MIDI devices (GPIO UART)
-    if (this.app.serialMidiManager) {
-      const serialPorts = (this.app.serialMidiManager.getConnectedPorts() || [])
+    if (this.serialMidiManager) {
+      const serialPorts = (this.serialMidiManager.getConnectedPorts() || [])
         .map(port => ({
           id: port.path,
           name: port.name || `Serial MIDI (${port.path})`,
@@ -404,9 +424,9 @@ class DeviceManager {
     const uniqueDevices = [];
     const seenNames = new Set();
 
-    this.app.logger.debug(`[Deduplication] ${allDevices.length} devices before:`);
+    this.logger.debug(`[Deduplication] ${allDevices.length} devices before:`);
     allDevices.forEach(d => {
-      this.app.logger.debug(`  - "${d.name}" (${d.type})`);
+      this.logger.debug(`  - "${d.name}" (${d.type})`);
     });
 
     const normalizeName = (name) => {
@@ -420,21 +440,21 @@ class DeviceManager {
       if (!seenNames.has(normalizedName)) {
         seenNames.add(normalizedName);
         uniqueDevices.push(device);
-        this.app.logger.debug(`[Deduplication] ✓ KEPT: "${device.name}" (${device.type}) [normalized: "${normalizedName}"]`);
+        this.logger.debug(`[Deduplication] ✓ KEPT: "${device.name}" (${device.type}) [normalized: "${normalizedName}"]`);
       } else {
         // Merge capabilities: if the duplicate has input/output the kept one lacks, merge them
         const kept = uniqueDevices.find(d => normalizeName(d.name) === normalizedName);
         if (kept) {
           if (device.input && !kept.input) kept.input = true;
           if (device.output && !kept.output) kept.output = true;
-          this.app.logger.debug(`[Deduplication] ↗ MERGED: "${device.name}" (${device.type}) into "${kept.name}" → input=${kept.input}, output=${kept.output}`);
+          this.logger.debug(`[Deduplication] ↗ MERGED: "${device.name}" (${device.type}) into "${kept.name}" → input=${kept.input}, output=${kept.output}`);
         } else {
-          this.app.logger.debug(`[Deduplication] ✗ SKIP: "${device.name}" (${device.type}) [normalized: "${normalizedName}"] - duplicate`);
+          this.logger.debug(`[Deduplication] ✗ SKIP: "${device.name}" (${device.type}) [normalized: "${normalizedName}"] - duplicate`);
         }
       }
     }
 
-    this.app.logger.info(`[Deduplication] Result: ${allDevices.length} → ${uniqueDevices.length} devices`);
+    this.logger.info(`[Deduplication] Result: ${allDevices.length} → ${uniqueDevices.length} devices`);
 
     return uniqueDevices;
   }
@@ -458,15 +478,15 @@ class DeviceManager {
     }
 
     // Broadcast to debug monitor if monitorAll is active
-    if (this.app.midiRouter?.monitorAll && this.app.wsServer) {
+    if (this.midiRouter?.monitorAll && this.wsServer) {
       let instrumentName = null;
-      if (this.app.database && data && data.channel !== undefined) {
+      if (this.database && data && data.channel !== undefined) {
         try {
-          const settings = this.app.database.getInstrumentSettings(deviceName, data.channel);
+          const settings = this.database.getInstrumentSettings(deviceName, data.channel);
           if (settings) instrumentName = settings.custom_name || settings.name;
         } catch (e) { /* instrument name lookup is optional for monitor events */ }
       }
-      this.app.wsServer.broadcast('monitor_event', {
+      this.wsServer.broadcast('monitor_event', {
         device: deviceName,
         instrumentName: instrumentName,
         type: type,
@@ -483,66 +503,66 @@ class DeviceManager {
         output.send(type, data);
         return true;
       } catch (error) {
-        this.app.logger.error(`Failed to send MIDI message to ${deviceName}: ${error.message}`);
+        this.logger.error(`Failed to send MIDI message to ${deviceName}: ${error.message}`);
         return false;
       }
     }
 
     // Check Bluetooth device
-    if (this.app.bluetoothManager) {
-      const pairedDevices = this.app.bluetoothManager.getPairedDevices();
+    if (this.bluetoothManager) {
+      const pairedDevices = this.bluetoothManager.getPairedDevices();
       const bleDevice = pairedDevices.find(d =>
         d.address === deviceName || d.name === deviceName
       );
 
       if (bleDevice && bleDevice.connected) {
         try {
-          this.app.bluetoothManager.sendMidiMessage(bleDevice.address, type, data)
+          this.bluetoothManager.sendMidiMessage(bleDevice.address, type, data)
             .catch(error => {
-              this.app.logger.error(`BLE MIDI send failed to ${deviceName}: ${error.message}`);
+              this.logger.error(`BLE MIDI send failed to ${deviceName}: ${error.message}`);
             });
           return true;
         } catch (error) {
-          this.app.logger.error(`Failed to send MIDI via Bluetooth to ${deviceName}: ${error.message}`);
+          this.logger.error(`Failed to send MIDI via Bluetooth to ${deviceName}: ${error.message}`);
           return false;
         }
       }
     }
 
     // Check network device
-    if (this.app.networkManager) {
-      const networkDevices = this.app.networkManager.getConnectedDevices();
+    if (this.networkManager) {
+      const networkDevices = this.networkManager.getConnectedDevices();
       const networkDevice = networkDevices.find(d =>
         d.ip === deviceName || d.name === deviceName || d.address === deviceName
       );
 
       if (networkDevice) {
         try {
-          this.app.networkManager.sendMidiMessage(networkDevice.ip, type, data)
+          this.networkManager.sendMidiMessage(networkDevice.ip, type, data)
             .catch(error => {
-              this.app.logger.error(`Network MIDI send failed to ${deviceName}: ${error.message}`);
+              this.logger.error(`Network MIDI send failed to ${deviceName}: ${error.message}`);
             });
           return true;
         } catch (error) {
-          this.app.logger.error(`Failed to send MIDI via Network to ${deviceName}: ${error.message}`);
+          this.logger.error(`Failed to send MIDI via Network to ${deviceName}: ${error.message}`);
           return false;
         }
       }
     }
 
     // Check serial MIDI device (GPIO)
-    if (this.app.serialMidiManager) {
-      const serialPorts = this.app.serialMidiManager.getConnectedPorts();
+    if (this.serialMidiManager) {
+      const serialPorts = this.serialMidiManager.getConnectedPorts();
       const serialPort = serialPorts.find(p =>
         p.name === deviceName || p.path === deviceName
       );
 
       if (serialPort) {
         try {
-          this.app.serialMidiManager.sendMidiMessage(serialPort.path, type, data);
+          this.serialMidiManager.sendMidiMessage(serialPort.path, type, data);
           return true;
         } catch (error) {
-          this.app.logger.error(`Failed to send MIDI message via Serial to ${deviceName}: ${error.message}`);
+          this.logger.error(`Failed to send MIDI message via Serial to ${deviceName}: ${error.message}`);
           return false;
         }
       }
@@ -552,15 +572,15 @@ class DeviceManager {
     const softVirtual = this.softVirtualDevices.get(deviceName);
     if (softVirtual) {
       let instrumentName = null;
-      if (this.app.database && data && data.channel !== undefined) {
+      if (this.database && data && data.channel !== undefined) {
         try {
-          const settings = this.app.database.getInstrumentSettings(deviceName, data.channel);
+          const settings = this.database.getInstrumentSettings(deviceName, data.channel);
           if (settings) instrumentName = settings.custom_name || settings.name;
         } catch (e) { /* optional */ }
       }
-      this.app.logger.info(`[virtual:${instrumentName || softVirtual.name}] ${type} ${JSON.stringify(data)}`);
-      if (this.app.wsServer) {
-        this.app.wsServer.broadcast('monitor_event', {
+      this.logger.info(`[virtual:${instrumentName || softVirtual.name}] ${type} ${JSON.stringify(data)}`);
+      if (this.wsServer) {
+        this.wsServer.broadcast('monitor_event', {
           device: deviceName,
           instrumentName: instrumentName || softVirtual.name,
           type: type,
@@ -573,7 +593,7 @@ class DeviceManager {
       return true;
     }
 
-    this.app.logger.warn(`Output device not found: ${deviceName}`);
+    this.logger.warn(`Output device not found: ${deviceName}`);
     return false;
   }
 
@@ -590,18 +610,18 @@ class DeviceManager {
    * @returns {boolean} True when the request was queued for send.
    */
   sendIdentityRequest(deviceName, _deviceId = 0x7F) {
-    this.app.logger.debug(`Looking for output: ${deviceName}`);
-    this.app.logger.debug(`Available outputs: ${Array.from(this.outputs.keys()).join(', ')}`);
+    this.logger.debug(`Looking for output: ${deviceName}`);
+    this.logger.debug(`Available outputs: ${Array.from(this.outputs.keys()).join(', ')}`);
 
     const output = this.outputs.get(deviceName);
     if (!output) {
       const hasInput = this.inputs.has(deviceName);
       if (hasInput) {
-        this.app.logger.warn(`Device ${deviceName} is input-only, cannot send SysEx messages`);
+        this.logger.warn(`Device ${deviceName} is input-only, cannot send SysEx messages`);
         throw new Error(`Device ${deviceName} is input-only. Cannot send SysEx messages to input-only devices.`);
       } else {
-        this.app.logger.warn(`Output device not found: ${deviceName}`);
-        this.app.logger.warn(`Available outputs: ${Array.from(this.outputs.keys()).join(', ')}`);
+        this.logger.warn(`Output device not found: ${deviceName}`);
+        this.logger.warn(`Available outputs: ${Array.from(this.outputs.keys()).join(', ')}`);
         throw new Error(`Output device not found: ${deviceName}`);
       }
     }
@@ -617,10 +637,10 @@ class DeviceManager {
       ];
 
       output.send('sysex', sysexData);
-      this.app.logger.info(`GMB Block 1 Identity Request sent to ${deviceName}`);
+      this.logger.info(`GMB Block 1 Identity Request sent to ${deviceName}`);
       return true;
     } catch (error) {
-      this.app.logger.error(`Failed to send Identity Request: ${error.message}`);
+      this.logger.error(`Failed to send Identity Request: ${error.message}`);
       throw error;
     }
   }
@@ -641,35 +661,35 @@ class DeviceManager {
     // Parse SysEx Identity Reply if applicable
     if (type === 'sysex') {
       const bytes = Array.isArray(msg) ? msg : (msg.bytes || []);
-      this.app.logger.info(`SysEx message received from ${deviceName}: ${bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' ')} (${bytes.length} bytes)`);
+      this.logger.info(`SysEx message received from ${deviceName}: ${bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' ')} (${bytes.length} bytes)`);
 
       const identityInfo = this.parseIdentityReply(msg);
       if (identityInfo) {
-        this.app.logger.info(`Identity Reply received from ${deviceName}:`, identityInfo);
+        this.logger.info(`Identity Reply received from ${deviceName}:`, identityInfo);
 
-        if (this.app.database) {
+        if (this.database) {
           try {
-            this.app.database.saveSysExIdentity(deviceName, 0, identityInfo);
-            this.app.logger.info(`SysEx identity saved for ${deviceName}`);
+            this.database.saveSysExIdentity(deviceName, 0, identityInfo);
+            this.logger.info(`SysEx identity saved for ${deviceName}`);
           } catch (e) {
-            this.app.logger.warn(`Failed to save SysEx identity for ${deviceName}: ${e.message}`);
+            this.logger.warn(`Failed to save SysEx identity for ${deviceName}: ${e.message}`);
           }
         }
 
-        if (this.app.wsServer) {
-          this.app.wsServer.broadcast('device_identity', {
+        if (this.wsServer) {
+          this.wsServer.broadcast('device_identity', {
             device: deviceName,
             identity: identityInfo,
             timestamp: timestamp
           });
         }
       } else {
-        this.app.logger.debug(`SysEx message from ${deviceName} is not an Identity Reply`);
+        this.logger.debug(`SysEx message from ${deviceName} is not an Identity Reply`);
       }
     }
 
     // Emit to event bus
-    this.app.eventBus.emit('midi_message', {
+    this.eventBus.emit('midi_message', {
       device: deviceName,
       type: type,
       data: msg,
@@ -677,13 +697,13 @@ class DeviceManager {
     });
 
     // Route message if router is available
-    if (this.app.midiRouter) {
-      this.app.midiRouter.routeMessage(deviceName, type, msg);
+    if (this.midiRouter) {
+      this.midiRouter.routeMessage(deviceName, type, msg);
     }
 
     // Broadcast to WebSocket clients
-    if (this.app.wsServer) {
-      this.app.wsServer.broadcast('midi_event', {
+    if (this.wsServer) {
+      this.wsServer.broadcast('midi_event', {
         device: deviceName,
         type: type,
         data: msg,
@@ -719,8 +739,8 @@ class DeviceManager {
   parseIdentityReply(msg) {
     const bytes = Array.isArray(msg) ? msg : (msg.bytes || []);
 
-    this.app.logger.debug(`Received SysEx message: ${bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' ')}`);
-    this.app.logger.debug(`Length: ${bytes.length}, First: 0x${bytes[0]?.toString(16).toUpperCase()}, Last: 0x${bytes[bytes.length - 1]?.toString(16).toUpperCase()}`);
+    this.logger.debug(`Received SysEx message: ${bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' ')}`);
+    this.logger.debug(`Length: ${bytes.length}, First: 0x${bytes[0]?.toString(16).toUpperCase()}, Last: 0x${bytes[bytes.length - 1]?.toString(16).toUpperCase()}`);
 
     if (bytes.length !== 52) return null;
     if (bytes[0] !== 0xF0) return null;
@@ -839,7 +859,7 @@ class DeviceManager {
     await this.updateDeviceMap();
     this.broadcastDeviceList();
 
-    this.app.logger.info(`Virtual device created: ${name}`);
+    this.logger.info(`Virtual device created: ${name}`);
     return name;
   }
 
@@ -863,7 +883,7 @@ class DeviceManager {
     await this.updateDeviceMap();
     this.broadcastDeviceList();
 
-    this.app.logger.info(`Virtual device deleted: ${name}`);
+    this.logger.info(`Virtual device deleted: ${name}`);
   }
 
   /**
@@ -893,7 +913,7 @@ class DeviceManager {
       status: DEVICE_STATUS.CONNECTED,
       usbSerialNumber: null
     });
-    this.app.logger.info(`Soft virtual device registered: ${deviceId}`);
+    this.logger.info(`Soft virtual device registered: ${deviceId}`);
     this.broadcastDeviceList();
   }
 
@@ -907,7 +927,7 @@ class DeviceManager {
   removeVirtualDevice(deviceId) {
     this.softVirtualDevices.delete(deviceId);
     this.devices.delete(deviceId);
-    this.app.logger.info(`Soft virtual device unregistered: ${deviceId}`);
+    this.logger.info(`Soft virtual device unregistered: ${deviceId}`);
     this.broadcastDeviceList();
   }
 
@@ -923,7 +943,7 @@ class DeviceManager {
     }
 
     device.enabled = enabled;
-    this.app.logger.info(`Device ${deviceId} ${enabled ? 'enabled' : 'disabled'}`);
+    this.logger.info(`Device ${deviceId} ${enabled ? 'enabled' : 'disabled'}`);
     this.broadcastDeviceList();
   }
 
@@ -967,8 +987,8 @@ class DeviceManager {
    * @returns {void}
    */
   broadcastDeviceList() {
-    if (this.app.wsServer) {
-      this.app.wsServer.broadcast('device_list', {
+    if (this.wsServer) {
+      this.wsServer.broadcast('device_list', {
         devices: this.getDeviceList()
       });
     }
@@ -991,7 +1011,7 @@ class DeviceManager {
         input.removeAllListeners();
         input.close();
       } catch (error) {
-        this.app.logger.error(`Error closing input: ${error.message}`);
+        this.logger.error(`Error closing input: ${error.message}`);
       }
     });
 
@@ -1000,7 +1020,7 @@ class DeviceManager {
       try {
         output.close();
       } catch (error) {
-        this.app.logger.error(`Error closing output: ${error.message}`);
+        this.logger.error(`Error closing output: ${error.message}`);
       }
     });
 
@@ -1011,11 +1031,11 @@ class DeviceManager {
         vdev.input.close();
         vdev.output.close();
       } catch (error) {
-        this.app.logger.error(`Error closing virtual device: ${error.message}`);
+        this.logger.error(`Error closing virtual device: ${error.message}`);
       }
     });
 
-    this.app.logger.info('DeviceManager closed');
+    this.logger.info('DeviceManager closed');
   }
 
   // ─── Rate Limiting ────────────────────────────────────────
@@ -1057,9 +1077,9 @@ class DeviceManager {
       return this._rateLimitCache.get(deviceId);
     }
     let limit = 0;
-    if (this.app.database) {
+    if (this.database) {
       try {
-        const settings = this.app.database.getDeviceSettings(deviceId);
+        const settings = this.database.getDeviceSettings(deviceId);
         if (settings) limit = settings.message_rate_limit || 0;
       } catch (_e) { /* device settings may not exist yet */ }
     }

@@ -280,8 +280,7 @@
          *  (`_whiteKeysFromAnchor`, `_snapAnchor`,
          *  `_displaySpanFor`). @private */
         _isBlackKey(midi) {
-            const v = ((midi % 12) + 12) % 12;
-            return v === 1 || v === 3 || v === 6 || v === 8 || v === 10;
+            return MidiConstants.isBlackKey(midi);
         }
 
         /** Walk MIDI from `startMidi` upward, picking `count` whites
@@ -619,7 +618,12 @@
                 * (ext.hi - ext.lo - hand.span));
             const overrideAnchor = this._latestAnchorOverride(hand.id);
             const raw = Number.isFinite(overrideAnchor) ? overrideAnchor : seed;
-            return Math.max(ext.lo, Math.min(ext.hi - hand.span, raw));
+            const clamped = Math.max(ext.lo, Math.min(ext.hi - hand.span, raw));
+            // Piano layouts must seed on a white key — otherwise the
+            // first frame's currentBands lands on a black-key anchor
+            // and the fingers renderer paints out of phase with the
+            // state until the next user interaction.
+            return this.layout === 'piano' ? this._snapAnchor(clamped) : clamped;
         }
 
         /** Most recent `hand_anchors` entry for `handId` whose tick

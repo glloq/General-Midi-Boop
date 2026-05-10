@@ -17,6 +17,7 @@
  * one per note based on context (see roadmap Phase 8).
  */
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
+import { parseValidMidiList } from '../../utils/MidiListParser.js';
 
 function _validateIdentity(data) {
   if (!data.deviceId) {
@@ -65,18 +66,7 @@ function _validateVoicePayload(v) {
   };
   payload.min_note_interval = num(v.min_note_interval, 'min_note_interval', 0, 5000);
   payload.min_note_duration = num(v.min_note_duration, 'min_note_duration', 0, 5000);
-  if (Array.isArray(v.supported_ccs)) {
-    payload.supported_ccs = v.supported_ccs
-      .map((n) => parseInt(n, 10))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-  } else if (typeof v.supported_ccs === 'string') {
-    payload.supported_ccs = v.supported_ccs
-      .split(',')
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-  } else {
-    payload.supported_ccs = null;
-  }
+  payload.supported_ccs = parseValidMidiList(v.supported_ccs);
   if (v.display_order !== undefined) {
     const o = parseInt(v.display_order, 10);
     if (Number.isFinite(o)) payload.display_order = o;
@@ -99,13 +89,7 @@ function _validateVoicePayload(v) {
       && payload.note_range_min > payload.note_range_max) {
     throw new ValidationError('note_range_min must be <= note_range_max', 'note_range_min');
   }
-  if (Array.isArray(v.selected_notes)) {
-    payload.selected_notes = v.selected_notes
-      .map((n) => parseInt(n, 10))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-  } else {
-    payload.selected_notes = null;
-  }
+  payload.selected_notes = parseValidMidiList(v.selected_notes);
   if (v.octave_mode !== undefined && v.octave_mode !== null) {
     const allowed = ['chromatic', 'diatonic', 'pentatonic'];
     if (!allowed.includes(v.octave_mode)) {

@@ -25,7 +25,7 @@
 
     const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const NOTE_NAMES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
-    const BLACK_KEY_SEMITONES = new Set([1, 3, 6, 8, 10]);
+    // Black-key membership lives in MidiConstants — no local Set.
 
     // Concert pitch reference. Modern standard is 440 Hz; exposed as a
     // module constant rather than a user setting because any reasonable
@@ -218,7 +218,7 @@
         _chromaticPillsHtml() {
             const pills = [];
             for (let m = PICKER_MIN_MIDI; m <= PICKER_MAX_MIDI; m++) {
-                const isBlack = BLACK_KEY_SEMITONES.has(((m % 12) + 12) % 12);
+                const isBlack = MidiConstants.isBlackKey(m);
                 const active = m === this.state.targetMidi;
                 pills.push(`<button type="button"
                         class="tuner-pick-pill ${isBlack ? 'black' : ''} ${active ? 'active' : ''}"

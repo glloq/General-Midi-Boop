@@ -204,9 +204,11 @@ quelqu'un attaque le sujet.
 - **`MidiRouter`** : itère toutes les routes pour chaque message MIDI.
   Ajouter une indexation par source pour ramener le coût à O(1) par
   message.
-- **`getAllFiles()`** : charge la colonne BLOB entière même quand seules
-  les métadonnées sont demandées. Ajouter une variante `getAllMetadata()`
-  ou colonnes sélectionnées.
+<!-- Résolu : la colonne BLOB n'existe plus (les bytes vivent sur disque
+     via BlobStore depuis la migration vers les blob_path). `getAllFiles()`
+     ne projette désormais que `LIST_COLUMNS`, et le flag `includeData`
+     mort a été retiré. -->
+
 - **`FilterManager`** : les timers de debounce ne sont pas annulés au
   démontage du composant — fuite mémoire possible sur navigation
   intensive.

@@ -8,7 +8,25 @@
  * (`MessageTypes`, `CC`, `NoteNames`) for backwards compatibility with
  * older call sites that still reach for them via this module.
  */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { MIDI_STATUS, MIDI_CC, MIDI_NOTE } from '../core/constants.js';
+
+// Canonical GM 1 instrument names live in `shared/gm-instrument-names.json`
+// so the same list is consumable by the frontend i18n layer (en.json
+// `instruments.list`) and any other tooling. Loaded synchronously once
+// at module init — the file is tiny (~3 KB) and never changes at runtime.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const GM_INSTRUMENT_NAMES = Object.freeze(
+  JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, '../../shared/gm-instrument-names.json'),
+      'utf8'
+    )
+  )
+);
 
 /**
  * Static utility class — all members are static. Not meant to be
@@ -115,63 +133,15 @@ class MidiUtils {
   }
 
   /**
-   * Get GM instrument name
+   * Get GM 1 instrument name for a program number (0-127). Names come
+   * from `shared/gm-instrument-names.json` — see the module-level
+   * import. Out-of-range numbers fall back to `Program <n>`.
+   *
    * @param {number} program - Program number (0-127)
    * @returns {string} Instrument name
    */
   static getGMInstrumentName(program) {
-    const instruments = [
-      // Piano (0-7)
-      'Acoustic Grand Piano', 'Bright Acoustic Piano', 'Electric Grand Piano', 'Honky-tonk Piano',
-      'Electric Piano 1', 'Electric Piano 2', 'Harpsichord', 'Clavinet',
-      // Chromatic Percussion (8-15)
-      'Celesta', 'Glockenspiel', 'Music Box', 'Vibraphone',
-      'Marimba', 'Xylophone', 'Tubular Bells', 'Dulcimer',
-      // Organ (16-23)
-      'Drawbar Organ', 'Percussive Organ', 'Rock Organ', 'Church Organ',
-      'Reed Organ', 'Accordion', 'Harmonica', 'Tango Accordion',
-      // Guitar (24-31)
-      'Acoustic Guitar (nylon)', 'Acoustic Guitar (steel)', 'Electric Guitar (jazz)', 'Electric Guitar (clean)',
-      'Electric Guitar (muted)', 'Overdriven Guitar', 'Distortion Guitar', 'Guitar Harmonics',
-      // Bass (32-39)
-      'Acoustic Bass', 'Electric Bass (finger)', 'Electric Bass (pick)', 'Fretless Bass',
-      'Slap Bass 1', 'Slap Bass 2', 'Synth Bass 1', 'Synth Bass 2',
-      // Strings (40-47)
-      'Violin', 'Viola', 'Cello', 'Contrabass',
-      'Tremolo Strings', 'Pizzicato Strings', 'Orchestral Harp', 'Timpani',
-      // Ensemble (48-55)
-      'String Ensemble 1', 'String Ensemble 2', 'Synth Strings 1', 'Synth Strings 2',
-      'Choir Aahs', 'Voice Oohs', 'Synth Choir', 'Orchestra Hit',
-      // Brass (56-63)
-      'Trumpet', 'Trombone', 'Tuba', 'Muted Trumpet',
-      'French Horn', 'Brass Section', 'Synth Brass 1', 'Synth Brass 2',
-      // Reed (64-71)
-      'Soprano Sax', 'Alto Sax', 'Tenor Sax', 'Baritone Sax',
-      'Oboe', 'English Horn', 'Bassoon', 'Clarinet',
-      // Pipe (72-79)
-      'Piccolo', 'Flute', 'Recorder', 'Pan Flute',
-      'Blown Bottle', 'Shakuhachi', 'Whistle', 'Ocarina',
-      // Synth Lead (80-87)
-      'Lead 1 (square)', 'Lead 2 (sawtooth)', 'Lead 3 (calliope)', 'Lead 4 (chiff)',
-      'Lead 5 (charang)', 'Lead 6 (voice)', 'Lead 7 (fifths)', 'Lead 8 (bass + lead)',
-      // Synth Pad (88-95)
-      'Pad 1 (new age)', 'Pad 2 (warm)', 'Pad 3 (polysynth)', 'Pad 4 (choir)',
-      'Pad 5 (bowed)', 'Pad 6 (metallic)', 'Pad 7 (halo)', 'Pad 8 (sweep)',
-      // Synth Effects (96-103)
-      'FX 1 (rain)', 'FX 2 (soundtrack)', 'FX 3 (crystal)', 'FX 4 (atmosphere)',
-      'FX 5 (brightness)', 'FX 6 (goblins)', 'FX 7 (echoes)', 'FX 8 (sci-fi)',
-      // Ethnic (104-111)
-      'Sitar', 'Banjo', 'Shamisen', 'Koto',
-      'Kalimba', 'Bag pipe', 'Fiddle', 'Shanai',
-      // Percussive (112-119)
-      'Tinkle Bell', 'Agogo', 'Steel Drums', 'Woodblock',
-      'Taiko Drum', 'Melodic Tom', 'Synth Drum', 'Reverse Cymbal',
-      // Sound Effects (120-127)
-      'Guitar Fret Noise', 'Breath Noise', 'Seashore', 'Bird Tweet',
-      'Telephone Ring', 'Helicopter', 'Applause', 'Gunshot'
-    ];
-
-    return instruments[program] || `Program ${program}`;
+    return GM_INSTRUMENT_NAMES[program] || `Program ${program}`;
   }
 
   /**
@@ -226,7 +196,13 @@ class MidiUtils {
   }
 
   /**
-   * GM instrument categories by program range
+   * GM 1 program categories — sixteen consecutive 8-program blocks
+   * (indices match `Math.floor(program / 8)`). The display labels and
+   * the slug keys live side-by-side so consumers can pick whichever
+   * shape they need:
+   *   - {@link GMCategories} — human-readable labels for UI / logs.
+   *   - {@link GM_CATEGORY_SLUGS} — snake_case keys used by the matcher
+   *     (`piano`, `chromatic`, `synth_lead`, …).
    */
   static GMCategories = [
     'Piano',              // 0-7
@@ -247,14 +223,34 @@ class MidiUtils {
     'Sound Effects'       // 120-127
   ];
 
+  static GM_CATEGORY_SLUGS = [
+    'piano', 'chromatic', 'organ', 'guitar',
+    'bass', 'strings', 'ensemble', 'brass',
+    'reed', 'pipe', 'synth_lead', 'synth_pad',
+    'synth_effects', 'ethnic', 'percussive', 'sound_effects',
+  ];
+
   /**
-   * Get GM category for a program number
+   * Get GM category display label for a program number.
    * @param {number} program - Program number (0-127)
-   * @returns {string} Category name
+   * @returns {string} Category name (`"Piano"`, `"Chromatic Percussion"`…)
    */
   static getGMCategory(program) {
     if (program < 0 || program > 127) return 'Unknown';
     return this.GMCategories[Math.floor(program / 8)];
+  }
+
+  /**
+   * Get GM category slug for a program number (snake_case, matches
+   * {@link GM_CATEGORY_SLUGS}). Used by the matcher to compare
+   * channel/instrument categories without string-matching display
+   * names.
+   * @param {number} program - Program number (0-127)
+   * @returns {string|null} Slug, or null when out of range.
+   */
+  static getGMCategorySlug(program) {
+    if (program < 0 || program > 127) return null;
+    return this.GM_CATEGORY_SLUGS[Math.floor(program / 8)];
   }
 
 }

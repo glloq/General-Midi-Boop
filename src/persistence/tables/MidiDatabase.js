@@ -147,10 +147,21 @@ class MidiDatabase {
     }
   }
 
-  getAllFiles({ includeData = false } = {}) {
+  /**
+   * Return every row from `midi_files`, projected to {@link LIST_COLUMNS}
+   * (metadata only — file bytes live on disk via {@link BlobStore} and
+   * are reached through `blob_path`). Ordered by upload time, newest
+   * first.
+   *
+   * Historically this method accepted `{ includeData: true }` to opt
+   * into a `SELECT *` projection back when bytes were stored inline as
+   * a BLOB on this row. The column was migrated to disk and the flag
+   * became a no-op, so it has been removed — callers that need the
+   * full row should use {@link getFile} by id.
+   */
+  getAllFiles() {
     try {
-      const columns = includeData ? '*' : LIST_COLUMNS;
-      const stmt = this.db.prepare(`SELECT ${columns} FROM midi_files ORDER BY uploaded_at DESC`);
+      const stmt = this.db.prepare(`SELECT ${LIST_COLUMNS} FROM midi_files ORDER BY uploaded_at DESC`);
       return stmt.all();
     } catch (error) {
       this.logger.error(`Failed to get all files: ${error.message}`);

@@ -33,10 +33,11 @@
     'use strict';
 
     const DEFAULT_WINDOW_SECONDS = 4;
-    const BLACK_OFFSETS = new Set([1, 3, 6, 8, 10]);
 
+    // Delegate to MidiConstants so the black-key pitch-class set lives
+    // in a single source of truth (public/js/utils/MidiConstants.js).
     function isBlackKey(midi) {
-        return BLACK_OFFSETS.has(((midi % 12) + 12) % 12);
+        return MidiConstants.isBlackKey(midi);
     }
 
     function whiteKeyCount(rangeMin, rangeMax) {

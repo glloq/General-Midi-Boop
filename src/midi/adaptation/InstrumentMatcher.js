@@ -19,6 +19,7 @@ import ScoringConfig from './ScoringConfig.js';
 import DrumNoteMapper from './DrumNoteMapper.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 import InstrumentFamilies from '../gm/InstrumentFamilies.js';
+import { safeJsonParse } from '../../utils/JsonParser.js';
 
 /**
  * Multi-criteria channel ↔ instrument compatibility scorer (0-100).
@@ -31,25 +32,15 @@ class InstrumentMatcher {
     this.config = config || ScoringConfig;
     this.drumMapper = new DrumNoteMapper(logger);
 
-    // General MIDI categories
-    this.GM_CATEGORIES = {
-      piano: Array.from({ length: 8 }, (_, i) => i),                    // 0-7
-      chromatic: Array.from({ length: 8 }, (_, i) => 8 + i),           // 8-15
-      organ: Array.from({ length: 8 }, (_, i) => 16 + i),              // 16-23
-      guitar: Array.from({ length: 8 }, (_, i) => 24 + i),             // 24-31
-      bass: Array.from({ length: 8 }, (_, i) => 32 + i),               // 32-39
-      strings: Array.from({ length: 8 }, (_, i) => 40 + i),            // 40-47
-      ensemble: Array.from({ length: 8 }, (_, i) => 48 + i),           // 48-55
-      brass: Array.from({ length: 8 }, (_, i) => 56 + i),              // 56-63
-      reed: Array.from({ length: 8 }, (_, i) => 64 + i),               // 64-71
-      pipe: Array.from({ length: 8 }, (_, i) => 72 + i),               // 72-79
-      synth_lead: Array.from({ length: 8 }, (_, i) => 80 + i),         // 80-87
-      synth_pad: Array.from({ length: 8 }, (_, i) => 88 + i),          // 88-95
-      synth_effects: Array.from({ length: 8 }, (_, i) => 96 + i),      // 96-103
-      ethnic: Array.from({ length: 8 }, (_, i) => 104 + i),            // 104-111
-      percussive: Array.from({ length: 8 }, (_, i) => 112 + i),        // 112-119
-      sound_effects: Array.from({ length: 8 }, (_, i) => 120 + i)      // 120-127
-    };
+    // General MIDI categories — derive the slug→programs map from the
+    // canonical {@link MidiUtils.GM_CATEGORY_SLUGS} so the order, slug
+    // spelling and ranges live in a single source of truth.
+    this.GM_CATEGORIES = Object.fromEntries(
+      MidiUtils.GM_CATEGORY_SLUGS.map((slug, i) => [
+        slug,
+        Array.from({ length: 8 }, (_, j) => i * 8 + j),
+      ])
+    );
   }
 
   /**
@@ -87,16 +78,16 @@ class InstrumentMatcher {
     score += familyScore.score;
     if (familyScore.info) info.push(familyScore.info);
 
-    // 2. Note compatibility (+40 points max)
-    let parsedSelectedNotes = null;
-    if (instrument.selected_notes) {
-      try {
-        parsedSelectedNotes = typeof instrument.selected_notes === 'string'
-          ? JSON.parse(instrument.selected_notes) : instrument.selected_notes;
-      } catch (e) {
-        this.logger.warn(`Failed to parse selected_notes for ${instrument.device_id}`);
-      }
+    // 2. Note compatibility (+40 points max).
+    // Use a unique sentinel so we can distinguish a genuine JSON parse
+    // failure (warn-worthy) from the legitimate `"null"` literal —
+    // `safeJsonParse` only returns `fallback` on a thrown parse error.
+    const _PARSE_FAIL = Symbol('parse-fail');
+    const _raw = safeJsonParse(instrument.selected_notes, _PARSE_FAIL);
+    if (_raw === _PARSE_FAIL) {
+      this.logger.warn(`Failed to parse selected_notes for ${instrument.device_id}`);
     }
+    const parsedSelectedNotes = _raw === _PARSE_FAIL ? null : _raw;
     const noteScore = this.scoreNoteCompatibility(
       channelAnalysis.noteRange,
       {
@@ -428,17 +419,14 @@ class InstrumentMatcher {
   }
 
   /**
-   * Determines the GM category of a program
+   * Determines the GM category slug of a program. Thin wrapper around
+   * {@link MidiUtils.getGMCategorySlug} kept for callers that read the
+   * matcher's interface — the slug list lives there.
    * @param {number} program
    * @returns {string|null}
    */
   getProgramCategory(program) {
-    for (const [category, programs] of Object.entries(this.GM_CATEGORIES)) {
-      if (programs.includes(program)) {
-        return category;
-      }
-    }
-    return null;
+    return MidiUtils.getGMCategorySlug(program);
   }
 
   /**
