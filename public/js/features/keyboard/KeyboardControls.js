@@ -168,8 +168,8 @@
         velocityPanel.classList.toggle('slider-hidden', !!noNotes);
 
         // Modulation: visible if CC#1 is in supported_ccs
-        const supportsCCs = this._parseSupportedCCs(caps);
-        modulationPanel.classList.toggle('slider-hidden', !(Array.isArray(supportsCCs) && supportsCCs.includes(1)));
+        const supportedCcs = this._parseSupportedCCs(caps);
+        modulationPanel.classList.toggle('slider-hidden', !(Array.isArray(supportedCcs) && supportedCcs.includes(1)));
 
         // Pitch bend wheel: visible if pitch_bend_enabled is set on the instrument
         if (pitchBendPanel) {
@@ -500,9 +500,9 @@
         const caps = this.selectedDeviceCapabilities;
 
         // CC déclarés par l'instrument ; si aucun, on utilise la liste standard
-        const supportsCCs = this._parseSupportedCCs(caps);
-        const ccList = (Array.isArray(supportsCCs) && supportsCCs.length > 0)
-            ? supportsCCs
+        const supportedCcs = this._parseSupportedCCs(caps);
+        const ccList = (Array.isArray(supportedCcs) && supportedCcs.length > 0)
+            ? supportedCcs
             : DEFAULT_CC_LIST;
 
         // --- Groupe CC (axe Y) : toujours visible en vue liste ---
