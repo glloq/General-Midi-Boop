@@ -511,30 +511,48 @@ async function applyAssignments(app, data) {
 
   // Bake the hand-position CCs (CC22/CC23/CC24…) into the saved file so
   // the MIDI editor's CC pane can render them and the operator can tweak
-  // the curve. Without this, MidiPlayer injected the CCs into the live
-  // timeline at playback time only — the file on disk had none, and the
-  // editor showed an empty hand-position track. See TODO.md "CC main
-  // absents de l'éditeur CC après routage" (option A).
+  // the curve. See TODO.md "CC main absents de l'éditeur CC après routage"
+  // (option A). The baker reads `file.blob_path` from disk, so the bake is
+  // only correct when `targetFileId`'s blob already reflects the content
+  // the user wants enriched with CCs.
   //
-  // The baker is idempotent: it strips its previous output before
-  // re-baking, so a re-apply always reflects the latest routings.
-  // We only invoke it when at least one persisted routing points to a
-  // destination with a `hands_config`, otherwise it's a no-op.
+  // GATE — there is a pre-existing bug in this function: the adapted
+  // buffer is passed as `data: base64` to `fileRepository.update/save`,
+  // but `updateFile`/`insertFile` silently filter that key out
+  // (`buildDynamicUpdate` whitelist in MidiDatabase.js does not include
+  // `data`). Consequence: the adapted buffer is NEVER written to disk
+  // today, the file row keeps its original `blob_path`. If we bake on
+  // top of that, we'd produce a baked-but-NOT-adapted artifact (CCs
+  // applied to the un-transposed bytes), silently regressing playback.
+  //
+  // Until the adapted-buffer persistence is fixed separately, only bake
+  // when we know the on-disk blob matches the in-memory adapted state:
+  //   * createAdaptedFile=false: nothing was meant to change, blob is
+  //     unchanged, safe to bake CCs straight onto it.
+  //   * Otherwise: skip. Live injection in MidiPlayer keeps playback
+  //     working — the editor pane will get empty hand CCs until the
+  //     persistence bug is repaired (tracked as a follow-up).
+  const blobMatchesAdapted = !createAdaptedFile;
   let bakeStats = null;
-  try {
-    const hasHandRouted = await _hasHandConfigRouting(app, routings);
-    if (hasHandRouted && app.fileManager?.bakeAndSave) {
-      const bakeResult = await app.fileManager.bakeAndSave(targetFileId);
-      bakeStats = bakeResult?.stats || null;
-      app.logger.info(
-        `[ApplyAssignments] Baked CCs into file ${targetFileId}: +${bakeStats?.cc_events_added ?? 0} events`
-      );
+  if (blobMatchesAdapted) {
+    try {
+      const hasHandRouted = await _hasHandConfigRouting(app, routings);
+      if (hasHandRouted && app.fileManager?.bakeAndSave) {
+        const bakeResult = await app.fileManager.bakeAndSave(targetFileId);
+        bakeStats = bakeResult?.stats || null;
+        app.logger.info(
+          `[ApplyAssignments] Baked CCs into file ${targetFileId}: +${bakeStats?.cc_events_added ?? 0} events`
+        );
+      }
+    } catch (bakeErr) {
+      const msg = `CC bake failed for file ${targetFileId}: ${bakeErr.message}`;
+      app.logger.warn(`[ApplyAssignments] ${msg}`);
+      warnings.push(msg);
     }
-  } catch (bakeErr) {
-    // Don't fail the apply just because the bake step failed — playback
-    // still works thanks to the live MidiPlayer injection. Surface the
-    // error in `warnings` so the operator can investigate.
-    const msg = `CC bake failed for file ${targetFileId}: ${bakeErr.message}`;
+  } else if (await _hasHandConfigRouting(app, routings)) {
+    const msg = `Hand-position CCs not baked into file ${targetFileId}: ` +
+                `adapted-blob persistence is incomplete (see PlaybackAssignmentCommands ` +
+                `bake-gate comment). Live playback unaffected; editor CC pane will be empty.`;
     app.logger.warn(`[ApplyAssignments] ${msg}`);
     warnings.push(msg);
   }

@@ -384,10 +384,29 @@ class MidiTransposer {
       }
     }
 
-    // Detect colliding targets — useful telemetry for the routing UI to
-    // warn the operator that the chosen range is lossy.
+    // Walk the file to gather the set of source notes ACTUALLY present
+    // on the target channel. Counting collisions on the theoretical
+    // remap table (all 128 notes) would yield a near-constant value
+    // whenever rangeMax-rangeMin < 116 — the metric needs to reflect
+    // the file's content to be actionable.
+    const usedSources = new Set();
+    for (const track of (midiData?.tracks || [])) {
+      for (const e of (track.events || [])) {
+        if ((e.channel ?? -1) !== channel) continue;
+        if (e.type !== 'noteOn') continue;
+        const note = e.note ?? e.noteNumber;
+        if (Number.isInteger(note)) usedSources.add(note);
+      }
+    }
+
+    // Count how many target notes have ≥ 2 distinct in-file sources
+    // wrapping onto them. `0` means lossless for this file's notes;
+    // `> 0` warns the operator that several source pitches will be
+    // articulated on the same destination note.
     const targetUseCount = new Map();
-    for (const target of Object.values(remapping)) {
+    for (const source of usedSources) {
+      const target = remapping[source];
+      if (target === undefined) continue; // source already in range — no wrap
       targetUseCount.set(target, (targetUseCount.get(target) || 0) + 1);
     }
     let compressionCollisions = 0;

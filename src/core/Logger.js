@@ -173,7 +173,9 @@ class Logger {
       message
     };
 
-    if (data) {
+    // Same falsy-safe guard as Logger.format — `0`, `''`, `false` are
+    // legitimate payloads and must not be silently dropped.
+    if (data !== null && data !== undefined) {
       if (data instanceof Error) {
         entry.error = { message: data.message, stack: data.stack };
       } else if (typeof data === 'object') {
