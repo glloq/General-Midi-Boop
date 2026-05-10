@@ -8,6 +8,7 @@
 
 import BaseLightingDriver from './BaseLightingDriver.js';
 import dgram from 'dgram';
+import { clamp } from '../utils/MathUtils.js';
 
 const ARTNET_PORT = 6454;
 const ARTNET_HEADER = Buffer.from([0x41, 0x72, 0x74, 0x2D, 0x4E, 0x65, 0x74, 0x00]); // "Art-Net\0"
@@ -106,7 +107,7 @@ class ArtNetDriver extends BaseLightingDriver {
    */
   setDmxChannel(channel, value) {
     if (!this.dmxData || channel < 0 || channel >= this.dmxData.length) return;
-    this.dmxData[channel] = Math.max(0, Math.min(255, value));
+    this.dmxData[channel] = clamp(value);
     this._scheduleRender();
   }
 
@@ -120,7 +121,7 @@ class ArtNetDriver extends BaseLightingDriver {
     for (let i = 0; i < values.length; i++) {
       const ch = startChannel + i;
       if (ch < this.dmxData.length) {
-        this.dmxData[ch] = Math.max(0, Math.min(255, values[i]));
+        this.dmxData[ch] = clamp(values[i]);
       }
     }
     this._scheduleRender();

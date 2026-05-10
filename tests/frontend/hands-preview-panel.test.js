@@ -11,6 +11,9 @@ import { resolve } from 'path';
 
 // Order matters — dependent modules first so window.* globals exist.
 const sources = [
+  // MidiConstants.js owns isBlackKey / NOTE_NAMES; load it first so the
+  // preview modules can delegate to it.
+  'public/js/utils/MidiConstants.js',
   'public/js/features/auto-assign/HandPositionFeasibility.js',
   'public/js/features/auto-assign/HandSimulationEngine.js',
   'public/js/features/auto-assign/KeyboardPreview.js',

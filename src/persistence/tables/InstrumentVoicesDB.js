@@ -10,6 +10,10 @@
  * INSTRUMENT_FAMILY_REFACTOR_ROADMAP.md Phase 8.
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
+import {
+  parseValidMidiList,
+  serializeValidMidiList,
+} from '../../utils/MidiListParser.js';
 
 class InstrumentVoicesDB {
   /**
@@ -228,67 +232,12 @@ class InstrumentVoicesDB {
 
 // -------- internal helpers --------
 
-function _parseCcList(raw) {
-  if (!raw) return null;
-  if (Array.isArray(raw)) return raw;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function _serializeCcList(value) {
-  if (value == null) return null;
-  if (Array.isArray(value)) {
-    const clean = value
-      .map((n) => (typeof n === 'string' ? parseInt(n, 10) : n))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-    return clean.length === 0 ? null : JSON.stringify(clean);
-  }
-  if (typeof value === 'string') {
-    const parts = value
-      .split(',')
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-    return parts.length === 0 ? null : JSON.stringify(parts);
-  }
-  return null;
-}
-
-function _parseNoteList(raw) {
-  if (!raw) return null;
-  if (Array.isArray(raw)) return raw;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function _serializeNoteList(value) {
-  if (value == null) return null;
-  if (Array.isArray(value)) {
-    const clean = value
-      .map((n) => (typeof n === 'string' ? parseInt(n, 10) : n))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-    return clean.length === 0 ? null : JSON.stringify(clean);
-  }
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return _serializeNoteList(parsed);
-    } catch { /* fall through to CSV path */ }
-    const parts = value
-      .split(',')
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 127);
-    return parts.length === 0 ? null : JSON.stringify(parts);
-  }
-  return null;
-}
+// CC and note lists share the same shape (array of MIDI bytes), so both
+// reuse the shared parser; aliases kept so call sites read intent.
+const _parseCcList = parseValidMidiList;
+const _serializeCcList = serializeValidMidiList;
+const _parseNoteList = parseValidMidiList;
+const _serializeNoteList = serializeValidMidiList;
 
 function _nextDisplayOrder(db, deviceId, channel) {
   const row = db.prepare(

@@ -19,6 +19,7 @@ import ScoringConfig from './ScoringConfig.js';
 import DrumNoteMapper from './DrumNoteMapper.js';
 import InstrumentTypeConfig from './InstrumentTypeConfig.js';
 import InstrumentFamilies from '../gm/InstrumentFamilies.js';
+import { safeJsonParse } from '../../utils/JsonParser.js';
 
 /**
  * Multi-criteria channel ↔ instrument compatibility scorer (0-100).
@@ -31,24 +32,26 @@ class InstrumentMatcher {
     this.config = config || ScoringConfig;
     this.drumMapper = new DrumNoteMapper(logger);
 
-    // General MIDI categories
+    // General MIDI categories — each is an 8-program block, indexed by
+    // its starting program number.
+    const range8 = (start) => Array.from({ length: 8 }, (_, i) => start + i);
     this.GM_CATEGORIES = {
-      piano: Array.from({ length: 8 }, (_, i) => i),                    // 0-7
-      chromatic: Array.from({ length: 8 }, (_, i) => 8 + i),           // 8-15
-      organ: Array.from({ length: 8 }, (_, i) => 16 + i),              // 16-23
-      guitar: Array.from({ length: 8 }, (_, i) => 24 + i),             // 24-31
-      bass: Array.from({ length: 8 }, (_, i) => 32 + i),               // 32-39
-      strings: Array.from({ length: 8 }, (_, i) => 40 + i),            // 40-47
-      ensemble: Array.from({ length: 8 }, (_, i) => 48 + i),           // 48-55
-      brass: Array.from({ length: 8 }, (_, i) => 56 + i),              // 56-63
-      reed: Array.from({ length: 8 }, (_, i) => 64 + i),               // 64-71
-      pipe: Array.from({ length: 8 }, (_, i) => 72 + i),               // 72-79
-      synth_lead: Array.from({ length: 8 }, (_, i) => 80 + i),         // 80-87
-      synth_pad: Array.from({ length: 8 }, (_, i) => 88 + i),          // 88-95
-      synth_effects: Array.from({ length: 8 }, (_, i) => 96 + i),      // 96-103
-      ethnic: Array.from({ length: 8 }, (_, i) => 104 + i),            // 104-111
-      percussive: Array.from({ length: 8 }, (_, i) => 112 + i),        // 112-119
-      sound_effects: Array.from({ length: 8 }, (_, i) => 120 + i)      // 120-127
+      piano: range8(0),
+      chromatic: range8(8),
+      organ: range8(16),
+      guitar: range8(24),
+      bass: range8(32),
+      strings: range8(40),
+      ensemble: range8(48),
+      brass: range8(56),
+      reed: range8(64),
+      pipe: range8(72),
+      synth_lead: range8(80),
+      synth_pad: range8(88),
+      synth_effects: range8(96),
+      ethnic: range8(104),
+      percussive: range8(112),
+      sound_effects: range8(120),
     };
   }
 
@@ -88,14 +91,10 @@ class InstrumentMatcher {
     if (familyScore.info) info.push(familyScore.info);
 
     // 2. Note compatibility (+40 points max)
-    let parsedSelectedNotes = null;
-    if (instrument.selected_notes) {
-      try {
-        parsedSelectedNotes = typeof instrument.selected_notes === 'string'
-          ? JSON.parse(instrument.selected_notes) : instrument.selected_notes;
-      } catch (e) {
-        this.logger.warn(`Failed to parse selected_notes for ${instrument.device_id}`);
-      }
+    const parsedSelectedNotes = safeJsonParse(instrument.selected_notes);
+    if (instrument.selected_notes && parsedSelectedNotes === null
+        && typeof instrument.selected_notes === 'string') {
+      this.logger.warn(`Failed to parse selected_notes for ${instrument.device_id}`);
     }
     const noteScore = this.scoreNoteCompatibility(
       channelAnalysis.noteRange,

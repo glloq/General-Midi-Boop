@@ -32,14 +32,15 @@
     'use strict';
 
     const WHITE_KEYS_PER_OCTAVE = 7;
-    const BLACK_OFFSETS = new Set([1, 3, 6, 8, 10]); // semitone offsets in an octave
 
     // Pitch-class → index of the white key in the octave (0..6).
     // C, D, E, F, G, A, B.
     const WHITE_INDEX_BY_PC = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };
 
+    // Delegate to MidiConstants so the black-key pitch-class set lives
+    // in a single source of truth (public/js/utils/MidiConstants.js).
     function isBlackKey(midi) {
-        return BLACK_OFFSETS.has(((midi % 12) + 12) % 12);
+        return MidiConstants.isBlackKey(midi);
     }
 
     function whiteKeyCount(rangeMin, rangeMax) {

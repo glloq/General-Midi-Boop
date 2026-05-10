@@ -19,8 +19,8 @@
 (function() {
     'use strict';
 
-    const _KB_BLACK = new Set([1, 3, 6, 8, 10]);
-    function _kbIsBlackKey(m) { return _KB_BLACK.has(((m % 12) + 12) % 12); }
+    // Delegate black-key check to MidiConstants — single source of truth.
+    function _kbIsBlackKey(m) { return MidiConstants.isBlackKey(m); }
 
     function _t(key, fallback) {
         if (window.i18n && typeof window.i18n.t === 'function') {
@@ -647,6 +647,10 @@
             // Snap lo to the nearest white key (downward) for piano layout.
             if (this._keyboardLayoutType() === 'piano') {
                 while (_kbIsBlackKey(lo) && lo > full.lo) lo--;
+                // If we hit the floor on a black key (full.lo is itself
+                // black), fall forward to the next white instead — the
+                // previous loop would otherwise leave lo on a black key.
+                while (_kbIsBlackKey(lo) && lo <= full.hi) lo++;
             }
             this._kbView = { lo, hi };
             this.keyboard?.setRange(lo, hi);
@@ -674,6 +678,9 @@
             // fingers overlay to appear misaligned with the visible keys.
             if (this._keyboardLayoutType() === 'piano') {
                 while (_kbIsBlackKey(lo) && lo > full.lo) lo--;
+                // Forward-fallback for the floor-on-black case — see
+                // _zoomKeyboard above.
+                while (_kbIsBlackKey(lo) && lo <= full.hi) lo++;
             }
             this._kbView = { lo, hi };
             this.keyboard?.setRange(lo, hi);

@@ -1674,7 +1674,7 @@
         if (isPiano && wn && wn.length > 0) {
             // Piano: use exact finger coverage; anchor must land on a white key.
             if (!this._pianoHandCoversNote(anchor, nf, note)) {
-                const isBlackKey = (m) => { const v=((m%12)+12)%12; return v===1||v===3||v===6||v===8||v===10; };
+                const isBlackKey = (m) => MidiConstants.isBlackKey(m);
                 if (note < anchor) {
                     // Shift left: anchor on note's white key (black key → preceding white).
                     newAnchor = isBlackKey(note) ? note - 1 : note;

@@ -8,6 +8,13 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
+// KeyboardPreview.js now delegates isBlackKey to MidiConstants, which the
+// browser loads as a global script tag. Replicate that load order here so
+// `new Function(src)()` sees the same global.
+const midiConstantsSrc = readFileSync(
+  resolve(__dirname, '../../public/js/utils/MidiConstants.js'),
+  'utf8'
+);
 const src = readFileSync(
   resolve(__dirname, '../../public/js/features/auto-assign/KeyboardPreview.js'),
   'utf8'
@@ -36,6 +43,7 @@ function installCanvasStub() {
 
 beforeAll(() => {
   installCanvasStub();
+  new Function(midiConstantsSrc)();
   new Function(src)();
 });
 

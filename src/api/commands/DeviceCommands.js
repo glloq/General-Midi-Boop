@@ -16,6 +16,7 @@
  * Validation: see `device.schemas.js`.
  */
 import { NotFoundError, ConfigurationError } from '../../core/errors/index.js';
+import { safeJsonParse } from '../../utils/JsonParser.js';
 
 /**
  * Enumerate every MIDI port currently visible to the DeviceManager and
@@ -75,22 +76,12 @@ async function deviceList(app) {
         try {
           const allInstruments = app.instrumentRepository.findByDevice(device.id);
           if (allInstruments && allInstruments.length > 0) {
-            device.instruments = allInstruments.map(inst => {
-              let supportedCcs = null;
-              if (inst.supported_ccs) {
-                try { supportedCcs = JSON.parse(inst.supported_ccs); } catch (e) { /* ignore */ }
-              }
-              let selectedNotes = null;
-              if (inst.selected_notes) {
-                try { selectedNotes = JSON.parse(inst.selected_notes); } catch (e) { /* ignore */ }
-              }
-              return {
-                ...inst,
-                supported_ccs: supportedCcs,
-                selected_notes: selectedNotes,
-                note_selection_mode: inst.note_selection_mode || 'range'
-              };
-            });
+            device.instruments = allInstruments.map(inst => ({
+              ...inst,
+              supported_ccs: safeJsonParse(inst.supported_ccs),
+              selected_notes: safeJsonParse(inst.selected_notes),
+              note_selection_mode: inst.note_selection_mode || 'range'
+            }));
           }
         } catch (e) {
           // No multi-channel instruments, not a problem

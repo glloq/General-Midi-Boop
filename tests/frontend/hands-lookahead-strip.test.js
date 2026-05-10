@@ -9,6 +9,12 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
+// HandsLookaheadStrip.js delegates isBlackKey to MidiConstants — preload
+// it so `new Function(src)()` finds the global.
+const midiConstantsSrc = readFileSync(
+  resolve(__dirname, '../../public/js/utils/MidiConstants.js'),
+  'utf8'
+);
 const src = readFileSync(
   resolve(__dirname, '../../public/js/features/auto-assign/HandsLookaheadStrip.js'),
   'utf8'
@@ -36,6 +42,7 @@ function installCanvasStub() {
 
 beforeAll(() => {
   installCanvasStub();
+  new Function(midiConstantsSrc)();
   new Function(src)();
 });
 

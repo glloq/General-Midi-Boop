@@ -18,6 +18,7 @@ import EventEmitter from 'events';
 import LightingEffectsEngine from '../lighting/LightingEffectsEngine.js';
 import BaseLightingDriver from '../lighting/BaseLightingDriver.js';
 import { hexToRgb, hsvToRgb } from '../utils/ColorUtils.js';
+import { clamp } from '../utils/MathUtils.js';
 
 /**
  * Driver type → ESM module path. Used for dynamic `import()` so a
@@ -318,7 +319,7 @@ class LightingManager extends EventEmitter {
     } catch {
       r = 255; g = 255; b = 255;
     }
-    const brightness = Math.max(0, Math.min(255, this._resolveBrightness(action, midiData)));
+    const brightness = clamp(this._resolveBrightness(action, midiData));
     // Resolve segment if specified (for gpio_strip devices)
     let segStart = action.led_start;
     let segEnd = action.led_end;
@@ -826,7 +827,7 @@ class LightingManager extends EventEmitter {
   // ==================== MASTER DIMMER ====================
 
   setMasterDimmer(value) {
-    this.masterDimmer = Math.max(0, Math.min(255, value));
+    this.masterDimmer = clamp(value);
     return { success: true, masterDimmer: this.masterDimmer };
   }
 
