@@ -99,6 +99,16 @@ class LoopManagerModal extends BaseModal {
         this._livePlayingLoops = new Map(); // loopId → { timers, ch, startMs, durMs }
         this._liveSynth        = null;
 
+        // ── Keyboard tab state (live performance alongside loops) ──
+        this._kbdSynth          = null;
+        this._kbdMounted        = false;
+        this._kbdEnvelopes      = new Map(); // note → [envelope, ...]
+        this._kbdActiveKeys     = new Set();
+        this._kbdOutputTarget   = 'synth';   // 'synth' | 'live'
+        this._kbdOutputDevice   = null;
+        this._kbdOutputChannel  = 0;
+        this._kbdInstrument     = 0;
+
         // ── Playback timeline bar ──
         this._padPlayTimes      = new Map(); // padIndex → { startMs, durMs }
         this._arrangerStartTime = 0;
@@ -135,6 +145,7 @@ class LoopManagerModal extends BaseModal {
                 <button class="lc-tab${this.activeTab==='library'  ? ' lc-tab--active':''}" data-tab="library"  role="tab" aria-selected="${this.activeTab==='library'}">🗂 ${this.t('loopManager.tabLibrary')}</button>
                 <button class="lc-tab${this.activeTab==='pad'      ? ' lc-tab--active':''}" data-tab="pad"      role="tab" aria-selected="${this.activeTab==='pad'}">🎛 ${this.t('loopManager.tabPad')}</button>
                 <button class="lc-tab${this.activeTab==='live'     ? ' lc-tab--active':''}" data-tab="live"     role="tab" aria-selected="${this.activeTab==='live'}">⚡ ${this.t('loopManager.tabLive')}</button>
+                <button class="lc-tab${this.activeTab==='keyboard' ? ' lc-tab--active':''}" data-tab="keyboard" role="tab" aria-selected="${this.activeTab==='keyboard'}">🎹 ${this.t('loopManager.tabKeyboard')}</button>
                 <button class="lc-tab${this.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" aria-selected="${this.activeTab==='arranger'}">∞ ${this.t('loopManager.tabArranger')}</button>
             </div>
             <div class="lc-header-actions">
@@ -157,8 +168,29 @@ class LoopManagerModal extends BaseModal {
                 ${this._renderLibraryTab()}
                 ${this._renderPadTab()}
                 ${this._renderLiveTab()}
+                ${this._renderKeyboardTab()}
                 ${this._renderArrangerTab()}
             </div>
+        </div>`;
+    }
+
+    // =========================================================
+    // RENDERING — TAB: KEYBOARD (live performance)
+    // =========================================================
+
+    _renderKeyboardTab() {
+        return `
+        <div class="lc-pane lc-pane--hidden lm-kbd-pane" id="lc-pane-keyboard">
+            <div class="lc-ctrl-bar lc-ctrl-bar--kbd">
+                <span class="lc-label">${this.t('loopManager.kbdOutput')}:</span>
+                <button class="lc-btn lc-btn-icon lc-btn-output" id="lm-kbd-output-btn" data-action="kbd-toggle-output">🔊</button>
+                <span class="lc-unit" id="lm-kbd-output-label">${this.t('loopManager.outputSynth')}</span>
+                <span class="lc-ctrl-spacer"></span>
+                <span class="lc-status lm-kbd-hint">${this.t('loopManager.kbdHint')}</span>
+                <span class="lc-ctrl-sep"></span>
+                <button class="lc-btn lc-btn-sm" data-action="kbd-stop-all" title="${this.t('loopCreator.stop')}">⏹ ${this.t('loopManager.kbdSilence')}</button>
+            </div>
+            <div class="lm-kbd-panel" id="lm-kbd-panel"></div>
         </div>`;
     }
 
@@ -312,6 +344,8 @@ class LoopManagerModal extends BaseModal {
         this._stopPadMidiMonitor();
         this._stopPlaybarRAF();
         this._closePadPicker();
+        this._kbdStopAllNotes();
+        if (this._kbdMounted) this._unmountKbdPanel();
         document.removeEventListener('mouseup',   this._boundDocMouseUp);
         document.removeEventListener('mousemove', this._boundDocMouseMove);
         document.removeEventListener('keydown',   this._boundKeyDown);
@@ -377,9 +411,14 @@ class LoopManagerModal extends BaseModal {
         const saveBtn = this.$('#lc-header-save');
         if (saveBtn) saveBtn.style.display = tab === 'arranger' ? '' : 'none';
 
+        // The embedded keyboard panel can only live in one host at a time, so
+        // unmount it whenever the user leaves the Keyboard tab.
+        if (tab !== 'keyboard' && this._kbdMounted) this._unmountKbdPanel();
+
         if (tab === 'library')  this._filterAndRenderLibrary();
         if (tab === 'pad')    { this._renderPadGrid(); this._loadPadMidiInDevices(); }
         if (tab === 'live')     this._renderLiveArea();
+        if (tab === 'keyboard') this._enterKeyboardTab();
         if (tab === 'arranger') this._initArrangerTab();
     }
 
@@ -416,6 +455,9 @@ class LoopManagerModal extends BaseModal {
             case 'pad-export':   this._exportPadLayout(); break;
             case 'pad-import':   this._importPadLayout(); break;
             case 'pad-clear-all':this._clearAllPads(); break;
+            // Keyboard tab
+            case 'kbd-toggle-output': this._kbdToggleOutput(); break;
+            case 'kbd-stop-all':      this._kbdStopAllNotes(); break;
             // Live
             case 'live-toggle-output': this._liveToggleOutput(); break;
             case 'live-stop-all':      this._liveStopAll(); break;
@@ -1730,6 +1772,145 @@ class LoopManagerModal extends BaseModal {
             fill.classList.remove('lc-playbar-fill--looping');
             fill.style.width = '0%';
         }
+    }
+
+    // =========================================================
+    // KEYBOARD TAB — live performance alongside loops
+    // =========================================================
+
+    async _enterKeyboardTab() {
+        if (!this._kbdSynth) {
+            this._kbdSynth = await LoopUtils.createSynth({ initialProgram: this._kbdInstrument });
+        }
+        if (!this._kbdMounted) this._mountKbdPanel();
+    }
+
+    _mountKbdPanel() {
+        const container = this.$('#lm-kbd-panel');
+        if (!container || !window.keyboardModal) return;
+        if (window.keyboardModal._panelMode) {
+            // Editor (or another host) currently owns the keyboard panel —
+            // give them precedence; we'll mount on next tab activation.
+            return;
+        }
+        try {
+            window.keyboardModal.mountAsPanel(container, {
+                onNoteOn:  (note, vel) => this._kbdNoteOn(note, vel),
+                onNoteOff: (note)      => this._kbdNoteOff(note),
+                onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
+                    // Cancel any sustained voice before switching instrument /
+                    // device so it doesn't keep ringing on the previous program.
+                    this._kbdStopAllNotes();
+                    this._kbdOutputDevice  = deviceId || null;
+                    this._kbdOutputChannel = channel ?? 0;
+                    this._kbdInstrument    = gmProgram ?? 0;
+                    if (this._kbdSynth) {
+                        try { this._kbdSynth.setChannelInstrument(0, this._kbdInstrument); }
+                        catch (err) { LoopUtils.handleError(err, 'kbd.synth.setChannelInstrument'); }
+                        if (!this._kbdSynth.loadedInstruments?.has(this._kbdInstrument)) {
+                            this._kbdSynth.loadInstrument(this._kbdInstrument).catch(err =>
+                                LoopUtils.handleError(err, 'kbd.synth.loadInstrument'));
+                        }
+                    }
+                    // Auto-flip the output toggle if the user picks a real device.
+                    if (deviceId && this._kbdOutputTarget !== 'live') {
+                        this._kbdOutputTarget = 'live';
+                        this._refreshKbdOutputUI();
+                    } else if (!deviceId && this._kbdOutputTarget !== 'synth') {
+                        this._kbdOutputTarget = 'synth';
+                        this._refreshKbdOutputUI();
+                    }
+                }
+            });
+            this._kbdMounted = true;
+        } catch (err) {
+            LoopUtils.handleError(err, 'kbd.mount', {
+                toast: this.t('loopManager.errKbdMount')
+            });
+        }
+    }
+
+    _unmountKbdPanel() {
+        try { window.keyboardModal?.unmountPanel?.(); }
+        catch (err) { LoopUtils.handleError(err, 'kbd.unmount'); }
+        this._kbdMounted = false;
+        this._kbdStopAllNotes();
+    }
+
+    _kbdNoteOn(note, velocity = 80) {
+        if (this._kbdActiveKeys.has(note)) return;
+        this._kbdActiveKeys.add(note);
+        if (this._kbdOutputTarget === 'live' && this._kbdOutputDevice) {
+            this.api.sendCommand('midi_send_note', {
+                deviceId: this._kbdOutputDevice,
+                channel:  this._kbdOutputChannel ?? 0,
+                note, velocity
+            }).catch(err => LoopUtils.handleError(err, 'kbd.live.noteOn'));
+            return;
+        }
+        if (!this._kbdSynth) return;
+        try {
+            const env = this._kbdSynth.playNote(note, velocity, 0, 9999);
+            if (env) this._kbdEnvelopes.set(note, env);
+        } catch (err) {
+            LoopUtils.handleError(err, 'kbd.synth.playNote');
+        }
+    }
+
+    _kbdNoteOff(note) {
+        this._kbdActiveKeys.delete(note);
+        if (this._kbdOutputTarget === 'live' && this._kbdOutputDevice) {
+            this.api.sendCommand('midi_send_note', {
+                deviceId: this._kbdOutputDevice,
+                channel:  this._kbdOutputChannel ?? 0,
+                note, velocity: 0
+            }).catch(err => LoopUtils.handleError(err, 'kbd.live.noteOff'));
+            return;
+        }
+        const env = this._kbdEnvelopes.get(note);
+        if (!env) return;
+        for (const e of env) {
+            try { e?.cancel?.(); }
+            catch (err) { LoopUtils.handleError(err, 'kbd.synth.cancel'); }
+        }
+        this._kbdEnvelopes.delete(note);
+    }
+
+    _kbdStopAllNotes() {
+        // Live device: send a note-off for every held note before clearing.
+        if (this._kbdOutputTarget === 'live' && this._kbdOutputDevice && this._kbdActiveKeys.size) {
+            for (const n of this._kbdActiveKeys) {
+                this.api.sendCommand('midi_send_note', {
+                    deviceId: this._kbdOutputDevice,
+                    channel:  this._kbdOutputChannel ?? 0,
+                    note: n, velocity: 0
+                }).catch(err => LoopUtils.handleError(err, 'kbd.live.flushNoteOff'));
+            }
+        }
+        // Synth: cancel any envelopes still ringing.
+        for (const env of this._kbdEnvelopes.values()) {
+            for (const e of env) { try { e?.cancel?.(); } catch (_) { /* best-effort */ } }
+        }
+        this._kbdEnvelopes.clear();
+        this._kbdActiveKeys.clear();
+    }
+
+    _kbdToggleOutput() {
+        // Release any held note on the previous target to avoid stuck notes.
+        this._kbdStopAllNotes();
+        this._kbdOutputTarget = this._kbdOutputTarget === 'synth' ? 'live' : 'synth';
+        this._refreshKbdOutputUI();
+    }
+
+    _refreshKbdOutputUI() {
+        const btn   = this.$('#lm-kbd-output-btn');
+        const label = this.$('#lm-kbd-output-label');
+        const isLive = this._kbdOutputTarget === 'live';
+        if (btn) {
+            btn.textContent = isLive ? '🔌' : '🔊';
+            btn.classList.toggle('lc-btn-output--active', isLive);
+        }
+        if (label) label.textContent = isLive ? this.t('loopManager.outputLive') : this.t('loopManager.outputSynth');
     }
 
     // =========================================================
