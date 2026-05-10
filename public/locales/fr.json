@@ -2549,7 +2549,10 @@
     "errImport": "Fichier de configuration invalide.",
     "errCreateArrangement": "Impossible de créer l'arrangement.",
     "errLoadArrangement": "Impossible de charger l'arrangement.",
-    "arrLocalOnly": "Modifications locales — pensez à sauvegarder."
+    "arrLocalOnly": "Modifications locales — pensez à sauvegarder.",
+    "assignedPadsTitle": "Boucle assignée au(x) pad(s) : {pads}",
+    "padHint": "Clic : jouer · Clic droit : assigner",
+    "confirmNewArrangement": "Démarrer un nouvel arrangement ? Les modifications non sauvegardées seront perdues."
   },
   "loopEditor": {
     "title": "Éditeur de boucle",

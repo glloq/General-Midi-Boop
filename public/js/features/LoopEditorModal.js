@@ -62,7 +62,7 @@ class LoopEditorModal extends BaseModal {
 
         // Piano roll
         this.pianoRoll = null;
-        this._pianoRollVisible = false;
+        this._pianoRollVisible = true;
 
         // Minimap
         this._minimap = null;
@@ -221,6 +221,7 @@ class LoopEditorModal extends BaseModal {
                             data-action="toggle-output" title="${this.t('loopCreator.outputSynth')}">🔊</button>
                         <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                             <span class="lc-rec-dot lc-rec-dot--pulse"></span>
+                            <span class="lc-rec-time" id="lc-rec-time">0:00</span>
                         </span>
                     </div>
                 </div>
@@ -915,6 +916,7 @@ class LoopEditorModal extends BaseModal {
         this.$('#lc-rec-indicator')?.classList.remove('hidden');
         if (this._midiInDevice) this._startMidiInMonitor();
         this._startRecordingAnimation();
+        this._startRecordingTimer();
         this._setStatus(this.t('loopCreator.statusRecording'));
     }
 
@@ -926,7 +928,26 @@ class LoopEditorModal extends BaseModal {
         this.$('#lc-rec-indicator')?.classList.add('hidden');
         this._stopMidiInMonitor();
         this._stopRecordingAnimation();
+        this._stopRecordingTimer();
         this._setStatus(this.t('loopCreator.statusRecordingDone'));
+    }
+
+    _startRecordingTimer() {
+        this._stopRecordingTimer();
+        const el = this.$('#lc-rec-time');
+        if (!el) return;
+        const update = () => {
+            const elapsed = Math.floor((performance.now() - this.recordStartTime) / 1000);
+            const m = Math.floor(elapsed / 60);
+            const s = elapsed % 60;
+            el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        };
+        update();
+        this._recTimerId = setInterval(update, 500);
+    }
+
+    _stopRecordingTimer() {
+        if (this._recTimerId) { clearInterval(this._recTimerId); this._recTimerId = null; }
     }
 
     async _startMidiInMonitor() {

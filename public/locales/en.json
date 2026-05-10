@@ -2549,7 +2549,10 @@
     "errImport": "Invalid layout file.",
     "errCreateArrangement": "Could not create arrangement.",
     "errLoadArrangement": "Could not load arrangement.",
-    "arrLocalOnly": "Local changes — remember to save."
+    "arrLocalOnly": "Local changes — remember to save.",
+    "assignedPadsTitle": "Loop assigned to pad(s): {pads}",
+    "padHint": "Click: play · Right-click: assign",
+    "confirmNewArrangement": "Start a new arrangement? Unsaved changes will be lost."
   },
   "loopEditor": {
     "title": "Loop Editor",

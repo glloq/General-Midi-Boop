@@ -63,10 +63,15 @@
 .lc-playbar-fill--looping {
     animation: lc-playbar-loop var(--playbar-dur, 2s) linear infinite;
 }
-.lc-header-left { display: flex; align-items: center; flex-shrink: 0; }
+.lc-header-left { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
 .lc-header-title {
     font-size: 1.15rem; font-weight: 800;
     color: #fff; letter-spacing: -0.02em; line-height: 1;
+}
+.lc-header-subtitle {
+    font-size: 0.82rem; font-weight: 500;
+    color: rgba(255,255,255,0.82);
+    letter-spacing: 0.01em; white-space: nowrap;
 }
 .lc-header-tabs { display: flex; gap: 4px; flex: 1; justify-content: center; align-items: center; }
 .lc-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -315,6 +320,13 @@
 }
 .lc-rec-dot { width: 7px; height: 7px; border-radius: 50%; background: #c0392b; display: inline-block; flex-shrink: 0; }
 .lc-rec-dot--pulse { animation: lc-pulse 0.7s infinite alternate; }
+.lc-rec-time {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    min-width: 2.6em;
+    text-align: left;
+}
 @keyframes lc-pulse { from { opacity: 1; } to { opacity: 0.2; } }
 
 /* ── Status ── */
@@ -362,6 +374,26 @@
 .lc-card-btn { padding: 2px 6px; border: 1px solid var(--border-color, #ccc); border-radius: 3px; background: transparent; cursor: pointer; font-size: 0.75rem; transition: background 0.12s; }
 .lc-card-btn:hover { background: var(--bg-hover, #e8ecf0); }
 .lc-card-btn--danger:hover { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+.lc-card-btn--play { color: var(--accent-color, #667eea); }
+.lc-card-btn--play:hover { background: var(--accent-light, rgba(102,126,234,0.10)); }
+.lc-card-btn--play.lc-card-btn--playing {
+    background: var(--accent-color, #667eea) !important;
+    color: #fff !important;
+    border-color: var(--accent-color, #667eea) !important;
+}
+
+/* QW10 — pad-assignment tag inline with the card name */
+.lc-card-name { display: flex; align-items: center; gap: 6px; }
+.lc-card-pad-tag {
+    flex-shrink: 0;
+    font-size: 0.62rem; font-weight: 700;
+    color: var(--accent-color, #667eea);
+    background: var(--accent-light, rgba(102,126,234,0.10));
+    border-radius: 10px;
+    padding: 1px 6px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
 
 /* Instrument badge */
 .lc-card-instr {
@@ -554,6 +586,26 @@
 /* GM family icon inside assigned pad */
 .lm-pad-icon { font-size: 1.1rem; opacity: 0.7; margin-bottom: 2px; }
 
+/* QW4 — keyboard shortcut badge */
+.lm-pad-shortcut {
+    position: absolute;
+    top: 4px; right: 6px;
+    font-size: 0.62rem; font-weight: 700;
+    color: var(--text-secondary, #8a93a6);
+    background: rgba(0,0,0,0.04);
+    border-radius: 3px;
+    padding: 1px 4px;
+    line-height: 1;
+    pointer-events: none;
+    letter-spacing: 0.02em;
+}
+.lm-pad-cell--playing .lm-pad-shortcut {
+    color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.18);
+}
+body.theme-dark .lm-pad-shortcut,
+body.dark-mode  .lm-pad-shortcut { background: rgba(255,255,255,0.08); color: #b8c0d4; }
+
 .lm-pad-name { font-size: 0.82rem; font-weight: 600; text-align: center; word-break: break-word; line-height: 1.2; }
 .lm-pad-meta { font-size: 0.65rem; opacity: 0.65; margin-top: 3px; }
 
@@ -573,6 +625,25 @@
     font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.04em; color: var(--text-secondary, #888);
     padding: 7px 10px 4px; border-bottom: 1px solid var(--border-color, #eee);
+}
+.lm-picker-search {
+    display: block;
+    margin: 4px 8px 6px;
+    width: calc(100% - 16px);
+    height: 26px;
+    padding: 0 8px;
+    font-size: 0.82rem;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #333);
+    box-sizing: border-box;
+}
+.lm-picker-search:focus { outline: 1px solid var(--accent-color, #667eea); }
+body.theme-dark .lm-picker-search,
+body.dark-mode  .lm-picker-search {
+    background: var(--bg-secondary, #1a1a2e);
+    color: #eee; border-color: var(--border-color, #333355);
 }
 .lm-picker-list { padding: 4px; }
 .lm-picker-item {
@@ -850,6 +921,23 @@ body.dark-mode  .la-block--selected {
     opacity: 0.35;
     cursor: not-allowed;
     pointer-events: none;
+}
+
+/* QW5 — unsaved-changes indicator on the Save Arrangement button */
+.lc-header-actions .lc-btn.lc-btn--dirty {
+    position: relative;
+    background: rgba(255,255,255,0.38);
+    border-color: rgba(255,255,255,0.70);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.18);
+}
+.lc-header-actions .lc-btn.lc-btn--dirty::after {
+    content: '';
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #f5a623;
+    box-shadow: 0 0 0 2px rgba(102,126,234,0.7);
 }
 
 /* ============================================================
