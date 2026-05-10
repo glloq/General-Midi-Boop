@@ -602,6 +602,9 @@ class DatabaseManager {
   countFilesWithoutChannels() {
     return this.midiDB.countFilesWithoutChannels();
   }
+  countFilesNeedingReanalysis() {
+    return this.midiDB.countFilesNeedingReanalysis();
+  }
   getDistinctInstruments() {
     return this.midiDB.getDistinctInstruments();
   }
