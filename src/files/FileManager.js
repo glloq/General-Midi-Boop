@@ -17,15 +17,27 @@ import { LIMITS } from '../core/constants.js';
 
 class FileManager {
   /**
-   * @param {Object} app - Application facade. Needs `logger`, `database`,
-   *   `blobStore`, `eventBus`, `fileRepository`, `routingRepository`,
-   *   `autoAssigner`.
+   * @param {Object} deps - Service-container facade. The manager
+   *   captures `logger`, `database`, `blobStore`, `eventBus` and
+   *   `autoAssigner` eagerly. `wsServer`, `deviceManager` and
+   *   `midiBaker` are exposed through lazy getters because they may
+   *   register after the file manager during boot.
    */
-  constructor(app) {
-    this.app = app;
-    this.midiFileParser = new MidiFileParser(app.logger);
-    this.midiFileValidator = new MidiFileValidator(app.logger);
-    this.app.logger.info('FileManager initialized');
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.database = deps.database;
+    this.blobStore = deps.blobStore;
+    this.eventBus = deps.eventBus;
+    this.autoAssigner = deps.autoAssigner;
+    for (const name of ['wsServer', 'deviceManager', 'midiBaker']) {
+      Object.defineProperty(this, name, {
+        get: () => deps[name],
+        configurable: true,
+      });
+    }
+    this.midiFileParser = new MidiFileParser(this.logger);
+    this.midiFileValidator = new MidiFileValidator(this.logger);
+    this.logger.info('FileManager initialized');
   }
 
   // ==========================================================================
@@ -58,13 +70,13 @@ class FileManager {
     report('received');
 
     // Hash + write the blob first. Idempotent on identical bytes.
-    const blob = this.app.blobStore.write(buffer);
+    const blob = this.blobStore.write(buffer);
     report('hashed');
 
     // Dedup short-circuit: if a row already references this content, return it.
-    const existing = this.app.database.midiDB.getFileByContentHash(blob.hash);
+    const existing = this.database.midiDB.getFileByContentHash(blob.hash);
     if (existing) {
-      this.app.logger.info(
+      this.logger.info(
         `Upload duplicate: ${filename} → existing fileId=${existing.id} (hash=${blob.hash.slice(0, 8)}…)`
       );
       return {
@@ -109,8 +121,8 @@ class FileManager {
     // Single transaction: file row + channels + tempo map + text events.
     // Either everything commits or nothing does — no orphan rows.
     const dbStart = Date.now();
-    const persist = this.app.database.transaction(() => {
-      const id = this.app.database.insertFile({
+    const persist = this.database.transaction(() => {
+      const id = this.database.insertFile({
         content_hash: blob.hash,
         filename,
         folder,
@@ -127,13 +139,13 @@ class FileManager {
         uploaded_at: new Date().toISOString()
       });
       if (instrumentMetadata.channelDetails.length > 0) {
-        this.app.database.insertFileChannels(id, instrumentMetadata.channelDetails);
+        this.database.insertFileChannels(id, instrumentMetadata.channelDetails);
       }
       if (tempoMap.length > 0) {
-        this.app.database.midiDB.insertFileTempoMap(id, tempoMap);
+        this.database.midiDB.insertFileTempoMap(id, tempoMap);
       }
       if (textEvents.length > 0) {
-        this.app.database.midiDB.insertFileTextEvents(id, textEvents);
+        this.database.midiDB.insertFileTextEvents(id, textEvents);
       }
       return id;
     });
@@ -145,7 +157,7 @@ class FileManager {
       // If insertion failed for any reason other than a race-condition dedup,
       // the blob is now orphaned. Clean it up only when no row references it.
       if (err.code !== 'DUPLICATE_CONTENT') {
-        if (!this.app.database.midiDB.getFileByContentHash(blob.hash)) {
+        if (!this.database.midiDB.getFileByContentHash(blob.hash)) {
           this._safeBlobDelete(blob.relativePath);
         }
       }
@@ -155,12 +167,12 @@ class FileManager {
     report('stored');
 
     const totalMs = Date.now() - t0;
-    this.app.logger.info(
+    this.logger.info(
       `File uploaded: ${filename} (id=${fileId}, hash=${blob.hash.slice(0, 8)}…, ${totalMs}ms — parse:${parseMs} analyze:${analysisMs} db:${dbMs})`
     );
 
-    if (this.app.eventBus) {
-      this.app.eventBus.emit('file_uploaded', {
+    if (this.eventBus) {
+      this.eventBus.emit('file_uploaded', {
         fileId,
         filename,
         contentHash: blob.hash
@@ -207,7 +219,7 @@ class FileManager {
   // ==========================================================================
 
   async exportFile(fileId) {
-    const file = this.app.database.getFile(fileId);
+    const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
     return {
       filename: file.filename,
@@ -219,12 +231,12 @@ class FileManager {
   }
 
   async loadFile(fileId) {
-    const file = this.app.database.getFile(fileId);
+    const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
     if (!file.blob_path) {
       throw new Error(`File ${fileId} (${file.filename}) has no blob_path`);
     }
-    const buffer = this.app.blobStore.read(file.blob_path);
+    const buffer = this.blobStore.read(file.blob_path);
     const midi = parseMidi(buffer);
     return {
       id: file.id,
@@ -246,35 +258,35 @@ class FileManager {
     if (!Number.isFinite(numericId) || numericId <= 0) {
       throw new Error(`Invalid file ID: ${fileId}`);
     }
-    const file = this.app.database.getFileInfo(numericId);
+    const file = this.database.getFileInfo(numericId);
     if (!file) throw new Error(`File not found: ${numericId}`);
 
     // FK ON DELETE CASCADE removes channels, tempo map, routings, tablatures.
-    this.app.database.deleteFile(numericId);
+    this.database.deleteFile(numericId);
 
     // content_hash is UNIQUE → exactly one row per blob. Safe to delete now.
     if (file.blob_path) {
       this._safeBlobDelete(file.blob_path);
     }
-    this.app.logger.info(`File deleted: ${file.filename} (${numericId})`);
-    if (this.app.eventBus) {
-      this.app.eventBus.emit('file_delete', { fileId: numericId });
+    this.logger.info(`File deleted: ${file.filename} (${numericId})`);
+    if (this.eventBus) {
+      this.eventBus.emit('file_delete', { fileId: numericId });
     }
     this.broadcastFileList();
     return { success: true };
   }
 
   async saveFile(fileId, midiData) {
-    const file = this.app.database.getFile(fileId);
+    const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
 
     const buffer = Buffer.from(writeMidi(midiData));
-    const newBlob = this.app.blobStore.write(buffer);
+    const newBlob = this.blobStore.write(buffer);
 
     // If the new content matches another row's hash, refuse rather than
     // silently merging two midi_files rows onto a single blob.
     if (newBlob.hash !== file.content_hash) {
-      const collision = this.app.database.midiDB.getFileByContentHash(newBlob.hash);
+      const collision = this.database.midiDB.getFileByContentHash(newBlob.hash);
       if (collision && collision.id !== file.id) {
         // Roll back the just-written blob if it wasn't deduplicated.
         if (!newBlob.deduplicated) this._safeBlobDelete(newBlob.relativePath);
@@ -291,8 +303,8 @@ class FileManager {
     const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(parsed);
 
     const oldBlobPath = file.blob_path;
-    const persist = this.app.database.transaction(() => {
-      this.app.database.updateFile(fileId, {
+    const persist = this.database.transaction(() => {
+      this.database.updateFile(fileId, {
         blob_path: newBlob.relativePath,
         size: buffer.length,
         tracks: parsed.tracks.length,
@@ -306,21 +318,21 @@ class FileManager {
       });
       // content_hash is UNIQUE — not in updateFile's allow-list, raw UPDATE.
       if (newBlob.hash !== file.content_hash) {
-        this.app.database.db
+        this.database.db
           .prepare('UPDATE midi_files SET content_hash = ? WHERE id = ?')
           .run(newBlob.hash, fileId);
       }
-      this.app.database.deleteFileChannels(fileId);
+      this.database.deleteFileChannels(fileId);
       if (instrumentMetadata.channelDetails.length > 0) {
-        this.app.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
+        this.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
       }
-      this.app.database.midiDB.deleteFileTempoMap(fileId);
+      this.database.midiDB.deleteFileTempoMap(fileId);
       if (tempoMap.length > 0) {
-        this.app.database.midiDB.insertFileTempoMap(fileId, tempoMap);
+        this.database.midiDB.insertFileTempoMap(fileId, tempoMap);
       }
-      this.app.database.midiDB.deleteFileTextEvents(fileId);
+      this.database.midiDB.deleteFileTextEvents(fileId);
       if (textEvents.length > 0) {
-        this.app.database.midiDB.insertFileTextEvents(fileId, textEvents);
+        this.database.midiDB.insertFileTextEvents(fileId, textEvents);
       }
     });
     persist();
@@ -330,9 +342,9 @@ class FileManager {
       this._safeBlobDelete(oldBlobPath);
     }
 
-    this.app.logger.info(`File saved: ${fileId} (hash=${newBlob.hash.slice(0, 8)}…)`);
-    if (this.app.eventBus) {
-      this.app.eventBus.emit('file_write', { fileId, contentHash: newBlob.hash });
+    this.logger.info(`File saved: ${fileId} (hash=${newBlob.hash.slice(0, 8)}…)`);
+    if (this.eventBus) {
+      this.eventBus.emit('file_write', { fileId, contentHash: newBlob.hash });
     }
     this.broadcastFileList();
     return { success: true };
@@ -348,15 +360,15 @@ class FileManager {
    * @returns {Promise<{success:true, stats:{cc_events_added:number}}>}
    */
   async bakeAndSave(fileId) {
-    const file = this.app.database.getFile(fileId);
+    const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
 
-    const { buffer, stats } = await this.app.midiBaker.bake(Number(fileId));
+    const { buffer, stats } = await this.midiBaker.bake(Number(fileId));
 
-    const newBlob = this.app.blobStore.write(buffer);
+    const newBlob = this.blobStore.write(buffer);
 
     if (newBlob.hash !== file.content_hash) {
-      const collision = this.app.database.midiDB.getFileByContentHash(newBlob.hash);
+      const collision = this.database.midiDB.getFileByContentHash(newBlob.hash);
       if (collision && collision.id !== file.id) {
         if (!newBlob.deduplicated) this._safeBlobDelete(newBlob.relativePath);
         throw new Error(
@@ -372,8 +384,8 @@ class FileManager {
     const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(parsed);
 
     const oldBlobPath = file.blob_path;
-    const persist = this.app.database.transaction(() => {
-      this.app.database.updateFile(fileId, {
+    const persist = this.database.transaction(() => {
+      this.database.updateFile(fileId, {
         blob_path: newBlob.relativePath,
         size: buffer.length,
         tracks: parsed.tracks.length,
@@ -386,21 +398,21 @@ class FileManager {
         has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
       });
       if (newBlob.hash !== file.content_hash) {
-        this.app.database.db
+        this.database.db
           .prepare('UPDATE midi_files SET content_hash = ? WHERE id = ?')
           .run(newBlob.hash, fileId);
       }
-      this.app.database.deleteFileChannels(fileId);
+      this.database.deleteFileChannels(fileId);
       if (instrumentMetadata.channelDetails.length > 0) {
-        this.app.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
+        this.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
       }
-      this.app.database.midiDB.deleteFileTempoMap(fileId);
+      this.database.midiDB.deleteFileTempoMap(fileId);
       if (tempoMap.length > 0) {
-        this.app.database.midiDB.insertFileTempoMap(fileId, tempoMap);
+        this.database.midiDB.insertFileTempoMap(fileId, tempoMap);
       }
-      this.app.database.midiDB.deleteFileTextEvents(fileId);
+      this.database.midiDB.deleteFileTextEvents(fileId);
       if (textEvents.length > 0) {
-        this.app.database.midiDB.insertFileTextEvents(fileId, textEvents);
+        this.database.midiDB.insertFileTextEvents(fileId, textEvents);
       }
     });
     persist();
@@ -409,32 +421,32 @@ class FileManager {
       this._safeBlobDelete(oldBlobPath);
     }
 
-    if (this.app.autoAssigner) this.app.autoAssigner.invalidateCache(fileId);
+    if (this.autoAssigner) this.autoAssigner.invalidateCache(fileId);
 
-    this.app.logger.info(
+    this.logger.info(
       `File baked: ${fileId} (+${stats.cc_events_added} CC events, hash=${newBlob.hash.slice(0, 8)}…)`
     );
-    if (this.app.eventBus) {
-      this.app.eventBus.emit('file_write', { fileId, contentHash: newBlob.hash });
+    if (this.eventBus) {
+      this.eventBus.emit('file_write', { fileId, contentHash: newBlob.hash });
     }
     this.broadcastFileList();
     return { success: true, stats };
   }
 
   async renameFile(fileId, newFilename) {
-    const file = this.app.database.getFileInfo(fileId);
+    const file = this.database.getFileInfo(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
-    this.app.database.updateFile(fileId, { filename: newFilename });
-    this.app.logger.info(`File renamed: ${file.filename} → ${newFilename}`);
+    this.database.updateFile(fileId, { filename: newFilename });
+    this.logger.info(`File renamed: ${file.filename} → ${newFilename}`);
     this.broadcastFileList();
     return { success: true };
   }
 
   async moveFile(fileId, newFolder) {
-    const file = this.app.database.getFileInfo(fileId);
+    const file = this.database.getFileInfo(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
-    this.app.database.updateFile(fileId, { folder: newFolder });
-    this.app.logger.info(`File moved: ${file.filename} → ${newFolder}`);
+    this.database.updateFile(fileId, { folder: newFolder });
+    this.logger.info(`File moved: ${file.filename} → ${newFolder}`);
     this.broadcastFileList();
     return { success: true };
   }
@@ -446,7 +458,7 @@ class FileManager {
    * with mutations, callers should use {@link saveFileAs}.
    */
   async duplicateFile(fileId) {
-    const file = this.app.database.getFile(fileId);
+    const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
     return {
       fileId: file.id,
@@ -456,60 +468,60 @@ class FileManager {
   }
 
   async saveFileAs(fileId, newFilename, midiData) {
-    const file = this.app.database.getFileInfo(fileId);
+    const file = this.database.getFileInfo(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
     const buffer = Buffer.from(writeMidi(midiData));
     return this.handleUpload(newFilename, buffer, { folder: file.folder });
   }
 
   async reanalyzeAllFiles() {
-    const allFiles = this.app.database.getAllFiles();
+    const allFiles = this.database.getAllFiles();
     let analyzed = 0;
     let failed = 0;
-    this.app.logger.info(`Re-analyzing ${allFiles.length} MIDI files...`);
+    this.logger.info(`Re-analyzing ${allFiles.length} MIDI files...`);
 
     for (const file of allFiles) {
       try {
         if (!file.blob_path) {
-          this.app.logger.warn(`Skipping file ${file.id}: no blob_path`);
+          this.logger.warn(`Skipping file ${file.id}: no blob_path`);
           failed++;
           continue;
         }
-        const buffer = this.app.blobStore.read(file.blob_path);
+        const buffer = this.blobStore.read(file.blob_path);
         const midi = parseMidi(buffer);
         const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
         const tempoMap = this.midiFileParser.extractTempoMap(midi);
         const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(midi);
 
-        const persist = this.app.database.transaction(() => {
-          this.app.database.updateFile(file.id, {
+        const persist = this.database.transaction(() => {
+          this.database.updateFile(file.id, {
             ...instrumentMetadata.fileMetadata,
             title: textSummary.title ?? null,
             copyright: textSummary.copyright ?? null,
             has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
           });
-          this.app.database.deleteFileChannels(file.id);
+          this.database.deleteFileChannels(file.id);
           if (instrumentMetadata.channelDetails.length > 0) {
-            this.app.database.insertFileChannels(file.id, instrumentMetadata.channelDetails);
+            this.database.insertFileChannels(file.id, instrumentMetadata.channelDetails);
           }
-          this.app.database.midiDB.deleteFileTempoMap(file.id);
+          this.database.midiDB.deleteFileTempoMap(file.id);
           if (tempoMap.length > 0) {
-            this.app.database.midiDB.insertFileTempoMap(file.id, tempoMap);
+            this.database.midiDB.insertFileTempoMap(file.id, tempoMap);
           }
-          this.app.database.midiDB.deleteFileTextEvents(file.id);
+          this.database.midiDB.deleteFileTextEvents(file.id);
           if (textEvents.length > 0) {
-            this.app.database.midiDB.insertFileTextEvents(file.id, textEvents);
+            this.database.midiDB.insertFileTextEvents(file.id, textEvents);
           }
         });
         persist();
         analyzed++;
       } catch (err) {
-        this.app.logger.warn(`Re-analyze failed for file ${file.id}: ${err.message}`);
+        this.logger.warn(`Re-analyze failed for file ${file.id}: ${err.message}`);
         failed++;
       }
     }
 
-    this.app.logger.info(`Re-analysis complete: ${analyzed} analyzed, ${failed} failed`);
+    this.logger.info(`Re-analysis complete: ${analyzed} analyzed, ${failed} failed`);
     return { analyzed, failed, total: allFiles.length };
   }
 
@@ -518,7 +530,7 @@ class FileManager {
   // ==========================================================================
 
   listFiles(folder = '/') {
-    const files = this.app.database.getFiles(folder);
+    const files = this.database.getFiles(folder);
     const fileIds = files.map(f => f.id);
     const routingMap = this._batchGetRoutingStatus(fileIds, files);
 
@@ -545,7 +557,7 @@ class FileManager {
 
     try {
       const connectedDeviceIds = this._getConnectedDeviceIds();
-      const routingCounts = this.app.database.getRoutingCountsByFiles(fileIds, connectedDeviceIds);
+      const routingCounts = this.database.getRoutingCountsByFiles(fileIds, connectedDeviceIds);
 
       const channelCountMap = new Map();
       for (const file of files) {
@@ -569,7 +581,7 @@ class FileManager {
         }
       }
     } catch (err) {
-      this.app.logger.warn(`Batch routing status failed: ${err.message}`);
+      this.logger.warn(`Batch routing status failed: ${err.message}`);
     }
 
     return result;
@@ -577,7 +589,7 @@ class FileManager {
 
   _getConnectedDeviceIds() {
     try {
-      const deviceList = this.app.deviceManager?.getDeviceList?.();
+      const deviceList = this.deviceManager?.getDeviceList?.();
       if (!deviceList || deviceList.length === 0) return null;
       const ids = new Set();
       for (const d of deviceList) {
@@ -590,7 +602,7 @@ class FileManager {
   }
 
   getFile(fileId) {
-    const file = this.app.database.getFile(fileId);
+    const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
     return {
       id: file.id,
@@ -606,24 +618,24 @@ class FileManager {
   }
 
   async getFileMetadata(fileId) {
-    const file = this.app.database.getFile(fileId);
+    const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
 
     let channels = [];
     let noteCount = 0;
     let format = 1;
     try {
-      const channelRows = this.app.database.getFileChannels(fileId);
+      const channelRows = this.database.getFileChannels(fileId);
       channels = channelRows.map(ch => ch.channel).sort((a, b) => a - b);
       noteCount = channelRows.reduce((sum, ch) => sum + (ch.total_notes || 0), 0);
     } catch (chErr) {
-      this.app.logger.warn(`Failed to get channel details for file ${fileId}: ${chErr.message}`);
+      this.logger.warn(`Failed to get channel details for file ${fileId}: ${chErr.message}`);
     }
 
     // Fallback: parse the blob if no channel rows are stored.
     if (channels.length === 0 && file.blob_path) {
       try {
-        const buffer = this.app.blobStore.read(file.blob_path);
+        const buffer = this.blobStore.read(file.blob_path);
         const midi = parseMidi(buffer);
         format = midi.header.format;
         const channelsUsed = new Set();
@@ -638,7 +650,7 @@ class FileManager {
         });
         channels = Array.from(channelsUsed).sort((a, b) => a - b);
       } catch (parseErr) {
-        this.app.logger.warn(`Fallback MIDI parse failed for file ${fileId}: ${parseErr.message}`);
+        this.logger.warn(`Fallback MIDI parse failed for file ${fileId}: ${parseErr.message}`);
         if (file.channel_count > 0) {
           channels = Array.from({ length: file.channel_count }, (_, i) => i);
         }
@@ -649,7 +661,7 @@ class FileManager {
     let isAdapted = false;
     let hasAutoAssigned = false;
     try {
-      const routings = this.app.database.getRoutingsByFile(fileId);
+      const routings = this.database.getRoutingsByFile(fileId);
       const connectedDeviceIds = this._getConnectedDeviceIds();
       const effectiveChannelCount = channels.length || file.channel_count || 1;
       const enabledRoutings = routings.filter(r => {
@@ -672,7 +684,7 @@ class FileManager {
       isAdapted = file.is_original === 0 || file.is_original === false;
       hasAutoAssigned = enabledRoutings.some(r => r.auto_assigned);
     } catch (routingErr) {
-      this.app.logger.warn(`Failed to compute routing status for file ${fileId}: ${routingErr.message}`);
+      this.logger.warn(`Failed to compute routing status for file ${fileId}: ${routingErr.message}`);
     }
 
     return {
@@ -715,27 +727,27 @@ class FileManager {
   }
 
   getFolders() {
-    return this.app.database.getFolders();
+    return this.database.getFolders();
   }
 
   createFolder(folderPath) {
     if (!folderPath || !folderPath.startsWith('/')) {
       throw new Error('Invalid folder path');
     }
-    this.app.logger.info(`Folder created: ${folderPath}`);
+    this.logger.info(`Folder created: ${folderPath}`);
     return { success: true };
   }
 
   broadcastFileList() {
-    if (this.app.wsServer) {
-      this.app.wsServer.broadcast('file_list_updated', {
+    if (this.wsServer) {
+      this.wsServer.broadcast('file_list_updated', {
         files: this.listFiles()
       });
     }
   }
 
   getStorageStats() {
-    const files = this.app.database.getFiles('/');
+    const files = this.database.getFiles('/');
     const totalSize = files.reduce((sum, file) => sum + (file.size || 0), 0);
     return {
       totalFiles: files.length,
@@ -753,9 +765,9 @@ class FileManager {
 
   _safeBlobDelete(relativePath) {
     try {
-      this.app.blobStore.delete(relativePath);
+      this.blobStore.delete(relativePath);
     } catch (err) {
-      this.app.logger.warn(`BlobStore delete failed for ${relativePath}: ${err.message}`);
+      this.logger.warn(`BlobStore delete failed for ${relativePath}: ${err.message}`);
     }
   }
 }
