@@ -57,9 +57,9 @@ confirmé, mettre `verified: true` dans `MidiSynthesizerConstants.js`.
 
 | # | Idée | Priorité |
 |---|------|----------|
-| A | Script de vérification automatique (`scripts/verify-drum-banks.js`) qui HEAD chaque URL CDN et met à jour `verified` dans les constantes | Basse |
+| A | ~~Script de vérification automatique~~ | **Livré** — `scripts/verify-drum-banks.js`. `node scripts/verify-drum-banks.js` lit `SOUND_BANKS[*].drumKits`, HEAD chaque URL CDN avec concurrence configurable, imprime un tableau et exit `1` si un kit jadis verified est devenu inaccessible. `--write` met à jour les flags `verified` en place (ne touche QUE les lignes `verified: true|false`, jamais le reste). |
 | B | Exposer dans l'UI (modal réglages) un badge « banque utilisée pour les drums » sur chaque kit — utile quand la banque courante ne supporte pas le kit demandé | Basse |
-| C | Ajouter les kits de batterie supplémentaires de GeneralUserGS (Room, Jazz…) si confirmés présents sur le CDN | Moyenne |
+| C | Ajouter les kits de batterie supplémentaires de GeneralUserGS (Room, Jazz…) si confirmés présents sur le CDN — relancer le script avec `--note=38` ou `--note=42` aide à confirmer | Moyenne |
 | D | Permettre une banque drums indépendante de la banque melodique (réglage avancé) | Basse |
 
 ---
