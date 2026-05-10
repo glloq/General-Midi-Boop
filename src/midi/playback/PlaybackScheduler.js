@@ -47,15 +47,35 @@ class PlaybackScheduler {
    * @param {Object} [deps.eventLoopMonitor]  - Optional; reduces lookahead when event loop is lagging.
    */
   constructor(deps) {
+    this._deps               = deps;
     this.logger              = deps.logger;
     this.database            = deps.database;
     this.eventBus            = deps.eventBus;
-    this.wsServer            = deps.wsServer;
     this.deviceManager       = deps.deviceManager;
-    this.compensationService = deps.compensationService   || null;
-    this.capabilityResolver  = deps.capabilityResolver    || null;
+    // MidiClockGenerator is registered before MidiPlayer (which builds this
+    // scheduler) — see Application.initialize() comments — so the eager
+    // capture is safe.
     this.midiClockGenerator  = deps.midiClockGenerator    || null;
-    this.eventLoopMonitor    = deps.eventLoopMonitor      || null;
+
+    // The next four deps are registered AFTER `midiPlayer` in
+    // Application.initialize() (compensationService, capabilityResolver,
+    // wsServer in initialize; eventLoopMonitor in start). Capturing them
+    // eagerly would freeze a null reference here and silently disable
+    // every consumer at runtime — see AUDIT 2026-05-10 §12. Expose them as
+    // getters that re-resolve through the DI Proxy on each access.
+    Object.defineProperty(this, 'wsServer', {
+      get: () => this._deps.wsServer || null
+    });
+    Object.defineProperty(this, 'compensationService', {
+      get: () => this._deps.compensationService || null
+    });
+    Object.defineProperty(this, 'capabilityResolver', {
+      get: () => this._deps.capabilityResolver || null
+    });
+    Object.defineProperty(this, 'eventLoopMonitor', {
+      get: () => this._deps.eventLoopMonitor || null
+    });
+
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
