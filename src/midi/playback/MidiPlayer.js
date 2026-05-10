@@ -503,6 +503,26 @@ class MidiPlayer {
       if (!handsCfg || handsCfg.enabled === false) return;
       if (!Array.isArray(handsCfg.hands) || handsCfg.hands.length === 0) return;
 
+      // The file may already carry hand-position CCs baked in by
+      // PlaybackAssignmentCommands.applyAssignments (the editor needs
+      // them on disk to render). When that's the case we'd double-send
+      // every event: one from the timeline + one from this injection.
+      // Detect by looking for ANY controller event on `srcChannel` whose
+      // controller number matches one of this destination's hands. If
+      // found, skip — the baked stream is authoritative.
+      const expectedCcNumbers = new Set(
+        handsCfg.hands
+          .map(h => (h && Number.isInteger(h.cc_number)) ? h.cc_number : null)
+          .filter(v => v !== null)
+      );
+      if (expectedCcNumbers.size > 0 && this._timelineHasHandCCs(srcChannel, expectedCcNumbers)) {
+        this.logger.debug(
+          `Hand planner (ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
+          `device ${device}): timeline already carries CC(s) ${[...expectedCcNumbers].join(',')} — skipping injection`
+        );
+        return;
+      }
+
       if (handsCfg.mode === 'frets') {
         this._planFretsForDestination({
           srcChannel, device, targetChannel, segmentLabel, segmentFilter,
@@ -630,6 +650,30 @@ class MidiPlayer {
 
     this.logger.info(`Injected ${allCCs.length} hand-position CC events (${allWarnings.length} warnings)`);
     return allCCs.length;
+  }
+
+  /**
+   * @param {number} srcChannel
+   * @param {Set<number>} expectedCcNumbers - controller numbers a given
+   *   destination's `hands_config` would inject if not already present.
+   * @returns {boolean} True when the loaded file already carries a
+   *   controller event on `srcChannel` whose controller is in
+   *   `expectedCcNumbers` and that did NOT originate from a prior
+   *   in-memory injection (`_handInjected` marker). Used by
+   *   {@link MidiPlayer#_injectHandPositionCCEvents} to avoid the
+   *   double-emission problem described in TODO §"CC main absents".
+   * @private
+   */
+  _timelineHasHandCCs(srcChannel, expectedCcNumbers) {
+    if (!this.events || expectedCcNumbers.size === 0) return false;
+    for (let i = 0; i < this.events.length; i++) {
+      const e = this.events[i];
+      if (e._handInjected) continue;            // our own previous output — ignore
+      if (e.type !== 'controller') continue;
+      if (e.channel !== srcChannel) continue;
+      if (expectedCcNumbers.has(e.controller)) return true;
+    }
+    return false;
   }
 
   /**

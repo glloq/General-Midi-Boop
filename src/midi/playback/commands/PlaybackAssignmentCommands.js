@@ -509,16 +509,75 @@ async function applyAssignments(app, data) {
   // the frontend (C.3 badge, future inspection panel) sees the
   // same level taxonomy without an extra round-trip.
 
+  // Bake the hand-position CCs (CC22/CC23/CC24…) into the saved file so
+  // the MIDI editor's CC pane can render them and the operator can tweak
+  // the curve. Without this, MidiPlayer injected the CCs into the live
+  // timeline at playback time only — the file on disk had none, and the
+  // editor showed an empty hand-position track. See TODO.md "CC main
+  // absents de l'éditeur CC après routage" (option A).
+  //
+  // The baker is idempotent: it strips its previous output before
+  // re-baking, so a re-apply always reflects the latest routings.
+  // We only invoke it when at least one persisted routing points to a
+  // destination with a `hands_config`, otherwise it's a no-op.
+  let bakeStats = null;
+  try {
+    const hasHandRouted = await _hasHandConfigRouting(app, routings);
+    if (hasHandRouted && app.fileManager?.bakeAndSave) {
+      const bakeResult = await app.fileManager.bakeAndSave(targetFileId);
+      bakeStats = bakeResult?.stats || null;
+      app.logger.info(
+        `[ApplyAssignments] Baked CCs into file ${targetFileId}: +${bakeStats?.cc_events_added ?? 0} events`
+      );
+    }
+  } catch (bakeErr) {
+    // Don't fail the apply just because the bake step failed — playback
+    // still works thanks to the live MidiPlayer injection. Surface the
+    // error in `warnings` so the operator can investigate.
+    const msg = `CC bake failed for file ${targetFileId}: ${bakeErr.message}`;
+    app.logger.warn(`[ApplyAssignments] ${msg}`);
+    warnings.push(msg);
+  }
+
   return {
     success: true,
     adaptedFileId,
     filename: adaptedFileId ? originalFile.filename.replace(/\.mid$/i, '_adapted.mid') : null,
     overwritten: overwriteOriginal && !adaptedFileId,
     stats,
+    bakeStats,
     routings,
     handPositionWarnings,
     warnings: warnings.length > 0 ? warnings : undefined
   };
+}
+
+/**
+ * True when at least one persisted routing points to a destination whose
+ * instrument capabilities include a `hands_config` with enabled hands.
+ * Used to gate the post-apply bake step.
+ *
+ * @param {Object} app
+ * @param {Array} routings - The routings just persisted by applyAssignments.
+ * @returns {Promise<boolean>}
+ * @private
+ */
+async function _hasHandConfigRouting(app, routings) {
+  if (!Array.isArray(routings) || routings.length === 0) return false;
+  const getCaps = app.instrumentRepository?.getCapabilities?.bind(app.instrumentRepository);
+  if (!getCaps) return false;
+  for (const r of routings) {
+    if (!r?.device_id) continue;
+    const target = r.target_channel ?? r.channel ?? 0;
+    try {
+      const caps = getCaps(r.device_id, target);
+      const cfg = caps?.hands_config;
+      if (cfg && cfg.enabled !== false && Array.isArray(cfg.hands) && cfg.hands.length > 0) {
+        return true;
+      }
+    } catch { /* skip — missing caps is the same as "no hands_config" */ }
+  }
+  return false;
 }
 
 /**
