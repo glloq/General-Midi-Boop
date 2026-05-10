@@ -205,8 +205,15 @@ quelqu'un attaque le sujet.
 - **Variables CSS dispersées** : `:root` redéfini dans 4+ fichiers, ordre
   d'application imprévisible. Centraliser dans un seul fichier de
   tokens.
-- **23 `outline: none`** sans alternative de focus visible — violation
-  WCAG. Toujours fournir un focus alternatif (border, box-shadow…).
+- ~~**23 `outline: none`** sans alternative de focus visible —
+  violation WCAG~~ — résolu par une feuille de style globale
+  `public/styles/accessibility-focus.css` chargée en dernier dans
+  `public/index.html`. Elle re-établit un focus ring `:focus-visible`
+  (outline 2px + box-shadow + variante `prefers-contrast: more`) sur
+  tous les éléments interactifs courants, en battant les `outline:none`
+  legacy via spécificité + `!important` (un cas où c'est légitime
+  parce que l'a11y est non-négociable). Le skip-link existant
+  `.sr-only-focusable` redevient visible au focus.
 
 ### Performance
 

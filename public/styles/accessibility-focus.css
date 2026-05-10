@@ -1,0 +1,91 @@
+/* ============================================================================
+ * accessibility-focus.css — WCAG 2.4.7 fallback focus ring.
+ *
+ * Many component CSS files ship a defensive `*:focus { outline: none }` to
+ * suppress the browser's default outline for mouse users. Without a
+ * companion `:focus-visible` rule, keyboard users lose every focus
+ * indicator — a WCAG 2.4.7 (focus visible) violation.
+ *
+ * Rather than touching every component file (~40 occurrences across 16
+ * stylesheets), this file reasserts a visible focus ring for every
+ * interactive element when the focus came from the keyboard
+ * (`:focus-visible`). It is loaded LAST in index.html, after every
+ * component sheet, and uses `!important` because accessibility
+ * guarantees are non-negotiable — local component overrides should not
+ * be able to suppress them.
+ *
+ * Mouse clicks still don't show a ring (modern browsers don't fire
+ * `:focus-visible` for pointer activation), so the visual style for
+ * mouse users is unchanged.
+ *
+ * Closes the TODO.md "23 `outline: none` sans alternative de focus
+ * visible — violation WCAG" item.
+ * ============================================================================ */
+
+/* Common interactive elements. The list is intentionally broad to cover
+ * the codebase's various role conventions ([role="button"], custom
+ * .btn / .tab classes, drag handles). */
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible,
+[contenteditable="true"]:focus-visible,
+.btn:focus-visible,
+.tab:focus-visible,
+.tab-btn:focus-visible,
+.menu-item:focus-visible,
+.channel-btn:focus-visible,
+.rs-tab-btn:focus-visible,
+.ism-tab-btn:focus-visible,
+.ism-icon-btn:focus-visible,
+.ism-family-row:focus-visible,
+.lc-tab:focus-visible,
+.drum-cell:focus-visible,
+.calibration-tab:focus-visible {
+    outline: 2px solid var(--accent-primary, #667eea) !important;
+    outline-offset: 2px !important;
+    box-shadow: var(--focus-ring, 0 0 0 4px rgba(102, 126, 234, 0.30)) !important;
+}
+
+/* High-contrast variant for users who request it. */
+@media (prefers-contrast: more) {
+    button:focus-visible,
+    [role="button"]:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    a:focus-visible,
+    summary:focus-visible,
+    [tabindex]:focus-visible,
+    [contenteditable="true"]:focus-visible {
+        outline-width: 3px !important;
+        outline-color: CanvasText !important;
+        box-shadow: none !important;
+    }
+}
+
+/* Skip-link visibility — the existing skip-nav is class
+ * `.sr-only.sr-only-focusable` near the top of body. Without this rule
+ * the link stays visually hidden even when focused. */
+.sr-only-focusable:focus,
+.sr-only-focusable:focus-visible {
+    position: fixed !important;
+    top: 8px !important;
+    left: 8px !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    clip: auto !important;
+    clip-path: none !important;
+    overflow: visible !important;
+    z-index: 10000 !important;
+    background: var(--accent-primary, #667eea) !important;
+    color: #fff !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+}

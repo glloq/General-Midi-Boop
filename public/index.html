@@ -5334,6 +5334,10 @@
     <link rel="stylesheet" href="styles/loop-editor-modal.css">
     <link rel="stylesheet" href="styles/settings-modal.css">
     <link rel="stylesheet" href="styles/keyboard-hand-position-editor.css">
+    <!-- WCAG 2.4.7 fallback focus ring — must be loaded LAST so it wins
+         the cascade against every component-level `:focus { outline:none }`.
+         See AUDIT 2026-05-10 TODO sweep. -->
+    <link rel="stylesheet" href="styles/accessibility-focus.css">
 </head>
 <body>
     <!-- Skip Navigation Link (Accessibility) -->
