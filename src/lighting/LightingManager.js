@@ -37,10 +37,26 @@ const DRIVER_MAP = {
 };
 
 class LightingManager extends EventEmitter {
-  constructor(app) {
+  /**
+   * @param {Object} deps - Service-container facade.
+   *   The manager only reads `logger`, `database`, `eventBus` and
+   *   `wsServer` from it; everything else is destructured at
+   *   construction so the rest of the class never reaches back to
+   *   the full app surface.
+   */
+  constructor(deps) {
     super();
-    this.app = app;
-    this.logger = app.logger;
+    // Explicit dependency capture (replaces the legacy
+    // `this.app = app` service-locator pattern). `wsServer` may not be
+    // registered yet when the lighting manager starts; resolve lazily
+    // through a getter.
+    this.logger = deps.logger;
+    this.database = deps.database;
+    this.eventBus = deps.eventBus;
+    Object.defineProperty(this, 'wsServer', {
+      get: () => deps.wsServer,
+      configurable: true,
+    });
     this.drivers = new Map();         // deviceId -> driver instance
     this.rulesByInstrument = new Map(); // instrumentId -> Rule[], '*' for wildcards
     this.allRules = [];
@@ -89,7 +105,7 @@ class LightingManager extends EventEmitter {
 
   loadDevices() {
     try {
-      const devices = this.app.database.getLightingDevices();
+      const devices = this.database.getLightingDevices();
       for (const device of devices) {
         if (device.enabled) {
           this._initDriver(device);
@@ -102,7 +118,7 @@ class LightingManager extends EventEmitter {
 
   loadRules() {
     try {
-      this.allRules = this.app.database.getAllEnabledLightingRules();
+      this.allRules = this.database.getAllEnabledLightingRules();
       this._indexRules();
     } catch (error) {
       this.logger.warn(`Failed to load lighting rules: ${error.message}`);
@@ -149,7 +165,7 @@ class LightingManager extends EventEmitter {
   }
 
   async connectDevice(deviceId) {
-    const device = this.app.database.getLightingDevice(deviceId);
+    const device = this.database.getLightingDevice(deviceId);
     if (!device) throw new Error(`Device ${deviceId} not found`);
 
     // Disconnect if already connected
@@ -186,18 +202,18 @@ class LightingManager extends EventEmitter {
     this._onMidiMessage = (event) => this._evaluateWildcardEvent(event);
 
     // Listen for routed MIDI messages (linked to specific instruments)
-    this.app.eventBus.on('midi_routed', this._onMidiRouted);
+    this.eventBus.on('midi_routed', this._onMidiRouted);
 
     // Listen for raw MIDI messages (for wildcard rules)
-    this.app.eventBus.on('midi_message', this._onMidiMessage);
+    this.eventBus.on('midi_message', this._onMidiMessage);
   }
 
   _removeEventListeners() {
     if (this._onMidiRouted) {
-      this.app.eventBus.removeListener('midi_routed', this._onMidiRouted);
+      this.eventBus.removeListener('midi_routed', this._onMidiRouted);
     }
     if (this._onMidiMessage) {
-      this.app.eventBus.removeListener('midi_message', this._onMidiMessage);
+      this.eventBus.removeListener('midi_message', this._onMidiMessage);
     }
   }
 
@@ -705,7 +721,7 @@ class LightingManager extends EventEmitter {
   }
 
   testRule(ruleId) {
-    const rule = this.app.database.getLightingRule(ruleId);
+    const rule = this.database.getLightingRule(ruleId);
     if (!rule) throw new Error(`Rule ${ruleId} not found`);
 
     // Simulate a matching MIDI event
@@ -762,8 +778,8 @@ class LightingManager extends EventEmitter {
   // ==================== WEBSOCKET BROADCAST ====================
 
   _broadcastDeviceStatus(deviceId, connected) {
-    if (this.app.wsServer) {
-      this.app.wsServer.broadcast('lighting_device_status', {
+    if (this.wsServer) {
+      this.wsServer.broadcast('lighting_device_status', {
         deviceId,
         connected,
         timestamp: Date.now()
@@ -772,7 +788,7 @@ class LightingManager extends EventEmitter {
   }
 
   _broadcastLedState(deviceId, ledIndex, r, g, b) {
-    if (this.app.wsServer && this._ledBroadcastEnabled) {
+    if (this.wsServer && this._ledBroadcastEnabled) {
       // Batch LED updates: accumulate changes and flush at ~30fps per device
       if (!this._ledBatchBuffer) this._ledBatchBuffer = new Map();
       if (!this._ledBatchTimers) this._ledBatchTimers = new Map();
@@ -790,7 +806,7 @@ class LightingManager extends EventEmitter {
           this._ledBatchBuffer.delete(key);
           this._ledBatchTimers.delete(key);
           if (updates && updates.length > 0) {
-            this.app.wsServer.broadcast('lighting_led_state', {
+            this.wsServer.broadcast('lighting_led_state', {
               deviceId, leds: updates
             });
           }
@@ -815,8 +831,8 @@ class LightingManager extends EventEmitter {
   }
 
   _broadcastEffectChange(effectKey, action) {
-    if (this.app.wsServer) {
-      this.app.wsServer.broadcast('lighting_effect_change', {
+    if (this.wsServer) {
+      this.wsServer.broadcast('lighting_effect_change', {
         effectKey,
         action,
         timestamp: Date.now()
@@ -839,7 +855,7 @@ class LightingManager extends EventEmitter {
 
   _loadGroups() {
     try {
-      const groups = this.app.database.getLightingGroups();
+      const groups = this.database.getLightingGroups();
       this.deviceGroups.clear();
       for (const group of groups) {
         this.deviceGroups.set(group.name, new Set(group.device_ids));
@@ -851,7 +867,7 @@ class LightingManager extends EventEmitter {
 
   createGroup(name, deviceIds) {
     try {
-      this.app.database.insertLightingGroup(name, deviceIds);
+      this.database.insertLightingGroup(name, deviceIds);
       this.deviceGroups.set(name, new Set(deviceIds));
     } catch (error) {
       this.logger.warn(`Failed to persist group "${name}": ${error.message}`);
@@ -864,7 +880,7 @@ class LightingManager extends EventEmitter {
     const backup = this.deviceGroups.get(name);
     this.deviceGroups.delete(name);
     try {
-      this.app.database.deleteLightingGroup(name);
+      this.database.deleteLightingGroup(name);
     } catch (error) {
       // Restore memory state on DB failure
       if (backup) this.deviceGroups.set(name, backup);

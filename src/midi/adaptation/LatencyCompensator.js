@@ -22,17 +22,31 @@ const RECALIBRATION_DAYS = 7;
 
 class LatencyCompensator {
   /**
-   * @param {Object} app - Application facade. Needs `logger`,
-   *   `database`, `deviceManager`, `eventBus`, `wsServer`.
+   * @param {Object} deps - Service-container facade. The compensator
+   *   only reads `logger`, `database`, `deviceManager`, `eventBus`
+   *   and `wsServer` from it; everything else is destructured at
+   *   construction so the rest of the class doesn't reach back to
+   *   the full app surface.
    */
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this.logger = deps.logger;
+    this.database = deps.database;
+    this.deviceManager = deps.deviceManager;
+    this.eventBus = deps.eventBus;
+    // `wsServer` may not be registered yet when this service is built
+    // — resolve lazily through a getter so we always pick up the live
+    // instance the application registers later.
+    Object.defineProperty(this, 'wsServer', {
+      get: () => deps.wsServer,
+      configurable: true,
+    });
+
     this.profiles = new Map();
     this.pendingMeasurements = new Map();
     this.calibrationInProgress = false;
-    
+
     this.loadProfilesFromDB();
-    this.app.logger.info('LatencyCompensator initialized');
+    this.logger.info('LatencyCompensator initialized');
   }
 
   /**
@@ -53,7 +67,7 @@ class LatencyCompensator {
    */
   loadProfilesFromDB() {
     try {
-      const profiles = this.app.database.getAllLatencyProfiles();
+      const profiles = this.database.getAllLatencyProfiles();
       profiles.forEach(profile => {
         this.profiles.set(profile.device_id, {
           latency: profile.latency,
@@ -64,9 +78,9 @@ class LatencyCompensator {
           maxLatency: profile.maxLatency
         });
       });
-      this.app.logger.info(`Loaded ${profiles.length} latency profiles from database`);
+      this.logger.info(`Loaded ${profiles.length} latency profiles from database`);
     } catch (error) {
-      this.app.logger.error(`Failed to load latency profiles: ${error.message}`);
+      this.logger.error(`Failed to load latency profiles: ${error.message}`);
     }
   }
 
@@ -88,7 +102,7 @@ class LatencyCompensator {
       throw new Error('Calibration already in progress');
     }
 
-    const device = this.app.deviceManager.getDeviceInfo(deviceId);
+    const device = this.deviceManager.getDeviceInfo(deviceId);
     if (!device) {
       throw new Error(`Device not found: ${deviceId}`);
     }
@@ -98,7 +112,7 @@ class LatencyCompensator {
     }
 
     this.calibrationInProgress = true;
-    this.app.logger.info(`Starting latency measurement for ${deviceId} (${iterations} iterations)`);
+    this.logger.info(`Starting latency measurement for ${deviceId} (${iterations} iterations)`);
 
     try {
       const measurements = [];
@@ -106,7 +120,7 @@ class LatencyCompensator {
       for (let i = 0; i < iterations; i++) {
         const latency = await this.measureSingleRoundtrip(deviceId);
         measurements.push(latency);
-        this.app.logger.debug(`Measurement ${i + 1}/${iterations}: ${latency.toFixed(2)}ms`);
+        this.logger.debug(`Measurement ${i + 1}/${iterations}: ${latency.toFixed(2)}ms`);
         
         // Wait between measurements
         await this.sleep(CALIBRATION_PAUSE_BETWEEN_MS);
@@ -135,17 +149,17 @@ class LatencyCompensator {
         measurements: measurements
       };
 
-      this.app.logger.info(`Latency measurement complete: ${avgLatency.toFixed(2)}ms (min: ${minLatency.toFixed(2)}ms, max: ${maxLatency.toFixed(2)}ms)`);
+      this.logger.info(`Latency measurement complete: ${avgLatency.toFixed(2)}ms (min: ${minLatency.toFixed(2)}ms, max: ${maxLatency.toFixed(2)}ms)`);
 
       // Broadcast result
-      if (this.app.wsServer) {
-        this.app.wsServer.broadcast('latency_calibration_complete', result);
+      if (this.wsServer) {
+        this.wsServer.broadcast('latency_calibration_complete', result);
       }
 
       return result;
     } catch (error) {
       this.calibrationInProgress = false;
-      this.app.logger.error(`Latency measurement failed: ${error.message}`);
+      this.logger.error(`Latency measurement failed: ${error.message}`);
       throw error;
     }
   }
@@ -184,24 +198,24 @@ class LatencyCompensator {
           
           // Cleanup
           clearTimeout(timeoutHandle);
-          this.app.eventBus.off('midi_message', messageHandler);
+          this.eventBus.off('midi_message', messageHandler);
           
           resolve(latency);
         }
       };
 
       // Register handler
-      this.app.eventBus.on('midi_message', messageHandler);
+      this.eventBus.on('midi_message', messageHandler);
 
       // Set timeout
       timeoutHandle = setTimeout(() => {
-        this.app.eventBus.off('midi_message', messageHandler);
+        this.eventBus.off('midi_message', messageHandler);
         reject(new Error('Latency measurement timeout'));
       }, timeout);
 
       // Send test note
       const startTime = process.hrtime.bigint();
-      this.app.deviceManager.sendMessage(deviceId, 'noteon', {
+      this.deviceManager.sendMessage(deviceId, 'noteon', {
         channel: testChannel,
         note: testNote,
         velocity: testVelocity
@@ -209,7 +223,7 @@ class LatencyCompensator {
 
       // Send note off after calibration note duration
       setTimeout(() => {
-        this.app.deviceManager.sendMessage(deviceId, 'noteoff', {
+        this.deviceManager.sendMessage(deviceId, 'noteoff', {
           channel: testChannel,
           note: testNote,
           velocity: 0
@@ -244,15 +258,15 @@ class LatencyCompensator {
     try {
       // Make sure the device row exists before we tag it with latency
       // (instruments_latency.device_id REFERENCES devices(id)).
-      if (this.app.database.ensureDevice) {
-        this.app.database.ensureDevice(deviceId, deviceId, 'output');
+      if (this.database.ensureDevice) {
+        this.database.ensureDevice(deviceId, deviceId, 'output');
       }
-      this.app.database.saveDeviceLatency(deviceId, profile);
+      this.database.saveDeviceLatency(deviceId, profile);
     } catch (error) {
-      this.app.logger.error(`Failed to persist latency profile: ${error.message}`);
+      this.logger.error(`Failed to persist latency profile: ${error.message}`);
     }
 
-    this.app.logger.info(`Latency set for ${deviceId}: ${latency.toFixed(2)}ms`);
+    this.logger.info(`Latency set for ${deviceId}: ${latency.toFixed(2)}ms`);
   }
 
   /**
@@ -358,11 +372,11 @@ class LatencyCompensator {
   deleteProfile(deviceId) {
     this.profiles.delete(deviceId);
     try {
-      this.app.database.clearDeviceLatency(deviceId);
+      this.database.clearDeviceLatency(deviceId);
     } catch (error) {
-      this.app.logger.error(`Failed to clear latency profile: ${error.message}`);
+      this.logger.error(`Failed to clear latency profile: ${error.message}`);
     }
-    this.app.logger.info(`Latency profile deleted for ${deviceId}`);
+    this.logger.info(`Latency profile deleted for ${deviceId}`);
   }
 
   /**
@@ -381,7 +395,7 @@ class LatencyCompensator {
         const result = await this.measureLatency(deviceId);
         results.push(result);
       } catch (error) {
-        this.app.logger.error(`Auto-calibration failed for ${deviceId}: ${error.message}`);
+        this.logger.error(`Auto-calibration failed for ${deviceId}: ${error.message}`);
         results.push({
           deviceId: deviceId,
           error: error.message
@@ -428,7 +442,7 @@ class LatencyCompensator {
     });
 
     // Check for devices without profiles
-    const devices = this.app.deviceManager.getDeviceList();
+    const devices = this.deviceManager.getDeviceList();
     devices.forEach(device => {
       if (device.input && device.output && !this.profiles.has(device.id)) {
         recommendations.push({
