@@ -311,7 +311,7 @@ class Application {
       );
       this._registerService(
         'hotspotConfigRepository',
-        new HotspotConfigRepository(this.database.db)
+        new HotspotConfigRepository(this.database)
       );
       this._registerService('hotspotManager', new HotspotManager({ logger: this.logger }));
 

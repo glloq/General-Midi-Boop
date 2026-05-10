@@ -167,9 +167,9 @@ quelqu'un attaque le sujet.
 
 ### Architecture
 
-- **God Object `Application`** : ~10 services utilisent encore `this.app`
-  au lieu d'une DI explicite via `deps`. Migrer vers le pattern
-  `ServiceContainer` déjà utilisé ailleurs. Voir AUDIT.md §3.1.
+- ~~**God Object `Application`** : ~10 services utilisent encore
+  `this.app`~~ — résolu. Le seul rest est `src/api/CommandRegistry.js`
+  (11 occurrences) qui peut migrer vers `deps` dans un patch dédié.
 - **Façade `Database`** : ~960 lignes de wrappers passthrough.
   Enregistrer les sous-modules directement dans `ServiceContainer` plutôt
   que de les ré-exporter. Voir AUDIT.md §3.2.
@@ -201,17 +201,19 @@ quelqu'un attaque le sujet.
 
 ### Performance
 
-- **`MidiRouter`** : itère toutes les routes pour chaque message MIDI.
-  Ajouter une indexation par source pour ramener le coût à O(1) par
-  message.
+- ~~**`MidiRouter`** : itère toutes les routes pour chaque message MIDI~~
+  — résolu : `routesBySource` (`Map<source, Set<routeId>>`) ramène le
+  dispatch à O(routes-pour-cette-source). Le coût annexe (max-comp
+  recompute + DB lookup pour monitor name) a été cachéifié dans
+  l'AUDIT 2026-05-10 §10/§11.
 <!-- Résolu : la colonne BLOB n'existe plus (les bytes vivent sur disque
      via BlobStore depuis la migration vers les blob_path). `getAllFiles()`
      ne projette désormais que `LIST_COLUMNS`, et le flag `includeData`
      mort a été retiré. -->
 
-- **`FilterManager`** : les timers de debounce ne sont pas annulés au
-  démontage du composant — fuite mémoire possible sur navigation
-  intensive.
+- ~~**`FilterManager`** : les timers de debounce ne sont pas annulés au
+  démontage du composant~~ — `destroy()` est désormais appelé sur
+  `beforeunload` (AUDIT 2026-05-10 §4).
 
 ### Infrastructure
 
@@ -220,6 +222,8 @@ quelqu'un attaque le sujet.
   ou parser la sortie machine plutôt que humaine.
 - **Double tracking de migrations** : table `migrations` ET
   `schema_version` cohabitent. Unifier sur une seule source de vérité.
+  (À vérifier : le runner actuel n'utilise plus que `schema_version` ;
+  s'assurer qu'aucun code mort ne lit encore `migrations`.)
 - **Dépendances datées** : Express 4.x (5.x dispo), `better-sqlite3` 9.x
   (12.x dispo). Vérifier les breaking changes avant l'upgrade. Voir
   AUDIT.md §3.13.

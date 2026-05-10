@@ -135,9 +135,9 @@ class CommandRegistry {
   async handle(message, ws) {
     const startTime = Date.now();
     // Correlation ID per command dispatch (P2-OBS.1).
-    // Priority : message.id sent by the client (already unique per request) →
-    // random UUID fallback so server-initiated or malformed messages are still
-    // traceable.
+    // Priority: message.id sent by the client (already unique per request)
+    // → 8-char base36 token (see _generateCid) so server-initiated or
+    // malformed messages are still traceable.
     const cid = (message && message.id) || _generateCid();
     const cmd = message && message.command;
     const tag = `[cmd=${cmd} cid=${cid}]`;

@@ -365,6 +365,12 @@ class WebSocketServer {
         ws.ping();
       });
     }, HEARTBEAT_INTERVAL_MS);
+    // Don't keep the event loop alive solely for the heartbeat — if the
+    // app is otherwise shutting down, this lets `process.exit` happen
+    // (AUDIT 2026-05-10 §28).
+    if (typeof this.heartbeatInterval.unref === 'function') {
+      this.heartbeatInterval.unref();
+    }
   }
 
   /**

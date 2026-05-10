@@ -29,6 +29,30 @@ const MidiConstants = {
     isBlackKey(note) {
         const n = ((note % 12) + 12) % 12;
         return n === 1 || n === 3 || n === 6 || n === 8 || n === 10;
+    },
+
+    /**
+     * Clamp `value` to `[lo, hi]`. Handles unordered bounds defensively
+     * (swaps when lo > hi). Non-finite values resolve to `lo`.
+     *
+     * Shared so the ~14 inline `Math.max(lo, Math.min(hi, v))` patterns
+     * across the frontend can converge (see AUDIT 2026-05-10 §21).
+     *
+     * @param {number} value
+     * @param {number} lo
+     * @param {number} hi
+     * @returns {number}
+     */
+    clamp(value, lo, hi) {
+        if (lo > hi) { const t = lo; lo = hi; hi = t; }
+        const v = Number(value);
+        if (!Number.isFinite(v)) return lo;
+        return v < lo ? lo : v > hi ? hi : v;
+    },
+
+    /** Clamp a value into the MIDI 0-127 range. */
+    clamp7bit(value) {
+        return MidiConstants.clamp(value, 0, 127);
     }
 };
 

@@ -21,9 +21,15 @@ const DEFAULTS = Object.freeze({
 });
 
 export default class HotspotConfigRepository {
-  /** @param {import('better-sqlite3').Database} db */
-  constructor(db) {
-    this.db = db;
+  /**
+   * Accepts either the high-level Database façade (preferred, ADR-002)
+   * or a raw `better-sqlite3` handle for backward compatibility.
+   *
+   * @param {Object} database - Database façade exposing `.db`, OR a raw
+   *   better-sqlite3 Database instance.
+   */
+  constructor(database) {
+    this.db = (database && database.db) ? database.db : database;
   }
 
   /**

@@ -200,15 +200,22 @@ class Logger {
     if (!this.shouldLog(level)) return;
 
     const logMessage = this.format(level, message, data);
-    const colors = {
-      debug: '\x1b[36m', // Cyan
-      info: '\x1b[32m', // Green
-      warn: '\x1b[33m', // Yellow
-      error: '\x1b[31m' // Red
-    };
-    const reset = '\x1b[0m';
-    // eslint-disable-next-line no-console
-    console.log(`${colors[level]}${logMessage}${reset}`);
+    // Only emit ANSI codes when stdout is an interactive TTY; otherwise
+    // they pollute PM2 / systemd captured logs (AUDIT 2026-05-10 §27).
+    if (process.stdout && process.stdout.isTTY) {
+      const colors = {
+        debug: '\x1b[36m', // Cyan
+        info: '\x1b[32m',  // Green
+        warn: '\x1b[33m',  // Yellow
+        error: '\x1b[31m'  // Red
+      };
+      const reset = '\x1b[0m';
+      // eslint-disable-next-line no-console
+      console.log(`${colors[level]}${logMessage}${reset}`);
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(logMessage);
+    }
 
     // File output via non-blocking WriteStream
     if (this._stream && !this._stream.destroyed) {

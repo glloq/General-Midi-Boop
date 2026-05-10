@@ -144,6 +144,18 @@ class BlobStore {
    * periodic housekeeping job. `isReferenced(relativePath)` must
    * return true for every blob still known to the DB.
    *
+   * Race notes (AUDIT 2026-05-10 §17):
+   *   `write()` short-circuits when a blob already exists on disk and
+   *   does not increment a refcount, so between `isReferenced(rel) === false`
+   *   and `fs.unlinkSync(...)` an upload could dedup against the very
+   *   file we're about to delete and reference it in `midi_files`. To
+   *   avoid this window, callers MUST hold a mutex that excludes
+   *   uploads while gcOrphans runs (the BackupScheduler is the
+   *   intended caller; today it only runs during quiescent maintenance
+   *   windows). If concurrent uploads ever become possible, switch the
+   *   policy to "delete only if mtime > now - graceMs" so a fresh dedup
+   *   write is always safe.
+   *
    * @param {(relativePath: string) => boolean} isReferenced
    * @returns {{ scanned: number, deleted: number }}
    */

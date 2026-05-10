@@ -32,12 +32,9 @@
         return fallback;
     }
 
-    function escapeHtml(s) {
-        if (s == null) return '';
-        const div = document.createElement('div');
-        div.textContent = String(s);
-        return div.innerHTML;
-    }
+    // Delegate to the shared helper (public/js/utils/escapeHtml.js) so we
+    // don't drift on edge cases (see AUDIT 2026-05-10 §20).
+    const escapeHtml = (s) => (window.escapeHtml ? window.escapeHtml(s) : (s == null ? '' : String(s)));
 
     function summarize(warnings) {
         const counts = {};
