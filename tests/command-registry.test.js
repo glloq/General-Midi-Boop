@@ -2,7 +2,9 @@ import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import CommandRegistry from '../src/api/CommandRegistry.js';
 import { ValidationError, NotFoundError } from '../src/core/errors/index.js';
 
-// Minimal mock for the `app` object used by CommandRegistry
+// Minimal DI bag accepted by CommandRegistry (renamed from `app` →
+// `deps` in AUDIT 2026-05-10 §31; both are interchangeable since the
+// facade exposes the same surface).
 function createMockApp() {
   return {
     logger: {
@@ -56,21 +58,20 @@ describe('CommandRegistry', () => {
       );
     });
 
-    test('registers versioned handlers separately', async () => {
-      const v1Handler = jest.fn(() => 'v1');
-      const v2Handler = jest.fn(() => 'v2');
-      registry.register('cmd', v1Handler);
-      registry.register('cmd', v2Handler, 2);
+    // The legacy `versionedHandlers` mechanism was removed in
+    // AUDIT 2026-05-10 §6 (it was dead code: no module ever registered
+    // a versioned handler). The dispatch is now a flat lookup; the
+    // `version` field on incoming frames is ignored — the response still
+    // advertises CURRENT_API_VERSION so clients have a server pin.
+    test('ignores the message.version field (no versioned dispatch)', async () => {
+      const handler = jest.fn(() => 'v1');
+      registry.register('cmd', handler);
 
       const ws = createMockWs();
+      await registry.handle({ id: '1', command: 'cmd', version: 2, data: {} }, ws);
 
-      // Default version → v1
-      await registry.handle({ id: '1', command: 'cmd', data: {} }, ws);
-      expect(v1Handler).toHaveBeenCalled();
-
-      // Explicit v2
-      await registry.handle({ id: '2', command: 'cmd', version: 2, data: {} }, ws);
-      expect(v2Handler).toHaveBeenCalled();
+      expect(handler).toHaveBeenCalledWith({});
+      expect(ws._messages[0].version).toBe(1);
     });
   });
 

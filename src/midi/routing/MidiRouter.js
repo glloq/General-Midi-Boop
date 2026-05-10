@@ -54,6 +54,24 @@ class MidiRouter {
     /** @type {Set<NodeJS.Timeout>} Pending compensation timers. */
     this.pendingTimeouts = new Set();
 
+    // Hot-path caches (invalidated when routes or instrument settings change):
+    //   - `_maxCompBySource[source]`        — max compensation across the
+    //     destinations served by a given source. Avoids iterating routes
+    //     for every MIDI message.
+    //   - `_instrumentNameByDevCh[dev|ch]`  — friendly instrument name
+    //     attached to monitor broadcasts. Avoids a SQLite hit per message
+    //     when a monitor is active.
+    /** @type {Map<string, number>} */
+    this._maxCompBySource = new Map();
+    /** @type {Map<string, ?string>} */
+    this._instrumentNameByDevCh = new Map();
+
+    this._onSettingsChanged = () => {
+      this._maxCompBySource.clear();
+      this._instrumentNameByDevCh.clear();
+    };
+    this.eventBus?.on?.('instrument_settings_changed', this._onSettingsChanged);
+
     this.loadRoutesFromDB();
     this.logger.info('MidiRouter initialized');
   }
@@ -117,6 +135,7 @@ class MidiRouter {
       this.routesBySource.set(routeObj.source, new Set());
     }
     this.routesBySource.get(routeObj.source).add(routeId);
+    this._maxCompBySource.delete(routeObj.source);
 
     // Save to database if new route
     if (!route.id) {
@@ -171,6 +190,7 @@ class MidiRouter {
         this.routesBySource.delete(route.source);
       }
     }
+    this._maxCompBySource.delete(route.source);
 
     this.routes.delete(routeId);
     this.logger.info(`Route deleted: ${routeId}`);
@@ -189,6 +209,7 @@ class MidiRouter {
     }
 
     route.enabled = enabled;
+    this._maxCompBySource.delete(route.source);
     this._routeRepo.update(routeId, { enabled: enabled ? 1 : 0 });
     this.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
   }
@@ -446,14 +467,24 @@ class MidiRouter {
    */
   broadcastMonitorEvent(deviceId, type, msg) {
     if (this._deps.wsServer) {
-      // Resolve instrument name from database
+      // Resolve instrument name from database, cached per (device, channel)
+      // and invalidated on `instrument_settings_changed`. Without the cache
+      // every MIDI message under monitoring hit SQLite.
       let instrumentName = null;
-      const db = this._deps.database;
-      if (db && msg && msg.channel !== undefined) {
-        try {
-          const settings = db.getInstrumentSettings(deviceId, msg.channel);
-          if (settings) instrumentName = settings.custom_name || settings.name;
-        } catch (e) { /* instrument name lookup is optional for monitor events */ }
+      if (msg && msg.channel !== undefined) {
+        const key = `${deviceId}|${msg.channel}`;
+        if (this._instrumentNameByDevCh.has(key)) {
+          instrumentName = this._instrumentNameByDevCh.get(key);
+        } else {
+          const db = this._deps.database;
+          if (db) {
+            try {
+              const settings = db.getInstrumentSettings(deviceId, msg.channel);
+              if (settings) instrumentName = settings.custom_name || settings.name;
+            } catch { /* instrument name lookup is optional for monitor events */ }
+          }
+          this._instrumentNameByDevCh.set(key, instrumentName);
+        }
       }
       this._deps.wsServer.broadcast('monitor_event', {
         device: deviceId,
@@ -496,13 +527,20 @@ class MidiRouter {
       return 0;
     }
 
-    // Find maximum compensation across all active destinations for this source
-    let maxComp = 0;
-    for (const rid of routeIds) {
-      const r = this.routes.get(rid);
-      if (!r || !r.enabled) continue;
-      const comp = this._getRouteCompensation(r.destination, channel);
-      if (comp > maxComp) maxComp = comp;
+    // The maxComp depends only on the active destinations of `sourceDevice`
+    // for a given `channel`. Cache it; invalidated on add/delete/enable
+    // route and on `instrument_settings_changed`.
+    const cacheKey = `${sourceDevice}|${channel}`;
+    let maxComp = this._maxCompBySource.get(cacheKey);
+    if (maxComp === undefined) {
+      maxComp = 0;
+      for (const rid of routeIds) {
+        const r = this.routes.get(rid);
+        if (!r || !r.enabled) continue;
+        const comp = this._getRouteCompensation(r.destination, channel);
+        if (comp > maxComp) maxComp = comp;
+      }
+      this._maxCompBySource.set(cacheKey, maxComp);
     }
 
     const thisComp = this._getRouteCompensation(destDevice, channel);
@@ -547,6 +585,12 @@ class MidiRouter {
     }
     this.pendingTimeouts.clear();
 
+    if (this._onSettingsChanged) {
+      this.eventBus?.off?.('instrument_settings_changed', this._onSettingsChanged);
+      this._onSettingsChanged = null;
+    }
+    this._maxCompBySource.clear();
+    this._instrumentNameByDevCh.clear();
     this.routes.clear();
     this.routesBySource.clear();
     this.monitors.clear();

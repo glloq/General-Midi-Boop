@@ -22,7 +22,14 @@ const ScoringConfig = {
   },
 
   /**
-   * Weights for type detection
+   * Weights for type detection.
+   *
+   * Unlike `weights` above, these do **not** sum to 100 (current total
+   * is 130). The detector accumulates additive scores per type category
+   * and picks the argmax (see ChannelAnalyzer ~line 555), so the
+   * absolute sum is meaningless — only the magnitudes relative to each
+   * other influence the outcome. Renormalising would shift every
+   * threshold and break the existing test snapshots.
    */
   typeDetection: {
     programWeight: 40,     // MIDI program importance

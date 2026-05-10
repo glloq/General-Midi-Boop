@@ -57,49 +57,34 @@ confirmé, mettre `verified: true` dans `MidiSynthesizerConstants.js`.
 
 | # | Idée | Priorité |
 |---|------|----------|
-| A | Script de vérification automatique (`scripts/verify-drum-banks.js`) qui HEAD chaque URL CDN et met à jour `verified` dans les constantes | Basse |
+| A | ~~Script de vérification automatique~~ | **Livré** — `scripts/verify-drum-banks.js`. `node scripts/verify-drum-banks.js` lit `SOUND_BANKS[*].drumKits`, HEAD chaque URL CDN avec concurrence configurable, imprime un tableau et exit `1` si un kit jadis verified est devenu inaccessible. `--write` met à jour les flags `verified` en place (ne touche QUE les lignes `verified: true|false`, jamais le reste). |
 | B | Exposer dans l'UI (modal réglages) un badge « banque utilisée pour les drums » sur chaque kit — utile quand la banque courante ne supporte pas le kit demandé | Basse |
-| C | Ajouter les kits de batterie supplémentaires de GeneralUserGS (Room, Jazz…) si confirmés présents sur le CDN | Moyenne |
+| C | Ajouter les kits de batterie supplémentaires de GeneralUserGS (Room, Jazz…) si confirmés présents sur le CDN — relancer le script avec `--note=38` ou `--note=42` aide à confirmer | Moyenne |
 | D | Permettre une banque drums indépendante de la banque melodique (réglage avancé) | Basse |
 
 ---
 
-## CC main absents de l'éditeur CC après routage
+## ~~CC main absents de l'éditeur CC après routage~~ — Résolu
 
-**Constat.** Les events `controller` pour les CC main
-(`CC22` cordes, `CC23/CC24` claviers) sont calculés par
-`HandPositionPlanner.js:404` mais ne sont injectés que par
-`MidiPlayer._injectHandPositionCCEvents` (`src/midi/playback/MidiPlayer.js:440-608`)
-**en mémoire au moment de la lecture** (flag `_handInjected`, effacés
-après). `PlaybackAssignmentCommands.applyAssignments`
-(`src/api/commands/PlaybackAssignmentCommands.js:120-342`) injecte CC7
-(volume) mais **pas les CC main** dans `adaptedMidiData` avant le
-`jsonToMidi` (ligne ~262). L'éditeur (`MidiEditorCC.js:151-250`) lit
-toutes les CC du fichier, mais le fichier n'en contient aucune côté
-mains → rien à afficher.
+**Option A appliquée.** `PlaybackAssignmentCommands.applyAssignments`
+appelle désormais `app.fileManager.bakeAndSave(targetFileId)` en fin de
+parcours quand au moins un routing pointe vers un instrument avec
+`hands_config`. Le baker (déjà existant : `src/files/MidiBaker.js`)
+génère les CCs via `HandPositionPlanner` / `LongitudinalPlanner` et les
+écrit dans le blob du fichier — l'éditeur CC les lit donc directement.
 
-**Options.**
+Side effects gérés :
+- `MidiPlayer._injectHandPositionCCEvents` skip l'injection pour
+  chaque destination dont les CCs main sont déjà présents dans la
+  timeline (helper `_timelineHasHandCCs`, ignore les events marqués
+  `_handInjected` pour ne pas se compter lui-même).
+- `MidiBaker._mergeEventsIntoTrack` strip les anciens CCs (mêmes
+  `(channel, controllerType)`) avant ré-insertion, donc un re-apply
+  remplace plutôt que d'accumuler.
 
-| # | Approche | Avantages | Inconvénients |
-|---|---|---|---|
-| A | Cuire les CC main dans `adaptedMidiData` à l'apply | Fichier autonome, éditeur les voit, modifiables | Retouches manuelles écrasées au prochain re-apply |
-| B | Overlay calculé dans l'éditeur depuis la config de routage | Non destructif, toujours synchro avec le routing | Lecture seule (pas d'édition directe de la courbe) |
-| C | Hybride : A à la première apply + marker `auto-generated` ; ne regénère pas si déjà présent | Visibles ET éditables | Plus complexe, demande la sémantique du marker |
-
-**Recommandation actuelle** : A. L'éditeur devient point unique de
-vérité ; un re-apply explicite régénère les CC.
-
-**Points d'insertion**
-
-- `src/api/commands/PlaybackAssignmentCommands.js` ~ligne 254 (juste
-  après l'injection CC7) : appeler `HandPositionPlanner` par canal
-  routé et pousser les events dans `adaptedMidiData.tracks[0].events`
-  avant la conversion `jsonToMidi`.
-- Refléter la logique existante de `MidiPlayer.js:440-491` mais cibler
-  la structure du fichier au lieu de la timeline live.
-- Une fois injectés, faire en sorte que `MidiPlayer` détecte les CC
-  déjà présents et n'injecte pas en double pendant la lecture
-  (sinon double envoi au robot).
+Trade-off documenté de l'option A : les retouches manuelles de la
+courbe hand-position dans l'éditeur sont écrasées au prochain
+`apply_assignments`.
 
 ---
 
@@ -152,9 +137,11 @@ quelqu'un attaque le sujet.
 
 ### Sécurité
 
-- **`MidiMessage.parseObject()` sans whitelist de propriétés**
-  (`src/midi/messages/`). Risque d'injection de propriétés arbitraires
-  via un payload JSON malveillant.
+- ~~**`MidiMessage.parseObject()` sans whitelist de propriétés**~~ — déjà
+  corrigé. `src/midi/messages/MidiMessage.js:134-142` énumère
+  explicitement les clés autorisées (`note`, `velocity`, `pressure`,
+  `controller`, `value`, `program`, `data`, `song`, `timestamp`, `raw`)
+  et ignore le reste.
 
 ### MIDI core
 
@@ -163,31 +150,53 @@ quelqu'un attaque le sujet.
   documenter.
 - **Wrapping d'octave doublonnant** : plusieurs notes source peuvent
   wrapper sur la même note cible, créant des collisions silencieuses.
-  Voir `src/midi/adaptation/MidiTransposer.js`.
+  Voir `src/midi/adaptation/MidiTransposer.js`. Telemetry ajoutée :
+  `compressChannel().stats.compressionCollisions` compte maintenant le
+  nombre de notes cibles avec plusieurs sources — l'UI peut afficher
+  un avertissement quand `> 0`. Reste à faire : décider si on remap
+  intelligemment vers une note cible libre la plus proche (= éviter la
+  collision) ou si l'on garde le comportement actuel et on affiche
+  juste le warning.
 
 ### Architecture
 
-- **God Object `Application`** : ~10 services utilisent encore `this.app`
-  au lieu d'une DI explicite via `deps`. Migrer vers le pattern
-  `ServiceContainer` déjà utilisé ailleurs. Voir AUDIT.md §3.1.
+- ~~**God Object `Application`** : ~10 services utilisent encore
+  `this.app`~~ — entièrement résolu. `src/api/CommandRegistry.js` lit
+  désormais `this.logger` / `this.eventBus` directement (AUDIT
+  2026-05-10 §31) ; `grep -rn "this\.app\." src/` ne renvoie plus rien.
 - **Façade `Database`** : ~960 lignes de wrappers passthrough.
   Enregistrer les sous-modules directement dans `ServiceContainer` plutôt
   que de les ré-exporter. Voir AUDIT.md §3.2.
 - **Fichiers volumineux** : 11 fichiers backend et 3 frontend dépassent
   700 lignes. Candidats à la découpe par responsabilité. Voir
-  AUDIT.md §3.8.
+  AUDIT.md §3.8. Progression : `RoutingSummaryPage.js` est passé de
+  3477 → ~2980 lignes (AUDIT 2026-05-10 §32, extraction du mixin
+  preview/minimap dans `RoutingSummaryPreviewControls.js`). Reste à
+  faire : ISMSections (2213), ISMListeners (1830), MidiPlayer (2061),
+  TablatureConverter (1617), HandPositionFeasibility (1682),
+  LoopCreatorModal (1944).
 
 ### Éditeurs / UI
 
-- **Drum editor** : le sélecteur Quantize n'est pas branché à
-  `DrumGridRenderer`. Le réglage est lu mais ignoré.
-- **Wind editor** : le mode d'édition est figé sur `'pan'`, ce qui
-  empêche le drag des notes.
-- **Tablature editor** : raccourcis `Delete` / `Backspace` et `Ctrl+A`
-  manquants. Le Piano Roll a la liste complète et sert de référence.
-- **Cohérence raccourcis clavier** : Piano Roll a tout, les autres
-  éditeurs n'ont pas `Ctrl+Shift+Z` (redo). Mutualiser le registre de
-  raccourcis.
+- ~~**Drum editor** : le sélecteur Quantize n'est pas branché à
+  `DrumGridRenderer`~~ — déjà branché.
+  `DrumPatternEditor.js:262-271` propage `quantizeDiv` au renderer et
+  déclenche `redraw()` ; `DrumGridRenderer.js:434` et `:937` consomment
+  effectivement la valeur (subdivisions + snap au clic).
+- ~~**Wind editor** : le mode d'édition est figé sur `'pan'`~~ — déjà
+  corrigé. `WindInstrumentEditor.js:171-172` expose deux boutons toolbar
+  (`pan` / `select`) ; `_setEditMode` propage la valeur au renderer
+  (`renderer.tool`) et `WindMelodyRenderer.js:639-693` branche
+  effectivement le mousedown : `pan` → scroll, `select` → drag /
+  sélection rectangulaire.
+- ~~**Tablature editor** : raccourcis `Delete` / `Backspace` et `Ctrl+A`
+  manquants~~ — déjà présents.
+  `TablatureEditor.js:765-806` couvre Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z,
+  Ctrl+C, Ctrl+V, Ctrl+A, Delete/Backspace, ArrowUp/Down.
+- ~~**Cohérence raccourcis clavier** : Ctrl+Shift+Z absent ailleurs~~ —
+  déjà présent dans Drum (`DrumPatternEditor.js:685-690`), Wind
+  (`WindInstrumentEditor.js:694-702`) et Tablature. Un registre commun
+  reste un nice-to-have mais n'est plus une régression utilisateur.
 
 ### CSS / accessibilité
 
@@ -196,30 +205,41 @@ quelqu'un attaque le sujet.
 - **Variables CSS dispersées** : `:root` redéfini dans 4+ fichiers, ordre
   d'application imprévisible. Centraliser dans un seul fichier de
   tokens.
-- **23 `outline: none`** sans alternative de focus visible — violation
-  WCAG. Toujours fournir un focus alternatif (border, box-shadow…).
+- ~~**23 `outline: none`** sans alternative de focus visible —
+  violation WCAG~~ — résolu par une feuille de style globale
+  `public/styles/accessibility-focus.css` chargée en dernier dans
+  `public/index.html`. Elle re-établit un focus ring `:focus-visible`
+  (outline 2px + box-shadow + variante `prefers-contrast: more`) sur
+  tous les éléments interactifs courants, en battant les `outline:none`
+  legacy via spécificité + `!important` (un cas où c'est légitime
+  parce que l'a11y est non-négociable). Le skip-link existant
+  `.sr-only-focusable` redevient visible au focus.
 
 ### Performance
 
-- **`MidiRouter`** : itère toutes les routes pour chaque message MIDI.
-  Ajouter une indexation par source pour ramener le coût à O(1) par
-  message.
+- ~~**`MidiRouter`** : itère toutes les routes pour chaque message MIDI~~
+  — résolu : `routesBySource` (`Map<source, Set<routeId>>`) ramène le
+  dispatch à O(routes-pour-cette-source). Le coût annexe (max-comp
+  recompute + DB lookup pour monitor name) a été cachéifié dans
+  l'AUDIT 2026-05-10 §10/§11.
 <!-- Résolu : la colonne BLOB n'existe plus (les bytes vivent sur disque
      via BlobStore depuis la migration vers les blob_path). `getAllFiles()`
      ne projette désormais que `LIST_COLUMNS`, et le flag `includeData`
      mort a été retiré. -->
 
-- **`FilterManager`** : les timers de debounce ne sont pas annulés au
-  démontage du composant — fuite mémoire possible sur navigation
-  intensive.
+- ~~**`FilterManager`** : les timers de debounce ne sont pas annulés au
+  démontage du composant~~ — `destroy()` est désormais appelé sur
+  `beforeunload` (AUDIT 2026-05-10 §4).
 
 ### Infrastructure
 
 - **`DelayCalibrator`** : la regex de parsing ALSA utilise le mot-clé
   français `carte` qui échoue sur un système anglais. Multilinguer
   ou parser la sortie machine plutôt que humaine.
-- **Double tracking de migrations** : table `migrations` ET
-  `schema_version` cohabitent. Unifier sur une seule source de vérité.
+- ~~**Double tracking de migrations**~~ — confirmé résolu. `grep -rn
+  "migrations" src/ migrations/*.sql` ne renvoie que `schema_version`
+  comme table de tracking ; aucune table `migrations` n'est créée ni
+  lue. Le baseline v6.0 (`001_baseline.sql`) a fini la consolidation.
 - **Dépendances datées** : Express 4.x (5.x dispo), `better-sqlite3` 9.x
   (12.x dispo). Vérifier les breaking changes avant l'upgrade. Voir
   AUDIT.md §3.13.

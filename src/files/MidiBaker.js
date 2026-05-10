@@ -452,11 +452,29 @@ class MidiBaker {
    * @returns {Array<Object>} New track with recomputed delta times.
    */
   _mergeEventsIntoTrack(track, newCCEvents) {
-    // Expand track events to absolute ticks.
+    // Build the set of (channel, controllerType) pairs the bake is about
+    // to (re)emit. Strip any pre-existing events on the same pairs so
+    // that re-applying assignments does NOT stack new CCs on top of the
+    // previous bake's output (accumulating gibberish across iterations).
+    // This is the deliberate trade-off described in TODO §"CC main absents"
+    // option A: manual edits to those CC streams in the editor are
+    // overwritten by the next apply.
+    const ownedPairs = new Set(
+      newCCEvents.map(cc => `${cc.channel}|${cc.controllerType}`)
+    );
+    const stripPreviousBake = (ev) => {
+      if (ev.type !== 'controller') return false;
+      const key = `${ev.channel}|${ev.controllerType ?? ev.controller}`;
+      return ownedPairs.has(key);
+    };
+
+    // Expand track events to absolute ticks, dropping any controller this
+    // bake is about to re-emit.
     const expanded = [];
     let absTick = 0;
     for (const ev of track) {
       absTick += ev.deltaTime;
+      if (stripPreviousBake(ev)) continue;
       expanded.push({ ...ev, _absTick: absTick });
     }
 

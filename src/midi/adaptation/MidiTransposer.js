@@ -358,11 +358,21 @@ class MidiTransposer {
   }
 
   /**
-   * Apply note compression to a channel - folds out-of-range notes into range
+   * Apply note compression to a channel - folds out-of-range notes into range.
+   *
+   * Wrapping is intentionally modulo-based so every out-of-range note finds
+   * a home inside `[rangeMin, rangeMax]`. The side effect is that several
+   * source notes (e.g. 24, 36, 48 when wrapping to a single C5 octave) can
+   * map onto the same target note. If the source MIDI plays them
+   * simultaneously, the destination instrument hears one re-articulation
+   * instead of two distinct pitches. `stats.compressionCollisions` reports
+   * how many target notes have more than one source — `> 0` is the signal
+   * that the user's range is too narrow for lossless wrapping.
+   *
    * @param {Object} midiData - Parsed MIDI file
    * @param {number} channel - Channel number
-   * @param {number} rangeMin - Instrument note range min
-   * @param {number} rangeMax - Instrument note range max
+   * @param {number} rangeMin - Instrument range min
+   * @param {number} rangeMax - Instrument range max
    * @returns {Object} - { midiData, stats }
    */
   compressChannel(midiData, channel, rangeMin, rangeMax) {
@@ -373,9 +383,44 @@ class MidiTransposer {
         remapping[n] = this.compressNoteToRange(n, rangeMin, rangeMax);
       }
     }
-    return this.transposeChannels(midiData, {
+
+    // Walk the file to gather the set of source notes ACTUALLY present
+    // on the target channel. Counting collisions on the theoretical
+    // remap table (all 128 notes) would yield a near-constant value
+    // whenever rangeMax-rangeMin < 116 — the metric needs to reflect
+    // the file's content to be actionable.
+    const usedSources = new Set();
+    for (const track of (midiData?.tracks || [])) {
+      for (const e of (track.events || [])) {
+        if ((e.channel ?? -1) !== channel) continue;
+        if (e.type !== 'noteOn') continue;
+        const note = e.note ?? e.noteNumber;
+        if (Number.isInteger(note)) usedSources.add(note);
+      }
+    }
+
+    // Count how many target notes have ≥ 2 distinct in-file sources
+    // wrapping onto them. `0` means lossless for this file's notes;
+    // `> 0` warns the operator that several source pitches will be
+    // articulated on the same destination note.
+    const targetUseCount = new Map();
+    for (const source of usedSources) {
+      const target = remapping[source];
+      if (target === undefined) continue; // source already in range — no wrap
+      targetUseCount.set(target, (targetUseCount.get(target) || 0) + 1);
+    }
+    let compressionCollisions = 0;
+    for (const count of targetUseCount.values()) {
+      if (count > 1) compressionCollisions++;
+    }
+
+    const result = this.transposeChannels(midiData, {
       [channel]: { noteRemapping: remapping }
     });
+    if (result && result.stats) {
+      result.stats.compressionCollisions = compressionCollisions;
+    }
+    return result;
   }
 
   /**

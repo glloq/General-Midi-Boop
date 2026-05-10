@@ -196,6 +196,21 @@ class Application {
       // container first, falling back to the Application instance.  Services
       // receive this facade as their `deps` argument, so they can access any
       // registered service by name (e.g. deps.logger, deps.database).
+      //
+      // CONTRACT — registration order matters (see AUDIT 2026-05-10 §12):
+      //   - Constructors that capture `deps.foo` into `this.foo` freeze the
+      //     reference at construction time. If `foo` is registered LATER in
+      //     this function, the Proxy returns `undefined` and the consumer
+      //     silently keeps the null forever.
+      //   - Mitigations: either register the dep BEFORE its consumer (the
+      //     pattern below), or have the consumer expose `this.foo` as a
+      //     getter that re-reads `this._deps.foo` on each access
+      //     (PlaybackScheduler does this for compensationService /
+      //     capabilityResolver / wsServer / eventLoopMonitor).
+      //   - Late-bound services that legitimately appear after every
+      //     consumer: wsServer (this fn), eventLoopMonitor (`start()`),
+      //     backupScheduler (`start()`). Consumers MUST access these via
+      //     `this._deps.X` or a getter, never via an eager capture.
       const deps = this._createAppFacade();
       this.container.register('app', deps);
 
@@ -213,16 +228,19 @@ class Application {
       this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
       this._registerService('sf2PresetService', new SF2PresetService({ dataDir, database: this.database, logger: this.logger }));
 
-      // Initialize MIDI components
+      // Initialize MIDI components.
+      //
+      // ORDER NOTE — keep latencyCompensator / compensationService /
+      // capabilityResolver BEFORE midiPlayer. MidiPlayer's ctor builds a
+      // PlaybackScheduler that consumes those services; even though the
+      // scheduler today re-resolves them through `this._deps` getters
+      // (see AUDIT 2026-05-10 §12), registering them first means the
+      // first call to a scheduler method never observes a transient null
+      // — defence in depth against a future revert to eager captures.
       this._registerService('deviceManager', new DeviceManager(deps));
       this._registerService('midiRouter', new MidiRouter(deps));
       this._registerService('midiClockGenerator', new MidiClockGenerator(deps));
-      this._registerService('midiPlayer', new MidiPlayer(deps));
       this._registerService('latencyCompensator', new LatencyCompensator(deps));
-      this._registerService(
-        'delayCalibrator',
-        new DelayCalibrator(this.deviceManager, this.logger)
-      );
 
       // Shared compensation cache (sync_delay + hw latency) used by both
       // MidiRouter and PlaybackScheduler to avoid duplicated DB lookups.
@@ -231,6 +249,12 @@ class Application {
       // Centralised instrument capability lookups (string CC, timing constraints)
       // replacing duplicated private caches in PlaybackScheduler.
       this._registerService('capabilityResolver', new CapabilityResolver(deps));
+
+      this._registerService('midiPlayer', new MidiPlayer(deps));
+      this._registerService(
+        'delayCalibrator',
+        new DelayCalibrator(this.deviceManager, this.logger)
+      );
 
       this._registerService(
         'uploadQueue',
@@ -311,7 +335,7 @@ class Application {
       );
       this._registerService(
         'hotspotConfigRepository',
-        new HotspotConfigRepository(this.database.db)
+        new HotspotConfigRepository(this.database)
       );
       this._registerService('hotspotManager', new HotspotManager({ logger: this.logger }));
 
@@ -415,7 +439,8 @@ class Application {
       [
         'error',
         (error) => {
-          this.logger.error(`Application error: ${error.message}`);
+          const msg = (error && error.message) ? error.message : String(error);
+          this.logger.error(`Application error: ${msg}`);
         }
       ]
     ];
@@ -554,6 +579,13 @@ class Application {
       // Stop and destroy player
       if (this.midiPlayer) {
         this.midiPlayer.destroy();
+      }
+
+      // Cancel pending compensation timers and drop route indexes.
+      // Without this, setTimeouts from MidiRouter outlive the deviceManager
+      // close below and fire sendMessage on closed ports.
+      if (this.midiRouter) {
+        this.midiRouter.destroy();
       }
 
       // Close servers
@@ -696,9 +728,14 @@ class Application {
       this.logger.error(error.stack);
       shutdown('uncaughtException').catch(() => process.exit(1));
     };
+    // A rejected promise in a third-party lib (noble, serialport, dgram...)
+    // should NOT tear down the whole MIDI server. Log and continue; the
+    // upcoming Node default `--unhandled-rejections=throw` will still
+    // promote truly fatal cases to `uncaughtException`, which we do handle.
     const onUnhandled = (reason) => {
-      this.logger.error(`Unhandled rejection: ${reason}`);
-      shutdown('unhandledRejection').catch(() => process.exit(1));
+      const msg = (reason && reason.message) ? reason.message : String(reason);
+      this.logger.error(`Unhandled rejection (continuing): ${msg}`);
+      if (reason && reason.stack) this.logger.error(reason.stack);
     };
 
     process.on('SIGTERM', onSigterm);

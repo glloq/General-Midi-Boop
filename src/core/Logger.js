@@ -141,7 +141,9 @@ class Logger {
     const levelStr = level.toUpperCase().padEnd(5);
     let logMessage = `[${timestamp}] ${levelStr} ${message}`;
 
-    if (data) {
+    // Falsy payloads (0, '', false) are valid information — only skip
+    // when no payload was passed at all.
+    if (data !== null && data !== undefined) {
       if (data instanceof Error) {
         logMessage += `\n  Error: ${data.message}\n  Stack: ${data.stack}`;
       } else if (typeof data === 'object') {
@@ -171,7 +173,9 @@ class Logger {
       message
     };
 
-    if (data) {
+    // Same falsy-safe guard as Logger.format — `0`, `''`, `false` are
+    // legitimate payloads and must not be silently dropped.
+    if (data !== null && data !== undefined) {
       if (data instanceof Error) {
         entry.error = { message: data.message, stack: data.stack };
       } else if (typeof data === 'object') {
@@ -198,15 +202,22 @@ class Logger {
     if (!this.shouldLog(level)) return;
 
     const logMessage = this.format(level, message, data);
-    const colors = {
-      debug: '\x1b[36m', // Cyan
-      info: '\x1b[32m', // Green
-      warn: '\x1b[33m', // Yellow
-      error: '\x1b[31m' // Red
-    };
-    const reset = '\x1b[0m';
-    // eslint-disable-next-line no-console
-    console.log(`${colors[level]}${logMessage}${reset}`);
+    // Only emit ANSI codes when stdout is an interactive TTY; otherwise
+    // they pollute PM2 / systemd captured logs (AUDIT 2026-05-10 §27).
+    if (process.stdout && process.stdout.isTTY) {
+      const colors = {
+        debug: '\x1b[36m', // Cyan
+        info: '\x1b[32m',  // Green
+        warn: '\x1b[33m',  // Yellow
+        error: '\x1b[31m'  // Red
+      };
+      const reset = '\x1b[0m';
+      // eslint-disable-next-line no-console
+      console.log(`${colors[level]}${logMessage}${reset}`);
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(logMessage);
+    }
 
     // File output via non-blocking WriteStream
     if (this._stream && !this._stream.destroyed) {

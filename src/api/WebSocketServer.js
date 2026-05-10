@@ -81,50 +81,63 @@ class WebSocketServer {
     const apiToken = process.env.GMBOOP_API_TOKEN;
     const serverPort = this.config?.server?.port || 8080;
 
+    // Fail-closed: ApiTokenManager.ensure() is expected to run during boot
+    // and populate GMBOOP_API_TOKEN. If we somehow reach WS start without a
+    // token, refuse to start the server rather than accepting every client.
+    if (!apiToken) {
+      const msg = 'GMBOOP_API_TOKEN is not set — refusing to start WebSocket server (fail-closed).';
+      this.logger.error(msg);
+      throw new Error(msg);
+    }
+
+    // Same-origin bypass uses a static whitelist of self-hostnames instead
+    // of the inbound `Host` header — an attacker can forge `Host` to match
+    // their own `Origin`, so trusting it cancels the security gate (see
+    // AUDIT 2026-05-10 §18).
+    const configuredHost = this.config?.server?.host;
+    const selfHosts = new Set(['localhost', '127.0.0.1', '::1']);
+    if (configuredHost && configuredHost !== '0.0.0.0') selfHosts.add(configuredHost);
+
     // Attach WebSocket server to existing HTTP server
     this.wss = new WSServer({
       server: this.httpServer,
       maxPayload: MAX_PAYLOAD_BYTES,
-      verifyClient: apiToken
-        ? ({ req }, done) => {
-            // Allow same-origin connections (frontend served by this server)
-            const origin = req.headers.origin || '';
-            const host = req.headers.host || '';
-            if (origin) {
-              try {
-                const originUrl = new URL(origin);
-                const originHost = originUrl.hostname;
-                const originPort = originUrl.port || (originUrl.protocol === 'https:' ? '443' : '80');
-                const serverHost = host.split(':')[0];
-                const srvPort = String(host.split(':')[1] || serverPort);
-                if (originHost === serverHost && originPort === srvPort) {
-                  done(true);
-                  return;
-                }
-              } catch { /* invalid origin, fall through to token check */ }
+      verifyClient: ({ req }, done) => {
+        // Allow same-origin connections (frontend served by this server).
+        // Compare to a static self-host whitelist, NOT to req.headers.host.
+        const origin = req.headers.origin || '';
+        if (origin) {
+          try {
+            const originUrl = new URL(origin);
+            const originHost = originUrl.hostname;
+            const originPort = originUrl.port || (originUrl.protocol === 'https:' ? '443' : '80');
+            if (selfHosts.has(originHost) && originPort === String(serverPort)) {
+              done(true);
+              return;
             }
+          } catch { /* invalid origin, fall through to token check */ }
+        }
 
-            // External connections require token
-            const url = new URL(req.url, 'http://localhost');
-            const token =
-              url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
-            try {
-              const tokenBuf = Buffer.from(token);
-              const apiTokenBuf = Buffer.from(apiToken);
-              if (
-                tokenBuf.length !== apiTokenBuf.length ||
-                !timingSafeEqual(tokenBuf, apiTokenBuf)
-              ) {
-                this.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
-                done(false, 401, 'Unauthorized');
-              } else {
-                done(true);
-              }
-            } catch {
-              done(false, 401, 'Unauthorized');
-            }
+        // External connections (or unknown origin) must present the token.
+        const url = new URL(req.url, 'http://localhost');
+        const token =
+          url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
+        try {
+          const tokenBuf = Buffer.from(token);
+          const apiTokenBuf = Buffer.from(apiToken);
+          if (
+            tokenBuf.length !== apiTokenBuf.length ||
+            !timingSafeEqual(tokenBuf, apiTokenBuf)
+          ) {
+            this.logger.warn(`WebSocket auth rejected: ${req.socket.remoteAddress}`);
+            done(false, 401, 'Unauthorized');
+          } else {
+            done(true);
           }
-        : undefined
+        } catch {
+          done(false, 401, 'Unauthorized');
+        }
+      }
     });
 
     this.wss.on('connection', (ws, req) => {
@@ -229,7 +242,7 @@ class WebSocketServer {
     try {
       parsedMessage = JSON.parse(data.toString());
 
-      this.logger.info(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
+      this.logger.debug(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
 
       // Awaited so async errors (rejections inside handlers) are caught here
       // instead of becoming unhandled rejections on the Node process.
@@ -352,6 +365,12 @@ class WebSocketServer {
         ws.ping();
       });
     }, HEARTBEAT_INTERVAL_MS);
+    // Don't keep the event loop alive solely for the heartbeat — if the
+    // app is otherwise shutting down, this lets `process.exit` happen
+    // (AUDIT 2026-05-10 §28).
+    if (typeof this.heartbeatInterval.unref === 'function') {
+      this.heartbeatInterval.unref();
+    }
   }
 
   /**

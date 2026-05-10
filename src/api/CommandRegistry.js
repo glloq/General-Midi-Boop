@@ -28,11 +28,7 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/**
- * Currently advertised API version. Versioned handlers registered with a
- * different version are kept in a separate map and only invoked when the
- * client requests them explicitly.
- */
+/** Currently advertised API version, returned alongside every response. */
 const CURRENT_API_VERSION = 1;
 
 /**
@@ -58,48 +54,37 @@ function _generateCid() {
  */
 class CommandRegistry {
   /**
-   * @param {Object} app - Application facade; needs `logger` and
-   *   (optionally) `eventBus` for the metric event.
+   * @param {Object} deps - DI bag (or Application facade). Needs
+   *   `logger`; `eventBus` is consumed when present (metrics event).
+   *   The whole bag is forwarded to each command module's `register()`
+   *   under the historical `app` parameter name — handlers read
+   *   `app.foo` to resolve their own dependencies.
    */
-  constructor(app) {
-    this.app = app;
+  constructor(deps) {
+    this._deps = deps;
+    this.logger = deps.logger;
+    this.eventBus = deps.eventBus ?? null;
     /**
-     * @type {Object<string, Function>} Default (current-version) handlers.
+     * @type {Object<string, Function>} Registered command handlers.
      */
     this.handlers = {};
-    /**
-     * @type {Object<string, Function>} Versioned handlers keyed by
-     *   `"v<version>:<command>"`.
-     */
-    this.versionedHandlers = {};
   }
 
   /**
-   * Register a command handler. When `version` is omitted (or equal to
-   * {@link CURRENT_API_VERSION}), the handler becomes the default. A
-   * different version stashes it in {@link CommandRegistry#versionedHandlers}
-   * so existing default handlers stay untouched.
-   *
-   * Re-registering an existing default handler logs a warning — useful to
-   * catch accidental double-loads during hot-reload.
+   * Register a command handler. Re-registering an existing handler logs a
+   * warning — useful to catch accidental double-loads during hot-reload.
    *
    * @param {string} command - Command name (e.g. `"file_upload"`).
    * @param {Function} handler - Async function `(data) => result`.
-   * @param {number} [version] - Optional API version.
    * @returns {void}
    */
-  register(command, handler, version) {
-    if (version && version !== CURRENT_API_VERSION) {
-      const key = `v${version}:${command}`;
-      this.versionedHandlers[key] = handler;
-    } else {
-      if (this.handlers[command]) {
-        this.app.logger.warn(
-          `CommandRegistry: overwriting handler for '${command}'.`
-        );
-      }
-      this.handlers[command] = handler;
+  register(command, handler) {
+    if (this.handlers[command]) {
+      this.logger.warn(
+        `CommandRegistry: overwriting handler for '${command}'.`
+      );
     }
+    this.handlers[command] = handler;
   }
 
   /**
@@ -119,16 +104,20 @@ class CommandRegistry {
       const mod = await import(modulePath);
 
       if (typeof mod.register === 'function') {
-        mod.register(this, this.app);
-        this.app.logger.debug(`CommandRegistry: loaded module ${file}`);
+        // The second arg keeps the historical `app` name — every command
+        // module signature is `register(registry, app)`. The value we
+        // pass is the DI facade itself, so handlers can do
+        // `app.fileManager` etc.
+        mod.register(this, this._deps);
+        this.logger.debug(`CommandRegistry: loaded module ${file}`);
       } else {
-        this.app.logger.warn(
+        this.logger.warn(
           `CommandRegistry: ${file} does not export a register() function, skipping`
         );
       }
     }
 
-    this.app.logger.info(
+    this.logger.info(
       `CommandRegistry initialized with ${Object.keys(this.handlers).length} commands`
     );
   }
@@ -155,15 +144,18 @@ class CommandRegistry {
   async handle(message, ws) {
     const startTime = Date.now();
     // Correlation ID per command dispatch (P2-OBS.1).
-    // Priority : message.id sent by the client (already unique per request) →
-    // random UUID fallback so server-initiated or malformed messages are still
-    // traceable.
+    // Priority: message.id sent by the client (already unique per request)
+    // → 8-char base36 token (see _generateCid) so server-initiated or
+    // malformed messages are still traceable.
     const cid = (message && message.id) || _generateCid();
     const cmd = message && message.command;
     const tag = `[cmd=${cmd} cid=${cid}]`;
 
     try {
-      this.app.logger.info(`${tag} Handling command`);
+      // Per-message tracing belongs to `debug` (Logger.js convention:
+      // info = operator milestone, not per-iteration). 60 cmd/s × 4 lines
+      // would saturate INFO and bury the actual lifecycle events.
+      this.logger.debug(`${tag} Handling command`);
 
       // Envelope validation: message must be an object with a string `command`.
       const validation = JsonValidator.validateCommand(message);
@@ -179,24 +171,13 @@ class CommandRegistry {
         throw new ValidationError(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
       }
 
-      // Versioned handler takes priority when the client requests a
-      // non-current version; fall back to the default handler otherwise.
-      let handler;
-      if (message.version && message.version !== CURRENT_API_VERSION) {
-        const versionedKey = `v${message.version}:${message.command}`;
-        handler = this.versionedHandlers[versionedKey];
-      }
-      handler = handler || this.handlers[message.command];
+      const handler = this.handlers[message.command];
       if (!handler) {
         throw new NotFoundError('command', message.command);
       }
 
-      this.app.logger.info(`${tag} Executing handler`);
-
       // Execute handler
       const result = await handler(message.data || {});
-
-      this.app.logger.info(`${tag} Handler executed, sending response`);
 
       // Send response with request ID for client to match
       if (ws.readyState === 1) {
@@ -214,11 +195,11 @@ class CommandRegistry {
       }
 
       const duration = Date.now() - startTime;
-      this.app.logger.info(`${tag} Command completed in ${duration}ms`);
+      this.logger.debug(`${tag} Command completed in ${duration}ms`);
       // P2-OBS.2/3 : emit a metric event for any interested subscriber
       // (dashboards, Prometheus exporter, etc.). Payload kept minimal to
       // avoid log-level bloat.
-      this.app.eventBus?.emit?.('ws.command.completed', {
+      this.eventBus?.emit?.('ws.command.completed', {
         command: cmd,
         cid,
         duration,
@@ -226,9 +207,9 @@ class CommandRegistry {
       });
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.app.logger.error(`${tag} Command failed: ${error.message}`);
-      this.app.logger.error(error.stack);
-      this.app.eventBus?.emit?.('ws.command.completed', {
+      this.logger.error(`${tag} Command failed: ${error.message}`);
+      this.logger.error(error.stack);
+      this.eventBus?.emit?.('ws.command.completed', {
         command: cmd,
         cid,
         duration,

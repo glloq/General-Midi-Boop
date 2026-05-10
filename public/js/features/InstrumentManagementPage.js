@@ -545,6 +545,20 @@ class InstrumentManagementPage {
     }
 
     content.innerHTML = html;
+
+    // Wire up device-settings buttons via delegated event listener so the
+    // device name / id never has to be HTML-escaped into an inline onclick
+    // handler (see AUDIT 2026-05-10 §15).
+    content.querySelectorAll('[data-action="open-device-settings"]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const id = btn.dataset.deviceId;
+        const name = btn.dataset.deviceName;
+        if (window.instrumentManagementPageInstance) {
+          window.instrumentManagementPageInstance.openDeviceSettings(id, name);
+        }
+      });
+    });
   }
 
   /**
@@ -553,7 +567,6 @@ class InstrumentManagementPage {
   renderDeviceBlock(instruments) {
     const first = instruments[0];
     const esc = this._escapeHtml;
-    const escAttr = (s) => esc(s).replace(/'/g, '&#39;');
     const deviceId = first._deviceId || first.device_id || first.id;
     const rawDeviceName = first._deviceName || first.name || deviceId;
     const deviceName = first._deviceDisplayName || rawDeviceName;
@@ -595,9 +608,11 @@ class InstrumentManagementPage {
               </div>
             </div>
           </div>
-          <button onclick="event.stopPropagation(); instrumentManagementPageInstance.openDeviceSettings('${escAttr(deviceId)}', '${escAttr(rawDeviceName)}')"
+          <button data-action="open-device-settings"
+            data-device-id="${esc(deviceId)}"
+            data-device-name="${esc(rawDeviceName)}"
+            class="inst-mgmt-device-settings-btn"
             style="background:none; border:1px solid transparent; cursor:pointer; font-size:16px; padding:5px 8px; border-radius:7px; transition:all 0.15s; flex-shrink:0; color:#6b7280;"
-            onmouseover="this.style.background='rgba(0,0,0,0.07)';this.style.borderColor='rgba(0,0,0,0.1)'" onmouseout="this.style.background='none';this.style.borderColor='transparent'"
             title="${typeof i18n !== 'undefined' ? (i18n.t('instruments.deviceSettings') || 'Réglages du périphérique') : 'Réglages du périphérique'}">⚙️</button>
         </div>
 
