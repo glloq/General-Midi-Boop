@@ -22,9 +22,14 @@ import MidiUtils from '../utils/MidiUtils.js';
 const execFileAsync = promisify(execFile);
 
 class NetworkManager extends EventEmitter {
-  constructor(app) {
+  /**
+   * @param {Object} deps - Service-container facade. Only `logger` is
+   *   read from it; replaces the legacy `this.app` service-locator
+   *   pattern.
+   */
+  constructor(deps) {
     super();
-    this.app = app;
+    this.logger = deps.logger;
     this.scanning = false;
     this.devices = new Map(); // Map of IP -> device info
     this.connectedDevices = new Map(); // Map of IP -> connection info
@@ -38,7 +43,7 @@ class NetworkManager extends EventEmitter {
       7000, 7001, 7002 // Custom ports commonly used
     ];
 
-    this.app.logger.info('NetworkManager initialized with RTP-MIDI support');
+    this.logger.info('NetworkManager initialized with RTP-MIDI support');
   }
 
   /**
@@ -77,13 +82,13 @@ class NetworkManager extends EventEmitter {
     // Sanitize timeout to prevent injection and bound resource usage
     timeout = Math.max(1, Math.min(30, parseInt(timeout, 10) || 5));
 
-    this.app.logger.info(`Starting network scan for ${timeout}s... (fullScan: ${fullScan})`);
+    this.logger.info(`Starting network scan for ${timeout}s... (fullScan: ${fullScan})`);
     this.scanning = true;
     this.devices.clear();
 
     try {
       const subnet = this.getLocalSubnet();
-      this.app.logger.info(`Scanning subnet: ${subnet}.0/24`);
+      this.logger.info(`Scanning subnet: ${subnet}.0/24`);
 
       // Method 1: mDNS scan for MIDI services
       await this.scanMDNS(timeout);
@@ -95,13 +100,13 @@ class NetworkManager extends EventEmitter {
 
       const devices = Array.from(this.devices.values());
 
-      this.app.logger.info(`Network scan completed: ${devices.length} devices found`);
+      this.logger.info(`Network scan completed: ${devices.length} devices found`);
       this.scanning = false;
 
       return devices;
     } catch (error) {
       this.scanning = false;
-      this.app.logger.error(`Network scan error: ${error.message}`);
+      this.logger.error(`Network scan error: ${error.message}`);
       throw error;
     }
   }
@@ -114,7 +119,7 @@ class NetworkManager extends EventEmitter {
     try {
       // Use avahi-browse on Linux to discover services
       if (process.platform === 'linux') {
-        this.app.logger.debug('Using avahi-browse for mDNS discovery...');
+        this.logger.debug('Using avahi-browse for mDNS discovery...');
 
         // Scan specifically for RTP-MIDI and Apple MIDI services
         const serviceTypes = [
@@ -132,10 +137,10 @@ class NetworkManager extends EventEmitter {
 
             if (stdout && stdout.trim()) {
               this.parseMDNSOutput(stdout);
-              this.app.logger.info(`mDNS: found services for ${serviceType}`);
+              this.logger.info(`mDNS: found services for ${serviceType}`);
             }
           } catch (error) {
-            this.app.logger.debug(`avahi-browse failed for ${serviceType}: ${error.message}`);
+            this.logger.debug(`avahi-browse failed for ${serviceType}: ${error.message}`);
           }
         }
 
@@ -151,7 +156,7 @@ class NetworkManager extends EventEmitter {
               this.parseMDNSOutput(stdout);
             }
           } catch (error) {
-            this.app.logger.debug('avahi-browse -a not available or no services found');
+            this.logger.debug('avahi-browse -a not available or no services found');
           }
         }
       }
@@ -160,7 +165,7 @@ class NetworkManager extends EventEmitter {
       this.addTestDevices();
 
     } catch (error) {
-      this.app.logger.warn(`mDNS scan error: ${error.message}`);
+      this.logger.warn(`mDNS scan error: ${error.message}`);
     }
   }
 
@@ -193,7 +198,7 @@ class NetworkManager extends EventEmitter {
         };
 
         this.devices.set(ip, deviceInfo);
-        this.app.logger.debug(`mDNS device found: ${name} at ${ip}:${port}`);
+        this.logger.debug(`mDNS device found: ${name} at ${ip}:${port}`);
       }
     }
   }
@@ -204,7 +209,7 @@ class NetworkManager extends EventEmitter {
    * @param {number} timeout - Timeout in seconds
    */
   async scanSubnetIPs(subnet, _timeout) {
-    this.app.logger.info(`[NetworkManager] Scanning full subnet ${subnet}.0/24...`);
+    this.logger.info(`[NetworkManager] Scanning full subnet ${subnet}.0/24...`);
 
     const pingPromises = [];
     const localIP = this.getLocalIP();
@@ -214,7 +219,7 @@ class NetworkManager extends EventEmitter {
     for (let i = 1; i <= 254; i++) {
       // Check cancellation between batches
       if (!this.scanning) {
-        this.app.logger.info(`[NetworkManager] Subnet scan cancelled at IP .${i}`);
+        this.logger.info(`[NetworkManager] Subnet scan cancelled at IP .${i}`);
         break;
       }
 
@@ -241,7 +246,7 @@ class NetworkManager extends EventEmitter {
               };
               this.devices.set(ip, deviceInfo);
               ipFoundCount++;
-              this.app.logger.info(`[NetworkManager] ✅ IP found: ${ip}`);
+              this.logger.info(`[NetworkManager] ✅ IP found: ${ip}`);
             }
           }
         })
@@ -263,18 +268,18 @@ class NetworkManager extends EventEmitter {
       await Promise.all(pingPromises);
     }
 
-    this.app.logger.info(`[NetworkManager] TCP scan done - ${ipFoundCount} IPs found, reading ARP table...`);
+    this.logger.info(`[NetworkManager] TCP scan done - ${ipFoundCount} IPs found, reading ARP table...`);
 
     // The TCP connects triggered ARP requests for each IP.
     // Read the ARP table to find hosts that responded to ARP
     // but not to TCP (firewall DROP). ARP is Layer 2, mandatory.
     const arpCount = await this.readARPTable(subnet, localIP);
 
-    this.app.logger.info(`[NetworkManager] Subnet scan completed - ${ipFoundCount} TCP + ${arpCount} ARP, ${this.devices.size} total devices`);
+    this.logger.info(`[NetworkManager] Subnet scan completed - ${ipFoundCount} TCP + ${arpCount} ARP, ${this.devices.size} total devices`);
 
     // If no IPs found, add test devices (dev environment only)
     if (this.devices.size === 0 && process.env.NODE_ENV !== 'production') {
-      this.app.logger.warn('[NetworkManager] No IPs found - adding test devices for development');
+      this.logger.warn('[NetworkManager] No IPs found - adding test devices for development');
       this.addTestDevicesIP(subnet);
     }
   }
@@ -320,10 +325,10 @@ class NetworkManager extends EventEmitter {
           discovered: 'arp'
         });
         count++;
-        this.app.logger.info(`[NetworkManager] ✅ ARP found: ${ip} (${state})`);
+        this.logger.info(`[NetworkManager] ✅ ARP found: ${ip} (${state})`);
       }
     } catch (error) {
-      this.app.logger.debug(`[NetworkManager] ARP table read failed: ${error.message}`);
+      this.logger.debug(`[NetworkManager] ARP table read failed: ${error.message}`);
     }
     return count;
   }
@@ -354,11 +359,11 @@ class NetworkManager extends EventEmitter {
           protocol: 'IP',
           discovered: 'test'
         });
-        this.app.logger.debug(`[NetworkManager] Added test IP: ${ip}`);
+        this.logger.debug(`[NetworkManager] Added test IP: ${ip}`);
       }
     });
 
-    this.app.logger.info(`[NetworkManager] ${testIPs.length} test IPs added`);
+    this.logger.info(`[NetworkManager] ${testIPs.length} test IPs added`);
   }
 
   /**
@@ -386,7 +391,7 @@ class NetworkManager extends EventEmitter {
     if (process.env.NODE_ENV === 'production') return;
     // Add some test devices if none were found
     if (this.devices.size === 0) {
-      this.app.logger.debug('Adding test network devices...');
+      this.logger.debug('Adding test network devices...');
 
       const subnet = this.getLocalSubnet();
 
@@ -422,7 +427,7 @@ class NetworkManager extends EventEmitter {
   stopScan() {
     if (this.scanning) {
       this.scanning = false;
-      this.app.logger.info('Network scan stopped');
+      this.logger.info('Network scan stopped');
     }
   }
 
@@ -433,7 +438,7 @@ class NetworkManager extends EventEmitter {
    * @returns {Promise<Object>} Connection info
    */
   async connect(ip, port = '5004') {
-    this.app.logger.info(`[NetworkManager] Connecting to network instrument: ${ip}:${port}`);
+    this.logger.info(`[NetworkManager] Connecting to network instrument: ${ip}:${port}`);
 
     // Check if the instrument is reachable
     const isReachable = await this.checkReachability(ip);
@@ -473,12 +478,12 @@ class NetworkManager extends EventEmitter {
 
       // Listen for errors
       session.on('error', (error) => {
-        this.app.logger.error(`[NetworkManager] RTP-MIDI error for ${ip}: ${error.message}`);
+        this.logger.error(`[NetworkManager] RTP-MIDI error for ${ip}: ${error.message}`);
       });
 
       // Listen for disconnection
       session.on('disconnected', () => {
-        this.app.logger.info(`[NetworkManager] RTP-MIDI session disconnected: ${ip}`);
+        this.logger.info(`[NetworkManager] RTP-MIDI session disconnected: ${ip}`);
         this.rtpSessions.delete(ip);
         this.connectedDevices.delete(ip);
 
@@ -508,7 +513,7 @@ class NetworkManager extends EventEmitter {
       };
 
       this.connectedDevices.set(ip, connectionInfo);
-      this.app.logger.info(`[NetworkManager] ✅ Connected to ${deviceInfo.name} (${ip}:${port}) via RTP-MIDI`);
+      this.logger.info(`[NetworkManager] ✅ Connected to ${deviceInfo.name} (${ip}:${port}) via RTP-MIDI`);
 
       // Emit event
       this.emit('network:connected', {
@@ -520,7 +525,7 @@ class NetworkManager extends EventEmitter {
       return connectionInfo;
 
     } catch (error) {
-      this.app.logger.error(`[NetworkManager] Failed to connect RTP-MIDI to ${ip}: ${error.message}`);
+      this.logger.error(`[NetworkManager] Failed to connect RTP-MIDI to ${ip}: ${error.message}`);
       throw error;
     }
   }
@@ -582,7 +587,7 @@ class NetworkManager extends EventEmitter {
    * @returns {Promise<Object>} Disconnection result
    */
   async disconnect(ip) {
-    this.app.logger.info(`[NetworkManager] Disconnecting network instrument: ${ip}`);
+    this.logger.info(`[NetworkManager] Disconnecting network instrument: ${ip}`);
 
     const connectionInfo = this.connectedDevices.get(ip);
 
@@ -599,7 +604,7 @@ class NetworkManager extends EventEmitter {
       }
 
       this.connectedDevices.delete(ip);
-      this.app.logger.info(`[NetworkManager] ✅ Disconnected from ${ip}`);
+      this.logger.info(`[NetworkManager] ✅ Disconnected from ${ip}`);
 
       // Emit event
       this.emit('network:disconnected', {
@@ -614,7 +619,7 @@ class NetworkManager extends EventEmitter {
       };
 
     } catch (error) {
-      this.app.logger.error(`[NetworkManager] Error disconnecting ${ip}: ${error.message}`);
+      this.logger.error(`[NetworkManager] Error disconnecting ${ip}: ${error.message}`);
       throw error;
     }
   }
@@ -638,13 +643,13 @@ class NetworkManager extends EventEmitter {
 
       if (midiBytes) {
         session.sendMessage(midiBytes);
-        this.app.logger.debug(`[NetworkManager] MIDI sent to ${ip}:`, type, data);
+        this.logger.debug(`[NetworkManager] MIDI sent to ${ip}:`, type, data);
       } else {
-        this.app.logger.warn(`[NetworkManager] Unsupported MIDI message type: ${type}`);
+        this.logger.warn(`[NetworkManager] Unsupported MIDI message type: ${type}`);
       }
 
     } catch (error) {
-      this.app.logger.error(`[NetworkManager] Send MIDI error: ${error.message}`);
+      this.logger.error(`[NetworkManager] Send MIDI error: ${error.message}`);
       throw error;
     }
   }
@@ -660,7 +665,7 @@ class NetworkManager extends EventEmitter {
       const parsedMessage = this.parseMidiBytes(midiBytes);
 
       if (parsedMessage) {
-        this.app.logger.debug(`[NetworkManager] MIDI from ${ip}:`, parsedMessage.type, parsedMessage.data);
+        this.logger.debug(`[NetworkManager] MIDI from ${ip}:`, parsedMessage.type, parsedMessage.data);
 
         // Emit MIDI event
         this.emit('midi:data', {
@@ -672,7 +677,7 @@ class NetworkManager extends EventEmitter {
       }
 
     } catch (error) {
-      this.app.logger.error(`[NetworkManager] Error processing MIDI data: ${error.message}`);
+      this.logger.error(`[NetworkManager] Error processing MIDI data: ${error.message}`);
     }
   }
 
@@ -793,7 +798,7 @@ class NetworkManager extends EventEmitter {
    * Stop all scans and disconnect all instruments
    */
   async shutdown() {
-    this.app.logger.info('Shutting down NetworkManager...');
+    this.logger.info('Shutting down NetworkManager...');
 
     // Stop the scan
     this.stopScan();
@@ -803,13 +808,13 @@ class NetworkManager extends EventEmitter {
     for (const ip of this.connectedDevices.keys()) {
       disconnectPromises.push(
         this.disconnect(ip).catch(err =>
-          this.app.logger.error(`Error disconnecting ${ip}: ${err.message}`)
+          this.logger.error(`Error disconnecting ${ip}: ${err.message}`)
         )
       );
     }
 
     await Promise.all(disconnectPromises);
-    this.app.logger.info('NetworkManager shutdown complete');
+    this.logger.info('NetworkManager shutdown complete');
   }
 }
 

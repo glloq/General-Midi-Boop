@@ -20,20 +20,23 @@ import { BLE_EVENTS } from '../midi/ports/BluetoothPort.js';
 
 class BluetoothManager extends EventEmitter {
   /**
-   * @param {object} app - Application container (exposes .logger)
+   * @param {object} deps - Service-container facade. Only `logger`
+   *   is read from it.
    * @param {object} [options]
    * @param {object} [options.port] - BluetoothPort adapter. Defaults to a
    *   new NobleBleAdapter. Tests inject InMemoryBleAdapter here.
    */
-  constructor(app, options = {}) {
+  constructor(deps, options = {}) {
     super();
-    this.app = app;
+    // BluetoothManager only ever read `logger` off the legacy
+    // `this.app` facade — destructure it explicitly.
+    this.logger = deps.logger;
     this.scanning = false;
     this.devices = new Map(); // address → enriched device info
     this.connectedDevices = new Map(); // address → { name }
     this.pairedDevices = []; // persistent list
 
-    this._port = options.port || new NobleBleAdapter({ logger: app.logger });
+    this._port = options.port || new NobleBleAdapter({ logger: this.logger });
 
     this._wirePortEvents();
 
@@ -41,7 +44,7 @@ class BluetoothManager extends EventEmitter {
     // also safe to call before _init completes — they await it lazily).
     this._initPromise = this._initializePort();
 
-    this.app.logger.info('BluetoothManager initialized (port-based)');
+    this.logger.info('BluetoothManager initialized (port-based)');
   }
 
   // --------------------------------------------------------------------------
@@ -119,7 +122,7 @@ class BluetoothManager extends EventEmitter {
       await this._port._init();
       this.emit('bluetooth:powered_on');
     } catch (err) {
-      this.app.logger.error(`Failed to initialize Bluetooth: ${err.message}`);
+      this.logger.error(`Failed to initialize Bluetooth: ${err.message}`);
       // POWERED_OFF event may already have been emitted by the port;
       // no need to double-emit here.
     }
@@ -146,11 +149,11 @@ class BluetoothManager extends EventEmitter {
       this.devices.clear();
 
       const startTime = Date.now();
-      this.app.logger.info(`[TIMING] Starting BLE scan for ${duration}s...`);
+      this.logger.info(`[TIMING] Starting BLE scan for ${duration}s...`);
 
       await this._runPortScan(duration * 1000);
 
-      this.app.logger.info(`[TIMING] Scan found ${this.devices.size} devices in ${Date.now() - startTime}ms`);
+      this.logger.info(`[TIMING] Scan found ${this.devices.size} devices in ${Date.now() - startTime}ms`);
 
       let devicesArray = Array.from(this.devices.values());
       if (filter) {
@@ -158,10 +161,10 @@ class BluetoothManager extends EventEmitter {
           d.name.toLowerCase().includes(filter.toLowerCase())
         );
       }
-      this.app.logger.info(`Scan complete: ${devicesArray.length} devices available`);
+      this.logger.info(`Scan complete: ${devicesArray.length} devices available`);
       return devicesArray;
     } catch (error) {
-      this.app.logger.error(`Scan error: ${error.message}`);
+      this.logger.error(`Scan error: ${error.message}`);
       throw error;
     } finally {
       this.scanning = false;
@@ -209,9 +212,9 @@ class BluetoothManager extends EventEmitter {
     if (!this.scanning) return;
     try {
       await this._port.stopDiscovery();
-      this.app.logger.info('BLE scan stopped');
+      this.logger.info('BLE scan stopped');
     } catch (error) {
-      this.app.logger.error(`Error stopping scan: ${error.message}`);
+      this.logger.error(`Error stopping scan: ${error.message}`);
     } finally {
       this.scanning = false;
     }
@@ -227,7 +230,7 @@ class BluetoothManager extends EventEmitter {
    */
   async connect(address) {
     const startTime = Date.now();
-    this.app.logger.info(`[TIMING] Starting connection to BLE device: ${address}`);
+    this.logger.info(`[TIMING] Starting connection to BLE device: ${address}`);
 
     if (this._initPromise) await this._initPromise;
 
@@ -240,12 +243,12 @@ class BluetoothManager extends EventEmitter {
         address;
 
       const totalTime = Date.now() - startTime;
-      this.app.logger.info(`[TIMING] 🚀 TOTAL CONNECTION TIME: ${totalTime}ms`);
-      this.app.logger.info(`Connected to ${name} (${address}) via port`);
+      this.logger.info(`[TIMING] 🚀 TOTAL CONNECTION TIME: ${totalTime}ms`);
+      this.logger.info(`Connected to ${name} (${address}) via port`);
 
       return { address, name, connected: true };
     } catch (error) {
-      this.app.logger.error(`Failed to connect to ${address}: ${error.message}`);
+      this.logger.error(`Failed to connect to ${address}: ${error.message}`);
       throw error;
     }
   }
@@ -259,9 +262,9 @@ class BluetoothManager extends EventEmitter {
     }
     try {
       await this._port.disconnect(address);
-      this.app.logger.info(`Disconnected from ${address}`);
+      this.logger.info(`Disconnected from ${address}`);
     } catch (error) {
-      this.app.logger.error(`Disconnect error for ${address}: ${error.message}`);
+      this.logger.error(`Disconnect error for ${address}: ${error.message}`);
       throw error;
     }
   }
@@ -274,7 +277,7 @@ class BluetoothManager extends EventEmitter {
       await this.disconnect(address);
     }
     this.pairedDevices = this.pairedDevices.filter((d) => d.address !== address);
-    this.app.logger.info(`Unpaired device ${address}`);
+    this.logger.info(`Unpaired device ${address}`);
     this.emit('bluetooth:unpaired', { address });
   }
 
@@ -304,7 +307,7 @@ class BluetoothManager extends EventEmitter {
       const data = Array.from(buffer);
       if (data.length < 3) return;
       if (!(data[0] & 0x80)) {
-        this.app.logger.debug(`Invalid BLE MIDI header from ${address}: 0x${data[0].toString(16)}`);
+        this.logger.debug(`Invalid BLE MIDI header from ${address}: 0x${data[0].toString(16)}`);
         return;
       }
 
@@ -354,7 +357,7 @@ class BluetoothManager extends EventEmitter {
         this.emit('midi:data', { address, data: midiBytes });
       }
     } catch (error) {
-      this.app.logger.error(`Error processing BLE MIDI data: ${error.message}`);
+      this.logger.error(`Error processing BLE MIDI data: ${error.message}`);
     }
   }
 
@@ -379,9 +382,9 @@ class BluetoothManager extends EventEmitter {
       bleFrame.set(midiData, 2);
 
       await this._port.sendMidi(address, bleFrame);
-      this.app.logger.debug(`MIDI sent to ${address}:`, midiData);
+      this.logger.debug(`MIDI sent to ${address}:`, midiData);
     } catch (error) {
-      this.app.logger.error(`Send MIDI error: ${error.message}`);
+      this.logger.error(`Send MIDI error: ${error.message}`);
       throw error;
     }
   }
@@ -394,7 +397,7 @@ class BluetoothManager extends EventEmitter {
     if (midiBytes) {
       await this.sendMidiData(address, midiBytes);
     } else {
-      this.app.logger.warn(`Unsupported MIDI message type: ${type}`);
+      this.logger.warn(`Unsupported MIDI message type: ${type}`);
     }
   }
 
@@ -467,9 +470,9 @@ class BluetoothManager extends EventEmitter {
       if (typeof this._port.dispose === 'function') {
         await this._port.dispose();
       }
-      this.app.logger.info('BluetoothManager cleaned up');
+      this.logger.info('BluetoothManager cleaned up');
     } catch (error) {
-      this.app.logger.error(`Cleanup error: ${error.message}`);
+      this.logger.error(`Cleanup error: ${error.message}`);
     }
   }
 }
