@@ -291,8 +291,8 @@ class LoopManagerModal extends BaseModal {
                     ${quantBtn('bar',  'padQuantizeBar')}
                 </div>
                 <span class="lc-ctrl-spacer"></span>
-                <button class="lc-btn lc-btn-sm" data-action="pad-clear-all" title="${this.t('loopManager.clearAllPads')}">🗑</button>
-                <button class="lc-btn lc-btn-sm" data-action="pad-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
+                <button class="lc-btn lc-btn-sm lc-btn-danger" data-action="pad-clear-all"
+                    title="${this.t('loopManager.clearAllPads')}">🗑 ${this.t('loopManager.clearAllPads')}</button>
             </div>
             <div class="lm-pad-grid" id="lm-pad-grid"
                 style="--pad-cols:${this._padCols};--pad-rows:${this._padRows}"></div>
@@ -619,7 +619,6 @@ class LoopManagerModal extends BaseModal {
             // Library
             case 'new-loop':  this._loopEditor.open(); break;
             // Pad
-            case 'pad-stop-all': this._stopAllPads(); break;
             case 'pad-clear-all':this._clearAllPads(); break;
             case 'pad-cols-dec': this._adjustPadCols(-1); break;
             case 'pad-cols-inc': this._adjustPadCols(+1); break;
