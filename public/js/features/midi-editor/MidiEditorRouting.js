@@ -686,15 +686,8 @@
     // Verify the sequence was correctly assigned
             this.modal.log('debug', `Piano roll sequence length: ${this.modal.pianoRoll.sequence?.length || 0}`);
         } else {
-            this.modal.log('warn', 'No notes to display in piano roll - adding test notes');
-
-    // Add a few test notes to confirm the piano roll works
-            this.modal.pianoRoll.sequence = [
-                { t: 0, g: 480, n: 60 },   // C4
-                { t: 480, g: 480, n: 64 }, // E4
-                { t: 960, g: 480, n: 67 }  // G4
-            ];
-
+            this.modal.log('info', 'No notes to display in piano roll — starting empty');
+            this.modal.pianoRoll.sequence = [];
             if (typeof this.modal.pianoRoll.redraw === 'function') {
                 this.modal.pianoRoll.redraw();
             }
