@@ -414,17 +414,12 @@ class LoopManagerModal extends BaseModal {
     }
 
     _toggleHeaderOutput() {
-        const isDev = this._globalOutput.mode === 'device';
-        if (!isDev) {
-            // Switching to device: need a deviceId from the keyboard panel.
-            if (!this._globalOutput.deviceId) {
-                LoopUtils.toast(this.t('loopManager.errNoDevice'), 'error');
-                return;
-            }
-            this._setGlobalOutput({ mode: 'device' });
-        } else {
-            this._setGlobalOutput({ mode: 'synth' });
-        }
+        // Pure mode switch: preview-synth ⇄ live-device. If no device has
+        // been picked yet in the virtual piano, the per-tab routing
+        // gracefully falls back to the synth (see _kbdRoutingDevice and
+        // _getOutputTarget) — no upfront check needed.
+        const next = this._globalOutput.mode === 'device' ? 'synth' : 'device';
+        this._setGlobalOutput({ mode: next });
     }
 
     _setGlobalOutput(next) {
@@ -727,18 +722,8 @@ class LoopManagerModal extends BaseModal {
                 const btn = e.target.closest('[data-loop-action]');
                 if (!btn) return;
                 const id = parseInt(btn.dataset.loopId);
-                if (btn.dataset.loopAction === 'edit')      this._loopEditor.open({ loopId: id });
-                if (btn.dataset.loopAction === 'delete')    this._deleteLoopById(id);
-                if (btn.dataset.loopAction === 'duplicate') this._duplicateLoopById(id);
-                if (btn.dataset.loopAction === 'pad') {
-                    const firstEmpty = this._padSlots.findIndex(s => s === null);
-                    if (firstEmpty !== -1) {
-                        this._assignPadSlot(firstEmpty, id);
-                        LoopUtils.toast(this.t('loopManager.assignedToPad', { index: firstEmpty + 1 }), 'success');
-                    } else {
-                        LoopUtils.toast(this.t('loopManager.padFull'), 'info');
-                    }
-                }
+                if (btn.dataset.loopAction === 'edit')   this._loopEditor.open({ loopId: id });
+                if (btn.dataset.loopAction === 'delete') this._deleteLoopById(id);
             });
             // Cards are draggable → drop on pads, palette chips, etc.
             grid.addEventListener('dragstart', (e) => {
@@ -779,13 +764,9 @@ class LoopManagerModal extends BaseModal {
     }
 
     _loopCardHtml(loop) {
-        const ts     = `${loop.time_sig_num}/${loop.time_sig_den}`;
         const prog   = loop.instrument_program ?? 0;
         const family = LoopUtils.familyForProgram(prog);
         const instrName = this._gmProgramName(prog);
-        const densityHtml = loop.note_count != null
-            ? `<div class="lc-card-density"><div class="lc-card-density-fill" style="width:${Math.min(100, (loop.note_count / Math.max(1, (loop.bars || 2) * 8)) * 100)}%; background:${family.color}"></div></div>`
-            : '';
         const padIndexes = this._padSlots
             .map((s, i) => s?.loopId === loop.id ? (i + 1) : null)
             .filter(x => x != null);
@@ -793,45 +774,18 @@ class LoopManagerModal extends BaseModal {
             ? `<span class="lc-card-pad-tag" title="${this.t('loopManager.assignedPadsTitle', { pads: padIndexes.join(', ') })}">📌 ${padIndexes.join(',')}</span>`
             : '';
         const playing = this._livePlayingLoops.has(loop.id);
-        return `<div class="lc-card" draggable="true" data-loop-id="${loop.id}" style="--family-color:${family.color}"
-            <div class="lc-card-name">${this.escape(loop.name)}${padTagHtml}</div>
-            <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
-            <div class="lc-card-instr">${this._instrIconHtml(prog, 'instrument', 'lc-instr-icon--sm')} ${this.escape(instrName)}</div>
+        return `<div class="lc-card" draggable="true" data-loop-id="${loop.id}" style="--family-color:${family.color}" title="${this.escape(loop.name)} — ${this.escape(instrName)}">
+            <div class="lc-card-head">
+                ${this._instrIconHtml(prog, 'instrument', 'lc-card-icon')}
+                <span class="lc-card-name">${this.escape(loop.name)}</span>
+                ${padTagHtml}
+            </div>
             <div class="lc-card-actions">
                 <button class="lc-card-btn lc-card-btn--play${playing ? ' lc-card-btn--playing' : ''}" data-action="live-trigger" data-loop-id="${loop.id}" title="${this.t('loopCreator.preview')}">${playing ? '⏹' : '▶'}</button>
-                <button class="lc-card-btn" data-loop-action="edit"      data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
-                <button class="lc-card-btn" data-loop-action="duplicate" data-loop-id="${loop.id}" title="${this.t('loopManager.duplicateLoop')}">⎘</button>
-                <button class="lc-card-btn" data-loop-action="pad"       data-loop-id="${loop.id}" title="${this.t('loopManager.addToPad')}">🎛</button>
+                <button class="lc-card-btn" data-loop-action="edit"   data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
                 <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
             </div>
-            ${densityHtml}
         </div>`;
-    }
-
-    async _duplicateLoopById(id) {
-        try {
-            const r = await this.api.sendCommand('loop_get', { loopId: id });
-            const src = r.loop;
-            if (!src) return;
-            const copyName = this.t('loopManager.duplicateNameSuffix', { name: src.name });
-            const payload = {
-                name: copyName,
-                tempo: src.tempo,
-                time_sig_num: src.time_sig_num,
-                time_sig_den: src.time_sig_den,
-                bars: src.bars,
-                ppq: src.ppq,
-                instrument_program: src.instrument_program ?? 0,
-                midi_data: typeof src.midi_data === 'string' ? src.midi_data : JSON.stringify(src.midi_data || [])
-            };
-            await this.api.sendCommand('loop_create', payload);
-            LoopUtils.toast(this.t('loopManager.loopDuplicated'), 'success');
-            await this._loadLibrary();
-        } catch (err) {
-            LoopUtils.handleError(err, 'manager.duplicateLoop', {
-                toast: this.t('loopManager.errDuplicateLoop')
-            });
-        }
     }
 
     async _deleteLoopById(id) {

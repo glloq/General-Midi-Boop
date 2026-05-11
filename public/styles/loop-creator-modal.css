@@ -393,80 +393,74 @@
     margin-bottom: 8px;
 }
 
-/* Loop cards */
+/* Loop cards — compact tile: icon · name · pad-tag · actions */
 .lc-card {
-    display: flex; flex-direction: column; justify-content: space-between;
-    width: 210px; min-height: 72px;
-    border: 1px solid var(--border-color, #dde0e6); border-radius: 12px;
-    padding: 8px 10px 7px; background: var(--bg-primary, #fff);
-    cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    --family-color: var(--accent-color, #667eea);
+    display: flex; align-items: center; gap: 8px;
+    width: 240px; min-height: 36px;
+    border: 1px solid var(--border-color, #dde0e6);
+    border-left: 4px solid var(--family-color);
+    border-radius: 8px;
+    padding: 4px 6px 4px 8px;
+    background: var(--bg-primary, #fff);
+    cursor: grab;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
 }
 .lc-card:hover {
-    border-color: var(--accent-color, #667eea);
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.20);
-    transform: translateY(-2px);
+    border-color: var(--family-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+    transform: translateY(-1px);
 }
-.lc-card--active { border-color: var(--accent-color, #667eea); background: var(--accent-light, rgba(102,126,234,0.07)); }
-.lc-card-name { font-size: 0.85rem; font-weight: 600; color: var(--text-primary, #333); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 3px; }
-.lc-card-meta { font-size: 0.7rem; color: var(--text-secondary, #888); margin-bottom: 4px; }
-.lc-card-actions { display: flex; gap: 4px; margin-top: 4px; }
-.lc-card-btn { padding: 2px 6px; border: 1px solid var(--border-color, #ccc); border-radius: 3px; background: transparent; cursor: pointer; font-size: 0.75rem; transition: background 0.12s; }
-.lc-card-btn:hover { background: var(--bg-hover, #e8ecf0); }
-.lc-card-btn--danger:hover { background: #fdecea; border-color: #c0392b; color: #c0392b; }
-.lc-card-btn--play { color: var(--accent-color, #667eea); }
-.lc-card-btn--play:hover { background: var(--accent-light, rgba(102,126,234,0.10)); }
-.lc-card-btn--play.lc-card-btn--playing {
-    background: var(--accent-color, #667eea) !important;
-    color: #fff !important;
-    border-color: var(--accent-color, #667eea) !important;
-}
-
-/* Library card drag affordance */
-.lc-card { cursor: grab; }
 .lc-card:active { cursor: grabbing; }
 .lc-card--dragging { opacity: 0.55; transform: scale(0.98); }
-.lc-card-actions .lc-card-btn { cursor: pointer; }
+.lc-card--active {
+    border-color: var(--family-color);
+    background: color-mix(in srgb, var(--family-color) 8%, var(--bg-primary, #fff));
+}
 
-/* QW10 — pad-assignment tag inline with the card name */
-.lc-card-name { display: flex; align-items: center; gap: 6px; }
+.lc-card-head {
+    display: flex; align-items: center; gap: 6px;
+    flex: 1 1 0; min-width: 0;
+}
+.lc-card-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--family-color); }
+.lc-card-icon .lc-instr-svg { width: 100%; height: 100%; }
+.lc-card-name {
+    flex: 1 1 0; min-width: 0;
+    font-size: 0.82rem; font-weight: 600;
+    color: var(--text-primary, #333);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .lc-card-pad-tag {
     flex-shrink: 0;
     font-size: 0.62rem; font-weight: 700;
-    color: var(--accent-color, #667eea);
-    background: var(--accent-light, rgba(102,126,234,0.10));
+    color: #fff;
+    background: var(--family-color);
     border-radius: 10px;
     padding: 1px 6px;
     letter-spacing: 0.02em;
     white-space: nowrap;
 }
 
-/* Instrument badge */
-.lc-card-instr {
-    font-size: 0.68rem;
-    color: var(--accent-color, #667eea);
-    background: var(--accent-light, rgba(102,126,234,0.10));
-    border-radius: 10px;
-    padding: 1px 7px;
-    margin-bottom: 4px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    display: inline-block;
-    max-width: 100%;
+.lc-card-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.lc-card-btn {
+    padding: 2px 6px;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.78rem;
+    line-height: 1.1;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
-
-/* Note density bar */
-.lc-card-density {
-    height: 3px;
-    margin: 4px -10px -7px;
-    border-radius: 0 0 12px 12px;
-    overflow: hidden;
-    background: var(--border-color, #eee);
-}
-.lc-card-density-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
-    border-radius: 0 0 12px 0;
-    transition: width 0.3s;
+.lc-card-btn:hover { background: var(--bg-hover, #e8ecf0); }
+.lc-card-btn--danger { color: #c0392b; }
+.lc-card-btn--danger:hover { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+.lc-card-btn--play { color: var(--family-color); border-color: var(--family-color); }
+.lc-card-btn--play:hover { background: color-mix(in srgb, var(--family-color) 12%, transparent); }
+.lc-card-btn--play.lc-card-btn--playing {
+    background: var(--family-color) !important;
+    color: #fff !important;
+    border-color: var(--family-color) !important;
 }
 
 /* ── Arranger tab ── */
@@ -583,7 +577,7 @@ body.dark-mode  .la-playhead {
 .lm-lib-filter { min-width: 100px; max-width: 160px; font-size: 0.78rem; }
 .lm-lib-sort   { min-width: 100px; max-width: 140px; font-size: 0.78rem; }
 .lm-library-grid {
-    display: flex; flex-wrap: wrap; gap: 8px;
+    display: flex; flex-wrap: wrap; gap: 6px;
     padding: 10px 12px; overflow-y: auto; flex: 1 1 0;
     align-content: flex-start;
 }
@@ -731,8 +725,6 @@ body.dark-mode  .lm-pad-quant-group .lm-pad-quant-btn--active { background: var(
 
 /* Card instrument badge: small icon next to the program name */
 .lc-instr-icon--sm { width: 1.05em; height: 1.05em; }
-.lc-card-instr { display: inline-flex; align-items: center; gap: 4px; }
-.lc-card-instr .lc-instr-svg { filter: none; }
 
 /* Pad cell: bigger icon, centered */
 .lm-pad-icon { width: 28px; height: 28px; }

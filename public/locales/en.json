@@ -2528,7 +2528,6 @@
     "clearAllPads": "Clear all pads",
     "confirmClearAllPads": "Clear all pads?",
     "padsCleared": "All pads cleared.",
-    "errNoDevice": "Pick an instrument in the virtual piano first.",
     "assignedToPad": "Loop assigned to pad {index}.",
     "padFull": "All pads are occupied.",
     "emptyPad": "Pad {index} (empty)",
