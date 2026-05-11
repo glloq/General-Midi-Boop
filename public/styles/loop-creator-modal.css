@@ -1424,6 +1424,19 @@ body.dark-mode  .la-block--selected {
     border-top: none !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
     max-height: 380px !important;
+    z-index: 99999 !important;
+}
+
+/* Le dropdown a position:absolute + z-index 10001, mais son parent
+ * #header-instrument-selector n'a pas de z-index : le dropdown se
+ * retrouve dans le stacking context root, où la modal-body (qui
+ * contient les touches noires du piano avec z-index 10) est rendue
+ * APRÈS dans le DOM et passe donc devant. On force un stacking
+ * context sur le selector parent, à un z-index supérieur au piano. */
+.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode #header-instrument-selector,
+.loop-editor-modal  .lc-kb-panel  .modal-dialog.km-panel-mode #header-instrument-selector {
+    z-index: 100;
+    position: relative;
 }
 /* Le panel keyboard de l'éditeur de loop doit laisser le dropdown
  * déborder vers le bas (sinon il est rogné par le container). */
