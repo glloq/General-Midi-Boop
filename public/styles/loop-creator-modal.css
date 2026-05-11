@@ -944,18 +944,14 @@ body.dark-mode  .lm-pad-quant-group .lm-pad-quant-btn--active { background: var(
 
 /* Pad cell: bigger icon, centered */
 .lm-pad-icon { width: 28px; height: 28px; }
-/* Pad assigné (pas en lecture) : SVG en couleur d'origine sur fond très
- * clair — ajout d'un drop-shadow subtil pour renforcer le contour et
- * éviter que les traits fins disparaissent. */
-.lm-pad-cell--assigned:not(.lm-pad-cell--playing) .lm-pad-icon .lc-instr-svg {
-    filter: drop-shadow(0 0 0.5px rgba(0,0,0,0.55));
-}
-/* Pad en lecture : SVG blanc sur accent purple — halo sombre pour
- * garantir la lisibilité quelle que soit la teinte. */
+/* Les SVG d'instruments sont des illustrations couleur (rond coloré +
+ * détails dans les blancs/noirs). On NE les filtre PAS en blanc —
+ * sinon ils deviennent des silhouettes uniformes où on ne distingue
+ * plus qu'un contour. Pour les états sélectionnés (pad playing, block
+ * de track), on ajoute juste un léger halo sombre pour décoller
+ * l'icône du fond coloré, sans toucher aux couleurs internes. */
 .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg {
-    filter: brightness(0) invert(1)
-            drop-shadow(0 0 1px rgba(0,0,0,0.5))
-            drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.45));
 }
 
 /* Live group header: medium family icon */
@@ -964,15 +960,9 @@ body.dark-mode  .lm-pad-quant-group .lm-pad-quant-btn--active { background: var(
 /* Palette chip / block label: small inline icon */
 .la-chip-icon  { width: 16px; height: 16px; }
 .la-block-icon { width: 14px; height: 14px; }
-/* Bloc de track : fond = couleur de famille (jaune, vert, teal…) → un
- * SVG blanc seul est invisible sur les teintes claires. Ajout d'un
- * double drop-shadow pour créer une bordure sombre autour de l'icône
- * qui la rend lisible sur n'importe quelle couleur. */
 .la-block-icon .lc-instr-svg {
-    filter: brightness(0) invert(1)
-            drop-shadow(0 0 1px rgba(0,0,0,0.6))
-            drop-shadow(0 1px 1px rgba(0,0,0,0.45));
-    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.5))
+            drop-shadow(0 1px 1px rgba(0,0,0,0.35));
 }
 .la-chip-name  { display: inline-flex; align-items: center; gap: 5px; }
 .la-block-label { display: inline-flex; align-items: center; gap: 4px; }
@@ -988,11 +978,11 @@ body.theme-dark .la-block-icon .lc-instr-svg,
 body.dark-mode  .la-block-icon .lc-instr-svg,
 body.theme-dark .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg,
 body.dark-mode  .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg {
-    /* Conserve le halo en dark mode — sinon l'icône blanche se perd sur
-     * les fonds de famille saturés (jaune, teal, vert clair). */
-    filter: brightness(0) invert(1)
-            drop-shadow(0 0 1px rgba(0,0,0,0.6))
-            drop-shadow(0 1px 1px rgba(0,0,0,0.45));
+    /* Dark mode : on garde les couleurs natives du SVG (rond cyan +
+     * détails), juste un halo plus marqué pour décoller du fond
+     * coloré de la famille. */
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.6))
+            drop-shadow(0 1px 1px rgba(0,0,0,0.5));
 }
 
 .lm-pad-name { font-size: 0.82rem; font-weight: 600; text-align: center; word-break: break-word; line-height: 1.2; }
