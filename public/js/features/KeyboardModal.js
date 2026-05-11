@@ -1008,10 +1008,20 @@ class KeyboardModalNew {
         this.regeneratePianoKeys();
 
         if (this._panelCallbacks?.onInstrumentSelected) {
+            const caps = this.selectedDeviceCapabilities;
+            const ch       = this.getSelectedChannel();
+            const gmProg   = caps?.gm_program ?? 0;
+            const type     = caps?.instrument_type || null;
+            // Calcule isDrum côté keyboard (où on connaît les capabilities
+            // complètes) pour que les consommateurs (LoopEditor) puissent
+            // router sur le canal 9 sans avoir à reproduire la logique.
+            const isDrum = type === 'drum' || ch === 9 || (gmProg != null && gmProg >= 128);
             this._panelCallbacks.onInstrumentSelected({
                 deviceId: this.selectedDevice?.device_id || this.selectedDevice?.id || null,
-                channel: this.getSelectedChannel(),
-                gmProgram: this.selectedDeviceCapabilities?.gm_program ?? 0
+                channel: ch,
+                gmProgram: gmProg,
+                instrumentType: type,
+                isDrum
             });
         }
     }
