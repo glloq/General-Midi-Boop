@@ -247,6 +247,45 @@
 }
 .lc-ctrl-spacer { flex: 1 1 0; min-width: 4px; }
 
+/* ── Sémantique : groupes de contrôles dans la toolbar ──
+ * Chaque .lc-ctrl-group rassemble des actions liées (transport,
+ * propriétés, vue, etc.). Visualisation discrète : fond légèrement
+ * teinté + radius + petit gap interne. Séparation horizontale via
+ * gap parent — pas besoin de .lc-ctrl-sep. */
+.lc-ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.04);
+    flex-shrink: 0;
+}
+.lc-ctrl-group + .lc-ctrl-group { margin-left: 4px; }
+body.theme-dark .lc-ctrl-group,
+body.dark-mode  .lc-ctrl-group { background: rgba(255, 255, 255, 0.05); }
+
+/* Toolbar arranger : layout en row avec gap pour séparer les groupes. */
+.lc-ctrl-bar--arr {
+    gap: 4px;
+}
+/* Le nom de l'arrangement à gauche, prioritaire visuellement. */
+.la-toolbar-name {
+    max-width: 180px;
+    min-width: 100px;
+    flex-shrink: 1;
+}
+/* Bouton play légèrement mis en valeur (action centrale du transport). */
+.lc-btn-primary-ish[data-action="arr-play"]:not(.lc-btn-record--active) {
+    background: linear-gradient(135deg, #5b8def 0%, #667eea 100%);
+    color: #fff;
+    border-color: #4a76d4;
+}
+.lc-btn-primary-ish[data-action="arr-play"]:not(.lc-btn-record--active):hover {
+    background: linear-gradient(135deg, #4a76d4 0%, #5468d4 100%);
+    border-color: #3563bd;
+}
+
 /* ── Common form controls ── */
 .lc-label { font-size: 0.72rem; color: var(--text-secondary, #666); white-space: nowrap; flex-shrink: 0; }
 .lc-unit  { font-size: 0.72rem; color: var(--text-secondary, #666); white-space: nowrap; flex-shrink: 0; }
@@ -905,7 +944,19 @@ body.dark-mode  .lm-pad-quant-group .lm-pad-quant-btn--active { background: var(
 
 /* Pad cell: bigger icon, centered */
 .lm-pad-icon { width: 28px; height: 28px; }
-.lm-pad-cell--playing .lm-pad-icon .lc-instr-svg { filter: brightness(0) invert(1); }
+/* Pad assigné (pas en lecture) : SVG en couleur d'origine sur fond très
+ * clair — ajout d'un drop-shadow subtil pour renforcer le contour et
+ * éviter que les traits fins disparaissent. */
+.lm-pad-cell--assigned:not(.lm-pad-cell--playing) .lm-pad-icon .lc-instr-svg {
+    filter: drop-shadow(0 0 0.5px rgba(0,0,0,0.55));
+}
+/* Pad en lecture : SVG blanc sur accent purple — halo sombre pour
+ * garantir la lisibilité quelle que soit la teinte. */
+.lm-pad-cell--playing .lm-pad-icon .lc-instr-svg {
+    filter: brightness(0) invert(1)
+            drop-shadow(0 0 1px rgba(0,0,0,0.5))
+            drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+}
 
 /* Live group header: medium family icon */
 .lm-live-group-icon { width: 22px; height: 22px; }
@@ -913,7 +964,16 @@ body.dark-mode  .lm-pad-quant-group .lm-pad-quant-btn--active { background: var(
 /* Palette chip / block label: small inline icon */
 .la-chip-icon  { width: 16px; height: 16px; }
 .la-block-icon { width: 14px; height: 14px; }
-.la-block-icon .lc-instr-svg { filter: brightness(0) invert(1); opacity: 0.9; }
+/* Bloc de track : fond = couleur de famille (jaune, vert, teal…) → un
+ * SVG blanc seul est invisible sur les teintes claires. Ajout d'un
+ * double drop-shadow pour créer une bordure sombre autour de l'icône
+ * qui la rend lisible sur n'importe quelle couleur. */
+.la-block-icon .lc-instr-svg {
+    filter: brightness(0) invert(1)
+            drop-shadow(0 0 1px rgba(0,0,0,0.6))
+            drop-shadow(0 1px 1px rgba(0,0,0,0.45));
+    opacity: 1;
+}
 .la-chip-name  { display: inline-flex; align-items: center; gap: 5px; }
 .la-block-label { display: inline-flex; align-items: center; gap: 4px; }
 
@@ -928,7 +988,11 @@ body.theme-dark .la-block-icon .lc-instr-svg,
 body.dark-mode  .la-block-icon .lc-instr-svg,
 body.theme-dark .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg,
 body.dark-mode  .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg {
-    filter: brightness(0) invert(1);
+    /* Conserve le halo en dark mode — sinon l'icône blanche se perd sur
+     * les fonds de famille saturés (jaune, teal, vert clair). */
+    filter: brightness(0) invert(1)
+            drop-shadow(0 0 1px rgba(0,0,0,0.6))
+            drop-shadow(0 1px 1px rgba(0,0,0,0.45));
 }
 
 .lm-pad-name { font-size: 0.82rem; font-weight: 600; text-align: center; word-break: break-word; line-height: 1.2; }
