@@ -177,6 +177,110 @@
     border-color: var(--accent-color, #667eea) !important;
 }
 
+/* ── Tabs internes (Piano virtuel / Éditeur) ── */
+.le-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px 12px 0;
+    background: var(--bg-tertiary, #f0f1f3);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    flex-shrink: 0;
+}
+.le-tab {
+    padding: 6px 16px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    background: transparent;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.le-tab:hover {
+    background: var(--bg-secondary, #f4f5f7);
+    color: var(--text-primary, #333);
+}
+.le-tab--active {
+    background: var(--bg-secondary, #f4f5f7);
+    color: var(--accent-color, #667eea);
+    border-color: var(--border-color, #e0e0e0);
+    border-bottom: 2px solid var(--bg-secondary, #f4f5f7);
+    margin-bottom: -1px;
+    font-weight: 600;
+}
+
+/* Pane wrappers — flex children of .le-layout, stretch to fill remaining space */
+.le-pane {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.le-pane--hidden { display: none !important; }
+
+/* Pane 1: piano virtuel — controls on top, keyboard fills rest */
+#le-pane-piano .le-ctrl-bar-piano {
+    flex: 0 0 auto;
+}
+#le-pane-piano .lc-kb-panel.le-kb-panel--standalone {
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: 320px;
+    border-top: none;
+}
+
+/* Pane 2: PianoRollEditor host — let it flex */
+#le-pane-editor.pre-host,
+#le-pane-editor {
+    display: flex;
+    flex-direction: column;
+}
+.pre-toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+    min-height: 38px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 4px 6px;
+    background: var(--bg-tertiary, #f0f1f3);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    scrollbar-width: thin;
+}
+.pre-toolbar::-webkit-scrollbar { height: 4px; }
+.pre-toolbar::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.35); border-radius: 2px;
+}
+
+body.theme-dark .le-tabs,
+body.dark-mode  .le-tabs {
+    background: var(--bg-primary, #12122a);
+    border-color: var(--border-color, #333355);
+}
+body.theme-dark .le-tab,
+body.dark-mode  .le-tab { color: rgba(255,255,255,0.70); }
+body.theme-dark .le-tab:hover,
+body.dark-mode  .le-tab:hover { background: rgba(255,255,255,0.06); color: #eee; }
+body.theme-dark .le-tab--active,
+body.dark-mode  .le-tab--active {
+    background: var(--bg-secondary, #1a1a2e);
+    color: #a8b3e8;
+    border-color: var(--border-color, #333355);
+    border-bottom-color: var(--bg-secondary, #1a1a2e);
+}
+body.theme-dark .pre-toolbar,
+body.dark-mode  .pre-toolbar {
+    background: var(--bg-primary, #12122a);
+    border-color: var(--border-color, #333355);
+}
+
 /* Status line — slim, persistent, full width */
 .le-status-bar {
     flex-shrink: 0;

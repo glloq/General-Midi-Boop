@@ -55,18 +55,15 @@ class LoopEditorModal extends BaseModal {
         this.outputDeviceId = null;
         this.outputChannel = 0;
         this._outputTarget = 'synth';
-        this._clipboard = [];
         this.outputNoteMin = 36;
         this.outputNoteMax = 84;
         this.outputGmProgram = 0;
 
-        // Piano roll
-        this.pianoRoll = null;
-        this._pianoRollVisible = true;
+        // Piano roll editor (extracted component)
+        this.pianoRollEditor = null;
 
-        // Minimap
-        this._minimap = null;
-        this._minimapObserver = null;
+        // Tabs: 'piano' (virtual keyboard) | 'editor' (piano roll)
+        this.activeTab = 'piano';
 
         // Animation
         this._playheadRAF = null;
@@ -88,7 +85,7 @@ class LoopEditorModal extends BaseModal {
     }
 
     _currentSnapshot() {
-        const seq = this.pianoRoll?.sequence ?? this.sequence ?? [];
+        const seq = this.pianoRollEditor?.getSequence() ?? this.sequence ?? [];
         return JSON.stringify({
             name: this.loopName,
             tempo: this.tempo,
@@ -116,10 +113,12 @@ class LoopEditorModal extends BaseModal {
         if (this.isOpen) return;
         if (loopId) {
             this._loadLoopStateById(loopId).then(() => {
+                this.activeTab = 'editor';
                 if (!this.isOpen) super.open();
             });
         } else {
             this._resetLoopState();
+            this.activeTab = 'piano';
             super.open();
         }
     }
@@ -218,14 +217,13 @@ class LoopEditorModal extends BaseModal {
             `<option value="${num}:${den}" ${this.timeSigNum == num && this.timeSigDen == den ? 'selected' : ''}>${label}</option>`
         ).join('');
 
+        const isPianoTab = this.activeTab === 'piano';
+        const isEditorTab = this.activeTab === 'editor';
         return `
         <div class="le-layout">
-            <!-- ── Toolbar (2 rows, grouped sections) ── -->
-            <div class="lc-ctrl-bar">
-
-                <!-- Row 1: Loop metadata + Transport -->
+            <!-- ── Toolbar row 1 — common to both tabs (loop meta + transport) ── -->
+            <div class="lc-ctrl-bar le-ctrl-bar-common">
                 <div class="lc-ctrl-row">
-                    <!-- Metadata group -->
                     <div class="le-group le-group-meta">
                         <span class="le-group-label">${this.t('loopEditor.groupLoop')}</span>
                         <input type="text" class="lc-name-input le-name-input" id="lc-name-input"
@@ -248,7 +246,6 @@ class LoopEditorModal extends BaseModal {
 
                     <span class="lc-ctrl-spacer"></span>
 
-                    <!-- Transport group -->
                     <div class="le-group le-group-transport">
                         <span class="le-group-label">${this.t('loopEditor.groupTransport')}</span>
                         <div class="lc-btn-group">
@@ -258,111 +255,40 @@ class LoopEditorModal extends BaseModal {
                             <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')} (Space)">▶</button>
                             <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
                         </div>
+                        <button class="lc-btn lc-btn-icon" data-action="toggle-metronome" id="lc-metronome-btn" aria-pressed="false" title="${this.t('loopEditor.metronome')}">🎼</button>
+                        <button class="lc-btn lc-btn-icon" data-action="toggle-count-in" id="lc-countin-btn" aria-pressed="false" title="${this.t('loopEditor.countIn')}">⏱</button>
                         <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                             <span class="lc-rec-dot lc-rec-dot--pulse"></span>
                             <span class="lc-rec-time" id="lc-rec-time">0:00</span>
                         </span>
                     </div>
                 </div>
+            </div>
 
-                <!-- Row 2: Editing tools, organised by purpose -->
-                <div class="lc-ctrl-row">
-                    <!-- Mode group -->
-                    <div class="le-group le-group-mode">
-                        <span class="le-group-label">${this.t('loopEditor.groupMode')}</span>
-                        <div class="lc-btn-group">
-                            <button class="lc-btn lc-btn-icon" data-action="mode-view"   id="lc-mode-view"   title="${this.t('loopCreator.modeView')} (V)"   aria-pressed="false">👁</button>
-                            <button class="lc-btn lc-btn-icon" data-action="mode-select" id="lc-mode-select" title="${this.t('loopCreator.modeSelect')} (S)" aria-pressed="false">◻</button>
-                            <button class="lc-btn lc-btn-icon" data-action="mode-draw"   id="lc-mode-draw"   title="${this.t('loopCreator.modeDraw')} (D)"   aria-pressed="true">✏️</button>
-                        </div>
-                    </div>
+            <!-- ── Tabs ── -->
+            <div class="le-tabs" role="tablist">
+                <button class="le-tab${isPianoTab  ? ' le-tab--active' : ''}" data-le-tab="piano"  role="tab" aria-selected="${isPianoTab}">${this.t('loopEditor.tabPianoVirtuel')}</button>
+                <button class="le-tab${isEditorTab ? ' le-tab--active' : ''}" data-le-tab="editor" role="tab" aria-selected="${isEditorTab}">${this.t('loopEditor.tabEditor')}</button>
+            </div>
 
-                    <!-- History group -->
-                    <div class="le-group le-group-history">
-                        <span class="le-group-label">${this.t('loopEditor.groupHistory')}</span>
-                        <div class="lc-btn-group">
-                            <button class="lc-btn lc-btn-icon" data-action="undo" title="${this.t('loopCreator.undo')} (⌘Z)">↶</button>
-                            <button class="lc-btn lc-btn-icon" data-action="redo" title="${this.t('loopCreator.redo')} (⌘⇧Z)">↷</button>
-                        </div>
-                    </div>
-
-                    <!-- Edit group: clipboard + delete + velocity -->
-                    <div class="le-group le-group-edit">
-                        <span class="le-group-label">${this.t('loopEditor.groupEdit')}</span>
-                        <div class="lc-btn-group">
-                            <button class="lc-btn lc-btn-icon" data-action="select-all"      title="${this.t('loopCreator.selectAll')} (⌘A)">▣</button>
-                            <button class="lc-btn lc-btn-icon" data-action="copy-notes"      id="lc-copy-btn"  title="${this.t('loopCreator.copy')} (⌘C)">📋</button>
-                            <button class="lc-btn lc-btn-icon" data-action="paste-notes"     id="lc-paste-btn" title="${this.t('loopCreator.paste')} (⌘V)">📄</button>
-                            <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')} (⌫)">🗑</button>
-                            <button class="lc-btn lc-btn-icon" data-action="clear-notes"     title="${this.t('loopCreator.clearNotes')}">⊠</button>
-                        </div>
-                        <span class="lc-unit" title="${this.t('loopEditor.velocityHint')}">v</span>
-                        <input type="number" id="lc-velocity-input" class="lc-spin-input lc-spin-input--sm"
-                            value="100" min="1" max="127" step="1" title="${this.t('loopEditor.velocityHint')}" />
-                        <button class="lc-btn lc-btn-icon" data-action="apply-velocity" title="${this.t('loopEditor.applyVelocity')}">→v</button>
-                    </div>
-
-                    <!-- Grid group: snap + quantize + metronome -->
-                    <div class="le-group le-group-grid">
-                        <span class="le-group-label">${this.t('loopEditor.groupGrid')}</span>
-                        <select id="lc-snap" class="lc-select lc-select-xs" title="${this.t('loopCreator.snap')}">
-                            <option value="480">1/1</option><option value="240">1/2</option>
-                            <option value="120" selected>1/4</option><option value="60">1/8</option>
-                            <option value="30">1/16</option>
-                        </select>
-                        <select id="lc-quantize" class="lc-select lc-select-xs" title="${this.t('loopCreator.quantize')}">
-                            <option value="0">Q —</option>
-                            <option value="480">Q 1/1</option><option value="240">Q 1/2</option>
-                            <option value="120" selected>Q 1/4</option><option value="60">Q 1/8</option>
-                            <option value="30">Q 1/16</option>
-                        </select>
-                        <button class="lc-btn lc-btn-icon" data-action="quantize-selection" title="${this.t('loopEditor.quantizeSelection')}">⊞</button>
-                        <button class="lc-btn lc-btn-icon" data-action="toggle-metronome" id="lc-metronome-btn" aria-pressed="false" title="${this.t('loopEditor.metronome')}">🎼</button>
-                        <button class="lc-btn lc-btn-icon" data-action="toggle-count-in" id="lc-countin-btn" aria-pressed="false" title="${this.t('loopEditor.countIn')}">⏱</button>
-                    </div>
-
-                    <!-- MIDI In group -->
+            <!-- ── Pane: Piano virtuel ── -->
+            <div class="le-pane${isPianoTab ? '' : ' le-pane--hidden'}" id="le-pane-piano" role="tabpanel">
+                <div class="lc-ctrl-bar le-ctrl-bar-piano">
                     <div class="le-group le-group-input">
                         <span class="le-group-label">${this.t('loopEditor.groupInput')}</span>
                         <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
                             <option value="">—</option>
                         </select>
                     </div>
-
-                    <span class="lc-ctrl-spacer"></span>
-
-                    <!-- View group: zoom + piano-roll toggle -->
-                    <div class="le-group le-group-view">
-                        <span class="le-group-label">${this.t('loopEditor.groupView')}</span>
-                        <div class="lc-btn-group">
-                            <button class="lc-btn lc-btn-icon" data-action="zoom-h-out" title="${this.t('loopEditor.zoomHOut')}">−H</button>
-                            <button class="lc-btn lc-btn-icon" data-action="zoom-h-in"  title="${this.t('loopEditor.zoomHIn')}">+H</button>
-                            <button class="lc-btn lc-btn-icon" data-action="zoom-v-out" title="${this.t('loopEditor.zoomVOut')}">−V</button>
-                            <button class="lc-btn lc-btn-icon" data-action="zoom-v-in"  title="${this.t('loopEditor.zoomVIn')}">+V</button>
-                        </div>
-                        <button class="lc-btn lc-btn-icon" data-action="toggle-piano-roll" id="lc-toggle-roll"
-                            title="${this.t('loopCreator.showPianoRoll')}" aria-pressed="false">🎹</button>
-                    </div>
                 </div>
-
-                <!-- Persistent status line -->
-                <div class="le-status-bar">
-                    <span class="lc-status" id="lc-status"></span>
-                </div>
+                <div class="lc-kb-panel le-kb-panel--standalone" id="lc-kb-panel"></div>
             </div>
 
-            <!-- ── Piano roll (collapsible) ── -->
-            <div class="lc-pianoroll-area" id="lc-pianoroll-area">
-                <div class="lc-pianoroll-wrap" id="lc-pianoroll-wrap"></div>
-            </div>
+            <!-- ── Pane: Éditeur (PianoRollEditor host) ── -->
+            <div class="le-pane${isEditorTab ? '' : ' le-pane--hidden'}" id="le-pane-editor" role="tabpanel"></div>
 
-            <!-- ── Minimap (always visible) ── -->
-            <canvas class="lc-minimap" id="lc-minimap"
-                    role="slider" tabindex="0"
-                    aria-label="${this.t('loopEditor.minimapAria')}"></canvas>
-
-            <!-- ── Keyboard panel (KeyboardModal embedded) ── -->
-            <div class="lc-kb-panel" id="lc-kb-panel"></div>
+            <!-- ── Status bar (commune) ── -->
+            <div class="le-status-bar"><span class="lc-status" id="lc-status"></span></div>
         </div>`;
     }
 
@@ -375,14 +301,38 @@ class LoopEditorModal extends BaseModal {
     onOpen() {
         this._initSynth();
         this._attachEvents();
-        this._initPianoRoll();
-        this._applyPianoRollVisibility();
+        this._initPianoRollEditor();
         this._loadMidiInDevices();
         this._loadHeaderOutputDevices();
         this._mountKeyboardPanel();
         this._attachKeyboardShortcuts();
-        // Take the baseline snapshot AFTER the piano roll has the sequence
+        // Take the baseline snapshot AFTER the piano roll editor has the sequence
         requestAnimationFrame(() => this._markSaved());
+    }
+
+    _initPianoRollEditor() {
+        const host = this.$('#le-pane-editor');
+        if (!host) return;
+        this.pianoRollEditor = new window.PianoRollEditor(host, {
+            t: (key, params) => this.t(key, params),
+            initial: {
+                sequence:   this.sequence,
+                ppq:        this.ppq,
+                tempo:      this.tempo,
+                bars:       this.bars,
+                timeSigNum: this.timeSigNum,
+                timeSigDen: this.timeSigDen,
+                noteMin:    this.outputNoteMin,
+                noteMax:    this.outputNoteMax
+            },
+            getStatusEl: () => this.$('#lc-status')
+        });
+        this.pianoRollEditor.mount();
+        // If we open straight into the Editor tab, give the layout a tick
+        // before fitting so flex sizes settle.
+        if (this.activeTab === 'editor') {
+            requestAnimationFrame(() => this.pianoRollEditor.refit());
+        }
     }
 
     async _loadHeaderOutputDevices() {
@@ -451,13 +401,10 @@ class LoopEditorModal extends BaseModal {
         this._stopMidiInMonitor();
         this._stopMetronome();
         this._countInActive = false;
-        if (this._minimapObserver) {
-            this._minimapObserver.disconnect();
-            this._minimapObserver = null;
+        if (this.pianoRollEditor) {
+            this.pianoRollEditor.destroy();
+            this.pianoRollEditor = null;
         }
-        this._minimap?.destroy();
-        this._minimap = null;
-        this.pianoRoll = null;
         if (this._refreshTimer) { clearTimeout(this._refreshTimer); this._refreshTimer = null; }
     }
 
@@ -472,6 +419,10 @@ class LoopEditorModal extends BaseModal {
     }
 
     _onClick(e) {
+        // Tab switch
+        const tabBtn = e.target.closest('.le-tab[data-le-tab]');
+        if (tabBtn) { this._switchTab(tabBtn.dataset.leTab); return; }
+
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
         switch (btn.dataset.action) {
@@ -479,32 +430,33 @@ class LoopEditorModal extends BaseModal {
             case 'tempo-inc':         this._adjustTempo(+1);    break;
             case 'bars-dec':          this._adjustBars(-1);     break;
             case 'bars-inc':          this._adjustBars(+1);     break;
-            case 'mode-view':         this._setEditMode('view');     break;
-            case 'mode-draw':         this._setEditMode('dragpoly'); break;
-            case 'mode-select':       this._setEditMode('select');   break;
-            case 'select-all':        this._selectAll();             break;
-            case 'copy-notes':        this._copyNotes();             break;
-            case 'paste-notes':       this._pasteNotes();            break;
-            case 'delete-selected':   this._deleteSelected();        break;
-            case 'undo':              this.pianoRoll?.undo?.();      break;
-            case 'redo':              this.pianoRoll?.redo?.();      break;
-            case 'clear-notes':       this._clearNotes();            break;
-            case 'toggle-output':     this._toggleOutput();          break;
-            case 'toggle-piano-roll': this._togglePianoRoll();       break;
-            case 'zoom-h-in':         this._zoomH(0.5);              break;
-            case 'zoom-h-out':        this._zoomH(2.0);              break;
-            case 'zoom-v-in':         this._zoomV(0.75);             break;
-            case 'zoom-v-out':        this._zoomV(1.5);              break;
-            case 'record':            this._toggleRecording();       break;
-            case 'preview':           this._previewLoop();           break;
-            case 'stop-all':          this._stopAll();               break;
-            case 'save-loop':         this._saveLoop();              break;
-            case 'save-loop-as-new':  this._saveLoop({ asNew: true });break;
-            case 'quantize-selection':this._quantizeSelection();     break;
-            case 'toggle-metronome':  this._toggleMetronome();       break;
-            case 'toggle-count-in':   this._toggleCountIn();         break;
-            case 'apply-velocity':    this._applyVelocityToSelection(); break;
-            case 'close':             this.close();                  break;
+            case 'toggle-output':     this._toggleOutput();     break;
+            case 'record':            this._toggleRecording();  break;
+            case 'preview':           this._previewLoop();      break;
+            case 'stop-all':          this._stopAll();          break;
+            case 'save-loop':         this._saveLoop();         break;
+            case 'save-loop-as-new':  this._saveLoop({ asNew: true }); break;
+            case 'toggle-metronome':  this._toggleMetronome();  break;
+            case 'toggle-count-in':   this._toggleCountIn();    break;
+            case 'close':             this.close();             break;
+        }
+    }
+
+    _switchTab(tab) {
+        if (tab !== 'piano' && tab !== 'editor') return;
+        if (this.activeTab === tab) return;
+        this.activeTab = tab;
+        this.$$('.le-tab').forEach(b => {
+            const on = b.dataset.leTab === tab;
+            b.classList.toggle('le-tab--active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        const piano  = this.$('#le-pane-piano');
+        const editor = this.$('#le-pane-editor');
+        if (piano)  piano.classList.toggle('le-pane--hidden',  tab !== 'piano');
+        if (editor) editor.classList.toggle('le-pane--hidden', tab !== 'editor');
+        if (tab === 'editor' && this.pianoRollEditor) {
+            requestAnimationFrame(() => this.pianoRollEditor.refit());
         }
     }
 
@@ -532,8 +484,6 @@ class LoopEditorModal extends BaseModal {
             const [num, den] = e.target.value.split(':').map(Number);
             this.timeSigNum = num; this.timeSigDen = den;
             this._refreshPianoRollRange();
-        } else if (id === 'lc-snap') {
-            if (this.pianoRoll) this.pianoRoll.snap = parseInt(e.target.value);
         } else if (id === 'lc-midi-in-device') {
             this._midiInDevice = e.target.value || null;
         }
@@ -581,21 +531,22 @@ class LoopEditorModal extends BaseModal {
                 if (!this.dialog || !this.dialog.offsetParent) return;
             }
 
-            if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); this.pianoRoll?.undo?.(); return; }
-            if (mod && e.key.toLowerCase() === 'z' &&  e.shiftKey) { e.preventDefault(); this.pianoRoll?.redo?.(); return; }
-            if (mod && e.key.toLowerCase() === 'y')                { e.preventDefault(); this.pianoRoll?.redo?.(); return; }
-            if (mod && e.key.toLowerCase() === 'a')                { e.preventDefault(); this._selectAll();        return; }
-            if (mod && e.key.toLowerCase() === 'c')                { e.preventDefault(); this._copyNotes();        return; }
-            if (mod && e.key.toLowerCase() === 'v')                { e.preventDefault(); this._pasteNotes();       return; }
-            if (mod && e.key.toLowerCase() === 's')                { e.preventDefault(); this._saveLoop();         return; }
-            if (e.key === 'Delete' || e.key === 'Backspace')       { e.preventDefault(); this._deleteSelected();   return; }
+            const ed = this.pianoRollEditor;
+            if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); ed?.undo?.();           return; }
+            if (mod && e.key.toLowerCase() === 'z' &&  e.shiftKey) { e.preventDefault(); ed?.redo?.();           return; }
+            if (mod && e.key.toLowerCase() === 'y')                { e.preventDefault(); ed?.redo?.();           return; }
+            if (mod && e.key.toLowerCase() === 'a')                { e.preventDefault(); ed?.selectAll?.();      return; }
+            if (mod && e.key.toLowerCase() === 'c')                { e.preventDefault(); ed?.copy?.();           return; }
+            if (mod && e.key.toLowerCase() === 'v')                { e.preventDefault(); ed?.paste?.();          return; }
+            if (mod && e.key.toLowerCase() === 's')                { e.preventDefault(); this._saveLoop();       return; }
+            if (e.key === 'Delete' || e.key === 'Backspace')       { e.preventDefault(); ed?.deleteSelected?.(); return; }
             if (e.key === ' ')                                     { e.preventDefault(); this.isPlaying ? this._stopAll() : this._previewLoop(); return; }
-            if (e.key === 'Escape')                                { this._stopAll();                              return; }
-            if (e.key.toLowerCase() === 'r')                       { this._toggleRecording();                      return; }
+            if (e.key === 'Escape')                                { this._stopAll();                            return; }
+            if (e.key.toLowerCase() === 'r')                       { this._toggleRecording();                    return; }
             // Mode shortcuts (no modifier): V/S/D
-            if (e.key.toLowerCase() === 'v' && !mod)               { this._setEditMode('view');     return; }
-            if (e.key.toLowerCase() === 's' && !mod && !e.shiftKey){ this._setEditMode('select');   return; }
-            if (e.key.toLowerCase() === 'd' && !mod)               { this._setEditMode('dragpoly'); return; }
+            if (e.key.toLowerCase() === 'v' && !mod)               { ed?.setMode?.('view');     return; }
+            if (e.key.toLowerCase() === 's' && !mod && !e.shiftKey){ ed?.setMode?.('select');   return; }
+            if (e.key.toLowerCase() === 'd' && !mod)               { ed?.setMode?.('dragpoly'); return; }
         };
         document.addEventListener('keydown', this._keyHandler);
     }
@@ -608,81 +559,19 @@ class LoopEditorModal extends BaseModal {
     }
 
     // =========================================================
-    // PIANO ROLL
+    // PIANO ROLL — thin proxies to PianoRollEditor
     // =========================================================
 
-    _initPianoRoll() {
-        const container = this.$('#lc-pianoroll-wrap');
-        if (!container) return;
-        if (!customElements?.get?.('webaudio-pianoroll')) {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-        this.pianoRoll = document.createElement('webaudio-pianoroll');
-        const total = this._totalTicks();
-        this.pianoRoll.setAttribute('width',    container.clientWidth  || 900);
-        this.pianoRoll.setAttribute('height',   container.clientHeight || 200);
-        this.pianoRoll.setAttribute('editmode', 'dragpoly');
-        const noteSpan0 = this.outputNoteMax - this.outputNoteMin;
-        const yrange0   = Math.min(noteSpan0 + 1, 36);
-        const yoffset0  = this._centeredYOffset(this.outputNoteMin, this.outputNoteMax, yrange0);
-        this.pianoRoll.setAttribute('xrange',    total.toString());
-        this.pianoRoll.setAttribute('yrange',    yrange0.toString());
-        this.pianoRoll.setAttribute('yoffset',   yoffset0.toString());
-        this.pianoRoll.setAttribute('wheelzoom', '1');
-        this.pianoRoll.setAttribute('xscroll',   '1');
-        this.pianoRoll.setAttribute('yscroll',   '1');
-        this.pianoRoll.setAttribute('xruler',    '1');
-        this.pianoRoll.setAttribute('cursor',    '0');
-        this.pianoRoll.setAttribute('markstart', '0');
-        this.pianoRoll.setAttribute('markend',   total.toString());
-        this.pianoRoll.setAttribute('snap',      '120');
-        this.pianoRoll.setAttribute('timebase',  this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo',     this.tempo.toString());
-        this.pianoRoll.setAttribute('colcursor', 'rgba(0,0,0,0)');
-        this.pianoRoll.setAttribute('colmark',   'rgba(0,0,0,0)');
-        this._applyPianoRollTheme();
-        container.appendChild(this.pianoRoll);
-        this.pianoRoll.sequence = this.sequence;
-        this.pianoRoll.redraw?.();
-        this._initMinimap();
-    }
-
-    _applyPianoRollTheme() {
-        if (!this.pianoRoll) return;
-        const dark = document.body.classList.contains('theme-dark');
-        this.pianoRoll.setAttribute('colnote',     dark ? '#5b9bd5' : '#4a90d9');
-        this.pianoRoll.setAttribute('colnotesel',  dark ? '#f5a623' : '#e8931a');
-        this.pianoRoll.setAttribute('colbg',       dark ? '#1a1a2e' : '#f8f9fa');
-        this.pianoRoll.setAttribute('colline',     dark ? '#333355' : '#dde0e6');
-        this.pianoRoll.setAttribute('colrulerbg',  dark ? '#12122a' : '#eef0f4');
-        this.pianoRoll.setAttribute('colrulerfg',  dark ? '#8888aa' : '#666677');
-        this.pianoRoll.setAttribute('colkeybg',    dark ? '#1e1e38' : '#f0f0f4');
-        this.pianoRoll.setAttribute('colkeyfg',    dark ? '#ccccee' : '#333344');
-        this.pianoRoll.setAttribute('colkeyblack', dark ? '#0d0d1a' : '#303040');
-    }
-
-    _totalTicks()  { return this.ppq * this.timeSigNum * this.bars; }
-
-    _centeredYOffset(noteMin, noteMax, yrange) {
-        const center = (noteMin + noteMax) / 2;
-        return Math.max(0, Math.min(127 - yrange, Math.round(center - yrange / 2)));
-    }
-
     _refreshPianoRollRange() {
-        if (!this.pianoRoll) return;
-        const total = this._totalTicks();
-        this.pianoRoll.setAttribute('xrange',   total.toString());
-        this.pianoRoll.setAttribute('markend',  total.toString());
-        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
-        const noteSpan = this.outputNoteMax - this.outputNoteMin;
-        const yrange   = Math.min(noteSpan + 1, 36);
-        const yoffset  = this._centeredYOffset(this.outputNoteMin, this.outputNoteMax, yrange);
-        this.pianoRoll.setAttribute('yrange',  yrange.toString());
-        this.pianoRoll.setAttribute('yoffset', yoffset.toString());
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
+        this.pianoRollEditor?.setRange({
+            tempo:      this.tempo,
+            bars:       this.bars,
+            ppq:        this.ppq,
+            timeSigNum: this.timeSigNum,
+            timeSigDen: this.timeSigDen,
+            noteMin:    this.outputNoteMin,
+            noteMax:    this.outputNoteMax
+        });
     }
 
     _adjustTempo(d) {
@@ -695,86 +584,6 @@ class LoopEditorModal extends BaseModal {
         this.bars = LoopUtils.validate.editorBars(this.bars + d, this.bars);
         const el = this.$('#lc-bars'); if (el) el.value = this.bars;
         this._refreshPianoRollRange();
-    }
-
-    _setEditMode(mode) {
-        if (!this.pianoRoll) return;
-        const prMode = mode === 'view' ? 'select' : mode;
-        this.pianoRoll.setAttribute('editmode', prMode);
-        this.$('#lc-mode-view')?.setAttribute('aria-pressed',   mode === 'view'     ? 'true' : 'false');
-        this.$('#lc-mode-select')?.setAttribute('aria-pressed', mode === 'select'   ? 'true' : 'false');
-        this.$('#lc-mode-draw')?.setAttribute('aria-pressed',   mode === 'dragpoly' ? 'true' : 'false');
-    }
-
-    _clearNotes() {
-        this.sequence = [];
-        if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
-        this._syncMinimap();
-    }
-
-    _copyNotes() {
-        if (!this.pianoRoll) return;
-        if (typeof this.pianoRoll.copySelection === 'function') {
-            this._clipboard = this.pianoRoll.copySelection() ?? [];
-        } else {
-            this._clipboard = (this.pianoRoll.sequence || []).filter(n => n.f).map(n => ({...n}));
-        }
-        this._setStatus(this.t('loopEditor.notesCopied', { count: this._clipboard.length }));
-    }
-
-    _pasteNotes() {
-        if (!this.pianoRoll || !this._clipboard.length) return;
-        const cursor = this.pianoRoll.cursor ?? 0;
-        if (typeof this.pianoRoll.pasteNotes === 'function') {
-            this.pianoRoll.pasteNotes(this._clipboard, cursor);
-        } else {
-            const minT = Math.min(...this._clipboard.map(n => n.t));
-            const pasted = this._clipboard.map(n => ({ ...n, t: n.t - minT + cursor }));
-            this.pianoRoll.sequence = [...(this.pianoRoll.sequence || []), ...pasted];
-        }
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-    }
-
-    _applyVelocityToSelection() {
-        if (!this.pianoRoll) return;
-        const raw = parseInt(this.$('#lc-velocity-input')?.value ?? 100);
-        const v = Math.max(1, Math.min(127, isNaN(raw) ? 100 : raw));
-        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
-        const selected = seq.filter(n => n.f);
-        const target = selected.length ? selected : seq;
-        if (!target.length) {
-            this._setStatus(this.t('loopEditor.velocityNoNotes'));
-            return;
-        }
-        for (const note of target) note.v = v;
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-        this._setStatus(this.t('loopEditor.velocityApplied', { count: target.length, velocity: v }));
-    }
-
-    _quantizeSelection() {
-        if (!this.pianoRoll) return;
-        const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
-        if (!q || q <= 0) {
-            this._setStatus(this.t('loopEditor.quantizeNoGrid'));
-            return;
-        }
-        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
-        const selected = seq.filter(n => n.f);
-        const target = selected.length ? selected : seq;
-        let count = 0;
-        for (const note of target) {
-            const before = note.t;
-            note.t = Math.round(note.t / q) * q;
-            note.g = Math.max(q, Math.round((note.g || note.l || 120) / q) * q);
-            if (note.t !== before) count++;
-        }
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-        this._setStatus(this.t('loopEditor.quantizedNotes', { count }));
     }
 
     _toggleOutput() {
@@ -790,94 +599,20 @@ class LoopEditorModal extends BaseModal {
             }
         }
         this._previewStopAll();
-
         this._outputTarget = previouslyLive ? 'synth' : 'live';
-        const btn = this.$('#lc-output-toggle');
-        const isLive = this._outputTarget === 'live';
-        if (btn) {
-            btn.textContent = isLive ? '🔌' : '🔊';
-            btn.title = isLive ? this.t('loopCreator.outputLive') : this.t('loopCreator.outputSynth');
-            btn.classList.toggle('lc-btn-output--active', isLive);
-        }
-        this._setStatus(isLive ? this.t('loopCreator.outputLive') : this.t('loopCreator.outputSynth'));
-    }
-
-    _selectAll() {
-        if (!this.pianoRoll) return;
-        const seq = Array.isArray(this.pianoRoll.sequence) ? this.pianoRoll.sequence : [];
-        seq.forEach(note => { note.f = 1; });
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
-    }
-
-    _deleteSelected() {
-        if (!this.pianoRoll) return;
-        this.pianoRoll.sequence = (this.pianoRoll.sequence || []).filter(n => !n.f);
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-    }
-
-    _applyPianoRollVisibility() {
-        const area      = this.$('#lc-pianoroll-area');
-        const kbPanel   = this.$('#lc-kb-panel');
-        const toggleBtn = this.$('#lc-toggle-roll');
-        const vis = this._pianoRollVisible;
-        if (area)    area.classList.toggle('lc-pianoroll-area--hidden', !vis);
-        if (kbPanel) kbPanel.classList.toggle('lc-kb-panel--expanded',  !vis);
-        if (toggleBtn) {
-            toggleBtn.setAttribute('aria-pressed', vis ? 'true' : 'false');
-            toggleBtn.title = vis ? this.t('loopCreator.hidePianoRoll') : this.t('loopCreator.showPianoRoll');
-        }
-    }
-
-    _togglePianoRoll() {
-        this._pianoRollVisible = !this._pianoRollVisible;
-        this._applyPianoRollVisibility();
-        if (this._pianoRollVisible && this.pianoRoll) {
-            requestAnimationFrame(() => {
-                const wrap = this.$('#lc-pianoroll-wrap');
-                if (wrap) {
-                    this.pianoRoll.setAttribute('width',  (wrap.clientWidth  || 900).toString());
-                    this.pianoRoll.setAttribute('height', (wrap.clientHeight || 200).toString());
-                    this.pianoRoll.redraw?.();
-                    this._syncMinimap();
-                }
-            });
-        }
-    }
-
-    _zoomH(factor) {
-        if (!this.pianoRoll) return;
-        const total = this._totalTicks();
-        const cur   = parseFloat(this.pianoRoll.getAttribute('xrange') || total);
-        const next  = Math.max(Math.ceil(total / 32), Math.min(total, Math.round(cur * factor)));
-        this.pianoRoll.setAttribute('xrange', next.toString());
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
-    }
-
-    _zoomV(factor) {
-        if (!this.pianoRoll) return;
-        const cur  = parseFloat(this.pianoRoll.getAttribute('yrange') || 36);
-        const next = Math.max(6, Math.min(128, Math.round(cur * factor)));
-        this.pianoRoll.setAttribute('yrange', next.toString());
-        this.pianoRoll.redraw?.();
+        this._setStatus(this._outputTarget === 'live'
+            ? this.t('loopCreator.outputLive') : this.t('loopCreator.outputSynth'));
     }
 
     _startPlayheadAnimation() {
         if (this._playheadRAF) return;
         this._playheadStartTime = performance.now();
+        const totalTicks = this.ppq * this.timeSigNum * this.bars;
         const animate = () => {
             if (!this.isPlaying) { this._playheadRAF = null; return; }
-            if (this.pianoRoll) {
-                const elapsed = (performance.now() - this._playheadStartTime) / 1000;
-                this.pianoRoll.cursor = Math.min(
-                    Math.round(elapsed * (this.tempo / 60) * this.ppq),
-                    this._totalTicks()
-                );
-                this.pianoRoll.redrawMarker?.();
-            }
-            this._syncMinimap();
+            const elapsed = (performance.now() - this._playheadStartTime) / 1000;
+            const tick = Math.min(Math.round(elapsed * (this.tempo / 60) * this.ppq), totalTicks);
+            this.pianoRollEditor?.setCursor(tick);
             this._playheadRAF = requestAnimationFrame(animate);
         };
         this._playheadRAF = requestAnimationFrame(animate);
@@ -885,66 +620,16 @@ class LoopEditorModal extends BaseModal {
 
     _stopPlayheadAnimation() {
         if (this._playheadRAF) { cancelAnimationFrame(this._playheadRAF); this._playheadRAF = null; }
-        if (this.pianoRoll) { this.pianoRoll.cursor = 0; this.pianoRoll.redrawMarker?.(); }
-        this._syncMinimap();
-    }
-
-    // =========================================================
-    // MINIMAP
-    // =========================================================
-
-    _initMinimap() {
-        const canvas = this.$('#lc-minimap');
-        if (!canvas) return;
-        this._minimap = new window.LoopCreatorMinimap(canvas, {
-            ppq:        this.ppq,
-            timeSigNum: this.timeSigNum,
-            bars:       this.bars,
-            noteMin:    this.outputNoteMin,
-            noteMax:    this.outputNoteMax,
-            onSeek: (newOffset) => {
-                if (!this.pianoRoll) return;
-                this.pianoRoll.setAttribute('xoffset', newOffset.toString());
-                this.pianoRoll.redraw?.();
-                this._syncMinimap();
-            }
-        });
-        if (this.pianoRoll) {
-            this._minimapObserver = new MutationObserver(() => this._syncMinimap());
-            this._minimapObserver.observe(this.pianoRoll, {
-                attributes: true, attributeFilter: ['xoffset', 'xrange']
-            });
-        }
-        const wrap = this.$('#lc-pianoroll-wrap');
-        if (wrap) {
-            wrap.addEventListener('wheel', () => requestAnimationFrame(() => this._syncMinimap()), { passive: true });
-        }
-        this._syncMinimap();
-    }
-
-    _syncMinimap() {
-        const m = this._minimap;
-        if (!m) return;
-        const total  = this._totalTicks();
-        const xoff   = parseFloat(this.pianoRoll?.getAttribute?.('xoffset') || 0);
-        const xrange = parseFloat(this.pianoRoll?.getAttribute?.('xrange')  || total) || total;
-        m.setConfig({ ppq: this.ppq, timeSigNum: this.timeSigNum, bars: this.bars, noteMin: this.outputNoteMin, noteMax: this.outputNoteMax });
-        m.setNotes(this.pianoRoll?.sequence ?? []);
-        m.setViewport(xoff, xrange);
-        if (this.isRecording) {
-            const recTick = Math.min(total, Math.round(
-                (performance.now() - this.recordStartTime) / 1000 * (this.tempo / 60) * this.ppq
-            ));
-            m.setPlayhead(recTick, true);
-        } else {
-            m.setPlayhead(this.pianoRoll?.cursor ?? 0, this.isPlaying);
-        }
+        this.pianoRollEditor?.setCursor(0);
     }
 
     _startRecordingAnimation() {
         const frame = () => {
             if (!this.isRecording) { this._recordingRAF = null; return; }
-            this._syncMinimap();
+            const recTick = Math.round(
+                (performance.now() - this.recordStartTime) / 1000 * (this.tempo / 60) * this.ppq
+            );
+            this.pianoRollEditor?.setRecordingPlayhead(recTick);
             this._recordingRAF = requestAnimationFrame(frame);
         };
         this._recordingRAF = requestAnimationFrame(frame);
@@ -952,7 +637,7 @@ class LoopEditorModal extends BaseModal {
 
     _stopRecordingAnimation() {
         if (this._recordingRAF) { cancelAnimationFrame(this._recordingRAF); this._recordingRAF = null; }
-        this._syncMinimap();
+        this.pianoRollEditor?.setRecordingPlayhead(null);
     }
 
     // =========================================================
@@ -1033,19 +718,16 @@ class LoopEditorModal extends BaseModal {
         const rec = this.recordedNotes.splice(idx, 1)[0];
         const durMs = performance.now() - rec.startMs;
         const durTicks = Math.max(30, Math.round(durMs / 1000 * (this.tempo / 60) * this.ppq));
-        const q = parseInt(this.$('#lc-quantize')?.value ?? 0);
+        // Read quantize value from the PianoRollEditor's Grid group (if mounted)
+        const qEl = this.pianoRollEditor?.host?.querySelector('[data-pre-field="pre-quantize"]');
+        const q = parseInt(qEl?.value ?? 0);
         const t = q > 0 ? Math.round(rec.tick / q) * q : rec.tick;
         const g = q > 0 ? Math.max(q, Math.round(durTicks / q) * q) : durTicks;
         this._addNoteToRoll({ t, n: note, v: rec.velocity, g });
     }
 
     _addNoteToRoll(noteObj) {
-        if (!this.pianoRoll) return;
-        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
-        seq.push(noteObj);
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
-        this._syncMinimap();
+        this.pianoRollEditor?.addNote(noteObj);
     }
 
     // =========================================================
@@ -1299,7 +981,7 @@ class LoopEditorModal extends BaseModal {
 
     _previewLoop() {
         this._stopAll();
-        const seq = this.pianoRoll?.sequence ?? [];
+        const seq = this.pianoRollEditor?.getSequence() ?? [];
         if (!seq.length) { this._setStatus(this.t('loopCreator.statusNoNotes')); return; }
         if (this._outputTarget === 'live' && this.outputMode === 'device' && this.outputDeviceId) {
             this._previewViaDevice(seq); return;
@@ -1348,9 +1030,10 @@ class LoopEditorModal extends BaseModal {
                 }).catch(err => LoopUtils.handleError(err, 'editor.device.noteOff'));
             }, offMs));
         }
+        const totalTicks = this.ppq * this.timeSigNum * this.bars;
         this._playbackTimers.push(setTimeout(() => {
             this.isPlaying = false; this._setStatus('');
-        }, this._totalTicks() * spt * 1000));
+        }, totalTicks * spt * 1000));
     }
 
     _stopAll() {
@@ -1382,7 +1065,7 @@ class LoopEditorModal extends BaseModal {
             this.loopName = this.t('loopManager.duplicateNameSuffix', { name: this.loopName });
             const nameEl = this.$('#lc-name-input'); if (nameEl) nameEl.value = this.loopName;
         }
-        const seq = this.pianoRoll?.sequence ?? [];
+        const seq = this.pianoRollEditor?.getSequence() ?? [];
         const payload = {
             name: this.loopName, tempo: this.tempo,
             time_sig_num: this.timeSigNum, time_sig_den: this.timeSigDen,
