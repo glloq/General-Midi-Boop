@@ -151,6 +151,9 @@ class LoopManagerModal extends BaseModal {
 
     _renderHeader() {
         const showSave = this.activeTab === 'arranger';
+        // Raccourcis platform-aware (AUDIT §U2 : ⌘ sur Mac, Ctrl ailleurs).
+        const mod = LoopUtils.modKeyLabel();
+        const sft = LoopUtils.shiftKeyLabel();
         return `
         <div class="modal-header lc-header">
             <div class="lc-header-left">
@@ -236,7 +239,10 @@ class LoopManagerModal extends BaseModal {
                 <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="new-loop">+ ${this.t('loopManager.newLoop')}</button>
             </div>
             <div class="lm-library-grid" id="lm-library-grid">
-                <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
+                <div class="lc-empty">
+                    <p>${this.t('loopCreator.libraryEmpty')}</p>
+                    <button class="lc-btn lc-btn-primary" data-action="new-loop">+ ${this.t('loopManager.newLoop')}</button>
+                </div>
             </div>
         </div>`;
     }
@@ -341,8 +347,8 @@ class LoopManagerModal extends BaseModal {
                 </div>
                 <span class="lc-unit" aria-hidden="true" title="${this.t('loopCreator.totalBars')}">M</span>
                 <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn" title="${this.t('loopCreator.undo')}" aria-label="${this.t('loopCreator.undo')}" disabled><span aria-hidden="true">↶</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn" title="${this.t('loopCreator.redo')}" aria-label="${this.t('loopCreator.redo')}" disabled><span aria-hidden="true">↷</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn" title="${this.t('loopCreator.undo')} (${mod}+Z)" aria-label="${this.t('loopCreator.undo')}" disabled><span aria-hidden="true">↶</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn" title="${this.t('loopCreator.redo')} (${mod}+${sft}+Z)" aria-label="${this.t('loopCreator.redo')}" disabled><span aria-hidden="true">↷</span></button>
                 <div class="lc-ctrl-sep"></div>
                 <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')} (Space)" aria-label="${this.t('loopCreator.play')}"><span aria-hidden="true">▶</span></button>
                 <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')} (Esc)" aria-label="${this.t('loopCreator.stop')}"><span aria-hidden="true">⏹</span></button>

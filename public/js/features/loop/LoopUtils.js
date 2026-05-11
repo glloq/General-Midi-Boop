@@ -237,6 +237,24 @@
     };
 
     /**
+     * Label de la touche modificatrice principale selon l'OS. macOS
+     * affiche `⌘`, le reste `Ctrl`. Utilisé pour les tooltips de
+     * raccourcis (AUDIT §U2 — avant, `⌘` était affiché partout).
+     */
+    function modKeyLabel() {
+        try {
+            const plat = navigator.userAgentData?.platform || navigator.platform || '';
+            return /mac|iphone|ipad/i.test(plat) ? '⌘' : 'Ctrl';
+        } catch (_) { return 'Ctrl'; }
+    }
+    function shiftKeyLabel() {
+        try {
+            const plat = navigator.userAgentData?.platform || navigator.platform || '';
+            return /mac|iphone|ipad/i.test(plat) ? '⇧' : 'Shift';
+        } catch (_) { return 'Shift'; }
+    }
+
+    /**
      * Confirmation accessible : façade autour de `window.showConfirm`
      * (modale stylable, focus trap propre — cf. AUDIT §A1) avec fallback
      * sur `window.confirm` pour les environnements de test sans le markup
@@ -265,6 +283,8 @@
         handleError,
         toast,
         confirm,
+        modKeyLabel,
+        shiftKeyLabel,
         createSynth,
         loopDurationMs,
         scheduleSequence,

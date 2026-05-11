@@ -1287,3 +1287,62 @@ body.dark-mode  .la-block--selected {
     padding: 0 6px !important;
     min-height: 32px !important;
 }
+
+/* =========================================================
+   AUDIT §U3 / §U7 / §U8 — responsive + sticky controls
+   ========================================================= */
+
+/* Sticky control bar (Library, Pad, Live, Arranger) : reste en haut
+ * du pane quand la liste de loops déborde. Évite à l'utilisateur de
+ * scroller au top pour filtrer/rechercher (AUDIT §U7). */
+.lc-pane .lc-ctrl-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--lc-bg, #fff);
+}
+
+@media (max-width: 768px) {
+    /* Modale plein écran sur tablette/mobile. */
+    .loop-creator-modal .modal-dialog,
+    .loop-editor-modal .modal-dialog {
+        width: 100vw;
+        height: 100dvh;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+    }
+    /* Tabs scrollables horizontalement, pas de wrap qui casse l'alignement. */
+    .lc-header-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        scrollbar-width: thin;
+    }
+    .lc-tab {
+        flex: 0 0 auto;
+        min-width: 88px;
+        white-space: nowrap;
+    }
+    /* Cards Library : grille mono-colonne pour libérer la place. */
+    .lm-library-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* WCAG 2.5.5 : touch targets ≥ 44 × 44 px sur mobile. */
+    .lc-card-btn,
+    .lc-card-btn--play,
+    .lc-card-btn--danger,
+    .lc-btn-icon,
+    .lc-spin-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 8px;
+    }
+    /* Cards : actions empilées si plus de place. */
+    .lc-card-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+}
