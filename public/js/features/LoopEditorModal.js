@@ -1037,17 +1037,19 @@ class LoopEditorModal extends BaseModal {
         window.keyboardModal.mountAsPanel(container, {
             onNoteOn:  (note, vel) => this._playNote(note, vel),
             onNoteOff: (note)      => this._stopNote(note),
-            onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
+            onInstrumentSelected: ({ deviceId, channel, gmProgram, instrumentType, isDrum: isDrumFromKbd }) => {
                 // Cancel held preview voices so they don't ring on with the
                 // previous instrument / device after the switch.
                 this._previewStopAll();
 
-                // Détection drum kit : channel 9 (convention GM) ou
-                // gmProgram >= 128 (drum kits encodés avec offset 128 dans
-                // MidiSynthesizer._decodeKitProgram). Sans ça, les notes
-                // étaient jouées sur le canal 0 en path mélodique →
-                // sonnaient en piano au lieu de la batterie.
-                const isDrum = channel === 9 || (gmProgram != null && gmProgram >= 128);
+                // Détection drum kit. La keyboard nous transmet maintenant
+                // isDrum (calculé depuis capabilities.instrument_type) ; on
+                // garde les fallbacks channel===9 / gmProgram>=128 pour
+                // les anciens callers qui n'envoient pas isDrum.
+                const isDrum = isDrumFromKbd === true
+                    || instrumentType === 'drum'
+                    || channel === 9
+                    || (gmProgram != null && gmProgram >= 128);
 
                 this.outputMode        = deviceId ? 'device' : 'synth';
                 this.outputDeviceId    = deviceId || null;

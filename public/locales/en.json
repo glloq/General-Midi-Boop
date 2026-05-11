@@ -349,7 +349,18 @@
     "chordRoot": "Root",
     "chordHandDrag": "Drag to move hand",
     "noteColors": "Colors",
-    "toggleNoteColors": "Toggle note colors"
+    "toggleNoteColors": "Toggle note colors",
+    "slideMode": "Slide",
+    "slideToggle": "Toggle slide mode (drag to glide between notes)",
+    "pianoSlider": "Slider",
+    "pianoSliderToggle": "Slider mode — equal-width keys with pitch bend",
+    "listView": "List view",
+    "listViewToggle": "List view — velocity (click height) and pitch bend (left/right)",
+    "listCCLabel": "Y → CC",
+    "listCCTitle": "MIDI controller sent on the vertical axis",
+    "listPBLabel": "X → PB",
+    "listPBTitle": "Pitch bend sent on the horizontal axis",
+    "pitchBend": "Pitch Bend"
   },
   "midiEditor": {
     "title": "MIDI Editor",
@@ -2437,6 +2448,7 @@
     "timeSignature": "Time sig.",
     "bars": "Length",
     "barsUnit": "bars",
+    "barsUnitShort": "M",
     "snap": "Grid",
     "modeDraw": "Draw notes",
     "modeSelect": "Select / Move",
