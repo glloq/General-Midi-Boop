@@ -202,15 +202,6 @@ class LoopManagerModal extends BaseModal {
     _renderKeyboardTab() {
         return `
         <div class="lc-pane lc-pane--hidden lm-kbd-pane" id="lc-pane-keyboard">
-            <div class="lc-ctrl-bar lc-ctrl-bar--kbd">
-                <span class="lc-label">${this.t('loopManager.kbdOutput')}:</span>
-                <button class="lc-btn lc-btn-icon lc-btn-output" id="lm-kbd-output-btn" data-action="kbd-toggle-output">🔊</button>
-                <span class="lc-unit" id="lm-kbd-output-label">${this.t('loopManager.outputSynth')}</span>
-                <span class="lc-ctrl-spacer"></span>
-                <span class="lc-status lm-kbd-hint">${this.t('loopManager.kbdHint')}</span>
-                <span class="lc-ctrl-sep"></span>
-                <button class="lc-btn lc-btn-sm" data-action="kbd-stop-all" title="${this.t('loopCreator.stop')}">⏹ ${this.t('loopManager.kbdSilence')}</button>
-            </div>
             <div class="lm-kbd-panel" id="lm-kbd-panel"></div>
         </div>`;
     }
@@ -623,7 +614,7 @@ class LoopManagerModal extends BaseModal {
         const a = btn.dataset.action;
         switch (a) {
             // Global stop (header button)
-            case 'stop-all-playback': this._stopAllPads(); this._liveStopAll(); this._stopArrangerPlay(); break;
+            case 'stop-all-playback': this._stopAllPads(); this._liveStopAll(); this._stopArrangerPlay(); this._kbdStopAllNotes(); break;
             // Library
             case 'new-loop':  this._loopEditor.open(); break;
             // Pad
@@ -634,9 +625,6 @@ class LoopManagerModal extends BaseModal {
             case 'pad-rows-inc': this._adjustPadRows(+1); break;
             case 'pad-set-mode':     this._setPadPlayMode(btn.dataset.mode); break;
             case 'pad-set-quantize': this._setPadQuantize(btn.dataset.quantize); break;
-            // Keyboard tab
-            case 'kbd-toggle-output': this._kbdToggleOutput(); break;
-            case 'kbd-stop-all':      this._kbdStopAllNotes(); break;
             // Live
             case 'live-stop-all':      this._liveStopAll(); break;
             case 'live-trigger': {
@@ -2348,14 +2336,8 @@ class LoopManagerModal extends BaseModal {
                                 LoopUtils.handleError(err, 'kbd.synth.loadInstrument'));
                         }
                     }
-                    // Auto-flip the output toggle if the user picks a real device.
-                    if (deviceId && this._kbdOutputTarget !== 'live') {
-                        this._kbdOutputTarget = 'live';
-                        this._refreshKbdOutputUI();
-                    } else if (!deviceId && this._kbdOutputTarget !== 'synth') {
-                        this._kbdOutputTarget = 'synth';
-                        this._refreshKbdOutputUI();
-                    }
+                    // Picking a real device routes notes there; otherwise back to synth.
+                    this._kbdOutputTarget = deviceId ? 'live' : 'synth';
                 }
             });
             this._kbdMounted = true;
@@ -2429,24 +2411,6 @@ class LoopManagerModal extends BaseModal {
         }
         this._kbdEnvelopes.clear();
         this._kbdActiveKeys.clear();
-    }
-
-    _kbdToggleOutput() {
-        // Release any held note on the previous target to avoid stuck notes.
-        this._kbdStopAllNotes();
-        this._kbdOutputTarget = this._kbdOutputTarget === 'synth' ? 'live' : 'synth';
-        this._refreshKbdOutputUI();
-    }
-
-    _refreshKbdOutputUI() {
-        const btn   = this.$('#lm-kbd-output-btn');
-        const label = this.$('#lm-kbd-output-label');
-        const isLive = this._kbdOutputTarget === 'live';
-        if (btn) {
-            btn.textContent = isLive ? '🔌' : '🔊';
-            btn.classList.toggle('lc-btn-output--active', isLive);
-        }
-        if (label) label.textContent = isLive ? this.t('loopManager.outputLive') : this.t('loopManager.outputSynth');
     }
 
     // =========================================================
