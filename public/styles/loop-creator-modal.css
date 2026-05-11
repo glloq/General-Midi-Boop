@@ -605,9 +605,11 @@ body.dark-mode  .la-playhead {
 
 /* ── Pad tab ── */
 .lm-pad-grid {
+    --pad-cols: 4;
+    --pad-rows: 4;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
+    grid-template-columns: repeat(var(--pad-cols), 1fr);
+    grid-template-rows:    repeat(var(--pad-rows), 1fr);
     gap: 8px;
     padding: 12px;
     flex: 1 1 0;
@@ -659,23 +661,20 @@ body.dark-mode  .la-playhead {
     background: rgba(245, 166, 35, 0.12) !important;
     box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.30) inset;
 }
-.lc-pad-hint {
-    font-size: 0.72rem;
-    color: var(--text-secondary, #5a6275);
-    font-style: italic;
-    white-space: nowrap;
-    text-align: center;
-}
 @keyframes lm-pad-pulse {
     from { transform: scale(1);    box-shadow: 0 0 0 0   rgba(102, 126, 234, 0.60); }
     to   { transform: scale(1.04); box-shadow: 0 0 0 8px rgba(102, 126, 234, 0);    }
 }
 
-/* Octave row colors (top border) */
-.lm-pad-grid .lm-pad-cell[data-octave-group="0"] { border-top: 3px solid #667eea; }
-.lm-pad-grid .lm-pad-cell[data-octave-group="1"] { border-top: 3px solid #764ba2; }
-.lm-pad-grid .lm-pad-cell[data-octave-group="2"] { border-top: 3px solid #27ae60; }
-.lm-pad-grid .lm-pad-cell[data-octave-group="3"] { border-top: 3px solid #e8931a; }
+/* Row colors (top border) — cycles through 4 accents for visual grouping */
+.lm-pad-grid .lm-pad-cell[data-row="0"],
+.lm-pad-grid .lm-pad-cell[data-row="4"] { border-top: 3px solid #667eea; }
+.lm-pad-grid .lm-pad-cell[data-row="1"],
+.lm-pad-grid .lm-pad-cell[data-row="5"] { border-top: 3px solid #764ba2; }
+.lm-pad-grid .lm-pad-cell[data-row="2"],
+.lm-pad-grid .lm-pad-cell[data-row="6"] { border-top: 3px solid #27ae60; }
+.lm-pad-grid .lm-pad-cell[data-row="3"],
+.lm-pad-grid .lm-pad-cell[data-row="7"] { border-top: 3px solid #e8931a; }
 
 /* GM family icon inside assigned pad */
 .lm-pad-icon { font-size: 1.1rem; opacity: 0.85; margin-bottom: 2px; }
@@ -744,26 +743,6 @@ body.theme-dark .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg,
 body.dark-mode  .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg {
     filter: brightness(0) invert(1);
 }
-
-/* QW4 — keyboard shortcut badge */
-.lm-pad-shortcut {
-    position: absolute;
-    top: 4px; right: 6px;
-    font-size: 0.62rem; font-weight: 700;
-    color: var(--text-secondary, #8a93a6);
-    background: rgba(0,0,0,0.04);
-    border-radius: 3px;
-    padding: 1px 4px;
-    line-height: 1;
-    pointer-events: none;
-    letter-spacing: 0.02em;
-}
-.lm-pad-cell--playing .lm-pad-shortcut {
-    color: rgba(255,255,255,0.85);
-    background: rgba(255,255,255,0.18);
-}
-body.theme-dark .lm-pad-shortcut,
-body.dark-mode  .lm-pad-shortcut { background: rgba(255,255,255,0.08); color: #b8c0d4; }
 
 .lm-pad-name { font-size: 0.82rem; font-weight: 600; text-align: center; word-break: break-word; line-height: 1.2; }
 .lm-pad-meta { font-size: 0.65rem; opacity: 0.65; margin-top: 3px; }
