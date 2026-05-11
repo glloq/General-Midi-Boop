@@ -300,6 +300,18 @@ body.dark-mode  .lc-header-output {
 .lc-btn-record { color: #c0392b; border-color: #c0392b; }
 .lc-btn-record:hover { background: #c0392b; color: #fff; }
 .lc-btn-record--active { background: #c0392b !important; color: #fff !important; }
+.lc-btn-danger {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+    border-color: #c0392b;
+    font-weight: 600;
+}
+.lc-btn-danger:hover {
+    background: linear-gradient(135deg, #d44132, #a82d20);
+    border-color: #a82d20;
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(192, 57, 43, 0.35);
+}
 .lc-btn-output { color: var(--text-secondary, #666); }
 .lc-btn-output--active { background: var(--accent-color, #667eea) !important; color: #fff !important; border-color: var(--accent-color, #667eea) !important; }
 
