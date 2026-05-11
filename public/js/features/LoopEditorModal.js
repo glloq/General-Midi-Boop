@@ -338,7 +338,10 @@ class LoopEditorModal extends BaseModal {
             // future work : extend midi_data to carry CC alongside notes
             // so the editor can round-trip pitch bend / velocity / CC1…91.
             const ccEvents = [];
-            this.midiEditorPanel.showAsPanel(host, {
+            // showAsPanel is async — wait for the piano-roll element to
+            // exist before wiring the minimap so we don't race against the
+            // initial RAF inside MidiEditorModal.initPianoRoll().
+            const ready = this.midiEditorPanel.showAsPanel(host, {
                 sequence:          this.sequence,
                 ccEvents,
                 tempo:             this.tempo,
@@ -348,8 +351,9 @@ class LoopEditorModal extends BaseModal {
                 timeSigDen:         this.timeSigDen,
                 channel:            this._isDrumKit ? 9 : 0,
                 instrumentProgram:  this.instrumentProgram,
-                onChange:           () => { /* dirty tracking handled via _isDirty() snapshot */ }
+                onChange:           () => { this._syncPanelMinimap(); /* dirty tracked via snapshot */ }
             });
+            Promise.resolve(ready).then(() => this._initPanelMinimap());
             return;
         }
 
@@ -386,17 +390,25 @@ class LoopEditorModal extends BaseModal {
      * LoopEditorModal unchanged while swapping the underlying editor.
      */
     _buildMidiEditorPanelAdapter(panel) {
+        const owner = this;
         return {
             get host() { return panel.container; },
             getSequence: () => panel.getPanelLoopState().sequence,
             setRange:    ({ tempo, bars, ppq, timeSigNum, timeSigDen, noteMin, noteMax } = {}) => {
                 panel.setPanelLoopState({ tempo, bars, ppq, timeSigNum, timeSigDen });
+                owner._syncPanelMinimap();
                 // noteMin/noteMax are advisory ; the editor lets the user
                 // scroll/zoom freely so we don't clamp.
                 void noteMin; void noteMax;
             },
-            setCursor:          (tick) => panel.updatePlaybackCursor?.(tick),
-            setRecordingPlayhead: (tick) => panel.updatePlaybackCursor?.(tick ?? 0),
+            setCursor:          (tick) => {
+                if (panel.pianoRoll) panel.pianoRoll.cursor = tick ?? 0;
+                owner._panelMinimap?.setPlayhead(tick ?? 0, owner.isPlaying);
+            },
+            setRecordingPlayhead: (tick) => {
+                if (panel.pianoRoll) panel.pianoRoll.cursor = tick ?? 0;
+                owner._panelMinimap?.setPlayhead(tick ?? 0, tick != null);
+            },
             setMode:    (mode) => {
                 const map = { view: 'drag-view', select: 'select', dragpoly: 'edit' };
                 panel.editActions?.setEditMode?.(map[mode] || mode);
@@ -408,14 +420,105 @@ class LoopEditorModal extends BaseModal {
             paste:          () => panel.editActions?.paste?.(),
             deleteSelected: () => panel.editActions?.deleteSelectedNotes?.(),
             addNote:        (noteObj) => {
-                const seq = panel.fullSequence || [];
-                seq.push({ ...noteObj, c: panel.channels?.[0]?.channel ?? 0 });
-                panel.setPanelLoopState({ sequence: seq });
+                // Push the note directly into the live piano-roll sequence
+                // so recording stays incremental (rebuilding the whole array
+                // would drop the user's selection / view state).
+                if (!panel.pianoRoll) return;
+                const ch = panel.channels?.[0]?.channel ?? 0;
+                const seq = Array.isArray(panel.pianoRoll.sequence) ? panel.pianoRoll.sequence : [];
+                seq.push({ ...noteObj, c: ch });
+                panel.pianoRoll.sequence = seq;
+                panel.fullSequence = seq.map(n => ({ ...n }));
+                panel.sequence = panel.fullSequence;
+                panel.pianoRoll.redraw?.();
                 panel.isDirty = true;
+                owner._syncPanelMinimap();
             },
-            refit:          () => panel.pianoRoll?.redraw?.(),
-            destroy:        () => panel.unmountPanel?.()
+            refit:          () => {
+                if (!panel.pianoRoll) return;
+                // The editor's piano-roll container only takes its real
+                // size once its tab becomes visible. Recompute width/height
+                // from the container before redrawing — otherwise a tab
+                // that was hidden at mount stays at 0×0.
+                const c = panel.container?.querySelector('#piano-roll-container');
+                if (c) {
+                    const w = c.clientWidth  || 900;
+                    const h = c.clientHeight || 200;
+                    panel.pianoRoll.setAttribute('width',  w.toString());
+                    panel.pianoRoll.setAttribute('height', h.toString());
+                }
+                panel.pianoRoll.redraw?.();
+                owner._syncPanelMinimap();
+            },
+            destroy:        () => {
+                owner._teardownPanelMinimap();
+                panel.unmountPanel?.();
+            }
         };
+    }
+
+    /**
+     * Drive the loop editor's `#le-minimap-top` canvas from the embedded
+     * MidiEditor panel's webaudio-pianoroll. Replaces what PianoRollEditor
+     * used to do via its `externalMinimapEl` option.
+     */
+    _initPanelMinimap() {
+        const canvas = this.$('#le-minimap-top');
+        const panel  = this.midiEditorPanel;
+        if (!canvas || !panel?.pianoRoll || typeof window.LoopCreatorMinimap !== 'function') return;
+
+        this._panelMinimap = new window.LoopCreatorMinimap(canvas, {
+            ppq:        this.ppq,
+            timeSigNum: this.timeSigNum,
+            bars:       this.bars,
+            noteMin:    this.outputNoteMin,
+            noteMax:    this.outputNoteMax,
+            onSeek:     null  // read-only — the panel owns navigation
+        });
+        canvas.style.cursor = 'default';
+        canvas.style.pointerEvents = 'none';
+
+        const pr = panel.pianoRoll;
+        this._panelMinimapObserver = new MutationObserver(() => this._syncPanelMinimap());
+        this._panelMinimapObserver.observe(pr, {
+            attributes: true, attributeFilter: ['xoffset', 'xrange']
+        });
+        this._panelMinimapChange = () => this._syncPanelMinimap();
+        pr.addEventListener('change', this._panelMinimapChange);
+        this._syncPanelMinimap();
+    }
+
+    _syncPanelMinimap() {
+        const m = this._panelMinimap;
+        const pr = this.midiEditorPanel?.pianoRoll;
+        if (!m || !pr) return;
+        const xoff   = parseFloat(pr.getAttribute('xoffset') || 0);
+        const xrange = parseFloat(pr.getAttribute('xrange')  || 0);
+        m.setConfig({
+            ppq:        this.ppq,
+            timeSigNum: this.timeSigNum,
+            bars:       this.bars,
+            noteMin:    this.outputNoteMin,
+            noteMax:    this.outputNoteMax
+        });
+        m.setNotes(pr.sequence ?? []);
+        m.setViewport(xoff, xrange);
+    }
+
+    _teardownPanelMinimap() {
+        if (this._panelMinimapObserver) {
+            try { this._panelMinimapObserver.disconnect(); } catch (_) { /* best-effort */ }
+            this._panelMinimapObserver = null;
+        }
+        if (this._panelMinimapChange && this.midiEditorPanel?.pianoRoll) {
+            try { this.midiEditorPanel.pianoRoll.removeEventListener('change', this._panelMinimapChange); }
+            catch (_) { /* best-effort */ }
+        }
+        this._panelMinimapChange = null;
+        if (this._panelMinimap) {
+            try { this._panelMinimap.destroy?.(); } catch (_) { /* best-effort */ }
+            this._panelMinimap = null;
+        }
     }
 
     /**

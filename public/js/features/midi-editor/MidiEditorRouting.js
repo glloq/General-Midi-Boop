@@ -393,13 +393,12 @@
                     <div class="midi-editor-container">
                         <!-- Section Notes -->
                         <div class="midi-editor-section notes-section">
-                            <!-- Navigation Overview Bar -->
-                            <div class="navigation-overview-wrap" id="navigation-overview-container"></div>
-                            <!-- Playback Timeline Bar -->
-                            <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
+                            <!-- Navigation Overview Bar (loop mode uses LoopEditor's own minimap instead) -->
+                            ${loop ? '' : '<div class="navigation-overview-wrap" id="navigation-overview-container"></div>'}
+                            <!-- Playback Timeline Bar (loop mode lets the outer LoopEditor own transport) -->
+                            ${loop ? '' : '<div class="playback-timeline-wrap" id="playback-timeline-container"></div>'}
                             <div class="piano-roll-wrapper">
-                                <!-- Shared PianoRollEditor toolbar (toolbar-only mode) -->
-                                <div id="midi-editor-pre-toolbar"></div>
+                                ${loop ? '' : '<!-- Shared PianoRollEditor toolbar (toolbar-only mode) -->\n                                <div id="midi-editor-pre-toolbar"></div>'}
                                 <div class="piano-roll-container" id="piano-roll-container">
                                     <!-- webaudio-pianoroll will be inserted here -->
                                 </div>
@@ -614,7 +613,10 @@
     // coherence with LoopEditorModal. The actual editing routines stay on
     // MidiEditor's existing facades (editActions, sequenceOps) — passed as
     // `actions` so PianoRollEditor delegates each button to them.
-        this._mountSharedToolbar();
+    // In loop/panel mode the host already gets MidiEditor's own toolbar,
+    // so re-mounting a shared one would just stack a duplicate above the
+    // piano roll.
+        if (!this.modal.loopMode) this._mountSharedToolbar();
 
     // Hide the piano roll's native SVG markers (replaced by PlaybackTimelineBar)
         const cursorImg = this.modal.pianoRoll.querySelector('#wac-cursor');
