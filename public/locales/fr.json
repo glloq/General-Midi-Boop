@@ -2577,7 +2577,19 @@
     "blockMenuCopy": "Copier",
     "blockMenuRepsInc": "Répétitions +",
     "blockMenuRepsDec": "Répétitions −",
-    "blockMenuDelete": "Supprimer"
+    "blockMenuDelete": "Supprimer",
+    "noResults": "Aucun résultat.",
+    "zoomVIn": "Zoom vertical +",
+    "zoomVOut": "Zoom vertical −",
+    "loopPlayback": "Lecture en boucle",
+    "countIn": "Décompte avant lecture",
+    "rulerClickHint": "Clic : démarrer la lecture à cette mesure",
+    "duplicateArrangement": "Dupliquer l'arrangement",
+    "deleteArrangement": "Supprimer l'arrangement",
+    "arrangementDuplicated": "Arrangement dupliqué.",
+    "errDuplicateArrangement": "Impossible de dupliquer l'arrangement.",
+    "copySuffix": "{name} (copie)",
+    "trackChannel": "Canal MIDI de la piste (vide = auto)"
   },
   "loopEditor": {
     "title": "Éditeur de boucle",

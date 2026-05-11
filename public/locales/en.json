@@ -2577,7 +2577,19 @@
     "blockMenuCopy": "Copy",
     "blockMenuRepsInc": "Repetitions +",
     "blockMenuRepsDec": "Repetitions −",
-    "blockMenuDelete": "Delete"
+    "blockMenuDelete": "Delete",
+    "noResults": "No results.",
+    "zoomVIn": "Vertical zoom +",
+    "zoomVOut": "Vertical zoom −",
+    "loopPlayback": "Loop playback",
+    "countIn": "Count-in before playback",
+    "rulerClickHint": "Click: start playback from this bar",
+    "duplicateArrangement": "Duplicate arrangement",
+    "deleteArrangement": "Delete arrangement",
+    "arrangementDuplicated": "Arrangement duplicated.",
+    "errDuplicateArrangement": "Could not duplicate arrangement.",
+    "copySuffix": "{name} (copy)",
+    "trackChannel": "Track MIDI channel (empty = auto)"
   },
   "loopEditor": {
     "title": "Loop Editor",

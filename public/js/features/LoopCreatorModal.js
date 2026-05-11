@@ -89,6 +89,12 @@ class LoopManagerModal extends BaseModal {
         this._resizeState     = null;        // active block resize state
         this._autoSaveTimer   = null;        // debounced metadata save
         this._blockMenuEl     = null;        // open context menu element
+        this._paletteSearch   = '';          // palette filter text
+        this._arrangerZoomV   = 1;           // vertical zoom (track height multiplier)
+        this._arrangerLoop    = false;       // loop arrangement playback
+        this._arrangerCountIn = false;       // play 1-bar metronome before start
+        this._arrangerStartBar = 0;          // bar offset where playback begins
+        this._trackDragId     = null;        // track currently being reordered (visual only)
 
         // Shared loop data cache (pad + live + arranger)
         this._fetchLoopDataCache = new Map();
@@ -356,6 +362,17 @@ class LoopManagerModal extends BaseModal {
                 <button class="lc-btn lc-btn-icon" data-action="arr-zoom-out" title="${this.t('loopEditor.zoomHOut')}" aria-label="${this.t('loopEditor.zoomHOut')}"><span aria-hidden="true">−H</span></button>
                 <button class="lc-btn lc-btn-icon" data-action="arr-zoom-reset" title="${this.t('loopManager.zoomReset')}" aria-label="${this.t('loopManager.zoomReset')}"><span aria-hidden="true">⌖</span></button>
                 <button class="lc-btn lc-btn-icon" data-action="arr-zoom-in" title="${this.t('loopEditor.zoomHIn')}" aria-label="${this.t('loopEditor.zoomHIn')}"><span aria-hidden="true">+H</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-out" title="${this.t('loopManager.zoomVOut')}" aria-label="${this.t('loopManager.zoomVOut')}"><span aria-hidden="true">−V</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-in" title="${this.t('loopManager.zoomVIn')}" aria-label="${this.t('loopManager.zoomVIn')}"><span aria-hidden="true">+V</span></button>
+                <div class="lc-ctrl-sep"></div>
+                <button class="lc-btn lc-btn-icon" data-action="arr-toggle-loop" id="la-loop-btn"
+                    title="${this.t('loopManager.loopPlayback')}"
+                    aria-label="${this.t('loopManager.loopPlayback')}"
+                    aria-pressed="${this._arrangerLoop ? 'true' : 'false'}"><span aria-hidden="true">🔁</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-toggle-countin" id="la-countin-btn"
+                    title="${this.t('loopManager.countIn')}"
+                    aria-label="${this.t('loopManager.countIn')}"
+                    aria-pressed="${this._arrangerCountIn ? 'true' : 'false'}"><span aria-hidden="true">⏲</span></button>
                 <div class="lc-ctrl-sep"></div>
                 <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}" aria-label="${this.t('loopCreator.addTrack')}"><span aria-hidden="true">＋</span></button>
                 <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}"><span aria-hidden="true">🆕</span> ${this.t('loopCreator.newArrangement')}</button>
@@ -364,6 +381,9 @@ class LoopManagerModal extends BaseModal {
             <div class="la-area" id="la-area">
                 <div class="la-palette" id="la-palette">
                     <div class="la-palette-title">${this.t('loopCreator.palette')}</div>
+                    <input type="search" id="la-palette-search" class="lc-name-input la-palette-search"
+                        aria-label="${this.t('loopManager.search')}"
+                        placeholder="${this.t('loopManager.search')}" autocomplete="off" />
                     <div class="la-palette-grid" id="la-palette-grid">
                         <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
                     </div>
@@ -567,7 +587,7 @@ class LoopManagerModal extends BaseModal {
             if (mod && e.key.toLowerCase() === 'z' &&  e.shiftKey) { e.preventDefault(); this._arrRedo(); return; }
             if (mod && e.key.toLowerCase() === 'y')                { e.preventDefault(); this._arrRedo(); return; }
             if (mod && e.key.toLowerCase() === 's')                { e.preventDefault(); this._saveArrangement(); return; }
-            if (e.key === ' ') { e.preventDefault(); this.isArrangerPlaying ? this._stopArrangerPlay() : this._playArrangement(); return; }
+            if (e.key === ' ') { e.preventDefault(); this.isArrangerPlaying ? this._stopArrangerPlay() : this._playArrangement(this._arrangerStartBar); return; }
             if (e.key === 'Escape') { this._stopArrangerPlay(); this._clearBlockSelection(); return; }
             if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedBlocks.size) {
                 e.preventDefault(); this._deleteSelectedBlocks(); return;
@@ -673,12 +693,16 @@ class LoopManagerModal extends BaseModal {
             case 'arr-bars-dec':     this._adjustArrBars(-4);  break;
             case 'arr-bars-inc':     this._adjustArrBars(+4);  break;
             case 'arr-add-track':    this._addTrack();          break;
-            case 'arr-play':         this._playArrangement();   break;
+            case 'arr-play':         this._playArrangement(this._arrangerStartBar); break;
             case 'arr-stop':         this._stopArrangerPlay();  break;
             case 'arr-new':          this._newArrangementConfirm(); break;
             case 'arr-zoom-in':      this._arrZoom(1.5);        break;
             case 'arr-zoom-out':     this._arrZoom(1 / 1.5);    break;
             case 'arr-zoom-reset':   this._arrZoomReset();      break;
+            case 'arr-zoomv-in':     this._arrZoomV(1.3);       break;
+            case 'arr-zoomv-out':    this._arrZoomV(1 / 1.3);   break;
+            case 'arr-toggle-loop':  this._toggleLoopPlayback(); break;
+            case 'arr-toggle-countin': this._toggleCountIn();   break;
             case 'arr-undo':         this._arrUndo();           break;
             case 'arr-redo':         this._arrRedo();           break;
             case 'save-arrangement': this._saveArrangement();   break;
@@ -799,6 +823,9 @@ class LoopManagerModal extends BaseModal {
         } else if (id === 'lm-live-search') {
             this._liveSearch = e.target.value;
             this._renderLiveArea();
+        } else if (id === 'la-palette-search') {
+            this._paletteSearch = e.target.value;
+            this._renderPalette();
         } else if (id === 'la-name-input') {
             if (this.arrangementName === e.target.value) return;
             this.arrangementName = e.target.value;
@@ -1692,7 +1719,10 @@ class LoopManagerModal extends BaseModal {
                 data-arr-id="${a.id}" role="button" tabindex="0">
                 <span class="la-arr-name">${this.escape(a.name)}</span>
                 <span class="la-arr-meta">${a.global_tempo} BPM · ${a.total_bars} ${this.t('loopCreator.barsUnit')}</span>
-                <button class="lc-card-btn lc-card-btn--danger" data-arr-action="delete" data-arr-id="${a.id}">🗑</button>
+                <button class="lc-card-btn" data-arr-action="duplicate" data-arr-id="${a.id}"
+                    title="${this.t('loopManager.duplicateArrangement')}">⎘</button>
+                <button class="lc-card-btn lc-card-btn--danger" data-arr-action="delete" data-arr-id="${a.id}"
+                    title="${this.t('loopManager.deleteArrangement')}">🗑</button>
             </div>`).join('');
         if (!el.dataset.lcWired) {
             el.dataset.lcWired = '1';
@@ -1707,6 +1737,12 @@ class LoopManagerModal extends BaseModal {
                         { icon: '🗑️', danger: true }
                     );
                     if (ok) this._deleteArrangement(id);
+                    return;
+                }
+                const dup = e.target.closest('[data-arr-action="duplicate"]');
+                if (dup) {
+                    e.stopPropagation();
+                    this._duplicateArrangement(parseInt(dup.dataset.arrId));
                     return;
                 }
                 const item = e.target.closest('[data-arr-id]');
@@ -1769,6 +1805,7 @@ class LoopManagerModal extends BaseModal {
             f('#la-bars',       arrangement.total_bars);
             this._trackMute.clear();
             this._trackSolo.clear();
+            this._arrangerStartBar = 0;
             this._renderTimeline();
             this._loadArrangements();   // refresh full list so other items remain visible
         } catch (err) {
@@ -1867,7 +1904,13 @@ class LoopManagerModal extends BaseModal {
         const grid = this.$('#la-palette-grid');
         if (!grid) return;
         if (!this.library.length) { grid.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`; return; }
-        grid.innerHTML = this.library.map(loop => {
+        const q = (this._paletteSearch || '').trim().toLowerCase();
+        const items = q
+            ? this.library.filter(l => (l.name || '').toLowerCase().includes(q)
+                  || (GM_PROGRAM_NAMES[l.instrument_program ?? 0] || '').toLowerCase().includes(q))
+            : this.library;
+        if (!items.length) { grid.innerHTML = `<div class="lc-empty">${this.t('loopManager.noResults')}</div>`; return; }
+        grid.innerHTML = items.map(loop => {
             const family = LoopUtils.familyForProgram(loop.instrument_program ?? 0);
             return `<div class="la-palette-chip" draggable="true" data-loop-id="${loop.id}"
                 data-loop-bars="${loop.bars}" data-loop-name="${this.escape(loop.name)}"
@@ -1904,10 +1947,47 @@ class LoopManagerModal extends BaseModal {
         let html = '';
         for (let b = 0; b < this.arrangementBars; b++) {
             const marker = (b % 4 === 0) ? `<span class="la-ruler-label">${b+1}</span>` : '';
-            html += `<div class="la-ruler-cell" style="width:${BAR_W}px">${marker}</div>`;
+            html += `<div class="la-ruler-cell" data-ruler-bar="${b}" style="width:${BAR_W}px">${marker}</div>`;
         }
         ruler.style.width = (BAR_W * this.arrangementBars) + 'px';
         ruler.innerHTML = html;
+        if (!ruler.dataset.lcWired) {
+            ruler.dataset.lcWired = '1';
+            ruler.title = this.t('loopManager.rulerClickHint');
+            ruler.style.cursor = 'pointer';
+            ruler.addEventListener('click', (e) => {
+                const cell = e.target.closest('[data-ruler-bar]');
+                if (!cell) return;
+                const bar = parseInt(cell.dataset.rulerBar);
+                if (Number.isNaN(bar)) return;
+                if (this.isArrangerPlaying) {
+                    this._stopArrangerPlay();
+                    this._playArrangement(bar);
+                } else {
+                    this._arrangerStartBar = bar;
+                    this._renderArrangerStartMarker();
+                }
+            });
+        }
+        this._renderArrangerStartMarker();
+    }
+
+    _renderArrangerStartMarker() {
+        const wrap = this.$('#la-timeline-wrap');
+        if (!wrap) return;
+        let marker = wrap.querySelector('.la-start-marker');
+        if (this._arrangerStartBar <= 0 || this.isArrangerPlaying) {
+            marker?.remove();
+            return;
+        }
+        if (!marker) {
+            marker = document.createElement('div');
+            marker.className = 'la-start-marker';
+            wrap.appendChild(marker);
+        }
+        const BAR_W  = this._barWidth();
+        const labelW = this.$('.la-track-label')?.offsetWidth || 120;
+        marker.style.transform = `translateX(${labelW + this._arrangerStartBar * BAR_W}px)`;
     }
 
     _renderTracks() {
@@ -1926,9 +2006,16 @@ class LoopManagerModal extends BaseModal {
         const trackEl = document.createElement('div');
         trackEl.className = `la-track${muted ? ' la-track--muted' : ''}${soloed ? ' la-track--solo' : ''}${audible ? '' : ' la-track--silent'}`;
         trackEl.dataset.trackId = track.id;
+        trackEl.style.height = this._trackHeight() + 'px';
+        const chOpts = ['<option value="">—</option>'];
+        for (let c = 1; c <= 16; c++) {
+            chOpts.push(`<option value="${c}"${track.midi_channel === c ? ' selected' : ''}>${c}</option>`);
+        }
         trackEl.innerHTML = `
             <div class="la-track-label">
                 <input type="text" class="la-track-name-input lc-name-input" value="${this.escape(track.label)}" data-track-id="${track.id}" />
+                <select class="la-track-channel lc-select lc-select-xs" data-track-id="${track.id}"
+                    title="${this.t('loopManager.trackChannel')}">${chOpts.join('')}</select>
                 <button class="la-track-toggle la-track-toggle--mute${muted ? ' la-track-toggle--active' : ''}"
                     data-track-action="mute" data-track-id="${track.id}"
                     aria-pressed="${muted}" title="${this.t('loopManager.trackMute')}">M</button>
@@ -2042,6 +2129,19 @@ class LoopManagerModal extends BaseModal {
         trackEl.querySelector('[data-track-action="delete"]')?.addEventListener('click', () => this._deleteTrack(track.id));
         trackEl.querySelector('[data-track-action="mute"]')?.addEventListener('click', () => this._toggleTrackMute(track.id));
         trackEl.querySelector('[data-track-action="solo"]')?.addEventListener('click', () => this._toggleTrackSolo(track.id));
+        trackEl.querySelector('.la-track-channel')?.addEventListener('change', async (e) => {
+            const ch = e.target.value === '' ? null : parseInt(e.target.value);
+            try {
+                await this.api.sendCommand('arrangement_update_track', { trackId: track.id, midi_channel: ch });
+                const t = this.tracks.find(x => x.id === track.id);
+                if (t) t.midi_channel = ch;
+                this._pushArrHistory();
+            } catch (err) {
+                LoopUtils.handleError(err, 'arr.track.channel', {
+                    toast: this.t('loopManager.errSave')
+                });
+            }
+        });
         return trackEl;
     }
 
@@ -2255,9 +2355,39 @@ class LoopManagerModal extends BaseModal {
     }
 
     _arrZoomReset() {
-        if (this._arrangerZoom === 1) return;
-        this._arrangerZoom = 1;
+        if (this._arrangerZoom === 1 && this._arrangerZoomV === 1) return;
+        this._arrangerZoom  = 1;
+        this._arrangerZoomV = 1;
         this._renderTimeline();
+    }
+
+    _arrZoomV(factor) {
+        const next = Math.max(0.6, Math.min(3, (this._arrangerZoomV || 1) * factor));
+        if (next === this._arrangerZoomV) return;
+        this._arrangerZoomV = next;
+        this._renderTracks();
+    }
+
+    _trackHeight() {
+        return Math.round(50 * (this._arrangerZoomV || 1));
+    }
+
+    _toggleLoopPlayback() {
+        this._arrangerLoop = !this._arrangerLoop;
+        const btn = this.$('#la-loop-btn');
+        if (btn) {
+            btn.setAttribute('aria-pressed', this._arrangerLoop ? 'true' : 'false');
+            btn.classList.toggle('lc-btn-icon--active', this._arrangerLoop);
+        }
+    }
+
+    _toggleCountIn() {
+        this._arrangerCountIn = !this._arrangerCountIn;
+        const btn = this.$('#la-countin-btn');
+        if (btn) {
+            btn.setAttribute('aria-pressed', this._arrangerCountIn ? 'true' : 'false');
+            btn.classList.toggle('lc-btn-icon--active', this._arrangerCountIn);
+        }
     }
 
     _barFromX(offsetX, barW) {
@@ -2425,6 +2555,54 @@ class LoopManagerModal extends BaseModal {
         }
     }
 
+    async _duplicateArrangement(sourceId) {
+        if (this._arrDirty && !confirm(this.t('loopManager.confirmSwitchArrangement'))) return;
+        try {
+            const r = await this.api.sendCommand('arrangement_get', { arrangementId: sourceId });
+            const { arrangement, tracks, blocks } = r;
+            const create = await this.api.sendCommand('arrangement_create', {
+                name: this.t('loopManager.copySuffix', { name: arrangement.name }),
+                global_tempo: arrangement.global_tempo,
+                total_bars:   arrangement.total_bars
+            });
+            const newId = create.arrangementId;
+            // _create auto-adds 3 default tracks — remove them first
+            const created = await this.api.sendCommand('arrangement_get', { arrangementId: newId });
+            for (const t of created.tracks) {
+                await this.api.sendCommand('arrangement_delete_track', { trackId: t.id });
+            }
+            // Recreate source tracks (keeping order) and remember the id mapping
+            const trackIdMap = new Map();
+            for (let i = 0; i < tracks.length; i++) {
+                const src = tracks[i];
+                const tr = await this.api.sendCommand('arrangement_add_track', {
+                    arrangementId: newId,
+                    label: src.label,
+                    midi_channel: src.midi_channel,
+                    track_index: i
+                });
+                trackIdMap.set(src.id, tr.trackId);
+            }
+            // Recreate blocks
+            for (const b of blocks) {
+                const newTrackId = trackIdMap.get(b.track_id);
+                if (!newTrackId) continue;
+                await this.api.sendCommand('arrangement_add_block', {
+                    trackId: newTrackId,
+                    loopId:  b.loop_id,
+                    position_bar: b.position_bar,
+                    repetitions: b.repetitions
+                });
+            }
+            await this._loadArrangementById(newId);
+            LoopUtils.toast?.(this.t('loopManager.arrangementDuplicated'), 'success');
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.duplicate', {
+                toast: this.t('loopManager.errDuplicateArrangement')
+            });
+        }
+    }
+
     _adjustArrTempo(d) {
         const prev = this.arrangementTempo;
         this.arrangementTempo = LoopUtils.validate.tempo(prev + d, prev);
@@ -2450,13 +2628,16 @@ class LoopManagerModal extends BaseModal {
     // ARRANGER — PLAYBACK
     // =========================================================
 
-    async _playArrangement() {
+    async _playArrangement(startBar = 0) {
         if (!this.currentArrangementId || this.isArrangerPlaying) return;
         this._stopArrangerPlay();
         this.isArrangerPlaying = true;
         this.$('#la-play-btn')?.classList.add('lc-btn-record--active');
 
         const secPerBar  = 60 / this.arrangementTempo * 4;
+        this._arrangerStartBar = Math.max(0, Math.min(this.arrangementBars - 1, startBar | 0));
+        const startSec   = this._arrangerStartBar * secPerBar;
+        const totalSec   = this.arrangementBars * secPerBar;
         const events = [];
         const programsToLoad = new Set([0]);
 
@@ -2474,7 +2655,15 @@ class LoopManagerModal extends BaseModal {
             for (let rep = 0; rep < block.repetitions; rep++) {
                 const offsetSec = block.position_bar * secPerBar + rep * loopDurSec;
                 for (const note of seq) {
-                    events.push({ ms: (offsetSec + note.t * spt) * 1000, note: note.n, vel: note.v || 80, durSec: (note.g || note.l || 120) * spt, prog });
+                    const evSec = offsetSec + note.t * spt;
+                    if (evSec < startSec || evSec >= totalSec) continue;
+                    events.push({
+                        sec: evSec - startSec,
+                        note: note.n, vel: note.v || 80,
+                        durSec: (note.g || note.l || 120) * spt,
+                        prog,
+                        trackId: block.track_id
+                    });
                 }
             }
         }
@@ -2508,32 +2697,109 @@ class LoopManagerModal extends BaseModal {
             }
         }
 
-        // Assign each unique program to its own MIDI channel so they play simultaneously
+        // Allocate channels: tracks with a custom midi_channel keep theirs;
+        // remaining programs auto-assign onto the rest.
+        const trackChMap = new Map();   // trackId → channel
+        const usedCh     = new Set();
+        for (const t of this.tracks) {
+            const ch = (t.midi_channel ?? 0);
+            if (ch > 0 && ch <= 16 && !usedCh.has(ch - 1)) {
+                trackChMap.set(t.id, ch - 1);
+                usedCh.add(ch - 1);
+            }
+        }
+        // Second garde-fou (AUDIT §L4) : programmes + canaux pré-réservés
+        // par les tracks ne doivent pas dépasser 16 au total. Le check
+        // initial sur programsToLoad.size > 16 ne couvrait pas le cas où
+        // des tracks revendiquent un midi_channel personnalisé (usedCh).
+        if (programsToLoad.size + usedCh.size > 16) {
+            LoopUtils.toast(
+                this.t('loopManager.errTooManyPrograms', {
+                    max: 16 - usedCh.size,
+                    count: programsToLoad.size
+                }) || `Arrangement needs ${programsToLoad.size + usedCh.size} MIDI channels (max 16). Playback cancelled.`,
+                'error'
+            );
+            this.isArrangerPlaying = false;
+            this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
+            return;
+        }
         const programChannelMap = new Map();
         let chIdx = 0;
+        const nextFreeCh = () => {
+            while (chIdx < 16 && usedCh.has(chIdx)) chIdx++;
+            const c = chIdx % 16;
+            chIdx++;
+            return c;
+        };
         for (const prog of programsToLoad) {
-            const ch = chIdx++;
+            const ch = nextFreeCh();
             programChannelMap.set(prog, ch);
             try { target?.setChannelInstrument?.(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'arr.synth.setChannelInstrument'); }
         }
+        // Set per-track channel programs (channel hosts that track's loop progs)
+        for (const [trackId, ch] of trackChMap) {
+            // Use the first block on that track to determine which program to load
+            const block = this.blocks.find(b => b.track_id === trackId);
+            if (!block) continue;
+            const loop = this.library.find(l => l.id === block.loop_id);
+            const prog = loop?.instrument_program ?? 0;
+            try { target?.setChannelInstrument?.(ch, prog); }
+            catch (err) { LoopUtils.handleError(err, 'arr.synth.setChannelInstrument.track'); }
+        }
 
-        // Sort by time and schedule notes on their assigned channels
-        events.sort((a, b) => a.ms - b.ms);
+        const scheduleEvents = (offsetMs) => {
+            for (const ev of events) {
+                const ch = trackChMap.has(ev.trackId)
+                    ? trackChMap.get(ev.trackId)
+                    : (programChannelMap.get(ev.prog) ?? 0);
+                this._arrangerTimers.push(setTimeout(() => {
+                    if (!this.isArrangerPlaying) return;
+                    try { target?.playNote?.(ev.note, ev.vel, ch, ev.durSec); }
+                    catch (err) { LoopUtils.handleError(err, 'arr.synth.playNote'); }
+                }, offsetMs + ev.sec * 1000));
+            }
+        };
 
-        for (const ev of events) {
-            const evCh = programChannelMap.get(ev.prog) ?? 0;
+        events.sort((a, b) => a.sec - b.sec);
+
+        const countInMs = this._arrangerCountIn ? secPerBar * 1000 : 0;
+        const playableMs = (totalSec - startSec) * 1000;
+
+        if (this._arrangerCountIn) this._scheduleCountIn(target, secPerBar);
+        scheduleEvents(countInMs);
+
+        if (this._arrangerLoop) {
+            // Re-arm playback when the iteration completes (cooperative loop)
             this._arrangerTimers.push(setTimeout(() => {
                 if (!this.isArrangerPlaying) return;
-                try { target?.playNote?.(ev.note, ev.vel, evCh, ev.durSec); }
-                catch (err) { LoopUtils.handleError(err, 'arr.synth.playNote'); }
-            }, ev.ms));
+                this.isArrangerPlaying = false;
+                this._arrangerTimers.forEach(t => clearTimeout(t));
+                this._arrangerTimers = [];
+                this._playArrangement(0);
+            }, countInMs + playableMs));
+        } else {
+            this._arrangerTimers.push(setTimeout(() => this._stopArrangerPlay(), countInMs + playableMs));
         }
-        const totalMs = this.arrangementBars * secPerBar * 1000;
-        this._arrangerTimers.push(setTimeout(() => this._stopArrangerPlay(), totalMs));
 
-        this._arrangerStartTime = performance.now();
+        this._arrangerStartTime = performance.now() + countInMs;
         this._startPlaybarRAF();
+    }
+
+    _scheduleCountIn(target, secPerBar) {
+        // 4 clicks (a beat) using GM Woodblock (program 115) on channel 9
+        const ch = 9;
+        try { target?.setChannelInstrument?.(ch, 115); }
+        catch (err) { LoopUtils.handleError(err, 'arr.countIn.setProgram'); }
+        const beatMs = (secPerBar / 4) * 1000;
+        for (let i = 0; i < 4; i++) {
+            this._arrangerTimers.push(setTimeout(() => {
+                if (!this.isArrangerPlaying) return;
+                try { target?.playNote?.(76, 100, ch, 0.08); }
+                catch (err) { LoopUtils.handleError(err, 'arr.countIn.playNote'); }
+            }, i * beatMs));
+        }
     }
 
     _stopArrangerPlay() {
@@ -2547,6 +2813,7 @@ class LoopManagerModal extends BaseModal {
         catch (err) { LoopUtils.handleError(err, 'arr.device.cancelAllNotes'); }
         this._stopPlaybarRAF();
         this._renderPlaybar();
+        this._renderArrangerStartMarker();
     }
 
     // =========================================================
@@ -2591,7 +2858,7 @@ class LoopManagerModal extends BaseModal {
         }
         const BAR_W = this._barWidth();
         const secPerBar = 60 / this.arrangementTempo * 4;
-        const bar = Math.min(this.arrangementBars, elapsedSec / secPerBar);
+        const bar = Math.min(this.arrangementBars, this._arrangerStartBar + elapsedSec / secPerBar);
         const labelW = this.$('.la-track-label')?.offsetWidth || 120;
         ph.style.display = 'block';
         ph.style.transform = `translateX(${labelW + bar * BAR_W}px)`;
@@ -2606,8 +2873,9 @@ class LoopManagerModal extends BaseModal {
             fill.style.removeProperty('--playbar-dur');
             const secPerBar = 60 / this.arrangementTempo * 4;
             const totalMs   = this.arrangementBars * secPerBar * 1000;
+            const startMs   = this._arrangerStartBar * secPerBar * 1000;
             const elapsed   = performance.now() - this._arrangerStartTime;
-            const pct = Math.min(100, elapsed / totalMs * 100);
+            const pct = Math.min(100, Math.max(0, (startMs + elapsed) / totalMs * 100));
             fill.style.width = pct + '%';
             this._renderArrangerPlayhead(elapsed / 1000);
             return;
