@@ -393,13 +393,12 @@
                     <div class="midi-editor-container">
                         <!-- Section Notes -->
                         <div class="midi-editor-section notes-section">
-                            <!-- Navigation Overview Bar -->
-                            <div class="navigation-overview-wrap" id="navigation-overview-container"></div>
-                            <!-- Playback Timeline Bar -->
-                            <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
+                            <!-- Navigation Overview Bar (loop mode uses LoopEditor's own minimap instead) -->
+                            ${loop ? '' : '<div class="navigation-overview-wrap" id="navigation-overview-container"></div>'}
+                            <!-- Playback Timeline Bar (loop mode lets the outer LoopEditor own transport) -->
+                            ${loop ? '' : '<div class="playback-timeline-wrap" id="playback-timeline-container"></div>'}
                             <div class="piano-roll-wrapper">
-                                <!-- Shared PianoRollEditor toolbar (toolbar-only mode) -->
-                                <div id="midi-editor-pre-toolbar"></div>
+                                ${loop ? '' : '<!-- Shared PianoRollEditor toolbar (toolbar-only mode) -->\n                                <div id="midi-editor-pre-toolbar"></div>'}
                                 <div class="piano-roll-container" id="piano-roll-container">
                                     <!-- webaudio-pianoroll will be inserted here -->
                                 </div>
@@ -575,11 +574,14 @@
         if (!this.modal.midiData) this.modal.midiData = {};
         this.modal.midiData.maxTick = maxTick;
 
-    // Default zoom that shows ~20 seconds
-    // At 480 ticks/beat and 120 BPM: 20s = 9600 ticks
+    // Default zoom — loop mode fits the whole loop (bars × timeSig × ppq)
+    // into the view since that's the unit of work. Standard (file) mode
+    // keeps the legacy "first 20 seconds" framing.
         const ticksPerBeat = this.modal.midiData.header?.ticksPerBeat || 480;
         const twentySeconds = ticksPerBeat * 40; // ~20 seconds at 120 BPM
-        const xrange = Math.min(maxTick > 0 ? maxTick : twentySeconds, twentySeconds); // View over the first 20s (or less for short files)
+        const xrange = this.modal.loopMode
+            ? (maxTick > 0 ? maxTick : ticksPerBeat * 4)
+            : Math.min(maxTick > 0 ? maxTick : twentySeconds, twentySeconds);
 
     // Vertically centered view that keeps every note of visible channels onscreen
         const noteRange = Math.max(24, maxNote - minNote + 4); // +4 note margin instead of +24
@@ -614,7 +616,10 @@
     // coherence with LoopEditorModal. The actual editing routines stay on
     // MidiEditor's existing facades (editActions, sequenceOps) — passed as
     // `actions` so PianoRollEditor delegates each button to them.
-        this._mountSharedToolbar();
+    // In loop/panel mode the host already gets MidiEditor's own toolbar,
+    // so re-mounting a shared one would just stack a duplicate above the
+    // piano roll.
+        if (!this.modal.loopMode) this._mountSharedToolbar();
 
     // Hide the piano roll's native SVG markers (replaced by PlaybackTimelineBar)
         const cursorImg = this.modal.pianoRoll.querySelector('#wac-cursor');
