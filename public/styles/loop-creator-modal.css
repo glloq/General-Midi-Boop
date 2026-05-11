@@ -528,8 +528,9 @@
     display: flex; flex-direction: column; overflow: hidden;
 }
 .la-palette-title {
-    font-size: 0.72rem; font-weight: 600; color: var(--text-secondary, #888);
-    text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 8px 3px;
+    /* Caché : la barre de recherche compacte est suffisante pour identifier
+     * la zone palette (demande utilisateur : strict minimum). */
+    display: none;
 }
 .la-palette-grid { overflow-y: auto; padding: 3px 6px 6px; flex: 1 1 0; display: flex; flex-direction: column; gap: 5px; }
 .la-palette-chip {
@@ -681,10 +682,20 @@ body.dark-mode  .la-playhead {
     width: 16px; flex-shrink: 0; font-size: 0.85rem;
 }
 
-/* Palette search */
-.la-palette-search {
-    margin: 4px 6px; padding: 3px 6px; font-size: 0.75rem;
-    border-radius: 4px;
+/* Palette search — strict minimum (demande utilisateur). */
+.la-palette-search,
+.loop-creator-modal .la-palette-search.lc-name-input {
+    height: 20px;
+    margin: 2px 4px;
+    padding: 0 6px;
+    font-size: 0.74rem;
+    font-weight: 500;
+    border-radius: 3px;
+    border: 1px solid var(--border-color, #dde0e6);
+    background: var(--bg-primary, #fff);
+    flex: none;
+    min-width: 0;
+    max-width: none;
 }
 
 /* Track MIDI channel select */
