@@ -121,6 +121,11 @@ class LoopManagerModal extends BaseModal {
         this.outputDeviceId = null;
         this.outputChannel  = 0;
 
+        // ── Global output selector (header) — drives Pad / Live / Arranger ──
+        this._globalOutput = { mode: 'synth', deviceId: null, channel: 0 };
+        this._deviceShim   = null;
+        this._cachedDevices = [];
+
         // Bound doc handlers for arranger drag
         this._boundDocMouseUp   = this._onDocMouseUp.bind(this);
         this._boundDocMouseMove = this._onDocMouseMove.bind(this);
@@ -152,6 +157,16 @@ class LoopManagerModal extends BaseModal {
                 <button class="lc-tab${this.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" aria-selected="${this.activeTab==='arranger'}">∞ ${this.t('loopManager.tabArranger')}</button>
             </div>
             <div class="lc-header-actions">
+                <div class="lc-header-output" id="lc-header-output-wrap">
+                    <span class="lc-header-output-icon" id="lc-header-output-icon" aria-hidden="true">🔊</span>
+                    <select id="lc-header-output" class="lc-select lc-select-output"
+                        title="${this.t('loopCreator.outputLabel')}">
+                        <option value="synth" selected>${this.t('loopManager.outputSynth')}</option>
+                    </select>
+                    <select id="lc-header-output-ch" class="lc-select lc-select-output-ch"
+                        title="${this.t('loopCreator.outputChannel')}"
+                        style="display:none"></select>
+                </div>
                 <button class="lc-btn lc-btn-primary lc-btn-sm" id="lc-header-save"
                     data-action="save-arrangement"
                     style="${showSave ? '' : 'display:none'}">💾 ${this.t('loopCreator.saveArrangement')}</button>
@@ -262,10 +277,6 @@ class LoopManagerModal extends BaseModal {
             <div class="lc-ctrl-bar">
                 <input type="text" id="lm-live-search" class="lc-name-input lm-lib-search"
                     placeholder="${this.t('loopManager.search')}" value="${this.escape(this._liveSearch || '')}" autocomplete="off" />
-                <span class="lc-ctrl-sep"></span>
-                <span class="lc-label">${this.t('loopManager.liveOutput')}:</span>
-                <button class="lc-btn lc-btn-icon lc-btn-output" id="lm-live-output-btn" data-action="live-toggle-output">🔊</button>
-                <span class="lc-unit" id="lm-live-output-label">${this.t('loopManager.outputSynth')}</span>
                 <span class="lc-ctrl-spacer"></span>
                 <button class="lc-btn lc-btn-sm" data-action="live-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
             </div>
@@ -346,9 +357,128 @@ class LoopManagerModal extends BaseModal {
         this._initLiveSynth();
         this._attachEvents();
         this._loadLibrary();
+        this._loadHeaderOutputDevices();
         document.addEventListener('mouseup',    this._boundDocMouseUp);
         document.addEventListener('mousemove',  this._boundDocMouseMove);
         document.addEventListener('keydown',    this._boundKeyDown);
+    }
+
+    // ── Global output selector (header) ────────────────────────
+    async _loadHeaderOutputDevices() {
+        const sel = this.$('#lc-header-output');
+        if (!sel) return;
+        try {
+            const allDevices = await this.api.listDevices();
+            this._cachedDevices = (allDevices || []).filter(d => d.status === 2 || d.connected === true);
+        } catch (err) {
+            LoopUtils.handleError(err, 'manager.header.listDevices');
+            this._cachedDevices = [];
+        }
+        // Rebuild options, preserving current selection if still valid
+        const current = sel.value;
+        sel.innerHTML = `<option value="synth">${this.t('loopManager.outputSynth')}</option>`;
+        for (const d of this._cachedDevices) {
+            const id  = d.device_id || d.id;
+            const opt = document.createElement('option');
+            opt.value = `device:${id}`;
+            opt.textContent = `🔌 ${d.name || id}`;
+            sel.appendChild(opt);
+        }
+        if (current && [...sel.options].some(o => o.value === current)) {
+            sel.value = current;
+        } else {
+            sel.value = 'synth';
+            this._setGlobalOutput({ mode: 'synth', deviceId: null });
+        }
+        this._refreshHeaderOutputUI();
+    }
+
+    _ensureChannelOptions() {
+        const sel = this.$('#lc-header-output-ch');
+        if (!sel || sel.options.length) return;
+        for (let i = 0; i < 16; i++) {
+            const opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = `Ch ${i + 1}`;
+            sel.appendChild(opt);
+        }
+        sel.value = String(this._globalOutput.channel || 0);
+    }
+
+    _refreshHeaderOutputUI() {
+        const sel    = this.$('#lc-header-output');
+        const chSel  = this.$('#lc-header-output-ch');
+        const icon   = this.$('#lc-header-output-icon');
+        const wrap   = this.$('#lc-header-output-wrap');
+        const isDev  = this._globalOutput.mode === 'device';
+        if (icon) icon.textContent = isDev ? '🔌' : '🔊';
+        if (wrap) wrap.classList.toggle('lc-header-output--device', isDev);
+        if (chSel) {
+            chSel.style.display = isDev ? '' : 'none';
+            this._ensureChannelOptions();
+            chSel.value = String(this._globalOutput.channel || 0);
+        }
+        if (sel) {
+            const target = this._globalOutput.mode === 'device' && this._globalOutput.deviceId
+                ? `device:${this._globalOutput.deviceId}` : 'synth';
+            if (sel.value !== target) sel.value = target;
+        }
+    }
+
+    _setGlobalOutput(next) {
+        const prev = this._globalOutput;
+        this._globalOutput = { ...prev, ...next };
+        // Switching target: stop everything to avoid stuck notes
+        if (prev.mode !== this._globalOutput.mode || prev.deviceId !== this._globalOutput.deviceId) {
+            this._stopAllPads();
+            this._liveStopAll();
+            this._stopArrangerPlay();
+            this._panicCurrentDevice(prev);
+            this._deviceShim = null; // rebuilt lazily
+        }
+        this._refreshHeaderOutputUI();
+    }
+
+    _panicCurrentDevice(target) {
+        if (!target || target.mode !== 'device' || !target.deviceId) return;
+        this.api.sendCommand('midi_panic', { deviceId: target.deviceId })
+            .catch(err => LoopUtils.handleError(err, 'manager.output.panic'));
+    }
+
+    _getOutputTarget(fallbackSynth) {
+        if (this._globalOutput.mode === 'device' && this._globalOutput.deviceId) {
+            if (!this._deviceShim) this._deviceShim = this._makeDeviceShim();
+            return this._deviceShim;
+        }
+        return fallbackSynth;
+    }
+
+    _makeDeviceShim() {
+        const api = this.api;
+        const getOutput = () => this._globalOutput;
+        return {
+            loadedInstruments: { has: () => true },
+            loadInstrument: async () => {},
+            setChannelInstrument: () => {},
+            cancelAllNotes: () => {
+                const out = getOutput();
+                if (!out.deviceId) return;
+                api.sendCommand('midi_panic', { deviceId: out.deviceId })
+                    .catch(err => LoopUtils.handleError(err, 'manager.shim.panic'));
+            },
+            playNote: (note, velocity, _ch, durSec) => {
+                const out = getOutput();
+                if (!out.deviceId) return null;
+                api.sendCommand('midi_send_note', {
+                    deviceId: out.deviceId,
+                    channel:  out.channel ?? 0,
+                    note,
+                    velocity: velocity || 80,
+                    duration: Math.max(20, Math.round((durSec || 0.5) * 1000))
+                }).catch(err => LoopUtils.handleError(err, 'manager.shim.playNote'));
+                return null;
+            }
+        };
     }
 
     onClose() {
@@ -473,7 +603,6 @@ class LoopManagerModal extends BaseModal {
             case 'kbd-toggle-output': this._kbdToggleOutput(); break;
             case 'kbd-stop-all':      this._kbdStopAllNotes(); break;
             // Live
-            case 'live-toggle-output': this._liveToggleOutput(); break;
             case 'live-stop-all':      this._liveStopAll(); break;
             case 'live-trigger': {
                 const loopId = parseInt(btn.dataset.loopId);
@@ -508,7 +637,18 @@ class LoopManagerModal extends BaseModal {
 
     _onChange(e) {
         const id = e.target.id;
-        if (id === 'lm-lib-filter') {
+        if (id === 'lc-header-output') {
+            const v = e.target.value || 'synth';
+            if (v === 'synth') {
+                this._setGlobalOutput({ mode: 'synth', deviceId: null });
+            } else if (v.startsWith('device:')) {
+                this._setGlobalOutput({ mode: 'device', deviceId: v.slice(7) });
+            }
+            return;
+        } else if (id === 'lc-header-output-ch') {
+            this._setGlobalOutput({ channel: parseInt(e.target.value) || 0 });
+            return;
+        } else if (id === 'lm-lib-filter') {
             this._libFilter = e.target.value;
             this._filterAndRenderLibrary();
         } else if (id === 'lm-lib-sort') {
@@ -883,12 +1023,13 @@ class LoopManagerModal extends BaseModal {
 
         // Each pad uses its own MIDI channel (0-15) so multiple instruments can play simultaneously
         const ch = index;
-        if (this._padSynth) {
+        const target = this._getOutputTarget(this._padSynth);
+        if (target) {
             const prog = loopData.instrument_program ?? 0;
-            try { this._padSynth.setChannelInstrument(ch, prog); }
+            try { target.setChannelInstrument(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'pad.synth.setChannelInstrument'); }
-            if (!this._padSynth.loadedInstruments?.has(prog)) {
-                await this._padSynth.loadInstrument(prog).catch(err =>
+            if (!target.loadedInstruments?.has(prog)) {
+                await target.loadInstrument(prog).catch(err =>
                     LoopUtils.handleError(err, 'pad.synth.loadInstrument'));
             }
         }
@@ -907,7 +1048,7 @@ class LoopManagerModal extends BaseModal {
 
         const isAlive = () => this._padPlayingIndex.has(index);
         const timers = LoopUtils.scheduleSequence({
-            synth: this._padSynth,
+            synth: this._getOutputTarget(this._padSynth),
             sequence: seq,
             tempo: loopData.tempo || 120,
             ppq:   loopData.ppq   || 480,
@@ -941,6 +1082,8 @@ class LoopManagerModal extends BaseModal {
         this._padPlayTimes.clear();
         try { this._padSynth?.cancelAllNotes?.(); }
         catch (err) { LoopUtils.handleError(err, 'pad.synth.cancelAllNotes'); }
+        try { this._deviceShim?.cancelAllNotes?.(); }
+        catch (err) { LoopUtils.handleError(err, 'pad.device.cancelAllNotes'); }
     }
 
     _updatePadCell(index) {
@@ -1227,12 +1370,13 @@ class LoopManagerModal extends BaseModal {
 
         // Allocate a unique channel so multiple instruments can play simultaneously
         const ch = this._allocLiveChannel();
-        if (this._liveSynth) {
+        const target = this._getOutputTarget(this._liveSynth);
+        if (target) {
             const prog = loopData.instrument_program ?? 0;
-            try { this._liveSynth.setChannelInstrument(ch, prog); }
+            try { target.setChannelInstrument(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'live.synth.setChannelInstrument'); }
-            if (!this._liveSynth.loadedInstruments?.has(prog)) {
-                await this._liveSynth.loadInstrument(prog).catch(err =>
+            if (!target.loadedInstruments?.has(prog)) {
+                await target.loadInstrument(prog).catch(err =>
                     LoopUtils.handleError(err, 'live.synth.loadInstrument'));
             }
         }
@@ -1259,7 +1403,7 @@ class LoopManagerModal extends BaseModal {
 
         const isAlive = () => this._livePlayingLoops.has(loopId);
         state.timers = LoopUtils.scheduleSequence({
-            synth: this._liveSynth,
+            synth: this._getOutputTarget(this._liveSynth),
             sequence: seq,
             tempo: loopData.tempo || 120,
             ppq:   loopData.ppq   || 480,
@@ -1283,16 +1427,8 @@ class LoopManagerModal extends BaseModal {
         for (const loopId of [...this._livePlayingLoops.keys()]) this._liveStop(loopId);
         try { this._liveSynth?.cancelAllNotes?.(); }
         catch (err) { LoopUtils.handleError(err, 'live.synth.cancelAllNotes'); }
-    }
-
-    _liveToggleOutput() {
-        // Placeholder: toggle between synth and live output
-        const btn   = this.$('#lm-live-output-btn');
-        const label = this.$('#lm-live-output-label');
-        const isLive = btn?.textContent === '🔌';
-        if (btn)   btn.textContent = isLive ? '🔊' : '🔌';
-        if (label) label.textContent = isLive ? this.t('loopManager.outputSynth') : this.t('loopManager.outputLive');
-        if (btn)   btn.classList.toggle('lc-btn-output--active', !isLive);
+        try { this._deviceShim?.cancelAllNotes?.(); }
+        catch (err) { LoopUtils.handleError(err, 'live.device.cancelAllNotes'); }
     }
 
     _updateLiveButton(loopId, playing) {
@@ -1901,11 +2037,13 @@ class LoopManagerModal extends BaseModal {
             }
         }
 
+        const target = this._getOutputTarget(this._arrangerSynth);
+
         // Preload all instruments used
-        if (this._arrangerSynth) {
+        if (target) {
             for (const prog of programsToLoad) {
-                if (!this._arrangerSynth.loadedInstruments?.has(prog)) {
-                    await this._arrangerSynth.loadInstrument(prog).catch(err =>
+                if (!target.loadedInstruments?.has(prog)) {
+                    await target.loadInstrument(prog).catch(err =>
                         LoopUtils.handleError(err, 'arr.synth.loadInstrument'));
                 }
             }
@@ -1917,7 +2055,7 @@ class LoopManagerModal extends BaseModal {
         for (const prog of programsToLoad) {
             const ch = chIdx++ % 16;
             programChannelMap.set(prog, ch);
-            try { this._arrangerSynth?.setChannelInstrument?.(ch, prog); }
+            try { target?.setChannelInstrument?.(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'arr.synth.setChannelInstrument'); }
         }
 
@@ -1928,7 +2066,7 @@ class LoopManagerModal extends BaseModal {
             const evCh = programChannelMap.get(ev.prog) ?? 0;
             this._arrangerTimers.push(setTimeout(() => {
                 if (!this.isArrangerPlaying) return;
-                try { this._arrangerSynth?.playNote?.(ev.note, ev.vel, evCh, ev.durSec); }
+                try { target?.playNote?.(ev.note, ev.vel, evCh, ev.durSec); }
                 catch (err) { LoopUtils.handleError(err, 'arr.synth.playNote'); }
             }, ev.ms));
         }
@@ -1946,6 +2084,8 @@ class LoopManagerModal extends BaseModal {
         this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
         try { this._arrangerSynth?.cancelAllNotes?.(); }
         catch (err) { LoopUtils.handleError(err, 'arr.synth.cancelAllNotes'); }
+        try { this._deviceShim?.cancelAllNotes?.(); }
+        catch (err) { LoopUtils.handleError(err, 'arr.device.cancelAllNotes'); }
         this._stopPlaybarRAF();
         this._renderPlaybar();
     }

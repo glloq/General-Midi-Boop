@@ -2592,6 +2592,8 @@
     "velocityHint": "Vélocité à appliquer (1-127)",
     "applyVelocity": "Appliquer la vélocité à la sélection",
     "velocityNoNotes": "Aucune note à modifier.",
-    "velocityApplied": "Vélocité {velocity} appliquée à {count} note(s)."
+    "velocityApplied": "Vélocité {velocity} appliquée à {count} note(s).",
+    "tabPianoVirtuel": "🎹 Piano virtuel",
+    "tabEditor": "🎼 Éditeur"
   }
 }
