@@ -363,6 +363,15 @@ class LoopEditorModal extends BaseModal {
             Promise.resolve(ready).then(() => {
                 this._initPanelMinimap();
                 this._initPanelResizeObserver();
+                // The piano-roll attribute width is read once from
+                // clientWidth at mount — if the Editor tab was hidden
+                // then, the canvas is stuck at the 1000 px fallback even
+                // after the pane becomes visible. Force a refit on the
+                // next two animation frames so layout has time to settle.
+                requestAnimationFrame(() => {
+                    this.pianoRollEditor?.refit?.();
+                    requestAnimationFrame(() => this.pianoRollEditor?.refit?.());
+                });
             });
             return;
         }
