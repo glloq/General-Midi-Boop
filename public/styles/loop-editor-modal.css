@@ -47,6 +47,7 @@
 
 .le-header-title {
     flex: 1 1 0;
+    min-width: 0;
     font-size: 0.92rem;
     font-weight: 600;
     color: #fff;

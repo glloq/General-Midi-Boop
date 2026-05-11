@@ -193,6 +193,15 @@ class LoopEditorModal extends BaseModal {
             <button class="lc-btn lc-btn-sm le-back-btn" data-action="close">← ${this.t('loopEditor.back')}</button>
             <span class="le-header-title">✏️ ${this.escape(name)}</span>
             <div class="le-header-actions">
+                <div class="lc-header-output" id="le-header-output-wrap">
+                    <span class="lc-header-output-icon" id="le-header-output-icon" aria-hidden="true">🔊</span>
+                    <select id="le-header-output" class="lc-select lc-select-output"
+                        title="${this.t('loopCreator.outputLabel')}">
+                        <option value="synth" selected>${this.t('loopManager.outputSynth')}</option>
+                    </select>
+                    <select id="le-header-output-ch" class="lc-select lc-select-output-ch"
+                        title="${this.t('loopCreator.outputChannel')}" style="display:none"></select>
+                </div>
                 <button class="lc-btn lc-btn-sm" data-action="save-loop-as-new" title="${this.t('loopEditor.saveAsNew')}">📋+</button>
                 <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="save-loop">💾 ${this.t('loopCreator.save')}</button>
                 <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
@@ -249,8 +258,6 @@ class LoopEditorModal extends BaseModal {
                             <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')} (Space)">▶</button>
                             <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
                         </div>
-                        <button class="lc-btn lc-btn-icon lc-btn-output" id="lc-output-toggle"
-                            data-action="toggle-output" title="${this.t('loopCreator.outputSynth')}">🔊</button>
                         <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                             <span class="lc-rec-dot lc-rec-dot--pulse"></span>
                             <span class="lc-rec-time" id="lc-rec-time">0:00</span>
@@ -371,10 +378,62 @@ class LoopEditorModal extends BaseModal {
         this._initPianoRoll();
         this._applyPianoRollVisibility();
         this._loadMidiInDevices();
+        this._loadHeaderOutputDevices();
         this._mountKeyboardPanel();
         this._attachKeyboardShortcuts();
         // Take the baseline snapshot AFTER the piano roll has the sequence
         requestAnimationFrame(() => this._markSaved());
+    }
+
+    async _loadHeaderOutputDevices() {
+        const sel = this.$('#le-header-output');
+        if (!sel) return;
+        let devices = [];
+        try {
+            const all = await this.api.listDevices();
+            devices = (all || []).filter(d => d.status === 2 || d.connected === true);
+        } catch (err) {
+            LoopUtils.handleError(err, 'editor.header.listDevices');
+        }
+        sel.innerHTML = `<option value="synth">${this.t('loopManager.outputSynth')}</option>`;
+        for (const d of devices) {
+            const id = d.device_id || d.id;
+            const opt = document.createElement('option');
+            opt.value = `device:${id}`;
+            opt.textContent = `🔌 ${d.name || id}`;
+            sel.appendChild(opt);
+        }
+        // Initialise from current state
+        const target = (this._outputTarget === 'live' && this.outputDeviceId)
+            ? `device:${this.outputDeviceId}` : 'synth';
+        sel.value = [...sel.options].some(o => o.value === target) ? target : 'synth';
+        this._refreshHeaderOutputUI();
+    }
+
+    _ensureHeaderChannelOptions() {
+        const sel = this.$('#le-header-output-ch');
+        if (!sel || sel.options.length) return;
+        for (let i = 0; i < 16; i++) {
+            const opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = `Ch ${i + 1}`;
+            sel.appendChild(opt);
+        }
+        sel.value = String(this.outputChannel || 0);
+    }
+
+    _refreshHeaderOutputUI() {
+        const icon  = this.$('#le-header-output-icon');
+        const wrap  = this.$('#le-header-output-wrap');
+        const chSel = this.$('#le-header-output-ch');
+        const isDev = this._outputTarget === 'live' && this.outputDeviceId;
+        if (icon) icon.textContent = isDev ? '🔌' : '🔊';
+        if (wrap) wrap.classList.toggle('lc-header-output--device', !!isDev);
+        if (chSel) {
+            chSel.style.display = isDev ? '' : 'none';
+            this._ensureHeaderChannelOptions();
+            chSel.value = String(this.outputChannel || 0);
+        }
     }
 
     close() {
@@ -451,6 +510,24 @@ class LoopEditorModal extends BaseModal {
 
     _onChange(e) {
         const id = e.target.id;
+        if (id === 'le-header-output') {
+            this._previewStopAll();
+            const v = e.target.value || 'synth';
+            if (v === 'synth') {
+                this._outputTarget = 'synth';
+                this.outputMode    = 'synth';
+            } else if (v.startsWith('device:')) {
+                this._outputTarget = 'live';
+                this.outputMode    = 'device';
+                this.outputDeviceId = v.slice(7);
+            }
+            this._refreshHeaderOutputUI();
+            return;
+        }
+        if (id === 'le-header-output-ch') {
+            this.outputChannel = parseInt(e.target.value) || 0;
+            return;
+        }
         if (id === 'lc-timesig') {
             const [num, den] = e.target.value.split(':').map(Number);
             this.timeSigNum = num; this.timeSigDen = den;
