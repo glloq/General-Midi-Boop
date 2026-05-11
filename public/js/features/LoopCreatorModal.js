@@ -154,15 +154,15 @@ class LoopManagerModal extends BaseModal {
         return `
         <div class="modal-header lc-header">
             <div class="lc-header-left">
-                <span class="lc-header-title">∞</span>
+                <span class="lc-header-title" aria-hidden="true">∞</span>
                 <span class="lc-header-subtitle">${this.t('loopManager.title')}</span>
             </div>
-            <div class="lc-header-tabs" role="tablist">
-                <button class="lc-tab${this.activeTab==='library'  ? ' lc-tab--active':''}" data-tab="library"  role="tab" aria-selected="${this.activeTab==='library'}">🗂 ${this.t('loopManager.tabLibrary')}</button>
-                <button class="lc-tab${this.activeTab==='pad'      ? ' lc-tab--active':''}" data-tab="pad"      role="tab" aria-selected="${this.activeTab==='pad'}">🎛 ${this.t('loopManager.tabPad')}</button>
-                <button class="lc-tab${this.activeTab==='live'     ? ' lc-tab--active':''}" data-tab="live"     role="tab" aria-selected="${this.activeTab==='live'}">⚡ ${this.t('loopManager.tabLive')}</button>
-                <button class="lc-tab${this.activeTab==='keyboard' ? ' lc-tab--active':''}" data-tab="keyboard" role="tab" aria-selected="${this.activeTab==='keyboard'}">🎹 ${this.t('loopManager.tabKeyboard')}</button>
-                <button class="lc-tab${this.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" aria-selected="${this.activeTab==='arranger'}">∞ ${this.t('loopManager.tabArranger')}</button>
+            <div class="lc-header-tabs" role="tablist" aria-label="${this.t('loopManager.title')}">
+                <button class="lc-tab${this.activeTab==='library'  ? ' lc-tab--active':''}" data-tab="library"  role="tab" id="lc-tab-library"  aria-controls="lc-pane-library"  aria-selected="${this.activeTab==='library'}"  tabindex="${this.activeTab==='library'?'0':'-1'}"><span aria-hidden="true">🗂</span> ${this.t('loopManager.tabLibrary')}</button>
+                <button class="lc-tab${this.activeTab==='pad'      ? ' lc-tab--active':''}" data-tab="pad"      role="tab" id="lc-tab-pad"      aria-controls="lc-pane-pad"      aria-selected="${this.activeTab==='pad'}"      tabindex="${this.activeTab==='pad'?'0':'-1'}"><span aria-hidden="true">🎛</span> ${this.t('loopManager.tabPad')}</button>
+                <button class="lc-tab${this.activeTab==='live'     ? ' lc-tab--active':''}" data-tab="live"     role="tab" id="lc-tab-live"     aria-controls="lc-pane-live"     aria-selected="${this.activeTab==='live'}"     tabindex="${this.activeTab==='live'?'0':'-1'}"><span aria-hidden="true">⚡</span> ${this.t('loopManager.tabLive')}</button>
+                <button class="lc-tab${this.activeTab==='keyboard' ? ' lc-tab--active':''}" data-tab="keyboard" role="tab" id="lc-tab-keyboard" aria-controls="lc-pane-keyboard" aria-selected="${this.activeTab==='keyboard'}" tabindex="${this.activeTab==='keyboard'?'0':'-1'}"><span aria-hidden="true">🎹</span> ${this.t('loopManager.tabKeyboard')}</button>
+                <button class="lc-tab${this.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" id="lc-tab-arranger" aria-controls="lc-pane-arranger" aria-selected="${this.activeTab==='arranger'}" tabindex="${this.activeTab==='arranger'?'0':'-1'}"><span aria-hidden="true">∞</span> ${this.t('loopManager.tabArranger')}</button>
             </div>
             <div class="lc-header-actions">
                 <button class="lc-btn lc-btn-sm lc-header-output-btn" id="lc-header-output-btn"
@@ -203,7 +203,7 @@ class LoopManagerModal extends BaseModal {
 
     _renderKeyboardTab() {
         return `
-        <div class="lc-pane lc-pane--hidden lm-kbd-pane" id="lc-pane-keyboard">
+        <div class="lc-pane lc-pane--hidden lm-kbd-pane" id="lc-pane-keyboard" role="tabpanel" aria-labelledby="lc-tab-keyboard">
             <div class="lm-kbd-panel" id="lm-kbd-panel"></div>
         </div>`;
     }
@@ -216,14 +216,17 @@ class LoopManagerModal extends BaseModal {
 
     _renderLibraryTab() {
         return `
-        <div class="lc-pane${this.activeTab==='library' ? '' : ' lc-pane--hidden'}" id="lc-pane-library">
+        <div class="lc-pane${this.activeTab==='library' ? '' : ' lc-pane--hidden'}" id="lc-pane-library" role="tabpanel" aria-labelledby="lc-tab-library">
             <div class="lc-ctrl-bar lc-ctrl-bar--lib">
-                <input type="text" id="lm-lib-search" class="lc-name-input lm-lib-search"
+                <input type="search" id="lm-lib-search" class="lc-name-input lm-lib-search"
+                    aria-label="${this.t('loopManager.search')}"
                     placeholder="${this.t('loopManager.search')}" value="${this.escape(this._libSearch)}" />
-                <select id="lm-lib-filter" class="lc-select lm-lib-filter">
+                <select id="lm-lib-filter" class="lc-select lm-lib-filter"
+                    aria-label="${this.t('loopManager.allInstruments')}">
                     <option value="">— ${this.t('loopManager.allInstruments')} —</option>
                 </select>
-                <select id="lm-lib-sort" class="lc-select lm-lib-sort">
+                <select id="lm-lib-sort" class="lc-select lm-lib-sort"
+                    aria-label="${this.t('loopManager.sortName')}">
                     <option value="name"       ${this._libSort==='name'       ?'selected':''}>↕ ${this.t('loopManager.sortName')}</option>
                     <option value="tempo"      ${this._libSort==='tempo'      ?'selected':''}>↕ ${this.t('loopManager.sortTempo')}</option>
                     <option value="bars"       ${this._libSort==='bars'       ?'selected':''}>↕ ${this.t('loopManager.sortBars')}</option>
@@ -254,21 +257,21 @@ class LoopManagerModal extends BaseModal {
                 title="${this.t('loopManager.' + labelKey)}"
                 aria-pressed="${this._padQuantize === val}">${this.t('loopManager.' + labelKey)}</button>`;
         return `
-        <div class="lc-pane lc-pane--hidden" id="lc-pane-pad">
+        <div class="lc-pane lc-pane--hidden" id="lc-pane-pad" role="tabpanel" aria-labelledby="lc-tab-pad">
             <div class="lc-ctrl-bar lc-ctrl-bar--pad">
-                <span class="lc-label">${this.t('loopManager.padCols')}</span>
+                <label class="lc-label" for="lm-pad-cols">${this.t('loopManager.padCols')}</label>
                 <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="pad-cols-dec">‹</button>
+                    <button class="lc-spin-btn" data-action="pad-cols-dec" aria-label="${this.t('loopManager.padCols')} −"><span aria-hidden="true">‹</span></button>
                     <input type="number" id="lm-pad-cols" class="lc-spin-input lc-spin-input--sm"
-                        value="${this._padCols}" min="1" max="8" />
-                    <button class="lc-spin-btn" data-action="pad-cols-inc">›</button>
+                        value="${this._padCols}" min="1" max="8" aria-label="${this.t('loopManager.padCols')}" />
+                    <button class="lc-spin-btn" data-action="pad-cols-inc" aria-label="${this.t('loopManager.padCols')} +"><span aria-hidden="true">›</span></button>
                 </div>
-                <span class="lc-label">${this.t('loopManager.padRows')}</span>
+                <label class="lc-label" for="lm-pad-rows">${this.t('loopManager.padRows')}</label>
                 <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="pad-rows-dec">‹</button>
+                    <button class="lc-spin-btn" data-action="pad-rows-dec" aria-label="${this.t('loopManager.padRows')} −"><span aria-hidden="true">‹</span></button>
                     <input type="number" id="lm-pad-rows" class="lc-spin-input lc-spin-input--sm"
-                        value="${this._padRows}" min="1" max="8" />
-                    <button class="lc-spin-btn" data-action="pad-rows-inc">›</button>
+                        value="${this._padRows}" min="1" max="8" aria-label="${this.t('loopManager.padRows')}" />
+                    <button class="lc-spin-btn" data-action="pad-rows-inc" aria-label="${this.t('loopManager.padRows')} +"><span aria-hidden="true">›</span></button>
                 </div>
                 <div class="lc-ctrl-sep"></div>
                 <span class="lc-label">${this.t('loopManager.padPlayMode')}</span>
@@ -299,7 +302,7 @@ class LoopManagerModal extends BaseModal {
 
     _renderLiveTab() {
         return `
-        <div class="lc-pane lc-pane--hidden" id="lc-pane-live">
+        <div class="lc-pane lc-pane--hidden" id="lc-pane-live" role="tabpanel" aria-labelledby="lc-tab-live">
             <div class="lc-ctrl-bar">
                 <input type="text" id="lm-live-search" class="lc-name-input lm-lib-search"
                     placeholder="${this.t('loopManager.search')}" value="${this.escape(this._liveSearch || '')}" autocomplete="off" />
@@ -318,37 +321,38 @@ class LoopManagerModal extends BaseModal {
 
     _renderArrangerTab() {
         return `
-        <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger">
+        <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
             <div class="lc-ctrl-bar lc-ctrl-bar--arr">
                 <input type="text" class="lc-name-input" id="la-name-input"
+                    aria-label="${this.t('loopCreator.arrangementName')}"
                     value="${this.escape(this.arrangementName || this.t('loopCreator.untitledArrangement'))}"
                     placeholder="${this.t('loopCreator.arrangementName')}" />
                 <div class="lc-ctrl-sep"></div>
                 <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="arr-tempo-dec">‹</button>
-                    <input type="number" id="la-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementTempo}" min="20" max="300" />
-                    <button class="lc-spin-btn" data-action="arr-tempo-inc">›</button>
+                    <button class="lc-spin-btn" data-action="arr-tempo-dec" aria-label="${this.t('loopCreator.tempo')} −"><span aria-hidden="true">‹</span></button>
+                    <input type="number" id="la-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementTempo}" min="20" max="300" aria-label="${this.t('loopCreator.tempo')}" />
+                    <button class="lc-spin-btn" data-action="arr-tempo-inc" aria-label="${this.t('loopCreator.tempo')} +"><span aria-hidden="true">›</span></button>
                 </div>
-                <span class="lc-unit">BPM</span>
+                <span class="lc-unit" aria-hidden="true">BPM</span>
                 <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="arr-bars-dec">‹</button>
-                    <input type="number" id="la-bars" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementBars}" min="4" max="256" step="4" />
-                    <button class="lc-spin-btn" data-action="arr-bars-inc">›</button>
+                    <button class="lc-spin-btn" data-action="arr-bars-dec" aria-label="${this.t('loopCreator.totalBars')} −"><span aria-hidden="true">‹</span></button>
+                    <input type="number" id="la-bars" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementBars}" min="4" max="256" step="4" aria-label="${this.t('loopCreator.totalBars')}" />
+                    <button class="lc-spin-btn" data-action="arr-bars-inc" aria-label="${this.t('loopCreator.totalBars')} +"><span aria-hidden="true">›</span></button>
                 </div>
-                <span class="lc-unit" title="${this.t('loopCreator.totalBars')}">M</span>
+                <span class="lc-unit" aria-hidden="true" title="${this.t('loopCreator.totalBars')}">M</span>
                 <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn" title="${this.t('loopCreator.undo')} (⌘Z)" disabled>↶</button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn" title="${this.t('loopCreator.redo')} (⌘⇧Z)" disabled>↷</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn" title="${this.t('loopCreator.undo')}" aria-label="${this.t('loopCreator.undo')}" disabled><span aria-hidden="true">↶</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn" title="${this.t('loopCreator.redo')}" aria-label="${this.t('loopCreator.redo')}" disabled><span aria-hidden="true">↷</span></button>
                 <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')} (Space)">▶</button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')} (Space)" aria-label="${this.t('loopCreator.play')}"><span aria-hidden="true">▶</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')} (Esc)" aria-label="${this.t('loopCreator.stop')}"><span aria-hidden="true">⏹</span></button>
                 <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-out" title="${this.t('loopEditor.zoomHOut')}">−H</button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-reset" title="${this.t('loopManager.zoomReset')}">⌖</button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-in" title="${this.t('loopEditor.zoomHIn')}">+H</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-out" title="${this.t('loopEditor.zoomHOut')}" aria-label="${this.t('loopEditor.zoomHOut')}"><span aria-hidden="true">−H</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-reset" title="${this.t('loopManager.zoomReset')}" aria-label="${this.t('loopManager.zoomReset')}"><span aria-hidden="true">⌖</span></button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-in" title="${this.t('loopEditor.zoomHIn')}" aria-label="${this.t('loopEditor.zoomHIn')}"><span aria-hidden="true">+H</span></button>
                 <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}">＋</button>
-                <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}">🆕</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}" aria-label="${this.t('loopCreator.addTrack')}"><span aria-hidden="true">＋</span></button>
+                <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}"><span aria-hidden="true">🆕</span> ${this.t('loopCreator.newArrangement')}</button>
             </div>
 
             <div class="la-area" id="la-area">
@@ -488,8 +492,16 @@ class LoopManagerModal extends BaseModal {
     }
 
     close() {
-        if (this._arrDirty && !confirm(this.t('loopManager.confirmDiscardChanges'))) return;
-        super.close();
+        if (!this._arrDirty) {
+            super.close();
+            return;
+        }
+        // Confirmation accessible (AUDIT §A1).
+        const doSuperClose = () => super.close();
+        LoopUtils.confirm(this.t('loopManager.confirmDiscardChanges'), {
+            icon: '⚠️',
+            danger: true
+        }).then((ok) => { if (ok) doSuperClose(); });
     }
 
     onClose() {
@@ -517,6 +529,28 @@ class LoopManagerModal extends BaseModal {
     _onKeyDown(e) {
         const t = e.target;
         const tag = (t?.tagName || '').toLowerCase();
+
+        // Navigation clavier dans la tablist (APG tabs pattern, AUDIT §A2).
+        // Capture en premier — pas conditionné par l'input/textarea check
+        // car le focus est sur un bouton tab.
+        if (t?.classList?.contains('lc-tab') && t.getAttribute('role') === 'tab') {
+            const tabs = ['library', 'pad', 'live', 'keyboard', 'arranger'];
+            const i = tabs.indexOf(t.dataset.tab);
+            if (i >= 0) {
+                let next = -1;
+                if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+                else if (e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+                else if (e.key === 'Home') next = 0;
+                else if (e.key === 'End') next = tabs.length - 1;
+                if (next >= 0) {
+                    e.preventDefault();
+                    this._switchTab(tabs[next]);
+                    this.$(`#lc-tab-${tabs[next]}`)?.focus();
+                    return;
+                }
+            }
+        }
+
         if (tag === 'input' || tag === 'textarea' || t?.isContentEditable) return;
         if (this._loopEditor?.isOpen) return; // editor handles its own shortcuts
 
@@ -563,6 +597,8 @@ class LoopManagerModal extends BaseModal {
             const active = btn.dataset.tab === tab;
             btn.classList.toggle('lc-tab--active', active);
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            // APG : tabindex roving — un seul tab focusable à la fois.
+            btn.setAttribute('tabindex', active ? '0' : '-1');
         });
         this.$$('.lc-pane').forEach(pane => {
             pane.classList.toggle('lc-pane--hidden', !pane.id.endsWith(tab));
@@ -1442,8 +1478,11 @@ class LoopManagerModal extends BaseModal {
         if (['off', 'beat', 'bar'].includes(saved.quantize))       this._padQuantize = saved.quantize;
     }
 
-    _clearAllPads() {
-        if (!confirm(this.t('loopManager.confirmClearAllPads'))) return;
+    async _clearAllPads() {
+        const ok = await LoopUtils.confirm(this.t('loopManager.confirmClearAllPads'), {
+            icon: '🧹', danger: true
+        });
+        if (!ok) return;
         for (let i = 0; i < this._padSlots.length; i++) {
             this._stopPad(i);
             this._padSlots[i] = null;
@@ -1497,9 +1536,15 @@ class LoopManagerModal extends BaseModal {
                 ${loops.map(l => {
                     const playing    = this._livePlayingLoops.has(l.id);
                     const tempoRange = l.tempo < 90 ? 'slow' : l.tempo < 140 ? 'medium' : 'fast';
+                    // AUDIT §A9 : redonde l'info tempo en texte (le bord
+                    // coloré seul violait WCAG 1.4.1 — color-only).
+                    // aria-pressed expose l'état playing aux SR.
+                    const tempoLabel = this.t('loopManager.tempoRange_' + tempoRange) || tempoRange;
                     return `<button class="lm-live-loop-btn${playing ? ' lm-live-loop-btn--playing' : ''}"
                         data-action="live-trigger" data-loop-id="${l.id}"
-                        data-tempo-range="${tempoRange}">
+                        data-tempo-range="${tempoRange}"
+                        aria-pressed="${playing}"
+                        aria-label="${this.escape(l.name)} — ${l.tempo} BPM ${tempoLabel}, ${l.bars} ${this.t('loopCreator.barsUnit') || 'bars'}">
                         <span class="lm-live-loop-name">${this.escape(l.name)}</span>
                         <span class="lm-live-loop-meta">${l.tempo}♩·${l.bars}M</span>
                     </button>`;
@@ -1645,15 +1690,17 @@ class LoopManagerModal extends BaseModal {
             </div>`).join('');
         if (!el.dataset.lcWired) {
             el.dataset.lcWired = '1';
-            el.addEventListener('click', (e) => {
+            el.addEventListener('click', async (e) => {
                 const del = e.target.closest('[data-arr-action="delete"]');
                 if (del) {
                     const id = parseInt(del.dataset.arrId);
                     const item = el.querySelector(`[data-arr-id="${id}"] .la-arr-name`);
                     const name = item?.textContent || '';
-                    if (confirm(this.t('loopManager.confirmDeleteArrangement', { name }))) {
-                        this._deleteArrangement(id);
-                    }
+                    const ok = await LoopUtils.confirm(
+                        this.t('loopManager.confirmDeleteArrangement', { name }),
+                        { icon: '🗑️', danger: true }
+                    );
+                    if (ok) this._deleteArrangement(id);
                     return;
                 }
                 const item = e.target.closest('[data-arr-id]');
@@ -1662,17 +1709,23 @@ class LoopManagerModal extends BaseModal {
         }
     }
 
-    _newArrangementConfirm() {
+    async _newArrangementConfirm() {
         const hasContent = (this.blocks?.length || 0) > 0 || (this.tracks?.length || 0) > 0;
         if (hasContent && this._arrDirty) {
-            if (!confirm(this.t('loopManager.confirmNewArrangement'))) return;
+            const ok = await LoopUtils.confirm(this.t('loopManager.confirmNewArrangement'),
+                { icon: '⚠️', danger: true });
+            if (!ok) return;
         }
         this._newArrangement();
     }
 
-    _requestLoadArrangement(id) {
+    async _requestLoadArrangement(id) {
         if (id === this.currentArrangementId) return;
-        if (this._arrDirty && !confirm(this.t('loopManager.confirmSwitchArrangement'))) return;
+        if (this._arrDirty) {
+            const ok = await LoopUtils.confirm(this.t('loopManager.confirmSwitchArrangement'),
+                { icon: '⚠️', danger: true });
+            if (!ok) return;
+        }
         this._loadArrangementById(id);
     }
 

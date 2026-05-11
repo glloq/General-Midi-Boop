@@ -253,8 +253,10 @@ class LoopEditorModal extends BaseModal {
                                 aria-pressed="false" title="${this.t('loopEditor.metronome')}">🎼</button>
                         <button class="lc-btn lc-btn-icon" id="lc-countin-btn" data-action="toggle-count-in"
                                 aria-pressed="false" title="${this.t('loopEditor.countIn')}">⏱</button>
-                        <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
-                            <span class="lc-rec-dot lc-rec-dot--pulse"></span>
+                        <span class="lc-rec-indicator hidden" id="lc-rec-indicator"
+                              role="status" aria-live="assertive"
+                              aria-label="${this.t('loopCreator.recording') || 'Recording'}">
+                            <span class="lc-rec-dot lc-rec-dot--pulse" aria-hidden="true"></span>
                             <span class="lc-rec-time" id="lc-rec-time">0:00</span>
                         </span>
                     </div>
@@ -364,10 +366,20 @@ class LoopEditorModal extends BaseModal {
     }
 
     close() {
-        if (this.isOpen && this._isDirty()) {
-            if (!confirm(this.t('loopEditor.confirmDiscardChanges'))) return;
+        if (!this.isOpen || !this._isDirty()) {
+            super.close();
+            return;
         }
-        super.close();
+        // Confirmation accessible (modale stylable + focus trap) au lieu
+        // du window.confirm natif (AUDIT §A1). Le close() reste synchrone
+        // côté API publique ; la branche async ne fait qu'appeler super
+        // après acceptation utilisateur.
+        const doSuperClose = () => super.close();
+        LoopUtils.confirm(this.t('loopEditor.confirmDiscardChanges'), {
+            icon: '⚠️',
+            title: this.t('loopEditor.confirmDiscardTitle') || this.t('loopEditor.confirmDiscardChanges'),
+            danger: true
+        }).then((ok) => { if (ok) doSuperClose(); });
     }
 
     onClose() {

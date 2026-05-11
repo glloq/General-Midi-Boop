@@ -70,8 +70,31 @@
 }
 .lc-header-subtitle {
     font-size: 0.82rem; font-weight: 500;
-    color: rgba(255,255,255,0.82);
+    /* AUDIT §A6 : 0.82 alpha tombait sous AA sur la moitié sombre du
+     * gradient (#764ba2). Couleur opaque testée sur les 2 extrêmes du
+     * gradient (#667eea → #764ba2) avec WebAIM Contrast Checker. */
+    color: #f5f5f7;
     letter-spacing: 0.01em; white-space: nowrap;
+}
+
+/* AUDIT §A5 : focus-visible global sur tous les éléments interactifs
+ * de la modale. Avant, seulement 3 sélecteurs spécifiques avaient un
+ * outline ; les boutons header / spinbox / tabs étaient invisibles au
+ * focus clavier. */
+.lc-modal :focus-visible,
+.le-modal :focus-visible {
+    outline: 2px solid #f5a623;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* AUDIT §P1 : disabled state visible (undo/redo, etc.) */
+.lc-btn:disabled,
+.lc-icon-btn:disabled,
+.lc-spin-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 .lc-header-tabs { display: flex; gap: 4px; flex: 1; justify-content: center; align-items: center; }
 .lc-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }

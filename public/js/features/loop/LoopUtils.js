@@ -236,6 +236,27 @@
         }
     };
 
+    /**
+     * Confirmation accessible : façade autour de `window.showConfirm`
+     * (modale stylable, focus trap propre — cf. AUDIT §A1) avec fallback
+     * sur `window.confirm` pour les environnements de test sans le markup
+     * du dialog (jsdom, Vitest).
+     *
+     * @param {string} message
+     * @param {{icon?:string, title?:string, okText?:string, cancelText?:string, danger?:boolean}} [options]
+     * @returns {Promise<boolean>}
+     */
+    async function confirm(message, options = {}) {
+        if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
+            try { return await window.showConfirm(message, options); }
+            catch (err) { handleError(err, 'confirm.showConfirm'); }
+        }
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+            return window.confirm(message);
+        }
+        return false;
+    }
+
     // ── Public namespace ───────────────────────────────────────────────
     const LoopUtils = {
         GM_FAMILIES,
@@ -243,6 +264,7 @@
         parseSequence,
         handleError,
         toast,
+        confirm,
         createSynth,
         loopDurationMs,
         scheduleSequence,
