@@ -322,6 +322,38 @@ class LoopEditorModal extends BaseModal {
     _initPianoRollEditor() {
         const host = this.$('#le-pane-editor');
         if (!host) return;
+
+        // Prefer the full MIDI editor (mounted as a slim "loop mode" panel)
+        // when it's available on window — it brings CC/PB/Velocity editing,
+        // the touch-mode toolbar, and the editor's full piano-roll feature
+        // set. Falls back to the legacy PianoRollEditor host when the
+        // class isn't loaded (e.g. minimal pages).
+        if (typeof window.MidiEditorModal === 'function') {
+            this.midiEditorPanel = new window.MidiEditorModal(this.eventBus, this.api, { loopMode: true });
+            // The panel exposes the editing primitives ; LoopEditorModal's
+            // existing proxy methods (_refreshPianoRollRange, addNote,
+            // setCursor, undo, …) keep working through this adapter.
+            this.pianoRollEditor = this._buildMidiEditorPanelAdapter(this.midiEditorPanel);
+            // CC persistence isn't wired through loop_create/update yet —
+            // future work : extend midi_data to carry CC alongside notes
+            // so the editor can round-trip pitch bend / velocity / CC1…91.
+            const ccEvents = [];
+            this.midiEditorPanel.showAsPanel(host, {
+                sequence:          this.sequence,
+                ccEvents,
+                tempo:             this.tempo,
+                ppq:               this.ppq,
+                bars:               this.bars,
+                timeSigNum:         this.timeSigNum,
+                timeSigDen:         this.timeSigDen,
+                channel:            this._isDrumKit ? 9 : 0,
+                instrumentProgram:  this.instrumentProgram,
+                onChange:           () => { /* dirty tracking handled via _isDirty() snapshot */ }
+            });
+            return;
+        }
+
+        // Legacy fallback — keeps existing tests/pages running.
         const minimapCanvas = this.$('#le-minimap-top');
         this.pianoRollEditor = new window.PianoRollEditor(host, {
             t: (key, params) => this.t(key, params),
@@ -345,6 +377,45 @@ class LoopEditorModal extends BaseModal {
         if (this.activeTab === 'editor') {
             requestAnimationFrame(() => this.pianoRollEditor.refit());
         }
+    }
+
+    /**
+     * Wrap MidiEditorModal (panel mode) behind the API LoopEditorModal
+     * already calls on the previous PianoRollEditor : getSequence, addNote,
+     * setRange, setCursor, undo/redo, copy/paste, etc. Keeps the rest of
+     * LoopEditorModal unchanged while swapping the underlying editor.
+     */
+    _buildMidiEditorPanelAdapter(panel) {
+        return {
+            get host() { return panel.container; },
+            getSequence: () => panel.getPanelLoopState().sequence,
+            setRange:    ({ tempo, bars, ppq, timeSigNum, timeSigDen, noteMin, noteMax } = {}) => {
+                panel.setPanelLoopState({ tempo, bars, ppq, timeSigNum, timeSigDen });
+                // noteMin/noteMax are advisory ; the editor lets the user
+                // scroll/zoom freely so we don't clamp.
+                void noteMin; void noteMax;
+            },
+            setCursor:          (tick) => panel.updatePlaybackCursor?.(tick),
+            setRecordingPlayhead: (tick) => panel.updatePlaybackCursor?.(tick ?? 0),
+            setMode:    (mode) => {
+                const map = { view: 'drag-view', select: 'select', dragpoly: 'edit' };
+                panel.editActions?.setEditMode?.(map[mode] || mode);
+            },
+            undo:           () => panel.editActions?.undo?.(),
+            redo:           () => panel.editActions?.redo?.(),
+            selectAll:      () => panel.editActions?.selectAll?.(),
+            copy:           () => panel.editActions?.copy?.(),
+            paste:          () => panel.editActions?.paste?.(),
+            deleteSelected: () => panel.editActions?.deleteSelectedNotes?.(),
+            addNote:        (noteObj) => {
+                const seq = panel.fullSequence || [];
+                seq.push({ ...noteObj, c: panel.channels?.[0]?.channel ?? 0 });
+                panel.setPanelLoopState({ sequence: seq });
+                panel.isDirty = true;
+            },
+            refit:          () => panel.pianoRoll?.redraw?.(),
+            destroy:        () => panel.unmountPanel?.()
+        };
     }
 
     /**
@@ -399,6 +470,10 @@ class LoopEditorModal extends BaseModal {
         if (this.pianoRollEditor) {
             this.pianoRollEditor.destroy();
             this.pianoRollEditor = null;
+        }
+        if (this.midiEditorPanel) {
+            try { this.midiEditorPanel.unmountPanel(); } catch (_) { /* best-effort */ }
+            this.midiEditorPanel = null;
         }
         if (this._refreshTimer) { clearTimeout(this._refreshTimer); this._refreshTimer = null; }
         // Libère le AudioContext du métronome — sinon le navigateur

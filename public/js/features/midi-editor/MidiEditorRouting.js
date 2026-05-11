@@ -101,11 +101,16 @@
     }
 
     render() {
-    // Create the modal container
+        const loop = this.modal.loopMode === true;
+
+    // Create the modal container — in loop/panel mode we render directly
+    // inside the host element (no modal-overlay wrapper), so the outer
+    // LoopEditorModal owns the framing chrome.
         this.modal.container = document.createElement('div');
-        this.modal.container.className = 'modal-overlay midi-editor-modal';
-        this.modal.container.innerHTML = `
-            <div class="modal-dialog modal-xl">
+        this.modal.container.className = loop
+            ? 'midi-editor-modal midi-editor-modal--loop'
+            : 'modal-overlay midi-editor-modal';
+        const headerHtml = loop ? '' : `
                 <div class="modal-header">
                     <div class="modal-title">
                         <h3>🎹 ÉDIB∞P</h3>
@@ -133,8 +138,9 @@
                         </button>
                     </div>
                     <button class="modal-close" data-action="close">&times;</button>
-                </div>
-                <div class="modal-body">
+                </div>`;
+
+        const channelsToolbarHtml = loop ? '' : `
                     <!-- Channel toolbar (just below the header) -->
                     <div class="channels-toolbar-wrapper">
                         <div class="channels-toolbar">
@@ -143,10 +149,13 @@
                         <div class="channel-global-actions">
                             <button class="btn-show-all-channels" title="${this.modal.t('midiEditor.showAllChannels')}">👁️</button>
                         </div>
-                    </div>
+                    </div>`;
 
-                    <!-- Edit toolbar (compact, icon-only buttons with tooltips) -->
-                    <div class="editor-toolbar">
+        // In loop mode the LoopEditorModal owns play/pause/stop in its big
+        // transport bar — we hide the toolbar playback section to avoid
+        // duplicated controls (and the routed/GM preview toggle, which
+        // doesn't apply when the loop is single-instrument).
+        const playbackSectionHtml = loop ? '' : `
                         <!-- Section Playback -->
                         <div class="toolbar-section playback-section">
                             <button class="tool-btn playback-btn" data-action="playback-play" id="play-btn" title="${this.modal.t('midiEditor.play')} (Space)">
@@ -166,87 +175,12 @@
                         </div>
 
                         <div class="toolbar-divider"></div>
+        `;
 
-                        <!-- Section Undo/Redo -->
-                        <div class="toolbar-section">
-                            <button class="tool-btn" data-action="undo" id="undo-btn" title="${this.modal.t('midiEditor.undo')} (Ctrl+Z)" disabled>
-                                <span class="icon">↶</span>
-                                <span class="btn-shortcut">Ctrl+Z</span>
-                            </button>
-                            <button class="tool-btn" data-action="redo" id="redo-btn" title="${this.modal.t('midiEditor.redo')} (Ctrl+Y)" disabled>
-                                <span class="icon">↷</span>
-                                <span class="btn-shortcut">Ctrl+Y</span>
-                            </button>
-                        </div>
-
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Section Grille/Snap -->
-                        <div class="toolbar-section">
-                            <label class="snap-label">${this.modal.t('midiEditor.grid')}</label>
-                            <button class="tool-btn-snap" data-action="cycle-snap" id="snap-btn" title="${this.modal.t('midiEditor.gridTip')}">
-                                <span class="snap-value" id="snap-value">1/8</span>
-                            </button>
-                        </div>
-
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Edit-modes section -->
-                        <div class="toolbar-section edit-modes-section">
-                            <button class="tool-btn active" data-action="mode-drag-view" data-mode="drag-view" title="${this.modal.t('midiEditor.viewModeTip')}">
-                                <span class="icon">👁️</span>
-                            </button>
-                            <button class="tool-btn" data-action="mode-select" data-mode="select" title="${this.modal.t('midiEditor.selectModeTip')}">
-                                <span class="icon">◻</span>
-                            </button>
-                            <!-- Unified Edit button (visible outside touch mode) -->
-                            <button class="tool-btn edit-unified-btn${this.modal.touchMode ? ' hidden' : ''}" data-action="mode-edit" data-mode="edit" title="${this.modal.t('midiEditor.editModeTip')}">
-                                <span class="icon">✏️</span>
-                            </button>
-                            <!-- Boutons tactiles (visibles en mode tactile uniquement) -->
-                            <button class="tool-btn touch-edit-btn${this.modal.touchMode ? '' : ' hidden'}" data-action="mode-drag-notes" data-mode="drag-notes" title="${this.modal.t('midiEditor.moveNotesTip')}">
-                                <span class="icon">✋</span>
-                            </button>
-                            <button class="tool-btn touch-edit-btn${this.modal.touchMode ? '' : ' hidden'}" data-action="mode-add-note" data-mode="add-note" title="${this.modal.t('midiEditor.addNoteTip')}">
-                                <span class="icon">➕</span>
-                            </button>
-                            <button class="tool-btn touch-edit-btn${this.modal.touchMode ? '' : ' hidden'}" data-action="mode-resize-note" data-mode="resize-note" title="${this.modal.t('midiEditor.durationTip')}">
-                                <span class="icon">↔</span>
-                            </button>
-                        </div>
-
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Edit section (Copy / Paste / Delete) -->
-                        <div class="toolbar-section">
-                            <button class="tool-btn" data-action="copy" id="copy-btn" title="${this.modal.t('midiEditor.copy')} (Ctrl+C)" disabled>
-                                <span class="icon">📋</span>
-                                <span class="btn-shortcut">Ctrl+C</span>
-                            </button>
-                            <button class="tool-btn" data-action="paste" id="paste-btn" title="${this.modal.t('midiEditor.paste')} (Ctrl+V)" disabled>
-                                <span class="icon">📄</span>
-                                <span class="btn-shortcut">Ctrl+V</span>
-                            </button>
-                            <button class="tool-btn" data-action="delete" id="delete-btn" title="${this.modal.t('midiEditor.delete')} (Del)" disabled>
-                                <span class="icon">🗑</span>
-                                <span class="btn-shortcut">Suppr</span>
-                            </button>
-                            <button class="tool-btn" data-action="select-all" id="select-all-btn" title="${this.modal.t('midiEditor.selectAll', { defaultValue: 'Select All' })} (Ctrl+A)">
-                                <span class="icon">▣</span>
-                                <span class="btn-shortcut">Ctrl+A</span>
-                            </button>
-                        </div>
-
-                        <div class="toolbar-divider"></div>
-
-                        <!-- Section Zoom -->
-                        <div class="toolbar-section">
-                            <button class="tool-btn-compact" data-action="zoom-h-out" title="${this.modal.t('midiEditor.zoomHOut')}">H−</button>
-                            <button class="tool-btn-compact" data-action="zoom-h-in" title="${this.modal.t('midiEditor.zoomHIn')}">H+</button>
-                            <button class="tool-btn-compact" data-action="zoom-v-out" title="${this.modal.t('midiEditor.zoomVOut')}">V−</button>
-                            <button class="tool-btn-compact" data-action="zoom-v-in" title="${this.modal.t('midiEditor.zoomVIn')}">V+</button>
-                        </div>
-
+        // Settings popover (gear) — entirely removed in loop mode. The
+        // outer LoopEditorModal already exposes instrument/output choices
+        // and channel routing is irrelevant for a mono-channel loop.
+        const settingsPopoverHtml = loop ? '' : `
                         <div class="toolbar-divider"></div>
 
                         <!-- Settings button (opens Channel / Instrument / Device popover) -->
@@ -342,6 +276,117 @@
                                 </div>
                             </div>
                         </div>
+        `;
+
+        // Inline touch-mode toggle — only rendered in loop mode, where the
+        // gear popover is gone and this becomes the only way to flip touch
+        // UX. Standard mode keeps the existing toggle inside the popover.
+        const inlineTouchToggleHtml = loop ? `
+                            <button class="tool-btn touch-mode-inline-toggle" data-action="toggle-touch-mode" id="touch-mode-inline-toggle"
+                                data-active="${this.modal.touchMode ? 'true' : 'false'}"
+                                title="${this.modal.t('midiEditor.touchModeTitle')}"
+                                aria-pressed="${this.modal.touchMode ? 'true' : 'false'}">
+                                <span class="icon">👆</span>
+                            </button>` : '';
+
+        // Wrap the editor body. Outside loop mode we keep the historical
+        // <div class="modal-dialog modal-xl"><…/></div> wrapper ; inside
+        // loop mode we drop it so the panel inherits its host's flex
+        // sizing.
+        const bodyOpen  = loop ? '<div class="midi-editor-panel">' : '<div class="modal-dialog modal-xl">';
+        const bodyClose = loop ? '</div>' : '</div>';
+
+        this.modal.container.innerHTML = `
+            ${bodyOpen}
+                ${headerHtml}
+                <div class="modal-body">
+                    ${channelsToolbarHtml}
+
+                    <!-- Edit toolbar (compact, icon-only buttons with tooltips) -->
+                    <div class="editor-toolbar">
+                        ${playbackSectionHtml}
+                        <!-- Section Undo/Redo -->
+                        <div class="toolbar-section">
+                            <button class="tool-btn" data-action="undo" id="undo-btn" title="${this.modal.t('midiEditor.undo')} (Ctrl+Z)" disabled>
+                                <span class="icon">↶</span>
+                                <span class="btn-shortcut">Ctrl+Z</span>
+                            </button>
+                            <button class="tool-btn" data-action="redo" id="redo-btn" title="${this.modal.t('midiEditor.redo')} (Ctrl+Y)" disabled>
+                                <span class="icon">↷</span>
+                                <span class="btn-shortcut">Ctrl+Y</span>
+                            </button>
+                        </div>
+
+                        <div class="toolbar-divider"></div>
+
+                        <!-- Section Grille/Snap -->
+                        <div class="toolbar-section">
+                            <label class="snap-label">${this.modal.t('midiEditor.grid')}</label>
+                            <button class="tool-btn-snap" data-action="cycle-snap" id="snap-btn" title="${this.modal.t('midiEditor.gridTip')}">
+                                <span class="snap-value" id="snap-value">1/8</span>
+                            </button>
+                        </div>
+
+                        <div class="toolbar-divider"></div>
+
+                        <!-- Edit-modes section -->
+                        <div class="toolbar-section edit-modes-section">
+                            <button class="tool-btn active" data-action="mode-drag-view" data-mode="drag-view" title="${this.modal.t('midiEditor.viewModeTip')}">
+                                <span class="icon">👁️</span>
+                            </button>
+                            <button class="tool-btn" data-action="mode-select" data-mode="select" title="${this.modal.t('midiEditor.selectModeTip')}">
+                                <span class="icon">◻</span>
+                            </button>
+                            <!-- Unified Edit button (visible outside touch mode) -->
+                            <button class="tool-btn edit-unified-btn${this.modal.touchMode ? ' hidden' : ''}" data-action="mode-edit" data-mode="edit" title="${this.modal.t('midiEditor.editModeTip')}">
+                                <span class="icon">✏️</span>
+                            </button>
+                            <!-- Boutons tactiles (visibles en mode tactile uniquement) -->
+                            <button class="tool-btn touch-edit-btn${this.modal.touchMode ? '' : ' hidden'}" data-action="mode-drag-notes" data-mode="drag-notes" title="${this.modal.t('midiEditor.moveNotesTip')}">
+                                <span class="icon">✋</span>
+                            </button>
+                            <button class="tool-btn touch-edit-btn${this.modal.touchMode ? '' : ' hidden'}" data-action="mode-add-note" data-mode="add-note" title="${this.modal.t('midiEditor.addNoteTip')}">
+                                <span class="icon">➕</span>
+                            </button>
+                            <button class="tool-btn touch-edit-btn${this.modal.touchMode ? '' : ' hidden'}" data-action="mode-resize-note" data-mode="resize-note" title="${this.modal.t('midiEditor.durationTip')}">
+                                <span class="icon">↔</span>
+                            </button>
+                            ${inlineTouchToggleHtml}
+                        </div>
+
+                        <div class="toolbar-divider"></div>
+
+                        <!-- Edit section (Copy / Paste / Delete) -->
+                        <div class="toolbar-section">
+                            <button class="tool-btn" data-action="copy" id="copy-btn" title="${this.modal.t('midiEditor.copy')} (Ctrl+C)" disabled>
+                                <span class="icon">📋</span>
+                                <span class="btn-shortcut">Ctrl+C</span>
+                            </button>
+                            <button class="tool-btn" data-action="paste" id="paste-btn" title="${this.modal.t('midiEditor.paste')} (Ctrl+V)" disabled>
+                                <span class="icon">📄</span>
+                                <span class="btn-shortcut">Ctrl+V</span>
+                            </button>
+                            <button class="tool-btn" data-action="delete" id="delete-btn" title="${this.modal.t('midiEditor.delete')} (Del)" disabled>
+                                <span class="icon">🗑</span>
+                                <span class="btn-shortcut">Suppr</span>
+                            </button>
+                            <button class="tool-btn" data-action="select-all" id="select-all-btn" title="${this.modal.t('midiEditor.selectAll', { defaultValue: 'Select All' })} (Ctrl+A)">
+                                <span class="icon">▣</span>
+                                <span class="btn-shortcut">Ctrl+A</span>
+                            </button>
+                        </div>
+
+                        <div class="toolbar-divider"></div>
+
+                        <!-- Section Zoom -->
+                        <div class="toolbar-section">
+                            <button class="tool-btn-compact" data-action="zoom-h-out" title="${this.modal.t('midiEditor.zoomHOut')}">H−</button>
+                            <button class="tool-btn-compact" data-action="zoom-h-in" title="${this.modal.t('midiEditor.zoomHIn')}">H+</button>
+                            <button class="tool-btn-compact" data-action="zoom-v-out" title="${this.modal.t('midiEditor.zoomVOut')}">V−</button>
+                            <button class="tool-btn-compact" data-action="zoom-v-in" title="${this.modal.t('midiEditor.zoomVIn')}">V+</button>
+                        </div>
+
+                        ${settingsPopoverHtml}
                     </div>
 
                     <!-- Container for Notes and CC/Pitchbend -->
@@ -374,9 +419,9 @@
                                     <span class="cc-collapse-icon">▼</span>
                                     <span>${this.modal.t('midiEditor.ccSection')}</span>
                                 </div>
-                                <div class="cc-header-channels" id="editor-channel-selector">
+                                ${loop ? '' : `<div class="cc-header-channels" id="editor-channel-selector">
                                     <!-- Channels are added dynamically -->
-                                </div>
+                                </div>`}
                                 <button class="cc-settings-btn" id="cc-draw-settings-btn" title="${this.modal.t('midiEditor.drawSettings')}">⚙</button>
                             </div>
 
@@ -474,10 +519,14 @@
                     </div>
 
                 </div>
-            </div>
+            ${bodyClose}
         `;
 
-        document.body.appendChild(this.modal.container);
+        // Mount: append to the configured host (panel mode) or to body
+        // (standalone overlay mode). The host attribute lets the loop
+        // editor drop the editor straight into its tab pane.
+        const mountTarget = this.modal.panelHost || document.body;
+        mountTarget.appendChild(this.modal.container);
 
     // Attach events
         this.modal.events.attachEvents();

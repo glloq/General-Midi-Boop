@@ -260,10 +260,16 @@
             playableToggle.addEventListener('click', () => this.modal.routingOps.togglePlayableNotesGlobal());
         }
 
-    // Toggle touch mode
+    // Toggle touch mode — both the popover switch (#touch-mode-toggle) and
+    // the inline toolbar button (#touch-mode-inline-toggle) flip the same
+    // state. Loop/panel mode only renders the inline one.
         const touchModeToggle = document.getElementById('touch-mode-toggle');
         if (touchModeToggle) {
             touchModeToggle.addEventListener('click', () => this.modal.toggleTouchMode());
+        }
+        const touchModeInline = document.getElementById('touch-mode-inline-toggle');
+        if (touchModeInline) {
+            touchModeInline.addEventListener('click', () => this.modal.toggleTouchMode());
         }
 
     // Toggle keyboard playback

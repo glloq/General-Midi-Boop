@@ -526,6 +526,44 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     /* intentionally empty */
 }
 
+/* Inline touch-mode toggle (toolbar). Highlighted when ON so the user
+   can tell at a glance that ✋➕↔ are visible because of it. */
+.tool-btn.touch-mode-inline-toggle[data-active="true"] {
+    background: var(--primary-color, #3b82f6);
+    color: #fff;
+    border-color: var(--primary-color, #3b82f6);
+}
+
+/* ============================================================================
+   Loop/panel mode — editor embedded inside LoopEditorModal
+   ============================================================================ */
+
+/* When mounted as a panel the editor sits inside an existing modal-body,
+   so it must stretch to fill its host rather than overlay the viewport. */
+.midi-editor-modal--loop {
+    position: relative;
+    inset: auto;
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.midi-editor-modal--loop .midi-editor-panel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.midi-editor-modal--loop .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 /* ============================================================================
    ✅ PHASE 1.2 - SNAP GRID SELECTOR
    ============================================================================ */
