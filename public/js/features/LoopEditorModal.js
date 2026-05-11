@@ -28,6 +28,9 @@ class LoopEditorModal extends BaseModal {
         this.ppq = 480;
         this.instrumentProgram = 0;
         this.sequence = [];
+        // Kit de batterie : routing canal 9 (convention GM) au lieu de
+        // canal 0 mélodique. Mis à jour par onInstrumentSelected.
+        this._isDrumKit = false;
 
         // Recording
         this.isRecording = false;
@@ -136,6 +139,9 @@ class LoopEditorModal extends BaseModal {
             this.bars              = loop.bars;
             this.ppq               = loop.ppq;
             this.instrumentProgram = loop.instrument_program ?? 0;
+            // Restaure le flag drum kit à partir du programme stocké
+            // (offset 128 dans MidiSynthesizer._decodeKitProgram).
+            this._isDrumKit        = this.instrumentProgram >= 128;
             this.sequence          = LoopUtils.parseSequence(loop.midi_data);
             const range = this._gmNoteRange(this.instrumentProgram);
             this.outputNoteMin = range.min;
@@ -679,7 +685,11 @@ class LoopEditorModal extends BaseModal {
         if (!this._synth) return;
         try {
             // Long duration acts as "until cancelled"; we cancel on note-off.
-            const envelopes = this._synth.playNote(note, velocity, 0, 9999);
+            // Channel 9 pour les kits de batterie (convention GM) — sinon
+            // le synth interprète le programme comme un mélodique et joue
+            // un piano par défaut.
+            const ch = this._isDrumKit ? 9 : 0;
+            const envelopes = this._synth.playNote(note, velocity, ch, 9999);
             if (envelopes) this._liveEnvelopes.set(note, envelopes);
         } catch (err) {
             LoopUtils.handleError(err, 'editor.live.synth.playNote');
@@ -1032,19 +1042,37 @@ class LoopEditorModal extends BaseModal {
                 // previous instrument / device after the switch.
                 this._previewStopAll();
 
+                // Détection drum kit : channel 9 (convention GM) ou
+                // gmProgram >= 128 (drum kits encodés avec offset 128 dans
+                // MidiSynthesizer._decodeKitProgram). Sans ça, les notes
+                // étaient jouées sur le canal 0 en path mélodique →
+                // sonnaient en piano au lieu de la batterie.
+                const isDrum = channel === 9 || (gmProgram != null && gmProgram >= 128);
+
                 this.outputMode        = deviceId ? 'device' : 'synth';
                 this.outputDeviceId    = deviceId || null;
-                this.outputChannel     = channel ?? 0;
+                this.outputChannel     = isDrum ? 9 : (channel ?? 0);
                 this.outputGmProgram   = gmProgram ?? 0;
                 this.instrumentProgram = gmProgram ?? 0;
-                try { this._synth?.setChannelInstrument?.(0, this.instrumentProgram); }
-                catch (err) { LoopUtils.handleError(err, 'editor.synth.setChannelInstrument'); }
-                // Make sure the new program is loaded so the very first key press
-                // produces sound (otherwise playNote returns null silently).
-                if (this._synth && !this._synth.loadedInstruments?.has(this.instrumentProgram)) {
-                    this._synth.loadInstrument(this.instrumentProgram).catch(err =>
-                        LoopUtils.handleError(err, 'editor.synth.loadInstrument'));
-                }
+                this._isDrumKit        = isDrum;
+
+                try {
+                    if (isDrum) {
+                        // Écrit le programme sur le canal 9 (canal drums GM)
+                        // ET pré-charge le kit pour que la 1ère frappe sonne.
+                        this._synth?.setChannelInstrument?.(9, this.instrumentProgram);
+                        this._synth?.loadDrumKit?.().catch(err =>
+                            LoopUtils.handleError(err, 'editor.synth.loadDrumKit'));
+                    } else {
+                        this._synth?.setChannelInstrument?.(0, this.instrumentProgram);
+                        // Préload pour que la 1ère key press produise du son.
+                        if (this._synth && !this._synth.loadedInstruments?.has(this.instrumentProgram)) {
+                            this._synth.loadInstrument(this.instrumentProgram).catch(err =>
+                                LoopUtils.handleError(err, 'editor.synth.loadInstrument'));
+                        }
+                    }
+                } catch (err) { LoopUtils.handleError(err, 'editor.synth.setChannelInstrument'); }
+
                 const range = this._gmNoteRange(this.instrumentProgram);
                 this.outputNoteMin = range.min;
                 this.outputNoteMax = range.max;
@@ -1078,13 +1106,24 @@ class LoopEditorModal extends BaseModal {
             this._stopPlayheadAnimation();
             this._setStatus('');
         };
-        try { this._synth.setChannelInstrument(0, this.instrumentProgram); }
-        catch (err) { LoopUtils.handleError(err, 'editor.preview.setChannelInstrument'); }
+        try {
+            if (this._isDrumKit) {
+                this._synth.setChannelInstrument(9, this.instrumentProgram);
+                this._synth.loadDrumKit?.().catch(err =>
+                    LoopUtils.handleError(err, 'editor.preview.loadDrumKit'));
+            } else {
+                this._synth.setChannelInstrument(0, this.instrumentProgram);
+            }
+        } catch (err) { LoopUtils.handleError(err, 'editor.preview.setChannelInstrument'); }
         this._synth.onPlaybackEnd = done;
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
         this._startPlayheadAnimation();
-        this._synth.loadSequence([...seq], this.tempo, this.ppq);
+        // Force le canal 9 sur toutes les notes en mode drum kit, sinon
+        // loadSequence les met sur le canal 0 (path mélodique → piano).
+        const ch = this._isDrumKit ? 9 : 0;
+        const routedSeq = seq.map(n => ({ ...n, c: ch }));
+        this._synth.loadSequence(routedSeq, this.tempo, this.ppq);
         this._synth.play().catch(err => {
             LoopUtils.handleError(err, 'editor.preview.play', {
                 toast: this.t('loopEditor.errPreview')

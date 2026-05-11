@@ -1351,13 +1351,20 @@ body.dark-mode  .la-block--selected {
    the panel header is anchored to the top, so opening upward clips the list.
    Restore downward opening here — .lm-kbd-panel has overflow:visible so the
    dropdown can escape below the header. */
-.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode .instrument-dropdown.open {
+.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode .instrument-dropdown.open,
+.loop-editor-modal  .lc-kb-panel  .modal-dialog.km-panel-mode .instrument-dropdown.open {
     top: 100% !important;
     bottom: auto !important;
     border-radius: 0 0 8px 8px !important;
     border-top: none !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
     max-height: 380px !important;
+}
+/* Le panel keyboard de l'éditeur de loop doit laisser le dropdown
+ * déborder vers le bas (sinon il est rogné par le container). */
+.loop-editor-modal .lc-kb-panel,
+.loop-editor-modal #lc-kb-panel {
+    overflow: visible;
 }
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode .keyboard-header-row {
     flex: 1 1 0 !important;
