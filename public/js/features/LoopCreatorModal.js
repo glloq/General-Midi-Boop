@@ -157,9 +157,6 @@ class LoopManagerModal extends BaseModal {
 
     _renderHeader() {
         const showSave = this.activeTab === 'arranger';
-        // Raccourcis platform-aware (AUDIT §U2 : ⌘ sur Mac, Ctrl ailleurs).
-        const mod = LoopUtils.modKeyLabel();
-        const sft = LoopUtils.shiftKeyLabel();
         return `
         <div class="modal-header lc-header">
             <div class="lc-header-left">
@@ -332,6 +329,9 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     _renderArrangerTab() {
+        // Raccourcis platform-aware (AUDIT §U2 : ⌘ sur Mac, Ctrl ailleurs).
+        const mod = LoopUtils.modKeyLabel();
+        const sft = LoopUtils.shiftKeyLabel();
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
             <div class="lc-ctrl-bar lc-ctrl-bar--arr">
