@@ -534,6 +534,26 @@
         this.modal.editActions?.setupKeyboardShortcuts();
     }
 
+    /**
+     * Sync the webaudio-pianoroll's pixel size to its container. The
+     * custom element only reads its `width` / `height` attributes once,
+     * at connectedCallback time (via getAttr inside defineprop), so
+     * `setAttribute` after mount does NOT re-run the `layout()` observer.
+     * We must assign the JS properties — the setter pipes through to
+     * `layout()` and resizes both the underlying canvas and its CSS box.
+     */
+    _refreshPianoRollSize() {
+        if (!this.modal.pianoRoll) return false;
+        const container = this.modal.container?.querySelector('#piano-roll-container');
+        if (!container) return false;
+        const w = container.clientWidth  || 0;
+        const h = container.clientHeight || 0;
+        if (w <= 0 || h <= 0) return false;
+        if (this.modal.pianoRoll.width  !== w) this.modal.pianoRoll.width  = w;
+        if (this.modal.pianoRoll.height !== h) this.modal.pianoRoll.height = h;
+        return true;
+    }
+
     async initPianoRoll() {
         const container = document.getElementById('piano-roll-container');
         if (!container) {
@@ -723,6 +743,31 @@
         this.modal.pianoRoll.addEventListener('selectionchange', () => {
             this.modal.editActions?.updateEditButtons();
         });
+
+    // Auto-resize the canvas whenever its container changes size — covers
+    // CC section expand/collapse, drag-resize of the cc-resize bar,
+    // window resize, hidden-tab → visible tab transitions, etc. Without
+    // this the piano roll keeps the pixel size it had at mount.
+        if (typeof ResizeObserver !== 'undefined') {
+            this.modal._pianoRollContainerObs?.disconnect?.();
+            let lastW = 0, lastH = 0;
+            // Coalesce resize bursts onto a single RAF — the drag-resize
+            // handler fires per pointer-move and we don't want to thrash
+            // the canvas allocation.
+            let scheduled = false;
+            this.modal._pianoRollContainerObs = new ResizeObserver(() => {
+                const w = container.clientWidth, h = container.clientHeight;
+                if (w === lastW && h === lastH) return;
+                lastW = w; lastH = h;
+                if (scheduled) return;
+                scheduled = true;
+                requestAnimationFrame(() => {
+                    scheduled = false;
+                    this._refreshPianoRollSize();
+                });
+            });
+            this.modal._pianoRollContainerObs.observe(container);
+        }
 
     // Play the note on piano-keyboard click
         this.modal.pianoRoll.addEventListener('pianokey', (e) => {
