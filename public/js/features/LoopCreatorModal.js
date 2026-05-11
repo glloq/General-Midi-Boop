@@ -82,6 +82,14 @@ class LoopManagerModal extends BaseModal {
         this._arrHistoryIdx  = -1;
         this._selectedBlocks = new Set();
 
+        // Arranger UX state
+        this._trackMute       = new Set();   // track ids muted (local, not persisted)
+        this._trackSolo       = new Set();   // track ids soloed
+        this._blockClipboard  = [];          // copied blocks (relative positions)
+        this._resizeState     = null;        // active block resize state
+        this._autoSaveTimer   = null;        // debounced metadata save
+        this._blockMenuEl     = null;        // open context menu element
+
         // Shared loop data cache (pad + live + arranger)
         this._fetchLoopDataCache = new Map();
 
@@ -479,7 +487,14 @@ class LoopManagerModal extends BaseModal {
         };
     }
 
+    close() {
+        if (this._arrDirty && !confirm(this.t('loopManager.confirmDiscardChanges'))) return;
+        super.close();
+    }
+
     onClose() {
+        if (this._autoSaveTimer) { clearTimeout(this._autoSaveTimer); this._autoSaveTimer = null; }
+        this._closeBlockMenu();
         this._stopAllPads();
         this._liveStopAll();
         this._stopArrangerPlay();
@@ -520,6 +535,10 @@ class LoopManagerModal extends BaseModal {
                 this._refreshBlockSelectionUI();
                 return;
             }
+            if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); this._copySelectedBlocks(); return; }
+            if (mod && e.key.toLowerCase() === 'x') { e.preventDefault(); this._copySelectedBlocks(); this._deleteSelectedBlocks(); return; }
+            if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); this._pasteBlocks(); return; }
+            if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); this._duplicateSelectedBlocks(); return; }
         }
 
         if (this.activeTab === 'live') {
@@ -624,9 +643,82 @@ class LoopManagerModal extends BaseModal {
 
     _onContextMenu(e) {
         const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-        if (!cell) return;
-        e.preventDefault();
-        this._openPadPicker(parseInt(cell.dataset.padIndex), cell);
+        if (cell) {
+            e.preventDefault();
+            this._openPadPicker(parseInt(cell.dataset.padIndex), cell);
+            return;
+        }
+        const blockEl = e.target.closest('.la-block[data-block-id]');
+        if (blockEl) {
+            e.preventDefault();
+            const bid = parseInt(blockEl.dataset.blockId);
+            if (!this._selectedBlocks.has(bid)) {
+                this._selectedBlocks.clear();
+                this._selectedBlocks.add(bid);
+                this._refreshBlockSelectionUI();
+            }
+            this._openBlockMenu(e.clientX, e.clientY);
+        }
+    }
+
+    _openBlockMenu(x, y) {
+        this._closeBlockMenu();
+        const menu = document.createElement('div');
+        menu.className = 'la-block-menu';
+        menu.style.left = x + 'px';
+        menu.style.top  = y + 'px';
+        const items = [
+            { action: 'duplicate', label: this.t('loopManager.blockMenuDuplicate'), icon: '⎘' },
+            { action: 'copy',      label: this.t('loopManager.blockMenuCopy'),      icon: '⧉' },
+            { action: 'reps-inc',  label: this.t('loopManager.blockMenuRepsInc'),   icon: '+' },
+            { action: 'reps-dec',  label: this.t('loopManager.blockMenuRepsDec'),   icon: '−' },
+            { action: 'delete',    label: this.t('loopManager.blockMenuDelete'),    icon: '🗑', danger: true }
+        ];
+        menu.innerHTML = items.map(it =>
+            `<button class="la-block-menu-item${it.danger ? ' la-block-menu-item--danger' : ''}" data-menu-action="${it.action}">
+                <span class="la-block-menu-icon">${it.icon}</span>${it.label}
+            </button>`
+        ).join('');
+        document.body.appendChild(menu);
+        // Clamp position to viewport
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 4) + 'px';
+        if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 4) + 'px';
+
+        menu.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-menu-action]');
+            if (!btn) return;
+            this._closeBlockMenu();
+            const a = btn.dataset.menuAction;
+            const ids = [...this._selectedBlocks];
+            switch (a) {
+                case 'duplicate': this._duplicateSelectedBlocks(); break;
+                case 'copy':      this._copySelectedBlocks(); break;
+                case 'reps-inc':  ids.forEach(id => this._changeReps(id, +1)); break;
+                case 'reps-dec':  ids.forEach(id => this._changeReps(id, -1)); break;
+                case 'delete':    this._deleteSelectedBlocks(); break;
+            }
+        });
+        // Dismiss on outside click / escape
+        this._blockMenuEl = menu;
+        this._blockMenuDismiss = (ev) => {
+            if (ev.type === 'keydown' && ev.key !== 'Escape') return;
+            if (ev.type === 'mousedown' && menu.contains(ev.target)) return;
+            this._closeBlockMenu();
+        };
+        setTimeout(() => {
+            document.addEventListener('mousedown', this._blockMenuDismiss);
+            document.addEventListener('keydown',   this._blockMenuDismiss);
+        }, 0);
+    }
+
+    _closeBlockMenu() {
+        if (!this._blockMenuEl) return;
+        document.removeEventListener('mousedown', this._blockMenuDismiss);
+        document.removeEventListener('keydown',   this._blockMenuDismiss);
+        this._blockMenuEl.remove();
+        this._blockMenuEl = null;
+        this._blockMenuDismiss = null;
     }
 
     _onChange(e) {
@@ -643,13 +735,13 @@ class LoopManagerModal extends BaseModal {
             this._setPadRows(parseInt(e.target.value));
         } else if (id === 'la-bars') {
             const v = LoopUtils.validate.arrBars(e.target.value, this.arrangementBars);
-            if (v !== this.arrangementBars) {
-                this.arrangementBars = v;
-                e.target.value = v;
+            const changed = v !== this.arrangementBars;
+            this.arrangementBars = v;
+            e.target.value = v;
+            if (changed) {
                 this._renderTimeline();
-            } else {
-                // Re-sync UI in case clamp produced same value but input is out-of-range
-                e.target.value = v;
+                this._pushArrHistory();
+                this._scheduleAutoSave();
             }
         }
     }
@@ -663,11 +755,26 @@ class LoopManagerModal extends BaseModal {
             this._liveSearch = e.target.value;
             this._renderLiveArea();
         } else if (id === 'la-name-input') {
+            if (this.arrangementName === e.target.value) return;
             this.arrangementName = e.target.value;
+            this._markArrDirty(true);
+            this._scheduleAutoSave();
         } else if (id === 'la-tempo') {
             const v = LoopUtils.validate.tempo(e.target.value, this.arrangementTempo);
-            if (v !== this.arrangementTempo) this.arrangementTempo = v;
+            if (v !== this.arrangementTempo) {
+                this.arrangementTempo = v;
+                this._markArrDirty(true);
+                this._scheduleAutoSave();
+            }
         }
+    }
+
+    _scheduleAutoSave(delayMs = 800) {
+        if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
+        this._autoSaveTimer = setTimeout(() => {
+            this._autoSaveTimer = null;
+            if (this._arrDirty && this.currentArrangementId) this._saveArrangement({ silent: true });
+        }, delayMs);
     }
 
     // =========================================================
@@ -1519,9 +1626,17 @@ class LoopManagerModal extends BaseModal {
             el.dataset.lcWired = '1';
             el.addEventListener('click', (e) => {
                 const del = e.target.closest('[data-arr-action="delete"]');
-                if (del) { this._deleteArrangement(parseInt(del.dataset.arrId)); return; }
+                if (del) {
+                    const id = parseInt(del.dataset.arrId);
+                    const item = el.querySelector(`[data-arr-id="${id}"] .la-arr-name`);
+                    const name = item?.textContent || '';
+                    if (confirm(this.t('loopManager.confirmDeleteArrangement', { name }))) {
+                        this._deleteArrangement(id);
+                    }
+                    return;
+                }
                 const item = e.target.closest('[data-arr-id]');
-                if (item) this._loadArrangementById(parseInt(item.dataset.arrId));
+                if (item) this._requestLoadArrangement(parseInt(item.dataset.arrId));
             });
         }
     }
@@ -1532,6 +1647,12 @@ class LoopManagerModal extends BaseModal {
             if (!confirm(this.t('loopManager.confirmNewArrangement'))) return;
         }
         this._newArrangement();
+    }
+
+    _requestLoadArrangement(id) {
+        if (id === this.currentArrangementId) return;
+        if (this._arrDirty && !confirm(this.t('loopManager.confirmSwitchArrangement'))) return;
+        this._loadArrangementById(id);
     }
 
     async _newArrangement() {
@@ -1566,8 +1687,10 @@ class LoopManagerModal extends BaseModal {
             f('#la-name-input', arrangement.name);
             f('#la-tempo',      arrangement.global_tempo);
             f('#la-bars',       arrangement.total_bars);
+            this._trackMute.clear();
+            this._trackSolo.clear();
             this._renderTimeline();
-            this._renderArrList([arrangement]);
+            this._loadArrangements();   // refresh full list so other items remain visible
         } catch (err) {
             LoopUtils.handleError(err, 'arr.load', {
                 toast: this.t('loopManager.errLoadArrangement')
@@ -1581,6 +1704,9 @@ class LoopManagerModal extends BaseModal {
 
     _snapshotArr() {
         return {
+            name:   this.arrangementName,
+            tempo:  this.arrangementTempo,
+            bars:   this.arrangementBars,
             tracks: this.tracks.map(t => ({ ...t })),
             blocks: this.blocks.map(b => ({ ...b }))
         };
@@ -1620,9 +1746,21 @@ class LoopManagerModal extends BaseModal {
 
     _restoreArrSnapshot(snap) {
         if (!snap) return;
+        if (snap.name  !== undefined) this.arrangementName  = snap.name;
+        if (snap.tempo !== undefined) this.arrangementTempo = snap.tempo;
+        if (snap.bars  !== undefined) this.arrangementBars  = snap.bars;
         this.tracks = snap.tracks.map(t => ({ ...t }));
         this.blocks = snap.blocks.map(b => ({ ...b }));
         this._selectedBlocks.clear();
+        // Sync inputs with restored metadata
+        const setVal = (sel, v) => { const el = this.$(sel); if (el && v !== undefined) el.value = v; };
+        setVal('#la-name-input', this.arrangementName);
+        setVal('#la-tempo',      this.arrangementTempo);
+        setVal('#la-bars',       this.arrangementBars);
+        // Prune mute/solo for tracks that no longer exist
+        const ids = new Set(this.tracks.map(t => t.id));
+        for (const id of this._trackMute) if (!ids.has(id)) this._trackMute.delete(id);
+        for (const id of this._trackSolo) if (!ids.has(id)) this._trackSolo.delete(id);
         this._renderTimeline();
         this._refreshUndoButtons();
         this._markArrDirty(true);
@@ -1661,12 +1799,15 @@ class LoopManagerModal extends BaseModal {
         grid.querySelectorAll('.la-palette-chip').forEach(chip => {
             chip.addEventListener('dragstart', (e) => {
                 e.dataTransfer.effectAllowed = 'copy';
+                const loopBars = parseInt(chip.dataset.loopBars);
                 e.dataTransfer.setData('text/plain', JSON.stringify({
                     loopId: parseInt(chip.dataset.loopId),
-                    loopBars: parseInt(chip.dataset.loopBars),
+                    loopBars,
                     loopName: chip.dataset.loopName
                 }));
+                this._dragInfo = { type: 'palette', loopBars, reps: 1 };
             });
+            chip.addEventListener('dragend', () => { this._dragInfo = null; });
         });
     }
 
@@ -1699,12 +1840,21 @@ class LoopManagerModal extends BaseModal {
     _buildTrackEl(track) {
         const BAR_W  = this._barWidth();
         const totalW = BAR_W * this.arrangementBars;
+        const muted  = this._trackMute.has(track.id);
+        const soloed = this._trackSolo.has(track.id);
+        const audible = this._isTrackAudible(track.id);
         const trackEl = document.createElement('div');
-        trackEl.className = 'la-track';
+        trackEl.className = `la-track${muted ? ' la-track--muted' : ''}${soloed ? ' la-track--solo' : ''}${audible ? '' : ' la-track--silent'}`;
         trackEl.dataset.trackId = track.id;
         trackEl.innerHTML = `
             <div class="la-track-label">
                 <input type="text" class="la-track-name-input lc-name-input" value="${this.escape(track.label)}" data-track-id="${track.id}" />
+                <button class="la-track-toggle la-track-toggle--mute${muted ? ' la-track-toggle--active' : ''}"
+                    data-track-action="mute" data-track-id="${track.id}"
+                    aria-pressed="${muted}" title="${this.t('loopManager.trackMute')}">M</button>
+                <button class="la-track-toggle la-track-toggle--solo${soloed ? ' la-track-toggle--active' : ''}"
+                    data-track-action="solo" data-track-id="${track.id}"
+                    aria-pressed="${soloed}" title="${this.t('loopManager.trackSolo')}">S</button>
                 <button class="lc-card-btn lc-card-btn--danger" data-track-action="delete" data-track-id="${track.id}" title="${this.t('loopCreator.deleteTrack')}">✕</button>
             </div>
             <div class="la-track-cells" data-track-id="${track.id}" style="width:${totalW}px">
@@ -1726,11 +1876,13 @@ class LoopManagerModal extends BaseModal {
                 reps:     block.repetitions
             }));
             blockEl.classList.add('la-block--dragging');
+            this._dragInfo = { type: 'block', loopBars: block.loop_bars, reps: block.repetitions };
         });
         cells.addEventListener('dragend', (e) => {
             const blockEl = e.target.closest('.la-block[data-block-id]');
             if (blockEl) blockEl.classList.remove('la-block--dragging');
             this._hideDropPreview();
+            this._dragInfo = null;
         });
         cells.addEventListener('dragover',  (e) => {
             e.preventDefault();
@@ -1751,6 +1903,29 @@ class LoopManagerModal extends BaseModal {
             } catch (err) {
                 LoopUtils.handleError(err, 'arr.drop.parse');
             }
+        });
+
+        // Resize handle — initiates a custom drag that updates repetitions live
+        cells.addEventListener('mousedown', (e) => {
+            const handle = e.target.closest('[data-block-resize]');
+            if (!handle) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const blockEl = handle.closest('.la-block');
+            const blockId = parseInt(handle.dataset.blockResize);
+            const block   = this.blocks.find(b => b.id === blockId);
+            if (!block || !blockEl) return;
+            const rect    = blockEl.getBoundingClientRect();
+            this._resizeState = {
+                blockId,
+                blockEl,
+                leftPx:   rect.left,
+                barW:     this._barWidth(),
+                loopBars: block.loop_bars,
+                origReps: block.repetitions,
+                newReps:  block.repetitions
+            };
+            blockEl.classList.add('la-block--resizing');
         });
 
         // Wire block actions and selection (single delegated listener — no setTimeout race)
@@ -1785,7 +1960,27 @@ class LoopManagerModal extends BaseModal {
             }
         });
         trackEl.querySelector('[data-track-action="delete"]')?.addEventListener('click', () => this._deleteTrack(track.id));
+        trackEl.querySelector('[data-track-action="mute"]')?.addEventListener('click', () => this._toggleTrackMute(track.id));
+        trackEl.querySelector('[data-track-action="solo"]')?.addEventListener('click', () => this._toggleTrackSolo(track.id));
         return trackEl;
+    }
+
+    _isTrackAudible(trackId) {
+        if (this._trackMute.has(trackId)) return false;
+        if (this._trackSolo.size > 0)     return this._trackSolo.has(trackId);
+        return true;
+    }
+
+    _toggleTrackMute(trackId) {
+        if (this._trackMute.has(trackId)) this._trackMute.delete(trackId);
+        else                              this._trackMute.add(trackId);
+        this._renderTracks();
+    }
+
+    _toggleTrackSolo(trackId) {
+        if (this._trackSolo.has(trackId)) this._trackSolo.delete(trackId);
+        else                              this._trackSolo.add(trackId);
+        this._renderTracks();
     }
 
     _buildCells(trackId, BAR_W) {
@@ -1796,19 +1991,28 @@ class LoopManagerModal extends BaseModal {
             const blockW = block.loop_bars * block.repetitions * BAR_W;
             const blockL = block.position_bar * BAR_W;
             const selected = this._selectedBlocks.has(block.id);
-            html += `<div class="la-block${selected ? ' la-block--selected' : ''}"
+            const endBar   = block.position_bar + block.loop_bars * block.repetitions;
+            const overflow = endBar > this.arrangementBars;
+            const classes  = ['la-block'];
+            if (selected) classes.push('la-block--selected');
+            if (overflow) classes.push('la-block--overflow');
+            const title = overflow
+                ? this.t('loopManager.blockOverflow', { end: endBar, total: this.arrangementBars })
+                : this.t('loopManager.blockDragHint');
+            html += `<div class="${classes.join(' ')}"
                 draggable="true" data-block-id="${block.id}" data-loop-bars="${block.loop_bars}"
                 data-block-reps="${block.repetitions}"
                 data-wide="${blockW >= 70 ? 'true' : 'false'}"
                 style="left:${blockL}px;width:${blockW}px;background:${family.color}"
-                title="${this.t('loopManager.blockDragHint')}">
-                <div class="la-block-label">${this._instrIconHtml(loop?.instrument_program ?? 0, 'instrument', 'la-block-icon')} ${this.escape(block.loop_name)} ×${block.repetitions}</div>
+                title="${title}">
+                <div class="la-block-label">${this._instrIconHtml(loop?.instrument_program ?? 0, 'instrument', 'la-block-icon')} ${this.escape(block.loop_name)} ×${block.repetitions}${overflow ? ' ⚠' : ''}</div>
                 <div class="la-block-actions">
                     <button class="la-block-btn" draggable="false" data-block-action="reps-dec" data-block-id="${block.id}">−</button>
                     <span class="la-block-reps">${block.repetitions}</span>
                     <button class="la-block-btn" draggable="false" data-block-action="reps-inc" data-block-id="${block.id}">+</button>
                     <button class="la-block-btn la-block-btn--del" draggable="false" data-block-action="delete" data-block-id="${block.id}" title="${this.t('loopCreator.deleteBlock')}">✕</button>
                 </div>
+                <div class="la-block-resize" draggable="false" data-block-resize="${block.id}" title="${this.t('loopManager.dragToResize')}"></div>
             </div>`;
         });
         return html;
@@ -1857,6 +2061,104 @@ class LoopManagerModal extends BaseModal {
         this._pushArrHistory();
     }
 
+    _copySelectedBlocks() {
+        const sel = this.blocks.filter(b => this._selectedBlocks.has(b.id));
+        if (!sel.length) return;
+        const minBar = Math.min(...sel.map(b => b.position_bar));
+        const tracksOrder = this.tracks.map(t => t.id);
+        const minTrackIdx = Math.min(...sel.map(b => tracksOrder.indexOf(b.track_id)));
+        this._blockClipboard = sel.map(b => ({
+            loop_id:        b.loop_id,
+            loop_name:      b.loop_name,
+            loop_bars:      b.loop_bars,
+            repetitions:    b.repetitions,
+            track_offset:   tracksOrder.indexOf(b.track_id) - minTrackIdx,
+            bar_offset:     b.position_bar - minBar
+        }));
+        LoopUtils.toast?.(this.t('loopManager.blocksCopied', { count: sel.length }), 'info');
+    }
+
+    async _pasteBlocks(targetTrackId = null, targetBar = null) {
+        if (!this._blockClipboard.length || !this.currentArrangementId) return;
+        const tracksOrder = this.tracks.map(t => t.id);
+        if (!tracksOrder.length) return;
+        // Default paste anchor: after the rightmost existing block on the first track
+        const baseTrackIdx = targetTrackId != null
+            ? Math.max(0, tracksOrder.indexOf(targetTrackId))
+            : 0;
+        const baseBar = targetBar != null
+            ? targetBar
+            : this._nextFreeBar(tracksOrder[baseTrackIdx]);
+        const newBlocks = [];
+        for (const item of this._blockClipboard) {
+            const trackIdx = Math.min(tracksOrder.length - 1, baseTrackIdx + item.track_offset);
+            const trackId  = tracksOrder[trackIdx];
+            const posBar   = Math.max(0, Math.min(this.arrangementBars - 1, baseBar + item.bar_offset));
+            try {
+                const r = await this.api.sendCommand('arrangement_add_block', {
+                    trackId, loopId: item.loop_id, position_bar: posBar, repetitions: item.repetitions
+                });
+                const created = {
+                    id: r.blockId, track_id: trackId, loop_id: item.loop_id,
+                    position_bar: posBar, repetitions: item.repetitions,
+                    loop_name: item.loop_name, loop_bars: item.loop_bars
+                };
+                this.blocks.push(created);
+                newBlocks.push(created.id);
+            } catch (err) {
+                LoopUtils.handleError(err, 'arr.block.paste', {
+                    toast: this.t('loopManager.errSave')
+                });
+            }
+        }
+        if (newBlocks.length) {
+            this._selectedBlocks = new Set(newBlocks);
+            this._renderTimeline();
+            this._pushArrHistory();
+        }
+    }
+
+    async _duplicateSelectedBlocks() {
+        const sel = this.blocks.filter(b => this._selectedBlocks.has(b.id));
+        if (!sel.length) return;
+        const newIds = [];
+        for (const b of sel) {
+            const span     = b.loop_bars * b.repetitions;
+            const posBar   = Math.max(0, Math.min(this.arrangementBars - 1, b.position_bar + span));
+            try {
+                const r = await this.api.sendCommand('arrangement_add_block', {
+                    trackId: b.track_id, loopId: b.loop_id, position_bar: posBar, repetitions: b.repetitions
+                });
+                const dup = {
+                    id: r.blockId, track_id: b.track_id, loop_id: b.loop_id,
+                    position_bar: posBar, repetitions: b.repetitions,
+                    loop_name: b.loop_name, loop_bars: b.loop_bars
+                };
+                this.blocks.push(dup);
+                newIds.push(dup.id);
+            } catch (err) {
+                LoopUtils.handleError(err, 'arr.block.duplicate', {
+                    toast: this.t('loopManager.errSave')
+                });
+            }
+        }
+        if (newIds.length) {
+            this._selectedBlocks = new Set(newIds);
+            this._renderTimeline();
+            this._pushArrHistory();
+        }
+    }
+
+    _nextFreeBar(trackId) {
+        let end = 0;
+        for (const b of this.blocks) {
+            if (b.track_id !== trackId) continue;
+            const e = b.position_bar + b.loop_bars * b.repetitions;
+            if (e > end) end = e;
+        }
+        return Math.min(end, Math.max(0, this.arrangementBars - 1));
+    }
+
     _barWidth() {
         const wrap = this.$('#la-timeline-wrap');
         const available = (wrap?.clientWidth || 800) - 140;
@@ -1884,10 +2186,13 @@ class LoopManagerModal extends BaseModal {
 
     _showDropPreview(cells, bar, barW) {
         this._hideDropPreview();
-        const preview = document.createElement('div');
+        const info     = this._dragInfo || {};
+        const widthBars = Math.max(1, (info.loopBars || 1) * (info.reps || 1));
+        const preview  = document.createElement('div');
         preview.className  = 'la-drop-preview';
         preview.style.left  = (bar * barW) + 'px';
-        preview.style.width = barW + 'px';
+        preview.style.width = (widthBars * barW) + 'px';
+        if (bar + widthBars > this.arrangementBars) preview.classList.add('la-drop-preview--overflow');
         cells.appendChild(preview);
         this._dropPreview = preview;
     }
@@ -1900,12 +2205,20 @@ class LoopManagerModal extends BaseModal {
 
     async _addTrack() {
         if (!this.currentArrangementId) return;
+        const label = `Track ${this.tracks.length + 1}`;
         try {
-            await this.api.sendCommand('arrangement_add_track', {
+            const r = await this.api.sendCommand('arrangement_add_track', {
                 arrangementId: this.currentArrangementId,
-                label: `Track ${this.tracks.length + 1}`
+                label
             });
-            await this._loadArrangementById(this.currentArrangementId);
+            this.tracks.push({
+                id: r.trackId,
+                arrangement_id: this.currentArrangementId,
+                track_index: this.tracks.length,
+                label,
+                midi_channel: 1
+            });
+            this._renderTimeline();
             this._pushArrHistory();
         } catch (err) {
             LoopUtils.handleError(err, 'arr.track.add', {
@@ -1999,7 +2312,7 @@ class LoopManagerModal extends BaseModal {
         }
     }
 
-    async _saveArrangement() {
+    async _saveArrangement({ silent = false } = {}) {
         this.arrangementName = this.$('#la-name-input')?.value?.trim() || this.t('loopCreator.untitledArrangement');
         const tempo = LoopUtils.validate.tempo(this.$('#la-tempo')?.value, this.arrangementTempo);
         const bars  = LoopUtils.validate.arrBars(this.$('#la-bars')?.value, this.arrangementBars);
@@ -2011,7 +2324,7 @@ class LoopManagerModal extends BaseModal {
                 });
                 await this._loadArrangements();
                 this._markArrDirty(false);
-                LoopUtils.toast(this.t('loopCreator.statusSaved'), 'success');
+                if (!silent) LoopUtils.toast(this.t('loopCreator.statusSaved'), 'success');
             }
         } catch (err) {
             LoopUtils.handleError(err, 'arr.save', {
@@ -2033,14 +2346,24 @@ class LoopManagerModal extends BaseModal {
     }
 
     _adjustArrTempo(d) {
-        this.arrangementTempo = LoopUtils.validate.tempo(this.arrangementTempo + d, this.arrangementTempo);
+        const prev = this.arrangementTempo;
+        this.arrangementTempo = LoopUtils.validate.tempo(prev + d, prev);
         const el = this.$('#la-tempo'); if (el) el.value = this.arrangementTempo;
+        if (this.arrangementTempo !== prev) {
+            this._markArrDirty(true);
+            this._scheduleAutoSave();
+        }
     }
 
     _adjustArrBars(d) {
-        this.arrangementBars = LoopUtils.validate.arrBars(this.arrangementBars + d, this.arrangementBars);
+        const prev = this.arrangementBars;
+        this.arrangementBars = LoopUtils.validate.arrBars(prev + d, prev);
         const el = this.$('#la-bars'); if (el) el.value = this.arrangementBars;
-        this._renderTimeline();
+        if (this.arrangementBars !== prev) {
+            this._renderTimeline();
+            this._pushArrHistory();
+            this._scheduleAutoSave();
+        }
     }
 
     // =========================================================
@@ -2058,6 +2381,7 @@ class LoopManagerModal extends BaseModal {
         const programsToLoad = new Set([0]);
 
         for (const block of this.blocks) {
+            if (!this._isTrackAudible(block.track_id)) continue;
             const loopData = await this._fetchLoopData(block.loop_id);
             if (!loopData) continue;
             const prog      = loopData.instrument_program ?? 0;
@@ -2171,11 +2495,9 @@ class LoopManagerModal extends BaseModal {
         const BAR_W = this._barWidth();
         const secPerBar = 60 / this.arrangementTempo * 4;
         const bar = Math.min(this.arrangementBars, elapsedSec / secPerBar);
-        // la-track-label is 120px wide and pinned at left:0 within the timeline
-        // wrap, so the cells lane begins at x=120px.
-        const xWithinTracks = bar * BAR_W;
+        const labelW = this.$('.la-track-label')?.offsetWidth || 120;
         ph.style.display = 'block';
-        ph.style.transform = `translateX(${120 + xWithinTracks}px)`;
+        ph.style.transform = `translateX(${labelW + bar * BAR_W}px)`;
     }
 
     _renderPlaybar() {
@@ -2369,11 +2691,50 @@ class LoopManagerModal extends BaseModal {
     }
 
     // =========================================================
-    // DRAG (doc-level for arranger block moves — future)
+    // DRAG (doc-level — block resize via right-edge handle)
     // =========================================================
 
-    _onDocMouseUp()   {}
-    _onDocMouseMove() {}
+    _onDocMouseMove(e) {
+        const r = this._resizeState;
+        if (!r) return;
+        const widthPx     = Math.max(r.barW, e.clientX - r.leftPx);
+        const newReps     = Math.max(1, Math.round(widthPx / (r.loopBars * r.barW)));
+        if (newReps === r.newReps) return;
+        r.newReps = newReps;
+        const w = r.loopBars * newReps * r.barW;
+        r.blockEl.style.width = w + 'px';
+        const repsLabel = r.blockEl.querySelector('.la-block-reps');
+        if (repsLabel) repsLabel.textContent = newReps;
+        const nameLabel = r.blockEl.querySelector('.la-block-label');
+        if (nameLabel) {
+            const block = this.blocks.find(b => b.id === r.blockId);
+            const overflow = block && (block.position_bar + r.loopBars * newReps > this.arrangementBars);
+            r.blockEl.classList.toggle('la-block--overflow', !!overflow);
+        }
+        r.blockEl.dataset.wide = w >= 70 ? 'true' : 'false';
+    }
+
+    async _onDocMouseUp() {
+        const r = this._resizeState;
+        if (!r) return;
+        this._resizeState = null;
+        r.blockEl.classList.remove('la-block--resizing');
+        if (r.newReps === r.origReps) return;
+        try {
+            await this.api.sendCommand('arrangement_update_block', {
+                blockId: r.blockId, repetitions: r.newReps
+            });
+            const block = this.blocks.find(b => b.id === r.blockId);
+            if (block) block.repetitions = r.newReps;
+            this._renderTimeline();
+            this._pushArrHistory();
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.block.resize', {
+                toast: this.t('loopManager.errSave')
+            });
+            this._renderTimeline();
+        }
+    }
 }
 
 // Expose both names for backward compatibility
