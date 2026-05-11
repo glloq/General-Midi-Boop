@@ -2594,6 +2594,7 @@
     "velocityNoNotes": "No notes to modify.",
     "velocityApplied": "Velocity {velocity} applied to {count} note(s).",
     "tabPianoVirtuel": "🎹 Virtual piano",
-    "tabEditor": "🎼 Editor"
+    "tabEditor": "🎼 Editor",
+    "minimapInfoAria": "Notes overview (display only)"
   }
 }

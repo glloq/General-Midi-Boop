@@ -61,6 +61,14 @@ async function deviceList(app) {
           if (settings.usb_serial_number) {
             device.usb_serial_number = settings.usb_serial_number;
           }
+          // Expose SysEx identity (used by the frontend to decide whether
+          // a real external keyboard is plugged in). `sysex_manufacturer_id`
+          // is set by parseIdentityReply when a Universal Identity Reply is
+          // received ; it stays null for never-probed devices and for our
+          // own DIY GMB devices (which use the custom protocol).
+          if (settings.sysex_manufacturer_id !== null && settings.sysex_manufacturer_id !== undefined) {
+            device.sysex_manufacturer_id = settings.sysex_manufacturer_id;
+          }
         }
 
         // Enrich with device-level custom_name (takes priority over instrument-level)

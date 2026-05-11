@@ -186,11 +186,33 @@ class LoopEditorModal extends BaseModal {
     // =========================================================
 
     _renderHeader() {
-        const name = this.loopName || this.t('loopEditor.title');
+        const timeSigOptions = [
+            ['2/4','2','4'], ['3/4','3','4'], ['4/4','4','4'],
+            ['5/4','5','4'], ['6/8','6','8'], ['7/8','7','8']
+        ];
+        const timeSigHtml = timeSigOptions.map(([label, num, den]) =>
+            `<option value="${num}:${den}" ${this.timeSigNum == num && this.timeSigDen == den ? 'selected' : ''}>${label}</option>`
+        ).join('');
         return `
         <div class="modal-header le-header">
-            <button class="lc-btn lc-btn-sm le-back-btn" data-action="close">← ${this.t('loopEditor.back')}</button>
-            <span class="le-header-title">✏️ ${this.escape(name)}</span>
+            <div class="le-header-meta">
+                <input type="text" class="lc-name-input le-name-input" id="lc-name-input"
+                    value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
+                    placeholder="${this.t('loopCreator.namePlaceholder')}" />
+                <div class="lc-spinbox" title="${this.t('loopCreator.tempo')}">
+                    <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
+                    <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />
+                    <button class="lc-spin-btn" data-action="tempo-inc">›</button>
+                </div>
+                <span class="lc-unit le-header-unit">BPM</span>
+                <select id="lc-timesig" class="lc-select lc-select-xs" title="${this.t('loopCreator.timeSignature')}">${timeSigHtml}</select>
+                <div class="lc-spinbox" title="${this.t('loopCreator.bars')}">
+                    <button class="lc-spin-btn" data-action="bars-dec">‹</button>
+                    <input type="number" id="lc-bars" class="lc-spin-input lc-spin-input--sm" value="${this.bars}" min="1" max="32" step="1" />
+                    <button class="lc-spin-btn" data-action="bars-inc">›</button>
+                </div>
+                <span class="lc-unit le-header-unit" title="${this.t('loopCreator.bars')}">M</span>
+            </div>
             <div class="le-header-actions">
                 <div class="lc-header-output" id="le-header-output-wrap">
                     <span class="lc-header-output-icon" id="le-header-output-icon" aria-hidden="true">🔊</span>
@@ -209,64 +231,41 @@ class LoopEditorModal extends BaseModal {
     }
 
     renderBody() {
-        const timeSigOptions = [
-            ['2/4','2','4'], ['3/4','3','4'], ['4/4','4','4'],
-            ['5/4','5','4'], ['6/8','6','8'], ['7/8','7','8']
-        ];
-        const timeSigHtml = timeSigOptions.map(([label, num, den]) =>
-            `<option value="${num}:${den}" ${this.timeSigNum == num && this.timeSigDen == den ? 'selected' : ''}>${label}</option>`
-        ).join('');
-
         const isPianoTab = this.activeTab === 'piano';
         const isEditorTab = this.activeTab === 'editor';
         return `
         <div class="le-layout">
-            <!-- ── Minimap bar — always visible, just below the header ── -->
-            <canvas class="lc-minimap le-minimap-top" id="le-minimap-top"
-                    role="slider" tabindex="0"
-                    aria-label="${this.t('loopEditor.minimapAria')}"></canvas>
+            <!-- ── Transport bar (big REC + Play/Stop / Metro/CountIn / minimap info) ── -->
+            <div class="le-transport-bar">
+                <button class="le-rec-big${''}" id="lc-record-btn" data-action="record"
+                        title="${this.t('loopCreator.record')} (R)" aria-label="${this.t('loopCreator.record')}">
+                    <span class="le-rec-big-dot"></span>
+                    <span class="le-rec-big-label">REC</span>
+                </button>
 
-            <!-- ── Toolbar row 1 — common to both tabs (loop meta + transport) ── -->
-            <div class="lc-ctrl-bar le-ctrl-bar-common">
-                <div class="lc-ctrl-row">
-                    <div class="le-group le-group-meta">
-                        <span class="le-group-label">${this.t('loopEditor.groupLoop')}</span>
-                        <input type="text" class="lc-name-input le-name-input" id="lc-name-input"
-                            value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
-                            placeholder="${this.t('loopCreator.namePlaceholder')}" />
-                        <div class="lc-spinbox" title="${this.t('loopCreator.tempo')}">
-                            <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
-                            <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />
-                            <button class="lc-spin-btn" data-action="tempo-inc">›</button>
-                        </div>
-                        <span class="lc-unit">BPM</span>
-                        <select id="lc-timesig" class="lc-select lc-select-xs" title="${this.t('loopCreator.timeSignature')}">${timeSigHtml}</select>
-                        <div class="lc-spinbox" title="${this.t('loopCreator.bars')}">
-                            <button class="lc-spin-btn" data-action="bars-dec">‹</button>
-                            <input type="number" id="lc-bars" class="lc-spin-input lc-spin-input--sm" value="${this.bars}" min="1" max="32" step="1" />
-                            <button class="lc-spin-btn" data-action="bars-inc">›</button>
-                        </div>
-                        <span class="lc-unit" title="${this.t('loopCreator.bars')}">M</span>
+                <div class="le-transport-stack">
+                    <div class="le-transport-row le-transport-row--top">
+                        <button class="lc-btn lc-btn-icon le-btn-play"  data-action="preview"
+                                title="${this.t('loopCreator.preview')} (Space)">▶</button>
+                        <button class="lc-btn lc-btn-icon le-btn-stop"  data-action="stop-all"
+                                title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
                     </div>
-
-                    <span class="lc-ctrl-spacer"></span>
-
-                    <div class="le-group le-group-transport">
-                        <span class="le-group-label">${this.t('loopEditor.groupTransport')}</span>
-                        <div class="lc-btn-group">
-                            <button class="lc-btn lc-btn-icon lc-btn-record" id="lc-record-btn" data-action="record" title="${this.t('loopCreator.record')} (R)">
-                                <span class="lc-rec-dot"></span>
-                            </button>
-                            <button class="lc-btn lc-btn-icon" data-action="preview" title="${this.t('loopCreator.preview')} (Space)">▶</button>
-                            <button class="lc-btn lc-btn-icon" data-action="stop-all" title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
-                        </div>
-                        <button class="lc-btn lc-btn-icon" data-action="toggle-metronome" id="lc-metronome-btn" aria-pressed="false" title="${this.t('loopEditor.metronome')}">🎼</button>
-                        <button class="lc-btn lc-btn-icon" data-action="toggle-count-in" id="lc-countin-btn" aria-pressed="false" title="${this.t('loopEditor.countIn')}">⏱</button>
+                    <div class="le-transport-row le-transport-row--bot">
+                        <button class="lc-btn lc-btn-icon" id="lc-metronome-btn" data-action="toggle-metronome"
+                                aria-pressed="false" title="${this.t('loopEditor.metronome')}">🎼</button>
+                        <button class="lc-btn lc-btn-icon" id="lc-countin-btn" data-action="toggle-count-in"
+                                aria-pressed="false" title="${this.t('loopEditor.countIn')}">⏱</button>
                         <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
                             <span class="lc-rec-dot lc-rec-dot--pulse"></span>
                             <span class="lc-rec-time" id="lc-rec-time">0:00</span>
                         </span>
                     </div>
+                </div>
+
+                <div class="le-minimap-info-wrap">
+                    <canvas class="le-minimap-info" id="le-minimap-top"
+                            aria-label="${this.t('loopEditor.minimapInfoAria')}"
+                            aria-hidden="true"></canvas>
                 </div>
             </div>
 
@@ -278,13 +277,12 @@ class LoopEditorModal extends BaseModal {
 
             <!-- ── Pane: Piano virtuel ── -->
             <div class="le-pane${isPianoTab ? '' : ' le-pane--hidden'}" id="le-pane-piano" role="tabpanel">
-                <div class="lc-ctrl-bar le-ctrl-bar-piano">
-                    <div class="le-group le-group-input">
-                        <span class="le-group-label">${this.t('loopEditor.groupInput')}</span>
-                        <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
-                            <option value="">—</option>
-                        </select>
-                    </div>
+                <div class="lc-ctrl-bar le-ctrl-bar-piano le-ctrl-bar-piano--hidden" id="le-ctrl-bar-piano">
+                    <span class="le-group-label">${this.t('loopEditor.groupInput')}</span>
+                    <select id="lc-midi-in-device" class="lc-select lc-select-midi" title="${this.t('loopCreator.midiIn')}">
+                        <option value="">—</option>
+                    </select>
+                    <span class="lc-status" id="le-midi-in-hint"></span>
                 </div>
                 <div class="lc-kb-panel le-kb-panel--standalone" id="lc-kb-panel"></div>
             </div>
@@ -332,6 +330,7 @@ class LoopEditorModal extends BaseModal {
                 noteMax:    this.outputNoteMax
             },
             externalMinimapEl: minimapCanvas,
+            minimapReadOnly:   true,
             getStatusEl: () => this.$('#lc-status')
         });
         this.pianoRollEditor.mount();
@@ -464,6 +463,11 @@ class LoopEditorModal extends BaseModal {
         if (editor) editor.classList.toggle('le-pane--hidden', tab !== 'editor');
         if (tab === 'editor' && this.pianoRollEditor) {
             requestAnimationFrame(() => this.pianoRollEditor.refit());
+        }
+        if (tab === 'piano') {
+            // Re-probe keyboards each time the user comes back to the Piano
+            // tab, in case they plugged in a keyboard since the modal opened.
+            this._loadMidiInDevices();
         }
     }
 
@@ -920,24 +924,79 @@ class LoopEditorModal extends BaseModal {
         }
     }
 
+    /**
+     * Populate the MIDI-In selector with **real keyboards only** — i.e.
+     * devices that have replied to a Universal SysEx Identity Request with
+     * a manufacturer id that is NOT our own DIY GMB code (0x7D).
+     *
+     * The piano control bar (`#le-ctrl-bar-piano`) is shown only when at
+     * least one such device is detected ; otherwise it stays hidden.
+     */
     async _loadMidiInDevices() {
         const sel = this.$('#lc-midi-in-device');
+        const bar = this.$('#le-ctrl-bar-piano');
         if (!sel) return;
+
+        // Probe every connected device first so freshly-plugged keyboards
+        // get a chance to identify themselves before we filter.
+        await this._probeKeyboardIdentities();
+
         try {
             const allDevices = await this.api.listDevices();
-            const devices = allDevices.filter(d => d.status === 2 || d.connected === true);
+            const realKeyboards = (allDevices || []).filter(d => {
+                const connected = (d.status === 2 || d.connected === true);
+                if (!connected) return false;
+                const mfr = d.sysex_manufacturer_id;
+                if (!mfr) return false;        // never identified → not a keyboard
+                const mfrLow = String(mfr).toLowerCase();
+                if (mfrLow === '0x7d' || mfrLow === '7d') return false; // GMB DIY
+                return true;
+            });
+
             const existing = sel.value;
             sel.innerHTML = `<option value="">IN:—</option>`;
-            for (const d of devices) {
+            for (const d of realKeyboards) {
                 const id  = d.device_id || d.id;
                 const opt = document.createElement('option');
                 opt.value = id;
-                opt.textContent = `IN: ${d.name || id}`;
+                opt.textContent = `IN: ${d.displayName || d.name || id}`;
                 if (id === existing) opt.selected = true;
                 sel.appendChild(opt);
             }
+
+            const hasKeyboard = realKeyboards.length > 0;
+            if (bar) bar.classList.toggle('le-ctrl-bar-piano--hidden', !hasKeyboard);
+            if (!hasKeyboard) {
+                this._midiInDevice = null;
+            }
         } catch (err) {
             LoopUtils.handleError(err, 'editor.midiIn.list');
+        }
+    }
+
+    /**
+     * Send a SysEx Identity Request to every connected device and wait
+     * briefly so replies have time to come back and be persisted by the
+     * backend. Best-effort — failures are ignored.
+     */
+    async _probeKeyboardIdentities() {
+        try {
+            const all = await this.api.listDevices();
+            const candidates = (all || []).filter(d => d.status === 2 || d.connected === true);
+            const probes = candidates.map(d => {
+                const id = d.device_id || d.id;
+                return this.api.sendCommand('sysex_identity_request', { deviceId: id })
+                    .catch(() => {}); // input-only / unsupported devices throw — ignore
+            });
+            if (!probes.length) return;
+            await Promise.race([
+                Promise.all(probes),
+                new Promise(res => setTimeout(res, 150))
+            ]);
+            // Give replies a window to land in the DB before re-querying.
+            await new Promise(res => setTimeout(res, 350));
+        } catch (err) {
+            LoopUtils.handleError(err, 'editor.midiIn.probe');
         }
     }
 

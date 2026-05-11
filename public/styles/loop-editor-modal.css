@@ -41,19 +41,60 @@
     position: relative;
 }
 
-.le-back-btn {
-    flex-shrink: 0;
-}
-
-.le-header-title {
-    flex: 1 1 0;
+/* Loop meta directly inside the gradient header (name + BPM + time-sig + bars) */
+.le-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
     min-width: 0;
-    font-size: 0.92rem;
+    overflow: hidden;
+}
+.le-header-meta .le-name-input {
+    flex: 1 1 160px;
+    min-width: 100px;
+    max-width: 320px;
+    font-size: 0.95rem;
     font-weight: 600;
     color: #fff;
-    white-space: nowrap;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 4px 8px;
+}
+.le-header-meta .le-name-input::placeholder { color: rgba(255,255,255,0.55); }
+.le-header-meta .le-name-input:focus {
+    outline: none;
+    background: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.55);
+}
+.le-header-meta .lc-spinbox {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.20);
+    border-radius: 5px;
     overflow: hidden;
-    text-overflow: ellipsis;
+}
+.le-header-meta .lc-spinbox .lc-spin-btn,
+.le-header-meta .lc-spinbox .lc-spin-input {
+    background: transparent !important;
+    color: #fff !important;
+    border-color: transparent !important;
+}
+.le-header-meta .lc-spinbox .lc-spin-btn:hover {
+    background: rgba(255,255,255,0.25) !important;
+}
+.le-header-meta .lc-select {
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    height: 26px;
+}
+.le-header-meta .lc-select option { color: var(--text-primary, #333); background: var(--bg-primary, #fff); }
+.le-header-meta .le-header-unit {
+    color: rgba(255,255,255,0.78);
+    font-weight: 600;
+    flex-shrink: 0;
 }
 
 .le-header-actions {
@@ -61,6 +102,117 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+}
+
+/* ── Transport bar (big REC | Play/Stop · Metro/CountIn | minimap-info) ── */
+.le-transport-bar {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-tertiary, #f0f1f3);
+    border-bottom: 1px solid var(--border-color, #dde0e6);
+    flex-shrink: 0;
+    min-height: 96px;
+}
+
+.le-rec-big {
+    flex: 0 0 auto;
+    width: 96px;
+    height: 80px;
+    border-radius: 12px;
+    border: 2px solid #c0392b;
+    background: linear-gradient(180deg, #fff 0%, #fde9e6 100%);
+    color: #c0392b;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s, transform 0.08s, box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(192,57,43,0.18);
+    user-select: none;
+}
+.le-rec-big:hover  { background: linear-gradient(180deg, #fff 0%, #fbd5d0 100%); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(192,57,43,0.30); }
+.le-rec-big:active { transform: translateY(1px); }
+.le-rec-big.lc-btn-record--active {
+    background: linear-gradient(180deg, #c0392b 0%, #a02b1f 100%);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(192,57,43,0.35), 0 0 18px rgba(192,57,43,0.55);
+    animation: le-rec-pulse 1s infinite alternate;
+}
+.le-rec-big-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #c0392b;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.6) inset;
+}
+.le-rec-big.lc-btn-record--active .le-rec-big-dot {
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(192,57,43,0.6) inset;
+}
+.le-rec-big-label { font-size: 0.85rem; font-weight: 800; letter-spacing: 0.08em; }
+@keyframes le-rec-pulse {
+    from { box-shadow: 0 0 0 4px rgba(192,57,43,0.35), 0 0 18px rgba(192,57,43,0.55); }
+    to   { box-shadow: 0 0 0 8px rgba(192,57,43,0.10), 0 0 26px rgba(192,57,43,0.85); }
+}
+
+.le-transport-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+.le-transport-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.le-transport-row .lc-btn-icon { min-width: 36px; height: 32px; font-size: 1.05rem; }
+.le-btn-play { color: #2e7d32; border-color: #2e7d32; }
+.le-btn-play:hover { background: #2e7d32; color: #fff; }
+.le-btn-stop { color: #34495e; }
+
+.le-minimap-info-wrap {
+    flex: 1 1 0;
+    min-width: 200px;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #dde0e6);
+    border-radius: 8px;
+    padding: 4px;
+    display: flex;
+    overflow: hidden;
+}
+.le-minimap-info {
+    flex: 1 1 0;
+    width: 100%;
+    height: 100%;
+    min-height: 64px;
+    display: block;
+    user-select: none;
+    /* purely informational — no scrubbing */
+    pointer-events: none;
+    cursor: default;
+}
+
+body.theme-dark .le-transport-bar,
+body.dark-mode  .le-transport-bar {
+    background: var(--bg-primary, #12122a);
+    border-color: var(--border-color, #333355);
+}
+body.theme-dark .le-rec-big,
+body.dark-mode  .le-rec-big {
+    background: linear-gradient(180deg, #2a2a3e 0%, #3a1f1f 100%);
+    color: #ff8a7a;
+    border-color: #c0392b;
+}
+body.theme-dark .le-minimap-info-wrap,
+body.dark-mode  .le-minimap-info-wrap {
+    background: var(--bg-secondary, #1a1a2e);
+    border-color: var(--border-color, #333355);
 }
 
 /* ── Editor layout shell ── */
@@ -222,10 +374,19 @@
 }
 .le-pane--hidden { display: none !important; }
 
-/* Pane 1: piano virtuel — controls on top, keyboard fills rest */
+/* Pane 1: piano virtuel — controls on top (only when a real keyboard is
+   detected via SysEx Universal Identity Reply), keyboard fills rest */
 #le-pane-piano .le-ctrl-bar-piano {
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
+#le-pane-piano .le-ctrl-bar-piano.le-ctrl-bar-piano--hidden {
+    display: none;
+}
+#le-pane-piano .le-ctrl-bar-piano #lc-midi-in-device { min-width: 160px; max-width: 280px; }
+#le-pane-piano .le-ctrl-bar-piano #le-midi-in-hint { font-size: 0.72rem; }
 #le-pane-piano .lc-kb-panel.le-kb-panel--standalone {
     flex: 1 1 auto !important;
     height: auto !important;
@@ -412,22 +573,7 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
     height: 100%;
 }
 
-/* ── Top minimap bar (always visible, just below the header) ── */
-.loop-editor-modal .le-minimap-top {
-    flex: 0 0 auto;
-    height: 56px;
-    width: 100%;
-    display: block;
-    cursor: crosshair;
-    border-bottom: 1px solid var(--border-color, #dde0e6);
-    background: var(--bg-tertiary, #eef0f4);
-    user-select: none;
-}
-body.theme-dark .loop-editor-modal .le-minimap-top,
-body.dark-mode  .loop-editor-modal .le-minimap-top {
-    background: var(--bg-primary, #0f0f22);
-    border-color: var(--border-color, #333355);
-}
+/* (Top-level minimap was relocated into the transport bar — see .le-minimap-info above.) */
 
 /* The embedded keyboard's modal-dialog must fill its host panel without
    adding its own scrollbars. CRITICAL: the dialog inherits `display: flex;
