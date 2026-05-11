@@ -75,6 +75,37 @@ class LoopEditorModal extends BaseModal {
 
         // Debounced piano-roll refresh (for fast keystrokes on tempo/bars)
         this._refreshTimer = null;
+
+        // Unsaved-changes tracking (snapshot taken at open + after each save)
+        this._savedSnapshot = null;
+
+        // Metronome / count-in
+        this._metronomeEnabled = false;
+        this._countInEnabled   = false;
+        this._metronomeTimers  = [];
+        this._metronomeCtx     = null;
+        this._countInActive    = false;
+    }
+
+    _currentSnapshot() {
+        const seq = this.pianoRoll?.sequence ?? this.sequence ?? [];
+        return JSON.stringify({
+            name: this.loopName,
+            tempo: this.tempo,
+            tsn: this.timeSigNum, tsd: this.timeSigDen,
+            bars: this.bars, ppq: this.ppq,
+            prog: this.instrumentProgram,
+            seq
+        });
+    }
+
+    _isDirty() {
+        if (this._savedSnapshot == null) return false;
+        return this._currentSnapshot() !== this._savedSnapshot;
+    }
+
+    _markSaved() {
+        this._savedSnapshot = this._currentSnapshot();
     }
 
     // =========================================================
@@ -162,6 +193,7 @@ class LoopEditorModal extends BaseModal {
             <button class="lc-btn lc-btn-sm le-back-btn" data-action="close">← ${this.t('loopEditor.back')}</button>
             <span class="le-header-title">✏️ ${this.escape(name)}</span>
             <div class="le-header-actions">
+                <button class="lc-btn lc-btn-sm" data-action="save-loop-as-new" title="${this.t('loopEditor.saveAsNew')}">📋+</button>
                 <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="save-loop">💾 ${this.t('loopCreator.save')}</button>
                 <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
             </div>
@@ -247,7 +279,7 @@ class LoopEditorModal extends BaseModal {
                         </div>
                     </div>
 
-                    <!-- Edit group: clipboard + delete -->
+                    <!-- Edit group: clipboard + delete + velocity -->
                     <div class="le-group le-group-edit">
                         <span class="le-group-label">${this.t('loopEditor.groupEdit')}</span>
                         <div class="lc-btn-group">
@@ -257,9 +289,13 @@ class LoopEditorModal extends BaseModal {
                             <button class="lc-btn lc-btn-icon" data-action="delete-selected" title="${this.t('loopCreator.deleteSelected')} (⌫)">🗑</button>
                             <button class="lc-btn lc-btn-icon" data-action="clear-notes"     title="${this.t('loopCreator.clearNotes')}">⊠</button>
                         </div>
+                        <span class="lc-unit" title="${this.t('loopEditor.velocityHint')}">v</span>
+                        <input type="number" id="lc-velocity-input" class="lc-spin-input lc-spin-input--sm"
+                            value="100" min="1" max="127" step="1" title="${this.t('loopEditor.velocityHint')}" />
+                        <button class="lc-btn lc-btn-icon" data-action="apply-velocity" title="${this.t('loopEditor.applyVelocity')}">→v</button>
                     </div>
 
-                    <!-- Grid group: snap + quantize -->
+                    <!-- Grid group: snap + quantize + metronome -->
                     <div class="le-group le-group-grid">
                         <span class="le-group-label">${this.t('loopEditor.groupGrid')}</span>
                         <select id="lc-snap" class="lc-select lc-select-xs" title="${this.t('loopCreator.snap')}">
@@ -274,6 +310,8 @@ class LoopEditorModal extends BaseModal {
                             <option value="30">Q 1/16</option>
                         </select>
                         <button class="lc-btn lc-btn-icon" data-action="quantize-selection" title="${this.t('loopEditor.quantizeSelection')}">⊞</button>
+                        <button class="lc-btn lc-btn-icon" data-action="toggle-metronome" id="lc-metronome-btn" aria-pressed="false" title="${this.t('loopEditor.metronome')}">🎼</button>
+                        <button class="lc-btn lc-btn-icon" data-action="toggle-count-in" id="lc-countin-btn" aria-pressed="false" title="${this.t('loopEditor.countIn')}">⏱</button>
                     </div>
 
                     <!-- MIDI In group -->
@@ -335,6 +373,15 @@ class LoopEditorModal extends BaseModal {
         this._loadMidiInDevices();
         this._mountKeyboardPanel();
         this._attachKeyboardShortcuts();
+        // Take the baseline snapshot AFTER the piano roll has the sequence
+        requestAnimationFrame(() => this._markSaved());
+    }
+
+    close() {
+        if (this.isOpen && this._isDirty()) {
+            if (!confirm(this.t('loopEditor.confirmDiscardChanges'))) return;
+        }
+        super.close();
     }
 
     onClose() {
@@ -343,6 +390,8 @@ class LoopEditorModal extends BaseModal {
         this._stopAll();
         this._stopRecordingAnimation();
         this._stopMidiInMonitor();
+        this._stopMetronome();
+        this._countInActive = false;
         if (this._minimapObserver) {
             this._minimapObserver.disconnect();
             this._minimapObserver = null;
@@ -391,7 +440,11 @@ class LoopEditorModal extends BaseModal {
             case 'preview':           this._previewLoop();           break;
             case 'stop-all':          this._stopAll();               break;
             case 'save-loop':         this._saveLoop();              break;
+            case 'save-loop-as-new':  this._saveLoop({ asNew: true });break;
             case 'quantize-selection':this._quantizeSelection();     break;
+            case 'toggle-metronome':  this._toggleMetronome();       break;
+            case 'toggle-count-in':   this._toggleCountIn();         break;
+            case 'apply-velocity':    this._applyVelocityToSelection(); break;
             case 'close':             this.close();                  break;
         }
     }
@@ -604,6 +657,24 @@ class LoopEditorModal extends BaseModal {
         }
         this.pianoRoll.redraw?.();
         this._syncMinimap();
+    }
+
+    _applyVelocityToSelection() {
+        if (!this.pianoRoll) return;
+        const raw = parseInt(this.$('#lc-velocity-input')?.value ?? 100);
+        const v = Math.max(1, Math.min(127, isNaN(raw) ? 100 : raw));
+        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
+        const selected = seq.filter(n => n.f);
+        const target = selected.length ? selected : seq;
+        if (!target.length) {
+            this._setStatus(this.t('loopEditor.velocityNoNotes'));
+            return;
+        }
+        for (const note of target) note.v = v;
+        this.pianoRoll.sequence = seq;
+        this.pianoRoll.redraw?.();
+        this._syncMinimap();
+        this._setStatus(this.t('loopEditor.velocityApplied', { count: target.length, velocity: v }));
     }
 
     _quantizeSelection() {
@@ -904,11 +975,77 @@ class LoopEditorModal extends BaseModal {
     // RECORDING + MIDI IN
     // =========================================================
 
+    _toggleMetronome() {
+        this._metronomeEnabled = !this._metronomeEnabled;
+        const b = this.$('#lc-metronome-btn');
+        if (b) b.setAttribute('aria-pressed', this._metronomeEnabled ? 'true' : 'false');
+        if (!this._metronomeEnabled) this._stopMetronome();
+        else if (this.isRecording || this.isPlaying) this._startMetronome();
+    }
+
+    _toggleCountIn() {
+        this._countInEnabled = !this._countInEnabled;
+        const b = this.$('#lc-countin-btn');
+        if (b) b.setAttribute('aria-pressed', this._countInEnabled ? 'true' : 'false');
+    }
+
+    _ensureMetronomeCtx() {
+        if (!this._metronomeCtx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (Ctx) this._metronomeCtx = new Ctx();
+        }
+        return this._metronomeCtx;
+    }
+
+    _tick(strong = false) {
+        const ctx = this._ensureMetronomeCtx();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = strong ? 1500 : 900;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(strong ? 0.25 : 0.15, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+    }
+
+    _startMetronome() {
+        this._stopMetronome();
+        if (!this._metronomeEnabled) return;
+        const secPerBeat = 60 / this.tempo;
+        const beatsPerBar = this.timeSigNum;
+        let beat = 0;
+        const fire = () => {
+            this._tick(beat % beatsPerBar === 0);
+            beat++;
+        };
+        fire();
+        const id = setInterval(fire, secPerBeat * 1000);
+        this._metronomeTimers.push(id);
+    }
+
+    _stopMetronome() {
+        this._metronomeTimers.forEach(id => clearInterval(id));
+        this._metronomeTimers = [];
+    }
+
     _toggleRecording() {
         this.isRecording ? this._stopRecording() : this._startRecording();
     }
 
     _startRecording() {
+        if (this._countInEnabled) {
+            this._runCountInThen(() => this._beginRecording());
+        } else {
+            this._beginRecording();
+        }
+    }
+
+    _beginRecording() {
         this.isRecording     = true;
         this.recordedNotes   = [];
         this.recordStartTime = performance.now();
@@ -917,10 +1054,40 @@ class LoopEditorModal extends BaseModal {
         if (this._midiInDevice) this._startMidiInMonitor();
         this._startRecordingAnimation();
         this._startRecordingTimer();
+        if (this._metronomeEnabled) this._startMetronome();
         this._setStatus(this.t('loopCreator.statusRecording'));
     }
 
+    _runCountInThen(then) {
+        this._countInActive = true;
+        const beatsPerBar = this.timeSigNum;
+        const secPerBeat  = 60 / this.tempo;
+        const btn = this.$('#lc-record-btn');
+        btn?.classList.add('lc-btn-record--active');
+        this._setStatus(this.t('loopEditor.countInStatus', { beat: 1, total: beatsPerBar }));
+        let beat = 0;
+        const tick = () => {
+            if (!this._countInActive) return;
+            this._tick(beat === 0);
+            beat++;
+            if (beat >= beatsPerBar) {
+                this._countInActive = false;
+                then();
+                return;
+            }
+            this._setStatus(this.t('loopEditor.countInStatus', { beat: beat + 1, total: beatsPerBar }));
+            setTimeout(tick, secPerBeat * 1000);
+        };
+        tick();
+    }
+
     _stopRecording() {
+        if (this._countInActive) {
+            this._countInActive = false;
+            this.$('#lc-record-btn')?.classList.remove('lc-btn-record--active');
+            this._setStatus('');
+            return;
+        }
         this.isRecording = false;
         for (const rec of [...this.recordedNotes]) this._finalizeNoteOff(rec.note);
         this.recordedNotes = [];
@@ -929,6 +1096,7 @@ class LoopEditorModal extends BaseModal {
         this._stopMidiInMonitor();
         this._stopRecordingAnimation();
         this._stopRecordingTimer();
+        this._stopMetronome();
         this._setStatus(this.t('loopCreator.statusRecordingDone'));
     }
 
@@ -1131,8 +1299,12 @@ class LoopEditorModal extends BaseModal {
     // SAVE / LOAD
     // =========================================================
 
-    async _saveLoop() {
+    async _saveLoop({ asNew = false } = {}) {
         this.loopName = (this.$('#lc-name-input')?.value?.trim()) || this.t('loopCreator.untitled');
+        if (asNew) {
+            this.loopName = this.t('loopManager.duplicateNameSuffix', { name: this.loopName });
+            const nameEl = this.$('#lc-name-input'); if (nameEl) nameEl.value = this.loopName;
+        }
         const seq = this.pianoRoll?.sequence ?? [];
         const payload = {
             name: this.loopName, tempo: this.tempo,
@@ -1142,7 +1314,7 @@ class LoopEditorModal extends BaseModal {
             midi_data: JSON.stringify(seq)
         };
         try {
-            if (this.currentLoopId) {
+            if (this.currentLoopId && !asNew) {
                 await this.api.sendCommand('loop_update', { loopId: this.currentLoopId, ...payload });
             } else {
                 const r = await this.api.sendCommand('loop_create', payload);
@@ -1152,6 +1324,7 @@ class LoopEditorModal extends BaseModal {
             if (titleEl) titleEl.textContent = `✏️ ${this.loopName}`;
             this._setStatus(this.t('loopCreator.statusSaved'));
             LoopUtils.toast(this.t('loopCreator.statusSaved'), 'success');
+            this._markSaved();
             this.onSaved?.(this.currentLoopId);
         } catch (err) {
             this._setStatus(`${this.t('loopCreator.statusError')}: ${err.message}`);
