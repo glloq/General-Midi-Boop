@@ -564,6 +564,23 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
     flex-direction: column;
 }
 
+/* Make the embedded piano-roll host stretch to fill the panel — the
+   `webaudio-pianoroll` element reads its canvas size from the WIDTH /
+   HEIGHT attributes (set by `refit()`), but we still need its CSS box
+   to span the container so a ResizeObserver picks up real dimensions. */
+.midi-editor-modal--loop .midi-editor-container,
+.midi-editor-modal--loop .midi-editor-section.notes-section,
+.midi-editor-modal--loop .piano-roll-wrapper,
+.midi-editor-modal--loop #piano-roll-container {
+    width: 100%;
+    min-width: 0;
+}
+.midi-editor-modal--loop #piano-roll-container webaudio-pianoroll {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
 /* ============================================================================
    ✅ PHASE 1.2 - SNAP GRID SELECTOR
    ============================================================================ */
