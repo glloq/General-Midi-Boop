@@ -255,6 +255,11 @@ class LoopManagerModal extends BaseModal {
                 data-action="pad-set-mode" data-mode="${val}"
                 title="${this.t('loopManager.' + labelKey)}"
                 aria-pressed="${this._padPlayMode === val}">${icon} ${this.t('loopManager.' + labelKey)}</button>`;
+        const quantBtn = (val, labelKey) =>
+            `<button class="lc-btn lc-btn-sm lm-pad-quant-btn${this._padQuantize === val ? ' lm-pad-quant-btn--active' : ''}"
+                data-action="pad-set-quantize" data-quantize="${val}"
+                title="${this.t('loopManager.' + labelKey)}"
+                aria-pressed="${this._padQuantize === val}">${this.t('loopManager.' + labelKey)}</button>`;
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-pad">
             <div class="lc-ctrl-bar lc-ctrl-bar--pad">
@@ -280,11 +285,11 @@ class LoopManagerModal extends BaseModal {
                     ${modeBtn('hold',     'padModeHold',    '✋')}
                 </div>
                 <span class="lc-label">${this.t('loopManager.padQuantize')}</span>
-                <select id="lm-pad-quantize" class="lc-select" title="${this.t('loopManager.padQuantize')}">
-                    <option value="off"  ${this._padQuantize === 'off'  ? 'selected' : ''}>${this.t('loopManager.padQuantizeOff')}</option>
-                    <option value="beat" ${this._padQuantize === 'beat' ? 'selected' : ''}>${this.t('loopManager.padQuantizeBeat')}</option>
-                    <option value="bar"  ${this._padQuantize === 'bar'  ? 'selected' : ''}>${this.t('loopManager.padQuantizeBar')}</option>
-                </select>
+                <div class="lm-pad-quant-group" role="group" aria-label="${this.t('loopManager.padQuantize')}">
+                    ${quantBtn('off',  'padQuantizeOff')}
+                    ${quantBtn('beat', 'padQuantizeBeat')}
+                    ${quantBtn('bar',  'padQuantizeBar')}
+                </div>
                 <span class="lc-ctrl-spacer"></span>
                 <button class="lc-btn lc-btn-sm" data-action="pad-clear-all" title="${this.t('loopManager.clearAllPads')}">🗑</button>
                 <button class="lc-btn lc-btn-sm" data-action="pad-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
@@ -620,7 +625,8 @@ class LoopManagerModal extends BaseModal {
             case 'pad-cols-inc': this._adjustPadCols(+1); break;
             case 'pad-rows-dec': this._adjustPadRows(-1); break;
             case 'pad-rows-inc': this._adjustPadRows(+1); break;
-            case 'pad-set-mode': this._setPadPlayMode(btn.dataset.mode); break;
+            case 'pad-set-mode':     this._setPadPlayMode(btn.dataset.mode); break;
+            case 'pad-set-quantize': this._setPadQuantize(btn.dataset.quantize); break;
             // Keyboard tab
             case 'kbd-toggle-output': this._kbdToggleOutput(); break;
             case 'kbd-stop-all':      this._kbdStopAllNotes(); break;
@@ -680,14 +686,6 @@ class LoopManagerModal extends BaseModal {
             this._setPadCols(parseInt(e.target.value));
         } else if (id === 'lm-pad-rows') {
             this._setPadRows(parseInt(e.target.value));
-        } else if (id === 'lm-pad-quantize') {
-            const v = e.target.value;
-            if (['off', 'beat', 'bar'].includes(v)) {
-                this._padQuantize = v;
-                // Reset reference clock so the next launch defines its phase
-                if (this._padPlayingIndex.size === 0) this._padClockStartMs = null;
-                this._persistPadLayout();
-            }
         } else if (id === 'la-bars') {
             const v = LoopUtils.validate.arrBars(e.target.value, this.arrangementBars);
             if (v !== this.arrangementBars) {
@@ -1135,6 +1133,16 @@ class LoopManagerModal extends BaseModal {
         this._syncPadModeButtons();
     }
 
+    _setPadQuantize(quantize) {
+        if (!['off', 'beat', 'bar'].includes(quantize)) return;
+        if (quantize === this._padQuantize) return;
+        this._padQuantize = quantize;
+        // Reset reference clock so the next launch defines its phase
+        if (this._padPlayingIndex.size === 0) this._padClockStartMs = null;
+        this._persistPadLayout();
+        this._syncPadQuantButtons();
+    }
+
     _syncPadModeButtons() {
         this.$$('.lm-pad-mode-btn').forEach(btn => {
             const active = btn.dataset.mode === this._padPlayMode;
@@ -1143,11 +1151,19 @@ class LoopManagerModal extends BaseModal {
         });
     }
 
+    _syncPadQuantButtons() {
+        this.$$('.lm-pad-quant-btn').forEach(btn => {
+            const active = btn.dataset.quantize === this._padQuantize;
+            btn.classList.toggle('lm-pad-quant-btn--active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
     _syncPadControls() {
         const colsIn = this.$('#lm-pad-cols'); if (colsIn) colsIn.value = this._padCols;
         const rowsIn = this.$('#lm-pad-rows'); if (rowsIn) rowsIn.value = this._padRows;
-        const quant  = this.$('#lm-pad-quantize'); if (quant) quant.value = this._padQuantize;
         this._syncPadModeButtons();
+        this._syncPadQuantButtons();
     }
 
     async _triggerPad(index, opts = {}) {
