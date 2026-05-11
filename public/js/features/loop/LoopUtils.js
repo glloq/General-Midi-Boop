@@ -9,7 +9,7 @@
  *   - LoopUtils.scheduleSequence(opts)             shared MIDI scheduler (pad/live/arranger/editor)
  *   - LoopUtils.loopDurationMs(loop)               canonical loop duration
  *   - LoopUtils.validateTempo(v) / validateBars(v) UI bounds clamping
- *   - LoopUtils.PadStorage.load() / save() / export() / import()
+ *   - LoopUtils.PadStorage.load() / save() / clear()
  *   - LoopUtils.GM_FAMILIES / familyForProgram(p)  family lookup + colours
  */
 (function () {
@@ -178,6 +178,10 @@
     };
 
     // ── Pad layout persistence (localStorage + JSON import/export) ──────
+    // Pad layout payload shape (v2):
+    //   { slots: Array<slot|null>, cols, rows, playMode, quantize }
+    // v1 stored only `slots` (16 entries). load() returns the whole config so
+    // callers can extract slots + grid + global settings.
     const PadStorage = {
         load() {
             try {
@@ -185,16 +189,32 @@
                 if (!raw) return null;
                 const data = JSON.parse(raw);
                 if (!data || !Array.isArray(data.slots)) return null;
-                return data.slots;
+                return {
+                    slots:    data.slots,
+                    cols:     data.cols ?? null,
+                    rows:     data.rows ?? null,
+                    playMode: data.playMode ?? null,
+                    quantize: data.quantize ?? null
+                };
             } catch (err) {
                 handleError(err, 'pad.storage.load');
                 return null;
             }
         },
-        save(slots) {
+        save(config) {
             try {
+                // Accept legacy plain-array calls for backward compatibility.
+                const payload = Array.isArray(config)
+                    ? { slots: config }
+                    : (config || {});
                 localStorage.setItem(PAD_STORAGE_KEY, JSON.stringify({
-                    version: 1, savedAt: Date.now(), slots
+                    version: 2,
+                    savedAt: Date.now(),
+                    slots:    payload.slots,
+                    cols:     payload.cols,
+                    rows:     payload.rows,
+                    playMode: payload.playMode,
+                    quantize: payload.quantize
                 }));
                 return true;
             } catch (err) {
@@ -204,21 +224,6 @@
         },
         clear() {
             try { localStorage.removeItem(PAD_STORAGE_KEY); } catch (_) {}
-        },
-        export(slots) {
-            return JSON.stringify({ version: 1, type: 'gmboop_pad_layout', slots }, null, 2);
-        },
-        import(json) {
-            try {
-                const data = JSON.parse(json);
-                if (!data || data.type !== 'gmboop_pad_layout' || !Array.isArray(data.slots)) {
-                    throw new Error('Invalid pad layout file');
-                }
-                return data.slots;
-            } catch (err) {
-                handleError(err, 'pad.storage.import');
-                return null;
-            }
         }
     };
 
