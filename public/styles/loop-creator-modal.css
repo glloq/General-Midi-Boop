@@ -76,60 +76,33 @@
 .lc-header-tabs { display: flex; gap: 4px; flex: 1; justify-content: center; align-items: center; }
 .lc-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
-/* ── Global output selector (always-visible in header) ── */
-.lc-header-output {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 2px 4px 2px 8px;
+/* ── Global output 2-state toggle (preview synth ⇄ live instrument) ── */
+.lc-header-output-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 10px;
     height: 30px;
     border-radius: 6px;
-    background: rgba(255,255,255,0.18);
-    border: 1px solid rgba(255,255,255,0.30);
+    background: rgba(255,255,255,0.18) !important;
+    border: 1px solid rgba(255,255,255,0.30) !important;
+    color: #fff !important;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
     flex-shrink: 0;
 }
-.lc-header-output:hover { background: rgba(255,255,255,0.26); }
-.lc-header-output--device {
-    background: rgba(245,166,35,0.30);
-    border-color: rgba(245,166,35,0.65);
+.lc-header-output-btn:hover { background: rgba(255,255,255,0.26) !important; }
+.lc-header-output-btn--device {
+    background: rgba(245,166,35,0.30) !important;
+    border-color: rgba(245,166,35,0.65) !important;
 }
-.lc-header-output--device:hover { background: rgba(245,166,35,0.42); }
+.lc-header-output-btn--device:hover { background: rgba(245,166,35,0.42) !important; }
 .lc-header-output-icon {
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 0.95rem; line-height: 1;
-    color: #fff; opacity: 0.95;
     flex-shrink: 0;
 }
-.lc-select.lc-select-output,
-.lc-select.lc-select-output-ch {
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 0.82rem;
-    font-weight: 500;
-    height: 26px;
-    padding: 0 4px;
-    cursor: pointer;
-    max-width: 200px;
-    text-overflow: ellipsis;
-}
-.lc-select.lc-select-output:focus,
-.lc-select.lc-select-output-ch:focus {
-    outline: 1px solid rgba(255,255,255,0.55);
-    border-radius: 4px;
-}
-.lc-select.lc-select-output option,
-.lc-select.lc-select-output-ch option {
-    color: var(--text-primary, #333);
-    background: var(--bg-primary, #fff);
-}
-.lc-select.lc-select-output-ch { min-width: 64px; max-width: 80px; }
-
-/* Dark theme: header gradient already darker, just keep the contrast */
-body.theme-dark .lc-header-output,
-body.dark-mode  .lc-header-output {
-    background: rgba(255,255,255,0.10);
-    border-color: rgba(255,255,255,0.18);
-}
+.lc-header-output-label { white-space: nowrap; }
 
 /* Buttons inside the gradient header get a glass look */
 .lc-header-actions .lc-btn {
