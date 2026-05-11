@@ -2560,7 +2560,20 @@
     "loopDuplicated": "Loop duplicated.",
     "errDuplicateLoop": "Could not duplicate loop.",
     "blockDragHint": "Drag to move block",
-    "zoomReset": "Reset zoom"
+    "zoomReset": "Reset zoom",
+    "trackMute": "Mute track",
+    "trackSolo": "Solo track",
+    "dragToResize": "Drag to change repetitions",
+    "blockOverflow": "Block extends past the arrangement (ends at bar {end} of {total}).",
+    "blocksCopied": "{count} block(s) copied.",
+    "confirmDeleteArrangement": "Delete arrangement \"{name}\"? This cannot be undone.",
+    "confirmSwitchArrangement": "Load a different arrangement? Unsaved changes will be lost.",
+    "confirmDiscardChanges": "Close without saving? Unsaved changes will be lost.",
+    "blockMenuDuplicate": "Duplicate",
+    "blockMenuCopy": "Copy",
+    "blockMenuRepsInc": "Repetitions +",
+    "blockMenuRepsDec": "Repetitions −",
+    "blockMenuDelete": "Delete"
   },
   "loopEditor": {
     "title": "Loop Editor",

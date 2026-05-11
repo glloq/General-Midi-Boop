@@ -2560,7 +2560,20 @@
     "loopDuplicated": "Boucle dupliquée.",
     "errDuplicateLoop": "Impossible de dupliquer la boucle.",
     "blockDragHint": "Glisser pour déplacer le bloc",
-    "zoomReset": "Réinitialiser le zoom"
+    "zoomReset": "Réinitialiser le zoom",
+    "trackMute": "Couper la piste",
+    "trackSolo": "Solo de la piste",
+    "dragToResize": "Glisser pour modifier le nombre de répétitions",
+    "blockOverflow": "Ce bloc dépasse l'arrangement (fin à la mesure {end} sur {total}).",
+    "blocksCopied": "{count} bloc(s) copié(s).",
+    "confirmDeleteArrangement": "Supprimer l'arrangement « {name} » ? Cette action est irréversible.",
+    "confirmSwitchArrangement": "Charger un autre arrangement ? Les modifications non sauvegardées seront perdues.",
+    "confirmDiscardChanges": "Fermer sans sauvegarder ? Les modifications non sauvegardées seront perdues.",
+    "blockMenuDuplicate": "Dupliquer",
+    "blockMenuCopy": "Copier",
+    "blockMenuRepsInc": "Répétitions +",
+    "blockMenuRepsDec": "Répétitions −",
+    "blockMenuDelete": "Supprimer"
   },
   "loopEditor": {
     "title": "Éditeur de boucle",
