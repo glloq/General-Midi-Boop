@@ -109,9 +109,6 @@ class LoopManagerModal extends BaseModal {
         this._kbdMounted        = false;
         this._kbdEnvelopes      = new Map(); // note → [envelope, ...]
         this._kbdActiveKeys     = new Set();
-        this._kbdOutputTarget   = 'synth';   // 'synth' | 'live'
-        this._kbdOutputDevice   = null;
-        this._kbdOutputChannel  = 0;
         this._kbdInstrument     = 0;
 
         // ── Playback timeline bar ──
@@ -160,16 +157,13 @@ class LoopManagerModal extends BaseModal {
                 <button class="lc-tab${this.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" aria-selected="${this.activeTab==='arranger'}">∞ ${this.t('loopManager.tabArranger')}</button>
             </div>
             <div class="lc-header-actions">
-                <div class="lc-header-output" id="lc-header-output-wrap">
+                <button class="lc-btn lc-btn-sm lc-header-output-btn" id="lc-header-output-btn"
+                    data-action="toggle-output"
+                    aria-pressed="${this._globalOutput.mode === 'device' ? 'true' : 'false'}"
+                    title="${this.t('loopCreator.outputLabel')}">
                     <span class="lc-header-output-icon" id="lc-header-output-icon" aria-hidden="true">🔊</span>
-                    <select id="lc-header-output" class="lc-select lc-select-output"
-                        title="${this.t('loopCreator.outputLabel')}">
-                        <option value="synth" selected>${this.t('loopManager.outputSynth')}</option>
-                    </select>
-                    <select id="lc-header-output-ch" class="lc-select lc-select-output-ch"
-                        title="${this.t('loopCreator.outputChannel')}"
-                        style="display:none"></select>
-                </div>
+                    <span class="lc-header-output-label" id="lc-header-output-label">${this.t('loopManager.outputSynth')}</span>
+                </button>
                 <button class="lc-btn lc-btn-primary lc-btn-sm" id="lc-header-save"
                     data-action="save-arrangement"
                     style="${showSave ? '' : 'display:none'}">💾 ${this.t('loopCreator.saveArrangement')}</button>
@@ -393,8 +387,9 @@ class LoopManagerModal extends BaseModal {
 
     // ── Global output selector (header) ────────────────────────
     async _loadHeaderOutputDevices() {
-        const sel = this.$('#lc-header-output');
-        if (!sel) return;
+        // Devices are no longer picked from the header — the keyboard panel's
+        // instrument selector sets the global deviceId. We still cache the
+        // device list here so other tabs can resolve names if needed.
         try {
             const allDevices = await this.api.listDevices();
             this._cachedDevices = (allDevices || []).filter(d => d.status === 2 || d.connected === true);
@@ -402,54 +397,33 @@ class LoopManagerModal extends BaseModal {
             LoopUtils.handleError(err, 'manager.header.listDevices');
             this._cachedDevices = [];
         }
-        // Rebuild options, preserving current selection if still valid
-        const current = sel.value;
-        sel.innerHTML = `<option value="synth">${this.t('loopManager.outputSynth')}</option>`;
-        for (const d of this._cachedDevices) {
-            const id  = d.device_id || d.id;
-            const opt = document.createElement('option');
-            opt.value = `device:${id}`;
-            opt.textContent = `🔌 ${d.name || id}`;
-            sel.appendChild(opt);
-        }
-        if (current && [...sel.options].some(o => o.value === current)) {
-            sel.value = current;
-        } else {
-            sel.value = 'synth';
-            this._setGlobalOutput({ mode: 'synth', deviceId: null });
-        }
         this._refreshHeaderOutputUI();
     }
 
-    _ensureChannelOptions() {
-        const sel = this.$('#lc-header-output-ch');
-        if (!sel || sel.options.length) return;
-        for (let i = 0; i < 16; i++) {
-            const opt = document.createElement('option');
-            opt.value = String(i);
-            opt.textContent = `Ch ${i + 1}`;
-            sel.appendChild(opt);
+    _refreshHeaderOutputUI() {
+        const btn   = this.$('#lc-header-output-btn');
+        const icon  = this.$('#lc-header-output-icon');
+        const label = this.$('#lc-header-output-label');
+        const isDev = this._globalOutput.mode === 'device';
+        if (icon)  icon.textContent  = isDev ? '🔌' : '🔊';
+        if (label) label.textContent = isDev ? this.t('loopManager.outputLive') : this.t('loopManager.outputSynth');
+        if (btn) {
+            btn.classList.toggle('lc-header-output-btn--device', isDev);
+            btn.setAttribute('aria-pressed', isDev ? 'true' : 'false');
         }
-        sel.value = String(this._globalOutput.channel || 0);
     }
 
-    _refreshHeaderOutputUI() {
-        const sel    = this.$('#lc-header-output');
-        const chSel  = this.$('#lc-header-output-ch');
-        const icon   = this.$('#lc-header-output-icon');
-        const wrap   = this.$('#lc-header-output-wrap');
-        const isDev  = this._globalOutput.mode === 'device';
-        if (icon) icon.textContent = isDev ? '🔌' : '🔊';
-        if (wrap) wrap.classList.toggle('lc-header-output--device', isDev);
-        if (chSel) {
-            chSel.style.display = isDev ? '' : 'none';
-            this._ensureChannelOptions();
-            chSel.value = String(this._globalOutput.channel || 0);
-        }
-        if (sel) {
-            const target = this._globalOutput.mode === 'device' && this._globalOutput.deviceId
-                ? `device:${this._globalOutput.deviceId}` : 'synth';
-            if (sel.value !== target) sel.value = target;
+    _toggleHeaderOutput() {
+        const isDev = this._globalOutput.mode === 'device';
+        if (!isDev) {
+            // Switching to device: need a deviceId from the keyboard panel.
+            if (!this._globalOutput.deviceId) {
+                LoopUtils.toast(this.t('loopManager.errNoDevice'), 'error');
+                return;
+            }
+            this._setGlobalOutput({ mode: 'device' });
+        } else {
+            this._setGlobalOutput({ mode: 'synth' });
         }
     }
 
@@ -461,6 +435,7 @@ class LoopManagerModal extends BaseModal {
             this._stopAllPads();
             this._liveStopAll();
             this._stopArrangerPlay();
+            this._kbdStopAllNotes();
             this._panicCurrentDevice(prev);
             this._deviceShim = null; // rebuilt lazily
         }
@@ -615,6 +590,7 @@ class LoopManagerModal extends BaseModal {
         switch (a) {
             // Global stop (header button)
             case 'stop-all-playback': this._stopAllPads(); this._liveStopAll(); this._stopArrangerPlay(); this._kbdStopAllNotes(); break;
+            case 'toggle-output':    this._toggleHeaderOutput(); break;
             // Library
             case 'new-loop':  this._loopEditor.open(); break;
             // Pad
@@ -660,18 +636,7 @@ class LoopManagerModal extends BaseModal {
 
     _onChange(e) {
         const id = e.target.id;
-        if (id === 'lc-header-output') {
-            const v = e.target.value || 'synth';
-            if (v === 'synth') {
-                this._setGlobalOutput({ mode: 'synth', deviceId: null });
-            } else if (v.startsWith('device:')) {
-                this._setGlobalOutput({ mode: 'device', deviceId: v.slice(7) });
-            }
-            return;
-        } else if (id === 'lc-header-output-ch') {
-            this._setGlobalOutput({ channel: parseInt(e.target.value) || 0 });
-            return;
-        } else if (id === 'lm-lib-filter') {
+        if (id === 'lm-lib-filter') {
             this._libFilter = e.target.value;
             this._filterAndRenderLibrary();
         } else if (id === 'lm-lib-sort') {
@@ -2325,9 +2290,7 @@ class LoopManagerModal extends BaseModal {
                     // Cancel any sustained voice before switching instrument /
                     // device so it doesn't keep ringing on the previous program.
                     this._kbdStopAllNotes();
-                    this._kbdOutputDevice  = deviceId || null;
-                    this._kbdOutputChannel = channel ?? 0;
-                    this._kbdInstrument    = gmProgram ?? 0;
+                    this._kbdInstrument = gmProgram ?? 0;
                     if (this._kbdSynth) {
                         try { this._kbdSynth.setChannelInstrument(0, this._kbdInstrument); }
                         catch (err) { LoopUtils.handleError(err, 'kbd.synth.setChannelInstrument'); }
@@ -2336,8 +2299,21 @@ class LoopManagerModal extends BaseModal {
                                 LoopUtils.handleError(err, 'kbd.synth.loadInstrument'));
                         }
                     }
-                    // Picking a real device routes notes there; otherwise back to synth.
-                    this._kbdOutputTarget = deviceId ? 'live' : 'synth';
+                    // The keyboard panel's instrument selector is the source of
+                    // truth for the global output device. The header toggle
+                    // then chooses preview-synth vs that device.
+                    if (deviceId) {
+                        this._setGlobalOutput({
+                            deviceId,
+                            channel: channel ?? 0,
+                            // Switching to a real instrument flips to device mode
+                            mode: 'device'
+                        });
+                    } else {
+                        // "Preview" or no device picked → keep deviceId so the
+                        // toggle can flip back later, but force synth mode.
+                        this._setGlobalOutput({ mode: 'synth' });
+                    }
                 }
             });
             this._kbdMounted = true;
@@ -2355,13 +2331,22 @@ class LoopManagerModal extends BaseModal {
         this._kbdStopAllNotes();
     }
 
+    // The header toggle is the single source of truth for routing: when
+    // _globalOutput.mode === 'device' notes go to the picked device, otherwise
+    // they go to the local preview synth.
+    _kbdRoutingDevice() {
+        return this._globalOutput.mode === 'device' && this._globalOutput.deviceId
+            ? { deviceId: this._globalOutput.deviceId, channel: this._globalOutput.channel ?? 0 }
+            : null;
+    }
+
     _kbdNoteOn(note, velocity = 80) {
         if (this._kbdActiveKeys.has(note)) return;
         this._kbdActiveKeys.add(note);
-        if (this._kbdOutputTarget === 'live' && this._kbdOutputDevice) {
+        const route = this._kbdRoutingDevice();
+        if (route) {
             this.api.sendCommand('midi_send_note', {
-                deviceId: this._kbdOutputDevice,
-                channel:  this._kbdOutputChannel ?? 0,
+                deviceId: route.deviceId, channel: route.channel,
                 note, velocity
             }).catch(err => LoopUtils.handleError(err, 'kbd.live.noteOn'));
             return;
@@ -2377,10 +2362,10 @@ class LoopManagerModal extends BaseModal {
 
     _kbdNoteOff(note) {
         this._kbdActiveKeys.delete(note);
-        if (this._kbdOutputTarget === 'live' && this._kbdOutputDevice) {
+        const route = this._kbdRoutingDevice();
+        if (route) {
             this.api.sendCommand('midi_send_note', {
-                deviceId: this._kbdOutputDevice,
-                channel:  this._kbdOutputChannel ?? 0,
+                deviceId: route.deviceId, channel: route.channel,
                 note, velocity: 0
             }).catch(err => LoopUtils.handleError(err, 'kbd.live.noteOff'));
             return;
@@ -2396,11 +2381,11 @@ class LoopManagerModal extends BaseModal {
 
     _kbdStopAllNotes() {
         // Live device: send a note-off for every held note before clearing.
-        if (this._kbdOutputTarget === 'live' && this._kbdOutputDevice && this._kbdActiveKeys.size) {
+        const route = this._kbdRoutingDevice();
+        if (route && this._kbdActiveKeys.size) {
             for (const n of this._kbdActiveKeys) {
                 this.api.sendCommand('midi_send_note', {
-                    deviceId: this._kbdOutputDevice,
-                    channel:  this._kbdOutputChannel ?? 0,
+                    deviceId: route.deviceId, channel: route.channel,
                     note: n, velocity: 0
                 }).catch(err => LoopUtils.handleError(err, 'kbd.live.flushNoteOff'));
             }
