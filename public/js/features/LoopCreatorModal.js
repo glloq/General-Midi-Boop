@@ -384,7 +384,11 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     onOpen() {
+        // _createDOM has already rendered the body with constructor defaults.
+        // Load persisted layout, then push the loaded values back onto the bar
+        // (cols/rows inputs + mode/quantize buttons) so the UI matches state.
         this._loadPadLayout();
+        this._syncPadControls();
         this._initArrangerSynth();
         this._initPadSynth();
         this._initLiveSynth();
@@ -567,6 +571,10 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     _switchTab(tab) {
+        // Close the pad assignment picker if leaving the Pad tab
+        if (this.activeTab === 'pad' && tab !== 'pad' && this._padPickerIndex !== null) {
+            this._closePadPicker();
+        }
         this.activeTab = tab;
         this.$$('.lc-tab').forEach(btn => {
             const active = btn.dataset.tab === tab;
