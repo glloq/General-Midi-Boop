@@ -104,6 +104,30 @@
     flex-shrink: 0;
 }
 
+/* Two-state output toggle: 🔊 Synth ↔ 🔌 Instruments. */
+.le-output-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    height: 30px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.30);
+    color: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.le-output-toggle:hover { background: rgba(255,255,255,0.26); }
+.le-output-toggle.le-output-toggle--device {
+    background: rgba(245,166,35,0.30);
+    border-color: rgba(245,166,35,0.65);
+}
+.le-output-toggle.le-output-toggle--device:hover { background: rgba(245,166,35,0.42); }
+.le-output-icon  { font-size: 0.95rem; line-height: 1; }
+.le-output-label { white-space: nowrap; font-weight: 500; }
+
 /* ── Transport bar (big REC | Play/Stop · Metro/CountIn | minimap-info) ── */
 .le-transport-bar {
     display: flex;
@@ -175,14 +199,12 @@
 .le-btn-play:hover { background: #2e7d32; color: #fff; }
 .le-btn-stop { color: #34495e; }
 
-/* Spacer keeps the minimap aligned to the far right without consuming
-   all the leftover horizontal space. */
-.le-transport-bar > .lc-ctrl-spacer { flex: 1 1 0; min-width: 8px; }
-
+/* The minimap-info wrap fills all the remaining horizontal space to the
+   right of the transport buttons. Height stays fixed so it never inflates
+   the bar vertically. */
 .le-minimap-info-wrap {
-    flex: 0 1 320px;
-    width: 320px;
-    max-width: 40vw;
+    flex: 1 1 0;
+    min-width: 120px;
     height: 56px;
     background: var(--bg-primary, #fff);
     border: 1px solid var(--border-color, #dde0e6);
@@ -190,7 +212,6 @@
     padding: 2px;
     display: flex;
     overflow: hidden;
-    flex-shrink: 1;
 }
 .le-minimap-info {
     flex: 1 1 0;
@@ -369,7 +390,10 @@ body.dark-mode  .le-minimap-info-wrap {
     font-weight: 600;
 }
 
-/* Pane wrappers — flex children of .le-layout, stretch to fill remaining space */
+/* Pane wrappers — flex children of .le-layout, stretch to fill remaining space.
+   Default: overflow hidden so children manage their own scrolling. The Piano
+   pane overrides this below so the keyboard's instrument-selector dropdown
+   (which opens upward) isn't clipped. */
 .le-pane {
     flex: 1 1 0;
     min-height: 0;
@@ -377,6 +401,9 @@ body.dark-mode  .le-minimap-info-wrap {
     flex-direction: column;
     overflow: hidden;
 }
+/* Keep the dropdown of the embedded keyboard's instrument selector visible
+   even when it overflows the pane (it opens upward via `bottom:100%`). */
+#le-pane-piano { overflow: visible; }
 .le-pane--hidden { display: none !important; }
 
 /* Pane 1: piano virtuel — controls on top (only when a real keyboard is
@@ -563,14 +590,26 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
    (The old clamp(140px, 30vh, 40vh) was meant for the legacy split layout
    where the keyboard panel and the piano roll cohabited vertically ; with
    the tab split the piano roll has the whole pane to itself.) */
+.loop-editor-modal #le-pane-editor,
+.loop-editor-modal #le-pane-editor.pre-host {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
 .loop-editor-modal #le-pane-editor .lc-pianoroll-area {
     flex: 1 1 auto;
     min-height: 0;
+    /* override the loop-creator-modal min-height so this never imposes a
+       floor on the editor pane */
 }
 .loop-editor-modal #le-pane-editor .lc-pianoroll-wrap {
     flex: 1 1 auto;
-    min-height: 0;
+    min-height: 0 !important;
     width: 100%;
+    height: 100%;
 }
 .loop-editor-modal #le-pane-editor .lc-pianoroll-wrap webaudio-pianoroll {
     display: block;
