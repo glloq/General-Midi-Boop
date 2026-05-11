@@ -455,16 +455,16 @@ class LoopEditorModal extends BaseModal {
             },
             refit:          () => {
                 if (!panel.pianoRoll) return;
-                // The editor's piano-roll container only takes its real
-                // size once its tab becomes visible. Recompute width/height
-                // from the container before redrawing — otherwise a tab
-                // that was hidden at mount stays at 0×0.
+                // webaudio-pianoroll syncs attribute → property only at
+                // connectedCallback time ; setAttribute() afterwards does
+                // NOT re-trigger `layout()`. Assign the JS property so
+                // the setter runs `layout()` and resizes the canvas.
                 const c = panel.container?.querySelector('#piano-roll-container');
                 if (c) {
                     const w = c.clientWidth  || 900;
                     const h = c.clientHeight || 200;
-                    panel.pianoRoll.setAttribute('width',  w.toString());
-                    panel.pianoRoll.setAttribute('height', h.toString());
+                    panel.pianoRoll.width  = w;
+                    panel.pianoRoll.height = h;
                 }
                 panel.pianoRoll.redraw?.();
                 owner._syncPanelMinimap();
