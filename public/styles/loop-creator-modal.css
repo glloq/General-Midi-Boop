@@ -1135,15 +1135,6 @@ body.dark-mode  .la-block--selected {
 }
 .lm-kbd-pane.lc-pane--hidden { display: none; }
 
-.lm-kbd-pane .lc-ctrl-bar {
-    flex: 0 0 auto;
-}
-.lm-kbd-hint {
-    color: var(--text-secondary, #5a6275);
-    font-style: italic;
-    font-size: 0.8rem;
-}
-
 /* The host panel for the embedded keyboard — fills the rest of the tab. */
 .lm-kbd-panel {
     flex: 1 1 0;
@@ -1151,7 +1142,6 @@ body.dark-mode  .la-block--selected {
     display: flex;
     flex-direction: column;
     overflow: visible;        /* allow instrument-dropdown to escape upward */
-    border-top: 1px solid var(--border-color, #dde0e6);
     position: relative;
 }
 
@@ -1176,6 +1166,16 @@ body.dark-mode  .la-block--selected {
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode > .modal-header {
     position: relative;
     z-index: 5;
+    /* The standalone-modal header gradient (.keyboard-modal .modal-header) no
+       longer matches once the dialog is reparented here. Re-apply it so the
+       instrument selector + controls stay readable on white background. */
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: #fff !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode > .modal-header .control-group label,
+.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode > .modal-header .keyboard-header-controls label {
+    color: rgba(255, 255, 255, 0.9) !important;
 }
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode > .modal-body {
     flex: 1 1 0 !important;
