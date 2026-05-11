@@ -1696,9 +1696,71 @@ class LoopManagerModal extends BaseModal {
 
     async _initArrangerTab() {
         await this._loadLibrary();
+        // Nettoyage one-shot des arrangements vides (sans block) accumulés
+        // par l'ancien auto-create. Ne supprime que les arrangements créés
+        // avant cette session et qui n'ont jamais reçu de block.
+        await this._purgeEmptyArrangements();
         await this._loadArrangements();
-        if (!this.currentArrangementId) await this._newArrangement();
-        else await this._loadArrangementById(this.currentArrangementId);
+        if (this.currentArrangementId) {
+            const ok = await this._loadArrangementById(this.currentArrangementId);
+            if (!ok) {
+                // L'arrangement précédemment ouvert a pu être purgé ou
+                // supprimé entre-temps — fallback sur l'empty state.
+                this.currentArrangementId = null;
+                this._renderArrangerEmptyState();
+            }
+        } else {
+            // Pas d'auto-create : on affiche un empty state avec un CTA
+            // dans la track area. L'utilisateur clique « + Nouvel
+            // arrangement » pour créer (cf. _newArrangementConfirm).
+            this._renderArrangerEmptyState();
+        }
+    }
+
+    /**
+     * Affiche un empty state dans la zone tracks quand aucun arrangement
+     * n'est sélectionné. Évite la création automatique de fichiers
+     * fantômes à chaque ouverture de la modale.
+     */
+    _renderArrangerEmptyState() {
+        const tracksEl = this.$('#la-tracks');
+        const rulerEl  = this.$('#la-ruler');
+        if (rulerEl)  rulerEl.innerHTML  = '';
+        if (tracksEl) tracksEl.innerHTML = `
+            <div class="la-empty-state">
+                <p>${this.t('loopManager.arrangerEmptyState') || 'No arrangement selected.'}</p>
+                <button class="lc-btn lc-btn-primary" data-action="arr-new">
+                    + ${this.t('loopCreator.newArrangement')}
+                </button>
+            </div>`;
+        // Vider l'overlay playbar + désactiver le play
+        this.tracks = [];
+        this.blocks = [];
+    }
+
+    /**
+     * Supprime les arrangements existants qui n'ont aucun block et ne
+     * sont pas l'arrangement actuel. Best-effort : les erreurs sont
+     * journalisées mais n'interrompent pas le flux.
+     */
+    async _purgeEmptyArrangements() {
+        try {
+            const r = await this.api.sendCommand('arrangement_list');
+            const arrs = r.arrangements || [];
+            for (const arr of arrs) {
+                if (arr.id === this.currentArrangementId) continue;
+                try {
+                    const detail = await this.api.sendCommand('arrangement_get', { arrangementId: arr.id });
+                    if ((detail.blocks || []).length === 0) {
+                        await this.api.sendCommand('arrangement_delete', { arrangementId: arr.id });
+                    }
+                } catch (e) {
+                    // Continue avec les autres arrangements en cas d'erreur ponctuelle.
+                }
+            }
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.purgeEmpty');
+        }
     }
 
     async _loadArrangements() {
@@ -1808,10 +1870,12 @@ class LoopManagerModal extends BaseModal {
             this._arrangerStartBar = 0;
             this._renderTimeline();
             this._loadArrangements();   // refresh full list so other items remain visible
+            return true;
         } catch (err) {
             LoopUtils.handleError(err, 'arr.load', {
                 toast: this.t('loopManager.errLoadArrangement')
             });
+            return false;
         }
     }
 
@@ -1944,12 +2008,14 @@ class LoopManagerModal extends BaseModal {
         const ruler = this.$('#la-ruler');
         if (!ruler) return;
         const BAR_W = this._barWidth();
-        let html = '';
+        // Spacer 120px = largeur des track-labels, garantit que la 1ère
+        // mesure du ruler est alignée avec le début des cells.
+        let html = '<div class="la-ruler-spacer" aria-hidden="true"></div>';
         for (let b = 0; b < this.arrangementBars; b++) {
             const marker = (b % 4 === 0) ? `<span class="la-ruler-label">${b+1}</span>` : '';
             html += `<div class="la-ruler-cell" data-ruler-bar="${b}" style="width:${BAR_W}px">${marker}</div>`;
         }
-        ruler.style.width = (BAR_W * this.arrangementBars) + 'px';
+        ruler.style.width = (120 + BAR_W * this.arrangementBars) + 'px';
         ruler.innerHTML = html;
         if (!ruler.dataset.lcWired) {
             ruler.dataset.lcWired = '1';
@@ -2007,15 +2073,18 @@ class LoopManagerModal extends BaseModal {
         trackEl.className = `la-track${muted ? ' la-track--muted' : ''}${soloed ? ' la-track--solo' : ''}${audible ? '' : ' la-track--silent'}`;
         trackEl.dataset.trackId = track.id;
         trackEl.style.height = this._trackHeight() + 'px';
-        const chOpts = ['<option value="">—</option>'];
-        for (let c = 1; c <= 16; c++) {
-            chOpts.push(`<option value="${c}"${track.midi_channel === c ? ' selected' : ''}>${c}</option>`);
-        }
+        // Label par défaut « Piste N » côté client si le backend n'en a
+        // pas posé (Phase 1 a vidé les labels par défaut pour i18n).
+        const defaultLabel = this.t('loopManager.defaultTrackName', { index: (track.track_index ?? 0) + 1 })
+            || `Track ${(track.track_index ?? 0) + 1}`;
+        const displayLabel = (track.label && track.label.trim()) || defaultLabel;
         trackEl.innerHTML = `
             <div class="la-track-label">
-                <input type="text" class="la-track-name-input lc-name-input" value="${this.escape(track.label)}" data-track-id="${track.id}" />
-                <select class="la-track-channel lc-select lc-select-xs" data-track-id="${track.id}"
-                    title="${this.t('loopManager.trackChannel')}">${chOpts.join('')}</select>
+                <input type="text" class="la-track-name-input lc-name-input"
+                    value="${this.escape(displayLabel)}"
+                    placeholder="${this.escape(defaultLabel)}"
+                    aria-label="${this.t('loopManager.trackName') || 'Track name'}"
+                    data-track-id="${track.id}" />
                 <button class="la-track-toggle la-track-toggle--mute${muted ? ' la-track-toggle--active' : ''}"
                     data-track-action="mute" data-track-id="${track.id}"
                     aria-pressed="${muted}" title="${this.t('loopManager.trackMute')}">M</button>
@@ -2134,19 +2203,9 @@ class LoopManagerModal extends BaseModal {
         trackEl.querySelector('[data-track-action="delete"]')?.addEventListener('click', () => this._deleteTrack(track.id));
         trackEl.querySelector('[data-track-action="mute"]')?.addEventListener('click', () => this._toggleTrackMute(track.id));
         trackEl.querySelector('[data-track-action="solo"]')?.addEventListener('click', () => this._toggleTrackSolo(track.id));
-        trackEl.querySelector('.la-track-channel')?.addEventListener('change', async (e) => {
-            const ch = e.target.value === '' ? null : parseInt(e.target.value);
-            try {
-                await this.api.sendCommand('arrangement_update_track', { trackId: track.id, midi_channel: ch });
-                const t = this.tracks.find(x => x.id === track.id);
-                if (t) t.midi_channel = ch;
-                this._pushArrHistory();
-            } catch (err) {
-                LoopUtils.handleError(err, 'arr.track.channel', {
-                    toast: this.t('loopManager.errSave')
-                });
-            }
-        });
+        // Le sélecteur de canal MIDI a été retiré du header de track : le
+        // routing canal est automatiquement géré par _playArrangement
+        // (allocation dynamique selon les programmes utilisés).
         return trackEl;
     }
 

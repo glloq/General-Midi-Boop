@@ -203,12 +203,21 @@
     align-items: center;
     gap: 4px;
     padding: 0 8px;
-    height: 44px;
-    min-height: 44px;
+    height: 34px;
+    min-height: 34px;
     background: var(--bg-tertiary, #f0f1f3);
     border-bottom: 1px solid var(--border-color, #e0e0e0);
     flex-shrink: 0;
     overflow: hidden;
+}
+/* Library : barre encore plus compacte pour laisser la place aux cards. */
+.lc-ctrl-bar--lib {
+    height: 30px;
+    min-height: 30px;
+}
+.lc-ctrl-bar--lib .lc-name-input,
+.lc-ctrl-bar--lib .lc-select {
+    height: 26px;
 }
 .lc-ctrl-sep {
     width: 1px; height: 22px;
@@ -515,6 +524,17 @@
 .la-ruler {
     display: flex; height: 22px; position: sticky; top: 0; z-index: 5;
     background: var(--bg-tertiary, #f0f1f3); border-bottom: 1px solid var(--border-color, #e0e0e0); min-width: 100%;
+}
+/* Spacer aligné avec la largeur des track-labels (120px) — sans ça la
+ * 1ère mesure du ruler se retrouve à gauche des cells. */
+.la-ruler-spacer {
+    width: 120px;
+    flex-shrink: 0;
+    background: var(--bg-tertiary, #f0f1f3);
+    border-right: 1px solid var(--border-color, #e0e0e0);
+    position: sticky;
+    left: 0;
+    z-index: 1;
 }
 .la-ruler-cell { flex-shrink: 0; border-right: 1px solid var(--border-color, #e0e0e0); position: relative; height: 100%; }
 .la-ruler-label { position: absolute; left: 3px; top: 50%; transform: translateY(-50%); font-size: 0.67rem; color: var(--text-secondary, #888); }
@@ -1381,4 +1401,24 @@ body.dark-mode  .la-block--selected {
         flex-wrap: wrap;
         gap: 6px;
     }
+}
+
+/* Empty state arranger — affiché quand aucun arrangement n'est chargé,
+ * remplace la track-list pour éviter la confusion (auparavant on
+ * auto-créait un arrangement vide à chaque ouverture, ce qui polluait
+ * la base avec des fichiers fantômes). */
+.la-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 48px 24px;
+    color: var(--text-secondary, #666);
+    text-align: center;
+    min-height: 200px;
+}
+.la-empty-state p {
+    margin: 0;
+    font-size: 0.95rem;
 }
