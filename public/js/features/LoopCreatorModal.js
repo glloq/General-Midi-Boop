@@ -2053,7 +2053,12 @@ class LoopManagerModal extends BaseModal {
         });
         cells.addEventListener('dragover',  (e) => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = (e.dataTransfer.types?.length ? 'move' : 'copy');
+            // dropEffect doit matcher effectAllowed posé au dragstart :
+            // - palette chip / library card → effectAllowed='copy' → dropEffect='copy'
+            // - block existant → effectAllowed='move' → dropEffect='move'
+            // Firefox (strict HTML5 DnD spec) annule le drop si mismatch
+            // → bouton drop pas firé.
+            e.dataTransfer.dropEffect = (this._dragInfo?.type === 'block') ? 'move' : 'copy';
             this._showDropPreview(cells, this._barFromX(e.offsetX, BAR_W), BAR_W);
         });
         cells.addEventListener('dragleave', () => this._hideDropPreview());
@@ -2062,13 +2067,10 @@ class LoopManagerModal extends BaseModal {
             try {
                 const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
                 const bar = this._barFromX(e.offsetX, BAR_W);
-                console.warn('[Loop:arr.drop]', { trackId: track.id, bar, data, BAR_W, offsetX: e.offsetX });
                 if (data.source === 'block' && data.blockId) {
                     this._moveBlock(data.blockId, track.id, bar);
                 } else if (data.loopId) {
                     this._addBlock(track.id, data.loopId, bar, data.loopBars || 2);
-                } else {
-                    console.warn('[Loop:arr.drop] no branch matched — data is', data);
                 }
             } catch (err) {
                 LoopUtils.handleError(err, 'arr.drop.parse');
@@ -2455,24 +2457,19 @@ class LoopManagerModal extends BaseModal {
     }
 
     async _addBlock(trackId, loopId, positionBar, loopBars) {
-        console.warn('[Loop:_addBlock] called', { trackId, loopId, positionBar, loopBars });
         try {
             const r = await this.api.sendCommand('arrangement_add_block', {
                 trackId, loopId, position_bar: positionBar, repetitions: 1
             });
-            console.warn('[Loop:_addBlock] backend response', r);
             const loop = this.library.find(l => l.id === loopId);
-            console.warn('[Loop:_addBlock] library lookup', { found: !!loop, loopBars_from_loop: loop?.bars, loopBars_param: loopBars });
             this.blocks.push({
                 id: r.blockId, track_id: trackId, loop_id: loopId,
                 position_bar: positionBar, repetitions: 1,
                 loop_name: loop?.name || '?', loop_bars: loop?.bars || loopBars
             });
-            console.warn('[Loop:_addBlock] block pushed; total blocks=', this.blocks.length);
             this._renderTimeline();
             this._pushArrHistory();
         } catch (err) {
-            console.error('[Loop:_addBlock] threw', err);
             LoopUtils.handleError(err, 'arr.block.add', {
                 toast: this.t('loopManager.errSave')
             });
