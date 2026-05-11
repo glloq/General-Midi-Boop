@@ -118,8 +118,17 @@
     }
 
     // ── Loop duration helpers ──────────────────────────────────────────
-    function loopDurationMs({ tempo = 120, bars = 2, time_sig_num = 4 } = {}) {
-        return time_sig_num * bars * 60000 / tempo;
+    /**
+     * Durée d'un loop en millisecondes.
+     *
+     * Formule complète : `num × bars × 60000 / tempo × (4 / den)`.
+     * Le facteur `4 / den` est crucial pour les time signatures non-4/4 :
+     * en 6/8, une mesure fait 6 huitièmes = 3 temps (au lieu de 4 en 4/4),
+     * sinon la durée est surestimée d'un facteur `4/den`.
+     */
+    function loopDurationMs({ tempo = 120, bars = 2, time_sig_num = 4, time_sig_den = 4 } = {}) {
+        const den = (Number.isFinite(time_sig_den) && time_sig_den > 0) ? time_sig_den : 4;
+        return time_sig_num * bars * 60000 / tempo * (4 / den);
     }
 
     // ── Shared sequence scheduler ──────────────────────────────────────
@@ -227,6 +236,45 @@
         }
     };
 
+    /**
+     * Label de la touche modificatrice principale selon l'OS. macOS
+     * affiche `⌘`, le reste `Ctrl`. Utilisé pour les tooltips de
+     * raccourcis (AUDIT §U2 — avant, `⌘` était affiché partout).
+     */
+    function modKeyLabel() {
+        try {
+            const plat = navigator.userAgentData?.platform || navigator.platform || '';
+            return /mac|iphone|ipad/i.test(plat) ? '⌘' : 'Ctrl';
+        } catch (_) { return 'Ctrl'; }
+    }
+    function shiftKeyLabel() {
+        try {
+            const plat = navigator.userAgentData?.platform || navigator.platform || '';
+            return /mac|iphone|ipad/i.test(plat) ? '⇧' : 'Shift';
+        } catch (_) { return 'Shift'; }
+    }
+
+    /**
+     * Confirmation accessible : façade autour de `window.showConfirm`
+     * (modale stylable, focus trap propre — cf. AUDIT §A1) avec fallback
+     * sur `window.confirm` pour les environnements de test sans le markup
+     * du dialog (jsdom, Vitest).
+     *
+     * @param {string} message
+     * @param {{icon?:string, title?:string, okText?:string, cancelText?:string, danger?:boolean}} [options]
+     * @returns {Promise<boolean>}
+     */
+    async function confirm(message, options = {}) {
+        if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
+            try { return await window.showConfirm(message, options); }
+            catch (err) { handleError(err, 'confirm.showConfirm'); }
+        }
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+            return window.confirm(message);
+        }
+        return false;
+    }
+
     // ── Public namespace ───────────────────────────────────────────────
     const LoopUtils = {
         GM_FAMILIES,
@@ -234,6 +282,9 @@
         parseSequence,
         handleError,
         toast,
+        confirm,
+        modKeyLabel,
+        shiftKeyLabel,
         createSynth,
         loopDurationMs,
         scheduleSequence,

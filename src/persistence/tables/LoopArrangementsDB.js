@@ -72,6 +72,14 @@ class LoopArrangementsDB {
     } catch (e) { this.logger.error(`LoopArrangementsDB.getTracks: ${e.message}`); throw e; }
   }
 
+  getTrack(id) {
+    try {
+      return this.db.prepare(
+        'SELECT * FROM loop_arrangement_tracks WHERE id = ?'
+      ).get(id) ?? null;
+    } catch (e) { this.logger.error(`LoopArrangementsDB.getTrack: ${e.message}`); throw e; }
+  }
+
   updateTrack(id, fields) {
     try {
       const allowed = ['label', 'midi_channel'];
@@ -120,6 +128,85 @@ class LoopArrangementsDB {
         ORDER BY t.track_index, b.position_bar
       `).all(arrangementId);
     } catch (e) { this.logger.error(`LoopArrangementsDB.getAllBlocksForArrangement: ${e.message}`); throw e; }
+  }
+
+  /**
+   * Full arrangement fetch en une seule passe DB.
+   * Retourne `{ tracks, blocks }` ; LEFT JOIN garantit que les tracks
+   * sans block sont incluses (sinon arrangement nouveau-né serait vide
+   * en lecture).
+   * @param {number} arrangementId
+   */
+  getFullArrangement(arrangementId) {
+    try {
+      const rows = this.db.prepare(`
+        SELECT
+          t.id              AS track_id,
+          t.arrangement_id  AS track_arrangement_id,
+          t.track_index     AS track_index,
+          t.label           AS track_label,
+          t.midi_channel    AS track_midi_channel,
+          b.id              AS block_id,
+          b.position_bar    AS block_position_bar,
+          b.repetitions     AS block_repetitions,
+          b.loop_id         AS block_loop_id,
+          l.name            AS loop_name,
+          l.bars            AS loop_bars,
+          l.tempo           AS loop_tempo,
+          l.midi_data       AS loop_midi_data
+        FROM loop_arrangement_tracks t
+        LEFT JOIN loop_arrangement_blocks b ON b.track_id = t.id
+        LEFT JOIN loops l ON l.id = b.loop_id
+        WHERE t.arrangement_id = ?
+        ORDER BY t.track_index, b.position_bar
+      `).all(arrangementId);
+
+      const tracksMap = new Map();
+      const blocks = [];
+      for (const r of rows) {
+        if (!tracksMap.has(r.track_id)) {
+          tracksMap.set(r.track_id, {
+            id: r.track_id,
+            arrangement_id: r.track_arrangement_id,
+            track_index: r.track_index,
+            label: r.track_label,
+            midi_channel: r.track_midi_channel
+          });
+        }
+        if (r.block_id !== null) {
+          blocks.push({
+            id: r.block_id,
+            track_id: r.track_id,
+            loop_id: r.block_loop_id,
+            position_bar: r.block_position_bar,
+            repetitions: r.block_repetitions,
+            loop_name: r.loop_name,
+            loop_bars: r.loop_bars,
+            loop_tempo: r.loop_tempo,
+            loop_midi_data: r.loop_midi_data,
+            track_index: r.track_index,
+            track_label: r.track_label,
+            midi_channel: r.track_midi_channel
+          });
+        }
+      }
+      return { tracks: [...tracksMap.values()], blocks };
+    } catch (e) { this.logger.error(`LoopArrangementsDB.getFullArrangement: ${e.message}`); throw e; }
+  }
+
+  /**
+   * Compte combien de blocks référencent un loop donné (utilisé pour
+   * prévenir l'UI de l'impact d'un CASCADE avant `loop_delete`).
+   * @param {number} loopId
+   * @returns {number}
+   */
+  countBlocksByLoopId(loopId) {
+    try {
+      const row = this.db.prepare(
+        'SELECT COUNT(*) AS n FROM loop_arrangement_blocks WHERE loop_id = ?'
+      ).get(loopId);
+      return row?.n ?? 0;
+    } catch (e) { this.logger.error(`LoopArrangementsDB.countBlocksByLoopId: ${e.message}`); throw e; }
   }
 
   updateBlock(id, fields) {

@@ -253,8 +253,10 @@ class LoopEditorModal extends BaseModal {
                                 aria-pressed="false" title="${this.t('loopEditor.metronome')}">🎼</button>
                         <button class="lc-btn lc-btn-icon" id="lc-countin-btn" data-action="toggle-count-in"
                                 aria-pressed="false" title="${this.t('loopEditor.countIn')}">⏱</button>
-                        <span class="lc-rec-indicator hidden" id="lc-rec-indicator">
-                            <span class="lc-rec-dot lc-rec-dot--pulse"></span>
+                        <span class="lc-rec-indicator hidden" id="lc-rec-indicator"
+                              role="status" aria-live="assertive"
+                              aria-label="${this.t('loopCreator.recording') || 'Recording'}">
+                            <span class="lc-rec-dot lc-rec-dot--pulse" aria-hidden="true"></span>
                             <span class="lc-rec-time" id="lc-rec-time">0:00</span>
                         </span>
                     </div>
@@ -364,10 +366,20 @@ class LoopEditorModal extends BaseModal {
     }
 
     close() {
-        if (this.isOpen && this._isDirty()) {
-            if (!confirm(this.t('loopEditor.confirmDiscardChanges'))) return;
+        if (!this.isOpen || !this._isDirty()) {
+            super.close();
+            return;
         }
-        super.close();
+        // Confirmation accessible (modale stylable + focus trap) au lieu
+        // du window.confirm natif (AUDIT §A1). Le close() reste synchrone
+        // côté API publique ; la branche async ne fait qu'appeler super
+        // après acceptation utilisateur.
+        const doSuperClose = () => super.close();
+        LoopUtils.confirm(this.t('loopEditor.confirmDiscardChanges'), {
+            icon: '⚠️',
+            title: this.t('loopEditor.confirmDiscardTitle') || this.t('loopEditor.confirmDiscardChanges'),
+            danger: true
+        }).then((ok) => { if (ok) doSuperClose(); });
     }
 
     onClose() {
@@ -383,6 +395,18 @@ class LoopEditorModal extends BaseModal {
             this.pianoRollEditor = null;
         }
         if (this._refreshTimer) { clearTimeout(this._refreshTimer); this._refreshTimer = null; }
+        // Libère le AudioContext du métronome — sinon le navigateur
+        // plafonne à ~6 contextes par tab et le métronome reste muet
+        // après plusieurs cycles open/close (AUDIT §L6).
+        // close() retourne une Promise : on swallow l'éventuel reject
+        // (déjà fermé, état invalide…) pour éviter un unhandledRejection.
+        if (this._metronomeCtx) {
+            try {
+                const p = this._metronomeCtx.close?.();
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (_) {}
+            this._metronomeCtx = null;
+        }
     }
 
     // =========================================================
@@ -797,26 +821,35 @@ class LoopEditorModal extends BaseModal {
     }
 
     _runCountInThen(then) {
+        // Planning absolu sur l'horloge système (performance.now) plutôt
+        // que des setTimeout cumulatifs, qui dérivent de 100+ ms sur 4
+        // mesures à cause du jitter JS (AUDIT §L5). On planifie chaque
+        // beat à `t0 + i × secPerBeat` ; si le timer tire en retard, le
+        // suivant est ré-aligné sur l'horloge absolue.
         this._countInActive = true;
         const beatsPerBar = this.timeSigNum;
         const secPerBeat  = 60 / this.tempo;
         const btn = this.$('#lc-record-btn');
         btn?.classList.add('lc-btn-record--active');
-        this._setStatus(this.t('loopEditor.countInStatus', { beat: 1, total: beatsPerBar }));
-        let beat = 0;
-        const tick = () => {
+        const t0 = performance.now();
+        const scheduleBeat = (beat) => {
             if (!this._countInActive) return;
-            this._tick(beat === 0);
-            beat++;
-            if (beat >= beatsPerBar) {
-                this._countInActive = false;
-                then();
-                return;
-            }
-            this._setStatus(this.t('loopEditor.countInStatus', { beat: beat + 1, total: beatsPerBar }));
-            setTimeout(tick, secPerBeat * 1000);
+            const targetMs = t0 + beat * secPerBeat * 1000;
+            const delay = Math.max(0, targetMs - performance.now());
+            setTimeout(() => {
+                if (!this._countInActive) return;
+                this._tick(beat === 0);
+                if (beat + 1 >= beatsPerBar) {
+                    this._countInActive = false;
+                    then();
+                    return;
+                }
+                this._setStatus(this.t('loopEditor.countInStatus', { beat: beat + 2, total: beatsPerBar }));
+                scheduleBeat(beat + 1);
+            }, delay);
         };
-        tick();
+        this._setStatus(this.t('loopEditor.countInStatus', { beat: 1, total: beatsPerBar }));
+        scheduleBeat(0);
     }
 
     _stopRecording() {
@@ -858,10 +891,23 @@ class LoopEditorModal extends BaseModal {
 
     async _startMidiInMonitor() {
         if (!this._midiInDevice || this._monitorActive) return;
+        // Token de session : invalidé par _stopMidiInMonitor / onClose. Si
+        // la modale est fermée pendant le `await monitor_start`, on ne doit
+        // PAS attacher le handler ni marquer active (AUDIT §L2).
+        const token = Symbol('midiInSession');
+        this._monitorSession = token;
         try {
             await this.api.sendCommand('monitor_start', { deviceId: this._midiInDevice });
+            if (this._monitorSession !== token) {
+                // Session annulée pendant l'await — stop ce qu'on vient de démarrer.
+                try { await this.api.sendCommand('monitor_stop', { deviceId: this._midiInDevice }); } catch (_) {}
+                return;
+            }
             this._monitorActive = true;
             this._midiInHandler = (data) => {
+                // Garde de session : ignore les events orphelins si la
+                // modale a été close ou un autre device sélectionné entre-temps.
+                if (this._monitorSession !== token) return;
                 if (data.device !== this._midiInDevice) return;
                 if (!this.isRecording) return;
                 const type = (data.type || '').toLowerCase();
@@ -873,6 +919,7 @@ class LoopEditorModal extends BaseModal {
             };
             this.api.on('monitor_event', this._midiInHandler);
         } catch (err) {
+            this._monitorSession = null;
             LoopUtils.handleError(err, 'editor.midiIn.start', {
                 toast: this.t('loopEditor.errMidiIn')
             });
@@ -880,13 +927,18 @@ class LoopEditorModal extends BaseModal {
     }
 
     async _stopMidiInMonitor() {
-        if (!this._monitorActive) return;
+        // Invalide la session AVANT tout await — couvre le cas où on a
+        // démarré mais pas encore attaché le handler.
+        this._monitorSession = null;
+        const wasActive = this._monitorActive;
         this._monitorActive = false;
+        // Détache toujours le handler s'il a été enregistré, même si la
+        // commande monitor_stop échoue derrière.
         if (this._midiInHandler) {
             this.api.off?.('monitor_event', this._midiInHandler);
             this._midiInHandler = null;
         }
-        if (this._midiInDevice) {
+        if (wasActive && this._midiInDevice) {
             try { await this.api.sendCommand('monitor_stop', { deviceId: this._midiInDevice }); }
             catch (err) { LoopUtils.handleError(err, 'editor.midiIn.stop'); }
         }
@@ -1046,9 +1098,17 @@ class LoopEditorModal extends BaseModal {
         this.isPlaying = true;
         this._setStatus(this.t('loopCreator.statusPlaying'));
         this._startPlayheadAnimation();
+
+        // Note-off le plus tardif de la séquence : c'est lui qui définit
+        // la vraie fin de preview, pas la longueur logique du loop. Sans
+        // ça, une note finale qui dépasse la dernière mesure est coupée
+        // brutalement (AUDIT §L1).
+        let lastOffMs = this.ppq * this.timeSigNum * this.bars * spt * 1000;
+
         for (const note of seq) {
             const onMs  = note.t * spt * 1000;
             const offMs = (note.t + (note.g || note.l || 120)) * spt * 1000;
+            if (offMs > lastOffMs) lastOffMs = offMs;
             this._playbackTimers.push(setTimeout(() => {
                 if (!this.isPlaying) return;
                 this.api.sendCommand('midi_send_note', {
@@ -1064,10 +1124,10 @@ class LoopEditorModal extends BaseModal {
                 }).catch(err => LoopUtils.handleError(err, 'editor.device.noteOff'));
             }, offMs));
         }
-        const totalTicks = this.ppq * this.timeSigNum * this.bars;
+        // 50 ms de marge pour laisser le note-off arriver côté device.
         this._playbackTimers.push(setTimeout(() => {
             this.isPlaying = false; this._setStatus('');
-        }, totalTicks * spt * 1000));
+        }, lastOffMs + 50));
     }
 
     _stopAll() {

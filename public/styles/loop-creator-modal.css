@@ -70,8 +70,31 @@
 }
 .lc-header-subtitle {
     font-size: 0.82rem; font-weight: 500;
-    color: rgba(255,255,255,0.82);
+    /* AUDIT §A6 : 0.82 alpha tombait sous AA sur la moitié sombre du
+     * gradient (#764ba2). Couleur opaque testée sur les 2 extrêmes du
+     * gradient (#667eea → #764ba2) avec WebAIM Contrast Checker. */
+    color: #f5f5f7;
     letter-spacing: 0.01em; white-space: nowrap;
+}
+
+/* AUDIT §A5 : focus-visible global sur tous les éléments interactifs
+ * de la modale. Avant, seulement 3 sélecteurs spécifiques avaient un
+ * outline ; les boutons header / spinbox / tabs étaient invisibles au
+ * focus clavier. */
+.loop-creator-modal :focus-visible,
+.loop-editor-modal :focus-visible {
+    outline: 2px solid #f5a623;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* AUDIT §P1 : disabled state visible (undo/redo, etc.) */
+.lc-btn:disabled,
+.lc-icon-btn:disabled,
+.lc-spin-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 .lc-header-tabs { display: flex; gap: 4px; flex: 1; justify-content: center; align-items: center; }
 .lc-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -1299,4 +1322,63 @@ body.dark-mode  .la-block--selected {
     min-width: 0 !important;
     padding: 0 6px !important;
     min-height: 32px !important;
+}
+
+/* =========================================================
+   AUDIT §U3 / §U7 / §U8 — responsive + sticky controls
+   ========================================================= */
+
+/* Sticky control bar (Library, Pad, Live, Arranger) : reste en haut
+ * du pane quand la liste de loops déborde. Évite à l'utilisateur de
+ * scroller au top pour filtrer/rechercher (AUDIT §U7). */
+.lc-pane .lc-ctrl-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--lc-bg, #fff);
+}
+
+@media (max-width: 768px) {
+    /* Modale plein écran sur tablette/mobile. */
+    .loop-creator-modal .modal-dialog,
+    .loop-editor-modal .modal-dialog {
+        width: 100vw;
+        height: 100dvh;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+    }
+    /* Tabs scrollables horizontalement, pas de wrap qui casse l'alignement. */
+    .lc-header-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        scrollbar-width: thin;
+    }
+    .lc-tab {
+        flex: 0 0 auto;
+        min-width: 88px;
+        white-space: nowrap;
+    }
+    /* Cards Library : grille mono-colonne pour libérer la place. */
+    .lm-library-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* WCAG 2.5.5 : touch targets ≥ 44 × 44 px sur mobile. */
+    .lc-card-btn,
+    .lc-card-btn--play,
+    .lc-card-btn--danger,
+    .lc-btn-icon,
+    .lc-spin-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 8px;
+    }
+    /* Cards : actions empilées si plus de place. */
+    .lc-card-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
 }

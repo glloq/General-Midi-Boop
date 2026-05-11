@@ -907,11 +907,14 @@ class DatabaseManager {
   deleteArrangement(id)         { return this.loopArrangementsDB.deleteArrangement(id); }
   insertTrack(t)                { return this.loopArrangementsDB.insertTrack(t); }
   getTracks(arrId)              { return this.loopArrangementsDB.getTracks(arrId); }
+  getTrack(id)                  { return this.loopArrangementsDB.getTrack(id); }
   updateTrack(id, f)            { return this.loopArrangementsDB.updateTrack(id, f); }
   deleteTrack(id)               { return this.loopArrangementsDB.deleteTrack(id); }
   insertBlock(b)                { return this.loopArrangementsDB.insertBlock(b); }
   getBlocks(trackId)            { return this.loopArrangementsDB.getBlocks(trackId); }
   getAllBlocksForArrangement(id) { return this.loopArrangementsDB.getAllBlocksForArrangement(id); }
+  getFullArrangement(id)        { return this.loopArrangementsDB.getFullArrangement(id); }
+  countBlocksByLoopId(loopId)   { return this.loopArrangementsDB.countBlocksByLoopId(loopId); }
   updateBlock(id, f)            { return this.loopArrangementsDB.updateBlock(id, f); }
   deleteBlock(id)               { return this.loopArrangementsDB.deleteBlock(id); }
 
