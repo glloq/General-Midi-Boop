@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Tandaan na i-clear ang cache ng browser pagkatapos ng update",
+      "cacheWarningHint": "(Ctrl+Shift+R o mga setting ng browser)",
+      "step": {
+        "script_started": "Sinisimulan...",
+        "started": "Nagsisimula...",
+        "pulling": "Dina-download ang mga source...",
+        "installing": "Iniinstall ang mga dependency...",
+        "restarting": "Nire-restart ang server...",
+        "verifying": "Bine-verify...",
+        "done": "Tapos na ang update!"
+      }
     }
   },
   "bluetooth": {

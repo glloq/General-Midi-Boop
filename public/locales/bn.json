@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "আপডেটের পরে ব্রাউজার ক্যাশ পরিষ্কার করতে ভুলবেন না",
+      "cacheWarningHint": "(Ctrl+Shift+R বা ব্রাউজার সেটিংস)",
+      "step": {
+        "script_started": "শুরু হচ্ছে...",
+        "started": "চালু হচ্ছে...",
+        "pulling": "সোর্স ডাউনলোড হচ্ছে...",
+        "installing": "নির্ভরতা ইনস্টল হচ্ছে...",
+        "restarting": "সার্ভার পুনরায় চালু হচ্ছে...",
+        "verifying": "যাচাই হচ্ছে...",
+        "done": "আপডেট সম্পন্ন!"
+      }
     }
   },
   "bluetooth": {

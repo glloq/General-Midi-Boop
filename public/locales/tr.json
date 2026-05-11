@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Güncellemeden sonra tarayıcı önbelleğini temizlemeyi unutmayın",
+      "cacheWarningHint": "(Ctrl+Shift+R veya tarayıcı ayarları)",
+      "step": {
+        "script_started": "Başlatılıyor...",
+        "started": "Başlıyor...",
+        "pulling": "Kaynaklar indiriliyor...",
+        "installing": "Bağımlılıklar yükleniyor...",
+        "restarting": "Sunucu yeniden başlatılıyor...",
+        "verifying": "Doğrulanıyor...",
+        "done": "Güncelleme tamamlandı!"
+      }
     }
   },
   "bluetooth": {

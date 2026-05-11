@@ -242,7 +242,18 @@
       "newVersion": "New version",
       "currentVersion": "currently",
       "startupCheck": "Check for updates at startup",
-      "startupBetaNotif": "Also notify beta updates"
+      "startupBetaNotif": "Also notify beta updates",
+      "cacheWarning": "Remember to clear browser cache after the update",
+      "cacheWarningHint": "(Ctrl+Shift+R or browser settings)",
+      "step": {
+        "script_started": "Initializing...",
+        "started": "Starting...",
+        "pulling": "Downloading sources...",
+        "installing": "Installing dependencies...",
+        "restarting": "Restarting server...",
+        "verifying": "Verifying...",
+        "done": "Update complete!"
+      }
     },
     "lyrics": {
       "title": "Karaoke",

@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Memoru viŝi la kaŝmemoron de la retumilo post la ĝisdatigo",
+      "cacheWarningHint": "(Stir+Maj+R aŭ agordoj de la retumilo)",
+      "step": {
+        "script_started": "Pravalorigado...",
+        "started": "Komencado...",
+        "pulling": "Elŝutado de fontoj...",
+        "installing": "Instalado de dependaĵoj...",
+        "restarting": "Restartigado de servilo...",
+        "verifying": "Kontrolado...",
+        "done": "Ĝisdatigo finita!"
+      }
     }
   },
   "bluetooth": {

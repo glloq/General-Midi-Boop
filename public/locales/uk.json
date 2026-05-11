@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Не забудьте очистити кеш браузера після оновлення",
+      "cacheWarningHint": "(Ctrl+Shift+R або налаштування браузера)",
+      "step": {
+        "script_started": "Ініціалізація...",
+        "started": "Запуск...",
+        "pulling": "Завантаження джерел...",
+        "installing": "Встановлення залежностей...",
+        "restarting": "Перезапуск сервера...",
+        "verifying": "Перевірка...",
+        "done": "Оновлення завершено!"
+      }
     }
   },
   "bluetooth": {

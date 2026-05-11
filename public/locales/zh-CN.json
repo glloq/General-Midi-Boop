@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "请记得在更新后清除浏览器缓存",
+      "cacheWarningHint": "(Ctrl+Shift+R 或浏览器设置)",
+      "step": {
+        "script_started": "正在初始化...",
+        "started": "正在启动...",
+        "pulling": "正在下载源代码...",
+        "installing": "正在安装依赖...",
+        "restarting": "正在重启服务器...",
+        "verifying": "正在验证...",
+        "done": "更新完成！"
+      }
     }
   },
   "bluetooth": {
