@@ -2,20 +2,22 @@
  * @file src/api/commands/LoopCommands.js
  * @description WebSocket commands for Loop Creator CRUD.
  *
+ * La validation structurelle (types, bornes, taille de midi_data) est
+ * déclarative dans `schemas/loop.schemas.js`. Les handlers ne font plus
+ * que la logique métier qui requiert un accès DB (NotFoundError,
+ * cascade reporting).
+ *
  * Registered commands:
  *   - loop_create   — create a new loop (returns loopId)
  *   - loop_list     — list all loops (without midi_data for bandwidth)
  *   - loop_get      — fetch one loop including midi_data
  *   - loop_update   — update any mutable field (name, tempo, bars, midi_data…)
- *   - loop_delete   — delete a loop by id
+ *   - loop_delete   — delete a loop by id; logs cascade impact on blocks
  */
 
-import { ValidationError, NotFoundError } from '../../core/errors/index.js';
+import { NotFoundError } from '../../core/errors/index.js';
 
 async function loopCreate(app, data) {
-  if (!data.name || typeof data.name !== 'string' || !data.name.trim()) {
-    throw new ValidationError('name is required', 'name');
-  }
   const loopId = app.loopRepository.save({
     name: data.name.trim(),
     tempo: data.tempo,
@@ -35,9 +37,6 @@ async function loopList(app) {
 }
 
 async function loopGet(app, data) {
-  if (!data.loopId) {
-    throw new ValidationError('loopId is required', 'loopId');
-  }
   const loop = app.loopRepository.findById(data.loopId);
   if (!loop) {
     throw new NotFoundError('Loop', data.loopId);
@@ -46,9 +45,6 @@ async function loopGet(app, data) {
 }
 
 async function loopUpdate(app, data) {
-  if (!data.loopId) {
-    throw new ValidationError('loopId is required', 'loopId');
-  }
   const loop = app.loopRepository.findById(data.loopId);
   if (!loop) {
     throw new NotFoundError('Loop', data.loopId);
@@ -59,10 +55,8 @@ async function loopUpdate(app, data) {
   for (const key of allowed) {
     if (key in data) fields[key] = data[key];
   }
-
   if (fields.name !== undefined) {
     fields.name = String(fields.name).trim();
-    if (!fields.name) throw new ValidationError('name cannot be empty', 'name');
   }
 
   app.loopRepository.update(data.loopId, fields);
@@ -70,11 +64,22 @@ async function loopUpdate(app, data) {
 }
 
 async function loopDelete(app, data) {
-  if (!data.loopId) {
-    throw new ValidationError('loopId is required', 'loopId');
+  // Trace l'impact du CASCADE pour faciliter le diagnostic et exposer
+  // la valeur à l'UI (qui peut afficher un message comme « X blocks
+  // d'arrangement ont été supprimés »).
+  let cascadedBlocks = 0;
+  if (typeof app.loopArrangementRepository?.countBlocksByLoopId === 'function') {
+    try {
+      cascadedBlocks = app.loopArrangementRepository.countBlocksByLoopId(data.loopId) || 0;
+    } catch (e) {
+      app.logger?.warn?.(`loopDelete: countBlocksByLoopId failed: ${e.message}`);
+    }
   }
   app.loopRepository.delete(data.loopId);
-  return { success: true };
+  if (cascadedBlocks > 0) {
+    app.logger?.info?.(`Loop ${data.loopId} deletion cascaded ${cascadedBlocks} arrangement block(s)`);
+  }
+  return { success: true, cascadedBlocks };
 }
 
 /**

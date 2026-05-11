@@ -1,0 +1,48 @@
+{
+  "command": "loop_delete",
+  "module": "LoopCommands.js",
+  "criticality": "medium",
+  "description": "Supprime un loop. Le handler compte au préalable les blocks d'arrangement référents (via loopArrangementRepository.countBlocksByLoopId) pour exposer la valeur dans la réponse — l'UI peut alors afficher un message clair sur l'impact CASCADE.",
+  "cases": [
+    {
+      "name": "nominal — suppression d'un loop sans block référent",
+      "type": "success",
+      "input": { "loopId": 1 },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "cascadedBlocks": "number"
+        }
+      },
+      "output_snapshot": {
+        "type": "response",
+        "data": { "success": true, "cascadedBlocks": 0 }
+      }
+    },
+    {
+      "name": "nominal — suppression cascade quelques blocks",
+      "type": "success",
+      "input": { "loopId": 2 },
+      "notes": "loopArrangementRepository.countBlocksByLoopId(2) retourne 5 — réponse expose ce count, log INFO le mentionne.",
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "success": "boolean",
+          "cascadedBlocks": "number"
+        }
+      }
+    },
+    {
+      "name": "error — loopId manquant (validator)",
+      "type": "error",
+      "input": {},
+      "output_shape": { "type": "error", "code": "ERR_VALIDATION" },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid loop_delete data: loopId is required"
+      }
+    }
+  ]
+}

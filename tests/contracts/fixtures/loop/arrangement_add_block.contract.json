@@ -1,0 +1,61 @@
+{
+  "command": "arrangement_add_block",
+  "module": "LoopArrangementCommands.js",
+  "criticality": "high",
+  "description": "Ajoute un block (référence à un loop) à une track d'arrangement. Schema valide trackId/loopId présents + bornes position_bar (0-1024) et repetitions (1-256). Handler vérifie l'existence de la track et du loop, et que position_bar < arrangement.total_bars.",
+  "cases": [
+    {
+      "name": "nominal — ajout avec position et répétitions par défaut",
+      "type": "success",
+      "input": { "trackId": 1, "loopId": 1 },
+      "output_shape": {
+        "type": "response",
+        "data": { "blockId": "number|string" }
+      }
+    },
+    {
+      "name": "nominal — ajout avec position et répétitions explicites",
+      "type": "success",
+      "input": { "trackId": 1, "loopId": 1, "position_bar": 4, "repetitions": 2 },
+      "output_shape": {
+        "type": "response",
+        "data": { "blockId": "number|string" }
+      }
+    },
+    {
+      "name": "error — trackId manquant (validator)",
+      "type": "error",
+      "input": { "loopId": 1 },
+      "output_shape": { "type": "error", "code": "ERR_VALIDATION" },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid arrangement_add_block data: trackId is required"
+      }
+    },
+    {
+      "name": "error — repetitions hors borne (validator)",
+      "type": "error",
+      "input": { "trackId": 1, "loopId": 1, "repetitions": 999 },
+      "output_shape": { "type": "error", "code": "ERR_VALIDATION" },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid arrangement_add_block data: repetitions must be an integer between 1 and 256"
+      }
+    },
+    {
+      "name": "error — trackId inexistant (handler intégrité)",
+      "type": "error",
+      "input": { "trackId": 99999, "loopId": 1 },
+      "notes": "Le handler vérifie via findTrackById ; throw NotFoundError typé avant l'INSERT pour fournir un message clair (sinon FK violation SQLite non typée).",
+      "output_shape": { "type": "error", "code": "ERR_NOT_FOUND" }
+    },
+    {
+      "name": "error — loopId inexistant (handler intégrité)",
+      "type": "error",
+      "input": { "trackId": 1, "loopId": 99999 },
+      "output_shape": { "type": "error", "code": "ERR_NOT_FOUND" }
+    }
+  ]
+}

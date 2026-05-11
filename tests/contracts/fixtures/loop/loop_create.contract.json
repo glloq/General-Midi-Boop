@@ -1,0 +1,140 @@
+{
+  "command": "loop_create",
+  "module": "LoopCommands.js",
+  "criticality": "high",
+  "description": "Crée un nouveau loop. Le schema (loop.schemas.js) valide name (non-vide, ≤120 chars), tempo (20-300), time_sig_num (1-32), time_sig_den ∈ {1,2,4,8,16,32}, bars (1-256), ppq (24-960), instrument_program (0-127), midi_data (JSON array ≤ 256 KB de notes {t,n,v,l}).",
+  "cases": [
+    {
+      "name": "nominal — création minimale (name uniquement)",
+      "type": "success",
+      "input": {
+        "name": "Mon loop"
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "loopId": "number|string"
+        }
+      }
+    },
+    {
+      "name": "nominal — création complète",
+      "type": "success",
+      "input": {
+        "name": "Loop complet",
+        "tempo": 140,
+        "time_sig_num": 3,
+        "time_sig_den": 4,
+        "bars": 4,
+        "ppq": 480,
+        "instrument_program": 25,
+        "midi_data": [{ "t": 0, "n": 60, "v": 100, "l": 240 }]
+      },
+      "output_shape": {
+        "type": "response",
+        "data": {
+          "loopId": "number|string"
+        }
+      }
+    },
+    {
+      "name": "error — name manquant (validator)",
+      "type": "error",
+      "input": {},
+      "output_shape": {
+        "type": "error",
+        "code": "ERR_VALIDATION"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid loop_create data: name is required"
+      }
+    },
+    {
+      "name": "error — tempo hors bornes (validator)",
+      "type": "error",
+      "input": {
+        "name": "X",
+        "tempo": 9999
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "ERR_VALIDATION"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid loop_create data: tempo must be between 20 and 300"
+      }
+    },
+    {
+      "name": "error — tempo non numérique (validator)",
+      "type": "error",
+      "input": {
+        "name": "X",
+        "tempo": "fast"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "ERR_VALIDATION"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid loop_create data: tempo must be a finite number"
+      }
+    },
+    {
+      "name": "error — time_sig_den invalide (validator)",
+      "type": "error",
+      "input": {
+        "name": "X",
+        "time_sig_den": 0
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "ERR_VALIDATION"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid loop_create data: time_sig_den must be one of 1, 2, 4, 8, 16, 32"
+      }
+    },
+    {
+      "name": "error — midi_data JSON invalide (validator)",
+      "type": "error",
+      "input": {
+        "name": "X",
+        "midi_data": "[{not json"
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "ERR_VALIDATION"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid loop_create data: midi_data must be valid JSON"
+      }
+    },
+    {
+      "name": "error — midi_data note malformée (validator)",
+      "type": "error",
+      "input": {
+        "name": "X",
+        "midi_data": [{ "t": 0, "n": 999, "v": 100, "l": 240 }]
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "ERR_VALIDATION"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid loop_create data: midi_data[0].n (note) must be an integer between 0 and 127"
+      }
+    }
+  ]
+}
