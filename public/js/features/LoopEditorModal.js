@@ -398,8 +398,13 @@ class LoopEditorModal extends BaseModal {
         // Libère le AudioContext du métronome — sinon le navigateur
         // plafonne à ~6 contextes par tab et le métronome reste muet
         // après plusieurs cycles open/close (AUDIT §L6).
+        // close() retourne une Promise : on swallow l'éventuel reject
+        // (déjà fermé, état invalide…) pour éviter un unhandledRejection.
         if (this._metronomeCtx) {
-            try { this._metronomeCtx.close?.(); } catch (_) {}
+            try {
+                const p = this._metronomeCtx.close?.();
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (_) {}
             this._metronomeCtx = null;
         }
     }
