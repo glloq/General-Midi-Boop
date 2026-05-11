@@ -253,7 +253,8 @@
         "restarting": "Redémarrage du serveur...",
         "verifying": "Vérification...",
         "done": "Mise à jour terminée !"
-      }
+      },
+      "successToast": "Mise à jour installée avec succès !"
     },
     "lyrics": {
       "title": "Karaoké",

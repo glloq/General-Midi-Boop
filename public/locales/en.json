@@ -253,7 +253,8 @@
         "restarting": "Restarting server...",
         "verifying": "Verifying...",
         "done": "Update complete!"
-      }
+      },
+      "successToast": "Update installed successfully!"
     },
     "lyrics": {
       "title": "Karaoke",

@@ -188,7 +188,8 @@
         "restarting": "서버 재시작 중...",
         "verifying": "확인 중...",
         "done": "업데이트 완료!"
-      }
+      },
+      "successToast": "업데이트가 성공적으로 설치되었습니다!"
     }
   },
   "bluetooth": {

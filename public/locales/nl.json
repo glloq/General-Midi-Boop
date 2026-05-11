@@ -188,7 +188,8 @@
         "restarting": "Server opnieuw opstarten...",
         "verifying": "Verifiëren...",
         "done": "Update voltooid!"
-      }
+      },
+      "successToast": "Update succesvol geïnstalleerd!"
     }
   },
   "bluetooth": {

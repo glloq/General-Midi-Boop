@@ -188,7 +188,8 @@
         "restarting": "Nire-restart ang server...",
         "verifying": "Bine-verify...",
         "done": "Tapos na ang update!"
-      }
+      },
+      "successToast": "Matagumpay na na-install ang update!"
     }
   },
   "bluetooth": {

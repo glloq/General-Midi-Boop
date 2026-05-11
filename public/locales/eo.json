@@ -188,7 +188,8 @@
         "restarting": "Restartigado de servilo...",
         "verifying": "Kontrolado...",
         "done": "Ĝisdatigo finita!"
-      }
+      },
+      "successToast": "Ĝisdatigo sukcese instalita!"
     }
   },
   "bluetooth": {

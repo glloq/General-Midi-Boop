@@ -188,7 +188,8 @@
         "restarting": "Restartování serveru...",
         "verifying": "Ověřování...",
         "done": "Aktualizace dokončena!"
-      }
+      },
+      "successToast": "Aktualizace byla úspěšně nainstalována!"
     }
   },
   "bluetooth": {

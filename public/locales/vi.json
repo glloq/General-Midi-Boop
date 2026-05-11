@@ -188,7 +188,8 @@
         "restarting": "Đang khởi động lại máy chủ...",
         "verifying": "Đang xác minh...",
         "done": "Cập nhật hoàn tất!"
-      }
+      },
+      "successToast": "Đã cài đặt cập nhật thành công!"
     }
   },
   "bluetooth": {

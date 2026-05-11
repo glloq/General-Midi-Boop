@@ -188,7 +188,8 @@
         "restarting": "Szerver újraindítása...",
         "verifying": "Ellenőrzés...",
         "done": "A frissítés befejeződött!"
-      }
+      },
+      "successToast": "A frissítés sikeresen telepítve!"
     }
   },
   "bluetooth": {

@@ -188,7 +188,8 @@
         "restarting": "Riavvio del server...",
         "verifying": "Verifica...",
         "done": "Aggiornamento completato!"
-      }
+      },
+      "successToast": "Aggiornamento installato con successo!"
     }
   },
   "bluetooth": {

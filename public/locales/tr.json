@@ -188,7 +188,8 @@
         "restarting": "Sunucu yeniden başlatılıyor...",
         "verifying": "Doğrulanıyor...",
         "done": "Güncelleme tamamlandı!"
-      }
+      },
+      "successToast": "Güncelleme başarıyla yüklendi!"
     }
   },
   "bluetooth": {

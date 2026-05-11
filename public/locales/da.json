@@ -188,7 +188,8 @@
         "restarting": "Genstarter server...",
         "verifying": "Verificerer...",
         "done": "Opdatering færdig!"
-      }
+      },
+      "successToast": "Opdatering installeret med succes!"
     }
   },
   "bluetooth": {

@@ -188,7 +188,8 @@
         "restarting": "Memulai ulang server...",
         "verifying": "Memverifikasi...",
         "done": "Pembaruan selesai!"
-      }
+      },
+      "successToast": "Pembaruan berhasil dipasang!"
     }
   },
   "bluetooth": {

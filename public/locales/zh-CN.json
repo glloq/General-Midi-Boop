@@ -188,7 +188,8 @@
         "restarting": "正在重启服务器...",
         "verifying": "正在验证...",
         "done": "更新完成！"
-      }
+      },
+      "successToast": "更新已成功安装！"
     }
   },
   "bluetooth": {

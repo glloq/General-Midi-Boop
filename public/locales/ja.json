@@ -188,7 +188,8 @@
         "restarting": "サーバーを再起動中...",
         "verifying": "検証中...",
         "done": "更新が完了しました！"
-      }
+      },
+      "successToast": "更新が正常にインストールされました！"
     }
   },
   "bluetooth": {

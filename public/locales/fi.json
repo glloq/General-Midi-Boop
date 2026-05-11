@@ -188,7 +188,8 @@
         "restarting": "Käynnistetään palvelin uudelleen...",
         "verifying": "Tarkistetaan...",
         "done": "Päivitys valmis!"
-      }
+      },
+      "successToast": "Päivitys asennettu onnistuneesti!"
     }
   },
   "bluetooth": {

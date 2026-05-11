@@ -188,7 +188,8 @@
         "restarting": "Starter server på nytt...",
         "verifying": "Verifiserer...",
         "done": "Oppdatering fullført!"
-      }
+      },
+      "successToast": "Oppdatering installert!"
     }
   },
   "bluetooth": {
