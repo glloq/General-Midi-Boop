@@ -335,47 +335,75 @@ class LoopManagerModal extends BaseModal {
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
             <div class="lc-ctrl-bar lc-ctrl-bar--arr">
-                <input type="text" class="lc-name-input" id="la-name-input"
+                <!-- Groupe 1 — Identité de l'arrangement -->
+                <input type="text" class="lc-name-input la-toolbar-name" id="la-name-input"
                     aria-label="${this.t('loopCreator.arrangementName')}"
                     value="${this.escape(this.arrangementName || this.t('loopCreator.untitledArrangement'))}"
                     placeholder="${this.t('loopCreator.arrangementName')}" />
-                <div class="lc-ctrl-sep"></div>
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="arr-tempo-dec" aria-label="${this.t('loopCreator.tempo')} −"><span aria-hidden="true">‹</span></button>
-                    <input type="number" id="la-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementTempo}" min="20" max="300" aria-label="${this.t('loopCreator.tempo')}" />
-                    <button class="lc-spin-btn" data-action="arr-tempo-inc" aria-label="${this.t('loopCreator.tempo')} +"><span aria-hidden="true">›</span></button>
+
+                <!-- Groupe 2 — Transport (play, stop, loop, count-in) -->
+                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupTransport') || 'Transport'}">
+                    <button class="lc-btn lc-btn-icon lc-btn-primary-ish" data-action="arr-play" id="la-play-btn"
+                        title="${this.t('loopCreator.play')} (Space)" aria-label="${this.t('loopCreator.play')}"><span aria-hidden="true">▶</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-stop"
+                        title="${this.t('loopCreator.stop')} (Esc)" aria-label="${this.t('loopCreator.stop')}"><span aria-hidden="true">⏹</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-toggle-loop" id="la-loop-btn"
+                        title="${this.t('loopManager.loopPlayback')}"
+                        aria-label="${this.t('loopManager.loopPlayback')}"
+                        aria-pressed="${this._arrangerLoop ? 'true' : 'false'}"><span aria-hidden="true">🔁</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-toggle-countin" id="la-countin-btn"
+                        title="${this.t('loopManager.countIn')}"
+                        aria-label="${this.t('loopManager.countIn')}"
+                        aria-pressed="${this._arrangerCountIn ? 'true' : 'false'}"><span aria-hidden="true">⏲</span></button>
                 </div>
-                <span class="lc-unit" aria-hidden="true">BPM</span>
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="arr-bars-dec" aria-label="${this.t('loopCreator.totalBars')} −"><span aria-hidden="true">‹</span></button>
-                    <input type="number" id="la-bars" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementBars}" min="4" max="256" step="4" aria-label="${this.t('loopCreator.totalBars')}" />
-                    <button class="lc-spin-btn" data-action="arr-bars-inc" aria-label="${this.t('loopCreator.totalBars')} +"><span aria-hidden="true">›</span></button>
+
+                <!-- Groupe 3 — Propriétés (tempo, mesures) -->
+                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupProperties') || 'Properties'}">
+                    <div class="lc-spinbox" title="${this.t('loopCreator.tempo')}">
+                        <button class="lc-spin-btn" data-action="arr-tempo-dec" aria-label="${this.t('loopCreator.tempo')} −"><span aria-hidden="true">‹</span></button>
+                        <input type="number" id="la-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementTempo}" min="20" max="300" aria-label="${this.t('loopCreator.tempo')}" />
+                        <button class="lc-spin-btn" data-action="arr-tempo-inc" aria-label="${this.t('loopCreator.tempo')} +"><span aria-hidden="true">›</span></button>
+                    </div>
+                    <span class="lc-unit" aria-hidden="true">BPM</span>
+                    <div class="lc-spinbox" title="${this.t('loopCreator.totalBars')}">
+                        <button class="lc-spin-btn" data-action="arr-bars-dec" aria-label="${this.t('loopCreator.totalBars')} −"><span aria-hidden="true">‹</span></button>
+                        <input type="number" id="la-bars" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementBars}" min="4" max="256" step="4" aria-label="${this.t('loopCreator.totalBars')}" />
+                        <button class="lc-spin-btn" data-action="arr-bars-inc" aria-label="${this.t('loopCreator.totalBars')} +"><span aria-hidden="true">›</span></button>
+                    </div>
+                    <span class="lc-unit" aria-hidden="true">${this.t('loopCreator.barsUnitShort') || 'M'}</span>
                 </div>
-                <span class="lc-unit" aria-hidden="true" title="${this.t('loopCreator.totalBars')}">M</span>
-                <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn" title="${this.t('loopCreator.undo')} (${mod}+Z)" aria-label="${this.t('loopCreator.undo')}" disabled><span aria-hidden="true">↶</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn" title="${this.t('loopCreator.redo')} (${mod}+${sft}+Z)" aria-label="${this.t('loopCreator.redo')}" disabled><span aria-hidden="true">↷</span></button>
-                <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')} (Space)" aria-label="${this.t('loopCreator.play')}"><span aria-hidden="true">▶</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')} (Esc)" aria-label="${this.t('loopCreator.stop')}"><span aria-hidden="true">⏹</span></button>
-                <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-out" title="${this.t('loopEditor.zoomHOut')}" aria-label="${this.t('loopEditor.zoomHOut')}"><span aria-hidden="true">−H</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-reset" title="${this.t('loopManager.zoomReset')}" aria-label="${this.t('loopManager.zoomReset')}"><span aria-hidden="true">⌖</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-in" title="${this.t('loopEditor.zoomHIn')}" aria-label="${this.t('loopEditor.zoomHIn')}"><span aria-hidden="true">+H</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-out" title="${this.t('loopManager.zoomVOut')}" aria-label="${this.t('loopManager.zoomVOut')}"><span aria-hidden="true">−V</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-in" title="${this.t('loopManager.zoomVIn')}" aria-label="${this.t('loopManager.zoomVIn')}"><span aria-hidden="true">+V</span></button>
-                <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-toggle-loop" id="la-loop-btn"
-                    title="${this.t('loopManager.loopPlayback')}"
-                    aria-label="${this.t('loopManager.loopPlayback')}"
-                    aria-pressed="${this._arrangerLoop ? 'true' : 'false'}"><span aria-hidden="true">🔁</span></button>
-                <button class="lc-btn lc-btn-icon" data-action="arr-toggle-countin" id="la-countin-btn"
-                    title="${this.t('loopManager.countIn')}"
-                    aria-label="${this.t('loopManager.countIn')}"
-                    aria-pressed="${this._arrangerCountIn ? 'true' : 'false'}"><span aria-hidden="true">⏲</span></button>
-                <div class="lc-ctrl-sep"></div>
-                <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}" aria-label="${this.t('loopCreator.addTrack')}"><span aria-hidden="true">＋</span></button>
-                <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}"><span aria-hidden="true">🆕</span> ${this.t('loopCreator.newArrangement')}</button>
+
+                <!-- Groupe 4 — Édition (undo/redo) -->
+                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupHistory') || 'Edit history'}">
+                    <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn"
+                        title="${this.t('loopCreator.undo')} (${mod}+Z)" aria-label="${this.t('loopCreator.undo')}" disabled><span aria-hidden="true">↶</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn"
+                        title="${this.t('loopCreator.redo')} (${mod}+${sft}+Z)" aria-label="${this.t('loopCreator.redo')}" disabled><span aria-hidden="true">↷</span></button>
+                </div>
+
+                <!-- Groupe 5 — Vue (zoom horizontal + vertical) -->
+                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupZoom') || 'Zoom'}">
+                    <button class="lc-btn lc-btn-icon" data-action="arr-zoom-out"
+                        title="${this.t('loopEditor.zoomHOut')}" aria-label="${this.t('loopEditor.zoomHOut')}"><span aria-hidden="true">−↔</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-zoom-reset"
+                        title="${this.t('loopManager.zoomReset')}" aria-label="${this.t('loopManager.zoomReset')}"><span aria-hidden="true">⌖</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-zoom-in"
+                        title="${this.t('loopEditor.zoomHIn')}" aria-label="${this.t('loopEditor.zoomHIn')}"><span aria-hidden="true">+↔</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-out"
+                        title="${this.t('loopManager.zoomVOut')}" aria-label="${this.t('loopManager.zoomVOut')}"><span aria-hidden="true">−↕</span></button>
+                    <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-in"
+                        title="${this.t('loopManager.zoomVIn')}" aria-label="${this.t('loopManager.zoomVIn')}"><span aria-hidden="true">+↕</span></button>
+                </div>
+
+                <span class="lc-ctrl-spacer"></span>
+
+                <!-- Groupe 6 — Structure (add track, new arrangement) — actions secondaires, à droite -->
+                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupStructure') || 'Structure'}">
+                    <button class="lc-btn lc-btn-icon" data-action="arr-add-track"
+                        title="${this.t('loopCreator.addTrack')}" aria-label="${this.t('loopCreator.addTrack')}"><span aria-hidden="true">＋</span></button>
+                    <button class="lc-btn lc-btn-sm" data-action="arr-new"
+                        title="${this.t('loopCreator.newArrangement')}"><span aria-hidden="true">🆕</span> ${this.t('loopCreator.newArrangement')}</button>
+                </div>
             </div>
 
             <div class="la-area" id="la-area">

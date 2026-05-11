@@ -247,6 +247,45 @@
 }
 .lc-ctrl-spacer { flex: 1 1 0; min-width: 4px; }
 
+/* ── Sémantique : groupes de contrôles dans la toolbar ──
+ * Chaque .lc-ctrl-group rassemble des actions liées (transport,
+ * propriétés, vue, etc.). Visualisation discrète : fond légèrement
+ * teinté + radius + petit gap interne. Séparation horizontale via
+ * gap parent — pas besoin de .lc-ctrl-sep. */
+.lc-ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.04);
+    flex-shrink: 0;
+}
+.lc-ctrl-group + .lc-ctrl-group { margin-left: 4px; }
+body.theme-dark .lc-ctrl-group,
+body.dark-mode  .lc-ctrl-group { background: rgba(255, 255, 255, 0.05); }
+
+/* Toolbar arranger : layout en row avec gap pour séparer les groupes. */
+.lc-ctrl-bar--arr {
+    gap: 4px;
+}
+/* Le nom de l'arrangement à gauche, prioritaire visuellement. */
+.la-toolbar-name {
+    max-width: 180px;
+    min-width: 100px;
+    flex-shrink: 1;
+}
+/* Bouton play légèrement mis en valeur (action centrale du transport). */
+.lc-btn-primary-ish[data-action="arr-play"]:not(.lc-btn-record--active) {
+    background: linear-gradient(135deg, #5b8def 0%, #667eea 100%);
+    color: #fff;
+    border-color: #4a76d4;
+}
+.lc-btn-primary-ish[data-action="arr-play"]:not(.lc-btn-record--active):hover {
+    background: linear-gradient(135deg, #4a76d4 0%, #5468d4 100%);
+    border-color: #3563bd;
+}
+
 /* ── Common form controls ── */
 .lc-label { font-size: 0.72rem; color: var(--text-secondary, #666); white-space: nowrap; flex-shrink: 0; }
 .lc-unit  { font-size: 0.72rem; color: var(--text-secondary, #666); white-space: nowrap; flex-shrink: 0; }
