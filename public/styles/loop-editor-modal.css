@@ -107,20 +107,19 @@
 /* ── Transport bar (big REC | Play/Stop · Metro/CountIn | minimap-info) ── */
 .le-transport-bar {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     gap: 12px;
-    padding: 10px 14px;
+    padding: 6px 12px;
     background: var(--bg-tertiary, #f0f1f3);
     border-bottom: 1px solid var(--border-color, #dde0e6);
     flex-shrink: 0;
-    min-height: 96px;
 }
 
 .le-rec-big {
     flex: 0 0 auto;
-    width: 96px;
-    height: 80px;
-    border-radius: 12px;
+    width: 76px;
+    height: 60px;
+    border-radius: 10px;
     border: 2px solid #c0392b;
     background: linear-gradient(180deg, #fff 0%, #fde9e6 100%);
     color: #c0392b;
@@ -129,7 +128,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     transition: background 0.15s, transform 0.08s, box-shadow 0.15s;
     box-shadow: 0 2px 8px rgba(192,57,43,0.18);
     user-select: none;
@@ -143,7 +142,7 @@
     animation: le-rec-pulse 1s infinite alternate;
 }
 .le-rec-big-dot {
-    width: 18px; height: 18px;
+    width: 14px; height: 14px;
     border-radius: 50%;
     background: #c0392b;
     flex-shrink: 0;
@@ -153,7 +152,7 @@
     background: #fff;
     box-shadow: 0 0 0 2px rgba(192,57,43,0.6) inset;
 }
-.le-rec-big-label { font-size: 0.85rem; font-weight: 800; letter-spacing: 0.08em; }
+.le-rec-big-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; }
 @keyframes le-rec-pulse {
     from { box-shadow: 0 0 0 4px rgba(192,57,43,0.35), 0 0 18px rgba(192,57,43,0.55); }
     to   { box-shadow: 0 0 0 8px rgba(192,57,43,0.10), 0 0 26px rgba(192,57,43,0.85); }
@@ -171,26 +170,32 @@
     align-items: center;
     gap: 6px;
 }
-.le-transport-row .lc-btn-icon { min-width: 36px; height: 32px; font-size: 1.05rem; }
+.le-transport-row .lc-btn-icon { min-width: 32px; height: 26px; font-size: 0.95rem; padding: 2px 6px; }
 .le-btn-play { color: #2e7d32; border-color: #2e7d32; }
 .le-btn-play:hover { background: #2e7d32; color: #fff; }
 .le-btn-stop { color: #34495e; }
 
+/* Spacer keeps the minimap aligned to the far right without consuming
+   all the leftover horizontal space. */
+.le-transport-bar > .lc-ctrl-spacer { flex: 1 1 0; min-width: 8px; }
+
 .le-minimap-info-wrap {
-    flex: 1 1 0;
-    min-width: 200px;
+    flex: 0 1 320px;
+    width: 320px;
+    max-width: 40vw;
+    height: 56px;
     background: var(--bg-primary, #fff);
     border: 1px solid var(--border-color, #dde0e6);
-    border-radius: 8px;
-    padding: 4px;
+    border-radius: 6px;
+    padding: 2px;
     display: flex;
     overflow: hidden;
+    flex-shrink: 1;
 }
 .le-minimap-info {
     flex: 1 1 0;
     width: 100%;
     height: 100%;
-    min-height: 64px;
     display: block;
     user-select: none;
     /* purely informational — no scrubbing */

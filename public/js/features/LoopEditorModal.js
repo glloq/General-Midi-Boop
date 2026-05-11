@@ -262,6 +262,8 @@ class LoopEditorModal extends BaseModal {
                     </div>
                 </div>
 
+                <span class="lc-ctrl-spacer"></span>
+
                 <div class="le-minimap-info-wrap">
                     <canvas class="le-minimap-info" id="le-minimap-top"
                             aria-label="${this.t('loopEditor.minimapInfoAria')}"
