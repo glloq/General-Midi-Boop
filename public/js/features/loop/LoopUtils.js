@@ -9,7 +9,7 @@
  *   - LoopUtils.scheduleSequence(opts)             shared MIDI scheduler (pad/live/arranger/editor)
  *   - LoopUtils.loopDurationMs(loop)               canonical loop duration
  *   - LoopUtils.validateTempo(v) / validateBars(v) UI bounds clamping
- *   - LoopUtils.PadStorage.load() / save() / export() / import()
+ *   - LoopUtils.PadStorage.load() / save() / clear()
  *   - LoopUtils.GM_FAMILIES / familyForProgram(p)  family lookup + colours
  */
 (function () {
@@ -224,36 +224,6 @@
         },
         clear() {
             try { localStorage.removeItem(PAD_STORAGE_KEY); } catch (_) {}
-        },
-        export(config) {
-            const payload = Array.isArray(config) ? { slots: config } : (config || {});
-            return JSON.stringify({
-                version: 2,
-                type: 'gmboop_pad_layout',
-                slots:    payload.slots,
-                cols:     payload.cols,
-                rows:     payload.rows,
-                playMode: payload.playMode,
-                quantize: payload.quantize
-            }, null, 2);
-        },
-        import(json) {
-            try {
-                const data = JSON.parse(json);
-                if (!data || data.type !== 'gmboop_pad_layout' || !Array.isArray(data.slots)) {
-                    throw new Error('Invalid pad layout file');
-                }
-                return {
-                    slots:    data.slots,
-                    cols:     data.cols ?? null,
-                    rows:     data.rows ?? null,
-                    playMode: data.playMode ?? null,
-                    quantize: data.quantize ?? null
-                };
-            } catch (err) {
-                handleError(err, 'pad.storage.import');
-                return null;
-            }
         }
     };
 
