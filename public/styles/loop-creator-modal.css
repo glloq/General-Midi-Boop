@@ -210,14 +210,35 @@
     flex-shrink: 0;
     overflow: hidden;
 }
-/* Library : barre encore plus compacte pour laisser la place aux cards. */
+/* Library : barre stricte minimum pour maximiser l'espace des cards. */
 .lc-ctrl-bar--lib {
-    height: 30px;
-    min-height: 30px;
-}
-.lc-ctrl-bar--lib .lc-name-input,
-.lc-ctrl-bar--lib .lc-select {
     height: 26px;
+    min-height: 26px;
+    padding: 0 6px;
+    gap: 3px;
+}
+.lc-ctrl-bar--lib .lc-name-input {
+    height: 20px;
+    padding: 0 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    min-width: 80px;
+    max-width: 200px;
+    border: 1px solid transparent;
+}
+.lc-ctrl-bar--lib .lc-name-input:not(:focus) {
+    background: rgba(0,0,0,0.04);
+}
+.lc-ctrl-bar--lib .lc-select {
+    height: 20px;
+    padding: 0 4px;
+    font-size: 0.75rem;
+}
+.lc-ctrl-bar--lib .lc-btn,
+.lc-ctrl-bar--lib .lc-btn-sm {
+    height: 20px;
+    padding: 0 8px;
+    font-size: 0.76rem;
 }
 .lc-ctrl-sep {
     width: 1px; height: 22px;
@@ -723,7 +744,7 @@ body.dark-mode  .la-playhead {
 .lm-lib-sort   { min-width: 100px; max-width: 140px; font-size: 0.78rem; }
 .lm-library-grid {
     display: flex; flex-wrap: wrap; gap: 6px;
-    padding: 10px 12px; overflow-y: auto; flex: 1 1 0;
+    padding: 4px 8px; overflow-y: auto; flex: 1 1 0;
     align-content: flex-start;
 }
 
