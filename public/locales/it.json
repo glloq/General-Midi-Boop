@@ -2259,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Nuova versione v{version} disponibile!",
+    "betaCommitsSingular": "{count} commit beta disponibile — {hash}",
+    "betaCommitsPlural": "{count} commit beta disponibili — {hash}"
   }
 }

@@ -2259,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Yeni sürüm v{version} mevcut!",
+    "betaCommitsSingular": "{count} beta commit mevcut — {hash}",
+    "betaCommitsPlural": "{count} beta commit mevcut — {hash}"
   }
 }

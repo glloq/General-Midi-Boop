@@ -2259,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Új verzió v{version} elérhető!",
+    "betaCommitsSingular": "{count} béta commit elérhető — {hash}",
+    "betaCommitsPlural": "{count} béta commit elérhető — {hash}"
   }
 }

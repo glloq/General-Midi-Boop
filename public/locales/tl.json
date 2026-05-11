@@ -2259,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Available na ang bagong bersyon v{version}!",
+    "betaCommitsSingular": "{count} beta commit ang available — {hash}",
+    "betaCommitsPlural": "{count} na beta commits ang available — {hash}"
   }
 }

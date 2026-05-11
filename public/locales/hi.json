@@ -2259,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "नया संस्करण v{version} उपलब्ध!",
+    "betaCommitsSingular": "{count} बीटा कमिट उपलब्ध — {hash}",
+    "betaCommitsPlural": "{count} बीटा कमिट उपलब्ध — {hash}"
   }
 }

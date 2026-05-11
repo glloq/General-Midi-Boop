@@ -2259,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Доступна нова версія v{version}!",
+    "betaCommitsSingular": "Доступний {count} бета-коміт — {hash}",
+    "betaCommitsPlural": "Доступно бета-комітів: {count} — {hash}"
   }
 }

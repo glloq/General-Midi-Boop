@@ -2259,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "เวอร์ชันใหม่ v{version} พร้อมใช้งาน!",
+    "betaCommitsSingular": "มี {count} เบต้าคอมมิตที่พร้อมใช้งาน — {hash}",
+    "betaCommitsPlural": "มี {count} เบต้าคอมมิตที่พร้อมใช้งาน — {hash}"
   }
 }
