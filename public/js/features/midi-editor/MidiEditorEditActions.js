@@ -786,18 +786,16 @@
         this.modal.touchMode = !this.modal.touchMode;
         this.modal._saveTouchModePref(this.modal.touchMode);
 
-        // Update the toggle button
-        const toggleBtn = this.modal.container?.querySelector('#touch-mode-toggle');
-        if (toggleBtn) {
-            toggleBtn.dataset.active = String(this.modal.touchMode);
-            const srLabel = toggleBtn.querySelector('.sr-only');
-            const label = this.modal.touchMode ? this.modal.t('common.on') : this.modal.t('common.off');
-            if (srLabel) {
-                srLabel.textContent = label;
-            } else {
-                toggleBtn.textContent = label;
-            }
-        }
+        // Update the popover switch (standalone mode) and the inline
+        // toolbar toggle (always present) so they stay in sync.
+        const toggles = this.modal.container?.querySelectorAll('#touch-mode-toggle, #touch-mode-inline-toggle');
+        const label = this.modal.touchMode ? this.modal.t('common.on') : this.modal.t('common.off');
+        toggles?.forEach(btn => {
+            btn.dataset.active = String(this.modal.touchMode);
+            btn.setAttribute('aria-pressed', String(this.modal.touchMode));
+            const srLabel = btn.querySelector('.sr-only');
+            if (srLabel) srLabel.textContent = label;
+        });
 
         // Show/hide pencil button vs touch edit buttons
         const pencilBtn = this.modal.container?.querySelector('.edit-unified-btn');

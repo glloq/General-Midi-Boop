@@ -5,10 +5,26 @@
 // ============================================================================
 
 class MidiEditorModal {
-    constructor(eventBus, apiClient) {
+    /**
+     * @param {*} eventBus
+     * @param {*} apiClient
+     * @param {Object} [opts]
+     * @param {boolean} [opts.loopMode=false]  Slim layout for the loop editor :
+     *   no file/save header, no instrument/channel/GM selectors, no gear popover,
+     *   mono-channel CC section, inline touch-mode toggle. The host (e.g.
+     *   LoopEditorModal) drives transport/save/instrument from its own shell.
+     * @param {HTMLElement} [opts.host]  When provided, render() injects the
+     *   editor body into this element instead of appending a modal-overlay
+     *   to document.body. Required for panel embedding (mountAsPanel).
+     */
+    constructor(eventBus, apiClient, opts = {}) {
         this.eventBus = eventBus;
         this.api = apiClient;
         this.logger = window.logger || console;
+
+        // Panel/loop integration flags
+        this.loopMode = opts.loopMode === true;
+        this.panelHost = opts.host || null;
 
         this.container = null;
         this.isOpen = false;
@@ -252,6 +268,191 @@ class MidiEditorModal {
             this.log('error', 'Failed to open MIDI editor:', error);
             this.showError(this.t('midiEditor.cannotOpen', { error: error.message }));
         }
+    }
+
+    /**
+     * Open the editor as a panel inside a host element, with an in-memory
+     * loop sequence instead of a file fetched from the backend. The caller
+     * (LoopEditorModal) owns persistence, transport, and the instrument
+     * selector ; we render the slim "loop mode" UI and notify on changes.
+     *
+     * @param {HTMLElement} host                Container to render the panel into.
+     * @param {Object}      opts
+     * @param {Array}       [opts.sequence]            Initial notes {t,g,n,c,v}.
+     * @param {Array}       [opts.ccEvents]            Initial CC/PB/AT events.
+     * @param {number}      [opts.tempo=120]           Initial tempo BPM.
+     * @param {number}      [opts.ppq=480]             Ticks per beat.
+     * @param {number}      [opts.bars=2]              Loop length in bars (informational).
+     * @param {number}      [opts.timeSigNum=4]
+     * @param {number}      [opts.timeSigDen=4]
+     * @param {number}      [opts.channel=0]           MIDI channel (9 for drum kit).
+     * @param {number}      [opts.instrumentProgram=0] GM program for that channel.
+     * @param {Function}    [opts.onChange]            Notified after each edit
+     *                                                 ({ sequence, ccEvents, isDirty }).
+     */
+    async showAsPanel(host, opts = {}) {
+        if (this.isOpen) {
+            this.log('warn', 'Editor panel already open');
+            return;
+        }
+        this.loopMode = true;
+        this.panelHost = host;
+
+        const tempo = Number.isFinite(opts.tempo) ? opts.tempo : 120;
+        const ppq   = Number.isFinite(opts.ppq)   ? opts.ppq   : 480;
+        const ch    = Number.isFinite(opts.channel) ? opts.channel : 0;
+        const prog  = Number.isFinite(opts.instrumentProgram) ? opts.instrumentProgram : 0;
+        const program = prog >= 128 ? prog - 128 : prog; // drum kit offset
+
+        // Synthesize the minimal midiData shape the rest of the editor reads.
+        // No tracks — the sequence is injected directly into fullSequence below.
+        this.currentFile = null;
+        this.currentFilename = opts.name || '';
+        this.tempo = tempo;
+        this.ticksPerBeat = ppq;
+        this.midiData = {
+            header: { ticksPerBeat: ppq, timeSignature: [opts.timeSigNum || 4, opts.timeSigDen || 4] },
+            tracks: [],
+            maxTick: ppq * (opts.timeSigNum || 4) * (opts.bars || 2)
+        };
+
+        // Sequence injected as-is (already in webaudio-pianoroll format).
+        this.fullSequence = Array.isArray(opts.sequence) ? opts.sequence.map(n => ({ ...n, c: ch })) : [];
+        this.sequence = [...this.fullSequence];
+        this.channels = [{
+            channel: ch,
+            program: program,
+            instrument: ch === 9 ? this.t('midiEditor.drumKit') : this.getInstrumentName(program),
+            noteCount: this.fullSequence.length,
+            hasExplicitProgram: true
+        }];
+        this.activeChannels.clear();
+        this.activeChannels.add(ch);
+        this.channelDisabled.clear();
+        this.channelPlayableHighlights.clear();
+
+        // CC + tempo events from caller (optional).
+        this.ccEvents = Array.isArray(opts.ccEvents) ? [...opts.ccEvents] : [];
+        this.tempoEvents = [];
+
+        this._panelOnChange = typeof opts.onChange === 'function' ? opts.onChange : null;
+        this.isDirty = false;
+
+        try {
+            // Render the slim loop-mode UI into the host.
+            this.routingOps.render();
+            await this.routingOps.initPianoRoll();
+            this.isOpen = true;
+
+            // Rebuild dynamic CC buttons from the injected events.
+            this.ccOps?.updateDynamicCCButtons?.();
+
+            // Hook the change pipeline so saves can read back the latest state.
+            if (this._panelOnChange) {
+                const notify = () => {
+                    try {
+                        this._panelOnChange({
+                            sequence: this.fullSequence,
+                            ccEvents: this.ccEvents,
+                            isDirty: this.isDirty
+                        });
+                    } catch (err) { this.log('error', 'panel onChange threw:', err); }
+                };
+                this._panelChangeListener = notify;
+                this.pianoRoll?.addEventListener('change', notify);
+            }
+        } catch (error) {
+            this.log('error', 'Failed to open MIDI editor as panel:', error);
+            this.showError(this.t('midiEditor.cannotOpen', { error: error.message }));
+        }
+    }
+
+    /**
+     * Update the current loop sequence from the outside (e.g. when the
+     * LoopEditorModal records new notes through its keyboard or changes
+     * tempo/bars). Triggers a piano-roll redraw.
+     */
+    setPanelLoopState({ sequence, tempo, ppq, bars, timeSigNum, timeSigDen, instrumentProgram, channel } = {}) {
+        if (!this.loopMode) return;
+        if (Number.isFinite(tempo) && this.pianoRoll) {
+            this.tempo = tempo;
+            this.pianoRoll.tempo = tempo;
+        }
+        if (Number.isFinite(ppq) && this.pianoRoll) {
+            this.ticksPerBeat = ppq;
+            this.pianoRoll.timebase = ppq;
+        }
+        if (this.midiData) {
+            if (Number.isFinite(timeSigNum) || Number.isFinite(timeSigDen)) {
+                this.midiData.header.timeSignature = [
+                    Number.isFinite(timeSigNum) ? timeSigNum : (this.midiData.header.timeSignature?.[0] || 4),
+                    Number.isFinite(timeSigDen) ? timeSigDen : (this.midiData.header.timeSignature?.[1] || 4)
+                ];
+            }
+            if (Number.isFinite(bars)) {
+                const [num] = this.midiData.header.timeSignature || [4];
+                this.midiData.maxTick = (this.ticksPerBeat || 480) * num * bars;
+                if (this.pianoRoll) {
+                    this.pianoRoll.setAttribute('markend', String(this.midiData.maxTick));
+                }
+            }
+        }
+        if (Number.isFinite(channel) && this.channels[0]) {
+            this.channels[0].channel = channel;
+            this.activeChannels.clear();
+            this.activeChannels.add(channel);
+        }
+        if (Number.isFinite(instrumentProgram) && this.channels[0]) {
+            const prog = instrumentProgram >= 128 ? instrumentProgram - 128 : instrumentProgram;
+            this.channels[0].program = prog;
+            this.channels[0].instrument = (this.channels[0].channel === 9)
+                ? this.t('midiEditor.drumKit') : this.getInstrumentName(prog);
+        }
+        if (Array.isArray(sequence)) {
+            const ch = this.channels[0]?.channel ?? 0;
+            this.fullSequence = sequence.map(n => ({ ...n, c: ch }));
+            this.sequence = [...this.fullSequence];
+            if (this.pianoRoll) {
+                this.pianoRoll.sequence = this.sequence;
+                this.pianoRoll.redraw?.();
+            }
+        }
+    }
+
+    /**
+     * Unmount the editor panel from its host without the unsaved-changes
+     * prompt — the host owns persistence and should already have decided
+     * whether to discard or save before calling.
+     */
+    unmountPanel() {
+        if (!this.loopMode) {
+            this.log('warn', 'unmountPanel called outside loop mode — ignoring');
+            return;
+        }
+        try {
+            if (this._panelChangeListener && this.pianoRoll) {
+                this.pianoRoll.removeEventListener('change', this._panelChangeListener);
+            }
+        } catch (_) { /* listener already gone */ }
+        this._panelChangeListener = null;
+        this._panelOnChange = null;
+        // Bypass the dirty prompt by clearing isDirty first.
+        this.isDirty = false;
+        this.lifecycle?.doClose?.();
+        this.panelHost = null;
+    }
+
+    /**
+     * Read back the current loop state (notes + CC + tempo) so the host
+     * modal (LoopEditorModal) can persist it.
+     */
+    getPanelLoopState() {
+        return {
+            sequence: this.fullSequence ? this.fullSequence.map(n => ({ ...n })) : [],
+            ccEvents: this.ccEvents ? this.ccEvents.map(ev => ({ ...ev })) : [],
+            tempo: this.tempo,
+            ppq: this.ticksPerBeat
+        };
     }
 
     /**
