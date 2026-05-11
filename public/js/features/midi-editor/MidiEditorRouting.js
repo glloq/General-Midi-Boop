@@ -574,11 +574,14 @@
         if (!this.modal.midiData) this.modal.midiData = {};
         this.modal.midiData.maxTick = maxTick;
 
-    // Default zoom that shows ~20 seconds
-    // At 480 ticks/beat and 120 BPM: 20s = 9600 ticks
+    // Default zoom — loop mode fits the whole loop (bars × timeSig × ppq)
+    // into the view since that's the unit of work. Standard (file) mode
+    // keeps the legacy "first 20 seconds" framing.
         const ticksPerBeat = this.modal.midiData.header?.ticksPerBeat || 480;
         const twentySeconds = ticksPerBeat * 40; // ~20 seconds at 120 BPM
-        const xrange = Math.min(maxTick > 0 ? maxTick : twentySeconds, twentySeconds); // View over the first 20s (or less for short files)
+        const xrange = this.modal.loopMode
+            ? (maxTick > 0 ? maxTick : ticksPerBeat * 4)
+            : Math.min(maxTick > 0 ? maxTick : twentySeconds, twentySeconds);
 
     // Vertically centered view that keeps every note of visible channels onscreen
         const noteRange = Math.max(24, maxNote - minNote + 4); // +4 note margin instead of +24

@@ -389,11 +389,18 @@ class MidiEditorModal {
                     Number.isFinite(timeSigDen) ? timeSigDen : (this.midiData.header.timeSignature?.[1] || 4)
                 ];
             }
-            if (Number.isFinite(bars)) {
+            if (Number.isFinite(bars) || Number.isFinite(timeSigNum) || Number.isFinite(timeSigDen)) {
                 const [num] = this.midiData.header.timeSignature || [4];
-                this.midiData.maxTick = (this.ticksPerBeat || 480) * num * bars;
+                const effBars = Number.isFinite(bars) ? bars : ((this.midiData.maxTick || 0) / ((this.ticksPerBeat || 480) * num)) || 2;
+                this.midiData.maxTick = (this.ticksPerBeat || 480) * num * effBars;
                 if (this.pianoRoll) {
                     this.pianoRoll.setAttribute('markend', String(this.midiData.maxTick));
+                    // Keep the horizontal zoom locked to the loop length so
+                    // the whole loop stays visible after a tempo / bars /
+                    // time-sig change. The user can still wheel-zoom in.
+                    this.pianoRoll.setAttribute('xrange',  String(this.midiData.maxTick));
+                    this.pianoRoll.setAttribute('xoffset', '0');
+                    this.pianoRoll.redraw?.();
                 }
             }
         }
