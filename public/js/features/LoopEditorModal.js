@@ -214,15 +214,13 @@ class LoopEditorModal extends BaseModal {
                 <span class="lc-unit le-header-unit" title="${this.t('loopCreator.bars')}">M</span>
             </div>
             <div class="le-header-actions">
-                <div class="lc-header-output" id="le-header-output-wrap">
-                    <span class="lc-header-output-icon" id="le-header-output-icon" aria-hidden="true">🔊</span>
-                    <select id="le-header-output" class="lc-select lc-select-output"
-                        title="${this.t('loopCreator.outputLabel')}">
-                        <option value="synth" selected>${this.t('loopManager.outputSynth')}</option>
-                    </select>
-                    <select id="le-header-output-ch" class="lc-select lc-select-output-ch"
-                        title="${this.t('loopCreator.outputChannel')}" style="display:none"></select>
-                </div>
+                <button class="lc-btn lc-btn-sm le-output-toggle" id="le-output-toggle"
+                        data-action="toggle-output"
+                        title="${this.t('loopCreator.outputLabel')}"
+                        aria-pressed="false">
+                    <span class="le-output-icon" id="le-output-icon" aria-hidden="true">🔊</span>
+                    <span class="le-output-label" id="le-output-label">${this.t('loopManager.outputSynth')}</span>
+                </button>
                 <button class="lc-btn lc-btn-sm" data-action="save-loop-as-new" title="${this.t('loopEditor.saveAsNew')}">📋+</button>
                 <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="save-loop">💾 ${this.t('loopCreator.save')}</button>
                 <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
@@ -261,8 +259,6 @@ class LoopEditorModal extends BaseModal {
                         </span>
                     </div>
                 </div>
-
-                <span class="lc-ctrl-spacer"></span>
 
                 <div class="le-minimap-info-wrap">
                     <canvas class="le-minimap-info" id="le-minimap-top"
@@ -308,7 +304,7 @@ class LoopEditorModal extends BaseModal {
         this._attachEvents();
         this._initPianoRollEditor();
         this._loadMidiInDevices();
-        this._loadHeaderOutputDevices();
+        this._refreshHeaderOutputUI();
         this._mountKeyboardPanel();
         this._attachKeyboardShortcuts();
         // Take the baseline snapshot AFTER the piano roll editor has the sequence
@@ -343,55 +339,28 @@ class LoopEditorModal extends BaseModal {
         }
     }
 
-    async _loadHeaderOutputDevices() {
-        const sel = this.$('#le-header-output');
-        if (!sel) return;
-        let devices = [];
-        try {
-            const all = await this.api.listDevices();
-            devices = (all || []).filter(d => d.status === 2 || d.connected === true);
-        } catch (err) {
-            LoopUtils.handleError(err, 'editor.header.listDevices');
-        }
-        sel.innerHTML = `<option value="synth">${this.t('loopManager.outputSynth')}</option>`;
-        for (const d of devices) {
-            const id = d.device_id || d.id;
-            const opt = document.createElement('option');
-            opt.value = `device:${id}`;
-            opt.textContent = `🔌 ${d.name || id}`;
-            sel.appendChild(opt);
-        }
-        // Initialise from current state
-        const target = (this._outputTarget === 'live' && this.outputDeviceId)
-            ? `device:${this.outputDeviceId}` : 'synth';
-        sel.value = [...sel.options].some(o => o.value === target) ? target : 'synth';
-        this._refreshHeaderOutputUI();
-    }
-
-    _ensureHeaderChannelOptions() {
-        const sel = this.$('#le-header-output-ch');
-        if (!sel || sel.options.length) return;
-        for (let i = 0; i < 16; i++) {
-            const opt = document.createElement('option');
-            opt.value = String(i);
-            opt.textContent = `Ch ${i + 1}`;
-            sel.appendChild(opt);
-        }
-        sel.value = String(this.outputChannel || 0);
-    }
-
+    /**
+     * Two-state output toggle in the header :
+     *   • 'synth'        → preview through the local in-browser synth
+     *   • 'instruments'  → send MIDI messages to the connected instrument(s)
+     *                       (the actual device is the one chosen via the
+     *                        embedded keyboard's instrument selector, or any
+     *                        device routed at the session level).
+     * The previous device dropdown was removed at the user's request.
+     */
     _refreshHeaderOutputUI() {
-        const icon  = this.$('#le-header-output-icon');
-        const wrap  = this.$('#le-header-output-wrap');
-        const chSel = this.$('#le-header-output-ch');
-        const isDev = this._outputTarget === 'live' && this.outputDeviceId;
-        if (icon) icon.textContent = isDev ? '🔌' : '🔊';
-        if (wrap) wrap.classList.toggle('lc-header-output--device', !!isDev);
-        if (chSel) {
-            chSel.style.display = isDev ? '' : 'none';
-            this._ensureHeaderChannelOptions();
-            chSel.value = String(this.outputChannel || 0);
+        const btn   = this.$('#le-output-toggle');
+        const icon  = this.$('#le-output-icon');
+        const label = this.$('#le-output-label');
+        const isDev = this._outputTarget === 'live';
+        if (btn) {
+            btn.classList.toggle('le-output-toggle--device', isDev);
+            btn.setAttribute('aria-pressed', isDev ? 'true' : 'false');
         }
+        if (icon)  icon.textContent  = isDev ? '🔌' : '🔊';
+        if (label) label.textContent = isDev
+            ? this.t('loopCreator.outputLive')
+            : this.t('loopManager.outputSynth');
     }
 
     close() {
@@ -475,24 +444,6 @@ class LoopEditorModal extends BaseModal {
 
     _onChange(e) {
         const id = e.target.id;
-        if (id === 'le-header-output') {
-            this._previewStopAll();
-            const v = e.target.value || 'synth';
-            if (v === 'synth') {
-                this._outputTarget = 'synth';
-                this.outputMode    = 'synth';
-            } else if (v.startsWith('device:')) {
-                this._outputTarget = 'live';
-                this.outputMode    = 'device';
-                this.outputDeviceId = v.slice(7);
-            }
-            this._refreshHeaderOutputUI();
-            return;
-        }
-        if (id === 'le-header-output-ch') {
-            this.outputChannel = parseInt(e.target.value) || 0;
-            return;
-        }
         if (id === 'lc-timesig') {
             const [num, den] = e.target.value.split(':').map(Number);
             this.timeSigNum = num; this.timeSigDen = den;
@@ -613,6 +564,11 @@ class LoopEditorModal extends BaseModal {
         }
         this._previewStopAll();
         this._outputTarget = previouslyLive ? 'synth' : 'live';
+        // When switching to MIDI mode, ensure outputMode reflects 'device'
+        // so _previewNoteOn / _previewViaDevice route properly to whatever
+        // device the embedded keyboard / session has set.
+        this.outputMode = (this._outputTarget === 'live') ? 'device' : 'synth';
+        this._refreshHeaderOutputUI();
         this._setStatus(this._outputTarget === 'live'
             ? this.t('loopCreator.outputLive') : this.t('loopCreator.outputSynth'));
     }
