@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "更新後にブラウザのキャッシュをクリアすることを忘れないでください",
+      "cacheWarningHint": "(Ctrl+Shift+R またはブラウザの設定)",
+      "step": {
+        "script_started": "初期化中...",
+        "started": "開始中...",
+        "pulling": "ソースをダウンロード中...",
+        "installing": "依存関係をインストール中...",
+        "restarting": "サーバーを再起動中...",
+        "verifying": "検証中...",
+        "done": "更新が完了しました！"
+      }
     }
   },
   "bluetooth": {

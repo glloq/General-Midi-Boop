@@ -2,15 +2,15 @@
     'use strict';
     const SettingsUpdate = {};
 
-    // Step labels, icons and progress percentages for update status tracking
+    // Step icons and progress percentages. Labels are resolved via i18n at render time.
     const UPDATE_STEPS = {
-        script_started: { label: 'Initialisation...', icon: '🔧', progress: 10 },
-        started:        { label: 'Démarrage...', icon: '🔧', progress: 15 },
-        pulling:        { label: 'Téléchargement des sources...', icon: '📥', progress: 30 },
-        installing:     { label: 'Installation des dépendances...', icon: '📦', progress: 55 },
-        restarting:     { label: 'Redémarrage du serveur...', icon: '🔄', progress: 80 },
-        verifying:      { label: 'Vérification...', icon: '🔍', progress: 90 },
-        done:           { label: 'Mise à jour terminée !', icon: '✅', progress: 100 },
+        script_started: { fallback: 'Initializing...',           icon: '🔧', progress: 10 },
+        started:        { fallback: 'Starting...',               icon: '🔧', progress: 15 },
+        pulling:        { fallback: 'Downloading sources...',    icon: '📥', progress: 30 },
+        installing:     { fallback: 'Installing dependencies...', icon: '📦', progress: 55 },
+        restarting:     { fallback: 'Restarting server...',      icon: '🔄', progress: 80 },
+        verifying:      { fallback: 'Verifying...',              icon: '🔍', progress: 90 },
+        done:           { fallback: 'Update complete!',          icon: '✅', progress: 100 },
     };
 
     // Maximum time to wait for the update to complete (5 minutes)
@@ -154,7 +154,9 @@
             tipBanner = document.createElement('div');
             tipBanner.id = 'updateCacheTip';
             tipBanner.style.cssText = 'margin: -20px -20px 16px -20px; padding: 14px 20px; background: #fef3c7; color: #92400e; border-radius: 12px 12px 0 0; font-size: 13px; text-align: center; line-height: 1.5;';
-            tipBanner.innerHTML = '<span style="font-size: 22px; display: block; margin-bottom: 4px;">⚠️</span>Pensez à vider le cache du navigateur après la mise à jour<br><span style="font-size: 12px; opacity: 0.8;">(Ctrl+Shift+R ou paramètres du navigateur)</span>';
+            const cacheWarning = i18n.t('settings.update.cacheWarning') || 'Remember to clear browser cache after the update';
+            const cacheWarningHint = i18n.t('settings.update.cacheWarningHint') || '(Ctrl+Shift+R or browser settings)';
+            tipBanner.innerHTML = `<span style="font-size: 22px; display: block; margin-bottom: 4px;">⚠️</span>${escapeHtml(cacheWarning)}<br><span style="font-size: 12px; opacity: 0.8;">${escapeHtml(cacheWarningHint)}</span>`;
             modalInner.insertBefore(tipBanner, modalInner.firstChild);
         }
 
@@ -260,7 +262,7 @@
                         if (stepInfo && this._updateModalRefs) {
                             const { messageEl } = this._updateModalRefs;
                             const i18nLabel = i18n.t('settings.update.step.' + step);
-                            const label = (i18nLabel && !i18nLabel.includes('.')) ? i18nLabel : stepInfo.label;
+                            const label = (i18nLabel && !i18nLabel.includes('.')) ? i18nLabel : stepInfo.fallback;
                             messageEl.innerHTML = `
                                 <div style="margin-bottom: 16px; font-size: 14px; text-align: center;">
                                     ${stepInfo.icon} ${label}

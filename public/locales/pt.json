@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Lembre-se de limpar o cache do navegador após a atualização",
+      "cacheWarningHint": "(Ctrl+Shift+R ou configurações do navegador)",
+      "step": {
+        "script_started": "Inicializando...",
+        "started": "Iniciando...",
+        "pulling": "Baixando fontes...",
+        "installing": "Instalando dependências...",
+        "restarting": "Reiniciando servidor...",
+        "verifying": "Verificando...",
+        "done": "Atualização concluída!"
+      }
     }
   },
   "bluetooth": {

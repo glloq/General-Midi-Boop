@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Μην ξεχάσετε να καθαρίσετε την προσωρινή μνήμη του προγράμματος περιήγησης μετά την ενημέρωση",
+      "cacheWarningHint": "(Ctrl+Shift+R ή ρυθμίσεις προγράμματος περιήγησης)",
+      "step": {
+        "script_started": "Αρχικοποίηση...",
+        "started": "Εκκίνηση...",
+        "pulling": "Λήψη πηγών...",
+        "installing": "Εγκατάσταση εξαρτήσεων...",
+        "restarting": "Επανεκκίνηση διακομιστή...",
+        "verifying": "Επαλήθευση...",
+        "done": "Η ενημέρωση ολοκληρώθηκε!"
+      }
     }
   },
   "bluetooth": {

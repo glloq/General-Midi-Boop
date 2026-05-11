@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Muista tyhjentää selaimen välimuisti päivityksen jälkeen",
+      "cacheWarningHint": "(Ctrl+Shift+R tai selaimen asetukset)",
+      "step": {
+        "script_started": "Alustetaan...",
+        "started": "Käynnistetään...",
+        "pulling": "Ladataan lähteitä...",
+        "installing": "Asennetaan riippuvuuksia...",
+        "restarting": "Käynnistetään palvelin uudelleen...",
+        "verifying": "Tarkistetaan...",
+        "done": "Päivitys valmis!"
+      }
     }
   },
   "bluetooth": {

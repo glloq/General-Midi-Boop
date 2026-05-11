@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Nezapomeňte po aktualizaci vymazat mezipaměť prohlížeče",
+      "cacheWarningHint": "(Ctrl+Shift+R nebo nastavení prohlížeče)",
+      "step": {
+        "script_started": "Inicializace...",
+        "started": "Spouštění...",
+        "pulling": "Stahování zdrojů...",
+        "installing": "Instalace závislostí...",
+        "restarting": "Restartování serveru...",
+        "verifying": "Ověřování...",
+        "done": "Aktualizace dokončena!"
+      }
     }
   },
   "bluetooth": {

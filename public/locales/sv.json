@@ -177,7 +177,18 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Kom ihåg att rensa webbläsarens cache efter uppdateringen",
+      "cacheWarningHint": "(Ctrl+Shift+R eller webbläsarinställningar)",
+      "step": {
+        "script_started": "Initierar...",
+        "started": "Startar...",
+        "pulling": "Hämtar källor...",
+        "installing": "Installerar beroenden...",
+        "restarting": "Startar om server...",
+        "verifying": "Verifierar...",
+        "done": "Uppdatering klar!"
+      }
     }
   },
   "bluetooth": {

@@ -242,7 +242,18 @@
       "newVersion": "Nouvelle version",
       "currentVersion": "actuellement",
       "startupCheck": "Vérifier les mises à jour au démarrage",
-      "startupBetaNotif": "Notifier aussi les mises à jour bêta"
+      "startupBetaNotif": "Notifier aussi les mises à jour bêta",
+      "cacheWarning": "Pensez à vider le cache du navigateur après la mise à jour",
+      "cacheWarningHint": "(Ctrl+Shift+R ou paramètres du navigateur)",
+      "step": {
+        "script_started": "Initialisation...",
+        "started": "Démarrage...",
+        "pulling": "Téléchargement des sources...",
+        "installing": "Installation des dépendances...",
+        "restarting": "Redémarrage du serveur...",
+        "verifying": "Vérification...",
+        "done": "Mise à jour terminée !"
+      }
     },
     "lyrics": {
       "title": "Karaoké",
