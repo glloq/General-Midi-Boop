@@ -2528,7 +2528,6 @@
     "clearAllPads": "Vider tous les pads",
     "confirmClearAllPads": "Vider tous les pads ?",
     "padsCleared": "Tous les pads ont été vidés.",
-    "errNoDevice": "Sélectionne d'abord un instrument dans le piano virtuel.",
     "assignedToPad": "Boucle assignée au pad {index}.",
     "padFull": "Tous les pads sont occupés.",
     "emptyPad": "Pad {index} (vide)",

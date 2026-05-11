@@ -414,17 +414,12 @@ class LoopManagerModal extends BaseModal {
     }
 
     _toggleHeaderOutput() {
-        const isDev = this._globalOutput.mode === 'device';
-        if (!isDev) {
-            // Switching to device: need a deviceId from the keyboard panel.
-            if (!this._globalOutput.deviceId) {
-                LoopUtils.toast(this.t('loopManager.errNoDevice'), 'error');
-                return;
-            }
-            this._setGlobalOutput({ mode: 'device' });
-        } else {
-            this._setGlobalOutput({ mode: 'synth' });
-        }
+        // Pure mode switch: preview-synth ⇄ live-device. If no device has
+        // been picked yet in the virtual piano, the per-tab routing
+        // gracefully falls back to the synth (see _kbdRoutingDevice and
+        // _getOutputTarget) — no upfront check needed.
+        const next = this._globalOutput.mode === 'device' ? 'synth' : 'device';
+        this._setGlobalOutput({ mode: next });
     }
 
     _setGlobalOutput(next) {
