@@ -134,15 +134,18 @@
     max-width: 280px;
 }
 
-/* Per-group accent palette */
-.le-group-meta      { --le-group-bg: #fdf6e8; --le-group-border: #f0d8a4; --le-group-label: #8a6320; }
+/* Per-group accent palette — harmonised to 3 functional tints:
+   • TRANSPORT (loop meta + record/play/stop) → blue
+   • EDIT      (mode + history + edit + grid + input)  → green
+   • VIEW      (zoom + piano-roll toggle)               → violet */
+.le-group-meta      { --le-group-bg: #e9ecf8; --le-group-border: #c8d0ee; --le-group-label: #3d4a8a; }
 .le-group-transport { --le-group-bg: #e9ecf8; --le-group-border: #c8d0ee; --le-group-label: #3d4a8a; }
-.le-group-mode      { --le-group-bg: #d4f0e8; --le-group-border: #b2ddd0; --le-group-label: #1f6f55; }
-.le-group-history   { --le-group-bg: #f4dce2; --le-group-border: #e8c0c8; --le-group-label: #8c2c40; }
-.le-group-edit      { --le-group-bg: #fde7d4; --le-group-border: #f0c8a0; --le-group-label: #8a4a14; }
-.le-group-grid      { --le-group-bg: #e3edff; --le-group-border: #c4d6f4; --le-group-label: #2c4a8a; }
-.le-group-input     { --le-group-bg: #efe5fb; --le-group-border: #d4c4f0; --le-group-label: #5a3aa0; }
-.le-group-view      { --le-group-bg: #dce3f8; --le-group-border: #c0cef0; --le-group-label: #2a3e8a; }
+.le-group-mode      { --le-group-bg: #e3f4ec; --le-group-border: #c0e0d0; --le-group-label: #1f6f55; }
+.le-group-history   { --le-group-bg: #e3f4ec; --le-group-border: #c0e0d0; --le-group-label: #1f6f55; }
+.le-group-edit      { --le-group-bg: #e3f4ec; --le-group-border: #c0e0d0; --le-group-label: #1f6f55; }
+.le-group-grid      { --le-group-bg: #e3f4ec; --le-group-border: #c0e0d0; --le-group-label: #1f6f55; }
+.le-group-input     { --le-group-bg: #e3f4ec; --le-group-border: #c0e0d0; --le-group-label: #1f6f55; }
+.le-group-view      { --le-group-bg: #ece5f6; --le-group-border: #d4c8ea; --le-group-label: #5a3aa0; }
 
 /* Buttons / button-groups inside .le-group blend with their host */
 .le-group .lc-btn-group {
@@ -201,21 +204,21 @@ body.dark-mode  .le-group {
     border-color: rgba(255, 255, 255, 0.08);
 }
 body.theme-dark .le-group-meta,
-body.dark-mode  .le-group-meta      { --le-group-bg: rgba(240, 180, 60, 0.10); --le-group-border: rgba(240, 180, 60, 0.30); --le-group-label: #f0c970; }
+body.dark-mode  .le-group-meta,
 body.theme-dark .le-group-transport,
 body.dark-mode  .le-group-transport { --le-group-bg: rgba(102, 126, 234, 0.15); --le-group-border: rgba(102, 126, 234, 0.30); --le-group-label: #a8b3e8; }
 body.theme-dark .le-group-mode,
-body.dark-mode  .le-group-mode      { --le-group-bg: rgba(39, 174, 96, 0.15);  --le-group-border: rgba(39, 174, 96, 0.30);  --le-group-label: #6fd9a8; }
+body.dark-mode  .le-group-mode,
 body.theme-dark .le-group-history,
-body.dark-mode  .le-group-history   { --le-group-bg: rgba(192, 57, 43, 0.15);  --le-group-border: rgba(192, 57, 43, 0.30);  --le-group-label: #f0a0aa; }
+body.dark-mode  .le-group-history,
 body.theme-dark .le-group-edit,
-body.dark-mode  .le-group-edit      { --le-group-bg: rgba(230, 126, 34, 0.15); --le-group-border: rgba(230, 126, 34, 0.30); --le-group-label: #f0c090; }
+body.dark-mode  .le-group-edit,
 body.theme-dark .le-group-grid,
-body.dark-mode  .le-group-grid      { --le-group-bg: rgba(74, 90, 212, 0.18);  --le-group-border: rgba(74, 90, 212, 0.35);  --le-group-label: #a8c0f0; }
+body.dark-mode  .le-group-grid,
 body.theme-dark .le-group-input,
-body.dark-mode  .le-group-input     { --le-group-bg: rgba(155, 89, 182, 0.18); --le-group-border: rgba(155, 89, 182, 0.35); --le-group-label: #d4b0f0; }
+body.dark-mode  .le-group-input     { --le-group-bg: rgba(39, 174, 96, 0.13);  --le-group-border: rgba(39, 174, 96, 0.28);  --le-group-label: #6fd9a8; }
 body.theme-dark .le-group-view,
-body.dark-mode  .le-group-view      { --le-group-bg: rgba(74, 90, 212, 0.15);  --le-group-border: rgba(74, 90, 212, 0.30);  --le-group-label: #a8b8e8; }
+body.dark-mode  .le-group-view      { --le-group-bg: rgba(155, 89, 182, 0.16); --le-group-border: rgba(155, 89, 182, 0.32); --le-group-label: #d4b0f0; }
 
 body.theme-dark .le-group .lc-btn:not(.lc-btn-group .lc-btn),
 body.dark-mode  .le-group .lc-btn:not(.lc-btn-group .lc-btn) {

@@ -2552,7 +2552,14 @@
     "arrLocalOnly": "Modifications locales — pensez à sauvegarder.",
     "assignedPadsTitle": "Boucle assignée au(x) pad(s) : {pads}",
     "padHint": "Clic : jouer · Clic droit : assigner",
-    "confirmNewArrangement": "Démarrer un nouvel arrangement ? Les modifications non sauvegardées seront perdues."
+    "padTabHint": "Clic : jouer · Clic droit ou glisser-déposer : assigner",
+    "confirmNewArrangement": "Démarrer un nouvel arrangement ? Les modifications non sauvegardées seront perdues.",
+    "duplicateLoop": "Dupliquer la boucle",
+    "duplicateNameSuffix": "{name} (copie)",
+    "loopDuplicated": "Boucle dupliquée.",
+    "errDuplicateLoop": "Impossible de dupliquer la boucle.",
+    "blockDragHint": "Glisser pour déplacer le bloc",
+    "zoomReset": "Réinitialiser le zoom"
   },
   "loopEditor": {
     "title": "Éditeur de boucle",
@@ -2576,6 +2583,15 @@
     "groupEdit": "Édition",
     "groupGrid": "Grille",
     "groupInput": "Entrée",
-    "groupView": "Affichage"
+    "groupView": "Affichage",
+    "saveAsNew": "Sauvegarder comme nouvelle boucle",
+    "confirmDiscardChanges": "Modifications non sauvegardées. Quitter quand même ?",
+    "metronome": "Métronome",
+    "countIn": "Décompte (1 mesure avant l'enregistrement)",
+    "countInStatus": "Décompte… {beat}/{total}",
+    "velocityHint": "Vélocité à appliquer (1-127)",
+    "applyVelocity": "Appliquer la vélocité à la sélection",
+    "velocityNoNotes": "Aucune note à modifier.",
+    "velocityApplied": "Vélocité {velocity} appliquée à {count} note(s)."
   }
 }

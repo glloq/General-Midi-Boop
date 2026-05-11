@@ -382,6 +382,12 @@
     border-color: var(--accent-color, #667eea) !important;
 }
 
+/* Library card drag affordance */
+.lc-card { cursor: grab; }
+.lc-card:active { cursor: grabbing; }
+.lc-card--dragging { opacity: 0.55; transform: scale(0.98); }
+.lc-card-actions .lc-card-btn { cursor: pointer; }
+
 /* QW10 — pad-assignment tag inline with the card name */
 .lc-card-name { display: flex; align-items: center; gap: 6px; }
 .lc-card-pad-tag {
@@ -474,11 +480,30 @@
 /* Blocks */
 .la-block {
     position: absolute; top: 3px; bottom: 3px; border-radius: 4px;
-    border: 1px solid rgba(0,0,0,0.15); overflow: hidden; cursor: pointer;
+    border: 1px solid rgba(0,0,0,0.15); overflow: hidden; cursor: grab;
     display: flex; flex-direction: column; justify-content: space-between;
     padding: 2px 4px; min-width: 18px; transition: filter 0.1s; user-select: none;
 }
 .la-block:hover { filter: brightness(1.1); }
+.la-block:active { cursor: grabbing; }
+.la-block--dragging { opacity: 0.4; }
+
+/* Live playhead overlay on the arranger timeline */
+.la-playhead {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 2px;
+    background: linear-gradient(180deg, #f5a623 0%, #f5a623 22px, rgba(245,166,35,0.85) 22px, rgba(245,166,35,0.85) 100%);
+    pointer-events: none;
+    z-index: 6;
+    box-shadow: 0 0 6px rgba(245,166,35,0.5);
+    will-change: transform;
+}
+body.theme-dark .la-playhead,
+body.dark-mode  .la-playhead {
+    background: linear-gradient(180deg, #ffb84a 0%, #ffb84a 22px, rgba(255,184,74,0.85) 22px, rgba(255,184,74,0.85) 100%);
+    box-shadow: 0 0 8px rgba(255,184,74,0.6);
+}
 .la-block-label { font-size: 0.67rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .la-block-actions { display: flex; gap: 2px; align-items: center; }
 .la-block[data-wide="false"] .la-block-actions { display: none; }
@@ -571,6 +596,20 @@
     border-style: solid !important;
     color: #fff;
     animation: lm-pad-pulse 0.7s infinite alternate;
+}
+/* Drop-target highlight while dragging a library card over a pad */
+.lm-pad-cell--drop-target {
+    border-color: #f5a623 !important;
+    border-style: solid !important;
+    background: rgba(245, 166, 35, 0.12) !important;
+    box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.30) inset;
+}
+.lc-pad-hint {
+    font-size: 0.72rem;
+    color: var(--text-secondary, #5a6275);
+    font-style: italic;
+    white-space: nowrap;
+    text-align: center;
 }
 @keyframes lm-pad-pulse {
     from { transform: scale(1);    box-shadow: 0 0 0 0   rgba(102, 126, 234, 0.60); }

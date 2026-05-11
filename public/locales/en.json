@@ -2552,7 +2552,14 @@
     "arrLocalOnly": "Local changes — remember to save.",
     "assignedPadsTitle": "Loop assigned to pad(s): {pads}",
     "padHint": "Click: play · Right-click: assign",
-    "confirmNewArrangement": "Start a new arrangement? Unsaved changes will be lost."
+    "padTabHint": "Click: play · Right-click or drag-and-drop: assign",
+    "confirmNewArrangement": "Start a new arrangement? Unsaved changes will be lost.",
+    "duplicateLoop": "Duplicate loop",
+    "duplicateNameSuffix": "{name} (copy)",
+    "loopDuplicated": "Loop duplicated.",
+    "errDuplicateLoop": "Could not duplicate loop.",
+    "blockDragHint": "Drag to move block",
+    "zoomReset": "Reset zoom"
   },
   "loopEditor": {
     "title": "Loop Editor",
@@ -2576,6 +2583,15 @@
     "groupEdit": "Edit",
     "groupGrid": "Grid",
     "groupInput": "Input",
-    "groupView": "View"
+    "groupView": "View",
+    "saveAsNew": "Save as new loop",
+    "confirmDiscardChanges": "Unsaved changes. Discard and close?",
+    "metronome": "Metronome",
+    "countIn": "Count-in (1 bar before recording)",
+    "countInStatus": "Count-in… {beat}/{total}",
+    "velocityHint": "Velocity to apply (1-127)",
+    "applyVelocity": "Apply velocity to selection",
+    "velocityNoNotes": "No notes to modify.",
+    "velocityApplied": "Velocity {velocity} applied to {count} note(s)."
   }
 }

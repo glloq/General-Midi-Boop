@@ -70,6 +70,7 @@ class LoopManagerModal extends BaseModal {
         this.arrangementBars      = 16;
         this.tracks  = [];
         this.blocks  = [];
+        this._arrangerZoom = 1;   // horizontal zoom factor for the timeline
         this.isArrangerPlaying = false;
         this._arrangerTimers   = [];
         this._arrangerSynth    = null;
@@ -239,6 +240,8 @@ class LoopManagerModal extends BaseModal {
                 </select>
                 <span class="lc-status" id="lm-pad-midi-status"></span>
                 <span class="lc-ctrl-spacer"></span>
+                <span class="lc-status lc-pad-hint">${this.t('loopManager.padTabHint')}</span>
+                <span class="lc-ctrl-spacer"></span>
                 <button class="lc-btn lc-btn-sm" data-action="pad-export" title="${this.t('loopManager.exportPadLayout')}">📤</button>
                 <button class="lc-btn lc-btn-sm" data-action="pad-import" title="${this.t('loopManager.importPadLayout')}">📥</button>
                 <button class="lc-btn lc-btn-sm" data-action="pad-clear-all" title="${this.t('loopManager.clearAllPads')}">🗑</button>
@@ -302,6 +305,11 @@ class LoopManagerModal extends BaseModal {
                 <div class="lc-ctrl-sep"></div>
                 <button class="lc-btn lc-btn-icon" data-action="arr-play" id="la-play-btn" title="${this.t('loopCreator.play')} (Space)">▶</button>
                 <button class="lc-btn lc-btn-icon" data-action="arr-stop" title="${this.t('loopCreator.stop')} (Esc)">⏹</button>
+                <div class="lc-ctrl-sep"></div>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-out" title="${this.t('loopEditor.zoomHOut')}">−H</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-reset" title="${this.t('loopManager.zoomReset')}">⌖</button>
+                <button class="lc-btn lc-btn-icon" data-action="arr-zoom-in" title="${this.t('loopEditor.zoomHIn')}">+H</button>
+                <div class="lc-ctrl-sep"></div>
                 <button class="lc-btn lc-btn-icon" data-action="arr-add-track" title="${this.t('loopCreator.addTrack')}">＋</button>
                 <button class="lc-btn" data-action="arr-new" title="${this.t('loopCreator.newArrangement')}">🆕</button>
             </div>
@@ -316,6 +324,7 @@ class LoopManagerModal extends BaseModal {
                 <div class="la-timeline-wrap" id="la-timeline-wrap">
                     <div class="la-ruler" id="la-ruler"></div>
                     <div class="la-tracks" id="la-tracks"></div>
+                    <div class="la-playhead" id="la-playhead" style="display:none"></div>
                 </div>
             </div>
 
@@ -480,6 +489,9 @@ class LoopManagerModal extends BaseModal {
             case 'arr-play':         this._playArrangement();   break;
             case 'arr-stop':         this._stopArrangerPlay();  break;
             case 'arr-new':          this._newArrangementConfirm(); break;
+            case 'arr-zoom-in':      this._arrZoom(1.5);        break;
+            case 'arr-zoom-out':     this._arrZoom(1 / 1.5);    break;
+            case 'arr-zoom-reset':   this._arrZoomReset();      break;
             case 'arr-undo':         this._arrUndo();           break;
             case 'arr-redo':         this._arrRedo();           break;
             case 'save-arrangement': this._saveArrangement();   break;
@@ -587,8 +599,9 @@ class LoopManagerModal extends BaseModal {
                 const btn = e.target.closest('[data-loop-action]');
                 if (!btn) return;
                 const id = parseInt(btn.dataset.loopId);
-                if (btn.dataset.loopAction === 'edit')   this._loopEditor.open({ loopId: id });
-                if (btn.dataset.loopAction === 'delete') this._deleteLoopById(id);
+                if (btn.dataset.loopAction === 'edit')      this._loopEditor.open({ loopId: id });
+                if (btn.dataset.loopAction === 'delete')    this._deleteLoopById(id);
+                if (btn.dataset.loopAction === 'duplicate') this._duplicateLoopById(id);
                 if (btn.dataset.loopAction === 'pad') {
                     const firstEmpty = this._padSlots.findIndex(s => s === null);
                     if (firstEmpty !== -1) {
@@ -598,6 +611,26 @@ class LoopManagerModal extends BaseModal {
                         LoopUtils.toast(this.t('loopManager.padFull'), 'info');
                     }
                 }
+            });
+            // Cards are draggable → drop on pads, palette chips, etc.
+            grid.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.lc-card[data-loop-id]');
+                if (!card) return;
+                const id = parseInt(card.dataset.loopId);
+                const loop = this.library.find(l => l.id === id);
+                if (!loop) return;
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    source:   'library-card',
+                    loopId:   id,
+                    loopBars: loop.bars,
+                    loopName: loop.name
+                }));
+                card.classList.add('lc-card--dragging');
+            });
+            grid.addEventListener('dragend', (e) => {
+                const card = e.target.closest('.lc-card[data-loop-id]');
+                if (card) card.classList.remove('lc-card--dragging');
             });
         }
     }
@@ -632,18 +665,45 @@ class LoopManagerModal extends BaseModal {
             ? `<span class="lc-card-pad-tag" title="${this.t('loopManager.assignedPadsTitle', { pads: padIndexes.join(', ') })}">📌 ${padIndexes.join(',')}</span>`
             : '';
         const playing = this._livePlayingLoops.has(loop.id);
-        return `<div class="lc-card" data-loop-id="${loop.id}" style="--family-color:${family.color}">
+        return `<div class="lc-card" draggable="true" data-loop-id="${loop.id}" style="--family-color:${family.color}"
             <div class="lc-card-name">${this.escape(loop.name)}${padTagHtml}</div>
             <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
             <div class="lc-card-instr">${family.icon} ${this.escape(instrName)}</div>
             <div class="lc-card-actions">
                 <button class="lc-card-btn lc-card-btn--play${playing ? ' lc-card-btn--playing' : ''}" data-action="live-trigger" data-loop-id="${loop.id}" title="${this.t('loopCreator.preview')}">${playing ? '⏹' : '▶'}</button>
-                <button class="lc-card-btn" data-loop-action="edit"   data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
-                <button class="lc-card-btn" data-loop-action="pad"    data-loop-id="${loop.id}" title="${this.t('loopManager.addToPad')}">🎛</button>
+                <button class="lc-card-btn" data-loop-action="edit"      data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
+                <button class="lc-card-btn" data-loop-action="duplicate" data-loop-id="${loop.id}" title="${this.t('loopManager.duplicateLoop')}">⎘</button>
+                <button class="lc-card-btn" data-loop-action="pad"       data-loop-id="${loop.id}" title="${this.t('loopManager.addToPad')}">🎛</button>
                 <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
             </div>
             ${densityHtml}
         </div>`;
+    }
+
+    async _duplicateLoopById(id) {
+        try {
+            const r = await this.api.sendCommand('loop_get', { loopId: id });
+            const src = r.loop;
+            if (!src) return;
+            const copyName = this.t('loopManager.duplicateNameSuffix', { name: src.name });
+            const payload = {
+                name: copyName,
+                tempo: src.tempo,
+                time_sig_num: src.time_sig_num,
+                time_sig_den: src.time_sig_den,
+                bars: src.bars,
+                ppq: src.ppq,
+                instrument_program: src.instrument_program ?? 0,
+                midi_data: typeof src.midi_data === 'string' ? src.midi_data : JSON.stringify(src.midi_data || [])
+            };
+            await this.api.sendCommand('loop_create', payload);
+            LoopUtils.toast(this.t('loopManager.loopDuplicated'), 'success');
+            await this._loadLibrary();
+        } catch (err) {
+            LoopUtils.handleError(err, 'manager.duplicateLoop', {
+                toast: this.t('loopManager.errDuplicateLoop')
+            });
+        }
     }
 
     async _deleteLoopById(id) {
@@ -728,6 +788,29 @@ class LoopManagerModal extends BaseModal {
                 const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
                 if (!cell) return;
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this._triggerPad(parseInt(cell.dataset.padIndex)); }
+            });
+            grid.addEventListener('dragover', (e) => {
+                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
+                if (!cell) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                cell.classList.add('lm-pad-cell--drop-target');
+            });
+            grid.addEventListener('dragleave', (e) => {
+                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
+                if (cell) cell.classList.remove('lm-pad-cell--drop-target');
+            });
+            grid.addEventListener('drop', (e) => {
+                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
+                if (!cell) return;
+                e.preventDefault();
+                cell.classList.remove('lm-pad-cell--drop-target');
+                try {
+                    const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+                    if (data.loopId) this._assignPadSlot(parseInt(cell.dataset.padIndex), data.loopId);
+                } catch (err) {
+                    LoopUtils.handleError(err, 'pad.drop.parse');
+                }
             });
         }
     }
@@ -1425,13 +1508,42 @@ class LoopManagerModal extends BaseModal {
             </div>`;
 
         const cells = trackEl.querySelector('.la-track-cells');
-        cells.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect='copy'; this._showDropPreview(cells, this._barFromX(e.offsetX, BAR_W), BAR_W); });
+        cells.addEventListener('dragstart', (e) => {
+            const blockEl = e.target.closest('.la-block[data-block-id]');
+            if (!blockEl) return;
+            const blockId = parseInt(blockEl.dataset.blockId);
+            const block = this.blocks.find(b => b.id === blockId);
+            if (!block) return;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', JSON.stringify({
+                source:   'block',
+                blockId,
+                loopBars: block.loop_bars,
+                reps:     block.repetitions
+            }));
+            blockEl.classList.add('la-block--dragging');
+        });
+        cells.addEventListener('dragend', (e) => {
+            const blockEl = e.target.closest('.la-block[data-block-id]');
+            if (blockEl) blockEl.classList.remove('la-block--dragging');
+            this._hideDropPreview();
+        });
+        cells.addEventListener('dragover',  (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = (e.dataTransfer.types?.length ? 'move' : 'copy');
+            this._showDropPreview(cells, this._barFromX(e.offsetX, BAR_W), BAR_W);
+        });
         cells.addEventListener('dragleave', () => this._hideDropPreview());
         cells.addEventListener('drop',      (e) => {
             e.preventDefault(); this._hideDropPreview();
             try {
                 const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
-                if (data.loopId) this._addBlock(track.id, data.loopId, this._barFromX(e.offsetX, BAR_W), data.loopBars || 2);
+                const bar = this._barFromX(e.offsetX, BAR_W);
+                if (data.source === 'block' && data.blockId) {
+                    this._moveBlock(data.blockId, track.id, bar);
+                } else if (data.loopId) {
+                    this._addBlock(track.id, data.loopId, bar, data.loopBars || 2);
+                }
             } catch (err) {
                 LoopUtils.handleError(err, 'arr.drop.parse');
             }
@@ -1481,14 +1593,17 @@ class LoopManagerModal extends BaseModal {
             const blockL = block.position_bar * BAR_W;
             const selected = this._selectedBlocks.has(block.id);
             html += `<div class="la-block${selected ? ' la-block--selected' : ''}"
-                data-block-id="${block.id}" data-wide="${blockW >= 70 ? 'true' : 'false'}"
-                style="left:${blockL}px;width:${blockW}px;background:${family.color}">
+                draggable="true" data-block-id="${block.id}" data-loop-bars="${block.loop_bars}"
+                data-block-reps="${block.repetitions}"
+                data-wide="${blockW >= 70 ? 'true' : 'false'}"
+                style="left:${blockL}px;width:${blockW}px;background:${family.color}"
+                title="${this.t('loopManager.blockDragHint')}">
                 <div class="la-block-label">${family.icon} ${this.escape(block.loop_name)} ×${block.repetitions}</div>
                 <div class="la-block-actions">
-                    <button class="la-block-btn" data-block-action="reps-dec" data-block-id="${block.id}">−</button>
+                    <button class="la-block-btn" draggable="false" data-block-action="reps-dec" data-block-id="${block.id}">−</button>
                     <span class="la-block-reps">${block.repetitions}</span>
-                    <button class="la-block-btn" data-block-action="reps-inc" data-block-id="${block.id}">+</button>
-                    <button class="la-block-btn la-block-btn--del" data-block-action="delete" data-block-id="${block.id}" title="${this.t('loopCreator.deleteBlock')}">✕</button>
+                    <button class="la-block-btn" draggable="false" data-block-action="reps-inc" data-block-id="${block.id}">+</button>
+                    <button class="la-block-btn la-block-btn--del" draggable="false" data-block-action="delete" data-block-id="${block.id}" title="${this.t('loopCreator.deleteBlock')}">✕</button>
                 </div>
             </div>`;
         });
@@ -1541,7 +1656,22 @@ class LoopManagerModal extends BaseModal {
     _barWidth() {
         const wrap = this.$('#la-timeline-wrap');
         const available = (wrap?.clientWidth || 800) - 140;
-        return Math.max(24, Math.min(60, Math.floor(available / this.arrangementBars)));
+        const base = Math.max(24, Math.min(60, Math.floor(available / this.arrangementBars)));
+        const zoomed = Math.round(base * (this._arrangerZoom || 1));
+        return Math.max(12, Math.min(240, zoomed));
+    }
+
+    _arrZoom(factor) {
+        const next = Math.max(0.25, Math.min(8, (this._arrangerZoom || 1) * factor));
+        if (next === this._arrangerZoom) return;
+        this._arrangerZoom = next;
+        this._renderTimeline();
+    }
+
+    _arrZoomReset() {
+        if (this._arrangerZoom === 1) return;
+        this._arrangerZoom = 1;
+        this._renderTimeline();
     }
 
     _barFromX(offsetX, barW) {
@@ -1609,6 +1739,27 @@ class LoopManagerModal extends BaseModal {
             this._pushArrHistory();
         } catch (err) {
             LoopUtils.handleError(err, 'arr.block.add', {
+                toast: this.t('loopManager.errSave')
+            });
+        }
+    }
+
+    async _moveBlock(blockId, newTrackId, newPositionBar) {
+        const block = this.blocks.find(b => b.id === blockId);
+        if (!block) return;
+        if (block.track_id === newTrackId && block.position_bar === newPositionBar) return;
+        try {
+            await this.api.sendCommand('arrangement_update_block', {
+                blockId,
+                track_id: newTrackId,
+                position_bar: newPositionBar
+            });
+            block.track_id     = newTrackId;
+            block.position_bar = newPositionBar;
+            this._renderTimeline();
+            this._pushArrHistory();
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.block.move', {
                 toast: this.t('loopManager.errSave')
             });
         }
@@ -1802,6 +1953,23 @@ class LoopManagerModal extends BaseModal {
         if (this._playbarRAF) { cancelAnimationFrame(this._playbarRAF); this._playbarRAF = null; }
     }
 
+    _renderArrangerPlayhead(elapsedSec) {
+        const ph = this.$('#la-playhead');
+        if (!ph) return;
+        if (elapsedSec == null || !this.isArrangerPlaying) {
+            ph.style.display = 'none';
+            return;
+        }
+        const BAR_W = this._barWidth();
+        const secPerBar = 60 / this.arrangementTempo * 4;
+        const bar = Math.min(this.arrangementBars, elapsedSec / secPerBar);
+        // la-track-label is 120px wide and pinned at left:0 within the timeline
+        // wrap, so the cells lane begins at x=120px.
+        const xWithinTracks = bar * BAR_W;
+        ph.style.display = 'block';
+        ph.style.transform = `translateX(${120 + xWithinTracks}px)`;
+    }
+
     _renderPlaybar() {
         const fill = this.$('#lc-playbar-fill');
         if (!fill) return;
@@ -1811,10 +1979,13 @@ class LoopManagerModal extends BaseModal {
             fill.style.removeProperty('--playbar-dur');
             const secPerBar = 60 / this.arrangementTempo * 4;
             const totalMs   = this.arrangementBars * secPerBar * 1000;
-            const pct = Math.min(100, (performance.now() - this._arrangerStartTime) / totalMs * 100);
+            const elapsed   = performance.now() - this._arrangerStartTime;
+            const pct = Math.min(100, elapsed / totalMs * 100);
             fill.style.width = pct + '%';
+            this._renderArrangerPlayhead(elapsed / 1000);
             return;
         }
+        this._renderArrangerPlayhead(null);
 
         const hasPad  = this._padPlayingIndex.size > 0;
         const hasLive = this._livePlayingLoops.size > 0;
