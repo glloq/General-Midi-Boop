@@ -1432,11 +1432,24 @@ body.dark-mode  .la-block--selected {
  * retrouve dans le stacking context root, où la modal-body (qui
  * contient les touches noires du piano avec z-index 10) est rendue
  * APRÈS dans le DOM et passe donc devant. On force un stacking
- * context sur le selector parent, à un z-index supérieur au piano. */
+ * context sur le selector parent, à un z-index supérieur au piano.
+ *
+ * Combine `isolation: isolate` + `z-index !important` pour garantir
+ * que la règle l'emporte sur n'importe quel ordre/spécificité — sans
+ * ça, sur certains layouts le dropdown reste derrière les touches
+ * noires (Firefox / certains thèmes).
+ */
+.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode > .modal-header,
+.loop-editor-modal  .lc-kb-panel  .modal-dialog.km-panel-mode > .modal-header {
+    isolation: isolate;
+    z-index: 1000 !important;
+    position: relative !important;
+}
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode #header-instrument-selector,
 .loop-editor-modal  .lc-kb-panel  .modal-dialog.km-panel-mode #header-instrument-selector {
-    z-index: 100;
-    position: relative;
+    z-index: 100 !important;
+    position: relative !important;
+    isolation: isolate;
 }
 /* Le panel keyboard de l'éditeur de loop doit laisser le dropdown
  * déborder vers le bas (sinon il est rogné par le container). */
