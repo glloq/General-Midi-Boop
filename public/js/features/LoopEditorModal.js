@@ -756,6 +756,7 @@ class LoopEditorModal extends BaseModal {
             if (e.key === ' ')                                     { e.preventDefault(); this.isPlaying ? this._stopAll() : this._previewLoop(); return; }
             if (e.key === 'Escape')                                { this._stopAll();                            return; }
             if (e.key.toLowerCase() === 'r')                       { this._toggleRecording();                    return; }
+            if (e.key === 'Enter')                                  { e.preventDefault(); this._toggleRecording(); return; }
             // Mode shortcuts (no modifier): V/S/D
             if (e.key.toLowerCase() === 'v' && !mod)               { ed?.setMode?.('view');     return; }
             if (e.key.toLowerCase() === 's' && !mod && !e.shiftKey){ ed?.setMode?.('select');   return; }
