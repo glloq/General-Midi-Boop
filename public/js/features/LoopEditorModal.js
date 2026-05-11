@@ -142,7 +142,14 @@ class LoopEditorModal extends BaseModal {
             // Restaure le flag drum kit à partir du programme stocké
             // (offset 128 dans MidiSynthesizer._decodeKitProgram).
             this._isDrumKit        = this.instrumentProgram >= 128;
-            this.sequence          = LoopUtils.parseSequence(loop.midi_data);
+            // Backend stores notes with `l` (length) ; webaudio-pianoroll
+            // and the rest of this editor use `g` (gate). Normalise on
+            // load so every consumer sees a single shape.
+            this.sequence          = LoopUtils.parseSequence(loop.midi_data).map(n => ({
+                t: n.t, n: n.n, v: n.v ?? 80,
+                g: Number.isInteger(n.g) && n.g > 0 ? n.g
+                   : Number.isInteger(n.l) && n.l > 0 ? n.l : 120
+            }));
             const range = this._gmNoteRange(this.instrumentProgram);
             this.outputNoteMin = range.min;
             this.outputNoteMax = range.max;
@@ -1410,7 +1417,17 @@ class LoopEditorModal extends BaseModal {
             this.loopName = this.t('loopManager.duplicateNameSuffix', { name: this.loopName });
             const nameEl = this.$('#lc-name-input'); if (nameEl) nameEl.value = this.loopName;
         }
-        const seq = this.pianoRollEditor?.getSequence() ?? [];
+        // webaudio-pianoroll stores note length as `g` (gate), but the
+        // backend's loop schema validates against `l` (length). Normalise
+        // here so the same in-memory sequence works regardless of whether
+        // it was recorded, edited via the panel, or loaded from DB.
+        const rawSeq = this.pianoRollEditor?.getSequence() ?? [];
+        const seq = rawSeq.map(n => {
+            const len = Number.isInteger(n.l) && n.l > 0 ? n.l
+                      : Number.isInteger(n.g) && n.g > 0 ? n.g
+                      : 120;
+            return { t: n.t | 0, n: n.n | 0, v: (n.v ?? 80) | 0, l: len };
+        });
         const payload = {
             name: this.loopName, tempo: this.tempo,
             time_sig_num: this.timeSigNum, time_sig_den: this.timeSigDen,
