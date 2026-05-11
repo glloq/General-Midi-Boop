@@ -221,6 +221,11 @@ class LoopEditorModal extends BaseModal {
         const isEditorTab = this.activeTab === 'editor';
         return `
         <div class="le-layout">
+            <!-- ── Minimap bar — always visible, just below the header ── -->
+            <canvas class="lc-minimap le-minimap-top" id="le-minimap-top"
+                    role="slider" tabindex="0"
+                    aria-label="${this.t('loopEditor.minimapAria')}"></canvas>
+
             <!-- ── Toolbar row 1 — common to both tabs (loop meta + transport) ── -->
             <div class="lc-ctrl-bar le-ctrl-bar-common">
                 <div class="lc-ctrl-row">
@@ -313,6 +318,7 @@ class LoopEditorModal extends BaseModal {
     _initPianoRollEditor() {
         const host = this.$('#le-pane-editor');
         if (!host) return;
+        const minimapCanvas = this.$('#le-minimap-top');
         this.pianoRollEditor = new window.PianoRollEditor(host, {
             t: (key, params) => this.t(key, params),
             initial: {
@@ -325,6 +331,7 @@ class LoopEditorModal extends BaseModal {
                 noteMin:    this.outputNoteMin,
                 noteMax:    this.outputNoteMax
             },
+            externalMinimapEl: minimapCanvas,
             getStatusEl: () => this.$('#lc-status')
         });
         this.pianoRollEditor.mount();

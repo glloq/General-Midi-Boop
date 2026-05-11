@@ -46,6 +46,11 @@ class PianoRollEditor {
         // visual toolbar while keeping its own pianoroll plumbing untouched.
         this.toolbarOnly = !!opts.toolbarOnly;
         this.actions = opts.actions || null;
+        // Optional: a <canvas> element living OUTSIDE the host (e.g. at the
+        // top of the consumer modal) used as the minimap surface. When
+        // provided, the editor does not render its own minimap canvas in
+        // the shell and uses this one instead.
+        this.externalMinimapEl = opts.externalMinimapEl || null;
         this.onSequenceChange = opts.onSequenceChange || null;
         this.onPlayheadMove   = opts.onPlayheadMove   || null;
         this.getStatusEl      = opts.getStatusEl      || (() => null);
@@ -83,8 +88,30 @@ class PianoRollEditor {
             this.host.innerHTML = this._renderShell();
             this._initPianoRoll();
             this._initMinimap();
+            this._attachResizeObserver();
         }
         this._attachEvents();
+    }
+
+    _attachResizeObserver() {
+        const wrap = this.host?.querySelector('#pre-pianoroll-wrap');
+        if (!wrap || typeof ResizeObserver === 'undefined') return;
+        let pendingW = 0, pendingH = 0;
+        this._resizeObserver = new ResizeObserver(() => {
+            if (!this.pianoRoll) return;
+            const w = wrap.clientWidth  | 0;
+            const h = wrap.clientHeight | 0;
+            // Skip 0×0 (host hidden via display:none)
+            if (!w || !h) return;
+            // Skip no-op updates to avoid an infinite redraw loop
+            if (w === pendingW && h === pendingH) return;
+            pendingW = w; pendingH = h;
+            this.pianoRoll.setAttribute('width',  w.toString());
+            this.pianoRoll.setAttribute('height', h.toString());
+            this.pianoRoll.redraw?.();
+            this._syncMinimap();
+        });
+        this._resizeObserver.observe(wrap);
     }
 
     _renderToolbarGroups() {
@@ -101,11 +128,13 @@ class PianoRollEditor {
 
     destroy() {
         if (this._minimapObserver) { this._minimapObserver.disconnect(); this._minimapObserver = null; }
+        if (this._resizeObserver)  { this._resizeObserver.disconnect();  this._resizeObserver  = null; }
         this._minimap?.destroy?.();
         this._minimap  = null;
         this.pianoRoll = null;
         if (this.host) {
             this.host.classList.remove('pre-host');
+            this.host.classList.remove('pre-host--toolbar-only');
             this.host.innerHTML = '';
         }
     }
@@ -351,14 +380,16 @@ class PianoRollEditor {
     // =====================================================================
 
     _renderShell() {
+        const minimapHtml = this.externalMinimapEl ? '' : `
+        <canvas class="lc-minimap" id="pre-minimap"
+                role="slider" tabindex="0"
+                aria-label="${this.t('loopEditor.minimapAria')}"></canvas>`;
         return `
         <div class="pre-toolbar">${this._renderToolbarGroups()}</div>
         <div class="lc-pianoroll-area" id="pre-pianoroll-area">
             <div class="lc-pianoroll-wrap" id="pre-pianoroll-wrap"></div>
         </div>
-        <canvas class="lc-minimap" id="pre-minimap"
-                role="slider" tabindex="0"
-                aria-label="${this.t('loopEditor.minimapAria')}"></canvas>
+        ${minimapHtml}
         `;
     }
 
@@ -477,7 +508,7 @@ class PianoRollEditor {
     }
 
     _initMinimap() {
-        const canvas = this.host.querySelector('#pre-minimap');
+        const canvas = this.externalMinimapEl || this.host.querySelector('#pre-minimap');
         if (!canvas || typeof window.LoopCreatorMinimap !== 'function') return;
         this._minimap = new window.LoopCreatorMinimap(canvas, {
             ppq:        this.ppq,
