@@ -388,10 +388,15 @@ class LoopManagerModal extends BaseModal {
                         <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
                     </div>
                 </div>
-                <div class="la-timeline-wrap" id="la-timeline-wrap">
-                    <div class="la-ruler" id="la-ruler"></div>
-                    <div class="la-tracks" id="la-tracks"></div>
-                    <div class="la-playhead" id="la-playhead" style="display:none"></div>
+                <div class="la-timeline-col">
+                    <canvas class="la-minimap" id="la-minimap" height="48"
+                        aria-label="${this.t('loopManager.arrangerMinimap') || 'Arrangement overview'}"
+                        title="${this.t('loopManager.arrangerMinimapHint') || 'Click to seek; drag to pan'}"></canvas>
+                    <div class="la-timeline-wrap" id="la-timeline-wrap">
+                        <div class="la-ruler" id="la-ruler"></div>
+                        <div class="la-tracks" id="la-tracks"></div>
+                        <div class="la-playhead" id="la-playhead" style="display:none"></div>
+                    </div>
                 </div>
             </div>
 
@@ -1696,9 +1701,71 @@ class LoopManagerModal extends BaseModal {
 
     async _initArrangerTab() {
         await this._loadLibrary();
+        // Nettoyage one-shot des arrangements vides (sans block) accumulés
+        // par l'ancien auto-create. Ne supprime que les arrangements créés
+        // avant cette session et qui n'ont jamais reçu de block.
+        await this._purgeEmptyArrangements();
         await this._loadArrangements();
-        if (!this.currentArrangementId) await this._newArrangement();
-        else await this._loadArrangementById(this.currentArrangementId);
+        if (this.currentArrangementId) {
+            const ok = await this._loadArrangementById(this.currentArrangementId);
+            if (!ok) {
+                // L'arrangement précédemment ouvert a pu être purgé ou
+                // supprimé entre-temps — fallback sur l'empty state.
+                this.currentArrangementId = null;
+                this._renderArrangerEmptyState();
+            }
+        } else {
+            // Pas d'auto-create : on affiche un empty state avec un CTA
+            // dans la track area. L'utilisateur clique « + Nouvel
+            // arrangement » pour créer (cf. _newArrangementConfirm).
+            this._renderArrangerEmptyState();
+        }
+    }
+
+    /**
+     * Affiche un empty state dans la zone tracks quand aucun arrangement
+     * n'est sélectionné. Évite la création automatique de fichiers
+     * fantômes à chaque ouverture de la modale.
+     */
+    _renderArrangerEmptyState() {
+        const tracksEl = this.$('#la-tracks');
+        const rulerEl  = this.$('#la-ruler');
+        if (rulerEl)  rulerEl.innerHTML  = '';
+        if (tracksEl) tracksEl.innerHTML = `
+            <div class="la-empty-state">
+                <p>${this.t('loopManager.arrangerEmptyState') || 'No arrangement selected.'}</p>
+                <button class="lc-btn lc-btn-primary" data-action="arr-new">
+                    + ${this.t('loopCreator.newArrangement')}
+                </button>
+            </div>`;
+        // Vider l'overlay playbar + désactiver le play
+        this.tracks = [];
+        this.blocks = [];
+    }
+
+    /**
+     * Supprime les arrangements existants qui n'ont aucun block et ne
+     * sont pas l'arrangement actuel. Best-effort : les erreurs sont
+     * journalisées mais n'interrompent pas le flux.
+     */
+    async _purgeEmptyArrangements() {
+        try {
+            const r = await this.api.sendCommand('arrangement_list');
+            const arrs = r.arrangements || [];
+            for (const arr of arrs) {
+                if (arr.id === this.currentArrangementId) continue;
+                try {
+                    const detail = await this.api.sendCommand('arrangement_get', { arrangementId: arr.id });
+                    if ((detail.blocks || []).length === 0) {
+                        await this.api.sendCommand('arrangement_delete', { arrangementId: arr.id });
+                    }
+                } catch (e) {
+                    // Continue avec les autres arrangements en cas d'erreur ponctuelle.
+                }
+            }
+        } catch (err) {
+            LoopUtils.handleError(err, 'arr.purgeEmpty');
+        }
     }
 
     async _loadArrangements() {
@@ -1808,10 +1875,12 @@ class LoopManagerModal extends BaseModal {
             this._arrangerStartBar = 0;
             this._renderTimeline();
             this._loadArrangements();   // refresh full list so other items remain visible
+            return true;
         } catch (err) {
             LoopUtils.handleError(err, 'arr.load', {
                 toast: this.t('loopManager.errLoadArrangement')
             });
+            return false;
         }
     }
 
@@ -1938,18 +2007,117 @@ class LoopManagerModal extends BaseModal {
     // ARRANGER — TIMELINE
     // =========================================================
 
-    _renderTimeline() { this._renderRuler(); this._renderTracks(); this._renderPalette(); this._refreshBlockSelectionUI(); }
+    _renderTimeline() { this._renderRuler(); this._renderTracks(); this._renderMinimap(); this._renderPalette(); this._refreshBlockSelectionUI(); }
+
+    /**
+     * Minimap d'aperçu canvas (compacte) au-dessus du timeline arranger.
+     * Affiche l'arrangement entier dans une bande horizontale :
+     *  - lignes horizontales = tracks
+     *  - rectangles colorés = blocks (couleur famille GM)
+     *  - rectangle viewport = portion actuellement visible dans le
+     *    timeline scrollable
+     *  - click/drag = scroll le timeline principal sur la position
+     */
+    _renderMinimap() {
+        const canvas = this.$('#la-minimap');
+        if (!canvas) return;
+        const wrap = this.$('#la-timeline-wrap');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.clientWidth  || canvas.parentElement?.clientWidth || 600;
+        const H = parseInt(canvas.getAttribute('height')) || 48;
+        if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+            canvas.width  = W * dpr;
+            canvas.height = H * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        ctx.clearRect(0, 0, W, H);
+
+        const totalBars = Math.max(1, this.arrangementBars);
+        const trackCount = Math.max(1, this.tracks?.length || 0);
+        const barW   = W / totalBars;
+        const rowH   = (H - 4) / trackCount;
+        const trackIndexById = new Map((this.tracks || []).map((t, i) => [t.id, i]));
+
+        // Fond + grille très légère toutes les 4 mesures.
+        ctx.fillStyle = 'rgba(0,0,0,0.04)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 1;
+        for (let b = 0; b <= totalBars; b += 4) {
+            const x = b * barW;
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+
+        // Blocks.
+        for (const block of (this.blocks || [])) {
+            const ti = trackIndexById.get(block.track_id);
+            if (ti === undefined) continue;
+            const x = block.position_bar * barW;
+            const w = Math.max(1, block.loop_bars * block.repetitions * barW);
+            const y = 2 + ti * rowH;
+            const h = Math.max(2, rowH - 2);
+            const loop = this.library.find(l => l.id === block.loop_id);
+            const family = LoopUtils.familyForProgram(loop?.instrument_program ?? 0);
+            ctx.fillStyle = family.color;
+            ctx.fillRect(x, y, w, h);
+        }
+
+        // Viewport rectangle : portion visible du timeline scrollable.
+        if (wrap) {
+            const cellsBarW = this._barWidth();
+            const tracksTotalW = cellsBarW * totalBars; // largeur du contenu cells (sans label)
+            if (tracksTotalW > 0) {
+                const scrollL = wrap.scrollLeft;
+                const visibleW = wrap.clientWidth - 120; // soustrait labels sticky
+                const viewStart = Math.max(0, scrollL / cellsBarW);
+                const viewBars  = Math.min(totalBars - viewStart, visibleW / cellsBarW);
+                ctx.strokeStyle = '#f5a623';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(viewStart * barW + 1, 1, Math.max(2, viewBars * barW - 2), H - 2);
+                ctx.fillStyle = 'rgba(245,166,35,0.10)';
+                ctx.fillRect(viewStart * barW + 1, 1, Math.max(2, viewBars * barW - 2), H - 2);
+            }
+        }
+
+        // Wire l'interaction une seule fois.
+        if (!canvas.dataset.lcWired) {
+            canvas.dataset.lcWired = '1';
+            const seek = (clientX) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = clientX - rect.left;
+                const ratio = Math.max(0, Math.min(1, x / rect.width));
+                const targetBar = ratio * this.arrangementBars;
+                const w = this.$('#la-timeline-wrap');
+                if (!w) return;
+                const cellsBarW = this._barWidth();
+                w.scrollLeft = Math.max(0, targetBar * cellsBarW - (w.clientWidth - 120) / 2);
+                this._renderMinimap();
+            };
+            let dragging = false;
+            canvas.addEventListener('mousedown', (e) => { dragging = true; seek(e.clientX); });
+            canvas.addEventListener('mousemove', (e) => { if (dragging) seek(e.clientX); });
+            window.addEventListener('mouseup', () => { dragging = false; });
+            wrap?.addEventListener('scroll', () => this._renderMinimap(), { passive: true });
+            // Re-render à chaque resize de la modale
+            const ro = new ResizeObserver(() => this._renderMinimap());
+            ro.observe(canvas);
+        }
+    }
 
     _renderRuler() {
         const ruler = this.$('#la-ruler');
         if (!ruler) return;
         const BAR_W = this._barWidth();
-        let html = '';
+        // Spacer 120px = largeur des track-labels, garantit que la 1ère
+        // mesure du ruler est alignée avec le début des cells.
+        let html = '<div class="la-ruler-spacer" aria-hidden="true"></div>';
         for (let b = 0; b < this.arrangementBars; b++) {
             const marker = (b % 4 === 0) ? `<span class="la-ruler-label">${b+1}</span>` : '';
             html += `<div class="la-ruler-cell" data-ruler-bar="${b}" style="width:${BAR_W}px">${marker}</div>`;
         }
-        ruler.style.width = (BAR_W * this.arrangementBars) + 'px';
+        ruler.style.width = (120 + BAR_W * this.arrangementBars) + 'px';
         ruler.innerHTML = html;
         if (!ruler.dataset.lcWired) {
             ruler.dataset.lcWired = '1';
@@ -2007,15 +2175,18 @@ class LoopManagerModal extends BaseModal {
         trackEl.className = `la-track${muted ? ' la-track--muted' : ''}${soloed ? ' la-track--solo' : ''}${audible ? '' : ' la-track--silent'}`;
         trackEl.dataset.trackId = track.id;
         trackEl.style.height = this._trackHeight() + 'px';
-        const chOpts = ['<option value="">—</option>'];
-        for (let c = 1; c <= 16; c++) {
-            chOpts.push(`<option value="${c}"${track.midi_channel === c ? ' selected' : ''}>${c}</option>`);
-        }
+        // Label par défaut « Piste N » côté client si le backend n'en a
+        // pas posé (Phase 1 a vidé les labels par défaut pour i18n).
+        const defaultLabel = this.t('loopManager.defaultTrackName', { index: (track.track_index ?? 0) + 1 })
+            || `Track ${(track.track_index ?? 0) + 1}`;
+        const displayLabel = (track.label && track.label.trim()) || defaultLabel;
         trackEl.innerHTML = `
             <div class="la-track-label">
-                <input type="text" class="la-track-name-input lc-name-input" value="${this.escape(track.label)}" data-track-id="${track.id}" />
-                <select class="la-track-channel lc-select lc-select-xs" data-track-id="${track.id}"
-                    title="${this.t('loopManager.trackChannel')}">${chOpts.join('')}</select>
+                <input type="text" class="la-track-name-input lc-name-input"
+                    value="${this.escape(displayLabel)}"
+                    placeholder="${this.escape(defaultLabel)}"
+                    aria-label="${this.t('loopManager.trackName') || 'Track name'}"
+                    data-track-id="${track.id}" />
                 <button class="la-track-toggle la-track-toggle--mute${muted ? ' la-track-toggle--active' : ''}"
                     data-track-action="mute" data-track-id="${track.id}"
                     aria-pressed="${muted}" title="${this.t('loopManager.trackMute')}">M</button>
@@ -2134,19 +2305,9 @@ class LoopManagerModal extends BaseModal {
         trackEl.querySelector('[data-track-action="delete"]')?.addEventListener('click', () => this._deleteTrack(track.id));
         trackEl.querySelector('[data-track-action="mute"]')?.addEventListener('click', () => this._toggleTrackMute(track.id));
         trackEl.querySelector('[data-track-action="solo"]')?.addEventListener('click', () => this._toggleTrackSolo(track.id));
-        trackEl.querySelector('.la-track-channel')?.addEventListener('change', async (e) => {
-            const ch = e.target.value === '' ? null : parseInt(e.target.value);
-            try {
-                await this.api.sendCommand('arrangement_update_track', { trackId: track.id, midi_channel: ch });
-                const t = this.tracks.find(x => x.id === track.id);
-                if (t) t.midi_channel = ch;
-                this._pushArrHistory();
-            } catch (err) {
-                LoopUtils.handleError(err, 'arr.track.channel', {
-                    toast: this.t('loopManager.errSave')
-                });
-            }
-        });
+        // Le sélecteur de canal MIDI a été retiré du header de track : le
+        // routing canal est automatiquement géré par _playArrangement
+        // (allocation dynamique selon les programmes utilisés).
         return trackEl;
     }
 
