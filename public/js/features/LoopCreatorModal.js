@@ -92,9 +92,6 @@ class LoopManagerModal extends BaseModal {
         this._padQuantize     = 'off';       // 'off' | 'beat' | 'bar'
         this._padSlots        = Array(this._padCols * this._padRows).fill(null); // { loopId, name, tempo, bars, instrument_program }
         this._padPlayingIndex = new Set();
-        this._padMidiInDevice = null;
-        this._padMidiInHandler = null;
-        this._padMonitorActive = false;
         this._padPlaybackTimers = new Map(); // padIndex → [timerIds]
         this._padSynth        = null;
         this._padPickerIndex  = null; // pad index whose assignment picker is open
@@ -253,14 +250,14 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     _renderPadTab() {
+        const modeBtn = (val, labelKey, icon) =>
+            `<button class="lc-btn lc-btn-sm lm-pad-mode-btn${this._padPlayMode === val ? ' lm-pad-mode-btn--active' : ''}"
+                data-action="pad-set-mode" data-mode="${val}"
+                title="${this.t('loopManager.' + labelKey)}"
+                aria-pressed="${this._padPlayMode === val}">${icon} ${this.t('loopManager.' + labelKey)}</button>`;
         return `
         <div class="lc-pane lc-pane--hidden" id="lc-pane-pad">
             <div class="lc-ctrl-bar lc-ctrl-bar--pad">
-                <select id="lm-pad-midi-in" class="lc-select lc-select-midi" title="${this.t('loopManager.padMidiIn')}">
-                    <option value="">${this.t('loopManager.padMidiInNone')}</option>
-                </select>
-                <span class="lc-status" id="lm-pad-midi-status"></span>
-                <div class="lc-ctrl-sep"></div>
                 <span class="lc-label">${this.t('loopManager.padCols')}</span>
                 <div class="lc-spinbox">
                     <button class="lc-spin-btn" data-action="pad-cols-dec">‹</button>
@@ -277,11 +274,11 @@ class LoopManagerModal extends BaseModal {
                 </div>
                 <div class="lc-ctrl-sep"></div>
                 <span class="lc-label">${this.t('loopManager.padPlayMode')}</span>
-                <select id="lm-pad-mode" class="lc-select" title="${this.t('loopManager.padPlayMode')}">
-                    <option value="loop"     ${this._padPlayMode === 'loop'     ? 'selected' : ''}>${this.t('loopManager.padModeLoop')}</option>
-                    <option value="one-shot" ${this._padPlayMode === 'one-shot' ? 'selected' : ''}>${this.t('loopManager.padModeOneShot')}</option>
-                    <option value="hold"     ${this._padPlayMode === 'hold'     ? 'selected' : ''}>${this.t('loopManager.padModeHold')}</option>
-                </select>
+                <div class="lm-pad-mode-group" role="group" aria-label="${this.t('loopManager.padPlayMode')}">
+                    ${modeBtn('loop',     'padModeLoop',    '🔁')}
+                    ${modeBtn('one-shot', 'padModeOneShot', '▶')}
+                    ${modeBtn('hold',     'padModeHold',    '✋')}
+                </div>
                 <span class="lc-label">${this.t('loopManager.padQuantize')}</span>
                 <select id="lm-pad-quantize" class="lc-select" title="${this.t('loopManager.padQuantize')}">
                     <option value="off"  ${this._padQuantize === 'off'  ? 'selected' : ''}>${this.t('loopManager.padQuantizeOff')}</option>
@@ -516,7 +513,6 @@ class LoopManagerModal extends BaseModal {
         this._stopAllPads();
         this._liveStopAll();
         this._stopArrangerPlay();
-        this._stopPadMidiMonitor();
         this._stopPlaybarRAF();
         this._closePadPicker();
         this._kbdStopAllNotes();
@@ -583,7 +579,7 @@ class LoopManagerModal extends BaseModal {
         if (tab !== 'keyboard' && this._kbdMounted) this._unmountKbdPanel();
 
         if (tab === 'library')  this._filterAndRenderLibrary();
-        if (tab === 'pad')    { this._renderPadGrid(); this._loadPadMidiInDevices(); }
+        if (tab === 'pad')      this._renderPadGrid();
         if (tab === 'live')     this._renderLiveArea();
         if (tab === 'keyboard') this._enterKeyboardTab();
         if (tab === 'arranger') this._initArrangerTab();
@@ -624,6 +620,7 @@ class LoopManagerModal extends BaseModal {
             case 'pad-cols-inc': this._adjustPadCols(+1); break;
             case 'pad-rows-dec': this._adjustPadRows(-1); break;
             case 'pad-rows-inc': this._adjustPadRows(+1); break;
+            case 'pad-set-mode': this._setPadPlayMode(btn.dataset.mode); break;
             // Keyboard tab
             case 'kbd-toggle-output': this._kbdToggleOutput(); break;
             case 'kbd-stop-all':      this._kbdStopAllNotes(); break;
@@ -679,21 +676,10 @@ class LoopManagerModal extends BaseModal {
         } else if (id === 'lm-lib-sort') {
             this._libSort = e.target.value;
             this._filterAndRenderLibrary();
-        } else if (id === 'lm-pad-midi-in') {
-            this._padMidiInDevice = e.target.value || null;
-            if (this._padMidiInDevice) this._startPadMidiMonitor();
-            else                       this._stopPadMidiMonitor();
         } else if (id === 'lm-pad-cols') {
             this._setPadCols(parseInt(e.target.value));
         } else if (id === 'lm-pad-rows') {
             this._setPadRows(parseInt(e.target.value));
-        } else if (id === 'lm-pad-mode') {
-            const v = e.target.value;
-            if (['loop', 'one-shot', 'hold'].includes(v)) {
-                this._padPlayMode = v;
-                this._stopAllPads();
-                this._persistPadLayout();
-            }
         } else if (id === 'lm-pad-quantize') {
             const v = e.target.value;
             if (['off', 'beat', 'bar'].includes(v)) {
@@ -1140,32 +1126,28 @@ class LoopManagerModal extends BaseModal {
     _adjustPadCols(d) { this._resizePadGrid(this._padCols + d, this._padRows); }
     _adjustPadRows(d) { this._resizePadGrid(this._padCols, this._padRows + d); }
 
+    _setPadPlayMode(mode) {
+        if (!['loop', 'one-shot', 'hold'].includes(mode)) return;
+        if (mode === this._padPlayMode) return;
+        this._padPlayMode = mode;
+        this._stopAllPads();
+        this._persistPadLayout();
+        this._syncPadModeButtons();
+    }
+
+    _syncPadModeButtons() {
+        this.$$('.lm-pad-mode-btn').forEach(btn => {
+            const active = btn.dataset.mode === this._padPlayMode;
+            btn.classList.toggle('lm-pad-mode-btn--active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
     _syncPadControls() {
         const colsIn = this.$('#lm-pad-cols'); if (colsIn) colsIn.value = this._padCols;
         const rowsIn = this.$('#lm-pad-rows'); if (rowsIn) rowsIn.value = this._padRows;
-        const mode   = this.$('#lm-pad-mode'); if (mode)   mode.value   = this._padPlayMode;
         const quant  = this.$('#lm-pad-quantize'); if (quant) quant.value = this._padQuantize;
-    }
-
-    async _loadPadMidiInDevices() {
-        const sel = this.$('#lm-pad-midi-in');
-        if (!sel) return;
-        try {
-            const allDevices = await this.api.listDevices();
-            const devices = allDevices.filter(d => d.status === 2 || d.connected === true);
-            const existing = sel.value;
-            sel.innerHTML = `<option value="">${this.t('loopManager.padMidiInNone')}</option>`;
-            for (const d of devices) {
-                const id  = d.device_id || d.id;
-                const opt = document.createElement('option');
-                opt.value = id;
-                opt.textContent = d.name || id;
-                if (id === existing) opt.selected = true;
-                sel.appendChild(opt);
-            }
-        } catch (err) {
-            LoopUtils.handleError(err, 'pad.midiIn.list');
-        }
+        this._syncPadModeButtons();
     }
 
     async _triggerPad(index, opts = {}) {
@@ -1426,48 +1408,6 @@ class LoopManagerModal extends BaseModal {
         this._renderPadGrid();
         this._persistPadLayout();
         LoopUtils.toast(this.t('loopManager.padsCleared'), 'success');
-    }
-
-    // MIDI In for pads
-    async _startPadMidiMonitor() {
-        if (!this._padMidiInDevice || this._padMonitorActive) return;
-        try {
-            await this.api.sendCommand('monitor_start', { deviceId: this._padMidiInDevice });
-            this._padMonitorActive = true;
-            this._padMidiInHandler = (data) => {
-                if (data.device !== this._padMidiInDevice) return;
-                const type = (data.type || '').toLowerCase();
-                const note = data.data?.note ?? data.data?.n;
-                const vel  = data.data?.velocity ?? data.data?.v ?? 0;
-                if (note == null) return;
-                if (type === 'noteon' && vel > 0) {
-                    const padIndex = note - 48; // C3 = pad 0
-                    if (padIndex >= 0 && padIndex < this._padSlots.length) this._triggerPad(padIndex);
-                }
-            };
-            this.api.on('monitor_event', this._padMidiInHandler);
-            const status = this.$('#lm-pad-midi-status');
-            if (status) status.textContent = '● MIDI';
-        } catch (err) {
-            LoopUtils.handleError(err, 'pad.midiIn.start', {
-                toast: this.t('loopManager.errMidiIn')
-            });
-        }
-    }
-
-    async _stopPadMidiMonitor() {
-        if (!this._padMonitorActive) return;
-        this._padMonitorActive = false;
-        if (this._padMidiInHandler) {
-            this.api.off?.('monitor_event', this._padMidiInHandler);
-            this._padMidiInHandler = null;
-        }
-        if (this._padMidiInDevice) {
-            try { await this.api.sendCommand('monitor_stop', { deviceId: this._padMidiInDevice }); }
-            catch (err) { LoopUtils.handleError(err, 'pad.midiIn.stop'); }
-        }
-        const status = this.$('#lm-pad-midi-status');
-        if (status) status.textContent = '';
     }
 
     // =========================================================
