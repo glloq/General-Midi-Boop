@@ -635,9 +635,12 @@ class MidiSynthesizer {
             });
         }
 
-        // If no specific notes found, load the essential GM percussion set
+        // If no specific notes found (preview live / clavier virtuel sans
+        // séquence), charger la gamme GM percussion complète (35-81 — voir
+        // _loadDrumPreset:470). Sans ça l'utilisateur n'entendait que 8
+        // sons essentiels et les autres touches étaient silencieuses.
         if (usedNotes.size === 0) {
-            [35, 36, 38, 42, 44, 46, 49, 51].forEach(n => usedNotes.add(n));
+            for (let n = 35; n <= 81; n++) usedNotes.add(n);
         }
 
         this.log('info', `Loading ${usedNotes.size} drum presets for kit ${kit} (bank: ${this.currentBankId})`);
@@ -1056,6 +1059,14 @@ class MidiSynthesizer {
             // Race fallback: kit not yet loaded but Standard might be
             if (!instrument && kit !== 0) {
                 instrument = this.drumPresets.get(`0:${note}`);
+            }
+            // Lazy-load : preset percussion pas (encore) chargé pour ce note —
+            // déclenche le fetch en background pour que la prochaine frappe
+            // sonne. Sans ça, hors des 47 notes preloadées par loadDrumKit
+            // (ou si le user joue trop tôt après ouverture), le synth reste
+            // silencieux pour toujours.
+            if (!instrument && note >= 35 && note <= 81 && typeof this._loadDrumPreset === 'function') {
+                this._loadDrumPreset(note, kit).catch(() => {});
             }
         } else {
             const program = this.channelInstruments[channel] || 0;
