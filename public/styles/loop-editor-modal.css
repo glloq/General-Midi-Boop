@@ -393,13 +393,40 @@ body.dark-mode   .loop-editor-modal .lc-ctrl-bar .lc-btn-group:has([data-action=
     min-height: 320px !important;
 }
 
-/* Piano roll area: also fluid, but tighter floor + give the keyboard
-   priority when both are visible (keyboard grows 1.5x as fast). */
-.loop-editor-modal .lc-pianoroll-area {
-    flex-grow: 1;
-    flex-shrink: 1;
-    flex-basis: clamp(140px, 30vh, 40vh);
-    min-height: 140px;
+/* Piano roll area inside the Editor tab — fill the full pane height.
+   (The old clamp(140px, 30vh, 40vh) was meant for the legacy split layout
+   where the keyboard panel and the piano roll cohabited vertically ; with
+   the tab split the piano roll has the whole pane to itself.) */
+.loop-editor-modal #le-pane-editor .lc-pianoroll-area {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.loop-editor-modal #le-pane-editor .lc-pianoroll-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+}
+.loop-editor-modal #le-pane-editor .lc-pianoroll-wrap webaudio-pianoroll {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── Top minimap bar (always visible, just below the header) ── */
+.loop-editor-modal .le-minimap-top {
+    flex: 0 0 auto;
+    height: 56px;
+    width: 100%;
+    display: block;
+    cursor: crosshair;
+    border-bottom: 1px solid var(--border-color, #dde0e6);
+    background: var(--bg-tertiary, #eef0f4);
+    user-select: none;
+}
+body.theme-dark .loop-editor-modal .le-minimap-top,
+body.dark-mode  .loop-editor-modal .le-minimap-top {
+    background: var(--bg-primary, #0f0f22);
+    border-color: var(--border-color, #333355);
 }
 
 /* The embedded keyboard's modal-dialog must fill its host panel without
