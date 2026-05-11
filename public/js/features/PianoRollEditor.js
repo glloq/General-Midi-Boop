@@ -40,6 +40,11 @@ class PianoRollEditor {
             opts.showGroups || {}
         );
         this.multiChannel = !!opts.multiChannel;
+        // When true: only render the editing toolbar (no piano-roll element,
+        // no minimap). Every action MUST be provided via `opts.actions` —
+        // useful to skin a host editor (e.g. MidiEditorModal) with the same
+        // visual toolbar while keeping its own pianoroll plumbing untouched.
+        this.toolbarOnly = !!opts.toolbarOnly;
         this.actions = opts.actions || null;
         this.onSequenceChange = opts.onSequenceChange || null;
         this.onPlayheadMove   = opts.onPlayheadMove   || null;
@@ -71,10 +76,27 @@ class PianoRollEditor {
     mount() {
         if (!this.host) return;
         this.host.classList.add('pre-host');
-        this.host.innerHTML = this._renderShell();
-        this._initPianoRoll();
-        this._initMinimap();
+        if (this.toolbarOnly) {
+            this.host.classList.add('pre-host--toolbar-only');
+            this.host.innerHTML = `<div class="pre-toolbar">${this._renderToolbarGroups()}</div>`;
+        } else {
+            this.host.innerHTML = this._renderShell();
+            this._initPianoRoll();
+            this._initMinimap();
+        }
         this._attachEvents();
+    }
+
+    _renderToolbarGroups() {
+        const sg = this.showGroups;
+        return `
+            ${sg.mode    ? this._renderGroupMode()    : ''}
+            ${sg.history ? this._renderGroupHistory() : ''}
+            ${sg.edit    ? this._renderGroupEdit()    : ''}
+            ${sg.grid    ? this._renderGroupGrid()    : ''}
+            <span class="lc-ctrl-spacer"></span>
+            ${sg.view    ? this._renderGroupView()    : ''}
+        `;
     }
 
     destroy() {
@@ -182,12 +204,16 @@ class PianoRollEditor {
     // =====================================================================
 
     setMode(mode) {
-        if (!this.pianoRoll) return;
-        const prMode = mode === 'view' ? 'select' : mode;
-        this.pianoRoll.setAttribute('editmode', prMode);
+        // Always update the aria-pressed state on the toolbar buttons so the
+        // active mode is reflected visually, regardless of who owns the
+        // underlying pianoroll.
         this._setAriaPressed('[data-pre-action="mode-view"]',   mode === 'view');
         this._setAriaPressed('[data-pre-action="mode-select"]', mode === 'select');
         this._setAriaPressed('[data-pre-action="mode-draw"]',   mode === 'dragpoly');
+        if (this.actions?.setMode) return this.actions.setMode(mode);
+        if (!this.pianoRoll) return;
+        const prMode = mode === 'view' ? 'select' : mode;
+        this.pianoRoll.setAttribute('editmode', prMode);
     }
 
     undo() {
@@ -301,6 +327,7 @@ class PianoRollEditor {
     }
 
     zoomH(factor) {
+        if (this.actions?.zoomH) return this.actions.zoomH(factor);
         if (!this.pianoRoll) return;
         const total = this._totalTicks();
         const cur   = parseFloat(this.pianoRoll.getAttribute('xrange') || total);
@@ -311,6 +338,7 @@ class PianoRollEditor {
     }
 
     zoomV(factor) {
+        if (this.actions?.zoomV) return this.actions.zoomV(factor);
         if (!this.pianoRoll) return;
         const cur  = parseFloat(this.pianoRoll.getAttribute('yrange') || 36);
         const next = Math.max(6, Math.min(128, Math.round(cur * factor)));
@@ -323,16 +351,8 @@ class PianoRollEditor {
     // =====================================================================
 
     _renderShell() {
-        const sg = this.showGroups;
         return `
-        <div class="pre-toolbar">
-            ${sg.mode    ? this._renderGroupMode()    : ''}
-            ${sg.history ? this._renderGroupHistory() : ''}
-            ${sg.edit    ? this._renderGroupEdit()    : ''}
-            ${sg.grid    ? this._renderGroupGrid()    : ''}
-            <span class="lc-ctrl-spacer"></span>
-            ${sg.view    ? this._renderGroupView()    : ''}
-        </div>
+        <div class="pre-toolbar">${this._renderToolbarGroups()}</div>
         <div class="lc-pianoroll-area" id="pre-pianoroll-area">
             <div class="lc-pianoroll-wrap" id="pre-pianoroll-wrap"></div>
         </div>
@@ -562,8 +582,10 @@ class PianoRollEditor {
 
     _onChange(e) {
         const f = e.target.dataset?.preField;
-        if (f === 'pre-snap' && this.pianoRoll) {
-            this.pianoRoll.snap = parseInt(e.target.value);
+        if (f === 'pre-snap') {
+            const v = parseInt(e.target.value);
+            if (this.actions?.setSnap) this.actions.setSnap(v);
+            else if (this.pianoRoll) this.pianoRoll.snap = v;
         }
     }
 

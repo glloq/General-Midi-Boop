@@ -353,6 +353,8 @@
                             <!-- Playback Timeline Bar -->
                             <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
                             <div class="piano-roll-wrapper">
+                                <!-- Shared PianoRollEditor toolbar (toolbar-only mode) -->
+                                <div id="midi-editor-pre-toolbar"></div>
                                 <div class="piano-roll-container" id="piano-roll-container">
                                     <!-- webaudio-pianoroll will be inserted here -->
                                 </div>
@@ -558,6 +560,12 @@
 
     // Add to container BEFORE loading the sequence
         container.appendChild(this.modal.pianoRoll);
+
+    // Mount the shared PianoRollEditor toolbar (toolbar-only mode) for visual
+    // coherence with LoopEditorModal. The actual editing routines stay on
+    // MidiEditor's existing facades (editActions, sequenceOps) — passed as
+    // `actions` so PianoRollEditor delegates each button to them.
+        this._mountSharedToolbar();
 
     // Hide the piano roll's native SVG markers (replaced by PlaybackTimelineBar)
         const cursorImg = this.modal.pianoRoll.querySelector('#wac-cursor');
@@ -860,6 +868,78 @@
         } catch (err) {
             this.modal.log('warn', `Failed to fetch gm_program for routed device ${deviceId}:`, err);
         }
+    }
+
+    // ── Shared PianoRollEditor toolbar (visual coherence with LoopEditor) ──
+    _mountSharedToolbar() {
+        const host = document.getElementById('midi-editor-pre-toolbar');
+        if (!host || typeof window.PianoRollEditor !== 'function') return;
+        const modal = this.modal;
+        const pr = () => modal.pianoRoll;
+
+        // Mapping: PianoRollEditor mode names → MidiEditor edit-mode names
+        const modeMap = { view: 'drag-view', select: 'select', dragpoly: 'edit' };
+
+        this._sharedToolbar = new window.PianoRollEditor(host, {
+            t:           (key, params) => modal.t(key, params),
+            toolbarOnly: true,
+            multiChannel: true,
+            showGroups:  { mode: true, history: true, edit: true, grid: true, view: true },
+            actions: {
+                setMode:        (mode) => {
+                    const target = modeMap[mode] || mode;
+                    // Prefer the dedicated toolbar facade if available.
+                    if (modal.toolbar && typeof modal.toolbar.setEditMode === 'function') {
+                        modal.toolbar.setEditMode(target);
+                    } else if (modal.editActions && typeof modal.editActions.setEditMode === 'function') {
+                        modal.editActions.setEditMode(target);
+                    }
+                },
+                undo:           () => modal.editActions?.undo?.(),
+                redo:           () => modal.editActions?.redo?.(),
+                selectAll:      () => modal.editActions?.selectAll?.(),
+                copy:           () => modal.editActions?.copy?.(),
+                paste:          () => modal.editActions?.paste?.(),
+                deleteSelected: () => modal.editActions?.deleteSelectedNotes?.(),
+                clearNotes:     () => {
+                    if (pr() && typeof pr().sequence !== 'undefined') {
+                        pr().sequence = [];
+                        pr().redraw?.();
+                    }
+                },
+                setSnap:        (ticks) => { if (pr()) pr().snap = ticks; },
+                quantizeSelection: () => {
+                    // MidiEditor doesn't expose a "quantize selection" yet —
+                    // surface a notification rather than failing silently.
+                    if (typeof modal.showNotification === 'function') {
+                        modal.showNotification(modal.t('midiEditor.quantizeNotAvailable') || 'Quantize not available', 'info');
+                    }
+                },
+                applyVelocity: () => {
+                    // Velocity automation lives in MidiEditor's CC section ;
+                    // the toolbar shortcut is intentionally a no-op here so
+                    // we don't double-edit the same data.
+                },
+                zoomH: (factor) => {
+                    if (!pr()) return;
+                    const cur = parseFloat(pr().getAttribute('xrange') || 0);
+                    if (!cur) return;
+                    pr().setAttribute('xrange', Math.max(60, Math.round(cur * factor)).toString());
+                    pr().redraw?.();
+                },
+                zoomV: (factor) => {
+                    if (!pr()) return;
+                    const cur = parseFloat(pr().getAttribute('yrange') || 36);
+                    pr().setAttribute('yrange', Math.max(6, Math.min(128, Math.round(cur * factor))).toString());
+                    pr().redraw?.();
+                }
+            }
+        });
+        this._sharedToolbar.mount();
+        // Reflect the current MidiEditor mode on the toolbar.
+        const back = { 'drag-view': 'view', 'select': 'select', 'edit': 'dragpoly' };
+        const cur = back[modal.editMode] || 'dragpoly';
+        this._sharedToolbar.setMode(cur);
     }
     }
 
