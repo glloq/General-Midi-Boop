@@ -539,29 +539,50 @@ body.dark-mode .tool-btn:hover:not(:disabled) {
    ============================================================================ */
 
 /* When mounted as a panel the editor sits inside an existing modal-body,
-   so it must stretch to fill its host rather than overlay the viewport. */
+   so it must stretch to fill its host rather than overlay the viewport.
+   Force max-width: none everywhere down the chain — many global modal
+   rules (e.g. `.modal-content { max-width: 800px }`) would otherwise
+   clip the panel to ~800px on wide screens. */
 .midi-editor-modal--loop {
-    position: relative;
-    inset: auto;
-    background: transparent;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important; left: auto !important;
+    right: auto !important; bottom: auto !important;
+    background: transparent !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
 }
 
 .midi-editor-modal--loop .midi-editor-panel {
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
 }
 
 .midi-editor-modal--loop .modal-body {
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
+    width: 100% !important;
+    max-width: none !important;
     display: flex;
     flex-direction: column;
+    border-radius: 0;
 }
 
 /* Make the embedded piano-roll host stretch to fill the panel — the
