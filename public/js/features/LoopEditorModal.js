@@ -353,7 +353,10 @@ class LoopEditorModal extends BaseModal {
                 instrumentProgram:  this.instrumentProgram,
                 onChange:           () => { this._syncPanelMinimap(); /* dirty tracked via snapshot */ }
             });
-            Promise.resolve(ready).then(() => this._initPanelMinimap());
+            Promise.resolve(ready).then(() => {
+                this._initPanelMinimap();
+                this._initPanelResizeObserver();
+            });
             return;
         }
 
@@ -452,6 +455,7 @@ class LoopEditorModal extends BaseModal {
             },
             destroy:        () => {
                 owner._teardownPanelMinimap();
+                owner._teardownPanelResizeObserver();
                 panel.unmountPanel?.();
             }
         };
@@ -503,6 +507,36 @@ class LoopEditorModal extends BaseModal {
         });
         m.setNotes(pr.sequence ?? []);
         m.setViewport(xoff, xrange);
+    }
+
+    /**
+     * The MidiEditor panel reads `clientWidth` / `clientHeight` from the
+     * piano-roll container once, at mount time. If the Editor tab was
+     * hidden then (new-loop default tab is Piano), clientWidth is 0 and
+     * the canvas falls back to a 1000 px width — that's the "right edge
+     * stuck at 2/3 of the page" the user reports. A ResizeObserver on
+     * the container refits as soon as it gets real dimensions.
+     */
+    _initPanelResizeObserver() {
+        if (this._panelResizeObs) return;
+        const container = this.midiEditorPanel?.container?.querySelector('#piano-roll-container');
+        if (!container || typeof ResizeObserver === 'undefined') return;
+        let lastW = 0, lastH = 0;
+        this._panelResizeObs = new ResizeObserver(() => {
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            if (w === lastW && h === lastH) return;
+            lastW = w; lastH = h;
+            this.pianoRollEditor?.refit?.();
+        });
+        this._panelResizeObs.observe(container);
+    }
+
+    _teardownPanelResizeObserver() {
+        if (this._panelResizeObs) {
+            try { this._panelResizeObs.disconnect(); } catch (_) { /* best-effort */ }
+            this._panelResizeObs = null;
+        }
     }
 
     _teardownPanelMinimap() {
