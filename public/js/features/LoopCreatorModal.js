@@ -502,6 +502,9 @@ class LoopManagerModal extends BaseModal {
         this._closePadPicker();
         this._kbdStopAllNotes();
         if (this._kbdMounted) this._unmountKbdPanel();
+        // Coupe les timers/UI résiduels du Pad et de l'Arranger (AUDIT §L9, §L10).
+        if (typeof this._padClearLongPress === 'function') this._padClearLongPress();
+        this._hideDropPreview();
         document.removeEventListener('mouseup',   this._boundDocMouseUp);
         document.removeEventListener('mousemove', this._boundDocMouseMove);
         document.removeEventListener('keydown',   this._boundKeyDown);
@@ -1010,6 +1013,9 @@ class LoopManagerModal extends BaseModal {
                 if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
                 lpStartXY = null; lpCell = null;
             };
+            // Exposé pour onClose : sans ça, un timer armé < 500 ms tire
+            // sur un DOM détaché après fermeture de la modale (AUDIT §L9).
+            this._padClearLongPress = clearLongPress;
 
             grid.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0 && e.pointerType === 'mouse') return; // left-button or touch/pen only
@@ -1564,6 +1570,21 @@ class LoopManagerModal extends BaseModal {
         if (!state) return;
         state.timers.forEach(t => clearTimeout(t));
         this._livePlayingLoops.delete(loopId);
+        // Coupe les notes encore tenues sur le canal du loop. Sans ça,
+        // les note-on déjà émis continuent à sonner jusqu'à leur fin
+        // naturelle ; l'utilisateur perçoit un release au lieu d'un
+        // silence net (AUDIT §L7).
+        const target = this._getOutputTarget(this._liveSynth);
+        if (target && state.ch != null) {
+            try { target.allNotesOff?.(state.ch); }
+            catch (err) { LoopUtils.handleError(err, 'live.allNotesOff'); }
+            // Fallback synthé : si allNotesOff par canal n'existe pas,
+            // cancelAllNotes coupe tout sur ce target.
+            if (typeof target.allNotesOff !== 'function') {
+                try { target.cancelAllNotes?.(); }
+                catch (err) { LoopUtils.handleError(err, 'live.cancelAllNotes'); }
+            }
+        }
         this._updateLiveButton(loopId, false);
         this._renderPlaybar();
     }
@@ -2399,6 +2420,23 @@ class LoopManagerModal extends BaseModal {
             }
         }
 
+        // Garde-fou : on ne peut router que 16 programmes distincts (canaux
+        // MIDI 0-15). Au-delà, l'ancien code faisait `chIdx++ % 16` et
+        // écrasait silencieusement les premiers canaux → instruments
+        // sortaient avec le mauvais son (AUDIT §L4). Mieux vaut refuser
+        // explicitement la lecture que la fausser.
+        const MAX_DISTINCT_PROGRAMS = 16;
+        if (programsToLoad.size > MAX_DISTINCT_PROGRAMS) {
+            LoopUtils.toast(
+                this.t('loopManager.errTooManyPrograms', { max: MAX_DISTINCT_PROGRAMS, count: programsToLoad.size })
+                    || `Arrangement uses ${programsToLoad.size} distinct programs (max ${MAX_DISTINCT_PROGRAMS}). Playback cancelled.`,
+                'error'
+            );
+            this.isArrangerPlaying = false;
+            this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
+            return;
+        }
+
         const target = this._getOutputTarget(this._arrangerSynth);
 
         // Preload all instruments used
@@ -2415,7 +2453,7 @@ class LoopManagerModal extends BaseModal {
         const programChannelMap = new Map();
         let chIdx = 0;
         for (const prog of programsToLoad) {
-            const ch = chIdx++ % 16;
+            const ch = chIdx++;
             programChannelMap.set(prog, ch);
             try { target?.setChannelInstrument?.(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'arr.synth.setChannelInstrument'); }
@@ -2697,6 +2735,15 @@ class LoopManagerModal extends BaseModal {
     _onDocMouseMove(e) {
         const r = this._resizeState;
         if (!r) return;
+        // Recalcul à chaque move : barW peut avoir changé (resize fenêtre,
+        // zoom changé via raccourci), et leftPx peut s'être décalé (scroll
+        // horizontal du container). Le coût d'un getBoundingClientRect par
+        // mousemove est négligeable comparé à un décalage de plusieurs
+        // mesures pendant un drag (AUDIT §L3).
+        const curRect = r.blockEl.getBoundingClientRect();
+        const curBarW = this._barWidth();
+        if (curBarW > 0) r.barW = curBarW;
+        r.leftPx = curRect.left;
         const widthPx     = Math.max(r.barW, e.clientX - r.leftPx);
         const newReps     = Math.max(1, Math.round(widthPx / (r.loopBars * r.barW)));
         if (newReps === r.newReps) return;

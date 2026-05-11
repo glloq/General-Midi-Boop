@@ -2540,6 +2540,7 @@
     "errSave": "Save failed.",
     "errCreateArrangement": "Could not create arrangement.",
     "errLoadArrangement": "Could not load arrangement.",
+    "errTooManyPrograms": "This arrangement uses {count} distinct programs (max {max}). Playback cancelled — reduce the number of instruments.",
     "arrLocalOnly": "Local changes — remember to save.",
     "assignedPadsTitle": "Loop assigned to pad(s): {pads}",
     "padHint": "Click: play · Long-press or right-click: assign",

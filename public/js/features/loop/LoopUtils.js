@@ -118,8 +118,17 @@
     }
 
     // ── Loop duration helpers ──────────────────────────────────────────
-    function loopDurationMs({ tempo = 120, bars = 2, time_sig_num = 4 } = {}) {
-        return time_sig_num * bars * 60000 / tempo;
+    /**
+     * Durée d'un loop en millisecondes.
+     *
+     * Formule complète : `num × bars × 60000 / tempo × (4 / den)`.
+     * Le facteur `4 / den` est crucial pour les time signatures non-4/4 :
+     * en 6/8, une mesure fait 6 huitièmes = 3 temps (au lieu de 4 en 4/4),
+     * sinon la durée est surestimée d'un facteur `4/den`.
+     */
+    function loopDurationMs({ tempo = 120, bars = 2, time_sig_num = 4, time_sig_den = 4 } = {}) {
+        const den = (Number.isFinite(time_sig_den) && time_sig_den > 0) ? time_sig_den : 4;
+        return time_sig_num * bars * 60000 / tempo * (4 / den);
     }
 
     // ── Shared sequence scheduler ──────────────────────────────────────
