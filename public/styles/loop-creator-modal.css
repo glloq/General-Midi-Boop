@@ -1165,7 +1165,11 @@ body.dark-mode  .la-block--selected {
 }
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode > .modal-header {
     position: relative;
-    z-index: 5;
+    /* Must sit above the keyboard body (black keys have z-index: 10 in their
+       own stacking context). The dropdown inside this header (z-index 10001)
+       is trapped in this context, so the header itself needs to win against
+       the body content. */
+    z-index: 100;
     /* The standalone-modal header gradient (.keyboard-modal .modal-header) no
        longer matches once the dialog is reparented here. Re-apply it so the
        instrument selector + controls stay readable on white background. */
