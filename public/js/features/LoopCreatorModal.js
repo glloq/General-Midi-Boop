@@ -668,7 +668,7 @@ class LoopManagerModal extends BaseModal {
         return `<div class="lc-card" draggable="true" data-loop-id="${loop.id}" style="--family-color:${family.color}"
             <div class="lc-card-name">${this.escape(loop.name)}${padTagHtml}</div>
             <div class="lc-card-meta">${loop.tempo} BPM · ${ts} · ${loop.bars} ${this.t('loopCreator.barsUnit')}</div>
-            <div class="lc-card-instr">${family.icon} ${this.escape(instrName)}</div>
+            <div class="lc-card-instr">${this._instrIconHtml(prog, 'instrument', 'lc-instr-icon--sm')} ${this.escape(instrName)}</div>
             <div class="lc-card-actions">
                 <button class="lc-card-btn lc-card-btn--play${playing ? ' lc-card-btn--playing' : ''}" data-action="live-trigger" data-loop-id="${loop.id}" title="${this.t('loopCreator.preview')}">${playing ? '⏹' : '▶'}</button>
                 <button class="lc-card-btn" data-loop-action="edit"      data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
@@ -742,6 +742,36 @@ class LoopManagerModal extends BaseModal {
         return GM_PROGRAM_NAMES[prog] || `Program ${prog}`;
     }
 
+    /**
+     * Render an SVG-first icon for a GM program, falling back to the LoopUtils
+     * family emoji (and ultimately to a generic glyph). `kind` controls whether
+     * we prefer the instrument-specific SVG ('instrument') or the family-level
+     * SVG ('family'). `extraClass` is appended to the wrapper for sizing.
+     */
+    _instrIconHtml(prog, kind = 'instrument', extraClass = '') {
+        const family = LoopUtils.familyForProgram(prog);
+        const emoji  = family?.icon || '🎵';
+        let svgUrl = null;
+        const IF = (typeof window !== 'undefined') ? window.InstrumentFamilies : null;
+        if (IF) {
+            if (kind === 'instrument') {
+                const ico = IF.resolveInstrumentIcon({ gmProgram: prog });
+                svgUrl = ico?.svgUrl || null;
+                if (!svgUrl && ico?.family) svgUrl = IF.familyIconUrl(ico.family.slug);
+            } else {
+                const fam = IF.getFamilyForProgram(prog);
+                if (fam) svgUrl = IF.familyIconUrl(fam.slug);
+            }
+        }
+        const wrap = `lc-instr-icon${extraClass ? ' ' + extraClass : ''}`;
+        if (!svgUrl) return `<span class="${wrap}"><span class="lc-instr-emoji">${emoji}</span></span>`;
+        return `<span class="${wrap}">`
+             + `<img class="lc-instr-svg" src="${svgUrl}" alt="" loading="lazy" decoding="async"`
+             + ` onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">`
+             + `<span class="lc-instr-emoji" style="display:none">${emoji}</span>`
+             + `</span>`;
+    }
+
     // =========================================================
     // PAD TAB
     // =========================================================
@@ -761,7 +791,7 @@ class LoopManagerModal extends BaseModal {
             let iconHtml = '', familyColor = '';
             if (assigned) {
                 const family = LoopUtils.familyForProgram(slot.instrument_program ?? 0);
-                iconHtml = `<span class="lm-pad-icon">${family.icon}</span>`;
+                iconHtml = this._instrIconHtml(slot.instrument_program ?? 0, 'instrument', 'lm-pad-icon');
                 familyColor = family.color;
             }
             const styleAttr = familyColor ? `style="--family-color:${familyColor}"` : '';
@@ -1166,7 +1196,7 @@ class LoopManagerModal extends BaseModal {
         area.innerHTML = [...groups.values()].map(({ family, loops }) => `
         <div class="lm-live-group" style="--family-color:${family.color}">
             <div class="lm-live-group-header">
-                <span class="lm-live-group-icon">${family.icon}</span>
+                ${this._instrIconHtml(family.start, 'family', 'lm-live-group-icon')}
                 <span class="lm-live-group-name">${family.name}</span>
             </div>
             <div class="lm-live-loops">
@@ -1450,7 +1480,7 @@ class LoopManagerModal extends BaseModal {
             return `<div class="la-palette-chip" draggable="true" data-loop-id="${loop.id}"
                 data-loop-bars="${loop.bars}" data-loop-name="${this.escape(loop.name)}"
                 style="--family-color:${family.color}">
-                <div class="la-chip-name">${family.icon} ${this.escape(loop.name)}</div>
+                <div class="la-chip-name">${this._instrIconHtml(loop.instrument_program ?? 0, 'instrument', 'la-chip-icon')} ${this.escape(loop.name)}</div>
                 <div class="la-chip-meta">${loop.bars}${this.t('loopCreator.barsUnit')}</div>
             </div>`;
         }).join('');
@@ -1598,7 +1628,7 @@ class LoopManagerModal extends BaseModal {
                 data-wide="${blockW >= 70 ? 'true' : 'false'}"
                 style="left:${blockL}px;width:${blockW}px;background:${family.color}"
                 title="${this.t('loopManager.blockDragHint')}">
-                <div class="la-block-label">${family.icon} ${this.escape(block.loop_name)} ×${block.repetitions}</div>
+                <div class="la-block-label">${this._instrIconHtml(loop?.instrument_program ?? 0, 'instrument', 'la-block-icon')} ${this.escape(block.loop_name)} ×${block.repetitions}</div>
                 <div class="la-block-actions">
                     <button class="la-block-btn" draggable="false" data-block-action="reps-dec" data-block-id="${block.id}">−</button>
                     <span class="la-block-reps">${block.repetitions}</span>

@@ -623,7 +623,72 @@ body.dark-mode  .la-playhead {
 .lm-pad-grid .lm-pad-cell[data-octave-group="3"] { border-top: 3px solid #e8931a; }
 
 /* GM family icon inside assigned pad */
-.lm-pad-icon { font-size: 1.1rem; opacity: 0.7; margin-bottom: 2px; }
+.lm-pad-icon { font-size: 1.1rem; opacity: 0.85; margin-bottom: 2px; }
+
+/* ============================================================
+   SVG icon wrappers (instrument & family)
+   <span class="lc-instr-icon">
+     <img class="lc-instr-svg" …>
+     <span class="lc-instr-emoji">🎸</span>     ← fallback (display:none until onerror)
+   </span>
+   ============================================================ */
+.lc-instr-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    vertical-align: middle;
+    flex-shrink: 0;
+    width: 1.25em;
+    height: 1.25em;
+}
+.lc-instr-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+.lc-instr-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: inherit;
+    line-height: 1;
+}
+
+/* Card instrument badge: small icon next to the program name */
+.lc-instr-icon--sm { width: 1.05em; height: 1.05em; }
+.lc-card-instr { display: inline-flex; align-items: center; gap: 4px; }
+.lc-card-instr .lc-instr-svg { filter: none; }
+
+/* Pad cell: bigger icon, centered */
+.lm-pad-icon { width: 28px; height: 28px; }
+.lm-pad-cell--playing .lm-pad-icon .lc-instr-svg { filter: brightness(0) invert(1); }
+
+/* Live group header: medium family icon */
+.lm-live-group-icon { width: 22px; height: 22px; }
+
+/* Palette chip / block label: small inline icon */
+.la-chip-icon  { width: 16px; height: 16px; }
+.la-block-icon { width: 14px; height: 14px; }
+.la-block-icon .lc-instr-svg { filter: brightness(0) invert(1); opacity: 0.9; }
+.la-chip-name  { display: inline-flex; align-items: center; gap: 5px; }
+.la-block-label { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Dark mode: most SVGs are dark-line drawings on transparent — invert when
+   on dark surfaces so the strokes stay readable. Card / palette chip use
+   light bg so leave them as-is. */
+body.theme-dark .lc-instr-icon .lc-instr-svg,
+body.dark-mode  .lc-instr-icon .lc-instr-svg {
+    filter: brightness(0.95) invert(0.92);
+}
+body.theme-dark .la-block-icon .lc-instr-svg,
+body.dark-mode  .la-block-icon .lc-instr-svg,
+body.theme-dark .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg,
+body.dark-mode  .lm-pad-cell--playing .lm-pad-icon .lc-instr-svg {
+    filter: brightness(0) invert(1);
+}
 
 /* QW4 — keyboard shortcut badge */
 .lm-pad-shortcut {
