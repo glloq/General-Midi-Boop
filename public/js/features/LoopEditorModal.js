@@ -593,11 +593,21 @@ class LoopEditorModal extends BaseModal {
     }
 
     _startRecordingAnimation() {
+        const totalTicks = this.ppq * this.timeSigNum * this.bars;
         const frame = () => {
             if (!this.isRecording) { this._recordingRAF = null; return; }
             const recTick = Math.round(
                 (performance.now() - this.recordStartTime) / 1000 * (this.tempo / 60) * this.ppq
             );
+            // Auto-stop when the playhead reaches the configured loop length
+            // (bars × time-sig × ppq). Pin the playhead to the end so the
+            // visual stays at the boundary instead of overshooting.
+            if (recTick >= totalTicks) {
+                this.pianoRollEditor?.setRecordingPlayhead(totalTicks);
+                this._recordingRAF = null;
+                this._stopRecording();
+                return;
+            }
             this.pianoRollEditor?.setRecordingPlayhead(recTick);
             this._recordingRAF = requestAnimationFrame(frame);
         };
