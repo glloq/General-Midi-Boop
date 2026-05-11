@@ -597,8 +597,11 @@
         this.modal.pianoRoll.setAttribute('wheelzoom', '1');
         this.modal.pianoRoll.setAttribute('xscroll', '1');
         this.modal.pianoRoll.setAttribute('yscroll', '1');
-    // Disable the piano roll's native xruler (replaced by PlaybackTimelineBar)
-        this.modal.pianoRoll.setAttribute('xruler', '0');
+    // Native xruler — standard (file) mode hides it because PlaybackTimelineBar
+    // takes over ; in loop/panel mode there's no timeline bar, so we keep
+    // the ruler on top of the piano roll to give the user a time reference
+    // for navigating and zooming.
+        this.modal.pianoRoll.setAttribute('xruler', this.modal.loopMode ? '1' : '0');
     // Playback markers — kept internal for state but hidden visually
         this.modal.pianoRoll.setAttribute('markstart', '0');
         this.modal.pianoRoll.setAttribute('markend', maxTick.toString());
