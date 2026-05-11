@@ -2542,6 +2542,8 @@
     "errLoadArrangement": "Could not load arrangement.",
     "errTooManyPrograms": "This arrangement uses {count} distinct programs (max {max}). Playback cancelled — reduce the number of instruments.",
     "arrangerEmptyState": "No arrangement selected. Create a new one or open an existing one below.",
+    "arrangerMinimap": "Arrangement overview",
+    "arrangerMinimapHint": "Click to navigate the arrangement",
     "tempoRange_slow": "slow",
     "tempoRange_medium": "medium",
     "tempoRange_fast": "fast",

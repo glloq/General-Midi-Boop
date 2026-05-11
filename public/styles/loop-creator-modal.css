@@ -497,6 +497,7 @@
 
 /* ── Arranger tab ── */
 .la-area { display: flex; flex: 1 1 0; overflow: hidden; min-height: 0; }
+.la-timeline-col { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; min-width: 0; }
 
 /* Palette */
 .la-palette {
@@ -1422,3 +1423,20 @@ body.dark-mode  .la-block--selected {
     margin: 0;
     font-size: 0.95rem;
 }
+
+/* Minimap d'aperçu arranger — bande compacte au-dessus du timeline.
+ * Hauteur fixe 48px, largeur 100% du timeline-wrap. Click/drag = seek
+ * le timeline principal sur la position. */
+.la-minimap {
+    display: block;
+    width: 100%;
+    height: 48px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    background: var(--bg-secondary, #f9f9fb);
+    cursor: pointer;
+    user-select: none;
+}
+.la-minimap:hover { background: var(--bg-tertiary, #f0f1f3); }
+body.theme-dark .la-minimap,
+body.dark-mode   .la-minimap     { background: var(--bg-primary, #12122a); border-color: var(--border-color, #333355); }

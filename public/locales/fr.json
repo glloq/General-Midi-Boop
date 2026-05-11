@@ -2542,6 +2542,8 @@
     "errLoadArrangement": "Impossible de charger l'arrangement.",
     "errTooManyPrograms": "Cet arrangement utilise {count} programmes distincts (max {max}). Lecture annulée — réduisez le nombre d'instruments.",
     "arrangerEmptyState": "Aucun arrangement sélectionné. Créez-en un nouveau ou ouvrez-en un existant ci-dessous.",
+    "arrangerMinimap": "Aperçu de l'arrangement",
+    "arrangerMinimapHint": "Cliquer pour naviguer dans l'arrangement",
     "tempoRange_slow": "lent",
     "tempoRange_medium": "modéré",
     "tempoRange_fast": "rapide",

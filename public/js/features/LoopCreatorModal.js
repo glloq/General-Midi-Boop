@@ -388,10 +388,15 @@ class LoopManagerModal extends BaseModal {
                         <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
                     </div>
                 </div>
-                <div class="la-timeline-wrap" id="la-timeline-wrap">
-                    <div class="la-ruler" id="la-ruler"></div>
-                    <div class="la-tracks" id="la-tracks"></div>
-                    <div class="la-playhead" id="la-playhead" style="display:none"></div>
+                <div class="la-timeline-col">
+                    <canvas class="la-minimap" id="la-minimap" height="48"
+                        aria-label="${this.t('loopManager.arrangerMinimap') || 'Arrangement overview'}"
+                        title="${this.t('loopManager.arrangerMinimapHint') || 'Click to seek; drag to pan'}"></canvas>
+                    <div class="la-timeline-wrap" id="la-timeline-wrap">
+                        <div class="la-ruler" id="la-ruler"></div>
+                        <div class="la-tracks" id="la-tracks"></div>
+                        <div class="la-playhead" id="la-playhead" style="display:none"></div>
+                    </div>
                 </div>
             </div>
 
@@ -2002,7 +2007,104 @@ class LoopManagerModal extends BaseModal {
     // ARRANGER — TIMELINE
     // =========================================================
 
-    _renderTimeline() { this._renderRuler(); this._renderTracks(); this._renderPalette(); this._refreshBlockSelectionUI(); }
+    _renderTimeline() { this._renderRuler(); this._renderTracks(); this._renderMinimap(); this._renderPalette(); this._refreshBlockSelectionUI(); }
+
+    /**
+     * Minimap d'aperçu canvas (compacte) au-dessus du timeline arranger.
+     * Affiche l'arrangement entier dans une bande horizontale :
+     *  - lignes horizontales = tracks
+     *  - rectangles colorés = blocks (couleur famille GM)
+     *  - rectangle viewport = portion actuellement visible dans le
+     *    timeline scrollable
+     *  - click/drag = scroll le timeline principal sur la position
+     */
+    _renderMinimap() {
+        const canvas = this.$('#la-minimap');
+        if (!canvas) return;
+        const wrap = this.$('#la-timeline-wrap');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.clientWidth  || canvas.parentElement?.clientWidth || 600;
+        const H = parseInt(canvas.getAttribute('height')) || 48;
+        if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+            canvas.width  = W * dpr;
+            canvas.height = H * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        ctx.clearRect(0, 0, W, H);
+
+        const totalBars = Math.max(1, this.arrangementBars);
+        const trackCount = Math.max(1, this.tracks?.length || 0);
+        const barW   = W / totalBars;
+        const rowH   = (H - 4) / trackCount;
+        const trackIndexById = new Map((this.tracks || []).map((t, i) => [t.id, i]));
+
+        // Fond + grille très légère toutes les 4 mesures.
+        ctx.fillStyle = 'rgba(0,0,0,0.04)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+        ctx.lineWidth = 1;
+        for (let b = 0; b <= totalBars; b += 4) {
+            const x = b * barW;
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+
+        // Blocks.
+        for (const block of (this.blocks || [])) {
+            const ti = trackIndexById.get(block.track_id);
+            if (ti === undefined) continue;
+            const x = block.position_bar * barW;
+            const w = Math.max(1, block.loop_bars * block.repetitions * barW);
+            const y = 2 + ti * rowH;
+            const h = Math.max(2, rowH - 2);
+            const loop = this.library.find(l => l.id === block.loop_id);
+            const family = LoopUtils.familyForProgram(loop?.instrument_program ?? 0);
+            ctx.fillStyle = family.color;
+            ctx.fillRect(x, y, w, h);
+        }
+
+        // Viewport rectangle : portion visible du timeline scrollable.
+        if (wrap) {
+            const cellsBarW = this._barWidth();
+            const tracksTotalW = cellsBarW * totalBars; // largeur du contenu cells (sans label)
+            if (tracksTotalW > 0) {
+                const scrollL = wrap.scrollLeft;
+                const visibleW = wrap.clientWidth - 120; // soustrait labels sticky
+                const viewStart = Math.max(0, scrollL / cellsBarW);
+                const viewBars  = Math.min(totalBars - viewStart, visibleW / cellsBarW);
+                ctx.strokeStyle = '#f5a623';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(viewStart * barW + 1, 1, Math.max(2, viewBars * barW - 2), H - 2);
+                ctx.fillStyle = 'rgba(245,166,35,0.10)';
+                ctx.fillRect(viewStart * barW + 1, 1, Math.max(2, viewBars * barW - 2), H - 2);
+            }
+        }
+
+        // Wire l'interaction une seule fois.
+        if (!canvas.dataset.lcWired) {
+            canvas.dataset.lcWired = '1';
+            const seek = (clientX) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = clientX - rect.left;
+                const ratio = Math.max(0, Math.min(1, x / rect.width));
+                const targetBar = ratio * this.arrangementBars;
+                const w = this.$('#la-timeline-wrap');
+                if (!w) return;
+                const cellsBarW = this._barWidth();
+                w.scrollLeft = Math.max(0, targetBar * cellsBarW - (w.clientWidth - 120) / 2);
+                this._renderMinimap();
+            };
+            let dragging = false;
+            canvas.addEventListener('mousedown', (e) => { dragging = true; seek(e.clientX); });
+            canvas.addEventListener('mousemove', (e) => { if (dragging) seek(e.clientX); });
+            window.addEventListener('mouseup', () => { dragging = false; });
+            wrap?.addEventListener('scroll', () => this._renderMinimap(), { passive: true });
+            // Re-render à chaque resize de la modale
+            const ro = new ResizeObserver(() => this._renderMinimap());
+            ro.observe(canvas);
+        }
+    }
 
     _renderRuler() {
         const ruler = this.$('#la-ruler');
