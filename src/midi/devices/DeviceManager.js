@@ -627,7 +627,8 @@ class DeviceManager {
     }
 
     try {
-      const sysexData = [
+      // 1) GMB Block 1 Identity Request (custom DIY format)
+      const gmbSysex = [
         0xF0,        // SysEx Start
         0x7D,        // Custom SysEx (Educational/Development)
         0x00,        // GMB Manufacturer ID
@@ -635,9 +636,18 @@ class DeviceManager {
         0x00,        // Request flag (00=request, 01=response)
         0xF7         // SysEx End
       ];
-
-      output.send('sysex', sysexData);
+      output.send('sysex', gmbSysex);
       this.logger.info(`GMB Block 1 Identity Request sent to ${deviceName}`);
+
+      // 2) MIDI Universal Identity Request — recognised by every standard
+      //    keyboard / synth so we can tell real keyboards apart from our
+      //    own DIY devices. Format: F0 7E <id> 06 01 F7 (id 7F = broadcast).
+      const universalSysex = [
+        0xF0, 0x7E, _deviceId & 0x7F, 0x06, 0x01, 0xF7
+      ];
+      output.send('sysex', universalSysex);
+      this.logger.info(`Universal Identity Request sent to ${deviceName}`);
+
       return true;
     } catch (error) {
       this.logger.error(`Failed to send Identity Request: ${error.message}`);
@@ -742,6 +752,22 @@ class DeviceManager {
     this.logger.debug(`Received SysEx message: ${bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' ')}`);
     this.logger.debug(`Length: ${bytes.length}, First: 0x${bytes[0]?.toString(16).toUpperCase()}, Last: 0x${bytes[bytes.length - 1]?.toString(16).toUpperCase()}`);
 
+    // 1) Try the MIDI Universal Identity Reply first
+    //    Format: F0 7E <ch> 06 02 <mfr...> <family lsb> <family msb>
+    //            <model lsb> <model msb> <ver1> <ver2> <ver3> <ver4> F7
+    //    <mfr> is either 1 byte (0x01-0x7F, not 0x00) or a 3-byte extended
+    //    block starting with 0x00 followed by two ID bytes.
+    if (bytes.length >= 15
+        && bytes[0]  === 0xF0
+        && bytes[1]  === 0x7E
+        && bytes[3]  === 0x06
+        && bytes[4]  === 0x02
+        && bytes[bytes.length - 1] === 0xF7) {
+      const universal = this._parseUniversalIdentityReply(bytes);
+      if (universal) return universal;
+    }
+
+    // 2) Fall back to the GMB Block 1 custom format (DIY devices)
     if (bytes.length !== 52) return null;
     if (bytes[0] !== 0xF0) return null;
     if (bytes[1] !== 0x7D) return null;
@@ -799,6 +825,60 @@ class DeviceManager {
       features: `0x${features.toString(16).padStart(8, '0').toUpperCase()}`,
       featuresDecimal: features,
       featureFlags: featureFlags,
+      rawBytes: bytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ')
+    };
+  }
+
+  /**
+   * Decode a MIDI Universal Identity Reply
+   *   F0 7E <ch> 06 02 <mfr...> <fLSB> <fMSB> <mLSB> <mMSB> <v1 v2 v3 v4> F7
+   * <mfr> is one byte unless it starts with 0x00, in which case the next two
+   * bytes complete a 3-byte extended ID (ignored by the lookup table).
+   * Returns null when the payload is not a valid Universal Identity Reply.
+   */
+  _parseUniversalIdentityReply(bytes) {
+    if (bytes.length < 15) return null;
+    let pos = 5;
+    let mfrBytes;
+    if (bytes[pos] === 0x00) {
+      if (bytes.length < 17) return null;
+      mfrBytes = [bytes[pos], bytes[pos + 1], bytes[pos + 2]];
+      pos += 3;
+    } else {
+      mfrBytes = [bytes[pos]];
+      pos += 1;
+    }
+
+    if (bytes.length < pos + 9) return null;
+    const familyLsb = bytes[pos];
+    const familyMsb = bytes[pos + 1];
+    const modelLsb  = bytes[pos + 2];
+    const modelMsb  = bytes[pos + 3];
+    const v1 = bytes[pos + 4];
+    const v2 = bytes[pos + 5];
+    const v3 = bytes[pos + 6];
+    const v4 = bytes[pos + 7];
+
+    const family = (familyMsb << 7) | familyLsb;
+    const model  = (modelMsb  << 7) | modelLsb;
+
+    const mfrId = mfrBytes.length === 1
+      ? mfrBytes[0]
+      : ((mfrBytes[1] << 7) | mfrBytes[2]); // extended IDs are typically rendered as the 14-bit value
+    const mfrIdHex = '0x' + mfrBytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('');
+    const manufacturerName = mfrBytes.length === 1
+      ? this.getManufacturerName(mfrBytes[0])
+      : `Unknown (${mfrIdHex})`;
+
+    return {
+      protocol: 'Universal Identity Reply',
+      manufacturerName,
+      manufacturerId: mfrIdHex,
+      manufacturerIdDecimal: mfrId,
+      family,
+      model,
+      firmwareVersion: `${v1}.${v2}.${v3}.${v4}`,
+      firmware: { v1, v2, v3, v4 },
       rawBytes: bytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ')
     };
   }

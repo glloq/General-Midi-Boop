@@ -2594,6 +2594,7 @@
     "velocityNoNotes": "Aucune note à modifier.",
     "velocityApplied": "Vélocité {velocity} appliquée à {count} note(s).",
     "tabPianoVirtuel": "🎹 Piano virtuel",
-    "tabEditor": "🎼 Éditeur"
+    "tabEditor": "🎼 Éditeur",
+    "minimapInfoAria": "Aperçu des notes (visualisation seule)"
   }
 }

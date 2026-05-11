@@ -51,6 +51,9 @@ class PianoRollEditor {
         // provided, the editor does not render its own minimap canvas in
         // the shell and uses this one instead.
         this.externalMinimapEl = opts.externalMinimapEl || null;
+        // When true, the minimap is purely informative — no scrub on click,
+        // no keyboard navigation, no cursor that suggests interactivity.
+        this.minimapReadOnly = !!opts.minimapReadOnly;
         this.onSequenceChange = opts.onSequenceChange || null;
         this.onPlayheadMove   = opts.onPlayheadMove   || null;
         this.getStatusEl      = opts.getStatusEl      || (() => null);
@@ -510,19 +513,28 @@ class PianoRollEditor {
     _initMinimap() {
         const canvas = this.externalMinimapEl || this.host.querySelector('#pre-minimap');
         if (!canvas || typeof window.LoopCreatorMinimap !== 'function') return;
+        const seekHandler = this.minimapReadOnly ? null : (newOffset) => {
+            if (!this.pianoRoll) return;
+            this.pianoRoll.setAttribute('xoffset', newOffset.toString());
+            this.pianoRoll.redraw?.();
+            this._syncMinimap();
+        };
         this._minimap = new window.LoopCreatorMinimap(canvas, {
             ppq:        this.ppq,
             timeSigNum: this.timeSigNum,
             bars:       this.bars,
             noteMin:    this.noteMin,
             noteMax:    this.noteMax,
-            onSeek: (newOffset) => {
-                if (!this.pianoRoll) return;
-                this.pianoRoll.setAttribute('xoffset', newOffset.toString());
-                this.pianoRoll.redraw?.();
-                this._syncMinimap();
-            }
+            onSeek:     seekHandler
         });
+        if (this.minimapReadOnly) {
+            // Block both pointer and keyboard interaction so the canvas
+            // behaves as a pure visualiser.
+            canvas.style.cursor = 'default';
+            canvas.style.pointerEvents = 'none';
+            canvas.removeAttribute('tabindex');
+            canvas.removeAttribute('role');
+        }
         if (this.pianoRoll) {
             this._minimapObserver = new MutationObserver(() => this._syncMinimap());
             this._minimapObserver.observe(this.pianoRoll, {
