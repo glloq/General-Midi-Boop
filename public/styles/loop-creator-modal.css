@@ -666,6 +666,31 @@ body.dark-mode  .la-playhead {
     to   { transform: scale(1.04); box-shadow: 0 0 0 8px rgba(102, 126, 234, 0);    }
 }
 
+/* Play-mode segmented button group */
+.lm-pad-mode-group {
+    display: inline-flex;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 5px;
+    overflow: hidden;
+}
+.lm-pad-mode-group .lm-pad-mode-btn {
+    border: none;
+    border-right: 1px solid var(--border-color, #ccc);
+    border-radius: 0;
+    background: var(--bg-primary, #fff);
+}
+.lm-pad-mode-group .lm-pad-mode-btn:last-child { border-right: none; }
+.lm-pad-mode-group .lm-pad-mode-btn--active {
+    background: var(--accent-color, #667eea);
+    color: #fff;
+    font-weight: 600;
+}
+body.theme-dark .lm-pad-mode-group .lm-pad-mode-btn,
+body.dark-mode  .lm-pad-mode-group .lm-pad-mode-btn { background: var(--bg-secondary, #14142a); color: #eee; }
+body.theme-dark .lm-pad-mode-group .lm-pad-mode-btn--active,
+body.dark-mode  .lm-pad-mode-group .lm-pad-mode-btn--active { background: var(--accent-color, #667eea); color: #fff; }
+
 /* Row colors (top border) — cycles through 4 accents for visual grouping */
 .lm-pad-grid .lm-pad-cell[data-row="0"],
 .lm-pad-grid .lm-pad-cell[data-row="4"] { border-top: 3px solid #667eea; }
