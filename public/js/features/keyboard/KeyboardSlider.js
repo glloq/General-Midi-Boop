@@ -80,7 +80,12 @@
         const openMidi  = tuning[stringNum - 1] !== undefined ? tuning[stringNum - 1] : 40;
 
         let activeNote = null;
-        let anchorFret = 0;
+        // Bend zero-point in uniform fret space, captured at mousedown.
+        // Distinct from the played note: the row's fret cells are spaced
+        // geometrically (12th-root-of-2) while getPos uses uniform mapping,
+        // so we anchor the bend on the cursor position to keep bend = 0 at
+        // mousedown even if data-fret of the clicked dot doesn't match.
+        let anchorExactFret = 0;
 
         const getPos = (clientX) => {
             const rect = row.getBoundingClientRect();
@@ -98,25 +103,23 @@
             const dotFret = dot && dot.dataset.fret !== undefined
                 ? parseInt(dot.dataset.fret, 10) : NaN;
             const { exactFret, ratio } = getPos(clientX);
-            // Anchor: clicked fret-dot if available (≥1), else x-derived
-            anchorFret = Number.isFinite(dotFret) && dotFret >= 1
+            anchorExactFret = exactFret;
+            // Played note: clicked dot's fret if available, else floor of uniform fret
+            const noteFret = Number.isFinite(dotFret)
                 ? dotFret
                 : Math.floor(exactFret);
-            activeNote = Math.min(127, Math.max(0, openMidi + anchorFret));
+            activeNote = Math.min(127, Math.max(0, openMidi + noteFret));
             this._sendPitchBend(0);
             this.playNote(activeNote);
-            const anchorRatio = Number.isFinite(dotFret) && dotFret >= 1
-                ? (anchorFret / numFrets)
-                : ratio;
-            this._updateStringSlideIndicator(row, anchorRatio);
+            this._updateStringSlideIndicator(row, ratio);
         };
 
         const onMove = (clientX) => {
             if (activeNote === null) return;
             const { exactFret, ratio } = getPos(clientX);
-            // Bend relative to anchor, clamped to ±2 semitones (standard range)
+            // Bend relative to mousedown position, clamped to ±2 semitones
             const bend = Math.max(-4096, Math.min(4096,
-                Math.round((exactFret - anchorFret) * 4096)));
+                Math.round((exactFret - anchorExactFret) * 4096)));
             this._sendPitchBend(bend);
             this._updateStringSlideIndicator(row, ratio);
         };
