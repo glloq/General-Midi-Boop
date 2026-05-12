@@ -1335,12 +1335,6 @@ class LoopEditorModal extends BaseModal {
             onNoteOn:  (note, vel) => this._playNote(note, vel),
             onNoteOff: (note)      => this._stopNote(note),
             onInstrumentSelected: ({ deviceId, channel, gmProgram, instrumentType, isDrum: isDrumFromKbd }) => {
-                // Diagnostic — confirm whether KeyboardModal's callback
-                // fires at all when the user picks an instrument, and
-                // what payload it ships.
-                console.log('[LoopEditor.onInstrumentSelected]', {
-                    deviceId, channel, gmProgram, instrumentType, isDrumFromKbd
-                });
                 // Cancel held preview voices so they don't ring on with the
                 // previous instrument / device after the switch.
                 this._previewStopAll();
@@ -1589,19 +1583,6 @@ class LoopEditorModal extends BaseModal {
             || drumLikeTypes.has(type)
             || ch === 9
             || (gm != null && gm >= 128);
-        // Diagnostic — paste these into the issue thread when the
-        // detection still misclassifies.
-        console.log('[LoopEditor.reconcile]', {
-            viewMode:       kbd.viewMode,
-            instrumentType: type || null,
-            channel:        ch,
-            gmProgram:      gm,
-            detectedDrum:   isDrum,
-            beforeProgram:  this.instrumentProgram,
-            beforeIsDrum:   this._isDrumKit,
-            caps:           caps,
-            selectedDevice: kbd.selectedDevice
-        });
         if (!isDrum) return;
         // The current instrument is a kit. Force the in-memory state to
         // match so `_saveLoop` writes a drum-kit `instrument_program`.
@@ -1614,11 +1595,6 @@ class LoopEditorModal extends BaseModal {
             this.outputGmProgram   = stored;
             this._instrumentSelected = true;
             this._refreshRecButtonEnabled?.();
-            console.log('[LoopEditor.reconcile] forced drum state →', {
-                instrumentProgram: this.instrumentProgram,
-                _isDrumKit:        this._isDrumKit,
-                outputChannel:     this.outputChannel
-            });
         }
     }
 
