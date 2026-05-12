@@ -1008,10 +1008,18 @@ class KeyboardModalNew {
         this.regeneratePianoKeys();
 
         if (this._panelCallbacks?.onInstrumentSelected) {
+            // Pass the detected instrument type alongside the raw routing
+            // info so hosts (LoopEditor) don't have to re-derive isDrum /
+            // isWind from `gmProgram` + `channel` — those two alone miss
+            // drum kits whose device exposes a melodic gm_program on a
+            // non-9 channel.
             this._panelCallbacks.onInstrumentSelected({
                 deviceId: this.selectedDevice?.device_id || this.selectedDevice?.id || null,
                 channel: this.getSelectedChannel(),
-                gmProgram: this.selectedDeviceCapabilities?.gm_program ?? 0
+                gmProgram: this.selectedDeviceCapabilities?.gm_program ?? 0,
+                isDrum: info.isDrum === true,
+                isWind: info.isWind === true,
+                instrumentType: info.instrumentType || null
             });
         }
     }
