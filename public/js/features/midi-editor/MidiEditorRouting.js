@@ -399,8 +399,11 @@
                         <div class="midi-editor-section notes-section">
                             <!-- Navigation Overview Bar (loop mode uses LoopEditor's own minimap instead) -->
                             ${loop ? '' : '<div class="navigation-overview-wrap" id="navigation-overview-container"></div>'}
-                            <!-- Playback Timeline Bar (loop mode lets the outer LoopEditor own transport) -->
-                            ${loop ? '' : '<div class="playback-timeline-wrap" id="playback-timeline-container"></div>'}
+                            <!-- Playback Timeline Bar — kept in loop mode too : it doubles as a
+                                 time ruler / scrub bar above the piano roll, very handy for
+                                 navigating the view. The LoopEditor's own transport buttons
+                                 keep driving play / stop ; this is just a viewport helper. -->
+                            <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
                             <div class="piano-roll-wrapper">
                                 ${loop ? '' : '<!-- Shared PianoRollEditor toolbar (toolbar-only mode) -->\n                                <div id="midi-editor-pre-toolbar"></div>'}
                                 <div class="piano-roll-container" id="piano-roll-container">
