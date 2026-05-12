@@ -227,6 +227,12 @@ class LoopEditorModal extends BaseModal {
                  to the full header height. -->
             <div id="le-instrument-host" class="le-instrument-host"
                  aria-label="${this.t('loopCreator.instrument') || 'Instrument'}"></div>
+            <!-- Host for keyboard-panel controls relocated next to the
+                 instrument selector : note-name notation (US / FR / MIDI)
+                 and the connected-instrument latency display. Moved at
+                 mount time so they're reachable from the Editor tab
+                 too, not just from the Piano tab. -->
+            <div id="le-keyboard-controls-host" class="le-keyboard-controls-host"></div>
             <div class="le-header-meta">
                 <input type="text" class="lc-name-input le-name-input" id="lc-name-input"
                     value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
@@ -1379,6 +1385,11 @@ class LoopEditorModal extends BaseModal {
         // panel's event handlers (which look the element up by ID) keep
         // working without re-wiring.
         this._relocateInstrumentSelectorToHeader(container);
+        // Same trick for two of the keyboard panel's header sub-controls
+        // — note-name notation (US / FR / MIDI) and the latency display —
+        // so the user can read latency / change notation without leaving
+        // the Editor tab.
+        this._relocateKeyboardControlsToHeader(container);
     }
 
     /**
@@ -1399,6 +1410,33 @@ class LoopEditorModal extends BaseModal {
             if (sel) {
                 if (sel.parentElement !== host) host.appendChild(sel);
                 sel.classList.add('le-instrument-relocated');
+                return;
+            }
+            if (attempt < 5) requestAnimationFrame(() => tryMove(attempt + 1));
+        };
+        tryMove();
+    }
+
+    /**
+     * Move the notation (US / FR / MIDI) and latency groups from the
+     * keyboard panel's modal-header into the loop editor's own header.
+     * Each group keeps its IDs so the keyboard panel's event handlers
+     * (looked up via `document.getElementById`) keep working.
+     */
+    _relocateKeyboardControlsToHeader(kbContainer) {
+        const host = this.$('#le-keyboard-controls-host');
+        if (!host) return;
+        const tryMove = (attempt = 0) => {
+            const root = kbContainer || document;
+            const groups = [
+                root.querySelector('.control-group.latency-group'),
+                root.querySelector('.control-group.notation-group')
+            ].filter(Boolean);
+            if (groups.length) {
+                for (const g of groups) {
+                    if (g.parentElement !== host) host.appendChild(g);
+                    g.classList.add('le-kbd-control-relocated');
+                }
                 return;
             }
             if (attempt < 5) requestAnimationFrame(() => tryMove(attempt + 1));
