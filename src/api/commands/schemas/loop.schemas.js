@@ -107,11 +107,17 @@ function validatePpq(v) {
   return null;
 }
 
-/** instrument_program optionnel : entier ∈ [0, 127] ou null. */
+/** instrument_program optionnel : entier ∈ [0, 127] (programme GM mélodique)
+ *  ou ∈ [DRUM_KIT_OFFSET, DRUM_KIT_OFFSET + 127] (kit drum encodé avec
+ *  l'offset documenté dans `shared/instrument-families.json`). On accepte
+ *  ici la borne [0, 255] qui couvre les deux cas — la décode côté player
+ *  est faite par `MidiSynthesizer._decodeKitProgram`.
+ */
+const PROGRAM_MAX_WITH_DRUM_OFFSET = C.PROGRAM_MAX + 128; // 255
 function validateProgram(v, fieldName = 'instrument_program') {
   if (v === undefined || v === null) return null;
-  if (!Number.isInteger(v) || v < C.PROGRAM_MIN || v > C.PROGRAM_MAX) {
-    return `${fieldName} must be an integer between ${C.PROGRAM_MIN} and ${C.PROGRAM_MAX}`;
+  if (!Number.isInteger(v) || v < C.PROGRAM_MIN || v > PROGRAM_MAX_WITH_DRUM_OFFSET) {
+    return `${fieldName} must be an integer between ${C.PROGRAM_MIN} and ${PROGRAM_MAX_WITH_DRUM_OFFSET}`;
   }
   return null;
 }
