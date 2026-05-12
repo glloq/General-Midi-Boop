@@ -1346,6 +1346,7 @@ class LoopEditorModal extends BaseModal {
                 // pas le flag.
                 const isDrum = isDrumFromKbd === true
                     || instrumentType === 'drum'
+                    || instrumentType === 'drums'
                     || channel === 9
                     || (gmProgram != null && gmProgram >= 128);
 

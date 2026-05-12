@@ -700,7 +700,7 @@ class KeyboardModalNew {
                       : (this.selectedDevice && this.selectedDevice.channel !== undefined
                             ? this.selectedDevice.channel : null);
         const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
-        const isDrum = type === 'drum' || channel === 9 || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
+        const isDrum = type === 'drum' || type === 'drums' || channel === 9 || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
         // String: explicit "string" type, an active stringInstrumentConfig, or
         // a GM program in the guitar/bass/orchestral/ethnic-strings ranges.
         const stringByGm = !isDrum
