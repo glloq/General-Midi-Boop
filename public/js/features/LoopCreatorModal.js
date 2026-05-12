@@ -209,7 +209,7 @@ class LoopManagerModal extends BaseModal {
 
     _renderKeyboardTab() {
         return `
-        <div class="lc-pane lc-pane--hidden lm-kbd-pane" id="lc-pane-keyboard" role="tabpanel" aria-labelledby="lc-tab-keyboard">
+        <div class="lc-pane${this.activeTab==='keyboard' ? '' : ' lc-pane--hidden'} lm-kbd-pane" id="lc-pane-keyboard" role="tabpanel" aria-labelledby="lc-tab-keyboard">
             <div class="lm-kbd-panel" id="lm-kbd-panel"></div>
         </div>`;
     }
@@ -266,7 +266,7 @@ class LoopManagerModal extends BaseModal {
                 title="${this.t('loopManager.' + labelKey)}"
                 aria-pressed="${this._padQuantize === val}">${this.t('loopManager.' + labelKey)}</button>`;
         return `
-        <div class="lc-pane lc-pane--hidden" id="lc-pane-pad" role="tabpanel" aria-labelledby="lc-tab-pad">
+        <div class="lc-pane${this.activeTab==='pad' ? '' : ' lc-pane--hidden'}" id="lc-pane-pad" role="tabpanel" aria-labelledby="lc-tab-pad">
             <div class="lc-ctrl-bar lc-ctrl-bar--pad">
                 <label class="lc-label" for="lm-pad-cols">${this.t('loopManager.padCols')}</label>
                 <div class="lc-spinbox">
@@ -311,7 +311,7 @@ class LoopManagerModal extends BaseModal {
 
     _renderLiveTab() {
         return `
-        <div class="lc-pane lc-pane--hidden" id="lc-pane-live" role="tabpanel" aria-labelledby="lc-tab-live">
+        <div class="lc-pane${this.activeTab==='live' ? '' : ' lc-pane--hidden'}" id="lc-pane-live" role="tabpanel" aria-labelledby="lc-tab-live">
             <div class="lc-ctrl-bar">
                 <input type="text" id="lm-live-search" class="lc-name-input lm-lib-search"
                     placeholder="${this.t('loopManager.search')}" value="${this.escape(this._liveSearch || '')}" autocomplete="off" />
@@ -333,7 +333,7 @@ class LoopManagerModal extends BaseModal {
         const mod = LoopUtils.modKeyLabel();
         const sft = LoopUtils.shiftKeyLabel();
         return `
-        <div class="lc-pane lc-pane--hidden" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
+        <div class="lc-pane${this.activeTab==='arranger' ? '' : ' lc-pane--hidden'}" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
             <div class="lc-ctrl-bar lc-ctrl-bar--arr">
                 <!-- Groupe 1 — Identité de l'arrangement -->
                 <input type="text" class="lc-name-input la-toolbar-name" id="la-name-input"
