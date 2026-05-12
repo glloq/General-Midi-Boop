@@ -18,6 +18,15 @@ function sanitizeLabel(raw) {
   return String(raw).replace(/[<>"'&]/g, '').trim().slice(0, 128);
 }
 
+// Accept either the literal 'default' (built-in soundfont) or a positive
+// integer DB id. Numeric ids are returned as Number; 'default' is returned
+// as the string for SF2PresetService to dispatch on.
+function parseSF2Id(raw) {
+  if (raw === 'default') return 'default';
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 // Safely project only public fields from a DB row.
 function publicRow(r) {
   return {
@@ -42,7 +51,10 @@ export function createSF2Router(app) {
   router.get('/', (_req, res) => {
     try {
       const rows = app.sf2PresetService.listAll();
-      res.json({ banks: rows.map(publicRow) });
+      res.json({
+        defaultPresent: app.sf2PresetService.hasDefaultSF2(),
+        banks: rows.map(publicRow),
+      });
     } catch (err) {
       app.logger.error(`GET /api/sf2 failed: ${err.message}`);
       res.status(500).json({ error: 'Internal server error.' });
@@ -81,6 +93,9 @@ export function createSF2Router(app) {
   // ── Delete ───────────────────────────────────────────────────────────────
   router.delete('/:id', (req, res) => {
     try {
+      if (req.params.id === 'default') {
+        return res.status(403).json({ error: 'Cannot delete the built-in default soundfont.' });
+      }
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return res.status(400).json({ error: 'Invalid id' });
@@ -99,6 +114,9 @@ export function createSF2Router(app) {
   // L-3: explicit JSON body parser on this route
   router.patch('/:id', expressJson({ limit: '4kb' }), (req, res) => {
     try {
+      if (req.params.id === 'default') {
+        return res.status(403).json({ error: 'Cannot modify the built-in default soundfont.' });
+      }
       const id = Number(req.params.id);
       if (!Number.isFinite(id) || id <= 0) {
         return res.status(400).json({ error: 'Invalid id' });
@@ -127,9 +145,9 @@ export function createSF2Router(app) {
   // ── Melodic preset ────────────────────────────────────────────────────────
   router.get('/:id/preset/melodic/:program', async (req, res) => {
     try {
-      const id      = Number(req.params.id);
+      const id      = parseSF2Id(req.params.id);
       const program = Number(req.params.program);
-      if (!Number.isFinite(id) || id <= 0 || !Number.isFinite(program) || program < 0 || program > 127) {
+      if (id === null || !Number.isFinite(program) || program < 0 || program > 127) {
         return res.status(400).json({ error: 'Invalid id or program' });
       }
       const preset = await app.sf2PresetService.getPreset(id, 'melodic', program, 0, 0);
@@ -144,10 +162,10 @@ export function createSF2Router(app) {
   // ── Drum preset ───────────────────────────────────────────────────────────
   router.get('/:id/preset/drum/:kit/:note', async (req, res) => {
     try {
-      const id   = Number(req.params.id);
+      const id   = parseSF2Id(req.params.id);
       const kit  = Number(req.params.kit);
       const note = Number(req.params.note);
-      if (!Number.isFinite(id) || id <= 0
+      if (id === null
           || !Number.isFinite(kit)  || kit  < 0 || kit  > 127
           || !Number.isFinite(note) || note < 0 || note > 127) {
         return res.status(400).json({ error: 'Invalid id, kit, or note' });

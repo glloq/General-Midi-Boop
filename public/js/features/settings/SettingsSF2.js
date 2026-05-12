@@ -30,7 +30,19 @@
         try {
             const res = await fetch('/api/sf2');
             if (!res.ok) return;
-            const { banks } = await res.json();
+            const payload = await res.json();
+            const banks = payload.banks || [];
+
+            // Surface a toast when the built-in default soundfont is missing
+            // from the server (postinstall hasn't run). Without this the
+            // synth would silently produce no sound and the user wouldn't
+            // know why. MidiSynthesizer.notifyDefaultSf2Missing dedupes so
+            // multiple loadCustomBanks calls don't stack toasts.
+            if (payload.defaultPresent === false
+                && typeof MidiSynthesizer !== 'undefined'
+                && typeof MidiSynthesizer.notifyDefaultSf2Missing === 'function') {
+                MidiSynthesizer.notifyDefaultSf2Missing();
+            }
 
             // Register banks in the constants module so MidiSynthesizer can find them
             if (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.setCustomBanks) {
@@ -64,7 +76,8 @@
         const banks = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
             ? MidiSynthesizer.getAvailableBanks()
             : [];
-        const currentVal = select.value || (this.settings && this.settings.soundBank) || 'FluidR3_GM';
+        const defaultId = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.DEFAULT_BANK_ID) || 'sf2:default';
+        const currentVal = select.value || (this.settings && this.settings.soundBank) || defaultId;
         const i18n = window.i18n || { t: k => k };
 
         select.innerHTML = banks.map(function (bank) {
@@ -205,11 +218,12 @@
             // Switch away from the deleted bank if it is currently selected
             const savedBank = 'sf2:' + sf2Id;
             if (this.settings && this.settings.soundBank === savedBank) {
-                this.settings.soundBank = 'FluidR3_GM';
+                const fallbackId = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.DEFAULT_BANK_ID) || 'sf2:default';
+                this.settings.soundBank = fallbackId;
                 try { localStorage.setItem('gmboop_settings', JSON.stringify(this.settings)); } catch (e) {}
                 if (typeof MidiSynthesizer !== 'undefined') {
                     for (const inst of MidiSynthesizer._instances) {
-                        try { inst.setSoundBank('FluidR3_GM'); } catch (e) {}
+                        try { inst.setSoundBank(fallbackId); } catch (e) {}
                     }
                 }
             }
@@ -218,6 +232,58 @@
             alert('Erreur réseau : ' + e.message);
         }
     };
+
+    /**
+     * Lightweight boot-time check: hit GET /api/sf2 once, register custom
+     * banks (so MidiSynthesizer can resolve them on first construction)
+     * and surface the "default soundfont missing" toast if needed. Runs
+     * outside of the SettingsModal lifecycle so the user gets feedback
+     * even if they never open the settings panel.
+     *
+     * No DOM mutations here — _rebuildBankDropdown / _renderSF2List are
+     * skipped because the modal may not be in the DOM yet.
+     */
+    SettingsSF2.bootSync = async function () {
+        if (SettingsSF2._bootDone) return;
+        SettingsSF2._bootDone = true;
+        try {
+            const res = await fetch('/api/sf2');
+            if (!res.ok) return;
+            const payload = await res.json();
+            const banks = payload.banks || [];
+            if (window.MidiSynthesizerConstants
+                && typeof window.MidiSynthesizerConstants.setCustomBanks === 'function') {
+                window.MidiSynthesizerConstants.setCustomBanks(banks);
+            }
+            // Re-apply saved sf2: bank now that the custom registry is hot.
+            const saved = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getSavedBank
+                ? MidiSynthesizer.getSavedBank()
+                : null;
+            if (saved && saved.startsWith('sf2:') && typeof MidiSynthesizer !== 'undefined') {
+                for (const inst of MidiSynthesizer._instances) {
+                    try { inst.setSoundBank(saved); } catch (e) { /* ignore */ }
+                }
+            }
+            if (payload.defaultPresent === false
+                && typeof MidiSynthesizer !== 'undefined'
+                && typeof MidiSynthesizer.notifyDefaultSf2Missing === 'function') {
+                MidiSynthesizer.notifyDefaultSf2Missing();
+            }
+        } catch (e) {
+            // Non-fatal: SF2 backend may not be reachable yet on cold boot.
+        }
+    };
+
+    // Auto-run on DOM ready so the user gets default-missing feedback
+    // without having to open the Settings panel.
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => SettingsSF2.bootSync(), { once: true });
+        } else {
+            // Defer to next tick so MidiSynthesizer / toast helpers finish loading.
+            setTimeout(() => SettingsSF2.bootSync(), 0);
+        }
+    }
 
     window.SettingsSF2 = SettingsSF2;
 })();

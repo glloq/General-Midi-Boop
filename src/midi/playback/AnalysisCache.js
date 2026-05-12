@@ -158,6 +158,70 @@ class AnalysisCache {
   /** Backwards-compat: TTL-based cleanup is a no-op in v6. */
   cleanup() {}
 
+  // ── Generic raw-key API ────────────────────────────────────────────────────
+  //
+  // Used by SF2PresetService (and any future consumer whose keys are not a
+  // (fileId, channel) pair). Kept additive so the typed API above keeps
+  // working unchanged for AutoAssigner.
+
+  /**
+   * Fetch by arbitrary string key. Refreshes LRU access order on hit.
+   * @param {string} key
+   * @returns {*} cached value or `null`
+   */
+  getRaw(key) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    this._touch(key);
+    return entry.data;
+  }
+
+  /**
+   * Insert by arbitrary string key. Callers that already know the byte cost
+   * (e.g. large pre-decoded buffers where `JSON.stringify` would itself
+   * dominate the budget) can pass `explicitBytes` to skip the heuristic.
+   * @param {string} key
+   * @param {*} data
+   * @param {number} [explicitBytes] - non-negative byte estimate
+   */
+  setRaw(key, data, explicitBytes) {
+    if (this.cache.has(key)) {
+      this.totalBytes -= this.cache.get(key).bytes;
+      this._removeFromAccessOrder(key);
+    }
+    const bytes = (typeof explicitBytes === 'number' && explicitBytes >= 0)
+      ? explicitBytes
+      : this._estimateBytes(data);
+    this.cache.set(key, { data, bytes });
+    this.accessOrder.push(key);
+    this.totalBytes += bytes;
+
+    while (
+      (this.cache.size > this.maxSize || this.totalBytes > this.maxBytes) &&
+      this.accessOrder.length > 0
+    ) {
+      this._evictOldest();
+    }
+  }
+
+  /**
+   * Drop every entry whose key starts with `prefix`. Same byte/order
+   * bookkeeping as `invalidateFile` but driven by a free-form prefix.
+   * @param {string} prefix
+   */
+  invalidatePrefix(prefix) {
+    const toDelete = [];
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) toDelete.push(key);
+    }
+    for (const key of toDelete) {
+      const entry = this.cache.get(key);
+      if (entry) this.totalBytes -= entry.bytes;
+      this.cache.delete(key);
+      this._removeFromAccessOrder(key);
+    }
+  }
+
   getStats() {
     return {
       size: this.cache.size,

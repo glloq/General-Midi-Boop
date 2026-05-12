@@ -25,7 +25,9 @@
     "pm2:restart": "pm2 restart gmboop",
     "pm2:logs": "pm2 logs gmboop",
     "pm2:status": "pm2 status",
-    "prepare": "node .husky/install.mjs"
+    "prepare": "node .husky/install.mjs",
+    "install-default-sf2": "node scripts/install-default-sf2.js",
+    "postinstall": "node scripts/install-default-sf2.js"
   },
   "keywords": [
     "midi",

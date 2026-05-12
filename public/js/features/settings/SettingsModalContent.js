@@ -208,13 +208,7 @@
                             ${(typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
                                 ? MidiSynthesizer.getAvailableBanks()
                                 : [
-                                    { id: 'FluidR3_GM', label: 'FluidR3 GM', quality: 'high', sizeMB: 141 },
-                                    { id: 'GeneralUserGS', label: 'GeneralUser GS', quality: 'high', sizeMB: 30 },
-                                    { id: 'JCLive', label: 'JCLive', quality: 'medium', sizeMB: 26 },
-                                    { id: 'Aspirin', label: 'Aspirin', quality: 'medium', sizeMB: 17 },
-                                    { id: 'SBLive', label: 'Sound Blaster Live', quality: 'medium', sizeMB: 12 },
-                                    { id: 'Chaos', label: 'Chaos', quality: 'low', sizeMB: 8 },
-                                    { id: 'SoundBlasterOld', label: 'Sound Blaster Old', quality: 'low', sizeMB: 5 },
+                                    { id: 'sf2:default', label: 'GeneralUser GS (built-in)', quality: 'high', sizeMB: 30 },
                                 ]
                             ).map(bank => {
                                 const qualityLabel = i18n.t('settings.soundBank.quality.' + (bank.quality || 'medium')) || bank.quality || '';

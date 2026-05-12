@@ -60,7 +60,7 @@ class SettingsModal {
             midiClockEnabled: false,
             serialMidiEnabled: false,
             showLoadingAnimation: true,
-            soundBank: 'FluidR3_GM',
+            soundBank: (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.DEFAULT_BANK_ID) || 'sf2:default',
             startupUpdateCheck: true,
             startupBetaNotif: false
         };

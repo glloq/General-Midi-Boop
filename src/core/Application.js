@@ -226,7 +226,13 @@ class Application {
       // at construction time (the facade Proxy evaluates eagerly on assignment).
       const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
       this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
-      this._registerService('sf2PresetService', new SF2PresetService({ dataDir, database: this.database, logger: this.logger }));
+      this._registerService('sf2PresetService', new SF2PresetService({
+        dataDir,
+        database: this.database,
+        logger: this.logger,
+        cacheMaxBytes:   this.config.get('sf2.cacheMaxBytes',   128 * 1024 * 1024),
+        cacheMaxEntries: this.config.get('sf2.cacheMaxEntries', 256),
+      }));
 
       // Initialize MIDI components.
       //

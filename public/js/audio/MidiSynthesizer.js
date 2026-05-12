@@ -29,6 +29,52 @@ class MidiSynthesizer {
         }
     }
 
+    /**
+     * Surface a non-blocking toast when the saved sound bank is no longer
+     * available (typical case: stale WAF id from before the offline-first
+     * default landed). Uses the existing HandPositionWarningsToast helper
+     * so we don't ship a second toast widget. Falls back to console.warn
+     * when the toast helper hasn't been loaded yet (very early boot).
+     *
+     * @param {string} from - The saved id that could not be resolved.
+     * @param {string} to   - The id we actually fell back to.
+     */
+    static _notifyBankFallback(from, to) {
+        const msg = `Banque son « ${from} » indisponible (mode hors-ligne). Repli sur « ${to} ».`;
+        const toast = window.HandPositionWarningsToast;
+        if (toast && typeof toast.show === 'function') {
+            try { toast.show(msg); return; } catch (e) { /* fall through */ }
+        }
+        // The toast module loads lazily; retry once it's there.
+        const started = Date.now();
+        const iv = setInterval(() => {
+            const t = window.HandPositionWarningsToast;
+            if (t && typeof t.show === 'function') {
+                try { t.show(msg); } catch (e) { /* ignore */ }
+                clearInterval(iv);
+            } else if (Date.now() - started > 5000) {
+                clearInterval(iv);
+                (window.logger || console).warn('[MidiSynthesizer]', msg);
+            }
+        }, 200);
+    }
+
+    /**
+     * Surface a toast when the backend reports that the built-in default
+     * soundfont (assets/sf2/default.sf2) is missing. Called by
+     * SettingsSF2.loadCustomBanks after GET /api/sf2.
+     */
+    static notifyDefaultSf2Missing() {
+        if (MidiSynthesizer._defaultSf2MissingToastShown) return;
+        MidiSynthesizer._defaultSf2MissingToastShown = true;
+        const msg = 'Banque son par défaut absente sur le serveur. Lance `npm run install-default-sf2` ou place un fichier dans assets/sf2/default.sf2 pour activer le son.';
+        const toast = window.HandPositionWarningsToast;
+        if (toast && typeof toast.show === 'function') {
+            try { toast.show(msg); return; } catch (e) { /* fall through */ }
+        }
+        (window.logger || console).warn('[MidiSynthesizer]', msg);
+    }
+
     constructor() {
         this.audioContext = null;
         this.player = null;
@@ -86,9 +132,26 @@ class MidiSynthesizer {
         this.currentBankSuffix = bankInfo ? bankInfo.suffix : DEFAULT_BANK_SUFFIX;
         this._pendingBankSwitch = null;
 
+        // One-shot notice when a stale saved bank silently falls back to
+        // the default — e.g. a legacy WAF id like 'FluidR3_GM' after the
+        // CDN was opted out (see DEFAULT_BANK_ID gating). Skipped for
+        // `sf2:*` saved banks: custom SF2 banks load lazily via
+        // SettingsSF2.loadCustomBanks and would otherwise produce a false
+        // positive on every page load.
+        if (savedBank && savedBank !== this.currentBankId
+            && !savedBank.startsWith('sf2:')
+            && !MidiSynthesizer._fallbackToastShown) {
+            MidiSynthesizer._fallbackToastShown = true;
+            MidiSynthesizer._notifyBankFallback(savedBank, this.currentBankId);
+        }
+
         // General MIDI to WebAudioFont mapping
-        // Format: [file, variable] for each GM program (0-127)
-        this.gmInstrumentMap = this.createGMInstrumentMap(this.currentBankSuffix);
+        // Format: [file, variable] for each GM program (0-127).
+        // For SF2 banks (default + custom) the map is a placeholder — actual
+        // samples are fetched via /api/sf2/... in _loadSF2MelodicPreset.
+        this.gmInstrumentMap = this.currentBankId.startsWith('sf2:')
+            ? Array.from({ length: 128 }, () => ({ url: null, variable: null }))
+            : this.createGMInstrumentMap(this.currentBankSuffix);
 
         // Drums (channel 9) — per-(kit, note) presets from FluidR3_GM, which
         // ships every GM drum kit (Standard, Room, Power, Electronic, TR-808,
@@ -150,6 +213,11 @@ class MidiSynthesizer {
      *   - Legacy:   _drum_{note}_{bankIndex}_{suffix}    (e.g. _drum_36_0_FluidR3_GM_sf2_file)
      *   - Standard: _tone_128{note}_{bankIndex}_{suffix} (e.g. _tone_12836_0_FluidR3_GM_sf2_file)
      * Both are tried; `altVariable` holds the standard WAF form.
+     *
+     * NOTE: Only reachable when the user has explicitly opted into the
+     * external WAF CDN (legacy banks). The default `sf2:default` bank and
+     * every custom SF2 bank short-circuit this branch via
+     * `_loadSF2DrumPreset` — see `_loadDrumPreset`.
      *
      * @param {string} suffix    - Bank suffix (e.g. 'FluidR3_GM_sf2_file')
      * @param {number} bankIndex - WAF bank index for this kit in the font
@@ -257,8 +325,9 @@ class MidiSynthesizer {
         this._clearDrumCache();
         this.currentBankId = bank.id;
         this.currentBankSuffix = bank.suffix;
-        if (bank.isCustom) {
-            // SF2: melodic map is a placeholder — actual loading is done lazily via HTTP
+        if (bank.id.startsWith('sf2:')) {
+            // SF2 (built-in default or custom): melodic map is a placeholder
+            // — actual loading is done lazily via HTTP in _loadSF2MelodicPreset.
             this.gmInstrumentMap = Array.from({ length: 128 }, () => ({ url: null, variable: null }));
         } else {
             this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
@@ -424,30 +493,12 @@ class MidiSynthesizer {
             script.onerror = () => {
                 if (this._isDisposed) { resolve(null); return; }
                 this.loadingInstruments.delete(program);
-                // Fallback to FluidR3_GM if the current bank doesn't have this instrument
-                if (this.currentBankId !== DEFAULT_BANK_ID) {
-                    this.log('warn', `Bank ${this.currentBankId} missing program ${program}, falling back to ${DEFAULT_BANK_ID}`);
-                    const num = String(program * 10).padStart(4, '0');
-                    const fallbackFile = `${num}_${DEFAULT_BANK_SUFFIX}`;
-                    const fallbackScript = document.createElement('script');
-                    fallbackScript.src = `https://surikov.github.io/webaudiofontdata/sound/${fallbackFile}.js`;
-                    this._injectedScripts.add(fallbackScript);
-                    fallbackScript.onload = () => {
-                        if (this._isDisposed) { resolve(null); return; }
-                        const fallbackInstrument = window[`_tone_${fallbackFile}`];
-                        if (fallbackInstrument) {
-                            this.player.adjustPreset(this.audioContext, fallbackInstrument);
-                            this.loadedInstruments.set(program, fallbackInstrument);
-                            resolve(fallbackInstrument);
-                        } else {
-                            reject(new Error(`Fallback instrument variable _tone_${fallbackFile} not found`));
-                        }
-                    };
-                    fallbackScript.onerror = () => reject(new Error(`Failed to load fallback for program ${program}`));
-                    document.head.appendChild(fallbackScript);
-                } else {
-                    reject(new Error(`Failed to load ${instrumentInfo.url}`));
-                }
+                // No WAF-CDN fallback here: the default bank is the local SF2,
+                // and `_loadSF2MelodicPreset` is used for everything `sf2:`.
+                // We only reach this branch when the user has explicitly
+                // opted into the external WAF CDN (legacy banks), in which
+                // case the requested file is genuinely missing on the CDN.
+                reject(new Error(`Failed to load ${instrumentInfo.url}`));
             };
             document.head.appendChild(script);
         });

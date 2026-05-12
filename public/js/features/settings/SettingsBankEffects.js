@@ -66,9 +66,11 @@
 
     function _currentBankId(self) {
         const select = self.modal && self.modal.querySelector('#soundBankSelect');
+        const fallback = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.DEFAULT_BANK_ID)
+            || 'sf2:default';
         return (select && select.value)
             || self.settings.soundBank
-            || 'FluidR3_GM';
+            || fallback;
     }
 
     /**

@@ -655,7 +655,12 @@ class InstrumentSettingsModal extends BaseModal {
     _getCurrentBankLabel() {
         try {
             const savedId = MidiSynthesizer.getSavedBank ? MidiSynthesizer.getSavedBank() : null;
-            const banks = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.SOUND_BANKS) || [];
+            // Use getAvailableBanks() (built-in default + custom SF2 + opt-in
+            // WAF) — SOUND_BANKS is now scoped to the built-in default only,
+            // so custom labels would never resolve through it.
+            const banks = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.getAvailableBanks)
+                ? window.MidiSynthesizerConstants.getAvailableBanks()
+                : [];
             const bank = banks.find(b => b.id === savedId);
             return bank ? (bank.label || bank.id) : (savedId || '');
         } catch (e) { return ''; }
