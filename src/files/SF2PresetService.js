@@ -11,11 +11,20 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import zlib from 'zlib';
 import { convertPreset } from './SF2Converter.js';
 
 // M-1: maximum decompressed preset JSON (64 MB)
 const MAX_INFLATE_BYTES = 64 * 1024 * 1024;
+
+// Virtual ID for the built-in default soundfont served from `assets/sf2/`.
+// Keeps the project fully offline: see assets/sf2/README.md for provenance.
+const DEFAULT_SF2_ID = 'default';
+
+// Resolved at import time so the absolute path stays stable across cwd changes.
+const __filename = fileURLToPath(import.meta.url);
+const DEFAULT_SF2_PATH = path.resolve(path.dirname(__filename), '../../assets/sf2/default.sf2');
 
 export class SF2PresetService {
   /**
@@ -47,35 +56,31 @@ export class SF2PresetService {
     // 1. Memory cache — M-2: only non-null values are stored here
     if (this._mem.has(key)) return this._mem.get(key);
 
-    // 2. DB cache
-    const compressed = this.db.customSF2DB.getCachedPreset(sf2Id, type, program, kit, note);
-    if (compressed) {
-      try {
-        const inflated = zlib.inflateSync(compressed);
-        // M-1: guard against decompression bombs
-        if (inflated.length > MAX_INFLATE_BYTES) {
-          throw new Error('Cached preset exceeds size limit');
+    // 2. DB cache (skipped for the built-in default — see resolveSF2Path)
+    const isDefault = sf2Id === DEFAULT_SF2_ID;
+    if (!isDefault) {
+      const compressed = this.db.customSF2DB.getCachedPreset(sf2Id, type, program, kit, note);
+      if (compressed) {
+        try {
+          const inflated = zlib.inflateSync(compressed);
+          // M-1: guard against decompression bombs
+          if (inflated.length > MAX_INFLATE_BYTES) {
+            throw new Error('Cached preset exceeds size limit');
+          }
+          const preset = JSON.parse(inflated.toString());
+          this._mem.set(key, preset);
+          return preset;
+        } catch (e) {
+          this.logger.warn(`SF2PresetService: corrupt/oversized cache entry ${key}, rebuilding`);
         }
-        const preset = JSON.parse(inflated.toString());
-        this._mem.set(key, preset);
-        return preset;
-      } catch (e) {
-        this.logger.warn(`SF2PresetService: corrupt/oversized cache entry ${key}, rebuilding`);
       }
     }
 
-    // 3. Parse SF2 from disk
-    const row = this.db.customSF2DB.getById(sf2Id);
-    if (!row) return null;
-
-    // H-4: validate blob_path stays inside sf2Dir (path traversal guard)
-    const sf2Path = path.join(this.sf2Dir, row.blob_path);
-    if (!sf2Path.startsWith(this.sf2Dir + path.sep)) {
-      this.logger.error(`SF2PresetService: blob_path escape detected for id ${sf2Id}`);
-      return null;
-    }
+    // 3. Resolve SF2 file path (built-in default or DB-registered upload)
+    const sf2Path = this._resolveSF2Path(sf2Id);
+    if (!sf2Path) return null;
     if (!fs.existsSync(sf2Path)) {
-      this.logger.error(`SF2PresetService: file not found for id ${sf2Id}`);
+      this.logger.error(`SF2PresetService: file not found for id ${sf2Id} at ${sf2Path}`);
       return null;
     }
 
@@ -84,8 +89,12 @@ export class SF2PresetService {
       const buf = fs.readFileSync(sf2Path);
 
       if (type === 'drum') {
-        // Try GM drum bank (128) first, fall back to bank 0
+        // Try GM drum bank (128) first, fall back to bank 0.
+        // If the requested kit is absent, fall back to Standard Kit (0).
         preset = convertPreset(buf, 128, kit) || convertPreset(buf, 0, kit);
+        if (!preset && kit !== 0) {
+          preset = convertPreset(buf, 128, 0) || convertPreset(buf, 0, 0);
+        }
         if (preset) {
           // Filter to zones covering this specific note
           const filtered = preset.zones.filter(
@@ -102,19 +111,55 @@ export class SF2PresetService {
     }
 
     // M-2: only cache successful results; null is returned without being stored
-    // so subsequent requests will re-attempt the disk parse (avoids null-poisoning)
+    // so subsequent requests will re-attempt the disk parse (avoids null-poisoning).
+    // The built-in default skips the DB cache (no DB row to cascade-delete on).
     if (preset) {
       this._mem.set(key, preset);
-      try {
-        const json = JSON.stringify(preset);
-        const buf  = zlib.deflateSync(Buffer.from(json));
-        this.db.customSF2DB.setCachedPreset(sf2Id, type, program, kit, note, buf);
-      } catch (e) {
-        this.logger.warn(`SF2PresetService: could not store cache for ${key}: ${e.message}`);
+      if (!isDefault) {
+        try {
+          const json = JSON.stringify(preset);
+          const buf  = zlib.deflateSync(Buffer.from(json));
+          this.db.customSF2DB.setCachedPreset(sf2Id, type, program, kit, note, buf);
+        } catch (e) {
+          this.logger.warn(`SF2PresetService: could not store cache for ${key}: ${e.message}`);
+        }
       }
     }
 
     return preset;
+  }
+
+  /**
+   * Resolve a public SF2 id to an absolute on-disk path. Accepts the special
+   * 'default' id (built-in bundled SF2) or a numeric DB id.
+   * Returns null when the id is unknown or the path would escape sf2Dir.
+   * @param {string|number} sf2Id
+   * @returns {string|null}
+   * @private
+   */
+  _resolveSF2Path(sf2Id) {
+    if (sf2Id === DEFAULT_SF2_ID) {
+      return DEFAULT_SF2_PATH;
+    }
+    const row = this.db.customSF2DB.getById(sf2Id);
+    if (!row) return null;
+    const p = path.join(this.sf2Dir, row.blob_path);
+    // H-4: path traversal guard
+    if (!p.startsWith(this.sf2Dir + path.sep)) {
+      this.logger.error(`SF2PresetService: blob_path escape detected for id ${sf2Id}`);
+      return null;
+    }
+    return p;
+  }
+
+  /**
+   * Is the built-in default SF2 file present on disk?
+   * Used by the boot banner / health endpoint to warn when the postinstall
+   * script hasn't run yet.
+   * @returns {boolean}
+   */
+  hasDefaultSF2() {
+    try { return fs.existsSync(DEFAULT_SF2_PATH); } catch { return false; }
   }
 
   /**

@@ -5932,8 +5932,10 @@
     <!-- Tempo Editor Component -->
     <script src="js/features/TempoEditor.js"></script>
 
-    <!-- WebAudioFont Library (SoundFont player) -->
-    <script src="https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js"></script>
+    <!-- WebAudioFont Library (SoundFont player). Vendored locally by
+         scripts/install-default-sf2.js so the synth works fully offline.
+         Run `npm run install-default-sf2` if this 404s. -->
+    <script src="lib/WebAudioFontPlayer.js"></script>
 
     <!-- MIDI Synthesizer (WebAudioFont-based) -->
     <script src="js/audio/MidiSynthesizerConstants.js"></script>

@@ -87,8 +87,12 @@ class MidiSynthesizer {
         this._pendingBankSwitch = null;
 
         // General MIDI to WebAudioFont mapping
-        // Format: [file, variable] for each GM program (0-127)
-        this.gmInstrumentMap = this.createGMInstrumentMap(this.currentBankSuffix);
+        // Format: [file, variable] for each GM program (0-127).
+        // For SF2 banks (default + custom) the map is a placeholder — actual
+        // samples are fetched via /api/sf2/... in _loadSF2MelodicPreset.
+        this.gmInstrumentMap = this.currentBankId.startsWith('sf2:')
+            ? Array.from({ length: 128 }, () => ({ url: null, variable: null }))
+            : this.createGMInstrumentMap(this.currentBankSuffix);
 
         // Drums (channel 9) — per-(kit, note) presets from FluidR3_GM, which
         // ships every GM drum kit (Standard, Room, Power, Electronic, TR-808,
@@ -150,6 +154,11 @@ class MidiSynthesizer {
      *   - Legacy:   _drum_{note}_{bankIndex}_{suffix}    (e.g. _drum_36_0_FluidR3_GM_sf2_file)
      *   - Standard: _tone_128{note}_{bankIndex}_{suffix} (e.g. _tone_12836_0_FluidR3_GM_sf2_file)
      * Both are tried; `altVariable` holds the standard WAF form.
+     *
+     * NOTE: Only reachable when the user has explicitly opted into the
+     * external WAF CDN (legacy banks). The default `sf2:default` bank and
+     * every custom SF2 bank short-circuit this branch via
+     * `_loadSF2DrumPreset` — see `_loadDrumPreset`.
      *
      * @param {string} suffix    - Bank suffix (e.g. 'FluidR3_GM_sf2_file')
      * @param {number} bankIndex - WAF bank index for this kit in the font
@@ -257,8 +266,9 @@ class MidiSynthesizer {
         this._clearDrumCache();
         this.currentBankId = bank.id;
         this.currentBankSuffix = bank.suffix;
-        if (bank.isCustom) {
-            // SF2: melodic map is a placeholder — actual loading is done lazily via HTTP
+        if (bank.id.startsWith('sf2:')) {
+            // SF2 (built-in default or custom): melodic map is a placeholder
+            // — actual loading is done lazily via HTTP in _loadSF2MelodicPreset.
             this.gmInstrumentMap = Array.from({ length: 128 }, () => ({ url: null, variable: null }));
         } else {
             this.gmInstrumentMap = this.createGMInstrumentMap(bank.suffix);
@@ -424,30 +434,12 @@ class MidiSynthesizer {
             script.onerror = () => {
                 if (this._isDisposed) { resolve(null); return; }
                 this.loadingInstruments.delete(program);
-                // Fallback to FluidR3_GM if the current bank doesn't have this instrument
-                if (this.currentBankId !== DEFAULT_BANK_ID) {
-                    this.log('warn', `Bank ${this.currentBankId} missing program ${program}, falling back to ${DEFAULT_BANK_ID}`);
-                    const num = String(program * 10).padStart(4, '0');
-                    const fallbackFile = `${num}_${DEFAULT_BANK_SUFFIX}`;
-                    const fallbackScript = document.createElement('script');
-                    fallbackScript.src = `https://surikov.github.io/webaudiofontdata/sound/${fallbackFile}.js`;
-                    this._injectedScripts.add(fallbackScript);
-                    fallbackScript.onload = () => {
-                        if (this._isDisposed) { resolve(null); return; }
-                        const fallbackInstrument = window[`_tone_${fallbackFile}`];
-                        if (fallbackInstrument) {
-                            this.player.adjustPreset(this.audioContext, fallbackInstrument);
-                            this.loadedInstruments.set(program, fallbackInstrument);
-                            resolve(fallbackInstrument);
-                        } else {
-                            reject(new Error(`Fallback instrument variable _tone_${fallbackFile} not found`));
-                        }
-                    };
-                    fallbackScript.onerror = () => reject(new Error(`Failed to load fallback for program ${program}`));
-                    document.head.appendChild(fallbackScript);
-                } else {
-                    reject(new Error(`Failed to load ${instrumentInfo.url}`));
-                }
+                // No WAF-CDN fallback here: the default bank is the local SF2,
+                // and `_loadSF2MelodicPreset` is used for everything `sf2:`.
+                // We only reach this branch when the user has explicitly
+                // opted into the external WAF CDN (legacy banks), in which
+                // case the requested file is genuinely missing on the CDN.
+                reject(new Error(`Failed to load ${instrumentInfo.url}`));
             };
             document.head.appendChild(script);
         });

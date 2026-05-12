@@ -64,7 +64,8 @@
         const banks = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
             ? MidiSynthesizer.getAvailableBanks()
             : [];
-        const currentVal = select.value || (this.settings && this.settings.soundBank) || 'FluidR3_GM';
+        const defaultId = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.DEFAULT_BANK_ID) || 'sf2:default';
+        const currentVal = select.value || (this.settings && this.settings.soundBank) || defaultId;
         const i18n = window.i18n || { t: k => k };
 
         select.innerHTML = banks.map(function (bank) {
@@ -205,11 +206,12 @@
             // Switch away from the deleted bank if it is currently selected
             const savedBank = 'sf2:' + sf2Id;
             if (this.settings && this.settings.soundBank === savedBank) {
-                this.settings.soundBank = 'FluidR3_GM';
+                const fallbackId = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.DEFAULT_BANK_ID) || 'sf2:default';
+                this.settings.soundBank = fallbackId;
                 try { localStorage.setItem('gmboop_settings', JSON.stringify(this.settings)); } catch (e) {}
                 if (typeof MidiSynthesizer !== 'undefined') {
                     for (const inst of MidiSynthesizer._instances) {
-                        try { inst.setSoundBank('FluidR3_GM'); } catch (e) {}
+                        try { inst.setSoundBank(fallbackId); } catch (e) {}
                     }
                 }
             }
