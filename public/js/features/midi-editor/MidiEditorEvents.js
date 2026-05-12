@@ -421,19 +421,20 @@
                 startY = e.clientY;
                 startNotesHeight = notesSection.clientHeight;
 
-    // Capture the REAL available space from modal-dialog (fixed 95vh height)
-                const modalDialog = this.modal.container.querySelector('.modal-dialog');  // CHILD, not parent!
-                const modalHeader = this.modal.container.querySelector('.modal-header');
-                const toolbarHeight = this.modal.container.querySelector('.editor-toolbar')?.clientHeight || 0;
-                const channelsToolbarHeight = this.modal.container.querySelector('.channels-toolbar')?.clientHeight || 0;
+    // Capture the REAL available space — mode-agnostic. In loop/panel
+    // mode the `.modal-dialog`, `.modal-header`, `.channels-toolbar`
+    // elements don't exist (the panel skips that chrome), so the old
+    // path (dialogHeight - header - toolbars) returned a negative
+    // availableHeight and the resize produced nonsense rectangles.
+    // The available vertical budget for the resize is just whatever
+    // the two collapsible sections + the bar currently occupy ; we
+    // redistribute that budget between them on drag.
+                const resizeBarH0 = resizeBar?.clientHeight || 12;
+                availableHeight = notesSection.clientHeight
+                                + ccSection.clientHeight
+                                + resizeBarH0;
 
-                const modalDialogHeight = modalDialog?.clientHeight || 0;
-                const modalHeaderHeight = modalHeader?.clientHeight || 0;
-
-    // Available space = total dialog height - header - toolbars
-                availableHeight = modalDialogHeight - modalHeaderHeight - toolbarHeight - channelsToolbarHeight;
-
-                this.modal.log('info', `Resize: modalDialog=${modalDialogHeight}px, modalHeader=${modalHeaderHeight}px, toolbars=${toolbarHeight + channelsToolbarHeight}px, available=${availableHeight}px`);
+                this.modal.log('info', `Resize: notes=${notesSection.clientHeight}px, cc=${ccSection.clientHeight}px, bar=${resizeBarH0}px, available=${availableHeight}px`);
 
     // Get the current flex-grow values
                 const notesStyle = window.getComputedStyle(notesSection);
