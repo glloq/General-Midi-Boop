@@ -1346,11 +1346,22 @@ class LoopEditorModal extends BaseModal {
                 // sonnaient en piano au lieu de la batterie.
                 const isDrum = channel === 9 || (gmProgram != null && gmProgram >= 128);
 
+                // Drum-kit offset convention : `MidiSynthesizer._decodeKitProgram`
+                // reads kit programs as `gmProgram + 128`. When the keyboard
+                // panel routes via channel 9 without setting a kit program
+                // (e.g. `gmProgram === 0`), we must still store the value as
+                // ≥ 128 — otherwise `instrument_program` is saved as plain
+                // piano and the loop plays back melodically on the synth.
+                const rawProgram = gmProgram ?? 0;
+                const storedProgram = isDrum
+                    ? (rawProgram >= 128 ? rawProgram : 128)
+                    : rawProgram;
+
                 this.outputMode        = deviceId ? 'device' : 'synth';
                 this.outputDeviceId    = deviceId || null;
                 this.outputChannel     = isDrum ? 9 : (channel ?? 0);
-                this.outputGmProgram   = gmProgram ?? 0;
-                this.instrumentProgram = gmProgram ?? 0;
+                this.outputGmProgram   = storedProgram;
+                this.instrumentProgram = storedProgram;
                 this._isDrumKit        = isDrum;
                 // A device-routed instrument also counts as an explicit
                 // choice — unlock REC and reflect it on the header
