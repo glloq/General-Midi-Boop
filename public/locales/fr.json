@@ -242,7 +242,19 @@
       "newVersion": "Nouvelle version",
       "currentVersion": "actuellement",
       "startupCheck": "Vérifier les mises à jour au démarrage",
-      "startupBetaNotif": "Notifier aussi les mises à jour bêta"
+      "startupBetaNotif": "Notifier aussi les mises à jour bêta",
+      "cacheWarning": "Pensez à vider le cache du navigateur après la mise à jour",
+      "cacheWarningHint": "(Ctrl+Shift+R ou paramètres du navigateur)",
+      "step": {
+        "script_started": "Initialisation...",
+        "started": "Démarrage...",
+        "pulling": "Téléchargement des sources...",
+        "installing": "Installation des dépendances...",
+        "restarting": "Redémarrage du serveur...",
+        "verifying": "Vérification...",
+        "done": "Mise à jour terminée !"
+      },
+      "successToast": "Mise à jour installée avec succès !"
     },
     "lyrics": {
       "title": "Karaoké",
@@ -349,7 +361,18 @@
     "chordRoot": "Fondamentale",
     "chordHandDrag": "Glisser pour déplacer la main",
     "noteColors": "Couleurs",
-    "toggleNoteColors": "Changer couleurs des notes"
+    "toggleNoteColors": "Changer couleurs des notes",
+    "slideMode": "Glissement",
+    "slideToggle": "Activer le mode glissement (glisser pour enchaîner les notes)",
+    "pianoSlider": "Slider",
+    "pianoSliderToggle": "Mode slider — touches égales + pitch bend",
+    "listView": "Vue liste",
+    "listViewToggle": "Vue liste — vélocité (hauteur du clic) et pitch bend (gauche/droite)",
+    "listCCLabel": "Y → CC",
+    "listCCTitle": "Contrôleur MIDI envoyé sur l'axe vertical",
+    "listPBLabel": "X → PB",
+    "listPBTitle": "Pitch bend envoyé sur l'axe horizontal",
+    "pitchBend": "Pitch Bend"
   },
   "midiEditor": {
     "title": "Éditeur MIDI",
@@ -2437,6 +2460,7 @@
     "timeSignature": "Mesure",
     "bars": "Durée",
     "barsUnit": "mesures",
+    "barsUnitShort": "M",
     "snap": "Grille",
     "modeDraw": "Dessiner les notes",
     "modeSelect": "Sélectionner / Déplacer",
@@ -2636,5 +2660,10 @@
     "tabPianoVirtuel": "🎹 Piano virtuel",
     "tabEditor": "🎼 Éditeur",
     "minimapInfoAria": "Aperçu des notes (visualisation seule)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Nouvelle version v{version} disponible !",
+    "betaCommitsSingular": "{count} commit bêta disponible — {hash}",
+    "betaCommitsPlural": "{count} commits bêta disponibles — {hash}"
   }
 }

@@ -1334,19 +1334,20 @@ class LoopEditorModal extends BaseModal {
         window.keyboardModal.mountAsPanel(container, {
             onNoteOn:  (note, vel) => this._playNote(note, vel),
             onNoteOff: (note)      => this._stopNote(note),
-            onInstrumentSelected: ({ deviceId, channel, gmProgram, isDrum: isDrumFromKb }) => {
+            onInstrumentSelected: ({ deviceId, channel, gmProgram, instrumentType, isDrum: isDrumFromKbd }) => {
                 // Cancel held preview voices so they don't ring on with the
                 // previous instrument / device after the switch.
                 this._previewStopAll();
 
-                // Détection drum kit : KeyboardModal calcule déjà isDrum
-                // via `getInstrumentViewInfo()` (type === 'drum' OR
-                // channel === 9 OR gmProgram ≥ 128). On lui fait confiance
-                // — le fallback local ne couvre pas les drum devices qui
-                // exposent un gmProgram mélodique sur un canal != 9.
-                const isDrum = (typeof isDrumFromKb === 'boolean')
-                    ? isDrumFromKb
-                    : (channel === 9 || (gmProgram != null && gmProgram >= 128));
+                // Détection drum kit. KeyboardModal nous transmet
+                // maintenant `isDrum` (calculé depuis
+                // `caps.instrument_type` + channel === 9 + gmProgram ≥ 128).
+                // Fallback local pour les vieux callers qui n'envoient
+                // pas le flag.
+                const isDrum = isDrumFromKbd === true
+                    || instrumentType === 'drum'
+                    || channel === 9
+                    || (gmProgram != null && gmProgram >= 128);
 
                 // Drum-kit offset convention : `MidiSynthesizer._decodeKitProgram`
                 // reads kit programs as `gmProgram + 128`. When the keyboard

@@ -3143,18 +3143,31 @@ class LoopManagerModal extends BaseModal {
             window.keyboardModal.mountAsPanel(container, {
                 onNoteOn:  (note, vel) => this._kbdNoteOn(note, vel),
                 onNoteOff: (note)      => this._kbdNoteOff(note),
-                onInstrumentSelected: ({ deviceId, channel, gmProgram }) => {
+                onInstrumentSelected: ({ deviceId, channel, gmProgram, instrumentType, isDrum: isDrumFromKbd }) => {
                     // Cancel any sustained voice before switching instrument /
                     // device so it doesn't keep ringing on the previous program.
                     this._kbdStopAllNotes();
                     this._kbdInstrument = gmProgram ?? 0;
+                    // Drum kit : on route sur le canal 9 (convention GM) sinon
+                    // le synth utilise le path mélodique → joue un piano.
+                    this._kbdIsDrum = isDrumFromKbd === true
+                        || instrumentType === 'drum'
+                        || channel === 9
+                        || (gmProgram != null && gmProgram >= 128);
                     if (this._kbdSynth) {
-                        try { this._kbdSynth.setChannelInstrument(0, this._kbdInstrument); }
-                        catch (err) { LoopUtils.handleError(err, 'kbd.synth.setChannelInstrument'); }
-                        if (!this._kbdSynth.loadedInstruments?.has(this._kbdInstrument)) {
-                            this._kbdSynth.loadInstrument(this._kbdInstrument).catch(err =>
-                                LoopUtils.handleError(err, 'kbd.synth.loadInstrument'));
-                        }
+                        try {
+                            if (this._kbdIsDrum) {
+                                this._kbdSynth.setChannelInstrument(9, this._kbdInstrument);
+                                this._kbdSynth.loadDrumKit?.().catch(err =>
+                                    LoopUtils.handleError(err, 'kbd.synth.loadDrumKit'));
+                            } else {
+                                this._kbdSynth.setChannelInstrument(0, this._kbdInstrument);
+                                if (!this._kbdSynth.loadedInstruments?.has(this._kbdInstrument)) {
+                                    this._kbdSynth.loadInstrument(this._kbdInstrument).catch(err =>
+                                        LoopUtils.handleError(err, 'kbd.synth.loadInstrument'));
+                                }
+                            }
+                        } catch (err) { LoopUtils.handleError(err, 'kbd.synth.setChannelInstrument'); }
                     }
                     // The keyboard panel's instrument selector is the source of
                     // truth for the global output device. The header toggle
@@ -3210,7 +3223,9 @@ class LoopManagerModal extends BaseModal {
         }
         if (!this._kbdSynth) return;
         try {
-            const env = this._kbdSynth.playNote(note, velocity, 0, 9999);
+            // Canal 9 si le kit drum est sélectionné, sinon 0 (mélodique).
+            const ch = this._kbdIsDrum ? 9 : 0;
+            const env = this._kbdSynth.playNote(note, velocity, ch, 9999);
             if (env) this._kbdEnvelopes.set(note, env);
         } catch (err) {
             LoopUtils.handleError(err, 'kbd.synth.playNote');

@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Hãy nhớ xóa bộ nhớ đệm trình duyệt sau khi cập nhật",
+      "cacheWarningHint": "(Ctrl+Shift+R hoặc cài đặt trình duyệt)",
+      "step": {
+        "script_started": "Đang khởi tạo...",
+        "started": "Đang bắt đầu...",
+        "pulling": "Đang tải xuống nguồn...",
+        "installing": "Đang cài đặt phụ thuộc...",
+        "restarting": "Đang khởi động lại máy chủ...",
+        "verifying": "Đang xác minh...",
+        "done": "Cập nhật hoàn tất!"
+      },
+      "successToast": "Đã cài đặt cập nhật thành công!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Phiên bản mới v{version} đã có!",
+    "betaCommitsSingular": "{count} commit beta khả dụng — {hash}",
+    "betaCommitsPlural": "{count} commits beta khả dụng — {hash}"
   }
 }

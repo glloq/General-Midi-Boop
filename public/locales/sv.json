@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Kom ihåg att rensa webbläsarens cache efter uppdateringen",
+      "cacheWarningHint": "(Ctrl+Shift+R eller webbläsarinställningar)",
+      "step": {
+        "script_started": "Initierar...",
+        "started": "Startar...",
+        "pulling": "Hämtar källor...",
+        "installing": "Installerar beroenden...",
+        "restarting": "Startar om server...",
+        "verifying": "Verifierar...",
+        "done": "Uppdatering klar!"
+      },
+      "successToast": "Uppdatering installerad!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Ny version v{version} tillgänglig!",
+    "betaCommitsSingular": "{count} beta-commit tillgänglig — {hash}",
+    "betaCommitsPlural": "{count} beta-commits tillgängliga — {hash}"
   }
 }

@@ -177,7 +177,19 @@
       "updateAvailable": "Actualización disponible",
       "checkFailed": "No se pudo comprobar actualizaciones",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Recuerde vaciar la caché del navegador tras la actualización",
+      "cacheWarningHint": "(Ctrl+Mayús+R o ajustes del navegador)",
+      "step": {
+        "script_started": "Inicializando...",
+        "started": "Iniciando...",
+        "pulling": "Descargando fuentes...",
+        "installing": "Instalando dependencias...",
+        "restarting": "Reiniciando servidor...",
+        "verifying": "Verificando...",
+        "done": "¡Actualización completada!"
+      },
+      "successToast": "¡Actualización instalada con éxito!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "¡Nueva versión v{version} disponible!",
+    "betaCommitsSingular": "{count} commit beta disponible — {hash}",
+    "betaCommitsPlural": "{count} commits beta disponibles — {hash}"
   }
 }

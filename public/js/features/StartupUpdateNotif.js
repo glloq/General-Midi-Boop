@@ -49,7 +49,7 @@
 
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = '&times;';
-        closeBtn.title = 'Fermer';
+        closeBtn.title = (typeof i18n !== 'undefined' && i18n.t('common.close')) || 'Close';
         closeBtn.style.cssText = [
             'background:none', 'border:none', 'color:rgba(255,255,255,0.8)',
             'cursor:pointer', 'font-size:20px', 'font-weight:700',
@@ -90,16 +90,24 @@
                     : null);
 
             if (stable.majorMinorChanged) {
+                const tpl = i18n.t('startupUpdate.newVersionAvailable', { version: stable.remoteVersion });
+                const text = (tpl && !tpl.includes('.')) ? tpl : `New version v${stable.remoteVersion} available!`;
                 _showBanner(
-                    `🆕 Nouvelle version v${stable.remoteVersion} disponible !`,
+                    `🆕 ${text}`,
                     'linear-gradient(135deg, #16a34a, #15803d)',
                     null, null,
                     8000
                 );
             } else if (showBeta && beta && !beta.upToDate) {
                 const n = beta.behindCount || 0;
+                const key = n > 1 ? 'startupUpdate.betaCommitsPlural' : 'startupUpdate.betaCommitsSingular';
+                const tpl = i18n.t(key, { count: n, hash: beta.remoteHash || '' });
+                const fallback = n > 1
+                    ? `${n} beta commits available — ${beta.remoteHash || ''}`
+                    : `${n} beta commit available — ${beta.remoteHash || ''}`;
+                const text = (tpl && !tpl.includes('.')) ? tpl : fallback;
                 _showBanner(
-                    `🔶 ${n} commit${n > 1 ? 's' : ''} bêta disponible${n > 1 ? 's' : ''} — ${beta.remoteHash || ''}`,
+                    `🔶 ${text}`,
                     'linear-gradient(135deg, #d97706, #b45309)',
                     null, null,
                     5000

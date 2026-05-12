@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Ne felejtse el törölni a böngésző gyorsítótárát a frissítés után",
+      "cacheWarningHint": "(Ctrl+Shift+R vagy böngésző beállítások)",
+      "step": {
+        "script_started": "Inicializálás...",
+        "started": "Indítás...",
+        "pulling": "Források letöltése...",
+        "installing": "Függőségek telepítése...",
+        "restarting": "Szerver újraindítása...",
+        "verifying": "Ellenőrzés...",
+        "done": "A frissítés befejeződött!"
+      },
+      "successToast": "A frissítés sikeresen telepítve!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Új verzió v{version} elérhető!",
+    "betaCommitsSingular": "{count} béta commit elérhető — {hash}",
+    "betaCommitsPlural": "{count} béta commit elérhető — {hash}"
   }
 }

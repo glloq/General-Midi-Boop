@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "अपडेट के बाद ब्राउज़र कैश साफ़ करना याद रखें",
+      "cacheWarningHint": "(Ctrl+Shift+R या ब्राउज़र सेटिंग्स)",
+      "step": {
+        "script_started": "प्रारंभ हो रहा है...",
+        "started": "शुरू हो रहा है...",
+        "pulling": "स्रोत डाउनलोड हो रहे हैं...",
+        "installing": "निर्भरताएँ स्थापित हो रही हैं...",
+        "restarting": "सर्वर पुनः आरंभ हो रहा है...",
+        "verifying": "सत्यापित हो रहा है...",
+        "done": "अपडेट पूर्ण!"
+      },
+      "successToast": "अपडेट सफलतापूर्वक स्थापित किया गया!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "नया संस्करण v{version} उपलब्ध!",
+    "betaCommitsSingular": "{count} बीटा कमिट उपलब्ध — {hash}",
+    "betaCommitsPlural": "{count} बीटा कमिट उपलब्ध — {hash}"
   }
 }

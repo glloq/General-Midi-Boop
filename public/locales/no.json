@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Husk å tømme nettleserens hurtigbuffer etter oppdateringen",
+      "cacheWarningHint": "(Ctrl+Shift+R eller nettleserinnstillinger)",
+      "step": {
+        "script_started": "Initialiserer...",
+        "started": "Starter...",
+        "pulling": "Laster ned kilder...",
+        "installing": "Installerer avhengigheter...",
+        "restarting": "Starter server på nytt...",
+        "verifying": "Verifiserer...",
+        "done": "Oppdatering fullført!"
+      },
+      "successToast": "Oppdatering installert!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Ny versjon v{version} tilgjengelig!",
+    "betaCommitsSingular": "{count} beta-commit tilgjengelig — {hash}",
+    "betaCommitsPlural": "{count} beta-commits tilgjengelige — {hash}"
   }
 }

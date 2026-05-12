@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Tandaan na i-clear ang cache ng browser pagkatapos ng update",
+      "cacheWarningHint": "(Ctrl+Shift+R o mga setting ng browser)",
+      "step": {
+        "script_started": "Sinisimulan...",
+        "started": "Nagsisimula...",
+        "pulling": "Dina-download ang mga source...",
+        "installing": "Iniinstall ang mga dependency...",
+        "restarting": "Nire-restart ang server...",
+        "verifying": "Bine-verify...",
+        "done": "Tapos na ang update!"
+      },
+      "successToast": "Matagumpay na na-install ang update!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Available na ang bagong bersyon v{version}!",
+    "betaCommitsSingular": "{count} beta commit ang available — {hash}",
+    "betaCommitsPlural": "{count} na beta commits ang available — {hash}"
   }
 }

@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Jangan lupa hapus cache browser setelah pembaruan",
+      "cacheWarningHint": "(Ctrl+Shift+R atau pengaturan browser)",
+      "step": {
+        "script_started": "Menginisialisasi...",
+        "started": "Memulai...",
+        "pulling": "Mengunduh sumber...",
+        "installing": "Memasang dependensi...",
+        "restarting": "Memulai ulang server...",
+        "verifying": "Memverifikasi...",
+        "done": "Pembaruan selesai!"
+      },
+      "successToast": "Pembaruan berhasil dipasang!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Versi baru v{version} tersedia!",
+    "betaCommitsSingular": "{count} commit beta tersedia — {hash}",
+    "betaCommitsPlural": "{count} commit beta tersedia — {hash}"
   }
 }

@@ -242,7 +242,19 @@
       "newVersion": "New version",
       "currentVersion": "currently",
       "startupCheck": "Check for updates at startup",
-      "startupBetaNotif": "Also notify beta updates"
+      "startupBetaNotif": "Also notify beta updates",
+      "cacheWarning": "Remember to clear browser cache after the update",
+      "cacheWarningHint": "(Ctrl+Shift+R or browser settings)",
+      "step": {
+        "script_started": "Initializing...",
+        "started": "Starting...",
+        "pulling": "Downloading sources...",
+        "installing": "Installing dependencies...",
+        "restarting": "Restarting server...",
+        "verifying": "Verifying...",
+        "done": "Update complete!"
+      },
+      "successToast": "Update installed successfully!"
     },
     "lyrics": {
       "title": "Karaoke",
@@ -349,7 +361,18 @@
     "chordRoot": "Root",
     "chordHandDrag": "Drag to move hand",
     "noteColors": "Colors",
-    "toggleNoteColors": "Toggle note colors"
+    "toggleNoteColors": "Toggle note colors",
+    "slideMode": "Slide",
+    "slideToggle": "Toggle slide mode (drag to glide between notes)",
+    "pianoSlider": "Slider",
+    "pianoSliderToggle": "Slider mode — equal-width keys with pitch bend",
+    "listView": "List view",
+    "listViewToggle": "List view — velocity (click height) and pitch bend (left/right)",
+    "listCCLabel": "Y → CC",
+    "listCCTitle": "MIDI controller sent on the vertical axis",
+    "listPBLabel": "X → PB",
+    "listPBTitle": "Pitch bend sent on the horizontal axis",
+    "pitchBend": "Pitch Bend"
   },
   "midiEditor": {
     "title": "MIDI Editor",
@@ -2437,6 +2460,7 @@
     "timeSignature": "Time sig.",
     "bars": "Length",
     "barsUnit": "bars",
+    "barsUnitShort": "M",
     "snap": "Grid",
     "modeDraw": "Draw notes",
     "modeSelect": "Select / Move",
@@ -2636,5 +2660,10 @@
     "tabPianoVirtuel": "🎹 Virtual piano",
     "tabEditor": "🎼 Editor",
     "minimapInfoAria": "Notes overview (display only)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "New version v{version} available!",
+    "betaCommitsSingular": "{count} beta commit available — {hash}",
+    "betaCommitsPlural": "{count} beta commits available — {hash}"
   }
 }

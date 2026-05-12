@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "Не забудьте очистити кеш браузера після оновлення",
+      "cacheWarningHint": "(Ctrl+Shift+R або налаштування браузера)",
+      "step": {
+        "script_started": "Ініціалізація...",
+        "started": "Запуск...",
+        "pulling": "Завантаження джерел...",
+        "installing": "Встановлення залежностей...",
+        "restarting": "Перезапуск сервера...",
+        "verifying": "Перевірка...",
+        "done": "Оновлення завершено!"
+      },
+      "successToast": "Оновлення успішно встановлено!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Доступна нова версія v{version}!",
+    "betaCommitsSingular": "Доступний {count} бета-коміт — {hash}",
+    "betaCommitsPlural": "Доступно бета-комітів: {count} — {hash}"
   }
 }

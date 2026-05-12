@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "อย่าลืมล้างแคชของเบราว์เซอร์หลังจากการอัปเดต",
+      "cacheWarningHint": "(Ctrl+Shift+R หรือการตั้งค่าเบราว์เซอร์)",
+      "step": {
+        "script_started": "กำลังเริ่มต้น...",
+        "started": "กำลังเริ่ม...",
+        "pulling": "กำลังดาวน์โหลดแหล่งที่มา...",
+        "installing": "กำลังติดตั้งการพึ่งพา...",
+        "restarting": "กำลังรีสตาร์ทเซิร์ฟเวอร์...",
+        "verifying": "กำลังตรวจสอบ...",
+        "done": "อัปเดตเสร็จสมบูรณ์!"
+      },
+      "successToast": "ติดตั้งการอัปเดตสำเร็จแล้ว!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "เวอร์ชันใหม่ v{version} พร้อมใช้งาน!",
+    "betaCommitsSingular": "มี {count} เบต้าคอมมิตที่พร้อมใช้งาน — {hash}",
+    "betaCommitsPlural": "มี {count} เบต้าคอมมิตที่พร้อมใช้งาน — {hash}"
   }
 }

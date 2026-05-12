@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "업데이트 후 브라우저 캐시를 지우는 것을 잊지 마세요",
+      "cacheWarningHint": "(Ctrl+Shift+R 또는 브라우저 설정)",
+      "step": {
+        "script_started": "초기화 중...",
+        "started": "시작 중...",
+        "pulling": "소스 다운로드 중...",
+        "installing": "종속성 설치 중...",
+        "restarting": "서버 재시작 중...",
+        "verifying": "확인 중...",
+        "done": "업데이트 완료!"
+      },
+      "successToast": "업데이트가 성공적으로 설치되었습니다!"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "새 버전 v{version} 사용 가능!",
+    "betaCommitsSingular": "{count}개의 베타 커밋 사용 가능 — {hash}",
+    "betaCommitsPlural": "{count}개의 베타 커밋 사용 가능 — {hash}"
   }
 }

@@ -177,7 +177,19 @@
       "updateAvailable": "Update available",
       "checkFailed": "Unable to check for updates",
       "complete": "Update complete!",
-      "manualReload": "Reload manually"
+      "manualReload": "Reload manually",
+      "cacheWarning": "更新後にブラウザのキャッシュをクリアすることを忘れないでください",
+      "cacheWarningHint": "(Ctrl+Shift+R またはブラウザの設定)",
+      "step": {
+        "script_started": "初期化中...",
+        "started": "開始中...",
+        "pulling": "ソースをダウンロード中...",
+        "installing": "依存関係をインストール中...",
+        "restarting": "サーバーを再起動中...",
+        "verifying": "検証中...",
+        "done": "更新が完了しました！"
+      },
+      "successToast": "更新が正常にインストールされました！"
     }
   },
   "bluetooth": {
@@ -2247,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "新しいバージョン v{version} が利用可能です！",
+    "betaCommitsSingular": "{count} 件のベータコミットが利用可能 — {hash}",
+    "betaCommitsPlural": "{count} 件のベータコミットが利用可能 — {hash}"
   }
 }

@@ -1012,14 +1012,16 @@ class KeyboardModalNew {
             // info so hosts (LoopEditor) don't have to re-derive isDrum /
             // isWind from `gmProgram` + `channel` — those two alone miss
             // drum kits whose device exposes a melodic gm_program on a
-            // non-9 channel.
+            // non-9 channel. `info` comes from `getInstrumentViewInfo()`
+            // which already folds `caps.instrument_type === 'drum'` into
+            // the flag.
             this._panelCallbacks.onInstrumentSelected({
                 deviceId: this.selectedDevice?.device_id || this.selectedDevice?.id || null,
                 channel: this.getSelectedChannel(),
                 gmProgram: this.selectedDeviceCapabilities?.gm_program ?? 0,
+                instrumentType: info.instrumentType || this.selectedDeviceCapabilities?.instrument_type || null,
                 isDrum: info.isDrum === true,
-                isWind: info.isWind === true,
-                instrumentType: info.instrumentType || null
+                isWind: info.isWind === true
             });
         }
     }
