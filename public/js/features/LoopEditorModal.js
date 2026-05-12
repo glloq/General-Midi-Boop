@@ -218,18 +218,19 @@ class LoopEditorModal extends BaseModal {
         ).join('');
         return `
         <div class="modal-header le-header">
+            <!-- Host for the KeyboardModal's instrument selector — the
+                 real selector is rendered by KeyboardModal and moved
+                 into this slot when the keyboard panel mounts. Kept as
+                 a direct child of .le-header (not .le-header-meta)
+                 because .le-header-meta has overflow:hidden which clips
+                 the floating dropdown. Sits flush left and stretches
+                 to the full header height. -->
+            <div id="le-instrument-host" class="le-instrument-host"
+                 aria-label="${this.t('loopCreator.instrument') || 'Instrument'}"></div>
             <div class="le-header-meta">
                 <input type="text" class="lc-name-input le-name-input" id="lc-name-input"
                     value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
                     placeholder="${this.t('loopCreator.namePlaceholder')}" />
-                <!-- Host for the KeyboardModal's instrument selector — the
-                     real selector is rendered by KeyboardModal and moved
-                     into this slot when the keyboard panel mounts. Keeping
-                     a single shared selector means the user always picks
-                     a connected instrument (device + program), regardless
-                     of the tab they're on. -->
-                <div id="le-instrument-host" class="le-instrument-host"
-                     aria-label="${this.t('loopCreator.instrument') || 'Instrument'}"></div>
                 <div class="lc-spinbox" title="${this.t('loopCreator.tempo')}">
                     <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
                     <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />

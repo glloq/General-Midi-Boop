@@ -251,33 +251,50 @@ body.dark-mode  .le-minimap-info-wrap {
 }
 
 /* Host slot in the loop editor header that receives the
-   KeyboardModal's relocated instrument selector. The selector keeps
-   all its existing event handlers (looked up by global ID) ; we just
-   force it to shed the full-height styling it normally has inside the
-   keyboard panel so it sits inline with the other header controls. */
+   KeyboardModal's relocated instrument selector. Sits flush left,
+   stretches to full header height, and escapes the overflow:hidden
+   on `.le-header-meta` so the floating instrument dropdown isn't
+   clipped. */
 .le-instrument-host {
-    display: inline-flex;
-    align-items: center;
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    flex: 0 0 auto;
     min-width: 0;
+    margin: 0;
+    padding: 0;
+    height: 100%;
 }
 .le-instrument-host #header-instrument-selector,
 .le-instrument-host .header-instrument-selector {
     position: relative;
-    height: auto !important;
-    align-self: center;
+    display: flex;
+    align-items: center;
+    height: 100%;
     margin: 0;
     border-right: 0;
-    background: transparent;
+    background: rgba(0, 0, 0, 0.18);
 }
 .le-instrument-host .instrument-trigger {
-    height: 28px;
-    padding: 2px 8px;
-    border-radius: 4px;
+    height: 100%;
+    padding: 0 12px;
+    border-radius: 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+}
+.le-instrument-host .instrument-trigger:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.le-instrument-host .header-instrument-selector.open .instrument-trigger {
+    background: rgba(255, 255, 255, 0.12);
 }
 /* Dropdown popover floats over the rest of the modal regardless of
-   parent overflow rules */
+   parent overflow rules. */
 .le-instrument-host .instrument-dropdown {
     z-index: 10010;
+    min-width: 360px;
+    max-height: 60vh;
 }
 
 /* REC button when no instrument is selected yet — visually dimmed
