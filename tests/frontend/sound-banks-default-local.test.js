@@ -71,18 +71,27 @@ describe('MidiSynthesizerConstants — offline-first defaults', () => {
   });
 });
 
-describe('MidiSynthesizer.js — no hard-coded surikov CDN fallback for the default bank', () => {
-  it('the script-injection fallback in loadInstrument no longer points to surikov.github.io', () => {
+describe('MidiSynthesizer.js — every WAF URL goes through the same-origin proxy', () => {
+  it('no surikov.github.io URL is reachable from the synth source', () => {
     const synthSrc = readFileSync(
       resolve(__dirname, '../../public/js/audio/MidiSynthesizer.js'),
       'utf8'
     );
-    // The two helper functions (_buildDrumPresetEntry, _legacyJCLiveEntry,
-    // createGMInstrumentMap) still know the CDN URL — they're only reached
-    // for legacy WAF banks when the user has opted in. Count occurrences
-    // and assert no NEW fallback path was reintroduced in loadInstrument().
-    const loadInstrumentBlock = synthSrc.match(/async\s+loadInstrument\s*\([\s\S]*?\n {4}}/);
-    expect(loadInstrumentBlock).toBeTruthy();
-    expect(loadInstrumentBlock[0]).not.toMatch(/surikov\.github\.io/);
+    // ORB (Firefox) / CORB (Chromium) blocked the cross-origin drum scripts
+    // even when the melodic ones loaded fine. Routing the whole WAF tree
+    // through /api/waf/* makes every request same-origin.
+    expect(synthSrc).not.toMatch(/surikov\.github\.io/);
+  });
+
+  it('the WAF helpers build /api/waf/ URLs', () => {
+    const synthSrc = readFileSync(
+      resolve(__dirname, '../../public/js/audio/MidiSynthesizer.js'),
+      'utf8'
+    );
+    // Three call sites still need it: createGMInstrumentMap,
+    // _buildDrumPresetEntry, _legacyJCLiveEntry. Anything less means a
+    // path was accidentally rewritten back to the CDN.
+    const matches = synthSrc.match(/['"]\/api\/waf\/['"]/g) || [];
+    expect(matches.length).toBeGreaterThanOrEqual(3);
   });
 });

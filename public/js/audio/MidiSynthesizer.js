@@ -224,7 +224,7 @@ class MidiSynthesizer {
      * @param {number} note      - MIDI note number (35-81)
      */
     _buildDrumPresetEntry(suffix, bankIndex, note) {
-        const base = 'https://surikov.github.io/webaudiofontdata/sound/';
+        const base = '/api/waf/';
         const key = `${note}_${bankIndex}_${suffix}`;
         return {
             url: `${base}128${key}.js`,
@@ -250,7 +250,7 @@ class MidiSynthesizer {
      * JCLive drums sit at bankIndex 12 in the WAF CDN.
      */
     _legacyJCLiveEntry(note) {
-        const base = 'https://surikov.github.io/webaudiofontdata/sound/';
+        const base = '/api/waf/';
         const key = `${note}_12_JCLive_sf2_file`;
         return {
             url: `${base}128${key}.js`,
@@ -279,7 +279,7 @@ class MidiSynthesizer {
      * @param {string} bankSuffix - Sound bank suffix (e.g. 'FluidR3_GM_sf2_file')
      */
     createGMInstrumentMap(bankSuffix = DEFAULT_BANK_SUFFIX) {
-        const base = 'https://surikov.github.io/webaudiofontdata/sound/';
+        const base = '/api/waf/';
         const instruments = [];
         for (let program = 0; program < 128; program++) {
             const num = String(program * 10).padStart(4, '0');

@@ -20,6 +20,7 @@
 import { Router, raw as expressRaw } from 'express';
 import { randomBytes } from 'crypto';
 import { createSF2Router } from './sf2Routes.js';
+import { createWafProxyRouter } from './wafProxyRoutes.js';
 import { readFileSync, existsSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -211,6 +212,11 @@ export function createApiRouter(app) {
 
   // SF2 soundfont management
   router.use('/sf2', createSF2Router(app));
+
+  // WebAudioFont CDN proxy: serves surikov.github.io/webaudiofontdata files
+  // from our own origin to defeat browser OpaqueResponseBlocking (drums
+  // were the visible victim; see src/api/wafProxyRoutes.js).
+  router.use('/waf', createWafProxyRouter(app));
 
   // Update status (public — no auth, used by frontend during update)
   router.get('/update-status', (_req, res) => {
