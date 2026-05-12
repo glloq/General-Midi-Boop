@@ -36,39 +36,38 @@ describe('MidiSynthesizerConstants — offline-first defaults', () => {
     expect(C.DEFAULT_BANK_ID).toBe('sf2:default');
   });
 
-  it('getAvailableBanks() returns only sf2: ids when useExternalWaf is off (default)', () => {
+  it('getAvailableBanks() lists the built-in default first', () => {
     const C = loadConstants();
     const banks = C.getAvailableBanks();
     expect(banks.length).toBeGreaterThan(0);
-    for (const b of banks) {
-      expect(b.id).toMatch(/^sf2:/);
-    }
+    expect(banks[0].id).toBe('sf2:default');
   });
 
-  it('getAvailableBanks() does not expose any surikov.github.io URL in suffix form', () => {
+  it('getAvailableBanks() includes the legacy WAF banks (opt-in via selection, not by default request)', () => {
     const C = loadConstants();
-    const banks = C.getAvailableBanks();
-    for (const b of banks) {
-      expect(b.suffix).toBeFalsy();
-    }
-  });
-
-  it('opting into useExternalWaf re-exposes the legacy WAF banks', () => {
-    localStorage.setItem('gmboop_settings', JSON.stringify({ useExternalWaf: true }));
-    const C = loadConstants();
-    const banks = C.getAvailableBanks();
-    const ids = banks.map((b) => b.id);
+    const ids = C.getAvailableBanks().map((b) => b.id);
+    // Built-in default + at least one legacy WAF bank stay reachable.
     expect(ids).toContain('sf2:default');
     expect(ids).toContain('FluidR3_GM');
   });
 
-  it('setCustomBanks() keeps the default bank in the list', () => {
+  it('WAF entries carry requiresExternal so the UI can warn before selection', () => {
+    const C = loadConstants();
+    const waf = C.getAvailableBanks().find((b) => b.id === 'FluidR3_GM');
+    expect(waf).toBeTruthy();
+    expect(waf.requiresExternal).toBe(true);
+    // The built-in default never triggers an external request.
+    const def = C.getAvailableBanks().find((b) => b.id === 'sf2:default');
+    expect(def.requiresExternal).toBeFalsy();
+  });
+
+  it('setCustomBanks() keeps the default bank first and inserts custom banks before WAF ones', () => {
     const C = loadConstants();
     C.setCustomBanks([{ id: 42, label: 'My SF2', size: 1234567, reverbMix: 0.2 }]);
     const banks = C.getAvailableBanks();
-    expect(banks.find((b) => b.id === 'sf2:default')).toBeTruthy();
+    expect(banks[0].id).toBe('sf2:default');
     expect(banks.find((b) => b.id === 'sf2:42')).toBeTruthy();
-    for (const b of banks) expect(b.id).toMatch(/^sf2:/);
+    expect(banks.find((b) => b.id === 'FluidR3_GM')).toBeTruthy();
   });
 });
 
