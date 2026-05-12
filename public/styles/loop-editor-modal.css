@@ -250,16 +250,34 @@ body.dark-mode  .le-minimap-info-wrap {
     background: var(--bg-secondary, #f4f5f7);
 }
 
-/* Header instrument selector — slightly wider than the rest of the
-   header selects since the optgroup labels (GM categories) take
-   space, and visually distinct so users notice the required pick. */
-.le-instrument-select {
-    min-width: 170px;
-    max-width: 240px;
+/* Host slot in the loop editor header that receives the
+   KeyboardModal's relocated instrument selector. The selector keeps
+   all its existing event handlers (looked up by global ID) ; we just
+   force it to shed the full-height styling it normally has inside the
+   keyboard panel so it sits inline with the other header controls. */
+.le-instrument-host {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
 }
-.le-instrument-select:invalid {
-    border-color: var(--warning-color, #e0a800);
-    background: rgba(224, 168, 0, 0.08);
+.le-instrument-host #header-instrument-selector,
+.le-instrument-host .header-instrument-selector {
+    position: relative;
+    height: auto !important;
+    align-self: center;
+    margin: 0;
+    border-right: 0;
+    background: transparent;
+}
+.le-instrument-host .instrument-trigger {
+    height: 28px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+/* Dropdown popover floats over the rest of the modal regardless of
+   parent overflow rules */
+.le-instrument-host .instrument-dropdown {
+    z-index: 10010;
 }
 
 /* REC button when no instrument is selected yet — visually dimmed

@@ -222,12 +222,14 @@ class LoopEditorModal extends BaseModal {
                 <input type="text" class="lc-name-input le-name-input" id="lc-name-input"
                     value="${this.escape(this.loopName || this.t('loopCreator.untitled'))}"
                     placeholder="${this.t('loopCreator.namePlaceholder')}" />
-                <select id="le-instrument-select"
-                        class="lc-select lc-select-xs le-instrument-select"
-                        title="${this.t('loopCreator.instrument') || 'Instrument'}"
-                        required>
-                    ${this._renderInstrumentOptions()}
-                </select>
+                <!-- Host for the KeyboardModal's instrument selector — the
+                     real selector is rendered by KeyboardModal and moved
+                     into this slot when the keyboard panel mounts. Keeping
+                     a single shared selector means the user always picks
+                     a connected instrument (device + program), regardless
+                     of the tab they're on. -->
+                <div id="le-instrument-host" class="le-instrument-host"
+                     aria-label="${this.t('loopCreator.instrument') || 'Instrument'}"></div>
                 <div class="lc-spinbox" title="${this.t('loopCreator.tempo')}">
                     <button class="lc-spin-btn" data-action="tempo-dec">‹</button>
                     <input type="number" id="lc-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.tempo}" min="20" max="300" step="1" />
@@ -258,55 +260,11 @@ class LoopEditorModal extends BaseModal {
     }
 
     /**
-     * Render the GM instrument select options. Default option is empty
-     * so the user is forced to make an explicit choice before recording.
-     * The "Drums" optgroup uses GM program 128+ (drum-kit offset
-     * convention from MidiSynthesizer._decodeKitProgram).
+     * The instrument selector previously rendered here as a generic GM
+     * `<select>` has been replaced by the KeyboardModal's own selector
+     * (relocated into `#le-instrument-host` at mount time). Users always
+     * pick from the same connected-instrument list, regardless of tab.
      */
-    _renderInstrumentOptions() {
-        const t = (k, p) => this.t(k, p);
-        const sel = this.instrumentProgram;
-        const isSel = (v) => (this._instrumentSelected && sel === v) ? 'selected' : '';
-        const groups = [
-            { key: 'piano',               start: 0,   count: 8 },
-            { key: 'chromaticPercussion', start: 8,   count: 8 },
-            { key: 'organ',               start: 16,  count: 8 },
-            { key: 'guitar',              start: 24,  count: 8 },
-            { key: 'bass',                start: 32,  count: 8 },
-            { key: 'strings',             start: 40,  count: 8 },
-            { key: 'ensemble',            start: 48,  count: 8 },
-            { key: 'brass',               start: 56,  count: 8 },
-            { key: 'reed',                start: 64,  count: 8 },
-            { key: 'pipe',                start: 72,  count: 8 },
-            { key: 'synthLead',           start: 80,  count: 8 },
-            { key: 'synthPad',            start: 88,  count: 8 },
-            { key: 'synthEffects',        start: 96,  count: 8 },
-            { key: 'ethnic',              start: 104, count: 8 },
-            { key: 'percussive',          start: 112, count: 8 },
-            { key: 'soundEffects',        start: 120, count: 8 }
-        ];
-        const gmName = (i) => {
-            const list = t('instruments.list');
-            return (Array.isArray(list) && list[i]) || `Program ${i}`;
-        };
-        const placeholder = `<option value="" ${this._instrumentSelected ? '' : 'selected'} disabled hidden>${t('loopEditor.chooseInstrument') || '— Choisir un instrument —'}</option>`;
-        const melodic = groups.map(g => {
-            const cat = t(`instruments.categories.${g.key}`);
-            const opts = [];
-            for (let i = 0; i < g.count; i++) {
-                const p = g.start + i;
-                opts.push(`<option value="${p}" ${isSel(p)}>${p}: ${gmName(p)}</option>`);
-            }
-            return `<optgroup label="${cat}">${opts.join('')}</optgroup>`;
-        }).join('');
-        // Drum kits — synthesizer decodes program ≥ 128 as a kit ; we
-        // expose Standard Kit (128) explicitly. Power users can pick
-        // other kits from the standalone editor.
-        const drums = `<optgroup label="🥁 ${t('midiEditor.drumKit') || 'Drums'}">
-            <option value="128" ${isSel(128)}>${t('loopEditor.standardDrumKit') || 'Standard Drum Kit'}</option>
-        </optgroup>`;
-        return placeholder + drums + melodic;
-    }
 
     renderBody() {
         const isPianoTab = this.activeTab === 'piano';
@@ -768,63 +726,7 @@ class LoopEditorModal extends BaseModal {
             this._refreshPianoRollRange();
         } else if (id === 'lc-midi-in-device') {
             this._midiInDevice = e.target.value || null;
-        } else if (id === 'le-instrument-select') {
-            const v = e.target.value;
-            if (v === '') return;  // placeholder
-            this._applyInstrumentSelection(parseInt(v));
         }
-    }
-
-    /**
-     * Apply a header-driven instrument choice everywhere : drum-kit flag,
-     * output channel (9 for drums, 0 melodic), synth program, panel
-     * channel/program, REC button state, and the keyboard panel's note
-     * range.
-     *
-     * `program >= 128` means a drum kit (the MidiSynthesizer offset
-     * convention) ; we strip the offset before storing the GM program
-     * inside `instrumentProgram` … wait, actually we KEEP it so save and
-     * load round-trip correctly with the existing schema.
-     */
-    _applyInstrumentSelection(program) {
-        if (!Number.isFinite(program)) return;
-        const isDrum = program >= 128;
-        this.instrumentProgram = program;
-        this._isDrumKit        = isDrum;
-        this.outputChannel     = isDrum ? 9 : 0;
-        this.outputGmProgram   = program;
-        this._instrumentSelected = true;
-
-        // Synth setup — same logic as the keyboard panel onInstrumentSelected
-        try {
-            if (isDrum) {
-                this._synth?.setChannelInstrument?.(9, program);
-                this._synth?.loadDrumKit?.().catch(err =>
-                    LoopUtils.handleError(err, 'editor.synth.loadDrumKit'));
-            } else {
-                this._synth?.setChannelInstrument?.(0, program);
-                if (this._synth && !this._synth.loadedInstruments?.has(program)) {
-                    this._synth.loadInstrument(program).catch(err =>
-                        LoopUtils.handleError(err, 'editor.synth.loadInstrument'));
-                }
-            }
-        } catch (err) { LoopUtils.handleError(err, 'editor.synth.setChannelInstrument'); }
-
-        // Note range follows the program family.
-        const range = this._gmNoteRange(isDrum ? 128 : program);
-        this.outputNoteMin = range.min;
-        this.outputNoteMax = range.max;
-
-        // Propagate to the embedded MidiEditor panel — drives its
-        // specialized-mode toolbar (DRUM / TAB / WIND) too.
-        this.midiEditorPanel?.setPanelLoopState?.({
-            channel: this.outputChannel,
-            instrumentProgram: program
-        });
-
-        this._refreshPianoRollRange();
-        this._refreshRecButtonEnabled();
-        this._setStatus(this.t('loopEditor.instrumentSet', { name: isDrum ? 'Drum Kit' : `Program ${program}` }) || '');
     }
 
     /**
@@ -1468,6 +1370,39 @@ class LoopEditorModal extends BaseModal {
                 });
             }
         });
+
+        // Relocate the keyboard panel's own instrument selector into the
+        // loop editor's header so the user has a single, always-visible
+        // control — no matter which tab (Piano / Editor) is active.
+        // We move the live DOM rather than cloning so the keyboard
+        // panel's event handlers (which look the element up by ID) keep
+        // working without re-wiring.
+        this._relocateInstrumentSelectorToHeader(container);
+    }
+
+    /**
+     * Move `#header-instrument-selector` (rendered by KeyboardModal
+     * inside the keyboard panel's modal-header) into `#le-instrument-host`
+     * in the loop editor's main header. Idempotent — does nothing if
+     * already relocated or if the host can't be found.
+     */
+    _relocateInstrumentSelectorToHeader(kbContainer) {
+        const host = this.$('#le-instrument-host');
+        if (!host) return;
+        // The keyboard panel is built asynchronously enough that the
+        // selector may not exist yet at mount return time on slow boots ;
+        // poll for it on a couple of RAFs before giving up.
+        const tryMove = (attempt = 0) => {
+            const sel = (kbContainer || document).querySelector('#header-instrument-selector')
+                     || document.querySelector('#header-instrument-selector');
+            if (sel) {
+                if (sel.parentElement !== host) host.appendChild(sel);
+                sel.classList.add('le-instrument-relocated');
+                return;
+            }
+            if (attempt < 5) requestAnimationFrame(() => tryMove(attempt + 1));
+        };
+        tryMove();
     }
 
     _unmountKeyboardPanel() {
