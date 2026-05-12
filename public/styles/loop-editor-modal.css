@@ -297,65 +297,6 @@ body.dark-mode  .le-minimap-info-wrap {
     max-height: 60vh;
 }
 
-/* Host for keyboard-panel controls (notation US/FR/MIDI + latency)
-   relocated next to the instrument selector. Inherits the header's
-   purple gradient — recolour the inner labels / buttons so they
-   stay legible on it. */
-.le-keyboard-controls-host {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 100%;
-    padding: 0 8px;
-    flex: 0 0 auto;
-}
-.le-keyboard-controls-host .control-group {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    margin: 0;
-}
-.le-keyboard-controls-host .control-group label {
-    font-size: 10px;
-    line-height: 1;
-    color: rgba(255, 255, 255, 0.75);
-    margin: 0;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-.le-keyboard-controls-host .latency-display {
-    color: #fff;
-    background: rgba(0, 0, 0, 0.22);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 11px;
-}
-.le-keyboard-controls-host .notation-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-}
-.le-keyboard-controls-host .notation-btn {
-    background: rgba(0, 0, 0, 0.22);
-    color: rgba(255, 255, 255, 0.85);
-    border: 0;
-    padding: 2px 6px;
-    font-size: 11px;
-    border-radius: 3px;
-    cursor: pointer;
-}
-.le-keyboard-controls-host .notation-btn:hover { background: rgba(0, 0, 0, 0.35); }
-.le-keyboard-controls-host .notation-btn.active {
-    background: rgba(255, 255, 255, 0.92);
-    color: #2c1c4a;
-    font-weight: 600;
-}
-.le-keyboard-controls-host .notation-sep {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 10px;
-}
-
 /* REC button when no instrument is selected yet — visually dimmed
    and pointer-disabled, but kept in the DOM so the layout doesn't
    jump when the user finally picks one. */
