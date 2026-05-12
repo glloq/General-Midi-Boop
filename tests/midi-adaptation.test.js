@@ -902,6 +902,58 @@ describe('AnalysisCache', () => {
   });
 });
 
+// Generic-key API used by SF2PresetService. Kept next to the typed-API
+// tests above so any future refactor of the eviction logic surfaces here.
+describe('AnalysisCache — generic raw API', () => {
+  test('getRaw / setRaw round-trip and miss', () => {
+    const c = new AnalysisCache({ maxBytes: 10_000, maxSize: 10 });
+    c.setRaw('a:1', { x: 1 }, 100);
+    expect(c.getRaw('a:1')).toEqual({ x: 1 });
+    expect(c.getRaw('missing')).toBeNull();
+  });
+
+  test('explicit-bytes eviction respects maxBytes', () => {
+    const c = new AnalysisCache({ maxBytes: 1000, maxSize: 100 });
+    c.setRaw('k1', 'a', 600);
+    c.setRaw('k2', 'b', 600); // pushes total over 1000 → evicts k1
+    expect(c.getRaw('k1')).toBeNull();
+    expect(c.getRaw('k2')).toBe('b');
+  });
+
+  test('getRaw refreshes LRU order so MRU survives later eviction', () => {
+    const c = new AnalysisCache({ maxBytes: 1000, maxSize: 100 });
+    c.setRaw('k1', 'a', 400);
+    c.setRaw('k2', 'b', 400);
+    // Touch k1 — now k2 is the oldest.
+    expect(c.getRaw('k1')).toBe('a');
+    c.setRaw('k3', 'c', 400); // total would be 1200 → evict oldest (k2).
+    expect(c.getRaw('k2')).toBeNull();
+    expect(c.getRaw('k1')).toBe('a');
+    expect(c.getRaw('k3')).toBe('c');
+  });
+
+  test('invalidatePrefix wipes only matching entries', () => {
+    const c = new AnalysisCache({ maxBytes: 10_000, maxSize: 10 });
+    c.setRaw('1:a', 1, 50);
+    c.setRaw('1:b', 2, 50);
+    c.setRaw('2:a', 3, 50);
+    c.invalidatePrefix('1:');
+    expect(c.getRaw('1:a')).toBeNull();
+    expect(c.getRaw('1:b')).toBeNull();
+    expect(c.getRaw('2:a')).toBe(3);
+    // totalBytes accounting stays sane after the wipe.
+    expect(c.getStats().bytes).toBe(50);
+  });
+
+  test('typed (fileId, channel) API still works alongside raw API', () => {
+    const c = new AnalysisCache({ maxBytes: 10_000, maxSize: 10 });
+    c.set(42, 0, { ok: true });
+    expect(c.get(42, 0)).toEqual({ ok: true });
+    c.invalidateFile(42);
+    expect(c.get(42, 0)).toBeNull();
+  });
+});
+
 // ============================================================
 // InstrumentCapabilitiesValidator tests
 // ============================================================

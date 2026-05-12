@@ -13,6 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import zlib from 'zlib';
+import AnalysisCache from '../midi/playback/AnalysisCache.js';
 import { convertPreset } from './SF2Converter.js';
 
 // M-1: maximum decompressed preset JSON (64 MB)
@@ -26,18 +27,35 @@ const DEFAULT_SF2_ID = 'default';
 const __filename = fileURLToPath(import.meta.url);
 const DEFAULT_SF2_PATH = path.resolve(path.dirname(__filename), '../../assets/sf2/default.sf2');
 
+// L1 cache budget. Tuned for Pi 3B+ (Node heap capped at 384 MB via
+// ecosystem.config.cjs --max-old-space-size). 128 MB leaves comfortable
+// headroom for app/parsing buffers without forcing eviction under a typical
+// session (a handful of melodic instruments + one drum kit).
+const DEFAULT_CACHE_MAX_BYTES   = 128 * 1024 * 1024;
+const DEFAULT_CACHE_MAX_ENTRIES = 256;
+
 export class SF2PresetService {
   /**
    * @param {Object} opts
-   * @param {string}  opts.dataDir   - Root data directory (data/ folder)
-   * @param {Object}  opts.database  - DatabaseManager facade
+   * @param {string}  opts.dataDir          - Root data directory (data/ folder)
+   * @param {Object}  opts.database         - DatabaseManager facade
    * @param {Object}  opts.logger
+   * @param {number} [opts.cacheMaxBytes]   - L1 byte budget (default 128 MB)
+   * @param {number} [opts.cacheMaxEntries] - L1 entry count cap (default 256)
+   * @param {AnalysisCache} [opts.cache]    - Pre-built cache instance, for tests
    */
-  constructor({ dataDir, database, logger }) {
+  constructor({ dataDir, database, logger, cache, cacheMaxBytes, cacheMaxEntries }) {
     this.sf2Dir = path.join(dataDir, 'sf2');
     this.db     = database;
     this.logger = logger;
-    this._mem   = new Map(); // key → preset object
+    // L1 cache: bounded LRU (bytes + entry count). Default SF2 has no L2
+    // safety net, so eviction is the only thing preventing heap blowup on
+    // long sessions — see plan #5 in the audit follow-up.
+    this._mem = cache || new AnalysisCache({
+      maxBytes: cacheMaxBytes   || DEFAULT_CACHE_MAX_BYTES,
+      maxSize:  cacheMaxEntries || DEFAULT_CACHE_MAX_ENTRIES,
+      logger,
+    });
     fs.mkdirSync(this.sf2Dir, { recursive: true });
   }
 
@@ -53,8 +71,9 @@ export class SF2PresetService {
   async getPreset(sf2Id, type, program, kit = 0, note = 0) {
     const key = `${sf2Id}:${type}:${program}:${kit}:${note}`;
 
-    // 1. Memory cache — M-2: only non-null values are stored here
-    if (this._mem.has(key)) return this._mem.get(key);
+    // 1. Memory cache (bounded LRU; only non-null values are stored).
+    const hit = this._mem.getRaw(key);
+    if (hit) return hit;
 
     // 2. DB cache (skipped for the built-in default — see resolveSF2Path)
     const isDefault = sf2Id === DEFAULT_SF2_ID;
@@ -68,7 +87,7 @@ export class SF2PresetService {
             throw new Error('Cached preset exceeds size limit');
           }
           const preset = JSON.parse(inflated.toString());
-          this._mem.set(key, preset);
+          this._mem.setRaw(key, preset, this._estimatePresetBytes(preset));
           return preset;
         } catch (e) {
           this.logger.warn(`SF2PresetService: corrupt/oversized cache entry ${key}, rebuilding`);
@@ -114,7 +133,7 @@ export class SF2PresetService {
     // so subsequent requests will re-attempt the disk parse (avoids null-poisoning).
     // The built-in default skips the DB cache (no DB row to cascade-delete on).
     if (preset) {
-      this._mem.set(key, preset);
+      this._mem.setRaw(key, preset, this._estimatePresetBytes(preset));
       if (!isDefault) {
         try {
           const json = JSON.stringify(preset);
@@ -232,13 +251,30 @@ export class SF2PresetService {
 
   /**
    * Evict all in-memory cache entries for a given sf2_id.
-   * @param {number} sf2Id
+   * @param {number|string} sf2Id
    */
   invalidate(sf2Id) {
-    const prefix = `${sf2Id}:`;
-    for (const key of this._mem.keys()) {
-      if (key.startsWith(prefix)) this._mem.delete(key);
+    this._mem.invalidatePrefix(`${sf2Id}:`);
+  }
+
+  /**
+   * Cheap heuristic for the byte footprint of a converted preset. Avoids
+   * the `JSON.stringify` cost of AnalysisCache's default estimator, which
+   * would dominate cache writes on 40 MB SF2 presets. Per-sample weight
+   * matches V8's boxed-double representation for plain Array<number>; the
+   * `+200` per zone covers metadata (key/vel range, tuning, loop points).
+   *
+   * @param {{ zones: Array }} preset
+   * @returns {number}
+   * @private
+   */
+  _estimatePresetBytes(preset) {
+    if (!preset || !Array.isArray(preset.zones)) return 1024;
+    let total = 0;
+    for (const z of preset.zones) {
+      total += (z.sample?.length || 0) * 8;
     }
+    return total + preset.zones.length * 200;
   }
 
   /**

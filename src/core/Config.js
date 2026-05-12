@@ -110,6 +110,13 @@ class Config {
         autoDetect: true,
         baudRate: 31250,
         ports: []
+      },
+      sf2: {
+        // L1 (in-process) SF2 preset cache budget. Default tuned for
+        // Pi 3B+ where Node heap is capped at 384 MB (ecosystem.config.cjs).
+        // See src/files/SF2PresetService.js for the consumer.
+        cacheMaxBytes:   128 * 1024 * 1024,
+        cacheMaxEntries: 256
       }
     };
   }
@@ -141,7 +148,9 @@ class Config {
       GMBOOP_SERIAL_ENABLED: 'serial.enabled',
       GMBOOP_SERIAL_BAUD_RATE: 'serial.baudRate',
       GMBOOP_SSL_CERT: 'server.sslCert',
-      GMBOOP_SSL_KEY: 'server.sslKey'
+      GMBOOP_SSL_KEY: 'server.sslKey',
+      GMBOOP_SF2_CACHE_MAX_BYTES:   'sf2.cacheMaxBytes',
+      GMBOOP_SF2_CACHE_MAX_ENTRIES: 'sf2.cacheMaxEntries'
     };
 
     for (const [envKey, configKey] of Object.entries(envMap)) {
