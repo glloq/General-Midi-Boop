@@ -1298,6 +1298,13 @@ class LoopEditorModal extends BaseModal {
                 this.outputNoteMin = range.min;
                 this.outputNoteMax = range.max;
                 this._refreshPianoRollRange();
+                // Propagate the new instrument to the MidiEditor panel so
+                // its specialized-mode toolbar (DRUM / TAB / WIND) and
+                // channel-routing logic stay in sync.
+                this.midiEditorPanel?.setPanelLoopState?.({
+                    channel: this.outputChannel,
+                    instrumentProgram: this.instrumentProgram
+                });
             }
         });
     }

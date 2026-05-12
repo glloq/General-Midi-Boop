@@ -347,6 +347,11 @@ class MidiEditorModal {
             // Rebuild dynamic CC buttons from the injected events.
             this.ccOps?.updateDynamicCCButtons?.();
 
+            // Render the specialized-mode toolbar buttons (DRUM / TAB /
+            // WIND) for the initial instrument. Async because the TAB
+            // check queries the backend for a string-instrument config.
+            this.routingOps._updateLoopSpecializedModeButtons?.();
+
             // Hook the change pipeline so saves can read back the latest state.
             if (this._panelOnChange) {
                 const notify = () => {
@@ -414,6 +419,9 @@ class MidiEditorModal {
             this.channels[0].program = prog;
             this.channels[0].instrument = (this.channels[0].channel === 9)
                 ? this.t('midiEditor.drumKit') : this.getInstrumentName(prog);
+            // Refresh the DRUM / TAB / WIND toolbar — the active mode
+            // depends on the GM program range.
+            this.routingOps?._updateLoopSpecializedModeButtons?.();
         }
         if (Array.isArray(sequence)) {
             const ch = this.channels[0]?.channel ?? 0;
