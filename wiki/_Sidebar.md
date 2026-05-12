@@ -9,6 +9,7 @@
 - [[Interface-Main-Page]]
 - [[Interface-Instrument-Creation]]
 - [[Interface-Virtual-Piano]]
+- [[Interface-Loop-Manager]]
 - [[Interface-Lighting-Control]]
 - [[Interface-Playlist]]
 - [[Interface-Microphone]]

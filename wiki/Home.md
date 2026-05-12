@@ -27,7 +27,8 @@ Then open `http://<Raspberry-Pi-IP>:8080`. Full instructions in [[Installation]]
 |------|-------------|
 | [[Interface-Main-Page]] | Dashboard layout, transport controls, device status strip |
 | [[Interface-Instrument-Creation]] | Register, configure and calibrate instruments |
-| [[Interface-Virtual-Piano]] | Play notes from the browser — piano, guitar, drums, string views |
+| [[Interface-Virtual-Piano]] | Play notes from the browser — piano, guitar, drums, string, wind, list views |
+| [[Interface-Loop-Manager]] | Record, trigger and arrange MIDI loops — Library, Pad, Live, Keyboard, Arranger |
 | [[Interface-Lighting-Control]] | Configure drivers, fixtures, effects and MIDI-triggered cues |
 | [[Interface-Playlist]] | Upload, organise, search and queue MIDI files |
 | [[Interface-Microphone]] | Microphone-based latency calibration and chromatic tuner |
