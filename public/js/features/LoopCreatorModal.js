@@ -1339,14 +1339,21 @@ class LoopManagerModal extends BaseModal {
             return;
         }
 
-        // Each pad uses its own MIDI channel (0-15, wrapping for >16 pads)
-        const ch = index % 16;
+        // Drum kits (program ≥ 128) DOIVENT sortir sur le canal 9 sinon
+        // MidiSynthesizer.playNote() prend le path mélodique et ne trouve
+        // aucun preset → loop silencieuse. Les autres pads se partagent
+        // les canaux 0-15 en wrappant sur l'index.
+        const prog = loopData.instrument_program ?? 0;
+        const isDrum = prog >= 128;
+        const ch = isDrum ? 9 : (index % 16);
         const target = this._getOutputTarget(this._padSynth);
         if (target) {
-            const prog = loopData.instrument_program ?? 0;
             try { target.setChannelInstrument(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'pad.synth.setChannelInstrument'); }
-            if (!target.loadedInstruments?.has(prog)) {
+            if (isDrum) {
+                await target.loadDrumKit?.().catch(err =>
+                    LoopUtils.handleError(err, 'pad.synth.loadDrumKit'));
+            } else if (!target.loadedInstruments?.has(prog)) {
                 await target.loadInstrument(prog).catch(err =>
                     LoopUtils.handleError(err, 'pad.synth.loadInstrument'));
             }
@@ -1652,14 +1659,21 @@ class LoopManagerModal extends BaseModal {
             return;
         }
 
-        // Allocate a unique channel so multiple instruments can play simultaneously
-        const ch = this._allocLiveChannel();
+        // Drum kits (program ≥ 128) DOIVENT sortir sur le canal 9, sinon
+        // MidiSynthesizer.playNote() prend le path mélodique et la loop
+        // reste silencieuse. Les autres loops se partagent les canaux
+        // libres via _allocLiveChannel().
+        const prog = loopData.instrument_program ?? 0;
+        const isDrum = prog >= 128;
+        const ch = isDrum ? 9 : this._allocLiveChannel();
         const target = this._getOutputTarget(this._liveSynth);
         if (target) {
-            const prog = loopData.instrument_program ?? 0;
             try { target.setChannelInstrument(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'live.synth.setChannelInstrument'); }
-            if (!target.loadedInstruments?.has(prog)) {
+            if (isDrum) {
+                await target.loadDrumKit?.().catch(err =>
+                    LoopUtils.handleError(err, 'live.synth.loadDrumKit'));
+            } else if (!target.loadedInstruments?.has(prog)) {
                 await target.loadInstrument(prog).catch(err =>
                     LoopUtils.handleError(err, 'live.synth.loadInstrument'));
             }
@@ -2903,10 +2917,16 @@ class LoopManagerModal extends BaseModal {
 
         const target = this._getOutputTarget(this._arrangerSynth);
 
-        // Preload all instruments used
+        // Preload all instruments used. Drum kits (prog ≥ 128) passent
+        // par loadDrumKit() — loadInstrument() les traiterait comme un
+        // programme mélodique et ne chargerait pas les samples de batterie.
         if (target) {
             for (const prog of programsToLoad) {
-                if (!target.loadedInstruments?.has(prog)) {
+                if (prog >= 128) {
+                    target.setChannelInstrument?.(9, prog);
+                    await target.loadDrumKit?.().catch(err =>
+                        LoopUtils.handleError(err, 'arr.synth.loadDrumKit'));
+                } else if (!target.loadedInstruments?.has(prog)) {
                     await target.loadInstrument(prog).catch(err =>
                         LoopUtils.handleError(err, 'arr.synth.loadInstrument'));
                 }
@@ -2940,7 +2960,13 @@ class LoopManagerModal extends BaseModal {
             this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
             return;
         }
+        // Drum programs (prog ≥ 128) sont épinglés sur le canal 9 (canal GM
+        // drums) ; le synth ne reconnaît un kit que là. On réserve donc
+        // le canal 9 avant d'auto-allouer les autres programmes pour éviter
+        // qu'un instrument mélodique ne le récupère.
         const programChannelMap = new Map();
+        const hasDrumProgram = [...programsToLoad].some(p => p >= 128);
+        if (hasDrumProgram) usedCh.add(9);
         let chIdx = 0;
         const nextFreeCh = () => {
             while (chIdx < 16 && usedCh.has(chIdx)) chIdx++;
@@ -2949,7 +2975,7 @@ class LoopManagerModal extends BaseModal {
             return c;
         };
         for (const prog of programsToLoad) {
-            const ch = nextFreeCh();
+            const ch = prog >= 128 ? 9 : nextFreeCh();
             programChannelMap.set(prog, ch);
             try { target?.setChannelInstrument?.(ch, prog); }
             catch (err) { LoopUtils.handleError(err, 'arr.synth.setChannelInstrument'); }
@@ -2967,9 +2993,14 @@ class LoopManagerModal extends BaseModal {
 
         const scheduleEvents = (offsetMs) => {
             for (const ev of events) {
-                const ch = trackChMap.has(ev.trackId)
-                    ? trackChMap.get(ev.trackId)
-                    : (programChannelMap.get(ev.prog) ?? 0);
+                // Drum events ignorent l'override midi_channel du track :
+                // ils DOIVENT sortir sur le canal 9 pour que le synth les
+                // route via drumPresets au lieu du chemin mélodique.
+                const ch = ev.prog >= 128
+                    ? 9
+                    : (trackChMap.has(ev.trackId)
+                        ? trackChMap.get(ev.trackId)
+                        : (programChannelMap.get(ev.prog) ?? 0));
                 this._arrangerTimers.push(setTimeout(() => {
                     if (!this.isArrangerPlaying) return;
                     try { target?.playNote?.(ev.note, ev.vel, ch, ev.durSec); }
@@ -2983,7 +3014,21 @@ class LoopManagerModal extends BaseModal {
         const countInMs = this._arrangerCountIn ? secPerBar * 1000 : 0;
         const playableMs = (totalSec - startSec) * 1000;
 
-        if (this._arrangerCountIn) this._scheduleCountIn(target, secPerBar);
+        if (this._arrangerCountIn) {
+            this._scheduleCountIn(target, secPerBar);
+            // Le count-in réécrit channel 9 avec le Woodblock (programme 115).
+            // S'il y a un drum kit dans l'arrangement, on restaure son programme
+            // juste avant que les notes drum ne démarrent, sinon le synth
+            // utilisera kit 115 au lieu du kit choisi par l'utilisateur.
+            if (hasDrumProgram) {
+                const drumProg = [...programsToLoad].find(p => p >= 128);
+                this._arrangerTimers.push(setTimeout(() => {
+                    if (!this.isArrangerPlaying) return;
+                    try { target?.setChannelInstrument?.(9, drumProg); }
+                    catch (err) { LoopUtils.handleError(err, 'arr.restoreDrumProg'); }
+                }, Math.max(0, countInMs - 5)));
+            }
+        }
         scheduleEvents(countInMs);
 
         if (this._arrangerLoop) {
