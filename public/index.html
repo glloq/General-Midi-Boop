@@ -5932,10 +5932,18 @@
     <!-- Tempo Editor Component -->
     <script src="js/features/TempoEditor.js"></script>
 
-    <!-- WebAudioFont Library (SoundFont player). Vendored locally by
-         scripts/install-default-sf2.js so the synth works fully offline.
-         Run `npm run install-default-sf2` if this 404s. -->
+    <!-- WebAudioFont Library (SoundFont player). Loaded from the local
+         vendored copy first (created by scripts/install-default-sf2.js),
+         with a synchronous CDN fallback so installs that never ran the
+         postinstall still get audio. The fallback uses document.write to
+         keep the load synchronous — every script that follows depends on
+         `WebAudioFontPlayer` being defined globally. -->
     <script src="lib/WebAudioFontPlayer.js"></script>
+    <script>
+      if (typeof WebAudioFontPlayer === 'undefined') {
+        document.write('<scr' + 'ipt src="https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js"><' + '/scr' + 'ipt>');
+      }
+    </script>
 
     <!-- MIDI Synthesizer (WebAudioFont-based) -->
     <script src="js/audio/MidiSynthesizerConstants.js"></script>
