@@ -250,6 +250,28 @@ body.dark-mode  .le-minimap-info-wrap {
     background: var(--bg-secondary, #f4f5f7);
 }
 
+/* Header instrument selector — slightly wider than the rest of the
+   header selects since the optgroup labels (GM categories) take
+   space, and visually distinct so users notice the required pick. */
+.le-instrument-select {
+    min-width: 170px;
+    max-width: 240px;
+}
+.le-instrument-select:invalid {
+    border-color: var(--warning-color, #e0a800);
+    background: rgba(224, 168, 0, 0.08);
+}
+
+/* REC button when no instrument is selected yet — visually dimmed
+   and pointer-disabled, but kept in the DOM so the layout doesn't
+   jump when the user finally picks one. */
+.le-rec-big--disabled,
+.le-rec-big[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.4);
+}
+
 /* ── Toolbar shell (2 organised rows + status) ── */
 .loop-editor-modal .lc-ctrl-bar {
     display: flex;
