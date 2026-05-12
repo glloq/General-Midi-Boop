@@ -11,8 +11,13 @@
     KeyboardSliderMixin._updateSlideModeGroupVisibility = function () {
         const group = document.getElementById('keyboard-slide-mode-group');
         if (!group) return;
+        const cfg = this.stringInstrumentConfig || {};
+        const mechanism = cfg.hands_config && cfg.hands_config.mechanism;
+        const mechanismAllowsBend =
+            mechanism === 'string_sliding_fingers' ||
+            mechanism === 'independent_fingers';
         const show = this.viewMode === 'fretboard'
-            && !!(this.stringInstrumentConfig && this.stringInstrumentConfig.string_slider_enabled);
+            && (!!cfg.string_slider_enabled || mechanismAllowsBend);
         group.classList.toggle('hidden', !show);
         if (!show && this._stringSlideActive) {
             this._disableStringSlideMode();
@@ -75,6 +80,12 @@
         const openMidi  = tuning[stringNum - 1] !== undefined ? tuning[stringNum - 1] : 40;
 
         let activeNote = null;
+        // Bend zero-point in uniform fret space, captured at mousedown.
+        // Distinct from the played note: the row's fret cells are spaced
+        // geometrically (12th-root-of-2) while getPos uses uniform mapping,
+        // so we anchor the bend on the cursor position to keep bend = 0 at
+        // mousedown even if data-fret of the clicked dot doesn't match.
+        let anchorExactFret = 0;
 
         const getPos = (clientX) => {
             const rect = row.getBoundingClientRect();
@@ -84,30 +95,32 @@
             const fretAreaWidth = rect.width - nutWidth;
             const ratio       = Math.max(0, Math.min(1, (clientX - fretAreaLeft) / fretAreaWidth));
             const exactFret   = ratio * numFrets;
-            const fret        = Math.floor(exactFret);
-            const note        = Math.min(127, Math.max(0, openMidi + fret));
-            // 1 semitone = 4096 units in ±2ST standard bend range
-            const bend        = Math.round((exactFret - fret) * 4096);
-            return { note, bend, ratio };
+            return { exactFret, ratio };
         };
 
-        const onDown = (clientX) => {
-            const { note, bend, ratio } = getPos(clientX);
-            activeNote = note;
-            this._sendPitchBend(bend);
-            this.playNote(note);
+        const onDown = (clientX, target) => {
+            const dot = target && target.closest && target.closest('.fret-dot');
+            const dotFret = dot && dot.dataset.fret !== undefined
+                ? parseInt(dot.dataset.fret, 10) : NaN;
+            const { exactFret, ratio } = getPos(clientX);
+            anchorExactFret = exactFret;
+            // Played note: clicked dot's fret if available, else floor of uniform fret
+            const noteFret = Number.isFinite(dotFret)
+                ? dotFret
+                : Math.floor(exactFret);
+            activeNote = Math.min(127, Math.max(0, openMidi + noteFret));
+            this._sendPitchBend(0);
+            this.playNote(activeNote);
             this._updateStringSlideIndicator(row, ratio);
         };
 
         const onMove = (clientX) => {
             if (activeNote === null) return;
-            const { note, bend, ratio } = getPos(clientX);
+            const { exactFret, ratio } = getPos(clientX);
+            // Bend relative to mousedown position, clamped to ±2 semitones
+            const bend = Math.max(-4096, Math.min(4096,
+                Math.round((exactFret - anchorExactFret) * 4096)));
             this._sendPitchBend(bend);
-            if (note !== activeNote) {
-                this.stopNote(activeNote);
-                activeNote = note;
-                this.playNote(note);
-            }
             this._updateStringSlideIndicator(row, ratio);
         };
 
@@ -123,7 +136,7 @@
         const mouseDown = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            onDown(e.clientX);
+            onDown(e.clientX, e.target);
             const moveH = (ev) => onMove(ev.clientX);
             const upH   = () => {
                 onUp();
@@ -137,7 +150,7 @@
         const touchStart = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            onDown(e.touches[0].clientX);
+            onDown(e.touches[0].clientX, e.target);
         };
         const touchMove = (e) => {
             e.preventDefault();

@@ -2236,8 +2236,21 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     user-select: none;
 }
 
-.fret-string.slide-mode .fret-dot {
-    pointer-events: none;
+/* Pitch-bend mode: fretted dots become rectangles spanning the cell width.
+   Open-string cells (.fret-open) keep their round dot. Dots stay clickable so
+   the click anchors the pitch bend on the targeted fret. */
+.fretboard-container .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot {
+    border-radius: 6px;
+    aspect-ratio: auto;
+    width: 88%;
+    max-width: none;
+    height: min(70%, 28px);
+}
+
+/* Active state: avoid scale(1.55) which would distort the rectangle horizontally */
+.fretboard-container .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot.active,
+.fretboard-container .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot.note-colored.active {
+    transform: scaleY(1.35);
 }
 
 /* Position indicator (gold circle) */

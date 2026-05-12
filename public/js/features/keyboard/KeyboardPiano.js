@@ -56,8 +56,8 @@
                             </div>
 
                             <div class="control-group slide-mode-group hidden" id="keyboard-slide-mode-group">
-                                <label>${this.t('keyboard.slideMode') || 'Glissement'}</label>
-                                <button class="btn-slide-toggle" id="keyboard-slide-toggle" title="${this.t('keyboard.slideToggle') || 'Mode glissement par corde'}">〜</button>
+                                <label>${this.t('keyboard.pitchBendMode') || 'Pitch bend'}</label>
+                                <button class="btn-slide-toggle" id="keyboard-slide-toggle" title="${this.t('keyboard.pitchBendToggle') || 'Mode pitch bend — clic sur une frette, glisser pour bender'}">〜</button>
                             </div>
 
                             <div class="control-group piano-slider-group hidden" id="keyboard-piano-slider-group">
