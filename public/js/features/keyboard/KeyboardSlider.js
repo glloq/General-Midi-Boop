@@ -75,27 +75,69 @@
 
         const cfg       = this.stringInstrumentConfig || {};
         const tuning    = cfg.tuning || [];
-        const numFrets  = cfg.num_frets || 22;
         const stringNum = parseInt(row.dataset.stringNumber, 10) || 1;
         const openMidi  = tuning[stringNum - 1] !== undefined ? tuning[stringNum - 1] : 40;
 
-        let activeNote = null;
-        // Bend zero-point in uniform fret space, captured at mousedown.
-        // Distinct from the played note: the row's fret cells are spaced
-        // geometrically (12th-root-of-2) while getPos uses uniform mapping,
-        // so we anchor the bend on the cursor position to keep bend = 0 at
-        // mousedown even if data-fret of the clicked dot doesn't match.
+        // Match the rendered grid: same formula as renderFretboard's maxFretCount
+        // (so the bend math is consistent with what the user sees).
+        const stringFretCounts = Array.isArray(cfg.frets_per_string) ? cfg.frets_per_string : null;
+        const maxFrets = stringFretCounts
+            ? Math.max(12, ...stringFretCounts)
+            : Math.max(12, cfg.num_frets || 0);
+        // The grid's geometric cell widths sum to (1 - 2^(-maxFrets/12)); CSS
+        // 'fr' units renormalize them to fill 100% of the fret area. Invert
+        // that mapping so cursor X yields the actual semitone offset.
+        const maxGeoPos = 1 - Math.pow(2, -maxFrets / 12);
+
+        const handsConfig  = cfg.hands_config && cfg.hands_config.enabled === true
+            ? cfg.hands_config : null;
+        const handFollow   = !!handsConfig;
+
+        let activeNote      = null;
+        // Bend zero-point in semitone space, captured at mousedown — keeps
+        // bend = 0 at click even if the clicked dot's data-fret doesn't
+        // align with the cursor's geometric position.
         let anchorExactFret = 0;
 
         const getPos = (clientX) => {
             const rect = row.getBoundingClientRect();
             // Nut column width — matches the CSS .fret-open / .fret-nut width (~48px)
-            const nutWidth    = 48;
+            const nutWidth      = 48;
             const fretAreaLeft  = rect.left + nutWidth;
             const fretAreaWidth = rect.width - nutWidth;
-            const ratio       = Math.max(0, Math.min(1, (clientX - fretAreaLeft) / fretAreaWidth));
-            const exactFret   = ratio * numFrets;
+            const ratio         = Math.max(0, Math.min(1, (clientX - fretAreaLeft) / fretAreaWidth));
+            const geoPos        = ratio * maxGeoPos;
+            // Semitones from open string: position(f) / scale = 1 - 2^(-f/12)
+            const exactFret     = geoPos >= 1 ? maxFrets : -Math.log2(1 - geoPos) * 12;
             return { exactFret, ratio };
+        };
+
+        const updateHandFollow = (cursorFret) => {
+            if (!handFollow) return;
+            const target = Math.max(1, Math.round(cursorFret));
+            const span   = typeof this._handEffectiveSpanFrets === 'function'
+                ? this._handEffectiveSpanFrets()
+                : (this._handSpanFrets || 4);
+            const maxAnchor = typeof this._maxHandAnchorFret === 'function'
+                ? this._maxHandAnchorFret()
+                : Math.max(1, maxFrets - span);
+            const anchor = this.handAnchorFret || 1;
+            let newAnchor = anchor;
+            if (target < anchor) {
+                newAnchor = target;
+            } else if (target > anchor + span) {
+                newAnchor = target - span;
+            }
+            newAnchor = Math.max(1, Math.min(maxAnchor, newAnchor));
+            if (newAnchor !== anchor) {
+                this.handAnchorFret = newAnchor;
+                if (typeof this._updateHandWidgetPosition === 'function') {
+                    this._updateHandWidgetPosition();
+                }
+                if (typeof this._sendHandPositionCC === 'function') {
+                    this._sendHandPositionCC(newAnchor);
+                }
+            }
         };
 
         const onDown = (clientX, target) => {
@@ -104,14 +146,16 @@
                 ? parseInt(dot.dataset.fret, 10) : NaN;
             const { exactFret, ratio } = getPos(clientX);
             anchorExactFret = exactFret;
-            // Played note: clicked dot's fret if available, else floor of uniform fret
+            // Played note: clicked dot's fret if available, else ceil of the
+            // geometric mapping (cursor inside cell f sounds fret f).
             const noteFret = Number.isFinite(dotFret)
                 ? dotFret
-                : Math.floor(exactFret);
+                : Math.max(0, Math.ceil(exactFret));
             activeNote = Math.min(127, Math.max(0, openMidi + noteFret));
             this._sendPitchBend(0);
             this.playNote(activeNote);
             this._updateStringSlideIndicator(row, ratio);
+            updateHandFollow(noteFret);
         };
 
         const onMove = (clientX) => {
@@ -122,6 +166,7 @@
                 Math.round((exactFret - anchorExactFret) * 4096)));
             this._sendPitchBend(bend);
             this._updateStringSlideIndicator(row, ratio);
+            updateHandFollow(exactFret);
         };
 
         const onUp = () => {
