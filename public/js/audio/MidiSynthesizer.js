@@ -625,10 +625,20 @@ class MidiSynthesizer {
     _loadSF2MelodicPreset(program) {
         const sf2Id = this.currentBankId.slice(4); // strip 'sf2:'
         const p = fetch(`/api/sf2/${sf2Id}/preset/melodic/${program}`)
-            .then(r => r.ok ? r.json() : null)
+            .then(r => {
+                if (r.status === 404 && sf2Id === 'default') {
+                    MidiSynthesizer._handleDefaultSF2Missing();
+                }
+                return r.ok ? r.json() : null;
+            })
             .then(preset => {
                 if (!preset || this._isDisposed) {
                     this.loadingInstruments.delete(program);
+                    // After the global fallback, retry with the new bank so the
+                    // caller (loadInstrument) gets a real preset instead of null.
+                    if (this.currentBankId !== `sf2:${sf2Id}`) {
+                        return this.loadInstrument(program);
+                    }
                     return null;
                 }
                 for (const z of (preset.zones || [])) {
@@ -652,10 +662,22 @@ class MidiSynthesizer {
         const cacheKey = `${kit}:${note}`;
         const sf2Id = this.currentBankId.slice(4);
         const p = fetch(`/api/sf2/${sf2Id}/preset/drum/${kit}/${note}`)
-            .then(r => r.ok ? r.json() : null)
+            .then(r => {
+                if (r.status === 404 && sf2Id === 'default') {
+                    MidiSynthesizer._handleDefaultSF2Missing();
+                }
+                return r.ok ? r.json() : null;
+            })
             .then(preset => {
                 this._drumLoading.delete(cacheKey);
-                if (!preset || this._isDisposed) return null;
+                if (!preset || this._isDisposed) {
+                    // Self-healing: if the global fallback switched banks
+                    // mid-flight, retry the drum lookup on the new bank.
+                    if (this.currentBankId !== `sf2:${sf2Id}`) {
+                        return this._loadDrumPreset(note, kit);
+                    }
+                    return null;
+                }
                 for (const z of (preset.zones || [])) {
                     if (Array.isArray(z.sample)) z.sample = new Float32Array(z.sample);
                 }
@@ -666,6 +688,39 @@ class MidiSynthesizer {
             .catch(() => { this._drumLoading.delete(cacheKey); return null; });
         this._drumLoading.set(cacheKey, p);
         return p;
+    }
+
+    /**
+     * Self-healing fallback when the server reports that the built-in
+     * `assets/sf2/default.sf2` is not present (every preset 404s). Switch
+     * every live synth to FluidR3_GM (legacy WAF, online) so the user
+     * hears something, persist the choice so subsequently-created synths
+     * (loop modal piano, AudioPreview, etc.) pick it up, and surface a
+     * single toast to explain why. One-shot per page load.
+     */
+    static _handleDefaultSF2Missing() {
+        if (MidiSynthesizer._defaultSf2FallbackApplied) return;
+        MidiSynthesizer._defaultSf2FallbackApplied = true;
+
+        const FALLBACK_ID = 'FluidR3_GM';
+        try {
+            const raw = localStorage.getItem('gmboop_settings');
+            const parsed = raw ? JSON.parse(raw) : {};
+            // Only override the persisted choice when it was the (broken)
+            // built-in default — never overwrite an explicit user choice.
+            if (!parsed.soundBank || parsed.soundBank === DEFAULT_BANK_ID) {
+                parsed.soundBank = FALLBACK_ID;
+                localStorage.setItem('gmboop_settings', JSON.stringify(parsed));
+            }
+        } catch (e) { /* localStorage unavailable — keep going */ }
+
+        for (const inst of MidiSynthesizer._instances) {
+            if (inst.currentBankId === DEFAULT_BANK_ID) {
+                try { inst.setSoundBank(FALLBACK_ID); } catch (e) { /* ignore */ }
+            }
+        }
+
+        MidiSynthesizer.notifyDefaultSf2Missing();
     }
 
     /**
