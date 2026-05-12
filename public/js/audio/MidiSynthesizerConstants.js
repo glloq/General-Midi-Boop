@@ -128,10 +128,11 @@
   }
 
   /**
-   * Read the persisted opt-in for the WAF CDN. The flag lives in the same
-   * localStorage blob as the rest of the user settings (gmboop_settings).
-   * Defaults to false: nothing on the public WAF CDN is needed for normal
-   * operation now that there is a built-in default SF2.
+   * Read the persisted opt-in for the WAF CDN. Kept for backwards
+   * compatibility: callers that want to detect whether the user has
+   * explicitly enabled the CDN can still read this. We no longer
+   * filter `getAvailableBanks()` on it — see the comment on that
+   * function for the rationale.
    * @returns {boolean}
    */
   function isExternalWafEnabled() {
@@ -147,17 +148,21 @@
   }
 
   /**
-   * Banks exposed to the rest of the UI. By default this is:
-   *   [ built-in default SF2, ...custom SF2 banks ]
-   * The legacy WAF banks are only included when the user has explicitly
-   * opted in via `useExternalWaf = true` in their settings.
+   * Banks exposed to the rest of the UI:
+   *   [ built-in default SF2, ...custom SF2 banks, ...WAF banks ]
+   *
+   * The legacy WAF banks (FluidR3, GeneralUserGS WAF, JCLive, Aspirin,
+   * SBLive, Chaos, SoundBlasterOld) are *visible* by default so users
+   * keep their choices, but the **default selection** stays
+   * `sf2:default` (DEFAULT_BANK_ID). No public-CDN request is made
+   * until the user actively picks a WAF bank — fulfilling the
+   * "offline-first" rule while not amputating the bank menu.
+   *
+   * The `requiresExternal: true` flag on each WAF entry lets the UI
+   * surface a warning badge if it wants to.
    */
   function getAvailableBanks() {
-    const banks = [BUILT_IN_DEFAULT_SF2_BANK].concat(_customBanks);
-    if (isExternalWafEnabled()) {
-      return banks.concat(WAF_BANKS);
-    }
-    return banks;
+    return [BUILT_IN_DEFAULT_SF2_BANK].concat(_customBanks).concat(WAF_BANKS);
   }
 
   window.MidiSynthesizerConstants = {

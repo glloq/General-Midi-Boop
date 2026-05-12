@@ -264,10 +264,31 @@
                     try { inst.setSoundBank(saved); } catch (e) { /* ignore */ }
                 }
             }
-            if (payload.defaultPresent === false
-                && typeof MidiSynthesizer !== 'undefined'
-                && typeof MidiSynthesizer.notifyDefaultSf2Missing === 'function') {
-                MidiSynthesizer.notifyDefaultSf2Missing();
+            if (payload.defaultPresent === false) {
+                if (typeof MidiSynthesizer !== 'undefined'
+                    && typeof MidiSynthesizer.notifyDefaultSf2Missing === 'function') {
+                    MidiSynthesizer.notifyDefaultSf2Missing();
+                }
+                // UX fallback: when the built-in SF2 is missing AND the user
+                // is on the default selection, transparently switch every
+                // live synth to FluidR3_GM (WAF). This is what makes the
+                // loop-modal virtual piano produce sound on a fresh install
+                // before the user has had a chance to fix the soundfont. The
+                // fallback is one-shot and only kicks in when the saved bank
+                // is the (now-broken) default; users who explicitly picked
+                // another bank are left alone.
+                const defaultId = (window.MidiSynthesizerConstants
+                    && window.MidiSynthesizerConstants.DEFAULT_BANK_ID) || 'sf2:default';
+                const savedNow = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getSavedBank
+                    ? MidiSynthesizer.getSavedBank()
+                    : null;
+                if ((!savedNow || savedNow === defaultId)
+                    && typeof MidiSynthesizer !== 'undefined'
+                    && MidiSynthesizer._instances) {
+                    for (const inst of MidiSynthesizer._instances) {
+                        try { inst.setSoundBank('FluidR3_GM'); } catch (e) { /* ignore */ }
+                    }
+                }
             }
         } catch (e) {
             // Non-fatal: SF2 backend may not be reachable yet on cold boot.
