@@ -1341,24 +1341,25 @@ class LoopEditorModal extends BaseModal {
 
                 // Détection drum kit. KeyboardModal nous transmet
                 // maintenant `isDrum` (calculé depuis
-                // `caps.instrument_type` + channel === 9 + gmProgram ≥ 128).
-                // Fallback local pour les vieux callers qui n'envoient
-                // pas le flag.
+                // `caps.instrument_type` + channel === 9 + gmProgram ≥ 128
+                // + viewMode === 'drumpad'). Fallback local le plus
+                // large possible pour les vieux callers qui n'envoient
+                // pas le flag — couvre les types qu'on a vu en DB :
+                // 'drum', 'drums', 'percussion', 'percussive'.
+                const drumLikeTypes = new Set(['drum', 'drums', 'drumkit', 'drum_kit', 'percussion', 'percussive']);
                 const isDrum = isDrumFromKbd === true
-                    || instrumentType === 'drum'
-                    || instrumentType === 'drums'
+                    || (instrumentType && drumLikeTypes.has(String(instrumentType).toLowerCase()))
                     || channel === 9
                     || (gmProgram != null && gmProgram >= 128);
 
                 // Drum-kit offset convention : `MidiSynthesizer._decodeKitProgram`
-                // reads kit programs as `gmProgram + 128`. When the keyboard
-                // panel routes via channel 9 without setting a kit program
-                // (e.g. `gmProgram === 0`), we must still store the value as
-                // ≥ 128 — otherwise `instrument_program` is saved as plain
-                // piano and the loop plays back melodically on the synth.
+                // reads kit programs as `gmProgram + 128`. We preserve the
+                // user's actual kit choice (Standard / Jazz / SFX Kit …)
+                // by ADDING 128 rather than clamping to 128 — otherwise
+                // every drum loop saved as Standard Kit.
                 const rawProgram = gmProgram ?? 0;
                 const storedProgram = isDrum
-                    ? (rawProgram >= 128 ? rawProgram : 128)
+                    ? (rawProgram >= 128 ? rawProgram : rawProgram + 128)
                     : rawProgram;
 
                 this.outputMode        = deviceId ? 'device' : 'synth';

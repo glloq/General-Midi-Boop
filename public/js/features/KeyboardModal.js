@@ -700,7 +700,14 @@ class KeyboardModalNew {
                       : (this.selectedDevice && this.selectedDevice.channel !== undefined
                             ? this.selectedDevice.channel : null);
         const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
-        const isDrum = type === 'drum' || type === 'drums' || channel === 9 || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
+        // Accept every drum-like instrument_type the project has shipped
+        // historically (DB column has been seen with `drum`, `drums`,
+        // `percussion`, `percussive`). Channel 9 / gmProgram ≥ 128 stay
+        // as fallbacks.
+        const drumLikeTypes = new Set(['drum', 'drums', 'drumkit', 'drum_kit', 'percussion', 'percussive']);
+        const isDrum = (typeof type === 'string' && drumLikeTypes.has(type.toLowerCase()))
+            || channel === 9
+            || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
         // String: explicit "string" type, an active stringInstrumentConfig, or
         // a GM program in the guitar/bass/orchestral/ethnic-strings ranges.
         const stringByGm = !isDrum
@@ -1014,14 +1021,18 @@ class KeyboardModalNew {
             // drum kits whose device exposes a melodic gm_program on a
             // non-9 channel. `info` comes from `getInstrumentViewInfo()`
             // which already folds `caps.instrument_type === 'drum'` into
-            // the flag.
+            // the flag. `viewMode === 'drumpad'` is the authoritative
+            // tiebreaker — if we activated drum-pad UI just above, the
+            // user is clearly playing drums even if caps doesn't agree.
+            const finalIsDrum = info.isDrum === true || this.viewMode === 'drumpad';
             this._panelCallbacks.onInstrumentSelected({
                 deviceId: this.selectedDevice?.device_id || this.selectedDevice?.id || null,
                 channel: this.getSelectedChannel(),
                 gmProgram: this.selectedDeviceCapabilities?.gm_program ?? 0,
                 instrumentType: info.instrumentType || this.selectedDeviceCapabilities?.instrument_type || null,
-                isDrum: info.isDrum === true,
-                isWind: info.isWind === true
+                isDrum: finalIsDrum,
+                isWind: info.isWind === true,
+                viewMode: this.viewMode
             });
         }
     }
