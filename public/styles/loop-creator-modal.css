@@ -164,6 +164,10 @@
     transition: background 0.15s, color 0.15s;
     white-space: nowrap;
 }
+/* Inline SVG icon used for the Pad tab — keep it baseline-aligned with
+   the emoji icons on the other tabs. */
+.lc-tab-icon { display: inline-flex; align-items: center; vertical-align: -2px; }
+.lc-tab-icon svg { display: block; }
 .lc-tab:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: transparent; }
 .lc-tab--active {
     background: rgba(255,255,255,0.22);
