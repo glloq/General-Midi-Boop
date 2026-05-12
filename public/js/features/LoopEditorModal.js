@@ -1339,10 +1339,11 @@ class LoopEditorModal extends BaseModal {
                 // previous instrument / device after the switch.
                 this._previewStopAll();
 
-                // Détection drum kit. La keyboard nous transmet maintenant
-                // isDrum (calculé depuis capabilities.instrument_type) ; on
-                // garde les fallbacks channel===9 / gmProgram>=128 pour
-                // les anciens callers qui n'envoient pas isDrum.
+                // Détection drum kit. KeyboardModal nous transmet
+                // maintenant `isDrum` (calculé depuis
+                // `caps.instrument_type` + channel === 9 + gmProgram ≥ 128).
+                // Fallback local pour les vieux callers qui n'envoient
+                // pas le flag.
                 const isDrum = isDrumFromKbd === true
                     || instrumentType === 'drum'
                     || channel === 9
