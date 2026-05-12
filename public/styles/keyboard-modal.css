@@ -2925,11 +2925,9 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 .modal-dialog.km-panel-mode .control-group {
     gap: 2px !important;
 }
-/* Hide decorative / rarely-used controls in panel mode to save space */
-.modal-dialog.km-panel-mode #keyboard-latency-group,
-.modal-dialog.km-panel-mode .notation-group {
-    display: none !important;
-}
+/* Latency display + notation toggle (US / FR / MIDI) stay visible in
+   panel mode — the loop editor surfaces them as quick references in
+   the piano-virtuel header, exactly like the standalone modal. */
 
 /* Minimap / octave navigation row: compressed */
 .modal-dialog.km-panel-mode .keyboard-minimap-row {
