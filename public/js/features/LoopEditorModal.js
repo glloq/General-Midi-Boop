@@ -524,6 +524,24 @@ class LoopEditorModal extends BaseModal {
         });
         this._panelMinimapChange = () => this._syncPanelMinimap();
         pr.addEventListener('change', this._panelMinimapChange);
+
+        // The minimap canvas reads `clientWidth/Height` in its `draw()`
+        // and bails out early if either is 0 — which is exactly what
+        // happens at first paint while the transport bar's flex layout
+        // is still settling. Without the resize observer below, the
+        // minimap stays stuck at its first (possibly partial) width
+        // until the user nudges the tempo or otherwise re-triggers a
+        // sync. The observer re-renders on every canvas size change.
+        if (typeof ResizeObserver !== 'undefined') {
+            let lastW = 0, lastH = 0;
+            this._panelMinimapCanvasObs = new ResizeObserver(() => {
+                const w = canvas.clientWidth, h = canvas.clientHeight;
+                if (w === lastW && h === lastH) return;
+                lastW = w; lastH = h;
+                this._panelMinimap?.draw?.();
+            });
+            this._panelMinimapCanvasObs.observe(canvas);
+        }
         this._syncPanelMinimap();
     }
 
@@ -578,6 +596,10 @@ class LoopEditorModal extends BaseModal {
         if (this._panelMinimapObserver) {
             try { this._panelMinimapObserver.disconnect(); } catch (_) { /* best-effort */ }
             this._panelMinimapObserver = null;
+        }
+        if (this._panelMinimapCanvasObs) {
+            try { this._panelMinimapCanvasObs.disconnect(); } catch (_) { /* best-effort */ }
+            this._panelMinimapCanvasObs = null;
         }
         if (this._panelMinimapChange && this.midiEditorPanel?.pianoRoll) {
             try { this.midiEditorPanel.pianoRoll.removeEventListener('change', this._panelMinimapChange); }

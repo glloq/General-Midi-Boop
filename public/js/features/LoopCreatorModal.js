@@ -454,6 +454,28 @@ class LoopManagerModal extends BaseModal {
         document.addEventListener('mouseup',    this._boundDocMouseUp);
         document.addEventListener('mousemove',  this._boundDocMouseMove);
         document.addEventListener('keydown',    this._boundKeyDown);
+
+        // Run the per-tab init that `_switchTab` would normally trigger.
+        // Without this, opening on a non-library tab (or even library if
+        // the async library load hasn't fired yet) leaves the pane
+        // visually selected but unpopulated until the user manually
+        // clicks another tab and back.
+        this._initActiveTab();
+    }
+
+    /**
+     * Initial-render hook : run the same per-tab init that `_switchTab`
+     * performs, but for the currently active tab. Idempotent — every
+     * `_render*` / `_init*` it calls is safe to invoke twice.
+     */
+    _initActiveTab() {
+        switch (this.activeTab) {
+            case 'library':  this._filterAndRenderLibrary(); break;
+            case 'pad':      this._renderPadGrid();           break;
+            case 'live':     this._renderLiveArea();          break;
+            case 'keyboard': this._enterKeyboardTab();        break;
+            case 'arranger': this._initArrangerTab();         break;
+        }
     }
 
     // ── Global output selector (header) ────────────────────────
