@@ -369,3 +369,36 @@ Certains instruments sont le meme objet physique joue avec des techniques differ
 
 - `src/midi/adaptation/InstrumentTypeConfig.js` — Hierarchie des 128 programmes GM, labels francais, cles de sous-type
 - `src/midi/adaptation/DrumNoteMapper.js` — Notes drum GM 35-81 avec noms anglais
+
+---
+
+## Screenshots wiki — Loop Manager / Loop Editor
+
+Captures referencees par `wiki/Interface-Loop-Manager.md`. Format PNG, ≤ 1280 px de large, theme par defaut, fond opaque, capture du modal seul (pas de chrome du navigateur). Destination : `docs/images/loop/`.
+
+### Loop Manager
+
+- [ ] `loop-manager-header.png` — Bandeau du Loop Manager avec les 5 onglets visibles (🗂 Library, ◻ Pad, ⚡ Live, 🎹 Keyboard, ∞ Arranger).
+- [ ] `loop-manager-library.png` — Onglet **Library** : grille avec au moins 6 loops d'instruments differents, une carte survolee montrant les actions (Preview / Edit / Duplicate / Delete), barre de recherche et filtres en haut.
+- [ ] `loop-manager-pad.png` — Onglet **Pad** : grille 4 × 4 avec 2-3 pads assignes, un pad en cours de lecture (highlight), menu contextuel ouvert sur un autre pad montrant `Assign / Clear / Mode`.
+- [ ] `loop-manager-live.png` — Onglet **Live** : au moins 3 colonnes de familles GM (Piano, Strings, Drums…), un loop en cours de lecture, bouton `Stop All` visible.
+- [ ] `loop-manager-keyboard.png` — Onglet **Keyboard** : clavier virtuel embarque avec 1-2 loops en lecture en arriere-plan, bouton `Silence` visible.
+- [ ] `loop-manager-arranger.png` — Onglet **Arranger** : timeline avec 3+ tracks (avec mute/solo), plusieurs blocs (un en surbrillance), tete de lecture au milieu, minimap au-dessus.
+
+### Loop Editor
+
+- [ ] `loop-editor-overview.png` — Modale complete : onglets `🎹 Piano / ✎ Editor`, bandeau transport, picker d'instrument, metronome + count-in visibles.
+- [ ] `loop-editor-piano.png` — Onglet **Piano** : clavier embarque en cours d'enregistrement (indicateur rouge ●), metronome actif, picker MIDI In visible.
+- [ ] `loop-editor-pianoroll.png` — Onglet **Editor** : piano roll avec plusieurs notes, une selection en surbrillance, lane de velocite ouverte en bas, grille de quantize visible.
+- [ ] `loop-editor-output.png` — Panneau **Output** : mode `Device` selectionne avec port MIDI + canal, sliders de range note min/max visibles.
+
+---
+
+## Screenshots wiki — Virtual Piano (compléments)
+
+Captures référencées par `wiki/Interface-Virtual-Piano.md` mais pas encore disponibles. Destination : `docs/images/virtual keyboard/`.
+
+- [ ] `piano virtuel wind.png` — Vue wind avec le panneau d'articulation (Normal / Legato / Staccato / Accent), slider CC#2 Breath, range de l'instrument affiche.
+- [ ] `piano virtuel wind slider.png` — Vue **Slider** wind : touches de largeur egale, pitch bend horizontal indique (un doigt en cours de drag de preference).
+- [ ] `piano virtuel list.png` — Vue **List** : layout liste compact, selecteur `Y → CC`, bouton `↔ Pitch X` actif, plusieurs notes touchees en parallele.
+- [ ] `piano virtuel pitch-bend strings.png` — Vue fretboard avec le bouton `〜 Pitch bend` actif, une note bend visible (curseur tire sur la corde, valeur de bend affichee).
