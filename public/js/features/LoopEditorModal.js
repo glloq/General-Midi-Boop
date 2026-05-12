@@ -1458,6 +1458,12 @@ class LoopEditorModal extends BaseModal {
 
     _previewLoop() {
         this._stopAll();
+        // Re-sync drum-kit flag from the keyboard panel in case
+        // `onInstrumentSelected` never fired (user never clicked the
+        // dropdown, mounted with a default device, etc.). Otherwise
+        // `_isDrumKit` stays false and the preview routes to channel 0
+        // with a melodic program → silent or wrong sound.
+        this._reconcileDrumKitFromKeyboardPanel();
         const seq = this.pianoRollEditor?.getSequence() ?? [];
         if (!seq.length) { this._setStatus(this.t('loopCreator.statusNoNotes')); return; }
         if (this._outputTarget === 'live' && this.outputMode === 'device' && this.outputDeviceId) {
@@ -1555,12 +1561,59 @@ class LoopEditorModal extends BaseModal {
     // SAVE / LOAD
     // =========================================================
 
+    /**
+     * Safety net before saving : if the keyboard panel's current state
+     * indicates a drum kit (drumpad view OR caps.instrument_type in the
+     * drum-like set OR selected device on channel 9 OR gm_program ≥ 128)
+     * but our local `_isDrumKit` / `instrumentProgram` got out of sync,
+     * rewrite them here so the saved loop's `instrument_program` lands
+     * in the drum-kit-offset range (≥ 128). Mirrors the logic of
+     * `_selectInstrumentOption` minus the synth setup (the synth was
+     * already correctly configured at recording time if drums sounded).
+     */
+    _reconcileDrumKitFromKeyboardPanel() {
+        const kbd = window.keyboardModal;
+        if (!kbd) return;
+        const caps = kbd.selectedDeviceCapabilities || null;
+        const type = (caps?.instrument_type || '').toLowerCase();
+        const drumLikeTypes = new Set(['drum', 'drums', 'drumkit', 'drum_kit', 'percussion', 'percussive']);
+        const ch = caps?.channel ?? kbd.selectedDevice?.channel ?? null;
+        const gm = caps?.gm_program ?? kbd.selectedDevice?.gm_program ?? null;
+        const isDrum = kbd.viewMode === 'drumpad'
+            || drumLikeTypes.has(type)
+            || ch === 9
+            || (gm != null && gm >= 128);
+        if (!isDrum) return;
+        // The current instrument is a kit. Force the in-memory state to
+        // match so `_saveLoop` writes a drum-kit `instrument_program`.
+        const rawProgram = gm ?? 0;
+        const stored = rawProgram >= 128 ? rawProgram : rawProgram + 128;
+        if (this.instrumentProgram !== stored || !this._isDrumKit) {
+            this.instrumentProgram = stored;
+            this._isDrumKit        = true;
+            this.outputChannel     = 9;
+            this.outputGmProgram   = stored;
+            this._instrumentSelected = true;
+            this._refreshRecButtonEnabled?.();
+        }
+    }
+
     async _saveLoop({ asNew = false } = {}) {
         this.loopName = (this.$('#lc-name-input')?.value?.trim()) || this.t('loopCreator.untitled');
         if (asNew) {
             this.loopName = this.t('loopManager.duplicateNameSuffix', { name: this.loopName });
             const nameEl = this.$('#lc-name-input'); if (nameEl) nameEl.value = this.loopName;
         }
+
+        // Defensive sync : if the keyboard panel currently shows the
+        // drum-pad view (or its capabilities say drum / drums /
+        // percussion), force the saved program to a drum-kit encoding
+        // even if our local `_isDrumKit` got out of sync (e.g. the user
+        // never clicked the dropdown so `onInstrumentSelected` never
+        // fired). Without this guard, a "I picked drums but never got
+        // a callback" path would save the loop with a melodic program.
+        this._reconcileDrumKitFromKeyboardPanel();
+
         // webaudio-pianoroll stores note length as `g` (gate), but the
         // backend's loop schema validates against `l` (length). Normalise
         // here so the same in-memory sequence works regardless of whether
