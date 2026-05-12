@@ -223,6 +223,12 @@
                 this.modal.navigationBar = null;
             }
 
+    // Tear down the piano-roll container ResizeObserver
+            if (this.modal._pianoRollContainerObs) {
+                try { this.modal._pianoRollContainerObs.disconnect(); } catch (_) { /* best-effort */ }
+                this.modal._pianoRollContainerObs = null;
+            }
+
     // Nettoyer la barre de timeline
             if (this.modal.timelineBar) {
                 this.modal.timelineBar.destroy();

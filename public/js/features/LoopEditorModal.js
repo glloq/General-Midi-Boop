@@ -454,19 +454,11 @@ class LoopEditorModal extends BaseModal {
                 owner._syncPanelMinimap();
             },
             refit:          () => {
-                if (!panel.pianoRoll) return;
-                // webaudio-pianoroll syncs attribute → property only at
-                // connectedCallback time ; setAttribute() afterwards does
-                // NOT re-trigger `layout()`. Assign the JS property so
-                // the setter runs `layout()` and resizes the canvas.
-                const c = panel.container?.querySelector('#piano-roll-container');
-                if (c) {
-                    const w = c.clientWidth  || 900;
-                    const h = c.clientHeight || 200;
-                    panel.pianoRoll.width  = w;
-                    panel.pianoRoll.height = h;
-                }
-                panel.pianoRoll.redraw?.();
+                // Canvas pixel sizing now lives on MidiEditorModal itself
+                // (auto-fires via its own ResizeObserver). We just nudge
+                // a redraw and resync the loop minimap.
+                panel.routingOps?._refreshPianoRollSize?.();
+                panel.pianoRoll?.redraw?.();
                 owner._syncPanelMinimap();
             },
             destroy:        () => {
@@ -1308,6 +1300,13 @@ class LoopEditorModal extends BaseModal {
                 this.outputNoteMin = range.min;
                 this.outputNoteMax = range.max;
                 this._refreshPianoRollRange();
+                // Propagate the new instrument to the MidiEditor panel so
+                // its specialized-mode toolbar (DRUM / TAB / WIND) and
+                // channel-routing logic stay in sync.
+                this.midiEditorPanel?.setPanelLoopState?.({
+                    channel: this.outputChannel,
+                    instrumentProgram: this.instrumentProgram
+                });
             }
         });
     }

@@ -356,6 +356,10 @@
 
                         <div class="toolbar-divider"></div>
 
+                        ${loop ? `<!-- Specialized modes (drum / tab / wind) — loop mode only -->
+                        <div class="toolbar-section specialized-mode-section" id="loop-specialized-modes"></div>
+                        <div class="toolbar-divider"></div>` : ''}
+
                         <!-- Edit section (Copy / Paste / Delete) -->
                         <div class="toolbar-section">
                             <button class="tool-btn" data-action="copy" id="copy-btn" title="${this.modal.t('midiEditor.copy')} (Ctrl+C)" disabled>
@@ -532,6 +536,79 @@
 
     // Keyboard shortcuts (includes Escape → close)
         this.modal.editActions?.setupKeyboardShortcuts();
+    }
+
+    /**
+     * Sync the webaudio-pianoroll's pixel size to its container. The
+     * custom element only reads its `width` / `height` attributes once,
+     * at connectedCallback time (via getAttr inside defineprop), so
+     * `setAttribute` after mount does NOT re-run the `layout()` observer.
+     * We must assign the JS properties — the setter pipes through to
+     * `layout()` and resizes both the underlying canvas and its CSS box.
+     */
+    _refreshPianoRollSize() {
+        if (!this.modal.pianoRoll) return false;
+        const container = this.modal.container?.querySelector('#piano-roll-container');
+        if (!container) return false;
+        const w = container.clientWidth  || 0;
+        const h = container.clientHeight || 0;
+        if (w <= 0 || h <= 0) return false;
+        if (this.modal.pianoRoll.width  !== w) this.modal.pianoRoll.width  = w;
+        if (this.modal.pianoRoll.height !== h) this.modal.pianoRoll.height = h;
+        return true;
+    }
+
+    /**
+     * Render DRUM / TAB / WIND mode buttons in the loop panel's toolbar
+     * based on the current channel's GM program. Drum & wind families
+     * are detected from the program range ; TAB is only offered when a
+     * string-instrument config already exists in DB for the active
+     * device (the loop editor itself never creates one).
+     *
+     * Re-render on every change of program / channel / device.
+     */
+    async _updateLoopSpecializedModeButtons() {
+        if (!this.modal.loopMode) return;
+        const host = this.modal.container?.querySelector('#loop-specialized-modes');
+        if (!host) return;
+        const ch = this.modal.channels?.[0];
+        if (!ch) { host.innerHTML = ''; return; }
+        const program = ch.program ?? 0;
+        const channel = ch.channel ?? 0;
+        const isDrum  = channel === 9;
+        const windCat = (typeof MidiEditorChannelPanel !== 'undefined')
+            ? MidiEditorChannelPanel.getWindInstrumentCategory(program) : null;
+        const stringCat = (typeof MidiEditorChannelPanel !== 'undefined')
+            ? MidiEditorChannelPanel.getStringInstrumentCategory(program) : null;
+
+        // String instruments only get a TAB button when a config exists
+        // for the active device — checked via `string_instrument_list`.
+        let hasStringConfig = false;
+        if (stringCat) {
+            try {
+                const deviceId = this.modal.tablatureOps?.getEffectiveDeviceId?.();
+                const resp = await this.modal.api.sendCommand('string_instrument_list', { device_id: deviceId });
+                if (resp?.instruments?.length) hasStringConfig = true;
+            } catch { /* backend offline → no TAB */ }
+        }
+
+        const buttons = [];
+        if (isDrum) {
+            buttons.push(`<button class="tool-btn channel-drum-btn" data-channel="${channel}"
+                title="${this.modal.t('drumPattern.toggleEditor')}">
+                <span class="icon">🥁</span></button>`);
+        }
+        if (windCat) {
+            buttons.push(`<button class="tool-btn channel-wind-btn" data-channel="${channel}"
+                title="${this.modal.t('windEditor.icon')}">
+                <span class="icon">🎺</span></button>`);
+        }
+        if (hasStringConfig) {
+            buttons.push(`<button class="tool-btn channel-tab-btn" data-channel="${channel}" data-color="#0aa"
+                title="${this.modal.t('midiEditor.tabButton')}">
+                <span class="icon">🎸</span></button>`);
+        }
+        host.innerHTML = buttons.join('');
     }
 
     async initPianoRoll() {
@@ -723,6 +800,31 @@
         this.modal.pianoRoll.addEventListener('selectionchange', () => {
             this.modal.editActions?.updateEditButtons();
         });
+
+    // Auto-resize the canvas whenever its container changes size — covers
+    // CC section expand/collapse, drag-resize of the cc-resize bar,
+    // window resize, hidden-tab → visible tab transitions, etc. Without
+    // this the piano roll keeps the pixel size it had at mount.
+        if (typeof ResizeObserver !== 'undefined') {
+            this.modal._pianoRollContainerObs?.disconnect?.();
+            let lastW = 0, lastH = 0;
+            // Coalesce resize bursts onto a single RAF — the drag-resize
+            // handler fires per pointer-move and we don't want to thrash
+            // the canvas allocation.
+            let scheduled = false;
+            this.modal._pianoRollContainerObs = new ResizeObserver(() => {
+                const w = container.clientWidth, h = container.clientHeight;
+                if (w === lastW && h === lastH) return;
+                lastW = w; lastH = h;
+                if (scheduled) return;
+                scheduled = true;
+                requestAnimationFrame(() => {
+                    scheduled = false;
+                    this._refreshPianoRollSize();
+                });
+            });
+            this.modal._pianoRollContainerObs.observe(container);
+        }
 
     // Play the note on piano-keyboard click
         this.modal.pianoRoll.addEventListener('pianokey', (e) => {
