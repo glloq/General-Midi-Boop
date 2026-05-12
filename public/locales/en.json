@@ -364,6 +364,8 @@
     "toggleNoteColors": "Toggle note colors",
     "slideMode": "Slide",
     "slideToggle": "Toggle slide mode (drag to glide between notes)",
+    "pitchBendMode": "Pitch bend",
+    "pitchBendToggle": "Pitch bend mode — click a fret, drag to bend",
     "pianoSlider": "Slider",
     "pianoSliderToggle": "Slider mode — equal-width keys with pitch bend",
     "listView": "List view",

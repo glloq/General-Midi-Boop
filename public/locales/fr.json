@@ -364,6 +364,8 @@
     "toggleNoteColors": "Changer couleurs des notes",
     "slideMode": "Glissement",
     "slideToggle": "Activer le mode glissement (glisser pour enchaîner les notes)",
+    "pitchBendMode": "Pitch bend",
+    "pitchBendToggle": "Mode pitch bend — clic sur une frette, glisser pour bender",
     "pianoSlider": "Slider",
     "pianoSliderToggle": "Mode slider — touches égales + pitch bend",
     "listView": "Vue liste",

@@ -11,8 +11,13 @@
     KeyboardSliderMixin._updateSlideModeGroupVisibility = function () {
         const group = document.getElementById('keyboard-slide-mode-group');
         if (!group) return;
+        const cfg = this.stringInstrumentConfig || {};
+        const mechanism = cfg.hands_config && cfg.hands_config.mechanism;
+        const mechanismAllowsBend =
+            mechanism === 'string_sliding_fingers' ||
+            mechanism === 'independent_fingers';
         const show = this.viewMode === 'fretboard'
-            && !!(this.stringInstrumentConfig && this.stringInstrumentConfig.string_slider_enabled);
+            && (!!cfg.string_slider_enabled || mechanismAllowsBend);
         group.classList.toggle('hidden', !show);
         if (!show && this._stringSlideActive) {
             this._disableStringSlideMode();
@@ -75,6 +80,7 @@
         const openMidi  = tuning[stringNum - 1] !== undefined ? tuning[stringNum - 1] : 40;
 
         let activeNote = null;
+        let anchorFret = 0;
 
         const getPos = (clientX) => {
             const rect = row.getBoundingClientRect();
@@ -84,30 +90,34 @@
             const fretAreaWidth = rect.width - nutWidth;
             const ratio       = Math.max(0, Math.min(1, (clientX - fretAreaLeft) / fretAreaWidth));
             const exactFret   = ratio * numFrets;
-            const fret        = Math.floor(exactFret);
-            const note        = Math.min(127, Math.max(0, openMidi + fret));
-            // 1 semitone = 4096 units in ±2ST standard bend range
-            const bend        = Math.round((exactFret - fret) * 4096);
-            return { note, bend, ratio };
+            return { exactFret, ratio };
         };
 
-        const onDown = (clientX) => {
-            const { note, bend, ratio } = getPos(clientX);
-            activeNote = note;
-            this._sendPitchBend(bend);
-            this.playNote(note);
-            this._updateStringSlideIndicator(row, ratio);
+        const onDown = (clientX, target) => {
+            const dot = target && target.closest && target.closest('.fret-dot');
+            const dotFret = dot && dot.dataset.fret !== undefined
+                ? parseInt(dot.dataset.fret, 10) : NaN;
+            const { exactFret, ratio } = getPos(clientX);
+            // Anchor: clicked fret-dot if available (≥1), else x-derived
+            anchorFret = Number.isFinite(dotFret) && dotFret >= 1
+                ? dotFret
+                : Math.floor(exactFret);
+            activeNote = Math.min(127, Math.max(0, openMidi + anchorFret));
+            this._sendPitchBend(0);
+            this.playNote(activeNote);
+            const anchorRatio = Number.isFinite(dotFret) && dotFret >= 1
+                ? (anchorFret / numFrets)
+                : ratio;
+            this._updateStringSlideIndicator(row, anchorRatio);
         };
 
         const onMove = (clientX) => {
             if (activeNote === null) return;
-            const { note, bend, ratio } = getPos(clientX);
+            const { exactFret, ratio } = getPos(clientX);
+            // Bend relative to anchor, clamped to ±2 semitones (standard range)
+            const bend = Math.max(-4096, Math.min(4096,
+                Math.round((exactFret - anchorFret) * 4096)));
             this._sendPitchBend(bend);
-            if (note !== activeNote) {
-                this.stopNote(activeNote);
-                activeNote = note;
-                this.playNote(note);
-            }
             this._updateStringSlideIndicator(row, ratio);
         };
 
@@ -123,7 +133,7 @@
         const mouseDown = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            onDown(e.clientX);
+            onDown(e.clientX, e.target);
             const moveH = (ev) => onMove(ev.clientX);
             const upH   = () => {
                 onUp();
@@ -137,7 +147,7 @@
         const touchStart = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            onDown(e.touches[0].clientX);
+            onDown(e.touches[0].clientX, e.target);
         };
         const touchMove = (e) => {
             e.preventDefault();
