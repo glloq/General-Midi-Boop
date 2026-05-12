@@ -188,7 +188,8 @@
         "restarting": "সার্ভার পুনরায় চালু হচ্ছে...",
         "verifying": "যাচাই হচ্ছে...",
         "done": "আপডেট সম্পন্ন!"
-      }
+      },
+      "successToast": "আপডেট সফলভাবে ইনস্টল হয়েছে!"
     }
   },
   "bluetooth": {
@@ -2258,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "নতুন সংস্করণ v{version} উপলব্ধ!",
+    "betaCommitsSingular": "{count}টি বিটা কমিট উপলব্ধ — {hash}",
+    "betaCommitsPlural": "{count}টি বিটা কমিট উপলব্ধ — {hash}"
   }
 }

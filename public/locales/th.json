@@ -188,7 +188,8 @@
         "restarting": "กำลังรีสตาร์ทเซิร์ฟเวอร์...",
         "verifying": "กำลังตรวจสอบ...",
         "done": "อัปเดตเสร็จสมบูรณ์!"
-      }
+      },
+      "successToast": "ติดตั้งการอัปเดตสำเร็จแล้ว!"
     }
   },
   "bluetooth": {
@@ -2258,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "เวอร์ชันใหม่ v{version} พร้อมใช้งาน!",
+    "betaCommitsSingular": "มี {count} เบต้าคอมมิตที่พร้อมใช้งาน — {hash}",
+    "betaCommitsPlural": "มี {count} เบต้าคอมมิตที่พร้อมใช้งาน — {hash}"
   }
 }

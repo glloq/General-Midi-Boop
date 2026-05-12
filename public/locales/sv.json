@@ -188,7 +188,8 @@
         "restarting": "Startar om server...",
         "verifying": "Verifierar...",
         "done": "Uppdatering klar!"
-      }
+      },
+      "successToast": "Uppdatering installerad!"
     }
   },
   "bluetooth": {
@@ -2258,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Ny version v{version} tillgänglig!",
+    "betaCommitsSingular": "{count} beta-commit tillgänglig — {hash}",
+    "betaCommitsPlural": "{count} beta-commits tillgängliga — {hash}"
   }
 }

@@ -253,7 +253,8 @@
         "restarting": "Redémarrage du serveur...",
         "verifying": "Vérification...",
         "done": "Mise à jour terminée !"
-      }
+      },
+      "successToast": "Mise à jour installée avec succès !"
     },
     "lyrics": {
       "title": "Karaoké",
@@ -2659,5 +2660,10 @@
     "tabPianoVirtuel": "🎹 Piano virtuel",
     "tabEditor": "🎼 Éditeur",
     "minimapInfoAria": "Aperçu des notes (visualisation seule)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Nouvelle version v{version} disponible !",
+    "betaCommitsSingular": "{count} commit bêta disponible — {hash}",
+    "betaCommitsPlural": "{count} commits bêta disponibles — {hash}"
   }
 }

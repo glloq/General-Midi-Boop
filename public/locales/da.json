@@ -188,7 +188,8 @@
         "restarting": "Genstarter server...",
         "verifying": "Verificerer...",
         "done": "Opdatering færdig!"
-      }
+      },
+      "successToast": "Opdatering installeret med succes!"
     }
   },
   "bluetooth": {
@@ -2258,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Ny version v{version} tilgængelig!",
+    "betaCommitsSingular": "{count} beta-commit tilgængelig — {hash}",
+    "betaCommitsPlural": "{count} beta-commits tilgængelige — {hash}"
   }
 }

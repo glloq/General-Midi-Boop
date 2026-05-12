@@ -188,7 +188,8 @@
         "restarting": "Перезапуск сервера...",
         "verifying": "Проверка...",
         "done": "Обновление завершено!"
-      }
+      },
+      "successToast": "Обновление успешно установлено!"
     }
   },
   "bluetooth": {
@@ -2258,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Доступна новая версия v{version}!",
+    "betaCommitsSingular": "Доступен {count} бета-коммит — {hash}",
+    "betaCommitsPlural": "Доступно бета-коммитов: {count} — {hash}"
   }
 }

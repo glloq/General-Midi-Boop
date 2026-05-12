@@ -188,7 +188,8 @@
         "restarting": "Memulai ulang server...",
         "verifying": "Memverifikasi...",
         "done": "Pembaruan selesai!"
-      }
+      },
+      "successToast": "Pembaruan berhasil dipasang!"
     }
   },
   "bluetooth": {
@@ -2258,5 +2259,10 @@
     "percussive": "Percussion",
     "sfx": "Sound Effects",
     "drumKits": "Drum Kits (GM)"
+  },
+  "startupUpdate": {
+    "newVersionAvailable": "Versi baru v{version} tersedia!",
+    "betaCommitsSingular": "{count} commit beta tersedia — {hash}",
+    "betaCommitsPlural": "{count} commit beta tersedia — {hash}"
   }
 }
