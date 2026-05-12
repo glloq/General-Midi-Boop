@@ -17,22 +17,24 @@
  * See assets/sf2/README.md for the soundfont's license & provenance.
  */
 
-import { createWriteStream, existsSync, mkdirSync, statSync, unlinkSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import https from 'https';
 import http from 'http';
+import zlib from 'zlib';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TARGET_DIR  = resolve(__dirname, '..', 'assets', 'sf2');
 const TARGET_PATH = join(TARGET_DIR, 'default.sf2');
 
-// Mirrors tried in order. We only need one to succeed.
-// All URLs must point to an SF2 file (not SF3 — the converter does not
-// decompress Ogg-Vorbis-packed samples).
+// Mirrors tried in order. Each entry can be either:
+//   - a raw `.sf2` URL (the bytes are written as-is after RIFF/sfbk check)
+//   - a `.zip` archive containing a `.sf2` file (we extract the first .sf2
+//     entry using the minimal ZIP reader below)
+// The kind is auto-detected from the first 4 bytes of the downloaded payload.
 const MIRRORS = [
   'https://schristiancollins.com/soundfonts/GeneralUser_GS_v1.471.zip',
-  // Fallback mirrors (Sonatina / FluidR3 etc.) can be added here in the future.
 ];
 
 // WebAudioFontPlayer library — vendored locally so the browser never hits a
@@ -48,6 +50,10 @@ const MIN_SF2_SIZE = 1024 * 1024; // 1 MB — anything smaller is almost certain
 
 const args = new Set(process.argv.slice(2));
 const FORCE = args.has('--force');
+// Skip auto-download in CI so build pipelines stay deterministic and don't
+// hammer external mirrors. Run `npm run install-default-sf2` explicitly when
+// you need the file in CI (e.g. for end-to-end audio tests).
+const IS_CI = process.env.CI === 'true' || process.env.CI === '1';
 
 function log(msg) {
   process.stdout.write(`[install-default-sf2] ${msg}\n`);
@@ -105,6 +111,105 @@ async function fetchVerified(url, dest, minSize) {
   return size;
 }
 
+// Header magic for SF2: `RIFF....sfbk`
+function isSF2Buffer(buf) {
+  return buf.length >= 12
+      && buf.slice(0, 4).toString('ascii') === 'RIFF'
+      && buf.slice(8, 12).toString('ascii') === 'sfbk';
+}
+
+// Header magic for ZIP local file: `PK\x03\x04`
+function isZipBuffer(buf) {
+  return buf.length >= 4 && buf.readUInt32LE(0) === 0x04034b50;
+}
+
+/**
+ * Minimal ZIP reader: walk the central directory and extract the first entry
+ * whose filename ends with `.sf2`. Supports both stored (method 0) and
+ * deflate (method 8) entries. ZIP64 archives and encrypted entries are
+ * rejected — neither applies to the soundfont mirrors we use.
+ *
+ * @param {Buffer} buf
+ * @returns {Buffer} raw SF2 bytes
+ */
+function extractSf2FromZip(buf) {
+  const EOCD_SIG = 0x06054b50;
+  let eocdOff = -1;
+  // EOCD record is at most 22 bytes + up to 65535 byte comment. Scan from end.
+  const scanFrom = Math.max(0, buf.length - 22 - 65536);
+  for (let i = buf.length - 22; i >= scanFrom; i--) {
+    if (buf.readUInt32LE(i) === EOCD_SIG) { eocdOff = i; break; }
+  }
+  if (eocdOff < 0) throw new Error('zip: end-of-central-directory record not found');
+
+  const cdCount = buf.readUInt16LE(eocdOff + 10);
+  const cdOff   = buf.readUInt32LE(eocdOff + 16);
+  if (cdCount === 0xFFFF || cdOff === 0xFFFFFFFF) {
+    throw new Error('zip: ZIP64 archives are not supported');
+  }
+
+  const CDFH_SIG = 0x02014b50;
+  let off = cdOff;
+  for (let i = 0; i < cdCount; i++) {
+    if (buf.readUInt32LE(off) !== CDFH_SIG) throw new Error('zip: bad central directory header');
+    const flags             = buf.readUInt16LE(off + 8);
+    const compressionMethod = buf.readUInt16LE(off + 10);
+    const compressedSize    = buf.readUInt32LE(off + 20);
+    const filenameLen       = buf.readUInt16LE(off + 28);
+    const extraLen          = buf.readUInt16LE(off + 30);
+    const commentLen        = buf.readUInt16LE(off + 32);
+    const localHeaderOff    = buf.readUInt32LE(off + 42);
+    const filename          = buf.slice(off + 46, off + 46 + filenameLen).toString();
+    off += 46 + filenameLen + extraLen + commentLen;
+
+    if (!filename.toLowerCase().endsWith('.sf2')) continue;
+    if (flags & 0x0001) throw new Error('zip: encrypted entries are not supported');
+
+    const LFH_SIG = 0x04034b50;
+    if (buf.readUInt32LE(localHeaderOff) !== LFH_SIG) throw new Error('zip: bad local file header');
+    const lfhFilenameLen = buf.readUInt16LE(localHeaderOff + 26);
+    const lfhExtraLen    = buf.readUInt16LE(localHeaderOff + 28);
+    const dataStart      = localHeaderOff + 30 + lfhFilenameLen + lfhExtraLen;
+    const compressed     = buf.slice(dataStart, dataStart + compressedSize);
+
+    if (compressionMethod === 0) return compressed;
+    if (compressionMethod === 8) return zlib.inflateRawSync(compressed);
+    throw new Error(`zip: unsupported compression method ${compressionMethod}`);
+  }
+  throw new Error('zip: archive contains no .sf2 entry');
+}
+
+/**
+ * Materialise the on-disk default.sf2 from a downloaded payload. Accepts
+ * either a raw SF2 file or a zip containing one. Throws if the payload is
+ * neither, or if extraction fails.
+ *
+ * @param {string} downloadPath - path to the freshly-downloaded file
+ * @param {string} destPath     - final destination for default.sf2
+ * @returns {number} size of the resulting SF2 in bytes
+ */
+async function materialiseSF2(downloadPath, destPath) {
+  const buf = readFileSync(downloadPath);
+  let sf2Bytes;
+  if (isSF2Buffer(buf)) {
+    sf2Bytes = buf;
+  } else if (isZipBuffer(buf)) {
+    log(`  payload is a zip archive — extracting embedded .sf2`);
+    sf2Bytes = extractSf2FromZip(buf);
+    if (!isSF2Buffer(sf2Bytes)) {
+      throw new Error('extracted entry is not a valid SF2 (missing RIFF/sfbk header)');
+    }
+  } else {
+    throw new Error('downloaded payload is neither an SF2 nor a ZIP archive');
+  }
+  if (sf2Bytes.length < MIN_SF2_SIZE) {
+    throw new Error(`SF2 payload too small (${sf2Bytes.length} bytes)`);
+  }
+  writeFileSync(destPath, sf2Bytes);
+  try { unlinkSync(downloadPath); } catch {}
+  return sf2Bytes.length;
+}
+
 async function installPlayerLib() {
   mkdirSync(PLAYER_TARGET_DIR, { recursive: true });
   try {
@@ -135,12 +240,17 @@ async function installDefaultSF2() {
 
   let lastError = null;
   for (const url of MIRRORS) {
+    const downloadPath = `${TARGET_PATH}.download`;
     try {
       log(`  trying ${url}`);
-      const size = await fetchVerified(url, TARGET_PATH, MIN_SF2_SIZE);
+      // Download the raw payload (no size threshold yet — the materialise
+      // step decides whether it is a valid SF2 or a zip we can extract).
+      await fetchVerified(url, downloadPath, 1024);
+      const size = await materialiseSF2(downloadPath, TARGET_PATH);
       log(`✓ Installed default soundfont (${(size / (1024 * 1024)).toFixed(1)} MB).`);
       return;
     } catch (err) {
+      try { unlinkSync(downloadPath); } catch {}
       lastError = err;
       warn(`mirror failed (${err.message}). Trying next…`);
     }
@@ -150,15 +260,33 @@ async function installDefaultSF2() {
 }
 
 async function main() {
+  if (IS_CI && !FORCE) {
+    log('CI environment detected — skipping auto-download. Run `npm run install-default-sf2 --force` to fetch manually.');
+    return 0;
+  }
   await installPlayerLib();
   await installDefaultSF2();
   // Exit 0 so an offline `npm install` does not abort the whole install.
   return 0;
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((err) => {
-    warn(`unexpected failure: ${err.message}`);
-    process.exit(0);
-  });
+// Named exports so a Jest test can exercise the parsers without triggering
+// any network I/O. Keep these in sync with the local helpers above.
+export { isSF2Buffer, isZipBuffer, extractSf2FromZip, materialiseSF2 };
+
+// Only run main() when invoked as a script (node scripts/install-default-sf2.js),
+// not when imported by tests.
+const invokedDirectly = (() => {
+  try {
+    return fileURLToPath(import.meta.url) === resolve(process.argv[1] || '');
+  } catch { return false; }
+})();
+
+if (invokedDirectly) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      warn(`unexpected failure: ${err.message}`);
+      process.exit(0);
+    });
+}

@@ -29,6 +29,52 @@ class MidiSynthesizer {
         }
     }
 
+    /**
+     * Surface a non-blocking toast when the saved sound bank is no longer
+     * available (typical case: stale WAF id from before the offline-first
+     * default landed). Uses the existing HandPositionWarningsToast helper
+     * so we don't ship a second toast widget. Falls back to console.warn
+     * when the toast helper hasn't been loaded yet (very early boot).
+     *
+     * @param {string} from - The saved id that could not be resolved.
+     * @param {string} to   - The id we actually fell back to.
+     */
+    static _notifyBankFallback(from, to) {
+        const msg = `Banque son « ${from} » indisponible (mode hors-ligne). Repli sur « ${to} ».`;
+        const toast = window.HandPositionWarningsToast;
+        if (toast && typeof toast.show === 'function') {
+            try { toast.show(msg); return; } catch (e) { /* fall through */ }
+        }
+        // The toast module loads lazily; retry once it's there.
+        const started = Date.now();
+        const iv = setInterval(() => {
+            const t = window.HandPositionWarningsToast;
+            if (t && typeof t.show === 'function') {
+                try { t.show(msg); } catch (e) { /* ignore */ }
+                clearInterval(iv);
+            } else if (Date.now() - started > 5000) {
+                clearInterval(iv);
+                (window.logger || console).warn('[MidiSynthesizer]', msg);
+            }
+        }, 200);
+    }
+
+    /**
+     * Surface a toast when the backend reports that the built-in default
+     * soundfont (assets/sf2/default.sf2) is missing. Called by
+     * SettingsSF2.loadCustomBanks after GET /api/sf2.
+     */
+    static notifyDefaultSf2Missing() {
+        if (MidiSynthesizer._defaultSf2MissingToastShown) return;
+        MidiSynthesizer._defaultSf2MissingToastShown = true;
+        const msg = 'Banque son par défaut absente sur le serveur. Lance `npm run install-default-sf2` ou place un fichier dans assets/sf2/default.sf2 pour activer le son.';
+        const toast = window.HandPositionWarningsToast;
+        if (toast && typeof toast.show === 'function') {
+            try { toast.show(msg); return; } catch (e) { /* fall through */ }
+        }
+        (window.logger || console).warn('[MidiSynthesizer]', msg);
+    }
+
     constructor() {
         this.audioContext = null;
         this.player = null;
@@ -85,6 +131,19 @@ class MidiSynthesizer {
         this.currentBankId = bankInfo ? bankInfo.id : DEFAULT_BANK_ID;
         this.currentBankSuffix = bankInfo ? bankInfo.suffix : DEFAULT_BANK_SUFFIX;
         this._pendingBankSwitch = null;
+
+        // One-shot notice when a stale saved bank silently falls back to
+        // the default — e.g. a legacy WAF id like 'FluidR3_GM' after the
+        // CDN was opted out (see DEFAULT_BANK_ID gating). Skipped for
+        // `sf2:*` saved banks: custom SF2 banks load lazily via
+        // SettingsSF2.loadCustomBanks and would otherwise produce a false
+        // positive on every page load.
+        if (savedBank && savedBank !== this.currentBankId
+            && !savedBank.startsWith('sf2:')
+            && !MidiSynthesizer._fallbackToastShown) {
+            MidiSynthesizer._fallbackToastShown = true;
+            MidiSynthesizer._notifyBankFallback(savedBank, this.currentBankId);
+        }
 
         // General MIDI to WebAudioFont mapping
         // Format: [file, variable] for each GM program (0-127).

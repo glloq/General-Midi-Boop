@@ -57,3 +57,14 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Soundfonts fetched by scripts/install-default-sf2.js (not committed; users
+# get them locally via the postinstall script). The README in assets/sf2/
+# documents provenance & license.
+assets/sf2/default.sf2
+assets/sf2/*.sf2
+assets/sf2/*.partial
+assets/sf2/*.download
+
+# Vendored WebAudioFontPlayer library (fetched at install time).
+public/lib/WebAudioFontPlayer.js
