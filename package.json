@@ -1,6 +1,6 @@
 {
   "name": "gmboop",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "MIDI orchestration system for Raspberry Pi",
   "type": "module",
   "main": "server.js",

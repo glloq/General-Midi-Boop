@@ -2,7 +2,13 @@
 
 All notable changes to Général Midi Boop are documented in this file.
 
-## [Unreleased]
+## [0.8.1] - 2026-05-12
+
+### Added — V1 modal coverage
+
+- All V1 modals are now implemented. The application enters a verification
+  phase: the next iterations will focus on incremental review, optimization
+  and full debugging rather than new feature work.
 
 ### Changed — Longitudinal anchored model is now always-on
 
