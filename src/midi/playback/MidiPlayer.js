@@ -24,6 +24,7 @@
 import { parseMidi } from 'midi-file';
 import { performance } from 'perf_hooks';
 import PlaybackScheduler from './PlaybackScheduler.js';
+import PlaybackSnapshot from './PlaybackSnapshot.js';
 import { PlaybackStateMachine, PLAYBACK_STATES } from './state/PlaybackStateMachine.js';
 import HandAssigner from '../adaptation/HandAssigner.js';
 import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
@@ -137,6 +138,22 @@ class MidiPlayer {
 
     // MIDI Clock generator (injected via deps or set later)
     this.midiClockGenerator = deps.midiClockGenerator || null;
+
+    // Per-playback immutable view of capability / compensation data.
+    // null when no playback is active; built in play(), cleared in stop().
+    this._snapshot = null;
+
+    // Mutations arriving on `instrument_settings_changed` are deferred
+    // while a snapshot is in effect — applied at stop() so the live
+    // resolvers see them. Sub-typed payloads are accumulated; only the
+    // last one wins (the event is fire-and-forget, no payload semantics).
+    this._pendingMutationCount = 0;
+    this._onSettingsChangedDeferred = () => {
+      if (this._snapshot) {
+        this._pendingMutationCount++;
+      }
+    };
+    this._deps.eventBus?.on?.('instrument_settings_changed', this._onSettingsChangedDeferred);
 
     this.logger.info('MidiPlayer initialized');
   }
@@ -944,6 +961,17 @@ class MidiPlayer {
 
     this.scheduler.resetForPlayback();
 
+    // Build the per-playback snapshot so the hot path never re-queries
+    // the DB for capability or compensation data, even if a UI mutation
+    // fires `instrument_settings_changed` mid-playback.
+    this._snapshot = new PlaybackSnapshot({
+      capabilityResolver: this._deps.capabilityResolver || null,
+      compensationService: this._deps.compensationService || null,
+      logger: this.logger
+    });
+    this._pendingMutationCount = 0;
+    this.scheduler.setSnapshot(this._snapshot);
+
     this.scheduler.startScheduler(() => {
       this._schedulerTick();
     });
@@ -1085,8 +1113,42 @@ class MidiPlayer {
       this.midiClockGenerator.stopPlayback();
     }
 
+    // Tear down per-playback snapshot and flush any mutations that
+    // arrived during playback. CapabilityResolver / CompensationService
+    // already react to `instrument_settings_changed` on their own, but
+    // we re-emit so any listener (UI status panel, metrics) can react
+    // now that the deferral window is closed.
+    this._releaseSnapshot();
+
     this.broadcastStatus();
     this.logger.info('Playback stopped');
+  }
+
+  /**
+   * Detach the snapshot, notify the resolver/compensation services so
+   * any deferred mutation is observable on the next lookup, and emit
+   * `settings_applied` so the UI can refresh its status indicators.
+   * Idempotent.
+   * @private
+   */
+  _releaseSnapshot() {
+    if (!this._snapshot) return;
+    this.scheduler.clearSnapshot();
+    this._snapshot.destroy();
+    this._snapshot = null;
+
+    if (this._pendingMutationCount > 0) {
+      // Resolver and compensation service listen to the same event and
+      // refresh their own caches; emit once more so a fresh tick reads
+      // current DB state. We also surface a `settings_applied` event for
+      // the UI so deferred-edit indicators can clear.
+      this._deps.eventBus?.emit?.('instrument_settings_changed', { reason: 'playback_end' });
+      this._deps.wsServer?.broadcast?.('settings_applied', {
+        deferredCount: this._pendingMutationCount,
+        timestamp: Date.now()
+      });
+      this._pendingMutationCount = 0;
+    }
   }
 
   /**
@@ -1101,6 +1163,10 @@ class MidiPlayer {
     this.scheduler.destroy();
     if (this.midiClockGenerator) {
       this.midiClockGenerator.destroy();
+    }
+    if (this._onSettingsChangedDeferred) {
+      this._deps.eventBus?.off?.('instrument_settings_changed', this._onSettingsChangedDeferred);
+      this._onSettingsChangedDeferred = null;
     }
     this.events = [];
     this.tracks = [];
