@@ -487,6 +487,37 @@
         if (typeof this._updateFretboardStringColors === 'function') {
             this._updateFretboardStringColors();
         }
+
+        // SF2 / WebAudioFont samples for bowed instruments are typically
+        // recorded as one-shot phrases of ~0.3–0.6 s and don't loop their
+        // sustain region. Holding the bow button needs continuous sound, so
+        // we re-trigger every held note at a sub-sample-length interval to
+        // chain successive note-ons into a perceived sustain. The interval
+        // is short enough that the natural attack envelope makes the rebowing
+        // mostly inaudible on violin/cello samples.
+        if (this._bowRetriggerInterval) {
+            clearInterval(this._bowRetriggerInterval);
+            this._bowRetriggerInterval = null;
+        }
+        if (this._bowActiveNotes.size > 0) {
+            const RETRIGGER_MS = 300;
+            this._bowRetriggerInterval = setInterval(() => {
+                if (!this._bowActiveNotes || this._bowActiveNotes.size === 0) return;
+                // Snapshot to avoid mutation issues if stopNote prunes the set
+                // synchronously through panel callbacks.
+                const notes = [...this._bowActiveNotes];
+                notes.forEach(n => {
+                    // Re-fire each note: off → on. We go through stopNote/playNote
+                    // so the panel callback wiring (LoopEditor/LoopCreator preview
+                    // synths) sees a fresh note-on and replays the sample. The set
+                    // is restored immediately so _stopChordSustain still releases
+                    // everything when the user lets go.
+                    this.stopNote(n);
+                    this.playNote(n);
+                    this._bowActiveNotes.add(n);
+                });
+            }, RETRIGGER_MS);
+        }
     };
 
     /**
@@ -494,6 +525,12 @@
      * Counterpart to _playChordSustain — safe to call when nothing is sustained.
      */
     KeyboardChordsMixin._stopChordSustain = function () {
+        // Stop the bow re-trigger loop first so it can't schedule another
+        // note-on after we've released the chord.
+        if (this._bowRetriggerInterval) {
+            clearInterval(this._bowRetriggerInterval);
+            this._bowRetriggerInterval = null;
+        }
         if (this._bowActiveNotes && this._bowActiveNotes.size) {
             this._bowActiveNotes.forEach(n => this.stopNote(n));
             this._bowActiveNotes.clear();
