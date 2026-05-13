@@ -33,9 +33,21 @@ const TARGET_PATH = join(TARGET_DIR, 'default.sf2');
 //   - a `.zip` archive containing a `.sf2` file (we extract the first .sf2
 //     entry using the minimal ZIP reader below)
 // The kind is auto-detected from the first 4 bytes of the downloaded payload.
-const MIRRORS = [
+//
+// Mirrors die over time; set GMBOOP_SF2_URL to point at your own mirror
+// (raw .sf2 or .zip) if every public one is blocked from your network.
+const SF2_MIRRORS = [
+  process.env.GMBOOP_SF2_URL,
+  // Upstream author's site — most authoritative but occasionally 403s
+  // depending on the requesting AS.
   'https://schristiancollins.com/soundfonts/GeneralUser_GS_v1.471.zip',
-];
+  // Musical Artifacts — community-maintained mirror of free soundfonts.
+  'https://musical-artifacts.com/artifacts/1176/GeneralUser_GS_v1.471.zip',
+  // Internet Archive copies. Item slugs differ slightly across uploads;
+  // listing several increases the chance one resolves.
+  'https://archive.org/download/GeneralUser_GS_v1.471/GeneralUser_GS_v1.471.zip',
+  'https://archive.org/download/general-user-gs-v-1.471/GeneralUser_GS_v1.471.zip',
+].filter(Boolean);
 
 // WebAudioFontPlayer library — vendored locally so the browser never hits a
 // public CDN at runtime. The file is small (~120 KB) but its license is
@@ -43,7 +55,17 @@ const MIRRORS = [
 // committing it. The install is idempotent and non-fatal on failure.
 const PLAYER_TARGET_DIR  = resolve(__dirname, '..', 'public', 'lib');
 const PLAYER_TARGET_PATH = join(PLAYER_TARGET_DIR, 'WebAudioFontPlayer.js');
-const PLAYER_URL = 'https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js';
+// Mirrors tried in order. surikov.github.io is the upstream but is sometimes
+// unreachable from corporate / NATed networks. jsDelivr and unpkg are
+// well-known CDNs that re-serve GitHub + npm content with high uptime.
+// Override with GMBOOP_WAF_PLAYER_URL to point at your own mirror.
+const PLAYER_MIRRORS = [
+  process.env.GMBOOP_WAF_PLAYER_URL,
+  'https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js',
+  'https://cdn.jsdelivr.net/gh/surikov/webaudiofont@master/npm/dist/WebAudioFontPlayer.js',
+  'https://cdn.jsdelivr.net/npm/webaudiofont/dist/WebAudioFontPlayer.js',
+  'https://unpkg.com/webaudiofont/dist/WebAudioFontPlayer.js',
+].filter(Boolean);
 const MIN_PLAYER_SIZE = 50 * 1024; // 50 KB — anything smaller is an error page
 
 const MIN_SF2_SIZE = 1024 * 1024; // 1 MB — anything smaller is almost certainly an error page
@@ -219,13 +241,21 @@ async function installPlayerLib() {
       return;
     }
   } catch { /* not present yet */ }
-  try {
-    log(`Downloading WebAudioFontPlayer.js to ${PLAYER_TARGET_PATH}…`);
-    const size = await fetchVerified(PLAYER_URL, PLAYER_TARGET_PATH, MIN_PLAYER_SIZE);
-    log(`✓ Installed WebAudioFontPlayer.js (${(size / 1024).toFixed(0)} KB).`);
-  } catch (err) {
-    warn(`Could not download WebAudioFontPlayer.js (${err.message}). The synth UI will load but \`new WebAudioFontPlayer()\` will throw until you re-run \`npm run install-default-sf2\`.`);
+
+  log(`Downloading WebAudioFontPlayer.js to ${PLAYER_TARGET_PATH}…`);
+  let lastError = null;
+  for (const url of PLAYER_MIRRORS) {
+    try {
+      log(`  trying ${url}`);
+      const size = await fetchVerified(url, PLAYER_TARGET_PATH, MIN_PLAYER_SIZE);
+      log(`✓ Installed WebAudioFontPlayer.js (${(size / 1024).toFixed(0)} KB).`);
+      return;
+    } catch (err) {
+      lastError = err;
+      warn(`mirror failed (${err.message}). Trying next…`);
+    }
   }
+  warn(`Could not download WebAudioFontPlayer.js (last error: ${lastError?.message || 'unknown'}). The synth UI will load but \`new WebAudioFontPlayer()\` will throw until you re-run \`npm run install-default-sf2\`. Set GMBOOP_WAF_PLAYER_URL to a reachable mirror if every default is blocked.`);
 }
 
 async function installDefaultSF2() {
@@ -239,7 +269,7 @@ async function installDefaultSF2() {
   log(`Downloading default soundfont to ${TARGET_PATH} (~30 MB, one-shot)…`);
 
   let lastError = null;
-  for (const url of MIRRORS) {
+  for (const url of SF2_MIRRORS) {
     const downloadPath = `${TARGET_PATH}.download`;
     try {
       log(`  trying ${url}`);
@@ -256,7 +286,7 @@ async function installDefaultSF2() {
     }
   }
 
-  warn(`Could not download default soundfont. The synth will load but produce no sound until you re-run \`npm run install-default-sf2\`. Last error: ${lastError?.message || 'unknown'}`);
+  warn(`Could not download default soundfont (last error: ${lastError?.message || 'unknown'}). The synth will load but produce no sound until you re-run \`npm run install-default-sf2\`. Set GMBOOP_SF2_URL to a reachable mirror (.sf2 or .zip) if every default is blocked.`);
 }
 
 async function main() {
