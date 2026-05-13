@@ -85,8 +85,16 @@
         const old = container.querySelector('.chord-buttons-bar');
         if (old) old.remove();
 
+        // Bowed instruments swap the strum bar for a hold-to-bow bar:
+        // clicking and HOLDING one half of a chord button keeps the bow
+        // moving in that direction (and the chord notes ringing). Releasing
+        // the button stops the bow. Detected via _isBowedInstrument() so the
+        // existing strum behaviour is untouched for plucked instruments.
+        const isBowed = typeof this._isBowedInstrument === 'function'
+            ? this._isBowedInstrument() : false;
+
         const bar = document.createElement('div');
-        bar.className = 'chord-buttons-bar';
+        bar.className = 'chord-buttons-bar' + (isBowed ? ' bowed' : '');
 
         // ── Root note selector ──
         const rootRow = document.createElement('div');
@@ -117,18 +125,24 @@
         ['Maj', 'Min', '5', '7', 'Maj7', 'm7'].forEach(type => {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'chord-type-btn';
+            btn.className = 'chord-type-btn' + (isBowed ? ' bow-btn' : '');
             btn.dataset.chordType = type;
-            btn.title = `${this._chordRootName(this.chordRoot)} ${type} · ← grave→aigu  →  aigu→grave · Shift: ${CHORD_ALT_LABEL[type]}`;
+            if (isBowed) {
+                btn.title = `${this._chordRootName(this.chordRoot)} ${type} · ← tirer (down-bow) · → pousser (up-bow) · Shift: ${CHORD_ALT_LABEL[type]}`;
+            } else {
+                btn.title = `${this._chordRootName(this.chordRoot)} ${type} · ← grave→aigu  →  aigu→grave · Shift: ${CHORD_ALT_LABEL[type]}`;
+            }
 
+            const leftGlyph  = isBowed ? '↶' : '↓';
+            const rightGlyph = isBowed ? '↷' : '↑';
             btn.innerHTML = `
                 <span class="strum-sweep-bar" aria-hidden="true"></span>
-                <span class="chord-strum-l" aria-hidden="true">↓</span>
+                <span class="chord-strum-l" aria-hidden="true">${leftGlyph}</span>
                 <span class="chord-type-label">
                     <span class="chord-name">${type}</span>
                     <span class="chord-alt-name">${CHORD_ALT_LABEL[type]}</span>
                 </span>
-                <span class="chord-strum-r" aria-hidden="true">↑</span>
+                <span class="chord-strum-r" aria-hidden="true">${rightGlyph}</span>
             `;
             typeRow.appendChild(btn);
         });
@@ -144,6 +158,8 @@
     KeyboardChordsMixin._attachChordButtonEvents = function (bar) {
         if (!bar) return;
 
+        const isBowed = bar.classList.contains('bowed');
+
         // Root note selection (event delegation on the button group)
         bar.querySelector('.chord-root-btns').addEventListener('click', (e) => {
             const btn = e.target.closest('.chord-root-btn');
@@ -155,7 +171,11 @@
             // Refresh tooltips with new root name
             bar.querySelectorAll('.chord-type-btn').forEach(b => {
                 const t = b.dataset.chordType;
-                b.title = `${this._chordRootName(this.chordRoot)} ${t} · ← grave→aigu  →  aigu→grave · Shift: ${CHORD_ALT_LABEL[t]}`;
+                if (isBowed) {
+                    b.title = `${this._chordRootName(this.chordRoot)} ${t} · ← tirer (down-bow) · → pousser (up-bow) · Shift: ${CHORD_ALT_LABEL[t]}`;
+                } else {
+                    b.title = `${this._chordRootName(this.chordRoot)} ${t} · ← grave→aigu  →  aigu→grave · Shift: ${CHORD_ALT_LABEL[t]}`;
+                }
             });
         });
 
@@ -166,7 +186,11 @@
             e.preventDefault();
             e.stopPropagation();
             this._activeChordType = btn.dataset.chordType;
-            this._triggerStrum(btn, e.clientX, e.shiftKey);
+            if (isBowed) {
+                this._triggerBowStart(btn, e.clientX, e.shiftKey);
+            } else {
+                this._triggerStrum(btn, e.clientX, e.shiftKey);
+            }
         });
 
         // Chord type buttons — touch
@@ -176,7 +200,11 @@
             e.preventDefault();
             e.stopPropagation();
             this._activeChordType = btn.dataset.chordType;
-            this._triggerStrum(btn, e.touches[0].clientX, false);
+            if (isBowed) {
+                this._triggerBowStart(btn, e.touches[0].clientX, false);
+            } else {
+                this._triggerStrum(btn, e.touches[0].clientX, false);
+            }
         }, { passive: false });
     };
 
@@ -203,6 +231,289 @@
         btn.classList.add(strumDown ? 'strum-sweep-down' : 'strum-sweep-up');
 
         this._playChordStrum(this.chordRoot, chordType, strumDown, delayMs, useAlt);
+    };
+
+    // ── Bow control (continuous, hold-to-bow) ────────────────────────────────
+
+    /**
+     * Press handler for the bow bar (bowed-string instruments). Behaves like
+     * a sustain pedal scoped to a single chord:
+     *   - Down-bow side (left half)  → CC bow_direction = cc_bow_down_value
+     *   - Up-bow side   (right half) → CC bow_direction = cc_bow_up_value
+     * Chord notes are played and held until the user releases (mouseup /
+     * touchend) — no per-string scheduling, no auto-release timer.
+     *
+     * If the cursor crosses to the other half while the button is held, the
+     * direction CC is re-sent so the mechanical bow reverses without lifting
+     * (mimics a smooth direction change in the middle of a long note).
+     *
+     * @param {HTMLElement} btn      - The pressed .chord-type-btn
+     * @param {number}      clientX  - Initial pointer X (decides direction)
+     * @param {boolean}     useAlt   - Shift = alternate voicing (sus, dim …)
+     */
+    KeyboardChordsMixin._triggerBowStart = function (btn, clientX, useAlt) {
+        // A previous press might still be active (e.g. fast button-to-button
+        // chord change). Release it cleanly before starting the new chord.
+        this._stopActiveBow();
+
+        const rect = btn.getBoundingClientRect();
+        const half = rect.width / 2;
+        let bowDown = (clientX - rect.left) < half; // true = tirer/down-bow
+
+        const chordType = btn.dataset.chordType;
+
+        // Cosmetic: highlight which half is engaged + animate the sweep bar
+        // in a slow continuous loop (re-applied on every direction change so
+        // CSS animations restart cleanly).
+        const applyDirVisual = () => {
+            btn.classList.remove('strum-sweep-down', 'strum-sweep-up', 'bow-side-left', 'bow-side-right');
+            void btn.offsetWidth;
+            btn.classList.add(bowDown ? 'strum-sweep-down' : 'strum-sweep-up');
+            btn.classList.add(bowDown ? 'bow-side-left' : 'bow-side-right');
+        };
+        // Long animation duration so the sweep looks continuous; the CSS picks
+        // up `--strum-dur` for the @keyframes timing. Keep it slow + repeating.
+        btn.style.setProperty('--strum-dur', '900ms');
+        applyDirVisual();
+        btn.classList.add('strum-active', 'bow-active');
+
+        this._sendBowDirectionCC(bowDown);
+        this._playChordSustain(this.chordRoot, chordType, useAlt);
+
+        // Pointer tracking for cross-half flips and end-of-press release.
+        const handle = {
+            btn,
+            // Bound listeners for cleanup
+            onMove: null,
+            onUp: null,
+            onTouchMove: null,
+            onTouchEnd: null
+        };
+
+        handle.onMove = (ev) => {
+            const r = btn.getBoundingClientRect();
+            // Pointer drifted outside the button horizontally? Keep the same
+            // direction (no flicker), only flip on a clear half cross while
+            // still over the button.
+            if (ev.clientX < r.left || ev.clientX > r.right) return;
+            const wantDown = (ev.clientX - r.left) < (r.width / 2);
+            if (wantDown !== bowDown) {
+                bowDown = wantDown;
+                applyDirVisual();
+                this._sendBowDirectionCC(bowDown);
+            }
+        };
+        handle.onUp = () => this._stopActiveBow();
+
+        handle.onTouchMove = (ev) => {
+            if (!ev.touches || !ev.touches[0]) return;
+            const t = ev.touches[0];
+            const r = btn.getBoundingClientRect();
+            if (t.clientX < r.left || t.clientX > r.right) return;
+            const wantDown = (t.clientX - r.left) < (r.width / 2);
+            if (wantDown !== bowDown) {
+                bowDown = wantDown;
+                applyDirVisual();
+                this._sendBowDirectionCC(bowDown);
+            }
+        };
+        handle.onTouchEnd = () => this._stopActiveBow();
+
+        document.addEventListener('mousemove', handle.onMove);
+        document.addEventListener('mouseup', handle.onUp);
+        document.addEventListener('touchmove', handle.onTouchMove, { passive: false });
+        document.addEventListener('touchend', handle.onTouchEnd);
+        document.addEventListener('touchcancel', handle.onTouchEnd);
+
+        this._activeBowHandle = handle;
+    };
+
+    /**
+     * Release the currently-held bow (chord notes, visuals, document
+     * listeners). Idempotent — safe to call when no bow is active.
+     */
+    KeyboardChordsMixin._stopActiveBow = function () {
+        const handle = this._activeBowHandle;
+        if (!handle) return;
+        this._activeBowHandle = null;
+
+        document.removeEventListener('mousemove', handle.onMove);
+        document.removeEventListener('mouseup', handle.onUp);
+        document.removeEventListener('touchmove', handle.onTouchMove);
+        document.removeEventListener('touchend', handle.onTouchEnd);
+        document.removeEventListener('touchcancel', handle.onTouchEnd);
+
+        if (handle.btn) {
+            handle.btn.classList.remove(
+                'strum-sweep-down', 'strum-sweep-up',
+                'bow-side-left', 'bow-side-right',
+                'strum-active', 'bow-active'
+            );
+        }
+
+        this._stopChordSustain();
+    };
+
+    /**
+     * Send the bow-direction CC. Values come from the active string-instrument
+     * config (cc_bow_direction_number, cc_bow_down_value, cc_bow_up_value)
+     * with sensible defaults so untyped instruments still work.
+     * @param {boolean} bowDown - true = down-bow (tirer), false = up-bow (pousser)
+     */
+    KeyboardChordsMixin._sendBowDirectionCC = function (bowDown) {
+        if (!this.selectedDevice || !this.backend) return;
+        const cfg = this.stringInstrumentConfig || {};
+        if (cfg.cc_enabled === false) return;
+
+        const ccNum  = cfg.cc_bow_direction_number !== undefined ? cfg.cc_bow_direction_number : 22;
+        const downV  = cfg.cc_bow_down_value      !== undefined ? cfg.cc_bow_down_value      : 0;
+        const upV    = cfg.cc_bow_up_value        !== undefined ? cfg.cc_bow_up_value        : 127;
+        const value  = bowDown ? downV : upV;
+        const clamp  = Math.max(0, Math.min(127, value));
+
+        const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+        if (this.selectedDevice.isVirtual) {
+            this.logger?.info?.(`🎻 [Virtual] Bow CC${ccNum}=${clamp} (${bowDown ? 'down/tirer' : 'up/pousser'})`);
+            return;
+        }
+        const channel = this.getSelectedChannel();
+        this.backend.sendCommand('midi_send_cc', {
+            deviceId, channel, controller: ccNum, value: clamp
+        }).catch(err => this.logger?.error?.('[Bow] CC send failed:', err));
+    };
+
+    /**
+     * Sustained-chord variant of _playChordStrum: builds the same chord but
+     * triggers all notes simultaneously and HOLDS them until _stopChordSustain
+     * is called. Reuses the string mapping + hand-position logic so the
+     * fretboard visuals (active dots, finger dots, hand widget) stay in sync.
+     * @param {number} rootClass
+     * @param {string} chordType
+     * @param {boolean} useAlt
+     */
+    KeyboardChordsMixin._playChordSustain = function (rootClass, chordType, useAlt) {
+        // Cancel any pending strum-style timeouts so they don't fire mid-bow
+        // (defensive — strum and bow shouldn't be active concurrently).
+        if (this._strumTimeouts && this._strumTimeouts.length) {
+            this._strumTimeouts.forEach(t => clearTimeout(t));
+            this._strumTimeouts = [];
+        }
+
+        const container = document.getElementById('fretboard-container');
+        if (this._strumActiveFretPositions && this.activeFretPositions) {
+            this._strumActiveFretPositions.forEach(pos => this.activeFretPositions.delete(pos));
+        }
+        this._strumActiveFretPositions = new Set();
+
+        // Release any previously sustained chord notes.
+        if (this._bowActiveNotes && this._bowActiveNotes.size) {
+            this._bowActiveNotes.forEach(n => this.stopNote(n));
+        }
+        this._bowActiveNotes = new Set();
+
+        const cfg = this.stringInstrumentConfig || {};
+        const numStrings = Math.max(1, cfg.num_strings || 4);
+
+        const DEFAULT_TUNINGS = {
+            3: [50, 57, 62],
+            4: [55, 62, 69, 76], // violin-like fallback (G3 D4 A4 E5)
+            5: [48, 55, 62, 69, 76],
+            6: [40, 45, 50, 55, 59, 64],
+        };
+        let tuning;
+        if (Array.isArray(cfg.tuning) && cfg.tuning.length === numStrings) {
+            tuning = cfg.tuning;
+        } else if (Array.isArray(cfg.tuning_midi) && cfg.tuning_midi.length === numStrings) {
+            tuning = cfg.tuning_midi;
+        } else {
+            tuning = DEFAULT_TUNINGS[numStrings]
+                  || Array.from({ length: numStrings }, (_, i) => 55 + i * 7);
+        }
+
+        const caps = this.selectedDeviceCapabilities;
+        const gmProgram = (caps && caps.gm_program != null ? caps.gm_program : null)
+                       ?? (this.selectedDevice && this.selectedDevice.gm_program != null ? this.selectedDevice.gm_program : null);
+        const maxPoly = this._chordMaxPolyphony(gmProgram, numStrings);
+
+        const intervalsMap = useAlt ? CHORD_INTERVALS_ALT : CHORD_INTERVALS;
+        const intervals = intervalsMap[chordType];
+        if (!intervals) return;
+
+        const handsConfig = cfg.hands_config;
+        let stringNotes;
+        if (this._mechanism === 'vertical_bar') {
+            stringNotes = this._mapChordToStringsVerticalBar(rootClass, intervals, tuning, maxPoly);
+            this.handAnchorFret = stringNotes.barFret;
+            if (handsConfig && handsConfig.enabled === true) {
+                this._updateHandWidgetPosition();
+                this._sendHandPositionCC(this.handAnchorFret);
+                const activeFretsMap = {};
+                stringNotes.forEach(item => { if (item.fret > 0) activeFretsMap[item.string] = item.fret; });
+                this._currentActiveFrets = activeFretsMap;
+                this._updateFingerDotPositions(activeFretsMap);
+            }
+        } else {
+            stringNotes = this._mapChordToStrings(rootClass, intervals, tuning, maxPoly);
+            if (handsConfig && handsConfig.enabled === true) {
+                this._autoPositionHandForChord(stringNotes);
+                stringNotes = stringNotes.filter(item =>
+                    item.fret === 0 || this._isReachableWithoutHandMove(item.fret)
+                );
+                const activeFretsMap = {};
+                stringNotes.forEach(item => { if (item.fret > 0) activeFretsMap[item.string] = item.fret; });
+                this._currentActiveFrets = activeFretsMap;
+                this._updateFingerDotPositions(activeFretsMap);
+            }
+        }
+
+        this._showChordVoicing(stringNotes);
+
+        // Trigger all notes simultaneously and remember them for release.
+        stringNotes.forEach(item => {
+            if (item.note >= 21 && item.note <= 108) {
+                const posKey = `${item.string}:${item.fret}`;
+                this._strumActiveFretPositions.add(posKey);
+                this.activeFretPositions.add(posKey);
+                if (container) {
+                    const dot = container.querySelector(
+                        `.fret-dot[data-string="${item.string}"][data-fret="${item.fret}"]`
+                    );
+                    if (dot) dot.classList.add('active');
+                }
+                this.playNote(item.note);
+                this._bowActiveNotes.add(item.note);
+            }
+        });
+        if (typeof this._updateFretboardStringColors === 'function') {
+            this._updateFretboardStringColors();
+        }
+    };
+
+    /**
+     * Release any chord currently sustained by the bow + clear visuals.
+     * Counterpart to _playChordSustain — safe to call when nothing is sustained.
+     */
+    KeyboardChordsMixin._stopChordSustain = function () {
+        if (this._bowActiveNotes && this._bowActiveNotes.size) {
+            this._bowActiveNotes.forEach(n => this.stopNote(n));
+            this._bowActiveNotes.clear();
+        }
+        const container = document.getElementById('fretboard-container');
+        if (this._strumActiveFretPositions && this.activeFretPositions) {
+            this._strumActiveFretPositions.forEach(pos => this.activeFretPositions.delete(pos));
+            this._strumActiveFretPositions.clear();
+        }
+        if (container) {
+            container.querySelectorAll('.fret-dot.chord-voicing, .fret-dot.chord-open')
+                .forEach(d => d.classList.remove('chord-voicing', 'chord-open'));
+            container.querySelectorAll('.fret-dot.active')
+                .forEach(d => d.classList.remove('active'));
+        }
+        if (typeof this.updatePianoDisplay === 'function') this.updatePianoDisplay();
+        this._currentActiveFrets = {};
+        if (typeof this._updateFingerDotPositions === 'function') {
+            this._updateFingerDotPositions({});
+        }
     };
 
     // ── Chord generation ─────────────────────────────────────────────────────

@@ -454,6 +454,10 @@
         // Cleanup string slide mode when leaving fretboard
         if (this.viewMode === 'fretboard' && mode !== 'fretboard') {
             if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
+            // Bowed-string sustain is held against the bow bar that's about to
+            // be removed; release it so notes don't ring after the bar is gone
+            // (mouseup still cleans up listeners, but notes would leak).
+            if (typeof this._stopActiveBow === 'function') this._stopActiveBow();
         }
 
         // Cleanup list view interaction when leaving list mode
@@ -559,6 +563,15 @@
         if (!container) return;
         container.innerHTML = '';
 
+        // Bowed instruments (violin, viola, cello, contrabass, fiddle …)
+        // get a dedicated rendering: dots sit ON the fret line so the visual
+        // reads as "finger placed exactly here" rather than "cell pressed".
+        // The bow control bar replaces the strum bar — see _isBowedInstrument().
+        const isBowed = typeof this._isBowedInstrument === 'function'
+            ? this._isBowedInstrument()
+            : false;
+        container.classList.toggle('bowed', isBowed);
+
         // Strings live in a flex-grow wrapper; the chord bar sits below it.
         const stringsArea = document.createElement('div');
         stringsArea.className = 'fretboard-strings-area';
@@ -566,7 +579,13 @@
         const cfg = this.stringInstrumentConfig || {};
         const slideEnabled = !!cfg.string_sliding_system_enabled;
         const numStrings = Math.max(1, cfg.num_strings || 6);
-        const numFrets = Math.max(0, cfg.num_frets ?? 22);
+        // Bowed instruments are fretless in real life but still need enough
+        // playing positions to cover the typical 2-octave range per string.
+        // Default to 24 positions when the DB has 0 frets configured.
+        const rawNumFrets = cfg.num_frets ?? 22;
+        const numFrets = isBowed && rawNumFrets === 0
+            ? 24
+            : Math.max(0, rawNumFrets);
         // Standard guitar tuning fallback (low → high E-A-D-G-B-E)
         const defaultTunings = {
             6: [40, 45, 50, 55, 59, 64],
@@ -593,7 +612,10 @@
             : null;
         const stringFretCounts = fretsPerStringRaw ? [...fretsPerStringRaw].reverse() : null;
 
-        const isFretless = !!cfg.is_fretless || numFrets === 0;
+        // Bowed instruments keep their fret-position grid visible (it acts as
+        // the note-position guide), so they never count as "fretless" even
+        // when cfg.is_fretless is true.
+        const isFretless = !isBowed && (!!cfg.is_fretless || numFrets === 0);
 
         // The grid must accommodate the widest string. When frets differ per string,
         // use the max; otherwise use the global numFrets.

@@ -206,6 +206,10 @@ class KeyboardModalNew {
         // Clean up string slide mode
         if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
 
+        // Release any held bow (bowed-string instruments) so document
+        // listeners and CC state don't leak across modal lifecycles.
+        if (typeof this._stopActiveBow === 'function') this._stopActiveBow();
+
         // Clean up keyboard list view interaction
         if (typeof this._destroyKeyboardListInteraction === 'function') this._destroyKeyboardListInteraction();
 
@@ -721,13 +725,35 @@ class KeyboardModalNew {
                 gmProgram === 110    // fiddle
             );
         const canFretboard = type === 'string' || !!this.stringInstrumentConfig || stringByGm;
+        // Bowed strings: violin (40), viola (41), cello (42), contrabass (43),
+        // tremolo strings (44), pizzicato (45), fiddle (110). These are the
+        // GM programs whose mechanical equivalent uses a continuous bow rather
+        // than discrete plucks, so the strum bar is swapped for a hold-to-bow
+        // bar and the fretboard renders dots on the fret line.
+        const bowedGm = new Set([40, 41, 42, 43, 44, 45, 110]);
+        const isBowed = canFretboard
+            && gmProgram !== undefined && gmProgram !== null
+            && bowedGm.has(gmProgram);
         // Wind: GM programs 56–79 (brass, reeds, pipe) — only when not drum or string
         const isWind = !isDrum && !canFretboard
             && gmProgram !== undefined && gmProgram !== null
             && typeof WindInstrumentDatabase !== 'undefined'
             && WindInstrumentDatabase.isWindInstrument(gmProgram);
         const windPreset = isWind ? WindInstrumentDatabase.getPresetByProgram(gmProgram) : null;
-        return { canFretboard, isDrum, isWind, windPreset, instrumentType: type, instrumentSubtype: subtype, gmProgram };
+        return { canFretboard, isBowed, isDrum, isWind, windPreset, instrumentType: type, instrumentSubtype: subtype, gmProgram };
+    }
+
+    /**
+     * Whether the currently selected instrument is a bowed-string family
+     * (violin, viola, cello, contrabass, tremolo, pizzicato, fiddle).
+     * Used by the fretboard renderer + chord bar to swap pluck/strum
+     * controls for the continuous-bow controls.
+     * @returns {boolean}
+     */
+    _isBowedInstrument() {
+        if (typeof this.getInstrumentViewInfo !== 'function') return false;
+        const info = this.getInstrumentViewInfo();
+        return info && info.isBowed === true;
     }
 
     /**
@@ -940,6 +966,11 @@ class KeyboardModalNew {
         dropdown?.classList.remove('open');
         selector?.classList.remove('open');
         if (trigger) trigger.setAttribute('aria-expanded', 'false');
+
+        // Stop any held bow before swapping instruments — the new chord bar
+        // about to be rendered won't reuse the previous button reference, and
+        // the chord notes would otherwise keep ringing until the next mouseup.
+        if (typeof this._stopActiveBow === 'function') this._stopActiveBow();
 
         let deviceId = rawValue;
         let selectedChannel = undefined;
