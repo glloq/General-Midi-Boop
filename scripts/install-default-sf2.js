@@ -38,15 +38,10 @@ const TARGET_PATH = join(TARGET_DIR, 'default.sf2');
 // (raw .sf2 or .zip) if every public one is blocked from your network.
 const SF2_MIRRORS = [
   process.env.GMBOOP_SF2_URL,
-  // Upstream author's site — most authoritative but occasionally 403s
-  // depending on the requesting AS.
+  // Upstream author's site. Sometimes fronted by Cloudflare which serves an
+  // interstitial HTML page to generic User-Agents — we send a browser UA
+  // below to avoid that. Occasionally 403s by AS.
   'https://schristiancollins.com/soundfonts/GeneralUser_GS_v1.471.zip',
-  // Musical Artifacts — community-maintained mirror of free soundfonts.
-  'https://musical-artifacts.com/artifacts/1176/GeneralUser_GS_v1.471.zip',
-  // Internet Archive copies. Item slugs differ slightly across uploads;
-  // listing several increases the chance one resolves.
-  'https://archive.org/download/GeneralUser_GS_v1.471/GeneralUser_GS_v1.471.zip',
-  'https://archive.org/download/general-user-gs-v-1.471/GeneralUser_GS_v1.471.zip',
 ].filter(Boolean);
 
 // WebAudioFontPlayer library — vendored locally so the browser never hits a
@@ -96,7 +91,14 @@ function alreadyPresent() {
 function fetchToFile(url, dest, redirects = 5) {
   return new Promise((resolveP, rejectP) => {
     const lib = url.startsWith('https:') ? https : http;
-    lib.get(url, { headers: { 'User-Agent': 'gmboop-install/1' } }, (res) => {
+    // A browser-style UA gets past Cloudflare interstitials on sites like
+    // schristiancollins.com that otherwise serve an HTML "checking your
+    // browser" page to generic UAs.
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+    };
+    lib.get(url, { headers }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
         res.resume();
         if (!res.headers.location || redirects <= 0) {
@@ -222,7 +224,10 @@ async function materialiseSF2(downloadPath, destPath) {
       throw new Error('extracted entry is not a valid SF2 (missing RIFF/sfbk header)');
     }
   } else {
-    throw new Error('downloaded payload is neither an SF2 nor a ZIP archive');
+    // Show the first 200 bytes as text so the user can tell whether they got
+    // an HTML error page, a Cloudflare interstitial, a redirect blurb, etc.
+    const preview = buf.slice(0, 200).toString('utf8').replace(/[^\x20-\x7e\n]/g, '.');
+    throw new Error(`downloaded payload is neither an SF2 nor a ZIP archive (first bytes: ${JSON.stringify(preview)})`);
   }
   if (sf2Bytes.length < MIN_SF2_SIZE) {
     throw new Error(`SF2 payload too small (${sf2Bytes.length} bytes)`);
