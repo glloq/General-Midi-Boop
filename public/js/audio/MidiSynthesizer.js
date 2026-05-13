@@ -73,6 +73,12 @@ class MidiSynthesizer {
     // user moves an effects slider in the Settings modal).
     static _instances = new Set();
 
+    // SF2 preset fetch latency threshold (ms) before the loading toast
+    // becomes visible. Sized to clear the L1/L2 hit envelope (< 100 ms)
+    // and avoid flicker for warm reloads, while still appearing quickly
+    // on a true cold parse + convert (~2-5 s on a Pi 3B+).
+    static LOADING_TOAST_DELAY_MS = 600;
+
     /**
      * Apply a set of bank-effect values to every live MidiSynthesizer.
      * @param {Object|null} effects - `{reverb_mix, reverb_decay_s,
@@ -119,6 +125,42 @@ class MidiSynthesizer {
      * soundfont (assets/sf2/default.sf2) is missing. Called by
      * SettingsSF2.loadCustomBanks after GET /api/sf2.
      */
+    /**
+     * Threshold-gated loading-toast watcher used by `_loadSF2MelodicPreset`
+     * and `_loadSF2DrumPreset`. Each call schedules a ref-count bump after
+     * {@link MidiSynthesizer.LOADING_TOAST_DELAY_MS}; if the fetch resolves
+     * before that delay, the bump is cancelled and the user sees nothing.
+     *
+     * Concurrent calls share the same toast (one DOM node, ref-counted)
+     * because the predictive preload often kicks off several fetches in
+     * parallel and we don't want a stack of toasts on screen.
+     *
+     * @returns {{done: function(): void}}
+     * @private
+     */
+    static _startLoadingWatcher() {
+        const toast = window.InstrumentLoadingToast;
+        if (!toast || typeof toast.show !== 'function') {
+            // No toast helper available (very early boot, or page that
+            // doesn't include InstrumentLoadingToast.js). No-op watcher so
+            // callers don't need a null check.
+            return { done() {} };
+        }
+        let shown = false;
+        const timer = setTimeout(() => {
+            shown = true;
+            toast.show();
+        }, MidiSynthesizer.LOADING_TOAST_DELAY_MS);
+        return {
+            done() {
+                clearTimeout(timer);
+                if (shown) {
+                    try { toast.hide(); } catch (e) { /* ignore */ }
+                }
+            }
+        };
+    }
+
     static notifyDefaultSf2Missing() {
         if (MidiSynthesizer._defaultSf2MissingToastShown) return;
         MidiSynthesizer._defaultSf2MissingToastShown = true;
@@ -738,6 +780,7 @@ class MidiSynthesizer {
      */
     _loadSF2MelodicPreset(program) {
         const sf2Id = this.currentBankId.slice(4); // strip 'sf2:'
+        const watcher = MidiSynthesizer._startLoadingWatcher();
         const p = fetch(`/api/sf2/${sf2Id}/preset/melodic/${program}`)
             .then(r => {
                 if (r.status === 404 && sf2Id === 'default') {
@@ -761,7 +804,8 @@ class MidiSynthesizer {
                 this.loadingInstruments.delete(program);
                 return preset;
             })
-            .catch(() => { this.loadingInstruments.delete(program); return null; });
+            .catch(() => { this.loadingInstruments.delete(program); return null; })
+            .finally(() => watcher.done());
         this.loadingInstruments.set(program, p);
         return p;
     }
@@ -773,6 +817,7 @@ class MidiSynthesizer {
     _loadSF2DrumPreset(note, kit) {
         const cacheKey = `${kit}:${note}`;
         const sf2Id = this.currentBankId.slice(4);
+        const watcher = MidiSynthesizer._startLoadingWatcher();
         const p = fetch(`/api/sf2/${sf2Id}/preset/drum/${kit}/${note}`)
             .then(r => {
                 if (r.status === 404 && sf2Id === 'default') {
@@ -795,7 +840,8 @@ class MidiSynthesizer {
                 this.drumPresets.set(cacheKey, preset);
                 return preset;
             })
-            .catch(() => { this._drumLoading.delete(cacheKey); return null; });
+            .catch(() => { this._drumLoading.delete(cacheKey); return null; })
+            .finally(() => watcher.done());
         this._drumLoading.set(cacheKey, p);
         return p;
     }

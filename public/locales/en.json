@@ -717,6 +717,9 @@
     "messageRateLimitUnit": "msgs/sec",
     "sysexHelp": "Query the device for its SysEx identity"
   },
+  "instrumentLoading": {
+    "message": "Loading instrument samples…"
+  },
   "handPosition": {
     "toastPrefix": "Hand feasibility",
     "warnMoveTooFast": "moves too fast",

@@ -717,6 +717,9 @@
     "messageRateLimitUnit": "msgs/sec",
     "sysexHelp": "Interroge le périphérique pour obtenir son identité SysEx"
   },
+  "instrumentLoading": {
+    "message": "Chargement des échantillons d'instrument…"
+  },
   "handPosition": {
     "toastPrefix": "Faisabilité main",
     "warnMoveTooFast": "déplacements trop rapides",
