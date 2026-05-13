@@ -113,6 +113,16 @@ const TIMING = {
   // Playback
   SCHEDULER_TICK_MS: 10,
   LOOKAHEAD_SECONDS: 0.1,
+  /**
+   * Tickless emit window in milliseconds. Events whose effective send
+   * time falls within `[state.position, state.position + EMIT_AHEAD_MS]`
+   * are emitted directly from the scheduler tick instead of going
+   * through a per-event `setTimeout`. Anything further out keeps the
+   * legacy `setTimeout(residual)` path so multi-tick compensations
+   * remain accurate. Tuned conservatively against jitter; raise toward
+   * `SCHEDULER_TICK_MS` to shrink libuv timer pressure further.
+   */
+  EMIT_AHEAD_MS: 5,
   MICROSECONDS_PER_MINUTE: 60000000,
 
   // Latency
