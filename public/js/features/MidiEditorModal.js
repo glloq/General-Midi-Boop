@@ -502,8 +502,14 @@ class MidiEditorModal {
         } catch (error) {
             this.log('error', 'Failed to load MIDI file:', error);
 
-            // If the error is "Unknown command", suggest an alternative
-            if (error.message.includes('Unknown command') || error.message.includes('file_read')) {
+            // Only surface the "backend not supported" notice when the
+            // server actually responded with ERR_NOT_FOUND for this command
+            // (see CommandRegistry: NotFoundError → {code:'ERR_NOT_FOUND',
+            // command}). The previous substring check on error.message
+            // ('file_read' / 'Unknown command') also matched timeouts
+            // ('Command timeout: file_read') and transport failures, hiding
+            // the real cause behind a misleading i18n message.
+            if (error.code === 'ERR_NOT_FOUND' && error.command === 'file_read') {
                 throw new Error(this.t('midiEditor.backendNotSupported'));
             }
 
