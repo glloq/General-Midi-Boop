@@ -23,6 +23,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { ApplicationError } from '../core/errors/index.js';
 import { TIMING } from '../core/constants.js';
+import { WsOutputQueue } from './WsOutputQueue.js';
 
 const __wsFilename = fileURLToPath(import.meta.url);
 const __wsDirname = dirname(__wsFilename);
@@ -67,6 +68,22 @@ class WebSocketServer {
     /** @type {Set<import('ws').WebSocket>} Live client sockets. */
     this.clients = new Set();
 
+    // Asynchronous outbound pipeline. Producers (PlaybackScheduler,
+    // MidiRouter, audio callbacks) call `broadcast()` from any context
+    // and the queue flushes via setImmediate, so the MIDI hot path is
+    // never blocked by socket I/O. The eventLoopMonitor is wired later
+    // by Application#start, so we expose it through a lazy proxy that
+    // reads `_deps.eventLoopMonitor.currentLag` on every flush.
+    const self = this;
+    const eventLoopMonitorProxy = {
+      get currentLag() { return self._deps.eventLoopMonitor?.currentLag ?? 0; }
+    };
+    this._outQueue = new WsOutputQueue({
+      clients: this.clients,
+      logger: this.logger,
+      eventLoopMonitor: eventLoopMonitorProxy
+    });
+
     this.logger.info('WebSocketServer initialized');
   }
 
@@ -101,10 +118,14 @@ class WebSocketServer {
     // bypass targets because they cannot be reached from another host.
     const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1']);
 
-    // Attach WebSocket server to existing HTTP server
+    // Attach WebSocket server to existing HTTP server. permessage-deflate
+    // is force-disabled: gzip cycles on a Pi cost more than the few KB
+    // saved on a LAN, and the binary frames emitted by WsOutputQueue
+    // already shrink the high-frequency payloads.
     this.wss = new WSServer({
       server: this.httpServer,
       maxPayload: MAX_PAYLOAD_BYTES,
+      perMessageDeflate: false,
       verifyClient: ({ req }, done) => {
         // Same-origin bypass. The server typically binds 0.0.0.0 so the
         // SPA can be reached over LAN (http://192.168.1.42:8080) as well
@@ -269,7 +290,11 @@ class WebSocketServer {
     try {
       parsedMessage = JSON.parse(data.toString());
 
-      this.logger.debug(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
+      // Per-message debug — gated so the template string is not built when
+      // the log level filters it out (60 msg/s rate limit applies upstream).
+      if (this.logger.isDebugEnabled?.()) {
+        this.logger.debug(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
+      }
 
       // Awaited so async errors (rejections inside handlers) are caught here
       // instead of becoming unhandled rejections on the Node process.
@@ -309,46 +334,34 @@ class WebSocketServer {
   }
 
   /**
-   * Send a server-pushed event to every open client. Stale (CLOSING /
-   * CLOSED) sockets are pruned during the same iteration to keep the
-   * `clients` set free of zombies.
+   * Enqueue a server-pushed event for every open client. Returns
+   * immediately — the actual send happens on the next event-loop turn
+   * via {@link WsOutputQueue}, which also implements:
+   *   - per-event-type coalescing for high-frequency payloads
+   *     (playback_position, monitor_event, tuner:pitch, ...)
+   *   - per-client backpressure (skip when bufferedAmount exceeds
+   *     the high-water mark)
+   *   - binary wire format for events with a registered encoder
+   *     (see {@link ../../shared/BinaryFrameCodec.js})
+   *   - pruning of CLOSING/CLOSED sockets
+   *
+   * The function signature is preserved so producers (PlaybackScheduler,
+   * MidiRouter, audio callbacks) don't change.
    *
    * @param {string} event - Event name forwarded as the `event` field.
    * @param {*} data - JSON-serialisable payload.
    * @returns {void}
    */
   broadcast(event, data) {
-    let message;
-    try {
-      message = JSON.stringify({
-        type: 'event',
-        event: event,
-        data: data,
-        timestamp: Date.now()
-      });
-    } catch (err) {
-      this.logger.error(`Failed to serialize broadcast ${event}: ${err.message}`);
-      return;
-    }
+    this._outQueue.broadcast(event, data);
+  }
 
-    let sent = 0;
-    const stale = [];
-    this.clients.forEach((client) => {
-      if (client.readyState === 1) {
-        // OPEN
-        client.send(message);
-        sent++;
-      } else if (client.readyState > 1) {
-        // CLOSING or CLOSED
-        stale.push(client);
-      }
-    });
-    // Remove stale clients
-    for (const client of stale) {
-      this.clients.delete(client);
-    }
-
-    this.logger.debug(`Broadcast ${event} to ${sent} clients`);
+  /**
+   * @returns {Object} Live counters from the output queue. Exposed for
+   *   `/metrics` and the benchmark suite.
+   */
+  getOutputStats() {
+    return this._outQueue.getStats();
   }
 
   /**
@@ -411,6 +424,9 @@ class WebSocketServer {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
+
+    // Stop accepting new outbound events; any pending entry is dropped.
+    this._outQueue.close();
 
     this.clients.forEach((client) => {
       if (client.readyState === 1) {

@@ -155,7 +155,10 @@ class CommandRegistry {
       // Per-message tracing belongs to `debug` (Logger.js convention:
       // info = operator milestone, not per-iteration). 60 cmd/s × 4 lines
       // would saturate INFO and bury the actual lifecycle events.
-      this.logger.debug(`${tag} Handling command`);
+      // Gated so the template string is never built when debug is off.
+      if (this.logger.isDebugEnabled?.()) {
+        this.logger.debug(`${tag} Handling command`);
+      }
 
       // Envelope validation: message must be an object with a string `command`.
       const validation = JsonValidator.validateCommand(message);
@@ -195,7 +198,9 @@ class CommandRegistry {
       }
 
       const duration = Date.now() - startTime;
-      this.logger.debug(`${tag} Command completed in ${duration}ms`);
+      if (this.logger.isDebugEnabled?.()) {
+        this.logger.debug(`${tag} Command completed in ${duration}ms`);
+      }
       // P2-OBS.2/3 : emit a metric event for any interested subscriber
       // (dashboards, Prometheus exporter, etc.). Payload kept minimal to
       // avoid log-level bloat.
