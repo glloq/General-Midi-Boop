@@ -16,8 +16,14 @@
         const mechanismAllowsBend =
             mechanism === 'string_sliding_fingers' ||
             mechanism === 'independent_fingers';
+        // Bowed-string instruments natively support continuous pitch glide
+        // (vibrato, glissando) — expose the pitch-bend toggle automatically,
+        // regardless of `string_slider_enabled`. Same UX as the guitar widening
+        // mode but always available.
+        const isBowed = typeof this._isBowedInstrument === 'function'
+            ? this._isBowedInstrument() : false;
         const show = this.viewMode === 'fretboard'
-            && (!!cfg.string_slider_enabled || mechanismAllowsBend);
+            && (isBowed || !!cfg.string_slider_enabled || mechanismAllowsBend);
         group.classList.toggle('hidden', !show);
         if (!show && this._stringSlideActive) {
             this._disableStringSlideMode();

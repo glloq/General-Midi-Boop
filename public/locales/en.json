@@ -374,7 +374,10 @@
     "listCCTitle": "MIDI controller sent on the vertical axis",
     "listPBLabel": "X → PB",
     "listPBTitle": "Pitch bend sent on the horizontal axis",
-    "pitchBend": "Pitch Bend"
+    "pitchBend": "Pitch Bend",
+    "bowDown": "Down-bow (pull)",
+    "bowUp": "Up-bow (push)",
+    "bowHint": "Hold the left half for down-bow, the right half for up-bow"
   },
   "midiEditor": {
     "title": "MIDI Editor",

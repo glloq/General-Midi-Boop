@@ -2978,3 +2978,115 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 #keyboard-modal-container {
     min-height: 0;
 }
+
+/* ============================================================================
+   BOWED-STRING INSTRUMENT MODE
+   ----------------------------------------------------------------------------
+   Violin / viola / cello / contrabass / fiddle: dots are placed ON the fret
+   wire (right edge of the cell) so the visual reads as "finger pressed exactly
+   here" instead of the guitar-style "anywhere in the cell". The bow bar
+   replaces the strum bar — see KeyboardChords._triggerBowStart.
+   ============================================================================ */
+
+/* Anchor dots to the right edge of their cell (= the fret wire line) */
+.fretboard-container.bowed .fret-cell:not(.fret-open) {
+    justify-content: flex-end;
+    padding-right: 0;
+}
+
+/* Smaller dot so it reads as a finger-touch point rather than a press zone */
+.fretboard-container.bowed .fret-cell:not(.fret-open) .fret-dot {
+    height: min(70%, 24px);
+    max-width: min(70%, 26px);
+    /* Center the dot exactly on the fret wire (shift its right edge by half
+       its own width so the centre sits on the cell's right border). */
+    margin-right: -7%;
+}
+
+/* Make the fret divider line itself more prominent — it IS the note position */
+.fretboard-container.bowed .fret-cell:not(.fret-open):not(.fret-dead) {
+    border-right-color: rgba(217, 119, 6, 0.45);
+}
+.fretboard-container.bowed .fret-cell:not(.fret-open):last-child {
+    border-right-color: rgba(217, 119, 6, 0.45);
+}
+
+/* Slide-mode (pitch bend) widens the dot back across the whole cell so the
+   bend gesture has room to drag. Restore the centered layout in that case. */
+.fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) {
+    justify-content: center;
+}
+.fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot {
+    margin-right: 0;
+    max-width: none;
+    height: min(70%, 28px);
+}
+
+/* ── Bow control bar (replaces the strum bar) ────────────────────────────── */
+
+.chord-buttons-bar.bowed .chord-type-btn.bow-btn::before {
+    background: rgba(217, 119, 6, 0.10);
+}
+.chord-buttons-bar.bowed .chord-type-btn.bow-btn::after {
+    background: rgba(168, 85, 247, 0.10);
+}
+
+/* Active bow (button held): continuous gentle pulse, distinct from the
+   one-shot strum-hit animation used for plucked instruments. */
+@keyframes bow-pulse {
+    0%   { box-shadow: 0 0 10px rgba(217, 119, 6, 0.45); }
+    50%  { box-shadow: 0 0 18px rgba(217, 119, 6, 0.85); }
+    100% { box-shadow: 0 0 10px rgba(217, 119, 6, 0.45); }
+}
+.chord-type-btn.bow-active {
+    border-color: rgba(217, 119, 6, 0.85);
+    animation: bow-pulse 1.4s ease-in-out infinite;
+    transform: translateY(1px);
+}
+.chord-type-btn.bow-active.bow-side-right {
+    border-color: rgba(168, 85, 247, 0.85);
+    animation-name: bow-pulse-up;
+}
+@keyframes bow-pulse-up {
+    0%   { box-shadow: 0 0 10px rgba(168, 85, 247, 0.45); }
+    50%  { box-shadow: 0 0 18px rgba(168, 85, 247, 0.85); }
+    100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.45); }
+}
+
+/* Make the swept arrow on the engaged side fully opaque while bowing */
+.chord-type-btn.bow-active.bow-side-left .chord-strum-l,
+.chord-type-btn.bow-active.bow-side-right .chord-strum-r {
+    opacity: 1;
+    color: #fbbf24;
+    font-size: 14px;
+    text-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+}
+
+/* Continuous sweep animation: replaces the one-shot strum-sweep-bar with an
+   infinite back-and-forth wash so the "bow moving" visual stays alive while
+   the button is held. The translateX(-100%) start places the wash off-screen
+   left, ending off-screen right at +100%. */
+@keyframes bow-wash-down {
+    0%   { transform: translateX(-100%); opacity: 0; }
+    20%  { opacity: 0.9; }
+    80%  { opacity: 0.9; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+@keyframes bow-wash-up {
+    0%   { transform: translateX(100%); opacity: 0; }
+    20%  { opacity: 0.9; }
+    80%  { opacity: 0.9; }
+    100% { transform: translateX(-100%); opacity: 0; }
+}
+
+.chord-type-btn.bow-active .strum-sweep-bar {
+    background: linear-gradient(90deg,
+        rgba(251, 191, 36, 0)  0%,
+        rgba(251, 191, 36, 0.55) 50%,
+        rgba(251, 191, 36, 0)  100%);
+    transform: translateX(-100%); /* base state */
+    animation: bow-wash-down 1.1s linear infinite;
+}
+.chord-type-btn.bow-active.bow-side-right .strum-sweep-bar {
+    animation: bow-wash-up 1.1s linear infinite;
+}

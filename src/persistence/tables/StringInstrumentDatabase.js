@@ -142,8 +142,9 @@ class StringInstrumentDatabase {
           cc_string_number, cc_string_min, cc_string_max, cc_string_offset,
           cc_fret_number, cc_fret_min, cc_fret_max, cc_fret_offset,
           frets_per_string, scale_length_mm, string_slider_enabled,
-          string_sliding_system_enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          string_sliding_system_enabled,
+          cc_bow_direction_number, cc_bow_down_value, cc_bow_up_value
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(device_id, channel) DO UPDATE SET
           instrument_name = excluded.instrument_name,
           num_strings = excluded.num_strings,
@@ -164,7 +165,10 @@ class StringInstrumentDatabase {
           frets_per_string = excluded.frets_per_string,
           scale_length_mm = excluded.scale_length_mm,
           string_slider_enabled = excluded.string_slider_enabled,
-          string_sliding_system_enabled = excluded.string_sliding_system_enabled
+          string_sliding_system_enabled = excluded.string_sliding_system_enabled,
+          cc_bow_direction_number = excluded.cc_bow_direction_number,
+          cc_bow_down_value = excluded.cc_bow_down_value,
+          cc_bow_up_value = excluded.cc_bow_up_value
       `);
 
       const result = stmt.run(
@@ -189,7 +193,10 @@ class StringInstrumentDatabase {
         fretsPerStringJson,
         scaleLengthMm,
         config.string_slider_enabled ? 1 : 0,
-        config.string_sliding_system_enabled ? 1 : 0
+        config.string_sliding_system_enabled ? 1 : 0,
+        config.cc_bow_direction_number !== undefined ? config.cc_bow_direction_number : 22,
+        config.cc_bow_down_value !== undefined ? config.cc_bow_down_value : 0,
+        config.cc_bow_up_value !== undefined ? config.cc_bow_up_value : 127
       );
 
       this.logger.info(`String instrument created/updated for ${config.device_id} ch${config.channel}`);
@@ -394,6 +401,17 @@ class StringInstrumentDatabase {
       if (updates.string_sliding_system_enabled !== undefined) {
         fields.push('string_sliding_system_enabled = ?');
         values.push(updates.string_sliding_system_enabled ? 1 : 0);
+      }
+
+      // Bow direction CC (mechanical bowed-string instruments)
+      for (const ccField of ['cc_bow_direction_number', 'cc_bow_down_value', 'cc_bow_up_value']) {
+        if (updates[ccField] !== undefined) {
+          if (updates[ccField] < 0 || updates[ccField] > 127) {
+            throw new Error(`${ccField} must be between 0 and 127`);
+          }
+          fields.push(`${ccField} = ?`);
+          values.push(updates[ccField]);
+        }
       }
 
       if (fields.length === 0) return false;
@@ -665,6 +683,10 @@ class StringInstrumentDatabase {
       scale_length_mm: Number.isFinite(row.scale_length_mm) ? row.scale_length_mm : null,
       string_slider_enabled: !!row.string_slider_enabled,
       string_sliding_system_enabled: !!row.string_sliding_system_enabled,
+      // Bow direction CC (drives the bow servo direction on bowed instruments)
+      cc_bow_direction_number: row.cc_bow_direction_number !== undefined ? row.cc_bow_direction_number : 22,
+      cc_bow_down_value: row.cc_bow_down_value !== undefined ? row.cc_bow_down_value : 0,
+      cc_bow_up_value: row.cc_bow_up_value !== undefined ? row.cc_bow_up_value : 127,
       created_at: row.created_at,
       updated_at: row.updated_at
     };

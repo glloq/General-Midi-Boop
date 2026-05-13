@@ -374,7 +374,10 @@
     "listCCTitle": "Contrôleur MIDI envoyé sur l'axe vertical",
     "listPBLabel": "X → PB",
     "listPBTitle": "Pitch bend envoyé sur l'axe horizontal",
-    "pitchBend": "Pitch Bend"
+    "pitchBend": "Pitch Bend",
+    "bowDown": "Archet tiré (tirer)",
+    "bowUp": "Archet poussé (pousser)",
+    "bowHint": "Maintenir à gauche pour tirer l'archet, à droite pour pousser"
   },
   "midiEditor": {
     "title": "Éditeur MIDI",

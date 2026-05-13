@@ -44,6 +44,13 @@ class StringInstrumentConfigModal extends BaseModal {
             cc_fret_min: 0,
             cc_fret_max: 36,
             cc_fret_offset: 0,
+            // Bow direction CC (mechanical bowed-string instruments). Only
+            // shown in the UI for bowed-string GM programs (violin family),
+            // but the fields are always present so the form save/load round-
+            // trips cleanly for any instrument type.
+            cc_bow_direction_number: 22,
+            cc_bow_down_value: 0,
+            cc_bow_up_value: 127,
             // Per-string fret count (null = uniform)
             frets_per_string: null,
             string_slider_enabled: false
@@ -105,6 +112,9 @@ class StringInstrumentConfigModal extends BaseModal {
                     cc_fret_min: inst.cc_fret_min !== undefined ? inst.cc_fret_min : 0,
                     cc_fret_max: inst.cc_fret_max !== undefined ? inst.cc_fret_max : 36,
                     cc_fret_offset: inst.cc_fret_offset || 0,
+                    cc_bow_direction_number: inst.cc_bow_direction_number !== undefined ? inst.cc_bow_direction_number : 22,
+                    cc_bow_down_value: inst.cc_bow_down_value !== undefined ? inst.cc_bow_down_value : 0,
+                    cc_bow_up_value: inst.cc_bow_up_value !== undefined ? inst.cc_bow_up_value : 127,
                     frets_per_string: inst.frets_per_string || null,
                     string_slider_enabled: !!inst.string_slider_enabled
                 };
@@ -133,6 +143,29 @@ class StringInstrumentConfigModal extends BaseModal {
     // ========================================================================
     // RENDER
     // ========================================================================
+
+    /**
+     * Detect whether the currently configured instrument is a bowed-string
+     * (violin family). Used to surface the bow-direction CC editor only when
+     * relevant. Heuristic: 4 strings + fretless + violin-like tuning range,
+     * or matching name keywords. Falls back to "off" for everything else.
+     */
+    _isBowedConfig() {
+        const c = this.config;
+        if (!c) return false;
+        const name = (c.instrument_name || '').toLowerCase();
+        if (/violin|viola|cello|contrabass|fiddle|archet|frott/.test(name)) return true;
+        // Numeric heuristic: 4 strings + fretless + tuning fundamentals between
+        // contrabass (~28) and violin (~76). Loose enough to catch most bowed
+        // configs without confusing them with fretless bass (which is 4 strings
+        // fretless but tuned much lower — handled by the name check above).
+        const t = Array.isArray(c.tuning) ? c.tuning : [];
+        if (c.is_fretless && c.num_strings === 4 && t.length === 4) {
+            const lo = Math.min(...t);
+            if (lo >= 28 && lo <= 70) return true;
+        }
+        return false;
+    }
 
     renderBody() {
         const c = this.config;
@@ -252,6 +285,25 @@ class StringInstrumentConfigModal extends BaseModal {
                             </div>
                         </div>
                     </div>
+                    ${this._isBowedConfig() ? `
+                    <div class="si-cc-row" id="si-bow-cc-row">
+                        <span class="si-cc-label" title="Direction de l'archet — envoyé pendant le maintien d'un accord depuis la barre de frottement">Bow direction</span>
+                        <div class="si-cc-params">
+                            <div class="si-cc-param">
+                                <label>CC#</label>
+                                <input type="number" class="si-input si-input-xs" id="si-cc-bow-num" value="${c.cc_bow_direction_number}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label title="Tirer (down-bow)">Down</label>
+                                <input type="number" class="si-input si-input-xs" id="si-cc-bow-down" value="${c.cc_bow_down_value}" min="0" max="127">
+                            </div>
+                            <div class="si-cc-param">
+                                <label title="Pousser (up-bow)">Up</label>
+                                <input type="number" class="si-input si-input-xs" id="si-cc-bow-up" value="${c.cc_bow_up_value}" min="0" max="127">
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
 
                 <div class="si-details-section ${ccCollapsedClass}" id="si-details-section">
@@ -428,6 +480,9 @@ class StringInstrumentConfigModal extends BaseModal {
             'si-cc-fret-min': 'cc_fret_min',
             'si-cc-fret-max': 'cc_fret_max',
             'si-cc-fret-offset': 'cc_fret_offset',
+            'si-cc-bow-num': 'cc_bow_direction_number',
+            'si-cc-bow-down': 'cc_bow_down_value',
+            'si-cc-bow-up': 'cc_bow_up_value',
         };
         for (const [inputId, configKey] of Object.entries(ccInputMap)) {
             this.$(`#${inputId}`)?.addEventListener('input', (e) => {
@@ -692,6 +747,9 @@ class StringInstrumentConfigModal extends BaseModal {
                 cc_fret_min: this.config.cc_fret_min,
                 cc_fret_max: this.config.cc_fret_max,
                 cc_fret_offset: this.config.cc_fret_offset,
+                cc_bow_direction_number: this.config.cc_bow_direction_number,
+                cc_bow_down_value: this.config.cc_bow_down_value,
+                cc_bow_up_value: this.config.cc_bow_up_value,
                 frets_per_string: this.config.frets_per_string,
                 string_slider_enabled: this.config.string_slider_enabled ? 1 : 0
             };
