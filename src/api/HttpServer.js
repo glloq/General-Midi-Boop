@@ -33,6 +33,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * Return true when the request originates from a private network (RFC 1918,
+ * link-local 169.254/16, loopback, IPv6 ULA fc00::/7 or ::1). Used to bypass
+ * the Bearer-token check for trusted LAN/loopback clients when no header-
+ * based same-origin signal is available — browsers with strong privacy
+ * settings (Referrer-Policy: no-referrer + Sec-Fetch-* stripping extensions)
+ * send neither Origin nor Sec-Fetch-Site, so the source IP is the only
+ * remaining hint.
+ *
+ * Public IPs always fall through to the token check, so an internet-exposed
+ * instance still requires authentication.
+ */
+function isPrivateClient(req) {
+  let ip = req.ip || req.socket?.remoteAddress || '';
+  if (!ip) return false;
+  // Strip IPv6-mapped-IPv4 prefix: ::ffff:192.168.1.10 → 192.168.1.10
+  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+  if (ip === '::1' || ip === '127.0.0.1' || ip.startsWith('127.')) return true;
+  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
+  if (ip.startsWith('169.254.')) return true; // link-local
+  if (ip.startsWith('172.')) {
+    const second = Number(ip.split('.')[1]);
+    if (second >= 16 && second <= 31) return true; // 172.16/12
+  }
+  // IPv6 ULA: fc00::/7 — first byte is 0xfc or 0xfd
+  if (/^f[cd][0-9a-f]{2}:/i.test(ip)) return true;
+  // IPv6 link-local: fe80::/10
+  if (/^fe[89ab][0-9a-f]:/i.test(ip)) return true;
+  return false;
+}
+
+/**
  * Express HTTP/HTTPS server. One instance per process; constructor
  * builds the express app and wires every middleware/route. Call
  * {@link HttpServer#start} to bind the listener.
@@ -139,6 +170,18 @@ class HttpServer {
               return next();
             }
           } catch { /* fall through to token check */ }
+        }
+
+        // Private-network bypass. The API token guards against random
+        // internet users on a port-forwarded instance; clients on the same
+        // LAN (RFC 1918, link-local, loopback, IPv6 ULA) are inside the
+        // same trust boundary as a same-origin SPA. This is also the only
+        // signal we have for browsers configured to strip Sec-Fetch-* and
+        // Origin headers via privacy extensions or about:config — there is
+        // no header check that survives those, so we have to fall back to
+        // the network-layer source IP.
+        if (isPrivateClient(req)) {
+          return next();
         }
 
         const token = req.headers.authorization?.replace('Bearer ', '') || '';
