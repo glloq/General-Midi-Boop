@@ -31,10 +31,18 @@ USER appuser
 
 ENV NODE_ENV=production
 ENV PORT=8080
+# Sized for a Pi 4 / Pi 5 default. Override at run time with
+# `-e NODE_HEAP_MB=256` on a Pi 3, or by passing NODE_OPTIONS.
+ENV NODE_HEAP_MB=512
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# Faster healthcheck cycle so PM2 / k8s notice a hung event loop quickly.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["node", "server.js"]
+# --max-old-space-size: cap the V8 heap to keep RSS predictable on Pi.
+# --expose-gc:          lets the benchmark suite trigger major GC between runs.
+# --enable-source-maps=false: stack traces still readable from raw .js;
+#                             skipping source-map resolution saves CPU.
+CMD ["sh", "-c", "exec node --max-old-space-size=${NODE_HEAP_MB} --expose-gc --enable-source-maps=false server.js"]
