@@ -25,6 +25,18 @@ const MAX_SAMPLE_SECS = 10;                        // max sample duration per zo
 const MAX_TOTAL_SAMPLES = 20 * 1024 * 1024 / 4;  // ~20 MB of Float32 data total
 
 /**
+ * Parse raw SF2 bytes into a SoundFont2 instance. Expensive (~450 ms for a
+ * 30 MB SF2), so callers loading multiple presets from the same file should
+ * cache the result and feed it into {@link convertPresetFromSF2}.
+ *
+ * @param {Buffer|Uint8Array} sf2Buffer
+ * @returns {SoundFont2}
+ */
+export function parseSoundFont(sf2Buffer) {
+  return new SoundFont2(new Uint8Array(sf2Buffer));
+}
+
+/**
  * Convert one SF2 preset (identified by bankNumber + presetNumber) into a
  * WAF-compatible preset object, or return null if the preset is absent.
  *
@@ -34,8 +46,20 @@ const MAX_TOTAL_SAMPLES = 20 * 1024 * 1024 / 4;  // ~20 MB of Float32 data total
  * @returns {{ zones: Array }|null}
  */
 export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
-  const sf2 = new SoundFont2(new Uint8Array(sf2Buffer));
+  return convertPresetFromSF2(parseSoundFont(sf2Buffer), bankNumber, presetNumber);
+}
 
+/**
+ * Same as {@link convertPreset} but takes a pre-parsed SoundFont2 instance.
+ * Lets the caller amortise the ~450 ms RIFF parse across multiple program
+ * lookups from the same file.
+ *
+ * @param {SoundFont2} sf2
+ * @param {number} bankNumber
+ * @param {number} presetNumber
+ * @returns {{ zones: Array }|null}
+ */
+export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
   const bank = sf2.banks[bankNumber];
   if (!bank) return null;
   const preset = bank.presets[presetNumber];

@@ -115,16 +115,31 @@ export function decodePreset(input) {
     throw new Error(`SF2PresetCodec: unsupported version ${version}`);
   }
   const metaLen = buf.readUInt32LE(8);
+  // Defensive: metaLen comes from untrusted bytes (corrupt SQLite blob,
+  // truncated payload). A bogus value would either silently truncate the
+  // slice or read past the buffer.
+  if (metaLen < 0 || HEADER_BYTES + metaLen > buf.length) {
+    throw new Error(`SF2PresetCodec: invalid metaLen ${metaLen} (buf=${buf.length})`);
+  }
   const meta = JSON.parse(buf.slice(HEADER_BYTES, HEADER_BYTES + metaLen).toString('utf8'));
+  if (!meta || !Array.isArray(meta.zones)) {
+    throw new Error('SF2PresetCodec: metadata missing zones array');
+  }
   const sampleBase = HEADER_BYTES + metaLen;
-  const zones = meta.zones.map(z => {
+  const sampleBytesAvailable = buf.length - sampleBase;
+  const zones = meta.zones.map((z, i) => {
+    const sampleOffset = z.sampleOffset | 0;
+    const sampleLength = z.sampleLength | 0;
+    if (sampleLength < 0 || sampleOffset < 0 ||
+        (sampleOffset + sampleLength) * 4 > sampleBytesAvailable) {
+      throw new Error(`SF2PresetCodec: zone ${i} sample range out of bounds`);
+    }
     // Float32Array view over the underlying ArrayBuffer at the right offset.
-    // The byteOffset must be 4-aligned, which it always is because metaLen
-    // and HEADER_BYTES are not — we re-copy into a fresh ArrayBuffer to
-    // guarantee alignment. Cheap: copy is contiguous and ≪ JSON.parse cost.
-    const byteOffset = sampleBase + z.sampleOffset * 4;
+    // Slice into a fresh ArrayBuffer to guarantee 4-byte alignment for the
+    // Float32Array view (HEADER_BYTES + metaLen has arbitrary alignment).
+    const byteOffset = sampleBase + sampleOffset * 4;
     const slice = buf.buffer.slice(buf.byteOffset + byteOffset,
-                                   buf.byteOffset + byteOffset + z.sampleLength * 4);
+                                   buf.byteOffset + byteOffset + sampleLength * 4);
     return {
       sample:       new Float32Array(slice),
       sampleRate:   z.sampleRate,

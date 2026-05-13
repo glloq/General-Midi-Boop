@@ -106,4 +106,83 @@ describe('SF2PresetCodec', () => {
     expect(decoded.zones).toHaveLength(2);
     expect(Array.from(decoded.zones[0].sample)).toEqual(Array.from(original.zones[0].sample));
   });
+
+  // ── Robustness against malformed input ────────────────────────────────────
+
+  test('decode rejects metaLen larger than buffer', () => {
+    const preset = makePreset();
+    const buf = encodePreset(preset);
+    // Tamper metaLen to a huge value
+    buf.writeUInt32LE(0xFFFF_FFFF, 8);
+    expect(() => decodePreset(buf)).toThrow(/metaLen/);
+  });
+
+  test('decode rejects negative-looking metaLen', () => {
+    const preset = makePreset();
+    const buf = encodePreset(preset);
+    // 0x80000000 read as signed would be negative; we read unsigned but
+    // the comparison `HEADER + metaLen > buf.length` still catches it.
+    buf.writeUInt32LE(0x80000000, 8);
+    expect(() => decodePreset(buf)).toThrow(/metaLen/);
+  });
+
+  test('decode rejects metadata with missing zones array', () => {
+    // Build a valid-looking GMBP frame with metadata that lacks zones.
+    const meta = Buffer.from(JSON.stringify({ foo: 'bar' }), 'utf8');
+    const buf = Buffer.alloc(12 + meta.length);
+    buf.writeUInt32LE(0x50_42_4d_47, 0);
+    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(meta.length, 8);
+    meta.copy(buf, 12);
+    expect(() => decodePreset(buf)).toThrow(/zones/);
+  });
+
+  test('decode rejects metadata where zones is not an array', () => {
+    const meta = Buffer.from(JSON.stringify({ zones: 'not-an-array' }), 'utf8');
+    const buf = Buffer.alloc(12 + meta.length);
+    buf.writeUInt32LE(0x50_42_4d_47, 0);
+    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(meta.length, 8);
+    meta.copy(buf, 12);
+    expect(() => decodePreset(buf)).toThrow(/zones/);
+  });
+
+  test('decode rejects zone whose sample range overflows the buffer', () => {
+    const meta = Buffer.from(JSON.stringify({
+      zones: [{
+        sampleOffset: 0, sampleLength: 1_000_000,
+        sampleRate: 44100, loopStart: 0, loopEnd: 0,
+        keyRangeLow: 0, keyRangeHigh: 127, velRangeLow: 0, velRangeHigh: 127,
+        midi: 60, coarseTune: 0, fineTune: 0,
+      }],
+    }), 'utf8');
+    const buf = Buffer.alloc(12 + meta.length); // no sample bytes
+    buf.writeUInt32LE(0x50_42_4d_47, 0);
+    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(meta.length, 8);
+    meta.copy(buf, 12);
+    expect(() => decodePreset(buf)).toThrow(/out of bounds/);
+  });
+
+  test('decode rejects negative sampleLength', () => {
+    const meta = Buffer.from(JSON.stringify({
+      zones: [{
+        sampleOffset: 0, sampleLength: -1,
+        sampleRate: 44100, loopStart: 0, loopEnd: 0,
+        keyRangeLow: 0, keyRangeHigh: 127, velRangeLow: 0, velRangeHigh: 127,
+        midi: 60, coarseTune: 0, fineTune: 0,
+      }],
+    }), 'utf8');
+    const buf = Buffer.alloc(12 + meta.length);
+    buf.writeUInt32LE(0x50_42_4d_47, 0);
+    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(meta.length, 8);
+    meta.copy(buf, 12);
+    expect(() => decodePreset(buf)).toThrow(/out of bounds/);
+  });
+
+  test('empty zones array round-trips', () => {
+    const decoded = decodePreset(encodePreset({ zones: [] }));
+    expect(decoded.zones).toEqual([]);
+  });
 });

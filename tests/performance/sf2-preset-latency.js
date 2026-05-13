@@ -29,7 +29,7 @@ import { performance } from 'perf_hooks';
 import { fileURLToPath } from 'url';
 import pkg from 'soundfont2';
 
-import { convertPreset } from '../../src/files/SF2Converter.js';
+import { convertPreset, parseSoundFont, convertPresetFromSF2 } from '../../src/files/SF2Converter.js';
 import { encodePreset, decodePreset } from '../../src/files/SF2PresetCodec.js';
 
 const { SoundFont2 } = pkg;
@@ -162,6 +162,23 @@ async function main() {
 
   console.log(`\n  ⇒ Speedup: ${(legacyTotal / newTotal).toFixed(2)}× faster, ${fmt(legacyTotal - newTotal)} saved`);
   console.log(`  ⇒ Wire bytes: ${mb(gz.length)} → ${mb(wire.length)} (${wire.length > gz.length ? '+' : ''}${((wire.length - gz.length) / gz.length * 100).toFixed(0)}%)`);
+
+  // ── Warm-process scenarios (SoundFont2 instance cache + L2 hit) ────────
+  console.log('\n[Warm-process scenarios with caches in place]');
+
+  section('A. 2nd program from same SF2 (SoundFont2 instance cached)');
+  const sf2 = parseSoundFont(sf2Buf); // pretend cache hit — reuse the instance
+  const { elapsed: tCachedConvert } = timed('convertPresetFromSF2 (no parse)', () => convertPresetFromSF2(sf2, 0, program));
+  const warmInstanceTotal = tCachedConvert + tEncode + tDecode;
+  console.log(`  scenario total (skip readFile+parse):   ${fmt(warmInstanceTotal)}`);
+  console.log(`  vs. cold GMBP total ${fmt(newTotal)} → ${(newTotal / warmInstanceTotal).toFixed(2)}× faster`);
+
+  section('B. L2 cache hit (decode GMBP from SQLite blob)');
+  // The L2 path returns the binary buffer directly — only decode runs.
+  const wireFromL2 = encodePreset(preset); // simulate what SQLite returns
+  const { elapsed: tL2Decode } = timed('decodePreset (L2 hit only)', () => decodePreset(wireFromL2));
+  console.log(`  scenario total (skip readFile+parse+convert): ${fmt(tL2Decode)}`);
+  console.log(`  vs. cold GMBP total ${fmt(newTotal)} → ${(newTotal / tL2Decode).toFixed(2)}× faster`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

@@ -23,28 +23,43 @@ function _decodeGmbpPreset(arrayBuffer) {
     const version = view.getUint32(4, true);
     if (version !== 1) throw new Error(`Unsupported GMBP version ${version}`);
     const metaLen = view.getUint32(8, true);
+    if (metaLen < 0 || 12 + metaLen > bytes.length) {
+        throw new Error(`GMBP invalid metaLen ${metaLen} (buf=${bytes.length})`);
+    }
     const metaBytes = new Uint8Array(arrayBuffer, 12, metaLen);
     const meta = JSON.parse(new TextDecoder('utf-8').decode(metaBytes));
+    if (!meta || !Array.isArray(meta.zones)) {
+        throw new Error('GMBP metadata missing zones array');
+    }
     const sampleBase = 12 + metaLen;
-    const zones = meta.zones.map(z => ({
-        // Float32Array view requires 4-byte aligned offsets. `sampleBase`
-        // is 12 + metaLen — metaLen is JSON length so unaligned in the
-        // general case. We slice into a fresh buffer to get alignment.
-        sample: new Float32Array(arrayBuffer.slice(
-            sampleBase + z.sampleOffset * 4,
-            sampleBase + (z.sampleOffset + z.sampleLength) * 4,
-        )),
-        sampleRate:   z.sampleRate,
-        loopStart:    z.loopStart,
-        loopEnd:      z.loopEnd,
-        keyRangeLow:  z.keyRangeLow,
-        keyRangeHigh: z.keyRangeHigh,
-        velRangeLow:  z.velRangeLow,
-        velRangeHigh: z.velRangeHigh,
-        midi:         z.midi,
-        coarseTune:   z.coarseTune,
-        fineTune:     z.fineTune,
-    }));
+    const sampleBytesAvailable = bytes.length - sampleBase;
+    const zones = meta.zones.map((z, i) => {
+        const sampleOffset = z.sampleOffset | 0;
+        const sampleLength = z.sampleLength | 0;
+        if (sampleLength < 0 || sampleOffset < 0 ||
+            (sampleOffset + sampleLength) * 4 > sampleBytesAvailable) {
+            throw new Error(`GMBP zone ${i} sample range out of bounds`);
+        }
+        return {
+            // Float32Array view requires 4-byte aligned offsets. `sampleBase`
+            // is 12 + metaLen — metaLen is JSON length so unaligned in the
+            // general case. We slice into a fresh buffer to get alignment.
+            sample: new Float32Array(arrayBuffer.slice(
+                sampleBase + sampleOffset * 4,
+                sampleBase + (sampleOffset + sampleLength) * 4,
+            )),
+            sampleRate:   z.sampleRate,
+            loopStart:    z.loopStart,
+            loopEnd:      z.loopEnd,
+            keyRangeLow:  z.keyRangeLow,
+            keyRangeHigh: z.keyRangeHigh,
+            velRangeLow:  z.velRangeLow,
+            velRangeHigh: z.velRangeHigh,
+            midi:         z.midi,
+            coarseTune:   z.coarseTune,
+            fineTune:     z.fineTune,
+        };
+    });
     return { zones };
 }
 
@@ -243,6 +258,12 @@ class MidiSynthesizer {
         this.hihatOpenNote = 46;
 
         MidiSynthesizer._instances.add(this);
+
+        // Predictive preload: kick off a background fetch for the programs
+        // assigned to active channels (just program 0 at boot, before any
+        // MIDI is loaded). The setTimeout(0) yields to the event loop so
+        // the UI finishes painting before we start downloading ~20 MB.
+        setTimeout(() => this._preloadCurrentChannelPrograms(), 0);
     }
 
     /**
@@ -389,6 +410,11 @@ class MidiSynthesizer {
         if (typeof this.onBankChanged === 'function') {
             try { this.onBankChanged(bank.id); } catch (e) { /* ignore */ }
         }
+
+        // Pre-warm the new bank's presets for currently-assigned channels.
+        // Deferred so the bank-change UI repaint isn't blocked by the
+        // download (~20 MB binary for an SF2 preset).
+        setTimeout(() => this._preloadCurrentChannelPrograms(), 0);
     }
 
     /**
@@ -683,8 +709,7 @@ class MidiSynthesizer {
     _materialiseSF2Preset(preset, forcedRootMidi = null) {
         for (const z of (preset.zones || [])) {
             if (z.buffer) continue; // already materialised (re-entry guard)
-            const raw = Array.isArray(z.sample) ? new Float32Array(z.sample)
-                      : (z.sample instanceof Float32Array ? z.sample : null);
+            const raw = z.sample instanceof Float32Array ? z.sample : null;
             if (!raw || raw.length === 0) continue;
             const sampleRate = z.sampleRate > 0 ? z.sampleRate : 44100;
             const buffer = this.audioContext.createBuffer(1, raw.length, sampleRate);
@@ -931,9 +956,41 @@ class MidiSynthesizer {
     /**
      * Set the instrument for a channel
      */
+    /**
+     * Predictive preload: trigger background fetches for the GM programs
+     * currently assigned to non-drum channels. Used at boot and after a
+     * bank switch so the first key press finds the preset already in L1
+     * (mémoire navigateur) instead of waiting for a multi-MB download.
+     * Fire-and-forget — errors are already swallowed by `loadInstrument`.
+     * @private
+     */
+    _preloadCurrentChannelPrograms() {
+        if (this._isDisposed) return;
+        const programs = new Set();
+        for (let ch = 0; ch < 16; ch++) {
+            if (ch === 9) continue; // drums preloaded by loadDrumKit
+            programs.add(this.channelInstruments[ch] || 0);
+        }
+        for (const program of programs) {
+            if (this.loadedInstruments.has(program)) continue;
+            if (this.loadingInstruments.has(program)) continue;
+            try { this.loadInstrument(program); } catch (e) { /* ignore */ }
+        }
+    }
+
     setChannelInstrument(channel, program) {
-        if (channel >= 0 && channel < 16) {
-            this.channelInstruments[channel] = program;
+        if (channel < 0 || channel >= 16) return;
+        const previous = this.channelInstruments[channel];
+        this.channelInstruments[channel] = program;
+        // Fire-and-forget preload for the new program (drum channel handled
+        // by loadDrumKit elsewhere). Skipped when the program is unchanged
+        // or already cached/loading.
+        if (channel !== 9 && program !== previous
+            && !this.loadedInstruments.has(program)
+            && !this.loadingInstruments.has(program)) {
+            setTimeout(() => {
+                if (!this._isDisposed) this.loadInstrument(program);
+            }, 0);
         }
     }
 
