@@ -38,9 +38,15 @@ const TARGET_PATH = join(TARGET_DIR, 'default.sf2');
 // (raw .sf2 or .zip) if every public one is blocked from your network.
 const SF2_MIRRORS = [
   process.env.GMBOOP_SF2_URL,
-  // Upstream author's site. Sometimes fronted by Cloudflare which serves an
-  // interstitial HTML page to generic User-Agents — we send a browser UA
-  // below to avoid that. Occasionally 403s by AS.
+  // GitHub raw mirrors of the official 1.471 release. These serve the .sf2
+  // directly (Content-Type: application/octet-stream) with no archive to
+  // extract and no Cloudflare interstitial, so they are the most reliable
+  // automated path.
+  'https://raw.githubusercontent.com/ROCKNIX/generaluser-gs/main/GeneralUser%20GS%20v1.471.sf2',
+  'https://raw.githubusercontent.com/JustEnoughLinuxOS/generaluser-gs/main/GeneralUser%20GS%20v1.471.sf2',
+  // Upstream author's site. As of 2026 the page is a SPA and the old
+  // /soundfonts/<file>.zip path returns the HTML index instead of the
+  // archive, so this is kept only as a last-ditch attempt.
   'https://schristiancollins.com/soundfonts/GeneralUser_GS_v1.471.zip',
 ].filter(Boolean);
 
