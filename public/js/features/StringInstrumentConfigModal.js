@@ -155,14 +155,15 @@ class StringInstrumentConfigModal extends BaseModal {
         if (!c) return false;
         const name = (c.instrument_name || '').toLowerCase();
         if (/violin|viola|cello|contrabass|fiddle|archet|frott/.test(name)) return true;
-        // Numeric heuristic: 4 strings + fretless + tuning fundamentals between
-        // contrabass (~28) and violin (~76). Loose enough to catch most bowed
-        // configs without confusing them with fretless bass (which is 4 strings
-        // fretless but tuned much lower — handled by the name check above).
+        // Numeric fallback for instruments configured without a recognisable
+        // name. We require fretless + 4 strings + lowest pitch ≥ cello's C2
+        // (MIDI 36) so a 4-string fretless bass (lowest string E1 = 28) does
+        // NOT falsely trigger the bow editor. Contrabass (E1) is also below
+        // this threshold but its name almost always matches the regex above.
         const t = Array.isArray(c.tuning) ? c.tuning : [];
         if (c.is_fretless && c.num_strings === 4 && t.length === 4) {
             const lo = Math.min(...t);
-            if (lo >= 28 && lo <= 70) return true;
+            if (lo >= 36 && lo <= 76) return true;
         }
         return false;
     }

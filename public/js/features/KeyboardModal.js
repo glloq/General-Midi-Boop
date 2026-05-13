@@ -967,6 +967,11 @@ class KeyboardModalNew {
         selector?.classList.remove('open');
         if (trigger) trigger.setAttribute('aria-expanded', 'false');
 
+        // Stop any held bow before swapping instruments — the new chord bar
+        // about to be rendered won't reuse the previous button reference, and
+        // the chord notes would otherwise keep ringing until the next mouseup.
+        if (typeof this._stopActiveBow === 'function') this._stopActiveBow();
+
         let deviceId = rawValue;
         let selectedChannel = undefined;
 

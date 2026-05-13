@@ -454,6 +454,10 @@
         // Cleanup string slide mode when leaving fretboard
         if (this.viewMode === 'fretboard' && mode !== 'fretboard') {
             if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
+            // Bowed-string sustain is held against the bow bar that's about to
+            // be removed; release it so notes don't ring after the bar is gone
+            // (mouseup still cleans up listeners, but notes would leak).
+            if (typeof this._stopActiveBow === 'function') this._stopActiveBow();
         }
 
         // Cleanup list view interaction when leaving list mode
