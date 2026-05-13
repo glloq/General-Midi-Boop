@@ -628,8 +628,19 @@ class MidiSynthesizer {
      * differences: SF2Converter writes `zone.midi` (MIDI root note 0-127),
      * WAF reads `zone.originalPitch` (same root note expressed in cents,
      * default 6000 = middle C).
+     *
+     * @param {Object} preset
+     * @param {?number} [forcedRootMidi] - When provided, override every
+     *   zone's root pitch so the sample plays at playback rate 1.0 for
+     *   this exact MIDI note. Used for drum presets: the server returns
+     *   only the zones covering the requested percussion note, and GM
+     *   drums must play at their recorded pitch (no transposition).
+     *   Without this override, drum samples whose SF2 root key differs
+     *   from the GM note number (very common — many kits leave the
+     *   sample's natural recorded pitch unchanged) get pitch-shifted and
+     *   sound like tubular bells.
      */
-    _materialiseSF2Preset(preset) {
+    _materialiseSF2Preset(preset, forcedRootMidi = null) {
         for (const z of (preset.zones || [])) {
             if (z.buffer) continue; // already materialised (re-entry guard)
             const raw = Array.isArray(z.sample) ? new Float32Array(z.sample)
@@ -643,7 +654,9 @@ class MidiSynthesizer {
             // of every loaded preset for the rest of the page lifetime.
             z.sample = null;
             // Convert MIDI note → cents for WAF. 6000 = note 60 (middle C).
-            if (z.originalPitch == null && z.midi != null) {
+            if (forcedRootMidi != null) {
+                z.originalPitch = forcedRootMidi * 100;
+            } else if (z.originalPitch == null && z.midi != null) {
                 z.originalPitch = z.midi * 100;
             }
             // Defaults `adjustZone` would have applied for missing fields.
@@ -711,7 +724,7 @@ class MidiSynthesizer {
                     }
                     return null;
                 }
-                this._materialiseSF2Preset(preset);
+                this._materialiseSF2Preset(preset, note);
                 this.drumPresets.set(cacheKey, preset);
                 return preset;
             })
