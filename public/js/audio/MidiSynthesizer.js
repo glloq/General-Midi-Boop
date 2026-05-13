@@ -258,12 +258,6 @@ class MidiSynthesizer {
         this.hihatOpenNote = 46;
 
         MidiSynthesizer._instances.add(this);
-
-        // Predictive preload: kick off a background fetch for the programs
-        // assigned to active channels (just program 0 at boot, before any
-        // MIDI is loaded). The setTimeout(0) yields to the event loop so
-        // the UI finishes painting before we start downloading ~20 MB.
-        setTimeout(() => this._preloadCurrentChannelPrograms(), 0);
     }
 
     /**
@@ -503,6 +497,12 @@ class MidiSynthesizer {
 
             this.isInitialized = true;
             this.log('info', 'MidiSynthesizer initialized with WebAudioFont');
+
+            // Predictive preload: kick off background fetches for the
+            // programs assigned to active channels (just program 0 at
+            // boot before any MIDI is loaded). setTimeout(0) yields to
+            // the event loop so the caller's await chain finishes first.
+            setTimeout(() => this._preloadCurrentChannelPrograms(), 0);
 
             return true;
         } catch (error) {
@@ -966,6 +966,10 @@ class MidiSynthesizer {
      */
     _preloadCurrentChannelPrograms() {
         if (this._isDisposed) return;
+        // loadInstrument touches audioContext/player; bail until initialize()
+        // has set them up (can happen because setTimeout(0) fires past
+        // setSoundBank/setChannelInstrument calls made before init).
+        if (!this.isInitialized || !this.audioContext) return;
         const programs = new Set();
         for (let ch = 0; ch < 16; ch++) {
             if (ch === 9) continue; // drums preloaded by loadDrumKit
@@ -983,13 +987,18 @@ class MidiSynthesizer {
         const previous = this.channelInstruments[channel];
         this.channelInstruments[channel] = program;
         // Fire-and-forget preload for the new program (drum channel handled
-        // by loadDrumKit elsewhere). Skipped when the program is unchanged
-        // or already cached/loading.
+        // by loadDrumKit elsewhere). Skipped when the program is unchanged,
+        // already cached/loading, or the synth hasn't been initialised yet
+        // (callers like AudioPreview may set channel instruments before
+        // their first initialize() resolves).
         if (channel !== 9 && program !== previous
+            && this.isInitialized
             && !this.loadedInstruments.has(program)
             && !this.loadingInstruments.has(program)) {
             setTimeout(() => {
-                if (!this._isDisposed) this.loadInstrument(program);
+                if (!this._isDisposed && this.isInitialized) {
+                    this.loadInstrument(program);
+                }
             }, 0);
         }
     }
