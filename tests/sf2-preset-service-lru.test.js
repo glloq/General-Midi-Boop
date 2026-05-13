@@ -17,9 +17,9 @@ import { jest } from '@jest/globals';
 await jest.unstable_mockModule('../src/files/SF2Converter.js', () => ({
   convertPreset: jest.fn((_buf, _bank, presetNumber) => ({
     zones: [{
-      // Plain Array<number> matches the converter's real output shape; the
-      // byte estimator multiplies sample length by 8.
-      sample: new Array(64).fill(0),
+      // Float32Array matches the converter's real output shape; the byte
+      // estimator multiplies sample length by 4.
+      sample: new Float32Array(64),
       sampleRate: 44100,
       loopStart: 0,
       loopEnd: 0,
@@ -91,13 +91,13 @@ describe('SF2PresetService — bounded L1 cache', () => {
   });
 
   test('byte-budget eviction forces a re-parse for the LRU entry', async () => {
-    // Each preset is 1 zone × 64 samples × 8 B + 200 B overhead = 712 B.
-    // Budget 1500 B fits 2 entries; the 3rd must evict the oldest.
-    const { service, cache } = makeService({ maxBytes: 1500 });
+    // Each preset is 1 zone × 64 samples × 4 B + 200 B overhead = 456 B.
+    // Budget 1000 B fits 2 entries; the 3rd must evict the oldest.
+    const { service, cache } = makeService({ maxBytes: 1000 });
 
-    await service.getPreset('default', 'melodic', 0, 0, 0); // 712 B
-    await service.getPreset('default', 'melodic', 1, 0, 0); // 1424 B
-    await service.getPreset('default', 'melodic', 2, 0, 0); // 2136 B → evicts program 0
+    await service.getPreset('default', 'melodic', 0, 0, 0); // 456 B
+    await service.getPreset('default', 'melodic', 1, 0, 0); // 912 B
+    await service.getPreset('default', 'melodic', 2, 0, 0); // 1368 B → evicts program 0
     expect(convertPreset).toHaveBeenCalledTimes(3);
     expect(cache.getStats().size).toBeLessThanOrEqual(2);
 
@@ -135,12 +135,12 @@ describe('SF2PresetService — bounded L1 cache', () => {
     const { service } = makeService();
     const preset = {
       zones: [
-        { sample: new Array(100).fill(0) },
-        { sample: new Array(50).fill(0)  },
+        { sample: new Float32Array(100) },
+        { sample: new Float32Array(50)  },
       ],
     };
-    // (100 + 50) * 8 + 2 * 200 = 1200 + 400 = 1600
-    expect(service._estimatePresetBytes(preset)).toBe(1600);
+    // (100 + 50) * 4 + 2 * 200 = 600 + 400 = 1000
+    expect(service._estimatePresetBytes(preset)).toBe(1000);
     expect(service._estimatePresetBytes(null)).toBe(1024);
     expect(service._estimatePresetBytes({})).toBe(1024);
   });

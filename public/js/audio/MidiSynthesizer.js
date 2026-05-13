@@ -8,6 +8,46 @@
 // Loaded earlier in index.html so window.MidiSynthesizerConstants is available.
 const { SOUND_BANKS, DEFAULT_BANK_ID, DEFAULT_BANK_SUFFIX, getAvailableBanks } = window.MidiSynthesizerConstants;
 
+// GMBP binary preset decoder. Mirrors src/files/SF2PresetCodec.js — kept
+// inline because MidiSynthesizer.js is loaded as a classic <script>, not
+// an ES module. Header: 4-byte 'GMBP' magic, uint32 LE version (1),
+// uint32 LE metaLen, metaLen UTF-8 JSON bytes, then concatenated Float32
+// LE sample data. Endianness: host (LE on every supported target).
+function _decodeGmbpPreset(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    if (bytes.length < 12 ||
+        bytes[0] !== 0x47 || bytes[1] !== 0x4d || bytes[2] !== 0x42 || bytes[3] !== 0x50) {
+        throw new Error('Not a GMBP preset buffer');
+    }
+    const view = new DataView(arrayBuffer);
+    const version = view.getUint32(4, true);
+    if (version !== 1) throw new Error(`Unsupported GMBP version ${version}`);
+    const metaLen = view.getUint32(8, true);
+    const metaBytes = new Uint8Array(arrayBuffer, 12, metaLen);
+    const meta = JSON.parse(new TextDecoder('utf-8').decode(metaBytes));
+    const sampleBase = 12 + metaLen;
+    const zones = meta.zones.map(z => ({
+        // Float32Array view requires 4-byte aligned offsets. `sampleBase`
+        // is 12 + metaLen — metaLen is JSON length so unaligned in the
+        // general case. We slice into a fresh buffer to get alignment.
+        sample: new Float32Array(arrayBuffer.slice(
+            sampleBase + z.sampleOffset * 4,
+            sampleBase + (z.sampleOffset + z.sampleLength) * 4,
+        )),
+        sampleRate:   z.sampleRate,
+        loopStart:    z.loopStart,
+        loopEnd:      z.loopEnd,
+        keyRangeLow:  z.keyRangeLow,
+        keyRangeHigh: z.keyRangeHigh,
+        velRangeLow:  z.velRangeLow,
+        velRangeHigh: z.velRangeHigh,
+        midi:         z.midi,
+        coarseTune:   z.coarseTune,
+        fineTune:     z.fineTune,
+    }));
+    return { zones };
+}
+
 /**
  * MidiSynthesizer - MIDI synthesizer using WebAudioFont
  * Uses real samples for professional-quality rendering
@@ -678,9 +718,10 @@ class MidiSynthesizer {
                 if (r.status === 404 && sf2Id === 'default') {
                     MidiSynthesizer._handleDefaultSF2Missing();
                 }
-                return r.ok ? r.json() : null;
+                return r.ok ? r.arrayBuffer() : null;
             })
-            .then(preset => {
+            .then(buf => {
+                const preset = buf ? _decodeGmbpPreset(buf) : null;
                 if (!preset || this._isDisposed) {
                     this.loadingInstruments.delete(program);
                     // After the global fallback, retry with the new bank so the
@@ -712,9 +753,10 @@ class MidiSynthesizer {
                 if (r.status === 404 && sf2Id === 'default') {
                     MidiSynthesizer._handleDefaultSF2Missing();
                 }
-                return r.ok ? r.json() : null;
+                return r.ok ? r.arrayBuffer() : null;
             })
-            .then(preset => {
+            .then(buf => {
+                const preset = buf ? _decodeGmbpPreset(buf) : null;
                 this._drumLoading.delete(cacheKey);
                 if (!preset || this._isDisposed) {
                     // Self-healing: if the global fallback switched banks

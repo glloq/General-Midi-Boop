@@ -8,8 +8,10 @@
  *               keyRangeLow, keyRangeHigh, velRangeLow, velRangeHigh,
  *               midi, coarseTune, fineTune }] }
  *
- * We transmit `sample` as a regular Array so it survives JSON serialisation;
- * the client reconstructs it with `new Float32Array(zone.sample)`.
+ * Samples are returned as Float32Array (typed) — they reach the browser
+ * via the GMBP binary wire format (see SF2PresetCodec.js), which avoids
+ * the JSON.stringify + gzip + JSON.parse round-trip that dominated cold-
+ * load latency before.
  */
 
 import pkg from 'soundfont2';
@@ -101,14 +103,14 @@ export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
       totalSamples += sampleLength;
       if (zones.length >= MAX_ZONES || totalSamples > MAX_TOTAL_SAMPLES) break;
 
-      // ── Convert Int16 PCM → JSON-serialisable plain Array (Float32) ─
-      const float32arr = new Array(sampleLength);
+      // ── Convert Int16 PCM → Float32Array ───────────────────────────
+      const f32 = new Float32Array(sampleLength);
       for (let i = 0; i < sampleLength; i++) {
-        float32arr[i] = int16[i] / 32768;
+        f32[i] = int16[i] / 32768;
       }
 
       zones.push({
-        sample:       float32arr,
+        sample:       f32,
         sampleRate:   sampleRate,
         loopStart:    loopsEnabled ? loopStart : 0,
         loopEnd:      loopsEnabled ? loopEnd   : 0,

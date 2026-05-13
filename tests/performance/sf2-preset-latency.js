@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 /**
  * @file tests/performance/sf2-preset-latency.js
  * @description End-to-end latency breakdown for a cold SF2 preset load.
@@ -29,6 +30,7 @@ import { fileURLToPath } from 'url';
 import pkg from 'soundfont2';
 
 import { convertPreset } from '../../src/files/SF2Converter.js';
+import { encodePreset, decodePreset } from '../../src/files/SF2PresetCodec.js';
 
 const { SoundFont2 } = pkg;
 const __filename = fileURLToPath(import.meta.url);
@@ -71,7 +73,7 @@ async function main() {
   // Done inside convertPreset, but isolate it once for attribution.
   const { elapsed: tParse } = timed('new SoundFont2()', () => new SoundFont2(new Uint8Array(sf2Buf)));
 
-  section('3. convertPreset (Int16 PCM → WAF zone array)');
+  section('3. convertPreset (Int16 PCM → WAF zone array, Float32Array)');
   const { out: preset, elapsed: tConvert } = timed('convertPreset', () => convertPreset(sf2Buf, 0, program));
   if (!preset) {
     console.error(`  ERROR: preset ${program} not found.`);
@@ -81,31 +83,48 @@ async function main() {
   for (const z of preset.zones) totalSamples += z.sample.length;
   console.log(`  zones=${preset.zones.length}  total samples=${totalSamples.toLocaleString()}  (~${mb(totalSamples * 4)} as Float32)`);
 
-  section('4. JSON.stringify (server serialisation)');
-  const { out: json, elapsed: tStringify } = timed('JSON.stringify(preset)', () => JSON.stringify(preset));
+  // ── Legacy JSON path (for comparison) ────────────────────────────────────
+  console.log('\n[Legacy JSON path — for comparison]');
+  // Simulate the old shape: convertPreset used to return Array<number>.
+  const legacyPreset = {
+    zones: preset.zones.map(z => ({ ...z, sample: Array.from(z.sample) })),
+  };
+  section('4a. JSON.stringify (legacy)');
+  const { out: json, elapsed: tStringify } = timed('JSON.stringify(preset)', () => JSON.stringify(legacyPreset));
   console.log(`  json size: ${mb(json.length)}`);
 
-  section('5. gzip (compression middleware)');
-  const { out: gz, elapsed: tGzip } = timed('zlib.gzipSync (level 6 default)', () => zlib.gzipSync(Buffer.from(json)));
-  console.log(`  gzipped:   ${mb(gz.length)}   (${(gz.length / json.length * 100).toFixed(1)}% of raw)`);
-  const { elapsed: tGzip1 } = timed('zlib.gzipSync (level 1, fastest)', () => zlib.gzipSync(Buffer.from(json), { level: 1 }));
-  void tGzip1;
+  section('5a. gzip level 6 (legacy compression path)');
+  const { out: gz, elapsed: tGzip } = timed('zlib.gzipSync (level 6)', () => zlib.gzipSync(Buffer.from(json)));
+  console.log(`  gzipped: ${mb(gz.length)} (${(gz.length / json.length * 100).toFixed(1)}% of raw)`);
 
-  section('6. JSON.parse (browser-side approximation)');
+  section('6a. JSON.parse (legacy browser)');
   const { out: parsed, elapsed: tParse2 } = timed('JSON.parse(json)', () => JSON.parse(json));
 
-  section('7. Float32Array reconstruction (browser materialise)');
+  section('7a. Float32Array reconstruction (legacy materialise)');
   const { elapsed: tMaterialise } = timed('new Float32Array(zone.sample) ×N', () => {
     for (const z of parsed.zones) {
-      // mirrors MidiSynthesizer._materialiseSF2Preset float reconstruction
-      // (without AudioContext.createBuffer, which is browser-only)
       const f32 = new Float32Array(z.sample);
       void f32;
     }
   });
 
-  section('Summary');
-  const stages = [
+  // ── New binary GMBP path ────────────────────────────────────────────────
+  console.log('\n[GMBP binary path — new]');
+  section('4b. encodePreset (server, binary)');
+  const { out: wire, elapsed: tEncode } = timed('encodePreset(preset)', () => encodePreset(preset));
+  console.log(`  binary size: ${mb(wire.length)}`);
+
+  section('5b. (no compression — octet-stream skipped by middleware)');
+  console.log(`  payload on wire: ${mb(wire.length)} raw bytes`);
+
+  section('6b. decodePreset (client, binary)');
+  const { elapsed: tDecode } = timed('decodePreset(arrayBuffer)', () => {
+    const ab = wire.buffer.slice(wire.byteOffset, wire.byteOffset + wire.byteLength);
+    decodePreset(ab);
+  });
+
+  section('Summary — legacy JSON path');
+  const legacyStages = [
     ['1. fs.readFileSync',          tDisk],
     ['2. SoundFont2 parse',         tParse],
     ['3. convertPreset',            tConvert],
@@ -114,19 +133,35 @@ async function main() {
     ['6. JSON.parse',               tParse2],
     ['7. Float32Array reconstruct', tMaterialise],
   ];
-  const serverPath = tDisk + tParse + tConvert + tStringify + tGzip;
-  const clientPath = tParse2 + tMaterialise;
-  const total = serverPath + clientPath;
-  for (const [label, ms] of stages) {
-    const pct = (ms / total * 100).toFixed(1).padStart(5);
+  const legacyTotal = tDisk + tParse + tConvert + tStringify + tGzip + tParse2 + tMaterialise;
+  for (const [label, ms] of legacyStages) {
+    const pct = (ms / legacyTotal * 100).toFixed(1).padStart(5);
     console.log(`  ${label.padEnd(36)} ${fmt(ms)}  ${pct}%`);
   }
   console.log(`  ${'─'.repeat(60)}`);
-  console.log(`  ${'server-side subtotal'.padEnd(36)} ${fmt(serverPath)}`);
-  console.log(`  ${'client-side subtotal (parse+f32)'.padEnd(36)} ${fmt(clientPath)}`);
-  console.log(`  ${'pipeline total (no HTTP/createBuffer)'.padEnd(36)} ${fmt(total)}`);
-  console.log(`\n  payload over the wire (gzipped): ${mb(gz.length)}`);
-  console.log(`  payload after gunzip (text):     ${mb(json.length)}`);
+  console.log(`  ${'TOTAL legacy'.padEnd(36)} ${fmt(legacyTotal)}`);
+  console.log(`  payload over the wire (gzipped): ${mb(gz.length)}`);
+
+  section('Summary — new GMBP binary path');
+  const newStages = [
+    ['1. fs.readFileSync',          tDisk],
+    ['2. SoundFont2 parse',         tParse],
+    ['3. convertPreset',            tConvert],
+    ['4. encodePreset (binary)',    tEncode],
+    ['5. (no gzip)',                0],
+    ['6. decodePreset (binary)',    tDecode],
+  ];
+  const newTotal = tDisk + tParse + tConvert + tEncode + tDecode;
+  for (const [label, ms] of newStages) {
+    const pct = (ms / newTotal * 100).toFixed(1).padStart(5);
+    console.log(`  ${label.padEnd(36)} ${fmt(ms)}  ${pct}%`);
+  }
+  console.log(`  ${'─'.repeat(60)}`);
+  console.log(`  ${'TOTAL GMBP binary'.padEnd(36)} ${fmt(newTotal)}`);
+  console.log(`  payload over the wire (raw):     ${mb(wire.length)}`);
+
+  console.log(`\n  ⇒ Speedup: ${(legacyTotal / newTotal).toFixed(2)}× faster, ${fmt(legacyTotal - newTotal)} saved`);
+  console.log(`  ⇒ Wire bytes: ${mb(gz.length)} → ${mb(wire.length)} (${wire.length > gz.length ? '+' : ''}${((wire.length - gz.length) / gz.length * 100).toFixed(0)}%)`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
