@@ -1,7 +1,68 @@
 /**
  * BackendAPIClient - Complete WebSocket client for GeneralMidiBoop backend
- * Handles connection, reconnection, and all API commands
+ * Handles connection, reconnection, and all API commands.
+ *
+ * Binary wire format support: high-frequency events (playback_position,
+ * tuner:pitch, calibration:audio_level, system_lag) arrive as
+ * ArrayBuffer frames produced by `shared/BinaryFrameCodec.js`. The
+ * decoder below mirrors that wire format. Any non-binary frame falls
+ * through to the JSON path so legacy events keep working without UI
+ * changes.
  */
+
+/** Binary frame magic byte (matches `shared/BinaryFrameCodec.js`). */
+const _BIN_FRAME_MAGIC = 0xb0;
+
+/** Decode a binary frame from the wire into `{ type, payload }`. */
+function _decodeBinaryFrame(buffer) {
+    const view = new DataView(buffer);
+    if (view.byteLength < 4) throw new Error('binary frame too short');
+    if (view.getUint8(0) !== _BIN_FRAME_MAGIC) {
+        throw new Error('binary frame: bad magic');
+    }
+    const code = view.getUint8(1);
+    const payloadLen = view.getUint16(2, true);
+    if (view.byteLength < 4 + payloadLen) {
+        throw new Error('binary frame: truncated');
+    }
+    switch (code) {
+        case 0x01: // playback_position
+            return {
+                type: 'playback_position',
+                payload: {
+                    position: view.getFloat64(4, true),
+                    percentage: view.getFloat32(12, true)
+                }
+            };
+        case 0x03: // tuner:pitch
+            return {
+                type: 'tuner:pitch',
+                payload: {
+                    freqHz: view.getFloat32(4, true),
+                    cents: view.getFloat32(8, true),
+                    noteMidi: view.getInt8(12)
+                }
+            };
+        case 0x04: // calibration:audio_level
+            return {
+                type: 'calibration:audio_level',
+                payload: {
+                    levelDb: view.getFloat32(4, true),
+                    peakDb: view.getFloat32(8, true)
+                }
+            };
+        case 0x05: // system_lag
+            return {
+                type: 'system_lag',
+                payload: {
+                    lagMs: view.getUint16(4, true),
+                    thresholdMs: view.getUint16(6, true)
+                }
+            };
+        default:
+            throw new Error(`binary frame: unknown event code 0x${code.toString(16)}`);
+    }
+}
 
 class BackendAPIClient {
     constructor(wsUrl) {
@@ -35,6 +96,10 @@ class BackendAPIClient {
                 }
 
                 this.ws = new WebSocket(this.wsUrl);
+                // Receive high-frequency events as ArrayBuffer so the
+                // binary decoder runs without an extra Blob → ArrayBuffer
+                // promise round-trip.
+                this.ws.binaryType = 'arraybuffer';
 
                 this.ws.onopen = () => {
                     this.connected = true;
@@ -73,6 +138,15 @@ class BackendAPIClient {
 
                 this.ws.onmessage = (event) => {
                     try {
+                        // Binary frame: dispatched directly to event
+                        // subscribers (skips the JSON envelope wrapping
+                        // because there is no command-response routing for
+                        // the high-frequency events).
+                        if (event.data instanceof ArrayBuffer) {
+                            const decoded = _decodeBinaryFrame(event.data);
+                            this.emit(decoded.type, decoded.payload);
+                            return;
+                        }
                         const message = JSON.parse(event.data);
                         this.handleMessage(message);
                     } catch (error) {
