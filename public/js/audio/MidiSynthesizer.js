@@ -619,6 +619,42 @@ class MidiSynthesizer {
     // ── SF2 custom bank loaders ────────────────────────────────────────────
 
     /**
+     * Translate a freshly-fetched SF2Converter preset into the in-memory
+     * shape WebAudioFontPlayer.queueWaveTable expects, then mutate it in
+     * place. `adjustPreset` is intentionally NOT used here — it base64-
+     * decodes `zone.sample` because WAF's native wavetables ship sample
+     * data as base64 strings, but SF2Converter produces Float32 sample
+     * data directly, so we build the AudioBuffer ourselves. Field name
+     * differences: SF2Converter writes `zone.midi` (MIDI root note 0-127),
+     * WAF reads `zone.originalPitch` (same root note expressed in cents,
+     * default 6000 = middle C).
+     */
+    _materialiseSF2Preset(preset) {
+        for (const z of (preset.zones || [])) {
+            if (z.buffer) continue; // already materialised (re-entry guard)
+            const raw = Array.isArray(z.sample) ? new Float32Array(z.sample)
+                      : (z.sample instanceof Float32Array ? z.sample : null);
+            if (!raw || raw.length === 0) continue;
+            const sampleRate = z.sampleRate > 0 ? z.sampleRate : 44100;
+            const buffer = this.audioContext.createBuffer(1, raw.length, sampleRate);
+            buffer.getChannelData(0).set(raw);
+            z.buffer = buffer;
+            // Drop the float payload — keeping it doubles the heap footprint
+            // of every loaded preset for the rest of the page lifetime.
+            z.sample = null;
+            // Convert MIDI note → cents for WAF. 6000 = note 60 (middle C).
+            if (z.originalPitch == null && z.midi != null) {
+                z.originalPitch = z.midi * 100;
+            }
+            // Defaults `adjustZone` would have applied for missing fields.
+            if (z.loopStart == null)  z.loopStart  = 0;
+            if (z.loopEnd == null)    z.loopEnd    = 0;
+            if (z.coarseTune == null) z.coarseTune = 0;
+            if (z.fineTune == null)   z.fineTune   = 0;
+        }
+    }
+
+    /**
      * Fetch a melodic preset from the server's SF2 converter endpoint and
      * cache it the same way WAF presets are cached.
      */
@@ -641,10 +677,7 @@ class MidiSynthesizer {
                     }
                     return null;
                 }
-                for (const z of (preset.zones || [])) {
-                    if (Array.isArray(z.sample)) z.sample = new Float32Array(z.sample);
-                }
-                this.player.adjustPreset(this.audioContext, preset);
+                this._materialiseSF2Preset(preset);
                 this.loadedInstruments.set(program, preset);
                 this.loadingInstruments.delete(program);
                 return preset;
@@ -678,10 +711,7 @@ class MidiSynthesizer {
                     }
                     return null;
                 }
-                for (const z of (preset.zones || [])) {
-                    if (Array.isArray(z.sample)) z.sample = new Float32Array(z.sample);
-                }
-                this.player.adjustPreset(this.audioContext, preset);
+                this._materialiseSF2Preset(preset);
                 this.drumPresets.set(cacheKey, preset);
                 return preset;
             })
