@@ -1030,21 +1030,24 @@ class MidiSynthesizer {
 
     setChannelInstrument(channel, program) {
         if (channel < 0 || channel >= 16) return;
-        const previous = this.channelInstruments[channel];
         this.channelInstruments[channel] = program;
-        // Fire-and-forget preload for the new program (drum channel handled
-        // by loadDrumKit elsewhere). Skipped when the program is unchanged,
-        // already cached/loading, or the synth hasn't been initialised yet
-        // (callers like AudioPreview may set channel instruments before
-        // their first initialize() resolves).
-        if (channel !== 9 && program !== previous
+        // Fire-and-forget preload so the modal's eventual `play()` /
+        // `playNote()` doesn't pay the cold-load cost. Drum channel
+        // skipped — drum samples are loaded by loadDrumKit(). The maps
+        // dedupe: a program already loading or loaded is silently no-op.
+        // We deliberately do NOT skip when `program === previous` since a
+        // setChannelInstrument(ch, 0) call right after construction may
+        // be the first chance to preload program 0 if the constructor's
+        // initialize() preload hasn't drained yet.
+        if (channel !== 9
             && this.isInitialized
             && !this.loadedInstruments.has(program)
             && !this.loadingInstruments.has(program)) {
             setTimeout(() => {
-                if (!this._isDisposed && this.isInitialized) {
-                    this.loadInstrument(program);
-                }
+                if (this._isDisposed || !this.isInitialized) return;
+                if (this.loadedInstruments.has(program)) return;
+                if (this.loadingInstruments.has(program)) return;
+                this.loadInstrument(program);
             }, 0);
         }
     }
