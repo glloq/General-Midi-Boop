@@ -118,6 +118,17 @@ class HttpServer {
         // The CORS middleware above already restricts the Origin header to
         // localhost / the request host, so an Origin echo here is a strong
         // same-origin signal.
+        //
+        // Modern browsers (Chrome 76+, FF 90+, Safari 16+) send
+        // `Sec-Fetch-Site: same-origin` on every fetch/XHR triggered from
+        // our own page — and they refuse to let JS set Sec-Fetch-* headers,
+        // so this is forgeable only by the browser itself. For same-origin
+        // GETs the Origin header is frequently omitted (notably by Firefox),
+        // which used to force the SPA's `/api/sf2/...` fetches into the
+        // Bearer-token path and break preset loading on remote-IP installs.
+        if (req.headers['sec-fetch-site'] === 'same-origin') {
+          return next();
+        }
         const origin = req.headers.origin;
         if (origin) {
           try {
