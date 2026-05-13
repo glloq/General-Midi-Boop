@@ -8,8 +8,10 @@
  *               keyRangeLow, keyRangeHigh, velRangeLow, velRangeHigh,
  *               midi, coarseTune, fineTune }] }
  *
- * We transmit `sample` as a regular Array so it survives JSON serialisation;
- * the client reconstructs it with `new Float32Array(zone.sample)`.
+ * Samples are returned as Float32Array (typed) — they reach the browser
+ * via the GMBP binary wire format (see SF2PresetCodec.js), which avoids
+ * the JSON.stringify + gzip + JSON.parse round-trip that dominated cold-
+ * load latency before.
  */
 
 import pkg from 'soundfont2';
@@ -23,6 +25,18 @@ const MAX_SAMPLE_SECS = 10;                        // max sample duration per zo
 const MAX_TOTAL_SAMPLES = 20 * 1024 * 1024 / 4;  // ~20 MB of Float32 data total
 
 /**
+ * Parse raw SF2 bytes into a SoundFont2 instance. Expensive (~450 ms for a
+ * 30 MB SF2), so callers loading multiple presets from the same file should
+ * cache the result and feed it into {@link convertPresetFromSF2}.
+ *
+ * @param {Buffer|Uint8Array} sf2Buffer
+ * @returns {SoundFont2}
+ */
+export function parseSoundFont(sf2Buffer) {
+  return new SoundFont2(new Uint8Array(sf2Buffer));
+}
+
+/**
  * Convert one SF2 preset (identified by bankNumber + presetNumber) into a
  * WAF-compatible preset object, or return null if the preset is absent.
  *
@@ -32,8 +46,20 @@ const MAX_TOTAL_SAMPLES = 20 * 1024 * 1024 / 4;  // ~20 MB of Float32 data total
  * @returns {{ zones: Array }|null}
  */
 export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
-  const sf2 = new SoundFont2(new Uint8Array(sf2Buffer));
+  return convertPresetFromSF2(parseSoundFont(sf2Buffer), bankNumber, presetNumber);
+}
 
+/**
+ * Same as {@link convertPreset} but takes a pre-parsed SoundFont2 instance.
+ * Lets the caller amortise the ~450 ms RIFF parse across multiple program
+ * lookups from the same file.
+ *
+ * @param {SoundFont2} sf2
+ * @param {number} bankNumber
+ * @param {number} presetNumber
+ * @returns {{ zones: Array }|null}
+ */
+export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
   const bank = sf2.banks[bankNumber];
   if (!bank) return null;
   const preset = bank.presets[presetNumber];
@@ -101,14 +127,14 @@ export function convertPreset(sf2Buffer, bankNumber, presetNumber) {
       totalSamples += sampleLength;
       if (zones.length >= MAX_ZONES || totalSamples > MAX_TOTAL_SAMPLES) break;
 
-      // ── Convert Int16 PCM → JSON-serialisable plain Array (Float32) ─
-      const float32arr = new Array(sampleLength);
+      // ── Convert Int16 PCM → Float32Array ───────────────────────────
+      const f32 = new Float32Array(sampleLength);
       for (let i = 0; i < sampleLength; i++) {
-        float32arr[i] = int16[i] / 32768;
+        f32[i] = int16[i] / 32768;
       }
 
       zones.push({
-        sample:       float32arr,
+        sample:       f32,
         sampleRate:   sampleRate,
         loopStart:    loopsEnabled ? loopStart : 0,
         loopEnd:      loopsEnabled ? loopEnd   : 0,

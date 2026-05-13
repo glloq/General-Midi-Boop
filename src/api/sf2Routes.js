@@ -12,6 +12,21 @@
 
 import { Router, raw as expressRaw, json as expressJson } from 'express';
 import { LIMITS } from '../core/constants.js';
+import { encodePreset } from '../files/SF2PresetCodec.js';
+
+// MIME used for the GMBP binary preset payload. The `compression` middleware
+// only compresses content types its `compressible` table marks as
+// compressible, and application/octet-stream is not — so binary preset
+// responses bypass gzip automatically (Float32 audio entropy is high
+// enough that gzip would add ~1.5 s of CPU for marginal savings).
+const PRESET_MIME = 'application/octet-stream';
+
+function sendPreset(res, preset) {
+  const buf = encodePreset(preset);
+  res.setHeader('Content-Type', PRESET_MIME);
+  res.setHeader('Content-Length', buf.length);
+  res.end(buf);
+}
 
 // Strip HTML-significant chars from user-supplied label (server-side XSS guard).
 function sanitizeLabel(raw) {
@@ -152,7 +167,7 @@ export function createSF2Router(app) {
       }
       const preset = await app.sf2PresetService.getPreset(id, 'melodic', program, 0, 0);
       if (!preset) return res.status(404).json({ error: 'Preset not found in this SF2' });
-      res.json(preset);
+      sendPreset(res, preset);
     } catch (err) {
       app.logger.error(`GET /api/sf2/${req.params.id}/preset/melodic/${req.params.program} failed: ${err.message}`);
       res.status(500).json({ error: 'Internal server error.' });
@@ -172,7 +187,7 @@ export function createSF2Router(app) {
       }
       const preset = await app.sf2PresetService.getPreset(id, 'drum', 0, kit, note);
       if (!preset) return res.status(404).json({ error: 'Drum preset not found in this SF2' });
-      res.json(preset);
+      sendPreset(res, preset);
     } catch (err) {
       app.logger.error(`GET /api/sf2/${req.params.id}/preset/drum/${req.params.kit}/${req.params.note} failed: ${err.message}`);
       res.status(500).json({ error: 'Internal server error.' });

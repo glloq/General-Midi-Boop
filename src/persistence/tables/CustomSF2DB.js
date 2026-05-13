@@ -81,6 +81,22 @@ class CustomSF2DB {
     }
   }
 
+  /**
+   * Used by SF2PresetService to stamp the default-SF2 sentinel row with the
+   * file's mtimeMs, so the L2 preset cache can be invalidated on the next
+   * boot if the soundfont was replaced on disk. `size` is the only INTEGER
+   * column we can repurpose without a schema change — uploads are size-
+   * limited well below 2^53 ms (year 287000+), so no collision risk.
+   */
+  setSize(id, sizeValue) {
+    try {
+      this.db.prepare('UPDATE custom_sf2 SET size = ? WHERE id = ?').run(sizeValue, id);
+    } catch (error) {
+      this.logger.error(`CustomSF2DB.setSize failed: ${error.message}`);
+      throw error;
+    }
+  }
+
   delete(id) {
     try {
       this.db.prepare('DELETE FROM custom_sf2 WHERE id = ?').run(id);

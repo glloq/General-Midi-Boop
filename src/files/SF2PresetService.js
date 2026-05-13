@@ -12,16 +12,25 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import zlib from 'zlib';
 import AnalysisCache from '../midi/playback/AnalysisCache.js';
-import { convertPreset } from './SF2Converter.js';
+import { convertPresetFromSF2 } from './SF2Converter.js';
+import { SF2InstanceCache } from './SF2InstanceCache.js';
+import { encodePreset, decodePreset, looksLikeBinaryPreset } from './SF2PresetCodec.js';
 
-// M-1: maximum decompressed preset JSON (64 MB)
-const MAX_INFLATE_BYTES = 64 * 1024 * 1024;
+// Maximum L2-cached payload size (64 MB). Mirrors the heap envelope from
+// the previous gzipped-JSON path so a malformed/oversized cache row can't
+// blow the Node heap on read.
+const MAX_CACHE_BYTES = 64 * 1024 * 1024;
 
 // Virtual ID for the built-in default soundfont served from `assets/sf2/`.
 // Keeps the project fully offline: see assets/sf2/README.md for provenance.
 const DEFAULT_SF2_ID = 'default';
+
+// Sentinel `custom_sf2.id` for the default soundfont. Inserted by
+// migration 020 so that L2 preset cache rows can satisfy the FK
+// constraint. The HTTP routes reject `id <= 0` for delete/patch, so
+// this row is never mutated through the API.
+const DEFAULT_SF2_DB_ID = 0;
 
 // Resolved at import time so the absolute path stays stable across cwd changes.
 const __filename = fileURLToPath(import.meta.url);
@@ -42,9 +51,10 @@ export class SF2PresetService {
    * @param {Object}  opts.logger
    * @param {number} [opts.cacheMaxBytes]   - L1 byte budget (default 128 MB)
    * @param {number} [opts.cacheMaxEntries] - L1 entry count cap (default 256)
-   * @param {AnalysisCache} [opts.cache]    - Pre-built cache instance, for tests
+   * @param {AnalysisCache}     [opts.cache]         - Pre-built cache instance, for tests
+   * @param {SF2InstanceCache}  [opts.instanceCache] - Pre-built SF2 instance cache, for tests
    */
-  constructor({ dataDir, database, logger, cache, cacheMaxBytes, cacheMaxEntries }) {
+  constructor({ dataDir, database, logger, cache, instanceCache, cacheMaxBytes, cacheMaxEntries }) {
     this.sf2Dir = path.join(dataDir, 'sf2');
     this.db     = database;
     this.logger = logger;
@@ -56,7 +66,42 @@ export class SF2PresetService {
       maxSize:  cacheMaxEntries || DEFAULT_CACHE_MAX_ENTRIES,
       logger,
     });
+    // SoundFont2 instance LRU — amortises the ~450 ms RIFF parse across
+    // multiple program lookups from the same SF2 file. Keyed by abs path
+    // + mtime so a file replacement invalidates automatically.
+    this._sf2Instances = instanceCache || new SF2InstanceCache();
     fs.mkdirSync(this.sf2Dir, { recursive: true });
+    // Drop default-SF2 L2 cache rows if the underlying file changed since
+    // they were stored. Wrapped — older DB facades (test mocks) may not
+    // implement the bookkeeping methods, in which case we skip silently.
+    this._invalidateDefaultIfStale();
+  }
+
+  /**
+   * Compare default.sf2's mtimeMs against the value stamped on the sentinel
+   * row (custom_sf2.id=0, size column). Wipe the L2 preset cache for that
+   * sf2_id if they differ — keeps L2 in sync with file replacements done
+   * via `npm run install-default-sf2 --force`.
+   * @private
+   */
+  _invalidateDefaultIfStale() {
+    try {
+      if (!fs.existsSync(DEFAULT_SF2_PATH)) return;
+      const stat = fs.statSync(DEFAULT_SF2_PATH);
+      const mtimeInt = Math.floor(stat.mtimeMs);
+      const row = this.db.customSF2DB.getById?.(DEFAULT_SF2_DB_ID);
+      if (!row) return; // migration 020 hasn't run yet — skip
+      if (row.size === mtimeInt) return;
+      if (typeof this.db.customSF2DB.deleteCacheForSF2 === 'function') {
+        this.db.customSF2DB.deleteCacheForSF2(DEFAULT_SF2_DB_ID);
+      }
+      if (typeof this.db.customSF2DB.setSize === 'function') {
+        this.db.customSF2DB.setSize(DEFAULT_SF2_DB_ID, mtimeInt);
+      }
+      this.logger.info?.(`SF2PresetService: default SF2 L2 cache invalidated (mtime ${row.size} → ${mtimeInt})`);
+    } catch (e) {
+      this.logger.warn?.(`SF2PresetService: default-staleness check failed: ${e.message}`);
+    }
   }
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -75,23 +120,20 @@ export class SF2PresetService {
     const hit = this._mem.getRaw(key);
     if (hit) return hit;
 
-    // 2. DB cache (skipped for the built-in default — see resolveSF2Path)
+    // 2. DB cache. The default SF2 maps onto the sentinel `custom_sf2.id=0`
+    //    inserted by migration 020 so it can share the same FK-bound table.
+    //    Cache rows are stored in the GMBP binary format (see SF2PresetCodec).
+    //    Legacy gzipped-JSON rows are silently ignored and rebuilt.
     const isDefault = sf2Id === DEFAULT_SF2_ID;
-    if (!isDefault) {
-      const compressed = this.db.customSF2DB.getCachedPreset(sf2Id, type, program, kit, note);
-      if (compressed) {
-        try {
-          const inflated = zlib.inflateSync(compressed);
-          // M-1: guard against decompression bombs
-          if (inflated.length > MAX_INFLATE_BYTES) {
-            throw new Error('Cached preset exceeds size limit');
-          }
-          const preset = JSON.parse(inflated.toString());
-          this._mem.setRaw(key, preset, this._estimatePresetBytes(preset));
-          return preset;
-        } catch (e) {
-          this.logger.warn(`SF2PresetService: corrupt/oversized cache entry ${key}, rebuilding`);
-        }
+    const dbSf2Id = isDefault ? DEFAULT_SF2_DB_ID : sf2Id;
+    const cached = this.db.customSF2DB.getCachedPreset(dbSf2Id, type, program, kit, note);
+    if (cached && cached.length <= MAX_CACHE_BYTES && looksLikeBinaryPreset(cached)) {
+      try {
+        const preset = decodePreset(cached);
+        this._mem.setRaw(key, preset, this._estimatePresetBytes(preset));
+        return preset;
+      } catch (e) {
+        this.logger.warn(`SF2PresetService: corrupt cache entry ${key}, rebuilding`);
       }
     }
 
@@ -105,14 +147,16 @@ export class SF2PresetService {
 
     let preset = null;
     try {
-      const buf = fs.readFileSync(sf2Path);
+      // Re-uses the parsed SoundFont2 instance across program lookups from
+      // the same SF2 file — saves ~475 ms (disk read + RIFF parse) per hit.
+      const sf2 = this._sf2Instances.getForPath(sf2Path);
 
       if (type === 'drum') {
         // Try GM drum bank (128) first, fall back to bank 0.
         // If the requested kit is absent, fall back to Standard Kit (0).
-        preset = convertPreset(buf, 128, kit) || convertPreset(buf, 0, kit);
+        preset = convertPresetFromSF2(sf2, 128, kit) || convertPresetFromSF2(sf2, 0, kit);
         if (!preset && kit !== 0) {
-          preset = convertPreset(buf, 128, 0) || convertPreset(buf, 0, 0);
+          preset = convertPresetFromSF2(sf2, 128, 0) || convertPresetFromSF2(sf2, 0, 0);
         }
         if (preset) {
           // Filter to zones covering this specific note
@@ -122,7 +166,7 @@ export class SF2PresetService {
           preset = filtered.length ? { zones: filtered } : null;
         }
       } else {
-        preset = convertPreset(buf, 0, program);
+        preset = convertPresetFromSF2(sf2, 0, program);
       }
     } catch (err) {
       this.logger.error(`SF2PresetService: conversion failed for ${key}: ${err.message}`);
@@ -131,17 +175,13 @@ export class SF2PresetService {
 
     // M-2: only cache successful results; null is returned without being stored
     // so subsequent requests will re-attempt the disk parse (avoids null-poisoning).
-    // The built-in default skips the DB cache (no DB row to cascade-delete on).
     if (preset) {
       this._mem.setRaw(key, preset, this._estimatePresetBytes(preset));
-      if (!isDefault) {
-        try {
-          const json = JSON.stringify(preset);
-          const buf  = zlib.deflateSync(Buffer.from(json));
-          this.db.customSF2DB.setCachedPreset(sf2Id, type, program, kit, note, buf);
-        } catch (e) {
-          this.logger.warn(`SF2PresetService: could not store cache for ${key}: ${e.message}`);
-        }
+      try {
+        const buf = encodePreset(preset);
+        this.db.customSF2DB.setCachedPreset(dbSf2Id, type, program, kit, note, buf);
+      } catch (e) {
+        this.logger.warn(`SF2PresetService: could not store cache for ${key}: ${e.message}`);
       }
     }
 
@@ -238,6 +278,7 @@ export class SF2PresetService {
     const sf2Path = path.join(this.sf2Dir, row.blob_path);
     if (sf2Path.startsWith(this.sf2Dir + path.sep)) {
       try { fs.unlinkSync(sf2Path); } catch {}
+      this._sf2Instances.invalidate(sf2Path);
     } else {
       this.logger.error(`SF2PresetService: blob_path escape on delete for id ${sf2Id}`);
     }
@@ -260,9 +301,9 @@ export class SF2PresetService {
   /**
    * Cheap heuristic for the byte footprint of a converted preset. Avoids
    * the `JSON.stringify` cost of AnalysisCache's default estimator, which
-   * would dominate cache writes on 40 MB SF2 presets. Per-sample weight
-   * matches V8's boxed-double representation for plain Array<number>; the
-   * `+200` per zone covers metadata (key/vel range, tuning, loop points).
+   * would dominate cache writes on multi-MB SF2 presets. 4 bytes per
+   * sample matches Float32Array storage; the `+200` per zone covers
+   * metadata (key/vel range, tuning, loop points).
    *
    * @param {{ zones: Array }} preset
    * @returns {number}
@@ -272,7 +313,7 @@ export class SF2PresetService {
     if (!preset || !Array.isArray(preset.zones)) return 1024;
     let total = 0;
     for (const z of preset.zones) {
-      total += (z.sample?.length || 0) * 8;
+      total += (z.sample?.length || 0) * 4;
     }
     return total + preset.zones.length * 200;
   }
