@@ -75,6 +75,20 @@ describe('Logger', () => {
       expect(logger.isDebugEnabled()).toBe(false);
       expect(logger.isInfoEnabled()).toBe(true);
     });
+
+    test('runtime level change keeps the cached numeric threshold in sync', () => {
+      const logger = new Logger({ level: 'info' });
+      expect(logger.isDebugEnabled()).toBe(false);
+      logger.level = 'debug';
+      expect(logger.isDebugEnabled()).toBe(true);
+      expect(logger.level).toBe('debug');
+      logger.level = 'error';
+      expect(logger.isWarnEnabled()).toBe(false);
+      // Unknown payload falls back to the info threshold.
+      logger.level = 'nonsense';
+      expect(logger.isDebugEnabled()).toBe(false);
+      expect(logger.isInfoEnabled()).toBe(true);
+    });
   });
 
   describe('format', () => {

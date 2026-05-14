@@ -74,7 +74,6 @@ class Logger {
    * @param {number} [config.maxLogFiles] - Number of rotated files retained.
    */
   constructor(config = {}) {
-    this.level = config.level || 'info';
     this.logFile = config.file || null;
     this.jsonFormat = config.jsonFormat || false;
     this.maxLogSize = config.maxLogSize > 0 ? config.maxLogSize : MAX_LOG_SIZE;
@@ -86,8 +85,10 @@ class Logger {
       error: 3
     };
     // Cached numeric level so hot-path callers can branch in O(1) without a
-    // map lookup. Defaults to 'info' (1) when an unknown level is supplied.
-    this._levelNum = this.levels[this.level] ?? 1;
+    // map lookup. Stays in sync via the `level` accessor below: any later
+    // `logger.level = 'debug'` recomputes the cache.
+    this._level = config.level || 'info';
+    this._levelNum = this.levels[this._level] ?? 1;
     this._rotating = false;
     this._stream = null;
     this._writeCount = 0;
@@ -119,6 +120,20 @@ class Logger {
       // eslint-disable-next-line no-console
       console.error('Log stream error:', err.message);
     });
+  }
+
+  /**
+   * Current minimum level. Reading is free; writing recomputes the
+   * cached numeric form so the hot-path branch helpers stay coherent
+   * if an operator changes the level at runtime (e.g. via a `set_log_level`
+   * command).
+   *
+   * @type {('debug'|'info'|'warn'|'error')}
+   */
+  get level() { return this._level; }
+  set level(v) {
+    this._level = v;
+    this._levelNum = this.levels[v] ?? 1;
   }
 
   /**

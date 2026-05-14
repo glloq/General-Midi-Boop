@@ -120,6 +120,47 @@ export class PlaybackSnapshot {
     return value;
   }
 
+  /**
+   * Pre-resolve every (deviceId, targetChannel) pair that will be hit
+   * during playback. Built from MidiPlayer.channelRouting at play-time
+   * so the first scheduler tick incurs zero capability / compensation
+   * lookups against the live services (and therefore zero potential
+   * synchronous DB hit from `better-sqlite3`).
+   *
+   * Walks split routings transparently. Unknown (null device) routes
+   * are skipped silently — they would be no-ops at lookup time too.
+   *
+   * @param {Map<number, Object>} channelRouting - channel → routing
+   *   (single { device, targetChannel } or split { segments: [...] }).
+   * @returns {number} Number of (device, channel) pairs warmed.
+   */
+  warmup(channelRouting) {
+    if (!channelRouting || typeof channelRouting.values !== 'function') return 0;
+    let warmed = 0;
+    const seen = new Set();
+    const visit = (device, channel) => {
+      if (!device || channel == null) return;
+      const key = `${device}:${channel}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      this.getCompensationMs(device, channel);
+      this.getTimingConstraints(device, channel);
+      this.isStringCCAllowed(device, channel);
+      warmed++;
+    };
+    for (const routing of channelRouting.values()) {
+      if (!routing) continue;
+      if (routing.split && Array.isArray(routing.segments)) {
+        for (const seg of routing.segments) {
+          if (seg) visit(seg.device, seg.targetChannel);
+        }
+      } else {
+        visit(routing.device, routing.targetChannel);
+      }
+    }
+    return warmed;
+  }
+
   /** @returns {{ stringCC: number, timing: number, comp: number }} */
   getStats() {
     return {
