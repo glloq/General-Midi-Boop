@@ -619,11 +619,21 @@
             };
 
             resizeBar.addEventListener('mousedown', startResize);
-    // Store the refs for cleanup in doClose()
-            this.modal._resizeDoResize = doResize;
-            this.modal._resizeStopResize = stopResize;
-            document.addEventListener('mousemove', doResize);
-            document.addEventListener('mouseup', stopResize);
+    // Bind document-level mousemove/mouseup via the session AbortSignal so
+    // they are detached automatically in detachEvents() — no more manual
+    // removeEventListener bookkeeping in MidiEditorLifecycle (audit §7.1).
+            const signal = this.getAbortSignal();
+            if (signal && !signal.aborted) {
+                document.addEventListener('mousemove', doResize, { signal });
+                document.addEventListener('mouseup',   stopResize, { signal });
+            } else {
+                // Fallback for the (very rare) case where attachEvents()
+                // hasn't run yet. Store refs so doClose can clean up.
+                this.modal._resizeDoResize = doResize;
+                this.modal._resizeStopResize = stopResize;
+                document.addEventListener('mousemove', doResize);
+                document.addEventListener('mouseup',   stopResize);
+            }
         }
     }
 

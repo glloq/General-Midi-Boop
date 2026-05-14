@@ -279,10 +279,14 @@
     // Clean up the synthesizer
             this.modal.disposeSynthesizer();
 
-    // Retirer les listeners de resize drag
+    // Resize-drag listeners (mousemove/mouseup on document) are now
+    // detached automatically via the AbortController signal in
+    // MidiEditorEvents.detachEvents() (audit §7.1). The fallback path
+    // below only fires when attachEvents() hadn't run yet (very rare
+    // init ordering edge-case) — keep the manual removal for safety.
             if (this.modal._resizeDoResize) {
                 document.removeEventListener('mousemove', this.modal._resizeDoResize);
-                document.removeEventListener('mouseup', this.modal._resizeStopResize);
+                document.removeEventListener('mouseup',   this.modal._resizeStopResize);
                 this.modal._resizeDoResize = null;
                 this.modal._resizeStopResize = null;
             }
