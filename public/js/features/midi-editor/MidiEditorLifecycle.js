@@ -296,6 +296,12 @@
                 this.modal._onExternalRoutingChanged = null;
             }
 
+    // Abort the session-scoped AbortController so any `document`/`window`
+    // listener registered through MidiEditorEvents.getAbortSignal() is
+    // detached. Catches popover close handlers that survived past the
+    // modal lifetime (audit §7.1).
+            try { this.modal.events?.detachEvents?.(); } catch (_) { /* best-effort */ }
+
         } catch (err) {
             this.log('error', 'Error during editor cleanup (container will still be removed):', err);
         } finally {

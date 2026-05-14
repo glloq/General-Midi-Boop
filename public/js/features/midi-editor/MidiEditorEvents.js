@@ -11,10 +11,40 @@
     class MidiEditorEvents {
         constructor(modal) {
             this.modal = modal;
+            // AbortController scoped to the current modal session. Listeners
+            // attached on `document` / `window` should pass `{ signal }` so a
+            // single `detachEvents()` call wipes them all (audit §7.1, §8.1).
+            this._abortController = null;
+        }
+
+        /**
+         * @returns {AbortSignal|undefined} Signal for cross-DOM listeners.
+         *   `undefined` when called before `attachEvents()` — caller should
+         *   skip the attach to avoid an unmanaged listener.
+         */
+        getAbortSignal() {
+            return this._abortController?.signal;
+        }
+
+        /**
+         * Abort every listener registered with this session's signal.
+         * Called from `MidiEditorLifecycle.doClose()`.
+         */
+        detachEvents() {
+            if (this._abortController) {
+                try { this._abortController.abort(); } catch { /* best-effort */ }
+                this._abortController = null;
+            }
         }
 
     attachEvents() {
         if (!this.modal.container) return;
+        // Fresh controller per attach so reopened modals don't reuse a
+        // pre-aborted signal.
+        if (this._abortController) {
+            try { this._abortController.abort(); } catch { /* best-effort */ }
+        }
+        this._abortController = new AbortController();
 
     // No backdrop click-to-close for the MIDI editor
     // (prevents accidental dismissals during editing)
@@ -866,6 +896,9 @@
         const isVisible = popover.style.display !== 'none';
         popover.style.display = isVisible ? 'none' : 'block';
         if (!isVisible) {
+            const signal = this.getAbortSignal();
+            // No signal = modal closing; skip to avoid a permanent listener.
+            if (!signal || signal.aborted) return;
             const closeHandler = (e) => {
                 if (!popover.contains(e.target) &&
                     !e.target.closest('[data-action="toggle-settings-popover"]')) {
@@ -873,7 +906,12 @@
                     document.removeEventListener('click', closeHandler);
                 }
             };
-            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+            // setTimeout defers the attach past the click that opened the
+            // popover. Bail if the modal closed during that single tick.
+            setTimeout(() => {
+                if (signal.aborted) return;
+                document.addEventListener('click', closeHandler, { signal });
+            }, 0);
         }
     }
 

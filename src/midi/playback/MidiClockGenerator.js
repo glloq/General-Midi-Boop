@@ -67,6 +67,8 @@ class MidiClockGenerator {
     this._cachedTargetDevices = null;
     this._cachedDeviceCompensations = null; // Map<deviceId, compensationMs>
     this._maxCompensation = 0; // Max compensation across all clock targets
+    this._immediateBucket = null;            // deviceId[] sent inline each tick
+    this._delayedBuckets = null;             // Map<delayMs, deviceId[]> grouped by relative delay
 
     // Pending compensation timeouts for cleanup
     this._pendingTimeouts = new Set();
@@ -321,25 +323,22 @@ class MidiClockGenerator {
    */
   _sendClockToAll() {
     this._ensureDeviceCache();
-    const compensations = this._cachedDeviceCompensations;
-    if (!compensations || compensations.size === 0) return;
+    if (!this._cachedDeviceCompensations || this._cachedDeviceCompensations.size === 0) return;
 
-    const maxComp = this._maxCompensation;
+    // Immediate bucket: dispatched inline, no timer.
+    for (const deviceId of this._immediateBucket) {
+      this._sendClockToDevice(deviceId);
+    }
 
-    for (const [deviceId, compensation] of compensations) {
-      const relativeDelay = maxComp - compensation;
-
-      if (relativeDelay <= 1) {
-        // Send immediately (within 1ms tolerance)
-        this._sendClockToDevice(deviceId);
-      } else {
-        // Delay this device so it receives clock at the same musical time
-        const tid = setTimeout(() => {
-          this._pendingTimeouts.delete(tid);
+    // Delayed buckets: one timer per distinct relative delay.
+    for (const [delayMs, deviceIds] of this._delayedBuckets) {
+      const tid = setTimeout(() => {
+        this._pendingTimeouts.delete(tid);
+        for (const deviceId of deviceIds) {
           this._sendClockToDevice(deviceId);
-        }, relativeDelay);
-        this._pendingTimeouts.add(tid);
-      }
+        }
+      }, delayMs);
+      this._pendingTimeouts.add(tid);
     }
   }
 
@@ -350,23 +349,20 @@ class MidiClockGenerator {
    */
   _sendTransportToAll(type) {
     this._ensureDeviceCache();
-    const compensations = this._cachedDeviceCompensations;
-    if (!compensations || compensations.size === 0) return;
+    if (!this._cachedDeviceCompensations || this._cachedDeviceCompensations.size === 0) return;
 
-    const maxComp = this._maxCompensation;
+    for (const deviceId of this._immediateBucket) {
+      this._sendTransportToDevice(deviceId, type);
+    }
 
-    for (const [deviceId, compensation] of compensations) {
-      const relativeDelay = maxComp - compensation;
-
-      if (relativeDelay <= 1) {
-        this._sendTransportToDevice(deviceId, type);
-      } else {
-        const tid = setTimeout(() => {
-          this._pendingTimeouts.delete(tid);
+    for (const [delayMs, deviceIds] of this._delayedBuckets) {
+      const tid = setTimeout(() => {
+        this._pendingTimeouts.delete(tid);
+        for (const deviceId of deviceIds) {
           this._sendTransportToDevice(deviceId, type);
-        }, relativeDelay);
-        this._pendingTimeouts.add(tid);
-      }
+        }
+      }, delayMs);
+      this._pendingTimeouts.add(tid);
     }
   }
 
@@ -405,11 +401,19 @@ class MidiClockGenerator {
     this._cachedTargetDevices = null;
     this._cachedDeviceCompensations = null;
     this._maxCompensation = 0;
+    this._immediateBucket = null;
+    this._delayedBuckets = null;
     this._compensationCache.clear();
   }
 
   /**
-   * Build and cache the device list and compensation map if not already cached.
+   * Build and cache the device list, compensation map, and per-delay
+   * dispatch buckets if not already cached.
+   *
+   * Buckets group devices sharing the same `relativeDelay` so the hot
+   * path schedules ONE `setTimeout` per bucket per tick instead of one
+   * per device. With N devices and K distinct compensations, this drops
+   * scheduled timers per tick from N to K (typically K ≤ 3).
    */
   _ensureDeviceCache() {
     if (this._cachedDeviceCompensations !== null) return;
@@ -424,9 +428,26 @@ class MidiClockGenerator {
       if (comp > maxComp) maxComp = comp;
     }
 
+    // Pre-compute dispatch buckets: relativeDelay -> deviceId[].
+    // Delay ≤ 1 ms collapses into the "immediate" bucket (sent inline).
+    const immediate = [];
+    const delayed = new Map(); // delayMs -> deviceId[]
+    for (const [deviceId, comp] of compensations) {
+      const relativeDelay = maxComp - comp;
+      if (relativeDelay <= 1) {
+        immediate.push(deviceId);
+      } else {
+        const bucket = delayed.get(relativeDelay);
+        if (bucket) bucket.push(deviceId);
+        else delayed.set(relativeDelay, [deviceId]);
+      }
+    }
+
     this._cachedTargetDevices = devices;
     this._cachedDeviceCompensations = compensations;
     this._maxCompensation = maxComp;
+    this._immediateBucket = immediate;
+    this._delayedBuckets = delayed;
   }
 
   /**
