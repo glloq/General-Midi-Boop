@@ -44,6 +44,15 @@ class CCPitchbendEditor extends BaseLaneEditor {
         // The base's createUI() adds canvas + element. We need to layer
         // the tooltip overlay on top, in the same parent.
         this._installTooltip();
+
+        // Sub-feature: Canvas paint pipeline (audit §1.3).
+        this.renderer = typeof CCPitchbendEditorRenderer !== 'undefined'
+            ? new CCPitchbendEditorRenderer(this)
+            : null;
+        // Sub-feature: mouse + keyboard interactions (audit §1.3).
+        this.interactions = typeof CCPitchbendEditorInteractions !== 'undefined'
+            ? new CCPitchbendEditorInteractions(this)
+            : null;
     }
 
     // -----------------------------------------------------------------
@@ -260,154 +269,12 @@ class CCPitchbendEditor extends BaseLaneEditor {
     // Tool handlers
     // =================================================================
 
-    handleMouseDown(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const ticks = this.xToTicks(x);
-        const value = this._yToValue(y);
-
-        switch (this.currentTool) {
-            case 'draw':
-                this.isDrawing = true;
-                this.lastDrawPosition = { x, y };
-                this.lastDrawTicks = this.snapToGrid(ticks);
-                this.addEvent(ticks, value, this.currentChannel, false);
-                this.renderThrottled();
-                break;
-
-            case 'line':
-                if (!this.lineStart) {
-                    this.lineStart = { ticks, value };
-                } else {
-                    this.createLine(this.lineStart.ticks, this.lineStart.value, ticks, value);
-                    this.lineStart = null;
-                }
-                break;
-
-            case 'select': {
-                const clicked = this.getEventAtPosition(x, y);
-                if (clicked) {
-                    if (e.shiftKey) {
-                        if (this.selectedIds.has(clicked.id)) this.selectedIds.delete(clicked.id);
-                        else this.selectedIds.add(clicked.id);
-                    } else {
-                        this.selectedIds.clear();
-                        this.selectedIds.add(clicked.id);
-                    }
-                    this.dragStart = { x, y, ticks, value };
-                } else {
-                    if (!e.shiftKey) this.selectedIds.clear();
-                    this.selectionStart = { x, y };
-                }
-                this.renderThrottled();
-                break;
-            }
-
-            case 'move': {
-                const moveEvent = this.getEventAtPosition(x, y);
-                if (moveEvent) {
-                    if (!this.selectedIds.has(moveEvent.id)) {
-                        this.selectedIds.clear();
-                        this.selectedIds.add(moveEvent.id);
-                    }
-                    this.dragStart = { x, y, ticks, value };
-                }
-                this.renderThrottled();
-                break;
-            }
-        }
-    }
-
-    handleMouseMove(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const ticks = this.xToTicks(x);
-        const value = this._yToValue(y);
-
-        this.lastMouseX = x;
-        this.lastMouseY = y;
-
-        if (this.isDrawing && this.currentTool === 'draw') {
-            const snappedTicks = this.snapToGrid(ticks);
-            const advanced = this.lastDrawTicks === null
-                || Math.abs(snappedTicks - this.lastDrawTicks) >= this.options.grid * this.drawDensityMultiplier;
-            if (advanced) {
-                this.addEvent(ticks, value, this.currentChannel, false);
-                this.lastDrawTicks = snappedTicks;
-                this.lastDrawPosition = { x, y };
-                this.renderThrottled();
-            }
-        } else if (this.dragStart && (this.currentTool === 'select' || this.currentTool === 'move')) {
-            if (this.selectedIds.size > 0) {
-                const deltaTicks = this.xToTicks(x) - this.dragStart.ticks;
-                const deltaValue = this._yToValue(y) - this.dragStart.value;
-                Array.from(this.selectedIds).forEach(id => {
-                    const event = this.events.find(ev => ev.id === id);
-                    if (event) {
-                        event.ticks = Math.max(0, this.snapToGrid(event.ticks + deltaTicks));
-                        event.value = this.clampValue(event.value + deltaValue);
-                    }
-                });
-                this.dragStart = { x, y, ticks, value };
-                this.renderThrottled();
-            }
-        } else if (this.selectionStart || this.lineStart) {
-            this.renderThrottled();
-        }
-
-        this.updateTooltip(x, y, ticks, value);
-    }
-
-    handleMouseUp(e) {
-        if (this.isDrawing) {
-            this.isDrawing = false;
-            this.lastDrawPosition = null;
-            this.lastDrawTicks = null;
-            this.saveState();
-        }
-        if (this.selectionStart) {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            this.selectInRect(this.selectionStart.x, this.selectionStart.y, x, y);
-            this.selectionStart = null;
-        }
-        if (this.dragStart) {
-            this.saveState();
-            this.dragStart = null;
-        }
-        this.renderThrottled();
-    }
-
-    handleMouseLeave(e) {
-        this.handleMouseUp(e);
-        if (this.tooltip) this.tooltip.style.display = 'none';
-    }
-
-    handleKeyDown(e) {
-        if (!this.element || this.element.offsetParent === null) return;
-
-        if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedIds.size > 0) {
-            this.removeEvents(Array.from(this.selectedIds));
-        } else if (e.key === 'Escape') {
-            this.selectedIds.clear();
-            this.lineStart = null;
-            this.renderThrottled();
-        } else if (e.ctrlKey || e.metaKey) {
-            if (e.key === 'z') {
-                this.undo();
-                e.preventDefault();
-            } else if (e.key === 'y' || (e.shiftKey && e.key === 'Z')) {
-                this.redo();
-                e.preventDefault();
-            } else if (e.key === 'a') {
-                this.selectAll();
-                e.preventDefault();
-            }
-        }
-    }
+    // Delegates to interactions sub-feature (extracted per audit §1.3)
+    handleMouseDown(e)  { return this.interactions?.handleMouseDown(e); }
+    handleMouseMove(e)  { return this.interactions?.handleMouseMove(e); }
+    handleMouseUp(e)    { return this.interactions?.handleMouseUp(e); }
+    handleMouseLeave(e) { return this.interactions?.handleMouseLeave(e); }
+    handleKeyDown(e)    { return this.interactions?.handleKeyDown(e); }
 
     updateTooltip(x, y, ticks, value) {
         if (!this.tooltip) return;
@@ -514,197 +381,11 @@ class CCPitchbendEditor extends BaseLaneEditor {
     // line preview with curve interpolation.
     // =================================================================
 
-    render() {
-        if (!this.ctx || !this.canvas) return;
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        if (this.gridDirty || !this.gridCanvas) {
-            this._renderGridToBuffer();
-            this.gridDirty = false;
-        }
-        if (this.gridCanvas) this.ctx.drawImage(this.gridCanvas, 0, 0);
-
-        this._renderCenterLine();
-        this._renderData();
-
-        // Selection rect preview.
-        if (this.selectionStart && this.lastMouseX !== undefined) {
-            this.ctx.strokeStyle = '#2196F3';
-            this.ctx.lineWidth = 1;
-            this.ctx.setLineDash([5, 5]);
-            this.ctx.strokeRect(this.selectionStart.x, this.selectionStart.y,
-                                this.lastMouseX - this.selectionStart.x,
-                                this.lastMouseY - this.selectionStart.y);
-            this.ctx.setLineDash([]);
-        }
-
-        // Line preview with curve.
-        if (this.lineStart && this.lastMouseX !== undefined) {
-            const endTicks = this.xToTicks(this.lastMouseX);
-            const endValue = this._yToValue(this.lastMouseY);
-            this.ctx.strokeStyle = '#9E9E9E';
-            this.ctx.lineWidth = 1;
-            this.ctx.setLineDash([5, 5]);
-            this.ctx.beginPath();
-            const segments = 30;
-            for (let i = 0; i <= segments; i++) {
-                const t = i / segments;
-                const curveT = this.applyCurve(t);
-                const ticks = this.lineStart.ticks + (endTicks - this.lineStart.ticks) * t;
-                const value = this.lineStart.value + (endValue - this.lineStart.value) * curveT;
-                const x = this.ticksToX(ticks);
-                const y = this._valueToY(value);
-                if (i === 0) this.ctx.moveTo(x, y);
-                else        this.ctx.lineTo(x, y);
-            }
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
-        }
-    }
-
-    _renderCenterLine() {
-        const filteredEvents = this.getFilteredEvents();
-        const labelMargin = this._labelMargin();
-        const isDark = document.body.classList.contains('dark-mode');
-
-        if (this.currentCC === 'pitchbend') {
-            this.ctx.strokeStyle = isDark ? '#888' : '#667eea';
-            this.ctx.lineWidth = 2;
-            const y = this._valueToY(0);
-            this.ctx.beginPath();
-            this.ctx.moveTo(labelMargin, y);
-            this.ctx.lineTo(this.canvas.width, y);
-            this.ctx.stroke();
-        } else if (filteredEvents.length === 0) {
-            this.ctx.strokeStyle = isDark ? '#666' : '#8898d8';
-            this.ctx.lineWidth = 2;
-            this.ctx.setLineDash([5, 5]);
-            const y = this._valueToY(0);
-            this.ctx.beginPath();
-            this.ctx.moveTo(labelMargin, y);
-            this.ctx.lineTo(this.canvas.width, y);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
-        }
-    }
-
-    _renderGridToBuffer() {
-        if (!this.gridCtx) return;
-        const ctx = this.gridCtx;
-        const labelMargin = this._labelMargin();
-        const isDark = document.body.classList.contains('dark-mode');
-
-        ctx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
-
-        // Vertical (time) grid.
-        ctx.strokeStyle = isDark ? '#3a3a3a' : '#d4daff';
-        ctx.lineWidth = 1;
-        const gridSize = this.options.grid;
-        const startTick = Math.floor(this.options.xoffset / gridSize) * gridSize;
-        const endTick = this.options.xoffset + this.options.xrange;
-        for (let t = startTick; t <= endTick; t += gridSize) {
-            const x = this.ticksToX(t);
-            if (x >= 0 && x <= this.gridCanvas.width) {
-                ctx.beginPath();
-                ctx.moveTo(Math.max(x, labelMargin), 0);
-                ctx.lineTo(x, this.gridCanvas.height);
-                ctx.stroke();
-            }
-        }
-
-        // Value-axis grid + labels.
-        const values = this.currentCC === 'pitchbend'
-            ? [-8192, -4096, 0, 4096, 8191]
-            : [0, 32, 64, 96, 127];
-        ctx.strokeStyle = isDark ? '#3a3a3a' : '#d4daff';
-        ctx.lineWidth = 1;
-        values.forEach(value => {
-            const y = this._valueToY(value);
-            ctx.beginPath();
-            ctx.moveTo(labelMargin, y);
-            ctx.lineTo(this.gridCanvas.width, y);
-            ctx.stroke();
-            ctx.fillStyle = isDark ? '#1a1a1a' : '#f0f4ff';
-            ctx.fillRect(0, y - 7, labelMargin - 2, 14);
-            ctx.fillStyle = isDark ? '#aaa' : '#5a6089';
-            ctx.font = '11px monospace';
-            ctx.textAlign = 'right';
-            ctx.fillText(value.toString(), labelMargin - 5, y + 4);
-        });
-
-        // Label-area separator.
-        ctx.strokeStyle = isDark ? '#555' : '#b0b8e8';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(labelMargin, 0);
-        ctx.lineTo(labelMargin, this.gridCanvas.height);
-        ctx.stroke();
-
-        ctx.textAlign = 'left';
-    }
-
-    _renderData() {
-        const allEvents = this.getFilteredEvents().sort((a, b) => a.ticks - b.ticks);
-
-        // Viewport culling (+1 boundary event so connecting line stays).
-        const visStart = this.options.xoffset;
-        const visEnd = this.options.xoffset + this.options.xrange;
-        let firstVisible = 0;
-        let lastVisible = allEvents.length - 1;
-        for (let i = 0; i < allEvents.length; i++) {
-            if (allEvents[i].ticks >= visStart) {
-                firstVisible = Math.max(0, i - 1);
-                break;
-            }
-        }
-        for (let i = allEvents.length - 1; i >= 0; i--) {
-            if (allEvents[i].ticks <= visEnd) {
-                lastVisible = Math.min(allEvents.length - 1, i + 1);
-                break;
-            }
-        }
-        const events = allEvents.slice(firstVisible, lastVisible + 1);
-
-        // Staircase polyline.
-        if (events.length > 1) {
-            this.ctx.strokeStyle = '#4CAF50';
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            events.forEach((event, i) => {
-                const x = this.ticksToX(event.ticks);
-                const y = this._valueToY(event.value);
-                if (i === 0) {
-                    this.ctx.moveTo(x, y);
-                } else {
-                    const prev = events[i - 1];
-                    const prevY = this._valueToY(prev.value);
-                    this.ctx.lineTo(x, prevY);
-                    this.ctx.lineTo(x, y);
-                }
-            });
-            this.ctx.stroke();
-        } else if (events.length === 1) {
-            this.ctx.strokeStyle = '#4CAF50';
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            const x = this.ticksToX(events[0].ticks);
-            const y = this._valueToY(events[0].value);
-            this.ctx.moveTo(x, y);
-            this.ctx.lineTo(this.canvas.width, y);
-            this.ctx.stroke();
-        }
-
-        // Points.
-        events.forEach(event => {
-            const x = this.ticksToX(event.ticks);
-            const y = this._valueToY(event.value);
-            const isSelected = this.selectedIds.has(event.id);
-            this.ctx.fillStyle = isSelected ? '#FFC107' : '#4CAF50';
-            this.ctx.beginPath();
-            this.ctx.arc(x, y, isSelected ? 5 : 3, 0, 2 * Math.PI);
-            this.ctx.fill();
-        });
-    }
+    // Delegates to renderer sub-feature (extracted per audit §1.3)
+    render()               { return this.renderer?.render(); }
+    _renderCenterLine()    { return this.renderer?.renderCenterLine(); }
+    _renderGridToBuffer()  { return this.renderer?.renderGridToBuffer(); }
+    _renderData()          { return this.renderer?.renderData(); }
 
     // The legacy notifyChange contract (CC's `_doSaveState` used to emit
     // `onChange()` with NO args; preserve that for back-compat).
