@@ -549,14 +549,14 @@
      * `layout()` and resizes both the underlying canvas and its CSS box.
      */
     _refreshPianoRollSize() {
-        if (!this.modal.pianoRoll) return false;
+        const renderer = this.modal.pianoRollRenderer;
+        if (!renderer?.isMounted()) return false;
         const container = this.modal.container?.querySelector('#piano-roll-container');
         if (!container) return false;
         const w = container.clientWidth  || 0;
         const h = container.clientHeight || 0;
         if (w <= 0 || h <= 0) return false;
-        if (this.modal.pianoRoll.width  !== w) this.modal.pianoRoll.width  = w;
-        if (this.modal.pianoRoll.height !== h) this.modal.pianoRoll.height = h;
+        renderer.setSize(w, h);
         return true;
     }
 
@@ -686,24 +686,19 @@
         const centerNote = Math.floor((minNote + maxNote) / 2);
         const yoffset = Math.max(0, centerNote - Math.floor(noteRange / 2)); // Center vertically
 
-        this.modal.pianoRoll.setAttribute('width', width);
-        this.modal.pianoRoll.setAttribute('height', height);
-        this.modal.pianoRoll.setAttribute('editmode', 'dragpoly');
-        this.modal.pianoRoll.setAttribute('xrange', xrange.toString());
-        this.modal.pianoRoll.setAttribute('yrange', noteRange.toString());
-        this.modal.pianoRoll.setAttribute('yoffset', yoffset.toString());
-        this.modal.pianoRoll.setAttribute('wheelzoom', '1');
-        this.modal.pianoRoll.setAttribute('xscroll', '1');
-        this.modal.pianoRoll.setAttribute('yscroll', '1');
+        const renderer = this.modal.pianoRollRenderer;
+        renderer.setSize(width, height)
+                .setEditMode('dragpoly')
+                .setXRange(xrange).setYRange(noteRange).setYOffset(yoffset)
+                .setAttribute('wheelzoom', '1')
+                .setAttribute('xscroll', '1')
+                .setAttribute('yscroll', '1')
     // Native xruler — standard (file) mode hides it because PlaybackTimelineBar
-    // takes over ; in loop/panel mode there's no timeline bar, so we keep
-    // the ruler on top of the piano roll to give the user a time reference
-    // for navigating and zooming.
-        this.modal.pianoRoll.setAttribute('xruler', this.modal.loopMode ? '1' : '0');
+    // takes over ; in loop/panel mode there's no timeline bar.
+                .setAttribute('xruler', this.modal.loopMode ? '1' : '0')
     // Playback markers — kept internal for state but hidden visually
-        this.modal.pianoRoll.setAttribute('markstart', '0');
-        this.modal.pianoRoll.setAttribute('markend', maxTick.toString());
-        this.modal.pianoRoll.setAttribute('cursor', '0');
+                .setMarkers(0, maxTick)
+                .setCursor(0);
 
     // Clean, modern piano roll colors (theme-aware)
         this.modal.events._applyPianoRollTheme();
@@ -711,12 +706,12 @@
         this.modal.log('info', `Piano roll configured: xrange=${xrange}, yrange=${noteRange}, yoffset=${yoffset} (centered), tempo=${this.modal.tempo || 120} BPM, timebase=${this.modal.ticksPerBeat || 480} ticks/beat`);
 
     // Add to container BEFORE loading the sequence
-        container.appendChild(this.modal.pianoRoll);
+        renderer.attachToContainer();
 
     // Hide the piano roll's native SVG markers (replaced by PlaybackTimelineBar)
-        const cursorImg = this.modal.pianoRoll.querySelector('#wac-cursor');
-        const markStartImg = this.modal.pianoRoll.querySelector('#wac-markstart');
-        const markEndImg = this.modal.pianoRoll.querySelector('#wac-markend');
+        const cursorImg    = renderer.querySelector('#wac-cursor');
+        const markStartImg = renderer.querySelector('#wac-markstart');
+        const markEndImg   = renderer.querySelector('#wac-markend');
         if (cursorImg) cursorImg.style.display = 'none';
         if (markStartImg) markStartImg.style.display = 'none';
         if (markEndImg) markEndImg.style.display = 'none';
@@ -724,29 +719,26 @@
     // OPTIMIZATION: batch property assignments to avoid multiple redraws
     // Each property with a 'layout' observer triggers layout() → redraw()
     // Without batching: 3+ unnecessary redraws. With batching: a single redraw at the end.
-        this.modal.pianoRoll.beginBatchUpdate();
-
-        this.modal.pianoRoll.tempo = this.modal.tempo || 120;
-        this.modal.pianoRoll.timebase = this.modal.ticksPerBeat || 480;
-        this.modal.pianoRoll.grid = 120;
-
         const currentSnap = this.modal.snapValues[this.modal.currentSnapIndex];
-        this.modal.pianoRoll.snap = currentSnap.ticks;
+        renderer.beginBatchUpdate()
+                .setTempo(this.modal.tempo || 120)
+                .setTimebase(this.modal.ticksPerBeat || 480)
+                .setGrid(120)
+                .setSnap(currentSnap.ticks)
+                .endBatchUpdate();
 
-        this.modal.pianoRoll.endBatchUpdate();
-
-        this.modal.log('info', `Piano roll grid/snap: grid=${this.modal.pianoRoll.grid} ticks, snap=${this.modal.pianoRoll.snap} ticks (${currentSnap.label})`);
+        this.modal.log('info', `Piano roll grid/snap: grid=120 ticks, snap=${currentSnap.ticks} ticks (${currentSnap.label})`);
 
     // OPTIMIZATION: Replace setTimeout(100ms) with a single RAF
     // The component is already mounted after appendChild — no 100ms wait needed
         await new Promise(resolve => requestAnimationFrame(resolve));
 
     // Set the MIDI channel colors on the piano roll BEFORE loading the sequence
-        this.modal.pianoRoll.channelColors = this.modal.channelColors;
+        renderer.setChannelColors(this.modal.channelColors);
 
     // Pick the default channel for new notes (first active channel)
         if (this.modal.activeChannels.size > 0) {
-            this.modal.pianoRoll.defaultChannel = Array.from(this.modal.activeChannels)[0];
+            renderer.setDefaultChannel(Array.from(this.modal.activeChannels)[0]);
         }
 
     // Initialize the navigation overview bar
@@ -764,22 +756,14 @@
             this.modal.log('debug', 'First 3 notes:', JSON.stringify(this.modal.sequence.slice(0, 3)));
 
         // Assign the sequence to the piano roll
-            this.modal.pianoRoll.sequence = this.modal.sequence;
-
-    // OPTIMIZATION: redraw directly via RAF instead of setTimeout(50ms)
-            if (typeof this.modal.pianoRoll.redraw === 'function') {
-                this.modal.pianoRoll.redraw();
-                this.modal.log('info', 'Piano roll redrawn with channel colors');
-            }
+            renderer.setSequence(this.modal.sequence).redraw();
+            this.modal.log('info', 'Piano roll redrawn with channel colors');
 
     // Verify the sequence was correctly assigned
-            this.modal.log('debug', `Piano roll sequence length: ${this.modal.pianoRoll.sequence?.length || 0}`);
+            this.modal.log('debug', `Piano roll sequence length: ${renderer.getSequence().length}`);
         } else {
             this.modal.log('info', 'No notes to display in piano roll — starting empty');
-            this.modal.pianoRoll.sequence = [];
-            if (typeof this.modal.pianoRoll.redraw === 'function') {
-                this.modal.pianoRoll.redraw();
-            }
+            renderer.setSequence([]).redraw();
         }
 
     // Store a sequence copy to detect changes
@@ -800,16 +784,16 @@
                 this.modal.editActions?.updateEditButtons(); // Update copy/paste/delete when the selection changes
 
     // Update the sequence copy after the sync
-                previousSequence = this.copySequence(this.modal.pianoRoll.sequence);
+                previousSequence = this.copySequence(renderer.getSequence());
             }, 100); // 100ms debounce
         };
 
     // Initialize the sequence copy
-        previousSequence = this.copySequence(this.modal.pianoRoll.sequence);
+        previousSequence = this.copySequence(renderer.getSequence());
 
     // Listen for changes with a debounce
-        this.modal.pianoRoll.addEventListener('change', handleChange);
-        this.modal.pianoRoll.addEventListener('selectionchange', () => {
+        renderer.on('change', handleChange);
+        renderer.on('selectionchange', () => {
             this.modal.editActions?.updateEditButtons();
         });
 
@@ -841,21 +825,21 @@
     // Play the note on piano-keyboard click — true note-on / note-off
     // so that long-sustain instruments (strings, basses, pads) ring as
     // long as the pointer is held.
-        this.modal.pianoRoll.addEventListener('pianokey', (e) => {
+        renderer.on('pianokey', (e) => {
             if (!this.modal.keyboardPlaybackEnabled) return;
             const note = e.detail.note;
-            const channel = this.modal.pianoRoll.defaultChannel || 0;
+            const channel = renderer.getDefaultChannel() || 0;
             this.modal.playNoteHold(note, 100, channel);
         });
-        this.modal.pianoRoll.addEventListener('pianokeyup', (e) => {
+        renderer.on('pianokeyup', (e) => {
             const note = e.detail.note;
-            const channel = this.modal.pianoRoll.defaultChannel || 0;
+            const channel = renderer.getDefaultChannel() || 0;
             this.modal.releaseNote(note, channel);
         });
 
     // Play notes during drag movement. notedragmove fires once per pitch
     // change so a one-shot, family-aware fixed duration is appropriate.
-        this.modal.pianoRoll.addEventListener('notedragmove', (e) => {
+        renderer.on('notedragmove', (e) => {
             if (!this.modal.dragPlaybackEnabled) return;
             const notes = e.detail.notes;
             if (notes.length > 0 && notes.length <= 6) {
@@ -871,8 +855,8 @@
         this.modal.renderer.updateInstrumentSelector(); // Initial instrument selector state
 
     // Pick the default mode (drag-view for navigation)
-        if (this.modal.pianoRoll && typeof this.modal.pianoRoll.setUIMode === 'function') {
-            this.modal.pianoRoll.setUIMode(this.modal.editMode); // 'drag-view' by default
+        if (renderer?.isMounted()) {
+            renderer.setUIMode(this.modal.editMode); // 'drag-view' by default
             this.modal.log('info', `Piano roll UI mode set to: ${this.modal.editMode}`);
         }
 

@@ -104,6 +104,7 @@
         clearSequence()              { return this; }
         setChannelColors(/* map */)  { return this; }
         setDefaultChannel(/* ch */)  { return this; }
+        getDefaultChannel()          { return 0; }
         setChannelPlayableHighlights(/* map */) { return this; }
 
         // ----------------------------------------------------------------
@@ -339,6 +340,9 @@
         setDefaultChannel(ch) {
             if (this._el) this._el.defaultChannel = ch;
             return this;
+        }
+        getDefaultChannel() {
+            return this._el?.defaultChannel ?? 0;
         }
         setChannelPlayableHighlights(map) {
             if (!this._el) return this;
