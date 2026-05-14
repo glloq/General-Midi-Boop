@@ -1085,6 +1085,25 @@ customElements.define("webaudio-pianoroll", class Pianoroll extends HTMLElement 
                         detail: { note: clickedNote },
                         bubbles: false
                     }));
+                    // Émettre pianokeyup au relâchement pour permettre aux
+                    // consommateurs de jouer une vraie note tenue (note-on /
+                    // note-off) au lieu d'une durée fixe. Le `blur` couvre
+                    // le cas où la fenêtre perd le focus pendant le clic.
+                    const self = this;
+                    const releaseHandler = function() {
+                        self.dispatchEvent(new CustomEvent('pianokeyup', {
+                            detail: { note: clickedNote },
+                            bubbles: false
+                        }));
+                        window.removeEventListener("mouseup", releaseHandler, false);
+                        window.removeEventListener("touchend", releaseHandler, false);
+                        window.removeEventListener("touchcancel", releaseHandler, false);
+                        window.removeEventListener("blur", releaseHandler, false);
+                    };
+                    window.addEventListener("mouseup", releaseHandler, false);
+                    window.addEventListener("touchend", releaseHandler, false);
+                    window.addEventListener("touchcancel", releaseHandler, false);
+                    window.addEventListener("blur", releaseHandler, false);
                 }
                 // Retirer les listeners ajoutés plus haut, pas de drag en cours
                 if(this.longtaptimer)
