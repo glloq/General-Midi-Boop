@@ -6107,8 +6107,14 @@
     <script src="js/features/keyboard/KeyboardListView.js"></script>
     <script src="js/features/keyboard/KeyboardWind.js"></script>
     <script src="js/features/KeyboardModal.js"></script>
-    <!-- Registry bootstrap (must load AFTER any View classes; safeRegister
-         skips views not yet present, which is the case during Phase C). -->
+    <!-- InstrumentView classes (Phase D). Each registers itself on window
+         and is picked up by registerBuiltins.js below. -->
+    <script src="js/features/keyboard/views/PianoView.js"></script>
+    <script src="js/features/keyboard/views/FretboardView.js"></script>
+    <script src="js/features/keyboard/views/DrumPadView.js"></script>
+    <script src="js/features/keyboard/views/PianoSliderView.js"></script>
+    <script src="js/features/keyboard/views/ListView.js"></script>
+    <!-- Registry bootstrap (must load AFTER any View classes). -->
     <script src="js/features/keyboard/views/registerBuiltins.js"></script>
 
     <!-- Settings Modal Component -->
