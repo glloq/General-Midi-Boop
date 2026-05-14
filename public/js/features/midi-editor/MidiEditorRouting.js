@@ -626,8 +626,27 @@
             return;
         }
 
-    // Create the webaudio-pianoroll element
-        this.modal.pianoRoll = document.createElement('webaudio-pianoroll');
+    // Piano roll renderer abstraction (audit §1.1). The adapter wraps the
+    // third-party `<webaudio-pianoroll>`; the invariant
+    // `modal.pianoRoll === modal.pianoRollRenderer.getElement()` lets the
+    // non-migrated call sites keep working unchanged during the migration.
+        if (typeof WebaudioPianorollAdapter !== 'undefined') {
+            this.modal.pianoRollRenderer = new WebaudioPianorollAdapter({
+                container,
+                width:  container.clientWidth  || 1000,
+                height: container.clientHeight || 400,
+                ppq:    this.modal.ticksPerBeat || 480,
+                tempo:  this.modal.tempo || 120,
+                mode:   'dragpoly'
+            });
+            this.modal.pianoRollRenderer.mount();
+            this.modal.pianoRoll = this.modal.pianoRollRenderer.getElement();
+        } else {
+            // Defensive fallback if the renderer script failed to load —
+            // restores the legacy creation path so the editor still opens.
+            this.modal.pianoRoll = document.createElement('webaudio-pianoroll');
+            this.modal.pianoRollRenderer = null;
+        }
 
     // Configuration
         const width = container.clientWidth || 1000;

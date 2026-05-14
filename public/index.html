@@ -6019,6 +6019,8 @@
     <script src="js/features/PianoRollEditor.js"></script>
 
     <!-- MIDI Editor Sub-Components -->
+    <!-- Piano roll renderer abstraction (audit §1.1) — must load before MidiEditorRouting -->
+    <script src="js/features/piano-roll/PianoRollRenderer.js"></script>
     <script src="js/features/midi-editor/SoundBankLoadingIndicator.js"></script>
     <script src="js/features/midi-editor/MidiEditorToolbar.js"></script>
     <script src="js/features/midi-editor/MidiEditorChannelPanel.js"></script>
