@@ -176,10 +176,10 @@
      */
     updatePlaybackRange() {
         const m = this.modal;
-        if (!m.synthesizer || !m.pianoRoll) return;
+        if (!m.synthesizer || !m.pianoRollRenderer?.isMounted()) return;
 
-        const markstart = m.pianoRoll.markstart || 0;
-        let markend = m.pianoRoll.markend;
+        const { start: markstart, end: markendRaw } = m.pianoRollRenderer.getMarkers();
+        let markend = markendRaw;
 
         if (markend === undefined || markend < 0) {
             markend = m.midiData?.maxTick || this.getSequenceEndTick();
@@ -231,7 +231,7 @@
             this.loadSequenceForPlayback();
 
             // Determine start position: use cursor if within range, otherwise range start
-            const cursorTick = m.pianoRoll ? (m.pianoRoll.cursor || 0) : 0;
+            const cursorTick = m.pianoRollRenderer?.getCursor() || 0;
             const rangeStart = m.synthesizer.startTick || 0;
             const rangeEnd = m.synthesizer.endTick || 0;
             const startAt = (cursorTick >= rangeStart && cursorTick <= rangeEnd && cursorTick > 0)
@@ -244,10 +244,8 @@
             m.synthesizer.isPaused = true; // Trick: play() will resume from currentTick
         } else if (m.isPaused) {
             // Resume from current cursor position
-            if (m.pianoRoll) {
-                const cursorTick = m.pianoRoll.cursor || 0;
-                m.synthesizer.seek(cursorTick);
-            }
+            const cursorTick = m.pianoRollRenderer?.getCursor() || 0;
+            m.synthesizer.seek(cursorTick);
         }
 
         await m.synthesizer.play();
@@ -294,15 +292,13 @@
 
         const resetTick = m.playbackStartTick || 0;
 
-        if (m.pianoRoll) {
-            m.pianoRoll.cursor = resetTick;
-        }
+        m.pianoRollRenderer?.setCursor(resetTick);
 
         // Reset PlaybackTimelineBar playhead so the red triangle returns to start
         if (m.timelineBar) {
             m.timelineBar.setPlayhead(resetTick);
-            if (m.pianoRoll) {
-                m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
+            if (m.pianoRollRenderer?.isMounted()) {
+                m.timelineBar.setScrollX(m.pianoRollRenderer.getXOffset() || 0);
             }
         }
 
@@ -362,37 +358,38 @@
         if (this._lastAppliedTick === tick) return;
         this._lastAppliedTick = tick;
 
-        // Update piano roll cursor (even when hidden, keeps state consistent)
+        // Update piano roll cursor (even when hidden, keeps state consistent).
+        // Routed via PianoRollRenderer (audit §1.1) — the renderer falls
+        // back to the legacy element under WebaudioPianorollAdapter.
         let scrolled = false;
-        if (m.pianoRoll) {
-            m.pianoRoll.cursor = tick;
+        const renderer = m.pianoRollRenderer;
+        if (renderer && renderer.isMounted()) {
+            renderer.setCursor(tick);
 
-            const xoffset = m.pianoRoll.xoffset || 0;
-            const xrange = m.pianoRoll.xrange || 1920;
+            const xoffset = renderer.getXOffset() || 0;
+            const xrange  = renderer.getXRange() || 1920;
 
             // Page-turn: trigger earlier (85%) and land further from the edge (30%)
             // so the cursor remains visible without brutal teleport.
             if (tick > xoffset + xrange * 0.85) {
-                m.pianoRoll.xoffset = tick - xrange * 0.3;
+                renderer.setXOffset(tick - xrange * 0.3);
                 scrolled = true;
             } else if (tick < xoffset) {
-                m.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
+                renderer.setXOffset(Math.max(0, tick - xrange * 0.1));
                 scrolled = true;
             }
 
             // Force a synchronous redraw on scroll so the piano roll and the
             // timeline bar are painted in the same frame (the xoffset setter
             // normally throttles via RAF, which causes a one-frame misalignment).
-            if (scrolled && typeof m.pianoRoll.redraw === 'function') {
-                m.pianoRoll.redraw();
-            }
+            if (scrolled) renderer.redraw();
         }
 
         // Update PlaybackTimelineBar
         if (m.timelineBar) {
             m.timelineBar.setPlayhead(tick);
-            if (m.pianoRoll) {
-                m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
+            if (renderer && renderer.isMounted()) {
+                m.timelineBar.setScrollX(renderer.getXOffset() || 0);
             }
         }
 
@@ -435,17 +432,15 @@
         m.isPlaying = false;
         m.isPaused = false;
 
-        if (m.pianoRoll) {
-            m.pianoRoll.cursor = m.playbackStartTick;
-        }
+        m.pianoRollRenderer?.setCursor(m.playbackStartTick);
 
         const resetTick = m.playbackStartTick || 0;
 
         // Reset timeline bar
         if (m.timelineBar) {
             m.timelineBar.setPlayhead(resetTick);
-            if (m.pianoRoll) {
-                m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
+            if (m.pianoRollRenderer?.isMounted()) {
+                m.timelineBar.setScrollX(m.pianoRollRenderer.getXOffset() || 0);
             }
         }
 
@@ -509,9 +504,8 @@
      */
     handleNoteFeedback(previousSequence) {
         const m = this.modal;
-        if (!m.pianoRoll || !m.pianoRoll.sequence) return;
-
-        const currentSequence = m.pianoRoll.sequence;
+        const currentSequence = m.pianoRollRenderer?.getSequence();
+        if (!currentSequence) return;
 
         const previousMap = new Map();
         previousSequence.forEach((note, index) => {

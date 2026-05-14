@@ -80,6 +80,7 @@
         setCursor(/* tick */)   { return this; }
         getCursor()             { return 0; }
         setMarkers(/* a, b */)  { return this; }
+        getMarkers()            { return { start: 0, end: 0 }; }
 
         // ----------------------------------------------------------------
         // Musical config
@@ -283,6 +284,13 @@
             this._el.setAttribute('markstart', String(start));
             this._el.setAttribute('markend',   String(end));
             return this;
+        }
+        getMarkers() {
+            if (!this._el) return { start: 0, end: 0 };
+            return {
+                start: this._el.markstart ?? parseInt(this._el.getAttribute('markstart')) ?? 0,
+                end:   this._el.markend   ?? parseInt(this._el.getAttribute('markend'))   ?? 0
+            };
         }
 
         // ----------------------------------------------------------------
