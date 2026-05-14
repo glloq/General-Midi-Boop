@@ -72,10 +72,14 @@
 
     // When editing a single channel, use that channel; otherwise fall back to first channel
         let activeChannel;
+        // fileChannels is only populated in the else branch but the trailing
+        // log references it — hoist the declaration so the log doesn't
+        // ReferenceError when exactly one channel is active.
+        let fileChannels = [];
         if (this.modal.activeChannels && this.modal.activeChannels.size === 1) {
             activeChannel = Array.from(this.modal.activeChannels)[0];
         } else {
-            const fileChannels = this.modal.channels.map(ch => ch.channel).sort((a, b) => a - b);
+            fileChannels = this.modal.channels.map(ch => ch.channel).sort((a, b) => a - b);
             const usedChannels = this.modal.ccOps.getCCChannelsUsed();
             activeChannel = fileChannels.length > 0 ? fileChannels[0] : (usedChannels.length > 0 ? usedChannels[0] : 0);
         }

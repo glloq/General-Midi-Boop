@@ -529,24 +529,11 @@ browser dédiée.
 
 ---
 
-### Bug préexistant — `fileChannels` undefined dans `MidiEditorLaneEditors`
+### ~~Bug préexistant — `fileChannels` undefined dans `MidiEditorLaneEditors`~~ ✅ corrigé
 
-**Constat.** `MidiEditorLaneEditors.js` ligne ~89 (dans `initCCEditor`),
-le log final affiche `File channels: [${fileChannels.map(...)}]` —
-mais `fileChannels` n'est déclaré qu'à l'intérieur du `else` plus haut
-(quand `activeChannels.size !== 1`). Quand exactement un canal est
-actif, `fileChannels` n'existe pas → `ReferenceError`.
-
-**Origine.** Bug préexistant au refactor §1.3 (présent dans
-`MidiEditorCCPicker.js` avant l'extraction, commit antérieur à `f57b7e5`).
-Pas introduit par cette session, mais identifié au passage par l'audit
-critique du `git diff`.
-
-**Fix.** Déclarer `let fileChannels = [];` au-dessus du `if`, ou retirer
-le log conditionnel. Trivial mais à valider que le log est utile
-(`fileChannels` apparaît uniquement dans cette ligne).
-
-**Effort.** 5 min.
+**État.** Fixé — `let fileChannels = [];` hissé au-dessus du `if` dans
+`MidiEditorLaneEditors.js:initCCEditor` (commit suivant cette section).
+Le log final ne ReferenceError plus quand exactement un canal est actif.
 
 ---
 
