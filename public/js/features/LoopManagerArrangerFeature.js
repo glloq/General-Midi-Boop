@@ -62,8 +62,8 @@
      * fantômes à chaque ouverture de la modale.
      */
     _renderArrangerEmptyState() {
-        const tracksEl = this.$('#la-tracks');
-        const rulerEl  = this.$('#la-ruler');
+        const tracksEl = this.modal.$('#la-tracks');
+        const rulerEl  = this.modal.$('#la-ruler');
         if (rulerEl)  rulerEl.innerHTML  = '';
         if (tracksEl) tracksEl.innerHTML = `
             <div class="la-empty-state">
@@ -112,7 +112,7 @@
     }
 
     _renderArrList(arrs) {
-        const el = this.$('#la-arr-list');
+        const el = this.modal.$('#la-arr-list');
         if (!el) return;
         if (!arrs.length) { el.innerHTML = `<div class="lc-empty">${this.modal.t('loopCreator.arrangementsEmpty')}</div>`; return; }
         el.innerHTML = arrs.map(a => `
@@ -200,7 +200,7 @@
             this.modal.blocks = blocks;
             this._resetArrHistory();
             this.modal._selectedBlocks.clear();
-            const f = (id, v) => { const el = this.$(id); if (el) el.value = v; };
+            const f = (id, v) => { const el = this.modal.$(id); if (el) el.value = v; };
             f('#la-name-input', arrangement.name);
             f('#la-tempo',      arrangement.global_tempo);
             f('#la-bars',       arrangement.total_bars);
@@ -273,7 +273,7 @@
         this.modal.blocks = snap.blocks.map(b => ({ ...b }));
         this.modal._selectedBlocks.clear();
         // Sync inputs with restored metadata
-        const setVal = (sel, v) => { const el = this.$(sel); if (el && v !== undefined) el.value = v; };
+        const setVal = (sel, v) => { const el = this.modal.$(sel); if (el && v !== undefined) el.value = v; };
         setVal('#la-name-input', this.modal.arrangementName);
         setVal('#la-tempo',      this.modal.arrangementTempo);
         setVal('#la-bars',       this.modal.arrangementBars);
@@ -288,13 +288,13 @@
 
     _markArrDirty(dirty) {
         this.modal._arrDirty = !!dirty;
-        const saveBtn = this.$('#lc-header-save');
+        const saveBtn = this.modal.$('#lc-header-save');
         if (saveBtn) saveBtn.classList.toggle('lc-btn--dirty', this.modal._arrDirty);
     }
 
     _refreshUndoButtons() {
-        const u = this.$('#la-undo-btn');
-        const r = this.$('#la-redo-btn');
+        const u = this.modal.$('#la-undo-btn');
+        const r = this.modal.$('#la-redo-btn');
         if (u) u.disabled = this.modal._arrHistoryIdx <= 0;
         if (r) r.disabled = this.modal._arrHistoryIdx >= this.modal._arrHistory.length - 1;
     }
@@ -304,7 +304,7 @@
     // =========================================================
 
     _renderPalette() {
-        const grid = this.$('#la-palette-grid');
+        const grid = this.modal.$('#la-palette-grid');
         if (!grid) return;
         if (!this.modal.library.length) { grid.innerHTML = `<div class="lc-empty">${this.modal.t('loopCreator.libraryEmpty')}</div>`; return; }
         const q = (this.modal._paletteSearch || '').trim().toLowerCase();
@@ -353,9 +353,9 @@
      *  - click/drag = scroll le timeline principal sur la position
      */
     _renderMinimap() {
-        const canvas = this.$('#la-minimap');
+        const canvas = this.modal.$('#la-minimap');
         if (!canvas) return;
-        const wrap = this.$('#la-timeline-wrap');
+        const wrap = this.modal.$('#la-timeline-wrap');
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         const dpr = window.devicePixelRatio || 1;
@@ -423,7 +423,7 @@
                 const x = clientX - rect.left;
                 const ratio = Math.max(0, Math.min(1, x / rect.width));
                 const targetBar = ratio * this.modal.arrangementBars;
-                const w = this.$('#la-timeline-wrap');
+                const w = this.modal.$('#la-timeline-wrap');
                 if (!w) return;
                 const cellsBarW = this._barWidth();
                 w.scrollLeft = Math.max(0, targetBar * cellsBarW - (w.clientWidth - 120) / 2);
@@ -441,7 +441,7 @@
     }
 
     _renderRuler() {
-        const ruler = this.$('#la-ruler');
+        const ruler = this.modal.$('#la-ruler');
         if (!ruler) return;
         const BAR_W = this._barWidth();
         // Spacer 120px = largeur des track-labels, garantit que la 1ère
@@ -475,7 +475,7 @@
     }
 
     _renderArrangerStartMarker() {
-        const wrap = this.$('#la-timeline-wrap');
+        const wrap = this.modal.$('#la-timeline-wrap');
         if (!wrap) return;
         let marker = wrap.querySelector('.la-start-marker');
         if (this.modal._arrangerStartBar <= 0 || this.modal.isArrangerPlaying) {
@@ -488,12 +488,12 @@
             wrap.appendChild(marker);
         }
         const BAR_W  = this._barWidth();
-        const labelW = this.$('.la-track-label')?.offsetWidth || 120;
+        const labelW = this.modal.$('.la-track-label')?.offsetWidth || 120;
         marker.style.transform = `translateX(${labelW + this.modal._arrangerStartBar * BAR_W}px)`;
     }
 
     _renderTracks() {
-        const container = this.$('#la-tracks');
+        const container = this.modal.$('#la-tracks');
         if (!container) return;
         container.innerHTML = '';
         for (const track of this.modal.tracks) container.appendChild(this._buildTrackEl(track));
@@ -717,7 +717,7 @@
     }
 
     _refreshBlockSelectionUI() {
-        this.$$('.la-block').forEach(el => {
+        this.modal.$$('.la-block').forEach(el => {
             const bid = parseInt(el.dataset.blockId);
             el.classList.toggle('la-block--selected', this.modal._selectedBlocks.has(bid));
         });
@@ -840,7 +840,7 @@
     }
 
     _barWidth() {
-        const wrap = this.$('#la-timeline-wrap');
+        const wrap = this.modal.$('#la-timeline-wrap');
         const available = (wrap?.clientWidth || 800) - 140;
         const base = Math.max(24, Math.min(60, Math.floor(available / this.modal.arrangementBars)));
         const zoomed = Math.round(base * (this.modal._arrangerZoom || 1));
@@ -874,7 +874,7 @@
 
     _toggleLoopPlayback() {
         this.modal._arrangerLoop = !this.modal._arrangerLoop;
-        const btn = this.$('#la-loop-btn');
+        const btn = this.modal.$('#la-loop-btn');
         if (btn) {
             btn.setAttribute('aria-pressed', this.modal._arrangerLoop ? 'true' : 'false');
             btn.classList.toggle('lc-btn-icon--active', this.modal._arrangerLoop);
@@ -883,7 +883,7 @@
 
     _toggleCountIn() {
         this.modal._arrangerCountIn = !this.modal._arrangerCountIn;
-        const btn = this.$('#la-countin-btn');
+        const btn = this.modal.$('#la-countin-btn');
         if (btn) {
             btn.setAttribute('aria-pressed', this.modal._arrangerCountIn ? 'true' : 'false');
             btn.classList.toggle('lc-btn-icon--active', this.modal._arrangerCountIn);
@@ -1023,9 +1023,9 @@
     }
 
     async _saveArrangement({ silent = false } = {}) {
-        this.modal.arrangementName = this.$('#la-name-input')?.value?.trim() || this.modal.t('loopCreator.untitledArrangement');
-        const tempo = LoopUtils.validate.tempo(this.$('#la-tempo')?.value, this.modal.arrangementTempo);
-        const bars  = LoopUtils.validate.arrBars(this.$('#la-bars')?.value, this.modal.arrangementBars);
+        this.modal.arrangementName = this.modal.$('#la-name-input')?.value?.trim() || this.modal.t('loopCreator.untitledArrangement');
+        const tempo = LoopUtils.validate.tempo(this.modal.$('#la-tempo')?.value, this.modal.arrangementTempo);
+        const bars  = LoopUtils.validate.arrBars(this.modal.$('#la-bars')?.value, this.modal.arrangementBars);
         try {
             if (this.modal.currentArrangementId) {
                 await this.modal.api.sendCommand('arrangement_update', {
@@ -1106,7 +1106,7 @@
     _adjustArrTempo(d) {
         const prev = this.modal.arrangementTempo;
         this.modal.arrangementTempo = LoopUtils.validate.tempo(prev + d, prev);
-        const el = this.$('#la-tempo'); if (el) el.value = this.modal.arrangementTempo;
+        const el = this.modal.$('#la-tempo'); if (el) el.value = this.modal.arrangementTempo;
         if (this.modal.arrangementTempo !== prev) {
             this._markArrDirty(true);
             this._scheduleAutoSave();
@@ -1116,7 +1116,7 @@
     _adjustArrBars(d) {
         const prev = this.modal.arrangementBars;
         this.modal.arrangementBars = LoopUtils.validate.arrBars(prev + d, prev);
-        const el = this.$('#la-bars'); if (el) el.value = this.modal.arrangementBars;
+        const el = this.modal.$('#la-bars'); if (el) el.value = this.modal.arrangementBars;
         if (this.modal.arrangementBars !== prev) {
             this._renderTimeline();
             this._pushArrHistory();
@@ -1132,7 +1132,7 @@
         if (!this.modal.currentArrangementId || this.modal.isArrangerPlaying) return;
         this._stopArrangerPlay();
         this.modal.isArrangerPlaying = true;
-        this.$('#la-play-btn')?.classList.add('lc-btn-record--active');
+        this.modal.$('#la-play-btn')?.classList.add('lc-btn-record--active');
 
         const secPerBar  = 60 / this.modal.arrangementTempo * 4;
         this.modal._arrangerStartBar = Math.max(0, Math.min(this.modal.arrangementBars - 1, startBar | 0));
@@ -1181,7 +1181,7 @@
                 'error'
             );
             this.modal.isArrangerPlaying = false;
-            this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
+            this.modal.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
             return;
         }
 
@@ -1227,7 +1227,7 @@
                 'error'
             );
             this.modal.isArrangerPlaying = false;
-            this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
+            this.modal.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
             return;
         }
         // Drum programs (prog ≥ 128) sont épinglés sur le canal 9 (canal GM
@@ -1337,7 +1337,7 @@
         this.modal._arrangerTimers.forEach(t => clearTimeout(t));
         this.modal._arrangerTimers = [];
         this.modal.isArrangerPlaying = false;
-        this.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
+        this.modal.$('#la-play-btn')?.classList.remove('lc-btn-record--active');
         try { this.modal._arrangerSynth?.cancelAllNotes?.(); }
         catch (err) { LoopUtils.handleError(err, 'arr.synth.cancelAllNotes'); }
         try { this.modal._deviceShim?.cancelAllNotes?.(); }
@@ -1369,7 +1369,7 @@
     }
 
     _renderArrangerPlayhead(elapsedSec) {
-        const ph = this.$('#la-playhead');
+        const ph = this.modal.$('#la-playhead');
         if (!ph) return;
         if (elapsedSec == null || !this.modal.isArrangerPlaying) {
             ph.style.display = 'none';
@@ -1378,7 +1378,7 @@
         const BAR_W = this._barWidth();
         const secPerBar = 60 / this.modal.arrangementTempo * 4;
         const bar = Math.min(this.modal.arrangementBars, this.modal._arrangerStartBar + elapsedSec / secPerBar);
-        const labelW = this.$('.la-track-label')?.offsetWidth || 120;
+        const labelW = this.modal.$('.la-track-label')?.offsetWidth || 120;
         ph.style.display = 'block';
         ph.style.transform = `translateX(${labelW + bar * BAR_W}px)`;
     }
@@ -1433,6 +1433,20 @@
             });
             this._renderTimeline();
         }
+    }
+
+    /**
+     * Debounced background save (Arranger). Reads `_arrDirty` and
+     * `currentArrangementId` from the modal — both live on the modal.
+     */
+    _scheduleAutoSave(delayMs = 800) {
+        if (this.modal._autoSaveTimer) clearTimeout(this.modal._autoSaveTimer);
+        this.modal._autoSaveTimer = setTimeout(() => {
+            this.modal._autoSaveTimer = null;
+            if (this.modal._arrDirty && this.modal.currentArrangementId) {
+                this._saveArrangement({ silent: true });
+            }
+        }, delayMs);
     }
     }
 
