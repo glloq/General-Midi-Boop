@@ -245,3 +245,127 @@ quelqu'un attaque le sujet.
   AUDIT.md §3.13.
 
 ---
+
+## Modal piano virtuel — finir la décommission des mixins legacy
+
+**Contexte.** Les phases A → E du refactor du modal piano virtuel sont
+livrées (voir `AUDIT_KEYBOARD_MODAL_2026-05-14.md` + commits
+`06a1992` → `e5029b8` sur `claude/frontend-architecture-review-8zA9d`) :
+- `InstrumentDetector` extrait, testé (22 cas).
+- `InstrumentView` interface + `InstrumentViewRegistry` singleton +
+  bootstrap `registerBuiltins.js`.
+- 5 classes `PianoView`/`FretboardView`/`DrumPadView`/`PianoSliderView`/
+  `ListView` enregistrées (strangler-fig : elles délèguent encore aux
+  mixins legacy pour le rendu).
+- `KeyboardChords._mapChordToStrings` délègue à `VoicingEngine`.
+- Helpers `_on/_offAll` ajoutés (opt-in), `_applyMixin` warn collisions.
+- 129/129 tests passent.
+
+Quatre items reportés volontairement parce qu'ils nécessitent une
+session avec **validation visuelle réelle sur Raspberry Pi**
+(impossible sans browser sandbox).
+
+**Items reportés.**
+
+### 1. Suppression complète des 7 mixins (Object.assign)
+
+**Constat.** Tant que les `*View` délèguent à `modal.renderFretboard()` /
+`modal.regeneratePianoKeys()` / etc., on ne peut pas retirer les
+mixins. Les méthodes vivent toujours sur `KeyboardModal.prototype` via
+`_applyMixin`.
+
+**Options.**
+- **A** (sûre, lente) — Porter une vue à la fois : la View prend en
+  charge son rendu DOM (lit le HTML container, applique les classes),
+  puis on retire les méthodes correspondantes du mixin. Suivre l'ordre
+  DrumPad (le plus simple, 69 l. à porter) → PianoSlider → List →
+  Piano → Fretboard.
+- **B** (rapide, risquée) — Réécrire `KeyboardModalController` from
+  scratch en se basant uniquement sur les Views, garder l'ancien
+  `KeyboardModal` comme fallback derrière un flag `?legacy=1`.
+
+Critère de succès : `grep -nE 'Mixin\.' public/js/features/keyboard/*.js`
+ne retourne plus rien, `KeyboardPiano.js` est supprimé, le bouton
+"view toggle" passe par `instrumentViews.resolve()` au lieu de
+`setViewMode`. Audit findings : KM-C1, KM-C2, KM-C4, KM-E4.
+
+### 2. Externaliser le HTML du `createModal` (180 lignes)
+
+**Constat.** `KeyboardPiano.js:23-212` contient le HTML complet du
+modal en template literal avec ~25 `${this.t(…)}` inline. Pas de
+coloration syntaxique HTML, pas de lint, edit pénible.
+
+**Options.**
+- **A** — Extraire dans `keyboard-modal.template.js` qui exporte une
+  fonction `buildKeyboardModalHTML(i18n)` retournant la chaîne.
+- **B** — Adopter `htm` (4 KB, tagged template literals) pour les
+  fragments réutilisables.
+- **C** — Garder en JS mais découper par section (header / minimap /
+  wind-panel / canvas-container / sliders).
+
+Critère de succès : `createModal()` < 40 lignes, le HTML lit
+directement dans un fichier dédié. Audit finding : KM-E2.
+
+### 3. Split state `config` / `state` / `ui` sur `KeyboardModal`
+
+**Constat.** Le constructeur initialise **~40 propriétés** sur `this.*`
+qui mélangent config persistante (octaves, noteLabelFormat,
+keyboardLayout), état applicatif (selectedDevice, capabilities,
+viewMode, activeNotes) et état éphémère d'interaction (isMouseDown,
+_modWheelDragging, _minimapDragging). Le `close()` actuel ne reset
+explicitement que 5 d'entre elles → risque d'état stale entre 2
+ouvertures.
+
+**Option recommandée.**
+
+```js
+this.config = { keyboardLayout, noteLabelFormat, octaves,
+                defaultStartNote };      // ← loadSettings()
+this.state  = { selectedDevice, capabilities, viewMode,
+                activeNotes, velocity, modulation };
+this.ui     = { isMouseDown, _modWheelDragging,
+                _minimapDragging };      // ← reset à chaque close()
+```
+
+Migration progressive : commencer par déplacer 5 propriétés à la fois,
+faire passer les tests, recommencer. Audit finding : KM-M2.
+
+### 4. CSS `!important` < 30 dans `keyboard.css`
+
+**Constat.** Après la fusion Phase A, `public/styles/keyboard.css`
+contient encore 252 `!important` (héritage de
+`keyboard-modal.css` 99 + `keyboard-polish.css` 67 + `keyboard.css`
+de base). Cascade brisée, refonte thématique impossible.
+
+**Approche.**
+
+Pour chaque `!important` :
+1. Vérifier si on peut augmenter la spécificité du sélecteur parent
+   (ex : `.km-modal .km-piano__key--active` au lieu de `.piano-key.active !important`).
+2. Sinon, vérifier si on peut introduire une variable CSS qui rend la
+   surcharge inutile.
+3. En dernier recours, garder `!important` et le documenter en
+   commentaire.
+
+Critère de succès : < 30 `!important` totaux, refonte thématique
+testable en changeant un seul fichier `variables.css`. Nécessite tests
+visuels sur Pi (chaque vue × chaque thème × chaque mode notation).
+Audit finding : KM-M1 phase 2.
+
+### Pré-requis pour attaquer ces items
+
+- **Smoke checklist visuelle Pi** documentée :
+  1. Ouvrir le modal sur un piano GM 0.
+  2. Sélectionner une guitare (GM 24) → vue fretboard, accord majeur.
+  3. Sélectionner un kit drum (channel 9) → drumpad.
+  4. Sélectionner un sax (GM 65) → piano-slider + wind panel.
+  5. Toggle list-view → liste compacte.
+  6. Octave up/down + minimap drag + zoom.
+  7. Mod wheel + pitch bend.
+  8. Fermer + rouvrir 10 fois, observer la heap dans DevTools Memory.
+
+- Tests Vitest existants (`tests/frontend/keyboard/*.test.js`) doivent
+  rester verts (129 cas). Si un item nécessite de modifier la signature
+  d'un module pur, les tests guident la migration.
+
+---

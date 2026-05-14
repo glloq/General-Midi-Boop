@@ -159,6 +159,11 @@
     // ── Piano-slider toggle visibility override ───────────────────────────────
     // Extend the base rule: wind instruments can use piano-slider even without
     // pitch_bend_enabled (they use equal-width chromatic layout for range display).
+    //
+    // INTENTIONAL OVERRIDE of KeyboardSliderMixin._updatePianoSliderGroupVisibility.
+    // _applyMixin() in KeyboardModal.js emits a console warning on boot for this
+    // method — that warning is EXPECTED. KeyboardWind is loaded AFTER
+    // KeyboardSlider in index.html for exactly this reason.
 
     KeyboardWindMixin._updatePianoSliderGroupVisibility = function () {
         const group = document.getElementById('keyboard-piano-slider-group');

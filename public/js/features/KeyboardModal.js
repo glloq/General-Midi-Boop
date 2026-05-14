@@ -3,7 +3,7 @@
 // Version: 1.1.0 - Support i18n
 // ============================================================================
 
-class KeyboardModalNew {
+class KeyboardModal {
     constructor(logger = null, eventBus = null) {
         this.backend = window.api;
         this.logger = logger || console;
@@ -202,6 +202,11 @@ class KeyboardModalNew {
             this._eventUnsubs.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
             this._eventUnsubs = [];
         }
+
+        // Phase E (KM-M3): remove any DOM listener registered through _on().
+        // Existing call sites still rely on detachEvents() above; new code
+        // should prefer this._on() for automatic cleanup.
+        if (typeof this._offAll === 'function') this._offAll();
 
         // Clean up string slide mode
         if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
@@ -696,51 +701,27 @@ class KeyboardModalNew {
      * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
      */
     getInstrumentViewInfo() {
-        const caps = this.selectedDeviceCapabilities;
-        const type = (caps && caps.instrument_type) || 'unknown';
-        const subtype = (caps && caps.instrument_subtype) || '';
-        // Drum: explicit type "drum", or MIDI channel 9, or GM program ≥ 128
-        const channel = caps && caps.channel !== undefined ? caps.channel
-                      : (this.selectedDevice && this.selectedDevice.channel !== undefined
-                            ? this.selectedDevice.channel : null);
-        const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
-        // Accept every drum-like instrument_type the project has shipped
-        // historically (DB column has been seen with `drum`, `drums`,
-        // `percussion`, `percussive`). Channel 9 / gmProgram ≥ 128 stay
-        // as fallbacks.
-        const drumLikeTypes = new Set(['drum', 'drums', 'drumkit', 'drum_kit', 'percussion', 'percussive']);
-        const isDrum = (typeof type === 'string' && drumLikeTypes.has(type.toLowerCase()))
-            || channel === 9
-            || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
-        // String: explicit "string" type, an active stringInstrumentConfig, or
-        // a GM program in the guitar/bass/orchestral/ethnic-strings ranges.
-        const stringByGm = !isDrum
-            && gmProgram !== undefined && gmProgram !== null
-            && (
-                (gmProgram >= 24 && gmProgram <= 47) ||  // guitar, bass, orchestral strings
-                gmProgram === 104 || // sitar
-                gmProgram === 105 || // banjo
-                gmProgram === 106 || // shamisen
-                gmProgram === 107 || // koto
-                gmProgram === 110    // fiddle
-            );
-        const canFretboard = type === 'string' || !!this.stringInstrumentConfig || stringByGm;
-        // Bowed strings: violin (40), viola (41), cello (42), contrabass (43),
-        // tremolo strings (44), pizzicato (45), fiddle (110). These are the
-        // GM programs whose mechanical equivalent uses a continuous bow rather
-        // than discrete plucks, so the strum bar is swapped for a hold-to-bow
-        // bar and the fretboard renders dots on the fret line.
-        const bowedGm = new Set([40, 41, 42, 43, 44, 45, 110]);
-        const isBowed = canFretboard
-            && gmProgram !== undefined && gmProgram !== null
-            && bowedGm.has(gmProgram);
-        // Wind: GM programs 56–79 (brass, reeds, pipe) — only when not drum or string
-        const isWind = !isDrum && !canFretboard
-            && gmProgram !== undefined && gmProgram !== null
-            && typeof WindInstrumentDatabase !== 'undefined'
-            && WindInstrumentDatabase.isWindInstrument(gmProgram);
-        const windPreset = isWind ? WindInstrumentDatabase.getPresetByProgram(gmProgram) : null;
-        return { canFretboard, isBowed, isDrum, isWind, windPreset, instrumentType: type, instrumentSubtype: subtype, gmProgram };
+        // Delegates to the pure InstrumentDetector module (Phase B).
+        // Callers continue to receive the legacy { canFretboard, isBowed,
+        // isDrum, isWind, windPreset, instrumentType, instrumentSubtype,
+        // gmProgram } shape. `viewKind` is additionally exposed for the
+        // upcoming InstrumentView registry (Phase C+).
+        const detector = (typeof window !== 'undefined' && window.InstrumentDetector) || null;
+        if (!detector) {
+            // Defensive fallback — should never happen in production since
+            // InstrumentDetector.js is loaded before KeyboardModal.js.
+            return {
+                viewKind: 'piano', canFretboard: false, isBowed: false,
+                isDrum: false, isWind: false, windPreset: null,
+                instrumentType: 'unknown', instrumentSubtype: '', gmProgram: undefined
+            };
+        }
+        return detector.detect({
+            capabilities: this.selectedDeviceCapabilities,
+            selectedDevice: this.selectedDevice,
+            stringInstrumentConfig: this.stringInstrumentConfig,
+            windDb: typeof WindInstrumentDatabase !== 'undefined' ? WindInstrumentDatabase : null
+        });
     }
 
     /**
@@ -872,7 +853,9 @@ class KeyboardModalNew {
         const dropdown = document.getElementById('instrument-dropdown');
         if (!dropdown) return;
 
-        dropdown.innerHTML = '';
+        // Build off-DOM with a DocumentFragment so we attach ~138 nodes
+        // in one paint, then swap children atomically.
+        const frag = document.createDocumentFragment();
 
         // "No selection" entry — spans full grid width
         const noneBtn = document.createElement('button');
@@ -883,8 +866,7 @@ class KeyboardModalNew {
             <div class="option-icon"><span class="option-emoji">🎵</span></div>
             <span class="option-name">— ${this.t('common.select')} —</span>
         `;
-        noneBtn.addEventListener('click', () => this._selectInstrumentOption(''));
-        dropdown.appendChild(noneBtn);
+        frag.appendChild(noneBtn);
 
         this.devices.forEach(device => {
             const deviceId = device.device_id || device.id;
@@ -918,9 +900,22 @@ class KeyboardModalNew {
                 <div class="option-icon">${imgHtml}</div>
                 <span class="option-name">${name}${chLabel}</span>
             `;
-            btn.addEventListener('click', () => this._selectInstrumentOption(rawValue));
-            dropdown.appendChild(btn);
+            frag.appendChild(btn);
         });
+
+        dropdown.replaceChildren(frag);
+
+        // Event delegation: a single listener on the container, instead of
+        // one per button. Survives re-builds and is cheap on listeners.
+        if (!this._dropdownDelegated) {
+            dropdown.addEventListener('click', (e) => {
+                const opt = e.target.closest('.instrument-option');
+                if (!opt || !dropdown.contains(opt)) return;
+                const rawValue = opt.dataset.deviceId ?? '';
+                this._selectInstrumentOption(rawValue);
+            });
+            this._dropdownDelegated = true;
+        }
     }
 
     _updateInstrumentTrigger() {
@@ -1129,36 +1124,81 @@ class KeyboardModalNew {
     }
 }
 
-// Apply mixins (loaded via <script> tags before this file)
-if (typeof KeyboardPianoMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardPianoMixin);
+// ============================================================================
+// MIXIN COMPOSITION (legacy — slated for replacement by InstrumentView
+// classes per AUDIT_KEYBOARD_MODAL_2026-05-14.md KM-C1, KM-C4).
+// ============================================================================
+// The 7 mixins below are attached on KeyboardModal.prototype in a specific
+// order: each later mixin can read methods from earlier ones, and the wind
+// mixin specifically wraps `playNote` (captured as `_windOrigPlayNote`).
+//
+// Until the InstrumentView migration is complete, _applyMixin() emits a
+// warning whenever a mixin silently overrides a method already on the
+// prototype — this catches accidental collisions early.
+// ============================================================================
+
+/**
+ * Apply a mixin to KeyboardModal.prototype, warning on collisions.
+ * @param {string} label    Mixin name (for diagnostics).
+ * @param {Object} mixin    Object whose own properties become prototype methods.
+ */
+function _applyMixin(label, mixin) {
+    if (!mixin) return;
+    for (const key of Object.keys(mixin)) {
+        if (Object.prototype.hasOwnProperty.call(KeyboardModal.prototype, key)) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[KeyboardModal] mixin "${label}" overrides existing method "${key}". ` +
+                `If this is intentional, capture the previous value in a closure ` +
+                `before assigning (see _windOrigPlayNote pattern).`
+            );
+        }
+        KeyboardModal.prototype[key] = mixin[key];
+    }
 }
-if (typeof KeyboardEventsMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardEventsMixin);
-}
-if (typeof KeyboardControlsMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardControlsMixin);
-}
-if (typeof KeyboardChordsMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardChordsMixin);
-}
-if (typeof KeyboardSliderMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardSliderMixin);
-}
-if (typeof KeyboardListViewMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardListViewMixin);
-}
-if (typeof KeyboardWindMixin !== 'undefined') {
-    // Capture the pre-wind playNote in a closure so the reference is immutable.
-    // Using Object.defineProperty with writable:false prevents any instance from
-    // accidentally shadowing _windOrigPlayNote with its own property, which would
-    // silently break the articulation call chain.
-    const _prevPlayNote = KeyboardModalNew.prototype.playNote;
-    Object.assign(KeyboardModalNew.prototype, KeyboardWindMixin);
-    Object.defineProperty(KeyboardModalNew.prototype, '_windOrigPlayNote', {
+
+if (typeof KeyboardPianoMixin     !== 'undefined') _applyMixin('Piano',     KeyboardPianoMixin);
+if (typeof KeyboardEventsMixin    !== 'undefined') _applyMixin('Events',    KeyboardEventsMixin);
+if (typeof KeyboardControlsMixin  !== 'undefined') _applyMixin('Controls',  KeyboardControlsMixin);
+if (typeof KeyboardChordsMixin    !== 'undefined') _applyMixin('Chords',    KeyboardChordsMixin);
+if (typeof KeyboardSliderMixin    !== 'undefined') _applyMixin('Slider',    KeyboardSliderMixin);
+if (typeof KeyboardListViewMixin  !== 'undefined') _applyMixin('ListView',  KeyboardListViewMixin);
+if (typeof KeyboardWindMixin      !== 'undefined') {
+    // The wind mixin intentionally overrides `playNote` to apply articulation
+    // factors. Capture the previous value in a closure so the new playNote
+    // can call back into it (see PianoSliderView.willPlayNote for the
+    // future replacement).
+    const _prevPlayNote = KeyboardModal.prototype.playNote;
+    _applyMixin('Wind', KeyboardWindMixin);
+    Object.defineProperty(KeyboardModal.prototype, '_windOrigPlayNote', {
         value: _prevPlayNote,
         writable: false,
         configurable: false,
         enumerable: false
     });
+}
+
+// ─── Tracked DOM listeners (Phase E helper, KM-M3) ──────────────────────────
+// Subsequent code can call `this._on(el, 'click', fn)` instead of
+// `el.addEventListener('click', fn)` to get automatic cleanup in close().
+// Existing call sites are not migrated yet — this is opt-in for new code.
+
+KeyboardModal.prototype._on = function (el, evt, handler, opts) {
+    if (!el || !evt || typeof handler !== 'function') return;
+    el.addEventListener(evt, handler, opts);
+    (this._trackedListeners ||= []).push([el, evt, handler, opts]);
+};
+
+KeyboardModal.prototype._offAll = function () {
+    if (!this._trackedListeners) return;
+    for (const [el, evt, h, o] of this._trackedListeners) {
+        try { el.removeEventListener(evt, h, o); } catch (_) { /* ignore */ }
+    }
+    this._trackedListeners.length = 0;
+};
+
+// Expose the class on window so test runners + late-loading helpers can
+// inspect prototype.
+if (typeof window !== 'undefined') {
+    window.KeyboardModal = KeyboardModal;
 }
