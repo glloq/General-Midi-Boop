@@ -46,6 +46,10 @@ const ARRANGER_HISTORY_LIMIT = 50;
 class LoopManagerModal extends BaseModal {
     /** Back-compat: feature owns the loop array; modal exposes it readonly. */
     get library() { return this.libraryFeature?.library || []; }
+    /** Back-compat: Library cards read this Map to display play indicator. */
+    get _livePlayingLoops() { return this.liveFeature?.playingLoops || new Map(); }
+    /** Back-compat: a few call-sites read modal._liveSynth directly. */
+    get _liveSynth() { return this.liveFeature?.synth || null; }
 
     constructor(api, eventBus) {
         super({
@@ -127,9 +131,11 @@ class LoopManagerModal extends BaseModal {
         this._padHoldActive   = new Set(); // indexes currently held down (hold mode)
 
         // ── Live state ──
-        this._livePlayingLoops = new Map(); // loopId → { timers, ch, startMs, durMs }
-        this._liveSynth        = null;
-        this._liveSearch       = '';
+        // ── Live tab feature (extracted to LoopManagerLiveFeature
+        // per audit §6.6). Owns playingLoops Map, synth, search.
+        this.liveFeature = typeof LoopManagerLiveFeature !== 'undefined'
+            ? new LoopManagerLiveFeature(this)
+            : null;
 
         // ── Keyboard tab feature (extracted to LoopManagerKeyboardFeature
         // per audit §6.6). Owns its own state (synth, mounted, envelopes,
@@ -299,18 +305,7 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     _renderLiveTab() {
-        return `
-        <div class="lc-pane${this.activeTab==='live' ? '' : ' lc-pane--hidden'}" id="lc-pane-live" role="tabpanel" aria-labelledby="lc-tab-live">
-            <div class="lc-ctrl-bar">
-                <input type="text" id="lm-live-search" class="lc-name-input lm-lib-search"
-                    placeholder="${this.t('loopManager.search')}" value="${this.escape(this._liveSearch || '')}" autocomplete="off" />
-                <span class="lc-ctrl-spacer"></span>
-                <button class="lc-btn lc-btn-sm" data-action="live-stop-all">⏹ ${this.t('loopManager.stopAll')}</button>
-            </div>
-            <div class="lm-live-area" id="lm-live-area">
-                <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
-            </div>
-        </div>`;
+        return this.liveFeature ? this.liveFeature.renderTabHtml() : "";
     }
 
     // =========================================================
@@ -862,8 +857,7 @@ class LoopManagerModal extends BaseModal {
         if (id === 'lm-lib-search') {
             this.libraryFeature?.setSearch(e.target.value);
         } else if (id === 'lm-live-search') {
-            this._liveSearch = e.target.value;
-            this._renderLiveArea();
+            this.liveFeature?.setSearch(e.target.value);
         } else if (id === 'la-palette-search') {
             this._paletteSearch = e.target.value;
             this._renderPalette();
@@ -1472,169 +1466,12 @@ class LoopManagerModal extends BaseModal {
     // LIVE TAB
     // =========================================================
 
-    async _initLiveSynth() {
-        if (!this._liveSynth) this._liveSynth = await LoopUtils.createSynth();
-    }
+    async _initLiveSynth() { return this.liveFeature?.initSynth(); }
+    _renderLiveArea()      { this.liveFeature?.renderArea(); }
+    async _liveTrigger(id) { return this.liveFeature?.trigger(id); }
+    _liveStop(id)          { this.liveFeature?.stop(id); }
+    _liveStopAll()         { this.liveFeature?.stopAll(); }
 
-    _renderLiveArea() {
-        const area = this.$('#lm-live-area');
-        if (!area) return;
-        if (!this.library.length) {
-            area.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
-            return;
-        }
-
-        const q = (this._liveSearch || '').trim().toLowerCase();
-        const filtered = q
-            ? this.library.filter(l => l.name.toLowerCase().includes(q))
-            : this.library;
-
-        if (!filtered.length) {
-            area.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
-            return;
-        }
-
-        // Group loops by GM family
-        const groups = new Map(); // familyName → { family, loops[] }
-        for (const loop of filtered) {
-            const family = LoopUtils.familyForProgram(loop.instrument_program ?? 0);
-            if (!groups.has(family.name)) groups.set(family.name, { family, loops: [] });
-            groups.get(family.name).loops.push(loop);
-        }
-
-        area.innerHTML = [...groups.values()].map(({ family, loops }) => `
-        <div class="lm-live-group" style="--family-color:${family.color}">
-            <div class="lm-live-group-header">
-                ${this._instrIconHtml(family.start, 'family', 'lm-live-group-icon')}
-                <span class="lm-live-group-name">${family.name}</span>
-            </div>
-            <div class="lm-live-loops">
-                ${loops.map(l => {
-                    const playing    = this._livePlayingLoops.has(l.id);
-                    const tempoRange = l.tempo < 90 ? 'slow' : l.tempo < 140 ? 'medium' : 'fast';
-                    // AUDIT §A9 : redonde l'info tempo en texte (le bord
-                    // coloré seul violait WCAG 1.4.1 — color-only).
-                    // aria-pressed expose l'état playing aux SR.
-                    const tempoLabel = this.t('loopManager.tempoRange_' + tempoRange) || tempoRange;
-                    return `<button class="lm-live-loop-btn${playing ? ' lm-live-loop-btn--playing' : ''}"
-                        data-action="live-trigger" data-loop-id="${l.id}"
-                        data-tempo-range="${tempoRange}"
-                        aria-pressed="${playing}"
-                        aria-label="${this.escape(l.name)} — ${l.tempo} BPM ${tempoLabel}, ${l.bars} ${this.t('loopCreator.barsUnit') || 'bars'}">
-                        <span class="lm-live-loop-name">${this.escape(l.name)}</span>
-                        <span class="lm-live-loop-meta">${l.tempo}♩·${l.bars}M</span>
-                    </button>`;
-                }).join('')}
-            </div>
-        </div>`).join('');
-    }
-
-    async _liveTrigger(loopId) {
-        if (this._livePlayingLoops.has(loopId)) {
-            this._liveStop(loopId);
-            return;
-        }
-        const loopData = await this._fetchLoopData(loopId);
-        if (!loopData) {
-            LoopUtils.toast(this.t('loopManager.errLoopUnavailable'), 'error');
-            return;
-        }
-
-        // Drum kits (program ≥ 128) DOIVENT sortir sur le canal 9, sinon
-        // MidiSynthesizer.playNote() prend le path mélodique et la loop
-        // reste silencieuse. Les autres loops se partagent les canaux
-        // libres via _allocLiveChannel().
-        const prog = loopData.instrument_program ?? 0;
-        const isDrum = prog >= 128;
-        const ch = isDrum ? 9 : this._allocLiveChannel();
-        const target = this._getOutputTarget(this._liveSynth);
-        if (target) {
-            try { target.setChannelInstrument(ch, prog); }
-            catch (err) { LoopUtils.handleError(err, 'live.synth.setChannelInstrument'); }
-            if (isDrum) {
-                await target.loadDrumKit?.().catch(err =>
-                    LoopUtils.handleError(err, 'live.synth.loadDrumKit'));
-            } else if (!target.loadedInstruments?.has(prog)) {
-                await target.loadInstrument(prog).catch(err =>
-                    LoopUtils.handleError(err, 'live.synth.loadInstrument'));
-            }
-        }
-
-        const loopDurMs = LoopUtils.loopDurationMs(loopData);
-        this._livePlayingLoops.set(loopId, { timers: [], ch, startMs: performance.now(), durMs: loopDurMs });
-        this._updateLiveButton(loopId, true);
-        this._scheduleLiveLoop(loopId, loopData);
-        this._renderPlaybar();
-    }
-
-    _scheduleLiveLoop(loopId, loopData) {
-        if (!this._livePlayingLoops.has(loopId)) return;
-        const state = this._livePlayingLoops.get(loopId);
-        const ch    = state.ch ?? 0;
-
-        const seq       = LoopUtils.parseSequence(loopData.midi_data);
-        const loopDurMs = LoopUtils.loopDurationMs(loopData);
-
-        // Reset cycle start time and clear old timers
-        state.timers.forEach(t => clearTimeout(t));
-        state.startMs = performance.now();
-        state.durMs   = loopDurMs;
-
-        const isAlive = () => this._livePlayingLoops.has(loopId);
-        state.timers = LoopUtils.scheduleSequence({
-            synth: this._getOutputTarget(this._liveSynth),
-            sequence: seq,
-            tempo: loopData.tempo || 120,
-            ppq:   loopData.ppq   || 480,
-            channel: ch,
-            isAlive,
-            cycleMs: loopDurMs,
-            onCycleEnd: () => { if (isAlive()) this._scheduleLiveLoop(loopId, loopData); }
-        });
-    }
-
-    _liveStop(loopId) {
-        const state = this._livePlayingLoops.get(loopId);
-        if (!state) return;
-        state.timers.forEach(t => clearTimeout(t));
-        this._livePlayingLoops.delete(loopId);
-        // Coupe les notes encore tenues sur le canal du loop. Sans ça,
-        // les note-on déjà émis continuent à sonner jusqu'à leur fin
-        // naturelle ; l'utilisateur perçoit un release au lieu d'un
-        // silence net (AUDIT §L7).
-        const target = this._getOutputTarget(this._liveSynth);
-        if (target && state.ch != null) {
-            try { target.allNotesOff?.(state.ch); }
-            catch (err) { LoopUtils.handleError(err, 'live.allNotesOff'); }
-            // Fallback synthé : si allNotesOff par canal n'existe pas,
-            // cancelAllNotes coupe tout sur ce target.
-            if (typeof target.allNotesOff !== 'function') {
-                try { target.cancelAllNotes?.(); }
-                catch (err) { LoopUtils.handleError(err, 'live.cancelAllNotes'); }
-            }
-        }
-        this._updateLiveButton(loopId, false);
-        this._renderPlaybar();
-    }
-
-    _liveStopAll() {
-        for (const loopId of [...this._livePlayingLoops.keys()]) this._liveStop(loopId);
-        try { this._liveSynth?.cancelAllNotes?.(); }
-        catch (err) { LoopUtils.handleError(err, 'live.synth.cancelAllNotes'); }
-        try { this._deviceShim?.cancelAllNotes?.(); }
-        catch (err) { LoopUtils.handleError(err, 'live.device.cancelAllNotes'); }
-    }
-
-    _updateLiveButton(loopId, playing) {
-        const buttons = this.$$(`[data-action="live-trigger"][data-loop-id="${loopId}"]`);
-        buttons.forEach(btn => {
-            btn.classList.toggle('lm-live-loop-btn--playing', playing);
-            if (btn.classList.contains('lc-card-btn--play')) {
-                btn.classList.toggle('lc-card-btn--playing', playing);
-                btn.textContent = playing ? '⏹' : '▶';
-            }
-        });
-    }
 
     // =========================================================
     // ARRANGER — INIT
@@ -2956,18 +2793,6 @@ class LoopManagerModal extends BaseModal {
         this._stopPlaybarRAF();
         this._renderPlaybar();
         this._renderArrangerStartMarker();
-    }
-
-    // =========================================================
-    // LIVE — CHANNEL ALLOCATION
-    // =========================================================
-
-    _allocLiveChannel() {
-        const used = new Set([...this._livePlayingLoops.values()].map(s => s.ch).filter(c => c != null));
-        for (let c = 0; c < 16; c++) {
-            if (!used.has(c)) return c;
-        }
-        return 0; // all 16 channels in use: wrap around
     }
 
     // =========================================================
