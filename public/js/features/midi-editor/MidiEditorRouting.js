@@ -819,15 +819,23 @@
             this.modal._pianoRollContainerObs.observe(container);
         }
 
-    // Play the note on piano-keyboard click
+    // Play the note on piano-keyboard click — true note-on / note-off
+    // so that long-sustain instruments (strings, basses, pads) ring as
+    // long as the pointer is held.
         this.modal.pianoRoll.addEventListener('pianokey', (e) => {
             if (!this.modal.keyboardPlaybackEnabled) return;
             const note = e.detail.note;
             const channel = this.modal.pianoRoll.defaultChannel || 0;
-            this.modal.playNoteFeedback(note, 100, channel);
+            this.modal.playNoteHold(note, 100, channel);
+        });
+        this.modal.pianoRoll.addEventListener('pianokeyup', (e) => {
+            const note = e.detail.note;
+            const channel = this.modal.pianoRoll.defaultChannel || 0;
+            this.modal.releaseNote(note, channel);
         });
 
-    // Play notes during drag movement
+    // Play notes during drag movement. notedragmove fires once per pitch
+    // change so a one-shot, family-aware fixed duration is appropriate.
         this.modal.pianoRoll.addEventListener('notedragmove', (e) => {
             if (!this.modal.dragPlaybackEnabled) return;
             const notes = e.detail.notes;

@@ -626,10 +626,26 @@ class WindMelodyRenderer {
                 this.requestRedraw();
                 this._dispatchSelectionChange();
             } else {
-                // Plain click: play the note
+                // Plain click: play the note (note-on) and emit a matching
+                // note-off event on pointer release. `blur` is included so
+                // listeners are cleaned up if focus is lost mid-click.
                 this.canvas.dispatchEvent(new CustomEvent('wind:pianokey', {
                     detail: { note }, bubbles: false
                 }));
+                const canvas = this.canvas;
+                const releaseHandler = () => {
+                    canvas.dispatchEvent(new CustomEvent('wind:pianokeyup', {
+                        detail: { note }, bubbles: false
+                    }));
+                    window.removeEventListener('mouseup', releaseHandler, false);
+                    window.removeEventListener('touchend', releaseHandler, false);
+                    window.removeEventListener('touchcancel', releaseHandler, false);
+                    window.removeEventListener('blur', releaseHandler, false);
+                };
+                window.addEventListener('mouseup', releaseHandler, false);
+                window.addEventListener('touchend', releaseHandler, false);
+                window.addEventListener('touchcancel', releaseHandler, false);
+                window.addEventListener('blur', releaseHandler, false);
             }
             return;
         }

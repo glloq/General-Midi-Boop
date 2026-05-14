@@ -38,6 +38,7 @@ class WindInstrumentEditor {
         this._onSelectionChange = this._handleSelectionChange.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
         this._onPianoKey = this._handlePianoKey.bind(this);
+        this._onPianoKeyUp = this._handlePianoKeyUp.bind(this);
         this._onNoteDragMove = this._handleNoteDragMove.bind(this);
     }
 
@@ -590,6 +591,7 @@ class WindInstrumentEditor {
             this.melodyCanvasEl.addEventListener('wind:editarticulation', this._onEditArticulation);
             this.melodyCanvasEl.addEventListener('wind:selectionchange', this._onSelectionChange);
             this.melodyCanvasEl.addEventListener('wind:pianokey', this._onPianoKey);
+            this.melodyCanvasEl.addEventListener('wind:pianokeyup', this._onPianoKeyUp);
             this.melodyCanvasEl.addEventListener('wind:notedragmove', this._onNoteDragMove);
         }
         document.addEventListener('keydown', this._onKeyDown);
@@ -602,6 +604,7 @@ class WindInstrumentEditor {
             this.melodyCanvasEl.removeEventListener('wind:editarticulation', this._onEditArticulation);
             this.melodyCanvasEl.removeEventListener('wind:selectionchange', this._onSelectionChange);
             this.melodyCanvasEl.removeEventListener('wind:pianokey', this._onPianoKey);
+            this.melodyCanvasEl.removeEventListener('wind:pianokeyup', this._onPianoKeyUp);
             this.melodyCanvasEl.removeEventListener('wind:notedragmove', this._onNoteDragMove);
         }
         document.removeEventListener('keydown', this._onKeyDown);
@@ -669,7 +672,12 @@ class WindInstrumentEditor {
     _handlePianoKey(e) {
         if (!this.modal.keyboardPlaybackEnabled) return;
         const note = e.detail.note;
-        this.modal.playNoteFeedback(note, 100, this.channel);
+        this.modal.playNoteHold(note, 100, this.channel);
+    }
+
+    _handlePianoKeyUp(e) {
+        const note = e.detail.note;
+        this.modal.releaseNote(note, this.channel);
     }
 
     _handleNoteDragMove(e) {

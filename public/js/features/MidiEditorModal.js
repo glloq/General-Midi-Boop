@@ -535,6 +535,9 @@ class MidiEditorModal {
     updatePlaybackButtons() { if (this._playback) this._playback.updatePlaybackButtons(); }
     handleNoteFeedback(prev) { if (this._playback) this._playback.handleNoteFeedback(prev); }
     async playNoteFeedback(n, v, c) { if (this._playback) await this._playback.playNoteFeedback(n, v, c); }
+    async playNoteHold(n, v, c) { if (this._playback) await this._playback.playNoteHold(n, v, c); }
+    releaseNote(n, c) { if (this._playback) this._playback.releaseNote(n, c); }
+    releaseAllNotes() { if (this._playback) this._playback.releaseAllNotes(); }
     disposeSynthesizer() { if (this._playback) this._playback.disposeSynthesizer(); }
 
 } // end class MidiEditorModal

@@ -14,9 +14,38 @@
 (function() {
     'use strict';
 
+    // Feedback note durations by GM family (in seconds), used when the caller
+    // cannot supply a real note-off (button click, scrubbing animation).
+    // Strings/basses/pads need a long enough tail to engage the SF2 sample loop;
+    // 0.3 s used to cut violins and made basses inaudible.
+    // For channel 9 (drums) MidiSynthesizer.drumMinDurations already enforces
+    // per-note minimums, so the constant here is a floor only.
+    const FEEDBACK_DURATION_BY_FAMILY = [
+        1.0, // 0-7   Piano
+        0.8, // 8-15  Chromatic Percussion
+        1.2, // 16-23 Organ
+        1.2, // 24-31 Guitar
+        1.5, // 32-39 Bass
+        2.0, // 40-47 Strings
+        2.0, // 48-55 Ensemble
+        1.5, // 56-63 Brass
+        1.5, // 64-71 Reed
+        1.5, // 72-79 Pipe
+        1.2, // 80-87 Synth Lead
+        2.5, // 88-95 Synth Pad
+        2.0, // 96-103 Synth FX
+        1.2, // 104-111 Ethnic
+        0.5, // 112-119 Percussive
+        1.0  // 120-127 SFX
+    ];
+    const HELD_NOTE_SAFETY_MS = 8000; // hard cap so a stuck pointer never sustains forever
+    const HELD_NOTE_DURATION_S = 9999; // "play until cancel()" sentinel for MidiSynthesizer.playNote
+
     class MidiEditorPlayback {
     constructor(modal) {
         this.modal = modal;
+        // key = `${channel}:${note}` -> { envelopes, timeoutId }
+        this._heldEnvelopes = new Map();
     }
 
     // ========================================================================
@@ -501,71 +530,143 @@
     }
 
     /**
-     * Jouer une note courte comme feedback audio
+     * Get a sensible fallback duration for a one-shot feedback note based on
+     * the channel's current GM program family. Used when the caller cannot
+     * provide a real note-off (button clicks, scrubbing).
+     */
+    getFeedbackDuration(channel) {
+        const m = this.modal;
+        if (channel === 9) return 0.3; // drumMinDurations in MidiSynthesizer takes over per note
+        const program = (m.synthesizer && m.synthesizer.channelInstruments[channel]) || 0;
+        return FEEDBACK_DURATION_BY_FAMILY[(program >>> 3) & 0x0f];
+    }
+
+    /**
+     * Prepare the synthesizer + channel instrument for a feedback note.
+     * Returns true if the note can be played; false otherwise (synth missing,
+     * out of routed range, etc.).
+     */
+    async _prepareForFeedback(noteNumber, channel) {
+        const m = this.modal;
+        if (!m.synthesizer) {
+            await this.initSynthesizer();
+        }
+        if (!m.synthesizer || !m.synthesizer.isInitialized) return false;
+
+        if (m.synthesizer.audioContext && m.synthesizer.audioContext.state === 'suspended') {
+            await m.synthesizer.audioContext.resume();
+        }
+
+        if (!this._feedbackInstrumentsLoaded) {
+            this.loadSequenceForPlayback();
+            if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
+            try {
+                await m.synthesizer.preloadInstruments();
+            } finally {
+                if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
+            }
+            this._feedbackInstrumentsLoaded = true;
+        }
+
+        if (channel === 9) {
+            if (m.synthesizer.drumPresets.size === 0) {
+                if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
+                try {
+                    await m.synthesizer.loadDrumKit();
+                } finally {
+                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
+                }
+            }
+        } else {
+            const program = m.synthesizer.channelInstruments[channel] || 0;
+            if (!m.synthesizer.loadedInstruments.has(program)) {
+                if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
+                try {
+                    await m.synthesizer.loadInstrument(program);
+                } finally {
+                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
+                }
+            }
+        }
+
+        if (m.previewSource === 'routed' && m._routedPlayableNotes.has(channel)) {
+            const playable = m._routedPlayableNotes.get(channel);
+            if (playable !== null && !playable.has(noteNumber)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Jouer une note courte comme feedback audio (fire-and-forget).
+     * Use playNoteHold/releaseNote instead when the trigger is a pointer
+     * the user holds, so the note can sustain naturally.
      */
     async playNoteFeedback(noteNumber, velocity = 100, channel = 0) {
         const m = this.modal;
         try {
-            if (!m.synthesizer) {
-                await this.initSynthesizer();
-            }
-
-            if (!m.synthesizer || !m.synthesizer.isInitialized) {
-                return;
-            }
-
-            // Resume audio context if suspended (browser autoplay policy)
-            if (m.synthesizer.audioContext && m.synthesizer.audioContext.state === 'suspended') {
-                await m.synthesizer.audioContext.resume();
-            }
-
-            // Ensure instruments are loaded for playback feedback
-            if (!this._feedbackInstrumentsLoaded) {
-                this.loadSequenceForPlayback();
-                if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
-                try {
-                    await m.synthesizer.preloadInstruments();
-                } finally {
-                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
-                }
-                this._feedbackInstrumentsLoaded = true;
-            }
-
-            // Ensure the specific channel instrument is loaded
-            if (channel === 9) {
-                if (m.synthesizer.drumPresets.size === 0) {
-                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
-                    try {
-                        await m.synthesizer.loadDrumKit();
-                    } finally {
-                        if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
-                    }
-                }
-            } else {
-                const program = m.synthesizer.channelInstruments[channel] || 0;
-                if (!m.synthesizer.loadedInstruments.has(program)) {
-                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
-                    try {
-                        await m.synthesizer.loadInstrument(program);
-                    } finally {
-                        if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
-                    }
-                }
-            }
-
-            // Skip notes outside the routed instrument's playable range
-            if (m.previewSource === 'routed' && m._routedPlayableNotes.has(channel)) {
-                const playable = m._routedPlayableNotes.get(channel);
-                if (playable !== null && !playable.has(noteNumber)) {
-                    return;
-                }
-            }
-
-            const duration = 0.3;
+            const ready = await this._prepareForFeedback(noteNumber, channel);
+            if (!ready) return;
+            const duration = this.getFeedbackDuration(channel);
             m.synthesizer.playNote(noteNumber, velocity, channel, duration);
         } catch (err) {
             m.log('warn', 'playNoteFeedback error:', err.message);
         }
+    }
+
+    /**
+     * Start a held note (pointerdown). The note rings until releaseNote()
+     * is called for the same (channel, noteNumber) pair, or until the
+     * safety timeout fires (HELD_NOTE_SAFETY_MS).
+     */
+    async playNoteHold(noteNumber, velocity = 100, channel = 0) {
+        const m = this.modal;
+        try {
+            const ready = await this._prepareForFeedback(noteNumber, channel);
+            if (!ready) return;
+
+            const key = `${channel}:${noteNumber}`;
+            // If the same key is already held (re-entrant pointerdown), release first.
+            this.releaseNote(noteNumber, channel);
+
+            const envelopes = m.synthesizer.playNote(noteNumber, velocity, channel, HELD_NOTE_DURATION_S);
+            if (!envelopes) return;
+
+            const timeoutId = setTimeout(() => {
+                this.releaseNote(noteNumber, channel);
+            }, HELD_NOTE_SAFETY_MS);
+
+            this._heldEnvelopes.set(key, { envelopes, timeoutId });
+        } catch (err) {
+            m.log('warn', 'playNoteHold error:', err.message);
+        }
+    }
+
+    /**
+     * Stop a held note. Safe to call multiple times.
+     */
+    releaseNote(noteNumber, channel = 0) {
+        const key = `${channel}:${noteNumber}`;
+        const entry = this._heldEnvelopes.get(key);
+        if (!entry) return;
+        this._heldEnvelopes.delete(key);
+        if (entry.timeoutId) clearTimeout(entry.timeoutId);
+        for (const env of entry.envelopes) {
+            try { env?.cancel?.(); } catch (_) { /* ignore */ }
+        }
+    }
+
+    /**
+     * Cancel every held note. Called on dispose / modal close / blur.
+     */
+    releaseAllNotes() {
+        if (!this._heldEnvelopes.size) return;
+        for (const entry of this._heldEnvelopes.values()) {
+            if (entry.timeoutId) clearTimeout(entry.timeoutId);
+            for (const env of entry.envelopes) {
+                try { env?.cancel?.(); } catch (_) { /* ignore */ }
+            }
+        }
+        this._heldEnvelopes.clear();
     }
 
     // ========================================================================
@@ -577,6 +678,7 @@
      */
     disposeSynthesizer() {
         const m = this.modal;
+        this.releaseAllNotes();
         if (m.synthesizer) {
             m.synthesizer.dispose();
             m.synthesizer = null;

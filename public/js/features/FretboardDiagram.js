@@ -161,6 +161,24 @@ class FretboardDiagram {
                 detail: { string: closestString, fret: clickedFret, midiNote },
                 bubbles: false
             }));
+            // Emit a matching release event so consumers can implement
+            // note-on / note-off. `blur` is included so listeners are
+            // cleaned up if focus is lost mid-click.
+            const canvas = this.canvas;
+            const releaseHandler = () => {
+                canvas.dispatchEvent(new CustomEvent('fretboard:release', {
+                    detail: { string: closestString, fret: clickedFret, midiNote },
+                    bubbles: false
+                }));
+                window.removeEventListener('mouseup', releaseHandler, false);
+                window.removeEventListener('touchend', releaseHandler, false);
+                window.removeEventListener('touchcancel', releaseHandler, false);
+                window.removeEventListener('blur', releaseHandler, false);
+            };
+            window.addEventListener('mouseup', releaseHandler, false);
+            window.addEventListener('touchend', releaseHandler, false);
+            window.addEventListener('touchcancel', releaseHandler, false);
+            window.addEventListener('blur', releaseHandler, false);
         }
     }
 

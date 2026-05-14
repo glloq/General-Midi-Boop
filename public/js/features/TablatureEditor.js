@@ -40,6 +40,7 @@ class TablatureEditor {
         this._onTabChangeString = this._handleTabChangeString.bind(this);
         this._onKeyDown = this._handleKeyDown.bind(this);
         this._onFretboardClick = this._handleFretboardClick.bind(this);
+        this._onFretboardRelease = this._handleFretboardRelease.bind(this);
     }
 
     // ========================================================================
@@ -673,6 +674,7 @@ class TablatureEditor {
         this.tabCanvasEl.addEventListener('tab:changestring', this._onTabChangeString);
         if (this.fretboardCanvasEl) {
             this.fretboardCanvasEl.addEventListener('fretboard:click', this._onFretboardClick);
+            this.fretboardCanvasEl.addEventListener('fretboard:release', this._onFretboardRelease);
         }
         document.addEventListener('keydown', this._onKeyDown);
     }
@@ -686,6 +688,7 @@ class TablatureEditor {
         this.tabCanvasEl.removeEventListener('tab:changestring', this._onTabChangeString);
         if (this.fretboardCanvasEl) {
             this.fretboardCanvasEl.removeEventListener('fretboard:click', this._onFretboardClick);
+            this.fretboardCanvasEl.removeEventListener('fretboard:release', this._onFretboardRelease);
         }
         document.removeEventListener('keydown', this._onKeyDown);
     }
@@ -718,7 +721,12 @@ class TablatureEditor {
     _handleFretboardClick(e) {
         if (!this.modal.keyboardPlaybackEnabled) return;
         const midiNote = e.detail.midiNote;
-        this.modal.playNoteFeedback(midiNote, 100, this.channel);
+        this.modal.playNoteHold(midiNote, 100, this.channel);
+    }
+
+    _handleFretboardRelease(e) {
+        const midiNote = e.detail.midiNote;
+        this.modal.releaseNote(midiNote, this.channel);
     }
 
     _handleTabChangeString(e) {
