@@ -118,12 +118,14 @@ class LoopManagerModal extends BaseModal {
         this._liveSynth        = null;
         this._liveSearch       = '';
 
-        // ── Keyboard tab state (live performance alongside loops) ──
-        this._kbdSynth          = null;
-        this._kbdMounted        = false;
-        this._kbdEnvelopes      = new Map(); // note → [envelope, ...]
-        this._kbdActiveKeys     = new Set();
-        this._kbdInstrument     = 0;
+        // ── Keyboard tab feature (extracted to LoopManagerKeyboardFeature
+        // per audit §6.6). Owns its own state (synth, mounted, envelopes,
+        // activeKeys, instrument, isDrum). Public API used by this modal:
+        //   keyboard.enterTab(), keyboard.unmount(), keyboard.stopAllNotes(),
+        //   keyboard.mounted.
+        this.keyboard = typeof LoopManagerKeyboardFeature !== 'undefined'
+            ? new LoopManagerKeyboardFeature(this)
+            : null;
 
         // ── Playback timeline bar ──
         this._padPlayTimes      = new Map(); // padIndex → { startMs, durMs }
@@ -473,7 +475,7 @@ class LoopManagerModal extends BaseModal {
             case 'library':  this._filterAndRenderLibrary(); break;
             case 'pad':      this._renderPadGrid();           break;
             case 'live':     this._renderLiveArea();          break;
-            case 'keyboard': this._enterKeyboardTab();        break;
+            case 'keyboard': this.keyboard?.enterTab();        break;
             case 'arranger': this._initArrangerTab();         break;
         }
     }
@@ -509,8 +511,8 @@ class LoopManagerModal extends BaseModal {
     _toggleHeaderOutput() {
         // Pure mode switch: preview-synth ⇄ live-device. If no device has
         // been picked yet in the virtual piano, the per-tab routing
-        // gracefully falls back to the synth (see _kbdRoutingDevice and
-        // _getOutputTarget) — no upfront check needed.
+        // gracefully falls back to the synth (see keyboard._routingDevice
+        // and _getOutputTarget) — no upfront check needed.
         const next = this._globalOutput.mode === 'device' ? 'synth' : 'device';
         this._setGlobalOutput({ mode: next });
     }
@@ -523,7 +525,7 @@ class LoopManagerModal extends BaseModal {
             this._stopAllPads();
             this._liveStopAll();
             this._stopArrangerPlay();
-            this._kbdStopAllNotes();
+            this.keyboard?.stopAllNotes();
             this._panicCurrentDevice(prev);
             this._deviceShim = null; // rebuilt lazily
         }
@@ -593,8 +595,8 @@ class LoopManagerModal extends BaseModal {
         this._stopArrangerPlay();
         this._stopPlaybarRAF();
         this._closePadPicker();
-        this._kbdStopAllNotes();
-        if (this._kbdMounted) this._unmountKbdPanel();
+        this.keyboard?.stopAllNotes();
+        if (this.keyboard?.mounted) this.keyboard.unmount();
         // Coupe les timers/UI résiduels du Pad et de l'Arranger (AUDIT §L9, §L10).
         if (typeof this._padClearLongPress === 'function') this._padClearLongPress();
         this._hideDropPreview();
@@ -689,12 +691,12 @@ class LoopManagerModal extends BaseModal {
 
         // The embedded keyboard panel can only live in one host at a time, so
         // unmount it whenever the user leaves the Keyboard tab.
-        if (tab !== 'keyboard' && this._kbdMounted) this._unmountKbdPanel();
+        if (tab !== 'keyboard' && this.keyboard?.mounted) this.keyboard.unmount();
 
         if (tab === 'library')  this._filterAndRenderLibrary();
         if (tab === 'pad')      this._renderPadGrid();
         if (tab === 'live')     this._renderLiveArea();
-        if (tab === 'keyboard') this._enterKeyboardTab();
+        if (tab === 'keyboard') this.keyboard?.enterTab();
         if (tab === 'arranger') this._initArrangerTab();
     }
 
@@ -723,7 +725,7 @@ class LoopManagerModal extends BaseModal {
         const a = btn.dataset.action;
         switch (a) {
             // Global stop (header button)
-            case 'stop-all-playback': this._stopAllPads(); this._liveStopAll(); this._stopArrangerPlay(); this._kbdStopAllNotes(); break;
+            case 'stop-all-playback': this._stopAllPads(); this._liveStopAll(); this._stopArrangerPlay(); this.keyboard?.stopAllNotes(); break;
             case 'toggle-output':    this._toggleHeaderOutput(); break;
             // Library
             case 'new-loop':  this._loopEditor.open(); break;
@@ -3165,155 +3167,6 @@ class LoopManagerModal extends BaseModal {
         }
     }
 
-    // =========================================================
-    // KEYBOARD TAB — live performance alongside loops
-    // =========================================================
-
-    async _enterKeyboardTab() {
-        if (!this._kbdSynth) {
-            this._kbdSynth = await LoopUtils.createSynth({ initialProgram: this._kbdInstrument });
-        }
-        if (!this._kbdMounted) this._mountKbdPanel();
-    }
-
-    _mountKbdPanel() {
-        const container = this.$('#lm-kbd-panel');
-        if (!container || !window.keyboardModal) return;
-        if (window.keyboardModal._panelMode) {
-            // Editor (or another host) currently owns the keyboard panel —
-            // give them precedence; we'll mount on next tab activation.
-            return;
-        }
-        try {
-            window.keyboardModal.mountAsPanel(container, {
-                onNoteOn:  (note, vel) => this._kbdNoteOn(note, vel),
-                onNoteOff: (note)      => this._kbdNoteOff(note),
-                onInstrumentSelected: ({ deviceId, channel, gmProgram, instrumentType, isDrum: isDrumFromKbd }) => {
-                    // Cancel any sustained voice before switching instrument /
-                    // device so it doesn't keep ringing on the previous program.
-                    this._kbdStopAllNotes();
-                    this._kbdInstrument = gmProgram ?? 0;
-                    // Drum kit : on route sur le canal 9 (convention GM) sinon
-                    // le synth utilise le path mélodique → joue un piano.
-                    this._kbdIsDrum = isDrumFromKbd === true
-                        || instrumentType === 'drum'
-                        || channel === 9
-                        || (gmProgram != null && gmProgram >= 128);
-                    if (this._kbdSynth) {
-                        try {
-                            if (this._kbdIsDrum) {
-                                this._kbdSynth.setChannelInstrument(9, this._kbdInstrument);
-                                this._kbdSynth.loadDrumKit?.().catch(err =>
-                                    LoopUtils.handleError(err, 'kbd.synth.loadDrumKit'));
-                            } else {
-                                this._kbdSynth.setChannelInstrument(0, this._kbdInstrument);
-                                if (!this._kbdSynth.loadedInstruments?.has(this._kbdInstrument)) {
-                                    this._kbdSynth.loadInstrument(this._kbdInstrument).catch(err =>
-                                        LoopUtils.handleError(err, 'kbd.synth.loadInstrument'));
-                                }
-                            }
-                        } catch (err) { LoopUtils.handleError(err, 'kbd.synth.setChannelInstrument'); }
-                    }
-                    // The keyboard panel's instrument selector is the source of
-                    // truth for the global output device. The header toggle
-                    // then chooses preview-synth vs that device.
-                    if (deviceId) {
-                        this._setGlobalOutput({
-                            deviceId,
-                            channel: channel ?? 0,
-                            // Switching to a real instrument flips to device mode
-                            mode: 'device'
-                        });
-                    } else {
-                        // "Preview" or no device picked → keep deviceId so the
-                        // toggle can flip back later, but force synth mode.
-                        this._setGlobalOutput({ mode: 'synth' });
-                    }
-                }
-            });
-            this._kbdMounted = true;
-        } catch (err) {
-            LoopUtils.handleError(err, 'kbd.mount', {
-                toast: this.t('loopManager.errKbdMount')
-            });
-        }
-    }
-
-    _unmountKbdPanel() {
-        try { window.keyboardModal?.unmountPanel?.(); }
-        catch (err) { LoopUtils.handleError(err, 'kbd.unmount'); }
-        this._kbdMounted = false;
-        this._kbdStopAllNotes();
-    }
-
-    // The header toggle is the single source of truth for routing: when
-    // _globalOutput.mode === 'device' notes go to the picked device, otherwise
-    // they go to the local preview synth.
-    _kbdRoutingDevice() {
-        return this._globalOutput.mode === 'device' && this._globalOutput.deviceId
-            ? { deviceId: this._globalOutput.deviceId, channel: this._globalOutput.channel ?? 0 }
-            : null;
-    }
-
-    _kbdNoteOn(note, velocity = 80) {
-        if (this._kbdActiveKeys.has(note)) return;
-        this._kbdActiveKeys.add(note);
-        const route = this._kbdRoutingDevice();
-        if (route) {
-            this.api.sendCommand('midi_send_note', {
-                deviceId: route.deviceId, channel: route.channel,
-                note, velocity
-            }).catch(err => LoopUtils.handleError(err, 'kbd.live.noteOn'));
-            return;
-        }
-        if (!this._kbdSynth) return;
-        try {
-            // Canal 9 si le kit drum est sélectionné, sinon 0 (mélodique).
-            const ch = this._kbdIsDrum ? 9 : 0;
-            const env = this._kbdSynth.playNote(note, velocity, ch, 9999);
-            if (env) this._kbdEnvelopes.set(note, env);
-        } catch (err) {
-            LoopUtils.handleError(err, 'kbd.synth.playNote');
-        }
-    }
-
-    _kbdNoteOff(note) {
-        this._kbdActiveKeys.delete(note);
-        const route = this._kbdRoutingDevice();
-        if (route) {
-            this.api.sendCommand('midi_send_note', {
-                deviceId: route.deviceId, channel: route.channel,
-                note, velocity: 0
-            }).catch(err => LoopUtils.handleError(err, 'kbd.live.noteOff'));
-            return;
-        }
-        const env = this._kbdEnvelopes.get(note);
-        if (!env) return;
-        for (const e of env) {
-            try { e?.cancel?.(); }
-            catch (err) { LoopUtils.handleError(err, 'kbd.synth.cancel'); }
-        }
-        this._kbdEnvelopes.delete(note);
-    }
-
-    _kbdStopAllNotes() {
-        // Live device: send a note-off for every held note before clearing.
-        const route = this._kbdRoutingDevice();
-        if (route && this._kbdActiveKeys.size) {
-            for (const n of this._kbdActiveKeys) {
-                this.api.sendCommand('midi_send_note', {
-                    deviceId: route.deviceId, channel: route.channel,
-                    note: n, velocity: 0
-                }).catch(err => LoopUtils.handleError(err, 'kbd.live.flushNoteOff'));
-            }
-        }
-        // Synth: cancel any envelopes still ringing.
-        for (const env of this._kbdEnvelopes.values()) {
-            for (const e of env) { try { e?.cancel?.(); } catch (_) { /* best-effort */ } }
-        }
-        this._kbdEnvelopes.clear();
-        this._kbdActiveKeys.clear();
-    }
 
     // =========================================================
     // SHARED — FETCH LOOP DATA
