@@ -1,7 +1,7 @@
 // ============================================================================
 // KeyboardChords.js — Chord button system for string-instrument fretboard view
 // ============================================================================
-// Mixin for KeyboardModalNew. Provides:
+// Mixin for KeyboardModal. Provides:
 //   - 6 chord-type buttons (Maj / Min / 5 / 7 / Maj7 / m7)
 //   - Left-half click → strum grave→aigu  |  right-half click → strum aigu→grave
 //   - Click distance from centre → strum speed (5–25 ms per string)
@@ -45,7 +45,7 @@
     const NOTE_NAMES_EN = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const NOTE_NAMES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
 
-    // ── Per-instance state (patched onto KeyboardModalNew.prototype) ─────────
+    // ── Per-instance state (patched onto KeyboardModal.prototype) ─────────
     KeyboardChordsMixin.chordRoot = 0;          // semitone class 0–11 (0 = C)
     KeyboardChordsMixin._activeChordType = 'Maj'; // last chord type used (for voicing refresh)
     KeyboardChordsMixin._strumTimeouts = [];    // pending timeout handles

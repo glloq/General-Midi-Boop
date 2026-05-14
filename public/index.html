@@ -5311,8 +5311,6 @@
     <link rel="stylesheet" href="styles/bluetooth-scan-modal.css">
     <link rel="stylesheet" href="styles/network-scan-modal.css">
     <link rel="stylesheet" href="styles/keyboard.css">
-    <link rel="stylesheet" href="styles/keyboard-polish.css">
-    <link rel="stylesheet" href="styles/keyboard-modal.css">
     <link rel="stylesheet" href="styles/cc-pitchbend-editor.css">
     <link rel="stylesheet" href="styles/piano-roll-view.css">
     <link rel="stylesheet" href="styles/lyrics-view.css">
@@ -14036,7 +14034,7 @@
             }
 
             // 🆕 Initialiser la modal clavier MIDI après connexion WebSocket
-            if (typeof KeyboardModalNew !== 'undefined') {
+            if (typeof KeyboardModal !== 'undefined') {
                 // Créer un logger personnalisé qui utilise la fonction log() de l'application
                 const keyboardLogger = {
                     info: (msg) => log(msg, 'info'),
@@ -14051,11 +14049,11 @@
                     }
                 };
 
-                keyboardModal = new KeyboardModalNew(keyboardLogger, api);
+                keyboardModal = new KeyboardModal(keyboardLogger, api);
                 window.keyboardModal = keyboardModal;
                 log('✓ MIDI keyboard modal initialized', 'info');
             } else {
-                log('⚠️ KeyboardModalNew not available', 'warning');
+                log('⚠️ KeyboardModal not available', 'warning');
             }
 
             // 🆕 Initialiser la page de gestion des instruments

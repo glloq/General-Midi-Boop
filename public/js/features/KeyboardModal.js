@@ -3,7 +3,7 @@
 // Version: 1.1.0 - Support i18n
 // ============================================================================
 
-class KeyboardModalNew {
+class KeyboardModal {
     constructor(logger = null, eventBus = null) {
         this.backend = window.api;
         this.logger = logger || console;
@@ -872,7 +872,9 @@ class KeyboardModalNew {
         const dropdown = document.getElementById('instrument-dropdown');
         if (!dropdown) return;
 
-        dropdown.innerHTML = '';
+        // Build off-DOM with a DocumentFragment so we attach ~138 nodes
+        // in one paint, then swap children atomically.
+        const frag = document.createDocumentFragment();
 
         // "No selection" entry — spans full grid width
         const noneBtn = document.createElement('button');
@@ -883,8 +885,7 @@ class KeyboardModalNew {
             <div class="option-icon"><span class="option-emoji">🎵</span></div>
             <span class="option-name">— ${this.t('common.select')} —</span>
         `;
-        noneBtn.addEventListener('click', () => this._selectInstrumentOption(''));
-        dropdown.appendChild(noneBtn);
+        frag.appendChild(noneBtn);
 
         this.devices.forEach(device => {
             const deviceId = device.device_id || device.id;
@@ -918,9 +919,22 @@ class KeyboardModalNew {
                 <div class="option-icon">${imgHtml}</div>
                 <span class="option-name">${name}${chLabel}</span>
             `;
-            btn.addEventListener('click', () => this._selectInstrumentOption(rawValue));
-            dropdown.appendChild(btn);
+            frag.appendChild(btn);
         });
+
+        dropdown.replaceChildren(frag);
+
+        // Event delegation: a single listener on the container, instead of
+        // one per button. Survives re-builds and is cheap on listeners.
+        if (!this._dropdownDelegated) {
+            dropdown.addEventListener('click', (e) => {
+                const opt = e.target.closest('.instrument-option');
+                if (!opt || !dropdown.contains(opt)) return;
+                const rawValue = opt.dataset.deviceId ?? '';
+                this._selectInstrumentOption(rawValue);
+            });
+            this._dropdownDelegated = true;
+        }
     }
 
     _updateInstrumentTrigger() {
@@ -1131,31 +1145,31 @@ class KeyboardModalNew {
 
 // Apply mixins (loaded via <script> tags before this file)
 if (typeof KeyboardPianoMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardPianoMixin);
+    Object.assign(KeyboardModal.prototype, KeyboardPianoMixin);
 }
 if (typeof KeyboardEventsMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardEventsMixin);
+    Object.assign(KeyboardModal.prototype, KeyboardEventsMixin);
 }
 if (typeof KeyboardControlsMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardControlsMixin);
+    Object.assign(KeyboardModal.prototype, KeyboardControlsMixin);
 }
 if (typeof KeyboardChordsMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardChordsMixin);
+    Object.assign(KeyboardModal.prototype, KeyboardChordsMixin);
 }
 if (typeof KeyboardSliderMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardSliderMixin);
+    Object.assign(KeyboardModal.prototype, KeyboardSliderMixin);
 }
 if (typeof KeyboardListViewMixin !== 'undefined') {
-    Object.assign(KeyboardModalNew.prototype, KeyboardListViewMixin);
+    Object.assign(KeyboardModal.prototype, KeyboardListViewMixin);
 }
 if (typeof KeyboardWindMixin !== 'undefined') {
     // Capture the pre-wind playNote in a closure so the reference is immutable.
     // Using Object.defineProperty with writable:false prevents any instance from
     // accidentally shadowing _windOrigPlayNote with its own property, which would
     // silently break the articulation call chain.
-    const _prevPlayNote = KeyboardModalNew.prototype.playNote;
-    Object.assign(KeyboardModalNew.prototype, KeyboardWindMixin);
-    Object.defineProperty(KeyboardModalNew.prototype, '_windOrigPlayNote', {
+    const _prevPlayNote = KeyboardModal.prototype.playNote;
+    Object.assign(KeyboardModal.prototype, KeyboardWindMixin);
+    Object.defineProperty(KeyboardModal.prototype, '_windOrigPlayNote', {
         value: _prevPlayNote,
         writable: false,
         configurable: false,

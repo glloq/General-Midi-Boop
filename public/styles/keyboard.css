@@ -1,4 +1,11 @@
 /* ============================================================================
+ * keyboard.css — unified keyboard modal styles
+ * Merged from keyboard.css + keyboard-polish.css + keyboard-modal.css (2026-05-14)
+ * Cascade order preserved: base → polish → modal.
+ * ============================================================================ */
+
+/* ─── BASE (was keyboard.css) ─────────────────────────────────────────────── */
+/* ============================================================================
    Fichier: frontend/styles/keyboard-styles.css (à ajouter à components.css)
    Version: v3.1.0 - KEYBOARD MONITOR MODE
    Date: 2025-10-16
@@ -336,4 +343,3834 @@ body.dark-mode .stat-label {
 
 body.dark-mode .info-banner.warning {
     background: rgba(255, 217, 61, 0.05);
+}
+
+/* ─── POLISH (was keyboard-polish.css) ────────────────────────────────────── */
+/* ============================================================================
+ * Fichier: frontend/styles/keyboard-polish.css
+ * Version: 1.0.0
+ * Date: 2025-10-10
+ * Auteur: GeneralMidiBoop Team
+ * ============================================================================
+ * Styles pour les améliorations Phase 2 & 3 du clavier virtuel
+ * - Animations fluides
+ * - Indicateurs temps réel
+ * - Modal d'aide raccourcis
+ * - Feedback visuel amélioré
+ * ============================================================================
+ */
+
+/* ========================================================================
+ * HEADER AMÉLIORÉ - Structure en 2 lignes
+ * ======================================================================== */
+
+.keyboard-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px 12px 0 0;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.header-main {
+    flex-wrap: nowrap;
+}
+
+.header-controls {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 6px 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+}
+
+/* ========================================================================
+ * SÉLECTEUR D'INSTRUMENT AMÉLIORÉ
+ * ======================================================================== */
+
+.instrument-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 300px;
+}
+
+.instrument-selector label {
+    font-weight: 600;
+    font-size: 16px;
+    white-space: nowrap;
+}
+
+.instrument-dropdown {
+    flex: 1;
+    padding: 6px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #2c3e50;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.instrument-dropdown:hover {
+    border-color: rgba(255, 255, 255, 0.6);
+    background: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.instrument-dropdown:focus:not(:focus-visible) {
+    outline: none;
+    border-color: white;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.instrument-dropdown.loading {
+    opacity: 0.6;
+    pointer-events: none;
+    animation: pulse 1s infinite;
+}
+
+.instrument-info {
+    font-size: 13px;
+    opacity: 0.9;
+    white-space: nowrap;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+/* ========================================================================
+ * INDICATEURS DE STATUT TEMPS RÉEL
+ * ======================================================================== */
+
+.keyboard-status-realtime {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    font-size: 14px;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.status-item .status-icon {
+    font-size: 18px;
+}
+
+.status-item .status-label {
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.status-item .status-value {
+    font-size: 18px;
+    font-weight: 700;
+    min-width: 24px;
+    text-align: center;
+}
+
+/* Animation quand des notes sont actives */
+.status-item.has-active-notes {
+    background: rgba(255, 255, 255, 0.25);
+    animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.2);
+    }
+}
+
+.status-item.sustain-active {
+    background: rgba(255, 215, 0, 0.3);
+    border: 2px solid rgba(255, 215, 0, 0.5);
+    font-weight: 600;
+}
+
+/* ========================================================================
+ * CONTRÔLE DE VÉLOCITÉ AMÉLIORÉ
+ * ======================================================================== */
+
+.velocity-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.velocity-control label {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.velocity-display {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+}
+
+.velocity-value {
+    font-size: 20px;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: right;
+    transition: color 0.3s ease;
+}
+
+.velocity-max {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.velocity-slider {
+    width: 120px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    outline: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.velocity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.velocity-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.velocity-slider::-webkit-slider-thumb:active {
+    transform: scale(1.1);
+}
+
+.velocity-label {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+/* ========================================================================
+ * CONTRÔLES D'OCTAVES AMÉLIORÉS
+ * ======================================================================== */
+
+.octave-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-octave {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-octave:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-octave:active {
+    transform: translateY(0);
+}
+
+.octave-display-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.octave-label {
+    font-size: 11px;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.octave-display {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* ========================================================================
+ * BOUTON SPEAKER AMÉLIORÉ
+ * ======================================================================== */
+
+.speaker-mode {
+    display: flex;
+    align-items: center;
+}
+
+.btn-speaker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 25px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.btn-speaker:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.btn-speaker.active {
+    background: rgba(76, 175, 80, 0.8);
+    border-color: rgba(76, 175, 80, 1);
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+}
+
+.btn-speaker .speaker-icon {
+    font-size: 20px;
+}
+
+/* ========================================================================
+ * BOUTON AIDE
+ * ======================================================================== */
+
+.keyboard-help-btn {
+    display: flex;
+    align-items: center;
+}
+
+.btn-help {
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-help:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================================================
+ * ANIMATIONS DES TOUCHES
+ * ======================================================================== */
+
+.piano-key,
+.drum-pad,
+.scale-pad {
+    transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.piano-key:hover:not(.disabled),
+.drum-pad:hover:not(.disabled),
+.scale-pad:hover:not(.disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.piano-key.active,
+.drum-pad.active,
+.scale-pad.active {
+    transform: scale(0.98) !important;
+    box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.4) !important;
+    animation: key-press 0.15s ease-out;
+}
+
+@keyframes key-press {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.96);
+    }
+    100% {
+        transform: scale(0.98);
+    }
+}
+
+/* ========================================================================
+ * MODAL D'AIDE RACCOURCIS
+ * ======================================================================== */
+
+.keyboard-shortcuts-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.shortcuts-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+}
+
+.shortcuts-content {
+    position: relative;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: auto;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.shortcuts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+}
+
+.shortcuts-header h3 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.btn-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 24px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.shortcuts-body {
+    padding: 14px;
+}
+
+.shortcuts-category {
+    margin-bottom: 14px;
+}
+
+.shortcuts-category:last-child {
+    margin-bottom: 0;
+}
+
+.shortcuts-category h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    color: #667eea;
+    font-weight: 700;
+}
+
+.shortcuts-category ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.shortcuts-category li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.shortcuts-category li:last-child {
+    border-bottom: none;
+}
+
+.shortcuts-category kbd {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-width: 120px;
+    text-align: center;
+}
+
+.shortcuts-category span {
+    flex: 1;
+    margin-left: 20px;
+    color: #555;
+    font-size: 14px;
+}
+
+.shortcuts-footer {
+    padding: 15px 25px;
+    background: #f8f9fa;
+    border-radius: 0 0 12px 12px;
+    text-align: center;
+}
+
+.shortcuts-footer p {
+    margin: 0;
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* ========================================================================
+ * ANIMATIONS GLOBALES
+ * ======================================================================== */
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* ========================================================================
+ * RESPONSIVE
+ * ======================================================================== */
+
+@media (max-width: 768px) {
+    .keyboard-header {
+        padding: 15px;
+    }
+    
+    .header-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .instrument-selector {
+        min-width: 100%;
+    }
+    
+    .velocity-slider {
+        width: 100px;
+    }
+    
+    .shortcuts-content {
+        width: 95%;
+        max-height: 90vh;
+    }
+    
+    .shortcuts-category li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .shortcuts-category span {
+        margin-left: 0;
+    }
+}
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .keyboard-header {
+    background: linear-gradient(135deg, #4a5a9e 0%, #5a3a7a 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .header-controls {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .instrument-dropdown {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .instrument-dropdown:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-secondary);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .instrument-dropdown:focus:not(:focus-visible) {
+    border-color: var(--text-secondary);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .instrument-info {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .status-item {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .status-item.has-active-notes {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+body.dark-mode .status-item.sustain-active {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: rgba(255, 215, 0, 0.4);
+}
+
+body.dark-mode .velocity-label {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .octave-display-wrapper {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .btn-octave {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-octave:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+body.dark-mode .btn-speaker {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-speaker:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-help {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .btn-help:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .shortcuts-content {
+    background: var(--card-bg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-mode .shortcuts-header {
+    background: linear-gradient(135deg, #4a5a9e 0%, #5a3a7a 100%);
+}
+
+body.dark-mode .shortcuts-body {
+    background: var(--card-bg);
+}
+
+body.dark-mode .shortcuts-category h4 {
+    color: #8a9bef;
+}
+
+body.dark-mode .shortcuts-category li {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .shortcuts-category span {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .shortcuts-footer {
+    background: var(--bg-primary);
+}
+
+body.dark-mode .shortcuts-footer p {
+    color: #8a9bef;
+}
+
+body.dark-mode .shortcuts-overlay {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* ============================================================================
+ * FIN DU FICHIER keyboard-polish.css
+ * ============================================================================
+ */
+
+/* ─── MODAL (was keyboard-modal.css) ──────────────────────────────────────── */
+/* ============================================================================
+   Fichier: frontend/styles/keyboard-modal.css
+   Version: v1.1.0
+   Date: 2025-11-16
+   ============================================================================
+   Styles pour la modal du clavier MIDI virtuel
+   ============================================================================ */
+
+/* ============================================================================
+   MODAL OVERLAY
+   ============================================================================ */
+
+.keyboard-modal {
+    display: flex !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ============================================================================
+   MODAL DIALOG
+   ============================================================================ */
+
+.keyboard-modal .modal-dialog {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    /* Fill available viewport height so the fretboard / piano / drum-pad
+       can use all the vertical space. The flex chain below distributes this
+       height to the keyboard canvas. */
+    height: 90vh;
+    max-height: 90vh;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px) scale(0.97);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* ============================================================================
+   MODAL HEADER - Contains title + instrument/octave/layout controls
+   ============================================================================ */
+
+.keyboard-modal .modal-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 20px 0 0 !important;
+    margin: 0 !important;
+    border-bottom: none;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-radius: 12px 12px 0 0;
+    position: relative !important;
+    gap: 16px;
+    flex-shrink: 0;
+    min-height: 68px;
+}
+
+/* ============================================================================
+   INSTRUMENT SELECTOR PANEL — flush left, full header height
+   ============================================================================ */
+
+.header-instrument-selector {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.instrument-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px 0 0 0;
+    cursor: pointer;
+    color: white;
+    height: 100%;
+    min-width: 180px;
+    max-width: 260px;
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.instrument-trigger:hover,
+.header-instrument-selector.open .instrument-trigger {
+    background: rgba(0, 0, 0, 0.32);
+}
+
+.instrument-trigger-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.instrument-trigger-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.instrument-trigger-emoji {
+    font-size: 26px;
+    line-height: 1;
+}
+
+.instrument-trigger-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: white;
+}
+
+.trigger-chevron {
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.7);
+    transition: transform 0.2s;
+}
+
+.header-instrument-selector.open .trigger-chevron {
+    transform: rotate(180deg);
+}
+
+/* Custom dropdown list */
+.instrument-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10001;
+    background: #16271f;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    min-width: 320px;
+    max-height: 380px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.instrument-dropdown.open {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+    gap: 2px;
+    padding: 8px;
+}
+
+/* Override legacy keyboard-polish.css .instrument-dropdown:hover that makes the container white */
+.keyboard-modal .instrument-dropdown,
+.keyboard-modal .instrument-dropdown:hover,
+.keyboard-modal .instrument-dropdown:focus {
+    background: #16271f !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    transform: none !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+    color: inherit !important;
+    padding: 0 !important;
+}
+
+.instrument-dropdown::-webkit-scrollbar { width: 6px; }
+.instrument-dropdown::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+.instrument-dropdown::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+
+/* Base item: icon on top, name below */
+.instrument-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    padding: 8px 6px 7px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    text-align: center;
+    font-size: 11px;
+    transition: background 0.1s;
+}
+
+.instrument-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+}
+
+.instrument-option.selected {
+    background: rgba(16, 185, 129, 0.25);
+    color: white;
+    outline: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+/* "— Select —" row spans full width, horizontal layout */
+.instrument-option.option-none {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    text-align: left;
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 4px;
+    gap: 8px;
+}
+
+.option-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* none-row icon smaller */
+.instrument-option.option-none .option-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.option-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.option-emoji {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.instrument-option.option-none .option-emoji {
+    font-size: 16px;
+}
+
+.option-name {
+    width: 100%;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    line-height: 1.3;
+}
+
+.instrument-option.option-none .option-name {
+    flex: 1;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+}
+
+.option-ch {
+    opacity: 0.55;
+    font-size: 10px;
+    display: block;
+}
+
+.keyboard-header-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+    min-width: 0;
+}
+
+.keyboard-modal .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.keyboard-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.keyboard-header-controls .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.keyboard-header-controls .control-group label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.keyboard-header-controls .device-select,
+.keyboard-header-controls .layout-select,
+.keyboard-header-controls .octaves-count-select,
+.keyboard-header-controls .notation-select {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1f2937;
+    background: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    min-width: 160px;
+}
+
+.keyboard-header-controls .notation-select {
+    min-width: 110px;
+}
+
+/* Latency display in header */
+.keyboard-header-controls .latency-display {
+    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 70px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.keyboard-header-controls .latency-display.latency-empty {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Notation toggle (US / FR / MIDI radio-style buttons) */
+.keyboard-header-controls .notation-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+}
+.keyboard-header-controls .notation-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background-color 0.15s, color 0.15s;
+}
+.keyboard-header-controls .notation-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+}
+.keyboard-header-controls .notation-btn.active {
+    background: white;
+    color: #047857;
+}
+.keyboard-header-controls .notation-sep {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+    font-size: 12px;
+    user-select: none;
+}
+
+/* View-mode toggle button */
+.keyboard-header-controls .btn-view-toggle {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.keyboard-header-controls .btn-view-toggle:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+/* Note-color toggle button (fretboard/tablature mode only) */
+.keyboard-header-controls .btn-note-colors {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+.keyboard-header-controls .btn-note-colors:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+.keyboard-header-controls .btn-note-colors.active {
+    background: white;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.hidden { display: none !important; }
+
+.keyboard-header-controls .octaves-count-select {
+    min-width: 60px;
+    text-align: center;
+}
+
+.keyboard-header-controls .octaves-count-group,
+.keyboard-header-controls .note-color-group {
+    margin-left: auto;
+}
+
+.keyboard-header-controls .device-select:hover,
+.keyboard-header-controls .layout-select:hover,
+.keyboard-header-controls .octaves-count-select:hover,
+.keyboard-header-controls .notation-select:hover {
+    border-color: rgba(255, 255, 255, 0.6);
+    background: white;
+}
+
+.keyboard-header-controls .device-select:focus,
+.keyboard-header-controls .layout-select:focus,
+.keyboard-header-controls .octaves-count-select:focus,
+.keyboard-header-controls .notation-select:focus {
+    outline: none;
+    border-color: white;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .octave-controls {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px;
+}
+
+.keyboard-header-controls .btn-octave-down,
+.keyboard-header-controls .btn-octave-up {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.15s, transform 0.15s, opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.keyboard-header-controls .btn-octave-down:hover,
+.keyboard-header-controls .btn-octave-up:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.keyboard-header-controls .octave-display {
+    text-align: center;
+    font-weight: 600;
+    color: white;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 5px 10px;
+    border-radius: 6px;
+    min-width: 70px;
+}
+
+/* .keyboard-modal .modal-close — styled by universal close button rule in components.css */
+
+/* ============================================================================
+   MODAL BODY
+   ============================================================================ */
+
+.keyboard-modal .modal-body {
+    padding: 0 !important;
+    background: white;
+    overflow: hidden !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+}
+
+/* Container du clavier */
+#keyboard-modal-view {
+    background: white;
+    border-radius: 12px;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+#keyboard-modal-container {
+    min-height: 400px;
+    background: white;
+}
+
+/* ============================================================================
+   KEYBOARD VIEW STYLES
+   ============================================================================ */
+
+.keyboard-view {
+    background: white;
+    padding: 0;
+}
+
+/* Layout principal avec slider vélocité à gauche */
+.keyboard-layout {
+    display: flex;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Slider panels - dark synth theme */
+.velocity-control-vertical {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(to bottom, #1a1a2e, #12121e);
+    padding: 20px 12px;
+    border-right: 1px solid #333;
+    min-width: 80px;
+}
+
+.velocity-label-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+}
+
+.velocity-slider-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+}
+
+/* Velocity fader - hardware synth style */
+.velocity-slider-vertical {
+    -webkit-appearance: slider-vertical;
+    width: 14px;
+    height: 100%;
+    min-height: 200px;
+    writing-mode: bt-lr;
+    background: #0a0a14;
+    border-radius: 7px;
+    outline: none;
+    cursor: pointer;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.velocity-slider-vertical::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 36px;
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(to bottom, #e0e0e0, #a0a0a0);
+    border: 1px solid #666;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    cursor: grab;
+    transition: box-shadow 0.2s;
+}
+
+.velocity-slider-vertical::-webkit-slider-thumb:hover {
+    background: linear-gradient(to bottom, #f0f0f0, #b0b0b0);
+    box-shadow: 0 1px 6px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.velocity-slider-vertical::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    box-shadow: 0 1px 8px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.velocity-slider-vertical::-moz-range-thumb {
+    width: 36px;
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(to bottom, #e0e0e0, #a0a0a0);
+    border: 1px solid #666;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    cursor: grab;
+}
+
+.velocity-slider-vertical::-moz-range-track {
+    width: 14px;
+    background: #0a0a14;
+    border-radius: 7px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* LED-style value display */
+.velocity-value-vertical {
+    margin-top: 12px;
+    padding: 6px 10px;
+    background: #0a0a14;
+    border: 1px solid #333;
+    border-radius: 6px;
+    font-weight: 700;
+    color: #10b981;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    text-align: center;
+    min-width: 50px;
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Modulation panel */
+.modulation-control-vertical {
+    border-right: 1px solid #333;
+}
+
+/* Modulation LED display - blue */
+.modulation-value-vertical {
+    color: #3b82f6 !important;
+    border-color: #333 !important;
+    text-shadow: 0 0 8px rgba(59, 130, 246, 0.5) !important;
+}
+
+/* ===== Custom Mod Wheel ===== */
+.mod-wheel-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    padding: 10px 0;
+}
+
+.mod-wheel-track {
+    position: relative;
+    width: 40px;
+    height: 100%;
+    min-height: 180px;
+    background: linear-gradient(to right, #0a0a18, #14142a, #0a0a18);
+    border-radius: 6px;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+}
+
+.mod-wheel-center-line {
+    position: absolute;
+    top: 50%;
+    left: 15%;
+    right: 15%;
+    height: 2px;
+    background: rgba(59, 130, 246, 0.35);
+    transform: translateY(-50%);
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.15);
+}
+
+.mod-wheel-fill {
+    position: absolute;
+    left: 20%;
+    right: 20%;
+    background: linear-gradient(to top, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.4));
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.mod-wheel-fill.returning {
+    transition: top 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                height 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.mod-wheel-thumb {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 16px;
+    background: linear-gradient(to bottom, #d0d0e0, #808098, #d0d0e0);
+    border: 1px solid #555;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    cursor: grab;
+    z-index: 2;
+}
+
+.mod-wheel-thumb::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.3);
+    transform: translateY(-50%);
+}
+
+.mod-wheel-thumb.dragging {
+    cursor: grabbing;
+    background: linear-gradient(to bottom, #dce0f0, #9098b8, #dce0f0);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.mod-wheel-thumb.returning {
+    transition: top 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Show/hide animation for slider panels */
+.velocity-control-vertical,
+.modulation-control-vertical,
+.pitch-bend-control-vertical {
+    transition: min-width 0.25s ease, padding 0.25s ease, opacity 0.2s ease, border-width 0.25s ease;
+    overflow: hidden;
+}
+
+.slider-hidden {
+    min-width: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    opacity: 0;
+    border-right-width: 0 !important;
+    pointer-events: none;
+}
+
+/* Disable the open transition so the modulation panel doesn't briefly
+   flash visible before being hidden when no instrument exposes CC#1. */
+.keyboard-modal .velocity-control-vertical.no-transition,
+.keyboard-modal .modulation-control-vertical.no-transition,
+.keyboard-modal .pitch-bend-control-vertical.no-transition {
+    transition: none !important;
+}
+
+/* Zone principale du clavier */
+.keyboard-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Piano Container (DIVs) */
+.keyboard-canvas-container {
+    flex: 1;
+    background: white;
+    padding: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+}
+
+.piano-container {
+    flex: 1;
+    position: relative;
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    background: #2c2c2c;
+    border-radius: 8px;
+    padding: 10px 10px 0 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Help bar below keyboard */
+.keyboard-help-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+/* Touches du piano */
+.piano-key {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.05s ease, transform 0.05s ease, opacity 0.05s ease, box-shadow 0.05s ease, border-color 0.05s ease;
+    border-radius: 0 0 4px 4px;
+}
+
+.white-key {
+    flex: 1;
+    background: linear-gradient(to bottom, #d4d4d4 0%, #ffffff 100%);
+    border: 1px solid #333;
+    border-radius: 0 0 4px 4px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.white-key:hover {
+    background: linear-gradient(to bottom, #c4c4c4 0%, #f0f0f0 100%);
+}
+
+.white-key.active {
+    background: linear-gradient(to bottom, #059669 0%, #10b981 100%) !important;
+    border-color: #047857;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.black-key {
+    position: absolute;
+    height: 65%;
+    background: linear-gradient(to bottom, #111111 0%, #3a3a3a 100%);
+    border: 1px solid #000;
+    border-radius: 0 0 3px 3px;
+    z-index: 10;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+    box-sizing: border-box;
+}
+
+.black-key:hover {
+    background: linear-gradient(to bottom, #1c1c1c 0%, #4a4a4a 100%);
+}
+
+.black-key.active {
+    background: linear-gradient(to bottom, #047857 0%, #059669 100%) !important;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Touches désactivées (hors plage de l'instrument) */
+.white-key.disabled {
+    background: linear-gradient(to bottom, #9ca3af 0%, #d1d5db 100%);
+    border-color: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.white-key.disabled:hover {
+    background: linear-gradient(to bottom, #9ca3af 0%, #d1d5db 100%);
+}
+
+.black-key.disabled {
+    background: linear-gradient(to bottom, #374151 0%, #4b5563 100%);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.black-key.disabled:hover {
+    background: linear-gradient(to bottom, #374151 0%, #4b5563 100%);
+}
+
+.white-key.disabled .key-label,
+.black-key.disabled .key-label {
+    color: #9ca3af;
+}
+
+.key-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    pointer-events: none;
+}
+
+.white-key.active .key-label {
+    color: white;
+}
+
+/* ---- Pastilles de couleur sur les touches du piano ---- */
+.note-color-dot {
+    display: none;
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    border: 1.5px solid rgba(0, 0, 0, 0.18);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.white-key .note-color-dot {
+    width: 20px;
+    height: 20px;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.black-key .note-color-dot {
+    width: 9px;
+    height: 9px;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+/* Quand la touche est active, la pastille se met en valeur avec un contour blanc */
+.white-key.active .note-color-dot {
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+.black-key.active .note-color-dot {
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+}
+.note-dot-label {
+    font-size: 7px;
+    font-weight: 700;
+    pointer-events: none;
+    line-height: 1;
+    user-select: none;
+}
+
+/* Old canvas styles (kept for backward compatibility) */
+.keyboard-canvas {
+    display: block;
+    width: 100%;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+}
+
+/* Info label and value */
+.info-label {
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.info-value {
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ============================================================================
+   MINIMAP NAVIGATION ROW
+   ============================================================================ */
+
+.keyboard-minimap-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: linear-gradient(to bottom, #f3f4f6, #e5e7eb);
+    border-bottom: 1px solid #d1d5db;
+    flex-shrink: 0;
+}
+
+.keyboard-minimap-row .minimap-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.keyboard-minimap-row .btn-octave-up,
+.keyboard-minimap-row .btn-octave-down,
+.keyboard-minimap-row .btn-zoom {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+    cursor: pointer;
+    line-height: 1;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.keyboard-minimap-row .btn-octave-up:hover,
+.keyboard-minimap-row .btn-octave-down:hover,
+.keyboard-minimap-row .btn-zoom:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.keyboard-minimap-row .octave-display {
+    background: white;
+    border: 1px solid #d1d5db;
+    color: #1f2937;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 100px;
+    text-align: center;
+}
+
+.minimap-wrapper {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    cursor: pointer;
+}
+
+.minimap-track {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #2c2c2c;
+    border-radius: 4px;
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    user-select: none;
+    padding: 1px;
+    box-sizing: border-box;
+}
+
+/* Piano keyboard rendered as the minimap background */
+.minimap-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.minimap-whites {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+.minimap-wkey {
+    flex: 1;
+    background: linear-gradient(to bottom, #ffffff, #e5e7eb);
+    border-right: 1px solid rgba(0, 0, 0, 0.35);
+    transition: background 0.15s, opacity 0.15s;
+}
+.minimap-wkey:last-child { border-right: none; }
+.minimap-wkey.octave-c {
+    border-right-color: rgba(0, 0, 0, 0.6);
+}
+.minimap-wkey.disabled {
+    background: linear-gradient(to bottom, #6b7280, #4b5563);
+    opacity: 0.55;
+}
+.minimap-bkey {
+    position: absolute;
+    top: 0;
+    height: 60%;
+    background: linear-gradient(to bottom, #1f1f1f, #0f0f0f);
+    border-radius: 0 0 2px 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    transition: background 0.15s, opacity 0.15s;
+}
+.minimap-bkey.disabled {
+    background: linear-gradient(to bottom, #4b5563, #374151);
+    opacity: 0.55;
+}
+
+.minimap-viewport {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(16, 185, 129, 0.28);
+    border: 2px solid #10b981;
+    border-radius: 3px;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.6), inset 0 0 8px rgba(16, 185, 129, 0.25);
+    pointer-events: none;
+    transition: left 0.1s ease, width 0.1s ease;
+    z-index: 2;
+}
+
+/* ============================================================================
+   OCTAVE BAR (below the keyboard)
+   ============================================================================ */
+
+.octave-bar {
+    position: relative;
+    height: 22px;
+    background: #1f2937;
+    border-top: 1px solid #374151;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.octave-bar.hidden { display: none; }
+
+.octave-separator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.6));
+    pointer-events: none;
+}
+
+.octave-label {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+/* ============================================================================
+   FRETBOARD VIEW
+   ============================================================================ */
+
+.fretboard-container {
+    flex: 1;
+    width: 100%;
+    background: linear-gradient(to bottom, #6b3e1a 0%, #4a2912 100%);
+    border-radius: 8px;
+    padding: 12px 8px;
+    overflow: hidden;
+    box-sizing: border-box;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    /* Cluster the strings vertically so the fretboard stays a reasonable
+       block height (capped per-row) instead of stretching to fill the modal. */
+    justify-content: center;
+    min-height: 0;
+}
+
+.fretboard-container.hidden { display: none; }
+
+.fretboard-container .fret-header,
+.fretboard-container .fret-string {
+    display: grid;
+    /* grid-template-columns is set inline at render time using realistic
+       equal-tempered fret spacing (open-string column + computed widths). */
+    gap: 0;
+    align-items: stretch;
+}
+
+.fretboard-container .fret-header {
+    height: 22px;
+    flex-shrink: 0;
+    margin-bottom: 6px;
+}
+
+/* Each string row fills the remaining height up to a cap so the fretboard
+   adapts to any number of strings without becoming unwieldy on harp-like
+   instruments (47 strings). Cap raised so a typical 4–7 string instrument
+   uses the full modal height. */
+.fretboard-container .fret-string {
+    flex: 1;
+    min-height: 22px;
+    max-height: 90px;
+}
+
+.fretboard-container .fret-number {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    font-weight: 600;
+    border-right: 1px solid rgba(0, 0, 0, 0.3);
+    padding: 2px 0;
+}
+.fretboard-container .fret-number.nut {
+    border-right: 3px solid #d1d5db;
+    color: #fff;
+}
+.fretboard-container .fret-number.inlay::after {
+    content: '•';
+    display: block;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+}
+.fretboard-container .fret-number.inlay-double::after {
+    content: '••';
+    display: block;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 12px;
+}
+
+/* Visual string: single white horizontal line through the middle of the row. */
+.fretboard-container .fret-string {
+    border-top: 1px solid rgba(0, 0, 0, 0.4);
+    background:
+        linear-gradient(
+            to bottom,
+            transparent calc(50% - 1px),
+            rgba(220, 220, 220, 0.85) calc(50% - 1px),
+            rgba(220, 220, 220, 0.85) calc(50% + 1px),
+            transparent calc(50% + 1px)
+        );
+    position: relative; /* needed so string-vibe is positioned inside this row */
+}
+
+
+
+.fretboard-container .fret-cell {
+    position: relative;
+    border-right: 1px solid rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fretboard-container .fret-cell.fret-open {
+    border-right: 3px solid #d1d5db;
+}
+/* Dead zone: fret doesn't exist on this string (per-string fret count). */
+.fretboard-container .fret-cell.fret-dead {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(0, 0, 0, 0.18) 0px,
+        rgba(0, 0, 0, 0.18) 3px,
+        transparent 3px,
+        transparent 8px
+    );
+    border-right-color: rgba(0, 0, 0, 0.15);
+    cursor: default;
+    pointer-events: none;
+}
+/* Fretless variant: hide the fret divider lines but keep the nut. */
+.fretboard-container.fretless .fret-cell {
+    border-right-color: transparent;
+}
+.fretboard-container.fretless .fret-cell.fret-open {
+    border-right: 3px solid #d1d5db;
+}
+.fretboard-container.fretless .fret-number:not(.nut)::before {
+    content: '';
+}
+
+.fretboard-container .fret-dot {
+    /* Scale the dot to roughly fit the row height; capped so it doesn't
+       grow ridiculous when there are only a few strings. */
+    height: min(80%, 32px);
+    aspect-ratio: 1;
+    max-width: 90%;
+    border-radius: 50%;
+    background: linear-gradient(to bottom, #f5f5f5, #c8c8c8);
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transition: transform 0.05s, background 0.05s;
+}
+.fretboard-container .fret-dot:hover {
+    background: linear-gradient(to bottom, #ffffff, #d8d8d8);
+}
+
+/* Active fret dot — very visible: scale up + multi-layer glow + pulse */
+@keyframes fret-active-pulse {
+    from { box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.55), 0 0 14px rgba(52, 211, 153, 0.75); }
+    to   { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.20), 0 0 28px rgba(52, 211, 153, 1.00); }
+}
+@keyframes fret-active-pulse-colored {
+    from { box-shadow: 0 0 0 3px rgba(255,255,255,0.45), 0 0 14px var(--dot-color, #34d399); }
+    to   { box-shadow: 0 0 0 7px rgba(255,255,255,0.15), 0 0 30px var(--dot-color, #34d399); }
+}
+
+.fretboard-container .fret-dot.active {
+    background: linear-gradient(135deg, #34d399, #059669);
+    border: 2px solid #fff;
+    transform: scale(1.55);
+    z-index: 5;
+    animation: fret-active-pulse 0.7s ease-in-out infinite alternate;
+}
+.fretboard-container .fret-dot.note-colored:hover {
+    filter: brightness(1.12);
+}
+/* Note-colored active: keep the note color, use white ring + colored glow */
+.fretboard-container .fret-dot.note-colored.active {
+    background: inherit;
+    border: 2px solid #fff;
+    filter: brightness(1.25) saturate(1.1);
+    transform: scale(1.55);
+    z-index: 5;
+    animation: fret-active-pulse-colored 0.7s ease-in-out infinite alternate;
+}
+.fretboard-container .fret-dot.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.fretboard-container .fret-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #1f2937;
+    pointer-events: none;
+}
+
+/* Active string row: subtle white shimmer around the string line */
+.fretboard-container .fret-string.string-active {
+    background: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.10) calc(50% - 3px),
+        rgba(220, 220, 220, 0.95) calc(50% - 1px),
+        rgba(220, 220, 220, 0.95) calc(50% + 1px),
+        rgba(255, 255, 255, 0.10) calc(50% + 3px),
+        rgba(255, 255, 255, 0.05) 100%
+    );
+}
+
+/* String-vibe overlay: right of the active fret, 6px with shimmer animation */
+@keyframes string-shimmer {
+    0%   { opacity: 1;    }
+    40%  { opacity: 0.70; }
+    100% { opacity: 1;    }
+}
+.fretboard-container .string-vibe {
+    display: none;
+    position: absolute;
+    top: calc(50% - 3px);
+    height: 6px;
+    pointer-events: none;
+    z-index: 2;
+    border-radius: 3px;
+    animation: string-shimmer 0.45s ease-in-out infinite;
+}
+
+/* ============================================================================
+   STRING SLIDE SYSTEM — travel zone + finger dot (fretboard view)
+   ============================================================================ */
+
+/* Blue translucent band spanning fret 1 → last fret of the string */
+.fretboard-container .fret-slide-zone {
+    display: none;
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    background: rgba(59, 130, 246, 0.13);
+    border: 1.5px solid rgba(59, 130, 246, 0.62);
+    border-radius: 5px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* White dot = finger in transit; turns blue when string-active (pressing) */
+.fretboard-container .fret-slide-finger {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    border: 2px solid rgba(59, 130, 246, 0.85);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 4;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+    transition: left 0.09s ease, background-color 0.08s ease, box-shadow 0.08s ease;
+}
+
+.fretboard-container .fret-string.string-active .fret-slide-finger {
+    background: rgb(59, 130, 246);
+    box-shadow: 0 0 6px 2px rgba(59, 130, 246, 0.55);
+}
+
+/* ============================================================================
+   FRETBOARD STRINGS AREA (wrapper introduced for chord-bar layout)
+   ============================================================================ */
+
+.fretboard-strings-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: 0;
+    overflow: hidden;
+    /* positioning context for hand coverage overlay */
+    position: relative;
+}
+
+/* ============================================================================
+   HAND POSITION WIDGET  (above fretboard strings)
+   ============================================================================ */
+
+.fretboard-hand-widget {
+    flex-shrink: 0;
+    height: 60px;
+    display: flex;
+    background: linear-gradient(to bottom, #7a4e20, #5a3010);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    margin-bottom: 4px;
+    border-radius: 4px 4px 0 0;
+    overflow: visible;  /* allow finger stubs to bleed into string rows */
+    position: relative;
+}
+
+.hand-nut-gap {
+    width: 48px;
+    flex-shrink: 0;
+    border-right: 3px solid #d1d5db;
+}
+
+.hand-frets-area {
+    flex: 1;
+    position: relative;
+    overflow: visible;
+}
+
+.hand-fret-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+.hand-band {
+    position: absolute;
+    top: 2px;
+    bottom: 0;
+    background: rgba(16, 185, 129, 0.28);
+    border: 1.5px solid rgba(52, 211, 153, 0.75);
+    border-bottom: none;
+    border-radius: 3px 3px 0 0;
+    cursor: ew-resize;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 3px 3px 0;
+    z-index: 3;
+    transition: background 0.1s;
+    touch-action: none;
+}
+
+.hand-band:hover {
+    background: rgba(16, 185, 129, 0.42);
+}
+
+/* Palm area inside the band — empty block with left/right arrows showing
+   possible hand movement direction. */
+.hand-palm-indicator {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    overflow: hidden;
+    background: rgba(52, 211, 153, 0.18);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    border-radius: 2px 2px 0 0;
+    min-height: 0;
+    padding: 0 2px;
+}
+
+/* Central empty body of the palm (takes remaining space between arrows). */
+.hand-palm-body {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Arrow buttons on left/right of the palm. */
+.hand-palm-arrow {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: rgba(52, 211, 153, 0.85);
+    font-size: 9px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    transition: color 0.1s, background 0.1s;
+    pointer-events: auto;
+}
+
+.hand-palm-arrow:hover:not(:disabled) {
+    background: rgba(52, 211, 153, 0.25);
+    color: rgba(52, 211, 153, 1);
+}
+
+.hand-palm-arrow:disabled {
+    color: rgba(52, 211, 153, 0.25);
+    cursor: not-allowed;
+}
+
+/* ============================================================================
+   HAND COVERAGE OVERLAY  (on the string rows, below the drag handle)
+   ============================================================================ */
+
+/* The overlay is positioned entirely in JS (_updateCoverageOverlayPosition):
+   left, width, top, bottom are all set dynamically so the overlay tracks the
+   hand-band and aligns with the actual string rows regardless of justify-content. */
+.hand-coverage-overlay {
+    position: absolute;
+    /* left / width / top / bottom all set by JS */
+    pointer-events: none;
+    z-index: 1;
+    background: rgba(16, 185, 129, 0.08);
+    border-left: 1.5px solid rgba(52, 211, 153, 0.6);
+    border-right: 1.5px solid rgba(52, 211, 153, 0.6);
+    border-bottom: 1.5px solid rgba(52, 211, 153, 0.6);
+    border-radius: 0 0 3px 3px;
+    overflow: hidden;
+    /* Smooth movement when hand is dragged */
+    transition: left 0.05s linear, width 0.05s linear;
+}
+
+/* Single rectangle filling the overlay — shows the full plage de déplacement
+   des doigts on the whole width of the hand. */
+.hand-finger-range-rect {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+}
+
+/* Per-string finger-position dots — one per string, vertical position set by JS
+   (top = (numStrings - s + 0.5) / numStrings * 100%).
+   Horizontal position: 8mm before the activated fret wire, or center when idle.
+   Default (idle): white dot.  Active (chord playing): blue dot. */
+.hand-finger-dot-pos {
+    position: absolute;
+    /* top set by JS per string; transform centers the dot on that point */
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.90);
+    border: 1.5px solid rgba(160, 160, 160, 0.65);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    z-index: 2;
+    pointer-events: none;
+    transition: left 0.12s ease, top 0.12s ease, background 0.10s ease, box-shadow 0.10s ease;
+}
+
+.hand-finger-dot-pos.active {
+    background: #3b82f6;
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.70);
+}
+
+/* fret_sliding_fingers: finger indicators are single-string-height vertical bars.
+   They slide vertically to follow the pressed string, like dots did before,
+   but are rectangular instead of circular. */
+.hand-finger-dot-pos[data-finger] {
+    width: 8px;
+    height: 14px;
+    border-radius: 3px;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.30);
+    border: 1.5px solid rgba(255, 255, 255, 0.60);
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.15);
+    transition: left 0.12s ease, top 0.12s ease, background 0.10s ease, box-shadow 0.10s ease;
+}
+
+.hand-finger-dot-pos[data-finger].active {
+    background: rgba(59, 130, 246, 0.70);
+    border-color: rgba(255, 255, 255, 0.90);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.65);
+}
+
+/* string_sliding_fingers: thin horizontal stripe at each string's Y position.
+   Spans the full hand width (= full overlay width), shows the fret-axis range
+   of motion for that string's finger. */
+.hand-finger-range-string {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    height: 7px;
+    transform: translateY(-50%);
+    background: rgba(37, 99, 235, 0.20);
+    border: 1.5px solid rgba(37, 99, 235, 0.70);
+    border-radius: 3px;
+    box-shadow: 0 0 4px rgba(37, 99, 235, 0.25);
+    pointer-events: none;
+}
+
+/* vertical_bar: single full-height bar spanning ALL strings at one fret.
+   The mechanical actuator presses every string simultaneously at one position.
+   The bar fills the overlay (which is already sized to one fret cell).
+   Active state: bar lights up in blue when a chord is being played. */
+.hand-finger-range-bar {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 50%;
+    width: 10px;
+    transform: translateX(-50%);
+    background: rgba(37, 99, 235, 0.25);
+    border: 2px solid rgba(37, 99, 235, 0.75);
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(37, 99, 235, 0.30);
+    pointer-events: none;
+    transition: background 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.hand-finger-range-bar.active {
+    background: rgba(37, 99, 235, 0.60);
+    border-color: rgba(37, 99, 235, 1.0);
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.65);
+}
+
+/* vertical_bar band: narrow single-fret indicator instead of the wide palm view.
+   Uses a blue-tinted scheme to distinguish it from the green hand-span band.
+   min-width ensures the arrow buttons remain usable even at high fret positions
+   where one fret cell can be only ~10px wide. */
+.hand-band[data-mechanism="vertical_bar"] {
+    background: rgba(37, 99, 235, 0.22);
+    border-color: rgba(99, 140, 255, 0.80);
+    cursor: ew-resize;
+    min-width: 36px;
+}
+
+.hand-band[data-mechanism="vertical_bar"]:hover {
+    background: rgba(37, 99, 235, 0.38);
+}
+
+/* In vertical_bar mode the palm-indicator label adapts to a narrower band. */
+.hand-band[data-mechanism="vertical_bar"] .hand-palm-indicator {
+    background: rgba(99, 140, 255, 0.15);
+    border-color: rgba(99, 140, 255, 0.35);
+}
+
+.hand-band[data-mechanism="vertical_bar"] .hand-palm-arrow {
+    color: rgba(99, 140, 255, 0.85);
+}
+
+.hand-band[data-mechanism="vertical_bar"] .hand-palm-arrow:hover:not(:disabled) {
+    background: rgba(99, 140, 255, 0.25);
+    color: rgba(99, 140, 255, 1);
+}
+
+/* fret_sliding_fingers: vertical stripe at each fret-offset's X position.
+   Width is set inline by JS (proportional to finger count).
+   Spans the full string height (= full overlay height), shows the string-axis
+   range of motion for that finger. */
+.hand-finger-range-fret {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    /* width set inline by JS */
+    transform: translateX(-50%);
+    background: rgba(37, 99, 235, 0.22);
+    border: 1.5px solid rgba(37, 99, 235, 0.70);
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(37, 99, 235, 0.30);
+    pointer-events: none;
+}
+
+/* ============================================================================
+   CHORD BUTTONS BAR  (fretboard view — string instruments only)
+   ============================================================================ */
+
+.chord-buttons-bar {
+    flex-shrink: 0;
+    padding: 7px 10px 8px;
+    background: rgba(0, 0, 0, 0.40);
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 0 0 6px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    user-select: none;
+}
+
+/* ── Root note selector ── */
+
+.chord-root-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.chord-root-label {
+    color: rgba(255, 255, 255, 0.50);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    flex-shrink: 0;
+}
+
+.chord-root-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.chord-root-btn {
+    padding: 2px 5px;
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1.5;
+    min-width: 26px;
+    text-align: center;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.chord-root-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.chord-root-btn.active {
+    background: #059669;
+    border-color: #34d399;
+    color: white;
+    box-shadow: 0 0 7px rgba(16, 185, 129, 0.55);
+}
+
+/* ── Chord type buttons ── */
+
+.chord-type-row {
+    display: flex;
+    gap: 5px;
+}
+
+.chord-type-btn {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5px;
+    height: 46px;
+    background: linear-gradient(to bottom, rgba(55, 55, 78, 0.92), rgba(35, 35, 55, 0.96));
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 7px;
+    color: white;
+    cursor: pointer;
+    overflow: hidden;
+    touch-action: none;
+    transition: background 0.12s, transform 0.07s, box-shadow 0.12s, border-color 0.12s;
+}
+
+/* Subtle green tint on left half (down strum) */
+.chord-type-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 50%;
+    background: rgba(16, 185, 129, 0.06);
+    pointer-events: none;
+    border-radius: 6px 0 0 6px;
+}
+
+/* Subtle blue tint on right half (up strum) */
+.chord-type-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    left: 50%;
+    background: rgba(59, 130, 246, 0.06);
+    pointer-events: none;
+    border-radius: 0 6px 6px 0;
+}
+
+.chord-type-btn:hover {
+    background: linear-gradient(to bottom, rgba(70, 70, 98, 0.95), rgba(50, 50, 75, 0.98));
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.chord-type-btn:hover .chord-strum-l,
+.chord-type-btn:hover .chord-strum-r {
+    opacity: 0.75;
+}
+
+/* Active (strum playing) */
+.chord-type-btn.strum-active {
+    background: linear-gradient(135deg, #065f46, #10b981, #065f46);
+    border-color: #34d399;
+    transform: translateY(1px);
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.75);
+}
+
+.chord-type-btn.strum-active .chord-strum-l,
+.chord-type-btn.strum-active .chord-strum-r {
+    opacity: 1;
+}
+
+/* Strum direction arrows */
+.chord-strum-l,
+.chord-strum-r {
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.38;
+    flex-shrink: 0;
+    width: 16px;
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 0.1s;
+    z-index: 1;
+}
+
+/* Chord name label stack */
+.chord-type-label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.chord-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+    letter-spacing: 0.2px;
+}
+
+.chord-alt-name {
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.38);
+    line-height: 1;
+    letter-spacing: 0.4px;
+}
+
+.chord-type-btn.strum-active .chord-alt-name {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Chord voicing highlights ───────────────────────────────────────────── */
+
+.fret-dot.chord-voicing {
+    outline: 2px solid rgba(16, 185, 129, 0.75);
+    outline-offset: 2px;
+    z-index: 3;
+}
+
+.fret-dot.chord-open {
+    outline: 2px dashed rgba(251, 191, 36, 0.85);
+    outline-offset: 2px;
+    z-index: 3;
+}
+
+/* ── Strum sweep animation ──────────────────────────────────────────────── */
+
+@keyframes strum-lr {
+    from { transform: scaleX(0); transform-origin: left center; }
+    to   { transform: scaleX(1); transform-origin: left center; }
+}
+
+@keyframes strum-rl {
+    from { transform: scaleX(0); transform-origin: right center; }
+    to   { transform: scaleX(1); transform-origin: right center; }
+}
+
+.chord-type-btn .strum-sweep-bar {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.05));
+    pointer-events: none;
+    border-radius: inherit;
+    transform: scaleX(0);
+    z-index: 0;
+}
+
+.chord-type-btn.strum-sweep-down .strum-sweep-bar {
+    animation: strum-lr var(--strum-dur, 200ms) ease-out forwards;
+}
+
+.chord-type-btn.strum-sweep-up .strum-sweep-bar {
+    animation: strum-rl var(--strum-dur, 200ms) ease-out forwards;
+}
+
+/* ── Per-string strum hit animation ──────────────────────────────────────── */
+
+@keyframes chord-strum-hit {
+    0%   { background: linear-gradient(135deg, #34d399, #059669);
+           transform: scale(1.65);
+           box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.65), 0 0 20px rgba(52, 211, 153, 0.95);
+           border-color: #fff; }
+    40%  { background: linear-gradient(135deg, #34d399, #059669);
+           transform: scale(1.55);
+           box-shadow: 0 0 0 7px rgba(52, 211, 153, 0.25), 0 0 32px rgba(52, 211, 153, 1.00);
+           border-color: #fff; }
+    75%  { background: linear-gradient(135deg, #34d399, #059669);
+           transform: scale(1.45);
+           box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.10), 0 0 12px rgba(52, 211, 153, 0.35);
+           border-color: rgba(255, 255, 255, 0.4); }
+    100% { background: linear-gradient(to bottom, #f5f5f5, #c8c8c8);
+           transform: scale(1);
+           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.50);
+           border-color: #333; }
+}
+
+.fretboard-container .fret-dot.chord-strum-active {
+    animation: chord-strum-hit 1.5s ease-out forwards !important;
+    border-width: 2px;
+    z-index: 5;
+}
+
+/* Dark-mode fine-tuning */
+body.dark-mode .chord-buttons-bar {
+    background: rgba(0, 0, 0, 0.55);
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .chord-type-btn {
+    background: linear-gradient(to bottom, rgba(35, 35, 55, 0.96), rgba(20, 20, 38, 0.98));
+}
+
+body.dark-mode .chord-type-btn:hover {
+    background: linear-gradient(to bottom, rgba(50, 50, 75, 0.98), rgba(35, 35, 58, 0.99));
+}
+
+/* ============================================================================
+   DRUM PAD VIEW
+   ============================================================================ */
+
+.drumpad-container {
+    flex: 1;
+    width: 100%;
+    background: linear-gradient(to bottom, #18181b, #0a0a14);
+    border-radius: 8px;
+    padding: 16px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+    overflow: auto;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.drumpad-container.hidden { display: none; }
+
+.drumpad-container .drum-pad {
+    position: relative;
+    aspect-ratio: 1;
+    background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px 8px 14px;
+    cursor: pointer;
+    user-select: none;
+    color: #e5e7eb;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.05s, background 0.05s, box-shadow 0.05s;
+    overflow: hidden;
+}
+.drumpad-container .drum-pad:hover {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+}
+.drumpad-container .drum-pad.active {
+    background: linear-gradient(135deg, #34d399, #059669);
+    border-color: #047857;
+    color: white;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.7);
+    transform: translateY(1px);
+}
+.drumpad-container .drum-pad.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.drumpad-container .drum-pad-icon {
+    width: 65%;
+    height: 65%;
+    object-fit: contain;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
+    flex-shrink: 0;
+}
+.drumpad-container .drum-pad.active .drum-pad-icon {
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+}
+
+.drumpad-container .drum-pad-name {
+    font-size: 10px;
+    margin-top: 4px;
+    color: rgba(229, 231, 235, 0.85);
+    line-height: 1.15;
+    max-width: 100%;
+    word-break: break-word;
+    pointer-events: none;
+}
+.drumpad-container .drum-pad.active .drum-pad-name { color: rgba(255, 255, 255, 0.95); }
+
+/* Note badge in the corner of every drum pad */
+.drumpad-container .drum-pad-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(15, 23, 42, 0.85);
+    color: #10b981;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    line-height: 1.1;
+    pointer-events: none;
+    text-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+}
+.drumpad-container .drum-pad.active .drum-pad-badge {
+    background: white;
+    color: #047857;
+    border-color: white;
+    text-shadow: none;
+}
+
+/* Footer removed - controls are now in header */
+
+/* Informations en bas de la modal */
+.keyboard-modal-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.keyboard-modal-info .info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #f0fdf4;
+    padding: 16px;
+    border-radius: 8px;
+    border-left: 4px solid #10b981;
+}
+
+.keyboard-modal-info .info-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.keyboard-modal-info .info-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4b5563;
+}
+
+.keyboard-modal-info .info-text strong {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+/* ============================================================================
+   RESPONSIVE - MOBILE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .keyboard-modal .modal-dialog {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        max-height: 100vh;
+    }
+
+    .keyboard-modal .modal-header {
+        padding: 10px 14px !important;
+        flex-wrap: wrap;
+    }
+
+    .keyboard-header-row {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .keyboard-header-controls {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .keyboard-header-controls .device-select {
+        min-width: 120px;
+    }
+
+    .keyboard-canvas-container {
+        padding: 8px;
+    }
+
+    .velocity-control-vertical,
+    .modulation-control-vertical {
+        min-width: 50px;
+        padding: 10px 6px;
+    }
+
+    .mod-wheel-track {
+        width: 32px;
+    }
+
+    .mod-wheel-thumb {
+        width: 36px;
+        height: 14px;
+    }
+}
+
+/* ============================================================================
+   THÈME SOMBRE - KEYBOARD MODAL
+   ============================================================================ */
+
+body.dark-mode .keyboard-modal .modal-dialog {
+    background: var(--bg-secondary);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .keyboard-modal .modal-body {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode #keyboard-modal-view {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode #keyboard-modal-container {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .keyboard-view {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .keyboard-canvas-container {
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .keyboard-help-bar {
+    background: var(--bg-tertiary);
+    border-top-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+body.dark-mode .keyboard-canvas {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+}
+
+body.dark-mode .info-label {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .info-value {
+    color: var(--text-primary);
+}
+
+body.dark-mode .keyboard-modal-info .info-item {
+    background: rgba(16, 185, 129, 0.1);
+    border-left-color: #10b981;
+}
+
+body.dark-mode .keyboard-modal-info .info-text {
+    color: var(--text-secondary);
+}
+
+body.dark-mode .keyboard-modal-info .info-text strong {
+    color: var(--text-primary);
+}
+
+/* ============================================================================
+   STRING SLIDE MODE
+   ============================================================================ */
+
+.keyboard-header-controls .btn-slide-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 8px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.keyboard-header-controls .btn-slide-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .btn-slide-toggle.active {
+    background: rgba(251, 191, 36, 0.3);
+    border-color: #fbbf24;
+    color: #fbbf24;
+}
+
+/* String row in slide mode */
+.fret-string.slide-mode {
+    cursor: crosshair;
+    user-select: none;
+}
+
+/* Pitch-bend mode: fretted dots become rectangles spanning the cell width.
+   Open-string cells (.fret-open) keep their round dot. Dots stay clickable so
+   the click anchors the pitch bend on the targeted fret. */
+.fretboard-container .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot {
+    border-radius: 6px;
+    aspect-ratio: auto;
+    width: 88%;
+    max-width: none;
+    height: min(70%, 28px);
+}
+
+/* Active state: avoid scale(1.55) which would distort the rectangle horizontally */
+.fretboard-container .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot.active,
+.fretboard-container .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot.note-colored.active {
+    transform: scaleY(1.35);
+}
+
+/* Position indicator (gold circle) */
+.string-slide-indicator {
+    position: absolute;
+    top: calc(50% - 8px);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 8px #fbbf24;
+    pointer-events: none;
+    z-index: 10;
+    transform: translateX(-50%);
+    transition: left 0.02s linear;
+    display: none;
+}
+
+/* ============================================================================
+   PIANO SLIDER VIEW  (equal-width chromatic keys + pitch-bend slide)
+   ============================================================================ */
+
+.piano-slider-container {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e2e;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+}
+
+.piano-slider-strip {
+    display: flex;
+    flex: 1;
+    min-height: 80px;
+    position: relative;
+    cursor: crosshair;
+    user-select: none;
+    touch-action: none;
+}
+
+.piano-slider-key {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 6px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+    position: relative;
+    transition: background 0.05s;
+    cursor: crosshair;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.piano-slider-key:last-child {
+    border-right: none;
+}
+
+/* White semitones (C D E F G A B) */
+.piano-slider-key.is-white {
+    background: #2a2a3e;
+}
+
+/* Black semitones (C# D# F# G# A#) */
+.piano-slider-key.is-black {
+    background: #131320;
+}
+
+/* C note marker */
+.piano-slider-key.is-c .piano-slider-label {
+    color: #f97316;
+    font-weight: bold;
+}
+
+.piano-slider-key.active {
+    background: rgba(59, 130, 246, 0.45) !important;
+}
+
+.piano-slider-key.active.is-black {
+    background: rgba(59, 130, 246, 0.6) !important;
+}
+
+.piano-slider-label {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    max-width: 100%;
+    text-align: center;
+}
+
+/* Position cursor (vertical bar) */
+.piano-slider-cursor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #fbbf24;
+    box-shadow: 0 0 6px #fbbf24;
+    pointer-events: none;
+    z-index: 10;
+    transform: translateX(-50%);
+    display: none;
+}
+
+/* Octave separator lines */
+.piano-slider-key.is-c::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(249, 115, 22, 0.5);
+}
+
+/* Toggle button style (mirrors btn-slide-toggle) */
+.keyboard-header-controls .btn-piano-slider-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 8px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.keyboard-header-controls .btn-piano-slider-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .btn-piano-slider-toggle.active {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: #3b82f6;
+    color: #93c5fd;
+}
+
+/* ============================================================================
+   PITCH BEND WHEEL  (vertical, springs back to center — like a mod wheel)
+   ============================================================================ */
+
+.pitch-bend-control-vertical {
+    border-right: 1px solid #333;
+}
+
+/* LED display — amber for pitch bend */
+.pitch-bend-value-vertical {
+    color: #f59e0b !important;
+    border-color: #333 !important;
+    text-shadow: 0 0 8px rgba(245, 158, 11, 0.5) !important;
+}
+
+.keyboard-modal .pitch-bend-control-vertical.no-transition {
+    transition: none !important;
+}
+
+/* ============================================================================
+   KEYBOARD LIST VIEW — Clavier horizontal compact avec fondu entre les notes
+   ============================================================================ */
+
+/* Container: suit la hauteur du parent (identique au piano-container) */
+.keyboard-list-container {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    background: #111827;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-height: 0;
+}
+
+/* Glow layer: gradient radial centré sur --glow-x → fondu vers les notes voisines.
+   Les couleurs --glow-color-hi / --glow-color-lo sont overridées par JS quand les
+   couleurs de notes sont actives, pour adapter le fondu à la couleur chromatique. */
+.keyboard-list-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse var(--glow-w, 10%) 110% at var(--glow-x, 50%) 50%,
+        var(--glow-color-hi, rgba(16, 185, 129, 0.60)) 0%,
+        var(--glow-color-lo, rgba(16, 185, 129, 0.22)) 45%,
+        transparent 72%
+    );
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.08s;
+}
+
+.keyboard-list-container.has-active-note::before {
+    opacity: 1;
+}
+
+/* Ligne de touches: flex horizontal */
+.keyboard-list-keys-row {
+    display: flex;
+    height: 100%;
+    position: relative;
+    z-index: 2;
+}
+
+/* Touche individuelle */
+.keyboard-list-key {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 5px;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.06s;
+}
+
+.keyboard-list-key:last-child {
+    border-right: none;
+}
+
+.keyboard-list-white {
+    background: rgba(255, 255, 255, 0.075);
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.keyboard-list-white:hover {
+    background: rgba(255, 255, 255, 0.13);
+}
+
+.keyboard-list-black {
+    background: rgba(0, 0, 0, 0.32);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.keyboard-list-black:hover {
+    background: rgba(0, 0, 0, 0.16);
+}
+
+/* Marqueur d'octave : bordure gauche verte sur chaque Do */
+.keyboard-list-c {
+    border-left: 2px solid rgba(16, 185, 129, 0.55) !important;
+}
+
+/* Touche active (note jouée) — mode sans couleurs */
+.keyboard-list-key.active:not(.note-colored) {
+    background: rgba(16, 185, 129, 0.28) !important;
+}
+
+/* Touche active — mode couleurs chromatiques : luminosité augmentée */
+.keyboard-list-key.active.note-colored {
+    filter: brightness(1.35) saturate(1.2);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+/* Hover sur touche colorée */
+.keyboard-list-key.note-colored:hover {
+    filter: brightness(1.15);
+}
+
+.keyboard-list-key.disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+}
+
+.keyboard-list-key.disabled:hover {
+    background: inherit;
+}
+
+/* Étiquette de note (C uniquement par défaut, ou toutes si peu de notes) */
+.keyboard-list-key-label {
+    font-size: 9px;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    color: rgba(255, 255, 255, 0.5);
+    pointer-events: none;
+    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+/* Dégradé vélocité: haut = plus fort (teinte verte), bas = plus doux */
+.keyboard-list-key::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom,
+        rgba(16, 185, 129, 0.09) 0%,
+        transparent 50%,
+        rgba(0, 0, 0, 0.09) 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Curseur pitch bend: ligne verticale ambrée qui suit le X dans la touche */
+.keyboard-list-pb-cursor {
+    display: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #f59e0b;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 4;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.9);
+}
+
+/* Bouton de bascule vue liste dans le header */
+.keyboard-header-controls .btn-list-view-toggle {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s, box-shadow 0.15s;
+}
+
+.keyboard-header-controls .btn-list-view-toggle:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.keyboard-header-controls .btn-list-view-toggle.active {
+    background: white;
+    color: #047857;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.keyboard-header-controls .btn-list-view-toggle:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* ============================================================================
+   LIST VIEW EXTRA CONTROLS — CC selector (Y-axis) & pitch bend toggle (X-axis)
+   ============================================================================ */
+
+/* CC select dropdown */
+.keyboard-header-controls .list-cc-select {
+    padding: 3px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    font-size: 11px;
+    color: #1f2937;
+    background: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    max-width: 120px;
+}
+
+.keyboard-header-controls .list-cc-select:focus {
+    outline: none;
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+}
+
+/* Pitch bend toggle button (mirrors btn-slide-toggle style) */
+.keyboard-header-controls .btn-list-pb-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 8px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.keyboard-header-controls .btn-list-pb-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.keyboard-header-controls .btn-list-pb-toggle.active {
+    background: rgba(251, 191, 36, 0.3);
+    border-color: #fbbf24;
+    color: #fbbf24;
+}
+
+/* ── Hand band — strip below the keyboard that shows the hand/finger overlay ── */
+
+/* Sits inside .keyboard-canvas-container (flex-column) after all the mode
+   containers. Shown only in piano and keyboard-list modes.
+   overflow:visible lets the canvas extend 35 px upward into the piano-container
+   area so finger tips visually reach the bottom of the keys. */
+.km-hand-band {
+    flex-shrink: 0;
+    width: 100%;
+    height: 50px;
+    position: relative;
+    background: #1e293b;
+    border-radius: 0 0 8px 8px;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+    overflow: visible;
+    cursor: grab;
+}
+.km-hand-band:active { cursor: grabbing; }
+
+/* Canvas extends above the band into the piano-container space so
+   finger tips reach roughly the bottom third of the keys. pointer-events:none
+   keeps the piano keys fully clickable even in the overlap zone.
+   z-index:12 lifts the canvas above black keys (z-index:10) so fingers
+   appear in front of the key DOM elements. left/right are set inline by JS. */
+.km-fingers-canvas {
+    position: absolute;
+    top: -60px;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 12;
+}
+
+/* Decorative drag indicators — one group per hand, stretched to the hand's
+   full pixel width so ◄ lands on the left edge and ► on the right edge.
+   pointer-events:none keeps piano keys fully interactive beneath the band. */
+.km-hand-arrows {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: 0 3px;
+    z-index: 14;
+    pointer-events: none;
+    user-select: none;
+}
+
+.km-hand-arrow {
+    font-size: 11px;
+    line-height: 1;
+    color: rgba(226, 232, 240, 0.6);
+    flex-shrink: 0;
+}
+
+.km-hand-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: center;
+    flex: 1;
+    opacity: 0.85;
+}
+
+/* ============================================================================
+   WIND INSTRUMENT PANEL  (articulation + range display)
+   ============================================================================ */
+
+.wind-instrument-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #1a1a2e;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.wind-instrument-panel.hidden {
+    display: none;
+}
+
+.wind-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    min-width: 0;
+}
+
+.wind-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.wind-instrument-name {
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wind-range-display {
+    margin-left: auto;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.wind-range-full {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.wind-range-sep {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.wind-range-comfort {
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.wind-articulation-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.wind-art-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-right: 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.wind-art-btn {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 3px 10px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+
+.wind-art-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.wind-art-btn.active {
+    background: rgba(99, 102, 241, 0.28);
+    border-color: #6366f1;
+    color: #a5b4fc;
+}
+
+/* ── Breath slider (CC#2) row ────────────────────────────────────────────────── */
+
+.wind-breath-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wind-breath-slider {
+    flex: 1;
+    height: 4px;
+    accent-color: #4ade80;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.wind-breath-display {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.wind-breath-capacity {
+    font-size: 10px;
+    color: #4ade80;
+    letter-spacing: -1px;
+    flex-shrink: 0;
+    min-width: 52px;
+}
+
+/* ── Comfort zone & range highlighting in piano-slider ─────────────────────── */
+
+.piano-slider-key.wind-comfort-zone.is-white {
+    background: rgba(74, 222, 128, 0.18) !important;
+}
+
+.piano-slider-key.wind-comfort-zone.is-black {
+    background: rgba(74, 222, 128, 0.28) !important;
+}
+
+.piano-slider-key.wind-out-of-range {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.piano-slider-key.wind-out-of-range.is-white {
+    background: #1c1c2a !important;
+}
+
+.piano-slider-key.wind-out-of-range.is-black {
+    background: #0e0e1a !important;
+}
+
+/* ── Panel mode: keyboard embedded inside a host container ── */
+
+/* The overlay shell stays in <body> but must be fully hidden.
+   display:flex !important on .keyboard-modal would override a JS style.display,
+   so we use a class with !important to win the specificity race. */
+.keyboard-modal.km-panel-host {
+    display: none !important;
+}
+
+.modal-dialog.km-panel-mode {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    animation: none !important;
+    overflow: visible !important;
+}
+
+/* ── Panel mode overrides ── */
+
+/* Hide the standalone close button — panel is closed by LoopCreatorModal */
+.modal-dialog.km-panel-mode #keyboard-close-btn {
+    display: none !important;
+}
+
+/* Header: two-row layout — instrument selector full-width on top, controls below */
+.modal-dialog.km-panel-mode .modal-header {
+    flex-wrap: wrap !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    gap: 0 !important;
+}
+
+/* Instrument selector: full-width first row, compressed height */
+.modal-dialog.km-panel-mode #header-instrument-selector {
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+    order: -1 !important;
+}
+
+.modal-dialog.km-panel-mode .instrument-trigger {
+    border-radius: 0 !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 30px !important;
+    padding: 0 10px !important;
+    gap: 6px !important;
+}
+.modal-dialog.km-panel-mode .instrument-trigger-name {
+    font-size: 0.8rem !important;
+}
+
+/* Controls row: compressed height, scrollable, hide non-critical groups */
+.modal-dialog.km-panel-mode .keyboard-header-row {
+    flex: 1 1 100% !important;
+    padding: 0 6px !important;
+    min-height: 26px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+.modal-dialog.km-panel-mode .keyboard-header-controls {
+    gap: 4px !important;
+    padding: 2px 0 !important;
+}
+.modal-dialog.km-panel-mode .control-group {
+    gap: 2px !important;
+}
+/* Latency display + notation toggle (US / FR / MIDI) stay visible in
+   panel mode — the loop editor surfaces them as quick references in
+   the piano-virtuel header, exactly like the standalone modal. */
+
+/* Minimap / octave navigation row: compressed */
+.modal-dialog.km-panel-mode .keyboard-minimap-row {
+    padding: 3px 8px !important;
+    gap: 6px !important;
+    min-height: 0 !important;
+}
+.modal-dialog.km-panel-mode .keyboard-minimap-row .btn-octave-up,
+.modal-dialog.km-panel-mode .keyboard-minimap-row .btn-octave-down,
+.modal-dialog.km-panel-mode .keyboard-minimap-row .btn-zoom {
+    padding: 1px 5px !important;
+    font-size: 0.72rem !important;
+    line-height: 1.4 !important;
+}
+.modal-dialog.km-panel-mode .keyboard-minimap-row .octave-display {
+    font-size: 0.72rem !important;
+}
+
+/* Instrument dropdown: open upward to avoid clipping by the panel container */
+.modal-dialog.km-panel-mode .instrument-dropdown.open {
+    top: auto !important;
+    bottom: 100% !important;
+    border-radius: 8px 8px 0 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-bottom: none !important;
+    max-height: 260px !important;
+}
+
+/* Remove fixed min-heights so the keyboard body fits in a compact panel */
+.modal-dialog.km-panel-mode .velocity-slider-wrapper,
+.modal-dialog.km-panel-mode .velocity-slider-vertical,
+.modal-dialog.km-panel-mode .mod-wheel-wrapper {
+    min-height: 80px !important;
+}
+#keyboard-modal-container {
+    min-height: 0;
+}
+
+/* ============================================================================
+   BOWED-STRING INSTRUMENT MODE
+   ----------------------------------------------------------------------------
+   Violin / viola / cello / contrabass / fiddle: dots are placed ON the fret
+   wire (right edge of the cell) so the visual reads as "finger pressed exactly
+   here" instead of the guitar-style "anywhere in the cell". The bow bar
+   replaces the strum bar — see KeyboardChords._triggerBowStart.
+   ============================================================================ */
+
+/* Anchor dots to the right edge of their cell (= the fret wire line) */
+.fretboard-container.bowed .fret-cell:not(.fret-open) {
+    justify-content: flex-end;
+    padding-right: 0;
+}
+
+/* Smaller dot so it reads as a finger-touch point rather than a press zone */
+.fretboard-container.bowed .fret-cell:not(.fret-open) .fret-dot {
+    height: min(70%, 24px);
+    max-width: min(70%, 26px);
+    /* Center the dot exactly on the fret wire (shift its right edge by half
+       its own width so the centre sits on the cell's right border). */
+    margin-right: -7%;
+}
+
+/* Make the fret divider line itself more prominent — it IS the note position */
+.fretboard-container.bowed .fret-cell:not(.fret-open):not(.fret-dead) {
+    border-right-color: rgba(217, 119, 6, 0.45);
+}
+.fretboard-container.bowed .fret-cell:not(.fret-open):last-child {
+    border-right-color: rgba(217, 119, 6, 0.45);
+}
+
+/* Slide-mode (pitch bend) widens the dot back across the whole cell so the
+   bend gesture has room to drag. Restore the centered layout in that case. */
+.fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) {
+    justify-content: center;
+}
+.fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot {
+    margin-right: 0;
+    max-width: none;
+    height: min(70%, 28px);
+}
+
+/* ── Bow control bar (replaces the strum bar) ────────────────────────────── */
+
+.chord-buttons-bar.bowed .chord-type-btn.bow-btn::before {
+    background: rgba(217, 119, 6, 0.10);
+}
+.chord-buttons-bar.bowed .chord-type-btn.bow-btn::after {
+    background: rgba(168, 85, 247, 0.10);
+}
+
+/* Active bow (button held): continuous gentle pulse, distinct from the
+   one-shot strum-hit animation used for plucked instruments. */
+@keyframes bow-pulse {
+    0%   { box-shadow: 0 0 10px rgba(217, 119, 6, 0.45); }
+    50%  { box-shadow: 0 0 18px rgba(217, 119, 6, 0.85); }
+    100% { box-shadow: 0 0 10px rgba(217, 119, 6, 0.45); }
+}
+.chord-type-btn.bow-active {
+    border-color: rgba(217, 119, 6, 0.85);
+    animation: bow-pulse 1.4s ease-in-out infinite;
+    transform: translateY(1px);
+}
+.chord-type-btn.bow-active.bow-side-right {
+    border-color: rgba(168, 85, 247, 0.85);
+    animation-name: bow-pulse-up;
+}
+@keyframes bow-pulse-up {
+    0%   { box-shadow: 0 0 10px rgba(168, 85, 247, 0.45); }
+    50%  { box-shadow: 0 0 18px rgba(168, 85, 247, 0.85); }
+    100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.45); }
+}
+
+/* Make the swept arrow on the engaged side fully opaque while bowing */
+.chord-type-btn.bow-active.bow-side-left .chord-strum-l,
+.chord-type-btn.bow-active.bow-side-right .chord-strum-r {
+    opacity: 1;
+    color: #fbbf24;
+    font-size: 14px;
+    text-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+}
+
+/* Continuous sweep animation: replaces the one-shot strum-sweep-bar with an
+   infinite back-and-forth wash so the "bow moving" visual stays alive while
+   the button is held. The translateX(-100%) start places the wash off-screen
+   left, ending off-screen right at +100%. */
+@keyframes bow-wash-down {
+    0%   { transform: translateX(-100%); opacity: 0; }
+    20%  { opacity: 0.9; }
+    80%  { opacity: 0.9; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+@keyframes bow-wash-up {
+    0%   { transform: translateX(100%); opacity: 0; }
+    20%  { opacity: 0.9; }
+    80%  { opacity: 0.9; }
+    100% { transform: translateX(-100%); opacity: 0; }
+}
+
+.chord-type-btn.bow-active .strum-sweep-bar {
+    background: linear-gradient(90deg,
+        rgba(251, 191, 36, 0)  0%,
+        rgba(251, 191, 36, 0.55) 50%,
+        rgba(251, 191, 36, 0)  100%);
+    transform: translateX(-100%); /* base state */
+    animation: bow-wash-down 1.1s linear infinite;
+}
+.chord-type-btn.bow-active.bow-side-right .strum-sweep-bar {
+    animation: bow-wash-up 1.1s linear infinite;
 }
