@@ -159,6 +159,11 @@
         // computation has one canonical source of truth. `isAudible`
         // combines active+!disabled in a single call.
         const cs = m.channelState;
+        // When previewing routed instruments, mute channels that have no
+        // routing target — otherwise they'd play through the default GM
+        // synth and confuse the user about what they'll actually hear on
+        // their physical setup.
+        const routedPreview = m.previewSource === 'routed';
         m.channels.forEach(ch => {
             if (tabSolo) {
                 // In tablature mode, mute everything except the tablature channel
@@ -167,11 +172,13 @@
                 }
             } else if (cs ? !cs.isAudible(ch.channel) : (!m.activeChannels.has(ch.channel) || m.channelDisabled.has(ch.channel))) {
                 mutedChannels.push(ch.channel);
+            } else if (routedPreview && !(cs ? cs.hasRouting(ch.channel) : m.channelRouting?.has(ch.channel))) {
+                mutedChannels.push(ch.channel);
             }
         });
 
         m.synthesizer.setMutedChannels(mutedChannels);
-        m.log('debug', `Muted channels: ${mutedChannels.map(c => c + 1).join(', ') || 'none'}${tabSolo ? ' (tablature solo)' : ''}`);
+        m.log('debug', `Muted channels: ${mutedChannels.map(c => c + 1).join(', ') || 'none'}${tabSolo ? ' (tablature solo)' : ''}${routedPreview ? ' (routed preview)' : ''}`);
     }
 
     // ========================================================================

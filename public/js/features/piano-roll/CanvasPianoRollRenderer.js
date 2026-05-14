@@ -35,7 +35,9 @@
     const NOTE_MAX = 127;
 
     /** Default pixel sizes. */
-    const KB_WIDTH = 40;       // left keyboard column
+    const SB_W     = 8;        // vertical scrollbar column on the left edge
+    const KB_W     = 40;       // keyboard column (without scrollbar)
+    const KB_WIDTH = SB_W + KB_W; // total left chrome — notes start at x >= KB_WIDTH
     const RULER_H  = 18;       // top ruler
     const NOTE_H_MIN = 4;      // min note row height (pitch)
     const NOTE_H_MAX = 24;     // max note row height (pitch)
@@ -85,18 +87,22 @@
             this._uiMode = 'drag-view';
 
             // ---- theme ----
+            // Defaults match a light theme. MidiEditorViewport._applyPianoRollTheme
+            // overrides these via setThemeColors() based on the user's current
+            // (light/dark) preference. White keys should *look white* — using
+            // a dark grey as default made the keyboard look entirely grey.
             this._theme = {
-                collt:          '#262830',
-                coldk:          '#22242a',
-                colgrid:        '#2e3038',
-                colrulerbg:     '#1e2028',
-                colrulerfg:     '#8890a0',
-                colrulerborder: '#2e3038',
+                collt:          '#ddd6f3',
+                coldk:          '#d2cae8',
+                colgrid:        '#c8c0de',
+                colrulerbg:     '#d5cdef',
+                colrulerfg:     '#4a3f6b',
+                colrulerborder: '#c0b8d8',
                 colnote:        '#5e8eff',
                 colnotesel:     '#ffd866',
-                colnoteborder:  'rgba(255,255,255,0.1)',
-                colkbwhite:     '#3a3c44',
-                colkbblack:     '#1a1c20',
+                colnoteborder:  'rgba(102,126,234,0.25)',
+                colkbwhite:     '#f8f8f8',
+                colkbblack:     '#222222',
                 colcursor:      '#e74c3c'
             };
 
@@ -501,26 +507,27 @@
         _paintKeyboard(ctx) {
             const noteH = this._noteHeight();
             const H = this._cssHeight;
-            // Background
+            // Keyboard background (offset by SB_W to leave a scrollbar
+            // column on the left edge — see _paintOverlay for the SB).
             ctx.fillStyle = this._theme.colkbwhite;
-            ctx.fillRect(0, RULER_H, KB_WIDTH, H - RULER_H);
+            ctx.fillRect(SB_W, RULER_H, KB_W, H - RULER_H);
 
             for (let n = this._yoffset; n < this._yoffset + this._yrange; n++) {
                 if (n < NOTE_MIN || n > NOTE_MAX) continue;
                 const y = this._noteToY(n);
                 if (BLACK_KEYS.has(n % 12)) {
                     ctx.fillStyle = this._theme.colkbblack;
-                    ctx.fillRect(0, y, KB_WIDTH * 0.62, noteH);
+                    ctx.fillRect(SB_W, y, KB_W * 0.62, noteH);
                 }
                 // C label at each octave boundary
                 if (n % 12 === 0 && noteH >= 8) {
                     ctx.fillStyle = this._theme.colrulerfg;
                     ctx.font = '10px monospace';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(`C${Math.floor(n / 12) - 1}`, KB_WIDTH * 0.65, y + noteH / 2);
+                    ctx.fillText(`C${Math.floor(n / 12) - 1}`, SB_W + KB_W * 0.65, y + noteH / 2);
                 }
             }
-            // Right border
+            // Right border (separates the keyboard column from the notes area)
             ctx.strokeStyle = this._theme.colrulerborder;
             ctx.beginPath();
             ctx.moveTo(KB_WIDTH + 0.5, 0);
@@ -658,6 +665,27 @@
             this._el.focus(); // capture keyboard for shortcuts
             const { x, y } = this._localCoords(e);
 
+            // Clicked on the vertical scrollbar (left edge) → jump scroll.
+            // Compute the proportional y position inside the SB rect and
+            // recentre `_yoffset` so the thumb tracks the click.
+            if (x < SB_W && y > RULER_H) {
+                const sbH = this._cssHeight - RULER_H;
+                const ratio = (y - RULER_H) / sbH;
+                const newY = Math.max(0, Math.min(128 - this._yrange,
+                    Math.round(ratio * 128 - this._yrange / 2)));
+                if (newY !== this._yoffset) {
+                    this._yoffset = newY;
+                    this._bgDirty = true;
+                    this._emit('viewportchange', {
+                        xoffset: this._xoffset, yoffset: this._yoffset,
+                        xrange: this._xrange, yrange: this._yrange
+                    });
+                    this._scheduleRender();
+                }
+                this._dragging = { mode: 'scrollbar' };
+                return;
+            }
+
             // Clicked on the keyboard column → emit pianokey
             if (x < KB_WIDTH && y > RULER_H) {
                 const note = this._yToNote(y);
@@ -740,6 +768,23 @@
             if (!this._el || !this._dragging) return;
             const { x, y } = this._localCoords(e);
             const d = this._dragging;
+            if (d.mode === 'scrollbar') {
+                // Continue dragging the vertical scrollbar thumb.
+                const sbH = this._cssHeight - RULER_H;
+                const ratio = (y - RULER_H) / sbH;
+                const newY = Math.max(0, Math.min(128 - this._yrange,
+                    Math.round(ratio * 128 - this._yrange / 2)));
+                if (newY !== this._yoffset) {
+                    this._yoffset = newY;
+                    this._bgDirty = true;
+                    this._emit('viewportchange', {
+                        xoffset: this._xoffset, yoffset: this._yoffset,
+                        xrange: this._xrange, yrange: this._yrange
+                    });
+                    this._scheduleRender();
+                }
+                return;
+            }
             if (d.mode === 'rect') {
                 this._selectionRect.x = x;
                 this._selectionRect.y = y;
@@ -1053,21 +1098,19 @@
                 ctx.strokeRect(x1 + 0.5, y1 + 0.5, x2 - x1 - 1, y2 - y1 - 1);
             }
 
-            // Vertical scroll indicator on the right edge (read-only, 6px
-            // wide). Mirrors the WAC built-in yscroll. The thumb shows
-            // which slice of the 128 MIDI notes is currently visible; the
-            // viewport extends from `yoffset` up to `yoffset + yrange`.
-            // Use shift+wheel (no modifier on legacy) to scroll vertically.
-            const SB_W = 6;
-            const sbX = this._cssWidth - SB_W;
+            // Vertical scroll indicator on the LEFT edge of the canvas
+            // (left of the keyboard column — same anchor as the audit
+            // §1.1 V2 spec). The thumb shows which slice of the 128 MIDI
+            // notes is currently visible; viewport = [yoffset, yoffset+yrange].
+            // Scroll: shift+wheel; zoom: ctrl/cmd+shift+wheel.
             const sbY0 = RULER_H;
             const sbH = H - RULER_H;
-            ctx.fillStyle = 'rgba(0,0,0,0.06)';
-            ctx.fillRect(sbX, sbY0, SB_W, sbH);
+            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            ctx.fillRect(0, sbY0, SB_W, sbH);
             const thumbY = sbY0 + sbH * (this._yoffset / 128);
             const thumbH = Math.max(20, sbH * (this._yrange / 128));
-            ctx.fillStyle = 'rgba(0,0,0,0.30)';
-            ctx.fillRect(sbX + 1, thumbY, SB_W - 2, thumbH);
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.fillRect(1, thumbY, SB_W - 2, thumbH);
         }
 
         // ----------------------------------------------------------------

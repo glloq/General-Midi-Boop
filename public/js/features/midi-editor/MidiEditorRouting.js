@@ -80,6 +80,10 @@
                 chip.classList.remove('channel-locked');
             }
 
+    // Sync the .channel-disabled class with the channelDisabled Set so the
+    // "Show all" button can clear the disabled state without an extra pass.
+            chip.classList.toggle('channel-disabled', this.modal.channelDisabled?.has(channel) === true);
+
     // Update playable notes indicator
             const isPlayableHighlighted = this.modal.channelPlayableHighlights?.has(channel);
             chip.classList.toggle('playable-active', !!isPlayableHighlighted);
