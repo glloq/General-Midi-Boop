@@ -261,6 +261,19 @@
                     const clampedTick = Math.max(rangeStart, Math.min(tick, rangeEnd));
                     this.modal.pianoRollRenderer?.setCursor(clampedTick);
                     if (this.modal.synthesizer && typeof this.modal.synthesizer.seek === 'function') this.modal.synthesizer.seek(clampedTick);
+                    // Drop any queued playback-cursor rAF and rebase the
+                    // dedup-tick so the next coalesced tick from the synth
+                    // does NOT briefly snap the cursor back to the pre-seek
+                    // position (audit §6.4 follow-up).
+                    const transport = this.modal._playback?.transport;
+                    if (transport) {
+                        if (transport._cursorRafId) {
+                            cancelAnimationFrame(transport._cursorRafId);
+                            transport._cursorRafId = 0;
+                        }
+                        transport._pendingTick = null;
+                        transport._lastAppliedTick = clampedTick;
+                    }
                     if (this.modal.timelineBar) this.modal.timelineBar.setPlayhead(clampedTick);
                     if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible) this.modal.tablatureEditor.updatePlayhead(clampedTick);
                     if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible) this.modal.drumPatternEditor.updatePlayhead(clampedTick);
