@@ -43,6 +43,15 @@
     /** Black key indices in an octave (0=C, 1=C#, 2=D, ...). */
     const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
 
+    /** Width of the right-edge resize handle on a note (CSS px). */
+    const RESIZE_HANDLE_PX = 6;
+
+    /** Default gate (in ticks) when creating a note via double-click. */
+    const DEFAULT_NEW_NOTE_GATE_RATIO = 0.5; // 1/2 of `_snap`
+
+    /** Smallest gate (in ticks) when resizing a note. */
+    const MIN_NOTE_GATE = 1;
+
     class CanvasPianoRollRenderer extends PianoRollRenderer {
         constructor(opts = {}) {
             super(opts);
@@ -149,7 +158,11 @@
             this._mouseMoveHandler = (e) => this._onMouseMove(e);
             this._mouseUpHandler   = (e) => this._onMouseUp(e);
             this._wheelHandler     = (e) => this._onWheel(e);
+            this._dblClickHandler  = (e) => this._onDblClick(e);
+            this._keyDownHandler   = (e) => this._onKeyDown(e);
             this._el.addEventListener('mousedown', this._mouseDownHandler);
+            this._el.addEventListener('dblclick',  this._dblClickHandler);
+            this._el.addEventListener('keydown',   this._keyDownHandler);
             // Move/Up bind on window so a drag that leaves the canvas still
             // completes deterministically.
             window.addEventListener('mousemove', this._mouseMoveHandler);
@@ -169,7 +182,9 @@
             this._handlers.clear();
             if (this._el) {
                 this._el.removeEventListener('mousedown', this._mouseDownHandler);
-                this._el.removeEventListener('wheel', this._wheelHandler);
+                this._el.removeEventListener('dblclick',  this._dblClickHandler);
+                this._el.removeEventListener('keydown',   this._keyDownHandler);
+                this._el.removeEventListener('wheel',     this._wheelHandler);
             }
             window.removeEventListener('mousemove', this._mouseMoveHandler);
             window.removeEventListener('mouseup',   this._mouseUpHandler);
@@ -640,6 +655,7 @@
 
         _onMouseDown(e) {
             if (!this._el) return;
+            this._el.focus(); // capture keyboard for shortcuts
             const { x, y } = this._localCoords(e);
 
             // Clicked on the keyboard column → emit pianokey
@@ -675,13 +691,41 @@
                 return;
             }
 
-            if (hit != null) {
-                // Toggle / single select; ctrl/cmd extends
-                if (!(e.ctrlKey || e.metaKey)) this.deselectAll();
-                this._sequence[hit].f = 1;
-                this._scheduleRender();
+            if (hit) {
+                // Clicked on a note. Three sub-modes:
+                //  - resize : right-edge handle (changes gate of the hit note only)
+                //  - move   : body click (moves all selected notes by Δtick/Δnote)
+                //  - select : same as move with snapshot for click-without-drag UX
+                if (!hit.note.f && !(e.ctrlKey || e.metaKey)) this.deselectAll();
+                hit.note.f = 1;
                 this._emit('selectionchange');
-                this._dragging = { mode: 'note', idx: hit, startTick: tick, startNote: note };
+
+                this.saveSnapshot(); // pre-mutation snapshot for undo
+                if (hit.isResizeHandle) {
+                    this._dragging = {
+                        mode: 'resize',
+                        idx: hit.idx,
+                        startTick: tick,
+                        startGate: hit.note.g || 0
+                    };
+                    this._el.style.cursor = 'ew-resize';
+                } else {
+                    // Snapshot original positions of every selected note
+                    const initial = new Map();
+                    this._sequence.forEach((n, i) => {
+                        if (n.f === 1) initial.set(i, { t: n.t, nNote: n.n });
+                    });
+                    this._dragging = {
+                        mode: 'move',
+                        startTick: tick,
+                        startNote: note,
+                        initial,
+                        lastEmittedTick: tick,
+                        lastEmittedNote: note
+                    };
+                    this._el.style.cursor = 'grabbing';
+                }
+                this._scheduleRender();
                 return;
             }
 
@@ -719,12 +763,64 @@
                     this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange });
                 }
                 this._scheduleRender();
+            } else if (d.mode === 'move') {
+                // Δ from drag start, snapped to grid
+                const tick = this._xToTick(x);
+                const note = this._yToNote(y);
+                const dt = this._snapTicks(tick - d.startTick);
+                const dn = note - d.startNote;
+                let mutated = false;
+                const movedNotes = [];
+                for (const [idx, init] of d.initial) {
+                    const n = this._sequence[idx];
+                    if (!n) continue;
+                    const newT = Math.max(0, init.t + dt);
+                    const newN = Math.max(NOTE_MIN, Math.min(NOTE_MAX, init.nNote + dn));
+                    if (n.t !== newT || n.n !== newN) {
+                        n.t = newT;
+                        n.n = newN;
+                        mutated = true;
+                    }
+                    movedNotes.push(n);
+                }
+                if (mutated) {
+                    this._bucketsDirty = true;
+                    this._scheduleRender();
+                    // Emit `notedragmove` so CC editors / preview synth can react
+                    // (matches the webaudio-pianoroll event surface).
+                    if (tick !== d.lastEmittedTick || note !== d.lastEmittedNote) {
+                        d.lastEmittedTick = tick;
+                        d.lastEmittedNote = note;
+                        this._emit('notedragmove', { notes: movedNotes });
+                    }
+                }
+            } else if (d.mode === 'resize') {
+                const tick = this._xToTick(x);
+                const dt = this._snapTicks(tick - d.startTick);
+                const n = this._sequence[d.idx];
+                if (n) {
+                    const newGate = Math.max(MIN_NOTE_GATE, d.startGate + dt);
+                    if (n.g !== newGate) {
+                        n.g = newGate;
+                        this._bucketsDirty = true;
+                        this._scheduleRender();
+                    }
+                }
             }
         }
 
         _onMouseUp(e) {
             if (!this._dragging) return;
             const d = this._dragging;
+            if (d.mode === 'move' || d.mode === 'resize') {
+                // The mutation already happened in mousemove. Finalize with a
+                // single `change` emit (debouncing per-frame events would cost
+                // more than this one-shot at end of drag).
+                this._emit('change');
+                this._dragging = null;
+                if (this._el) this._el.style.cursor = '';
+                return;
+            }
             if (d.mode === 'rect' && this._selectionRect) {
                 // Convert the rect to tick/note bounds, mark intersecting notes f=1
                 const r = this._selectionRect;
@@ -779,22 +875,100 @@
             }
         }
 
-        /** Returns the note index under (x, y) in CSS coords, or null. */
+        /**
+         * Hit-test a note at (x, y) in CSS coords. Returns `{idx, note,
+         * isResizeHandle}` when a note is hit, `null` otherwise.
+         * The right-most `RESIZE_HANDLE_PX` of each note triggers a
+         * resize cursor; everything else is a body grab.
+         */
         _hitTestNote(x, y) {
             if (x < KB_WIDTH || y < RULER_H) return null;
             const tick = this._xToTick(x);
             const note = this._yToNote(y);
-            // Query the spatial index for notes intersecting a tick window
-            // around the click (small tolerance ±2 px in ticks).
-            const tol = ((this._xrange || 1) / Math.max(1, this._cssWidth - KB_WIDTH)) * 2;
+            const tickPerPx = (this._xrange || 1) / Math.max(1, this._cssWidth - KB_WIDTH);
+            const tol = tickPerPx * 2;
             const indices = this._notesInTickRange(tick - tol, tick + tol);
             for (const idx of indices) {
                 const n = this._sequence[idx];
                 if (!n) continue;
                 if (n.n !== note) continue;
-                if (tick >= n.t && tick <= n.t + (n.g || 0)) return idx;
+                if (tick >= n.t && tick <= n.t + (n.g || 0)) {
+                    const noteEndX = this._tickToX(n.t + (n.g || 0));
+                    const isResizeHandle = (noteEndX - x) <= RESIZE_HANDLE_PX
+                                        && (n.g || 0) >= tol * 2;
+                    return { idx, note: n, isResizeHandle };
+                }
             }
             return null;
+        }
+
+        /** Snap a tick offset to the configured grid (`_snap`). */
+        _snapTicks(ticks) {
+            const s = this._snap || 1;
+            return Math.round(ticks / s) * s;
+        }
+
+        // ----------------------------------------------------------------
+        // B8 — Double-click create
+        // ----------------------------------------------------------------
+
+        _onDblClick(e) {
+            if (!this._el) return;
+            const { x, y } = this._localCoords(e);
+            // Only create inside the notes area (not on keyboard, not on ruler)
+            if (x < KB_WIDTH || y < RULER_H) return;
+            // If clicking on an existing note, deletion would be intuitive
+            // but `<webaudio-pianoroll>` doesn't do that — keep parity and
+            // ignore dblclick on hit.
+            if (this._hitTestNote(x, y)) return;
+            const tickRaw = this._xToTick(x);
+            const note = this._yToNote(y);
+            if (note < NOTE_MIN || note > NOTE_MAX) return;
+            const t = Math.max(0, this._snapTicks(tickRaw));
+            const gate = Math.max(MIN_NOTE_GATE,
+                Math.round((this._snap || this._grid || 120) * DEFAULT_NEW_NOTE_GATE_RATIO));
+            this.saveSnapshot();
+            const newNote = { t, g: gate, n: note, c: this._defaultChannel, v: 100, f: 1 };
+            this.deselectAll();
+            this._sequence.push(newNote);
+            this._bucketsDirty = true;
+            this._scheduleRender();
+            this._emit('change');
+            this._emit('selectionchange');
+        }
+
+        // ----------------------------------------------------------------
+        // B9 — Keyboard shortcuts
+        // ----------------------------------------------------------------
+
+        _onKeyDown(e) {
+            if (!this._el) return;
+            // Only handle when the canvas itself has focus (avoids stealing
+            // global Ctrl+Z when the user is in another input).
+            if (document.activeElement !== this._el) return;
+
+            const ctrl = e.ctrlKey || e.metaKey;
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                if (this.getSelectionCount() > 0) {
+                    this.saveSnapshot();
+                    this.deleteSelection();
+                }
+            } else if (ctrl && e.key === 'a') {
+                e.preventDefault();
+                this.selectAll();
+                this._emit('selectionchange');
+            } else if (ctrl && (e.key === 'z' || (e.shiftKey && (e.key === 'Z' || e.key === 'z')))) {
+                e.preventDefault();
+                if (e.shiftKey) this.redo();
+                else            this.undo();
+            } else if (ctrl && e.key === 'y') {
+                e.preventDefault();
+                this.redo();
+            } else if (e.key === 'Escape') {
+                this.deselectAll();
+                this._emit('selectionchange');
+            }
         }
 
         /**
