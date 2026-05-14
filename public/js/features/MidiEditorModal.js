@@ -605,6 +605,20 @@ MidiEditorModal.prototype._saveDragPlaybackPref = function(value) {
     this._setPreference('midiEditorDragPlayback', value);
 };
 
+// Toggle delegates → editActions sub-feature. The settings popover and
+// inline toolbar buttons in MidiEditorEvents.attachEvents() wire their
+// click handlers as `this.modal.toggleXxx()` — without these delegates,
+// the modal exposes no method and the click is a TypeError.
+MidiEditorModal.prototype.toggleTouchMode = function() {
+    return this.editActions?.toggleTouchMode();
+};
+MidiEditorModal.prototype.toggleKeyboardPlayback = function() {
+    return this.editActions?.toggleKeyboardPlayback();
+};
+MidiEditorModal.prototype.toggleDragPlayback = function() {
+    return this.editActions?.toggleDragPlayback();
+};
+
 // ============================================================================
 // APPLY MIXINS - Methods extracted to separate files for maintainability
 // ============================================================================
