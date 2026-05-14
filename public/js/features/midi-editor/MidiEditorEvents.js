@@ -550,8 +550,8 @@
                     void ccLayout?.offsetHeight;
                     void ccMain?.offsetHeight;
 
-                    if (this.modal.pianoRoll && typeof this.modal.pianoRoll.redraw === 'function') {
-                        this.modal.pianoRoll.redraw();
+                    if (this.modal.pianoRollRenderer?.isMounted()) {
+                        this.modal.pianoRollRenderer.redraw();
                         this.modal.log('debug', 'Piano roll redraw called');
                     }
 
@@ -603,9 +603,7 @@
 
     // Resize the editors after the resize
                     requestAnimationFrame(() => {
-                        if (this.modal.pianoRoll && typeof this.modal.pianoRoll.redraw === 'function') {
-                            this.modal.pianoRoll.redraw();
-                        }
+                        this.modal.pianoRollRenderer?.redraw();
 
                         if (this.modal.ccEditor && typeof this.modal.ccEditor.resize === 'function') {
                             this.modal.ccEditor.resize();
@@ -638,7 +636,7 @@
     }
 
     reloadPianoRoll() {
-        if (!this.modal.pianoRoll) {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.log('warn', 'Cannot reload piano roll: not initialized');
             return;
         }
@@ -663,19 +661,11 @@
         const xrange = Math.max(128, Math.ceil(maxTick / 128) * 128);
         const noteRange = Math.max(36, maxNote - minNote + 12);
 
-        this.modal.pianoRoll.setAttribute('xrange', xrange.toString());
-        this.modal.pianoRoll.setAttribute('yrange', noteRange.toString());
-
-    // Reload the sequence
-        this.modal.pianoRoll.sequence = this.modal.sequence;
-
-    // Ensure colors are always defined
-        this.modal.pianoRoll.channelColors = this.modal.channelColors;
-
-    // Force redraw
-        if (typeof this.modal.pianoRoll.redraw === 'function') {
-            this.modal.pianoRoll.redraw();
-        }
+        const renderer = this.modal.pianoRollRenderer;
+        renderer?.setXRange(xrange).setYRange(noteRange)
+                .setSequence(this.modal.sequence)
+                .setChannelColors(this.modal.channelColors)
+                .redraw();
 
     // Update the stats
         this.modal.routingOps?.updateStats();
@@ -694,20 +684,15 @@
             return;
         }
 
-        if (!this.modal.pianoRoll) {
+        const renderer = this.modal.pianoRollRenderer;
+        if (!renderer?.isMounted()) {
             this.modal.log('warn', 'Cannot zoom: piano roll not initialized');
             return;
         }
 
-    // Try to read the property directly
-        const currentRange = this.modal.pianoRoll.xrange || parseInt(this.modal.pianoRoll.getAttribute('xrange')) || 128;
+        const currentRange = renderer.getXRange() || 128;
         const newRange = Math.max(16, Math.min(100000, Math.round(currentRange * factor)));
-
-    // Try both methods
-        this.modal.pianoRoll.setAttribute('xrange', newRange.toString());
-        if (this.modal.pianoRoll.xrange !== undefined) {
-            this.modal.pianoRoll.xrange = newRange;
-        }
+        renderer.setXRange(newRange);
 
         this._scheduleWebaudioPianoRollRedraw(() => this.modal.ccPicker.syncAllEditors());
         this.modal.log('info', `Horizontal zoom: ${currentRange} -> ${newRange}`);
@@ -750,20 +735,15 @@
             return;
         }
 
-        if (!this.modal.pianoRoll) {
+        const renderer = this.modal.pianoRollRenderer;
+        if (!renderer?.isMounted()) {
             this.modal.log('warn', 'Cannot zoom: piano roll not initialized');
             return;
         }
 
-    // Try to read the property directly
-        const currentRange = this.modal.pianoRoll.yrange || parseInt(this.modal.pianoRoll.getAttribute('yrange')) || 36;
+        const currentRange = renderer.getYRange() || 36;
         const newRange = Math.max(12, Math.min(88, Math.round(currentRange * factor)));
-
-    // Try both methods
-        this.modal.pianoRoll.setAttribute('yrange', newRange.toString());
-        if (this.modal.pianoRoll.yrange !== undefined) {
-            this.modal.pianoRoll.yrange = newRange;
-        }
+        renderer.setYRange(newRange);
 
         this._scheduleWebaudioPianoRollRedraw();
         this.modal.log('info', `Vertical zoom: ${currentRange} -> ${newRange}`);
@@ -808,7 +788,7 @@
     }
 
     setupScrollSynchronization() {
-        if (!this.modal.pianoRoll) return;
+        if (!this.modal.pianoRollRenderer?.isMounted()) return;
 
         let syncScheduled = false;
 
@@ -830,7 +810,9 @@
             }
         };
 
-        this.modal.pianoRoll.addEventListener('viewportchange', onViewportChange);
+        // Route via the renderer abstraction — back-compat with the
+        // current adapter (forwards to addEventListener under the hood).
+        this.modal.pianoRollRenderer?.on('viewportchange', onViewportChange);
         // Store reference for cleanup
         this.modal._viewportChangeHandler = onViewportChange;
     }
@@ -839,18 +821,16 @@
     // Compute the offset based on the total range of the MIDI file
         const maxTick = this.modal.midiData?.maxTick || 0;
 
-        if (this.modal.pianoRoll) {
-            const xrange = this.modal.pianoRoll.xrange || parseInt(this.modal.pianoRoll.getAttribute('xrange')) || 128;
+        const renderer = this.modal.pianoRollRenderer;
+        if (renderer?.isMounted()) {
+            const xrange = renderer.getXRange() || 128;
             const maxOffset = Math.max(0, maxTick - xrange);
             const newOffset = Math.round((percentage / 100) * maxOffset);
-
-            this.modal.pianoRoll.xoffset = newOffset;
-            this.modal.pianoRoll.setAttribute('xoffset', newOffset.toString());
+            renderer.setXOffset(newOffset);
 
     // Do not redraw the piano roll while it is hidden (wind editor active)
-            if (typeof this.modal.pianoRoll.redraw === 'function' &&
-                !(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
-                this.modal.pianoRoll.redraw();
+            if (!(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
+                renderer.redraw();
             }
         }
 
@@ -884,21 +864,19 @@
     }
 
     scrollVertical(percentage) {
-        if (this.modal.pianoRoll) {
-            const yrange = this.modal.pianoRoll.yrange || parseInt(this.modal.pianoRoll.getAttribute('yrange')) || 36;
+        const renderer = this.modal.pianoRollRenderer;
+        if (renderer?.isMounted()) {
+            const yrange = renderer.getYRange() || 36;
 
     // Full MIDI range: notes 0-127
             const totalMidiRange = 128;
             const maxOffset = Math.max(0, totalMidiRange - yrange);
             const newOffset = Math.round((percentage / 100) * maxOffset);
-
-            this.modal.pianoRoll.yoffset = newOffset;
-            this.modal.pianoRoll.setAttribute('yoffset', newOffset.toString());
+            renderer.setYOffset(newOffset);
 
     // Do not redraw the piano roll while it is hidden (wind editor active)
-            if (typeof this.modal.pianoRoll.redraw === 'function' &&
-                !(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
-                this.modal.pianoRoll.redraw();
+            if (!(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
+                renderer.redraw();
             }
         }
 
@@ -909,27 +887,27 @@
     }
 
     _applyPianoRollTheme() {
-        if (!this.modal.pianoRoll) return;
+        const renderer = this.modal.pianoRollRenderer;
+        if (!renderer?.isMounted()) return;
 
         const isDark = document.body.classList.contains('dark-mode');
-
-        if (isDark) {
-            this.modal.pianoRoll.setAttribute('collt', '#262830');
-            this.modal.pianoRoll.setAttribute('coldk', '#22242a');
-            this.modal.pianoRoll.setAttribute('colgrid', '#2e3038');
-            this.modal.pianoRoll.setAttribute('colrulerbg', '#1e2028');
-            this.modal.pianoRoll.setAttribute('colrulerfg', '#8890a0');
-            this.modal.pianoRoll.setAttribute('colrulerborder', '#2e3038');
-            this.modal.pianoRoll.setAttribute('colnoteborder', 'rgba(255,255,255,0.1)');
-        } else {
-            this.modal.pianoRoll.setAttribute('collt', '#ddd6f3');
-            this.modal.pianoRoll.setAttribute('coldk', '#d2cae8');
-            this.modal.pianoRoll.setAttribute('colgrid', '#c8c0de');
-            this.modal.pianoRoll.setAttribute('colrulerbg', '#d5cdef');
-            this.modal.pianoRoll.setAttribute('colrulerfg', '#4a3f6b');
-            this.modal.pianoRoll.setAttribute('colrulerborder', '#c0b8d8');
-            this.modal.pianoRoll.setAttribute('colnoteborder', 'rgba(102,126,234,0.25)');
-        }
+        renderer.setThemeColors(isDark ? {
+            collt:          '#262830',
+            coldk:          '#22242a',
+            colgrid:        '#2e3038',
+            colrulerbg:     '#1e2028',
+            colrulerfg:     '#8890a0',
+            colrulerborder: '#2e3038',
+            colnoteborder:  'rgba(255,255,255,0.1)'
+        } : {
+            collt:          '#ddd6f3',
+            coldk:          '#d2cae8',
+            colgrid:        '#c8c0de',
+            colrulerbg:     '#d5cdef',
+            colrulerfg:     '#4a3f6b',
+            colrulerborder: '#c0b8d8',
+            colnoteborder:  'rgba(102,126,234,0.25)'
+        });
     }
 
     toggleSettingsPopover() {
@@ -977,7 +955,7 @@
                 const rangeStart = this.modal.timelineBar.rangeStart || 0;
                 const rangeEnd = this.modal.timelineBar.rangeEnd || (this.modal.midiData?.maxTick || 0);
                 const clampedTick = Math.max(rangeStart, Math.min(tick, rangeEnd));
-                if (this.modal.pianoRoll) this.modal.pianoRoll.cursor = clampedTick;
+                this.modal.pianoRollRenderer?.setCursor(clampedTick);
                 if (this.modal.synthesizer && typeof this.modal.synthesizer.seek === 'function') this.modal.synthesizer.seek(clampedTick);
                 if (this.modal.timelineBar) this.modal.timelineBar.setPlayhead(clampedTick);
                 if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible) this.modal.tablatureEditor.updatePlayhead(clampedTick);
@@ -986,15 +964,15 @@
                 this.modal.log('debug', `Timeline seek to tick ${clampedTick}`);
             },
             onPan: (newScrollX) => {
-                if (this.modal.pianoRoll) {
-                    this.modal.pianoRoll.xoffset = newScrollX;
-                    if (typeof this.modal.pianoRoll.redraw === 'function' &&
-                        !(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
-                        this.modal.pianoRoll.redraw();
+                const renderer = this.modal.pianoRollRenderer;
+                if (renderer?.isMounted()) {
+                    renderer.setXOffset(newScrollX);
+                    if (!(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
+                        renderer.redraw();
                     }
                 }
                 const maxTick2 = this.modal.midiData?.maxTick || 0;
-                const xrange2 = this.modal.pianoRoll?.xrange || 1920;
+                const xrange2 = this.modal.pianoRollRenderer?.getXRange() || 1920;
                 this.modal.navigationBar?.setViewport(newScrollX, xrange2, maxTick2);
                 if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible && this.modal.tablatureEditor.renderer) this.modal.tablatureEditor.renderer.setScrollX(newScrollX);
                 if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible && this.modal.drumPatternEditor.gridRenderer) this.modal.drumPatternEditor.gridRenderer.setScrollX(newScrollX);
@@ -1012,10 +990,7 @@
                 }
             },
             onRangeChange: (start, end) => {
-                if (this.modal.pianoRoll) {
-                    this.modal.pianoRoll.setAttribute('markstart', start.toString());
-                    this.modal.pianoRoll.setAttribute('markend', end.toString());
-                }
+                this.modal.pianoRollRenderer?.setMarkers(start, end);
                 this.modal.playbackStartTick = start;
                 this.modal.playbackEndTick = end;
                 if (this.modal.synthesizer) {
@@ -1026,8 +1001,8 @@
                 }
                 if (this.modal.timelineBar) {
                     const playhead = this.modal.timelineBar.playheadTick;
-                    if (playhead < start) { this.modal.timelineBar.setPlayhead(start); if (this.modal.pianoRoll) this.modal.pianoRoll.cursor = start; }
-                    else if (playhead > end) { this.modal.timelineBar.setPlayhead(end); if (this.modal.pianoRoll) this.modal.pianoRoll.cursor = end; }
+                    if (playhead < start) { this.modal.timelineBar.setPlayhead(start); this.modal.pianoRollRenderer?.setCursor(start); }
+                    else if (playhead > end) { this.modal.timelineBar.setPlayhead(end); this.modal.pianoRollRenderer?.setCursor(end); }
                 }
                 this.modal.log('debug', `Timeline range changed: ${start} - ${end}`);
             },
