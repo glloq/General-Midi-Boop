@@ -7,10 +7,13 @@
 //   Supports scrolling, zoom, playhead, selection, and theme awareness
 // ============================================================================
 
-class DrumGridRenderer {
+class DrumGridRenderer extends CanvasRenderer {
     constructor(canvas, options = {}) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+        super(canvas, {
+            headerWidth: 80,
+            topMargin: 20,
+            onScrollChange: options.onScrollChange
+        });
 
         // GM drum note names (note 35-81)
         this.NOTE_NAMES = {
@@ -73,17 +76,9 @@ class DrumGridRenderer {
             65, 66, 67, 68        // More latin
         ];
 
-        // Layout
-        this.headerWidth = 80;       // Left margin for instrument labels
+        // Layout specifics not handled by the base
         this.rowHeight = 20;         // Pixels per row
-        this.topMargin = 20;         // Space for beat numbers
-        this.ticksPerPixel = 2;      // Horizontal zoom
-        this.scrollX = 0;            // Horizontal scroll in ticks
         this.scrollY = 0;            // Vertical scroll in pixels
-
-        // Time signature
-        this.ticksPerBeat = 480;
-        this.beatsPerMeasure = 4;
 
         // Quantize division (subdivisions per beat): 1=1/4, 2=1/8, 3=1/8T, 4=1/16, 6=1/16T, 8=1/32
         this.quantizeDiv = 4;
@@ -99,56 +94,19 @@ class DrumGridRenderer {
         // Muted notes (toggled off by user click on label): Set<noteNumber>
         this.mutedNotes = new Set();
 
-        // Selection
-        this.selectedEvents = new Set();
-        this.selectionRect = null;
-
-        // Playback
-        this.playheadTick = 0;
-
-        // Interaction
-        this._isDragging = false;
-        this._dragStart = null;
-        this._dragMode = null;
+        // Interaction state specific to this renderer
         this._hoverEvent = null;
 
         // Edit mode: 'pan' (default) or 'select'
         this.tool = options.tool || 'pan';
 
-        // Undo/Redo
-        this._undoStack = [];
-        this._redoStack = [];
-        this._maxUndoSize = 20;
-
-        // RAF-throttled rendering
-        this._redrawScheduled = false;
-
-        // Clipboard
-        this._clipboard = [];
-
-        // Scroll change callback (notifies parent when scroll/zoom changes)
-        this.onScrollChange = options.onScrollChange || null;
-
-        // Colors
-        this.colors = {};
+        // Category color palette (filled by updateTheme())
         this.categoryColors = {};
         this.updateTheme();
-
-        // Bind events
-        this._onMouseDown = this._handleMouseDown.bind(this);
-        this._onMouseMove = this._handleMouseMove.bind(this);
-        this._onMouseUp = this._handleMouseUp.bind(this);
-        this._onDblClick = this._handleDblClick.bind(this);
-        this._onContextMenu = (e) => { if (e.button === 1) e.preventDefault(); };
-        this._onWheel = this._handleWheel.bind(this);
-
-        this.canvas.addEventListener('mousedown', this._onMouseDown);
-        this.canvas.addEventListener('mousemove', this._onMouseMove);
-        this.canvas.addEventListener('mouseup', this._onMouseUp);
-        this.canvas.addEventListener('dblclick', this._onDblClick);
-        this.canvas.addEventListener('auxclick', this._onContextMenu);
-        this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
     }
+
+    /** Drum grid attaches the middle-click guard (legacy behaviour). */
+    _attachContextMenu() { return true; }
 
     // ========================================================================
     // THEME
@@ -227,25 +185,12 @@ class DrumGridRenderer {
         }
     }
 
-    setScrollX(tickOffset) {
-        this.scrollX = Math.max(0, tickOffset);
-        this.requestRedraw();
-        this._notifyScrollChange();
-    }
+    // setScrollX / setZoom / setPlayhead / setTimeSignature / _notifyScrollChange
+    // are provided by CanvasRenderer.
 
     setScrollY(pixelOffset) {
         this.scrollY = Math.max(0, pixelOffset);
         this.requestRedraw();
-    }
-
-    setZoom(ticksPerPixel) {
-        this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
-        this.requestRedraw();
-        this._notifyScrollChange();
-    }
-
-    _notifyScrollChange() {
-        if (this.onScrollChange) this.onScrollChange();
     }
 
     /**
@@ -254,17 +199,6 @@ class DrumGridRenderer {
      */
     setVerticalZoom(factor) {
         this.rowHeight = Math.max(12, Math.min(40, Math.round(this.rowHeight / factor)));
-        this.requestRedraw();
-    }
-
-    setPlayhead(tick) {
-        this.playheadTick = tick;
-        this.requestRedraw();
-    }
-
-    setTimeSignature(ticksPerBeat, beatsPerMeasure) {
-        this.ticksPerBeat = ticksPerBeat || 480;
-        this.beatsPerMeasure = beatsPerMeasure || 4;
         this.requestRedraw();
     }
 
@@ -365,16 +299,7 @@ class DrumGridRenderer {
     // RENDERING
     // ========================================================================
 
-    /** Schedule a redraw on the next animation frame (coalesced). */
-    requestRedraw() {
-        if (!this._redrawScheduled) {
-            this._redrawScheduled = true;
-            requestAnimationFrame(() => {
-                this._redrawScheduled = false;
-                this.redraw();
-            });
-        }
-    }
+    // requestRedraw() is provided by CanvasRenderer.
 
     redraw() {
         const { canvas, ctx } = this;
@@ -732,13 +657,7 @@ class DrumGridRenderer {
     // COORDINATE CONVERSION
     // ========================================================================
 
-    _tickToX(tick) {
-        return this.headerWidth + (tick - this.scrollX) / this.ticksPerPixel;
-    }
-
-    _xToTick(x) {
-        return Math.round((x - this.headerWidth) * this.ticksPerPixel + this.scrollX);
-    }
+    // _tickToX / _xToTick are inherited from CanvasRenderer.
 
     _rowToY(rowIndex) {
         return this.topMargin + rowIndex * this.rowHeight - this.scrollY;
@@ -1005,14 +924,7 @@ class DrumGridRenderer {
     // CLEANUP
     // ========================================================================
 
-    destroy() {
-        this.canvas.removeEventListener('mousedown', this._onMouseDown);
-        this.canvas.removeEventListener('mousemove', this._onMouseMove);
-        this.canvas.removeEventListener('mouseup', this._onMouseUp);
-        this.canvas.removeEventListener('dblclick', this._onDblClick);
-        this.canvas.removeEventListener('auxclick', this._onContextMenu);
-        this.canvas.removeEventListener('wheel', this._onWheel);
-    }
+    // destroy() inherited from CanvasRenderer.
 }
 
 // ============================================================================

@@ -247,24 +247,22 @@
 
             this.modal.log('info', `Updated sequence: ${this.modal.sequence.length} notes from ${this.modal.activeChannels.size} active channel(s)`);
 
-            if (this.modal.pianoRoll) {
-                this.modal.pianoRoll.sequence.length = 0;
-
-                this.modal.sequence.forEach(note => {
-                    this.modal.pianoRoll.sequence.push({...note});
-                });
-
-                this.modal.pianoRoll.channelColors = this.modal.channelColors;
+            const renderer = this.modal.pianoRollRenderer;
+            if (renderer?.isMounted()) {
+                // Bulk replace via setSequence (audit §1.1 — drops the
+                // per-note push loop, prepares for Canvas impl which will
+                // benefit from a single spatial-index rebuild).
+                renderer.setSequence(this.modal.sequence.map(note => ({...note})));
+                renderer.setChannelColors(this.modal.channelColors);
 
                 if (this.modal.activeChannels.size > 0) {
-                    this.modal.pianoRoll.defaultChannel = Array.from(this.modal.activeChannels)[0];
-                    this.modal.log('debug', `Default channel for new notes: ${this.modal.pianoRoll.defaultChannel}`);
+                    const ch = Array.from(this.modal.activeChannels)[0];
+                    renderer.setDefaultChannel(ch);
+                    this.modal.log('debug', `Default channel for new notes: ${ch}`);
                 }
 
-                if (typeof this.modal.pianoRoll.redraw === 'function') {
-                    this.modal.pianoRoll.redraw();
-                    this.modal.log('debug', `Piano roll redrawn after channel toggle: ${this.modal.pianoRoll.sequence.length} notes visible`);
-                }
+                renderer.redraw();
+                this.modal.log('debug', `Piano roll redrawn after channel toggle: ${this.modal.sequence.length} notes visible`);
             }
 
             // Sync CC/Velocity editor to the edited channel
@@ -284,9 +282,8 @@
 
     syncFullSequenceFromPianoRoll(previousActiveChannels) {
             if (previousActiveChannels === undefined) previousActiveChannels = null;
-            if (!this.modal.pianoRoll || !this.modal.pianoRoll.sequence) return;
-
-            const currentSequence = this.modal.pianoRoll.sequence;
+            const currentSequence = this.modal.pianoRollRenderer?.getSequence();
+            if (!currentSequence) return;
             const visibleChannels = previousActiveChannels || this.modal.activeChannels;
             const invisibleNotes = this.modal.fullSequence.filter(note => !visibleChannels.has(note.c));
             const visibleNotes = currentSequence.map(note => ({

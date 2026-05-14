@@ -201,8 +201,8 @@
             }
 
     // Stop viewport synchronization
-            if (this.modal.pianoRoll && this.modal._viewportChangeHandler) {
-                this.modal.pianoRoll.removeEventListener('viewportchange', this.modal._viewportChangeHandler);
+            if (this.modal.pianoRollRenderer && this.modal._viewportChangeHandler) {
+                this.modal.pianoRollRenderer.off('viewportchange', this.modal._viewportChangeHandler);
                 this.modal._viewportChangeHandler = null;
             }
         // Fallback: clear legacy polling interval if still present
@@ -212,8 +212,9 @@
             }
 
     // Nettoyer le piano roll
-            if (this.modal.pianoRoll) {
-                this.modal.pianoRoll.remove();
+            if (this.modal.pianoRollRenderer) {
+                this.modal.pianoRollRenderer.destroy();
+                this.modal.pianoRollRenderer = null;
                 this.modal.pianoRoll = null;
             }
 
@@ -279,10 +280,14 @@
     // Clean up the synthesizer
             this.modal.disposeSynthesizer();
 
-    // Retirer les listeners de resize drag
+    // Resize-drag listeners (mousemove/mouseup on document) are now
+    // detached automatically via the AbortController signal in
+    // MidiEditorEvents.detachEvents() (audit §7.1). The fallback path
+    // below only fires when attachEvents() hadn't run yet (very rare
+    // init ordering edge-case) — keep the manual removal for safety.
             if (this.modal._resizeDoResize) {
                 document.removeEventListener('mousemove', this.modal._resizeDoResize);
-                document.removeEventListener('mouseup', this.modal._resizeStopResize);
+                document.removeEventListener('mouseup',   this.modal._resizeStopResize);
                 this.modal._resizeDoResize = null;
                 this.modal._resizeStopResize = null;
             }
@@ -295,6 +300,12 @@
                 this.modal.eventBus.off('routing:changed', this.modal._onExternalRoutingChanged);
                 this.modal._onExternalRoutingChanged = null;
             }
+
+    // Abort the session-scoped AbortController so any `document`/`window`
+    // listener registered through MidiEditorEvents.getAbortSignal() is
+    // detached. Catches popover close handlers that survived past the
+    // modal lifetime (audit §7.1).
+            try { this.modal.events?.detachEvents?.(); } catch (_) { /* best-effort */ }
 
         } catch (err) {
             this.log('error', 'Error during editor cleanup (container will still be removed):', err);

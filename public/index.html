@@ -5902,9 +5902,9 @@
     <!-- Delay Calibration Modal: now handled by CalibrationModal.js -->
 
     <!-- Scripts -->
-    <script src="js/migrateLegacy.js"></script>
     <script src="js/utils/MidiConstants.js"></script>
     <script src="js/utils/escapeHtml.js"></script>
+    <script src="js/utils/timeline-math.js"></script>
     <script src="js/utils/FilterManager.js"></script>
     <script src="js/api/BackendAPIClient.js"></script>
 
@@ -5921,7 +5921,13 @@
     <!-- Webaudio-pianoroll library - VERSION CUSTOM avec coloration par canal MIDI -->
     <script src="lib/webaudio-pianoroll-custom.js"></script>
 
+    <!-- BaseLaneEditor: shared base class for 1D lane editors (must load first). -->
+    <script src="js/features/BaseLaneEditor.js"></script>
+
     <!-- CC/Pitchbend Editor Component -->
+    <!-- CCPitchbendEditor sub-features (audit §1.3). Must load before CCPitchbendEditor.js -->
+    <script src="js/features/CCPitchbendEditorRenderer.js"></script>
+    <script src="js/features/CCPitchbendEditorInteractions.js"></script>
     <script src="js/features/CCPitchbendEditor.js"></script>
 
     <!-- Velocity Editor Component -->
@@ -6013,31 +6019,65 @@
 
     <!-- Shared piano-roll editor (used by LoopEditorModal and as toolbar by MidiEditorModal) -->
     <script src="js/features/LoopCreatorMinimap.js"></script>
+    <!-- PianoRollEditor sub-features (audit §1.3). Must load before PianoRollEditor.js -->
+    <script src="js/features/piano-roll/PianoRollEditorSetup.js"></script>
     <script src="js/features/PianoRollEditor.js"></script>
 
     <!-- MIDI Editor Sub-Components -->
+    <!-- Piano roll renderer abstraction (audit §1.1) — must load before MidiEditorRouting -->
+    <script src="js/features/piano-roll/PianoRollRenderer.js"></script>
+    <!-- Canvas 2D implementation (audit §1.1 Phase B + §3.1/§3.2) — opt-in via ?pianoRollV2=1 -->
+    <script src="js/features/piano-roll/CanvasPianoRollRenderer.js"></script>
     <script src="js/features/midi-editor/SoundBankLoadingIndicator.js"></script>
     <script src="js/features/midi-editor/MidiEditorToolbar.js"></script>
     <script src="js/features/midi-editor/MidiEditorChannelPanel.js"></script>
+    <!-- MidiEditorPlayback sub-features (audit §1.3). Must load before MidiEditorPlayback.js -->
+    <script src="js/features/midi-editor/MidiEditorTransport.js"></script>
     <script src="js/features/midi-editor/MidiEditorPlayback.js"></script>
 
     <!-- MIDI Editor Mixin Modules (loaded before MidiEditorModal.js) -->
     <script src="js/features/midi-editor/MidiEditorConstants.js"></script>
     <script src="js/features/midi-editor/MidiEditorSequence.js"></script>
+    <!-- MidiEditorCC sub-features (audit §1.3). Must load before MidiEditorCC.js -->
+    <script src="js/features/midi-editor/MidiEditorCCButtons.js"></script>
     <script src="js/features/midi-editor/MidiEditorCC.js"></script>
     <script src="js/features/midi-editor/MidiEditorDrawSettings.js"></script>
+    <!-- MidiEditorCCPicker sub-features (audit §1.3). Must load before MidiEditorCCPicker.js -->
+    <script src="js/features/midi-editor/MidiEditorLaneEditors.js"></script>
     <script src="js/features/midi-editor/MidiEditorCCPicker.js"></script>
+    <!-- MidiEditorFileOps sub-features (audit §1.3). Must load before MidiEditorFileOps.js -->
+    <script src="js/features/midi-editor/MidiEditorMidiWriter.js"></script>
     <script src="js/features/midi-editor/MidiEditorFileOps.js"></script>
     <script src="js/features/midi-editor/MidiEditorRenderer.js"></script>
+    <!-- MidiEditorRouting sub-features (audit §1.3). Must load before MidiEditorRouting.js -->
+    <script src="js/features/midi-editor/MidiEditorPlayableNotes.js"></script>
+    <script src="js/features/midi-editor/MidiEditorPianoRollBoot.js"></script>
+    <script src="js/features/midi-editor/MidiEditorView.js"></script>
     <script src="js/features/midi-editor/MidiEditorRouting.js"></script>
+    <!-- MidiEditorEditActions sub-features (audit §1.3). Must load before MidiEditorEditActions.js -->
+    <script src="js/features/midi-editor/MidiEditorChannelOps.js"></script>
+    <script src="js/features/midi-editor/MidiEditorClipboard.js"></script>
     <script src="js/features/midi-editor/MidiEditorEditActions.js"></script>
     <script src="js/features/midi-editor/MidiEditorDialogs.js"></script>
+    <!-- MidiEditorEvents sub-features (audit §1.3). Must load before MidiEditorEvents.js -->
+    <script src="js/features/midi-editor/MidiEditorViewport.js"></script>
+    <script src="js/features/midi-editor/MidiEditorResize.js"></script>
+    <script src="js/features/midi-editor/MidiEditorChannelChipEvents.js"></script>
     <script src="js/features/midi-editor/MidiEditorEvents.js"></script>
+    <!-- MidiEditorTablature sub-features (audit §6.5 + §1.3). Must load before MidiEditorTablature.js -->
+    <script src="js/features/midi-editor/MidiEditorStringInstruments.js"></script>
+    <script src="js/features/midi-editor/MidiEditorStringInstrumentChannels.js"></script>
+    <script src="js/features/midi-editor/MidiEditorSpecializedEditors.js"></script>
+    <script src="js/features/midi-editor/MidiEditorChannelSettingsPopover.js"></script>
     <script src="js/features/midi-editor/MidiEditorTablature.js"></script>
     <script src="js/features/midi-editor/MidiEditorLifecycle.js"></script>
+    <!-- MidiEditorInfoModal sub-features (audit §1.3). Must load before MidiEditorInfoModal.js -->
+    <script src="js/features/midi-editor/MidiEditorInfoModalRender.js"></script>
     <script src="js/features/midi-editor/MidiEditorInfoModal.js"></script>
 
     <!-- MIDI Editor Modal Component (depends on RoutingSummaryPage + sub-components + mixins) -->
+    <!-- CanvasRenderer: shared base class for canvas-based MIDI renderers (must load first). -->
+    <script src="js/features/CanvasRenderer.js"></script>
     <script src="js/features/TablatureRenderer.js"></script>
     <script src="js/features/FretboardDiagram.js"></script>
     <script src="js/features/NeckDiagramConfig.js"></script>
@@ -6085,6 +6125,18 @@
     <!-- Loop Manager + Editor (PianoRollEditor + LoopCreatorMinimap déjà chargés plus haut, partagés avec MidiEditorModal) -->
     <script src="js/features/loop/LoopUtils.js"></script>
     <script src="js/features/LoopEditorModal.js"></script>
+    <!-- LoopManager sub-components — must load before the modal. -->
+    <script src="js/features/LoopManagerOutputRouter.js"></script>
+    <script src="js/features/LoopManagerKeyboardFeature.js"></script>
+    <script src="js/features/LoopManagerLibraryFeature.js"></script>
+    <script src="js/features/LoopManagerLiveFeature.js"></script>
+    <script src="js/features/LoopManagerPadView.js"></script>
+    <script src="js/features/LoopManagerPadFeature.js"></script>
+    <script src="js/features/LoopManagerArrangerView.js"></script>
+    <script src="js/features/LoopManagerArrangerOps.js"></script>
+    <script src="js/features/LoopManagerArrangerFeature.js"></script>
+    <script src="js/features/LoopCreatorModalView.js"></script>
+    <script src="js/features/LoopCreatorModalEvents.js"></script>
     <script src="js/features/LoopCreatorModal.js"></script>
 
     <!-- Network Scan Modal Component -->

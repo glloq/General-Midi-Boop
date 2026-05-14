@@ -124,6 +124,10 @@
     class MidiEditorInfoModal {
         constructor(modal) {
             this.modal = modal;
+            // Sub-feature: HTML rendering (audit §1.3).
+            this.render = typeof MidiEditorInfoModalRender !== 'undefined'
+                ? new MidiEditorInfoModalRender(this)
+                : null;
         }
 
         // ------------------------------------------------------------------ //
@@ -163,7 +167,7 @@
                 const [textData, channelData, metaData] = await this._fetchAll();
                 const localStats = this._computeLocalStats();
                 const body = overlay.querySelector('.file-info-modal-body');
-                body.innerHTML = this._renderBody(textData, channelData, metaData, localStats);
+                body.innerHTML = this.render.renderBody(textData, channelData, metaData, localStats);
                 this._attachInteractivity(body);
             } catch (err) {
                 overlay.querySelector('.file-info-modal-body').innerHTML =
@@ -266,211 +270,7 @@
         // RENDU HTML — corps du modal                                         //
         // ------------------------------------------------------------------ //
 
-        _renderBody(textData, channelData, metaData, ls) {
-            const m   = this.modal;
-            const hdr = m.midiData?.header || {};
-            const meta = metaData?.metadata || {};
-
-            const title     = textData?.title     || null;
-            const copyright = textData?.copyright || null;
-            const lyrics    = textData?.grouped?.lyrics || [];
-            const hasLyrics = lyrics.length > 0;
-
-            const ppq = hdr.ticksPerBeat ?? meta.ppq ?? 480;
-
-            let html = '';
-
-            // ── 🗂 Fichier ───────────────────────────────────────────────── //
-            const routingLabel = ROUTING_LABELS[meta.routingStatus] || meta.routingStatus || '—';
-            const adaptedLabel = meta.isAdapted ? 'Oui' : (meta.isAdapted === false ? 'Non' : '—');
-            const karaokeBadge = hasLyrics
-                ? `<span class="fi-karaoke-badge" title="${lyrics.length} événements de paroles">🎤 Karaoké</span>`
-                : '';
-            html += this._section(
-                `🗂 Fichier ${karaokeBadge}`,
-                `${title ? this._rowHighlight('Titre', esc(title)) : ''}
-                ${copyright ? this._row('Copyright', esc(copyright)) : ''}
-                ${this._row('Nom du fichier', esc(m.currentFilename || m.currentFile))}
-                ${this._row('Taille', fmtSize(meta.size))}
-                ${this._row('Format MIDI', hdr.format !== undefined ? `Type ${hdr.format}` : '—')}
-                ${this._row('Pistes SMF', fmt(hdr.numTracks ?? meta.tracks))}
-                ${this._row('Durée', fmtDuration(meta.duration))}
-                ${this._row('Tempo initial', m.tempo ? `${Math.round(m.tempo)} BPM` : '—')}
-                ${this._row('Changements tempo', ls.tempoChanges > 1 ? `${ls.tempoChanges} changements` : (ls.tempoChanges === 1 ? 'Fixe' : '—'))}
-                ${this._row('PPQ', fmt(hdr.ticksPerBeat ?? meta.ppq))}
-                ${this._row('Statut routing', routingLabel)}
-                ${this._row('Adapté', adaptedLabel)}`,
-                { collapsed: false }
-            );
-
-            // ── 🎤 Paroles ────────────────────────────────────────────────── //
-            if (hasLyrics) {
-                html += this._section(
-                    '🎤 Paroles',
-                    this._renderLyrics(lyrics, ppq, ls.tempoMap, m.tempo),
-                    { collapsed: false, badge: `${lyrics.length} tokens` }
-                );
-            }
-
-            // ── 📍 Marqueurs ──────────────────────────────────────────────── //
-            const markers = textData?.grouped?.marker || [];
-            if (markers.length > 0) {
-                const rows = markers.map(e => {
-                    const sec = ticksToSec(e.tick, ppq, ls.tempoMap, m.tempo);
-                    return `<tr>
-                        <td class="fi-td-num">${fmtSec(sec)}</td>
-                        <td class="fi-td-num fi-td-tick">${e.tick}</td>
-                        <td>${esc(e.text)}</td>
-                    </tr>`;
-                }).join('');
-                html += this._section('📍 Marqueurs', `
-                    <table class="file-info-table">
-                        <thead><tr><th>Temps</th><th>Tick</th><th>Texte</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                `, { collapsed: false, badge: markers.length });
-            }
-
-            // ── 🎹 Canaux ────────────────────────────────────────────────── //
-            const dbChannels = channelData?.channels || [];
-            const uiChannels = m.channels || [];
-
-            if (uiChannels.length > 0 || dbChannels.length > 0) {
-                const merged = this._mergeChannels(uiChannels, dbChannels);
-                const rows = merged.map(ch => {
-                    const instName = m.getInstrumentName?.(ch.program) || ch.instrument || `Prog. ${ch.program ?? '?'}`;
-                    const isDrum   = ch.channel === 9;
-                    const typeRaw  = ch.estimated_type;
-                    const typeStr  = typeRaw ? (TYPE_LABELS[typeRaw] || typeRaw) : '—';
-                    const conf     = ch.type_confidence != null ? `<span class="fi-conf">${ch.type_confidence}%</span>` : '';
-                    const range    = (ch.note_range_min != null && ch.note_range_max != null)
-                        ? `${NOTE_NAMES[ch.note_range_min % 12]}${Math.floor(ch.note_range_min/12-1)}–${NOTE_NAMES[ch.note_range_max % 12]}${Math.floor(ch.note_range_max/12-1)}`
-                        : '—';
-                    const poly = ch.polyphony_max > 0 ? ch.polyphony_max : '—';
-                    const dens = ch.density != null ? ch.density.toFixed(2) : '—';
-                    return `<tr>
-                        <td class="fi-td-num">CH${ch.channel + 1}${isDrum ? '🥁' : ''}</td>
-                        <td>${esc(instName)}</td>
-                        <td>${esc(ch.gm_category || '—')}</td>
-                        <td>${typeStr}${conf}</td>
-                        <td class="fi-td-num">${range}</td>
-                        <td class="fi-td-num">${fmt(ch.total_notes ?? ch.noteCount)}</td>
-                        <td class="fi-td-num">${poly}</td>
-                        <td class="fi-td-num">${dens}</td>
-                    </tr>`;
-                }).join('');
-                html += this._section('🎹 Canaux', `
-                    <div class="fi-scroll-x">
-                    <table class="file-info-table">
-                        <thead><tr>
-                            <th>Canal</th><th>Instrument</th><th>Catégorie</th>
-                            <th>Type estimé</th><th>Plage</th>
-                            <th>Notes</th><th>Poly.</th><th>Densité</th>
-                        </tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                    </div>
-                `, { collapsed: false, badge: merged.length });
-            }
-
-            // ── 📊 Statistiques — collapsé par défaut ───────────────────── //
-            const velAvg = ls.velCount > 0 ? Math.round(ls.velSum / ls.velCount) : 0;
-            html += this._section('📊 Statistiques', `
-                ${this._row('Notes totales',  fmt(ls.totalNotes || meta.noteCount))}
-                ${this._row('Note la plus basse', midiNote(ls.noteMin > ls.noteMax ? null : ls.noteMin))}
-                ${this._row('Note la plus haute', midiNote(ls.noteMin > ls.noteMax ? null : ls.noteMax))}
-                ${this._row('Polyphonie max', ls.polyMax > 0 ? `${ls.polyMax} voix simultanées` : '—')}
-                ${this._row('Vélocité min / moy / max',
-                    ls.velCount > 0 ? `${ls.velMin} / ${velAvg} / ${ls.velMax}` : '—')}
-                ${this._row('Pitch Bend',     ls.hasPitchBend ? 'Oui' : 'Non')}
-                ${this._row('Messages SysEx', ls.sysexCount > 0 ? ls.sysexCount : 'Aucun')}
-                ${this._row('Canaux actifs',  fmt(meta.channelCount))}
-            `, { collapsed: true });
-
-            // ── 🎛 Contrôleurs CC — collapsé par défaut ──────────────────── //
-            const ccEntries = Object.entries(ls.ccUsage)
-                .sort((a, b) => b[1].count - a[1].count);
-            if (ccEntries.length > 0) {
-                const rows = ccEntries.map(([cc, info]) => {
-                    const name = CC_NAMES[cc] || `CC${cc}`;
-                    const chans = Array.from(info.channels).sort((a,b)=>a-b).join(', ');
-                    return `<tr>
-                        <td class="fi-td-num">CC${cc}</td>
-                        <td>${esc(name)}</td>
-                        <td class="fi-td-num">${info.count}</td>
-                        <td class="fi-td-num">${chans}</td>
-                    </tr>`;
-                }).join('');
-                html += this._section('🎛 Contrôleurs (CC)', `
-                    <table class="file-info-table">
-                        <thead><tr><th>#</th><th>Nom</th><th>Événements</th><th>Canaux</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                `, { collapsed: true, badge: ccEntries.length });
-            }
-
-            // ── 🎼 Signatures + Changements programme — collapsé par défaut ─ //
-            if (ls.timeSigs.length > 0 || ls.keySigs.length > 0) {
-                const KEY_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-                let sigHtml = '<div class="fi-sig-cols">';
-                if (ls.timeSigs.length > 0) {
-                    const rows = ls.timeSigs.map(s =>
-                        `<tr><td class="fi-td-num">${s.tick}</td><td>${s.num}/${s.den}</td></tr>`
-                    ).join('');
-                    sigHtml += `<div class="fi-sig-group"><strong>Mesure</strong>
-                        <table class="file-info-table"><thead><tr><th>Tick</th><th>Signature</th></tr></thead>
-                        <tbody>${rows}</tbody></table></div>`;
-                }
-                if (ls.keySigs.length > 0) {
-                    const rows = ls.keySigs.map(s => {
-                        const ni = ((s.key % 12) + 12) % 12;
-                        const ton = KEY_NAMES[ni] + (s.scale === 0 ? ' Maj' : ' min');
-                        const acc = s.key > 0 ? `${s.key}#` : s.key < 0 ? `${Math.abs(s.key)}♭` : '';
-                        return `<tr><td class="fi-td-num">${s.tick}</td><td>${ton}</td><td class="fi-td-num">${acc}</td></tr>`;
-                    }).join('');
-                    sigHtml += `<div class="fi-sig-group"><strong>Tonalité</strong>
-                        <table class="file-info-table"><thead><tr><th>Tick</th><th>Tonalité</th><th>Armure</th></tr></thead>
-                        <tbody>${rows}</tbody></table></div>`;
-                }
-                sigHtml += '</div>';
-                html += this._section('🎼 Signatures', sigHtml, { collapsed: true });
-            }
-
-            if (ls.progChanges.length > 0) {
-                const rows = ls.progChanges.map(p => {
-                    const name = m.getInstrumentName?.(p.program) || `Prog. ${p.program}`;
-                    return `<tr>
-                        <td class="fi-td-num">${p.tick}</td>
-                        <td class="fi-td-num">CH${p.channel}</td>
-                        <td>${esc(name)}</td>
-                        <td class="fi-td-num">${p.program}</td>
-                    </tr>`;
-                }).join('');
-                html += this._section('🔄 Changements de programme', `
-                    <table class="file-info-table">
-                        <thead><tr><th>Tick</th><th>Canal</th><th>Instrument</th><th>Prog#</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                `, { collapsed: true, badge: ls.progChanges.length });
-            }
-
-            // ── 📄 Autres textes ──────────────────────────────────────────── //
-            const otherTypes = ['text', 'instrumentName', 'cuePoint', 'programName', 'deviceName'];
-            const others = (textData?.events || []).filter(e => otherTypes.includes(e.event_type));
-            if (others.length > 0) {
-                const rows = others.map(e =>
-                    `<tr><td class="fi-td-tag">${esc(e.event_type)}</td><td class="fi-td-num">${e.tick}</td><td>${esc(e.text)}</td></tr>`
-                ).join('');
-                html += this._section('📄 Autres textes', `
-                    <table class="file-info-table">
-                        <thead><tr><th>Type</th><th>Tick</th><th>Texte</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                `, { collapsed: false, badge: others.length });
-            }
-
-            return html || `<p class="file-info-empty">${this.modal.t('midiEditor.fileInfoNoMetadata')}</p>`;
-        }
+        _renderBody(textData, channelData, metaData, ls) { return this.render?.renderBody(textData, channelData, metaData, ls); }
 
         // ------------------------------------------------------------------ //
         // RENDU PAROLES                                                       //
@@ -677,43 +477,11 @@
             return Object.values(byChannel).sort((a, b) => a.channel - b.channel);
         }
 
-        /**
-         * Génère le HTML d'une section collapsible.
-         * @param {string}  title    — Titre (peut contenir du HTML simple, ex. badge)
-         * @param {string}  content  — Corps HTML
-         * @param {object}  opts
-         * @param {boolean} opts.collapsed — Commence replié (défaut: false)
-         * @param {number|string|null} opts.badge — Compteur affiché à droite du titre
-         */
-        _section(title, content, { collapsed = false, badge = null } = {}) {
-            const colClass = collapsed ? 'fi-collapsible collapsed' : 'fi-collapsible';
-            const badgeHtml = badge != null
-                ? `<span class="fi-section-badge">${badge}</span>`
-                : '';
-            return `<div class="file-info-section ${colClass}">
-                <div class="file-info-section-title">
-                    <span class="fi-section-chevron">▶</span>
-                    <span class="fi-section-label">${title}</span>
-                    ${badgeHtml}
-                </div>
-                <div class="file-info-section-body">${content}</div>
-            </div>`;
-        }
 
-        _row(label, value) {
-            return `<div class="file-info-row">
-                <span class="fi-label">${label}</span>
-                <span class="fi-value">${value}</span>
-            </div>`;
-        }
-
-        /** Ligne mise en avant (titre, copyright) */
-        _rowHighlight(label, value) {
-            return `<div class="file-info-row fi-row-highlight">
-                <span class="fi-label">${label}</span>
-                <span class="fi-value fi-value-highlight">${value}</span>
-            </div>`;
-        }
+        // Delegates to render sub-feature (extracted per audit §1.3)
+        _section(title, content, opts)  { return this.render?.section(title, content, opts); }
+        _row(label, value)              { return this.render?.row(label, value); }
+        _rowHighlight(label, value)     { return this.render?.rowHighlight(label, value); }
     }
 
     if (typeof window !== 'undefined') {

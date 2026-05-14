@@ -46,6 +46,10 @@
         this.modal = modal;
         // key = `${channel}:${note}` -> { envelopes, timeoutId }
         this._heldEnvelopes = new Map();
+        // Sub-feature: playback transport (audit §1.3).
+        this.transport = typeof MidiEditorTransport !== 'undefined'
+            ? new MidiEditorTransport(this)
+            : null;
     }
 
     // ========================================================================
@@ -176,10 +180,10 @@
      */
     updatePlaybackRange() {
         const m = this.modal;
-        if (!m.synthesizer || !m.pianoRoll) return;
+        if (!m.synthesizer || !m.pianoRollRenderer?.isMounted()) return;
 
-        const markstart = m.pianoRoll.markstart || 0;
-        let markend = m.pianoRoll.markend;
+        const { start: markstart, end: markendRaw } = m.pianoRollRenderer.getMarkers();
+        let markend = markendRaw;
 
         if (markend === undefined || markend < 0) {
             markend = m.midiData?.maxTick || this.getSequenceEndTick();
@@ -210,282 +214,15 @@
     }
 
     // ========================================================================
-    // PLAY / PAUSE / STOP
+    // PLAY / PAUSE / STOP (delegates to transport sub-feature, audit §1.3)
     // ========================================================================
-
-    /**
-     * Demarrer ou reprendre la lecture
-     */
-    async playbackPlay() {
-        const m = this.modal;
-
-        if (!m.synthesizer) {
-            const initialized = await this.initSynthesizer();
-            if (!initialized) {
-                m.showNotification(m.t('midiEditor.synthInitError'), 'error');
-                return;
-            }
-        }
-
-        if (!m.isPlaying && !m.isPaused) {
-            this.loadSequenceForPlayback();
-
-            // Determine start position: use cursor if within range, otherwise range start
-            const cursorTick = m.pianoRoll ? (m.pianoRoll.cursor || 0) : 0;
-            const rangeStart = m.synthesizer.startTick || 0;
-            const rangeEnd = m.synthesizer.endTick || 0;
-            const startAt = (cursorTick >= rangeStart && cursorTick <= rangeEnd && cursorTick > 0)
-                ? cursorTick : rangeStart;
-
-            // seek() positions schedulePointer via binary search so scheduleNotes()
-            // won't re-fire every note from t=0 through the cursor (which, on large
-            // files, scheduled thousands of notes in the past and froze the tab).
-            m.synthesizer.seek(startAt);
-            m.synthesizer.isPaused = true; // Trick: play() will resume from currentTick
-        } else if (m.isPaused) {
-            // Resume from current cursor position
-            if (m.pianoRoll) {
-                const cursorTick = m.pianoRoll.cursor || 0;
-                m.synthesizer.seek(cursorTick);
-            }
-        }
-
-        await m.synthesizer.play();
-
-        m.isPlaying = true;
-        m.isPaused = false;
-
-        this.updatePlaybackButtons();
-
-        m.log('info', 'Playback started');
-    }
-
-    /**
-     * Mettre en pause la lecture
-     */
-    playbackPause() {
-        const m = this.modal;
-        if (!m.synthesizer || !m.isPlaying) return;
-
-        m.synthesizer.pause();
-
-        m.isPlaying = false;
-        m.isPaused = true;
-
-        this.updatePlaybackButtons();
-
-        m.log('info', 'Playback paused');
-    }
-
-    /**
-     * Arreter la lecture
-     */
-    playbackStop() {
-        const m = this.modal;
-        if (!m.synthesizer) return;
-
-        m.synthesizer.stop();
-
-        m.isPlaying = false;
-        m.isPaused = false;
-
-        const resetTick = m.playbackStartTick || 0;
-
-        if (m.pianoRoll) {
-            m.pianoRoll.cursor = resetTick;
-        }
-
-        // Reset PlaybackTimelineBar playhead so the red triangle returns to start
-        if (m.timelineBar) {
-            m.timelineBar.setPlayhead(resetTick);
-            if (m.pianoRoll) {
-                m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
-            }
-        }
-
-        // Reset tablature playhead and clear fretboard positions
-        if (m.tablatureEditor && m.tablatureEditor.isVisible) {
-            m.tablatureEditor.updatePlayhead(resetTick);
-            if (m.tablatureEditor.fretboard) {
-                m.tablatureEditor.fretboard.clearActivePositions();
-            }
-        }
-
-        // Reset drum pattern playhead
-        if (m.drumPatternEditor && m.drumPatternEditor.isVisible) {
-            m.drumPatternEditor.updatePlayhead(resetTick);
-        }
-
-        // Reset wind instrument editor playhead
-        if (m.windInstrumentEditor && m.windInstrumentEditor.isVisible) {
-            m.windInstrumentEditor.updatePlayhead(resetTick);
-        }
-
-        this.updatePlaybackButtons();
-
-        m.log('info', 'Playback stopped');
-    }
-
-    /**
-     * Basculer entre play et pause
-     */
-    togglePlayback() {
-        const m = this.modal;
-        if (m.isPlaying) {
-            this.playbackPause();
-        } else {
-            this.playbackPlay();
-        }
-    }
-
-    // ========================================================================
-    // PLAYBACK CURSOR
-    // ========================================================================
-
-    /**
-     * Mettre a jour le curseur pendant la lecture
-     * @param {number} tick - Position actuelle en ticks
-     */
-    updatePlaybackCursor(tick) {
-        const m = this.modal;
-
-        // Update piano roll cursor (even when hidden, keeps state consistent)
-        let scrolled = false;
-        if (m.pianoRoll) {
-            m.pianoRoll.cursor = tick;
-
-            const xoffset = m.pianoRoll.xoffset || 0;
-            const xrange = m.pianoRoll.xrange || 1920;
-
-            // Page-turn: trigger earlier (85%) and land further from the edge (30%)
-            // so the cursor remains visible without brutal teleport.
-            if (tick > xoffset + xrange * 0.85) {
-                m.pianoRoll.xoffset = tick - xrange * 0.3;
-                scrolled = true;
-            } else if (tick < xoffset) {
-                m.pianoRoll.xoffset = Math.max(0, tick - xrange * 0.1);
-                scrolled = true;
-            }
-
-            // Force a synchronous redraw on scroll so the piano roll and the
-            // timeline bar are painted in the same frame (the xoffset setter
-            // normally throttles via RAF, which causes a one-frame misalignment).
-            if (scrolled && typeof m.pianoRoll.redraw === 'function') {
-                m.pianoRoll.redraw();
-            }
-        }
-
-        // Update PlaybackTimelineBar
-        if (m.timelineBar) {
-            m.timelineBar.setPlayhead(tick);
-            if (m.pianoRoll) {
-                m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
-            }
-        }
-
-        // Re-sync all editors' zoom/scroll with the new viewport whenever the
-        // piano roll has auto-scrolled. Handles any container resize/zoom drift.
-        if (scrolled && m.ccPicker && typeof m.ccPicker.syncAllEditors === 'function') {
-            m.ccPicker.syncAllEditors();
-        }
-
-        // Update tablature editor playhead, fretboard, and auto-scroll
-        if (m.tablatureEditor && m.tablatureEditor.isVisible) {
-            m.tablatureEditor.updatePlayhead(tick);
-
-            // Sync navigation overview bar with tablature scroll position
-            if (m.navigationBar && m.tablatureEditor.renderer) {
-                const maxTick = m.midiData?.maxTick || 0;
-                const renderer = m.tablatureEditor.renderer;
-                const canvasWidth = m.tablatureEditor.tabCanvasEl?.width || 800;
-                const visibleTicks = (canvasWidth - renderer.headerWidth) * renderer.ticksPerPixel;
-                m.navigationBar.setViewport(renderer.scrollX, visibleTicks, maxTick);
-            }
-        }
-
-        // Update drum pattern editor playhead
-        if (m.drumPatternEditor && m.drumPatternEditor.isVisible) {
-            m.drumPatternEditor.updatePlayhead(tick);
-        }
-
-        // Update wind instrument editor playhead
-        if (m.windInstrumentEditor && m.windInstrumentEditor.isVisible) {
-            m.windInstrumentEditor.updatePlayhead(tick);
-        }
-    }
-
-    /**
-     * Callback quand la lecture est terminee
-     */
-    onPlaybackComplete() {
-        const m = this.modal;
-        m.isPlaying = false;
-        m.isPaused = false;
-
-        if (m.pianoRoll) {
-            m.pianoRoll.cursor = m.playbackStartTick;
-        }
-
-        const resetTick = m.playbackStartTick || 0;
-
-        // Reset timeline bar
-        if (m.timelineBar) {
-            m.timelineBar.setPlayhead(resetTick);
-            if (m.pianoRoll) {
-                m.timelineBar.setScrollX(m.pianoRoll.xoffset || 0);
-            }
-        }
-
-        // Reset tablature playhead and clear fretboard positions
-        if (m.tablatureEditor && m.tablatureEditor.isVisible) {
-            m.tablatureEditor.updatePlayhead(resetTick);
-            if (m.tablatureEditor.fretboard) {
-                m.tablatureEditor.fretboard.clearActivePositions();
-            }
-        }
-
-        // Reset drum pattern playhead
-        if (m.drumPatternEditor && m.drumPatternEditor.isVisible) {
-            m.drumPatternEditor.updatePlayhead(resetTick);
-        }
-
-        // Reset wind instrument editor playhead
-        if (m.windInstrumentEditor && m.windInstrumentEditor.isVisible) {
-            m.windInstrumentEditor.updatePlayhead(resetTick);
-        }
-
-        this.updatePlaybackButtons();
-
-        m.log('info', 'Playback complete');
-    }
-
-    // ========================================================================
-    // PLAYBACK BUTTONS
-    // ========================================================================
-
-    /**
-     * Mettre a jour les boutons de playback
-     */
-    updatePlaybackButtons() {
-        const m = this.modal;
-        const playBtn = document.getElementById('play-btn');
-        const pauseBtn = document.getElementById('pause-btn');
-        const stopBtn = document.getElementById('stop-btn');
-
-        if (m.isPlaying) {
-            if (playBtn) playBtn.style.display = 'none';
-            if (pauseBtn) pauseBtn.style.display = '';
-            if (stopBtn) stopBtn.disabled = false;
-        } else if (m.isPaused) {
-            if (playBtn) playBtn.style.display = '';
-            if (pauseBtn) pauseBtn.style.display = 'none';
-            if (stopBtn) stopBtn.disabled = false;
-        } else {
-            if (playBtn) playBtn.style.display = '';
-            if (pauseBtn) pauseBtn.style.display = 'none';
-            if (stopBtn) stopBtn.disabled = true;
-        }
-    }
+    async playbackPlay()         { return this.transport?.playbackPlay(); }
+    playbackPause()              { return this.transport?.playbackPause(); }
+    playbackStop()               { return this.transport?.playbackStop(); }
+    togglePlayback()             { return this.transport?.togglePlayback(); }
+    updatePlaybackCursor(tick)   { return this.transport?.updatePlaybackCursor(tick); }
+    onPlaybackComplete()         { return this.transport?.onPlaybackComplete(); }
+    updatePlaybackButtons()      { return this.transport?.updatePlaybackButtons(); }
 
     // ========================================================================
     // NOTE FEEDBACK
@@ -496,9 +233,8 @@
      */
     handleNoteFeedback(previousSequence) {
         const m = this.modal;
-        if (!m.pianoRoll || !m.pianoRoll.sequence) return;
-
-        const currentSequence = m.pianoRoll.sequence;
+        const currentSequence = m.pianoRollRenderer?.getSequence();
+        if (!currentSequence) return;
 
         const previousMap = new Map();
         previousSequence.forEach((note, index) => {
@@ -685,6 +421,14 @@
         }
         m.isPlaying = false;
         m.isPaused = false;
+        // Cancel any pending playback-cursor rAF scheduled by the transport
+        // sub-feature so a tick queued by the (now-disposed) synthesizer
+        // doesn't wake up one frame later to paint stale state (audit §6.4).
+        if (this.transport?._cursorRafId) {
+            cancelAnimationFrame(this.transport._cursorRafId);
+            this.transport._cursorRafId = 0;
+            this.transport._pendingTick = null;
+        }
     }
 }
 

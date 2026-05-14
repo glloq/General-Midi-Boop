@@ -73,9 +73,11 @@ class BackendAPIClient {
         this.eventHandlers = new Map();
         this.connected = false;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
         this.reconnectBaseDelay = 1000;
+        this.reconnectMaxDelay = 60000;
         this._reconnecting = false;
+        this._reconnectTimer = null;
+        this._closed = false;
         this._connectionPromise = null;
     }
 
@@ -177,33 +179,37 @@ class BackendAPIClient {
     }
 
     /**
-     * Attempt to reconnect with exponential backoff
+     * Attempt to reconnect with capped exponential backoff.
+     * Retries indefinitely (no attempt limit) so 24/7 deployments
+     * recover automatically from arbitrarily long outages. The UI
+     * receives `disconnected` then `reconnecting` events to surface
+     * the state to the user.
      */
     attemptReconnect() {
+        if (this._closed) return;
         if (this._reconnecting) return;
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            this._reconnecting = false;
-            console.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached. Call connect() manually to retry.`);
-            this.emit('reconnect_failed');
-            return;
-        }
 
         this._reconnecting = true;
         this.reconnectAttempts++;
 
-        // Backoff exponentiel : 1s, 2s, 4s, 8s... plafonne a 30s
+        // Backoff exponentiel : 1s, 2s, 4s, 8s, 16s, 32s puis plafond 60s
         const delay = Math.min(
             this.reconnectBaseDelay * Math.pow(2, this.reconnectAttempts - 1),
-            30000
+            this.reconnectMaxDelay
         );
 
-        console.log(`Reconnecting in ${delay}ms... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        this.emit('reconnecting', { attempt: this.reconnectAttempts, delayMs: delay });
 
-        setTimeout(() => {
+        if (this._reconnectTimer) {
+            clearTimeout(this._reconnectTimer);
+        }
+        this._reconnectTimer = setTimeout(() => {
+            this._reconnectTimer = null;
+            if (this._closed) return;
             this.connect().catch(err => {
-                console.error('Reconnect failed:', err.message);
+                if (this._closed) return;
+                console.warn(`Reconnect attempt ${this.reconnectAttempts} failed:`, err.message);
                 this._reconnecting = false;
-                // Retenter apres echec
                 this.attemptReconnect();
             });
         }, delay);
@@ -368,11 +374,16 @@ class BackendAPIClient {
     }
 
     /**
-     * Close connection
+     * Close connection permanently. Stops any pending reconnect and
+     * prevents future ones until a new client is constructed.
      */
     close() {
+        this._closed = true;
         this._reconnecting = false;
-        this.reconnectAttempts = this.maxReconnectAttempts; // Empecher la reconnexion
+        if (this._reconnectTimer) {
+            clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = null;
+        }
         this._rejectPendingRequests('Connection closed');
         this.eventHandlers.clear();
         if (this.ws) {

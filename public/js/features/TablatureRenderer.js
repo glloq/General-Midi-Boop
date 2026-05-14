@@ -5,10 +5,13 @@
 //   Supports scrolling, zoom, playhead, selection, and theme awareness
 // ============================================================================
 
-class TablatureRenderer {
+class TablatureRenderer extends CanvasRenderer {
     constructor(canvas, options = {}) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+        super(canvas, {
+            headerWidth: 40,
+            topMargin: 10,
+            onScrollChange: options.onScrollChange
+        });
 
         // Instrument config (tuning array length is authoritative for string count)
         this.tuning = options.tuning || [40, 45, 50, 55, 59, 64];
@@ -16,13 +19,9 @@ class TablatureRenderer {
         this.numFrets = options.numFrets || 24;
         this.isFretless = options.isFretless || false;
 
-        // Layout constants
+        // Layout specifics not handled by the base
         this.lineSpacing = 20;        // Pixels between string lines
-        this.headerWidth = 40;        // Left margin for string labels
-        this.topMargin = 10;
         this.bottomMargin = 10;
-        this.ticksPerPixel = 2;       // Horizontal zoom (lower = more zoomed in)
-        this.scrollX = 0;             // Horizontal scroll offset in ticks
 
         // Tablature data: array of { tick, string, fret, velocity, duration, midiNote, channel, selected }
         this.tabEvents = [];
@@ -33,20 +32,10 @@ class TablatureRenderer {
         // to maintain a parallel Set keyed on event index.
         this.handWarnings = [];
 
-        // Selection
-        this.selectedEvents = new Set();  // Set of event indices
-        this.selectionRect = null;        // { x1, y1, x2, y2 } in canvas coords during drag
-
-        // Playback
-        this.playheadTick = 0;
+        // Playback flag (playheadTick lives on the base)
         this.isPlaying = false;
 
-        // Measure lines
-        this.ticksPerBeat = 480;
-        this.beatsPerMeasure = 4;
-
-        // Colors (updated by updateTheme)
-        this.colors = {};
+        // Theme tokens populated by updateTheme()
         this.updateTheme();
 
         // String labels (from highest to lowest, top to bottom)
@@ -55,43 +44,14 @@ class TablatureRenderer {
         // Edit mode (set by TablatureEditor toolbar)
         this._editMode = 'pan'; // 'select' | 'pan' | 'change-string'
 
-        // Interaction state
-        this._isDragging = false;
-        this._dragStart = null;
+        // Interaction state specific to Tab moves
         this._hoverEvent = null;
-        this._dragMode = null;    // 'select' | 'move' | 'pan'
-        this._moveStartTick = 0;  // Tick position at drag start for note moving
+        this._moveStartTick = 0;
         this._moveStartString = 0;
-
-        // Undo/redo (snapshot-based, same pattern as piano roll)
-        this._undoStack = [];
-        this._redoStack = [];
-        this._maxUndoSize = 20;
-
-        // RAF-throttled rendering
-        this._redrawScheduled = false;
-
-        // Clipboard
-        this._clipboard = [];
-
-        // Scroll change callback (notifies parent when scroll/zoom changes)
-        this.onScrollChange = options.onScrollChange || null;
-
-        // Bind event handlers
-        this._onMouseDown = this._handleMouseDown.bind(this);
-        this._onMouseMove = this._handleMouseMove.bind(this);
-        this._onMouseUp = this._handleMouseUp.bind(this);
-        this._onDblClick = this._handleDblClick.bind(this);
-        this._onWheel = this._handleWheel.bind(this);
-
-        this._onContextMenu = (e) => { if (e.button === 1) e.preventDefault(); };
-        this.canvas.addEventListener('mousedown', this._onMouseDown);
-        this.canvas.addEventListener('mousemove', this._onMouseMove);
-        this.canvas.addEventListener('mouseup', this._onMouseUp);
-        this.canvas.addEventListener('dblclick', this._onDblClick);
-        this.canvas.addEventListener('auxclick', this._onContextMenu);
-        this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
     }
+
+    /** Tablature attaches the middle-click guard (legacy behaviour). */
+    _attachContextMenu() { return true; }
 
     // ========================================================================
     // THEME
@@ -197,39 +157,12 @@ class TablatureRenderer {
         this.requestRedraw();
     }
 
-    setScrollX(tickOffset) {
-        this.scrollX = Math.max(0, tickOffset);
-        this.requestRedraw();
-        this._notifyScrollChange();
-    }
-
-    setZoom(ticksPerPixel) {
-        this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
-        this.requestRedraw();
-        this._notifyScrollChange();
-    }
-
     /**
      * Vertical zoom: adjust line spacing between strings.
      * factor < 1 = zoom in (more spacing), factor > 1 = zoom out (less spacing)
      */
     setVerticalZoom(factor) {
         this.lineSpacing = Math.max(12, Math.min(40, Math.round(this.lineSpacing / factor)));
-        this.requestRedraw();
-    }
-
-    _notifyScrollChange() {
-        if (this.onScrollChange) this.onScrollChange();
-    }
-
-    setPlayhead(tick) {
-        this.playheadTick = tick;
-        this.requestRedraw();
-    }
-
-    setTimeSignature(ticksPerBeat, beatsPerMeasure) {
-        this.ticksPerBeat = ticksPerBeat || 480;
-        this.beatsPerMeasure = beatsPerMeasure || 4;
         this.requestRedraw();
     }
 
@@ -360,19 +293,8 @@ class TablatureRenderer {
     hasClipboard() { return this._clipboard.length > 0; }
 
     // ========================================================================
-    // RENDERING
+    // RENDERING — requestRedraw() is provided by CanvasRenderer.
     // ========================================================================
-
-    /** Schedule a redraw on the next animation frame (coalesced). */
-    requestRedraw() {
-        if (!this._redrawScheduled) {
-            this._redrawScheduled = true;
-            requestAnimationFrame(() => {
-                this._redrawScheduled = false;
-                this.redraw();
-            });
-        }
-    }
 
     redraw() {
         const { canvas, ctx } = this;
@@ -611,13 +533,7 @@ class TablatureRenderer {
     // COORDINATE CONVERSION
     // ========================================================================
 
-    _tickToX(tick) {
-        return this.headerWidth + (tick - this.scrollX) / this.ticksPerPixel;
-    }
-
-    _xToTick(x) {
-        return Math.round((x - this.headerWidth) * this.ticksPerPixel + this.scrollX);
-    }
+    // _tickToX / _xToTick are inherited from CanvasRenderer.
 
     _stringToY(displayIndex) {
         return this.topMargin + displayIndex * this.lineSpacing + this.lineSpacing;
@@ -945,14 +861,7 @@ class TablatureRenderer {
     // CLEANUP
     // ========================================================================
 
-    destroy() {
-        this.canvas.removeEventListener('mousedown', this._onMouseDown);
-        this.canvas.removeEventListener('mousemove', this._onMouseMove);
-        this.canvas.removeEventListener('mouseup', this._onMouseUp);
-        this.canvas.removeEventListener('dblclick', this._onDblClick);
-        this.canvas.removeEventListener('auxclick', this._onContextMenu);
-        this.canvas.removeEventListener('wheel', this._onWheel);
-    }
+    // destroy() inherited from CanvasRenderer.
 }
 
 // ============================================================================
