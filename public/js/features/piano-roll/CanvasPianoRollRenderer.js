@@ -850,7 +850,23 @@
         }
 
         _onWheel(e) {
-            // ctrl+wheel → zoom; otherwise scroll xoffset
+            // Modifiers:
+            //   ctrl/meta + wheel        → horizontal zoom (xrange)
+            //   ctrl/meta + shift + wheel → vertical zoom (yrange)
+            //   shift + wheel             → vertical scroll (yoffset)
+            //   no modifier               → horizontal scroll (xoffset)
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                e.preventDefault();
+                const factor = e.deltaY > 0 ? 1.2 : 0.8;
+                const newRange = Math.max(12, Math.min(88, Math.round(this._yrange * factor)));
+                if (newRange !== this._yrange) {
+                    this._yrange = newRange;
+                    this._bgDirty = true;
+                    this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
+                    this._scheduleRender();
+                }
+                return;
+            }
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
                 const factor = e.deltaY > 0 ? 1.2 : 0.8;
@@ -861,7 +877,22 @@
                     this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange });
                     this._scheduleRender();
                 }
-            } else if (Math.abs(e.deltaY) > 0) {
+                return;
+            }
+            if (e.shiftKey && Math.abs(e.deltaY) > 0) {
+                // Vertical scroll — 3 notes per "tick" of wheel delta (matches WAC feel).
+                e.preventDefault();
+                const step = Math.sign(e.deltaY) * Math.max(1, Math.round(Math.abs(e.deltaY) / 30));
+                const newY = Math.max(0, Math.min(128 - this._yrange, this._yoffset + step));
+                if (newY !== this._yoffset) {
+                    this._yoffset = newY;
+                    this._bgDirty = true;
+                    this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange });
+                    this._scheduleRender();
+                }
+                return;
+            }
+            if (Math.abs(e.deltaY) > 0) {
                 e.preventDefault();
                 const tickPerPx = (this._xrange || 1) / Math.max(1, this._cssWidth - KB_WIDTH);
                 const delta = e.deltaY * tickPerPx;
@@ -1021,6 +1052,22 @@
                 ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
                 ctx.strokeRect(x1 + 0.5, y1 + 0.5, x2 - x1 - 1, y2 - y1 - 1);
             }
+
+            // Vertical scroll indicator on the right edge (read-only, 6px
+            // wide). Mirrors the WAC built-in yscroll. The thumb shows
+            // which slice of the 128 MIDI notes is currently visible; the
+            // viewport extends from `yoffset` up to `yoffset + yrange`.
+            // Use shift+wheel (no modifier on legacy) to scroll vertically.
+            const SB_W = 6;
+            const sbX = this._cssWidth - SB_W;
+            const sbY0 = RULER_H;
+            const sbH = H - RULER_H;
+            ctx.fillStyle = 'rgba(0,0,0,0.06)';
+            ctx.fillRect(sbX, sbY0, SB_W, sbH);
+            const thumbY = sbY0 + sbH * (this._yoffset / 128);
+            const thumbH = Math.max(20, sbH * (this._yrange / 128));
+            ctx.fillStyle = 'rgba(0,0,0,0.30)';
+            ctx.fillRect(sbX + 1, thumbY, SB_W - 2, thumbH);
         }
 
         // ----------------------------------------------------------------
