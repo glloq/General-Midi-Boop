@@ -11,6 +11,9 @@
     class MidiEditorRouting {
         constructor(modal) {
             this.modal = modal;
+            this.playableNotes = typeof MidiEditorPlayableNotes !== 'undefined'
+                ? new MidiEditorPlayableNotes(this)
+                : null;
         }
 
     async loadConnectedDevices() {
@@ -917,133 +920,13 @@
         return sequence.map(note => ({ t: note.t, g: note.g, n: note.n, c: note.c, v: note.v }));
     }
 
-    async togglePreviewSource() {
-        const btn = this.modal.container?.querySelector('#preview-source-toggle');
-        if (this.modal.previewSource === 'gm') {
-            this.modal.previewSource = 'routed';
-            if (btn) { btn.dataset.source = 'routed'; btn.textContent = this.modal.t('midiEditor.routedSource'); }
-            // Fetch playable note ranges for all routed channels
-            await this._loadRoutedPlayableNotes();
-        } else {
-            this.modal.previewSource = 'gm';
-            if (btn) { btn.dataset.source = 'gm'; btn.textContent = this.modal.t('midiEditor.gmSource'); }
-            this.modal._routedPlayableNotes.clear();
-        }
-        if (this.modal._playback) this.modal._playback._feedbackInstrumentsLoaded = false;
-        if (this.modal.synthesizer) this.modal.loadSequenceForPlayback();
-        this.modal.log('info', `Preview source switched to: ${this.modal.previewSource}`);
-    }
-
-    async _loadRoutedPlayableNotes() {
-        this.modal._routedPlayableNotes.clear();
-        const promises = [];
-        for (const [channel, routedValue] of this.modal.channelRouting) {
-            promises.push((async () => {
-                let deviceId = routedValue;
-                let devChannel = undefined;
-                if (routedValue.includes('::')) {
-                    const parts = routedValue.split('::');
-                    deviceId = parts[0];
-                    devChannel = parseInt(parts[1]);
-                }
-                try {
-                    const params = { deviceId };
-                    if (devChannel !== undefined) params.channel = devChannel;
-                    const response = await this.modal.api.sendCommand('instrument_get_capabilities', params);
-                    if (response && response.capabilities) {
-                        const caps = response.capabilities;
-                        const mode = caps.note_selection_mode || 'range';
-                        let notes = null;
-                        if (mode === 'discrete' && caps.selected_notes && Array.isArray(caps.selected_notes)) {
-                            notes = new Set(caps.selected_notes.map(n => parseInt(n)));
-                        } else if (mode === 'range') {
-                            const minNote = caps.note_range_min != null ? parseInt(caps.note_range_min) : 0;
-                            const maxNote = caps.note_range_max != null ? parseInt(caps.note_range_max) : 127;
-                            if (minNote !== 0 || maxNote !== 127) {
-                                notes = new Set();
-                                for (let n = minNote; n <= maxNote; n++) notes.add(n);
-                            }
-                        }
-                        this.modal._routedPlayableNotes.set(channel, notes);
-                    }
-                } catch (err) {
-                    this.modal.log('warn', `Failed to fetch capabilities for routed channel ${channel}:`, err);
-                }
-            })());
-        }
-        await Promise.all(promises);
-    }
-
-    async togglePlayableNotesGlobal() {
-        this.modal.showPlayableNotes = !this.modal.showPlayableNotes;
-
-        const btn = this.modal.container?.querySelector('#playable-notes-toggle');
-        if (btn) {
-            btn.dataset.active = String(this.modal.showPlayableNotes);
-            const onLabel = this.modal.t('midiEditor.playableOn');
-            const offLabel = this.modal.t('midiEditor.playableOff');
-            const srLabel = btn.querySelector('.sr-only');
-            if (srLabel) {
-                srLabel.textContent = this.modal.showPlayableNotes ? onLabel : offLabel;
-            } else {
-                btn.textContent = this.modal.showPlayableNotes ? onLabel : offLabel;
-            }
-        }
-
-        if (this.modal.showPlayableNotes) {
-            const promises = [];
-            for (const [channel] of this.modal.channelRouting) {
-                if (!this.modal.channelPlayableHighlights.has(channel)) {
-                    promises.push(this.modal.tablatureOps._toggleChannelPlayableHighlight(channel));
-                }
-            }
-            await Promise.all(promises);
-        } else {
-            this.modal.channelPlayableHighlights.clear();
-            this.modal.tablatureOps._syncPianoRollHighlights();
-        }
-
-        this.updateChannelButtons();
-        this.modal.log('info', `Playable notes global: ${this.modal.showPlayableNotes ? 'ON' : 'OFF'}`);
-    }
-
-    _getRoutedGmProgram(channel) {
-        const gm = this.modal._routedGmPrograms.get(channel);
-        return gm != null ? gm : null;
-    }
-
-    async _loadRoutedGmPrograms() {
-        this.modal._routedGmPrograms.clear();
-        const promises = [];
-        for (const [channel, routedValue] of this.modal.channelRouting.entries()) {
-            promises.push(this._fetchAndCacheRoutedGmProgram(channel, routedValue));
-        }
-        await Promise.all(promises);
-    }
-
-    async _fetchAndCacheRoutedGmProgram(channel, routedValue) {
-        if (!routedValue) {
-            this.modal._routedGmPrograms.delete(channel);
-            return;
-        }
-        let deviceId = routedValue;
-        let devChannel = undefined;
-        if (routedValue.includes('::')) {
-            const parts = routedValue.split('::');
-            deviceId = parts[0];
-            devChannel = parseInt(parts[1]);
-        }
-        try {
-            const params = { deviceId };
-            if (devChannel !== undefined) params.channel = devChannel;
-            const response = await this.modal.api.sendCommand('instrument_get_capabilities', params);
-            if (response && response.capabilities && response.capabilities.gm_program != null) {
-                this.modal._routedGmPrograms.set(channel, response.capabilities.gm_program);
-            }
-        } catch (err) {
-            this.modal.log('warn', `Failed to fetch gm_program for routed device ${deviceId}:`, err);
-        }
-    }
+    // Delegates to playableNotes sub-feature (extracted per audit §1.3)
+    async togglePreviewSource()                                { return this.playableNotes?.togglePreviewSource(); }
+    async _loadRoutedPlayableNotes()                           { return this.playableNotes?.loadRoutedPlayableNotes(); }
+    async togglePlayableNotesGlobal()                          { return this.playableNotes?.togglePlayableNotesGlobal(); }
+    _getRoutedGmProgram(channel)                               { return this.playableNotes?.getRoutedGmProgram(channel) ?? null; }
+    async _loadRoutedGmPrograms()                              { return this.playableNotes?.loadRoutedGmPrograms(); }
+    async _fetchAndCacheRoutedGmProgram(channel, routedValue)  { return this.playableNotes?.fetchAndCacheRoutedGmProgram(channel, routedValue); }
     }
 
     if (typeof window !== 'undefined') {
