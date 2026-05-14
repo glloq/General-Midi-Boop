@@ -93,6 +93,11 @@ class MidiEditorModal {
         // Channel panel (manages tablature buttons, device selector, instrument selector)
         this.channelPanel = typeof MidiEditorChannelPanel !== 'undefined' ? new MidiEditorChannelPanel(this) : null;
 
+        // Channel state read facade (audit §4.2). State stays on `this.X`
+        // for now; consumers can read via `this.channelState.X(...)` and
+        // we'll route writes through it incrementally.
+        this.channelState = typeof MidiEditorChannelState !== 'undefined' ? new MidiEditorChannelState(this) : null;
+
         // Confirmation dialogs sub-component (P2-F.10a — replaces mixin).
         // Instantiated before the mixin loop so the mixin forwarders find it.
         this.dialogs = typeof MidiEditorDialogs !== 'undefined' ? new MidiEditorDialogs(this) : null;

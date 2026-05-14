@@ -453,9 +453,18 @@ le choix UX en browser.
 
 ---
 
-### §4.2 — `ChannelState` centralisé
+### §4.2 — `ChannelState` centralisé (Phase 1 partielle ✅, write-phase pending)
 
-**Constat.** Couleurs, mute, solo, instrument routing, transposition,
+**État.** Phase 1 (read facade) en cours — `MidiEditorChannelState`
+exposé via `modal.channelState`. Pour l'instant 2 consumers migrés en
+démo (`MidiEditorPlayback.syncMutedChannels` + `.loadSequenceForPlayback`).
+Les ~80 autres reads dispersés (activeChannels.has, channelDisabled.has,
+channelColors, channelRouting, etc.) peuvent migrer lazilly, méthode par
+méthode, vers `channelState.X(...)`. Les writes restent sur `modal.X`
+direct (pas de regression possible). Phase 2 routera les writes via le
+facade et émettra `channel:changed`.
+
+**Constat initial.** Couleurs, mute, solo, instrument routing, transposition,
 playable-notes highlights — répliqués sur 5 modules (`MidiEditorModal`,
 `MidiEditorChannelPanel`, `MidiEditorRouting` via `routingOps`,
 `MidiEditorTablature` via `tablatureOps`, `MidiEditorPlayback`). Synchronisation

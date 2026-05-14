@@ -163,6 +163,11 @@
       "enable": "Afficher l'animation au démarrage",
       "description": "Affiche une animation avec barre de progression au lancement. Si désactivé, l'animation ne s'affiche qu'au premier chargement (cache vidé)."
     },
+    "pianoRollV2": {
+      "title": "Piano Roll V2 (expérimental)",
+      "enable": "Utiliser le nouveau moteur de rendu Canvas 2D",
+      "description": "Remplace le composant tiers webaudio-pianoroll par une implémentation maison plus rapide (viewport culling, index spatial). Beta — signale tout bug rencontré."
+    },
     "midiClock": {
       "title": "Horloge MIDI",
       "enable": "Activer l'horloge MIDI",

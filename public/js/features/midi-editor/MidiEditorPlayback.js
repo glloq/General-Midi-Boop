@@ -122,12 +122,14 @@
 
         m.synthesizer.loadSequence(sequence, tempo, ticksPerBeat);
 
+        // Audit §4.2: read effective program via channelState — handles the
+        // previewSource=='routed' + routed-gm-cache fallback in one call.
         m.channels.forEach(ch => {
-            let program = ch.program || 0;
-            if (m.previewSource === 'routed') {
-                const routedGm = m._routedGmPrograms.get(ch.channel);
-                if (routedGm != null) program = routedGm;
-            }
+            const program = m.channelState
+                ? m.channelState.getEffectiveProgram(ch.channel)
+                : (m.previewSource === 'routed' && m._routedGmPrograms.get(ch.channel) != null
+                    ? m._routedGmPrograms.get(ch.channel)
+                    : (ch.program || 0));
             m.synthesizer.setChannelInstrument(ch.channel, program);
         });
 
@@ -153,17 +155,18 @@
         const tabSolo = m.tablatureEditor && m.tablatureEditor.isVisible;
         const tabChannel = tabSolo ? m.tablatureEditor.channel : -1;
 
+        // Audit §4.2: route reads through `channelState` so the "muted"
+        // computation has one canonical source of truth. `isAudible`
+        // combines active+!disabled in a single call.
+        const cs = m.channelState;
         m.channels.forEach(ch => {
             if (tabSolo) {
                 // In tablature mode, mute everything except the tablature channel
                 if (ch.channel !== tabChannel) {
                     mutedChannels.push(ch.channel);
                 }
-            } else {
-                // Normal mode: mute inactive channels or disabled channels
-                if (!m.activeChannels.has(ch.channel) || m.channelDisabled.has(ch.channel)) {
-                    mutedChannels.push(ch.channel);
-                }
+            } else if (cs ? !cs.isAudible(ch.channel) : (!m.activeChannels.has(ch.channel) || m.channelDisabled.has(ch.channel))) {
+                mutedChannels.push(ch.channel);
             }
         });
 
