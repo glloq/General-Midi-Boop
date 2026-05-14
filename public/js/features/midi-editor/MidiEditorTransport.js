@@ -26,6 +26,13 @@
         constructor(parent) {
             this.parent = parent;
             this.modal = parent.modal;
+            // Audit §6.4 — central playback-sync RAF. The synthesizer fires
+            // onTickUpdate at up to several hundred Hz under load; we coalesce
+            // every burst onto a single rAF frame so piano roll, timeline bar,
+            // tablature, drum and wind editors are repainted **once per
+            // frame** instead of N×.
+            this._cursorRafId   = 0;
+            this._pendingTick   = null;
         }
 
     async playbackPlay() {
@@ -98,6 +105,13 @@
 
         m.isPlaying = false;
         m.isPaused = false;
+        // Cancel any pending playback-cursor rAF so it can't reapply the
+        // pre-stop tick on top of the reset we are about to do (audit §6.4).
+        if (this._cursorRafId) {
+            cancelAnimationFrame(this._cursorRafId);
+            this._cursorRafId = 0;
+            this._pendingTick = null;
+        }
         // Force the next updatePlaybackCursor() to apply even if the tick
         // equals the previous one (e.g. seek back to start).
         this._lastAppliedTick = undefined;
@@ -166,6 +180,28 @@
      * @param {number} tick - Position actuelle en ticks
      */
     updatePlaybackCursor(tick) {
+        // §6.4: coalesce per-tick callbacks onto a single rAF. The synthesizer
+        // may fire many ticks per frame; we only need the latest position
+        // when the next frame paints. Cursor / playhead drift caps at 16ms.
+        this._pendingTick = tick;
+        if (this._cursorRafId) return;
+        this._cursorRafId = requestAnimationFrame(() => {
+            this._cursorRafId = 0;
+            const t = this._pendingTick;
+            this._pendingTick = null;
+            if (t == null) return;
+            this._applyPlaybackCursor(t);
+        });
+    }
+
+    /**
+     * Synchronous body of updatePlaybackCursor — apply the tick to every
+     * subscriber (piano roll, timeline bar, tab/drum/wind, nav overview).
+     * Called from the rAF in updatePlaybackCursor, OR directly from seek /
+     * onPlaybackComplete paths that need immediate state without waiting
+     * for the next frame.
+     */
+    _applyPlaybackCursor(tick) {
         const m = this.modal;
         if (this._lastAppliedTick === tick) return;
         this._lastAppliedTick = tick;
@@ -243,6 +279,14 @@
         const m = this.modal;
         m.isPlaying = false;
         m.isPaused = false;
+        // Cancel pending cursor rAF — same rationale as playbackStop
+        // (audit §6.4). Otherwise the end-of-sequence reset can be undone
+        // visually one frame later by a queued tick.
+        if (this._cursorRafId) {
+            cancelAnimationFrame(this._cursorRafId);
+            this._cursorRafId = 0;
+            this._pendingTick = null;
+        }
 
         m.pianoRollRenderer?.setCursor(m.playbackStartTick);
 
