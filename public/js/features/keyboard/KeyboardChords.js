@@ -584,7 +584,38 @@
      * @param {number}   maxPoly    - Max simultaneous strings
      * @returns {Array<{string: number, note: number, time: number}>}
      */
+    /**
+     * Lazily create / reuse a VoicingEngine instance for the given tuning.
+     * The engine internally caches voicings per chord shape, so we only pay
+     * the mapping cost once per (tuning, rootClass, intervals, maxPoly).
+     */
+    KeyboardChordsMixin._voicingEngineFor = function (tuning, numStrings) {
+        if (typeof window === 'undefined' || typeof window.VoicingEngine !== 'function') {
+            return null;
+        }
+        if (!this._voicingEngine
+            || this._voicingEngine.numStrings !== numStrings
+            || !Array.isArray(this._voicingEngine.tuning)
+            || this._voicingEngine.tuning.length !== tuning.length
+            || this._voicingEngine.tuning.some((v, i) => v !== tuning[i])) {
+            this._voicingEngine = new window.VoicingEngine(tuning, numStrings);
+        }
+        return this._voicingEngine;
+    };
+
     KeyboardChordsMixin._mapChordToStrings = function (rootClass, intervals, tuning, maxPoly) {
+        // Phase E (KM-E6): delegate to the pure VoicingEngine module when
+        // it's available. The engine implements the exact same algorithm
+        // (cycle chord classes / first-occurrence frets 0-11 / clash
+        // avoidance / clamp to MIDI 21-108) and is unit-tested.
+        const engine = this._voicingEngineFor(tuning, tuning.length);
+        if (engine) {
+            return engine.mapChordToStrings(rootClass, intervals, maxPoly);
+        }
+
+        // Fallback inline implementation (kept for the rare case where
+        // VoicingEngine.js was not loaded before this mixin — preserves
+        // behaviour 1:1).
         const chordClasses = intervals.map(i => (rootClass + i) % 12);
         const limit = Math.min(maxPoly, tuning.length);
         const result = [];
@@ -593,16 +624,13 @@
             const openPitch   = tuning[s];
             const targetClass = chordClasses[s % chordClasses.length]; // cycle
 
-            // Fret 0–11: first occurrence of targetClass ≥ openPitch
             const openClass = openPitch % 12;
             const semiDiff  = (targetClass - openClass + 12) % 12;
             let note = openPitch + semiDiff;
 
-            // Clamp to MIDI playable range
             if (note < 21)  note += 12;
             if (note > 108) note -= 12;
 
-            // Avoid unison / semitone clash with the previous string's note
             if (result.length > 0) {
                 const prev = result[result.length - 1].note;
                 if (Math.abs(note - prev) < 2) {

@@ -203,6 +203,11 @@ class KeyboardModal {
             this._eventUnsubs = [];
         }
 
+        // Phase E (KM-M3): remove any DOM listener registered through _on().
+        // Existing call sites still rely on detachEvents() above; new code
+        // should prefer this._on() for automatic cleanup.
+        if (typeof this._offAll === 'function') this._offAll();
+
         // Clean up string slide mode
         if (typeof this.destroyStringSliders === 'function') this.destroyStringSliders();
 
@@ -1119,36 +1124,81 @@ class KeyboardModal {
     }
 }
 
-// Apply mixins (loaded via <script> tags before this file)
-if (typeof KeyboardPianoMixin !== 'undefined') {
-    Object.assign(KeyboardModal.prototype, KeyboardPianoMixin);
+// ============================================================================
+// MIXIN COMPOSITION (legacy — slated for replacement by InstrumentView
+// classes per AUDIT_KEYBOARD_MODAL_2026-05-14.md KM-C1, KM-C4).
+// ============================================================================
+// The 7 mixins below are attached on KeyboardModal.prototype in a specific
+// order: each later mixin can read methods from earlier ones, and the wind
+// mixin specifically wraps `playNote` (captured as `_windOrigPlayNote`).
+//
+// Until the InstrumentView migration is complete, _applyMixin() emits a
+// warning whenever a mixin silently overrides a method already on the
+// prototype — this catches accidental collisions early.
+// ============================================================================
+
+/**
+ * Apply a mixin to KeyboardModal.prototype, warning on collisions.
+ * @param {string} label    Mixin name (for diagnostics).
+ * @param {Object} mixin    Object whose own properties become prototype methods.
+ */
+function _applyMixin(label, mixin) {
+    if (!mixin) return;
+    for (const key of Object.keys(mixin)) {
+        if (Object.prototype.hasOwnProperty.call(KeyboardModal.prototype, key)) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[KeyboardModal] mixin "${label}" overrides existing method "${key}". ` +
+                `If this is intentional, capture the previous value in a closure ` +
+                `before assigning (see _windOrigPlayNote pattern).`
+            );
+        }
+        KeyboardModal.prototype[key] = mixin[key];
+    }
 }
-if (typeof KeyboardEventsMixin !== 'undefined') {
-    Object.assign(KeyboardModal.prototype, KeyboardEventsMixin);
-}
-if (typeof KeyboardControlsMixin !== 'undefined') {
-    Object.assign(KeyboardModal.prototype, KeyboardControlsMixin);
-}
-if (typeof KeyboardChordsMixin !== 'undefined') {
-    Object.assign(KeyboardModal.prototype, KeyboardChordsMixin);
-}
-if (typeof KeyboardSliderMixin !== 'undefined') {
-    Object.assign(KeyboardModal.prototype, KeyboardSliderMixin);
-}
-if (typeof KeyboardListViewMixin !== 'undefined') {
-    Object.assign(KeyboardModal.prototype, KeyboardListViewMixin);
-}
-if (typeof KeyboardWindMixin !== 'undefined') {
-    // Capture the pre-wind playNote in a closure so the reference is immutable.
-    // Using Object.defineProperty with writable:false prevents any instance from
-    // accidentally shadowing _windOrigPlayNote with its own property, which would
-    // silently break the articulation call chain.
+
+if (typeof KeyboardPianoMixin     !== 'undefined') _applyMixin('Piano',     KeyboardPianoMixin);
+if (typeof KeyboardEventsMixin    !== 'undefined') _applyMixin('Events',    KeyboardEventsMixin);
+if (typeof KeyboardControlsMixin  !== 'undefined') _applyMixin('Controls',  KeyboardControlsMixin);
+if (typeof KeyboardChordsMixin    !== 'undefined') _applyMixin('Chords',    KeyboardChordsMixin);
+if (typeof KeyboardSliderMixin    !== 'undefined') _applyMixin('Slider',    KeyboardSliderMixin);
+if (typeof KeyboardListViewMixin  !== 'undefined') _applyMixin('ListView',  KeyboardListViewMixin);
+if (typeof KeyboardWindMixin      !== 'undefined') {
+    // The wind mixin intentionally overrides `playNote` to apply articulation
+    // factors. Capture the previous value in a closure so the new playNote
+    // can call back into it (see PianoSliderView.willPlayNote for the
+    // future replacement).
     const _prevPlayNote = KeyboardModal.prototype.playNote;
-    Object.assign(KeyboardModal.prototype, KeyboardWindMixin);
+    _applyMixin('Wind', KeyboardWindMixin);
     Object.defineProperty(KeyboardModal.prototype, '_windOrigPlayNote', {
         value: _prevPlayNote,
         writable: false,
         configurable: false,
         enumerable: false
     });
+}
+
+// ─── Tracked DOM listeners (Phase E helper, KM-M3) ──────────────────────────
+// Subsequent code can call `this._on(el, 'click', fn)` instead of
+// `el.addEventListener('click', fn)` to get automatic cleanup in close().
+// Existing call sites are not migrated yet — this is opt-in for new code.
+
+KeyboardModal.prototype._on = function (el, evt, handler, opts) {
+    if (!el || !evt || typeof handler !== 'function') return;
+    el.addEventListener(evt, handler, opts);
+    (this._trackedListeners ||= []).push([el, evt, handler, opts]);
+};
+
+KeyboardModal.prototype._offAll = function () {
+    if (!this._trackedListeners) return;
+    for (const [el, evt, h, o] of this._trackedListeners) {
+        try { el.removeEventListener(evt, h, o); } catch (_) { /* ignore */ }
+    }
+    this._trackedListeners.length = 0;
+};
+
+// Expose the class on window so test runners + late-loading helpers can
+// inspect prototype.
+if (typeof window !== 'undefined') {
+    window.KeyboardModal = KeyboardModal;
 }
