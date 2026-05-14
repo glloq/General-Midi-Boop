@@ -364,7 +364,11 @@
             colrulerbg:     '#1e2028',
             colrulerfg:     '#8890a0',
             colrulerborder: '#2e3038',
-            colnoteborder:  'rgba(255,255,255,0.1)'
+            colnoteborder:  'rgba(255,255,255,0.1)',
+            // V2 keyboard colors — legacy WAC element has its own CSS rules
+            // so colkb* keys are a no-op there. V2 Canvas reads them.
+            colkbwhite:     '#3a3c44',
+            colkbblack:     '#1a1c20'
         } : {
             collt:          '#ddd6f3',
             coldk:          '#d2cae8',
@@ -372,7 +376,9 @@
             colrulerbg:     '#d5cdef',
             colrulerfg:     '#4a3f6b',
             colrulerborder: '#c0b8d8',
-            colnoteborder:  'rgba(102,126,234,0.25)'
+            colnoteborder:  'rgba(102,126,234,0.25)',
+            colkbwhite:     '#f8f8f8',
+            colkbblack:     '#222222'
         });
     }
 

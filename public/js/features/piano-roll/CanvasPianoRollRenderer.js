@@ -85,18 +85,22 @@
             this._uiMode = 'drag-view';
 
             // ---- theme ----
+            // Defaults match a light theme. MidiEditorViewport._applyPianoRollTheme
+            // overrides these via setThemeColors() based on the user's current
+            // (light/dark) preference. White keys should *look white* — using
+            // a dark grey as default made the keyboard look entirely grey.
             this._theme = {
-                collt:          '#262830',
-                coldk:          '#22242a',
-                colgrid:        '#2e3038',
-                colrulerbg:     '#1e2028',
-                colrulerfg:     '#8890a0',
-                colrulerborder: '#2e3038',
+                collt:          '#ddd6f3',
+                coldk:          '#d2cae8',
+                colgrid:        '#c8c0de',
+                colrulerbg:     '#d5cdef',
+                colrulerfg:     '#4a3f6b',
+                colrulerborder: '#c0b8d8',
                 colnote:        '#5e8eff',
                 colnotesel:     '#ffd866',
-                colnoteborder:  'rgba(255,255,255,0.1)',
-                colkbwhite:     '#3a3c44',
-                colkbblack:     '#1a1c20',
+                colnoteborder:  'rgba(102,126,234,0.25)',
+                colkbwhite:     '#f8f8f8',
+                colkbblack:     '#222222',
                 colcursor:      '#e74c3c'
             };
 
