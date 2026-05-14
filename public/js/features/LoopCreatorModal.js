@@ -60,6 +60,13 @@ class LoopManagerModal extends BaseModal {
     get _padClearLongPress() { return this.padFeature ? () => this.padFeature.clearLongPress() : null; }
     /** Back-compat: _renderPlaybar inspects which pads are currently playing. */
     get _padPlayingIndex() { return this.padFeature?.playingIndex || new Set(); }
+    /** Back-compat: every feature reads `modal._globalOutput`. */
+    get _globalOutput() { return this.outputRouter?.globalOutput || { mode: 'synth', deviceId: null, channel: 0 }; }
+    /** Back-compat: Live/Pad stop-all reads `_deviceShim` for cancelAllNotes. */
+    get _deviceShim() { return this.outputRouter?.deviceShim || null; }
+    set _deviceShim(v) { if (this.outputRouter) this.outputRouter.deviceShim = v; }
+    /** Back-compat: cached device list. */
+    get _cachedDevices() { return this.outputRouter?.cachedDevices || []; }
 
     constructor(api, eventBus) {
         super({
@@ -167,9 +174,11 @@ class LoopManagerModal extends BaseModal {
         this.outputChannel  = 0;
 
         // ── Global output selector (header) — drives Pad / Live / Arranger ──
-        this._globalOutput = { mode: 'synth', deviceId: null, channel: 0 };
-        this._deviceShim   = null;
-        this._cachedDevices = [];
+        // Extracted to LoopManagerOutputRouter (audit §6.6). State lives
+        // on the router; the modal exposes getters for back-compat.
+        this.outputRouter = typeof LoopManagerOutputRouter !== 'undefined'
+            ? new LoopManagerOutputRouter(this)
+            : null;
 
         // Bound doc handlers for arranger drag
         this._boundDocMouseUp   = this._onDocMouseUp.bind(this);
@@ -427,98 +436,13 @@ class LoopManagerModal extends BaseModal {
     }
 
     // ── Global output selector (header) ────────────────────────
-    async _loadHeaderOutputDevices() {
-        // Devices are no longer picked from the header — the keyboard panel's
-        // instrument selector sets the global deviceId. We still cache the
-        // device list here so other tabs can resolve names if needed.
-        try {
-            const allDevices = await this.api.listDevices();
-            this._cachedDevices = (allDevices || []).filter(d => d.status === 2 || d.connected === true);
-        } catch (err) {
-            LoopUtils.handleError(err, 'manager.header.listDevices');
-            this._cachedDevices = [];
-        }
-        this._refreshHeaderOutputUI();
-    }
+    async _loadHeaderOutputDevices() { return this.outputRouter?.loadDevices(); }
+    _refreshHeaderOutputUI()         { this.outputRouter?.refreshUI(); }
+    _toggleHeaderOutput()            { this.outputRouter?.toggleMode(); }
+    _setGlobalOutput(next)           { this.outputRouter?.setOutput(next); }
+    _panicCurrentDevice(target)      { this.outputRouter?.panicTarget(target); }
+    _getOutputTarget(fallbackSynth)  { return this.outputRouter?.getTarget(fallbackSynth) ?? fallbackSynth; }
 
-    _refreshHeaderOutputUI() {
-        const btn   = this.$('#lc-header-output-btn');
-        const icon  = this.$('#lc-header-output-icon');
-        const label = this.$('#lc-header-output-label');
-        const isDev = this._globalOutput.mode === 'device';
-        if (icon)  icon.textContent  = isDev ? '🔌' : '🔊';
-        if (label) label.textContent = isDev ? this.t('loopManager.outputLive') : this.t('loopManager.outputSynth');
-        if (btn) {
-            btn.classList.toggle('lc-header-output-btn--device', isDev);
-            btn.setAttribute('aria-pressed', isDev ? 'true' : 'false');
-        }
-    }
-
-    _toggleHeaderOutput() {
-        // Pure mode switch: preview-synth ⇄ live-device. If no device has
-        // been picked yet in the virtual piano, the per-tab routing
-        // gracefully falls back to the synth (see keyboard._routingDevice
-        // and _getOutputTarget) — no upfront check needed.
-        const next = this._globalOutput.mode === 'device' ? 'synth' : 'device';
-        this._setGlobalOutput({ mode: next });
-    }
-
-    _setGlobalOutput(next) {
-        const prev = this._globalOutput;
-        this._globalOutput = { ...prev, ...next };
-        // Switching target: stop everything to avoid stuck notes
-        if (prev.mode !== this._globalOutput.mode || prev.deviceId !== this._globalOutput.deviceId) {
-            this._stopAllPads();
-            this._liveStopAll();
-            this._stopArrangerPlay();
-            this.keyboard?.stopAllNotes();
-            this._panicCurrentDevice(prev);
-            this._deviceShim = null; // rebuilt lazily
-        }
-        this._refreshHeaderOutputUI();
-    }
-
-    _panicCurrentDevice(target) {
-        if (!target || target.mode !== 'device' || !target.deviceId) return;
-        this.api.sendCommand('midi_panic', { deviceId: target.deviceId })
-            .catch(err => LoopUtils.handleError(err, 'manager.output.panic'));
-    }
-
-    _getOutputTarget(fallbackSynth) {
-        if (this._globalOutput.mode === 'device' && this._globalOutput.deviceId) {
-            if (!this._deviceShim) this._deviceShim = this._makeDeviceShim();
-            return this._deviceShim;
-        }
-        return fallbackSynth;
-    }
-
-    _makeDeviceShim() {
-        const api = this.api;
-        const getOutput = () => this._globalOutput;
-        return {
-            loadedInstruments: { has: () => true },
-            loadInstrument: async () => {},
-            setChannelInstrument: () => {},
-            cancelAllNotes: () => {
-                const out = getOutput();
-                if (!out.deviceId) return;
-                api.sendCommand('midi_panic', { deviceId: out.deviceId })
-                    .catch(err => LoopUtils.handleError(err, 'manager.shim.panic'));
-            },
-            playNote: (note, velocity, _ch, durSec) => {
-                const out = getOutput();
-                if (!out.deviceId) return null;
-                api.sendCommand('midi_send_note', {
-                    deviceId: out.deviceId,
-                    channel:  out.channel ?? 0,
-                    note,
-                    velocity: velocity || 80,
-                    duration: Math.max(20, Math.round((durSec || 0.5) * 1000))
-                }).catch(err => LoopUtils.handleError(err, 'manager.shim.playNote'));
-                return null;
-            }
-        };
-    }
 
     close() {
         if (!this._arrDirty) {
