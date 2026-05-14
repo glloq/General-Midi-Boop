@@ -154,8 +154,11 @@
 
     syncAllEditors() {
         this.syncCCEditor();
-        this.syncVelocityEditor();
-        this.syncTempoEditor();
+        // syncVelocityEditor / syncTempoEditor stayed on the CCPicker parent
+        // when this sub-feature was extracted (audit §1.3) — route through
+        // the parent so we don't throw "is not a function".
+        this.parent.syncVelocityEditor();
+        this.parent.syncTempoEditor();
 
         const viewport = this.modal.editActions._getActiveViewportState();
         const activeLeftOffset = this._getActiveEditorHeaderWidth();

@@ -26,6 +26,10 @@
 (function () {
     'use strict';
 
+    // Mirror of the constant in LoopManagerArrangerFeature's IIFE — declared
+    // here too because IIFE scopes don't bleed across separate <script> files.
+    const ARRANGER_HISTORY_LIMIT = 50;
+
     class LoopManagerArrangerView {
         /** @param {LoopManagerArrangerFeature} parent */
         constructor(parent) {
