@@ -590,6 +590,28 @@
                 if (x < KB_WIDTH - 4 || x > W) continue;
                 ctx.fillText(String(m + 1), x + 2, RULER_H / 2);
             }
+
+            // Beat ticks at the bottom of the ruler — taller stroke at
+            // measure boundaries, half-height for in-between beats. Skip
+            // when zoomed out so far that beats collapse on top of each
+            // other (< 4 px between beats becomes visual noise).
+            const beatPx = (ppq / Math.max(1, this._xrange)) * Math.max(1, W - KB_WIDTH);
+            if (beatPx >= 4) {
+                ctx.strokeStyle = this._theme.colrulerborder;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                const startBeat = Math.floor(this._xoffset / ppq);
+                for (let beat = startBeat; beat * ppq <= endTick; beat++) {
+                    const tick = beat * ppq;
+                    const x = this._tickToX(tick);
+                    if (x < KB_WIDTH || x > W) continue;
+                    const tickH = (beat % beatsPerMeasure === 0) ? 8 : 4;
+                    const px = Math.floor(x) + 0.5;
+                    ctx.moveTo(px, RULER_H - tickH);
+                    ctx.lineTo(px, RULER_H);
+                }
+                ctx.stroke();
+            }
         }
 
         _paintNotes() {
@@ -645,6 +667,18 @@
                     ctx.strokeStyle = this._theme.colnoteborder;
                     ctx.lineWidth = 1;
                     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+                    // Visual hint for the resize hot-zone — only when the
+                    // note is wide enough to host the handle without being
+                    // dominated by it. Painted at full alpha so the cue
+                    // stays legible regardless of velocity.
+                    if (w > RESIZE_HANDLE_PX * 2 + 2) {
+                        const prevAlpha = ctx.globalAlpha;
+                        ctx.globalAlpha = 1;
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+                        ctx.fillRect(x + w - RESIZE_HANDLE_PX, y + 1, 2, h - 2);
+                        ctx.globalAlpha = prevAlpha;
+                    }
                 }
             }
             ctx.globalAlpha = 1;
@@ -936,7 +970,26 @@
                 const factor = e.deltaY > 0 ? 1.2 : 0.8;
                 const newRange = Math.max(12, Math.min(88, Math.round(this._yrange * factor)));
                 if (newRange !== this._yrange) {
-                    this._yrange = newRange;
+                    // Pivot the zoom around the pitch under the mouse so the
+                    // note the user is targeting stays put (falls back to
+                    // viewport-centred zoom when the cursor is over the
+                    // ruler / keyboard chrome).
+                    const { x, y } = this._localCoords(e);
+                    const oldRange = this._yrange;
+                    const drawH = Math.max(1, this._cssHeight - RULER_H);
+                    if (x >= KB_WIDTH && y >= RULER_H) {
+                        const oldNoteH = Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / oldRange));
+                        const notesFromTop = (y - RULER_H) / oldNoteH; // fractional
+                        const pitchAtMouse = this._yoffset + oldRange - 1 - notesFromTop;
+                        this._yrange = newRange;
+                        const newNoteH = Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / newRange));
+                        const newNotesFromTop = (y - RULER_H) / newNoteH;
+                        const rawOffset = pitchAtMouse - newRange + 1 + newNotesFromTop;
+                        this._yoffset = Math.max(0, Math.min(128 - newRange, Math.round(rawOffset)));
+                    } else {
+                        this._yrange = newRange;
+                        this._yoffset = Math.max(0, Math.min(128 - newRange, this._yoffset));
+                    }
                     this._bgDirty = true;
                     this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
                     this._scheduleRender();
@@ -948,7 +1001,20 @@
                 const factor = e.deltaY > 0 ? 1.2 : 0.8;
                 const newRange = Math.max(16, Math.min(100000, Math.round(this._xrange * factor)));
                 if (newRange !== this._xrange) {
-                    this._xrange = newRange;
+                    // Pivot horizontal zoom around the tick under the mouse
+                    // (keep the same pixel column under the cursor before /
+                    // after). Falls back to plain xrange swap when the
+                    // cursor sits on the keyboard / scrollbar chrome.
+                    const { x } = this._localCoords(e);
+                    const w = Math.max(1, this._cssWidth - KB_WIDTH);
+                    if (x >= KB_WIDTH) {
+                        const tickAtMouse = (x - KB_WIDTH) * (this._xrange / w) + this._xoffset;
+                        this._xrange = newRange;
+                        const newOffset = tickAtMouse - (x - KB_WIDTH) * (newRange / w);
+                        this._xoffset = Math.max(0, newOffset);
+                    } else {
+                        this._xrange = newRange;
+                    }
                     this._bgDirty = true;
                     this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange });
                     this._scheduleRender();
