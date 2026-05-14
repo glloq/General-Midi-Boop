@@ -626,12 +626,30 @@
             return;
         }
 
-    // Piano roll renderer abstraction (audit §1.1). The adapter wraps the
-    // third-party `<webaudio-pianoroll>`; the invariant
-    // `modal.pianoRoll === modal.pianoRollRenderer.getElement()` lets the
-    // non-migrated call sites keep working unchanged during the migration.
-        if (typeof WebaudioPianorollAdapter !== 'undefined') {
-            this.modal.pianoRollRenderer = new WebaudioPianorollAdapter({
+    // Piano roll renderer abstraction (audit §1.1). Choose the
+    // implementation based on a feature flag:
+    //   - Default : WebaudioPianorollAdapter (the legacy third-party
+    //     custom element, behaviour identical to pre-§1.1).
+    //   - Opt-in via `?pianoRollV2=1` URL param or
+    //     `localStorage.gmboop_piano_roll_v2 = '1'` :
+    //     CanvasPianoRollRenderer (audit §3.1/§3.2 — Canvas 2D maison,
+    //     viewport culling, grid-bucket spatial index).
+    // The invariant `modal.pianoRoll === modal.pianoRollRenderer.getElement()`
+    // is maintained so non-migrated call sites keep working unchanged.
+        const useV2 = (() => {
+            try {
+                const qs = new URLSearchParams(window.location.search);
+                if (qs.get('pianoRollV2') === '1') return true;
+                if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
+            } catch (_) { /* best-effort */ }
+            return false;
+        })();
+        const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
+            ? CanvasPianoRollRenderer
+            : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
+
+        if (Impl) {
+            this.modal.pianoRollRenderer = new Impl({
                 container,
                 width:  container.clientWidth  || 1000,
                 height: container.clientHeight || 400,
@@ -641,8 +659,9 @@
             });
             this.modal.pianoRollRenderer.mount();
             this.modal.pianoRoll = this.modal.pianoRollRenderer.getElement();
+            this.modal.log('info', `Piano roll renderer: ${Impl.name}`);
         } else {
-            // Defensive fallback if the renderer script failed to load —
+            // Defensive fallback if neither renderer script loaded —
             // restores the legacy creation path so the editor still opens.
             this.modal.pianoRoll = document.createElement('webaudio-pianoroll');
             this.modal.pianoRollRenderer = null;
