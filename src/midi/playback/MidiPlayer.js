@@ -963,12 +963,19 @@ class MidiPlayer {
 
     // Build the per-playback snapshot so the hot path never re-queries
     // the DB for capability or compensation data, even if a UI mutation
-    // fires `instrument_settings_changed` mid-playback.
+    // fires `instrument_settings_changed` mid-playback. We pre-warm the
+    // snapshot against the current routing map so the very first tick
+    // already serves from the in-memory cache (no SQLite read inside the
+    // critical path).
     this._snapshot = new PlaybackSnapshot({
       capabilityResolver: this._deps.capabilityResolver || null,
       compensationService: this._deps.compensationService || null,
       logger: this.logger
     });
+    const warmed = this._snapshot.warmup(this.channelRouting);
+    if (warmed > 0 && this.logger.isDebugEnabled?.()) {
+      this.logger.debug(`Snapshot pre-warmed ${warmed} (device:channel) pairs`);
+    }
     this._pendingMutationCount = 0;
     this.scheduler.setSnapshot(this._snapshot);
 

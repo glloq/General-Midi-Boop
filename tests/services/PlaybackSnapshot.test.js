@@ -130,6 +130,81 @@ describe('PlaybackSnapshot', () => {
     });
   });
 
+  describe('warmup', () => {
+    test('pre-resolves every (device, channel) in a flat routing map', () => {
+      const resolver = makeResolver({
+        stringCC: { 'dev-A:0': true, 'dev-B:5': false },
+        timing: {
+          'dev-A:0': { minNoteInterval: 30, minNoteDuration: 5, polyphony: 1 },
+          'dev-B:5': { minNoteInterval: null, minNoteDuration: null, polyphony: 6 }
+        }
+      });
+      const comp = makeCompensation({ 'dev-A:0': 7, 'dev-B:5': 12 });
+      const snap = new PlaybackSnapshot({ capabilityResolver: resolver, compensationService: comp });
+      const routing = new Map([
+        [0, { device: 'dev-A', targetChannel: 0 }],
+        [5, { device: 'dev-B', targetChannel: 5 }]
+      ]);
+      const warmed = snap.warmup(routing);
+      expect(warmed).toBe(2);
+      // After warmup the service is never re-hit during real playback.
+      const baselineCalls = resolver.calls.stringCC + resolver.calls.timing + comp.calls;
+      snap.isStringCCAllowed('dev-A', 0);
+      snap.getTimingConstraints('dev-A', 0);
+      snap.getCompensationMs('dev-A', 0);
+      snap.isStringCCAllowed('dev-B', 5);
+      snap.getTimingConstraints('dev-B', 5);
+      snap.getCompensationMs('dev-B', 5);
+      expect(resolver.calls.stringCC + resolver.calls.timing + comp.calls).toBe(baselineCalls);
+    });
+
+    test('walks split routings recursively', () => {
+      const resolver = makeResolver({});
+      const comp = makeCompensation({});
+      const snap = new PlaybackSnapshot({ capabilityResolver: resolver, compensationService: comp });
+      const routing = new Map([
+        [0, {
+          split: true,
+          segments: [
+            { device: 'dev-A', targetChannel: 0 },
+            { device: 'dev-B', targetChannel: 1 }
+          ]
+        }]
+      ]);
+      expect(snap.warmup(routing)).toBe(2);
+      expect(snap.getStats().comp).toBe(2);
+    });
+
+    test('deduplicates repeated (device, channel) pairs', () => {
+      const resolver = makeResolver({});
+      const snap = new PlaybackSnapshot({ capabilityResolver: resolver });
+      const routing = new Map([
+        [0, { device: 'dev-A', targetChannel: 0 }],
+        [1, { device: 'dev-A', targetChannel: 0 }],
+        [2, { device: 'dev-A', targetChannel: 0 }]
+      ]);
+      expect(snap.warmup(routing)).toBe(1);
+    });
+
+    test('skips entries with null device', () => {
+      const resolver = makeResolver({});
+      const snap = new PlaybackSnapshot({ capabilityResolver: resolver });
+      const routing = new Map([
+        [0, { device: null, targetChannel: 0 }],
+        [1, null],
+        [2, { device: 'dev-A', targetChannel: 0 }]
+      ]);
+      expect(snap.warmup(routing)).toBe(1);
+    });
+
+    test('returns 0 for a non-Map argument (defensive)', () => {
+      const snap = new PlaybackSnapshot({});
+      expect(snap.warmup(null)).toBe(0);
+      expect(snap.warmup({})).toBe(0);
+      expect(snap.warmup([])).toBe(0);
+    });
+  });
+
   describe('lifecycle', () => {
     test('getStats reports cache sizes', () => {
       const resolver = makeResolver({ stringCC: { 'dev-1:0': true } });

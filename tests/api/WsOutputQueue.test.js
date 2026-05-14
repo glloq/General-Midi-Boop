@@ -272,6 +272,21 @@ describe('WsOutputQueue', () => {
       // failure logged, queue keeps running
       expect(logger.warnCalls.length).toBeGreaterThan(0);
     });
+
+    test('a client that throws on send() is dropped from the live set', () => {
+      const ok = makeClient();
+      const bad = makeClient({ failSend: true });
+      const logger = makeLogger();
+      const { queue, clients, drain } = makeQueue({ clients: [ok, bad], logger });
+      queue.broadcast('device_connected', { id: 'x' });
+      drain();
+      expect(clients.has(bad)).toBe(false);
+      expect(clients.has(ok)).toBe(true);
+      // Next broadcast goes only to the healthy client.
+      queue.broadcast('device_connected', { id: 'y' });
+      drain();
+      expect(ok.sent).toHaveLength(2);
+    });
   });
 
   describe('lifecycle', () => {

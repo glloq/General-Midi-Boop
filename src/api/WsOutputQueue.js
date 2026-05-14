@@ -272,8 +272,12 @@ export class WsOutputQueue {
         client.send(frame, isBinary ? { binary: true } : undefined);
         sent++;
       } catch (err) {
+        // A synchronous throw from ws.send() means the socket is in a
+        // bad state (CLOSED race or internal corruption). Drop it from
+        // the live set so subsequent flushes don't keep paying for it.
+        stale.push(client);
         if (this._logger.isWarnEnabled?.() ?? true) {
-          this._logger.warn(`WsOutputQueue: client.send failed: ${err.message}`);
+          this._logger.warn(`WsOutputQueue: client.send failed, dropping client: ${err.message}`);
         }
       }
     });
