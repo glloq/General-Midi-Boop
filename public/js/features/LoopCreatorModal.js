@@ -50,6 +50,16 @@ class LoopManagerModal extends BaseModal {
     get _livePlayingLoops() { return this.liveFeature?.playingLoops || new Map(); }
     /** Back-compat: a few call-sites read modal._liveSynth directly. */
     get _liveSynth() { return this.liveFeature?.synth || null; }
+    /** Back-compat: Library cards / _deleteLoopById read this array. */
+    get _padSlots() { return this.padFeature?.slots || []; }
+    /** Back-compat: _switchTab + _onClick read this flag. */
+    get _padPickerIndex() { return this.padFeature?.pickerIndex ?? null; }
+    /** Back-compat: _renderPlaybar iterates Pad start/dur per index. */
+    get _padPlayTimes() { return this.padFeature?.playTimes || new Map(); }
+    /** Back-compat: doClose calls this if armed. */
+    get _padClearLongPress() { return this.padFeature ? () => this.padFeature.clearLongPress() : null; }
+    /** Back-compat: _renderPlaybar inspects which pads are currently playing. */
+    get _padPlayingIndex() { return this.padFeature?.playingIndex || new Set(); }
 
     constructor(api, eventBus) {
         super({
@@ -116,19 +126,11 @@ class LoopManagerModal extends BaseModal {
         // Shared loop data cache (pad + live + arranger)
         this._fetchLoopDataCache = new Map();
 
-        // ── Pad state ──
-        this._padCols         = 4;
-        this._padRows         = 4;
-        this._padPlayMode     = 'loop';      // 'loop' | 'one-shot' | 'hold'
-        this._padQuantize     = 'off';       // 'off' | 'beat' | 'bar'
-        this._padSlots        = Array(this._padCols * this._padRows).fill(null); // { loopId, name, tempo, bars, instrument_program }
-        this._padPlayingIndex = new Set();
-        this._padPlaybackTimers = new Map(); // padIndex → [timerIds]
-        this._padSynth        = null;
-        this._padPickerIndex  = null; // pad index whose assignment picker is open
-        this._padPickerHandler = null; // bound click handler so we can detach
-        this._padClockStartMs = null; // free-running reference for launch quantize
-        this._padHoldActive   = new Set(); // indexes currently held down (hold mode)
+        // ── Pad tab feature (extracted to LoopManagerPadFeature per audit §6.6).
+        // Owns the grid layout, slots, play mode, quantize, synth, picker.
+        this.padFeature = typeof LoopManagerPadFeature !== 'undefined'
+            ? new LoopManagerPadFeature(this)
+            : null;
 
         // ── Live state ──
         // ── Live tab feature (extracted to LoopManagerLiveFeature
@@ -147,7 +149,7 @@ class LoopManagerModal extends BaseModal {
             : null;
 
         // ── Playback timeline bar ──
-        this._padPlayTimes      = new Map(); // padIndex → { startMs, durMs }
+        // (_padPlayTimes lives on padFeature.playTimes; getter below.)
         this._arrangerStartTime = 0;
         this._playbarRAF        = null;
 
@@ -250,55 +252,9 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     _renderPadTab() {
-        const modeBtn = (val, labelKey, icon) =>
-            `<button class="lc-btn lc-btn-sm lm-pad-mode-btn${this._padPlayMode === val ? ' lm-pad-mode-btn--active' : ''}"
-                data-action="pad-set-mode" data-mode="${val}"
-                title="${this.t('loopManager.' + labelKey)}"
-                aria-pressed="${this._padPlayMode === val}">${icon} ${this.t('loopManager.' + labelKey)}</button>`;
-        const quantBtn = (val, labelKey) =>
-            `<button class="lc-btn lc-btn-sm lm-pad-quant-btn${this._padQuantize === val ? ' lm-pad-quant-btn--active' : ''}"
-                data-action="pad-set-quantize" data-quantize="${val}"
-                title="${this.t('loopManager.' + labelKey)}"
-                aria-pressed="${this._padQuantize === val}">${this.t('loopManager.' + labelKey)}</button>`;
-        return `
-        <div class="lc-pane${this.activeTab==='pad' ? '' : ' lc-pane--hidden'}" id="lc-pane-pad" role="tabpanel" aria-labelledby="lc-tab-pad">
-            <div class="lc-ctrl-bar lc-ctrl-bar--pad">
-                <label class="lc-label" for="lm-pad-cols">${this.t('loopManager.padCols')}</label>
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="pad-cols-dec" aria-label="${this.t('loopManager.padCols')} −"><span aria-hidden="true">‹</span></button>
-                    <input type="number" id="lm-pad-cols" class="lc-spin-input lc-spin-input--sm"
-                        value="${this._padCols}" min="1" max="8" aria-label="${this.t('loopManager.padCols')}" />
-                    <button class="lc-spin-btn" data-action="pad-cols-inc" aria-label="${this.t('loopManager.padCols')} +"><span aria-hidden="true">›</span></button>
-                </div>
-                <label class="lc-label" for="lm-pad-rows">${this.t('loopManager.padRows')}</label>
-                <div class="lc-spinbox">
-                    <button class="lc-spin-btn" data-action="pad-rows-dec" aria-label="${this.t('loopManager.padRows')} −"><span aria-hidden="true">‹</span></button>
-                    <input type="number" id="lm-pad-rows" class="lc-spin-input lc-spin-input--sm"
-                        value="${this._padRows}" min="1" max="8" aria-label="${this.t('loopManager.padRows')}" />
-                    <button class="lc-spin-btn" data-action="pad-rows-inc" aria-label="${this.t('loopManager.padRows')} +"><span aria-hidden="true">›</span></button>
-                </div>
-                <div class="lc-ctrl-sep"></div>
-                <span class="lc-label">${this.t('loopManager.padPlayMode')}</span>
-                <div class="lm-pad-mode-group" role="group" aria-label="${this.t('loopManager.padPlayMode')}">
-                    ${modeBtn('loop',     'padModeLoop',    '🔁')}
-                    ${modeBtn('one-shot', 'padModeOneShot', '▶')}
-                    ${modeBtn('hold',     'padModeHold',    '✋')}
-                </div>
-                <span class="lc-label">${this.t('loopManager.padQuantize')}</span>
-                <div class="lm-pad-quant-group" role="group" aria-label="${this.t('loopManager.padQuantize')}">
-                    ${quantBtn('off',  'padQuantizeOff')}
-                    ${quantBtn('beat', 'padQuantizeBeat')}
-                    ${quantBtn('bar',  'padQuantizeBar')}
-                </div>
-                <span class="lc-ctrl-spacer"></span>
-                <button class="lc-btn lc-btn-sm lc-btn-danger" data-action="pad-clear-all"
-                    title="${this.t('loopManager.clearAllPads')}">🗑 ${this.t('loopManager.clearAllPads')}</button>
-            </div>
-            <div class="lm-pad-grid" id="lm-pad-grid"
-                style="--pad-cols:${this._padCols};--pad-rows:${this._padRows}"></div>
-            <div class="lm-pad-picker" id="lm-pad-picker" style="display:none"></div>
-        </div>`;
+        return this.padFeature ? this.padFeature.renderTabHtml() : "";
     }
+
 
     // =========================================================
     // RENDERING — TAB 3: LIVE
@@ -901,16 +857,8 @@ class LoopManagerModal extends BaseModal {
         try {
             await this.api.sendCommand('loop_delete', { loopId: id });
             this._fetchLoopDataCache.delete(id);
-            // Remove from pad slots if assigned
-            let padChanged = false;
-            for (let i = 0; i < this._padSlots.length; i++) {
-                if (this._padSlots[i]?.loopId === id) {
-                    this._stopPad(i);
-                    this._padSlots[i] = null;
-                    padChanged = true;
-                }
-            }
-            if (padChanged) this._persistPadLayout();
+            // Remove from pad slots if assigned (cross-feature cleanup)
+            this.padFeature?.cleanupSlotsForLoop(id);
             // Remove from live playing
             this._liveStop(id);
             await this._loadLibrary();
@@ -967,500 +915,24 @@ class LoopManagerModal extends BaseModal {
     // PAD TAB
     // =========================================================
 
-    async _initPadSynth() {
-        if (!this._padSynth) this._padSynth = await LoopUtils.createSynth();
-    }
+    async _initPadSynth()     { return this.padFeature?.initSynth(); }
+    _renderPadGrid()          { this.padFeature?.renderGrid(); }
+    _setPadCols(v)            { this.padFeature?.setCols(v); }
+    _setPadRows(v)            { this.padFeature?.setRows(v); }
+    _adjustPadCols(d)         { this.padFeature?.adjustCols(d); }
+    _adjustPadRows(d)         { this.padFeature?.adjustRows(d); }
+    _setPadPlayMode(mode)     { this.padFeature?.setPlayMode(mode); }
+    _setPadQuantize(q)        { this.padFeature?.setQuantize(q); }
+    async _triggerPad(i, opts){ return this.padFeature?.trigger(i, opts); }
+    _stopPad(i)               { this.padFeature?.stop(i); }
+    _stopAllPads()            { this.padFeature?.stopAll(); }
+    _assignPadSlot(i, loopId) { this.padFeature?.assignSlot(i, loopId); }
+    _openPadPicker(i, anchor) { this.padFeature?.openPicker(i, anchor); }
+    _closePadPicker()         { this.padFeature?.closePicker(); }
+    _persistPadLayout()       { this.padFeature?._persist(); }
+    _loadPadLayout()          { this.padFeature?.load(); }
+    async _clearAllPads()     { return this.padFeature?.clearAll(); }
 
-    _renderPadGrid() {
-        const grid = this.$('#lm-pad-grid');
-        if (!grid) return;
-        grid.style.setProperty('--pad-cols', this._padCols);
-        grid.style.setProperty('--pad-rows', this._padRows);
-        grid.innerHTML = this._padSlots.map((slot, i) => {
-            const playing  = this._padPlayingIndex.has(i);
-            const assigned = slot !== null;
-            const row      = Math.floor(i / this._padCols);
-            let iconHtml = '', familyColor = '';
-            if (assigned) {
-                const family = LoopUtils.familyForProgram(slot.instrument_program ?? 0);
-                iconHtml = this._instrIconHtml(slot.instrument_program ?? 0, 'instrument', 'lm-pad-icon');
-                familyColor = family.color;
-            }
-            const styleAttr = familyColor ? `style="--family-color:${familyColor}"` : '';
-            return `<div class="lm-pad-cell${assigned ? ' lm-pad-cell--assigned' : ''}${playing ? ' lm-pad-cell--playing' : ''}"
-                data-pad-index="${i}" data-row="${row}" ${styleAttr}
-                role="button"
-                aria-label="${assigned ? this.escape(slot.name) : this.t('loopManager.emptyPad', { index: i + 1 })}"
-                title="${assigned ? this.escape(slot.name) : this.t('loopManager.padHint')}">
-                ${iconHtml}
-                <span class="lm-pad-name">${assigned ? this.escape(slot.name) : '+'}</span>
-                <span class="lm-pad-meta">${assigned ? `${slot.tempo}♩·${slot.bars}M` : ''}</span>
-            </div>`;
-        }).join('');
-
-        if (!grid.dataset.lmPadWired) {
-            grid.dataset.lmPadWired = '1';
-            // Pointer-based events: support hold mode + long-press for assignment
-            const LONG_PRESS_MS = 500;
-            const LONG_PRESS_MOVE_PX = 8;
-            let lpTimer = null;
-            let lpStartXY = null;
-            let lpCell = null;
-            let lpFired = false;
-
-            const clearLongPress = () => {
-                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
-                lpStartXY = null; lpCell = null;
-            };
-            // Exposé pour onClose : sans ça, un timer armé < 500 ms tire
-            // sur un DOM détaché après fermeture de la modale (AUDIT §L9).
-            this._padClearLongPress = clearLongPress;
-
-            grid.addEventListener('pointerdown', (e) => {
-                if (e.button !== 0 && e.pointerType === 'mouse') return; // left-button or touch/pen only
-                lpFired = false; clearLongPress();
-                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-                if (!cell) return;
-                const idx = parseInt(cell.dataset.padIndex);
-                const slot = this._padSlots[idx];
-
-                // Empty pad → open picker immediately (no playback to trigger)
-                if (!slot) {
-                    this._openPadPicker(idx, cell);
-                    return;
-                }
-
-                // Assigned pad: arm long-press for re-assignment (touch-friendly
-                // alternative to right-click). Skipped in hold mode since hold
-                // already owns the press gesture.
-                if (this._padPlayMode !== 'hold') {
-                    lpCell  = cell;
-                    lpStartXY = { x: e.clientX, y: e.clientY };
-                    lpTimer = setTimeout(() => {
-                        lpFired = true;
-                        lpTimer = null;
-                        this._openPadPicker(idx, cell);
-                    }, LONG_PRESS_MS);
-                }
-
-                if (this._padPlayMode === 'hold') {
-                    this._padHoldActive.add(idx);
-                    try { cell.setPointerCapture?.(e.pointerId); } catch (_) {}
-                    this._triggerPad(idx, { fromHold: true });
-                }
-            });
-
-            // Cancel long-press if pointer moves significantly before timeout
-            grid.addEventListener('pointermove', (e) => {
-                if (!lpTimer || !lpStartXY) return;
-                const dx = e.clientX - lpStartXY.x;
-                const dy = e.clientY - lpStartXY.y;
-                if (dx * dx + dy * dy > LONG_PRESS_MOVE_PX * LONG_PRESS_MOVE_PX) clearLongPress();
-            });
-
-            grid.addEventListener('pointerup', (e) => {
-                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-                if (!cell) { clearLongPress(); return; }
-                const idx = parseInt(cell.dataset.padIndex);
-
-                // End hold (hold mode)
-                if (this._padPlayMode === 'hold' && this._padHoldActive.has(idx)) {
-                    this._padHoldActive.delete(idx);
-                    this._stopPad(idx);
-                    return;
-                }
-
-                // Long-press already opened the picker → don't trigger
-                if (lpFired && lpCell === cell) {
-                    lpFired = false;
-                    clearLongPress();
-                    return;
-                }
-
-                // Short tap on assigned pad → trigger
-                clearLongPress();
-                if (this._padSlots[idx]) this._triggerPad(idx);
-            });
-
-            const onCancel = (e) => {
-                clearLongPress();
-                if (this._padPlayMode !== 'hold') return;
-                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-                if (!cell) return;
-                const idx = parseInt(cell.dataset.padIndex);
-                if (this._padHoldActive.has(idx)) {
-                    this._padHoldActive.delete(idx);
-                    this._stopPad(idx);
-                }
-            };
-            grid.addEventListener('pointercancel', onCancel);
-            grid.addEventListener('pointerleave',  onCancel);
-            grid.addEventListener('dragover', (e) => {
-                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-                if (!cell) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
-                cell.classList.add('lm-pad-cell--drop-target');
-            });
-            grid.addEventListener('dragleave', (e) => {
-                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-                if (cell) cell.classList.remove('lm-pad-cell--drop-target');
-            });
-            grid.addEventListener('drop', (e) => {
-                const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-                if (!cell) return;
-                e.preventDefault();
-                cell.classList.remove('lm-pad-cell--drop-target');
-                try {
-                    const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
-                    if (data.loopId) this._assignPadSlot(parseInt(cell.dataset.padIndex), data.loopId);
-                } catch (err) {
-                    LoopUtils.handleError(err, 'pad.drop.parse');
-                }
-            });
-        }
-    }
-
-    // ── Parametric grid: cols / rows ───────────────────────────
-    _resizePadGrid(newCols, newRows) {
-        const cols = Math.max(1, Math.min(8, parseInt(newCols) || this._padCols));
-        const rows = Math.max(1, Math.min(8, parseInt(newRows) || this._padRows));
-        if (cols === this._padCols && rows === this._padRows) return;
-        // Preserve assignments at matching (col,row) positions when possible
-        const oldCols = this._padCols;
-        const oldRows = this._padRows;
-        const oldSlots = this._padSlots;
-        const next = new Array(cols * rows).fill(null);
-        for (let r = 0; r < Math.min(rows, oldRows); r++) {
-            for (let c = 0; c < Math.min(cols, oldCols); c++) {
-                next[r * cols + c] = oldSlots[r * oldCols + c];
-            }
-        }
-        this._stopAllPads();
-        this._padCols = cols;
-        this._padRows = rows;
-        this._padSlots = next;
-        this._syncPadControls();
-        this._renderPadGrid();
-        this._persistPadLayout();
-    }
-
-    _setPadCols(v) { this._resizePadGrid(v, this._padRows); }
-    _setPadRows(v) { this._resizePadGrid(this._padCols, v); }
-    _adjustPadCols(d) { this._resizePadGrid(this._padCols + d, this._padRows); }
-    _adjustPadRows(d) { this._resizePadGrid(this._padCols, this._padRows + d); }
-
-    _setPadPlayMode(mode) {
-        if (!['loop', 'one-shot', 'hold'].includes(mode)) return;
-        if (mode === this._padPlayMode) return;
-        this._padPlayMode = mode;
-        this._stopAllPads();
-        this._persistPadLayout();
-        this._syncPadModeButtons();
-    }
-
-    _setPadQuantize(quantize) {
-        if (!['off', 'beat', 'bar'].includes(quantize)) return;
-        if (quantize === this._padQuantize) return;
-        this._padQuantize = quantize;
-        // Reset reference clock so the next launch defines its phase
-        if (this._padPlayingIndex.size === 0) this._padClockStartMs = null;
-        this._persistPadLayout();
-        this._syncPadQuantButtons();
-    }
-
-    _syncPadModeButtons() {
-        this.$$('.lm-pad-mode-btn').forEach(btn => {
-            const active = btn.dataset.mode === this._padPlayMode;
-            btn.classList.toggle('lm-pad-mode-btn--active', active);
-            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-        });
-    }
-
-    _syncPadQuantButtons() {
-        this.$$('.lm-pad-quant-btn').forEach(btn => {
-            const active = btn.dataset.quantize === this._padQuantize;
-            btn.classList.toggle('lm-pad-quant-btn--active', active);
-            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-        });
-    }
-
-    _syncPadControls() {
-        const colsIn = this.$('#lm-pad-cols'); if (colsIn) colsIn.value = this._padCols;
-        const rowsIn = this.$('#lm-pad-rows'); if (rowsIn) rowsIn.value = this._padRows;
-        this._syncPadModeButtons();
-        this._syncPadQuantButtons();
-    }
-
-    async _triggerPad(index, opts = {}) {
-        const slot = this._padSlots[index];
-        if (!slot) return;
-
-        // In non-hold modes, a click on an already-playing pad acts as a toggle.
-        // In hold mode, pointerdown should restart playback if pad is already
-        // playing (e.g. from a previous hold not yet faded).
-        if (this._padPlayingIndex.has(index)) {
-            if (this._padPlayMode === 'hold' && opts.fromHold) {
-                this._stopPad(index);
-            } else {
-                this._stopPad(index);
-                return;
-            }
-        }
-
-        const loopData = await this._fetchLoopData(slot.loopId);
-        if (!loopData) {
-            LoopUtils.toast(this.t('loopManager.errLoopUnavailable'), 'error');
-            return;
-        }
-
-        // Drum kits (program ≥ 128) DOIVENT sortir sur le canal 9 sinon
-        // MidiSynthesizer.playNote() prend le path mélodique et ne trouve
-        // aucun preset → loop silencieuse. Les autres pads se partagent
-        // les canaux 0-15 en wrappant sur l'index.
-        const prog = loopData.instrument_program ?? 0;
-        const isDrum = prog >= 128;
-        const ch = isDrum ? 9 : (index % 16);
-        const target = this._getOutputTarget(this._padSynth);
-        if (target) {
-            try { target.setChannelInstrument(ch, prog); }
-            catch (err) { LoopUtils.handleError(err, 'pad.synth.setChannelInstrument'); }
-            if (isDrum) {
-                await target.loadDrumKit?.().catch(err =>
-                    LoopUtils.handleError(err, 'pad.synth.loadDrumKit'));
-            } else if (!target.loadedInstruments?.has(prog)) {
-                await target.loadInstrument(prog).catch(err =>
-                    LoopUtils.handleError(err, 'pad.synth.loadInstrument'));
-            }
-        }
-
-        // If hold was released between fetch and now, abort
-        if (this._padPlayMode === 'hold' && opts.fromHold && !this._padHoldActive.has(index)) {
-            return;
-        }
-
-        this._padPlayingIndex.add(index);
-        this._updatePadCell(index);
-        this._schedulePad(index, loopData, ch, { quantize: true });
-    }
-
-    _computePadStartDelay(loopData) {
-        if (this._padQuantize === 'off') return 0;
-        if (this._padClockStartMs == null) {
-            this._padClockStartMs = performance.now();
-            return 0;
-        }
-        const tempo  = loopData.tempo || 120;
-        const beatMs = 60000 / tempo;
-        const stepMs = this._padQuantize === 'bar' ? beatMs * 4 : beatMs;
-        const elapsed = performance.now() - this._padClockStartMs;
-        const phase   = ((elapsed % stepMs) + stepMs) % stepMs;
-        // Snap to next boundary; ignore tiny delays (< 5 ms) to avoid jitter
-        const delay = stepMs - phase;
-        return delay < 5 ? 0 : delay;
-    }
-
-    _schedulePad(index, loopData, channel = 0, opts = {}) {
-        const { quantize = false, cycleStart = false } = opts;
-        const seq       = LoopUtils.parseSequence(loopData.midi_data);
-        const loopDurMs = LoopUtils.loopDurationMs(loopData);
-        const tempo     = loopData.tempo || 120;
-        const ppq       = loopData.ppq   || 480;
-        const startDelay = (quantize && !cycleStart) ? this._computePadStartDelay(loopData) : 0;
-        const isLoopMode = (this._padPlayMode === 'loop' || this._padPlayMode === 'hold');
-
-        this._padPlayTimes.set(index, {
-            startMs: performance.now() + startDelay,
-            durMs:   loopDurMs
-        });
-        this._renderPlaybar();
-
-        const isAlive = () => this._padPlayingIndex.has(index);
-        const timers = LoopUtils.scheduleSequence({
-            synth: this._getOutputTarget(this._padSynth),
-            sequence: seq, tempo, ppq, channel,
-            startDelayMs: startDelay,
-            isAlive,
-            cycleMs: loopDurMs + 50,
-            onCycleEnd: () => {
-                if (!isAlive()) return;
-                if (isLoopMode) {
-                    // Re-schedule next cycle (no quantize on re-trigger — keep tight loop)
-                    this._schedulePad(index, loopData, channel, { cycleStart: true });
-                } else {
-                    // one-shot: stop after a single cycle
-                    this._stopPad(index);
-                }
-            }
-        });
-
-        // For cycle re-schedules, replace the timer list so old (already fired)
-        // timers don't accumulate. For initial start, set it.
-        this._padPlaybackTimers.set(index, timers);
-    }
-
-    _stopPad(index) {
-        (this._padPlaybackTimers.get(index) || []).forEach(t => clearTimeout(t));
-        this._padPlaybackTimers.delete(index);
-        this._padPlayingIndex.delete(index);
-        this._padPlayTimes.delete(index);
-        this._updatePadCell(index);
-        this._renderPlaybar();
-    }
-
-    _stopAllPads() {
-        for (let i = 0; i < this._padSlots.length; i++) this._stopPad(i);
-        this._padHoldActive.clear();
-        this._padPlayTimes.clear();
-        try { this._padSynth?.cancelAllNotes?.(); }
-        catch (err) { LoopUtils.handleError(err, 'pad.synth.cancelAllNotes'); }
-        try { this._deviceShim?.cancelAllNotes?.(); }
-        catch (err) { LoopUtils.handleError(err, 'pad.device.cancelAllNotes'); }
-    }
-
-    _updatePadCell(index) {
-        const cell = this.$(`#lm-pad-grid .lm-pad-cell[data-pad-index="${index}"]`);
-        if (!cell) return;
-        const slot    = this._padSlots[index];
-        const playing = this._padPlayingIndex.has(index);
-        cell.classList.toggle('lm-pad-cell--playing', playing);
-        cell.classList.toggle('lm-pad-cell--assigned', slot !== null);
-    }
-
-    _assignPadSlot(index, loopId) {
-        const loop = this.library.find(l => l.id === loopId);
-        if (!loop) return;
-        this._stopPad(index);
-        this._padSlots[index] = {
-            loopId: loop.id, name: loop.name,
-            tempo: loop.tempo, bars: loop.bars,
-            instrument_program: loop.instrument_program ?? 0
-        };
-        this._renderPadGrid();
-        this._closePadPicker();
-        this._persistPadLayout();
-        if (this.activeTab === 'library') this._filterAndRenderLibrary();
-    }
-
-    _openPadPicker(index, anchorEl) {
-        // Reset any previous picker handler
-        this._detachPadPickerHandler();
-        this._padPickerIndex = index;
-        const picker = this.$('#lm-pad-picker');
-        if (!picker) return;
-
-        picker.innerHTML = `
-            <div class="lm-picker-title">${this.t('loopManager.assignPad')}</div>
-            <input type="text" class="lm-picker-search" id="lm-picker-search"
-                placeholder="${this.t('loopManager.search')}" autocomplete="off" />
-            <div class="lm-picker-list">
-                ${this.library.map(l => `
-                <div class="lm-picker-item" data-assign-loop="${l.id}" data-search-name="${this.escape(l.name.toLowerCase())}">
-                    <span class="lm-picker-name">${this.escape(l.name)}</span>
-                    <span class="lm-picker-meta">${l.tempo}♩·${l.bars}M</span>
-                </div>`).join('')}
-                <div class="lm-picker-item lm-picker-item--clear" data-assign-loop="__clear__">
-                    ${this.t('loopManager.clearPad')}
-                </div>
-            </div>`;
-
-        const search = picker.querySelector('#lm-picker-search');
-        if (search) {
-            search.addEventListener('input', () => {
-                const q = search.value.trim().toLowerCase();
-                picker.querySelectorAll('.lm-picker-item[data-search-name]').forEach(el => {
-                    el.style.display = (!q || el.dataset.searchName.includes(q)) ? '' : 'none';
-                });
-            });
-            requestAnimationFrame(() => search.focus());
-        }
-
-        this._padPickerHandler = (e) => {
-            const item = e.target.closest('[data-assign-loop]');
-            if (!item) return;
-            const val = item.dataset.assignLoop;
-            if (val === '__clear__') {
-                this._stopPad(index);
-                this._padSlots[index] = null;
-                this._renderPadGrid();
-                this._closePadPicker();
-                this._persistPadLayout();
-            } else {
-                this._assignPadSlot(index, parseInt(val));
-            }
-        };
-        picker.addEventListener('click', this._padPickerHandler);
-
-        // Position near anchor (fixed so it escapes any overflow:hidden containers)
-        const rect = anchorEl.getBoundingClientRect();
-        picker.style.left = rect.left + 'px';
-        picker.style.top  = (rect.bottom + 4) + 'px';
-        picker.style.display = 'block';
-    }
-
-    _detachPadPickerHandler() {
-        if (this._padPickerHandler) {
-            const picker = this.$('#lm-pad-picker');
-            picker?.removeEventListener('click', this._padPickerHandler);
-            this._padPickerHandler = null;
-        }
-    }
-
-    _closePadPicker() {
-        this._detachPadPickerHandler();
-        this._padPickerIndex = null;
-        const picker = this.$('#lm-pad-picker');
-        if (picker) picker.style.display = 'none';
-    }
-
-    // ── Pad layout persistence (T2.3) ──────────────────────────
-    _persistPadLayout() {
-        LoopUtils.PadStorage.save({
-            slots:    this._padSlots,
-            cols:     this._padCols,
-            rows:     this._padRows,
-            playMode: this._padPlayMode,
-            quantize: this._padQuantize
-        });
-    }
-
-    _loadPadLayout() {
-        const saved = LoopUtils.PadStorage.load();
-        if (!saved) return;
-        const clamp = (v, min, max, fb) => {
-            const n = parseInt(v);
-            if (!Number.isFinite(n)) return fb;
-            return Math.max(min, Math.min(max, n));
-        };
-        const cols = clamp(saved.cols, 1, 8, this._padCols);
-        const rows = clamp(saved.rows, 1, 8, this._padRows);
-        const expected = cols * rows;
-        if (Array.isArray(saved.slots) && saved.slots.length === expected) {
-            this._padCols = cols;
-            this._padRows = rows;
-            this._padSlots = saved.slots.map(s => s ? {
-                loopId: s.loopId, name: s.name,
-                tempo: s.tempo, bars: s.bars,
-                instrument_program: s.instrument_program ?? 0
-            } : null);
-        }
-        if (['loop', 'one-shot', 'hold'].includes(saved.playMode)) this._padPlayMode = saved.playMode;
-        if (['off', 'beat', 'bar'].includes(saved.quantize))       this._padQuantize = saved.quantize;
-    }
-
-    async _clearAllPads() {
-        const ok = await LoopUtils.confirm(this.t('loopManager.confirmClearAllPads'), {
-            icon: '🧹', danger: true
-        });
-        if (!ok) return;
-        for (let i = 0; i < this._padSlots.length; i++) {
-            this._stopPad(i);
-            this._padSlots[i] = null;
-        }
-        this._renderPadGrid();
-        this._persistPadLayout();
-        LoopUtils.toast(this.t('loopManager.padsCleared'), 'success');
-    }
 
     // =========================================================
     // LIVE TAB
