@@ -1130,26 +1130,33 @@
             }
 
             // Vertical scroll indicator on the LEFT edge of the canvas
-            // (left of the keyboard column). Spans full height (y=0..H) so
-            // it visually frames the keyboard from the top-left corner. The
-            // thumb shows which slice of the 128 MIDI notes is currently
-            // visible; viewport = [yoffset, yoffset+yrange].
+            // (left of the keyboard column). Spans full height (y=0..H).
             //
-            // Scroll: shift+wheel, click in track to jump, drag thumb.
-            // Zoom : ctrl/cmd+shift+wheel.
+            // Layout inside the SB column (24 px):
+            //   x = 0..4    → 0-128 range minimap (the "thumb track")
+            //   x = 4..24   → visible-range strip: octave dividers + labels
+            //                 aligned with the keyboard's C positions
             //
-            // Colors taken from the theme so the bar reads correctly under
-            // both light and dark modes (the previous "rgba(0,0,0,0.x)" set
-            // disappeared on dark canvas backgrounds — black-on-black).
+            // The visible-range strip lets the user verify visually that
+            // "C3" on the scrollbar is at the same y as "C3" on the
+            // keyboard — the audit follow-up complaint was that the old
+            // full-range dividers looked off when the keyboard was zoomed.
+            //
+            // Click/drag anywhere on the SB scrolls via the 0-128 mapping
+            // (recentre yoffset so the click ratio matches the target).
             const sbY0 = 0;
             const sbH = H;
+            const stripX = 4;
+            const stripW = SB_W - stripX;
             const trackBg     = this._theme.colrulerbg     || '#d5cdef';
             const trackFg     = this._theme.colrulerfg     || '#4a3f6b';
             const trackBorder = this._theme.colrulerborder || '#c0b8d8';
-            // Track background.
+
+            // Track background — full SB column.
             ctx.fillStyle = trackBg;
             ctx.fillRect(0, sbY0, SB_W, sbH);
-            // Right border separating the SB from the keyboard column.
+
+            // Right border separating SB from keyboard.
             ctx.strokeStyle = trackBorder;
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -1157,56 +1164,48 @@
             ctx.lineTo(SB_W - 0.5, H);
             ctx.stroke();
 
-            // Octave divisions in the background — separators every 12
-            // semitones so the user reads which pitch range the thumb
-            // covers. C0 (MIDI 12) through C9 (MIDI 120). Skipping C-1
-            // (MIDI 0..11) because it's only 1 row at the top.
+            // Vertical separator between the 0-128 minimap column and the
+            // visible-range strip.
+            ctx.beginPath();
+            ctx.moveTo(stripX + 0.5, 0);
+            ctx.lineTo(stripX + 0.5, H);
+            ctx.stroke();
+
+            // 0-128 minimap thumb (left strip, 4 px wide) — shows where in
+            // the full pitch range the visible window is, drawn as a solid
+            // blue rectangle. Adapts to zoom: shrinks/grows with `yrange`.
+            const thumbY = sbY0 + sbH * (this._yoffset / 128);
+            const thumbH = Math.max(8, sbH * (this._yrange / 128));
+            ctx.fillStyle = '#5e8eff';
+            ctx.fillRect(0, thumbY, stripX, thumbH);
+
+            // Visible-range strip — octave dividers at the *same y* as the
+            // keyboard's C labels. Iterate the visible range and draw a
+            // separator + label for every C (midi % 12 === 0).
             ctx.strokeStyle = trackBorder;
             ctx.lineWidth = 1;
             ctx.beginPath();
-            for (let oct = 1; oct <= 10; oct++) {
-                const midi = oct * 12;
-                if (midi >= 128) break;
-                const y = sbY0 + sbH * (midi / 128);
-                ctx.moveTo(0, y + 0.5);
-                ctx.lineTo(SB_W, y + 0.5);
+            const noteH = this._noteHeight();
+            for (let n = this._yoffset; n < this._yoffset + this._yrange; n++) {
+                if (n < NOTE_MIN || n > NOTE_MAX) continue;
+                if (n % 12 !== 0) continue;
+                const y = this._noteToY(n);
+                ctx.moveTo(stripX, y + 0.5);
+                ctx.lineTo(SB_W,   y + 0.5);
             }
             ctx.stroke();
 
-            // Octave labels — readable contrast against the track bg.
-            if (sbH / 10 >= 10) {
+            // Octave labels — same y as the keyboard's C labels. Only when
+            // there's vertical room.
+            if (noteH >= 8) {
                 ctx.fillStyle = trackFg;
                 ctx.font = '9px monospace';
-                ctx.textBaseline = 'top';
-                for (let oct = 1; oct <= 9; oct++) {
-                    const midi = oct * 12;
-                    const y = sbY0 + sbH * (midi / 128);
-                    ctx.fillText(`C${oct - 1}`, 2, y + 2);
-                }
-            }
-
-            // Thumb — strong solid blue so it stays readable on both light
-            // and dark themes. Shadow-inset border for depth.
-            const thumbY = sbY0 + sbH * (this._yoffset / 128);
-            const thumbH = Math.max(20, sbH * (this._yrange / 128));
-            ctx.fillStyle = '#5e8eff';
-            ctx.fillRect(2, thumbY, SB_W - 4, thumbH);
-            ctx.strokeStyle = '#3b6cd8';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(2.5, thumbY + 0.5, SB_W - 5, thumbH - 1);
-
-            // Re-overlay the octave labels on top of the thumb so they stay
-            // readable when the thumb covers them (white text on blue).
-            if (sbH / 10 >= 10) {
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '9px monospace';
-                ctx.textBaseline = 'top';
-                for (let oct = 1; oct <= 9; oct++) {
-                    const midi = oct * 12;
-                    const y = sbY0 + sbH * (midi / 128);
-                    if (y >= thumbY && y < thumbY + thumbH) {
-                        ctx.fillText(`C${oct - 1}`, 2, y + 2);
-                    }
+                ctx.textBaseline = 'middle';
+                for (let n = this._yoffset; n < this._yoffset + this._yrange; n++) {
+                    if (n < NOTE_MIN || n > NOTE_MAX) continue;
+                    if (n % 12 !== 0) continue;
+                    const y = this._noteToY(n);
+                    ctx.fillText(`C${Math.floor(n / 12) - 1}`, stripX + 3, y + noteH / 2);
                 }
             }
         }
