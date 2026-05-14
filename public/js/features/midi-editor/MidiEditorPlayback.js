@@ -421,6 +421,14 @@
         }
         m.isPlaying = false;
         m.isPaused = false;
+        // Cancel any pending playback-cursor rAF scheduled by the transport
+        // sub-feature so a tick queued by the (now-disposed) synthesizer
+        // doesn't wake up one frame later to paint stale state (audit §6.4).
+        if (this.transport?._cursorRafId) {
+            cancelAnimationFrame(this.transport._cursorRafId);
+            this.transport._cursorRafId = 0;
+            this.transport._pendingTick = null;
+        }
     }
 }
 
