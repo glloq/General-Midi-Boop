@@ -12,9 +12,12 @@
     class MidiEditorEditActions {
         constructor(modal) {
             this.modal = modal;
-            // Sub-feature: channel & instrument operations (audit §1.3).
+            // Sub-features extracted per audit §1.3:
             this.channelOps = typeof MidiEditorChannelOps !== 'undefined'
                 ? new MidiEditorChannelOps(this)
+                : null;
+            this.clipboard = typeof MidiEditorClipboard !== 'undefined'
+                ? new MidiEditorClipboard(this)
                 : null;
         }
 
@@ -121,195 +124,14 @@
         }
     }
 
-    getSelectedNotes() {
-        if (!this.modal.pianoRollRenderer?.isMounted()) {
-            return [];
-        }
-
-    // Use the piano roll's public method when available
-        if (true) {
-            return this.modal.pianoRollRenderer?.getSelectedNotes();
-        }
-
-    // Fallback: filter the sequence directly
-        const sequence = this.modal.pianoRollRenderer?.getSequence() || [];
-        return sequence.filter(note => note.f === 1); // f=1 indicates a selected note
-    }
-
-    getSelectionCount() {
-        if (!this.modal.pianoRollRenderer?.isMounted()) {
-            return 0;
-        }
-        return this.modal.pianoRollRenderer?.getSelectionCount();
-    }
-
-    copy() {
-        const specializedRenderer = this._getActiveSpecializedRenderer();
-        if (specializedRenderer) {
-            if (typeof specializedRenderer.copySelected === 'function') {
-                specializedRenderer.copySelected();
-                this.modal.log('info', 'Copied selection from specialized editor');
-    // Enable paste button
-                const pasteBtn = document.getElementById('paste-btn');
-                if (pasteBtn) pasteBtn.disabled = false;
-            }
-            return;
-        }
-
-        if (!this.modal.pianoRollRenderer?.isMounted()) {
-            this.modal.showNotification(this.modal.t('midiEditor.copyNotAvailable'), 'error');
-            return;
-        }
-
-        const count = this.getSelectionCount();
-        if (count === 0) {
-            this.modal.showNotification(this.modal.t('midiEditor.noNoteSelected'), 'info');
-            return;
-        }
-
-    // Use the piano roll's method
-        this.modal.clipboard = this.modal.pianoRollRenderer?.copySelection();
-
-        this.modal.log('info', `Copied ${this.modal.clipboard.length} notes`);
-        this.modal.showNotification(this.modal.t('midiEditor.notesCopied', { count: this.modal.clipboard.length }), 'success');
-
-    // Enable the Paste button
-        const pasteBtn = document.getElementById('paste-btn');
-        if (pasteBtn) {
-            pasteBtn.disabled = false;
-        }
-
-        this.updateEditButtons();
-    }
-
-    paste() {
-        const specializedRenderer = this._getActiveSpecializedRenderer();
-        if (specializedRenderer) {
-            if (typeof specializedRenderer.hasClipboard === 'function' && specializedRenderer.hasClipboard()) {
-                const tick = specializedRenderer.playheadTick || 0;
-                specializedRenderer.paste(tick);
-                const editor = this._getActiveSpecializedEditor();
-                if (editor && typeof editor._enforceMonophony === 'function') {
-                    editor._enforceMonophony();
-                }
-                if (editor && typeof editor._syncToMidi === 'function') {
-                    editor._syncToMidi();
-                }
-                this.modal.isDirty = true;
-                this.modal.routingOps.updateSaveButton();
-                this.updateEditButtons();
-            }
-            return;
-        }
-
-        if (!this.modal.clipboard || this.modal.clipboard.length === 0) {
-            this.modal.showNotification(this.modal.t('midiEditor.clipboardEmpty'), 'info');
-            return;
-        }
-
-        if (!this.modal.pianoRollRenderer?.isMounted()) {
-            this.modal.showNotification(this.modal.t('midiEditor.pasteNotAvailable'), 'error');
-            return;
-        }
-
-    // Get the current cursor (playhead) position
-        const currentTime = this.modal.pianoRollRenderer?.getCursor() || 0;
-
-    // Use the piano roll's method
-        this.modal.pianoRollRenderer?.pasteNotes(this.modal.clipboard, currentTime);
-
-        this.modal.log('info', `Pasted ${this.modal.clipboard.length} notes`);
-        this.modal.showNotification(this.modal.t('midiEditor.notesPasted', { count: this.modal.clipboard.length }), 'success');
-
-        this.modal.isDirty = true;
-        this.modal.routingOps.updateSaveButton();
-        this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
-        this.updateEditButtons();
-    }
-
-    deleteSelectedNotes() {
-        const specializedRenderer = this._getActiveSpecializedRenderer();
-        if (specializedRenderer) {
-            if (typeof specializedRenderer.deleteSelected === 'function') {
-                if (specializedRenderer.deleteSelected() > 0) {
-                    const editor = this._getActiveSpecializedEditor();
-                    if (editor && typeof editor._syncToMidi === 'function') {
-                        editor._syncToMidi();
-                    }
-                    this.modal.isDirty = true;
-                    this.modal.routingOps.updateSaveButton();
-                    this.updateEditButtons();
-                }
-            }
-            return;
-        }
-
-        if (!this.modal.pianoRollRenderer?.isMounted()) {
-            this.modal.showNotification(this.modal.t('midiEditor.deleteNotAvailable'), 'error');
-            return;
-        }
-
-        const count = this.getSelectionCount();
-        if (count === 0) {
-            this.modal.showNotification(this.modal.t('midiEditor.noNoteSelected'), 'info');
-            return;
-        }
-
-    // Grab the selected notes before deletion
-        const selectedNotes = this.getSelectedNotes();
-
-    // Use the piano roll's method
-        this.modal.pianoRollRenderer?.deleteSelection();
-
-    // Delete CC/velocity points associated with deleted notes
-        this.deleteAssociatedCCAndVelocity(selectedNotes);
-
-        this.modal.log('info', `Deleted ${count} notes`);
-        this.modal.showNotification(this.modal.t('midiEditor.notesDeleted', { count }), 'success');
-
-        this.modal.isDirty = true;
-        this.modal.routingOps.updateSaveButton();
-        this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
-        this.updateEditButtons();
-    }
-
-    deleteAssociatedCCAndVelocity(deletedNotes) {
-        if (!deletedNotes || deletedNotes.length === 0) return;
-
-        // Pack (tick, channel) into a single integer key. MIDI channels fit
-        // in 4 bits (0-15) so `tick * 16 + channel` is collision-free up to
-        // 2^49 ticks (well past any musically realistic value). Avoids the
-        // string allocation per note that used to dominate large deletes.
-        const deletedPositions = new Set();
-        deletedNotes.forEach(note => {
-            deletedPositions.add(note.t * 16 + note.c);
-        });
-
-    // Delete CC/pitch-bend events at the same positions
-        if (this.modal.ccEditor && this.modal.ccEditor.events) {
-            const initialCCCount = this.modal.ccEditor.events.length;
-            this.modal.ccEditor.events = this.modal.ccEditor.events.filter(event => {
-                return !deletedPositions.has(event.ticks * 16 + event.channel);
-            });
-            const deletedCCCount = initialCCCount - this.modal.ccEditor.events.length;
-            if (deletedCCCount > 0) {
-                this.modal.log('info', `Deleted ${deletedCCCount} CC/pitchbend events associated with deleted notes`);
-                this.modal.ccEditor.renderThrottled();
-            }
-        }
-
-    // Delete velocity points of deleted notes
-    // (velocity is already removed with the note, but we still refresh the editor)
-        if (this.modal.velocityEditor) {
-            this.modal.velocityEditor.setSequence(this.modal.pianoRollRenderer?.getSequence());
-            this.modal.velocityEditor.renderThrottled();
-        }
-    }
-
-    selectAllNotes() {
-    // Delegate to the unified selectAll() which handles all editor types
-        this.selectAll();
-    }
+    // Delegates to clipboard sub-feature (extracted per audit §1.3)
+    getSelectedNotes()                              { return this.clipboard?.getSelectedNotes() ?? []; }
+    getSelectionCount()                             { return this.clipboard?.getSelectionCount() ?? 0; }
+    copy()                                          { return this.clipboard?.copy(); }
+    paste()                                         { return this.clipboard?.paste(); }
+    deleteSelectedNotes()                           { return this.clipboard?.deleteSelectedNotes(); }
+    deleteAssociatedCCAndVelocity(deletedNotes)     { return this.clipboard?.deleteAssociatedCCAndVelocity(deletedNotes); }
+    selectAllNotes()                                { return this.clipboard?.selectAllNotes(); }
 
     // Delegates to channelOps sub-feature (extracted per audit §1.3)
     async changeChannel()                                                { return this.channelOps?.changeChannel(); }
@@ -500,54 +322,9 @@
         this.modal.log('info', `Touch mode: ${this.modal.touchMode ? 'ON' : 'OFF'}`);
     }
 
-    selectAll() {
-        const specializedRenderer = this._getActiveSpecializedRenderer();
-        if (specializedRenderer) {
-            if (typeof specializedRenderer.selectAll === 'function') {
-                specializedRenderer.selectAll();
-                this.updateEditButtons();
-            }
-            return;
-        }
-
-    // Piano roll: select all notes
-        if (this.modal.pianoRollRenderer?.isMounted()) {
-            this.modal.pianoRollRenderer?.selectAll();
-            this.updateEditButtons();
-        }
-    }
-
-    updateEditButtons() {
-        const specializedRenderer = this._getActiveSpecializedRenderer();
-        if (specializedRenderer) {
-    // For specialized editors, enable buttons based on renderer state
-            const hasSelection = typeof specializedRenderer.getSelectionCount === 'function'
-                ? specializedRenderer.getSelectionCount() > 0
-                : true; // Default to enabled if we can't check
-            const copyBtn = document.getElementById('copy-btn');
-            const deleteBtn = document.getElementById('delete-btn');
-            const pasteBtn = document.getElementById('paste-btn');
-            const changeChannelBtn = document.getElementById('change-channel-btn');
-            if (copyBtn) copyBtn.disabled = !hasSelection;
-            if (deleteBtn) deleteBtn.disabled = !hasSelection;
-            if (pasteBtn) pasteBtn.disabled = !(typeof specializedRenderer.hasClipboard === 'function' && specializedRenderer.hasClipboard());
-            if (changeChannelBtn) changeChannelBtn.disabled = true; // Not applicable for specialized editors
-            return;
-        }
-
-        const selectionCount = this.getSelectionCount();
-        const hasSelection = selectionCount > 0;
-
-        const copyBtn = document.getElementById('copy-btn');
-        const deleteBtn = document.getElementById('delete-btn');
-        const changeChannelBtn = document.getElementById('change-channel-btn');
-
-        if (copyBtn) copyBtn.disabled = !hasSelection;
-        if (deleteBtn) deleteBtn.disabled = !hasSelection;
-        if (changeChannelBtn) changeChannelBtn.disabled = !hasSelection;
-
-        this.modal.log('debug', `Selection: ${selectionCount} notes`);
-    }
+    // Delegates to clipboard sub-feature (extracted per audit §1.3)
+    selectAll()         { return this.clipboard?.selectAll(); }
+    updateEditButtons() { return this.clipboard?.updateEditButtons(); }
 
     setupKeyboardShortcuts() {
         this.modal.keyboardHandler = (e) => {
