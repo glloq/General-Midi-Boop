@@ -44,6 +44,9 @@ const GM_FAMILIES = (typeof window !== 'undefined' && window.LoopUtils && window
 const ARRANGER_HISTORY_LIMIT = 50;
 
 class LoopManagerModal extends BaseModal {
+    /** Back-compat: feature owns the loop array; modal exposes it readonly. */
+    get library() { return this.libraryFeature?.library || []; }
+
     constructor(api, eventBus) {
         super({
             id: 'loop-manager-modal',
@@ -58,10 +61,20 @@ class LoopManagerModal extends BaseModal {
         this.activeTab = 'library';
 
         // ── Library state ──
-        this.library = [];
-        this._libSearch  = '';
-        this._libFilter  = '';  // instrument_program string ('') or number
-        this._libSort    = 'name';
+        // ── Library tab feature (extracted to LoopManagerLibraryFeature
+        // per audit §6.6). Owns `library` array + search/filter/sort state.
+        // The modal exposes `this.library` as a getter for back-compat with
+        // the other features that read it directly (Pad, Live, Arranger).
+        this.libraryFeature = typeof LoopManagerLibraryFeature !== 'undefined'
+            ? new LoopManagerLibraryFeature(this, {
+                onDeleteLoop:    (id) => this._deleteLoopById(id),
+                onOpenLoopEditor: (id) => this._loopEditor.open({ loopId: id }),
+                onLibraryLoaded: () => {
+                    if (this.activeTab === 'live') this._renderLiveArea();
+                    this._renderPalette();
+                }
+            })
+            : null;
 
         // ── Arranger state ──
         this.currentArrangementId = null;
@@ -223,33 +236,7 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     _renderLibraryTab() {
-        return `
-        <div class="lc-pane${this.activeTab==='library' ? '' : ' lc-pane--hidden'}" id="lc-pane-library" role="tabpanel" aria-labelledby="lc-tab-library">
-            <div class="lc-ctrl-bar lc-ctrl-bar--lib">
-                <input type="search" id="lm-lib-search" class="lc-name-input lm-lib-search"
-                    aria-label="${this.t('loopManager.search')}"
-                    placeholder="${this.t('loopManager.search')}" value="${this.escape(this._libSearch)}" />
-                <select id="lm-lib-filter" class="lc-select lm-lib-filter"
-                    aria-label="${this.t('loopManager.allInstruments')}">
-                    <option value="">— ${this.t('loopManager.allInstruments')} —</option>
-                </select>
-                <select id="lm-lib-sort" class="lc-select lm-lib-sort"
-                    aria-label="${this.t('loopManager.sortName')}">
-                    <option value="name"       ${this._libSort==='name'       ?'selected':''}>↕ ${this.t('loopManager.sortName')}</option>
-                    <option value="tempo"      ${this._libSort==='tempo'      ?'selected':''}>↕ ${this.t('loopManager.sortTempo')}</option>
-                    <option value="bars"       ${this._libSort==='bars'       ?'selected':''}>↕ ${this.t('loopManager.sortBars')}</option>
-                    <option value="instrument" ${this._libSort==='instrument' ?'selected':''}>↕ ${this.t('loopManager.sortInstrument')}</option>
-                </select>
-                <span class="lc-ctrl-spacer"></span>
-                <button class="lc-btn lc-btn-primary lc-btn-sm" data-action="new-loop">+ ${this.t('loopManager.newLoop')}</button>
-            </div>
-            <div class="lm-library-grid" id="lm-library-grid">
-                <div class="lc-empty">
-                    <p>${this.t('loopCreator.libraryEmpty')}</p>
-                    <button class="lc-btn lc-btn-primary" data-action="new-loop">+ ${this.t('loopManager.newLoop')}</button>
-                </div>
-            </div>
-        </div>`;
+        return this.libraryFeature ? this.libraryFeature.renderTabHtml() : "";
     }
 
     // =========================================================
@@ -850,11 +837,9 @@ class LoopManagerModal extends BaseModal {
     _onChange(e) {
         const id = e.target.id;
         if (id === 'lm-lib-filter') {
-            this._libFilter = e.target.value;
-            this._filterAndRenderLibrary();
+            this.libraryFeature?.setFilter(e.target.value);
         } else if (id === 'lm-lib-sort') {
-            this._libSort = e.target.value;
-            this._filterAndRenderLibrary();
+            this.libraryFeature?.setSort(e.target.value);
         } else if (id === 'lm-pad-cols') {
             this._setPadCols(parseInt(e.target.value));
         } else if (id === 'lm-pad-rows') {
@@ -875,8 +860,7 @@ class LoopManagerModal extends BaseModal {
     _onInput(e) {
         const id = e.target.id;
         if (id === 'lm-lib-search') {
-            this._libSearch = e.target.value;
-            this._filterAndRenderLibrary();
+            this.libraryFeature?.setSearch(e.target.value);
         } else if (id === 'lm-live-search') {
             this._liveSearch = e.target.value;
             this._renderLiveArea();
@@ -911,118 +895,13 @@ class LoopManagerModal extends BaseModal {
     // =========================================================
 
     async _loadLibrary() {
-        try {
-            const r = await this.api.sendCommand('loop_list');
-            this.library = r.loops || [];
-            if (this.activeTab === 'library') this._filterAndRenderLibrary();
-            if (this.activeTab === 'live')    this._renderLiveArea();
-            this._renderPalette();
-        } catch (err) {
-            LoopUtils.handleError(err, 'manager.loadLibrary', {
-                toast: this.t('loopManager.errLoadLibrary')
-            });
-        }
+        return this.libraryFeature?.loadLibrary();
     }
 
     _filterAndRenderLibrary() {
-        const grid = this.$('#lm-library-grid');
-        if (!grid) return;
-
-        this._populateInstrumentFilter();
-
-        let items = [...this.library];
-        if (this._libSearch) {
-            const q = this._libSearch.toLowerCase();
-            items = items.filter(l => l.name.toLowerCase().includes(q));
-        }
-        if (this._libFilter !== '') {
-            const prog = parseInt(this._libFilter);
-            items = items.filter(l => (l.instrument_program ?? 0) === prog);
-        }
-        items.sort((a, b) => {
-            if (this._libSort === 'tempo')      return a.tempo - b.tempo;
-            if (this._libSort === 'bars')       return a.bars  - b.bars;
-            if (this._libSort === 'instrument') return (a.instrument_program ?? 0) - (b.instrument_program ?? 0);
-            return a.name.localeCompare(b.name);
-        });
-
-        if (!items.length) {
-            grid.innerHTML = `<div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>`;
-            return;
-        }
-        grid.innerHTML = items.map(loop => this._loopCardHtml(loop)).join('');
-
-        if (!grid.dataset.lmWired) {
-            grid.dataset.lmWired = '1';
-            grid.addEventListener('click', (e) => {
-                const btn = e.target.closest('[data-loop-action]');
-                if (!btn) return;
-                const id = parseInt(btn.dataset.loopId);
-                if (btn.dataset.loopAction === 'edit')   this._loopEditor.open({ loopId: id });
-                if (btn.dataset.loopAction === 'delete') this._deleteLoopById(id);
-            });
-            // Cards are draggable → drop on pads, palette chips, etc.
-            grid.addEventListener('dragstart', (e) => {
-                const card = e.target.closest('.lc-card[data-loop-id]');
-                if (!card) return;
-                const id = parseInt(card.dataset.loopId);
-                const loop = this.library.find(l => l.id === id);
-                if (!loop) return;
-                e.dataTransfer.effectAllowed = 'copy';
-                e.dataTransfer.setData('text/plain', JSON.stringify({
-                    source:   'library-card',
-                    loopId:   id,
-                    loopBars: loop.bars,
-                    loopName: loop.name
-                }));
-                card.classList.add('lc-card--dragging');
-            });
-            grid.addEventListener('dragend', (e) => {
-                const card = e.target.closest('.lc-card[data-loop-id]');
-                if (card) card.classList.remove('lc-card--dragging');
-            });
-        }
+        this.libraryFeature?.filterAndRender();
     }
 
-    _populateInstrumentFilter() {
-        const sel = this.$('#lm-lib-filter');
-        if (!sel) return;
-        const programs = [...new Set(this.library.map(l => l.instrument_program ?? 0))].sort((a, b) => a - b);
-        const current = sel.value;
-        sel.innerHTML = `<option value="">— ${this.t('loopManager.allInstruments')} —</option>`;
-        for (const prog of programs) {
-            const opt = document.createElement('option');
-            opt.value = prog;
-            opt.textContent = this._gmProgramName(prog);
-            if (String(prog) === (current || String(this._libFilter))) opt.selected = true;
-            sel.appendChild(opt);
-        }
-    }
-
-    _loopCardHtml(loop) {
-        const prog   = loop.instrument_program ?? 0;
-        const family = LoopUtils.familyForProgram(prog);
-        const instrName = this._gmProgramName(prog);
-        const padIndexes = this._padSlots
-            .map((s, i) => s?.loopId === loop.id ? (i + 1) : null)
-            .filter(x => x != null);
-        const padTagHtml = padIndexes.length
-            ? `<span class="lc-card-pad-tag" title="${this.t('loopManager.assignedPadsTitle', { pads: padIndexes.join(', ') })}">📌 ${padIndexes.join(',')}</span>`
-            : '';
-        const playing = this._livePlayingLoops.has(loop.id);
-        return `<div class="lc-card" draggable="true" data-loop-id="${loop.id}" style="--family-color:${family.color}" title="${this.escape(loop.name)} — ${this.escape(instrName)}">
-            <div class="lc-card-head">
-                ${this._instrIconHtml(prog, 'instrument', 'lc-card-icon')}
-                <span class="lc-card-name">${this.escape(loop.name)}</span>
-                ${padTagHtml}
-            </div>
-            <div class="lc-card-actions">
-                <button class="lc-card-btn lc-card-btn--play${playing ? ' lc-card-btn--playing' : ''}" data-action="live-trigger" data-loop-id="${loop.id}" title="${this.t('loopCreator.preview')}">${playing ? '⏹' : '▶'}</button>
-                <button class="lc-card-btn" data-loop-action="edit"   data-loop-id="${loop.id}" title="${this.t('loopCreator.loadLoop')}">✏️</button>
-                <button class="lc-card-btn lc-card-btn--danger" data-loop-action="delete" data-loop-id="${loop.id}" title="${this.t('loopCreator.deleteLoop')}">🗑</button>
-            </div>
-        </div>`;
-    }
 
     async _deleteLoopById(id) {
         try {
