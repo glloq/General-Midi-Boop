@@ -696,51 +696,27 @@ class KeyboardModal {
      * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
      */
     getInstrumentViewInfo() {
-        const caps = this.selectedDeviceCapabilities;
-        const type = (caps && caps.instrument_type) || 'unknown';
-        const subtype = (caps && caps.instrument_subtype) || '';
-        // Drum: explicit type "drum", or MIDI channel 9, or GM program ≥ 128
-        const channel = caps && caps.channel !== undefined ? caps.channel
-                      : (this.selectedDevice && this.selectedDevice.channel !== undefined
-                            ? this.selectedDevice.channel : null);
-        const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
-        // Accept every drum-like instrument_type the project has shipped
-        // historically (DB column has been seen with `drum`, `drums`,
-        // `percussion`, `percussive`). Channel 9 / gmProgram ≥ 128 stay
-        // as fallbacks.
-        const drumLikeTypes = new Set(['drum', 'drums', 'drumkit', 'drum_kit', 'percussion', 'percussive']);
-        const isDrum = (typeof type === 'string' && drumLikeTypes.has(type.toLowerCase()))
-            || channel === 9
-            || (gmProgram !== undefined && gmProgram !== null && gmProgram >= 128);
-        // String: explicit "string" type, an active stringInstrumentConfig, or
-        // a GM program in the guitar/bass/orchestral/ethnic-strings ranges.
-        const stringByGm = !isDrum
-            && gmProgram !== undefined && gmProgram !== null
-            && (
-                (gmProgram >= 24 && gmProgram <= 47) ||  // guitar, bass, orchestral strings
-                gmProgram === 104 || // sitar
-                gmProgram === 105 || // banjo
-                gmProgram === 106 || // shamisen
-                gmProgram === 107 || // koto
-                gmProgram === 110    // fiddle
-            );
-        const canFretboard = type === 'string' || !!this.stringInstrumentConfig || stringByGm;
-        // Bowed strings: violin (40), viola (41), cello (42), contrabass (43),
-        // tremolo strings (44), pizzicato (45), fiddle (110). These are the
-        // GM programs whose mechanical equivalent uses a continuous bow rather
-        // than discrete plucks, so the strum bar is swapped for a hold-to-bow
-        // bar and the fretboard renders dots on the fret line.
-        const bowedGm = new Set([40, 41, 42, 43, 44, 45, 110]);
-        const isBowed = canFretboard
-            && gmProgram !== undefined && gmProgram !== null
-            && bowedGm.has(gmProgram);
-        // Wind: GM programs 56–79 (brass, reeds, pipe) — only when not drum or string
-        const isWind = !isDrum && !canFretboard
-            && gmProgram !== undefined && gmProgram !== null
-            && typeof WindInstrumentDatabase !== 'undefined'
-            && WindInstrumentDatabase.isWindInstrument(gmProgram);
-        const windPreset = isWind ? WindInstrumentDatabase.getPresetByProgram(gmProgram) : null;
-        return { canFretboard, isBowed, isDrum, isWind, windPreset, instrumentType: type, instrumentSubtype: subtype, gmProgram };
+        // Delegates to the pure InstrumentDetector module (Phase B).
+        // Callers continue to receive the legacy { canFretboard, isBowed,
+        // isDrum, isWind, windPreset, instrumentType, instrumentSubtype,
+        // gmProgram } shape. `viewKind` is additionally exposed for the
+        // upcoming InstrumentView registry (Phase C+).
+        const detector = (typeof window !== 'undefined' && window.InstrumentDetector) || null;
+        if (!detector) {
+            // Defensive fallback — should never happen in production since
+            // InstrumentDetector.js is loaded before KeyboardModal.js.
+            return {
+                viewKind: 'piano', canFretboard: false, isBowed: false,
+                isDrum: false, isWind: false, windPreset: null,
+                instrumentType: 'unknown', instrumentSubtype: '', gmProgram: undefined
+            };
+        }
+        return detector.detect({
+            capabilities: this.selectedDeviceCapabilities,
+            selectedDevice: this.selectedDevice,
+            stringInstrumentConfig: this.stringInstrumentConfig,
+            windDb: typeof WindInstrumentDatabase !== 'undefined' ? WindInstrumentDatabase : null
+        });
     }
 
     /**
