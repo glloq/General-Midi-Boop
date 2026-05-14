@@ -131,7 +131,7 @@ describe('SF2PresetCodec', () => {
     const meta = Buffer.from(JSON.stringify({ foo: 'bar' }), 'utf8');
     const buf = Buffer.alloc(12 + meta.length);
     buf.writeUInt32LE(0x50_42_4d_47, 0);
-    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(2, 4);
     buf.writeUInt32LE(meta.length, 8);
     meta.copy(buf, 12);
     expect(() => decodePreset(buf)).toThrow(/zones/);
@@ -141,7 +141,7 @@ describe('SF2PresetCodec', () => {
     const meta = Buffer.from(JSON.stringify({ zones: 'not-an-array' }), 'utf8');
     const buf = Buffer.alloc(12 + meta.length);
     buf.writeUInt32LE(0x50_42_4d_47, 0);
-    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(2, 4);
     buf.writeUInt32LE(meta.length, 8);
     meta.copy(buf, 12);
     expect(() => decodePreset(buf)).toThrow(/zones/);
@@ -158,7 +158,7 @@ describe('SF2PresetCodec', () => {
     }), 'utf8');
     const buf = Buffer.alloc(12 + meta.length); // no sample bytes
     buf.writeUInt32LE(0x50_42_4d_47, 0);
-    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(2, 4);
     buf.writeUInt32LE(meta.length, 8);
     meta.copy(buf, 12);
     expect(() => decodePreset(buf)).toThrow(/out of bounds/);
@@ -175,7 +175,7 @@ describe('SF2PresetCodec', () => {
     }), 'utf8');
     const buf = Buffer.alloc(12 + meta.length);
     buf.writeUInt32LE(0x50_42_4d_47, 0);
-    buf.writeUInt32LE(1, 4);
+    buf.writeUInt32LE(2, 4);
     buf.writeUInt32LE(meta.length, 8);
     meta.copy(buf, 12);
     expect(() => decodePreset(buf)).toThrow(/out of bounds/);

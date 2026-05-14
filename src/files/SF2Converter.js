@@ -21,7 +21,10 @@ const GT = GeneratorType;
 
 // H-3: output limits to prevent DoS from malicious/oversized SF2 files
 const MAX_ZONES       = 512;                       // max zones per preset
-const MAX_SAMPLE_SECS = 10;                        // max sample duration per zone (seconds)
+// 30 s lets piano/harp/plucked decay samples survive intact (typical SF2
+// piano sample is ~3–8 s, some legacy banks go higher). Below this the
+// natural decay tail was being trimmed, sounding "cut off".
+const MAX_SAMPLE_SECS = 30;                        // max sample duration per zone (seconds)
 const MAX_TOTAL_SAMPLES = 20 * 1024 * 1024 / 4;  // ~20 MB of Float32 data total
 
 /**
@@ -133,11 +136,23 @@ export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
         f32[i] = int16[i] / 32768;
       }
 
+      // If the sample was truncated and the loop region fell past the cut,
+      // the loop indices now reference samples that no longer exist. Drop
+      // looping for this zone rather than leaving stale indices that WAF
+      // would silently mis-interpret (audible as a tiny click loop or a
+      // dead note past the truncation point).
+      let outLoopStart = loopsEnabled ? loopStart : 0;
+      let outLoopEnd   = loopsEnabled ? loopEnd   : 0;
+      if (outLoopEnd > sampleLength || outLoopStart >= sampleLength) {
+        outLoopStart = 0;
+        outLoopEnd   = 0;
+      }
+
       zones.push({
         sample:       f32,
         sampleRate:   sampleRate,
-        loopStart:    loopsEnabled ? loopStart : 0,
-        loopEnd:      loopsEnabled ? loopEnd   : 0,
+        loopStart:    outLoopStart,
+        loopEnd:      outLoopEnd,
         keyRangeLow:  keyLo,
         keyRangeHigh: keyHi,
         velRangeLow:  velLo,
