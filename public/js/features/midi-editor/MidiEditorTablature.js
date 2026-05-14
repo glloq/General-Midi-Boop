@@ -11,6 +11,10 @@
     class MidiEditorTablature {
         constructor(modal) {
             this.modal = modal;
+            // String-instrument helpers extracted to a sub-feature (audit §6.5).
+            this.stringInstruments = typeof MidiEditorStringInstruments !== 'undefined'
+                ? new MidiEditorStringInstruments(this)
+                : null;
         }
 
     getEffectiveDeviceId() {
@@ -1131,95 +1135,10 @@
         });
     }
 
-    async showStringInstrumentConfig() {
-        if (this.modal.activeChannels.size !== 1) return;
+    async showStringInstrumentConfig() { return this.stringInstruments?.showConfig(); }
+    async hasStringInstrument()        { return this.stringInstruments?.has(); }
+    async findStringInstrument(channel){ return this.stringInstruments?.find(channel); }
 
-        const activeChannel = Array.from(this.modal.activeChannels)[0];
-        const deviceId = this.getEffectiveDeviceId();
-        const modal = new StringInstrumentConfigModal(this.modal.api, {
-            deviceId: deviceId,
-            channel: activeChannel,
-            onSave: () => {
-    // Refresh tablature button visibility
-                if (this.modal.channelPanel) {
-                    this.modal.channelPanel.updateTablatureButton();
-                }
-    // Refresh tablature editor if visible
-                if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible) {
-                    this.toggleTablature(); // hide
-                    this.toggleTablature(); // re-show with new config
-                }
-            }
-        });
-        await modal.showForDevice(deviceId, activeChannel);
-    }
-
-    async hasStringInstrument() {
-        if (this.modal.activeChannels.size !== 1) {
-            return false;
-        }
-
-        try {
-            const activeChannel = Array.from(this.modal.activeChannels)[0];
-            const result = await this.findStringInstrument(activeChannel);
-            return !!result;
-        } catch {
-            return false;
-        }
-    }
-
-    async findStringInstrument(channel) {
-    // 1. If channel is routed, try the routed device's string instrument first
-        if (this.modal.channelRouting.has(channel)) {
-            const routedValue = this.modal.channelRouting.get(channel);
-            let routedDeviceId = routedValue;
-            let routedChannel = channel;
-            if (routedValue.includes('::')) {
-                const parts = routedValue.split('::');
-                routedDeviceId = parts[0];
-                routedChannel = parseInt(parts[1]);
-            }
-            try {
-                const resp = await this.modal.api.sendCommand('string_instrument_get', {
-                    device_id: routedDeviceId,
-                    channel: routedChannel
-                });
-                if (resp?.instrument) return resp.instrument;
-            } catch { /* continue */ }
-        }
-
-    // 2. Try with the effective device ID (selected device or '_editor')
-        const primaryDeviceId = this.getEffectiveDeviceId();
-        try {
-            const resp = await this.modal.api.sendCommand('string_instrument_get', {
-                device_id: primaryDeviceId,
-                channel: channel
-            });
-            if (resp?.instrument) return resp.instrument;
-        } catch { /* continue */ }
-
-    // 3. If effective was a real device, also try '_editor'
-        if (primaryDeviceId !== '_editor') {
-            try {
-                const resp = await this.modal.api.sendCommand('string_instrument_get', {
-                    device_id: '_editor',
-                    channel: channel
-                });
-                if (resp?.instrument) return resp.instrument;
-            } catch { /* continue */ }
-        }
-
-    // 3. Search across all configured string instruments for this channel
-        try {
-            const resp = await this.modal.api.sendCommand('string_instrument_list', {});
-            if (resp?.instruments) {
-                const match = resp.instruments.find(si => si.channel === channel);
-                if (match) return match;
-            }
-        } catch { /* continue */ }
-
-        return null;
-    }
     }
 
     if (typeof window !== 'undefined') {
