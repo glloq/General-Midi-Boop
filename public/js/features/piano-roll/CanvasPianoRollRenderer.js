@@ -35,7 +35,7 @@
     const NOTE_MAX = 127;
 
     /** Default pixel sizes. */
-    const SB_W     = 12;       // vertical scrollbar column on the left edge
+    const SB_W     = 24;       // vertical scrollbar column on the left edge
     const KB_W     = 40;       // keyboard column (without scrollbar)
     const KB_WIDTH = SB_W + KB_W; // total left chrome — notes start at x >= KB_WIDTH
     const RULER_H  = 18;       // top ruler
@@ -1113,17 +1113,31 @@
             //
             // Scroll: shift+wheel, click in track to jump, drag thumb.
             // Zoom : ctrl/cmd+shift+wheel.
+            //
+            // Colors taken from the theme so the bar reads correctly under
+            // both light and dark modes (the previous "rgba(0,0,0,0.x)" set
+            // disappeared on dark canvas backgrounds — black-on-black).
             const sbY0 = 0;
             const sbH = H;
+            const trackBg     = this._theme.colrulerbg     || '#d5cdef';
+            const trackFg     = this._theme.colrulerfg     || '#4a3f6b';
+            const trackBorder = this._theme.colrulerborder || '#c0b8d8';
             // Track background.
-            ctx.fillStyle = 'rgba(0,0,0,0.10)';
+            ctx.fillStyle = trackBg;
             ctx.fillRect(0, sbY0, SB_W, sbH);
+            // Right border separating the SB from the keyboard column.
+            ctx.strokeStyle = trackBorder;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(SB_W - 0.5, 0);
+            ctx.lineTo(SB_W - 0.5, H);
+            ctx.stroke();
 
-            // Octave divisions in the background — light separators every
-            // 12 semitones so the user reads which pitch range the thumb
+            // Octave divisions in the background — separators every 12
+            // semitones so the user reads which pitch range the thumb
             // covers. C0 (MIDI 12) through C9 (MIDI 120). Skipping C-1
-            // because it's just 1 row at the top.
-            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            // (MIDI 0..11) because it's only 1 row at the top.
+            ctx.strokeStyle = trackBorder;
             ctx.lineWidth = 1;
             ctx.beginPath();
             for (let oct = 1; oct <= 10; oct++) {
@@ -1135,26 +1149,42 @@
             }
             ctx.stroke();
 
-            // Octave labels — tiny, only when there's room.
+            // Octave labels — readable contrast against the track bg.
             if (sbH / 10 >= 10) {
-                ctx.fillStyle = 'rgba(0,0,0,0.55)';
-                ctx.font = '8px monospace';
+                ctx.fillStyle = trackFg;
+                ctx.font = '9px monospace';
                 ctx.textBaseline = 'top';
                 for (let oct = 1; oct <= 9; oct++) {
                     const midi = oct * 12;
                     const y = sbY0 + sbH * (midi / 128);
-                    ctx.fillText(`C${oct - 1}`, 1, y + 1);
+                    ctx.fillText(`C${oct - 1}`, 2, y + 2);
                 }
             }
 
-            // Thumb — shows current viewport slice.
+            // Thumb — strong solid blue so it stays readable on both light
+            // and dark themes. Shadow-inset border for depth.
             const thumbY = sbY0 + sbH * (this._yoffset / 128);
             const thumbH = Math.max(20, sbH * (this._yrange / 128));
-            ctx.fillStyle = 'rgba(94, 142, 255, 0.55)';
-            ctx.fillRect(1, thumbY, SB_W - 2, thumbH);
-            ctx.strokeStyle = 'rgba(94, 142, 255, 0.85)';
+            ctx.fillStyle = '#5e8eff';
+            ctx.fillRect(2, thumbY, SB_W - 4, thumbH);
+            ctx.strokeStyle = '#3b6cd8';
             ctx.lineWidth = 1;
-            ctx.strokeRect(1.5, thumbY + 0.5, SB_W - 3, thumbH - 1);
+            ctx.strokeRect(2.5, thumbY + 0.5, SB_W - 5, thumbH - 1);
+
+            // Re-overlay the octave labels on top of the thumb so they stay
+            // readable when the thumb covers them (white text on blue).
+            if (sbH / 10 >= 10) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '9px monospace';
+                ctx.textBaseline = 'top';
+                for (let oct = 1; oct <= 9; oct++) {
+                    const midi = oct * 12;
+                    const y = sbY0 + sbH * (midi / 128);
+                    if (y >= thumbY && y < thumbY + thumbH) {
+                        ctx.fillText(`C${oct - 1}`, 2, y + 2);
+                    }
+                }
+            }
         }
 
         // ----------------------------------------------------------------
