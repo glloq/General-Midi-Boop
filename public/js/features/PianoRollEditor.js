@@ -75,6 +75,11 @@ class PianoRollEditor {
         this._recordingPlayheadTick = null;
         this._isRecording = false;
         this._wired = false;
+
+        // Sub-feature: toolbar HTML + piano-roll/minimap setup (audit §1.3).
+        this.setup = typeof PianoRollEditorSetup !== 'undefined'
+            ? new PianoRollEditorSetup(this)
+            : null;
     }
 
     // =====================================================================
@@ -116,17 +121,7 @@ class PianoRollEditor {
         this._resizeObserver.observe(wrap);
     }
 
-    _renderToolbarGroups() {
-        const sg = this.showGroups;
-        return `
-            ${sg.mode    ? this._renderGroupMode()    : ''}
-            ${sg.history ? this._renderGroupHistory() : ''}
-            ${sg.edit    ? this._renderGroupEdit()    : ''}
-            ${sg.grid    ? this._renderGroupGrid()    : ''}
-            <span class="lc-ctrl-spacer"></span>
-            ${sg.view    ? this._renderGroupView()    : ''}
-        `;
-    }
+    _renderToolbarGroups() { return this.setup?.renderToolbarGroups() ?? ''; }
 
     destroy() {
         if (this._minimapObserver) { this._minimapObserver.disconnect(); this._minimapObserver = null; }
@@ -405,257 +400,24 @@ class PianoRollEditor {
     // INTERNAL — RENDER
     // =====================================================================
 
-    _renderShell() {
-        const minimapHtml = this.externalMinimapEl ? '' : `
-        <canvas class="lc-minimap" id="pre-minimap"
-                role="slider" tabindex="0"
-                aria-label="${this.t('loopEditor.minimapAria')}"></canvas>`;
-        return `
-        <div class="pre-toolbar">${this._renderToolbarGroups()}</div>
-        <div class="lc-pianoroll-area" id="pre-pianoroll-area">
-            <div class="lc-pianoroll-wrap" id="pre-pianoroll-wrap"></div>
-        </div>
-        ${minimapHtml}
-        `;
-    }
-
-    _renderGroupMode() {
-        return `
-        <div class="le-group le-group-mode">
-            <span class="le-group-label">${this.t('loopEditor.groupMode')}</span>
-            <div class="lc-btn-group">
-                <button class="lc-btn lc-btn-icon" data-pre-action="mode-view"   title="${this.t('loopCreator.modeView')} (V)"   aria-pressed="false">👁</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="mode-select" title="${this.t('loopCreator.modeSelect')} (S)" aria-pressed="false">◻</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="mode-draw"   title="${this.t('loopCreator.modeDraw')} (D)"   aria-pressed="true">✏️</button>
-            </div>
-        </div>`;
-    }
-
-    _renderGroupHistory() {
-        return `
-        <div class="le-group le-group-history">
-            <span class="le-group-label">${this.t('loopEditor.groupHistory')}</span>
-            <div class="lc-btn-group">
-                <button class="lc-btn lc-btn-icon" data-pre-action="undo" title="${this.t('loopCreator.undo')} (⌘Z)">↶</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="redo" title="${this.t('loopCreator.redo')} (⌘⇧Z)">↷</button>
-            </div>
-        </div>`;
-    }
-
-    _renderGroupEdit() {
-        return `
-        <div class="le-group le-group-edit">
-            <span class="le-group-label">${this.t('loopEditor.groupEdit')}</span>
-            <div class="lc-btn-group">
-                <button class="lc-btn lc-btn-icon" data-pre-action="select-all"      title="${this.t('loopCreator.selectAll')} (⌘A)">▣</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="copy-notes"      title="${this.t('loopCreator.copy')} (⌘C)">📋</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="paste-notes"     title="${this.t('loopCreator.paste')} (⌘V)">📄</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="delete-selected" title="${this.t('loopCreator.deleteSelected')} (⌫)">🗑</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="clear-notes"     title="${this.t('loopCreator.clearNotes')}">⊠</button>
-            </div>
-            <span class="lc-unit" title="${this.t('loopEditor.velocityHint')}">v</span>
-            <input type="number" data-pre-field="pre-velocity" class="lc-spin-input lc-spin-input--sm"
-                value="100" min="1" max="127" step="1" title="${this.t('loopEditor.velocityHint')}" />
-            <button class="lc-btn lc-btn-icon" data-pre-action="apply-velocity" title="${this.t('loopEditor.applyVelocity')}">→v</button>
-        </div>`;
-    }
-
-    _renderGroupGrid() {
-        return `
-        <div class="le-group le-group-grid">
-            <span class="le-group-label">${this.t('loopEditor.groupGrid')}</span>
-            <select data-pre-field="pre-snap" class="lc-select lc-select-xs" title="${this.t('loopCreator.snap')}">
-                <option value="480">1/1</option><option value="240">1/2</option>
-                <option value="120" selected>1/4</option><option value="60">1/8</option>
-                <option value="30">1/16</option>
-            </select>
-            <select data-pre-field="pre-quantize" class="lc-select lc-select-xs" title="${this.t('loopCreator.quantize')}">
-                <option value="0">Q —</option>
-                <option value="480">Q 1/1</option><option value="240">Q 1/2</option>
-                <option value="120" selected>Q 1/4</option><option value="60">Q 1/8</option>
-                <option value="30">Q 1/16</option>
-            </select>
-            <button class="lc-btn lc-btn-icon" data-pre-action="quantize-selection" title="${this.t('loopEditor.quantizeSelection')}">⊞</button>
-        </div>`;
-    }
-
-    _renderGroupView() {
-        return `
-        <div class="le-group le-group-view">
-            <span class="le-group-label">${this.t('loopEditor.groupView')}</span>
-            <div class="lc-btn-group">
-                <button class="lc-btn lc-btn-icon" data-pre-action="zoom-h-out" title="${this.t('loopEditor.zoomHOut')}">−H</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="zoom-h-in"  title="${this.t('loopEditor.zoomHIn')}">+H</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="zoom-v-out" title="${this.t('loopEditor.zoomVOut')}">−V</button>
-                <button class="lc-btn lc-btn-icon" data-pre-action="zoom-v-in"  title="${this.t('loopEditor.zoomVIn')}">+V</button>
-            </div>
-        </div>`;
-    }
+    _renderShell()        { return this.setup?.renderShell() ?? ''; }
+    _renderGroupMode()    { return this.setup?.renderGroupMode() ?? ''; }
+    _renderGroupHistory() { return this.setup?.renderGroupHistory() ?? ''; }
+    _renderGroupEdit()    { return this.setup?.renderGroupEdit() ?? ''; }
+    _renderGroupGrid()    { return this.setup?.renderGroupGrid() ?? ''; }
+    _renderGroupView()    { return this.setup?.renderGroupView() ?? ''; }
 
     // =====================================================================
     // INTERNAL — PIANO ROLL INIT
     // =====================================================================
 
-    _initPianoRoll() {
-        const container = this.host.querySelector('#pre-pianoroll-wrap');
-        if (!container) return;
-
-        // Piano roll renderer abstraction (audit §1.1). Choose the
-        // implementation based on the same flag used by MidiEditorModal:
-        //   - Default: WebaudioPianorollAdapter (third-party lib).
-        //   - Opt-in: CanvasPianoRollRenderer (Canvas maison).
-        // The invariant `this.pianoRoll === this.renderer.getElement()`
-        // is maintained so any external consumer of getPianoRollElement()
-        // keeps working unchanged.
-        const useV2 = (() => {
-            try {
-                const qs = new URLSearchParams(window.location.search);
-                if (qs.get('pianoRollV2') === '1') return true;
-                if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
-            } catch (_) { /* best-effort */ }
-            return false;
-        })();
-        const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
-            ? CanvasPianoRollRenderer
-            : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
-        if (!Impl) {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-        if (Impl === WebaudioPianorollAdapter && !customElements?.get?.('webaudio-pianoroll')) {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-
-        const total = this._totalTicks();
-        const noteSpan0 = this.noteMax - this.noteMin;
-        const yrange0   = Math.min(noteSpan0 + 1, 36);
-        const yoffset0  = this._centeredYOffset(this.noteMin, this.noteMax, yrange0);
-
-        this.renderer = new Impl({
-            container,
-            width:  container.clientWidth  || 900,
-            height: container.clientHeight || 200,
-            ppq:    this.ppq,
-            tempo:  this.tempo,
-            mode:   'dragpoly'
-        });
-        this.renderer.mount();
-        // Reproduce the legacy attribute init sequence via the chainable
-        // renderer API. Adapter forwards to setAttribute on the element;
-        // CanvasPianoRollRenderer applies them to its own state.
-        this.renderer
-            .setXRange(total).setYRange(yrange0).setYOffset(yoffset0)
-            .setMarkers(0, total)
-            .setCursor(0)
-            .beginBatchUpdate()
-                .setTimebase(this.ppq)
-                .setTempo(this.tempo)
-                .setSnap(120)
-            .endBatchUpdate();
-        if (typeof this.renderer.setAttribute === 'function') {
-            // Legacy webaudio-pianoroll knobs that don't map to a contract
-            // method — apply via the adapter's raw setAttribute escape hatch.
-            // CanvasPianoRollRenderer ignores these (no-ops).
-            this.renderer.setAttribute('wheelzoom', '1');
-            this.renderer.setAttribute('xscroll',   '1');
-            this.renderer.setAttribute('yscroll',   '1');
-            this.renderer.setAttribute('xruler',    '1');
-            this.renderer.setAttribute('colcursor', 'rgba(0,0,0,0)');
-            this.renderer.setAttribute('colmark',   'rgba(0,0,0,0)');
-            if (this.multiChannel) this.renderer.setAttribute('colorize', '1');
-        }
-        this.applyTheme(document.body.classList.contains('theme-dark'));
-        if (typeof this.renderer.attachToContainer === 'function') {
-            this.renderer.attachToContainer();
-        }
-        this.pianoRoll = this.renderer.getElement();
-        this.renderer.setSequence(this._sequence).redraw();
-    }
-
-    _initMinimap() {
-        const canvas = this.externalMinimapEl || this.host.querySelector('#pre-minimap');
-        if (!canvas || typeof window.LoopCreatorMinimap !== 'function') return;
-        const seekHandler = this.minimapReadOnly ? null : (newOffset) => {
-            if (!this.renderer?.isMounted()) return;
-            this.renderer?.setXOffset(newOffset);
-            this.renderer?.redraw();
-            this._syncMinimap();
-        };
-        this._minimap = new window.LoopCreatorMinimap(canvas, {
-            ppq:        this.ppq,
-            timeSigNum: this.timeSigNum,
-            bars:       this.bars,
-            noteMin:    this.noteMin,
-            noteMax:    this.noteMax,
-            onSeek:     seekHandler
-        });
-        if (this.minimapReadOnly) {
-            // Block both pointer and keyboard interaction so the canvas
-            // behaves as a pure visualiser.
-            canvas.style.cursor = 'default';
-            canvas.style.pointerEvents = 'none';
-            canvas.removeAttribute('tabindex');
-            canvas.removeAttribute('role');
-        }
-        // Sync minimap on viewport changes. Previously this was a
-        // MutationObserver watching xoffset/xrange attributes on the
-        // `<webaudio-pianoroll>` element — works only with that legacy
-        // impl. Audit §1.1 : route via the renderer's `viewportchange`
-        // event which both adapters emit.
-        if (this.renderer?.isMounted()) {
-            this._viewportListener = () => this._syncMinimap();
-            this.renderer.on('viewportchange', this._viewportListener);
-        }
-        const wrap = this.host.querySelector('#pre-pianoroll-wrap');
-        if (wrap) {
-            wrap.addEventListener('wheel', () => requestAnimationFrame(() => this._syncMinimap()), { passive: true });
-        }
-        this._syncMinimap();
-    }
-
-    _syncMinimap() {
-        const m = this._minimap;
-        if (!m) return;
-        const total  = this._totalTicks();
-        const xoff   = parseFloat(this.renderer?.getXOffset() ?? 0);
-        const xrange = parseFloat(this.renderer?.getXRange() ?? total) || total;
-        m.setConfig({ ppq: this.ppq, timeSigNum: this.timeSigNum, bars: this.bars, noteMin: this.noteMin, noteMax: this.noteMax });
-        m.setNotes(this.renderer?.getSequence() ?? []);
-        m.setViewport(xoff, xrange);
-        if (this._isRecording && this._recordingPlayheadTick != null) {
-            m.setPlayhead(Math.min(total, this._recordingPlayheadTick | 0), true);
-        } else {
-            m.setPlayhead(this.renderer?.getCursor() ?? 0, false);
-        }
-    }
-
-    _refreshRange() {
-        if (!this.renderer?.isMounted()) return;
-        const total = this._totalTicks();
-        this.renderer
-            ?.setXRange(total)
-             .setMarkers(0, total)
-             .setTimebase(this.ppq)
-             .setTempo(this.tempo);
-        const noteSpan = this.noteMax - this.noteMin;
-        const yrange   = Math.min(noteSpan + 1, 36);
-        const yoffset  = this._centeredYOffset(this.noteMin, this.noteMax, yrange);
-        this.renderer
-            ?.setYRange(yrange)
-             .setYOffset(yoffset)
-             .redraw();
-        this._syncMinimap();
-    }
-
-    _totalTicks() {
-        return this.ppq * this.timeSigNum * this.bars;
-    }
-
-    _centeredYOffset(noteMin, noteMax, yrange) {
-        const center = (noteMin + noteMax) / 2;
-        return Math.max(0, Math.min(127 - yrange, Math.round(center - yrange / 2)));
-    }
+    // Delegates to setup sub-feature (extracted per audit §1.3)
+    _initPianoRoll() { return this.setup?.initPianoRoll(); }
+    _initMinimap()   { return this.setup?.initMinimap(); }
+    _syncMinimap()   { return this.setup?.syncMinimap(); }
+    _refreshRange()  { return this.setup?.refreshRange(); }
+    _totalTicks()    { return this.setup?.totalTicks() ?? 0; }
+    _centeredYOffset(noteMin, noteMax, yrange) { return this.setup?.centeredYOffset(noteMin, noteMax, yrange) ?? 0; }
 
     // =====================================================================
     // INTERNAL — EVENTS
