@@ -95,6 +95,23 @@
         setEditMode(/* mode */) { return this; }
         setUIMode(/* mode */)   { return this; }
         getUIMode()             { return null; }
+        /**
+         * Pass-through for legacy webaudio-pianoroll attributes
+         * (wheelzoom / xscroll / yscroll / xruler / colcursor / colnote …).
+         * The Webaudio adapter forwards to the element's `setAttribute`;
+         * the Canvas V2 renderer ignores attributes it doesn't implement,
+         * because those features (wheel zoom, ruler) live in dedicated
+         * code paths there. Chainable.
+         */
+        setAttribute(/* name, value */) { return this; }
+        /**
+         * Pass-through for legacy webaudio-pianoroll inner-element lookup
+         * (#wac-cursor, #wac-markstart, #wac-markend). The Webaudio
+         * adapter forwards to the element's `querySelector`; the Canvas
+         * V2 renderer has no such inner elements to hide and returns
+         * `null` so callers' `if (el) ...` branches skip cleanly.
+         */
+        querySelector(/* sel */) { return null; }
 
         // ----------------------------------------------------------------
         // Data
