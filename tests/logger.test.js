@@ -31,6 +31,52 @@ describe('Logger', () => {
     });
   });
 
+  describe('hot-path branch helpers', () => {
+    test('isDebugEnabled returns true only when level=debug', () => {
+      expect(new Logger({ level: 'debug' }).isDebugEnabled()).toBe(true);
+      expect(new Logger({ level: 'info' }).isDebugEnabled()).toBe(false);
+      expect(new Logger({ level: 'warn' }).isDebugEnabled()).toBe(false);
+      expect(new Logger({ level: 'error' }).isDebugEnabled()).toBe(false);
+    });
+
+    test('isInfoEnabled is true for debug+info, false above', () => {
+      expect(new Logger({ level: 'debug' }).isInfoEnabled()).toBe(true);
+      expect(new Logger({ level: 'info' }).isInfoEnabled()).toBe(true);
+      expect(new Logger({ level: 'warn' }).isInfoEnabled()).toBe(false);
+      expect(new Logger({ level: 'error' }).isInfoEnabled()).toBe(false);
+    });
+
+    test('isWarnEnabled is true for debug+info+warn, false for error-only', () => {
+      expect(new Logger({ level: 'debug' }).isWarnEnabled()).toBe(true);
+      expect(new Logger({ level: 'info' }).isWarnEnabled()).toBe(true);
+      expect(new Logger({ level: 'warn' }).isWarnEnabled()).toBe(true);
+      expect(new Logger({ level: 'error' }).isWarnEnabled()).toBe(false);
+    });
+
+    test('helpers consistent with shouldLog()', () => {
+      const logger = new Logger({ level: 'info' });
+      expect(logger.isDebugEnabled()).toBe(logger.shouldLog('debug'));
+      expect(logger.isInfoEnabled()).toBe(logger.shouldLog('info'));
+      expect(logger.isWarnEnabled()).toBe(logger.shouldLog('warn'));
+    });
+
+    test('format() is never called when the gate filters the level', () => {
+      const logger = new Logger({ level: 'warn' });
+      const fmtSpy = jest.spyOn(logger, 'format');
+      // Caller-side gate pattern used in hot paths:
+      if (logger.isDebugEnabled()) {
+        logger.debug('expensive-' + JSON.stringify({ heavy: true }));
+      }
+      expect(fmtSpy).not.toHaveBeenCalled();
+    });
+
+    test('unknown level defaults to info threshold', () => {
+      const logger = new Logger({ level: 'bogus' });
+      expect(logger.isDebugEnabled()).toBe(false);
+      expect(logger.isInfoEnabled()).toBe(true);
+    });
+  });
+
   describe('format', () => {
     test('includes timestamp and level', () => {
       const logger = new Logger({ level: 'debug' });

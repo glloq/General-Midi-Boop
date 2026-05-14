@@ -85,6 +85,9 @@ class Logger {
       warn: 2,
       error: 3
     };
+    // Cached numeric level so hot-path callers can branch in O(1) without a
+    // map lookup. Defaults to 'info' (1) when an unknown level is supplied.
+    this._levelNum = this.levels[this.level] ?? 1;
     this._rotating = false;
     this._stream = null;
     this._writeCount = 0;
@@ -124,7 +127,34 @@ class Logger {
    *   minimum and should therefore be written.
    */
   shouldLog(level) {
-    return this.levels[level] >= this.levels[this.level];
+    return this.levels[level] >= this._levelNum;
+  }
+
+  /**
+   * Hot-path branch helper: returns true when debug output is enabled.
+   * Use this before constructing any debug message in a critical loop
+   * (MIDI scheduler, WebSocket broadcast, router) to avoid building the
+   * string when it would be filtered out.
+   * @returns {boolean}
+   */
+  isDebugEnabled() {
+    return this._levelNum <= 0;
+  }
+
+  /**
+   * Hot-path branch helper: returns true when info output is enabled.
+   * @returns {boolean}
+   */
+  isInfoEnabled() {
+    return this._levelNum <= 1;
+  }
+
+  /**
+   * Hot-path branch helper: returns true when warn output is enabled.
+   * @returns {boolean}
+   */
+  isWarnEnabled() {
+    return this._levelNum <= 2;
   }
 
   /**

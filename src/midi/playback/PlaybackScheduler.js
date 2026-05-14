@@ -28,7 +28,7 @@
 import { performance } from 'perf_hooks';
 import { TIMING, MIDI_CC, MIDI_EVENT_TYPES, DEVICE_MSG_TYPES } from '../../core/constants.js';
 
-const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS } = TIMING;
+const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
 const MIDI_CC_STRING_SELECT = MIDI_CC.STRING_SELECT;
 const MIDI_CC_FRET_SELECT = MIDI_CC.FRET_SELECT;
@@ -78,6 +78,12 @@ class PlaybackScheduler {
 
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
+
+    // Per-playback immutable view of capability + compensation data.
+    // When set, the hot-path lookups serve from this snapshot instead of
+    // hitting CapabilityResolver / CompensationService — which insulates
+    // the scheduler from mid-playback DB mutations (P0-5).
+    this._snapshot = null;
     this._failedDevices = new Set(); // Track devices that failed to send (notify once per playback)
     this._unroutedChannels = new Set(); // Track channels with no routing (notify once per playback)
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
@@ -137,18 +143,44 @@ class PlaybackScheduler {
   }
 
   /**
-   * Delegates to CapabilityResolver. Falls back to false when the resolver
-   * is unavailable (tests without full DI wiring).
+   * Attach the per-playback snapshot. Subsequent hot-path lookups
+   * (`_isStringCCAllowed`, `_getTimingConstraints`, `_getSyncDelay`)
+   * read from the snapshot instead of touching CapabilityResolver /
+   * CompensationService, so a mid-playback `instrument_settings_changed`
+   * cannot cause an SQLite re-query inside a tick.
+   *
+   * @param {import('./PlaybackSnapshot.js').PlaybackSnapshot|null} snapshot
+   * @returns {void}
+   */
+  setSnapshot(snapshot) {
+    this._snapshot = snapshot || null;
+  }
+
+  /**
+   * Detach the snapshot at end-of-playback so the next lookup goes back
+   * through the live services.
+   * @returns {void}
+   */
+  clearSnapshot() {
+    this._snapshot = null;
+  }
+
+  /**
+   * Delegates to the playback snapshot when present, otherwise to the
+   * live CapabilityResolver. Falls back to false when neither is wired.
    */
   _isStringCCAllowed(deviceId, channel) {
+    if (this._snapshot) return this._snapshot.isStringCCAllowed(deviceId, channel);
     return this.capabilityResolver?.isStringCCAllowed(deviceId, channel) ?? false;
   }
 
   /**
-   * Delegates to CapabilityResolver. Returns null-constraint object when
-   * the resolver is unavailable.
+   * Delegates to the playback snapshot when present, otherwise to the
+   * live CapabilityResolver. Returns null-constraint object when neither
+   * is wired.
    */
   _getTimingConstraints(deviceId, channel) {
+    if (this._snapshot) return this._snapshot.getTimingConstraints(deviceId, channel);
     return this.capabilityResolver?.getTimingConstraints(deviceId, channel)
       ?? { minNoteInterval: null, minNoteDuration: null, polyphony: null };
   }
@@ -282,14 +314,12 @@ class PlaybackScheduler {
   scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
     // Handle tempo change events (for MIDI clock synchronization)
     if (event.type === MIDI_EVENT_TYPES.SET_TEMPO) {
-      const delay = Math.max(0, event.time - currentPosition);
-      const timeoutId = setTimeout(() => {
-        this.pendingTimeouts.delete(timeoutId);
+      const delayMs = Math.max(0, (event.time - currentPosition) * 1000);
+      this._emit(delayMs, () => {
         if (this.midiClockGenerator) {
           this.midiClockGenerator.setTempo(event.tempo);
         }
-      }, delay * 1000);
-      this.pendingTimeouts.add(timeoutId);
+      });
       return;
     }
 
@@ -298,7 +328,7 @@ class PlaybackScheduler {
     // proportionally sooner, matching the accelerated position advance
     // computed in tick().
     const rate = state.playbackRate > 0 ? state.playbackRate : 1;
-    const delay = Math.max(0, eventTime - currentPosition) / rate;
+    const delaySec = Math.max(0, eventTime - currentPosition) / rate;
 
     // Routing override: events injected by the hand-position planner for
     // a specific split-routing segment carry `_routeTo: { device,
@@ -308,12 +338,8 @@ class PlaybackScheduler {
     // may declare its own hands_config and CC number.
     if (event._routeTo && event._routeTo.device) {
       const syncDelay = this._getSyncDelay(event._routeTo.device, event._routeTo.targetChannel);
-      const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
-      const timeoutId = setTimeout(() => {
-        this.pendingTimeouts.delete(timeoutId);
-        this._sendEventToRouting(event, event._routeTo, state);
-      }, adjustedDelay * 1000);
-      this.pendingTimeouts.add(timeoutId);
+      const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
+      this._emit(adjustedMs, () => this._sendEventToRouting(event, event._routeTo, state));
       return;
     }
 
@@ -325,7 +351,9 @@ class PlaybackScheduler {
     if (!routing) {
       if (!this._unroutedChannels.has(event.channel)) {
         this._unroutedChannels.add(event.channel);
-        this.logger.warn(`No output device for channel ${event.channel + 1}, skipping events`);
+        if (this.logger.isWarnEnabled?.() ?? true) {
+          this.logger.warn(`No output device for channel ${event.channel + 1}, skipping events`);
+        }
         this.wsServer?.broadcast('playback_channel_skipped', {
           channel: event.channel,
           channelDisplay: event.channel + 1,
@@ -337,22 +365,23 @@ class PlaybackScheduler {
 
     // Handle broadcast (split routing returns array for non-note events)
     if (Array.isArray(routing)) {
-      // Schedule for each segment
       for (const segRouting of routing) {
         if (!segRouting || !segRouting.device) continue;
         const syncDelay = this._getSyncDelay(segRouting.device, segRouting.targetChannel);
-        const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
-        const timeoutId = setTimeout(() => {
-          this.pendingTimeouts.delete(timeoutId);
-          this._sendEventToRouting(event, segRouting, state);
-        }, adjustedDelay * 1000);
-        this.pendingTimeouts.add(timeoutId);
+        const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
+        this._emit(adjustedMs, () => this._sendEventToRouting(event, segRouting, state));
       }
       return;
     }
 
     if (!routing.device) {
-      this.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
+      // Dedup so a misconfigured channel cannot flood the log mid-playback.
+      if (!this._unroutedChannels.has(event.channel)) {
+        this._unroutedChannels.add(event.channel);
+        if (this.logger.isWarnEnabled?.() ?? true) {
+          this.logger.warn(`No output device for channel ${event.channel + 1}, skipping event`);
+        }
+      }
       return;
     }
 
@@ -360,18 +389,38 @@ class PlaybackScheduler {
     const syncDelay = this._getSyncDelay(routing.device, routing.targetChannel);
 
     // Apply sync_delay compensation (convert ms to seconds)
-    const adjustedDelay = Math.max(0, delay - (syncDelay / 1000));
+    const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
 
-    if (syncDelay > 0 && delay < syncDelay / 1000) {
+    // Per-event debug — gated to avoid building the string when filtered out.
+    if (syncDelay > 0 && delaySec * 1000 < syncDelay && (this.logger.isDebugEnabled?.() ?? false)) {
       this.logger.debug(
-        `Compensation ${syncDelay.toFixed(0)}ms exceeds delay ${(delay * 1000).toFixed(0)}ms for ch${event.channel + 1}, sending immediately`
+        `Compensation ${syncDelay.toFixed(0)}ms exceeds delay ${(delaySec * 1000).toFixed(0)}ms for ch${event.channel + 1}, sending immediately`
       );
     }
 
+    this._emit(adjustedMs, () => this.sendEvent(event, state, getOutputForChannel, callbacks));
+  }
+
+  /**
+   * Tickless emit helper: fires `emit()` directly when the residual
+   * delay falls inside the {@link EMIT_AHEAD_MS} window, otherwise
+   * schedules a single `setTimeout(residual)`. This collapses the
+   * per-event timer cascade for near-due events while preserving exact
+   * latency for events whose compensation puts them further out.
+   *
+   * @param {number} delayMs - Residual delay in milliseconds (≥ 0).
+   * @param {Function} emit  - Side-effect to perform (send MIDI / set tempo).
+   * @private
+   */
+  _emit(delayMs, emit) {
+    if (delayMs <= EMIT_AHEAD_MS) {
+      emit();
+      return;
+    }
     const timeoutId = setTimeout(() => {
       this.pendingTimeouts.delete(timeoutId);
-      this.sendEvent(event, state, getOutputForChannel, callbacks);
-    }, adjustedDelay * 1000);
+      emit();
+    }, delayMs);
     this.pendingTimeouts.add(timeoutId);
   }
 
@@ -711,6 +760,7 @@ class PlaybackScheduler {
    * @returns {number} Compensation in ms
    */
   _getSyncDelay(deviceId, channel) {
+    if (this._snapshot) return this._snapshot.getCompensationMs(deviceId, channel);
     const svc = this.compensationService;
     if (!svc) return 0;
     return svc.getDelay(deviceId, channel);
