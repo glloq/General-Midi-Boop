@@ -36,10 +36,10 @@ class VelocityEditor {
         this.history = [];
         this.historyIndex = -1;
 
-        // OPTIMIZATION: Render throttling system
-        this.pendingRender = false;
-        this.renderScheduled = false;
-        this.isDirty = false;
+        // Single-RAF coalescing: every mutation calls renderThrottled();
+        // additional calls within the same frame are no-ops. The RAF id is
+        // stored so destroy() can cancel a pending frame.
+        this._renderRafId = 0;
 
         // Buffer canvas for the grid (static)
         this.gridCanvas = null;
@@ -141,7 +141,7 @@ class VelocityEditor {
             this.element.style.borderTopColor = isDark ? '#333' : '#d4daff';
         }
         this.gridDirty = true;
-        this.scheduleRender();
+        this.renderThrottled();
     }
 
     resize() {
@@ -187,7 +187,6 @@ class VelocityEditor {
         this.selectedNotes.clear(); // IMPORTANT: Clear selection since indices become invalid
         // Cancel any ongoing actions
         this.cancelInteractions();
-        this.isDirty = true;
         this.renderThrottled();
     }
 
@@ -196,7 +195,6 @@ class VelocityEditor {
         this.selectedNotes.clear(); // IMPORTANT: Clear selection since indices become invalid
         // Cancel any ongoing actions
         this.cancelInteractions();
-        this.isDirty = true;
         this.renderThrottled();
     }
 
@@ -247,7 +245,6 @@ class VelocityEditor {
     setSequence(sequence) {
         this.sequence = sequence || [];
         this.selectedNotes.clear();
-        this.isDirty = true;
         this.saveState();
         this.renderThrottled();
     }
@@ -261,7 +258,6 @@ class VelocityEditor {
     updateNoteVelocity(noteIndex, velocity) {
         if (noteIndex >= 0 && noteIndex < this.sequence.length) {
             this.sequence[noteIndex].v = Math.max(1, Math.min(127, velocity));
-            this.isDirty = true;
             this.notifyChange();
         }
     }
@@ -272,7 +268,6 @@ class VelocityEditor {
                 this.sequence[index].v = Math.max(1, Math.min(127, velocity));
             }
         });
-        this.isDirty = true;
         this.saveState();
         this.notifyChange();
         this.renderThrottled();
@@ -283,7 +278,6 @@ class VelocityEditor {
             const note = this.sequence[noteIndex];
             const currentVelocity = (note.v !== undefined && note.v !== null) ? note.v : 100;
             note.v = Math.max(1, Math.min(127, currentVelocity + delta));
-            this.isDirty = true;
             this.notifyChange();
         }
     }
@@ -593,16 +587,11 @@ class VelocityEditor {
     // === Rendering ===
 
     renderThrottled() {
-        if (!this.renderScheduled) {
-            this.renderScheduled = true;
-            requestAnimationFrame(() => {
-                try {
-                    this.render();
-                } finally {
-                    this.renderScheduled = false;
-                }
-            });
-        }
+        if (this._renderRafId) return;
+        this._renderRafId = requestAnimationFrame(() => {
+            this._renderRafId = 0;
+            this.render();
+        });
     }
 
     render() {
@@ -856,6 +845,7 @@ class VelocityEditor {
 
     destroy() {
         if (this._mouseMoveRAF) cancelAnimationFrame(this._mouseMoveRAF);
+        if (this._renderRafId) { cancelAnimationFrame(this._renderRafId); this._renderRafId = 0; }
         if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         if (this.canvas) {
             this.canvas.removeEventListener('mousedown', this._boundMouseDown);

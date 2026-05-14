@@ -39,10 +39,8 @@ class CCPitchbendEditor {
         this.history = [];
         this.historyIndex = -1;
 
-        // OPTIMIZATION: Render throttling system
-        this.pendingRender = false;
-        this.renderScheduled = false;
-        this.isDirty = false;
+        // Single-RAF coalescing (see VelocityEditor for the same pattern).
+        this._renderRafId = 0;
 
         // Buffer canvas for the grid (static)
         this.gridCanvas = null;
@@ -161,7 +159,7 @@ class CCPitchbendEditor {
             this.element.style.borderTopColor = isDark ? '#333' : '#d4daff';
         }
         this.gridDirty = true;
-        this.scheduleRender();
+        this.renderThrottled();
     }
 
     resize() {
@@ -223,21 +221,18 @@ class CCPitchbendEditor {
         this.currentCC = ccType;
         this.cancelInteractions(); // Cancel ongoing actions when the CC type changes
         this.gridDirty = true; // Force grid re-render (different labels for CC vs pitchbend)
-        this.isDirty = true;
         this.renderThrottled();
     }
 
     setChannel(channel) {
         this.currentChannel = channel;
         this.cancelInteractions(); // Cancel ongoing actions when the channel changes
-        this.isDirty = true;
         this.renderThrottled();
     }
 
     setNote(note) {
         this.currentNote = note;
         this.cancelInteractions();
-        this.isDirty = true;
         this.renderThrottled();
     }
 
@@ -654,15 +649,12 @@ class CCPitchbendEditor {
 
     // === Rendering ===
 
-    // OPTIMIZATION: Throttled rendering function
     renderThrottled() {
-        if (!this.renderScheduled) {
-            this.renderScheduled = true;
-            requestAnimationFrame(() => {
-                this.render();
-                this.renderScheduled = false;
-            });
-        }
+        if (this._renderRafId) return;
+        this._renderRafId = requestAnimationFrame(() => {
+            this._renderRafId = 0;
+            this.render();
+        });
     }
 
     render() {
@@ -682,11 +674,6 @@ class CCPitchbendEditor {
 
         // Events
         this.renderEvents();
-
-        // Reset the dirty flag
-        this.isDirty = false;
-
-        // Render complete
     }
 
     renderGrid() {
@@ -1098,6 +1085,7 @@ class CCPitchbendEditor {
 
     destroy() {
         if (this._mouseMoveRAF) cancelAnimationFrame(this._mouseMoveRAF);
+        if (this._renderRafId) { cancelAnimationFrame(this._renderRafId); this._renderRafId = 0; }
         if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         if (this.canvas) {
             this.canvas.removeEventListener('mousedown', this._boundMouseDown);

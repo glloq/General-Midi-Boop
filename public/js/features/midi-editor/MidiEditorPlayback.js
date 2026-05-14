@@ -288,6 +288,9 @@
 
         m.isPlaying = false;
         m.isPaused = false;
+        // Force the next updatePlaybackCursor() to apply even if the tick
+        // equals the previous one (e.g. seek back to start).
+        this._lastAppliedTick = undefined;
 
         const resetTick = m.playbackStartTick || 0;
 
@@ -344,10 +347,20 @@
 
     /**
      * Mettre a jour le curseur pendant la lecture
+     *
+     * The synthesizer already drives this from a RAF loop, so we don't
+     * need a second coalescing layer. We DO gate on tick delta: when the
+     * tick hasn't moved since the previous frame (paused, or sub-tick
+     * resolution), skip all the playhead writes/redraws downstream. This
+     * is cheap and eliminates redundant repaints on slow pieces / long
+     * notes (audit §6.4).
+     *
      * @param {number} tick - Position actuelle en ticks
      */
     updatePlaybackCursor(tick) {
         const m = this.modal;
+        if (this._lastAppliedTick === tick) return;
+        this._lastAppliedTick = tick;
 
         // Update piano roll cursor (even when hidden, keeps state consistent)
         let scrolled = false;

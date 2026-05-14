@@ -489,10 +489,28 @@
                 resizeBar.classList.add('dragging');
             };
 
+            // RAF-coalesced resize: mousemove fires hundreds of times per
+            // second, but the layout/reflow work below only needs to run
+            // once per frame. Skip the body if a previous frame is still
+            // pending; the latest `clientY` is captured into `_resizeLastY`
+            // and consumed when the frame runs.
+            let resizeRafId = 0;
+            let resizeLastY = 0;
+
             const doResize = (e) => {
                 if (!isResizing) return;
+                resizeLastY = e.clientY;
+                e.preventDefault();
+                if (resizeRafId) return;
+                resizeRafId = requestAnimationFrame(() => {
+                    resizeRafId = 0;
+                    if (!isResizing) return;
+                    runResizeStep(resizeLastY);
+                });
+            };
 
-                const deltaY = e.clientY - startY;
+            const runResizeStep = (clientY) => {
+                const deltaY = clientY - startY;
                 const resizeBarHeight = 12; // Bar height
 
     // Use the REAL available space captured at the start
@@ -567,11 +585,10 @@
                         }, 32);
                     }
                 });
-
-                e.preventDefault();
             };
 
             const stopResize = () => {
+                if (resizeRafId) { cancelAnimationFrame(resizeRafId); resizeRafId = 0; }
                 if (isResizing) {
                     isResizing = false;
                     document.body.style.cursor = '';
@@ -682,15 +699,36 @@
             this.modal.pianoRoll.xrange = newRange;
         }
 
-    // Force a redraw after a short delay, then sync the editors
-        setTimeout(() => {
-            if (typeof this.modal.pianoRoll.redraw === 'function') {
-                this.modal.pianoRoll.redraw();
-            }
-            this.modal.ccPicker.syncAllEditors();
-        }, 50);
-
+        this._scheduleWebaudioPianoRollRedraw(() => this.modal.ccPicker.syncAllEditors());
         this.modal.log('info', `Horizontal zoom: ${currentRange} -> ${newRange}`);
+    }
+
+    /**
+     * Workaround for the third-party `<webaudio-pianoroll>` component: a
+     * synchronous `.redraw()` right after an attribute change picks up
+     * stale layout. The component needs at least one layout pass before
+     * its internal geometry catches up. We defer the redraw to the next
+     * macrotask (audit §2.5 — flagged as hack).
+     *
+     * TODO(audit §1.1): remove once the renderer is migrated off the
+     * third-party component. Keep all calls funnelled through this
+     * helper so the hack stays in one place.
+     *
+     * @param {Function} [afterRedraw] - optional follow-up (e.g. sync sub-editors).
+     */
+    _scheduleWebaudioPianoRollRedraw(afterRedraw) {
+        // Capture the modal reference: by the time the timeout fires, the
+        // modal may have been closed and `this.modal.pianoRoll` cleared.
+        const modal = this.modal;
+        setTimeout(() => {
+            if (!modal.pianoRoll) return;
+            if (typeof modal.pianoRoll.redraw === 'function') {
+                modal.pianoRoll.redraw();
+            }
+            if (typeof afterRedraw === 'function') {
+                try { afterRedraw(); } catch (_) { /* best-effort */ }
+            }
+        }, 50);
     }
 
     zoomVertical(factor) {
@@ -717,13 +755,7 @@
             this.modal.pianoRoll.yrange = newRange;
         }
 
-    // Force a redraw after a short delay
-        setTimeout(() => {
-            if (typeof this.modal.pianoRoll.redraw === 'function') {
-                this.modal.pianoRoll.redraw();
-            }
-        }, 50);
-
+        this._scheduleWebaudioPianoRollRedraw();
         this.modal.log('info', `Vertical zoom: ${currentRange} -> ${newRange}`);
     }
 

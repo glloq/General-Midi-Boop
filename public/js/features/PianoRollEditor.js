@@ -136,10 +136,15 @@ class PianoRollEditor {
         this._minimap  = null;
         this.pianoRoll = null;
         if (this.host) {
+            if (this._onClickBound)  this.host.removeEventListener('click',  this._onClickBound);
+            if (this._onChangeBound) this.host.removeEventListener('change', this._onChangeBound);
+            this._onClickBound = null;
+            this._onChangeBound = null;
             this.host.classList.remove('pre-host');
             this.host.classList.remove('pre-host--toolbar-only');
             this.host.innerHTML = '';
         }
+        this._wired = false;
     }
 
     // =====================================================================
@@ -596,8 +601,14 @@ class PianoRollEditor {
     _attachEvents() {
         if (this._wired) return;
         this._wired = true;
-        this.host.addEventListener('click',  (e) => this._onClick(e));
-        this.host.addEventListener('change', (e) => this._onChange(e));
+        // Store bound refs so destroy() can detach. The host element survives
+        // mount/destroy cycles in some consumers, so anonymous handlers would
+        // accumulate (one set per cycle) and keep references to the destroyed
+        // editor instance alive.
+        this._onClickBound  = (e) => this._onClick(e);
+        this._onChangeBound = (e) => this._onChange(e);
+        this.host.addEventListener('click',  this._onClickBound);
+        this.host.addEventListener('change', this._onChangeBound);
     }
 
     _onClick(e) {

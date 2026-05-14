@@ -43,10 +43,8 @@ class TempoEditor {
         this.history = [];
         this.historyIndex = -1;
 
-        // OPTIMIZATION: Render throttling system
-        this.pendingRender = false;
-        this.renderScheduled = false;
-        this.isDirty = false;
+        // Single-RAF coalescing (see VelocityEditor for the same pattern).
+        this._renderRafId = 0;
 
         // Buffer canvas for the grid (static)
         this.gridCanvas = null;
@@ -141,7 +139,7 @@ class TempoEditor {
             this.element.style.borderTopColor = isDark ? '#333' : '#d4daff';
         }
         this.gridDirty = true;
-        this.scheduleRender();
+        this.renderThrottled();
     }
 
     resize() {
@@ -638,16 +636,11 @@ class TempoEditor {
     // === Rendering ===
 
     renderThrottled() {
-        if (!this.renderScheduled) {
-            this.renderScheduled = true;
-            requestAnimationFrame(() => {
-                try {
-                    this.render();
-                } finally {
-                    this.renderScheduled = false;
-                }
-            });
-        }
+        if (this._renderRafId) return;
+        this._renderRafId = requestAnimationFrame(() => {
+            this._renderRafId = 0;
+            this.render();
+        });
     }
 
     render() {
@@ -678,8 +671,6 @@ class TempoEditor {
             );
             this.ctx.setLineDash([]);
         }
-
-        this.isDirty = false;
     }
 
     renderGrid() {
@@ -840,6 +831,7 @@ class TempoEditor {
 
     destroy() {
         if (this._mouseMoveRAF) cancelAnimationFrame(this._mouseMoveRAF);
+        if (this._renderRafId) { cancelAnimationFrame(this._renderRafId); this._renderRafId = 0; }
         if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
         if (this.canvas) {
             this.canvas.removeEventListener('mousedown', this._boundMouseDown);
