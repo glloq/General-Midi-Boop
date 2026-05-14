@@ -147,6 +147,14 @@ class LoopManagerModal extends BaseModal {
             ? new LoopManagerArrangerFeature(this)
             : null;
 
+        // ── View (HTML rendering) and Events sub-features (audit §1.3).
+        this.view = typeof LoopCreatorModalView !== 'undefined'
+            ? new LoopCreatorModalView(this)
+            : null;
+        this.events = typeof LoopCreatorModalEvents !== 'undefined'
+            ? new LoopCreatorModalEvents(this)
+            : null;
+
         // ── Live state ──
         // ── Live tab feature (extracted to LoopManagerLiveFeature
         // per audit §6.6). Owns playingLoops Map, synth, search.
@@ -195,202 +203,15 @@ class LoopManagerModal extends BaseModal {
     // RENDERING — SHELL
     // =========================================================
 
-    _renderHeader() {
-        const showSave = this.activeTab === 'arranger';
-        return `
-        <div class="modal-header lc-header">
-            <div class="lc-header-left">
-                <span class="lc-header-title" aria-hidden="true">∞</span>
-                <span class="lc-header-subtitle">${this.t('loopManager.title')}</span>
-            </div>
-            <div class="lc-header-tabs" role="tablist" aria-label="${this.t('loopManager.title')}">
-                <button class="lc-tab${this.activeTab==='library'  ? ' lc-tab--active':''}" data-tab="library"  role="tab" id="lc-tab-library"  aria-controls="lc-pane-library"  aria-selected="${this.activeTab==='library'}"  tabindex="${this.activeTab==='library'?'0':'-1'}"><span aria-hidden="true">🗂</span> ${this.t('loopManager.tabLibrary')}</button>
-                <button class="lc-tab${this.activeTab==='pad'      ? ' lc-tab--active':''}" data-tab="pad"      role="tab" id="lc-tab-pad"      aria-controls="lc-pane-pad"      aria-selected="${this.activeTab==='pad'}"      tabindex="${this.activeTab==='pad'?'0':'-1'}"><span class="lc-tab-icon lc-tab-icon--pad" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><circle cx="5" cy="5"  r="1.1" fill="currentColor" stroke="none"/><circle cx="11" cy="5"  r="1.1" fill="currentColor" stroke="none"/><circle cx="5" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="11" cy="11" r="1.1" fill="currentColor" stroke="none"/></svg></span> ${this.t('loopManager.tabPad')}</button>
-                <button class="lc-tab${this.activeTab==='live'     ? ' lc-tab--active':''}" data-tab="live"     role="tab" id="lc-tab-live"     aria-controls="lc-pane-live"     aria-selected="${this.activeTab==='live'}"     tabindex="${this.activeTab==='live'?'0':'-1'}"><span aria-hidden="true">⚡</span> ${this.t('loopManager.tabLive')}</button>
-                <button class="lc-tab${this.activeTab==='keyboard' ? ' lc-tab--active':''}" data-tab="keyboard" role="tab" id="lc-tab-keyboard" aria-controls="lc-pane-keyboard" aria-selected="${this.activeTab==='keyboard'}" tabindex="${this.activeTab==='keyboard'?'0':'-1'}"><span aria-hidden="true">🎹</span> ${this.t('loopManager.tabKeyboard')}</button>
-                <button class="lc-tab${this.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" id="lc-tab-arranger" aria-controls="lc-pane-arranger" aria-selected="${this.activeTab==='arranger'}" tabindex="${this.activeTab==='arranger'?'0':'-1'}"><span aria-hidden="true">∞</span> ${this.t('loopManager.tabArranger')}</button>
-            </div>
-            <div class="lc-header-actions">
-                <button class="lc-btn lc-btn-sm lc-header-output-btn" id="lc-header-output-btn"
-                    data-action="toggle-output"
-                    aria-pressed="${this._globalOutput.mode === 'device' ? 'true' : 'false'}"
-                    title="${this.t('loopCreator.outputLabel')}">
-                    <span class="lc-header-output-icon" id="lc-header-output-icon" aria-hidden="true">🔊</span>
-                    <span class="lc-header-output-label" id="lc-header-output-label">${this.t('loopManager.outputSynth')}</span>
-                </button>
-                <button class="lc-btn lc-btn-primary lc-btn-sm" id="lc-header-save"
-                    data-action="save-arrangement"
-                    style="${showSave ? '' : 'display:none'}">💾 ${this.t('loopCreator.saveArrangement')}</button>
-                <button class="lc-btn lc-btn-sm lc-btn-icon" data-action="stop-all-playback" title="${this.t('loopManager.stopAll')}">⏹</button>
-                <button class="modal-close" data-action="close" aria-label="${this.t('common.close')}">&times;</button>
-            </div>
-            <div class="lc-playbar" id="lc-playbar">
-                <div class="lc-playbar-fill" id="lc-playbar-fill"></div>
-            </div>
-        </div>`;
-    }
-
-    renderBody() {
-        return `
-        <div class="lc-layout">
-            <div class="lc-tab-content" id="lc-tab-content">
-                ${this._renderLibraryTab()}
-                ${this._renderPadTab()}
-                ${this._renderLiveTab()}
-                ${this._renderKeyboardTab()}
-                ${this._renderArrangerTab()}
-            </div>
-        </div>`;
-    }
-
-    // =========================================================
-    // RENDERING — TAB: KEYBOARD (live performance)
-    // =========================================================
-
-    _renderKeyboardTab() {
-        return `
-        <div class="lc-pane${this.activeTab==='keyboard' ? '' : ' lc-pane--hidden'} lm-kbd-pane" id="lc-pane-keyboard" role="tabpanel" aria-labelledby="lc-tab-keyboard">
-            <div class="lm-kbd-panel" id="lm-kbd-panel"></div>
-        </div>`;
-    }
-
-    renderFooter() { return ''; }
-
-    // =========================================================
-    // RENDERING — TAB 1: LIBRARY
-    // =========================================================
-
-    _renderLibraryTab() {
-        return this.libraryFeature ? this.libraryFeature.renderTabHtml() : "";
-    }
-
-    // =========================================================
-    // RENDERING — TAB 2: PAD
-    // =========================================================
-
-    _renderPadTab() {
-        return this.padFeature ? this.padFeature.renderTabHtml() : "";
-    }
-
-
-    // =========================================================
-    // RENDERING — TAB 3: LIVE
-    // =========================================================
-
-    _renderLiveTab() {
-        return this.liveFeature ? this.liveFeature.renderTabHtml() : "";
-    }
-
-    // =========================================================
-    // RENDERING — TAB 4: ARRANGER
-    // =========================================================
-
-    _renderArrangerTab() {
-        // Raccourcis platform-aware (AUDIT §U2 : ⌘ sur Mac, Ctrl ailleurs).
-        const mod = LoopUtils.modKeyLabel();
-        const sft = LoopUtils.shiftKeyLabel();
-        return `
-        <div class="lc-pane${this.activeTab==='arranger' ? '' : ' lc-pane--hidden'}" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
-            <div class="lc-ctrl-bar lc-ctrl-bar--arr">
-                <!-- Groupe 1 — Identité de l'arrangement -->
-                <input type="text" class="lc-name-input la-toolbar-name" id="la-name-input"
-                    aria-label="${this.t('loopCreator.arrangementName')}"
-                    value="${this.escape(this.arrangementName || this.t('loopCreator.untitledArrangement'))}"
-                    placeholder="${this.t('loopCreator.arrangementName')}" />
-
-                <!-- Groupe 2 — Transport (play, stop, loop, count-in) -->
-                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupTransport') || 'Transport'}">
-                    <button class="lc-btn lc-btn-icon lc-btn-primary-ish" data-action="arr-play" id="la-play-btn"
-                        title="${this.t('loopCreator.play')} (Space)" aria-label="${this.t('loopCreator.play')}"><span aria-hidden="true">▶</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-stop"
-                        title="${this.t('loopCreator.stop')} (Esc)" aria-label="${this.t('loopCreator.stop')}"><span aria-hidden="true">⏹</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-toggle-loop" id="la-loop-btn"
-                        title="${this.t('loopManager.loopPlayback')}"
-                        aria-label="${this.t('loopManager.loopPlayback')}"
-                        aria-pressed="${this._arrangerLoop ? 'true' : 'false'}"><span aria-hidden="true">🔁</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-toggle-countin" id="la-countin-btn"
-                        title="${this.t('loopManager.countIn')}"
-                        aria-label="${this.t('loopManager.countIn')}"
-                        aria-pressed="${this._arrangerCountIn ? 'true' : 'false'}"><span aria-hidden="true">⏲</span></button>
-                </div>
-
-                <!-- Groupe 3 — Propriétés (tempo, mesures) -->
-                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupProperties') || 'Properties'}">
-                    <div class="lc-spinbox" title="${this.t('loopCreator.tempo')}">
-                        <button class="lc-spin-btn" data-action="arr-tempo-dec" aria-label="${this.t('loopCreator.tempo')} −"><span aria-hidden="true">‹</span></button>
-                        <input type="number" id="la-tempo" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementTempo}" min="20" max="300" aria-label="${this.t('loopCreator.tempo')}" />
-                        <button class="lc-spin-btn" data-action="arr-tempo-inc" aria-label="${this.t('loopCreator.tempo')} +"><span aria-hidden="true">›</span></button>
-                    </div>
-                    <span class="lc-unit" aria-hidden="true">BPM</span>
-                    <div class="lc-spinbox" title="${this.t('loopCreator.totalBars')}">
-                        <button class="lc-spin-btn" data-action="arr-bars-dec" aria-label="${this.t('loopCreator.totalBars')} −"><span aria-hidden="true">‹</span></button>
-                        <input type="number" id="la-bars" class="lc-spin-input lc-spin-input--sm" value="${this.arrangementBars}" min="4" max="256" step="4" aria-label="${this.t('loopCreator.totalBars')}" />
-                        <button class="lc-spin-btn" data-action="arr-bars-inc" aria-label="${this.t('loopCreator.totalBars')} +"><span aria-hidden="true">›</span></button>
-                    </div>
-                    <span class="lc-unit" aria-hidden="true">${this.t('loopCreator.barsUnitShort') || 'M'}</span>
-                </div>
-
-                <!-- Groupe 4 — Édition (undo/redo) -->
-                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupHistory') || 'Edit history'}">
-                    <button class="lc-btn lc-btn-icon" data-action="arr-undo" id="la-undo-btn"
-                        title="${this.t('loopCreator.undo')} (${mod}+Z)" aria-label="${this.t('loopCreator.undo')}" disabled><span aria-hidden="true">↶</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-redo" id="la-redo-btn"
-                        title="${this.t('loopCreator.redo')} (${mod}+${sft}+Z)" aria-label="${this.t('loopCreator.redo')}" disabled><span aria-hidden="true">↷</span></button>
-                </div>
-
-                <!-- Groupe 5 — Vue (zoom horizontal + vertical) -->
-                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupZoom') || 'Zoom'}">
-                    <button class="lc-btn lc-btn-icon" data-action="arr-zoom-out"
-                        title="${this.t('loopEditor.zoomHOut')}" aria-label="${this.t('loopEditor.zoomHOut')}"><span aria-hidden="true">−↔</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-zoom-reset"
-                        title="${this.t('loopManager.zoomReset')}" aria-label="${this.t('loopManager.zoomReset')}"><span aria-hidden="true">⌖</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-zoom-in"
-                        title="${this.t('loopEditor.zoomHIn')}" aria-label="${this.t('loopEditor.zoomHIn')}"><span aria-hidden="true">+↔</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-out"
-                        title="${this.t('loopManager.zoomVOut')}" aria-label="${this.t('loopManager.zoomVOut')}"><span aria-hidden="true">−↕</span></button>
-                    <button class="lc-btn lc-btn-icon" data-action="arr-zoomv-in"
-                        title="${this.t('loopManager.zoomVIn')}" aria-label="${this.t('loopManager.zoomVIn')}"><span aria-hidden="true">+↕</span></button>
-                </div>
-
-                <span class="lc-ctrl-spacer"></span>
-
-                <!-- Groupe 6 — Structure (add track, new arrangement) — actions secondaires, à droite -->
-                <div class="lc-ctrl-group" role="group" aria-label="${this.t('loopManager.groupStructure') || 'Structure'}">
-                    <button class="lc-btn lc-btn-icon" data-action="arr-add-track"
-                        title="${this.t('loopCreator.addTrack')}" aria-label="${this.t('loopCreator.addTrack')}"><span aria-hidden="true">＋</span></button>
-                    <button class="lc-btn lc-btn-sm" data-action="arr-new"
-                        title="${this.t('loopCreator.newArrangement')}"><span aria-hidden="true">🆕</span> ${this.t('loopCreator.newArrangement')}</button>
-                </div>
-            </div>
-
-            <div class="la-area" id="la-area">
-                <div class="la-palette" id="la-palette">
-                    <div class="la-palette-title">${this.t('loopCreator.palette')}</div>
-                    <input type="search" id="la-palette-search" class="lc-name-input la-palette-search"
-                        aria-label="${this.t('loopManager.search')}"
-                        placeholder="${this.t('loopManager.search')}" autocomplete="off" />
-                    <div class="la-palette-grid" id="la-palette-grid">
-                        <div class="lc-empty">${this.t('loopCreator.libraryEmpty')}</div>
-                    </div>
-                </div>
-                <div class="la-timeline-col">
-                    <canvas class="la-minimap" id="la-minimap" height="48"
-                        aria-label="${this.t('loopManager.arrangerMinimap') || 'Arrangement overview'}"
-                        title="${this.t('loopManager.arrangerMinimapHint') || 'Click to seek; drag to pan'}"></canvas>
-                    <div class="la-timeline-wrap" id="la-timeline-wrap">
-                        <div class="la-ruler" id="la-ruler"></div>
-                        <div class="la-tracks" id="la-tracks"></div>
-                        <div class="la-playhead" id="la-playhead" style="display:none"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="la-arr-list-wrap">
-                <div class="la-arr-list-title">${this.t('loopCreator.arrangements')}</div>
-                <div class="la-arr-list" id="la-arr-list"></div>
-            </div>
-        </div>`;
-    }
+    // Delegates to view sub-feature (extracted per audit §1.3)
+    _renderHeader()        { return this.view?._renderHeader() ?? ''; }
+    renderBody()           { return this.view?.renderBody() ?? ''; }
+    _renderKeyboardTab()   { return this.view?._renderKeyboardTab() ?? ''; }
+    renderFooter()         { return this.view?.renderFooter() ?? ''; }
+    _renderLibraryTab()    { return this.view?._renderLibraryTab() ?? ''; }
+    _renderPadTab()        { return this.view?._renderPadTab() ?? ''; }
+    _renderLiveTab()       { return this.view?._renderLiveTab() ?? ''; }
+    _renderArrangerTab()   { return this.view?._renderArrangerTab() ?? ''; }
 
     // =========================================================
     // LIFECYCLE
@@ -479,290 +300,16 @@ class LoopManagerModal extends BaseModal {
     // KEYBOARD SHORTCUTS
     // =========================================================
 
-    _onKeyDown(e) {
-        const t = e.target;
-        const tag = (t?.tagName || '').toLowerCase();
-
-        // Navigation clavier dans la tablist (APG tabs pattern, AUDIT §A2).
-        // Capture en premier — pas conditionné par l'input/textarea check
-        // car le focus est sur un bouton tab.
-        if (t?.classList?.contains('lc-tab') && t.getAttribute('role') === 'tab') {
-            const tabs = ['library', 'pad', 'live', 'keyboard', 'arranger'];
-            const i = tabs.indexOf(t.dataset.tab);
-            if (i >= 0) {
-                let next = -1;
-                if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
-                else if (e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
-                else if (e.key === 'Home') next = 0;
-                else if (e.key === 'End') next = tabs.length - 1;
-                if (next >= 0) {
-                    e.preventDefault();
-                    this._switchTab(tabs[next]);
-                    this.$(`#lc-tab-${tabs[next]}`)?.focus();
-                    return;
-                }
-            }
-        }
-
-        if (tag === 'input' || tag === 'textarea' || t?.isContentEditable) return;
-        if (this._loopEditor?.isOpen) return; // editor handles its own shortcuts
-
-        const mod = e.ctrlKey || e.metaKey;
-
-        if (this.activeTab === 'arranger') {
-            if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); this._arrUndo(); return; }
-            if (mod && e.key.toLowerCase() === 'z' &&  e.shiftKey) { e.preventDefault(); this._arrRedo(); return; }
-            if (mod && e.key.toLowerCase() === 'y')                { e.preventDefault(); this._arrRedo(); return; }
-            if (mod && e.key.toLowerCase() === 's')                { e.preventDefault(); this._saveArrangement(); return; }
-            if (e.key === ' ') { e.preventDefault(); this.isArrangerPlaying ? this._stopArrangerPlay() : this._playArrangement(this._arrangerStartBar); return; }
-            if (e.key === 'Escape') { this._stopArrangerPlay(); this._clearBlockSelection(); return; }
-            if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedBlocks.size) {
-                e.preventDefault(); this._deleteSelectedBlocks(); return;
-            }
-            if (mod && e.key.toLowerCase() === 'a') {
-                e.preventDefault();
-                this._selectedBlocks = new Set(this.blocks.map(b => b.id));
-                this._refreshBlockSelectionUI();
-                return;
-            }
-            if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); this._copySelectedBlocks(); return; }
-            if (mod && e.key.toLowerCase() === 'x') { e.preventDefault(); this._copySelectedBlocks(); this._deleteSelectedBlocks(); return; }
-            if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); this._pasteBlocks(); return; }
-            if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); this._duplicateSelectedBlocks(); return; }
-        }
-
-        if (this.activeTab === 'live') {
-            if (e.key === 'Escape') { this._liveStopAll(); return; }
-        }
-    }
-
-    // =========================================================
-    // TAB SWITCHING
-    // =========================================================
-
-    _switchTab(tab) {
-        // Close the pad assignment picker if leaving the Pad tab
-        if (this.activeTab === 'pad' && tab !== 'pad' && this._padPickerIndex !== null) {
-            this._closePadPicker();
-        }
-        this.activeTab = tab;
-        this.$$('.lc-tab').forEach(btn => {
-            const active = btn.dataset.tab === tab;
-            btn.classList.toggle('lc-tab--active', active);
-            btn.setAttribute('aria-selected', active ? 'true' : 'false');
-            // APG : tabindex roving — un seul tab focusable à la fois.
-            btn.setAttribute('tabindex', active ? '0' : '-1');
-        });
-        this.$$('.lc-pane').forEach(pane => {
-            pane.classList.toggle('lc-pane--hidden', !pane.id.endsWith(tab));
-        });
-        const saveBtn = this.$('#lc-header-save');
-        if (saveBtn) saveBtn.style.display = tab === 'arranger' ? '' : 'none';
-
-        // The embedded keyboard panel can only live in one host at a time, so
-        // unmount it whenever the user leaves the Keyboard tab.
-        if (tab !== 'keyboard' && this.keyboard?.mounted) this.keyboard.unmount();
-
-        if (tab === 'library')  this._filterAndRenderLibrary();
-        if (tab === 'pad')      this._renderPadGrid();
-        if (tab === 'live')     this._renderLiveArea();
-        if (tab === 'keyboard') this.keyboard?.enterTab();
-        if (tab === 'arranger') this._initArrangerTab();
-    }
-
-    // =========================================================
-    // EVENTS
-    // =========================================================
-
-    _attachEvents() {
-        this.dialog.addEventListener('click',  (e) => this._onClick(e));
-        this.dialog.addEventListener('change', (e) => this._onChange(e));
-        this.dialog.addEventListener('input',  (e) => this._onInput(e));
-        this.dialog.addEventListener('contextmenu', (e) => this._onContextMenu(e));
-    }
-
-    _onClick(e) {
-        // Close pad picker on outside click
-        if (this._padPickerIndex !== null && !e.target.closest('#lm-pad-picker') && !e.target.closest('.lm-pad-cell')) {
-            this._closePadPicker();
-        }
-
-        const tabBtn = e.target.closest('.lc-tab[data-tab]');
-        if (tabBtn) { this._switchTab(tabBtn.dataset.tab); return; }
-
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const a = btn.dataset.action;
-        switch (a) {
-            // Global stop (header button)
-            case 'stop-all-playback': this._stopAllPads(); this._liveStopAll(); this._stopArrangerPlay(); this.keyboard?.stopAllNotes(); break;
-            case 'toggle-output':    this._toggleHeaderOutput(); break;
-            // Library
-            case 'new-loop':  this._loopEditor.open(); break;
-            // Pad
-            case 'pad-clear-all':this._clearAllPads(); break;
-            case 'pad-cols-dec': this._adjustPadCols(-1); break;
-            case 'pad-cols-inc': this._adjustPadCols(+1); break;
-            case 'pad-rows-dec': this._adjustPadRows(-1); break;
-            case 'pad-rows-inc': this._adjustPadRows(+1); break;
-            case 'pad-set-mode':     this._setPadPlayMode(btn.dataset.mode); break;
-            case 'pad-set-quantize': this._setPadQuantize(btn.dataset.quantize); break;
-            // Live
-            case 'live-stop-all':      this._liveStopAll(); break;
-            case 'live-trigger': {
-                const loopId = parseInt(btn.dataset.loopId);
-                if (!isNaN(loopId)) this._liveTrigger(loopId);
-                break;
-            }
-            // Arranger
-            case 'arr-tempo-dec':    this._adjustArrTempo(-1); break;
-            case 'arr-tempo-inc':    this._adjustArrTempo(+1); break;
-            case 'arr-bars-dec':     this._adjustArrBars(-4);  break;
-            case 'arr-bars-inc':     this._adjustArrBars(+4);  break;
-            case 'arr-add-track':    this._addTrack();          break;
-            case 'arr-play':         this._playArrangement(this._arrangerStartBar); break;
-            case 'arr-stop':         this._stopArrangerPlay();  break;
-            case 'arr-new':          this._newArrangementConfirm(); break;
-            case 'arr-zoom-in':      this._arrZoom(1.5);        break;
-            case 'arr-zoom-out':     this._arrZoom(1 / 1.5);    break;
-            case 'arr-zoom-reset':   this._arrZoomReset();      break;
-            case 'arr-zoomv-in':     this._arrZoomV(1.3);       break;
-            case 'arr-zoomv-out':    this._arrZoomV(1 / 1.3);   break;
-            case 'arr-toggle-loop':  this._toggleLoopPlayback(); break;
-            case 'arr-toggle-countin': this._toggleCountIn();   break;
-            case 'arr-undo':         this._arrUndo();           break;
-            case 'arr-redo':         this._arrRedo();           break;
-            case 'save-arrangement': this._saveArrangement();   break;
-            case 'close':            this.close();              break;
-        }
-    }
-
-    _onContextMenu(e) {
-        const cell = e.target.closest('.lm-pad-cell[data-pad-index]');
-        if (cell) {
-            e.preventDefault();
-            this._openPadPicker(parseInt(cell.dataset.padIndex), cell);
-            return;
-        }
-        const blockEl = e.target.closest('.la-block[data-block-id]');
-        if (blockEl) {
-            e.preventDefault();
-            const bid = parseInt(blockEl.dataset.blockId);
-            if (!this._selectedBlocks.has(bid)) {
-                this._selectedBlocks.clear();
-                this._selectedBlocks.add(bid);
-                this._refreshBlockSelectionUI();
-            }
-            this._openBlockMenu(e.clientX, e.clientY);
-        }
-    }
-
-    _openBlockMenu(x, y) {
-        this._closeBlockMenu();
-        const menu = document.createElement('div');
-        menu.className = 'la-block-menu';
-        menu.style.left = x + 'px';
-        menu.style.top  = y + 'px';
-        const items = [
-            { action: 'duplicate', label: this.t('loopManager.blockMenuDuplicate'), icon: '⎘' },
-            { action: 'copy',      label: this.t('loopManager.blockMenuCopy'),      icon: '⧉' },
-            { action: 'reps-inc',  label: this.t('loopManager.blockMenuRepsInc'),   icon: '+' },
-            { action: 'reps-dec',  label: this.t('loopManager.blockMenuRepsDec'),   icon: '−' },
-            { action: 'delete',    label: this.t('loopManager.blockMenuDelete'),    icon: '🗑', danger: true }
-        ];
-        menu.innerHTML = items.map(it =>
-            `<button class="la-block-menu-item${it.danger ? ' la-block-menu-item--danger' : ''}" data-menu-action="${it.action}">
-                <span class="la-block-menu-icon">${it.icon}</span>${it.label}
-            </button>`
-        ).join('');
-        document.body.appendChild(menu);
-        // Clamp position to viewport
-        const rect = menu.getBoundingClientRect();
-        if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 4) + 'px';
-        if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 4) + 'px';
-
-        menu.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-menu-action]');
-            if (!btn) return;
-            this._closeBlockMenu();
-            const a = btn.dataset.menuAction;
-            const ids = [...this._selectedBlocks];
-            switch (a) {
-                case 'duplicate': this._duplicateSelectedBlocks(); break;
-                case 'copy':      this._copySelectedBlocks(); break;
-                case 'reps-inc':  ids.forEach(id => this._changeReps(id, +1)); break;
-                case 'reps-dec':  ids.forEach(id => this._changeReps(id, -1)); break;
-                case 'delete':    this._deleteSelectedBlocks(); break;
-            }
-        });
-        // Dismiss on outside click / escape
-        this._blockMenuEl = menu;
-        this._blockMenuDismiss = (ev) => {
-            if (ev.type === 'keydown' && ev.key !== 'Escape') return;
-            if (ev.type === 'mousedown' && menu.contains(ev.target)) return;
-            this._closeBlockMenu();
-        };
-        setTimeout(() => {
-            document.addEventListener('mousedown', this._blockMenuDismiss);
-            document.addEventListener('keydown',   this._blockMenuDismiss);
-        }, 0);
-    }
-
-    _closeBlockMenu() {
-        if (!this._blockMenuEl) return;
-        document.removeEventListener('mousedown', this._blockMenuDismiss);
-        document.removeEventListener('keydown',   this._blockMenuDismiss);
-        this._blockMenuEl.remove();
-        this._blockMenuEl = null;
-        this._blockMenuDismiss = null;
-    }
-
-    _onChange(e) {
-        const id = e.target.id;
-        if (id === 'lm-lib-filter') {
-            this.libraryFeature?.setFilter(e.target.value);
-        } else if (id === 'lm-lib-sort') {
-            this.libraryFeature?.setSort(e.target.value);
-        } else if (id === 'lm-pad-cols') {
-            this._setPadCols(parseInt(e.target.value));
-        } else if (id === 'lm-pad-rows') {
-            this._setPadRows(parseInt(e.target.value));
-        } else if (id === 'la-bars') {
-            const v = LoopUtils.validate.arrBars(e.target.value, this.arrangementBars);
-            const changed = v !== this.arrangementBars;
-            this.arrangementBars = v;
-            e.target.value = v;
-            if (changed) {
-                this._renderTimeline();
-                this._pushArrHistory();
-                this._scheduleAutoSave();
-            }
-        }
-    }
-
-    _onInput(e) {
-        const id = e.target.id;
-        if (id === 'lm-lib-search') {
-            this.libraryFeature?.setSearch(e.target.value);
-        } else if (id === 'lm-live-search') {
-            this.liveFeature?.setSearch(e.target.value);
-        } else if (id === 'la-palette-search') {
-            this._paletteSearch = e.target.value;
-            this._renderPalette();
-        } else if (id === 'la-name-input') {
-            if (this.arrangementName === e.target.value) return;
-            this.arrangementName = e.target.value;
-            this._markArrDirty(true);
-            this._scheduleAutoSave();
-        } else if (id === 'la-tempo') {
-            const v = LoopUtils.validate.tempo(e.target.value, this.arrangementTempo);
-            if (v !== this.arrangementTempo) {
-                this.arrangementTempo = v;
-                this._markArrDirty(true);
-                this._scheduleAutoSave();
-            }
-        }
-    }
+    // Delegates to events sub-feature (extracted per audit §1.3)
+    _onKeyDown(e)                          { return this.events?._onKeyDown(e); }
+    _switchTab(tab)                        { return this.events?._switchTab(tab); }
+    _attachEvents()                        { return this.events?._attachEvents(); }
+    _onClick(e)                            { return this.events?._onClick(e); }
+    _onContextMenu(e)                      { return this.events?._onContextMenu(e); }
+    _openBlockMenu(x, y)                   { return this.events?._openBlockMenu(x, y); }
+    _closeBlockMenu()                      { return this.events?._closeBlockMenu(); }
+    _onChange(e)                           { return this.events?._onChange(e); }
+    _onInput(e)                            { return this.events?._onInput(e); }
 
     // =========================================================
     // LIBRARY
@@ -801,39 +348,8 @@ class LoopManagerModal extends BaseModal {
         this._loadLibrary();
     }
 
-    _gmProgramName(prog) {
-        return GM_PROGRAM_NAMES[prog] || `Program ${prog}`;
-    }
-
-    /**
-     * Render an SVG-first icon for a GM program, falling back to the LoopUtils
-     * family emoji (and ultimately to a generic glyph). `kind` controls whether
-     * we prefer the instrument-specific SVG ('instrument') or the family-level
-     * SVG ('family'). `extraClass` is appended to the wrapper for sizing.
-     */
-    _instrIconHtml(prog, kind = 'instrument', extraClass = '') {
-        const family = LoopUtils.familyForProgram(prog);
-        const emoji  = family?.icon || '🎵';
-        let svgUrl = null;
-        const IF = (typeof window !== 'undefined') ? window.InstrumentFamilies : null;
-        if (IF) {
-            if (kind === 'instrument') {
-                const ico = IF.resolveInstrumentIcon({ gmProgram: prog });
-                svgUrl = ico?.svgUrl || null;
-                if (!svgUrl && ico?.family) svgUrl = IF.familyIconUrl(ico.family.slug);
-            } else {
-                const fam = IF.getFamilyForProgram(prog);
-                if (fam) svgUrl = IF.familyIconUrl(fam.slug);
-            }
-        }
-        const wrap = `lc-instr-icon${extraClass ? ' ' + extraClass : ''}`;
-        if (!svgUrl) return `<span class="${wrap}"><span class="lc-instr-emoji">${emoji}</span></span>`;
-        return `<span class="${wrap}">`
-             + `<img class="lc-instr-svg" src="${svgUrl}" alt="" loading="lazy" decoding="async"`
-             + ` onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">`
-             + `<span class="lc-instr-emoji" style="display:none">${emoji}</span>`
-             + `</span>`;
-    }
+    _gmProgramName(prog)                          { return this.view?.gmProgramName(prog) ?? `Program ${prog}`; }
+    _instrIconHtml(prog, kind, extraClass)        { return this.view?.instrIconHtml(prog, kind, extraClass) ?? ""; }
 
     // =========================================================
     // PAD TAB
@@ -942,45 +458,7 @@ class LoopManagerModal extends BaseModal {
 
 
 
-    _renderPlaybar() {
-        const fill = this.$('#lc-playbar-fill');
-        if (!fill) return;
-
-        if (this.isArrangerPlaying && this._arrangerStartTime) {
-            fill.classList.remove('lc-playbar-fill--looping');
-            fill.style.removeProperty('--playbar-dur');
-            const secPerBar = 60 / this.arrangementTempo * 4;
-            const totalMs   = this.arrangementBars * secPerBar * 1000;
-            const startMs   = this._arrangerStartBar * secPerBar * 1000;
-            const elapsed   = performance.now() - this._arrangerStartTime;
-            const pct = Math.min(100, Math.max(0, (startMs + elapsed) / totalMs * 100));
-            fill.style.width = pct + '%';
-            this._renderArrangerPlayhead(elapsed / 1000);
-            return;
-        }
-        this._renderArrangerPlayhead(null);
-
-        const hasPad  = this._padPlayingIndex.size > 0;
-        const hasLive = this._livePlayingLoops.size > 0;
-        if (hasPad || hasLive) {
-            // Use the shortest active loop duration to pace the fill animation
-            let minDurMs = Infinity;
-            for (const [idx, data] of this._padPlayTimes) {
-                if (this._padPlayingIndex.has(idx) && data.durMs < minDurMs) minDurMs = data.durMs;
-            }
-            for (const [, state] of this._livePlayingLoops) {
-                if (state.durMs && state.durMs < minDurMs) minDurMs = state.durMs;
-            }
-            if (!isFinite(minDurMs)) minDurMs = 2000;
-            fill.style.setProperty('--playbar-dur', (minDurMs / 1000).toFixed(3) + 's');
-            if (!fill.classList.contains('lc-playbar-fill--looping')) {
-                fill.classList.add('lc-playbar-fill--looping');
-            }
-        } else {
-            fill.classList.remove('lc-playbar-fill--looping');
-            fill.style.width = '0%';
-        }
-    }
+    _renderPlaybar()                          { return this.view?._renderPlaybar(); }
 
 
     // =========================================================
