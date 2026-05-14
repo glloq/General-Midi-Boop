@@ -1153,66 +1153,157 @@
     KeyboardPianoMixin._setupPianoDelegation = function() {
         // Listen on the parent canvas container so delegation also covers
         // fretboard cells and drum pads, not just the linear piano keys.
+        // All three views class their interactive elements with `.piano-key`.
         const container = document.getElementById('keyboard-canvas-container')
                        || document.getElementById('piano-container');
         if (!container) return;
 
-        // Remove the old delegated listeners if they exist
-        if (this._pianoMouseDown) {
-            container.removeEventListener('mousedown', this._pianoMouseDown);
-            container.removeEventListener('mouseup', this._pianoMouseUp);
-            container.removeEventListener('mouseleave', this._pianoMouseLeave, true);
-            container.removeEventListener('mouseenter', this._pianoMouseEnter, true);
-            container.removeEventListener('touchstart', this._pianoTouchStart);
-            container.removeEventListener('touchend', this._pianoTouchEnd);
+        // ── Tear down any previous delegation ────────────────────────────
+        // Phase F bugfix: the swipe used to rely on mouseenter/mouseleave,
+        // which misses keys at fast drag speeds because the browser samples
+        // mouse position at ~60 Hz. The new flow uses pointermove +
+        // document.elementFromPoint for proper hit-testing on every sample;
+        // see SwipeTracker.js for the pure-helper used here.
+        if (this._swipeTracker) {
+            this._swipeTracker.endAll();
         }
+        if (this._pianoListeners) {
+            for (const [el, evt, h, opts] of this._pianoListeners) {
+                el.removeEventListener(evt, h, opts);
+            }
+        }
+        this._pianoListeners = [];
 
-        const getKey = (e) => e.target.closest('.piano-key');
+        const track = (el, evt, h, opts) => {
+            el.addEventListener(evt, h, opts);
+            this._pianoListeners.push([el, evt, h, opts]);
+        };
 
-        this._pianoMouseDown = (e) => {
-            const key = getKey(e);
-            if (key) {
-                e.preventDefault(); // Prevent the browser's drag/selection
+        // ── Hit-testing: find the .piano-key under (x, y) ─────────────────
+        const hitTest = (x, y) => {
+            const el = document.elementFromPoint(x, y);
+            if (!el) return null;
+            const key = el.closest && el.closest('.piano-key');
+            // Bail if the closest .piano-key is outside our container.
+            if (!key || !container.contains(key)) return null;
+            if (key.classList.contains('disabled')) return null;
+            const noteAttr = key.dataset && key.dataset.note;
+            if (noteAttr === undefined) return null;
+            const note = parseInt(noteAttr, 10);
+            if (Number.isNaN(note)) return null;
+            return { note, key };
+        };
+
+        // ── SwipeTracker: routes transitions through the existing handlers
+        //    so fretboard CC (string/fret) + hand auto-move +
+        //    activeFretPositions bookkeeping happen exactly as before.
+        const SwipeTrackerCtor = (typeof window !== 'undefined' && window.SwipeTracker) || null;
+        if (!SwipeTrackerCtor) {
+            console.warn('[KeyboardModal] SwipeTracker missing — drag-swipe disabled');
+        }
+        this._swipeTracker = SwipeTrackerCtor ? new SwipeTrackerCtor({
+            hitTest,
+            onNoteOn: (_note, key) => {
                 this.handlePianoKeyDown({ currentTarget: key, preventDefault: () => {} });
+            },
+            onNoteOff: (_note, key) => {
+                this.handlePianoKeyUp({ currentTarget: key });
             }
-        };
-        this._pianoMouseUp = (e) => {
-            const key = getKey(e);
-            if (key) { this.handlePianoKeyUp({ currentTarget: key }); }
-        };
-        this._pianoMouseLeave = (e) => {
-            if (e.target.classList?.contains('piano-key')) {
-                const note = parseInt(e.target.dataset.note);
-                this.mouseActiveNotes.delete(note);
-                this.handlePianoKeyUp({ currentTarget: e.target });
-            }
-        };
-        this._pianoMouseEnter = (e) => {
-            if (e.target.classList?.contains('piano-key')) {
-                this.handlePianoKeyEnter({ currentTarget: e.target });
-            }
-        };
-        this._pianoTouchStart = (e) => {
-            e.preventDefault();
-            for (const touch of e.changedTouches) {
-                const key = getKey(touch);
-                if (key) this.handlePianoKeyDown({ currentTarget: key, preventDefault: () => {} });
-            }
-        };
-        this._pianoTouchEnd = (e) => {
-            e.preventDefault();
-            for (const touch of e.changedTouches) {
-                const key = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.piano-key');
-                if (key) this.handlePianoKeyUp({ currentTarget: key });
-            }
-        };
+        }) : null;
 
-        container.addEventListener('mousedown', this._pianoMouseDown);
-        container.addEventListener('mouseup', this._pianoMouseUp);
-        container.addEventListener('mouseleave', this._pianoMouseLeave, true);
-        container.addEventListener('mouseenter', this._pianoMouseEnter, true);
-        container.addEventListener('touchstart', this._pianoTouchStart, { passive: false });
-        container.addEventListener('touchend', this._pianoTouchEnd, { passive: false });
+        // ── Pointer Events path (modern: unified mouse / touch / pen) ─────
+        if (typeof window !== 'undefined' && typeof window.PointerEvent === 'function') {
+            const onPointerDown = (e) => {
+                const hit = hitTest(e.clientX, e.clientY);
+                if (!hit) return;
+                e.preventDefault(); // suppress text selection / native drag
+                // Capture so subsequent pointermove / pointerup always reach
+                // us even when the cursor leaves the container.
+                try { container.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+                if (this._swipeTracker) {
+                    this._swipeTracker.start(e.pointerId, e.clientX, e.clientY);
+                } else {
+                    this.handlePianoKeyDown({ currentTarget: hit.key, preventDefault: () => {} });
+                }
+            };
+            const onPointerMove = (e) => {
+                if (!this._swipeTracker) return;
+                // Tracker silently ignores unstarted pointers, so a hover
+                // (no prior pointerdown) is a no-op.
+                this._swipeTracker.move(e.pointerId, e.clientX, e.clientY);
+            };
+            const onPointerUp = (e) => {
+                if (this._swipeTracker) this._swipeTracker.end(e.pointerId);
+                try { container.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+            };
+            const onPointerCancel = (e) => {
+                if (this._swipeTracker) this._swipeTracker.cancel(e.pointerId);
+            };
+            track(container, 'pointerdown',   onPointerDown);
+            track(container, 'pointermove',   onPointerMove);
+            track(container, 'pointerup',     onPointerUp);
+            track(container, 'pointercancel', onPointerCancel);
+            // pointerleave intentionally NOT bound: with capture, the
+            // pointer keeps tracking even when leaving the container.
+        } else {
+            // ── Fallback: separate mouse + touch listeners ────────────────
+            // (very old browsers without Pointer Events API)
+            const MOUSE_ID = 'mouse';
+
+            const onMouseDown = (e) => {
+                const hit = hitTest(e.clientX, e.clientY);
+                if (!hit) return;
+                e.preventDefault();
+                if (this._swipeTracker) {
+                    this._swipeTracker.start(MOUSE_ID, e.clientX, e.clientY);
+                } else {
+                    this.handlePianoKeyDown({ currentTarget: hit.key, preventDefault: () => {} });
+                }
+            };
+            const onMouseMove = (e) => {
+                if (!this._swipeTracker) return;
+                if (this._swipeTracker.activePointerCount === 0) return;
+                this._swipeTracker.move(MOUSE_ID, e.clientX, e.clientY);
+            };
+            const onMouseUp = () => {
+                if (this._swipeTracker) this._swipeTracker.end(MOUSE_ID);
+            };
+
+            const onTouchStart = (e) => {
+                e.preventDefault();
+                for (const t of e.changedTouches) {
+                    if (this._swipeTracker) {
+                        this._swipeTracker.start(t.identifier, t.clientX, t.clientY);
+                    } else {
+                        const hit = hitTest(t.clientX, t.clientY);
+                        if (hit) this.handlePianoKeyDown({ currentTarget: hit.key, preventDefault: () => {} });
+                    }
+                }
+            };
+            const onTouchMove = (e) => {
+                e.preventDefault();
+                if (!this._swipeTracker) return;
+                for (const t of e.changedTouches) {
+                    this._swipeTracker.move(t.identifier, t.clientX, t.clientY);
+                }
+            };
+            const onTouchEnd = (e) => {
+                e.preventDefault();
+                if (!this._swipeTracker) return;
+                for (const t of e.changedTouches) this._swipeTracker.end(t.identifier);
+            };
+
+            track(container, 'mousedown',  onMouseDown);
+            // mousemove / mouseup on document so we keep tracking when the
+            // cursor leaves the container (browser doesn't fire mouseup on
+            // an element the pointer has already left).
+            track(document,  'mousemove',  onMouseMove);
+            track(document,  'mouseup',    onMouseUp);
+            track(container, 'touchstart', onTouchStart, { passive: false });
+            track(container, 'touchmove',  onTouchMove,  { passive: false });
+            track(container, 'touchend',   onTouchEnd,   { passive: false });
+            track(container, 'touchcancel', onTouchEnd,  { passive: false });
+        }
     }
 
     /**

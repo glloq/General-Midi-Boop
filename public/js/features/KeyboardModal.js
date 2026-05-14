@@ -340,26 +340,26 @@ class KeyboardModal {
     }
 
     /**
-     * Remove delegated piano container listeners
+     * Remove delegated piano container listeners.
+     *
+     * Pairs with KeyboardPiano._setupPianoDelegation. The new
+     * implementation (Phase F swipe fix) tracks listeners in a single
+     * `_pianoListeners` array and routes drag events through a
+     * SwipeTracker — so cleanup is a uniform iteration.
      */
     _removePianoDelegation() {
-        const container = document.getElementById('keyboard-canvas-container')
-                       || document.getElementById('piano-container');
-        if (!container || !this._pianoMouseDown) return;
-
-        container.removeEventListener('mousedown', this._pianoMouseDown);
-        container.removeEventListener('mouseup', this._pianoMouseUp);
-        container.removeEventListener('mouseleave', this._pianoMouseLeave, true);
-        container.removeEventListener('mouseenter', this._pianoMouseEnter, true);
-        container.removeEventListener('touchstart', this._pianoTouchStart);
-        container.removeEventListener('touchend', this._pianoTouchEnd);
-
-        this._pianoMouseDown = null;
-        this._pianoMouseUp = null;
-        this._pianoMouseLeave = null;
-        this._pianoMouseEnter = null;
-        this._pianoTouchStart = null;
-        this._pianoTouchEnd = null;
+        if (this._swipeTracker) {
+            // End any in-flight pointer so we don't leak a note-on without
+            // its matching note-off.
+            this._swipeTracker.endAll();
+            this._swipeTracker = null;
+        }
+        if (Array.isArray(this._pianoListeners)) {
+            for (const [el, evt, h, opts] of this._pianoListeners) {
+                try { el.removeEventListener(evt, h, opts); } catch (_) { /* ignore */ }
+            }
+            this._pianoListeners = [];
+        }
     }
 
     /**
