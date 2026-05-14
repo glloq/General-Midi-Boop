@@ -1,0 +1,289 @@
+// ============================================================================
+// File: public/js/features/midi-editor/MidiEditorPianoRollBoot.js
+// Description: Piano-roll boot + container size sync — extracted from
+//   MidiEditorRouting per audit §1.3 (god-class split).
+//
+// Owns:
+//   - `initPianoRoll()` — picks the renderer (Webaudio adapter / Canvas V2),
+//     mounts it, computes viewport defaults, wires change / selection /
+//     piano-key / drag-move listeners, ResizeObserver, theme apply.
+//   - `refreshSize()` — re-queries the container clientWidth/clientHeight
+//     and pushes it to the renderer.
+//
+// Accessed via `modal.routingOps.pianoRollBoot`. MidiEditorRouting keeps
+// thin delegates (`initPianoRoll`, `_refreshPianoRollSize`) so external
+// callers (MidiEditorModal, LoopEditorModal) are unchanged.
+// ============================================================================
+
+(function () {
+    'use strict';
+
+    class MidiEditorPianoRollBoot {
+        /** @param {MidiEditorRouting} parent */
+        constructor(parent) {
+            this.parent = parent;
+            this.modal = parent.modal;
+        }
+
+        // ----------------------------------------------------------------
+        // Container size sync
+        // ----------------------------------------------------------------
+
+        refreshSize() {
+            const renderer = this.modal.pianoRollRenderer;
+            if (!renderer?.isMounted()) return false;
+            const container = this.modal.container?.querySelector('#piano-roll-container');
+            if (!container) return false;
+            const w = container.clientWidth  || 0;
+            const h = container.clientHeight || 0;
+            if (w <= 0 || h <= 0) return false;
+            renderer.setSize(w, h);
+            return true;
+        }
+
+        // ----------------------------------------------------------------
+        // Piano-roll boot
+        // ----------------------------------------------------------------
+
+        async initPianoRoll() {
+            const m = this.modal;
+            const container = document.getElementById('piano-roll-container');
+            if (!container) {
+                m.log('error', 'Piano roll container not found');
+                return;
+            }
+
+            // Ensure webaudio-pianoroll is loaded
+            if (typeof customElements.get('webaudio-pianoroll') === 'undefined') {
+                m.showError(m.t('midiEditor.libraryNotLoaded'));
+                return;
+            }
+
+            // Piano roll renderer abstraction (audit §1.1). Choose the
+            // implementation based on a feature flag:
+            //   - Default : WebaudioPianorollAdapter (the legacy third-party
+            //     custom element, behaviour identical to pre-§1.1).
+            //   - Opt-in via `?pianoRollV2=1` URL param or
+            //     `localStorage.gmboop_piano_roll_v2 = '1'` :
+            //     CanvasPianoRollRenderer (audit §3.1/§3.2 — Canvas 2D maison,
+            //     viewport culling, grid-bucket spatial index).
+            // The invariant `modal.pianoRoll === modal.pianoRollRenderer.getElement()`
+            // is maintained so non-migrated call sites keep working unchanged.
+            const useV2 = (() => {
+                try {
+                    const qs = new URLSearchParams(window.location.search);
+                    if (qs.get('pianoRollV2') === '1') return true;
+                    if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
+                } catch (_) { /* best-effort */ }
+                return false;
+            })();
+            const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
+                ? CanvasPianoRollRenderer
+                : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
+
+            if (Impl) {
+                m.pianoRollRenderer = new Impl({
+                    container,
+                    width:  container.clientWidth  || 1000,
+                    height: container.clientHeight || 400,
+                    ppq:    m.ticksPerBeat || 480,
+                    tempo:  m.tempo || 120,
+                    mode:   'dragpoly'
+                });
+                m.pianoRollRenderer.mount();
+                m.pianoRoll = m.pianoRollRenderer.getElement();
+                m.log('info', `Piano roll renderer: ${Impl.name}`);
+            } else {
+                // Defensive fallback if neither renderer script loaded —
+                // restores the legacy creation path so the editor still opens.
+                m.pianoRoll = document.createElement('webaudio-pianoroll');
+                m.pianoRollRenderer = null;
+            }
+
+            // Configuration
+            const width = container.clientWidth || 1000;
+            const height = container.clientHeight || 400;
+
+            // Compute the tick range from the sequence
+            let maxTick = 0;
+            let minNote = 127;
+            let maxNote = 0;
+
+            if (m.sequence && m.sequence.length > 0) {
+                m.sequence.forEach(note => {
+                    const endTick = note.t + note.g;
+                    if (endTick > maxTick) maxTick = endTick;
+                    if (note.n < minNote) minNote = note.n;
+                    if (note.n > maxNote) maxNote = note.n;
+                });
+
+                m.log('info', `Sequence range: ticks 0-${maxTick}, notes ${minNote}-${maxNote}`);
+            }
+
+            // Store maxTick for the sliders
+            if (!m.midiData) m.midiData = {};
+            m.midiData.maxTick = maxTick;
+
+            // Default zoom — loop mode fits the whole loop (bars × timeSig × ppq)
+            // into the view since that's the unit of work. Standard (file) mode
+            // keeps the legacy "first 20 seconds" framing.
+            const ticksPerBeat = m.midiData.header?.ticksPerBeat || 480;
+            const twentySeconds = ticksPerBeat * 40; // ~20 seconds at 120 BPM
+            const xrange = m.loopMode
+                ? (maxTick > 0 ? maxTick : ticksPerBeat * 4)
+                : Math.min(maxTick > 0 ? maxTick : twentySeconds, twentySeconds);
+
+            // Vertically centered view that keeps every note of visible channels onscreen
+            const noteRange = Math.max(24, maxNote - minNote + 4);
+            const centerNote = Math.floor((minNote + maxNote) / 2);
+            const yoffset = Math.max(0, centerNote - Math.floor(noteRange / 2));
+
+            const renderer = m.pianoRollRenderer;
+            renderer.setSize(width, height)
+                    .setEditMode('dragpoly')
+                    .setXRange(xrange).setYRange(noteRange).setYOffset(yoffset)
+                    .setAttribute('wheelzoom', '1')
+                    .setAttribute('xscroll', '1')
+                    .setAttribute('yscroll', '1')
+                    .setAttribute('xruler', m.loopMode ? '1' : '0')
+                    .setMarkers(0, maxTick)
+                    .setCursor(0);
+
+            m.events._applyPianoRollTheme();
+
+            m.log('info', `Piano roll configured: xrange=${xrange}, yrange=${noteRange}, yoffset=${yoffset} (centered), tempo=${m.tempo || 120} BPM, timebase=${m.ticksPerBeat || 480} ticks/beat`);
+
+            renderer.attachToContainer();
+
+            // Hide the piano roll's native SVG markers (replaced by PlaybackTimelineBar)
+            const cursorImg    = renderer.querySelector('#wac-cursor');
+            const markStartImg = renderer.querySelector('#wac-markstart');
+            const markEndImg   = renderer.querySelector('#wac-markend');
+            if (cursorImg) cursorImg.style.display = 'none';
+            if (markStartImg) markStartImg.style.display = 'none';
+            if (markEndImg) markEndImg.style.display = 'none';
+
+            // OPTIMIZATION: batch property assignments to avoid multiple redraws
+            const currentSnap = m.snapValues[m.currentSnapIndex];
+            renderer.beginBatchUpdate()
+                    .setTempo(m.tempo || 120)
+                    .setTimebase(m.ticksPerBeat || 480)
+                    .setGrid(120)
+                    .setSnap(currentSnap.ticks)
+                    .endBatchUpdate();
+
+            m.log('info', `Piano roll grid/snap: grid=120 ticks, snap=${currentSnap.ticks} ticks (${currentSnap.label})`);
+
+            // Wait one RAF for the component to layout
+            await new Promise(resolve => requestAnimationFrame(resolve));
+
+            renderer.setChannelColors(m.channelColors);
+
+            if (m.activeChannels.size > 0) {
+                renderer.setDefaultChannel(Array.from(m.activeChannels)[0]);
+            }
+
+            m.events._initNavigationOverview(maxTick, xrange);
+            m.events.setupScrollSynchronization();
+            m.events._initTimelineBar(maxTick, ticksPerBeat, xrange);
+
+            if (m.sequence && m.sequence.length > 0) {
+                m.log('info', `Loading ${m.sequence.length} notes into piano roll`);
+                m.log('debug', 'First 3 notes:', JSON.stringify(m.sequence.slice(0, 3)));
+                renderer.setSequence(m.sequence).redraw();
+                m.log('info', 'Piano roll redrawn with channel colors');
+                m.log('debug', `Piano roll sequence length: ${renderer.getSequence().length}`);
+            } else {
+                m.log('info', 'No notes to display in piano roll — starting empty');
+                renderer.setSequence([]).redraw();
+            }
+
+            // Store a sequence copy to detect changes
+            let previousSequence = [];
+            let changeTimeout = null;
+            const handleChange = () => {
+                m.handleNoteFeedback(previousSequence);
+
+                if (changeTimeout) clearTimeout(changeTimeout);
+                changeTimeout = setTimeout(() => {
+                    m.isDirty = true;
+                    this.parent.updateSaveButton();
+                    m.sequenceOps.syncFullSequenceFromPianoRoll();
+                    m.editActions?.updateUndoRedoButtonsState();
+                    m.editActions?.updateEditButtons();
+                    previousSequence = this.parent.copySequence(renderer.getSequence());
+                }, 100);
+            };
+
+            previousSequence = this.parent.copySequence(renderer.getSequence());
+
+            renderer.on('change', handleChange);
+            renderer.on('selectionchange', () => {
+                m.editActions?.updateEditButtons();
+            });
+
+            // Auto-resize the canvas whenever its container changes size —
+            // coalesced onto a single RAF per resize burst.
+            if (typeof ResizeObserver !== 'undefined') {
+                m._pianoRollContainerObs?.disconnect?.();
+                let lastW = 0, lastH = 0;
+                let scheduled = false;
+                m._pianoRollContainerObs = new ResizeObserver(() => {
+                    const w = container.clientWidth, h = container.clientHeight;
+                    if (w === lastW && h === lastH) return;
+                    lastW = w; lastH = h;
+                    if (scheduled) return;
+                    scheduled = true;
+                    requestAnimationFrame(() => {
+                        scheduled = false;
+                        this.refreshSize();
+                    });
+                });
+                m._pianoRollContainerObs.observe(container);
+            }
+
+            renderer.on('pianokey', (e) => {
+                if (!m.keyboardPlaybackEnabled) return;
+                const note = e.detail.note;
+                const channel = renderer.getDefaultChannel() || 0;
+                m.playNoteHold(note, 100, channel);
+            });
+            renderer.on('pianokeyup', (e) => {
+                const note = e.detail.note;
+                const channel = renderer.getDefaultChannel() || 0;
+                m.releaseNote(note, channel);
+            });
+
+            renderer.on('notedragmove', (e) => {
+                if (!m.dragPlaybackEnabled) return;
+                const notes = e.detail.notes;
+                if (notes.length > 0 && notes.length <= 6) {
+                    notes.forEach(note => {
+                        m.playNoteFeedback(note.n, note.v || 100, note.c || 0);
+                    });
+                }
+            });
+
+            this.parent.updateStats();
+            m.editActions?.updateEditButtons();
+            m.editActions?.updateUndoRedoButtonsState();
+            m.renderer.updateInstrumentSelector();
+
+            if (renderer?.isMounted()) {
+                renderer.setUIMode(m.editMode);
+                m.log('info', `Piano roll UI mode set to: ${m.editMode}`);
+            }
+
+            await this.parent.loadConnectedDevices();
+            await m.tablatureOps?._loadSavedRoutings();
+
+            if (m.channelPanel) {
+                m.channelPanel.updateTablatureButton();
+            }
+        }
+    }
+
+    if (typeof window !== 'undefined') {
+        window.MidiEditorPianoRollBoot = MidiEditorPianoRollBoot;
+    }
+})();
