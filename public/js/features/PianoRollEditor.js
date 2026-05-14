@@ -101,7 +101,7 @@ class PianoRollEditor {
         if (!wrap || typeof ResizeObserver === 'undefined') return;
         let pendingW = 0, pendingH = 0;
         this._resizeObserver = new ResizeObserver(() => {
-            if (!this.pianoRoll) return;
+            if (!this.renderer?.isMounted()) return;
             const w = wrap.clientWidth  | 0;
             const h = wrap.clientHeight | 0;
             // Skip 0×0 (host hidden via display:none)
@@ -109,9 +109,8 @@ class PianoRollEditor {
             // Skip no-op updates to avoid an infinite redraw loop
             if (w === pendingW && h === pendingH) return;
             pendingW = w; pendingH = h;
-            this.pianoRoll.setAttribute('width',  w.toString());
-            this.pianoRoll.setAttribute('height', h.toString());
-            this.pianoRoll.redraw?.();
+            this.renderer?.setSize(w, h);
+            this.renderer?.redraw();
             this._syncMinimap();
         });
         this._resizeObserver.observe(wrap);
@@ -132,8 +131,16 @@ class PianoRollEditor {
     destroy() {
         if (this._minimapObserver) { this._minimapObserver.disconnect(); this._minimapObserver = null; }
         if (this._resizeObserver)  { this._resizeObserver.disconnect();  this._resizeObserver  = null; }
+        if (this._viewportListener && this.renderer) {
+            this.renderer.off('viewportchange', this._viewportListener);
+            this._viewportListener = null;
+        }
         this._minimap?.destroy?.();
         this._minimap  = null;
+        if (this.renderer) {
+            try { this.renderer.destroy(); } catch (_) { /* best-effort */ }
+            this.renderer = null;
+        }
         this.pianoRoll = null;
         if (this.host) {
             if (this._onClickBound)  this.host.removeEventListener('click',  this._onClickBound);
@@ -152,15 +159,15 @@ class PianoRollEditor {
     // =====================================================================
 
     getSequence() {
-        return Array.isArray(this.pianoRoll?.sequence) ? this.pianoRoll.sequence : this._sequence;
+        return Array.isArray(this.renderer?.getSequence()) ? this.renderer?.getSequence() ?? [] : this._sequence;
     }
 
     setSequence(seq) {
         const next = Array.isArray(seq) ? seq.slice() : [];
         this._sequence = next;
-        if (this.pianoRoll) {
-            this.pianoRoll.sequence = next;
-            this.pianoRoll.redraw?.();
+        if (this.renderer?.isMounted()) {
+            this.renderer?.setSequence(next);
+            this.renderer?.redraw();
         }
         this._syncMinimap();
         this._emitChange();
@@ -170,9 +177,9 @@ class PianoRollEditor {
         if (!noteObj) return;
         const cur = this.getSequence();
         const next = Array.isArray(cur) ? [...cur, noteObj] : [noteObj];
-        if (this.pianoRoll) {
-            this.pianoRoll.sequence = next;
-            this.pianoRoll.redraw?.();
+        if (this.renderer?.isMounted()) {
+            this.renderer?.setSequence(next);
+            this.renderer?.redraw();
         }
         this._sequence = next;
         this._syncMinimap();
@@ -191,9 +198,9 @@ class PianoRollEditor {
     }
 
     setCursor(tick) {
-        if (!this.pianoRoll) return;
-        this.pianoRoll.cursor = Math.max(0, Math.min(this._totalTicks(), tick | 0));
-        this.pianoRoll.redrawMarker?.();
+        if (!this.renderer?.isMounted()) return;
+        this.renderer?.setCursor(Math.max(0, Math.min(this._totalTicks(), tick | 0)));
+        this.renderer?.redrawMarker();
         this._syncMinimap();
     }
 
@@ -205,17 +212,29 @@ class PianoRollEditor {
 
     applyTheme(isDark) {
         const dark = (isDark == null) ? document.body.classList.contains('theme-dark') : !!isDark;
-        if (!this.pianoRoll) return;
-        this.pianoRoll.setAttribute('colnote',     dark ? '#5b9bd5' : '#4a90d9');
-        this.pianoRoll.setAttribute('colnotesel',  dark ? '#f5a623' : '#e8931a');
-        this.pianoRoll.setAttribute('colbg',       dark ? '#1a1a2e' : '#f8f9fa');
-        this.pianoRoll.setAttribute('colline',     dark ? '#333355' : '#dde0e6');
-        this.pianoRoll.setAttribute('colrulerbg',  dark ? '#12122a' : '#eef0f4');
-        this.pianoRoll.setAttribute('colrulerfg',  dark ? '#8888aa' : '#666677');
-        this.pianoRoll.setAttribute('colkeybg',    dark ? '#1e1e38' : '#f0f0f4');
-        this.pianoRoll.setAttribute('colkeyfg',    dark ? '#ccccee' : '#333344');
-        this.pianoRoll.setAttribute('colkeyblack', dark ? '#0d0d1a' : '#303040');
-        this.pianoRoll.redraw?.();
+        if (!this.renderer?.isMounted()) return;
+        this.renderer.setThemeColors(dark ? {
+            colnote:     '#5b9bd5',
+            colnotesel:  '#f5a623',
+            colbg:       '#1a1a2e',
+            colline:     '#333355',
+            colrulerbg:  '#12122a',
+            colrulerfg:  '#8888aa',
+            colkeybg:    '#1e1e38',
+            colkeyfg:    '#ccccee',
+            colkeyblack: '#0d0d1a'
+        } : {
+            colnote:     '#4a90d9',
+            colnotesel:  '#e8931a',
+            colbg:       '#f8f9fa',
+            colline:     '#dde0e6',
+            colrulerbg:  '#eef0f4',
+            colrulerfg:  '#666677',
+            colkeybg:    '#f0f0f4',
+            colkeyfg:    '#333344',
+            colkeyblack: '#303040'
+        });
+        this.renderer?.redraw();
     }
 
     getPianoRollElement() { return this.pianoRoll; }
@@ -225,14 +244,13 @@ class PianoRollEditor {
      * after the host becomes visible (e.g. after a tab switch).
      */
     refit() {
-        if (!this.pianoRoll) return;
+        if (!this.renderer?.isMounted()) return;
         const wrap = this.host?.querySelector('#pre-pianoroll-wrap');
         if (!wrap) return;
         const w = wrap.clientWidth  || 900;
         const h = wrap.clientHeight || 200;
-        this.pianoRoll.setAttribute('width',  w.toString());
-        this.pianoRoll.setAttribute('height', h.toString());
-        this.pianoRoll.redraw?.();
+        this.renderer?.setSize(w, h);
+        this.renderer?.redraw();
         this._syncMinimap();
     }
 
@@ -248,71 +266,71 @@ class PianoRollEditor {
         this._setAriaPressed('[data-pre-action="mode-select"]', mode === 'select');
         this._setAriaPressed('[data-pre-action="mode-draw"]',   mode === 'dragpoly');
         if (this.actions?.setMode) return this.actions.setMode(mode);
-        if (!this.pianoRoll) return;
+        if (!this.renderer?.isMounted()) return;
         const prMode = mode === 'view' ? 'select' : mode;
-        this.pianoRoll.setAttribute('editmode', prMode);
+        this.renderer?.setEditMode();
     }
 
     undo() {
         if (this.actions?.undo) return this.actions.undo();
-        this.pianoRoll?.undo?.();
+        this.renderer?.undo();
         this._emitChange();
     }
 
     redo() {
         if (this.actions?.redo) return this.actions.redo();
-        this.pianoRoll?.redo?.();
+        this.renderer?.redo();
         this._emitChange();
     }
 
     selectAll() {
         if (this.actions?.selectAll) return this.actions.selectAll();
-        if (!this.pianoRoll) return;
-        const seq = Array.isArray(this.pianoRoll.sequence) ? this.pianoRoll.sequence : [];
+        if (!this.renderer?.isMounted()) return;
+        const seq = Array.isArray(this.renderer?.getSequence()) ? this.renderer?.getSequence() ?? [] : [];
         seq.forEach(n => { n.f = 1; });
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
+        this.renderer?.setSequence(seq);
+        this.renderer?.redraw();
     }
 
     copy() {
         if (this.actions?.copy) return this.actions.copy();
-        if (!this.pianoRoll) return;
-        if (typeof this.pianoRoll.copySelection === 'function') {
-            this._clipboard = this.pianoRoll.copySelection() ?? [];
+        if (!this.renderer?.isMounted()) return;
+        if (true) {
+            this._clipboard = this.renderer?.copySelection() ?? [];
         } else {
-            this._clipboard = (this.pianoRoll.sequence || []).filter(n => n.f).map(n => ({ ...n }));
+            this._clipboard = (this.renderer?.getSequence() ?? []).filter(n => n.f).map(n => ({ ...n }));
         }
         this._setStatus(this.t('loopEditor.notesCopied', { count: this._clipboard.length }));
     }
 
     paste() {
         if (this.actions?.paste) return this.actions.paste();
-        if (!this.pianoRoll || !this._clipboard.length) return;
-        const cursor = this.pianoRoll.cursor ?? 0;
-        if (typeof this.pianoRoll.pasteNotes === 'function') {
-            this.pianoRoll.pasteNotes(this._clipboard, cursor);
+        if (!this.renderer?.isMounted() || !this._clipboard.length) return;
+        const cursor = this.renderer?.getCursor() ?? 0;
+        if (true) {
+            this.renderer?.pasteNotes(this._clipboard, cursor);
         } else {
             const minT = Math.min(...this._clipboard.map(n => n.t));
             const pasted = this._clipboard.map(n => ({ ...n, t: n.t - minT + cursor }));
-            this.pianoRoll.sequence = [...(this.pianoRoll.sequence || []), ...pasted];
+            this.renderer?.setSequence([...(this.renderer?.getSequence() ?? []), ...pasted]);
         }
-        this.pianoRoll.redraw?.();
+        this.renderer?.redraw();
         this._syncMinimap();
         this._emitChange();
     }
 
     deleteSelected() {
         if (this.actions?.deleteSelected) return this.actions.deleteSelected();
-        if (!this.pianoRoll) return;
-        this.pianoRoll.sequence = (this.pianoRoll.sequence || []).filter(n => !n.f);
-        this.pianoRoll.redraw?.();
+        if (!this.renderer?.isMounted()) return;
+        this.renderer?.setSequence((this.renderer?.getSequence() ?? []).filter(n => !n.f));
+        this.renderer?.redraw();
         this._syncMinimap();
         this._emitChange();
     }
 
     clearNotes() {
         if (this.actions?.clearNotes) return this.actions.clearNotes();
-        if (this.pianoRoll) { this.pianoRoll.sequence = []; this.pianoRoll.redraw?.(); }
+        if (this.renderer?.isMounted()) { this.renderer?.setSequence([]); this.renderer?.redraw(); }
         this._sequence = [];
         this._syncMinimap();
         this._emitChange();
@@ -320,13 +338,13 @@ class PianoRollEditor {
 
     quantizeSelection() {
         if (this.actions?.quantizeSelection) return this.actions.quantizeSelection();
-        if (!this.pianoRoll) return;
+        if (!this.renderer?.isMounted()) return;
         const q = parseInt(this._fieldVal('pre-quantize') ?? 0);
         if (!q || q <= 0) {
             this._setStatus(this.t('loopEditor.quantizeNoGrid'));
             return;
         }
-        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
+        const seq = Array.isArray(this.renderer?.getSequence()) ? [...this.renderer?.getSequence() ?? []] : [];
         const selected = seq.filter(n => n.f);
         const target = selected.length ? selected : seq;
         let count = 0;
@@ -336,8 +354,8 @@ class PianoRollEditor {
             note.g = Math.max(q, Math.round((note.g || note.l || 120) / q) * q);
             if (note.t !== before) count++;
         }
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
+        this.renderer?.setSequence(seq);
+        this.renderer?.redraw();
         this._syncMinimap();
         this._setStatus(this.t('loopEditor.quantizedNotes', { count }));
         this._emitChange();
@@ -345,10 +363,10 @@ class PianoRollEditor {
 
     applyVelocityToSelection() {
         if (this.actions?.applyVelocity) return this.actions.applyVelocity();
-        if (!this.pianoRoll) return;
+        if (!this.renderer?.isMounted()) return;
         const raw = parseInt(this._fieldVal('pre-velocity') ?? 100);
         const v = Math.max(1, Math.min(127, isNaN(raw) ? 100 : raw));
-        const seq = Array.isArray(this.pianoRoll.sequence) ? [...this.pianoRoll.sequence] : [];
+        const seq = Array.isArray(this.renderer?.getSequence()) ? [...this.renderer?.getSequence() ?? []] : [];
         const selected = seq.filter(n => n.f);
         const target = selected.length ? selected : seq;
         if (!target.length) {
@@ -356,8 +374,8 @@ class PianoRollEditor {
             return;
         }
         for (const note of target) note.v = v;
-        this.pianoRoll.sequence = seq;
-        this.pianoRoll.redraw?.();
+        this.renderer?.setSequence(seq);
+        this.renderer?.redraw();
         this._syncMinimap();
         this._setStatus(this.t('loopEditor.velocityApplied', { count: target.length, velocity: v }));
         this._emitChange();
@@ -365,22 +383,22 @@ class PianoRollEditor {
 
     zoomH(factor) {
         if (this.actions?.zoomH) return this.actions.zoomH(factor);
-        if (!this.pianoRoll) return;
+        if (!this.renderer?.isMounted()) return;
         const total = this._totalTicks();
-        const cur   = parseFloat(this.pianoRoll.getAttribute('xrange') || total);
+        const cur   = parseFloat(this.renderer?.getXRange() ?? total);
         const next  = Math.max(Math.ceil(total / 32), Math.min(total, Math.round(cur * factor)));
-        this.pianoRoll.setAttribute('xrange', next.toString());
-        this.pianoRoll.redraw?.();
+        this.renderer?.setXRange(next);
+        this.renderer?.redraw();
         this._syncMinimap();
     }
 
     zoomV(factor) {
         if (this.actions?.zoomV) return this.actions.zoomV(factor);
-        if (!this.pianoRoll) return;
-        const cur  = parseFloat(this.pianoRoll.getAttribute('yrange') || 36);
+        if (!this.renderer?.isMounted()) return;
+        const cur  = parseFloat(this.renderer?.getYRange() ?? 36);
         const next = Math.max(6, Math.min(128, Math.round(cur * factor)));
-        this.pianoRoll.setAttribute('yrange', next.toString());
-        this.pianoRoll.redraw?.();
+        this.renderer?.setYRange(next);
+        this.renderer?.redraw();
     }
 
     // =====================================================================
@@ -481,47 +499,87 @@ class PianoRollEditor {
     _initPianoRoll() {
         const container = this.host.querySelector('#pre-pianoroll-wrap');
         if (!container) return;
-        if (!customElements?.get?.('webaudio-pianoroll')) {
+
+        // Piano roll renderer abstraction (audit §1.1). Choose the
+        // implementation based on the same flag used by MidiEditorModal:
+        //   - Default: WebaudioPianorollAdapter (third-party lib).
+        //   - Opt-in: CanvasPianoRollRenderer (Canvas maison).
+        // The invariant `this.pianoRoll === this.renderer.getElement()`
+        // is maintained so any external consumer of getPianoRollElement()
+        // keeps working unchanged.
+        const useV2 = (() => {
+            try {
+                const qs = new URLSearchParams(window.location.search);
+                if (qs.get('pianoRollV2') === '1') return true;
+                if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
+            } catch (_) { /* best-effort */ }
+            return false;
+        })();
+        const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
+            ? CanvasPianoRollRenderer
+            : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
+        if (!Impl) {
             container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
             return;
         }
-        this.pianoRoll = document.createElement('webaudio-pianoroll');
+        if (Impl === WebaudioPianorollAdapter && !customElements?.get?.('webaudio-pianoroll')) {
+            container.innerHTML = `<div class="lc-pianoroll-error">${this.t('loopCreator.pianoRollUnavailable')}</div>`;
+            return;
+        }
+
         const total = this._totalTicks();
         const noteSpan0 = this.noteMax - this.noteMin;
         const yrange0   = Math.min(noteSpan0 + 1, 36);
         const yoffset0  = this._centeredYOffset(this.noteMin, this.noteMax, yrange0);
-        this.pianoRoll.setAttribute('width',     container.clientWidth  || 900);
-        this.pianoRoll.setAttribute('height',    container.clientHeight || 200);
-        this.pianoRoll.setAttribute('editmode',  'dragpoly');
-        this.pianoRoll.setAttribute('xrange',    total.toString());
-        this.pianoRoll.setAttribute('yrange',    yrange0.toString());
-        this.pianoRoll.setAttribute('yoffset',   yoffset0.toString());
-        this.pianoRoll.setAttribute('wheelzoom', '1');
-        this.pianoRoll.setAttribute('xscroll',   '1');
-        this.pianoRoll.setAttribute('yscroll',   '1');
-        this.pianoRoll.setAttribute('xruler',    '1');
-        this.pianoRoll.setAttribute('cursor',    '0');
-        this.pianoRoll.setAttribute('markstart', '0');
-        this.pianoRoll.setAttribute('markend',   total.toString());
-        this.pianoRoll.setAttribute('snap',      '120');
-        this.pianoRoll.setAttribute('timebase',  this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo',     this.tempo.toString());
-        this.pianoRoll.setAttribute('colcursor', 'rgba(0,0,0,0)');
-        this.pianoRoll.setAttribute('colmark',   'rgba(0,0,0,0)');
-        if (this.multiChannel) this.pianoRoll.setAttribute('colorize', '1');
+
+        this.renderer = new Impl({
+            container,
+            width:  container.clientWidth  || 900,
+            height: container.clientHeight || 200,
+            ppq:    this.ppq,
+            tempo:  this.tempo,
+            mode:   'dragpoly'
+        });
+        this.renderer.mount();
+        // Reproduce the legacy attribute init sequence via the chainable
+        // renderer API. Adapter forwards to setAttribute on the element;
+        // CanvasPianoRollRenderer applies them to its own state.
+        this.renderer
+            .setXRange(total).setYRange(yrange0).setYOffset(yoffset0)
+            .setMarkers(0, total)
+            .setCursor(0)
+            .beginBatchUpdate()
+                .setTimebase(this.ppq)
+                .setTempo(this.tempo)
+                .setSnap(120)
+            .endBatchUpdate();
+        if (typeof this.renderer.setAttribute === 'function') {
+            // Legacy webaudio-pianoroll knobs that don't map to a contract
+            // method — apply via the adapter's raw setAttribute escape hatch.
+            // CanvasPianoRollRenderer ignores these (no-ops).
+            this.renderer.setAttribute('wheelzoom', '1');
+            this.renderer.setAttribute('xscroll',   '1');
+            this.renderer.setAttribute('yscroll',   '1');
+            this.renderer.setAttribute('xruler',    '1');
+            this.renderer.setAttribute('colcursor', 'rgba(0,0,0,0)');
+            this.renderer.setAttribute('colmark',   'rgba(0,0,0,0)');
+            if (this.multiChannel) this.renderer.setAttribute('colorize', '1');
+        }
         this.applyTheme(document.body.classList.contains('theme-dark'));
-        container.appendChild(this.pianoRoll);
-        this.pianoRoll.sequence = this._sequence;
-        this.pianoRoll.redraw?.();
+        if (typeof this.renderer.attachToContainer === 'function') {
+            this.renderer.attachToContainer();
+        }
+        this.pianoRoll = this.renderer.getElement();
+        this.renderer.setSequence(this._sequence).redraw();
     }
 
     _initMinimap() {
         const canvas = this.externalMinimapEl || this.host.querySelector('#pre-minimap');
         if (!canvas || typeof window.LoopCreatorMinimap !== 'function') return;
         const seekHandler = this.minimapReadOnly ? null : (newOffset) => {
-            if (!this.pianoRoll) return;
-            this.pianoRoll.setAttribute('xoffset', newOffset.toString());
-            this.pianoRoll.redraw?.();
+            if (!this.renderer?.isMounted()) return;
+            this.renderer?.setXOffset(newOffset);
+            this.renderer?.redraw();
             this._syncMinimap();
         };
         this._minimap = new window.LoopCreatorMinimap(canvas, {
@@ -540,11 +598,14 @@ class PianoRollEditor {
             canvas.removeAttribute('tabindex');
             canvas.removeAttribute('role');
         }
-        if (this.pianoRoll) {
-            this._minimapObserver = new MutationObserver(() => this._syncMinimap());
-            this._minimapObserver.observe(this.pianoRoll, {
-                attributes: true, attributeFilter: ['xoffset', 'xrange']
-            });
+        // Sync minimap on viewport changes. Previously this was a
+        // MutationObserver watching xoffset/xrange attributes on the
+        // `<webaudio-pianoroll>` element — works only with that legacy
+        // impl. Audit §1.1 : route via the renderer's `viewportchange`
+        // event which both adapters emit.
+        if (this.renderer?.isMounted()) {
+            this._viewportListener = () => this._syncMinimap();
+            this.renderer.on('viewportchange', this._viewportListener);
         }
         const wrap = this.host.querySelector('#pre-pianoroll-wrap');
         if (wrap) {
@@ -557,31 +618,33 @@ class PianoRollEditor {
         const m = this._minimap;
         if (!m) return;
         const total  = this._totalTicks();
-        const xoff   = parseFloat(this.pianoRoll?.getAttribute?.('xoffset') || 0);
-        const xrange = parseFloat(this.pianoRoll?.getAttribute?.('xrange')  || total) || total;
+        const xoff   = parseFloat(this.renderer?.getXOffset() ?? 0);
+        const xrange = parseFloat(this.renderer?.getXRange() ?? total) || total;
         m.setConfig({ ppq: this.ppq, timeSigNum: this.timeSigNum, bars: this.bars, noteMin: this.noteMin, noteMax: this.noteMax });
-        m.setNotes(this.pianoRoll?.sequence ?? []);
+        m.setNotes(this.renderer?.getSequence() ?? []);
         m.setViewport(xoff, xrange);
         if (this._isRecording && this._recordingPlayheadTick != null) {
             m.setPlayhead(Math.min(total, this._recordingPlayheadTick | 0), true);
         } else {
-            m.setPlayhead(this.pianoRoll?.cursor ?? 0, false);
+            m.setPlayhead(this.renderer?.getCursor() ?? 0, false);
         }
     }
 
     _refreshRange() {
-        if (!this.pianoRoll) return;
+        if (!this.renderer?.isMounted()) return;
         const total = this._totalTicks();
-        this.pianoRoll.setAttribute('xrange',   total.toString());
-        this.pianoRoll.setAttribute('markend',  total.toString());
-        this.pianoRoll.setAttribute('timebase', this.ppq.toString());
-        this.pianoRoll.setAttribute('tempo',    this.tempo.toString());
+        this.renderer
+            ?.setXRange(total)
+             .setMarkers(0, total)
+             .setTimebase(this.ppq)
+             .setTempo(this.tempo);
         const noteSpan = this.noteMax - this.noteMin;
         const yrange   = Math.min(noteSpan + 1, 36);
         const yoffset  = this._centeredYOffset(this.noteMin, this.noteMax, yrange);
-        this.pianoRoll.setAttribute('yrange',  yrange.toString());
-        this.pianoRoll.setAttribute('yoffset', yoffset.toString());
-        this.pianoRoll.redraw?.();
+        this.renderer
+            ?.setYRange(yrange)
+             .setYOffset(yoffset)
+             .redraw();
         this._syncMinimap();
     }
 
@@ -639,7 +702,7 @@ class PianoRollEditor {
         if (f === 'pre-snap') {
             const v = parseInt(e.target.value);
             if (this.actions?.setSnap) this.actions.setSnap(v);
-            else if (this.pianoRoll) this.pianoRoll.snap = v;
+            else if (this.renderer?.isMounted()) this.renderer?.setSnap(v);
         }
     }
 
