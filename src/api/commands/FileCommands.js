@@ -107,7 +107,11 @@ async function fileDelete(app, data) {
  */
 async function fileSaveAs(app, data) {
   const result = await app.fileManager.saveFileAs(data.fileId, data.newFilename, data.midiData);
-  return result;
+  // Normalize to the {success, newFileId, filename} shape the frontend
+  // (MidiEditorFileOps.saveAsFile) expects — `handleUpload` natively returns
+  // {fileId, filename, ...} without a success flag, which made the frontend
+  // throw "Server response indicates failure" on every Save As.
+  return { success: true, newFileId: result.fileId, ...result };
 }
 
 /**

@@ -357,6 +357,7 @@ class LoopManagerModal extends BaseModal {
 
     async _initPadSynth()     { return this.padFeature?.initSynth(); }
     _renderPadGrid()          { this.padFeature?.renderGrid(); }
+    _syncPadControls()        { this.padFeature?._syncControls(); }
     _setPadCols(v)            { this.padFeature?.setCols(v); }
     _setPadRows(v)            { this.padFeature?.setRows(v); }
     _adjustPadCols(d)         { this.padFeature?.adjustCols(d); }
