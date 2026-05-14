@@ -163,6 +163,11 @@
       "enable": "Show animation on startup",
       "description": "Displays an animation with a progress bar on launch. If disabled, the animation only shows on first load (cache cleared)."
     },
+    "pianoRollV2": {
+      "title": "Piano Roll V2 (experimental)",
+      "enable": "Use the new Canvas 2D renderer",
+      "description": "Replaces the third-party webaudio-pianoroll component with an in-house implementation (viewport culling, spatial index). Beta — please report any bug."
+    },
     "midiClock": {
       "title": "MIDI Clock",
       "enable": "Enable MIDI Clock",

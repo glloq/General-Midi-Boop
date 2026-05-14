@@ -62,7 +62,11 @@ class SettingsModal {
             showLoadingAnimation: true,
             soundBank: (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.DEFAULT_BANK_ID) || 'sf2:default',
             startupUpdateCheck: true,
-            startupBetaNotif: false
+            startupBetaNotif: false,
+            // Phase C (audit §1.1 piano roll bascule) — opt-in for the
+            // Canvas-2D V2 renderer. Default false until the V2 has been
+            // exercised in production by power users.
+            usePianoRollV2: false
         };
 
         try {
@@ -326,6 +330,9 @@ class SettingsModal {
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
         if (loadingAnimationToggle) loadingAnimationToggle.checked = this.settings.showLoadingAnimation;
 
+        const pianoRollV2Toggle = this.modal.querySelector('#usePianoRollV2Toggle');
+        if (pianoRollV2Toggle) pianoRollV2Toggle.checked = this.settings.usePianoRollV2;
+
         const startupUpdateCheckToggle = this.modal.querySelector('#startupUpdateCheckToggle');
         if (startupUpdateCheckToggle) startupUpdateCheckToggle.checked = this.settings.startupUpdateCheck;
         const startupBetaNotifToggle = this.modal.querySelector('#startupBetaNotifToggle');
@@ -395,6 +402,7 @@ class SettingsModal {
         const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
         const midiClockToggle = this.modal.querySelector('#midiClockToggle');
         const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
+        const pianoRollV2Toggle = this.modal.querySelector('#usePianoRollV2Toggle');
         const startupUpdateCheckToggle = this.modal.querySelector('#startupUpdateCheckToggle');
         const startupBetaNotifToggle = this.modal.querySelector('#startupBetaNotifToggle');
         const soundBankSelect = this.modal.querySelector('#soundBankSelect');
@@ -429,6 +437,7 @@ class SettingsModal {
             midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
             serialMidiEnabled: serialMidiToggle ? serialMidiToggle.checked : this.settings.serialMidiEnabled,
             showLoadingAnimation: loadingAnimationToggle ? loadingAnimationToggle.checked : this.settings.showLoadingAnimation,
+            usePianoRollV2: pianoRollV2Toggle ? pianoRollV2Toggle.checked : this.settings.usePianoRollV2,
             soundBank: soundBankSelect ? soundBankSelect.value : this.settings.soundBank,
             startupUpdateCheck: startupUpdateCheckToggle ? startupUpdateCheckToggle.checked : this.settings.startupUpdateCheck,
             startupBetaNotif: startupBetaNotifToggle ? startupBetaNotifToggle.checked : this.settings.startupBetaNotif

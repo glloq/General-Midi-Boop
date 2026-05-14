@@ -71,8 +71,14 @@
             // is maintained so non-migrated call sites keep working unchanged.
             const useV2 = (() => {
                 try {
+                    // Precedence (highest → lowest):
+                    //   1. URL flag `?pianoRollV2=1`        — dev override
+                    //   2. SettingsModal toggle             — user-facing
+                    //   3. Legacy localStorage flag         — dev backwards-compat
                     const qs = new URLSearchParams(window.location.search);
                     if (qs.get('pianoRollV2') === '1') return true;
+                    const settings = JSON.parse(localStorage.getItem('gmboop_settings') || '{}');
+                    if (settings.usePianoRollV2 === true) return true;
                     if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
                 } catch (_) { /* best-effort */ }
                 return false;
