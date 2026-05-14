@@ -569,7 +569,7 @@
     }
 
     _syncPianoRollHighlights() {
-        if (!this.modal.pianoRoll) return;
+        if (!this.modal.pianoRollRenderer?.isMounted()) return;
 
     // Build a structure the piano roll can use: Map<channel, {notes: Set|null, color: string}>
     // Only include highlights for visible (active) channels
@@ -580,15 +580,9 @@
             highlights.set(ch, { notes, color });
         });
 
-        this.modal.pianoRoll.channelPlayableHighlights = highlights;
-        this.modal.pianoRoll._highlightsDirty = true;
-
-        if (typeof this.modal.pianoRoll.invalidateGridBuffer === 'function') {
-            this.modal.pianoRoll.invalidateGridBuffer();
-        }
-        if (typeof this.modal.pianoRoll.redraw === 'function') {
-            this.modal.pianoRoll.redraw();
-        }
+        this.modal.pianoRollRenderer?.setChannelPlayableHighlights(highlights);
+        this.modal.pianoRollRenderer?.invalidateGridBuffer();
+        this.modal.pianoRollRenderer?.redraw();
 
     // Sync drum editor: auto-mute non-playable notes
         if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible) {

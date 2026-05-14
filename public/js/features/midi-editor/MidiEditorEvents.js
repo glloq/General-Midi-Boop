@@ -713,13 +713,11 @@
      */
     _scheduleWebaudioPianoRollRedraw(afterRedraw) {
         // Capture the modal reference: by the time the timeout fires, the
-        // modal may have been closed and `this.modal.pianoRoll` cleared.
+        // modal may have been closed and the renderer destroyed.
         const modal = this.modal;
         setTimeout(() => {
-            if (!modal.pianoRoll) return;
-            if (typeof modal.pianoRoll.redraw === 'function') {
-                modal.pianoRoll.redraw();
-            }
+            if (!modal.pianoRollRenderer?.isMounted()) return;
+            modal.pianoRollRenderer.redraw();
             if (typeof afterRedraw === 'function') {
                 try { afterRedraw(); } catch (_) { /* best-effort */ }
             }

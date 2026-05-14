@@ -87,7 +87,9 @@
         // ----------------------------------------------------------------
 
         setTempo(/* bpm */)     { return this; }
+        getTempo()              { return 120; }
         setTimebase(/* ppq */)  { return this; }
+        getTimebase()           { return 480; }
         setGrid(/* ticks */)    { return this; }
         setSnap(/* ticks */)    { return this; }
         setEditMode(/* mode */) { return this; }
@@ -299,7 +301,9 @@
         // ----------------------------------------------------------------
 
         setTempo(bpm)     { if (this._el) this._el.tempo    = bpm;   return this; }
+        getTempo()        { return this._el?.tempo ?? 120; }
         setTimebase(ppq)  { if (this._el) this._el.timebase = ppq;   return this; }
+        getTimebase()     { return this._el?.timebase ?? 480; }
         setGrid(ticks)    { if (this._el) this._el.grid     = ticks; return this; }
         setSnap(ticks)    { if (this._el) this._el.snap     = ticks; return this; }
         setEditMode(mode) {

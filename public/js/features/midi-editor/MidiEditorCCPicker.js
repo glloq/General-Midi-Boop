@@ -194,9 +194,9 @@
 
     // Read the piano-roll parameters
         const options = {
-            timebase: this.modal.pianoRoll?.timebase || 480,
-            xrange: this.modal.pianoRoll?.xrange || 1920,
-            xoffset: this.modal.pianoRoll?.xoffset || 0,
+            timebase: this.modal.pianoRollRenderer?.getTimebase() || 480,
+            xrange: this.modal.pianoRollRenderer?.getXRange() || 1920,
+            xoffset: this.modal.pianoRollRenderer?.getXOffset() || 0,
             grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
             onChange: () => {
     // Mark as dirty on CC/pitch-bend changes
@@ -282,7 +282,7 @@
             xrange: viewport.xrange,
             xoffset: viewport.xoffset,
             grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
-            timebase: this.modal.pianoRoll?.timebase
+            timebase: this.modal.pianoRollRenderer?.getTimebase()
         });
     }
 
@@ -403,9 +403,9 @@
 
     // Read the piano-roll parameters
         const options = {
-            timebase: this.modal.pianoRoll?.timebase || 480,
-            xrange: this.modal.pianoRoll?.xrange || 1920,
-            xoffset: this.modal.pianoRoll?.xoffset || 0,
+            timebase: this.modal.pianoRollRenderer?.getTimebase() || 480,
+            xrange: this.modal.pianoRollRenderer?.getXRange() || 1920,
+            xoffset: this.modal.pianoRollRenderer?.getXOffset() || 0,
             grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
             onChange: (sequence) => {
     // Mark as dirty on velocity changes
@@ -484,9 +484,9 @@
 
     // Read the piano-roll parameters
         const options = {
-            timebase: this.modal.pianoRoll?.timebase || 480,
-            xrange: this.modal.pianoRoll?.xrange || 1920,
-            xoffset: this.modal.pianoRoll?.xoffset || 0,
+            timebase: this.modal.pianoRollRenderer?.getTimebase() || 480,
+            xrange: this.modal.pianoRollRenderer?.getXRange() || 1920,
+            xoffset: this.modal.pianoRollRenderer?.getXOffset() || 0,
             grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
             minTempo: 20,
             maxTempo: 300,
@@ -533,10 +533,10 @@
     }
 
     syncTempoEditor() {
-        if (!this.modal.tempoEditor || !this.modal.pianoRoll) return;
+        if (!this.modal.tempoEditor || !this.modal.pianoRollRenderer?.isMounted()) return;
 
-        this.modal.tempoEditor.setXRange(this.modal.pianoRoll.xrange);
-        this.modal.tempoEditor.setXOffset(this.modal.pianoRoll.xoffset);
+        this.modal.tempoEditor.setXRange(this.modal.pianoRollRenderer?.getXRange());
+        this.modal.tempoEditor.setXOffset(this.modal.pianoRollRenderer?.getXOffset());
         this.modal.tempoEditor.setGrid(this.modal.snapValues[this.modal.currentSnapIndex].ticks);
     }
 
@@ -606,13 +606,13 @@
     }
 
     syncVelocityEditor() {
-        if (!this.modal.velocityEditor || !this.modal.pianoRoll) return;
+        if (!this.modal.velocityEditor || !this.modal.pianoRollRenderer?.isMounted()) return;
 
         this.modal.velocityEditor.syncWith({
-            xrange: this.modal.pianoRoll.xrange,
-            xoffset: this.modal.pianoRoll.xoffset,
+            xrange: this.modal.pianoRollRenderer?.getXRange(),
+            xoffset: this.modal.pianoRollRenderer?.getXOffset(),
             grid: this.modal.snapValues[this.modal.currentSnapIndex].ticks,
-            timebase: this.modal.pianoRoll.timebase
+            timebase: this.modal.pianoRollRenderer?.getTimebase()
         });
     }
 
@@ -633,10 +633,10 @@
         this.modal.sequence = this.modal.fullSequence.filter(note => this.modal.activeChannels.has(note.c));
 
     // Update the piano roll
-        if (this.modal.pianoRoll) {
-            this.modal.pianoRoll.sequence = this.modal.sequence;
-            if (typeof this.modal.pianoRoll.redraw === 'function') {
-                this.modal.pianoRoll.redraw();
+        if (this.modal.pianoRollRenderer?.isMounted()) {
+            this.modal.pianoRollRenderer?.setSequence(this.modal.sequence);
+            if (true) {
+                this.modal.pianoRollRenderer?.redraw();
             }
         }
 

@@ -228,7 +228,7 @@
     }
 
     async saveMidiFile() {
-        if (!this.modal.currentFile || !this.modal.pianoRoll) {
+        if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.log('error', 'Cannot save: no file or piano roll');
             this.modal.showError(this.modal.t('midiEditor.cannotSave'));
             return;
@@ -285,7 +285,7 @@
     }
 
     showSaveAsDialog() {
-        if (!this.modal.currentFile || !this.modal.pianoRoll) {
+        if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.log('error', 'Cannot save as: no file or piano roll');
             this.modal.showError(this.modal.t('midiEditor.cannotSave'));
             return;
@@ -368,7 +368,7 @@
     }
 
     async saveAsFile(newFilename) {
-        if (!this.modal.currentFile || !this.modal.pianoRoll) {
+        if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.log('error', 'Cannot save as: no file or piano roll');
             this.modal.showError(this.modal.t('midiEditor.cannotSave'));
             return;

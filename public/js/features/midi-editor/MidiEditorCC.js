@@ -402,8 +402,8 @@
 
                 // Redimensionner le piano roll pour occuper tout l'espace
                 requestAnimationFrame(() => {
-                    if (this.modal.pianoRoll && typeof this.modal.pianoRoll.redraw === 'function') {
-                        this.modal.pianoRoll.redraw();
+                    if (this.modal.pianoRollRenderer?.isMounted()) {
+                        this.modal.pianoRollRenderer?.redraw();
                     }
                 });
             }

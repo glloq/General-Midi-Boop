@@ -201,8 +201,8 @@
             }
 
     // Stop viewport synchronization
-            if (this.modal.pianoRoll && this.modal._viewportChangeHandler) {
-                this.modal.pianoRoll.removeEventListener('viewportchange', this.modal._viewportChangeHandler);
+            if (this.modal.pianoRollRenderer && this.modal._viewportChangeHandler) {
+                this.modal.pianoRollRenderer.off('viewportchange', this.modal._viewportChangeHandler);
                 this.modal._viewportChangeHandler = null;
             }
         // Fallback: clear legacy polling interval if still present
@@ -212,8 +212,9 @@
             }
 
     // Nettoyer le piano roll
-            if (this.modal.pianoRoll) {
-                this.modal.pianoRoll.remove();
+            if (this.modal.pianoRollRenderer) {
+                this.modal.pianoRollRenderer.destroy();
+                this.modal.pianoRollRenderer = null;
                 this.modal.pianoRoll = null;
             }
 

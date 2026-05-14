@@ -47,12 +47,12 @@
             return;
         }
 
-        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.undo !== 'function') {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.log('warn', 'Undo not available');
             return;
         }
 
-        if (this.modal.pianoRoll.undo()) {
+        if (this.modal.pianoRollRenderer?.undo()) {
             this.modal.log('info', 'Undo successful');
             this.modal.isDirty = true;
             this.modal.routingOps.updateSaveButton();
@@ -80,12 +80,12 @@
             return;
         }
 
-        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.redo !== 'function') {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.log('warn', 'Redo not available');
             return;
         }
 
-        if (this.modal.pianoRoll.redo()) {
+        if (this.modal.pianoRollRenderer?.redo()) {
             this.modal.log('info', 'Redo successful');
             this.modal.isDirty = true;
             this.modal.routingOps.updateSaveButton();
@@ -107,36 +107,36 @@
             return;
         }
 
-        if (!this.modal.pianoRoll) return;
+        if (!this.modal.pianoRollRenderer?.isMounted()) return;
 
         if (undoBtn) {
-            undoBtn.disabled = !this.modal.pianoRoll.canUndo();
+            undoBtn.disabled = !this.modal.pianoRollRenderer?.canUndo();
         }
         if (redoBtn) {
-            redoBtn.disabled = !this.modal.pianoRoll.canRedo();
+            redoBtn.disabled = !this.modal.pianoRollRenderer?.canRedo();
         }
     }
 
     getSelectedNotes() {
-        if (!this.modal.pianoRoll) {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             return [];
         }
 
     // Use the piano roll's public method when available
-        if (typeof this.modal.pianoRoll.getSelectedNotes === 'function') {
-            return this.modal.pianoRoll.getSelectedNotes();
+        if (true) {
+            return this.modal.pianoRollRenderer?.getSelectedNotes();
         }
 
     // Fallback: filter the sequence directly
-        const sequence = this.modal.pianoRoll.sequence || [];
+        const sequence = this.modal.pianoRollRenderer?.getSequence() || [];
         return sequence.filter(note => note.f === 1); // f=1 indicates a selected note
     }
 
     getSelectionCount() {
-        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.getSelectionCount !== 'function') {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             return 0;
         }
-        return this.modal.pianoRoll.getSelectionCount();
+        return this.modal.pianoRollRenderer?.getSelectionCount();
     }
 
     copy() {
@@ -152,7 +152,7 @@
             return;
         }
 
-        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.copySelection !== 'function') {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.showNotification(this.modal.t('midiEditor.copyNotAvailable'), 'error');
             return;
         }
@@ -164,7 +164,7 @@
         }
 
     // Use the piano roll's method
-        this.modal.clipboard = this.modal.pianoRoll.copySelection();
+        this.modal.clipboard = this.modal.pianoRollRenderer?.copySelection();
 
         this.modal.log('info', `Copied ${this.modal.clipboard.length} notes`);
         this.modal.showNotification(this.modal.t('midiEditor.notesCopied', { count: this.modal.clipboard.length }), 'success');
@@ -203,16 +203,16 @@
             return;
         }
 
-        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.pasteNotes !== 'function') {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.showNotification(this.modal.t('midiEditor.pasteNotAvailable'), 'error');
             return;
         }
 
     // Get the current cursor (playhead) position
-        const currentTime = this.modal.pianoRoll.cursor || 0;
+        const currentTime = this.modal.pianoRollRenderer?.getCursor() || 0;
 
     // Use the piano roll's method
-        this.modal.pianoRoll.pasteNotes(this.modal.clipboard, currentTime);
+        this.modal.pianoRollRenderer?.pasteNotes(this.modal.clipboard, currentTime);
 
         this.modal.log('info', `Pasted ${this.modal.clipboard.length} notes`);
         this.modal.showNotification(this.modal.t('midiEditor.notesPasted', { count: this.modal.clipboard.length }), 'success');
@@ -240,7 +240,7 @@
             return;
         }
 
-        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.deleteSelection !== 'function') {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.showNotification(this.modal.t('midiEditor.deleteNotAvailable'), 'error');
             return;
         }
@@ -255,7 +255,7 @@
         const selectedNotes = this.getSelectedNotes();
 
     // Use the piano roll's method
-        this.modal.pianoRoll.deleteSelection();
+        this.modal.pianoRollRenderer?.deleteSelection();
 
     // Delete CC/velocity points associated with deleted notes
         this.deleteAssociatedCCAndVelocity(selectedNotes);
@@ -297,7 +297,7 @@
     // Delete velocity points of deleted notes
     // (velocity is already removed with the note, but we still refresh the editor)
         if (this.modal.velocityEditor) {
-            this.modal.velocityEditor.setSequence(this.modal.pianoRoll.sequence);
+            this.modal.velocityEditor.setSequence(this.modal.pianoRollRenderer?.getSequence());
             this.modal.velocityEditor.renderThrottled();
         }
     }
@@ -308,7 +308,7 @@
     }
 
     async changeChannel() {
-        if (!this.modal.pianoRoll || typeof this.modal.pianoRoll.changeChannelSelection !== 'function') {
+        if (!this.modal.pianoRollRenderer?.isMounted()) {
             this.modal.showNotification(this.modal.t('midiEditor.changeChannelNotAvailable'), 'error');
             return;
         }
@@ -353,7 +353,7 @@
         }
 
     // Use the piano roll's method to move the notes
-        this.modal.pianoRoll.changeChannelSelection(newChannel);
+        this.modal.pianoRollRenderer?.changeChannelSelection(newChannel);
 
         this.modal.log('info', `Changed channel of ${count} notes to ${newChannel}`);
         this.modal.showNotification(this.modal.t('midiEditor.channelChanged', { count }), 'success');
@@ -535,8 +535,8 @@
         }
 
     // Move the selected notes to the new channel
-        if (this.modal.pianoRoll && typeof this.modal.pianoRoll.changeChannelSelection === 'function') {
-            this.modal.pianoRoll.changeChannelSelection(newChannel);
+        if (this.modal.pianoRollRenderer?.isMounted()) {
+            this.modal.pianoRollRenderer?.changeChannelSelection(newChannel);
         }
 
         this.modal.log('info', `Applied instrument ${instrumentName} to ${selectedNotes.length} selected notes (moved to channel ${newChannel + 1})`);
@@ -654,9 +654,9 @@
 
     // Apply snap on the piano roll (visual grid stays fixed at 120)
     // Use the JavaScript property to ensure the change is applied
-        if (this.modal.pianoRoll) {
-            this.modal.pianoRoll.snap = currentSnap.ticks;
-            this.modal.log('info', `Snap to grid changed to ${currentSnap.label} (${currentSnap.ticks} ticks) - snap property set to ${this.modal.pianoRoll.snap}`);
+        if (this.modal.pianoRollRenderer?.isMounted()) {
+            this.modal.pianoRollRenderer?.setSnap(currentSnap.ticks);
+            this.modal.log('info', `Snap to grid changed to ${currentSnap.label} (${currentSnap.ticks} ticks) - snap property set to ${this.modal.pianoRollRenderer?.getElement()?.snap}`);
         }
 
     // Sync every editor
@@ -676,8 +676,8 @@
         this.modal.routingOps.updateSaveButton();
 
     // Update the piano roll
-        if (this.modal.pianoRoll) {
-            this.modal.pianoRoll.tempo = newTempo;
+        if (this.modal.pianoRollRenderer?.isMounted()) {
+            this.modal.pianoRollRenderer?.setTempo(newTempo);
         }
 
     // Update the synthesizer if it exists
@@ -703,8 +703,8 @@
             }
         } else {
     // Use the piano roll's setUIMode method
-            if (this.modal.pianoRoll && typeof this.modal.pianoRoll.setUIMode === 'function') {
-                this.modal.pianoRoll.setUIMode(mode);
+            if (this.modal.pianoRollRenderer?.isMounted()) {
+                this.modal.pianoRollRenderer?.setUIMode(mode);
             }
         }
 
@@ -832,8 +832,8 @@
         }
 
     // Piano roll: select all notes
-        if (this.modal.pianoRoll && typeof this.modal.pianoRoll.selectAll === 'function') {
-            this.modal.pianoRoll.selectAll();
+        if (this.modal.pianoRollRenderer?.isMounted()) {
+            this.modal.pianoRollRenderer?.selectAll();
             this.updateEditButtons();
         }
     }
@@ -985,9 +985,9 @@
         }
 
         // Default: piano roll
-        if (this.modal.pianoRoll) {
-            const xoffset = this.modal.pianoRoll.xoffset || 0;
-            const xrange = this.modal.pianoRoll.xrange || 1920;
+        if (this.modal.pianoRollRenderer?.isMounted()) {
+            const xoffset = this.modal.pianoRollRenderer?.getXOffset() || 0;
+            const xrange = this.modal.pianoRollRenderer?.getXRange() || 1920;
             const headerWidth = 64; // yruler 24 + kbwidth 40
             const tpp = xrange / Math.max(1, containerWidth - headerWidth);
             return { xoffset, xrange, ticksPerPixel: tpp };
