@@ -369,3 +369,198 @@ Audit finding : KM-M1 phase 2.
   d'un module pur, les tests guident la migration.
 
 ---
+
+## MIDI editor — findings d'audit non traités
+
+**Contexte.** L'audit `tu-es-un-expert-wiggly-cocke.md` listait 14 catégories
+de findings (§1.1 → §9.x). Sur la branche `claude/dazzling-dijkstra-Es6lw`,
+10 catégories sont closes (§1.1 PianoRollRenderer abstraction, §1.3 god-class
+split complet, §2.4 cursor RAF coalescing, §2.5 hack isolé,
+§3.1+§3.2 CanvasPianoRollRenderer + grid-bucket spatial index opt-in,
+§3.3 bit-packing, §5.4 WS reconnect infini, §6.1 BaseLaneEditor,
+§6.2 CanvasRenderer, §6.3 RAF coalescing lane editors, §6.4 PlaybackSync hub,
+§6.5 MidiEditorTablature split, §7.1 AbortController, §7.2 resize throttling).
+
+Les findings ci-dessous **restent ouverts** parce qu'ils nécessitent soit un
+effort >2 semaines (changement de modèle de données), soit du test runtime
+browser que les sessions Claude Code n'ont pas pu effectuer.
+
+### §1.2 — `MidiProjectStore` + `MidiSequenceIndex`
+
+**Constat.** Le `MidiEditorModal` (623 l.) reste un point d'agrégation pour
+14 sous-modules qui accèdent tous directement à ~150 propriétés partagées.
+Chaque listener `change` du piano roll déclenche `syncFullSequenceFromPianoRoll`
+qui re-trie la séquence complète en O(n log n) sur chaque édition (debounce
+100 ms seulement). Sur 10 000 notes, latence cumulée non négligeable.
+
+**Options de fix.**
+
+1. **Store immuable + événements typés** : `MidiProjectStore` qui possède la
+   séquence canonique (immutable), expose des actions typées
+   (`addNote`, `moveNotes`, `deleteNotes`, `changeChannel`…), émet des
+   événements typés que les sous-modules consomment. Les sous-modules
+   deviennent purement réactifs.
+   - **+** Testabilité unitaire complète du store (pas de DOM).
+   - **+** Suppression du couplage rétro entre modules (toolbar / playback /
+     tablature ne se "voient" plus).
+   - **−** Toutes les mutations actuelles `this.modal.X = Y` doivent passer
+     par `store.dispatch(...)`. Migration mécanique mais touche ~50 fichiers.
+
+2. **Segment tree / interval tree sur les ticks** : `MidiSequenceIndex` qui
+   indexe les notes par range `[tick, tick+gate]`. Requêtes O(log n + k)
+   pour "notes intersectant `[t0, t1]`" — utile pour viewport culling,
+   collision detection à l'édition, scheduling lookahead playback.
+   - **+** Hit-tests, drag-select, paste-conflict en O(log n) au lieu de O(n).
+   - **+** Édition d'orchestre 10k+ notes devient fluide.
+   - **−** Maintenance de l'index à chaque mutation (insert / delete / move).
+     Coût amorti faible mais ~150 LOC d'invariants à tester.
+
+3. **Hybride** : store immuable mais indexe seulement à la demande. Cache
+   d'index reconstruit paresseusement quand un consumer fait une requête
+   range.
+   - **+** Évite la complexité d'invariants tant qu'aucun consumer ne
+     demande de range query.
+   - **−** Premier hit cher (rebuild complet).
+
+**Recommandation.** Option 1 d'abord (store), option 2 en deuxième temps
+quand on aura besoin des range queries (typiquement après §3.1 Phase C
+quand le V2 Canvas renderer sera default et fera viewport culling).
+
+**Effort estimé.** 3-4 semaines pour option 1 seule, +1 semaine pour ajouter
+l'index. À planifier comme un sprint dédié, pas en bord d'autre tâche.
+
+---
+
+### §4.1 — Filtre canaux invisibles dans le rendu
+
+**Constat.** `modal.sequence` est filtré par `activeChannels` (les canaux
+visibles dans le piano roll) — déjà OK. Mais le `channelDisabled` (mute
+synth) n'a aucun effet sur le rendu : un canal muet reste visible et
+plein-couleur dans le piano roll.
+
+**Question UX préalable.** Le canal mute doit être :
+
+1. **Invisible** (caché complètement) — cohérent avec mute = "pas de son ET
+   pas dans la vue", mais l'utilisateur perd le repère visuel.
+2. **Ghost** (rendu translucide / gris) — repère visuel conservé, comportement
+   habituel des DAW pro (Ableton, Logic, Reaper).
+3. **Inchangé** (comportement actuel) — mute n'affecte que l'audio.
+
+**Effort estimé.** Trivial (1 j) une fois la décision prise. Le filtre ou la
+modulation de l'opacité passent par `PianoRollRenderer.setChannelColors` /
+`setChannelOpacity` (à ajouter à l'API). Ne pas implémenter sans avoir validé
+le choix UX en browser.
+
+---
+
+### §4.2 — `ChannelState` centralisé
+
+**Constat.** Couleurs, mute, solo, instrument routing, transposition,
+playable-notes highlights — répliqués sur 5 modules (`MidiEditorModal`,
+`MidiEditorChannelPanel`, `MidiEditorRouting` via `routingOps`,
+`MidiEditorTablature` via `tablatureOps`, `MidiEditorPlayback`). Synchronisation
+manuelle via `routingOps.updateChannelButtons()`,
+`tablatureOps._updateChipRouting(channel)`, etc. Les bugs de désync sont
+courants (audit `AUDIT_FRONTEND_2026-05-14.md` §3.2).
+
+**Options de fix.**
+
+1. **Store dédié `ChannelState`** : module avec API `getChannel(idx)`,
+   `setRouting(idx, value)`, `setDisabled(idx, bool)`, `setHighlight(idx, set)`,
+   etc. Émet `channel:changed` quand un canal mute. Tous les sous-modules
+   s'y abonnent et purgent leurs copies locales.
+   - **+** Élimine ~10 bugs latents de désync.
+   - **−** Refactor cascading sur les 5 modules cités. Sans browser test,
+     risque élevé de régression UX.
+
+2. **Getters / setters sur le modal** : laisser l'état sur `modal` mais
+   exposer des getters réactifs qui notifient via le `eventBus` existant.
+   Moins disruptif que l'option 1.
+   - **+** Migration progressive (un module à la fois).
+   - **−** Le modal reste le god-state object.
+
+**Recommandation.** Combiner avec §1.2 (le store général est l'endroit
+naturel pour `ChannelState`). Ne pas faire les deux séparément.
+
+**Effort estimé.** 1-2 semaines comme partie de §1.2, ou 1 semaine
+standalone (option 2). À ne PAS attaquer sans browser test possible —
+les sync-bugs apparaissent surtout sur des combinaisons d'actions
+(switch tab, change routing, mute then route, etc.) impossibles à
+couvrir en lecture statique de code.
+
+---
+
+### Phase C piano roll — bascule V2 par défaut + dépréciation lib tierce
+
+**Constat.** `CanvasPianoRollRenderer` (1059 l., audit §3.1+§3.2) est
+opérationnel mais opt-in via `?pianoRollV2=1` ou
+`localStorage.gmboop_piano_roll_v2 = '1'`. La lib tierce
+`webaudio-pianoroll-custom.js` (2207 LOC, non maintenue) reste le défaut.
+
+**Plan de bascule (extrait du plan d'audit, recopié pour traçabilité).**
+
+1. **Setting `usePianoRollV2`** dans `SettingsModal` (localStorage,
+   default `false` — déjà géré par le flag actuel).
+2. **Période bêta opt-in** : annonce dans CHANGELOG / Discord, demander
+   aux power users de tester. Critère go/no-go : 0 régression bloquante
+   signalée sur 2 semaines.
+3. **Bascule du default → V2** : passer `default=true` dans le settings.
+   La V1 reste accessible via setting "Use legacy piano roll" pour
+   recovery.
+4. **Cycle de release + hotfix** : 1 release patch dédiée à la V2-default,
+   monitoring serré des erreurs côté Pi.
+5. **Suppression** :
+   - `public/lib/webaudio-pianoroll-custom.js` (−2 207 LOC)
+   - `WebaudioPianorollAdapter` dans `public/js/features/piano-roll/PianoRollRenderer.js`
+   - L'invariant `this.modal.pianoRoll === renderer.getElement()` (plus
+     besoin une fois la lib retirée).
+   - `MidiEditorViewport.scheduleRedraw` (le hack §2.5 disparaît).
+   - Le hack double-call `setTimeout(32)` dans `MidiEditorResize.attachHandler`.
+
+**Pré-requis.** Browser test obligatoire — pas faisable en session
+Claude Code sans accès Chromium. La V2 a déjà été testée syntactiquement
+mais aucune session humaine ne l'a exercée en édition réelle. Risques
+identifiés : édition multi-channel, copy/paste avec offset, drag-move
+batch, undo/redo profond, sélection rect sur dense sequence.
+
+**Effort.** 1 j cumulé de travail Claude (cleanup post-bascule) + 2
+semaines de bêta + 1 release. À planifier après une session de QA
+browser dédiée.
+
+---
+
+### Bug préexistant — `fileChannels` undefined dans `MidiEditorLaneEditors`
+
+**Constat.** `MidiEditorLaneEditors.js` ligne ~89 (dans `initCCEditor`),
+le log final affiche `File channels: [${fileChannels.map(...)}]` —
+mais `fileChannels` n'est déclaré qu'à l'intérieur du `else` plus haut
+(quand `activeChannels.size !== 1`). Quand exactement un canal est
+actif, `fileChannels` n'existe pas → `ReferenceError`.
+
+**Origine.** Bug préexistant au refactor §1.3 (présent dans
+`MidiEditorCCPicker.js` avant l'extraction, commit antérieur à `f57b7e5`).
+Pas introduit par cette session, mais identifié au passage par l'audit
+critique du `git diff`.
+
+**Fix.** Déclarer `let fileChannels = [];` au-dessus du `if`, ou retirer
+le log conditionnel. Trivial mais à valider que le log est utile
+(`fileChannels` apparaît uniquement dans cette ligne).
+
+**Effort.** 5 min.
+
+---
+
+### Pré-requis pour attaquer ces items MIDI editor
+
+- **Accès navigateur Chromium** pour QA runtime — sinon §1.2, §4.x et
+  Phase C ne peuvent pas être validés sans risque de régression.
+- **Suite de tests e2e** (Playwright ou équivalent) couvrant les scénarios :
+  ouvrir un MIDI 10k+ notes, drag-select 500 notes, change channel,
+  paste, undo/redo, scrub timeline pendant playback, ouvrir/fermer
+  modal 50× (memory leak).
+- **Profile baseline** (Chrome DevTools Performance) sur un projet réel
+  avant chaque optimisation pour mesurer le gain.
+- **Build pipeline** capable de basculer la default V2 via setting
+  exposé en UI (vs. flag dev actuel).
+
+---
