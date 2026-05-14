@@ -110,6 +110,32 @@
                         </label>
                     </div>
                 </div>
+
+                <!-- Piano Roll V2 (audit §1.1 / Phase C) -->
+                <div class="settings-section" style="margin-top: 16px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">🧪 ${i18n.t('settings.pianoRollV2.title') || 'Piano Roll V2 (expérimental)'}</h3>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div style="flex: 1;">
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.pianoRollV2.enable') || 'Utiliser le nouveau moteur de rendu Canvas 2D'}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.pianoRollV2.description') || 'Remplace le composant tiers webaudio-pianoroll par une implémentation maison plus rapide (viewport culling, index spatial). Beta — signale tout bug rencontré.'}</p>
+                        </div>
+                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
+                            <input type="checkbox" id="usePianoRollV2Toggle" ${this.settings.usePianoRollV2 ? 'checked' : ''}
+                                   style="opacity: 0; width: 0; height: 0;">
+                            <span class="toggle-slider" style="
+                                position: absolute;
+                                cursor: pointer;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background-color: #ccc;
+                                transition: 0.4s;
+                                border-radius: 30px;
+                            "></span>
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <!-- ═══════════════════════════════════════ -->
