@@ -15,6 +15,10 @@
             // attached on `document` / `window` should pass `{ signal }` so a
             // single `detachEvents()` call wipes them all (audit §7.1, §8.1).
             this._abortController = null;
+            // Sub-feature: zoom + scroll + navigation overview (audit §1.3).
+            this.viewport = typeof MidiEditorViewport !== 'undefined'
+                ? new MidiEditorViewport(this)
+                : null;
         }
 
         /**
@@ -673,216 +677,15 @@
         this.modal.log('info', `Piano roll reloaded: ${this.modal.sequence.length} notes, xrange=${xrange}, yrange=${noteRange}`);
     }
 
-    zoomHorizontal(factor) {
-    // Dispatch to specialized editor if active
-        const specializedRenderer = this.modal.editActions?._getActiveSpecializedRenderer();
-        if (specializedRenderer && typeof specializedRenderer.setZoom === 'function') {
-            const currentTPP = specializedRenderer.ticksPerPixel || 2;
-    // factor < 1 = zoom in (reduce ticksPerPixel), factor > 1 = zoom out
-            specializedRenderer.setZoom(currentTPP * factor);
-            this.modal.ccPicker.syncAllEditors();
-            return;
-        }
-
-        const renderer = this.modal.pianoRollRenderer;
-        if (!renderer?.isMounted()) {
-            this.modal.log('warn', 'Cannot zoom: piano roll not initialized');
-            return;
-        }
-
-        const currentRange = renderer.getXRange() || 128;
-        const newRange = Math.max(16, Math.min(100000, Math.round(currentRange * factor)));
-        renderer.setXRange(newRange);
-
-        this._scheduleWebaudioPianoRollRedraw(() => this.modal.ccPicker.syncAllEditors());
-        this.modal.log('info', `Horizontal zoom: ${currentRange} -> ${newRange}`);
-    }
-
-    /**
-     * Workaround for the third-party `<webaudio-pianoroll>` component: a
-     * synchronous `.redraw()` right after an attribute change picks up
-     * stale layout. The component needs at least one layout pass before
-     * its internal geometry catches up. We defer the redraw to the next
-     * macrotask (audit §2.5 — flagged as hack).
-     *
-     * TODO(audit §1.1): remove once the renderer is migrated off the
-     * third-party component. Keep all calls funnelled through this
-     * helper so the hack stays in one place.
-     *
-     * @param {Function} [afterRedraw] - optional follow-up (e.g. sync sub-editors).
-     */
-    _scheduleWebaudioPianoRollRedraw(afterRedraw) {
-        // Capture the modal reference: by the time the timeout fires, the
-        // modal may have been closed and the renderer destroyed.
-        const modal = this.modal;
-        setTimeout(() => {
-            if (!modal.pianoRollRenderer?.isMounted()) return;
-            modal.pianoRollRenderer.redraw();
-            if (typeof afterRedraw === 'function') {
-                try { afterRedraw(); } catch (_) { /* best-effort */ }
-            }
-        }, 50);
-    }
-
-    zoomVertical(factor) {
-    // Dispatch to specialized editor if active
-        const specializedRenderer = this.modal.editActions?._getActiveSpecializedRenderer();
-        if (specializedRenderer && typeof specializedRenderer.setVerticalZoom === 'function') {
-            specializedRenderer.setVerticalZoom(factor);
-            this.modal.ccPicker.syncAllEditors();
-            return;
-        }
-
-        const renderer = this.modal.pianoRollRenderer;
-        if (!renderer?.isMounted()) {
-            this.modal.log('warn', 'Cannot zoom: piano roll not initialized');
-            return;
-        }
-
-        const currentRange = renderer.getYRange() || 36;
-        const newRange = Math.max(12, Math.min(88, Math.round(currentRange * factor)));
-        renderer.setYRange(newRange);
-
-        this._scheduleWebaudioPianoRollRedraw();
-        this.modal.log('info', `Vertical zoom: ${currentRange} -> ${newRange}`);
-    }
-
-    _initNavigationOverview(maxTick, xrange) {
-        const overviewContainer = this.modal.container?.querySelector('#navigation-overview-container');
-        if (!overviewContainer || typeof NavigationOverviewBar === 'undefined') return;
-
-    // Clean up previous instance
-        if (this.modal.navigationBar) {
-            this.modal.navigationBar.destroy();
-            this.modal.navigationBar = null;
-        }
-
-        this.modal.navigationBar = new NavigationOverviewBar(overviewContainer, {
-            height: 20,
-            onNavigate: (percentage) => {
-                this.scrollHorizontal(percentage);
-            },
-            onZoom: (factor) => {
-                this.zoomHorizontal(factor);
-            }
-        });
-
-        this.modal.navigationBar.setViewport(0, xrange, maxTick);
-        this._updateNavigationMinimap();
-        this.modal.log('info', `Navigation overview bar initialized: maxTick=${maxTick}, xrange=${xrange}`);
-    }
-
-    _updateNavigationMinimap() {
-        if (!this.modal.navigationBar) return;
-        if (this.modal.activeChannels && this.modal.activeChannels.size === 1) {
-            const ch = Array.from(this.modal.activeChannels)[0];
-            const source = this.modal.fullSequence || this.modal.sequence || [];
-            const notes = source.filter(n => n.c === ch);
-            const color = (this.modal.channelColors && this.modal.channelColors[ch]) || '#888';
-            this.modal.navigationBar.setMinimap(notes, color);
-        } else {
-            this.modal.navigationBar.setMinimap(null);
-        }
-    }
-
-    setupScrollSynchronization() {
-        if (!this.modal.pianoRollRenderer?.isMounted()) return;
-
-        let syncScheduled = false;
-
-        const onViewportChange = (e) => {
-            if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible) return;
-
-            const { xoffset, xrange } = e.detail;
-
-            // Update navigation overview bar
-            const maxTick = this.modal.midiData?.maxTick || 0;
-            this.modal.navigationBar?.setViewport(xoffset, xrange, maxTick);
-
-            if (!syncScheduled) {
-                syncScheduled = true;
-                requestAnimationFrame(() => {
-                    this.modal.ccPicker.syncAllEditors();
-                    syncScheduled = false;
-                });
-            }
-        };
-
-        // Route via the renderer abstraction — back-compat with the
-        // current adapter (forwards to addEventListener under the hood).
-        this.modal.pianoRollRenderer?.on('viewportchange', onViewportChange);
-        // Store reference for cleanup
-        this.modal._viewportChangeHandler = onViewportChange;
-    }
-
-    scrollHorizontal(percentage) {
-    // Compute the offset based on the total range of the MIDI file
-        const maxTick = this.modal.midiData?.maxTick || 0;
-
-        const renderer = this.modal.pianoRollRenderer;
-        if (renderer?.isMounted()) {
-            const xrange = renderer.getXRange() || 128;
-            const maxOffset = Math.max(0, maxTick - xrange);
-            const newOffset = Math.round((percentage / 100) * maxOffset);
-            renderer.setXOffset(newOffset);
-
-    // Do not redraw the piano roll while it is hidden (wind editor active)
-            if (!(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
-                renderer.redraw();
-            }
-        }
-
-    // Sync the tablature
-        if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible && this.modal.tablatureEditor.renderer) {
-            const renderer = this.modal.tablatureEditor.renderer;
-            const canvasWidth = this.modal.tablatureEditor.tabCanvasEl?.width || 800;
-            const visibleTicks = (canvasWidth - renderer.headerWidth) * renderer.ticksPerPixel;
-            const maxOffset = Math.max(0, maxTick - visibleTicks);
-            const newOffset = Math.round((percentage / 100) * maxOffset);
-            renderer.setScrollX(newOffset);
-        }
-
-    // Sync the drum editor
-        if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible && this.modal.drumPatternEditor.gridRenderer) {
-            const renderer = this.modal.drumPatternEditor.gridRenderer;
-            const canvasWidth = this.modal.drumPatternEditor.gridCanvasEl?.width || 800;
-            const visibleTicks = (canvasWidth - (renderer.headerWidth || 0)) * (renderer.ticksPerPixel || 2);
-            const maxOffset = Math.max(0, maxTick - visibleTicks);
-            const newOffset = Math.round((percentage / 100) * maxOffset);
-            renderer.setScrollX(newOffset);
-        }
-
-    // Sync the wind editor
-        if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible) {
-            this.modal.windInstrumentEditor.scrollHorizontal(percentage);
-        }
-
-    // Sync the CC editor
-        this.modal.ccPicker.syncCCEditor();
-    }
-
-    scrollVertical(percentage) {
-        const renderer = this.modal.pianoRollRenderer;
-        if (renderer?.isMounted()) {
-            const yrange = renderer.getYRange() || 36;
-
-    // Full MIDI range: notes 0-127
-            const totalMidiRange = 128;
-            const maxOffset = Math.max(0, totalMidiRange - yrange);
-            const newOffset = Math.round((percentage / 100) * maxOffset);
-            renderer.setYOffset(newOffset);
-
-    // Do not redraw the piano roll while it is hidden (wind editor active)
-            if (!(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
-                renderer.redraw();
-            }
-        }
-
-    // Sync the wind editor
-        if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible) {
-            this.modal.windInstrumentEditor.scrollVertical(percentage);
-        }
-    }
+    // Delegates to viewport sub-feature (extracted per audit §1.3)
+    zoomHorizontal(factor)                        { return this.viewport?.zoomHorizontal(factor); }
+    zoomVertical(factor)                          { return this.viewport?.zoomVertical(factor); }
+    _scheduleWebaudioPianoRollRedraw(afterRedraw) { return this.viewport?.scheduleRedraw(afterRedraw); }
+    _initNavigationOverview(maxTick, xrange)      { return this.viewport?.initNavigationOverview(maxTick, xrange); }
+    _updateNavigationMinimap()                    { return this.viewport?.updateNavigationMinimap(); }
+    setupScrollSynchronization()                  { return this.viewport?.setupScrollSynchronization(); }
+    scrollHorizontal(percentage)                  { return this.viewport?.scrollHorizontal(percentage); }
+    scrollVertical(percentage)                    { return this.viewport?.scrollVertical(percentage); }
 
     _applyPianoRollTheme() {
         const renderer = this.modal.pianoRollRenderer;

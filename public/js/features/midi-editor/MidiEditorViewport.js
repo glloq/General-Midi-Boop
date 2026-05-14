@@ -1,0 +1,242 @@
+// ============================================================================
+// File: public/js/features/midi-editor/MidiEditorViewport.js
+// Description: Zoom + scroll + navigation overview bar — extracted from
+//   MidiEditorEvents per audit §1.3 (god-class split).
+//
+// Owns:
+//   - `zoomHorizontal(factor)` / `zoomVertical(factor)` — dispatch to the
+//     active specialized renderer if any, else the piano roll renderer.
+//   - `scheduleRedraw(after)` — workaround for the third-party
+//     `<webaudio-pianoroll>` stale-layout bug (audit §2.5 hack ; removed
+//     once the V2 renderer is the default).
+//   - `initNavigationOverview()` / `updateNavigationMinimap()` — the
+//     overview bar at the bottom of the modal.
+//   - `setupScrollSynchronization()` — viewportchange listener that
+//     propagates xoffset/xrange to the nav bar and sub-editors.
+//   - `scrollHorizontal(pct)` / `scrollVertical(pct)` — drive the piano
+//     roll + every visible specialized editor from a single % slider.
+//
+// Accessed via `modal.events.viewport`. MidiEditorEvents keeps thin
+// delegate methods preserving the legacy names so external callers
+// (MidiEditorPianoRollBoot, MidiEditorSequence, MidiEditorToolbar
+// dispatch in attachEvents) are unchanged.
+// ============================================================================
+
+(function () {
+    'use strict';
+
+    class MidiEditorViewport {
+        /** @param {MidiEditorEvents} parent */
+        constructor(parent) {
+            this.parent = parent;
+            this.modal = parent.modal;
+        }
+
+        // ----------------------------------------------------------------
+        // Zoom
+        // ----------------------------------------------------------------
+
+        zoomHorizontal(factor) {
+            // Dispatch to specialized editor if active
+            const specializedRenderer = this.modal.editActions?._getActiveSpecializedRenderer();
+            if (specializedRenderer && typeof specializedRenderer.setZoom === 'function') {
+                const currentTPP = specializedRenderer.ticksPerPixel || 2;
+                // factor < 1 = zoom in (reduce ticksPerPixel), factor > 1 = zoom out
+                specializedRenderer.setZoom(currentTPP * factor);
+                this.modal.ccPicker.syncAllEditors();
+                return;
+            }
+
+            const renderer = this.modal.pianoRollRenderer;
+            if (!renderer?.isMounted()) {
+                this.modal.log('warn', 'Cannot zoom: piano roll not initialized');
+                return;
+            }
+
+            const currentRange = renderer.getXRange() || 128;
+            const newRange = Math.max(16, Math.min(100000, Math.round(currentRange * factor)));
+            renderer.setXRange(newRange);
+
+            this.scheduleRedraw(() => this.modal.ccPicker.syncAllEditors());
+            this.modal.log('info', `Horizontal zoom: ${currentRange} -> ${newRange}`);
+        }
+
+        zoomVertical(factor) {
+            // Dispatch to specialized editor if active
+            const specializedRenderer = this.modal.editActions?._getActiveSpecializedRenderer();
+            if (specializedRenderer && typeof specializedRenderer.setVerticalZoom === 'function') {
+                specializedRenderer.setVerticalZoom(factor);
+                this.modal.ccPicker.syncAllEditors();
+                return;
+            }
+
+            const renderer = this.modal.pianoRollRenderer;
+            if (!renderer?.isMounted()) {
+                this.modal.log('warn', 'Cannot zoom: piano roll not initialized');
+                return;
+            }
+
+            const currentRange = renderer.getYRange() || 36;
+            const newRange = Math.max(12, Math.min(88, Math.round(currentRange * factor)));
+            renderer.setYRange(newRange);
+
+            this.scheduleRedraw();
+            this.modal.log('info', `Vertical zoom: ${currentRange} -> ${newRange}`);
+        }
+
+        /**
+         * Workaround for the third-party `<webaudio-pianoroll>` component: a
+         * synchronous `.redraw()` right after an attribute change picks up
+         * stale layout. We defer the redraw to the next macrotask (audit §2.5).
+         *
+         * TODO(audit §1.1): remove once the V2 renderer is the default.
+         */
+        scheduleRedraw(afterRedraw) {
+            const modal = this.modal;
+            setTimeout(() => {
+                if (!modal.pianoRollRenderer?.isMounted()) return;
+                modal.pianoRollRenderer.redraw();
+                if (typeof afterRedraw === 'function') {
+                    try { afterRedraw(); } catch (_) { /* best-effort */ }
+                }
+            }, 50);
+        }
+
+        // ----------------------------------------------------------------
+        // Navigation overview bar
+        // ----------------------------------------------------------------
+
+        initNavigationOverview(maxTick, xrange) {
+            const overviewContainer = this.modal.container?.querySelector('#navigation-overview-container');
+            if (!overviewContainer || typeof NavigationOverviewBar === 'undefined') return;
+
+            if (this.modal.navigationBar) {
+                this.modal.navigationBar.destroy();
+                this.modal.navigationBar = null;
+            }
+
+            this.modal.navigationBar = new NavigationOverviewBar(overviewContainer, {
+                height: 20,
+                onNavigate: (percentage) => this.scrollHorizontal(percentage),
+                onZoom:     (factor)     => this.zoomHorizontal(factor),
+            });
+
+            this.modal.navigationBar.setViewport(0, xrange, maxTick);
+            this.updateNavigationMinimap();
+            this.modal.log('info', `Navigation overview bar initialized: maxTick=${maxTick}, xrange=${xrange}`);
+        }
+
+        updateNavigationMinimap() {
+            if (!this.modal.navigationBar) return;
+            if (this.modal.activeChannels && this.modal.activeChannels.size === 1) {
+                const ch = Array.from(this.modal.activeChannels)[0];
+                const source = this.modal.fullSequence || this.modal.sequence || [];
+                const notes = source.filter(n => n.c === ch);
+                const color = (this.modal.channelColors && this.modal.channelColors[ch]) || '#888';
+                this.modal.navigationBar.setMinimap(notes, color);
+            } else {
+                this.modal.navigationBar.setMinimap(null);
+            }
+        }
+
+        // ----------------------------------------------------------------
+        // Scroll synchronization
+        // ----------------------------------------------------------------
+
+        setupScrollSynchronization() {
+            if (!this.modal.pianoRollRenderer?.isMounted()) return;
+
+            let syncScheduled = false;
+
+            const onViewportChange = (e) => {
+                if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible) return;
+
+                const { xoffset, xrange } = e.detail;
+
+                // Update navigation overview bar
+                const maxTick = this.modal.midiData?.maxTick || 0;
+                this.modal.navigationBar?.setViewport(xoffset, xrange, maxTick);
+
+                if (!syncScheduled) {
+                    syncScheduled = true;
+                    requestAnimationFrame(() => {
+                        this.modal.ccPicker.syncAllEditors();
+                        syncScheduled = false;
+                    });
+                }
+            };
+
+            this.modal.pianoRollRenderer?.on('viewportchange', onViewportChange);
+            this.modal._viewportChangeHandler = onViewportChange;
+        }
+
+        scrollHorizontal(percentage) {
+            const maxTick = this.modal.midiData?.maxTick || 0;
+
+            const renderer = this.modal.pianoRollRenderer;
+            if (renderer?.isMounted()) {
+                const xrange = renderer.getXRange() || 128;
+                const maxOffset = Math.max(0, maxTick - xrange);
+                const newOffset = Math.round((percentage / 100) * maxOffset);
+                renderer.setXOffset(newOffset);
+
+                if (!(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
+                    renderer.redraw();
+                }
+            }
+
+            // Sync the tablature
+            if (this.modal.tablatureEditor && this.modal.tablatureEditor.isVisible && this.modal.tablatureEditor.renderer) {
+                const tabR = this.modal.tablatureEditor.renderer;
+                const canvasWidth = this.modal.tablatureEditor.tabCanvasEl?.width || 800;
+                const visibleTicks = (canvasWidth - tabR.headerWidth) * tabR.ticksPerPixel;
+                const maxOffset = Math.max(0, maxTick - visibleTicks);
+                const newOffset = Math.round((percentage / 100) * maxOffset);
+                tabR.setScrollX(newOffset);
+            }
+
+            // Sync the drum editor
+            if (this.modal.drumPatternEditor && this.modal.drumPatternEditor.isVisible && this.modal.drumPatternEditor.gridRenderer) {
+                const drumR = this.modal.drumPatternEditor.gridRenderer;
+                const canvasWidth = this.modal.drumPatternEditor.gridCanvasEl?.width || 800;
+                const visibleTicks = (canvasWidth - (drumR.headerWidth || 0)) * (drumR.ticksPerPixel || 2);
+                const maxOffset = Math.max(0, maxTick - visibleTicks);
+                const newOffset = Math.round((percentage / 100) * maxOffset);
+                drumR.setScrollX(newOffset);
+            }
+
+            // Sync the wind editor
+            if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible) {
+                this.modal.windInstrumentEditor.scrollHorizontal(percentage);
+            }
+
+            // Sync the CC editor
+            this.modal.ccPicker.syncCCEditor();
+        }
+
+        scrollVertical(percentage) {
+            const renderer = this.modal.pianoRollRenderer;
+            if (renderer?.isMounted()) {
+                const yrange = renderer.getYRange() || 36;
+
+                const totalMidiRange = 128;
+                const maxOffset = Math.max(0, totalMidiRange - yrange);
+                const newOffset = Math.round((percentage / 100) * maxOffset);
+                renderer.setYOffset(newOffset);
+
+                if (!(this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible)) {
+                    renderer.redraw();
+                }
+            }
+
+            // Sync the wind editor
+            if (this.modal.windInstrumentEditor && this.modal.windInstrumentEditor.isVisible) {
+                this.modal.windInstrumentEditor.scrollVertical(percentage);
+            }
+        }
+    }
+
+    if (typeof window !== 'undefined') {
+        window.MidiEditorViewport = MidiEditorViewport;
+    }
+})();
