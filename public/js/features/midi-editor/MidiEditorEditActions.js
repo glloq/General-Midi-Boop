@@ -272,20 +272,20 @@
     deleteAssociatedCCAndVelocity(deletedNotes) {
         if (!deletedNotes || deletedNotes.length === 0) return;
 
-    // Build a Set of (tick, channel) for deleted notes for fast lookup
+        // Pack (tick, channel) into a single integer key. MIDI channels fit
+        // in 4 bits (0-15) so `tick * 16 + channel` is collision-free up to
+        // 2^49 ticks (well past any musically realistic value). Avoids the
+        // string allocation per note that used to dominate large deletes.
         const deletedPositions = new Set();
         deletedNotes.forEach(note => {
-    // Build a unique key per (tick + channel) position
-            const key = `${note.t}_${note.c}`;
-            deletedPositions.add(key);
+            deletedPositions.add(note.t * 16 + note.c);
         });
 
     // Delete CC/pitch-bend events at the same positions
         if (this.modal.ccEditor && this.modal.ccEditor.events) {
             const initialCCCount = this.modal.ccEditor.events.length;
             this.modal.ccEditor.events = this.modal.ccEditor.events.filter(event => {
-                const key = `${event.ticks}_${event.channel}`;
-                return !deletedPositions.has(key);
+                return !deletedPositions.has(event.ticks * 16 + event.channel);
             });
             const deletedCCCount = initialCCCount - this.modal.ccEditor.events.length;
             if (deletedCCCount > 0) {

@@ -32,8 +32,17 @@ import codec from '../../shared/BinaryFrameCodec.js';
 export const DEFAULT_HIGH_WATERMARK = 64 * 1024;       // skip this msg for slow client
 export const DEFAULT_CRITICAL_WATERMARK = 1024 * 1024; // log + reset coalescing slot
 
-/** Discrete queue depth limit before we drop the oldest entry. */
-export const DEFAULT_MAX_QUEUE_DEPTH = 1000;
+/**
+ * Discrete queue depth limit before we drop the oldest entry.
+ * Lowered from 1000 to 200 (audit §5.2): a 1000-deep flush could
+ * block the event loop 50-200 ms when serialising under load,
+ * which stalls the MIDI scheduler. 200 keeps a reasonable safety
+ * margin for normal bursts while bounding the worst-case flush cost.
+ */
+export const DEFAULT_MAX_QUEUE_DEPTH = 200;
+
+/** Floor used by adaptive shrinking when event-loop lag is high. */
+export const MIN_QUEUE_DEPTH_UNDER_LAG = 50;
 
 /**
  * Event names that get coalesced (latest value wins).
@@ -121,13 +130,26 @@ export class WsOutputQueue {
    */
   enqueue(eventType, payload) {
     if (this._closed) return;
-    if (this._queue.length >= this._maxDepth) {
+    const effectiveDepth = this._effectiveQueueDepth();
+    while (this._queue.length >= effectiveDepth) {
       this._queue.shift();
       this._stats.droppedByDepth++;
     }
     this._queue.push({ eventType, payload });
     this._stats.enqueued++;
     this._maybeScheduleFlush();
+  }
+
+  /**
+   * When the event loop is lagging, shrink the queue cap so a flush
+   * cannot pile up hundreds of serialisations on top of an already
+   * struggling loop. The lag threshold mirrors `_effectiveHighWatermark`.
+   * @returns {number}
+   */
+  _effectiveQueueDepth() {
+    const lag = this._loopMon?.currentLag ?? 0;
+    if (lag > 10) return Math.max(MIN_QUEUE_DEPTH_UNDER_LAG, Math.floor(this._maxDepth / 2));
+    return this._maxDepth;
   }
 
   /**
