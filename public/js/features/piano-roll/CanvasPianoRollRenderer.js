@@ -238,13 +238,37 @@
         // Viewport setters / getters
         // ----------------------------------------------------------------
 
-        setXRange(ticks) { if (this._xrange !== ticks) { this._xrange = ticks; this._bgDirty = true; this._scheduleRender(); } return this; }
+        // Setters emit `viewportchange` whenever state actually changes so
+        // every listener (NavigationOverviewBar, PlaybackTimelineBar,
+        // ccPicker.syncAllEditors) sees programmatic scrolls/zooms — not
+        // just the wheel-driven path that historically did the emit inline.
+        setXRange(ticks) {
+            if (this._xrange === ticks) return this;
+            this._xrange = ticks; this._bgDirty = true;
+            this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
+            this._scheduleRender(); return this;
+        }
         getXRange()      { return this._xrange; }
-        setYRange(notes) { if (this._yrange !== notes) { this._yrange = notes; this._bgDirty = true; this._scheduleRender(); } return this; }
+        setYRange(notes) {
+            if (this._yrange === notes) return this;
+            this._yrange = notes; this._bgDirty = true;
+            this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
+            this._scheduleRender(); return this;
+        }
         getYRange()      { return this._yrange; }
-        setXOffset(t)    { if (this._xoffset !== t) { this._xoffset = t; this._bgDirty = true; this._scheduleRender(); } return this; }
+        setXOffset(t) {
+            if (this._xoffset === t) return this;
+            this._xoffset = t; this._bgDirty = true;
+            this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
+            this._scheduleRender(); return this;
+        }
         getXOffset()     { return this._xoffset; }
-        setYOffset(n)    { if (this._yoffset !== n) { this._yoffset = n; this._bgDirty = true; this._scheduleRender(); } return this; }
+        setYOffset(n) {
+            if (this._yoffset === n) return this;
+            this._yoffset = n; this._bgDirty = true;
+            this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
+            this._scheduleRender(); return this;
+        }
         getYOffset()     { return this._yoffset; }
         setCursor(t)     { if (this._cursor !== t) { this._cursor = t; this._scheduleRender(); } return this; }
         getCursor()      { return this._cursor; }
