@@ -255,10 +255,30 @@
             this._el.setAttribute('height', String(h));
             return this;
         }
+        // Programmatic setters dispatch `viewportchange` after mutating the
+        // element's attribute so external listeners (NavigationOverviewBar,
+        // velocity / tempo / CC editor sync, PlaybackTimelineBar) see the
+        // change. The WAC's own internal scroll path emits viewportchange
+        // inline at /lib/webaudio-pianoroll-custom.js:190 but the
+        // `observer: 'layout'` triggered by attribute writes only repaints,
+        // it doesn't dispatch — that's why nav-bar drag updated xoffset
+        // but velocity/tempo editors stayed put.
+        _emitViewportChange() {
+            if (!this._el || typeof this._el.dispatchEvent !== 'function') return;
+            this._el.dispatchEvent(new CustomEvent('viewportchange', {
+                detail: {
+                    xoffset: this.getXOffset(),
+                    yoffset: this.getYOffset(),
+                    xrange:  this.getXRange(),
+                    yrange:  this.getYRange()
+                }
+            }));
+        }
         setXRange(ticks) {
             if (!this._el) return this;
             this._el.setAttribute('xrange', String(ticks));
             this._el.xrange = ticks;
+            this._emitViewportChange();
             return this;
         }
         getXRange() {
@@ -268,6 +288,7 @@
             if (!this._el) return this;
             this._el.setAttribute('yrange', String(notes));
             this._el.yrange = notes;
+            this._emitViewportChange();
             return this;
         }
         getYRange() {
@@ -277,6 +298,7 @@
             if (!this._el) return this;
             this._el.xoffset = ticks;
             this._el.setAttribute('xoffset', String(ticks));
+            this._emitViewportChange();
             return this;
         }
         getXOffset() {
@@ -286,6 +308,7 @@
             if (!this._el) return this;
             this._el.setAttribute('yoffset', String(note));
             this._el.yoffset = note;
+            this._emitViewportChange();
             return this;
         }
         getYOffset() {
