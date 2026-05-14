@@ -35,7 +35,7 @@
     const NOTE_MAX = 127;
 
     /** Default pixel sizes. */
-    const SB_W     = 8;        // vertical scrollbar column on the left edge
+    const SB_W     = 12;       // vertical scrollbar column on the left edge
     const KB_W     = 40;       // keyboard column (without scrollbar)
     const KB_WIDTH = SB_W + KB_W; // total left chrome — notes start at x >= KB_WIDTH
     const RULER_H  = 18;       // top ruler
@@ -507,10 +507,12 @@
         _paintKeyboard(ctx) {
             const noteH = this._noteHeight();
             const H = this._cssHeight;
-            // Keyboard background (offset by SB_W to leave a scrollbar
-            // column on the left edge — see _paintOverlay for the SB).
+            // Keyboard background — fills from y=0 (above the ruler) down to
+            // the bottom, so the top-left corner above the keys looks like a
+            // continuation of the keyboard instead of a stray ruler patch.
+            // Offset by SB_W to leave a scrollbar column on the left.
             ctx.fillStyle = this._theme.colkbwhite;
-            ctx.fillRect(SB_W, RULER_H, KB_W, H - RULER_H);
+            ctx.fillRect(SB_W, 0, KB_W, H);
 
             for (let n = this._yoffset; n < this._yoffset + this._yrange; n++) {
                 if (n < NOTE_MIN || n > NOTE_MAX) continue;
@@ -527,7 +529,9 @@
                     ctx.fillText(`C${Math.floor(n / 12) - 1}`, SB_W + KB_W * 0.65, y + noteH / 2);
                 }
             }
-            // Right border (separates the keyboard column from the notes area)
+            // Right border — separates the keyboard column from the notes
+            // area. Drawn full-height so it visually frames the timeline
+            // start (audit follow-up: timeline left edge = piano right edge).
             ctx.strokeStyle = this._theme.colrulerborder;
             ctx.beginPath();
             ctx.moveTo(KB_WIDTH + 0.5, 0);
@@ -537,12 +541,15 @@
 
         _paintRuler(ctx) {
             const W = this._cssWidth;
+            // Ruler bg starts at KB_WIDTH so its left edge aligns with the
+            // right edge of the piano keys — the area to the left (scrollbar
+            // + keyboard top) is filled by _paintKeyboard / scrollbar render.
             ctx.fillStyle = this._theme.colrulerbg;
-            ctx.fillRect(0, 0, W, RULER_H);
+            ctx.fillRect(KB_WIDTH, 0, W - KB_WIDTH, RULER_H);
             ctx.strokeStyle = this._theme.colrulerborder;
             ctx.beginPath();
-            ctx.moveTo(0, RULER_H + 0.5);
-            ctx.lineTo(W, RULER_H + 0.5);
+            ctx.moveTo(KB_WIDTH, RULER_H + 0.5);
+            ctx.lineTo(W,        RULER_H + 0.5);
             ctx.stroke();
 
             const ppq = this._timebase || 480;
@@ -665,12 +672,12 @@
             this._el.focus(); // capture keyboard for shortcuts
             const { x, y } = this._localCoords(e);
 
-            // Clicked on the vertical scrollbar (left edge) → jump scroll.
-            // Compute the proportional y position inside the SB rect and
-            // recentre `_yoffset` so the thumb tracks the click.
-            if (x < SB_W && y > RULER_H) {
-                const sbH = this._cssHeight - RULER_H;
-                const ratio = (y - RULER_H) / sbH;
+            // Clicked on the vertical scrollbar (left edge, full height) →
+            // jump scroll. Compute the proportional y position inside the
+            // SB rect and recentre `_yoffset` so the thumb tracks the click.
+            if (x < SB_W) {
+                const sbH = this._cssHeight;
+                const ratio = Math.max(0, Math.min(1, y / sbH));
                 const newY = Math.max(0, Math.min(128 - this._yrange,
                     Math.round(ratio * 128 - this._yrange / 2)));
                 if (newY !== this._yoffset) {
@@ -770,8 +777,8 @@
             const d = this._dragging;
             if (d.mode === 'scrollbar') {
                 // Continue dragging the vertical scrollbar thumb.
-                const sbH = this._cssHeight - RULER_H;
-                const ratio = (y - RULER_H) / sbH;
+                const sbH = this._cssHeight;
+                const ratio = Math.max(0, Math.min(1, y / sbH));
                 const newY = Math.max(0, Math.min(128 - this._yrange,
                     Math.round(ratio * 128 - this._yrange / 2)));
                 if (newY !== this._yoffset) {
@@ -1099,18 +1106,55 @@
             }
 
             // Vertical scroll indicator on the LEFT edge of the canvas
-            // (left of the keyboard column — same anchor as the audit
-            // §1.1 V2 spec). The thumb shows which slice of the 128 MIDI
-            // notes is currently visible; viewport = [yoffset, yoffset+yrange].
-            // Scroll: shift+wheel; zoom: ctrl/cmd+shift+wheel.
-            const sbY0 = RULER_H;
-            const sbH = H - RULER_H;
-            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            // (left of the keyboard column). Spans full height (y=0..H) so
+            // it visually frames the keyboard from the top-left corner. The
+            // thumb shows which slice of the 128 MIDI notes is currently
+            // visible; viewport = [yoffset, yoffset+yrange].
+            //
+            // Scroll: shift+wheel, click in track to jump, drag thumb.
+            // Zoom : ctrl/cmd+shift+wheel.
+            const sbY0 = 0;
+            const sbH = H;
+            // Track background.
+            ctx.fillStyle = 'rgba(0,0,0,0.10)';
             ctx.fillRect(0, sbY0, SB_W, sbH);
+
+            // Octave divisions in the background — light separators every
+            // 12 semitones so the user reads which pitch range the thumb
+            // covers. C0 (MIDI 12) through C9 (MIDI 120). Skipping C-1
+            // because it's just 1 row at the top.
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let oct = 1; oct <= 10; oct++) {
+                const midi = oct * 12;
+                if (midi >= 128) break;
+                const y = sbY0 + sbH * (midi / 128);
+                ctx.moveTo(0, y + 0.5);
+                ctx.lineTo(SB_W, y + 0.5);
+            }
+            ctx.stroke();
+
+            // Octave labels — tiny, only when there's room.
+            if (sbH / 10 >= 10) {
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.font = '8px monospace';
+                ctx.textBaseline = 'top';
+                for (let oct = 1; oct <= 9; oct++) {
+                    const midi = oct * 12;
+                    const y = sbY0 + sbH * (midi / 128);
+                    ctx.fillText(`C${oct - 1}`, 1, y + 1);
+                }
+            }
+
+            // Thumb — shows current viewport slice.
             const thumbY = sbY0 + sbH * (this._yoffset / 128);
             const thumbH = Math.max(20, sbH * (this._yrange / 128));
-            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.fillStyle = 'rgba(94, 142, 255, 0.55)';
             ctx.fillRect(1, thumbY, SB_W - 2, thumbH);
+            ctx.strokeStyle = 'rgba(94, 142, 255, 0.85)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(1.5, thumbY + 0.5, SB_W - 3, thumbH - 1);
         }
 
         // ----------------------------------------------------------------
