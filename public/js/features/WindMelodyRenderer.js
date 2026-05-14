@@ -6,10 +6,13 @@
 //   Supports zoom, scroll, selection, undo/redo, and theme awareness
 // ============================================================================
 
-class WindMelodyRenderer {
+class WindMelodyRenderer extends CanvasRenderer {
     constructor(canvas, options = {}) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+        super(canvas, {
+            headerWidth: 50,
+            topMargin: 20,
+            onScrollChange: options.onScrollChange
+        });
 
         // Instrument range
         this.noteMin = options.noteMin || 48;
@@ -17,17 +20,9 @@ class WindMelodyRenderer {
         this.comfortMin = options.comfortMin || 48;
         this.comfortMax = options.comfortMax || 84;
 
-        // Layout
-        this.headerWidth = 50;
-        this.topMargin = 20;
+        // Layout specifics not handled by the base
         this.bottomMargin = 0;
-        this.ticksPerPixel = 2;
-        this.scrollX = 0;
         this.scrollY = 0;           // Vertical scroll in semitones (pitch offset)
-
-        // Time signature
-        this.ticksPerBeat = 480;
-        this.beatsPerMeasure = 4;
 
         // Display range for pitch (adds padding above/below instrument range)
         this.displayNoteMin = Math.max(0, this.noteMin - 5);
@@ -39,61 +34,33 @@ class WindMelodyRenderer {
         // Interaction tool: 'pan' (default) or 'edit'
         this.tool = options.tool || 'pan';
 
-        // Scroll change callback (for syncing with external scroll bars)
-        this.onScrollChange = options.onScrollChange || null;
-
         // Data
         this.melodyEvents = [];     // {tick, note, velocity, duration, channel, articulation}
 
-        // Selection
-        this.selectedEvents = new Set();
-        this.selectionRect = null;
+        // Selection extras
         this._lastClickedKey = undefined;
 
-        // Playback
-        this.playheadTick = 0;
-
-        // Interaction
-        this._isDragging = false;
-        this._dragStart = null;
-        this._dragMode = null;       // 'select' | 'move' | 'resize'
+        // Interaction state specific to this renderer
         this._hoverIndex = -1;
         this._moveOffset = null;
         this._resizeIndex = -1;
         this._selectAdditive = false;
 
-        // Undo/Redo
-        this._undoStack = [];
-        this._redoStack = [];
-        this._maxUndoSize = 20;
-
-        // RAF-throttled rendering
-        this._redrawScheduled = false;
-
-        // Clipboard
-        this._clipboard = [];
-
-        // Colors
-        this.colors = {};
         this.updateTheme();
-
-        // Bind events
-        this._onMouseDown = this._handleMouseDown.bind(this);
-        this._onMouseMove = this._handleMouseMove.bind(this);
-        this._onMouseUp = this._handleMouseUp.bind(this);
-        this._onDblClick = this._handleDblClick.bind(this);
-        this._onWheel = this._handleWheel.bind(this);
-
-        this.canvas.addEventListener('mousedown', this._onMouseDown);
-        this.canvas.addEventListener('mousemove', this._onMouseMove);
-        this.canvas.addEventListener('mouseup', this._onMouseUp);
-        this.canvas.addEventListener('dblclick', this._onDblClick);
-        this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
 
         // Set initial cursor for pan mode
         if (this.tool === 'pan') {
             this.canvas.style.cursor = 'grab';
         }
+    }
+
+    /**
+     * WindMelody hit-tests in continuous pitch space; preserve the
+     * non-rounded conversion from the legacy code (DrumGrid / Tablature
+     * round, the base rounds — override here).
+     */
+    _xToTick(x) {
+        return (x - this.headerWidth) * this.ticksPerPixel + this.scrollX;
     }
 
     // ========================================================================
@@ -169,11 +136,8 @@ class WindMelodyRenderer {
         this.requestRedraw();
     }
 
-    setScrollX(tickOffset) {
-        this.scrollX = Math.max(0, tickOffset);
-        this.requestRedraw();
-        this._notifyScrollChange();
-    }
+    // setScrollX / setZoom / setPlayhead / setTimeSignature inherited from CanvasRenderer.
+    // _notifyScrollChange is overridden below to pass extra context to the callback.
 
     setScrollY(noteOffset) {
         this.scrollY = noteOffset;
@@ -181,12 +145,6 @@ class WindMelodyRenderer {
         const range = this.noteMax - this.noteMin + 10;
         this.displayNoteMin = Math.max(0, this.noteMin - 5 + this.scrollY);
         this.displayNoteMax = Math.min(127, this.displayNoteMin + range);
-        this.requestRedraw();
-        this._notifyScrollChange();
-    }
-
-    setZoom(ticksPerPixel) {
-        this.ticksPerPixel = Math.max(0.5, Math.min(20, ticksPerPixel));
         this.requestRedraw();
         this._notifyScrollChange();
     }
@@ -204,17 +162,6 @@ class WindMelodyRenderer {
         this.scrollY = this.displayNoteMin - Math.max(0, this.noteMin - 5);
         this.requestRedraw();
         this._notifyScrollChange();
-    }
-
-    setPlayhead(tick) {
-        this.playheadTick = tick;
-        this.requestRedraw();
-    }
-
-    setTimeSignature(ticksPerBeat, beatsPerMeasure) {
-        this.ticksPerBeat = ticksPerBeat || 480;
-        this.beatsPerMeasure = beatsPerMeasure || 4;
-        this.requestRedraw();
     }
 
     /**
@@ -267,13 +214,8 @@ class WindMelodyRenderer {
     // COORDINATE CONVERSION
     // ========================================================================
 
-    _tickToX(tick) {
-        return this.headerWidth + (tick - this.scrollX) / this.ticksPerPixel;
-    }
-
-    _xToTick(x) {
-        return (x - this.headerWidth) * this.ticksPerPixel + this.scrollX;
-    }
+    // _tickToX inherited from CanvasRenderer.
+    // _xToTick is overridden in the constructor scope (continuous pitch).
 
     _noteToY(note) {
         const pitchRange = this.displayNoteMax - this.displayNoteMin;
@@ -303,15 +245,7 @@ class WindMelodyRenderer {
     // ========================================================================
 
     /** Schedule a redraw on the next animation frame (coalesced). */
-    requestRedraw() {
-        if (!this._redrawScheduled) {
-            this._redrawScheduled = true;
-            requestAnimationFrame(() => {
-                this._redrawScheduled = false;
-                this.redraw();
-            });
-        }
-    }
+    // requestRedraw() is provided by CanvasRenderer.
 
     redraw() {
         const ctx = this.ctx;
@@ -993,13 +927,7 @@ class WindMelodyRenderer {
     // CLEANUP
     // ========================================================================
 
-    destroy() {
-        this.canvas.removeEventListener('mousedown', this._onMouseDown);
-        this.canvas.removeEventListener('mousemove', this._onMouseMove);
-        this.canvas.removeEventListener('mouseup', this._onMouseUp);
-        this.canvas.removeEventListener('dblclick', this._onDblClick);
-        this.canvas.removeEventListener('wheel', this._onWheel);
-    }
+    // destroy() inherited from CanvasRenderer.
 }
 
 // ============================================================================
