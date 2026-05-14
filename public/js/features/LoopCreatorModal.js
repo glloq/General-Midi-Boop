@@ -107,6 +107,7 @@ class LoopManagerModal extends BaseModal {
         // Arranger undo/redo (local to current arrangement)
         this._arrHistory     = [];
         this._arrHistoryIdx  = -1;
+        this._arrDirty       = false; // explicit init (pre-refactor relied on undefined→falsy)
         this._selectedBlocks = new Set();
 
         // Arranger UX state
