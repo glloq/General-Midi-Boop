@@ -39,6 +39,29 @@ function getSuggestionCache(app) {
 }
 
 /**
+ * Serialize the suggestion critical section. `applyScoringOverrides`
+ * mutates the GLOBAL singleton ScoringConfig and `restoreScoringConfig`
+ * reverts it; the scoring loop now yields cooperatively, so without this
+ * lock two concurrent requests could interleave and compute one
+ * request's suggestions under another request's scoring weights (and
+ * scramble the restore). Runs at most one apply→compute→restore at a
+ * time. The read-only cache fast-path stays OUTSIDE this lock, so the
+ * common "reopen the modal" hit is never serialized.
+ * @template T
+ * @param {Object} app
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+function runSuggestionExclusive(app, fn) {
+  const prev = app._suggestionLock || Promise.resolve();
+  let release;
+  app._suggestionLock = new Promise((r) => { release = r; });
+  const run = prev.then(() => fn());
+  run.then(release, release);
+  return run;
+}
+
+/**
  * Stable string key for one suggestion request. Object key order is
  * fixed so equal inputs always produce the same string.
  */
@@ -257,61 +280,71 @@ async function generateAssignmentSuggestions(app, data) {
     cacheKey = null;
   }
 
-  let midiData;
-  try {
-    const midiConverter = getMidiConverter(app);
-    const buffer = app.blobStore.read(file.blob_path);
-    midiData = midiConverter.midiToJson(buffer);
-  } catch (error) {
-    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
-  }
-
-  let originalConfig = null;
-  if (data.scoringOverrides) {
-    originalConfig = applyScoringOverrides(data.scoringOverrides);
-    app.logger.info('Scoring overrides applied for this request');
-  }
-
-  let result;
-  try {
-    result = await app.adaptationService.generateSuggestions(midiData, options);
-  } finally {
-    if (originalConfig) {
-      restoreScoringConfig(originalConfig);
+  return runSuggestionExclusive(app, async () => {
+    // Re-check the cache inside the lock: a concurrent identical request
+    // we queued behind may have just computed and cached this exact
+    // result — return it instead of recomputing.
+    if (cacheKey) {
+      const cachedNow = cache.get(data.fileId, cacheKey);
+      if (cachedNow) return cachedNow;
     }
-  }
 
-  if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-      suggestions: {},
-      autoSelection: {}
+    let midiData;
+    try {
+      const midiConverter = getMidiConverter(app);
+      const buffer = app.blobStore.read(file.blob_path);
+      midiData = midiConverter.midiToJson(buffer);
+    } catch (error) {
+      throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
+    }
+
+    let originalConfig = null;
+    if (data.scoringOverrides) {
+      originalConfig = applyScoringOverrides(data.scoringOverrides);
+      app.logger.info('Scoring overrides applied for this request');
+    }
+
+    let result;
+    try {
+      result = await app.adaptationService.generateSuggestions(midiData, options);
+    } finally {
+      if (originalConfig) {
+        restoreScoringConfig(originalConfig);
+      }
+    }
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error,
+        suggestions: {},
+        autoSelection: {}
+      };
+    }
+
+    const response = {
+      success: true,
+      suggestions: result.suggestions,
+      lowScoreSuggestions: result.lowScoreSuggestions || {},
+      autoSelection: result.autoSelection,
+      splitProposals: result.splitProposals || {},
+      channelAnalyses: result.channelAnalyses,
+      confidenceScore: result.confidenceScore,
+      allInstruments: result.allInstruments || [],
+      stats: result.stats
     };
-  }
 
-  const response = {
-    success: true,
-    suggestions: result.suggestions,
-    lowScoreSuggestions: result.lowScoreSuggestions || {},
-    autoSelection: result.autoSelection,
-    splitProposals: result.splitProposals || {},
-    channelAnalyses: result.channelAnalyses,
-    confidenceScore: result.confidenceScore,
-    allInstruments: result.allInstruments || [],
-    stats: result.stats
-  };
+    if (result.matrixScores) {
+      response.matrixScores = result.matrixScores;
+      response.instrumentList = result.instrumentList;
+    }
 
-  if (result.matrixScores) {
-    response.matrixScores = result.matrixScores;
-    response.instrumentList = result.instrumentList;
-  }
+    if (cacheKey) {
+      try { cache.set(data.fileId, cacheKey, response); } catch { /* non-fatal */ }
+    }
 
-  if (cacheKey) {
-    try { cache.set(data.fileId, cacheKey, response); } catch { /* non-fatal */ }
-  }
-
-  return response;
+    return response;
+  });
 }
 
 /**
