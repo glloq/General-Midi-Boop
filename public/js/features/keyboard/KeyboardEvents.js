@@ -200,7 +200,13 @@
             } else if (info.canFretboard) {
                 this.setViewMode(this.viewMode === 'fretboard' ? 'piano' : 'fretboard');
             } else {
-                this.setViewMode('piano');
+                // Specific instruments (harmonica/harp/accordion/mallet/
+                // kalimba/bagpipe/steel-drum/theremin/wind…) toggle between
+                // their natural view and the standard virtual piano, so the
+                // piano stays available for every instrument.
+                const natural = info.viewKind && info.viewKind !== 'piano'
+                    ? info.viewKind : 'piano';
+                this.setViewMode(this.viewMode === natural ? 'piano' : natural);
             }
         });
 
@@ -391,33 +397,54 @@
     KeyboardEventsMixin.playNote = function(note) {
         if (note < 0 || note > 127) return;
 
+        // Active-view pre-play hook (KM-C4): transform velocity / cancel.
+        // Replaces the old KeyboardWindMixin.playNote override + the
+        // _windOrigPlayNote workaround. Default InstrumentView.willPlayNote
+        // is an identity, so non-transforming views are unaffected.
+        let velocity = this.velocity;
+        const view = this._activeView;
+        if (view && typeof view.willPlayNote === 'function') {
+            const t = view.willPlayNote(note, velocity, {});
+            if (t === false) return;                       // view cancelled
+            if (t && typeof t === 'object') {
+                if (typeof t.midi === 'number') note = t.midi;
+                if (typeof t.velocity === 'number') velocity = t.velocity;
+            }
+            if (note < 0 || note > 127) return;
+        }
+        velocity = Math.max(1, Math.min(127, Math.round(velocity)));
+
         // Add to active notes
         this.activeNotes.add(note);
         this.updatePianoDisplay();
 
-        if (this._panelCallbacks?.onNoteOn) this._panelCallbacks.onNoteOn(note, this.velocity);
+        if (this._panelCallbacks?.onNoteOn) this._panelCallbacks.onNoteOn(note, velocity);
 
         // Send MIDI if a device is selected
         if (this.selectedDevice && this.backend) {
             const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
 
-            // If it is the virtual device, send to logs
             if (this.selectedDevice.isVirtual) {
+                // Virtual device: log only.
                 const noteName = this.getNoteNameFromNumber(note);
-                const message = `🎹 ${this.t('keyboard.virtualNoteOn', { note: noteName, number: note, velocity: this.velocity })}`;
+                const message = `🎹 ${this.t('keyboard.virtualNoteOn', { note: noteName, number: note, velocity })}`;
                 if (this.logger && this.logger.info) {
                     this.logger.info(message);
                 } else {
                     console.log(message);
                 }
-                return;
+            } else {
+                const channel = this.getSelectedChannel();
+                this.backend.sendNoteOn(deviceId, note, velocity, channel)
+                    .catch(err => {
+                        this.logger.error('[KeyboardModal] Note ON failed:', err);
+                    });
             }
+        }
 
-            const channel = this.getSelectedChannel();
-            this.backend.sendNoteOn(deviceId, note, this.velocity, channel)
-                .catch(err => {
-                    this.logger.error('[KeyboardModal] Note ON failed:', err);
-                });
+        // Active-view post-play hook (e.g. wind staccato auto note-off).
+        if (view && typeof view.afterPlayNote === 'function') {
+            view.afterPlayNote(note);
         }
     }
 

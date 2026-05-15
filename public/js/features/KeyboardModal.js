@@ -81,6 +81,18 @@ class KeyboardModal {
         this._panelCallbacks = null;
         this._panelDialogEl = null;
 
+        // InstrumentView migration (Phase C/D complete): the registry is the
+        // authoritative owner of the active view's lifecycle. setViewMode()
+        // resolves a registered InstrumentView and drives mount()/unmount()
+        // on it; the view delegates the actual rendering to the legacy mixin
+        // methods (strangler fig). Adding a new instrument view is now a
+        // matter of dropping a XxxView.js + one registry rule — no change to
+        // this class or to setViewMode.
+        this._activeView = null;
+        this._activeViewKind = null;
+        // Options forwarded into the next view's ctx (e.g. { windPreset }).
+        this._pendingViewOptions = {};
+
         // Setup event listeners
         this.setupEventListeners();
     }
@@ -360,6 +372,104 @@ class KeyboardModal {
             }
             this._pianoListeners = [];
         }
+    }
+
+    // ========================================================================
+    // INSTRUMENT-VIEW LIFECYCLE (registry-driven — KM-C1)
+    // ========================================================================
+
+    /**
+     * Build the ViewContext handed to every InstrumentView.mount().
+     * The view delegates rendering back through `modal.*` (Phase D), and
+     * reads shared state from the same object.
+     * @param {Object} options - Per-view options (e.g. { windPreset }).
+     * @returns {Object}
+     */
+    _buildViewContext(options = {}) {
+        return {
+            modal: this,
+            state: this,
+            backend: this.backend,
+            eventBus: this.eventBus,
+            i18n: { t: (k, p) => this.t(k, p) },
+            capabilities: this.selectedDeviceCapabilities,
+            options: options || {}
+        };
+    }
+
+    /**
+     * Resolve the registered InstrumentView for `viewKind` and drive its
+     * lifecycle. This is the single place that owns "which view is active":
+     *  - same kind already mounted → refresh via setCapabilities()
+     *  - different kind → unmount the previous view, mount the new one
+     *  - registry/class unavailable → fall back to the legacy render switch
+     *
+     * The resolved view's mount() performs the actual DOM render by
+     * delegating to the legacy mixin methods (renderFretboard, etc.).
+     *
+     * @param {string} viewKind - 'piano' | 'fretboard' | 'drumpad' |
+     *                            'piano-slider' | 'keyboard-list' | …
+     * @param {Object} [options] - Forwarded into the view ctx.
+     */
+    _activateView(viewKind, options = {}) {
+        const registry = (typeof window !== 'undefined' && window.instrumentViews) || null;
+        const ViewClass = registry && typeof registry.get === 'function'
+            ? registry.get(viewKind)
+            : null;
+
+        // No registered view (older host, test without registry, or a brand
+        // new kind not yet implemented) → keep the modal working via the
+        // legacy render switch. This guarantees zero regression.
+        if (typeof ViewClass !== 'function') {
+            this._activeView = null;
+            this._activeViewKind = viewKind;
+            this._legacyRenderForMode(viewKind);
+            return;
+        }
+
+        // Same kind still active → just refresh capabilities, no teardown.
+        if (this._activeView && this._activeViewKind === viewKind && this._activeView.mounted) {
+            if (typeof this._activeView.setCapabilities === 'function') {
+                this._activeView.setCapabilities(this.selectedDeviceCapabilities);
+            }
+            return;
+        }
+
+        // Tear down the previous view (its unmount() releases view-specific
+        // interaction state: string sliders, bow, list interaction, …).
+        if (this._activeView && typeof this._activeView.unmount === 'function') {
+            try { this._activeView.unmount(); }
+            catch (e) { this.logger.warn('[KeyboardModal] view.unmount() failed:', e); }
+        }
+
+        let view = null;
+        try {
+            view = new ViewClass();
+            view.mount(this._buildViewContext(options));
+        } catch (e) {
+            this.logger.error(`[KeyboardModal] view "${viewKind}" mount failed, using legacy render:`, e);
+            this._activeView = null;
+            this._activeViewKind = viewKind;
+            this._legacyRenderForMode(viewKind);
+            return;
+        }
+
+        this._activeView = view;
+        this._activeViewKind = viewKind;
+    }
+
+    /**
+     * Legacy render fallback — mirrors the historical tail of setViewMode().
+     * Only used when no InstrumentView is registered for the kind (defensive;
+     * the built-in 5 kinds are always registered via registerBuiltins.js).
+     * @param {string} mode
+     */
+    _legacyRenderForMode(mode) {
+        if (mode === 'fretboard' && typeof this.renderFretboard === 'function') this.renderFretboard();
+        else if (mode === 'drumpad' && typeof this.renderDrumPad === 'function') this.renderDrumPad();
+        else if (mode === 'piano-slider' && typeof this.generatePianoSlider === 'function') this.generatePianoSlider();
+        else if (mode === 'keyboard-list' && typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
+        else if (typeof this.regeneratePianoKeys === 'function') this.regeneratePianoKeys();
     }
 
     /**
@@ -1034,6 +1144,17 @@ class KeyboardModal {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('keyboard-list');
+        } else if (['harmonica', 'harp', 'accordion', 'mallet',
+                     'kalimba', 'bagpipe', 'steel-drum', 'theremin']
+            .includes(info.viewKind)) {
+            // Dedicated self-owned views. The view owns its DOM host; no
+            // built-in container or string config involved. The view-mode
+            // toggle group stays VISIBLE so the standard virtual piano is
+            // always reachable for any specific instrument (the toggle
+            // handler swaps this.viewMode ↔ 'piano' symmetrically).
+            this.stringInstrumentConfig = null;
+            if (viewGroup) viewGroup.classList.remove('hidden');
+            this.setViewMode(info.viewKind);
         } else {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
@@ -1131,8 +1252,9 @@ class KeyboardModal {
 // classes per AUDIT_KEYBOARD_MODAL_2026-05-14.md KM-C1, KM-C4).
 // ============================================================================
 // The 7 mixins below are attached on KeyboardModal.prototype in a specific
-// order: each later mixin can read methods from earlier ones, and the wind
-// mixin specifically wraps `playNote` (captured as `_windOrigPlayNote`).
+// order: each later mixin can read methods from earlier ones. (KM-C4 done:
+// the wind mixin no longer wraps `playNote` — articulation/staccato moved
+// to PianoSliderView via the willPlayNote/afterPlayNote contract.)
 //
 // Until the InstrumentView migration is complete, _applyMixin() emits a
 // warning whenever a mixin silently overrides a method already on the
@@ -1151,8 +1273,8 @@ function _applyMixin(label, mixin) {
             // eslint-disable-next-line no-console
             console.warn(
                 `[KeyboardModal] mixin "${label}" overrides existing method "${key}". ` +
-                `If this is intentional, capture the previous value in a closure ` +
-                `before assigning (see _windOrigPlayNote pattern).`
+                `Expected only for KeyboardWind._updatePianoSliderGroupVisibility ` +
+                `(intentional, documented in KeyboardWind.js).`
             );
         }
         KeyboardModal.prototype[key] = mixin[key];
@@ -1165,20 +1287,11 @@ if (typeof KeyboardControlsMixin  !== 'undefined') _applyMixin('Controls',  Keyb
 if (typeof KeyboardChordsMixin    !== 'undefined') _applyMixin('Chords',    KeyboardChordsMixin);
 if (typeof KeyboardSliderMixin    !== 'undefined') _applyMixin('Slider',    KeyboardSliderMixin);
 if (typeof KeyboardListViewMixin  !== 'undefined') _applyMixin('ListView',  KeyboardListViewMixin);
-if (typeof KeyboardWindMixin      !== 'undefined') {
-    // The wind mixin intentionally overrides `playNote` to apply articulation
-    // factors. Capture the previous value in a closure so the new playNote
-    // can call back into it (see PianoSliderView.willPlayNote for the
-    // future replacement).
-    const _prevPlayNote = KeyboardModal.prototype.playNote;
-    _applyMixin('Wind', KeyboardWindMixin);
-    Object.defineProperty(KeyboardModal.prototype, '_windOrigPlayNote', {
-        value: _prevPlayNote,
-        writable: false,
-        configurable: false,
-        enumerable: false
-    });
-}
+// KM-C4 done: KeyboardWindMixin no longer overrides playNote. Wind
+// articulation + staccato now live in PianoSliderView via the
+// willPlayNote / afterPlayNote contract, so the `_windOrigPlayNote`
+// workaround is gone and the mixin applies like any other.
+if (typeof KeyboardWindMixin      !== 'undefined') _applyMixin('Wind', KeyboardWindMixin);
 
 // ─── Tracked DOM listeners (Phase E helper, KM-M3) ──────────────────────────
 // Subsequent code can call `this._on(el, 'click', fn)` instead of

@@ -70,9 +70,14 @@
 
         // String: explicit "string" type, an active stringInstrumentConfig,
         // or a GM program in the guitar/bass/orchestral/ethnic-strings ranges.
+        // GM 46 (Orchestral Harp) is *excluded* here so a plain harp gets
+        // its dedicated vertical-string HarpView instead of the fretboard.
+        // An explicit instrument_type='string' or a manual stringCfg still
+        // forces fretboard below (escape hatch preserved).
         const stringByGm = !isDrum
             && gmProgram !== undefined && gmProgram !== null
-            && ((gmProgram >= 24 && gmProgram <= 47) || EXTRA_FRETBOARD_GM.has(gmProgram));
+            && (((gmProgram >= 24 && gmProgram <= 47) && gmProgram !== 46)
+                || EXTRA_FRETBOARD_GM.has(gmProgram));
 
         const canFretboard = type === 'string' || !!stringCfg || stringByGm;
 
@@ -90,11 +95,43 @@
             ? windDb.getPresetByProgram(gmProgram)
             : null;
 
+        // Harmonica (GM 22): a free-reed instrument with blow/draw holes —
+        // neither a drum, a fretted/bowed string, nor a (wind-DB) wind
+        // instrument. Gets its own dedicated blow/draw hole layout.
+        const isHarmonica = !isDrum && !canFretboard && !isWind
+            && gmProgram === 22;
+
+        // Harp (GM 46): vertical strings plucked individually, glissando by
+        // horizontal drag. Excluded from the fretboard range above so a
+        // plain harp lands here (unless forced to string/fretboard).
+        const isHarp = !isDrum && !canFretboard && !isWind
+            && gmProgram === 46;
+
+        // Other dedicated instrument-specific layouts (all guarded by
+        // !isDrum && !canFretboard && !isWind so the established families
+        // keep priority). Each maps to its own self-owned view.
+        const notSpecialBase = !isDrum && !canFretboard && !isWind;
+        const isAccordion = notSpecialBase && (gmProgram === 21 || gmProgram === 23);
+        const isMallet    = notSpecialBase && gmProgram >= 12 && gmProgram <= 15;
+        const isKalimba   = notSpecialBase && gmProgram === 108;
+        const isBagpipe   = notSpecialBase && gmProgram === 109;
+        const isSteelDrum = notSpecialBase && gmProgram === 114;
+        // Theremin has no GM patch — selected via instrument_type only.
+        const isTheremin  = typeof type === 'string' && type.toLowerCase() === 'theremin';
+
         // Resolve viewKind from boolean flags (default: piano).
         let viewKind = 'piano';
-        if (isDrum)           viewKind = 'drumpad';
+        if (isTheremin)        viewKind = 'theremin';
+        else if (isDrum)       viewKind = 'drumpad';
         else if (canFretboard) viewKind = 'fretboard';
         else if (isWind)       viewKind = 'piano-slider';
+        else if (isHarmonica)  viewKind = 'harmonica';
+        else if (isHarp)       viewKind = 'harp';
+        else if (isAccordion)  viewKind = 'accordion';
+        else if (isMallet)     viewKind = 'mallet';
+        else if (isKalimba)    viewKind = 'kalimba';
+        else if (isBagpipe)    viewKind = 'bagpipe';
+        else if (isSteelDrum)  viewKind = 'steel-drum';
 
         return {
             viewKind,
@@ -103,6 +140,14 @@
             isBowed,
             isDrum,
             isWind,
+            isHarmonica,
+            isHarp,
+            isAccordion,
+            isMallet,
+            isKalimba,
+            isBagpipe,
+            isSteelDrum,
+            isTheremin,
             windPreset,
             instrumentType: type,
             instrumentSubtype: subtype,

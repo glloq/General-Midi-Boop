@@ -90,6 +90,14 @@
         }
 
         /**
+         * Post-play hook. Called by KeyboardModal.playNote() right after the
+         * note-on has been dispatched. Lets a view schedule follow-up
+         * behaviour (e.g. wind staccato auto note-off). Default: no-op.
+         * @param {number} _midi
+         */
+        afterPlayNote(_midi) { /* no-op */ }
+
+        /**
          * Set of toolbar group ids that this view wants visible. The
          * controller hides/shows the corresponding `.control-group` elements
          * declaratively. Defaults cover the basic piano family.

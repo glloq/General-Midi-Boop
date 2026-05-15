@@ -23,6 +23,14 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/views/DrumPadView.js');
   load('../../../public/js/features/keyboard/views/PianoSliderView.js');
   load('../../../public/js/features/keyboard/views/ListView.js');
+  load('../../../public/js/features/keyboard/views/HarmonicaView.js');
+  load('../../../public/js/features/keyboard/views/HarpView.js');
+  load('../../../public/js/features/keyboard/views/AccordionView.js');
+  load('../../../public/js/features/keyboard/views/MalletView.js');
+  load('../../../public/js/features/keyboard/views/KalimbaView.js');
+  load('../../../public/js/features/keyboard/views/BagpipeView.js');
+  load('../../../public/js/features/keyboard/views/SteelDrumView.js');
+  load('../../../public/js/features/keyboard/views/ThereminView.js');
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
 });
 
@@ -119,6 +127,16 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
     { caps: { gm_program: 104 },              expected: 'fretboard' },
     { caps: { gm_program: 56 },               expected: 'piano-slider', wind: true },
     { caps: { gm_program: 79 },               expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 22 },               expected: 'harmonica' },
+    { caps: { gm_program: 46 },               expected: 'harp' },
+    { caps: { gm_program: 21 },               expected: 'accordion' },
+    { caps: { gm_program: 23 },               expected: 'accordion' },
+    { caps: { gm_program: 12 },               expected: 'mallet' },
+    { caps: { gm_program: 15 },               expected: 'mallet' },
+    { caps: { gm_program: 108 },              expected: 'kalimba' },
+    { caps: { gm_program: 109 },              expected: 'bagpipe' },
+    { caps: { gm_program: 114 },              expected: 'steel-drum' },
+    { caps: { instrument_type: 'theremin' },  expected: 'theremin' },
   ];
 
   for (const { caps, expected, wind } of cases) {

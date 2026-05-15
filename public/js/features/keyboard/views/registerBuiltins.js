@@ -30,6 +30,14 @@
     safeRegister(window.FretboardView);
     safeRegister(window.DrumPadView);
     safeRegister(window.ListView);
+    safeRegister(window.HarmonicaView);
+    safeRegister(window.HarpView);
+    safeRegister(window.AccordionView);
+    safeRegister(window.MalletView);
+    safeRegister(window.KalimbaView);
+    safeRegister(window.BagpipeView);
+    safeRegister(window.SteelDrumView);
+    safeRegister(window.ThereminView);
 
     // ── Detection rules (first match wins) ────────────────────────────────────
     // These mirror the historical getInstrumentViewInfo() logic, now driven
@@ -54,10 +62,29 @@
         .addRule(c => c && c.gm_program !== undefined && c.gm_program !== null
             && c.gm_program >= 128, 'drumpad')
 
+        // Theremin: explicit custom type (no GM patch). First so an
+        // instrument_type='theremin' always wins.
+        .addRule(c => c && typeof c.instrument_type === 'string'
+            && c.instrument_type.toLowerCase() === 'theremin', 'theremin')
+
+        // Harp (GM 46): dedicated vertical-string view. MUST precede the
+        // fretboard 24-47 range rule since 46 ∈ [24,47] (first match wins).
+        .addRule(c => c && c.gm_program === 46, 'harp')
+
+        // Other dedicated layouts (GM disjoint from fretboard/wind ranges).
+        .addRule(c => c && (c.gm_program === 21 || c.gm_program === 23), 'accordion')
+        .addRule(inRange(12, 15), 'mallet')
+        .addRule(c => c && c.gm_program === 108, 'kalimba')
+        .addRule(c => c && c.gm_program === 109, 'bagpipe')
+        .addRule(c => c && c.gm_program === 114, 'steel-drum')
+
         // Fretboard: guitar/bass/orchestral strings + ethnic plucked + bowed
         .addRule(inRange(24, 47), 'fretboard')
         .addRule(isOneOf(new Set([104, 105, 106, 107, 110])), 'fretboard')
         .addRule(c => c && c.instrument_type === 'string', 'fretboard')
+
+        // Harmonica: dedicated blow/draw hole layout (GM 22)
+        .addRule(c => c && c.gm_program === 22, 'harmonica')
 
         // Wind: piano + slider for brass/reeds/pipe (GM 56-79)
         .addRule(inRange(56, 79), 'piano-slider', { wind: true });

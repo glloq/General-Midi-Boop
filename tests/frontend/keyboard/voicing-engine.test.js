@@ -3,7 +3,7 @@
 // Covers tuning, polyphony per GM family, chord→strings mapping,
 // strum scheduling, snap-to-playable.
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -182,8 +182,12 @@ describe('VoicingEngine — mapChordToStrings', () => {
 });
 
 describe('VoicingEngine — strumSchedule', () => {
-  const v = new (VE())(GUITAR_TUNING, 6);
-  const voicing = v.mapChordToStrings(0, [0, 4, 7]);
+  let v;
+  let voicing;
+  beforeEach(() => {
+    v = new (VE())(GUITAR_TUNING, 6);
+    voicing = v.mapChordToStrings(0, [0, 4, 7]);
+  });
 
   it('down strum is ordered grave → aigu (ascending notes)', () => {
     const sched = v.strumSchedule(voicing, 'down', 10);
@@ -214,7 +218,10 @@ describe('VoicingEngine — strumSchedule', () => {
 });
 
 describe('VoicingEngine — snapToPlayable', () => {
-  const v = new (VE())(GUITAR_TUNING, 6);
+  let v;
+  beforeEach(() => {
+    v = new (VE())(GUITAR_TUNING, 6);
+  });
 
   it('returns a VoicingNote shape', () => {
     const r = v.snapToPlayable(60, 0, 4);
