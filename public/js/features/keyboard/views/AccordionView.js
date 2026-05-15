@@ -49,7 +49,15 @@
             });
             root.appendChild(bellows);
 
-            root.appendChild(this._row('accordion-treble', TREBLE_LO, TREBLE_HI, modal, '#2b3a4a'));
+            // QA: the treble (right-hand) keyboard follows the instrument's
+            // configured note range; the Stradella bass row keeps its fixed
+            // 12 roots until accordion-specific settings land (left/right
+            // hands — see docs §20.5 / instrument-specific settings plan).
+            const r = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            const tLo = r ? r.min : TREBLE_LO;
+            const tHi = r ? r.max : TREBLE_HI;
+            root.appendChild(this._row('accordion-treble', tLo, tHi, modal, '#2b3a4a'));
             root.appendChild(this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a'));
 
             canvas.appendChild(root);

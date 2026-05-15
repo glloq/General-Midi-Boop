@@ -35,9 +35,14 @@
 
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
-            const n = HI - LO + 1;
+            // QA: follow the instrument's configured range, not a fixed span.
+            const r = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            const lo = r ? r.min : LO;
+            const hi = r ? r.max : HI;
+            const n = hi - lo + 1;
             for (let i = 0; i < n; i++) {
-                const midi = LO + i;
+                const midi = lo + i;
                 const ang = (i / n) * 2 * Math.PI - Math.PI / 2;
                 const R = 130;
                 const cx = 170 + Math.cos(ang) * R;

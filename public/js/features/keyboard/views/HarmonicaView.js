@@ -20,9 +20,24 @@
     if (typeof window === 'undefined' || !window.InstrumentView) return;
     const InstrumentView = window.InstrumentView;
 
-    // C diatonic Richter tuning (MIDI, C4 = 60).
-    const BLOW = [60, 64, 67, 72, 76, 79, 84, 88, 91, 96];
-    const DRAW = [62, 67, 71, 74, 77, 81, 83, 86, 89, 93];
+    // C diatonic Richter tuning (MIDI, C4 = 60) — reference 10-hole layout.
+    const BLOW0 = [60, 64, 67, 72, 76, 79, 84, 88, 91, 96];
+    const DRAW0 = [62, 67, 71, 74, 77, 81, 83, 86, 89, 93];
+
+    // Transpose the Richter pattern so hole 1 blow sits at `lo`, then keep
+    // only the holes that stay within [lo,hi] — so the number of holes
+    // follows the instrument's configured range (QA) instead of a fixed 10.
+    function richter(lo, hi) {
+        if (!Number.isFinite(lo)) return { blow: BLOW0, draw: DRAW0 };
+        const off = lo - BLOW0[0];
+        const blow = [], draw = [];
+        for (let i = 0; i < BLOW0.length; i++) {
+            const b = BLOW0[i] + off, d = DRAW0[i] + off;
+            if (Number.isFinite(hi) && (b > hi || d > hi)) break;
+            blow.push(b); draw.push(d);
+        }
+        return blow.length ? { blow, draw } : { blow: [lo], draw: [lo] };
+    }
 
     class HarmonicaView extends InstrumentView {
         static viewKind = 'harmonica';
@@ -47,8 +62,13 @@
                 'display:flex;flex-direction:column;gap:6px;padding:18px;'
                 + 'align-items:center;justify-content:center;height:100%;';
 
-            root.appendChild(this._buildRow('blow', BLOW, modal));
-            root.appendChild(this._buildRow('draw', DRAW, modal));
+            // QA: hole count follows the instrument's configured range.
+            const rng = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            const { blow, draw } = richter(
+                rng ? rng.min : NaN, rng ? rng.max : NaN);
+            root.appendChild(this._buildRow('blow', blow, modal));
+            root.appendChild(this._buildRow('draw', draw, modal));
             canvas.appendChild(root);
             this._root = root;
 

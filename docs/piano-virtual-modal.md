@@ -1131,6 +1131,25 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > colore ses cellules via `modal.getNoteColor` quand
 > `modal.showNoteColors` est actif → le bouton 🎨 fonctionne **pour tous
 > les instruments** (theremin exclu : pad continu sans notes discrètes).
+>
+> ✅ **Ajouté** : `KeyboardModal.getInstrumentNoteRange()` → `{min,max,
+> notes}` (même source que `autoCenterKeyboard` : `selected_notes`
+> discrets ou `note_range_min/max`). Les vues *self-owned* en dérivent
+> leur jeu de notes au lieu d'un span figé (QA « utiliser le nombre de
+> notes des réglages d'instrument ») : Mallet/SteelDrum/Accordéon-treble
+> = chromatique sur la plage ; Harp/Kalimba = diatonique sur la plage ;
+> Harmonica (Richter) / Bagpipe (chanter) = motif transposé+tronqué à la
+> plage. Sans capacités → défaut idiomatique de chaque vue.
+>
+> ✅ **MalletView** : disposition **façon piano/marimba** — naturelles en
+> rangée contiguë, altérées en `position:absolute` au-dessus de
+> l'interstice entre les bonnes naturelles (plus de 2 rangées
+> régulièrement espacées).
+>
+> ⏳ **À planifier (QA #3)** : réglages spécifiques par type —
+> **cornemuse** (nombre/accordage des bourdons) et **accordéon**
+> (mains gauche/droite, basses Stradella vs chromatique). Source de
+> config à décider (voir question ouverte / §20.5).
 
 Pour des vues riches sans réécrire l'orchestrateur :
 
