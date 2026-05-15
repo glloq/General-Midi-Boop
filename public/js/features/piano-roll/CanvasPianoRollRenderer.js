@@ -86,6 +86,12 @@
             this._editMode = opts.mode ?? 'dragpoly';
             this._uiMode = 'drag-view';
 
+            // Hover crosshair — last known mouse position inside the notes
+            // area (null when the cursor is over chrome or outside the
+            // canvas). Cleared on mouseleave + during drag.
+            this._hoverX = null;
+            this._hoverY = null;
+
             // ---- theme ----
             // Defaults match a light theme. MidiEditorViewport._applyPianoRollTheme
             // overrides these via setThemeColors() based on the user's current
@@ -166,9 +172,15 @@
             this._wheelHandler     = (e) => this._onWheel(e);
             this._dblClickHandler  = (e) => this._onDblClick(e);
             this._keyDownHandler   = (e) => this._onKeyDown(e);
+            this._hoverHandler     = (e) => this._onHover(e);
+            this._hoverLeaveHandler = () => this._onHoverLeave();
             this._el.addEventListener('mousedown', this._mouseDownHandler);
             this._el.addEventListener('dblclick',  this._dblClickHandler);
             this._el.addEventListener('keydown',   this._keyDownHandler);
+            // Local hover for the crosshair — bound on the canvas itself so
+            // the indicator only shows when the mouse is actually over it.
+            this._el.addEventListener('mousemove',  this._hoverHandler);
+            this._el.addEventListener('mouseleave', this._hoverLeaveHandler);
             // Move/Up bind on window so a drag that leaves the canvas still
             // completes deterministically.
             window.addEventListener('mousemove', this._mouseMoveHandler);
@@ -191,6 +203,8 @@
                 this._el.removeEventListener('dblclick',  this._dblClickHandler);
                 this._el.removeEventListener('keydown',   this._keyDownHandler);
                 this._el.removeEventListener('wheel',     this._wheelHandler);
+                this._el.removeEventListener('mousemove',  this._hoverHandler);
+                this._el.removeEventListener('mouseleave', this._hoverLeaveHandler);
             }
             window.removeEventListener('mousemove', this._mouseMoveHandler);
             window.removeEventListener('mouseup',   this._mouseUpHandler);
@@ -303,7 +317,15 @@
         pushNote(note)                { this._sequence.push(note); this._bucketsDirty = true; this._scheduleRender(); return this; }
         clearSequence()               { this._sequence.length = 0; this._bucketsDirty = true; this._scheduleRender(); return this; }
         setChannelColors(map)         { this._channelColors = map || []; this._scheduleRender(); return this; }
-        setDefaultChannel(ch)         { this._defaultChannel = ch; return this; }
+        setDefaultChannel(ch)         {
+            if (ch === this._defaultChannel) return this;
+            this._defaultChannel = ch;
+            // Keyboard greying depends on the default channel — flag the
+            // background so the next paint regenerates the key tints.
+            this._bgDirty = true;
+            this._scheduleRender();
+            return this;
+        }
         getDefaultChannel()           { return this._defaultChannel; }
         setChannelPlayableHighlights(map) {
             this._channelPlayableHighlights = map;
@@ -553,6 +575,24 @@
                     ctx.fillText(`C${Math.floor(n / 12) - 1}`, SB_W + KB_W * 0.65, y + noteH / 2);
                 }
             }
+
+            // Gray-out the keys the routed instrument on the default
+            // channel cannot reach. `setChannelPlayableHighlights` stores
+            // a Map<channel, {notes: Set|null, color}>; a null `notes`
+            // means "no constraint" so we skip the overlay entirely.
+            const hl = this._channelPlayableHighlights;
+            const entry = hl && typeof hl.get === 'function' ? hl.get(this._defaultChannel) : null;
+            const playable = entry && entry.notes instanceof Set ? entry.notes : null;
+            if (playable) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+                for (let n = this._yoffset; n < this._yoffset + this._yrange; n++) {
+                    if (n < NOTE_MIN || n > NOTE_MAX) continue;
+                    if (playable.has(n)) continue;
+                    const y = this._noteToY(n);
+                    ctx.fillRect(SB_W, y, KB_W, noteH);
+                }
+            }
+
             // Right border — separates the keyboard column from the notes
             // area. Drawn full-height so it visually frames the timeline
             // start (audit follow-up: timeline left edge = piano right edge).
@@ -959,6 +999,32 @@
             if (this._el) this._el.style.cursor = '';
         }
 
+        /**
+         * Track the mouse over the notes area to drive the crosshair
+         * overlay. Falls through silently when a drag is in progress —
+         * `_onMouseMove` already updates the drag visuals and the
+         * crosshair would compete with them.
+         */
+        _onHover(e) {
+            if (this._dragging) return;
+            const { x, y } = this._localCoords(e);
+            const inside = x >= KB_WIDTH && y >= RULER_H
+                        && x <= this._cssWidth && y <= this._cssHeight;
+            const nx = inside ? x : null;
+            const ny = inside ? y : null;
+            if (nx === this._hoverX && ny === this._hoverY) return;
+            this._hoverX = nx;
+            this._hoverY = ny;
+            this._scheduleRender();
+        }
+
+        _onHoverLeave() {
+            if (this._hoverX === null && this._hoverY === null) return;
+            this._hoverX = null;
+            this._hoverY = null;
+            this._scheduleRender();
+        }
+
         _onWheel(e) {
             // Modifiers:
             //   ctrl/meta + wheel        → horizontal zoom (xrange)
@@ -1180,6 +1246,19 @@
                 ctx.beginPath();
                 ctx.moveTo(cx + 0.5, RULER_H);
                 ctx.lineTo(cx + 0.5, H);
+                ctx.stroke();
+            }
+
+            // Crosshair following the mouse over the notes area — helps
+            // line up a double-click create with a specific tick. Hidden
+            // during drag (the drag indicator already conveys position).
+            if (this._hoverX !== null && !this._dragging) {
+                ctx.strokeStyle = 'rgba(94, 142, 255, 0.55)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                const hx = Math.floor(this._hoverX) + 0.5;
+                ctx.moveTo(hx, RULER_H);
+                ctx.lineTo(hx, H);
                 ctx.stroke();
             }
 
