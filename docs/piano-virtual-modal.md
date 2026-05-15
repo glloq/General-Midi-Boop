@@ -1057,6 +1057,58 @@ même contrat de cycle de vie que Harmonica/Harpe :
 > Theremin : le mapping X/Y exact dépend du layout réel (en test, jsdom
 > n'a pas de layout → géométrie de repli `PAD_W=480`).
 
+#### 20.2.4 Audit de vérification (2026-05-15)
+
+Audit du code de session (migration registre + 8 vues). **Verdict :
+fonctionnel, sans erreur, sans conflit.**
+
+**Vérifié sain :**
+- **Pas de superposition de vues** : `.hidden { display:none !important }`
+  (`keyboard.css:1541`). `setViewMode` cache les 5 containers built-in +
+  octave-bar + minimap pour tout kind ≠ piano-family ; la vue custom
+  ajoute un container frère unique ; `_activateView` `unmount()` la vue
+  précédente (retrait container + listeners) avant d'en monter une autre.
+  `generatePianoKeys`/`renderMinimap`/`renderOctaveBar` ne **dé-cachent
+  pas** leurs éléments → aucune fuite de chrome.
+- **Pas de conflit délégation piano ↔ vues custom** : `#piano-container`
+  caché = `display:none` → sans layout → `document.elementFromPoint`
+  (hit-test de `_setupPianoDelegation`) ne peut pas l'atteindre, et le
+  garde `.closest('.piano-key')` exclut les cellules custom. Aucun
+  double-déclenchement.
+- **Listeners** : une seule vue custom active à la fois (un seul
+  `document` `pointerup` listener) ; pas d'accumulation en prod.
+- **Notes reliées à l'instrument** : les vues appellent
+  `modal.playNote/stopNote` → `KeyboardEventsMixin.playNote` →
+  `backend.sendNoteOn(deviceId, note, velocity, channel)` +
+  `_panelCallbacks.onNoteOn`. `selectedDevice`/canal fixés par
+  `_selectInstrumentOption` avant `setViewMode`. ✓
+
+**2 défauts trouvés et corrigés :**
+
+- **F1 — soufflet accordéon mort** : `playNote` n'appelle pas
+  `_activeView.willPlayNote` (étape Phase E différée), donc
+  `AccordionView.willPlayNote` n'était jamais invoqué (vélocité non
+  modulée). **Corrigé** : `AccordionView._press` applique le facteur
+  lui-même via le motif save/restore de `modal.velocity` (identique à
+  `KeyboardWindMixin`), sans toucher au `playNote` global ni au chemin
+  vent (zéro régression). Couvert par tests.
+- **F2 — piano inaccessible pour les instruments spécifiques** :
+  `_selectInstrumentOption` **cachait** `#keyboard-view-mode-group` pour
+  harmonica/harpe/… → le bouton de bascule vers le piano était invisible
+  (violait « le piano toujours disponible »). **Corrigé** : le groupe
+  reste **visible** pour toutes les vues spécifiques, et le handler du
+  bouton bascule désormais **symétriquement** `viewKind ↔ 'piano'` (on
+  peut aller au piano **et revenir** à la vue spécifique). La
+  joignabilité de `'piano'` via `_activateView` est par ailleurs
+  structurellement testée pour chaque kind.
+
+Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
+
+> ⚠️ **À tester en navigateur** : visibilité/ergonomie réelle du bouton
+> de bascule vue↔piano, ressenti du soufflet accordéon. Le câblage
+> propre de `willPlayNote` pour tous (et le retrait de l'override vent +
+> staccato) reste le résidu Phase E documenté en §20.4.
+
 ### 20.3 Extensions de contrat recommandées
 
 Pour des vues riches sans réécrire l'orchestrateur :

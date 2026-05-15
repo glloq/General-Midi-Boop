@@ -127,17 +127,43 @@ describe.each([
   });
 });
 
-describe('accordion — bellows scales velocity (willPlayNote)', () => {
-  it('bellows below/above centre lowers/raises velocity', () => {
+describe('accordion — bellows scales velocity (applied on press)', () => {
+  let v, modal, velAtPlay;
+  beforeEach(() => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.AccordionView)();
-    v.mount({ modal: mkModal({ played: [], stopped: [], cc: [] }) });
+    velAtPlay = [];
+    modal = {
+      velocity: 100,
+      playNote() { velAtPlay.push(this.velocity); },
+      stopNote() {},
+      getNoteLabel: (n) => `N${n}`
+    };
+    v = new (win.AccordionView)();
+    v.mount({ modal });
+  });
+  afterEach(() => { try { v.unmount(); } catch { /* idempotent */ } });
+
+  it('willPlayNote math: centre=1×, ×0.5 below, clamped above', () => {
+    expect(v.willPlayNote(60, 100).velocity).toBe(100);   // bellows 64 → ×1
     const b = document.getElementById('accordion-bellows');
     b.value = '32'; b.dispatchEvent(new Event('input'));
-    expect(v.willPlayNote(60, 100).velocity).toBe(50);   // ×0.5
+    expect(v.willPlayNote(60, 100).velocity).toBe(50);    // ×0.5
     b.value = '127'; b.dispatchEvent(new Event('input'));
-    expect(v.willPlayNote(60, 100).velocity).toBe(127);  // clamped
-    v.unmount();
+    expect(v.willPlayNote(60, 100).velocity).toBe(127);   // clamped
+  });
+
+  it('pressing a key actually sends the bellows-scaled velocity', () => {
+    const b = document.getElementById('accordion-bellows');
+    b.value = '32'; b.dispatchEvent(new Event('input'));     // factor 0.5
+    const key = document.querySelector('.accordion-key');
+    fire(key, 'pointerdown');
+    expect(velAtPlay).toEqual([50]);                          // 100 × 0.5
+    expect(modal.velocity).toBe(100);                         // restored after
+  });
+
+  it('centre bellows (64) leaves velocity unchanged', () => {
+    fire(document.querySelector('.accordion-key'), 'pointerdown');
+    expect(velAtPlay).toEqual([100]);
   });
 });
 

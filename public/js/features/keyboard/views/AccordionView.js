@@ -94,7 +94,16 @@
             this._pressed.set(key, note);
             cell.classList.add('active');
             const modal = this.ctx && this.ctx.modal;
-            if (modal && typeof modal.playNote === 'function') modal.playNote(note);
+            if (!modal || typeof modal.playNote !== 'function') return;
+            // Bellows pressure scales velocity. playNote() reads modal.velocity
+            // internally, and the base playNote does not call willPlayNote()
+            // yet (legacy mixin path), so apply the factor here with the
+            // proven save/restore pattern (same as KeyboardWindMixin).
+            const t = this.willPlayNote(note, modal.velocity ?? 80, {});
+            const saved = modal.velocity;
+            if (typeof saved === 'number') modal.velocity = t.velocity;
+            modal.playNote(note);
+            if (typeof saved === 'number') modal.velocity = saved;
         }
 
         _releaseAll() {

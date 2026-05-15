@@ -1144,25 +1144,16 @@ class KeyboardModal {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('keyboard-list');
-        } else if (info.viewKind === 'harmonica') {
-            // Harmonica (GM 22): dedicated blow/draw hole view. The view
-            // owns its own DOM host (lazy-mounted), so no built-in
-            // container/toolbar group is shown.
-            this.stringInstrumentConfig = null;
-            if (viewGroup) viewGroup.classList.add('hidden');
-            this.setViewMode('harmonica');
-        } else if (info.viewKind === 'harp') {
-            // Harp (GM 46): dedicated vertical-string view (own DOM host).
-            this.stringInstrumentConfig = null;
-            if (viewGroup) viewGroup.classList.add('hidden');
-            this.setViewMode('harp');
-        } else if (['accordion', 'mallet', 'kalimba', 'bagpipe', 'steel-drum', 'theremin']
+        } else if (['harmonica', 'harp', 'accordion', 'mallet',
+                     'kalimba', 'bagpipe', 'steel-drum', 'theremin']
             .includes(info.viewKind)) {
-            // Other dedicated self-owned views (accordion/mallet/kalimba/
-            // bagpipe/steel-drum/theremin) — the view owns its DOM host;
-            // no built-in container or string config involved.
+            // Dedicated self-owned views. The view owns its DOM host; no
+            // built-in container or string config involved. The view-mode
+            // toggle group stays VISIBLE so the standard virtual piano is
+            // always reachable for any specific instrument (the toggle
+            // handler swaps this.viewMode ↔ 'piano' symmetrically).
             this.stringInstrumentConfig = null;
-            if (viewGroup) viewGroup.classList.add('hidden');
+            if (viewGroup) viewGroup.classList.remove('hidden');
             this.setViewMode(info.viewKind);
         } else {
             this.stringInstrumentConfig = null;

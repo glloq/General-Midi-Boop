@@ -200,7 +200,13 @@
             } else if (info.canFretboard) {
                 this.setViewMode(this.viewMode === 'fretboard' ? 'piano' : 'fretboard');
             } else {
-                this.setViewMode('piano');
+                // Specific instruments (harmonica/harp/accordion/mallet/
+                // kalimba/bagpipe/steel-drum/theremin/wind…) toggle between
+                // their natural view and the standard virtual piano, so the
+                // piano stays available for every instrument.
+                const natural = info.viewKind && info.viewKind !== 'piano'
+                    ? info.viewKind : 'piano';
+                this.setViewMode(this.viewMode === natural ? 'piano' : natural);
             }
         });
 
