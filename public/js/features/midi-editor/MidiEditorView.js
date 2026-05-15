@@ -321,10 +321,11 @@
                     <div class="midi-editor-container">
                         <!-- Section Notes -->
                         <div class="midi-editor-section notes-section">
-                            <!-- Navigation Overview Bar (loop mode uses LoopEditor's own minimap instead).
-                                 The standalone Playback Timeline bar was removed — it duplicated this
-                                 bar visually; the piano roll's own playback cursor shows position. -->
-                            ${loop ? '' : '<div class="navigation-overview-wrap" id="navigation-overview-container"></div>'}
+                            <!-- Playback Timeline Bar — time ruler / scrub bar above the
+                                 piano roll. The Navigation Overview minimap was removed:
+                                 it duplicated this bar visually; this one stays as the
+                                 single time/navigation strip. -->
+                            <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
                             <div class="piano-roll-wrapper">
                                 <div class="piano-roll-container" id="piano-roll-container">
                                     <!-- webaudio-pianoroll will be inserted here -->
