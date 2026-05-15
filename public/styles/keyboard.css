@@ -1267,10 +1267,21 @@ body.dark-mode .shortcuts-overlay {
     padding: 8px;
 }
 
-/* Override legacy keyboard-polish.css .instrument-dropdown:hover that makes the container white */
+/* Override legacy .instrument-dropdown:hover (lines 428-433) that turns the
+   custom grid container white. Cover standalone keyboard AND the loop modal
+   mount contexts (loop creator panel, loop editor panel, relocated host). */
 .keyboard-modal .instrument-dropdown,
 .keyboard-modal .instrument-dropdown:hover,
-.keyboard-modal .instrument-dropdown:focus {
+.keyboard-modal .instrument-dropdown:focus,
+.loop-creator-modal .instrument-dropdown,
+.loop-creator-modal .instrument-dropdown:hover,
+.loop-creator-modal .instrument-dropdown:focus,
+.loop-editor-modal .instrument-dropdown,
+.loop-editor-modal .instrument-dropdown:hover,
+.loop-editor-modal .instrument-dropdown:focus,
+.le-instrument-host .instrument-dropdown,
+.le-instrument-host .instrument-dropdown:hover,
+.le-instrument-host .instrument-dropdown:focus {
     background: #16271f !important;
     border-color: rgba(255, 255, 255, 0.15) !important;
     transform: none !important;
