@@ -1089,7 +1089,12 @@
                 } },
                 { label: 'Coller', disabled: this._clipboard.length === 0, action: () => {
                     this.saveSnapshot();
-                    this.pasteNotes(this._clipboard, clickTick);
+                    // Anchor the earliest copied note exactly at the
+                    // (snapped) right-click tick — intuitive "paste here".
+                    const base = this._clipboard.reduce(
+                        (m, n) => Math.min(m, n.t ?? 0), Infinity);
+                    const off = base === Infinity ? clickTick : clickTick - base;
+                    this.pasteNotes(this._clipboard, off);
                 } },
                 { label: 'Supprimer', disabled: selCount === 0, action: () => {
                     this.saveSnapshot();
@@ -1150,13 +1155,29 @@
                     row.addEventListener('mouseleave', () => {
                         row.style.background = '';
                     });
-                    row.addEventListener('click', () => {
+                    // Activate on pointerdown/mousedown (fires before any
+                    // click / focus shuffle and before the outside-dismiss
+                    // handler) and stop propagation so neither the modal's
+                    // global handlers nor the dismiss listener swallow it.
+                    const activate = (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        // pointerdown + mousedown both bound → the second
+                        // is a no-op once the menu is gone.
+                        if (!this._ctxMenuEl) return;
                         this._closeContextMenu();
                         try { it.action(); } catch (_) { /* user-cancel / parse */ }
-                    });
+                    };
+                    row.addEventListener('pointerdown', activate);
+                    row.addEventListener('mousedown', activate);
                 }
                 menu.appendChild(row);
             }
+            // Swallow pointer/mouse-down on the menu chrome (padding,
+            // separators) so it never reaches the outside-dismiss handler.
+            const stop = (ev) => ev.stopPropagation();
+            menu.addEventListener('pointerdown', stop);
+            menu.addEventListener('mousedown', stop);
             document.body.appendChild(menu);
             this._ctxMenuEl = menu;
 
@@ -1375,7 +1396,11 @@
                 if (this._clipboard.length > 0) {
                     e.preventDefault();
                     this.saveSnapshot();
-                    this.pasteNotes(this._clipboard, this._cursor);
+                    // Anchor earliest copied note at the playback cursor.
+                    const base = this._clipboard.reduce(
+                        (m, n) => Math.min(m, n.t ?? 0), Infinity);
+                    const off = base === Infinity ? this._cursor : this._cursor - base;
+                    this.pasteNotes(this._clipboard, off);
                 }
             } else if (ctrl && (e.key === 'z' || (e.shiftKey && (e.key === 'Z' || e.key === 'z')))) {
                 e.preventDefault();
