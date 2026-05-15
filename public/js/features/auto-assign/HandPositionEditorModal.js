@@ -3,10 +3,11 @@
  * @description Full-length tablature & hand-position editor.
  *
  * Stitches three widgets together inside a BaseModal in 'full' size:
- *   - a sticky FretboardHandPreview at the top (live snapshot of the
- *     current playhead),
+ *   - a sticky horizontal-neck preview at the top (live snapshot of
+ *     the current playhead — frets on X, strings as rows),
  *   - a FretboardTimelineRenderer below it (the whole file scrollable
- *     in time, virtualised),
+ *     in time; frets on X aligned with the neck, time flowing
+ *     downward, virtualised),
  *   - a toolbar (transport, zoom, follow, undo/redo, save).
  *
  * Public API:
@@ -189,7 +190,7 @@
                 <div class="hpe-status" data-role="status"></div>
                 <div class="hpe-hint">
                     ${_t('handPositionEditor.hint',
-                         'Manche à gauche, lecture à droite. Molette = défilement horizontal, Ctrl+molette = zoom. Glissez la bande de la main pour épingler une nouvelle position.')}
+                         'Manche en haut, la lecture défile vers le bas. Molette = défilement vertical, Ctrl+molette = zoom. Glissez la bande de la main pour épingler une nouvelle position.')}
                 </div>
             `;
         }
@@ -354,7 +355,7 @@
             const candidates = window.HandPositionFeasibility
                 .findStringCandidates(hit.note, this.instrument);
             if (!candidates.length) return;
-            const targetFret = Number.isFinite(info?.fretY) ? info.fretY : hit.fret;
+            const targetFret = Number.isFinite(info?.fret) ? info.fret : hit.fret;
             // Pick the candidate whose fret is closest to where the
             // operator dropped the dot.
             let best = candidates[0];
@@ -1043,16 +1044,16 @@
                     background: #f3f4f6;
                 }
                 .hpe-main {
-                    flex: 1; display: flex; flex-direction: row;
+                    flex: 1; display: flex; flex-direction: column;
                     overflow: hidden; min-height: 0;
                 }
                 .hpe-sticky-host {
-                    width: 140px; flex-shrink: 0;
-                    border-right: 1px solid #e5e7eb;
+                    height: 150px; flex-shrink: 0;
+                    border-bottom: 1px solid #e5e7eb;
                     background: #f5f7fb;
                 }
                 .hpe-timeline-host {
-                    flex: 1; min-width: 0;
+                    flex: 1; min-height: 0;
                     overflow: hidden; background: #f5f7fb;
                 }
                 .hpe-hint {

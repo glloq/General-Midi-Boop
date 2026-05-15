@@ -1,6 +1,6 @@
 // tests/frontend/fretboard-timeline-renderer.test.js
-// Smoke tests for the horizontal-orientation renderer (time on X,
-// frets on Y).
+// Smoke tests for the vertical-time renderer (frets on X aligned with
+// the sticky neck, time on Y flowing downward).
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
@@ -88,11 +88,11 @@ describe('FretboardTimelineRenderer — smoke', () => {
     }
     tr.setTimeline(events);
     tr.setScrollSec(100);
-    tr.setPxPerSec(80); // viewport = 600 px / 80 = 7.5 sec
+    tr.setPxPerSec(80); // viewport = 400 px / 80 = 5 sec
     calls.length = 0;
     tr.draw();
     const arcCount = calls.filter(c => c.method === 'arc').length;
-    // Viewport ≈ 7.5 s + 2 s margin = ~10 chords. Definitely < 100.
+    // Viewport ≈ 5 s + 2 s margin = ~7 chords. Definitely < 100.
     expect(arcCount).toBeLessThan(100);
     expect(arcCount).toBeGreaterThan(0);
   });
@@ -135,12 +135,12 @@ describe('FretboardTimelineRenderer — smoke', () => {
     });
     tr.setScrollSec(10);
     tr.setPxPerSec(80);
-    // x=160 → sec = scrollSec + 160/80 = 10 + 2 = 12
-    tr._handleClick({ clientX: 160, clientY: 100 });
+    // y=160 → sec = scrollSec + 160/80 = 10 + 2 = 12 (time is on Y now)
+    tr._handleClick({ clientX: 100, clientY: 160 });
     expect(received).toBeCloseTo(12, 5);
   });
 
-  it('vertical drag on a note dot fires onNoteDrag with the snapped fret', () => {
+  it('horizontal drag on a note dot fires onNoteDrag with the snapped fret', () => {
     let received = null;
     const tr = new window.FretboardTimelineRenderer(makeCanvas(600, 400), {
       tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
@@ -153,14 +153,14 @@ describe('FretboardTimelineRenderer — smoke', () => {
     tr.draw();
     const hit = tr._noteHits[0];
     expect(hit).toBeDefined();
-    // Press exactly on the note, then drag down by 60 px.
+    // Press exactly on the note, then drag right by 80 px.
     tr._handleMouseDown({ clientX: hit.x, clientY: hit.y, preventDefault() {} });
-    tr._handleMouseMove({ clientX: hit.x, clientY: hit.y + 60 });
-    tr._handleMouseUp({ clientX: hit.x, clientY: hit.y + 60 });
+    tr._handleMouseMove({ clientX: hit.x + 80, clientY: hit.y });
+    tr._handleMouseUp({ clientX: hit.x + 80, clientY: hit.y });
     expect(received).not.toBeNull();
     expect(received.hit.note).toBe(64);
-    expect(Number.isFinite(received.info.fretY)).toBe(true);
-    expect(received.info.fretY).toBeGreaterThan(hit.fret);
+    expect(Number.isFinite(received.info.fret)).toBe(true);
+    expect(received.info.fret).toBeGreaterThan(hit.fret);
   });
 
   it('a click immediately following a drag does NOT open onNoteClick', () => {
@@ -177,10 +177,10 @@ describe('FretboardTimelineRenderer — smoke', () => {
     tr.draw();
     const hit = tr._noteHits[0];
     tr._handleMouseDown({ clientX: hit.x, clientY: hit.y, preventDefault() {} });
-    tr._handleMouseMove({ clientX: hit.x, clientY: hit.y + 30 });
-    tr._handleMouseUp({ clientX: hit.x, clientY: hit.y + 30 });
+    tr._handleMouseMove({ clientX: hit.x + 30, clientY: hit.y });
+    tr._handleMouseUp({ clientX: hit.x + 30, clientY: hit.y });
     // Browser fires a `click` right after the synthetic mouseup.
-    tr._handleClick({ clientX: hit.x, clientY: hit.y + 30 });
+    tr._handleClick({ clientX: hit.x + 30, clientY: hit.y });
     expect(clicks).toBe(0);
   });
 });
