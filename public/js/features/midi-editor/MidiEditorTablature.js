@@ -115,19 +115,21 @@
                     }
                 }
 
-    // Detect split channels (multiple routings for same channel)
-                const channelRoutingCount = {};
+    // Detect split channels via the backend-authoritative `split_mode`
+    // flag (a split is stored as one or more rows carrying split_mode).
+    // Counting rows per channel is unreliable: a one-segment split has a
+    // single row, and multi-instrument fan-outs produce several non-split
+    // rows that are NOT a split.
+                const splitChannels = new Set();
                 const channelInstrumentNames = {};
                 for (const routing of result.routings) {
                     if (routing.channel == null) continue;
-                    channelRoutingCount[routing.channel] = (channelRoutingCount[routing.channel] || 0) + 1;
+                    if (routing.split_mode) splitChannels.add(routing.channel);
                     if (!channelInstrumentNames[routing.channel]) channelInstrumentNames[routing.channel] = [];
                     if (routing.instrument_name) channelInstrumentNames[routing.channel].push(routing.instrument_name);
                 }
-                for (const [ch, count] of Object.entries(channelRoutingCount)) {
-                    if (count > 1) {
-                        this.modal._splitChannelNames.set(parseInt(ch), channelInstrumentNames[ch] || []);
-                    }
+                for (const ch of splitChannels) {
+                    this.modal._splitChannelNames.set(parseInt(ch), channelInstrumentNames[ch] || []);
                 }
 
                 for (const routing of result.routings) {

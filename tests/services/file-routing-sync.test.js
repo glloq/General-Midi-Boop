@@ -115,6 +115,40 @@ describe('syncFile', () => {
     }));
   });
 
+  test('carries hand-position overrides forward when the device is unchanged', () => {
+    const overrides = { hand_anchors: [{ tick: 480, handId: 'fretting', anchor: 5 }], version: 1 };
+    const { svc, routingRepo } = makeDeps({
+      existingRoutings: [{
+        channel: 0,
+        device_id: 'dev-1',
+        split_mode: null,
+        hand_position_overrides: overrides,
+        hand_position_feasibility: { level: 'ok' }
+      }]
+    });
+    svc.syncFile(42, { 0: 'dev-1' });
+    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      device_id: 'dev-1',
+      hand_position_overrides: overrides
+    }));
+  });
+
+  test('clears hand-position overrides when the device changes', () => {
+    const { svc, routingRepo } = makeDeps({
+      existingRoutings: [{
+        channel: 0,
+        device_id: 'dev-1',
+        split_mode: null,
+        hand_position_overrides: { hand_anchors: [], version: 1 }
+      }]
+    });
+    svc.syncFile(42, { 0: 'dev-2' });
+    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      device_id: 'dev-2',
+      hand_position_overrides: null
+    }));
+  });
+
   test('a split channel is preserved, not re-saved as a plain routing', () => {
     const { svc, routingRepo } = makeDeps({
       existingRoutings: [

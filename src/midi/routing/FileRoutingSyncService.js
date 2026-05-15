@@ -96,6 +96,18 @@ export function planChannelRouting({
       note_remapping: sameDevice && existing.note_remapping
         ? JSON.stringify(existing.note_remapping)
         : null,
+      // Hand-position plan is bound to the physical instrument. Keep it
+      // when the device is unchanged (the editor re-syncs the WHOLE
+      // channel map on any single edit, so dropping it here would wipe
+      // hand overrides for every hand-edited channel on an unrelated
+      // change). Clear it when the device changes — the previous
+      // instrument's hand mechanics no longer apply.
+      hand_position_overrides: sameDevice && existing.hand_position_overrides
+        ? existing.hand_position_overrides
+        : null,
+      hand_position_feasibility: sameDevice && existing.hand_position_feasibility
+        ? existing.hand_position_feasibility
+        : null,
       enabled: true,
       created_at: now
     }
@@ -133,16 +145,26 @@ export default class FileRoutingSyncService {
 
   /**
    * @param {(string|number)} fileId
-   * @returns {Set<number>} Channels actually present in the file —
-   *   used to drop routings for channels that don't exist in the data.
+   * @param {Object[]} [existingRoutings] - rows already fetched by the
+   *   caller, unioned into the result.
+   * @returns {Set<number>} Channels considered valid for the file: those
+   *   present in the parsed metadata UNION those that already carry a
+   *   routing. The union matters because file metadata (`getChannels`)
+   *   can lag behind the actual sequence (adapted files, parser
+   *   differences); without it, re-syncing would silently drop a channel
+   *   that the user had legitimately routed. Genuinely bogus channels
+   *   (no metadata AND no prior routing) are still rejected.
    * @private
    */
-  _knownChannels(fileId) {
+  _knownChannels(fileId, existingRoutings) {
     const set = new Set();
     try {
       const channels = this.fileRepository.getChannels(fileId) || [];
       for (const c of channels) if (c.channel != null) set.add(c.channel);
     } catch { /* ignore */ }
+    if (Array.isArray(existingRoutings)) {
+      for (const r of existingRoutings) if (r && r.channel != null) set.add(r.channel);
+    }
     return set;
   }
 
@@ -178,7 +200,7 @@ export default class FileRoutingSyncService {
     this.routingRepository.deleteNonSplitByFileId(fileId);
 
     const knownDevices = this._knownDevices();
-    const knownChannels = this._knownChannels(fileId);
+    const knownChannels = this._knownChannels(fileId, existingRoutings);
 
     let synced = 0;
     let splitPreserved = 0;
