@@ -1,13 +1,19 @@
 /**
  * @file VerticalFretboardPreview.js
- * @description Vertical-orientation fretboard widget mounted in the
- * left column of the full-length editor modal. Mirrors the geometry of
- * FretboardHandPreview but with axes swapped:
- *   - Y axis: along the neck — fret 0 (nut) at the top, last fret at
- *     the bottom. The hand band's height equals the constant
- *     `hand_span_mm` mapped through the fret formula.
- *   - X axis: across the strings — leftmost string at X=margin.left,
- *     rightmost at X=W-margin.right. Strings are vertical lines.
+ * @description Horizontal-orientation fretboard widget mounted as the
+ * sticky top strip of the full-length editor modal. Shares the exact
+ * fret/mm geometry of FretboardHandPreview so it stacks pixel-aligned
+ * over FretboardTimelineRenderer (both put the fret index on X):
+ *   - X axis: along the neck — fret 0 (nut) at the left, last fret at
+ *     the right, equal-temperament spacing. The hand band's width
+ *     equals the constant `hand_span_mm` mapped through the fret
+ *     formula.
+ *   - Y axis: across the strings — lowest-pitch string at the bottom,
+ *     highest-pitch string at the top. Strings are horizontal lines.
+ *
+ * The class name + `window.VerticalFretboardPreview` global are kept
+ * for backward compatibility (index.html, HandPositionEditorModal,
+ * tests) even though the neck is now drawn horizontally.
  *
  * The same engine drives this widget as the horizontal preview:
  *   setHandTrajectory(points), setTicksPerSec(tps), setCurrentTime(sec),
@@ -21,8 +27,10 @@
 (function() {
     'use strict';
 
-    const FINGER_BEFORE_FRET_MM = 8;
-    const HAND_BAND_X_OVERFLOW = 6;
+    // Kept equal to the timeline / simulator back-off so the stacked
+    // neck band and the timeline ribbon line up on the same fret X.
+    const FINGER_BEFORE_FRET_MM = 10;
+    const HAND_BAND_Y_OVERFLOW = 6;
 
     class VerticalFretboardPreview {
         constructor(canvas, opts = {}) {
@@ -60,9 +68,10 @@
             this._currentSec = 0;
             this._level = 'ok';
 
-            // Margins. Top hosts the tuning labels, left/right keep the
-            // first/last string from sitting on the canvas edge.
-            this.margin = { top: 24, right: 18, bottom: 14, left: 18 };
+            // Margins. Left hosts the tuning labels + nut, bottom hosts
+            // the fret numbers. Kept identical to the timeline renderer's
+            // left/right so the fret X grid is shared.
+            this.margin = { top: 14, right: 18, bottom: 18, left: 34 };
 
             this.onBandDrag = typeof opts.onBandDrag === 'function' ? opts.onBandDrag : null;
             this.handId = typeof opts.handId === 'string' ? opts.handId : 'fretting';
@@ -194,79 +203,79 @@
         }
 
         // ----------------------------------------------------------------
-        //  Geometry — neck on Y, strings on X
+        //  Geometry — neck on X, strings on Y
         // ----------------------------------------------------------------
-
-        _usableHeight() {
-            const h = this.canvas?.clientHeight || this.canvas?.height || 0;
-            return Math.max(1, h - this.margin.top - this.margin.bottom);
-        }
 
         _usableWidth() {
             const w = this.canvas?.clientWidth || this.canvas?.width || 0;
             return Math.max(1, w - this.margin.left - this.margin.right);
         }
 
-        /** Y-coordinate of the fret-`n` wire. n=0 is the nut. */
-        _fretY(n) {
+        _usableHeight() {
+            const h = this.canvas?.clientHeight || this.canvas?.height || 0;
+            return Math.max(1, h - this.margin.top - this.margin.bottom);
+        }
+
+        /** X-coordinate of the fret-`n` wire. n=0 is the nut. */
+        _fretX(n) {
             const totalDist = 1 - Math.pow(2, -this.numFrets / 12);
             const frac = (1 - Math.pow(2, -n / 12)) / totalDist;
-            return this.margin.top + frac * this._usableHeight();
+            return this.margin.left + frac * this._usableWidth();
         }
 
-        /** Y-coordinate at a given mm distance from the nut. */
-        _yFromMm(mm) {
+        /** X-coordinate at a given mm distance from the nut. */
+        _xFromMm(mm) {
             const totalDistMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
-            return this.margin.top + (mm / totalDistMm) * this._usableHeight();
+            return this.margin.left + (mm / totalDistMm) * this._usableWidth();
         }
 
-        /** X-coordinate of string `s` (1-based, 1 = lowest pitch). The
-         *  highest-pitch string sits at the right edge — same convention
-         *  as the horizontal preview's vertical axis (low at bottom,
-         *  high at top), rotated 90° clockwise: low at left, high at
-         *  right. */
-        _stringX(s) {
-            if (this.numStrings <= 1) return this.margin.left + this._usableWidth() / 2;
+        /** Y-coordinate of string `s` (1-based, 1 = lowest pitch). The
+         *  lowest-pitch string sits at the bottom edge, the highest at
+         *  the top — same convention as FretboardHandPreview so the
+         *  sticky preview and the timeline share the string layout. */
+        _stringY(s) {
+            if (this.numStrings <= 1) return this.margin.top + this._usableHeight() / 2;
             const idx = Math.max(0, Math.min(this.numStrings - 1, s - 1));
-            return this.margin.left + (idx / (this.numStrings - 1)) * this._usableWidth();
+            const spacing = this._usableHeight() / (this.numStrings - 1);
+            return this.margin.top + (this.numStrings - 1 - idx) * spacing;
         }
 
-        /** Returns `{y0, y1}` of the hand band given a fret anchor. */
-        _handWindowY(anchor) {
+        /** Returns `{x0, x1}` of the hand band given a fret anchor. */
+        _handWindowX(anchor) {
             const safe = Math.max(0, anchor);
-            // fret_sliding: band runs from _fretY(anchor) to _fretY(anchor+N-1).
-            // First finger (i=0) at top, last finger (i=N-1) at bottom — both
-            // at 8mm before their respective fret wire (approximated by _fretY).
+            // fret_sliding: band runs from _fretX(anchor) to
+            // _fretX(anchor+N-1). First finger (i=0) at the nut side,
+            // last finger (i=N-1) toward the body.
             if (this.mechanism === 'fret_sliding_fingers') {
-                const y0 = this._fretY(safe);
+                const x0 = this._fretX(safe);
                 const lastFret = Math.min(safe + Math.max(1, this.maxFingers) - 1, this.numFrets);
-                const y1 = this._fretY(lastFret);
-                return { y0, y1 };
+                const x1 = this._fretX(lastFret);
+                return { x0, x1 };
             }
             const anchorMm = this.scaleLengthMm * (1 - Math.pow(2, -safe / 12));
-            const topMm = Math.max(0, anchorMm - FINGER_BEFORE_FRET_MM);
-            const y0 = this._yFromMm(topMm);
-            const bottomMm = topMm + this.handSpanMm;
+            const leftMm = Math.max(0, anchorMm - FINGER_BEFORE_FRET_MM);
+            const x0 = this._xFromMm(leftMm);
+            const rightMm = leftMm + this.handSpanMm;
             const totalDistMm = this.scaleLengthMm * (1 - Math.pow(2, -this.numFrets / 12));
-            const y1 = bottomMm >= totalDistMm
-                ? this._fretY(this.numFrets)
-                : this._yFromMm(bottomMm);
-            return { y0, y1 };
+            const x1 = rightMm >= totalDistMm
+                ? this._fretX(this.numFrets)
+                : this._xFromMm(rightMm);
+            return { x0, x1 };
         }
 
-        /** Inverse of `_fretY` — converts a pixel Y back to a (fractional)
+        /** Inverse of `_fretX` — converts a pixel X back to a (fractional)
          *  fret index. Used by drag hit-tests. */
-        _fretAtY(py) {
-            if (!Number.isFinite(py)) return null;
-            const y0 = this._fretY(0);
-            const yN = this._fretY(this.numFrets);
-            if (py <= y0) return 0;
-            if (py >= yN) return this.numFrets;
+        _fretAtX(px) {
+            if (!Number.isFinite(px)) return null;
+            const x0 = this._fretX(0);
+            const xN = this._fretX(this.numFrets);
+            if (px <= x0) return 0;
+            if (px >= xN) return this.numFrets;
             for (let f = 1; f <= this.numFrets; f++) {
-                const a = this._fretY(f - 1);
-                const b = this._fretY(f);
-                if (py <= b) {
-                    const t = (py - a) / Math.max(1e-6, b - a);
+                const a = this._fretX(f - 1);
+                const b = this._fretX(f);
+                if (px <= b) {
+                    const t = (px - a) / Math.max(1e-6, b - a);
                     return (f - 1) + t;
                 }
             }
@@ -339,17 +348,17 @@
 
             const liveAnchor = this._currentDisplayedAnchor();
             if (Number.isFinite(liveAnchor)) {
-                this._drawHandBand(fbX, fbW, liveAnchor);
+                this._drawHandBand(fbY, fbH, liveAnchor);
                 // The finger displacement zones + per-finger markers are
                 // always rendered (no longer gated on showFingerRange):
                 // the longitudinal anchored model needs them visible at
                 // all times so the operator can see which fingers are
                 // pressed, anchored, or hovering at rest.
-                this._drawFingerRange(fbX, fbW, liveAnchor);
+                this._drawFingerRange(fbY, fbH, liveAnchor);
             }
 
-            this._drawFretLines(fbX, fbW);
-            this._drawStringLines(fbY, fbH);
+            this._drawFretLines(fbY, fbH);
+            this._drawStringLines(fbX, fbW);
             this._drawTuningLabels();
             // For string_sliding_fingers the active positions are
             // already drawn as filled circles inside _drawFingerRange,
@@ -361,23 +370,23 @@
             this._drawUnplayablePositions();
         }
 
-        _drawHandBand(fbX, fbW, anchor) {
-            const { y0, y1 } = this._handWindowY(anchor);
-            if (!Number.isFinite(y0) || !Number.isFinite(y1) || y1 <= y0) return;
+        _drawHandBand(fbY, fbH, anchor) {
+            const { x0, x1 } = this._handWindowX(anchor);
+            if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return;
             // Always-on anchored model: the band is the hand's reachable
             // window. Infeasible chords are now expressed by speed
             // saturation in the planner (warnings) rather than a visual
             // overlay, so we keep a single green tint and let the smooth
             // band motion convey the displacement itself.
             const ctx = this.ctx;
-            const xLeft = fbX - HAND_BAND_X_OVERFLOW;
-            const bandW = fbW + 2 * HAND_BAND_X_OVERFLOW;
+            const yTop = fbY - HAND_BAND_Y_OVERFLOW;
+            const bandH = fbH + 2 * HAND_BAND_Y_OVERFLOW;
             ctx.fillStyle = 'rgba(34, 197, 94, 0.22)';
-            ctx.fillRect(xLeft, y0, bandW, y1 - y0);
+            ctx.fillRect(x0, yTop, x1 - x0, bandH);
             ctx.strokeStyle = 'rgba(34, 197, 94, 0.65)';
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 3]);
-            ctx.strokeRect(xLeft, y0, bandW, y1 - y0);
+            ctx.strokeRect(x0, yTop, x1 - x0, bandH);
             ctx.setLineDash([]);
         }
 
@@ -386,18 +395,18 @@
          *
          *   - `string_sliding_fingers`: each finger is locked to ONE
          *     string and slides along the band. We draw one slim
-         *     dashed vertical rectangle per finger, centered on a
-         *     different string column, spanning the full band height,
+         *     dashed horizontal rectangle per finger, centered on a
+         *     different string row, spanning the full band width,
          *     plus a small dot marking the active finger position.
          *   - `fret_sliding_fingers`: each finger is locked to a
          *     fret offset and slides across strings. We draw a single
-         *     dashed rectangle covering the band width with a center
+         *     dashed rectangle covering the band height with a center
          *     dot marking the active position.
          */
-        _drawFingerRange(fbX, fbW, anchor) {
+        _drawFingerRange(fbY, fbH, anchor) {
             if (!this.mechanism) return;
-            const { y0, y1 } = this._handWindowY(anchor);
-            if (!Number.isFinite(y0) || !Number.isFinite(y1)) return;
+            const { x0, x1 } = this._handWindowX(anchor);
+            if (!Number.isFinite(x0) || !Number.isFinite(x1)) return;
             const ctx = this.ctx;
             ctx.save();
             ctx.strokeStyle = 'rgba(37, 99, 235, 0.85)';
@@ -405,35 +414,35 @@
             ctx.lineWidth = 1.5;
             ctx.setLineDash([]);
             if (this.mechanism === 'string_sliding_fingers') {
-                this._drawStringSlidingFingerRanges(y0, y1);
+                this._drawStringSlidingFingerRanges(x0, x1);
             } else if (this.mechanism === 'fret_sliding_fingers') {
-                this._drawFretSlidingFingerRange(fbX, fbW, anchor);
+                this._drawFretSlidingFingerRange(fbY, fbH, anchor);
             }
             ctx.setLineDash([]);
             ctx.restore();
         }
 
-        _drawStringSlidingFingerRanges(y0, y1) {
+        _drawStringSlidingFingerRanges(x0, x1) {
             const ctx = this.ctx;
             const numF = Math.max(1, Math.min(this.maxFingers, this.numStrings));
             // Longitudinal anchored model: one finger per string, indexed
             // 1..numF. Each finger can move freely within the hand's
-            // reach band (y0..y1) along its own string. We draw, for
+            // reach band (x0..x1) along its own string. We draw, for
             // every string:
             //   1. the per-string displacement zone (slim dashed rectangle)
             //      so the user always sees how far the finger could move,
             //   2. the finger marker, whose shape encodes the state:
             //        - inactive          → outline-only (hollow) circle
             //                               at the resting position
-            //                               (centre of the band),
+            //                               (nut side of the band),
             //        - active note-on    → solid filled circle at the
             //                               played fret,
             //        - anchored (held)   → larger filled circle at the
             //                               anchored fret (the finger
             //                               sticks to the fret as the
             //                               band slides — see commit C).
-            const rectW = 10;
-            const restY = y0;
+            const rectH = 10;
+            const restX = x0;
             // Source of truth for finger state: the sustaining map
             // (notes currently sounding, anchored or not). The
             // chord-event activeFret map is used as a fallback for
@@ -446,9 +455,9 @@
             const fallbackActive = this._activeFretByString || new Map();
             const anchoredFallback = this._anchoredStrings || null;
             for (let s = 1; s <= numF; s++) {
-                const cx = this._stringX(s);
-                ctx.fillRect(cx - rectW / 2, y0, rectW, y1 - y0);
-                ctx.strokeRect(cx - rectW / 2, y0, rectW, y1 - y0);
+                const cy = this._stringY(s);
+                ctx.fillRect(x0, cy - rectH / 2, x1 - x0, rectH);
+                ctx.strokeRect(x0, cy - rectH / 2, x1 - x0, rectH);
 
                 ctx.save();
                 ctx.setLineDash([]);
@@ -458,10 +467,10 @@
                 const isAnchored = sustainingAnchored.has(s)
                     || (anchoredFallback && anchoredFallback.has(s));
 
-                let cy = restY;
+                let cx = restX;
                 if (isActive) {
                     // Place the marker at the actual fret on this string.
-                    cy = (this._fretY(activeFretOnString - 1) + this._fretY(activeFretOnString)) / 2;
+                    cx = (this._fretX(activeFretOnString - 1) + this._fretX(activeFretOnString)) / 2;
                 }
 
                 if (isAnchored) {
@@ -492,58 +501,59 @@
             }
         }
 
-        _drawFretSlidingFingerRange(fbX, fbW, anchor) {
+        _drawFretSlidingFingerRange(fbY, fbH, anchor) {
             const ctx = this.ctx;
             const numF = Math.max(1, this.maxFingers);
-            const lineH = 3;
+            const lineW = 3;
             for (let i = 0; i < numF; i++) {
-                // Place each line at the physical fret position anchor+i, matching
-                // the 8mm-before-fret convention. Linear y0→y1 interpolation was
-                // wrong: y1 = _fretY(anchor+numFingers), placing the last stripe
-                // one fret too far (at anchor+numFingers instead of anchor+numFingers-1).
-                const cy = this._fretY(anchor + i);
-                ctx.fillRect(fbX, cy - lineH / 2, fbW, lineH);
-                ctx.strokeRect(fbX, cy - lineH / 2, fbW, lineH);
+                // Place each line at the physical fret position anchor+i,
+                // matching the mm-before-fret convention. Linear x0→x1
+                // interpolation was wrong: it placed the last stripe one
+                // fret too far (at anchor+numFingers instead of
+                // anchor+numFingers-1).
+                const cx = this._fretX(anchor + i);
+                ctx.fillRect(cx - lineW / 2, fbY, lineW, fbH);
+                ctx.strokeRect(cx - lineW / 2, fbY, lineW, fbH);
                 ctx.save();
                 ctx.setLineDash([]);
                 ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
                 ctx.beginPath();
-                ctx.arc(fbX + fbW / 2, cy, 2.5, 0, Math.PI * 2);
+                ctx.arc(cx, fbY + fbH / 2, 2.5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             }
         }
 
-        _drawFretLines(fbX, fbW) {
+        _drawFretLines(fbY, fbH) {
             const ctx = this.ctx;
             ctx.strokeStyle = 'rgba(60, 40, 20, 0.6)';
             ctx.lineWidth = 1;
             for (let f = 1; f <= this.numFrets; f++) {
-                const y = this._fretY(f);
+                const x = this._fretX(f);
                 ctx.beginPath();
-                ctx.moveTo(fbX, y);
-                ctx.lineTo(fbX + fbW, y);
+                ctx.moveTo(x, fbY);
+                ctx.lineTo(x, fbY + fbH);
                 ctx.stroke();
             }
             // Nut — heavier line at fret 0.
             ctx.strokeStyle = '#3a2a1a';
             ctx.lineWidth = 2;
-            const yNut = this._fretY(0);
+            const xNut = this._fretX(0);
             ctx.beginPath();
-            ctx.moveTo(fbX, yNut);
-            ctx.lineTo(fbX + fbW, yNut);
+            ctx.moveTo(xNut, fbY);
+            ctx.lineTo(xNut, fbY + fbH);
             ctx.stroke();
         }
 
-        _drawStringLines(fbY, fbH) {
+        _drawStringLines(fbX, fbW) {
             const ctx = this.ctx;
             ctx.strokeStyle = 'rgba(40, 30, 20, 0.75)';
             ctx.lineWidth = 1.2;
             for (let s = 1; s <= this.numStrings; s++) {
-                const x = this._stringX(s);
+                const y = this._stringY(s);
                 ctx.beginPath();
-                ctx.moveTo(x, fbY);
-                ctx.lineTo(x, fbY + fbH);
+                ctx.moveTo(fbX, y);
+                ctx.lineTo(fbX + fbW, y);
                 ctx.stroke();
             }
         }
@@ -552,15 +562,15 @@
             const ctx = this.ctx;
             ctx.fillStyle = '#374151';
             ctx.font = '10px sans-serif';
-            ctx.textAlign = 'center';
+            ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-            const yLabel = this.margin.top - 12;
+            const xLabel = this.margin.left - 6;
             for (let s = 1; s <= this.numStrings; s++) {
                 const midi = this.tuning[s - 1];
                 if (!Number.isFinite(midi)) continue;
                 const name = `${NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
-                ctx.fillText(name, this._stringX(s), yLabel);
+                ctx.fillText(name, xLabel, this._stringY(s));
             }
         }
 
@@ -568,10 +578,10 @@
             if (!this.activePositions.length) return;
             const ctx = this.ctx;
             for (const p of this.activePositions) {
-                const x = this._stringX(p.string);
-                const y = p.fret === 0
-                    ? this._fretY(0) - 8
-                    : (this._fretY(p.fret - 1) + this._fretY(p.fret)) / 2;
+                const y = this._stringY(p.string);
+                const x = p.fret === 0
+                    ? this._fretX(0) - 8
+                    : (this._fretX(p.fret - 1) + this._fretX(p.fret)) / 2;
                 ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
                 ctx.beginPath();
                 ctx.arc(x, y, 5, 0, Math.PI * 2);
@@ -583,31 +593,31 @@
             if (!this.unplayablePositions.length) return;
             const ctx = this.ctx;
             const liveAnchor = this._currentDisplayedAnchor();
-            let bandTopY = null, bandBottomY = null;
+            let bandLeftX = null, bandRightX = null;
             if (Number.isFinite(liveAnchor)) {
-                const { y0, y1 } = this._handWindowY(liveAnchor);
-                if (Number.isFinite(y0) && Number.isFinite(y1)) {
-                    bandTopY = y0;
-                    bandBottomY = y1;
+                const { x0, x1 } = this._handWindowX(liveAnchor);
+                if (Number.isFinite(x0) && Number.isFinite(x1)) {
+                    bandLeftX = x0;
+                    bandRightX = x1;
                 }
             }
             for (const pos of this.unplayablePositions) {
-                const x = this._stringX(pos.string);
-                let y;
+                const y = this._stringY(pos.string);
+                let x;
                 let chevron = null;
-                // direction='left' on the horizontal preview meant
-                // "below the anchor" — in the vertical layout that's
-                // ABOVE the band (toward the nut).
-                if (pos.direction === 'left' && bandTopY != null) {
-                    y = bandTopY - 12;
-                    chevron = 'up';
-                } else if (pos.direction === 'right' && bandBottomY != null) {
-                    y = bandBottomY + 12;
-                    chevron = 'down';
+                // direction='left' means "below the anchor" → toward the
+                // nut = left in the horizontal layout. 'right' = toward
+                // the body = right.
+                if (pos.direction === 'left' && bandLeftX != null) {
+                    x = bandLeftX - 12;
+                    chevron = 'left';
+                } else if (pos.direction === 'right' && bandRightX != null) {
+                    x = bandRightX + 12;
+                    chevron = 'right';
                 } else if (pos.fret === 0) {
-                    y = this._fretY(0) - 8;
+                    x = this._fretX(0) - 8;
                 } else {
-                    y = (this._fretY(pos.fret - 1) + this._fretY(pos.fret)) / 2;
+                    x = (this._fretX(pos.fret - 1) + this._fretX(pos.fret)) / 2;
                 }
                 ctx.fillStyle = 'rgba(239, 68, 68, 0.55)';
                 ctx.beginPath();
@@ -619,13 +629,13 @@
                 ctx.arc(x, y, 5, 0, Math.PI * 2);
                 ctx.stroke();
                 if (chevron) {
-                    const dy = chevron === 'up' ? -7 : 7;
-                    const tip = chevron === 'up' ? -3 : 3;
+                    const dx = chevron === 'left' ? -7 : 7;
+                    const tip = chevron === 'left' ? -3 : 3;
                     ctx.strokeStyle = '#b91c1c';
                     ctx.beginPath();
-                    ctx.moveTo(x - 3, y + dy - tip);
-                    ctx.lineTo(x, y + dy);
-                    ctx.lineTo(x + 3, y + dy - tip);
+                    ctx.moveTo(x + dx - tip, y - 3);
+                    ctx.lineTo(x + dx, y);
+                    ctx.lineTo(x + dx - tip, y + 3);
                     ctx.stroke();
                 }
             }
@@ -648,16 +658,16 @@
             if (!this.onBandDrag) return;
             const liveAnchor = this._currentDisplayedAnchor();
             if (!Number.isFinite(liveAnchor)) return;
-            const { y0, y1 } = this._handWindowY(liveAnchor);
-            if (!Number.isFinite(y0) || !Number.isFinite(y1)) return;
+            const { x0, x1 } = this._handWindowX(liveAnchor);
+            if (!Number.isFinite(x0) || !Number.isFinite(x1)) return;
             const { x, y } = this._pointerXY(e);
-            const fbX = this.margin.left;
-            const fbW = (this.canvas.clientWidth || this.canvas.width || 0)
-                - this.margin.left - this.margin.right;
-            // Hit zone: inside the band, across the full neck width.
-            if (x < fbX - HAND_BAND_X_OVERFLOW || x > fbX + fbW + HAND_BAND_X_OVERFLOW) return;
-            if (y < y0 || y > y1) return;
-            const fract = this._fretAtY(y);
+            const fbY = this.margin.top - HAND_BAND_Y_OVERFLOW;
+            const fbBottom = (this.canvas.clientHeight || this.canvas.height || 0)
+                - this.margin.bottom + HAND_BAND_Y_OVERFLOW;
+            // Hit zone: inside the band, across the full neck height.
+            if (y < fbY || y > fbBottom) return;
+            if (x < x0 || x > x1) return;
+            const fract = this._fretAtX(x);
             if (fract == null) return;
             this._drag = { offset: fract - liveAnchor, moved: false };
             if (e.preventDefault) e.preventDefault();
@@ -665,8 +675,8 @@
 
         _handleMouseMove(e) {
             if (!this._drag) return;
-            const { y } = this._pointerXY(e);
-            const fract = this._fretAtY(y);
+            const { x } = this._pointerXY(e);
+            const fract = this._fretAtX(x);
             if (fract == null) return;
             const maxAnchor = Math.max(0, this.numFrets - this.handSpanFrets);
             const newAnchor = Math.max(0, Math.min(maxAnchor,

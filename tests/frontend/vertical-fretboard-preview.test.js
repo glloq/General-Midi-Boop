@@ -1,7 +1,10 @@
 // tests/frontend/vertical-fretboard-preview.test.js
-// Smoke tests for the vertical sticky preview used in the editor modal.
-// Verifies that the band stays in mm coordinates (constant pixel
-// height across anchors) and that the drag-to-pin emits a callback.
+// Smoke tests for the sticky neck preview used in the editor modal.
+// The neck is drawn HORIZONTALLY (frets on X, strings as rows). The
+// class/global name is kept (VerticalFretboardPreview) for backward
+// compatibility. Verifies that the band stays in mm coordinates
+// (constant pixel WIDTH across anchors) and that the drag-to-pin emits
+// a callback.
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
@@ -40,7 +43,7 @@ beforeEach(() => {
   installCanvasStub();
 });
 
-function makeCanvas(w = 140, h = 600) {
+function makeCanvas(w = 600, h = 150) {
   const c = document.createElement('canvas');
   Object.defineProperty(c, 'clientWidth',  { get: () => w });
   Object.defineProperty(c, 'clientHeight', { get: () => h });
@@ -56,36 +59,47 @@ function placeAt(fb, anchor) {
   fb.setLevel('ok');
 }
 
-describe('VerticalFretboardPreview', () => {
-  it('draws strings as vertical lines and frets as horizontal lines', () => {
+// Find the green hand-band fillRect by tracking the fillStyle set just
+// before each fillRect call.
+function bandRect() {
+  let lastFill = null;
+  for (const c of calls) {
+    if (c.method === 'set' && c.prop === 'fillStyle') lastFill = String(c.value);
+    if (c.method === 'fillRect' && lastFill && /34, 197, 94/.test(lastFill)) {
+      return c.args; // [x, y, w, h]
+    }
+  }
+  return null;
+}
+
+describe('VerticalFretboardPreview (horizontal neck)', () => {
+  it('draws strings as horizontal lines and frets as vertical lines', () => {
     const fb = new window.VerticalFretboardPreview(makeCanvas(), {
       tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
     });
     fb.draw();
-    const horizontalLines = calls.filter((c, i) => {
+    const verticalLines = calls.filter((c, i) => {
       if (c.method !== 'lineTo') return false;
       const move = calls[i - 1];
-      return move?.method === 'moveTo' && Math.abs(move.args[1] - c.args[1]) < 0.5;
+      return move?.method === 'moveTo' && Math.abs(move.args[0] - c.args[0]) < 0.5;
     });
-    expect(horizontalLines.length).toBeGreaterThan(20); // ≥ 22 frets + nut
+    expect(verticalLines.length).toBeGreaterThan(20); // ≥ 22 frets + nut
   });
 
-  it('keeps a constant pixel band height as the anchor slides down the neck', () => {
+  it('keeps a constant pixel band width as the anchor slides along the neck', () => {
     const fb = new window.VerticalFretboardPreview(makeCanvas(), {
       tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
     });
     placeAt(fb, 3);
-    const bandLow = calls.filter(c => c.method === 'fillRect')
-      .find(c => c.args[3] > 20); // band is the only tall fillRect
-    expect(bandLow).toBeDefined();
-    const heightAtFret3 = bandLow.args[3];
+    const low = bandRect();
+    expect(low).not.toBeNull();
+    const widthAtFret3 = low[2];
 
     calls.length = 0;
     placeAt(fb, 15);
-    const bandHigh = calls.filter(c => c.method === 'fillRect')
-      .find(c => c.args[3] > 20);
-    expect(bandHigh).toBeDefined();
-    expect(bandHigh.args[3]).toBeCloseTo(heightAtFret3, 0);
+    const high = bandRect();
+    expect(high).not.toBeNull();
+    expect(high[2]).toBeCloseTo(widthAtFret3, 0);
   });
 
   it('drag emits onBandDrag with an integer fret anchor', () => {
@@ -96,11 +110,11 @@ describe('VerticalFretboardPreview', () => {
       onBandDrag: (id, anchor) => { received = { id, anchor }; }
     });
     placeAt(fb, 3);
-    const { y0 } = fb._handWindowY(3);
-    fb._handleMouseDown({ clientX: 70, clientY: y0 + 4, preventDefault() {} });
-    // Move down toward fret 9.
-    const yTarget = (fb._fretY(8) + fb._fretY(9)) / 2;
-    fb._handleMouseMove({ clientX: 70, clientY: yTarget + 4, preventDefault() {} });
+    const { x0 } = fb._handWindowX(3);
+    fb._handleMouseDown({ clientX: x0 + 4, clientY: 70, preventDefault() {} });
+    // Move right toward fret 9.
+    const xTarget = (fb._fretX(8) + fb._fretX(9)) / 2;
+    fb._handleMouseMove({ clientX: xTarget + 4, clientY: 70, preventDefault() {} });
     fb._handleMouseUp();
     expect(received).not.toBeNull();
     expect(received.id).toBe('fretting');

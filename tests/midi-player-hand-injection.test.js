@@ -79,6 +79,34 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     expect(player.events.some(e => e.type === 'controller')).toBe(false);
   });
 
+  test('skips injection when the file already carries a baked hand CC (cc_position_number guard)', () => {
+    // Regression for the `h.cc_number` typo: the de-dup guard built
+    // `expectedCcNumbers` from a field that never exists, so the
+    // "already baked" detection never fired and every hand CC was
+    // emitted twice (once from the timeline, once from injection).
+    const hands = {
+      enabled: true,
+      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_semitones: 14 }]
+    };
+    const deps = makeDeps(hands);
+    const player = new MidiPlayer(deps);
+    primePlayer(player, [{ time: 0.5, note: 40 }, { time: 1.0, note: 52 }]);
+    // A hand-position CC22 already baked into the timeline on the same
+    // source channel (e.g. written by PlaybackAssignmentCommands).
+    player.events.push({
+      time: 0.4, type: 'controller', channel: 0, controller: 22, value: 3
+    });
+
+    const injected = player._injectHandPositionCCEvents();
+
+    // The baked stream is authoritative — nothing new injected, no
+    // duplicate CC22.
+    expect(injected).toBe(0);
+    const cc22 = player.events.filter(
+      e => e.type === 'controller' && e.controller === 22);
+    expect(cc22.length).toBe(1);
+  });
+
   test('idempotent across re-runs (no accumulation)', () => {
     const deps = makeDeps(pianoHands);
     const player = new MidiPlayer(deps);

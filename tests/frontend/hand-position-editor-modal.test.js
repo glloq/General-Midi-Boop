@@ -295,7 +295,7 @@ describe('HandPositionEditorModal — close + audio offset + note drag', () => {
       pinned = { tick, note, string, fret };
     };
     const hit = { tick: 480, note: 64, string: 6, fret: 0 };
-    m._onTimelineNoteDrag(hit, { fretY: 8.6 }); // closest = fret 9
+    m._onTimelineNoteDrag(hit, { fret: 8.6 }); // closest = fret 9
     expect(pinned).toEqual({ tick: 480, note: 64, string: 4, fret: 9 });
     window.HandPositionFeasibility = realF;
   });

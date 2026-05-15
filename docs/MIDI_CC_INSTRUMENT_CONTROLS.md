@@ -10,11 +10,12 @@ Général Midi Boop utilise des CC (Control Change) MIDI dedies pour le controle
 |---|---|---|
 | CC20 | String Select | Implemente |
 | CC21 | Fret Select | Implemente |
+| CC22 | Hand Position | Implemente (planner position de main, `cc_position_number`) |
 
 ### Plages CC disponibles (non definies dans GM/GS)
 
 - **CC14-19** : Libres
-- **CC22-31** : Libres (CC20-21 utilises)
+- **CC23-31** : Libres (CC20-22 utilises)
 - **CC85-90** : Libres
 - **CC102-119** : Libres
 
@@ -35,7 +36,7 @@ Applicables a tous les instruments.
 
 ---
 
-## 2. Instruments a cordes - CC20-28
+## 2. Instruments a cordes - CC20-29
 
 Guitare, basse, ukulele, banjo, violon, alto, violoncelle, contrebasse, mandoline.
 
@@ -43,13 +44,14 @@ Guitare, basse, ukulele, banjo, violon, alto, violoncelle, contrebasse, mandolin
 |---|---|---|---|
 | CC20 | String Select | 1-12 | **Implemente** - Selection de la corde |
 | CC21 | Fret Select | 0-36 | **Implemente** - Selection de la frette |
-| CC22 | Playing Technique | 0=pick down, 1=pick up, 2=finger, 3=slap, 4=tap, 5=hammer-on, 6=pull-off, 7=harmonique naturelle, 8=harmonique artificielle | Technique de jeu / type d'attaque |
+| CC22 | Hand Position | 0-127 (frette absolue de l'ancrage ; n° configurable via `cc_position_number`) | **Implemente** - Position de la main de fretting emise par le planner. Voir `STRING_HAND_POSITION.md`. |
 | CC23 | Pick/Bow Position | 0 (chevalet/ponte) - 127 (manche/tasto) | Position du mediator ou de l'archet (continu) |
 | CC24 | Palm Mute | 0 (ouvert) - 127 (completement etouffe) | Intensite de l'etouffement |
 | CC25 | Slide Type | 0=off, 1=slide up into, 2=slide down into, 3=slide up out, 4=slide down out, 5=legato slide | Type de glissando |
 | CC26 | Bend Range | 0-24 (demi-tons) | Etendue du pitch bend pour la note courante |
 | CC27 | Capo Position | 0=pas de capo, 1-24=position frette | Position du capo virtuel |
 | CC28 | Bow Technique | 0=arco, 1=pizzicato, 2=col legno, 3=spiccato, 4=tremolo, 5=sul ponticello, 6=sul tasto, 7=martele | Techniques specifiques cordes frottees |
+| CC29 | Playing Technique | 0=pick down, 1=pick up, 2=finger, 3=slap, 4=tap, 5=hammer-on, 6=pull-off, 7=harmonique naturelle, 8=harmonique artificielle | Technique de jeu / type d'attaque (reloge depuis CC22, qui porte desormais la position de main) |
 
 ---
 
@@ -106,7 +108,7 @@ Piano acoustique, piano electrique, clavecin, orgue.
 | Plage | Famille | CCs | Status |
 |---|---|---|---|
 | CC14-19 | Generiques (tous instruments) | 6 | A implementer |
-| CC20-28 | Cordes | 9 | CC20-21 implementes, CC22-28 a faire |
+| CC20-29 | Cordes | 10 | CC20-22 implementes (string/fret/hand position), CC23-29 a faire |
 | CC85-90 | Vents / Cuivres | 6 | A implementer |
 | CC102-106 | Percussions / Batterie | 5 | A implementer |
 | CC107-110 | Clavier / Piano | 4 | A implementer |
@@ -117,7 +119,7 @@ Piano acoustique, piano electrique, clavecin, orgue.
 
 ### Phase 1 - Impact maximum
 1. **CC14** - Articulation Select (universel, tous instruments)
-2. **CC22** - Playing Technique (cordes, complete string/fret)
+2. **CC29** - Playing Technique (cordes, complete string/fret/hand position)
 3. **CC102** - Stick Type (percussions, change radicalement le son)
 4. **CC85** - Mute Type (cuivres, essentiel pour le realisme)
 
