@@ -39,7 +39,6 @@
     const KB_W     = 40;       // keyboard column (without scrollbar)
     const KB_WIDTH = SB_W + KB_W; // total left chrome — notes start at x >= KB_WIDTH
     const RULER_H  = 18;       // top ruler
-    const HSB_H    = 12;       // bottom horizontal scrollbar strip
     const NOTE_H_MIN = 4;      // min note row height (pitch)
     const NOTE_H_MAX = 24;     // max note row height (pitch)
 
@@ -130,13 +129,10 @@
             this._bucketTicks = 480 * 4;  // 1 measure per bucket by default
             this._buckets = new Map();
             this._bucketsDirty = true;
-            // Largest `t + g` across the sequence — recomputed lazily by
-            // `_rebuildBuckets`. Drives the horizontal scrollbar thumb.
-            this._seqMaxTick = 0;
 
             // ---- Interaction (B4) ----
             this._selectionRect = null;   // {x0, y0, x, y} in CSS px while drawing
-            this._dragging = null;        // {mode: 'rect'|'pan'|'note'|'pianokey'|'hscroll'}
+            this._dragging = null;        // {mode: 'rect'|'pan'|'note'|'pianokey'}
             this._pointerDownHandler = null;
             this._pointerMoveHandler = null;
             this._pointerUpHandler = null;
@@ -773,13 +769,11 @@
         _rebuildBuckets() {
             this._buckets.clear();
             const B = this._bucketTicks;
-            let maxTick = 0;
             for (let i = 0; i < this._sequence.length; i++) {
                 const n = this._sequence[i];
                 if (!n) continue;
                 const t0 = n.t;
                 const t1 = n.t + (n.g || 0);
-                if (t1 > maxTick) maxTick = t1;
                 const b0 = Math.floor(t0 / B);
                 const b1 = Math.floor(t1 / B);
                 for (let b = b0; b <= b1; b++) {
@@ -788,45 +782,7 @@
                     set.add(i);
                 }
             }
-            this._seqMaxTick = maxTick;
             this._bucketsDirty = false;
-        }
-
-        /**
-         * Total scrollable tick span for the horizontal scrollbar — the
-         * sequence end, but never less than one full viewport so the
-         * thumb stays usable on an empty / short project.
-         */
-        _contentMaxTick() {
-            if (this._bucketsDirty) this._rebuildBuckets();
-            return Math.max(this._seqMaxTick, this._xoffset + this._xrange, this._xrange);
-        }
-
-        /**
-         * Geometry of the bottom horizontal scrollbar in CSS px.
-         * `thumbX`/`thumbW` express the visible window as a proportion of
-         * the total content span.
-         */
-        _hScrollbarGeom() {
-            const W = this._cssWidth;
-            const trackX = KB_WIDTH;
-            const trackY = this._cssHeight - HSB_H;
-            const trackW = Math.max(1, W - KB_WIDTH);
-            const maxTick = this._contentMaxTick();
-            const thumbW = Math.max(24, trackW * Math.min(1, this._xrange / maxTick));
-            const scrollRange = Math.max(1, maxTick - this._xrange);
-            const ratio = Math.max(0, Math.min(1, this._xoffset / scrollRange));
-            const thumbX = trackX + (trackW - thumbW) * ratio;
-            return { trackX, trackY, trackW, thumbX, thumbW, maxTick, scrollRange };
-        }
-
-        /** Map a CSS x inside the H scrollbar track to an `_xoffset`. */
-        _hScrollbarXToOffset(x) {
-            const g = this._hScrollbarGeom();
-            // Centre the thumb under the pointer, then convert back.
-            const rel = Math.max(0, Math.min(1,
-                (x - g.trackX - g.thumbW / 2) / Math.max(1, g.trackW - g.thumbW)));
-            return Math.max(0, Math.round(rel * g.scrollRange));
         }
 
         // ----------------------------------------------------------------
@@ -864,22 +820,6 @@
                     this._scheduleRender();
                 }
                 this._dragging = { mode: 'scrollbar' };
-                return;
-            }
-
-            // Clicked on the bottom horizontal scrollbar → jump + drag.
-            if (y >= this._cssHeight - HSB_H && x >= KB_WIDTH) {
-                const newOff = this._hScrollbarXToOffset(x);
-                if (newOff !== this._xoffset) {
-                    this._xoffset = newOff;
-                    this._bgDirty = true;
-                    this._emit('viewportchange', {
-                        xoffset: this._xoffset, yoffset: this._yoffset,
-                        xrange: this._xrange, yrange: this._yrange
-                    });
-                    this._scheduleRender();
-                }
-                this._dragging = { mode: 'hscroll' };
                 return;
             }
 
@@ -973,20 +913,6 @@
                     Math.round(ratio * 128 - this._yrange / 2)));
                 if (newY !== this._yoffset) {
                     this._yoffset = newY;
-                    this._bgDirty = true;
-                    this._emit('viewportchange', {
-                        xoffset: this._xoffset, yoffset: this._yoffset,
-                        xrange: this._xrange, yrange: this._yrange
-                    });
-                    this._scheduleRender();
-                }
-                return;
-            }
-            if (d.mode === 'hscroll') {
-                // Continue dragging the horizontal scrollbar thumb.
-                const newOff = this._hScrollbarXToOffset(x);
-                if (newOff !== this._xoffset) {
-                    this._xoffset = newOff;
                     this._bgDirty = true;
                     this._emit('viewportchange', {
                         xoffset: this._xoffset, yoffset: this._yoffset,
@@ -1121,7 +1047,7 @@
             }
             const { x, y } = this._localCoords(e);
             const inside = x >= KB_WIDTH && y >= RULER_H
-                        && x <= this._cssWidth && y <= this._cssHeight - HSB_H;
+                        && x <= this._cssWidth && y <= this._cssHeight;
             const nx = inside ? x : null;
             const ny = inside ? y : null;
             if (nx === this._hoverX && ny === this._hoverY) return;
@@ -1286,7 +1212,7 @@
                     const oldRange = this._yrange;
                     // Use the real `_noteHeight()` (which now reserves the
                     // HSB strip) so the pivot matches what's drawn.
-                    if (x >= KB_WIDTH && y >= RULER_H && y < this._cssHeight - HSB_H) {
+                    if (x >= KB_WIDTH && y >= RULER_H) {
                         const oldNoteH = this._noteHeight();
                         const notesFromTop = (y - RULER_H) / oldNoteH; // fractional
                         const pitchAtMouse = this._yoffset + oldRange - 1 - notesFromTop;
@@ -1364,7 +1290,7 @@
          * resize cursor; everything else is a body grab.
          */
         _hitTestNote(x, y) {
-            if (x < KB_WIDTH || y < RULER_H || y >= this._cssHeight - HSB_H) return null;
+            if (x < KB_WIDTH || y < RULER_H) return null;
             const tick = this._xToTick(x);
             const note = this._yToNote(y);
             const tickPerPx = (this._xrange || 1) / Math.max(1, this._cssWidth - KB_WIDTH);
@@ -1397,9 +1323,8 @@
         _onDblClick(e) {
             if (!this._el) return;
             const { x, y } = this._localCoords(e);
-            // Only create inside the notes area (not on keyboard / ruler /
-            // bottom scrollbar strip)
-            if (x < KB_WIDTH || y < RULER_H || y >= this._cssHeight - HSB_H) return;
+            // Only create inside the notes area (not on keyboard, not on ruler)
+            if (x < KB_WIDTH || y < RULER_H) return;
             // If clicking on an existing note, deletion would be intuitive
             // but `<webaudio-pianoroll>` doesn't do that — keep parity and
             // ignore dblclick on hit.
@@ -1608,31 +1533,6 @@
                     ctx.fillText(`C${Math.floor(n / 12) - 1}`, stripX + 3, y + noteH / 2);
                 }
             }
-
-            // Horizontal scrollbar — bottom strip from the keyboard right
-            // edge to the canvas right edge. Thumb width/position track the
-            // visible tick window against the total content span.
-            const hg = this._hScrollbarGeom();
-            ctx.fillStyle = trackBg;
-            ctx.fillRect(hg.trackX, hg.trackY, hg.trackW, HSB_H);
-            ctx.strokeStyle = trackBorder;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(hg.trackX, hg.trackY + 0.5);
-            ctx.lineTo(hg.trackX + hg.trackW, hg.trackY + 0.5);
-            ctx.stroke();
-            const hsbActive = this._dragging && this._dragging.mode === 'hscroll';
-            ctx.fillStyle = hsbActive ? '#7aa0ff' : '#5e8eff';
-            const r = 3;
-            const tx = hg.thumbX, ty = hg.trackY + 2, tw = hg.thumbW, th = HSB_H - 4;
-            ctx.beginPath();
-            ctx.moveTo(tx + r, ty);
-            ctx.arcTo(tx + tw, ty, tx + tw, ty + th, r);
-            ctx.arcTo(tx + tw, ty + th, tx, ty + th, r);
-            ctx.arcTo(tx, ty + th, tx, ty, r);
-            ctx.arcTo(tx, ty, tx + tw, ty, r);
-            ctx.closePath();
-            ctx.fill();
         }
 
         // ----------------------------------------------------------------
@@ -1640,7 +1540,7 @@
         // ----------------------------------------------------------------
 
         _noteHeight() {
-            const drawH = this._cssHeight - RULER_H - HSB_H;
+            const drawH = this._cssHeight - RULER_H;
             return Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / this._yrange));
         }
         _noteToY(note) {
