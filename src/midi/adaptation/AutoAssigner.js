@@ -99,6 +99,18 @@ class AutoAssigner {
       // Collect all raw scores for the matrix (if requested)
       const allScoresRaw = includeMatrix ? {} : null;
 
+      // Cooperative yielding: the channel × instrument scoring loop is
+      // CPU-bound and synchronous. On a large library it blocks Node's
+      // single thread for seconds, freezing live MIDI playback and every
+      // other WebSocket client. Yield to the event loop periodically so
+      // the rest of the app stays responsive. Result is unchanged — only
+      // the scheduling differs.
+      const YIELD_EVERY = 250;
+      let _opsSinceYield = 0;
+      const _yield = () => new Promise((resolve) => {
+        (typeof setImmediate === 'function' ? setImmediate : setTimeout)(resolve, 0);
+      });
+
       for (const analysis of channelAnalyses) {
         const scores = [];
         const lowScores = [];
@@ -166,6 +178,11 @@ class AutoAssigner {
             scores.push(entry);
           } else {
             lowScores.push(entry);
+          }
+
+          if (++_opsSinceYield >= YIELD_EVERY) {
+            _opsSinceYield = 0;
+            await _yield();
           }
         }
 
