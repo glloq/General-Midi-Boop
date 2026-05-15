@@ -73,6 +73,9 @@
                     + 'border:none;border-radius:3px;cursor:pointer;'
                     + 'background:' + (isC ? '#c0392b' : isF ? '#2c3e50' : '#cfd6dc')
                     + ';opacity:.85;transition:opacity .05s;';
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    s.style.background = modal.getNoteColor(midi).bg;
+                }
                 root.appendChild(s);
             });
 

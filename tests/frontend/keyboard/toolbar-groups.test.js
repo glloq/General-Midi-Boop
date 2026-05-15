@@ -20,10 +20,14 @@ beforeAll(() => {
 });
 
 // The exact pre-PE-2 inline formulas (independent re-implementation).
+// octave-bar / minimap / list-view: legacy formulas (PE-2 preserved them
+// exactly). note-color: CHANGED post-PE-2 (QA #3) — the 🎨 toggle must
+// stay visible on piano-slider; only a drum kit has no pitch colours, so
+// it is hidden ONLY in drumpad.
 const oracle = (vm) => ({
   'keyboard-octave-bar':      vm !== 'piano' && vm !== 'piano-slider',
   'keyboard-minimap-row':     !(vm === 'piano' || vm === 'piano-slider' || vm === 'keyboard-list'),
-  'keyboard-note-color-group': vm === 'drumpad' || vm === 'piano-slider',
+  'keyboard-note-color-group': vm === 'drumpad',
   'keyboard-list-view-group': vm === 'fretboard' || vm === 'drumpad',
 });
 

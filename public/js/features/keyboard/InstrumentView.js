@@ -66,6 +66,19 @@
 
         get mounted() { return this._mounted; }
 
+        /**
+         * Rebuild the view in place (same ctx). Used when something the
+         * DOM depends on changed globally — e.g. the note-label format
+         * (US / FR / MIDI) toggled while this view is active, so every
+         * note label must be regenerated. Generic: unmount + mount.
+         */
+        rerender() {
+            if (!this._mounted || !this.ctx) return;
+            const ctx = this.ctx;
+            this.unmount();
+            this.mount(ctx);
+        }
+
         // ── Hooks (default no-op; subclasses override when relevant) ──────────
 
         /** Called when the active capabilities object changes mid-view. */

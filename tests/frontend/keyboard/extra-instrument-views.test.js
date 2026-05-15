@@ -177,6 +177,119 @@ describe('accordion — bellows scales velocity through willPlayNote', () => {
   });
 });
 
+describe('note colours — 🎨 applies to every instrument view', () => {
+  it('KeyboardModal.getNoteColor: octave-invariant 12-colour palette', () => {
+    const m = new (win.KeyboardModal)();
+    expect(m.getNoteColor(60)).toEqual(m.getNoteColor(72));   // C == C
+    expect(m.getNoteColor(60).bg).toBe('#EF4444');            // C red
+    expect(m.getNoteColor(61).bg).toBe('#F4622A');            // C#
+    expect(m.getNoteColor(59).bg).toBe('#A855F7');            // B violet
+    expect(m.getNoteColor(0)).toEqual(m.getNoteColor(120));   // wraps
+  });
+
+  const VIEWS = [
+    ['HarmonicaView', 'harmonica-container', '.harmonica-hole'],
+    ['HarpView', 'harp-container', '.harp-string'],
+    ['AccordionView', 'accordion-container', '.accordion-key'],
+    ['MalletView', 'mallet-container', '.mallet-bar'],
+    ['KalimbaView', 'kalimba-container', '.kalimba-tine'],
+    ['BagpipeView', 'bagpipe-container', '.bagpipe-hole'],
+    ['SteelDrumView', 'steel-drum-container', '.steel-section'],
+  ];
+
+  for (const [cls, containerId, sel] of VIEWS) {
+    it(`${cls}: cells get the chromatic colour only when showNoteColors`, () => {
+      document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+      const modal = {
+        playNote() {}, stopNote() {}, sendCC() {},
+        getNoteLabel: (n) => `N${n}`,
+        showNoteColors: false,
+        getNoteColor: () => ({ bg: 'rgb(1, 2, 3)', text: 'rgb(255, 255, 255)' })
+      };
+      // OFF → no forced colour
+      let v = new (win[cls])();
+      v.mount({ modal });
+      const offBg = document.querySelector(`${containerId ? '#' + containerId + ' ' : ''}${sel}`).style.background;
+      expect(offBg).not.toBe('rgb(1, 2, 3)');
+      v.unmount();
+      // ON → every cell painted with getNoteColor().bg
+      modal.showNoteColors = true;
+      v = new (win[cls])();
+      v.mount({ modal });
+      const cells = document.querySelectorAll(`#${containerId} ${sel}`);
+      expect(cells.length).toBeGreaterThan(0);
+      for (const cell of cells) {
+        expect(cell.style.background).toBe('rgb(1, 2, 3)');
+      }
+      v.unmount();
+    });
+  }
+
+  it('the 🎨 toggle rerenders a self-owned view (live colour update)', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const modal = {
+      playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}`,
+      showNoteColors: false,
+      getNoteColor: () => ({ bg: 'rgb(9, 9, 9)', text: 'rgb(0, 0, 0)' })
+    };
+    const v = new (win.KalimbaView)();
+    v.mount({ modal });
+    expect(document.querySelector('.kalimba-tine').style.background).not.toBe('rgb(9, 9, 9)');
+    modal.showNoteColors = true;          // user clicks 🎨
+    v.rerender();                          // what the toggle handler calls
+    for (const t of document.querySelectorAll('.kalimba-tine')) {
+      expect(t.style.background).toBe('rgb(9, 9, 9)');
+    }
+    v.unmount();
+  });
+});
+
+describe('kalimba — top-down orientation + tine labels + notation', () => {
+  let sink, modal, v;
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    sink = { played: [], stopped: [], cc: [] };
+    modal = mkModal(sink);
+    modal.getNoteLabel = (n) => `US${n}`;            // simulate US format
+    v = new (win.KalimbaView)();
+    v.mount({ modal });
+  });
+  afterEach(() => { try { v.unmount(); } catch { /* */ } });
+
+  it('is anchored at the top (played from top → bottom)', () => {
+    const root = document.getElementById('kalimba-container');
+    expect(root.style.alignItems).toBe('flex-start');
+  });
+
+  it('every tine shows its note label via modal.getNoteLabel', () => {
+    const tines = [...document.querySelectorAll('.kalimba-tine')];
+    expect(tines.length).toBe(17);
+    for (const t of tines) {
+      const lbl = t.querySelector('.kalimba-tine-label');
+      expect(lbl).not.toBeNull();
+      expect(lbl.textContent).toBe(`US${t.dataset.note}`);
+    }
+  });
+
+  it('rerender() rebuilds the labels with the new notation format', () => {
+    const note0 = document.querySelector('.kalimba-tine').dataset.note;
+    expect(document.querySelector('.kalimba-tine-label').textContent).toBe(`US${note0}`);
+    modal.getNoteLabel = (n) => `${n}`;              // switch to MIDI format
+    v.rerender();
+    const t0 = document.querySelector('.kalimba-tine');
+    expect(t0.querySelector('.kalimba-tine-label').textContent).toBe(`${t0.dataset.note}`);
+    // still playable after rerender
+    fire(t0, 'pointerdown');
+    expect(sink.played).toContain(parseInt(t0.dataset.note, 10));
+  });
+
+  it('label span does not block plucking (closest resolves to the tine)', () => {
+    const lbl = document.querySelector('.kalimba-tine-label');
+    fire(lbl, 'pointerdown');
+    expect(sink.played.length).toBe(1);
+  });
+});
+
 describe('bagpipe — drone lifecycle', () => {
   let sink, view;
   beforeEach(() => {

@@ -50,8 +50,10 @@
             const root = document.createElement('div');
             root.id = 'kalimba-container';
             root.className = 'kalimba-view';
+            // Top-anchored: tines hang from the top edge and extend
+            // downward (played from the top, like a real kalimba).
             root.style.cssText =
-                'display:flex;align-items:flex-end;justify-content:center;'
+                'display:flex;align-items:flex-start;justify-content:center;'
                 + 'gap:4px;padding:18px;height:100%;touch-action:none;';
 
             const label = typeof modal.getNoteLabel === 'function'
@@ -68,9 +70,26 @@
                 t.dataset.note = String(midi);
                 t.title = label(midi);
                 t.style.cssText =
-                    `width:20px;height:${Math.round(h)}px;border:none;`
-                    + 'border-radius:10px 10px 3px 3px;cursor:pointer;'
-                    + 'background:linear-gradient(#cfd6dc,#9aa3ab);';
+                    `width:24px;height:${Math.round(h)}px;border:none;`
+                    + 'border-radius:3px 3px 10px 10px;cursor:pointer;'
+                    + 'background:linear-gradient(#9aa3ab,#cfd6dc);'
+                    + 'position:relative;display:flex;align-items:flex-end;'
+                    + 'justify-content:center;padding-bottom:4px;';
+                // Note label printed along the tine (uses the global
+                // US/FR/MIDI format via modal.getNoteLabel).
+                const lbl = document.createElement('span');
+                lbl.className = 'kalimba-tine-label';
+                lbl.textContent = label(midi);
+                lbl.style.cssText =
+                    'writing-mode:vertical-rl;text-orientation:mixed;'
+                    + 'transform:rotate(180deg);font:10px/1 sans-serif;'
+                    + 'color:#1a1a1a;pointer-events:none;user-select:none;';
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    const c = modal.getNoteColor(midi);
+                    t.style.background = c.bg;
+                    lbl.style.color = c.text;
+                }
+                t.appendChild(lbl);
                 root.appendChild(t);
             });
 

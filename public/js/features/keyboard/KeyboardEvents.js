@@ -130,6 +130,17 @@
                 this.regeneratePianoKeys();
                 if (this.viewMode === 'fretboard') this.renderFretboard();
                 if (this.viewMode === 'drumpad') this.renderDrumPad();
+                // Self-owned instrument views (harmonica/harp/accordion/
+                // mallet/kalimba/bagpipe/steel-drum/…) render their own
+                // note labels via modal.getNoteLabel — rebuild them so the
+                // US / FR / MIDI choice applies everywhere.
+                const ak = this._activeViewKind;
+                const BUILTIN = ['piano', 'piano-slider', 'fretboard',
+                                 'drumpad', 'keyboard-list'];
+                if (ak && !BUILTIN.includes(ak)
+                    && this._activeView && typeof this._activeView.rerender === 'function') {
+                    this._activeView.rerender();
+                }
             });
         }
 
@@ -142,6 +153,16 @@
             else if (this.viewMode === 'keyboard-list') {
                 if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
             } else if (this.viewMode === 'piano') this.regeneratePianoKeys();
+            // Self-owned instrument views colour their own cells from
+            // modal.showNoteColors / modal.getNoteColor — rebuild so the
+            // 🎨 toggle works for every instrument.
+            const ak = this._activeViewKind;
+            const BUILTIN = ['piano', 'piano-slider', 'fretboard',
+                             'drumpad', 'keyboard-list'];
+            if (ak && !BUILTIN.includes(ak)
+                && this._activeView && typeof this._activeView.rerender === 'function') {
+                this._activeView.rerender();
+            }
         });
 
         // String slide mode toggle

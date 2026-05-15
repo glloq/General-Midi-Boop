@@ -1031,7 +1031,7 @@ même contrat de cycle de vie que Harmonica/Harpe :
 |-----|---------|------------------------------|
 | `AccordionView` | `views/AccordionView.js` | Clavier 2 oct + 12 basses Stradella + soufflet (`<input range>` → `willPlayNote` × facteur) |
 | `MalletView` | `views/MalletView.js` | 2 rangées marimba (naturelles hautes / altérées décalées), C4-B5 |
-| `KalimbaView` | `views/KalimbaView.js` | 17 lamelles, ordre physique **centre-sortant** alterné, hauteur dégressive |
+| `KalimbaView` | `views/KalimbaView.js` | 17 lamelles, ordre physique **centre-sortant** alterné ; **ancrage haut → bas** (jeu par le haut) ; **labels de notes** sur chaque tige (format US/FR/MIDI via `getNoteLabel`) |
 | `BagpipeView` | `views/BagpipeView.js` | Drone A2 auto au mount (togglable) + chanter GHB 9 notes, drone coupé au unmount |
 | `SteelDrumView` | `views/SteelDrumView.js` | 24 sections en cercle (positionnement trigonométrique) |
 | `ThereminView` | `views/ThereminView.js` | Pad 2-D : X→note (retrigger au franchissement de demi-ton), Y→volume CC#7, curseur visuel |
@@ -1110,6 +1110,21 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > staccato) reste le résidu Phase E documenté en §20.4.
 
 ### 20.3 Extensions de contrat recommandées
+
+> ✅ **Ajouté** : `InstrumentView.rerender()` (base : `unmount()` +
+> `mount(ctx)`). Les boutons **notation (US/FR/MIDI)** *et* **couleurs
+> (🎨)** appellent `_activeView.rerender()` pour les vues *self-owned*
+> (harmonica/harp/accordion/mallet/kalimba/bagpipe/steel-drum…) afin que
+> **l'affichage des notes ET les couleurs s'appliquent partout** (les
+> vues built-in étaient déjà rafraîchies via `regeneratePianoKeys`/
+> `renderFretboard`/…).
+>
+> ✅ **Ajouté** : `KeyboardModal.getNoteColor(midi)` — palette chromatique
+> unique (identique à `FRET_NOTE_COLORS`/`LIST_NOTE_COLORS`), 1 couleur
+> par classe de hauteur, octave-invariante. Chaque vue *self-owned*
+> colore ses cellules via `modal.getNoteColor` quand
+> `modal.showNoteColors` est actif → le bouton 🎨 fonctionne **pour tous
+> les instruments** (theremin exclu : pad continu sans notes discrètes).
 
 Pour des vues riches sans réécrire l'orchestrateur :
 
@@ -1233,19 +1248,20 @@ propre, aucune note bloquée.
   **les 13 viewKinds**, + isolation de périmètre (8 groupes étrangers
   jamais modifiés) + idempotence. PE-1 (`create-modal-dom`) toujours
   vert. **Suite : 16 fichiers / 322 tests verts, ESLint 0 erreur.**
-- **Checklist QA navigateur (à faire)** : ouvrir le modal et pour
-  piano / fretboard / drumpad / liste / les 8 vues spécifiques vérifier
-  visuellement :
-  1. `octave-bar` visible **uniquement** en piano & piano-slider ;
-  2. `minimap` visible **uniquement** en piano / piano-slider / liste ;
-  3. bouton couleurs (`note-color`) caché **uniquement** en drumpad &
-     piano-slider ;
-  4. bouton liste (`list-view`) caché **uniquement** en fretboard &
-     drumpad ;
-  5. **non-régression** : mod-wheel/pitch-bend/slide/wind/velocity
-     toujours pilotés par les capabilities (tester un instrument avec
-     CC#1 et un sans, un avec/sans pitch bend) — inchangé par PE-2 ;
-  6. retour piano via le toggle de vue inchangé (F2).
+- **QA navigateur — résultats** :
+  1. `octave-bar` (piano & piano-slider) — ✅ OK ;
+  2. `minimap` (piano / piano-slider / liste) — ✅ OK ;
+  3. bouton couleurs `note-color` — ❗ **NOK puis corrigé** : la formule
+     héritée le cachait en piano-slider ; demande QA = il doit **rester
+     visible** sur le slider. **Correctif post-PE-2** : caché
+     **uniquement en drumpad** (seule la batterie n'a pas de couleurs de
+     hauteur), visible partout ailleurs (piano-slider inclus). Oracle de
+     test mis à jour ;
+  4. bouton liste `list-view` (caché en fretboard/drumpad) — ✅ OK ;
+  5. non-régression sliders caps-aware — ✅ OK ;
+  6. affichage des vues d'instrument — ✅ OK (le « NOK » initial était un
+     **cache navigateur** ; résolu par Ctrl+Maj+R, aucun changement de
+     code nécessaire).
 
 **PE-3 — Extraire `HandsOverlay`** (KM-C2, le plus gros bloc isolable :
 ~695 l. autonomes)

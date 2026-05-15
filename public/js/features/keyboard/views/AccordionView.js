@@ -78,6 +78,11 @@
                     'width:34px;height:54px;border:1px solid #333;border-radius:4px;'
                     + `background:${bg};color:#e8e8e8;cursor:pointer;font:11px sans-serif;`;
                 b.textContent = label(n);
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    const c = modal.getNoteColor(n);
+                    b.style.background = c.bg;
+                    b.style.color = c.text;
+                }
                 row.appendChild(b);
             }
             return row;

@@ -64,6 +64,11 @@
                     'width:40px;height:70px;border-radius:20px;border:1px solid #444;'
                     + 'background:#3a352b;color:#e8e8e8;cursor:pointer;font:11px sans-serif;';
                 h.textContent = label(midi);
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    const c = modal.getNoteColor(midi);
+                    h.style.background = c.bg;
+                    h.style.color = c.text;
+                }
                 chanter.appendChild(h);
             });
             root.appendChild(chanter);
