@@ -1210,28 +1210,42 @@ propre, aucune note bloquée.
 - Aucun changement de code applicatif. QA : néant (test seul).
 - **Gate** : ce test vert devient le détecteur de régression de PE-4/PE-5.
 
-**PE-2 — `_applyToolbarGroups()` : visibilité déclarative des groupes
-*mode-only*** (sous-ensemble sûr de KM-C1/§20.3.2)
-- Périmètre **strict** : uniquement les groupes purement liés au *mode*
-  (`view-mode`, `note-color`, `list-view`, `octave-bar`, `minimap`).
-  **NE PAS** toucher `velocity`/`modulation`/`pitch-bend`/`slide-mode`/
-  `piano-slider`/`list-cc`/`list-pb`/`wind-panel` — ils dépendent des
-  *capabilities* (CC#1, `pitch_bend_enabled`, `string_slider_enabled`,
-  `windPreset`) que `toolbarGroups()` (mode-only) ne peut pas exprimer ;
-  ils restent gérés par `updateSlidersVisibility` /
-  `_updateListViewControls` / `_updateSlideModeGroupVisibility` /
-  `_updatePianoSliderGroupVisibility`.
-- Ajouter `KeyboardModal._applyToolbarGroups()` : lit
-  `this._activeView.toolbarGroups()` et `classList.toggle('hidden', …)`
-  sur les **seuls** ids du périmètre strict ; appeler depuis `setViewMode`
-  en **remplacement** des `classList.toggle` correspondants.
-- Tests : intersection pure (set → ids cachés/visibles) + non-régression
-  des autres groupes (assert qu'ils ne sont pas touchés).
-- **QA navigateur** : pour piano / fretboard / drumpad / list / chacune
-  des 8 vues spécifiques → vérifier que toggle-vue, note-color, list,
-  octave-bar, minimap apparaissent/disparaissent comme avant ; **et que
-  mod-wheel/pitch-bend/slide/wind restent pilotés par les capabilities
-  (instrument avec/ sans CC#1, pitch bend, etc.)**.
+**✅ PE-2 — `_applyToolbarGroups()` : extraction des groupes *mode-only***
+(fait 2026-05-15, commit isolé)
+- **Décision** : extraction **fidèle au comportement**, *pas* pilotée par
+  `view.toolbarGroups()`. Vérification faite : les sets déclarés ne sont
+  **pas** behavior-faithful (`PianoSliderView` n'a pas `'octave-bar'`/
+  `'minimap'`, `FretboardView` pas `'note-color'`, les vues custom non
+  plus) → les honorer **changerait** le comportement. Réconcilier les
+  sets ↔ comportement est une étape distincte, plus risquée, hors PE-2.
+- Périmètre **strict** : 4 ids *mode-only* —
+  `keyboard-octave-bar`, `keyboard-minimap-row`,
+  `keyboard-note-color-group`, `keyboard-list-view-group`.
+  `keyboard-view-mode-group` **exclu** (reste géré par
+  `_selectInstrumentOption`/F2). Caps-aware (velocity/mod/pitch/slide/
+  piano-slider/list-cc/list-pb/wind) **non touchés**.
+- `KeyboardModal._applyToolbarGroups()` reprend **les formules exactes**
+  pré-PE-2 (basées sur `this.viewMode`) ; `setViewMode` les remplace par
+  un seul appel (consts `octaveBar`/`minimap` + bloc `listViewGroup`
+  dupliqué supprimés).
+- Tests : `tests/frontend/keyboard/toolbar-groups.test.js` — **oracle**
+  ré-implémentant indépendamment les anciennes formules, asserté pour
+  **les 13 viewKinds**, + isolation de périmètre (8 groupes étrangers
+  jamais modifiés) + idempotence. PE-1 (`create-modal-dom`) toujours
+  vert. **Suite : 16 fichiers / 322 tests verts, ESLint 0 erreur.**
+- **Checklist QA navigateur (à faire)** : ouvrir le modal et pour
+  piano / fretboard / drumpad / liste / les 8 vues spécifiques vérifier
+  visuellement :
+  1. `octave-bar` visible **uniquement** en piano & piano-slider ;
+  2. `minimap` visible **uniquement** en piano / piano-slider / liste ;
+  3. bouton couleurs (`note-color`) caché **uniquement** en drumpad &
+     piano-slider ;
+  4. bouton liste (`list-view`) caché **uniquement** en fretboard &
+     drumpad ;
+  5. **non-régression** : mod-wheel/pitch-bend/slide/wind/velocity
+     toujours pilotés par les capabilities (tester un instrument avec
+     CC#1 et un sans, un avec/sans pitch bend) — inchangé par PE-2 ;
+  6. retour piano via le toggle de vue inchangé (F2).
 
 **PE-3 — Extraire `HandsOverlay`** (KM-C2, le plus gros bloc isolable :
 ~695 l. autonomes)

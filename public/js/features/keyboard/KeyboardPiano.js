@@ -492,8 +492,6 @@
         const fretboard = document.getElementById('fretboard-container');
         const drumpad = document.getElementById('drumpad-container');
         const keyboardList = document.getElementById('keyboard-list-container');
-        const octaveBar = document.getElementById('keyboard-octave-bar');
-        const minimap = document.getElementById('keyboard-minimap-row');
         if (!piano || !fretboard || !drumpad) return;
 
         piano.classList.toggle('hidden', mode !== 'piano');
@@ -502,15 +500,10 @@
         drumpad.classList.toggle('hidden', mode !== 'drumpad');
         if (keyboardList) keyboardList.classList.toggle('hidden', mode !== 'keyboard-list');
 
-        // Minimap visible for all piano-family modes (list view uses same note range)
-        const isPianoFamily = mode === 'piano' || mode === 'piano-slider' || mode === 'keyboard-list';
-        // Octave bar only for standard piano modes (list view labels notes directly)
-        if (octaveBar) octaveBar.classList.toggle('hidden', mode !== 'piano' && mode !== 'piano-slider');
-        if (minimap) minimap.classList.toggle('hidden', !isPianoFamily);
-
-        // Note-color toggle: not useful for piano-slider, drumpad, or list view
-        const noteColorGroup = document.getElementById('keyboard-note-color-group');
-        if (noteColorGroup) noteColorGroup.classList.toggle('hidden', mode === 'drumpad' || mode === 'piano-slider');
+        // PE-2: mode-only group visibility (octave-bar, minimap, note-color,
+        // list-view) is owned by KeyboardModal._applyToolbarGroups() — pure
+        // extraction of the previous inline formulas, identical behaviour.
+        if (typeof this._applyToolbarGroups === 'function') this._applyToolbarGroups();
 
         // Update view-mode toggle button label (piano-slider/list show 🎹 since they're piano family)
         const btn = document.getElementById('keyboard-view-toggle');
@@ -534,11 +527,7 @@
             listToggle.setAttribute('aria-pressed', mode === 'keyboard-list' ? 'true' : 'false');
         }
 
-        // Hide list-view toggle when in fretboard/drumpad context
-        const listViewGroup = document.getElementById('keyboard-list-view-group');
-        if (listViewGroup) {
-            listViewGroup.classList.toggle('hidden', mode === 'fretboard' || mode === 'drumpad');
-        }
+        // (list-view group visibility now handled by _applyToolbarGroups, PE-2)
 
         // List view extra controls: shown/hidden via _updateListViewControls (called after caps load)
         if (typeof this._updateListViewControls === 'function') {
