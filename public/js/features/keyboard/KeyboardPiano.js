@@ -545,14 +545,24 @@
             this._updatePianoSliderGroupVisibility();
         }
 
-        if (mode === 'fretboard') this.renderFretboard();
-        if (mode === 'drumpad') this.renderDrumPad();
-        if (mode === 'piano-slider') this.generatePianoSlider();
-        if (mode === 'keyboard-list') {
-            if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
+        // Render is now owned by the registered InstrumentView for this kind.
+        // _activateView() unmounts the previous view, mounts the resolved one
+        // (whose mount() delegates to renderFretboard/renderDrumPad/
+        // generatePianoSlider/renderKeyboardList/regeneratePianoKeys), and
+        // falls back to the legacy render switch if no view is registered.
+        // `mode` is the viewKind ('piano'|'fretboard'|'drumpad'|
+        // 'piano-slider'|'keyboard-list') — identical to the registered ids.
+        if (typeof this._activateView === 'function') {
+            this._activateView(mode, this._pendingViewOptions || {});
+        } else {
+            // Defensive: KeyboardModal always defines _activateView.
+            if (mode === 'fretboard') this.renderFretboard();
+            else if (mode === 'drumpad') this.renderDrumPad();
+            else if (mode === 'piano-slider') this.generatePianoSlider();
+            else if (mode === 'keyboard-list') {
+                if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
+            } else if (mode === 'piano') this.regeneratePianoKeys();
         }
-        // Regenerate piano keys so colors/state are always in sync when returning to piano view.
-        if (mode === 'piano') this.regeneratePianoKeys();
     }
 
     /**

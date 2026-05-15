@@ -1,12 +1,16 @@
 # Piano Virtuel — Documentation complète
 
 > **Scope** : Modal du clavier virtuel de General-Midi-Boop (`KeyboardModal` et ses mixins).  
-> **Version auditée** : `1.1.0` — audit fonctionnel initial 2026-05-02, **mise à jour & audit d'intégration 2026-05-15** (voir §19).
+> **Version auditée** : `1.1.0` — audit fonctionnel initial 2026-05-02, **mise à jour & audit d'intégration 2026-05-15**, **migration InstrumentView activée 2026-05-15** (voir §19, §20).
 >
-> ⚠️ **Architecture en migration** : une couche `InstrumentView` / `InstrumentViewRegistry` / `views/`
-> (plan `AUDIT_KEYBOARD_MODAL_2026-05-14.md`, findings KM-C1..KM-F1) coexiste avec les mixins
-> historiques. Aujourd'hui le rendu passe **100 % par les mixins** ; la couche `views/` est
-> enregistrée au boot mais **inerte** (`registry.resolve()` jamais appelé). Voir §2.1 et §19.
+> ✅ **Architecture (migration Phase C/D terminée)** : le registre
+> `InstrumentViewRegistry` est désormais **le propriétaire autoritaire du
+> cycle de vie des vues**. `setViewMode()` résout une `InstrumentView`
+> enregistrée et pilote `mount()`/`unmount()` ; la vue **délègue le rendu**
+> aux méthodes mixin historiques (strangler fig). **Ajouter une vue
+> instrument = 1 fichier + 1 règle**, sans toucher à `KeyboardModal` ni à
+> `setViewMode`. Les mixins restent l'implémentation de rendu déléguée
+> (décommission mécanique = résidu Phase E, voir §20.4). Voir §2.1, §19, §20.
 
 ---
 
@@ -30,6 +34,8 @@
 16. [Tests](#16-tests)
 17. [Extension et évolutivité](#17-extension-et-évolutivité)
 18. [Corrections apportées (audit 2026-05-02)](#18-corrections-apportées-audit-2026-05-02)
+19. [Audit d'intégration (2026-05-15)](#19-audit-dintégration-2026-05-15)
+20. [Évolutions — ajouter des vues d'instruments](#20-évolutions--ajouter-des-vues-pour-dautres-instruments)
 
 ---
 
@@ -83,15 +89,15 @@ public/js/features/
     ├── InstrumentDetector.js     ← Module pur (ACTIF) — detect() : caps → viewKind
     │                                Consommé par KeyboardModal.getInstrumentViewInfo()
     │
-    ├── InstrumentView.js         ← Classe abstraite (couche migration, voir §2.1)
-    ├── InstrumentViewRegistry.js ← Registre viewKind→Classe + règles (INERTE, §2.1)
+    ├── InstrumentView.js         ← Classe abstraite (contrat des vues, voir §2.1)
+    ├── InstrumentViewRegistry.js ← Registre viewKind→Classe + règles (ACTIF, §2.1)
     ├── SwipeTracker.js           ← Hit-testing drag touches piano (Phase F)
     │
     ├── NoteEngine.js             ← Module pur — gammes, mapping position→MIDI
     ├── NoteSlider.js             ← Widget UI slider note + gamme
     ├── VoicingEngine.js          ← Module pur — accord→cordes, scheduling strum
     │
-    └── views/                    ← Couche migration INERTE (Phase C/D, voir §2.1)
+    └── views/                    ← Couche vues ACTIVE (Phase C/D, voir §2.1)
         ├── PianoView.js / FretboardView.js / DrumPadView.js
         ├── PianoSliderView.js / ListView.js
         └── registerBuiltins.js   ← Enregistre les 5 vues + règles de détection
@@ -143,16 +149,35 @@ public/styles/
 > Les fichiers `views/*` sont chargés **après** `KeyboardModal.js` (ils
 > n'étendent pas le prototype, ils s'auto-enregistrent dans le registre).
 
-### 2.1 Couche migration `InstrumentView` (état réel)
+### 2.1 Couche migration `InstrumentView` (état réel, Phase C/D terminée)
 
 | Élément | Statut | Détail |
 |---------|--------|--------|
-| `InstrumentDetector` | **ACTIF** | `getInstrumentViewInfo()` y délègue (`KeyboardModal.js:709-724`). Testé. |
-| `InstrumentViewRegistry` + `views/*` | **INERTE** | Auto-enregistrés au boot via `registerBuiltins.js`, mais aucun code n'appelle `registry.resolve()` ni `view.mount()`. Le rendu reste 100 % mixins. |
-| Règles de détection | **Dupliquées** | `InstrumentDetector` (actif) **et** `registerBuiltins.js` (inerte) encodent la même logique GM→viewKind. Divergence possible — **gardée par un test** (`tests/frontend/keyboard/views.test.js` → « InstrumentDetector ↔ registry consistency »). |
+| `InstrumentDetector` | **ACTIF** | `getInstrumentViewInfo()` y délègue (`KeyboardModal.js`). Testé. |
+| `InstrumentViewRegistry` + `views/*` | **ACTIF** | `setViewMode()` → `_activateView(kind)` : `instrumentViews.get(kind)` résout la classe, `unmount()` la précédente, `mount()` la nouvelle. La vue **délègue** le rendu aux mixins. Couvert par `tests/frontend/keyboard/view-lifecycle.test.js`. |
+| Fallback legacy | **ACTIF** | `_legacyRenderForMode()` : si aucune vue n'est enregistrée pour le `kind` (ou `mount()` jette), le switch de rendu historique prend le relais → **garantie zéro régression**. |
+| Règles de détection | **Dupliquées (gardées)** | `InstrumentDetector` et `registerBuiltins.js` encodent la même logique GM→viewKind ; cohérence **garantie par test** (`views.test.js` → « InstrumentDetector ↔ registry consistency »). |
 
-C'est l'état attendu des phases C/D du plan 2026-05-14 (« câbler avant
-d'implémenter »). Achever la migration est **hors périmètre** de cet audit.
+**Cycle de vie** (`KeyboardModal._activateView`) :
+
+```
+setViewMode(mode)                       // chrome : containers + toolbar + boutons
+   └── _activateView(mode, options)
+         ├── ViewClass = window.instrumentViews.get(mode)
+         ├── si absent / mount() jette → _legacyRenderForMode(mode)   (fallback sûr)
+         ├── même kind déjà monté     → view.setCapabilities(caps)    (pas de churn)
+         ├── view précédente          → view.unmount()                (teardown)
+         └── new ViewClass().mount({ modal, state, backend,
+                                      eventBus, i18n, capabilities, options })
+                 └── la vue délègue : modal.renderFretboard() / … (Phase D)
+```
+
+Reste le **résidu mécanique Phase E** (déplacer physiquement le code de
+rendu des mixins vers les classes de vue, supprimer `Object.assign`,
+retirer le hack `_windOrigPlayNote`) — volontairement différé car non
+vérifiable en navigateur dans ce conteneur et porteur de régressions
+silencieuses (staccato vent, visibilité sliders caps-aware). Plan
+détaillé en **§20.4**.
 
 ### Composition par mixins
 
@@ -840,5 +865,137 @@ corriger). Lint clavier : **0 erreur** (7 warnings préexistants mineurs :
    impact : la délégation du dropdown est posée dans
    `_buildInstrumentDropdown`, pas dans `attachEvents`.
 
-Achever la migration `InstrumentView` (findings KM-C1..KM-F1 du plan
-`AUDIT_KEYBOARD_MODAL_2026-05-14.md`) reste hors périmètre de cet audit.
+### 19.5 Migration `InstrumentView` — activation (2026-05-15)
+
+Suite à validation, **Phase C/D terminée** : le registre est rendu
+autoritaire pour le cycle de vie des vues (KM-C1).
+
+**Modifications code applicatif (minimales, gardées par tests) :**
+
+| Fichier | Changement |
+|---------|-----------|
+| `KeyboardModal.js` | + champs `_activeView` / `_activeViewKind` / `_pendingViewOptions` ; + méthodes `_buildViewContext()`, `_activateView(kind, options)`, `_legacyRenderForMode(mode)` |
+| `KeyboardPiano.js` | `setViewMode()` : le bloc de rendu final (`if mode==='fretboard' renderFretboard()` …) est remplacé par `this._activateView(mode, …)` ; fallback défensif conservé |
+
+**Garanties anti-régression :**
+- La vue résolue **délègue** au même code de rendu mixin qu'avant → DOM identique.
+- Si le registre/vue est absent ou `mount()` jette → `_legacyRenderForMode()` reproduit le switch historique.
+- Cleanups `setViewMode` (string sliders, bow, list, fingers) **conservés** (idempotents) en plus de `view.unmount()`.
+- `_selectInstrumentOption`, `playNote`/override vent, visibilité sliders caps-aware : **non modifiés** (évite régressions silencieuses non vérifiables sans navigateur).
+
+**Tests ajoutés** : `tests/frontend/keyboard/view-lifecycle.test.js`
+(8 cas) — résolution registre, mount/unmount au changement de kind,
+idempotence même-kind, couverture des 5 kinds, fallback legacy,
+récupération sur `mount()` en échec. Suite clavier : **11 fichiers /
+216 tests verts**.
+
+Le résidu **Phase E** (déplacement physique du rendu hors des mixins,
+suppression `Object.assign` + `_windOrigPlayNote`) est documenté et
+planifié en **§20.4** — différé car non vérifiable en navigateur ici.
+
+---
+
+## 20. Évolutions — ajouter des vues pour d'autres instruments
+
+> Maintenant que le registre est autoritaire (§2.1, §19.5), ajouter un
+> type d'instrument ne touche **aucun fichier existant**.
+
+### 20.1 Recette (≤ 30 min, 1 fichier + 1 règle)
+
+1. Créer `public/js/features/keyboard/views/<Nom>View.js` :
+
+```js
+(function () {
+  'use strict';
+  if (typeof window === 'undefined' || !window.InstrumentView) return;
+  class AccordionView extends window.InstrumentView {
+    static viewKind = 'accordion';
+    static emoji    = '🪗';
+    static labelKey = 'keyboard.viewAccordion';
+
+    mount(ctx) {
+      super.mount(ctx);
+      const modal = ctx.modal;
+      // Réutiliser un rendu existant (delegation) …
+      if (modal && typeof modal.regeneratePianoKeys === 'function') {
+        modal.regeneratePianoKeys();
+      }
+      // … ou rendre dans son propre container #accordion-container
+      //    (cf. §20.3 pour le lazy-mount du container).
+    }
+    unmount() { /* libérer listeners/état spécifiques */ super.unmount(); }
+    willPlayNote(midi, velocity, opts) {
+      // ex. soufflet → facteur de vélocité
+      return { midi, velocity, opts };
+    }
+    toolbarGroups() { return new Set(['notation', 'velocity']); }
+  }
+  if (typeof window !== 'undefined') window.AccordionView = AccordionView;
+  if (typeof module !== 'undefined') module.exports = AccordionView;
+})();
+```
+
+2. `index.html` : ajouter le `<script>` **après** `KeyboardModal.js` et
+   **avant** `registerBuiltins.js`.
+3. `registerBuiltins.js` : `safeRegister(window.AccordionView);` + une
+   règle `registry.addRule(c => c && c.gm_program >= 21 && c.gm_program <= 23, 'accordion');`.
+4. (Optionnel) ajouter une règle équivalente dans `InstrumentDetector`
+   **si** la vue doit être auto-sélectionnée à la détection — le test de
+   cohérence `views.test.js` impose que les deux restent alignés.
+5. Ajouter un test `tests/frontend/keyboard/` sur le `viewKind` + la règle.
+
+### 20.2 Vues candidates (priorisées)
+
+| Vue | viewKind | GM | Spécificité interaction | Rendu de base réutilisable |
+|-----|----------|----|--------------------------|----------------------------|
+| Accordéon | `accordion` | 21-23 | Soufflet = vélocité (CC#11), basses Stradella | `regeneratePianoKeys` + panneau soufflet |
+| Harmonica | `harmonica` | 22 | Rangées souffler/aspirer, glissando latéral | grille type drumpad + axe X bend |
+| Mailloches (vibra/marimba/xylo) | `mallet` | 12-15 | Pas de pitch-bend, trémolo via CC | `keyboard-list` (slots égaux) |
+| Harpe | `harp` | 46 | Cordes verticales, glissando = drag X | `fretboard` (cordes, 0 frette) |
+| Cornemuse | `bagpipe` | 109 | Drone constant + chanter | piano-slider + drone auto |
+| Theremin | `theremin` | (custom) | 2 axes continus X=hauteur Y=volume, sans touche | nouveau rendu canvas |
+| Kalimba | `kalimba` | 108 | Lamelles verticales cliquables | grille verticale |
+| Steel drum | `steel-drum` | 114 | Sections circulaires + position | nouveau rendu SVG |
+
+### 20.3 Extensions de contrat recommandées
+
+Pour des vues riches sans réécrire l'orchestrateur :
+
+1. **`willPlayNote` post-play / auto-off** — le contrat actuel transforme
+   seulement (vélocité, annulation). Ajouter un retour optionnel
+   `{ autoOffMs }` ou un hook `afterPlayNote(midi)` permettrait de porter
+   le **staccato vent** (timers d'auto-stop) hors du mixin → prérequis
+   pour retirer l'override `KeyboardWindMixin.playNote` (KM-C4).
+2. **`toolbarGroups()` déclaratif caps-aware** — aujourd'hui la visibilité
+   sliders est impérative + caps-aware (mod-wheel si CC#1…). Faire que le
+   contrôleur applique `view.toolbarGroups()` **∩** capacités déclarées
+   supprimerait la logique impérative de `setViewMode`/`updateSlidersVisibility`.
+3. **Lazy-mount du container** — `createModal()` crée les 5 containers en
+   dur (KM-F1). Un `view.createHost()` créant `#<kind>-container` à la
+   première activation allègerait le DOM (~−15 %).
+4. **`setActiveNotes(set)`** — déjà dans le contrat, non câblé : utile
+   pour refléter des notes jouées par une source externe (playback,
+   MIDI in) dans la vue active.
+
+### 20.4 Décommission Phase E (résidu, nécessite QA navigateur)
+
+Étapes mécaniques restantes, **à faire avec validation navigateur** car
+non testables en jsdom et porteuses de régressions silencieuses :
+
+1. Étendre le contrat `willPlayNote` (§20.3.1) puis **déplacer**
+   l'articulation + staccato de `KeyboardWindMixin.playNote` vers
+   `PianoSliderView` ; supprimer l'override + `_windOrigPlayNote` +
+   le `Object.defineProperty` associé (KM-C4).
+2. Basculer la visibilité toolbar sur `toolbarGroups()` ∩ caps (§20.3.2),
+   retirer la logique impérative correspondante.
+3. Déplacer le corps de `renderFretboard`/`renderDrumPad`/
+   `generatePianoSlider`/`renderKeyboardList`/`generatePianoKeys` de
+   `KeyboardPiano.js` (2 052 l.) vers les classes de vue respectives ;
+   extraire l'overlay mains en service `HandsOverlay` (KM-C2).
+4. Externaliser le HTML de `createModal()` + lazy-mount containers (KM-E2/F1).
+5. Supprimer `_applyMixin` + les 7 mixins une fois (3)+(4) faits (KM-C4).
+6. Renommer résidus `KeyboardModalNew` (aucun restant côté JS — vérifié).
+
+Chaque étape : un commit isolé, suite vitest verte, **QA navigateur**
+(ouvrir le modal sur piano / guitare / batterie / violon / sax alto /
+xylophone → bonne vue, jeu souris+clavier PC, fermeture propre).
