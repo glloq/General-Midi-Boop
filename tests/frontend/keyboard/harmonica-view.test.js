@@ -43,12 +43,15 @@ describe('Harmonica — registration & detection', () => {
     expect(r.ViewClass).toBe(win.HarmonicaView);
   });
 
-  it('InstrumentDetector classifies GM 22 as harmonica (21/23 stay piano)', () => {
+  it('InstrumentDetector classifies GM 22 as harmonica (21/23 are accordion)', () => {
     const d = win.InstrumentDetector.detect({ capabilities: { gm_program: 22 } });
     expect(d.viewKind).toBe('harmonica');
     expect(d.isHarmonica).toBe(true);
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 21 } }).viewKind).toBe('piano');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 23 } }).viewKind).toBe('piano');
+    // GM 21 (Accordion) / 23 (Tango Accordion) now route to AccordionView;
+    // 22 (Harmonica) keeps its own view between them.
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 21 } }).viewKind).toBe('accordion');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 23 } }).viewKind).toBe('accordion');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 0 } }).viewKind).toBe('piano');
   });
 
   it('drum/string/wind still win over harmonica when ambiguous', () => {

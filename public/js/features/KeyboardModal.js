@@ -1156,6 +1156,14 @@ class KeyboardModal {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('harp');
+        } else if (['accordion', 'mallet', 'kalimba', 'bagpipe', 'steel-drum', 'theremin']
+            .includes(info.viewKind)) {
+            // Other dedicated self-owned views (accordion/mallet/kalimba/
+            // bagpipe/steel-drum/theremin) — the view owns its DOM host;
+            // no built-in container or string config involved.
+            this.stringInstrumentConfig = null;
+            if (viewGroup) viewGroup.classList.add('hidden');
+            this.setViewMode(info.viewKind);
         } else {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');

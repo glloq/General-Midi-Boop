@@ -948,14 +948,21 @@ planifié en **§20.4** — différé car non vérifiable en navigateur ici.
 
 | Vue | viewKind | GM | Spécificité interaction | Rendu de base réutilisable |
 |-----|----------|----|--------------------------|----------------------------|
-| Accordéon | `accordion` | 21-23 | Soufflet = vélocité (CC#11), basses Stradella | `regeneratePianoKeys` + panneau soufflet |
-| Harmonica | `harmonica` | 22 | Rangées souffler/aspirer (Richter C, 10 trous) | ✅ **LIVRÉ** — `views/HarmonicaView.js` (DOM propre) |
-| Mailloches (vibra/marimba/xylo) | `mallet` | 12-15 | Pas de pitch-bend, trémolo via CC | `keyboard-list` (slots égaux) |
-| Harpe | `harp` | 46 | Cordes verticales, glissando = drag X | ✅ **LIVRÉ** — `views/HarpView.js` (DOM propre) |
-| Cornemuse | `bagpipe` | 109 | Drone constant + chanter | piano-slider + drone auto |
-| Theremin | `theremin` | (custom) | 2 axes continus X=hauteur Y=volume, sans touche | nouveau rendu canvas |
-| Kalimba | `kalimba` | 108 | Lamelles verticales cliquables | grille verticale |
-| Steel drum | `steel-drum` | 114 | Sections circulaires + position | nouveau rendu SVG |
+| Accordéon | `accordion` | 21, 23 | Soufflet (range) = facteur vélocité, clavier + basses Stradella | ✅ **LIVRÉ** — `views/AccordionView.js` |
+| Harmonica | `harmonica` | 22 | Rangées souffler/aspirer (Richter C, 10 trous) | ✅ **LIVRÉ** — `views/HarmonicaView.js` |
+| Mailloches (marimba/xylo) | `mallet` | 12-15 | 2 rangées (naturelles/altérées), frappe + decay | ✅ **LIVRÉ** — `views/MalletView.js` |
+| Harpe | `harp` | 46 | Cordes verticales, glissando = drag X | ✅ **LIVRÉ** — `views/HarpView.js` |
+| Cornemuse | `bagpipe` | 109 | Drone constant (togglable) + chanter 9 notes | ✅ **LIVRÉ** — `views/BagpipeView.js` |
+| Theremin | `theremin` | type `theremin` | Pad 2-D : X=hauteur (retrigger), Y=volume CC#7 | ✅ **LIVRÉ** — `views/ThereminView.js` |
+| Kalimba | `kalimba` | 108 | 17 lamelles, ordre physique centre-sortant | ✅ **LIVRÉ** — `views/KalimbaView.js` |
+| Steel drum | `steel-drum` | 114 | Sections disposées en cercle (trigonométrie) | ✅ **LIVRÉ** — `views/SteelDrumView.js` |
+
+**Roadmap §20.2 complète : les 8 vues candidates sont livrées.**
+Détection : `accordion` 21/23 · `mallet` 12-15 · `kalimba` 108 ·
+`bagpipe` 109 · `steel-drum` 114 · `harmonica` 22 · `harp` 46 (exclu du
+fretboard) · `theremin` via `instrument_type='theremin'`. Toutes les
+familles établies (drum ch.9/≥128, fretboard 24-47, wind 56-79) gardent
+la priorité ; règles registre ↔ `InstrumentDetector` cohérentes (test).
 
 #### 20.2.1 Référence livrée — `HarmonicaView` (preuve de la recette)
 
@@ -1014,6 +1021,41 @@ globale au `pointerup`. Repères Do (rouge) / Fa (sombre).
 > (`keyboard.css`). Le glissando réutilise `pointermove` (souris bouton
 > enfoncé) ; le multi-touch fin (par `pointerId`) est une amélioration
 > possible (cf. §20.3.1).
+
+#### 20.2.3 Roadmap complète — 6 vues additionnelles livrées
+
+Les 6 vues restantes du roadmap, toutes auto-détectées, à DOM propre,
+même contrat de cycle de vie que Harmonica/Harpe :
+
+| Vue | Fichier | Particularité d'interaction |
+|-----|---------|------------------------------|
+| `AccordionView` | `views/AccordionView.js` | Clavier 2 oct + 12 basses Stradella + soufflet (`<input range>` → `willPlayNote` × facteur) |
+| `MalletView` | `views/MalletView.js` | 2 rangées marimba (naturelles hautes / altérées décalées), C4-B5 |
+| `KalimbaView` | `views/KalimbaView.js` | 17 lamelles, ordre physique **centre-sortant** alterné, hauteur dégressive |
+| `BagpipeView` | `views/BagpipeView.js` | Drone A2 auto au mount (togglable) + chanter GHB 9 notes, drone coupé au unmount |
+| `SteelDrumView` | `views/SteelDrumView.js` | 24 sections en cercle (positionnement trigonométrique) |
+| `ThereminView` | `views/ThereminView.js` | Pad 2-D : X→note (retrigger au franchissement de demi-ton), Y→volume CC#7, curseur visuel |
+
+- **Détection** : flags ajoutés à `InstrumentDetector` (`isAccordion`,
+  `isMallet`, `isKalimba`, `isBagpipe`, `isSteelDrum`, `isTheremin`),
+  tous gardés par `!isDrum && !canFretboard && !isWind`. Theremin via
+  `instrument_type` (aucun GM volé). Règles miroir dans
+  `registerBuiltins.js`.
+- **Sélection** : une branche groupée dans `_selectInstrumentOption`.
+- **Tests** : `tests/frontend/keyboard/extra-instrument-views.test.js`
+  (33 cas : détection, cycle de vie data-driven pour les 4 « pluck »,
+  blocs dédiés bellows/drone/pad) + 8 cas de cohérence ajoutés à
+  `views.test.js`. **Suite clavier : 14 fichiers / 285 tests verts,
+  ESLint 0 erreur.**
+- **Régression assumée & corrigée** : GM 21/23 passaient « piano », ils
+  sont désormais « accordion » (comportement voulu) — l'assertion
+  obsolète de `harmonica-view.test.js` a été mise à jour.
+
+> ⚠️ **À tester en navigateur** (tous) : rendu visuel, ergonomie
+> tactile, sélection auto sur instruments GM réels, CSS dédié. Les
+> styles sont inline ; un thème `keyboard.css` par vue est souhaitable.
+> Theremin : le mapping X/Y exact dépend du layout réel (en test, jsdom
+> n'a pas de layout → géométrie de repli `PAD_W=480`).
 
 ### 20.3 Extensions de contrat recommandées
 

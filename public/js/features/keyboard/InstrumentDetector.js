@@ -107,13 +107,31 @@
         const isHarp = !isDrum && !canFretboard && !isWind
             && gmProgram === 46;
 
+        // Other dedicated instrument-specific layouts (all guarded by
+        // !isDrum && !canFretboard && !isWind so the established families
+        // keep priority). Each maps to its own self-owned view.
+        const notSpecialBase = !isDrum && !canFretboard && !isWind;
+        const isAccordion = notSpecialBase && (gmProgram === 21 || gmProgram === 23);
+        const isMallet    = notSpecialBase && gmProgram >= 12 && gmProgram <= 15;
+        const isKalimba   = notSpecialBase && gmProgram === 108;
+        const isBagpipe   = notSpecialBase && gmProgram === 109;
+        const isSteelDrum = notSpecialBase && gmProgram === 114;
+        // Theremin has no GM patch — selected via instrument_type only.
+        const isTheremin  = typeof type === 'string' && type.toLowerCase() === 'theremin';
+
         // Resolve viewKind from boolean flags (default: piano).
         let viewKind = 'piano';
-        if (isDrum)            viewKind = 'drumpad';
+        if (isTheremin)        viewKind = 'theremin';
+        else if (isDrum)       viewKind = 'drumpad';
         else if (canFretboard) viewKind = 'fretboard';
         else if (isWind)       viewKind = 'piano-slider';
         else if (isHarmonica)  viewKind = 'harmonica';
         else if (isHarp)       viewKind = 'harp';
+        else if (isAccordion)  viewKind = 'accordion';
+        else if (isMallet)     viewKind = 'mallet';
+        else if (isKalimba)    viewKind = 'kalimba';
+        else if (isBagpipe)    viewKind = 'bagpipe';
+        else if (isSteelDrum)  viewKind = 'steel-drum';
 
         return {
             viewKind,
@@ -124,6 +142,12 @@
             isWind,
             isHarmonica,
             isHarp,
+            isAccordion,
+            isMallet,
+            isKalimba,
+            isBagpipe,
+            isSteelDrum,
+            isTheremin,
             windPreset,
             instrumentType: type,
             instrumentSubtype: subtype,
