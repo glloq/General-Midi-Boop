@@ -1382,6 +1382,7 @@
     "analyzing": "Analyse du fichier MIDI et correspondance des instruments...",
     "error": "Erreur d'auto-assignation",
     "generateFailed": "Échec de la génération de l'auto-assignation",
+    "transposeError": "Erreur lors de la transposition du canal",
     "confidenceScore": "Score de confiance",
     "instructions": "Sélectionnez l'instrument pour chaque canal. La meilleure correspondance est pré-sélectionnée.",
     "channel": "Canal",
