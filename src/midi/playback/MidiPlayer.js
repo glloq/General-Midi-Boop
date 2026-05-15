@@ -529,7 +529,7 @@ class MidiPlayer {
       // found, skip — the baked stream is authoritative.
       const expectedCcNumbers = new Set(
         handsCfg.hands
-          .map(h => (h && Number.isInteger(h.cc_number)) ? h.cc_number : null)
+          .map(h => (h && Number.isInteger(h.cc_position_number)) ? h.cc_position_number : null)
           .filter(v => v !== null)
       );
       if (expectedCcNumbers.size > 0 && this._timelineHasHandCCs(srcChannel, expectedCcNumbers)) {
