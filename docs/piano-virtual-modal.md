@@ -1112,11 +1112,19 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 ### 20.3 Extensions de contrat recommandées
 
 > ✅ **Ajouté** : `InstrumentView.rerender()` (base : `unmount()` +
-> `mount(ctx)`). Le bouton de notation (US/FR/MIDI) appelle
-> `_activeView.rerender()` pour les vues *self-owned* (harmonica/harp/
-> accordion/mallet/kalimba/bagpipe/steel-drum…) afin que **l'affichage
-> des notes utilise partout** le format choisi (les vues built-in étaient
-> déjà rafraîchies via `regeneratePianoKeys`/`renderFretboard`/…).
+> `mount(ctx)`). Les boutons **notation (US/FR/MIDI)** *et* **couleurs
+> (🎨)** appellent `_activeView.rerender()` pour les vues *self-owned*
+> (harmonica/harp/accordion/mallet/kalimba/bagpipe/steel-drum…) afin que
+> **l'affichage des notes ET les couleurs s'appliquent partout** (les
+> vues built-in étaient déjà rafraîchies via `regeneratePianoKeys`/
+> `renderFretboard`/…).
+>
+> ✅ **Ajouté** : `KeyboardModal.getNoteColor(midi)` — palette chromatique
+> unique (identique à `FRET_NOTE_COLORS`/`LIST_NOTE_COLORS`), 1 couleur
+> par classe de hauteur, octave-invariante. Chaque vue *self-owned*
+> colore ses cellules via `modal.getNoteColor` quand
+> `modal.showNoteColors` est actif → le bouton 🎨 fonctionne **pour tous
+> les instruments** (theremin exclu : pad continu sans notes discrètes).
 
 Pour des vues riches sans réécrire l'orchestrateur :
 

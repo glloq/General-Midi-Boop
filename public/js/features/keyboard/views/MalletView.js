@@ -58,6 +58,11 @@
                         ? 'height:54px;background:#7a5a2a;color:#fff;'
                         : 'height:80px;background:#d8b46a;color:#222;');
                 bar.textContent = label(n);
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    const c = modal.getNoteColor(n);
+                    bar.style.background = c.bg;
+                    bar.style.color = c.text;
+                }
                 (isBlack ? accRow : natRow).appendChild(bar);
             }
             root.appendChild(accRow);

@@ -91,6 +91,11 @@
                 cell.innerHTML =
                     `<span class="harmonica-hole-num">${idx + 1}</span>`
                     + `<span class="harmonica-hole-note">${label(midi)}</span>`;
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    const c = modal.getNoteColor(midi);
+                    cell.style.background = c.bg;
+                    cell.style.color = c.text;
+                }
                 row.appendChild(cell);
             });
             return row;

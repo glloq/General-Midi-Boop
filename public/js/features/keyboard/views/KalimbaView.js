@@ -84,6 +84,11 @@
                     'writing-mode:vertical-rl;text-orientation:mixed;'
                     + 'transform:rotate(180deg);font:10px/1 sans-serif;'
                     + 'color:#1a1a1a;pointer-events:none;user-select:none;';
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    const c = modal.getNoteColor(midi);
+                    t.style.background = c.bg;
+                    lbl.style.color = c.text;
+                }
                 t.appendChild(lbl);
                 root.appendChild(t);
             });

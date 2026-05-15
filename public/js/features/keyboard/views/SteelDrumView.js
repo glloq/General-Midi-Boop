@@ -53,6 +53,11 @@
                     + 'border:1px solid #888;background:#9aa3ab;color:#1a1a1a;'
                     + 'cursor:pointer;font:10px sans-serif;';
                 s.textContent = label(midi);
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    const c = modal.getNoteColor(midi);
+                    s.style.background = c.bg;
+                    s.style.color = c.text;
+                }
                 root.appendChild(s);
             }
             canvas.appendChild(root);

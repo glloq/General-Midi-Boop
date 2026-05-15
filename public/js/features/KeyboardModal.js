@@ -842,6 +842,32 @@ class KeyboardModal {
     }
 
     /**
+     * Chromatic colour for a MIDI note (1 colour per pitch class, octave
+     * invariant). Same palette as FRET_NOTE_COLORS / LIST_NOTE_COLORS so
+     * every view (piano, fretboard, list AND the self-owned instrument
+     * views) shows consistent colours when the 🎨 toggle is on.
+     * @param {number} midi
+     * @returns {{bg:string,text:string}}
+     */
+    getNoteColor(midi) {
+        const PALETTE = [
+            { bg: '#EF4444', text: '#fff' },    // C
+            { bg: '#F4622A', text: '#fff' },    // C#
+            { bg: '#F97316', text: '#fff' },    // D
+            { bg: '#FBBF24', text: '#1a1a1a' }, // D#
+            { bg: '#EAB308', text: '#1a1a1a' }, // E
+            { bg: '#84CC16', text: '#1a1a1a' }, // F
+            { bg: '#22C55E', text: '#fff' },    // F#
+            { bg: '#14B8A6', text: '#fff' },    // G
+            { bg: '#06B6D4', text: '#fff' },    // G#
+            { bg: '#3B82F6', text: '#fff' },    // A
+            { bg: '#7C3AED', text: '#fff' },    // A#
+            { bg: '#A855F7', text: '#fff' },    // B
+        ];
+        return PALETTE[(((midi | 0) % 12) + 12) % 12];
+    }
+
+    /**
      * Detect whether the selected instrument should switch to a special view.
      * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
      */

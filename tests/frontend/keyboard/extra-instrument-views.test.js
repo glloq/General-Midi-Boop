@@ -177,6 +177,73 @@ describe('accordion — bellows scales velocity through willPlayNote', () => {
   });
 });
 
+describe('note colours — 🎨 applies to every instrument view', () => {
+  it('KeyboardModal.getNoteColor: octave-invariant 12-colour palette', () => {
+    const m = new (win.KeyboardModal)();
+    expect(m.getNoteColor(60)).toEqual(m.getNoteColor(72));   // C == C
+    expect(m.getNoteColor(60).bg).toBe('#EF4444');            // C red
+    expect(m.getNoteColor(61).bg).toBe('#F4622A');            // C#
+    expect(m.getNoteColor(59).bg).toBe('#A855F7');            // B violet
+    expect(m.getNoteColor(0)).toEqual(m.getNoteColor(120));   // wraps
+  });
+
+  const VIEWS = [
+    ['HarmonicaView', 'harmonica-container', '.harmonica-hole'],
+    ['HarpView', 'harp-container', '.harp-string'],
+    ['AccordionView', 'accordion-container', '.accordion-key'],
+    ['MalletView', 'mallet-container', '.mallet-bar'],
+    ['KalimbaView', 'kalimba-container', '.kalimba-tine'],
+    ['BagpipeView', 'bagpipe-container', '.bagpipe-hole'],
+    ['SteelDrumView', 'steel-drum-container', '.steel-section'],
+  ];
+
+  for (const [cls, containerId, sel] of VIEWS) {
+    it(`${cls}: cells get the chromatic colour only when showNoteColors`, () => {
+      document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+      const modal = {
+        playNote() {}, stopNote() {}, sendCC() {},
+        getNoteLabel: (n) => `N${n}`,
+        showNoteColors: false,
+        getNoteColor: () => ({ bg: 'rgb(1, 2, 3)', text: 'rgb(255, 255, 255)' })
+      };
+      // OFF → no forced colour
+      let v = new (win[cls])();
+      v.mount({ modal });
+      const offBg = document.querySelector(`${containerId ? '#' + containerId + ' ' : ''}${sel}`).style.background;
+      expect(offBg).not.toBe('rgb(1, 2, 3)');
+      v.unmount();
+      // ON → every cell painted with getNoteColor().bg
+      modal.showNoteColors = true;
+      v = new (win[cls])();
+      v.mount({ modal });
+      const cells = document.querySelectorAll(`#${containerId} ${sel}`);
+      expect(cells.length).toBeGreaterThan(0);
+      for (const cell of cells) {
+        expect(cell.style.background).toBe('rgb(1, 2, 3)');
+      }
+      v.unmount();
+    });
+  }
+
+  it('the 🎨 toggle rerenders a self-owned view (live colour update)', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const modal = {
+      playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}`,
+      showNoteColors: false,
+      getNoteColor: () => ({ bg: 'rgb(9, 9, 9)', text: 'rgb(0, 0, 0)' })
+    };
+    const v = new (win.KalimbaView)();
+    v.mount({ modal });
+    expect(document.querySelector('.kalimba-tine').style.background).not.toBe('rgb(9, 9, 9)');
+    modal.showNoteColors = true;          // user clicks 🎨
+    v.rerender();                          // what the toggle handler calls
+    for (const t of document.querySelectorAll('.kalimba-tine')) {
+      expect(t.style.background).toBe('rgb(9, 9, 9)');
+    }
+    v.unmount();
+  });
+});
+
 describe('kalimba — top-down orientation + tine labels + notation', () => {
   let sink, modal, v;
   beforeEach(() => {

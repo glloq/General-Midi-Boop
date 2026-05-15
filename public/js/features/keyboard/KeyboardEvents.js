@@ -153,6 +153,16 @@
             else if (this.viewMode === 'keyboard-list') {
                 if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
             } else if (this.viewMode === 'piano') this.regeneratePianoKeys();
+            // Self-owned instrument views colour their own cells from
+            // modal.showNoteColors / modal.getNoteColor — rebuild so the
+            // 🎨 toggle works for every instrument.
+            const ak = this._activeViewKind;
+            const BUILTIN = ['piano', 'piano-slider', 'fretboard',
+                             'drumpad', 'keyboard-list'];
+            if (ak && !BUILTIN.includes(ak)
+                && this._activeView && typeof this._activeView.rerender === 'function') {
+                this._activeView.rerender();
+            }
         });
 
         // String slide mode toggle
