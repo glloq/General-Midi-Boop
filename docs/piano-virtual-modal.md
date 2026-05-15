@@ -1183,3 +1183,104 @@ QA navigateur de référence : ouvrir le modal sur piano / guitare /
 batterie / violon / sax alto (staccato/accent) / xylophone / accordéon →
 bonne vue, jeu souris+clavier, vélocité soufflet, retour piano, fermeture
 propre, aucune note bloquée.
+
+#### 20.4.2 Plan d'exécution — commits isolés prêts pour QA navigateur
+
+> Ces étapes sont du **code-motion à comportement constant** : la seule
+> validation possible est **visuelle (navigateur)**. Elles ne sont pas
+> exécutées ici (conteneur sans navigateur) — livrer ces gros diffs en
+> aveugle reviendrait à livrer du non vérifié. Plan séquencé, **un commit
+> par ligne**, chacun avec porte de test + checklist QA + rollback. À
+> dérouler sur un poste/staging avec navigateur.
+>
+> **Règle commune à tous les commits** : `npx vitest run
+> tests/frontend/keyboard` **vert** (≥ 296) + `npx eslint` **0 erreur**
+> AVANT de pousser ; rollback = `git revert <sha>` (chaque commit est
+> autonome et réversible).
+
+**PE-1 — Filet de sécurité : test DOM de `createModal()`**
+*Prépare* PE-4/PE-5 (sinon non vérifiables).
+- Fichier : `tests/frontend/keyboard/create-modal-dom.test.js` (nouveau).
+- Charger les mixins via `Object.assign(win.KeyboardModal.prototype,
+  win.Keyboard*Mixin)` (le sandbox ne déclenche pas les gardes
+  `typeof`), instancier, appeler `createModal()`, **figer** la structure
+  attendue : présence + ordre des `#…-container`, `#keyboard-canvas-
+  container`, header/minimap/octave-bar, ids des groupes toolbar, ids des
+  sliders. Snapshot d'ids (pas de HTML brut).
+- Aucun changement de code applicatif. QA : néant (test seul).
+- **Gate** : ce test vert devient le détecteur de régression de PE-4/PE-5.
+
+**PE-2 — `_applyToolbarGroups()` : visibilité déclarative des groupes
+*mode-only*** (sous-ensemble sûr de KM-C1/§20.3.2)
+- Périmètre **strict** : uniquement les groupes purement liés au *mode*
+  (`view-mode`, `note-color`, `list-view`, `octave-bar`, `minimap`).
+  **NE PAS** toucher `velocity`/`modulation`/`pitch-bend`/`slide-mode`/
+  `piano-slider`/`list-cc`/`list-pb`/`wind-panel` — ils dépendent des
+  *capabilities* (CC#1, `pitch_bend_enabled`, `string_slider_enabled`,
+  `windPreset`) que `toolbarGroups()` (mode-only) ne peut pas exprimer ;
+  ils restent gérés par `updateSlidersVisibility` /
+  `_updateListViewControls` / `_updateSlideModeGroupVisibility` /
+  `_updatePianoSliderGroupVisibility`.
+- Ajouter `KeyboardModal._applyToolbarGroups()` : lit
+  `this._activeView.toolbarGroups()` et `classList.toggle('hidden', …)`
+  sur les **seuls** ids du périmètre strict ; appeler depuis `setViewMode`
+  en **remplacement** des `classList.toggle` correspondants.
+- Tests : intersection pure (set → ids cachés/visibles) + non-régression
+  des autres groupes (assert qu'ils ne sont pas touchés).
+- **QA navigateur** : pour piano / fretboard / drumpad / list / chacune
+  des 8 vues spécifiques → vérifier que toggle-vue, note-color, list,
+  octave-bar, minimap apparaissent/disparaissent comme avant ; **et que
+  mod-wheel/pitch-bend/slide/wind restent pilotés par les capabilities
+  (instrument avec/ sans CC#1, pitch bend, etc.)**.
+
+**PE-3 — Extraire `HandsOverlay`** (KM-C2, le plus gros bloc isolable :
+~695 l. autonomes)
+- Déplacer **tel quel** le sous-système overlay doigts
+  (`_mountFingersOverlay`, `_cleanFingersCanvas`, `_pianoHandCoversNote`,
+  drag/arrows…) de `KeyboardPiano.js` vers
+  `public/js/features/keyboard/HandsOverlay.js` (classe ou mixin dédié),
+  **sans modifier une ligne de logique** (copier/coller + ré-exposer les
+  mêmes noms de méthodes sur le prototype, ou délégation).
+- `<script>` avant `KeyboardModal.js`. Gate : PE-1 vert + suite verte.
+- **QA navigateur** : instrument avec `hands_config.enabled` → overlay
+  mains visible/positionné comme avant, vues piano ↔ liste, fermeture
+  (pas de canvas résiduel), pas de fuite (100 cycles open/close).
+
+**PE-4 — Externaliser le template HTML de `createModal()`** (KM-E2, **sans
+lazy-mount**)
+- Déplacer le template littéral (≈180 l.) vers
+  `public/js/features/keyboard/KeyboardModalTemplate.js` exposant
+  `window.keyboardModalTemplate(t)` qui retourne **exactement** la même
+  chaîne (mêmes ids/classes/ordre, `${t('…')}` paramétré).
+  `createModal()` fait `this.container.innerHTML = window.keyboardModalTemplate(k => this.t(k))`.
+- **Zéro lazy-mount** (changement de comportement → exclu de cette étape).
+- Gate : **PE-1 doit rester vert** (garantit DOM identique).
+- **QA navigateur** : ouverture modal identique pixel-près sur 3 vues,
+  i18n FR/EN.
+
+**PE-5 — Déplacer le rendu par vue hors de `KeyboardPiano.js`** (KM-C2,
+**une vue par commit**)
+- `PE-5a` PianoView : déplacer `generatePianoKeys`/`renderMinimap`/
+  `renderOctaveBar` dans `views/PianoView.js` ; le mixin délègue à la
+  vue (ou suppression du mixin correspondant). … `PE-5b` Fretboard,
+  `PE-5c` DrumPad, `PE-5d` PianoSlider, `PE-5e` ListView. **Un commit
+  par vue**, comportement constant, PE-1 vert à chaque fois.
+- **QA navigateur par commit** : la vue concernée se rend et joue
+  exactement comme avant (souris + clavier PC + tactile), navigation
+  octave/zoom/minimap pour la famille piano, accords/strum pour
+  fretboard, drone pour bagpipe, etc.
+
+**PE-6 — Supprimer `_applyMixin` + les mixins** (KM-C4, **uniquement
+après PE-3..PE-5**)
+- Quand plus aucune méthode de rendu ne vit dans un mixin : retirer le
+  bloc `_applyMixin` et les fichiers `Keyboard*Mixin` devenus vides ;
+  composer explicitement (cf. KM-C4 cible §… du plan 2026-05-14).
+- Gate : PE-1 + suite + lint. **QA navigateur complète** (checklist de
+  référence §20.4 ci-dessus, toutes familles).
+
+**Ordre impératif** : PE-1 → PE-2 → PE-3 → PE-4 → PE-5(a→e) → PE-6.
+Chaque commit isolé, suite verte, **QA navigateur obligatoire avant le
+commit suivant** (les régressions de code-motion sont silencieuses côté
+tests). Tant qu'aucun navigateur n'est disponible, ce plan reste la
+forme « prête pour QA » du résidu — l'exécution se fait ensuite commit
+par commit avec la boucle de validation visuelle.
