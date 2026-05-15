@@ -1031,7 +1031,7 @@ même contrat de cycle de vie que Harmonica/Harpe :
 |-----|---------|------------------------------|
 | `AccordionView` | `views/AccordionView.js` | Clavier 2 oct + 12 basses Stradella + soufflet (`<input range>` → `willPlayNote` × facteur) |
 | `MalletView` | `views/MalletView.js` | 2 rangées marimba (naturelles hautes / altérées décalées), C4-B5 |
-| `KalimbaView` | `views/KalimbaView.js` | 17 lamelles, ordre physique **centre-sortant** alterné, hauteur dégressive |
+| `KalimbaView` | `views/KalimbaView.js` | 17 lamelles, ordre physique **centre-sortant** alterné ; **ancrage haut → bas** (jeu par le haut) ; **labels de notes** sur chaque tige (format US/FR/MIDI via `getNoteLabel`) |
 | `BagpipeView` | `views/BagpipeView.js` | Drone A2 auto au mount (togglable) + chanter GHB 9 notes, drone coupé au unmount |
 | `SteelDrumView` | `views/SteelDrumView.js` | 24 sections en cercle (positionnement trigonométrique) |
 | `ThereminView` | `views/ThereminView.js` | Pad 2-D : X→note (retrigger au franchissement de demi-ton), Y→volume CC#7, curseur visuel |
@@ -1110,6 +1110,13 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > staccato) reste le résidu Phase E documenté en §20.4.
 
 ### 20.3 Extensions de contrat recommandées
+
+> ✅ **Ajouté** : `InstrumentView.rerender()` (base : `unmount()` +
+> `mount(ctx)`). Le bouton de notation (US/FR/MIDI) appelle
+> `_activeView.rerender()` pour les vues *self-owned* (harmonica/harp/
+> accordion/mallet/kalimba/bagpipe/steel-drum…) afin que **l'affichage
+> des notes utilise partout** le format choisi (les vues built-in étaient
+> déjà rafraîchies via `regeneratePianoKeys`/`renderFretboard`/…).
 
 Pour des vues riches sans réécrire l'orchestrateur :
 

@@ -177,6 +177,52 @@ describe('accordion — bellows scales velocity through willPlayNote', () => {
   });
 });
 
+describe('kalimba — top-down orientation + tine labels + notation', () => {
+  let sink, modal, v;
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    sink = { played: [], stopped: [], cc: [] };
+    modal = mkModal(sink);
+    modal.getNoteLabel = (n) => `US${n}`;            // simulate US format
+    v = new (win.KalimbaView)();
+    v.mount({ modal });
+  });
+  afterEach(() => { try { v.unmount(); } catch { /* */ } });
+
+  it('is anchored at the top (played from top → bottom)', () => {
+    const root = document.getElementById('kalimba-container');
+    expect(root.style.alignItems).toBe('flex-start');
+  });
+
+  it('every tine shows its note label via modal.getNoteLabel', () => {
+    const tines = [...document.querySelectorAll('.kalimba-tine')];
+    expect(tines.length).toBe(17);
+    for (const t of tines) {
+      const lbl = t.querySelector('.kalimba-tine-label');
+      expect(lbl).not.toBeNull();
+      expect(lbl.textContent).toBe(`US${t.dataset.note}`);
+    }
+  });
+
+  it('rerender() rebuilds the labels with the new notation format', () => {
+    const note0 = document.querySelector('.kalimba-tine').dataset.note;
+    expect(document.querySelector('.kalimba-tine-label').textContent).toBe(`US${note0}`);
+    modal.getNoteLabel = (n) => `${n}`;              // switch to MIDI format
+    v.rerender();
+    const t0 = document.querySelector('.kalimba-tine');
+    expect(t0.querySelector('.kalimba-tine-label').textContent).toBe(`${t0.dataset.note}`);
+    // still playable after rerender
+    fire(t0, 'pointerdown');
+    expect(sink.played).toContain(parseInt(t0.dataset.note, 10));
+  });
+
+  it('label span does not block plucking (closest resolves to the tine)', () => {
+    const lbl = document.querySelector('.kalimba-tine-label');
+    fire(lbl, 'pointerdown');
+    expect(sink.played.length).toBe(1);
+  });
+});
+
 describe('bagpipe — drone lifecycle', () => {
   let sink, view;
   beforeEach(() => {
