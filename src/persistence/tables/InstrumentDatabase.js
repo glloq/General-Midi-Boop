@@ -154,6 +154,7 @@ class InstrumentDatabase {
   getRoutingsByFile(...args) { return this._routing.getRoutingsByFile(...args); }
   getRoutingCountsByFiles(...args) { return this._routing.getRoutingCountsByFiles(...args); }
   deleteRoutingsByFile(...args) { return this._routing.deleteRoutingsByFile(...args); }
+  deleteNonSplitRoutingsByFile(...args) { return this._routing.deleteNonSplitRoutingsByFile(...args); }
   deleteRoutingsByDevice(...args) { return this._routing.deleteRoutingsByDevice(...args); }
   disableVirtualRoutings(...args) { return this._routing.disableVirtualRoutings(...args); }
   enableVirtualRoutings(...args) { return this._routing.enableVirtualRoutings(...args); }

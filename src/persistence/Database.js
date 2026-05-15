@@ -729,6 +729,9 @@ class DatabaseManager {
   deleteRoutingsByFile(fileId) {
     return this.instrumentDB.deleteRoutingsByFile(fileId);
   }
+  deleteNonSplitRoutingsByFile(fileId) {
+    return this.instrumentDB.deleteNonSplitRoutingsByFile(fileId);
+  }
   deleteRoutingsByDevice(...args) {
     return this.instrumentDB.deleteRoutingsByDevice(...args);
   }

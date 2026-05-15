@@ -31,6 +31,9 @@
  * @param {Map<number, Object>} params.existingByChannel
  * @param {?Set<string>} [params.knownDevices]
  * @param {?Set<number>} [params.knownChannels]
+ * @param {?Set<number>} [params.splitChannels] - channels currently
+ *   routed via an auto-assign-managed split; the simple sync must not
+ *   overwrite them.
  * @param {number} [params.now=Date.now()]
  * @returns {{action:string, reason?:string, channel?:number,
  *   deviceId?:string, routing?:Object}}
@@ -42,10 +45,21 @@ export function planChannelRouting({
   existingByChannel,
   knownDevices,
   knownChannels,
+  splitChannels,
   now = Date.now()
 }) {
   if (Number.isNaN(channel) || !routingValue) {
     return { action: 'skip', reason: 'invalid-input' };
+  }
+
+  // A split routing for this channel is owned by the auto-assigner /
+  // routing modal. The editor's simple channel→device sync covers every
+  // channel it knows (including split ones), so without this guard a
+  // single channel edit in the editor would replace the split with a
+  // plain routing and silently destroy the split segments + their
+  // hand-position overrides.
+  if (splitChannels && splitChannels.has(channel)) {
+    return { action: 'skip-split', channel };
   }
 
   if (knownChannels && knownChannels.size > 0 && !knownChannels.has(channel)) {
@@ -149,19 +163,25 @@ export default class FileRoutingSyncService {
   syncFile(fileId, channels) {
     const existingRoutings = this.routingRepository.findByFileId(fileId, true);
     const existingByChannel = new Map();
+    const splitChannels = new Set();
     for (const r of existingRoutings) {
-      if (r.channel != null && !r.split_mode) {
+      if (r.channel == null) continue;
+      if (r.split_mode) {
+        splitChannels.add(r.channel);
+      } else {
         existingByChannel.set(r.channel, r);
       }
     }
 
-    // Replace non-split routings, preserve splits managed by auto-assign.
-    this.routingRepository.deleteByFileId(fileId);
+    // Replace non-split routings only; auto-assign-managed splits (and
+    // their hand-position overrides) survive the editor's simple sync.
+    this.routingRepository.deleteNonSplitByFileId(fileId);
 
     const knownDevices = this._knownDevices();
     const knownChannels = this._knownChannels(fileId);
 
     let synced = 0;
+    let splitPreserved = 0;
     const invalidDeviceIds = new Set();
     const invalidChannels = new Set();
     const now = Date.now();
@@ -175,10 +195,15 @@ export default class FileRoutingSyncService {
         existingByChannel,
         knownDevices,
         knownChannels,
+        splitChannels,
         now
       });
 
       if (plan.action === 'skip') continue;
+      if (plan.action === 'skip-split') {
+        splitPreserved++;
+        continue;
+      }
       if (plan.action === 'skip-channel') {
         invalidChannels.add(plan.channel);
         continue;
@@ -198,6 +223,7 @@ export default class FileRoutingSyncService {
 
     return {
       synced,
+      splitPreserved,
       invalidDevices: [...invalidDeviceIds],
       invalidChannels: [...invalidChannels]
     };
@@ -225,13 +251,17 @@ export default class FileRoutingSyncService {
       const parsedFileId = parseInt(fileIdStr, 10);
       const existingRoutings = this.routingRepository.findByFileId(parsedFileId, true);
       const existingByChannel = new Map();
+      const splitChannels = new Set();
       for (const r of existingRoutings) {
-        if (r.channel != null && !r.split_mode) {
+        if (r.channel == null) continue;
+        if (r.split_mode) {
+          splitChannels.add(r.channel);
+        } else {
           existingByChannel.set(r.channel, r);
         }
       }
 
-      this.routingRepository.deleteByFileId(parsedFileId);
+      this.routingRepository.deleteNonSplitByFileId(parsedFileId);
 
       let hasValidRouting = false;
       const now = config.lastModified || Date.now();
@@ -245,10 +275,12 @@ export default class FileRoutingSyncService {
           existingByChannel,
           knownDevices,
           knownChannels: null, // bulk sync skips channel-existence check (legacy behaviour)
+          splitChannels,
           now
         });
 
         if (plan.action === 'skip') continue;
+        if (plan.action === 'skip-split') continue;
         if (plan.action === 'skip-channel') continue;
         if (plan.action === 'skip-device') {
           invalidDeviceIds.add(plan.deviceId);

@@ -316,6 +316,23 @@ class RoutingPersistenceDB {
   }
 
   /**
+   * Delete only the non-split routings for a MIDI file. Split routings
+   * are owned by the auto-assigner / routing modal and must survive the
+   * editor's simple channel→device sync (regression: a single channel
+   * edit in the MIDI editor used to wipe every split for the file).
+   * @param {number} fileId
+   */
+  deleteNonSplitRoutingsByFile(fileId) {
+    try {
+      this.db.prepare(
+        "DELETE FROM midi_instrument_routings WHERE midi_file_id = ? AND (split_mode IS NULL OR split_mode = '')"
+      ).run(fileId);
+    } catch (error) {
+      this.logger.error(`Failed to delete non-split routings for file ${fileId}: ${error.message}`);
+    }
+  }
+
+  /**
    * Delete all routings for a device (optionally scoped to one channel).
    * Encapsulates raw `DELETE FROM midi_instrument_routings` SQL previously
    * duplicated in handlers (P0-2.5n).
