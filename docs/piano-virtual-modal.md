@@ -1,7 +1,12 @@
 # Piano Virtuel — Documentation complète
 
-> **Scope** : Modal du clavier virtuel de General-Midi-Boop (`KeyboardModalNew` et ses mixins).  
-> **Version auditée** : `1.1.0` — audit réalisé le 2026-05-02.
+> **Scope** : Modal du clavier virtuel de General-Midi-Boop (`KeyboardModal` et ses mixins).  
+> **Version auditée** : `1.1.0` — audit fonctionnel initial 2026-05-02, **mise à jour & audit d'intégration 2026-05-15** (voir §19).
+>
+> ⚠️ **Architecture en migration** : une couche `InstrumentView` / `InstrumentViewRegistry` / `views/`
+> (plan `AUDIT_KEYBOARD_MODAL_2026-05-14.md`, findings KM-C1..KM-F1) coexiste avec les mixins
+> historiques. Aujourd'hui le rendu passe **100 % par les mixins** ; la couche `views/` est
+> enregistrée au boot mais **inerte** (`registry.resolve()` jamais appelé). Voir §2.1 et §19.
 
 ---
 
@@ -49,86 +54,125 @@ La sélection de la vue est automatique selon le programme GM de l'instrument s�
 ```
 public/js/features/
 │
-├── KeyboardModal.js              ← Classe principale KeyboardModalNew
+├── KeyboardModal.js              ← Classe principale KeyboardModal
 │                                    État, cycle de vie, MIDI, sélection d'instrument
+│                                    mountAsPanel/unmountPanel, _maybeSendStringFretCC
+│                                    getNoteLabel, _getStringPresetForGmProgram
+│                                    Helper KM-M3 : _on() / _offAll()
 │
 └── keyboard/
     ├── KeyboardPiano.js          ← Mixin KeyboardPianoMixin
-    │                                Génération DOM piano/fretboard/drumpad/slider
-    │                                Minimap, octave bar, fingers overlay
+    │                                createModal (HTML), generatePianoKeys, setViewMode
+    │                                Minimap, octave bar, fretboard, drumpad, slider
     │
     ├── KeyboardEvents.js         ← Mixin KeyboardEventsMixin
     │                                attachEvents / detachEvents
-    │                                playNote / stopNote
-    │                                _resolveKeyToNote (clavier PC)
+    │                                playNote / stopNote, _resolveKeyToNote (clavier PC)
     │
     ├── KeyboardControls.js       ← Mixin KeyboardControlsMixin
     │                                loadSettings / loadDevices
-    │                                Mod wheel, pitch bend wheel
-    │                                updateSlidersVisibility
+    │                                Mod wheel, pitch bend wheel, updateSlidersVisibility
     │
-    ├── KeyboardChords.js         ← Mixin KeyboardChordsMixin
-    │                                Accordages, mode accords, main widget
-    │                                Rendu des boutons d'accords (fretboard)
+    ├── KeyboardChords.js         ← Mixin KeyboardChordsMixin (accords/strum/bow)
+    ├── KeyboardSlider.js         ← Mixin KeyboardSliderMixin (pitch bend, slide corde,
+    │                                _sendPitchBend → midi_send_pitchbend)
+    ├── KeyboardListView.js       ← Mixin KeyboardListViewMixin (vue liste)
+    ├── KeyboardWind.js           ← Mixin KeyboardWindMixin (articulation/souffle vent,
+    │                                override playNote ; _windOrigPlayNote workaround)
     │
-    ├── KeyboardSlider.js         ← Mixin KeyboardSliderMixin
-    │                                Drag pitch bend sur le piano-slider
-    │                                Mode glissement par corde (fretboard)
+    ├── InstrumentDetector.js     ← Module pur (ACTIF) — detect() : caps → viewKind
+    │                                Consommé par KeyboardModal.getInstrumentViewInfo()
     │
-    ├── KeyboardListView.js       ← Mixin KeyboardListViewMixin
-    │                                Rendu et interaction de la vue liste
+    ├── InstrumentView.js         ← Classe abstraite (couche migration, voir §2.1)
+    ├── InstrumentViewRegistry.js ← Registre viewKind→Classe + règles (INERTE, §2.1)
+    ├── SwipeTracker.js           ← Hit-testing drag touches piano (Phase F)
     │
-    ├── NoteEngine.js             ← Classe NoteEngine (pure, sans DOM)
-    │                                Gammes, mapping position→note MIDI
+    ├── NoteEngine.js             ← Module pur — gammes, mapping position→MIDI
+    ├── NoteSlider.js             ← Widget UI slider note + gamme
+    ├── VoicingEngine.js          ← Module pur — accord→cordes, scheduling strum
     │
-    ├── NoteSlider.js             ← Classe NoteSlider (UI)
-    │                                Slider horizontal de sélection de note avec gamme
-    │
-    └── VoicingEngine.js          ← Classe VoicingEngine (pure, sans DOM)
-                                     Mapping accord→cordes, scheduling strum
+    └── views/                    ← Couche migration INERTE (Phase C/D, voir §2.1)
+        ├── PianoView.js / FretboardView.js / DrumPadView.js
+        ├── PianoSliderView.js / ListView.js
+        └── registerBuiltins.js   ← Enregistre les 5 vues + règles de détection
 
 public/styles/
     ├── keyboard-modal.css        ← Modal overlay, header, dropdown instrument
-    ├── keyboard.css              ← Touches piano (blanc/noir), fretboard, drum pad
+    ├── keyboard.css              ← Touches piano, fretboard, drum pad, mini-piano
     ├── keyboard-polish.css       ← Animations, transitions, états hover/active
     └── piano-roll-view.css       ← Vue piano-roll (séparée du modal)
 ```
 
-### Chargement dans index.html (ordre obligatoire)
+### Chargement dans index.html (ordre réel — `index.html:6151-6177`)
 
 ```html
-<!-- Moteurs purs (pas de dépendance DOM) -->
-<script src="js/features/keyboard/NoteEngine.js"></script>
-<script src="js/features/keyboard/VoicingEngine.js"></script>
-<script src="js/features/keyboard/NoteSlider.js"></script>
+<!-- Couche migration : détecteur + interface + registre -->
+<script src="js/features/keyboard/InstrumentDetector.js"></script>
+<script src="js/features/keyboard/InstrumentView.js"></script>
+<script src="js/features/keyboard/InstrumentViewRegistry.js"></script>
 
-<!-- Mixins du modal (chargés avant KeyboardModal.js) -->
+<!-- Mixins du modal + helpers -->
+<script src="js/features/keyboard/SwipeTracker.js"></script>
 <script src="js/features/keyboard/KeyboardPiano.js"></script>
 <script src="js/features/keyboard/KeyboardEvents.js"></script>
 <script src="js/features/keyboard/KeyboardControls.js"></script>
 <script src="js/features/keyboard/KeyboardChords.js"></script>
+<script src="js/features/keyboard/NoteEngine.js"></script>
+<script src="js/features/keyboard/VoicingEngine.js"></script>
+<script src="js/features/keyboard/NoteSlider.js"></script>
 <script src="js/features/keyboard/KeyboardSlider.js"></script>
 <script src="js/features/keyboard/KeyboardListView.js"></script>
+<script src="js/features/keyboard/KeyboardWind.js"></script>
 
-<!-- Classe principale -->
+<!-- Classe principale (applique les mixins) -->
 <script src="js/features/KeyboardModal.js"></script>
+
+<!-- Vues (après KeyboardModal) + bootstrap registre -->
+<script src="js/features/keyboard/views/PianoView.js"></script>
+<script src="js/features/keyboard/views/FretboardView.js"></script>
+<script src="js/features/keyboard/views/DrumPadView.js"></script>
+<script src="js/features/keyboard/views/PianoSliderView.js"></script>
+<script src="js/features/keyboard/views/ListView.js"></script>
+<script src="js/features/keyboard/views/registerBuiltins.js"></script>
 ```
 
-> **Important** — L'ordre est critique. `KeyboardModal.js` applique les mixins via `Object.assign(KeyboardModalNew.prototype, MixinXxx)` après la définition de la classe. Un mixin chargé après `KeyboardModal.js` ne sera pas appliqué.
+> **Important** — `KeyboardModal.js` applique les mixins via `_applyMixin()`
+> (`Object.assign` + avertissement sur collision) après la définition de la
+> classe. Les 7 mixins doivent être chargés **avant** `KeyboardModal.js`.
+> `KeyboardWindMixin` enveloppe `playNote` (capture `_windOrigPlayNote`).
+> Les fichiers `views/*` sont chargés **après** `KeyboardModal.js` (ils
+> n'étendent pas le prototype, ils s'auto-enregistrent dans le registre).
+
+### 2.1 Couche migration `InstrumentView` (état réel)
+
+| Élément | Statut | Détail |
+|---------|--------|--------|
+| `InstrumentDetector` | **ACTIF** | `getInstrumentViewInfo()` y délègue (`KeyboardModal.js:709-724`). Testé. |
+| `InstrumentViewRegistry` + `views/*` | **INERTE** | Auto-enregistrés au boot via `registerBuiltins.js`, mais aucun code n'appelle `registry.resolve()` ni `view.mount()`. Le rendu reste 100 % mixins. |
+| Règles de détection | **Dupliquées** | `InstrumentDetector` (actif) **et** `registerBuiltins.js` (inerte) encodent la même logique GM→viewKind. Divergence possible — **gardée par un test** (`tests/frontend/keyboard/views.test.js` → « InstrumentDetector ↔ registry consistency »). |
+
+C'est l'état attendu des phases C/D du plan 2026-05-14 (« câbler avant
+d'implémenter »). Achever la migration est **hors périmètre** de cet audit.
 
 ### Composition par mixins
 
 ```
-KeyboardModalNew (classe)
-    ← KeyboardPianoMixin    (createModal, generatePianoKeys, renderFretboard, renderDrumPad, …)
+KeyboardModal (classe)  — ordre d'application via _applyMixin() :
+    ← KeyboardPianoMixin    (createModal, generatePianoKeys, setViewMode, renderFretboard…)
     ← KeyboardEventsMixin   (attachEvents, detachEvents, playNote, stopNote, _resolveKeyToNote)
-    ← KeyboardControlsMixin (loadSettings, loadDevices, initModWheel, initPitchBendWheel, …)
-    ← KeyboardChordsMixin   (renderChordButtons, renderHandWidget, _mapChordToStrings, …)
-    ← KeyboardSliderMixin   (initPianoSliderDrag, initStringSliderMode, …)
+    ← KeyboardControlsMixin (loadSettings, loadDevices, initModWheel, initPitchBendWheel…)
+    ← KeyboardChordsMixin   (renderChordButtons, renderHandWidget, strum/bow…)
+    ← KeyboardSliderMixin   (initPitchBendWheel deps, _sendPitchBend, slide corde…)
     ← KeyboardListViewMixin (renderKeyboardList, _destroyKeyboardListInteraction)
+    ← KeyboardWindMixin     (override playNote + articulation ; _windOrigPlayNote)
 ```
 
-En cas de méthode définie dans plusieurs mixins, **le dernier mixin appliqué l'emporte**. Aucun conflit actuel n'existe entre les mixins actifs.
+`_applyMixin()` émet un **avertissement console** si un mixin écrase
+silencieusement une méthode déjà présente sur le prototype (filet de
+sécurité KM-C4). En cas de collision, **le dernier mixin appliqué
+l'emporte**. `KeyboardWindMixin` est appliqué en dernier et enveloppe
+volontairement `playNote` (l'original est capturé en lecture seule dans
+`_windOrigPlayNote`). Aucune autre collision active.
 
 ---
 
@@ -453,11 +497,11 @@ En mode `'discrete'`, les bornes sont calculées depuis `selected_notes`.
 ### 11.1 Chargement des instruments
 
 `loadDevices()` effectue :
-1. `backend.listDevices()` → filtre `status === 2` (actifs)
-2. Déduplication par `name` (Set)
+1. `backend.listDevices()` **et** `instrument_list_capabilities` en **un seul couple d'appels parallèles** (`Promise.all`)
+2. Déduplication par ID (fallback `name`) via un `Set`
 3. Expansion des appareils multi-instruments (`device.instruments[]`) → un slot par canal
-4. Chargement optionnel des instruments virtuels DB (si `virtualInstrument: true` dans les settings)
-5. Enrichissement parallèle des noms custom via `instrument_get_settings` (N appels parallèles)
+4. Chargement optionnel des instruments virtuels DB (si `virtualInstrument: true`) — réutilise les capacités déjà récupérées
+5. Enrichissement des noms custom via une **map pré-construite** depuis `instrument_list_capabilities` (plus aucun appel `instrument_get_settings` par device — corrige l'ancien point de vigilance §15.3)
 
 ### 11.2 Détection automatique de la vue
 
@@ -572,29 +616,36 @@ common.select
 
 ### 15.3 Points de vigilance
 
-- `loadDevices()` émet N requêtes API parallèles (une par instrument non-virtuel) pour les noms custom. Avec de nombreux instruments, la latence d'ouverture peut augmenter.
+- ~~`loadDevices()` émet N requêtes API~~ — **corrigé** : un seul couple `Promise.all` + map de noms pré-construite (voir §11.1).
 - `regeneratePianoKeys()` détruit et recrée intégralement le DOM clavier à chaque zoom/scroll. Sur mobile bas de gamme, ce peut être perceptible sur des plages larges.
+- Couche `views/` + registre chargée mais inerte (§2.1) : ~30-50 nœuds/objets inutilisés en mémoire jusqu'à l'achèvement de la migration. Négligeable.
 
 ---
 
 ## 16. Tests
 
-### 16.1 Tests existants
+Exécution : `npx vitest run tests/frontend/keyboard` → **10 fichiers, 208 tests, 100 % verts** (2026-05-15).
+
+### 16.1 Tests existants (`tests/frontend/keyboard/`)
 
 | Fichier | Ce qui est testé |
 |---------|-----------------|
-| `tests/frontend/keyboard-preview.test.js` | `KeyboardPreview` (auto-assign) |
-| `tests/frontend/hand-position-editor-modal.test.js` | `KeyboardHandPositionEditorModal` |
+| `instrument-detector.test.js` | `InstrumentDetector.detect()` — piano/fretboard/drum/wind |
+| `instrument-view-registry.test.js` | `InstrumentView` abstrait + `InstrumentViewRegistry` (register/resolve/rules) |
+| `views.test.js` | Enregistrement des 5 vues, résolution, **cohérence détecteur↔registry**, toolbarGroups, willPlayNote |
+| `note-engine.test.js` | `NoteEngine` (gammes, mapping) |
+| `voicing-engine.test.js` | `VoicingEngine` (tuning, polyphonie, accord→cordes, strum) — **corrigé 2026-05-15** |
+| `voicing-engine-integration.test.js` | Intégration voicing |
+| `swipe-tracker.test.js` | `SwipeTracker` (drag hit-testing) |
+| `keyboard-modal-pure.test.js` | **Ajouté 2026-05-15** — `getNoteLabel`, `getNoteNameFromNumber`, `_getStringPresetForGmProgram`, `_resolveKeyToNote` (AZERTY/QWERTY) |
+| (+ `tests/frontend/keyboard-preview.test.js`, `keyboard-chords-finger-spacing.test.js`) | KeyboardPreview, espacement doigts accords |
 
-### 16.2 Coverage manquante (à ajouter)
+### 16.2 Coverage encore manquante
 
-- `isNotePlayable()` — modes range, discrete, no-caps
-- `autoCenterKeyboard()` — range, discrete, no-caps, edge cases MIDI 0/127
-- `getNoteLabel()` — les 3 formats, octaves extrêmes
-- `_resolveKeyToNote()` — AZERTY/QWERTY, touches blanches et noires
-- `renderOctaveBar()` — vérifier labels corrects, absence de NaN
-- `getInstrumentViewInfo()` — détection drum/string/piano automatique
-- `_getStringPresetForGmProgram()` — couverture de tous les programmes GM
+- `isNotePlayable()` — modes range/discrete/no-caps (méthode DOM-couplée → nécessite harnais jsdom complet du modal)
+- `autoCenterKeyboard()` — range/discrete, bornes MIDI 0/127 (idem)
+- `setViewMode()` — bascule des 5 containers + cleanups (test d'intégration DOM)
+- Intégration `mountAsPanel()` → callbacks `onNoteOn/off/onInstrumentSelected` (test d'intégration LoopEditor)
 
 ---
 
@@ -712,3 +763,82 @@ this._pianoTouchEnd = (e) => {
 | `populateDeviceSelect` (ancienne version `<select>`) | `KeyboardDevices.js` | `KeyboardModal._buildInstrumentDropdown` |
 
 `KeyboardDevices.populateDeviceSelect` référençait de plus un élément `#keyboard-device-select` (`<select>`) qui n'existe plus dans le DOM généré (remplacé par le custom dropdown).
+
+---
+
+## 19. Audit d'intégration (2026-05-15)
+
+> **Objectif** : valider que **chaque partie de l'interface du modal est
+> fonctionnelle et bien intégrée** au reste de l'application. Audit du
+> code (lecture + vérification croisée) sur la branche
+> `claude/audit-piano-modal-JKiur`.
+
+### 19.1 Périmètre vérifié
+
+19 contrôles + points d'intégration : sélecteur d'instrument (dropdown
+custom + délégation), vélocité, roues modulation (CC#1) & pitch bend,
+panneau vent (articulations + souffle CC#2), boutons octave/zoom/molette,
+minimap, touches piano/fretboard/drumpad/slider/liste, clavier PC
+(AZERTY/QWERTY), multitouch, notation US/FR/MIDI, couleurs chromatiques,
+toggles de vue, cycle de vie `open`/`close`, `mountAsPanel`/`unmountPanel`,
+callbacks `onNoteOn`/`onNoteOff`/`onInstrumentSelected`, routage backend,
+EventBus `bluetooth:*`, localStorage, i18n.
+
+### 19.2 État fonctionnel — synthèse
+
+| Sous-système | Verdict |
+|--------------|---------|
+| `playNote`/`stopNote` + guard MIDI `0..127` | ✅ Conforme |
+| Symétrie `attachEvents`/`detachEvents` (mod-wheel, pitch-bend, minimap, délégation piano, listeners `document`/`window`) | ✅ Symétrique — les listeners anonymes sont sur des éléments retirés avec le container ; tous les listeners `document`/`window` ont leur retrait explicite |
+| Roues modulation & pitch bend (`_sendPitchBend` → `midi_send_pitchbend`) | ✅ Définies et nettoyées (mixin `KeyboardSlider`) |
+| `updateSlidersVisibility` ↔ `_selectInstrumentOption` (visibilité conditionnelle) | ✅ Cohérent |
+| `setViewMode` (toggle des 5 containers + cleanups fretboard/list/hands) | ✅ Correct et symétrique |
+| Intégration panel : signatures producteur ↔ `LoopEditorModal` / `LoopManagerKeyboardFeature` | ✅ Identiques |
+| Commandes backend (`midi_send_note`, `midi_send_cc`, `midi_send_pitchbend`, `string_instrument_get`, `instrument_get_capabilities`, `instrument_list_capabilities`) | ✅ Toutes enregistrées côté serveur (`src/api/commands/`) |
+| `getNoteLabel` / `_resolveKeyToNote` / `_getStringPresetForGmProgram` | ✅ Conforme — désormais **couvert par tests** |
+
+**Aucun défaut fonctionnel** trouvé sur le chemin d'exécution réel
+(mixins). Le modal est fonctionnel et bien intégré.
+
+> Note méthodo : deux « bugs critiques » signalés par des agents
+> d'exploration (`_sendPitchBend` manquant ; `midi_send_note_on/off`
+> « intégration cassée ») ont été **vérifiés et infirmés** —
+> `_sendPitchBend` existe (`KeyboardSlider.js:233`) et
+> `backend.sendNoteOn/Off` mappe correctement vers `midi_send_note`
+> (`BackendAPIClient.js:499/515`, enregistré `MidiCommands.js:224`).
+
+### 19.3 Corrections apportées
+
+**19.3.1 Test cassé — `voicing-engine.test.js`**
+Les blocs `describe('strumSchedule')` et `describe('snapToPlayable')`
+instanciaient `new (VE())(...)` **dans le corps du `describe`**, exécuté à
+la collecte *avant* que le `beforeAll` ne charge `VoicingEngine.js` →
+`TypeError: VE(...) is not a constructor`. Corrigé en déplaçant
+l'instanciation dans un `beforeEach` (aligné sur les blocs `it()` qui
+passaient). Suite voicing : 0 → **30 tests verts**.
+
+**19.3.2 Tests ajoutés — `keyboard-modal-pure.test.js`**
+Nouveau fichier (16 tests) couvrant les helpers purs jusqu'ici non
+testés : `getNoteLabel` (US/FR/MIDI, bornes 0/21/108/127),
+`getNoteNameFromNumber`, `_getStringPresetForGmProgram` (guitares,
+basses dont fretless 35, cordes frottées, harpe, sitar/banjo/shamisen/
+koto, null), `_resolveKeyToNote` (AZERTY/QWERTY, blanches/noires,
+indices hors plage).
+
+Aucune modification du code applicatif (aucun bug fonctionnel à
+corriger). Lint clavier : **0 erreur** (7 warnings préexistants mineurs :
+`no-console`, 2 `no-unused-vars` — hors périmètre).
+
+### 19.4 Constats d'intégration (non bloquants)
+
+1. **Couche `views/` + registre inerte** (§2.1) — enregistrée au boot
+   mais jamais résolue/montée. État Phase C/D attendu, non bloquant.
+2. **Logique de détection dupliquée** entre `InstrumentDetector` (actif)
+   et `registerBuiltins.js` (inerte) — risque de divergence, **déjà
+   gardé** par le test de cohérence dans `views.test.js`.
+3. **`mountAsPanel`** n'attend pas `loadDevices()` (`open()` si). Sans
+   impact : la délégation du dropdown est posée dans
+   `_buildInstrumentDropdown`, pas dans `attachEvents`.
+
+Achever la migration `InstrumentView` (findings KM-C1..KM-F1 du plan
+`AUDIT_KEYBOARD_MODAL_2026-05-14.md`) reste hors périmètre de cet audit.
