@@ -6,16 +6,15 @@
 
     const KeyboardWindMixin = {};
 
-    // Articulation definitions matching WindArticulationPanel presets
+    // Articulation names accepted by the wind panel. The velocity factor +
+    // staccato auto-off behaviour now live in PianoSliderView (KM-C4); this
+    // mixin only owns the panel/CC/comfort-zone UI and the selected name.
     const WIND_ARTICULATIONS = {
-        normal:   { velocityFactor: 1.0 },
-        legato:   { velocityFactor: 1.0 },
-        staccato: { velocityFactor: 0.9, staccato: true },
-        accent:   { velocityFactor: 1.2 },
+        normal:   true,
+        legato:   true,
+        staccato: true,
+        accent:   true,
     };
-
-    // Max duration for staccato auto-stop (ms)
-    const STACCATO_MAX_MS = 120;
 
     // ── Panel lifecycle ───────────────────────────────────────────────────────
 
@@ -178,34 +177,9 @@
         }
     };
 
-    // ── playNote override — apply articulation velocity factor ────────────────
-
-    KeyboardWindMixin.playNote = function (note) {
-        const orig = this._windOrigPlayNote;
-        if (!this.windPreset) {
-            orig.call(this, note);
-            return;
-        }
-
-        if (note < 0 || note > 127) return;
-
-        const art = WIND_ARTICULATIONS[this.currentArticulation] || WIND_ARTICULATIONS.normal;
-        const savedVelocity = this.velocity;
-        this.velocity = Math.min(127, Math.round(savedVelocity * art.velocityFactor));
-        orig.call(this, note);
-        this.velocity = savedVelocity;
-
-        // Staccato: schedule automatic note-off after STACCATO_MAX_MS
-        if (art.staccato) {
-            if (!this._staccatoTimers) this._staccatoTimers = new Map();
-            if (this._staccatoTimers.has(note)) clearTimeout(this._staccatoTimers.get(note));
-            const timer = setTimeout(() => {
-                if (this.activeNotes && this.activeNotes.has(note)) this.stopNote(note);
-                if (this._staccatoTimers) this._staccatoTimers.delete(note);
-            }, STACCATO_MAX_MS);
-            this._staccatoTimers.set(note, timer);
-        }
-    };
+    // playNote is no longer overridden here (KM-C4). Articulation velocity
+    // scaling lives in PianoSliderView.willPlayNote and staccato auto-off
+    // in PianoSliderView.afterPlayNote, wired through KeyboardModal.playNote.
 
     if (typeof window !== 'undefined') window.KeyboardWindMixin = KeyboardWindMixin;
 })();

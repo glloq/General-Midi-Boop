@@ -25,6 +25,7 @@ beforeAll(() => {
     load(`../../../public/js/features/keyboard/views/${v}.js`);
   }
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
+  load('../../../public/js/features/keyboard/KeyboardEvents.js'); // real playNote
   load('../../../public/js/features/KeyboardModal.js');
 });
 
@@ -127,21 +128,31 @@ describe.each([
   });
 });
 
-describe('accordion — bellows scales velocity (applied on press)', () => {
-  let v, modal, velAtPlay;
+describe('accordion — bellows scales velocity through willPlayNote', () => {
+  // Exercises the REAL path: AccordionView._press → modal.playNote
+  // (KeyboardEventsMixin) → this._activeView.willPlayNote →
+  // onNoteOn(note, transformedVelocity). The mixin can't be applied to
+  // the prototype in this sandbox, so `modal.playNote` delegates to the
+  // real KeyboardEventsMixin.playNote bound to the modal object.
+  let modal, velOut, v;
   beforeEach(() => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    velAtPlay = [];
+    velOut = [];
     modal = {
       velocity: 100,
-      playNote() { velAtPlay.push(this.velocity); },
-      stopNote() {},
-      getNoteLabel: (n) => `N${n}`
+      activeNotes: new Set(),
+      updatePianoDisplay() {},
+      selectedDevice: null,
+      backend: null,
+      getNoteLabel: (n) => `N${n}`,
+      _panelCallbacks: { onNoteOn: (_n, vel) => velOut.push(vel) },
+      playNote(n) { return win.KeyboardEventsMixin.playNote.call(this, n); }
     };
     v = new (win.AccordionView)();
     v.mount({ modal });
+    modal._activeView = v;       // playNote routes velocity through this
   });
-  afterEach(() => { try { v.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => { try { v.unmount(); } catch { /* */ } });
 
   it('willPlayNote math: centre=1×, ×0.5 below, clamped above', () => {
     expect(v.willPlayNote(60, 100).velocity).toBe(100);   // bellows 64 → ×1
@@ -152,18 +163,17 @@ describe('accordion — bellows scales velocity (applied on press)', () => {
     expect(v.willPlayNote(60, 100).velocity).toBe(127);   // clamped
   });
 
-  it('pressing a key actually sends the bellows-scaled velocity', () => {
+  it('low bellows lowers the velocity actually sent to the instrument', () => {
     const b = document.getElementById('accordion-bellows');
-    b.value = '32'; b.dispatchEvent(new Event('input'));     // factor 0.5
-    const key = document.querySelector('.accordion-key');
-    fire(key, 'pointerdown');
-    expect(velAtPlay).toEqual([50]);                          // 100 × 0.5
-    expect(modal.velocity).toBe(100);                         // restored after
+    b.value = '32'; b.dispatchEvent(new Event('input'));   // factor 0.5
+    fire(document.querySelector('.accordion-key'), 'pointerdown');
+    expect(velOut).toEqual([50]);                          // 100 × 0.5
+    expect(modal.velocity).toBe(100);                      // base unchanged
   });
 
-  it('centre bellows (64) leaves velocity unchanged', () => {
+  it('centre bellows (64) sends the unmodified velocity', () => {
     fire(document.querySelector('.accordion-key'), 'pointerdown');
-    expect(velAtPlay).toEqual([100]);
+    expect(velOut).toEqual([100]);
   });
 });
 

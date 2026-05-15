@@ -7,9 +7,12 @@
 // (CC#2). Velocity ↔ articulation factor is wired in willPlayNote().
 //
 // Phase D delegation: mount() calls modal.generatePianoSlider() and
-// modal._showWindControls(preset). willPlayNote applies the same
-// articulation logic as the legacy KeyboardWindMixin.playNote override —
-// which is *the* reason the legacy code needs `_windOrigPlayNote` (KM-C4).
+// modal._showWindControls(preset).
+//
+// KM-C4 done: this view fully owns the wind playing behaviour through the
+// InstrumentView contract — willPlayNote() applies the articulation
+// velocity factor and afterPlayNote() schedules the staccato auto note-off.
+// KeyboardWindMixin no longer overrides playNote (no more _windOrigPlayNote).
 // =============================================================================
 (function () {
     'use strict';
@@ -17,14 +20,15 @@
     if (typeof window === 'undefined' || !window.InstrumentView) return;
     const InstrumentView = window.InstrumentView;
 
-    // Mirrors WIND_ARTICULATIONS in KeyboardWind.js — kept here so the
-    // velocity transform is self-contained on the View.
+    // Articulation → velocity factor. `staccato` additionally arms an
+    // auto note-off after STACCATO_MS (see afterPlayNote).
     const ARTICULATION_FACTORS = {
         normal:   1.0,
         legato:   1.0,
         staccato: 0.9,
         accent:   1.2
     };
+    const STACCATO_MS = 120;
 
     class PianoSliderView extends InstrumentView {
         static viewKind = 'piano-slider';
@@ -35,6 +39,7 @@
             super.mount(ctx);
             const modal = ctx.modal;
             if (!modal) return;
+            this._staccatoTimers = new Map(); // note -> timeout id
             if (typeof modal.generatePianoSlider === 'function') {
                 modal.generatePianoSlider();
             }
@@ -45,6 +50,7 @@
         }
 
         unmount() {
+            this._clearStaccatoTimers();
             const modal = this.ctx && this.ctx.modal;
             if (modal) {
                 if (typeof modal._hideWindControls === 'function') {
@@ -55,6 +61,12 @@
                 }
             }
             super.unmount();
+        }
+
+        _clearStaccatoTimers() {
+            if (!this._staccatoTimers) return;
+            for (const id of this._staccatoTimers.values()) clearTimeout(id);
+            this._staccatoTimers.clear();
         }
 
         setCapabilities(_caps) {
@@ -73,6 +85,24 @@
                 ? ARTICULATION_FACTORS[art] : 1.0;
             const scaled = Math.max(1, Math.min(127, Math.round(velocity * factor)));
             return { midi, velocity: scaled, opts };
+        }
+
+        afterPlayNote(note) {
+            // Staccato: auto note-off after STACCATO_MS (replaces the old
+            // KeyboardWindMixin.playNote staccato branch).
+            const modal = this.ctx && this.ctx.modal;
+            if (!modal || (modal.currentArticulation || 'normal') !== 'staccato') return;
+            if (!this._staccatoTimers) this._staccatoTimers = new Map();
+            const prev = this._staccatoTimers.get(note);
+            if (prev) clearTimeout(prev);
+            const id = setTimeout(() => {
+                this._staccatoTimers && this._staccatoTimers.delete(note);
+                if (modal.activeNotes && modal.activeNotes.has(note)
+                    && typeof modal.stopNote === 'function') {
+                    modal.stopNote(note);
+                }
+            }, STACCATO_MS);
+            this._staccatoTimers.set(note, id);
         }
 
         toolbarGroups() {

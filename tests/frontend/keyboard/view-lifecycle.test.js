@@ -5,7 +5,7 @@
 // mount it, and unmount the previous one — with a safe legacy fallback
 // when no view is registered.
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -28,6 +28,7 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/views/PianoSliderView.js');
   load('../../../public/js/features/keyboard/views/ListView.js');
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
+  load('../../../public/js/features/keyboard/KeyboardEvents.js'); // playNote/stopNote
   load('../../../public/js/features/KeyboardModal.js');
 });
 
@@ -135,5 +136,115 @@ describe('Safe legacy fallback (zero-regression guarantee)', () => {
     expect(m._activeView).toBeNull();
     expect(m._activeViewKind).toBe('broken');
     expect(legacy).toBe(true);
+  });
+});
+
+// ── KM-C4: playNote routes through the active view's willPlayNote /
+//    afterPlayNote (replaces the removed _windOrigPlayNote hack) ─────────────
+describe('playNote ↔ InstrumentView contract (KM-C4)', () => {
+  // The harness can't apply mixins (new Function sandbox breaks the
+  // `typeof KeyboardEventsMixin` guard), so call the real playNote with a
+  // controlled context — same isolated pattern as keyboard-modal-pure.
+  const play = (over, note) => {
+    const out = [];
+    const ctx = {
+      velocity: 80,
+      activeNotes: new Set(),
+      updatePianoDisplay() {},
+      selectedDevice: null,
+      backend: null,
+      _panelCallbacks: { onNoteOn: (n, v) => out.push([n, v]) },
+      ...over
+    };
+    win.KeyboardEventsMixin.playNote.call(ctx, note);
+    return { ctx, out };
+  };
+
+  it('willPlayNote transforms the velocity actually sent', () => {
+    const { ctx, out } = play(
+      { _activeView: { willPlayNote: (n, v) => ({ midi: n, velocity: v + 7 }) } }, 60);
+    expect(out).toEqual([[60, 87]]);
+    expect(ctx.activeNotes.has(60)).toBe(true);
+  });
+
+  it('willPlayNote can remap the midi note', () => {
+    const { ctx, out } = play(
+      { _activeView: { willPlayNote: (n, v) => ({ midi: n + 12, velocity: v }) } }, 60);
+    expect(out).toEqual([[72, 80]]);
+    expect(ctx.activeNotes.has(72)).toBe(true);
+    expect(ctx.activeNotes.has(60)).toBe(false);
+  });
+
+  it('willPlayNote returning false cancels the note entirely', () => {
+    const { ctx, out } = play({ _activeView: { willPlayNote: () => false } }, 60);
+    expect(out).toEqual([]);
+    expect(ctx.activeNotes.size).toBe(0);
+  });
+
+  it('afterPlayNote is invoked after the note-on', () => {
+    const seen = [];
+    play({ _activeView: { afterPlayNote: (n) => seen.push(n) } }, 64);
+    expect(seen).toEqual([64]);
+  });
+
+  it('no active view → playNote behaves as before (identity)', () => {
+    const { out } = play({ _activeView: null }, 60);
+    expect(out).toEqual([[60, 80]]);
+  });
+});
+
+describe('PianoSliderView — wind articulation + staccato (KM-C4)', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('willPlayNote scales velocity by the current articulation factor', () => {
+    const v = new (win.PianoSliderView)();
+    v.ctx = { modal: { currentArticulation: 'accent' } };  // ×1.2
+    expect(v.willPlayNote(60, 100).velocity).toBe(120);
+    v.ctx.modal.currentArticulation = 'staccato';          // ×0.9
+    expect(v.willPlayNote(60, 100).velocity).toBe(90);
+    v.ctx.modal.currentArticulation = 'normal';            // ×1
+    expect(v.willPlayNote(60, 100).velocity).toBe(100);
+  });
+
+  it('afterPlayNote auto-stops the note after ~120ms when staccato', () => {
+    vi.useFakeTimers();
+    const stopped = [];
+    const modal = {
+      currentArticulation: 'staccato',
+      activeNotes: new Set([60]),
+      stopNote: (n) => stopped.push(n),
+      generatePianoSlider: undefined
+    };
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal });
+    v.afterPlayNote(60);
+    expect(stopped).toEqual([]);            // not yet
+    vi.advanceTimersByTime(120);
+    expect(stopped).toEqual([60]);          // auto note-off fired
+    v.unmount();
+  });
+
+  it('afterPlayNote does nothing when articulation is not staccato', () => {
+    vi.useFakeTimers();
+    const stopped = [];
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal: { currentArticulation: 'legato', activeNotes: new Set([60]),
+                        stopNote: (n) => stopped.push(n) } });
+    v.afterPlayNote(60);
+    vi.advanceTimersByTime(500);
+    expect(stopped).toEqual([]);
+    v.unmount();
+  });
+
+  it('unmount() clears pending staccato timers (no leak)', () => {
+    vi.useFakeTimers();
+    const stopped = [];
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal: { currentArticulation: 'staccato', activeNotes: new Set([60]),
+                        stopNote: (n) => stopped.push(n) } });
+    v.afterPlayNote(60);
+    v.unmount();                            // cancels the timer
+    vi.advanceTimersByTime(500);
+    expect(stopped).toEqual([]);
   });
 });

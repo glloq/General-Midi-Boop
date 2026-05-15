@@ -1129,25 +1129,57 @@ Pour des vues riches sans réécrire l'orchestrateur :
    pour refléter des notes jouées par une source externe (playback,
    MIDI in) dans la vue active.
 
-### 20.4 Décommission Phase E (résidu, nécessite QA navigateur)
+### 20.4 Décommission Phase E
 
-Étapes mécaniques restantes, **à faire avec validation navigateur** car
-non testables en jsdom et porteuses de régressions silencieuses :
+#### ✅ 20.4.1 KM-C4 — fait (2026-05-15)
 
-1. Étendre le contrat `willPlayNote` (§20.3.1) puis **déplacer**
-   l'articulation + staccato de `KeyboardWindMixin.playNote` vers
-   `PianoSliderView` ; supprimer l'override + `_windOrigPlayNote` +
-   le `Object.defineProperty` associé (KM-C4).
-2. Basculer la visibilité toolbar sur `toolbarGroups()` ∩ caps (§20.3.2),
-   retirer la logique impérative correspondante.
-3. Déplacer le corps de `renderFretboard`/`renderDrumPad`/
+Le contrat `InstrumentView` est désormais le **seul** chemin de
+transformation de jeu :
+
+- `InstrumentView.willPlayNote(midi,vel,opts)` (transform/`false`=annule)
+  **et** nouveau `afterPlayNote(midi)` (hook post-note-on, no-op par
+  défaut) ajoutés au contrat.
+- `KeyboardModal.playNote` (`KeyboardEvents.js`) appelle
+  `this._activeView.willPlayNote()` puis `afterPlayNote()`. Vélocité
+  bornée 1..127, remap de note et annulation supportés.
+- L'articulation vent (facteur vélocité) vit dans
+  `PianoSliderView.willPlayNote` ; le **staccato auto-off** dans
+  `PianoSliderView.afterPlayNote` (timers propres à la vue, annulés au
+  `unmount`).
+- **Supprimé** : `KeyboardWindMixin.playNote`, le workaround
+  `_windOrigPlayNote` et son `Object.defineProperty`. `KeyboardWindMixin`
+  ne garde que le panneau/CC/comfort-zone. `_applyMixin('Wind', …)`
+  s'applique comme les autres.
+- **Supprimé** : le contournement local du soufflet dans
+  `AccordionView._press` — le soufflet passe maintenant par
+  `AccordionView.willPlayNote` via le contrat.
+- **Régression contrôlée** : l'articulation/staccato ne s'appliquent
+  désormais que lorsque `PianoSliderView` est active (instrument vent en
+  vue piano-slider), plus « globalement » comme l'ancien override
+  prototype — comportement jugé plus correct.
+- **Tests** : `view-lifecycle.test.js` → describe « playNote ↔
+  InstrumentView contract » (transform/remap/annulation/afterPlayNote/
+  pas-de-vue) + « PianoSliderView — wind articulation + staccato »
+  (facteurs + auto-off via fake timers + nettoyage). Accordéon : chemin
+  réel via `KeyboardEventsMixin.playNote`. **14 fichiers / 296 tests
+  verts, ESLint 0 erreur.**
+
+#### Résidu restant — pur code-motion, **non fait** (QA navigateur requise)
+
+Volontairement non traité ici : déplacement à comportement constant mais
+à fort risque de régression silencieuse, **non vérifiable sans
+navigateur** dans ce conteneur. À faire en commits isolés + QA visuelle.
+
+1. `toolbarGroups()` ∩ caps (§20.3.2) → retirer la visibilité impérative
+   des sliders. *(Risque : visibilité mod/pitch caps-aware.)*
+2. Déplacer le corps de `renderFretboard`/`renderDrumPad`/
    `generatePianoSlider`/`renderKeyboardList`/`generatePianoKeys` de
-   `KeyboardPiano.js` (2 052 l.) vers les classes de vue respectives ;
-   extraire l'overlay mains en service `HandsOverlay` (KM-C2).
-4. Externaliser le HTML de `createModal()` + lazy-mount containers (KM-E2/F1).
-5. Supprimer `_applyMixin` + les 7 mixins une fois (3)+(4) faits (KM-C4).
-6. Renommer résidus `KeyboardModalNew` (aucun restant côté JS — vérifié).
+   `KeyboardPiano.js` (2 052 l.) vers les vues ; extraire `HandsOverlay`
+   (KM-C2).
+3. Externaliser le HTML de `createModal()` + lazy-mount (KM-E2/F1).
+4. Supprimer `_applyMixin` + les mixins une fois (2)+(3) faits.
 
-Chaque étape : un commit isolé, suite vitest verte, **QA navigateur**
-(ouvrir le modal sur piano / guitare / batterie / violon / sax alto /
-xylophone → bonne vue, jeu souris+clavier PC, fermeture propre).
+QA navigateur de référence : ouvrir le modal sur piano / guitare /
+batterie / violon / sax alto (staccato/accent) / xylophone / accordéon →
+bonne vue, jeu souris+clavier, vélocité soufflet, retour piano, fermeture
+propre, aucune note bloquée.

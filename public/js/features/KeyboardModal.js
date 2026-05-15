@@ -1252,8 +1252,9 @@ class KeyboardModal {
 // classes per AUDIT_KEYBOARD_MODAL_2026-05-14.md KM-C1, KM-C4).
 // ============================================================================
 // The 7 mixins below are attached on KeyboardModal.prototype in a specific
-// order: each later mixin can read methods from earlier ones, and the wind
-// mixin specifically wraps `playNote` (captured as `_windOrigPlayNote`).
+// order: each later mixin can read methods from earlier ones. (KM-C4 done:
+// the wind mixin no longer wraps `playNote` — articulation/staccato moved
+// to PianoSliderView via the willPlayNote/afterPlayNote contract.)
 //
 // Until the InstrumentView migration is complete, _applyMixin() emits a
 // warning whenever a mixin silently overrides a method already on the
@@ -1272,8 +1273,8 @@ function _applyMixin(label, mixin) {
             // eslint-disable-next-line no-console
             console.warn(
                 `[KeyboardModal] mixin "${label}" overrides existing method "${key}". ` +
-                `If this is intentional, capture the previous value in a closure ` +
-                `before assigning (see _windOrigPlayNote pattern).`
+                `Expected only for KeyboardWind._updatePianoSliderGroupVisibility ` +
+                `(intentional, documented in KeyboardWind.js).`
             );
         }
         KeyboardModal.prototype[key] = mixin[key];
@@ -1286,20 +1287,11 @@ if (typeof KeyboardControlsMixin  !== 'undefined') _applyMixin('Controls',  Keyb
 if (typeof KeyboardChordsMixin    !== 'undefined') _applyMixin('Chords',    KeyboardChordsMixin);
 if (typeof KeyboardSliderMixin    !== 'undefined') _applyMixin('Slider',    KeyboardSliderMixin);
 if (typeof KeyboardListViewMixin  !== 'undefined') _applyMixin('ListView',  KeyboardListViewMixin);
-if (typeof KeyboardWindMixin      !== 'undefined') {
-    // The wind mixin intentionally overrides `playNote` to apply articulation
-    // factors. Capture the previous value in a closure so the new playNote
-    // can call back into it (see PianoSliderView.willPlayNote for the
-    // future replacement).
-    const _prevPlayNote = KeyboardModal.prototype.playNote;
-    _applyMixin('Wind', KeyboardWindMixin);
-    Object.defineProperty(KeyboardModal.prototype, '_windOrigPlayNote', {
-        value: _prevPlayNote,
-        writable: false,
-        configurable: false,
-        enumerable: false
-    });
-}
+// KM-C4 done: KeyboardWindMixin no longer overrides playNote. Wind
+// articulation + staccato now live in PianoSliderView via the
+// willPlayNote / afterPlayNote contract, so the `_windOrigPlayNote`
+// workaround is gone and the mixin applies like any other.
+if (typeof KeyboardWindMixin      !== 'undefined') _applyMixin('Wind', KeyboardWindMixin);
 
 // ─── Tracked DOM listeners (Phase E helper, KM-M3) ──────────────────────────
 // Subsequent code can call `this._on(el, 'click', fn)` instead of
