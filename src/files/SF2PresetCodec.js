@@ -27,7 +27,11 @@
 // 'GMBP' ASCII as a uint32 read little-endian: byte[0]='G'=0x47 is LSB,
 // so the numeric value is 0x50_42_4d_47.
 const MAGIC = 0x50_42_4d_47;
-const VERSION = 1;
+// Bumped from 1 → 2 to force the L2 SQLite cache to discard pre-existing
+// preset blobs converted under the old MAX_SAMPLE_SECS=10 cap. Old blobs
+// still decode correctly, but their samples are truncated; re-converting
+// from the SF2 picks up the new cap.
+const VERSION = 2;
 const HEADER_BYTES = 12; // magic + version + metaLen
 
 /**

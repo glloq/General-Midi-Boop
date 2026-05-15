@@ -21,7 +21,7 @@ function _decodeGmbpPreset(arrayBuffer) {
     }
     const view = new DataView(arrayBuffer);
     const version = view.getUint32(4, true);
-    if (version !== 1) throw new Error(`Unsupported GMBP version ${version}`);
+    if (version !== 2) throw new Error(`Unsupported GMBP version ${version}`);
     const metaLen = view.getUint32(8, true);
     if (metaLen < 0 || 12 + metaLen > bytes.length) {
         throw new Error(`GMBP invalid metaLen ${metaLen} (buf=${bytes.length})`);
@@ -78,6 +78,31 @@ class MidiSynthesizer {
     // and avoid flicker for warm reloads, while still appearing quickly
     // on a true cold parse + convert (~2-5 s on a Pi 3B+).
     static LOADING_TOAST_DELAY_MS = 600;
+
+    // Per-GM-family gain compensation applied in playNote(). The default
+    // SF2 bank (GeneralUser GS) is less hot than the legacy WAF banks,
+    // and low-frequency families (bass, brass) lose perceived loudness
+    // on small speakers. Drums (channel 9) are handled separately by
+    // the velocity curve + cymbal boost above and do not use this table.
+    // Indexed by `(program >>> 3) & 0x0f` (16 GM families).
+    static GM_FAMILY_GAIN = [
+        1.00, // 0-7   Piano
+        1.05, // 8-15  Chromatic Percussion
+        1.05, // 16-23 Organ
+        1.10, // 24-31 Guitar
+        1.50, // 32-39 Bass            ← compensates "très faible"
+        1.25, // 40-47 Strings         ← compensates short-loop perception on violin/viola
+        1.20, // 48-55 Ensemble
+        1.15, // 56-63 Brass
+        1.10, // 64-71 Reed
+        1.10, // 72-79 Pipe
+        1.05, // 80-87 Synth Lead
+        1.15, // 88-95 Synth Pad
+        1.05, // 96-103 Synth FX
+        1.05, // 104-111 Ethnic
+        1.00, // 112-119 Percussive
+        1.00  // 120-127 SFX
+    ];
 
     /**
      * Apply a set of bank-effect values to every live MidiSynthesizer.
@@ -1355,7 +1380,9 @@ class MidiSynthesizer {
             const boost = this.cymbalNotes.has(note) ? 1.25 : 1.0;
             volume = velCurve * (this.channelVolumes[channel] / 127) * boost;
         } else {
-            volume = (velocity / 127) * (this.channelVolumes[channel] / 127);
+            const program = this.channelInstruments[channel] || 0;
+            const familyGain = MidiSynthesizer.GM_FAMILY_GAIN[(program >>> 3) & 0x0f];
+            volume = familyGain * (velocity / 127) * (this.channelVolumes[channel] / 127);
         }
 
         let instrument;
