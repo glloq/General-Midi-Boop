@@ -39,6 +39,7 @@
     const KB_W     = 40;       // keyboard column (without scrollbar)
     const KB_WIDTH = SB_W + KB_W; // total left chrome — notes start at x >= KB_WIDTH
     const RULER_H  = 18;       // top ruler
+    const HSB_H    = 12;       // bottom horizontal scrollbar strip
     const NOTE_H_MIN = 4;      // min note row height (pitch)
     const NOTE_H_MAX = 24;     // max note row height (pitch)
 
@@ -129,14 +130,24 @@
             this._bucketTicks = 480 * 4;  // 1 measure per bucket by default
             this._buckets = new Map();
             this._bucketsDirty = true;
+            // Largest `t + g` across the sequence — recomputed lazily by
+            // `_rebuildBuckets`. Drives the horizontal scrollbar thumb.
+            this._seqMaxTick = 0;
 
             // ---- Interaction (B4) ----
             this._selectionRect = null;   // {x0, y0, x, y} in CSS px while drawing
-            this._dragging = null;        // {mode: 'rect'|'pan'|'note'|'pianokey'}
-            this._mouseDownHandler = null;
-            this._mouseMoveHandler = null;
-            this._mouseUpHandler = null;
+            this._dragging = null;        // {mode: 'rect'|'pan'|'note'|'pianokey'|'hscroll'}
+            this._pointerDownHandler = null;
+            this._pointerMoveHandler = null;
+            this._pointerUpHandler = null;
             this._wheelHandler = null;
+            this._lastPointerType = 'mouse';
+            // Self-contained clipboard for the right-click menu + Ctrl+C/V
+            // (independent of the modal-level clipboard so it works even
+            // when the renderer is used standalone).
+            this._clipboard = [];
+            this._ctxMenuEl = null;
+            this._ctxMenuDismiss = null;
         }
 
         // ----------------------------------------------------------------
@@ -166,26 +177,49 @@
         }
 
         _wireInputHandlers() {
-            this._mouseDownHandler = (e) => this._onMouseDown(e);
-            this._mouseMoveHandler = (e) => this._onMouseMove(e);
-            this._mouseUpHandler   = (e) => this._onMouseUp(e);
-            this._wheelHandler     = (e) => this._onWheel(e);
-            this._dblClickHandler  = (e) => this._onDblClick(e);
-            this._keyDownHandler   = (e) => this._onKeyDown(e);
-            this._hoverHandler     = (e) => this._onHover(e);
-            this._hoverLeaveHandler = () => this._onHoverLeave();
-            this._el.addEventListener('mousedown', this._mouseDownHandler);
+            this._pointerDownHandler = (e) => this._onPointerDown(e);
+            this._pointerMoveHandler = (e) => this._onPointerMove(e);
+            this._pointerUpHandler   = (e) => this._onPointerUp(e);
+            this._wheelHandler       = (e) => this._onWheel(e);
+            this._dblClickHandler    = (e) => this._onDblClick(e);
+            this._keyDownHandler     = (e) => this._onKeyDown(e);
+            this._contextMenuHandler = (e) => this._onContextMenu(e);
+            this._hoverLeaveHandler  = () => this._onHoverLeave();
+            // Pointer events unify mouse + pen + touch so the editor works
+            // on iPad / touchscreens. `touch-action:none` stops the browser
+            // from hijacking drags as native scroll / pinch gestures, and
+            // pointer capture (set on pointerdown) keeps a drag alive even
+            // when the pointer leaves the canvas — replacing the old
+            // window-bound mousemove/mouseup pair.
+            this._el.style.touchAction = 'none';
+            this._el.addEventListener('pointerdown',   this._pointerDownHandler);
+            this._el.addEventListener('pointermove',   this._pointerMoveHandler);
+            this._el.addEventListener('pointerup',     this._pointerUpHandler);
+            this._el.addEventListener('pointercancel', this._pointerUpHandler);
+            this._el.addEventListener('pointerleave',  this._hoverLeaveHandler);
             this._el.addEventListener('dblclick',  this._dblClickHandler);
             this._el.addEventListener('keydown',   this._keyDownHandler);
-            // Local hover for the crosshair — bound on the canvas itself so
-            // the indicator only shows when the mouse is actually over it.
-            this._el.addEventListener('mousemove',  this._hoverHandler);
-            this._el.addEventListener('mouseleave', this._hoverLeaveHandler);
-            // Move/Up bind on window so a drag that leaves the canvas still
-            // completes deterministically.
-            window.addEventListener('mousemove', this._mouseMoveHandler);
-            window.addEventListener('mouseup',   this._mouseUpHandler);
+            this._el.addEventListener('contextmenu', this._contextMenuHandler);
             this._el.addEventListener('wheel', this._wheelHandler, { passive: false });
+        }
+
+        _onPointerDown(e) {
+            this._lastPointerType = e.pointerType;
+            // Right button is reserved for the context menu — don't start a
+            // drag or grab pointer capture for it.
+            if (e.button === 2) return;
+            try { this._el.setPointerCapture(e.pointerId); } catch (_) { /* detached */ }
+            this._onMouseDown(e);
+        }
+        _onPointerMove(e) {
+            this._lastPointerType = e.pointerType;
+            this._onMouseMove(e); // no-op unless a drag is active
+            this._onHover(e);     // crosshair (skips touch + during drag)
+        }
+        _onPointerUp(e) {
+            try { this._el.releasePointerCapture(e.pointerId); } catch (_) { /* already released */ }
+            this._onMouseUp(e);
+            if (e.pointerType === 'touch') this._onHoverLeave();
         }
 
         attachToContainer() {
@@ -199,15 +233,17 @@
             if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = 0; }
             this._handlers.clear();
             if (this._el) {
-                this._el.removeEventListener('mousedown', this._mouseDownHandler);
+                this._el.removeEventListener('pointerdown',   this._pointerDownHandler);
+                this._el.removeEventListener('pointermove',   this._pointerMoveHandler);
+                this._el.removeEventListener('pointerup',      this._pointerUpHandler);
+                this._el.removeEventListener('pointercancel',  this._pointerUpHandler);
+                this._el.removeEventListener('pointerleave',   this._hoverLeaveHandler);
                 this._el.removeEventListener('dblclick',  this._dblClickHandler);
                 this._el.removeEventListener('keydown',   this._keyDownHandler);
+                this._el.removeEventListener('contextmenu', this._contextMenuHandler);
                 this._el.removeEventListener('wheel',     this._wheelHandler);
-                this._el.removeEventListener('mousemove',  this._hoverHandler);
-                this._el.removeEventListener('mouseleave', this._hoverLeaveHandler);
             }
-            window.removeEventListener('mousemove', this._mouseMoveHandler);
-            window.removeEventListener('mouseup',   this._mouseUpHandler);
+            this._closeContextMenu();
             if (this._el?.parentNode) this._el.parentNode.removeChild(this._el);
             this._el = null;
             this._ctx = null;
@@ -737,11 +773,13 @@
         _rebuildBuckets() {
             this._buckets.clear();
             const B = this._bucketTicks;
+            let maxTick = 0;
             for (let i = 0; i < this._sequence.length; i++) {
                 const n = this._sequence[i];
                 if (!n) continue;
                 const t0 = n.t;
                 const t1 = n.t + (n.g || 0);
+                if (t1 > maxTick) maxTick = t1;
                 const b0 = Math.floor(t0 / B);
                 const b1 = Math.floor(t1 / B);
                 for (let b = b0; b <= b1; b++) {
@@ -750,7 +788,45 @@
                     set.add(i);
                 }
             }
+            this._seqMaxTick = maxTick;
             this._bucketsDirty = false;
+        }
+
+        /**
+         * Total scrollable tick span for the horizontal scrollbar — the
+         * sequence end, but never less than one full viewport so the
+         * thumb stays usable on an empty / short project.
+         */
+        _contentMaxTick() {
+            if (this._bucketsDirty) this._rebuildBuckets();
+            return Math.max(this._seqMaxTick, this._xoffset + this._xrange, this._xrange);
+        }
+
+        /**
+         * Geometry of the bottom horizontal scrollbar in CSS px.
+         * `thumbX`/`thumbW` express the visible window as a proportion of
+         * the total content span.
+         */
+        _hScrollbarGeom() {
+            const W = this._cssWidth;
+            const trackX = KB_WIDTH;
+            const trackY = this._cssHeight - HSB_H;
+            const trackW = Math.max(1, W - KB_WIDTH);
+            const maxTick = this._contentMaxTick();
+            const thumbW = Math.max(24, trackW * Math.min(1, this._xrange / maxTick));
+            const scrollRange = Math.max(1, maxTick - this._xrange);
+            const ratio = Math.max(0, Math.min(1, this._xoffset / scrollRange));
+            const thumbX = trackX + (trackW - thumbW) * ratio;
+            return { trackX, trackY, trackW, thumbX, thumbW, maxTick, scrollRange };
+        }
+
+        /** Map a CSS x inside the H scrollbar track to an `_xoffset`. */
+        _hScrollbarXToOffset(x) {
+            const g = this._hScrollbarGeom();
+            // Centre the thumb under the pointer, then convert back.
+            const rel = Math.max(0, Math.min(1,
+                (x - g.trackX - g.thumbW / 2) / Math.max(1, g.trackW - g.thumbW)));
+            return Math.max(0, Math.round(rel * g.scrollRange));
         }
 
         // ----------------------------------------------------------------
@@ -788,6 +864,22 @@
                     this._scheduleRender();
                 }
                 this._dragging = { mode: 'scrollbar' };
+                return;
+            }
+
+            // Clicked on the bottom horizontal scrollbar → jump + drag.
+            if (y >= this._cssHeight - HSB_H && x >= KB_WIDTH) {
+                const newOff = this._hScrollbarXToOffset(x);
+                if (newOff !== this._xoffset) {
+                    this._xoffset = newOff;
+                    this._bgDirty = true;
+                    this._emit('viewportchange', {
+                        xoffset: this._xoffset, yoffset: this._yoffset,
+                        xrange: this._xrange, yrange: this._yrange
+                    });
+                    this._scheduleRender();
+                }
+                this._dragging = { mode: 'hscroll' };
                 return;
             }
 
@@ -881,6 +973,20 @@
                     Math.round(ratio * 128 - this._yrange / 2)));
                 if (newY !== this._yoffset) {
                     this._yoffset = newY;
+                    this._bgDirty = true;
+                    this._emit('viewportchange', {
+                        xoffset: this._xoffset, yoffset: this._yoffset,
+                        xrange: this._xrange, yrange: this._yrange
+                    });
+                    this._scheduleRender();
+                }
+                return;
+            }
+            if (d.mode === 'hscroll') {
+                // Continue dragging the horizontal scrollbar thumb.
+                const newOff = this._hScrollbarXToOffset(x);
+                if (newOff !== this._xoffset) {
+                    this._xoffset = newOff;
                     this._bgDirty = true;
                     this._emit('viewportchange', {
                         xoffset: this._xoffset, yoffset: this._yoffset,
@@ -1007,9 +1113,15 @@
          */
         _onHover(e) {
             if (this._dragging) return;
+            // No persistent hover on touch — a finger has no "rest"
+            // position, so a sticky crosshair would just be noise.
+            if (this._lastPointerType === 'touch') {
+                if (this._hoverX !== null) this._onHoverLeave();
+                return;
+            }
             const { x, y } = this._localCoords(e);
             const inside = x >= KB_WIDTH && y >= RULER_H
-                        && x <= this._cssWidth && y <= this._cssHeight;
+                        && x <= this._cssWidth && y <= this._cssHeight - HSB_H;
             const nx = inside ? x : null;
             const ny = inside ? y : null;
             if (nx === this._hoverX && ny === this._hoverY) return;
@@ -1023,6 +1135,136 @@
             this._hoverX = null;
             this._hoverY = null;
             this._scheduleRender();
+        }
+
+        // ----------------------------------------------------------------
+        // Right-click context menu
+        // ----------------------------------------------------------------
+
+        _onContextMenu(e) {
+            if (!this._el) return;
+            e.preventDefault();
+            this._closeContextMenu();
+            const { x, y } = this._localCoords(e);
+            const hit = this._hitTestNote(x, y);
+            // Right-clicking an unselected note selects just that note so
+            // the menu acts on something predictable.
+            if (hit && !hit.note.f) {
+                this.deselectAll();
+                hit.note.f = 1;
+                this._emit('selectionchange');
+                this._scheduleRender();
+            }
+            const clickTick = Math.max(0, this._snapTicks(this._xToTick(x)));
+            const selCount = this.getSelectionCount();
+            const items = [
+                { label: 'Copier', disabled: selCount === 0, action: () => {
+                    this._clipboard = this.copySelection();
+                } },
+                { label: 'Coller', disabled: this._clipboard.length === 0, action: () => {
+                    this.saveSnapshot();
+                    this.pasteNotes(this._clipboard, clickTick);
+                } },
+                { label: 'Supprimer', disabled: selCount === 0, action: () => {
+                    this.saveSnapshot();
+                    this.deleteSelection();
+                } },
+                { separator: true },
+                { label: 'Changer de canal…', disabled: selCount === 0, action: () => {
+                    const raw = window.prompt('Nouveau canal (0-15) :', String(this._defaultChannel));
+                    if (raw == null) return;
+                    const ch = parseInt(raw, 10);
+                    if (!Number.isInteger(ch) || ch < 0 || ch > 15) return;
+                    this.saveSnapshot();
+                    this.changeChannelSelection(ch);
+                } },
+                { label: 'Vélocité…', disabled: selCount === 0, action: () => {
+                    const raw = window.prompt('Vélocité (1-127) :', '100');
+                    if (raw == null) return;
+                    const v = parseInt(raw, 10);
+                    if (!Number.isInteger(v) || v < 1 || v > 127) return;
+                    this.saveSnapshot();
+                    this._sequence.forEach(n => { if (n.f === 1) n.v = v; });
+                    this._scheduleRender();
+                    this._emit('change');
+                } }
+            ];
+            this._openContextMenu(e.clientX, e.clientY, items);
+        }
+
+        _openContextMenu(clientX, clientY, items) {
+            const t = this._theme;
+            const menu = document.createElement('div');
+            menu.className = 'piano-roll-ctxmenu';
+            menu.style.cssText = [
+                'position:fixed', 'z-index:100000',
+                `left:${clientX}px`, `top:${clientY}px`,
+                `background:${t.colrulerbg || '#2a2a3a'}`,
+                `color:${t.colrulerfg || '#eee'}`,
+                `border:1px solid ${t.colrulerborder || '#555'}`,
+                'border-radius:6px', 'padding:4px 0', 'min-width:170px',
+                'box-shadow:0 6px 24px rgba(0,0,0,0.35)',
+                'font:13px system-ui,sans-serif', 'user-select:none'
+            ].join(';');
+            for (const it of items) {
+                if (it.separator) {
+                    const hr = document.createElement('div');
+                    hr.style.cssText = `height:1px;margin:4px 0;background:${t.colrulerborder || '#555'};opacity:0.6`;
+                    menu.appendChild(hr);
+                    continue;
+                }
+                const row = document.createElement('div');
+                row.textContent = it.label;
+                const dim = it.disabled ? 'opacity:0.4;cursor:default' : 'cursor:pointer';
+                row.style.cssText = `padding:6px 16px;${dim}`;
+                if (!it.disabled) {
+                    row.addEventListener('mouseenter', () => {
+                        row.style.background = 'rgba(94,142,255,0.25)';
+                    });
+                    row.addEventListener('mouseleave', () => {
+                        row.style.background = '';
+                    });
+                    row.addEventListener('click', () => {
+                        this._closeContextMenu();
+                        try { it.action(); } catch (_) { /* user-cancel / parse */ }
+                    });
+                }
+                menu.appendChild(row);
+            }
+            document.body.appendChild(menu);
+            this._ctxMenuEl = menu;
+
+            // Keep the menu on-screen if it would overflow the viewport.
+            const r = menu.getBoundingClientRect();
+            if (r.right > window.innerWidth)  menu.style.left = `${Math.max(0, window.innerWidth - r.width - 4)}px`;
+            if (r.bottom > window.innerHeight) menu.style.top  = `${Math.max(0, window.innerHeight - r.height - 4)}px`;
+
+            // Dismiss on any outside interaction.
+            this._ctxMenuDismiss = (ev) => {
+                if (this._ctxMenuEl && !this._ctxMenuEl.contains(ev.target)) {
+                    this._closeContextMenu();
+                } else if (ev.type === 'keydown' && ev.key === 'Escape') {
+                    this._closeContextMenu();
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('pointerdown', this._ctxMenuDismiss, true);
+                document.addEventListener('keydown', this._ctxMenuDismiss, true);
+                window.addEventListener('blur', this._ctxMenuDismiss, true);
+            }, 0);
+        }
+
+        _closeContextMenu() {
+            if (this._ctxMenuDismiss) {
+                document.removeEventListener('pointerdown', this._ctxMenuDismiss, true);
+                document.removeEventListener('keydown', this._ctxMenuDismiss, true);
+                window.removeEventListener('blur', this._ctxMenuDismiss, true);
+                this._ctxMenuDismiss = null;
+            }
+            if (this._ctxMenuEl && this._ctxMenuEl.parentNode) {
+                this._ctxMenuEl.parentNode.removeChild(this._ctxMenuEl);
+            }
+            this._ctxMenuEl = null;
         }
 
         _onWheel(e) {
@@ -1042,13 +1284,14 @@
                     // ruler / keyboard chrome).
                     const { x, y } = this._localCoords(e);
                     const oldRange = this._yrange;
-                    const drawH = Math.max(1, this._cssHeight - RULER_H);
-                    if (x >= KB_WIDTH && y >= RULER_H) {
-                        const oldNoteH = Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / oldRange));
+                    // Use the real `_noteHeight()` (which now reserves the
+                    // HSB strip) so the pivot matches what's drawn.
+                    if (x >= KB_WIDTH && y >= RULER_H && y < this._cssHeight - HSB_H) {
+                        const oldNoteH = this._noteHeight();
                         const notesFromTop = (y - RULER_H) / oldNoteH; // fractional
                         const pitchAtMouse = this._yoffset + oldRange - 1 - notesFromTop;
                         this._yrange = newRange;
-                        const newNoteH = Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / newRange));
+                        const newNoteH = this._noteHeight();
                         const newNotesFromTop = (y - RULER_H) / newNoteH;
                         const rawOffset = pitchAtMouse - newRange + 1 + newNotesFromTop;
                         this._yoffset = Math.max(0, Math.min(128 - newRange, Math.round(rawOffset)));
@@ -1121,7 +1364,7 @@
          * resize cursor; everything else is a body grab.
          */
         _hitTestNote(x, y) {
-            if (x < KB_WIDTH || y < RULER_H) return null;
+            if (x < KB_WIDTH || y < RULER_H || y >= this._cssHeight - HSB_H) return null;
             const tick = this._xToTick(x);
             const note = this._yToNote(y);
             const tickPerPx = (this._xrange || 1) / Math.max(1, this._cssWidth - KB_WIDTH);
@@ -1154,8 +1397,9 @@
         _onDblClick(e) {
             if (!this._el) return;
             const { x, y } = this._localCoords(e);
-            // Only create inside the notes area (not on keyboard, not on ruler)
-            if (x < KB_WIDTH || y < RULER_H) return;
+            // Only create inside the notes area (not on keyboard / ruler /
+            // bottom scrollbar strip)
+            if (x < KB_WIDTH || y < RULER_H || y >= this._cssHeight - HSB_H) return;
             // If clicking on an existing note, deletion would be intuitive
             // but `<webaudio-pianoroll>` doesn't do that — keep parity and
             // ignore dblclick on hit.
@@ -1197,6 +1441,17 @@
                 e.preventDefault();
                 this.selectAll();
                 this._emit('selectionchange');
+            } else if (ctrl && (e.key === 'c' || e.key === 'C')) {
+                if (this.getSelectionCount() > 0) {
+                    e.preventDefault();
+                    this._clipboard = this.copySelection();
+                }
+            } else if (ctrl && (e.key === 'v' || e.key === 'V')) {
+                if (this._clipboard.length > 0) {
+                    e.preventDefault();
+                    this.saveSnapshot();
+                    this.pasteNotes(this._clipboard, this._cursor);
+                }
             } else if (ctrl && (e.key === 'z' || (e.shiftKey && (e.key === 'Z' || e.key === 'z')))) {
                 e.preventDefault();
                 if (e.shiftKey) this.redo();
@@ -1353,6 +1608,31 @@
                     ctx.fillText(`C${Math.floor(n / 12) - 1}`, stripX + 3, y + noteH / 2);
                 }
             }
+
+            // Horizontal scrollbar — bottom strip from the keyboard right
+            // edge to the canvas right edge. Thumb width/position track the
+            // visible tick window against the total content span.
+            const hg = this._hScrollbarGeom();
+            ctx.fillStyle = trackBg;
+            ctx.fillRect(hg.trackX, hg.trackY, hg.trackW, HSB_H);
+            ctx.strokeStyle = trackBorder;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(hg.trackX, hg.trackY + 0.5);
+            ctx.lineTo(hg.trackX + hg.trackW, hg.trackY + 0.5);
+            ctx.stroke();
+            const hsbActive = this._dragging && this._dragging.mode === 'hscroll';
+            ctx.fillStyle = hsbActive ? '#7aa0ff' : '#5e8eff';
+            const r = 3;
+            const tx = hg.thumbX, ty = hg.trackY + 2, tw = hg.thumbW, th = HSB_H - 4;
+            ctx.beginPath();
+            ctx.moveTo(tx + r, ty);
+            ctx.arcTo(tx + tw, ty, tx + tw, ty + th, r);
+            ctx.arcTo(tx + tw, ty + th, tx, ty + th, r);
+            ctx.arcTo(tx, ty + th, tx, ty, r);
+            ctx.arcTo(tx, ty, tx + tw, ty, r);
+            ctx.closePath();
+            ctx.fill();
         }
 
         // ----------------------------------------------------------------
@@ -1360,7 +1640,7 @@
         // ----------------------------------------------------------------
 
         _noteHeight() {
-            const drawH = this._cssHeight - RULER_H;
+            const drawH = this._cssHeight - RULER_H - HSB_H;
             return Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / this._yrange));
         }
         _noteToY(note) {
