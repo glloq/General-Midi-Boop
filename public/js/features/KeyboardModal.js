@@ -473,6 +473,39 @@ class KeyboardModal {
     }
 
     /**
+     * PE-2: single owner of the *mode-only* toolbar-group visibility
+     * (octave bar, minimap, note-color group, list-view group). Pure
+     * extraction of the formulas previously inlined in setViewMode —
+     * behaviour is intentionally IDENTICAL (zero-regression).
+     *
+     * NOTE: this is deliberately driven by `this.viewMode`, not by
+     * `_activeView.toolbarGroups()`: the views' declared sets are not
+     * behaviour-faithful (e.g. PianoSliderView lacks 'octave-bar'/
+     * 'minimap', FretboardView lacks 'note-color'), so honouring them
+     * here would change behaviour — out of scope for PE-2. Caps-aware
+     * groups (velocity/mod/pitch/slide/piano-slider/list-cc/list-pb/
+     * wind) stay owned by updateSlidersVisibility / _updateListViewControls
+     * / _updateSlideModeGroupVisibility / _updatePianoSliderGroupVisibility.
+     * The view-mode group is owned by _selectInstrumentOption (F2).
+     */
+    _applyToolbarGroups() {
+        const vm = this.viewMode;
+        const set = (id, hidden) => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden', hidden);
+        };
+        // Octave bar: standard piano + piano-slider only.
+        set('keyboard-octave-bar', vm !== 'piano' && vm !== 'piano-slider');
+        // Minimap: piano-family (piano / piano-slider / keyboard-list).
+        const isPianoFamily = vm === 'piano' || vm === 'piano-slider' || vm === 'keyboard-list';
+        set('keyboard-minimap-row', !isPianoFamily);
+        // Note-color toggle: not useful for piano-slider, drumpad, list.
+        set('keyboard-note-color-group', vm === 'drumpad' || vm === 'piano-slider');
+        // List-view toggle: hidden in fretboard / drumpad context.
+        set('keyboard-list-view-group', vm === 'fretboard' || vm === 'drumpad');
+    }
+
+    /**
      * Set the number of keyboard octaves
      * @param {number} octaves - Number of octaves (1-4)
      */
