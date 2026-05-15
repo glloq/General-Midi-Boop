@@ -228,6 +228,32 @@
                 m.editActions?.updateEditButtons();
             });
 
+            // The renderer can move selected notes to another channel from
+            // its right-click menu. `change` alone re-syncs the sequence but
+            // does NOT register a brand-new channel in the panel, so the
+            // moved notes would render with a colour yet no chip / active
+            // entry. Run the same bookkeeping pipeline as the toolbar's
+            // ChannelOps.changeChannel() (sync → rebuild channels → prune
+            // empties → activate target → reload → refresh chips).
+            renderer.on('channelchange', (e) => {
+                const newChannel = e.detail?.channel;
+                if (newChannel == null) return;
+                m.isDirty = true;
+                this.parent.updateSaveButton();
+                m.sequenceOps.syncFullSequenceFromPianoRoll();
+                m.ccPicker.updateChannelsFromSequence();
+                const existing = new Set(m.channels.map(ch => ch.channel));
+                [...m.activeChannels].forEach(ch => {
+                    if (!existing.has(ch)) m.activeChannels.delete(ch);
+                });
+                if (!m.activeChannels.has(newChannel)) m.activeChannels.add(newChannel);
+                m.sequenceOps.updateSequenceFromActiveChannels(null, true);
+                m.editActions?.refreshChannelButtons();
+                m.renderer.updateInstrumentSelector();
+                m.editActions?.updateEditButtons();
+                m.editActions?.updateUndoRedoButtonsState();
+            });
+
             // Auto-resize the canvas whenever its container changes size —
             // coalesced onto a single RAF per resize burst.
             if (typeof ResizeObserver !== 'undefined') {

@@ -1082,7 +1082,42 @@
                 this._scheduleRender();
             }
             const clickTick = Math.max(0, this._snapTicks(this._xToTick(x)));
-            const selCount = this.getSelectionCount();
+            const sel = this.getSelectedNotes();
+            const selCount = sel.length;
+            const selChannels = new Set(sel.map(n => n.c ?? 0));
+            const curCh = selChannels.size === 1 ? [...selChannels][0] : -1;
+
+            const channelChildren = [];
+            for (let ch = 0; ch < 16; ch++) {
+                const color = this._channelColors[ch % 16] || this._theme.colnote;
+                channelChildren.push({
+                    label: `Canal ${ch + 1}${ch === curCh ? '  ✓' : ''}`,
+                    swatch: color,
+                    action: () => {
+                        if (ch === curCh) return;
+                        this.saveSnapshot();
+                        this.changeChannelSelection(ch);
+                        // Let the host (modal) register the channel in its
+                        // panel / activeChannels — `change` alone doesn't.
+                        this._emit('channelchange', { channel: ch });
+                    }
+                });
+            }
+
+            const VELOCITY_PRESETS = [
+                ['ppp', 16], ['pp', 33], ['p', 49], ['mp', 64],
+                ['mf', 80], ['f', 96], ['ff', 112], ['fff', 127]
+            ];
+            const velocityChildren = VELOCITY_PRESETS.map(([name, v]) => ({
+                label: `${name}  (${v})`,
+                action: () => {
+                    this.saveSnapshot();
+                    this._sequence.forEach(n => { if (n.f === 1) n.v = v; });
+                    this._scheduleRender();
+                    this._emit('change');
+                }
+            }));
+
             const items = [
                 { label: 'Copier', disabled: selCount === 0, action: () => {
                     this._clipboard = this.copySelection();
@@ -1101,24 +1136,8 @@
                     this.deleteSelection();
                 } },
                 { separator: true },
-                { label: 'Changer de canal…', disabled: selCount === 0, action: () => {
-                    const raw = window.prompt('Nouveau canal (0-15) :', String(this._defaultChannel));
-                    if (raw == null) return;
-                    const ch = parseInt(raw, 10);
-                    if (!Number.isInteger(ch) || ch < 0 || ch > 15) return;
-                    this.saveSnapshot();
-                    this.changeChannelSelection(ch);
-                } },
-                { label: 'Vélocité…', disabled: selCount === 0, action: () => {
-                    const raw = window.prompt('Vélocité (1-127) :', '100');
-                    if (raw == null) return;
-                    const v = parseInt(raw, 10);
-                    if (!Number.isInteger(v) || v < 1 || v > 127) return;
-                    this.saveSnapshot();
-                    this._sequence.forEach(n => { if (n.f === 1) n.v = v; });
-                    this._scheduleRender();
-                    this._emit('change');
-                } }
+                { label: 'Changer de canal', disabled: selCount === 0, children: channelChildren },
+                { label: 'Vélocité', disabled: selCount === 0, children: velocityChildren }
             ];
             this._openContextMenu(e.clientX, e.clientY, items);
         }
@@ -1133,58 +1152,19 @@
                 `background:${t.colrulerbg || '#2a2a3a'}`,
                 `color:${t.colrulerfg || '#eee'}`,
                 `border:1px solid ${t.colrulerborder || '#555'}`,
-                'border-radius:6px', 'padding:4px 0', 'min-width:170px',
+                'border-radius:6px', 'padding:4px 0', 'min-width:180px',
                 'box-shadow:0 6px 24px rgba(0,0,0,0.35)',
                 'font:13px system-ui,sans-serif', 'user-select:none'
             ].join(';');
-            for (const it of items) {
-                if (it.separator) {
-                    const hr = document.createElement('div');
-                    hr.style.cssText = `height:1px;margin:4px 0;background:${t.colrulerborder || '#555'};opacity:0.6`;
-                    menu.appendChild(hr);
-                    continue;
-                }
-                const row = document.createElement('div');
-                row.textContent = it.label;
-                const dim = it.disabled ? 'opacity:0.4;cursor:default' : 'cursor:pointer';
-                row.style.cssText = `padding:6px 16px;${dim}`;
-                if (!it.disabled) {
-                    row.addEventListener('mouseenter', () => {
-                        row.style.background = 'rgba(94,142,255,0.25)';
-                    });
-                    row.addEventListener('mouseleave', () => {
-                        row.style.background = '';
-                    });
-                    // Activate on pointerdown/mousedown (fires before any
-                    // click / focus shuffle and before the outside-dismiss
-                    // handler) and stop propagation so neither the modal's
-                    // global handlers nor the dismiss listener swallow it.
-                    const activate = (ev) => {
-                        ev.preventDefault();
-                        ev.stopPropagation();
-                        // pointerdown + mousedown both bound → the second
-                        // is a no-op once the menu is gone.
-                        if (!this._ctxMenuEl) return;
-                        this._closeContextMenu();
-                        try { it.action(); } catch (_) { /* user-cancel / parse */ }
-                    };
-                    row.addEventListener('pointerdown', activate);
-                    row.addEventListener('mousedown', activate);
-                }
-                menu.appendChild(row);
-            }
             // Swallow pointer/mouse-down on the menu chrome (padding,
             // separators) so it never reaches the outside-dismiss handler.
             const stop = (ev) => ev.stopPropagation();
             menu.addEventListener('pointerdown', stop);
             menu.addEventListener('mousedown', stop);
+            this._renderCtxRows(menu, items, null);
             document.body.appendChild(menu);
             this._ctxMenuEl = menu;
-
-            // Keep the menu on-screen if it would overflow the viewport.
-            const r = menu.getBoundingClientRect();
-            if (r.right > window.innerWidth)  menu.style.left = `${Math.max(0, window.innerWidth - r.width - 4)}px`;
-            if (r.bottom > window.innerHeight) menu.style.top  = `${Math.max(0, window.innerHeight - r.height - 4)}px`;
+            this._clampCtxMenu();
 
             // Dismiss on any outside interaction.
             this._ctxMenuDismiss = (ev) => {
@@ -1199,6 +1179,110 @@
                 document.addEventListener('keydown', this._ctxMenuDismiss, true);
                 window.addEventListener('blur', this._ctxMenuDismiss, true);
             }, 0);
+        }
+
+        /**
+         * (Re)build the rows of an open context menu element. Supports
+         * drill-in submenus (`it.children`) and a colour `it.swatch`.
+         * `parentItems` non-null adds a "back" row that re-renders the
+         * parent level — keeps the whole thing inside one DOM node so the
+         * outside-dismiss containment check still works.
+         */
+        _renderCtxRows(menu, items, parentItems) {
+            const t = this._theme;
+            menu.textContent = '';
+            const mkRow = (label, { disabled, swatch, lead } = {}) => {
+                const row = document.createElement('div');
+                row.style.cssText =
+                    `padding:6px 14px;display:flex;align-items:center;gap:8px;` +
+                    (disabled ? 'opacity:0.4;cursor:default' : 'cursor:pointer');
+                if (swatch) {
+                    const sw = document.createElement('span');
+                    sw.style.cssText =
+                        `width:11px;height:11px;border-radius:2px;flex:0 0 auto;` +
+                        `background:${swatch};border:1px solid rgba(0,0,0,0.35)`;
+                    row.appendChild(sw);
+                } else if (lead) {
+                    const sp = document.createElement('span');
+                    sp.textContent = lead;
+                    sp.style.cssText = 'flex:0 0 auto;opacity:0.7';
+                    row.appendChild(sp);
+                }
+                const txt = document.createElement('span');
+                txt.textContent = label;
+                txt.style.flex = '1 1 auto';
+                row.appendChild(txt);
+                return row;
+            };
+
+            if (parentItems) {
+                const back = mkRow('Retour', { lead: '‹' });
+                const goBack = (ev) => {
+                    ev.preventDefault(); ev.stopPropagation();
+                    if (!this._ctxMenuEl) return;
+                    this._renderCtxRows(menu, parentItems, null);
+                    this._clampCtxMenu();
+                };
+                back.addEventListener('mouseenter', () => { back.style.background = 'rgba(94,142,255,0.25)'; });
+                back.addEventListener('mouseleave', () => { back.style.background = ''; });
+                back.addEventListener('pointerdown', goBack);
+                back.addEventListener('mousedown', goBack);
+                menu.appendChild(back);
+                const hr = document.createElement('div');
+                hr.style.cssText = `height:1px;margin:4px 0;background:${t.colrulerborder || '#555'};opacity:0.6`;
+                menu.appendChild(hr);
+            }
+
+            for (const it of items) {
+                if (it.separator) {
+                    const hr = document.createElement('div');
+                    hr.style.cssText = `height:1px;margin:4px 0;background:${t.colrulerborder || '#555'};opacity:0.6`;
+                    menu.appendChild(hr);
+                    continue;
+                }
+                const hasChildren = Array.isArray(it.children);
+                const row = mkRow(it.label + (hasChildren ? '' : ''), {
+                    disabled: it.disabled, swatch: it.swatch
+                });
+                if (hasChildren && !it.disabled) {
+                    const chev = document.createElement('span');
+                    chev.textContent = '›';
+                    chev.style.cssText = 'flex:0 0 auto;opacity:0.7';
+                    row.appendChild(chev);
+                }
+                if (!it.disabled) {
+                    row.addEventListener('mouseenter', () => { row.style.background = 'rgba(94,142,255,0.25)'; });
+                    row.addEventListener('mouseleave', () => { row.style.background = ''; });
+                    const activate = (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        if (!this._ctxMenuEl) return;
+                        if (hasChildren) {
+                            this._renderCtxRows(menu, it.children, items);
+                            this._clampCtxMenu();
+                            return;
+                        }
+                        this._closeContextMenu();
+                        try { it.action(); } catch (_) { /* user-cancel / parse */ }
+                    };
+                    row.addEventListener('pointerdown', activate);
+                    row.addEventListener('mousedown', activate);
+                }
+                menu.appendChild(row);
+            }
+        }
+
+        /** Nudge the open menu back inside the viewport after (re)render. */
+        _clampCtxMenu() {
+            const menu = this._ctxMenuEl;
+            if (!menu) return;
+            const r = menu.getBoundingClientRect();
+            if (r.right > window.innerWidth) {
+                menu.style.left = `${Math.max(0, window.innerWidth - r.width - 4)}px`;
+            }
+            if (r.bottom > window.innerHeight) {
+                menu.style.top = `${Math.max(0, window.innerHeight - r.height - 4)}px`;
+            }
         }
 
         _closeContextMenu() {
