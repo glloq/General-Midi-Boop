@@ -177,6 +177,95 @@ describe('accordion — bellows scales velocity through willPlayNote', () => {
   });
 });
 
+describe('configured note range (QA) — views follow instrument settings', () => {
+  const rangedModal = (min, max) => ({
+    playNote() {}, stopNote() {}, sendCC() {},
+    getNoteLabel: (n) => `N${n}`,
+    getInstrumentNoteRange: () => ({ min, max, notes: null }),
+  });
+
+  it('MalletView: piano-like layout, bar count follows the range', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const v = new (win.MalletView)();
+    v.mount({ modal: rangedModal(60, 64) });        // C4..E4
+    const bars = [...document.querySelectorAll('.mallet-bar')];
+    // 60 C,61 C#,62 D,63 D#,64 E → 3 naturals + 2 accidentals
+    expect(bars.map(b => b.dataset.note)).toEqual(['60', '61', '62', '63', '64']);
+    const nat = document.querySelectorAll('.mallet-bar-nat');
+    const acc = document.querySelectorAll('.mallet-bar-acc');
+    expect(nat.length).toBe(3);
+    expect(acc.length).toBe(2);
+    // Piano-like: accidentals sit ABOVE (absolute, top:0), naturals bottom:0
+    for (const a of acc) {
+      expect(a.style.position).toBe('absolute');
+      expect(a.style.top).toBe('0px');
+    }
+    for (const nn of nat) expect(nn.style.bottom).toBe('0px');
+    v.unmount();
+  });
+
+  it('MalletView: no caps → default C4..B5 (24 chromatic)', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const v = new (win.MalletView)();
+    v.mount({ modal: { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}` } });
+    const bars = document.querySelectorAll('.mallet-bar');
+    expect(bars.length).toBe(24);                    // 60..83
+    v.unmount();
+  });
+
+  it('SteelDrumView: section count follows the range', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const v = new (win.SteelDrumView)();
+    v.mount({ modal: rangedModal(48, 59) });         // 12 notes
+    expect(document.querySelectorAll('.steel-section').length).toBe(12);
+    v.unmount();
+  });
+
+  it('HarpView: diatonic strings within the range', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const v = new (win.HarpView)();
+    v.mount({ modal: rangedModal(60, 64) });         // C,D,E in C-major
+    expect([...document.querySelectorAll('.harp-string')]
+      .map(s => s.dataset.note)).toEqual(['60', '62', '64']);
+    v.unmount();
+  });
+
+  it('KalimbaView: tine count follows the range (diatonic)', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const v = new (win.KalimbaView)();
+    v.mount({ modal: rangedModal(60, 71) });         // C..B = 7 diatonic
+    expect(document.querySelectorAll('.kalimba-tine').length).toBe(7);
+    v.unmount();
+  });
+
+  it('HarmonicaView: holes trimmed to the configured range', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const v = new (win.HarmonicaView)();
+    v.mount({ modal: rangedModal(60, 72) });         // Richter from 60, ≤72
+    const blow = [...document.querySelectorAll('.harmonica-blow')]
+      .map(b => parseInt(b.dataset.note, 10));
+    expect(blow[0]).toBe(60);
+    expect(Math.max(...blow)).toBeLessThanOrEqual(72);
+    expect(blow.length).toBeLessThan(10);            // trimmed vs full 10
+    v.unmount();
+  });
+
+  it('BagpipeView: chanter follows the range, drone unchanged', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getInstrumentNoteRange = () => ({ min: 55, max: 60, notes: null });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    const ch = [...document.querySelectorAll('.bagpipe-hole')]
+      .map(h => parseInt(h.dataset.note, 10));
+    expect(ch[0]).toBe(55);
+    expect(Math.max(...ch)).toBeLessThanOrEqual(60);
+    expect(sink.played).toContain(45);               // A2 drone still on mount
+    v.unmount();
+  });
+});
+
 describe('note colours — 🎨 applies to every instrument view', () => {
   it('KeyboardModal.getNoteColor: octave-invariant 12-colour palette', () => {
     const m = new (win.KeyboardModal)();

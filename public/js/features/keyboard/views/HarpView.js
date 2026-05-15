@@ -22,16 +22,17 @@
     if (typeof window === 'undefined' || !window.InstrumentView) return;
     const InstrumentView = window.InstrumentView;
 
-    // C-major diatonic, C3 (48) → C6 (84) = 22 strings.
-    const SCALE = [0, 2, 4, 5, 7, 9, 11];
-    const STRINGS = (() => {
+    // C-major diatonic. Default span C3 (48) → C6 (84) when the
+    // instrument declares no range.
+    const SCALE = new Set([0, 2, 4, 5, 7, 9, 11]);
+    const DEFAULT_LO = 48, DEFAULT_HI = 84;
+
+    // Diatonic (C-major) MIDI notes within [lo,hi] inclusive.
+    function diatonicStrings(lo, hi) {
         const out = [];
-        for (let oct = 0; oct < 3; oct++) {
-            for (const off of SCALE) out.push(48 + oct * 12 + off);
-        }
-        out.push(84); // top C6
-        return out;
-    })();
+        for (let n = lo; n <= hi; n++) if (SCALE.has(((n % 12) + 12) % 12)) out.push(n);
+        return out.length ? out : [lo];
+    }
 
     class HarpView extends InstrumentView {
         static viewKind = 'harp';
@@ -56,6 +57,12 @@
 
             const label = (typeof modal.getNoteLabel === 'function')
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
+
+            // QA: strings span the instrument's configured range.
+            const rng = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            const STRINGS = diatonicStrings(
+                rng ? rng.min : DEFAULT_LO, rng ? rng.max : DEFAULT_HI);
 
             STRINGS.forEach((midi, idx) => {
                 const cls = midi % 12;

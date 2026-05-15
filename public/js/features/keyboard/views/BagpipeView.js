@@ -12,8 +12,22 @@
     const InstrumentView = window.InstrumentView;
 
     const DRONE = 45;                                   // A2 drone
-    // GHB chanter (approx, A-mixolydian): Low G..High A
-    const CHANTER = [55, 57, 59, 61, 62, 64, 66, 67, 69];
+    // GHB chanter (approx, A-mixolydian): Low G..High A — reference.
+    const CHANTER0 = [55, 57, 59, 61, 62, 64, 66, 67, 69];
+
+    // Transpose the chanter so its lowest note is `lo`, trim to `hi`, so
+    // the number of chanter holes follows the configured range (QA).
+    function chanterNotes(lo, hi) {
+        if (!Number.isFinite(lo)) return CHANTER0;
+        const off = lo - CHANTER0[0];
+        const out = [];
+        for (const c of CHANTER0) {
+            const m = c + off;
+            if (Number.isFinite(hi) && m > hi) break;
+            out.push(m);
+        }
+        return out.length ? out : [lo];
+    }
 
     class BagpipeView extends InstrumentView {
         static viewKind = 'bagpipe';
@@ -53,6 +67,9 @@
             const chanter = document.createElement('div');
             chanter.className = 'bagpipe-chanter';
             chanter.style.cssText = 'display:flex;gap:6px;';
+            const rng = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            const CHANTER = chanterNotes(rng ? rng.min : NaN, rng ? rng.max : NaN);
             CHANTER.forEach((midi, idx) => {
                 const h = document.createElement('button');
                 h.type = 'button';

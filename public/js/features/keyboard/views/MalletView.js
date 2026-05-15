@@ -11,7 +11,7 @@
     if (typeof window === 'undefined' || !window.InstrumentView) return;
     const InstrumentView = window.InstrumentView;
 
-    const LO = 60, HI = 83;                       // C4..B5
+    const DEFAULT_LO = 60, DEFAULT_HI = 83;       // C4..B5 fallback
     const BLACK = new Set([1, 3, 6, 8, 10]);      // semitone classes with a sharp
 
     class MalletView extends InstrumentView {
@@ -27,46 +27,80 @@
             if (!canvas) return;
             document.getElementById('mallet-container')?.remove();
 
+            // QA: use the instrument's configured note range, not a forced
+            // fixed span. Fall back to C4..B5 when no capabilities.
+            const r = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            const LO = r ? r.min : DEFAULT_LO;
+            const HI = r ? r.max : DEFAULT_HI;
+
             const root = document.createElement('div');
             root.id = 'mallet-container';
             root.className = 'mallet-view';
             root.style.cssText =
-                'display:flex;flex-direction:column;gap:8px;padding:18px;'
-                + 'align-items:center;justify-content:center;height:100%;'
-                + 'touch-action:none;';
+                'display:flex;align-items:center;justify-content:center;'
+                + 'height:100%;padding:18px;overflow:auto;touch-action:none;';
 
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
 
-            const accRow = document.createElement('div');
-            accRow.className = 'mallet-row mallet-accidentals';
-            accRow.style.cssText = 'display:flex;gap:4px;';
-            const natRow = document.createElement('div');
-            natRow.className = 'mallet-row mallet-naturals';
-            natRow.style.cssText = 'display:flex;gap:4px;';
+            // Piano-like geometry: naturals form a contiguous row, the
+            // accidentals (sharps) sit ABOVE the gap between the right
+            // naturals — exactly like a marimba / piano keyboard.
+            const NAT_W = 30, GAP = 4, ACC_W = 22;
+            const STEP = NAT_W + GAP;
 
-            for (let n = LO; n <= HI; n++) {
-                const isBlack = BLACK.has(n % 12);
+            // Count naturals strictly below a midi (its position index).
+            let naturalsCount = 0;
+            for (let n = LO; n <= HI; n++) if (!BLACK.has(((n % 12) + 12) % 12)) naturalsCount++;
+
+            const board = document.createElement('div');
+            board.className = 'mallet-board';
+            board.style.cssText =
+                'position:relative;height:150px;'
+                + `width:${Math.max(1, naturalsCount) * STEP}px;`;
+
+            let natIdx = 0;
+            const mkBar = (n, isBlack, x, opts) => {
                 const bar = document.createElement('button');
                 bar.type = 'button';
                 bar.className = 'mallet-bar' + (isBlack ? ' mallet-bar-acc' : ' mallet-bar-nat');
                 bar.dataset.note = String(n);
                 bar.title = label(n);
-                bar.style.cssText =
-                    'width:30px;border:1px solid #2a2a2a;border-radius:3px;cursor:pointer;'
-                    + (isBlack
-                        ? 'height:54px;background:#7a5a2a;color:#fff;'
-                        : 'height:80px;background:#d8b46a;color:#222;');
                 bar.textContent = label(n);
+                bar.style.cssText =
+                    'position:absolute;border:1px solid #2a2a2a;border-radius:3px;'
+                    + 'cursor:pointer;font:10px sans-serif;display:flex;'
+                    + 'align-items:flex-end;justify-content:center;padding-bottom:3px;'
+                    + `left:${Math.round(x)}px;width:${opts.w}px;`
+                    + `height:${opts.h}px;${opts.pos}`
+                    + `z-index:${isBlack ? 2 : 1};`
+                    + (isBlack ? 'background:#7a5a2a;color:#fff;'
+                               : 'background:#d8b46a;color:#222;');
                 if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
                     const c = modal.getNoteColor(n);
                     bar.style.background = c.bg;
                     bar.style.color = c.text;
                 }
-                (isBlack ? accRow : natRow).appendChild(bar);
+                return bar;
+            };
+
+            for (let n = LO; n <= HI; n++) {
+                const isBlack = BLACK.has(((n % 12) + 12) % 12);
+                if (!isBlack) {
+                    board.appendChild(mkBar(n, false, natIdx * STEP,
+                        { w: NAT_W, h: 110, pos: 'bottom:0;' }));
+                    natIdx++;
+                } else {
+                    // Centred on the boundary between the previous natural
+                    // (natIdx-1) and the next one.
+                    const x = natIdx * STEP - GAP / 2 - ACC_W / 2;
+                    board.appendChild(mkBar(n, true, x,
+                        { w: ACC_W, h: 70, pos: 'top:0;' }));
+                }
             }
-            root.appendChild(accRow);
-            root.appendChild(natRow);
+
+            root.appendChild(board);
             canvas.appendChild(root);
 
             this._root = root;

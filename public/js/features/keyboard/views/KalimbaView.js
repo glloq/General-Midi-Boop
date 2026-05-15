@@ -11,28 +11,40 @@
     if (typeof window === 'undefined' || !window.InstrumentView) return;
     const InstrumentView = window.InstrumentView;
 
-    // 17 ascending C-major notes from C4 (60).
-    const SCALE = [0, 2, 4, 5, 7, 9, 11];
-    const ASC = (() => {
+    // C-major diatonic. Default = 17 tines from C4 (60) when no range.
+    const SCALE = new Set([0, 2, 4, 5, 7, 9, 11]);
+    const DEFAULT_LO = 60, DEFAULT_COUNT = 17;
+
+    // Ascending C-major notes within [lo,hi]; if no hi, take `count` notes.
+    function ascending(lo, hi, count) {
         const out = [];
-        for (let i = 0; out.length < 17; i++) {
-            out.push(60 + Math.floor(i / 7) * 12 + SCALE[i % 7]);
+        if (Number.isFinite(hi)) {
+            for (let n = lo; n <= hi; n++) {
+                if (SCALE.has(((n % 12) + 12) % 12)) out.push(n);
+            }
+        }
+        if (!out.length) {
+            const STEPS = [0, 2, 4, 5, 7, 9, 11];
+            for (let i = 0; out.length < (count || DEFAULT_COUNT); i++) {
+                out.push(lo + Math.floor(i / 7) * 12 + STEPS[i % 7]);
+            }
         }
         return out;
-    })();
+    }
+
     // Physical centre-out order: middle = lowest, then R, L, R, L …
-    const PHYSICAL = (() => {
-        const n = ASC.length;
+    function physical(asc) {
+        const n = asc.length;
         const pos = new Array(n);
         const mid = Math.floor(n / 2);
         let r = mid, l = mid;
-        pos[mid] = ASC[0];
+        pos[mid] = asc[0];
         for (let i = 1; i < n; i++) {
-            if (i % 2 === 1) { r += 1; pos[r] = ASC[i]; }
-            else { l -= 1; pos[l] = ASC[i]; }
+            if (i % 2 === 1) { r += 1; pos[r] = asc[i]; }
+            else { l -= 1; pos[l] = asc[i]; }
         }
         return pos;
-    })();
+    }
 
     class KalimbaView extends InstrumentView {
         static viewKind = 'kalimba';
@@ -58,6 +70,14 @@
 
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
+
+            // QA: number of tines follows the instrument's configured range.
+            const rng = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            const PHYSICAL = physical(ascending(
+                rng ? rng.min : DEFAULT_LO,
+                rng ? rng.max : undefined,
+                DEFAULT_COUNT));
             const mid = Math.floor(PHYSICAL.length / 2);
 
             PHYSICAL.forEach((midi, idx) => {

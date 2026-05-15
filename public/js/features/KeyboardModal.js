@@ -868,6 +868,41 @@ class KeyboardModal {
     }
 
     /**
+     * Note range configured for the selected instrument (same source as
+     * autoCenterKeyboard). Self-owned views use this instead of a hardcoded
+     * span so they show exactly the notes set in the instrument settings,
+     * not a forced fixed display.
+     *
+     * @returns {{min:number,max:number,notes:number[]|null}|null}
+     *   null when no capabilities (caller falls back to its idiomatic
+     *   default). `notes` is the explicit discrete list when defined.
+     */
+    getInstrumentNoteRange() {
+        const caps = this.selectedDeviceCapabilities;
+        if (!caps) return null;
+
+        if (caps.note_selection_mode === 'discrete' && caps.selected_notes) {
+            try {
+                const notes = typeof caps.selected_notes === 'string'
+                    ? JSON.parse(caps.selected_notes) : caps.selected_notes;
+                if (Array.isArray(notes) && notes.length > 0) {
+                    const sorted = [...notes].map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+                    if (sorted.length) {
+                        return { min: sorted[0], max: sorted[sorted.length - 1], notes: sorted };
+                    }
+                }
+            } catch (_) { /* ignore */ }
+        }
+
+        const min = Number(caps.note_range_min);
+        const max = Number(caps.note_range_max);
+        if (Number.isFinite(min) && Number.isFinite(max) && max >= min) {
+            return { min, max, notes: null };
+        }
+        return null;
+    }
+
+    /**
      * Detect whether the selected instrument should switch to a special view.
      * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
      */
