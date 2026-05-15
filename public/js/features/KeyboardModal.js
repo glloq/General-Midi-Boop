@@ -499,8 +499,10 @@ class KeyboardModal {
         // Minimap: piano-family (piano / piano-slider / keyboard-list).
         const isPianoFamily = vm === 'piano' || vm === 'piano-slider' || vm === 'keyboard-list';
         set('keyboard-minimap-row', !isPianoFamily);
-        // Note-color toggle: not useful for piano-slider, drumpad, list.
-        set('keyboard-note-color-group', vm === 'drumpad' || vm === 'piano-slider');
+        // Note-color (🎨) toggle: QA #3 — must stay VISIBLE on piano-slider
+        // (and everywhere else); only a drum kit has no pitch colours, so
+        // hide it solely in drumpad.
+        set('keyboard-note-color-group', vm === 'drumpad');
         // List-view toggle: hidden in fretboard / drumpad context.
         set('keyboard-list-view-group', vm === 'fretboard' || vm === 'drumpad');
     }

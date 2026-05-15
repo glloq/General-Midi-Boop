@@ -1233,19 +1233,20 @@ propre, aucune note bloquée.
   **les 13 viewKinds**, + isolation de périmètre (8 groupes étrangers
   jamais modifiés) + idempotence. PE-1 (`create-modal-dom`) toujours
   vert. **Suite : 16 fichiers / 322 tests verts, ESLint 0 erreur.**
-- **Checklist QA navigateur (à faire)** : ouvrir le modal et pour
-  piano / fretboard / drumpad / liste / les 8 vues spécifiques vérifier
-  visuellement :
-  1. `octave-bar` visible **uniquement** en piano & piano-slider ;
-  2. `minimap` visible **uniquement** en piano / piano-slider / liste ;
-  3. bouton couleurs (`note-color`) caché **uniquement** en drumpad &
-     piano-slider ;
-  4. bouton liste (`list-view`) caché **uniquement** en fretboard &
-     drumpad ;
-  5. **non-régression** : mod-wheel/pitch-bend/slide/wind/velocity
-     toujours pilotés par les capabilities (tester un instrument avec
-     CC#1 et un sans, un avec/sans pitch bend) — inchangé par PE-2 ;
-  6. retour piano via le toggle de vue inchangé (F2).
+- **QA navigateur — résultats** :
+  1. `octave-bar` (piano & piano-slider) — ✅ OK ;
+  2. `minimap` (piano / piano-slider / liste) — ✅ OK ;
+  3. bouton couleurs `note-color` — ❗ **NOK puis corrigé** : la formule
+     héritée le cachait en piano-slider ; demande QA = il doit **rester
+     visible** sur le slider. **Correctif post-PE-2** : caché
+     **uniquement en drumpad** (seule la batterie n'a pas de couleurs de
+     hauteur), visible partout ailleurs (piano-slider inclus). Oracle de
+     test mis à jour ;
+  4. bouton liste `list-view` (caché en fretboard/drumpad) — ✅ OK ;
+  5. non-régression sliders caps-aware — ✅ OK ;
+  6. affichage des vues d'instrument — ✅ OK (le « NOK » initial était un
+     **cache navigateur** ; résolu par Ctrl+Maj+R, aucun changement de
+     code nécessaire).
 
 **PE-3 — Extraire `HandsOverlay`** (KM-C2, le plus gros bloc isolable :
 ~695 l. autonomes)
