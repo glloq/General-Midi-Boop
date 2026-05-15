@@ -321,10 +321,11 @@
                     <div class="midi-editor-container">
                         <!-- Section Notes -->
                         <div class="midi-editor-section notes-section">
+                            <!-- Navigation Overview minimap (whole-song + viewport rect).
+                                 Loop mode uses the LoopEditor's own minimap instead. -->
+                            ${loop ? '' : '<div class="navigation-overview-wrap" id="navigation-overview-container"></div>'}
                             <!-- Playback Timeline Bar — time ruler / scrub bar above the
-                                 piano roll. The Navigation Overview minimap was removed:
-                                 it duplicated this bar visually; this one stays as the
-                                 single time/navigation strip. -->
+                                 piano roll. -->
                             <div class="playback-timeline-wrap" id="playback-timeline-container"></div>
                             <div class="piano-roll-wrapper">
                                 <div class="piano-roll-container" id="piano-roll-container">
