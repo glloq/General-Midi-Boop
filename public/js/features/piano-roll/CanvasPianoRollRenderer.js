@@ -133,6 +133,9 @@
             this._bucketTicks = 480 * 4;  // 1 measure per bucket by default
             this._buckets = new Map();
             this._bucketsDirty = true;
+            // Reused across frames to avoid a per-frame Set allocation in
+            // the paint hot path (a note can sit in several buckets).
+            this._seen = new Set();
 
             // ---- Interaction (B4) ----
             this._selectionRect = null;   // {x0, y0, x, y} in CSS px while drawing
@@ -579,11 +582,10 @@
             }
             ctx.globalAlpha = 1;
 
-            // Keyboard column
+            // Keyboard column. (The in-canvas time ruler was removed —
+            // the modal's Playback Timeline bar above the canvas owns
+            // measures/scrub now.)
             this._paintKeyboard(ctx);
-
-            // Ruler (beats / measures)
-            this._paintRuler(ctx);
         }
 
         _paintKeyboard(ctx) {
@@ -639,61 +641,8 @@
             ctx.stroke();
         }
 
-        _paintRuler(ctx) {
-            if (!RULER_H) return; // ruler disabled — Playback Timeline bar covers it
-            const W = this._cssWidth;
-            // Ruler bg starts at KB_WIDTH so its left edge aligns with the
-            // right edge of the piano keys — the area to the left (scrollbar
-            // + keyboard top) is filled by _paintKeyboard / scrollbar render.
-            ctx.fillStyle = this._theme.colrulerbg;
-            ctx.fillRect(KB_WIDTH, 0, W - KB_WIDTH, RULER_H);
-            ctx.strokeStyle = this._theme.colrulerborder;
-            ctx.beginPath();
-            ctx.moveTo(KB_WIDTH, RULER_H + 0.5);
-            ctx.lineTo(W,        RULER_H + 0.5);
-            ctx.stroke();
-
-            const ppq = this._timebase || 480;
-            const beatsPerMeasure = 4;
-            const measureTicks = ppq * beatsPerMeasure;
-            const startMeasure = Math.floor(this._xoffset / measureTicks);
-            const endTick = this._xoffset + this._xrange;
-            ctx.fillStyle = this._theme.colrulerfg;
-            ctx.font = '10px monospace';
-            ctx.textBaseline = 'middle';
-            for (let m = startMeasure; m * measureTicks <= endTick; m++) {
-                const tick = m * measureTicks;
-                const x = this._tickToX(tick);
-                if (x < KB_WIDTH - 4 || x > W) continue;
-                ctx.fillText(String(m + 1), x + 2, RULER_H / 2);
-            }
-
-            // Beat ticks at the bottom of the ruler — taller stroke at
-            // measure boundaries, half-height for in-between beats. Skip
-            // when zoomed out so far that beats collapse on top of each
-            // other (< 4 px between beats becomes visual noise).
-            const beatPx = (ppq / Math.max(1, this._xrange)) * Math.max(1, W - KB_WIDTH);
-            if (beatPx >= 4) {
-                ctx.strokeStyle = this._theme.colrulerborder;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                const startBeat = Math.floor(this._xoffset / ppq);
-                for (let beat = startBeat; beat * ppq <= endTick; beat++) {
-                    const tick = beat * ppq;
-                    const x = this._tickToX(tick);
-                    if (x < KB_WIDTH || x > W) continue;
-                    const tickH = (beat % beatsPerMeasure === 0) ? 8 : 4;
-                    const px = Math.floor(x) + 0.5;
-                    ctx.moveTo(px, RULER_H - tickH);
-                    ctx.lineTo(px, RULER_H);
-                }
-                ctx.stroke();
-            }
-        }
-
         _paintNotes() {
             if (!this._sequence.length) return;
-            if (this._bucketsDirty) this._rebuildBuckets();
 
             const ctx = this._ctx;
             const W = this._cssWidth;
@@ -702,7 +651,15 @@
             const visEndTick   = this._xoffset + this._xrange;
             const minNote = this._yoffset;
             const maxNote = this._yoffset + this._yrange - 1;
-            const seen = new Set();
+
+            // During an active move/resize drag the note objects mutate
+            // every frame. Rebuilding the O(n) bucket index per frame is
+            // the main 10k-note/60fps blocker, so skip it: do a flat
+            // viewport-culled scan instead (a tight numeric loop, no Map/
+            // Set churn). The index is rebuilt once on drag end.
+            const dragMut = this._dragging &&
+                (this._dragging.mode === 'move' || this._dragging.mode === 'resize');
+            if (!dragMut && this._bucketsDirty) this._rebuildBuckets();
 
             // Clip to the note area so notes scrolling left slide *behind*
             // the keyboard column + vertical scrollbar (painted in the bg
@@ -712,57 +669,64 @@
             ctx.rect(KB_WIDTH, RULER_H, W - KB_WIDTH, this._cssHeight - RULER_H);
             ctx.clip();
 
-            // Iterate only the buckets that intersect the visible viewport
-            // (§3.1 viewport culling). With 1-measure buckets we visit
-            // O(xrange / measure) buckets — typically <10 vs full O(n).
-            const startBucket = Math.floor(visStartTick / this._bucketTicks);
-            const endBucket   = Math.floor(visEndTick   / this._bucketTicks);
-            for (let b = startBucket; b <= endBucket; b++) {
-                const bucket = this._buckets.get(b);
-                if (!bucket) continue;
-                for (const idx of bucket) {
-                    if (seen.has(idx)) continue;
-                    seen.add(idx);
-                    const n = this._sequence[idx];
-                    if (!n) continue;
-                    // Visibility filter
-                    if (n.n < minNote || n.n > maxNote) continue;
-                    const t0 = n.t;
-                    const t1 = n.t + (n.g || 0);
-                    if (t1 < visStartTick || t0 > visEndTick) continue;
+            const drawOne = (n) => {
+                if (!n) return;
+                if (n.n < minNote || n.n > maxNote) return;
+                const t0 = n.t;
+                const t1 = n.t + (n.g || 0);
+                if (t1 < visStartTick || t0 > visEndTick) return;
 
-                    const x  = this._tickToX(t0);
-                    const x2 = this._tickToX(t1);
-                    const y  = this._noteToY(n.n);
-                    const w  = Math.max(2, x2 - x);
-                    const h  = Math.max(2, noteH - 1);
+                const x  = this._tickToX(t0);
+                const x2 = this._tickToX(t1);
+                const y  = this._noteToY(n.n);
+                const w  = Math.max(2, x2 - x);
+                const h  = Math.max(2, noteH - 1);
 
-                    const selected = n.f === 1;
-                    const ch = n.c ?? 0;
-                    const color = selected
-                        ? this._theme.colnotesel
-                        : (this._channelColors[ch % 16] || this._theme.colnote);
+                const selected = n.f === 1;
+                const ch = n.c ?? 0;
+                const color = selected
+                    ? this._theme.colnotesel
+                    : (this._channelColors[ch % 16] || this._theme.colnote);
 
-                    // Alpha based on velocity if present (0..127)
-                    const vel = n.v ?? 100;
-                    ctx.globalAlpha = 0.45 + (Math.min(127, Math.max(0, vel)) / 127) * 0.55;
+                const vel = n.v ?? 100;
+                ctx.globalAlpha = 0.45 + (Math.min(127, Math.max(0, vel)) / 127) * 0.55;
 
-                    ctx.fillStyle = color;
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeStyle = this._theme.colnoteborder;
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                ctx.fillStyle = color;
+                ctx.fillRect(x, y, w, h);
+                ctx.strokeStyle = this._theme.colnoteborder;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 
-                    // Visual hint for the resize hot-zone — only when the
-                    // note is wide enough to host the handle without being
-                    // dominated by it. Painted at full alpha so the cue
-                    // stays legible regardless of velocity.
-                    if (w > RESIZE_HANDLE_PX * 2 + 2) {
-                        const prevAlpha = ctx.globalAlpha;
-                        ctx.globalAlpha = 1;
-                        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-                        ctx.fillRect(x + w - RESIZE_HANDLE_PX, y + 1, 2, h - 2);
-                        ctx.globalAlpha = prevAlpha;
+                // Visual hint for the resize hot-zone — only when the note
+                // is wide enough to host the handle. Full alpha so the cue
+                // stays legible regardless of velocity.
+                if (w > RESIZE_HANDLE_PX * 2 + 2) {
+                    const prevAlpha = ctx.globalAlpha;
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+                    ctx.fillRect(x + w - RESIZE_HANDLE_PX, y + 1, 2, h - 2);
+                    ctx.globalAlpha = prevAlpha;
+                }
+            };
+
+            const seq = this._sequence;
+            if (dragMut) {
+                // Flat culled scan — correct at current positions, no index.
+                for (let i = 0; i < seq.length; i++) drawOne(seq[i]);
+            } else {
+                // Iterate only the buckets that intersect the visible
+                // viewport (§3.1 culling) — typically <10 buckets vs O(n).
+                const seen = this._seen;
+                seen.clear();
+                const startBucket = Math.floor(visStartTick / this._bucketTicks);
+                const endBucket   = Math.floor(visEndTick   / this._bucketTicks);
+                for (let b = startBucket; b <= endBucket; b++) {
+                    const bucket = this._buckets.get(b);
+                    if (!bucket) continue;
+                    for (const idx of bucket) {
+                        if (seen.has(idx)) continue;
+                        seen.add(idx);
+                        drawOne(seq[idx]);
                     }
                 }
             }
@@ -838,18 +802,12 @@
             }
 
             // Clicked on the keyboard column → emit pianokey
-            if (x < KB_WIDTH && y > RULER_H) {
+            if (x < KB_WIDTH) {
                 const note = this._yToNote(y);
                 if (note >= NOTE_MIN && note <= NOTE_MAX) {
                     this._emit('pianokey', { note });
                     this._dragging = { mode: 'pianokey', note };
                 }
-                return;
-            }
-            // Clicked on the ruler → seek cursor (UX courtesy)
-            if (y < RULER_H && x >= KB_WIDTH) {
-                const tick = this._xToTick(x);
-                this.setCursor(tick);
                 return;
             }
 
@@ -980,7 +938,10 @@
                     movedNotes.push(n);
                 }
                 if (mutated) {
-                    this._bucketsDirty = true;
+                    // Bucket index intentionally NOT dirtied here — it would
+                    // force an O(n) rebuild every drag frame. _paintNotes
+                    // does a flat culled scan while dragging; the index is
+                    // rebuilt once on _onMouseUp.
                     this._scheduleRender();
                     // Emit `notedragmove` so CC editors / preview synth can react
                     // (matches the webaudio-pianoroll event surface).
@@ -998,7 +959,7 @@
                     const newGate = Math.max(MIN_NOTE_GATE, d.startGate + dt);
                     if (n.g !== newGate) {
                         n.g = newGate;
-                        this._bucketsDirty = true;
+                        // Index rebuilt on _onMouseUp (see move branch).
                         this._scheduleRender();
                     }
                 }
@@ -1009,9 +970,12 @@
             if (!this._dragging) return;
             const d = this._dragging;
             if (d.mode === 'move' || d.mode === 'resize') {
-                // The mutation already happened in mousemove. Finalize with a
-                // single `change` emit (debouncing per-frame events would cost
-                // more than this one-shot at end of drag).
+                // The mutation already happened in mousemove. Rebuild the
+                // spatial index once now (it was deliberately not dirtied
+                // per drag frame) so hit-tests / range queries are correct.
+                this._bucketsDirty = true;
+                // Finalize with a single `change` emit (debouncing per-frame
+                // events would cost more than this one-shot at end of drag).
                 this._emit('change');
                 this._dragging = null;
                 if (this._el) this._el.style.cursor = '';
@@ -1181,17 +1145,22 @@
             this._clampCtxMenu();
 
             // Dismiss on any outside interaction.
-            this._ctxMenuDismiss = (ev) => {
+            const dismiss = (ev) => {
                 if (this._ctxMenuEl && !this._ctxMenuEl.contains(ev.target)) {
                     this._closeContextMenu();
                 } else if (ev.type === 'keydown' && ev.key === 'Escape') {
                     this._closeContextMenu();
                 }
             };
+            this._ctxMenuDismiss = dismiss;
             setTimeout(() => {
-                document.addEventListener('pointerdown', this._ctxMenuDismiss, true);
-                document.addEventListener('keydown', this._ctxMenuDismiss, true);
-                window.addEventListener('blur', this._ctxMenuDismiss, true);
+                // The menu may have been closed/destroyed during the 0ms
+                // gap — only attach if this dismiss is still the live one,
+                // otherwise these listeners would never be removed.
+                if (this._ctxMenuDismiss !== dismiss) return;
+                document.addEventListener('pointerdown', dismiss, true);
+                document.addEventListener('keydown', dismiss, true);
+                window.addEventListener('blur', dismiss, true);
             }, 0);
         }
 
@@ -1329,8 +1298,8 @@
                     // ruler / keyboard chrome).
                     const { x, y } = this._localCoords(e);
                     const oldRange = this._yrange;
-                    // Use the real `_noteHeight()` (which now reserves the
-                    // HSB strip) so the pivot matches what's drawn.
+                    // Use the real `_noteHeight()` so the zoom pivot matches
+                    // exactly what's drawn.
                     if (x >= KB_WIDTH && y >= RULER_H) {
                         const oldNoteH = this._noteHeight();
                         const notesFromTop = (y - RULER_H) / oldNoteH; // fractional
@@ -1409,7 +1378,7 @@
          * resize cursor; everything else is a body grab.
          */
         _hitTestNote(x, y) {
-            if (x < KB_WIDTH || y < RULER_H) return null;
+            if (x < KB_WIDTH) return null;
             const tick = this._xToTick(x);
             const note = this._yToNote(y);
             const tickPerPx = (this._xrange || 1) / Math.max(1, this._cssWidth - KB_WIDTH);
@@ -1442,8 +1411,8 @@
         _onDblClick(e) {
             if (!this._el) return;
             const { x, y } = this._localCoords(e);
-            // Only create inside the notes area (not on keyboard, not on ruler)
-            if (x < KB_WIDTH || y < RULER_H) return;
+            // Only create inside the notes area (not on the keyboard column)
+            if (x < KB_WIDTH) return;
             // If clicking on an existing note, deletion would be intuitive
             // but `<webaudio-pianoroll>` doesn't do that — keep parity and
             // ignore dblclick on hit.

@@ -238,6 +238,12 @@
             renderer.on('channelchange', (e) => {
                 const newChannel = e.detail?.channel;
                 if (newChannel == null) return;
+                // `changeChannelSelection` also emitted `change`, which
+                // scheduled a 100ms-debounced syncFullSequenceFromPianoRoll.
+                // We run the full pipeline synchronously here, so cancel that
+                // pending debounce to avoid a second, racing sync against a
+                // now-reloaded sequence.
+                if (changeTimeout) { clearTimeout(changeTimeout); changeTimeout = null; }
                 m.isDirty = true;
                 this.parent.updateSaveButton();
                 m.sequenceOps.syncFullSequenceFromPianoRoll();
@@ -252,6 +258,9 @@
                 m.renderer.updateInstrumentSelector();
                 m.editActions?.updateEditButtons();
                 m.editActions?.updateUndoRedoButtonsState();
+                // Refresh the change-detection baseline so the next genuine
+                // edit is diffed against the post-pipeline sequence.
+                previousSequence = this.parent.copySequence(renderer.getSequence());
             });
 
             // Auto-resize the canvas whenever its container changes size —
