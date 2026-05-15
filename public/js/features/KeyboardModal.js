@@ -1194,7 +1194,9 @@ class KeyboardModal {
             this.setViewMode('fretboard');
         } else if (info.isWind) {
             this.stringInstrumentConfig = null;
-            if (viewGroup) viewGroup.classList.add('hidden');
+            // Keep the view-mode toggle visible so the user can switch a
+            // wind instrument to the standard piano (and back).
+            if (viewGroup) viewGroup.classList.remove('hidden');
             // Show wind articulation panel and switch to piano-slider (chromatic keys)
             if (typeof this._showWindControls === 'function') {
                 this._showWindControls(info.windPreset);

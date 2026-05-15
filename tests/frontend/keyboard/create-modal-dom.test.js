@@ -127,3 +127,38 @@ describe('PE-1 — createModal() structural contract', () => {
     expect(snap()).toBe(snap());
   });
 });
+
+describe('Wind — breath slider removed + piano-slider colours (QA)', () => {
+  it('the breath slider is gone but the wind panel + articulations remain', () => {
+    buildModal();
+    expect(document.getElementById('keyboard-wind-breath')).toBeNull();
+    expect(document.getElementById('keyboard-wind-breath-display')).toBeNull();
+    expect(document.querySelector('.wind-breath-row')).toBeNull();
+    expect(document.getElementById('wind-instrument-panel')).not.toBeNull();
+    expect(document.querySelectorAll('#wind-instrument-panel [data-art]').length).toBe(4);
+  });
+
+  it('generatePianoSlider paints chromatic colours only when showNoteColors', () => {
+    const m = buildModal();
+    m.startNote = 60;
+    m.visibleNoteCount = 12;
+
+    m.showNoteColors = false;
+    m.generatePianoSlider();
+    let keys = document.querySelectorAll('#piano-slider-container .piano-slider-key');
+    expect(keys.length).toBe(12);
+    expect([...keys].some(k => k.classList.contains('note-colored'))).toBe(false);
+
+    m.showNoteColors = true;
+    m.generatePianoSlider();
+    keys = document.querySelectorAll('#piano-slider-container .piano-slider-key');
+    expect(keys.length).toBe(12);
+    for (const k of keys) {
+      expect(k.classList.contains('note-colored')).toBe(true);
+      expect(k.style.background).not.toBe('');
+    }
+    // C (MIDI 60) must use the canonical red from getNoteColor.
+    const cKey = [...keys].find(k => parseInt(k.dataset.note, 10) === 60);
+    expect(cKey.style.background).toBe('rgb(239, 68, 68)'); // #EF4444
+  });
+});

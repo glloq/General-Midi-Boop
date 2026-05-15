@@ -216,6 +216,12 @@ volontairement `playNote` (l'original est capturé en lecture seule dans
 - Toutes les touches ont la même largeur (chromatic strip).
 - Le glissement horizontal après la frappe envoie du pitch bend via `initPianoSliderDrag`.
 - Une ligne curseur (`piano-slider-cursor`) indique la position de drag.
+- **Couleurs chromatiques** : `generatePianoSlider` colore les touches via
+  `FRET_NOTE_COLORS` quand 🎨 est actif (le toggle re-rend le piano-slider).
+- **Vent** : le bouton de bascule **vue→piano** reste visible (on peut
+  passer un instrument à vent en piano standard et revenir). Le **slider
+  de souffle CC#2** sous le mode de jeu a été **retiré** (demande QA) ;
+  le panneau vent conserve nom/plage + boutons d'articulation.
 
 ### 3.3 Fretboard (`fretboard`)
 
