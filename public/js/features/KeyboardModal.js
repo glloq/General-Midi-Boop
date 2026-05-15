@@ -1151,6 +1151,11 @@ class KeyboardModal {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('harmonica');
+        } else if (info.viewKind === 'harp') {
+            // Harp (GM 46): dedicated vertical-string view (own DOM host).
+            this.stringInstrumentConfig = null;
+            if (viewGroup) viewGroup.classList.add('hidden');
+            this.setViewMode('harp');
         } else {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');

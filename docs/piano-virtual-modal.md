@@ -951,7 +951,7 @@ planifié en **§20.4** — différé car non vérifiable en navigateur ici.
 | Accordéon | `accordion` | 21-23 | Soufflet = vélocité (CC#11), basses Stradella | `regeneratePianoKeys` + panneau soufflet |
 | Harmonica | `harmonica` | 22 | Rangées souffler/aspirer (Richter C, 10 trous) | ✅ **LIVRÉ** — `views/HarmonicaView.js` (DOM propre) |
 | Mailloches (vibra/marimba/xylo) | `mallet` | 12-15 | Pas de pitch-bend, trémolo via CC | `keyboard-list` (slots égaux) |
-| Harpe | `harp` | 46 | Cordes verticales, glissando = drag X | `fretboard` (cordes, 0 frette) |
+| Harpe | `harp` | 46 | Cordes verticales, glissando = drag X | ✅ **LIVRÉ** — `views/HarpView.js` (DOM propre) |
 | Cornemuse | `bagpipe` | 109 | Drone constant + chanter | piano-slider + drone auto |
 | Theremin | `theremin` | (custom) | 2 axes continus X=hauteur Y=volume, sans touche | nouveau rendu canvas |
 | Kalimba | `kalimba` | 108 | Lamelles verticales cliquables | grille verticale |
@@ -987,6 +987,33 @@ référence pour la recette §20.1.
 > souris/tactile, retour piano via le toggle de vue, sélection auto sur
 > un instrument GM 22 réel. Les styles sont inline (aucun CSS dédié) —
 > un passage `keyboard.css` est souhaitable pour l'intégration visuelle.
+
+#### 20.2.2 Référence livrée — `HarpView` (2ᵉ vue, GM 46)
+
+`public/js/features/keyboard/views/HarpView.js` — 22 cordes verticales
+Do majeur (Do3→Do6), pincement au `pointerdown`, **glissando** au drag
+horizontal (chaque corde traversée est pincée une fois), libération
+globale au `pointerup`. Repères Do (rouge) / Fa (sombre).
+
+- **Détection** : GM 46 **exclu** de la plage fretboard 24-47 dans
+  `InstrumentDetector` → `viewKind:'harp'`, `canFretboard:false`,
+  `isHarp:true`. **Échappatoire préservée** : `instrument_type='string'`
+  ou un `stringInstrumentConfig` manuel reforcent le fretboard.
+  Règle registre `gm===46 → harp` placée **avant** `inRange(24,47)`
+  (premier match gagne). GM 45/47 restent fretboard.
+- **Branche** : `_selectInstrumentOption` route `info.viewKind === 'harp'`.
+- **Tests** : `tests/frontend/keyboard/harp-view.test.js` (13 cas, dont
+  glissando + échappatoire string-type) + cas de cohérence GM 46 dans
+  `views.test.js`. Suite clavier : **13 fichiers / 244 tests verts**.
+- **Fichiers existants touchés** : mêmes points d'extension que
+  l'harmonica + l'exclusion ciblée de GM 46. Aucune vue existante
+  modifiée.
+
+> ⚠️ **À tester en navigateur** : rendu/ergonomie des cordes, glissando
+> tactile multi-doigts, sélection auto sur un GM 46 réel, CSS dédié
+> (`keyboard.css`). Le glissando réutilise `pointermove` (souris bouton
+> enfoncé) ; le multi-touch fin (par `pointerId`) est une amélioration
+> possible (cf. §20.3.1).
 
 ### 20.3 Extensions de contrat recommandées
 

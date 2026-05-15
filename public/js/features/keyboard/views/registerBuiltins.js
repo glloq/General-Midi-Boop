@@ -31,6 +31,7 @@
     safeRegister(window.DrumPadView);
     safeRegister(window.ListView);
     safeRegister(window.HarmonicaView);
+    safeRegister(window.HarpView);
 
     // ── Detection rules (first match wins) ────────────────────────────────────
     // These mirror the historical getInstrumentViewInfo() logic, now driven
@@ -54,6 +55,10 @@
             && DRUM_TYPES.has(c.instrument_type.toLowerCase()), 'drumpad')
         .addRule(c => c && c.gm_program !== undefined && c.gm_program !== null
             && c.gm_program >= 128, 'drumpad')
+
+        // Harp (GM 46): dedicated vertical-string view. MUST precede the
+        // fretboard 24-47 range rule since 46 ∈ [24,47] (first match wins).
+        .addRule(c => c && c.gm_program === 46, 'harp')
 
         // Fretboard: guitar/bass/orchestral strings + ethnic plucked + bowed
         .addRule(inRange(24, 47), 'fretboard')

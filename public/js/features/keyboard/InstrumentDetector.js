@@ -70,9 +70,14 @@
 
         // String: explicit "string" type, an active stringInstrumentConfig,
         // or a GM program in the guitar/bass/orchestral/ethnic-strings ranges.
+        // GM 46 (Orchestral Harp) is *excluded* here so a plain harp gets
+        // its dedicated vertical-string HarpView instead of the fretboard.
+        // An explicit instrument_type='string' or a manual stringCfg still
+        // forces fretboard below (escape hatch preserved).
         const stringByGm = !isDrum
             && gmProgram !== undefined && gmProgram !== null
-            && ((gmProgram >= 24 && gmProgram <= 47) || EXTRA_FRETBOARD_GM.has(gmProgram));
+            && (((gmProgram >= 24 && gmProgram <= 47) && gmProgram !== 46)
+                || EXTRA_FRETBOARD_GM.has(gmProgram));
 
         const canFretboard = type === 'string' || !!stringCfg || stringByGm;
 
@@ -96,12 +101,19 @@
         const isHarmonica = !isDrum && !canFretboard && !isWind
             && gmProgram === 22;
 
+        // Harp (GM 46): vertical strings plucked individually, glissando by
+        // horizontal drag. Excluded from the fretboard range above so a
+        // plain harp lands here (unless forced to string/fretboard).
+        const isHarp = !isDrum && !canFretboard && !isWind
+            && gmProgram === 46;
+
         // Resolve viewKind from boolean flags (default: piano).
         let viewKind = 'piano';
         if (isDrum)            viewKind = 'drumpad';
         else if (canFretboard) viewKind = 'fretboard';
         else if (isWind)       viewKind = 'piano-slider';
         else if (isHarmonica)  viewKind = 'harmonica';
+        else if (isHarp)       viewKind = 'harp';
 
         return {
             viewKind,
@@ -111,6 +123,7 @@
             isDrum,
             isWind,
             isHarmonica,
+            isHarp,
             windPreset,
             instrumentType: type,
             instrumentSubtype: subtype,
