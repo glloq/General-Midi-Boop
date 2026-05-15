@@ -906,15 +906,17 @@ class KeyboardModal {
         dropdown.replaceChildren(frag);
 
         // Event delegation: a single listener on the container, instead of
-        // one per button. Survives re-builds and is cheap on listeners.
-        if (!this._dropdownDelegated) {
+        // one per button. Guard on the element itself (not an instance flag)
+        // so each freshly created #instrument-dropdown gets its own listener;
+        // a stale instance flag would skip rebinding after close()/mountAsPanel().
+        if (!dropdown._instrumentClickBound) {
             dropdown.addEventListener('click', (e) => {
                 const opt = e.target.closest('.instrument-option');
                 if (!opt || !dropdown.contains(opt)) return;
                 const rawValue = opt.dataset.deviceId ?? '';
                 this._selectInstrumentOption(rawValue);
             });
-            this._dropdownDelegated = true;
+            dropdown._instrumentClickBound = true;
         }
     }
 
