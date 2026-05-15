@@ -12,6 +12,7 @@ function makeDeps({ existingRoutings = [], knownDevices = ['dev-1', 'dev-2'], fi
   const routingRepo = {
     findByFileId: jest.fn().mockReturnValue(existingRoutings),
     deleteByFileId: jest.fn(),
+    deleteNonSplitByFileId: jest.fn(),
     save: jest.fn((r) => r)
   };
   const fileRepo = {
@@ -34,14 +35,33 @@ function makeDeps({ existingRoutings = [], knownDevices = ['dev-1', 'dev-2'], fi
 }
 
 describe('syncFile', () => {
-  test('deletes then saves valid channel → device mappings', () => {
+  test('deletes only non-split routings then saves valid channel → device mappings', () => {
     const { svc, routingRepo } = makeDeps();
     const result = svc.syncFile(42, { 0: 'dev-1', 1: 'dev-2' });
-    expect(routingRepo.deleteByFileId).toHaveBeenCalledWith(42);
+    expect(routingRepo.deleteNonSplitByFileId).toHaveBeenCalledWith(42);
+    expect(routingRepo.deleteByFileId).not.toHaveBeenCalled();
     expect(routingRepo.save).toHaveBeenCalledTimes(2);
     expect(result.synced).toBe(2);
     expect(result.invalidDevices).toEqual([]);
     expect(result.invalidChannels).toEqual([]);
+  });
+
+  test('preserves auto-assign split routings and does not overwrite a split channel', () => {
+    const { svc, routingRepo } = makeDeps({
+      existingRoutings: [
+        { channel: 0, device_id: 'dev-1', split_mode: 'range', instrument_name: 'SplitSeg' },
+        { channel: 1, device_id: 'dev-2', split_mode: null }
+      ]
+    });
+    // Editor sends both channels (channelRouting always covers all of them).
+    const result = svc.syncFile(42, { 0: 'dev-2', 1: 'dev-1' });
+    // Split channel 0 is left untouched (no plain row inserted over it).
+    expect(routingRepo.deleteNonSplitByFileId).toHaveBeenCalledWith(42);
+    expect(routingRepo.deleteByFileId).not.toHaveBeenCalled();
+    expect(routingRepo.save).toHaveBeenCalledTimes(1);
+    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({ channel: 1, device_id: 'dev-1' }));
+    expect(result.synced).toBe(1);
+    expect(result.splitPreserved).toBe(1);
   });
 
   test('reports invalid devices and skips them', () => {
@@ -95,14 +115,50 @@ describe('syncFile', () => {
     }));
   });
 
-  test('ignores split routings when scanning existing metadata', () => {
+  test('carries hand-position overrides forward when the device is unchanged', () => {
+    const overrides = { hand_anchors: [{ tick: 480, handId: 'fretting', anchor: 5 }], version: 1 };
     const { svc, routingRepo } = makeDeps({
-      existingRoutings: [
-        { channel: 0, device_id: 'dev-1', split_mode: 'range', instrument_name: 'ShouldIgnore' }
-      ]
+      existingRoutings: [{
+        channel: 0,
+        device_id: 'dev-1',
+        split_mode: null,
+        hand_position_overrides: overrides,
+        hand_position_feasibility: { level: 'ok' }
+      }]
     });
     svc.syncFile(42, { 0: 'dev-1' });
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({ instrument_name: null }));
+    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      device_id: 'dev-1',
+      hand_position_overrides: overrides
+    }));
+  });
+
+  test('clears hand-position overrides when the device changes', () => {
+    const { svc, routingRepo } = makeDeps({
+      existingRoutings: [{
+        channel: 0,
+        device_id: 'dev-1',
+        split_mode: null,
+        hand_position_overrides: { hand_anchors: [], version: 1 }
+      }]
+    });
+    svc.syncFile(42, { 0: 'dev-2' });
+    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+      device_id: 'dev-2',
+      hand_position_overrides: null
+    }));
+  });
+
+  test('a split channel is preserved, not re-saved as a plain routing', () => {
+    const { svc, routingRepo } = makeDeps({
+      existingRoutings: [
+        { channel: 0, device_id: 'dev-1', split_mode: 'range', instrument_name: 'SplitSeg' }
+      ]
+    });
+    const result = svc.syncFile(42, { 0: 'dev-1' });
+    expect(routingRepo.save).not.toHaveBeenCalled();
+    expect(result.synced).toBe(0);
+    expect(result.splitPreserved).toBe(1);
   });
 
   test('swallows save errors and increments nothing for that channel', () => {
@@ -123,8 +179,8 @@ describe('bulkSync', () => {
     });
     expect(result.synced).toBe(3);
     expect(result.files).toBe(2);
-    expect(routingRepo.deleteByFileId).toHaveBeenCalledWith(10);
-    expect(routingRepo.deleteByFileId).toHaveBeenCalledWith(20);
+    expect(routingRepo.deleteNonSplitByFileId).toHaveBeenCalledWith(10);
+    expect(routingRepo.deleteNonSplitByFileId).toHaveBeenCalledWith(20);
   });
 
   test('skips files with empty channels', () => {
@@ -134,7 +190,7 @@ describe('bulkSync', () => {
       20: { channels: { 0: 'dev-1' } }
     });
     expect(result.files).toBe(1);
-    expect(routingRepo.deleteByFileId).not.toHaveBeenCalledWith(10);
+    expect(routingRepo.deleteNonSplitByFileId).not.toHaveBeenCalledWith(10);
   });
 
   test('accumulates invalid devices across all files', () => {

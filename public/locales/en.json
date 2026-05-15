@@ -1382,6 +1382,7 @@
     "analyzing": "Analyzing MIDI file and matching instruments...",
     "error": "Auto-Assignment Error",
     "generateFailed": "Failed to generate auto-assignment",
+    "transposeError": "Channel transposition failed",
     "confidenceScore": "Confidence Score",
     "instructions": "Select the instrument for each channel. The best match is pre-selected.",
     "channel": "Channel",

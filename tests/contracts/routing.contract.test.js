@@ -34,6 +34,7 @@ function createMockApp({
   // handlers migrated to `app.fileRepository.*` / `app.routingRepository.*` (P0-2.5b).
   const getRoutingsByFile = jest.fn().mockReturnValue(existingRoutings);
   const deleteRoutingsByFile = jest.fn();
+  const deleteNonSplitRoutingsByFile = jest.fn();
   const insertRouting = jest.fn();
   const getFileChannels = jest.fn().mockReturnValue(fileChannels);
 
@@ -68,6 +69,7 @@ function createMockApp({
     database: {
       getRoutingsByFile,
       deleteRoutingsByFile,
+      deleteNonSplitRoutingsByFile,
       insertRouting,
       getFileChannels
     },
@@ -77,6 +79,7 @@ function createMockApp({
     routingRepository: {
       findByFileId: getRoutingsByFile,
       deleteByFileId: deleteRoutingsByFile,
+      deleteNonSplitByFileId: deleteNonSplitRoutingsByFile,
       save: insertRouting
     }
   };

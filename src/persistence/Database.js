@@ -690,6 +690,9 @@ class DatabaseManager {
   getInstrumentsWithCapabilities() {
     return this.instrumentDB.getInstrumentsWithCapabilities();
   }
+  getInstrumentCatalogFingerprint() {
+    return this.instrumentDB.getInstrumentCatalogFingerprint();
+  }
   getRegisteredInstrumentIds() {
     return this.instrumentDB.getRegisteredInstrumentIds();
   }
@@ -725,6 +728,9 @@ class DatabaseManager {
   }
   deleteRoutingsByFile(fileId) {
     return this.instrumentDB.deleteRoutingsByFile(fileId);
+  }
+  deleteNonSplitRoutingsByFile(fileId) {
+    return this.instrumentDB.deleteNonSplitRoutingsByFile(fileId);
   }
   deleteRoutingsByDevice(...args) {
     return this.instrumentDB.deleteRoutingsByDevice(...args);

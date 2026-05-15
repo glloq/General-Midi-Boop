@@ -186,8 +186,11 @@ class RoutingSummaryPage {
         if (saved && JSON.parse(saved).virtualInstrument) excludeVirtual = false;
       } catch (e) { /* ignore */ }
 
-      // Generate suggestions and channel analyses (auto-selection applied only when user clicks Auto)
-      const response = await this.apiClient.generateSuggestions({
+      // Fire the three independent requests concurrently. Only `fileId`
+      // is needed for getSavedRoutings/readFile, so they must not sit
+      // behind the (incompressible, multi-second) suggestion analysis —
+      // previously these were three sequential awaits.
+      const suggestionsP = this.apiClient.generateSuggestions({
         fileId,
         topN: 5,
         minScore: 30,
@@ -195,6 +198,15 @@ class RoutingSummaryPage {
         includeMatrix: false,
         scoringOverrides: this._buildScoringOverridesForRequest()
       });
+      const savedRoutingsP = this.apiClient.getSavedRoutings(fileId)
+        .catch(() => null);
+      const fileReadP = this.apiClient.readFile(fileId)
+        .catch((e) => { console.warn('[RoutingSummary] Could not load MIDI data for preview:', e.message); return null; });
+
+      // Spinner toast only if the analysis is genuinely slow (cold cache).
+      const response = await (window.withProgressToast
+        ? window.withProgressToast(suggestionsP, _t('autoAssign.analyzing'), { thresholdMs: 500 })
+        : suggestionsP);
 
       if (!response.success) {
         this._showError(response.error || _t('autoAssign.generateFailed'));
@@ -216,9 +228,10 @@ class RoutingSummaryPage {
       }
 
       // Check for existing saved routings before using auto-selection
+      // (request already in flight — just await its result here).
       let savedRoutings = [];
       try {
-        const savedResp = await this.apiClient.getSavedRoutings(fileId);
+        const savedResp = await savedRoutingsP;
         if (savedResp?.success && savedResp.routings?.length > 0) {
           savedRoutings = savedResp.routings;
         }
@@ -316,9 +329,9 @@ class RoutingSummaryPage {
         this.adaptationSettings[ch] = adapt;
       }
 
-      // Load MIDI data for preview minimap
+      // Load MIDI data for preview minimap (request already in flight).
       try {
-        const fileResponse = await this.apiClient.readFile(fileId);
+        const fileResponse = await fileReadP;
         if (fileResponse?.midiData) {
           const raw = fileResponse.midiData;
           this.midiData = (raw.midi && raw.midi.tracks)
@@ -2480,13 +2493,19 @@ class RoutingSummaryPage {
     }
 
     try {
-      // Use apply_assignments which handles both normal and split routings
-      const result = await this.apiClient.applyAssignments({
+      // Use apply_assignments which handles both normal and split routings.
+      // This can be heavy server-side (per-channel transposition, channel
+      // splitting, CC injection, re-encode + file write) so surface a
+      // non-blocking spinner if it runs long.
+      const applyP = this.apiClient.applyAssignments({
         originalFileId: this.fileId,
         assignments,
         createAdaptedFile: needsFileModification,
         overwriteOriginal
       });
+      const result = await (window.withProgressToast
+        ? window.withProgressToast(applyP, _t('autoAssign.applying') || _t('autoAssign.analyzing'), { thresholdMs: 500 })
+        : applyP);
 
       // Also build simple routing map for localStorage/eventBus compatibility
       const routing = {};
@@ -2547,6 +2566,12 @@ class RoutingSummaryPage {
 
     } catch (error) {
       console.error('[RoutingSummary] Apply failed:', error);
+      if (typeof window.showToast === 'function') {
+        window.showToast(
+          (_t('autoAssign.applyFailed') || 'Échec de l’application du routage')
+            + (error && error.message ? ` : ${error.message}` : ''),
+          'error');
+      }
     }
   }
 
@@ -2848,7 +2873,7 @@ class RoutingSummaryPage {
         if (saved.virtualInstrument) excludeVirtual = false;
       } catch (e) { /* ignore */ }
 
-      const response = await this.apiClient.generateSuggestions({
+      const recalcP = this.apiClient.generateSuggestions({
         fileId: this.fileId,
         topN: 5,
         minScore: this.scoringOverrides.scoreThresholds?.minimum || 30,
@@ -2856,6 +2881,9 @@ class RoutingSummaryPage {
         includeMatrix: false,
         scoringOverrides: this._buildScoringOverridesForRequest()
       });
+      const response = await (window.withProgressToast
+        ? window.withProgressToast(recalcP, _t('autoAssign.analyzing'), { thresholdMs: 500 })
+        : recalcP);
 
       if (!response.success) {
         this._showError(response.error || _t('autoAssign.generateFailed'));

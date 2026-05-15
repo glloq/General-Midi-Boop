@@ -8,6 +8,76 @@
 import ScoringConfig from '../../adaptation/ScoringConfig.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
+import AnalysisCache from '../AnalysisCache.js';
+
+/**
+ * Lazily build (once per app) the LRU cache backing
+ * `generate_assignment_suggestions`. The full response is keyed by
+ * everything that can change its content: the file's content hash, the
+ * instrument-catalog fingerprint, the request options and the scoring
+ * overrides. The cache auto-invalidates a file on
+ * `file_write`/`file_delete`/`file_uploaded` (AnalysisCache eventBus
+ * wiring); instrument/device setting edits clear it wholesale (rare).
+ * @param {Object} app
+ * @returns {AnalysisCache}
+ */
+function getSuggestionCache(app) {
+  if (app._suggestionCache) return app._suggestionCache;
+  const cache = new AnalysisCache({
+    maxSize: 64,
+    maxBytes: 16 * 1024 * 1024,
+    eventBus: app.eventBus,
+    logger: app.logger
+  });
+  if (app.eventBus && typeof app.eventBus.on === 'function') {
+    const clear = () => cache.clear();
+    app.eventBus.on('instrument_settings_changed', clear);
+    app.eventBus.on('device_settings_changed', clear);
+  }
+  app._suggestionCache = cache;
+  return cache;
+}
+
+/**
+ * Serialize the suggestion critical section. `applyScoringOverrides`
+ * mutates the GLOBAL singleton ScoringConfig and `restoreScoringConfig`
+ * reverts it; the scoring loop now yields cooperatively, so without this
+ * lock two concurrent requests could interleave and compute one
+ * request's suggestions under another request's scoring weights (and
+ * scramble the restore). Runs at most one apply→compute→restore at a
+ * time. The read-only cache fast-path stays OUTSIDE this lock, so the
+ * common "reopen the modal" hit is never serialized.
+ * @template T
+ * @param {Object} app
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+function runSuggestionExclusive(app, fn) {
+  const prev = app._suggestionLock || Promise.resolve();
+  let release;
+  app._suggestionLock = new Promise((r) => { release = r; });
+  const run = prev.then(() => fn());
+  run.then(release, release);
+  return run;
+}
+
+/**
+ * Stable string key for one suggestion request. Object key order is
+ * fixed so equal inputs always produce the same string.
+ */
+function buildSuggestionCacheKey(file, catalogFp, options, scoringOverrides) {
+  return JSON.stringify({
+    h: file.content_hash || file.blob_path || '',
+    c: catalogFp || '',
+    o: {
+      topN: options.topN,
+      minScore: options.minScore,
+      excludeVirtual: !!options.excludeVirtual,
+      includeMatrix: !!options.includeMatrix
+    },
+    s: scoringOverrides || null
+  });
+}
 
 /**
  * Analyse a single channel of a stored MIDI file (range, polyphony,
@@ -194,57 +264,87 @@ async function generateAssignmentSuggestions(app, data) {
     throw new NotFoundError('File', data.fileId);
   }
 
-  let midiData;
+  // Cache fast-path: the analysis + channel × instrument scoring is the
+  // single most expensive thing the routing modal triggers (multi-second
+  // on a large library / Pi). Re-opening the modal, switching back to it,
+  // or re-applying the same scoring would otherwise recompute it all.
+  const cache = getSuggestionCache(app);
+  let cacheKey = null;
   try {
-    const midiConverter = getMidiConverter(app);
-    const buffer = app.blobStore.read(file.blob_path);
-    midiData = midiConverter.midiToJson(buffer);
-  } catch (error) {
-    throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
+    const catalogFp = app.instrumentRepository?.getCatalogFingerprint?.() || '';
+    cacheKey = buildSuggestionCacheKey(file, catalogFp, options, data.scoringOverrides);
+    const cached = cache.get(data.fileId, cacheKey);
+    if (cached) return cached;
+  } catch (e) {
+    app.logger?.warn?.(`[suggestions] cache key build failed, recomputing: ${e.message}`);
+    cacheKey = null;
   }
 
-  let originalConfig = null;
-  if (data.scoringOverrides) {
-    originalConfig = applyScoringOverrides(data.scoringOverrides);
-    app.logger.info('Scoring overrides applied for this request');
-  }
-
-  let result;
-  try {
-    result = await app.adaptationService.generateSuggestions(midiData, options);
-  } finally {
-    if (originalConfig) {
-      restoreScoringConfig(originalConfig);
+  return runSuggestionExclusive(app, async () => {
+    // Re-check the cache inside the lock: a concurrent identical request
+    // we queued behind may have just computed and cached this exact
+    // result — return it instead of recomputing.
+    if (cacheKey) {
+      const cachedNow = cache.get(data.fileId, cacheKey);
+      if (cachedNow) return cachedNow;
     }
-  }
 
-  if (!result.success) {
-    return {
-      success: false,
-      error: result.error,
-      suggestions: {},
-      autoSelection: {}
+    let midiData;
+    try {
+      const midiConverter = getMidiConverter(app);
+      const buffer = app.blobStore.read(file.blob_path);
+      midiData = midiConverter.midiToJson(buffer);
+    } catch (error) {
+      throw new MidiError(`Failed to parse MIDI file: ${error.message}`);
+    }
+
+    let originalConfig = null;
+    if (data.scoringOverrides) {
+      originalConfig = applyScoringOverrides(data.scoringOverrides);
+      app.logger.info('Scoring overrides applied for this request');
+    }
+
+    let result;
+    try {
+      result = await app.adaptationService.generateSuggestions(midiData, options);
+    } finally {
+      if (originalConfig) {
+        restoreScoringConfig(originalConfig);
+      }
+    }
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error,
+        suggestions: {},
+        autoSelection: {}
+      };
+    }
+
+    const response = {
+      success: true,
+      suggestions: result.suggestions,
+      lowScoreSuggestions: result.lowScoreSuggestions || {},
+      autoSelection: result.autoSelection,
+      splitProposals: result.splitProposals || {},
+      channelAnalyses: result.channelAnalyses,
+      confidenceScore: result.confidenceScore,
+      allInstruments: result.allInstruments || [],
+      stats: result.stats
     };
-  }
 
-  const response = {
-    success: true,
-    suggestions: result.suggestions,
-    lowScoreSuggestions: result.lowScoreSuggestions || {},
-    autoSelection: result.autoSelection,
-    splitProposals: result.splitProposals || {},
-    channelAnalyses: result.channelAnalyses,
-    confidenceScore: result.confidenceScore,
-    allInstruments: result.allInstruments || [],
-    stats: result.stats
-  };
+    if (result.matrixScores) {
+      response.matrixScores = result.matrixScores;
+      response.instrumentList = result.instrumentList;
+    }
 
-  if (result.matrixScores) {
-    response.matrixScores = result.matrixScores;
-    response.instrumentList = result.instrumentList;
-  }
+    if (cacheKey) {
+      try { cache.set(data.fileId, cacheKey, response); } catch { /* non-fatal */ }
+    }
 
-  return response;
+    return response;
+  });
 }
 
 /**

@@ -76,6 +76,15 @@ export default class RoutingRepository {
   }
 
   /**
+   * Delete only non-split routings; preserves auto-assign-managed splits.
+   * @param {(string|number)} fileId
+   * @returns {void}
+   */
+  deleteNonSplitByFileId(fileId) {
+    return this.database.deleteNonSplitRoutingsByFile(fileId);
+  }
+
+  /**
    * @param {string} deviceId
    * @param {?number} [channel]
    * @returns {void}

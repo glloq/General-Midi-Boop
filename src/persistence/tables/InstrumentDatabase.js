@@ -133,6 +133,7 @@ class InstrumentDatabase {
   getAllInstrumentCapabilities() { return this._capabilities.getAllInstrumentCapabilities(); }
   getRegisteredInstrumentIds() { return this._capabilities.getRegisteredInstrumentIds(); }
   getInstrumentsWithCapabilities() { return this._capabilities.getInstrumentsWithCapabilities(); }
+  getInstrumentCatalogFingerprint() { return this._capabilities.getCatalogFingerprint(); }
 
   // ==================== DELEGATED: INSTRUMENT VOICES (multi-GM) ====================
   // Full implementations in InstrumentVoicesDB.js
@@ -153,6 +154,7 @@ class InstrumentDatabase {
   getRoutingsByFile(...args) { return this._routing.getRoutingsByFile(...args); }
   getRoutingCountsByFiles(...args) { return this._routing.getRoutingCountsByFiles(...args); }
   deleteRoutingsByFile(...args) { return this._routing.deleteRoutingsByFile(...args); }
+  deleteNonSplitRoutingsByFile(...args) { return this._routing.deleteNonSplitRoutingsByFile(...args); }
   deleteRoutingsByDevice(...args) { return this._routing.deleteRoutingsByDevice(...args); }
   disableVirtualRoutings(...args) { return this._routing.disableVirtualRoutings(...args); }
   enableVirtualRoutings(...args) { return this._routing.enableVirtualRoutings(...args); }
