@@ -22,22 +22,11 @@
         const panel = document.getElementById('wind-instrument-panel');
         if (!panel) return;
 
-        // Articulation buttons
+        // Articulation buttons (breath slider removed — QA request)
         panel.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-art]');
             if (btn) this._setWindArticulation(btn.dataset.art);
         });
-
-        // Breath slider (CC#2)
-        const breathSlider = document.getElementById('keyboard-wind-breath');
-        const breathDisplay = document.getElementById('keyboard-wind-breath-display');
-        if (breathSlider) {
-            breathSlider.addEventListener('input', () => {
-                const val = parseInt(breathSlider.value, 10);
-                if (breathDisplay) breathDisplay.textContent = val;
-                this.sendCC(2, val);
-            });
-        }
     };
 
     KeyboardWindMixin._showWindControls = function (preset) {
@@ -61,28 +50,6 @@
                 + `<span class="wind-range-comfort" title="Comfort zone">${cMin}–${cMax}</span>`;
         }
 
-        // Breath capacity indicator (Infinity → ∞, else 1–5 dots on a 1–10 scale)
-        const capEl = document.getElementById('wind-breath-capacity');
-        if (capEl && preset) {
-            const bc = preset.breathCapacity;
-            if (!isFinite(bc)) {
-                capEl.textContent = '∞';
-                capEl.title = 'Breath capacity: unlimited';
-            } else {
-                const filled = Math.max(1, Math.round(bc / 2));     // 1–5
-                capEl.textContent = '●'.repeat(filled) + '○'.repeat(5 - filled);
-                capEl.title = `Breath capacity: ${bc}`;
-            }
-        }
-
-        // Reset breath slider to 0 for the new instrument
-        const breathSlider = document.getElementById('keyboard-wind-breath');
-        const breathDisplay = document.getElementById('keyboard-wind-breath-display');
-        if (breathSlider) {
-            breathSlider.value = 0;
-            if (breathDisplay) breathDisplay.textContent = '0';
-        }
-
         // Auto-center piano-slider on the comfort zone
         if (preset) {
             const center = Math.round((preset.comfortMin + preset.comfortMax) / 2);
@@ -97,17 +64,9 @@
     KeyboardWindMixin._hideWindControls = function () {
         this._clearWindComfortZone();
         this._cancelStaccatoTimers();
-        // Release breath pressure before switching instrument
-        if (this.windPreset) this.sendCC(2, 0);
         this.windPreset = null;
         const panel = document.getElementById('wind-instrument-panel');
         if (panel) panel.classList.add('hidden');
-        const breathSlider = document.getElementById('keyboard-wind-breath');
-        const breathDisplay = document.getElementById('keyboard-wind-breath-display');
-        if (breathSlider) {
-            breathSlider.value = 0;
-            if (breathDisplay) breathDisplay.textContent = '0';
-        }
     };
 
     // ── Articulation management ───────────────────────────────────────────────

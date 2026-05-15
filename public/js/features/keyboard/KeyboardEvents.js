@@ -152,7 +152,10 @@
             if (this.viewMode === 'fretboard') this.renderFretboard();
             else if (this.viewMode === 'keyboard-list') {
                 if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
-            } else if (this.viewMode === 'piano') this.regeneratePianoKeys();
+            } else if (this.viewMode === 'piano' || this.viewMode === 'piano-slider') {
+                // regeneratePianoKeys routes piano-slider → generatePianoSlider
+                this.regeneratePianoKeys();
+            }
             // Self-owned instrument views colour their own cells from
             // modal.showNoteColors / modal.getNoteColor — rebuild so the
             // 🎨 toggle works for every instrument.
