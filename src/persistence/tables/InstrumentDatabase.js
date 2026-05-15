@@ -133,6 +133,7 @@ class InstrumentDatabase {
   getAllInstrumentCapabilities() { return this._capabilities.getAllInstrumentCapabilities(); }
   getRegisteredInstrumentIds() { return this._capabilities.getRegisteredInstrumentIds(); }
   getInstrumentsWithCapabilities() { return this._capabilities.getInstrumentsWithCapabilities(); }
+  getInstrumentCatalogFingerprint() { return this._capabilities.getCatalogFingerprint(); }
 
   // ==================== DELEGATED: INSTRUMENT VOICES (multi-GM) ====================
   // Full implementations in InstrumentVoicesDB.js

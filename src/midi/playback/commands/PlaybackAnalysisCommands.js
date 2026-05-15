@@ -8,6 +8,53 @@
 import ScoringConfig from '../../adaptation/ScoringConfig.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
+import AnalysisCache from '../AnalysisCache.js';
+
+/**
+ * Lazily build (once per app) the LRU cache backing
+ * `generate_assignment_suggestions`. The full response is keyed by
+ * everything that can change its content: the file's content hash, the
+ * instrument-catalog fingerprint, the request options and the scoring
+ * overrides. The cache auto-invalidates a file on
+ * `file_write`/`file_delete`/`file_uploaded` (AnalysisCache eventBus
+ * wiring); instrument/device setting edits clear it wholesale (rare).
+ * @param {Object} app
+ * @returns {AnalysisCache}
+ */
+function getSuggestionCache(app) {
+  if (app._suggestionCache) return app._suggestionCache;
+  const cache = new AnalysisCache({
+    maxSize: 64,
+    maxBytes: 16 * 1024 * 1024,
+    eventBus: app.eventBus,
+    logger: app.logger
+  });
+  if (app.eventBus && typeof app.eventBus.on === 'function') {
+    const clear = () => cache.clear();
+    app.eventBus.on('instrument_settings_changed', clear);
+    app.eventBus.on('device_settings_changed', clear);
+  }
+  app._suggestionCache = cache;
+  return cache;
+}
+
+/**
+ * Stable string key for one suggestion request. Object key order is
+ * fixed so equal inputs always produce the same string.
+ */
+function buildSuggestionCacheKey(file, catalogFp, options, scoringOverrides) {
+  return JSON.stringify({
+    h: file.content_hash || file.blob_path || '',
+    c: catalogFp || '',
+    o: {
+      topN: options.topN,
+      minScore: options.minScore,
+      excludeVirtual: !!options.excludeVirtual,
+      includeMatrix: !!options.includeMatrix
+    },
+    s: scoringOverrides || null
+  });
+}
 
 /**
  * Analyse a single channel of a stored MIDI file (range, polyphony,
@@ -194,6 +241,22 @@ async function generateAssignmentSuggestions(app, data) {
     throw new NotFoundError('File', data.fileId);
   }
 
+  // Cache fast-path: the analysis + channel × instrument scoring is the
+  // single most expensive thing the routing modal triggers (multi-second
+  // on a large library / Pi). Re-opening the modal, switching back to it,
+  // or re-applying the same scoring would otherwise recompute it all.
+  const cache = getSuggestionCache(app);
+  let cacheKey = null;
+  try {
+    const catalogFp = app.instrumentRepository?.getCatalogFingerprint?.() || '';
+    cacheKey = buildSuggestionCacheKey(file, catalogFp, options, data.scoringOverrides);
+    const cached = cache.get(data.fileId, cacheKey);
+    if (cached) return cached;
+  } catch (e) {
+    app.logger?.warn?.(`[suggestions] cache key build failed, recomputing: ${e.message}`);
+    cacheKey = null;
+  }
+
   let midiData;
   try {
     const midiConverter = getMidiConverter(app);
@@ -242,6 +305,10 @@ async function generateAssignmentSuggestions(app, data) {
   if (result.matrixScores) {
     response.matrixScores = result.matrixScores;
     response.instrumentList = result.instrumentList;
+  }
+
+  if (cacheKey) {
+    try { cache.set(data.fileId, cacheKey, response); } catch { /* non-fatal */ }
   }
 
   return response;

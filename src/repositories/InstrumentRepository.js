@@ -34,6 +34,11 @@ export default class InstrumentRepository {
     return this.database.getInstrumentsWithCapabilities();
   }
 
+  /** Cheap catalog version string for cache keying. @returns {string} */
+  getCatalogFingerprint() {
+    return this.database.getInstrumentCatalogFingerprint();
+  }
+
   getCapabilities(deviceId, channel) {
     return this.database.getInstrumentCapabilities(deviceId, channel);
   }

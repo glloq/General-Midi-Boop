@@ -690,6 +690,9 @@ class DatabaseManager {
   getInstrumentsWithCapabilities() {
     return this.instrumentDB.getInstrumentsWithCapabilities();
   }
+  getInstrumentCatalogFingerprint() {
+    return this.instrumentDB.getInstrumentCatalogFingerprint();
+  }
   getRegisteredInstrumentIds() {
     return this.instrumentDB.getRegisteredInstrumentIds();
   }

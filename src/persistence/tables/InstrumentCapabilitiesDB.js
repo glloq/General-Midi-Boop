@@ -447,6 +447,30 @@ class InstrumentCapabilitiesDB {
       throw error;
     }
   }
+
+  /**
+   * Cheap fingerprint of the instrument catalog, used to key the
+   * auto-assign suggestion cache. Changes whenever an instrument is
+   * added/removed (count, max id) or its capabilities are edited
+   * (capabilities_updated_at). A single indexed aggregate — far cheaper
+   * than re-running the channel × instrument scoring loop.
+   * @returns {string}
+   */
+  getCatalogFingerprint() {
+    try {
+      const row = this.db.prepare(`
+        SELECT COUNT(*) AS n,
+               COALESCE(MAX(id), 0) AS maxid,
+               COALESCE(MAX(capabilities_updated_at), '') AS capu
+        FROM instruments_latency
+      `).get();
+      return `${row.n}:${row.maxid}:${row.capu}`;
+    } catch (error) {
+      this.logger.warn(`Failed to compute instrument catalog fingerprint: ${error.message}`);
+      // Unique-ish fallback ⇒ cache miss (correct, just not cached).
+      return `nofp:${Date.now()}`;
+    }
+  }
 }
 
 export default InstrumentCapabilitiesDB;
