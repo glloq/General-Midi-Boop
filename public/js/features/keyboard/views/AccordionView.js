@@ -49,16 +49,32 @@
             });
             root.appendChild(bellows);
 
-            // QA: the treble (right-hand) keyboard follows the instrument's
-            // configured note range; the Stradella bass row keeps its fixed
-            // 12 roots until accordion-specific settings land (left/right
-            // hands — see docs §20.5 / instrument-specific settings plan).
+            // QA #2: the right-hand (treble) follows the configured range.
             const r = typeof modal.getInstrumentNoteRange === 'function'
                 ? modal.getInstrumentNoteRange() : null;
             const tLo = r ? r.min : TREBLE_LO;
             const tHi = r ? r.max : TREBLE_HI;
-            root.appendChild(this._row('accordion-treble', tLo, tHi, modal, '#2b3a4a'));
-            root.appendChild(this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a'));
+
+            // QA #3: instrument-specific accordion settings (hands +
+            // bass system) from the per-instrument capabilities.
+            const acfg = typeof modal.getAccordionConfig === 'function'
+                ? modal.getAccordionConfig() : { bass_system: 'stradella', hands: 'both' };
+
+            if (acfg.hands === 'both' || acfg.hands === 'right') {
+                root.appendChild(this._row('accordion-treble', tLo, tHi, modal, '#2b3a4a'));
+            }
+            if (acfg.hands === 'both' || acfg.hands === 'left') {
+                if (acfg.bass_system === 'stradella') {
+                    // 12 Stradella root buttons (fixed).
+                    root.appendChild(this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a'));
+                } else {
+                    // Free-bass / chromatic: a chromatic left-hand keyboard
+                    // one octave below the treble's low note.
+                    const bHi = (r ? r.min : TREBLE_LO) - 1;
+                    const bLo = bHi - 23;            // 2 octaves
+                    root.appendChild(this._row('accordion-bass', bLo, bHi, modal, '#3a2b3a'));
+                }
+            }
 
             canvas.appendChild(root);
             this._root = root;

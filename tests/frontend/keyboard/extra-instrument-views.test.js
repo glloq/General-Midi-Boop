@@ -266,6 +266,82 @@ describe('configured note range (QA) — views follow instrument settings', () =
   });
 });
 
+describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
+  it('getBagpipeConfig: defaults + reads caps.bagpipe_config', () => {
+    const m = new (win.KeyboardModal)();
+    expect(m.getBagpipeConfig()).toEqual({ drones: [45], enabled: true });
+    m.selectedDeviceCapabilities = { bagpipe_config: { drones: [45, 45, 33], enabled: false } };
+    expect(m.getBagpipeConfig()).toEqual({ drones: [45, 45, 33], enabled: false });
+    m.selectedDeviceCapabilities = { bagpipe_config: { drones: [] } };
+    expect(m.getBagpipeConfig().drones).toEqual([45]);   // empty → default
+  });
+
+  it('getAccordionConfig: defaults + validates caps.accordion_config', () => {
+    const m = new (win.KeyboardModal)();
+    expect(m.getAccordionConfig()).toEqual({ bass_system: 'stradella', hands: 'both' });
+    m.selectedDeviceCapabilities = { accordion_config: { bass_system: 'free', hands: 'left' } };
+    expect(m.getAccordionConfig()).toEqual({ bass_system: 'free', hands: 'left' });
+    m.selectedDeviceCapabilities = { accordion_config: { bass_system: 'bogus', hands: 'x' } };
+    expect(m.getAccordionConfig()).toEqual({ bass_system: 'stradella', hands: 'both' });
+  });
+
+  it('BagpipeView: plays every configured drone on mount; toggle all', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({ drones: [45, 33, 57], enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    expect(sink.played.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
+    document.getElementById('bagpipe-drone-toggle').click();   // off
+    expect(sink.stopped.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
+    v.unmount();
+  });
+
+  it('BagpipeView: drones disabled in settings → silent on mount', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({ drones: [45], enabled: false });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    expect(sink.played).not.toContain(45);
+    document.getElementById('bagpipe-drone-toggle').click();    // user starts it
+    expect(sink.played).toContain(45);
+    v.unmount();
+  });
+
+  it('AccordionView: hands=right → treble only; left → bass only', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
+                getAccordionConfig: () => ({ bass_system: 'stradella', hands: 'right' }) };
+    let v = new (win.AccordionView)();
+    v.mount({ modal: m });
+    expect(document.querySelector('.accordion-treble')).not.toBeNull();
+    expect(document.querySelector('.accordion-bass')).toBeNull();
+    v.unmount();
+
+    m.getAccordionConfig = () => ({ bass_system: 'stradella', hands: 'left' });
+    v = new (win.AccordionView)();
+    v.mount({ modal: m });
+    expect(document.querySelector('.accordion-treble')).toBeNull();
+    expect(document.querySelector('.accordion-bass')).not.toBeNull();
+    v.unmount();
+  });
+
+  it('AccordionView: free-bass → chromatic left-hand (not 12 Stradella)', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
+                getInstrumentNoteRange: () => ({ min: 60, max: 83, notes: null }),
+                getAccordionConfig: () => ({ bass_system: 'free', hands: 'both' }) };
+    const v = new (win.AccordionView)();
+    v.mount({ modal: m });
+    const bass = document.querySelectorAll('.accordion-bass .accordion-key');
+    expect(bass.length).toBe(24);                  // 2 chromatic octaves, not 12
+    v.unmount();
+  });
+});
+
 describe('note colours — 🎨 applies to every instrument view', () => {
   it('KeyboardModal.getNoteColor: octave-invariant 12-colour palette', () => {
     const m = new (win.KeyboardModal)();

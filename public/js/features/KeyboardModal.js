@@ -903,6 +903,36 @@ class KeyboardModal {
     }
 
     /**
+     * Instrument-specific bagpipe settings. Read from the same per-instrument
+     * capabilities object the instrument-settings modal already populates
+     * (like hands_config) — optional `caps.bagpipe_config`. Defaults match
+     * the previous behaviour (single A2 drone, enabled).
+     * @returns {{drones:number[], enabled:boolean}}
+     */
+    getBagpipeConfig() {
+        const caps = this.selectedDeviceCapabilities;
+        const c = (caps && caps.bagpipe_config) || {};
+        const drones = Array.isArray(c.drones) && c.drones.length
+            ? c.drones.map(Number).filter(Number.isFinite)
+            : [45];
+        return { drones: drones.length ? drones : [45], enabled: c.enabled !== false };
+    }
+
+    /**
+     * Instrument-specific accordion settings (optional `caps.accordion_config`).
+     * Defaults match the previous behaviour (both hands, Stradella bass).
+     * @returns {{bass_system:'stradella'|'chromatic'|'free', hands:'both'|'right'|'left'}}
+     */
+    getAccordionConfig() {
+        const caps = this.selectedDeviceCapabilities;
+        const c = (caps && caps.accordion_config) || {};
+        const bass_system = ['stradella', 'chromatic', 'free'].includes(c.bass_system)
+            ? c.bass_system : 'stradella';
+        const hands = ['both', 'right', 'left'].includes(c.hands) ? c.hands : 'both';
+        return { bass_system, hands };
+    }
+
+    /**
      * Detect whether the selected instrument should switch to a special view.
      * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
      */

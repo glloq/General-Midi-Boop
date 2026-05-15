@@ -1146,10 +1146,24 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > l'interstice entre les bonnes naturelles (plus de 2 rangées
 > régulièrement espacées).
 >
-> ⏳ **À planifier (QA #3)** : réglages spécifiques par type —
-> **cornemuse** (nombre/accordage des bourdons) et **accordéon**
-> (mains gauche/droite, basses Stradella vs chromatique). Source de
-> config à décider (voir question ouverte / §20.5).
+> ✅ **QA #3 fait** : réglages spécifiques par type, **lus depuis les
+> capacités d'instrument existantes** (même mécanisme que `hands_config`,
+> peuplé par le modal de réglages d'instrument) — défauts = comportement
+> antérieur :
+> - `KeyboardModal.getBagpipeConfig()` → `{drones:number[], enabled}`
+>   depuis `caps.bagpipe_config` (défaut `{[45], true}`). **BagpipeView**
+>   joue/coupe **tous** les bourdons configurés ; toggle global ;
+>   auto-start seulement si `enabled`.
+> - `KeyboardModal.getAccordionConfig()` →
+>   `{bass_system:'stradella'|'chromatic'|'free', hands:'both'|'right'|'left'}`
+>   depuis `caps.accordion_config` (défaut `{stradella, both}`).
+>   **AccordionView** : `hands` masque main G/D ; `bass_system` =
+>   `stradella` → 12 boutons fixes, `chromatic`/`free` → clavier
+>   chromatique main gauche (2 oct sous le treble).
+>
+> Le backend / modal de réglages d'instrument n'a qu'à renseigner
+> `caps.bagpipe_config` / `caps.accordion_config` (optionnels) — la vue
+> les consomme comme `hands_config`.
 
 Pour des vues riches sans réécrire l'orchestrateur :
 

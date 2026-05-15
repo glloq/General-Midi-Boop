@@ -11,7 +11,6 @@
     if (typeof window === 'undefined' || !window.InstrumentView) return;
     const InstrumentView = window.InstrumentView;
 
-    const DRONE = 45;                                   // A2 drone
     // GHB chanter (approx, A-mixolydian): Low G..High A — reference.
     const CHANTER0 = [55, 57, 59, 61, 62, 64, 66, 67, 69];
 
@@ -50,17 +49,24 @@
                 + 'align-items:center;justify-content:center;height:100%;'
                 + 'touch-action:none;';
 
+            // Instrument-specific drone settings (QA #3): drone notes +
+            // default on/off from the per-instrument capabilities.
+            const bcfg = typeof modal.getBagpipeConfig === 'function'
+                ? modal.getBagpipeConfig() : { drones: [45], enabled: true };
+            this._droneNotes = bcfg.drones;
+
             const drone = document.createElement('button');
             drone.type = 'button';
             drone.id = 'bagpipe-drone-toggle';
-            drone.className = 'bagpipe-drone active';
-            drone.textContent = '🟢 Drone';
+            drone.className = 'bagpipe-drone';
             drone.style.cssText =
                 'padding:6px 14px;border-radius:16px;border:1px solid #555;'
                 + 'background:#234d23;color:#dfe;cursor:pointer;font:12px sans-serif;';
             drone.addEventListener('click', () => this._toggleDrone());
             root.appendChild(drone);
             this._droneBtn = drone;
+            this._droneLabel = (on) =>
+                `${on ? '🟢' : '⚪'} Drone ×${this._droneNotes.length}`;
 
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
@@ -100,29 +106,35 @@
             document.addEventListener('pointerup', this._onDocUp);
             document.addEventListener('pointercancel', this._onDocUp);
 
-            this._startDrone();
+            // Auto-start the drones only when enabled in the settings.
+            if (bcfg.enabled) this._startDrone();
+            else this._syncDroneBtn();
+        }
+
+        _syncDroneBtn() {
+            if (!this._droneBtn) return;
+            this._droneBtn.classList.toggle('active', !!this._droneOn);
+            this._droneBtn.textContent = this._droneLabel(!!this._droneOn);
         }
 
         _startDrone() {
             if (this._droneOn) return;
             const modal = this.ctx && this.ctx.modal;
-            if (modal && typeof modal.playNote === 'function') modal.playNote(DRONE);
-            this._droneOn = true;
-            if (this._droneBtn) {
-                this._droneBtn.classList.add('active');
-                this._droneBtn.textContent = '🟢 Drone';
+            if (modal && typeof modal.playNote === 'function') {
+                for (const n of this._droneNotes) modal.playNote(n);
             }
+            this._droneOn = true;
+            this._syncDroneBtn();
         }
 
         _stopDrone() {
             if (!this._droneOn) return;
             const modal = this.ctx && this.ctx.modal;
-            if (modal && typeof modal.stopNote === 'function') modal.stopNote(DRONE);
-            this._droneOn = false;
-            if (this._droneBtn) {
-                this._droneBtn.classList.remove('active');
-                this._droneBtn.textContent = '⚪ Drone';
+            if (modal && typeof modal.stopNote === 'function') {
+                for (const n of this._droneNotes) modal.stopNote(n);
             }
+            this._droneOn = false;
+            this._syncDroneBtn();
         }
 
         _toggleDrone() { this._droneOn ? this._stopDrone() : this._startDrone(); }
