@@ -1284,13 +1284,14 @@
                     // ruler / keyboard chrome).
                     const { x, y } = this._localCoords(e);
                     const oldRange = this._yrange;
-                    const drawH = Math.max(1, this._cssHeight - RULER_H);
-                    if (x >= KB_WIDTH && y >= RULER_H) {
-                        const oldNoteH = Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / oldRange));
+                    // Use the real `_noteHeight()` (which now reserves the
+                    // HSB strip) so the pivot matches what's drawn.
+                    if (x >= KB_WIDTH && y >= RULER_H && y < this._cssHeight - HSB_H) {
+                        const oldNoteH = this._noteHeight();
                         const notesFromTop = (y - RULER_H) / oldNoteH; // fractional
                         const pitchAtMouse = this._yoffset + oldRange - 1 - notesFromTop;
                         this._yrange = newRange;
-                        const newNoteH = Math.max(NOTE_H_MIN, Math.min(NOTE_H_MAX, drawH / newRange));
+                        const newNoteH = this._noteHeight();
                         const newNotesFromTop = (y - RULER_H) / newNoteH;
                         const rawOffset = pitchAtMouse - newRange + 1 + newNotesFromTop;
                         this._yoffset = Math.max(0, Math.min(128 - newRange, Math.round(rawOffset)));
