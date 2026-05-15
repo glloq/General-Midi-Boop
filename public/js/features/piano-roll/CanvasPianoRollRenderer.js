@@ -38,7 +38,11 @@
     const SB_W     = 24;       // vertical scrollbar column on the left edge
     const KB_W     = 40;       // keyboard column (without scrollbar)
     const KB_WIDTH = SB_W + KB_W; // total left chrome — notes start at x >= KB_WIDTH
-    const RULER_H  = 18;       // top ruler
+    // Internal top ruler removed — the modal's Playback Timeline bar above
+    // the canvas already shows measures/time, so an in-canvas ruler just
+    // duplicated it and ate vertical space. Kept as a 0 constant so every
+    // `RULER_H`-relative coordinate collapses to "no top offset".
+    const RULER_H  = 0;
     const NOTE_H_MIN = 4;      // min note row height (pitch)
     const NOTE_H_MAX = 24;     // max note row height (pitch)
 
@@ -636,6 +640,7 @@
         }
 
         _paintRuler(ctx) {
+            if (!RULER_H) return; // ruler disabled — Playback Timeline bar covers it
             const W = this._cssWidth;
             // Ruler bg starts at KB_WIDTH so its left edge aligns with the
             // right edge of the piano keys — the area to the left (scrollbar
