@@ -1144,6 +1144,13 @@ class KeyboardModal {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('keyboard-list');
+        } else if (info.viewKind === 'harmonica') {
+            // Harmonica (GM 22): dedicated blow/draw hole view. The view
+            // owns its own DOM host (lazy-mounted), so no built-in
+            // container/toolbar group is shown.
+            this.stringInstrumentConfig = null;
+            if (viewGroup) viewGroup.classList.add('hidden');
+            this.setViewMode('harmonica');
         } else {
             this.stringInstrumentConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');

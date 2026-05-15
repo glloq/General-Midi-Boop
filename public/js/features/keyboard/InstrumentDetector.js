@@ -90,11 +90,18 @@
             ? windDb.getPresetByProgram(gmProgram)
             : null;
 
+        // Harmonica (GM 22): a free-reed instrument with blow/draw holes —
+        // neither a drum, a fretted/bowed string, nor a (wind-DB) wind
+        // instrument. Gets its own dedicated blow/draw hole layout.
+        const isHarmonica = !isDrum && !canFretboard && !isWind
+            && gmProgram === 22;
+
         // Resolve viewKind from boolean flags (default: piano).
         let viewKind = 'piano';
-        if (isDrum)           viewKind = 'drumpad';
+        if (isDrum)            viewKind = 'drumpad';
         else if (canFretboard) viewKind = 'fretboard';
         else if (isWind)       viewKind = 'piano-slider';
+        else if (isHarmonica)  viewKind = 'harmonica';
 
         return {
             viewKind,
@@ -103,6 +110,7 @@
             isBowed,
             isDrum,
             isWind,
+            isHarmonica,
             windPreset,
             instrumentType: type,
             instrumentSubtype: subtype,

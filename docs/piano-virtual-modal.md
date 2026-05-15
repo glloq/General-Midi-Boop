@@ -949,13 +949,44 @@ planifié en **§20.4** — différé car non vérifiable en navigateur ici.
 | Vue | viewKind | GM | Spécificité interaction | Rendu de base réutilisable |
 |-----|----------|----|--------------------------|----------------------------|
 | Accordéon | `accordion` | 21-23 | Soufflet = vélocité (CC#11), basses Stradella | `regeneratePianoKeys` + panneau soufflet |
-| Harmonica | `harmonica` | 22 | Rangées souffler/aspirer, glissando latéral | grille type drumpad + axe X bend |
+| Harmonica | `harmonica` | 22 | Rangées souffler/aspirer (Richter C, 10 trous) | ✅ **LIVRÉ** — `views/HarmonicaView.js` (DOM propre) |
 | Mailloches (vibra/marimba/xylo) | `mallet` | 12-15 | Pas de pitch-bend, trémolo via CC | `keyboard-list` (slots égaux) |
 | Harpe | `harp` | 46 | Cordes verticales, glissando = drag X | `fretboard` (cordes, 0 frette) |
 | Cornemuse | `bagpipe` | 109 | Drone constant + chanter | piano-slider + drone auto |
 | Theremin | `theremin` | (custom) | 2 axes continus X=hauteur Y=volume, sans touche | nouveau rendu canvas |
 | Kalimba | `kalimba` | 108 | Lamelles verticales cliquables | grille verticale |
 | Steel drum | `steel-drum` | 114 | Sections circulaires + position | nouveau rendu SVG |
+
+#### 20.2.1 Référence livrée — `HarmonicaView` (preuve de la recette)
+
+`public/js/features/keyboard/views/HarmonicaView.js` est la **première
+vue qui possède son propre DOM** (aucune délégation mixin) — modèle de
+référence pour la recette §20.1.
+
+- **Détection** : `InstrumentDetector` classe GM 22 → `viewKind:'harmonica'`
+  (`isHarmonica`), GM 21/23 restent `piano` ; règle miroir dans
+  `registerBuiltins.js` (cohérence garantie par le test `views.test.js`).
+- **Sélection** : `_selectInstrumentOption` branche `info.viewKind ===
+  'harmonica'` → `setViewMode('harmonica')`. `setViewMode` accepte
+  désormais **tout kind enregistré** dans le registre (plus de liste
+  `validModes` figée — KM-C1 réellement atteint).
+- **Vue** : harmonica diatonique C Richter, 10 trous × (souffler/aspirer),
+  lazy-mount de `#harmonica-container` dans `#keyboard-canvas-container`,
+  jeu via `modal.playNote/stopNote`, libération globale au `pointerup`
+  (modèle `handleGlobalMouseUp`), `unmount()` retire conteneur+listeners
+  et coupe les notes tenues, `setActiveNotes()` câblé.
+- **Tests** : `tests/frontend/keyboard/harmonica-view.test.js` (13 cas) +
+  cas de cohérence GM 22 ajouté à `views.test.js`. Suite clavier :
+  **12 fichiers / 230 tests verts**.
+- **Fichiers existants touchés** : uniquement les points d'extension
+  prévus (`InstrumentDetector`, `registerBuiltins`, `setViewMode`
+  généralisé, 1 branche `_selectInstrumentOption`, 1 `<script>`) — aucune
+  vue existante modifiée.
+
+> ⚠️ **À tester en navigateur** : rendu visuel des trous, jeu
+> souris/tactile, retour piano via le toggle de vue, sélection auto sur
+> un instrument GM 22 réel. Les styles sont inline (aucun CSS dédié) —
+> un passage `keyboard.css` est souhaitable pour l'intégration visuelle.
 
 ### 20.3 Extensions de contrat recommandées
 

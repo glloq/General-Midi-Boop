@@ -448,7 +448,14 @@
      * @param {string} mode
      */
     KeyboardPianoMixin.setViewMode = function(mode) {
-        const validModes = ['piano', 'piano-slider', 'fretboard', 'drumpad', 'keyboard-list'];
+        // The 5 built-ins are always valid; any extra kind registered on
+        // InstrumentViewRegistry is accepted too, so adding a new instrument
+        // view needs ZERO change here (KM-C1). Unknown → fall back to piano.
+        const builtinModes = ['piano', 'piano-slider', 'fretboard', 'drumpad', 'keyboard-list'];
+        const registered = (typeof window !== 'undefined' && window.instrumentViews
+            && typeof window.instrumentViews.kinds === 'function')
+            ? window.instrumentViews.kinds() : [];
+        const validModes = [...new Set([...builtinModes, ...registered])];
         if (!validModes.includes(mode)) mode = 'piano';
 
         // Cleanup string slide mode when leaving fretboard

@@ -23,6 +23,7 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/views/DrumPadView.js');
   load('../../../public/js/features/keyboard/views/PianoSliderView.js');
   load('../../../public/js/features/keyboard/views/ListView.js');
+  load('../../../public/js/features/keyboard/views/HarmonicaView.js');
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
 });
 
@@ -119,6 +120,7 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
     { caps: { gm_program: 104 },              expected: 'fretboard' },
     { caps: { gm_program: 56 },               expected: 'piano-slider', wind: true },
     { caps: { gm_program: 79 },               expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 22 },               expected: 'harmonica' },
   ];
 
   for (const { caps, expected, wind } of cases) {

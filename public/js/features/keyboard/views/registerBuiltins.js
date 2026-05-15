@@ -30,6 +30,7 @@
     safeRegister(window.FretboardView);
     safeRegister(window.DrumPadView);
     safeRegister(window.ListView);
+    safeRegister(window.HarmonicaView);
 
     // ── Detection rules (first match wins) ────────────────────────────────────
     // These mirror the historical getInstrumentViewInfo() logic, now driven
@@ -58,6 +59,9 @@
         .addRule(inRange(24, 47), 'fretboard')
         .addRule(isOneOf(new Set([104, 105, 106, 107, 110])), 'fretboard')
         .addRule(c => c && c.instrument_type === 'string', 'fretboard')
+
+        // Harmonica: dedicated blow/draw hole layout (GM 22)
+        .addRule(c => c && c.gm_program === 22, 'harmonica')
 
         // Wind: piano + slider for brass/reeds/pipe (GM 56-79)
         .addRule(inRange(56, 79), 'piano-slider', { wind: true });
