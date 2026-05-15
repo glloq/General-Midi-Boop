@@ -699,6 +699,14 @@
             const maxNote = this._yoffset + this._yrange - 1;
             const seen = new Set();
 
+            // Clip to the note area so notes scrolling left slide *behind*
+            // the keyboard column + vertical scrollbar (painted in the bg
+            // buffer / overlay) instead of over them.
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(KB_WIDTH, RULER_H, W - KB_WIDTH, this._cssHeight - RULER_H);
+            ctx.clip();
+
             // Iterate only the buckets that intersect the visible viewport
             // (§3.1 viewport culling). With 1-measure buckets we visit
             // O(xrange / measure) buckets — typically <10 vs full O(n).
@@ -753,6 +761,7 @@
                     }
                 }
             }
+            ctx.restore();
             ctx.globalAlpha = 1;
         }
 

@@ -52,8 +52,11 @@
     /**
      * Default left margin reserved for value-axis labels in the grid
      * buffer canvas. Subclasses can override via `_labelMargin()`.
+     * Matches the piano roll's left chrome (CanvasPianoRollRenderer
+     * KB_WIDTH = SB_W 24 + KB_W 40 = 64) so the lane editor's columns
+     * line up vertically with the notes above.
      */
-    const DEFAULT_LABEL_MARGIN = 50;
+    const DEFAULT_LABEL_MARGIN = 64;
 
     class BaseLaneEditor {
         /**
@@ -315,11 +318,15 @@
         // =================================================================
 
         ticksToX(ticks) {
-            return ((ticks - this.options.xoffset) / this.options.xrange) * this.canvas.width;
+            const m = this._labelMargin();
+            const usable = Math.max(1, this.canvas.width - m);
+            return m + ((ticks - this.options.xoffset) / this.options.xrange) * usable;
         }
 
         xToTicks(x) {
-            return Math.round((x / this.canvas.width) * this.options.xrange + this.options.xoffset);
+            const m = this._labelMargin();
+            const usable = Math.max(1, this.canvas.width - m);
+            return Math.round(((x - m) / usable) * this.options.xrange + this.options.xoffset);
         }
 
         snapToGrid(ticks) {
