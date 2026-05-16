@@ -269,11 +269,11 @@ class FilterManager {
       case 'isOriginal':
         return value ? t('filters.labelOriginals') : t('filters.labelAdapted');
       case 'hasDrums':
-        return t('filters.labelWithDrums');
+        return value ? t('filters.labelWithDrums') : t('filters.labelWithoutDrums');
       case 'hasMelody':
-        return t('filters.labelWithMelody');
+        return value ? t('filters.labelWithMelody') : t('filters.labelWithoutMelody');
       case 'hasBass':
-        return t('filters.labelWithBass');
+        return value ? t('filters.labelWithBass') : t('filters.labelWithoutBass');
       case 'hasLyrics':
         return value ? t('filters.labelWithLyrics') : t('filters.labelWithoutLyrics');
       case 'gmInstruments':
@@ -549,7 +549,12 @@ class FilterManager {
   loadPreset(name) {
     const preset = this.presets.find(p => p.name === name);
     if (preset) {
-      this.filters = JSON.parse(JSON.stringify(preset.filters));
+      // Merge over defaults so presets saved before a filter key existed
+      // come back with that key defaulted instead of missing.
+      this.filters = {
+        ...this.getDefaultFilters(),
+        ...JSON.parse(JSON.stringify(preset.filters))
+      };
       this.invalidateCache();
       if (this.onFilterChange) {
         this.onFilterChange(this.filters);
