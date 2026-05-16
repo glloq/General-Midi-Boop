@@ -139,52 +139,63 @@ describe.each([
   });
 });
 
-describe('accordion — bellows scales velocity through willPlayNote', () => {
-  // Exercises the REAL path: AccordionView._press → modal.playNote
-  // (KeyboardEventsMixin) → this._activeView.willPlayNote →
-  // onNoteOn(note, transformedVelocity). The mixin can't be applied to
-  // the prototype in this sandbox, so `modal.playNote` delegates to the
-  // real KeyboardEventsMixin.playNote bound to the modal object.
-  let modal, velOut, v;
-  beforeEach(() => {
+describe('accordion — Stradella grid, soufflet, no volume slider', () => {
+  let sink, v;
+  const mount = (cfg) => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    velOut = [];
-    modal = {
-      velocity: 100,
-      activeNotes: new Set(),
-      updatePianoDisplay() {},
-      selectedDevice: null,
-      backend: null,
+    sink = { played: [], stopped: [] };
+    const modal = {
+      playNote: (n) => sink.played.push(n),
+      stopNote: (n) => sink.stopped.push(n),
       getNoteLabel: (n) => `N${n}`,
-      _panelCallbacks: { onNoteOn: (_n, vel) => velOut.push(vel) },
-      playNote(n) { return win.KeyboardEventsMixin.playNote.call(this, n); }
+      getAccordionConfig: () => cfg,
     };
     v = new (win.AccordionView)();
     v.mount({ modal });
-    modal._activeView = v;       // playNote routes velocity through this
-  });
-  afterEach(() => { try { v.unmount(); } catch { /* */ } });
+  };
+  afterEach(() => { try { v.unmount(); } catch { /* idempotent */ } });
 
-  it('willPlayNote math: centre=1×, ×0.5 below, clamped above', () => {
-    expect(v.willPlayNote(60, 100).velocity).toBe(100);   // bellows 64 → ×1
-    const b = document.getElementById('accordion-bellows');
-    b.value = '32'; b.dispatchEvent(new Event('input'));
-    expect(v.willPlayNote(60, 100).velocity).toBe(50);    // ×0.5
-    b.value = '127'; b.dispatchEvent(new Event('input'));
-    expect(v.willPlayNote(60, 100).velocity).toBe(127);   // clamped
+  it('Stradella bass = 6 rows × 12 circle-of-fifths columns (72 points)', () => {
+    mount({ bass_system: 'stradella', right_display: 'buttons' });
+    expect(document.querySelectorAll('.accordion-bass .accordion-key').length)
+      .toBe(72);
+    expect(document.querySelector('.accordion-stradella')).not.toBeNull();
   });
 
-  it('low bellows lowers the velocity actually sent to the instrument', () => {
-    const b = document.getElementById('accordion-bellows');
-    b.value = '32'; b.dispatchEvent(new Event('input'));   // factor 0.5
-    fire(document.querySelector('.accordion-key'), 'pointerdown');
-    expect(velOut).toEqual([50]);                          // 100 × 0.5
-    expect(modal.velocity).toBe(100);                      // base unchanged
+  it('a Stradella chord button plays its full multi-note chord', () => {
+    mount({ bass_system: 'stradella', right_display: 'buttons' });
+    // Row order: CB, B, M, m, 7, °. The "M" (major) button of the C
+    // column triggers a 3-note chord.
+    const major = [...document.querySelectorAll('.accordion-bass .accordion-key')]
+      .find((b) => /N\d+M$/.test(b.title));
+    expect(major).toBeTruthy();
+    fire(major, 'pointerdown');
+    expect(sink.played.length).toBe(3);
+    document.dispatchEvent(new Event('pointerup'));
+    expect(sink.stopped.length).toBe(3);
   });
 
-  it('centre bellows (64) sends the unmodified velocity', () => {
-    fire(document.querySelector('.accordion-key'), 'pointerdown');
-    expect(velOut).toEqual([100]);
+  it('no bellows slider; velocity passes through unscaled (volume bar removed)', () => {
+    mount({ bass_system: 'stradella', right_display: 'buttons' });
+    expect(document.getElementById('accordion-bellows')).toBeNull();
+    // Inherited base default: identity transform (no bellows scaling).
+    expect(v.willPlayNote(60, 100, {})).toEqual({ midi: 60, velocity: 100, opts: {} });
+  });
+
+  it('decorative soufflet present and not a playable key', () => {
+    mount({ bass_system: 'stradella', right_display: 'buttons' });
+    const soufflet = document.querySelector('.accordion-bellows-visual');
+    expect(soufflet).not.toBeNull();
+    expect(soufflet.classList.contains('accordion-key')).toBe(false);
+    expect(soufflet.style.pointerEvents).toBe('none');
+  });
+
+  it('free-bass renders a chromatic single-note board on bass_range', () => {
+    mount({ bass_system: 'free', right_display: 'keyboard',
+            bass_range: { min: 36, max: 47 } });
+    const board = document.querySelector('.accordion-bass.accordion-board');
+    expect(board).not.toBeNull();
+    expect(board.querySelectorAll('.accordion-key').length).toBe(12);
   });
 });
 
@@ -386,14 +397,15 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     v.unmount();
   });
 
-  it('AccordionView: stradella bass = 12 fixed roots (left side)', () => {
+  it('AccordionView: stradella bass = full 6×12 grid (72 points)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
                 getAccordionConfig: () => ({ bass_system: 'stradella',
                   right_display: 'buttons' }) };
     const v = new (win.AccordionView)();
     v.mount({ modal: m });
-    expect(document.querySelectorAll('.accordion-bass .accordion-key').length).toBe(12);
+    expect(document.querySelectorAll('.accordion-bass .accordion-key').length).toBe(72);
+    expect(document.querySelector('.accordion-bass.accordion-stradella')).not.toBeNull();
     v.unmount();
   });
 
