@@ -705,6 +705,8 @@
     "previewThisVoice": "Napsauta esikuunnellaksesi tätä ääntä koskettimistolla",
     "sectionTimingsPerGm": "Ajoitukset GM-soittimen mukaan",
     "timingsPerGmHint": "Jokaisella GM-äänellä voi olla omat ajoitusrajoitteensa (hyödyllinen, kun soittimilla on eri vasteajat).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Pääääni",
     "primaryVoice": "Pääääni",
     "supportedCcsTitle": "Tuetut CC:t",

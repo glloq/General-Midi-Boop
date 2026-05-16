@@ -705,6 +705,8 @@
     "previewThisVoice": "कीबोर्ड पर इस आवाज़ का पूर्वावलोकन करने के लिए क्लिक करें",
     "sectionTimingsPerGm": "GM वाद्य के अनुसार टाइमिंग",
     "timingsPerGmHint": "प्रत्येक GM आवाज़ की अपनी टाइमिंग सीमाएँ हो सकती हैं (जब वाद्यों के प्रतिक्रिया समय भिन्न हों तब उपयोगी)।",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "मुख्य आवाज़",
     "primaryVoice": "मुख्य आवाज़",
     "supportedCcsTitle": "समर्थित CC",

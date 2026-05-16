@@ -705,6 +705,8 @@
     "previewThisVoice": "Klicka för att förhandslyssna på den här rösten på klaviaturen",
     "sectionTimingsPerGm": "Tidsinställningar per GM-instrument",
     "timingsPerGmHint": "Varje GM-röst kan ha egna tidsbegränsningar (användbart när instrument har olika svarstider).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Huvudröst",
     "primaryVoice": "Huvudröst",
     "supportedCcsTitle": "CC som stöds",

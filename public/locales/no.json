@@ -705,6 +705,8 @@
     "previewThisVoice": "Klikk for å forhåndsvise denne stemmen på tastaturet",
     "sectionTimingsPerGm": "Timing per GM-instrument",
     "timingsPerGmHint": "Hver GM-stemme kan ha sine egne timing-begrensninger (nyttig når instrumenter har ulike responstider).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Hovedstemme",
     "primaryVoice": "Hovedstemme",
     "supportedCcsTitle": "Støttede CC-er",

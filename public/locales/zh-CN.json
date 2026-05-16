@@ -705,6 +705,8 @@
     "previewThisVoice": "点击在键盘上试听此音色",
     "sectionTimingsPerGm": "按 GM 乐器设置的时值",
     "timingsPerGmHint": "每个 GM 音色可以有自己的时值约束(当乐器响应时间不同时很有用)。",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "主音色",
     "primaryVoice": "主音色",
     "supportedCcsTitle": "支持的 CC",

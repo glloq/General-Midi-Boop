@@ -571,7 +571,8 @@ body.dark-mode .ism-toggle-slider {
 }
 
 /* ========== Drum Section ========== */
-.ism-drum-toolbar {
+.ism-drum-toolbar,
+.ism-note-preset-toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -579,7 +580,8 @@ body.dark-mode .ism-toggle-slider {
   flex-wrap: wrap;
 }
 
-.ism-drum-toolbar select {
+.ism-drum-toolbar select,
+.ism-note-preset-toolbar select {
   padding: 8px 12px;
   border: 2px solid var(--border-color, #e5e7eb);
   border-radius: 8px;
@@ -589,7 +591,8 @@ body.dark-mode .ism-toggle-slider {
   max-width: 350px;
 }
 
-.ism-drum-toolbar .btn {
+.ism-drum-toolbar .btn,
+.ism-note-preset-toolbar .btn {
   white-space: nowrap;
   font-size: 12px;
 }
@@ -1097,7 +1100,8 @@ body.dark-mode .ism-modal .modal-footer {
   border-top-color: var(--border-color, #374151);
 }
 
-body.dark-mode .ism-drum-toolbar select {
+body.dark-mode .ism-drum-toolbar select,
+body.dark-mode .ism-note-preset-toolbar select {
   background: var(--bg-secondary, #2d3748);
   border-color: var(--border-color, #4a5568);
   color: var(--text-primary, #e0e0e0);

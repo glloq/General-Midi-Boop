@@ -705,6 +705,8 @@
     "previewThisVoice": "คลิกเพื่อฟังตัวอย่างเสียงนี้บนคีย์บอร์ด",
     "sectionTimingsPerGm": "จังหวะเวลาตามเครื่องดนตรี GM",
     "timingsPerGmHint": "เสียง GM แต่ละเสียงสามารถมีข้อจำกัดด้านจังหวะเวลาของตัวเองได้ (มีประโยชน์เมื่อเครื่องดนตรีมีเวลาตอบสนองต่างกัน)",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "เสียงหลัก",
     "primaryVoice": "เสียงหลัก",
     "supportedCcsTitle": "CC ที่รองรับ",

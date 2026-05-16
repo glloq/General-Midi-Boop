@@ -705,6 +705,8 @@
     "previewThisVoice": "Bu sesi klavyede önizlemek için tıklayın",
     "sectionTimingsPerGm": "GM enstrüman başına zamanlamalar",
     "timingsPerGmHint": "Her GM sesinin kendi zamanlama kısıtlamaları olabilir (enstrümanların yanıt süreleri farklı olduğunda faydalı).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Ana ses",
     "primaryVoice": "Ana ses",
     "supportedCcsTitle": "Desteklenen CC'ler",

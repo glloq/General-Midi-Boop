@@ -705,6 +705,8 @@
     "previewThisVoice": "Klicken, um diese Stimme auf dem Keyboard vorzuhören",
     "sectionTimingsPerGm": "Timings pro GM-Instrument",
     "timingsPerGmHint": "Jede GM-Stimme kann eigene Timing-Einstellungen haben (nützlich, wenn Instrumente unterschiedliche Reaktionszeiten haben).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Hauptstimme",
     "primaryVoice": "Hauptstimme",
     "supportedCcsTitle": "Unterstützte CCs",

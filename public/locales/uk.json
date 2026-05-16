@@ -705,6 +705,8 @@
     "previewThisVoice": "Натисніть, щоб прослухати цей голос на клавіатурі",
     "sectionTimingsPerGm": "Тайминги для кожного GM-інструменту",
     "timingsPerGmHint": "Кожен GM-голос може мати власні обмеження таймінгу (корисно, коли інструменти мають різний час відгуку).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Основний голос",
     "primaryVoice": "Основний голос",
     "supportedCcsTitle": "Підтримувані CC",

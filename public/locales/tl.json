@@ -705,6 +705,8 @@
     "previewThisVoice": "Mag-click upang i-preview ang boses na ito sa keyboard",
     "sectionTimingsPerGm": "Timings kada GM instrument",
     "timingsPerGmHint": "Maaaring magkaroon ng sariling mga timing constraint ang bawat GM voice (kapaki-pakinabang kapag iba-iba ang response time ng mga instrumento).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Pangunahing boses",
     "primaryVoice": "Pangunahing boses",
     "supportedCcsTitle": "Mga suportadong CC",

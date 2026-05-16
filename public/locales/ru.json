@@ -705,6 +705,8 @@
     "previewThisVoice": "Нажмите, чтобы прослушать этот голос на клавиатуре",
     "sectionTimingsPerGm": "Тайминги по GM-инструменту",
     "timingsPerGmHint": "У каждого GM-голоса могут быть свои ограничения по таймингу (полезно, когда инструменты имеют разное время отклика).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Основной голос",
     "primaryVoice": "Основной голос",
     "supportedCcsTitle": "Поддерживаемые CC",

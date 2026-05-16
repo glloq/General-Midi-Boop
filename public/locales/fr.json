@@ -886,6 +886,8 @@
     "previewThisVoice": "Cliquez pour prévisualiser cette voix sur le clavier",
     "sectionTimingsPerGm": "Temporisations par instrument GM",
     "timingsPerGmHint": "Chaque voix GM peut avoir ses propres contraintes de timing (utile quand les instruments ont des temps de réponse différents).",
+    "notePresetTitle": "Preset de l'instrument",
+    "notePresetHint": "Configure automatiquement la plage de notes jouables et la polyphonie (accords). Tous les réglages restent éditables ensuite.",
     "primaryVoiceBadge": "Voix principale",
     "primaryVoice": "Voix principale",
     "supportedCcsTitle": "CC supportés",
