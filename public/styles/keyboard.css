@@ -1884,7 +1884,7 @@ body.dark-mode .shortcuts-overlay {
 .keyboard-canvas-container {
     flex: 1;
     background: white;
-    padding: 12px;
+    padding: 2px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
