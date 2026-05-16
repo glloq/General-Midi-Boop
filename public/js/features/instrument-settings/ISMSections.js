@@ -5,6 +5,8 @@
     ISMSections._renderAllSections = function() {
         const tab = this._getActiveTab();
         const showHands = ISMSections._shouldShowHandsSection(tab);
+        const showBagpipe = ISMSections._shouldShowBagpipeSection(tab);
+        const showAccordion = ISMSections._shouldShowAccordionSection(tab);
         // Only the active section is rendered immediately; others are injected on
         // first visit via _switchSection() to avoid expensive upfront template work.
         const renderSection = (id, renderFn) => {
@@ -15,6 +17,8 @@
             ${renderSection('identity', this._renderIdentitySection)}
             ${renderSection('notes', this._renderNotesSection)}
             ${showHands ? renderSection('hands', this._renderHandsSection) : ''}
+            ${showBagpipe ? renderSection('bagpipe', this._renderBagpipeSection) : ''}
+            ${showAccordion ? renderSection('accordion', this._renderAccordionSection) : ''}
             ${renderSection('advanced', this._renderAdvancedSection)}
         `;
     };
@@ -47,6 +51,20 @@
      */
     ISMSections._shouldShowHandsSection = function(tab) {
         return ISMSections._handsTabEligible(tab) && tab?.settings?.hands_config?.enabled === true;
+    };
+
+    // Bagpipe section: GM 109 (Bagpipe), non-drum channel. Accordion
+    // section: GM 21 (Accordion) / 23 (Tango Accordion). These only
+    // describe per-instrument play settings consumed by the virtual
+    // keyboard (BagpipeView drones / AccordionView sides).
+    ISMSections._shouldShowBagpipeSection = function(tab) {
+        if (!tab || tab.channel === 9) return false;
+        return tab.settings?.gm_program === 109;
+    };
+    ISMSections._shouldShowAccordionSection = function(tab) {
+        if (!tab || tab.channel === 9) return false;
+        const gm = tab.settings?.gm_program;
+        return gm === 21 || gm === 23;
     };
 
     /**
@@ -2207,6 +2225,94 @@
             }
             return `<span class="ism-active-cc-tag" title="${self.escape(name)}"><span class="ism-active-cc-num">${cc}</span> ${self.escape(name)}<button type="button" class="ism-cc-tag-remove" data-cc="${cc}" aria-label="Supprimer CC ${cc}">×</button></span>`;
         }).join('');
+    };
+
+    // ===== Bagpipe section (drones) — consumed by BagpipeView ============
+    ISMSections._renderBagpipeSection = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const cfg = tab.settings?.bagpipe_config || {};
+        const drones = Array.isArray(cfg.drones) && cfg.drones.length
+            ? cfg.drones.join(', ') : '45';
+        const enabled = cfg.enabled !== false;
+        return `
+            <div class="ism-form-group">
+                <label>
+                    <input type="checkbox" id="bagpipeEnabled" ${enabled ? 'checked' : ''}>
+                    ${this.t('instrumentSettings.bagpipeEnabled') || 'Bourdons actifs au démarrage'}
+                </label>
+                <span class="ism-form-hint">${this.t('instrumentSettings.bagpipeEnabledHelp')
+                    || 'Les bourdons sonnent automatiquement à l’ouverture du clavier.'}</span>
+            </div>
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.bagpipeDrones') || 'Bourdons (notes MIDI, séparées par des virgules)'}</label>
+                <input type="text" id="bagpipeDrones" value="${this.escape(drones)}"
+                    placeholder="45, 45, 33">
+                <span class="ism-form-hint">${this.t('instrumentSettings.bagpipeDronesHelp')
+                    || 'Une note MIDI (0-127) par bourdon. Ex. cornemuse écossaise : 45, 45, 33.'}</span>
+            </div>
+        `;
+    };
+
+    ISMSections._collectBagpipeConfig = function(rootEl) {
+        const section = rootEl?.querySelector('.ism-section[data-section="bagpipe"]');
+        if (!section) return undefined;            // section not rendered
+        const dronesEl = rootEl.querySelector('#bagpipeDrones');
+        if (!dronesEl) return undefined;           // lazy, never visited → preserve
+        const drones = String(dronesEl.value || '')
+            .split(',')
+            .map(s => parseInt(s.trim(), 10))
+            .filter(n => Number.isInteger(n) && n >= 0 && n <= 127);
+        const enabled = !!rootEl.querySelector('#bagpipeEnabled')?.checked;
+        return { drones: drones.length ? drones : [45], enabled };
+    };
+
+    // ===== Accordion section (per-side play possibilities) ===============
+    // No hand show/hide — only describes each side. Consumed by
+    // AccordionView (left = bass_system, right = right_display).
+    ISMSections._renderAccordionSection = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const cfg = tab.settings?.accordion_config || {};
+        const bass = ['stradella', 'chromatic', 'free'].includes(cfg.bass_system)
+            ? cfg.bass_system : 'stradella';
+        const rd = ['buttons', 'keyboard'].includes(cfg.right_display)
+            ? cfg.right_display : 'buttons';
+        const opt = (v, cur, label) =>
+            `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+        return `
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.accordionBass') || 'Côté gauche — système de basses'}</label>
+                <select id="accordionBassSystem">
+                    ${opt('stradella', bass, 'Stradella (basses fixes)')}
+                    ${opt('chromatic', bass, 'Chromatique')}
+                    ${opt('free', bass, 'Basses libres')}
+                </select>
+                <span class="ism-form-hint">${this.t('instrumentSettings.accordionBassHelp')
+                    || 'Possibilités de jeu du côté gauche (les deux côtés restent toujours présents).'}</span>
+            </div>
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.accordionRight') || 'Côté droit — affichage'}</label>
+                <select id="accordionRightDisplay">
+                    ${opt('buttons', rd, 'Boutons')}
+                    ${opt('keyboard', rd, 'Clavier (piano)')}
+                </select>
+                <span class="ism-form-hint">${this.t('instrumentSettings.accordionRightHelp')
+                    || 'Affichage du côté droit (mélodie) dans le clavier virtuel.'}</span>
+            </div>
+        `;
+    };
+
+    ISMSections._collectAccordionConfig = function(rootEl) {
+        const section = rootEl?.querySelector('.ism-section[data-section="accordion"]');
+        if (!section) return undefined;
+        const bassEl = rootEl.querySelector('#accordionBassSystem');
+        if (!bassEl) return undefined;             // lazy, never visited → preserve
+        const bass_system = ['stradella', 'chromatic', 'free'].includes(bassEl.value)
+            ? bassEl.value : 'stradella';
+        const rdVal = rootEl.querySelector('#accordionRightDisplay')?.value;
+        const right_display = ['buttons', 'keyboard'].includes(rdVal) ? rdVal : 'buttons';
+        return { bass_system, right_display };
     };
 
     if (typeof window !== 'undefined') window.ISMSections = ISMSections;

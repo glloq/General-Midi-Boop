@@ -1174,10 +1174,28 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 >   compilé — limitation native) → **QA DB requise** : `npm run
 >   migrate` puis vérifier save/reload depuis le modal d'instrument.
 >
-> ⏳ **Reste l'UI ISM** : section « Cornemuse » (bourdons + enabled) et
-> « Accordéon » (bass_system + right_display, **pas de hands**) à ajouter dans le
-> modal de réglages d'instrument (render + collecte + nav), calquées sur
-> la section Hands. Browser-QA requise (sous-système ISM ~6300 l.).
+> ✅ **UI ISM faite** (calquée sur la section Hands) : sections
+> **« Cornemuse »** (checkbox actif + liste de notes MIDI des bourdons)
+> et **« Accordéon »** (selects `bass_system` + `right_display`, **sans
+> hands**) ajoutées au modal de réglages d'instrument.
+> - `ISMSections` : `_shouldShowBagpipeSection` (GM 109) /
+>   `_shouldShowAccordionSection` (GM 21/23), `_renderBagpipeSection` /
+>   `_renderAccordionSection`, `_collectBagpipeConfig` /
+>   `_collectAccordionConfig` (contrat lazy : undefined si non
+>   rendu/visité → préserve la valeur DB) ; injectées dans
+>   `_renderAllSections`.
+> - `InstrumentSettingsModal.SECTIONS` : entrées `bagpipe`/`accordion`
+>   avec prédicat générique `showWhen` ; `_renderSidebar` filtre dessus.
+> - `ISMNavigation` : `renderMap` étendu (lazy render au 1ᵉʳ accès).
+> - `ISMSave` : collecte + `saveAllPayload.bagpipe_config /
+>   accordion_config` (même contrat clé-explicite que `hands_config`).
+> - Tests : `tests/frontend/instrument-settings-play-sections.test.js`
+>   (11 cas : prédicats, render, collecte, lazy → undefined).
+> **vitest 17 fichiers / 363 verts ; Jest validateurs 9/9 ; ESLint 0
+> erreur.** ⚠️ Browser-QA requise (sous-système ISM, non testable en
+> navigateur ici) : ouvrir le modal d'un instrument GM 109 / 21 / 23 →
+> sections visibles, save → reload conserve les valeurs (round-trip DB
+> après `npm run migrate`).
 >
 > ✅ **MalletView** : disposition **façon piano/marimba** — naturelles en
 > rangée contiguë, altérées en `position:absolute` au-dessus de

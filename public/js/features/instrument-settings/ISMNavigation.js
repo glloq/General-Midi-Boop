@@ -12,6 +12,8 @@
         const renderMap = {
             notes: '_renderNotesSection',
             hands: '_renderHandsSection',
+            bagpipe: '_renderBagpipeSection',
+            accordion: '_renderAccordionSection',
             advanced: '_renderAdvancedSection',
         };
         const listenerMap = {
