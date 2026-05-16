@@ -24,9 +24,10 @@ const ctx = (settings) => ({
   t: () => null,                         // force fallback strings
   escape: (s) => String(s)
 });
-// Wrap rendered HTML in the section container the collectors look for.
+// Bagpipe / accordion are now subsections of Notes & Capacités — the
+// collectors look up #bagpipeSubsection / #accordionSubsection.
 const mountSection = (id, html) => {
-  document.body.innerHTML = `<div class="ism-section" data-section="${id}">${html}</div>`;
+  document.body.innerHTML = `<div class="ism-subsection" id="${id}Subsection">${html}</div>`;
   return document.body;
 };
 
@@ -72,7 +73,7 @@ describe('ISM — bagpipe section render + collect', () => {
   it('collect → undefined when section absent or not visited', () => {
     document.body.innerHTML = '';
     expect(S()._collectBagpipeConfig(document.body)).toBeUndefined();
-    document.body.innerHTML = '<div class="ism-section" data-section="bagpipe"></div>';
+    document.body.innerHTML = '<div class="ism-subsection" id="bagpipeSubsection"></div>';
     expect(S()._collectBagpipeConfig(document.body)).toBeUndefined();
   });
 
@@ -159,7 +160,7 @@ describe('ISM — accordion section render + collect (no hands)', () => {
   });
 
   it('collect → undefined when not rendered/visited', () => {
-    document.body.innerHTML = '<div class="ism-section" data-section="accordion"></div>';
+    document.body.innerHTML = '<div class="ism-subsection" id="accordionSubsection"></div>';
     expect(S()._collectAccordionConfig(document.body)).toBeUndefined();
   });
 

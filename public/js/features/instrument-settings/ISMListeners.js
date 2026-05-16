@@ -803,6 +803,8 @@
         this._wireActiveCCTagRemoval();
         this._wireHandsMovementToggle();
         this._wirePianoNotationToggle();
+        // Accordion is now a conditional subsection of Notes & Capacités.
+        this._attachAccordionSectionListeners();
         // Piano is initialized by _switchSection('notes') when the section becomes visible
     };
 
@@ -1427,7 +1429,6 @@
         this._attachIdentitySectionListeners();
         this._attachNotesSectionListeners();
         this._attachHandsSectionListeners();
-        this._attachAccordionSectionListeners();
 
         // Measure delay button — hidden by default, revealed only if an audio input is detected
         const measureBtn = this.$('#measureDelayBtn');
@@ -1465,13 +1466,13 @@
     };
 
     /**
-     * Wire the Accordion section: toggling the bass-system select
-     * enables/disables the free-bass range inputs live. No-op when the
-     * section is not rendered (non-accordion instrument, or lazy section
-     * not yet visited).
+     * Wire the Accordion subsection (now inside Notes & Capacités):
+     * toggling the bass-system select enables/disables the free-bass
+     * range inputs live. No-op when the subsection is not rendered
+     * (non-accordion instrument, or Notes not yet visited).
      */
     ISMListeners._attachAccordionSectionListeners = function() {
-        const section = this.$('.ism-section[data-section="accordion"]');
+        const section = this.$('#accordionSubsection');
         if (!section) return;
         const bassSel = section.querySelector('#accordionBassSystem');
         if (!bassSel) return;

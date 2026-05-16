@@ -1006,7 +1006,19 @@
     "handsVariableHeightFingersHint": "Of the fingers above, how many have an adjustable fret offset (0 = all fixed).",
     "handsFretsEnableLabel": "Enable hand-position control",
     "handsFretsEnableHint": "When enabled, the player emits a CC with the lowest absolute fret of the window every time the hand needs to move.",
-    "handsFretsNoScaleWarning": "No scale length set. Pick a preset below or enter the length manually to enable the physical (mm) model."
+    "handsFretsNoScaleWarning": "No scale length set. Pick a preset below or enter the length manually to enable the physical (mm) model.",
+    "sectionAccordion": "Accordion",
+    "sectionBagpipe": "Bagpipe",
+    "accordionBass": "Left side — bass system",
+    "accordionBassHelp": "Left-side play possibilities (both sides are always present).",
+    "accordionBassRange": "Left side — free-bass range",
+    "accordionBassRangeHelp": "Min/max playable MIDI note on the left side (free-bass only).",
+    "accordionRight": "Right side — display",
+    "accordionRightHelp": "Right-side (melody) display in the virtual keyboard.",
+    "bagpipeEnabled": "Drones on at startup",
+    "bagpipeEnabledHelp": "Drones sound automatically when the keyboard opens.",
+    "bagpipeDrones": "Drones (MIDI notes, comma-separated)",
+    "bagpipeDronesHelp": "One MIDI note (0-127) per drone. E.g. Scottish bagpipe: 45, 45, 33."
   },
   "playlist": {
     "title": "Playlists",
