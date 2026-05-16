@@ -89,6 +89,13 @@ class WindInstrumentDatabase {
         79: { name: 'Ocarina',        category: 'pipe', gmProgram: 79,
               rangeMin: 60, rangeMax: 84, comfortMin: 62, comfortMax: 79,
               breathCapacity: 5.0 },
+
+        // ---- Reed, non-contiguous (GM 111) ----
+        // Shanai/Shehnai: Indian double-reed aerophone (reeds family).
+        // Not in 56-79 but mechanically a blown reed instrument.
+        111: { name: 'Shanai',       category: 'reed', gmProgram: 111,
+               rangeMin: 62, rangeMax: 86, comfortMin: 64, comfortMax: 81,
+               breathCapacity: 7.0 },
     };
 
     // ========================================================================
@@ -123,7 +130,7 @@ class WindInstrumentDatabase {
      * @returns {boolean}
      */
     static isWindInstrument(program) {
-        return program >= 56 && program <= 79;
+        return (program >= 56 && program <= 79) || program === 111;
     }
 
     /**
@@ -135,6 +142,7 @@ class WindInstrumentDatabase {
         if (program >= 56 && program <= 63) return 'brass';
         if (program >= 64 && program <= 71) return 'reed';
         if (program >= 72 && program <= 79) return 'pipe';
+        if (program === 111) return 'reed';
         return null;
     }
 

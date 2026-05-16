@@ -104,6 +104,17 @@ describe('Built-in views — resolution from raw caps', () => {
     expect(r.options.wind).toBe(true);
   });
 
+  it('GM 111 (Shanai) → PianoSliderView with wind option', () => {
+    const r = registry().resolve({ gm_program: 111 });
+    expect(r.ViewClass).toBe(win.PianoSliderView);
+    expect(r.options.wind).toBe(true);
+  });
+
+  it('GM 8/10 (celesta/music box) → MalletView', () => {
+    expect(registry().resolve({ gm_program: 8 }).ViewClass).toBe(win.MalletView);
+    expect(registry().resolve({ gm_program: 10 }).ViewClass).toBe(win.MalletView);
+  });
+
   it('unknown caps → fallback PianoView', () => {
     const r = registry().resolve({});
     expect(r.ViewClass).toBe(win.PianoView);
@@ -114,7 +125,7 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
   // For each test case, the viewKind returned by InstrumentDetector
   // must equal the viewKind returned by the registry.
   const windDb = {
-    isWindInstrument(p) { return p >= 56 && p <= 79; },
+    isWindInstrument(p) { return (p >= 56 && p <= 79) || p === 111; },
     getPresetByProgram(p) { return { name: `wind-${p}` }; }
   };
   const cases = [
@@ -127,6 +138,9 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
     { caps: { gm_program: 104 },              expected: 'fretboard' },
     { caps: { gm_program: 56 },               expected: 'piano-slider', wind: true },
     { caps: { gm_program: 79 },               expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 111 },              expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 8 },                expected: 'mallet' },
+    { caps: { gm_program: 10 },               expected: 'mallet' },
     { caps: { gm_program: 22 },               expected: 'harmonica' },
     { caps: { gm_program: 46 },               expected: 'harp' },
     { caps: { gm_program: 21 },               expected: 'accordion' },

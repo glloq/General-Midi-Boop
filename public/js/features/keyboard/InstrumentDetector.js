@@ -122,10 +122,12 @@
         const notSpecialBase = !isDrum && !canFretboard && !isWind;
         const isAccordion = notSpecialBase && (gmProgram === 21 || gmProgram === 23);
         // Tuned mallet/percussion bars: marimba…dulcimer (12-15) plus
-        // glockenspiel (9), vibraphone (11), timpani (47).
+        // celesta (8), glockenspiel (9), music box (10), vibraphone (11),
+        // timpani (47).
         const isMallet    = notSpecialBase
             && ((gmProgram >= 12 && gmProgram <= 15)
-                || gmProgram === 9 || gmProgram === 11 || gmProgram === 47);
+                || gmProgram === 8 || gmProgram === 9
+                || gmProgram === 10 || gmProgram === 11 || gmProgram === 47);
         const isKalimba   = notSpecialBase && gmProgram === 108;
         const isBagpipe   = notSpecialBase && gmProgram === 109;
         const isSteelDrum = notSpecialBase && gmProgram === 114;

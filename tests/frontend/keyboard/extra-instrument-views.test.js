@@ -54,7 +54,9 @@ describe('Roadmap views — registration & detection', () => {
     ['bagpipe',    win => win.BagpipeView,    { gm_program: 109 }],
     ['steel-drum', win => win.SteelDrumView,  { gm_program: 114 }],
     ['theremin',   win => win.ThereminView,   { instrument_type: 'theremin' }],
+    ['mallet',     win => win.MalletView,     { gm_program: 8 }],
     ['mallet',     win => win.MalletView,     { gm_program: 9 }],
+    ['mallet',     win => win.MalletView,     { gm_program: 10 }],
     ['mallet',     win => win.MalletView,     { gm_program: 11 }],
     ['mallet',     win => win.MalletView,     { gm_program: 47 }],
     ['perc-pad',   win => win.PercussionPadView, { gm_program: 112 }],
@@ -76,6 +78,19 @@ describe('Roadmap views — registration & detection', () => {
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 11 } }).viewKind).toBe('mallet');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('mallet');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano');
+  });
+
+  it('GM 111 (Shanai) → piano-slider (reed, non-contiguous with 56-79)', () => {
+    const windDb = {
+      isWindInstrument: (p) => (p >= 56 && p <= 79) || p === 111,
+      getPresetByProgram: (p) => ({ name: `wind-${p}` })
+    };
+    expect(win.instrumentViews.get('piano-slider')).toBe(win.PianoSliderView);
+    expect(win.InstrumentDetector.detect({
+      capabilities: { gm_program: 111 }, windDb
+    }).viewKind).toBe('piano-slider');
+    expect(win.instrumentViews.resolve({ gm_program: 111 }).viewKind).toBe('piano-slider');
+    expect(win.instrumentViews.resolve({ gm_program: 111 }).options.wind).toBe(true);
   });
 
   it('theremin type wins even with a GM patch present', () => {
