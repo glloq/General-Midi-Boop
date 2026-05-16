@@ -1019,10 +1019,12 @@
     "accordionBassBase": "Base note (MIDI)",
     "accordionRight": "Right side — display",
     "accordionRightHelp": "Right-side (melody) display in the virtual keyboard.",
-    "bagpipeEnabled": "Drones on at startup",
-    "bagpipeEnabledHelp": "Drones sound automatically when the keyboard opens.",
-    "bagpipeDrones": "Drones (MIDI notes, comma-separated)",
-    "bagpipeDronesHelp": "One MIDI note (0-127) per drone. E.g. Scottish bagpipe: 45, 45, 33."
+    "bagpipePreset": "Bagpipe preset",
+    "bagpipePresetHelp": "Choosing a preset fills the drones below.",
+    "bagpipeDrones": "Drones",
+    "bagpipeDronesHelp": "Click a key (its MIDI number is shown) to add/remove a drone. Each drone can be enabled individually.",
+    "bagpipeNoDrone": "No drone selected.",
+    "bagpipeDuplicate": "Duplicate this drone"
   },
   "playlist": {
     "title": "Playlists",

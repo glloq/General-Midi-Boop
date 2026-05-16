@@ -3013,8 +3013,69 @@ body.dark-mode .ism-preview-label {
    _wireBagpipeListeners). The mini-piano reuses the shared .piano-key*
    classes; only sizing + the per-drone list are scoped here. */
 .bagpipe-drone-piano {
-  height: 80px;
+  height: 90px;
   margin: 8px 0;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  padding: 4px;
+  background: var(--bg-tertiary, #f3f4f6);
+  border-radius: 6px;
+}
+
+.bagpipe-drone-piano .piano-octave {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: none;
+}
+
+.bagpipe-drone-piano .piano-key {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+  font: 9px/1 ui-monospace, monospace;
+}
+
+.bagpipe-drone-piano .piano-key-white {
+  height: 100%;
+  background: #fff;
+  border: 1px solid #9aa0a6;
+  color: #444;
+}
+
+.bagpipe-drone-piano .piano-key-black {
+  position: absolute;
+  top: 0;
+  height: 62%;
+  background: #222;
+  border: 1px solid #000;
+  color: #e8e8e8;
+  z-index: 2;
+}
+
+.bagpipe-drone-piano .piano-key.selected {
+  background: #10b981;
+  border-color: #047857;
+  color: #04261b;
+  font-weight: 700;
+}
+
+.bagpipe-drone-piano .piano-key-black.selected {
+  background: #059669;
+  color: #eafff5;
+}
+
+body.dark-mode .bagpipe-drone-piano {
+  background: #1e293b;
+}
+
+body.dark-mode .bagpipe-drone-piano .piano-key-white {
+  background: #cbd5e1;
+  border-color: #475569;
+  color: #1e293b;
 }
 
 .bagpipe-drone-list {
@@ -3045,15 +3106,31 @@ body.dark-mode .ism-preview-label {
   color: var(--text-secondary, #6b7280);
 }
 
+.bagpipe-drone-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bagpipe-drone-dup,
 .bagpipe-drone-remove {
   border: none;
   background: transparent;
   color: var(--text-secondary, #6b7280);
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+.bagpipe-drone-remove {
+  font-size: 16px;
+}
+
+.bagpipe-drone-dup:hover {
+  background: var(--bg-tertiary, #f3f4f6);
+  color: #2563eb;
 }
 
 .bagpipe-drone-remove:hover {

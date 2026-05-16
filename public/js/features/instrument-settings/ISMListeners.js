@@ -1918,7 +1918,8 @@
                 const key = document.createElement('div');
                 key.className = 'piano-key ' + (black ? 'piano-key-black' : 'piano-key-white');
                 key.dataset.note = String(note);
-                key.title = MC.noteNumberToName(note);
+                key.title = `${MC.noteNumberToName(note)} (MIDI ${note})`;
+                key.textContent = String(note);          // show the MIDI number
                 if (noteSet.has(note)) key.classList.add('selected');
                 if (black) {
                     key.style.width = bw + 'px';
@@ -1940,13 +1941,19 @@
                         || 'Aucun bourdon sélectionné.') + '</span>';
                 return;
             }
-            listEl.innerHTML = state.map(d =>
+            // Rows are keyed by array index, not note, so duplicate
+            // drones (same note, e.g. the Great Highland's two A's) can
+            // be enabled / duplicated / removed independently.
+            listEl.innerHTML = state.map((d, i) =>
                 '<div class="bagpipe-drone-row">'
-                + '<label class="bagpipe-drone-row-label">'
-                + `<input type="checkbox" class="bagpipe-drone-enabled" data-note="${d.note}" ${d.enabled ? 'checked' : ''}>`
-                + `<span>${self.escape(MC.noteNumberToName(d.note))} <small>(${d.note})</small></span>`
+                + `<label class="bagpipe-drone-row-label">`
+                + `<input type="checkbox" class="bagpipe-drone-enabled" data-idx="${i}" ${d.enabled ? 'checked' : ''}>`
+                + `<span>${self.escape(MC.noteNumberToName(d.note))} <small>(MIDI ${d.note})</small></span>`
                 + '</label>'
-                + `<button type="button" class="bagpipe-drone-remove" data-note="${d.note}" aria-label="Supprimer">×</button>`
+                + '<span class="bagpipe-drone-row-actions">'
+                + `<button type="button" class="bagpipe-drone-dup" data-idx="${i}" title="${self.escape(self.t('instrumentSettings.bagpipeDuplicate') || 'Doubler ce bourdon')}" aria-label="Doubler">×2</button>`
+                + `<button type="button" class="bagpipe-drone-remove" data-idx="${i}" aria-label="Supprimer">×</button>`
+                + '</span>'
                 + '</div>').join('');
         }
 
@@ -1960,11 +1967,19 @@
                 writeState();
                 return;
             }
+            const dup = e.target.closest && e.target.closest('.bagpipe-drone-dup');
+            if (dup) {
+                const i = parseInt(dup.dataset.idx, 10);
+                if (i >= 0 && i < state.length) {
+                    state.splice(i + 1, 0, { note: state[i].note, enabled: true });
+                    writeState();
+                }
+                return;
+            }
             const rm = e.target.closest && e.target.closest('.bagpipe-drone-remove');
             if (rm) {
-                const note = parseInt(rm.dataset.note, 10);
-                const i = state.findIndex(d => d.note === note);
-                if (i >= 0) state.splice(i, 1);
+                const i = parseInt(rm.dataset.idx, 10);
+                if (i >= 0 && i < state.length) state.splice(i, 1);
                 writeState();
             }
         });
@@ -1972,9 +1987,8 @@
         sec.addEventListener('change', function(e) {
             const t = e.target;
             if (t.classList && t.classList.contains('bagpipe-drone-enabled')) {
-                const note = parseInt(t.dataset.note, 10);
-                const d = state.find(x => x.note === note);
-                if (d) d.enabled = t.checked;
+                const i = parseInt(t.dataset.idx, 10);
+                if (i >= 0 && i < state.length) state[i].enabled = t.checked;
                 writeState();
                 return;
             }

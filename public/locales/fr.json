@@ -1019,10 +1019,12 @@
     "accordionBassBase": "Note de base (MIDI)",
     "accordionRight": "Côté droit — affichage",
     "accordionRightHelp": "Affichage du côté droit (mélodie) dans le clavier virtuel.",
-    "bagpipeEnabled": "Bourdons actifs au démarrage",
-    "bagpipeEnabledHelp": "Les bourdons sonnent automatiquement à l’ouverture du clavier.",
-    "bagpipeDrones": "Bourdons (notes MIDI, séparées par des virgules)",
-    "bagpipeDronesHelp": "Une note MIDI (0-127) par bourdon. Ex. cornemuse écossaise : 45, 45, 33."
+    "bagpipePreset": "Préréglage de cornemuse",
+    "bagpipePresetHelp": "Choisir un préréglage remplit les bourdons ci-dessous.",
+    "bagpipeDrones": "Bourdons",
+    "bagpipeDronesHelp": "Cliquez une touche (le numéro MIDI est indiqué) pour ajouter/retirer un bourdon. Chaque bourdon peut être activé individuellement.",
+    "bagpipeNoDrone": "Aucun bourdon sélectionné.",
+    "bagpipeDuplicate": "Doubler ce bourdon"
   },
   "playlist": {
     "title": "Playlists",
