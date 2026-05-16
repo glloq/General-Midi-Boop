@@ -4190,12 +4190,15 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 /* ── Kalimba view — wooden body with a resonance hole ──────────────── */
 
 /* Self-owned root appended to .keyboard-canvas-container by KalimbaView.js.
-   Tines hang from a tall top zone (the solid wood / bridge bar) so they
-   sit lower in the window and use more of the available height. */
+   The wooden body is cut to the tine span: it hugs its content width
+   (clamped to the canvas) and is centred. Tines reach the very top edge
+   and hang downward, played from the top like a real kalimba. */
 .kalimba-view {
     flex: 1;
     min-height: 0;
-    height: 100%;
+    align-self: center;
+    width: max-content;
+    max-width: 100%;
     position: relative;
     overflow: hidden;
     box-sizing: border-box;
@@ -4203,8 +4206,8 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     align-items: flex-start;
     justify-content: center;
     gap: 4px;
-    padding: 56px 18px 18px;
-    border-radius: 10px;
+    padding: 0 0 18px;
+    border-radius: 0 0 10px 10px;
     touch-action: none;
     box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.45),
                 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -4225,8 +4228,9 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     position: absolute;
     left: 50%;
     bottom: 14%;
-    width: 120px;
-    height: 120px;
+    width: min(120px, 70%);
+    height: auto;
+    aspect-ratio: 1 / 1;
     transform: translateX(-50%);
     border-radius: 50%;
     background: radial-gradient(circle at 50% 45%,
