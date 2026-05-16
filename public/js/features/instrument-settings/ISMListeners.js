@@ -466,6 +466,41 @@
         }.bind(this));
     };
 
+    // Chord library picker — fills the active notes target's discrete
+    // selection with every occurrence of the chosen chord's pitch classes
+    // within the instrument's real range, then re-renders so the piano,
+    // hidden inputs and save path pick it up. Mirrors _wireNotePresetListener
+    // (incl. writing polyphony onto tab.settings, not the per-voice obj).
+    ISMListeners._wireChordPickerListener = function() {
+        const apply = this.$('.ism-chord-apply');
+        if (!apply) return;
+        apply.addEventListener('click', function() {
+            const rootSel = this.$('.ism-chord-root-select');
+            const typeSel = this.$('.ism-chord-type-select');
+            if (!rootSel || !typeSel || !window.ChordLibrary) return;
+            const tab = this._getActiveTab();
+            if (!tab) return;
+            const caps = window.GmInstrumentCapabilities;
+            const cap = caps && caps.get ? caps.get(tab.settings.gm_program) : null;
+            if (!cap) return;
+            const rootPc = parseInt(rootSel.value, 10);
+            const notes = window.ChordLibrary.buildChordNotes(
+                rootPc, typeSel.value, cap.rangeMin, cap.rangeMax);
+            if (!notes || notes.length === 0) return;
+            const target = (typeof this._getActiveNotesTarget === 'function')
+                ? this._getActiveNotesTarget() : { obj: tab.settings };
+            const obj = target && target.obj ? target.obj : tab.settings;
+            obj.note_selection_mode = 'discrete';
+            obj.selected_notes = notes;
+            obj.note_range_min = null;
+            obj.note_range_max = null;
+            obj.octave_mode = 'chromatic';
+            tab.settings.polyphony = cap.polyphony;
+            this._refreshNotesSectionForProgram();
+            if (this.activeSection === 'notes') this._initPianoForActiveTab();
+        }.bind(this));
+    };
+
     ISMListeners._wireChannelGridListeners = function() {
         this.$$('.ism-channel-btn:not([disabled])').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -824,6 +859,7 @@
     ISMListeners._attachNotesSectionListeners = function() {
         this._wireNotesModeListeners();
         this._wireNotePresetListener();
+        this._wireChordPickerListener();
         this._wireDrumListeners();
         this._attachStringsSectionListeners();
         this._wireVoicesListeners();
@@ -861,6 +897,15 @@
             const next = getPianoNoteNotation() === 'latin' ? 'us' : 'latin';
             setPianoNoteNotation(next);
             refreshLabel();
+            // Keep chord-picker root labels in sync with the US/Latin choice
+            // without a full section re-render (preserves the selection).
+            const rootSel = document.querySelector('.ism-chord-root-select');
+            if (rootSel && window.ChordLibrary) {
+                Array.prototype.forEach.call(rootSel.options, function(opt) {
+                    const pc = parseInt(opt.value, 10);
+                    if (Number.isInteger(pc)) opt.textContent = window.ChordLibrary.rootLabel(pc);
+                });
+            }
             if (typeof renderPianoKeyboard === 'function') {
                 renderPianoKeyboard();
             }
