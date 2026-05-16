@@ -1488,7 +1488,7 @@ class KeyboardModal {
             this._harpStringConfig = this._harpPresetStringConfig();
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.setViewMode('harp');
-        } else if (['harmonica', 'accordion', 'mallet',
+        } else if (['harmonica', 'accordion', 'mallet', 'music-box',
                      'kalimba', 'bagpipe', 'steel-drum', 'perc-pad',
                      'theremin']
             .includes(info.viewKind)) {

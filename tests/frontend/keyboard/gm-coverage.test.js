@@ -114,3 +114,29 @@ describe('GM coverage — non-melodic & custom types', () => {
     }).viewKind).toBe('theremin');
   });
 });
+
+describe('GM coverage — KeyboardModal self-owned dispatch completeness', () => {
+  // Regression guard: a new dedicated view was registered + detected but
+  // _selectInstrumentOption forgot to dispatch its viewKind, so it fell
+  // back to piano (the Music Box bug). Assert every self-owned kind is
+  // both registered AND present in that dispatch list.
+  const SELF_OWNED = ['harmonica', 'accordion', 'mallet', 'music-box',
+    'kalimba', 'bagpipe', 'steel-drum', 'perc-pad', 'theremin'];
+
+  it('every self-owned view kind is dispatched by _selectInstrumentOption', () => {
+    const src = readFileSync(resolve(__dirname,
+      '../../../public/js/features/KeyboardModal.js'), 'utf8');
+    const m = src.match(
+      /else if \(\[([^\]]*?)\]\s*\.includes\(info\.viewKind\)\)/);
+    expect(m).not.toBeNull();
+    const dispatched = m[1].split(',')
+      .map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+    for (const k of SELF_OWNED) expect(dispatched).toContain(k);
+  });
+
+  it('every self-owned kind resolves to a registered ViewClass', () => {
+    for (const k of SELF_OWNED) {
+      expect(typeof registry().get(k)).toBe('function');
+    }
+  });
+});
