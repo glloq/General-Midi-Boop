@@ -4292,14 +4292,14 @@ body.dark-mode .kalimba-view {
 }
 
 /* ============================================================================
-   HARMONICA VIEW — realistic side ("mouth") view
+   HARMONICA VIEW — clean side view (cover plates + comb + numbered holes)
    ----------------------------------------------------------------------------
    Self-owned root appended to .keyboard-canvas-container by HarmonicaView.js.
-   Layout: a brushed-metal cover plate on top and bottom sandwiching a comb
-   (the central body) that holds the blow row above the draw row. Numbered
-   holes are recessed channels. A vertical slide lever sits on the right for
-   chromatic harmonicas. Holes flex to fill the width and shrink so a long
-   configured range still fits without horizontal scroll.
+   A centered device: smooth metal cover plates sandwich a matte comb whose
+   rounded holes sit in a recessed channel (the gap between holes reads as
+   comb teeth). The chromatic slide is a click-to-toggle switch whose knob
+   sits on the RIGHT when off and slides LEFT when engaged; HarmonicaView
+   also rewrites every hole's displayed note to the shifted pitch.
    ========================================================================== */
 
 .harmonica-view {
@@ -4310,12 +4310,11 @@ body.dark-mode .kalimba-view {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: stretch;
-    gap: 0;
-    padding: 14px 16px 18px;
-    overflow: hidden;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    overflow: auto;
     touch-action: none;
-    border-radius: 0 0 10px 10px;
 }
 
 /* Trim the top gap above the harmonica (shared canvas padding is meant for
@@ -4324,56 +4323,42 @@ body.dark-mode .kalimba-view {
     padding-top: 2px;
 }
 
-/* Brushed-metal cover plates (top + bottom). Fine vertical grain over a
-   chrome gradient, with a bevelled bright edge facing the comb. */
-.harmonica-cover {
-    height: 26px;
-    flex: none;
-    background:
-        repeating-linear-gradient(90deg,
-            rgba(255, 255, 255, 0.10) 0px,
-            rgba(255, 255, 255, 0.10) 1px,
-            rgba(0, 0, 0, 0.06) 2px,
-            rgba(0, 0, 0, 0.06) 4px),
-        linear-gradient(180deg, #f4f6f8 0%, #c3cad1 45%, #9aa3ac 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
-                0 2px 5px rgba(0, 0, 0, 0.35);
+/* The device: cover plates + comb, centered, growing to a comfortable max
+   instead of stretching edge-to-edge. */
+.harmonica-device {
+    width: 100%;
+    max-width: 920px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
-.harmonica-cover-top {
-    border-radius: 8px 8px 0 0;
-    border-bottom: 2px solid rgba(0, 0, 0, 0.35);
+/* Smooth brushed-steel cover plates (no busy grain). */
+.harmonica-cover {
+    height: 30px;
+    flex: none;
+    background: linear-gradient(180deg, #fdfefe 0%, #d7dde2 38%, #aeb6bd 72%, #c4cbd1 100%);
 }
+
+.harmonica-cover-top { border-bottom: 1px solid rgba(0, 0, 0, 0.16); }
 
 .harmonica-cover-bottom {
-    border-radius: 0 0 8px 8px;
-    border-top: 2px solid rgba(0, 0, 0, 0.35);
-    background:
-        repeating-linear-gradient(90deg,
-            rgba(255, 255, 255, 0.10) 0px,
-            rgba(255, 255, 255, 0.10) 1px,
-            rgba(0, 0, 0, 0.06) 2px,
-            rgba(0, 0, 0, 0.06) 4px),
-        linear-gradient(0deg, #f4f6f8 0%, #c3cad1 45%, #9aa3ac 100%);
+    border-top: 1px solid rgba(0, 0, 0, 0.16);
+    background: linear-gradient(0deg, #fdfefe 0%, #d7dde2 38%, #aeb6bd 72%, #c4cbd1 100%);
 }
 
-/* Body holds the comb and (for chromatic) the slide lever on the right. */
+/* Comb body: a clean matte panel. Holds the rows + (chromatic) slide. */
 .harmonica-body {
     flex: 1;
     min-height: 0;
     display: flex;
-    align-items: stretch;
-    gap: 10px;
-    /* Comb material: dark moulded plastic/wood with a faint vertical grain. */
-    background:
-        repeating-linear-gradient(90deg,
-            rgba(0, 0, 0, 0.22) 0px,
-            rgba(0, 0, 0, 0.22) 2px,
-            rgba(255, 255, 255, 0.03) 4px,
-            rgba(255, 255, 255, 0.03) 10px),
-        linear-gradient(180deg, #3a3f46 0%, #2b2f34 50%, #23262b 100%);
-    box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.55);
-    padding: 10px 12px;
+    align-items: center;
+    gap: 18px;
+    padding: 18px 20px;
+    background: linear-gradient(180deg, #454b54 0%, #373c44 100%);
 }
 
 .harmonica-comb {
@@ -4381,176 +4366,155 @@ body.dark-mode .kalimba-view {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .harmonica-line {
     display: flex;
-    align-items: stretch;
-    gap: 10px;
+    align-items: center;
+    gap: 14px;
 }
 
 .harmonica-row-label {
     flex: none;
-    width: 84px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
+    width: 92px;
     text-align: right;
-    font: 600 11px/1.2 sans-serif;
-    letter-spacing: 0.04em;
+    font: 600 11px/1.2 system-ui, sans-serif;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #d6dde4;
+    color: #cfd6dd;
     user-select: none;
 }
 
-.harmonica-row-label-blow { color: #8fd0ff; }
-.harmonica-row-label-draw { color: #ffb38a; }
+.harmonica-row-label-blow { color: #7fc3f5; }
+.harmonica-row-label-draw { color: #f1ad7a; }
 
+/* Recessed channel the holes sit in; the gap between holes reveals it as
+   comb teeth. */
 .harmonica-row {
     flex: 1;
     min-width: 0;
     display: flex;
-    gap: 5px;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 9px;
+    background: #2b2f36;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* A recessed numbered channel. Flexes to fill the row and shrinks for long
-   ranges; the dark inset reads as a hole in the comb. */
+/* Clean rounded hole; a subtle tint differentiates blow vs draw. */
 .harmonica-hole {
     flex: 1 1 0;
-    min-width: 20px;
-    max-width: 64px;
-    min-height: 46px;
-    border: 1px solid rgba(0, 0, 0, 0.6);
-    border-radius: 5px;
+    min-width: 26px;
+    max-width: 72px;
+    min-height: 52px;
+    border: none;
+    border-radius: 7px;
     cursor: pointer;
-    color: #e9edf1;
-    font: 12px/1.2 sans-serif;
+    color: #eef2f6;
+    font: 12px/1.2 system-ui, sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 4px;
     touch-action: none;
-    background: linear-gradient(180deg, #1c1f23 0%, #14171a 100%);
-    box-shadow: inset 0 3px 7px rgba(0, 0, 0, 0.75),
-                inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.06s ease, box-shadow 0.1s ease;
+    background: linear-gradient(180deg, #3c424b 0%, #2f343b 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                0 2px 4px rgba(0, 0, 0, 0.35);
 }
 
 .harmonica-row-blow .harmonica-hole {
-    background: linear-gradient(180deg, #1a2530 0%, #12181f 100%);
+    background: linear-gradient(180deg, #33414f 0%, #28323d 100%);
 }
 
 .harmonica-row-draw .harmonica-hole {
-    background: linear-gradient(180deg, #2a1f1a 0%, #1a1310 100%);
+    background: linear-gradient(180deg, #473a30 0%, #382e26 100%);
 }
 
-.harmonica-hole-num {
-    font-weight: 700;
-    font-size: 13px;
-    color: #ffffff;
-    opacity: 0.9;
+.harmonica-hole:hover {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+                0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
-.harmonica-hole-note {
-    font-size: 11px;
-    opacity: 0.78;
-}
+.harmonica-hole-num { font-weight: 700; font-size: 14px; color: #ffffff; }
+.harmonica-hole-note { font-size: 11px; opacity: 0.8; }
 
-/* Lit hole: a warm inset glow + bright ring. Uses box-shadow/border only so
-   an optional inline note-colour override (set by JS) is never clobbered. */
+/* Lit hole: clean accent fill + lift. Uses background/box-shadow only; an
+   optional inline note-colour override (set by JS) still wins by specificity. */
 .harmonica-hole.active {
-    border-color: #f3c969;
-    color: #1a1a1a;
-    box-shadow: inset 0 0 0 2px rgba(243, 201, 105, 0.9),
-                inset 0 2px 8px rgba(0, 0, 0, 0.5),
-                0 0 10px rgba(243, 201, 105, 0.55);
+    color: #16202b;
+    transform: translateY(1px);
+    background: linear-gradient(180deg, #ffe39a 0%, #ffd166 100%);
+    box-shadow: inset 0 0 0 2px #ffd166,
+                0 0 10px rgba(255, 209, 102, 0.5);
 }
 
 .harmonica-hole.active .harmonica-hole-num,
-.harmonica-hole.active .harmonica-hole-note {
-    color: #1a1a1a;
-}
+.harmonica-hole.active .harmonica-hole-note { color: #16202b; }
 
-/* Chromatic slide lever — vertical button on the right of the body. */
+/* Chromatic slide: a click-to-toggle switch. Knob on the RIGHT = off,
+   slides LEFT = engaged. */
 .harmonica-slide {
     flex: none;
-    width: 56px;
-    align-self: stretch;
-    border: 1px solid rgba(0, 0, 0, 0.6);
-    border-radius: 7px;
-    cursor: pointer;
-    touch-action: none;
+    align-self: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 4px;
-    color: #20242a;
-    font: 700 10px/1.15 sans-serif;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    background: linear-gradient(180deg, #e7ebef 0%, #b9c0c7 50%, #97a0a8 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
-                0 2px 5px rgba(0, 0, 0, 0.4);
-}
-
-.harmonica-slide-label {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    transform: rotate(180deg);
+    gap: 8px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 4px;
     user-select: none;
 }
 
-.harmonica-slide-knob {
-    flex: none;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 40% 35%, #fefefe 0%, #aab1b8 70%, #7d858c 100%);
-    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9),
-                0 1px 3px rgba(0, 0, 0, 0.5);
+.harmonica-slide-label {
+    font: 700 10px/1 system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #cfd6dd;
+    transition: color 0.15s ease;
 }
 
-.harmonica-slide.engaged {
-    background: linear-gradient(180deg, #d9a441 0%, #c98f2c 60%, #b87f22 100%);
-    color: #1a1208;
-    box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.5),
-                0 0 10px rgba(243, 201, 105, 0.5);
+.harmonica-slide-track {
+    position: relative;
+    width: 64px;
+    height: 30px;
+    border-radius: 15px;
+    background: linear-gradient(180deg, #23262c 0%, #2f333a 100%);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+    transition: background 0.15s ease;
+}
+
+.harmonica-slide-knob {
+    position: absolute;
+    top: 3px;
+    right: 3px;                       /* OFF → knob on the right */
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, #c6cdd3 65%, #99a1a8 100%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transition: right 0.16s ease, background 0.16s ease;
+}
+
+.harmonica-slide.engaged .harmonica-slide-track {
+    background: linear-gradient(180deg, #d8932f 0%, #c9851f 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-knob {
-    background: radial-gradient(circle at 40% 35%, #fff0cf 0%, #e2b85a 70%, #b88a2a 100%);
+    right: 37px;                      /* ON → knob slides to the left */
+    background: radial-gradient(circle at 38% 32%, #fff3d6 0%, #f0c873 65%, #cf9a35 100%);
 }
 
-/* Dark mode: keep the metal/comb readable against the dark canvas. */
-body.dark-mode .harmonica-cover {
-    background:
-        repeating-linear-gradient(90deg,
-            rgba(255, 255, 255, 0.06) 0px,
-            rgba(255, 255, 255, 0.06) 1px,
-            rgba(0, 0, 0, 0.18) 2px,
-            rgba(0, 0, 0, 0.18) 4px),
-        linear-gradient(180deg, #c8ced4 0%, #8b939b 45%, #5f666d 100%);
-}
+.harmonica-slide.engaged .harmonica-slide-label { color: #ffd98a; }
 
-body.dark-mode .harmonica-cover-bottom {
-    background:
-        repeating-linear-gradient(90deg,
-            rgba(255, 255, 255, 0.06) 0px,
-            rgba(255, 255, 255, 0.06) 1px,
-            rgba(0, 0, 0, 0.18) 2px,
-            rgba(0, 0, 0, 0.18) 4px),
-        linear-gradient(0deg, #c8ced4 0%, #8b939b 45%, #5f666d 100%);
-}
+/* Dark mode: just dim the metal/comb a touch against the dark canvas. */
+body.dark-mode .harmonica-cover,
+body.dark-mode .harmonica-cover-bottom { filter: brightness(0.9); }
 
 body.dark-mode .harmonica-body {
-    background:
-        repeating-linear-gradient(90deg,
-            rgba(0, 0, 0, 0.30) 0px,
-            rgba(0, 0, 0, 0.30) 2px,
-            rgba(255, 255, 255, 0.02) 4px,
-            rgba(255, 255, 255, 0.02) 10px),
-        linear-gradient(180deg, #2b2f34 0%, #202327 50%, #191b1e 100%);
+    background: linear-gradient(180deg, #34383f 0%, #292c32 100%);
 }

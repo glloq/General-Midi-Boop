@@ -109,35 +109,55 @@ describe('Harmonica — slide button (chromatic only)', () => {
     expect(root.querySelector('.harmonica-slide')).toBeNull();
   });
 
-  it('engaging the slide re-pitches held notes +1; release restores', () => {
+  it('click toggles the slide; it is NOT dropped by a global pointerup', () => {
     const { root, played, stopped } = mountWith(
       { type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
     const slide = root.querySelector('.harmonica-slide');
     expect(slide).not.toBeNull();
+    expect(slide.getAttribute('aria-pressed')).toBe('false');
 
     const hole = root.querySelector('.harmonica-blow'); // base 60
     fire(hole, 'pointerdown');
     expect(played).toEqual([60]);
 
-    fire(slide, 'pointerdown');                 // engage slide
-    expect(stopped).toEqual([60]);              // old pitch released
-    expect(played).toEqual([60, 61]);           // +1 semitone replayed
+    fire(slide, 'click');                        // engage (toggle on)
+    expect(stopped).toEqual([60]);               // old pitch released
+    expect(played).toEqual([60, 61]);            // +1 semitone replayed
     expect(slide.classList.contains('engaged')).toBe(true);
+    expect(slide.getAttribute('aria-pressed')).toBe('true');
 
+    // A global pointerup releases the held hole but the slide stays latched.
     document.dispatchEvent(new Event('pointerup'));
-    expect(stopped).toEqual([60, 61]);          // held note released at +1
-    expect(slide.classList.contains('engaged')).toBe(false);
+    expect(stopped).toEqual([60, 61]);           // held note released at +1
+    expect(slide.classList.contains('engaged')).toBe(true);   // still on
     expect(root.querySelectorAll('.harmonica-hole.active').length).toBe(0);
+
+    fire(slide, 'click');                        // click again → release
+    expect(slide.classList.contains('engaged')).toBe(false);
+    expect(slide.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('pressing a hole while engaged plays the shifted pitch', () => {
     const { root, played } = mountWith(
       { type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
     const slide = root.querySelector('.harmonica-slide');
-    fire(slide, 'pointerdown');
+    fire(slide, 'click');
     const hole = root.querySelector('.harmonica-blow'); // base 60
     fire(hole, 'pointerdown');
     expect(played).toEqual([61]);
+  });
+
+  it('toggling the slide rewrites the displayed note labels', () => {
+    const { root } = mountWith(
+      { type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
+    const hole = root.querySelector('.harmonica-blow'); // base 60
+    const noteEl = hole.querySelector('.harmonica-hole-note');
+    expect(noteEl.textContent).toBe('N60');
+    const slide = root.querySelector('.harmonica-slide');
+    fire(slide, 'click');
+    expect(noteEl.textContent).toBe('N61');       // shifted +1
+    fire(slide, 'click');
+    expect(noteEl.textContent).toBe('N60');       // restored
   });
 });
 
