@@ -95,6 +95,37 @@
         }
     }
 
+    /**
+     * Pre-warm the synthesizer + soundbank in the background so the first
+     * note feedback (click / drag / piano key) is instant instead of
+     * blocking the user gesture on the SF2 fetch + decode (audit P1.1).
+     * Fire-and-forget, idempotent. Does NOT resume the AudioContext —
+     * that requires a user gesture and stays in _prepareForFeedback.
+     */
+    warmUpSynth() {
+        if (this._warmupPromise) return this._warmupPromise;
+        if (this._feedbackInstrumentsLoaded) return Promise.resolve();
+        const m = this.modal;
+        this._warmupPromise = (async () => {
+            try {
+                if (!m.synthesizer) await this.initSynthesizer();
+                if (!m.synthesizer || !m.synthesizer.isInitialized) return;
+                if (this._feedbackInstrumentsLoaded) return;
+                this.loadSequenceForPlayback();
+                if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
+                try {
+                    await m.synthesizer.preloadInstruments();
+                } finally {
+                    if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
+                }
+                this._feedbackInstrumentsLoaded = true;
+            } catch (err) {
+                m.log('warn', 'warmUpSynth error:', err.message);
+            }
+        })();
+        return this._warmupPromise;
+    }
+
     // ========================================================================
     // LOAD SEQUENCE
     // ========================================================================
@@ -252,12 +283,6 @@
             previousMap.set(key, note);
         });
 
-        const currentMap = new Map();
-        currentSequence.forEach((note, index) => {
-            const key = `${note.t}_${note.c}_${index}`;
-            currentMap.set(key, note);
-        });
-
         const notesToPlay = [];
         currentSequence.forEach((note, index) => {
             const key = `${note.t}_${note.c}_${index}`;
@@ -301,6 +326,12 @@
 
         if (m.synthesizer.audioContext && m.synthesizer.audioContext.state === 'suspended') {
             await m.synthesizer.audioContext.resume();
+        }
+
+        // If a background warm-up (audit P1.1) is in flight, join it instead
+        // of kicking off a second preload of the same soundbank.
+        if (this._warmupPromise) {
+            try { await this._warmupPromise; } catch (_) { /* fall through to lazy load */ }
         }
 
         if (!this._feedbackInstrumentsLoaded) {
