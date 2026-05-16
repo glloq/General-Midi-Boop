@@ -947,19 +947,34 @@ class KeyboardModal {
      * The accordion ALWAYS has both sides — this only describes the play
      * possibilities of each side (no hand show/hide):
      *   - right side: `right_display` 'buttons' | 'keyboard'
-     *   - left  side: `bass_system` 'stradella' | 'chromatic' | 'free'
+     *   - left  side: `bass_system` 'stradella' | 'free' (legacy 'chromatic'
+     *     is normalized → 'free' at read time; no data migration)
+     *   - left  side span: `bass_range` {min,max} MIDI, only used by the
+     *     free-bass system (Stradella is fixed). Defaults to C2..C4.
      * Defaults preserve the previous look (Stradella bass, button right).
-     * @returns {{bass_system:'stradella'|'chromatic'|'free',
-     *            right_display:'buttons'|'keyboard'}}
+     * @returns {{bass_system:'stradella'|'free',
+     *            right_display:'buttons'|'keyboard',
+     *            bass_range:{min:number,max:number}}}
      */
     getAccordionConfig() {
         const caps = this.selectedDeviceCapabilities;
         const c = (caps && caps.accordion_config) || {};
-        const bass_system = ['stradella', 'chromatic', 'free'].includes(c.bass_system)
-            ? c.bass_system : 'stradella';
+        const rawBass = c.bass_system === 'chromatic' ? 'free' : c.bass_system;
+        const bass_system = ['stradella', 'free'].includes(rawBass)
+            ? rawBass : 'stradella';
         const right_display = ['buttons', 'keyboard'].includes(c.right_display)
             ? c.right_display : 'buttons';
-        return { bass_system, right_display };
+        // Free-bass default span C2..C4 — kept in sync with ISMSections
+        // _ACCORDION_BASS_DEFAULT and AccordionView FREE_BASS_LO/HI.
+        const note = (v, dflt) => {
+            const n = Number(v);
+            return Number.isInteger(n) && n >= 0 && n <= 127 ? n : dflt;
+        };
+        const br = (c.bass_range && typeof c.bass_range === 'object') ? c.bass_range : {};
+        let min = note(br.min, 36);
+        let max = note(br.max, 60);
+        if (min > max) { const t = min; min = max; max = t; }
+        return { bass_system, right_display, bass_range: { min, max } };
     }
 
     /**

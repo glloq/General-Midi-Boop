@@ -84,32 +84,95 @@ describe('ISM — bagpipe section render + collect', () => {
 });
 
 describe('ISM — accordion section render + collect (no hands)', () => {
-  it('renders both selects with current values', () => {
+  it('renders 2 bass options (no chromatic) + current values', () => {
     const html = S()._renderAccordionSection.call(
       ctx({ accordion_config: { bass_system: 'free', right_display: 'keyboard' } }));
     mountSection('accordion', html);
     expect(document.getElementById('accordionBassSystem').value).toBe('free');
+    const opts = [...document.querySelectorAll('#accordionBassSystem option')]
+      .map(o => o.value);
+    expect(opts).toEqual(['stradella', 'free']);   // chromatic removed
     expect(document.getElementById('accordionRightDisplay').value).toBe('keyboard');
-    // no hands control
     expect(document.getElementById('accordionHands')).toBeNull();
   });
 
-  it('defaults → stradella + buttons', () => {
+  it('legacy chromatic normalized → free on render', () => {
+    mountSection('accordion', S()._renderAccordionSection.call(
+      ctx({ accordion_config: { bass_system: 'chromatic' } })));
+    expect(document.getElementById('accordionBassSystem').value).toBe('free');
+  });
+
+  it('defaults → stradella + buttons + C2..C4 range (inputs disabled)', () => {
     mountSection('accordion', S()._renderAccordionSection.call(ctx({})));
     expect(document.getElementById('accordionBassSystem').value).toBe('stradella');
     expect(document.getElementById('accordionRightDisplay').value).toBe('buttons');
+    expect(document.getElementById('accordionBassRangeMin').value).toBe('36');
+    expect(document.getElementById('accordionBassRangeMax').value).toBe('60');
+    expect(document.getElementById('accordionBassRangeMin').disabled).toBe(true);
+    expect(document.getElementById('accordionBassRangeMax').disabled).toBe(true);
   });
 
-  it('collect returns { bass_system, right_display } only', () => {
+  it('free → range inputs enabled with stored span', () => {
+    mountSection('accordion', S()._renderAccordionSection.call(
+      ctx({ accordion_config: { bass_system: 'free', bass_range: { min: 48, max: 55 } } })));
+    expect(document.getElementById('accordionBassRangeMin').value).toBe('48');
+    expect(document.getElementById('accordionBassRangeMax').value).toBe('55');
+    expect(document.getElementById('accordionBassRangeMin').disabled).toBe(false);
+  });
+
+  it('collect returns bass_system + right_display + bass_range', () => {
     mountSection('accordion', S()._renderAccordionSection.call(ctx({})));
-    document.getElementById('accordionBassSystem').value = 'chromatic';
+    document.getElementById('accordionBassSystem').value = 'free';
     document.getElementById('accordionRightDisplay').value = 'keyboard';
-    expect(S()._collectAccordionConfig(document.body))
-      .toEqual({ bass_system: 'chromatic', right_display: 'keyboard' });
+    document.getElementById('accordionBassRangeMin').value = '48';
+    document.getElementById('accordionBassRangeMax').value = '55';
+    expect(S()._collectAccordionConfig(document.body)).toEqual({
+      bass_system: 'free', right_display: 'keyboard',
+      bass_range: { min: 48, max: 55 }
+    });
+  });
+
+  it('normalize maps legacy chromatic → free', () => {
+    expect(S()._normalizeBassSystem('chromatic')).toBe('free');
+    expect(S()._normalizeBassSystem('bogus')).toBe('stradella');
+  });
+
+  it('collect: inverted range swapped, NaN → C2..C4 default', () => {
+    mountSection('accordion', S()._renderAccordionSection.call(ctx({})));
+    document.getElementById('accordionBassSystem').value = 'free';
+    document.getElementById('accordionBassRangeMin').value = '70';
+    document.getElementById('accordionBassRangeMax').value = '40';
+    expect(S()._collectAccordionConfig(document.body).bass_range)
+      .toEqual({ min: 40, max: 70 });
+    document.getElementById('accordionBassRangeMin').value = '';
+    document.getElementById('accordionBassRangeMax').value = 'abc';
+    expect(S()._collectAccordionConfig(document.body).bass_range)
+      .toEqual({ min: 36, max: 60 });
+  });
+
+  it('collect: bass_range persisted even under stradella', () => {
+    mountSection('accordion', S()._renderAccordionSection.call(ctx({})));
+    document.getElementById('accordionBassSystem').value = 'stradella';
+    const out = S()._collectAccordionConfig(document.body);
+    expect(out.bass_system).toBe('stradella');
+    expect(out.bass_range).toEqual({ min: 36, max: 60 });
   });
 
   it('collect → undefined when not rendered/visited', () => {
     document.body.innerHTML = '<div class="ism-section" data-section="accordion"></div>';
     expect(S()._collectAccordionConfig(document.body)).toBeUndefined();
+  });
+
+  it('_syncAccordionBassRange toggles disabled live', () => {
+    mountSection('accordion', S()._renderAccordionSection.call(
+      ctx({ accordion_config: { bass_system: 'free' } })));
+    const min = document.getElementById('accordionBassRangeMin');
+    expect(min.disabled).toBe(false);
+    document.getElementById('accordionBassSystem').value = 'stradella';
+    S()._syncAccordionBassRange(document.body);
+    expect(min.disabled).toBe(true);
+    document.getElementById('accordionBassSystem').value = 'free';
+    S()._syncAccordionBassRange(document.body);
+    expect(min.disabled).toBe(false);
   });
 });

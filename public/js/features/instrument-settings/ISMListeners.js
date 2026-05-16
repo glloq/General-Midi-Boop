@@ -1427,6 +1427,7 @@
         this._attachIdentitySectionListeners();
         this._attachNotesSectionListeners();
         this._attachHandsSectionListeners();
+        this._attachAccordionSectionListeners();
 
         // Measure delay button — hidden by default, revealed only if an audio input is detected
         const measureBtn = this.$('#measureDelayBtn');
@@ -1461,6 +1462,26 @@
         // Mount the static preview after all form listeners are wired so
         // they can call _mountHandsPreview when inputs change.
         this._mountHandsPreview();
+    };
+
+    /**
+     * Wire the Accordion section: toggling the bass-system select
+     * enables/disables the free-bass range inputs live. No-op when the
+     * section is not rendered (non-accordion instrument, or lazy section
+     * not yet visited).
+     */
+    ISMListeners._attachAccordionSectionListeners = function() {
+        const section = this.$('.ism-section[data-section="accordion"]');
+        if (!section) return;
+        const bassSel = section.querySelector('#accordionBassSystem');
+        if (!bassSel) return;
+        const sync = function() {
+            if (window.ISMSections && window.ISMSections._syncAccordionBassRange) {
+                window.ISMSections._syncAccordionBassRange(section);
+            }
+        };
+        bassSel.addEventListener('change', sync);
+        sync();
     };
 
     /**

@@ -2270,14 +2270,35 @@
     // ===== Accordion section (per-side play possibilities) ===============
     // No hand show/hide — only describes each side. Consumed by
     // AccordionView (left = bass_system, right = right_display).
+    // Free-bass default span C2..C4 (24 notes) — kept in sync with
+    // KeyboardModal.getAccordionConfig() and AccordionView FREE_BASS_LO/HI.
+    ISMSections._ACCORDION_BASS_DEFAULT = { min: 36, max: 60 };
+
+    // Read-time normalization: 'chromatic' was merged into 'free' (no data
+    // migration). Anything unknown falls back to 'stradella'.
+    ISMSections._normalizeBassSystem = function(v) {
+        const b = v === 'chromatic' ? 'free' : v;
+        return ['stradella', 'free'].includes(b) ? b : 'stradella';
+    };
+
+    // Parse a MIDI note from arbitrary input, or fall back to `dflt`.
+    ISMSections._coerceBassNote = function(v, dflt) {
+        const n = parseInt(v, 10);
+        return Number.isInteger(n) && n >= 0 && n <= 127 ? n : dflt;
+    };
+
     ISMSections._renderAccordionSection = function() {
         const tab = this._getActiveTab();
         if (!tab) return '';
         const cfg = tab.settings?.accordion_config || {};
-        const bass = ['stradella', 'chromatic', 'free'].includes(cfg.bass_system)
-            ? cfg.bass_system : 'stradella';
+        const bass = ISMSections._normalizeBassSystem(cfg.bass_system);
         const rd = ['buttons', 'keyboard'].includes(cfg.right_display)
             ? cfg.right_display : 'buttons';
+        const dflt = ISMSections._ACCORDION_BASS_DEFAULT;
+        let bMin = ISMSections._coerceBassNote(cfg.bass_range?.min, dflt.min);
+        let bMax = ISMSections._coerceBassNote(cfg.bass_range?.max, dflt.max);
+        if (bMin > bMax) { const t = bMin; bMin = bMax; bMax = t; }
+        const rangeOff = bass !== 'free';
         const opt = (v, cur, label) =>
             `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
         return `
@@ -2285,11 +2306,20 @@
                 <label>${this.t('instrumentSettings.accordionBass') || 'Côté gauche — système de basses'}</label>
                 <select id="accordionBassSystem">
                     ${opt('stradella', bass, 'Stradella (basses fixes)')}
-                    ${opt('chromatic', bass, 'Chromatique')}
                     ${opt('free', bass, 'Basses libres')}
                 </select>
                 <span class="ism-form-hint">${this.t('instrumentSettings.accordionBassHelp')
                     || 'Possibilités de jeu du côté gauche (les deux côtés restent toujours présents).'}</span>
+            </div>
+            <div class="ism-form-group" id="accordionBassRangeGroup"${rangeOff ? ' style="opacity:0.5"' : ''}>
+                <label>${this.t('instrumentSettings.accordionBassRange') || 'Côté gauche — étendue des basses libres'}</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input type="number" id="accordionBassRangeMin" min="0" max="127" value="${bMin}"${rangeOff ? ' disabled' : ''}>
+                    <span>–</span>
+                    <input type="number" id="accordionBassRangeMax" min="0" max="127" value="${bMax}"${rangeOff ? ' disabled' : ''}>
+                </div>
+                <span class="ism-form-hint">${this.t('instrumentSettings.accordionBassRangeHelp')
+                    || 'Note MIDI min/max jouable du côté gauche (uniquement avec « Basses libres »).'}</span>
             </div>
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.accordionRight') || 'Côté droit — affichage'}</label>
@@ -2308,11 +2338,33 @@
         if (!section) return undefined;
         const bassEl = rootEl.querySelector('#accordionBassSystem');
         if (!bassEl) return undefined;             // lazy, never visited → preserve
-        const bass_system = ['stradella', 'chromatic', 'free'].includes(bassEl.value)
-            ? bassEl.value : 'stradella';
+        const bass_system = ISMSections._normalizeBassSystem(bassEl.value);
         const rdVal = rootEl.querySelector('#accordionRightDisplay')?.value;
         const right_display = ['buttons', 'keyboard'].includes(rdVal) ? rdVal : 'buttons';
-        return { bass_system, right_display };
+        // bass_range is always persisted (even under Stradella) so the user's
+        // free-bass span survives a Stradella round-trip.
+        const dflt = ISMSections._ACCORDION_BASS_DEFAULT;
+        let min = ISMSections._coerceBassNote(
+            rootEl.querySelector('#accordionBassRangeMin')?.value, dflt.min);
+        let max = ISMSections._coerceBassNote(
+            rootEl.querySelector('#accordionBassRangeMax')?.value, dflt.max);
+        if (min > max) { const t = min; min = max; max = t; }
+        return { bass_system, right_display, bass_range: { min, max } };
+    };
+
+    // Enable the bass-range inputs only for 'free'; dim + disable under
+    // Stradella (the span is fixed there). Standalone so it is callable
+    // both from the live listener and from tests.
+    ISMSections._syncAccordionBassRange = function(scopeEl) {
+        const bassSel = scopeEl?.querySelector('#accordionBassSystem');
+        const group = scopeEl?.querySelector('#accordionBassRangeGroup');
+        const minEl = scopeEl?.querySelector('#accordionBassRangeMin');
+        const maxEl = scopeEl?.querySelector('#accordionBassRangeMax');
+        if (!bassSel || !group || !minEl || !maxEl) return;
+        const free = bassSel.value === 'free';
+        minEl.disabled = !free;
+        maxEl.disabled = !free;
+        group.style.opacity = free ? '' : '0.5';
     };
 
     if (typeof window !== 'undefined') window.ISMSections = ISMSections;

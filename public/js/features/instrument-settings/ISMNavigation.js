@@ -19,6 +19,7 @@
         const listenerMap = {
             notes: '_attachNotesSectionListeners',
             hands: '_attachHandsSectionListeners',
+            accordion: '_attachAccordionSectionListeners',
         };
         this.$$('.ism-section').forEach(sec => {
             const isTarget = sec.dataset.section === sectionId;

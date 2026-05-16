@@ -63,4 +63,22 @@ describe('validateAccordionConfigPayload', () => {
     expect(() => validateAccordionConfigPayload({ bass_system: 'bogus' })).toThrow(ValidationError);
     expect(() => validateAccordionConfigPayload({ right_display: 'touch' })).toThrow(ValidationError);
   });
+
+  test('legacy chromatic accepted leniently (merged into free downstream)', () => {
+    expect(() => validateAccordionConfigPayload({ bass_system: 'chromatic' })).not.toThrow();
+  });
+
+  test('well-formed bass_range accepted (incl. single bound / empty)', () => {
+    expect(() => validateAccordionConfigPayload({ bass_range: { min: 36, max: 60 } })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_range: { min: 40 } })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_range: {} })).not.toThrow();
+  });
+
+  test('malformed / inverted bass_range rejected', () => {
+    expect(() => validateAccordionConfigPayload({ bass_range: { min: 70, max: 40 } })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_range: { min: -1 } })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_range: { max: 200 } })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_range: { min: 1.5 } })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_range: [36, 60] })).toThrow(ValidationError);
+  });
 });
