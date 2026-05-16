@@ -51,11 +51,11 @@ describe('Harp — registration & detection', () => {
     expect(d.canFretboard).toBe(false);
   });
 
-  it('neighbours: 45 pizzicato stays fretboard, 47 timpani → mallet', () => {
+  it('neighbours: 45 pizzicato stays fretboard, 47 timpani → piano', () => {
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 45 } }).viewKind).toBe('fretboard');
-    // GM 47 (Timpani) is now excluded from the fretboard range and routed
-    // to the tuned-bar mallet view (like the GM 46 harp exclusion).
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('mallet');
+    // GM 46 (Harp) and 47 (Timpani) are both excluded from the fretboard
+    // range; 47 stays on the standard piano keyboard (user spec).
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('piano');
   });
 
   it('escape hatch: explicit string type / stringConfig still forces fretboard for GM 46', () => {

@@ -23,8 +23,8 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/InstrumentViewRegistry.js');
   for (const v of ['PianoView', 'FretboardView', 'DrumPadView', 'PianoSliderView',
                    'ListView', 'HarmonicaView', 'HarpView', 'AccordionView',
-                   'MalletView', 'KalimbaView', 'BagpipeView', 'SteelDrumView',
-                   'ThereminView', 'PercussionPadView']) {
+                   'MalletView', 'MusicBoxView', 'KalimbaView', 'BagpipeView',
+                   'SteelDrumView', 'ThereminView', 'PercussionPadView']) {
     load(`../../../public/js/features/keyboard/views/${v}.js`);
   }
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
@@ -54,11 +54,9 @@ describe('Roadmap views — registration & detection', () => {
     ['bagpipe',    win => win.BagpipeView,    { gm_program: 109 }],
     ['steel-drum', win => win.SteelDrumView,  { gm_program: 114 }],
     ['theremin',   win => win.ThereminView,   { instrument_type: 'theremin' }],
-    ['mallet',     win => win.MalletView,     { gm_program: 8 }],
     ['mallet',     win => win.MalletView,     { gm_program: 9 }],
-    ['mallet',     win => win.MalletView,     { gm_program: 10 }],
     ['mallet',     win => win.MalletView,     { gm_program: 11 }],
-    ['mallet',     win => win.MalletView,     { gm_program: 47 }],
+    ['music-box',  win => win.MusicBoxView,   { gm_program: 10 }],
     ['perc-pad',   win => win.PercussionPadView, { gm_program: 112 }],
     ['perc-pad',   win => win.PercussionPadView, { gm_program: 127 }],
   ];
@@ -72,11 +70,13 @@ describe('Roadmap views — registration & detection', () => {
     });
   }
 
-  it('GM 22 stays harmonica (not accordion); melodic percussion → mallet; 16 stays piano', () => {
+  it('GM 22 harmonica; 9/11 mallet; 10 music-box; 8/16/47 piano', () => {
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 22 } }).viewKind).toBe('harmonica');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 9 } }).viewKind).toBe('mallet');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 11 } }).viewKind).toBe('mallet');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('mallet');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 10 } }).viewKind).toBe('music-box');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 8 } }).viewKind).toBe('piano');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('piano');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano');
   });
 
@@ -104,6 +104,7 @@ describe('Roadmap views — registration & detection', () => {
 describe.each([
   ['accordion',  'accordion-container',  '.accordion-key'],
   ['mallet',     'mallet-container',     '.mallet-bar'],
+  ['music-box',  'music-box-container',  '.music-box-tooth'],
   ['kalimba',    'kalimba-container',    '.kalimba-tine'],
   ['steel-drum', 'steel-drum-container', '.steel-section'],
   ['perc-pad',   'perc-pad-container',   '.perc-pad'],

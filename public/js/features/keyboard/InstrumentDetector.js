@@ -122,12 +122,13 @@
         const notSpecialBase = !isDrum && !canFretboard && !isWind;
         const isAccordion = notSpecialBase && (gmProgram === 21 || gmProgram === 23);
         // Tuned mallet/percussion bars: marimba…dulcimer (12-15) plus
-        // celesta (8), glockenspiel (9), music box (10), vibraphone (11),
-        // timpani (47).
+        // glockenspiel (9) and vibraphone (11). Celesta (8) and Timpani
+        // (47) deliberately stay on the standard piano keyboard; Music
+        // Box (10) gets its own dedicated view.
         const isMallet    = notSpecialBase
             && ((gmProgram >= 12 && gmProgram <= 15)
-                || gmProgram === 8 || gmProgram === 9
-                || gmProgram === 10 || gmProgram === 11 || gmProgram === 47);
+                || gmProgram === 9 || gmProgram === 11);
+        const isMusicBox  = notSpecialBase && gmProgram === 10;
         const isKalimba   = notSpecialBase && gmProgram === 108;
         const isBagpipe   = notSpecialBase && gmProgram === 109;
         const isSteelDrum = notSpecialBase && gmProgram === 114;
@@ -148,6 +149,7 @@
         else if (isHarp)       viewKind = 'harp';
         else if (isAccordion)  viewKind = 'accordion';
         else if (isMallet)     viewKind = 'mallet';
+        else if (isMusicBox)   viewKind = 'music-box';
         else if (isKalimba)    viewKind = 'kalimba';
         else if (isBagpipe)    viewKind = 'bagpipe';
         else if (isSteelDrum)  viewKind = 'steel-drum';
@@ -164,6 +166,7 @@
             isHarp,
             isAccordion,
             isMallet,
+            isMusicBox,
             isKalimba,
             isBagpipe,
             isSteelDrum,

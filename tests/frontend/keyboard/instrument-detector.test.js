@@ -123,12 +123,18 @@ describe('InstrumentDetector — fretboard detection', () => {
 });
 
 describe('InstrumentDetector — mallet / perc-pad detection', () => {
-  it('detects melodic percussion (glockenspiel/vibraphone/timpani) as mallet', () => {
-    for (const gm of [9, 11, 47]) {
+  it('detects glockenspiel (9) + vibraphone (11) as mallet', () => {
+    for (const gm of [9, 11]) {
       const r = D().detect({ capabilities: { gm_program: gm } });
       expect(r.viewKind).toBe('mallet');
-      expect(r.canFretboard).toBe(false);   // 47 must NOT be fretboard
+      expect(r.canFretboard).toBe(false);
     }
+  });
+
+  it('GM 47 (Timpani) stays on the piano keyboard (user spec), not mallet/fretboard', () => {
+    const r = D().detect({ capabilities: { gm_program: 47 } });
+    expect(r.viewKind).toBe('piano');
+    expect(r.canFretboard).toBe(false);   // 47 excluded from the 24-45 range
   });
 
   it('keeps marimba…dulcimer (12-15) as mallet', () => {
@@ -147,12 +153,15 @@ describe('InstrumentDetector — mallet / perc-pad detection', () => {
     expect(D().detect({ capabilities: { gm_program: 114 } }).viewKind).toBe('steel-drum');
   });
 
-  it('GM 8/10 (celesta/music box) are mallet (chromatic-percussion bars)', () => {
-    for (const gm of [8, 10]) {
-      const r = D().detect({ capabilities: { gm_program: gm } });
-      expect(r.viewKind).toBe('mallet');
-      expect(r.canFretboard).toBe(false);
-    }
+  it('GM 8 (Celesta) stays on the piano keyboard (user spec)', () => {
+    const r = D().detect({ capabilities: { gm_program: 8 } });
+    expect(r.viewKind).toBe('piano');
+  });
+
+  it('GM 10 (Music Box) has its own dedicated view', () => {
+    const r = D().detect({ capabilities: { gm_program: 10 } });
+    expect(r.viewKind).toBe('music-box');
+    expect(r.isMusicBox).toBe(true);
   });
 
   it('GM 16 (Drawbar Organ) stays piano', () => {

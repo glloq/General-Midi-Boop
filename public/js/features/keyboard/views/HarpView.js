@@ -126,39 +126,18 @@
             canvas.appendChild(root);
             this._root = root;
             this._pressed = new Map(); // idx -> midi
-            this._isDown = false;
-
-            this._onDown = (e) => { this._isDown = true; this._pluck(e); };
-            this._onMove = (e) => { if (this._isDown) this._pluck(e); };
-            this._onDocUp = () => { this._isDown = false; this._releaseAll(); };
-            root.addEventListener('pointerdown', this._onDown);
-            root.addEventListener('pointermove', this._onMove);
-            document.addEventListener('pointerup', this._onDocUp);
-            document.addEventListener('pointercancel', this._onDocUp);
+            // Piano-like glissando: sweeping onto a string plucks it and
+            // releases the previous one, so re-entering a string already
+            // crossed in the same gesture re-triggers its MIDI note (a
+            // real harp glissando re-plucks on every pass).
+            this._initGlide({ root, selector: '.harp-string' });
         }
 
-        // Resolve the string under the pointer. During a drag, pointermove
-        // keeps e.target on the element that received pointerdown (implicit
-        // pointer capture), so a glissando must hit-test the live pointer
-        // position via elementFromPoint. Falls back to e.target (covers
-        // synthetic test events with no coordinates).
-        _resolveCell(e) {
-            let el = null;
-            if (typeof document.elementFromPoint === 'function'
-                && Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
-                el = document.elementFromPoint(e.clientX, e.clientY);
-            }
-            if (!el && e.target) el = e.target;
-            const cell = el && el.closest ? el.closest('.harp-string') : null;
-            return (cell && this._root && this._root.contains(cell)) ? cell : null;
-        }
+        _glideKey(cell) { return cell.dataset.idx; }
 
-        _pluck(e) {
-            const cell = this._resolveCell(e);
-            if (!cell) return;
-            if (e.cancelable) e.preventDefault();
+        _pressCell(cell) {
             const idx = cell.dataset.idx;
-            if (this._pressed.has(idx)) return;        // already ringing
+            if (this._pressed.has(idx)) return;
             const midi = parseInt(cell.dataset.note, 10);
             this._pressed.set(idx, midi);
             cell.classList.add('active');
@@ -181,16 +160,12 @@
         }
 
         unmount() {
-            this._isDown = false;
             this._releaseAll();
+            this._teardownGlide();
             if (this._root) {
-                this._root.removeEventListener('pointerdown', this._onDown);
-                this._root.removeEventListener('pointermove', this._onMove);
                 this._root.remove();
                 this._root = null;
             }
-            document.removeEventListener('pointerup', this._onDocUp);
-            document.removeEventListener('pointercancel', this._onDocUp);
             this._pressed = null;
             super.unmount();
         }

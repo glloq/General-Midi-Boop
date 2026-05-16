@@ -34,6 +34,7 @@
     safeRegister(window.HarpView);
     safeRegister(window.AccordionView);
     safeRegister(window.MalletView);
+    safeRegister(window.MusicBoxView);
     safeRegister(window.KalimbaView);
     safeRegister(window.BagpipeView);
     safeRegister(window.SteelDrumView);
@@ -78,10 +79,11 @@
         // MUST precede the fretboard range rule below (first match wins;
         // same precedent as the harp GM 46 rule above).
         .addRule(inRange(12, 15), 'mallet')
-        // Celesta (8), Glockenspiel (9), Music Box (10), Vibraphone (11),
-        // Timpani (47). 47 ∈ [24,47] so this MUST precede the fretboard
-        // range rule below (first match wins).
-        .addRule(isOneOf(new Set([8, 9, 10, 11, 47])), 'mallet')
+        // Glockenspiel (9) + Vibraphone (11) only. Celesta (8) and
+        // Timpani (47) stay on the standard piano keyboard (user spec);
+        // Music Box (10) has its own dedicated view.
+        .addRule(isOneOf(new Set([9, 11])), 'mallet')
+        .addRule(c => c && c.gm_program === 10, 'music-box')
         .addRule(c => c && c.gm_program === 108, 'kalimba')
         .addRule(c => c && c.gm_program === 109, 'bagpipe')
         .addRule(c => c && c.gm_program === 114, 'steel-drum')
@@ -91,8 +93,10 @@
         .addRule(isOneOf(new Set([112, 113, 115, 116, 117, 118, 119])), 'perc-pad')
         .addRule(inRange(120, 127), 'perc-pad')
 
-        // Fretboard: guitar/bass/orchestral strings + ethnic plucked + bowed
-        .addRule(inRange(24, 47), 'fretboard')
+        // Fretboard: guitar/bass/orchestral strings (24-45) + ethnic
+        // plucked + bowed. 46 (Harp) handled by its rule above; 47
+        // (Timpani) intentionally NOT here so it falls back to piano.
+        .addRule(inRange(24, 45), 'fretboard')
         .addRule(isOneOf(new Set([104, 105, 106, 107, 110])), 'fretboard')
         .addRule(c => c && c.instrument_type === 'string', 'fretboard')
 
