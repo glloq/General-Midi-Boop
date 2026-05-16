@@ -220,6 +220,67 @@ describe('Harp — configured strings (modal._harpStringConfig)', () => {
   });
 });
 
+describe('Harp — strings follow the configured note selection', () => {
+  afterEach(() => { document.getElementById('harp-container')?.remove(); });
+
+  function mountWith(caps, range, played = []) {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const view = new (win.HarpView)();
+    view.mount({
+      modal: {
+        playNote: (n) => played.push(n), stopNote() {},
+        getNoteLabel: (n) => `N${n}`,
+        selectedDeviceCapabilities: caps,
+        getInstrumentNoteRange: () => range,
+        isNotePlayable: (n) => {
+          if (caps.note_range_min != null && n < caps.note_range_min) return false;
+          if (caps.note_range_max != null && n > caps.note_range_max) return false;
+          return true;
+        }
+      }
+    });
+    return view;
+  }
+
+  it('discrete selection → exactly the configured MIDI notes', () => {
+    const notes = [36, 40, 43, 48, 55, 60];
+    const view = mountWith(
+      { note_selection_mode: 'discrete', selected_notes: notes },
+      { min: 36, max: 60, notes });
+    const strings = document.querySelectorAll('.harp-string');
+    expect(strings.length).toBe(notes.length);
+    expect([...strings].map(s => Number(s.dataset.note))).toEqual(notes);
+    view.unmount();
+  });
+
+  it('continuous range → diatonic strings across the configured range', () => {
+    const view = mountWith(
+      { note_range_min: 60, note_range_max: 71 },
+      { min: 60, max: 71, notes: null });
+    const notes = [...document.querySelectorAll('.harp-string')]
+      .map(s => Number(s.dataset.note));
+    // C-major within 60..71: C4 D4 E4 F4 G4 A4 B4
+    expect(notes).toEqual([60, 62, 64, 65, 67, 69, 71]);
+    view.unmount();
+  });
+
+  it('configured range wins over the 47-string preset fallback', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const view = new (win.HarpView)();
+    view.mount({
+      modal: {
+        playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}`,
+        getInstrumentNoteRange: () => ({ min: 48, max: 52, notes: null }),
+        _harpStringConfig: { tuning: new Array(47).fill(0).map((_, i) => i), num_strings: 47 }
+      }
+    });
+    const notes = [...document.querySelectorAll('.harp-string')]
+      .map(s => Number(s.dataset.note));
+    expect(notes).toEqual([48, 50, 52]); // diatonic 48..52, NOT the 47 preset
+    view.unmount();
+  });
+});
+
 describe('Harp — KeyboardModal._activateView integration', () => {
   it('_activateView("harp") mounts HarpView; switching unmounts it', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
