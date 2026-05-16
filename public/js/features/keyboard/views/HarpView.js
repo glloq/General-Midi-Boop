@@ -58,19 +58,31 @@
             const label = (typeof modal.getNoteLabel === 'function')
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
 
-            // Render every string configured in the instrument settings
-            // (string_instruments.tuning, e.g. the 47-string Harpe preset),
-            // in the configured order. Fall back to the diatonic C-major
-            // span over the instrument's note range when no config exists.
-            const cfg = modal._harpStringConfig;
+            // Strings follow the note selection configured in the
+            // instrument-settings modal. For a harp (GM 46) that modal
+            // does NOT expose the guitar "strings/tuning" tab — the
+            // playable notes come from the Notes section saved in
+            // capabilities and surfaced via getInstrumentNoteRange():
+            //   • discrete selection → render EXACTLY those MIDI notes
+            //     (count matches what the user entered, accidentals kept);
+            //   • continuous range  → diatonic strings across the range
+            //     (a harp is a diatonic instrument — accidentals are
+            //     pedal/lever changes, not separate strings).
+            // The configured selection always wins over the 47-string
+            // Harpe preset; that preset is only the last resort when no
+            // range is available at all (e.g. no instrument selected).
             let STRINGS;
-            if (cfg && Array.isArray(cfg.tuning) && cfg.tuning.length) {
-                STRINGS = cfg.tuning.slice();
+            const rng = typeof modal.getInstrumentNoteRange === 'function'
+                ? modal.getInstrumentNoteRange() : null;
+            if (rng && Array.isArray(rng.notes) && rng.notes.length) {
+                STRINGS = rng.notes.slice();
+            } else if (rng && Number.isFinite(rng.min) && Number.isFinite(rng.max)) {
+                STRINGS = diatonicStrings(rng.min, rng.max);
             } else {
-                const rng = typeof modal.getInstrumentNoteRange === 'function'
-                    ? modal.getInstrumentNoteRange() : null;
-                STRINGS = diatonicStrings(
-                    rng ? rng.min : DEFAULT_LO, rng ? rng.max : DEFAULT_HI);
+                const cfg = modal._harpStringConfig;
+                STRINGS = (cfg && Array.isArray(cfg.tuning) && cfg.tuning.length)
+                    ? cfg.tuning.slice()
+                    : diatonicStrings(DEFAULT_LO, DEFAULT_HI);
             }
 
             STRINGS.forEach((midi, idx) => {

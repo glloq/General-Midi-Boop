@@ -1134,30 +1134,17 @@ class KeyboardModal {
     }
 
     /**
-     * Load the configured strings for the dedicated HarpView. Same backend
-     * lookup as loadStringInstrumentConfig() but it does NOT mutate
-     * this.stringInstrumentConfig — the InstrumentDetector escape hatch
-     * (a present stringCfg forces the fretboard view for GM 46) must stay
-     * untouched so a harp keeps its dedicated vertical-string view.
-     * Falls back to the 47-string "Harpe" GM preset.
-     * @returns {Promise<{tuning:number[], num_strings:number}|null>}
+     * Last-resort string set for the dedicated HarpView. A harp (GM 46) is
+     * NOT a "string" instrument in the settings modal — it has no
+     * strings/tuning tab; its playable notes come from the Notes section
+     * (note range / discrete selection) which HarpView reads via
+     * getInstrumentNoteRange(). This preset is only used when no range is
+     * available at all. Kept off this.stringInstrumentConfig so the
+     * InstrumentDetector escape hatch (a present stringCfg forces the
+     * fretboard view for GM 46) stays untouched.
+     * @returns {{tuning:number[], num_strings:number}|null}
      */
-    async _loadHarpStringConfig() {
-        if (this.selectedDevice) {
-            const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
-            const channel = this.getSelectedChannel();
-            try {
-                const resp = await this.backend.sendCommand('string_instrument_get', {
-                    device_id: deviceId,
-                    channel: channel
-                });
-                const inst = resp && resp.instrument;
-                if (inst && Array.isArray(inst.tuning) && inst.tuning.length) {
-                    return { tuning: inst.tuning, num_strings: inst.num_strings };
-                }
-            } catch (e) { /* ignore — fallback below */ }
-        }
-        // Fallback: 47-string Harpe GM preset.
+    _harpPresetStringConfig() {
         const caps = this.selectedDeviceCapabilities;
         const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
         const preset = this._getStringPresetForGmProgram(gmProgram);
@@ -1468,10 +1455,12 @@ class KeyboardModal {
         } else if (info.viewKind === 'harp') {
             // Dedicated vertical-string HarpView. stringInstrumentConfig is
             // kept null so the InstrumentDetector escape hatch doesn't flip
-            // a re-selected harp to the fretboard; the configured strings
-            // are passed to HarpView via this._harpStringConfig instead.
+            // a re-selected harp to the fretboard. HarpView derives its
+            // strings from the configured note selection via
+            // getInstrumentNoteRange(); _harpStringConfig is only the
+            // last-resort 47-string preset when no range is available.
             this.stringInstrumentConfig = null;
-            this._harpStringConfig = await this._loadHarpStringConfig();
+            this._harpStringConfig = this._harpPresetStringConfig();
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.setViewMode('harp');
         } else if (['harmonica', 'accordion', 'mallet',
