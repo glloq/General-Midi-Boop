@@ -931,10 +931,12 @@ class KeyboardModal {
 
     /**
      * Instrument-specific accordion settings (optional `caps.accordion_config`).
-     * Defaults match the previous behaviour (both hands, Stradella bass,
-     * button-style right hand).
+     * The accordion ALWAYS has both sides — this only describes the play
+     * possibilities of each side (no hand show/hide):
+     *   - right side: `right_display` 'buttons' | 'keyboard'
+     *   - left  side: `bass_system` 'stradella' | 'chromatic' | 'free'
+     * Defaults preserve the previous look (Stradella bass, button right).
      * @returns {{bass_system:'stradella'|'chromatic'|'free',
-     *            hands:'both'|'right'|'left',
      *            right_display:'buttons'|'keyboard'}}
      */
     getAccordionConfig() {
@@ -942,10 +944,9 @@ class KeyboardModal {
         const c = (caps && caps.accordion_config) || {};
         const bass_system = ['stradella', 'chromatic', 'free'].includes(c.bass_system)
             ? c.bass_system : 'stradella';
-        const hands = ['both', 'right', 'left'].includes(c.hands) ? c.hands : 'both';
         const right_display = ['buttons', 'keyboard'].includes(c.right_display)
             ? c.right_display : 'buttons';
-        return { bass_system, hands, right_display };
+        return { bass_system, right_display };
     }
 
     /**

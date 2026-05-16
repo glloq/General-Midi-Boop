@@ -1146,12 +1146,15 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > (#) sont **ancrées en haut et plus courtes** → visuellement plus hautes
 > que les naturelles (façon piano/marimba).
 >
-> ✅ **AccordionView QA #4** : `getAccordionConfig()` étendu avec
-> `right_display:'buttons'|'keyboard'`. La vue rend **deux zones
-> distinctes titrées** (« Main gauche · Stradella/Basses libres » à
-> gauche, « Main droite · Boutons/Clavier » à droite) ; en mode
-> `keyboard` la main droite est un **clavier piano** (blanches en flex,
-> noires absolues) — toutes les cellules restent `.accordion-key`.
+> ✅ **AccordionView QA #4** : on ne **gère pas les mains** — l'accordéon
+> a **toujours ses deux côtés** ; les réglages ne font qu'indiquer les
+> **possibilités de jeu par côté**. `getAccordionConfig()` →
+> `{bass_system:'stradella'|'chromatic'|'free',
+> right_display:'buttons'|'keyboard'}` (pas de `hands`). La vue rend
+> **toujours** deux zones titrées : « Côté gauche · Stradella/Basses
+> libres » + « Côté droit · Boutons/Clavier » ; en `keyboard` le côté
+> droit est un **clavier piano** (blanches flex, noires absolues) —
+> cellules toujours `.accordion-key`.
 >
 > ✅ **Persistance #3/#4 — backend fait** (choix : mini-migration
 > additive, calquée sur `hands_config`) :
@@ -1172,7 +1175,7 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 >   migrate` puis vérifier save/reload depuis le modal d'instrument.
 >
 > ⏳ **Reste l'UI ISM** : section « Cornemuse » (bourdons + enabled) et
-> « Accordéon » (bass_system / hands / right_display) à ajouter dans le
+> « Accordéon » (bass_system + right_display, **pas de hands**) à ajouter dans le
 > modal de réglages d'instrument (render + collecte + nav), calquées sur
 > la section Hands. Browser-QA requise (sous-système ISM ~6300 l.).
 >
@@ -1190,11 +1193,13 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 >   joue/coupe **tous** les bourdons configurés ; toggle global ;
 >   auto-start seulement si `enabled`.
 > - `KeyboardModal.getAccordionConfig()` →
->   `{bass_system:'stradella'|'chromatic'|'free', hands:'both'|'right'|'left'}`
->   depuis `caps.accordion_config` (défaut `{stradella, both}`).
->   **AccordionView** : `hands` masque main G/D ; `bass_system` =
+>   `{bass_system:'stradella'|'chromatic'|'free',
+>   right_display:'buttons'|'keyboard'}` depuis `caps.accordion_config`
+>   (défaut `{stradella, buttons}`, **pas de `hands`**).
+>   **AccordionView** : **toujours** 2 côtés ; `bass_system` =
 >   `stradella` → 12 boutons fixes, `chromatic`/`free` → clavier
->   chromatique main gauche (2 oct sous le treble).
+>   chromatique côté gauche ; `right_display` = `keyboard` → côté droit
+>   en clavier piano.
 >
 > Le backend / modal de réglages d'instrument n'a qu'à renseigner
 > `caps.bagpipe_config` / `caps.accordion_config` (optionnels) — la vue

@@ -12,9 +12,9 @@
 --     drones  : MIDI note numbers, one per sounding drone (0-127)
 --     enabled : whether the drones sound automatically on view mount
 --
--- accordion_config shape:
+-- accordion_config shape (per-side play possibilities — both sides are
+-- always present, this never hides a side):
 --   { "bass_system": "stradella" | "chromatic" | "free",
---     "hands": "both" | "right" | "left",
 --     "right_display": "buttons" | "keyboard" }
 --
 -- Consumed by KeyboardModal.getBagpipeConfig() / getAccordionConfig()
