@@ -1397,17 +1397,28 @@ body.dark-mode  .la-block--selected {
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode #header-instrument-selector {
     width: auto !important;
     flex: 0 0 auto !important;
-    max-width: 240px !important;
+    max-width: 260px !important;
     min-width: 140px !important;
     order: 0 !important;
     border-bottom: none !important;
     border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
+/* Bouton pleine hauteur du header compact — reprend le design du modal piano
+   virtuel autonome (fond translucide/hover/séparateur hérités de keyboard.css). */
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode .instrument-trigger {
-    height: 32px !important;
+    height: 100% !important;
     width: 100% !important;
-    padding: 0 8px !important;
+    padding: 0 12px !important;
     gap: 6px !important;
+}
+/* Icône/emoji réduits pour rester proportionnés dans le bouton compact
+   (sinon le 40px/26px du modal autonome déborde). */
+.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode .instrument-trigger-icon {
+    width: 24px !important;
+    height: 24px !important;
+}
+.loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode .instrument-trigger-emoji {
+    font-size: 17px !important;
 }
 .loop-creator-modal .lm-kbd-panel .modal-dialog.km-panel-mode .instrument-trigger-name {
     font-size: 0.78rem !important;
