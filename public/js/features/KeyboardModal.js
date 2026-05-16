@@ -1210,6 +1210,91 @@ class KeyboardModal {
         }
     }
 
+    // Adapt the instrument dropdown to the number of instruments: widen it
+    // (more columns, up to the screen edge) then grow its height to the
+    // viewport so everything shows with as little scrolling as possible.
+    // CSS `auto-fill` can't pick a column count proportional to a dynamic
+    // item count without a definite width, so we compute it here on open
+    // and clear the inline sizing on close (the dropdown is reused across
+    // the standalone modal and the loop-editor panel mount).
+    _sizeInstrumentDropdown(isOpen) {
+        const dropdown = document.getElementById('instrument-dropdown');
+        if (!dropdown) return;
+
+        if (!isOpen) {
+            dropdown.style.width = '';
+            dropdown.style.maxHeight = '';
+            dropdown.style.gridTemplateColumns = '';
+            return;
+        }
+
+        const trigger = document.getElementById('instrument-trigger');
+        const cell = dropdown.querySelector('.instrument-option:not(.option-none)');
+        if (!trigger || !cell) return;
+
+        const cs = getComputedStyle(dropdown);
+        const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        const gap = parseFloat(cs.rowGap || cs.gap) || 2;
+
+        const itemW = cell.offsetWidth || 78;
+        const rowH = cell.offsetHeight || 64;
+
+        const noneEl = dropdown.querySelector('.option-none');
+        let noneH = 0;
+        if (noneEl) {
+            const nb = parseFloat(getComputedStyle(noneEl).marginBottom) || 0;
+            noneH = noneEl.offsetHeight + nb + gap;
+        }
+
+        const nData = dropdown.querySelectorAll('.instrument-option:not(.option-none)').length;
+        if (nData === 0) {
+            dropdown.style.width = '';
+            dropdown.style.maxHeight = '';
+            dropdown.style.gridTemplateColumns = '';
+            return;
+        }
+
+        const rect = trigger.getBoundingClientRect();
+        const panelMode = !!dropdown.closest('.modal-dialog.km-panel-mode');
+
+        let availW = Math.min(window.innerWidth - 12, window.innerWidth - rect.left - 8);
+        availW = Math.max(320, availW);
+        const availH = Math.max(
+            160,
+            panelMode ? rect.top - 12 : window.innerHeight - rect.bottom - 12
+        );
+
+        const colsForW = (w) => Math.max(1, Math.floor((w - padX + gap) / (itemW + gap)));
+        // Compact baseline = the column count that fills the 320px min-width
+        // (≈ today's look); never go below it so the few-instrument case is
+        // unchanged. Cap = how many columns fit out to the screen edge.
+        const minCols = colsForW(320);
+        const maxCols = Math.max(minCols, colsForW(availW));
+
+        const heightFor = (cols) => {
+            const rows = Math.ceil(nData / cols);
+            return padY + noneH + rows * rowH + (rows - 1) * gap;
+        };
+
+        // Stay compact when everything already fits; otherwise widen just
+        // enough to fit the viewport height. If even the widest grid can't
+        // fit, use the widest one (scroll minimized "au max").
+        let cols = maxCols;
+        for (let c = minCols; c <= maxCols; c++) {
+            if (heightFor(c) <= availH) { cols = c; break; }
+        }
+
+        const width = Math.min(
+            availW,
+            Math.max(320, cols * itemW + (cols - 1) * gap + padX)
+        );
+
+        dropdown.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        dropdown.style.width = `${Math.round(width)}px`;
+        dropdown.style.maxHeight = `${Math.round(availH)}px`;
+    }
+
     _updateInstrumentTrigger() {
         const triggerSvg = document.getElementById('instrument-trigger-svg');
         const triggerEmoji = document.getElementById('instrument-trigger-emoji');
@@ -1253,6 +1338,7 @@ class KeyboardModal {
         dropdown?.classList.remove('open');
         selector?.classList.remove('open');
         if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        this._sizeInstrumentDropdown(false);
 
         // Stop any held bow before swapping instruments — the new chord bar
         // about to be rendered won't reuse the previous button reference, and

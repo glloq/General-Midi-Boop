@@ -246,6 +246,7 @@
                 dropdown.classList.toggle('open', !isOpen);
                 selector.classList.toggle('open', !isOpen);
                 instrumentTrigger.setAttribute('aria-expanded', String(!isOpen));
+                this._sizeInstrumentDropdown(!isOpen);
             };
             instrumentTrigger.addEventListener('click', this._instrumentTriggerClick);
         }
@@ -259,6 +260,7 @@
                 dropdown?.classList.remove('open');
                 selector.classList.remove('open');
                 if (trigger) trigger.setAttribute('aria-expanded', 'false');
+                this._sizeInstrumentDropdown(false);
             }
         };
         document.addEventListener('click', this._closeDropdownOnOutside);
