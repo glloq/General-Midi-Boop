@@ -310,17 +310,20 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
   });
 
   it('getAccordionConfig: defaults + normalizes caps.accordion_config (no hands)', () => {
+    const ALL = ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7'];
     const m = new (win.KeyboardModal)();
     expect(m.getAccordionConfig()).toEqual(
       { bass_system: 'stradella', right_display: 'buttons',
-        bass_range: { min: 36, max: 60 } });
+        bass_range: { min: 36, max: 60 },
+        bass_cols: 12, bass_base: 36, bass_funcs: ALL });
     m.selectedDeviceCapabilities = { accordion_config:
       { bass_system: 'free', right_display: 'keyboard', hands: 'left',
         bass_range: { min: 48, max: 55 } } };
     // `hands` is ignored — only per-side play possibilities are kept.
     expect(m.getAccordionConfig()).toEqual(
       { bass_system: 'free', right_display: 'keyboard',
-        bass_range: { min: 48, max: 55 } });
+        bass_range: { min: 48, max: 55 },
+        bass_cols: 12, bass_base: 36, bass_funcs: ALL });
     // legacy 'chromatic' normalized → 'free'
     m.selectedDeviceCapabilities = { accordion_config: { bass_system: 'chromatic' } };
     expect(m.getAccordionConfig().bass_system).toBe('free');
@@ -329,11 +332,25 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     expect(m.getAccordionConfig().bass_range).toEqual({ min: 36, max: 60 });
     m.selectedDeviceCapabilities = { accordion_config: { bass_range: { min: 70, max: 40 } } };
     expect(m.getAccordionConfig().bass_range).toEqual({ min: 40, max: 70 });
+    // Stradella geometry: clamped + normalized; bad funcs → all six
+    m.selectedDeviceCapabilities = { accordion_config:
+      { bass_cols: 8, bass_base: 41, bass_funcs: ['bass', 'major', 'bogus'] } };
+    const g = m.getAccordionConfig();
+    expect(g.bass_cols).toBe(8);
+    expect(g.bass_base).toBe(41);
+    expect(g.bass_funcs).toEqual(['bass', 'major']);
+    m.selectedDeviceCapabilities = { accordion_config:
+      { bass_cols: 99, bass_base: 999, bass_funcs: [] } };
+    const g2 = m.getAccordionConfig();
+    expect(g2.bass_cols).toBe(12);
+    expect(g2.bass_base).toBe(36);
+    expect(g2.bass_funcs).toEqual(ALL);
     m.selectedDeviceCapabilities = { accordion_config:
       { bass_system: 'bogus', right_display: 'z' } };
     expect(m.getAccordionConfig()).toEqual(
       { bass_system: 'stradella', right_display: 'buttons',
-        bass_range: { min: 36, max: 60 } });
+        bass_range: { min: 36, max: 60 },
+        bass_cols: 12, bass_base: 36, bass_funcs: ALL });
   });
 
   it('AccordionView: both sides ALWAYS present (no hand show/hide)', () => {

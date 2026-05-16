@@ -99,6 +99,22 @@ export function validateAccordionConfigPayload(cfg) {
       throw new ValidationError('accordion_config.bass_range invalid', 'accordion_config');
     }
   }
+  // Stradella geometry (left side). All optional; lenient like bass_range.
+  if (cfg.bass_cols !== undefined
+      && !(Number.isInteger(cfg.bass_cols) && cfg.bass_cols >= 1 && cfg.bass_cols <= 20)) {
+    throw new ValidationError('accordion_config.bass_cols invalid', 'accordion_config');
+  }
+  if (cfg.bass_base !== undefined
+      && !(Number.isInteger(cfg.bass_base) && cfg.bass_base >= 0 && cfg.bass_base <= 127)) {
+    throw new ValidationError('accordion_config.bass_base invalid', 'accordion_config');
+  }
+  if (cfg.bass_funcs !== undefined) {
+    const FUNCS = ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7'];
+    if (!Array.isArray(cfg.bass_funcs)
+        || !cfg.bass_funcs.every((f) => FUNCS.includes(f))) {
+      throw new ValidationError('accordion_config.bass_funcs invalid', 'accordion_config');
+    }
+  }
 }
 
 /**

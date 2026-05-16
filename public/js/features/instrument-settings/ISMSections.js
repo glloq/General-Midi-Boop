@@ -2305,6 +2305,33 @@
     // KeyboardModal.getAccordionConfig() and AccordionView FREE_BASS_LO/HI.
     ISMSections._ACCORDION_BASS_DEFAULT = { min: 36, max: 60 };
 
+    // Stradella geometry defaults — kept in sync with
+    // KeyboardModal.getAccordionConfig() and AccordionView.
+    ISMSections._ACCORDION_STRADELLA_DEFAULT = { cols: 12, base: 36 };
+    // Canonical bass function order + display labels (checkboxes).
+    ISMSections._ACCORDION_FUNCS = [
+        { id: 'counterbass', label: 'Contre-basse' },
+        { id: 'bass',        label: 'Basse' },
+        { id: 'major',       label: 'Majeur' },
+        { id: 'minor',       label: 'mineur' },
+        { id: 'dom7',        label: '7e' },
+        { id: 'dim7',        label: 'Diminué' },
+    ];
+
+    // Parse a column count from arbitrary input (1..20), else `dflt`.
+    ISMSections._coerceBassCols = function(v, dflt) {
+        const n = parseInt(v, 10);
+        return Number.isInteger(n) && n >= 1 && n <= 20 ? n : dflt;
+    };
+
+    // Normalize a bass-function selection to canonical order; empty or
+    // invalid → all six functions.
+    ISMSections._normalizeBassFuncs = function(arr) {
+        const ids = ISMSections._ACCORDION_FUNCS.map((f) => f.id);
+        const sel = Array.isArray(arr) ? ids.filter((id) => arr.includes(id)) : [];
+        return sel.length ? sel : ids.slice();
+    };
+
     // Read-time normalization: 'chromatic' was merged into 'free' (no data
     // migration). Anything unknown falls back to 'stradella'.
     ISMSections._normalizeBassSystem = function(v) {
@@ -2330,6 +2357,17 @@
         let bMax = ISMSections._coerceBassNote(cfg.bass_range?.max, dflt.max);
         if (bMin > bMax) { const t = bMin; bMin = bMax; bMax = t; }
         const rangeOff = bass !== 'free';
+        const sdflt = ISMSections._ACCORDION_STRADELLA_DEFAULT;
+        const sCols = ISMSections._coerceBassCols(cfg.bass_cols, sdflt.cols);
+        const sBase = ISMSections._coerceBassNote(cfg.bass_base, sdflt.base);
+        const sFuncs = ISMSections._normalizeBassFuncs(cfg.bass_funcs);
+        const stradOff = bass !== 'stradella';
+        const funcBoxes = ISMSections._ACCORDION_FUNCS.map((f) =>
+            `<label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px">
+                <input type="checkbox" class="accordionFuncCb" value="${f.id}"
+                    ${sFuncs.includes(f.id) ? 'checked' : ''}${stradOff ? ' disabled' : ''}>
+                ${f.label}
+            </label>`).join('');
         const opt = (v, cur, label) =>
             `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
         return `
@@ -2351,6 +2389,22 @@
                 </div>
                 <span class="ism-form-hint">${this.t('instrumentSettings.accordionBassRangeHelp')
                     || 'Note MIDI min/max jouable du côté gauche (uniquement avec « Basses libres »).'}</span>
+            </div>
+            <div class="ism-form-group" id="accordionStradellaGroup"${stradOff ? ' style="opacity:0.5"' : ''}>
+                <label>${this.t('instrumentSettings.accordionStradella') || 'Côté gauche — clavier Stradella'}</label>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <label style="display:inline-flex;align-items:center;gap:4px">
+                        ${this.t('instrumentSettings.accordionBassCols') || 'Colonnes (quintes)'}
+                        <input type="number" id="accordionBassCols" min="1" max="20" value="${sCols}"${stradOff ? ' disabled' : ''}>
+                    </label>
+                    <label style="display:inline-flex;align-items:center;gap:4px">
+                        ${this.t('instrumentSettings.accordionBassBase') || 'Note de base (MIDI)'}
+                        <input type="number" id="accordionBassBase" min="0" max="127" value="${sBase}"${stradOff ? ' disabled' : ''}>
+                    </label>
+                </div>
+                <div style="margin-top:6px">${funcBoxes}</div>
+                <span class="ism-form-hint">${this.t('instrumentSettings.accordionStradellaHelp')
+                    || 'Nombre de colonnes (pas du cycle des quintes), note fondamentale de référence, et rangées de fonctions présentes (uniquement avec « Stradella »).'}</span>
             </div>
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.accordionRight') || 'Côté droit — affichage'}</label>
@@ -2380,22 +2434,40 @@
         let max = ISMSections._coerceBassNote(
             rootEl.querySelector('#accordionBassRangeMax')?.value, dflt.max);
         if (min > max) { const t = min; min = max; max = t; }
-        return { bass_system, right_display, bass_range: { min, max } };
+        // Stradella geometry is always persisted too (survives a free-bass
+        // round-trip). Empty function selection normalizes to all six.
+        const sdflt = ISMSections._ACCORDION_STRADELLA_DEFAULT;
+        const bass_cols = ISMSections._coerceBassCols(
+            rootEl.querySelector('#accordionBassCols')?.value, sdflt.cols);
+        const bass_base = ISMSections._coerceBassNote(
+            rootEl.querySelector('#accordionBassBase')?.value, sdflt.base);
+        const checked = [...rootEl.querySelectorAll('.accordionFuncCb')]
+            .filter((cb) => cb.checked).map((cb) => cb.value);
+        const bass_funcs = ISMSections._normalizeBassFuncs(checked);
+        return { bass_system, right_display, bass_range: { min, max },
+            bass_cols, bass_base, bass_funcs };
     };
 
-    // Enable the bass-range inputs only for 'free'; dim + disable under
-    // Stradella (the span is fixed there). Standalone so it is callable
-    // both from the live listener and from tests.
+    // Enable the bass-range inputs only for 'free' and the Stradella
+    // geometry inputs only for 'stradella'; dim + disable the inactive
+    // group. Standalone so it is callable from the live listener and tests.
     ISMSections._syncAccordionBassRange = function(scopeEl) {
         const bassSel = scopeEl?.querySelector('#accordionBassSystem');
-        const group = scopeEl?.querySelector('#accordionBassRangeGroup');
-        const minEl = scopeEl?.querySelector('#accordionBassRangeMin');
-        const maxEl = scopeEl?.querySelector('#accordionBassRangeMax');
-        if (!bassSel || !group || !minEl || !maxEl) return;
+        if (!bassSel) return;
         const free = bassSel.value === 'free';
-        minEl.disabled = !free;
-        maxEl.disabled = !free;
-        group.style.opacity = free ? '' : '0.5';
+        const group = scopeEl.querySelector('#accordionBassRangeGroup');
+        const minEl = scopeEl.querySelector('#accordionBassRangeMin');
+        const maxEl = scopeEl.querySelector('#accordionBassRangeMax');
+        if (group && minEl && maxEl) {
+            minEl.disabled = !free;
+            maxEl.disabled = !free;
+            group.style.opacity = free ? '' : '0.5';
+        }
+        const sGroup = scopeEl.querySelector('#accordionStradellaGroup');
+        if (sGroup) {
+            sGroup.querySelectorAll('input').forEach((el) => { el.disabled = free; });
+            sGroup.style.opacity = free ? '0.5' : '';
+        }
     };
 
     if (typeof window !== 'undefined') window.ISMSections = ISMSections;
