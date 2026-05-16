@@ -197,6 +197,28 @@ describe('accordion — Stradella grid, soufflet, no volume slider', () => {
     expect(board).not.toBeNull();
     expect(board.querySelectorAll('.accordion-key').length).toBe(12);
   });
+
+  it('glissando: sliding onto a new key releases the old and plays the new', () => {
+    mount({ bass_system: 'free', right_display: 'buttons',
+            bass_range: { min: 36, max: 47 } });
+    const keys = [...document.querySelectorAll('.accordion-bass .accordion-key')];
+    const n0 = parseInt(keys[0].dataset.note, 10);
+    const n1 = parseInt(keys[1].dataset.note, 10);
+    fire(keys[0], 'pointerdown');
+    expect(sink.played).toContain(n0);
+    fire(keys[1], 'pointermove');                 // slide onto the next key
+    expect(sink.stopped).toContain(n0);           // previous released
+    expect(sink.played).toContain(n1);            // new one sounding
+    document.dispatchEvent(new Event('pointerup'));
+    expect(sink.stopped).toContain(n1);
+  });
+
+  it('glissando: no slide before pointerdown (move alone is inert)', () => {
+    mount({ bass_system: 'stradella', right_display: 'buttons' });
+    const key = document.querySelector('.accordion-bass .accordion-key');
+    fire(key, 'pointermove');
+    expect(sink.played).toEqual([]);
+  });
 });
 
 describe('configured note range (QA) — views follow instrument settings', () => {
