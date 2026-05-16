@@ -124,10 +124,18 @@
                 ? chromaticSolo(lo, hi, keyOff)
                 : richterKeyed(lo, hi, keyOff);
 
+            // Note label resolver, reused by the rows and by _setSlide() so
+            // the displayed pitch tracks the slide.
+            this._noteLabel = (typeof modal.getNoteLabel === 'function')
+                ? (n) => modal.getNoteLabel(n) : (n) => String(n);
+
             const root = document.createElement('div');
             root.id = 'harmonica-container';
             root.className = 'harmonica-view'
                 + (this._chromatic ? ' harmonica-chromatic' : ' harmonica-diatonic');
+
+            const device = document.createElement('div');
+            device.className = 'harmonica-device';
 
             const coverTop = document.createElement('div');
             coverTop.className = 'harmonica-cover harmonica-cover-top';
@@ -147,19 +155,26 @@
                 const slide = document.createElement('button');
                 slide.type = 'button';
                 slide.className = 'harmonica-slide';
+                slide.setAttribute('aria-pressed', 'false');
                 slide.innerHTML =
                     `<span class="harmonica-slide-label">`
                     + `${this._t('keyboard.harmonicaSlide', 'Glissière')}</span>`
-                    + `<span class="harmonica-slide-knob"></span>`;
+                    + `<span class="harmonica-slide-track">`
+                    + `<span class="harmonica-slide-knob"></span></span>`;
                 this._slideBtn = slide;
-                this._onSlideDown = (e) => { e.preventDefault(); this._setSlide(true); };
-                slide.addEventListener('pointerdown', this._onSlideDown);
+                // Click to toggle (click again to release) — not hold.
+                this._onSlideClick = (e) => {
+                    e.preventDefault();
+                    this._setSlide(!this._slide);
+                };
+                slide.addEventListener('click', this._onSlideClick);
                 body.appendChild(slide);
             }
 
-            root.appendChild(coverTop);
-            root.appendChild(body);
-            root.appendChild(coverBottom);
+            device.appendChild(coverTop);
+            device.appendChild(body);
+            device.appendChild(coverBottom);
+            root.appendChild(device);
             canvas.appendChild(root);
             this._root = root;
 
@@ -173,8 +188,8 @@
             this._slide = false;
 
             // A hole press starts a note; a single global pointerup/cancel
-            // releases every held hole AND drops the slide — robust against
-            // drag-off, no per-pointer bookkeeping, no stuck notes.
+            // releases every held hole. The slide is an independent
+            // click-to-toggle latch — it is NOT dropped on pointerup.
             this._onDown = (e) => this._press(e);
             this._onDocUp = () => this._releaseAll();
             root.addEventListener('pointerdown', this._onDown);
@@ -200,8 +215,7 @@
         _buildRow(kind, notes, modal) {
             const row = document.createElement('div');
             row.className = `harmonica-row harmonica-row-${kind}`;
-            const label = (typeof modal.getNoteLabel === 'function')
-                ? (n) => modal.getNoteLabel(n) : (n) => String(n);
+            const label = this._noteLabel;
             notes.forEach((midi, idx) => {
                 const cell = document.createElement('button');
                 cell.type = 'button';
@@ -249,34 +263,45 @@
             if (modal && typeof modal.stopNote === 'function') modal.stopNote(st.sounding);
         }
 
+        // Release every held hole. The slide is a separate latch and is
+        // intentionally NOT reset here — a global pointerup must not undo
+        // the user's click-toggled slide.
         _releaseAll() {
-            if (this._pressed && this._pressed.size > 0) {
-                for (const [key] of [...this._pressed]) {
-                    const [row, idx] = key.split(':');
-                    const cell = this._root
-                        ? this._root.querySelector(
-                            `.harmonica-hole[data-row="${row}"][data-idx="${idx}"]`)
-                        : null;
-                    this._releaseKey(key, cell);
-                }
+            if (!this._pressed || this._pressed.size === 0) return;
+            for (const [key] of [...this._pressed]) {
+                const [row, idx] = key.split(':');
+                const cell = this._root
+                    ? this._root.querySelector(
+                        `.harmonica-hole[data-row="${row}"][data-idx="${idx}"]`)
+                    : null;
+                this._releaseKey(key, cell);
             }
-            // The same global release also drops the slide; the map is empty
-            // now so no re-trigger is needed — just clear state + visual.
-            this._slide = false;
-            if (this._slideBtn) this._slideBtn.classList.remove('engaged');
         }
 
-        // Engage/release the slide: re-pitch every held hole (+1 / 0) so a
-        // sustained note tracks the slide exactly like a real chromatic
+        // Toggle the slide. Rewrites every hole's displayed note to the
+        // shifted pitch (+1 when engaged) and re-pitches any held hole so a
+        // sustained note tracks the slide, exactly like a real chromatic
         // harmonica. Stop the old pitch, start the new one.
         _setSlide(on) {
             on = !!on;
             if (on === this._slide) return;
             this._slide = on;
-            if (this._slideBtn) this._slideBtn.classList.toggle('engaged', on);
+            if (this._slideBtn) {
+                this._slideBtn.classList.toggle('engaged', on);
+                this._slideBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            }
+            const shift = on ? 1 : 0;
+            // Displayed note follows the slide on every hole.
+            if (this._root && this._noteLabel) {
+                this._root.querySelectorAll('.harmonica-hole').forEach((cell) => {
+                    const base = parseInt(cell.dataset.note, 10);
+                    const noteEl = cell.querySelector('.harmonica-hole-note');
+                    if (noteEl) noteEl.textContent = this._noteLabel(base + shift);
+                });
+            }
             const modal = this.ctx && this.ctx.modal;
             for (const st of this._pressed.values()) {
-                const next = st.base + (on ? 1 : 0);
+                const next = st.base + shift;
                 if (next === st.sounding) continue;
                 if (modal && typeof modal.stopNote === 'function') modal.stopNote(st.sounding);
                 st.sounding = next;
@@ -286,12 +311,16 @@
 
         unmount() {
             this._releaseAll();
+            if (this._slideBtn && this._onSlideClick) {
+                this._slideBtn.removeEventListener('click', this._onSlideClick);
+            }
             if (this._root) {
                 this._root.removeEventListener('pointerdown', this._onDown);
                 this._root.remove();
                 this._root = null;
             }
             this._slideBtn = null;
+            this._slide = false;
             document.removeEventListener('pointerup', this._onDocUp);
             document.removeEventListener('pointercancel', this._onDocUp);
             this._pressed = null;
