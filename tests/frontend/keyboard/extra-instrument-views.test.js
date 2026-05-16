@@ -278,11 +278,51 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
 
   it('getAccordionConfig: defaults + validates caps.accordion_config', () => {
     const m = new (win.KeyboardModal)();
-    expect(m.getAccordionConfig()).toEqual({ bass_system: 'stradella', hands: 'both' });
-    m.selectedDeviceCapabilities = { accordion_config: { bass_system: 'free', hands: 'left' } };
-    expect(m.getAccordionConfig()).toEqual({ bass_system: 'free', hands: 'left' });
-    m.selectedDeviceCapabilities = { accordion_config: { bass_system: 'bogus', hands: 'x' } };
-    expect(m.getAccordionConfig()).toEqual({ bass_system: 'stradella', hands: 'both' });
+    expect(m.getAccordionConfig()).toEqual(
+      { bass_system: 'stradella', hands: 'both', right_display: 'buttons' });
+    m.selectedDeviceCapabilities = { accordion_config:
+      { bass_system: 'free', hands: 'left', right_display: 'keyboard' } };
+    expect(m.getAccordionConfig()).toEqual(
+      { bass_system: 'free', hands: 'left', right_display: 'keyboard' });
+    m.selectedDeviceCapabilities = { accordion_config:
+      { bass_system: 'bogus', hands: 'x', right_display: 'z' } };
+    expect(m.getAccordionConfig()).toEqual(
+      { bass_system: 'stradella', hands: 'both', right_display: 'buttons' });
+  });
+
+  it('AccordionView: right_display=keyboard → piano-style right hand', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
+                getInstrumentNoteRange: () => ({ min: 60, max: 71, notes: null }),
+                getAccordionConfig: () => ({ bass_system: 'stradella',
+                  hands: 'right', right_display: 'keyboard' }) };
+    const v = new (win.AccordionView)();
+    v.mount({ modal: m });
+    const treble = document.querySelector('.accordion-treble');
+    expect(treble.classList.contains('accordion-piano')).toBe(true);
+    // 60..71 → 7 white + 5 black, all still .accordion-key (playable)
+    expect(document.querySelectorAll('.accordion-treble .accordion-key').length).toBe(12);
+    expect(document.querySelectorAll('.accordion-key-black').length).toBe(5);
+    // two distinct titled zones present
+    expect(document.querySelectorAll('.accordion-zone').length).toBe(1); // right only
+    expect(document.querySelector('.accordion-zone-title').textContent)
+      .toContain('Main droite');
+    v.unmount();
+  });
+
+  it('AccordionView: hands=both → two side zones (left + right)', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
+                getAccordionConfig: () => ({ bass_system: 'stradella',
+                  hands: 'both', right_display: 'buttons' }) };
+    const v = new (win.AccordionView)();
+    v.mount({ modal: m });
+    const titles = [...document.querySelectorAll('.accordion-zone-title')]
+      .map(t => t.textContent);
+    expect(titles.length).toBe(2);
+    expect(titles.some(t => t.includes('Main gauche'))).toBe(true);
+    expect(titles.some(t => t.includes('Main droite'))).toBe(true);
+    v.unmount();
   });
 
   it('BagpipeView: plays every configured drone on mount; toggle all', () => {

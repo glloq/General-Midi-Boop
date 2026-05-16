@@ -1132,14 +1132,49 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > `modal.showNoteColors` est actif → le bouton 🎨 fonctionne **pour tous
 > les instruments** (theremin exclu : pad continu sans notes discrètes).
 >
-> ✅ **Ajouté** : `KeyboardModal.getInstrumentNoteRange()` → `{min,max,
-> notes}` (même source que `autoCenterKeyboard` : `selected_notes`
-> discrets ou `note_range_min/max`). Les vues *self-owned* en dérivent
-> leur jeu de notes au lieu d'un span figé (QA « utiliser le nombre de
-> notes des réglages d'instrument ») : Mallet/SteelDrum/Accordéon-treble
-> = chromatique sur la plage ; Harp/Kalimba = diatonique sur la plage ;
-> Harmonica (Richter) / Bagpipe (chanter) = motif transposé+tronqué à la
-> plage. Sans capacités → défaut idiomatique de chaque vue.
+> ✅ **`KeyboardModal.getInstrumentNoteRange()`** → `{min,max,notes}`.
+> Priorité : `selected_notes` discrets → `note_range_min/max` → **repli
+> sur la fenêtre visible du modal** (`startNote`..`+visibleNoteCount`).
+> Le repli est ce qui fait que les vues suivent **toujours** le nombre
+> de notes configuré même quand l'instrument ne déclare pas de plage
+> explicite (correctif QA #2 « aucun changement »). Les vues *self-owned*
+> en dérivent leur jeu de notes (chromatique / diatonique / motif
+> transposé selon la vue).
+>
+> ✅ **MalletView QA #1** : géométrie **responsive en %** (toute la plage
+> tient dans la fenêtre, sans débordement ni zoom manuel) ; les altérées
+> (#) sont **ancrées en haut et plus courtes** → visuellement plus hautes
+> que les naturelles (façon piano/marimba).
+>
+> ✅ **AccordionView QA #4** : `getAccordionConfig()` étendu avec
+> `right_display:'buttons'|'keyboard'`. La vue rend **deux zones
+> distinctes titrées** (« Main gauche · Stradella/Basses libres » à
+> gauche, « Main droite · Boutons/Clavier » à droite) ; en mode
+> `keyboard` la main droite est un **clavier piano** (blanches en flex,
+> noires absolues) — toutes les cellules restent `.accordion-key`.
+>
+> ✅ **Persistance #3/#4 — backend fait** (choix : mini-migration
+> additive, calquée sur `hands_config`) :
+> - `migrations/022_instrument_specific_configs.sql` : colonnes JSON
+>   nullables `bagpipe_config` + `accordion_config` sur
+>   `instruments_latency` (CHECK `json_valid`, schema_version 22).
+> - `InstrumentCapabilitiesDB` : normalisation + écriture (update
+>   colonnes/transforms) + lecture/parse dans les 3 SELECT, helper
+>   `parseJsonCol`.
+> - `InstrumentSettingsCommands` : forward sous contrat clé-explicite
+>   (comme `hands_config`) sur `instrument_update_capabilities` **et**
+>   `instrument_save_all`, + validateurs exportés
+>   `validateBagpipeConfigPayload` / `validateAccordionConfigPayload`.
+> - Tests : `tests/instrument-settings-play-config-validation.test.js`
+>   (9 cas Jest, fonctions pures, sans SQLite). ⚠️ Le round-trip DB
+>   n'est pas exécutable dans ce conteneur (`better-sqlite3` non
+>   compilé — limitation native) → **QA DB requise** : `npm run
+>   migrate` puis vérifier save/reload depuis le modal d'instrument.
+>
+> ⏳ **Reste l'UI ISM** : section « Cornemuse » (bourdons + enabled) et
+> « Accordéon » (bass_system / hands / right_display) à ajouter dans le
+> modal de réglages d'instrument (render + collecte + nav), calquées sur
+> la section Hands. Browser-QA requise (sous-système ISM ~6300 l.).
 >
 > ✅ **MalletView** : disposition **façon piano/marimba** — naturelles en
 > rangée contiguë, altérées en `position:absolute` au-dessus de

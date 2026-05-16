@@ -38,30 +38,31 @@
             root.id = 'mallet-container';
             root.className = 'mallet-view';
             root.style.cssText =
-                'display:flex;align-items:center;justify-content:center;'
-                + 'height:100%;padding:18px;overflow:auto;touch-action:none;';
+                'display:flex;align-items:stretch;justify-content:stretch;'
+                + 'height:100%;padding:14px 10px;box-sizing:border-box;'
+                + 'touch-action:none;';
 
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
 
-            // Piano-like geometry: naturals form a contiguous row, the
-            // accidentals (sharps) sit ABOVE the gap between the right
-            // naturals — exactly like a marimba / piano keyboard.
-            const NAT_W = 30, GAP = 4, ACC_W = 22;
-            const STEP = NAT_W + GAP;
-
-            // Count naturals strictly below a midi (its position index).
+            // Responsive piano-like geometry expressed in PERCENT so the
+            // whole configured range always fits the window (no overflow,
+            // no manual zoom). Naturals fill the width; accidentals sit
+            // ABOVE the boundary between the right naturals (sharps are
+            // shorter and anchored to the very top → visually higher).
             let naturalsCount = 0;
             for (let n = LO; n <= HI; n++) if (!BLACK.has(((n % 12) + 12) % 12)) naturalsCount++;
+            naturalsCount = Math.max(1, naturalsCount);
+            const NAT_W = 100 / naturalsCount;          // % of board width
+            const ACC_W = NAT_W * 0.62;
 
             const board = document.createElement('div');
             board.className = 'mallet-board';
             board.style.cssText =
-                'position:relative;height:150px;'
-                + `width:${Math.max(1, naturalsCount) * STEP}px;`;
+                'position:relative;width:100%;height:100%;min-height:160px;';
 
             let natIdx = 0;
-            const mkBar = (n, isBlack, x, opts) => {
+            const mkBar = (n, isBlack, leftPct, widthPct, posCss) => {
                 const bar = document.createElement('button');
                 bar.type = 'button';
                 bar.className = 'mallet-bar' + (isBlack ? ' mallet-bar-acc' : ' mallet-bar-nat');
@@ -69,11 +70,11 @@
                 bar.title = label(n);
                 bar.textContent = label(n);
                 bar.style.cssText =
-                    'position:absolute;border:1px solid #2a2a2a;border-radius:3px;'
+                    'position:absolute;box-sizing:border-box;'
+                    + 'border:1px solid #2a2a2a;border-radius:0 0 4px 4px;'
                     + 'cursor:pointer;font:10px sans-serif;display:flex;'
-                    + 'align-items:flex-end;justify-content:center;padding-bottom:3px;'
-                    + `left:${Math.round(x)}px;width:${opts.w}px;`
-                    + `height:${opts.h}px;${opts.pos}`
+                    + 'align-items:flex-end;justify-content:center;padding-bottom:4px;'
+                    + `left:${leftPct}%;width:${widthPct}%;${posCss}`
                     + `z-index:${isBlack ? 2 : 1};`
                     + (isBlack ? 'background:#7a5a2a;color:#fff;'
                                : 'background:#d8b46a;color:#222;');
@@ -88,15 +89,16 @@
             for (let n = LO; n <= HI; n++) {
                 const isBlack = BLACK.has(((n % 12) + 12) % 12);
                 if (!isBlack) {
-                    board.appendChild(mkBar(n, false, natIdx * STEP,
-                        { w: NAT_W, h: 110, pos: 'bottom:0;' }));
+                    // Naturals: lower band (bottom 58%).
+                    board.appendChild(mkBar(n, false, natIdx * NAT_W, NAT_W,
+                        'bottom:0;height:58%;'));
                     natIdx++;
                 } else {
-                    // Centred on the boundary between the previous natural
-                    // (natIdx-1) and the next one.
-                    const x = natIdx * STEP - GAP / 2 - ACC_W / 2;
-                    board.appendChild(mkBar(n, true, x,
-                        { w: ACC_W, h: 70, pos: 'top:0;' }));
+                    // Accidentals: centred on the boundary, anchored to the
+                    // TOP and shorter → clearly higher than the naturals.
+                    const leftPct = natIdx * NAT_W - ACC_W / 2;
+                    board.appendChild(mkBar(n, true, leftPct, ACC_W,
+                        'top:0;height:46%;border-radius:4px;'));
                 }
             }
 
