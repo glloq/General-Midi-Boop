@@ -65,6 +65,8 @@ class InstrumentSettingsModal extends BaseModal {
         { id: 'identity', icon: '🎵', labelKey: 'instrumentSettings.sectionIdentity', fallback: 'Identité' },
         { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes & Capacités' },
         { id: 'hands',    icon: '🫱', labelKey: 'instrumentSettings.sectionHands',    fallback: 'Mains', keyboardsOnly: true },
+        { id: 'bagpipe',  icon: '🎵', labelKey: 'instrumentSettings.sectionBagpipe',  fallback: 'Cornemuse',  showWhen: '_shouldShowBagpipeSection' },
+        { id: 'accordion',icon: '🪗', labelKey: 'instrumentSettings.sectionAccordion',fallback: 'Accordéon',  showWhen: '_shouldShowAccordionSection' },
         { id: 'advanced', icon: '⚙️', labelKey: 'instrumentSettings.sectionAdvanced', fallback: 'Avancé' }
     ];
 
@@ -1019,6 +1021,11 @@ class InstrumentSettingsModal extends BaseModal {
         let html = '<nav class="ism-sidebar">';
         for (const sec of InstrumentSettingsModal.SECTIONS) {
             if (sec.keyboardsOnly && !showHands) continue;
+            // Generic per-instrument predicate (bagpipe / accordion …).
+            if (sec.showWhen) {
+                const fn = window.ISMSections?.[sec.showWhen];
+                if (typeof fn !== 'function' || !fn(tab)) continue;
+            }
             const active = this.activeSection === sec.id ? 'active' : '';
             html += `<button type="button" class="ism-nav-item ${active}" data-section="${sec.id}">
                 <span class="ism-nav-icon">${sec.icon}</span>

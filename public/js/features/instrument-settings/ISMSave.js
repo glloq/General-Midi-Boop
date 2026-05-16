@@ -313,6 +313,17 @@
             if (handsConfigPayload !== undefined) {
                 saveAllPayload.hands_config = handsConfigPayload;
             }
+            // Per-instrument play configs (bagpipe drones / accordion sides).
+            // Same explicit-key contract: only sent when the section was
+            // rendered + visited (undefined → backend preserves existing).
+            if (window.ISMSections?._collectBagpipeConfig) {
+                const bagpipeCfg = window.ISMSections._collectBagpipeConfig(modalEl);
+                if (bagpipeCfg !== undefined) saveAllPayload.bagpipe_config = bagpipeCfg;
+            }
+            if (window.ISMSections?._collectAccordionConfig) {
+                const accordionCfg = window.ISMSections._collectAccordionConfig(modalEl);
+                if (accordionCfg !== undefined) saveAllPayload.accordion_config = accordionCfg;
+            }
             await this.api.sendCommand('instrument_save_all', saveAllPayload);
 
             // If the user switched away from a string-instrument family, the
