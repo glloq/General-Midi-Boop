@@ -55,6 +55,7 @@ function createTestDb() {
       has_drums BOOLEAN NOT NULL DEFAULT 0,
       has_melody BOOLEAN NOT NULL DEFAULT 0,
       has_bass BOOLEAN NOT NULL DEFAULT 0,
+      has_lyrics BOOLEAN NOT NULL DEFAULT 0,
       is_original BOOLEAN NOT NULL DEFAULT 1,
       parent_file_id INTEGER,
       uploaded_at TEXT,
@@ -401,6 +402,13 @@ describeIfSqlite('MidiDatabase.filterFiles', () => {
   test('filename case-insensitive (SQLite LIKE is case-insensitive for ASCII)', () => {
     const results = midiDb.filterFiles({ filename: 'PIANO' });
     expect(results.map((f) => f.id)).toEqual([1]);
+  });
+
+  test('filename treats % as a literal, not a LIKE wildcard', () => {
+    // 'piano%sonata' must NOT match 'piano_sonata.mid'; no file has a literal '%'
+    expect(midiDb.filterFiles({ filename: 'piano%sonata' })).toHaveLength(0);
+    // Regression: escaping does not break ordinary substring matches
+    expect(midiDb.filterFiles({ filename: 'piano_sonata' }).map((f) => f.id)).toEqual([1]);
   });
 
   // --- Folder ---
@@ -1453,6 +1461,24 @@ describe('FilterManager', () => {
       expect(fm.loadPreset('nonexistent')).toBe(false);
     });
 
+    test('loadPreset defaults keys missing from an older preset', () => {
+      // Simulate a preset saved before newer filter keys existed
+      const legacyFilters = fm.getDefaultFilters();
+      delete legacyFilters.gmPrograms;
+      delete legacyFilters.routingStatuses;
+      delete legacyFilters.playableMode;
+      legacyFilters.filename = 'legacy';
+      fm.presets.push({ name: 'legacy', filters: legacyFilters });
+
+      const loaded = fm.loadPreset('legacy');
+      expect(loaded).toBe(true);
+      expect(fm.getFilter('filename')).toBe('legacy');
+      // Missing keys must come back defaulted, not undefined
+      expect(fm.getFilter('gmPrograms')).toEqual([]);
+      expect(fm.getFilter('routingStatuses')).toEqual([]);
+      expect(fm.getFilter('playableMode')).toBe('routed');
+    });
+
     test('deletePreset removes preset', () => {
       fm.savePreset('toDelete');
       expect(fm.getPresets()).toHaveLength(1);
@@ -1487,6 +1513,20 @@ describe('FilterManager', () => {
       fm.setFilter('filename', 'changed');
       const preset = fm.getPresets().find((p) => p.name === 'safe');
       expect(preset.filters.filename).toBe('original');
+    });
+  });
+
+  // --- Filter labels ---
+
+  describe('getFilterLabel', () => {
+    // window.i18n is null in this suite, so t(key) returns the raw key.
+    test('boolean filters use distinct keys for true vs false', () => {
+      expect(fm.getFilterLabel('hasDrums', true)).toBe('filters.labelWithDrums');
+      expect(fm.getFilterLabel('hasDrums', false)).toBe('filters.labelWithoutDrums');
+      expect(fm.getFilterLabel('hasMelody', true)).toBe('filters.labelWithMelody');
+      expect(fm.getFilterLabel('hasMelody', false)).toBe('filters.labelWithoutMelody');
+      expect(fm.getFilterLabel('hasBass', true)).toBe('filters.labelWithBass');
+      expect(fm.getFilterLabel('hasBass', false)).toBe('filters.labelWithoutBass');
     });
   });
 

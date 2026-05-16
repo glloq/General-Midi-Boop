@@ -273,6 +273,16 @@ class MidiDatabase {
   }
 
   /**
+   * Escape SQL LIKE wildcards so user free-text is matched literally.
+   * Pair with an ESCAPE '\' clause on the LIKE.
+   * @param {string} value
+   * @returns {string}
+   */
+  _escapeLikePattern(value) {
+    return String(value).replace(/[\\%_]/g, ch => '\\' + ch);
+  }
+
+  /**
    * Filter MIDI files with advanced criteria
    * @param {Object} filters - Filter criteria
    * @returns {Array} - Filtered files
@@ -294,15 +304,15 @@ class MidiDatabase {
 
       // Filename filter
       if (filters.filename) {
-        wheres.push('mf.filename LIKE ?');
-        params.push(`%${filters.filename}%`);
+        wheres.push("mf.filename LIKE ? ESCAPE '\\'");
+        params.push(`%${this._escapeLikePattern(filters.filename)}%`);
       }
 
       // Folder filter
       if (filters.folder) {
         if (filters.includeSubfolders) {
-          wheres.push('mf.folder LIKE ?');
-          params.push(`${filters.folder}%`);
+          wheres.push("mf.folder LIKE ? ESCAPE '\\'");
+          params.push(`${this._escapeLikePattern(filters.folder)}%`);
         } else {
           wheres.push('mf.folder = ?');
           params.push(filters.folder);
