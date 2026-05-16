@@ -7,7 +7,7 @@
 // Phase D (strangler fig): mount/unmount delegate to the legacy mixin
 // methods (regeneratePianoKeys, _setupPianoDelegation, _cleanFingersCanvas)
 // living on KeyboardModal.prototype. The View owns the *identity* of the
-// piano view (viewKind / emoji / toolbarGroups / labelKey) so the registry
+// piano view (viewKind / iconUrl / emoji / labelKey) so the registry
 // is fully functional. New piano-specific features are expected to be
 // added here rather than in KeyboardPiano.js — the mixin will gradually
 // shrink as functionality migrates over (Phase E and beyond).
@@ -20,6 +20,7 @@
 
     class PianoView extends InstrumentView {
         static viewKind = 'piano';
+        static iconUrl = '/assets/instruments/acoustic_grand.svg';
         static emoji = '🎹';
         static labelKey = 'keyboard.viewPiano';
 
@@ -56,16 +57,6 @@
             // Active-note highlighting is currently driven by the legacy
             // mixin via direct DOM class toggling; no extra work needed
             // until Phase E owns the DOM directly.
-        }
-
-        toolbarGroups() {
-            // Piano supports: notation toggle, velocity slider, octave bar,
-            // minimap, note-color toggle, list-view toggle, mod wheel.
-            return new Set([
-                'notation', 'velocity', 'note-color',
-                'list-view', 'minimap', 'octave-bar',
-                'view-mode', 'modulation', 'pitch-bend'
-            ]);
         }
     }
 

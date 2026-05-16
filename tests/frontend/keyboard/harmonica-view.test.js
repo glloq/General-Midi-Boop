@@ -158,12 +158,22 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
     expect(view.mounted).toBe(false);
   });
 
-  it('toolbarGroups excludes octave/minimap/pitch-bend', () => {
-    const g = view.toolbarGroups();
-    expect(g.has('velocity')).toBe(true);
-    expect(g.has('notation')).toBe(true);
-    expect(g.has('minimap')).toBe(false);
-    expect(g.has('pitch-bend')).toBe(false);
+  it('toolbarGroups is removed from the view contract', () => {
+    expect(typeof view.toolbarGroups).toBe('undefined');
+  });
+
+  it('rerender() preserves the chromatic slide latch across a rebuild', () => {
+    view.unmount();
+    const cv = new (win.HarmonicaView)();
+    cv.mount({ modal: Object.assign({}, modal, {
+      getHarmonicaConfig: () => ({ type: 'chromatic', key: 'C' })
+    }) });
+    cv._setSlide(true);
+    expect(cv._slide).toBe(true);
+    cv.rerender();                             // = US/FR/MIDI toggle
+    expect(cv._slide).toBe(true);              // latch survived unmount+mount
+    expect(cv._slideBtn.getAttribute('aria-pressed')).toBe('true');
+    cv.unmount();
   });
 });
 

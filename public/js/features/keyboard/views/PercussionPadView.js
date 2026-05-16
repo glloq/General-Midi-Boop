@@ -17,6 +17,7 @@
 
     class PercussionPadView extends InstrumentView {
         static viewKind = 'perc-pad';
+        static iconUrl = '/assets/instruments/family_chromatic_percussion.svg';
         static emoji = '🪘';
         static labelKey = 'keyboard.viewPercPad';
 
@@ -131,7 +132,6 @@
             });
         }
 
-        toolbarGroups() { return new Set(['velocity', 'view-mode']); }
     }
 
     if (typeof window !== 'undefined') window.PercussionPadView = PercussionPadView;

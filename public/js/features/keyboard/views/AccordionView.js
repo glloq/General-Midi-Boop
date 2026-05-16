@@ -51,6 +51,7 @@
 
     class AccordionView extends InstrumentView {
         static viewKind = 'accordion';
+        static iconUrl = '/assets/instruments/accordion.svg';
         static emoji = '🪗';
         static labelKey = 'keyboard.viewAccordion';
 
@@ -426,7 +427,6 @@
             });
         }
 
-        toolbarGroups() { return new Set(['notation', 'velocity', 'view-mode']); }
     }
 
     if (typeof window !== 'undefined') window.AccordionView = AccordionView;

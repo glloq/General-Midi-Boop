@@ -441,6 +441,23 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     v.unmount();
   });
 
+  it('BagpipeView: rerender() keeps sounding drones on across a rebuild', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({ drones: [45, 33], enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    document.getElementById('bagpipe-drone-toggle').click();   // all on
+    sink.played.length = 0; sink.stopped.length = 0;
+    v.rerender();                                              // US/FR/MIDI toggle
+    expect(v._drones.filter(d => d.on).map(d => d.note).sort())
+      .toEqual([33, 45]);
+    expect(sink.played.filter(n => [33, 45].includes(n)).sort())
+      .toEqual([33, 45]);                                      // restarted
+    v.unmount();
+  });
+
   it('BagpipeView: drones never auto-start, even when enabled in settings', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const sink = { played: [], stopped: [], cc: [] };
@@ -779,5 +796,39 @@ describe('theremin — 2-D pitch/volume pad', () => {
     expect(sink.stopped).toEqual([66]);
     view.unmount();
     expect(document.getElementById('theremin-container')).toBeNull();
+  });
+});
+
+describe('PianoSliderView — wind controls wiring (Shanai GM 111)', () => {
+  it('mount forwards the wind preset to modal._showWindControls', () => {
+    const calls = { slider: 0, wind: [] };
+    const modal = {
+      generatePianoSlider: () => { calls.slider++; },
+      _showWindControls: (p) => { calls.wind.push(p); },
+      _hideWindControls: () => {},
+      currentArticulation: 'normal'
+    };
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal, options: { windPreset: {
+      name: 'Shanai', gmProgram: 111, category: 'reed' } } });
+    expect(calls.slider).toBe(1);
+    expect(calls.wind).toHaveLength(1);
+    expect(calls.wind[0].name).toBe('Shanai');
+    expect(calls.wind[0].gmProgram).toBe(111);
+    v.unmount();
+  });
+
+  it('no wind preset → _showWindControls is not called', () => {
+    const calls = { wind: 0 };
+    const modal = {
+      generatePianoSlider: () => {},
+      _showWindControls: () => { calls.wind++; },
+      _hideWindControls: () => {},
+      currentArticulation: 'normal'
+    };
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal, options: {} });
+    expect(calls.wind).toBe(0);
+    v.unmount();
   });
 });

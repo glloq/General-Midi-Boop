@@ -90,14 +90,9 @@
 
     class HarmonicaView extends InstrumentView {
         static viewKind = 'harmonica';
-        static emoji = '🎵';
+        static iconUrl = '/assets/instruments/harmonica.svg';
+        static emoji = '🎼';
         static labelKey = 'keyboard.viewHarmonica';
-
-        _t(key, fallback) {
-            const fn = this.ctx && this.ctx.i18n && this.ctx.i18n.t;
-            const v = fn ? fn(key) : null;
-            return (v && v !== key) ? v : fallback;
-        }
 
         mount(ctx) {
             super.mount(ctx);
@@ -340,10 +335,13 @@
             });
         }
 
-        toolbarGroups() {
-            // Fixed-pitch reed: notation + velocity + the view-mode toggle
-            // (escape hatch back to piano). No octave/minimap/pitch-bend.
-            return new Set(['notation', 'velocity', 'view-mode']);
+        // A note-format / colour toggle rebuilds the view (unmount+mount).
+        // Preserve the chromatic slide latch across the rebuild so toggling
+        // the label format mid-performance doesn't silently release it.
+        rerender() {
+            const wasSlid = !!this._slide;
+            super.rerender();
+            if (wasSlid && this._slideBtn) this._setSlide(true);
         }
     }
 

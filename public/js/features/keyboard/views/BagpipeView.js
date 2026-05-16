@@ -30,7 +30,8 @@
 
     class BagpipeView extends InstrumentView {
         static viewKind = 'bagpipe';
-        static emoji = '🎵';
+        static iconUrl = '/assets/instruments/bagpipe.svg';
+        static emoji = '🎐';
         static labelKey = 'keyboard.viewBagpipe';
 
         mount(ctx) {
@@ -208,8 +209,9 @@
                 ? this._drones.filter(d => d.on).length : 0;
             if (this._droneMaster) {
                 this._droneMaster.classList.toggle('active', active > 0);
+                const allLbl = this._t('keyboard.bagpipeAllDrones', 'Tous les bourdons');
                 this._droneMaster.textContent =
-                    `${active > 0 ? '🟢' : '⚪'} Tous les bourdons (${active}/${total})`;
+                    `${active > 0 ? '🟢' : '⚪'} ${allLbl} (${active}/${total})`;
             }
             if (this._droneBtns) {
                 this._droneBtns.forEach((b, idx) => {
@@ -283,7 +285,18 @@
             });
         }
 
-        toolbarGroups() { return new Set(['notation', 'velocity', 'view-mode']); }
+        // A note-format / colour toggle rebuilds the view (unmount+mount),
+        // which would silence every drone. Capture the per-drone on/off
+        // state and restore it after the rebuild so a sustained drone keeps
+        // sounding across a label-format change.
+        rerender() {
+            const wasOn = Array.isArray(this._drones)
+                ? this._drones.map(d => !!d.on) : null;
+            super.rerender();
+            if (wasOn && Array.isArray(this._drones)) {
+                wasOn.forEach((on, idx) => { if (on) this._setDrone(idx, true); });
+            }
+        }
     }
 
     if (typeof window !== 'undefined') window.BagpipeView = BagpipeView;

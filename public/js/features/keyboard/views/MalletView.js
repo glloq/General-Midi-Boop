@@ -16,7 +16,8 @@
 
     class MalletView extends InstrumentView {
         static viewKind = 'mallet';
-        static emoji = '🎵';
+        static iconUrl = '/assets/instruments/marimba.svg';
+        static emoji = '🎶';
         static labelKey = 'keyboard.viewMallet';
 
         mount(ctx) {
@@ -163,7 +164,6 @@
             });
         }
 
-        toolbarGroups() { return new Set(['notation', 'velocity', 'view-mode']); }
     }
 
     if (typeof window !== 'undefined') window.MalletView = MalletView;

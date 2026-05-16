@@ -32,6 +32,7 @@
 
     class PianoSliderView extends InstrumentView {
         static viewKind = 'piano-slider';
+        static iconUrl = '/assets/instruments/family_winds.svg';
         static emoji = '🎺';
         static labelKey = 'keyboard.viewPianoSlider';
 
@@ -103,15 +104,6 @@
                 }
             }, STACCATO_MS);
             this._staccatoTimers.set(note, id);
-        }
-
-        toolbarGroups() {
-            return new Set([
-                'notation', 'velocity',
-                'view-mode', 'piano-slider',
-                'modulation', 'pitch-bend',
-                'wind-panel'
-            ]);
         }
     }
 

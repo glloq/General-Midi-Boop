@@ -499,12 +499,29 @@
         // extraction of the previous inline formulas, identical behaviour.
         if (typeof this._applyToolbarGroups === 'function') this._applyToolbarGroups();
 
-        // Update view-mode toggle button label (piano-slider/list show 🎹 since they're piano family)
+        // View-mode toggle button: show the active view's adapted SVG icon
+        // (one per instrument view, so harmonica/harp/accordion/… are now
+        // visually distinct), with the view's emoji as the fallback when
+        // the asset is missing/404s. The icon comes from the registered
+        // View class for `mode`; defensive fallback keeps the modal working
+        // when the registry isn't loaded (older host / pure unit tests).
         const btn = document.getElementById('keyboard-view-toggle');
         if (btn) {
-            if (mode === 'fretboard') btn.textContent = '🎸';
-            else if (mode === 'drumpad') btn.textContent = '🥁';
-            else btn.textContent = '🎹';
+            const reg = (typeof window !== 'undefined' && window.instrumentViews) || null;
+            const VC = reg && typeof reg.get === 'function' ? reg.get(mode) : null;
+            const iconUrl = VC && VC.iconUrl;
+            const emoji = (VC && VC.emoji) || '🎹';
+            if (iconUrl) {
+                btn.innerHTML =
+                    `<img class="view-toggle-svg" src="${iconUrl}" alt="" `
+                    + `onerror="this.style.display='none';`
+                    + `this.nextElementSibling.style.display='inline'">`
+                    + `<span class="view-toggle-emoji" `
+                    + `style="display:none">${emoji}</span>`;
+            } else {
+                btn.innerHTML =
+                    `<span class="view-toggle-emoji">${emoji}</span>`;
+            }
         }
 
         // Update piano-slider toggle button active state

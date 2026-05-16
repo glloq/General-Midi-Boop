@@ -54,6 +54,7 @@
 
     class KalimbaView extends InstrumentView {
         static viewKind = 'kalimba';
+        static iconUrl = '/assets/instruments/kalimba.svg';
         static emoji = '🎵';
         static labelKey = 'keyboard.viewKalimba';
 
@@ -163,7 +164,6 @@
             });
         }
 
-        toolbarGroups() { return new Set(['notation', 'velocity', 'view-mode']); }
     }
 
     if (typeof window !== 'undefined') window.KalimbaView = KalimbaView;

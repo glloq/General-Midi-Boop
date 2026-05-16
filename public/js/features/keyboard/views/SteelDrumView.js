@@ -14,7 +14,8 @@
 
     class SteelDrumView extends InstrumentView {
         static viewKind = 'steel-drum';
-        static emoji = '🥁';
+        static iconUrl = '/assets/instruments/steel_drums.svg';
+        static emoji = '🛢️';
         static labelKey = 'keyboard.viewSteelDrum';
 
         mount(ctx) {
@@ -28,10 +29,13 @@
             const root = document.createElement('div');
             root.id = 'steel-drum-container';
             root.className = 'steel-drum-view';
+            // Responsive pan: square that shrinks with the modal (never wider
+            // than the viewport), positions + tile size are PERCENT-based so
+            // the whole range always fits with no overlap and no manual zoom.
             root.style.cssText =
-                'position:relative;width:340px;height:340px;margin:auto;'
-                + 'border-radius:50%;background:radial-gradient(#5a5f66,#2c2f33);'
-                + 'touch-action:none;';
+                'position:relative;width:min(440px,92%);max-width:100%;'
+                + 'aspect-ratio:1/1;margin:auto;border-radius:50%;'
+                + 'background:radial-gradient(#5a5f66,#2c2f33);touch-action:none;';
 
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
@@ -40,23 +44,34 @@
                 ? modal.getInstrumentNoteRange() : null;
             const lo = r ? r.min : LO;
             const hi = r ? r.max : HI;
-            const n = hi - lo + 1;
+            const n = Math.max(1, hi - lo + 1);
+
+            // Ring radius = 38 % of the pan. The tile diameter must not
+            // exceed the centre-to-centre arc between two adjacent tiles
+            // (2·R·sin(π/n)); clamp it to a sane on-screen range.
+            const Rpct = 38;
+            const arcPct = 2 * Rpct * Math.sin(Math.PI / n);
+            const tilePct = Math.max(5, Math.min(20, arcPct * 0.85));
+
             for (let i = 0; i < n; i++) {
                 const midi = lo + i;
                 const ang = (i / n) * 2 * Math.PI - Math.PI / 2;
-                const R = 130;
-                const cx = 170 + Math.cos(ang) * R;
-                const cy = 170 + Math.sin(ang) * R;
+                const cx = 50 + Math.cos(ang) * Rpct;
+                const cy = 50 + Math.sin(ang) * Rpct;
                 const s = document.createElement('button');
                 s.type = 'button';
                 s.className = 'steel-section';
                 s.dataset.note = String(midi);
                 s.title = label(midi);
                 s.style.cssText =
-                    'position:absolute;width:48px;height:48px;border-radius:50%;'
-                    + `left:${Math.round(cx - 24)}px;top:${Math.round(cy - 24)}px;`
+                    'position:absolute;border-radius:50%;'
+                    + `width:${tilePct.toFixed(2)}%;aspect-ratio:1/1;`
+                    + `left:${cx.toFixed(2)}%;top:${cy.toFixed(2)}%;`
+                    + 'transform:translate(-50%,-50%);box-sizing:border-box;'
                     + 'border:1px solid #888;background:#9aa3ab;color:#1a1a1a;'
-                    + 'cursor:pointer;font:10px sans-serif;';
+                    + 'cursor:pointer;font:10px sans-serif;'
+                    + 'display:flex;align-items:center;justify-content:center;'
+                    + 'overflow:hidden;';
                 s.textContent = label(midi);
                 if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
                     const c = modal.getNoteColor(midi);
@@ -125,7 +140,6 @@
             });
         }
 
-        toolbarGroups() { return new Set(['velocity', 'view-mode']); }
     }
 
     if (typeof window !== 'undefined') window.SteelDrumView = SteelDrumView;

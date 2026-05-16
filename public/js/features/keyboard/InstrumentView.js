@@ -31,7 +31,14 @@
         /** Stable identifier consumed by InstrumentViewRegistry. */
         static viewKind = 'abstract';
 
-        /** Emoji shown on the view-toggle button. Subclasses override. */
+        /**
+         * SVG icon (adapted instrument illustration) shown on the
+         * view-toggle button. Subclasses point this at an asset under
+         * /assets/instruments/. `null` ⇒ no SVG, the emoji is used.
+         */
+        static iconUrl = null;
+
+        /** Emoji fallback used when the SVG asset is missing/404s. */
         static emoji = '❔';
 
         /** i18n key for the view's display name. */
@@ -111,13 +118,17 @@
         afterPlayNote(_midi) { /* no-op */ }
 
         /**
-         * Set of toolbar group ids that this view wants visible. The
-         * controller hides/shows the corresponding `.control-group` elements
-         * declaratively. Defaults cover the basic piano family.
-         * @returns {Set<string>}
+         * Translate `key`, returning `fallback` when no translation exists
+         * (the i18n layer echoes the key back on a miss). Shared by every
+         * view so user-facing strings stay localisable + consistent.
+         * @param {string} key
+         * @param {string} fallback
+         * @returns {string}
          */
-        toolbarGroups() {
-            return new Set(['notation', 'velocity']);
+        _t(key, fallback) {
+            const fn = this.ctx && this.ctx.i18n && this.ctx.i18n.t;
+            const v = fn ? fn(key) : null;
+            return (v && v !== key) ? v : fallback;
         }
     }
 
