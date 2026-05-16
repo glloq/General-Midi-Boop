@@ -845,36 +845,75 @@ describe('theremin — 2-D pitch/volume pad', () => {
   });
 });
 
-describe('PianoSliderView — wind controls wiring (Shanai GM 111)', () => {
-  it('mount forwards the wind preset to modal._showWindControls', () => {
-    const calls = { slider: 0, wind: [] };
+describe('PianoSliderView — wind controls wiring', () => {
+  it('explicit ctx.options.windPreset is honoured (Shanai GM 111)', () => {
+    const order = [];
     const modal = {
-      generatePianoSlider: () => { calls.slider++; },
-      _showWindControls: (p) => { calls.wind.push(p); },
+      generatePianoSlider: () => order.push('slider'),
+      _showWindControls: (p) => order.push(`wind:${p.name}`),
       _hideWindControls: () => {},
       currentArticulation: 'normal'
     };
     const v = new (win.PianoSliderView)();
     v.mount({ modal, options: { windPreset: {
       name: 'Shanai', gmProgram: 111, category: 'reed' } } });
-    expect(calls.slider).toBe(1);
-    expect(calls.wind).toHaveLength(1);
-    expect(calls.wind[0].name).toBe('Shanai');
-    expect(calls.wind[0].gmProgram).toBe(111);
+    // Panel + comfort centring BEFORE the strip is rendered.
+    expect(order).toEqual(['wind:Shanai', 'slider']);
     v.unmount();
   });
 
-  it('no wind preset → _showWindControls is not called', () => {
-    const calls = { wind: 0 };
+  it('resolves the wind preset from the live instrument (flute, GM 73) — '
+     + 'the production path, since _pendingViewOptions is never populated', () => {
+    const order = [];
+    const flute = { name: 'Flute', gmProgram: 73, category: 'pipe',
+      rangeMin: 60, rangeMax: 96, comfortMin: 62, comfortMax: 91 };
+    const modal = {
+      generatePianoSlider: () => order.push('slider'),
+      _showWindControls: (p) => order.push(`wind:${p.name}`),
+      _hideWindControls: () => {},
+      // Same source _selectInstrumentOption uses (the detector).
+      getInstrumentViewInfo: () => ({ isWind: true, windPreset: flute }),
+      currentArticulation: 'normal'
+    };
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal, options: {} });            // ctx.options empty (real life)
+    expect(order).toEqual(['wind:Flute', 'slider']);  // shown, then rendered
+    v.unmount();
+  });
+
+  it('a wind→wind switch via setCapabilities re-syncs the panel', () => {
+    const seen = [];
+    const mk = (name) => ({ name, gmProgram: 73, category: 'pipe',
+      rangeMin: 60, rangeMax: 96, comfortMin: 62, comfortMax: 91 });
+    let current = mk('Flute');
     const modal = {
       generatePianoSlider: () => {},
+      _showWindControls: (p) => seen.push(p.name),
+      _hideWindControls: () => {},
+      getInstrumentViewInfo: () => ({ isWind: true, windPreset: current }),
+      currentArticulation: 'normal'
+    };
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal, options: {} });
+    current = mk('Oboe');
+    v.setCapabilities({});
+    expect(seen).toEqual(['Flute', 'Oboe']);
+    v.unmount();
+  });
+
+  it('non-wind instrument → no wind panel (slider still renders)', () => {
+    const calls = { wind: 0, slider: 0 };
+    const modal = {
+      generatePianoSlider: () => { calls.slider++; },
       _showWindControls: () => { calls.wind++; },
       _hideWindControls: () => {},
+      getInstrumentViewInfo: () => ({ isWind: false, windPreset: null }),
       currentArticulation: 'normal'
     };
     const v = new (win.PianoSliderView)();
     v.mount({ modal, options: {} });
     expect(calls.wind).toBe(0);
+    expect(calls.slider).toBe(1);
     v.unmount();
   });
 });
