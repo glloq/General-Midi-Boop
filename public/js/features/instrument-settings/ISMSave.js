@@ -249,9 +249,11 @@
             // Hands configuration (keyboard-only section, absent for drums
             // and non-keyboard melodic instruments). `undefined` means the
             // section was not rendered → preserve whatever's in the DB.
+            // Resolved once: the bagpipe / accordion collectors below run
+            // outside the hands `if` block, so this must be function-scoped.
+            const modalEl = this.$('.modal-content') || document;
             let handsConfigPayload = undefined;
             if (window.ISMSections?._collectHandsConfig) {
-                const modalEl = this.$('.modal-content') || document;
                 handsConfigPayload = window.ISMSections._collectHandsConfig(modalEl);
             }
             // Safety guard: if the collector produced an enabled config with no
