@@ -69,19 +69,28 @@
             //     viewport culling, grid-bucket spatial index).
             // The invariant `modal.pianoRoll === modal.pianoRollRenderer.getElement()`
             // is maintained so non-migrated call sites keep working unchanged.
+            // Canvas V2 is now the DEFAULT renderer (audit Phase C — viewport
+            // culling + grid-bucket spatial index). Every opt-out path is
+            // preserved for instant rollback if a regression surfaces; the
+            // `Impl` selection below also auto-falls back to the legacy
+            // adapter if CanvasPianoRollRenderer failed to load.
+            // Precedence (highest → lowest):
+            //   1. URL flag `?pianoRollV2=0|1`      — dev override
+            //   2. SettingsModal toggle             — user-facing
+            //   3. Legacy localStorage flag         — dev backwards-compat
+            //   4. Default                          — V2
             const useV2 = (() => {
                 try {
-                    // Precedence (highest → lowest):
-                    //   1. URL flag `?pianoRollV2=1`        — dev override
-                    //   2. SettingsModal toggle             — user-facing
-                    //   3. Legacy localStorage flag         — dev backwards-compat
                     const qs = new URLSearchParams(window.location.search);
+                    if (qs.get('pianoRollV2') === '0') return false;
                     if (qs.get('pianoRollV2') === '1') return true;
                     const settings = JSON.parse(localStorage.getItem('gmboop_settings') || '{}');
+                    if (settings.usePianoRollV2 === false) return false;
                     if (settings.usePianoRollV2 === true) return true;
+                    if (localStorage.getItem('gmboop_piano_roll_v2') === '0') return false;
                     if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
                 } catch (_) { /* best-effort */ }
-                return false;
+                return true;
             })();
             const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
                 ? CanvasPianoRollRenderer
@@ -295,14 +304,31 @@
                 m.releaseNote(note, channel);
             });
 
+            // Drag feedback throttle + dedup (audit P1.2). notedragmove fires
+            // at up to ~60 Hz; each playNoteFeedback is an async synth call.
+            // Stay silent while a note only moves in time (same pitch), and
+            // cap re-triggers at ~30 Hz so a held drag doesn't spam the synth.
+            let dragFbKeys = new Set();
+            let dragFbAt = 0;
             renderer.on('notedragmove', (e) => {
                 if (!m.dragPlaybackEnabled) return;
                 const notes = e.detail.notes;
-                if (notes.length > 0 && notes.length <= 6) {
-                    notes.forEach(note => {
-                        m.playNoteFeedback(note.n, note.v || 100, note.c || 0);
-                    });
+                if (!notes || notes.length === 0 || notes.length > 6) return;
+                const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                const nextKeys = new Set();
+                const fresh = [];
+                for (const note of notes) {
+                    const key = `${note.c || 0}:${note.n}`;
+                    nextKeys.add(key);
+                    if (!dragFbKeys.has(key)) fresh.push(note);
                 }
+                dragFbKeys = nextKeys;
+                if (fresh.length === 0) return;       // pitch unchanged → silent
+                if (now - dragFbAt < 33) return;      // ~30 Hz cap
+                dragFbAt = now;
+                fresh.forEach(note => {
+                    m.playNoteFeedback(note.n, note.v || 100, note.c || 0);
+                });
             });
 
             this.parent.updateStats();
@@ -321,6 +347,21 @@
             if (m.channelPanel) {
                 m.channelPanel.updateTablatureButton();
             }
+
+            // Pre-warm the synth + soundbank in the background (audit P1.1) so
+            // the first note feedback is instant. Fire-and-forget, off the
+            // critical open path. The handle + canceller are stored on the
+            // modal so the lifecycle close can abort a still-pending warm-up
+            // (otherwise it would re-create an AudioContext for a modal that
+            // is already torn down). `requestIdleCallback` is bound — calling
+            // it detached from `window` throws "Illegal invocation".
+            const hasRIC = (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function');
+            const scheduleIdle = hasRIC ? window.requestIdleCallback.bind(window) : ((cb) => setTimeout(cb, 0));
+            m._warmupIdleCancel = hasRIC ? window.cancelIdleCallback.bind(window) : clearTimeout;
+            m._warmupIdleHandle = scheduleIdle(() => {
+                m._warmupIdleHandle = null;
+                m._playback?.warmUpSynth?.();
+            });
         }
     }
 

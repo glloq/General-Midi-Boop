@@ -25,35 +25,11 @@
             const ticksPerBeat = this.modal.midiData.header?.ticksPerBeat || 480;
             this.modal.ticksPerBeat = ticksPerBeat;
 
-            // Extraire le tempo et la tempo map du fichier MIDI
+            // Tempo + tempo-map are extracted inline in the single track/event
+            // walk below — the separate full pre-pass over every event was
+            // redundant (audit P2.3). `tempo`/`tempoEvents` finalised after.
             let tempo = 120;
             this.modal.tempoEvents = [];
-            if (this.modal.midiData.tracks && this.modal.midiData.tracks.length > 0) {
-                for (const track of this.modal.midiData.tracks) {
-                    if (!track.events) continue;
-                    let currentTick = 0;
-                    for (const event of track.events) {
-                        currentTick += event.deltaTime || 0;
-                        if (event.type === 'setTempo' && event.microsecondsPerBeat) {
-                            const bpm = Math.round(60000000 / event.microsecondsPerBeat);
-                            if (this.modal.tempoEvents.length === 0) {
-                                tempo = bpm;
-                            }
-                            this.modal.tempoEvents.push({
-                                ticks: currentTick,
-                                tempo: bpm,
-                                id: `tempo_${currentTick}_${this.modal.tempoEvents.length}`
-                            });
-                        }
-                    }
-                }
-                if (this.modal.tempoEvents.length > 0) {
-                    this.modal.log('info', `Extracted ${this.modal.tempoEvents.length} tempo events (first: ${tempo} BPM)`);
-                }
-            }
-            this.modal.tempo = tempo;
-
-            this.modal.log('info', `Converting MIDI: ${this.modal.midiData.tracks.length} tracks, ${ticksPerBeat} ticks/beat, ${tempo} BPM`);
 
             const channelInstruments = new Map();
             const channelNoteCount = new Map();
@@ -74,6 +50,16 @@
 
                 track.events.forEach((event, _eventIndex) => {
                     currentTick += event.deltaTime || 0;
+
+                    if (event.type === 'setTempo' && event.microsecondsPerBeat) {
+                        const bpm = Math.round(60000000 / event.microsecondsPerBeat);
+                        if (this.modal.tempoEvents.length === 0) tempo = bpm;
+                        this.modal.tempoEvents.push({
+                            ticks: currentTick,
+                            tempo: bpm,
+                            id: `tempo_${currentTick}_${this.modal.tempoEvents.length}`
+                        });
+                    }
 
                     if (event.type === 'programChange') {
                         const channel = event.channel ?? 0;
@@ -145,6 +131,12 @@
 
                 this.modal.log('debug', `Track ${trackIndex} summary: ${noteOnCount} note-ons, ${noteOffCount} note-offs, ${allNotes.length} complete notes`);
             });
+
+            this.modal.tempo = tempo;
+            if (this.modal.tempoEvents.length > 0) {
+                this.modal.log('info', `Extracted ${this.modal.tempoEvents.length} tempo events (first: ${tempo} BPM)`);
+            }
+            this.modal.log('info', `Converting MIDI: ${this.modal.midiData.tracks.length} tracks, ${ticksPerBeat} ticks/beat, ${tempo} BPM`);
 
             this.modal.fullSequence = allNotes.map(note => ({
                 t: note.tick, g: note.gate, n: note.note,
@@ -239,10 +231,23 @@
                 this.syncFullSequenceFromPianoRoll(previousActiveChannels);
             }
 
+            // Build the modal's filtered view AND the renderer's defensive
+            // copy in a single pass (audit P2.1 — was filter + a second .map
+            // spread). The copy is still required: the renderer mutates note
+            // objects in place during drag, and modal.sequence shares object
+            // refs with fullSequence.
+            const renderPayload = [];
             if (this.modal.activeChannels.size === 0) {
                 this.modal.sequence = [];
             } else {
-                this.modal.sequence = this.modal.fullSequence.filter(note => this.modal.activeChannels.has(note.c));
+                const seq = [];
+                for (const note of this.modal.fullSequence) {
+                    if (this.modal.activeChannels.has(note.c)) {
+                        seq.push(note);
+                        renderPayload.push({ ...note });
+                    }
+                }
+                this.modal.sequence = seq;
             }
 
             this.modal.log('info', `Updated sequence: ${this.modal.sequence.length} notes from ${this.modal.activeChannels.size} active channel(s)`);
@@ -252,7 +257,7 @@
                 // Bulk replace via setSequence (audit §1.1 — drops the
                 // per-note push loop, prepares for Canvas impl which will
                 // benefit from a single spatial-index rebuild).
-                renderer.setSequence(this.modal.sequence.map(note => ({...note})));
+                renderer.setSequence(renderPayload);
                 renderer.setChannelColors(this.modal.channelColors);
 
                 if (this.modal.activeChannels.size > 0) {
@@ -285,15 +290,32 @@
             const currentSequence = this.modal.pianoRollRenderer?.getSequence();
             if (!currentSequence) return;
             const visibleChannels = previousActiveChannels || this.modal.activeChannels;
+            // `invisibleNotes` is a filtered subset of fullSequence, which is
+            // kept tick-sorted (convertMidiToSequence sorts; this method
+            // re-establishes the invariant on every call; all other writers
+            // only `filter`, preserving order). So only `visibleNotes`
+            // (rebuilt from the renderer) may be unordered — sort just that
+            // subset and linear-merge the two sorted runs. O(n) instead of
+            // concat + a full O(n log n) sort on every edit (audit P1.3).
             const invisibleNotes = this.modal.fullSequence.filter(note => !visibleChannels.has(note.c));
+            const fallbackChannel = Array.from(visibleChannels)[0] || 0;
             const visibleNotes = currentSequence.map(note => ({
                 t: note.t, g: note.g, n: note.n,
-                c: note.c !== undefined ? note.c : Array.from(visibleChannels)[0] || 0,
+                c: note.c !== undefined ? note.c : fallbackChannel,
                 v: note.v || 100
             }));
+            visibleNotes.sort((a, b) => a.t - b.t);
 
-            this.modal.fullSequence = [...invisibleNotes, ...visibleNotes];
-            this.modal.fullSequence.sort((a, b) => a.t - b.t);
+            const merged = new Array(invisibleNotes.length + visibleNotes.length);
+            let ii = 0, vi = 0, mi = 0;
+            while (ii < invisibleNotes.length && vi < visibleNotes.length) {
+                merged[mi++] = (invisibleNotes[ii].t <= visibleNotes[vi].t)
+                    ? invisibleNotes[ii++]
+                    : visibleNotes[vi++];
+            }
+            while (ii < invisibleNotes.length) merged[mi++] = invisibleNotes[ii++];
+            while (vi < visibleNotes.length)   merged[mi++] = visibleNotes[vi++];
+            this.modal.fullSequence = merged;
 
             this.modal.log('debug', `Synced fullSequence: ${invisibleNotes.length} invisible + ${visibleNotes.length} visible = ${this.modal.fullSequence.length} total (using ${previousActiveChannels ? 'previous' : 'current'} active channels)`);
 

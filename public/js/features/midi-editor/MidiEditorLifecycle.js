@@ -230,6 +230,13 @@
                 this.modal._pianoRollContainerObs = null;
             }
 
+    // Cancel a still-pending background synth warm-up (audit P1.1) so it
+    // can't run after teardown and re-create an orphan AudioContext.
+            if (this.modal._warmupIdleHandle != null && this.modal._warmupIdleCancel) {
+                try { this.modal._warmupIdleCancel(this.modal._warmupIdleHandle); } catch (_) { /* best-effort */ }
+                this.modal._warmupIdleHandle = null;
+            }
+
     // Nettoyer la barre de timeline
             if (this.modal.timelineBar) {
                 this.modal.timelineBar.destroy();
