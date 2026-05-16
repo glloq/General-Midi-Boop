@@ -5,20 +5,18 @@
     ISMSections._renderAllSections = function() {
         const tab = this._getActiveTab();
         const showHands = ISMSections._shouldShowHandsSection(tab);
-        const showBagpipe = ISMSections._shouldShowBagpipeSection(tab);
-        const showAccordion = ISMSections._shouldShowAccordionSection(tab);
         // Only the active section is rendered immediately; others are injected on
         // first visit via _switchSection() to avoid expensive upfront template work.
         const renderSection = (id, renderFn) => {
             const isActive = this.activeSection === id;
             return `<div class="ism-section${isActive ? ' active' : ''}" data-section="${id}"${isActive ? '' : ' data-lazy="true"'}>${isActive ? renderFn.call(this) : ''}</div>`;
         };
+        // Bagpipe / accordion are no longer standalone sections — they are
+        // conditional subsections inside Notes & Capacités.
         return `
             ${renderSection('identity', this._renderIdentitySection)}
             ${renderSection('notes', this._renderNotesSection)}
             ${showHands ? renderSection('hands', this._renderHandsSection) : ''}
-            ${showBagpipe ? renderSection('bagpipe', this._renderBagpipeSection) : ''}
-            ${showAccordion ? renderSection('accordion', this._renderAccordionSection) : ''}
             ${renderSection('advanced', this._renderAdvancedSection)}
         `;
     };
@@ -692,6 +690,16 @@
             ${isDrum ? `<div class="ism-subsection" id="drumsSubsection">
                 <h4 class="ism-subsection-title">🥁 ${this.t('instrumentSettings.sectionDrums') || 'Percussions'}</h4>
                 ${this._renderDrumsContent()}
+            </div>` : ''}
+
+            ${ISMSections._shouldShowBagpipeSection(tab) ? `<div class="ism-subsection" id="bagpipeSubsection">
+                <h4 class="ism-subsection-title">🎵 ${this.t('instrumentSettings.sectionBagpipe') || 'Cornemuse'}</h4>
+                ${this._renderBagpipeSection()}
+            </div>` : ''}
+
+            ${ISMSections._shouldShowAccordionSection(tab) ? `<div class="ism-subsection" id="accordionSubsection">
+                <h4 class="ism-subsection-title">🪗 ${this.t('instrumentSettings.sectionAccordion') || 'Accordéon'}</h4>
+                ${this._renderAccordionSection()}
             </div>` : ''}
 
             ${ISMSections._handsTabEligible(tab) ? `
@@ -2255,8 +2263,8 @@
     };
 
     ISMSections._collectBagpipeConfig = function(rootEl) {
-        const section = rootEl?.querySelector('.ism-section[data-section="bagpipe"]');
-        if (!section) return undefined;            // section not rendered
+        const section = rootEl?.querySelector('#bagpipeSubsection');
+        if (!section) return undefined;            // subsection not rendered
         const dronesEl = rootEl.querySelector('#bagpipeDrones');
         if (!dronesEl) return undefined;           // lazy, never visited → preserve
         const drones = String(dronesEl.value || '')
@@ -2334,8 +2342,8 @@
     };
 
     ISMSections._collectAccordionConfig = function(rootEl) {
-        const section = rootEl?.querySelector('.ism-section[data-section="accordion"]');
-        if (!section) return undefined;
+        const section = rootEl?.querySelector('#accordionSubsection');
+        if (!section) return undefined;            // subsection not rendered
         const bassEl = rootEl.querySelector('#accordionBassSystem');
         if (!bassEl) return undefined;             // lazy, never visited → preserve
         const bass_system = ISMSections._normalizeBassSystem(bassEl.value);

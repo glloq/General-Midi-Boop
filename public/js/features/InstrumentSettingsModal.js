@@ -65,8 +65,6 @@ class InstrumentSettingsModal extends BaseModal {
         { id: 'identity', icon: '🎵', labelKey: 'instrumentSettings.sectionIdentity', fallback: 'Identité' },
         { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes & Capacités' },
         { id: 'hands',    icon: '🫱', labelKey: 'instrumentSettings.sectionHands',    fallback: 'Mains', keyboardsOnly: true },
-        { id: 'bagpipe',  icon: '🎵', labelKey: 'instrumentSettings.sectionBagpipe',  fallback: 'Cornemuse',  showWhen: '_shouldShowBagpipeSection' },
-        { id: 'accordion',icon: '🪗', labelKey: 'instrumentSettings.sectionAccordion',fallback: 'Accordéon',  showWhen: '_shouldShowAccordionSection' },
         { id: 'advanced', icon: '⚙️', labelKey: 'instrumentSettings.sectionAdvanced', fallback: 'Avancé' }
     ];
 

@@ -1006,7 +1006,19 @@
     "handsVariableHeightFingersHint": "Parmi les doigts ci-dessus, combien ont un offset de frette ajustable (0 = tous fixes).",
     "handsFretsEnableLabel": "Activer le contrôle de position de la main",
     "handsFretsEnableHint": "Si activé, le lecteur envoie un CC avec la frette absolue la plus basse de la fenêtre dès que la main doit se déplacer.",
-    "handsFretsNoScaleWarning": "Aucune longueur de corde renseignée. Choisissez un preset ci-dessous ou saisissez la longueur manuellement pour activer le modèle physique (mm)."
+    "handsFretsNoScaleWarning": "Aucune longueur de corde renseignée. Choisissez un preset ci-dessous ou saisissez la longueur manuellement pour activer le modèle physique (mm).",
+    "sectionAccordion": "Accordéon",
+    "sectionBagpipe": "Cornemuse",
+    "accordionBass": "Côté gauche — système de basses",
+    "accordionBassHelp": "Possibilités de jeu du côté gauche (les deux côtés restent toujours présents).",
+    "accordionBassRange": "Côté gauche — étendue des basses libres",
+    "accordionBassRangeHelp": "Note MIDI min/max jouable du côté gauche (uniquement avec « Basses libres »).",
+    "accordionRight": "Côté droit — affichage",
+    "accordionRightHelp": "Affichage du côté droit (mélodie) dans le clavier virtuel.",
+    "bagpipeEnabled": "Bourdons actifs au démarrage",
+    "bagpipeEnabledHelp": "Les bourdons sonnent automatiquement à l’ouverture du clavier.",
+    "bagpipeDrones": "Bourdons (notes MIDI, séparées par des virgules)",
+    "bagpipeDronesHelp": "Une note MIDI (0-127) par bourdon. Ex. cornemuse écossaise : 45, 45, 33."
   },
   "playlist": {
     "title": "Playlists",
