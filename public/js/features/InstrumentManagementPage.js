@@ -497,13 +497,13 @@ class InstrumentManagementPage {
     if (connectedGroups.length > 0) {
       const totalInst = connectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
-        <div style="margin-bottom: 32px;">
-          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 16px 0; padding: 10px 16px; background: rgba(16,185,129,0.08); border-radius: 10px; border-left: 4px solid #10b981;">
+        <div style="margin-bottom: 20px;">
+          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 10px 0; padding: 8px 12px; background: rgba(16,185,129,0.08); border-radius: 10px; border-left: 4px solid #10b981;">
             <span style="width: 10px; height: 10px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.25); flex-shrink: 0; animation: pulse 2s infinite;"></span>
             <span style="font-size: 15px; font-weight: 700; color: #059669;">${i18n.t('instrumentManagement.connectedInstruments') || 'Instruments connectés'}</span>
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #10b981; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px;">
             ${connectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
@@ -514,13 +514,13 @@ class InstrumentManagementPage {
     if (virtualGroups.length > 0) {
       const totalInst = virtualGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
-        <div style="margin-bottom: 32px;">
-          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 16px 0; padding: 10px 16px; background: rgba(139,92,246,0.08); border-radius: 10px; border-left: 4px solid #8b5cf6;">
+        <div style="margin-bottom: 20px;">
+          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 10px 0; padding: 8px 12px; background: rgba(139,92,246,0.08); border-radius: 10px; border-left: 4px solid #8b5cf6;">
             <span style="font-size: 18px; line-height: 1; flex-shrink: 0;">🎛️</span>
             <span style="font-size: 15px; font-weight: 700; color: #7c3aed;">${i18n.t('instrumentManagement.virtualInstruments') || 'Instruments virtuels'}</span>
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #8b5cf6; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px;">
             ${virtualGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
@@ -532,12 +532,12 @@ class InstrumentManagementPage {
       const totalInst = disconnectedGroups.reduce((sum, g) => sum + g.instruments.length, 0);
       html += `
         <div>
-          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 16px 0; padding: 10px 16px; background: rgba(148,163,184,0.1); border-radius: 10px; border-left: 4px solid #94a3b8;">
+          <div class="inst-mgmt-section-title" style="display: flex; align-items: center; gap: 10px; margin: 0 0 10px 0; padding: 8px 12px; background: rgba(148,163,184,0.1); border-radius: 10px; border-left: 4px solid #94a3b8;">
             <span style="width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; flex-shrink: 0;"></span>
             <span style="font-size: 15px; font-weight: 700; color: #64748b;">${i18n.t('instrumentManagement.disconnectedInstruments') || 'Instruments déconnectés'}</span>
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #94a3b8; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px;">
             ${disconnectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
@@ -597,11 +597,11 @@ class InstrumentManagementPage {
       " onmouseover="this.style.boxShadow='0 6px 20px rgba(0,0,0,0.12)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='none';this.style.transform='translateY(0)'">
 
         <!-- Device header -->
-        <div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; background: ${headerBg}; border-bottom: ${headerBorder};">
+        <div style="padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; background: ${headerBg}; border-bottom: ${headerBorder};">
           <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
             ${statusDot}
             <div style="min-width: 0;">
-              <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(deviceName)}</h4>
+              <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(deviceName)}</h4>
               <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
                 ${!isVirtual ? `<span style="display:inline-block;padding:2px 7px;background:rgba(0,0,0,0.07);border-radius:4px;font-size:10px;font-weight:700;color:#475569;letter-spacing:0.3px;">${esc(connType.label)}</span>` : ''}
                 <span style="display:inline-flex;align-items:center;padding:2px 7px;background:rgba(0,0,0,0.05);border-radius:4px;font-size:10px;font-weight:600;color:#6b7280;">${instruments.length} instrument${instruments.length > 1 ? 's' : ''}</span>
@@ -617,7 +617,7 @@ class InstrumentManagementPage {
         </div>
 
         <!-- Instrument sub-cards -->
-        <div style="padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="padding: 6px; display: flex; flex-direction: column; gap: 5px;">
           ${instruments.map(inst => this.renderInstrumentSubCard(inst)).join('')}
         </div>
       </div>
@@ -649,10 +649,10 @@ class InstrumentManagementPage {
 
     const iconHtml = icon.slug
       ? `<img src="${icon.svgUrl}" alt=""
-              style="width: 100%; height: 100%; max-width: 56px; max-height: 56px; object-fit: contain; display: block;"
+              style="width: 100%; height: 100%; max-width: 40px; max-height: 40px; object-fit: contain; display: block;"
               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-         <span style="display:none; align-items:center; justify-content:center; font-size:32px; line-height:1;">${icon.emoji}</span>`
-      : `<span style="display:flex; align-items:center; justify-content:center; font-size:32px; line-height:1;">${icon.emoji}</span>`;
+         <span style="display:none; align-items:center; justify-content:center; font-size:22px; line-height:1;">${icon.emoji}</span>`
+      : `<span style="display:flex; align-items:center; justify-content:center; font-size:22px; line-height:1;">${icon.emoji}</span>`;
 
     // Hands info: parse hands_config and resolve a count (used both
     // for the emoji badge next to the name and for the meta line).
@@ -673,7 +673,7 @@ class InstrumentManagementPage {
 
     return `
       <div class="instrument-sub-card" style="
-        padding: 10px 14px;
+        padding: 6px 10px;
         border-left: 4px solid ${channelColor};
         border-top: ${cardBorder};
         border-right: ${cardBorder};
@@ -682,9 +682,9 @@ class InstrumentManagementPage {
         background: ${cardBg};
         display: flex;
         align-items: stretch;
-        gap: 12px;
+        gap: 10px;
         font-size: 13px;
-        min-height: 64px;
+        min-height: 42px;
         cursor: pointer;
         transition: all 0.15s ease;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
@@ -696,23 +696,23 @@ class InstrumentManagementPage {
         <!-- Main-voice SVG: full card height, on the left -->
         <div class="instrument-sub-card-icon" style="
           flex-shrink: 0;
-          width: 54px;
+          width: 40px;
           align-self: stretch;
           display: flex;
           align-items: center;
           justify-content: center;
           background: ${iconBg};
           border-radius: 7px;
-          padding: 4px;
+          padding: 3px;
         ">
           ${iconHtml}
         </div>
 
         <!-- Name (top) + channel tag (below) + secondary info -->
-        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px;">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px;">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
             ${gmProgram !== null && gmProgram !== undefined
-              ? `<span style="color: var(--text-primary, #1f2937); font-weight: 700; font-size: 14px;">${esc(displayName)}</span>`
+              ? `<span style="color: var(--text-primary, #1f2937); font-weight: 700; font-size: 13px;">${esc(displayName)}</span>`
               : `<span style="color: var(--text-muted, #9ca3af); font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
             ${handsBadgeHtml}
             ${isComplete
@@ -720,7 +720,7 @@ class InstrumentManagementPage {
               : `<span style="display:inline-block;padding:2px 7px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:700;">⚠</span>`}
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="display: inline-flex; align-items: center; padding: 2px 9px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 38px; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Ch ${channel + 1}</span>
+            <span style="display: inline-flex; align-items: center; padding: 1px 7px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 38px; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Ch ${channel + 1}</span>
             <span style="display: flex; gap: 8px; font-size: 11px; color: var(--text-secondary, #9ca3af);">
               ${instrument.note_range_min != null && instrument.note_range_max != null
                 ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
@@ -734,7 +734,7 @@ class InstrumentManagementPage {
         </div>
 
         <!-- Delete -->
-        <button style="font-size: 14px; padding: 5px 9px; flex-shrink: 0; align-self: center; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2); color: #dc2626; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
+        <button style="font-size: 13px; padding: 4px 7px; flex-shrink: 0; align-self: center; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2); color: #dc2626; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
                 onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
                 onmouseover="this.style.background='#dc2626';this.style.color='white';this.style.borderColor='#dc2626'"
                 onmouseout="this.style.background='rgba(220,38,38,0.08)';this.style.color='#dc2626';this.style.borderColor='rgba(220,38,38,0.2)'"
