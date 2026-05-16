@@ -38,6 +38,7 @@
     safeRegister(window.BagpipeView);
     safeRegister(window.SteelDrumView);
     safeRegister(window.ThereminView);
+    safeRegister(window.PercussionPadView);
 
     // ── Detection rules (first match wins) ────────────────────────────────────
     // These mirror the historical getInstrumentViewInfo() logic, now driven
@@ -73,10 +74,19 @@
 
         // Other dedicated layouts (GM disjoint from fretboard/wind ranges).
         .addRule(c => c && (c.gm_program === 21 || c.gm_program === 23), 'accordion')
+        // Tuned mallet/percussion bars. GM 47 (Timpani) ∈ [24,47] so this
+        // MUST precede the fretboard range rule below (first match wins;
+        // same precedent as the harp GM 46 rule above).
         .addRule(inRange(12, 15), 'mallet')
+        .addRule(isOneOf(new Set([9, 11, 47])), 'mallet')
         .addRule(c => c && c.gm_program === 108, 'kalimba')
         .addRule(c => c && c.gm_program === 109, 'bagpipe')
         .addRule(c => c && c.gm_program === 114, 'steel-drum')
+        // Trigger-pad grid: non-melodic percussion + sound effects. After
+        // steel-drum (114 keeps its dedicated view); 120-127 precede the
+        // fretboard range rule (disjoint, but kept here for clarity).
+        .addRule(isOneOf(new Set([112, 113, 115, 116, 117, 118, 119])), 'perc-pad')
+        .addRule(inRange(120, 127), 'perc-pad')
 
         // Fretboard: guitar/bass/orchestral strings + ethnic plucked + bowed
         .addRule(inRange(24, 47), 'fretboard')

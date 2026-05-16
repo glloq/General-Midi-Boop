@@ -74,8 +74,9 @@ describe('InstrumentDetector — drumpad detection', () => {
 });
 
 describe('InstrumentDetector — fretboard detection', () => {
-  it('detects GM 24-47 (guitar/bass/orchestral strings) as fretboard', () => {
-    for (const gm of [24, 25, 31, 32, 39, 40, 47]) {
+  it('detects GM 24-45 (guitar/bass/orchestral strings) as fretboard', () => {
+    // 46 (Harp) and 47 (Timpani) are excluded — dedicated harp / mallet views.
+    for (const gm of [24, 25, 31, 32, 39, 40, 45]) {
       const r = D().detect({ capabilities: { gm_program: gm } });
       expect(r.viewKind).toBe('fretboard');
       expect(r.canFretboard).toBe(true);
@@ -118,6 +119,43 @@ describe('InstrumentDetector — fretboard detection', () => {
   it('does NOT classify as fretboard when channel 9 (drum wins)', () => {
     const r = D().detect({ capabilities: { gm_program: 24, channel: 9 } });
     expect(r.viewKind).toBe('drumpad');
+  });
+});
+
+describe('InstrumentDetector — mallet / perc-pad detection', () => {
+  it('detects melodic percussion (glockenspiel/vibraphone/timpani) as mallet', () => {
+    for (const gm of [9, 11, 47]) {
+      const r = D().detect({ capabilities: { gm_program: gm } });
+      expect(r.viewKind).toBe('mallet');
+      expect(r.canFretboard).toBe(false);   // 47 must NOT be fretboard
+    }
+  });
+
+  it('keeps marimba…dulcimer (12-15) as mallet', () => {
+    for (const gm of [12, 13, 14, 15]) {
+      expect(D().detect({ capabilities: { gm_program: gm } }).viewKind).toBe('mallet');
+    }
+  });
+
+  it('detects struck/one-shot percussion + SFX (112-127) as perc-pad', () => {
+    for (const gm of [112, 113, 115, 116, 117, 118, 119, 120, 123, 126, 127]) {
+      expect(D().detect({ capabilities: { gm_program: gm } }).viewKind).toBe('perc-pad');
+    }
+  });
+
+  it('GM 114 (Steel Drums) keeps its dedicated steel-drum view', () => {
+    expect(D().detect({ capabilities: { gm_program: 114 } }).viewKind).toBe('steel-drum');
+  });
+
+  it('GM 16 (Drawbar Organ) and GM 8/10 (celesta/music box) stay piano', () => {
+    for (const gm of [8, 10, 16]) {
+      expect(D().detect({ capabilities: { gm_program: gm } }).viewKind).toBe('piano');
+    }
+  });
+
+  it('channel 9 still wins over perc-pad / mallet', () => {
+    expect(D().detect({ capabilities: { gm_program: 112, channel: 9 } }).viewKind).toBe('drumpad');
+    expect(D().detect({ capabilities: { gm_program: 47, channel: 9 } }).viewKind).toBe('drumpad');
   });
 });
 
