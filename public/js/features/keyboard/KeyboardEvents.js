@@ -265,7 +265,7 @@
 
         // Velocity
         document.getElementById('keyboard-velocity')?.addEventListener('input', (e) => {
-            this.velocity = parseInt(e.target.value);
+            this.velocity = Math.max(1, Math.min(127, parseInt(e.target.value, 10) || 80));
             document.getElementById('keyboard-velocity-display').textContent = this.velocity;
         });
 
@@ -291,6 +291,18 @@
         // PC keyboard
         window.addEventListener('keydown', this.handleKeyDown);
         window.addEventListener('keyup', this.handleKeyUp);
+
+        // Release held notes when the page/window loses focus or becomes
+        // hidden — a mouse-pressed key otherwise never receives mouseup and
+        // the note sustains forever. Registered through _on() so close()'s
+        // _offAll() cleans these up automatically.
+        const releaseHeld = () => {
+            this.activeNotes.forEach(note => this.stopNote(note));
+        };
+        this._on(window, 'blur', releaseHeld);
+        this._on(document, 'visibilitychange', () => {
+            if (document.hidden) releaseHeld();
+        });
     }
 
     KeyboardEventsMixin.detachEvents = function() {

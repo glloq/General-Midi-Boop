@@ -470,7 +470,7 @@
 
         // Trigger all notes simultaneously and remember them for release.
         stringNotes.forEach(item => {
-            if (item.note >= 21 && item.note <= 108) {
+            if (item.note >= 0 && item.note <= 127 && this.isNotePlayable(item.note)) {
                 const posKey = `${item.string}:${item.fret}`;
                 this._strumActiveFretPositions.add(posKey);
                 this.activeFretPositions.add(posKey);
@@ -918,7 +918,7 @@
 
             // Audio: note-on (registered after visual; fires after visual on same delay).
             const t = setTimeout(() => {
-                if (item.note >= 21 && item.note <= 108) {
+                if (item.note >= 0 && item.note <= 127 && this.isNotePlayable(item.note)) {
                     this.playNote(item.note);
                     notesPlayed.add(item.note);
                 }

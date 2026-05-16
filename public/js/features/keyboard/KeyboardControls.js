@@ -343,7 +343,11 @@
             // we avoid making one instrument_get_settings call per device below.
             const [devices, capsResp] = await Promise.all([
                 this.backend.listDevices(),
-                this.backend.sendCommand('instrument_list_capabilities').catch(() => null)
+                this.backend.sendCommand('instrument_list_capabilities').catch((e) => {
+                    this.logger?.warn('[KeyboardModal] instrument_list_capabilities failed; '
+                        + 'custom names / virtual instruments degraded:', e);
+                    return null;
+                })
             ]);
 
             // Build a lookup: deviceId → custom_name (from the first channel row)
