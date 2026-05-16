@@ -162,6 +162,21 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
     expect(typeof view.toolbarGroups).toBe('undefined');
   });
 
+  it('drag glissando across holes: new hole sounds, previous released', () => {
+    const root = document.getElementById('harmonica-container');
+    const holes = [...root.querySelectorAll('.harmonica-hole')];
+    const nA = parseInt(holes[0].dataset.note, 10);
+    const nB = parseInt(holes[1].dataset.note, 10);
+    fire(holes[0], 'pointerdown');
+    expect(played).toContain(nA);
+    fire(holes[1], 'pointermove');
+    expect(stopped).toContain(nA);            // previous released (piano-like)
+    expect(played).toContain(nB);
+    document.dispatchEvent(new Event('pointerup'));
+    expect(stopped).toContain(nB);
+    expect(root.querySelectorAll('.harmonica-hole.active').length).toBe(0);
+  });
+
   it('rerender() preserves the chromatic slide latch across a rebuild', () => {
     view.unmount();
     const cv = new (win.HarmonicaView)();

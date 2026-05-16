@@ -115,15 +115,15 @@
             root.appendChild(sides);
             canvas.appendChild(root);
             this._root = root;
-            this._sliding = false;
-            this._onDown = (e) => this._press(e);
-            this._onMove = (e) => this._slide(e);
-            this._onDocUp = () => { this._sliding = false; this._releaseAll(); };
-            root.addEventListener('pointerdown', this._onDown);
-            root.addEventListener('pointermove', this._onMove);
-            document.addEventListener('pointerup', this._onDocUp);
-            document.addEventListener('pointercancel', this._onDocUp);
+            // Piano-like drag (shared helper): fixes the previous
+            // touch-drag bug where hit-testing used only e.target — with
+            // implicit pointer capture a touch glissando never crossed to
+            // the next button. Now resolved via elementFromPoint like the
+            // piano. A button = one or more notes (Stradella chords).
+            this._initGlide({ root, selector: '.accordion-key' });
         }
+
+        _glideKey(cell) { return cell.dataset.key || cell.dataset.note; }
 
         // Bordered panel around one side's controls (no caption). The
         // content fills the full available height (no top/bottom gap).
@@ -345,12 +345,6 @@
             return col;
         }
 
-        _cellOf(e) {
-            const cell = e.target && e.target.closest
-                ? e.target.closest('.accordion-key') : null;
-            return cell && this._root && this._root.contains(cell) ? cell : null;
-        }
-
         _pressCell(cell) {
             const id = cell.dataset.key || cell.dataset.note;
             if (this._pressed.has(id)) return;
@@ -363,28 +357,6 @@
             if (modal && typeof modal.playNote === 'function') {
                 notes.forEach((n) => modal.playNote(n));
             }
-        }
-
-        _press(e) {
-            const cell = this._cellOf(e);
-            if (!cell) return;
-            if (e.cancelable) e.preventDefault();
-            this._sliding = true;
-            this._pressCell(cell);
-        }
-
-        // Glissando: while the pointer is held, sliding onto a new key
-        // releases the previous one(s) and sounds the new one — works for
-        // piano keys and round buttons alike.
-        _slide(e) {
-            if (!this._sliding) return;
-            const cell = this._cellOf(e);
-            if (!cell) return;
-            const id = cell.dataset.key || cell.dataset.note;
-            if (this._pressed.has(id)) return;     // already sounding
-            if (e.cancelable) e.preventDefault();
-            this._releaseAll();
-            this._pressCell(cell);
         }
 
         _releaseAll() {
@@ -401,15 +373,11 @@
 
         unmount() {
             this._releaseAll();
+            this._teardownGlide();
             if (this._root) {
-                this._root.removeEventListener('pointerdown', this._onDown);
-                this._root.removeEventListener('pointermove', this._onMove);
                 this._root.remove();
                 this._root = null;
             }
-            this._sliding = false;
-            document.removeEventListener('pointerup', this._onDocUp);
-            document.removeEventListener('pointercancel', this._onDocUp);
             this._pressed = null;
             super.unmount();
         }

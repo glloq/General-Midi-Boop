@@ -84,18 +84,13 @@
 
             this._root = root;
             this._pressed = new Map();
-            this._onDown = (e) => this._press(e);
-            this._onDocUp = () => this._releaseAll();
-            root.addEventListener('pointerdown', this._onDown);
-            document.addEventListener('pointerup', this._onDocUp);
-            document.addEventListener('pointercancel', this._onDocUp);
+            // Piano-like drag: slide across the sections for a glissando.
+            this._initGlide({ root, selector: '.steel-section' });
         }
 
-        _press(e) {
-            const cell = e.target && e.target.closest
-                ? e.target.closest('.steel-section') : null;
-            if (!cell || !this._root.contains(cell)) return;
-            if (e.cancelable) e.preventDefault();
+        _glideKey(cell) { return cell.dataset.note; }
+
+        _pressCell(cell) {
             const key = cell.dataset.note;
             if (this._pressed.has(key)) return;
             const note = parseInt(key, 10);
@@ -119,13 +114,11 @@
 
         unmount() {
             this._releaseAll();
+            this._teardownGlide();
             if (this._root) {
-                this._root.removeEventListener('pointerdown', this._onDown);
                 this._root.remove();
                 this._root = null;
             }
-            document.removeEventListener('pointerup', this._onDocUp);
-            document.removeEventListener('pointercancel', this._onDocUp);
             this._pressed = null;
             super.unmount();
         }

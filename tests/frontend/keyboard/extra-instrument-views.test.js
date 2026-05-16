@@ -136,6 +136,30 @@ describe.each([
     expect(root.querySelectorAll(`${cellSel}.active`).length).toBe(0);
   });
 
+  it('pointer drag glissando: new cell sounds, previous released (piano-like)', () => {
+    const root = document.getElementById(containerId);
+    const cells = [...root.querySelectorAll(cellSel)];
+    const a = cells[0];
+    const b = cells.find(c => c.dataset.note !== a.dataset.note) || cells[1];
+    const nA = parseInt(a.dataset.note, 10);
+    const nB = parseInt(b.dataset.note, 10);
+    fire(a, 'pointerdown');
+    expect(sink.played).toContain(nA);
+    fire(b, 'pointermove');                  // drag onto the next cell
+    expect(sink.stopped).toContain(nA);      // previous released (monophonic)
+    expect(sink.played).toContain(nB);       // new cell sounded
+    document.dispatchEvent(new Event('pointerup'));
+    expect(sink.stopped).toContain(nB);
+    expect(root.querySelectorAll(`${cellSel}.active`).length).toBe(0); // no stuck
+  });
+
+  it('pointermove without a prior pointerdown is a no-op (hover safe)', () => {
+    const root = document.getElementById(containerId);
+    const cell = root.querySelector(cellSel);
+    fire(cell, 'pointermove');
+    expect(sink.played).toEqual([]);
+  });
+
   it('unmount() removes the container and is idempotent', () => {
     view.unmount();
     expect(document.getElementById(containerId)).toBeNull();
@@ -455,6 +479,28 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
       .toEqual([33, 45]);
     expect(sink.played.filter(n => [33, 45].includes(n)).sort())
       .toEqual([33, 45]);                                      // restarted
+    v.unmount();
+  });
+
+  it('BagpipeView: chanter supports piano-like glissando; drones unaffected', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({
+      drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    const holes = [...document.querySelectorAll('.bagpipe-hole')];
+    const nA = parseInt(holes[0].dataset.note, 10);
+    const nB = parseInt(holes[1].dataset.note, 10);
+    fire(holes[0], 'pointerdown');
+    expect(sink.played).toContain(nA);
+    fire(holes[1], 'pointermove');             // glide along the chanter
+    expect(sink.stopped).toContain(nA);
+    expect(sink.played).toContain(nB);
+    document.dispatchEvent(new Event('pointerup'));
+    expect(sink.stopped).toContain(nB);
+    expect(sink.played).not.toContain(45);     // drone never auto-sounds
     v.unmount();
   });
 
