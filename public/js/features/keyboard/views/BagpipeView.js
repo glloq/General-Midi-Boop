@@ -52,7 +52,8 @@
             // Instrument-specific drone settings (QA #3): drone notes +
             // default on/off from the per-instrument capabilities.
             const bcfg = typeof modal.getBagpipeConfig === 'function'
-                ? modal.getBagpipeConfig() : { drones: [45], enabled: true };
+                ? modal.getBagpipeConfig()
+                : { drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled: true };
             this._droneNotes = bcfg.drones;
 
             const drone = document.createElement('button');

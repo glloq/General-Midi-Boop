@@ -1427,6 +1427,7 @@
         this._attachIdentitySectionListeners();
         this._attachNotesSectionListeners();
         this._attachHandsSectionListeners();
+        if (typeof this._wireBagpipeListeners === 'function') this._wireBagpipeListeners();
 
         // Measure delay button — hidden by default, revealed only if an audio input is detected
         const measureBtn = this.$('#measureDelayBtn');
@@ -1824,6 +1825,160 @@
                 self._mountHandsPreview();
             });
         });
+    };
+
+    /**
+     * Wire the Bagpipe section: a self-contained drone picker.
+     *
+     *   - A compact, fixed-range (MIDI 24..72) clickable mini-piano —
+     *     toggling a key adds/removes a drone. It only uses the shared
+     *     `.piano-key*` CSS classes and its own `#bagpipeDronePiano`
+     *     container; it never touches the Notes-section singleton piano
+     *     (initPianoKeyboard / currentPianoStartNote / …).
+     *   - A list with a per-drone enable checkbox + remove button.
+     *   - A preset dropdown that fills the selection.
+     *
+     * State lives in the `#bagpipeDrones` hidden input as JSON
+     * (`[{note,enabled}]`), read back by _collectBagpipeConfig on save.
+     * No-op when the section is absent or not yet rendered (lazy).
+     */
+    ISMListeners._wireBagpipeListeners = function() {
+        const sec = this.$('.ism-section[data-section="bagpipe"]');
+        if (!sec) return;
+        const hidden = sec.querySelector('#bagpipeDrones');
+        if (!hidden) return;                       // lazy, not rendered yet
+        if (sec.dataset.bagpipeWired) return;      // DOM + closure persist
+        sec.dataset.bagpipeWired = '1';
+
+        const self = this;
+        const MC = window.MidiConstants;
+        const pianoEl = sec.querySelector('#bagpipeDronePiano');
+        const listEl = sec.querySelector('#bagpipeDroneList');
+        const LO = 24, HI = 72;
+
+        function readState() {
+            let parsed = [];
+            try { parsed = JSON.parse(hidden.value || '[]'); } catch { parsed = []; }
+            return MC.normalizeBagpipeDrones(parsed).sort((a, b) => a.note - b.note);
+        }
+        let state = readState();
+
+        function writeState() {
+            state.sort((a, b) => a.note - b.note);
+            hidden.value = JSON.stringify(state);
+            renderPiano();
+            renderList();
+        }
+
+        function renderPiano() {
+            if (!pianoEl) return;
+            pianoEl.innerHTML = '';
+            const noteSet = new Set(state.map(d => d.note));
+            const width = pianoEl.clientWidth || 600;
+            let whiteCount = 0;
+            for (let n = LO; n <= HI; n++) if (!MC.isBlackKey(n)) whiteCount++;
+            const ww = whiteCount > 0 ? width / whiteCount : 18;
+            const bw = ww * 0.65;
+            let curOct = null, octDiv = null, wi = 0;
+            for (let note = LO; note <= HI; note++) {
+                const oct = Math.floor(note / 12);
+                if (oct !== curOct) {
+                    if (octDiv) pianoEl.appendChild(octDiv);
+                    octDiv = document.createElement('div');
+                    octDiv.className = 'piano-octave';
+                    curOct = oct;
+                    wi = 0;
+                }
+                const black = MC.isBlackKey(note);
+                const key = document.createElement('div');
+                key.className = 'piano-key ' + (black ? 'piano-key-black' : 'piano-key-white');
+                key.dataset.note = String(note);
+                key.title = MC.noteNumberToName(note);
+                if (noteSet.has(note)) key.classList.add('selected');
+                if (black) {
+                    key.style.width = bw + 'px';
+                    key.style.left = (wi * ww - bw / 2) + 'px';
+                } else {
+                    key.style.width = ww + 'px';
+                    wi++;
+                }
+                octDiv.appendChild(key);
+            }
+            if (octDiv) pianoEl.appendChild(octDiv);
+        }
+
+        function renderList() {
+            if (!listEl) return;
+            if (!state.length) {
+                listEl.innerHTML = '<span class="ism-form-hint">'
+                    + self.escape(self.t('instrumentSettings.bagpipeNoDrone')
+                        || 'Aucun bourdon sélectionné.') + '</span>';
+                return;
+            }
+            listEl.innerHTML = state.map(d =>
+                '<div class="bagpipe-drone-row">'
+                + '<label class="bagpipe-drone-row-label">'
+                + `<input type="checkbox" class="bagpipe-drone-enabled" data-note="${d.note}" ${d.enabled ? 'checked' : ''}>`
+                + `<span>${self.escape(MC.noteNumberToName(d.note))} <small>(${d.note})</small></span>`
+                + '</label>'
+                + `<button type="button" class="bagpipe-drone-remove" data-note="${d.note}" aria-label="Supprimer">×</button>`
+                + '</div>').join('');
+        }
+
+        sec.addEventListener('click', function(e) {
+            const key = e.target.closest && e.target.closest('.piano-key[data-note]');
+            if (key && pianoEl && pianoEl.contains(key)) {
+                const note = parseInt(key.dataset.note, 10);
+                const idx = state.findIndex(d => d.note === note);
+                if (idx >= 0) state.splice(idx, 1);
+                else state.push({ note, enabled: true });
+                writeState();
+                return;
+            }
+            const rm = e.target.closest && e.target.closest('.bagpipe-drone-remove');
+            if (rm) {
+                const note = parseInt(rm.dataset.note, 10);
+                const i = state.findIndex(d => d.note === note);
+                if (i >= 0) state.splice(i, 1);
+                writeState();
+            }
+        });
+
+        sec.addEventListener('change', function(e) {
+            const t = e.target;
+            if (t.classList && t.classList.contains('bagpipe-drone-enabled')) {
+                const note = parseInt(t.dataset.note, 10);
+                const d = state.find(x => x.note === note);
+                if (d) d.enabled = t.checked;
+                writeState();
+                return;
+            }
+            if (t.id === 'bagpipePreset') {
+                const presets = (window.ISMSections && window.ISMSections._BAGPIPE_PRESETS) || [];
+                const preset = presets.find(p => p.id === t.value);
+                if (preset) {
+                    state = preset.drones.map(n => ({ note: n, enabled: true }));
+                    t.value = '';
+                    writeState();
+                }
+            }
+        });
+
+        // The piano needs a real layout width: lazy sections are still
+        // display:none when this runs, and the modal can be resized.
+        // A ResizeObserver re-renders once a width is available (mirrors
+        // the Notes piano's resize handling) — self-contained, no globals.
+        if (typeof ResizeObserver !== 'undefined' && pianoEl) {
+            let raf = null;
+            const ro = new ResizeObserver(() => {
+                if (raf) cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(renderPiano);
+            });
+            ro.observe(pianoEl);
+        }
+
+        renderPiano();
+        renderList();
     };
 
     if (typeof window !== 'undefined') window.ISMListeners = ISMListeners;

@@ -2,6 +2,17 @@
     'use strict';
     const ISMSections = {};
 
+    // Presets de cornemuse : remplissent rapidement la selection de
+    // bourdons. Notes MIDI (verifiees via noteNumberToName) :
+    // 33=A1, 38=D2, 43=G2, 45=A2, 50=D3, 55=G3, 57=A3, 62=D4.
+    const BAGPIPE_PRESETS = [
+        { id: 'ghb_a',      name: 'Great Highland Bagpipe (La)', drones: [33, 45, 45] },
+        { id: 'uilleann_d', name: 'Uilleann Pipes (Ré)',         drones: [38, 50, 62] },
+        { id: 'gaita',      name: 'Gaita galicienne',            drones: [43, 55] },
+        { id: 'border_a',   name: 'Border / Smallpipes (La)',    drones: [45, 57] }
+    ];
+    ISMSections._BAGPIPE_PRESETS = BAGPIPE_PRESETS;
+
     ISMSections._renderAllSections = function() {
         const tab = this._getActiveTab();
         const showHands = ISMSections._shouldShowHandsSection(tab);
@@ -2232,9 +2243,11 @@
         const tab = this._getActiveTab();
         if (!tab) return '';
         const cfg = tab.settings?.bagpipe_config || {};
-        const drones = Array.isArray(cfg.drones) && cfg.drones.length
-            ? cfg.drones.join(', ') : '45';
+        let drones = window.MidiConstants.normalizeBagpipeDrones(cfg.drones);
+        if (!drones.length) drones = [{ note: 45, enabled: true }];
         const enabled = cfg.enabled !== false;
+        const presetOpts = BAGPIPE_PRESETS.map(p =>
+            `<option value="${p.id}">${this.escape(p.name)}</option>`).join('');
         return `
             <div class="ism-form-group">
                 <label>
@@ -2245,11 +2258,21 @@
                     || 'Les bourdons sonnent automatiquement à l’ouverture du clavier.'}</span>
             </div>
             <div class="ism-form-group">
-                <label>${this.t('instrumentSettings.bagpipeDrones') || 'Bourdons (notes MIDI, séparées par des virgules)'}</label>
-                <input type="text" id="bagpipeDrones" value="${this.escape(drones)}"
-                    placeholder="45, 45, 33">
+                <label>${this.t('instrumentSettings.bagpipePreset') || 'Préréglage de cornemuse'}</label>
+                <select id="bagpipePreset">
+                    <option value="">—</option>
+                    ${presetOpts}
+                </select>
+                <span class="ism-form-hint">${this.t('instrumentSettings.bagpipePresetHelp')
+                    || 'Choisir un préréglage remplit les bourdons ci-dessous.'}</span>
+            </div>
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.bagpipeDrones') || 'Bourdons'}</label>
+                <div id="bagpipeDronePiano" class="piano-keyboard-mini bagpipe-drone-piano"></div>
+                <div id="bagpipeDroneList" class="bagpipe-drone-list"></div>
+                <input type="hidden" id="bagpipeDrones" value='${this.escape(JSON.stringify(drones))}'>
                 <span class="ism-form-hint">${this.t('instrumentSettings.bagpipeDronesHelp')
-                    || 'Une note MIDI (0-127) par bourdon. Ex. cornemuse écossaise : 45, 45, 33.'}</span>
+                    || 'Cliquez une touche pour ajouter/retirer un bourdon. Chaque bourdon peut être activé individuellement.'}</span>
             </div>
         `;
     };
@@ -2259,12 +2282,12 @@
         if (!section) return undefined;            // section not rendered
         const dronesEl = rootEl.querySelector('#bagpipeDrones');
         if (!dronesEl) return undefined;           // lazy, never visited → preserve
-        const drones = String(dronesEl.value || '')
-            .split(',')
-            .map(s => parseInt(s.trim(), 10))
-            .filter(n => Number.isInteger(n) && n >= 0 && n <= 127);
+        let parsed = [];
+        try { parsed = JSON.parse(dronesEl.value || '[]'); } catch { parsed = []; }
+        let drones = window.MidiConstants.normalizeBagpipeDrones(parsed);
+        if (!drones.length) drones = [{ note: 45, enabled: true }];
         const enabled = !!rootEl.querySelector('#bagpipeEnabled')?.checked;
-        return { drones: drones.length ? drones : [45], enabled };
+        return { drones, enabled };
     };
 
     // ===== Accordion section (per-side play possibilities) ===============
