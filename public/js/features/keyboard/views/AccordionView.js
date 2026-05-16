@@ -94,7 +94,7 @@
             // LEFT — melody/treble (the accordion's "côté droit").
             const melody = acfg.right_display === 'keyboard'
                 ? this._pianoRow('accordion-treble', tLo, tHi, modal)
-                : this._buttonBoard('accordion-treble', tLo, tHi, modal, '#2b3a4a');
+                : this._cbaBoard('accordion-treble', tLo, tHi, modal, '#2b3a4a');
             sides.appendChild(this._zone(melody));
 
             // CENTRE — decorative bellows (soufflet), non-interactive.
@@ -189,16 +189,12 @@
             return b;
         }
 
-        // Chromatic button board, oriented IDENTICALLY to the Stradella
-        // bass side (user spec): tall vertical columns of small round
-        // buttons running top→bottom, successive columns to the side,
-        // every other column staggered half a slot. Same per-column count
-        // (STRADELLA_DEFAULT_COLS), width and stagger as _stradellaGrid so
-        // the treble button field reads the same as the bass field — i.e.
-        // the previous wide 3-per-column layout rotated 90°. Used for the
-        // treble in 'buttons' mode and for the free-bass side.
+        // Generic chromatic single-note board: tall vertical columns of
+        // round buttons, ascending top→bottom, successive columns to the
+        // side, every other column staggered half a slot. Used for the
+        // FREE-BASS side (a plain ascending chromatic field).
         _buttonBoard(cls, lo, hi, modal, bg) {
-            const PER_COL = STRADELLA_DEFAULT_COLS;   // match the bass side
+            const PER_COL = STRADELLA_DEFAULT_COLS;
             const STAGGER = 16;
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-board`;
@@ -221,6 +217,43 @@
                 for (let r = 0; r < PER_COL; r++) {
                     const n = lo + c * PER_COL + r;
                     if (n > hi) break;
+                    col.appendChild(this._mkRound([n], label(n), bg, modal));
+                }
+                wrap.appendChild(col);
+            }
+            return wrap;
+        }
+
+        // Realistic chromatic-button-accordion right-hand manual
+        // (C-system / C-griff, user spec) for the MELODY side: THREE
+        // diagonal rows. Within a row consecutive buttons rise a minor
+        // third (+3 semitones); the three rows are offset +1 semitone
+        // each, so together they cover every chromatic note in [lo,hi]
+        // exactly once. The middle row is shifted half a slot so the
+        // field forms the authentic diagonal honeycomb.
+        _cbaBoard(cls, lo, hi, modal, bg) {
+            const ROWS = 3;                 // C-system principal rows
+            const STEP = 3;                 // minor third within a row
+            const STAGGER = 16;
+            const wrap = document.createElement('div');
+            wrap.className = `accordion-row ${cls} accordion-board accordion-cba`;
+            wrap.style.cssText =
+                'display:flex;gap:5px;align-items:flex-start;'
+                + 'justify-content:center;height:100%;';
+            const label = typeof modal.getNoteLabel === 'function'
+                ? (n) => modal.getNoteLabel(n) : (n) => String(n);
+            for (let r = 0; r < ROWS; r++) {
+                const col = document.createElement('div');
+                col.className = 'accordion-board-col accordion-cba-row';
+                // Middle row dropped half a slot → diagonal honeycomb.
+                const pad = r === 1
+                    ? `padding-top:${STAGGER}px;`
+                    : `padding-bottom:${STAGGER}px;`;
+                col.style.cssText =
+                    'display:flex;flex-direction:column;gap:6px;'
+                    + 'align-items:center;height:100%;width:42px;'
+                    + 'box-sizing:border-box;' + pad;
+                for (let n = lo + r; n <= hi; n += STEP) {
                     col.appendChild(this._mkRound([n], label(n), bg, modal));
                 }
                 wrap.appendChild(col);
