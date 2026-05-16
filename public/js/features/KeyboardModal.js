@@ -931,8 +931,11 @@ class KeyboardModal {
 
     /**
      * Instrument-specific accordion settings (optional `caps.accordion_config`).
-     * Defaults match the previous behaviour (both hands, Stradella bass).
-     * @returns {{bass_system:'stradella'|'chromatic'|'free', hands:'both'|'right'|'left'}}
+     * Defaults match the previous behaviour (both hands, Stradella bass,
+     * button-style right hand).
+     * @returns {{bass_system:'stradella'|'chromatic'|'free',
+     *            hands:'both'|'right'|'left',
+     *            right_display:'buttons'|'keyboard'}}
      */
     getAccordionConfig() {
         const caps = this.selectedDeviceCapabilities;
@@ -940,7 +943,9 @@ class KeyboardModal {
         const bass_system = ['stradella', 'chromatic', 'free'].includes(c.bass_system)
             ? c.bass_system : 'stradella';
         const hands = ['both', 'right', 'left'].includes(c.hands) ? c.hands : 'both';
-        return { bass_system, hands };
+        const right_display = ['buttons', 'keyboard'].includes(c.right_display)
+            ? c.right_display : 'buttons';
+        return { bass_system, hands, right_display };
     }
 
     /**

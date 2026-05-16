@@ -55,27 +55,42 @@
             const tLo = r ? r.min : TREBLE_LO;
             const tHi = r ? r.max : TREBLE_HI;
 
-            // QA #3: instrument-specific accordion settings (hands +
-            // bass system) from the per-instrument capabilities.
+            // QA #3/#4: instrument-specific accordion settings.
             const acfg = typeof modal.getAccordionConfig === 'function'
-                ? modal.getAccordionConfig() : { bass_system: 'stradella', hands: 'both' };
+                ? modal.getAccordionConfig()
+                : { bass_system: 'stradella', hands: 'both', right_display: 'buttons' };
+
+            // QA #4: two distinct sides — left hand (bass) on the left,
+            // right hand (melody) on the right.
+            const sides = document.createElement('div');
+            sides.className = 'accordion-sides';
+            sides.style.cssText =
+                'display:flex;gap:24px;align-items:flex-start;'
+                + 'justify-content:center;flex:1;width:100%;';
+
+            if (acfg.hands === 'both' || acfg.hands === 'left') {
+                let bass;
+                if (acfg.bass_system === 'stradella') {
+                    bass = this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a');
+                } else {
+                    const bHi = (r ? r.min : TREBLE_LO) - 1;
+                    bass = this._row('accordion-bass', bHi - 23, bHi, modal, '#3a2b3a');
+                }
+                sides.appendChild(this._zone(
+                    `Main gauche · ${acfg.bass_system === 'stradella' ? 'Stradella' : 'Basses libres'}`,
+                    bass));
+            }
 
             if (acfg.hands === 'both' || acfg.hands === 'right') {
-                root.appendChild(this._row('accordion-treble', tLo, tHi, modal, '#2b3a4a'));
-            }
-            if (acfg.hands === 'both' || acfg.hands === 'left') {
-                if (acfg.bass_system === 'stradella') {
-                    // 12 Stradella root buttons (fixed).
-                    root.appendChild(this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a'));
-                } else {
-                    // Free-bass / chromatic: a chromatic left-hand keyboard
-                    // one octave below the treble's low note.
-                    const bHi = (r ? r.min : TREBLE_LO) - 1;
-                    const bLo = bHi - 23;            // 2 octaves
-                    root.appendChild(this._row('accordion-bass', bLo, bHi, modal, '#3a2b3a'));
-                }
+                const right = acfg.right_display === 'keyboard'
+                    ? this._pianoRow('accordion-treble', tLo, tHi, modal)
+                    : this._row('accordion-treble', tLo, tHi, modal, '#2b3a4a');
+                sides.appendChild(this._zone(
+                    `Main droite · ${acfg.right_display === 'keyboard' ? 'Clavier' : 'Boutons'}`,
+                    right));
             }
 
+            root.appendChild(sides);
             canvas.appendChild(root);
             this._root = root;
             this._pressed = new Map();
@@ -84,6 +99,71 @@
             root.addEventListener('pointerdown', this._onDown);
             document.addEventListener('pointerup', this._onDocUp);
             document.addEventListener('pointercancel', this._onDocUp);
+        }
+
+        // Titled, bordered panel around one hand's controls (QA #4).
+        _zone(title, contentEl) {
+            const z = document.createElement('div');
+            z.className = 'accordion-zone';
+            z.style.cssText =
+                'display:flex;flex-direction:column;gap:6px;padding:10px;'
+                + 'border:1px solid #444;border-radius:8px;background:#1f1f24;';
+            const h = document.createElement('div');
+            h.className = 'accordion-zone-title';
+            h.textContent = title;
+            h.style.cssText = 'font:11px sans-serif;color:#9fb3c8;text-align:center;';
+            z.appendChild(h);
+            z.appendChild(contentEl);
+            return z;
+        }
+
+        // Piano-style right hand (QA #4 "option clavier"): white keys in a
+        // flex row, black keys absolutely positioned over the gaps. Keeps
+        // the `.accordion-key` contract so press/release logic is shared.
+        _pianoRow(cls, lo, hi, modal) {
+            const BLACK = new Set([1, 3, 6, 8, 10]);
+            const label = typeof modal.getNoteLabel === 'function'
+                ? (n) => modal.getNoteLabel(n) : (n) => String(n);
+            let whites = 0;
+            for (let n = lo; n <= hi; n++) if (!BLACK.has(((n % 12) + 12) % 12)) whites++;
+            whites = Math.max(1, whites);
+            const W = 100 / whites;
+
+            const row = document.createElement('div');
+            row.className = `accordion-row ${cls} accordion-piano`;
+            row.style.cssText = 'position:relative;width:' + (whites * 26)
+                + 'px;max-width:70vw;height:120px;';
+            let wIdx = 0;
+            const mk = (n, black, leftPct, wPct, css) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'accordion-key' + (black ? ' accordion-key-black' : '');
+                b.dataset.note = String(n);
+                b.title = label(n);
+                b.style.cssText =
+                    'position:absolute;box-sizing:border-box;border:1px solid #222;'
+                    + 'cursor:pointer;font:9px sans-serif;display:flex;'
+                    + 'align-items:flex-end;justify-content:center;padding-bottom:3px;'
+                    + `left:${leftPct}%;width:${wPct}%;${css}`
+                    + (black ? 'background:#1a1a1a;color:#eee;z-index:2;'
+                             : 'background:#f4f4f4;color:#222;z-index:1;');
+                if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
+                    b.style.background = modal.getNoteColor(n).bg;
+                    b.style.color = modal.getNoteColor(n).text;
+                }
+                return b;
+            };
+            for (let n = lo; n <= hi; n++) {
+                const black = BLACK.has(((n % 12) + 12) % 12);
+                if (!black) {
+                    row.appendChild(mk(n, false, wIdx * W, W, 'bottom:0;height:100%;'));
+                    wIdx++;
+                } else {
+                    row.appendChild(mk(n, true, wIdx * W - W * 0.3, W * 0.6,
+                        'top:0;height:62%;'));
+                }
+            }
+            return row;
         }
 
         _row(cls, lo, hi, modal, bg) {

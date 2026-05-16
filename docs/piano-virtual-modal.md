@@ -1146,6 +1146,25 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > (#) sont **ancrées en haut et plus courtes** → visuellement plus hautes
 > que les naturelles (façon piano/marimba).
 >
+> ✅ **AccordionView QA #4** : `getAccordionConfig()` étendu avec
+> `right_display:'buttons'|'keyboard'`. La vue rend **deux zones
+> distinctes titrées** (« Main gauche · Stradella/Basses libres » à
+> gauche, « Main droite · Boutons/Clavier » à droite) ; en mode
+> `keyboard` la main droite est un **clavier piano** (blanches en flex,
+> noires absolues) — toutes les cellules restent `.accordion-key`.
+>
+> ⚠️ **Persistance #3/#4 — blocage** : `hands_config` est une **colonne
+> dédiée** de `instrument_capabilities` (pas de blob JSON générique).
+> Persister `bagpipe_config`/`accordion_config` dans le mécanisme
+> existant nécessite donc **2 colonnes additives** (mini-migration,
+> calquée sur `hands_config`) — le « sans migration » n'est pas possible
+> pour une vraie persistance DB. Options : (a) mini-migration additive
+> (colonnes JSON nullables, précédent `hands_config`) ; (b) localStorage
+> par device/canal (zéro backend) ; (c) déconseillé : imbriquer dans
+> `hands_config`. **La consommation côté clavier est prête**
+> (`getBagpipeConfig`/`getAccordionConfig`) ; reste l'UI ISM + le
+> chemin de persistance à trancher.
+>
 > ✅ **MalletView** : disposition **façon piano/marimba** — naturelles en
 > rangée contiguë, altérées en `position:absolute` au-dessus de
 > l'interstice entre les bonnes naturelles (plus de 2 rangées
