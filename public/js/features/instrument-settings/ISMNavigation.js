@@ -17,6 +17,7 @@
         const listenerMap = {
             notes: '_attachNotesSectionListeners',
             hands: '_attachHandsSectionListeners',
+            bagpipe: '_wireBagpipeListeners',
         };
         this.$$('.ism-section').forEach(sec => {
             const isTarget = sec.dataset.section === sectionId;

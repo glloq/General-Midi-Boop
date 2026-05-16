@@ -53,6 +53,35 @@ const MidiConstants = {
     /** Clamp a value into the MIDI 0-127 range. */
     clamp7bit(value) {
         return MidiConstants.clamp(value, 0, 127);
+    },
+
+    /**
+     * Normaliser une liste de bourdons de cornemuse vers la forme objet
+     * `{ note:int 0-127, enabled:boolean }`. Accepte l'ancien format
+     * `number[]` (chaque entier -> bourdon active). Implementation
+     * partagee : ISMSections (render/collect), KeyboardModal,
+     * BagpipeView. Ne fournit PAS de defaut quand le resultat est vide :
+     * chaque appelant applique son propre `[{note:45,enabled:true}]`.
+     * @param {*} raw
+     * @returns {Array<{note:number, enabled:boolean}>}
+     */
+    normalizeBagpipeDrones(raw) {
+        if (!Array.isArray(raw)) return [];
+        const out = [];
+        for (const item of raw) {
+            let note, enabled;
+            if (item && typeof item === 'object' && !Array.isArray(item)) {
+                note = Math.round(Number(item.note));
+                enabled = item.enabled !== false;
+            } else {
+                note = Math.round(Number(item));
+                enabled = true;
+            }
+            if (Number.isInteger(note) && note >= 0 && note <= 127) {
+                out.push({ note, enabled });
+            }
+        }
+        return out;
     }
 };
 

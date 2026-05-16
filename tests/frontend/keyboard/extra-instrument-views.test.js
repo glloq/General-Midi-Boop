@@ -15,6 +15,9 @@ function load(rel) {
 }
 
 beforeAll(() => {
+  // KeyboardModal.getBagpipeConfig delegates to the shared
+  // MidiConstants.normalizeBagpipeDrones, so it must load first.
+  load('../../../public/js/utils/MidiConstants.js');
   load('../../../public/js/features/keyboard/InstrumentDetector.js');
   load('../../../public/js/features/keyboard/InstrumentView.js');
   load('../../../public/js/features/keyboard/InstrumentViewRegistry.js');
@@ -275,11 +278,22 @@ describe('configured note range (QA) — views follow instrument settings', () =
 });
 
 describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
-  it('getBagpipeConfig: defaults + reads caps.bagpipe_config', () => {
+  it('getBagpipeConfig: defaults + normalizes legacy/object shapes', () => {
     const m = new (win.KeyboardModal)();
-    expect(m.getBagpipeConfig()).toEqual({ drones: [45], enabled: true });
+    expect(m.getBagpipeConfig()).toEqual({
+      drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled: true });
+    // legacy number[] → all enabled
     m.selectedDeviceCapabilities = { bagpipe_config: { drones: [45, 45, 33], enabled: false } };
-    expect(m.getBagpipeConfig()).toEqual({ drones: [45, 45, 33], enabled: false });
+    expect(m.getBagpipeConfig()).toEqual({
+      drones: [45, 45, 33],
+      droneObjs: [{ note: 45, enabled: true }, { note: 45, enabled: true }, { note: 33, enabled: true }],
+      enabled: false });
+    // object shape: `drones` keeps only enabled notes, `droneObjs` keeps all
+    m.selectedDeviceCapabilities = { bagpipe_config: {
+      drones: [{ note: 33, enabled: true }, { note: 45, enabled: false }] } };
+    const cfg = m.getBagpipeConfig();
+    expect(cfg.drones).toEqual([33]);
+    expect(cfg.droneObjs).toEqual([{ note: 33, enabled: true }, { note: 45, enabled: false }]);
     m.selectedDeviceCapabilities = { bagpipe_config: { drones: [] } };
     expect(m.getBagpipeConfig().drones).toEqual([45]);   // empty → default
   });

@@ -14,6 +14,9 @@ function load(rel) {
   new Function('window', src)(win);
 }
 beforeAll(() => {
+  // MidiConstants must load first: the bagpipe render/collect now
+  // depend on win.MidiConstants.normalizeBagpipeDrones.
+  load('../../public/js/utils/MidiConstants.js');
   load('../../public/js/features/instrument-settings/ISMSections.js');
 });
 
@@ -48,26 +51,51 @@ describe('ISM — section visibility predicates', () => {
 });
 
 describe('ISM — bagpipe section render + collect', () => {
-  it('renders enabled checkbox + drones input from existing config', () => {
+  const drones = () => JSON.parse(document.getElementById('bagpipeDrones').value);
+
+  it('renders piano + list + preset; legacy number[] → enabled objects', () => {
     const html = S()._renderBagpipeSection.call(
       ctx({ bagpipe_config: { drones: [45, 33], enabled: false } }));
     mountSection('bagpipe', html);
     expect(document.getElementById('bagpipeEnabled').checked).toBe(false);
-    expect(document.getElementById('bagpipeDrones').value).toBe('45, 33');
+    expect(drones()).toEqual([{ note: 45, enabled: true }, { note: 33, enabled: true }]);
+    expect(document.getElementById('bagpipeDronePiano')).not.toBeNull();
+    expect(document.getElementById('bagpipeDroneList')).not.toBeNull();
+    const presetSel = document.getElementById('bagpipePreset');
+    expect(presetSel).not.toBeNull();
+    const ids = [...presetSel.querySelectorAll('option')]
+      .map(o => o.value).filter(Boolean);
+    expect(ids).toEqual(S()._BAGPIPE_PRESETS.map(p => p.id));
+  });
+
+  it('renders new object shape, preserving per-drone enabled', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(
+      ctx({ bagpipe_config: { drones: [{ note: 33, enabled: false }] } })));
+    expect(drones()).toEqual([{ note: 33, enabled: false }]);
   });
 
   it('defaults (no config) → A2 drone, enabled', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
     expect(document.getElementById('bagpipeEnabled').checked).toBe(true);
-    expect(document.getElementById('bagpipeDrones').value).toBe('45');
+    expect(drones()).toEqual([{ note: 45, enabled: true }]);
   });
 
-  it('collect parses the comma list, clamps, reads enabled', () => {
+  it('collect round-trips the JSON state + reads enabled', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
-    document.getElementById('bagpipeDrones').value = '45, 33 , 999, x, 57';
+    document.getElementById('bagpipeDrones').value = JSON.stringify(
+      [{ note: 45, enabled: true }, { note: 33, enabled: false }]);
     document.getElementById('bagpipeEnabled').checked = false;
-    expect(S()._collectBagpipeConfig(document.body))
-      .toEqual({ drones: [45, 33, 57], enabled: false });
+    expect(S()._collectBagpipeConfig(document.body)).toEqual({
+      drones: [{ note: 45, enabled: true }, { note: 33, enabled: false }],
+      enabled: false
+    });
+  });
+
+  it('collect with invalid JSON falls back to [{note:45,enabled:true}]', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
+    document.getElementById('bagpipeDrones').value = 'not json';
+    expect(S()._collectBagpipeConfig(document.body).drones)
+      .toEqual([{ note: 45, enabled: true }]);
   });
 
   it('collect → undefined when section absent or not visited', () => {
@@ -77,10 +105,11 @@ describe('ISM — bagpipe section render + collect', () => {
     expect(S()._collectBagpipeConfig(document.body)).toBeUndefined();
   });
 
-  it('empty drones list falls back to [45]', () => {
+  it('empty drones array falls back to [{note:45,enabled:true}]', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
-    document.getElementById('bagpipeDrones').value = '   ';
-    expect(S()._collectBagpipeConfig(document.body).drones).toEqual([45]);
+    document.getElementById('bagpipeDrones').value = '[]';
+    expect(S()._collectBagpipeConfig(document.body).drones)
+      .toEqual([{ note: 45, enabled: true }]);
   });
 });
 

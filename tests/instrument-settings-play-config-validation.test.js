@@ -23,6 +23,19 @@ describe('validateBagpipeConfigPayload', () => {
     expect(() => validateBagpipeConfigPayload({ enabled: false })).not.toThrow();
   });
 
+  test('object-shaped drones accepted (legacy number[] still accepted)', () => {
+    expect(() => validateBagpipeConfigPayload({
+      drones: [{ note: 33, enabled: true }, { note: 45, enabled: false }], enabled: true
+    })).not.toThrow();
+    expect(() => validateBagpipeConfigPayload({ drones: [{ note: 45 }] })).not.toThrow();
+  });
+
+  test('malformed object-shaped drones rejected', () => {
+    expect(() => validateBagpipeConfigPayload({ drones: [{ note: 128, enabled: true }] })).toThrow(ValidationError);
+    expect(() => validateBagpipeConfigPayload({ drones: [{ note: 45, enabled: 'x' }] })).toThrow(ValidationError);
+    expect(() => validateBagpipeConfigPayload({ drones: [45, { note: 33, enabled: true }] })).toThrow(ValidationError);
+  });
+
   test('non-object rejected', () => {
     expect(() => validateBagpipeConfigPayload(42)).toThrow(ValidationError);
     expect(() => validateBagpipeConfigPayload([45])).toThrow(ValidationError);

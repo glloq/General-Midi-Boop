@@ -929,17 +929,23 @@ class KeyboardModal {
     /**
      * Instrument-specific bagpipe settings. Read from the same per-instrument
      * capabilities object the instrument-settings modal already populates
-     * (like hands_config) — optional `caps.bagpipe_config`. Defaults match
-     * the previous behaviour (single A2 drone, enabled).
-     * @returns {{drones:number[], enabled:boolean}}
+     * (like hands_config) — optional `caps.bagpipe_config`. Accepts the
+     * legacy `drones:number[]` shape and the `[{note,enabled}]` shape via
+     * the shared normalizer. `drones` returns only the *enabled* notes
+     * (what should actually sound); `droneObjs` is the full list.
+     * Defaults match the previous behaviour (single A2 drone, enabled).
+     * @returns {{drones:number[], droneObjs:Array<{note:number,enabled:boolean}>, enabled:boolean}}
      */
     getBagpipeConfig() {
         const caps = this.selectedDeviceCapabilities;
         const c = (caps && caps.bagpipe_config) || {};
-        const drones = Array.isArray(c.drones) && c.drones.length
-            ? c.drones.map(Number).filter(Number.isFinite)
-            : [45];
-        return { drones: drones.length ? drones : [45], enabled: c.enabled !== false };
+        const enabled = c.enabled !== false;
+        const objs = window.MidiConstants.normalizeBagpipeDrones(c.drones);
+        if (!objs.length) {
+            return { drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled };
+        }
+        const drones = objs.filter(d => d.enabled !== false).map(d => d.note);
+        return { drones, droneObjs: objs, enabled };
     }
 
     /**

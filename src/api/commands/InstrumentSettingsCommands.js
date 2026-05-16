@@ -55,9 +55,15 @@ export function validateBagpipeConfigPayload(cfg) {
     throw new ValidationError('bagpipe_config must be an object', 'bagpipe_config');
   }
   if (cfg.drones !== undefined) {
-    if (!Array.isArray(cfg.drones)
-        || !cfg.drones.every(n => Number.isInteger(n) && n >= 0 && n <= 127)) {
-      throw new ValidationError('bagpipe_config.drones must be MIDI notes 0-127', 'bagpipe_config');
+    if (!Array.isArray(cfg.drones)) {
+      throw new ValidationError('bagpipe_config.drones must be an array', 'bagpipe_config');
+    }
+    const allNums = cfg.drones.every(n => Number.isInteger(n) && n >= 0 && n <= 127);
+    const allObjs = cfg.drones.every(d => d && typeof d === 'object' && !Array.isArray(d)
+        && Number.isInteger(d.note) && d.note >= 0 && d.note <= 127
+        && (d.enabled === undefined || typeof d.enabled === 'boolean'));
+    if (cfg.drones.length && !allNums && !allObjs) {
+      throw new ValidationError('bagpipe_config.drones must be MIDI notes 0-127 or {note,enabled} objects', 'bagpipe_config');
     }
   }
   if (cfg.enabled !== undefined && typeof cfg.enabled !== 'boolean') {

@@ -3008,3 +3008,59 @@ body.dark-mode .ism-hands-kb-host {
 body.dark-mode .ism-preview-label {
   color: rgba(255, 255, 255, 0.45);
 }
+
+/* Bagpipe drone picker (self-contained — see ISMListeners
+   _wireBagpipeListeners). The mini-piano reuses the shared .piano-key*
+   classes; only sizing + the per-drone list are scoped here. */
+.bagpipe-drone-piano {
+  height: 80px;
+  margin: 8px 0;
+}
+
+.bagpipe-drone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.bagpipe-drone-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 6px;
+}
+
+.bagpipe-drone-row-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.bagpipe-drone-row small {
+  color: var(--text-secondary, #6b7280);
+}
+
+.bagpipe-drone-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.bagpipe-drone-remove:hover {
+  background: var(--bg-tertiary, #f3f4f6);
+  color: #ef4444;
+}
+
+body.dark-mode .bagpipe-drone-row {
+  border-color: #475569;
+}
