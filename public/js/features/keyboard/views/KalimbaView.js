@@ -80,8 +80,9 @@
             const mid = Math.floor(PHYSICAL.length / 2);
 
             PHYSICAL.forEach((midi, idx) => {
-                // Taller toward the centre (longer tine = lower pitch).
-                const h = 60 + (1 - Math.abs(idx - mid) / (mid || 1)) * 80;
+                // Taller toward the centre (longer tine = lower pitch);
+                // ~15% taller overall than the natural 60..140 range.
+                const h = 69 + (1 - Math.abs(idx - mid) / (mid || 1)) * 92;
                 const t = document.createElement('button');
                 t.type = 'button';
                 t.className = 'kalimba-tine';

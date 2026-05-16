@@ -4190,23 +4190,21 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 /* ── Kalimba view — wooden body with a resonance hole ──────────────── */
 
 /* Self-owned root appended to .keyboard-canvas-container by KalimbaView.js.
-   The wooden body is cut to the tine span: it hugs its content width
-   (clamped to the canvas) and is centred. Tines reach the very top edge
-   and hang downward, played from the top like a real kalimba. */
+   The wooden body spans the available width and scales with the window;
+   tines flex to fill it. They reach the very top edge and hang downward,
+   played from the top like a real kalimba. */
 .kalimba-view {
     flex: 1;
     min-height: 0;
-    align-self: center;
-    width: max-content;
-    max-width: 100%;
+    width: 100%;
     position: relative;
     overflow: hidden;
     box-sizing: border-box;
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    gap: 4px;
-    padding: 0 0 18px;
+    gap: 6px;
+    padding: 0 8px 18px;
     border-radius: 0 0 10px 10px;
     touch-action: none;
     box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.45),
@@ -4221,6 +4219,12 @@ body.dark-mode .keyboard-modal-info .info-text strong {
         linear-gradient(180deg, #7a4a22 0%, #8a5526 28%, #6f3f1c 100%);
 }
 
+/* Trim the top gap above the kalimba (the shared canvas padding is meant
+   for piano-style views). Scoped so other views keep their spacing. */
+.keyboard-canvas-container:has(.kalimba-view) {
+    padding-top: 2px;
+}
+
 /* Resonance hole: dark disc on the lower-centre of the body, behind the
    tines (z-index 0 vs. tine z-index 1). Pure CSS, no extra DOM. */
 .kalimba-view::after {
@@ -4228,7 +4232,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     position: absolute;
     left: 50%;
     bottom: 14%;
-    width: min(120px, 70%);
+    width: min(170px, 42%);
     height: auto;
     aspect-ratio: 1 / 1;
     transform: translateX(-50%);
@@ -4241,13 +4245,13 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     pointer-events: none;
 }
 
-/* Metallic silver tines. Flexible width so the whole row (including
-   sharps / wide ranges) fits without horizontal overflow. Per-tine
+/* Metallic silver tines. They grow to fill the responsive body width
+   (~2-3x the previous size) and shrink to fit narrow windows. Per-tine
    height is set inline by JS (longer toward the centre = lower pitch). */
 .kalimba-tine {
-    flex: 0 1 24px;
-    min-width: 9px;
-    max-width: 26px;
+    flex: 1 1 64px;
+    min-width: 28px;
+    max-width: 110px;
     border: none;
     border-radius: 3px 3px 10px 10px;
     cursor: pointer;
