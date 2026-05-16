@@ -19,6 +19,12 @@
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
 
+/** Parse an optional JSON column → object, or null on absence/parse error. */
+function parseJsonCol(value) {
+  if (!value) return null;
+  try { return JSON.parse(value); } catch { return null; }
+}
+
 class InstrumentCapabilitiesDB {
   constructor(db, logger) {
     this.db = db;
@@ -129,20 +135,35 @@ class InstrumentCapabilitiesDB {
         }
       }
 
+      // Same normalisation for the instrument-specific play configs
+      // (bagpipe drones / accordion hands) — migration 022.
+      const normJson = (v) => {
+        if (v === undefined) return undefined;
+        if (v === null) return null;
+        if (typeof v === 'string') return v;
+        if (typeof v === 'object') return JSON.stringify(v);
+        return undefined;
+      };
+      const bagpipeConfigJson = normJson(capabilities.bagpipe_config);
+      const accordionConfigJson = normJson(capabilities.accordion_config);
+
       if (existing) {
         // Build update with timestamp always included
         const capWithTimestamp = { ...capabilities, capabilities_updated_at: now };
         const result = buildDynamicUpdate('instruments_latency', capWithTimestamp, [
           'note_range_min', 'note_range_max', 'supported_ccs',
           'note_selection_mode', 'selected_notes', 'polyphony',
-          'capabilities_source', 'capabilities_updated_at', 'hands_config'
+          'capabilities_source', 'capabilities_updated_at', 'hands_config',
+          'bagpipe_config', 'accordion_config'
         ], {
           whereClause: 'device_id = ? AND channel = ?',
           transforms: {
             supported_ccs: () => supportedCcsJson,
             selected_notes: () => selectedNotesJson,
             polyphony: v => v !== null ? parseInt(v) : null,
-            hands_config: () => handsConfigJson
+            hands_config: () => handsConfigJson,
+            bagpipe_config: () => bagpipeConfigJson,
+            accordion_config: () => accordionConfigJson
           }
         });
 
@@ -201,7 +222,8 @@ class InstrumentCapabilitiesDB {
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
-            capabilities_source, capabilities_updated_at, hands_config
+            capabilities_source, capabilities_updated_at, hands_config,
+            bagpipe_config, accordion_config
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
         `);
@@ -214,7 +236,8 @@ class InstrumentCapabilitiesDB {
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
-            capabilities_source, capabilities_updated_at, hands_config
+            capabilities_source, capabilities_updated_at, hands_config,
+            bagpipe_config, accordion_config
           FROM instruments_latency
           WHERE device_id = ?
         `);
@@ -270,7 +293,9 @@ class InstrumentCapabilitiesDB {
         min_note_duration: result.min_note_duration ?? null,
         capabilities_source: result.capabilities_source,
         capabilities_updated_at: result.capabilities_updated_at,
-        hands_config: handsConfig
+        hands_config: handsConfig,
+        bagpipe_config: parseJsonCol(result.bagpipe_config),
+        accordion_config: parseJsonCol(result.accordion_config)
       };
     } catch (error) {
       this.logger.error(`Failed to get instrument capabilities: ${error.message}`);
@@ -291,7 +316,8 @@ class InstrumentCapabilitiesDB {
           note_range_min, note_range_max, supported_ccs,
           note_selection_mode, selected_notes, polyphony,
           capabilities_source, capabilities_updated_at,
-          usb_serial_number, mac_address, hands_config
+          usb_serial_number, mac_address, hands_config,
+          bagpipe_config, accordion_config
         FROM instruments_latency
         ORDER BY device_id
       `);
@@ -331,7 +357,9 @@ class InstrumentCapabilitiesDB {
           supported_ccs: supportedCcs,
           note_selection_mode: result.note_selection_mode || 'range',
           selected_notes: selectedNotes,
-          hands_config: handsConfig
+          hands_config: handsConfig,
+          bagpipe_config: parseJsonCol(result.bagpipe_config),
+          accordion_config: parseJsonCol(result.accordion_config)
         };
       });
     } catch (error) {
@@ -374,7 +402,8 @@ class InstrumentCapabilitiesDB {
           mac_address, usb_serial_number,
           sysex_manufacturer_id, sysex_family, sysex_model, sysex_version,
           instrument_type, instrument_subtype,
-          min_note_interval, min_note_duration, hands_config
+          min_note_interval, min_note_duration, hands_config,
+          bagpipe_config, accordion_config
         FROM instruments_latency
         ORDER BY name, custom_name
       `);
@@ -433,6 +462,8 @@ class InstrumentCapabilitiesDB {
           min_note_duration: result.min_note_duration || null,
           // Hand-position control (optional, piano/strings)
           hands_config: handsConfig,
+          bagpipe_config: parseJsonCol(result.bagpipe_config),
+          accordion_config: parseJsonCol(result.accordion_config),
           // Additional fields for reference
           mac_address: result.mac_address,
           usb_serial_number: result.usb_serial_number,

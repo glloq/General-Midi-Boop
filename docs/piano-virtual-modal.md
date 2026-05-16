@@ -1153,17 +1153,28 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > `keyboard` la main droite est un **clavier piano** (blanches en flex,
 > noires absolues) — toutes les cellules restent `.accordion-key`.
 >
-> ⚠️ **Persistance #3/#4 — blocage** : `hands_config` est une **colonne
-> dédiée** de `instrument_capabilities` (pas de blob JSON générique).
-> Persister `bagpipe_config`/`accordion_config` dans le mécanisme
-> existant nécessite donc **2 colonnes additives** (mini-migration,
-> calquée sur `hands_config`) — le « sans migration » n'est pas possible
-> pour une vraie persistance DB. Options : (a) mini-migration additive
-> (colonnes JSON nullables, précédent `hands_config`) ; (b) localStorage
-> par device/canal (zéro backend) ; (c) déconseillé : imbriquer dans
-> `hands_config`. **La consommation côté clavier est prête**
-> (`getBagpipeConfig`/`getAccordionConfig`) ; reste l'UI ISM + le
-> chemin de persistance à trancher.
+> ✅ **Persistance #3/#4 — backend fait** (choix : mini-migration
+> additive, calquée sur `hands_config`) :
+> - `migrations/022_instrument_specific_configs.sql` : colonnes JSON
+>   nullables `bagpipe_config` + `accordion_config` sur
+>   `instruments_latency` (CHECK `json_valid`, schema_version 22).
+> - `InstrumentCapabilitiesDB` : normalisation + écriture (update
+>   colonnes/transforms) + lecture/parse dans les 3 SELECT, helper
+>   `parseJsonCol`.
+> - `InstrumentSettingsCommands` : forward sous contrat clé-explicite
+>   (comme `hands_config`) sur `instrument_update_capabilities` **et**
+>   `instrument_save_all`, + validateurs exportés
+>   `validateBagpipeConfigPayload` / `validateAccordionConfigPayload`.
+> - Tests : `tests/instrument-settings-play-config-validation.test.js`
+>   (9 cas Jest, fonctions pures, sans SQLite). ⚠️ Le round-trip DB
+>   n'est pas exécutable dans ce conteneur (`better-sqlite3` non
+>   compilé — limitation native) → **QA DB requise** : `npm run
+>   migrate` puis vérifier save/reload depuis le modal d'instrument.
+>
+> ⏳ **Reste l'UI ISM** : section « Cornemuse » (bourdons + enabled) et
+> « Accordéon » (bass_system / hands / right_display) à ajouter dans le
+> modal de réglages d'instrument (render + collecte + nav), calquées sur
+> la section Hands. Browser-QA requise (sous-système ISM ~6300 l.).
 >
 > ✅ **MalletView** : disposition **façon piano/marimba** — naturelles en
 > rangée contiguë, altérées en `position:absolute` au-dessus de

@@ -43,6 +43,44 @@ export function validateHandsConfigPayload(handsConfig) {
 }
 
 /**
+ * Light shape validation for the instrument-specific play configs
+ * (migration 022). `null`/`undefined` are valid (clears / leaves the
+ * feature). Keeps validation intentionally permissive — the views
+ * defensively default every field via getBagpipeConfig/getAccordionConfig.
+ * @throws {ValidationError}
+ */
+export function validateBagpipeConfigPayload(cfg) {
+  if (cfg === null || cfg === undefined) return;
+  if (typeof cfg !== 'object' || Array.isArray(cfg)) {
+    throw new ValidationError('bagpipe_config must be an object', 'bagpipe_config');
+  }
+  if (cfg.drones !== undefined) {
+    if (!Array.isArray(cfg.drones)
+        || !cfg.drones.every(n => Number.isInteger(n) && n >= 0 && n <= 127)) {
+      throw new ValidationError('bagpipe_config.drones must be MIDI notes 0-127', 'bagpipe_config');
+    }
+  }
+  if (cfg.enabled !== undefined && typeof cfg.enabled !== 'boolean') {
+    throw new ValidationError('bagpipe_config.enabled must be a boolean', 'bagpipe_config');
+  }
+}
+
+export function validateAccordionConfigPayload(cfg) {
+  if (cfg === null || cfg === undefined) return;
+  if (typeof cfg !== 'object' || Array.isArray(cfg)) {
+    throw new ValidationError('accordion_config must be an object', 'accordion_config');
+  }
+  const oneOf = (v, set, f) => {
+    if (v !== undefined && !set.includes(v)) {
+      throw new ValidationError(`accordion_config.${f} invalid`, 'accordion_config');
+    }
+  };
+  oneOf(cfg.bass_system, ['stradella', 'chromatic', 'free'], 'bass_system');
+  oneOf(cfg.hands, ['both', 'right', 'left'], 'hands');
+  oneOf(cfg.right_display, ['buttons', 'keyboard'], 'right_display');
+}
+
+/**
  * Persist per-channel instrument settings (custom name, sync delay,
  * GM program, octave mode, comm timeout). When `usb_serial_number` is
  * not supplied, it is looked up from the live DeviceManager so the row
@@ -258,6 +296,15 @@ async function instrumentUpdateCapabilities(app, data) {
   if (Object.prototype.hasOwnProperty.call(data, 'hands_config')) {
     validateHandsConfigPayload(data.hands_config);
     updatePayload.hands_config = data.hands_config;
+  }
+  // Same explicit-key contract for the instrument-specific play configs.
+  if (Object.prototype.hasOwnProperty.call(data, 'bagpipe_config')) {
+    validateBagpipeConfigPayload(data.bagpipe_config);
+    updatePayload.bagpipe_config = data.bagpipe_config;
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'accordion_config')) {
+    validateAccordionConfigPayload(data.accordion_config);
+    updatePayload.accordion_config = data.accordion_config;
   }
   const id = app.instrumentRepository.updateCapabilities(data.deviceId, channel, updatePayload);
 
@@ -672,6 +719,14 @@ async function instrumentSaveAll(app, data) {
     if (Object.prototype.hasOwnProperty.call(data, 'hands_config')) {
       validateHandsConfigPayload(data.hands_config);
       capPayload.hands_config = data.hands_config;
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'bagpipe_config')) {
+      validateBagpipeConfigPayload(data.bagpipe_config);
+      capPayload.bagpipe_config = data.bagpipe_config;
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'accordion_config')) {
+      validateAccordionConfigPayload(data.accordion_config);
+      capPayload.accordion_config = data.accordion_config;
     }
     app.instrumentRepository.updateCapabilities(data.deviceId, channel, capPayload);
 
