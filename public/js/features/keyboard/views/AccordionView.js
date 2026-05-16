@@ -87,7 +87,7 @@
             const sides = document.createElement('div');
             sides.className = 'accordion-sides';
             sides.style.cssText =
-                'display:flex;gap:18px;align-items:stretch;'
+                'display:flex;gap:0;align-items:stretch;'
                 + 'justify-content:center;flex:1;width:100%;height:100%;';
 
             // LEFT — melody/treble (the accordion's "côté droit").
@@ -171,7 +171,9 @@
             b.dataset.notes = notes.join(',');
             b.dataset.key = 'k' + (this._keyId++);
             b.title = title;                       // tooltip
-            b.textContent = String(notes[0]);      // small MIDI number
+            // Note label follows the US / FR / MIDI toolbar toggle
+            // (the base rerender() rebuilds the view on change).
+            b.textContent = title;
             b.style.cssText =
                 'flex:1 1 0;min-height:0;width:100%;box-sizing:border-box;'
                 + `border-radius:9999px;border:1px solid #333;background:${bg};`
@@ -301,7 +303,7 @@
 
             const col = document.createElement('div');
             col.className = `accordion-row ${cls} accordion-piano`;
-            col.style.cssText = 'position:relative;width:84px;flex:0 0 auto;'
+            col.style.cssText = 'position:relative;width:168px;flex:0 0 auto;'
                 + 'height:100%;';
             let wIdx = 0;
             const mk = (n, black, topPct, hPct, css) => {
@@ -312,11 +314,13 @@
                 b.dataset.notes = String(n);
                 b.dataset.key = 'k' + (this._keyId++);
                 b.title = label(n);
-                b.textContent = String(n);         // small MIDI number
+                // Name only on white keys, aligned to the left. Follows
+                // the US / FR / MIDI toolbar toggle (base rerender()).
+                if (!black) b.textContent = label(n);
                 b.style.cssText =
                     'position:absolute;box-sizing:border-box;border:1px solid #222;'
                     + 'cursor:pointer;font:8px/1 monospace;display:flex;'
-                    + 'align-items:flex-end;justify-content:center;padding-bottom:3px;'
+                    + 'align-items:center;justify-content:flex-start;padding-left:3px;'
                     + 'overflow:hidden;'
                     + `top:${topPct}%;height:${hPct}%;${css}`
                     + (black ? 'background:#1a1a1a;color:#eee;z-index:2;'
