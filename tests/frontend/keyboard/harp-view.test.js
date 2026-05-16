@@ -155,6 +155,40 @@ describe('Harp — self-owned DOM lifecycle', () => {
   });
 });
 
+describe('Harp — configured strings (modal._harpStringConfig)', () => {
+  afterEach(() => {
+    document.getElementById('harp-container')?.remove();
+  });
+
+  it('renders exactly the configured tuning, in order', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const view = new (win.HarpView)();
+    view.mount({
+      modal: {
+        playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}`,
+        _harpStringConfig: { tuning: [40, 45, 50, 55, 59], num_strings: 5 }
+      }
+    });
+    const root = document.getElementById('harp-container');
+    const strings = root.querySelectorAll('.harp-string');
+    expect(strings.length).toBe(5);
+    expect([...strings].map(s => s.dataset.note))
+      .toEqual(['40', '45', '50', '55', '59']);
+    view.unmount();
+  });
+
+  it('falls back to the 22 diatonic strings when no config is present', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const view = new (win.HarpView)();
+    view.mount({ modal: { playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}` } });
+    const strings = document.querySelectorAll('.harp-string');
+    expect(strings.length).toBe(22);
+    expect(strings[0].dataset.note).toBe('48');
+    expect(strings[21].dataset.note).toBe('84');
+    view.unmount();
+  });
+});
+
 describe('Harp — KeyboardModal._activateView integration', () => {
   it('_activateView("harp") mounts HarpView; switching unmounts it', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';

@@ -58,11 +58,20 @@
             const label = (typeof modal.getNoteLabel === 'function')
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
 
-            // QA: strings span the instrument's configured range.
-            const rng = typeof modal.getInstrumentNoteRange === 'function'
-                ? modal.getInstrumentNoteRange() : null;
-            const STRINGS = diatonicStrings(
-                rng ? rng.min : DEFAULT_LO, rng ? rng.max : DEFAULT_HI);
+            // Render every string configured in the instrument settings
+            // (string_instruments.tuning, e.g. the 47-string Harpe preset),
+            // in the configured order. Fall back to the diatonic C-major
+            // span over the instrument's note range when no config exists.
+            const cfg = modal._harpStringConfig;
+            let STRINGS;
+            if (cfg && Array.isArray(cfg.tuning) && cfg.tuning.length) {
+                STRINGS = cfg.tuning.slice();
+            } else {
+                const rng = typeof modal.getInstrumentNoteRange === 'function'
+                    ? modal.getInstrumentNoteRange() : null;
+                STRINGS = diatonicStrings(
+                    rng ? rng.min : DEFAULT_LO, rng ? rng.max : DEFAULT_HI);
+            }
 
             STRINGS.forEach((midi, idx) => {
                 const cls = midi % 12;

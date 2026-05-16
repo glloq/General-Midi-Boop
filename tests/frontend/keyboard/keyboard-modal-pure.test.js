@@ -122,8 +122,17 @@ describe('KeyboardModal._getStringPresetForGmProgram', () => {
 
   it('ethnic plucked & harp presets', () => {
     const m = makeModal();
-    expect(m._getStringPresetForGmProgram(46)).toEqual(
-      { num_strings: 22, num_frets: 0, tuning: null, is_fretless: true }); // harp
+    // Harp: 47-string concert harp, C-major diatonic C1 (24) → G7 (103).
+    const harp = m._getStringPresetForGmProgram(46);
+    expect(harp.num_strings).toBe(47);
+    expect(harp.num_frets).toBe(0);
+    expect(harp.is_fretless).toBe(true);
+    expect(harp.tuning.length).toBe(47);
+    expect(harp.tuning[0]).toBe(24);   // C1
+    expect(harp.tuning[46]).toBe(103); // G7
+    // Diatonic C-major: no accidentals.
+    const scale = new Set([0, 2, 4, 5, 7, 9, 11]);
+    for (const n of harp.tuning) expect(scale.has(n % 12)).toBe(true);
     expect(m._getStringPresetForGmProgram(104).num_strings).toBe(7);  // sitar
     expect(m._getStringPresetForGmProgram(105).num_strings).toBe(5);  // banjo
     expect(m._getStringPresetForGmProgram(106).num_strings).toBe(3);  // shamisen
