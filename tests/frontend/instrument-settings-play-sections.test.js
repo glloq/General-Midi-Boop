@@ -18,6 +18,7 @@ beforeAll(() => {
   // depend on win.MidiConstants.normalizeBagpipeDrones.
   load('../../public/js/utils/MidiConstants.js');
   load('../../public/js/features/instrument-settings/ISMSections.js');
+  load('../../public/js/features/instrument-settings/ISMListeners.js');
 });
 
 const S = () => win.ISMSections;
@@ -55,9 +56,9 @@ describe('ISM — bagpipe section render + collect', () => {
 
   it('renders piano + list + preset; legacy number[] → enabled objects', () => {
     const html = S()._renderBagpipeSection.call(
-      ctx({ bagpipe_config: { drones: [45, 33], enabled: false } }));
+      ctx({ bagpipe_config: { drones: [45, 33] } }));
     mountSection('bagpipe', html);
-    expect(document.getElementById('bagpipeEnabled').checked).toBe(false);
+    expect(document.getElementById('bagpipeEnabled')).toBeNull();   // no startup toggle
     expect(drones()).toEqual([{ note: 45, enabled: true }, { note: 33, enabled: true }]);
     expect(document.getElementById('bagpipeDronePiano')).not.toBeNull();
     expect(document.getElementById('bagpipeDroneList')).not.toBeNull();
@@ -74,20 +75,18 @@ describe('ISM — bagpipe section render + collect', () => {
     expect(drones()).toEqual([{ note: 33, enabled: false }]);
   });
 
-  it('defaults (no config) → A2 drone, enabled', () => {
+  it('defaults (no config) → A2 drone', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
-    expect(document.getElementById('bagpipeEnabled').checked).toBe(true);
+    expect(document.getElementById('bagpipeEnabled')).toBeNull();
     expect(drones()).toEqual([{ note: 45, enabled: true }]);
   });
 
-  it('collect round-trips the JSON state + reads enabled', () => {
+  it('collect round-trips the JSON state (no startup flag)', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
     document.getElementById('bagpipeDrones').value = JSON.stringify(
       [{ note: 45, enabled: true }, { note: 33, enabled: false }]);
-    document.getElementById('bagpipeEnabled').checked = false;
     expect(S()._collectBagpipeConfig(document.body)).toEqual({
-      drones: [{ note: 45, enabled: true }, { note: 33, enabled: false }],
-      enabled: false
+      drones: [{ note: 45, enabled: true }, { note: 33, enabled: false }]
     });
   });
 
@@ -110,6 +109,52 @@ describe('ISM — bagpipe section render + collect', () => {
     document.getElementById('bagpipeDrones').value = '[]';
     expect(S()._collectBagpipeConfig(document.body).drones)
       .toEqual([{ note: 45, enabled: true }]);
+  });
+});
+
+describe('ISM — bagpipe drone picker wiring (_wireBagpipeListeners)', () => {
+  const L = () => win.ISMListeners;
+  // `this` surface used by _wireBagpipeListeners: $ is scoped to the modal.
+  const lctx = () => ({
+    $: (sel) => document.querySelector(sel),
+    t: () => null,
+    escape: (s) => String(s),
+  });
+  const drones = () => JSON.parse(document.getElementById('bagpipeDrones').value);
+
+  it('renders the mini-piano + list once the subsection is mounted', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(
+      ctx({ bagpipe_config: { drones: [45] } })));
+    L()._wireBagpipeListeners.call(lctx());
+    expect(document.querySelectorAll('#bagpipeDronePiano .piano-key').length)
+      .toBeGreaterThan(0);
+    // the configured drone (45) is preselected on the piano + listed
+    expect(document.querySelector('#bagpipeDronePiano .piano-key[data-note="45"]')
+      .classList.contains('selected')).toBe(true);
+    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length)
+      .toBe(1);
+  });
+
+  it('clicking a piano key adds/removes a drone', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
+    L()._wireBagpipeListeners.call(lctx());
+    const key = () =>
+      document.querySelector('#bagpipeDronePiano .piano-key[data-note="33"]');
+    key().dispatchEvent(new Event('click', { bubbles: true }));   // add
+    expect(drones().some(d => d.note === 33)).toBe(true);
+    key().dispatchEvent(new Event('click', { bubbles: true }));   // re-query: piano re-rendered
+    expect(drones().some(d => d.note === 33)).toBe(false);
+  });
+
+  it('selecting a preset fills the drone notes', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
+    L()._wireBagpipeListeners.call(lctx());
+    const preset = S()._BAGPIPE_PRESETS[0];   // Great Highland: [33,45,45]
+    const sel = document.getElementById('bagpipePreset');
+    sel.value = preset.id;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(drones().map(d => d.note).sort((a, b) => a - b))
+      .toEqual([...preset.drones].sort((a, b) => a - b));
   });
 });
 

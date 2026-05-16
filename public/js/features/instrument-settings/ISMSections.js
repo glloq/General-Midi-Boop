@@ -2253,18 +2253,9 @@
         const cfg = tab.settings?.bagpipe_config || {};
         let drones = window.MidiConstants.normalizeBagpipeDrones(cfg.drones);
         if (!drones.length) drones = [{ note: 45, enabled: true }];
-        const enabled = cfg.enabled !== false;
         const presetOpts = BAGPIPE_PRESETS.map(p =>
             `<option value="${p.id}">${this.escape(p.name)}</option>`).join('');
         return `
-            <div class="ism-form-group">
-                <label>
-                    <input type="checkbox" id="bagpipeEnabled" ${enabled ? 'checked' : ''}>
-                    ${this.t('instrumentSettings.bagpipeEnabled') || 'Bourdons actifs au démarrage'}
-                </label>
-                <span class="ism-form-hint">${this.t('instrumentSettings.bagpipeEnabledHelp')
-                    || 'Les bourdons sonnent automatiquement à l’ouverture du clavier.'}</span>
-            </div>
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.bagpipePreset') || 'Préréglage de cornemuse'}</label>
                 <select id="bagpipePreset">
@@ -2294,8 +2285,7 @@
         try { parsed = JSON.parse(dronesEl.value || '[]'); } catch { parsed = []; }
         let drones = window.MidiConstants.normalizeBagpipeDrones(parsed);
         if (!drones.length) drones = [{ note: 45, enabled: true }];
-        const enabled = !!rootEl.querySelector('#bagpipeEnabled')?.checked;
-        return { drones, enabled };
+        return { drones };
     };
 
     // ===== Accordion section (per-side play possibilities) ===============

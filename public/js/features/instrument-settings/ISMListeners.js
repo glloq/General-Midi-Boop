@@ -803,7 +803,9 @@
         this._wireActiveCCTagRemoval();
         this._wireHandsMovementToggle();
         this._wirePianoNotationToggle();
-        // Accordion is now a conditional subsection of Notes & Capacités.
+        // Bagpipe / accordion are conditional subsections of Notes &
+        // Capacités, so their listeners wire here (not via a section switch).
+        if (typeof this._wireBagpipeListeners === 'function') this._wireBagpipeListeners();
         this._attachAccordionSectionListeners();
         // Piano is initialized by _switchSection('notes') when the section becomes visible
     };
@@ -1427,9 +1429,8 @@
 
         // Section-specific listeners
         this._attachIdentitySectionListeners();
-        this._attachNotesSectionListeners();
+        this._attachNotesSectionListeners();   // also wires the bagpipe subsection
         this._attachHandsSectionListeners();
-        if (typeof this._wireBagpipeListeners === 'function') this._wireBagpipeListeners();
 
         // Measure delay button — hidden by default, revealed only if an audio input is detected
         const measureBtn = this.$('#measureDelayBtn');
@@ -1865,7 +1866,9 @@
      * No-op when the section is absent or not yet rendered (lazy).
      */
     ISMListeners._wireBagpipeListeners = function() {
-        const sec = this.$('.ism-section[data-section="bagpipe"]');
+        // The bagpipe UI is a subsection of Notes & Capacités, not a
+        // standalone section — look it up by its subsection id.
+        const sec = this.$('#bagpipeSubsection');
         if (!sec) return;
         const hidden = sec.querySelector('#bagpipeDrones');
         if (!hidden) return;                       // lazy, not rendered yet
