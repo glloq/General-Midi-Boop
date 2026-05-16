@@ -28,6 +28,11 @@
     // 24..47 (those are detected by range).
     const EXTRA_FRETBOARD_GM = new Set([104, 105, 106, 107, 110]);
 
+    // Non-melodic percussion / sound-effects GM programs on a melodic
+    // channel that get the trigger-pad grid (114 Steel Drums keeps its own
+    // dedicated view; 120-127 handled by range).
+    const PERC_PAD_GM = new Set([112, 113, 115, 116, 117, 118, 119]);
+
     /**
      * Pure detection function. Takes the resolved capabilities object
      * (typically built by the backend instrument_capabilities query) plus
@@ -74,9 +79,13 @@
         // its dedicated vertical-string HarpView instead of the fretboard.
         // An explicit instrument_type='string' or a manual stringCfg still
         // forces fretboard below (escape hatch preserved).
+        // GM 46 (Harp) and GM 47 (Timpani) are excluded from the contiguous
+        // 24..47 fretboard range so they reach their dedicated views
+        // (HarpView / MalletView) instead of the fretboard.
         const stringByGm = !isDrum
             && gmProgram !== undefined && gmProgram !== null
-            && (((gmProgram >= 24 && gmProgram <= 47) && gmProgram !== 46)
+            && (((gmProgram >= 24 && gmProgram <= 47)
+                    && gmProgram !== 46 && gmProgram !== 47)
                 || EXTRA_FRETBOARD_GM.has(gmProgram));
 
         const canFretboard = type === 'string' || !!stringCfg || stringByGm;
@@ -112,10 +121,18 @@
         // keep priority). Each maps to its own self-owned view.
         const notSpecialBase = !isDrum && !canFretboard && !isWind;
         const isAccordion = notSpecialBase && (gmProgram === 21 || gmProgram === 23);
-        const isMallet    = notSpecialBase && gmProgram >= 12 && gmProgram <= 15;
+        // Tuned mallet/percussion bars: marimba…dulcimer (12-15) plus
+        // glockenspiel (9), vibraphone (11), timpani (47).
+        const isMallet    = notSpecialBase
+            && ((gmProgram >= 12 && gmProgram <= 15)
+                || gmProgram === 9 || gmProgram === 11 || gmProgram === 47);
         const isKalimba   = notSpecialBase && gmProgram === 108;
         const isBagpipe   = notSpecialBase && gmProgram === 109;
         const isSteelDrum = notSpecialBase && gmProgram === 114;
+        // Trigger-pad grid: struck/one-shot percussion + sound effects.
+        const isPercPad   = notSpecialBase
+            && (PERC_PAD_GM.has(gmProgram)
+                || (gmProgram >= 120 && gmProgram <= 127));
         // Theremin has no GM patch — selected via instrument_type only.
         const isTheremin  = typeof type === 'string' && type.toLowerCase() === 'theremin';
 
@@ -132,6 +149,7 @@
         else if (isKalimba)    viewKind = 'kalimba';
         else if (isBagpipe)    viewKind = 'bagpipe';
         else if (isSteelDrum)  viewKind = 'steel-drum';
+        else if (isPercPad)    viewKind = 'perc-pad';
 
         return {
             viewKind,
@@ -147,6 +165,7 @@
             isKalimba,
             isBagpipe,
             isSteelDrum,
+            isPercPad,
             isTheremin,
             windPreset,
             instrumentType: type,
@@ -160,7 +179,8 @@
         // Exposed for tests / debugging.
         _DRUM_LIKE_TYPES: DRUM_LIKE_TYPES,
         _BOWED_GM: BOWED_GM,
-        _EXTRA_FRETBOARD_GM: EXTRA_FRETBOARD_GM
+        _EXTRA_FRETBOARD_GM: EXTRA_FRETBOARD_GM,
+        _PERC_PAD_GM: PERC_PAD_GM
     });
 
     if (typeof window !== 'undefined') window.InstrumentDetector = InstrumentDetector;

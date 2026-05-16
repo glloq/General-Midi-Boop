@@ -21,7 +21,7 @@ beforeAll(() => {
   for (const v of ['PianoView', 'FretboardView', 'DrumPadView', 'PianoSliderView',
                    'ListView', 'HarmonicaView', 'HarpView', 'AccordionView',
                    'MalletView', 'KalimbaView', 'BagpipeView', 'SteelDrumView',
-                   'ThereminView']) {
+                   'ThereminView', 'PercussionPadView']) {
     load(`../../../public/js/features/keyboard/views/${v}.js`);
   }
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
@@ -51,6 +51,11 @@ describe('Roadmap views — registration & detection', () => {
     ['bagpipe',    win => win.BagpipeView,    { gm_program: 109 }],
     ['steel-drum', win => win.SteelDrumView,  { gm_program: 114 }],
     ['theremin',   win => win.ThereminView,   { instrument_type: 'theremin' }],
+    ['mallet',     win => win.MalletView,     { gm_program: 9 }],
+    ['mallet',     win => win.MalletView,     { gm_program: 11 }],
+    ['mallet',     win => win.MalletView,     { gm_program: 47 }],
+    ['perc-pad',   win => win.PercussionPadView, { gm_program: 112 }],
+    ['perc-pad',   win => win.PercussionPadView, { gm_program: 127 }],
   ];
 
   for (const [kind, cls, caps] of expectations) {
@@ -62,9 +67,11 @@ describe('Roadmap views — registration & detection', () => {
     });
   }
 
-  it('GM 22 stays harmonica (not accordion); 11/16 stay piano (not mallet)', () => {
+  it('GM 22 stays harmonica (not accordion); melodic percussion → mallet; 16 stays piano', () => {
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 22 } }).viewKind).toBe('harmonica');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 11 } }).viewKind).toBe('piano');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 9 } }).viewKind).toBe('mallet');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 11 } }).viewKind).toBe('mallet');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('mallet');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano');
   });
 
@@ -81,6 +88,7 @@ describe.each([
   ['mallet',     'mallet-container',     '.mallet-bar'],
   ['kalimba',    'kalimba-container',    '.kalimba-tine'],
   ['steel-drum', 'steel-drum-container', '.steel-section'],
+  ['perc-pad',   'perc-pad-container',   '.perc-pad'],
 ])('%s — self-owned DOM lifecycle', (kind, containerId, cellSel) => {
   let sink, modal, view;
   beforeEach(() => {
@@ -395,6 +403,7 @@ describe('note colours — 🎨 applies to every instrument view', () => {
     ['KalimbaView', 'kalimba-container', '.kalimba-tine'],
     ['BagpipeView', 'bagpipe-container', '.bagpipe-hole'],
     ['SteelDrumView', 'steel-drum-container', '.steel-section'],
+    ['PercussionPadView', 'perc-pad-container', '.perc-pad'],
   ];
 
   for (const [cls, containerId, sel] of VIEWS) {

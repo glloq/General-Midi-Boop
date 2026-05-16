@@ -1290,7 +1290,8 @@ class KeyboardModal {
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('keyboard-list');
         } else if (['harmonica', 'harp', 'accordion', 'mallet',
-                     'kalimba', 'bagpipe', 'steel-drum', 'theremin']
+                     'kalimba', 'bagpipe', 'steel-drum', 'perc-pad',
+                     'theremin']
             .includes(info.viewKind)) {
             // Dedicated self-owned views. The view owns its DOM host; no
             // built-in container or string config involved. The view-mode
