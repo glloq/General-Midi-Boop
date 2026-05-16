@@ -4186,3 +4186,99 @@ body.dark-mode .keyboard-modal-info .info-text strong {
 .chord-type-btn.bow-active.bow-side-right .strum-sweep-bar {
     animation: bow-wash-up 1.1s linear infinite;
 }
+
+/* ── Kalimba view — wooden body with a resonance hole ──────────────── */
+
+/* Self-owned root appended to .keyboard-canvas-container by KalimbaView.js.
+   Tines hang from a tall top zone (the solid wood / bridge bar) so they
+   sit lower in the window and use more of the available height. */
+.kalimba-view {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    padding: 56px 18px 18px;
+    border-radius: 10px;
+    touch-action: none;
+    box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.45),
+                0 4px 12px rgba(0, 0, 0, 0.3);
+    /* Warm wood: fine grain veining over an amber/brown body gradient. */
+    background:
+        repeating-linear-gradient(90deg,
+            rgba(60, 32, 12, 0.16) 0px,
+            rgba(60, 32, 12, 0.16) 2px,
+            rgba(120, 72, 30, 0.05) 4px,
+            rgba(120, 72, 30, 0.05) 9px),
+        linear-gradient(180deg, #7a4a22 0%, #8a5526 28%, #6f3f1c 100%);
+}
+
+/* Resonance hole: dark disc on the lower-centre of the body, behind the
+   tines (z-index 0 vs. tine z-index 1). Pure CSS, no extra DOM. */
+.kalimba-view::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 14%;
+    width: 120px;
+    height: 120px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 45%,
+        #000 0%, #140a03 55%, #3a2210 85%, rgba(58, 34, 16, 0) 100%);
+    box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.8),
+                0 1px 2px rgba(255, 210, 150, 0.15);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Metallic silver tines. Flexible width so the whole row (including
+   sharps / wide ranges) fits without horizontal overflow. Per-tine
+   height is set inline by JS (longer toward the centre = lower pitch). */
+.kalimba-tine {
+    flex: 0 1 24px;
+    min-width: 9px;
+    max-width: 26px;
+    border: none;
+    border-radius: 3px 3px 10px 10px;
+    cursor: pointer;
+    background: linear-gradient(#9aa3ab, #cfd6dc);
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.kalimba-tine.active {
+    background: linear-gradient(#d9a441, #f3c969) !important;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.kalimba-tine-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font: 10px/1 sans-serif;
+    color: #1a1a1a;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Dark mode: deeper-toned wood, consistent with the dark canvas theme. */
+body.dark-mode .kalimba-view {
+    background:
+        repeating-linear-gradient(90deg,
+            rgba(0, 0, 0, 0.28) 0px,
+            rgba(0, 0, 0, 0.28) 2px,
+            rgba(90, 55, 24, 0.06) 4px,
+            rgba(90, 55, 24, 0.06) 9px),
+        linear-gradient(180deg, #4a2c12 0%, #5a3718 28%, #3c2410 100%);
+}
