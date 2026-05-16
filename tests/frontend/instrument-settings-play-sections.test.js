@@ -156,6 +156,44 @@ describe('ISM — bagpipe drone picker wiring (_wireBagpipeListeners)', () => {
     expect(drones().map(d => d.note).sort((a, b) => a - b))
       .toEqual([...preset.drones].sort((a, b) => a - b));
   });
+
+  it('piano keys show their MIDI number', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
+    L()._wireBagpipeListeners.call(lctx());
+    const k45 = document.querySelector('#bagpipeDronePiano .piano-key[data-note="45"]');
+    expect(k45.textContent).toBe('45');
+    expect(k45.title).toContain('MIDI 45');
+  });
+
+  it('the duplicate button adds an independent copy of the drone', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(
+      ctx({ bagpipe_config: { drones: [45] } })));
+    L()._wireBagpipeListeners.call(lctx());
+    document.querySelector('#bagpipeDroneList .bagpipe-drone-dup[data-idx="0"]')
+      .dispatchEvent(new Event('click', { bubbles: true }));
+    expect(drones()).toEqual([
+      { note: 45, enabled: true }, { note: 45, enabled: true }]);
+    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length)
+      .toBe(2);
+    // toggling the 2nd copy off (by index) leaves the 1st untouched
+    const cb1 = document.querySelector(
+      '#bagpipeDroneList .bagpipe-drone-enabled[data-idx="1"]');
+    cb1.checked = false;
+    cb1.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(drones()).toEqual([
+      { note: 45, enabled: true }, { note: 45, enabled: false }]);
+  });
+
+  it('removing a duplicated drone by index removes only that row', () => {
+    mountSection('bagpipe', S()._renderBagpipeSection.call(
+      ctx({ bagpipe_config: { drones: [33, 45, 45] } })));
+    L()._wireBagpipeListeners.call(lctx());
+    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length)
+      .toBe(3);
+    document.querySelector('#bagpipeDroneList .bagpipe-drone-remove[data-idx="1"]')
+      .dispatchEvent(new Event('click', { bubbles: true }));
+    expect(drones().map(d => d.note)).toEqual([33, 45]);
+  });
 });
 
 describe('ISM — accordion section render + collect (no hands)', () => {
