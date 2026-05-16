@@ -998,6 +998,24 @@ class KeyboardModal {
     }
 
     /**
+     * Instrument-specific harmonica settings (optional `caps.harmonica_config`).
+     *   - `type`: 'diatonic' (Richter) | 'chromatic' (solo tuning + slide)
+     *   - `key` : musical key root, one of the 12 pitch classes
+     * Defaults preserve the previous behaviour (diatonic, C). The chromatic
+     * flag lives ONLY here — `keyboard_type` is never set for a harmonica
+     * (that would divert GM22 to the equal-width keyboard-list view).
+     * @returns {{type:'diatonic'|'chromatic', key:string}}
+     */
+    getHarmonicaConfig() {
+        const caps = this.selectedDeviceCapabilities;
+        const c = (caps && caps.harmonica_config) || {};
+        const type = c.type === 'chromatic' ? 'chromatic' : 'diatonic';
+        const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const key = KEYS.includes(c.key) ? c.key : 'C';
+        return { type, key };
+    }
+
+    /**
      * Detect whether the selected instrument should switch to a special view.
      * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
      */
