@@ -55,11 +55,17 @@ describe('InstrumentView — abstract base', () => {
     expect(r).toEqual({ midi: 60, velocity: 80, opts: { foo: 'bar' } });
   });
 
-  it('toolbarGroups returns notation + velocity by default', () => {
+  it('toolbarGroups is no longer part of the view contract', () => {
     const v = new (InstrumentView())();
-    const groups = v.toolbarGroups();
-    expect(groups.has('notation')).toBe(true);
-    expect(groups.has('velocity')).toBe(true);
+    expect(typeof v.toolbarGroups).toBe('undefined');
+  });
+
+  it('_t falls back when no translation is available', () => {
+    const v = new (InstrumentView())();
+    v.mount({ i18n: { t: (k) => k } });   // i18n echoes the key → miss
+    expect(v._t('some.key', 'Fallback')).toBe('Fallback');
+    v.unmount();
+    expect(v._t('some.key', 'Fallback')).toBe('Fallback'); // no ctx → fallback
   });
 });
 

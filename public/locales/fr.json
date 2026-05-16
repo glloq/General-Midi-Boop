@@ -345,6 +345,8 @@
     "harmonicaBlow": "Souffler ↑",
     "harmonicaDraw": "Aspirer ↓",
     "harmonicaSlide": "Glissière",
+    "bagpipeAllDrones": "Tous les bourdons",
+    "thereminHint": "← grave · aigu →   /   ↑ fort · doux ↓",
     "instrument": "Instrument:",
     "octave": "Octave: {offset}",
     "layout": "Layout clavier:",

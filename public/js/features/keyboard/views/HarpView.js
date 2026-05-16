@@ -36,7 +36,8 @@
 
     class HarpView extends InstrumentView {
         static viewKind = 'harp';
-        static emoji = '🎵';
+        static iconUrl = '/assets/instruments/harp.svg';
+        static emoji = '🪕';
         static labelKey = 'keyboard.viewHarp';
 
         mount(ctx) {
@@ -205,11 +206,6 @@
             });
         }
 
-        toolbarGroups() {
-            // Diatonic plucked strings: notation + velocity + the view-mode
-            // toggle (escape back to piano). No octave/minimap/pitch-bend.
-            return new Set(['notation', 'velocity', 'view-mode']);
-        }
     }
 
     if (typeof window !== 'undefined') window.HarpView = HarpView;

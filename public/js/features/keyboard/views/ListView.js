@@ -18,6 +18,7 @@
 
     class ListView extends InstrumentView {
         static viewKind = 'keyboard-list';
+        static iconUrl = null;       // no instrument SVG — emoji fallback
         static emoji = '☰';
         static labelKey = 'keyboard.viewList';
 
@@ -48,18 +49,6 @@
             if (typeof modal.renderKeyboardList === 'function') {
                 modal.renderKeyboardList();
             }
-        }
-
-        toolbarGroups() {
-            // List view exposes its own controls (CC selector + pitch-bend
-            // toggle) plus the standard notation + velocity. Minimap is
-            // visible because list uses the same MIDI range as piano.
-            return new Set([
-                'notation', 'velocity', 'note-color',
-                'list-view', 'list-cc', 'list-pb',
-                'minimap', 'view-mode',
-                'modulation', 'pitch-bend'
-            ]);
         }
     }
 

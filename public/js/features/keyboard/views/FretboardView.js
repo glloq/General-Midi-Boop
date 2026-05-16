@@ -19,6 +19,7 @@
 
     class FretboardView extends InstrumentView {
         static viewKind = 'fretboard';
+        static iconUrl = '/assets/instruments/family_plucked_strings.svg';
         static emoji = '🎸';
         static labelKey = 'keyboard.viewFretboard';
 
@@ -52,16 +53,6 @@
             if (modal && typeof modal.renderFretboard === 'function') {
                 modal.renderFretboard();
             }
-        }
-
-        toolbarGroups() {
-            // Fretboard exposes pitch-bend (slide mode), chord controls,
-            // notation + velocity. No piano-slider, no list-view.
-            return new Set([
-                'notation', 'velocity',
-                'view-mode', 'slide-mode',
-                'modulation', 'pitch-bend'
-            ]);
         }
     }
 

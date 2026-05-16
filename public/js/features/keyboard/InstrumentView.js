@@ -31,7 +31,14 @@
         /** Stable identifier consumed by InstrumentViewRegistry. */
         static viewKind = 'abstract';
 
-        /** Emoji shown on the view-toggle button. Subclasses override. */
+        /**
+         * SVG icon (adapted instrument illustration) shown on the
+         * view-toggle button. Subclasses point this at an asset under
+         * /assets/instruments/. `null` ⇒ no SVG, the emoji is used.
+         */
+        static iconUrl = null;
+
+        /** Emoji fallback used when the SVG asset is missing/404s. */
         static emoji = '❔';
 
         /** i18n key for the view's display name. */
@@ -111,14 +118,119 @@
         afterPlayNote(_midi) { /* no-op */ }
 
         /**
-         * Set of toolbar group ids that this view wants visible. The
-         * controller hides/shows the corresponding `.control-group` elements
-         * declaratively. Defaults cover the basic piano family.
-         * @returns {Set<string>}
+         * Translate `key`, returning `fallback` when no translation exists
+         * (the i18n layer echoes the key back on a miss). Shared by every
+         * view so user-facing strings stay localisable + consistent.
+         * @param {string} key
+         * @param {string} fallback
+         * @returns {string}
          */
-        toolbarGroups() {
-            return new Set(['notation', 'velocity']);
+        _t(key, fallback) {
+            const fn = this.ctx && this.ctx.i18n && this.ctx.i18n.t;
+            const v = fn ? fn(key) : null;
+            return (v && v !== key) ? v : fallback;
         }
+
+        // ── Glissando (shared, piano-like drag) ───────────────────────────────
+        // The piano lets you press a key and slide across the keyboard:
+        // each newly entered key sounds and the previous one is released
+        // (monophonic per gesture), with full hit-testing on every pointer
+        // sample so fast drags never skip a note. This helper brings the
+        // exact same feel to the self-owned discrete views (harmonica,
+        // mallet, kalimba, bagpipe chanter, steel-drum, perc-pad) without
+        // each re-implementing — and getting — drag tracking subtly wrong.
+        //
+        // The view supplies: a root element, a CSS `selector` for its
+        // playable cells, `_pressCell(cell)` to start a cell's note(s) and
+        // `_releaseAll()` to stop everything it is currently sounding.
+        // Resolution mirrors the piano + HarpView: use elementFromPoint
+        // during a real drag (implicit pointer capture keeps e.target on
+        // the original element), fall back to e.target for synthetic events.
+        _initGlide(opts) {
+            const root = opts && opts.root;
+            if (!root) return;
+            this._glideRoot = root;
+            this._glideSelector = opts.selector;
+            this._glideActive = false;
+            this._glideKeyVal = null;
+
+            this._glideDown = (e) => {
+                const cell = this._glideResolve(e);
+                if (!cell) return;
+                if (e.cancelable) e.preventDefault();
+                if (e.pointerId != null && typeof root.setPointerCapture === 'function') {
+                    try { root.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+                }
+                this._glideActive = true;
+                this._glideKeyVal = this._glideKey(cell);
+                this._pressCell(cell);
+            };
+            this._glideMove = (e) => {
+                if (!this._glideActive) return;
+                const cell = this._glideResolve(e);
+                if (!cell) return;
+                const k = this._glideKey(cell);
+                if (k === this._glideKeyVal) return;   // same cell → no transition
+                if (e.cancelable) e.preventDefault();
+                this._releaseAll();                     // piano-like: drop the previous
+                this._glideKeyVal = k;
+                this._pressCell(cell);
+            };
+            this._glideUp = () => {
+                this._glideActive = false;
+                this._glideKeyVal = null;
+                this._releaseAll();
+            };
+            root.addEventListener('pointerdown', this._glideDown);
+            root.addEventListener('pointermove', this._glideMove);
+            document.addEventListener('pointerup', this._glideUp);
+            document.addEventListener('pointercancel', this._glideUp);
+        }
+
+        /** Remove the glissando listeners. Idempotent. */
+        _teardownGlide() {
+            const root = this._glideRoot;
+            if (root && this._glideDown) {
+                root.removeEventListener('pointerdown', this._glideDown);
+                root.removeEventListener('pointermove', this._glideMove);
+            }
+            if (this._glideUp) {
+                document.removeEventListener('pointerup', this._glideUp);
+                document.removeEventListener('pointercancel', this._glideUp);
+            }
+            this._glideRoot = null;
+            this._glideDown = this._glideMove = this._glideUp = null;
+            this._glideActive = false;
+            this._glideKeyVal = null;
+        }
+
+        /**
+         * Resolve the playable cell under the pointer. Prefers a real
+         * hit-test (elementFromPoint) so a fast drag never skips a cell;
+         * falls back to e.target so synthetic events (and clicks) still
+         * work. Returns null when the point is not on a cell of this view.
+         */
+        _glideResolve(e) {
+            const root = this._glideRoot;
+            let el = null;
+            if (typeof document !== 'undefined'
+                && typeof document.elementFromPoint === 'function'
+                && Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
+                el = document.elementFromPoint(e.clientX, e.clientY);
+            }
+            if (!el && e.target) el = e.target;
+            const cell = (el && el.closest)
+                ? el.closest(this._glideSelector) : null;
+            return (cell && root && root.contains(cell)) ? cell : null;
+        }
+
+        /**
+         * Stable transition key for a cell (dedupes "still on the same
+         * cell" moves). Default: the cell element identity. Views with
+         * duplicate data (e.g. the harmonica's blow/draw rows that can
+         * carry the same MIDI note) override this with a unique id.
+         */
+        _glideKey(cell) { return cell; }
     }
 
     if (typeof window !== 'undefined') window.InstrumentView = InstrumentView;

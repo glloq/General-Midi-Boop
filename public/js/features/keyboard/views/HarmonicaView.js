@@ -90,14 +90,9 @@
 
     class HarmonicaView extends InstrumentView {
         static viewKind = 'harmonica';
-        static emoji = '🎵';
+        static iconUrl = '/assets/instruments/harmonica.svg';
+        static emoji = '🎼';
         static labelKey = 'keyboard.viewHarmonica';
-
-        _t(key, fallback) {
-            const fn = this.ctx && this.ctx.i18n && this.ctx.i18n.t;
-            const v = fn ? fn(key) : null;
-            return (v && v !== key) ? v : fallback;
-        }
 
         mount(ctx) {
             super.mount(ctx);
@@ -187,14 +182,13 @@
             this._pressed = new Map();
             this._slide = false;
 
-            // A hole press starts a note; a single global pointerup/cancel
-            // releases every held hole. The slide is an independent
-            // click-to-toggle latch — it is NOT dropped on pointerup.
-            this._onDown = (e) => this._press(e);
-            this._onDocUp = () => this._releaseAll();
-            root.addEventListener('pointerdown', this._onDown);
-            document.addEventListener('pointerup', this._onDocUp);
-            document.addEventListener('pointercancel', this._onDocUp);
+            // Piano-like drag: slide across the holes for a glissando
+            // (slide-aware — each entered hole sounds at base + slide).
+            // The chromatic slide is an independent click-to-toggle latch:
+            // its `.harmonica-slide` button is not a `.harmonica-hole`, so
+            // a pointerdown there never starts a glide and the latch is NOT
+            // dropped on pointerup.
+            this._initGlide({ root, selector: '.harmonica-hole' });
         }
 
         _buildLine(kind, notes, modal) {
@@ -239,11 +233,11 @@
             return row;
         }
 
-        _press(e) {
-            const cell = e.target && e.target.closest
-                ? e.target.closest('.harmonica-hole') : null;
-            if (!cell || !this._root || !this._root.contains(cell)) return;
-            e.preventDefault();
+        _glideKey(cell) {
+            return `${cell.dataset.row}:${cell.dataset.idx}`;
+        }
+
+        _pressCell(cell) {
             const key = `${cell.dataset.row}:${cell.dataset.idx}`;
             if (this._pressed.has(key)) return;
             const base = parseInt(cell.dataset.note, 10);
@@ -314,15 +308,13 @@
             if (this._slideBtn && this._onSlideClick) {
                 this._slideBtn.removeEventListener('click', this._onSlideClick);
             }
+            this._teardownGlide();
             if (this._root) {
-                this._root.removeEventListener('pointerdown', this._onDown);
                 this._root.remove();
                 this._root = null;
             }
             this._slideBtn = null;
             this._slide = false;
-            document.removeEventListener('pointerup', this._onDocUp);
-            document.removeEventListener('pointercancel', this._onDocUp);
             this._pressed = null;
             super.unmount();
         }
@@ -340,10 +332,13 @@
             });
         }
 
-        toolbarGroups() {
-            // Fixed-pitch reed: notation + velocity + the view-mode toggle
-            // (escape hatch back to piano). No octave/minimap/pitch-bend.
-            return new Set(['notation', 'velocity', 'view-mode']);
+        // A note-format / colour toggle rebuilds the view (unmount+mount).
+        // Preserve the chromatic slide latch across the rebuild so toggling
+        // the label format mid-performance doesn't silently release it.
+        rerender() {
+            const wasSlid = !!this._slide;
+            super.rerender();
+            if (wasSlid && this._slideBtn) this._setSlide(true);
         }
     }
 

@@ -30,7 +30,8 @@
 
     class BagpipeView extends InstrumentView {
         static viewKind = 'bagpipe';
-        static emoji = '🎵';
+        static iconUrl = '/assets/instruments/bagpipe.svg';
+        static emoji = '🎐';
         static labelKey = 'keyboard.viewBagpipe';
 
         mount(ctx) {
@@ -153,11 +154,11 @@
 
             this._root = root;
             this._pressed = new Map();
-            this._onDown = (e) => this._press(e);
-            this._onDocUp = () => this._releaseAll();
-            root.addEventListener('pointerdown', this._onDown);
-            document.addEventListener('pointerup', this._onDocUp);
-            document.addEventListener('pointercancel', this._onDocUp);
+            // Piano-like drag on the chanter (the `.bagpipe-hole` selector
+            // means a pointerdown on a drone button never starts a glide;
+            // the drones keep their own click-toggle handler + sustain
+            // independently of the chanter).
+            this._initGlide({ root, selector: '.bagpipe-hole' });
 
             // Drones start silent — only paint the buttons.
             this._syncDroneBtns();
@@ -208,8 +209,9 @@
                 ? this._drones.filter(d => d.on).length : 0;
             if (this._droneMaster) {
                 this._droneMaster.classList.toggle('active', active > 0);
+                const allLbl = this._t('keyboard.bagpipeAllDrones', 'Tous les bourdons');
                 this._droneMaster.textContent =
-                    `${active > 0 ? '🟢' : '⚪'} Tous les bourdons (${active}/${total})`;
+                    `${active > 0 ? '🟢' : '⚪'} ${allLbl} (${active}/${total})`;
             }
             if (this._droneBtns) {
                 this._droneBtns.forEach((b, idx) => {
@@ -220,11 +222,9 @@
             }
         }
 
-        _press(e) {
-            const cell = e.target && e.target.closest
-                ? e.target.closest('.bagpipe-hole') : null;
-            if (!cell || !this._root.contains(cell)) return;
-            if (e.cancelable) e.preventDefault();
+        _glideKey(cell) { return cell.dataset.idx; }
+
+        _pressCell(cell) {
             const key = cell.dataset.idx;
             if (this._pressed.has(key)) return;
             const note = parseInt(cell.dataset.note, 10);
@@ -262,13 +262,11 @@
             this._drones = null;
             this._noteRefs = null;
             this._onDroneClick = null;
+            this._teardownGlide();
             if (this._root) {
-                this._root.removeEventListener('pointerdown', this._onDown);
                 this._root.remove();
                 this._root = null;
             }
-            document.removeEventListener('pointerup', this._onDocUp);
-            document.removeEventListener('pointercancel', this._onDocUp);
             this._pressed = null;
             super.unmount();
         }
@@ -283,7 +281,18 @@
             });
         }
 
-        toolbarGroups() { return new Set(['notation', 'velocity', 'view-mode']); }
+        // A note-format / colour toggle rebuilds the view (unmount+mount),
+        // which would silence every drone. Capture the per-drone on/off
+        // state and restore it after the rebuild so a sustained drone keeps
+        // sounding across a label-format change.
+        rerender() {
+            const wasOn = Array.isArray(this._drones)
+                ? this._drones.map(d => !!d.on) : null;
+            super.rerender();
+            if (wasOn && Array.isArray(this._drones)) {
+                wasOn.forEach((on, idx) => { if (on) this._setDrone(idx, true); });
+            }
+        }
     }
 
     if (typeof window !== 'undefined') window.BagpipeView = BagpipeView;

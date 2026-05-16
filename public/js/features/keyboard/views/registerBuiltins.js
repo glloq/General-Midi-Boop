@@ -78,7 +78,10 @@
         // MUST precede the fretboard range rule below (first match wins;
         // same precedent as the harp GM 46 rule above).
         .addRule(inRange(12, 15), 'mallet')
-        .addRule(isOneOf(new Set([9, 11, 47])), 'mallet')
+        // Celesta (8), Glockenspiel (9), Music Box (10), Vibraphone (11),
+        // Timpani (47). 47 ∈ [24,47] so this MUST precede the fretboard
+        // range rule below (first match wins).
+        .addRule(isOneOf(new Set([8, 9, 10, 11, 47])), 'mallet')
         .addRule(c => c && c.gm_program === 108, 'kalimba')
         .addRule(c => c && c.gm_program === 109, 'bagpipe')
         .addRule(c => c && c.gm_program === 114, 'steel-drum')
@@ -97,7 +100,10 @@
         .addRule(c => c && c.gm_program === 22, 'harmonica')
 
         // Wind: piano + slider for brass/reeds/pipe (GM 56-79)
-        .addRule(inRange(56, 79), 'piano-slider', { wind: true });
+        .addRule(inRange(56, 79), 'piano-slider', { wind: true })
+        // Shanai (GM 111): double-reed aerophone, non-contiguous with the
+        // 56-79 wind range. Disjoint from every rule above so order is free.
+        .addRule(c => c && c.gm_program === 111, 'piano-slider', { wind: true });
 
     // Catch-all is implicit: registry.resolve() falls back to 'piano'.
 })();

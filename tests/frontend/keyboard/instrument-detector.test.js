@@ -147,10 +147,16 @@ describe('InstrumentDetector — mallet / perc-pad detection', () => {
     expect(D().detect({ capabilities: { gm_program: 114 } }).viewKind).toBe('steel-drum');
   });
 
-  it('GM 16 (Drawbar Organ) and GM 8/10 (celesta/music box) stay piano', () => {
-    for (const gm of [8, 10, 16]) {
-      expect(D().detect({ capabilities: { gm_program: gm } }).viewKind).toBe('piano');
+  it('GM 8/10 (celesta/music box) are mallet (chromatic-percussion bars)', () => {
+    for (const gm of [8, 10]) {
+      const r = D().detect({ capabilities: { gm_program: gm } });
+      expect(r.viewKind).toBe('mallet');
+      expect(r.canFretboard).toBe(false);
     }
+  });
+
+  it('GM 16 (Drawbar Organ) stays piano', () => {
+    expect(D().detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano');
   });
 
   it('channel 9 still wins over perc-pad / mallet', () => {
@@ -168,6 +174,24 @@ describe('InstrumentDetector — wind / piano-slider detection', () => {
       expect(r.windPreset).not.toBe(null);
       expect(r.windPreset.name).toBe(`wind-${gm}`);
     }
+  });
+
+  it('detects Shanai (GM 111) as piano-slider when windDb knows it', () => {
+    const windDb111 = {
+      isWindInstrument(p) { return (p >= 56 && p <= 79) || p === 111; },
+      getPresetByProgram(p) { return { name: `wind-${p}` }; }
+    };
+    const r = D().detect({ capabilities: { gm_program: 111 }, windDb: windDb111 });
+    expect(r.viewKind).toBe('piano-slider');
+    expect(r.isWind).toBe(true);
+    expect(r.windPreset).not.toBe(null);
+    expect(r.windPreset.name).toBe('wind-111');
+  });
+
+  it('Shanai (GM 111) falls back to piano when windDb does not know it', () => {
+    const r = D().detect({ capabilities: { gm_program: 111 }, windDb });
+    expect(r.viewKind).toBe('piano');
+    expect(r.isWind).toBe(false);
   });
 
   it('returns piano (not piano-slider) when windDb is missing', () => {

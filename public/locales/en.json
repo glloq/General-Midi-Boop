@@ -345,6 +345,8 @@
     "harmonicaBlow": "Blow ↑",
     "harmonicaDraw": "Draw ↓",
     "harmonicaSlide": "Slide",
+    "bagpipeAllDrones": "All drones",
+    "thereminHint": "← low · high →   /   ↑ loud · soft ↓",
     "instrument": "Instrument:",
     "octave": "Octave: {offset}",
     "layout": "Keyboard layout:",

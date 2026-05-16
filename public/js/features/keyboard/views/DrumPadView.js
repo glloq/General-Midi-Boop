@@ -16,6 +16,7 @@
 
     class DrumPadView extends InstrumentView {
         static viewKind = 'drumpad';
+        static iconUrl = '/assets/instruments/family_drum_kits.svg';
         static emoji = '🥁';
         static labelKey = 'keyboard.viewDrumPad';
 
@@ -39,13 +40,6 @@
             if (modal && typeof modal.renderDrumPad === 'function') {
                 modal.renderDrumPad();
             }
-        }
-
-        toolbarGroups() {
-            // Drums: velocity + view-mode toggle (back to piano family).
-            // No notation toggle (drum names instead of solfège), no list
-            // view, no pitch bend, no modulation.
-            return new Set(['velocity', 'view-mode']);
         }
     }
 

@@ -54,7 +54,9 @@ describe('Roadmap views — registration & detection', () => {
     ['bagpipe',    win => win.BagpipeView,    { gm_program: 109 }],
     ['steel-drum', win => win.SteelDrumView,  { gm_program: 114 }],
     ['theremin',   win => win.ThereminView,   { instrument_type: 'theremin' }],
+    ['mallet',     win => win.MalletView,     { gm_program: 8 }],
     ['mallet',     win => win.MalletView,     { gm_program: 9 }],
+    ['mallet',     win => win.MalletView,     { gm_program: 10 }],
     ['mallet',     win => win.MalletView,     { gm_program: 11 }],
     ['mallet',     win => win.MalletView,     { gm_program: 47 }],
     ['perc-pad',   win => win.PercussionPadView, { gm_program: 112 }],
@@ -76,6 +78,19 @@ describe('Roadmap views — registration & detection', () => {
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 11 } }).viewKind).toBe('mallet');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('mallet');
     expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano');
+  });
+
+  it('GM 111 (Shanai) → piano-slider (reed, non-contiguous with 56-79)', () => {
+    const windDb = {
+      isWindInstrument: (p) => (p >= 56 && p <= 79) || p === 111,
+      getPresetByProgram: (p) => ({ name: `wind-${p}` })
+    };
+    expect(win.instrumentViews.get('piano-slider')).toBe(win.PianoSliderView);
+    expect(win.InstrumentDetector.detect({
+      capabilities: { gm_program: 111 }, windDb
+    }).viewKind).toBe('piano-slider');
+    expect(win.instrumentViews.resolve({ gm_program: 111 }).viewKind).toBe('piano-slider');
+    expect(win.instrumentViews.resolve({ gm_program: 111 }).options.wind).toBe(true);
   });
 
   it('theremin type wins even with a GM patch present', () => {
@@ -119,6 +134,30 @@ describe.each([
     document.dispatchEvent(new Event('pointerup'));
     expect(sink.stopped).toContain(note);
     expect(root.querySelectorAll(`${cellSel}.active`).length).toBe(0);
+  });
+
+  it('pointer drag glissando: new cell sounds, previous released (piano-like)', () => {
+    const root = document.getElementById(containerId);
+    const cells = [...root.querySelectorAll(cellSel)];
+    const a = cells[0];
+    const b = cells.find(c => c.dataset.note !== a.dataset.note) || cells[1];
+    const nA = parseInt(a.dataset.note, 10);
+    const nB = parseInt(b.dataset.note, 10);
+    fire(a, 'pointerdown');
+    expect(sink.played).toContain(nA);
+    fire(b, 'pointermove');                  // drag onto the next cell
+    expect(sink.stopped).toContain(nA);      // previous released (monophonic)
+    expect(sink.played).toContain(nB);       // new cell sounded
+    document.dispatchEvent(new Event('pointerup'));
+    expect(sink.stopped).toContain(nB);
+    expect(root.querySelectorAll(`${cellSel}.active`).length).toBe(0); // no stuck
+  });
+
+  it('pointermove without a prior pointerdown is a no-op (hover safe)', () => {
+    const root = document.getElementById(containerId);
+    const cell = root.querySelector(cellSel);
+    fire(cell, 'pointermove');
+    expect(sink.played).toEqual([]);
   });
 
   it('unmount() removes the container and is idempotent', () => {
@@ -423,6 +462,45 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     expect(sink.played.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
     document.getElementById('bagpipe-drone-toggle').click();   // all off
     expect(sink.stopped.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
+    v.unmount();
+  });
+
+  it('BagpipeView: rerender() keeps sounding drones on across a rebuild', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({ drones: [45, 33], enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    document.getElementById('bagpipe-drone-toggle').click();   // all on
+    sink.played.length = 0; sink.stopped.length = 0;
+    v.rerender();                                              // US/FR/MIDI toggle
+    expect(v._drones.filter(d => d.on).map(d => d.note).sort())
+      .toEqual([33, 45]);
+    expect(sink.played.filter(n => [33, 45].includes(n)).sort())
+      .toEqual([33, 45]);                                      // restarted
+    v.unmount();
+  });
+
+  it('BagpipeView: chanter supports piano-like glissando; drones unaffected', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({
+      drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    const holes = [...document.querySelectorAll('.bagpipe-hole')];
+    const nA = parseInt(holes[0].dataset.note, 10);
+    const nB = parseInt(holes[1].dataset.note, 10);
+    fire(holes[0], 'pointerdown');
+    expect(sink.played).toContain(nA);
+    fire(holes[1], 'pointermove');             // glide along the chanter
+    expect(sink.stopped).toContain(nA);
+    expect(sink.played).toContain(nB);
+    document.dispatchEvent(new Event('pointerup'));
+    expect(sink.stopped).toContain(nB);
+    expect(sink.played).not.toContain(45);     // drone never auto-sounds
     v.unmount();
   });
 
@@ -764,5 +842,39 @@ describe('theremin — 2-D pitch/volume pad', () => {
     expect(sink.stopped).toEqual([66]);
     view.unmount();
     expect(document.getElementById('theremin-container')).toBeNull();
+  });
+});
+
+describe('PianoSliderView — wind controls wiring (Shanai GM 111)', () => {
+  it('mount forwards the wind preset to modal._showWindControls', () => {
+    const calls = { slider: 0, wind: [] };
+    const modal = {
+      generatePianoSlider: () => { calls.slider++; },
+      _showWindControls: (p) => { calls.wind.push(p); },
+      _hideWindControls: () => {},
+      currentArticulation: 'normal'
+    };
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal, options: { windPreset: {
+      name: 'Shanai', gmProgram: 111, category: 'reed' } } });
+    expect(calls.slider).toBe(1);
+    expect(calls.wind).toHaveLength(1);
+    expect(calls.wind[0].name).toBe('Shanai');
+    expect(calls.wind[0].gmProgram).toBe(111);
+    v.unmount();
+  });
+
+  it('no wind preset → _showWindControls is not called', () => {
+    const calls = { wind: 0 };
+    const modal = {
+      generatePianoSlider: () => {},
+      _showWindControls: () => { calls.wind++; },
+      _hideWindControls: () => {},
+      currentArticulation: 'normal'
+    };
+    const v = new (win.PianoSliderView)();
+    v.mount({ modal, options: {} });
+    expect(calls.wind).toBe(0);
+    v.unmount();
   });
 });

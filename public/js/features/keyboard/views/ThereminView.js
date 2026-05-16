@@ -17,7 +17,8 @@
 
     class ThereminView extends InstrumentView {
         static viewKind = 'theremin';
-        static emoji = '🎵';
+        static iconUrl = null;       // no instrument SVG — emoji fallback
+        static emoji = '📡';
         static labelKey = 'keyboard.viewTheremin';
 
         mount(ctx) {
@@ -38,7 +39,8 @@
                 + 'overflow:hidden;';
             const hint = document.createElement('div');
             hint.className = 'theremin-hint';
-            hint.textContent = '← grave · aigu →   /   ↑ fort · doux ↓';
+            hint.textContent = this._t('keyboard.thereminHint',
+                '← grave · aigu →   /   ↑ fort · doux ↓');
             hint.style.cssText =
                 'position:absolute;top:6px;left:0;right:0;text-align:center;'
                 + 'color:#9fb3c8;font:11px sans-serif;pointer-events:none;';
@@ -144,7 +146,6 @@
             super.unmount();
         }
 
-        toolbarGroups() { return new Set(['velocity', 'view-mode']); }
     }
 
     if (typeof window !== 'undefined') window.ThereminView = ThereminView;

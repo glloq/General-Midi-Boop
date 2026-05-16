@@ -495,15 +495,12 @@ class KeyboardModal {
      * extraction of the formulas previously inlined in setViewMode —
      * behaviour is intentionally IDENTICAL (zero-regression).
      *
-     * NOTE: this is deliberately driven by `this.viewMode`, not by
-     * `_activeView.toolbarGroups()`: the views' declared sets are not
-     * behaviour-faithful (e.g. PianoSliderView lacks 'octave-bar'/
-     * 'minimap', FretboardView lacks 'note-color'), so honouring them
-     * here would change behaviour — out of scope for PE-2. Caps-aware
-     * groups (velocity/mod/pitch/slide/piano-slider/list-cc/list-pb/
-     * wind) stay owned by updateSlidersVisibility / _updateListViewControls
-     * / _updateSlideModeGroupVisibility / _updatePianoSliderGroupVisibility.
-     * The view-mode group is owned by _selectInstrumentOption (F2).
+     * Mode-only group visibility is driven solely by `this.viewMode`.
+     * Caps-aware groups (velocity/mod/pitch/slide/piano-slider/list-cc/
+     * list-pb/wind) stay owned by updateSlidersVisibility /
+     * _updateListViewControls / _updateSlideModeGroupVisibility /
+     * _updatePianoSliderGroupVisibility. The view-mode group is owned by
+     * _selectInstrumentOption (F2).
      */
     _applyToolbarGroups() {
         const vm = this.viewMode;

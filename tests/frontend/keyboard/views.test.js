@@ -104,6 +104,17 @@ describe('Built-in views — resolution from raw caps', () => {
     expect(r.options.wind).toBe(true);
   });
 
+  it('GM 111 (Shanai) → PianoSliderView with wind option', () => {
+    const r = registry().resolve({ gm_program: 111 });
+    expect(r.ViewClass).toBe(win.PianoSliderView);
+    expect(r.options.wind).toBe(true);
+  });
+
+  it('GM 8/10 (celesta/music box) → MalletView', () => {
+    expect(registry().resolve({ gm_program: 8 }).ViewClass).toBe(win.MalletView);
+    expect(registry().resolve({ gm_program: 10 }).ViewClass).toBe(win.MalletView);
+  });
+
   it('unknown caps → fallback PianoView', () => {
     const r = registry().resolve({});
     expect(r.ViewClass).toBe(win.PianoView);
@@ -114,7 +125,7 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
   // For each test case, the viewKind returned by InstrumentDetector
   // must equal the viewKind returned by the registry.
   const windDb = {
-    isWindInstrument(p) { return p >= 56 && p <= 79; },
+    isWindInstrument(p) { return (p >= 56 && p <= 79) || p === 111; },
     getPresetByProgram(p) { return { name: `wind-${p}` }; }
   };
   const cases = [
@@ -127,6 +138,9 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
     { caps: { gm_program: 104 },              expected: 'fretboard' },
     { caps: { gm_program: 56 },               expected: 'piano-slider', wind: true },
     { caps: { gm_program: 79 },               expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 111 },              expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 8 },                expected: 'mallet' },
+    { caps: { gm_program: 10 },               expected: 'mallet' },
     { caps: { gm_program: 22 },               expected: 'harmonica' },
     { caps: { gm_program: 46 },               expected: 'harp' },
     { caps: { gm_program: 21 },               expected: 'accordion' },
@@ -155,43 +169,58 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
   }
 });
 
-describe('Built-in views — toolbarGroups', () => {
-  it('Piano includes notation + velocity + minimap + octave-bar + view-mode', () => {
-    const g = new (win.PianoView)().toolbarGroups();
-    expect(g.has('notation')).toBe(true);
-    expect(g.has('velocity')).toBe(true);
-    expect(g.has('minimap')).toBe(true);
-    expect(g.has('octave-bar')).toBe(true);
-    expect(g.has('view-mode')).toBe(true);
+describe('Built-in views — toolbarGroups removed', () => {
+  it('no view (nor the base class) declares toolbarGroups anymore', () => {
+    const classes = [
+      win.PianoView, win.FretboardView, win.DrumPadView,
+      win.PianoSliderView, win.ListView, win.HarmonicaView,
+      win.HarpView, win.AccordionView, win.MalletView,
+      win.KalimbaView, win.BagpipeView, win.SteelDrumView,
+      win.ThereminView, win.InstrumentView
+    ];
+    for (const C of classes) {
+      if (typeof C !== 'function') continue;
+      expect(typeof new C().toolbarGroups).toBe('undefined');
+    }
+  });
+});
+
+describe('Built-in views — SVG icon identity (emoji fallback)', () => {
+  // NB: win.* are only populated by beforeAll, so resolve the class
+  // lists lazily inside each test (not at describe-collection time).
+  const specific = () => [
+    win.HarmonicaView, win.HarpView, win.AccordionView, win.MalletView,
+    win.KalimbaView, win.BagpipeView, win.SteelDrumView,
+    win.PianoSliderView, win.FretboardView, win.DrumPadView, win.PianoView
+  ];
+
+  it('every view keeps a non-empty emoji fallback + labelKey', () => {
+    for (const V of [...specific(), win.ListView, win.ThereminView]) {
+      expect(typeof V.emoji).toBe('string');
+      expect(V.emoji.length).toBeGreaterThan(0);
+      expect(typeof V.labelKey).toBe('string');
+      expect(V.labelKey.length).toBeGreaterThan(0);
+    }
   });
 
-  it('DrumPad excludes notation, list-view, modulation, pitch-bend', () => {
-    const g = new (win.DrumPadView)().toolbarGroups();
-    expect(g.has('notation')).toBe(false);
-    expect(g.has('list-view')).toBe(false);
-    expect(g.has('modulation')).toBe(false);
-    expect(g.has('pitch-bend')).toBe(false);
-    expect(g.has('velocity')).toBe(true);
-    expect(g.has('view-mode')).toBe(true);
+  it('views with a drawn instrument point iconUrl at an /assets SVG', () => {
+    for (const V of specific()) {
+      expect(typeof V.iconUrl).toBe('string');
+      expect(V.iconUrl).toMatch(/^\/assets\/instruments\/.+\.svg$/);
+    }
   });
 
-  it('Fretboard exposes slide-mode + pitch-bend, excludes list-view', () => {
-    const g = new (win.FretboardView)().toolbarGroups();
-    expect(g.has('slide-mode')).toBe(true);
-    expect(g.has('pitch-bend')).toBe(true);
-    expect(g.has('list-view')).toBe(false);
+  it('iconless views (list/theremin) expose iconUrl=null → emoji only', () => {
+    expect(win.ListView.iconUrl).toBe(null);
+    expect(win.ThereminView.iconUrl).toBe(null);
   });
 
-  it('PianoSlider exposes wind-panel + piano-slider', () => {
-    const g = new (win.PianoSliderView)().toolbarGroups();
-    expect(g.has('wind-panel')).toBe(true);
-    expect(g.has('piano-slider')).toBe(true);
-  });
-
-  it('ListView exposes list-cc + list-pb', () => {
-    const g = new (win.ListView)().toolbarGroups();
-    expect(g.has('list-cc')).toBe(true);
-    expect(g.has('list-pb')).toBe(true);
+  it('emoji fallbacks are distinct across the specific instrument views', () => {
+    const specificEmojis = [
+      win.HarmonicaView, win.HarpView, win.AccordionView, win.MalletView,
+      win.KalimbaView, win.BagpipeView, win.SteelDrumView, win.ThereminView
+    ].map(V => V.emoji);
+    expect(new Set(specificEmojis).size).toBe(specificEmojis.length);
   });
 });
 
