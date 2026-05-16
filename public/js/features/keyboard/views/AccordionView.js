@@ -67,7 +67,7 @@
             root.className = 'accordion-view';
             root.style.cssText =
                 'display:flex;align-items:stretch;justify-content:center;'
-                + 'height:100%;box-sizing:border-box;padding:12px;'
+                + 'height:100%;box-sizing:border-box;padding:0;'
                 + 'touch-action:none;';
 
             // Right-hand (treble) follows the configured note range.
@@ -94,26 +94,22 @@
             const melody = acfg.right_display === 'keyboard'
                 ? this._pianoRow('accordion-treble', tLo, tHi, modal)
                 : this._buttonBoard('accordion-treble', tLo, tHi, modal, '#2b3a4a');
-            sides.appendChild(this._zone(
-                `Côté droit · ${acfg.right_display === 'keyboard' ? 'Clavier' : 'Boutons'}`,
-                melody));
+            sides.appendChild(this._zone(melody));
 
             // CENTRE — decorative bellows (soufflet), non-interactive.
             sides.appendChild(this._bellowsVisual());
 
             // RIGHT — bass (the accordion's "côté gauche").
-            let bass, bassTitle;
+            let bass;
             if (acfg.bass_system === 'stradella') {
                 bass = this._stradellaGrid('accordion-bass', modal, acfg);
-                bassTitle = 'Côté gauche · Stradella';
             } else {
                 let bLo = clampNote(acfg.bass_range?.min ?? FREE_BASS_LO);
                 let bHi = clampNote(acfg.bass_range?.max ?? FREE_BASS_HI);
                 if (bLo > bHi) { const t = bLo; bLo = bHi; bHi = t; }
                 bass = this._buttonBoard('accordion-bass', bLo, bHi, modal, '#3a2b3a');
-                bassTitle = 'Côté gauche · Basses libres';
             }
-            sides.appendChild(this._zone(bassTitle, bass));
+            sides.appendChild(this._zone(bass));
 
             root.appendChild(sides);
             canvas.appendChild(root);
@@ -128,28 +124,21 @@
             document.addEventListener('pointercancel', this._onDocUp);
         }
 
-        // Titled, bordered panel around one side's controls. The content
-        // area flexes to fill the full available height (no top/bottom gap).
-        _zone(title, contentEl) {
+        // Bordered panel around one side's controls (no caption). The
+        // content fills the full available height (no top/bottom gap).
+        _zone(contentEl) {
             const z = document.createElement('div');
             z.className = 'accordion-zone';
             z.style.cssText =
-                'display:flex;flex-direction:column;gap:6px;padding:10px;'
+                'display:flex;flex-direction:column;padding:6px;'
                 + 'border:1px solid #444;border-radius:8px;background:#1f1f24;'
                 + 'box-sizing:border-box;height:100%;';
-            const h = document.createElement('div');
-            h.className = 'accordion-zone-title';
-            h.textContent = title;
-            h.style.cssText =
-                'flex:0 0 auto;font:11px sans-serif;color:#9fb3c8;'
-                + 'text-align:center;';
             const body = document.createElement('div');
             body.className = 'accordion-zone-body';
             body.style.cssText =
                 'flex:1 1 auto;min-height:0;display:flex;align-items:stretch;'
                 + 'justify-content:center;width:100%;overflow:hidden;';
             body.appendChild(contentEl);
-            z.appendChild(h);
             z.appendChild(body);
             return z;
         }
@@ -172,8 +161,8 @@
 
         // Shared "point" button. `notes` is the full MIDI set the button
         // triggers; `data-note` keeps a representative single note so the
-        // generic lifecycle contract (data-note) still holds. No visible
-        // text — the button scales with the available height (flex:1).
+        // generic lifecycle contract (data-note) still holds. The MIDI note
+        // number is shown small; the button scales to the available height.
         _mkRound(notes, title, bg, modal) {
             const b = document.createElement('button');
             b.type = 'button';
@@ -181,13 +170,18 @@
             b.dataset.note = String(notes[0]);
             b.dataset.notes = notes.join(',');
             b.dataset.key = 'k' + (this._keyId++);
-            b.title = title;                       // tooltip only (not shown)
+            b.title = title;                       // tooltip
+            b.textContent = String(notes[0]);      // small MIDI number
             b.style.cssText =
                 'flex:1 1 0;min-height:0;width:100%;box-sizing:border-box;'
                 + `border-radius:9999px;border:1px solid #333;background:${bg};`
-                + 'cursor:pointer;padding:0;touch-action:none;';
+                + 'cursor:pointer;padding:0;touch-action:none;color:#e8e8e8;'
+                + 'display:flex;align-items:center;justify-content:center;'
+                + 'overflow:hidden;font:8px/1 monospace;';
             if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
-                b.style.background = modal.getNoteColor(notes[0]).bg;
+                const c = modal.getNoteColor(notes[0]);
+                b.style.background = c.bg;
+                b.style.color = c.text;
             }
             return b;
         }
@@ -318,10 +312,12 @@
                 b.dataset.notes = String(n);
                 b.dataset.key = 'k' + (this._keyId++);
                 b.title = label(n);
+                b.textContent = String(n);         // small MIDI number
                 b.style.cssText =
                     'position:absolute;box-sizing:border-box;border:1px solid #222;'
-                    + 'cursor:pointer;font:9px sans-serif;display:flex;'
-                    + 'align-items:center;justify-content:flex-end;padding-right:4px;'
+                    + 'cursor:pointer;font:8px/1 monospace;display:flex;'
+                    + 'align-items:flex-end;justify-content:center;padding-bottom:3px;'
+                    + 'overflow:hidden;'
                     + `top:${topPct}%;height:${hPct}%;${css}`
                     + (black ? 'background:#1a1a1a;color:#eee;z-index:2;'
                              : 'background:#f4f4f4;color:#222;z-index:1;');

@@ -384,11 +384,9 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     v.mount({ modal: m });
     expect(document.querySelector('.accordion-bass')).not.toBeNull();
     expect(document.querySelector('.accordion-treble')).not.toBeNull();
-    const titles = [...document.querySelectorAll('.accordion-zone-title')]
-      .map(t => t.textContent);
-    expect(titles.length).toBe(2);
-    expect(titles.some(t => t.includes('Côté gauche'))).toBe(true);
-    expect(titles.some(t => t.includes('Côté droit'))).toBe(true);
+    // two bordered side panels, no caption text
+    expect(document.querySelectorAll('.accordion-zone').length).toBe(2);
+    expect(document.querySelector('.accordion-zone-title')).toBeNull();
     v.unmount();
   });
 
