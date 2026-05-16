@@ -1255,7 +1255,8 @@ body.dark-mode .shortcuts-overlay {
     border-top: none;
     border-radius: 0 0 8px 8px;
     min-width: 320px;
-    max-height: 380px;
+    max-width: calc(100vw - 12px);
+    max-height: min(72vh, 560px);
     overflow-y: auto;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
@@ -4061,7 +4062,7 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     border-radius: 8px 8px 0 0 !important;
     border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
     border-bottom: none !important;
-    max-height: 260px !important;
+    max-height: 260px;
 }
 
 /* Remove fixed min-heights so the keyboard body fits in a compact panel */
