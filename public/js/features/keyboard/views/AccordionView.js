@@ -189,13 +189,16 @@
             return b;
         }
 
-        // Chromatic button board: vertical columns of 3 buttons that scale
-        // to the full height (no scrollbar). Every other column is offset
-        // half a slot so the buttons are NOT in a straight line (staggered,
-        // like a real accordion). Used for the treble in 'buttons' mode and
-        // for the free-bass side.
+        // Chromatic button board, oriented IDENTICALLY to the Stradella
+        // bass side (user spec): tall vertical columns of small round
+        // buttons running top→bottom, successive columns to the side,
+        // every other column staggered half a slot. Same per-column count
+        // (STRADELLA_DEFAULT_COLS), width and stagger as _stradellaGrid so
+        // the treble button field reads the same as the bass field — i.e.
+        // the previous wide 3-per-column layout rotated 90°. Used for the
+        // treble in 'buttons' mode and for the free-bass side.
         _buttonBoard(cls, lo, hi, modal, bg) {
-            const PER_COL = 3;
+            const PER_COL = STRADELLA_DEFAULT_COLS;   // match the bass side
             const STAGGER = 16;
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-board`;
@@ -213,7 +216,7 @@
                     : `padding-bottom:${STAGGER}px;`;
                 col.style.cssText =
                     'display:flex;flex-direction:column;gap:6px;'
-                    + 'align-items:center;height:100%;width:44px;'
+                    + 'align-items:center;height:100%;width:42px;'
                     + 'box-sizing:border-box;' + pad;
                 for (let r = 0; r < PER_COL; r++) {
                     const n = lo + c * PER_COL + r;
