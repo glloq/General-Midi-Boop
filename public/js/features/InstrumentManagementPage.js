@@ -842,7 +842,11 @@ class InstrumentManagementPage {
    */
   handleSearch(query) {
     this.searchQuery = query;
-    this.renderInstruments();
+    // Debounce: renderInstruments() rebuilds the entire list (and re-binds
+    // its row listeners). Running that on every keystroke is wasteful on
+    // large instrument sets — coalesce to one render after typing settles.
+    clearTimeout(this._searchDebounce);
+    this._searchDebounce = setTimeout(() => this.renderInstruments(), 200);
   }
 
   /**
@@ -1207,6 +1211,7 @@ class InstrumentManagementPage {
    * Close the page
    */
   close() {
+    clearTimeout(this._searchDebounce);
     if (this.modal) {
       this.modal.remove();
       this.modal = null;

@@ -433,6 +433,15 @@ class InstrumentSettingsModal extends BaseModal {
             this._neckDiagram = null;
         }
         this._previewAllNotesOff();
+        if (typeof this._micTestCleanup === 'function') {
+            try { this._micTestCleanup(); } catch (_) { /* best-effort teardown */ }
+            this._micTestCleanup = null;
+        }
+        if (this.dialog && this._dirtyHandler) {
+            this.dialog.removeEventListener('input', this._dirtyHandler, true);
+            this.dialog.removeEventListener('change', this._dirtyHandler, true);
+            this.dialog.removeEventListener('click', this._dirtyHandler, true);
+        }
         this._isDirty = false;
         this._forceClose = false;
         this._dirtyTrackerInstalled = false;
