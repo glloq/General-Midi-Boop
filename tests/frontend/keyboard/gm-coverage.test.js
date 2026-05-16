@@ -22,8 +22,8 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/InstrumentViewRegistry.js');
   for (const v of ['PianoView', 'FretboardView', 'DrumPadView', 'PianoSliderView',
                    'ListView', 'HarmonicaView', 'HarpView', 'AccordionView',
-                   'MalletView', 'KalimbaView', 'BagpipeView', 'SteelDrumView',
-                   'ThereminView', 'PercussionPadView']) {
+                   'MalletView', 'MusicBoxView', 'KalimbaView', 'BagpipeView',
+                   'SteelDrumView', 'ThereminView', 'PercussionPadView']) {
     load(`../../../public/js/features/keyboard/views/${v}.js`);
   }
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
@@ -58,12 +58,22 @@ describe('GM coverage — every program resolves to a registered view', () => {
   });
 });
 
-describe('GM coverage — the three filled gaps', () => {
-  it('Celesta (8) and Music Box (10) → mallet', () => {
-    expect(detect({ gm_program: 8 })).toBe('mallet');
-    expect(detect({ gm_program: 10 })).toBe('mallet');
-    expect(registry().resolve({ gm_program: 8 }).ViewClass).toBe(win.MalletView);
-    expect(registry().resolve({ gm_program: 10 }).ViewClass).toBe(win.MalletView);
+describe('GM coverage — instrument-specific routing (user spec)', () => {
+  it('Celesta (8) → piano keyboard; Timpani (47) → piano keyboard', () => {
+    expect(detect({ gm_program: 8 })).toBe('piano');
+    expect(detect({ gm_program: 47 })).toBe('piano');
+    expect(registry().resolve({ gm_program: 8 }).ViewClass).toBe(win.PianoView);
+    expect(registry().resolve({ gm_program: 47 }).ViewClass).toBe(win.PianoView);
+  });
+
+  it('Music Box (10) → its own dedicated MusicBoxView', () => {
+    expect(detect({ gm_program: 10 })).toBe('music-box');
+    expect(registry().resolve({ gm_program: 10 }).ViewClass).toBe(win.MusicBoxView);
+  });
+
+  it('Glockenspiel (9) + Vibraphone (11) stay mallet', () => {
+    expect(detect({ gm_program: 9 })).toBe('mallet');
+    expect(detect({ gm_program: 11 })).toBe('mallet');
   });
 
   it('Shanai (111) → piano-slider (wind), not piano', () => {

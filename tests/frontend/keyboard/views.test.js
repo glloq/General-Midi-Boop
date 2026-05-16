@@ -27,6 +27,7 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/views/HarpView.js');
   load('../../../public/js/features/keyboard/views/AccordionView.js');
   load('../../../public/js/features/keyboard/views/MalletView.js');
+  load('../../../public/js/features/keyboard/views/MusicBoxView.js');
   load('../../../public/js/features/keyboard/views/KalimbaView.js');
   load('../../../public/js/features/keyboard/views/BagpipeView.js');
   load('../../../public/js/features/keyboard/views/SteelDrumView.js');
@@ -110,9 +111,13 @@ describe('Built-in views — resolution from raw caps', () => {
     expect(r.options.wind).toBe(true);
   });
 
-  it('GM 8/10 (celesta/music box) → MalletView', () => {
-    expect(registry().resolve({ gm_program: 8 }).ViewClass).toBe(win.MalletView);
-    expect(registry().resolve({ gm_program: 10 }).ViewClass).toBe(win.MalletView);
+  it('GM 8 (Celesta) → PianoView; GM 10 (Music Box) → MusicBoxView', () => {
+    expect(registry().resolve({ gm_program: 8 }).ViewClass).toBe(win.PianoView);
+    expect(registry().resolve({ gm_program: 10 }).ViewClass).toBe(win.MusicBoxView);
+  });
+
+  it('GM 47 (Timpani) → PianoView (not fretboard/mallet)', () => {
+    expect(registry().resolve({ gm_program: 47 }).ViewClass).toBe(win.PianoView);
   });
 
   it('unknown caps → fallback PianoView', () => {
@@ -139,8 +144,10 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
     { caps: { gm_program: 56 },               expected: 'piano-slider', wind: true },
     { caps: { gm_program: 79 },               expected: 'piano-slider', wind: true },
     { caps: { gm_program: 111 },              expected: 'piano-slider', wind: true },
-    { caps: { gm_program: 8 },                expected: 'mallet' },
-    { caps: { gm_program: 10 },               expected: 'mallet' },
+    { caps: { gm_program: 8 },                expected: 'piano' },
+    { caps: { gm_program: 10 },               expected: 'music-box' },
+    { caps: { gm_program: 47 },               expected: 'piano' },
+    { caps: { gm_program: 12 },               expected: 'mallet' },
     { caps: { gm_program: 22 },               expected: 'harmonica' },
     { caps: { gm_program: 46 },               expected: 'harp' },
     { caps: { gm_program: 21 },               expected: 'accordion' },
@@ -190,7 +197,7 @@ describe('Built-in views — SVG icon identity (emoji fallback)', () => {
   // lists lazily inside each test (not at describe-collection time).
   const specific = () => [
     win.HarmonicaView, win.HarpView, win.AccordionView, win.MalletView,
-    win.KalimbaView, win.BagpipeView, win.SteelDrumView,
+    win.MusicBoxView, win.KalimbaView, win.BagpipeView, win.SteelDrumView,
     win.PianoSliderView, win.FretboardView, win.DrumPadView, win.PianoView
   ];
 
@@ -218,7 +225,8 @@ describe('Built-in views — SVG icon identity (emoji fallback)', () => {
   it('emoji fallbacks are distinct across the specific instrument views', () => {
     const specificEmojis = [
       win.HarmonicaView, win.HarpView, win.AccordionView, win.MalletView,
-      win.KalimbaView, win.BagpipeView, win.SteelDrumView, win.ThereminView
+      win.MusicBoxView, win.KalimbaView, win.BagpipeView,
+      win.SteelDrumView, win.ThereminView
     ].map(V => V.emoji);
     expect(new Set(specificEmojis).size).toBe(specificEmojis.length);
   });
