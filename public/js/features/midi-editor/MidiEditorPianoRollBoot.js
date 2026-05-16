@@ -350,11 +350,18 @@
 
             // Pre-warm the synth + soundbank in the background (audit P1.1) so
             // the first note feedback is instant. Fire-and-forget, off the
-            // critical open path; requestIdleCallback with a setTimeout shim.
-            const scheduleIdle = (typeof window !== 'undefined' && window.requestIdleCallback)
-                ? window.requestIdleCallback
-                : ((cb) => setTimeout(cb, 0));
-            scheduleIdle(() => { m._playback?.warmUpSynth?.(); });
+            // critical open path. The handle + canceller are stored on the
+            // modal so the lifecycle close can abort a still-pending warm-up
+            // (otherwise it would re-create an AudioContext for a modal that
+            // is already torn down). `requestIdleCallback` is bound — calling
+            // it detached from `window` throws "Illegal invocation".
+            const hasRIC = (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function');
+            const scheduleIdle = hasRIC ? window.requestIdleCallback.bind(window) : ((cb) => setTimeout(cb, 0));
+            m._warmupIdleCancel = hasRIC ? window.cancelIdleCallback.bind(window) : clearTimeout;
+            m._warmupIdleHandle = scheduleIdle(() => {
+                m._warmupIdleHandle = null;
+                m._playback?.warmUpSynth?.();
+            });
         }
     }
 

@@ -103,9 +103,14 @@
      * that requires a user gesture and stays in _prepareForFeedback.
      */
     warmUpSynth() {
+        const m = this.modal;
+        // The modal was torn down before this idle callback ran — `container`
+        // is nulled by MidiEditorLifecycle on close and only ever set (by
+        // routingOps.render) before initPianoRoll schedules this. Skip so we
+        // don't resurrect an AudioContext for a closed editor.
+        if (!m.container) return Promise.resolve();
         if (this._warmupPromise) return this._warmupPromise;
         if (this._feedbackInstrumentsLoaded) return Promise.resolve();
-        const m = this.modal;
         this._warmupPromise = (async () => {
             try {
                 if (!m.synthesizer) await this.initSynthesizer();
