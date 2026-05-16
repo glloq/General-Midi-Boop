@@ -272,7 +272,7 @@ describe('configured note range (QA) — views follow instrument settings', () =
     v.unmount();
   });
 
-  it('BagpipeView: chanter follows the range, drone unchanged', () => {
+  it('BagpipeView: chanter follows the range, drones silent on mount', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
@@ -283,7 +283,7 @@ describe('configured note range (QA) — views follow instrument settings', () =
       .map(h => parseInt(h.dataset.note, 10));
     expect(ch[0]).toBe(55);
     expect(Math.max(...ch)).toBeLessThanOrEqual(60);
-    expect(sink.played).toContain(45);               // A2 drone still on mount
+    expect(sink.played).not.toContain(45);           // no auto-start
     v.unmount();
   });
 });
@@ -371,24 +371,26 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     v.unmount();
   });
 
-  it('BagpipeView: plays every configured drone on mount; toggle all', () => {
+  it('BagpipeView: silent on mount; master button toggles every drone', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({ drones: [45, 33, 57], enabled: true });
     const v = new (win.BagpipeView)();
     v.mount({ modal: m });
+    expect(sink.played.filter(n => [45, 33, 57].includes(n))).toEqual([]);  // no auto-start
+    document.getElementById('bagpipe-drone-toggle').click();   // all on
     expect(sink.played.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
-    document.getElementById('bagpipe-drone-toggle').click();   // off
+    document.getElementById('bagpipe-drone-toggle').click();   // all off
     expect(sink.stopped.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
     v.unmount();
   });
 
-  it('BagpipeView: drones disabled in settings → silent on mount', () => {
+  it('BagpipeView: drones never auto-start, even when enabled in settings', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
-    m.getBagpipeConfig = () => ({ drones: [45], enabled: false });
+    m.getBagpipeConfig = () => ({ drones: [45], enabled: true });
     const v = new (win.BagpipeView)();
     v.mount({ modal: m });
     expect(sink.played).not.toContain(45);
@@ -412,6 +414,25 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     v.unmount();
   });
 
+  it('BagpipeView: per-drone buttons live inside the master control', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({
+      drones: [33, 45],
+      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: true }],
+      enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    const box = document.querySelector('.bagpipe-drones');
+    const master = document.getElementById('bagpipe-drone-toggle');
+    expect(box.contains(master)).toBe(true);
+    const ones = box.querySelectorAll('.bagpipe-drone-one');
+    expect(ones.length).toBe(2);
+    ones.forEach(o => expect(box.contains(o)).toBe(true));   // nested in master box
+    v.unmount();
+  });
+
   it('BagpipeView: individual toggle affects only its own drone', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const sink = { played: [], stopped: [], cc: [] };
@@ -422,12 +443,14 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
       enabled: true });
     const v = new (win.BagpipeView)();
     v.mount({ modal: m });
-    expect(sink.played.filter(n => [33, 45].includes(n)).sort()).toEqual([33, 45]);
+    expect(sink.played.filter(n => [33, 45].includes(n))).toEqual([]);  // silent on mount
+    const btn0 = document.querySelector('.bagpipe-drone-one[data-idx="0"]');
     const btn1 = document.querySelector('.bagpipe-drone-one[data-idx="1"]');
-    btn1.click();                                  // turn 45 off only
+    btn0.click();                                  // 33 on
+    btn1.click();                                  // 45 on
+    expect(sink.played.filter(n => [33, 45].includes(n)).sort()).toEqual([33, 45]);
+    btn1.click();                                  // 45 off only
     expect(sink.stopped.filter(n => [33, 45].includes(n))).toEqual([45]);
-    btn1.click();                                  // turn 45 back on
-    expect(sink.played.filter(n => n === 45).length).toBe(2);
     v.unmount();
   });
 
@@ -442,16 +465,19 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
       enabled: true });
     const v = new (win.BagpipeView)();
     v.mount({ modal: m });
-    // each note played once even though 45 appears twice (ref count)
-    expect(sink.played.filter(n => n === 45).length).toBe(1);
-    document.querySelector('.bagpipe-drone-one[data-idx="1"]').click();   // one 45 off
-    expect(sink.stopped.filter(n => n === 45).length).toBe(0);            // still sounding
-    document.querySelector('.bagpipe-drone-one[data-idx="2"]').click();   // last 45 off
+    const b1 = document.querySelector('.bagpipe-drone-one[data-idx="1"]');
+    const b2 = document.querySelector('.bagpipe-drone-one[data-idx="2"]');
+    b1.click();                                              // first 45 on
+    b2.click();                                              // second 45 on
+    expect(sink.played.filter(n => n === 45).length).toBe(1); // played once (ref count)
+    b1.click();                                              // one 45 off
+    expect(sink.stopped.filter(n => n === 45).length).toBe(0); // still sounding
+    b2.click();                                              // last 45 off
     expect(sink.stopped.filter(n => n === 45).length).toBe(1);
     v.unmount();
   });
 
-  it('BagpipeView: drone disabled in settings → off but still toggleable', () => {
+  it('BagpipeView: every configured drone gets a button regardless of settings flag', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
@@ -461,10 +487,9 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
       enabled: true });
     const v = new (win.BagpipeView)();
     v.mount({ modal: m });
-    expect(sink.played).toContain(33);
-    expect(sink.played).not.toContain(45);
+    expect(sink.played.filter(n => [33, 45].includes(n))).toEqual([]);   // nothing auto-starts
     expect(document.querySelectorAll('.bagpipe-drone-one').length).toBe(2);
-    document.querySelector('.bagpipe-drone-one[data-idx="1"]').click();   // enable 45
+    document.querySelector('.bagpipe-drone-one[data-idx="1"]').click();  // enable 45
     expect(sink.played).toContain(45);
     v.unmount();
   });
@@ -638,12 +663,12 @@ describe('bagpipe — drone lifecycle', () => {
   });
   afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
 
-  it('drone sounds on mount and the toggle stops/starts it', () => {
-    expect(sink.played).toContain(45);                 // drone A2 on mount
+  it('drone is silent on mount and the toggle starts/stops it', () => {
+    expect(sink.played).not.toContain(45);             // no auto-start
+    document.getElementById('bagpipe-drone-toggle').click();
+    expect(sink.played).toContain(45);                 // toggled on
     document.getElementById('bagpipe-drone-toggle').click();
     expect(sink.stopped).toContain(45);                // toggled off
-    document.getElementById('bagpipe-drone-toggle').click();
-    expect(sink.played.filter(n => n === 45).length).toBe(2); // back on
   });
 
   it('chanter holes play independently of the drone', () => {
@@ -655,7 +680,9 @@ describe('bagpipe — drone lifecycle', () => {
     expect(sink.stopped).toContain(note);
   });
 
-  it('unmount() stops the drone and removes the container', () => {
+  it('unmount() stops a running drone and removes the container', () => {
+    document.getElementById('bagpipe-drone-toggle').click();   // start it
+    expect(sink.played).toContain(45);
     view.unmount();
     expect(sink.stopped).toContain(45);
     expect(document.getElementById('bagpipe-container')).toBeNull();

@@ -49,11 +49,12 @@
                 + 'align-items:center;justify-content:center;height:100%;'
                 + 'touch-action:none;';
 
-            // Instrument-specific drone settings (QA #3): drone notes +
-            // default on/off from the per-instrument capabilities. Each
-            // configured drone is an independent instance (duplicates like
-            // the Great Highland's two A's are kept) and gets its own
-            // toggle; a master button toggles them all at once.
+            // Instrument-specific drone notes from the per-instrument
+            // capabilities. Each configured drone is an independent
+            // instance (duplicates like the Great Highland's two A's are
+            // kept) and gets its own toggle inside the master control; a
+            // master button toggles them all at once. Drones never sound
+            // automatically — the player turns them on.
             const bcfg = typeof modal.getBagpipeConfig === 'function'
                 ? modal.getBagpipeConfig()
                 : { drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled: true };
@@ -62,57 +63,67 @@
             const droneObjs = Array.isArray(bcfg.droneObjs)
                 ? bcfg.droneObjs
                 : (bcfg.drones || []).map(n => ({ note: n, enabled: true }));
-            // Per-drone runtime state; initial on = enabled in settings AND
-            // the global "drones active at startup" flag.
-            this._drones = droneObjs.map(o => ({
-                note: o.note,
-                on: o.enabled !== false && !!bcfg.enabled,
-            }));
+            // Per-drone runtime state. Drones never sound automatically:
+            // they all start silent and the player enables them.
+            this._drones = droneObjs.map(o => ({ note: o.note, on: false }));
             // Reference count per MIDI note so two drones on the same note
             // don't silence each other when only one is turned off.
             this._noteRefs = new Map();
 
-            const droneRow = document.createElement('div');
-            droneRow.className = 'bagpipe-drones';
-            droneRow.style.cssText =
-                'display:flex;gap:6px;flex-wrap:wrap;justify-content:center;';
+            // The per-drone buttons live *inside* the master "all drones"
+            // control: one bordered card whose header toggles every drone
+            // and whose body holds an individual toggle per drone.
+            const droneBox = document.createElement('div');
+            droneBox.className = 'bagpipe-drones';
+            droneBox.style.cssText =
+                'display:flex;flex-direction:column;gap:8px;align-items:center;'
+                + 'padding:8px 12px;border-radius:18px;border:1px solid #6a6;'
+                + 'background:#1d3a1d;';
 
             const master = document.createElement('button');
             master.type = 'button';
             master.id = 'bagpipe-drone-toggle';
-            master.className = 'bagpipe-drone';
+            master.className = 'bagpipe-drone bagpipe-drone-master';
             master.style.cssText =
-                'padding:6px 14px;border-radius:16px;border:1px solid #555;'
+                'padding:6px 14px;border-radius:16px;border:1px solid #6a6;'
                 + 'background:#234d23;color:#dfe;cursor:pointer;font:12px sans-serif;';
-            droneRow.appendChild(master);
+            droneBox.appendChild(master);
             this._droneMaster = master;
 
+            const list = document.createElement('div');
+            list.className = 'bagpipe-drone-list';
+            list.style.cssText =
+                'display:flex;gap:6px;flex-wrap:wrap;justify-content:center;';
             this._droneBtns = this._drones.map((d, idx) => {
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'bagpipe-drone bagpipe-drone-one';
                 b.dataset.idx = String(idx);
                 b.style.cssText =
-                    'padding:6px 12px;border-radius:16px;border:1px solid #555;'
-                    + 'background:#234d23;color:#dfe;cursor:pointer;font:12px sans-serif;';
+                    'padding:5px 11px;border-radius:14px;border:1px solid #555;'
+                    + 'background:#2c422c;color:#dfe;cursor:pointer;font:11px sans-serif;';
                 b._noteLabel = label(d.note);
-                droneRow.appendChild(b);
+                list.appendChild(b);
                 return b;
             });
+            droneBox.appendChild(list);
 
             this._onDroneClick = (e) => {
-                const t = e.target && e.target.closest
-                    ? e.target.closest('button') : null;
-                if (!t || !droneRow.contains(t)) return;
-                if (t === master) { this._toggleAllDrones(); return; }
-                const idx = parseInt(t.dataset.idx, 10);
-                if (Number.isInteger(idx) && this._drones[idx]) {
-                    this._setDrone(idx, !this._drones[idx].on);
+                const closest = e.target && e.target.closest
+                    ? (s) => e.target.closest(s) : () => null;
+                const one = closest('.bagpipe-drone-one');
+                if (one && droneBox.contains(one)) {
+                    const idx = parseInt(one.dataset.idx, 10);
+                    if (Number.isInteger(idx) && this._drones[idx]) {
+                        this._setDrone(idx, !this._drones[idx].on);
+                    }
+                    return;
                 }
+                if (closest('#bagpipe-drone-toggle')) this._toggleAllDrones();
             };
-            droneRow.addEventListener('click', this._onDroneClick);
-            root.appendChild(droneRow);
-            this._droneRow = droneRow;
+            droneBox.addEventListener('click', this._onDroneClick);
+            root.appendChild(droneBox);
+            this._droneRow = droneBox;
             const chanter = document.createElement('div');
             chanter.className = 'bagpipe-chanter';
             chanter.style.cssText = 'display:flex;gap:6px;';
@@ -148,9 +159,7 @@
             document.addEventListener('pointerup', this._onDocUp);
             document.addEventListener('pointercancel', this._onDocUp);
 
-            // Apply the initial per-drone state (sounds the ones that
-            // should play at startup) and paint the buttons.
-            this._drones.forEach((d) => { if (d.on) this._droneNoteOn(d.note); });
+            // Drones start silent — only paint the buttons.
             this._syncDroneBtns();
         }
 
