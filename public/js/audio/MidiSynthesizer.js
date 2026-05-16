@@ -788,6 +788,15 @@ class MidiSynthesizer {
             // Convert MIDI note → cents for WAF. 6000 = note 60 (middle C).
             if (forcedRootMidi != null) {
                 z.originalPitch = forcedRootMidi * 100;
+                // Drum/percussion zones must play at the sample's recorded
+                // pitch (GM drum kits set scaleTuning = 0). The SF2 converter
+                // forwards per-zone coarseTune/fineTune verbatim; combined
+                // with the forced root these transpose the percussive sample
+                // N semitones and turn the transient into a sustained tonal
+                // ring ("cloche"). Forcing rate 1.0 means zeroing them
+                // outright, not just when null.
+                z.coarseTune = 0;
+                z.fineTune   = 0;
             } else if (z.originalPitch == null && z.midi != null) {
                 z.originalPitch = z.midi * 100;
             }
