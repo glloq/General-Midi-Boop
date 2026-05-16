@@ -1,13 +1,17 @@
 // =============================================================================
 // AccordionView.js — Accordion (GM 21 Accordion / 23 Tango Accordion).
 // =============================================================================
-// Front-facing accordion layout:
-//   • LEFT   = melody/treble — piano keyboard or chromatic button board
-//              (driven by accordion_config.right_display).
+// Front-facing accordion layout. Everything runs VERTICALLY (keys and
+// button rows stacked top→bottom) to mirror a real accordion seen from
+// the front:
+//   • LEFT   = melody/treble — vertical piano keyboard or vertical
+//              chromatic button board (driven by accordion_config.
+//              right_display).
 //   • CENTRE = decorative, non-interactive bellows (soufflet).
-//   • RIGHT  = bass — full 6-row Stradella grid (counter-bass, bass, major,
-//              minor, dominant 7th, diminished 7th; columns = circle of
-//              fifths) OR a chromatic single-note board for free-bass.
+//   • RIGHT  = bass — full Stradella board: 12 circle-of-fifths steps
+//              running vertically × 6 function columns (counter-bass,
+//              bass, major, minor, dominant 7th, diminished 7th) OR a
+//              vertical chromatic single-note board for free-bass.
 // No bellows/volume slider: velocity comes from the toolbar velocity slider.
 //
 // GM 22 (Harmonica) is deliberately NOT routed here — it has its own
@@ -25,13 +29,16 @@
     const clampNote = (n) => Math.max(0, Math.min(127, n | 0));
     const mod12 = (n) => ((n % 12) + 12) % 12;
 
-    // Stradella: 12 columns on the circle of fifths, centred on C.
-    //   pitchClass(col) = (7*(col-5)) mod 12 → Db Ab Eb Bb F C G D A E B F#
-    const STRADELLA_COLS = 12;
-    // Rows top → bottom. 'note' = single MIDI note (low octave from C2);
-    // 'chord' = intervals voiced inside one octave from C3 (MIDI 48). The
-    // dominant 7th and diminished 7th omit the 5th (authentic Stradella).
-    const STRADELLA_ROWS = [
+    // Stradella: 12 circle-of-fifths steps running VERTICALLY (one per
+    // grid row), centred on C — like a real accordion bass board viewed
+    // from the front.  pitchClass(step) = (7*(step-5)) mod 12
+    //   → Db Ab Eb Bb F C G D A E B F#
+    const STRADELLA_STEPS = 12;
+    // The six button functions run HORIZONTALLY (one per grid column).
+    // 'note' = single MIDI note (low octave from C2); 'chord' = intervals
+    // voiced inside one octave from C3 (MIDI 48). The dominant 7th and
+    // diminished 7th omit the 5th (authentic Stradella).
+    const STRADELLA_FUNCS = [
         { label: 'CB', kind: 'note',  base: 36, off: 4 },           // counter-bass
         { label: 'B',  kind: 'note',  base: 36, off: 0 },           // fundamental bass
         { label: 'M',  kind: 'chord', base: 48, iv: [0, 4, 7] },    // major
@@ -172,69 +179,91 @@
             return b;
         }
 
-        // Chromatic round-button board (C-griff style): 3 diagonal rows.
-        // Used for the treble in 'buttons' mode and for the free-bass side.
+        // Vertical chromatic round-button board (C-griff style): 3 columns
+        // running top→bottom. Used for the treble in 'buttons' mode and for
+        // the free-bass side.
         _buttonBoard(cls, lo, hi, modal, bg) {
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-board`;
-            const cols = Math.max(1, Math.ceil((hi - lo + 1) / 3));
+            const rows = Math.max(1, Math.ceil((hi - lo + 1) / 3));
             wrap.style.cssText =
                 'display:grid;gap:5px;align-content:center;justify-content:center;'
-                + `grid-template-rows:repeat(3,1fr);`
-                + `grid-template-columns:repeat(${cols},1fr);`;
+                + 'grid-template-columns:repeat(3,1fr);'
+                + `grid-template-rows:repeat(${rows},1fr);`
+                + 'max-height:72vh;overflow:auto;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
             for (let i = 0, n = lo; n <= hi; n++, i++) {
                 const b = this._mkRound([n], label(n), bg, modal);
-                b.style.gridRow = String((i % 3) + 1);
-                b.style.gridColumn = String(Math.floor(i / 3) + 1);
+                b.style.gridColumn = String((i % 3) + 1);
+                b.style.gridRow = String(Math.floor(i / 3) + 1);
                 wrap.appendChild(b);
             }
             return wrap;
         }
 
-        // Full Stradella bass grid: 6 rows × 12 circle-of-fifths columns.
+        // Full Stradella bass board, oriented like a real accordion seen
+        // from the front: 12 circle-of-fifths steps stacked vertically
+        // (grid rows) × 6 function columns.
         _stradellaGrid(cls, modal) {
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-stradella`;
             wrap.style.cssText =
                 'display:grid;gap:5px;align-content:center;justify-content:center;'
-                + `grid-template-columns:auto repeat(${STRADELLA_COLS},1fr);`
-                + `grid-template-rows:repeat(${STRADELLA_ROWS.length},1fr);`;
+                + `grid-template-rows:auto repeat(${STRADELLA_STEPS},1fr);`
+                + `grid-template-columns:auto repeat(${STRADELLA_FUNCS.length},1fr);`
+                + 'max-height:74vh;overflow:auto;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
-            STRADELLA_ROWS.forEach((rowDef, ri) => {
-                const lab = document.createElement('div');
-                lab.className = 'accordion-stradella-rowlabel';
-                lab.textContent = rowDef.label;
-                lab.style.cssText =
-                    `grid-row:${ri + 1};grid-column:1;display:flex;`
+
+            // Header row: empty corner + one label per function column.
+            const corner = document.createElement('div');
+            corner.style.cssText = 'grid-row:1;grid-column:1;';
+            wrap.appendChild(corner);
+            STRADELLA_FUNCS.forEach((f, fi) => {
+                const h = document.createElement('div');
+                h.className = 'accordion-stradella-collabel';
+                h.textContent = f.label;
+                h.style.cssText =
+                    `grid-row:1;grid-column:${fi + 2};display:flex;`
+                    + 'align-items:center;justify-content:center;'
+                    + 'font:10px sans-serif;color:#9fb3c8;';
+                wrap.appendChild(h);
+            });
+
+            for (let step = 0; step < STRADELLA_STEPS; step++) {
+                const p = mod12(7 * (step - 5));
+                const rl = document.createElement('div');
+                rl.className = 'accordion-stradella-rowlabel';
+                rl.textContent = label(48 + p);
+                rl.style.cssText =
+                    `grid-row:${step + 2};grid-column:1;display:flex;`
                     + 'align-items:center;justify-content:flex-end;'
                     + 'padding-right:6px;font:10px sans-serif;color:#9fb3c8;';
-                wrap.appendChild(lab);
-                for (let col = 0; col < STRADELLA_COLS; col++) {
-                    const p = mod12(7 * (col - 5));
+                wrap.appendChild(rl);
+                STRADELLA_FUNCS.forEach((f, fi) => {
                     let notes, title;
-                    if (rowDef.kind === 'note') {
-                        notes = [clampNote(rowDef.base + mod12(p + rowDef.off))];
+                    if (f.kind === 'note') {
+                        notes = [clampNote(f.base + mod12(p + f.off))];
                         title = label(notes[0]);
                     } else {
-                        notes = rowDef.iv.map(
-                            (iv) => clampNote(rowDef.base + mod12(p + iv)));
-                        title = label(rowDef.base + p) + rowDef.label;
+                        notes = f.iv.map(
+                            (iv) => clampNote(f.base + mod12(p + iv)));
+                        title = label(f.base + p) + f.label;
                     }
                     const b = this._mkRound(notes, title, '#3a2b3a', modal);
-                    b.style.gridRow = String(ri + 1);
-                    b.style.gridColumn = String(col + 2);
+                    b.style.gridRow = String(step + 2);
+                    b.style.gridColumn = String(fi + 2);
                     wrap.appendChild(b);
-                }
-            });
+                });
+            }
             return wrap;
         }
 
-        // Piano-style treble ("option clavier"): white keys in a flex row,
-        // black keys absolutely positioned over the gaps. Keeps the
-        // `.accordion-key` contract so press/release logic is shared.
+        // Vertical piano-style treble ("option clavier"): white keys stacked
+        // top→bottom, black keys absolutely positioned over the boundaries
+        // on the inner edge. Keeps the `.accordion-key` contract so
+        // press/release logic is shared.
         _pianoRow(cls, lo, hi, modal) {
             const BLACK = new Set([1, 3, 6, 8, 10]);
             const label = typeof modal.getNoteLabel === 'function'
@@ -242,14 +271,14 @@
             let whites = 0;
             for (let n = lo; n <= hi; n++) if (!BLACK.has(mod12(n))) whites++;
             whites = Math.max(1, whites);
-            const W = 100 / whites;
+            const H = 100 / whites;
 
-            const row = document.createElement('div');
-            row.className = `accordion-row ${cls} accordion-piano`;
-            row.style.cssText = 'position:relative;width:' + (whites * 26)
-                + 'px;max-width:70vw;height:120px;';
+            const col = document.createElement('div');
+            col.className = `accordion-row ${cls} accordion-piano`;
+            col.style.cssText = 'position:relative;width:90px;'
+                + 'height:' + (whites * 24) + 'px;max-height:74vh;';
             let wIdx = 0;
-            const mk = (n, black, leftPct, wPct, css) => {
+            const mk = (n, black, topPct, hPct, css) => {
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'accordion-key' + (black ? ' accordion-key-black' : '');
@@ -260,8 +289,8 @@
                 b.style.cssText =
                     'position:absolute;box-sizing:border-box;border:1px solid #222;'
                     + 'cursor:pointer;font:9px sans-serif;display:flex;'
-                    + 'align-items:flex-end;justify-content:center;padding-bottom:3px;'
-                    + `left:${leftPct}%;width:${wPct}%;${css}`
+                    + 'align-items:center;justify-content:flex-end;padding-right:4px;'
+                    + `top:${topPct}%;height:${hPct}%;${css}`
                     + (black ? 'background:#1a1a1a;color:#eee;z-index:2;'
                              : 'background:#f4f4f4;color:#222;z-index:1;');
                 if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
@@ -273,14 +302,14 @@
             for (let n = lo; n <= hi; n++) {
                 const black = BLACK.has(mod12(n));
                 if (!black) {
-                    row.appendChild(mk(n, false, wIdx * W, W, 'bottom:0;height:100%;'));
+                    col.appendChild(mk(n, false, wIdx * H, H, 'left:0;width:100%;'));
                     wIdx++;
                 } else {
-                    row.appendChild(mk(n, true, wIdx * W - W * 0.3, W * 0.6,
-                        'top:0;height:62%;'));
+                    col.appendChild(mk(n, true, wIdx * H - H * 0.3, H * 0.6,
+                        'right:0;width:62%;'));
                 }
             }
-            return row;
+            return col;
         }
 
         _press(e) {
