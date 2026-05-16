@@ -252,11 +252,14 @@ describe('configured note range (QA) — views follow instrument settings', () =
     v.unmount();
   });
 
-  it('KalimbaView: tine count follows the range (diatonic)', () => {
+  it('KalimbaView: tine count follows the range (chromatic, incl. sharps)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const v = new (win.KalimbaView)();
-    v.mount({ modal: rangedModal(60, 71) });         // C..B = 7 diatonic
-    expect(document.querySelectorAll('.kalimba-tine').length).toBe(7);
+    v.mount({ modal: rangedModal(60, 71) });         // C..B = 12 chromatic
+    const notes = [...document.querySelectorAll('.kalimba-tine')]
+      .map(t => parseInt(t.dataset.note, 10)).sort((a, b) => a - b);
+    expect(notes.length).toBe(12);
+    expect(notes).toContain(61);                     // C#4 — sharp shown
     v.unmount();
   });
 
@@ -596,7 +599,9 @@ describe('kalimba — top-down orientation + tine labels + notation', () => {
 
   it('is anchored at the top (played from top → bottom)', () => {
     const root = document.getElementById('kalimba-container');
-    expect(root.style.alignItems).toBe('flex-start');
+    // Top-anchored flex layout is now provided by the .kalimba-view
+    // rule in keyboard.css (wooden body + resonance hole live there too).
+    expect(root.classList.contains('kalimba-view')).toBe(true);
   });
 
   it('every tine shows its note label via modal.getNoteLabel', () => {
