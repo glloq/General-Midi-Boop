@@ -41,12 +41,34 @@
             const modal = ctx.modal;
             if (!modal) return;
             this._staccatoTimers = new Map(); // note -> timeout id
+            // Wind controls + comfort-zone centring MUST happen before the
+            // strip is rendered, otherwise generatePianoSlider() builds it
+            // off-centre and _applyWindComfortZone() runs against the wrong
+            // window. _selectInstrumentOption sets this up on selection, but
+            // any other entry path (piano-slider toggle, view toggle,
+            // reopening the modal, setCapabilities) used to render a bare,
+            // un-centred strip with no panel — the wind-display bug.
+            this._syncWind(modal);
             if (typeof modal.generatePianoSlider === 'function') {
                 modal.generatePianoSlider();
             }
-            const windPreset = ctx.options && ctx.options.windPreset;
-            if (windPreset && typeof modal._showWindControls === 'function') {
-                modal._showWindControls(windPreset);
+        }
+
+        // Resolve the active wind preset and show the panel + centre the
+        // slider on its comfort zone. Self-sufficient: it asks the modal
+        // for the live instrument (same source _selectInstrumentOption
+        // uses) instead of relying on ctx.options, which is never
+        // populated in production (_pendingViewOptions stays {}). Falls
+        // back to ctx.options.windPreset for explicit callers/tests.
+        _syncWind(modal) {
+            let preset = this.ctx && this.ctx.options
+                && this.ctx.options.windPreset;
+            if (!preset && typeof modal.getInstrumentViewInfo === 'function') {
+                const info = modal.getInstrumentViewInfo();
+                if (info && info.isWind) preset = info.windPreset || null;
+            }
+            if (preset && typeof modal._showWindControls === 'function') {
+                modal._showWindControls(preset);
             }
         }
 
@@ -72,7 +94,13 @@
 
         setCapabilities(_caps) {
             const modal = this.ctx && this.ctx.modal;
-            if (modal && typeof modal.generatePianoSlider === 'function') {
+            if (!modal) return;
+            // Instrument changed while the slider stayed mounted (same
+            // viewKind fast-path in _activateView): re-resolve the wind
+            // panel + comfort centring, then re-render — same order as
+            // mount() so a wind→wind switch stays centred + highlighted.
+            this._syncWind(modal);
+            if (typeof modal.generatePianoSlider === 'function') {
                 modal.generatePianoSlider();
             }
         }
