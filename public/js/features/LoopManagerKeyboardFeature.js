@@ -82,21 +82,22 @@
                                 }
                             } catch (err) { LoopUtils.handleError(err, 'kbd.synth.setChannelInstrument'); }
                         }
-                        // The keyboard panel's instrument selector is the source of
-                        // truth for the global output device. The header toggle
-                        // then chooses preview-synth vs that device.
+                        // The keyboard panel's instrument selector only updates
+                        // the routed device/channel — it never flips the
+                        // synth/device mode. The header toggle (toggleMode) is
+                        // the single source of truth for the mode, so the
+                        // user's choice persists across instrument changes.
                         if (deviceId) {
+                            // mode is intentionally omitted: setOutput()
+                            // merge-patches, so the current mode is preserved.
                             this.modal._setGlobalOutput({
                                 deviceId,
-                                channel: channel ?? 0,
-                                // Switching to a real instrument flips to device mode
-                                mode: 'device'
+                                channel: channel ?? 0
                             });
-                        } else {
-                            // "Preview" or no device picked → keep deviceId so the
-                            // toggle can flip back later, but force synth mode.
-                            this.modal._setGlobalOutput({ mode: 'synth' });
                         }
+                        // "Preview" / no device picked → leave mode and the
+                        // previously-picked deviceId untouched so the header
+                        // toggle can still route to that device later.
                     }
                 });
                 this.mounted = true;
