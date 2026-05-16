@@ -705,6 +705,8 @@
     "previewThisVoice": "Klikněte pro náhled tohoto hlasu na klávesnici",
     "sectionTimingsPerGm": "Časování podle GM nástroje",
     "timingsPerGmHint": "Každý GM hlas může mít vlastní časová omezení (užitečné, když nástroje mají různé doby odezvy).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Hlavní hlas",
     "primaryVoice": "Hlavní hlas",
     "supportedCcsTitle": "Podporované CC",

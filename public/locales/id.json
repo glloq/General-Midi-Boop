@@ -705,6 +705,8 @@
     "previewThisVoice": "Klik untuk pratinjau suara ini di keyboard",
     "sectionTimingsPerGm": "Pengaturan waktu per instrumen GM",
     "timingsPerGmHint": "Setiap suara GM dapat memiliki batasan waktu sendiri (berguna bila instrumen memiliki waktu respons berbeda).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Suara utama",
     "primaryVoice": "Suara utama",
     "supportedCcsTitle": "CC yang didukung",

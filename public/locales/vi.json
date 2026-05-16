@@ -705,6 +705,8 @@
     "previewThisVoice": "Nhấp để nghe thử giọng này trên bàn phím",
     "sectionTimingsPerGm": "Thời gian theo nhạc cụ GM",
     "timingsPerGmHint": "Mỗi giọng GM có thể có các ràng buộc thời gian riêng (hữu ích khi các nhạc cụ có thời gian phản hồi khác nhau).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Giọng chính",
     "primaryVoice": "Giọng chính",
     "supportedCcsTitle": "CC được hỗ trợ",

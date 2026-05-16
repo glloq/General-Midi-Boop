@@ -705,6 +705,8 @@
     "previewThisVoice": "Κάντε κλικ για προεπισκόπηση αυτής της φωνής στο πληκτρολόγιο",
     "sectionTimingsPerGm": "Χρονισμοί ανά όργανο GM",
     "timingsPerGmHint": "Κάθε φωνή GM μπορεί να έχει δικούς της περιορισμούς χρονισμού (χρήσιμο όταν τα όργανα έχουν διαφορετικούς χρόνους απόκρισης).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Κύρια φωνή",
     "primaryVoice": "Κύρια φωνή",
     "supportedCcsTitle": "Υποστηριζόμενα CC",

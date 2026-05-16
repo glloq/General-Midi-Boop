@@ -705,6 +705,8 @@
     "previewThisVoice": "キーボードでこのボイスをプレビューするにはクリック",
     "sectionTimingsPerGm": "GM楽器ごとのタイミング",
     "timingsPerGmHint": "各GMボイスは独自のタイミング制約を持てます(楽器の応答時間が異なる場合に便利)。",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "メインボイス",
     "primaryVoice": "メインボイス",
     "supportedCcsTitle": "サポートされる CC",

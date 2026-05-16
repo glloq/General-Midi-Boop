@@ -705,6 +705,8 @@
     "previewThisVoice": "Haz clic para previsualizar esta voz en el teclado",
     "sectionTimingsPerGm": "Temporización por instrumento GM",
     "timingsPerGmHint": "Cada voz GM puede tener sus propias restricciones de temporización (útil cuando los instrumentos tienen tiempos de respuesta diferentes).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Voz principal",
     "primaryVoice": "Voz principal",
     "supportedCcsTitle": "CC compatibles",

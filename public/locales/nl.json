@@ -705,6 +705,8 @@
     "previewThisVoice": "Klik om deze stem voor te beluisteren op het klavier",
     "sectionTimingsPerGm": "Timings per GM-instrument",
     "timingsPerGmHint": "Elke GM-stem kan eigen timingbeperkingen hebben (nuttig wanneer instrumenten verschillende responstijden hebben).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Hoofdstem",
     "primaryVoice": "Hoofdstem",
     "supportedCcsTitle": "Ondersteunde CC's",

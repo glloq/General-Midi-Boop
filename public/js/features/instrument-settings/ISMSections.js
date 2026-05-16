@@ -620,7 +620,29 @@
 
         const isDrumChannel = tab.channel === 9;
 
+        // Unified "Preset de l'instrument" block — pinned at the very top so
+        // the user configures notes + polyphony in one click. Empty for drums
+        // (own kit selector) and synths (manual only).
+        const notePresets = window.InstrumentNotePresets
+            ? window.InstrumentNotePresets.getPresets(gmProgram, tab.channel)
+            : [];
+        let notePresetHtml = '';
+        if (notePresets.length > 0) {
+            const opts = ['<option value="">-- Preset --</option>']
+                .concat(notePresets.map(p => `<option value="${this.escape(p.id)}">${this.escape(p.label)}</option>`))
+                .join('');
+            notePresetHtml = `<div class="ism-subsection" id="notePresetSubsection">
+                <h4 class="ism-subsection-title">🎚️ ${this.t('instrumentSettings.notePresetTitle') || 'Preset de l\'instrument'}</h4>
+                <p class="ism-subsection-hint">${this.t('instrumentSettings.notePresetHint') || 'Configure automatiquement la plage de notes jouables et la polyphonie (accords). Tous les réglages restent éditables ensuite.'}</p>
+                <div class="ism-note-preset-toolbar">
+                    <select class="ism-note-preset-select">${opts}</select>
+                    <button type="button" class="btn btn-small ism-note-preset-apply">${this.t('common.apply') || 'Appliquer'}</button>
+                </div>
+            </div>`;
+        }
+
         return `
+            ${notePresetHtml}
             ${shareToggleHtml}
             ${voiceTabsHtml}
 

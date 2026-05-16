@@ -705,6 +705,8 @@
     "previewThisVoice": "키보드에서 이 보이스를 미리 듣기하려면 클릭",
     "sectionTimingsPerGm": "GM 악기별 타이밍",
     "timingsPerGmHint": "각 GM 보이스는 자체 타이밍 제약을 가질 수 있습니다 (악기마다 응답 시간이 다를 때 유용함).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "기본 보이스",
     "primaryVoice": "기본 보이스",
     "supportedCcsTitle": "지원 CC",

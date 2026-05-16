@@ -705,6 +705,8 @@
     "previewThisVoice": "কীবোর্ডে এই কণ্ঠ প্রিভিউ করতে ক্লিক করুন",
     "sectionTimingsPerGm": "GM যন্ত্র অনুসারে সময়সীমা",
     "timingsPerGmHint": "প্রতিটি GM কণ্ঠের নিজস্ব সময় সীমা থাকতে পারে (যখন যন্ত্রগুলির প্রতিক্রিয়া সময় ভিন্ন হয় তখন কার্যকর)।",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "মূল কণ্ঠ",
     "primaryVoice": "মূল কণ্ঠ",
     "supportedCcsTitle": "সমর্থিত CC",

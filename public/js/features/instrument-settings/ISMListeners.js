@@ -436,6 +436,36 @@
         }
     };
 
+    // Unified note/chord preset block (top of the Notes & Capacités tab).
+    // Mirrors the drum preset pattern: write the picked range + polyphony
+    // into the active notes target, then re-render so the piano, hidden
+    // inputs and save path pick up the new values.
+    ISMListeners._wireNotePresetListener = function() {
+        const apply = this.$('.ism-note-preset-apply');
+        if (!apply) return;
+        apply.addEventListener('click', function() {
+            const sel = this.$('.ism-note-preset-select');
+            if (!sel || !sel.value) return;
+            const tab = this._getActiveTab();
+            if (!tab || !window.InstrumentNotePresets) return;
+            const presets = window.InstrumentNotePresets.getPresets(
+                tab.settings.gm_program, tab.channel);
+            const p = presets.find(function(x) { return x.id === sel.value; });
+            if (!p) return;
+            const target = (typeof this._getActiveNotesTarget === 'function')
+                ? this._getActiveNotesTarget() : { obj: tab.settings };
+            const obj = target && target.obj ? target.obj : tab.settings;
+            obj.note_selection_mode = 'range';
+            obj.note_range_min = p.note_range_min;
+            obj.note_range_max = p.note_range_max;
+            obj.octave_mode = p.octave_mode || 'chromatic';
+            obj.selected_notes = null;
+            tab.settings.polyphony = p.polyphony;
+            this._refreshNotesSectionForProgram();
+            if (this.activeSection === 'notes') this._initPianoForActiveTab();
+        }.bind(this));
+    };
+
     ISMListeners._wireChannelGridListeners = function() {
         this.$$('.ism-channel-btn:not([disabled])').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -793,6 +823,7 @@
 
     ISMListeners._attachNotesSectionListeners = function() {
         this._wireNotesModeListeners();
+        this._wireNotePresetListener();
         this._wireDrumListeners();
         this._attachStringsSectionListeners();
         this._wireVoicesListeners();

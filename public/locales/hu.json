@@ -705,6 +705,8 @@
     "previewThisVoice": "Kattintson a hang előnézetéhez a billentyűzeten",
     "sectionTimingsPerGm": "Időzítések GM hangszerenként",
     "timingsPerGmHint": "Minden GM hangnak lehetnek saját időzítési korlátai (hasznos, ha a hangszerek válaszideje eltér).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Fő hang",
     "primaryVoice": "Fő hang",
     "supportedCcsTitle": "Támogatott CC-k",

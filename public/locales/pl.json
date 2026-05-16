@@ -705,6 +705,8 @@
     "previewThisVoice": "Kliknij, aby wyświetlić podgląd tego głosu na klawiaturze",
     "sectionTimingsPerGm": "Czasy według instrumentu GM",
     "timingsPerGmHint": "Każdy głos GM może mieć własne ograniczenia czasowe (przydatne, gdy instrumenty mają różne czasy reakcji).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Główny głos",
     "primaryVoice": "Główny głos",
     "supportedCcsTitle": "Obsługiwane CC",

@@ -705,6 +705,8 @@
     "previewThisVoice": "Klaku por antaŭaŭskulti ĉi tiun voĉon sur la klavaro",
     "sectionTimingsPerGm": "Tempigoj laŭ GM-instrumento",
     "timingsPerGmHint": "Ĉiu GM-voĉo povas havi proprajn tempigajn limigojn (utila kiam instrumentoj havas malsamajn respondtempojn).",
+    "notePresetTitle": "Instrument preset",
+    "notePresetHint": "Automatically configures the playable note range and polyphony (chords). All settings remain editable afterwards.",
     "primaryVoiceBadge": "Ĉefa voĉo",
     "primaryVoice": "Ĉefa voĉo",
     "supportedCcsTitle": "Subtenataj CC",
