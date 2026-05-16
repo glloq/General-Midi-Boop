@@ -15,6 +15,10 @@
 
     const TREBLE_LO = 60, TREBLE_HI = 83;   // C4..B5 chromatic (24 keys)
     const BASS_LO = 36, BASS_HI = 47;       // C2..B2 Stradella roots (12)
+    // Free-bass default span C2..C4 — kept in sync with ISMSections
+    // _ACCORDION_BASS_DEFAULT and KeyboardModal.getAccordionConfig().
+    const FREE_BASS_LO = 36, FREE_BASS_HI = 60;
+    const clampNote = (n) => Math.max(0, Math.min(127, n | 0));
 
     class AccordionView extends InstrumentView {
         static viewKind = 'accordion';
@@ -59,7 +63,8 @@
             // an accordion always has both sides).
             const acfg = typeof modal.getAccordionConfig === 'function'
                 ? modal.getAccordionConfig()
-                : { bass_system: 'stradella', right_display: 'buttons' };
+                : { bass_system: 'stradella', right_display: 'buttons',
+                    bass_range: { min: FREE_BASS_LO, max: FREE_BASS_HI } };
 
             // Two distinct sides, always both present: left side (bass) on
             // the left, right side (melody) on the right.
@@ -69,13 +74,17 @@
                 'display:flex;gap:24px;align-items:flex-start;'
                 + 'justify-content:center;flex:1;width:100%;';
 
-            // Left side — bass, per the configured bass system.
+            // Left side — bass. Stradella is a fixed 12-root strip; free-bass
+            // uses the configured span (decoupled from the treble range, so
+            // it can never produce negative MIDI notes).
             let bass;
             if (acfg.bass_system === 'stradella') {
                 bass = this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a');
             } else {
-                const bHi = (r ? r.min : TREBLE_LO) - 1;
-                bass = this._row('accordion-bass', bHi - 23, bHi, modal, '#3a2b3a');
+                let bLo = clampNote(acfg.bass_range?.min ?? FREE_BASS_LO);
+                let bHi = clampNote(acfg.bass_range?.max ?? FREE_BASS_HI);
+                if (bLo > bHi) { const t = bLo; bLo = bHi; bHi = t; }
+                bass = this._row('accordion-bass', bLo, bHi, modal, '#3a2b3a');
             }
             sides.appendChild(this._zone(
                 `Côté gauche · ${acfg.bass_system === 'stradella' ? 'Stradella' : 'Basses libres'}`,

@@ -75,8 +75,24 @@ export function validateAccordionConfigPayload(cfg) {
       throw new ValidationError(`accordion_config.${f} invalid`, 'accordion_config');
     }
   };
+  // 'chromatic' is still accepted leniently — it is merged into 'free' by
+  // read-time normalization (no data migration), so legacy clients/payloads
+  // must not be rejected here.
   oneOf(cfg.bass_system, ['stradella', 'chromatic', 'free'], 'bass_system');
   oneOf(cfg.right_display, ['buttons', 'keyboard'], 'right_display');
+  if (cfg.bass_range !== undefined) {
+    const br = cfg.bass_range;
+    if (typeof br !== 'object' || br === null || Array.isArray(br)) {
+      throw new ValidationError('accordion_config.bass_range must be an object', 'accordion_config');
+    }
+    const note = (v) => v === undefined || (Number.isInteger(v) && v >= 0 && v <= 127);
+    if (!note(br.min) || !note(br.max)) {
+      throw new ValidationError('accordion_config.bass_range invalid', 'accordion_config');
+    }
+    if (Number.isInteger(br.min) && Number.isInteger(br.max) && br.min > br.max) {
+      throw new ValidationError('accordion_config.bass_range invalid', 'accordion_config');
+    }
+  }
 }
 
 /**

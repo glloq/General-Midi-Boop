@@ -284,19 +284,31 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     expect(m.getBagpipeConfig().drones).toEqual([45]);   // empty → default
   });
 
-  it('getAccordionConfig: defaults + validates caps.accordion_config (no hands)', () => {
+  it('getAccordionConfig: defaults + normalizes caps.accordion_config (no hands)', () => {
     const m = new (win.KeyboardModal)();
     expect(m.getAccordionConfig()).toEqual(
-      { bass_system: 'stradella', right_display: 'buttons' });
+      { bass_system: 'stradella', right_display: 'buttons',
+        bass_range: { min: 36, max: 60 } });
     m.selectedDeviceCapabilities = { accordion_config:
-      { bass_system: 'free', right_display: 'keyboard', hands: 'left' } };
+      { bass_system: 'free', right_display: 'keyboard', hands: 'left',
+        bass_range: { min: 48, max: 55 } } };
     // `hands` is ignored — only per-side play possibilities are kept.
     expect(m.getAccordionConfig()).toEqual(
-      { bass_system: 'free', right_display: 'keyboard' });
+      { bass_system: 'free', right_display: 'keyboard',
+        bass_range: { min: 48, max: 55 } });
+    // legacy 'chromatic' normalized → 'free'
+    m.selectedDeviceCapabilities = { accordion_config: { bass_system: 'chromatic' } };
+    expect(m.getAccordionConfig().bass_system).toBe('free');
+    // malformed range → C2..C4 default; inverted → swapped
+    m.selectedDeviceCapabilities = { accordion_config: { bass_range: { min: 200 } } };
+    expect(m.getAccordionConfig().bass_range).toEqual({ min: 36, max: 60 });
+    m.selectedDeviceCapabilities = { accordion_config: { bass_range: { min: 70, max: 40 } } };
+    expect(m.getAccordionConfig().bass_range).toEqual({ min: 40, max: 70 });
     m.selectedDeviceCapabilities = { accordion_config:
       { bass_system: 'bogus', right_display: 'z' } };
     expect(m.getAccordionConfig()).toEqual(
-      { bass_system: 'stradella', right_display: 'buttons' });
+      { bass_system: 'stradella', right_display: 'buttons',
+        bass_range: { min: 36, max: 60 } });
   });
 
   it('AccordionView: both sides ALWAYS present (no hand show/hide)', () => {
@@ -371,16 +383,35 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     v.unmount();
   });
 
-  it('AccordionView: free-bass → chromatic left side (not 12 Stradella)', () => {
+  it('AccordionView: free-bass uses configured span, decoupled from treble (no negatives)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-                getInstrumentNoteRange: () => ({ min: 60, max: 83, notes: null }),
+                // a low treble range used to make the OLD bHi-23 derivation
+                // produce negative MIDI notes — must no longer matter.
+                getInstrumentNoteRange: () => ({ min: 12, max: 35, notes: null }),
+                getAccordionConfig: () => ({ bass_system: 'free',
+                  right_display: 'buttons', bass_range: { min: 48, max: 52 } }) };
+    const v = new (win.AccordionView)();
+    v.mount({ modal: m });
+    const bass = [...document.querySelectorAll('.accordion-bass .accordion-key')];
+    const notes = bass.map(b => parseInt(b.dataset.note, 10));
+    expect(notes).toEqual([48, 49, 50, 51, 52]);   // from config, not derived
+    expect(notes.every(n => n >= 0)).toBe(true);   // negative-note bug fixed
+    expect(bass.length).not.toBe(12);              // not Stradella
+    v.unmount();
+  });
+
+  it('AccordionView: free-bass with no configured range → C2..C4 default', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
                 getAccordionConfig: () => ({ bass_system: 'free',
                   right_display: 'buttons' }) };
     const v = new (win.AccordionView)();
     v.mount({ modal: m });
-    const bass = document.querySelectorAll('.accordion-bass .accordion-key');
-    expect(bass.length).toBe(24);                  // 2 chromatic octaves, not 12
+    const bass = [...document.querySelectorAll('.accordion-bass .accordion-key')];
+    const notes = bass.map(b => parseInt(b.dataset.note, 10));
+    expect(notes[0]).toBe(36);
+    expect(notes[notes.length - 1]).toBe(60);      // FREE_BASS_LO..FREE_BASS_HI
     v.unmount();
   });
 });
