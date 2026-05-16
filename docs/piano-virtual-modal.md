@@ -1132,14 +1132,19 @@ Suite : **14 fichiers / 287 tests verts, ESLint 0 erreur**.
 > `modal.showNoteColors` est actif → le bouton 🎨 fonctionne **pour tous
 > les instruments** (theremin exclu : pad continu sans notes discrètes).
 >
-> ✅ **Ajouté** : `KeyboardModal.getInstrumentNoteRange()` → `{min,max,
-> notes}` (même source que `autoCenterKeyboard` : `selected_notes`
-> discrets ou `note_range_min/max`). Les vues *self-owned* en dérivent
-> leur jeu de notes au lieu d'un span figé (QA « utiliser le nombre de
-> notes des réglages d'instrument ») : Mallet/SteelDrum/Accordéon-treble
-> = chromatique sur la plage ; Harp/Kalimba = diatonique sur la plage ;
-> Harmonica (Richter) / Bagpipe (chanter) = motif transposé+tronqué à la
-> plage. Sans capacités → défaut idiomatique de chaque vue.
+> ✅ **`KeyboardModal.getInstrumentNoteRange()`** → `{min,max,notes}`.
+> Priorité : `selected_notes` discrets → `note_range_min/max` → **repli
+> sur la fenêtre visible du modal** (`startNote`..`+visibleNoteCount`).
+> Le repli est ce qui fait que les vues suivent **toujours** le nombre
+> de notes configuré même quand l'instrument ne déclare pas de plage
+> explicite (correctif QA #2 « aucun changement »). Les vues *self-owned*
+> en dérivent leur jeu de notes (chromatique / diatonique / motif
+> transposé selon la vue).
+>
+> ✅ **MalletView QA #1** : géométrie **responsive en %** (toute la plage
+> tient dans la fenêtre, sans débordement ni zoom manuel) ; les altérées
+> (#) sont **ancrées en haut et plus courtes** → visuellement plus hautes
+> que les naturelles (façon piano/marimba).
 >
 > ✅ **MalletView** : disposition **façon piano/marimba** — naturelles en
 > rangée contiguë, altérées en `position:absolute` au-dessus de

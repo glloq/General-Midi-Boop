@@ -870,16 +870,19 @@ class KeyboardModal {
     /**
      * Note range configured for the selected instrument (same source as
      * autoCenterKeyboard). Self-owned views use this instead of a hardcoded
-     * span so they show exactly the notes set in the instrument settings,
-     * not a forced fixed display.
+     * span so they show exactly the configured number of notes.
      *
-     * @returns {{min:number,max:number,notes:number[]|null}|null}
-     *   null when no capabilities (caller falls back to its idiomatic
-     *   default). `notes` is the explicit discrete list when defined.
+     * Priority: discrete selected_notes → caps note_range_min/max → the
+     * modal's current visible window (startNote..+visibleNoteCount). The
+     * window fallback is what makes the views actually follow the
+     * configured note count even when an instrument declares no explicit
+     * range in its capabilities (QA #2).
+     *
+     * @returns {{min:number,max:number,notes:number[]|null}}
      */
     getInstrumentNoteRange() {
         const caps = this.selectedDeviceCapabilities;
-        if (!caps) return null;
+        if (caps) {
 
         if (caps.note_selection_mode === 'discrete' && caps.selected_notes) {
             try {
@@ -899,7 +902,15 @@ class KeyboardModal {
         if (Number.isFinite(min) && Number.isFinite(max) && max >= min) {
             return { min, max, notes: null };
         }
-        return null;
+        } // end if (caps)
+
+        // Fallback: the modal's current visible window (configured octaves
+        // + autoCenter). Guarantees the views follow the configured note
+        // count instead of a per-view hardcoded span (QA #2).
+        const wMin = Number.isFinite(this.startNote) ? this.startNote : 48;
+        const count = Number.isFinite(this.visibleNoteCount) && this.visibleNoteCount > 0
+            ? this.visibleNoteCount : 36;
+        return { min: wMin, max: wMin + count - 1, notes: null };
     }
 
     /**
