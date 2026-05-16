@@ -1,15 +1,23 @@
 // =============================================================================
 // InstrumentDetector.js — Pure module: map instrument capabilities → view kind.
 // =============================================================================
-// Replaces the inline switch in KeyboardModal.getInstrumentViewInfo().
-// Sans dépendance DOM. Tested in tests/frontend/keyboard/.
+// Implements the detection that KeyboardModal.getInstrumentViewInfo()
+// delegates to. Sans dépendance DOM. Tested in tests/frontend/keyboard/
+// (incl. detector-registry-parity.test.js, which locks this against the
+// registerBuiltins.js rule chain).
 //
 // detect(caps) → { viewKind, options, canFretboard, isBowed, isDrum,
-//                  isWind, windPreset, instrumentType, instrumentSubtype,
-//                  gmProgram }
+//                  isWind, isHarmonica, isHarp, isAccordion, isMallet,
+//                  isMusicBox, isKalimba, isBagpipe, isSteelDrum,
+//                  isPercPad, isTheremin, windPreset, instrumentType,
+//                  instrumentSubtype, gmProgram }
 //
 // viewKind ∈ { 'piano' (default) | 'fretboard' | 'drumpad' |
-//              'piano-slider' (wind) | 'keyboard-list' }
+//              'piano-slider' (wind) | 'harmonica' | 'harp' | 'accordion' |
+//              'mallet' | 'music-box' | 'kalimba' | 'bagpipe' |
+//              'steel-drum' | 'perc-pad' | 'theremin' }
+// NOTE: 'keyboard-list' is NOT produced here — it is selected separately
+// by KeyboardModal for chromatic-keyboard instruments (keyboard_type).
 // =============================================================================
 (function () {
     'use strict';

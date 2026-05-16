@@ -314,6 +314,13 @@ class KeyboardModal {
         if (typeof this._updateFingersActiveNotes === 'function') {
             this._updateFingersActiveNotes();
         }
+
+        // Self-owned views render non-`.piano-key` DOM the legacy query
+        // above never reaches; delegate the highlight. No-op for the
+        // strangler-fig views (base setActiveNotes() does nothing).
+        if (this._activeView && typeof this._activeView.setActiveNotes === 'function') {
+            this._activeView.setActiveNotes(this.activeNotes);
+        }
     }
 
     /**

@@ -365,8 +365,32 @@ Audit finding : KM-M1 phase 2.
   8. Fermer + rouvrir 10 fois, observer la heap dans DevTools Memory.
 
 - Tests Vitest existants (`tests/frontend/keyboard/*.test.js`) doivent
-  rester verts (129 cas). Si un item nécessite de modifier la signature
-  d'un module pur, les tests guident la migration.
+  rester verts (544 cas au 2026-05-16). Si un item nécessite de
+  modifier la signature d'un module pur, les tests guident la
+  migration.
+
+### Items issus de l'audit 2026-05-16 (`AUDIT_MODAL_PIANO_2026-05-16.md`)
+
+Audit complétude des 16 vues : couverture GM complète, code des vues
+propre et homogène. Corrigé dans la session : F4 (câblage
+`setActiveNotes`), F1 (test de parité détecteur ⇄ registre), F2
+(commentaires périmés). **Reportés** (risque visuel non testable hors
+navigateur, ou cosmétique de faible valeur) :
+
+- **F3** — `updatePianoDisplay()` + `view.setActiveNotes()` font un
+  `querySelectorAll` par évènement de note. Option : index
+  `Map<midi,élément>` + diff du delta, avec invalidation sur
+  `regeneratePianoKeys`. Nécessite un profil DevTools avant/après et
+  un smoke navigateur (l'invalidation de cache n'est pas vérifiable
+  « sûre » par tests unitaires seuls).
+- **N1** — `PianoView.unmount()` : bloc `if` mort (corps = commentaire
+  seul). Suppression triviale et sûre ; quick-win isolé.
+- **N2** — `ThereminView` sans `setCapabilities` (sans impact tant que
+  la plage thérémin reste fixe C3..C6).
+- **Unification des 3 sources de détection** : le test de parité
+  `detector-registry-parity.test.js` sécurise désormais ce refactor
+  (faire consommer `info.viewKind` par la cascade
+  `KeyboardModal:1453`).
 
 ---
 

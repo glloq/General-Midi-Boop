@@ -1,9 +1,15 @@
 // =============================================================================
-// registerBuiltins.js — Register the 5 built-in views + detection rules.
+// registerBuiltins.js — Register the 15 built-in views + detection rules.
 // =============================================================================
-// Loaded AFTER the individual view classes (Piano/Fretboard/DrumPad/
-// PianoSlider/List) so that `window.<NameView>` exists. The registry itself
-// (`window.instrumentViews`) is loaded earlier.
+// Loaded AFTER the individual view classes (the 5 strangler-fig views
+// Piano/Fretboard/DrumPad/PianoSlider/List + the 10 self-owned views
+// Harmonica/Harp/Accordion/Mallet/MusicBox/Kalimba/Bagpipe/SteelDrum/
+// Theremin/PercussionPad) so that `window.<NameView>` exists. The registry
+// itself (`window.instrumentViews`) is loaded earlier.
+//
+// The rule chain below mirrors InstrumentDetector.detect(): it is the
+// production detection path's twin. detector-registry-parity.test.js
+// asserts the two stay in lock-step across the whole GM range.
 //
 // Adding a new instrument-specific view = 1 fichier + 2 lignes ici.
 // =============================================================================
@@ -19,9 +25,8 @@
 
     // ── Register classes ──────────────────────────────────────────────────────
     // Each *View module exposes its class as `window.<NameView>` once loaded.
-    // Phase D will populate these classes; until then the modal still uses
-    // the legacy mixin code paths. Skip silently when the class is absent
-    // so we can land the wiring before the implementations.
+    // Skip silently when a class is absent (defensive: a view file failing to
+    // load must not break the registry / the rest of the views).
     function safeRegister(ClassRef) {
         if (typeof ClassRef === 'function') registry.register(ClassRef);
     }
