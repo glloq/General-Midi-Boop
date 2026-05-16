@@ -3,6 +3,11 @@
     const ISMSave = {};
 
     ISMSave._save = async function() {
+        // Guard against double-submit: a rapid second click (or Enter while
+        // the first save is in flight) would fire a concurrent
+        // instrument_save_all and race the channel-change delete below.
+        if (this._isSaving) return;
+        this._isSaving = true;
         try {
             // Flush the Notes editor (piano + mode toggles) into whichever
             // target it currently edits (primary settings or active voice)
@@ -81,7 +86,12 @@
             const userChannel = channelInput ? parseInt(channelInput.value) : originalChannel;
             const saveChannel = gmDecoded.isDrumKit ? 9 : userChannel;
 
-            // Handle channel change
+            // Handle channel change. We DON'T delete the old (device,
+            // channel) row here: deleting before the save means a failed
+            // save would destroy the original config with nothing written
+            // in its place. Instead record the source channel and delete it
+            // only AFTER instrument_save_all succeeds (write-before-delete).
+            let channelChangedFrom = null;
             if (saveChannel !== originalChannel) {
                 // Pre-check: if the target channel is already occupied by
                 // another tab, abort before any DB write. The grid in the
@@ -100,10 +110,7 @@
                     }
                     return;
                 }
-                // Don't swallow delete errors — a silent failure would leave
-                // the old row in place AND create/update a new one on save,
-                // producing dual rows the user can't see.
-                await this.api.sendCommand('instrument_delete', { deviceId: this.device.id, channel: originalChannel });
+                channelChangedFrom = originalChannel;
                 const tab = this._getActiveTab();
                 if (tab) {
                     tab.channel = saveChannel;
@@ -326,6 +333,16 @@
             }
             await this.api.sendCommand('instrument_save_all', saveAllPayload);
 
+            // Channel changed: the new (device, saveChannel) row is now
+            // persisted, so the old row can be removed. Doing this AFTER the
+            // save (not before) guarantees a failed save never leaves the
+            // user with neither row. The error is NOT swallowed — a failed
+            // delete leaves a recoverable duplicate, strictly safer than the
+            // silent data loss this replaces.
+            if (channelChangedFrom !== null && channelChangedFrom !== saveChannel) {
+                await this.api.sendCommand('instrument_delete', { deviceId: this.device.id, channel: channelChangedFrom });
+            }
+
             // If the user switched away from a string-instrument family, the
             // `string_instruments` row for this (device, channel) is now
             // orphaned. Delete it so the DB stops surfacing stale CC config
@@ -355,6 +372,8 @@
             if (typeof showAlert === 'function') {
                 await showAlert(`${this.t('common.error') || 'Erreur'}: ${error.message}`, { title: this.t('instrumentSettings.saveErrorTitle') || 'Erreur de sauvegarde', icon: '❌' });
             }
+        } finally {
+            this._isSaving = false;
         }
     };
 

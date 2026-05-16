@@ -81,6 +81,11 @@
                 if (!usedChannels.includes(ch)) freeChannels.push(ch);
             }
             if (freeChannels.length === 0) {
+                // No overlay is shown on this path, so the debounce flag must
+                // be cleared here — otherwise `_addingTab` stays true forever
+                // and every subsequent `+` is silently ignored (persists
+                // across modal reopens since the instance is reused).
+                this._addingTab = false;
                 if (typeof showAlert === 'function') {
                     await showAlert(this.t('instrumentManagement.allChannelsUsed') || 'Tous les canaux MIDI sont déjà utilisés.', {
                         title: this.t('instrumentManagement.addInstrumentTitle') || 'Ajouter',
@@ -101,9 +106,10 @@
                 const isUsed = usedChannels.includes(ch);
                 const isDrum = (ch === 9);
                 const instName = channelNames[ch] || '';
-                gridHtml += `<button type="button" class="add-inst-channel-btn ${isUsed ? 'used' : ''} ${isDrum ? 'drum' : ''}" data-channel="${ch}" ${isUsed ? 'disabled' : ''} style="border-color: ${colors[ch]};" title="${isUsed ? instName : (isDrum ? 'Percussion' : 'Canal ' + (ch + 1))}">
+                const safeInstName = (typeof escapeHtml === 'function' ? escapeHtml(instName) : instName);
+                gridHtml += `<button type="button" class="add-inst-channel-btn ${isUsed ? 'used' : ''} ${isDrum ? 'drum' : ''}" data-channel="${ch}" ${isUsed ? 'disabled' : ''} style="border-color: ${colors[ch]};" title="${isUsed ? safeInstName : (isDrum ? 'Percussion' : 'Canal ' + (ch + 1))}">
                     <span class="add-inst-ch-number">${ch + 1}${isDrum ? ' 🥁' : ''}</span>
-                    ${isUsed ? '<span class="add-inst-ch-name">' + (typeof escapeHtml === 'function' ? escapeHtml(instName) : instName) + '</span>' : '<span class="add-inst-ch-free">' + (this.t('instrumentManagement.free') || 'libre') + '</span>'}
+                    ${isUsed ? '<span class="add-inst-ch-name">' + safeInstName + '</span>' : '<span class="add-inst-ch-free">' + (this.t('instrumentManagement.free') || 'libre') + '</span>'}
                 </button>`;
             }
             gridHtml += '</div>';
