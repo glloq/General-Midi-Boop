@@ -117,6 +117,23 @@ export function validateAccordionConfigPayload(cfg) {
   }
 }
 
+// harmonica_config: { type: 'diatonic'|'chromatic', key: 'C'..'B' }. Both
+// optional; absence → diatonic C (HarmonicaView default). The chromatic flag
+// lives ONLY here — keyboard_type is never set for a harmonica.
+export function validateHarmonicaConfigPayload(cfg) {
+  if (cfg === null || cfg === undefined) return;
+  if (typeof cfg !== 'object' || Array.isArray(cfg)) {
+    throw new ValidationError('harmonica_config must be an object', 'harmonica_config');
+  }
+  if (cfg.type !== undefined && !['diatonic', 'chromatic'].includes(cfg.type)) {
+    throw new ValidationError('harmonica_config.type invalid', 'harmonica_config');
+  }
+  const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  if (cfg.key !== undefined && !KEYS.includes(cfg.key)) {
+    throw new ValidationError('harmonica_config.key invalid', 'harmonica_config');
+  }
+}
+
 /**
  * Persist per-channel instrument settings (custom name, sync delay,
  * GM program, octave mode, comm timeout). When `usb_serial_number` is
@@ -342,6 +359,10 @@ async function instrumentUpdateCapabilities(app, data) {
   if (Object.prototype.hasOwnProperty.call(data, 'accordion_config')) {
     validateAccordionConfigPayload(data.accordion_config);
     updatePayload.accordion_config = data.accordion_config;
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'harmonica_config')) {
+    validateHarmonicaConfigPayload(data.harmonica_config);
+    updatePayload.harmonica_config = data.harmonica_config;
   }
   const id = app.instrumentRepository.updateCapabilities(data.deviceId, channel, updatePayload);
 
@@ -764,6 +785,10 @@ async function instrumentSaveAll(app, data) {
     if (Object.prototype.hasOwnProperty.call(data, 'accordion_config')) {
       validateAccordionConfigPayload(data.accordion_config);
       capPayload.accordion_config = data.accordion_config;
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'harmonica_config')) {
+      validateHarmonicaConfigPayload(data.harmonica_config);
+      capPayload.harmonica_config = data.harmonica_config;
     }
     app.instrumentRepository.updateCapabilities(data.deviceId, channel, capPayload);
 

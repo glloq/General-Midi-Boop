@@ -333,6 +333,10 @@
                 const accordionCfg = window.ISMSections._collectAccordionConfig(modalEl);
                 if (accordionCfg !== undefined) saveAllPayload.accordion_config = accordionCfg;
             }
+            if (window.ISMSections?._collectHarmonicaConfig) {
+                const harmonicaCfg = window.ISMSections._collectHarmonicaConfig(modalEl);
+                if (harmonicaCfg !== undefined) saveAllPayload.harmonica_config = harmonicaCfg;
+            }
             await this.api.sendCommand('instrument_save_all', saveAllPayload);
 
             // Channel changed: the new (device, saveChannel) row is now

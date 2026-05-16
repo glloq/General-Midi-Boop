@@ -146,6 +146,7 @@ class InstrumentCapabilitiesDB {
       };
       const bagpipeConfigJson = normJson(capabilities.bagpipe_config);
       const accordionConfigJson = normJson(capabilities.accordion_config);
+      const harmonicaConfigJson = normJson(capabilities.harmonica_config);
 
       if (existing) {
         // Build update with timestamp always included
@@ -154,7 +155,7 @@ class InstrumentCapabilitiesDB {
           'note_range_min', 'note_range_max', 'supported_ccs',
           'note_selection_mode', 'selected_notes', 'polyphony',
           'capabilities_source', 'capabilities_updated_at', 'hands_config',
-          'bagpipe_config', 'accordion_config'
+          'bagpipe_config', 'accordion_config', 'harmonica_config'
         ], {
           whereClause: 'device_id = ? AND channel = ?',
           transforms: {
@@ -163,7 +164,8 @@ class InstrumentCapabilitiesDB {
             polyphony: v => v !== null ? parseInt(v) : null,
             hands_config: () => handsConfigJson,
             bagpipe_config: () => bagpipeConfigJson,
-            accordion_config: () => accordionConfigJson
+            accordion_config: () => accordionConfigJson,
+            harmonica_config: () => harmonicaConfigJson
           }
         });
 
@@ -223,7 +225,7 @@ class InstrumentCapabilitiesDB {
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
             capabilities_source, capabilities_updated_at, hands_config,
-            bagpipe_config, accordion_config
+            bagpipe_config, accordion_config, harmonica_config
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
         `);
@@ -237,7 +239,7 @@ class InstrumentCapabilitiesDB {
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
             capabilities_source, capabilities_updated_at, hands_config,
-            bagpipe_config, accordion_config
+            bagpipe_config, accordion_config, harmonica_config
           FROM instruments_latency
           WHERE device_id = ?
         `);
@@ -295,7 +297,8 @@ class InstrumentCapabilitiesDB {
         capabilities_updated_at: result.capabilities_updated_at,
         hands_config: handsConfig,
         bagpipe_config: parseJsonCol(result.bagpipe_config),
-        accordion_config: parseJsonCol(result.accordion_config)
+        accordion_config: parseJsonCol(result.accordion_config),
+        harmonica_config: parseJsonCol(result.harmonica_config)
       };
     } catch (error) {
       this.logger.error(`Failed to get instrument capabilities: ${error.message}`);
@@ -317,7 +320,7 @@ class InstrumentCapabilitiesDB {
           note_selection_mode, selected_notes, polyphony,
           capabilities_source, capabilities_updated_at,
           usb_serial_number, mac_address, hands_config,
-          bagpipe_config, accordion_config
+          bagpipe_config, accordion_config, harmonica_config
         FROM instruments_latency
         ORDER BY device_id
       `);
@@ -359,7 +362,8 @@ class InstrumentCapabilitiesDB {
           selected_notes: selectedNotes,
           hands_config: handsConfig,
           bagpipe_config: parseJsonCol(result.bagpipe_config),
-          accordion_config: parseJsonCol(result.accordion_config)
+          accordion_config: parseJsonCol(result.accordion_config),
+          harmonica_config: parseJsonCol(result.harmonica_config)
         };
       });
     } catch (error) {
@@ -403,7 +407,7 @@ class InstrumentCapabilitiesDB {
           sysex_manufacturer_id, sysex_family, sysex_model, sysex_version,
           instrument_type, instrument_subtype,
           min_note_interval, min_note_duration, hands_config,
-          bagpipe_config, accordion_config
+          bagpipe_config, accordion_config, harmonica_config
         FROM instruments_latency
         ORDER BY name, custom_name
       `);
@@ -464,6 +468,7 @@ class InstrumentCapabilitiesDB {
           hands_config: handsConfig,
           bagpipe_config: parseJsonCol(result.bagpipe_config),
           accordion_config: parseJsonCol(result.accordion_config),
+          harmonica_config: parseJsonCol(result.harmonica_config),
           // Additional fields for reference
           mac_address: result.mac_address,
           usb_serial_number: result.usb_serial_number,

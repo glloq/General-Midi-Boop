@@ -7,7 +7,8 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   validateBagpipeConfigPayload,
-  validateAccordionConfigPayload
+  validateAccordionConfigPayload,
+  validateHarmonicaConfigPayload
 } from '../src/api/commands/InstrumentSettingsCommands.js';
 import { ValidationError } from '../src/core/errors/index.js';
 
@@ -114,5 +115,31 @@ describe('validateAccordionConfigPayload', () => {
     expect(() => validateAccordionConfigPayload({ bass_base: 200 })).toThrow(ValidationError);
     expect(() => validateAccordionConfigPayload({ bass_funcs: 'bass' })).toThrow(ValidationError);
     expect(() => validateAccordionConfigPayload({ bass_funcs: ['bogus'] })).toThrow(ValidationError);
+  });
+});
+
+describe('validateHarmonicaConfigPayload', () => {
+  test('null/undefined/empty accepted (clears / leaves feature)', () => {
+    expect(() => validateHarmonicaConfigPayload(null)).not.toThrow();
+    expect(() => validateHarmonicaConfigPayload(undefined)).not.toThrow();
+    expect(() => validateHarmonicaConfigPayload({})).not.toThrow();
+  });
+
+  test('valid type/key (any subset) accepted', () => {
+    expect(() => validateHarmonicaConfigPayload({ type: 'diatonic' })).not.toThrow();
+    expect(() => validateHarmonicaConfigPayload({ type: 'chromatic', key: 'D' })).not.toThrow();
+    expect(() => validateHarmonicaConfigPayload({ key: 'F#' })).not.toThrow();
+  });
+
+  test('non-object rejected', () => {
+    expect(() => validateHarmonicaConfigPayload('x')).toThrow(ValidationError);
+    expect(() => validateHarmonicaConfigPayload([])).toThrow(ValidationError);
+    expect(() => validateHarmonicaConfigPayload(42)).toThrow(ValidationError);
+  });
+
+  test('invalid type/key rejected', () => {
+    expect(() => validateHarmonicaConfigPayload({ type: 'tremolo' })).toThrow(ValidationError);
+    expect(() => validateHarmonicaConfigPayload({ key: 'H' })).toThrow(ValidationError);
+    expect(() => validateHarmonicaConfigPayload({ key: 'Db' })).toThrow(ValidationError);
   });
 });

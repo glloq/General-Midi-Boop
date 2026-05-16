@@ -75,6 +75,10 @@
         const gm = tab.settings?.gm_program;
         return gm === 21 || gm === 23;
     };
+    ISMSections._shouldShowHarmonicaSection = function(tab) {
+        if (!tab || tab.channel === 9) return false;
+        return tab.settings?.gm_program === 22;
+    };
 
     /**
      * Which hand-position mode does this instrument use?
@@ -711,6 +715,11 @@
             ${ISMSections._shouldShowAccordionSection(tab) ? `<div class="ism-subsection" id="accordionSubsection">
                 <h4 class="ism-subsection-title">🪗 ${this.t('instrumentSettings.sectionAccordion') || 'Accordéon'}</h4>
                 ${this._renderAccordionSection()}
+            </div>` : ''}
+
+            ${ISMSections._shouldShowHarmonicaSection(tab) ? `<div class="ism-subsection" id="harmonicaSubsection">
+                <h4 class="ism-subsection-title">🎵 ${this.t('instrumentSettings.sectionHarmonica') || 'Harmonica'}</h4>
+                ${this._renderHarmonicaSection()}
             </div>` : ''}
 
             ${ISMSections._handsTabEligible(tab) ? `
@@ -2458,6 +2467,56 @@
             sGroup.querySelectorAll('input').forEach((el) => { el.disabled = free; });
             sGroup.style.opacity = free ? '0.5' : '';
         }
+    };
+
+    // ── Harmonica subsection (GM 22) ──────────────────────────────────────
+    // Per-instrument play settings consumed by HarmonicaView:
+    //   type : 'diatonic' (Richter) | 'chromatic' (solo tuning + slide)
+    //   key  : musical key root (C..B)
+    // The hole count follows the instrument's configured note range; the
+    // chromatic flag lives ONLY here (never keyboard_type).
+    ISMSections._HARMONICA_KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F',
+        'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+    ISMSections._renderHarmonicaSection = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const cfg = tab.settings?.harmonica_config || {};
+        const type = cfg.type === 'chromatic' ? 'chromatic' : 'diatonic';
+        const key = ISMSections._HARMONICA_KEYS.includes(cfg.key) ? cfg.key : 'C';
+        const opt = (v, cur, label) =>
+            `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+        const keyOpts = ISMSections._HARMONICA_KEYS
+            .map((k) => opt(k, key, k)).join('');
+        return `
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.harmonicaType') || 'Type d’harmonica'}</label>
+                <select id="harmonicaType">
+                    ${opt('diatonic', type, this.t('instrumentSettings.harmonicaTypeDiatonic') || 'Diatonique (Richter)')}
+                    ${opt('chromatic', type, this.t('instrumentSettings.harmonicaTypeChromatic') || 'Chromatique (à glissière)')}
+                </select>
+                <span class="ism-form-hint">${this.t('instrumentSettings.harmonicaTypeHelp')
+                    || 'Diatonique : accordage Richter. Chromatique : accordage solo + un bouton de glissière qui monte toutes les notes d’un demi-ton.'}</span>
+            </div>
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.harmonicaKey') || 'Tonalité'}</label>
+                <select id="harmonicaKey">${keyOpts}</select>
+                <span class="ism-form-hint">${this.t('instrumentSettings.harmonicaKeyHelp')
+                    || 'Tonalité de l’harmonica : transpose la disposition des trous. Le nombre de trous suit la plage de notes configurée de l’instrument.'}</span>
+            </div>
+        `;
+    };
+
+    ISMSections._collectHarmonicaConfig = function(rootEl) {
+        const section = rootEl?.querySelector('#harmonicaSubsection');
+        if (!section) return undefined;            // subsection not rendered
+        const typeEl = rootEl.querySelector('#harmonicaType');
+        if (!typeEl) return undefined;             // lazy, never visited → preserve
+        const type = ['diatonic', 'chromatic'].includes(typeEl.value)
+            ? typeEl.value : 'diatonic';
+        const keyVal = rootEl.querySelector('#harmonicaKey')?.value;
+        const key = ISMSections._HARMONICA_KEYS.includes(keyVal) ? keyVal : 'C';
+        return { type, key };
     };
 
     if (typeof window !== 'undefined') window.ISMSections = ISMSections;
