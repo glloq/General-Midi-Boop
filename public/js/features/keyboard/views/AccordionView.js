@@ -146,32 +146,34 @@
             const body = document.createElement('div');
             body.className = 'accordion-zone-body';
             body.style.cssText =
-                'flex:1 1 auto;display:flex;align-items:stretch;'
-                + 'justify-content:center;width:100%;overflow:auto;';
+                'flex:1 1 auto;min-height:0;display:flex;align-items:stretch;'
+                + 'justify-content:center;width:100%;overflow:hidden;';
             body.appendChild(contentEl);
             z.appendChild(h);
             z.appendChild(body);
             return z;
         }
 
-        // Decorative pleated bellows between the two playable sides. No
-        // listeners and pointer-events:none so it never intercepts presses.
+        // Simple decorative bellows (vertical bars) between the two
+        // playable sides. No listeners and pointer-events:none so it never
+        // intercepts presses; stretches to the full height.
         _bellowsVisual() {
             const b = document.createElement('div');
             b.className = 'accordion-bellows-visual';
             b.setAttribute('aria-hidden', 'true');
             b.style.cssText =
-                'flex:0 0 90px;align-self:stretch;min-height:130px;'
-                + 'border:1px solid #444;border-radius:8px;pointer-events:none;'
-                + 'background:repeating-linear-gradient(135deg,'
-                + '#2a2a30 0 9px,#3c3c46 9px 18px);'
+                'flex:0 0 70px;align-self:stretch;'
+                + 'border:1px solid #444;border-radius:6px;pointer-events:none;'
+                + 'background:repeating-linear-gradient(90deg,'
+                + '#23232a 0 7px,#3c3c46 7px 14px);'
                 + 'box-shadow:inset 0 0 16px rgba(0,0,0,0.55);';
             return b;
         }
 
-        // Shared round "point" button. `notes` is the full MIDI set the
-        // button triggers; `data-note` keeps a representative single note
-        // so the generic lifecycle contract (data-note) still holds.
+        // Shared "point" button. `notes` is the full MIDI set the button
+        // triggers; `data-note` keeps a representative single note so the
+        // generic lifecycle contract (data-note) still holds. No visible
+        // text — the button scales with the available height (flex:1).
         _mkRound(notes, title, bg, modal) {
             const b = document.createElement('button');
             b.type = 'button';
@@ -179,33 +181,29 @@
             b.dataset.note = String(notes[0]);
             b.dataset.notes = notes.join(',');
             b.dataset.key = 'k' + (this._keyId++);
-            b.title = title;
-            b.textContent = title;
+            b.title = title;                       // tooltip only (not shown)
             b.style.cssText =
-                'flex:0 0 auto;width:34px;height:34px;border-radius:50%;'
-                + `border:1px solid #333;background:${bg};color:#e8e8e8;`
-                + 'cursor:pointer;padding:0;font:9px sans-serif;display:flex;'
-                + 'align-items:center;justify-content:center;touch-action:none;';
+                'flex:1 1 0;min-height:0;width:100%;box-sizing:border-box;'
+                + `border-radius:9999px;border:1px solid #333;background:${bg};`
+                + 'cursor:pointer;padding:0;touch-action:none;';
             if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
-                const c = modal.getNoteColor(notes[0]);
-                b.style.background = c.bg;
-                b.style.color = c.text;
+                b.style.background = modal.getNoteColor(notes[0]).bg;
             }
             return b;
         }
 
-        // Chromatic round-button board: vertical columns of 3 buttons,
-        // every other column shifted half a button down so the buttons are
-        // NOT in a straight line (staggered, like a real accordion). Fills
-        // the full height. Used for the treble in 'buttons' mode and for
-        // the free-bass side.
+        // Chromatic button board: vertical columns of 3 buttons that scale
+        // to the full height (no scrollbar). Every other column is offset
+        // half a slot so the buttons are NOT in a straight line (staggered,
+        // like a real accordion). Used for the treble in 'buttons' mode and
+        // for the free-bass side.
         _buttonBoard(cls, lo, hi, modal, bg) {
             const PER_COL = 3;
-            const STAGGER = 18;            // half a button + gap
+            const STAGGER = 16;
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-board`;
             wrap.style.cssText =
-                'display:flex;gap:6px;align-items:stretch;'
+                'display:flex;gap:5px;align-items:stretch;'
                 + 'justify-content:center;height:100%;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
@@ -213,11 +211,13 @@
             for (let c = 0; c < nCols; c++) {
                 const col = document.createElement('div');
                 col.className = 'accordion-board-col';
+                const pad = c % 2
+                    ? `padding-top:${STAGGER}px;`
+                    : `padding-bottom:${STAGGER}px;`;
                 col.style.cssText =
-                    'display:flex;flex-direction:column;gap:8px;'
-                    + 'align-items:center;justify-content:space-around;'
-                    + 'height:100%;'
-                    + `transform:translateY(${c % 2 ? STAGGER : 0}px);`;
+                    'display:flex;flex-direction:column;gap:6px;'
+                    + 'align-items:center;height:100%;width:44px;'
+                    + 'box-sizing:border-box;' + pad;
                 for (let r = 0; r < PER_COL; r++) {
                     const n = lo + c * PER_COL + r;
                     if (n > hi) break;
@@ -250,33 +250,30 @@
             const chordLow = clampNote(bassLow + 12);
             const centerIdx = Math.floor((cols - 1) / 2);
 
-            const STAGGER = 18;            // half a button + gap
+            const STAGGER = 16;
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-stradella`;
             wrap.style.cssText =
-                'display:flex;gap:6px;align-items:stretch;'
+                'display:flex;gap:5px;align-items:stretch;'
                 + 'justify-content:center;height:100%;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
 
-            // One vertical column per function; every other column is
-            // shifted half a button down so the buttons are NOT in a
-            // straight line (staggered, like a real Stradella board).
+            // One vertical column per function. Buttons scale to the full
+            // height (no scrollbar, no text). Every other column is offset
+            // half a slot so the buttons are NOT in a straight line
+            // (staggered, like a real Stradella board).
             funcs.forEach((id, fi) => {
                 const f = FUNC_DEFS[id];
                 const colEl = document.createElement('div');
                 colEl.className = 'accordion-stradella-col';
+                const pad = fi % 2
+                    ? `padding-top:${STAGGER}px;`
+                    : `padding-bottom:${STAGGER}px;`;
                 colEl.style.cssText =
-                    'display:flex;flex-direction:column;gap:8px;'
-                    + 'align-items:center;justify-content:space-around;'
-                    + 'height:100%;'
-                    + `transform:translateY(${fi % 2 ? STAGGER : 0}px);`;
-                const h = document.createElement('div');
-                h.className = 'accordion-stradella-collabel';
-                h.textContent = f.label;
-                h.style.cssText =
-                    'flex:0 0 auto;font:10px sans-serif;color:#9fb3c8;';
-                colEl.appendChild(h);
+                    'display:flex;flex-direction:column;gap:6px;'
+                    + 'align-items:center;height:100%;width:42px;'
+                    + 'box-sizing:border-box;' + pad;
                 for (let step = 0; step < cols; step++) {
                     const pc = mod12(rootPc + 7 * (step - centerIdx));
                     let notes, title;
@@ -310,8 +307,8 @@
 
             const col = document.createElement('div');
             col.className = `accordion-row ${cls} accordion-piano`;
-            col.style.cssText = 'position:relative;width:90px;flex:0 0 auto;'
-                + 'height:100%;min-height:' + (whites * 22) + 'px;';
+            col.style.cssText = 'position:relative;width:84px;flex:0 0 auto;'
+                + 'height:100%;';
             let wIdx = 0;
             const mk = (n, black, topPct, hPct, css) => {
                 const b = document.createElement('button');
