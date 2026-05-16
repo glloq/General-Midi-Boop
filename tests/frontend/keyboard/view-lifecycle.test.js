@@ -90,6 +90,34 @@ describe('Registry is the authoritative view owner', () => {
       expect(m._activeView.mounted).toBe(true);
     }
   });
+
+  // Regression: close() must unmount the active view and clear
+  // _activeView/_activeViewKind. Otherwise the view's document-level
+  // listeners leak and a reopen hits the same-kind fast-path, reusing a
+  // view bound to DOM that close() removed. (Mixins aren't applied in this
+  // sandbox, so detachEvents is stubbed; the collections are set explicitly.)
+  it('close() unmounts the active view and clears it so a reopen re-mounts', () => {
+    const m = makeModal();
+    m.detachEvents = () => {};
+    m.activeNotes = new Set();
+    m.mouseActiveNotes = new Set();
+    m.activeFretPositions = new Set();
+    m.isOpen = true;
+
+    m._activateView('fretboard');
+    const view = m._activeView;
+    expect(view.mounted).toBe(true);
+
+    m.close();
+    expect(view.mounted).toBe(false);        // unmount() ran
+    expect(m._activeView).toBeNull();
+    expect(m._activeViewKind).toBeNull();
+
+    // Reopen + same kind: must build a fresh view, not reuse the stale one.
+    m._activateView('fretboard');
+    expect(m._activeView).not.toBe(view);
+    expect(m._activeView.mounted).toBe(true);
+  });
 });
 
 describe('Safe legacy fallback (zero-regression guarantee)', () => {

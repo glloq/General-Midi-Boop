@@ -236,6 +236,19 @@ class KeyboardModal {
         // Clean up wind instrument controls and staccato timers
         if (typeof this._hideWindControls === 'function') this._hideWindControls();
 
+        // Tear down the active InstrumentView. Without this its document-level
+        // listeners (pointerup/pointercancel registered in mount()) leak across
+        // every open/close cycle, and — because _activeView/_activeViewKind
+        // would survive — a reopen would hit the _activateView() same-kind
+        // fast-path and never re-mount, leaving the view bound to DOM removed
+        // below.
+        if (this._activeView && typeof this._activeView.unmount === 'function') {
+            try { this._activeView.unmount(); }
+            catch (e) { this.logger.warn('[KeyboardModal] view.unmount() in close() failed:', e); }
+        }
+        this._activeView = null;
+        this._activeViewKind = null;
+
         // Stop all active notes
         this.activeNotes.forEach(note => this.stopNote(note));
 
@@ -1149,10 +1162,13 @@ class KeyboardModal {
                 ? `<img class="option-svg" src="${icon.svgUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="option-emoji" style="display:none">${icon.emoji}</span>`
                 : `<span class="option-emoji">${icon.emoji}</span>`;
 
-            btn.innerHTML = `
-                <div class="option-icon">${imgHtml}</div>
-                <span class="option-name">${name}${chLabel}</span>
-            `;
+            // `name` is a user-configurable device label → never interpolate
+            // it into innerHTML. The icon markup and chLabel are built from
+            // internal/numeric data only, so they stay as markup.
+            btn.innerHTML = `<div class="option-icon">${imgHtml}</div><span class="option-name"></span>`;
+            const nameSpan = btn.querySelector('.option-name');
+            nameSpan.textContent = name;
+            if (chLabel) nameSpan.insertAdjacentHTML('beforeend', chLabel);
             frag.appendChild(btn);
         });
 

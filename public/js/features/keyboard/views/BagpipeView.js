@@ -62,7 +62,8 @@
             drone.style.cssText =
                 'padding:6px 14px;border-radius:16px;border:1px solid #555;'
                 + 'background:#234d23;color:#dfe;cursor:pointer;font:12px sans-serif;';
-            drone.addEventListener('click', () => this._toggleDrone());
+            this._onDroneClick = () => this._toggleDrone();
+            drone.addEventListener('click', this._onDroneClick);
             root.appendChild(drone);
             this._droneBtn = drone;
             this._droneLabel = (on) =>
@@ -168,6 +169,11 @@
         unmount() {
             this._releaseAll();
             this._stopDrone();
+            if (this._droneBtn && this._onDroneClick) {
+                this._droneBtn.removeEventListener('click', this._onDroneClick);
+            }
+            this._droneBtn = null;
+            this._onDroneClick = null;
             if (this._root) {
                 this._root.removeEventListener('pointerdown', this._onDown);
                 this._root.remove();
