@@ -397,6 +397,78 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     v.unmount();
   });
 
+  it('BagpipeView: renders a master + one button per configured drone', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({
+      drones: [33, 45],
+      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: true }],
+      enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    expect(document.getElementById('bagpipe-drone-toggle')).not.toBeNull();
+    expect(document.querySelectorAll('.bagpipe-drone-one').length).toBe(2);
+    v.unmount();
+  });
+
+  it('BagpipeView: individual toggle affects only its own drone', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({
+      drones: [33, 45],
+      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: true }],
+      enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    expect(sink.played.filter(n => [33, 45].includes(n)).sort()).toEqual([33, 45]);
+    const btn1 = document.querySelector('.bagpipe-drone-one[data-idx="1"]');
+    btn1.click();                                  // turn 45 off only
+    expect(sink.stopped.filter(n => [33, 45].includes(n))).toEqual([45]);
+    btn1.click();                                  // turn 45 back on
+    expect(sink.played.filter(n => n === 45).length).toBe(2);
+    v.unmount();
+  });
+
+  it('BagpipeView: duplicate drone notes are reference-counted', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({                   // Great Highland: 33, 45, 45
+      drones: [33, 45, 45],
+      droneObjs: [{ note: 33, enabled: true },
+                  { note: 45, enabled: true }, { note: 45, enabled: true }],
+      enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    // each note played once even though 45 appears twice (ref count)
+    expect(sink.played.filter(n => n === 45).length).toBe(1);
+    document.querySelector('.bagpipe-drone-one[data-idx="1"]').click();   // one 45 off
+    expect(sink.stopped.filter(n => n === 45).length).toBe(0);            // still sounding
+    document.querySelector('.bagpipe-drone-one[data-idx="2"]').click();   // last 45 off
+    expect(sink.stopped.filter(n => n === 45).length).toBe(1);
+    v.unmount();
+  });
+
+  it('BagpipeView: drone disabled in settings → off but still toggleable', () => {
+    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+    const sink = { played: [], stopped: [], cc: [] };
+    const m = mkModal(sink);
+    m.getBagpipeConfig = () => ({
+      drones: [33],
+      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: false }],
+      enabled: true });
+    const v = new (win.BagpipeView)();
+    v.mount({ modal: m });
+    expect(sink.played).toContain(33);
+    expect(sink.played).not.toContain(45);
+    expect(document.querySelectorAll('.bagpipe-drone-one').length).toBe(2);
+    document.querySelector('.bagpipe-drone-one[data-idx="1"]').click();   // enable 45
+    expect(sink.played).toContain(45);
+    v.unmount();
+  });
+
   it('AccordionView: stradella bass = full 6×12 grid (72 points)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
