@@ -107,6 +107,15 @@ export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
       const coarseTune = merged[GT.CoarseTune]?.value ?? 0;
       const fineTune   = merged[GT.FineTune]?.value   ?? 0;
 
+      // ── Scale tuning ───────────────────────────────────────────────
+      // SF2 ScaleTuning = cents of pitch change per key away from the
+      // root. GM drum/percussion zones set it to 0 → the sample plays at
+      // its recorded pitch for ANY key (no transposition). When it is 0
+      // the per-zone coarse/fine tune must NOT be applied or percussive
+      // samples get pitch-shifted into a sustained tonal "bell" ring.
+      const scaleTuning = merged[GT.ScaleTuning]?.value ?? 100;
+      const fixedPitch  = scaleTuning === 0;
+
       // ── Loop ───────────────────────────────────────────────────────
       const loopFineStart   = merged[GT.StartLoopAddrsOffset]?.value       ?? 0;
       const loopFineEnd     = merged[GT.EndLoopAddrsOffset]?.value         ?? 0;
@@ -158,8 +167,8 @@ export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
         velRangeLow:  velLo,
         velRangeHigh: velHi,
         midi:         rootKey,
-        coarseTune:   coarseTune,
-        fineTune:     fineTune,
+        coarseTune:   fixedPitch ? 0 : coarseTune,
+        fineTune:     fixedPitch ? 0 : fineTune,
       });
     }
     // Also break outer loop if limits are reached
