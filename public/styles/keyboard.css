@@ -1518,6 +1518,25 @@ body.dark-mode .shortcuts-overlay {
 .keyboard-header-controls .btn-view-toggle:hover {
     background: rgba(255, 255, 255, 0.35);
 }
+/* Active view icon: adapted instrument SVG, emoji fallback. Constrained
+   so the SVG can never blow up the header layout (its intrinsic size is
+   large). The button is a centred flex box around the 20px glyph. */
+.keyboard-header-controls .btn-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+}
+.keyboard-header-controls .btn-view-toggle .view-toggle-svg {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    display: block;
+}
+.keyboard-header-controls .btn-view-toggle .view-toggle-emoji {
+    font-size: 18px;
+    line-height: 1;
+}
 
 /* Note-color toggle button (fretboard/tablature mode only) */
 .keyboard-header-controls .btn-note-colors {
