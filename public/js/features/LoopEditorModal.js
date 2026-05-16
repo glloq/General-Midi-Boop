@@ -1362,7 +1362,10 @@ class LoopEditorModal extends BaseModal {
                     ? (rawProgram >= 128 ? rawProgram : rawProgram + 128)
                     : rawProgram;
 
-                this.outputMode        = deviceId ? 'device' : 'synth';
+                // `outputMode` n'est PAS réaffecté ici : il appartient à la
+                // bascule synth/live (`_toggleOutput`), qui le maintient
+                // aligné sur `_outputTarget`. Le choix de l'utilisateur
+                // persiste donc lorsqu'il change d'instrument.
                 this.outputDeviceId    = deviceId || null;
                 this.outputChannel     = isDrum ? 9 : (channel ?? 0);
                 this.outputGmProgram   = storedProgram;
