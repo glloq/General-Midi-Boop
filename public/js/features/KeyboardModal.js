@@ -62,6 +62,10 @@ class KeyboardModal {
         this.showNoteColors = false;
         // String instrument config (loaded when fretboard mode is enabled)
         this.stringInstrumentConfig = null;
+        // Harp string config (loaded for the dedicated HarpView; kept
+        // separate from stringInstrumentConfig so the InstrumentDetector
+        // escape hatch — stringCfg forces fretboard — stays untouched).
+        this._harpStringConfig = null;
         // Per-string pitch bend slide mode active
         this._stringSlideActive = false;
         // Minimap drag state
@@ -1066,8 +1070,19 @@ class KeyboardModal {
         if (gmProgram === 42) return { num_strings: 4, num_frets: 0, tuning: [36, 43, 50, 57], is_fretless: true }; // cello
         if (gmProgram === 43) return { num_strings: 4, num_frets: 0, tuning: [28, 33, 38, 43], is_fretless: true }; // contrabass
         if (gmProgram >= 44 && gmProgram <= 45) return { num_strings: 4, num_frets: 0, tuning: [55, 62, 69, 76], is_fretless: true }; // tremolo / pizzicato (default to violin)
-        // Harp (special: many strings, no frets)
-        if (gmProgram === 46) return { num_strings: 22, num_frets: 0, tuning: null, is_fretless: true };
+        // Harp (special: many strings, no frets). 47-string concert harp:
+        // C-major diatonic from C1 (MIDI 24) up to G7 (MIDI 103). Matches
+        // the "Harpe" preset (StringInstrumentPresets.js → num_strings: 47).
+        if (gmProgram === 46) {
+            const STEP = [2, 2, 1, 2, 2, 2, 1]; // C-major intervals
+            const tuning = [];
+            let n = 24;
+            for (let i = 0; i < 47; i++) {
+                tuning.push(n);
+                n += STEP[i % 7];
+            }
+            return { num_strings: 47, num_frets: 0, tuning, is_fretless: true };
+        }
         // Timpani — not a string instrument; fall through.
         // Sitar
         if (gmProgram === 104) return { num_strings: 7, num_frets: 20, tuning: [36, 43, 50, 55, 62, 69, 76], is_fretless: false };
@@ -1116,6 +1131,40 @@ class KeyboardModal {
         if (typeof this._updateSlideModeGroupVisibility === 'function') {
             this._updateSlideModeGroupVisibility();
         }
+    }
+
+    /**
+     * Load the configured strings for the dedicated HarpView. Same backend
+     * lookup as loadStringInstrumentConfig() but it does NOT mutate
+     * this.stringInstrumentConfig — the InstrumentDetector escape hatch
+     * (a present stringCfg forces the fretboard view for GM 46) must stay
+     * untouched so a harp keeps its dedicated vertical-string view.
+     * Falls back to the 47-string "Harpe" GM preset.
+     * @returns {Promise<{tuning:number[], num_strings:number}|null>}
+     */
+    async _loadHarpStringConfig() {
+        if (this.selectedDevice) {
+            const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+            const channel = this.getSelectedChannel();
+            try {
+                const resp = await this.backend.sendCommand('string_instrument_get', {
+                    device_id: deviceId,
+                    channel: channel
+                });
+                const inst = resp && resp.instrument;
+                if (inst && Array.isArray(inst.tuning) && inst.tuning.length) {
+                    return { tuning: inst.tuning, num_strings: inst.num_strings };
+                }
+            } catch (e) { /* ignore — fallback below */ }
+        }
+        // Fallback: 47-string Harpe GM preset.
+        const caps = this.selectedDeviceCapabilities;
+        const gmProgram = (caps && caps.gm_program) ?? (this.selectedDevice && this.selectedDevice.gm_program);
+        const preset = this._getStringPresetForGmProgram(gmProgram);
+        if (preset && Array.isArray(preset.tuning) && preset.tuning.length) {
+            return { tuning: preset.tuning, num_strings: preset.num_strings };
+        }
+        return null;
     }
 
     /**
@@ -1392,13 +1441,16 @@ class KeyboardModal {
         if (info.isDrum) {
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.stringInstrumentConfig = null;
+            this._harpStringConfig = null;
             this.setViewMode('drumpad');
         } else if (info.canFretboard) {
             await this.loadStringInstrumentConfig();
+            this._harpStringConfig = null;
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.setViewMode('fretboard');
         } else if (info.isWind) {
             this.stringInstrumentConfig = null;
+            this._harpStringConfig = null;
             // Keep the view-mode toggle visible so the user can switch a
             // wind instrument to the standard piano (and back).
             if (viewGroup) viewGroup.classList.remove('hidden');
@@ -1410,9 +1462,19 @@ class KeyboardModal {
             // Comfort zone is applied inside generatePianoSlider via _applyWindComfortZone
         } else if (isChromatic) {
             this.stringInstrumentConfig = null;
+            this._harpStringConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('keyboard-list');
-        } else if (['harmonica', 'harp', 'accordion', 'mallet',
+        } else if (info.viewKind === 'harp') {
+            // Dedicated vertical-string HarpView. stringInstrumentConfig is
+            // kept null so the InstrumentDetector escape hatch doesn't flip
+            // a re-selected harp to the fretboard; the configured strings
+            // are passed to HarpView via this._harpStringConfig instead.
+            this.stringInstrumentConfig = null;
+            this._harpStringConfig = await this._loadHarpStringConfig();
+            if (viewGroup) viewGroup.classList.remove('hidden');
+            this.setViewMode('harp');
+        } else if (['harmonica', 'accordion', 'mallet',
                      'kalimba', 'bagpipe', 'steel-drum', 'perc-pad',
                      'theremin']
             .includes(info.viewKind)) {
@@ -1422,10 +1484,12 @@ class KeyboardModal {
             // always reachable for any specific instrument (the toggle
             // handler swaps this.viewMode ↔ 'piano' symmetrically).
             this.stringInstrumentConfig = null;
+            this._harpStringConfig = null;
             if (viewGroup) viewGroup.classList.remove('hidden');
             this.setViewMode(info.viewKind);
         } else {
             this.stringInstrumentConfig = null;
+            this._harpStringConfig = null;
             if (viewGroup) viewGroup.classList.add('hidden');
             this.setViewMode('piano');
         }
