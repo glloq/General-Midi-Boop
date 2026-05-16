@@ -66,8 +66,9 @@
             root.id = 'accordion-container';
             root.className = 'accordion-view';
             root.style.cssText =
-                'display:flex;align-items:center;justify-content:center;'
-                + 'height:100%;padding:16px;touch-action:none;';
+                'display:flex;align-items:stretch;justify-content:center;'
+                + 'height:100%;box-sizing:border-box;padding:12px;'
+                + 'touch-action:none;';
 
             // Right-hand (treble) follows the configured note range.
             const r = typeof modal.getInstrumentNoteRange === 'function'
@@ -117,27 +118,39 @@
             root.appendChild(sides);
             canvas.appendChild(root);
             this._root = root;
+            this._sliding = false;
             this._onDown = (e) => this._press(e);
-            this._onDocUp = () => this._releaseAll();
+            this._onMove = (e) => this._slide(e);
+            this._onDocUp = () => { this._sliding = false; this._releaseAll(); };
             root.addEventListener('pointerdown', this._onDown);
+            root.addEventListener('pointermove', this._onMove);
             document.addEventListener('pointerup', this._onDocUp);
             document.addEventListener('pointercancel', this._onDocUp);
         }
 
-        // Titled, bordered panel around one side's controls.
+        // Titled, bordered panel around one side's controls. The content
+        // area flexes to fill the full available height (no top/bottom gap).
         _zone(title, contentEl) {
             const z = document.createElement('div');
             z.className = 'accordion-zone';
             z.style.cssText =
                 'display:flex;flex-direction:column;gap:6px;padding:10px;'
                 + 'border:1px solid #444;border-radius:8px;background:#1f1f24;'
-                + 'align-items:center;justify-content:center;';
+                + 'box-sizing:border-box;height:100%;';
             const h = document.createElement('div');
             h.className = 'accordion-zone-title';
             h.textContent = title;
-            h.style.cssText = 'font:11px sans-serif;color:#9fb3c8;text-align:center;';
+            h.style.cssText =
+                'flex:0 0 auto;font:11px sans-serif;color:#9fb3c8;'
+                + 'text-align:center;';
+            const body = document.createElement('div');
+            body.className = 'accordion-zone-body';
+            body.style.cssText =
+                'flex:1 1 auto;display:flex;align-items:stretch;'
+                + 'justify-content:center;width:100%;overflow:auto;';
+            body.appendChild(contentEl);
             z.appendChild(h);
-            z.appendChild(contentEl);
+            z.appendChild(body);
             return z;
         }
 
@@ -169,10 +182,10 @@
             b.title = title;
             b.textContent = title;
             b.style.cssText =
-                'width:34px;height:34px;border-radius:50%;border:1px solid #333;'
-                + `background:${bg};color:#e8e8e8;cursor:pointer;padding:0;`
-                + 'font:9px sans-serif;display:flex;align-items:center;'
-                + 'justify-content:center;';
+                'flex:0 0 auto;width:34px;height:34px;border-radius:50%;'
+                + `border:1px solid #333;background:${bg};color:#e8e8e8;`
+                + 'cursor:pointer;padding:0;font:9px sans-serif;display:flex;'
+                + 'align-items:center;justify-content:center;touch-action:none;';
             if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
                 const c = modal.getNoteColor(notes[0]);
                 b.style.background = c.bg;
@@ -181,25 +194,36 @@
             return b;
         }
 
-        // Vertical chromatic round-button board (C-griff style): 3 columns
-        // running top→bottom. Used for the treble in 'buttons' mode and for
+        // Chromatic round-button board: vertical columns of 3 buttons,
+        // every other column shifted half a button down so the buttons are
+        // NOT in a straight line (staggered, like a real accordion). Fills
+        // the full height. Used for the treble in 'buttons' mode and for
         // the free-bass side.
         _buttonBoard(cls, lo, hi, modal, bg) {
+            const PER_COL = 3;
+            const STAGGER = 18;            // half a button + gap
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-board`;
-            const rows = Math.max(1, Math.ceil((hi - lo + 1) / 3));
             wrap.style.cssText =
-                'display:grid;gap:5px;align-content:center;justify-content:center;'
-                + 'grid-template-columns:repeat(3,1fr);'
-                + `grid-template-rows:repeat(${rows},1fr);`
-                + 'max-height:72vh;overflow:auto;';
+                'display:flex;gap:6px;align-items:stretch;'
+                + 'justify-content:center;height:100%;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
-            for (let i = 0, n = lo; n <= hi; n++, i++) {
-                const b = this._mkRound([n], label(n), bg, modal);
-                b.style.gridColumn = String((i % 3) + 1);
-                b.style.gridRow = String(Math.floor(i / 3) + 1);
-                wrap.appendChild(b);
+            const nCols = Math.max(1, Math.ceil((hi - lo + 1) / PER_COL));
+            for (let c = 0; c < nCols; c++) {
+                const col = document.createElement('div');
+                col.className = 'accordion-board-col';
+                col.style.cssText =
+                    'display:flex;flex-direction:column;gap:8px;'
+                    + 'align-items:center;justify-content:space-around;'
+                    + 'height:100%;'
+                    + `transform:translateY(${c % 2 ? STAGGER : 0}px);`;
+                for (let r = 0; r < PER_COL; r++) {
+                    const n = lo + c * PER_COL + r;
+                    if (n > hi) break;
+                    col.appendChild(this._mkRound([n], label(n), bg, modal));
+                }
+                wrap.appendChild(col);
             }
             return wrap;
         }
@@ -226,43 +250,35 @@
             const chordLow = clampNote(bassLow + 12);
             const centerIdx = Math.floor((cols - 1) / 2);
 
+            const STAGGER = 18;            // half a button + gap
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-stradella`;
             wrap.style.cssText =
-                'display:grid;gap:5px;align-content:center;justify-content:center;'
-                + `grid-template-rows:auto repeat(${cols},1fr);`
-                + `grid-template-columns:auto repeat(${funcs.length},1fr);`
-                + 'max-height:74vh;overflow:auto;';
+                'display:flex;gap:6px;align-items:stretch;'
+                + 'justify-content:center;height:100%;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
 
-            // Header row: empty corner + one label per function column.
-            const corner = document.createElement('div');
-            corner.style.cssText = 'grid-row:1;grid-column:1;';
-            wrap.appendChild(corner);
+            // One vertical column per function; every other column is
+            // shifted half a button down so the buttons are NOT in a
+            // straight line (staggered, like a real Stradella board).
             funcs.forEach((id, fi) => {
+                const f = FUNC_DEFS[id];
+                const colEl = document.createElement('div');
+                colEl.className = 'accordion-stradella-col';
+                colEl.style.cssText =
+                    'display:flex;flex-direction:column;gap:8px;'
+                    + 'align-items:center;justify-content:space-around;'
+                    + 'height:100%;'
+                    + `transform:translateY(${fi % 2 ? STAGGER : 0}px);`;
                 const h = document.createElement('div');
                 h.className = 'accordion-stradella-collabel';
-                h.textContent = FUNC_DEFS[id].label;
+                h.textContent = f.label;
                 h.style.cssText =
-                    `grid-row:1;grid-column:${fi + 2};display:flex;`
-                    + 'align-items:center;justify-content:center;'
-                    + 'font:10px sans-serif;color:#9fb3c8;';
-                wrap.appendChild(h);
-            });
-
-            for (let step = 0; step < cols; step++) {
-                const pc = mod12(rootPc + 7 * (step - centerIdx));
-                const rl = document.createElement('div');
-                rl.className = 'accordion-stradella-rowlabel';
-                rl.textContent = label(clampNote(bassLow + pc));
-                rl.style.cssText =
-                    `grid-row:${step + 2};grid-column:1;display:flex;`
-                    + 'align-items:center;justify-content:flex-end;'
-                    + 'padding-right:6px;font:10px sans-serif;color:#9fb3c8;';
-                wrap.appendChild(rl);
-                funcs.forEach((id, fi) => {
-                    const f = FUNC_DEFS[id];
+                    'flex:0 0 auto;font:10px sans-serif;color:#9fb3c8;';
+                colEl.appendChild(h);
+                for (let step = 0; step < cols; step++) {
+                    const pc = mod12(rootPc + 7 * (step - centerIdx));
                     let notes, title;
                     if (f.kind === 'note') {
                         notes = [clampNote(bassLow + mod12(pc + f.off))];
@@ -272,12 +288,10 @@
                             (iv) => clampNote(chordLow + mod12(pc + iv)));
                         title = label(clampNote(chordLow + pc)) + f.label;
                     }
-                    const b = this._mkRound(notes, title, '#3a2b3a', modal);
-                    b.style.gridRow = String(step + 2);
-                    b.style.gridColumn = String(fi + 2);
-                    wrap.appendChild(b);
-                });
-            }
+                    colEl.appendChild(this._mkRound(notes, title, '#3a2b3a', modal));
+                }
+                wrap.appendChild(colEl);
+            });
             return wrap;
         }
 
@@ -296,8 +310,8 @@
 
             const col = document.createElement('div');
             col.className = `accordion-row ${cls} accordion-piano`;
-            col.style.cssText = 'position:relative;width:90px;'
-                + 'height:' + (whites * 24) + 'px;max-height:74vh;';
+            col.style.cssText = 'position:relative;width:90px;flex:0 0 auto;'
+                + 'height:100%;min-height:' + (whites * 22) + 'px;';
             let wIdx = 0;
             const mk = (n, black, topPct, hPct, css) => {
                 const b = document.createElement('button');
@@ -333,11 +347,13 @@
             return col;
         }
 
-        _press(e) {
+        _cellOf(e) {
             const cell = e.target && e.target.closest
                 ? e.target.closest('.accordion-key') : null;
-            if (!cell || !this._root.contains(cell)) return;
-            if (e.cancelable) e.preventDefault();
+            return cell && this._root && this._root.contains(cell) ? cell : null;
+        }
+
+        _pressCell(cell) {
             const id = cell.dataset.key || cell.dataset.note;
             if (this._pressed.has(id)) return;
             const notes = (cell.dataset.notes || cell.dataset.note || '')
@@ -349,6 +365,28 @@
             if (modal && typeof modal.playNote === 'function') {
                 notes.forEach((n) => modal.playNote(n));
             }
+        }
+
+        _press(e) {
+            const cell = this._cellOf(e);
+            if (!cell) return;
+            if (e.cancelable) e.preventDefault();
+            this._sliding = true;
+            this._pressCell(cell);
+        }
+
+        // Glissando: while the pointer is held, sliding onto a new key
+        // releases the previous one(s) and sounds the new one — works for
+        // piano keys and round buttons alike.
+        _slide(e) {
+            if (!this._sliding) return;
+            const cell = this._cellOf(e);
+            if (!cell) return;
+            const id = cell.dataset.key || cell.dataset.note;
+            if (this._pressed.has(id)) return;     // already sounding
+            if (e.cancelable) e.preventDefault();
+            this._releaseAll();
+            this._pressCell(cell);
         }
 
         _releaseAll() {
@@ -367,9 +405,11 @@
             this._releaseAll();
             if (this._root) {
                 this._root.removeEventListener('pointerdown', this._onDown);
+                this._root.removeEventListener('pointermove', this._onMove);
                 this._root.remove();
                 this._root = null;
             }
+            this._sliding = false;
             document.removeEventListener('pointerup', this._onDocUp);
             document.removeEventListener('pointercancel', this._onDocUp);
             this._pressed = null;
