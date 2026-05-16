@@ -131,6 +131,37 @@ describe('Harp — self-owned DOM lifecycle', () => {
     expect(root.querySelectorAll('.harp-string.active').length).toBe(0);
   });
 
+  it('each string shows a visible note label via modal.getNoteLabel', () => {
+    const root = document.getElementById('harp-container');
+    const first = root.querySelectorAll('.harp-string')[0]; // C3 = 48
+    const lbl = first.querySelector('.harp-string-label');
+    expect(lbl).not.toBeNull();
+    expect(lbl.textContent).toBe('N48');             // mock format
+    expect(lbl.style.pointerEvents).toBe('none');    // no hit-test interference
+  });
+
+  it('glissando hit-tests the live pointer position (implicit capture)', () => {
+    const root = document.getElementById('harp-container');
+    const s = root.querySelectorAll('.harp-string');
+    const orig = document.elementFromPoint;
+    // Simulate pointer capture: every move keeps e.target on s[0] while
+    // the pointer is physically over s[2] then s[3].
+    let under = s[0];
+    document.elementFromPoint = () => under;
+    try {
+      s[0].dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 1, clientY: 1 }));
+      under = s[2];
+      s[0].dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 10, clientY: 1 }));
+      under = s[3];
+      s[0].dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 20, clientY: 1 }));
+      expect(played).toEqual([48, 52, 53]); // C3 (pointerdown), E3, F3
+      document.dispatchEvent(new Event('pointerup'));
+      expect(stopped.sort((a, b) => a - b)).toEqual([48, 52, 53]);
+    } finally {
+      document.elementFromPoint = orig;
+    }
+  });
+
   it('pointermove without a prior pointerdown does nothing', () => {
     const root = document.getElementById('harp-container');
     fire(root.querySelectorAll('.harp-string')[3], 'pointermove');

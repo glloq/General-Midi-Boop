@@ -86,12 +86,27 @@
                 s.title = label(midi);
                 s.style.cssText =
                     'flex:1 1 0;min-width:16px;max-width:34px;height:100%;'
+                    + 'display:flex;flex-direction:column;'
+                    + 'justify-content:flex-end;align-items:center;padding:0;'
                     + 'border:none;border-radius:3px;cursor:pointer;'
                     + 'background:' + (isC ? '#c0392b' : isF ? '#2c3e50' : '#cfd6dc')
                     + ';opacity:.85;transition:opacity .05s;';
                 if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
                     s.style.background = modal.getNoteColor(midi).bg;
                 }
+                // Visible note label in the header-selected format
+                // (US / FR / MIDI via modal.getNoteLabel). Vertical text so
+                // it stays legible on a narrow string. pointer-events:none
+                // keeps elementFromPoint hit-testing on the string itself.
+                const lbl = document.createElement('span');
+                lbl.className = 'harp-string-label';
+                lbl.textContent = label(midi);
+                lbl.style.cssText =
+                    'pointer-events:none;user-select:none;white-space:nowrap;'
+                    + 'font-size:10px;line-height:1;padding:4px 0;'
+                    + 'color:' + (isC || isF ? '#f5f7fa' : '#1b2733')
+                    + ';writing-mode:vertical-rl;text-orientation:mixed;';
+                s.appendChild(lbl);
                 root.appendChild(s);
             });
 
@@ -109,10 +124,25 @@
             document.addEventListener('pointercancel', this._onDocUp);
         }
 
+        // Resolve the string under the pointer. During a drag, pointermove
+        // keeps e.target on the element that received pointerdown (implicit
+        // pointer capture), so a glissando must hit-test the live pointer
+        // position via elementFromPoint. Falls back to e.target (covers
+        // synthetic test events with no coordinates).
+        _resolveCell(e) {
+            let el = null;
+            if (typeof document.elementFromPoint === 'function'
+                && Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
+                el = document.elementFromPoint(e.clientX, e.clientY);
+            }
+            if (!el && e.target) el = e.target;
+            const cell = el && el.closest ? el.closest('.harp-string') : null;
+            return (cell && this._root && this._root.contains(cell)) ? cell : null;
+        }
+
         _pluck(e) {
-            const cell = e.target && e.target.closest
-                ? e.target.closest('.harp-string') : null;
-            if (!cell || !this._root || !this._root.contains(cell)) return;
+            const cell = this._resolveCell(e);
+            if (!cell) return;
             if (e.cancelable) e.preventDefault();
             const idx = cell.dataset.idx;
             if (this._pressed.has(idx)) return;        // already ringing
