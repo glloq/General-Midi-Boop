@@ -29,23 +29,25 @@
     const clampNote = (n) => Math.max(0, Math.min(127, n | 0));
     const mod12 = (n) => ((n % 12) + 12) % 12;
 
-    // Stradella: 12 circle-of-fifths steps running VERTICALLY (one per
-    // grid row), centred on C — like a real accordion bass board viewed
-    // from the front.  pitchClass(step) = (7*(step-5)) mod 12
-    //   → Db Ab Eb Bb F C G D A E B F#
-    const STRADELLA_STEPS = 12;
-    // The six button functions run HORIZONTALLY (one per grid column).
-    // 'note' = single MIDI note (low octave from C2); 'chord' = intervals
-    // voiced inside one octave from C3 (MIDI 48). The dominant 7th and
-    // diminished 7th omit the 5th (authentic Stradella).
-    const STRADELLA_FUNCS = [
-        { label: 'CB', kind: 'note',  base: 36, off: 4 },           // counter-bass
-        { label: 'B',  kind: 'note',  base: 36, off: 0 },           // fundamental bass
-        { label: 'M',  kind: 'chord', base: 48, iv: [0, 4, 7] },    // major
-        { label: 'm',  kind: 'chord', base: 48, iv: [0, 3, 7] },    // minor
-        { label: '7',  kind: 'chord', base: 48, iv: [0, 4, 10] },   // dominant 7th
-        { label: '°', kind: 'chord', base: 48, iv: [0, 3, 9] },// diminished 7th
-    ];
+    // Stradella geometry is configurable from the instrument settings
+    // (accordion_config): `bass_cols` circle-of-fifths steps run VERTICALLY,
+    // the selected `bass_funcs` run HORIZONTALLY, all built around the
+    // reference fundamental `bass_base`. Defaults reproduce the classic
+    // 12-step × 6-function board centred on C2.
+    const STRADELLA_DEFAULT_COLS = 12;
+    const STRADELLA_DEFAULT_BASE = 36;          // C2 fundamental
+    // Canonical function order. 'note' = single MIDI note (bass octave);
+    // 'chord' = intervals voiced one octave above the bass. The dominant
+    // 7th and diminished 7th omit the 5th (authentic Stradella).
+    const FUNC_ORDER = ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7'];
+    const FUNC_DEFS = {
+        counterbass: { label: 'CB', kind: 'note',  off: 4 },
+        bass:        { label: 'B',  kind: 'note',  off: 0 },
+        major:       { label: 'M',  kind: 'chord', iv: [0, 4, 7] },
+        minor:       { label: 'm',  kind: 'chord', iv: [0, 3, 7] },
+        dom7:        { label: '7',  kind: 'chord', iv: [0, 4, 10] },
+        dim7:        { label: '°', kind: 'chord', iv: [0, 3, 9] },
+    };
 
     class AccordionView extends InstrumentView {
         static viewKind = 'accordion';
@@ -101,7 +103,7 @@
             // RIGHT — bass (the accordion's "côté gauche").
             let bass, bassTitle;
             if (acfg.bass_system === 'stradella') {
-                bass = this._stradellaGrid('accordion-bass', modal);
+                bass = this._stradellaGrid('accordion-bass', modal, acfg);
                 bassTitle = 'Côté gauche · Stradella';
             } else {
                 let bLo = clampNote(acfg.bass_range?.min ?? FREE_BASS_LO);
@@ -202,16 +204,34 @@
             return wrap;
         }
 
-        // Full Stradella bass board, oriented like a real accordion seen
-        // from the front: 12 circle-of-fifths steps stacked vertically
-        // (grid rows) × 6 function columns.
-        _stradellaGrid(cls, modal) {
+        // Configurable Stradella bass board, oriented like a real accordion
+        // seen from the front: `bass_cols` circle-of-fifths steps stacked
+        // vertically (grid rows) × the selected `bass_funcs` columns, all
+        // built around the reference fundamental `bass_base`.
+        _stradellaGrid(cls, modal, acfg) {
+            acfg = acfg || {};
+            const ci = Number(acfg.bass_cols);
+            const cols = Number.isInteger(ci) && ci >= 1 && ci <= 20
+                ? ci : STRADELLA_DEFAULT_COLS;
+            const bb = Number(acfg.bass_base);
+            const base = Number.isInteger(bb) && bb >= 0 && bb <= 127
+                ? bb : STRADELLA_DEFAULT_BASE;
+            let funcs = Array.isArray(acfg.bass_funcs)
+                ? FUNC_ORDER.filter((f) => acfg.bass_funcs.includes(f))
+                : [];
+            if (funcs.length === 0) funcs = FUNC_ORDER.slice();
+
+            const rootPc = base % 12;
+            const bassLow = base - rootPc;      // octave floor of the reference
+            const chordLow = clampNote(bassLow + 12);
+            const centerIdx = Math.floor((cols - 1) / 2);
+
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-stradella`;
             wrap.style.cssText =
                 'display:grid;gap:5px;align-content:center;justify-content:center;'
-                + `grid-template-rows:auto repeat(${STRADELLA_STEPS},1fr);`
-                + `grid-template-columns:auto repeat(${STRADELLA_FUNCS.length},1fr);`
+                + `grid-template-rows:auto repeat(${cols},1fr);`
+                + `grid-template-columns:auto repeat(${funcs.length},1fr);`
                 + 'max-height:74vh;overflow:auto;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
@@ -220,10 +240,10 @@
             const corner = document.createElement('div');
             corner.style.cssText = 'grid-row:1;grid-column:1;';
             wrap.appendChild(corner);
-            STRADELLA_FUNCS.forEach((f, fi) => {
+            funcs.forEach((id, fi) => {
                 const h = document.createElement('div');
                 h.className = 'accordion-stradella-collabel';
-                h.textContent = f.label;
+                h.textContent = FUNC_DEFS[id].label;
                 h.style.cssText =
                     `grid-row:1;grid-column:${fi + 2};display:flex;`
                     + 'align-items:center;justify-content:center;'
@@ -231,25 +251,26 @@
                 wrap.appendChild(h);
             });
 
-            for (let step = 0; step < STRADELLA_STEPS; step++) {
-                const p = mod12(7 * (step - 5));
+            for (let step = 0; step < cols; step++) {
+                const pc = mod12(rootPc + 7 * (step - centerIdx));
                 const rl = document.createElement('div');
                 rl.className = 'accordion-stradella-rowlabel';
-                rl.textContent = label(48 + p);
+                rl.textContent = label(clampNote(bassLow + pc));
                 rl.style.cssText =
                     `grid-row:${step + 2};grid-column:1;display:flex;`
                     + 'align-items:center;justify-content:flex-end;'
                     + 'padding-right:6px;font:10px sans-serif;color:#9fb3c8;';
                 wrap.appendChild(rl);
-                STRADELLA_FUNCS.forEach((f, fi) => {
+                funcs.forEach((id, fi) => {
+                    const f = FUNC_DEFS[id];
                     let notes, title;
                     if (f.kind === 'note') {
-                        notes = [clampNote(f.base + mod12(p + f.off))];
+                        notes = [clampNote(bassLow + mod12(pc + f.off))];
                         title = label(notes[0]);
                     } else {
                         notes = f.iv.map(
-                            (iv) => clampNote(f.base + mod12(p + iv)));
-                        title = label(f.base + p) + f.label;
+                            (iv) => clampNote(chordLow + mod12(pc + iv)));
+                        title = label(clampNote(chordLow + pc)) + f.label;
                     }
                     const b = this._mkRound(notes, title, '#3a2b3a', modal);
                     b.style.gridRow = String(step + 2);

@@ -94,4 +94,25 @@ describe('validateAccordionConfigPayload', () => {
     expect(() => validateAccordionConfigPayload({ bass_range: { min: 1.5 } })).toThrow(ValidationError);
     expect(() => validateAccordionConfigPayload({ bass_range: [36, 60] })).toThrow(ValidationError);
   });
+
+  test('well-formed Stradella geometry accepted', () => {
+    expect(() => validateAccordionConfigPayload({ bass_cols: 12 })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_cols: 1 })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_cols: 20 })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_base: 0 })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_base: 127 })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({
+      bass_funcs: ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7'] })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_funcs: [] })).not.toThrow();
+  });
+
+  test('malformed Stradella geometry rejected', () => {
+    expect(() => validateAccordionConfigPayload({ bass_cols: 0 })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_cols: 21 })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_cols: 1.5 })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_base: -1 })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_base: 200 })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_funcs: 'bass' })).toThrow(ValidationError);
+    expect(() => validateAccordionConfigPayload({ bass_funcs: ['bogus'] })).toThrow(ValidationError);
+  });
 });

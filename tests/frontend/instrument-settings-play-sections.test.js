@@ -158,8 +158,37 @@ describe('ISM — accordion section render + collect (no hands)', () => {
     document.getElementById('accordionBassRangeMax').value = '55';
     expect(S()._collectAccordionConfig(document.body)).toEqual({
       bass_system: 'free', right_display: 'keyboard',
-      bass_range: { min: 48, max: 55 }
+      bass_range: { min: 48, max: 55 },
+      bass_cols: 12, bass_base: 36,
+      bass_funcs: ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7']
     });
+  });
+
+  it('collect returns configurable Stradella geometry', () => {
+    mountSection('accordion', S()._renderAccordionSection.call(ctx({})));
+    document.getElementById('accordionBassCols').value = '8';
+    document.getElementById('accordionBassBase').value = '41';
+    const cbs = [...document.querySelectorAll('.accordionFuncCb')];
+    cbs.forEach((cb) => { cb.checked = ['bass', 'major'].includes(cb.value); });
+    const out = S()._collectAccordionConfig(document.body);
+    expect(out.bass_cols).toBe(8);
+    expect(out.bass_base).toBe(41);
+    expect(out.bass_funcs).toEqual(['bass', 'major']);
+    // empty selection normalizes to all six
+    cbs.forEach((cb) => { cb.checked = false; });
+    expect(S()._collectAccordionConfig(document.body).bass_funcs)
+      .toEqual(['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7']);
+  });
+
+  it('render: Stradella inputs disabled under free, enabled under stradella', () => {
+    mountSection('accordion', S()._renderAccordionSection.call(
+      ctx({ accordion_config: { bass_system: 'free' } })));
+    expect(document.getElementById('accordionBassCols').disabled).toBe(true);
+    expect(document.querySelector('.accordionFuncCb').disabled).toBe(true);
+    mountSection('accordion', S()._renderAccordionSection.call(
+      ctx({ accordion_config: { bass_system: 'stradella' } })));
+    expect(document.getElementById('accordionBassCols').disabled).toBe(false);
+    expect(document.querySelector('.accordionFuncCb').disabled).toBe(false);
   });
 
   it('normalize maps legacy chromatic → free', () => {

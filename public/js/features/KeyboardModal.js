@@ -980,7 +980,17 @@ class KeyboardModal {
         let min = note(br.min, 36);
         let max = note(br.max, 60);
         if (min > max) { const t = min; min = max; max = t; }
-        return { bass_system, right_display, bass_range: { min, max } };
+        // Stradella geometry (left side). Canonical function order; an
+        // empty/invalid selection falls back to the full 6-function board.
+        const ALL_FUNCS = ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7'];
+        const ci = Number(c.bass_cols);
+        const bass_cols = Number.isInteger(ci) && ci >= 1 && ci <= 20 ? ci : 12;
+        const bass_base = note(c.bass_base, 36);
+        let bass_funcs = Array.isArray(c.bass_funcs)
+            ? ALL_FUNCS.filter((f) => c.bass_funcs.includes(f)) : [];
+        if (bass_funcs.length === 0) bass_funcs = ALL_FUNCS.slice();
+        return { bass_system, right_display, bass_range: { min, max },
+            bass_cols, bass_base, bass_funcs };
     }
 
     /**
