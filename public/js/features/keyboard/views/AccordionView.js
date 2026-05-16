@@ -303,7 +303,7 @@
 
             const col = document.createElement('div');
             col.className = `accordion-row ${cls} accordion-piano`;
-            col.style.cssText = 'position:relative;width:84px;flex:0 0 auto;'
+            col.style.cssText = 'position:relative;width:168px;flex:0 0 auto;'
                 + 'height:100%;';
             let wIdx = 0;
             const mk = (n, black, topPct, hPct, css) => {
