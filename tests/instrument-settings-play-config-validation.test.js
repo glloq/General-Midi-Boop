@@ -49,9 +49,9 @@ describe('validateAccordionConfigPayload', () => {
   test('valid enums accepted (any subset of keys)', () => {
     expect(() => validateAccordionConfigPayload({})).not.toThrow();
     expect(() => validateAccordionConfigPayload({
-      bass_system: 'free', hands: 'left', right_display: 'keyboard'
+      bass_system: 'free', right_display: 'keyboard'
     })).not.toThrow();
-    expect(() => validateAccordionConfigPayload({ hands: 'both' })).not.toThrow();
+    expect(() => validateAccordionConfigPayload({ bass_system: 'stradella' })).not.toThrow();
   });
 
   test('non-object rejected', () => {
@@ -61,7 +61,6 @@ describe('validateAccordionConfigPayload', () => {
 
   test('invalid enum values rejected', () => {
     expect(() => validateAccordionConfigPayload({ bass_system: 'bogus' })).toThrow(ValidationError);
-    expect(() => validateAccordionConfigPayload({ hands: 'middle' })).toThrow(ValidationError);
     expect(() => validateAccordionConfigPayload({ right_display: 'touch' })).toThrow(ValidationError);
   });
 });

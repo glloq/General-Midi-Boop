@@ -76,7 +76,6 @@ export function validateAccordionConfigPayload(cfg) {
     }
   };
   oneOf(cfg.bass_system, ['stradella', 'chromatic', 'free'], 'bass_system');
-  oneOf(cfg.hands, ['both', 'right', 'left'], 'hands');
   oneOf(cfg.right_display, ['buttons', 'keyboard'], 'right_display');
 }
 

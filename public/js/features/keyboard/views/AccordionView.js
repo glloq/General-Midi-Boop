@@ -55,40 +55,39 @@
             const tLo = r ? r.min : TREBLE_LO;
             const tHi = r ? r.max : TREBLE_HI;
 
-            // QA #3/#4: instrument-specific accordion settings.
+            // QA #3/#4: per-side play possibilities (NO hand show/hide —
+            // an accordion always has both sides).
             const acfg = typeof modal.getAccordionConfig === 'function'
                 ? modal.getAccordionConfig()
-                : { bass_system: 'stradella', hands: 'both', right_display: 'buttons' };
+                : { bass_system: 'stradella', right_display: 'buttons' };
 
-            // QA #4: two distinct sides — left hand (bass) on the left,
-            // right hand (melody) on the right.
+            // Two distinct sides, always both present: left side (bass) on
+            // the left, right side (melody) on the right.
             const sides = document.createElement('div');
             sides.className = 'accordion-sides';
             sides.style.cssText =
                 'display:flex;gap:24px;align-items:flex-start;'
                 + 'justify-content:center;flex:1;width:100%;';
 
-            if (acfg.hands === 'both' || acfg.hands === 'left') {
-                let bass;
-                if (acfg.bass_system === 'stradella') {
-                    bass = this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a');
-                } else {
-                    const bHi = (r ? r.min : TREBLE_LO) - 1;
-                    bass = this._row('accordion-bass', bHi - 23, bHi, modal, '#3a2b3a');
-                }
-                sides.appendChild(this._zone(
-                    `Main gauche · ${acfg.bass_system === 'stradella' ? 'Stradella' : 'Basses libres'}`,
-                    bass));
+            // Left side — bass, per the configured bass system.
+            let bass;
+            if (acfg.bass_system === 'stradella') {
+                bass = this._row('accordion-bass', BASS_LO, BASS_HI, modal, '#3a2b3a');
+            } else {
+                const bHi = (r ? r.min : TREBLE_LO) - 1;
+                bass = this._row('accordion-bass', bHi - 23, bHi, modal, '#3a2b3a');
             }
+            sides.appendChild(this._zone(
+                `Côté gauche · ${acfg.bass_system === 'stradella' ? 'Stradella' : 'Basses libres'}`,
+                bass));
 
-            if (acfg.hands === 'both' || acfg.hands === 'right') {
-                const right = acfg.right_display === 'keyboard'
-                    ? this._pianoRow('accordion-treble', tLo, tHi, modal)
-                    : this._row('accordion-treble', tLo, tHi, modal, '#2b3a4a');
-                sides.appendChild(this._zone(
-                    `Main droite · ${acfg.right_display === 'keyboard' ? 'Clavier' : 'Boutons'}`,
-                    right));
-            }
+            // Right side — melody, buttons or piano keyboard.
+            const right = acfg.right_display === 'keyboard'
+                ? this._pianoRow('accordion-treble', tLo, tHi, modal)
+                : this._row('accordion-treble', tLo, tHi, modal, '#2b3a4a');
+            sides.appendChild(this._zone(
+                `Côté droit · ${acfg.right_display === 'keyboard' ? 'Clavier' : 'Boutons'}`,
+                right));
 
             root.appendChild(sides);
             canvas.appendChild(root);
