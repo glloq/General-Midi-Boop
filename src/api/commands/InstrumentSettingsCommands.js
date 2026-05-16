@@ -552,7 +552,7 @@ async function instrumentListConnected(app) {
  * @returns {Promise<{success:boolean, errors?:string[]}>}
  * @throws {ConfigurationError|ValidationError}
  */
-async function instrumentDelete(app, data) {
+export async function instrumentDelete(app, data) {
   if (!app.database) {
     throw new ConfigurationError('Database not available');
   }
@@ -609,6 +609,23 @@ async function instrumentDelete(app, data) {
 
   if (errors.length > 0) {
     app.logger.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
+  }
+
+  // Virtual devices also live in the in-memory DeviceManager registry,
+  // which feeds device_list. Deleting only the DB row leaves them visible
+  // in the instrument modal until they are evicted from that registry too.
+  // Mirror virtualDelete(): once the device's last channel is gone,
+  // unregister it from the DeviceManager.
+  if (data.deviceId.startsWith('virtual_') &&
+      app.deviceManager &&
+      typeof app.deviceManager.removeVirtualDevice === 'function') {
+    let remaining = [];
+    try {
+      remaining = app.instrumentRepository.findByDevice(data.deviceId) || [];
+    } catch (_e) { /* table may not exist */ }
+    if (remaining.length === 0) {
+      app.deviceManager.removeVirtualDevice(data.deviceId);
+    }
   }
 
   // Notify routing / clock / playback caches that this (device, channel)
