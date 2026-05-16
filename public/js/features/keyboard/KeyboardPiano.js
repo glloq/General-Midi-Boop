@@ -514,6 +514,7 @@
             if (iconUrl) {
                 btn.innerHTML =
                     `<img class="view-toggle-svg" src="${iconUrl}" alt="" `
+                    + `width="20" height="20" `
                     + `onerror="this.style.display='none';`
                     + `this.nextElementSibling.style.display='inline'">`
                     + `<span class="view-toggle-emoji" `
