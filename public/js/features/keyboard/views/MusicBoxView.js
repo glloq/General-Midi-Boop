@@ -105,7 +105,6 @@
             const BASE = 'linear-gradient(#454b54,#2c3037 55%,#191c21)';
             const STEEL_MAX = 86, STEEL_MIN = 42;        // % of column height
 
-            const W = 100 / n;
             for (let i = 0; i < n; i++) {
                 const midi = LO + i;
                 const t = i / Math.max(1, n - 1);          // 0 bass → 1 treble
@@ -119,8 +118,8 @@
                 tooth.dataset.note = String(midi);
                 tooth.title = label(midi);
                 tooth.style.cssText =
-                    'position:relative;box-sizing:border-box;flex:0 0 auto;'
-                    + `width:${W}%;height:100%;`
+                    'position:relative;box-sizing:border-box;'
+                    + 'flex:1 1 0;min-width:0;height:100%;'
                     + 'border:0;padding:0;margin:0;cursor:pointer;outline:0;'
                     + 'border-radius:0;background-color:transparent;'
                     + `background-image:${STEEL},${BASE};`
