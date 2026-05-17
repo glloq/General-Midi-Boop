@@ -82,8 +82,9 @@
 
             PHYSICAL.forEach((midi, idx) => {
                 // Taller toward the centre (longer tine = lower pitch);
-                // ~15% taller overall than the natural 60..140 range.
-                const h = 69 + (1 - Math.abs(idx - mid) / (mid || 1)) * 92;
+                // ~110px at the edges up to ~260px in the middle so the
+                // long centre tines hang down over the resonance hole.
+                const h = 110 + (1 - Math.abs(idx - mid) / (mid || 1)) * 150;
                 const t = document.createElement('button');
                 t.type = 'button';
                 t.className = 'kalimba-tine';
