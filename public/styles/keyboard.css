@@ -2019,49 +2019,48 @@ body.dark-mode .shortcuts-overlay {
 }
 
 /* Soufflet réaliste (statique, non interactif).
- *   • Corps : plis verticaux arrondis (arête éclairée + creux ombré) avec
- *     un voile vertical pour la profondeur (effet de boîte).
- *   • Haut/bas : rails rigides dont le bord intérieur dessine la pointe
- *     en zigzag de chaque pli — la signature visuelle d'un soufflet
- *     d'accordéon — via clip-path en pourcentages (indépendant de la
- *     largeur).
+ *   • Corps : plis verticaux en cuir (creux sombre → arête fauve) avec un
+ *     voile vertical pour la profondeur (effet de boîte).
+ *   • Haut/bas : rails rigides bronze dont le bord intérieur dessine la
+ *     pointe en zigzag de chaque pli (clip-path en %, indépendant de la
+ *     largeur), avec aux 4 coins un triangle métal (renforts d'angle).
  * La géométrie (structure, clip-path) est partagée ; seules les couleurs
- * changent selon le thème. Défaut = thème normal (canevas blanc) : palette
- * argentée claire. body.dark-mode : palette sombre d'origine.
+ * changent selon le thème. Défaut = thème normal : cuir + angles métal.
+ * body.dark-mode : palette sombre/argent d'origine (inchangée).
  * Le sizing/flex et pointer-events:none restent inline
  * (cf. AccordionView._bellowsVisual). */
 .accordion-bellows-visual {
     position: relative;
     border-radius: 6px;
     overflow: hidden;
-    /* Thème normal — soufflet argenté clair sur canevas blanc. */
-    border: 1px solid #c7c0db;
-    background-color: #dcd9e6;
+    /* Thème normal — soufflet cuir. */
+    border: 1px solid #2f1d10;
+    background-color: #5a3720;
     background-image:
         linear-gradient(180deg,
-            rgba(60, 50, 80, 0.30) 0%,
-            rgba(60, 50, 80, 0.07) 9%,
-            rgba(255, 255, 255, 0.50) 50%,
-            rgba(60, 50, 80, 0.07) 91%,
-            rgba(60, 50, 80, 0.30) 100%),
+            rgba(0, 0, 0, 0.50) 0%,
+            rgba(0, 0, 0, 0.14) 9%,
+            rgba(255, 235, 205, 0.10) 50%,
+            rgba(0, 0, 0, 0.14) 91%,
+            rgba(0, 0, 0, 0.50) 100%),
         repeating-linear-gradient(90deg,
-            #aea8c2 0,
-            #bdb8cf 2px,
-            #e4e0ee 5px,
-            #ffffff 7px,
-            #e4e0ee 9px,
-            #bdb8cf 12px,
-            #aea8c2 14px);
+            #2f1c0f 0,
+            #3f2614 2px,
+            #5e3a20 5px,
+            #835230 7px,
+            #5e3a20 9px,
+            #3f2614 12px,
+            #2f1c0f 14px);
     box-shadow:
-        inset 0 0 18px rgba(70, 55, 95, 0.28),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+        inset 0 0 20px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 210, 160, 0.12);
 }
 
-/* Rails rigides haut/bas : ombrage métallique + lumière/ombre alignées
- * sur les plis, découpés en pointes par clip-path. Les pleins (entre les
- * rails et les pointes) laissent voir le corps : les plis montent
- * « rejoindre » le rail, comme sur un vrai soufflet. La couleur des
- * rails suit le thème (override dans body.dark-mode plus bas). */
+/* Rails rigides haut/bas : cadre bronze + lumière/ombre alignées sur les
+ * plis, découpés en pointes par clip-path ; un triangle métal à chaque
+ * coin (renfort d'angle). Les pleins laissent voir le cuir : les plis
+ * montent « rejoindre » le rail, comme sur un vrai soufflet. La couleur
+ * suit le thème (override dans body.dark-mode plus bas). */
 .accordion-bellows-visual::before,
 .accordion-bellows-visual::after {
     content: "";
@@ -2070,23 +2069,30 @@ body.dark-mode .shortcuts-overlay {
     right: 0;
     height: 26px;
     pointer-events: none;
-    background-image:
-        repeating-linear-gradient(90deg,
-            rgba(70, 55, 95, 0.30) 0,
-            rgba(0, 0, 0, 0.00) 6px,
-            rgba(255, 255, 255, 0.90) 7px,
-            rgba(0, 0, 0, 0.00) 8px,
-            rgba(70, 55, 95, 0.30) 14px),
-        linear-gradient(180deg,
-            #ffffff 0%,
-            #ded9ea 3px,
-            #aaa3c2 50%,
-            #7b7498 100%);
 }
 
 .accordion-bellows-visual::before {
     top: 0;
-    filter: drop-shadow(0 1px 0 rgba(70, 55, 95, 0.35));
+    filter: drop-shadow(0 1px 0 rgba(40, 22, 10, 0.5));
+    background-image:
+        linear-gradient(135deg,
+            #f4f5f8 0, #ccd0d8 24%, #9398a3 45%, transparent 47%),
+        linear-gradient(225deg,
+            #f4f5f8 0, #ccd0d8 24%, #9398a3 45%, transparent 47%),
+        repeating-linear-gradient(90deg,
+            rgba(0, 0, 0, 0.45) 0,
+            rgba(0, 0, 0, 0.00) 6px,
+            rgba(255, 225, 180, 0.60) 7px,
+            rgba(0, 0, 0, 0.00) 8px,
+            rgba(0, 0, 0, 0.45) 14px),
+        linear-gradient(180deg,
+            #e8cda4 0%,
+            #c19a68 3px,
+            #6e4f30 50%,
+            #3a2616 100%);
+    background-repeat: no-repeat, no-repeat, repeat, no-repeat;
+    background-position: left top, right top, 0 0, 0 0;
+    background-size: 18px 18px, 18px 18px, auto auto, 100% 100%;
     clip-path: polygon(
         0 0, 100% 0, 100% 12px,
         91.667% 26px, 83.333% 12px,
@@ -2099,19 +2105,26 @@ body.dark-mode .shortcuts-overlay {
 
 .accordion-bellows-visual::after {
     bottom: 0;
-    filter: drop-shadow(0 -1px 0 rgba(70, 55, 95, 0.35));
+    filter: drop-shadow(0 -1px 0 rgba(40, 22, 10, 0.5));
     background-image:
+        linear-gradient(45deg,
+            #f4f5f8 0, #ccd0d8 24%, #9398a3 45%, transparent 47%),
+        linear-gradient(315deg,
+            #f4f5f8 0, #ccd0d8 24%, #9398a3 45%, transparent 47%),
         repeating-linear-gradient(90deg,
-            rgba(70, 55, 95, 0.30) 0,
+            rgba(0, 0, 0, 0.45) 0,
             rgba(0, 0, 0, 0.00) 6px,
-            rgba(255, 255, 255, 0.90) 7px,
+            rgba(255, 225, 180, 0.60) 7px,
             rgba(0, 0, 0, 0.00) 8px,
-            rgba(70, 55, 95, 0.30) 14px),
+            rgba(0, 0, 0, 0.45) 14px),
         linear-gradient(0deg,
-            #ffffff 0%,
-            #ded9ea 3px,
-            #aaa3c2 50%,
-            #7b7498 100%);
+            #e8cda4 0%,
+            #c19a68 3px,
+            #6e4f30 50%,
+            #3a2616 100%);
+    background-repeat: no-repeat, no-repeat, repeat, no-repeat;
+    background-position: left bottom, right bottom, 0 0, 0 0;
+    background-size: 18px 18px, 18px 18px, auto auto, 100% 100%;
     clip-path: polygon(
         0 14px, 8.333% 0, 16.667% 14px, 25% 0,
         33.333% 14px, 41.667% 0, 50% 14px, 58.333% 0,

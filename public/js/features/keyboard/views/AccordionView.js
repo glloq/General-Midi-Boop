@@ -98,9 +98,15 @@
                 treble: '#2b3a4a', bass: '#3a2b3a',
                 keyBorder: '#333', keyText: '#e8e8e8',
             } : {
-                zoneBg: '#ece9f3', zoneBorder: '#c7c0db',
-                treble: '#d8e2f1', bass: '#ecdcea',
-                keyBorder: '#b7b0c9', keyText: '#2a2730',
+                // Corps rouge nacré (dégradé celluloïd vintage), boutons
+                // sombres avec relief — voir styles/keyboard.css pour le
+                // soufflet cuir assorti.
+                zoneBg: 'linear-gradient(135deg,#d6404f 0%,#a3122a 45%,'
+                    + '#c4324a 70%,#7d0f20 100%)',
+                zoneBorder: '#5e0c18',
+                treble: 'linear-gradient(180deg,#35475c 0%,#243140 100%)',
+                bass: 'linear-gradient(180deg,#46354a 0%,#2e2233 100%)',
+                keyBorder: '#1b1b21', keyText: '#eaeaf0',
             };
             const pal = this._pal;
 
