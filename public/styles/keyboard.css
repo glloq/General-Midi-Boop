@@ -1989,6 +1989,88 @@ body.dark-mode .shortcuts-overlay {
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
+/* ========================================================================
+ * ACCORDÉON — boutons actifs (vert cohérent avec le piano) + soufflet
+ * ======================================================================== */
+
+/* Note active : appui local OU lecture externe (setActiveNotes).
+ * !important car AccordionView pose un background inline (mode
+ * « couleurs de note » inclus). Halo vert pour la lisibilité sur
+ * fonds sombres ; l'animation key-press est partagée avec le piano. */
+.accordion-key.active {
+    background: linear-gradient(to bottom, #059669 0%, #10b981 100%) !important;
+    border-color: #047857 !important;
+    color: #f0fdf4 !important;
+    box-shadow:
+        inset 0 2px 8px rgba(0, 0, 0, 0.3),
+        0 0 8px rgba(16, 185, 129, 0.55);
+    transform: scale(0.96);
+    animation: key-press 0.15s ease-out;
+}
+
+/* Variante touche noire (treble en mode « clavier ») : vert plus
+ * sombre, calqué sur .black-key.active. Placée après la règle
+ * générique pour la priorité. */
+.accordion-key-black.active {
+    background: linear-gradient(to bottom, #047857 0%, #059669 100%) !important;
+    box-shadow:
+        inset 0 2px 8px rgba(0, 0, 0, 0.5),
+        0 0 8px rgba(16, 185, 129, 0.45);
+}
+
+/* Soufflet réaliste (statique, non interactif). Plis en V : une arête
+ * éclairée + un creux ombré par pli, plus un voile vertical pour
+ * l'effet cylindrique. Le sizing/flex et pointer-events:none restent
+ * inline (cf. AccordionView._bellowsVisual). */
+.accordion-bellows-visual {
+    position: relative;
+    border: 1px solid #444;
+    border-radius: 6px;
+    overflow: hidden;
+    background-color: #2a2a31;
+    background-image:
+        linear-gradient(180deg,
+            rgba(255, 255, 255, 0.10) 0%,
+            rgba(0, 0, 0, 0.00) 12%,
+            rgba(0, 0, 0, 0.00) 88%,
+            rgba(0, 0, 0, 0.35) 100%),
+        repeating-linear-gradient(90deg,
+            #1c1c22 0,
+            #1c1c22 2px,
+            #41414e 7px,
+            #54545f 9px,
+            #41414e 11px,
+            #20202736 16px,
+            #1c1c22 18px);
+    box-shadow:
+        inset 0 0 18px rgba(0, 0, 0, 0.6),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* Cadres rigides haut/bas (capuchons + liseré métallique). */
+.accordion-bellows-visual::before,
+.accordion-bellows-visual::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 9px;
+    pointer-events: none;
+    background: linear-gradient(180deg, #5a5a66 0%, #2c2c33 55%, #15151a 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.accordion-bellows-visual::before {
+    top: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.6);
+}
+
+.accordion-bellows-visual::after {
+    bottom: 0;
+    background: linear-gradient(0deg, #5a5a66 0%, #2c2c33 55%, #15151a 100%);
+    border-top: 1px solid rgba(0, 0, 0, 0.6);
+}
+
 /* Touches désactivées (hors plage de l'instrument) */
 .white-key.disabled {
     background: linear-gradient(to bottom, #9ca3af 0%, #d1d5db 100%);

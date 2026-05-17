@@ -144,19 +144,17 @@
             return z;
         }
 
-        // Simple decorative bellows (vertical bars) between the two
-        // playable sides. No listeners and pointer-events:none so it never
-        // intercepts presses; stretches to the full height.
+        // Decorative bellows (soufflet) between the two playable sides.
+        // The realistic look (V-folds, 3D shading, rigid end frames) lives
+        // in CSS (.accordion-bellows-visual). Only the structural sizing
+        // and pointer-events:none stay inline so it never intercepts
+        // presses and stretches to the full height.
         _bellowsVisual() {
             const b = document.createElement('div');
             b.className = 'accordion-bellows-visual';
             b.setAttribute('aria-hidden', 'true');
             b.style.cssText =
-                'flex:0 0 70px;align-self:stretch;'
-                + 'border:1px solid #444;border-radius:6px;pointer-events:none;'
-                + 'background:repeating-linear-gradient(90deg,'
-                + '#23232a 0 7px,#3c3c46 7px 14px);'
-                + 'box-shadow:inset 0 0 16px rgba(0,0,0,0.55);';
+                'flex:0 0 84px;align-self:stretch;pointer-events:none;';
             return b;
         }
 
