@@ -43,24 +43,19 @@
             const hi = r ? r.max : HI;
             const n = Math.max(1, hi - lo + 1);
 
-            // Ring radius = 38 % of the pan. A pocket diameter must never
+            // Ring radius = 38 % of the pan. The pocket diameter must not
             // exceed the centre-to-centre arc between two adjacent pockets
-            // (2·R·sin(π/n)). Real pans have larger pockets for low notes:
-            // each is scaled 1.30×(lowest) → 0.75×(highest); the base is
-            // derived so even the largest still fits the arc (no overlap).
+            // (2·R·sin(π/n)); clamp it to a sane on-screen range. Every
+            // pocket is the same size.
             const Rpct = 38;
             const arcPct = 2 * Rpct * Math.sin(Math.PI / n);
-            const maxTile = arcPct * 0.92;
-            const baseTile = Math.max(4.5, Math.min(16, maxTile / 1.30));
+            const tilePct = Math.max(5, Math.min(20, arcPct * 0.85));
 
             for (let i = 0; i < n; i++) {
                 const midi = lo + i;
                 const ang = (i / n) * 2 * Math.PI - Math.PI / 2;
                 const cx = 50 + Math.cos(ang) * Rpct;
                 const cy = 50 + Math.sin(ang) * Rpct;
-                const pitch = n > 1 ? i / (n - 1) : 0;   // 0 = low … 1 = high
-                const tilePct = Math.max(
-                    4, Math.min(maxTile, baseTile * (1.30 - 0.55 * pitch)));
                 const s = document.createElement('button');
                 s.type = 'button';
                 s.className = 'steel-section';

@@ -4794,7 +4794,7 @@ body.dark-mode .harmonica-body {
    SteelDrumView.js. JS owns ONLY the computed polar geometry of each pocket
    (left/top/width %); every metallic surface — the sunken bowl, the rolled
    rim, the central boss, the dished note pockets and the struck "ping" — is
-   styled here. Note pockets are bigger for low notes (set inline by JS).
+   styled here. All note pockets share the same size.
    ========================================================================== */
 
 .steel-drum-view {
@@ -4862,7 +4862,7 @@ body.dark-mode .harmonica-body {
 }
 
 /* Dished note pocket: raised lit lip + darker hollow centre. left/top/width
-   are set inline by JS (polar placement; low notes get a wider pocket). */
+   are set inline by JS (polar placement; every pocket is the same size). */
 .steel-section {
     position: absolute;
     aspect-ratio: 1 / 1;
