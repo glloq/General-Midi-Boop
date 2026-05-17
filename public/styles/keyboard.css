@@ -4710,20 +4710,23 @@ body.dark-mode .kalimba-view {
 .harmonica-hole.active .harmonica-hole-num,
 .harmonica-hole.active .harmonica-hole-note { color: #16202b; }
 
-/* Chromatic slide: a real slide MECHANISM protruding from the right side of
-   the device — a metal bar (the slide rod) tipped with a triangular finger
-   button. At rest the bar is extended OUT to the right; clicking it (toggle)
-   drives the bar + triangle LEFT, into the body, like a real chromatic. */
+/* Chromatic slide: a real slide MECHANISM on the RIGHT side of the device —
+   a metal bar (the slide rod) tipped with a triangular finger button. The
+   bar is anchored at the device's right edge and stays in the right margin:
+   the triangle travels along the bar (never over the comb). At rest the
+   triangle is at the far right; engaged drives it left to the bar's root. */
 .harmonica-slide {
     position: absolute;
     top: 50%;
-    right: -40px;
+    left: 100%;
+    right: auto;
+    margin-left: -6px;                /* rod root tucks into the body edge */
     transform: translateY(-50%);
     z-index: 3;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 7px;
+    align-items: flex-start;
+    gap: 8px;
     border: none;
     background: none;
     -webkit-appearance: none;
@@ -4734,54 +4737,54 @@ body.dark-mode .kalimba-view {
 }
 
 .harmonica-slide-label {
-    font: 700 9px/1 system-ui, sans-serif;
-    letter-spacing: 0.06em;
+    align-self: center;
+    font: 700 11px/1 system-ui, sans-serif;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
-    color: #cfd6dd;
+    color: #d6dde3;
     transition: color 0.15s ease;
     white-space: nowrap;
 }
 
-/* The slide rod: a thin polished-metal bar that travels left/right. The
-   triangular button head is its child, anchored to the bar's right end. */
+/* The slide rod: a chunky polished-metal bar emerging from the body's right
+   edge. It stays put; the triangular button rides along it. */
 .harmonica-slide-track {
     position: relative;
-    width: 40px;
-    height: 10px;
-    border-radius: 2px;
+    width: 56px;
+    height: 16px;
+    border-radius: 3px;
     background: linear-gradient(180deg,
-        #ffffff 0%, #d7dee3 38%, #9aa2a9 72%, #6f777e 100%);
+        #ffffff 0%, #d7dee3 36%, #99a1a8 72%, #6b737a 100%);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.85),
-        inset 0 -1px 2px rgba(0, 0, 0, 0.4),
-        0 1px 2px rgba(0, 0, 0, 0.45);
-    transition: transform 0.16s ease, background 0.16s ease;
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.45),
+        0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* The triangular finger button at the rod's end, pointing LEFT (the push
-   direction). OFF → sits at the far right; ENGAGED → driven left with the
-   bar, into the body. */
+/* The triangular finger button riding the rod, pointing LEFT (push
+   direction). OFF → far right (sticks past the bar tip); ENGAGED → driven
+   left to the bar's root, but always within the bar (never over the comb). */
 .harmonica-slide-knob {
     position: absolute;
     top: 50%;
-    right: -16px;                     /* OFF → triangle out past the bar end */
-    width: 16px;
-    height: 22px;
+    right: -18px;                     /* OFF → triangle out past the bar tip */
+    width: 26px;
+    height: 34px;
     transform: translateY(-50%);
     clip-path: polygon(100% 0, 100% 100%, 0 50%);
     background: linear-gradient(180deg,
-        #ffffff 0%, #cdd5db 45%, #8d959c 100%);
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+        #ffffff 0%, #c9d1d8 45%, #828a91 100%);
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
     transition: right 0.16s ease, background 0.16s ease;
 }
 
 .harmonica-slide.engaged .harmonica-slide-track {
-    transform: translateX(-22px);     /* ON → rod driven left, into the body */
     background: linear-gradient(180deg,
-        #ffe9c2 0%, #e8b665 42%, #c9851f 76%, #a86c14 100%);
+        #ffe9c2 0%, #e8b665 40%, #c9851f 74%, #a86c14 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-knob {
+    right: 30px;                      /* ON → driven left, to the bar's root */
     background: linear-gradient(180deg,
         #fff3d6 0%, #f0c873 45%, #cf9a35 100%);
 }
