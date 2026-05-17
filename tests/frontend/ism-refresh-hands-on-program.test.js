@@ -90,8 +90,10 @@ describe('ISMListeners._refreshHandsSectionForProgram', () => {
     // Hands section is absent at start.
     expect(document.querySelector('.ism-section[data-section="hands"]')).toBeNull();
 
-    // User flips to acoustic guitar (gm_program 24).
-    modal._tab = { settings: { gm_program: 24 }, channel: 0, stringInstrumentConfig: { num_strings: 6 } };
+    // User flips to acoustic guitar (gm_program 24). Hand management is
+    // opt-in: the section only renders when the toggle is on, so the tab
+    // carries hands_config.enabled = true.
+    modal._tab = { settings: { gm_program: 24, hands_config: { enabled: true } }, channel: 0, stringInstrumentConfig: { num_strings: 6 } };
     modal._refreshHandsSectionForProgram();
 
     const hands = document.querySelector('.ism-section[data-section="hands"]');
@@ -104,8 +106,9 @@ describe('ISMListeners._refreshHandsSectionForProgram', () => {
 
   it('swaps hands section layout when switching keyboard → strings', () => {
     // Piano → the existing section has semitones layout markers.
+    // hands_config.enabled = true: the toggle is on, so the section shows.
     const modal = makeStubModal(
-      { settings: { gm_program: 0 }, channel: 0 },
+      { settings: { gm_program: 0, hands_config: { enabled: true } }, channel: 0 },
       { initialHands: true }
     );
     // Populate hands section with a semitones-style placeholder so we can
@@ -113,8 +116,8 @@ describe('ISMListeners._refreshHandsSectionForProgram', () => {
     document.querySelector('.ism-section[data-section="hands"]').innerHTML =
       '<input type="hidden" id="handsMode" value="semitones">';
 
-    // User switches to classical guitar.
-    modal._tab = { settings: { gm_program: 24 }, channel: 0, stringInstrumentConfig: { num_strings: 6 } };
+    // User switches to classical guitar (hand management still enabled).
+    modal._tab = { settings: { gm_program: 24, hands_config: { enabled: true } }, channel: 0, stringInstrumentConfig: { num_strings: 6 } };
     modal._refreshHandsSectionForProgram();
 
     const hiddenMode = document.querySelector('#handsMode');

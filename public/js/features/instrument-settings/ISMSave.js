@@ -290,13 +290,15 @@
                     && (!Array.isArray(handsConfigPayload.hands) || handsConfigPayload.hands.length === 0)) {
                 handsConfigPayload = undefined;
             }
-            // The Mains section is hidden when the "Gestion du déplacement
-            // des mains" toggle is off, so the collector returns undefined
-            // and the disable would not reach the DB. Detect that case and
-            // send the stored config explicitly with enabled=false so the
-            // disable persists.
-            if (handsConfigPayload === undefined && primaryTab.settings.hands_config
-                && primaryTab.settings.hands_config.enabled === false) {
+            // The Mains section is rendered only when the toggle is on, so
+            // when it's off the collector returns undefined. Whenever that
+            // happens but an in-memory hands_config exists, send it: it
+            // carries the real `enabled` value set by the toggle (true or
+            // false), so the toggle state always persists and is never
+            // forced active by a one-off visit to the Mains tab.
+            if (handsConfigPayload === undefined
+                    && primaryTab?.settings?.hands_config
+                    && typeof primaryTab.settings.hands_config === 'object') {
                 handsConfigPayload = primaryTab.settings.hands_config;
             }
 

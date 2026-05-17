@@ -64,6 +64,7 @@ class InstrumentSettingsModal extends BaseModal {
     static SECTIONS = [
         { id: 'identity', icon: '🎵', labelKey: 'instrumentSettings.sectionIdentity', fallback: 'Identité' },
         { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes & Capacités' },
+        // keyboardsOnly: opt-in, shown only for keyboards/strings with the hands toggle on
         { id: 'hands',    icon: '🫱', labelKey: 'instrumentSettings.sectionHands',    fallback: 'Mains', keyboardsOnly: true },
         { id: 'advanced', icon: '⚙️', labelKey: 'instrumentSettings.sectionAdvanced', fallback: 'Avancé' }
     ];
@@ -1020,8 +1021,10 @@ class InstrumentSettingsModal extends BaseModal {
     // ========== SIDEBAR ==========
 
     _renderSidebar() {
-        // Sections flagged `keyboardsOnly` (e.g. hand-position control) are
-        // hidden unless the active tab is a keyboard-family instrument.
+        // Sections flagged `keyboardsOnly` (the hand-position section) are
+        // shown only when the family is keyboard / plucked or bowed strings
+        // AND the "Gestion du déplacement des mains" toggle is enabled —
+        // see ISMSections._shouldShowHandsSection.
         const tab = this._getActiveTab?.();
         const showHands = typeof window.ISMSections?._shouldShowHandsSection === 'function'
             && window.ISMSections._shouldShowHandsSection(tab);

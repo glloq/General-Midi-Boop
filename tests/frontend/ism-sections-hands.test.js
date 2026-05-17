@@ -27,34 +27,71 @@ beforeAll(() => {
 });
 
 describe('ISMSections._shouldShowHandsSection', () => {
-  it('shows for keyboards (Acoustic Grand Piano)', () => {
-    const tab = { settings: { gm_program: 0 }, channel: 0 };
+  // Hand management is opt-in: the section shows only when the family is
+  // eligible AND the "Gestion des mains" toggle is on (hands_config.enabled).
+  const enabled = { enabled: true };
+
+  it('shows for keyboards (Acoustic Grand Piano) when enabled', () => {
+    const tab = { settings: { gm_program: 0, hands_config: enabled }, channel: 0 };
     expect(window.ISMSections._shouldShowHandsSection(tab)).toBe(true);
   });
 
-  it('shows for plucked strings (Acoustic Guitar nylon)', () => {
-    const tab = { settings: { gm_program: 24 }, channel: 0 };
+  it('shows for plucked strings (Acoustic Guitar nylon) when enabled', () => {
+    const tab = { settings: { gm_program: 24, hands_config: enabled }, channel: 0 };
     expect(window.ISMSections._shouldShowHandsSection(tab)).toBe(true);
   });
 
-  it('shows for bowed strings (Violin)', () => {
-    const tab = { settings: { gm_program: 40 }, channel: 0 };
+  it('shows for bowed strings (Violin) when enabled', () => {
+    const tab = { settings: { gm_program: 40, hands_config: enabled }, channel: 0 };
     expect(window.ISMSections._shouldShowHandsSection(tab)).toBe(true);
+  });
+
+  it('hides for an eligible family when the toggle is off (opt-in gating)', () => {
+    // Regression guard for the "hands forced active on save" bug: an
+    // eligible family without the toggle enabled must NOT render the
+    // section, so _collectHandsConfig never forces enabled=true.
+    expect(window.ISMSections._shouldShowHandsSection(
+      { settings: { gm_program: 0 }, channel: 0 })).toBe(false);
+    expect(window.ISMSections._shouldShowHandsSection(
+      { settings: { gm_program: 0, hands_config: { enabled: false } }, channel: 0 })).toBe(false);
+  });
+
+  it('hides for chromatic percussion even when enabled (no longer eligible)', () => {
+    const tab = { settings: { gm_program: 8, hands_config: enabled }, channel: 0 }; // Celesta
+    expect(window.ISMSections._shouldShowHandsSection(tab)).toBe(false);
   });
 
   it('hides for winds', () => {
-    const tab = { settings: { gm_program: 73 }, channel: 0 }; // Flute
+    const tab = { settings: { gm_program: 73, hands_config: enabled }, channel: 0 }; // Flute
     expect(window.ISMSections._shouldShowHandsSection(tab)).toBe(false);
   });
 
   it('hides for drum kit (channel 9)', () => {
-    const tab = { settings: { gm_program: 0 }, channel: 9 };
+    const tab = { settings: { gm_program: 0, hands_config: enabled }, channel: 9 };
     expect(window.ISMSections._shouldShowHandsSection(tab)).toBe(false);
   });
 
   it('hides when gm_program is missing', () => {
-    const tab = { settings: {}, channel: 0 };
+    const tab = { settings: { hands_config: enabled }, channel: 0 };
     expect(window.ISMSections._shouldShowHandsSection(tab)).toBe(false);
+  });
+});
+
+describe('ISMSections._handsTabEligible (family eligibility, toggle-agnostic)', () => {
+  it('keyboards / plucked strings / bowed strings are eligible', () => {
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 0 }, channel: 0 })).toBe(true);
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 24 }, channel: 0 })).toBe(true);
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 40 }, channel: 0 })).toBe(true);
+  });
+
+  it('chromatic percussion is NOT eligible (button removed for non-keyboard/non-string)', () => {
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 8 }, channel: 0 })).toBe(false);  // Celesta
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 11 }, channel: 0 })).toBe(false); // Vibraphone
+  });
+
+  it('winds and drum kits are not eligible', () => {
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 73 }, channel: 0 })).toBe(false);
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 0 }, channel: 9 })).toBe(false);
   });
 });
 

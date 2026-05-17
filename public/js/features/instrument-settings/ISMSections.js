@@ -34,9 +34,10 @@
 
     /**
      * Whether this instrument family is eligible for hand-position control.
-     * Keyboard-family instruments use the semitone mode (two hands, pitch
-     * split); plucked and bowed strings use the frets mode (single fretting
-     * hand). Drum kits are excluded.
+     * Restricted to keyboards (semitone mode, two hands, pitch split) and
+     * plucked / bowed strings (frets mode, single fretting hand). Every
+     * other family — including chromatic percussion — and drum kits are
+     * excluded: the "Gestion des mains" toggle is not offered for them.
      */
     ISMSections._handsTabEligible = function(tab) {
         if (!tab) return false;
@@ -47,18 +48,21 @@
         const fam = window.InstrumentFamilies?.getFamilyForProgram(gmProgram, channel);
         if (!fam) return false;
         return fam.slug === 'keyboards'
-            || fam.slug === 'chromatic_percussion'
             || fam.slug === 'plucked_strings'
             || fam.slug === 'bowed_strings';
     };
 
     /**
-     * The Mains sidebar tab is shown whenever the instrument family is
-     * eligible (keyboards / chromatic percussion / plucked or
-     * bowed strings, non-drum). No opt-in is required.
+     * The Mains sidebar tab / hands section is opt-in: it is rendered only
+     * when the family is eligible (keyboards or plucked/bowed strings) AND
+     * the "Gestion du déplacement des mains" toggle has been switched on
+     * (`hands_config.enabled === true`). Gating on the toggle keeps it the
+     * single source of truth and stops a one-off visit to the Mains tab
+     * from forcing hand management active at save time.
      */
     ISMSections._shouldShowHandsSection = function(tab) {
-        return ISMSections._handsTabEligible(tab);
+        return ISMSections._handsTabEligible(tab)
+            && tab?.settings?.hands_config?.enabled === true;
     };
 
     // Bagpipe section: GM 109 (Bagpipe), non-drum channel. Accordion
@@ -637,6 +641,29 @@
             const opts = ['<option value="">-- Preset --</option>']
                 .concat(notePresets.map(p => `<option value="${this.escape(p.id)}">${this.escape(p.label)}</option>`))
                 .join('');
+
+            // Chord shortcuts are merged into the SAME block as a second
+            // toolbar row — no separate subsection. Shown only for melodic
+            // non-string, non-drum instruments where ChordLibrary applies
+            // (strings use tuning/frets, drums/synths have no presets).
+            let chordRowHtml = '';
+            if (!isString && !isDrum && window.ChordLibrary) {
+                const rootOpts = window.ChordLibrary.ROOTS
+                    .map(r => `<option value="${r.pc}">${this.escape(window.ChordLibrary.rootLabel(r.pc))}</option>`)
+                    .join('');
+                const typeOpts = window.ChordLibrary.CHORDS
+                    .map(c => `<option value="${this.escape(c.id)}">${this.escape(this.t(c.labelKey) || c.labelFr)}</option>`)
+                    .join('');
+                chordRowHtml = `<div class="ism-note-preset-chord-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-color,#3a3a3a);">
+                    <span class="ism-note-preset-chord-label" style="display:block;margin-bottom:6px;font-size:0.85em;opacity:0.8;">🎵 ${this.escape(this.t('instrumentSettings.chordPickerLabel') || this.t('instrumentSettings.chordPickerTitle') || 'Accords')}</span>
+                    <div class="ism-note-preset-toolbar">
+                        <select class="ism-chord-root-select" aria-label="${this.escape(this.t('instrumentSettings.chordRootLabel') || 'Fondamentale')}">${rootOpts}</select>
+                        <select class="ism-chord-type-select" aria-label="${this.escape(this.t('instrumentSettings.chordTypeLabel') || 'Type d\'accord')}">${typeOpts}</select>
+                        <button type="button" class="btn btn-small ism-chord-apply">${this.t('common.apply') || 'Appliquer'}</button>
+                    </div>
+                </div>`;
+            }
+
             notePresetHtml = `<div class="ism-subsection" id="notePresetSubsection">
                 <h4 class="ism-subsection-title">🎚️ ${this.t('instrumentSettings.notePresetTitle') || 'Preset de l\'instrument'}</h4>
                 <p class="ism-subsection-hint">${this.t('instrumentSettings.notePresetHint') || 'Configure automatiquement la plage de notes jouables et la polyphonie (accords). Tous les réglages restent éditables ensuite.'}</p>
@@ -644,35 +671,12 @@
                     <select class="ism-note-preset-select">${opts}</select>
                     <button type="button" class="btn btn-small ism-note-preset-apply">${this.t('common.apply') || 'Appliquer'}</button>
                 </div>
-            </div>`;
-        }
-
-        // Chord library picker — fills the discrete playable notes with every
-        // occurrence of the chosen chord's pitch classes within the
-        // instrument's range. Hidden for drums/synths (no presets), and for
-        // string instruments (own tuning/fret config, note section hidden).
-        let chordPickerHtml = '';
-        if (notePresets.length > 0 && !isString && !isDrum && window.ChordLibrary) {
-            const rootOpts = window.ChordLibrary.ROOTS
-                .map(r => `<option value="${r.pc}">${this.escape(window.ChordLibrary.rootLabel(r.pc))}</option>`)
-                .join('');
-            const typeOpts = window.ChordLibrary.CHORDS
-                .map(c => `<option value="${this.escape(c.id)}">${this.escape(this.t(c.labelKey) || c.labelFr)}</option>`)
-                .join('');
-            chordPickerHtml = `<div class="ism-subsection" id="chordPickerSubsection">
-                <h4 class="ism-subsection-title">🎵 ${this.t('instrumentSettings.chordPickerTitle') || 'Bibliothèque d\'accords'}</h4>
-                <p class="ism-subsection-hint">${this.t('instrumentSettings.chordPickerHint') || 'Sélectionne les notes jouables correspondant à l\'accord choisi sur toute la tessiture de l\'instrument. Bascule en mode « Notes individuelles ».'}</p>
-                <div class="ism-note-preset-toolbar">
-                    <select class="ism-chord-root-select" aria-label="${this.escape(this.t('instrumentSettings.chordRootLabel') || 'Fondamentale')}">${rootOpts}</select>
-                    <select class="ism-chord-type-select" aria-label="${this.escape(this.t('instrumentSettings.chordTypeLabel') || 'Type d\'accord')}">${typeOpts}</select>
-                    <button type="button" class="btn btn-small ism-chord-apply">${this.t('common.apply') || 'Appliquer'}</button>
-                </div>
+                ${chordRowHtml}
             </div>`;
         }
 
         return `
             ${notePresetHtml}
-            ${chordPickerHtml}
             ${shareToggleHtml}
             ${voiceTabsHtml}
 
@@ -2035,10 +2039,11 @@
         const mode = rootEl.querySelector('#handsMode')?.value === 'frets'
             ? 'frets'
             : 'semitones';
-        // The Mains section is only rendered when the Notes-section "Gestion
-        // du déplacement des mains" toggle is on, so reaching the collector
-        // implies enabled = true. The off path is handled in ISMSave by
-        // sending the stored config with enabled=false.
+        // _shouldShowHandsSection() gates the hands section on
+        // `hands_config.enabled === true`, so the section DOM only exists
+        // when the toggle is on — reaching the collector therefore implies
+        // enabled = true. The off path is handled in ISMSave: the collector
+        // returns undefined and the stored (disabled) config is sent instead.
         const enabled = true;
         const moveSpeed = parseInt(rootEl.querySelector('#handsMoveSpeed')?.value, 10);
 
