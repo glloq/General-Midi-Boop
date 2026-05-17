@@ -67,4 +67,4 @@ assets/sf2/*.partial
 assets/sf2/*.download
 
 # Vendored WebAudioFontPlayer library (fetched at install time).
-public/lib/WebAudioFontPlayer.js
+public/lib/WebAudioFontPlayer.js.i18n-work/
