@@ -357,7 +357,7 @@ class CCPitchbendEditor extends BaseLaneEditor {
         }));
         // Initialize history without triggering onChange (loading existing
         // events is not a user modification).
-        this.history = [JSON.stringify(this.events)];
+        this.history = [this._snapshotData()];
         this.historyIndex = 0;
         this.renderThrottled();
     }
@@ -367,7 +367,7 @@ class CCPitchbendEditor extends BaseLaneEditor {
     clear() {
         this.events = [];
         this.selectedIds.clear();
-        this.history = [JSON.stringify(this.events)];
+        this.history = [this._snapshotData()];
         this.historyIndex = 0;
         this.renderThrottled();
         if (typeof this.options.onChange === 'function') {
