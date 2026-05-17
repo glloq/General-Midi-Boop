@@ -1,6 +1,7 @@
 // tests/api/correlation-id.test.js
-// Verifies that CommandRegistry tags every log line with a correlation ID
-// built from message.id (P2-OBS.1).
+// Verifies that CommandRegistry tags every debug log line with a correlation
+// ID built from message.id (P2-OBS.1). Per-command tracing is logged at
+// debug level (info is reserved for operator milestones).
 
 import { jest, describe, test, expect } from '@jest/globals';
 import CommandRegistry from '../../src/api/CommandRegistry.js';
@@ -11,7 +12,8 @@ function makeApp() {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn()
+      debug: jest.fn(),
+      isDebugEnabled: jest.fn(() => true)
     }
   };
 }
@@ -26,7 +28,7 @@ function makeWs() {
 }
 
 describe('P2-OBS.1 — correlation ID in command logs', () => {
-  test('tags every info log with [cmd=X cid=Y] using message.id', async () => {
+  test('tags every debug log with [cmd=X cid=Y] using message.id', async () => {
     const app = makeApp();
     const registry = new CommandRegistry(app);
     registry.register('test_cmd', async () => ({ ok: true }));
@@ -34,9 +36,9 @@ describe('P2-OBS.1 — correlation ID in command logs', () => {
     const ws = makeWs();
     await registry.handle({ id: 'req-42', command: 'test_cmd', data: {} }, ws);
 
-    const infoCalls = app.logger.info.mock.calls.map((c) => c[0]);
-    expect(infoCalls.length).toBeGreaterThan(0);
-    for (const line of infoCalls) {
+    const debugCalls = app.logger.debug.mock.calls.map((c) => c[0]);
+    expect(debugCalls.length).toBeGreaterThan(0);
+    for (const line of debugCalls) {
       expect(line).toMatch(/\[cmd=test_cmd cid=req-42\]/);
     }
   });
@@ -49,9 +51,9 @@ describe('P2-OBS.1 — correlation ID in command logs', () => {
     const ws = makeWs();
     await registry.handle({ command: 'test_cmd', data: {} }, ws);
 
-    const infoCalls = app.logger.info.mock.calls.map((c) => c[0]);
-    expect(infoCalls.length).toBeGreaterThan(0);
-    for (const line of infoCalls) {
+    const debugCalls = app.logger.debug.mock.calls.map((c) => c[0]);
+    expect(debugCalls.length).toBeGreaterThan(0);
+    for (const line of debugCalls) {
       // cid is non-empty and not the literal "undefined"
       expect(line).toMatch(/\[cmd=test_cmd cid=[a-z0-9]+\]/);
       expect(line).not.toMatch(/cid=undefined/);

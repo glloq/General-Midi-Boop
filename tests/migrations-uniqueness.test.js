@@ -5,8 +5,11 @@
  * files sharing that prefix would cause the second to be skipped
  * silently (see AUDIT 2026-05-10 §1). Fail fast if any version is reused.
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('migrations/', () => {
   const migrationsDir = path.join(__dirname, '..', 'migrations');

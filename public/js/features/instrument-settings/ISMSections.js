@@ -54,12 +54,12 @@
     };
 
     /**
-     * The Mains sidebar tab is shown only when the family is eligible AND
-     * the user opted in via the "Gestion du déplacement des mains" toggle
-     * in the Notes section (hands_config.enabled === true).
+     * The Mains sidebar tab is shown whenever the instrument family is
+     * eligible (keyboards / chromatic percussion / organs / plucked or
+     * bowed strings, non-drum). No opt-in is required.
      */
     ISMSections._shouldShowHandsSection = function(tab) {
-        return ISMSections._handsTabEligible(tab) && tab?.settings?.hands_config?.enabled === true;
+        return ISMSections._handsTabEligible(tab);
     };
 
     // Bagpipe section: GM 109 (Bagpipe), non-drum channel. Accordion
@@ -618,8 +618,6 @@
             </div>`
             : '';
 
-        const isDrumChannel = tab.channel === 9;
-
         // Unified "Preset de l'instrument" block — pinned at the very top so
         // the user configures notes + polyphony in one click. Empty for drums
         // (own kit selector) and synths (manual only).
@@ -901,7 +899,6 @@
 
         // Per-string fret mode
         const fretsPerString = config?.frets_per_string || null;
-        const isFretless = config?.is_fretless || false;
         const numFrets = config?.num_frets ?? 24;
 
         // Build horizontal header rows (string numbers, note badges,

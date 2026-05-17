@@ -5,16 +5,22 @@
 // that out-of-range values (notes, channels, velocity, CC, pitch bend) can
 // never leak into the binary MIDI stream regardless of what the UI produced.
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
+const writerSource = readFileSync(
+    resolve(__dirname, '../../public/js/features/midi-editor/MidiEditorMidiWriter.js'),
+    'utf8'
+);
 const mixinSource = readFileSync(
     resolve(__dirname, '../../public/js/features/midi-editor/MidiEditorFileOps.js'),
     'utf8'
 );
 
-// Run the file's IIFE so it registers window.MidiEditorFileOps.
+// MidiEditorMidiWriter must be registered before MidiEditorFileOps, whose
+// constructor only wires the writer when the global is already defined.
+new Function(writerSource)();
 new Function(mixinSource)();
 
 const MidiEditorFileOps = /** @type {any} */ (globalThis.window.MidiEditorFileOps);
@@ -188,7 +194,6 @@ describe('convertSequenceToMidi', () => {
         const events = midi.tracks[0];
         const on = events.find(e => e.type === 'noteOn');
         const off = events.find(e => e.type === 'noteOff');
-        const delta = off.deltaTime; // computed relative to the sorted timeline
         // The noteOff should land at tick >= 1 after the noteOn's tick
         expect(on).toBeDefined();
         expect(off).toBeDefined();
