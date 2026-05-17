@@ -286,9 +286,15 @@
         // setActiveNotes), reproducing the real instrument's behaviour.
         // Alternating half-slot stagger forms the diagonal honeycomb.
         _cbaBoard(cls, lo, hi, modal, bg) {
-            // 3 principal ranks (offsets 0,1,2) + 2 auxiliary ranks that
-            // repeat ranks 0 & 1 (the C-griff helper rows).
-            const RANK_OFFSETS = [0, 1, 2, 0, 1];
+            // Real C-griff order: the 3 principal ranks sit NEAREST the
+            // bellows, the 2 auxiliary (duplicate) ranks on the OUTER
+            // edge. The treble is the left element and its right edge
+            // faces the bellows, so the rightmost column is the closest
+            // to the bellows. Left→right therefore: [aux, aux, p, p, p]
+            // = offsets [1,0,2,1,0] (indices 0–1 = helper rows duplicating
+            // offsets 1 & 0; indices 2–4 = the 3 principals covering every
+            // chromatic note once, exactly as before).
+            const RANK_OFFSETS = [1, 0, 2, 1, 0];
             const STEP = 3;                 // minor third within a rank
             const STAGGER = 16;
             const wrap = document.createElement('div');
@@ -310,7 +316,13 @@
                     + 'align-items:center;height:100%;width:42px;'
                     + 'box-sizing:border-box;' + pad;
                 for (let n = lo + off; n <= hi; n += STEP) {
-                    col.appendChild(this._mkRound([n], label(n), bg, modal));
+                    const btn = this._mkRound([n], label(n), bg, modal);
+                    // Orientation landmark on every C (DO), like a real
+                    // accordion's marked button.
+                    if (mod12(n) === 0) {
+                        btn.classList.add('accordion-key-landmark');
+                    }
+                    col.appendChild(btn);
                 }
                 wrap.appendChild(col);
             });
