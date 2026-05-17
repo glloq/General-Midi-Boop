@@ -1848,6 +1848,11 @@ class MidiSynthesizer {
         if (this.schedulerInterval) clearInterval(this.schedulerInterval);
         if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
 
+        // INTENTIONAL dual-clock design ("A Tale of Two Clocks" look-ahead):
+        // the 50ms setInterval is a coarse note look-ahead scheduler, the rAF
+        // loop drives the visual cursor. Both derive currentTick from
+        // audioContext.currentTime (monotonic audio clock), so there is NO
+        // drift between them — do not "unify" this into a single timer.
         this.schedulerInterval = setInterval(() => this.scheduleNotes(), 50);
 
         const updateCursor = () => {
