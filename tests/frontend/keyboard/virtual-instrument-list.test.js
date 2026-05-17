@@ -17,6 +17,7 @@ function load(rel) {
 }
 
 beforeAll(() => {
+  load('../../../public/js/features/GmInstrumentCapabilities.js'); // window.GmInstrumentCapabilities
   load('../../../public/js/features/keyboard/KeyboardEvents.js');
   load('../../../public/js/features/keyboard/KeyboardControls.js');
   load('../../../public/js/features/KeyboardModal.js');
@@ -116,5 +117,44 @@ describe('loadDevices — virtual instruments surface per (device_id, channel)',
     await m.loadDevices();
 
     expect(m.devices.filter(d => d.isVirtual)).toHaveLength(0);
+  });
+
+  it('unnamed virtual instruments are labelled by their GM program (distinguishable)', async () => {
+    const m = makeModal({
+      listDevices: [],
+      instruments: [
+        // No custom_name / name → must fall back to the GM program name.
+        { device_id: 'virtual_a', channel: 0, gm_program: 21, id: 1 },
+        { device_id: 'virtual_b', channel: 0, gm_program: 22, id: 2 },
+        { device_id: 'virtual_c', channel: 0, gm_program: 0,  id: 3 },
+        // Placeholder name equal to the device id is treated as not meaningful.
+        { device_id: 'virtual_d', channel: 0, gm_program: 46, name: 'virtual_d', id: 4 },
+      ],
+    });
+
+    await m.loadDevices();
+
+    const byDev = (id) => m.devices.find(d => d.device_id === id);
+    expect(byDev('virtual_a').displayName).toBe('🖥️ Accordion');
+    expect(byDev('virtual_b').displayName).toBe('🖥️ Harmonica');
+    expect(byDev('virtual_c').displayName).toBe('🖥️ Acoustic Grand Piano');
+    expect(byDev('virtual_d').displayName).toBe('🖥️ Orchestral Harp');
+    // Distinct GM programs → distinct labels (no more "all the same").
+    const labels = m.devices.filter(d => d.isVirtual).map(d => d.displayName);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it('a custom name still wins over the GM program name', async () => {
+    const m = makeModal({
+      listDevices: [],
+      instruments: [
+        { device_id: 'virtual_a', channel: 0, gm_program: 21, custom_name: 'My Box', id: 1 },
+      ],
+    });
+
+    await m.loadDevices();
+
+    expect(m.devices.find(d => d.device_id === 'virtual_a').displayName)
+      .toBe('🖥️ My Box');
   });
 });
