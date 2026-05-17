@@ -1020,6 +1020,26 @@ class KeyboardModal {
     }
 
     /**
+     * MIDI notes a diatonic harmonica can actually sound, for restricting
+     * the virtual piano (toggle to piano view on a harmonica). A real
+     * diatonic harp only sounds the exact Richter blow/draw pitches of its
+     * key — so the piano greys out every other key (all black keys in C).
+     * Returns null when there is no restriction (not a harmonica, or a
+     * chromatic harmonica — its slide reaches every semitone).
+     * @returns {Set<number>|null}
+     */
+    getHarmonicaPlayableNotes() {
+        const caps = this.selectedDeviceCapabilities;
+        const gmProgram = caps?.gm_program ?? this.selectedDevice?.gm_program ?? null;
+        if (gmProgram !== 22) return null;
+        const cfg = this.getHarmonicaConfig();
+        if (cfg.type !== 'diatonic') return null;
+        const HL = typeof window !== 'undefined' ? window.HarmonicaLayout : null;
+        if (!HL || typeof HL.playableSet !== 'function') return null;
+        return HL.playableSet(cfg, this.getInstrumentNoteRange());
+    }
+
+    /**
      * Detect whether the selected instrument should switch to a special view.
      * @returns {{ canFretboard: boolean, isDrum: boolean, instrumentType: string }}
      */

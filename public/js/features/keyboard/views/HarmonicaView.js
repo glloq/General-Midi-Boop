@@ -31,100 +31,30 @@
     if (typeof window === 'undefined' || !window.InstrumentView) return;
     const InstrumentView = window.InstrumentView;
 
-    // C diatonic Richter tuning (MIDI, C4 = 60) — reference 10-hole layout.
+    // The note layout (both tunings, keyed, range/count-aware) comes from
+    // the shared HarmonicaLayout module so the visualization and the
+    // virtual-piano restriction stay in lock-step. The fallback below keeps
+    // the view usable if that module failed to load: it renders the static
+    // C-reference layout transposed to the key (always natural for C, never
+    // spurious sharps).
     const BLOW0 = [60, 64, 67, 72, 76, 79, 84, 88, 91, 96];
     const DRAW0 = [62, 67, 71, 74, 77, 81, 83, 86, 89, 93];
-
-    // Chromatic solo tuning, semitone offsets from each 4-hole group root:
-    // blow C E G C, draw D F A B. The slide adds +1 to every note.
-    const SOLO_BLOW = [0, 4, 7, 12];
-    const SOLO_DRAW = [2, 5, 9, 11];
-
-    const KEY_PC = {
+    const KEY_PC = (typeof window !== 'undefined' && window.HarmonicaLayout
+        && window.HarmonicaLayout.KEY_PC) || {
         'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5,
         'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
     };
 
-    // Diatonic Richter transposed by the chosen key, then clamped to the
-    // instrument's range so the hole count follows the range. With no
-    // configured range it keeps the fixed 10-hole reference; for the default
-    // (key C → keyOff 0, no range) it is byte-identical to the old layout.
-    function richterKeyed(lo, hi, keyOff) {
-        if (!Number.isFinite(lo)) {
-            return {
-                blow: BLOW0.map(n => n + keyOff),
-                draw: DRAW0.map(n => n + keyOff)
-            };
+    function computeLayout(cfg, range) {
+        const HL = (typeof window !== 'undefined') && window.HarmonicaLayout;
+        if (HL && typeof HL.computeLayout === 'function') {
+            return HL.computeLayout(cfg, range);
         }
-        const off = lo - BLOW0[0] + keyOff;
-        const blow = [], draw = [];
-        for (let i = 0; i < BLOW0.length; i++) {
-            const b = BLOW0[i] + off, d = DRAW0[i] + off;
-            if (Number.isFinite(hi) && (b > hi || d > hi)) break;
-            blow.push(b); draw.push(d);
-        }
-        return blow.length ? { blow, draw } : { blow: [lo], draw: [lo] };
-    }
-
-    // Chromatic solo tuning: emit as many 4-hole groups as the range allows
-    // (default 12 holes / 3 groups when no range is configured). A hole is
-    // dropped — not truncated mid-group — as soon as its blow or draw note
-    // exceeds the range max, mirroring the richter() clamp semantics.
-    function chromaticSolo(lo, hi, keyOff) {
-        const base = Number.isFinite(lo) ? lo : BLOW0[0];
-        const root = base + keyOff;
-        const blow = [], draw = [];
-        for (let g = 0; ; g++) {
-            for (let k = 0; k < 4; k++) {
-                const b = root + 12 * g + SOLO_BLOW[k];
-                const d = root + 12 * g + SOLO_DRAW[k];
-                if (Number.isFinite(hi) && (b > hi || d > hi)) {
-                    return blow.length
-                        ? { blow, draw } : { blow: [base], draw: [base] };
-                }
-                blow.push(b); draw.push(d);
-            }
-            // No configured upper bound → stop after 3 groups (12 holes).
-            if (!Number.isFinite(hi) && g >= 2) break;
-        }
-        return blow.length ? { blow, draw } : { blow: [base], draw: [base] };
-    }
-
-    // Count-driven layouts. When the instrument has a discrete note
-    // selection, the hole count follows it: 1 hole = 1 blow + 1 draw, so
-    // N configured notes → round(N / 2) holes. The pattern is extended past
-    // the 10-hole reference by octave (period-3 tiling, +12) so an arbitrary
-    // hole count stays musically coherent.
-    const BLOW_REL = BLOW0.map(n => n - BLOW0[0]);
-    const DRAW_REL = DRAW0.map(n => n - BLOW0[0]);
-
-    function relOff(rel, i) {
-        return i < rel.length ? rel[i] : relOff(rel, i - 3) + 12;
-    }
-
-    function holesFromCount(noteCount) {
-        return Math.max(1, Math.round(noteCount / 2));
-    }
-
-    function richterCount(base, keyOff, holes) {
-        const off = base + keyOff;
-        const blow = [], draw = [];
-        for (let i = 0; i < holes; i++) {
-            blow.push(off + relOff(BLOW_REL, i));
-            draw.push(off + relOff(DRAW_REL, i));
-        }
-        return { blow, draw };
-    }
-
-    function chromaticCount(base, keyOff, holes) {
-        const root = base + keyOff;
-        const blow = [], draw = [];
-        for (let i = 0; i < holes; i++) {
-            const g = Math.floor(i / 4), k = i % 4;
-            blow.push(root + 12 * g + SOLO_BLOW[k]);
-            draw.push(root + 12 * g + SOLO_DRAW[k]);
-        }
-        return { blow, draw };
+        const keyOff = KEY_PC[cfg && cfg.key] || 0;
+        return {
+            blow: BLOW0.map(n => n + keyOff),
+            draw: DRAW0.map(n => n + keyOff)
+        };
     }
 
     class HarmonicaView extends InstrumentView {
@@ -147,30 +77,14 @@
             const cfg = (typeof modal.getHarmonicaConfig === 'function'
                 ? modal.getHarmonicaConfig() : null) || { type: 'diatonic', key: 'C' };
             this._chromatic = cfg.type === 'chromatic';
-            const keyOff = KEY_PC[cfg.key] || 0;
 
-            // Hole count follows the instrument's configured notes. With a
-            // discrete note selection it is count-driven (1 hole = blow +
-            // draw, so N notes → round(N/2) holes, pattern extended by
-            // octave). Otherwise it follows the min/max range (clamped
-            // reference layout) — unchanged legacy behaviour.
+            // Hole count follows the instrument's configured notes (discrete
+            // selection → count-driven, otherwise the min/max range). The
+            // layout is keyed to the harmonica's musical key and only
+            // octave-fitted to the range — see HarmonicaLayout.js.
             const rng = typeof modal.getInstrumentNoteRange === 'function'
                 ? modal.getInstrumentNoteRange() : null;
-            const lo = rng ? rng.min : NaN;
-            const hi = rng ? rng.max : NaN;
-            const count = (rng && Array.isArray(rng.notes) && rng.notes.length)
-                ? rng.notes.length : null;
-            let blow, draw;
-            if (count != null) {
-                const holes = holesFromCount(count);
-                ({ blow, draw } = this._chromatic
-                    ? chromaticCount(lo, keyOff, holes)
-                    : richterCount(lo, keyOff, holes));
-            } else {
-                ({ blow, draw } = this._chromatic
-                    ? chromaticSolo(lo, hi, keyOff)
-                    : richterKeyed(lo, hi, keyOff));
-            }
+            const { blow, draw } = computeLayout(cfg, rng);
 
             // Note label resolver, reused by the rows and by _setSlide() so
             // the displayed pitch tracks the slide.

@@ -21,6 +21,7 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/InstrumentDetector.js');
   load('../../../public/js/features/keyboard/InstrumentView.js');
   load('../../../public/js/features/keyboard/InstrumentViewRegistry.js');
+  load('../../../public/js/features/keyboard/HarmonicaLayout.js');
   for (const v of ['PianoView', 'FretboardView', 'DrumPadView', 'PianoSliderView',
                    'ListView', 'HarmonicaView', 'HarpView', 'AccordionView',
                    'MalletView', 'MusicBoxView', 'KalimbaView', 'BagpipeView',

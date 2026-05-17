@@ -23,6 +23,7 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/views/DrumPadView.js');
   load('../../../public/js/features/keyboard/views/PianoSliderView.js');
   load('../../../public/js/features/keyboard/views/ListView.js');
+  load('../../../public/js/features/keyboard/HarmonicaLayout.js');
   load('../../../public/js/features/keyboard/views/HarmonicaView.js');
   load('../../../public/js/features/keyboard/views/HarpView.js');
   load('../../../public/js/features/keyboard/views/AccordionView.js');
