@@ -4710,11 +4710,12 @@ body.dark-mode .kalimba-view {
 .harmonica-hole.active .harmonica-hole-num,
 .harmonica-hole.active .harmonica-hole-note { color: #16202b; }
 
-/* Chromatic slide: a fixed metal rod (the BAR) that stays in contact with
-   the harmonica's right edge, with a triangular finger button (pointing
-   LEFT) to its right that SLIDES along it. At rest the triangle is at the
-   rod's right end (out); engaged it slides LEFT to the rod's root — never
-   past it, so it stays in the right margin and never over the comb. */
+/* Chromatic slide: a metal rod (the BAR) emerging from the harmonica's
+   right edge, with a triangular finger button (pointing LEFT) attached to
+   its right end. The bar's left end stays in contact with the body; its
+   length is the EXPOSED rod. At rest the rod is long (button far right);
+   engaged it slides into the body — the bar shrinks to nothing so it never
+   shows past the triangle, and the button ends up at the body edge. */
 .harmonica-slide {
     position: absolute;
     top: 50%;
@@ -4746,29 +4747,29 @@ body.dark-mode .kalimba-view {
     white-space: nowrap;
 }
 
-/* The slide rod: a fixed horizontal metal bar emerging from the body's
-   right edge (square left end merges into it; rounded right tip). */
+/* The exposed slide rod: a horizontal metal bar fixed at the body edge
+   (square left = merges into it). Only its length changes — long at rest,
+   shrunk into the body when engaged so it never shows past the triangle. */
 .harmonica-slide-track {
     position: relative;
-    width: 64px;
+    width: 56px;
     height: 14px;
-    border-radius: 0 7px 7px 0;
+    border-radius: 0 4px 4px 0;
     background: linear-gradient(180deg,
         #ffffff 0%, #dbe1e6 30%, #aab2b9 64%, #788088 100%);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.95),
         inset 0 -2px 3px rgba(0, 0, 0, 0.4),
         0 1px 3px rgba(0, 0, 0, 0.45);
-    transition: background 0.16s ease;
+    transition: width 0.16s ease, background 0.16s ease;
 }
 
-/* The triangular finger button riding the rod, pointing LEFT. OFF → at the
-   rod's right end (overhangs the tip); ENGAGED → slid left to the rod's
-   root (apex at the body edge), never past it. */
+/* The triangular finger button at the rod's right end (left:100%), pointing
+   LEFT. It rides with the rod tip, so it moves left as the rod shrinks. */
 .harmonica-slide-knob {
     position: absolute;
     top: 50%;
-    right: -8px;
+    left: 100%;
     width: 30px;
     height: 36px;
     transform: translateY(-50%);
@@ -4776,16 +4777,16 @@ body.dark-mode .kalimba-view {
     background: linear-gradient(180deg,
         #ffffff 0%, #d2dade 40%, #9ca4ab 70%, #767e85 100%);
     filter: drop-shadow(-1px 2px 3px rgba(0, 0, 0, 0.55));
-    transition: right 0.16s ease, background 0.16s ease;
+    transition: background 0.16s ease;
 }
 
 .harmonica-slide.engaged .harmonica-slide-track {
+    width: 4px;                       /* rod driven into the body (hidden) */
     background: linear-gradient(180deg,
         #ffe9c2 0%, #ecbf73 38%, #d09227 72%, #a86c14 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-knob {
-    right: 34px;                      /* slid left to the rod's root */
     background: linear-gradient(180deg,
         #fff3d6 0%, #f0c873 40%, #dca747 70%, #cf9a35 100%);
 }
