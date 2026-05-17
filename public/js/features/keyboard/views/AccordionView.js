@@ -276,15 +276,20 @@
         }
 
         // Realistic chromatic-button-accordion right-hand manual
-        // (C-system / C-griff, user spec) for the MELODY side: THREE
-        // diagonal rows. Within a row consecutive buttons rise a minor
-        // third (+3 semitones); the three rows are offset +1 semitone
-        // each, so together they cover every chromatic note in [lo,hi]
-        // exactly once. The middle row is shifted half a slot so the
-        // field forms the authentic diagonal honeycomb.
+        // (C-system / C-griff) for the MELODY side: FIVE diagonal ranks.
+        // Within a rank consecutive buttons rise a minor third (+3
+        // semitones). The three principal ranks are offset +1 semitone
+        // each (covering every chromatic note once); the two extra
+        // "auxiliary" ranks duplicate ranks 1 & 2 — exactly like a real
+        // 5-row C-griff. A pitch therefore lives at several button
+        // positions, so pressing one lights its twin(s) (see
+        // setActiveNotes), reproducing the real instrument's behaviour.
+        // Alternating half-slot stagger forms the diagonal honeycomb.
         _cbaBoard(cls, lo, hi, modal, bg) {
-            const ROWS = 3;                 // C-system principal rows
-            const STEP = 3;                 // minor third within a row
+            // 3 principal ranks (offsets 0,1,2) + 2 auxiliary ranks that
+            // repeat ranks 0 & 1 (the C-griff helper rows).
+            const RANK_OFFSETS = [0, 1, 2, 0, 1];
+            const STEP = 3;                 // minor third within a rank
             const STAGGER = 16;
             const wrap = document.createElement('div');
             wrap.className = `accordion-row ${cls} accordion-board accordion-cba`;
@@ -293,22 +298,22 @@
                 + 'justify-content:center;height:100%;';
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
-            for (let r = 0; r < ROWS; r++) {
+            RANK_OFFSETS.forEach((off, ri) => {
                 const col = document.createElement('div');
                 col.className = 'accordion-board-col accordion-cba-row';
-                // Middle row dropped half a slot → diagonal honeycomb.
-                const pad = r === 1
+                // Odd ranks dropped half a slot → diagonal honeycomb.
+                const pad = ri % 2
                     ? `padding-top:${STAGGER}px;`
                     : `padding-bottom:${STAGGER}px;`;
                 col.style.cssText =
                     'display:flex;flex-direction:column;gap:6px;'
                     + 'align-items:center;height:100%;width:42px;'
                     + 'box-sizing:border-box;' + pad;
-                for (let n = lo + r; n <= hi; n += STEP) {
+                for (let n = lo + off; n <= hi; n += STEP) {
                     col.appendChild(this._mkRound([n], label(n), bg, modal));
                 }
                 wrap.appendChild(col);
-            }
+            });
             return wrap;
         }
 
