@@ -19,6 +19,17 @@
         { bg: '#A855F7', text: '#fff' }, // B  - Violet
     ];
 
+    // GM program -> "skin" matière pour les instruments à lames de la famille
+    // percussion chromatique. Pilote le rendu réaliste des touches via
+    // l'attribut data-mallet-skin sur #piano-container (cf. keyboard.css).
+    const MALLET_SKINS = {
+        8: 'metal-soft',    // Celesta — lames métalliques douces (clavier)
+        9: 'metal-bright',  // Glockenspiel — acier poli brillant
+        11: 'metal-warm',   // Vibraphone — aluminium/or chaud
+        12: 'wood-dark',    // Marimba — bois de rose foncé
+        13: 'wood-light',   // Xylophone — bois clair
+    };
+
 
     KeyboardPianoMixin.createModal = function() {
         const endNote = this.startNote + this.visibleNoteCount - 1;
@@ -214,6 +225,15 @@
         if (!pianoContainer) return;
 
         pianoContainer.innerHTML = ''; // Clear
+
+        // Skin matière réaliste pour les instruments à lames (marimba, glockenspiel…).
+        // #piano-container est réutilisé entre instruments : on retire le skin
+        // précédent si l'instrument courant n'est pas à lames.
+        const gmProgram = this.selectedDeviceCapabilities?.gm_program
+            ?? this.selectedDevice?.gm_program ?? null;
+        const malletSkin = gmProgram == null ? null : MALLET_SKINS[gmProgram];
+        if (malletSkin) pianoContainer.dataset.malletSkin = malletSkin;
+        else delete pianoContainer.dataset.malletSkin;
 
         const totalNotes = this.visibleNoteCount;
         const endNote = this.startNote + totalNotes;
