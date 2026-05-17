@@ -165,9 +165,10 @@
                     + 'display:flex;align-items:flex-end;justify-content:center;'
                     + 'overflow:visible;';
 
+                let noteColor = null;
                 if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
-                    const c = modal.getNoteColor(midi);
-                    tooth.style.backgroundImage = c.bg;
+                    noteColor = modal.getNoteColor(midi);
+                    tooth.style.backgroundImage = noteColor.bg;
                 }
 
                 // Lead tuning weight on the long bass tines (near the free
@@ -184,16 +185,26 @@
                     tooth.appendChild(w);
                 }
 
-                if (n <= 28) {
-                    const lbl = document.createElement('span');
-                    lbl.textContent = label(midi);
-                    lbl.style.cssText =
-                        'position:relative;z-index:1;font:9px sans-serif;'
-                        + 'color:#1b2026;padding-bottom:3px;'
-                        + 'writing-mode:vertical-rl;text-orientation:mixed;'
-                        + 'pointer-events:none;user-select:none;';
-                    tooth.appendChild(lbl);
-                }
+                // Note name engraved at the base of every tine (vertical,
+                // rising from the embase). The C of each octave is an
+                // "anchor" label kept readable even when tines get thin;
+                // the US / FR / MIDI format follows modal.getNoteLabel via
+                // the inherited rerender(). Sizing is applied post-layout
+                // by _sizeLabels().
+                const isOctave = (midi % 12) === 0;
+                const lbl = document.createElement('span');
+                lbl.className = 'music-box-label'
+                    + (isOctave ? ' is-octave' : '');
+                lbl.textContent = label(midi);
+                lbl.style.cssText =
+                    'position:relative;z-index:1;'
+                    + 'color:' + (noteColor ? noteColor.text : '#1b2026') + ';'
+                    + 'padding-bottom:3px;font-family:sans-serif;'
+                    + 'font-weight:' + (isOctave ? '700' : '600') + ';'
+                    + 'line-height:1;white-space:nowrap;'
+                    + 'writing-mode:vertical-rl;text-orientation:mixed;'
+                    + 'pointer-events:none;user-select:none;';
+                tooth.appendChild(lbl);
                 teeth.appendChild(tooth);
             }
 
@@ -207,6 +218,52 @@
             this._pressed = new Map();
             // Piano-like drag: sweep across the comb teeth for a glissando.
             this._initGlide({ root, selector: '.music-box-tooth' });
+
+            // Size the engraved note names once the comb has been laid out,
+            // and keep them sized if the modal is resized.
+            if (typeof requestAnimationFrame === 'function') {
+                this._raf = requestAnimationFrame(() => {
+                    this._raf = 0;
+                    this._sizeLabels();
+                });
+            } else {
+                this._sizeLabels();
+            }
+            if (typeof ResizeObserver === 'function') {
+                this._ro = new ResizeObserver(() => this._sizeLabels());
+                this._ro.observe(teeth);
+            }
+        }
+
+        // Auto-fit the vertical note names to the tine width. Below a
+        // readability floor only the octave "C" anchors are kept, so the
+        // names never collapse into an unreadable smear on wide ranges.
+        _sizeLabels() {
+            if (!this._root) return;
+            const teeth = this._root.querySelector('.music-box-teeth');
+            if (!teeth) return;
+            const labels = this._root.querySelectorAll('.music-box-label');
+            if (!labels.length) return;
+            const colPx = teeth.clientWidth / labels.length;
+            let fs = Math.floor(colPx * 0.82);
+            fs = Math.max(5, Math.min(11, fs));
+            const READ_FLOOR = 7;
+            const dense = fs < READ_FLOOR;
+            labels.forEach(el => {
+                const isOctave = el.classList.contains('is-octave');
+                if (dense && !isOctave) {
+                    el.style.display = 'none';
+                    return;
+                }
+                el.style.display = '';
+                if (dense && isOctave) {
+                    el.style.fontSize = '8px';
+                    el.style.textShadow = '0 0 2px rgba(255,255,255,.75)';
+                } else {
+                    el.style.fontSize = fs + 'px';
+                    el.style.textShadow = '';
+                }
+            });
         }
 
         _glideKey(cell) { return cell.dataset.note; }
@@ -244,6 +301,14 @@
         unmount() {
             this._releaseAll();
             this._teardownGlide();
+            if (this._raf) {
+                cancelAnimationFrame(this._raf);
+                this._raf = 0;
+            }
+            if (this._ro) {
+                this._ro.disconnect();
+                this._ro = null;
+            }
             if (this._root) {
                 this._root.remove();
                 this._root = null;
