@@ -1993,6 +1993,14 @@ body.dark-mode .shortcuts-overlay {
  * ACCORDÉON — boutons actifs (vert cohérent avec le piano) + soufflet
  * ======================================================================== */
 
+/* Repère d'orientation sur les boutons DO du clavier droit (comme la
+ * touche marquée d'un vrai accordéon). Placé AVANT .accordion-key.active
+ * (spécificité égale) pour que le vert d'activité l'emporte à l'appui. */
+.accordion-key-landmark {
+    border-color: rgba(255, 255, 255, 0.7);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55);
+}
+
 /* Note active : appui local OU lecture externe (setActiveNotes).
  * !important car AccordionView pose un background inline (mode
  * « couleurs de note » inclus). Halo vert pour la lisibilité sur
