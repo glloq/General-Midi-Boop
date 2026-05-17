@@ -2553,7 +2553,7 @@
     "statusRecording": "Recording...",
     "statusRecordingDone": "Recording done.",
     "statusPlaying": "Playing...",
-    "statusIdle": "",
+    "statusIdle": "Ожидание",
     "statusSaved": "Saved.",
     "statusLoaded": "Loop loaded.",
     "statusNoNotes": "No notes to play.",

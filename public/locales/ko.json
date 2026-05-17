@@ -2553,7 +2553,7 @@
     "statusRecording": "Recording...",
     "statusRecordingDone": "Recording done.",
     "statusPlaying": "Playing...",
-    "statusIdle": "",
+    "statusIdle": "대기 중",
     "statusSaved": "Saved.",
     "statusLoaded": "Loop loaded.",
     "statusNoNotes": "No notes to play.",
