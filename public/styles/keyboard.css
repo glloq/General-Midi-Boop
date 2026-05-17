@@ -2094,6 +2094,89 @@ body.dark-mode .shortcuts-overlay {
     border-color: #000;
 }
 
+/* ------------------------------------------------------------------------
+ * Retour visuel « lame frappée » — remplace le vert générique sur les skins.
+ * La lame s'illumine + halo coloré selon la matière (sélecteur plus
+ * spécifique + !important pour battre le vert global .white-key.active).
+ * ---------------------------------------------------------------------- */
+
+/* wood-dark — Marimba : la lame s'éclaire, halo ambré chaud */
+.piano-container[data-mallet-skin="wood-dark"] .white-key.active {
+    background: linear-gradient(to bottom, #d8a567 0%, #b07a42 100%) !important;
+    border-color: #f0cb96;
+    box-shadow: 0 0 12px 3px rgba(255, 188, 110, 0.75),
+                inset 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.piano-container[data-mallet-skin="wood-dark"] .black-key.active {
+    background: linear-gradient(to bottom, #8a5a32 0%, #6b4324 100%) !important;
+    box-shadow: 0 0 9px 2px rgba(255, 188, 110, 0.7),
+                inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* wood-light — Xylophone : bois clair qui résonne, halo miel */
+.piano-container[data-mallet-skin="wood-light"] .white-key.active {
+    background: linear-gradient(to bottom, #ffe6b8 0%, #e9bd7f 100%) !important;
+    border-color: #b07c3f;
+    box-shadow: 0 0 12px 3px rgba(255, 210, 130, 0.85),
+                inset 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.piano-container[data-mallet-skin="wood-light"] .white-key.active .key-label {
+    color: #5a3a1c;
+}
+.piano-container[data-mallet-skin="wood-light"] .black-key.active {
+    background: linear-gradient(to bottom, #c79551 0%, #a9763f 100%) !important;
+    box-shadow: 0 0 9px 2px rgba(255, 210, 130, 0.8),
+                inset 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* metal-bright — Glockenspiel : éclat froid blanc-bleu */
+.piano-container[data-mallet-skin="metal-bright"] .white-key.active {
+    background: linear-gradient(to bottom, #ffffff 0%, #dfeaf7 45%, #c2d8ef 100%) !important;
+    border-color: #ffffff;
+    box-shadow: 0 0 14px 4px rgba(150, 210, 255, 0.9),
+                inset 0 2px 6px rgba(40, 70, 110, 0.18);
+}
+.piano-container[data-mallet-skin="metal-bright"] .white-key.active .key-label {
+    color: #2a3a4a;
+}
+.piano-container[data-mallet-skin="metal-bright"] .black-key.active {
+    background: linear-gradient(to bottom, #d8e6f4 0%, #9fb4cc 100%) !important;
+    box-shadow: 0 0 10px 3px rgba(150, 210, 255, 0.85),
+                inset 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* metal-warm — Vibraphone : éclat doré chaud */
+.piano-container[data-mallet-skin="metal-warm"] .white-key.active {
+    background: linear-gradient(to bottom, #fff2c8 0%, #ecca7e 45%, #d9b162 100%) !important;
+    border-color: #fff0bf;
+    box-shadow: 0 0 14px 4px rgba(255, 205, 110, 0.9),
+                inset 0 2px 6px rgba(90, 60, 10, 0.2);
+}
+.piano-container[data-mallet-skin="metal-warm"] .white-key.active .key-label {
+    color: #4a3712;
+}
+.piano-container[data-mallet-skin="metal-warm"] .black-key.active {
+    background: linear-gradient(to bottom, #e7c87e 0%, #c7a458 100%) !important;
+    box-shadow: 0 0 10px 3px rgba(255, 205, 110, 0.85),
+                inset 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* metal-soft — Celesta : éclat argenté doux */
+.piano-container[data-mallet-skin="metal-soft"] .white-key.active {
+    background: linear-gradient(to bottom, #ffffff 0%, #eef2f5 50%, #d8e0e6 100%) !important;
+    border-color: #ffffff;
+    box-shadow: 0 0 12px 4px rgba(200, 225, 245, 0.85),
+                inset 0 2px 6px rgba(60, 80, 100, 0.15);
+}
+.piano-container[data-mallet-skin="metal-soft"] .white-key.active .key-label {
+    color: #3a4650;
+}
+.piano-container[data-mallet-skin="metal-soft"] .black-key.active {
+    background: linear-gradient(to bottom, #dfe6ec 0%, #aeb9c2 100%) !important;
+    box-shadow: 0 0 9px 3px rgba(200, 225, 245, 0.8),
+                inset 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
 /* ========================================================================
  * ACCORDÉON — boutons actifs (vert cohérent avec le piano) + soufflet
  * ======================================================================== */
