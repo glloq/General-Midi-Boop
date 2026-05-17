@@ -441,16 +441,20 @@
             super.unmount();
         }
 
-        setActiveNotes(activeMidiSet) {
+        // A button lights ONLY when it is actually pressed (local
+        // interaction). We deliberately do not reflect the played MIDI
+        // notes onto other buttons: on an accordion a note maps to many
+        // buttons/chords across BOTH sides, so note-matching wrongly lit
+        // the opposite side. Chords still emit every MIDI note (see
+        // _pressCell) — we just don't mirror that visually. Several
+        // buttons can still be active at once when several are genuinely
+        // pressed (multitouch), like a real accordion.
+        setActiveNotes(_activeMidiSet) {
             if (!this._root) return;
-            const set = activeMidiSet instanceof Set ? activeMidiSet : new Set();
             this._root.querySelectorAll('.accordion-key').forEach((cell) => {
                 const id = cell.dataset.key || cell.dataset.note;
-                const local = this._pressed?.has(id);
-                const notes = (cell.dataset.notes || cell.dataset.note || '')
-                    .split(',').map((s) => parseInt(s, 10));
                 cell.classList.toggle('active',
-                    !!local || notes.some((n) => set.has(n)));
+                    !!(this._pressed && this._pressed.has(id)));
             });
         }
 
