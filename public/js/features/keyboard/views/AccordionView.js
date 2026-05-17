@@ -466,20 +466,35 @@
             super.unmount();
         }
 
-        // A button lights ONLY when it is actually pressed (local
-        // interaction). We deliberately do not reflect the played MIDI
-        // notes onto other buttons: on an accordion a note maps to many
-        // buttons/chords across BOTH sides, so note-matching wrongly lit
-        // the opposite side. Chords still emit every MIDI note (see
-        // _pressCell) — we just don't mirror that visually. Several
-        // buttons can still be active at once when several are genuinely
-        // pressed (multitouch), like a real accordion.
+        // Highlighting is driven purely by local press state (not the
+        // modal's global note set), so the two manuals never cross-light
+        // and external playback stays unambiguous.
+        //   • TREBLE side: realistic CBA behaviour — a pitch lives at
+        //     several button positions, so pressing one lights every
+        //     treble button that produces the same note. Only notes held
+        //     FROM the treble side reflect (bass presses never leak here).
+        //   • BASS side: the pressed button(s) only.
         setActiveNotes(_activeMidiSet) {
             if (!this._root) return;
+            const trebleNotes = new Set();
+            if (this._pressed) {
+                for (const { cell, notes } of this._pressed.values()) {
+                    if (cell && cell.closest
+                        && cell.closest('.accordion-treble')) {
+                        notes.forEach((n) => trebleNotes.add(n));
+                    }
+                }
+            }
             this._root.querySelectorAll('.accordion-key').forEach((cell) => {
                 const id = cell.dataset.key || cell.dataset.note;
-                cell.classList.toggle('active',
-                    !!(this._pressed && this._pressed.has(id)));
+                let on = !!(this._pressed && this._pressed.has(id));
+                if (!on && trebleNotes.size
+                    && cell.closest('.accordion-treble')) {
+                    const notes = (cell.dataset.notes || cell.dataset.note
+                        || '').split(',').map((s) => parseInt(s, 10));
+                    on = notes.some((n) => trebleNotes.has(n));
+                }
+                cell.classList.toggle('active', on);
             });
         }
 
