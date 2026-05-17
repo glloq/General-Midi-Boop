@@ -122,8 +122,12 @@
                 : this._cbaBoard('accordion-treble', tLo, tHi, modal, pal.treble);
             sides.appendChild(this._zone(melody));
 
-            // CENTRE — decorative bellows (soufflet), non-interactive.
+            // CENTRE — slightly wider central section: a thin rigid
+            // "interface" strip (body colour, square edges, no fillet) on
+            // each side of the decorative bellows, all non-interactive.
+            sides.appendChild(this._interfaceStrip(pal));
             sides.appendChild(this._bellowsVisual());
+            sides.appendChild(this._interfaceStrip(pal));
 
             // RIGHT — bass (the accordion's "côté gauche").
             let bass;
@@ -171,17 +175,32 @@
             return z;
         }
 
+        // Thin rigid "interface" between a manual case and the bellows:
+        // a slim rectangle in the accordion body colour, square edges (no
+        // fillet), non-interactive. One on each side widens the central
+        // section slightly to read as the real junction.
+        _interfaceStrip(pal) {
+            const s = document.createElement('div');
+            s.className = 'accordion-bellows-interface';
+            s.setAttribute('aria-hidden', 'true');
+            const bg = (pal && pal.zoneBg) || '#1f1f24';
+            s.style.cssText =
+                'flex:0 0 6px;align-self:stretch;pointer-events:none;'
+                + `background:${bg};border-radius:0;`;
+            return s;
+        }
+
         // Decorative bellows (soufflet) between the two playable sides.
-        // The realistic look (V-folds, 3D shading, rigid end frames) lives
-        // in CSS (.accordion-bellows-visual). Only the structural sizing
-        // and pointer-events:none stay inline so it never intercepts
-        // presses and stretches to the full height.
+        // The realistic look (leather pleats, bronze frame, metal corner
+        // protectors, zigzag tips) lives in CSS (.accordion-bellows-visual).
+        // Only the structural sizing and pointer-events:none stay inline so
+        // it never intercepts presses and stretches to the full height.
         _bellowsVisual() {
             const b = document.createElement('div');
             b.className = 'accordion-bellows-visual';
             b.setAttribute('aria-hidden', 'true');
             b.style.cssText =
-                'flex:0 0 84px;align-self:stretch;pointer-events:none;';
+                'flex:0 0 90px;align-self:stretch;pointer-events:none;';
             return b;
         }
 

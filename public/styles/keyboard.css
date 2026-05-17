@@ -2031,7 +2031,7 @@ body.dark-mode .shortcuts-overlay {
  * (cf. AccordionView._bellowsVisual). */
 .accordion-bellows-visual {
     position: relative;
-    border-radius: 6px;
+    border-radius: 0;
     overflow: hidden;
     /* Thème normal — soufflet cuir. */
     border: 1px solid #2f1d10;
