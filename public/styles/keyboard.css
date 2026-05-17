@@ -5002,7 +5002,7 @@ body.dark-mode .kalimba-view {
         inset 0 1px 0 rgba(255, 255, 255, 0.95),
         inset 0 -2px 3px rgba(0, 0, 0, 0.4),
         0 1px 3px rgba(0, 0, 0, 0.45);
-    transition: width 0.16s ease, background 0.16s ease;
+    transition: width 0.16s ease, opacity 0.16s ease, background 0.16s ease;
 }
 
 /* The triangular finger button at the rod's right end (left:100%), pointing
@@ -5021,10 +5021,11 @@ body.dark-mode .kalimba-view {
     transition: background 0.16s ease;
 }
 
+/* Rod driven fully into the body: width 4px keeps the triangle exactly
+   where it is, opacity 0 hides the bar entirely so nothing shows past it. */
 .harmonica-slide.engaged .harmonica-slide-track {
-    width: 4px;                       /* rod driven into the body (hidden) */
-    background: linear-gradient(180deg,
-        #ffe9c2 0%, #ecbf73 38%, #d09227 72%, #a86c14 100%);
+    width: 4px;
+    opacity: 0;
 }
 
 .harmonica-slide.engaged .harmonica-slide-knob {
