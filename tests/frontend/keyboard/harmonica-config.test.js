@@ -101,6 +101,64 @@ describe('Harmonica — chromatic solo tuning', () => {
   });
 });
 
+describe('Harmonica — count-driven discrete note selection', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  // 1 hole = 1 blow + 1 draw, so N discrete notes → round(N/2) holes.
+  const consecutive = (lo, n) =>
+    Array.from({ length: n }, (_, i) => lo + i);
+
+  it('diatonic: 20 selected notes → 10 holes per row', () => {
+    const notesArr = consecutive(60, 20);
+    const { notes } = mountWith(
+      { type: 'diatonic', key: 'C' },
+      { min: 60, max: 79, notes: notesArr });
+    expect(notes('blow').length).toBe(10);
+    expect(notes('draw').length).toBe(10);
+    expect(notes('blow')[0]).toBe(60);   // base = lowest selected note
+    expect(notes('draw')[0]).toBe(62);   // Richter draw offset +2
+    expect(notes('blow').at(-1)).toBe(96);
+  });
+
+  it('chromatic: 20 selected notes → 10 holes, solo-tuned groups', () => {
+    const notesArr = consecutive(60, 20);
+    const { notes } = mountWith(
+      { type: 'chromatic', key: 'C' },
+      { min: 60, max: 79, notes: notesArr });
+    expect(notes('blow').length).toBe(10);
+    expect(notes('blow').slice(0, 4)).toEqual([60, 64, 67, 72]);
+    expect(notes('draw').slice(0, 4)).toEqual([62, 65, 69, 71]);
+    expect(notes('blow')[4]).toBe(72);   // next group (+12)
+  });
+
+  it('diatonic: 40 notes → 20 holes, pattern extended by octave', () => {
+    const notesArr = consecutive(36, 40);
+    const { notes } = mountWith(
+      { type: 'diatonic', key: 'C' },
+      { min: 36, max: 75, notes: notesArr });
+    const blow = notes('blow');
+    expect(blow.length).toBe(20);
+    // Beyond the 10-hole reference it tiles by octave (+12, period 3).
+    expect(blow[10]).toBe(blow[7] + 12);
+    expect(blow.every((n, i) => i === 0 || n > blow[i - 1])).toBe(true);
+  });
+
+  it('odd count rounds (21 notes → 11 holes)', () => {
+    const notesArr = consecutive(60, 21);
+    const { notes } = mountWith(
+      { type: 'diatonic', key: 'C' },
+      { min: 60, max: 80, notes: notesArr });
+    expect(notes('blow').length).toBe(11);
+  });
+
+  it('a min/max range without a discrete list keeps the legacy clamp', () => {
+    const { notes } = mountWith(
+      { type: 'diatonic', key: 'C' }, { min: 60, max: 96 });
+    expect(notes('blow').length).toBe(10);   // unchanged reference behaviour
+    expect(notes('blow').at(-1)).toBe(96);
+  });
+});
+
 describe('Harmonica — slide button (chromatic only)', () => {
   afterEach(() => { document.body.innerHTML = ''; });
 
