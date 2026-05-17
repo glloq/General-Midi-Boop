@@ -1,15 +1,17 @@
 // =============================================================================
 // MusicBoxView.js — Music Box (GM 10) — dedicated comb display.
 // =============================================================================
-// Reproduces a real cylinder-music-box mechanism: the pinned brass drive
-// roller ("rouleau d'entraînement") on top, on its end axle/pivots, and
-// below it the tuned-steel COMB. The thin parallel tines ("lames/tiges")
-// rise UP from a thick anchored base (screwed to the bedplate) at the
-// bottom toward the roller, with a fine even slot between every tine; the
-// long bass tines carry the characteristic lead tuning weights near their
-// free tips. One tine = one MIDI note over the configured range. Pluck on
-// pointerdown; the shared piano-like glissando lets you sweep the comb.
-// Self-owned DOM.
+// Reproduces a music-box mechanism: a rectangular drive roller
+// ("rouleau d'entraînement") on top — flat rectangular "rotating
+// hammer" lugs along its comb-facing edge, squared end faces, no
+// rounding — and below it the tuned-steel COMB. Every tine tip is
+// aligned at the roller; the tines have different visible steel
+// lengths (long bass → short treble) so the shared dark base that
+// connects them all rises toward the treble. The note name is
+// engraved on that base under each tine; the long bass tines carry
+// the characteristic lead tuning weights near their tips. One tine =
+// one MIDI note. Pluck on pointerdown; the shared piano-like
+// glissando lets you sweep the comb. Self-owned DOM.
 // =============================================================================
 (function () {
     'use strict';
@@ -49,99 +51,65 @@
                 + 'background:linear-gradient(#241c12,#15110b);'
                 + 'touch-action:none;';
 
-            // ── Pinned brass drive roller, on its end axle (decorative) ──────
+            // ── Drive roller (rectangular, decorative, non-interactive) ──────
+            // A plain rectangle — no rounded corners — with flat rectangular
+            // "rotating hammer" lugs along its comb-facing edge and squared
+            // end faces. No pins/spikes.
             const cyl = document.createElement('div');
             cyl.className = 'music-box-cylinder';
             cyl.setAttribute('aria-hidden', 'true');
             cyl.style.cssText =
-                'position:relative;flex:0 0 46px;pointer-events:none;';
-
-            // Cylinder body — vertical sheen gradient reads as a round tube.
-            const cylBody = document.createElement('div');
-            cylBody.style.cssText =
-                'position:absolute;top:0;bottom:0;left:14px;right:14px;'
-                + 'border-radius:23px;overflow:hidden;'
-                + 'background:linear-gradient(#3a2c12,#caa24a 22%,'
-                + '#efce82 38%,#9a7330 62%,#4d390f 100%);'
-                + 'box-shadow:inset 0 3px 5px rgba(255,255,255,.45),'
-                + 'inset 0 -8px 11px rgba(0,0,0,.6),'
+                'position:relative;flex:0 0 42px;pointer-events:none;'
+                + 'background:linear-gradient(#b98f3e,#e7c97f 30%,'
+                + '#caa24a 52%,#7a5a22 78%,#4d390f 100%);'
+                + 'box-shadow:inset 0 2px 3px rgba(255,255,255,.4),'
+                + 'inset 0 -3px 5px rgba(0,0,0,.55),'
                 + '0 2px 4px rgba(0,0,0,.5);';
-            // Discreet row of pins near the comb-facing (bottom) edge.
-            const pins = document.createElement('div');
-            pins.style.cssText =
-                'position:absolute;left:10px;right:10px;bottom:5px;height:9px;'
-                + 'background-image:radial-gradient('
-                + 'rgba(255,255,255,.7) 30%,transparent 34%);'
-                + 'background-size:13px 9px;opacity:.28;';
-            cylBody.appendChild(pins);
-            cyl.appendChild(cylBody);
-
-            // End axle / pivot caps poking out of each end of the roller.
+            // Row of flat rectangular hammer lugs on the comb-facing edge.
+            const hammers = document.createElement('div');
+            hammers.style.cssText =
+                'position:absolute;left:6px;right:6px;bottom:4px;height:11px;'
+                + 'background-image:repeating-linear-gradient(90deg,'
+                + '#33270f 0,#33270f 4px,transparent 4px,transparent 11px);'
+                + 'opacity:.6;';
+            cyl.appendChild(hammers);
+            // Squared end faces (rectangular, no rounding).
             for (const side of ['left', 'right']) {
-                const pivot = document.createElement('div');
-                pivot.style.cssText =
-                    `position:absolute;top:50%;${side}:0;`
-                    + 'width:18px;height:18px;margin-top:-9px;'
-                    + 'border-radius:50%;background:radial-gradient('
-                    + 'circle at 38% 32%,#f2e8c8,#9c7a3a 58%,#4a3713);'
-                    + 'box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),'
-                    + '0 1px 2px rgba(0,0,0,.55);';
-                const hub = document.createElement('div');
-                hub.style.cssText =
-                    'position:absolute;top:50%;left:50%;width:6px;height:6px;'
-                    + 'margin:-3px 0 0 -3px;border-radius:50%;'
-                    + 'background:radial-gradient(#6b521f,#2c2009);';
-                pivot.appendChild(hub);
-                cyl.appendChild(pivot);
+                const cap = document.createElement('div');
+                cap.style.cssText =
+                    `position:absolute;top:0;bottom:0;${side}:0;width:6px;`
+                    + 'background:linear-gradient(#6a5012,#2c2009);';
+                cyl.appendChild(cap);
             }
 
-            // ── Comb assembly ───────────────────────────────────────────────
+            // ── Comb ────────────────────────────────────────────────────────
             const comb = document.createElement('div');
             comb.className = 'music-box-comb';
             comb.style.cssText =
                 'position:relative;flex:1 1 auto;min-height:140px;'
                 + 'display:flex;flex-direction:column;align-items:stretch;';
 
-            // Thick anchored base at the bottom (screwed onto the bedplate);
-            // the tines are rooted here and rise toward the roller.
-            const spine = document.createElement('div');
-            spine.className = 'music-box-spine';
-            spine.style.cssText =
-                'flex:0 0 24px;border-radius:0 0 4px 4px;position:relative;'
-                + 'background:linear-gradient(#aab0b8,#6b7077 55%,#3c3f45);'
-                + 'box-shadow:inset 0 4px 5px rgba(255,255,255,.4),'
-                + 'inset 0 -4px 6px rgba(0,0,0,.55);';
-            for (const x of ['16%', '84%']) {           // two fixing screws
-                const screw = document.createElement('div');
-                screw.style.cssText =
-                    `position:absolute;top:50%;left:${x};`
-                    + 'width:11px;height:11px;margin:-6px 0 0 -6px;'
-                    + 'border-radius:50%;background:radial-gradient('
-                    + '#e9edf2,#7c828b 60%,#3a3d42);'
-                    + 'box-shadow:inset 0 0 0 1px rgba(0,0,0,.35);';
-                const slot = document.createElement('div');
-                slot.style.cssText =
-                    'position:absolute;top:50%;left:50%;width:8px;height:2px;'
-                    + 'background:#2a2c30;transform:translate(-50%,-50%) rotate(35deg);';
-                screw.appendChild(slot);
-                spine.appendChild(screw);
-            }
-
-            // Tines: rooted in the base at the bottom and rising toward the
-            // roller, drawn as thin centred steel rods so a fine, even dark
-            // slot always shows between every tige. Near-flat profile: bass
-            // (left) only a touch longer than treble (right).
+            // Tines: all tips aligned at the top against the roller. Each
+            // tine is a full-height column whose visible steel length differs
+            // (long bass → short treble); the remaining lower part is the
+            // shared dark base that connects every tine and carries the
+            // engraved note name. A fine 1px saw-cut shows between columns.
             const teeth = document.createElement('div');
             teeth.className = 'music-box-teeth';
             teeth.style.cssText =
-                'flex:1 1 auto;display:flex;align-items:flex-end;'
+                'flex:1 1 auto;display:flex;align-items:stretch;'
                 + 'gap:1px;min-height:0;';
 
-            const W = 100 / n;
+            const STEEL = 'linear-gradient(90deg,#5f666e 0,#aab2bb 18%,'
+                + '#eef2f6 44%,#cfd6de 60%,#878e96 80%,#5b6068 100%)';
+            const BASE = 'linear-gradient(#454b54,#2c3037 55%,#191c21)';
+            const STEEL_MAX = 86, STEEL_MIN = 42;        // % of column height
+
             for (let i = 0; i < n; i++) {
                 const midi = LO + i;
                 const t = i / Math.max(1, n - 1);          // 0 bass → 1 treble
-                const hPct = 100 - t * 12;                  // near-flat row
+                const steelPct = STEEL_MAX - t * (STEEL_MAX - STEEL_MIN);
+                const basePct = 100 - steelPct;
                 const isBass = t < 0.36;
 
                 const tooth = document.createElement('button');
@@ -150,55 +118,67 @@
                 tooth.dataset.note = String(midi);
                 tooth.title = label(midi);
                 tooth.style.cssText =
-                    'position:relative;box-sizing:border-box;flex:0 0 auto;'
-                    + `width:${W}%;height:${hPct.toFixed(1)}%;`
+                    'position:relative;box-sizing:border-box;'
+                    + 'flex:1 1 0;min-width:0;height:100%;'
                     + 'border:0;padding:0;margin:0;cursor:pointer;outline:0;'
-                    + 'border-radius:3px 3px 0 0;'
-                    + 'background-color:transparent;'
-                    + 'background-image:linear-gradient(90deg,'
-                    + '#5f666e 0,#aab2bb 18%,#eef2f6 44%,'
-                    + '#cfd6de 60%,#878e96 80%,#5b6068 100%);'
-                    + 'background-repeat:no-repeat;background-position:center;'
-                    + 'background-size:max(2px,calc(100% - 3px)) 100%;'
+                    + 'border-radius:0;background-color:transparent;'
+                    + `background-image:${STEEL},${BASE};`
+                    + 'background-repeat:no-repeat,no-repeat;'
+                    + 'background-position:center top,center bottom;'
+                    + 'background-size:'
+                    + `max(2px,calc(100% - 3px)) ${steelPct.toFixed(2)}%,`
+                    + `100% ${basePct.toFixed(2)}%;`
                     + 'transform-origin:bottom;'
                     + 'transition:transform .05s,filter .05s;'
                     + 'display:flex;align-items:flex-end;justify-content:center;'
                     + 'overflow:visible;';
 
+                let noteColor = null;
                 if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
-                    const c = modal.getNoteColor(midi);
-                    tooth.style.backgroundImage = c.bg;
+                    noteColor = modal.getNoteColor(midi);
+                    tooth.style.backgroundImage =
+                        `linear-gradient(${noteColor.bg},${noteColor.bg}),${BASE}`;
                 }
 
-                // Lead tuning weight on the long bass tines (near the free
-                // tip, now at the top).
+                // Lead tuning weight near the aligned tip of the long bass
+                // tines.
                 if (isBass) {
                     const w = document.createElement('span');
                     w.setAttribute('aria-hidden', 'true');
                     w.style.cssText =
-                        'position:absolute;left:50%;top:6px;'
-                        + 'width:78%;height:14%;max-height:26px;'
+                        'position:absolute;left:50%;top:7px;'
+                        + 'width:74%;height:7%;max-height:20px;'
                         + 'transform:translateX(-50%);border-radius:2px;'
                         + 'background:linear-gradient(#4a4d53,#2b2d31);'
                         + 'box-shadow:inset 0 1px 1px rgba(255,255,255,.25);';
                     tooth.appendChild(w);
                 }
 
-                if (n <= 28) {
-                    const lbl = document.createElement('span');
-                    lbl.textContent = label(midi);
-                    lbl.style.cssText =
-                        'position:relative;z-index:1;font:9px sans-serif;'
-                        + 'color:#1b2026;padding-bottom:3px;'
-                        + 'writing-mode:vertical-rl;text-orientation:mixed;'
-                        + 'pointer-events:none;user-select:none;';
-                    tooth.appendChild(lbl);
-                }
+                // Note name engraved on the shared base at the bottom of
+                // every tine (vertical, light on the dark base). The C of
+                // each octave is an "anchor" label kept readable even when
+                // tines get thin; the US / FR / MIDI format follows
+                // modal.getNoteLabel via the inherited rerender(). Sizing is
+                // applied post-layout by _sizeLabels().
+                const isOctave = (midi % 12) === 0;
+                const lbl = document.createElement('span');
+                lbl.className = 'music-box-label'
+                    + (isOctave ? ' is-octave' : '');
+                lbl.textContent = label(midi);
+                lbl.style.cssText =
+                    'position:relative;z-index:1;'
+                    + 'color:' + (isOctave ? '#ffffff' : '#cdd4dd') + ';'
+                    + 'padding-bottom:3px;font-family:sans-serif;'
+                    + 'font-weight:' + (isOctave ? '700' : '600') + ';'
+                    + 'line-height:1;white-space:nowrap;'
+                    + 'text-shadow:0 1px 1px rgba(0,0,0,.7);'
+                    + 'writing-mode:vertical-rl;text-orientation:mixed;'
+                    + 'pointer-events:none;user-select:none;';
+                tooth.appendChild(lbl);
                 teeth.appendChild(tooth);
             }
 
             comb.appendChild(teeth);
-            comb.appendChild(spine);
             root.appendChild(cyl);
             root.appendChild(comb);
             canvas.appendChild(root);
@@ -207,6 +187,47 @@
             this._pressed = new Map();
             // Piano-like drag: sweep across the comb teeth for a glissando.
             this._initGlide({ root, selector: '.music-box-tooth' });
+
+            // Size the engraved note names once the comb has been laid out,
+            // and keep them sized if the modal is resized.
+            if (typeof requestAnimationFrame === 'function') {
+                this._raf = requestAnimationFrame(() => {
+                    this._raf = 0;
+                    this._sizeLabels();
+                });
+            } else {
+                this._sizeLabels();
+            }
+            if (typeof ResizeObserver === 'function') {
+                this._ro = new ResizeObserver(() => this._sizeLabels());
+                this._ro.observe(teeth);
+            }
+        }
+
+        // Auto-fit the vertical note names to the tine width. Below a
+        // readability floor only the octave "C" anchors are kept, so the
+        // names never collapse into an unreadable smear on wide ranges.
+        _sizeLabels() {
+            if (!this._root) return;
+            const teeth = this._root.querySelector('.music-box-teeth');
+            if (!teeth) return;
+            const labels = this._root.querySelectorAll('.music-box-label');
+            if (!labels.length) return;
+            const colPx = teeth.clientWidth / labels.length;
+            let fs = Math.floor(colPx * 0.82);
+            fs = Math.max(5, Math.min(11, fs));
+            const READ_FLOOR = 7;
+            const dense = fs < READ_FLOOR;
+            labels.forEach(el => {
+                const isOctave = el.classList.contains('is-octave');
+                if (dense && !isOctave) {
+                    el.style.display = 'none';
+                    return;
+                }
+                el.style.display = '';
+                el.style.fontSize = (dense && isOctave) ? '8px' : fs + 'px';
+                el.style.textShadow = '0 1px 1px rgba(0,0,0,.7)';
+            });
         }
 
         _glideKey(cell) { return cell.dataset.note; }
@@ -244,6 +265,14 @@
         unmount() {
             this._releaseAll();
             this._teardownGlide();
+            if (this._raf) {
+                cancelAnimationFrame(this._raf);
+                this._raf = 0;
+            }
+            if (this._ro) {
+                this._ro.disconnect();
+                this._ro = null;
+            }
             if (this._root) {
                 this._root.remove();
                 this._root = null;

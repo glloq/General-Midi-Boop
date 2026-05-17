@@ -85,6 +85,25 @@
             this._keyId = 0;
             this._pressed = new Map();
 
+            // Theme-aware base palette. The current dark scheme stays for
+            // body.dark-mode; the normal (default, colored) theme — where
+            // the keyboard canvas is white — gets a light scheme so the
+            // accordion no longer reads as a dark island. Note colors
+            // (modal.showNoteColors) still override these bases as before.
+            const dark = typeof document !== 'undefined'
+                && document.body
+                && document.body.classList.contains('dark-mode');
+            this._pal = dark ? {
+                zoneBg: '#1f1f24', zoneBorder: '#444',
+                treble: '#2b3a4a', bass: '#3a2b3a',
+                keyBorder: '#333', keyText: '#e8e8e8',
+            } : {
+                zoneBg: '#ece9f3', zoneBorder: '#c7c0db',
+                treble: '#d8e2f1', bass: '#ecdcea',
+                keyBorder: '#b7b0c9', keyText: '#2a2730',
+            };
+            const pal = this._pal;
+
             const sides = document.createElement('div');
             sides.className = 'accordion-sides';
             sides.style.cssText =
@@ -94,7 +113,7 @@
             // LEFT — melody/treble (the accordion's "côté droit").
             const melody = acfg.right_display === 'keyboard'
                 ? this._pianoRow('accordion-treble', tLo, tHi, modal)
-                : this._cbaBoard('accordion-treble', tLo, tHi, modal, '#2b3a4a');
+                : this._cbaBoard('accordion-treble', tLo, tHi, modal, pal.treble);
             sides.appendChild(this._zone(melody));
 
             // CENTRE — decorative bellows (soufflet), non-interactive.
@@ -108,7 +127,7 @@
                 let bLo = clampNote(acfg.bass_range?.min ?? FREE_BASS_LO);
                 let bHi = clampNote(acfg.bass_range?.max ?? FREE_BASS_HI);
                 if (bLo > bHi) { const t = bLo; bLo = bHi; bHi = t; }
-                bass = this._buttonBoard('accordion-bass', bLo, bHi, modal, '#3a2b3a');
+                bass = this._buttonBoard('accordion-bass', bLo, bHi, modal, pal.bass);
             }
             sides.appendChild(this._zone(bass));
 
@@ -130,9 +149,11 @@
         _zone(contentEl) {
             const z = document.createElement('div');
             z.className = 'accordion-zone';
+            const pal = this._pal || { zoneBg: '#1f1f24', zoneBorder: '#444' };
             z.style.cssText =
                 'display:flex;flex-direction:column;padding:6px;'
-                + 'border:1px solid #444;border-radius:8px;background:#1f1f24;'
+                + `border:1px solid ${pal.zoneBorder};border-radius:8px;`
+                + `background:${pal.zoneBg};`
                 + 'box-sizing:border-box;height:100%;';
             const body = document.createElement('div');
             body.className = 'accordion-zone-body';
@@ -144,19 +165,17 @@
             return z;
         }
 
-        // Simple decorative bellows (vertical bars) between the two
-        // playable sides. No listeners and pointer-events:none so it never
-        // intercepts presses; stretches to the full height.
+        // Decorative bellows (soufflet) between the two playable sides.
+        // The realistic look (V-folds, 3D shading, rigid end frames) lives
+        // in CSS (.accordion-bellows-visual). Only the structural sizing
+        // and pointer-events:none stay inline so it never intercepts
+        // presses and stretches to the full height.
         _bellowsVisual() {
             const b = document.createElement('div');
             b.className = 'accordion-bellows-visual';
             b.setAttribute('aria-hidden', 'true');
             b.style.cssText =
-                'flex:0 0 70px;align-self:stretch;'
-                + 'border:1px solid #444;border-radius:6px;pointer-events:none;'
-                + 'background:repeating-linear-gradient(90deg,'
-                + '#23232a 0 7px,#3c3c46 7px 14px);'
-                + 'box-shadow:inset 0 0 16px rgba(0,0,0,0.55);';
+                'flex:0 0 84px;align-self:stretch;pointer-events:none;';
             return b;
         }
 
@@ -175,10 +194,12 @@
             // Note label follows the US / FR / MIDI toolbar toggle
             // (the base rerender() rebuilds the view on change).
             b.textContent = title;
+            const pal = this._pal || { keyBorder: '#333', keyText: '#e8e8e8' };
             b.style.cssText =
                 'flex:1 1 0;min-height:0;width:100%;box-sizing:border-box;'
-                + `border-radius:9999px;border:1px solid #333;background:${bg};`
-                + 'cursor:pointer;padding:0;touch-action:none;color:#e8e8e8;'
+                + `border-radius:9999px;border:1px solid ${pal.keyBorder};`
+                + `background:${bg};`
+                + `cursor:pointer;padding:0;touch-action:none;color:${pal.keyText};`
                 + 'display:flex;align-items:center;justify-content:center;'
                 + 'overflow:hidden;font:8px/1 monospace;';
             if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
@@ -318,7 +339,9 @@
                             (iv) => clampNote(chordLow + mod12(pc + iv)));
                         title = label(clampNote(chordLow + pc)) + f.label;
                     }
-                    colEl.appendChild(this._mkRound(notes, title, '#3a2b3a', modal));
+                    colEl.appendChild(this._mkRound(
+                        notes, title, (this._pal && this._pal.bass) || '#3a2b3a',
+                        modal));
                 }
                 wrap.appendChild(colEl);
             });

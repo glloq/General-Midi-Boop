@@ -2265,7 +2265,6 @@
   "instrumentFamilies": {
     "keyboards": "Keyboards",
     "chromaticPercussion": "Chromatic Percussion",
-    "organs": "Organs",
     "pluckedStrings": "Plucked Strings",
     "bowedStrings": "Bowed Strings",
     "ensembles": "Ensembles",
