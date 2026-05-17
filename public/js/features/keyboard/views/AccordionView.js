@@ -120,7 +120,7 @@
             const melody = acfg.right_display === 'keyboard'
                 ? this._pianoRow('accordion-treble', tLo, tHi, modal)
                 : this._cbaBoard('accordion-treble', tLo, tHi, modal, pal.treble);
-            sides.appendChild(this._zone(melody));
+            sides.appendChild(this._zone(melody, 'treble'));
 
             // CENTRE — slightly wider central section: a thin rigid
             // "interface" strip (body colour, square edges, no fillet) on
@@ -139,7 +139,7 @@
                 if (bLo > bHi) { const t = bLo; bLo = bHi; bHi = t; }
                 bass = this._buttonBoard('accordion-bass', bLo, bHi, modal, pal.bass);
             }
-            sides.appendChild(this._zone(bass));
+            sides.appendChild(this._zone(bass, 'bass'));
 
             root.appendChild(sides);
             canvas.appendChild(root);
@@ -156,13 +156,18 @@
 
         // Bordered panel around one side's controls (no caption). The
         // content fills the full available height (no top/bottom gap).
-        _zone(contentEl) {
+        // `side` squares the edge that meets the bellows (no fillet there):
+        // 'treble' squares the right edge, 'bass' the left edge.
+        _zone(contentEl, side) {
             const z = document.createElement('div');
             z.className = 'accordion-zone';
             const pal = this._pal || { zoneBg: '#1f1f24', zoneBorder: '#444' };
+            const radius = side === 'treble'
+                ? '8px 0 0 8px'
+                : side === 'bass' ? '0 8px 8px 0' : '8px';
             z.style.cssText =
                 'display:flex;flex-direction:column;padding:6px;'
-                + `border:1px solid ${pal.zoneBorder};border-radius:8px;`
+                + `border:1px solid ${pal.zoneBorder};border-radius:${radius};`
                 + `background:${pal.zoneBg};`
                 + 'box-sizing:border-box;height:100%;';
             const body = document.createElement('div');
