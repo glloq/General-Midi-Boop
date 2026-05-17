@@ -1263,6 +1263,18 @@ class KeyboardModal {
 
         dropdown.replaceChildren(frag);
 
+        // ── TEMP DIAGNOSTIC (dropdown render count) ───────────────────────
+        try {
+            const opts = dropdown.querySelectorAll('.instrument-option:not(.option-none)').length;
+            const virt = this.devices.filter(d => d.isVirtual).length;
+            const multi = this.devices.filter(d => d._multiInstrument).length;
+            this.logger.info(
+                `[DIAG dropdown] this.devices=${this.devices.length} `
+                + `(virtual=${virt} multiInstrument=${multi}) `
+                + `→ DOM option buttons=${opts}`);
+        } catch (e) { /* diagnostic only */ }
+        // ── END TEMP DIAGNOSTIC ───────────────────────────────────────────
+
         // Event delegation: a single listener on the container, instead of
         // one per button. Guard on the element itself (not an instance flag)
         // so each freshly created #instrument-dropdown gets its own listener;
