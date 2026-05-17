@@ -94,7 +94,7 @@
             const list = document.createElement('div');
             list.className = 'bagpipe-drone-list';
             list.style.cssText =
-                'display:flex;gap:6px;flex-wrap:wrap;'
+                'display:flex;gap:6px;flex-wrap:nowrap;'
                 + 'align-items:flex-end;justify-content:center;';
             this._droneTubes = [];
             this._droneBtns = this._drones.map((d, idx) => {
