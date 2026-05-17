@@ -37,14 +37,7 @@
             return [];
         }
 
-    // Use the piano roll's public method when available
-        if (true) {
-            return this.modal.pianoRollRenderer?.getSelectedNotes();
-        }
-
-    // Fallback: filter the sequence directly
-        const sequence = this.modal.pianoRollRenderer?.getSequence() || [];
-        return sequence.filter(note => note.f === 1); // f=1 indicates a selected note
+        return this.modal.pianoRollRenderer?.getSelectedNotes();
     }
 
     getSelectionCount() {

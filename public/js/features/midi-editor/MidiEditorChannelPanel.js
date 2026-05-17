@@ -127,17 +127,20 @@ class MidiEditorChannelPanel {
         const chips = m.container?.querySelectorAll('.channel-chip');
         if (!chips) return;
 
+        const borderByChannel = new Map();
         chips.forEach(chip => {
             const channel = parseInt(chip.dataset.channel);
             const color = chip.dataset.color;
             const isActive = m.activeChannels.has(channel);
+            const border = isActive ? `${color}cc` : `${color}4d`;
+            borderByChannel.set(channel, border);
 
             if (isActive) {
                 chip.classList.add('active');
-                chip.style.cssText = `--chip-color: ${color}; --chip-bg: ${color}20; --chip-border: ${color}cc;`;
+                chip.style.cssText = `--chip-color: ${color}; --chip-bg: ${color}20; --chip-border: ${border};`;
             } else {
                 chip.classList.remove('active');
-                chip.style.cssText = `--chip-color: ${color}; --chip-bg: transparent; --chip-border: ${color}4d;`;
+                chip.style.cssText = `--chip-color: ${color}; --chip-bg: transparent; --chip-border: ${border};`;
             }
 
             // Update playable notes indicator
@@ -145,15 +148,14 @@ class MidiEditorChannelPanel {
             chip.classList.toggle('playable-active', !!isPlayableHighlighted);
         });
 
-        // Update gear button border colors to match chip
+        // Update gear button border to match its chip. Reuse the border
+        // computed above instead of a per-gear querySelector (up to 16
+        // redundant DOM tree scans per call on a 16-channel setup).
         const gears = m.container?.querySelectorAll('.chip-settings-btn');
         if (gears) {
             gears.forEach(gear => {
-                const channel = parseInt(gear.dataset.channel);
-                const chip = m.container?.querySelector(`.channel-chip[data-channel="${channel}"]`);
-                if (chip) {
-                    gear.style.setProperty('--chip-border', chip.style.getPropertyValue('--chip-border'));
-                }
+                const border = borderByChannel.get(parseInt(gear.dataset.channel));
+                if (border) gear.style.setProperty('--chip-border', border);
             });
         }
 

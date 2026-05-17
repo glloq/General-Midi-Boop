@@ -351,6 +351,10 @@
         // Data
         // ----------------------------------------------------------------
 
+        // CONTRACT: takes ownership of `notes` by reference (no clone — this
+        // is a playback/edit hot path). The caller MUST NOT mutate the array
+        // or its note objects afterwards; doing so leaves the spatial bucket
+        // index incoherent with the data. Pass a copy if you need to keep one.
         setSequence(notes) {
             this._sequence = Array.isArray(notes) ? notes : [];
             this._bucketsDirty = true;

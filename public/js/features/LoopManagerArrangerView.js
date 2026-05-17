@@ -137,8 +137,15 @@
                 <div class="la-chip-meta">${loop.bars}${this.parent.modal.t('loopCreator.barsUnit')}</div>
             </div>`;
         }).join('');
-        grid.querySelectorAll('.la-palette-chip').forEach(chip => {
-            chip.addEventListener('dragstart', (e) => {
+        // Delegated DnD: bind once on the persistent grid container instead
+        // of re-attaching a dragstart/dragend listener to every chip on each
+        // palette re-render (_renderTimeline triggers _renderPalette on every
+        // block mutation, even though the loop library is unchanged).
+        if (!grid._laPaletteDnDBound) {
+            grid._laPaletteDnDBound = true;
+            grid.addEventListener('dragstart', (e) => {
+                const chip = e.target.closest('.la-palette-chip');
+                if (!chip) return;
                 e.dataTransfer.effectAllowed = 'copy';
                 const loopBars = parseInt(chip.dataset.loopBars);
                 e.dataTransfer.setData('text/plain', JSON.stringify({
@@ -148,8 +155,10 @@
                 }));
                 this.parent.modal._dragInfo = { type: 'palette', loopBars, reps: 1 };
             });
-            chip.addEventListener('dragend', () => { this.parent.modal._dragInfo = null; });
-        });
+            grid.addEventListener('dragend', (e) => {
+                if (e.target.closest('.la-palette-chip')) this.parent.modal._dragInfo = null;
+            });
+        }
     }
 
     // =========================================================

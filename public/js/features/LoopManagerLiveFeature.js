@@ -161,7 +161,19 @@
             const state = this.playingLoops.get(loopId);
             const ch    = state.ch ?? 0;
 
-            const seq       = LoopUtils.parseSequence(loopData.midi_data);
+            // Cache the parsed sequence on loopData, keyed on the raw
+            // midi_data source. _scheduleLoop recurses every cycle via
+            // onCycleEnd, so without this a 4-bar loop re-runs JSON.parse
+            // every ~8s for its whole lifetime. The source key auto-
+            // invalidates the cache if the loop is edited mid-playback.
+            let seq;
+            if (loopData._seqCache && loopData._seqCacheSrc === loopData.midi_data) {
+                seq = loopData._seqCache;
+            } else {
+                seq = LoopUtils.parseSequence(loopData.midi_data);
+                loopData._seqCache = seq;
+                loopData._seqCacheSrc = loopData.midi_data;
+            }
             const loopDurMs = LoopUtils.loopDurationMs(loopData);
 
             // Reset cycle start time and clear old timers
