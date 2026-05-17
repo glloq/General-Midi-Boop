@@ -122,8 +122,12 @@
                 : this._cbaBoard('accordion-treble', tLo, tHi, modal, pal.treble);
             sides.appendChild(this._zone(melody));
 
-            // CENTRE — decorative bellows (soufflet), non-interactive.
+            // CENTRE — slightly wider central section: a thin rigid
+            // "interface" strip (body colour, square edges, no fillet) on
+            // each side of the decorative bellows, all non-interactive.
+            sides.appendChild(this._interfaceStrip(pal));
             sides.appendChild(this._bellowsVisual());
+            sides.appendChild(this._interfaceStrip(pal));
 
             // RIGHT — bass (the accordion's "côté gauche").
             let bass;
@@ -171,17 +175,32 @@
             return z;
         }
 
+        // Thin rigid "interface" between a manual case and the bellows:
+        // a slim rectangle in the accordion body colour, square edges (no
+        // fillet), non-interactive. One on each side widens the central
+        // section slightly to read as the real junction.
+        _interfaceStrip(pal) {
+            const s = document.createElement('div');
+            s.className = 'accordion-bellows-interface';
+            s.setAttribute('aria-hidden', 'true');
+            const bg = (pal && pal.zoneBg) || '#1f1f24';
+            s.style.cssText =
+                'flex:0 0 6px;align-self:stretch;pointer-events:none;'
+                + `background:${bg};border-radius:0;`;
+            return s;
+        }
+
         // Decorative bellows (soufflet) between the two playable sides.
-        // The realistic look (V-folds, 3D shading, rigid end frames) lives
-        // in CSS (.accordion-bellows-visual). Only the structural sizing
-        // and pointer-events:none stay inline so it never intercepts
-        // presses and stretches to the full height.
+        // The realistic look (leather pleats, bronze frame, metal corner
+        // protectors, zigzag tips) lives in CSS (.accordion-bellows-visual).
+        // Only the structural sizing and pointer-events:none stay inline so
+        // it never intercepts presses and stretches to the full height.
         _bellowsVisual() {
             const b = document.createElement('div');
             b.className = 'accordion-bellows-visual';
             b.setAttribute('aria-hidden', 'true');
             b.style.cssText =
-                'flex:0 0 84px;align-self:stretch;pointer-events:none;';
+                'flex:0 0 90px;align-self:stretch;pointer-events:none;';
             return b;
         }
 
@@ -447,20 +466,35 @@
             super.unmount();
         }
 
-        // A button lights ONLY when it is actually pressed (local
-        // interaction). We deliberately do not reflect the played MIDI
-        // notes onto other buttons: on an accordion a note maps to many
-        // buttons/chords across BOTH sides, so note-matching wrongly lit
-        // the opposite side. Chords still emit every MIDI note (see
-        // _pressCell) — we just don't mirror that visually. Several
-        // buttons can still be active at once when several are genuinely
-        // pressed (multitouch), like a real accordion.
+        // Highlighting is driven purely by local press state (not the
+        // modal's global note set), so the two manuals never cross-light
+        // and external playback stays unambiguous.
+        //   • TREBLE side: realistic CBA behaviour — a pitch lives at
+        //     several button positions, so pressing one lights every
+        //     treble button that produces the same note. Only notes held
+        //     FROM the treble side reflect (bass presses never leak here).
+        //   • BASS side: the pressed button(s) only.
         setActiveNotes(_activeMidiSet) {
             if (!this._root) return;
+            const trebleNotes = new Set();
+            if (this._pressed) {
+                for (const { cell, notes } of this._pressed.values()) {
+                    if (cell && cell.closest
+                        && cell.closest('.accordion-treble')) {
+                        notes.forEach((n) => trebleNotes.add(n));
+                    }
+                }
+            }
             this._root.querySelectorAll('.accordion-key').forEach((cell) => {
                 const id = cell.dataset.key || cell.dataset.note;
-                cell.classList.toggle('active',
-                    !!(this._pressed && this._pressed.has(id)));
+                let on = !!(this._pressed && this._pressed.has(id));
+                if (!on && trebleNotes.size
+                    && cell.closest('.accordion-treble')) {
+                    const notes = (cell.dataset.notes || cell.dataset.note
+                        || '').split(',').map((s) => parseInt(s, 10));
+                    on = notes.some((n) => trebleNotes.has(n));
+                }
+                cell.classList.toggle('active', on);
             });
         }
 
