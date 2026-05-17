@@ -2025,13 +2025,103 @@ body.dark-mode .shortcuts-overlay {
  *     en zigzag de chaque pli — la signature visuelle d'un soufflet
  *     d'accordéon — via clip-path en pourcentages (indépendant de la
  *     largeur).
+ * La géométrie (structure, clip-path) est partagée ; seules les couleurs
+ * changent selon le thème. Défaut = thème normal (canevas blanc) : palette
+ * argentée claire. body.dark-mode : palette sombre d'origine.
  * Le sizing/flex et pointer-events:none restent inline
  * (cf. AccordionView._bellowsVisual). */
 .accordion-bellows-visual {
     position: relative;
-    border: 1px solid #3a3a42;
     border-radius: 6px;
     overflow: hidden;
+    /* Thème normal — soufflet argenté clair sur canevas blanc. */
+    border: 1px solid #c7c0db;
+    background-color: #dcd9e6;
+    background-image:
+        linear-gradient(180deg,
+            rgba(60, 50, 80, 0.30) 0%,
+            rgba(60, 50, 80, 0.07) 9%,
+            rgba(255, 255, 255, 0.50) 50%,
+            rgba(60, 50, 80, 0.07) 91%,
+            rgba(60, 50, 80, 0.30) 100%),
+        repeating-linear-gradient(90deg,
+            #aea8c2 0,
+            #bdb8cf 2px,
+            #e4e0ee 5px,
+            #ffffff 7px,
+            #e4e0ee 9px,
+            #bdb8cf 12px,
+            #aea8c2 14px);
+    box-shadow:
+        inset 0 0 18px rgba(70, 55, 95, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+/* Rails rigides haut/bas : ombrage métallique + lumière/ombre alignées
+ * sur les plis, découpés en pointes par clip-path. Les pleins (entre les
+ * rails et les pointes) laissent voir le corps : les plis montent
+ * « rejoindre » le rail, comme sur un vrai soufflet. La couleur des
+ * rails suit le thème (override dans body.dark-mode plus bas). */
+.accordion-bellows-visual::before,
+.accordion-bellows-visual::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 26px;
+    pointer-events: none;
+    background-image:
+        repeating-linear-gradient(90deg,
+            rgba(70, 55, 95, 0.30) 0,
+            rgba(0, 0, 0, 0.00) 6px,
+            rgba(255, 255, 255, 0.90) 7px,
+            rgba(0, 0, 0, 0.00) 8px,
+            rgba(70, 55, 95, 0.30) 14px),
+        linear-gradient(180deg,
+            #ffffff 0%,
+            #ded9ea 3px,
+            #aaa3c2 50%,
+            #7b7498 100%);
+}
+
+.accordion-bellows-visual::before {
+    top: 0;
+    filter: drop-shadow(0 1px 0 rgba(70, 55, 95, 0.35));
+    clip-path: polygon(
+        0 0, 100% 0, 100% 12px,
+        91.667% 26px, 83.333% 12px,
+        75% 26px, 66.667% 12px,
+        58.333% 26px, 50% 12px,
+        41.667% 26px, 33.333% 12px,
+        25% 26px, 16.667% 12px,
+        8.333% 26px, 0 12px);
+}
+
+.accordion-bellows-visual::after {
+    bottom: 0;
+    filter: drop-shadow(0 -1px 0 rgba(70, 55, 95, 0.35));
+    background-image:
+        repeating-linear-gradient(90deg,
+            rgba(70, 55, 95, 0.30) 0,
+            rgba(0, 0, 0, 0.00) 6px,
+            rgba(255, 255, 255, 0.90) 7px,
+            rgba(0, 0, 0, 0.00) 8px,
+            rgba(70, 55, 95, 0.30) 14px),
+        linear-gradient(0deg,
+            #ffffff 0%,
+            #ded9ea 3px,
+            #aaa3c2 50%,
+            #7b7498 100%);
+    clip-path: polygon(
+        0 14px, 8.333% 0, 16.667% 14px, 25% 0,
+        33.333% 14px, 41.667% 0, 50% 14px, 58.333% 0,
+        66.667% 14px, 75% 0, 83.333% 14px, 91.667% 0,
+        100% 14px, 100% 26px, 0 26px);
+}
+
+/* ===== Thème sombre : palette d'origine (couleurs uniquement) ===== */
+body.dark-mode .accordion-bellows-visual {
+    border-color: #3a3a42;
     background-color: #25252b;
     background-image:
         linear-gradient(180deg,
@@ -2053,18 +2143,8 @@ body.dark-mode .shortcuts-overlay {
         inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
-/* Rails rigides haut/bas : ombrage métallique + lumière/ombre alignées
- * sur les plis, découpés en pointes par clip-path. Les pleins (entre les
- * rails et les pointes) laissent voir le corps : les plis montent
- * « rejoindre » le rail, comme sur un vrai soufflet. */
-.accordion-bellows-visual::before,
-.accordion-bellows-visual::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 26px;
-    pointer-events: none;
+body.dark-mode .accordion-bellows-visual::before,
+body.dark-mode .accordion-bellows-visual::after {
     background-image:
         repeating-linear-gradient(90deg,
             rgba(0, 0, 0, 0.50) 0,
@@ -2079,21 +2159,11 @@ body.dark-mode .shortcuts-overlay {
             #17171c 100%);
 }
 
-.accordion-bellows-visual::before {
-    top: 0;
+body.dark-mode .accordion-bellows-visual::before {
     filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55));
-    clip-path: polygon(
-        0 0, 100% 0, 100% 12px,
-        91.667% 26px, 83.333% 12px,
-        75% 26px, 66.667% 12px,
-        58.333% 26px, 50% 12px,
-        41.667% 26px, 33.333% 12px,
-        25% 26px, 16.667% 12px,
-        8.333% 26px, 0 12px);
 }
 
-.accordion-bellows-visual::after {
-    bottom: 0;
+body.dark-mode .accordion-bellows-visual::after {
     filter: drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.55));
     background-image:
         repeating-linear-gradient(90deg,
@@ -2107,11 +2177,6 @@ body.dark-mode .shortcuts-overlay {
             #6d6d79 3px,
             #3c3c45 50%,
             #17171c 100%);
-    clip-path: polygon(
-        0 14px, 8.333% 0, 16.667% 14px, 25% 0,
-        33.333% 14px, 41.667% 0, 50% 14px, 58.333% 0,
-        66.667% 14px, 75% 0, 83.333% 14px, 91.667% 0,
-        100% 14px, 100% 26px, 0 26px);
 }
 
 /* Touches désactivées (hors plage de l'instrument) */
