@@ -1103,11 +1103,6 @@
                 pad.appendChild(caption);
             }
 
-            const badge = document.createElement('span');
-            badge.className = 'drum-pad-badge';
-            badge.textContent = this.getNoteLabel(midi);
-            pad.appendChild(badge);
-
             container.appendChild(pad);
         }
     }
