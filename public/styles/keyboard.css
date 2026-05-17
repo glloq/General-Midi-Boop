@@ -2018,57 +2018,100 @@ body.dark-mode .shortcuts-overlay {
         0 0 8px rgba(16, 185, 129, 0.45);
 }
 
-/* Soufflet réaliste (statique, non interactif). Plis en V : une arête
- * éclairée + un creux ombré par pli, plus un voile vertical pour
- * l'effet cylindrique. Le sizing/flex et pointer-events:none restent
- * inline (cf. AccordionView._bellowsVisual). */
+/* Soufflet réaliste (statique, non interactif).
+ *   • Corps : plis verticaux arrondis (arête éclairée + creux ombré) avec
+ *     un voile vertical pour la profondeur (effet de boîte).
+ *   • Haut/bas : rails rigides dont le bord intérieur dessine la pointe
+ *     en zigzag de chaque pli — la signature visuelle d'un soufflet
+ *     d'accordéon — via clip-path en pourcentages (indépendant de la
+ *     largeur).
+ * Le sizing/flex et pointer-events:none restent inline
+ * (cf. AccordionView._bellowsVisual). */
 .accordion-bellows-visual {
     position: relative;
-    border: 1px solid #444;
+    border: 1px solid #3a3a42;
     border-radius: 6px;
     overflow: hidden;
-    background-color: #2a2a31;
+    background-color: #25252b;
     background-image:
         linear-gradient(180deg,
-            rgba(255, 255, 255, 0.10) 0%,
-            rgba(0, 0, 0, 0.00) 12%,
-            rgba(0, 0, 0, 0.00) 88%,
-            rgba(0, 0, 0, 0.35) 100%),
+            rgba(0, 0, 0, 0.55) 0%,
+            rgba(0, 0, 0, 0.14) 9%,
+            rgba(255, 255, 255, 0.05) 50%,
+            rgba(0, 0, 0, 0.14) 91%,
+            rgba(0, 0, 0, 0.55) 100%),
         repeating-linear-gradient(90deg,
-            #1c1c22 0,
-            #1c1c22 2px,
-            #41414e 7px,
-            #54545f 9px,
-            #41414e 11px,
-            #20202736 16px,
-            #1c1c22 18px);
+            #141419 0,
+            #1b1b22 2px,
+            #34343f 5px,
+            #5b5b6a 7px,
+            #34343f 9px,
+            #1b1b22 12px,
+            #141419 14px);
     box-shadow:
-        inset 0 0 18px rgba(0, 0, 0, 0.6),
+        inset 0 0 20px rgba(0, 0, 0, 0.62),
         inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
-/* Cadres rigides haut/bas (capuchons + liseré métallique). */
+/* Rails rigides haut/bas : ombrage métallique + lumière/ombre alignées
+ * sur les plis, découpés en pointes par clip-path. Les pleins (entre les
+ * rails et les pointes) laissent voir le corps : les plis montent
+ * « rejoindre » le rail, comme sur un vrai soufflet. */
 .accordion-bellows-visual::before,
 .accordion-bellows-visual::after {
     content: "";
     position: absolute;
     left: 0;
     right: 0;
-    height: 9px;
+    height: 26px;
     pointer-events: none;
-    background: linear-gradient(180deg, #5a5a66 0%, #2c2c33 55%, #15151a 100%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    background-image:
+        repeating-linear-gradient(90deg,
+            rgba(0, 0, 0, 0.50) 0,
+            rgba(0, 0, 0, 0.00) 6px,
+            rgba(255, 255, 255, 0.16) 7px,
+            rgba(0, 0, 0, 0.00) 8px,
+            rgba(0, 0, 0, 0.50) 14px),
+        linear-gradient(180deg,
+            #8c8c98 0%,
+            #6d6d79 3px,
+            #3c3c45 50%,
+            #17171c 100%);
 }
 
 .accordion-bellows-visual::before {
     top: 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.6);
+    filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55));
+    clip-path: polygon(
+        0 0, 100% 0, 100% 12px,
+        91.667% 26px, 83.333% 12px,
+        75% 26px, 66.667% 12px,
+        58.333% 26px, 50% 12px,
+        41.667% 26px, 33.333% 12px,
+        25% 26px, 16.667% 12px,
+        8.333% 26px, 0 12px);
 }
 
 .accordion-bellows-visual::after {
     bottom: 0;
-    background: linear-gradient(0deg, #5a5a66 0%, #2c2c33 55%, #15151a 100%);
-    border-top: 1px solid rgba(0, 0, 0, 0.6);
+    filter: drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.55));
+    background-image:
+        repeating-linear-gradient(90deg,
+            rgba(0, 0, 0, 0.50) 0,
+            rgba(0, 0, 0, 0.00) 6px,
+            rgba(255, 255, 255, 0.16) 7px,
+            rgba(0, 0, 0, 0.00) 8px,
+            rgba(0, 0, 0, 0.50) 14px),
+        linear-gradient(0deg,
+            #8c8c98 0%,
+            #6d6d79 3px,
+            #3c3c45 50%,
+            #17171c 100%);
+    clip-path: polygon(
+        0 14px, 8.333% 0, 16.667% 14px, 25% 0,
+        33.333% 14px, 41.667% 0, 50% 14px, 58.333% 0,
+        66.667% 14px, 75% 0, 83.333% 14px, 91.667% 0,
+        100% 14px, 100% 26px, 0 26px);
 }
 
 /* Touches désactivées (hors plage de l'instrument) */
