@@ -2178,6 +2178,42 @@ body.dark-mode .shortcuts-overlay {
 }
 
 /* ========================================================================
+ * MALLET VIEW — barres (glockenspiel, vibraphone, marimba, xylophone…).
+ * Les couleurs de base sont en style inline (matière réaliste par
+ * instrument, posée par MalletView.js). Le retour visuel « lame frappée »
+ * passe par filter/box-shadow/border (non inline) → pas besoin de
+ * !important et fonctionne quelle que soit la matière.
+ * ======================================================================== */
+.mallet-view .mallet-bar {
+    transition: filter 0.06s ease, box-shadow 0.06s ease,
+                border-color 0.06s ease, transform 0.06s ease;
+}
+.mallet-view .mallet-bar:hover {
+    filter: brightness(1.07);
+}
+.mallet-view .mallet-bar.active {
+    filter: brightness(1.22) saturate(1.08);
+    border-color: #ffffff;
+    box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.7),
+                inset 0 2px 6px rgba(0, 0, 0, 0.22);
+    transform: translateY(1px);
+}
+/* Halo coloré selon la matière pour un rendu « résonance » réaliste */
+.mallet-view[data-mallet-skin="metal-bright"] .mallet-bar.active {
+    box-shadow: 0 0 14px 4px rgba(150, 210, 255, 0.9),
+                inset 0 2px 6px rgba(40, 70, 110, 0.18);
+}
+.mallet-view[data-mallet-skin="metal-warm"] .mallet-bar.active {
+    box-shadow: 0 0 14px 4px rgba(255, 205, 110, 0.9),
+                inset 0 2px 6px rgba(90, 60, 10, 0.2);
+}
+.mallet-view[data-mallet-skin="wood-dark"] .mallet-bar.active,
+.mallet-view[data-mallet-skin="wood-light"] .mallet-bar.active {
+    box-shadow: 0 0 12px 3px rgba(255, 188, 110, 0.8),
+                inset 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* ========================================================================
  * ACCORDÉON — boutons actifs (vert cohérent avec le piano) + soufflet
  * ======================================================================== */
 
