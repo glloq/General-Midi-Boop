@@ -139,9 +139,15 @@
             return gm != null ? gm : null;
         }
 
+        getRoutedSf2Id(channel) {
+            const sf2 = this.modal._routedSf2Ids?.get(channel);
+            return sf2 != null ? sf2 : null;
+        }
+
         async loadRoutedGmPrograms() {
             const m = this.modal;
             m._routedGmPrograms.clear();
+            if (m._routedSf2Ids) m._routedSf2Ids.clear();
             const promises = [];
             for (const [channel, routedValue] of m.channelRouting.entries()) {
                 promises.push(this.fetchAndCacheRoutedGmProgram(channel, routedValue));
@@ -153,6 +159,7 @@
             const m = this.modal;
             if (!routedValue) {
                 m._routedGmPrograms.delete(channel);
+                m._routedSf2Ids?.delete(channel);
                 return;
             }
             let deviceId = routedValue;
@@ -168,6 +175,11 @@
                 const response = await m.api.sendCommand('instrument_get_capabilities', params);
                 if (response && response.capabilities && response.capabilities.gm_program != null) {
                     m._routedGmPrograms.set(channel, response.capabilities.gm_program);
+                }
+                if (response && response.capabilities && response.capabilities.custom_sf2_id != null) {
+                    m._routedSf2Ids?.set(channel, response.capabilities.custom_sf2_id);
+                } else {
+                    m._routedSf2Ids?.delete(channel);
                 }
             } catch (err) {
                 m.log('warn', `Failed to fetch gm_program for routed device ${deviceId}:`, err);

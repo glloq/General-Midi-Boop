@@ -225,7 +225,8 @@ class InstrumentCapabilitiesDB {
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
             capabilities_source, capabilities_updated_at, hands_config,
-            bagpipe_config, accordion_config, harmonica_config
+            bagpipe_config, accordion_config, harmonica_config,
+            custom_sf2_id
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
         `);
@@ -239,7 +240,8 @@ class InstrumentCapabilitiesDB {
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
             capabilities_source, capabilities_updated_at, hands_config,
-            bagpipe_config, accordion_config, harmonica_config
+            bagpipe_config, accordion_config, harmonica_config,
+            custom_sf2_id
           FROM instruments_latency
           WHERE device_id = ?
         `);
@@ -298,7 +300,8 @@ class InstrumentCapabilitiesDB {
         hands_config: handsConfig,
         bagpipe_config: parseJsonCol(result.bagpipe_config),
         accordion_config: parseJsonCol(result.accordion_config),
-        harmonica_config: parseJsonCol(result.harmonica_config)
+        harmonica_config: parseJsonCol(result.harmonica_config),
+        custom_sf2_id: result.custom_sf2_id != null ? result.custom_sf2_id : null
       };
     } catch (error) {
       this.logger.error(`Failed to get instrument capabilities: ${error.message}`);

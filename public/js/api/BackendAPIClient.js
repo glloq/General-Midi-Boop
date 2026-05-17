@@ -430,6 +430,32 @@ class BackendAPIClient {
     }
 
     /**
+     * Upload a custom SoundFont (.sf2) over HTTP. Reuses the existing
+     * `POST /api/sf2` endpoint (raw binary body, ?filename query param;
+     * RIFF/sfbk + size/quota validated server-side).
+     *
+     * @param {File|Blob} file - File from an `<input type="file">`.
+     * @returns {Promise<Object>} Response body, e.g.
+     *   `{ sf2Id, label, size, status }` ('created' | 'duplicate').
+     */
+    async uploadSf2File(file) {
+        const url = `/api/sf2?filename=${encodeURIComponent(file.name)}`;
+        const buffer = await file.arrayBuffer();
+        const resp = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: buffer
+        });
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            const msg = body && body.error ? body.error : `Upload failed (HTTP ${resp.status})`;
+            throw new Error(msg);
+        }
+        return body;
+    }
+
+    /**
      * List MIDI files
      */
     async listMidiFiles(folder = '/') {

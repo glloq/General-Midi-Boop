@@ -83,6 +83,9 @@ class MidiEditorModal {
         this.channelPlayableHighlights = new Map();
         // Cache of routed instrument gm_program per channel: Map<channel, number>
         this._routedGmPrograms = new Map();
+        // Cache of routed instrument per-instrument custom SF2 id per channel:
+        // Map<channel, number> (absent/null = use the global sound bank).
+        this._routedSf2Ids = new Map();
         // Preview source: 'gm' (original MIDI file instruments) or 'routed' (routed instrument gm_program)
         this.previewSource = 'gm';
         // Per-channel playable note sets for routed preview: Map<channel, Set<noteNumber>|null>

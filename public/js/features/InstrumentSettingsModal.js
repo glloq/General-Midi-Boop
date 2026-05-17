@@ -653,6 +653,23 @@ class InstrumentSettingsModal extends BaseModal {
         return window.__ismPreviewSynthInit;
     }
 
+    /**
+     * The per-instrument custom SF2 id currently selected in the modal,
+     * read LIVE from the DOM (not the persisted value) so the preview
+     * reflects a just-picked / just-uploaded SF2 before the user saves.
+     * Reads the Advanced-tab control (#customSf2Id) when rendered, else the
+     * always-present Identity mirror (#customSf2IdMirror).
+     * @returns {?number}
+     */
+    _getActivePreviewSf2Id() {
+        const el = this.$('#customSf2Id') || this.$('#customSf2IdMirror');
+        if (!el) return null;
+        const raw = el.value;
+        if (raw === '' || raw == null) return null;
+        const n = parseInt(raw, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
     _syncPreviewBank(synth) {
         if (!synth || typeof MidiSynthesizer !== 'function') return;
         try {
@@ -702,28 +719,57 @@ class InstrumentSettingsModal extends BaseModal {
      * Ensure the instrument (melodic GM program or drum note preset) is loaded
      * before playing. Shows/hides the header loading indicator while lazy-loading.
      */
-    async _ensurePreviewLoaded(synth, isDrumKit, gmProgram, note) {
+    async _ensurePreviewLoaded(synth, isDrumKit, gmProgram, note, channel = 0) {
         if (!synth) return false;
         this._syncPreviewBank(synth);
+        // setChannelInstrument (called by the caller before this) has set the
+        // channel's effective bank (custom SF2 or its GM fallback). Resolve
+        // load/cache through that bank so the preview honours the per-
+        // instrument SF2.
+        const bankFor = () => (typeof synth._bankForChannel === 'function'
+            ? synth._bankForChannel(channel) : synth.currentBankId);
         let needsLoad = false;
         let loadPromise = null;
         if (isDrumKit) {
             const kit = (gmProgram != null) ? (gmProgram | 0) : 0;
-            if (note >= 35 && note <= 81 && !synth.drumPresets.has(`${kit}:${note}`)) {
+            const key = (typeof synth._drumKey === 'function')
+                ? synth._drumKey(bankFor(), kit, note) : `${kit}:${note}`;
+            if (note >= 35 && note <= 81 && !synth.drumPresets.has(key)) {
                 needsLoad = true;
-                loadPromise = synth._loadDrumPreset(note, kit);
+                loadPromise = synth._loadDrumPreset(note, kit, bankFor());
             }
         } else {
             const prog = (gmProgram != null) ? (gmProgram & 0x7f) : 0;
-            if (!synth.loadedInstruments.has(prog)) {
+            const key = (typeof synth._instKey === 'function')
+                ? synth._instKey(bankFor(), prog) : prog;
+            if (!synth.loadedInstruments.has(key)) {
                 needsLoad = true;
-                loadPromise = synth.loadInstrument(prog);
+                loadPromise = synth.loadInstrument(prog, bankFor());
             }
         }
         if (needsLoad) {
             this._showPreviewLoading();
             try { await loadPromise; }
             catch (e) { /* ignore */ }
+            // The custom-SF2 probe resolves via the same load; if it 404'd,
+            // the channel just fell back to the GM bank. Warm that bank too
+            // so the very first preview note is audible (not just the next).
+            try {
+                const b = bankFor();
+                if (isDrumKit) {
+                    const kit = (gmProgram != null) ? (gmProgram | 0) : 0;
+                    const k = (typeof synth._drumKey === 'function') ? synth._drumKey(b, kit, note) : `${kit}:${note}`;
+                    if (note >= 35 && note <= 81 && !synth.drumPresets.has(k)) {
+                        await synth._loadDrumPreset(note, kit, b);
+                    }
+                } else {
+                    const prog = (gmProgram != null) ? (gmProgram & 0x7f) : 0;
+                    const k = (typeof synth._instKey === 'function') ? synth._instKey(b, prog) : prog;
+                    if (!synth.loadedInstruments.has(k)) {
+                        await synth.loadInstrument(prog, b);
+                    }
+                }
+            } catch (e) { /* ignore */ }
             finally {
                 if (!synth.loadingInstruments || synth.loadingInstruments.size === 0) {
                     this._hidePreviewLoading();
@@ -828,14 +874,17 @@ class InstrumentSettingsModal extends BaseModal {
                     await synth.audioContext.resume();
                 }
             } catch (e) { /* ignore */ }
-            await self._ensurePreviewLoaded(synth, isDrumKit, program, note);
-            // User already released the key before loading finished — don't play
-            if (!self._previewActive.has(note)) return;
+            // Set the channel (incl. the live per-instrument SF2 selection)
+            // BEFORE loading so _ensurePreviewLoaded resolves through the
+            // channel's effective bank (custom SF2 or its GM fallback).
             if (typeof synth.setChannelInstrument === 'function') {
                 // For drums, `program` is the GM kit number; playNote() uses
                 // channelInstruments[9] to pick the right per-kit preset.
-                synth.setChannelInstrument(synthChannel, program);
+                synth.setChannelInstrument(synthChannel, program, self._getActivePreviewSf2Id());
             }
+            await self._ensurePreviewLoaded(synth, isDrumKit, program, note, synthChannel);
+            // User already released the key before loading finished — don't play
+            if (!self._previewActive.has(note)) return;
             // Long duration (30 s) acts as a safety net — the envelope is
             // cancelled explicitly in _previewNoteOff when the pointer leaves
             // the key, so the real "sustain" length is how long the user
@@ -909,6 +958,19 @@ class InstrumentSettingsModal extends BaseModal {
         }
     }
 
+    /**
+     * Re-warm the preview keyboard for the currently-active voice. Used after
+     * the per-instrument SF2 selection changes (pick or upload) so the modal
+     * piano immediately reflects the new sound.
+     */
+    _sendActivePreviewProgramChange() {
+        const active = this._getActivePreviewVoice && this._getActivePreviewVoice();
+        if (!active) return;
+        if (active.program == null && !active.isDrumKit) return;
+        const previewChannel = active.isDrumKit ? 9 : 0;
+        this._sendPreviewProgramChange(active.program, previewChannel);
+    }
+
     _sendPreviewProgramChange(program, channel) {
         if (program == null) return;
         const isDrum = channel === 9 || program >= 128;
@@ -917,23 +979,35 @@ class InstrumentSettingsModal extends BaseModal {
             const synth = await self._getPreviewSynth();
             if (!synth) return;
             self._syncPreviewBank(synth);
+            const sf2Id = self._getActivePreviewSf2Id();
             if (isDrum) {
                 const kit = (program >= 128) ? (program - 128) : (program | 0);
                 if (typeof synth.setChannelInstrument === 'function') {
-                    synth.setChannelInstrument(9, kit);
+                    synth.setChannelInstrument(9, kit, sf2Id);
                 }
+                const bankId = (typeof synth._bankForChannel === 'function')
+                    ? synth._bankForChannel(9) : synth.currentBankId;
+                const drumKey = (n) => (typeof synth._drumKey === 'function')
+                    ? synth._drumKey(bankId, kit, n) : `${kit}:${n}`;
                 const padNotes = [36, 38, 42, 46, 50, 45, 49, 51];
-                const missing = padNotes.filter(n => !synth.drumPresets.has(`${kit}:${n}`));
+                const missing = padNotes.filter(n => !synth.drumPresets.has(drumKey(n)));
                 if (missing.length === 0) return;
                 self._showPreviewLoading();
-                try { await Promise.all(missing.map(n => synth._loadDrumPreset(n, kit))); }
+                try { await Promise.all(missing.map(n => synth._loadDrumPreset(n, kit, bankId))); }
                 catch (e) { /* ignore */ }
                 finally { self._hidePreviewLoading(); }
             } else {
                 const prog = program & 0x7f;
-                if (synth.loadedInstruments.has(prog)) return;
+                if (typeof synth.setChannelInstrument === 'function') {
+                    synth.setChannelInstrument(0, prog, sf2Id);
+                }
+                const bankId = (typeof synth._bankForChannel === 'function')
+                    ? synth._bankForChannel(0) : synth.currentBankId;
+                const key = (typeof synth._instKey === 'function')
+                    ? synth._instKey(bankId, prog) : prog;
+                if (synth.loadedInstruments.has(key)) return;
                 self._showPreviewLoading();
-                try { await synth.loadInstrument(prog); }
+                try { await synth.loadInstrument(prog, bankId); }
                 catch (e) { /* ignore */ }
                 finally { self._hidePreviewLoading(); }
             }
