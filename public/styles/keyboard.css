@@ -4715,3 +4715,188 @@ body.dark-mode .harmonica-cover-bottom { filter: brightness(0.9); }
 body.dark-mode .harmonica-body {
     background: linear-gradient(180deg, #34383f 0%, #292c32 100%);
 }
+
+/* ============================================================================
+   STEEL DRUM VIEW — concave brushed-chrome tenor pan (GM 114)
+   ----------------------------------------------------------------------------
+   Self-owned root (#steel-drum-container.steel-drum-view) appended by
+   SteelDrumView.js. JS owns ONLY the computed polar geometry of each pocket
+   (left/top/width %); every metallic surface — the sunken bowl, the rolled
+   rim, the central boss, the dished note pockets and the struck "ping" — is
+   styled here. Note pockets are bigger for low notes (set inline by JS).
+   ========================================================================== */
+
+.steel-drum-view {
+    position: relative;
+    width: min(440px, 92%);
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    margin: auto;
+    border-radius: 50%;
+    touch-action: none;
+    /* faint hammered dimples (tiled, low opacity) · directional brushed
+       sheen · concave dish (bright rim → sunken darker centre). */
+    background:
+        radial-gradient(circle,
+            rgba(255, 255, 255, 0.05) 0 1px,
+            rgba(0, 0, 0, 0.05) 1px 2px,
+            rgba(0, 0, 0, 0) 2px),
+        linear-gradient(135deg,
+            rgba(255, 255, 255, 0.18) 0%,
+            rgba(255, 255, 255, 0) 38%,
+            rgba(0, 0, 0, 0.22) 100%),
+        radial-gradient(circle at 50% 46%,
+            #cfd6dc 0%, #aab2ba 34%, #7e868f 66%, #565d65 100%);
+    background-size: 17px 17px, 100% 100%, 100% 100%;
+    background-repeat: repeat, no-repeat, no-repeat;
+    box-shadow:
+        inset 0 10px 26px rgba(0, 0, 0, 0.55),
+        inset 0 -6px 14px rgba(255, 255, 255, 0.10),
+        0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+/* Trim the piano-oriented top padding (scoped so other views keep theirs). */
+.keyboard-canvas-container:has(.steel-drum-view) { padding-top: 2px; }
+
+/* Rolled rim just inside the edge. */
+.steel-drum-view::before {
+    content: "";
+    position: absolute;
+    inset: 2.5%;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    box-shadow:
+        inset 0 0 0 3px rgba(255, 255, 255, 0.16),
+        inset 0 0 0 5px rgba(0, 0, 0, 0.30),
+        inset 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Domed central boss (the raised hub of a real pan). */
+.steel-drum-view::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 14%;
+    aspect-ratio: 1 / 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(circle at 42% 38%,
+        #e6ebef 0%, #aeb6bd 45%, #6c747c 100%);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45),
+                inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+/* Dished note pocket: raised lit lip + darker hollow centre. left/top/width
+   are set inline by JS (polar placement; low notes get a wider pocket). */
+.steel-section {
+    position: absolute;
+    aspect-ratio: 1 / 1;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #11161b;
+    background: radial-gradient(circle at 50% 38%,
+        #eef2f5 0%, #c7ced4 30%, #9aa1a9 62%, #6f767e 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+        inset 0 3px 6px rgba(0, 0, 0, 0.45),
+        inset 0 -2px 4px rgba(255, 255, 255, 0.22),
+        0 2px 4px rgba(0, 0, 0, 0.45);
+    transition: box-shadow 0.08s ease, filter 0.08s ease,
+                background 0.1s ease;
+}
+
+.steel-section:hover {
+    filter: brightness(1.06);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+        inset 0 3px 6px rgba(0, 0, 0, 0.40),
+        0 2px 7px rgba(0, 0, 0, 0.5);
+}
+
+/* Struck "ping": bright cool-chrome bloom + glow. No transform here so the
+   inline-free centring transform is preserved; an inline note-colour
+   override (set by JS) still wins on background by specificity. */
+.steel-section.active {
+    filter: brightness(1.35) saturate(1.05);
+    background: radial-gradient(circle at 50% 42%,
+        #ffffff 0%, #d8f1fb 26%, #9fd8ee 55%, #5fb4d8 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.85),
+        inset 0 2px 6px rgba(255, 255, 255, 0.6),
+        0 0 14px 3px rgba(150, 225, 255, 0.75),
+        0 0 26px 6px rgba(120, 200, 240, 0.45);
+}
+
+/* Expanding ring evokes the vibrating note. */
+.steel-section.active::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: steel-ring 0.55s ease-out infinite;
+}
+
+@keyframes steel-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(170, 230, 255, 0.55); opacity: 0.9; }
+    70%  { box-shadow: 0 0 0 10px rgba(170, 230, 255, 0); opacity: 0; }
+    100% { box-shadow: 0 0 0 0 rgba(170, 230, 255, 0); opacity: 0; }
+}
+
+.steel-section-label {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+    font: 600 10px/1 system-ui, sans-serif;
+    color: #11161b;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.steel-section.active .steel-section-label {
+    color: #06303f;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+/* Dark mode: darker, cooler steel against the dark canvas (kalimba precedent). */
+body.dark-mode .steel-drum-view {
+    background:
+        radial-gradient(circle,
+            rgba(255, 255, 255, 0.04) 0 1px,
+            rgba(0, 0, 0, 0.06) 1px 2px,
+            rgba(0, 0, 0, 0) 2px),
+        linear-gradient(135deg,
+            rgba(255, 255, 255, 0.10) 0%,
+            rgba(255, 255, 255, 0) 40%,
+            rgba(0, 0, 0, 0.40) 100%),
+        radial-gradient(circle at 50% 46%,
+            #6b727a 0%, #515861 36%, #383d44 70%, #23262b 100%);
+    background-size: 17px 17px, 100% 100%, 100% 100%;
+    background-repeat: repeat, no-repeat, no-repeat;
+}
+
+body.dark-mode .steel-section {
+    color: #dfe6ec;
+    background: radial-gradient(circle at 50% 38%,
+        #aeb6bd 0%, #858d95 34%, #5c636b 66%, #3c4148 100%);
+}
+
+body.dark-mode .steel-section-label {
+    color: #eef3f7;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .steel-section.active::after { animation: none; }
+}
