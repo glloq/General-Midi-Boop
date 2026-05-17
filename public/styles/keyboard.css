@@ -4709,17 +4709,17 @@ body.dark-mode .kalimba-view {
 .harmonica-hole.active .harmonica-hole-num,
 .harmonica-hole.active .harmonica-hole-note { color: #16202b; }
 
-/* Chromatic slide: one machined-metal piece — a big triangular finger button
-   (pointing LEFT) with its rod (a bar) to the right. The whole piece SLIDES:
-   it sits out to the right at rest and slides LEFT when engaged, but is
-   anchored so its leftmost point never crosses the device edge (never over
-   the comb). The bar length is constant; only the position changes. */
+/* Chromatic slide: one machined-metal piece — a horizontal rod (the BAR)
+   with a big triangular finger button to its RIGHT (pointing right). The
+   whole piece SLIDES: it sits out to the right at rest and slides LEFT when
+   engaged, anchored so the rod's left end never crosses the device edge
+   (never over the comb). The bar length is constant; only position changes. */
 .harmonica-slide {
     position: absolute;
     top: 50%;
     left: 100%;
     right: auto;
-    margin-left: 54px;                /* rest position, clear of the comb */
+    margin-left: 24px;                /* rest position, clear of the comb */
     transform: translateY(-50%);
     transition: transform 0.16s ease;
     z-index: 3;
@@ -4746,13 +4746,13 @@ body.dark-mode .kalimba-view {
     white-space: nowrap;
 }
 
-/* The slide rod: a sleek metal bar to the RIGHT of the triangle. Fixed
+/* The slide rod: a sleek horizontal metal bar (left of the triangle). Fixed
    length; it slides with the triangle as one piece. */
 .harmonica-slide-track {
     position: relative;
-    width: 42px;
+    width: 52px;
     height: 14px;
-    border-radius: 2px 6px 6px 2px;
+    border-radius: 6px 2px 2px 6px;
     background: linear-gradient(180deg,
         #ffffff 0%, #dbe1e6 30%, #aab2b9 64%, #788088 100%);
     box-shadow:
@@ -4762,25 +4762,25 @@ body.dark-mode .kalimba-view {
     transition: background 0.16s ease;
 }
 
-/* The big triangular finger button, flush with the rod's left end
-   (right:100%), pointing LEFT — the push direction. */
+/* The big triangular finger button, to the RIGHT of the rod (left:100% =
+   flush with the bar's right end), pointing RIGHT. */
 .harmonica-slide-knob {
     position: absolute;
     top: 50%;
-    right: 100%;
-    width: 32px;
+    left: 100%;
+    width: 30px;
     height: 46px;
     transform: translateY(-50%);
-    clip-path: polygon(100% 0, 100% 100%, 0 50%);
+    clip-path: polygon(0 0, 0 100%, 100% 50%);
     background: linear-gradient(180deg,
         #ffffff 0%, #d2dade 40%, #9ca4ab 70%, #767e85 100%);
-    filter: drop-shadow(-1px 2px 3px rgba(0, 0, 0, 0.55));
+    filter: drop-shadow(1px 2px 3px rgba(0, 0, 0, 0.55));
     transition: background 0.16s ease;
 }
 
-/* Engaged: the whole piece slides LEFT. The triangle's tip starts 22px past
-   the device edge at rest, so a 22px travel lands it exactly at the edge —
-   it never reaches the comb. */
+/* Engaged: the whole piece slides LEFT. The rod's left end starts 24px past
+   the device edge at rest, so a 22px travel keeps it ≥ the edge — it never
+   reaches the comb. */
 .harmonica-slide.engaged {
     transform: translate(-22px, -50%);
 }
