@@ -29,13 +29,10 @@
             const root = document.createElement('div');
             root.id = 'steel-drum-container';
             root.className = 'steel-drum-view';
-            // Responsive pan: square that shrinks with the modal (never wider
-            // than the viewport), positions + tile size are PERCENT-based so
+            // Responsive pan: positions + pocket sizes are PERCENT-based so
             // the whole range always fits with no overlap and no manual zoom.
-            root.style.cssText =
-                'position:relative;width:min(440px,92%);max-width:100%;'
-                + 'aspect-ratio:1/1;margin:auto;border-radius:50%;'
-                + 'background:radial-gradient(#5a5f66,#2c2f33);touch-action:none;';
+            // The metallic look (concave bowl, rolled rim, hammered texture)
+            // lives in keyboard.css; JS owns only the polar geometry below.
 
             const label = typeof modal.getNoteLabel === 'function'
                 ? (n) => modal.getNoteLabel(n) : (n) => String(n);
@@ -46,37 +43,42 @@
             const hi = r ? r.max : HI;
             const n = Math.max(1, hi - lo + 1);
 
-            // Ring radius = 38 % of the pan. The tile diameter must not
-            // exceed the centre-to-centre arc between two adjacent tiles
-            // (2·R·sin(π/n)); clamp it to a sane on-screen range.
+            // Ring radius = 38 % of the pan. A pocket diameter must never
+            // exceed the centre-to-centre arc between two adjacent pockets
+            // (2·R·sin(π/n)). Real pans have larger pockets for low notes:
+            // each is scaled 1.30×(lowest) → 0.75×(highest); the base is
+            // derived so even the largest still fits the arc (no overlap).
             const Rpct = 38;
             const arcPct = 2 * Rpct * Math.sin(Math.PI / n);
-            const tilePct = Math.max(5, Math.min(20, arcPct * 0.85));
+            const maxTile = arcPct * 0.92;
+            const baseTile = Math.max(4.5, Math.min(16, maxTile / 1.30));
 
             for (let i = 0; i < n; i++) {
                 const midi = lo + i;
                 const ang = (i / n) * 2 * Math.PI - Math.PI / 2;
                 const cx = 50 + Math.cos(ang) * Rpct;
                 const cy = 50 + Math.sin(ang) * Rpct;
+                const pitch = n > 1 ? i / (n - 1) : 0;   // 0 = low … 1 = high
+                const tilePct = Math.max(
+                    4, Math.min(maxTile, baseTile * (1.30 - 0.55 * pitch)));
                 const s = document.createElement('button');
                 s.type = 'button';
                 s.className = 'steel-section';
                 s.dataset.note = String(midi);
                 s.title = label(midi);
+                // Only the computed polar placement is inline; the metallic
+                // pocket look is in keyboard.css (.steel-section).
                 s.style.cssText =
-                    'position:absolute;border-radius:50%;'
-                    + `width:${tilePct.toFixed(2)}%;aspect-ratio:1/1;`
-                    + `left:${cx.toFixed(2)}%;top:${cy.toFixed(2)}%;`
-                    + 'transform:translate(-50%,-50%);box-sizing:border-box;'
-                    + 'border:1px solid #888;background:#9aa3ab;color:#1a1a1a;'
-                    + 'cursor:pointer;font:10px sans-serif;'
-                    + 'display:flex;align-items:center;justify-content:center;'
-                    + 'overflow:hidden;';
-                s.textContent = label(midi);
+                    `width:${tilePct.toFixed(2)}%;`
+                    + `left:${cx.toFixed(2)}%;top:${cy.toFixed(2)}%;`;
+                const lbl = document.createElement('span');
+                lbl.className = 'steel-section-label';
+                lbl.textContent = label(midi);
+                s.appendChild(lbl);
                 if (modal.showNoteColors && typeof modal.getNoteColor === 'function') {
                     const c = modal.getNoteColor(midi);
                     s.style.background = c.bg;
-                    s.style.color = c.text;
+                    lbl.style.color = c.text;
                 }
                 root.appendChild(s);
             }
