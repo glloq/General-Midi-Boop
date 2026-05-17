@@ -277,8 +277,14 @@ class PlaybackScheduler {
     // setTimeout callbacks that will pile up and worsen the lag.
     const maxCompSec = this._getMaxActiveCompensation(state, getOutputForChannel) / 1000;
     const lagMs = this.eventLoopMonitor?.currentLag ?? 0;
+    // Under event-loop pressure we shrink the *base* lookahead so we don't
+    // queue a pile of setTimeout callbacks that worsen the lag — but we scale
+    // it gradually (×0.5 of the lag), and never let the effective window fall
+    // below the largest active sync-delay compensation, otherwise compensated
+    // notes would be queued too late under sustained lag.
+    const lookaheadFloor = Math.max(0.05, maxCompSec);
     const effectiveLookahead = lagMs > 20
-      ? Math.max(0.05, LOOKAHEAD_SECONDS - lagMs / 1000)
+      ? Math.max(lookaheadFloor, LOOKAHEAD_SECONDS - (lagMs / 1000) * 0.5)
       : LOOKAHEAD_SECONDS;
     const targetTime = state.position + effectiveLookahead + maxCompSec;
 

@@ -57,6 +57,21 @@ export const COALESCABLE_EVENTS = new Set([
 ]);
 
 /**
+ * Discrete (non-coalescable) events that are pure high-frequency
+ * telemetry/progress: a dropped frame is invisible and is immediately
+ * superseded by a newer one. Under queue overflow these are sacrificed
+ * FIRST so that state-bearing discrete events (midi_event, playback_*,
+ * device_*, playlist_*, file_list_updated — anything NOT listed here)
+ * are preserved. Audit §C3: a burst of midi_event on seek/loop must not
+ * silently drop note routing and desync the piano roll.
+ */
+export const INFORMATIONAL_EVENTS = new Set([
+  'file_upload_progress',
+  'lighting_led_state',
+  'lighting_effect_change'
+]);
+
+/**
  * Asynchronous, coalescing, backpressure-aware broadcast queue.
  *
  * One instance per WebSocket server. Producers are non-blocking; the
@@ -128,16 +143,34 @@ export class WsOutputQueue {
    * @param {string} eventType
    * @param {*} payload
    */
-  enqueue(eventType, payload) {
+  enqueue(eventType, payload, severity = 'critical') {
     if (this._closed) return;
     const effectiveDepth = this._effectiveQueueDepth();
     while (this._queue.length >= effectiveDepth) {
-      this._queue.shift();
-      this._stats.droppedByDepth++;
+      this._dropOneUnderPressure();
     }
-    this._queue.push({ eventType, payload });
+    this._queue.push({ eventType, payload, severity });
     this._stats.enqueued++;
     this._maybeScheduleFlush();
+  }
+
+  /**
+   * Remove exactly one queued entry to make room. Sacrifices the oldest
+   * `informational` event first (telemetry/progress — a dropped frame is
+   * invisible); only if none remain does it fall back to dropping the
+   * oldest entry overall. Always removes one element so the caller's
+   * overflow loop terminates.
+   */
+  _dropOneUnderPressure() {
+    for (let i = 0; i < this._queue.length; i++) {
+      if (this._queue[i].severity === 'informational') {
+        this._queue.splice(i, 1);
+        this._stats.droppedByDepth++;
+        return;
+      }
+    }
+    this._queue.shift();
+    this._stats.droppedByDepth++;
   }
 
   /**
@@ -179,7 +212,10 @@ export class WsOutputQueue {
     if (this._coalescable.has(eventType)) {
       this.enqueueLatest(eventType, payload);
     } else {
-      this.enqueue(eventType, payload);
+      const severity = INFORMATIONAL_EVENTS.has(eventType)
+        ? 'informational'
+        : 'critical';
+      this.enqueue(eventType, payload, severity);
     }
   }
 

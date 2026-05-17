@@ -10,6 +10,14 @@
  * changes.
  */
 
+/**
+ * After this many consecutive failed reconnect attempts, emit a one-shot
+ * `reconnect_exhausted` event so the UI can surface a clear "connection
+ * lost" state and stop spinners. Reconnection itself continues forever
+ * (24/7 deployments must recover from arbitrarily long outages).
+ */
+const RECONNECT_UI_GIVEUP_ATTEMPTS = 12;
+
 /** Binary frame magic byte (matches `shared/BinaryFrameCodec.js`). */
 const _BIN_FRAME_MAGIC = 0xb0;
 
@@ -77,6 +85,7 @@ class BackendAPIClient {
         this.reconnectMaxDelay = 60000;
         this._reconnecting = false;
         this._reconnectTimer = null;
+        this._reconnectExhaustedEmitted = false;
         this._closed = false;
         this._connectionPromise = null;
     }
@@ -107,6 +116,7 @@ class BackendAPIClient {
                     this.connected = true;
                     this.reconnectAttempts = 0;
                     this._reconnecting = false;
+                    this._reconnectExhaustedEmitted = false;
                     this._connectionPromise = null;
                     this.emit('connected');
                     resolve();
@@ -182,8 +192,10 @@ class BackendAPIClient {
      * Attempt to reconnect with capped exponential backoff.
      * Retries indefinitely (no attempt limit) so 24/7 deployments
      * recover automatically from arbitrarily long outages. The UI
-     * receives `disconnected` then `reconnecting` events to surface
-     * the state to the user.
+     * receives `disconnected` then `reconnecting` events; after
+     * RECONNECT_UI_GIVEUP_ATTEMPTS consecutive failures it also gets a
+     * one-shot `reconnect_exhausted` event so it can show a hard
+     * "connection lost" state and stop spinners — retrying continues.
      */
     attemptReconnect() {
         if (this._closed) return;
@@ -199,6 +211,12 @@ class BackendAPIClient {
         );
 
         this.emit('reconnecting', { attempt: this.reconnectAttempts, delayMs: delay });
+
+        if (this.reconnectAttempts >= RECONNECT_UI_GIVEUP_ATTEMPTS &&
+            !this._reconnectExhaustedEmitted) {
+            this._reconnectExhaustedEmitted = true;
+            this.emit('reconnect_exhausted', { attempts: this.reconnectAttempts });
+        }
 
         if (this._reconnectTimer) {
             clearTimeout(this._reconnectTimer);
