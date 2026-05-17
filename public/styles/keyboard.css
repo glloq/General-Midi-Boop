@@ -1990,6 +1990,111 @@ body.dark-mode .shortcuts-overlay {
 }
 
 /* ========================================================================
+ * SKINS MATIÈRE — instruments à lames (piano virtuel)
+ * Pilotés par data-mallet-skin sur #piano-container (cf. KeyboardPiano.js).
+ * On surcharge uniquement fond/bordure ; .active reste vert (!important)
+ * et .disabled reste gris (règle commune en fin de section).
+ * ======================================================================== */
+
+/* wood-dark — Marimba (bois de rose foncé) */
+.piano-container[data-mallet-skin="wood-dark"] .white-key {
+    background: linear-gradient(to bottom, #9c6239 0%, #7a4a2b 100%);
+    border-color: #3a2414;
+}
+.piano-container[data-mallet-skin="wood-dark"] .white-key:hover {
+    background: linear-gradient(to bottom, #ad7044 0%, #875733 100%);
+}
+.piano-container[data-mallet-skin="wood-dark"] .black-key {
+    background: linear-gradient(to bottom, #5a3a22 0%, #3c2415 100%);
+    border-color: #1f130a;
+}
+.piano-container[data-mallet-skin="wood-dark"] .black-key:hover {
+    background: linear-gradient(to bottom, #6b462a 0%, #4a2e1b 100%);
+}
+.piano-container[data-mallet-skin="wood-dark"] .white-key:not(.active) .key-label {
+    color: #f3e3d2;
+}
+
+/* wood-light — Xylophone (bois clair miel/ambre) */
+.piano-container[data-mallet-skin="wood-light"] .white-key {
+    background: linear-gradient(to bottom, #e6c089 0%, #c8975a 100%);
+    border-color: #8a5a2e;
+}
+.piano-container[data-mallet-skin="wood-light"] .white-key:hover {
+    background: linear-gradient(to bottom, #f0cf9d 0%, #d4a468 100%);
+}
+.piano-container[data-mallet-skin="wood-light"] .black-key {
+    background: linear-gradient(to bottom, #a9763f 0%, #8a5a2e 100%);
+    border-color: #5e3c1e;
+}
+.piano-container[data-mallet-skin="wood-light"] .black-key:hover {
+    background: linear-gradient(to bottom, #b8854c 0%, #99693a 100%);
+}
+.piano-container[data-mallet-skin="wood-light"] .white-key:not(.active) .key-label {
+    color: #5a3a1c;
+}
+
+/* metal-bright — Glockenspiel (acier poli brillant, froid) */
+.piano-container[data-mallet-skin="metal-bright"] .white-key {
+    background: linear-gradient(to bottom, #f4f7fa 0%, #cfd6dc 45%, #aeb8c2 100%);
+    border-color: #8a929c;
+}
+.piano-container[data-mallet-skin="metal-bright"] .white-key:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #dde3e9 45%, #bcc6cf 100%);
+}
+.piano-container[data-mallet-skin="metal-bright"] .black-key {
+    background: linear-gradient(to bottom, #9aa4b0 0%, #6b7480 100%);
+    border-color: #565d66;
+}
+.piano-container[data-mallet-skin="metal-bright"] .black-key:hover {
+    background: linear-gradient(to bottom, #a8b2bd 0%, #79828e 100%);
+}
+
+/* metal-warm — Vibraphone (aluminium/or chaud) */
+.piano-container[data-mallet-skin="metal-warm"] .white-key {
+    background: linear-gradient(to bottom, #f2dca0 0%, #d8b773 45%, #c19a4f 100%);
+    border-color: #8a6f33;
+}
+.piano-container[data-mallet-skin="metal-warm"] .white-key:hover {
+    background: linear-gradient(to bottom, #f8e7b4 0%, #e2c585 45%, #cda85d 100%);
+}
+.piano-container[data-mallet-skin="metal-warm"] .black-key {
+    background: linear-gradient(to bottom, #b08f49 0%, #8a6f33 100%);
+    border-color: #5f4c23;
+}
+.piano-container[data-mallet-skin="metal-warm"] .black-key:hover {
+    background: linear-gradient(to bottom, #c09e57 0%, #997d3d 100%);
+}
+
+/* metal-soft — Celesta (lames métalliques argentées douces) */
+.piano-container[data-mallet-skin="metal-soft"] .white-key {
+    background: linear-gradient(to bottom, #fbfcfd 0%, #dfe3e6 50%, #c7cdd1 100%);
+    border-color: #a6acb1;
+}
+.piano-container[data-mallet-skin="metal-soft"] .white-key:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #e8ebee 50%, #d2d8db 100%);
+}
+.piano-container[data-mallet-skin="metal-soft"] .black-key {
+    background: linear-gradient(to bottom, #aeb5bb 0%, #878f96 100%);
+    border-color: #6e767d;
+}
+.piano-container[data-mallet-skin="metal-soft"] .black-key:hover {
+    background: linear-gradient(to bottom, #bcc2c8 0%, #959da4 100%);
+}
+
+/* Touches hors tessiture : gris « désactivé » cohérent quel que soit le skin */
+.piano-container[data-mallet-skin] .white-key.disabled,
+.piano-container[data-mallet-skin] .white-key.disabled:hover {
+    background: linear-gradient(to bottom, #9ca3af 0%, #d1d5db 100%);
+    border-color: #6b7280;
+}
+.piano-container[data-mallet-skin] .black-key.disabled,
+.piano-container[data-mallet-skin] .black-key.disabled:hover {
+    background: linear-gradient(to bottom, #374151 0%, #4b5563 100%);
+    border-color: #000;
+}
+
+/* ========================================================================
  * ACCORDÉON — boutons actifs (vert cohérent avec le piano) + soufflet
  * ======================================================================== */
 
