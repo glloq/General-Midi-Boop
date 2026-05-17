@@ -5143,3 +5143,86 @@ body.dark-mode .steel-section-label {
 @media (prefers-reduced-motion: reduce) {
     .steel-section.active::after { animation: none; }
 }
+
+/* ============================================================================
+   BAGPIPE VIEW — drone pipes (tubes) + played-note feedback
+   ----------------------------------------------------------------------------
+   Self-owned DOM appended by BagpipeView.js. Each drone is a vertical unit:
+   a decorative pipe standing above its toggle button (kalimba precedent —
+   visual chrome lives here, not inline in the view). The chanter buttons
+   (.bagpipe-hole) had no .active rule, so playing a note gave no feedback;
+   we add the app's emerald active state, forced over the per-note colour.
+   ========================================================================== */
+
+.bagpipe-drone-pipe {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Cylindrical drone pipe: ivory/wood body with two ferrule rings and a
+   flared top, like a real bagpipe drone. Purely decorative — never
+   intercepts pointer events. Height is set inline by JS (bass drone =
+   longer pipe). */
+.bagpipe-tube {
+    width: 16px;
+    border-radius: 7px 7px 3px 3px;
+    pointer-events: none;
+    flex: none;
+    background:
+        linear-gradient(180deg,
+            rgba(255, 255, 255, 0.45) 0%,
+            rgba(255, 255, 255, 0) 22%),
+        repeating-linear-gradient(180deg,
+            rgba(60, 40, 20, 0) 0 14px,
+            rgba(40, 26, 12, 0.55) 14px 18px,
+            rgba(60, 40, 20, 0) 18px 24px),
+        linear-gradient(90deg,
+            #6b4a28 0%, #c9a878 38%, #efdcc0 50%, #b5905f 64%, #5e3f22 100%);
+    box-shadow:
+        inset 0 0 3px rgba(0, 0, 0, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.35);
+    transition: box-shadow 0.15s ease-out, filter 0.15s ease-out;
+}
+
+/* Lit when the matching drone is sounding (BagpipeView toggles .active on
+   the tube in sync with its button). Warm glow + brighter body. */
+.bagpipe-tube.active {
+    filter: brightness(1.18) saturate(1.1);
+    box-shadow:
+        inset 0 0 3px rgba(0, 0, 0, 0.35),
+        0 0 9px rgba(52, 211, 153, 0.75),
+        0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* Played / active chanter note. Same emerald as .drum-pad.active /
+   .kalimba-tine.active for cross-view consistency. !important on
+   background/color overrides the inline per-note colour set by
+   getNoteColor() when the 🎨 mode is on (kalimba precedent). */
+.bagpipe-hole.active {
+    background: linear-gradient(135deg, #34d399, #059669) !important;
+    color: #fff !important;
+    border-color: #047857;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+    transform: scale(0.98);
+    animation: key-press 0.15s ease-out;
+}
+
+/* Dark mode: cooler pipe tone against the dark canvas (kalimba precedent). */
+body.dark-mode .bagpipe-tube {
+    background:
+        linear-gradient(180deg,
+            rgba(255, 255, 255, 0.30) 0%,
+            rgba(255, 255, 255, 0) 22%),
+        repeating-linear-gradient(180deg,
+            rgba(20, 12, 6, 0) 0 14px,
+            rgba(10, 6, 3, 0.6) 14px 18px,
+            rgba(20, 12, 6, 0) 18px 24px),
+        linear-gradient(90deg,
+            #4a3219 0%, #8a6b44 38%, #b89a72 50%, #7c5d38 64%, #3c2912 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bagpipe-hole.active { animation: none; }
+}
