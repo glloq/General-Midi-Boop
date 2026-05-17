@@ -641,8 +641,32 @@
             </div>`;
         }
 
+        // Chord library picker — fills the discrete playable notes with every
+        // occurrence of the chosen chord's pitch classes within the
+        // instrument's range. Hidden for drums/synths (no presets), and for
+        // string instruments (own tuning/fret config, note section hidden).
+        let chordPickerHtml = '';
+        if (notePresets.length > 0 && !isString && !isDrum && window.ChordLibrary) {
+            const rootOpts = window.ChordLibrary.ROOTS
+                .map(r => `<option value="${r.pc}">${this.escape(window.ChordLibrary.rootLabel(r.pc))}</option>`)
+                .join('');
+            const typeOpts = window.ChordLibrary.CHORDS
+                .map(c => `<option value="${this.escape(c.id)}">${this.escape(this.t(c.labelKey) || c.labelFr)}</option>`)
+                .join('');
+            chordPickerHtml = `<div class="ism-subsection" id="chordPickerSubsection">
+                <h4 class="ism-subsection-title">🎵 ${this.t('instrumentSettings.chordPickerTitle') || 'Bibliothèque d\'accords'}</h4>
+                <p class="ism-subsection-hint">${this.t('instrumentSettings.chordPickerHint') || 'Sélectionne les notes jouables correspondant à l\'accord choisi sur toute la tessiture de l\'instrument. Bascule en mode « Notes individuelles ».'}</p>
+                <div class="ism-note-preset-toolbar">
+                    <select class="ism-chord-root-select" aria-label="${this.escape(this.t('instrumentSettings.chordRootLabel') || 'Fondamentale')}">${rootOpts}</select>
+                    <select class="ism-chord-type-select" aria-label="${this.escape(this.t('instrumentSettings.chordTypeLabel') || 'Type d\'accord')}">${typeOpts}</select>
+                    <button type="button" class="btn btn-small ism-chord-apply">${this.t('common.apply') || 'Appliquer'}</button>
+                </div>
+            </div>`;
+        }
+
         return `
             ${notePresetHtml}
+            ${chordPickerHtml}
             ${shareToggleHtml}
             ${voiceTabsHtml}
 

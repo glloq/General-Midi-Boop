@@ -15,6 +15,25 @@
  *     reverse lookup.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CAPABILITIES_PATH = path.resolve(
+  __dirname,
+  '../../../shared/gm-instrument-capabilities.json'
+);
+
+/**
+ * Canonical per-GM-program capabilities (note range + polyphony), loaded
+ * once at module init. The frontend keeps an inline mirror
+ * (public/js/features/GmInstrumentCapabilities.js); a Vitest test asserts
+ * parity (tests/frontend/gm-instrument-capabilities-sync.test.js).
+ */
+const GM_CAPABILITIES = JSON.parse(fs.readFileSync(CAPABILITIES_PATH, 'utf8'));
+
 const INSTRUMENT_TYPE_HIERARCHY = {
   piano: {
     label: 'Piano',
@@ -260,48 +279,14 @@ const TYPE_FAMILIES = {
 };
 
 /**
- * Default polyphony for GM instruments (0-127).
- * Represents the typical polyphony of the real acoustic instrument.
- * Used as a fallback when the routed instrument has no defined value.
+ * Default polyphony for GM instruments (0-127), derived from the canonical
+ * capability table (shared/gm-instrument-capabilities.json). Represents the
+ * typical polyphony of the real acoustic instrument. Used as a fallback when
+ * the routed instrument has no defined value.
  */
-const GM_DEFAULT_POLYPHONY = {
-  // Piano (0-7) — polyphonic, long sustain
-  0: 16, 1: 16, 2: 16, 3: 16, 4: 16, 5: 16, 6: 8, 7: 8,
-  // Chromatic Percussion (8-15) — varies
-  8: 8, 9: 4, 10: 4, 11: 6, 12: 4, 13: 4, 14: 8, 15: 4,
-  // Organ (16-23) — polyphonic
-  16: 16, 17: 16, 18: 16, 19: 16, 20: 16, 21: 8, 22: 1, 23: 8,
-  // Guitar (24-31) — 6 strings
-  24: 6, 25: 6, 26: 6, 27: 6, 28: 6, 29: 6, 30: 6, 31: 6,
-  // Bass (32-39) — monophonic / 4 strings
-  32: 1, 33: 1, 34: 1, 35: 1, 36: 1, 37: 1, 38: 1, 39: 1,
-  // Strings solo (40-43) — polyphony limited by strings
-  40: 4, 41: 4, 42: 4, 43: 4,
-  // Strings orchestral (44-47) — varies
-  44: 8, 45: 8, 46: 8, 47: 2,
-  // Ensemble (48-55) — polyphonic
-  48: 16, 49: 16, 50: 16, 51: 16, 52: 16, 53: 16, 54: 16, 55: 1,
-  // Brass solo (56-60) — monophonic
-  56: 1, 57: 1, 58: 1, 59: 1, 60: 1,
-  // Brass section + synth brass (61-63)
-  61: 8, 62: 8, 63: 8,
-  // Reed / Sax solo (64-71) — monophonic
-  64: 1, 65: 1, 66: 1, 67: 1, 68: 1, 69: 1, 70: 1, 71: 1,
-  // Pipe / Flutes (72-79) — monophonic
-  72: 1, 73: 1, 74: 1, 75: 1, 76: 1, 77: 1, 78: 1, 79: 1,
-  // Synth Lead (80-87) — typically monophonic
-  80: 1, 81: 1, 82: 1, 83: 1, 84: 1, 85: 1, 86: 2, 87: 2,
-  // Synth Pad (88-95) — polyphonic
-  88: 8, 89: 8, 90: 8, 91: 8, 92: 8, 93: 8, 94: 8, 95: 8,
-  // Synth Effects (96-103) — varies
-  96: 4, 97: 4, 98: 4, 99: 4, 100: 4, 101: 4, 102: 4, 103: 4,
-  // Ethnic (104-111) — varies
-  104: 4, 105: 6, 106: 4, 107: 4, 108: 4, 109: 1, 110: 4, 111: 1,
-  // Percussive (112-119) — varies
-  112: 4, 113: 4, 114: 2, 115: 2, 116: 4, 117: 4, 118: 4, 119: 4,
-  // Sound Effects (120-127) — monophonic
-  120: 1, 121: 1, 122: 1, 123: 1, 124: 1, 125: 1, 126: 1, 127: 1
-};
+const GM_DEFAULT_POLYPHONY = Object.fromEntries(
+  Object.entries(GM_CAPABILITIES).map(([p, cap]) => [Number(p), cap.polyphony])
+);
 
 // Internal cache for fast program → type lookups
 let _programToTypeCache = null;
