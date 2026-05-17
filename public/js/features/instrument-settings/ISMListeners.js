@@ -461,6 +461,12 @@
             obj.octave_mode = p.octave_mode || 'chromatic';
             obj.selected_notes = null;
             tab.settings.polyphony = p.polyphony;
+            // Harmonica presets also carry the tuning/key. Persist it on
+            // tab.settings so the re-rendered harmonica subsection (and the
+            // save path via _collectHarmonicaConfig) reflect the preset.
+            if (p.harmonica_config) {
+                tab.settings.harmonica_config = p.harmonica_config;
+            }
             this._refreshNotesSectionForProgram();
             if (this.activeSection === 'notes') this._initPianoForActiveTab();
         }.bind(this));
