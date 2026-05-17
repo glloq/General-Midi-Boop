@@ -79,19 +79,11 @@
             //   2. SettingsModal toggle             — user-facing
             //   3. Legacy localStorage flag         — dev backwards-compat
             //   4. Default                          — V2
-            const useV2 = (() => {
-                try {
-                    const qs = new URLSearchParams(window.location.search);
-                    if (qs.get('pianoRollV2') === '0') return false;
-                    if (qs.get('pianoRollV2') === '1') return true;
-                    const settings = JSON.parse(localStorage.getItem('gmboop_settings') || '{}');
-                    if (settings.usePianoRollV2 === false) return false;
-                    if (settings.usePianoRollV2 === true) return true;
-                    if (localStorage.getItem('gmboop_piano_roll_v2') === '0') return false;
-                    if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
-                } catch (_) { /* best-effort */ }
-                return true;
-            })();
+            // V1 (webaudio-pianoroll) is being removed: the Canvas renderer
+            // is now forced everywhere. The legacy adapter fallback below is
+            // kept only as a rollback safety net until the V1 path is
+            // physically deleted (audit Phase E).
+            const useV2 = true;
             const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
                 ? CanvasPianoRollRenderer
                 : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);

@@ -131,27 +131,15 @@ class PianoRollEditorSetup {
         const container = this.parent.host.querySelector('#pre-pianoroll-wrap');
         if (!container) return;
 
-        // Piano roll renderer abstraction (audit §1.1). Choose the
-        // implementation based on the same flag used by MidiEditorModal:
-        //   - Default: WebaudioPianorollAdapter (third-party lib).
-        //   - Opt-in: CanvasPianoRollRenderer (Canvas maison).
+        // Piano roll renderer abstraction (audit §1.1). V1
+        // (webaudio-pianoroll) is being removed — the Canvas renderer is
+        // now forced here too (this loop-editor path previously still
+        // defaulted to V1). The legacy adapter fallback below is kept only
+        // as a rollback safety net until V1 is physically deleted (Phase E).
         // The invariant `this.parent.pianoRoll === this.parent.renderer.getElement()`
         // is maintained so any external consumer of getPianoRollElement()
         // keeps working unchanged.
-        const useV2 = (() => {
-            try {
-                // Precedence (highest → lowest):
-                //   1. URL flag `?pianoRollV2=1`        — dev override
-                //   2. SettingsModal toggle             — user-facing
-                //   3. Legacy localStorage flag         — dev backwards-compat
-                const qs = new URLSearchParams(window.location.search);
-                if (qs.get('pianoRollV2') === '1') return true;
-                const settings = JSON.parse(localStorage.getItem('gmboop_settings') || '{}');
-                if (settings.usePianoRollV2 === true) return true;
-                if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
-            } catch (_) { /* best-effort */ }
-            return false;
-        })();
+        const useV2 = true;
         const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
             ? CanvasPianoRollRenderer
             : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
