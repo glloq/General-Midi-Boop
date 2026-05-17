@@ -4509,7 +4509,9 @@ body.dark-mode .kalimba-view {
     box-sizing: border-box;
     display: flex;
     flex-direction: row;
-    justify-content: center;
+    /* Centered when it fits; left-aligned + scrollable when the instrument
+       is wider than the viewport (many holes). */
+    justify-content: safe center;
     align-items: center;
     gap: 18px;
     /* Extra room on the right so the slide rod + button (chromatic) are
@@ -4538,15 +4540,14 @@ body.dark-mode .kalimba-view {
     padding-top: 2px;
 }
 
-/* The device: curved cover plates + comb, centered, growing to a comfortable
-   max instead of stretching edge-to-edge. `position:relative` anchors the
-   protruding chromatic slide button; no overflow:hidden so the button can
-   stick out past the right edge (the rounded corners live on the covers). */
+/* The device sizes to its content so its width follows the hole count (the
+   instrument gets wider with more notes; the view scrolls if it exceeds the
+   viewport). `position:relative` anchors the protruding chromatic slide
+   button; no overflow:hidden so it can stick out past the right edge (the
+   rounded corners live on the covers). */
 .harmonica-device {
     position: relative;
-    flex: 1;
-    min-width: 0;
-    max-width: 920px;
+    flex: none;
     display: flex;
     flex-direction: column;
     border-radius: 18px;
@@ -4617,8 +4618,7 @@ body.dark-mode .kalimba-view {
 }
 
 .harmonica-comb {
-    flex: 1;
-    min-width: 0;
+    flex: none;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -4660,9 +4660,8 @@ body.dark-mode .kalimba-view {
 
 /* Clean rounded hole; a subtle tint differentiates blow vs draw. */
 .harmonica-hole {
-    flex: 1 1 0;
-    min-width: 26px;
-    max-width: 72px;
+    flex: 0 0 auto;
+    width: 48px;
     min-height: 52px;
     border: none;
     border-radius: 7px;
