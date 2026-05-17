@@ -137,9 +137,12 @@
             const minNoteDurationVal = this.$('#minNoteDuration')?.value?.trim();
             const minNoteDuration = minNoteDurationVal !== '' && minNoteDurationVal != null ? parseInt(minNoteDurationVal) : null;
 
-            // Custom SF2 soundfont override (for non-GM instruments)
-            const sf2El = this.$('#customSf2Id');
-            const sf2Raw = sf2El ? sf2El.value.trim() : '';
+            // Custom SF2 soundfont override (for non-GM instruments). The
+            // picker lives in the lazy Advanced section (#customSf2Id); when
+            // that section was never opened, fall back to the always-rendered
+            // Identity mirror so a save never silently wipes the value.
+            const sf2El = this.$('#customSf2Id') || this.$('#customSf2IdMirror');
+            const sf2Raw = sf2El ? String(sf2El.value).trim() : '';
             const customSf2Id = sf2Raw !== '' ? (parseInt(sf2Raw) || null) : null;
 
             // Omni mode (accept notes on any channel — useful for devices hosting a single instrument)

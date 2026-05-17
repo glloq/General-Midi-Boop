@@ -18,6 +18,7 @@
             notes: '_attachNotesSectionListeners',
             hands: '_attachHandsSectionListeners',
             bagpipe: '_wireBagpipeListeners',
+            advanced: '_attachAdvancedSectionListeners',
         };
         this.$$('.ism-section').forEach(sec => {
             const isTarget = sec.dataset.section === sectionId;

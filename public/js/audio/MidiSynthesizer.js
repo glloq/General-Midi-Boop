@@ -197,6 +197,22 @@ class MidiSynthesizer {
         (window.logger || console).warn('[MidiSynthesizer]', msg);
     }
 
+    /**
+     * Surface a toast when a per-instrument custom SF2 does not contain the
+     * instrument's GM program/kit and the whole channel falls back to the
+     * standard GM bank (all-or-nothing, per user decision). Gated by the
+     * per-(sf2Id, program) probe memo upstream so it fires once per missing
+     * preset, not on every preview reset.
+     */
+    static _notifyCustomSf2Fallback() {
+        const msg = 'Le SF2 personnalisé ne contient pas cet instrument GM — retour à la banque standard pour ce canal.';
+        const toast = window.HandPositionWarningsToast;
+        if (toast && typeof toast.show === 'function') {
+            try { toast.show(msg); return; } catch (e) { /* fall through */ }
+        }
+        (window.logger || console).warn('[MidiSynthesizer]', msg);
+    }
+
     constructor() {
         this.audioContext = null;
         this.player = null;
@@ -223,9 +239,24 @@ class MidiSynthesizer {
         this.channelVolumes = new Array(16).fill(100);
         this.mutedChannels = new Set(); // Muted channels
 
-        // Loaded instruments (cache)
-        this.loadedInstruments = new Map(); // program -> instrument data
-        this.loadingInstruments = new Map(); // program -> Promise
+        // Per-channel custom SF2 override (see setChannelInstrument 3rd arg).
+        // channelSf2Ids[ch]      : requested custom SF2 db id, or null = global bank
+        // channelResolvedBank[ch]: null = use currentBankId; else 'sf2:<id>'
+        //                          (custom accepted) or DEFAULT_BANK_ID (probe
+        //                          failed → all-or-nothing GM fallback)
+        // _sf2ProbeMemo          : '<sf2Id>|m<program>' | '<sf2Id>|d<kit>' →
+        //                          'ok' | 'fallback' (avoids re-probing on the
+        //                          16-channel reset AudioPreview does each run)
+        this.channelSf2Ids = new Array(16).fill(null);
+        this.channelResolvedBank = new Array(16).fill(null);
+        this._sf2ProbeMemo = new Map();
+
+        // Loaded instruments (cache). Keyed by `${bankId}|${program}` (melodic)
+        // / `${bankId}|${kit}:${note}` (drums) so a channel with a custom SF2
+        // and another channel on the global bank can hold the same GM program
+        // without colliding. See _instKey / _drumKey.
+        this.loadedInstruments = new Map();
+        this.loadingInstruments = new Map();
 
         // Scheduler
         this.schedulerInterval = null;
@@ -484,6 +515,9 @@ class MidiSynthesizer {
     _clearInstrumentCache() {
         this.loadedInstruments.clear();
         this.loadingInstruments.clear();
+        // Drop memoised custom-SF2 probe verdicts: cheap to re-probe and
+        // avoids a stale 'fallback' sticking after a delete + re-upload.
+        this._sf2ProbeMemo.clear();
         // Remove only the melodic <script> elements injected by this instance
         for (const script of [...this._injectedScripts]) {
             if (script.src && !script.src.includes('/128')) {
@@ -579,27 +613,105 @@ class MidiSynthesizer {
     }
 
     /**
+     * Composite cache key for a melodic preset so the same GM program loaded
+     * from two different banks (global vs a per-instrument custom SF2) does
+     * not collide in `loadedInstruments` / `loadingInstruments`.
+     * @private
+     */
+    _instKey(bankId, program) {
+        return `${bankId}|${program}`;
+    }
+
+    /**
+     * Composite cache key for a drum preset, same rationale as `_instKey`.
+     * @private
+     */
+    _drumKey(bankId, kit, note) {
+        return `${bankId}|${kit}:${note}`;
+    }
+
+    /**
+     * Effective sound bank for a channel: the per-channel resolved bank when
+     * a custom SF2 is in effect (or its GM fallback), else the global bank.
+     * Single chokepoint used by every load + play path.
+     * @private
+     */
+    _bankForChannel(channel) {
+        return this.channelResolvedBank[channel] || this.currentBankId;
+    }
+
+    /**
+     * Probe whether a per-channel custom SF2 contains the channel's GM
+     * program (melodic) or kit (drums) and pick the effective bank.
+     * All-or-nothing: a missing preset falls the WHOLE channel back to the
+     * standard GM bank ({@link DEFAULT_BANK_ID}). The probe reuses the normal
+     * preset fetch (no extra round-trip) and is memoised per (sf2Id, program)
+     * so AudioPreview's per-run 16-channel reset doesn't storm the server.
+     * Synchronous-friendly: sets a provisional bank immediately; the async
+     * resolution either confirms it or flips to the GM fallback.
+     * @private
+     */
+    _resolveChannelSf2Bank(channel, program, sf2Id) {
+        const candidateBank = `sf2:${sf2Id}`;
+        const isDrum = channel === 9;
+        const kit = isDrum ? this._decodeKitProgram(program ?? 0) : 0;
+        const memoKey = isDrum ? `${sf2Id}|d${kit}` : `${sf2Id}|m${program}`;
+        const memo = this._sf2ProbeMemo.get(memoKey);
+        if (memo === 'ok') { this.channelResolvedBank[channel] = candidateBank; return; }
+        if (memo === 'fallback') { this.channelResolvedBank[channel] = DEFAULT_BANK_ID; return; }
+
+        // Provisionally try the custom SF2 so an early note attempts it.
+        this.channelResolvedBank[channel] = candidateBank;
+        // The probe materialises the preset (needs audioContext). Defer until
+        // initialize() has run — _preloadCurrentChannelPrograms re-drives any
+        // still-unresolved channel after init / bank switch.
+        if (!this.isInitialized || !this.audioContext) return;
+
+        const probe = isDrum
+            ? this._loadDrumPreset(38, kit, candidateBank)
+            : this.loadInstrument(program, candidateBank);
+        Promise.resolve(probe).then((preset) => {
+            // Bail if the user changed the SF2 for this channel meanwhile.
+            if (this.channelSf2Ids[channel] !== sf2Id) return;
+            if (preset) {
+                this._sf2ProbeMemo.set(memoKey, 'ok');
+                this.channelResolvedBank[channel] = candidateBank;
+            } else {
+                this._sf2ProbeMemo.set(memoKey, 'fallback');
+                this.channelResolvedBank[channel] = DEFAULT_BANK_ID;
+                MidiSynthesizer._notifyCustomSf2Fallback();
+                // Warm the GM fallback so the next note on this channel sounds.
+                if (isDrum) this._loadDrumPreset(38, kit, DEFAULT_BANK_ID).catch(() => {});
+                else this.loadInstrument(program, DEFAULT_BANK_ID).catch(() => {});
+            }
+        }).catch(() => {});
+    }
+
+    /**
      * Load an instrument
      * @param {number} program - GM program number (0-127)
+     * @param {string} [bankId] - Bank to load from; defaults to the global
+     *   current bank (every legacy caller keeps prior behaviour).
      */
-    async loadInstrument(program) {
+    async loadInstrument(program, bankId = this.currentBankId) {
         if (program < 0 || program >= 128) {
             program = 0;
         }
+        const cacheKey = this._instKey(bankId, program);
 
         // Already loaded?
-        if (this.loadedInstruments.has(program)) {
-            return this.loadedInstruments.get(program);
+        if (this.loadedInstruments.has(cacheKey)) {
+            return this.loadedInstruments.get(cacheKey);
         }
 
         // Currently loading?
-        if (this.loadingInstruments.has(program)) {
-            return this.loadingInstruments.get(program);
+        if (this.loadingInstruments.has(cacheKey)) {
+            return this.loadingInstruments.get(cacheKey);
         }
 
         // SF2 bank: load preset via HTTP instead of WAF CDN script injection
-        if (this.currentBankId.startsWith('sf2:')) {
-            return this._loadSF2MelodicPreset(program);
+        if (bankId.startsWith('sf2:')) {
+            return this._loadSF2MelodicPreset(program, bankId);
         }
 
         const instrumentInfo = this.gmInstrumentMap[program];
@@ -615,8 +727,8 @@ class MidiSynthesizer {
                 if (instrument) {
                     // Adjust the instrument zones
                     this.player.adjustPreset(this.audioContext, instrument);
-                    this.loadedInstruments.set(program, instrument);
-                    this.loadingInstruments.delete(program);
+                    this.loadedInstruments.set(cacheKey, instrument);
+                    this.loadingInstruments.delete(cacheKey);
                     this.log('info', `Loaded instrument ${program}: ${instrumentInfo.variable}`);
                     resolve(instrument);
                 } else {
@@ -625,7 +737,7 @@ class MidiSynthesizer {
             };
             script.onerror = () => {
                 if (this._isDisposed) { resolve(null); return; }
-                this.loadingInstruments.delete(program);
+                this.loadingInstruments.delete(cacheKey);
                 // No WAF-CDN fallback here: the default bank is the local SF2,
                 // and `_loadSF2MelodicPreset` is used for everything `sf2:`.
                 // We only reach this branch when the user has explicitly
@@ -636,7 +748,7 @@ class MidiSynthesizer {
             document.head.appendChild(script);
         });
 
-        this.loadingInstruments.set(program, loadPromise);
+        this.loadingInstruments.set(cacheKey, loadPromise);
         return loadPromise;
     }
 
@@ -650,10 +762,10 @@ class MidiSynthesizer {
      *   4. FluidR3_GM    + Standard Kit   (if kit≠0)
      *   5. Legacy JCLive bankIndex 12     (absolute last resort)
      */
-    _loadDrumPreset(note, kitProgram = 0) {
+    _loadDrumPreset(note, kitProgram = 0, bankId = this.currentBankId) {
         if (note < 35 || note > 81) return Promise.resolve(null);
         const kit = kitProgram | 0;
-        const cacheKey = `${kit}:${note}`;
+        const cacheKey = this._drumKey(bankId, kit, note);
 
         if (this.drumPresets.has(cacheKey)) {
             return Promise.resolve(this.drumPresets.get(cacheKey));
@@ -663,8 +775,8 @@ class MidiSynthesizer {
         }
 
         // SF2 bank: load preset via HTTP instead of WAF CDN script injection
-        if (this.currentBankId.startsWith('sf2:')) {
-            return this._loadSF2DrumPreset(note, kit);
+        if (bankId.startsWith('sf2:')) {
+            return this._loadSF2DrumPreset(note, kit, bankId);
         }
 
         const FLUID = 'FluidR3_GM_sf2_file';
@@ -812,8 +924,9 @@ class MidiSynthesizer {
      * Fetch a melodic preset from the server's SF2 converter endpoint and
      * cache it the same way WAF presets are cached.
      */
-    _loadSF2MelodicPreset(program) {
-        const sf2Id = this.currentBankId.slice(4); // strip 'sf2:'
+    _loadSF2MelodicPreset(program, bankId = this.currentBankId) {
+        const sf2Id = bankId.slice(4); // strip 'sf2:'
+        const cacheKey = this._instKey(bankId, program);
         const watcher = MidiSynthesizer._startLoadingWatcher();
         const p = fetch(`/api/sf2/${sf2Id}/preset/melodic/${program}`)
             .then(r => {
@@ -825,22 +938,26 @@ class MidiSynthesizer {
             .then(buf => {
                 const preset = buf ? _decodeGmbpPreset(buf) : null;
                 if (!preset || this._isDisposed) {
-                    this.loadingInstruments.delete(program);
-                    // After the global fallback, retry with the new bank so the
-                    // caller (loadInstrument) gets a real preset instead of null.
-                    if (this.currentBankId !== `sf2:${sf2Id}`) {
+                    this.loadingInstruments.delete(cacheKey);
+                    // Self-heal ONLY for the built-in default bank: when
+                    // _handleDefaultSF2Missing switched the global bank away
+                    // mid-flight, retry on the new global bank. For a custom
+                    // SF2 (numeric id) a 404 genuinely means "this SF2 lacks
+                    // the program" and must return null so the all-or-nothing
+                    // probe (_resolveChannelSf2Bank) can fall back to GM.
+                    if (sf2Id === 'default' && this.currentBankId !== bankId) {
                         return this.loadInstrument(program);
                     }
                     return null;
                 }
                 this._materialiseSF2Preset(preset);
-                this.loadedInstruments.set(program, preset);
-                this.loadingInstruments.delete(program);
+                this.loadedInstruments.set(cacheKey, preset);
+                this.loadingInstruments.delete(cacheKey);
                 return preset;
             })
-            .catch(() => { this.loadingInstruments.delete(program); return null; })
+            .catch(() => { this.loadingInstruments.delete(cacheKey); return null; })
             .finally(() => watcher.done());
-        this.loadingInstruments.set(program, p);
+        this.loadingInstruments.set(cacheKey, p);
         return p;
     }
 
@@ -848,9 +965,9 @@ class MidiSynthesizer {
      * Fetch a drum note preset from the server's SF2 converter endpoint and
      * cache it the same way WAF drum presets are cached.
      */
-    _loadSF2DrumPreset(note, kit) {
-        const cacheKey = `${kit}:${note}`;
-        const sf2Id = this.currentBankId.slice(4);
+    _loadSF2DrumPreset(note, kit, bankId = this.currentBankId) {
+        const cacheKey = this._drumKey(bankId, kit, note);
+        const sf2Id = bankId.slice(4);
         const watcher = MidiSynthesizer._startLoadingWatcher();
         const p = fetch(`/api/sf2/${sf2Id}/preset/drum/${kit}/${note}`)
             .then(r => {
@@ -863,9 +980,10 @@ class MidiSynthesizer {
                 const preset = buf ? _decodeGmbpPreset(buf) : null;
                 this._drumLoading.delete(cacheKey);
                 if (!preset || this._isDisposed) {
-                    // Self-healing: if the global fallback switched banks
-                    // mid-flight, retry the drum lookup on the new bank.
-                    if (this.currentBankId !== `sf2:${sf2Id}`) {
+                    // Self-heal ONLY for the built-in default bank (see the
+                    // melodic loader). Custom-SF2 404 → null so the probe
+                    // can apply the all-or-nothing GM fallback.
+                    if (sf2Id === 'default' && this.currentBankId !== bankId) {
                         return this._loadDrumPreset(note, kit);
                     }
                     return null;
@@ -920,6 +1038,7 @@ class MidiSynthesizer {
      */
     async loadDrumKit() {
         const kit = this._decodeKitProgram(this.channelInstruments[9] ?? 0);
+        const bankId = this._bankForChannel(9);
 
         // Collect which drum notes are actually used in the sequence
         const usedNotes = new Set();
@@ -943,7 +1062,7 @@ class MidiSynthesizer {
 
         const promises = [];
         for (const note of usedNotes) {
-            promises.push(this._loadDrumPreset(note, kit));
+            promises.push(this._loadDrumPreset(note, kit, bankId));
         }
 
         await Promise.all(promises);
@@ -957,37 +1076,37 @@ class MidiSynthesizer {
      * Preload the instruments used in the sequence
      */
     async preloadInstruments() {
-        const usedPrograms = new Set();
+        // key (`${bankId}|${program}`) → { program, bankId } so a channel
+        // with a per-instrument custom SF2 is warmed on its own bank.
+        const usedPairs = new Map();
         let hasDrums = false;
+        const addChannel = (channel) => {
+            if (channel === 9) { hasDrums = true; return; }
+            const program = this.channelInstruments[channel] || 0;
+            const bankId = this._bankForChannel(channel);
+            usedPairs.set(this._instKey(bankId, program), { program, bankId });
+        };
 
-        // Collect used instruments
-        this.sequence.forEach(note => {
-            if (note.c === 9) {
-                hasDrums = true;
-            } else {
-                const program = this.channelInstruments[note.c] || 0;
-                usedPrograms.add(program);
-            }
-        });
+        // Collect used instruments from the sequence
+        this.sequence.forEach(note => addChannel(note.c));
 
         // Also check configured channels
-        this.channelInstruments.forEach((program, channel) => {
-            if (channel !== 9 && program !== undefined) {
-                usedPrograms.add(program);
-            }
-        });
-
-        // If no instrument, load the default piano
-        if (usedPrograms.size === 0) {
-            usedPrograms.add(0);
+        for (let channel = 0; channel < 16; channel++) {
+            if (channel === 9) continue;
+            if (this.channelInstruments[channel] !== undefined) addChannel(channel);
         }
 
-        this.log('info', `Preloading ${usedPrograms.size} instruments + ${hasDrums ? 'drums' : 'no drums'}`);
+        // If no instrument, load the default piano on the global bank
+        if (usedPairs.size === 0) {
+            usedPairs.set(this._instKey(this.currentBankId, 0), { program: 0, bankId: this.currentBankId });
+        }
+
+        this.log('info', `Preloading ${usedPairs.size} instruments + ${hasDrums ? 'drums' : 'no drums'}`);
 
         const promises = [];
 
-        usedPrograms.forEach(program => {
-            promises.push(this.loadInstrument(program).catch(e => {
+        usedPairs.forEach(({ program, bankId }) => {
+            promises.push(this.loadInstrument(program, bankId).catch(e => {
                 this.log('warn', `Failed to load instrument ${program}:`, e.message);
             }));
         });
@@ -1007,19 +1126,23 @@ class MidiSynthesizer {
      * Returns true if all instruments are already cached (instant start).
      */
     _preloadNonBlocking() {
-        const usedPrograms = new Set();
+        const usedPairs = new Map();
         let hasDrums = false;
         for (const note of this.sequence) {
-            if (note.c === 9) hasDrums = true;
-            else usedPrograms.add(this.channelInstruments[note.c] || 0);
+            if (note.c === 9) { hasDrums = true; continue; }
+            const program = this.channelInstruments[note.c] || 0;
+            const bankId = this._bankForChannel(note.c);
+            usedPairs.set(this._instKey(bankId, program), { program, bankId });
         }
-        if (usedPrograms.size === 0) usedPrograms.add(0);
+        if (usedPairs.size === 0) {
+            usedPairs.set(this._instKey(this.currentBankId, 0), { program: 0, bankId: this.currentBankId });
+        }
 
         let allLoaded = true;
-        for (const program of usedPrograms) {
-            if (!this.loadedInstruments.has(program)) {
+        for (const [key, { program, bankId }] of usedPairs) {
+            if (!this.loadedInstruments.has(key)) {
                 allLoaded = false;
-                this.loadInstrument(program).catch(e =>
+                this.loadInstrument(program, bankId).catch(e =>
                     this.log('warn', `Background load failed for ${program}:`, e.message)
                 );
             }
@@ -1050,39 +1173,70 @@ class MidiSynthesizer {
         // has set them up (can happen because setTimeout(0) fires past
         // setSoundBank/setChannelInstrument calls made before init).
         if (!this.isInitialized || !this.audioContext) return;
-        const programs = new Set();
+        // Drive any per-channel custom-SF2 probe that was deferred because it
+        // was requested before initialize() ran (the probe materialises a
+        // preset and needs audioContext). Idempotent: memoised channels and
+        // resolved banks short-circuit inside _resolveChannelSf2Bank.
+        for (let ch = 0; ch < 16; ch++) {
+            const sf2Id = this.channelSf2Ids[ch];
+            if (sf2Id != null) {
+                this._resolveChannelSf2Bank(ch, this.channelInstruments[ch] || 0, sf2Id);
+            }
+        }
+        const seen = new Set();
         for (let ch = 0; ch < 16; ch++) {
             if (ch === 9) continue; // drums preloaded by loadDrumKit
-            programs.add(this.channelInstruments[ch] || 0);
-        }
-        for (const program of programs) {
-            if (this.loadedInstruments.has(program)) continue;
-            if (this.loadingInstruments.has(program)) continue;
-            try { this.loadInstrument(program); } catch (e) { /* ignore */ }
+            const program = this.channelInstruments[ch] || 0;
+            const bankId = this._bankForChannel(ch);
+            const key = this._instKey(bankId, program);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            if (this.loadedInstruments.has(key)) continue;
+            if (this.loadingInstruments.has(key)) continue;
+            try { this.loadInstrument(program, bankId); } catch (e) { /* ignore */ }
         }
     }
 
-    setChannelInstrument(channel, program) {
+    /**
+     * Set the instrument for a channel.
+     * @param {number} channel - MIDI channel 0-15
+     * @param {number} program - GM program (or offset-encoded drum kit)
+     * @param {number|string|null} [sf2Id] - Per-instrument custom SF2 db id.
+     *   null/empty → the channel uses the global bank (legacy 2-arg callers
+     *   are unaffected). A numeric id routes the channel through that SF2,
+     *   subject to an all-or-nothing GM fallback if the SF2 lacks the program.
+     */
+    setChannelInstrument(channel, program, sf2Id = null) {
         if (channel < 0 || channel >= 16) return;
         this.channelInstruments[channel] = program;
+
+        const normSf2 = (sf2Id === null || sf2Id === undefined || sf2Id === '')
+            ? null
+            : (typeof sf2Id === 'number' ? sf2Id : (parseInt(sf2Id, 10) || null));
+        this.channelSf2Ids[channel] = normSf2;
+        if (normSf2 == null) {
+            this.channelResolvedBank[channel] = null; // use the global bank
+        } else {
+            this._resolveChannelSf2Bank(channel, program, normSf2);
+        }
+
         // Fire-and-forget preload so the modal's eventual `play()` /
         // `playNote()` doesn't pay the cold-load cost. Drum channel
         // skipped — drum samples are loaded by loadDrumKit(). The maps
-        // dedupe: a program already loading or loaded is silently no-op.
-        // We deliberately do NOT skip when `program === previous` since a
-        // setChannelInstrument(ch, 0) call right after construction may
-        // be the first chance to preload program 0 if the constructor's
-        // initialize() preload hasn't drained yet.
-        if (channel !== 9
-            && this.isInitialized
-            && !this.loadedInstruments.has(program)
-            && !this.loadingInstruments.has(program)) {
-            setTimeout(() => {
-                if (this._isDisposed || !this.isInitialized) return;
-                if (this.loadedInstruments.has(program)) return;
-                if (this.loadingInstruments.has(program)) return;
-                this.loadInstrument(program);
-            }, 0);
+        // dedupe via the composite key: a (bank, program) already loading
+        // or loaded is silently a no-op.
+        if (channel !== 9 && this.isInitialized) {
+            const bankId = this._bankForChannel(channel);
+            const key = this._instKey(bankId, program);
+            if (!this.loadedInstruments.has(key) && !this.loadingInstruments.has(key)) {
+                setTimeout(() => {
+                    if (this._isDisposed || !this.isInitialized) return;
+                    const b = this._bankForChannel(channel);
+                    const k = this._instKey(b, program);
+                    if (this.loadedInstruments.has(k) || this.loadingInstruments.has(k)) return;
+                    this.loadInstrument(program, b);
+                }, 0);
+            }
         }
     }
 
@@ -1396,11 +1550,12 @@ class MidiSynthesizer {
 
         let instrument;
         if (channel === 9) {
+            const bankId = this._bankForChannel(9);
             const kit = this._decodeKitProgram(this.channelInstruments[9] ?? 0);
-            instrument = this.drumPresets.get(`${kit}:${note}`);
+            instrument = this.drumPresets.get(this._drumKey(bankId, kit, note));
             // Race fallback: kit not yet loaded but Standard might be
             if (!instrument && kit !== 0) {
-                instrument = this.drumPresets.get(`0:${note}`);
+                instrument = this.drumPresets.get(this._drumKey(bankId, 0, note));
             }
             // Lazy-load : preset percussion pas (encore) chargé pour ce note —
             // déclenche le fetch en background pour que la prochaine frappe
@@ -1408,11 +1563,18 @@ class MidiSynthesizer {
             // (ou si le user joue trop tôt après ouverture), le synth reste
             // silencieux pour toujours.
             if (!instrument && note >= 35 && note <= 81 && typeof this._loadDrumPreset === 'function') {
-                this._loadDrumPreset(note, kit).catch(() => {});
+                this._loadDrumPreset(note, kit, bankId).catch(() => {});
             }
         } else {
             const program = this.channelInstruments[channel] || 0;
-            instrument = this.loadedInstruments.get(program);
+            const bankId = this._bankForChannel(channel);
+            instrument = this.loadedInstruments.get(this._instKey(bankId, program));
+            // Lazy-load melodic preset too: a channel whose custom-SF2 preset
+            // wasn't preloaded (probe still resolving, or set after preload)
+            // would otherwise stay silent forever. Self-heals the next note.
+            if (!instrument) {
+                this.loadInstrument(program, bankId).catch(() => {});
+            }
         }
 
         if (!instrument) {
@@ -1791,8 +1953,11 @@ class MidiSynthesizer {
         // Only delete globals not referenced by another live instance.
         const otherInstances = [...MidiSynthesizer._instances].filter(inst => inst !== this);
 
-        for (const program of this.loadedInstruments.keys()) {
-            if (!otherInstances.some(inst => inst.loadedInstruments.has(program))) {
+        for (const cacheKey of this.loadedInstruments.keys()) {
+            if (!otherInstances.some(inst => inst.loadedInstruments.has(cacheKey))) {
+                // Composite key `${bankId}|${program}`; only WAF banks have a
+                // window global to free (SF2 presets are plain objects).
+                const program = parseInt(cacheKey.slice(cacheKey.lastIndexOf('|') + 1), 10);
                 const variable = this.gmInstrumentMap[program]?.variable;
                 if (variable) delete window[variable];
             }

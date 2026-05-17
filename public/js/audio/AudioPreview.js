@@ -94,10 +94,15 @@ class AudioPreview {
       // Reset all channels to original programs before applying routed programs
       this._resetChannelInstruments(midiData);
 
-      // Apply instrument programs for selected instruments
+      // Apply instrument programs for selected instruments. Each value is
+      // either a plain GM program (legacy) or { program, sf2Id } so a routed
+      // instrument's per-instrument custom SF2 is honoured (with all-or-
+      // nothing GM fallback inside the synthesizer).
       if (instrumentPrograms && this.synthesizer.setChannelInstrument) {
-        for (const [channel, program] of Object.entries(instrumentPrograms)) {
-          this.synthesizer.setChannelInstrument(Number(channel), program);
+        for (const [channel, value] of Object.entries(instrumentPrograms)) {
+          const program = (value && typeof value === 'object') ? value.program : value;
+          const sf2Id = (value && typeof value === 'object') ? (value.sf2Id ?? null) : null;
+          this.synthesizer.setChannelInstrument(Number(channel), program, sf2Id);
         }
       }
 
@@ -187,9 +192,14 @@ class AudioPreview {
       // Reset all channels to original programs before overriding this channel
       this._resetChannelInstruments(midiData);
 
-      // Set the instrument sound for this channel
+      // Set the instrument sound for this channel (incl. an optional
+      // per-instrument custom SF2 override).
       if (instrumentConstraints.gmProgram != null && this.synthesizer.setChannelInstrument) {
-        this.synthesizer.setChannelInstrument(channel, instrumentConstraints.gmProgram);
+        this.synthesizer.setChannelInstrument(
+          channel,
+          instrumentConstraints.gmProgram,
+          instrumentConstraints.customSf2Id ?? null
+        );
       }
 
       const effectiveDuration = fullFile ? this._getFileDuration(midiData) : duration;
@@ -246,7 +256,11 @@ class AudioPreview {
         if (config.skipped) continue;
         const gmProgram = config.instrumentConstraints?.gmProgram;
         if (gmProgram != null && this.synthesizer.setChannelInstrument) {
-          this.synthesizer.setChannelInstrument(Number(channel), gmProgram);
+          this.synthesizer.setChannelInstrument(
+            Number(channel),
+            gmProgram,
+            config.instrumentConstraints?.customSf2Id ?? null
+          );
         }
       }
 

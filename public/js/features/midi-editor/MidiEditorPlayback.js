@@ -166,7 +166,10 @@
                 : (m.previewSource === 'routed' && m._routedGmPrograms.get(ch.channel) != null
                     ? m._routedGmPrograms.get(ch.channel)
                     : (ch.program || 0));
-            m.synthesizer.setChannelInstrument(ch.channel, program);
+            const sf2Id = m.channelState
+                ? m.channelState.getEffectiveSf2Id(ch.channel)
+                : (m.previewSource === 'routed' ? (m._routedSf2Ids?.get(ch.channel) ?? null) : null);
+            m.synthesizer.setChannelInstrument(ch.channel, program, sf2Id);
         });
 
         this.syncMutedChannels();
@@ -361,10 +364,14 @@
             }
         } else {
             const program = m.synthesizer.channelInstruments[channel] || 0;
-            if (!m.synthesizer.loadedInstruments.has(program)) {
+            const bankId = (typeof m.synthesizer._bankForChannel === 'function')
+                ? m.synthesizer._bankForChannel(channel) : m.synthesizer.currentBankId;
+            const cacheKey = (typeof m.synthesizer._instKey === 'function')
+                ? m.synthesizer._instKey(bankId, program) : program;
+            if (!m.synthesizer.loadedInstruments.has(cacheKey)) {
                 if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.begin();
                 try {
-                    await m.synthesizer.loadInstrument(program);
+                    await m.synthesizer.loadInstrument(program, bankId);
                 } finally {
                     if (typeof SoundBankLoadingIndicator !== 'undefined') SoundBankLoadingIndicator.end();
                 }

@@ -228,7 +228,10 @@
                 <input type="hidden" id="omniModeInput" value="${omniMode && showOmni ? '1' : '0'}">
             </div>
 
-            ${this._renderSF2PickerSection(settings)}
+            <!-- SF2 picker moved to the Advanced tab. This always-rendered
+                 mirror preserves custom_sf2_id on save even when the lazy
+                 Advanced section was never opened (see ISMSave). -->
+            <input type="hidden" id="customSf2IdMirror" value="${settings && settings.custom_sf2_id ? this.escape(String(settings.custom_sf2_id)) : ''}">
 
             <div class="ism-form-group">
                 <label>${this.t('instrumentSettings.deviceName') || 'Appareil'}</label>
@@ -480,7 +483,7 @@
                 <div class="ism-info-card" style="font-size:12px; color:var(--text-secondary,#666);">
                     ${this.t('instrumentSettings.customSf2None') || 'Aucun soundfont SF2 disponible. Ajoutez-en via'} <a href="#" class="ism-open-settings-link" data-open-settings="son">${this.t('instrumentSettings.customSf2SettingsLink') || 'Réglages → Son'}</a>.
                 </div>
-                <input type="hidden" id="customSf2Id" value="">
+                <input type="hidden" id="customSf2Id" value="${currentSf2Id != null ? this.escape(String(currentSf2Id)) : ''}">
                 <span class="ism-form-hint">${this.t('instrumentSettings.customSf2Help') || 'Pour les instruments hors norme GM : assignez un soundfont SF2 spécifique utilisé lors de la prévisualisation.'}</span>
             </div>`;
         }
@@ -2216,6 +2219,16 @@
                 <label>${this.t('instrumentSettings.commTimeout') || 'Timeout de communication (ms)'}</label>
                 <input type="number" id="commTimeout" value="${commTimeout}" min="100" max="30000" step="100">
                 <span class="ism-form-hint">${this.t('instrumentSettings.commTimeoutHelp') || 'Délai d\'attente maximal pour une réponse (en ms)'}</span>
+            </div>
+
+            ${this._renderSF2PickerSection(settings)}
+
+            <div class="ism-form-group ism-sf2-upload-section">
+                <label>${this.t('instrumentSettings.customSf2Upload') || 'Importer un soundfont (.sf2)'}</label>
+                <input type="file" id="ismSf2FileInput" accept=".sf2" style="display:none">
+                <button type="button" class="btn btn-small" id="ismSf2UploadBtn">⬆ ${this.t('instrumentSettings.customSf2UploadBtn') || 'Importer un .sf2'}</button>
+                <span class="ism-sf2-upload-progress" id="ismSf2UploadProgress" style="display:none"></span>
+                <span class="ism-form-hint">${this.t('instrumentSettings.customSf2UploadHelp') || 'Le fichier importé devient disponible pour tous les instruments, puis sélectionnez-le ci-dessus.'}</span>
             </div>
 
         `;

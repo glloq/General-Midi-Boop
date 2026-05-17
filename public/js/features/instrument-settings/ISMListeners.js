@@ -1507,6 +1507,7 @@
         this._attachIdentitySectionListeners();
         this._attachNotesSectionListeners();   // also wires the bagpipe subsection
         this._attachHandsSectionListeners();
+        this._attachAdvancedSectionListeners();
 
         // Measure delay button — hidden by default, revealed only if an audio input is detected
         const measureBtn = this.$('#measureDelayBtn');
@@ -1514,6 +1515,116 @@
             measureBtn.addEventListener('click', function() { this._measureDelay(); }.bind(this));
             this._detectMicAndToggleMeasureBtn();
         }
+    };
+
+    /**
+     * Wire the Advanced section's per-instrument SF2 controls. Null-safe:
+     * a no-op until the lazy Advanced section has been rendered. Called both
+     * from `_attachListeners` (full re-render) and via the section
+     * `listenerMap` on first lazy open (see ISMNavigation).
+     */
+    ISMListeners._attachAdvancedSectionListeners = function() {
+        const self = this;
+        const uploadBtn = this.$('#ismSf2UploadBtn');
+        const fileInput = this.$('#ismSf2FileInput');
+        if (uploadBtn && fileInput && !uploadBtn.dataset.wired) {
+            uploadBtn.dataset.wired = '1';
+            uploadBtn.addEventListener('click', function() { fileInput.click(); });
+            fileInput.addEventListener('change', function(evt) { self._onIsmSf2FileSelected(evt); });
+        }
+        const select = this.$('#customSf2Id');
+        if (select && select.tagName === 'SELECT' && !select.dataset.wired) {
+            select.dataset.wired = '1';
+            select.addEventListener('change', function() {
+                // Keep the always-present Identity mirror in sync so a save
+                // persists the choice even though the picker now lives in the
+                // lazy Advanced section.
+                const mirror = self.$('#customSf2IdMirror');
+                if (mirror) mirror.value = select.value;
+                self._markDirty();
+                // Re-warm the preview keyboard with the newly chosen SF2.
+                if (typeof self._sendActivePreviewProgramChange === 'function') {
+                    self._sendActivePreviewProgramChange();
+                }
+            });
+        }
+    };
+
+    /**
+     * Re-render only the SF2 picker (after an upload changes the bank list)
+     * and re-wire its change listener, mirroring `_rerenderVoicesSubsection`.
+     */
+    ISMListeners._rerenderSf2Picker = function() {
+        const section = this.$('.ism-sf2-picker-section');
+        const tab = this._getActiveTab();
+        if (!section || !tab) return;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = this._renderSF2PickerSection(tab.settings);
+        const fresh = tmp.querySelector('.ism-sf2-picker-section');
+        if (fresh) {
+            section.replaceWith(fresh);
+            this._attachAdvancedSectionListeners();
+        }
+    };
+
+    /**
+     * Upload an .sf2 from the Advanced tab, refresh the bank list, auto-
+     * select the new bank for this instrument and mark the modal dirty.
+     * Modelled on SettingsSF2._onSF2FileSelected; reuses POST /api/sf2.
+     */
+    ISMListeners._onIsmSf2FileSelected = async function(evt) {
+        const self = this;
+        const file = evt.target.files && evt.target.files[0];
+        evt.target.value = ''; // allow re-selecting the same file
+        if (!file) return;
+
+        const progressEl = this.$('#ismSf2UploadProgress');
+        const show = (msg) => { if (progressEl) { progressEl.style.display = ''; progressEl.textContent = msg; } };
+        const hide = () => { if (progressEl) progressEl.style.display = 'none'; };
+
+        if (!file.name.toLowerCase().endsWith('.sf2')) {
+            show(this.t('instrumentSettings.customSf2UploadError') || 'Erreur : seuls les fichiers .sf2 sont acceptés.');
+            return;
+        }
+
+        let result;
+        try {
+            show((this.t('instrumentSettings.customSf2Uploading') || 'Import en cours…'));
+            result = await this.api.uploadSf2File(file);
+        } catch (e) {
+            show((this.t('instrumentSettings.customSf2UploadError') || 'Erreur') + ' : ' + e.message);
+            return;
+        }
+        hide();
+
+        // Refresh the bank list (same source as on modal open: GET /api/sf2)
+        // and let the synthesizer resolve sf2:<newId> for the preview.
+        try {
+            const sf2Resp = await fetch('/api/sf2').then(r => r.ok ? r.json() : null).catch(() => null);
+            const banks = (sf2Resp && sf2Resp.banks) ? sf2Resp.banks : this._sf2Banks;
+            this._sf2Banks = banks || [];
+            if (window.MidiSynthesizerConstants
+                && typeof window.MidiSynthesizerConstants.setCustomBanks === 'function') {
+                window.MidiSynthesizerConstants.setCustomBanks(this._sf2Banks);
+            }
+        } catch (e) { /* keep the stale list rather than crash */ }
+
+        this._rerenderSf2Picker();
+
+        // Auto-select the freshly-uploaded bank (POST returns { sf2Id, ... }).
+        const newId = result && (result.sf2Id != null ? result.sf2Id : result.id);
+        if (newId != null) {
+            const select = this.$('#customSf2Id');
+            if (select) select.value = String(newId);
+            const mirror = this.$('#customSf2IdMirror');
+            if (mirror) mirror.value = String(newId);
+        }
+        this._markDirty();
+        if (typeof this._sendActivePreviewProgramChange === 'function') {
+            this._sendActivePreviewProgramChange();
+        }
+        show((this.t('instrumentSettings.customSf2UploadSuccess') || 'Soundfont importé.'));
+        setTimeout(() => { hide(); }, 2500);
     };
 
     /**

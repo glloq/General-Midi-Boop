@@ -150,6 +150,25 @@
             return this.getProgram(channel);
         }
 
+        /** @returns {number|null} per-instrument custom SF2 id of the routed
+         *   instrument, if known. */
+        getRoutedSf2Id(channel) {
+            const sf2 = this.modal._routedSf2Ids?.get(channel);
+            return sf2 != null ? sf2 : null;
+        }
+
+        /**
+         * @returns {number|null} effective per-instrument custom SF2 id —
+         *   only applied in 'routed' preview mode (mirrors
+         *   getEffectiveProgram). In 'gm' mode the global bank is used.
+         */
+        getEffectiveSf2Id(channel) {
+            if (this.modal.previewSource === 'routed') {
+                return this.getRoutedSf2Id(channel);
+            }
+            return null;
+        }
+
         // ----------------------------------------------------------------
         // Playable-notes highlights (from `instrument_get_capabilities`)
         // ----------------------------------------------------------------
