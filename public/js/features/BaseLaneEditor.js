@@ -104,7 +104,8 @@
             this.currentChannel = 0;
             this.activeChannels = new Set([0]);
 
-            // Undo/redo stack of JSON snapshots of `this[this._dataField()]`.
+            // Undo/redo stack of cloned-array snapshots of
+            // `this[this._dataField()]` (see _cloneArr).
             this.history = [];
             this.historyIndex = -1;
             this.historyCap = DEFAULT_HISTORY_CAP;
@@ -425,8 +426,21 @@
         _valueOf(item) { return item.value ?? 0; }
 
         // =================================================================
-        // UNDO / REDO — JSON snapshot of the data array.
+        // UNDO / REDO — cloned-array snapshot of the data array. Items are
+        // flat objects, so a per-item shallow clone is a full snapshot and
+        // far cheaper than JSON.stringify/parse (no large string allocation
+        // / GC pause on each edit or undo).
         // =================================================================
+
+        _cloneArr(arr) {
+            const src = arr || [];
+            const out = new Array(src.length);
+            for (let i = 0; i < src.length; i++) out[i] = { ...src[i] };
+            return out;
+        }
+
+        /** Public snapshot helper so subclasses keep the history format consistent. */
+        _snapshotData() { return this._cloneArr(this._getDataArray()); }
 
         saveState() {
             if (this._saveStateTimer) clearTimeout(this._saveStateTimer);
@@ -435,7 +449,7 @@
 
         _doSaveState() {
             this._saveStateTimer = null;
-            const snapshot = JSON.stringify(this._getDataArray());
+            const snapshot = this._snapshotData();
 
             if (this.historyIndex < this.history.length - 1) {
                 this.history = this.history.slice(0, this.historyIndex + 1);
@@ -466,12 +480,7 @@
         }
 
         _restoreFromHistory() {
-            try {
-                this._setDataArray(JSON.parse(this.history[this.historyIndex]));
-            } catch (e) {
-                console.error(`${this._className()}: failed to restore history`, e);
-                return false;
-            }
+            this._setDataArray(this._cloneArr(this.history[this.historyIndex]));
             this.selectedIds.clear();
             this._onHistoryRestore();
             this.renderThrottled();

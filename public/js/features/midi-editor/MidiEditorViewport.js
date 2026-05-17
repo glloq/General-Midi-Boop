@@ -6,9 +6,8 @@
 // Owns:
 //   - `zoomHorizontal(factor)` / `zoomVertical(factor)` — dispatch to the
 //     active specialized renderer if any, else the piano roll renderer.
-//   - `scheduleRedraw(after)` — workaround for the third-party
-//     `<webaudio-pianoroll>` stale-layout bug (audit §2.5 hack ; removed
-//     once the V2 renderer is the default).
+//   - `scheduleRedraw(after)` — defer a redraw a macrotask so layout
+//     settles before the renderer measures the container.
 //   - `initNavigationOverview()` / `updateNavigationMinimap()` — the
 //     overview bar at the bottom of the modal.
 //   - `setupScrollSynchronization()` — viewportchange listener that
@@ -85,11 +84,9 @@
         }
 
         /**
-         * Workaround for the third-party `<webaudio-pianoroll>` component: a
-         * synchronous `.redraw()` right after an attribute change picks up
-         * stale layout. We defer the redraw to the next macrotask (audit §2.5).
-         *
-         * TODO(audit §1.1): remove once the V2 renderer is the default.
+         * Defer a redraw to a later macrotask so any pending container /
+         * attribute layout has settled before the renderer measures it,
+         * then run an optional `afterRedraw` callback.
          */
         scheduleRedraw(afterRedraw) {
             const modal = this.modal;

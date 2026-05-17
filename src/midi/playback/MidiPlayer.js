@@ -136,6 +136,37 @@ class MidiPlayer {
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
     this.scheduler = new PlaybackScheduler(deps);
 
+    // Reusable scheduler-tick state + callbacks. The scheduler fires ~100x/s;
+    // allocating a fresh state object, a callbacks object and 6 closures on
+    // every tick produced sustained young-gen GC pressure correlated with
+    // playback jitter. We mutate a single state object in place and reuse
+    // stable closures instead (see _schedulerTick).
+    this._schedulerState = {
+      playing: false,
+      paused: false,
+      position: 0,
+      duration: 0,
+      events: null,
+      currentEventIndex: 0,
+      startTime: 0,
+      playbackRate: 1,
+      loop: false,
+      channelRouting: null,
+      channelTransposition: null,
+      mutedChannels: null,
+      disconnectedPolicy: 'skip',
+      _lastBroadcastPosition: undefined
+    };
+    this._getOutputForChannelBound = (channel, note, eventType) =>
+      this.getOutputForChannel(channel, note, eventType);
+    this._schedulerCallbacks = {
+      onStop: () => this.stop(),
+      onSeek: (pos) => this.seek(pos),
+      onBroadcastPosition: () => this.broadcastPosition(),
+      onFileEnd: () => this._handleFileEnd(),
+      onPause: () => this.pause()
+    };
+
     // MIDI Clock generator (injected via deps or set later)
     this.midiClockGenerator = deps.midiClockGenerator || null;
 
@@ -998,33 +1029,26 @@ class MidiPlayer {
    * Internal tick callback - delegates to PlaybackScheduler.tick()
    */
   _schedulerTick() {
-    const state = {
-      playing: this.playing,
-      paused: this.paused,
-      position: this.position,
-      duration: this.duration,
-      events: this.events,
-      currentEventIndex: this.currentEventIndex,
-      startTime: this.startTime,
-      playbackRate: this.playbackRate,
-      loop: this.loop,
-      channelRouting: this.channelRouting,
-      channelTransposition: this.channelTransposition,
-      mutedChannels: this.mutedChannels,
-      disconnectedPolicy: this.disconnectedPolicy,
-      _lastBroadcastPosition: this._lastBroadcastPosition
-    };
+    const state = this._schedulerState;
+    state.playing = this.playing;
+    state.paused = this.paused;
+    state.position = this.position;
+    state.duration = this.duration;
+    state.events = this.events;
+    state.currentEventIndex = this.currentEventIndex;
+    state.startTime = this.startTime;
+    state.playbackRate = this.playbackRate;
+    state.loop = this.loop;
+    state.channelRouting = this.channelRouting;
+    state.channelTransposition = this.channelTransposition;
+    state.mutedChannels = this.mutedChannels;
+    state.disconnectedPolicy = this.disconnectedPolicy;
+    state._lastBroadcastPosition = this._lastBroadcastPosition;
 
     const newIndex = this.scheduler.tick(
       state,
-      (channel, note, eventType) => this.getOutputForChannel(channel, note, eventType),
-      {
-        onStop: () => this.stop(),
-        onSeek: (pos) => this.seek(pos),
-        onBroadcastPosition: () => this.broadcastPosition(),
-        onFileEnd: () => this._handleFileEnd(),
-        onPause: () => this.pause()
-      }
+      this._getOutputForChannelBound,
+      this._schedulerCallbacks
     );
 
     // Sync mutable state back

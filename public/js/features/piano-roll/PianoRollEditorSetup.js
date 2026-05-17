@@ -131,35 +131,11 @@ class PianoRollEditorSetup {
         const container = this.parent.host.querySelector('#pre-pianoroll-wrap');
         if (!container) return;
 
-        // Piano roll renderer abstraction (audit §1.1). Choose the
-        // implementation based on the same flag used by MidiEditorModal:
-        //   - Default: WebaudioPianorollAdapter (third-party lib).
-        //   - Opt-in: CanvasPianoRollRenderer (Canvas maison).
-        // The invariant `this.parent.pianoRoll === this.parent.renderer.getElement()`
-        // is maintained so any external consumer of getPianoRollElement()
+        // Piano roll renderer (audit §1.1) — Canvas 2D. The invariant
+        // `this.parent.pianoRoll === this.parent.renderer.getElement()` is
+        // maintained so any external consumer of getPianoRollElement()
         // keeps working unchanged.
-        const useV2 = (() => {
-            try {
-                // Precedence (highest → lowest):
-                //   1. URL flag `?pianoRollV2=1`        — dev override
-                //   2. SettingsModal toggle             — user-facing
-                //   3. Legacy localStorage flag         — dev backwards-compat
-                const qs = new URLSearchParams(window.location.search);
-                if (qs.get('pianoRollV2') === '1') return true;
-                const settings = JSON.parse(localStorage.getItem('gmboop_settings') || '{}');
-                if (settings.usePianoRollV2 === true) return true;
-                if (localStorage.getItem('gmboop_piano_roll_v2') === '1') return true;
-            } catch (_) { /* best-effort */ }
-            return false;
-        })();
-        const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
-            ? CanvasPianoRollRenderer
-            : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
-        if (!Impl) {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.parent.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-        if (Impl === WebaudioPianorollAdapter && !customElements?.get?.('webaudio-pianoroll')) {
+        if (typeof CanvasPianoRollRenderer === 'undefined') {
             container.innerHTML = `<div class="lc-pianoroll-error">${this.parent.t('loopCreator.pianoRollUnavailable')}</div>`;
             return;
         }
@@ -169,7 +145,7 @@ class PianoRollEditorSetup {
         const yrange0   = Math.min(noteSpan0 + 1, 36);
         const yoffset0  = this.centeredYOffset(this.parent.noteMin, this.parent.noteMax, yrange0);
 
-        this.parent.renderer = new Impl({
+        this.parent.renderer = new CanvasPianoRollRenderer({
             container,
             width:  container.clientWidth  || 900,
             height: container.clientHeight || 200,

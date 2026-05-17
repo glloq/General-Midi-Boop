@@ -587,6 +587,14 @@ class Application {
         this.midiPlayer.destroy();
       }
 
+      // Stop the MIDI clock generator: drops its drift-correction timer and
+      // detaches its EventBus listeners (instrument_settings_changed,
+      // device_connected/disconnected). Without this, a re-initialized
+      // Application accumulates duplicate listeners.
+      if (this.midiClockGenerator) {
+        this.midiClockGenerator.destroy();
+      }
+
       // Cancel pending compensation timers and drop route indexes.
       // Without this, setTimeouts from MidiRouter outlive the deviceManager
       // close below and fire sendMessage on closed ports.

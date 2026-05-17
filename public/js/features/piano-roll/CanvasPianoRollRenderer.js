@@ -19,9 +19,9 @@
  *   3. **Overlay** (inline): cursor, selection rectangle, drag preview.
  *      Painted every frame in display mode (cheap).
  *
- * The renderer extends `PianoRollRenderer` and conforms to the same
- * contract as `WebaudioPianorollAdapter`. Drop-in swap is gated by the
- * feature flag wired in `MidiEditorRouting` (see Phase B5).
+ * The renderer extends `PianoRollRenderer` and is the sole concrete
+ * implementation of that contract (the legacy WebaudioPianorollAdapter
+ * and the `<webaudio-pianoroll>` element were removed).
  *
  * Current scope (commit B1): skeleton, mount, layout, background grid,
  * keyboard labels, ruler. Notes rendering, spatial index, selection
@@ -297,7 +297,10 @@
         // just the wheel-driven path that historically did the emit inline.
         setXRange(ticks) {
             if (this._xrange === ticks) return this;
-            this._xrange = ticks; this._bgDirty = true;
+            // X zoom only shifts the time axis: the cached bg layer
+            // (keyboard + octave row bands) is horizontally invariant, so
+            // it is NOT invalidated — the time grid is repainted per frame.
+            this._xrange = ticks;
             this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
             this._scheduleRender(); return this;
         }
@@ -311,7 +314,9 @@
         getYRange()      { return this._yrange; }
         setXOffset(t) {
             if (this._xoffset === t) return this;
-            this._xoffset = t; this._bgDirty = true;
+            // Horizontal pan: cached bg layer is horizontally invariant
+            // (see setXRange) — not invalidated; time grid repaints per frame.
+            this._xoffset = t;
             this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
             this._scheduleRender(); return this;
         }
@@ -410,15 +415,24 @@
         }
 
         // ----------------------------------------------------------------
-        // History (snapshot-based, simple JSON undo stack)
+        // History (snapshot-based undo stack). Notes are flat objects, so a
+        // per-note shallow clone is a full snapshot — and ~10-50x cheaper
+        // than JSON.stringify/parse, which on large sequences allocated
+        // hundreds of KB per action and caused GC pauses on rapid undo.
         // ----------------------------------------------------------------
 
         _undoStack = [];
         _redoStack = [];
-        _maxHistory = 100;
+        _maxHistory = 20;
+
+        _cloneSequence(seq) {
+            const out = new Array(seq.length);
+            for (let i = 0; i < seq.length; i++) out[i] = { ...seq[i] };
+            return out;
+        }
 
         saveSnapshot() {
-            this._undoStack.push(JSON.stringify(this._sequence));
+            this._undoStack.push(this._cloneSequence(this._sequence));
             if (this._undoStack.length > this._maxHistory) this._undoStack.shift();
             this._redoStack.length = 0;
             return this;
@@ -428,27 +442,21 @@
         canRedo()      { return this._redoStack.length > 0; }
         undo() {
             if (!this.canUndo()) return false;
-            this._redoStack.push(JSON.stringify(this._sequence));
-            const snap = this._undoStack.pop();
-            try {
-                this._sequence = JSON.parse(snap);
-                this._bucketsDirty = true;
-                this._scheduleRender();
-                this._emit('change');
-                return true;
-            } catch { return false; }
+            this._redoStack.push(this._cloneSequence(this._sequence));
+            this._sequence = this._cloneSequence(this._undoStack.pop());
+            this._bucketsDirty = true;
+            this._scheduleRender();
+            this._emit('change');
+            return true;
         }
         redo() {
             if (!this.canRedo()) return false;
-            this._undoStack.push(JSON.stringify(this._sequence));
-            const snap = this._redoStack.pop();
-            try {
-                this._sequence = JSON.parse(snap);
-                this._bucketsDirty = true;
-                this._scheduleRender();
-                this._emit('change');
-                return true;
-            } catch { return false; }
+            this._undoStack.push(this._cloneSequence(this._sequence));
+            this._sequence = this._cloneSequence(this._redoStack.pop());
+            this._bucketsDirty = true;
+            this._scheduleRender();
+            this._emit('change');
+            return true;
         }
 
         // ----------------------------------------------------------------
@@ -534,6 +542,12 @@
             // Composite background onto main canvas
             this._ctx.drawImage(this._bgCanvas, 0, 0, this._cssWidth, this._cssHeight);
 
+            // Time grid depends on xoffset/xrange/timebase, so it is painted
+            // per frame straight onto the main canvas instead of being baked
+            // into the cached bg buffer (which would force a full bg repaint
+            // on every horizontal pan — the H3 hot path).
+            this._paintTimeGrid();
+
             // B2: notes layer (placeholder for now — overrides land in B2)
             this._paintNotes();
 
@@ -541,7 +555,35 @@
             this._paintOverlay();
         }
 
-        // Background = keyboard column + ruler + grid lines
+        // Per-frame time grid (depends on xoffset/xrange/timebase). Drawn
+        // straight onto the main canvas after the cached bg buffer. The
+        // loop is culled to the visible columns so this is far cheaper than
+        // repainting the whole bg buffer on every horizontal pan.
+        _paintTimeGrid() {
+            const ctx = this._ctx;
+            const W = this._cssWidth;
+            const H = this._cssHeight;
+            const beat = this._timebase || 480;
+            const startTick = Math.floor(this._xoffset / beat) * beat;
+            const endTick = this._xoffset + this._xrange;
+            ctx.save();
+            ctx.strokeStyle = this._theme.colgrid;
+            ctx.lineWidth = 1;
+            for (let t = startTick; t <= endTick; t += beat) {
+                const x = this._tickToX(t);
+                if (x < KB_WIDTH || x > W) continue;
+                const isMeasure = (t % (beat * 4)) === 0;
+                ctx.globalAlpha = isMeasure ? 0.7 : 0.35;
+                ctx.beginPath();
+                ctx.moveTo(x + 0.5, RULER_H);
+                ctx.lineTo(x + 0.5, H);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Background (cached) = keyboard column + octave row bands.
+        // Horizontally invariant: only Y / size / theme invalidate it.
         _paintBackground() {
             const ctx = this._bgCtx;
             const W = this._cssWidth;
@@ -562,25 +604,6 @@
                     ctx.fillRect(KB_WIDTH, y, W - KB_WIDTH, noteH);
                 }
             }
-
-            // Time grid lines
-            const ppq = this._timebase || 480;
-            const beat = ppq;
-            const startTick = Math.floor(this._xoffset / beat) * beat;
-            const endTick = this._xoffset + this._xrange;
-            ctx.strokeStyle = this._theme.colgrid;
-            ctx.lineWidth = 1;
-            for (let t = startTick; t <= endTick; t += beat) {
-                const x = this._tickToX(t);
-                if (x < KB_WIDTH || x > W) continue;
-                const isMeasure = (t % (beat * 4)) === 0;
-                ctx.globalAlpha = isMeasure ? 0.7 : 0.35;
-                ctx.beginPath();
-                ctx.moveTo(x + 0.5, RULER_H);
-                ctx.lineTo(x + 0.5, H);
-                ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
 
             // Keyboard column. (The in-canvas time ruler was removed —
             // the modal's Playback Timeline bar above the canvas owns
