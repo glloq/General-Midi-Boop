@@ -1,5 +1,9 @@
 # TODO — améliorations non prioritaires
 
+> Pour l'état d'autorité des audits et la roadmap de remédiation priorisée,
+> voir [`docs/audit/AUDIT_GLOBAL_2026-05-17.md`](docs/audit/AUDIT_GLOBAL_2026-05-17.md).
+> Les anciens `AUDIT_*.md` sont archivés dans `docs/audit/`.
+
 Collection des trous identifiés pendant les audits / sessions de dev,
 qui ne bloquent personne mais qui méritent un passage. À piocher quand
 on a un créneau.

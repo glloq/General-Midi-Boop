@@ -90,6 +90,17 @@ class DeviceManager {
       this._rateLimitCache.delete(deviceId);
     });
 
+    // Hot-path cache: friendly instrument name per `device|channel`,
+    // attached to `monitor_event` broadcasts. Without it every outbound
+    // MIDI message hit SQLite (getInstrumentSettings) synchronously while
+    // a monitor was active — a blocking DB call on the realtime send path.
+    // Mirrors MidiRouter._instrumentNameByDevCh; same invalidation event.
+    /** @type {Map<string, ?string>} */
+    this._instrumentNameByDevCh = new Map();
+    this.eventBus?.on('instrument_settings_changed', () => {
+      this._instrumentNameByDevCh.clear();
+    });
+
     // Delegate discovery, hot-plug monitoring, and USB serial detection
     this.discovery = new DeviceDiscovery(deps, easymidi, midiAvailable);
     this.discovery.setChangeCallbacks(
@@ -460,6 +471,30 @@ class DeviceManager {
   }
 
   /**
+   * Friendly instrument name for a `device|channel`, memoised so the
+   * realtime send path never blocks on a synchronous SQLite query while
+   * a monitor is active. Cache is cleared on `instrument_settings_changed`.
+   *
+   * @param {string} deviceName
+   * @param {number|undefined} channel
+   * @returns {?string} Custom/instrument name, or null when unknown.
+   */
+  _resolveInstrumentName(deviceName, channel) {
+    if (!this.database || channel === undefined) return null;
+    const key = `${deviceName}|${channel}`;
+    if (this._instrumentNameByDevCh.has(key)) {
+      return this._instrumentNameByDevCh.get(key);
+    }
+    let instrumentName = null;
+    try {
+      const settings = this.database.getInstrumentSettings(deviceName, channel);
+      if (settings) instrumentName = settings.custom_name || settings.name;
+    } catch { /* instrument name lookup is optional for monitor events */ }
+    this._instrumentNameByDevCh.set(key, instrumentName);
+    return instrumentName;
+  }
+
+  /**
    * Public dispatch entry. Resolves the named device to an output port
    * (or virtual sink), enforces per-device rate limiting, then sends.
    * Returns false when the device is unknown, gated by the rate limiter,
@@ -479,13 +514,9 @@ class DeviceManager {
 
     // Broadcast to debug monitor if monitorAll is active
     if (this.midiRouter?.monitorAll && this.wsServer) {
-      let instrumentName = null;
-      if (this.database && data && data.channel !== undefined) {
-        try {
-          const settings = this.database.getInstrumentSettings(deviceName, data.channel);
-          if (settings) instrumentName = settings.custom_name || settings.name;
-        } catch (e) { /* instrument name lookup is optional for monitor events */ }
-      }
+      const instrumentName = data
+        ? this._resolveInstrumentName(deviceName, data.channel)
+        : null;
       this.wsServer.broadcast('monitor_event', {
         device: deviceName,
         instrumentName: instrumentName,
@@ -571,13 +602,9 @@ class DeviceManager {
     // Check soft virtual device — log message to debug monitor instead of hardware
     const softVirtual = this.softVirtualDevices.get(deviceName);
     if (softVirtual) {
-      let instrumentName = null;
-      if (this.database && data && data.channel !== undefined) {
-        try {
-          const settings = this.database.getInstrumentSettings(deviceName, data.channel);
-          if (settings) instrumentName = settings.custom_name || settings.name;
-        } catch (e) { /* optional */ }
-      }
+      const instrumentName = data
+        ? this._resolveInstrumentName(deviceName, data.channel)
+        : null;
       this.logger.info(`[virtual:${instrumentName || softVirtual.name}] ${type} ${JSON.stringify(data)}`);
       if (this.wsServer) {
         this.wsServer.broadcast('monitor_event', {

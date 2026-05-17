@@ -1603,7 +1603,7 @@ class KeyboardModal {
 
 // ============================================================================
 // MIXIN COMPOSITION (legacy — slated for replacement by InstrumentView
-// classes per AUDIT_KEYBOARD_MODAL_2026-05-14.md KM-C1, KM-C4).
+// classes per docs/audit/AUDIT_KEYBOARD_MODAL_2026-05-14.md KM-C1, KM-C4).
 // ============================================================================
 // The 7 mixins below are attached on KeyboardModal.prototype in a specific
 // order: each later mixin can read methods from earlier ones. (KM-C4 done:
