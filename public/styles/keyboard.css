@@ -3256,6 +3256,32 @@ body.dark-mode .accordion-bellows-visual::after {
     z-index: 5;
 }
 
+/* Bowed variant: bake the fret-wire anchor translate(50%,-50%) into every
+   keyframe step so the dot stays pinned on the wire for the whole 1.5s hit
+   (the generic keyframes' bare scale(...) would otherwise slide it off the
+   wire). Same visuals as chord-strum-hit, only the transform differs. */
+@keyframes chord-strum-hit-bowed {
+    0%   { background: linear-gradient(135deg, #34d399, #059669);
+           transform: translate(50%, -50%) scale(1.65);
+           box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.65), 0 0 20px rgba(52, 211, 153, 0.95);
+           border-color: #fff; }
+    40%  { background: linear-gradient(135deg, #34d399, #059669);
+           transform: translate(50%, -50%) scale(1.55);
+           box-shadow: 0 0 0 7px rgba(52, 211, 153, 0.25), 0 0 32px rgba(52, 211, 153, 1.00);
+           border-color: #fff; }
+    75%  { background: linear-gradient(135deg, #34d399, #059669);
+           transform: translate(50%, -50%) scale(1.45);
+           box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.10), 0 0 12px rgba(52, 211, 153, 0.35);
+           border-color: rgba(255, 255, 255, 0.4); }
+    100% { background: linear-gradient(to bottom, #f5f5f5, #c8c8c8);
+           transform: translate(50%, -50%) scale(1);
+           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.50);
+           border-color: #333; }
+}
+.fretboard-container.bowed .fret-cell:not(.fret-open) .fret-dot.chord-strum-active {
+    animation: chord-strum-hit-bowed 1.5s ease-out forwards !important;
+}
+
 /* Dark-mode fine-tuning */
 body.dark-mode .chord-buttons-bar {
     background: rgba(0, 0, 0, 0.55);
@@ -4280,19 +4306,38 @@ body.dark-mode .keyboard-modal-info .info-text strong {
    replaces the strum bar — see KeyboardChords._triggerBowStart.
    ============================================================================ */
 
-/* Anchor dots to the right edge of their cell (= the fret wire line) */
-.fretboard-container.bowed .fret-cell:not(.fret-open) {
-    justify-content: flex-end;
-    padding-right: 0;
+/* The last fret's dot is centred on the rightmost grid line, so its right
+   half (+ the active pulse glow) would be clipped by the container's
+   overflow:hidden. Add right breathing room ONLY on the flex container —
+   header + string rows share the same inline gridCols and shift together,
+   so columns stay aligned and the bend math (row.getBoundingClientRect())
+   stays internally consistent. Do NOT alter the grid itself. */
+.fretboard-container.bowed {
+    padding-right: 24px;
 }
 
-/* Smaller dot so it reads as a finger-touch point rather than a press zone */
+/* Center the dot's geometric centre exactly on the fret wire (the cell's
+   right border), width-independent: absolute-anchor to right:0 then shift
+   left by half the dot's own box via translateX(50%) — % of a transform
+   resolves against the element itself, not the variable-width cell, so the
+   centre lands on the wire at the pixel. translateY(-50%) restores the
+   vertical centering lost when leaving the flex flow (the string line sits
+   at the row's 50% height). Smaller dot = finger-touch point. */
 .fretboard-container.bowed .fret-cell:not(.fret-open) .fret-dot {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translate(50%, -50%);
     height: min(70%, 24px);
     max-width: min(70%, 26px);
-    /* Center the dot exactly on the fret wire (shift its right edge by half
-       its own width so the centre sits on the cell's right border). */
-    margin-right: -7%;
+}
+
+/* Active dot: compose the fret-wire anchor with the zoom so it grows
+   symmetrically around the wire (the generic .active rule's bare
+   scale(1.55) would otherwise drop the translate). */
+.fretboard-container.bowed .fret-cell:not(.fret-open) .fret-dot.active,
+.fretboard-container.bowed .fret-cell:not(.fret-open) .fret-dot.note-colored.active {
+    transform: translate(50%, -50%) scale(1.55);
 }
 
 /* Make the fret divider line itself more prominent — it IS the note position */
@@ -4303,15 +4348,24 @@ body.dark-mode .keyboard-modal-info .info-text strong {
     border-right-color: rgba(217, 119, 6, 0.45);
 }
 
-/* Slide-mode (pitch bend) widens the dot back across the whole cell so the
-   bend gesture has room to drag. Restore the centered layout in that case. */
-.fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) {
-    justify-content: center;
-}
+/* Slide-mode (pitch bend): keep the rectangle's CENTRE on the fret wire
+   (same absolute anchor as the round dot). Its width still comes from the
+   generic slide rule (88% of the cell) so the bend gesture keeps drag room;
+   only the centre is pinned to the wire. */
 .fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translate(50%, -50%);
     margin-right: 0;
     max-width: none;
     height: min(70%, 28px);
+}
+/* Active: preserve the wire anchor while keeping the generic no-horizontal-
+   distortion scaleY (a bare scaleY(1.35) would drop the translate). */
+.fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot.active,
+.fretboard-container.bowed .fret-string.slide-mode .fret-cell:not(.fret-open) .fret-dot.note-colored.active {
+    transform: translate(50%, -50%) scaleY(1.35);
 }
 
 /* ── Bow control bar (replaces the strum bar) ────────────────────────────── */
