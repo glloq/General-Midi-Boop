@@ -2,9 +2,8 @@
     "_comment": "Canonical instrument family taxonomy. Shared by the frontend (public/js/features/instrument-settings/InstrumentFamilies.js) and the backend (src/midi/gm/InstrumentFamilies.js). The frontend mirrors this data inline for synchronous module loading; a Vitest test asserts the two stay in sync. Edit this file as the source of truth, then update the frontend's FAMILIES/PROGRAM_TO_SLUG/GM_DRUM_KITS_LIST constants to match.",
     "_version": 1,
     "families": [
-        { "slug": "keyboards",            "labelKey": "instrumentFamilies.keyboards",           "emoji": "🎹",  "programs": [0,1,2,3,4,5,6,7] },
+        { "slug": "keyboards",            "labelKey": "instrumentFamilies.keyboards",           "emoji": "🎹",  "programs": [0,1,2,3,4,5,6,7,16,17,18,19,20] },
         { "slug": "chromatic_percussion", "labelKey": "instrumentFamilies.chromaticPercussion", "emoji": "🔔",  "programs": [8,9,10,11,12,13,14,15,47,108,112,113,114,115,116,117,118,119] },
-        { "slug": "organs",               "labelKey": "instrumentFamilies.organs",              "emoji": "⛪",  "programs": [16,17,18,19,20] },
         { "slug": "plucked_strings",      "labelKey": "instrumentFamilies.pluckedStrings",      "emoji": "🎸",  "programs": [24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,46,104,105,106,107] },
         { "slug": "bowed_strings",        "labelKey": "instrumentFamilies.bowedStrings",        "emoji": "🎻",  "programs": [40,41,42,43,44,45,110] },
         { "slug": "ensembles",            "labelKey": "instrumentFamilies.ensembles",           "emoji": "🎼",  "programs": [48,49,50,51,52,53,54,55] },

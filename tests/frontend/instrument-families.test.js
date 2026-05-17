@@ -16,9 +16,9 @@ beforeAll(() => {
 const GM_DRUM_KIT_OFFSET = 128;
 
 describe('InstrumentFamilies taxonomy', () => {
-  it('defines 11 families', () => {
+  it('defines 10 families', () => {
     const families = window.InstrumentFamilies.getAllFamilies();
-    expect(families).toHaveLength(11);
+    expect(families).toHaveLength(10);
   });
 
   it('every GM program 0-127 maps to exactly one family', () => {
@@ -80,13 +80,17 @@ describe('InstrumentFamilies taxonomy', () => {
     }
   });
 
-  it('organs (16-20) are in organs, but not 21-23', () => {
+  it('organs (16-20) are now merged into keyboards, not 21-23', () => {
     for (let p = 16; p <= 20; p++) {
-      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).toBe('organs');
+      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).toBe('keyboards');
     }
     for (let p = 21; p <= 23; p++) {
-      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).not.toBe('organs');
+      expect(window.InstrumentFamilies.getFamilyForProgram(p, 0).slug).not.toBe('keyboards');
     }
+  });
+
+  it('the standalone organs family no longer exists', () => {
+    expect(window.InstrumentFamilies.getFamilyBySlug('organs')).toBeNull();
   });
 
   it('guitars (24-31) and basses (32-39) are in plucked_strings', () => {

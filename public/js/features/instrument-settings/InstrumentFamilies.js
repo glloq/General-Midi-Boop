@@ -1,7 +1,7 @@
 /**
  * InstrumentFamilies
  * Taxonomie par famille physique d'instruments, utilisée par le sélecteur
- * d'identité du modal Réglages d'instrument. 13 familles qui regroupent les
+ * d'identité du modal Réglages d'instrument. 11 familles qui regroupent les
  * 128 programmes GM (0-127) + la dimension orthogonale "drum_kits" (canal 10).
  *
  * Chaque programme 0-127 appartient à exactement une famille mélodique.
@@ -20,11 +20,10 @@
 (function() {
     'use strict';
 
-    // ===== 11 FAMILIES (display order) =====
+    // ===== 10 FAMILIES (display order) =====
     const FAMILIES = [
-        { slug: 'keyboards',            labelKey: 'instrumentFamilies.keyboards',           emoji: '🎹',  programs: [0,1,2,3,4,5,6,7] },
+        { slug: 'keyboards',            labelKey: 'instrumentFamilies.keyboards',           emoji: '🎹',  programs: [0,1,2,3,4,5,6,7,16,17,18,19,20] },
         { slug: 'chromatic_percussion', labelKey: 'instrumentFamilies.chromaticPercussion', emoji: '🔔',  programs: [8,9,10,11,12,13,14,15, 47, 108, 112,113,114,115,116,117,118,119] },
-        { slug: 'organs',               labelKey: 'instrumentFamilies.organs',              emoji: '⛪',  programs: [16,17,18,19,20] },
         { slug: 'plucked_strings',      labelKey: 'instrumentFamilies.pluckedStrings',      emoji: '🎸',
           programs: [24,25,26,27,28,29,30,31, 32,33,34,35,36,37,38,39, 46, 104,105,106,107] },
         { slug: 'bowed_strings',        labelKey: 'instrumentFamilies.bowedStrings',        emoji: '🎻',  programs: [40,41,42,43,44,45, 110] },
