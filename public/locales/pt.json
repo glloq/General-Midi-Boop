@@ -24,8 +24,8 @@
     "clear": "Limpar",
     "unknown": "Desconhecido",
     "unknownError": "Erro desconhecido",
-    "delete": "Delete",
-    "apply": "Apply",
+    "delete": "Eliminar",
+    "apply": "Aplicar",
     "name": "Nome",
     "on": "Ligado",
     "off": "Desligado"
@@ -1319,12 +1319,12 @@
     "create": "Criar",
     "folderExists": "A pasta \"{folder}\" já existe",
     "folderExistsTitle": "Pasta existe",
-    "rename": "Rename",
-    "renameTitle": "Rename file",
-    "oldName": "Old name:",
-    "newNamePlaceholder": "New name...",
-    "fileExtensionHint": "File must have .mid or .midi extension",
-    "deleteFolderAndContent": "Delete folder and contents"
+    "rename": "Renomear",
+    "renameTitle": "Renomear ficheiro",
+    "oldName": "Nome antigo:",
+    "newNamePlaceholder": "Novo nome...",
+    "fileExtensionHint": "O ficheiro deve ter a extensão .mid ou .midi",
+    "deleteFolderAndContent": "Eliminar pasta e conteúdo"
   },
   "filters": {
     "title": "Filtros avançados",
