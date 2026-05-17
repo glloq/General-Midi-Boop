@@ -4503,9 +4503,9 @@ body.dark-mode .kalimba-view {
     justify-content: center;
     align-items: center;
     gap: 18px;
-    /* Extra room on the right so the protruding slide bar (chromatic)
-       is fully visible and never scrolled. */
-    padding: 16px 64px 16px 16px;
+    /* Extra room on the right so the extended slide rod + label (chromatic)
+       are fully visible and never scrolled. */
+    padding: 16px 104px 16px 16px;
     overflow: auto;
     touch-action: none;
 }
@@ -4701,23 +4701,23 @@ body.dark-mode .kalimba-view {
 .harmonica-hole.active .harmonica-hole-num,
 .harmonica-hole.active .harmonica-hole-note { color: #16202b; }
 
-/* Chromatic slide: a real slide MECHANISM on the RIGHT side of the device —
-   a metal bar (the slide rod) tipped with a triangular finger button. The
-   bar is anchored at the device's right edge and stays in the right margin:
-   the triangle travels along the bar (never over the comb). At rest the
-   triangle is at the far right; engaged drives it left to the bar's root. */
+/* Chromatic slide: a big triangular finger button on the RIGHT side of the
+   device with the slide rod (a metal BAR) extending to its right. The
+   triangle is fixed just outside the device edge (never over the comb); the
+   rod is fully extended at rest and RETRACTS (its right side moves left) when
+   engaged, so the bar no longer sits there at a constant visible length. */
 .harmonica-slide {
     position: absolute;
     top: 50%;
     left: 100%;
     right: auto;
-    margin-left: -6px;                /* rod root tucks into the body edge */
+    margin-left: 34px;                /* keep the triangle outside the comb */
     transform: translateY(-50%);
     z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: 9px;
     border: none;
     background: none;
     -webkit-appearance: none;
@@ -4729,7 +4729,7 @@ body.dark-mode .kalimba-view {
 
 .harmonica-slide-label {
     align-self: center;
-    font: 700 11px/1 system-ui, sans-serif;
+    font: 700 12px/1 system-ui, sans-serif;
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: #d6dde3;
@@ -4737,47 +4737,49 @@ body.dark-mode .kalimba-view {
     white-space: nowrap;
 }
 
-/* The slide rod: a chunky polished-metal bar emerging from the body's right
-   edge. It stays put; the triangular button rides along it. */
+/* The slide rod: a polished-metal bar to the RIGHT of the triangle. Its left
+   end is fixed (anchors the triangle); only its width changes — long when
+   OUT, a short stub when engaged (its right side travels left). */
 .harmonica-slide-track {
     position: relative;
-    width: 56px;
-    height: 16px;
-    border-radius: 3px;
+    width: 50px;
+    height: 15px;
+    border-radius: 2px 6px 6px 2px;
     background: linear-gradient(180deg,
         #ffffff 0%, #d7dee3 36%, #99a1a8 72%, #6b737a 100%);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.9),
         inset 0 -2px 3px rgba(0, 0, 0, 0.45),
         0 1px 3px rgba(0, 0, 0, 0.5);
+    transition: width 0.16s ease, background 0.16s ease;
 }
 
-/* The triangular finger button riding the rod, pointing LEFT (push
-   direction). OFF → far right (sticks past the bar tip); ENGAGED → driven
-   left to the bar's root, but always within the bar (never over the comb). */
+/* The big triangular finger button, pointing LEFT (the push direction). It
+   sits at the bar's left end (right:100% = flush with the rod) so it stays
+   fixed just outside the device — it never moves over the comb. */
 .harmonica-slide-knob {
     position: absolute;
     top: 50%;
-    right: -18px;                     /* OFF → triangle out past the bar tip */
-    width: 26px;
-    height: 34px;
+    right: 100%;
+    width: 32px;
+    height: 50px;
     transform: translateY(-50%);
     clip-path: polygon(100% 0, 100% 100%, 0 50%);
     background: linear-gradient(180deg,
-        #ffffff 0%, #c9d1d8 45%, #828a91 100%);
-    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
-    transition: right 0.16s ease, background 0.16s ease;
+        #ffffff 0%, #cdd5db 42%, #9aa2a9 70%, #767e85 100%);
+    filter: drop-shadow(-1px 2px 3px rgba(0, 0, 0, 0.6));
+    transition: background 0.16s ease;
 }
 
 .harmonica-slide.engaged .harmonica-slide-track {
+    width: 14px;                      /* ON → rod retracted (right side in) */
     background: linear-gradient(180deg,
         #ffe9c2 0%, #e8b665 40%, #c9851f 74%, #a86c14 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-knob {
-    right: 30px;                      /* ON → driven left, to the bar's root */
     background: linear-gradient(180deg,
-        #fff3d6 0%, #f0c873 45%, #cf9a35 100%);
+        #fff3d6 0%, #f0c873 42%, #dca747 70%, #cf9a35 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-label { color: #ffd98a; }
