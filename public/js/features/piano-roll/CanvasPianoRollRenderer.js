@@ -297,7 +297,10 @@
         // just the wheel-driven path that historically did the emit inline.
         setXRange(ticks) {
             if (this._xrange === ticks) return this;
-            this._xrange = ticks; this._bgDirty = true;
+            // X zoom only shifts the time axis: the cached bg layer
+            // (keyboard + octave row bands) is horizontally invariant, so
+            // it is NOT invalidated — the time grid is repainted per frame.
+            this._xrange = ticks;
             this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
             this._scheduleRender(); return this;
         }
@@ -311,7 +314,9 @@
         getYRange()      { return this._yrange; }
         setXOffset(t) {
             if (this._xoffset === t) return this;
-            this._xoffset = t; this._bgDirty = true;
+            // Horizontal pan: cached bg layer is horizontally invariant
+            // (see setXRange) — not invalidated; time grid repaints per frame.
+            this._xoffset = t;
             this._emit('viewportchange', { xoffset: this._xoffset, yoffset: this._yoffset, xrange: this._xrange, yrange: this._yrange });
             this._scheduleRender(); return this;
         }
@@ -537,6 +542,12 @@
             // Composite background onto main canvas
             this._ctx.drawImage(this._bgCanvas, 0, 0, this._cssWidth, this._cssHeight);
 
+            // Time grid depends on xoffset/xrange/timebase, so it is painted
+            // per frame straight onto the main canvas instead of being baked
+            // into the cached bg buffer (which would force a full bg repaint
+            // on every horizontal pan — the H3 hot path).
+            this._paintTimeGrid();
+
             // B2: notes layer (placeholder for now — overrides land in B2)
             this._paintNotes();
 
@@ -544,7 +555,35 @@
             this._paintOverlay();
         }
 
-        // Background = keyboard column + ruler + grid lines
+        // Per-frame time grid (depends on xoffset/xrange/timebase). Drawn
+        // straight onto the main canvas after the cached bg buffer. The
+        // loop is culled to the visible columns so this is far cheaper than
+        // repainting the whole bg buffer on every horizontal pan.
+        _paintTimeGrid() {
+            const ctx = this._ctx;
+            const W = this._cssWidth;
+            const H = this._cssHeight;
+            const beat = this._timebase || 480;
+            const startTick = Math.floor(this._xoffset / beat) * beat;
+            const endTick = this._xoffset + this._xrange;
+            ctx.save();
+            ctx.strokeStyle = this._theme.colgrid;
+            ctx.lineWidth = 1;
+            for (let t = startTick; t <= endTick; t += beat) {
+                const x = this._tickToX(t);
+                if (x < KB_WIDTH || x > W) continue;
+                const isMeasure = (t % (beat * 4)) === 0;
+                ctx.globalAlpha = isMeasure ? 0.7 : 0.35;
+                ctx.beginPath();
+                ctx.moveTo(x + 0.5, RULER_H);
+                ctx.lineTo(x + 0.5, H);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Background (cached) = keyboard column + octave row bands.
+        // Horizontally invariant: only Y / size / theme invalidate it.
         _paintBackground() {
             const ctx = this._bgCtx;
             const W = this._cssWidth;
@@ -565,25 +604,6 @@
                     ctx.fillRect(KB_WIDTH, y, W - KB_WIDTH, noteH);
                 }
             }
-
-            // Time grid lines
-            const ppq = this._timebase || 480;
-            const beat = ppq;
-            const startTick = Math.floor(this._xoffset / beat) * beat;
-            const endTick = this._xoffset + this._xrange;
-            ctx.strokeStyle = this._theme.colgrid;
-            ctx.lineWidth = 1;
-            for (let t = startTick; t <= endTick; t += beat) {
-                const x = this._tickToX(t);
-                if (x < KB_WIDTH || x > W) continue;
-                const isMeasure = (t % (beat * 4)) === 0;
-                ctx.globalAlpha = isMeasure ? 0.7 : 0.35;
-                ctx.beginPath();
-                ctx.moveTo(x + 0.5, RULER_H);
-                ctx.lineTo(x + 0.5, H);
-                ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
 
             // Keyboard column. (The in-canvas time ruler was removed —
             // the modal's Playback Timeline bar above the canvas owns
