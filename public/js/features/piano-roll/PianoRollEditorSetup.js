@@ -131,23 +131,11 @@ class PianoRollEditorSetup {
         const container = this.parent.host.querySelector('#pre-pianoroll-wrap');
         if (!container) return;
 
-        // Piano roll renderer abstraction (audit §1.1). V1
-        // (webaudio-pianoroll) is being removed — the Canvas renderer is
-        // now forced here too (this loop-editor path previously still
-        // defaulted to V1). The legacy adapter fallback below is kept only
-        // as a rollback safety net until V1 is physically deleted (Phase E).
-        // The invariant `this.parent.pianoRoll === this.parent.renderer.getElement()`
-        // is maintained so any external consumer of getPianoRollElement()
+        // Piano roll renderer (audit §1.1) — Canvas 2D. The invariant
+        // `this.parent.pianoRoll === this.parent.renderer.getElement()` is
+        // maintained so any external consumer of getPianoRollElement()
         // keeps working unchanged.
-        const useV2 = true;
-        const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
-            ? CanvasPianoRollRenderer
-            : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
-        if (!Impl) {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.parent.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-        if (Impl === WebaudioPianorollAdapter && !customElements?.get?.('webaudio-pianoroll')) {
+        if (typeof CanvasPianoRollRenderer === 'undefined') {
             container.innerHTML = `<div class="lc-pianoroll-error">${this.parent.t('loopCreator.pianoRollUnavailable')}</div>`;
             return;
         }
@@ -157,7 +145,7 @@ class PianoRollEditorSetup {
         const yrange0   = Math.min(noteSpan0 + 1, 36);
         const yoffset0  = this.centeredYOffset(this.parent.noteMin, this.parent.noteMax, yrange0);
 
-        this.parent.renderer = new Impl({
+        this.parent.renderer = new CanvasPianoRollRenderer({
             container,
             width:  container.clientWidth  || 900,
             height: container.clientHeight || 200,

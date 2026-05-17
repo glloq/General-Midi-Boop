@@ -19,9 +19,9 @@
  *   3. **Overlay** (inline): cursor, selection rectangle, drag preview.
  *      Painted every frame in display mode (cheap).
  *
- * The renderer extends `PianoRollRenderer` and conforms to the same
- * contract as `WebaudioPianorollAdapter`. Drop-in swap is gated by the
- * feature flag wired in `MidiEditorRouting` (see Phase B5).
+ * The renderer extends `PianoRollRenderer` and is the sole concrete
+ * implementation of that contract (the legacy WebaudioPianorollAdapter
+ * and the `<webaudio-pianoroll>` element were removed).
  *
  * Current scope (commit B1): skeleton, mount, layout, background grid,
  * keyboard labels, ruler. Notes rendering, spatial index, selection

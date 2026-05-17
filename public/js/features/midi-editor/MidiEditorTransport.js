@@ -207,8 +207,7 @@
         this._lastAppliedTick = tick;
 
         // Update piano roll cursor (even when hidden, keeps state consistent).
-        // Routed via PianoRollRenderer (audit §1.1) — the renderer falls
-        // back to the legacy element under WebaudioPianorollAdapter.
+        // Routed via PianoRollRenderer (audit §1.1 — CanvasPianoRollRenderer).
         let scrolled = false;
         const renderer = m.pianoRollRenderer;
         if (renderer && renderer.isMounted()) {

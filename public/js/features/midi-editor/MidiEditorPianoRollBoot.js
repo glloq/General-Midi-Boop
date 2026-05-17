@@ -53,59 +53,27 @@
                 return;
             }
 
-            // Ensure webaudio-pianoroll is loaded
-            if (typeof customElements.get('webaudio-pianoroll') === 'undefined') {
+            if (typeof CanvasPianoRollRenderer === 'undefined') {
                 m.showError(m.t('midiEditor.libraryNotLoaded'));
                 return;
             }
 
-            // Piano roll renderer abstraction (audit §1.1). Choose the
-            // implementation based on a feature flag:
-            //   - Default : WebaudioPianorollAdapter (the legacy third-party
-            //     custom element, behaviour identical to pre-§1.1).
-            //   - Opt-in via `?pianoRollV2=1` URL param or
-            //     `localStorage.gmboop_piano_roll_v2 = '1'` :
-            //     CanvasPianoRollRenderer (audit §3.1/§3.2 — Canvas 2D maison,
-            //     viewport culling, grid-bucket spatial index).
-            // The invariant `modal.pianoRoll === modal.pianoRollRenderer.getElement()`
-            // is maintained so non-migrated call sites keep working unchanged.
-            // Canvas V2 is now the DEFAULT renderer (audit Phase C — viewport
-            // culling + grid-bucket spatial index). Every opt-out path is
-            // preserved for instant rollback if a regression surfaces; the
-            // `Impl` selection below also auto-falls back to the legacy
-            // adapter if CanvasPianoRollRenderer failed to load.
-            // Precedence (highest → lowest):
-            //   1. URL flag `?pianoRollV2=0|1`      — dev override
-            //   2. SettingsModal toggle             — user-facing
-            //   3. Legacy localStorage flag         — dev backwards-compat
-            //   4. Default                          — V2
-            // V1 (webaudio-pianoroll) is being removed: the Canvas renderer
-            // is now forced everywhere. The legacy adapter fallback below is
-            // kept only as a rollback safety net until the V1 path is
-            // physically deleted (audit Phase E).
-            const useV2 = true;
-            const Impl = (useV2 && typeof CanvasPianoRollRenderer !== 'undefined')
-                ? CanvasPianoRollRenderer
-                : (typeof WebaudioPianorollAdapter !== 'undefined' ? WebaudioPianorollAdapter : null);
-
-            if (Impl) {
-                m.pianoRollRenderer = new Impl({
-                    container,
-                    width:  container.clientWidth  || 1000,
-                    height: container.clientHeight || 400,
-                    ppq:    m.ticksPerBeat || 480,
-                    tempo:  m.tempo || 120,
-                    mode:   'dragpoly'
-                });
-                m.pianoRollRenderer.mount();
-                m.pianoRoll = m.pianoRollRenderer.getElement();
-                m.log('info', `Piano roll renderer: ${Impl.name}`);
-            } else {
-                // Defensive fallback if neither renderer script loaded —
-                // restores the legacy creation path so the editor still opens.
-                m.pianoRoll = document.createElement('webaudio-pianoroll');
-                m.pianoRollRenderer = null;
-            }
+            // Piano roll renderer (audit §1.1) — Canvas 2D: viewport
+            // culling + grid-bucket spatial index. The invariant
+            // `modal.pianoRoll === modal.pianoRollRenderer.getElement()`
+            // is maintained so non-migrated call sites keep working
+            // unchanged.
+            m.pianoRollRenderer = new CanvasPianoRollRenderer({
+                container,
+                width:  container.clientWidth  || 1000,
+                height: container.clientHeight || 400,
+                ppq:    m.ticksPerBeat || 480,
+                tempo:  m.tempo || 120,
+                mode:   'dragpoly'
+            });
+            m.pianoRollRenderer.mount();
+            m.pianoRoll = m.pianoRollRenderer.getElement();
+            m.log('info', 'Piano roll renderer: CanvasPianoRollRenderer');
 
             // Configuration
             const width = container.clientWidth || 1000;
@@ -161,14 +129,6 @@
             m.log('info', `Piano roll configured: xrange=${xrange}, yrange=${noteRange}, yoffset=${yoffset} (centered), tempo=${m.tempo || 120} BPM, timebase=${m.ticksPerBeat || 480} ticks/beat`);
 
             renderer.attachToContainer();
-
-            // Hide the piano roll's native SVG markers (replaced by PlaybackTimelineBar)
-            const cursorImg    = renderer.querySelector('#wac-cursor');
-            const markStartImg = renderer.querySelector('#wac-markstart');
-            const markEndImg   = renderer.querySelector('#wac-markend');
-            if (cursorImg) cursorImg.style.display = 'none';
-            if (markStartImg) markStartImg.style.display = 'none';
-            if (markEndImg) markEndImg.style.display = 'none';
 
             // OPTIMIZATION: batch property assignments to avoid multiple redraws
             const currentSnap = m.snapValues[m.currentSnapIndex];
