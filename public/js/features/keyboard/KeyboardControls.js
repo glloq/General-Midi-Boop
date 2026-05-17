@@ -481,6 +481,41 @@
                     customName: customName
                 };
             });
+
+            // ── TEMP DIAGNOSTIC (virtual instrument count) ────────────────
+            try {
+                const rawDevices = Array.isArray(devices) ? devices : [];
+                const caps = (capsResp && Array.isArray(capsResp.instruments))
+                    ? capsResp.instruments : [];
+                const capsVirtual = caps.filter(i =>
+                    (i.device_id || i.id || '').startsWith('virtual_'));
+                const capsVirtualDevIds = new Set(
+                    capsVirtual.map(i => i.device_id || i.id));
+                const capsVirtualKeys = new Set(
+                    capsVirtual.map(i => `${i.device_id || i.id}::${i.channel || 0}`));
+                const finalVirtual = this.devices.filter(d => d.isVirtual);
+                this.logger.info(
+                    `[DIAG devices] backend=${rawDevices.length} `
+                    + `status2=${rawDevices.filter(d => d.status === 2).length} `
+                    + `| caps.instruments=${caps.length} `
+                    + `capsVirtualRows=${capsVirtual.length} `
+                    + `capsVirtualDevIds=${capsVirtualDevIds.size} `
+                    + `capsVirtual(dev::ch)=${capsVirtualKeys.size} `
+                    + `| virtualEnabled=${virtualEnabled} `
+                    + `| FINAL total=${this.devices.length} `
+                    + `virtual=${finalVirtual.length}`);
+                this.logger.info(
+                    `[DIAG devices] backend statuses: `
+                    + JSON.stringify(rawDevices.reduce((a, d) => {
+                        const k = String(d.status); a[k] = (a[k] || 0) + 1; return a;
+                    }, {})));
+                this.logger.info(
+                    `[DIAG devices] caps virtual device_ids: `
+                    + JSON.stringify([...capsVirtualDevIds]));
+            } catch (diagErr) {
+                this.logger.warn('[DIAG devices] failed:', diagErr);
+            }
+            // ── END TEMP DIAGNOSTIC ───────────────────────────────────────
         } catch (error) {
             this.logger.error('[KeyboardModal] Failed to load devices:', error);
             this.devices = [];
