@@ -431,6 +431,7 @@ class InstrumentSettingsModal extends BaseModal {
             this._neckDiagram = null;
         }
         this._previewAllNotesOff();
+        if (window.__ismReapplyOctaveHighlight) window.__ismReapplyOctaveHighlight = null;
         if (typeof this._micTestCleanup === 'function') {
             try { this._micTestCleanup(); } catch (_) { /* best-effort teardown */ }
             this._micTestCleanup = null;
@@ -1075,6 +1076,17 @@ class InstrumentSettingsModal extends BaseModal {
         const s = target ? target.obj : tab.settings;
         if (typeof initPianoKeyboard !== 'function') return;
 
+        // Mirror the Notes-section reconciliation: a Diatonic/Pentatonic
+        // save is materialized to 'discrete' in the capabilities row, but
+        // the piano must still open as a range with octave-mode dots, not
+        // as a flat discrete pad selection.
+        const _oct = s.octave_mode || 'chromatic';
+        const _hasBounds = s.note_range_min != null && s.note_range_max != null;
+        const effMode = (_oct !== 'chromatic' && _hasBounds)
+            ? 'range'
+            : (s.note_selection_mode || 'range');
+        const effSelected = effMode === 'range' ? [] : (s.selected_notes || []);
+
         // Don't init piano for drum instruments (no piano needed) — decision
         // based on PRIMARY, since the section layout depends on primary type.
         const primaryProg = tab.settings.gm_program;
@@ -1083,11 +1095,21 @@ class InstrumentSettingsModal extends BaseModal {
 
         const self = this;
 
+        // Re-highlight hook: renderPianoKeyboard() rebuilds the key DOM on
+        // resize/navigation and only restores range/discrete display, wiping
+        // the octave-mode dots. Expose a stable callback it can invoke so the
+        // playable-note markers survive every re-render.
+        window.__ismReapplyOctaveHighlight = function() {
+            if (self && typeof self._applyOctaveModeHighlight === 'function') {
+                self._applyOctaveModeHighlight();
+            }
+        };
+
         function doInit(viewport) {
             // 1) Compute center note
             let centerNote = 60;
-            if (s.note_selection_mode === 'discrete' && s.selected_notes && s.selected_notes.length > 0) {
-                const sorted = [...s.selected_notes].sort((a, b) => a - b);
+            if (effMode === 'discrete' && effSelected.length > 0) {
+                const sorted = [...effSelected].sort((a, b) => a - b);
                 centerNote = sorted[Math.floor(sorted.length / 2)];
             } else if (s.note_range_min != null && s.note_range_max != null) {
                 centerNote = Math.round((s.note_range_min + s.note_range_max) / 2);
@@ -1105,8 +1127,8 @@ class InstrumentSettingsModal extends BaseModal {
             // 3) Init piano
             initPianoKeyboard(
                 s.note_range_min, s.note_range_max,
-                s.note_selection_mode || 'range',
-                s.selected_notes || []
+                effMode,
+                effSelected
             );
 
             // 4) Trigger GM program change handler
@@ -1161,16 +1183,25 @@ class InstrumentSettingsModal extends BaseModal {
         const octaveModeInput = document.getElementById('octaveModeInput');
         const noteRangeMin = document.getElementById('noteRangeMin');
         const noteRangeMax = document.getElementById('noteRangeMax');
-        if (!octaveModeInput) return;
+        const modeInput = document.getElementById('noteSelectionModeInput');
+        if (!octaveModeInput || typeof this._highlightPlayableNotes !== 'function') return;
+
+        // Octave dots only make sense for a continuous range. With no range
+        // (e.g. just cleared) or in discrete mode, strip any stale markers
+        // instead of painting the whole keyboard.
+        const isRangeMode = !modeInput || modeInput.value !== 'discrete';
+        const hasRange = noteRangeMin && noteRangeMax
+            && noteRangeMin.value !== '' && noteRangeMax.value !== '';
+        if (!isRangeMode || !hasRange) {
+            this._highlightPlayableNotes([]);
+            return;
+        }
 
         const modeKey = octaveModeInput.value || 'chromatic';
-        const rangeMin = noteRangeMin && noteRangeMin.value !== '' ? parseInt(noteRangeMin.value) : 0;
-        const rangeMax = noteRangeMax && noteRangeMax.value !== '' ? parseInt(noteRangeMax.value) : 127;
+        const rangeMin = parseInt(noteRangeMin.value);
+        const rangeMax = parseInt(noteRangeMax.value);
         const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, modeKey);
-
-        if (typeof this._highlightPlayableNotes === 'function') {
-            this._highlightPlayableNotes(playableNotes);
-        }
+        this._highlightPlayableNotes(playableNotes);
     }
 
     _detectMicroprocessor(deviceName, sysexName) {

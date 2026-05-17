@@ -532,8 +532,17 @@
         const showShareToggle = voices.length > 0 && !isString && !isDrum;
         const showVoiceTabs = showShareToggle && !shareNotes;
 
-        const noteMode = notesSrc.note_selection_mode || 'range';
         const octaveMode = notesSrc.octave_mode || 'chromatic';
+        // Reconcile the persisted capability mode with the editor UI mode.
+        // When Diatonic/Pentatonic is saved, the capabilities row is
+        // materialized to 'discrete' (so the playback pipeline honors it),
+        // but the editor must still open in 'range' mode with the octave
+        // button active — the materialized selected_notes is only a
+        // playback cache and is ignored for the UI.
+        const _hasRangeBounds = notesSrc.note_range_min != null && notesSrc.note_range_max != null;
+        const noteMode = (octaveMode !== 'chromatic' && _hasRangeBounds)
+            ? 'range'
+            : (notesSrc.note_selection_mode || 'range');
 
         // CC data — the Notes tab hosts a grouped picker (accordion + active-CC
         // tags + "apply recommended" button). The hidden #supportedCCs stays in
@@ -681,8 +690,12 @@
                     </div>
 
                     <div class="ism-octave-selector" style="${noteMode === 'discrete' ? 'display: none;' : ''}" id="octaveModeSelector">
+                        <div class="ism-octave-header">
+                            <span class="ism-octave-title">🎼 ${this.t('instrumentSettings.octaveModeTitle') || 'Notes jouables par octave'}</span>
+                            <span class="ism-octave-count" id="octaveInfo">${playableNotes.length} ${this.t('instrumentSettings.playableNotes') || 'notes jouables'}</span>
+                        </div>
                         <div class="ism-octave-toggle">${octaveToggleHtml}</div>
-                        <span class="ism-octave-count" id="octaveInfo">${playableNotes.length} notes jouables</span>
+                        <span class="ism-form-hint">${this.t('instrumentSettings.octaveModeHint') || 'Restreint l\'instrument à une gamme : 12 = chromatique (toutes les notes), 7 = diatonique (gamme majeure), 5 = pentatonique.'}</span>
                     </div>
 
                     <div class="ism-piano-container">

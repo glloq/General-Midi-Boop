@@ -1486,16 +1486,31 @@ body.dark-mode .ism-scale-selector select {
 
 /* ========== Octave Mode Selector (3 buttons) ========== */
 .ism-octave-selector {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  background: var(--bg-secondary, #f9fafb);
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 2px solid #c7d2fe;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.06), rgba(102, 126, 234, 0.02));
+}
+
+.ism-octave-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ism-octave-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary, #1f2937);
+  letter-spacing: 0.2px;
 }
 
 .ism-octave-toggle {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ism-octave-btn {
@@ -1503,10 +1518,12 @@ body.dark-mode .ism-scale-selector select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 8px 6px;
+  gap: 4px;
+  padding: 12px 8px;
+  min-height: 60px;
+  justify-content: center;
   border: 2px solid var(--border-color, #d1d5db);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--bg-primary, #fff);
   cursor: pointer;
   transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
@@ -1514,31 +1531,34 @@ body.dark-mode .ism-scale-selector select {
 
 .ism-octave-btn:hover {
   border-color: #667eea;
-  background: rgba(102, 126, 234, 0.04);
+  background: rgba(102, 126, 234, 0.06);
+  transform: translateY(-1px);
 }
 
 .ism-octave-btn.active {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.1);
-  box-shadow: 0 0 0 1px rgba(102, 126, 234, 0.3);
+  border-color: #4f46e5;
+  background: #4f46e5;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.4);
 }
 
 .ism-octave-btn-count {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   color: var(--text-primary, #1f2937);
   line-height: 1;
 }
 
-.ism-octave-btn.active .ism-octave-btn-count {
-  color: #667eea;
+.ism-octave-btn.active .ism-octave-btn-count,
+.ism-octave-btn.active .ism-octave-btn-label {
+  color: #fff;
 }
 
 .ism-octave-btn-label {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted, #6b7280);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
 }
 
 .ism-octave-root-row {
@@ -1565,9 +1585,14 @@ body.dark-mode .ism-scale-selector select {
 }
 
 .ism-octave-count {
-  color: var(--text-muted, #6b7280);
-  margin-left: auto;
-  font-size: 11px;
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.12);
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 /* ========== CC Item with detailed info ========== */
@@ -1653,10 +1678,47 @@ body.dark-mode .ism-scale-selector select {
   opacity: 0.3;
 }
 
+/* Ghost markers: notes that were defined before the range was cleared
+   (memory aid). Hollow, faint, neutral — distinct from the solid
+   indigo ism-playable dot. */
+.piano-key.ism-ghost::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px dashed rgba(100, 116, 139, 0.7);
+  pointer-events: none;
+}
+
+.piano-key-black.ism-ghost::after {
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-color: rgba(203, 213, 225, 0.8);
+}
+
+body.theme-dark .piano-key.ism-ghost::after {
+  border-color: rgba(148, 163, 184, 0.75);
+}
+
 /* ========== Dark mode additions ========== */
 body.theme-dark .ism-octave-selector {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(102, 126, 234, 0.08);
+  border-color: rgba(102, 126, 234, 0.4);
+}
+
+body.theme-dark .ism-octave-title {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+body.theme-dark .ism-octave-count {
+  background: rgba(129, 140, 248, 0.2);
+  color: #c7d2fe;
 }
 
 body.theme-dark .ism-octave-btn {
@@ -1670,8 +1732,14 @@ body.theme-dark .ism-octave-btn:hover {
 }
 
 body.theme-dark .ism-octave-btn.active {
-  background: rgba(102, 126, 234, 0.2);
-  border-color: #667eea;
+  background: #4f46e5;
+  border-color: #818cf8;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.55);
+}
+
+body.theme-dark .ism-octave-btn.active .ism-octave-btn-count,
+body.theme-dark .ism-octave-btn.active .ism-octave-btn-label {
+  color: #fff;
 }
 
 body.theme-dark .ism-octave-btn-count {

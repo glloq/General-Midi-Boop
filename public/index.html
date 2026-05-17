@@ -11283,6 +11283,32 @@
         let pianoRangeSelectionMode = 'start'; // 'start' ou 'end' (pour mode range)
         let currentNoteSelectionMode = 'range'; // 'range' ou 'discrete'
         let selectedDiscreteNotes = new Set(); // Pour le mode discrete
+        // Notes définies avant un « Effacer » — affichées en points fantômes
+        // (aide mémoire utilisateur) jusqu'à ce qu'une nouvelle sélection soit faite.
+        let pianoGhostNotes = [];
+
+        // Marque les touches mémorisées (ghost) sur le clavier courant.
+        function applyPianoGhostNotes() {
+            const container = document.getElementById('pianoKeyboardMini');
+            if (!container) return;
+            const ghostSet = new Set(pianoGhostNotes);
+            container.querySelectorAll('.piano-key').forEach(key => {
+                const note = parseInt(key.dataset.note);
+                key.classList.toggle('ism-ghost', !isNaN(note) && ghostSet.has(note));
+            });
+        }
+
+        // Réinitialise les points fantômes (appelé dès qu'une nouvelle plage /
+        // sélection est définie).
+        function clearPianoGhostNotes() {
+            if (pianoGhostNotes.length === 0) return;
+            pianoGhostNotes = [];
+            const container = document.getElementById('pianoKeyboardMini');
+            if (container) {
+                container.querySelectorAll('.piano-key.ism-ghost')
+                    .forEach(k => k.classList.remove('ism-ghost'));
+            }
+        }
 
         // Navigation du piano
         const MIN_OCTAVE = -1; // C-1 (note 0)
@@ -11466,6 +11492,7 @@
         function initPianoKeyboard(minNote, maxNote, mode = 'range', selectedNotes = []) {
             currentNoteSelectionMode = mode;
             selectedDiscreteNotes = new Set(selectedNotes);
+            pianoGhostNotes = []; // fresh editor session — pas de fantômes hérités
 
             // Déterminer la note de départ selon les notes sélectionnées
             if (mode === 'range' && minNote !== null && minNote !== undefined) {
@@ -11627,6 +11654,13 @@
             } else {
                 updatePianoKeyboardDisplayDiscrete();
             }
+
+            // Re-apply octave-mode playable dots + ghost markers: this rebuild
+            // wiped them, the helpers above only restore range/discrete state.
+            if (typeof window.__ismReapplyOctaveHighlight === 'function') {
+                window.__ismReapplyOctaveHighlight();
+            }
+            applyPianoGhostNotes();
         }
 
         // Naviguer dans le piano
@@ -11674,6 +11708,7 @@
 
         // Clic sur une touche du piano
         function onPianoKeyClick(note) {
+            clearPianoGhostNotes();
             if (currentNoteSelectionMode === 'discrete') {
                 // Mode notes individuelles : toggle la note
                 if (selectedDiscreteNotes.has(note)) {
@@ -11785,6 +11820,7 @@
 
         // Définir un préréglage (mode range)
         function setPianoPreset(min, max) {
+            clearPianoGhostNotes();
             // Passer en mode range si nécessaire
             if (currentNoteSelectionMode !== 'range') {
                 document.querySelector('input[name="noteSelectionMode"][value="range"]').checked = true;
@@ -11813,6 +11849,7 @@
 
         // Sélectionner toutes les notes
         function selectAllNotes() {
+            clearPianoGhostNotes();
             if (currentNoteSelectionMode === 'discrete') {
                 // Mode discrete: sélectionner toutes les notes
                 selectedDiscreteNotes.clear();
@@ -11837,18 +11874,43 @@
         // Effacer la plage ou les notes sélectionnées
         function clearPianoRange() {
             if (currentNoteSelectionMode === 'discrete') {
+                // Mémoriser les notes effacées comme repères fantômes.
+                pianoGhostNotes = [...selectedDiscreteNotes];
                 selectedDiscreteNotes.clear();
                 updateSelectedNotesInput();
                 updatePianoKeyboardDisplayDiscrete();
+                if (typeof window.__ismReapplyOctaveHighlight === 'function') {
+                    window.__ismReapplyOctaveHighlight();
+                }
+                applyPianoGhostNotes();
             } else {
                 const minInput = document.getElementById('noteRangeMin');
                 const maxInput = document.getElementById('noteRangeMax');
+
+                // Mémoriser la plage (filtrée par le mode d'octave) avant de
+                // l'effacer, pour la rappeler en points fantômes.
+                const prevMin = minInput.value !== '' ? parseInt(minInput.value) : null;
+                const prevMax = maxInput.value !== '' ? parseInt(maxInput.value) : null;
+                if (prevMin !== null && prevMax !== null && prevMin <= prevMax) {
+                    const octInput = document.getElementById('octaveModeInput');
+                    const oct = (octInput && octInput.value) ? octInput.value : 'chromatic';
+                    pianoGhostNotes = (typeof InstrumentSettingsModal !== 'undefined'
+                        && typeof InstrumentSettingsModal.computePlayableNotes === 'function')
+                        ? InstrumentSettingsModal.computePlayableNotes(prevMin, prevMax, oct)
+                        : [];
+                } else {
+                    pianoGhostNotes = [];
+                }
 
                 minInput.value = '';
                 maxInput.value = '';
                 pianoRangeSelectionMode = 'start';
 
                 updatePianoKeyboardDisplay(null, null);
+                if (typeof window.__ismReapplyOctaveHighlight === 'function') {
+                    window.__ismReapplyOctaveHighlight();
+                }
+                applyPianoGhostNotes();
             }
         }
 
