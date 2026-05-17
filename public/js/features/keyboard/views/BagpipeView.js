@@ -93,8 +93,12 @@
 
             const list = document.createElement('div');
             list.className = 'bagpipe-drone-list';
+            // flex-direction:row is explicit on purpose: the
+            // `.bagpipe-drone-list` class is also styled by
+            // instrument-settings-modal.css with flex-direction:column, and
+            // that global rule would otherwise stack the drones vertically.
             list.style.cssText =
-                'display:flex;gap:6px;flex-wrap:nowrap;'
+                'display:flex;flex-direction:row;gap:6px;flex-wrap:nowrap;'
                 + 'align-items:flex-end;justify-content:center;';
             this._droneTubes = [];
             this._droneBtns = this._drones.map((d, idx) => {
