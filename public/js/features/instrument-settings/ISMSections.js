@@ -48,14 +48,13 @@
         if (!fam) return false;
         return fam.slug === 'keyboards'
             || fam.slug === 'chromatic_percussion'
-            || fam.slug === 'organs'
             || fam.slug === 'plucked_strings'
             || fam.slug === 'bowed_strings';
     };
 
     /**
      * The Mains sidebar tab is shown whenever the instrument family is
-     * eligible (keyboards / chromatic percussion / organs / plucked or
+     * eligible (keyboards / chromatic percussion / plucked or
      * bowed strings, non-drum). No opt-in is required.
      */
     ISMSections._shouldShowHandsSection = function(tab) {
@@ -1151,7 +1150,7 @@
     /**
      * Hand-position section: edit the `hands_config` JSON payload. Two
      * layouts, selected by the instrument family:
-     *   - Keyboards/organs/chromatic percussion → semitones mode (two
+     *   - Keyboards/chromatic percussion → semitones mode (two
      *     hands, assignment block, span in semitones).
      *   - Plucked/bowed strings → frets mode (single fretting hand, no
      *     assignment, span in frets). Reachable range is derived at play
