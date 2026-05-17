@@ -57,6 +57,8 @@ Click **"Edit capabilities"** to open the Capabilities sub-modal:
 
 These values determine how MIDI files are adapted to the instrument. When the device sends a Block 6 SysEx response they are filled automatically (`capabilities_source = 'sysex'`).
 
+A **unified instrument-preset block** now sits at the top of the *Notes & Capabilities* tab: pick a preset to fill the note range, polyphony and CC set from real GM capabilities (a chord library is included) in one click, then fine-tune. The modal layout has been condensed so the whole instrument fits without excessive scrolling. The **Organs** family has been merged into **Keyboards**, so organ instruments now sit under the keyboard family (and render on the standard piano in the [[Interface-Virtual-Piano]]).
+
 ### Latency Compensation
 
 | Field | Description |
@@ -80,6 +82,19 @@ For instruments of type `guitar`, `bass`, `strings`, or ethnic string types, an 
 | **CC string / fret** | CC numbers used to command string and fret selection on the hardware |
 
 19 standard tuning presets are provided (guitar, bass, violin, ukulele, mandolin, …). When the device sends a Block 7 SysEx response this panel is filled automatically.
+
+### Family-Specific Configuration
+
+For a few instrument families, an extra panel inside *Notes & Capabilities* configures details that **drive the realistic layout shown in the [[Interface-Virtual-Piano]]**:
+
+| Family | Panel | Drives |
+|--------|-------|--------|
+| **Accordion** (GM 21 / 23) | Stradella / free-bass left-hand board, configurable free-bass note range, C-system option | The accordion view's left-hand board and treble manual |
+| **Bagpipe** (GM 109) | Drone picker on a mini-piano: enable each drone individually, a master toggle, and preset drone sets | Which drone tubes are drawn and sounded in the bagpipe view |
+| **Harmonica** (GM 22) | Diatonic vs. chromatic, hole count, blow/draw mapping | The harmonica view's hole layout and slide button |
+| **Harp** (GM 46) | The configured note / string selection | Which strings the harp view displays |
+
+Changing these settings is reflected immediately the next time the virtual piano opens for that instrument.
 
 ### Hand Position
 
