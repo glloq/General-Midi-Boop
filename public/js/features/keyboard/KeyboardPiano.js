@@ -826,6 +826,10 @@
      */
     KeyboardPianoMixin._updateFretboardStringColors = function() {
         const rows = document.querySelectorAll('.fretboard-container .fret-string');
+        // Bowed: the dot sits ON the fret wire (cell right edge = the finger),
+        // so the vibrating segment must start there, not at the cell centre.
+        const isBowed = typeof this._isBowedInstrument === 'function'
+            && this._isBowedInstrument();
         rows.forEach(row => {
             const vibe = row.querySelector('.string-vibe');
             if (!vibe) return;
@@ -840,8 +844,11 @@
             const cell = activeDot.closest('.fret-cell');
             if (!cell) { vibe.style.display = 'none'; return; }
 
-            // Start at the center of the active fret dot, span to the right edge.
-            const startPx = cell.offsetLeft + cell.offsetWidth / 2;
+            // Start at the active dot's centre (fret wire for bowed = cell
+            // right edge; cell centre otherwise), span to the right edge.
+            const startPx = isBowed
+                ? (cell.offsetLeft + cell.offsetWidth)
+                : (cell.offsetLeft + cell.offsetWidth / 2);
             vibe.style.left  = startPx + 'px';
             vibe.style.right = '0';
 
