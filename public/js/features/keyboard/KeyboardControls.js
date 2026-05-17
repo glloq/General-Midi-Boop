@@ -335,6 +335,27 @@
         }
     }
 
+    // Human-readable label for an instrument row. Custom name wins; then a
+    // real (non-placeholder) name; otherwise fall back to the General MIDI
+    // program name (Accordion, Harmonica, …) so virtual instruments created
+    // without a custom name stay distinguishable instead of all showing the
+    // same "Virtual Instrument".
+    KeyboardControlsMixin._gmProgramName = function(gm) {
+        if (gm === undefined || gm === null) return null;
+        if (typeof window === 'undefined' || !window.GmInstrumentCapabilities) return null;
+        const entry = window.GmInstrumentCapabilities.get(gm);
+        return (entry && entry.name) ? entry.name : null;
+    };
+
+    KeyboardControlsMixin._readableInstrumentLabel = function(o) {
+        const isMeaningful = (s) =>
+            typeof s === 'string' && s.trim() !== ''
+            && !s.startsWith('virtual_');
+        if (isMeaningful(o && o.custom_name)) return o.custom_name;
+        if (isMeaningful(o && o.name)) return o.name;
+        return this._gmProgramName(o && o.gm_program) || 'Virtual Instrument';
+    };
+
     KeyboardControlsMixin.loadDevices = async function() {
         try {
             // Fire device list and capabilities list in parallel.
@@ -388,7 +409,8 @@
                         expandedDevices.push({
                             ...device,
                             channel: inst.channel !== undefined ? inst.channel : 0,
-                            displayName: inst.custom_name || inst.name || device.name,
+                            displayName: inst.custom_name || inst.name
+                                || this._gmProgramName(inst.gm_program) || device.name,
                             gm_program: inst.gm_program,
                             _instrumentId: inst.id,
                             _multiInstrument: true
@@ -433,7 +455,7 @@
                             const key = `${devId}::${channel}`;
                             if (existingKeys.has(key)) continue;
                             existingKeys.add(key);
-                            const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
+                            const vName = this._readableInstrumentLabel(dbInst);
                             this.devices.push({
                                 id: devId,
                                 device_id: devId,
