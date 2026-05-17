@@ -12,7 +12,7 @@
  * Keyboard/Library/Live/Pad). The feature contains methods only; every
  * `this.X` accessing modal state has been translated to `this.modal.X`.
  * Cross-method calls between Arranger methods stay as `this.method()`.
- * Documented in AUDIT_LOOP_ARRANGER_SPLIT.md (commit 59fe2fc).
+ * Documented in docs/audit/AUDIT_LOOP_ARRANGER_SPLIT.md (commit 59fe2fc).
  *
  * `_renderPlaybar` and `_fetchLoopData` remain on the modal because
  * they are cross-cutting (`_renderPlaybar` reads Pad/Live/Arranger

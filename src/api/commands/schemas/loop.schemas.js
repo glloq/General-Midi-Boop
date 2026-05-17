@@ -8,7 +8,7 @@
  * (`migrations/017_loops.sql`, `018_loop_arrangements.sql`) et les
  * contraintes UI (cf. `LoopUtils.validate*`). La principale fonction
  * de ces schemas est de stopper les payloads invalides AVANT qu'ils
- * atteignent le repository — voir AUDIT_MODAL_BOUCLES_2026-05-11.md
+ * atteignent le repository — voir docs/audit/AUDIT_MODAL_BOUCLES_2026-05-11.md
  * §B1-B7.
  */
 

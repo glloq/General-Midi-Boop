@@ -1,3 +1,9 @@
+> **⚠️ ARCHIVÉ / PARTIELLEMENT PÉRIMÉ.** Voir l'autorité unique
+> [`AUDIT_GLOBAL_2026-05-17.md`](./AUDIT_GLOBAL_2026-05-17.md). Item de ce
+> document **vérifié comme déjà résolu** (ne pas re-triager) : §C2 reconnexion
+> WebSocket — `BackendAPIClient.js:193` retry indéfini, `reconnect_exhausted`
+> n'est qu'un événement UI one-shot. Conservé pour historique.
+
 # Audit frontend critique — General Midi Boop
 **Date** : 2026-05-14
 **Branche** : `claude/frontend-architecture-review-8zA9d`
