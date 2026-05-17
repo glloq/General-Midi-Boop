@@ -220,6 +220,26 @@
                 };
             }
 
+            // Octave-mode materialization. The playback/adaptation pipeline
+            // ignores `octave_mode` entirely, so a Diatonic/Pentatonic choice
+            // in range mode would otherwise play every chromatic note in the
+            // range. We bake the in-scale subset into discrete `selected_notes`
+            // (a path the pipeline fully honors) while still persisting the
+            // range bounds + octave_mode so the modal rebuilds the
+            // "range + active octave" UI on reload.
+            const _materializeOctave = function(mode, oct, rmin, rmax, selNotes) {
+                if (mode === 'range' && oct && oct !== 'chromatic'
+                    && rmin != null && rmax != null && !isNaN(rmin) && !isNaN(rmax)
+                    && typeof InstrumentSettingsModal !== 'undefined'
+                    && typeof InstrumentSettingsModal.computePlayableNotes === 'function') {
+                    const mat = InstrumentSettingsModal.computePlayableNotes(rmin, rmax, oct);
+                    if (Array.isArray(mat) && mat.length > 0) {
+                        return { mode: 'discrete', selected: mat };
+                    }
+                }
+                return { mode: mode, selected: selNotes };
+            };
+
             // Build the secondary-voice list — supported_ccs is shared,
             // per-voice note fields are sent only when sharing is off.
             const tabForSave = this._getActiveTab();
@@ -237,10 +257,15 @@
                     octave_mode: null
                 };
                 if (voicesShareNotes === 0) {
-                    base.note_selection_mode = v.note_selection_mode || null;
-                    base.note_range_min = v.note_range_min != null ? v.note_range_min : null;
-                    base.note_range_max = v.note_range_max != null ? v.note_range_max : null;
-                    base.selected_notes = Array.isArray(v.selected_notes) ? v.selected_notes : null;
+                    const vMode = v.note_selection_mode || null;
+                    const vMin = v.note_range_min != null ? v.note_range_min : null;
+                    const vMax = v.note_range_max != null ? v.note_range_max : null;
+                    const vSel = Array.isArray(v.selected_notes) ? v.selected_notes : null;
+                    const vMat = _materializeOctave(vMode, v.octave_mode, vMin, vMax, vSel);
+                    base.note_selection_mode = vMat.mode;
+                    base.note_range_min = vMin;
+                    base.note_range_max = vMax;
+                    base.selected_notes = vMat.selected;
                     base.octave_mode = v.octave_mode || null;
                 }
                 return base;
@@ -275,6 +300,14 @@
                 handsConfigPayload = primaryTab.settings.hands_config;
             }
 
+            // Primary: same octave-mode materialization. `noteSelectionMode`
+            // (the original UI value) is kept for the range-bounds fields so
+            // the range survives even when the persisted capability mode is
+            // forced to 'discrete'.
+            const _primMat = _materializeOctave(noteSelectionMode, octaveMode, parsedMin, parsedMax, selectedNotes);
+            const effNoteSelectionMode = _primMat.mode;
+            const effSelectedNotes = _primMat.selected;
+
             // ALL writes go through one atomic backend command. A failure
             // anywhere rolls back the whole save, so the row can never be
             // left in a partial state (settings OK + capabilities missing,
@@ -299,7 +332,7 @@
                 polyphony: effectivePolyphony,
                 note_selection_mode: isStringInst
                     ? stringNoteSelectionMode
-                    : ((gmDecoded.isDrumKit || this.activeChannel === 9) ? 'discrete' : noteSelectionMode),
+                    : ((gmDecoded.isDrumKit || this.activeChannel === 9) ? 'discrete' : effNoteSelectionMode),
                 note_range_min: isStringInst
                     ? stringNoteRangeMin
                     : (noteSelectionMode === 'range' && !gmDecoded.isDrumKit ? parsedMin : null),
@@ -308,7 +341,7 @@
                     : (noteSelectionMode === 'range' && !gmDecoded.isDrumKit ? parsedMax : null),
                 selected_notes: isStringInst
                     ? stringSelectedNotes
-                    : ((noteSelectionMode === 'discrete' || gmDecoded.isDrumKit) ? selectedNotes : null),
+                    : ((effNoteSelectionMode === 'discrete' || gmDecoded.isDrumKit) ? effSelectedNotes : null),
                 supported_ccs: supportedCCs,
                 pitch_bend_enabled: pitchBendEnabled,
                 capabilities_source: 'manual',
