@@ -4496,9 +4496,10 @@ body.dark-mode .kalimba-view {
    labels (OUTSIDE the device, aligned with their rows) next to the device —
    curved chrome cover plates (rounded over the top, bottom and side edges)
    sandwiching a matte comb whose rounded holes sit in a recessed channel.
-   The chromatic slide is a real push-button protruding from the RIGHT side:
-   it sticks OUT to the right at rest and slides LEFT (into the body) when
-   engaged; HarmonicaView also rewrites every hole's note to the shifted pitch.
+   The chromatic slide is a real slide mechanism on the RIGHT side: a metal
+   bar (the rod) tipped with a triangular finger button, extended at rest and
+   driven LEFT into the body when engaged; HarmonicaView also rewrites every
+   hole's note to the shifted pitch.
    ========================================================================== */
 
 .harmonica-view {
@@ -4511,9 +4512,9 @@ body.dark-mode .kalimba-view {
     justify-content: center;
     align-items: center;
     gap: 18px;
-    /* Extra room on the right so the protruding slide button (chromatic)
+    /* Extra room on the right so the protruding slide bar (chromatic)
        is fully visible and never scrolled. */
-    padding: 16px 52px 16px 16px;
+    padding: 16px 64px 16px 16px;
     overflow: auto;
     touch-action: none;
 }
@@ -4564,29 +4565,41 @@ body.dark-mode .kalimba-view {
 .harmonica-cover-top {
     border-radius: 18px 18px 0 0;
     background:
+        /* side curl highlights — metal wrapping over the left/right edges */
         linear-gradient(90deg,
-            rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 7%,
-            rgba(255,255,255,0) 93%, rgba(255,255,255,0.55) 100%),
+            rgba(255,255,255,0.65) 0%, rgba(255,255,255,0) 5%,
+            rgba(255,255,255,0) 95%, rgba(255,255,255,0.65) 100%),
+        /* fine brushed grain along the length */
+        repeating-linear-gradient(90deg,
+            rgba(255,255,255,0.045) 0px, rgba(0,0,0,0.045) 1.5px,
+            rgba(255,255,255,0.045) 3px),
+        /* polished chrome: bright rolled edge, sharp horizon reflection,
+           light bounce, then dark where it meets the comb */
         linear-gradient(180deg,
-            #eef3f6 0%, #ffffff 14%, #cdd5db 46%,
-            #9fa8af 78%, #7e868d 100%);
+            #ffffff 0%, #eef3f6 7%, #c5ced5 22%,
+            #828b92 43%, #9fa8af 52%, #d2d9de 66%,
+            #8f989f 84%, #5f686f 100%);
     box-shadow:
-        inset 0 2px 1px rgba(255, 255, 255, 0.7),
-        inset 0 -6px 8px rgba(0, 0, 0, 0.28);
+        inset 0 2px 0 rgba(255, 255, 255, 0.85),
+        inset 0 -7px 9px rgba(0, 0, 0, 0.32);
 }
 
 .harmonica-cover-bottom {
     border-radius: 0 0 18px 18px;
     background:
         linear-gradient(90deg,
-            rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 7%,
-            rgba(255,255,255,0) 93%, rgba(255,255,255,0.5) 100%),
+            rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 5%,
+            rgba(255,255,255,0) 95%, rgba(255,255,255,0.6) 100%),
+        repeating-linear-gradient(90deg,
+            rgba(255,255,255,0.04) 0px, rgba(0,0,0,0.04) 1.5px,
+            rgba(255,255,255,0.04) 3px),
         linear-gradient(0deg,
-            #e7edf1 0%, #ffffff 16%, #c4ccd2 48%,
-            #97a0a7 80%, #767e85 100%);
+            #f7fafb 0%, #e3e9ed 7%, #bcc5cc 22%,
+            #79828a 43%, #98a1a8 52%, #ccd3d9 66%,
+            #8a939a 84%, #59626a 100%);
     box-shadow:
-        inset 0 -2px 1px rgba(255, 255, 255, 0.6),
-        inset 0 6px 8px rgba(0, 0, 0, 0.28);
+        inset 0 -2px 0 rgba(255, 255, 255, 0.75),
+        inset 0 7px 9px rgba(0, 0, 0, 0.32);
 }
 
 /* Comb body: a matte panel tucked under the curved covers (inner top/bottom
@@ -4697,19 +4710,20 @@ body.dark-mode .kalimba-view {
 .harmonica-hole.active .harmonica-hole-num,
 .harmonica-hole.active .harmonica-hole-note { color: #16202b; }
 
-/* Chromatic slide: a REAL push-button protruding from the right side of the
-   device. At rest the cap sticks OUT to the right; clicking it (toggle)
-   slides it LEFT, into the body, like a real chromatic harmonica. */
+/* Chromatic slide: a real slide MECHANISM protruding from the right side of
+   the device — a metal bar (the slide rod) tipped with a triangular finger
+   button. At rest the bar is extended OUT to the right; clicking it (toggle)
+   drives the bar + triangle LEFT, into the body, like a real chromatic. */
 .harmonica-slide {
     position: absolute;
     top: 50%;
-    right: -34px;
+    right: -40px;
     transform: translateY(-50%);
     z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     border: none;
     background: none;
     -webkit-appearance: none;
@@ -4728,47 +4742,48 @@ body.dark-mode .kalimba-view {
     white-space: nowrap;
 }
 
-/* The metal ferrule/sleeve mounted on the body's right edge — the cap
-   slides in and out of it. */
+/* The slide rod: a thin polished-metal bar that travels left/right. The
+   triangular button head is its child, anchored to the bar's right end. */
 .harmonica-slide-track {
     position: relative;
-    width: 30px;
-    height: 34px;
-    border-radius: 4px 8px 8px 4px;
+    width: 40px;
+    height: 10px;
+    border-radius: 2px;
     background: linear-gradient(180deg,
-        #f0f4f6 0%, #cfd6db 42%, #9aa2a9 78%, #7c848b 100%);
+        #ffffff 0%, #d7dee3 38%, #9aa2a9 72%, #6f777e 100%);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.7),
-        inset 0 -2px 3px rgba(0, 0, 0, 0.35),
-        0 1px 3px rgba(0, 0, 0, 0.4);
-    transition: background 0.15s ease;
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.45);
+    transition: transform 0.16s ease, background 0.16s ease;
 }
 
-/* The button cap on its rod. OFF → sticks out right; ENGAGED → pushed left
-   into the sleeve. The rod is the left box-shadow spread. */
+/* The triangular finger button at the rod's end, pointing LEFT (the push
+   direction). OFF → sits at the far right; ENGAGED → driven left with the
+   bar, into the body. */
 .harmonica-slide-knob {
     position: absolute;
     top: 50%;
-    right: -18px;                     /* OFF → cap sticks out to the right */
-    width: 22px;
+    right: -16px;                     /* OFF → triangle out past the bar end */
+    width: 16px;
     height: 22px;
-    border-radius: 50%;
     transform: translateY(-50%);
-    background: radial-gradient(circle at 38% 32%, #ffffff 0%, #c6cdd3 62%, #8d959c 100%);
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.5),
-        -10px 0 0 -7px #b9c0c6;        /* the connecting rod */
+    clip-path: polygon(100% 0, 100% 100%, 0 50%);
+    background: linear-gradient(180deg,
+        #ffffff 0%, #cdd5db 45%, #8d959c 100%);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
     transition: right 0.16s ease, background 0.16s ease;
 }
 
 .harmonica-slide.engaged .harmonica-slide-track {
+    transform: translateX(-22px);     /* ON → rod driven left, into the body */
     background: linear-gradient(180deg,
-        #f0d9a8 0%, #e0b25f 45%, #c9851f 80%, #a86c14 100%);
+        #ffe9c2 0%, #e8b665 42%, #c9851f 76%, #a86c14 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-knob {
-    right: 12px;                      /* ON → cap pushed left, into the body */
-    background: radial-gradient(circle at 38% 32%, #fff3d6 0%, #f0c873 62%, #cf9a35 100%);
+    background: linear-gradient(180deg,
+        #fff3d6 0%, #f0c873 45%, #cf9a35 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-label { color: #ffd98a; }
