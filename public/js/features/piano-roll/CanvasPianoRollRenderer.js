@@ -855,6 +855,59 @@
                 return;
             }
 
+            const m = this._uiMode;
+
+            // add-note / edit : an empty click creates a note; holding and
+            // dragging right then sets its duration (reusing the `resize`
+            // drag). On an existing note, `edit` falls through to the
+            // shared move/resize handler while `add-note` stays inert
+            // (parity with double-click — never deletes on tap).
+            if (m === 'add-note' || m === 'edit') {
+                if (hit) {
+                    if (m === 'add-note') return;
+                    // edit → shared move/resize hit block below
+                } else {
+                    const idx = this._createNoteAt(x, y);
+                    if (idx < 0) return;
+                    this._dragging = {
+                        mode: 'resize',
+                        idx,
+                        startTick: tick,
+                        startGate: this._sequence[idx].g || 0
+                    };
+                    this._el.style.cursor = 'ew-resize';
+                    this._scheduleRender();
+                    return;
+                }
+            }
+
+            // resize-note (touch) : a press anywhere on a note resizes it;
+            // empty space does nothing.
+            if (m === 'resize-note') {
+                if (!hit) return;
+                if (!hit.note.f && !(e.ctrlKey || e.metaKey)) this.deselectAll();
+                hit.note.f = 1;
+                this._emit('selectionchange');
+                this.saveSnapshot();
+                this._dragging = {
+                    mode: 'resize',
+                    idx: hit.idx,
+                    startTick: tick,
+                    startGate: hit.note.g || 0
+                };
+                this._el.style.cursor = 'ew-resize';
+                this._scheduleRender();
+                return;
+            }
+
+            // drag-notes (touch) : only moves notes — an empty press just
+            // clears the selection, never opens a selection rectangle.
+            if (m === 'drag-notes' && !hit) {
+                if (!(e.ctrlKey || e.metaKey)) this.deselectAll();
+                this._scheduleRender();
+                return;
+            }
+
             if (hit) {
                 // Clicked on a note. Three sub-modes:
                 //  - resize : right-edge handle (changes gate of the hit note only)
@@ -1435,6 +1488,32 @@
         // B8 — Double-click create
         // ----------------------------------------------------------------
 
+        /**
+         * Create a note at the (x, y) CSS coords, snapped to grid, selected
+         * and ready for undo. Returns its index in `_sequence`, or -1 when
+         * the position is outside the editable area. Shared by the
+         * double-click handler and the click-to-create UI modes.
+         */
+        _createNoteAt(x, y) {
+            if (x < KB_WIDTH) return -1;
+            const note = this._yToNote(y);
+            if (note < NOTE_MIN || note > NOTE_MAX) return -1;
+            const t = Math.max(0, this._snapTicks(this._xToTick(x)));
+            const gate = Math.max(MIN_NOTE_GATE,
+                Math.round((this._snap || this._grid || 120) * DEFAULT_NEW_NOTE_GATE_RATIO));
+            this.saveSnapshot();
+            const newNote = { t, g: gate, n: note, c: this._defaultChannel, v: 100, f: 1 };
+            this.deselectAll();
+            this._sequence.push(newNote);
+            // Index left dirty — _notesInTickRange() rebuilds it lazily so
+            // subsequent hit-tests still find the fresh note.
+            this._bucketsDirty = true;
+            this._scheduleRender();
+            this._emit('change');
+            this._emit('selectionchange');
+            return this._sequence.length - 1;
+        }
+
         _onDblClick(e) {
             if (!this._el) return;
             const { x, y } = this._localCoords(e);
@@ -1444,20 +1523,7 @@
             // but `<webaudio-pianoroll>` doesn't do that — keep parity and
             // ignore dblclick on hit.
             if (this._hitTestNote(x, y)) return;
-            const tickRaw = this._xToTick(x);
-            const note = this._yToNote(y);
-            if (note < NOTE_MIN || note > NOTE_MAX) return;
-            const t = Math.max(0, this._snapTicks(tickRaw));
-            const gate = Math.max(MIN_NOTE_GATE,
-                Math.round((this._snap || this._grid || 120) * DEFAULT_NEW_NOTE_GATE_RATIO));
-            this.saveSnapshot();
-            const newNote = { t, g: gate, n: note, c: this._defaultChannel, v: 100, f: 1 };
-            this.deselectAll();
-            this._sequence.push(newNote);
-            this._bucketsDirty = true;
-            this._scheduleRender();
-            this._emit('change');
-            this._emit('selectionchange');
+            this._createNoteAt(x, y);
         }
 
         // ----------------------------------------------------------------
