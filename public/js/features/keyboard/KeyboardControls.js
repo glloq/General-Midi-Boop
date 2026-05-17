@@ -417,26 +417,38 @@
                     // Reuse the capabilities already fetched above — no extra API call needed.
                     const capsResponse = capsResp;
                     if (capsResponse && capsResponse.instruments) {
-                        const existingIds = new Set(this.devices.map(d => d.id || d.device_id));
+                        // Surface every (device_id, channel) virtual instrument
+                        // as its own selectable entry, mirroring the USB
+                        // _multiInstrument expansion above. Deduping by
+                        // device_id alone collapsed all channels of a
+                        // multi-timbral virtual port to a single entry, hiding
+                        // every instrument past the first.
+                        const existingKeys = new Set(
+                            this.devices.map(d => `${d.device_id || d.id}::${d.channel ?? 0}`)
+                        );
                         for (const dbInst of capsResponse.instruments) {
                             const devId = dbInst.device_id || dbInst.id;
-                            if (devId && devId.startsWith('virtual_') && !existingIds.has(devId)) {
-                                const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
-                                const virtualDbDevice = {
-                                    id: devId,
-                                    device_id: devId,
-                                    name: `🖥️ ${vName}`,
-                                    displayName: `🖥️ ${vName}`,
-                                    type: 'Virtual',
-                                    status: 2,
-                                    connected: true,
-                                    isVirtual: true,
-                                    channel: dbInst.channel || 0,
-                                    gm_program: dbInst.gm_program,
-                                    customName: null
-                                };
-                                this.devices.push(virtualDbDevice);
-                            }
+                            if (!devId || !devId.startsWith('virtual_')) continue;
+                            const channel = dbInst.channel || 0;
+                            const key = `${devId}::${channel}`;
+                            if (existingKeys.has(key)) continue;
+                            existingKeys.add(key);
+                            const vName = dbInst.custom_name || dbInst.name || 'Virtual Instrument';
+                            this.devices.push({
+                                id: devId,
+                                device_id: devId,
+                                name: `🖥️ ${vName}`,
+                                displayName: `🖥️ ${vName}`,
+                                type: 'Virtual',
+                                status: 2,
+                                connected: true,
+                                isVirtual: true,
+                                channel: channel,
+                                gm_program: dbInst.gm_program,
+                                _instrumentId: dbInst.id,
+                                _multiInstrument: true,
+                                customName: null
+                            });
                         }
                         this.logger.info('[KeyboardModal] Virtual DB instruments loaded');
                     }
