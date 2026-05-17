@@ -181,6 +181,7 @@ describe('playNote ↔ InstrumentView contract (KM-C4)', () => {
       updatePianoDisplay() {},
       selectedDevice: null,
       backend: null,
+      _logNoteEvent() {},
       _panelCallbacks: { onNoteOn: (n, v) => out.push([n, v]) },
       ...over
     };

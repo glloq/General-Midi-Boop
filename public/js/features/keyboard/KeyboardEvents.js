@@ -432,6 +432,19 @@
         return null;
     }
 
+    // Always emit exactly one app-log line per note so the debug console
+    // shows every note regardless of device state. The backend midi_send
+    // path only echoes to the MIDI pane when midiRouter.monitorAll is on,
+    // so the keyboard cannot rely on it for feedback.
+    KeyboardEventsMixin._logNoteEvent = function(kind /* 'on' | 'off' */, note, velocity) {
+        const noteName = this.getNoteNameFromNumber(note);
+        const message = kind === 'on'
+            ? `🎹 ${this.t('keyboard.virtualNoteOn',  { note: noteName, number: note, velocity })}`
+            : `🎹 ${this.t('keyboard.virtualNoteOff', { note: noteName, number: note })}`;
+        if (this.logger && this.logger.info) this.logger.info(message);
+        else console.log(message);
+    };
+
     KeyboardEventsMixin.playNote = function(note) {
         if (note < 0 || note > 127) return;
 
@@ -458,27 +471,21 @@
 
         if (this._panelCallbacks?.onNoteOn) this._panelCallbacks.onNoteOn(note, velocity);
 
-        // Send MIDI if a device is selected
-        if (this.selectedDevice && this.backend) {
-            const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+        // Send MIDI only to a real hardware device; the debug trace below
+        // is emitted unconditionally.
+        const realHardware =
+            this.selectedDevice && this.backend && !this.selectedDevice.isVirtual;
 
-            if (this.selectedDevice.isVirtual) {
-                // Virtual device: log only.
-                const noteName = this.getNoteNameFromNumber(note);
-                const message = `🎹 ${this.t('keyboard.virtualNoteOn', { note: noteName, number: note, velocity })}`;
-                if (this.logger && this.logger.info) {
-                    this.logger.info(message);
-                } else {
-                    console.log(message);
-                }
-            } else {
-                const channel = this.getSelectedChannel();
-                this.backend.sendNoteOn(deviceId, note, velocity, channel)
-                    .catch(err => {
-                        this.logger.error('[KeyboardModal] Note ON failed:', err);
-                    });
-            }
+        if (realHardware) {
+            const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+            const channel = this.getSelectedChannel();
+            this.backend.sendNoteOn(deviceId, note, velocity, channel)
+                .catch(err => {
+                    this.logger.error('[KeyboardModal] Note ON failed:', err);
+                });
         }
+
+        this._logNoteEvent('on', note, velocity);
 
         // Active-view post-play hook (e.g. wind staccato auto note-off).
         if (view && typeof view.afterPlayNote === 'function') {
@@ -493,28 +500,21 @@
 
         if (this._panelCallbacks?.onNoteOff) this._panelCallbacks.onNoteOff(note);
 
-        // Send MIDI if a device is selected
-        if (this.selectedDevice && this.backend) {
+        // Send MIDI only to a real hardware device; the debug trace below
+        // is emitted unconditionally.
+        const realHardware =
+            this.selectedDevice && this.backend && !this.selectedDevice.isVirtual;
+
+        if (realHardware) {
             const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
-
-            // If it is the virtual device, send to logs
-            if (this.selectedDevice.isVirtual) {
-                const noteName = this.getNoteNameFromNumber(note);
-                const message = `🎹 ${this.t('keyboard.virtualNoteOff', { note: noteName, number: note })}`;
-                if (this.logger && this.logger.info) {
-                    this.logger.info(message);
-                } else {
-                    console.log(message);
-                }
-                return;
-            }
-
             const channel = this.getSelectedChannel();
             this.backend.sendNoteOff(deviceId, note, channel)
                 .catch(err => {
                     this.logger.error('[KeyboardModal] Note OFF failed:', err);
                 });
         }
+
+        this._logNoteEvent('off', note);
     }
 
     if (typeof window !== 'undefined') window.KeyboardEventsMixin = KeyboardEventsMixin;
