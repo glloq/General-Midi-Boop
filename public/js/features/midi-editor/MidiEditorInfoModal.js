@@ -14,61 +14,12 @@
 (function () {
     'use strict';
 
-    // ── Constantes de décodage MIDI ──────────────────────────────────────── //
-
-    const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-
-    const CC_NAMES = {
-        0:'Bank Select', 1:'Modulation', 2:'Breath', 4:'Foot Ctrl',
-        5:'Portamento Time', 6:'Data Entry', 7:'Volume', 8:'Balance',
-        10:'Pan', 11:'Expression', 12:'Effect 1', 13:'Effect 2',
-        64:'Sustain', 65:'Portamento', 66:'Sostenuto', 67:'Soft Pedal',
-        68:'Legato', 70:'Sound Variation', 71:'Résonance', 72:'Release',
-        73:'Attack', 74:'Cutoff', 75:'Decay', 76:'Vibrato Rate',
-        77:'Vibrato Depth', 78:'Vibrato Delay', 84:'Portamento Ctrl',
-        91:'Reverb', 92:'Tremolo', 93:'Chorus', 94:'Detune', 95:'Phaser',
-        120:'All Sound Off', 121:'Reset Ctrl', 123:'All Notes Off'
-    };
-
-    const TYPE_LABELS = {
-        drums:'Percussions', bass:'Basse', melody:'Mélodie',
-        harmony:'Harmonie', percussive:'Percussif'
-    };
-
-    const ROUTING_LABELS = {
-        unrouted:'Non routé', partial:'Partiel',
-        playable:'Prêt', routed_incomplete:'Incomplet', auto_assigned:'Auto-assigné'
-    };
-
     // ── Helpers ───────────────────────────────────────────────────────────── //
-
-    function midiNote(n) {
-        if (n == null) return '—';
-        return NOTE_NAMES[n % 12] + Math.floor(n / 12 - 1) + ` (${n})`;
-    }
 
     function esc(s) {
         return String(s ?? '')
             .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
             .replace(/"/g,'&quot;');
-    }
-
-    function fmt(v, fb = '—') {
-        return (v !== null && v !== undefined && String(v).trim() !== '') ? v : fb;
-    }
-
-    function fmtSize(bytes) {
-        if (!bytes) return '—';
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
-        return (bytes / 1048576).toFixed(1) + ' MB';
-    }
-
-    function fmtDuration(sec) {
-        if (!sec || sec <= 0) return '—';
-        const m = Math.floor(sec / 60);
-        const s = String(Math.floor(sec % 60)).padStart(2, '0');
-        return `${m}:${s}`;
     }
 
     function ticksToSec(tick, ppq, tempoMap, defaultBpm = 120) {
@@ -309,7 +260,7 @@
             // ── Vue tableau ───────────────────────────────────────────── //
             const tableRows = lyrics.map(ev => {
                 const sec = ticksToSec(ev.tick, ppq, tempoMap, bpm);
-                const raw = (ev.text || '').replace(/[\r\n]/g, '↵').replace(/[\/\\]/g, '⏎');
+                const raw = (ev.text || '').replace(/[\r\n]/g, '↵').replace(/[/\\]/g, '⏎');
                 return `<tr>
                     <td class="fi-td-num">${fmtSec(sec)}</td>
                     <td class="fi-td-num fi-td-tick">${ev.tick}</td>
@@ -379,12 +330,12 @@
                 const gap = prevTick >= 0 ? ev.tick - prevTick : 0;
 
                 // Détecter les marqueurs de rupture dans le texte
-                const verseBreakChar = /^[\n\/\\]|[\n\/\\]$/.test(text);
+                const verseBreakChar = /^[\n/\\]|[\n/\\]$/.test(text);
                 const lineBreakChar  = /^\r|\r$/.test(text);
 
                 // Nettoyer : ruptures de ligne + caractères de contrôle + marqueurs KAR (%chord<)
                 const clean = stripKarMarkers(
-                    text.replace(/[\r\n\/\\]/g, '').replace(/[\x00-\x1f]/g, '')
+                    text.replace(/[\r\n/\\]/g, '').replace(/[\x00-\x1f]/g, '')
                 );
 
                 // Priorité : grande pause → couplet ; pause moyenne → ligne

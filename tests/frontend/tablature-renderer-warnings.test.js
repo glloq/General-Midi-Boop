@@ -8,6 +8,10 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
+const baseSrc = readFileSync(
+  resolve(__dirname, '../../public/js/features/CanvasRenderer.js'),
+  'utf8'
+);
 const src = readFileSync(
   resolve(__dirname, '../../public/js/features/TablatureRenderer.js'),
   'utf8'
@@ -36,6 +40,8 @@ function installCanvasStub() {
 
 beforeAll(() => {
   installCanvasStub();
+  // TablatureRenderer extends CanvasRenderer — register the base first.
+  new Function(baseSrc)();
   new Function(src + '\nwindow.TablatureRenderer = TablatureRenderer;')();
 });
 
