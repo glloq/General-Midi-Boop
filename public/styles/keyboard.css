@@ -4489,14 +4489,16 @@ body.dark-mode .kalimba-view {
 }
 
 /* ============================================================================
-   HARMONICA VIEW — clean side view (cover plates + comb + numbered holes)
+   HARMONICA VIEW — realistic side view (curved metal covers + comb + holes)
    ----------------------------------------------------------------------------
    Self-owned root appended to .keyboard-canvas-container by HarmonicaView.js.
-   A centered device: smooth metal cover plates sandwich a matte comb whose
-   rounded holes sit in a recessed channel (the gap between holes reads as
-   comb teeth). The chromatic slide is a click-to-toggle switch whose knob
-   sits on the RIGHT when off and slides LEFT when engaged; HarmonicaView
-   also rewrites every hole's displayed note to the shifted pitch.
+   Layout is a centered ROW: a left column with the "Souffler ↑"/"Aspirer ↓"
+   labels (OUTSIDE the device, aligned with their rows) next to the device —
+   curved chrome cover plates (rounded over the top, bottom and side edges)
+   sandwiching a matte comb whose rounded holes sit in a recessed channel.
+   The chromatic slide is a real push-button protruding from the RIGHT side:
+   it sticks OUT to the right at rest and slides LEFT (into the body) when
+   engaged; HarmonicaView also rewrites every hole's note to the shifted pitch.
    ========================================================================== */
 
 .harmonica-view {
@@ -4505,13 +4507,28 @@ body.dark-mode .kalimba-view {
     width: 100%;
     box-sizing: border-box;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 14px;
-    padding: 16px;
+    gap: 18px;
+    /* Extra room on the right so the protruding slide button (chromatic)
+       is fully visible and never scrolled. */
+    padding: 16px 52px 16px 16px;
     overflow: auto;
     touch-action: none;
+}
+
+/* Souffler/Aspirer labels: a left column OUTSIDE the device. Equal gap and
+   per-item height to the comb's rows so each label centers on its row (the
+   device's covers are symmetric, so comb-center = device-center = row-center
+   = labels-center). */
+.harmonica-labels {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    user-select: none;
 }
 
 /* Trim the top gap above the harmonica (shared canvas padding is meant for
@@ -4520,42 +4537,70 @@ body.dark-mode .kalimba-view {
     padding-top: 2px;
 }
 
-/* The device: cover plates + comb, centered, growing to a comfortable max
-   instead of stretching edge-to-edge. */
+/* The device: curved cover plates + comb, centered, growing to a comfortable
+   max instead of stretching edge-to-edge. `position:relative` anchors the
+   protruding chromatic slide button; no overflow:hidden so the button can
+   stick out past the right edge (the rounded corners live on the covers). */
 .harmonica-device {
-    width: 100%;
+    position: relative;
+    flex: 1;
+    min-width: 0;
     max-width: 920px;
     display: flex;
     flex-direction: column;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28),
-                inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    border-radius: 18px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
 }
 
-/* Smooth brushed-steel cover plates (no busy grain). */
+/* Curved chrome cover plates: a bright specular band over a steel body that
+   darkens at the edge meeting the comb, plus side highlights so the metal
+   reads as wrapping (rounded) over the top, bottom and side edges. */
 .harmonica-cover {
-    height: 30px;
+    height: 38px;
     flex: none;
-    background: linear-gradient(180deg, #fdfefe 0%, #d7dde2 38%, #aeb6bd 72%, #c4cbd1 100%);
+    position: relative;
 }
 
-.harmonica-cover-top { border-bottom: 1px solid rgba(0, 0, 0, 0.16); }
+.harmonica-cover-top {
+    border-radius: 18px 18px 0 0;
+    background:
+        linear-gradient(90deg,
+            rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 7%,
+            rgba(255,255,255,0) 93%, rgba(255,255,255,0.55) 100%),
+        linear-gradient(180deg,
+            #eef3f6 0%, #ffffff 14%, #cdd5db 46%,
+            #9fa8af 78%, #7e868d 100%);
+    box-shadow:
+        inset 0 2px 1px rgba(255, 255, 255, 0.7),
+        inset 0 -6px 8px rgba(0, 0, 0, 0.28);
+}
 
 .harmonica-cover-bottom {
-    border-top: 1px solid rgba(0, 0, 0, 0.16);
-    background: linear-gradient(0deg, #fdfefe 0%, #d7dde2 38%, #aeb6bd 72%, #c4cbd1 100%);
+    border-radius: 0 0 18px 18px;
+    background:
+        linear-gradient(90deg,
+            rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 7%,
+            rgba(255,255,255,0) 93%, rgba(255,255,255,0.5) 100%),
+        linear-gradient(0deg,
+            #e7edf1 0%, #ffffff 16%, #c4ccd2 48%,
+            #97a0a7 80%, #767e85 100%);
+    box-shadow:
+        inset 0 -2px 1px rgba(255, 255, 255, 0.6),
+        inset 0 6px 8px rgba(0, 0, 0, 0.28);
 }
 
-/* Comb body: a clean matte panel. Holds the rows + (chromatic) slide. */
+/* Comb body: a matte panel tucked under the curved covers (inner top/bottom
+   shadows sell the overlap). Holds the blow/draw rows. */
 .harmonica-body {
     flex: 1;
     min-height: 0;
     display: flex;
     align-items: center;
-    gap: 18px;
-    padding: 18px 20px;
+    padding: 18px 22px;
     background: linear-gradient(180deg, #454b54 0%, #373c44 100%);
+    box-shadow:
+        inset 0 7px 9px -6px rgba(0, 0, 0, 0.55),
+        inset 0 -7px 9px -6px rgba(0, 0, 0, 0.55);
 }
 
 .harmonica-comb {
@@ -4563,24 +4608,25 @@ body.dark-mode .kalimba-view {
     min-width: 0;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 10px;
 }
 
-.harmonica-line {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
+/* One label per row. min-height = a row's outer height (hole 52px + 2×6px
+   row padding) so, with the matching column gap, each label's center lines
+   up with its blow/draw row. */
 .harmonica-row-label {
     flex: none;
-    width: 92px;
+    width: 96px;
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     text-align: right;
-    font: 600 11px/1.2 system-ui, sans-serif;
+    font: 600 12px/1.2 system-ui, sans-serif;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #cfd6dd;
-    user-select: none;
 }
 
 .harmonica-row-label-blow { color: #7fc3f5; }
@@ -4589,7 +4635,7 @@ body.dark-mode .kalimba-view {
 /* Recessed channel the holes sit in; the gap between holes reveals it as
    comb teeth. */
 .harmonica-row {
-    flex: 1;
+    flex: none;
     min-width: 0;
     display: flex;
     gap: 6px;
@@ -4651,59 +4697,78 @@ body.dark-mode .kalimba-view {
 .harmonica-hole.active .harmonica-hole-num,
 .harmonica-hole.active .harmonica-hole-note { color: #16202b; }
 
-/* Chromatic slide: a click-to-toggle switch. Knob on the RIGHT = off,
-   slides LEFT = engaged. */
+/* Chromatic slide: a REAL push-button protruding from the right side of the
+   device. At rest the cap sticks OUT to the right; clicking it (toggle)
+   slides it LEFT, into the body, like a real chromatic harmonica. */
 .harmonica-slide {
-    flex: none;
-    align-self: center;
+    position: absolute;
+    top: 50%;
+    right: -34px;
+    transform: translateY(-50%);
+    z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     border: none;
     background: none;
+    -webkit-appearance: none;
+    appearance: none;
     cursor: pointer;
-    padding: 4px;
+    padding: 0;
     user-select: none;
 }
 
 .harmonica-slide-label {
-    font: 700 10px/1 system-ui, sans-serif;
-    letter-spacing: 0.08em;
+    font: 700 9px/1 system-ui, sans-serif;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #cfd6dd;
     transition: color 0.15s ease;
+    white-space: nowrap;
 }
 
+/* The metal ferrule/sleeve mounted on the body's right edge — the cap
+   slides in and out of it. */
 .harmonica-slide-track {
     position: relative;
-    width: 64px;
-    height: 30px;
-    border-radius: 15px;
-    background: linear-gradient(180deg, #23262c 0%, #2f333a 100%);
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+    width: 30px;
+    height: 34px;
+    border-radius: 4px 8px 8px 4px;
+    background: linear-gradient(180deg,
+        #f0f4f6 0%, #cfd6db 42%, #9aa2a9 78%, #7c848b 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.35),
+        0 1px 3px rgba(0, 0, 0, 0.4);
     transition: background 0.15s ease;
 }
 
+/* The button cap on its rod. OFF → sticks out right; ENGAGED → pushed left
+   into the sleeve. The rod is the left box-shadow spread. */
 .harmonica-slide-knob {
     position: absolute;
-    top: 3px;
-    right: 3px;                       /* OFF → knob on the right */
-    width: 24px;
-    height: 24px;
+    top: 50%;
+    right: -18px;                     /* OFF → cap sticks out to the right */
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    background: radial-gradient(circle at 38% 32%, #ffffff 0%, #c6cdd3 65%, #99a1a8 100%);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transform: translateY(-50%);
+    background: radial-gradient(circle at 38% 32%, #ffffff 0%, #c6cdd3 62%, #8d959c 100%);
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.5),
+        -10px 0 0 -7px #b9c0c6;        /* the connecting rod */
     transition: right 0.16s ease, background 0.16s ease;
 }
 
 .harmonica-slide.engaged .harmonica-slide-track {
-    background: linear-gradient(180deg, #d8932f 0%, #c9851f 100%);
+    background: linear-gradient(180deg,
+        #f0d9a8 0%, #e0b25f 45%, #c9851f 80%, #a86c14 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-knob {
-    right: 37px;                      /* ON → knob slides to the left */
-    background: radial-gradient(circle at 38% 32%, #fff3d6 0%, #f0c873 65%, #cf9a35 100%);
+    right: 12px;                      /* ON → cap pushed left, into the body */
+    background: radial-gradient(circle at 38% 32%, #fff3d6 0%, #f0c873 62%, #cf9a35 100%);
 }
 
 .harmonica-slide.engaged .harmonica-slide-label { color: #ffd98a; }

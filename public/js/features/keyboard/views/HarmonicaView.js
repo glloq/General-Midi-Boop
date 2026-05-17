@@ -18,10 +18,12 @@
 //
 // The chromatic flag lives ONLY in harmonica_config.type — keyboard_type is
 // never set for a harmonica (that would divert GM22 to the keyboard-list
-// view). The view renders a realistic side view (metal cover plates, a comb
-// with numbered holes, "Souffler ↑" / "Aspirer ↓" rows) and plays through
-// modal.playNote()/stopNote() so MIDI routing and the active-notes set behave
-// exactly like the other views.
+// view). The view renders a realistic side view (curved metal cover plates,
+// a comb with numbered holes, the "Souffler ↑" / "Aspirer ↓" labels in a
+// left column outside the device, and — chromatic only — a slide button
+// protruding from the right side) and plays through modal.playNote()/
+// stopNote() so MIDI routing and the active-notes set behave exactly like
+// the other views.
 // =============================================================================
 (function () {
     'use strict';
@@ -129,6 +131,10 @@
             root.className = 'harmonica-view'
                 + (this._chromatic ? ' harmonica-chromatic' : ' harmonica-diatonic');
 
+            // Souffler/Aspirer labels live OUTSIDE the device, in a left
+            // column aligned with the blow/draw rows.
+            const labels = this._buildLabels();
+
             const device = document.createElement('div');
             device.className = 'harmonica-device';
 
@@ -142,8 +148,8 @@
 
             const comb = document.createElement('div');
             comb.className = 'harmonica-comb';
-            comb.appendChild(this._buildLine('blow', blow, modal));
-            comb.appendChild(this._buildLine('draw', draw, modal));
+            comb.appendChild(this._buildRow('blow', blow, modal));
+            comb.appendChild(this._buildRow('draw', draw, modal));
             body.appendChild(comb);
 
             if (this._chromatic) {
@@ -163,12 +169,15 @@
                     this._setSlide(!this._slide);
                 };
                 slide.addEventListener('click', this._onSlideClick);
-                body.appendChild(slide);
             }
 
             device.appendChild(coverTop);
             device.appendChild(body);
             device.appendChild(coverBottom);
+            // The slide is a real button protruding from the RIGHT side of
+            // the device, so it lives on the device (positioned), not in body.
+            if (this._slideBtn) device.appendChild(this._slideBtn);
+            root.appendChild(labels);
             root.appendChild(device);
             canvas.appendChild(root);
             this._root = root;
@@ -191,19 +200,20 @@
             this._initGlide({ root, selector: '.harmonica-hole' });
         }
 
-        _buildLine(kind, notes, modal) {
-            const line = document.createElement('div');
-            line.className = `harmonica-line harmonica-line-${kind}`;
-
-            const label = document.createElement('span');
-            label.className = `harmonica-row-label harmonica-row-label-${kind}`;
-            label.textContent = kind === 'blow'
-                ? this._t('keyboard.harmonicaBlow', 'Souffler ↑')
-                : this._t('keyboard.harmonicaDraw', 'Aspirer ↓');
-            line.appendChild(label);
-
-            line.appendChild(this._buildRow(kind, notes, modal));
-            return line;
+        // The Souffler/Aspirer labels, as a left column OUTSIDE the device.
+        // One label per row (blow, draw); CSS aligns each on its row.
+        _buildLabels() {
+            const wrap = document.createElement('div');
+            wrap.className = 'harmonica-labels';
+            for (const kind of ['blow', 'draw']) {
+                const label = document.createElement('span');
+                label.className = `harmonica-row-label harmonica-row-label-${kind}`;
+                label.textContent = kind === 'blow'
+                    ? this._t('keyboard.harmonicaBlow', 'Souffler ↑')
+                    : this._t('keyboard.harmonicaDraw', 'Aspirer ↓');
+                wrap.appendChild(label);
+            }
+            return wrap;
         }
 
         _buildRow(kind, notes, modal) {
