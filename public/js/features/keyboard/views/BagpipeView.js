@@ -94,8 +94,25 @@
             const list = document.createElement('div');
             list.className = 'bagpipe-drone-list';
             list.style.cssText =
-                'display:flex;gap:6px;flex-wrap:wrap;justify-content:center;';
+                'display:flex;gap:6px;flex-wrap:wrap;'
+                + 'align-items:flex-end;justify-content:center;';
+            this._droneTubes = [];
             this._droneBtns = this._drones.map((d, idx) => {
+                // Each drone is a vertical unit: a decorative pipe (tube)
+                // standing above its toggle button. A lower drone note gets
+                // a longer pipe, like a real bass vs. tenor drone — purely
+                // cosmetic. The tube never intercepts clicks.
+                const wrap = document.createElement('div');
+                wrap.className = 'bagpipe-drone-pipe';
+
+                const tube = document.createElement('div');
+                tube.className = 'bagpipe-tube';
+                tube.setAttribute('aria-hidden', 'true');
+                const span = Math.max(0, Math.min(1, (69 - d.note) / 36));
+                tube.style.height = `${Math.round(46 + span * 54)}px`;
+                wrap.appendChild(tube);
+                this._droneTubes.push(tube);
+
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'bagpipe-drone bagpipe-drone-one';
@@ -104,7 +121,8 @@
                     'padding:5px 11px;border-radius:14px;border:1px solid #555;'
                     + 'background:#2c422c;color:#dfe;cursor:pointer;font:11px sans-serif;';
                 b._noteLabel = label(d.note);
-                list.appendChild(b);
+                wrap.appendChild(b);
+                list.appendChild(wrap);
                 return b;
             });
             droneBox.appendChild(list);
@@ -218,6 +236,9 @@
                     const on = !!(this._drones[idx] && this._drones[idx].on);
                     b.classList.toggle('active', on);
                     b.textContent = `${on ? '🟢' : '⚪'} ${b._noteLabel}`;
+                    if (this._droneTubes && this._droneTubes[idx]) {
+                        this._droneTubes[idx].classList.toggle('active', on);
+                    }
                 });
             }
         }
@@ -259,6 +280,7 @@
             this._droneRow = null;
             this._droneMaster = null;
             this._droneBtns = null;
+            this._droneTubes = null;
             this._drones = null;
             this._noteRefs = null;
             this._onDroneClick = null;
