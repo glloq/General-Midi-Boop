@@ -259,6 +259,27 @@ describe('accordion — Stradella grid, soufflet, no volume slider', () => {
     fire(key, 'pointermove');
     expect(sink.played).toEqual([]);
   });
+
+  it('treble: pressing a button lights its twin (C-griff helper rank); bass never lit', () => {
+    mount({ bass_system: 'stradella', right_display: 'buttons' });
+    const treble = [...document.querySelectorAll('.accordion-treble .accordion-key')];
+    // A pitch lives on >=2 treble buttons (3 principal + 2 helper ranks).
+    const byNote = new Map();
+    treble.forEach((b) => {
+      const n = b.dataset.note;
+      if (!byNote.has(n)) byNote.set(n, []);
+      byNote.get(n).push(b);
+    });
+    const twins = [...byNote.values()].find((arr) => arr.length >= 2);
+    expect(twins).toBeTruthy();
+    fire(twins[0], 'pointerdown');
+    expect(twins[0].classList.contains('active')).toBe(true);
+    expect(twins[1].classList.contains('active')).toBe(true); // twin lit too
+    expect(document.querySelectorAll('.accordion-bass .accordion-key.active')
+      .length).toBe(0);                                       // bass untouched
+    document.dispatchEvent(new Event('pointerup'));
+    expect(document.querySelectorAll('.accordion-key.active').length).toBe(0);
+  });
 });
 
 describe('configured note range (QA) — views follow instrument settings', () => {

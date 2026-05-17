@@ -459,6 +459,10 @@
             if (notes.length === 0) return;
             this._pressed.set(id, { cell, notes });
             cell.classList.add('active');
+            // Light the twin buttons (same note elsewhere on the treble
+            // manual) immediately — don't depend on the modal calling
+            // setActiveNotes back through updatePianoDisplay.
+            this.setActiveNotes();
             const modal = this.ctx && this.ctx.modal;
             if (modal && typeof modal.playNote === 'function') {
                 notes.forEach((n) => modal.playNote(n));
@@ -475,6 +479,8 @@
                     notes.forEach((n) => modal.stopNote(n));
                 }
             }
+            // Clear any twin reflections now that nothing is held.
+            this.setActiveNotes();
         }
 
         unmount() {
