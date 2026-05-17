@@ -4,7 +4,7 @@
 
 Général Midi Boop manages MIDI devices, edits and plays MIDI files with per-instrument latency compensation, and synchronises stage lighting — all from a browser. It can automatically adapt MIDI files to the capabilities of your connected instruments.
 
-> **Status:** beta (v0.7.0). The interface is becoming stable; minor bugs are still being ironed out.
+> **Status:** beta (v0.8.2). The interface is becoming stable; minor bugs are still being ironed out.
 
 ![Main Interface](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/accueil.png?raw=true)
 
@@ -27,7 +27,7 @@ Then open `http://<Raspberry-Pi-IP>:8080`. Full instructions in [[Installation]]
 |------|-------------|
 | [[Interface-Main-Page]] | Dashboard layout, transport controls, device status strip |
 | [[Interface-Instrument-Creation]] | Register, configure and calibrate instruments |
-| [[Interface-Virtual-Piano]] | Play notes from the browser — piano, guitar, drums, string, wind, list views |
+| [[Interface-Virtual-Piano]] | Play notes from the browser — piano, guitar, drums, wind, list, plus dedicated accordion / harmonica / bagpipe / harp / mallet / steel-drum views |
 | [[Interface-Loop-Manager]] | Record, trigger and arrange MIDI loops — Library, Pad, Live, Keyboard, Arranger |
 | [[Interface-Lighting-Control]] | Configure drivers, fixtures, effects and MIDI-triggered cues |
 | [[Interface-Playlist]] | Upload, organise, search and queue MIDI files |

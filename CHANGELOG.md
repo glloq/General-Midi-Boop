@@ -2,6 +2,54 @@
 
 All notable changes to Général Midi Boop are documented in this file.
 
+## [0.8.2] - 2026-05-17
+
+### Added — Dedicated virtual-piano instrument views
+
+- The virtual piano is now built on an `InstrumentViewRegistry`: 15
+  built-in views, each a realistic layout for an instrument family,
+  selected automatically from the GM program (and `instrument_type`).
+  The detection chain in `registerBuiltins.js` is kept in lock-step
+  with the production detector by a parity test.
+- New dedicated views: **Accordion** (C-griff treble + configurable
+  Stradella / free-bass board, vertical front view, twin-key / same-note
+  highlighting), **Harmonica** (blow/draw holes, chromatic slide),
+  **Bagpipe** (chanter + configurable drones on one line, struck
+  feedback), **Harp** (vertical strings, glissando, US/FR/MIDI labels),
+  **Mallet** (Glockenspiel/Vibraphone/Marimba/Xylophone with realistic
+  bar colours + struck-bar feedback), **Music Box** (roller + rising
+  comb, engraved note names), **Kalimba**, **Steel Drum** (brushed
+  chrome, uniform pockets), **Percussion Pad** and **Theremin**.
+- Instrument-settings panels that drive these views: bagpipe drone
+  picker (per-drone + master toggle, presets), accordion Stradella /
+  free-bass / C-system, harmonica diatonic/chromatic config, plus a
+  unified instrument-preset block (with chord library) atop the
+  *Notes & Capabilities* tab.
+
+### Changed — Keyboard UX
+
+- Piano-like continuous glissando works on every dedicated view, not
+  just piano and fretboard.
+- The instrument selector surfaces every `(device, channel)` pair,
+  labels unnamed virtual instruments by GM program, and adapts its
+  layout to large instrument counts.
+- Note presets reworked around real GM capabilities; diatonic /
+  pentatonic note-selection modes now genuinely restrict the playable
+  notes instead of only relabelling them.
+- The **Organs** GM family is merged into **Keyboards**.
+- Drum pads drop the raw MIDI-number badge for a cleaner grid.
+- Loop Manager / Loop Editor UI localized into es, de, it, pt, zh-CN,
+  ja, ko, ru, bn, th, tl and eo.
+
+### Fixed
+
+- Loop Manager → Piano tab: drum kits no longer sound like a bell;
+  they use the correct percussion samples.
+- Virtual piano: close-path view teardown, dropdown XSS, stuck notes
+  and chord-range issues; bowed-string fretboard dots are now centred
+  exactly on the fret; the virtual device is evicted from the device
+  manager when its instrument is deleted.
+
 ## [0.8.1] - 2026-05-12
 
 ### Added — V1 modal coverage

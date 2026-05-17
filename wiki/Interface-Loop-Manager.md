@@ -61,7 +61,8 @@ Embeds the [virtual keyboard panel](Interface-Virtual-Piano) inside the Loop Man
 
 - The keyboard's output device is picked independently of the loops.
 - A `Silence` button mutes the keyboard output without closing the panel.
-- All keyboard features (drum pad, fretboard, pitch-bend mode, list view, wind articulation) work exactly as in the stand-alone modal.
+- All keyboard features work exactly as in the stand-alone modal, including every dedicated instrument view (accordion, harmonica, bagpipe, harp, mallets, music box, kalimba, steel drum, …) — see [Dedicated Instrument Views](Interface-Virtual-Piano#dedicated-instrument-views).
+- The instrument-selection button is full-height so it stays readable with long instrument lists.
 
 ### 5. Arranger
 
@@ -99,7 +100,7 @@ Opens on top of the manager when you create or edit a loop. Two tabs share a sin
 
 ![Loop Editor — Piano tab](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/loop/loop-editor-piano.png?raw=true)
 
-- **Instrument picker** at the top: choose the GM program (or a drum kit). The view auto-switches between piano / fretboard / drum pad / wind slider; drum kits are routed to channel 9 (GM channel 10) automatically.
+- **Instrument picker** at the top (full-height button): choose the GM program (or a drum kit). The view auto-switches to the matching dedicated layout (piano, fretboard, drum pad, wind slider, accordion, harmonica, bagpipe, harp, mallets, …); drum kits are routed to channel 9 (GM channel 10) automatically. Drum kits in this tab now use the correct percussion samples (a regression that made every pad sound like a bell has been fixed).
 - **Pitch-bend mode** is offered for string instruments — see [Pitch-bend on strings](Interface-Virtual-Piano#pitch-bend-on-strings).
 - **MIDI In** dropdown: record from a connected hardware controller. The monitor session is lifecycle-bound to the modal — closing during a record stops the input cleanly.
 - **Metronome** 🎼 and **Count-in** ⏱ toggles (1 bar of pre-roll for tight recording starts).
@@ -160,6 +161,7 @@ The Arranger adds:
 - Loops live in `loops` (migration `017_loops.sql`), arrangements in `loop_arrangements` (migration `018_loop_arrangements.sql`).
 - Pad assignments, manager tab, last-opened arrangement and zoom are persisted in `localStorage` under `gmboop_settings`.
 - All WebSocket commands are namespaced `loop_*` and `arrangement_*`. See [[API-Reference]] for the contract.
+- The Loop Manager / Loop Editor UI strings are fully localized — the recent translation pass extended coverage to es, de, it, pt, zh-CN, ja, ko, ru, bn, th, tl and eo on top of the existing languages.
 
 ---
 
