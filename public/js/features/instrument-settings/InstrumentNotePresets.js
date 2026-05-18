@@ -39,6 +39,13 @@
         if (channel === 9) return [];
         if (gmProgram == null) return [];
 
+        // Harmonica (GM 22) : presets dédiés (diatonique/chromatique +
+        // tonalité) qui remplacent les presets génériques de tessiture —
+        // « tessiture complète » n'a aucun sens sur un vrai harmonica.
+        if (gmProgram === 22 && window.HarmonicaPresets) {
+            return window.HarmonicaPresets.getPresets();
+        }
+
         const slug = familySlug || getFamilySlug(gmProgram, channel);
         if (!slug || slug === 'synths' || slug === 'drum_kits') return [];
 

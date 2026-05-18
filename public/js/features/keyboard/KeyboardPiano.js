@@ -1140,6 +1140,13 @@
      * @returns {boolean} - true if the note is playable
      */
     KeyboardPianoMixin.isNotePlayable = function(noteNumber) {
+        // A diatonic harmonica only sounds its exact Richter blow/draw
+        // pitches — every other piano key (all black keys in C) is dead.
+        if (typeof this.getHarmonicaPlayableNotes === 'function') {
+            const harmo = this.getHarmonicaPlayableNotes();
+            if (harmo && !harmo.has(noteNumber)) return false;
+        }
+
         if (!this.selectedDeviceCapabilities) {
             return true; // No restrictions if no capabilities defined
         }

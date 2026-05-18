@@ -23,6 +23,7 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/views/DrumPadView.js');
   load('../../../public/js/features/keyboard/views/PianoSliderView.js');
   load('../../../public/js/features/keyboard/views/ListView.js');
+  load('../../../public/js/features/keyboard/HarmonicaLayout.js');
   load('../../../public/js/features/keyboard/views/HarmonicaView.js');
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
   load('../../../public/js/features/KeyboardModal.js');
@@ -68,6 +69,60 @@ describe('Harmonica — diatonic key transpose', () => {
     // 98 (hole-10 blow shifted) would exceed 96 → fewer holes than C.
     expect(d.notes('blow').length).toBeLessThan(c.notes('blow').length);
     expect(Math.max(...d.notes('blow'), ...d.notes('draw'))).toBeLessThanOrEqual(96);
+  });
+
+  // Regression: a non-C-aligned range minimum (e.g. comfortMin 53, or an
+  // auto-centred startNote) used to transpose the whole Richter pattern by
+  // a non-octave amount → spurious sharps. A C harmonica must stay natural.
+  const BLACK_PC = new Set([1, 3, 6, 8, 10]);
+  it('diatonic C stays strictly natural for a non-C-aligned range', () => {
+    for (const range of [{ min: 53, max: 96 }, { min: 50, max: 89 },
+                         { min: 48, max: 84 }]) {
+      const { notes } = mountWith({ type: 'diatonic', key: 'C' }, range);
+      const all = [...notes('blow'), ...notes('draw')];
+      expect(all.length).toBeGreaterThan(0);
+      expect(all.some(n => BLACK_PC.has(n % 12))).toBe(false);
+    }
+  });
+
+  it('diatonic A faithfully reproduces the real instrument accidentals', () => {
+    const { notes } = mountWith({ type: 'diatonic', key: 'A' }, { min: 53, max: 96 });
+    const pcs = new Set([...notes('blow'), ...notes('draw')].map(n => n % 12));
+    // A-major harp really sounds C#, F#, G#.
+    expect(pcs.has(1)).toBe(true);  // C#
+    expect(pcs.has(6)).toBe(true);  // F#
+    expect(pcs.has(8)).toBe(true);  // G#
+  });
+});
+
+describe('Harmonica — virtual-piano restriction', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  const make = (caps) => {
+    const m = new (win.KeyboardModal)();
+    m.selectedDeviceCapabilities = caps;
+    return m;
+  };
+
+  it('diatonic C harmonica: no black key is playable', () => {
+    const m = make({ gm_program: 22, note_range_min: 53, note_range_max: 96,
+      harmonica_config: { type: 'diatonic', key: 'C' } });
+    const set = m.getHarmonicaPlayableNotes();
+    expect(set).toBeInstanceOf(Set);
+    expect([...set].some(n => [1, 3, 6, 8, 10].includes(n % 12))).toBe(false);
+    expect(set.has(60)).toBe(true);   // C is in the layout
+    expect(set.has(61)).toBe(false);  // C# is not
+  });
+
+  it('chromatic harmonica imposes no restriction (slide reaches all)', () => {
+    const m = make({ gm_program: 22, note_range_min: 60, note_range_max: 96,
+      harmonica_config: { type: 'chromatic', key: 'C' } });
+    expect(m.getHarmonicaPlayableNotes()).toBeNull();
+  });
+
+  it('a non-harmonica instrument is never restricted', () => {
+    const m = make({ gm_program: 0, note_range_min: 21, note_range_max: 108 });
+    expect(m.getHarmonicaPlayableNotes()).toBeNull();
   });
 });
 
