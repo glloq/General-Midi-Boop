@@ -3,11 +3,11 @@
  *
  * ONE list of real, common instruments. Each entry binds a GM program
  * range to a realistic playable note range, a chord capacity (polyphony)
- * and, when relevant, family-specific config (string geometry for the
- * geometry sub-section, harmonica tuning for the piano restriction).
- *
- * Replaces the former triple system: StringInstrumentPresets.js +
- * HarmonicaPresets.js + the abstract InstrumentNotePresets generator.
+ * and, when relevant, family-specific config. String entries carry full
+ * geometry (num_strings, scale_length_mm, num_frets, default_mechanism,
+ * standard tuning[] low→high MIDI, fretless) so a single click sets
+ * notes / strings / tuning / polyphony coherently. Harmonica entries
+ * carry harmonica_config { type, key }.
  *
  * Source of truth: `shared/instrument-presets.json`. This file mirrors
  * that data inline so the modal loads synchronously (no fetch). A Vitest
@@ -18,10 +18,9 @@
  *   - MECHANISMS / getMechanismById(id)    string-hand mechanisms (+ SVG)
  *   - getPresetById(id)
  *   - getPresetsForProgram(gmProgram, ch)  list for the Notes & Capacités
- *                                          single selector (normalised to
- *                                          the shape the listener consumes)
- *   - filterStringPresetsByGmProgram(gm)   flattened string-geometry entries
- *   - filterStringPresetsByFamily(slug)    (for the geometry sub-section)
+ *                                          single selector (normalised)
+ *   - filterStringPresetsByGmProgram(gm)   flattened string entries (incl.
+ *   - filterStringPresetsByFamily(slug)    tuning) for the Strings dropdown
  */
 (function() {
     'use strict';
@@ -53,34 +52,34 @@
         { id: 'synth_drum', label: 'Synth drum', family_slug: 'chromatic_percussion', gm_programs: [118], note_range_min: 48, note_range_max: 96, polyphony: 4 },
         { id: 'reverse_cymbal', label: 'Cymbale inversée', family_slug: 'chromatic_percussion', gm_programs: [119], note_range_min: 48, note_range_max: 96, polyphony: 4 },
 
-        { id: 'acoustic_guitar_nylon', label: 'Guitare classique (nylon)', family_slug: 'plucked_strings', gm_programs: [24], note_range_min: 40, note_range_max: 84, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 650, num_frets: 19, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'acoustic_guitar_steel', label: 'Guitare acoustique (steel)', family_slug: 'plucked_strings', gm_programs: [25], note_range_min: 40, note_range_max: 84, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 648, num_frets: 20, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'electric_guitar', label: 'Guitare électrique', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 40, note_range_max: 86, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 648, num_frets: 22, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'electric_guitar_gibson', label: 'Guitare électrique (Gibson)', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 40, note_range_max: 86, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 628, num_frets: 22, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'guitar_baritone', label: 'Guitare baryton', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 35, note_range_max: 81, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 686, num_frets: 22, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'guitar_7string', label: 'Guitare 7 cordes', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 35, note_range_max: 86, polyphony: 7, string_geometry: { num_strings: 7, scale_length_mm: 648, num_frets: 24, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'guitar_12string', label: 'Guitare 12 cordes', family_slug: 'plucked_strings', gm_programs: [25], note_range_min: 40, note_range_max: 88, polyphony: 6, string_geometry: { num_strings: 12, scale_length_mm: 648, num_frets: 20, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'bass_acoustic', label: 'Basse acoustique', family_slug: 'plucked_strings', gm_programs: [32], note_range_min: 28, note_range_max: 63, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 864, num_frets: 20, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'bass_long', label: 'Basse électrique (long 34")', family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], note_range_min: 28, note_range_max: 65, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 864, num_frets: 22, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'bass_short', label: 'Basse électrique (short 30")', family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], note_range_min: 28, note_range_max: 65, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 762, num_frets: 22, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'bass_5string', label: 'Basse 5 cordes (35")', family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], note_range_min: 23, note_range_max: 67, polyphony: 5, string_geometry: { num_strings: 5, scale_length_mm: 889, num_frets: 24, default_mechanism: 'string_sliding_fingers' } },
+        { id: 'acoustic_guitar_nylon', label: 'Guitare classique (nylon)', family_slug: 'plucked_strings', gm_programs: [24], note_range_min: 40, note_range_max: 84, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 650, num_frets: 19, default_mechanism: 'string_sliding_fingers', tuning: [40, 45, 50, 55, 59, 64], fretless: false } },
+        { id: 'acoustic_guitar_steel', label: 'Guitare acoustique (steel)', family_slug: 'plucked_strings', gm_programs: [25], note_range_min: 40, note_range_max: 84, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 648, num_frets: 20, default_mechanism: 'string_sliding_fingers', tuning: [40, 45, 50, 55, 59, 64], fretless: false } },
+        { id: 'electric_guitar', label: 'Guitare électrique', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 40, note_range_max: 86, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 648, num_frets: 22, default_mechanism: 'string_sliding_fingers', tuning: [40, 45, 50, 55, 59, 64], fretless: false } },
+        { id: 'electric_guitar_gibson', label: 'Guitare électrique (Gibson)', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 40, note_range_max: 86, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 628, num_frets: 22, default_mechanism: 'string_sliding_fingers', tuning: [40, 45, 50, 55, 59, 64], fretless: false } },
+        { id: 'guitar_baritone', label: 'Guitare baryton', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 35, note_range_max: 81, polyphony: 6, string_geometry: { num_strings: 6, scale_length_mm: 686, num_frets: 22, default_mechanism: 'string_sliding_fingers', tuning: [35, 40, 45, 50, 54, 59], fretless: false } },
+        { id: 'guitar_7string', label: 'Guitare 7 cordes', family_slug: 'plucked_strings', gm_programs: [26, 27, 28, 29, 30, 31], note_range_min: 35, note_range_max: 86, polyphony: 7, string_geometry: { num_strings: 7, scale_length_mm: 648, num_frets: 24, default_mechanism: 'string_sliding_fingers', tuning: [35, 40, 45, 50, 55, 59, 64], fretless: false } },
+        { id: 'guitar_12string', label: 'Guitare 12 cordes', family_slug: 'plucked_strings', gm_programs: [25], note_range_min: 40, note_range_max: 88, polyphony: 6, string_geometry: { num_strings: 12, scale_length_mm: 648, num_frets: 20, default_mechanism: 'string_sliding_fingers', tuning: [40, 52, 45, 57, 50, 62, 55, 67, 59, 59, 64, 64], fretless: false } },
+        { id: 'bass_acoustic', label: 'Basse acoustique', family_slug: 'plucked_strings', gm_programs: [32], note_range_min: 28, note_range_max: 63, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 864, num_frets: 20, default_mechanism: 'string_sliding_fingers', tuning: [28, 33, 38, 43], fretless: false } },
+        { id: 'bass_long', label: 'Basse électrique (long 34")', family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], note_range_min: 28, note_range_max: 65, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 864, num_frets: 22, default_mechanism: 'string_sliding_fingers', tuning: [28, 33, 38, 43], fretless: false } },
+        { id: 'bass_short', label: 'Basse électrique (short 30")', family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], note_range_min: 28, note_range_max: 65, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 762, num_frets: 22, default_mechanism: 'string_sliding_fingers', tuning: [28, 33, 38, 43], fretless: false } },
+        { id: 'bass_5string', label: 'Basse 5 cordes (35")', family_slug: 'plucked_strings', gm_programs: [33, 34, 35, 36, 37, 38, 39], note_range_min: 23, note_range_max: 67, polyphony: 5, string_geometry: { num_strings: 5, scale_length_mm: 889, num_frets: 24, default_mechanism: 'string_sliding_fingers', tuning: [23, 28, 33, 38, 43], fretless: false } },
         { id: 'harp', label: 'Harpe', family_slug: 'plucked_strings', gm_programs: [46], note_range_min: 24, note_range_max: 103, polyphony: 8, string_geometry: { num_strings: 47, scale_length_mm: 1700, num_frets: 0, default_mechanism: 'fret_sliding_fingers' } },
         { id: 'sitar', label: 'Sitar', family_slug: 'plucked_strings', gm_programs: [104], note_range_min: 48, note_range_max: 84, polyphony: 6, string_geometry: { num_strings: 7, scale_length_mm: 870, num_frets: 20, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'banjo', label: 'Banjo (5 cordes)', family_slug: 'plucked_strings', gm_programs: [105], note_range_min: 50, note_range_max: 86, polyphony: 5, string_geometry: { num_strings: 5, scale_length_mm: 660, num_frets: 22, default_mechanism: 'string_sliding_fingers' } },
+        { id: 'banjo', label: 'Banjo (5 cordes)', family_slug: 'plucked_strings', gm_programs: [105], note_range_min: 50, note_range_max: 86, polyphony: 5, string_geometry: { num_strings: 5, scale_length_mm: 660, num_frets: 22, default_mechanism: 'string_sliding_fingers', tuning: [67, 50, 55, 59, 62], fretless: false } },
         { id: 'shamisen', label: 'Shamisen', family_slug: 'plucked_strings', gm_programs: [106], note_range_min: 50, note_range_max: 79, polyphony: 3, string_geometry: { num_strings: 3, scale_length_mm: 615, num_frets: 0, default_mechanism: 'string_sliding_fingers' } },
         { id: 'koto', label: 'Koto', family_slug: 'plucked_strings', gm_programs: [107], note_range_min: 43, note_range_max: 84, polyphony: 8, string_geometry: { num_strings: 13, scale_length_mm: 1820, num_frets: 0, default_mechanism: 'fret_sliding_fingers' } },
-        { id: 'ukulele_soprano', label: 'Ukulélé (soprano)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 60, note_range_max: 88, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 350, num_frets: 12, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'ukulele_concert', label: 'Ukulélé (concert)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 60, note_range_max: 88, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 380, num_frets: 15, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'ukulele_tenor', label: 'Ukulélé (tenor)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 55, note_range_max: 88, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 430, num_frets: 17, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'ukulele_baritone', label: 'Ukulélé (baritone)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 50, note_range_max: 83, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 510, num_frets: 18, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'mandolin', label: 'Mandoline', family_slug: 'plucked_strings', gm_programs: [25, 26], note_range_min: 55, note_range_max: 96, polyphony: 6, string_geometry: { num_strings: 8, scale_length_mm: 350, num_frets: 20, default_mechanism: 'string_sliding_fingers' } },
+        { id: 'ukulele_soprano', label: 'Ukulélé (soprano)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 60, note_range_max: 88, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 350, num_frets: 12, default_mechanism: 'string_sliding_fingers', tuning: [67, 60, 64, 69], fretless: false } },
+        { id: 'ukulele_concert', label: 'Ukulélé (concert)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 60, note_range_max: 88, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 380, num_frets: 15, default_mechanism: 'string_sliding_fingers', tuning: [67, 60, 64, 69], fretless: false } },
+        { id: 'ukulele_tenor', label: 'Ukulélé (tenor)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 55, note_range_max: 88, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 430, num_frets: 17, default_mechanism: 'string_sliding_fingers', tuning: [67, 60, 64, 69], fretless: false } },
+        { id: 'ukulele_baritone', label: 'Ukulélé (baritone)', family_slug: 'plucked_strings', gm_programs: [24, 25], note_range_min: 50, note_range_max: 83, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 510, num_frets: 18, default_mechanism: 'string_sliding_fingers', tuning: [50, 55, 59, 64], fretless: false } },
+        { id: 'mandolin', label: 'Mandoline', family_slug: 'plucked_strings', gm_programs: [25, 26], note_range_min: 55, note_range_max: 96, polyphony: 6, string_geometry: { num_strings: 8, scale_length_mm: 350, num_frets: 20, default_mechanism: 'string_sliding_fingers', tuning: [55, 55, 62, 62, 69, 69, 76, 76], fretless: false } },
 
-        { id: 'violin', label: 'Violon', family_slug: 'bowed_strings', gm_programs: [40], note_range_min: 55, note_range_max: 103, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 328, num_frets: 0, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'viola', label: 'Alto', family_slug: 'bowed_strings', gm_programs: [41], note_range_min: 48, note_range_max: 91, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 380, num_frets: 0, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'cello', label: 'Violoncelle', family_slug: 'bowed_strings', gm_programs: [42], note_range_min: 36, note_range_max: 84, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 690, num_frets: 0, default_mechanism: 'string_sliding_fingers' } },
-        { id: 'contrabass', label: 'Contrebasse', family_slug: 'bowed_strings', gm_programs: [43], note_range_min: 28, note_range_max: 60, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 1050, num_frets: 0, default_mechanism: 'string_sliding_fingers' } },
+        { id: 'violin', label: 'Violon', family_slug: 'bowed_strings', gm_programs: [40], note_range_min: 55, note_range_max: 103, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 328, num_frets: 0, default_mechanism: 'string_sliding_fingers', tuning: [55, 62, 69, 76], fretless: true } },
+        { id: 'viola', label: 'Alto', family_slug: 'bowed_strings', gm_programs: [41], note_range_min: 48, note_range_max: 91, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 380, num_frets: 0, default_mechanism: 'string_sliding_fingers', tuning: [48, 55, 62, 69], fretless: true } },
+        { id: 'cello', label: 'Violoncelle', family_slug: 'bowed_strings', gm_programs: [42], note_range_min: 36, note_range_max: 84, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 690, num_frets: 0, default_mechanism: 'string_sliding_fingers', tuning: [36, 43, 50, 57], fretless: true } },
+        { id: 'contrabass', label: 'Contrebasse', family_slug: 'bowed_strings', gm_programs: [43], note_range_min: 28, note_range_max: 60, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 1050, num_frets: 0, default_mechanism: 'string_sliding_fingers', tuning: [28, 33, 38, 43], fretless: true } },
         { id: 'string_section_bowed', label: 'Section de cordes (trémolo / pizzicato)', family_slug: 'bowed_strings', gm_programs: [44, 45], note_range_min: 28, note_range_max: 100, polyphony: 8 },
-        { id: 'fiddle', label: 'Fiddle (folk)', family_slug: 'bowed_strings', gm_programs: [110], note_range_min: 55, note_range_max: 103, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 328, num_frets: 0, default_mechanism: 'string_sliding_fingers' } },
+        { id: 'fiddle', label: 'Fiddle (folk)', family_slug: 'bowed_strings', gm_programs: [110], note_range_min: 55, note_range_max: 103, polyphony: 4, string_geometry: { num_strings: 4, scale_length_mm: 328, num_frets: 0, default_mechanism: 'string_sliding_fingers', tuning: [55, 62, 69, 76], fretless: true } },
 
         { id: 'string_ensemble', label: 'Ensemble à cordes', family_slug: 'ensembles', gm_programs: [48, 49, 50, 51], note_range_min: 28, note_range_max: 100, polyphony: 16 },
         { id: 'choir', label: 'Chœur (voix)', family_slug: 'ensembles', gm_programs: [52, 53, 54], note_range_min: 40, note_range_max: 84, polyphony: 16 },
@@ -224,7 +223,7 @@
 
     // Shape consumed by ISMListeners._wireNotePresetListener: range +
     // polyphony + octave, plus the optional family-specific blocks the
-    // listener knows how to apply (harmonica tuning, string geometry).
+    // listener knows how to apply (harmonica tuning, full string geometry).
     function normalize(p) {
         const out = {
             id: p.id,
@@ -252,18 +251,22 @@
             .map(normalize);
     }
 
-    // Flatten a string-geometry preset to the flat shape the geometry
-    // sub-section dropdown expects (num_strings/scale_length_mm/...).
+    // Flatten a string-geometry preset to the flat shape the Strings
+    // sub-section dropdown expects (num_strings/scale_length_mm/num_frets/
+    // default_mechanism + standard tuning[] + fretless flag).
     function flattenString(p) {
+        const sg = p.string_geometry;
         return {
             id: p.id,
             label: p.label,
             family_slug: p.family_slug,
             gm_programs: p.gm_programs,
-            num_strings: p.string_geometry.num_strings,
-            scale_length_mm: p.string_geometry.scale_length_mm,
-            num_frets: p.string_geometry.num_frets,
-            default_mechanism: p.string_geometry.default_mechanism,
+            num_strings: sg.num_strings,
+            scale_length_mm: sg.scale_length_mm,
+            num_frets: sg.num_frets,
+            default_mechanism: sg.default_mechanism,
+            tuning: Array.isArray(sg.tuning) ? sg.tuning.slice() : null,
+            fretless: !!sg.fretless,
         };
     }
 

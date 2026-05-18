@@ -87,13 +87,32 @@ describe('InstrumentPresets.getPresetsForProgram', () => {
 });
 
 describe('InstrumentPresets — string geometry helpers', () => {
-  it('filterStringPresetsByGmProgram flattens geometry for the dropdown', () => {
+  it('filterStringPresetsByGmProgram flattens geometry + tuning for the dropdown', () => {
     const list = window.InstrumentPresets.filterStringPresetsByGmProgram(40);
     const violin = list.find((p) => p.id === 'violin');
     expect(violin).toMatchObject({
       num_strings: 4, num_frets: 0, default_mechanism: 'string_sliding_fingers',
+      fretless: true,
     });
+    expect(violin.tuning).toEqual([55, 62, 69, 76]);
     expect(violin.scale_length_mm).toBeGreaterThan(0);
+  });
+
+  it('string presets expose a standard tuning whose length matches num_strings', () => {
+    const all = window.InstrumentPresets.filterStringPresetsByFamily('plucked_strings')
+      .concat(window.InstrumentPresets.filterStringPresetsByFamily('bowed_strings'));
+    for (const p of all) {
+      if (p.tuning === null) continue; // harp/sitar/koto/shamisen: no neck UI
+      expect(p.tuning.length, `${p.id} tuning/strings mismatch`).toBe(p.num_strings);
+      for (const n of p.tuning) expect(n).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('a guitar GM program offers several common string choices (not just one)', () => {
+    const ids = window.InstrumentPresets.filterStringPresetsByGmProgram(24).map((p) => p.id);
+    expect(ids).toContain('acoustic_guitar_nylon');
+    expect(ids).toContain('ukulele_soprano');
+    expect(ids.length).toBeGreaterThan(1);
   });
 
   it('filterStringPresetsByFamily returns only string entries of that family', () => {
