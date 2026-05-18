@@ -1319,12 +1319,12 @@
     "create": "Luo",
     "folderExists": "Kansio \"{folder}\" on jo olemassa",
     "folderExistsTitle": "Kansio on olemassa",
-    "rename": "Rename",
-    "renameTitle": "Rename file",
-    "oldName": "Old name:",
-    "newNamePlaceholder": "New name...",
-    "fileExtensionHint": "File must have .mid or .midi extension",
-    "deleteFolderAndContent": "Delete folder and contents"
+    "rename": "Nimeä uudelleen",
+    "renameTitle": "Nimeä tiedosto uudelleen",
+    "oldName": "Vanha nimi:",
+    "newNamePlaceholder": "Uusi nimi...",
+    "fileExtensionHint": "Tiedostolla on oltava .mid- tai .midi-pääte",
+    "deleteFolderAndContent": "Poista kansio ja sisältö"
   },
   "filters": {
     "title": "Advanced Filters",

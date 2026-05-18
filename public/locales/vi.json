@@ -1319,12 +1319,12 @@
     "create": "Tạo",
     "folderExists": "Thư mục \"{folder}\" đã tồn tại",
     "folderExistsTitle": "Thư mục đã tồn tại",
-    "rename": "Rename",
-    "renameTitle": "Rename file",
-    "oldName": "Old name:",
-    "newNamePlaceholder": "New name...",
-    "fileExtensionHint": "File must have .mid or .midi extension",
-    "deleteFolderAndContent": "Delete folder and contents"
+    "rename": "Đổi tên",
+    "renameTitle": "Đổi tên tệp",
+    "oldName": "Tên cũ:",
+    "newNamePlaceholder": "Tên mới...",
+    "fileExtensionHint": "Tệp phải có phần mở rộng .mid hoặc .midi",
+    "deleteFolderAndContent": "Xóa thư mục và nội dung"
   },
   "filters": {
     "title": "Advanced Filters",

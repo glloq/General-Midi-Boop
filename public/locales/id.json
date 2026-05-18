@@ -1293,7 +1293,7 @@
     "configure": "Konfigurasi"
   },
   "fileOperations": {
-    "edit": "Edit",
+    "edit": "Ubah",
     "configureRouting": "Konfigurasi routing",
     "playFile": "Putar file",
     "playWarning": "Konfigurasi routing sebelum memutar",
@@ -1319,12 +1319,12 @@
     "create": "Buat",
     "folderExists": "Folder \"{folder}\" sudah ada",
     "folderExistsTitle": "Folder sudah ada",
-    "rename": "Rename",
-    "renameTitle": "Rename file",
-    "oldName": "Old name:",
-    "newNamePlaceholder": "New name...",
-    "fileExtensionHint": "File must have .mid or .midi extension",
-    "deleteFolderAndContent": "Delete folder and contents"
+    "rename": "Ganti nama",
+    "renameTitle": "Ganti nama file",
+    "oldName": "Nama lama:",
+    "newNamePlaceholder": "Nama baru...",
+    "fileExtensionHint": "File harus berekstensi .mid atau .midi",
+    "deleteFolderAndContent": "Hapus folder dan isinya"
   },
   "filters": {
     "title": "Advanced Filters",

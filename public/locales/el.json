@@ -1319,12 +1319,12 @@
     "create": "Δημιουργία",
     "folderExists": "Ο φάκελος \"{folder}\" υπάρχει ήδη",
     "folderExistsTitle": "Ο φάκελος υπάρχει",
-    "rename": "Rename",
-    "renameTitle": "Rename file",
-    "oldName": "Old name:",
-    "newNamePlaceholder": "New name...",
-    "fileExtensionHint": "File must have .mid or .midi extension",
-    "deleteFolderAndContent": "Delete folder and contents"
+    "rename": "Μετονομασία",
+    "renameTitle": "Μετονομασία αρχείου",
+    "oldName": "Παλιό όνομα:",
+    "newNamePlaceholder": "Νέο όνομα...",
+    "fileExtensionHint": "Το αρχείο πρέπει να έχει επέκταση .mid ή .midi",
+    "deleteFolderAndContent": "Διαγραφή φακέλου και περιεχομένων"
   },
   "filters": {
     "title": "Advanced Filters",

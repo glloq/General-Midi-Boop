@@ -1319,12 +1319,12 @@
     "create": "Létrehozás",
     "folderExists": "A(z) \"{folder}\" mappa már létezik",
     "folderExistsTitle": "A mappa létezik",
-    "rename": "Rename",
-    "renameTitle": "Rename file",
-    "oldName": "Old name:",
-    "newNamePlaceholder": "New name...",
-    "fileExtensionHint": "File must have .mid or .midi extension",
-    "deleteFolderAndContent": "Delete folder and contents"
+    "rename": "Átnevezés",
+    "renameTitle": "Fájl átnevezése",
+    "oldName": "Régi név:",
+    "newNamePlaceholder": "Új név...",
+    "fileExtensionHint": "A fájlnak .mid vagy .midi kiterjesztésűnek kell lennie",
+    "deleteFolderAndContent": "Mappa és tartalom törlése"
   },
   "filters": {
     "title": "Advanced Filters",
