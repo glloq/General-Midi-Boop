@@ -97,6 +97,13 @@ class RoutingSummaryPage {
     this.channelVolumes = {}; // Per-channel volume overrides (CC7, 0-127, default 100)
     this._instrumentOptionsCache = {}; // Memoized <option> HTML per channel for summary dropdowns
     this._channelNotesCache = {}; // Memoized note arrays per channel for hands preview
+    // Memoized hand-simulation timelines, keyed by
+    // `channel|instrumentId|transpose|overrides` — re-opening a channel
+    // (or toggling back to a previous instrument) skips the solver.
+    this._handsTimelineCache = new Map();
+    // Memoized `string_instrument_get` responses keyed `deviceId:channel`
+    // so a fretted channel's geometry fetch only hits the backend once.
+    this._stringInstrumentCache = new Map();
 
     // Preview state
     this.midiData = null;
@@ -1020,12 +1027,17 @@ class RoutingSummaryPage {
     if (isFretted && instrumentRecord.device_id != null
             && instrumentRecord.channel != null) {
       const apiClient = this._rawApiClient || this.apiClient?.backend || this.apiClient;
+      const siKey = `${instrumentRecord.device_id}:${instrumentRecord.channel}`;
       try {
-        const resp = await apiClient.sendCommand('string_instrument_get', {
-          device_id: instrumentRecord.device_id,
-          channel: instrumentRecord.channel
-        });
-        const si = resp?.instrument;
+        let si = this._stringInstrumentCache.get(siKey);
+        if (si === undefined) {
+          const resp = await apiClient.sendCommand('string_instrument_get', {
+            device_id: instrumentRecord.device_id,
+            channel: instrumentRecord.channel
+          });
+          si = resp?.instrument || null;
+          this._stringInstrumentCache.set(siKey, si);
+        }
         if (si) {
           enrichedInstrument = {
             ...instrumentRecord,
@@ -1048,6 +1060,9 @@ class RoutingSummaryPage {
     const transpositionSemitones = (this.autoAdaptation && adapt.pitchShift !== 'none')
       ? (adapt.transpositionSemitones || 0) : 0;
 
+    // NB: never pass `eagerEngine` here — the solver must stay gated
+    // behind the first panel expand so a plain channel click never
+    // triggers the (off-thread, but still scheduled) simulation.
     this._handsPreviewPanel = new window.HandsPreviewPanel(host, {
       channel,
       notes,
@@ -1059,6 +1074,11 @@ class RoutingSummaryPage {
       ticksPerBeat,
       bpm,
       overrides: initialOverrides,
+      // Shared solver-result cache + stable key base. The panel
+      // appends the live transposition + overrides so a re-open of
+      // the same (channel, instrument) is instant.
+      timelineCache: this._handsTimelineCache,
+      cacheKeyBase: `${channel}|${assignment.instrumentId}`,
       onSeek: (currentTick, totalTicks) => this._onHandsPreviewSeek(currentTick, totalTicks),
       // E.6.8 — saveCtx tells the panel how to persist its overrides
       // via the routing_save_hand_overrides WS command. The shared

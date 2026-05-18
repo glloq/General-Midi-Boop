@@ -85,6 +85,13 @@
             this.bpm = Number.isFinite(opts.bpm) && opts.bpm > 0 ? opts.bpm : 120;
             this.overrides = opts.overrides || null;
             this.onSeek = opts.onSeek || null;
+            // Shared simulation-result cache + stable key base
+            // (`channel|instrumentId`) forwarded by RoutingSummaryPage.
+            // The engine reuses a cached timeline for an identical
+            // (channel, instrument, transposition, overrides) tuple so
+            // re-opening a channel never re-runs the solver.
+            this._timelineCache = opts.timelineCache instanceof Map ? opts.timelineCache : null;
+            this._cacheKeyBase = typeof opts.cacheKeyBase === 'string' ? opts.cacheKeyBase : null;
 
             this.mode = _resolveMode(this.instrument);
             this.engine = null;
@@ -314,10 +321,12 @@
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 try {
                     this._wireEngine();
-                    this._engineWired = true;
+                    // `_engineWired` / spinner-off / `_engineWiring`
+                    // are now flipped by the engine's `ready` handler
+                    // in `_wireEngine` (the solver runs off-thread, so
+                    // returning here does NOT mean it's done).
                 } catch (err) {
                     console.error('[HandsPreviewPanel] engine wiring failed:', err);
-                } finally {
                     this._engineWiring = false;
                     this._showSimulatingSpinner(false);
                 }
@@ -445,6 +454,16 @@
         //  Engine wiring
         // -----------------------------------------------------------------
 
+        /** Cache key for the current (channel, instrument) tuple plus
+         *  the live transposition + overrides — anything that changes
+         *  the solver output changes the key. */
+        _engineCacheKey() {
+            if (!this._cacheKeyBase) return null;
+            let ov = '';
+            try { ov = this.overrides ? JSON.stringify(this.overrides) : ''; } catch (_) { ov = ''; }
+            return `${this._cacheKeyBase}|${this.transpositionSemitones}|${ov}`;
+        }
+
         _wireEngine() {
             if (this.mode === 'unknown') return;
             if (!window.HandSimulationEngine) return;
@@ -453,8 +472,36 @@
                 instrument: this.instrument,
                 ticksPerBeat: this.ticksPerBeat,
                 bpm: this.bpm,
-                overrides: this.overrides
+                overrides: this.overrides,
+                timelineCache: this._timelineCache || undefined,
+                cacheKey: this._engineCacheKey() || undefined
             });
+
+            // The timeline now lands asynchronously (Web Worker) unless
+            // a cache hit / test-injected simulator made it synchronous.
+            // Keep the "Calcul des positions de main…" spinner up until
+            // the solver result arrives, then (re)build the trajectory
+            // ribbons that depend on the full timeline.
+            const onReady = () => {
+                this._engineWired = true;
+                this._engineWiring = false;
+                this._showSimulatingSpinner(false);
+                this._refreshHandTrajectories();
+                this._refreshFretboardTrajectory();
+            };
+            if (typeof this.engine.whenReady === 'function') {
+                this.engine.whenReady().then(() => {
+                    // Guard against a channel switch that disposed this
+                    // engine while the worker was still running.
+                    if (this.engine && typeof this.engine.isReady === 'function' && this.engine.isReady()) {
+                        onReady();
+                    }
+                });
+            } else {
+                // Legacy / stubbed engine without async readiness:
+                // behave as before (timeline was built synchronously).
+                onReady();
+            }
 
             this.engine.on('shift', (e) => {
                 const { handId, toAnchor } = e.detail;
