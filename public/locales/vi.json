@@ -40,176 +40,176 @@
       "title": "Giao diện",
       "dark": "Dark",
       "colored": "Colored",
-      "darkDescription": "Enable dark mode"
+      "darkDescription": "Bật chế độ tối"
     },
     "keyboard": {
-      "title": "Bàn phím",
+      "title": "Keyboard",
       "octaveCount": "Số quãng tám",
       "keyCount": "{count} phím"
     },
     "noteDisplay": {
       "title": "Hiển thị nốt",
-      "visibleDuration": "Thời gian hiển thị",
+      "visibleDuration": "Thời lượng hiển thị",
       "minSeconds": "5 giây",
       "maxSeconds": "60 giây"
     },
     "virtualInstrument": {
       "title": "Nhạc cụ ảo",
       "enable": "Bật nhạc cụ ảo",
-      "description": "Tin nhắn MIDI sẽ được gửi đến nhật ký",
-      "enabled": "Nhạc cụ ảo đã bật - Tin nhắn MIDI sẽ được gửi đến nhật ký",
+      "description": "Tin nhắn MIDI sẽ được gửi đến log",
+      "enabled": "Nhạc cụ ảo đã bật - tin nhắn MIDI sẽ được gửi đến log",
       "disabled": "Nhạc cụ ảo đã tắt"
     },
     "pianoRoll": {
       "title": "Piano Roll",
-      "enable": "Hiển thị piano roll",
+      "enable": "Hiện piano roll",
       "description": "Hiển thị các nốt sắp tới trong khi phát",
       "enabled": "Piano roll đã bật",
       "disabled": "Piano roll đã tắt"
     },
     "debugButton": {
-      "title": "Nút Gỡ lỗi",
-      "enable": "Hiển thị nút gỡ lỗi",
-      "description": "Hiển thị nút để mở bảng điều khiển gỡ lỗi"
+      "title": "Nút Debug",
+      "enable": "Hiện nút debug",
+      "description": "Hiện nút để mở bảng điều khiển debug"
     },
     "calibrationButton": {
-      "title": "Calibration Microphone Button",
-      "enable": "Show calibration button",
-      "description": "Shows the microphone button to calibrate audio delays for instruments"
+      "title": "Nút Micro Hiệu chỉnh",
+      "enable": "Hiện nút hiệu chỉnh",
+      "description": "Hiện nút micro để hiệu chỉnh độ trễ âm thanh cho nhạc cụ"
     },
     "lightingButton": {
-      "title": "Lighting Control Button",
-      "enable": "Show lighting control button",
-      "description": "Shows the light bulb button to manage LED strips and lighting rules"
+      "title": "Nút Điều khiển Ánh sáng",
+      "enable": "Hiện nút điều khiển ánh sáng",
+      "description": "Hiện nút bóng đèn để quản lý dải LED và quy tắc ánh sáng"
     },
     "playlistButton": {
-      "title": "Playlist Button",
-      "enable": "Show playlist button",
-      "description": "Shows the playlist button in the navigation bar"
+      "title": "Nút Playlist",
+      "enable": "Hiện nút playlist",
+      "description": "Hiện nút playlist trên thanh điều hướng"
     },
     "keyboardButton": {
-      "title": "Virtual Keyboard Button",
-      "enable": "Show virtual keyboard button",
-      "description": "Shows the virtual MIDI keyboard button in the navigation bar"
+      "title": "Nút Keyboard ảo",
+      "enable": "Hiện nút keyboard ảo",
+      "description": "Hiện nút keyboard MIDI ảo trên thanh điều hướng"
     },
     "keyboardLayout": {
-      "title": "Physical keyboard layout",
-      "description": "Layout used by the virtual MIDI keyboard to map PC keys."
+      "title": "Bố cục keyboard vật lý",
+      "description": "Bố cục được keyboard MIDI ảo dùng để ánh xạ phím PC."
     },
     "instrumentsButton": {
-      "title": "Instruments Button",
-      "enable": "Show instruments button",
-      "description": "Shows the instrument management button in the navigation bar"
+      "title": "Nút Nhạc cụ",
+      "enable": "Hiện nút nhạc cụ",
+      "description": "Hiện nút quản lý nhạc cụ trên thanh điều hướng"
     },
     "groups": {
-      "appearance": "Appearance",
-      "playback": "Playback & Display",
-      "sound": "Sound",
-      "buttons": "Interface Buttons",
-      "system": "Hardware & System",
-      "wifi": "WiFi Management"
+      "appearance": "Giao diện",
+      "playback": "Phát lại & Hiển thị",
+      "sound": "Âm thanh",
+      "buttons": "Nút giao diện",
+      "system": "Phần cứng & Hệ thống",
+      "wifi": "Quản lý WiFi"
     },
     "hotspot": {
       "title": "WiFi Hotspot",
-      "description": "Turn the Raspberry Pi into a WiFi access point. Enable: disconnects WiFi then starts the hotspot. Disable: returns to WiFi-client mode.",
-      "ssid": "Network name (SSID)",
-      "password": "Password (8 characters min., WPA2)",
-      "passwordPlaceholder": "Leave empty to keep the current password",
-      "passwordEmpty": "No password stored — enter a password (8+ characters)",
+      "description": "Biến Raspberry Pi thành điểm truy cập WiFi. Bật: ngắt WiFi rồi khởi động hotspot. Tắt: trở về chế độ client WiFi.",
+      "ssid": "Tên mạng (SSID)",
+      "password": "Mật khẩu (tối thiểu 8 ký tự, WPA2)",
+      "passwordPlaceholder": "Để trống để giữ mật khẩu hiện tại",
+      "passwordEmpty": "Không có mật khẩu lưu trữ — nhập mật khẩu (8+ ký tự)",
       "band": "Band",
-      "channel": "Channel (0 = auto)",
-      "warning": "Enabling the hotspot will disconnect the Raspberry Pi from WiFi. If you reach this page over WiFi, you will lose the connection. The sign-in page will open automatically on most devices (captive portal).",
-      "enable": "Enable hotspot",
-      "disable": "Disable hotspot",
-      "statusUnknown": "Status: unknown",
-      "statusActive": "Status: hotspot active",
-      "statusInactive": "Status: hotspot inactive",
-      "statusUnavailable": "Status unavailable",
+      "channel": "Kênh (0 = tự động)",
+      "warning": "Bật hotspot sẽ ngắt Raspberry Pi khỏi WiFi. Nếu bạn truy cập trang này qua WiFi, bạn sẽ mất kết nối. Trang đăng nhập sẽ tự mở trên hầu hết thiết bị (captive portal).",
+      "enable": "Bật hotspot",
+      "disable": "Tắt hotspot",
+      "statusUnknown": "Trạng thái: không xác định",
+      "statusActive": "Trạng thái: hotspot đang hoạt động",
+      "statusInactive": "Trạng thái: hotspot không hoạt động",
+      "statusUnavailable": "Trạng thái không khả dụng",
       "wifiConnected": "WiFi",
-      "confirmEnable": "The Raspberry Pi will disconnect from WiFi and enable the hotspot. If you are connected via WiFi, you will lose the connection to this interface.",
-      "confirmEnableTitle": "Enable hotspot",
-      "confirmEnableOk": "Enable",
-      "enabledOk": "Hotspot enabled. Reconnect to the new WiFi network to continue.",
-      "enabledLikely": "Connection lost (expected) — the hotspot was likely enabled. Reconnect to the new SSID.",
-      "disabledOk": "Hotspot disabled, WiFi reconnecting."
+      "confirmEnable": "Raspberry Pi sẽ ngắt khỏi WiFi và bật hotspot. Nếu bạn đang kết nối qua WiFi, bạn sẽ mất kết nối đến giao diện này.",
+      "confirmEnableTitle": "Bật hotspot",
+      "confirmEnableOk": "Bật",
+      "enabledOk": "Hotspot đã bật. Kết nối lại mạng WiFi mới để tiếp tục.",
+      "enabledLikely": "Mất kết nối (dự kiến) — hotspot có thể đã được bật. Kết nối lại với SSID mới.",
+      "disabledOk": "Hotspot đã tắt, WiFi đang kết nối lại."
     },
     "wifi": {
-      "title": "WiFi Network",
-      "description": "Scan available WiFi networks and connect. The connection will be dropped if the hotspot is active.",
-      "currentNone": "Not connected",
-      "currentConnected": "Connected to",
-      "available": "Available networks",
-      "scan": "Scan",
-      "scanning": "Scanning...",
-      "clickScan": "Click \"Scan\" to discover networks",
-      "noNetworks": "No networks found",
+      "title": "Mạng WiFi",
+      "description": "Quét các mạng WiFi khả dụng và kết nối. Kết nối sẽ bị ngắt nếu hotspot đang hoạt động.",
+      "currentNone": "Chưa kết nối",
+      "currentConnected": "Đã kết nối tới",
+      "available": "Mạng khả dụng",
+      "scan": "Quét",
+      "scanning": "Đang quét...",
+      "clickScan": "Nhấp \"Quét\" để khám phá mạng",
+      "noNetworks": "Không tìm thấy mạng",
       "open": "Open",
-      "connect": "Connect",
-      "connecting": "Connecting to",
-      "connectedOk": "Connected to",
-      "disconnect": "Disconnect",
-      "confirmDisconnect": "Disconnect from WiFi? If you reach this page over WiFi, you will lose the connection.",
-      "disconnectedOk": "WiFi disconnected.",
-      "passwordPromptTitle": "WiFi password",
-      "passwordPromptMessage": "Password for",
-      "saved": "Saved networks",
-      "savedLoading": "Loading...",
-      "noSaved": "No saved networks",
-      "forget": "Forget",
-      "confirmForget": "Forget network"
+      "connect": "Kết nối",
+      "connecting": "Đang kết nối tới",
+      "connectedOk": "Đã kết nối tới",
+      "disconnect": "Ngắt kết nối",
+      "confirmDisconnect": "Ngắt khỏi WiFi? Nếu bạn truy cập trang này qua WiFi, bạn sẽ mất kết nối.",
+      "disconnectedOk": "WiFi đã ngắt.",
+      "passwordPromptTitle": "Mật khẩu WiFi",
+      "passwordPromptMessage": "Mật khẩu cho",
+      "saved": "Mạng đã lưu",
+      "savedLoading": "Đang tải...",
+      "noSaved": "Không có mạng đã lưu",
+      "forget": "Quên",
+      "confirmForget": "Quên mạng"
     },
     "loadingAnimation": {
       "title": "Hoạt ảnh tải",
-      "enable": "Hiển thị hoạt ảnh khi khởi động",
-      "description": "Hiển thị hoạt ảnh với thanh tiến trình khi khởi động."
+      "enable": "Hiện hoạt ảnh khi khởi động",
+      "description": "Hiển thị hoạt ảnh với thanh tiến trình khi khởi chạy. Nếu tắt, hoạt ảnh chỉ hiện ở lần tải đầu tiên (đã xóa cache)."
     },
     "pianoRollV2": {
-      "title": "Piano Roll V2 (experimental)",
-      "enable": "Use the new Canvas 2D renderer",
-      "description": "Replaces the third-party webaudio-pianoroll component with an in-house implementation (viewport culling, spatial index). Beta — please report any bug."
+      "title": "Piano Roll V2 (thử nghiệm)",
+      "enable": "Dùng renderer Canvas 2D mới",
+      "description": "Thay thế thành phần webaudio-pianoroll bên thứ ba bằng triển khai nội bộ (viewport culling, chỉ mục không gian). Beta — vui lòng báo cáo lỗi."
     },
     "midiClock": {
-      "title": "Đồng hồ MIDI",
-      "enable": "Bật đồng hồ MIDI",
-      "description": "Gửi tín hiệu đồng hồ MIDI đến các thiết bị được kết nối để đồng bộ hóa"
+      "title": "MIDI Clock",
+      "enable": "Bật MIDI Clock",
+      "description": "Gửi tín hiệu MIDI clock (24 PPQ) đến các nhạc cụ kết nối để đồng bộ arpeggiator, LFO và sequencer"
     },
     "serialMidi": {
-      "title": "MIDI Nối tiếp (GPIO)",
-      "enable": "Bật cổng MIDI nối tiếp",
-      "description": "Sử dụng chân UART GPIO của Raspberry Pi làm cổng MIDI IN/OUT (yêu cầu mạch phần cứng)",
+      "title": "MIDI Serial (GPIO)",
+      "enable": "Bật cổng MIDI serial",
+      "description": "Dùng chân UART GPIO của Raspberry Pi làm cổng MIDI IN/OUT (cần mạch phần cứng)",
       "ports": "Cổng khả dụng",
       "scan": "Quét",
-      "scanning": "Đang quét cổng nối tiếp...",
-      "clickScan": "Nhấp \"Quét\" để phát hiện các cổng nối tiếp khả dụng",
-      "noPorts": "Không phát hiện cổng nối tiếp nào. Kiểm tra UART overlays trong /boot/config.txt",
-      "notAvailable": "Gói serialport chưa được cài đặt. Chạy: npm install serialport"
+      "scanning": "Đang quét cổng serial...",
+      "clickScan": "Nhấp \"Quét\" để phát hiện các cổng serial khả dụng",
+      "noPorts": "Không phát hiện cổng serial. Kiểm tra overlay UART trong /boot/config.txt",
+      "notAvailable": "Gói serialport chưa được cài. Chạy: npm install serialport"
     },
     "soundBank": {
-      "title": "Ngân hàng âm thanh",
-      "description": "Thư viện mẫu âm thanh cho tổng hợp âm thanh. Ngân hàng nhẹ hơn giảm sử dụng bộ nhớ.",
-      "changed": "Ngân hàng âm thanh đã thay đổi",
+      "title": "Sound Bank",
+      "description": "Thư viện mẫu cho tổng hợp âm thanh. Bank nhẹ hơn giảm sử dụng bộ nhớ.",
+      "changed": "Đã đổi sound bank",
       "quality": {
         "high": "Chất lượng cao",
         "medium": "Trung bình",
         "low": "Nhẹ"
       },
       "banks": {
-        "FluidR3_GM": "Ngân hàng GM tham chiếu. Mẫu phong phú, chi tiết cho tất cả 128 nhạc cụ. Chất lượng tổng thể tốt nhất nhưng tải nặng nhất.",
-        "GeneralUserGS": "Ngân hàng GM/GS độ trung thực cao. Cân bằng tuyệt vời giữa chất lượng và kích thước. Nhạc cụ ấm áp, tự nhiên.",
-        "JCLive": "Ngân hàng dựa trên thu âm trực tiếp. Trống mạnh mẽ, kèn đồng sáng. Tuyệt vời cho rock, jazz và phong cách trực tiếp.",
-        "Aspirin": "Ngân hàng sạch, cân bằng tốt. Piano mượt mà, dây trong trẻo. Tốt cho nhạc cổ điển và pop.",
-        "SBLive": "Ngân hàng Creative Labs Sound Blaster Live. Đa năng đáng tin cậy với phong cách hoài cổ.",
-        "Chaos": "Ngân hàng sáng tạo nhẹ. Tải nhanh, âm thanh cơ bản nhưng hữu dụng cho xem trước nhanh.",
-        "SoundBlasterOld": "Ngân hàng Sound Blaster cổ điển. Dung lượng nhỏ nhất, phong cách retro. Lý tưởng cho băng thông thấp."
+        "FluidR3_GM": "Bank GM tham chiếu. Mẫu phong phú, chi tiết cho cả 128 nhạc cụ. Chất lượng tổng thể tốt nhất nhưng tải nặng nhất.",
+        "GeneralUserGS": "Bank GM/GS độ trung thực cao. Cân bằng tuyệt vời giữa chất lượng và kích thước. Nhạc cụ ấm, tự nhiên.",
+        "JCLive": "Bank dựa trên thu âm live. Trống mạnh mẽ, kèn đồng sáng. Tuyệt cho rock, jazz và phong cách live.",
+        "Aspirin": "Bank sạch, cân bằng. Piano mượt, đàn dây trong. Tốt cho cổ điển và pop.",
+        "SBLive": "Bank Creative Labs Sound Blaster Live. Đa năng vững chắc với chất hoài cổ.",
+        "Chaos": "Bank sáng tạo nhẹ. Tải nhanh, âm cơ bản nhưng hữu dụng để xem trước nhanh.",
+        "SoundBlasterOld": "Bank Sound Blaster cổ điển. Dung lượng nhỏ nhất, chất retro. Lý tưởng cho băng thông thấp."
       },
       "effects": {
-        "title": "🎛️ Bank effects",
-        "reverbMix": "Reverb mix",
-        "reverbDecay": "Reverb decay",
-        "echoMix": "Echo mix",
-        "echoTime": "Echo time",
-        "echoFeedback": "Echo feedback",
-        "reset": "Reset"
+        "title": "🎛️ Hiệu ứng bank",
+        "reverbMix": "Mix Reverb",
+        "reverbDecay": "Decay Reverb",
+        "echoMix": "Mix Echo",
+        "echoTime": "Thời gian Echo",
+        "echoFeedback": "Feedback Echo",
+        "reset": "Đặt lại"
       }
     },
     "language": {
@@ -217,44 +217,44 @@
       "select": "Chọn ngôn ngữ"
     },
     "update": {
-      "title": "System Update",
-      "description": "Download and install the latest version",
-      "warning": "Fetches latest changes, updates dependencies and restarts the server",
-      "button": "Install update",
-      "confirmTitle": "Install update",
-      "confirmMessage": "The system will download the latest version, update dependencies and restart the server.\n\nThe application will be temporarily unavailable during the update.",
-      "confirmOk": "Start update",
-      "inProgress": "Updating...",
-      "running": "Update in progress, please wait...",
-      "success": "Update complete! The server is restarting...",
-      "reloading": "Reloading page...",
-      "waitingRestart": "Waiting for server to restart...",
-      "restartTimeout": "Server is not responding. Please reload the page manually.",
-      "failed": "Update failed",
-      "checking": "Checking for updates...",
-      "upToDate": "System is up to date",
-      "updateAvailable": "Update available",
-      "checkFailed": "Unable to check for updates",
-      "complete": "Update complete!",
-      "manualReload": "Reload manually",
-      "stableChannel": "Stable version",
-      "stableDescription": "Official updates with version number",
-      "stableButton": "Install stable",
-      "betaChannel": "Latest version",
-      "betaDescription": "Latest commits (beta / patches)",
-      "betaButton": "Install latest",
-      "confirmTitleBeta": "Install latest version",
-      "newVersion": "New version",
-      "currentVersion": "currently",
-      "startupCheck": "Check for updates at startup",
-      "startupBetaNotif": "Also notify beta updates",
-      "cacheWarning": "Hãy nhớ xóa bộ nhớ đệm trình duyệt sau khi cập nhật",
+      "title": "Cập nhật hệ thống",
+      "description": "Tải xuống và cài đặt phiên bản mới nhất",
+      "warning": "Lấy các thay đổi mới nhất, cập nhật phụ thuộc và khởi động lại máy chủ",
+      "button": "Cài đặt cập nhật",
+      "confirmTitle": "Cài đặt cập nhật",
+      "confirmMessage": "Hệ thống sẽ tải phiên bản mới nhất, cập nhật phụ thuộc và khởi động lại máy chủ.\n\nỨng dụng sẽ tạm thời không khả dụng trong quá trình cập nhật.",
+      "confirmOk": "Bắt đầu cập nhật",
+      "inProgress": "Đang cập nhật...",
+      "running": "Đang cập nhật, vui lòng đợi...",
+      "success": "Cập nhật hoàn tất! Máy chủ đang khởi động lại...",
+      "reloading": "Đang tải lại trang...",
+      "waitingRestart": "Đang chờ máy chủ khởi động lại...",
+      "restartTimeout": "Máy chủ không phản hồi. Vui lòng tải lại trang thủ công.",
+      "failed": "Cập nhật thất bại",
+      "checking": "Đang kiểm tra cập nhật...",
+      "upToDate": "Hệ thống đã cập nhật",
+      "updateAvailable": "Có bản cập nhật",
+      "checkFailed": "Không thể kiểm tra cập nhật",
+      "complete": "Cập nhật hoàn tất!",
+      "manualReload": "Tải lại thủ công",
+      "stableChannel": "Phiên bản ổn định",
+      "stableDescription": "Cập nhật chính thức có số phiên bản",
+      "stableButton": "Cài đặt ổn định",
+      "betaChannel": "Phiên bản mới nhất",
+      "betaDescription": "Commit mới nhất (beta / vá lỗi)",
+      "betaButton": "Cài đặt mới nhất",
+      "confirmTitleBeta": "Cài đặt phiên bản mới nhất",
+      "newVersion": "Phiên bản mới",
+      "currentVersion": "hiện tại",
+      "startupCheck": "Kiểm tra cập nhật khi khởi động",
+      "startupBetaNotif": "Cũng thông báo cập nhật beta",
+      "cacheWarning": "Nhớ xóa cache trình duyệt sau khi cập nhật",
       "cacheWarningHint": "(Ctrl+Shift+R hoặc cài đặt trình duyệt)",
       "step": {
         "script_started": "Đang khởi tạo...",
         "started": "Đang bắt đầu...",
-        "pulling": "Đang tải xuống nguồn...",
-        "installing": "Đang cài đặt phụ thuộc...",
+        "pulling": "Đang tải nguồn...",
+        "installing": "Đang cài phụ thuộc...",
         "restarting": "Đang khởi động lại máy chủ...",
         "verifying": "Đang xác minh...",
         "done": "Cập nhật hoàn tất!"
@@ -263,10 +263,10 @@
     },
     "lyrics": {
       "title": "Karaoke",
-      "enable": "Show lyrics during playback",
-      "description": "Displays a synced lyrics panel for karaoke MIDI files",
-      "enabled": "Lyrics enabled",
-      "disabled": "Lyrics disabled"
+      "enable": "Hiện lời bài hát khi phát",
+      "description": "Hiển thị bảng lời bài hát đồng bộ cho tệp MIDI karaoke",
+      "enabled": "Lời bài hát đã bật",
+      "disabled": "Lời bài hát đã tắt"
     }
   },
   "bluetooth": {

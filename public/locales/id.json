@@ -40,7 +40,7 @@
       "title": "Tema",
       "dark": "Dark",
       "colored": "Colored",
-      "darkDescription": "Enable dark mode"
+      "darkDescription": "Aktifkan mode gelap"
     },
     "keyboard": {
       "title": "Keyboard",
@@ -57,15 +57,15 @@
       "title": "Instrumen virtual",
       "enable": "Aktifkan instrumen virtual",
       "description": "Pesan MIDI akan dikirim ke log",
-      "enabled": "Instrumen virtual diaktifkan - Pesan MIDI akan dikirim ke log",
-      "disabled": "Instrumen virtual dinonaktifkan"
+      "enabled": "Instrumen virtual aktif - pesan MIDI akan dikirim ke log",
+      "disabled": "Instrumen virtual nonaktif"
     },
     "pianoRoll": {
       "title": "Piano Roll",
       "enable": "Tampilkan piano roll",
-      "description": "Menampilkan not yang akan datang saat pemutaran",
-      "enabled": "Piano roll diaktifkan",
-      "disabled": "Piano roll dinonaktifkan"
+      "description": "Menampilkan not yang akan datang selama pemutaran",
+      "enabled": "Piano roll aktif",
+      "disabled": "Piano roll nonaktif"
     },
     "debugButton": {
       "title": "Tombol Debug",
@@ -73,105 +73,105 @@
       "description": "Menampilkan tombol untuk membuka konsol debug"
     },
     "calibrationButton": {
-      "title": "Calibration Microphone Button",
-      "enable": "Show calibration button",
-      "description": "Shows the microphone button to calibrate audio delays for instruments"
+      "title": "Tombol Mikrofon Kalibrasi",
+      "enable": "Tampilkan tombol kalibrasi",
+      "description": "Menampilkan tombol mikrofon untuk mengkalibrasi delay audio instrumen"
     },
     "lightingButton": {
-      "title": "Lighting Control Button",
-      "enable": "Show lighting control button",
-      "description": "Shows the light bulb button to manage LED strips and lighting rules"
+      "title": "Tombol Kontrol Pencahayaan",
+      "enable": "Tampilkan tombol kontrol pencahayaan",
+      "description": "Menampilkan tombol bola lampu untuk mengelola strip LED dan aturan pencahayaan"
     },
     "playlistButton": {
-      "title": "Playlist Button",
-      "enable": "Show playlist button",
-      "description": "Shows the playlist button in the navigation bar"
+      "title": "Tombol Playlist",
+      "enable": "Tampilkan tombol playlist",
+      "description": "Menampilkan tombol playlist di bilah navigasi"
     },
     "keyboardButton": {
-      "title": "Virtual Keyboard Button",
-      "enable": "Show virtual keyboard button",
-      "description": "Shows the virtual MIDI keyboard button in the navigation bar"
+      "title": "Tombol Keyboard Virtual",
+      "enable": "Tampilkan tombol keyboard virtual",
+      "description": "Menampilkan tombol keyboard MIDI virtual di bilah navigasi"
     },
     "keyboardLayout": {
-      "title": "Physical keyboard layout",
-      "description": "Layout used by the virtual MIDI keyboard to map PC keys."
+      "title": "Tata letak keyboard fisik",
+      "description": "Tata letak yang digunakan keyboard MIDI virtual untuk memetakan tombol PC."
     },
     "instrumentsButton": {
-      "title": "Instruments Button",
-      "enable": "Show instruments button",
-      "description": "Shows the instrument management button in the navigation bar"
+      "title": "Tombol Instrumen",
+      "enable": "Tampilkan tombol instrumen",
+      "description": "Menampilkan tombol manajemen instrumen di bilah navigasi"
     },
     "groups": {
-      "appearance": "Appearance",
-      "playback": "Playback & Display",
-      "sound": "Sound",
-      "buttons": "Interface Buttons",
-      "system": "Hardware & System",
-      "wifi": "WiFi Management"
+      "appearance": "Tampilan",
+      "playback": "Pemutaran & Tampilan",
+      "sound": "Suara",
+      "buttons": "Tombol Antarmuka",
+      "system": "Perangkat Keras & Sistem",
+      "wifi": "Manajemen WiFi"
     },
     "hotspot": {
-      "title": "WiFi Hotspot",
-      "description": "Turn the Raspberry Pi into a WiFi access point. Enable: disconnects WiFi then starts the hotspot. Disable: returns to WiFi-client mode.",
-      "ssid": "Network name (SSID)",
-      "password": "Password (8 characters min., WPA2)",
-      "passwordPlaceholder": "Leave empty to keep the current password",
-      "passwordEmpty": "No password stored — enter a password (8+ characters)",
+      "title": "Hotspot WiFi",
+      "description": "Ubah Raspberry Pi menjadi titik akses WiFi. Aktifkan: memutus WiFi lalu memulai hotspot. Nonaktifkan: kembali ke mode klien WiFi.",
+      "ssid": "Nama jaringan (SSID)",
+      "password": "Kata sandi (min. 8 karakter, WPA2)",
+      "passwordPlaceholder": "Biarkan kosong untuk mempertahankan kata sandi saat ini",
+      "passwordEmpty": "Tidak ada kata sandi tersimpan — masukkan kata sandi (8+ karakter)",
       "band": "Band",
-      "channel": "Channel (0 = auto)",
-      "warning": "Enabling the hotspot will disconnect the Raspberry Pi from WiFi. If you reach this page over WiFi, you will lose the connection. The sign-in page will open automatically on most devices (captive portal).",
-      "enable": "Enable hotspot",
-      "disable": "Disable hotspot",
-      "statusUnknown": "Status: unknown",
-      "statusActive": "Status: hotspot active",
-      "statusInactive": "Status: hotspot inactive",
-      "statusUnavailable": "Status unavailable",
+      "channel": "Channel (0 = otomatis)",
+      "warning": "Mengaktifkan hotspot akan memutus Raspberry Pi dari WiFi. Jika Anda membuka halaman ini melalui WiFi, Anda akan kehilangan koneksi. Halaman masuk akan terbuka otomatis di sebagian besar perangkat (captive portal).",
+      "enable": "Aktifkan hotspot",
+      "disable": "Nonaktifkan hotspot",
+      "statusUnknown": "Status: tidak diketahui",
+      "statusActive": "Status: hotspot aktif",
+      "statusInactive": "Status: hotspot nonaktif",
+      "statusUnavailable": "Status tidak tersedia",
       "wifiConnected": "WiFi",
-      "confirmEnable": "The Raspberry Pi will disconnect from WiFi and enable the hotspot. If you are connected via WiFi, you will lose the connection to this interface.",
-      "confirmEnableTitle": "Enable hotspot",
-      "confirmEnableOk": "Enable",
-      "enabledOk": "Hotspot enabled. Reconnect to the new WiFi network to continue.",
-      "enabledLikely": "Connection lost (expected) — the hotspot was likely enabled. Reconnect to the new SSID.",
-      "disabledOk": "Hotspot disabled, WiFi reconnecting."
+      "confirmEnable": "Raspberry Pi akan terputus dari WiFi dan mengaktifkan hotspot. Jika Anda terhubung via WiFi, Anda akan kehilangan koneksi ke antarmuka ini.",
+      "confirmEnableTitle": "Aktifkan hotspot",
+      "confirmEnableOk": "Aktifkan",
+      "enabledOk": "Hotspot diaktifkan. Sambungkan kembali ke jaringan WiFi baru untuk melanjutkan.",
+      "enabledLikely": "Koneksi terputus (diharapkan) — hotspot kemungkinan telah diaktifkan. Sambungkan kembali ke SSID baru.",
+      "disabledOk": "Hotspot dinonaktifkan, WiFi menyambung kembali."
     },
     "wifi": {
-      "title": "WiFi Network",
-      "description": "Scan available WiFi networks and connect. The connection will be dropped if the hotspot is active.",
-      "currentNone": "Not connected",
-      "currentConnected": "Connected to",
-      "available": "Available networks",
-      "scan": "Scan",
-      "scanning": "Scanning...",
-      "clickScan": "Click \"Scan\" to discover networks",
-      "noNetworks": "No networks found",
+      "title": "Jaringan WiFi",
+      "description": "Pindai jaringan WiFi tersedia dan sambungkan. Koneksi akan terputus jika hotspot aktif.",
+      "currentNone": "Tidak terhubung",
+      "currentConnected": "Terhubung ke",
+      "available": "Jaringan tersedia",
+      "scan": "Pindai",
+      "scanning": "Memindai...",
+      "clickScan": "Klik \"Pindai\" untuk menemukan jaringan",
+      "noNetworks": "Tidak ada jaringan ditemukan",
       "open": "Open",
-      "connect": "Connect",
-      "connecting": "Connecting to",
-      "connectedOk": "Connected to",
-      "disconnect": "Disconnect",
-      "confirmDisconnect": "Disconnect from WiFi? If you reach this page over WiFi, you will lose the connection.",
-      "disconnectedOk": "WiFi disconnected.",
-      "passwordPromptTitle": "WiFi password",
-      "passwordPromptMessage": "Password for",
-      "saved": "Saved networks",
-      "savedLoading": "Loading...",
-      "noSaved": "No saved networks",
-      "forget": "Forget",
-      "confirmForget": "Forget network"
+      "connect": "Sambungkan",
+      "connecting": "Menyambung ke",
+      "connectedOk": "Terhubung ke",
+      "disconnect": "Putuskan",
+      "confirmDisconnect": "Putuskan dari WiFi? Jika Anda membuka halaman ini melalui WiFi, Anda akan kehilangan koneksi.",
+      "disconnectedOk": "WiFi terputus.",
+      "passwordPromptTitle": "Kata sandi WiFi",
+      "passwordPromptMessage": "Kata sandi untuk",
+      "saved": "Jaringan tersimpan",
+      "savedLoading": "Memuat...",
+      "noSaved": "Tidak ada jaringan tersimpan",
+      "forget": "Lupakan",
+      "confirmForget": "Lupakan jaringan"
     },
     "loadingAnimation": {
-      "title": "Animasi pemuatan",
-      "enable": "Tampilkan animasi saat mulai",
-      "description": "Menampilkan animasi dengan bilah kemajuan saat memulai."
+      "title": "Animasi Pemuatan",
+      "enable": "Tampilkan animasi saat startup",
+      "description": "Menampilkan animasi dengan bilah kemajuan saat diluncurkan. Jika dinonaktifkan, animasi hanya muncul saat pemuatan pertama (cache dibersihkan)."
     },
     "pianoRollV2": {
-      "title": "Piano Roll V2 (experimental)",
-      "enable": "Use the new Canvas 2D renderer",
-      "description": "Replaces the third-party webaudio-pianoroll component with an in-house implementation (viewport culling, spatial index). Beta — please report any bug."
+      "title": "Piano Roll V2 (eksperimental)",
+      "enable": "Gunakan renderer Canvas 2D baru",
+      "description": "Mengganti komponen webaudio-pianoroll pihak ketiga dengan implementasi internal (viewport culling, indeks spasial). Beta — harap laporkan bug apa pun."
     },
     "midiClock": {
       "title": "MIDI Clock",
       "enable": "Aktifkan MIDI Clock",
-      "description": "Mengirim sinyal MIDI Clock ke perangkat yang terhubung untuk sinkronisasi"
+      "description": "Kirim sinyal MIDI clock (24 PPQ) ke instrumen terhubung untuk menyinkronkan arpeggiator, LFO, dan sequencer"
     },
     "serialMidi": {
       "title": "MIDI Serial (GPIO)",
@@ -180,36 +180,36 @@
       "ports": "Port tersedia",
       "scan": "Pindai",
       "scanning": "Memindai port serial...",
-      "clickScan": "Klik \"Pindai\" untuk mendeteksi port serial yang tersedia",
-      "noPorts": "Tidak ada port serial yang terdeteksi. Periksa overlay UART di /boot/config.txt",
-      "notAvailable": "Paket serialport tidak terpasang. Jalankan: npm install serialport"
+      "clickScan": "Klik \"Pindai\" untuk mendeteksi port serial tersedia",
+      "noPorts": "Tidak ada port serial terdeteksi. Periksa overlay UART /boot/config.txt",
+      "notAvailable": "Paket serialport belum terinstal. Jalankan: npm install serialport"
     },
     "soundBank": {
-      "title": "Bank Suara",
+      "title": "Sound Bank",
       "description": "Pustaka sampel untuk sintesis audio. Bank yang lebih ringan mengurangi penggunaan memori.",
-      "changed": "Bank suara diubah",
+      "changed": "Sound bank diubah",
       "quality": {
         "high": "Kualitas tinggi",
         "medium": "Sedang",
         "low": "Ringan"
       },
       "banks": {
-        "FluidR3_GM": "Bank GM referensi. Sampel yang kaya dan detail untuk semua 128 instrumen. Kualitas keseluruhan terbaik tetapi unduhan terberat.",
-        "GeneralUserGS": "Bank GM/GS fidelitas tinggi. Keseimbangan kualitas dan ukuran yang sangat baik. Instrumen yang hangat dan terdengar alami.",
-        "JCLive": "Bank berbasis rekaman langsung. Drum yang kuat, brass yang cerah. Bagus untuk rock, jazz, dan gaya live.",
-        "Aspirin": "Bank yang bersih dan seimbang. Piano yang halus, string yang jernih. Baik untuk klasik dan pop.",
+        "FluidR3_GM": "Bank GM referensi. Sampel kaya dan detail untuk seluruh 128 instrumen. Kualitas keseluruhan terbaik tetapi unduhan terberat.",
+        "GeneralUserGS": "Bank GM/GS fidelitas tinggi. Keseimbangan kualitas dan ukuran yang sangat baik. Instrumen hangat dan natural.",
+        "JCLive": "Bank berbasis rekaman live. Drum bertenaga, brass cerah. Bagus untuk rock, jazz, dan gaya live.",
+        "Aspirin": "Bank bersih dan seimbang. Piano halus, string jernih. Bagus untuk klasik dan pop.",
         "SBLive": "Bank Creative Labs Sound Blaster Live. Serba bisa yang solid dengan karakter nostalgia.",
         "Chaos": "Bank kreatif ringan. Pemuatan cepat, suara dasar tetapi fungsional untuk pratinjau cepat.",
-        "SoundBlasterOld": "Bank Sound Blaster klasik. Jejak terkecil, karakter retro. Ideal untuk penggunaan bandwidth rendah."
+        "SoundBlasterOld": "Bank Sound Blaster klasik. Ukuran terkecil, karakter retro. Ideal untuk penggunaan bandwidth rendah."
       },
       "effects": {
-        "title": "🎛️ Bank effects",
-        "reverbMix": "Reverb mix",
-        "reverbDecay": "Reverb decay",
-        "echoMix": "Echo mix",
-        "echoTime": "Echo time",
-        "echoFeedback": "Echo feedback",
-        "reset": "Reset"
+        "title": "🎛️ Efek bank",
+        "reverbMix": "Mix Reverb",
+        "reverbDecay": "Decay Reverb",
+        "echoMix": "Mix Echo",
+        "echoTime": "Waktu Echo",
+        "echoFeedback": "Feedback Echo",
+        "reset": "Atur ulang"
       }
     },
     "language": {
@@ -217,56 +217,56 @@
       "select": "Pilih bahasa"
     },
     "update": {
-      "title": "System Update",
-      "description": "Download and install the latest version",
-      "warning": "Fetches latest changes, updates dependencies and restarts the server",
-      "button": "Install update",
-      "confirmTitle": "Install update",
-      "confirmMessage": "The system will download the latest version, update dependencies and restart the server.\n\nThe application will be temporarily unavailable during the update.",
-      "confirmOk": "Start update",
-      "inProgress": "Updating...",
-      "running": "Update in progress, please wait...",
-      "success": "Update complete! The server is restarting...",
-      "reloading": "Reloading page...",
-      "waitingRestart": "Waiting for server to restart...",
-      "restartTimeout": "Server is not responding. Please reload the page manually.",
-      "failed": "Update failed",
-      "checking": "Checking for updates...",
-      "upToDate": "System is up to date",
-      "updateAvailable": "Update available",
-      "checkFailed": "Unable to check for updates",
-      "complete": "Update complete!",
-      "manualReload": "Reload manually",
-      "stableChannel": "Stable version",
-      "stableDescription": "Official updates with version number",
-      "stableButton": "Install stable",
-      "betaChannel": "Latest version",
-      "betaDescription": "Latest commits (beta / patches)",
-      "betaButton": "Install latest",
-      "confirmTitleBeta": "Install latest version",
-      "newVersion": "New version",
-      "currentVersion": "currently",
-      "startupCheck": "Check for updates at startup",
-      "startupBetaNotif": "Also notify beta updates",
-      "cacheWarning": "Jangan lupa hapus cache browser setelah pembaruan",
+      "title": "Pembaruan Sistem",
+      "description": "Unduh dan instal versi terbaru",
+      "warning": "Mengambil perubahan terbaru, memperbarui dependensi, dan memulai ulang server",
+      "button": "Instal pembaruan",
+      "confirmTitle": "Instal pembaruan",
+      "confirmMessage": "Sistem akan mengunduh versi terbaru, memperbarui dependensi, dan memulai ulang server.\n\nAplikasi akan sementara tidak tersedia selama pembaruan.",
+      "confirmOk": "Mulai pembaruan",
+      "inProgress": "Memperbarui...",
+      "running": "Pembaruan berlangsung, harap tunggu...",
+      "success": "Pembaruan selesai! Server memulai ulang...",
+      "reloading": "Memuat ulang halaman...",
+      "waitingRestart": "Menunggu server memulai ulang...",
+      "restartTimeout": "Server tidak merespons. Harap muat ulang halaman secara manual.",
+      "failed": "Pembaruan gagal",
+      "checking": "Memeriksa pembaruan...",
+      "upToDate": "Sistem sudah terbaru",
+      "updateAvailable": "Pembaruan tersedia",
+      "checkFailed": "Tidak dapat memeriksa pembaruan",
+      "complete": "Pembaruan selesai!",
+      "manualReload": "Muat ulang manual",
+      "stableChannel": "Versi stabil",
+      "stableDescription": "Pembaruan resmi dengan nomor versi",
+      "stableButton": "Instal stabil",
+      "betaChannel": "Versi terbaru",
+      "betaDescription": "Commit terbaru (beta / patch)",
+      "betaButton": "Instal terbaru",
+      "confirmTitleBeta": "Instal versi terbaru",
+      "newVersion": "Versi baru",
+      "currentVersion": "saat ini",
+      "startupCheck": "Periksa pembaruan saat startup",
+      "startupBetaNotif": "Beri tahu juga pembaruan beta",
+      "cacheWarning": "Ingat untuk membersihkan cache browser setelah pembaruan",
       "cacheWarningHint": "(Ctrl+Shift+R atau pengaturan browser)",
       "step": {
         "script_started": "Menginisialisasi...",
         "started": "Memulai...",
         "pulling": "Mengunduh sumber...",
-        "installing": "Memasang dependensi...",
+        "installing": "Menginstal dependensi...",
         "restarting": "Memulai ulang server...",
         "verifying": "Memverifikasi...",
         "done": "Pembaruan selesai!"
       },
-      "successToast": "Pembaruan berhasil dipasang!"
+      "successToast": "Pembaruan berhasil diinstal!"
     },
     "lyrics": {
       "title": "Karaoke",
-      "enable": "Show lyrics during playback",
-      "description": "Displays a synced lyrics panel for karaoke MIDI files",
-      "enabled": "Lyrics enabled",
-      "disabled": "Lyrics disabled"
+      "enable": "Tampilkan lirik selama pemutaran",
+      "description": "Menampilkan panel lirik tersinkron untuk file MIDI karaoke",
+      "enabled": "Lirik aktif",
+      "disabled": "Lirik nonaktif"
     }
   },
   "bluetooth": {

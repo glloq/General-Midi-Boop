@@ -40,7 +40,7 @@
       "title": "Θέμα",
       "dark": "Dark",
       "colored": "Colored",
-      "darkDescription": "Enable dark mode"
+      "darkDescription": "Ενεργοποίηση σκοτεινής λειτουργίας"
     },
     "keyboard": {
       "title": "Πληκτρολόγιο",
@@ -48,7 +48,7 @@
       "keyCount": "{count} πλήκτρα"
     },
     "noteDisplay": {
-      "title": "Εμφάνιση νότας",
+      "title": "Εμφάνιση νοτών",
       "visibleDuration": "Ορατή διάρκεια",
       "minSeconds": "5 δευτερόλεπτα",
       "maxSeconds": "60 δευτερόλεπτα"
@@ -56,132 +56,132 @@
     "virtualInstrument": {
       "title": "Εικονικό όργανο",
       "enable": "Ενεργοποίηση εικονικού οργάνου",
-      "description": "Τα μηνύματα MIDI θα σταλούν στα αρχεία καταγραφής",
-      "enabled": "Εικονικό όργανο ενεργοποιημένο - Τα μηνύματα MIDI θα σταλούν στα αρχεία καταγραφής",
+      "description": "Τα μηνύματα MIDI θα αποστέλλονται στα αρχεία καταγραφής",
+      "enabled": "Εικονικό όργανο ενεργό - τα μηνύματα MIDI θα αποστέλλονται στα αρχεία καταγραφής",
       "disabled": "Εικονικό όργανο απενεργοποιημένο"
     },
     "pianoRoll": {
       "title": "Piano Roll",
       "enable": "Εμφάνιση piano roll",
       "description": "Εμφανίζει τις επερχόμενες νότες κατά την αναπαραγωγή",
-      "enabled": "Piano roll ενεργοποιημένο",
+      "enabled": "Piano roll ενεργό",
       "disabled": "Piano roll απενεργοποιημένο"
     },
     "debugButton": {
-      "title": "Κουμπί Αποσφαλμάτωσης",
-      "enable": "Εμφάνιση κουμπιού αποσφαλμάτωσης",
-      "description": "Εμφανίζει το κουμπί για το άνοιγμα της κονσόλας αποσφαλμάτωσης"
+      "title": "Κουμπί εντοπισμού σφαλμάτων",
+      "enable": "Εμφάνιση κουμπιού εντοπισμού σφαλμάτων",
+      "description": "Εμφανίζει το κουμπί για το άνοιγμα της κονσόλας εντοπισμού σφαλμάτων"
     },
     "calibrationButton": {
-      "title": "Calibration Microphone Button",
-      "enable": "Show calibration button",
-      "description": "Shows the microphone button to calibrate audio delays for instruments"
+      "title": "Κουμπί μικροφώνου βαθμονόμησης",
+      "enable": "Εμφάνιση κουμπιού βαθμονόμησης",
+      "description": "Εμφανίζει το κουμπί μικροφώνου για βαθμονόμηση των καθυστερήσεων ήχου των οργάνων"
     },
     "lightingButton": {
-      "title": "Lighting Control Button",
-      "enable": "Show lighting control button",
-      "description": "Shows the light bulb button to manage LED strips and lighting rules"
+      "title": "Κουμπί ελέγχου φωτισμού",
+      "enable": "Εμφάνιση κουμπιού ελέγχου φωτισμού",
+      "description": "Εμφανίζει το κουμπί λάμπας για διαχείριση λωρίδων LED και κανόνων φωτισμού"
     },
     "playlistButton": {
-      "title": "Playlist Button",
-      "enable": "Show playlist button",
-      "description": "Shows the playlist button in the navigation bar"
+      "title": "Κουμπί λίστας αναπαραγωγής",
+      "enable": "Εμφάνιση κουμπιού λίστας αναπαραγωγής",
+      "description": "Εμφανίζει το κουμπί λίστας αναπαραγωγής στη γραμμή πλοήγησης"
     },
     "keyboardButton": {
-      "title": "Virtual Keyboard Button",
-      "enable": "Show virtual keyboard button",
-      "description": "Shows the virtual MIDI keyboard button in the navigation bar"
+      "title": "Κουμπί εικονικού πληκτρολογίου",
+      "enable": "Εμφάνιση κουμπιού εικονικού πληκτρολογίου",
+      "description": "Εμφανίζει το κουμπί εικονικού πληκτρολογίου MIDI στη γραμμή πλοήγησης"
     },
     "keyboardLayout": {
-      "title": "Physical keyboard layout",
-      "description": "Layout used by the virtual MIDI keyboard to map PC keys."
+      "title": "Διάταξη φυσικού πληκτρολογίου",
+      "description": "Η διάταξη που χρησιμοποιεί το εικονικό πληκτρολόγιο MIDI για την αντιστοίχιση των πλήκτρων PC."
     },
     "instrumentsButton": {
-      "title": "Instruments Button",
-      "enable": "Show instruments button",
-      "description": "Shows the instrument management button in the navigation bar"
+      "title": "Κουμπί οργάνων",
+      "enable": "Εμφάνιση κουμπιού οργάνων",
+      "description": "Εμφανίζει το κουμπί διαχείρισης οργάνων στη γραμμή πλοήγησης"
     },
     "groups": {
-      "appearance": "Appearance",
-      "playback": "Playback & Display",
-      "sound": "Sound",
-      "buttons": "Interface Buttons",
-      "system": "Hardware & System",
-      "wifi": "WiFi Management"
+      "appearance": "Εμφάνιση",
+      "playback": "Αναπαραγωγή και προβολή",
+      "sound": "Ήχος",
+      "buttons": "Κουμπιά διεπαφής",
+      "system": "Υλικό και σύστημα",
+      "wifi": "Διαχείριση WiFi"
     },
     "hotspot": {
       "title": "WiFi Hotspot",
-      "description": "Turn the Raspberry Pi into a WiFi access point. Enable: disconnects WiFi then starts the hotspot. Disable: returns to WiFi-client mode.",
-      "ssid": "Network name (SSID)",
-      "password": "Password (8 characters min., WPA2)",
-      "passwordPlaceholder": "Leave empty to keep the current password",
-      "passwordEmpty": "No password stored — enter a password (8+ characters)",
+      "description": "Μετατροπή του Raspberry Pi σε σημείο πρόσβασης WiFi. Ενεργοποίηση: αποσυνδέει το WiFi και ξεκινά το hotspot. Απενεργοποίηση: επιστρέφει σε λειτουργία πελάτη WiFi.",
+      "ssid": "Όνομα δικτύου (SSID)",
+      "password": "Κωδικός (8 χαρακτήρες ελάχ., WPA2)",
+      "passwordPlaceholder": "Αφήστε κενό για διατήρηση του τρέχοντος κωδικού",
+      "passwordEmpty": "Δεν υπάρχει αποθηκευμένος κωδικός — εισαγάγετε κωδικό (8+ χαρακτήρες)",
       "band": "Band",
-      "channel": "Channel (0 = auto)",
-      "warning": "Enabling the hotspot will disconnect the Raspberry Pi from WiFi. If you reach this page over WiFi, you will lose the connection. The sign-in page will open automatically on most devices (captive portal).",
-      "enable": "Enable hotspot",
-      "disable": "Disable hotspot",
-      "statusUnknown": "Status: unknown",
-      "statusActive": "Status: hotspot active",
-      "statusInactive": "Status: hotspot inactive",
-      "statusUnavailable": "Status unavailable",
+      "channel": "Κανάλι (0 = αυτόματο)",
+      "warning": "Η ενεργοποίηση του hotspot θα αποσυνδέσει το Raspberry Pi από το WiFi. Αν φτάσετε σε αυτή τη σελίδα μέσω WiFi, θα χάσετε τη σύνδεση. Η σελίδα σύνδεσης θα ανοίξει αυτόματα στις περισσότερες συσκευές (captive portal).",
+      "enable": "Ενεργοποίηση hotspot",
+      "disable": "Απενεργοποίηση hotspot",
+      "statusUnknown": "Κατάσταση: άγνωστη",
+      "statusActive": "Κατάσταση: hotspot ενεργό",
+      "statusInactive": "Κατάσταση: hotspot ανενεργό",
+      "statusUnavailable": "Κατάσταση μη διαθέσιμη",
       "wifiConnected": "WiFi",
-      "confirmEnable": "The Raspberry Pi will disconnect from WiFi and enable the hotspot. If you are connected via WiFi, you will lose the connection to this interface.",
-      "confirmEnableTitle": "Enable hotspot",
-      "confirmEnableOk": "Enable",
-      "enabledOk": "Hotspot enabled. Reconnect to the new WiFi network to continue.",
-      "enabledLikely": "Connection lost (expected) — the hotspot was likely enabled. Reconnect to the new SSID.",
-      "disabledOk": "Hotspot disabled, WiFi reconnecting."
+      "confirmEnable": "Το Raspberry Pi θα αποσυνδεθεί από το WiFi και θα ενεργοποιήσει το hotspot. Αν είστε συνδεδεμένοι μέσω WiFi, θα χάσετε τη σύνδεση με αυτή τη διεπαφή.",
+      "confirmEnableTitle": "Ενεργοποίηση hotspot",
+      "confirmEnableOk": "Ενεργοποίηση",
+      "enabledOk": "Το hotspot ενεργοποιήθηκε. Επανασυνδεθείτε στο νέο δίκτυο WiFi για να συνεχίσετε.",
+      "enabledLikely": "Η σύνδεση χάθηκε (αναμενόμενο) — το hotspot πιθανώς ενεργοποιήθηκε. Επανασυνδεθείτε στο νέο SSID.",
+      "disabledOk": "Το hotspot απενεργοποιήθηκε, το WiFi επανασυνδέεται."
     },
     "wifi": {
-      "title": "WiFi Network",
-      "description": "Scan available WiFi networks and connect. The connection will be dropped if the hotspot is active.",
-      "currentNone": "Not connected",
-      "currentConnected": "Connected to",
-      "available": "Available networks",
-      "scan": "Scan",
-      "scanning": "Scanning...",
-      "clickScan": "Click \"Scan\" to discover networks",
-      "noNetworks": "No networks found",
+      "title": "Δίκτυο WiFi",
+      "description": "Σάρωση διαθέσιμων δικτύων WiFi και σύνδεση. Η σύνδεση θα διακοπεί αν το hotspot είναι ενεργό.",
+      "currentNone": "Μη συνδεδεμένο",
+      "currentConnected": "Συνδεδεμένο σε",
+      "available": "Διαθέσιμα δίκτυα",
+      "scan": "Σάρωση",
+      "scanning": "Σάρωση...",
+      "clickScan": "Κάντε κλικ στο \"Σάρωση\" για ανακάλυψη δικτύων",
+      "noNetworks": "Δεν βρέθηκαν δίκτυα",
       "open": "Open",
-      "connect": "Connect",
-      "connecting": "Connecting to",
-      "connectedOk": "Connected to",
-      "disconnect": "Disconnect",
-      "confirmDisconnect": "Disconnect from WiFi? If you reach this page over WiFi, you will lose the connection.",
-      "disconnectedOk": "WiFi disconnected.",
-      "passwordPromptTitle": "WiFi password",
-      "passwordPromptMessage": "Password for",
-      "saved": "Saved networks",
-      "savedLoading": "Loading...",
-      "noSaved": "No saved networks",
-      "forget": "Forget",
-      "confirmForget": "Forget network"
+      "connect": "Σύνδεση",
+      "connecting": "Σύνδεση σε",
+      "connectedOk": "Συνδεδεμένο σε",
+      "disconnect": "Αποσύνδεση",
+      "confirmDisconnect": "Αποσύνδεση από το WiFi; Αν φτάσετε σε αυτή τη σελίδα μέσω WiFi, θα χάσετε τη σύνδεση.",
+      "disconnectedOk": "Το WiFi αποσυνδέθηκε.",
+      "passwordPromptTitle": "Κωδικός WiFi",
+      "passwordPromptMessage": "Κωδικός για",
+      "saved": "Αποθηκευμένα δίκτυα",
+      "savedLoading": "Φόρτωση...",
+      "noSaved": "Δεν υπάρχουν αποθηκευμένα δίκτυα",
+      "forget": "Διαγραφή",
+      "confirmForget": "Διαγραφή δικτύου"
     },
     "loadingAnimation": {
       "title": "Κινούμενο σχέδιο φόρτωσης",
       "enable": "Εμφάνιση κινούμενου σχεδίου κατά την εκκίνηση",
-      "description": "Εμφανίζει ένα κινούμενο σχέδιο με μπάρα προόδου κατά την εκκίνηση."
+      "description": "Εμφανίζει ένα κινούμενο σχέδιο με γραμμή προόδου κατά την εκκίνηση. Αν απενεργοποιηθεί, το κινούμενο σχέδιο εμφανίζεται μόνο στην πρώτη φόρτωση (καθαρισμένη μνήμη)."
     },
     "pianoRollV2": {
-      "title": "Piano Roll V2 (experimental)",
-      "enable": "Use the new Canvas 2D renderer",
-      "description": "Replaces the third-party webaudio-pianoroll component with an in-house implementation (viewport culling, spatial index). Beta — please report any bug."
+      "title": "Piano Roll V2 (πειραματικό)",
+      "enable": "Χρήση του νέου renderer Canvas 2D",
+      "description": "Αντικαθιστά το εξωτερικό στοιχείο webaudio-pianoroll με εσωτερική υλοποίηση (viewport culling, χωρικός δείκτης). Beta — αναφέρετε τυχόν σφάλματα."
     },
     "midiClock": {
       "title": "MIDI Clock",
       "enable": "Ενεργοποίηση MIDI Clock",
-      "description": "Στέλνει σήματα MIDI Clock στις συνδεδεμένες συσκευές για συγχρονισμό"
+      "description": "Αποστολή σήματος MIDI clock (24 PPQ) στα συνδεδεμένα όργανα για συγχρονισμό αρπετζιατόρ, LFO και sequencer"
     },
     "serialMidi": {
       "title": "Σειριακό MIDI (GPIO)",
       "enable": "Ενεργοποίηση σειριακών θυρών MIDI",
-      "description": "Χρήση ακίδων UART GPIO του Raspberry Pi ως θύρες MIDI IN/OUT (απαιτείται κύκλωμα υλικού)",
+      "description": "Χρήση των ακίδων UART GPIO του Raspberry Pi ως θύρες MIDI IN/OUT (απαιτεί κύκλωμα υλικού)",
       "ports": "Διαθέσιμες θύρες",
       "scan": "Σάρωση",
       "scanning": "Σάρωση σειριακών θυρών...",
       "clickScan": "Κάντε κλικ στο \"Σάρωση\" για ανίχνευση διαθέσιμων σειριακών θυρών",
-      "noPorts": "Δεν βρέθηκαν σειριακές θύρες. Ελέγξτε τα UART overlays στο /boot/config.txt",
+      "noPorts": "Δεν ανιχνεύθηκαν σειριακές θύρες. Ελέγξτε τα overlays UART στο /boot/config.txt",
       "notAvailable": "Το πακέτο serialport δεν είναι εγκατεστημένο. Εκτελέστε: npm install serialport"
     },
     "soundBank": {
@@ -190,83 +190,83 @@
       "changed": "Η τράπεζα ήχων άλλαξε",
       "quality": {
         "high": "Υψηλή ποιότητα",
-        "medium": "Μέτρια",
+        "medium": "Μεσαία",
         "low": "Ελαφριά"
       },
       "banks": {
-        "FluidR3_GM": "Τράπεζα αναφοράς GM. Πλούσια, λεπτομερή δείγματα για όλα τα 128 όργανα. Καλύτερη συνολική ποιότητα αλλά βαρύτερη λήψη.",
-        "GeneralUserGS": "Τράπεζα GM/GS υψηλής πιστότητας. Εξαιρετική ισορροπία ποιότητας και μεγέθους. Ζεστά, φυσικά ηχούντα όργανα.",
-        "JCLive": "Τράπεζα βασισμένη σε ζωντανές ηχογραφήσεις. Δυναμικά ντραμς, φωτεινά χάλκινα. Ιδανική για ροκ, τζαζ και ζωντανά στυλ.",
-        "Aspirin": "Καθαρή, καλά ισορροπημένη τράπεζα. Απαλά πιάνα, καθαρά έγχορδα. Κατάλληλη για κλασική και ποπ.",
-        "SBLive": "Τράπεζα Creative Labs Sound Blaster Live. Σταθερή επιλογή με νοσταλγικό χαρακτήρα.",
+        "FluidR3_GM": "Τράπεζα αναφοράς GM. Πλούσια, λεπτομερή δείγματα και για τα 128 όργανα. Καλύτερη συνολική ποιότητα αλλά βαρύτερη λήψη.",
+        "GeneralUserGS": "Τράπεζα GM/GS υψηλής πιστότητας. Εξαιρετική ισορροπία ποιότητας και μεγέθους. Ζεστά, φυσικά όργανα.",
+        "JCLive": "Τράπεζα βασισμένη σε ζωντανή ηχογράφηση. Δυναμικά τύμπανα, φωτεινά χάλκινα. Ιδανική για rock, jazz και live στυλ.",
+        "Aspirin": "Καθαρή, ισορροπημένη τράπεζα. Απαλά πιάνα, καθαρά έγχορδα. Καλή για κλασικό και pop.",
+        "SBLive": "Τράπεζα Creative Labs Sound Blaster Live. Σταθερή επιλογή για όλα, με νοσταλγικό χαρακτήρα.",
         "Chaos": "Ελαφριά δημιουργική τράπεζα. Γρήγορη φόρτωση, βασικοί αλλά λειτουργικοί ήχοι για γρήγορη προεπισκόπηση.",
-        "SoundBlasterOld": "Κλασική τράπεζα Sound Blaster. Μικρότερο αποτύπωμα, ρετρό χαρακτήρας. Ιδανική για χαμηλό εύρος ζώνης."
+        "SoundBlasterOld": "Κλασική τράπεζα Sound Blaster. Το μικρότερο αποτύπωμα, ρετρό χαρακτήρας. Ιδανική για χρήση χαμηλού εύρους ζώνης."
       },
       "effects": {
-        "title": "🎛️ Bank effects",
-        "reverbMix": "Reverb mix",
-        "reverbDecay": "Reverb decay",
-        "echoMix": "Echo mix",
-        "echoTime": "Echo time",
-        "echoFeedback": "Echo feedback",
-        "reset": "Reset"
+        "title": "🎛️ Εφέ τράπεζας",
+        "reverbMix": "Μείξη Reverb",
+        "reverbDecay": "Φθίση Reverb",
+        "echoMix": "Μείξη Echo",
+        "echoTime": "Χρόνος Echo",
+        "echoFeedback": "Ανάδραση Echo",
+        "reset": "Επαναφορά"
       }
     },
     "language": {
       "title": "Γλώσσα",
-      "select": "Επιλέξτε γλώσσα"
+      "select": "Επιλογή γλώσσας"
     },
     "update": {
-      "title": "System Update",
-      "description": "Download and install the latest version",
-      "warning": "Fetches latest changes, updates dependencies and restarts the server",
-      "button": "Install update",
-      "confirmTitle": "Install update",
-      "confirmMessage": "The system will download the latest version, update dependencies and restart the server.\n\nThe application will be temporarily unavailable during the update.",
-      "confirmOk": "Start update",
-      "inProgress": "Updating...",
-      "running": "Update in progress, please wait...",
-      "success": "Update complete! The server is restarting...",
-      "reloading": "Reloading page...",
-      "waitingRestart": "Waiting for server to restart...",
-      "restartTimeout": "Server is not responding. Please reload the page manually.",
-      "failed": "Update failed",
-      "checking": "Checking for updates...",
-      "upToDate": "System is up to date",
-      "updateAvailable": "Update available",
-      "checkFailed": "Unable to check for updates",
-      "complete": "Update complete!",
-      "manualReload": "Reload manually",
-      "stableChannel": "Stable version",
-      "stableDescription": "Official updates with version number",
-      "stableButton": "Install stable",
-      "betaChannel": "Latest version",
-      "betaDescription": "Latest commits (beta / patches)",
-      "betaButton": "Install latest",
-      "confirmTitleBeta": "Install latest version",
-      "newVersion": "New version",
-      "currentVersion": "currently",
-      "startupCheck": "Check for updates at startup",
-      "startupBetaNotif": "Also notify beta updates",
-      "cacheWarning": "Μην ξεχάσετε να καθαρίσετε την προσωρινή μνήμη του προγράμματος περιήγησης μετά την ενημέρωση",
+      "title": "Ενημέρωση συστήματος",
+      "description": "Λήψη και εγκατάσταση της τελευταίας έκδοσης",
+      "warning": "Λαμβάνει τις τελευταίες αλλαγές, ενημερώνει τις εξαρτήσεις και επανεκκινεί τον διακομιστή",
+      "button": "Εγκατάσταση ενημέρωσης",
+      "confirmTitle": "Εγκατάσταση ενημέρωσης",
+      "confirmMessage": "Το σύστημα θα κατεβάσει την τελευταία έκδοση, θα ενημερώσει τις εξαρτήσεις και θα επανεκκινήσει τον διακομιστή.\n\nΗ εφαρμογή θα είναι προσωρινά μη διαθέσιμη κατά την ενημέρωση.",
+      "confirmOk": "Έναρξη ενημέρωσης",
+      "inProgress": "Ενημέρωση...",
+      "running": "Ενημέρωση σε εξέλιξη, παρακαλώ περιμένετε...",
+      "success": "Η ενημέρωση ολοκληρώθηκε! Ο διακομιστής επανεκκινείται...",
+      "reloading": "Επαναφόρτωση σελίδας...",
+      "waitingRestart": "Αναμονή επανεκκίνησης διακομιστή...",
+      "restartTimeout": "Ο διακομιστής δεν αποκρίνεται. Παρακαλώ επαναφορτώστε τη σελίδα χειροκίνητα.",
+      "failed": "Η ενημέρωση απέτυχε",
+      "checking": "Έλεγχος για ενημερώσεις...",
+      "upToDate": "Το σύστημα είναι ενημερωμένο",
+      "updateAvailable": "Διαθέσιμη ενημέρωση",
+      "checkFailed": "Δεν είναι δυνατός ο έλεγχος για ενημερώσεις",
+      "complete": "Η ενημέρωση ολοκληρώθηκε!",
+      "manualReload": "Επαναφόρτωση χειροκίνητα",
+      "stableChannel": "Σταθερή έκδοση",
+      "stableDescription": "Επίσημες ενημερώσεις με αριθμό έκδοσης",
+      "stableButton": "Εγκατάσταση σταθερής",
+      "betaChannel": "Τελευταία έκδοση",
+      "betaDescription": "Τελευταία commits (beta / διορθώσεις)",
+      "betaButton": "Εγκατάσταση τελευταίας",
+      "confirmTitleBeta": "Εγκατάσταση τελευταίας έκδοσης",
+      "newVersion": "Νέα έκδοση",
+      "currentVersion": "τρέχουσα",
+      "startupCheck": "Έλεγχος για ενημερώσεις κατά την εκκίνηση",
+      "startupBetaNotif": "Ειδοποίηση και για ενημερώσεις beta",
+      "cacheWarning": "Θυμηθείτε να καθαρίσετε τη μνήμη του προγράμματος περιήγησης μετά την ενημέρωση",
       "cacheWarningHint": "(Ctrl+Shift+R ή ρυθμίσεις προγράμματος περιήγησης)",
       "step": {
         "script_started": "Αρχικοποίηση...",
-        "started": "Εκκίνηση...",
+        "started": "Έναρξη...",
         "pulling": "Λήψη πηγών...",
         "installing": "Εγκατάσταση εξαρτήσεων...",
         "restarting": "Επανεκκίνηση διακομιστή...",
         "verifying": "Επαλήθευση...",
         "done": "Η ενημέρωση ολοκληρώθηκε!"
       },
-      "successToast": "Η ενημέρωση εγκαταστάθηκε με επιτυχία!"
+      "successToast": "Η ενημέρωση εγκαταστάθηκε επιτυχώς!"
     },
     "lyrics": {
       "title": "Karaoke",
-      "enable": "Show lyrics during playback",
-      "description": "Displays a synced lyrics panel for karaoke MIDI files",
-      "enabled": "Lyrics enabled",
-      "disabled": "Lyrics disabled"
+      "enable": "Εμφάνιση στίχων κατά την αναπαραγωγή",
+      "description": "Εμφανίζει έναν συγχρονισμένο πίνακα στίχων για αρχεία MIDI καραόκε",
+      "enabled": "Στίχοι ενεργοί",
+      "disabled": "Στίχοι απενεργοποιημένοι"
     }
   },
   "bluetooth": {

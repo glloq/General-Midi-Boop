@@ -40,7 +40,7 @@
       "title": "Téma",
       "dark": "Dark",
       "colored": "Colored",
-      "darkDescription": "Enable dark mode"
+      "darkDescription": "Sötét mód engedélyezése"
     },
     "keyboard": {
       "title": "Billentyűzet",
@@ -48,7 +48,7 @@
       "keyCount": "{count} billentyű"
     },
     "noteDisplay": {
-      "title": "Hangjegy megjelenítés",
+      "title": "Hangmegjelenítés",
       "visibleDuration": "Látható időtartam",
       "minSeconds": "5 másodperc",
       "maxSeconds": "60 másodperc"
@@ -56,8 +56,8 @@
     "virtualInstrument": {
       "title": "Virtuális hangszer",
       "enable": "Virtuális hangszer engedélyezése",
-      "description": "MIDI üzenetek a naplóba kerülnek",
-      "enabled": "Virtuális hangszer engedélyezve - MIDI üzenetek a naplóba kerülnek",
+      "description": "A MIDI üzenetek a naplókba kerülnek",
+      "enabled": "Virtuális hangszer engedélyezve - a MIDI üzenetek a naplókba kerülnek",
       "disabled": "Virtuális hangszer letiltva"
     },
     "pianoRoll": {
@@ -70,123 +70,123 @@
     "debugButton": {
       "title": "Hibakereső gomb",
       "enable": "Hibakereső gomb megjelenítése",
-      "description": "Megjeleníti a gombot a hibakereső konzol megnyitásához"
+      "description": "Megjeleníti a hibakereső konzol megnyitó gombját"
     },
     "calibrationButton": {
-      "title": "Calibration Microphone Button",
-      "enable": "Show calibration button",
-      "description": "Shows the microphone button to calibrate audio delays for instruments"
+      "title": "Kalibrációs mikrofon gomb",
+      "enable": "Kalibrációs gomb megjelenítése",
+      "description": "Megjeleníti a mikrofon gombot a hangszerek audio késleltetésének kalibrálásához"
     },
     "lightingButton": {
-      "title": "Lighting Control Button",
-      "enable": "Show lighting control button",
-      "description": "Shows the light bulb button to manage LED strips and lighting rules"
+      "title": "Világításvezérlő gomb",
+      "enable": "Világításvezérlő gomb megjelenítése",
+      "description": "Megjeleníti a villanykörte gombot a LED-szalagok és világítási szabályok kezeléséhez"
     },
     "playlistButton": {
-      "title": "Playlist Button",
-      "enable": "Show playlist button",
-      "description": "Shows the playlist button in the navigation bar"
+      "title": "Lejátszási lista gomb",
+      "enable": "Lejátszási lista gomb megjelenítése",
+      "description": "Megjeleníti a lejátszási lista gombot a navigációs sávban"
     },
     "keyboardButton": {
-      "title": "Virtual Keyboard Button",
-      "enable": "Show virtual keyboard button",
-      "description": "Shows the virtual MIDI keyboard button in the navigation bar"
+      "title": "Virtuális billentyűzet gomb",
+      "enable": "Virtuális billentyűzet gomb megjelenítése",
+      "description": "Megjeleníti a virtuális MIDI billentyűzet gombot a navigációs sávban"
     },
     "keyboardLayout": {
-      "title": "Physical keyboard layout",
-      "description": "Layout used by the virtual MIDI keyboard to map PC keys."
+      "title": "Fizikai billentyűzetkiosztás",
+      "description": "A virtuális MIDI billentyűzet által a PC-billentyűk leképezéséhez használt kiosztás."
     },
     "instrumentsButton": {
-      "title": "Instruments Button",
-      "enable": "Show instruments button",
-      "description": "Shows the instrument management button in the navigation bar"
+      "title": "Hangszerek gomb",
+      "enable": "Hangszerek gomb megjelenítése",
+      "description": "Megjeleníti a hangszerkezelő gombot a navigációs sávban"
     },
     "groups": {
-      "appearance": "Appearance",
-      "playback": "Playback & Display",
-      "sound": "Sound",
-      "buttons": "Interface Buttons",
-      "system": "Hardware & System",
-      "wifi": "WiFi Management"
+      "appearance": "Megjelenés",
+      "playback": "Lejátszás és megjelenítés",
+      "sound": "Hang",
+      "buttons": "Felületi gombok",
+      "system": "Hardver és rendszer",
+      "wifi": "WiFi-kezelés"
     },
     "hotspot": {
-      "title": "WiFi Hotspot",
-      "description": "Turn the Raspberry Pi into a WiFi access point. Enable: disconnects WiFi then starts the hotspot. Disable: returns to WiFi-client mode.",
-      "ssid": "Network name (SSID)",
-      "password": "Password (8 characters min., WPA2)",
-      "passwordPlaceholder": "Leave empty to keep the current password",
-      "passwordEmpty": "No password stored — enter a password (8+ characters)",
+      "title": "WiFi hotspot",
+      "description": "A Raspberry Pi WiFi hozzáférési ponttá alakítása. Engedélyezés: leválasztja a WiFi-t, majd elindítja a hotspotot. Letiltás: visszatér WiFi-kliens módba.",
+      "ssid": "Hálózatnév (SSID)",
+      "password": "Jelszó (min. 8 karakter, WPA2)",
+      "passwordPlaceholder": "Hagyja üresen a jelenlegi jelszó megtartásához",
+      "passwordEmpty": "Nincs tárolt jelszó — adjon meg egy jelszót (8+ karakter)",
       "band": "Band",
-      "channel": "Channel (0 = auto)",
-      "warning": "Enabling the hotspot will disconnect the Raspberry Pi from WiFi. If you reach this page over WiFi, you will lose the connection. The sign-in page will open automatically on most devices (captive portal).",
-      "enable": "Enable hotspot",
-      "disable": "Disable hotspot",
-      "statusUnknown": "Status: unknown",
-      "statusActive": "Status: hotspot active",
-      "statusInactive": "Status: hotspot inactive",
-      "statusUnavailable": "Status unavailable",
+      "channel": "Csatorna (0 = auto)",
+      "warning": "A hotspot engedélyezése leválasztja a Raspberry Pi-t a WiFi-ről. Ha ezt az oldalt WiFi-n keresztül éri el, elveszíti a kapcsolatot. A bejelentkezési oldal a legtöbb eszközön automatikusan megnyílik (captive portal).",
+      "enable": "Hotspot engedélyezése",
+      "disable": "Hotspot letiltása",
+      "statusUnknown": "Állapot: ismeretlen",
+      "statusActive": "Állapot: hotspot aktív",
+      "statusInactive": "Állapot: hotspot inaktív",
+      "statusUnavailable": "Állapot nem elérhető",
       "wifiConnected": "WiFi",
-      "confirmEnable": "The Raspberry Pi will disconnect from WiFi and enable the hotspot. If you are connected via WiFi, you will lose the connection to this interface.",
-      "confirmEnableTitle": "Enable hotspot",
-      "confirmEnableOk": "Enable",
-      "enabledOk": "Hotspot enabled. Reconnect to the new WiFi network to continue.",
-      "enabledLikely": "Connection lost (expected) — the hotspot was likely enabled. Reconnect to the new SSID.",
-      "disabledOk": "Hotspot disabled, WiFi reconnecting."
+      "confirmEnable": "A Raspberry Pi leválik a WiFi-ről és engedélyezi a hotspotot. Ha WiFi-n keresztül csatlakozik, elveszíti a kapcsolatot ehhez a felülethez.",
+      "confirmEnableTitle": "Hotspot engedélyezése",
+      "confirmEnableOk": "Engedélyezés",
+      "enabledOk": "Hotspot engedélyezve. Csatlakozzon újra az új WiFi hálózathoz a folytatáshoz.",
+      "enabledLikely": "Kapcsolat megszakadt (várható) — a hotspot valószínűleg engedélyezve lett. Csatlakozzon újra az új SSID-hez.",
+      "disabledOk": "Hotspot letiltva, WiFi újracsatlakozik."
     },
     "wifi": {
-      "title": "WiFi Network",
-      "description": "Scan available WiFi networks and connect. The connection will be dropped if the hotspot is active.",
-      "currentNone": "Not connected",
-      "currentConnected": "Connected to",
-      "available": "Available networks",
-      "scan": "Scan",
-      "scanning": "Scanning...",
-      "clickScan": "Click \"Scan\" to discover networks",
-      "noNetworks": "No networks found",
+      "title": "WiFi hálózat",
+      "description": "Az elérhető WiFi hálózatok keresése és csatlakozás. A kapcsolat megszakad, ha a hotspot aktív.",
+      "currentNone": "Nincs csatlakozva",
+      "currentConnected": "Csatlakozva ehhez:",
+      "available": "Elérhető hálózatok",
+      "scan": "Keresés",
+      "scanning": "Keresés...",
+      "clickScan": "Kattintson a \"Keresés\" gombra a hálózatok felfedezéséhez",
+      "noNetworks": "Nem található hálózat",
       "open": "Open",
-      "connect": "Connect",
-      "connecting": "Connecting to",
-      "connectedOk": "Connected to",
-      "disconnect": "Disconnect",
-      "confirmDisconnect": "Disconnect from WiFi? If you reach this page over WiFi, you will lose the connection.",
-      "disconnectedOk": "WiFi disconnected.",
-      "passwordPromptTitle": "WiFi password",
-      "passwordPromptMessage": "Password for",
-      "saved": "Saved networks",
-      "savedLoading": "Loading...",
-      "noSaved": "No saved networks",
-      "forget": "Forget",
-      "confirmForget": "Forget network"
+      "connect": "Csatlakozás",
+      "connecting": "Csatlakozás ehhez:",
+      "connectedOk": "Csatlakozva ehhez:",
+      "disconnect": "Leválasztás",
+      "confirmDisconnect": "Leválik a WiFi-ről? Ha ezt az oldalt WiFi-n keresztül éri el, elveszíti a kapcsolatot.",
+      "disconnectedOk": "WiFi leválasztva.",
+      "passwordPromptTitle": "WiFi jelszó",
+      "passwordPromptMessage": "Jelszó ehhez:",
+      "saved": "Mentett hálózatok",
+      "savedLoading": "Betöltés...",
+      "noSaved": "Nincs mentett hálózat",
+      "forget": "Elfelejtés",
+      "confirmForget": "Hálózat elfelejtése"
     },
     "loadingAnimation": {
       "title": "Betöltési animáció",
       "enable": "Animáció megjelenítése indításkor",
-      "description": "Indításkor egy animációt jelenít meg folyamatjelzővel."
+      "description": "Animációt jelenít meg folyamatjelzővel indításkor. Ha le van tiltva, az animáció csak az első betöltéskor jelenik meg (törölt gyorsítótár)."
     },
     "pianoRollV2": {
-      "title": "Piano Roll V2 (experimental)",
-      "enable": "Use the new Canvas 2D renderer",
-      "description": "Replaces the third-party webaudio-pianoroll component with an in-house implementation (viewport culling, spatial index). Beta — please report any bug."
+      "title": "Piano Roll V2 (kísérleti)",
+      "enable": "Az új Canvas 2D renderelő használata",
+      "description": "Lecseréli a külső webaudio-pianoroll komponenst saját implementációra (viewport culling, térbeli index). Béta — kérjük, jelentse a hibákat."
     },
     "midiClock": {
-      "title": "MIDI óra",
-      "enable": "MIDI óra engedélyezése",
-      "description": "MIDI óra jeleket küld a csatlakoztatott eszközöknek szinkronizáláshoz"
+      "title": "MIDI Clock",
+      "enable": "MIDI Clock engedélyezése",
+      "description": "MIDI clock jel (24 PPQ) küldése a csatlakoztatott hangszereknek az arpeggiátorok, LFO-k és szekvenszerek szinkronizálásához"
     },
     "serialMidi": {
       "title": "Soros MIDI (GPIO)",
       "enable": "Soros MIDI portok engedélyezése",
-      "description": "Raspberry Pi UART GPIO lábak használata MIDI IN/OUT portként (hardveres áramkör szükséges)",
+      "description": "A Raspberry Pi UART GPIO tüskék használata MIDI IN/OUT portként (hardveráramkört igényel)",
       "ports": "Elérhető portok",
       "scan": "Keresés",
       "scanning": "Soros portok keresése...",
-      "clickScan": "Kattintson a \"Keresés\" gombra az elérhető soros portok felderítéséhez",
-      "noPorts": "Nem található soros port. Ellenőrizze az UART overlay-eket a /boot/config.txt fájlban",
-      "notAvailable": "A serialport csomag nincs telepítve. Futtatás: npm install serialport"
+      "clickScan": "Kattintson a \"Keresés\" gombra az elérhető soros portok észleléséhez",
+      "noPorts": "Nem észlelhető soros port. Ellenőrizze a /boot/config.txt UART overlay-eket",
+      "notAvailable": "A serialport csomag nincs telepítve. Futtassa: npm install serialport"
     },
     "soundBank": {
       "title": "Hangbank",
-      "description": "Mintakönyvtár a hangszintézishez. A könnyebb bankok csökkentik a memóriahasználatot.",
+      "description": "Mintakönyvtár az audio szintézishez. A könnyebb bankok kevesebb memóriát használnak.",
       "changed": "Hangbank megváltozott",
       "quality": {
         "high": "Magas minőség",
@@ -194,22 +194,22 @@
         "low": "Könnyű"
       },
       "banks": {
-        "FluidR3_GM": "Referencia GM bank. Gazdag, részletes minták mind a 128 hangszerhez. Legjobb összminőség, de legnagyobb letöltés.",
-        "GeneralUserGS": "Nagy hűségű GM/GS bank. Kiváló egyensúly a minőség és a méret között. Meleg, természetesen szóló hangszerek.",
-        "JCLive": "Élő felvételen alapuló bank. Erőteljes dobok, fényes rézfúvósok. Kiváló rockhoz, jazzhez és élő stílusokhoz.",
-        "Aspirin": "Tiszta, jól kiegyensúlyozott bank. Lágy zongorák, tiszta vonósok. Jó klasszikus zenéhez és pophoz.",
-        "SBLive": "Creative Labs Sound Blaster Live bank. Megbízható mindenre alkalmas, nosztalgikus jelleggel.",
-        "Chaos": "Könnyű kreatív bank. Gyors betöltés, alapvető de funkcionális hangok gyors előnézethez.",
-        "SoundBlasterOld": "Klasszikus Sound Blaster bank. Legkisebb lábnyom, retro jelleg. Ideális alacsony sávszélességhez."
+        "FluidR3_GM": "Referencia GM bank. Gazdag, részletes minták mind a 128 hangszerhez. Legjobb összminőség, de a legnehezebb letöltés.",
+        "GeneralUserGS": "Nagy felbontású GM/GS bank. Kiváló egyensúly minőség és méret között. Meleg, természetes hangzású hangszerek.",
+        "JCLive": "Élő felvételen alapuló bank. Ütős dobok, fényes rézfúvósok. Kiváló rock, jazz és élő stílusokhoz.",
+        "Aspirin": "Tiszta, kiegyensúlyozott bank. Lágy zongorák, tiszta vonósok. Jó klasszikushoz és pophoz.",
+        "SBLive": "Creative Labs Sound Blaster Live bank. Stabil mindenes, nosztalgikus karakterrel.",
+        "Chaos": "Könnyű kreatív bank. Gyors betöltés, alap de működőképes hangok gyors előnézethez.",
+        "SoundBlasterOld": "Klasszikus Sound Blaster bank. A legkisebb méret, retró karakter. Ideális alacsony sávszélességhez."
       },
       "effects": {
-        "title": "🎛️ Bank effects",
-        "reverbMix": "Reverb mix",
-        "reverbDecay": "Reverb decay",
-        "echoMix": "Echo mix",
-        "echoTime": "Echo time",
-        "echoFeedback": "Echo feedback",
-        "reset": "Reset"
+        "title": "🎛️ Bank effektek",
+        "reverbMix": "Reverb arány",
+        "reverbDecay": "Reverb lecsengés",
+        "echoMix": "Echo arány",
+        "echoTime": "Echo idő",
+        "echoFeedback": "Echo visszacsatolás",
+        "reset": "Visszaállítás"
       }
     },
     "language": {
@@ -217,39 +217,39 @@
       "select": "Nyelv kiválasztása"
     },
     "update": {
-      "title": "System Update",
-      "description": "Download and install the latest version",
-      "warning": "Fetches latest changes, updates dependencies and restarts the server",
-      "button": "Install update",
-      "confirmTitle": "Install update",
-      "confirmMessage": "The system will download the latest version, update dependencies and restart the server.\n\nThe application will be temporarily unavailable during the update.",
-      "confirmOk": "Start update",
-      "inProgress": "Updating...",
-      "running": "Update in progress, please wait...",
-      "success": "Update complete! The server is restarting...",
-      "reloading": "Reloading page...",
-      "waitingRestart": "Waiting for server to restart...",
-      "restartTimeout": "Server is not responding. Please reload the page manually.",
-      "failed": "Update failed",
-      "checking": "Checking for updates...",
-      "upToDate": "System is up to date",
-      "updateAvailable": "Update available",
-      "checkFailed": "Unable to check for updates",
-      "complete": "Update complete!",
-      "manualReload": "Reload manually",
-      "stableChannel": "Stable version",
-      "stableDescription": "Official updates with version number",
-      "stableButton": "Install stable",
-      "betaChannel": "Latest version",
-      "betaDescription": "Latest commits (beta / patches)",
-      "betaButton": "Install latest",
-      "confirmTitleBeta": "Install latest version",
-      "newVersion": "New version",
-      "currentVersion": "currently",
-      "startupCheck": "Check for updates at startup",
-      "startupBetaNotif": "Also notify beta updates",
+      "title": "Rendszerfrissítés",
+      "description": "A legújabb verzió letöltése és telepítése",
+      "warning": "Lekéri a legújabb változásokat, frissíti a függőségeket és újraindítja a szervert",
+      "button": "Frissítés telepítése",
+      "confirmTitle": "Frissítés telepítése",
+      "confirmMessage": "A rendszer letölti a legújabb verziót, frissíti a függőségeket és újraindítja a szervert.\n\nAz alkalmazás a frissítés alatt átmenetileg nem lesz elérhető.",
+      "confirmOk": "Frissítés indítása",
+      "inProgress": "Frissítés...",
+      "running": "Frissítés folyamatban, kérjük várjon...",
+      "success": "Frissítés kész! A szerver újraindul...",
+      "reloading": "Oldal újratöltése...",
+      "waitingRestart": "Várakozás a szerver újraindulására...",
+      "restartTimeout": "A szerver nem válaszol. Kérjük, töltse újra az oldalt manuálisan.",
+      "failed": "A frissítés sikertelen",
+      "checking": "Frissítések keresése...",
+      "upToDate": "A rendszer naprakész",
+      "updateAvailable": "Frissítés elérhető",
+      "checkFailed": "Nem sikerült ellenőrizni a frissítéseket",
+      "complete": "Frissítés kész!",
+      "manualReload": "Újratöltés manuálisan",
+      "stableChannel": "Stabil verzió",
+      "stableDescription": "Hivatalos frissítések verziószámmal",
+      "stableButton": "Stabil telepítése",
+      "betaChannel": "Legújabb verzió",
+      "betaDescription": "Legújabb commitok (béta / javítások)",
+      "betaButton": "Legújabb telepítése",
+      "confirmTitleBeta": "Legújabb verzió telepítése",
+      "newVersion": "Új verzió",
+      "currentVersion": "jelenleg",
+      "startupCheck": "Frissítések keresése indításkor",
+      "startupBetaNotif": "Béta frissítésekről is értesítsen",
       "cacheWarning": "Ne felejtse el törölni a böngésző gyorsítótárát a frissítés után",
-      "cacheWarningHint": "(Ctrl+Shift+R vagy böngésző beállítások)",
+      "cacheWarningHint": "(Ctrl+Shift+R vagy böngészőbeállítások)",
       "step": {
         "script_started": "Inicializálás...",
         "started": "Indítás...",
@@ -257,16 +257,16 @@
         "installing": "Függőségek telepítése...",
         "restarting": "Szerver újraindítása...",
         "verifying": "Ellenőrzés...",
-        "done": "A frissítés befejeződött!"
+        "done": "Frissítés kész!"
       },
       "successToast": "A frissítés sikeresen telepítve!"
     },
     "lyrics": {
       "title": "Karaoke",
-      "enable": "Show lyrics during playback",
-      "description": "Displays a synced lyrics panel for karaoke MIDI files",
-      "enabled": "Lyrics enabled",
-      "disabled": "Lyrics disabled"
+      "enable": "Dalszöveg megjelenítése lejátszás közben",
+      "description": "Szinkronizált dalszövegpanelt jelenít meg karaoke MIDI fájlokhoz",
+      "enabled": "Dalszöveg engedélyezve",
+      "disabled": "Dalszöveg letiltva"
     }
   },
   "bluetooth": {
