@@ -1763,29 +1763,29 @@
       "ethnic": "Etnikus",
       "percussive": "Ütős",
       "soundEffects": "Hangeffektek",
-      "drumKits": "Drum Kits (Channel 10)"
+      "drumKits": "Dobszettek (10. csatorna)"
     },
     "drumKits": {
-      "0": "Standard Kit",
-      "8": "Room Kit",
-      "16": "Power Kit",
-      "24": "Electronic Kit",
-      "25": "TR-808 Kit",
-      "32": "Jazz Kit",
-      "40": "Brush Kit",
-      "48": "Orchestra Kit",
-      "56": "SFX Kit"
+      "0": "Standard szett",
+      "8": "Room szett",
+      "16": "Power szett",
+      "24": "Elektronikus szett",
+      "25": "TR-808 szett",
+      "32": "Jazz szett",
+      "40": "Seprűs szett",
+      "48": "Zenekari szett",
+      "56": "SFX szett"
     },
     "drumKitsDesc": {
-      "0": "Versatile all-purpose kit, ideal for pop/rock/variety",
-      "8": "Ambient room reverb sound, more natural feel",
-      "16": "Powerful hits, boosted kick/snare, rock/metal",
-      "24": "Synthetic sounds, dance/electro/EDM",
-      "25": "Classic Roland TR-808, hip-hop/trap/R&B",
-      "32": "Soft and mellow sounds, light cymbals, jazz/bossa",
-      "40": "Brushes on snare, acoustic jazz/ballads",
-      "48": "Timpani, orchestral bass drum, cymbals, classical/film",
-      "56": "Sound effects and noises, not a real drum kit"
+      "0": "Sokoldalú, általános célú szett, ideális pop/rock/könnyűzene",
+      "8": "Teremvisszhangos hangzás, természetesebb érzet",
+      "16": "Erőteljes ütések, kiemelt lábdob/pergő, rock/metal",
+      "24": "Szintetikus hangok, dance/electro/EDM",
+      "25": "Klasszikus Roland TR-808, hip-hop/trap/R&B",
+      "32": "Lágy és meleg hangok, könnyű cintányérok, jazz/bossa",
+      "40": "Seprűk a pergőn, akusztikus jazz/balladák",
+      "48": "Üstdob, zenekari lábdob, cintányérok, klasszikus/film",
+      "56": "Hangeffektek és zajok, nem valódi dobszett"
     },
     "list": [
       "Akusztikus koncertzongora",
