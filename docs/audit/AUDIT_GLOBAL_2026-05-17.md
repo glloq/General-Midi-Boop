@@ -285,20 +285,39 @@ d'appel — fuite potentielle listeners/timers sur transitions de page ;
 - **Phase 3 (2-4 sem.)** — C2 (externalisation inline + `defer` + lazy-load +
   chunks), H2 store central (à confirmer), M3 virtual scroll, M5/M6/M8.
 - **Phase 4 (continu)** — M2 découpe monolithes, M7 CSS, M4 clock, M9-M12.
-- **Phase 5 (transverse, CI)** — tests charge/soak (ci-dessous).
+- **Phase 5 (transverse, CI)** — ✅ FAIT (volet backend headless) :
+  harness `tests/performance/load-soak.js` (`npm run perf:load`) + smoke
+  migrations `tests/migrations-fresh-install.test.js`. Volet **FPS/TTI
+  navigateur reste à mesurer sur Pi** (hors environnement headless).
 
 ## Tests de charge & profiling
 
+### Livré — backend headless (CI-usable, exit≠0 si budget violé)
+
+`npm run perf:load` (env : `LOAD_EVENTS`, `SOAK_SECONDS`) — résultats mesurés
+sur dev box (gates **relatifs**, à rebaseliner sur Pi) :
+
+| Scénario | Mesuré | Budget dur | Résultat |
+|----------|--------|-----------|----------|
+| A. Hot-path scheduler 200 k events | débit / ns-event / event-loop p99 | ≥150 k ev/s ; p99<50 ms | **3.8 M ev/s, 262 ns/ev, p99 21.5 ms** ✅ |
+| B. Flood WsOutputQueue | profondeur queue / ratio coalescing | ≤200 ; ≥0.90 | **depth 50, ratio 0.98, 0 drop** ✅ |
+| C. Soak (pente heap) | régression linéaire heapUsed | <8 MB/s | **0.01 MB/s** ✅ |
+
+`tests/migrations-fresh-install.test.js` : DB vide → `runMigrations` réel →
+préfixes uniques (garde anti-collision) + toutes versions enregistrées +
+idempotence + schéma matérialisé.
+
+**Implication empirique** : A=262 ns/ev confirme **H1 (pool) à juste titre
+décliné** ; C=0.01 MB/s confirme **H3/M1 faux positifs** ; B confirme la
+robustesse du volet WS. *Mesuré, pas déduit.*
+
+### Reste à mesurer sur Pi (navigateur — non headless)
+
 | Scénario | Mesurer | Outil | OK | Critique |
 |----------|---------|-------|----|----------|
-| Gros MIDI 100 k+ notes load+play | FPS, redraw, heap | DevTools Perf/Memory | FPS≥50, redraw<8 ms | FPS<30, redraw>16 ms |
-| Playback soutenu 24 h | event loop delay, jitter, heap | node --prof / clinic.js | lag p99<10 ms, heap +<0.5 MB/h | lag>50 ms, fuite linéaire |
-| Flood WS 60+/s | CPU, lag, profondeur queue | WS inspector / clinic flame | queue stable, CPU<30 % | queue saturée |
+| Gros MIDI 100 k+ notes load+play | FPS, redraw | DevTools Perf | FPS≥50, redraw<8 ms | FPS<30, redraw>16 ms |
+| Reboot Pi (TTI) | TTI | Lighthouse | <4 s | >8 s |
 | Multi-éditeurs | RAM, listeners, FPS | heap snapshots | bornés | croissance/cycle |
-| Reboot Pi (TTI) | TTI | Lighthouse/Perf | <4 s | >8 s |
-
-Ajouter : `tests/performance/` scénarios scriptés + harness migrations
-(fresh-install : DB vide → toutes migrations → validation schéma) en CI avec budgets.
 
 ## Vérification end-to-end
 

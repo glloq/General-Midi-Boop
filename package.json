@@ -13,6 +13,7 @@
     "test:frontend": "vitest run",
     "test:frontend:watch": "vitest",
     "bench": "node tests/performance/benchmark.js",
+    "perf:load": "node --expose-gc tests/performance/load-soak.js",
     "lint": "eslint src/ public/js/ tests/",
     "lint:fix": "eslint src/ public/js/ tests/ --fix",
     "format": "prettier --write \"src/**/*.js\" \"public/js/**/*.js\" \"tests/**/*.js\"",
