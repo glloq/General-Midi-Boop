@@ -2404,12 +2404,18 @@ class RoutingSummaryPage {
     if (!this.modal || !this.midiData) return;
     if (this._minimapRefreshPending) return;
     this._minimapRefreshPending = true;
-    requestAnimationFrame(() => {
+    // Double rAF: the first callback fires BEFORE the browser paints
+    // the just-rebuilt detail panel, so running the minimap there
+    // blocks the very paint the user is waiting for. Deferring one
+    // extra frame lets the detail panel show immediately; the minimap
+    // (whose raw scan is cached per file after the first pass) fills
+    // in right after instead of holding the click hostage.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       this._minimapRefreshPending = false;
       try { this._renderMinimap(); } catch (e) {
         console.warn('[RoutingSummary] minimap refresh failed:', e);
       }
-    });
+    }));
   }
 
   /**
