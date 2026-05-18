@@ -16,13 +16,23 @@ Méthode : 3 passes d'exploration parallèles (backend/moteur, frontend/renderin
 code mort/docs) puis **vérification ciblée en lecture de code** des constats
 contradictoires ou hérités des docs.
 
+> **Bilan de vérification (2026-05-17).** Les findings perf/mémoire issus des
+> passes d'exploration (lecture par extraits) ont **systématiquement
+> sur-déclaré**. Après lecture directe du code : **C1 réel & corrigé**, **H6
+> réel & corrigé** ; **H1 décliné (unsafe), H3/H4/M1/H5 = faux positifs**
+> (code déjà optimisé : caches, historique borné, timeline précalculée,
+> intervals gardés, `destroy()` corrects). Le vrai travail restant est
+> **structurel** (C2 bloc inline 8 k lignes, M2 monolithes, dédup
+> escapeHtml/clamp) et **empirique** (Phase 5 tests de charge). Ne pas
+> relancer de « chasse au jitter » par déduction : mesurer.
+
 ## Score synthétique
 
 | Dimension | Note | Commentaire |
 |-----------|------|-------------|
 | Architecture | 7/10 | Séparation runtime/éditeur propre ; quelques monolithes |
 | Moteur temps réel | 8/10 | Scheduler lookahead sain ; 1 fuite hot-path (C1) |
-| Rendering piano roll | 7/10 | Bien optimisé ; recalc géométrie/index perfectibles |
+| Rendering piano roll | 8/10 | Révisé ↑ : H5 infirmé (timeline précalculée, caches déjà présents). Reste M5/M6 mineurs |
 | Mémoire | 8/10 | Révisé ↑ : fuites alléguées (H3) & undo non borné (M1) **infirmés** après vérif. Reste à confirmer par soak. |
 | Frontend boot | 4/10 | TTI ~10-12 s sur Pi (C2) |
 | Hygiène code/docs | 5/10 | Sprawl docs, 616 LOC mortes, monolithes |
@@ -176,15 +186,23 @@ contradictoires ou hérités des docs.
   de traiter — gain négligeable, non prioritaire.
 
 ### H5 — Feasibility mains recalculée à chaque pan/tick, sans mémoïsation
-- **Partie** : `public/js/features/auto-assign/` (`RoutingSummaryPage.js` 3010,
-  `RoutingSummaryRenderers.js` 1803, `HandPositionFeasibility.js` 1682 ;
-  4 canvases ~50 Hz).
-- **Cause** : `O(notes-in-range) × O(patterns)` par changement viewport, 0 cache.
-- **Symptômes** : jank net > 100 k notes pendant playback + éditeur routing.
-- **Impact CPU/RAM** : pics CPU rendu. **Impact temps réel** : indirect.
-- **Solution** : cache LRU `(noteSet,handConfig)→feasibility` ; debounce pendant
-  playback ; RAF unique pour les 4 canvases. **Difficulté** : moyenne.
-  **Gain** : scalabilité 100 k+ notes.
+- **Allégué** : simulation `O(notes)×O(patterns)` recalculée par viewport/tick,
+  4 canvases ~50 Hz, 0 cache.
+- **Statut (vérifié 2026-05-17)** : **FAUX POSITIF.**
+  - Le badge de `RoutingSummaryPage._getHandFeasibilityBadge` (`:734`) appelle
+    `HandPositionFeasibility.classify()` qui est une **heuristique O(hands)≈O(1)**
+    (`HandPositionFeasibility.js:16-71` — quelques lectures de champs, 1 JSON.parse
+    d'un petit `hands_config`, 1 `reduce` sur 1-2 mains). **Pas** la simulation
+    lourde. `RoutingSummaryPage` n'a **aucune** boucle RAF ni abonnement
+    `playback:time` (vérifié grep).
+  - La simulation lourde `simulateHandWindows()` est **précalculée UNE FOIS au
+    `start()`** dans `HandSimulationEngine` (`:15` commentaire, `:73-74`
+    assignation `this._timeline`) ; chaque frame RAF est un simple avance de
+    curseur dans `_timeline` (`:128-129`, O(1)/frame). « Calculé une fois » est
+    strictement meilleur qu'un cache LRU.
+  - `HandsLookaheadStrip` possède déjà un cache géométrie (`:114-173`).
+  - Aucun « 4 canvases recalculant à 50 Hz » : l'animation lit un timeline
+    précalculé. **Rien à corriger.**
 
 ### H6 — Code mort confirmé : 616 LOC orphelines
 - **Partie** : `public/js/core/AppRegistry.js` (136 LOC) +
@@ -243,11 +261,11 @@ d'appel — fuite potentielle listeners/timers sur transitions de page ;
   bloc inline 8 134 lignes obligatoire avant `defer` ; QA navigateur Pi requise).
 - **Phase 2** — ❌ ANNULÉE après vérification directe du code (2026-05-17) :
   H1 décliné (échappement async unsafe), H3 faux positif (aucune fuite avérée),
-  H4 déjà mitigé (`TunerModal.js:597`), M1 faux positif (déjà borné à 20).
-  Aucun changement de code justifié. Effort redirigé vers H2/H5/C2/M2 + Phase 5.
+  H4 déjà mitigé (`TunerModal.js:597`), M1 faux positif (déjà borné à 20),
+  **H5 faux positif** (timeline précalculée `HandSimulationEngine.js:73`).
+  Aucun changement de code justifié.
 - **Phase 3 (2-4 sem.)** — C2 (externalisation inline + `defer` + lazy-load +
-  chunks), H5 mémoïsation+RAF
-  unifié, H2 store central, M3 virtual scroll, M5/M6/M8.
+  chunks), H2 store central (à confirmer), M3 virtual scroll, M5/M6/M8.
 - **Phase 4 (continu)** — M2 découpe monolithes, M7 CSS, M4 clock, M9-M12.
 - **Phase 5 (transverse, CI)** — tests charge/soak (ci-dessous).
 
