@@ -141,13 +141,16 @@
             }.bind(this));
         }
 
-        // Preset change -> update config then re-render
+        // Preset change -> update config then re-render. Reads the unified
+        // instrument-preset catalogue (single source of truth) so strings,
+        // tuning, frets, scale length and polyphony stay coherent.
         const siPreset = this.$('#siPresetSelect');
         if (siPreset) {
             siPreset.addEventListener('change', function() {
-                if (!siPreset.value || !this.tuningPresets) return;
-                const preset = this.tuningPresets[siPreset.value];
-                if (!preset) return;
+                if (!siPreset.value || !window.InstrumentPresets) return;
+                const raw = window.InstrumentPresets.getPresetById(siPreset.value);
+                const preset = raw && raw.string_geometry ? raw.string_geometry : null;
+                if (!preset || !Array.isArray(preset.tuning)) return;
 
                 const tab = this._getActiveTab();
                 if (!tab) return;
@@ -155,9 +158,10 @@
                     tab.stringInstrumentConfig = {};
                 }
                 const cfg = tab.stringInstrumentConfig;
-                cfg.num_strings = preset.strings;
-                cfg.num_frets = preset.frets;
-                cfg.tuning = [...preset.tuning];
+                cfg.num_strings = preset.num_strings;
+                cfg.num_frets = preset.num_frets;
+                cfg.scale_length_mm = preset.scale_length_mm;
+                cfg.tuning = preset.tuning.slice();
                 cfg.is_fretless = !!preset.fretless;
                 cfg.frets_per_string = null;
 
@@ -171,7 +175,7 @@
                 }
                 // Sync polyphony to match the preset's string count — picking
                 // a new instrument is a reset, so overwrite any stale value.
-                this._syncPolyphonyToNumStrings(preset.strings);
+                this._syncPolyphonyToNumStrings(preset.num_strings);
             }.bind(this));
         }
 
@@ -479,6 +483,13 @@
                 cfg.num_frets = sg.num_frets;
                 cfg.scale_length_mm = sg.scale_length_mm;
                 cfg.frets_per_string = null;
+                // Apply the standard tuning so the neck/MIDI rows are
+                // coherent with the chosen instrument (not the stale
+                // default guitar tuning).
+                if (Array.isArray(sg.tuning)) {
+                    cfg.tuning = sg.tuning.slice();
+                    cfg.is_fretless = !!sg.fretless;
+                }
                 if (typeof this._syncPolyphonyToNumStrings === 'function') {
                     this._syncPolyphonyToNumStrings(sg.num_strings);
                 } else {
@@ -1795,6 +1806,18 @@
                     cfg.frets_per_string = null; // reset so hidden inputs regenerate
                     if (fretsInput) fretsInput.value = String(numFrets);
                     notesNeedRerender = true;
+                }
+                // Apply the standard tuning so the neck stays coherent
+                // with the chosen instrument.
+                const tuningStr = opt.dataset.tuning;
+                if (tuningStr) {
+                    const tuning = tuningStr.split(',').map(n => parseInt(n, 10))
+                        .filter(n => Number.isFinite(n));
+                    if (tuning.length > 0) {
+                        cfg.tuning = tuning;
+                        cfg.is_fretless = opt.dataset.fretless === '1';
+                        notesNeedRerender = true;
+                    }
                 }
                 // Re-render the Notes-tab strings subsection so the tuning
                 // inputs and hidden siFrets values stay coherent.

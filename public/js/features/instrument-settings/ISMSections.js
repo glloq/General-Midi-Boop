@@ -871,11 +871,34 @@
         if (!tab) return '';
         const settings = tab.settings;
         const config = tab.stringInstrumentConfig;
-        const gmCategory = typeof getGmStringCategory === 'function' ? getGmStringCategory(settings.gm_program) : null;
 
-        // Reuse global helpers for preset dropdown
-        const presetOptions = typeof renderSiPresetOptions === 'function'
-            ? renderSiPresetOptions(this.tuningPresets, config, gmCategory) : '';
+        // Single source of truth: the unified instrument-preset catalogue.
+        // The dropdown lists the realistic string instruments bound to the
+        // current GM program (or, failing that, its family) so picking one
+        // sets strings + tuning + frets + polyphony coherently. Marked
+        // selected when the live config matches a preset's strings+tuning.
+        const sip = window.InstrumentPresets;
+        let stringPresets = [];
+        if (sip) {
+            stringPresets = sip.filterStringPresetsByGmProgram(settings.gm_program);
+            if (stringPresets.length === 0) {
+                const fam = window.InstrumentFamilies && window.InstrumentFamilies.getFamilyForProgram
+                    ? window.InstrumentFamilies.getFamilyForProgram(settings.gm_program, tab.channel)
+                    : null;
+                if (fam) stringPresets = sip.filterStringPresetsByFamily(fam.slug);
+            }
+        }
+        const tuningEq = (a, b) => Array.isArray(a) && Array.isArray(b)
+            && a.length === b.length && a.every((n, i) => n === b[i]);
+        let matchId = '';
+        if (config && Array.isArray(config.tuning)) {
+            const m = stringPresets.find(p => p.num_strings === config.num_strings
+                && tuningEq(p.tuning, config.tuning));
+            if (m) matchId = m.id;
+        }
+        const presetOptions = [`<option value="">${this.t('stringInstrument.customTuning') || 'Accordage personnalisé'}</option>`]
+            .concat(stringPresets.map(p => `<option value="${p.id}" ${p.id === matchId ? 'selected' : ''}>${this.escape(p.label)}</option>`))
+            .join('');
 
         const numStrings = config ? config.num_strings : 6;
         const tuning = config?.tuning || [40, 45, 50, 55, 59, 64];
@@ -1711,7 +1734,9 @@
                          data-num-strings="${p.num_strings}"
                          data-scale-length-mm="${p.scale_length_mm}"
                          data-num-frets="${p.num_frets}"
-                         data-default-mechanism="${p.default_mechanism}">${p.label}</option>`
+                         data-default-mechanism="${p.default_mechanism}"
+                         data-tuning="${Array.isArray(p.tuning) ? p.tuning.join(',') : ''}"
+                         data-fretless="${p.fretless ? '1' : '0'}">${p.label}</option>`
             ))
             .join('');
 
