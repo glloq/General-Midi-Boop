@@ -21,10 +21,28 @@ contradictoires ou hérités des docs.
 > sur-déclaré**. Après lecture directe du code : **C1 réel & corrigé**, **H6
 > réel & corrigé** ; **H1 décliné (unsafe), H3/H4/M1/H5 = faux positifs**
 > (code déjà optimisé : caches, historique borné, timeline précalculée,
-> intervals gardés, `destroy()` corrects). Le vrai travail restant est
-> **structurel** (C2 bloc inline 8 k lignes, M2 monolithes, dédup
-> escapeHtml/clamp) et **empirique** (Phase 5 tests de charge). Ne pas
-> relancer de « chasse au jitter » par déduction : mesurer.
+> intervals gardés, `destroy()` corrects) ; **dédup `escapeHtml` corrigée
+> dans le bon sens** (durcissement, voir S1). Le vrai travail restant est
+> **structurel** (C2 bloc inline 8 k lignes, M2 monolithes) et **empirique**
+> (Phase 5 tests de charge). Ne pas relancer de « chasse au jitter » par
+> déduction : mesurer.
+
+## S1 — Durcissement `escapeHtml` (sécurité) — ✅ FAIT
+
+- **Problème détecté** : la reco héritée « unifier sur `window.escapeHtml` »
+  était **DANGEREUSE telle quelle** : le util canonique était le plus faible
+  (échappait `& < >` seulement, **pas** les guillemets) tandis que
+  `DeviceSettingsModal._escapeHtml` échappait `"` et sert en **contexte
+  attribut** (`value="${…}"`, `DeviceSettingsModal.js:77`). Y pointer aurait
+  ouvert un breakout d'attribut (XSS).
+- **Gravité** : ÉLEVÉ (sécurité, latente). **Cause profonde** : util partagé
+  sous-échappant + copies divergentes plus sûres.
+- **Solution appliquée** : durcir `public/js/utils/escapeHtml.js` au jeu OWASP
+  complet (`& < > " '`) — équivalent visuel en contexte texte, sûr en
+  attribut ; `DeviceSettingsModal._escapeHtml` & `SettingsHotspot._escapeHtml`
+  délèguent désormais (échappement ≥ ancien) ; wrappers minces déjà conformes.
+  Test `tests/frontend/escape-html.test.js` ajouté. **Gain** : surface XSS
+  réduite globalement + 1 source unique. Frontend 1234/1234 vert.
 
 ## Score synthétique
 
