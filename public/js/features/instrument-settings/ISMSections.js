@@ -636,36 +636,14 @@
         // Unified "Preset de l'instrument" block — pinned at the very top so
         // the user configures notes + polyphony in one click. Empty for drums
         // (own kit selector) and synths (manual only).
-        const notePresets = window.InstrumentNotePresets
-            ? window.InstrumentNotePresets.getPresets(gmProgram, tab.channel)
+        const notePresets = window.InstrumentPresets
+            ? window.InstrumentPresets.getPresetsForProgram(gmProgram, tab.channel)
             : [];
         let notePresetHtml = '';
         if (notePresets.length > 0) {
             const opts = ['<option value="">-- Preset --</option>']
                 .concat(notePresets.map(p => `<option value="${this.escape(p.id)}">${this.escape(p.label)}</option>`))
                 .join('');
-
-            // Chord shortcuts are merged into the SAME block as a second
-            // toolbar row — no separate subsection. Shown only for melodic
-            // non-string, non-drum instruments where ChordLibrary applies
-            // (strings use tuning/frets, drums/synths have no presets).
-            let chordRowHtml = '';
-            if (!isString && !isDrum && window.ChordLibrary) {
-                const rootOpts = window.ChordLibrary.ROOTS
-                    .map(r => `<option value="${r.pc}">${this.escape(window.ChordLibrary.rootLabel(r.pc))}</option>`)
-                    .join('');
-                const typeOpts = window.ChordLibrary.CHORDS
-                    .map(c => `<option value="${this.escape(c.id)}">${this.escape(this.t(c.labelKey) || c.labelFr)}</option>`)
-                    .join('');
-                chordRowHtml = `<div class="ism-note-preset-chord-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-color,#3a3a3a);">
-                    <span class="ism-note-preset-chord-label" style="display:block;margin-bottom:6px;font-size:0.85em;opacity:0.8;">🎵 ${this.escape(this.t('instrumentSettings.chordPickerLabel') || this.t('instrumentSettings.chordPickerTitle') || 'Accords')}</span>
-                    <div class="ism-note-preset-toolbar">
-                        <select class="ism-chord-root-select" aria-label="${this.escape(this.t('instrumentSettings.chordRootLabel') || 'Fondamentale')}">${rootOpts}</select>
-                        <select class="ism-chord-type-select" aria-label="${this.escape(this.t('instrumentSettings.chordTypeLabel') || 'Type d\'accord')}">${typeOpts}</select>
-                        <button type="button" class="btn btn-small ism-chord-apply">${this.t('common.apply') || 'Appliquer'}</button>
-                    </div>
-                </div>`;
-            }
 
             notePresetHtml = `<div class="ism-subsection" id="notePresetSubsection">
                 <h4 class="ism-subsection-title">🎚️ ${this.t('instrumentSettings.notePresetTitle') || 'Preset de l\'instrument'}</h4>
@@ -674,7 +652,6 @@
                     <select class="ism-note-preset-select">${opts}</select>
                     <button type="button" class="btn btn-small ism-note-preset-apply">${this.t('common.apply') || 'Appliquer'}</button>
                 </div>
-                ${chordRowHtml}
             </div>`;
         }
 
@@ -1622,14 +1599,14 @@
      */
     /**
      * Build the strings-family mechanism list with translated label
-     * + description. The raw MECHANISMS array in StringInstrumentPresets
+     * + description. The raw MECHANISMS array in InstrumentPresets
      * carries French copy by historical accident; this layer overrides
      * label/description through i18n so every locale gets the right
      * text without touching the data file.
      * @private
      */
     ISMSections._getStringMechanisms = function(ctx) {
-        const mechanisms = (window.StringInstrumentPresets && window.StringInstrumentPresets.MECHANISMS) || [];
+        const mechanisms = (window.InstrumentPresets && window.InstrumentPresets.MECHANISMS) || [];
         const t = ISMSections._tHelper(ctx);
         const overrides = {
             string_sliding_fingers: {
@@ -1718,12 +1695,12 @@
         const familySlug = family?.slug || null;
 
         let presets = [];
-        const SIP = window.StringInstrumentPresets;
+        const SIP = window.InstrumentPresets;
         if (SIP) {
             // Prefer the GM-program-specific presets (most accurate);
             // fall back to family-wide so the dropdown is never empty.
-            const byProgram = SIP.filterPresetsByGmProgram(gmProgram);
-            presets = byProgram.length > 0 ? byProgram : SIP.filterPresetsByFamily(familySlug);
+            const byProgram = SIP.filterStringPresetsByGmProgram(gmProgram);
+            presets = byProgram.length > 0 ? byProgram : SIP.filterStringPresetsByFamily(familySlug);
         }
 
         const t = ISMSections._tHelper(this);
