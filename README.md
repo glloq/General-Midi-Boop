@@ -1,21 +1,18 @@
 # Général Midi Boop
 
-
-> [!WARNING]
-> I'm starting to be happy with this interface, but there are still a few minor bugs to fix.
-
- 
- **MIDI Orchestration System for Raspberry Pi with Modern Web Interface**
+**Turn a pile of DIY MIDI instruments into a real orchestra — from a Raspberry Pi, with no internet required.**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-3B%2B%2F4%2F5-red)](https://www.raspberrypi.org/)
 
-Général Midi Boop is a MIDI management system that allows you to manage your MIDI devices, edit and play MIDI files with latency compensation, all from a modern web interface. It can automatically adapt MIDI files to the capabilities of your connected instruments.
+Général Midi Boop is a complete MIDI orchestration system designed for **beginners building DIY MIDI instruments**. Plug in your home-made or off-the-shelf instruments, point a standard MIDI file at them, and the system automatically adapts the music to what each instrument can actually play — then conducts the whole ensemble in sync.
 
-![Main Interface](docs/images/accueil.png)
+It is built to run **standalone on a Raspberry Pi without any internet connection**. Everything is driven from a modern, touch-friendly web interface you reach from a phone, tablet or laptop on the same network — or directly from the Pi's own WiFi hotspot.
 
-## Installation
+![Main interface](docs/images/accueil.png)
+
+## Quick install (Raspberry Pi)
 
 ```bash
 git clone https://github.com/glloq/General-Midi-Boop.git
@@ -24,173 +21,111 @@ chmod +x scripts/Install.sh
 ./scripts/Install.sh
 ```
 
-Access the interface: `http://<Raspberry-Pi-IP>:8080`
+Then open the interface at `http://<Raspberry-Pi-IP>:8080`.
 
-See [docs/INSTALLATION.md](./docs/INSTALLATION.md) for detailed configuration.
+The installer sets up Node.js, system dependencies, auto-start on boot and (optionally) Bluetooth — see [docs/INSTALLATION.md](./docs/INSTALLATION.md) for detailed configuration and other platforms.
 
-## Features
+## Highlights
 
-### MIDI Devices
+- Connect instruments over **USB, Bluetooth LE, network (RTP-MIDI) or physical MIDI IN/OUT** on the Raspberry Pi GPIO.
+- **Conduct up to 16 instruments at once**, with per-device latency compensation and an optional MIDI clock.
+- **Automatic routing** of MIDI channels to the best-suited connected instrument.
+- **Automatic adaptation** of any MIDI file to each instrument's note range and polyphony.
+- **Play live** from a virtual keyboard, and **build loops and arrangements** from the Loop manager.
+- **Preview** any loop or MIDI file with the original sound or the instrument-adapted rendering, with optional per-instrument SoundFonts.
+- **Specialized virtual keyboards** that match each instrument (fretboard, drum pad, harp, accordion…).
+- **Lighting control** synced to playback, from simple LED strips to professional DMX.
+- **Built to run on its own**: offline-first, one-click WiFi hotspot, one-button full system update, tablet-ready UI, 28 languages.
 
-Support for multiple connection types:
-- **USB MIDI** - Automatic detection and hot-plug
-- **Bluetooth LE MIDI** - Scan and pair wireless instruments
-- **Network MIDI (RTP-MIDI)** - Connect over WiFi/Ethernet
-- **Serial MIDI (GPIO UART)** - Connect instruments via Raspberry Pi GPIO pins at 31250 baud. Supports multiple hardware UARTs (up to 6 on Pi 4 with device tree overlays), hot-plug monitoring, and full MIDI protocol including Running Status and SysEx. See [docs/GPIO_MIDI_WIRING.md](./docs/GPIO_MIDI_WIRING.md) for wiring details.
+## Connect any instrument
 
-Configure each device with custom name, latency compensation, instrument type, note range, and polyphony.
+<img src="docs/images/usb.svg" height="36" alt="USB"> &nbsp; <img src="docs/images/bluetooth.svg" height="36" alt="Bluetooth"> &nbsp; <img src="docs/images/wifi.svg" height="36" alt="WiFi"> &nbsp; <img src="docs/images/virtual-instrument.svg" height="36" alt="Virtual instrument">
 
-### Lighting Control
+Whatever you built, there's a way in:
 
-![Lighting Control](docs/images/lumiere.png)
+- **USB MIDI** — automatic detection and hot-plug.
+- **Bluetooth LE MIDI** — scan and pair wireless instruments.
+- **Network MIDI (RTP-MIDI)** — connect over WiFi or Ethernet.
+- **Physical MIDI IN/OUT via GPIO** — wire real 5-pin MIDI to the Raspberry Pi at 31250 baud using a MIDI HAT *or* a simple DIY circuit. Multiple hardware UARTs are supported (up to 6 on a Pi 4), with Running Status and SysEx. See [docs/GPIO_MIDI_WIRING.md](./docs/GPIO_MIDI_WIRING.md) for HAT and DIY wiring.
 
-Multiple driver support for stage and ambient lighting synchronized with MIDI playback:
-- **GPIO LED Strips** - Direct control of LED strips via Raspberry Pi GPIO
-- **ArtNet DMX** - Industry-standard DMX over Ethernet
-- **sACN/E1.31** - Streaming ACN protocol for DMX
-- **OSC** - Open Sound Control integration
-- **HTTP** - HTTP-based lighting APIs
-- **MQTT** - IoT messaging protocol for smart lighting
+Each instrument gets its own settings — note range, polyphony, type, latency, tuning and more — defined once and persisted.
 
-Includes a lighting effects engine, DMX fixture profiles, and full synchronization with MIDI playback.
+## Drive a whole orchestra
 
-### Auto-Adaptation of MIDI Files
+![Instrument management](docs/images/instruments.png)
 
-![Auto-Adaptation](docs/images/auto%20assign.png)
+Point the system at a standard MIDI file and it does the conducting for you:
 
-Général Midi Boop can automatically analyze a MIDI file and assign each channel to the best-suited connected instrument:
-- **Channel analysis** - Detects instrument type (drums, melody, bass, harmony), note ranges, and polyphony per channel
-- **Instrument matching** - Evaluates connected instruments capabilities and generates compatibility scores (0-100)
-- **Intelligent drum mapping** - Remaps General MIDI drum notes (35-81) to available instrument notes with priority-based substitution (kick → snare → hi-hat → crash → toms)
-- **Octave wrapping** - Option to extend note range by wrapping notes into available octaves
-- **Audio preview** - Listen to assignments before committing
+- **Automatic channel routing** — each MIDI channel is analysed (melody, bass, harmony, drums) and assigned to the most compatible connected instrument, with a single channel split across several instruments when needed.
+- **Automatic file adaptation** — notes outside an instrument's range are transposed or folded back in, polyphony is reduced to what the instrument can play, and General MIDI drums are remapped to the available pads.
+- **Up to 16 instruments simultaneously** — the full 16 MIDI channels, played together.
+- **Per-device latency compensation** — measure each instrument's real delay (including a microphone-based calibration) so everything lands on the beat.
+- **Optional MIDI clock** — keep clock-driven instruments locked to the tempo.
 
-### MIDI Files
+## Play, loop & arrange
 
-![MIDI Files](docs/images/playlist.png)
+![MIDI library](docs/images/playlist.png)
 
-- Upload and organize MIDI files in folders
-- Drag-and-drop support
-- Play, edit, or route files to devices
-- **File management** - Rename, duplicate, move between folders, export/save as
-- **Multi-select & batch operations** - Select multiple files for batch actions
-- **Search & filtering** - Search by name, filter by duration, tempo, track count, instrument type, channel count, compatibility, and more
-- **Filter presets** - Save and load custom filter combinations
-- **Sorting** - Sort files by any criteria with ascending/descending order
+- **Play live** from the virtual keyboard, also reachable from the Loop manager's **Live** tab.
+- **Build loops and arrangements** in the Loop manager: a searchable **Library**, a trigger **Pad**, a **Live** performance view, and a multi-track **Arranger** timeline.
+- **Preview before you commit** — listen to any loop or MIDI file and switch between the original (General MIDI) sound and the instrument-adapted rendering.
+- **Realistic previews** — assign a custom **SF2 SoundFont** to an instrument so the preview sounds closer to the real thing.
 
-### MIDI Editor
+## Specialized virtual keyboards
 
-![MIDI Editor](docs/images/editeur.png)
+The on-screen keyboard adapts to the selected instrument instead of always showing piano keys — so playing and editing matches how the real instrument works.
 
-Built-in multi-mode editor with four specialized views sharing a common transport,
-channel panel, and backend persistence.
+| | |
+|---|---|
+| ![Piano keyboard](docs/images/virtual%20keyboard/piano%20virtuel%20base.png) | ![Guitar fretboard](docs/images/virtual%20keyboard/piano%20virtuel%20guitare%20main%20cordes.png) |
+| ![String fretboard](docs/images/virtual%20keyboard/piano%20virtuel%20cordes%20toutes%20frettes%20et%20cordes.png) | ![Drum pad](docs/images/virtual%20keyboard/piano%20virtuel%20drums.png) |
 
-**Four editing modes:**
+Layouts include standard piano, string fretboards, drum/percussion pads, harp, accordion, harmonica, mallets, kalimba, steel drum and more — chosen automatically from each instrument's capabilities.
 
-| Mode | Purpose |
-|------|---------|
-| Piano Roll | Add / move / resize / re-channel / velocity, 16 coloured channels, snap grid (1/1 → 1/16) |
-| Tablature | String instruments (guitar, bass, violin…) with bidirectional MIDI ↔ tab conversion |
-| Drums | Grid-based drum pattern editor (GM drum map) |
-| Wind | Articulation and breath dynamics for wind instruments |
+## Built-in MIDI editor
 
-**Toolbar actions:** save, save-as, rename, undo / redo, copy / paste / delete,
-select-all, snap grid, horizontal & vertical zoom, play / pause / stop, auto-assign
-routing, channel settings popover, preview source toggle (GM / routed).
+![MIDI editor](docs/images/editeur.png)
 
-**CC & automation editing:** CC 1 / 2 / 5 / 7 / 10 / 11 / 74 / 76 / 77 / 78 / 91 /
-93, pitch bend, channel & poly aftertouch, velocity curves, and tempo automation,
-with linear / exponential / logarithmic / sine curve drawing tools.
+A multi-mode editor with four specialized views over a shared transport and per-channel routing:
 
-**Keyboard shortcuts:**
+- **Piano Roll** — add / move / resize notes, 16 coloured channels, snap grid.
+- **Tablature** — string instruments with bidirectional MIDI ↔ tab conversion.
+- **Drums** — grid-based GM drum pattern editor.
+- **Wind** — articulation and breath dynamics for wind instruments.
 
-| Key | Action |
-|-----|--------|
-| `Ctrl/Cmd + S` | Save |
-| `Ctrl/Cmd + Z` | Undo |
-| `Ctrl/Cmd + Y` / `Ctrl+Shift+Z` | Redo |
-| `Ctrl/Cmd + C` / `V` | Copy / paste selected notes |
-| `Ctrl/Cmd + A` | Select all |
-| `Delete` / `Backspace` | Delete selected notes (or CC / velocity points if that section is open) |
-| `Space` | Play / pause |
-| `Escape` | Close dialog or editor |
+A dedicated touch mode (separate Move / Add / Resize controls) makes it usable on tablets. See [docs/MIDI_EDITOR.md](./docs/MIDI_EDITOR.md).
 
-**Common features across modes:** built-in synthesizer preview (7 soundfonts),
-per-channel routing to connected devices, playable-note highlighting, cursor
-repositioning during playback pause, touch mode (separate Move / Add / Resize
-buttons) for tablets.
+## Lighting
 
-**User preferences** (persisted in `localStorage` under `gmboop_settings`): touch
-mode, keyboard-playback feedback, drag-playback feedback.
+![Lighting control](docs/images/lumiere.png)
 
-See [docs/MIDI_EDITOR.md](./docs/MIDI_EDITOR.md) for architecture, the public API,
-and extension points.
+Stage and ambient lighting synchronized with MIDI playback, driven straight from the Raspberry Pi:
 
-### String Instruments & Tablature
+- **GPIO LED strips** (WS2812/NeoPixel and on/off pins), plus **ArtNet DMX**, **sACN/E1.31**, **OSC**, **HTTP/WLED** and **MQTT** drivers.
+- A rules engine with **MIDI-learn**: trigger colour and brightness from note ranges, velocity and CC values.
 
-![Tablature Editor](docs/images/edit%20tab.png)
+## Built to run on its own
 
-Control real acoustic string instruments via solenoids/servos through MIDI CC. Includes a tablature editor with bidirectional MIDI-Tab conversion. Supports guitar, bass, violin, ukulele, and more with 19 tuning presets.
+This is meant to live on a Pi backstage, not next to a developer's laptop:
 
-### Drum Pattern Editor
+- **Offline-first** — all sounds and assets are stored locally; no internet needed at runtime.
+- **One-click WiFi hotspot** — turn the Pi into its own access point from the System settings modal (SSID, password, band), with a captive portal so a tablet connects straight to the interface.
+- **One-button full system update** — update the whole system in a few minutes from the settings, with live progress and automatic restart.
+- **Touchscreen / tablet ready** — responsive, multi-touch UI.
+- **28 languages**, including translated MIDI instrument names: English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Russian, Chinese, Japanese, Korean, Turkish, Hindi, Bengali, Thai, Vietnamese, Czech, Danish, Finnish, Greek, Hungarian, Indonesian, Norwegian, Swedish, Ukrainian, Esperanto, Tagalog.
 
-Visual drum grid editor for creating and editing drum patterns. Provides an intuitive grid-based interface for programming drum tracks with General MIDI drum mapping support.
+## Roadmap / in progress
 
-### Wind Instrument Editor
+The project already includes tooling for **hand and finger management** on string and keyboard instruments — hand-position editing, feasibility simulation and finger/fret visualization — used to keep adapted parts physically playable.
 
-![Wind Instrument Editor](docs/images/edit%20wind.png)
+Planned evolutions:
 
-Specialized editor for wind instrument articulations, allowing precise control over breath dynamics, tonguing, and expression parameters.
-
-### Virtual Keyboard
-
-![Virtual Keyboard](docs/images/clavier.png)
-
-Test devices from your browser:
-- Mouse click and drag
-- Computer keyboard support (AZERTY/QWERTY)
-- Adjustable octave and velocity
-
-### Channel Routing
-
-Route each MIDI channel (1-16) to a different device for multi-instrument playback, with instrument type display.
-
-### Microphone-Based Delay Calibration
-
-Automatically measure the real latency of your instruments using a microphone:
-- Sends MIDI notes and detects the audio response via ALSA
-- Multiple measurements for statistical accuracy (median-based)
-- Confidence scoring based on measurement consistency
-- Configurable threshold and measurement count
-
-### Instrument Management
-
-![Instrument Management](docs/images/instruments.png)
-
-Dedicated instrument management page:
-- Define instrument capabilities (note range, polyphony, instrument type)
-- Validation system to ensure all instruments are properly configured
-- Enable/disable devices
-
-### Settings
-
-- Theme: Light, Dark, Colored
-- Virtual keyboard octaves (1-4)
-- Language selection
-
-## Languages
-
-Available in 28 languages: English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Russian, Chinese, Japanese, Korean, Turkish, Hindi, Bengali, Thai, Vietnamese, Czech, Danish, Finnish, Greek, Hungarian, Indonesian, Norwegian, Swedish, Ukrainian, Esperanto, Tagalog.
-
-MIDI instrument names are translated in all supported languages.
+- **MIDI-message-driven lighting on instruments and peripherals** — extend lighting control so the instrument's own lights respond to MIDI.
+- **Humanoid-hand control** — drive robotic hands for string and keyboard instruments. See [docs/HUMANOID_HAND_MANAGEMENT.md](./docs/HUMANOID_HAND_MANAGEMENT.md) and [docs/HAND_VISUALIZATION.md](./docs/HAND_VISUALIZATION.md).
 
 ## Development
 
-### Prerequisites
-
-- Node.js >= 20.0.0
-
-### Setup
+Prerequisites: **Node.js >= 20.0.0**.
 
 ```bash
 git clone https://github.com/glloq/General-Midi-Boop.git
@@ -198,33 +133,17 @@ cd General-Midi-Boop
 npm install
 ```
 
-### Commands
+Common commands:
 
-![Debug Console](docs/images/debug.png)
+- `npm run dev` — development server with hot reload
+- `npm start` — production server
+- `npm test` — backend tests (Jest)
+- `npm run test:frontend` — frontend tests (Vitest)
+- `npm run lint` — ESLint
+- `npm run format` — Prettier
+- `npm run build` — Vite production build
 
-- `npm run dev` - Development server with hot reload
-- `npm start` - Production server
-- `npm test` - Run backend tests (Jest)
-- `npm run test:frontend` - Run frontend tests (Vitest)
-- `npm run lint` - ESLint check
-- `npm run format` - Prettier formatting
-- `npm run build` - Vite production build
-
-### Docker
-
-```bash
-docker-compose up -d
-```
-
-## Deployment
-
-Three deployment options are available:
-
-- **Direct Node.js** - Run directly with `npm start` for simple setups
-- **PM2** - Process manager for production with auto-restart and monitoring
-- **Docker** - Containerized deployment with `docker-compose up -d`
-
-See [docs/INSTALLATION.md](./docs/INSTALLATION.md) for detailed instructions on each option.
+Deployment options: direct Node.js (`npm start`), **PM2** for production with auto-restart, or **Docker** (`docker-compose up -d`). See [docs/INSTALLATION.md](./docs/INSTALLATION.md).
 
 ## Documentation
 
@@ -234,10 +153,11 @@ See [docs/INSTALLATION.md](./docs/INSTALLATION.md) for detailed instructions on 
 - [API Reference](./docs/API.md)
 - [Auto-Assignment System](./docs/AUTO_ASSIGNMENT.md)
 - [GPIO MIDI Wiring](./docs/GPIO_MIDI_WIRING.md)
+- [MIDI Editor](./docs/MIDI_EDITOR.md)
 - [SysEx Identity Protocol](./docs/SYSEX_IDENTITY.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Changelog](./CHANGELOG.md)
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+Released under the **MIT License**.
