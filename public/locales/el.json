@@ -2320,11 +2320,11 @@
     "previewOriginal": "Original",
     "addInstrument": "Προσθήκη οργάνου",
     "strategy": {
-      "barLabel": "Routing strategies",
-      "share": "Share",
-      "split": "Split",
-      "single": "Single instr.",
-      "sameType": "GM type"
+      "barLabel": "Στρατηγικές δρομολόγησης",
+      "share": "Κοινή χρήση",
+      "split": "Διαχωρισμός",
+      "single": "Ένα όργ.",
+      "sameType": "Τύπος GM"
     },
     "settings": "Ρυθμίσεις βαθμολόγησης",
     "settingsTitle": "Ρυθμίσεις αυτόματης δρομολόγησης",

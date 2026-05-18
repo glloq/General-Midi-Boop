@@ -2320,11 +2320,11 @@
     "previewOriginal": "Original",
     "addInstrument": "Tambah instrumen",
     "strategy": {
-      "barLabel": "Routing strategies",
-      "share": "Share",
-      "split": "Split",
-      "single": "Single instr.",
-      "sameType": "GM type"
+      "barLabel": "Strategi routing",
+      "share": "Berbagi",
+      "split": "Pisah",
+      "single": "Satu instr.",
+      "sameType": "Tipe GM"
     },
     "settings": "Pengaturan penilaian",
     "settingsTitle": "Pengaturan perutean otomatis",

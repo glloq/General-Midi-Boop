@@ -2320,11 +2320,11 @@
     "previewOriginal": "Original",
     "addInstrument": "Hangszer hozzáadása",
     "strategy": {
-      "barLabel": "Routing strategies",
-      "share": "Share",
-      "split": "Split",
-      "single": "Single instr.",
-      "sameType": "GM type"
+      "barLabel": "Útválasztási stratégiák",
+      "share": "Megosztás",
+      "split": "Felosztás",
+      "single": "Egy hangsz.",
+      "sameType": "GM-típus"
     },
     "settings": "Pontozási beállítások",
     "settingsTitle": "Automatikus útválasztási beállítások",

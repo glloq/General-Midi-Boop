@@ -2320,11 +2320,11 @@
     "previewOriginal": "Original",
     "addInstrument": "Thêm nhạc cụ",
     "strategy": {
-      "barLabel": "Routing strategies",
-      "share": "Share",
-      "split": "Split",
-      "single": "Single instr.",
-      "sameType": "GM type"
+      "barLabel": "Chiến lược định tuyến",
+      "share": "Chia sẻ",
+      "split": "Tách",
+      "single": "Một nhạc cụ",
+      "sameType": "Loại GM"
     },
     "settings": "Cài đặt chấm điểm",
     "settingsTitle": "Cài đặt định tuyến tự động",

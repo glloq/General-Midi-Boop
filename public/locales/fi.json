@@ -2320,11 +2320,11 @@
     "previewOriginal": "Original",
     "addInstrument": "Lisää soitin",
     "strategy": {
-      "barLabel": "Routing strategies",
-      "share": "Share",
-      "split": "Split",
-      "single": "Single instr.",
-      "sameType": "GM type"
+      "barLabel": "Reititysstrategiat",
+      "share": "Jaa",
+      "split": "Jaa osiin",
+      "single": "Yksi soitin",
+      "sameType": "GM-tyyppi"
     },
     "settings": "Pisteytysasetukset",
     "settingsTitle": "Auto-reititysasetukset",
