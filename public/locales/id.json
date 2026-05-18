@@ -24,8 +24,8 @@
     "clear": "Bersihkan",
     "unknown": "Tidak diketahui",
     "unknownError": "Kesalahan tidak diketahui",
-    "delete": "Delete",
-    "apply": "Apply",
+    "delete": "Hapus",
+    "apply": "Terapkan",
     "name": "Nama",
     "on": "Aktif",
     "off": "Nonaktif"
@@ -1232,7 +1232,7 @@
     "rangeNotSet": "Rentang not belum diatur",
     "polyphony": "Polifoni",
     "polyphonyNotSet": "Polifoni belum diatur",
-    "edit": "Edit",
+    "edit": "Ubah",
     "test": "Tes",
     "completeBtn": "Lengkapi",
     "instrumentsTotal": "total instrumen",
@@ -2247,7 +2247,7 @@
       "cello": "Violoncelle (CGDA)",
       "ukulele": "Ukulélé (GCEA)"
     },
-    "displayFormat": "Note display",
+    "displayFormat": "Tampilan not",
     "format": {
       "letters": "C, D, E",
       "solfege": "Do, Ré, Mi",
@@ -2588,8 +2588,8 @@
     "outputChannel": "Channel"
   },
   "loopManager": {
-    "title": "Loop Manager",
-    "tabLibrary": "Library",
+    "title": "Manajer Loop",
+    "tabLibrary": "Pustaka",
     "tabPad": "Pad",
     "tabLive": "Live",
     "tabKeyboard": "Keyboard",
@@ -2704,7 +2704,7 @@
     "groupTransport": "Transport",
     "groupMode": "Mode",
     "groupHistory": "Riwayat",
-    "groupEdit": "Edit",
+    "groupEdit": "Ubah",
     "groupGrid": "Grid",
     "groupInput": "Input",
     "groupView": "Tampilan",
@@ -2712,7 +2712,7 @@
     "confirmDiscardChanges": "Perubahan belum disimpan. Buang dan tutup?",
     "metronome": "Metronom",
     "countIn": "Count-in (1 bar sebelum perekaman)",
-    "countInStatus": "Count-in… {beat}/{total}",
+    "countInStatus": "Hitungan masuk… {beat}/{total}",
     "velocityHint": "Velocity yang akan diterapkan (1-127)",
     "applyVelocity": "Terapkan velocity ke seleksi",
     "velocityNoNotes": "Tidak ada not untuk dimodifikasi.",
