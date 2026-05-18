@@ -876,6 +876,8 @@
     "sectionNotes": "Notes & Capacités",
     "sectionHands": "Mains",
     "sectionStrings": "Cordes",
+    "stringSlidingSystemTitle": "Système de glissière",
+    "stringSlidingSystemDesc": "Un moteur par corde déplace un doigt le long des frettes configurées dans cet onglet.",
     "sectionDrums": "Percussions",
     "sectionAdvanced": "Avancé",
     "midiChannel": "Canal MIDI",

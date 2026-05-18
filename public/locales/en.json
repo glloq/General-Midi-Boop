@@ -876,6 +876,8 @@
     "sectionNotes": "Notes & Capabilities",
     "sectionHands": "Hands",
     "sectionStrings": "Strings",
+    "stringSlidingSystemTitle": "Sliding system",
+    "stringSlidingSystemDesc": "One motor per string moves a finger along the frets configured in this tab.",
     "sectionDrums": "Percussion",
     "sectionAdvanced": "Advanced",
     "midiChannel": "MIDI Channel",
