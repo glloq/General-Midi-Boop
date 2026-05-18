@@ -1169,6 +1169,11 @@ body.dark-mode .ism-drum-kit-desc {
   background: rgba(0, 0, 0, 0.01);
 }
 
+/* Preset block is pinned at the very top of the Notes tab — flush to the top. */
+#notePresetSubsection {
+  margin-top: 0;
+}
+
 .ism-subsection-title {
   font-size: 15px;
   font-weight: 700;

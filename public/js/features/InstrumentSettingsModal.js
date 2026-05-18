@@ -432,6 +432,11 @@ class InstrumentSettingsModal extends BaseModal {
             this._neckDiagram = null;
         }
         this._previewAllNotesOff();
+        if (this._previewLoadingToast) {
+            this._previewLoadingToast.done();
+            this._previewLoadingToast = null;
+        }
+        this._previewLoadingRefs = 0;
         if (window.__ismReapplyOctaveHighlight) window.__ismReapplyOctaveHighlight = null;
         if (typeof this._micTestCleanup === 'function') {
             try { this._micTestCleanup(); } catch (_) { /* best-effort teardown */ }
@@ -563,11 +568,7 @@ class InstrumentSettingsModal extends BaseModal {
             return;
         }
 
-        const loadingMarkup = `<span class="ism-preview-loading" style="display:none;">
-            <span class="ism-preview-loading-dot"></span>
-            <span class="ism-preview-loading-text"></span>
-        </span>`;
-        slot.innerHTML = loadingMarkup + (isDrumKit ? this._renderPreviewDrums() : this._renderPreviewPiano());
+        slot.innerHTML = isDrumKit ? this._renderPreviewDrums() : this._renderPreviewPiano();
         this._wirePreviewKeyboardListeners();
     }
 
@@ -695,24 +696,23 @@ class InstrumentSettingsModal extends BaseModal {
     }
 
     _showPreviewLoading() {
-        const slot = this.$('#ismPreviewSlot');
-        if (!slot) return;
-        const loader = slot.querySelector('.ism-preview-loading');
-        if (!loader) return;
         const label = this._getCurrentBankLabel();
         const baseMsg = this.t('instrumentSettings.previewLoadingBank') || 'Chargement banque son';
         const fullMsg = label ? `${baseMsg} · ${label}…` : `${baseMsg}…`;
-        const txt = loader.querySelector('.ism-preview-loading-text');
-        if (txt) txt.textContent = fullMsg;
-        loader.title = label || '';
-        loader.style.display = '';
+        this._previewLoadingRefs = (this._previewLoadingRefs || 0) + 1;
+        if (this._previewLoadingToast) {
+            this._previewLoadingToast.update(fullMsg);
+        } else if (typeof window.showProgressToast === 'function') {
+            this._previewLoadingToast = window.showProgressToast(fullMsg);
+        }
     }
 
     _hidePreviewLoading() {
-        const slot = this.$('#ismPreviewSlot');
-        if (!slot) return;
-        const loader = slot.querySelector('.ism-preview-loading');
-        if (loader) loader.style.display = 'none';
+        if (this._previewLoadingRefs > 0) this._previewLoadingRefs--;
+        if (this._previewLoadingRefs === 0 && this._previewLoadingToast) {
+            this._previewLoadingToast.done();
+            this._previewLoadingToast = null;
+        }
     }
 
     /**
