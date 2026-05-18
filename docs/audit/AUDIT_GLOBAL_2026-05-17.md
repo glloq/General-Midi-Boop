@@ -23,7 +23,7 @@ contradictoires ou hérités des docs.
 | Architecture | 7/10 | Séparation runtime/éditeur propre ; quelques monolithes |
 | Moteur temps réel | 8/10 | Scheduler lookahead sain ; 1 fuite hot-path (C1) |
 | Rendering piano roll | 7/10 | Bien optimisé ; recalc géométrie/index perfectibles |
-| Mémoire | 6/10 | Asymétrie listeners, undo non borné |
+| Mémoire | 8/10 | Révisé ↑ : fuites alléguées (H3) & undo non borné (M1) **infirmés** après vérif. Reste à confirmer par soak. |
 | Frontend boot | 4/10 | TTI ~10-12 s sur Pi (C2) |
 | Hygiène code/docs | 5/10 | Sprawl docs, 616 LOC mortes, monolithes |
 | Couverture charge/soak | 3/10 | Aucun test charge/long-run |
@@ -123,38 +123,57 @@ contradictoires ou hérités des docs.
 - **Cause** : objet `{channel,note,velocity,…}` neuf par note on/off/CC.
 - **Symptômes/Impact** : ~1000 alloc/s → pics GC young-gen 1-5 ms → micro-jitter.
 - **Impact temps réel** : oui (pauses GC). **Impact UX** : irrégularités fines.
-- **Solution** : object pool / payload réutilisable par tick ; typed arrays.
-- **Difficulté** : moyenne. **Gain** : ~−50 % GC young-gen.
+- **Statut (vérifié 2026-05-17)** : **NON corrigé — pooling jugé UNSAFE.**
+  L'objet `data` **s'échappe de façon asynchrone** : `DeviceManager.sendMessage`
+  le passe par référence à `wsServer.broadcast('monitor_event', { … data })`,
+  puis `WsOutputQueue` le sérialise sur `setImmediate` (turn suivant). Réutiliser
+  un objet scratch corromprait les `monitor_event` (notes mélangées). Gain GC
+  modeste (objets courts, scavenge V8 rapide — l'audit backend lui-même cote
+  LOW). Décliné : risque de correctness temps réel > gain. Re-scopé : exige
+  soit une copie des champs côté monitor (cf. M9), soit une API positionnelle
+  (`sendMessage(dev,type,ch,note,vel)`) — refonte large, à profiler sur Pi.
+- **Difficulté réelle** : élevée (invariant cross-fichier). **Gain** : faible.
 
 ### H2 — État MIDI dupliqué entre éditeurs (pas de source unique)
 - **Partie** : `public/js/features/midi-editor/MidiEditorView.js`,
-  `public/js/features/piano-roll/PianoRollView.js`,
-  `public/js/features/loop/LoopEditorModal.js`.
+  `public/js/features/PianoRollView.js`,
+  `public/js/features/LoopEditorModal.js`.
 - **Cause** : `notes/tempo/ppq/channels/currentTime` copiés par vue, pas de store.
 - **Symptômes** : données obsolètes au switch, jitter de sync, recalculs.
 - **Impact CPU/RAM** : copies multiples. **Impact UX** : incohérences visibles.
+- **Statut** : ouvert, non vérifié en profondeur (à confirmer avant chantier).
 - **Solution** : store MIDI central (sequence/tempo/ppq/transport), vues en
   lecture par sélecteurs. **Difficulté** : élevée. **Gain** : cohérence + RAM/CPU.
 
 ### H3 — Asymétrie addEventListener/removeEventListener (fuite mémoire)
-- **Partie** : 664 `addEventListener` vs 288 `removeEventListener` ; pires :
-  `public/js/features/instrument-settings/ISMListeners.js` (sections re-rendues
-  sans detach), `public/js/features/piano-roll/PianoRollView.js:54`
-  (`theme-changed` jamais retiré, pas de `destroy()`),
-  `public/js/features/keyboard/KeyboardChords.js` (`setInterval` bow).
-- **Symptômes** : croissance mémoire après 50+ cycles open/close de modales.
-- **Impact CPU/RAM** : fuite RAM + handlers fantômes. **Impact temps réel** :
-  indirect (GC). **Impact UX** : lenteur progressive.
-- **Solution** : registre de listeners par composant + `destroy()` symétrique ;
-  `AbortController`/`signal`. **Difficulté** : moyenne. **Gain** : RAM stable 24/7.
+- **Allégué** : 664 `addEventListener` vs 288 `removeEventListener` ; offenders
+  supposés `ISMListeners.js`, `PianoRollView.js:54`, `KeyboardChords.js`.
+- **Statut (vérifié 2026-05-17)** : **LARGEMENT FAUX POSITIF.**
+  - `PianoRollView.js` : possède un `destroy()` complet (`:539-552` — stop loop,
+    `removeEventListener('theme-changed')`, exécute tous les `_eventUnsubs`,
+    retire le DOM) **et** c'est un singleton `window.PianoRollView` durée-de-vie
+    appli (jamais multi-instancié) → pas de fuite.
+  - `KeyboardChords.js` : `_bowRetriggerInterval` est **gardé** (`:498-500`
+    clear avant re-set, `:530-532` clear à l'arrêt) ; handlers drag add/remove
+    symétriques (`:322-326`/`:340-344`). → pas de fuite.
+  - `ISMListeners.js` : **0** `document.addEventListener`/`window.addEventListener`
+    (vérifié grep). Les 65 listeners sont **élément-scopés** ; au remplacement
+    du DOM de section ils sont récupérés par le GC (aucune rétention JS trouvée).
+    Pas de fuite document/window classique.
+  - Le ratio 664/288 est une heuristique trompeuse (listeners élément-scopés ≠
+    fuite). **Aucune fuite mémoire avérée.** Non corrigé : rien à corriger.
+- **Reste éventuel** : si un futur code retient des nœuds de section détachés
+  en JS → fuite. Non observé aujourd'hui ; à surveiller via heap snapshot soak.
 
 ### H4 — Éditeurs invisibles continuent de traiter les événements WS
-- **Partie** : `public/js/features/TunerModal.js:347-356,525-573` (`tuner:pitch`
-  ~10-30 Hz traité même masqué) ; pattern similaire ailleurs.
-- **Cause** : abonnements WS non suspendus quand caché (non fermé).
-- **Impact CPU/RAM** : calculs/redraws invisibles. **Impact UX** : CPU idle élevé.
-- **Solution** : gate `isVisible` + suspend/resume sur visibilitychange/onHide.
-- **Difficulté** : faible/moyenne. **Gain** : CPU idle réduit.
+- **Allégué** : `TunerModal` traite `tuner:pitch` (~10-30 Hz) même masqué.
+- **Statut (vérifié 2026-05-17)** : **DÉJÀ MITIGÉ.**
+  `_handlePitchEvent` court-circuite quand fermé : `TunerModal.js:597`
+  `if (!this.isOpen || !this.state.isListening) return;`. L'abonnement est
+  proprement retiré : `api.off('tuner:pitch', …)` en `:565` et `:585`.
+  Le cas dominant (modale fermée) est déjà couvert. Non corrigé : déjà géré.
+- **Reste marginal** : modale *ouverte mais cachée derrière une autre* continue
+  de traiter — gain négligeable, non prioritaire.
 
 ### H5 — Feasibility mains recalculée à chaque pan/tick, sans mémoïsation
 - **Partie** : `public/js/features/auto-assign/` (`RoutingSummaryPage.js` 3010,
@@ -180,7 +199,7 @@ contradictoires ou hérités des docs.
 
 | # | Problème | Partie | Impact | Solution | Diff. |
 |---|----------|--------|--------|----------|-------|
-| M1 | Undo/redo non borné (snapshot séquence complète/édition) | `piano-roll/PianoRollEditor.js:490-492` & midi-editor | RAM Go session longue, lenteur >200 steps | Borne N≈50, diff vs full-copy | Moy |
+| ~~M1~~ | ~~Undo/redo non borné~~ — **FAUX POSITIF (vérifié 2026-05-17)** : `CanvasPianoRollRenderer` borne déjà (`_maxHistory=20`, `.shift()` à `:440`) et l'a déjà optimisé (clone shallow par note, commentaire `:422-425` suite à un incident GC passé). Rien à corriger. | `CanvasPianoRollRenderer.js:428-459` | — | aucune action | — |
 | M2 | Monolithes | `ISMSections.js` 2596, `ISMListeners.js` 2211, `RoutingSummaryPage.js` 3010, `MidiPlayer.js` 2202, `KeyboardPiano.js` 2190 | Maintenance/régression | Découpe par responsabilité | Élevée |
 | M3 | Pas de virtual scrolling | `PlaylistPage.js`, `InstrumentManagementPage.js` | Lag listes >500 items | Windowing | Moy |
 | M4 | Dérive timer MIDI Clock sous charge | `MidiClockGenerator.js:271-360` | Jitter BPM gear externe | Hybride hrtime + phase | Moy |
@@ -222,8 +241,10 @@ d'appel — fuite potentielle listeners/timers sur transitions de page ;
 - **Phase 1 (jours)** — ✅ C1 (cache nom instrument hot-path), ✅ H6
   (suppression 616 LOC mortes). C2 **re-scopé Phase 3** (externalisation du
   bloc inline 8 134 lignes obligatoire avant `defer` ; QA navigateur Pi requise).
-- **Phase 2 (1-2 sem.)** — H1 object pool, H3 listeners+destroy/AbortController,
-  H4 gate visibilité, M1 undo borné.
+- **Phase 2** — ❌ ANNULÉE après vérification directe du code (2026-05-17) :
+  H1 décliné (échappement async unsafe), H3 faux positif (aucune fuite avérée),
+  H4 déjà mitigé (`TunerModal.js:597`), M1 faux positif (déjà borné à 20).
+  Aucun changement de code justifié. Effort redirigé vers H2/H5/C2/M2 + Phase 5.
 - **Phase 3 (2-4 sem.)** — C2 (externalisation inline + `defer` + lazy-load +
   chunks), H5 mémoïsation+RAF
   unifié, H2 store central, M3 virtual scroll, M5/M6/M8.
