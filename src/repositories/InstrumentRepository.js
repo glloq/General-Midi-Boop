@@ -16,11 +16,8 @@ export default class InstrumentRepository {
     this.database = database;
   }
 
-  // The legacy generic `instruments` table is gone (v6); the per-channel
-  // rows live on `instruments_latency` (plural). The two helpers below
-  // operate on the row primary id (`<device_id>_<channel>`) — used by
-  // the playback assignment flow to load + patch one instrument at a
-  // time without juggling (deviceId, channel) tuples on the caller side.
+  // Per-channel rows live on `instruments_latency`, keyed by the row
+  // primary id (`<device_id>_<channel>`).
 
   findById(instrumentId) {
     return this.database.findInstrumentById(instrumentId);
@@ -67,12 +64,6 @@ export default class InstrumentRepository {
     return this.database.getInstrumentsByDevice(deviceId);
   }
 
-  // deleteLatencyProfile removed in v6 — latency now lives on the
-  // per-channel rows of `instruments_latency` (plural). To clear a
-  // device's latency, either patch sync_delay/avg_latency back to 0
-  // via updateSettings, or use deleteSettingsByDevice to drop the row
-  // entirely.
-
   deleteSettingsByDevice(deviceId, channel) {
     return this.database.deleteInstrumentSettingsByDevice(deviceId, channel);
   }
@@ -101,11 +92,8 @@ export default class InstrumentRepository {
     return this.database.saveSysExIdentity(deviceId, channel, identity);
   }
 
-  // ============ Multi-GM voices (secondary alternatives) ============
-  // The primary GM program still lives on `instruments_latency.gm_program`.
-  // These methods cover the SECONDARY voices attached to the same
-  // (deviceId, channel) pair — each representing a different actuator
-  // or technique on the same physical instrument.
+  // Multi-GM voices: SECONDARY alternatives attached to a (deviceId,
+  // channel) pair. The primary program stays on `instruments_latency.gm_program`.
 
   listVoices(deviceId, channel) {
     return this.database.listInstrumentVoices(deviceId, channel);

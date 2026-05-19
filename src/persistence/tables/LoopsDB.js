@@ -4,6 +4,7 @@
  * Each loop stores a name, tempo, time signature, bar count, and a JSON
  * note sequence compatible with webaudio-pianoroll format.
  */
+import { buildDynamicUpdate } from '../dbHelpers.js';
 
 class LoopsDB {
   /**
@@ -53,9 +54,11 @@ class LoopsDB {
 
   getLoops() {
     try {
-      return this.db.prepare(
-        'SELECT id, name, tempo, time_sig_num, time_sig_den, bars, ppq, instrument_program, created_at, updated_at FROM loops ORDER BY updated_at DESC'
-      ).all();
+      return this.db
+        .prepare(
+          'SELECT id, name, tempo, time_sig_num, time_sig_den, bars, ppq, instrument_program, created_at, updated_at FROM loops ORDER BY updated_at DESC'
+        )
+        .all();
     } catch (error) {
       this.logger.error(`LoopsDB.getLoops: ${error.message}`);
       throw error;
@@ -64,26 +67,25 @@ class LoopsDB {
 
   updateLoop(id, fields) {
     try {
-      const allowed = ['name', 'tempo', 'time_sig_num', 'time_sig_den', 'bars', 'ppq', 'instrument_program', 'midi_data'];
-      const sets = [];
-      const values = [];
+      const allowed = [
+        'name',
+        'tempo',
+        'time_sig_num',
+        'time_sig_den',
+        'bars',
+        'ppq',
+        'instrument_program',
+        'midi_data'
+      ];
+      if (!allowed.some((k) => k in fields)) return;
 
-      for (const key of allowed) {
-        if (key in fields) {
-          sets.push(`${key} = ?`);
-          values.push(key === 'midi_data' && typeof fields[key] !== 'string'
-            ? JSON.stringify(fields[key])
-            : fields[key]);
-        }
-      }
-
-      if (sets.length === 0) return;
-
-      sets.push('updated_at = ?');
-      values.push(Date.now());
-      values.push(id);
-
-      this.db.prepare(`UPDATE loops SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+      const result = buildDynamicUpdate(
+        'loops',
+        { ...fields, updated_at: Date.now() },
+        [...allowed, 'updated_at'],
+        { transforms: { midi_data: (v) => (typeof v === 'string' ? v : JSON.stringify(v)) } }
+      );
+      this.db.prepare(result.sql).run(...result.values, id);
     } catch (error) {
       this.logger.error(`LoopsDB.updateLoop: ${error.message}`);
       throw error;

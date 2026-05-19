@@ -45,24 +45,27 @@ class RoutingPersistenceDB {
       // caller didn't pass an explicit remap. Stored as-is in the column
       // of the same name (v6 baseline — the old `track_id` misnomer is
       // gone).
-      const targetChannel = routing.target_channel !== undefined ? routing.target_channel : routing.channel;
+      const targetChannel =
+        routing.target_channel !== undefined ? routing.target_channel : routing.channel;
 
       // hand_position_feasibility lives in a JSON column (migration 008).
       // Accept either a plain object the caller assembled or an
       // already-stringified payload — be defensive against both.
       let feasibilityJson = null;
       if (routing.hand_position_feasibility != null) {
-        feasibilityJson = typeof routing.hand_position_feasibility === 'string'
-          ? routing.hand_position_feasibility
-          : JSON.stringify(routing.hand_position_feasibility);
+        feasibilityJson =
+          typeof routing.hand_position_feasibility === 'string'
+            ? routing.hand_position_feasibility
+            : JSON.stringify(routing.hand_position_feasibility);
       }
 
       // hand_position_overrides — Feature E. Same dual-shape acceptance.
       let overridesJson = null;
       if (routing.hand_position_overrides != null) {
-        overridesJson = typeof routing.hand_position_overrides === 'string'
-          ? routing.hand_position_overrides
-          : JSON.stringify(routing.hand_position_overrides);
+        overridesJson =
+          typeof routing.hand_position_overrides === 'string'
+            ? routing.hand_position_overrides
+            : JSON.stringify(routing.hand_position_overrides);
       }
 
       // For split routings, use a different INSERT (no ON CONFLICT since multiple rows per channel)
@@ -194,9 +197,9 @@ class RoutingPersistenceDB {
   insertSplitRoutings(fileId, channel, segments) {
     const run = this.db.transaction(() => {
       // Remove all existing routings for this channel (both split and non-split)
-      this.db.prepare(
-        'DELETE FROM midi_instrument_routings WHERE midi_file_id = ? AND channel = ?'
-      ).run(fileId, channel);
+      this.db
+        .prepare('DELETE FROM midi_instrument_routings WHERE midi_file_id = ? AND channel = ?')
+        .run(fileId, channel);
 
       // Insert each segment
       for (const segment of segments) {
@@ -225,13 +228,17 @@ class RoutingPersistenceDB {
    */
   getRoutingsByFile(fileId, includeDisabled = false) {
     const enabledFilter = includeDisabled ? '' : 'AND enabled = 1';
-    const rows = this.db.prepare(`
+    const rows = this.db
+      .prepare(
+        `
       SELECT * FROM midi_instrument_routings
       WHERE midi_file_id = ? ${enabledFilter}
       ORDER BY channel ASC
-    `).all(fileId);
+    `
+      )
+      .all(fileId);
 
-    return rows.map(row => ({
+    return rows.map((row) => ({
       ...row,
       target_channel: row.target_channel ?? row.channel,
       note_remapping: row.note_remapping ? JSON.parse(row.note_remapping) : null,
@@ -264,11 +271,6 @@ class RoutingPersistenceDB {
       this.logger?.warn?.(`Routing ${rowId}: invalid ${label} JSON (${e.message})`);
       return null;
     }
-  }
-
-  /** @deprecated kept as a compat alias for the previous internal name. */
-  _safeParseFeasibility(raw, rowId) {
-    return this._safeParseJson(raw, rowId, 'hand_position_feasibility');
   }
 
   /**
@@ -324,9 +326,11 @@ class RoutingPersistenceDB {
    */
   deleteNonSplitRoutingsByFile(fileId) {
     try {
-      this.db.prepare(
-        "DELETE FROM midi_instrument_routings WHERE midi_file_id = ? AND (split_mode IS NULL OR split_mode = '')"
-      ).run(fileId);
+      this.db
+        .prepare(
+          "DELETE FROM midi_instrument_routings WHERE midi_file_id = ? AND (split_mode IS NULL OR split_mode = '')"
+        )
+        .run(fileId);
     } catch (error) {
       this.logger.error(`Failed to delete non-split routings for file ${fileId}: ${error.message}`);
     }
@@ -340,13 +344,11 @@ class RoutingPersistenceDB {
   deleteRoutingsByDevice(deviceId, channel) {
     try {
       if (channel !== undefined && channel !== null) {
-        this.db.prepare(
-          'DELETE FROM midi_instrument_routings WHERE device_id = ? AND channel = ?'
-        ).run(deviceId, channel);
+        this.db
+          .prepare('DELETE FROM midi_instrument_routings WHERE device_id = ? AND channel = ?')
+          .run(deviceId, channel);
       } else {
-        this.db.prepare(
-          'DELETE FROM midi_instrument_routings WHERE device_id = ?'
-        ).run(deviceId);
+        this.db.prepare('DELETE FROM midi_instrument_routings WHERE device_id = ?').run(deviceId);
       }
     } catch (error) {
       this.logger.error(`Failed to delete routings for device ${deviceId}: ${error.message}`);
@@ -359,18 +361,28 @@ class RoutingPersistenceDB {
    */
   disableVirtualRoutings() {
     try {
-      const affectedRows = this.db.prepare(`
+      const affectedRows = this.db
+        .prepare(
+          `
         SELECT DISTINCT midi_file_id FROM midi_instrument_routings
         WHERE device_id LIKE 'virtual_%' AND enabled = 1
-      `).all();
+      `
+        )
+        .all();
 
-      const result = this.db.prepare(`
+      const result = this.db
+        .prepare(
+          `
         UPDATE midi_instrument_routings SET enabled = 0
         WHERE device_id LIKE 'virtual_%' AND enabled = 1
-      `).run();
+      `
+        )
+        .run();
 
-      const affectedFileIds = affectedRows.map(r => r.midi_file_id);
-      this.logger.info(`Disabled ${result.changes} virtual instrument routings across ${affectedFileIds.length} files`);
+      const affectedFileIds = affectedRows.map((r) => r.midi_file_id);
+      this.logger.info(
+        `Disabled ${result.changes} virtual instrument routings across ${affectedFileIds.length} files`
+      );
       return { disabledCount: result.changes, affectedFileIds };
     } catch (error) {
       this.logger.error(`Failed to disable virtual routings: ${error.message}`);
@@ -384,18 +396,28 @@ class RoutingPersistenceDB {
    */
   enableVirtualRoutings() {
     try {
-      const affectedRows = this.db.prepare(`
+      const affectedRows = this.db
+        .prepare(
+          `
         SELECT DISTINCT midi_file_id FROM midi_instrument_routings
         WHERE device_id LIKE 'virtual_%' AND enabled = 0
-      `).all();
+      `
+        )
+        .all();
 
-      const result = this.db.prepare(`
+      const result = this.db
+        .prepare(
+          `
         UPDATE midi_instrument_routings SET enabled = 1
         WHERE device_id LIKE 'virtual_%' AND enabled = 0
-      `).run();
+      `
+        )
+        .run();
 
-      const affectedFileIds = affectedRows.map(r => r.midi_file_id);
-      this.logger.info(`Re-enabled ${result.changes} virtual instrument routings across ${affectedFileIds.length} files`);
+      const affectedFileIds = affectedRows.map((r) => r.midi_file_id);
+      this.logger.info(
+        `Re-enabled ${result.changes} virtual instrument routings across ${affectedFileIds.length} files`
+      );
       return { enabledCount: result.changes, affectedFileIds };
     } catch (error) {
       this.logger.error(`Failed to enable virtual routings: ${error.message}`);

@@ -84,7 +84,10 @@ class MidiDatabase {
 
       return result.lastInsertRowid;
     } catch (error) {
-      if (error.message && error.message.includes('UNIQUE constraint failed: midi_files.content_hash')) {
+      if (
+        error.message &&
+        error.message.includes('UNIQUE constraint failed: midi_files.content_hash')
+      ) {
         const existing = this.getFileByContentHash(file.content_hash);
         const err = new Error(
           `MIDI file with identical content already exists (id=${existing?.id}).`
@@ -139,7 +142,9 @@ class MidiDatabase {
 
   getFiles(folder = '/') {
     try {
-      const stmt = this.db.prepare(`SELECT ${LIST_COLUMNS} FROM midi_files WHERE folder = ? ORDER BY uploaded_at DESC`);
+      const stmt = this.db.prepare(
+        `SELECT ${LIST_COLUMNS} FROM midi_files WHERE folder = ? ORDER BY uploaded_at DESC`
+      );
       return stmt.all(folder);
     } catch (error) {
       this.logger.error(`Failed to get files: ${error.message}`);
@@ -161,7 +166,9 @@ class MidiDatabase {
    */
   getAllFiles() {
     try {
-      const stmt = this.db.prepare(`SELECT ${LIST_COLUMNS} FROM midi_files ORDER BY uploaded_at DESC`);
+      const stmt = this.db.prepare(
+        `SELECT ${LIST_COLUMNS} FROM midi_files ORDER BY uploaded_at DESC`
+      );
       return stmt.all();
     } catch (error) {
       this.logger.error(`Failed to get all files: ${error.message}`);
@@ -172,11 +179,26 @@ class MidiDatabase {
   updateFile(fileId, updates) {
     try {
       const result = buildDynamicUpdate('midi_files', updates, [
-        'filename', 'folder', 'blob_path', 'size', 'tracks', 'duration',
-        'tempo', 'ppq', 'is_original', 'parent_file_id',
-        'instrument_types', 'channel_count',
-        'note_range_min', 'note_range_max', 'has_drums', 'has_melody', 'has_bass', 'has_lyrics',
-        'title', 'copyright'
+        'filename',
+        'folder',
+        'blob_path',
+        'size',
+        'tracks',
+        'duration',
+        'tempo',
+        'ppq',
+        'is_original',
+        'parent_file_id',
+        'instrument_types',
+        'channel_count',
+        'note_range_min',
+        'note_range_max',
+        'has_drums',
+        'has_melody',
+        'has_bass',
+        'has_lyrics',
+        'title',
+        'copyright'
       ]);
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, fileId);
@@ -206,7 +228,7 @@ class MidiDatabase {
   getFolders() {
     try {
       const stmt = this.db.prepare('SELECT DISTINCT folder FROM midi_files ORDER BY folder');
-      return stmt.all().map(row => row.folder);
+      return stmt.all().map((row) => row.folder);
     } catch (error) {
       this.logger.error(`Failed to get folders: ${error.message}`);
       throw error;
@@ -227,51 +249,6 @@ class MidiDatabase {
     }
   }
 
-  getFilesByDateRange(startDate, endDate) {
-    try {
-      const stmt = this.db.prepare(`
-        SELECT ${LIST_COLUMNS} FROM midi_files
-        WHERE uploaded_at >= ? AND uploaded_at <= ?
-        ORDER BY uploaded_at DESC
-      `);
-      return stmt.all(startDate, endDate);
-    } catch (error) {
-      this.logger.error(`Failed to get files by date range: ${error.message}`);
-      throw error;
-    }
-  }
-
-  getRecentFiles(limit = 10) {
-    try {
-      const stmt = this.db.prepare(`
-        SELECT ${LIST_COLUMNS} FROM midi_files
-        ORDER BY uploaded_at DESC
-        LIMIT ?
-      `);
-      return stmt.all(limit);
-    } catch (error) {
-      this.logger.error(`Failed to get recent files: ${error.message}`);
-      throw error;
-    }
-  }
-
-  getStorageStats() {
-    try {
-      const stmt = this.db.prepare(`
-        SELECT
-          COUNT(*) as totalFiles,
-          SUM(size) as totalSize,
-          AVG(duration) as avgDuration,
-          MAX(duration) as maxDuration
-        FROM midi_files
-      `);
-      return stmt.get();
-    } catch (error) {
-      this.logger.error(`Failed to get storage stats: ${error.message}`);
-      throw error;
-    }
-  }
-
   /**
    * Escape SQL LIKE wildcards so user free-text is matched literally.
    * Pair with an ESCAPE '\' clause on the LIKE.
@@ -279,7 +256,7 @@ class MidiDatabase {
    * @returns {string}
    */
   _escapeLikePattern(value) {
-    return String(value).replace(/[\\%_]/g, ch => '\\' + ch);
+    return String(value).replace(/[\\%_]/g, (ch) => '\\' + ch);
   }
 
   /**
@@ -297,7 +274,10 @@ class MidiDatabase {
 
       // JOIN with routings if needed (only for legacy hasRouting/minCompatibilityScore, not routingStatus which uses CTE)
       let hasMirJoin = false;
-      if (((filters.hasRouting !== undefined) && !filters.routingStatus) || filters.minCompatibilityScore !== undefined) {
+      if (
+        (filters.hasRouting !== undefined && !filters.routingStatus) ||
+        filters.minCompatibilityScore !== undefined
+      ) {
         joins.push('LEFT JOIN midi_instrument_routings mir ON mf.id = mir.midi_file_id');
         hasMirJoin = true;
       }
@@ -400,17 +380,17 @@ class MidiDatabase {
         if (mode === 'ANY') {
           const orClauses = filters.instrumentTypes.map(() => 'mf.instrument_types LIKE ?');
           wheres.push(`(${orClauses.join(' OR ')})`);
-          filters.instrumentTypes.forEach(type => {
+          filters.instrumentTypes.forEach((type) => {
             params.push(`%"${type}"%`);
           });
         } else if (mode === 'ALL') {
-          filters.instrumentTypes.forEach(type => {
+          filters.instrumentTypes.forEach((type) => {
             wheres.push('mf.instrument_types LIKE ?');
             params.push(`%"${type}"%`);
           });
         } else if (mode === 'EXACT') {
           // File must contain ALL specified types AND no other types
-          filters.instrumentTypes.forEach(type => {
+          filters.instrumentTypes.forEach((type) => {
             wheres.push('mf.instrument_types LIKE ?');
             params.push(`%"${type}"%`);
           });
@@ -426,11 +406,15 @@ class MidiDatabase {
         const gmMode = filters.gmMode || 'ANY';
         if (gmMode === 'ANY') {
           const placeholders = filters.gmInstruments.map(() => '?').join(', ');
-          wheres.push(`mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name IN (${placeholders}))`);
-          filters.gmInstruments.forEach(name => params.push(name));
+          wheres.push(
+            `mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name IN (${placeholders}))`
+          );
+          filters.gmInstruments.forEach((name) => params.push(name));
         } else if (gmMode === 'ALL') {
-          filters.gmInstruments.forEach(name => {
-            wheres.push('mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name = ?)');
+          filters.gmInstruments.forEach((name) => {
+            wheres.push(
+              'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name = ?)'
+            );
             params.push(name);
           });
         }
@@ -441,11 +425,15 @@ class MidiDatabase {
         const gmMode = filters.gmMode || 'ANY';
         if (gmMode === 'ANY') {
           const placeholders = filters.gmCategories.map(() => '?').join(', ');
-          wheres.push(`mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category IN (${placeholders}))`);
-          filters.gmCategories.forEach(cat => params.push(cat));
+          wheres.push(
+            `mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category IN (${placeholders}))`
+          );
+          filters.gmCategories.forEach((cat) => params.push(cat));
         } else if (gmMode === 'ALL') {
-          filters.gmCategories.forEach(cat => {
-            wheres.push('mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category = ?)');
+          filters.gmCategories.forEach((cat) => {
+            wheres.push(
+              'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category = ?)'
+            );
             params.push(cat);
           });
         }
@@ -455,25 +443,38 @@ class MidiDatabase {
       if (filters.gmPrograms && filters.gmPrograms.length > 0) {
         const gmMode = filters.gmMode || 'ANY';
         if (gmMode === 'ALL') {
-          filters.gmPrograms.forEach(prog => {
-            wheres.push('mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE primary_program = ?)');
+          filters.gmPrograms.forEach((prog) => {
+            wheres.push(
+              'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE primary_program = ?)'
+            );
             params.push(prog);
           });
         } else {
           const placeholders = filters.gmPrograms.map(() => '?').join(', ');
-          wheres.push(`mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE primary_program IN (${placeholders}))`);
-          filters.gmPrograms.forEach(prog => params.push(prog));
+          wheres.push(
+            `mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE primary_program IN (${placeholders}))`
+          );
+          filters.gmPrograms.forEach((prog) => params.push(prog));
         }
       }
 
       // Routing status filter (detailed: unrouted, partial, playable, routed_incomplete, auto_assigned)
       // Supports single status (routingStatus) or multiple statuses (routingStatuses array)
-      const statusList = filters.routingStatuses || (filters.routingStatus ? [filters.routingStatus] : []);
+      const statusList =
+        filters.routingStatuses || (filters.routingStatus ? [filters.routingStatus] : []);
       if (statusList.length > 0) {
-        const validStatuses = ['unrouted', 'partial', 'playable', 'routed_incomplete', 'auto_assigned'];
+        const validStatuses = [
+          'unrouted',
+          'partial',
+          'playable',
+          'routed_incomplete',
+          'auto_assigned'
+        ];
         for (const s of statusList) {
           if (!validStatuses.includes(s)) {
-            throw new Error(`Invalid routingStatus: ${s}. Must be one of: ${validStatuses.join(', ')}`);
+            throw new Error(
+              `Invalid routingStatus: ${s}. Must be one of: ${validStatuses.join(', ')}`
+            );
           }
         }
 
@@ -481,7 +482,9 @@ class MidiDatabase {
         // Device IDs come from server's deviceManager (trusted source), safe to embed as literals
         let deviceFilterSql = '';
         if (filters.connectedDeviceIds && filters.connectedDeviceIds.length > 0) {
-          const safeIds = filters.connectedDeviceIds.map(id => `'${String(id).replace(/'/g, "''")}'`).join(',');
+          const safeIds = filters.connectedDeviceIds
+            .map((id) => `'${String(id).replace(/'/g, "''")}'`)
+            .join(',');
           deviceFilterSql = ` AND device_id IN (${safeIds})`;
         }
 
@@ -501,15 +504,21 @@ class MidiDatabase {
               orConditions.push(`${routedCountSql} = 0`);
               break;
             case 'partial':
-              orConditions.push(`(${routedCountSql} > 0 AND ${routedCountSql} < ${channelCountSql})`);
+              orConditions.push(
+                `(${routedCountSql} > 0 AND ${routedCountSql} < ${channelCountSql})`
+              );
               break;
             case 'routed_incomplete':
               // Only routed_incomplete if there ARE actual scores and min < 100
-              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} IS NOT NULL AND ${minScoreSql} < 100)`);
+              orConditions.push(
+                `(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND ${minScoreSql} IS NOT NULL AND ${minScoreSql} < 100)`
+              );
               break;
             case 'playable':
               // Playable if all scores are 100 OR all scores are NULL (manual routings)
-              orConditions.push(`(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND (${minScoreSql} IS NULL OR ${minScoreSql} = 100))`);
+              orConditions.push(
+                `(${routedCountSql} >= ${channelCountSql} AND ${channelCountSql} > 0 AND (${minScoreSql} IS NULL OR ${minScoreSql} = 100))`
+              );
               break;
             case 'auto_assigned':
               orConditions.push(`(${hasAutoAssignedSql} > 0)`);
@@ -578,11 +587,14 @@ class MidiDatabase {
               AND mir3.enabled = 1
           )`);
         }
-        filters.playableOnInstruments.forEach(id => params.push(id));
+        filters.playableOnInstruments.forEach((id) => params.push(id));
       }
 
       // Simple routing existence filter (legacy) — skip if routingStatus/routingStatuses is active
-      if (!filters.routingStatus && (!filters.routingStatuses || filters.routingStatuses.length === 0)) {
+      if (
+        !filters.routingStatus &&
+        (!filters.routingStatuses || filters.routingStatuses.length === 0)
+      ) {
         if (filters.hasRouting === true) {
           wheres.push('mir.id IS NOT NULL');
         } else if (filters.hasRouting === false) {
@@ -618,9 +630,19 @@ class MidiDatabase {
       const sortOrder = filters.sortOrder || 'DESC';
 
       // Validate sortBy and sortOrder to prevent SQL injection
-      const validSortFields = ['filename', 'uploaded_at', 'duration', 'tempo', 'tracks', 'size', 'channel_count'];
+      const validSortFields = [
+        'filename',
+        'uploaded_at',
+        'duration',
+        'tempo',
+        'tracks',
+        'size',
+        'channel_count'
+      ];
       const validSortOrders = ['ASC', 'DESC'];
-      const safeSortOrder = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
+      const safeSortOrder = validSortOrders.includes(sortOrder.toUpperCase())
+        ? sortOrder.toUpperCase()
+        : 'DESC';
       if (validSortFields.includes(sortBy)) {
         query += ` ORDER BY mf.${sortBy} ${safeSortOrder}`;
       } else {
@@ -674,7 +696,9 @@ class MidiDatabase {
           stmt.run(
             fileId,
             ch.channel,
-            ch.primaryProgram !== null && ch.primaryProgram !== undefined ? ch.primaryProgram : null,
+            ch.primaryProgram !== null && ch.primaryProgram !== undefined
+              ? ch.primaryProgram
+              : null,
             ch.gmInstrumentName || null,
             ch.gmCategory || null,
             ch.estimatedType || null,
@@ -819,11 +843,12 @@ class MidiDatabase {
 
       if (mode === 'ALL') {
         // File must contain ALL specified instruments
-        const subqueries = instruments.map(() =>
-          'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name = ?)'
+        const subqueries = instruments.map(
+          () =>
+            'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_instrument_name = ?)'
         );
         query = `SELECT mf.* FROM midi_files mf WHERE ${subqueries.join(' AND ')} ORDER BY mf.uploaded_at DESC`;
-        instruments.forEach(name => params.push(name));
+        instruments.forEach((name) => params.push(name));
       } else {
         // File must contain at least one
         const placeholders = instruments.map(() => '?').join(', ');
@@ -831,7 +856,7 @@ class MidiDatabase {
           INNER JOIN midi_file_channels mfc ON mf.id = mfc.midi_file_id
           WHERE mfc.gm_instrument_name IN (${placeholders})
           ORDER BY mf.uploaded_at DESC`;
-        instruments.forEach(name => params.push(name));
+        instruments.forEach((name) => params.push(name));
       }
 
       const stmt = this.db.prepare(query);
@@ -854,18 +879,18 @@ class MidiDatabase {
       const params = [];
 
       if (mode === 'ALL') {
-        const subqueries = categories.map(() =>
-          'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category = ?)'
+        const subqueries = categories.map(
+          () => 'mf.id IN (SELECT midi_file_id FROM midi_file_channels WHERE gm_category = ?)'
         );
         query = `SELECT mf.* FROM midi_files mf WHERE ${subqueries.join(' AND ')} ORDER BY mf.uploaded_at DESC`;
-        categories.forEach(cat => params.push(cat));
+        categories.forEach((cat) => params.push(cat));
       } else {
         const placeholders = categories.map(() => '?').join(', ');
         query = `SELECT DISTINCT mf.* FROM midi_files mf
           INNER JOIN midi_file_channels mfc ON mf.id = mfc.midi_file_id
           WHERE mfc.gm_category IN (${placeholders})
           ORDER BY mf.uploaded_at DESC`;
-        categories.forEach(cat => params.push(cat));
+        categories.forEach((cat) => params.push(cat));
       }
 
       const stmt = this.db.prepare(query);
@@ -964,7 +989,9 @@ class MidiDatabase {
     try {
       if (eventType) {
         return this.db
-          .prepare('SELECT * FROM midi_file_text_events WHERE midi_file_id = ? AND event_type = ? ORDER BY tick, track')
+          .prepare(
+            'SELECT * FROM midi_file_text_events WHERE midi_file_id = ? AND event_type = ? ORDER BY tick, track'
+          )
           .all(fileId, eventType);
       }
       return this.db
@@ -985,34 +1012,6 @@ class MidiDatabase {
       this.db.prepare('DELETE FROM midi_file_text_events WHERE midi_file_id = ?').run(fileId);
     } catch (error) {
       this.logger.error(`Failed to delete text events: ${error.message}`);
-    }
-  }
-
-  /**
-   * Search files by text event content (title, lyrics, markers, etc.).
-   * @param {string} query - Substring to search for
-   * @param {string|null} [eventType] - Restrict to a specific event type
-   * @returns {Array<{midi_file_id, event_type, text}>}
-   */
-  searchTextEvents(query, eventType = null) {
-    try {
-      if (eventType) {
-        return this.db
-          .prepare(`SELECT DISTINCT midi_file_id, event_type, text
-                    FROM midi_file_text_events
-                    WHERE event_type = ? AND text LIKE ?
-                    ORDER BY midi_file_id`)
-          .all(eventType, `%${query}%`);
-      }
-      return this.db
-        .prepare(`SELECT DISTINCT midi_file_id, event_type, text
-                  FROM midi_file_text_events
-                  WHERE text LIKE ?
-                  ORDER BY midi_file_id`)
-        .all(`%${query}%`);
-    } catch (error) {
-      this.logger.error(`Failed to search text events: ${error.message}`);
-      return [];
     }
   }
 
