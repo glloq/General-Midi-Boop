@@ -132,10 +132,18 @@ class MidiMessage {
     this.channel = obj.channel;
 
     const allowedKeys = [
-      'note', 'velocity', 'pressure', 'controller', 'value',
-      'program', 'data', 'song', 'timestamp', 'raw'
+      'note',
+      'velocity',
+      'pressure',
+      'controller',
+      'value',
+      'program',
+      'data',
+      'song',
+      'timestamp',
+      'raw'
     ];
-    Object.keys(obj).forEach(key => {
+    Object.keys(obj).forEach((key) => {
       if (key !== 'type' && key !== 'channel' && allowedKeys.includes(key)) {
         this[key] = obj[key];
       }
@@ -154,41 +162,41 @@ class MidiMessage {
   parseSystemMessage(bytes) {
     const status = bytes[0];
 
-    if (status === 0xF0) {
+    if (status === 0xf0) {
       // SysEx
       this.type = 'sysex';
       this.data = bytes.slice(1, -1); // Remove 0xF0 and 0xF7
-    } else if (status === 0xF1) {
+    } else if (status === 0xf1) {
       // MIDI Time Code Quarter Frame
       this.type = 'mtc';
       this.value = bytes[1];
-    } else if (status === 0xF2) {
+    } else if (status === 0xf2) {
       // Song Position Pointer
       this.type = 'position';
       this.value = MidiUtils.decode14bit(bytes[2], bytes[1]);
-    } else if (status === 0xF3) {
+    } else if (status === 0xf3) {
       // Song Select
       this.type = 'select';
       this.song = bytes[1];
-    } else if (status === 0xF6) {
+    } else if (status === 0xf6) {
       // Tune Request
       this.type = 'tune';
-    } else if (status === 0xF8) {
+    } else if (status === 0xf8) {
       // Timing Clock
       this.type = 'clock';
-    } else if (status === 0xFA) {
+    } else if (status === 0xfa) {
       // Start
       this.type = 'start';
-    } else if (status === 0xFB) {
+    } else if (status === 0xfb) {
       // Continue
       this.type = 'continue';
-    } else if (status === 0xFC) {
+    } else if (status === 0xfc) {
       // Stop
       this.type = 'stop';
-    } else if (status === 0xFE) {
+    } else if (status === 0xfe) {
       // Active Sensing
       this.type = 'sensing';
-    } else if (status === 0xFF) {
+    } else if (status === 0xff) {
       // System Reset
       this.type = 'reset';
     }
@@ -203,15 +211,24 @@ class MidiMessage {
    */
   getTypeString(typeCode) {
     switch (typeCode) {
-      case MidiUtils.MessageTypes.NOTE_OFF: return 'noteoff';
-      case MidiUtils.MessageTypes.NOTE_ON: return 'noteon';
-      case MidiUtils.MessageTypes.POLY_AFTERTOUCH: return 'poly aftertouch';
-      case MidiUtils.MessageTypes.CONTROL_CHANGE: return 'cc';
-      case MidiUtils.MessageTypes.PROGRAM_CHANGE: return 'program';
-      case MidiUtils.MessageTypes.CHANNEL_AFTERTOUCH: return 'channel aftertouch';
-      case MidiUtils.MessageTypes.PITCH_BEND: return 'pitchbend';
-      case MidiUtils.MessageTypes.SYSTEM: return 'system';
-      default: return 'unknown';
+      case MidiUtils.MessageTypes.NOTE_OFF:
+        return 'noteoff';
+      case MidiUtils.MessageTypes.NOTE_ON:
+        return 'noteon';
+      case MidiUtils.MessageTypes.POLY_AFTERTOUCH:
+        return 'poly aftertouch';
+      case MidiUtils.MessageTypes.CONTROL_CHANGE:
+        return 'cc';
+      case MidiUtils.MessageTypes.PROGRAM_CHANGE:
+        return 'program';
+      case MidiUtils.MessageTypes.CHANNEL_AFTERTOUCH:
+        return 'channel aftertouch';
+      case MidiUtils.MessageTypes.PITCH_BEND:
+        return 'pitchbend';
+      case MidiUtils.MessageTypes.SYSTEM:
+        return 'system';
+      default:
+        return 'unknown';
     }
   }
 
@@ -269,9 +286,9 @@ class MidiMessage {
       }
 
       case 'sysex':
-        bytes.push(0xF0);
+        bytes.push(0xf0);
         bytes.push(...this.data);
-        bytes.push(0xF7);
+        bytes.push(0xf7);
         break;
 
       default:
@@ -416,7 +433,7 @@ class MidiMessage {
    */
   toString() {
     const parts = [`[${(this.type || 'UNKNOWN').toUpperCase()}]`];
-    
+
     if (this.channel !== undefined) {
       parts.push(`ch:${this.channel + 1}`);
     }

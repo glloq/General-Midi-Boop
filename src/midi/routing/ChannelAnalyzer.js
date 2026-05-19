@@ -29,7 +29,7 @@ class ChannelAnalyzer {
    */
   analyzeAllChannels(midiData) {
     const activeChannels = this.extractActiveChannels(midiData);
-    return activeChannels.map(channel => this.analyzeChannel(midiData, channel));
+    return activeChannels.map((channel) => this.analyzeChannel(midiData, channel));
   }
 
   /**
@@ -48,8 +48,7 @@ class ChannelAnalyzer {
       if (!track.events) continue;
 
       for (const event of track.events) {
-        if (event.channel !== undefined &&
-            (event.type === 'noteOn' || event.type === 'noteOff')) {
+        if (event.channel !== undefined && (event.type === 'noteOn' || event.type === 'noteOff')) {
           channels.add(event.channel);
         }
       }
@@ -66,7 +65,7 @@ class ChannelAnalyzer {
    */
   analyzeChannel(midiData, channel) {
     const events = this.getChannelEvents(midiData, channel);
-    const noteEvents = events.filter(e => e.type === 'noteOn' || e.type === 'noteOff');
+    const noteEvents = events.filter((e) => e.type === 'noteOn' || e.type === 'noteOff');
 
     const noteRange = this.extractNoteRange(noteEvents);
     const noteDistribution = this.buildNoteHistogram(noteEvents);
@@ -92,9 +91,10 @@ class ChannelAnalyzer {
     });
 
     // Enrich with hierarchical category from GM program
-    const hierarchicalCategory = primaryProgram !== null
-      ? InstrumentTypeConfig.detectTypeFromProgram(primaryProgram)
-      : { type: 'unknown', subtype: null };
+    const hierarchicalCategory =
+      primaryProgram !== null
+        ? InstrumentTypeConfig.detectTypeFromProgram(primaryProgram)
+        : { type: 'unknown', subtype: null };
 
     // Timing analysis: inter-note intervals for speed capability scoring
     const timingAnalysis = this.calculateTimingAnalysis(noteEvents, midiData);
@@ -205,7 +205,7 @@ class ChannelAnalyzer {
    * @returns {number}
    */
   countNotes(noteEvents) {
-    return noteEvents.filter(e => e.type === 'noteOn' && e.velocity > 0).length;
+    return noteEvents.filter((e) => e.type === 'noteOn' && e.velocity > 0).length;
   }
 
   /**
@@ -260,15 +260,22 @@ class ChannelAnalyzer {
   calculateTimingAnalysis(noteEvents, midiData) {
     const ticksPerBeat = midiData?.header?.ticksPerBeat || 480;
     const tempo = midiData?.tempo || 120;
-    const msPerTick = (60000 / tempo) / ticksPerBeat;
+    const msPerTick = 60000 / tempo / ticksPerBeat;
 
     // Collect noteOn events with absolute ticks
     const noteOns = noteEvents
-      .filter(e => e.type === 'noteOn' && (e.velocity ?? 0) > 0 && e.absoluteTick != null)
+      .filter((e) => e.type === 'noteOn' && (e.velocity ?? 0) > 0 && e.absoluteTick != null)
       .sort((a, b) => a.absoluteTick - b.absoluteTick);
 
+    const noTiming = {
+      minInterval: Infinity,
+      p5Interval: Infinity,
+      p10Interval: Infinity,
+      avgInterval: Infinity
+    };
+
     if (noteOns.length < 2) {
-      return { minInterval: Infinity, p5Interval: Infinity, p10Interval: Infinity, avgInterval: Infinity };
+      return noTiming;
     }
 
     // Calculate intervals between consecutive noteOn events (in ms)
@@ -281,7 +288,7 @@ class ChannelAnalyzer {
     }
 
     if (intervals.length === 0) {
-      return { minInterval: Infinity, p5Interval: Infinity, p10Interval: Infinity, avgInterval: Infinity };
+      return noTiming;
     }
 
     // Sort for percentile calculations
@@ -289,7 +296,7 @@ class ChannelAnalyzer {
 
     const minInterval = intervals[0];
     const p5Index = Math.max(0, Math.floor(intervals.length * 0.05));
-    const p10Index = Math.max(0, Math.floor(intervals.length * 0.10));
+    const p10Index = Math.max(0, Math.floor(intervals.length * 0.1));
     const p5Interval = intervals[p5Index];
     const p10Interval = intervals[p10Index];
     const avgInterval = intervals.reduce((s, v) => s + v, 0) / intervals.length;
@@ -326,7 +333,7 @@ class ChannelAnalyzer {
    * @returns {boolean}
    */
   hasPitchBend(events) {
-    return events.some(e => e.type === 'pitchBend' || e.type === 'pitchbend');
+    return events.some((e) => e.type === 'pitchBend' || e.type === 'pitchbend');
   }
 
   /**
@@ -418,7 +425,7 @@ class ChannelAnalyzer {
       if (!track.events) continue;
 
       // Check if this track contains events for this channel
-      const hasChannel = track.events.some(e => e.channel === channel);
+      const hasChannel = track.events.some((e) => e.channel === channel);
 
       if (hasChannel && track.name) {
         names.push(track.name);
@@ -449,7 +456,8 @@ class ChannelAnalyzer {
    * @returns {Object} - { type: string, confidence: number, scores: Object }
    */
   estimateInstrumentType(analysis) {
-    const { channel, noteRange, noteDistribution, polyphony, primaryProgram, density, trackNames } = analysis;
+    const { channel, noteRange, noteDistribution, polyphony, primaryProgram, density, trackNames } =
+      analysis;
 
     // Use ScoringConfig thresholds and weights
     const thresholds = this.config.typeThresholds;
@@ -574,8 +582,12 @@ class ChannelAnalyzer {
     // 5. Track name analysis (weight: trackNameWeight)
     const trackNameLower = trackNames.join(' ').toLowerCase();
 
-    if (trackNameLower.includes('drum') || trackNameLower.includes('kick') ||
-        trackNameLower.includes('snare') || trackNameLower.includes('hat')) {
+    if (
+      trackNameLower.includes('drum') ||
+      trackNameLower.includes('kick') ||
+      trackNameLower.includes('snare') ||
+      trackNameLower.includes('hat')
+    ) {
       scores.drums += weights.trackNameWeight;
       scores.percussive += weights.trackNameWeight * 0.67;
     }
@@ -592,8 +604,11 @@ class ChannelAnalyzer {
       scores.melody += weights.trackNameWeight * 0.83;
     }
 
-    if (trackNameLower.includes('pad') || trackNameLower.includes('strings') ||
-        trackNameLower.includes('choir')) {
+    if (
+      trackNameLower.includes('pad') ||
+      trackNameLower.includes('strings') ||
+      trackNameLower.includes('choir')
+    ) {
       scores.harmony += weights.trackNameWeight * 0.83;
     }
 
