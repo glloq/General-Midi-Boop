@@ -149,8 +149,20 @@
 
     _extractNotesForMinimap(channelFilter, skipRangeFilter = false) {
       // Pure extraction delegated to RoutingSummaryMinimapNotes (P2-F.4e).
-      return window.RoutingSummaryMinimapNotes.extractNotesForMinimap({
-        midiData: this.midiData,
+      // The whole-file note scan is cached per loaded MIDI: it used to
+      // re-walk + re-sort every track/event on EVERY channel click,
+      // which froze the modal for tens of seconds on large files
+      // (the rAF that runs it fires before the browser paints, so the
+      // detail panel only appeared once the scan finished). The raw
+      // scan is now done once; each click only re-applies the cheap
+      // range/split/channel filter over the cached array.
+      const Notes = window.RoutingSummaryMinimapNotes;
+      if (this._minimapRawForMidi !== this.midiData) {
+        this._minimapRawNotes = Notes.extractRawNotes(this.midiData);
+        this._minimapRawForMidi = this.midiData;
+      }
+      return Notes.extractNotesForMinimap({
+        rawNotes: this._minimapRawNotes,
         selectedAssignments: this.selectedAssignments,
         splitChannels: this.splitChannels,
         splitAssignments: this.splitAssignments,

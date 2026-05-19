@@ -1630,14 +1630,15 @@
         </button>`;
     }).join('');
 
-    const btnLabel = _tOr('routingSummary.autoBtn', 'Auto');
+    const btnLabel = _tOr('routingSummary.autoBtn', 'Routage auto');
     const panelLabel = _tOr('routingSummary.autoPanelLabel', 'Routage auto');
+    const btnTitle = _tOr('routingSummary.autoBtnTitle', 'Recalculer le routage automatique');
 
     return `<div class="rs-auto-routing-panel">
       <span class="rs-auto-panel-label">${panelLabel}</span>
       <div class="rs-auto-chips">${chipsHTML}</div>
-      <button type="button" class="rs-auto-btn${dirty ? ' dirty' : ''}" id="rsAutoRoutingBtn">
-        &#9889; ${btnLabel}
+      <button type="button" class="rs-auto-btn${dirty ? ' dirty' : ''}" id="rsAutoRoutingBtn" title="${btnTitle}">
+        &#128269; ${btnLabel}
       </button>
     </div>`;
   }
@@ -1673,7 +1674,7 @@
                 </div>
               </div>
               <button class="rs-adapt-toggle ${autoAdaptation ? 'active' : ''}" id="rsAutoAdaptToggle" title="${autoTooltip}">
-                ${autoAdaptation ? '&#9889; Auto' : '&#9889; Manuel'}
+                ${autoAdaptation ? '&#9889; ' + _tOr('routingSummary.autoAdaptOn', 'Adaptation') : '&#9889; ' + _tOr('routingSummary.autoAdaptOff', 'Manuel')}
               </button>
             </div>
             <div class="rs-header-right">

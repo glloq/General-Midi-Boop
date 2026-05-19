@@ -23,9 +23,45 @@
    * @param {boolean} [params.skipRangeFilter=false] - ignore instrument range + transposition
    * @returns {Array<{ t: number, n: number, ch: number, seg: number }>}
    */
+  /**
+   * Walk every track/event ONCE and return all note-ons as a flat,
+   * tick-sorted `[{ t, n, ch }]` array — no range/split/channel
+   * filtering. This is the only file-size-dependent step (O(events)
+   * + one O(n log n) sort); callers cache it per loaded MIDI so the
+   * per-click minimap refresh never re-parses the whole song again
+   * (that full re-scan on every channel click is what froze the
+   * routing modal for tens of seconds on large files).
+   *
+   * @param {Object} midiData - parsed MIDI JSON with `tracks[].events[]`
+   * @returns {Array<{ t: number, n: number, ch: number }>}
+   */
+  function extractRawNotes(midiData) {
+    const raw = [];
+    if (!midiData || !midiData.tracks) return raw;
+    for (const track of midiData.tracks) {
+      if (!track.events) continue;
+      let tick = 0;
+      for (const event of track.events) {
+        if (event.deltaTime !== undefined) tick += event.deltaTime;
+        if (event.type === 'noteOn' && event.velocity > 0) {
+          raw.push({
+            t: tick,
+            n: event.note ?? event.noteNumber ?? 60,
+            ch: event.channel ?? 0
+          });
+        }
+      }
+    }
+    // Stable sort (V8/modern engines) keeps same-tick events in
+    // track-iteration order — identical to the previous behaviour.
+    raw.sort((a, b) => a.t - b.t);
+    return raw;
+  }
+
   function extractNotesForMinimap(params) {
     const {
       midiData,
+      rawNotes = null,
       selectedAssignments = {},
       splitChannels = new Set(),
       splitAssignments = {},
@@ -35,7 +71,11 @@
     } = params;
 
     const notes = [];
-    if (!midiData || !midiData.tracks) return notes;
+    // Reuse a caller-cached raw scan when available; otherwise fall
+    // back to a one-off extraction (keeps the old call signature
+    // working for tests / any direct caller).
+    const raw = Array.isArray(rawNotes) ? rawNotes : extractRawNotes(midiData);
+    if (raw.length === 0) return notes;
 
     const getRange = (ch) => {
       if (skipRangeFilter) return null;
@@ -72,51 +112,48 @@
       return null;
     };
 
-    for (const track of midiData.tracks) {
-      if (!track.events) continue;
-      let tick = 0;
-      for (const event of track.events) {
-        if (event.deltaTime !== undefined) tick += event.deltaTime;
-        if (event.type === 'noteOn' && event.velocity > 0) {
-          const ch = event.channel ?? 0;
-          if (channelFilter !== null && ch !== channelFilter) continue;
-          const note = event.note ?? event.noteNumber ?? 60;
+    // `raw` is already tick-sorted; the per-call filtering below
+    // preserves iteration order, so the result stays tick-sorted
+    // without a second O(n log n) sort.
+    for (let i = 0; i < raw.length; i++) {
+      const r = raw[i];
+      const ch = r.ch;
+      if (channelFilter !== null && ch !== channelFilter) continue;
+      const note = r.n;
+      const tick = r.t;
 
-          const range = getRange(ch);
-          if (range) {
-            const transposed = Math.max(0, Math.min(127, note + getTransposition(ch)));
-            if (transposed < range.min || transposed > range.max) continue;
-          }
+      const range = getRange(ch);
+      if (range) {
+        const transposed = Math.max(0, Math.min(127, note + getTransposition(ch)));
+        if (transposed < range.min || transposed > range.max) continue;
+      }
 
-          const splitSegs = getSplitSegments(ch);
-          if (splitSegs) {
-            let matched = false;
-            for (let si = 0; si < splitSegs.length; si++) {
-              const rMin = splitSegs[si].noteRange?.min ?? 0;
-              const rMax = splitSegs[si].noteRange?.max ?? 127;
-              if (note >= rMin && note <= rMax) {
-                notes.push({ t: tick, n: note, ch, seg: si });
-                matched = true;
-              }
-            }
-            if (!matched && splitSegs.length > 0) {
-              let bestSeg = 0;
-              let bestDist = Infinity;
-              for (let si = 0; si < splitSegs.length; si++) {
-                const rMin = splitSegs[si].noteRange?.min ?? 0;
-                const rMax = splitSegs[si].noteRange?.max ?? 127;
-                const dist = note < rMin ? rMin - note : note - rMax;
-                if (dist < bestDist) { bestDist = dist; bestSeg = si; }
-              }
-              notes.push({ t: tick, n: note, ch, seg: bestSeg });
-            }
-          } else {
-            notes.push({ t: tick, n: note, ch, seg: -1 });
+      const splitSegs = getSplitSegments(ch);
+      if (splitSegs) {
+        let matched = false;
+        for (let si = 0; si < splitSegs.length; si++) {
+          const rMin = splitSegs[si].noteRange?.min ?? 0;
+          const rMax = splitSegs[si].noteRange?.max ?? 127;
+          if (note >= rMin && note <= rMax) {
+            notes.push({ t: tick, n: note, ch, seg: si });
+            matched = true;
           }
         }
+        if (!matched && splitSegs.length > 0) {
+          let bestSeg = 0;
+          let bestDist = Infinity;
+          for (let si = 0; si < splitSegs.length; si++) {
+            const rMin = splitSegs[si].noteRange?.min ?? 0;
+            const rMax = splitSegs[si].noteRange?.max ?? 127;
+            const dist = note < rMin ? rMin - note : note - rMax;
+            if (dist < bestDist) { bestDist = dist; bestSeg = si; }
+          }
+          notes.push({ t: tick, n: note, ch, seg: bestSeg });
+        }
+      } else {
+        notes.push({ t: tick, n: note, ch, seg: -1 });
       }
     }
-    notes.sort((a, b) => a.t - b.t);
     return notes;
   }
 
@@ -188,6 +225,7 @@
   }
 
   window.RoutingSummaryMinimapNotes = Object.freeze({
+    extractRawNotes,
     extractNotesForMinimap,
     buildMinimapBuckets
   });

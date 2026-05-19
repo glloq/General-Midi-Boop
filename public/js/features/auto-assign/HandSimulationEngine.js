@@ -41,6 +41,28 @@
     const DEFAULT_TICKS_PER_BEAT = 480;
     const DEFAULT_BPM = 120;
 
+    // Resolve the directory this script was served from so the worker
+    // (a sibling file) is reachable wherever the app is mounted. Null
+    // in non-browser test envs (node/jsdom) — those take the synchronous
+    // path automatically since `Worker` is undefined there.
+    const _SCRIPT_DIR = (typeof document !== 'undefined'
+            && document.currentScript && document.currentScript.src)
+        ? document.currentScript.src.replace(/[^/]+$/, '')
+        : null;
+
+    // Absolute URL of the already-loaded HandPositionFeasibility
+    // solver. Prefer the real <script> tag (survives bundler filename
+    // hashing, e.g. `HandPositionFeasibility-ab12.js`); fall back to
+    // the sibling guess from this script's directory.
+    function _resolveSolverUrl() {
+        if (typeof document !== 'undefined' && document.querySelectorAll) {
+            for (const s of document.querySelectorAll('script[src]')) {
+                if (/HandPositionFeasibility[^/]*\.js(\?|$)/.test(s.src)) return s.src;
+            }
+        }
+        return _SCRIPT_DIR ? _SCRIPT_DIR + 'HandPositionFeasibility.js' : null;
+    }
+
     class HandSimulationEngine extends EventTarget {
         constructor(opts = {}) {
             super();
@@ -65,22 +87,6 @@
                     ? window.cancelAnimationFrame.bind(window)
                     : clearTimeout);
 
-            // Pre-compute the timeline; if the simulator helper isn't
-            // available (e.g. tests forgot to expose it) fall back to a
-            // pass-through that just emits chords without windows.
-            const simulator = opts.simulator
-                || (typeof window !== 'undefined' ? window.HandPositionFeasibility : null);
-            this._timeline = simulator?.simulateHandWindows
-                ? simulator.simulateHandWindows(this.notes, this.instrument || {}, {
-                    overrides: this.overrides,
-                    ticksPerBeat: this.ticksPerBeat,
-                    bpm: this.bpm
-                  })
-                : this.notes
-                    .slice()
-                    .sort((a, b) => a.tick - b.tick)
-                    .map(n => ({ type: 'chord', tick: n.tick, notes: [n], unplayable: [] }));
-
             this.totalTicks = this.notes.length > 0
                 ? Math.max(...this.notes.map(n => n.tick))
                 : 0;
@@ -90,6 +96,166 @@
             this._playing = false;
             this._lastFrameNow = 0;
             this._rafHandle = null;
+
+            // Timeline readiness: callers may attach listeners / drive
+            // playback before the (potentially off-thread) computation
+            // lands. Until then `_timeline` is empty — every reader
+            // (`_drainUpTo`, `getHandTrajectories`, `getTimeline`)
+            // already degrades to a no-op on an empty array, so the UI
+            // simply shows nothing until the `ready` event fires.
+            this._timeline = [];
+            this._ready = false;
+            this._worker = null;
+            this._readyResolve = null;
+            this._readyPromise = new Promise((res) => { this._readyResolve = res; });
+
+            // Per-(channel,instrument,transpose,overrides) result reuse.
+            // A re-open of the same tuple skips the solver entirely.
+            this._timelineCache = opts.timelineCache instanceof Map ? opts.timelineCache : null;
+            this._cacheKey = typeof opts.cacheKey === 'string' ? opts.cacheKey : null;
+
+            const passThrough = () => this.notes
+                .slice()
+                .sort((a, b) => a.tick - b.tick)
+                .map(n => ({ type: 'chord', tick: n.tick, notes: [n], unplayable: [] }));
+
+            const finish = (timeline) => {
+                this._timeline = Array.isArray(timeline) ? timeline : passThrough();
+                if (this._timelineCache && this._cacheKey) {
+                    this._timelineCache.set(this._cacheKey, this._timeline);
+                }
+                this._markReady();
+            };
+
+            // 1. Cache hit — instant, synchronous.
+            if (this._timelineCache && this._cacheKey && this._timelineCache.has(this._cacheKey)) {
+                this._timeline = this._timelineCache.get(this._cacheKey);
+                // Defer the emit so listeners attached right after
+                // construction (HandsPreviewPanel._wireEngine) still fire.
+                Promise.resolve().then(() => this._markReady());
+                return;
+            }
+
+            const injected = opts.simulator;
+            const simulator = injected
+                || (typeof window !== 'undefined' ? window.HandPositionFeasibility : null);
+
+            // 2. Worker path — production browsers only. Disabled when a
+            //    simulator is injected (tests), explicitly opted out, or
+            //    `Worker`/script URL is unavailable (node/jsdom) so the
+            //    test + SSR paths stay fully synchronous.
+            const canWork = opts.useWorker !== false
+                && !injected
+                && typeof Worker !== 'undefined'
+                && _SCRIPT_DIR != null;
+            if (canWork) {
+                try {
+                    // Build the worker from a Blob that pulls in the
+                    // existing HandPositionFeasibility solver via its
+                    // absolute sibling URL. Going through a Blob (rather
+                    // than a standalone worker file) means nothing extra
+                    // has to be referenced from index.html / copied by
+                    // the bundler — only HandPositionFeasibility.js,
+                    // which the app already loads, must be reachable.
+                    // It is a browser IIFE that publishes itself on
+                    // `window` and only touches `window.i18n` from
+                    // `renderBadge` (never from `simulateHandWindows`),
+                    // so a `self.window = self` shim loads it unchanged.
+                    const solverUrl = _resolveSolverUrl();
+                    if (!solverUrl) throw new Error('solver url unresolved');
+                    const hpfUrl = JSON.stringify(solverUrl);
+                    const src =
+                        'self.window=self;'
+                        + 'try{importScripts(' + hpfUrl + ');}catch(err){'
+                        + 'self.onmessage=function(e){self.postMessage({id:e&&e.data&&e.data.id,error:"import-failed"});};}'
+                        + 'self.onmessage=function(e){var d=e&&e.data;if(!d)return;'
+                        + 'try{var h=self.HandPositionFeasibility;'
+                        + 'if(!h||typeof h.simulateHandWindows!=="function"){self.postMessage({id:d.id,error:"unavailable"});return;}'
+                        + 'var t=h.simulateHandWindows(d.notes||[],d.instrument||{},d.options||{});'
+                        + 'self.postMessage({id:d.id,timeline:t});}'
+                        + 'catch(err){self.postMessage({id:d.id,error:(err&&err.message)||String(err)});}};';
+                    this._workerUrl = URL.createObjectURL(
+                        new Blob([src], { type: 'application/javascript' }));
+                    this._worker = new Worker(this._workerUrl);
+                    const jobId = ++HandSimulationEngine._jobSeq;
+                    this._worker.onmessage = (e) => {
+                        const d = e && e.data;
+                        if (!d || d.id !== jobId) return;
+                        if (d.error) {
+                            // Solver failed in the worker — degrade to the
+                            // pass-through so the UI still shows chords.
+                            finish(passThrough());
+                        } else {
+                            finish(d.timeline);
+                        }
+                        this._terminateWorker();
+                    };
+                    this._worker.onerror = () => {
+                        finish(passThrough());
+                        this._terminateWorker();
+                    };
+                    this._worker.postMessage({
+                        id: jobId,
+                        notes: this.notes,
+                        instrument: this.instrument || {},
+                        options: {
+                            overrides: this.overrides,
+                            ticksPerBeat: this.ticksPerBeat,
+                            bpm: this.bpm
+                        }
+                    });
+                    return;
+                } catch (_) {
+                    // Worker construction blocked (CSP, etc.) — fall
+                    // through to the synchronous path below.
+                    this._worker = null;
+                }
+            }
+
+            // 3. Synchronous path — tests, SSR, or worker unavailable.
+            const timeline = simulator?.simulateHandWindows
+                ? simulator.simulateHandWindows(this.notes, this.instrument || {}, {
+                    overrides: this.overrides,
+                    ticksPerBeat: this.ticksPerBeat,
+                    bpm: this.bpm
+                  })
+                : passThrough();
+            this._timeline = timeline;
+            if (this._timelineCache && this._cacheKey) {
+                this._timelineCache.set(this._cacheKey, this._timeline);
+            }
+            // Emit on a microtask so listeners attached immediately
+            // after `new` (the common case) observe `ready` uniformly
+            // with the async path.
+            Promise.resolve().then(() => this._markReady());
+        }
+
+        _markReady() {
+            if (this._ready) return;
+            this._ready = true;
+            if (this._readyResolve) this._readyResolve();
+            this._emit('ready', { totalTicks: this.totalTicks });
+        }
+
+        _terminateWorker() {
+            if (this._worker) {
+                try { this._worker.terminate(); } catch (_) { /* ignore */ }
+                this._worker = null;
+            }
+            if (this._workerUrl) {
+                try { URL.revokeObjectURL(this._workerUrl); } catch (_) { /* ignore */ }
+                this._workerUrl = null;
+            }
+        }
+
+        /** True once the timeline is computed and events are meaningful. */
+        isReady() {
+            return this._ready === true;
+        }
+
+        /** Resolves when the timeline is ready (immediately if already). */
+        whenReady() {
+            return this._readyPromise;
         }
 
         /** Convert a tick distance to seconds at the configured tempo. */
@@ -283,6 +449,7 @@
         /** Stop the engine and detach all listeners (best-effort). */
         dispose() {
             this.pause();
+            this._terminateWorker();
             this._timeline = [];
             this.notes = [];
         }
@@ -323,6 +490,10 @@
             this._scheduleFrame();
         }
     }
+
+    // Monotonic id so a stale worker message from a disposed engine is
+    // ignored (each engine instance owns exactly one job).
+    HandSimulationEngine._jobSeq = 0;
 
     if (typeof window !== 'undefined') {
         window.HandSimulationEngine = HandSimulationEngine;
