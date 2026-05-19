@@ -1,15 +1,46 @@
-(function() {
-    'use strict';
-    const SettingsTemplates = {};
+(function () {
+  'use strict';
+  const SettingsTemplates = {};
 
-    /**
-     * Generate the HTML content of the settings modal
-     */
-    SettingsTemplates.renderContent = function() {
-        const currentLocale = i18n.getLocale();
-        const locales = i18n.getSupportedLocales();
+  // The settings modal uses the same toggle-switch markup ~12 times,
+  // varying only by input id + checked state. These two builders keep
+  // the produced HTML byte-identical to the original inline copies:
+  //  - `tgl`     : the full-size variant used inside settings-section rows
+  //  - `tglMini` : the compact single-line variant used in settings-btn-row
+  const tgl = (
+    id,
+    on
+  ) => `<label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
+                            <input type="checkbox" id="${id}" ${on ? 'checked' : ''}
+                                   style="opacity: 0; width: 0; height: 0;">
+                            <span class="toggle-slider" style="
+                                position: absolute;
+                                cursor: pointer;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background-color: #ccc;
+                                transition: 0.4s;
+                                border-radius: 30px;
+                            "></span>
+                        </label>`;
+  const tglMini = (
+    id,
+    on
+  ) => `<label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px; flex-shrink: 0;">
+                            <input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
+                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 30px;"></span>
+                        </label>`;
 
-        return `
+  /**
+   * Generate the HTML content of the settings modal
+   */
+  SettingsTemplates.renderContent = function () {
+    const currentLocale = i18n.getLocale();
+    const locales = i18n.getSupportedLocales();
+
+    return `
             <!-- ═══════════════════════════════════════════════════════ -->
             <!-- Column 1 : Apparence + Lecture + Son + Boutons     -->
             <!-- ═══════════════════════════════════════════════════════ -->
@@ -41,11 +72,15 @@
                             -moz-appearance: none;
                             transition: all 0.2s;
                         ">
-                            ${locales.map(locale => `
+                            ${locales
+                              .map(
+                                (locale) => `
                                 <option value="${locale.code}" ${locale.code === currentLocale ? 'selected' : ''}>
                                     ${this.getLocaleFlag(locale.code)} ${locale.name}
                                 </option>
-                            `).join('')}
+                            `
+                              )
+                              .join('')}
                         </select>
                         <span style="
                             position: absolute;
@@ -67,21 +102,7 @@
                             <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">🌙 ${i18n.t('settings.theme.dark')}</p>
                             <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.theme.darkDescription') || 'Activer le mode sombre'}</p>
                         </div>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
-                            <input type="checkbox" id="darkModeToggle" ${this.settings.theme === 'dark' ? 'checked' : ''}
-                                   style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="
-                                position: absolute;
-                                cursor: pointer;
-                                top: 0;
-                                left: 0;
-                                right: 0;
-                                bottom: 0;
-                                background-color: #ccc;
-                                transition: 0.4s;
-                                border-radius: 30px;
-                            "></span>
-                        </label>
+                        ${tgl('darkModeToggle', this.settings.theme === 'dark')}
                     </div>
                 </div>
 
@@ -93,21 +114,7 @@
                             <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.loadingAnimation.enable') || "Afficher l'animation au démarrage"}</p>
                             <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.loadingAnimation.description') || "Affiche une animation avec barre de progression au lancement. Si désactivé, l'animation ne s'affiche qu'au premier chargement (cache vidé)."}</p>
                         </div>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
-                            <input type="checkbox" id="showLoadingAnimationToggle" ${this.settings.showLoadingAnimation ? 'checked' : ''}
-                                   style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="
-                                position: absolute;
-                                cursor: pointer;
-                                top: 0;
-                                left: 0;
-                                right: 0;
-                                bottom: 0;
-                                background-color: #ccc;
-                                transition: 0.4s;
-                                border-radius: 30px;
-                            "></span>
-                        </label>
+                        ${tgl('showLoadingAnimationToggle', this.settings.showLoadingAnimation)}
                     </div>
                 </div>
 
@@ -146,21 +153,7 @@
                             <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.pianoRoll.enable')}</p>
                             <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.pianoRoll.description')}</p>
                         </div>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
-                            <input type="checkbox" id="showPianoRollToggle" ${this.settings.showPianoRoll ? 'checked' : ''}
-                                   style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="
-                                position: absolute;
-                                cursor: pointer;
-                                top: 0;
-                                left: 0;
-                                right: 0;
-                                bottom: 0;
-                                background-color: #ccc;
-                                transition: 0.4s;
-                                border-radius: 30px;
-                            "></span>
-                        </label>
+                        ${tgl('showPianoRollToggle', this.settings.showPianoRoll)}
                     </div>
                 </div>
 
@@ -172,21 +165,7 @@
                             <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.lyrics.enable')}</p>
                             <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.lyrics.description')}</p>
                         </div>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
-                            <input type="checkbox" id="showLyricsToggle" ${this.settings.showLyrics ? 'checked' : ''}
-                                   style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="
-                                position: absolute;
-                                cursor: pointer;
-                                top: 0;
-                                left: 0;
-                                right: 0;
-                                bottom: 0;
-                                background-color: #ccc;
-                                transition: 0.4s;
-                                border-radius: 30px;
-                            "></span>
-                        </label>
+                        ${tgl('showLyricsToggle', this.settings.showLyrics)}
                     </div>
                 </div>
             </div>
@@ -218,17 +197,33 @@
                             -moz-appearance: none;
                             transition: all 0.2s;
                         ">
-                            ${(typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks
-                                ? MidiSynthesizer.getAvailableBanks()
-                                : [
-                                    { id: 'sf2:default', label: 'GeneralUser GS (built-in)', quality: 'high', sizeMB: 30 },
+                            ${(typeof MidiSynthesizer !== 'undefined' &&
+                            MidiSynthesizer.getAvailableBanks
+                              ? MidiSynthesizer.getAvailableBanks()
+                              : [
+                                  {
+                                    id: 'sf2:default',
+                                    label: 'GeneralUser GS (built-in)',
+                                    quality: 'high',
+                                    sizeMB: 30
+                                  }
                                 ]
-                            ).map(bank => {
-                                const qualityLabel = i18n.t('settings.soundBank.quality.' + (bank.quality || 'medium')) || bank.quality || '';
+                            )
+                              .map((bank) => {
+                                const qualityLabel =
+                                  i18n.t(
+                                    'settings.soundBank.quality.' + (bank.quality || 'medium')
+                                  ) ||
+                                  bank.quality ||
+                                  '';
                                 const sizeLabel = bank.sizeMB ? `~${bank.sizeMB} MB` : '';
-                                const suffix = (qualityLabel || sizeLabel) ? ` (${[qualityLabel, sizeLabel].filter(Boolean).join(' · ')})` : '';
+                                const suffix =
+                                  qualityLabel || sizeLabel
+                                    ? ` (${[qualityLabel, sizeLabel].filter(Boolean).join(' · ')})`
+                                    : '';
                                 return `<option value="${bank.id}" ${bank.id === this.settings.soundBank ? 'selected' : ''}>${bank.label}${suffix}</option>`;
-                            }).join('')}
+                              })
+                              .join('')}
                         </select>
                         <span style="
                             position: absolute;
@@ -242,12 +237,23 @@
                     </div>
                     <p id="soundBankDescription" style="margin: 8px 0 0 0; font-size: 12px; color: var(--text-secondary, #666);">
                         ${(() => {
-                            const banks = typeof MidiSynthesizer !== 'undefined' && MidiSynthesizer.getAvailableBanks ? MidiSynthesizer.getAvailableBanks() : [];
-                            const selected = banks.find(b => b.id === this.settings.soundBank);
-                            if (selected && selected.descKey) {
-                                return i18n.t(selected.descKey) || i18n.t('settings.soundBank.description') || '';
-                            }
-                            return i18n.t('settings.soundBank.description') || 'Sample library for audio synthesis. Lighter banks reduce memory usage.';
+                          const banks =
+                            typeof MidiSynthesizer !== 'undefined' &&
+                            MidiSynthesizer.getAvailableBanks
+                              ? MidiSynthesizer.getAvailableBanks()
+                              : [];
+                          const selected = banks.find((b) => b.id === this.settings.soundBank);
+                          if (selected && selected.descKey) {
+                            return (
+                              i18n.t(selected.descKey) ||
+                              i18n.t('settings.soundBank.description') ||
+                              ''
+                            );
+                          }
+                          return (
+                            i18n.t('settings.soundBank.description') ||
+                            'Sample library for audio synthesis. Lighter banks reduce memory usage.'
+                          );
                         })()}
                     </p>
 
@@ -260,34 +266,49 @@
                         </summary>
                         <div style="padding: 12px 4px 4px 4px; display: flex; flex-direction: column; gap: 14px;">
                             ${this.renderBankEffectSlider({
-                                id: 'bankEffectReverbMix',
-                                labelKey: 'settings.soundBank.effects.reverbMix',
-                                fallbackLabel: 'Reverb mix',
-                                min: 0, max: 100, step: 1, unit: '%'
+                              id: 'bankEffectReverbMix',
+                              labelKey: 'settings.soundBank.effects.reverbMix',
+                              fallbackLabel: 'Reverb mix',
+                              min: 0,
+                              max: 100,
+                              step: 1,
+                              unit: '%'
                             })}
                             ${this.renderBankEffectSlider({
-                                id: 'bankEffectReverbDecay',
-                                labelKey: 'settings.soundBank.effects.reverbDecay',
-                                fallbackLabel: 'Reverb decay',
-                                min: 0.3, max: 3.0, step: 0.1, unit: 's'
+                              id: 'bankEffectReverbDecay',
+                              labelKey: 'settings.soundBank.effects.reverbDecay',
+                              fallbackLabel: 'Reverb decay',
+                              min: 0.3,
+                              max: 3.0,
+                              step: 0.1,
+                              unit: 's'
                             })}
                             ${this.renderBankEffectSlider({
-                                id: 'bankEffectEchoMix',
-                                labelKey: 'settings.soundBank.effects.echoMix',
-                                fallbackLabel: 'Echo mix',
-                                min: 0, max: 100, step: 1, unit: '%'
+                              id: 'bankEffectEchoMix',
+                              labelKey: 'settings.soundBank.effects.echoMix',
+                              fallbackLabel: 'Echo mix',
+                              min: 0,
+                              max: 100,
+                              step: 1,
+                              unit: '%'
                             })}
                             ${this.renderBankEffectSlider({
-                                id: 'bankEffectEchoTime',
-                                labelKey: 'settings.soundBank.effects.echoTime',
-                                fallbackLabel: 'Echo time',
-                                min: 50, max: 1000, step: 10, unit: 'ms'
+                              id: 'bankEffectEchoTime',
+                              labelKey: 'settings.soundBank.effects.echoTime',
+                              fallbackLabel: 'Echo time',
+                              min: 50,
+                              max: 1000,
+                              step: 10,
+                              unit: 'ms'
                             })}
                             ${this.renderBankEffectSlider({
-                                id: 'bankEffectEchoFeedback',
-                                labelKey: 'settings.soundBank.effects.echoFeedback',
-                                fallbackLabel: 'Echo feedback',
-                                min: 0, max: 90, step: 1, unit: '%'
+                              id: 'bankEffectEchoFeedback',
+                              labelKey: 'settings.soundBank.effects.echoFeedback',
+                              fallbackLabel: 'Echo feedback',
+                              min: 0,
+                              max: 90,
+                              step: 1,
+                              unit: '%'
                             })}
                             <button id="bankEffectsReset" type="button" style="
                                 align-self: flex-start;
@@ -326,24 +347,10 @@
                     <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">🕐 ${i18n.t('settings.midiClock.title') || 'Horloge MIDI'}</h3>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
                         <div style="flex: 1;">
-                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.midiClock.enable') || 'Activer l\'horloge MIDI'}</p>
-                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.midiClock.description') || 'Envoyer le signal d\'horloge MIDI (24 PPQ) aux instruments connectés pour synchroniser arpégiateurs, LFOs et séquenceurs'}</p>
+                            <p style="margin: 0 0 4px 0; font-size: 14px; color: var(--text-primary, #333);">${i18n.t('settings.midiClock.enable') || "Activer l'horloge MIDI"}</p>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-secondary, #666);">${i18n.t('settings.midiClock.description') || "Envoyer le signal d'horloge MIDI (24 PPQ) aux instruments connectés pour synchroniser arpégiateurs, LFOs et séquenceurs"}</p>
                         </div>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px;">
-                            <input type="checkbox" id="midiClockToggle" ${this.settings.midiClockEnabled ? 'checked' : ''}
-                                   style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="
-                                position: absolute;
-                                cursor: pointer;
-                                top: 0;
-                                left: 0;
-                                right: 0;
-                                bottom: 0;
-                                background-color: #ccc;
-                                transition: 0.4s;
-                                border-radius: 30px;
-                            "></span>
-                        </label>
+                        ${tgl('midiClockToggle', this.settings.midiClockEnabled)}
                     </div>
                 </div>
             </div>
@@ -357,48 +364,49 @@
                 </h2>
 
                 <div class="settings-btn-list">
-                    <div class="settings-btn-row">
-                        <span class="settings-btn-label">🎶 ${i18n.t('settings.playlistButton.title') || 'Playlist'}</span>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px; flex-shrink: 0;">
-                            <input type="checkbox" id="showPlaylistButtonToggle" ${this.settings.showPlaylistButton ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 30px;"></span>
-                        </label>
-                    </div>
-                    <div class="settings-btn-row">
-                        <span class="settings-btn-label">🎸 ${i18n.t('settings.instrumentsButton.title') || 'Instruments'}</span>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px; flex-shrink: 0;">
-                            <input type="checkbox" id="showInstrumentsButtonToggle" ${this.settings.showInstrumentsButton ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 30px;"></span>
-                        </label>
-                    </div>
-                    <div class="settings-btn-row">
-                        <span class="settings-btn-label">🎹 ${i18n.t('settings.keyboardButton.title') || 'Clavier virtuel'}</span>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px; flex-shrink: 0;">
-                            <input type="checkbox" id="showKeyboardButtonToggle" ${this.settings.showKeyboardButton ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 30px;"></span>
-                        </label>
-                    </div>
-                    <div class="settings-btn-row">
-                        <span class="settings-btn-label">🎤 ${i18n.t('settings.calibrationButton.title') || 'Calibration Micro'}</span>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px; flex-shrink: 0;">
-                            <input type="checkbox" id="showCalibrationButtonToggle" ${this.settings.showCalibrationButton ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 30px;"></span>
-                        </label>
-                    </div>
-                    <div class="settings-btn-row">
-                        <span class="settings-btn-label">💡 ${i18n.t('settings.lightingButton.title') || 'Contrôle Lumière'}</span>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px; flex-shrink: 0;">
-                            <input type="checkbox" id="showLightingButtonToggle" ${this.settings.showLightingButton ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 30px;"></span>
-                        </label>
-                    </div>
-                    <div class="settings-btn-row">
-                        <span class="settings-btn-label">🐞 ${i18n.t('settings.debugButton.title')}</span>
-                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 60px; height: 30px; flex-shrink: 0;">
-                            <input type="checkbox" id="showDebugButtonToggle" ${this.settings.showDebugButton ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
-                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 30px;"></span>
-                        </label>
-                    </div>
+                    ${[
+                      {
+                        id: 'showPlaylistButtonToggle',
+                        on: this.settings.showPlaylistButton,
+                        label: '🎶 ' + (i18n.t('settings.playlistButton.title') || 'Playlist')
+                      },
+                      {
+                        id: 'showInstrumentsButtonToggle',
+                        on: this.settings.showInstrumentsButton,
+                        label: '🎸 ' + (i18n.t('settings.instrumentsButton.title') || 'Instruments')
+                      },
+                      {
+                        id: 'showKeyboardButtonToggle',
+                        on: this.settings.showKeyboardButton,
+                        label:
+                          '🎹 ' + (i18n.t('settings.keyboardButton.title') || 'Clavier virtuel')
+                      },
+                      {
+                        id: 'showCalibrationButtonToggle',
+                        on: this.settings.showCalibrationButton,
+                        label:
+                          '🎤 ' +
+                          (i18n.t('settings.calibrationButton.title') || 'Calibration Micro')
+                      },
+                      {
+                        id: 'showLightingButtonToggle',
+                        on: this.settings.showLightingButton,
+                        label:
+                          '💡 ' + (i18n.t('settings.lightingButton.title') || 'Contrôle Lumière')
+                      },
+                      {
+                        id: 'showDebugButtonToggle',
+                        on: this.settings.showDebugButton,
+                        label: '🐞 ' + i18n.t('settings.debugButton.title')
+                      }
+                    ]
+                      .map(
+                        (b) => `<div class="settings-btn-row">
+                        <span class="settings-btn-label">${b.label}</span>
+                        ${tglMini(b.id, b.on)}
+                    </div>`
+                      )
+                      .join('')}
                 </div>
             </div>
 
@@ -494,9 +502,9 @@
 
                 <!-- Hotspot WiFi -->
                 <div class="settings-section">
-                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">📡 ${i18n.t('settings.hotspot.title') || 'Point d\'accès WiFi'}</h3>
+                    <h3 style="margin: 0 0 10px 0; font-size: 15px; color: var(--text-primary, #333);">📡 ${i18n.t('settings.hotspot.title') || "Point d'accès WiFi"}</h3>
                     <p style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-secondary, #666);">
-                        ${i18n.t('settings.hotspot.description') || 'Transforme le Raspberry Pi en point d\'accès WiFi. Active : déconnecte du WiFi puis démarre le hotspot. Désactive : revient en mode client WiFi.'}
+                        ${i18n.t('settings.hotspot.description') || "Transforme le Raspberry Pi en point d'accès WiFi. Active : déconnecte du WiFi puis démarre le hotspot. Désactive : revient en mode client WiFi."}
                     </p>
 
                     <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
@@ -529,7 +537,7 @@
                     </div>
 
                     <div id="hotspotWarning" style="margin: 0 0 10px 0; padding: 8px 10px; border-radius: 6px; background: #fef3c7; color: #92400e; font-size: 12px; line-height: 1.4;">
-                        ⚠️ ${i18n.t('settings.hotspot.warning') || 'Activer le hotspot va déconnecter le Raspberry Pi du WiFi. Si vous accédez à cette page via WiFi, vous perdrez la connexion. La page de connexion s\'ouvrira automatiquement sur la plupart des appareils (portail captif).'}
+                        ⚠️ ${i18n.t('settings.hotspot.warning') || "Activer le hotspot va déconnecter le Raspberry Pi du WiFi. Si vous accédez à cette page via WiFi, vous perdrez la connexion. La page de connexion s'ouvrira automatiquement sur la plupart des appareils (portail captif)."}
                     </div>
 
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
@@ -673,17 +681,17 @@
             </div>
             </div><!-- /column 2 -->
         `;
-    };
+  };
 
-    /**
-     * Render a single slider row for the per-bank effects panel.
-     * The range input has no bound value — SettingsModal.hydrateBankEffects()
-     * sets the values once the server payload has been received.
-     */
-    SettingsTemplates.renderBankEffectSlider = function(opts) {
-        const label = i18n.t(opts.labelKey) || opts.fallbackLabel;
-        const valueId = opts.id + 'Value';
-        return `
+  /**
+   * Render a single slider row for the per-bank effects panel.
+   * The range input has no bound value — SettingsModal.hydrateBankEffects()
+   * sets the values once the server payload has been received.
+   */
+  SettingsTemplates.renderBankEffectSlider = function (opts) {
+    const label = i18n.t(opts.labelKey) || opts.fallbackLabel;
+    const valueId = opts.id + 'Value';
+    return `
             <div class="bank-effect-row" style="display: flex; flex-direction: column; gap: 4px;">
                 <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--text-primary, #333);">
                     <span>${label}</span>
@@ -698,76 +706,76 @@
                        style="width: 100%; accent-color: #667eea;">
             </div>
         `;
+  };
+
+  /**
+   * Get the emoji flag for a locale
+   */
+  SettingsTemplates.getLocaleFlag = function (locale) {
+    const flags = {
+      id: '🇮🇩',
+      cs: '🇨🇿',
+      da: '🇩🇰',
+      de: '🇩🇪',
+      en: '🇬🇧',
+      eo: '🌍',
+      es: '🇪🇸',
+      tl: '🇵🇭',
+      fr: '🇫🇷',
+      it: '🇮🇹',
+      hu: '🇭🇺',
+      nl: '🇳🇱',
+      no: '🇳🇴',
+      pl: '🇵🇱',
+      pt: '🇧🇷',
+      fi: '🇫🇮',
+      sv: '🇸🇪',
+      vi: '🇻🇳',
+      tr: '🇹🇷',
+      el: '🇬🇷',
+      ru: '🇷🇺',
+      uk: '🇺🇦',
+      bn: '🇧🇩',
+      hi: '🇮🇳',
+      th: '🇹🇭',
+      ko: '🇰🇷',
+      ja: '🇯🇵',
+      'zh-CN': '🇨🇳'
     };
+    return flags[locale] || '🌐';
+  };
 
-    /**
-     * Get the emoji flag for a locale
-     */
-    SettingsTemplates.getLocaleFlag = function(locale) {
-        const flags = {
-            'id': '🇮🇩',
-            'cs': '🇨🇿',
-            'da': '🇩🇰',
-            'de': '🇩🇪',
-            'en': '🇬🇧',
-            'eo': '🌍',
-            'es': '🇪🇸',
-            'tl': '🇵🇭',
-            'fr': '🇫🇷',
-            'it': '🇮🇹',
-            'hu': '🇭🇺',
-            'nl': '🇳🇱',
-            'no': '🇳🇴',
-            'pl': '🇵🇱',
-            'pt': '🇧🇷',
-            'fi': '🇫🇮',
-            'sv': '🇸🇪',
-            'vi': '🇻🇳',
-            'tr': '🇹🇷',
-            'el': '🇬🇷',
-            'ru': '🇷🇺',
-            'uk': '🇺🇦',
-            'bn': '🇧🇩',
-            'hi': '🇮🇳',
-            'th': '🇹🇭',
-            'ko': '🇰🇷',
-            'ja': '🇯🇵',
-            'zh-CN': '🇨🇳'
-        };
-        return flags[locale] || '🌐';
-    };
+  /**
+   * Update modal texts when language changes
+   */
+  SettingsTemplates.updateModalTexts = function () {
+    if (!this.modal) return;
 
-    /**
-     * Update modal texts when language changes
-     */
-    SettingsTemplates.updateModalTexts = function() {
-        if (!this.modal) return;
+    // Update title
+    const title = this.modal.querySelector('.settings-title');
+    if (title) {
+      title.innerHTML = `⚙️ ${i18n.t('settings.title')}`;
+    }
 
-        // Update title
-        const title = this.modal.querySelector('.settings-title');
-        if (title) {
-            title.innerHTML = `⚙️ ${i18n.t('settings.title')}`;
-        }
+    // Update content
+    const content = this.modal.querySelector('.settings-modal-content');
+    if (content) {
+      content.innerHTML = this.renderContent();
+      // Reattach events for new elements
+      this.attachContentEventListeners();
+      // Restore dark mode toggle value
+      const darkModeToggle = this.modal.querySelector('#darkModeToggle');
+      if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
+      // Re-check updates (HTML was regenerated)
+      this.checkForUpdates();
+    }
 
-        // Update content
-        const content = this.modal.querySelector('.settings-modal-content');
-        if (content) {
-            content.innerHTML = this.renderContent();
-            // Reattach events for new elements
-            this.attachContentEventListeners();
-            // Restore dark mode toggle value
-            const darkModeToggle = this.modal.querySelector('#darkModeToggle');
-            if (darkModeToggle) darkModeToggle.checked = this.settings.theme === 'dark';
-            // Re-check updates (HTML was regenerated)
-            this.checkForUpdates();
-        }
+    // Update footer buttons
+    const cancelBtn = this.modal.querySelector('.settings-cancel-btn');
+    const saveBtn = this.modal.querySelector('.settings-save-btn');
+    if (cancelBtn) cancelBtn.textContent = i18n.t('common.cancel');
+    if (saveBtn) saveBtn.textContent = i18n.t('common.save');
+  };
 
-        // Update footer buttons
-        const cancelBtn = this.modal.querySelector('.settings-cancel-btn');
-        const saveBtn = this.modal.querySelector('.settings-save-btn');
-        if (cancelBtn) cancelBtn.textContent = i18n.t('common.cancel');
-        if (saveBtn) saveBtn.textContent = i18n.t('common.save');
-    };
-
-    if (typeof window !== 'undefined') window.SettingsTemplates = SettingsTemplates;
+  if (typeof window !== 'undefined') window.SettingsTemplates = SettingsTemplates;
 })();
