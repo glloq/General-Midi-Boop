@@ -1,406 +1,354 @@
 // ============================================================================
-// File: frontend/js/core/EventBus.js
-// Actual path: frontend/js/core/EventBus.js
-// Version: v3.2.0 - FIXED GLOBAL INITIALIZATION
-// Date: 2025-10-31
-// ============================================================================
-// FIXES v3.2.0:
-// ✓ CRITICAL: Automatic creation of a global instance
-// ✓ Immediate exposure via window.eventBus
-// ✓ Protection against double initialization
+// EventBus — observer pub/sub with priority queues, throttle/debounce, "once".
+// Event-driven processing: queued events drain on a microtask (no polling
+// timer). Exposes a global singleton on window.eventBus.
 // ============================================================================
 
 const EventPriority = {
-    HIGH: 'high',
-    NORMAL: 'normal',
-    LOW: 'low'
+  HIGH: 'high',
+  NORMAL: 'normal',
+  LOW: 'low'
 };
 
+const PRIORITY_ORDER = [EventPriority.HIGH, EventPriority.NORMAL, EventPriority.LOW];
+
 class EventBus {
-    constructor() {
-        // Listeners organized by event
-        this.listeners = new Map();
+  constructor() {
+    this.listeners = new Map();
 
-        // Queues by priority
-        this.queues = {
-            [EventPriority.HIGH]: [],
-            [EventPriority.NORMAL]: [],
-            [EventPriority.LOW]: []
-        };
-        
-        // Configuration
-        this.config = {
-            enablePriorities: true,
-            enableMetrics: false, // Disabled in production for performance
-            enableThrottling: true,
-            maxQueueSize: 1000,
-            processingInterval: 10
-        };
+    this.queues = {
+      [EventPriority.HIGH]: [],
+      [EventPriority.NORMAL]: [],
+      [EventPriority.LOW]: []
+    };
 
-        // Metrics
-        this.metrics = {
-            eventsEmitted: 0,
-            eventsProcessed: 0,
-            eventsDropped: 0,
-            averageLatency: { high: 0, normal: 0, low: 0 },
-        };
+    this.config = {
+      enablePriorities: true,
+      enableMetrics: false, // Disabled in production for performance
+      enableThrottling: true,
+      maxQueueSize: 1000,
+      processingInterval: 10
+    };
 
-        // Incremental event ID counter (cheaper than Date.now() + Math.random())
-        this._nextEventId = 0;
-        
-        // Throttle cache
-        this.throttleCache = new Map();
-        
-        // Debounce timers
-        this.debounceTimers = new Map();
-        
-        // Asynchronous processing
-        this.processingTimer = null;
-        this._lastCacheClean = null;
-        
-        // Event documentation
-        this.eventDocumentation = this.initEventDocumentation();
-        
-        this.init();
-    }
-    
-    init() {
-        // Event-driven mode: processing triggered by emit() instead of a 10ms timer
-        this._processingScheduled = false;
+    this.metrics = {
+      eventsEmitted: 0,
+      eventsProcessed: 0,
+      eventsDropped: 0,
+      averageLatency: { high: 0, normal: 0, low: 0 }
+    };
 
-        // Cache cleanup is now on-demand (triggered when cache exceeds threshold)
-        this._cacheCleanupTimer = null;
+    // Incremental event ID counter (cheaper than Date.now() + Math.random())
+    this._nextEventId = 0;
 
-        console.log('✓ EventBus initialized');
-    }
-    
-    // ========================================================================
-    // MAIN METHODS
-    // ========================================================================
-    
-    on(event, callback, options = {}) {
-        if (!event || typeof callback !== 'function') {
-            console.error('EventBus.on: Invalid event or callback');
-            return () => {};
-        }
-        
-        if (!this.listeners.has(event)) {
-            this.listeners.set(event, []);
-        }
-        
-        const listener = {
-            callback,
-            priority: options.priority || EventPriority.NORMAL,
-            once: options.once || false,
-            throttle: options.throttle || 0,
-            debounce: options.debounce || 0,
-            context: options.context || null,
-            filter: options.filter || null,
-            id: `${event}_${Date.now()}_${Math.random()}`
-        };
-        
-        const list = this.listeners.get(event);
-        list.push(listener);
+    this.throttleCache = new Map();
+    this.debounceTimers = new Map();
+    this.processingTimer = null;
 
-        // Warn about possible memory leak
-        if (list.length > 50) {
-            console.warn(`EventBus: possible memory leak — ${list.length} listeners for "${event}" (max 50)`);
-        }
+    this.eventDocumentation = this.initEventDocumentation();
 
-        // Return unsubscribe function
-        return () => this.off(event, callback);
-    }
-    
-    once(event, callback, options = {}) {
-        return this.on(event, callback, { ...options, once: true });
-    }
-    
-    off(event, callback) {
-        if (!this.listeners.has(event)) return;
-        
-        if (!callback) {
-            // Remove all listeners for this event
-            this.listeners.delete(event);
-            return;
-        }
-        
-        const listeners = this.listeners.get(event);
-        const index = listeners.findIndex(l => l.callback === callback);
-        
-        if (index !== -1) {
-            listeners.splice(index, 1);
-        }
-        
-        if (listeners.length === 0) {
-            this.listeners.delete(event);
-        }
-    }
-    
-    emit(event, data = {}, priority = EventPriority.NORMAL) {
-        if (!event) {
-            console.error('EventBus.emit: Event name required');
-            return;
-        }
+    this.init();
+  }
 
-        this.metrics.eventsEmitted++;
+  init() {
+    this._processingScheduled = false;
+    console.log('✓ EventBus initialized');
+  }
 
-        const now = Date.now();
-        const eventData = {
-            event,
-            data,
-            priority,
-            timestamp: now,
-            id: ++this._nextEventId
-        };
+  // ========================================================================
+  // MAIN METHODS
+  // ========================================================================
 
-        if (this.config.enablePriorities && priority === EventPriority.HIGH) {
-            // Process HIGH priority events immediately
-            this.processEvent(eventData);
-        } else {
-            // Add to the appropriate queue
-            const queue = this.queues[priority] || this.queues[EventPriority.NORMAL];
-
-            if (queue.length >= this.config.maxQueueSize) {
-                this.metrics.eventsDropped++;
-                console.warn(`EventBus: Queue full for priority ${priority}, event dropped`);
-                return;
-            }
-
-            queue.push(eventData);
-
-            // Trigger processing via microtask (replaces the 10ms timer)
-            this._scheduleProcessing();
-        }
+  on(event, callback, options = {}) {
+    if (!event || typeof callback !== 'function') {
+      console.error('EventBus.on: Invalid event or callback');
+      return () => {};
     }
 
-    /**
-     * Schedule queue processing via microtask (event-driven)
-     * Replaces the 10ms setInterval that consumed CPU continuously
-     */
-    _scheduleProcessing() {
-        if (this._processingScheduled) return;
-        this._processingScheduled = true;
-
-        Promise.resolve().then(() => {
-            this._processingScheduled = false;
-            this._drainQueues();
-        });
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
     }
 
-    /**
-     * Drain queues by priority
-     */
-    _drainQueues() {
-        // HIGH: process all
-        while (this.queues[EventPriority.HIGH].length > 0) {
-            this.processEvent(this.queues[EventPriority.HIGH].shift());
-        }
-        // NORMAL: process all (batched in the same microtask)
-        while (this.queues[EventPriority.NORMAL].length > 0) {
-            this.processEvent(this.queues[EventPriority.NORMAL].shift());
-        }
-        // LOW: process all
-        while (this.queues[EventPriority.LOW].length > 0) {
-            this.processEvent(this.queues[EventPriority.LOW].shift());
-        }
-    }
-    
-    // ========================================================================
-    // PROCESSING
-    // ========================================================================
-    
-    processEvent(eventData) {
-        const { event, data, timestamp, priority } = eventData;
-        
-        if (!this.listeners.has(event)) return;
-        
-        const listeners = this.listeners.get(event);
-        const toRemove = [];
-        
-        for (let i = 0; i < listeners.length; i++) {
-            const listener = listeners[i];
-            
-            try {
-                // Filtering
-                if (listener.filter && !listener.filter(data)) {
-                    continue;
-                }
-                
-                // Throttling
-                if (listener.throttle > 0) {
-                    const key = `${event}_${listener.id}`;
-                    const lastExec = this.throttleCache.get(key) || 0;
-                    const now = Date.now();
-                    
-                    if (now - lastExec < listener.throttle) {
-                        continue;
-                    }
-                    
-                    this.throttleCache.set(key, now);
-                    // On-demand cache cleanup when cache grows large
-                    if (this.throttleCache.size > 100) {
-                        this.cleanCaches();
-                    }
-                }
+    const listener = {
+      callback,
+      priority: options.priority || EventPriority.NORMAL,
+      once: options.once || false,
+      throttle: options.throttle || 0,
+      debounce: options.debounce || 0,
+      context: options.context || null,
+      filter: options.filter || null,
+      id: `${event}_${Date.now()}_${Math.random()}`
+    };
 
-                // Debouncing
-                if (listener.debounce > 0) {
-                    const key = `${event}_${listener.id}`;
-                    
-                    if (this.debounceTimers.has(key)) {
-                        clearTimeout(this.debounceTimers.get(key));
-                    }
-                    
-                    const timer = setTimeout(() => {
-                        this.executeCallback(listener, data);
-                        this.debounceTimers.delete(key);
-                    }, listener.debounce);
-                    
-                    this.debounceTimers.set(key, timer);
-                    continue;
-                }
-                
-                // Normal execution
-                this.executeCallback(listener, data);
-                
-                // Mark for removal if once
-                if (listener.once) {
-                    toRemove.push(i);
-                }
-                
-            } catch (error) {
-                console.error(`EventBus: Error in listener for ${event}:`, error);
-            }
-        }
-        
-        // Remove the "once" listeners
-        for (let i = toRemove.length - 1; i >= 0; i--) {
-            listeners.splice(toRemove[i], 1);
-        }
-        
-        if (listeners.length === 0) {
-            this.listeners.delete(event);
-        }
-        
-        // Metrics
-        this.metrics.eventsProcessed++;
-        
-        if (this.config.enableMetrics && priority) {
-            const latency = Date.now() - timestamp;
-            this.updateLatencyMetrics(priority, latency);
-        }
+    const list = this.listeners.get(event);
+    list.push(listener);
+
+    if (list.length > 50) {
+      console.warn(
+        `EventBus: possible memory leak — ${list.length} listeners for "${event}" (max 50)`
+      );
     }
-    
-    executeCallback(listener, data) {
-        if (listener.context) {
-            listener.callback.call(listener.context, data);
-        } else {
-            listener.callback(data);
+
+    return () => this.off(event, callback);
+  }
+
+  once(event, callback, options = {}) {
+    return this.on(event, callback, { ...options, once: true });
+  }
+
+  off(event, callback) {
+    if (!this.listeners.has(event)) return;
+
+    if (!callback) {
+      this.listeners.delete(event);
+      return;
+    }
+
+    const listeners = this.listeners.get(event);
+    const index = listeners.findIndex((l) => l.callback === callback);
+
+    if (index !== -1) {
+      listeners.splice(index, 1);
+    }
+
+    if (listeners.length === 0) {
+      this.listeners.delete(event);
+    }
+  }
+
+  emit(event, data = {}, priority = EventPriority.NORMAL) {
+    if (!event) {
+      console.error('EventBus.emit: Event name required');
+      return;
+    }
+
+    this.metrics.eventsEmitted++;
+
+    const eventData = {
+      event,
+      data,
+      priority,
+      timestamp: Date.now(),
+      id: ++this._nextEventId
+    };
+
+    if (this.config.enablePriorities && priority === EventPriority.HIGH) {
+      // Process HIGH priority events immediately
+      this.processEvent(eventData);
+      return;
+    }
+
+    const queue = this.queues[priority] || this.queues[EventPriority.NORMAL];
+
+    if (queue.length >= this.config.maxQueueSize) {
+      this.metrics.eventsDropped++;
+      console.warn(`EventBus: Queue full for priority ${priority}, event dropped`);
+      return;
+    }
+
+    queue.push(eventData);
+    this._scheduleProcessing();
+  }
+
+  /**
+   * Schedule queue processing via microtask (event-driven; replaces a
+   * polling timer that consumed CPU continuously).
+   */
+  _scheduleProcessing() {
+    if (this._processingScheduled) return;
+    this._processingScheduled = true;
+
+    Promise.resolve().then(() => {
+      this._processingScheduled = false;
+      this._drainQueues();
+    });
+  }
+
+  /** Drain queues in priority order (all batched in the same microtask). */
+  _drainQueues() {
+    for (const priority of PRIORITY_ORDER) {
+      const queue = this.queues[priority];
+      while (queue.length > 0) {
+        this.processEvent(queue.shift());
+      }
+    }
+  }
+
+  // ========================================================================
+  // PROCESSING
+  // ========================================================================
+
+  processEvent(eventData) {
+    const { event, data, timestamp, priority } = eventData;
+
+    if (!this.listeners.has(event)) return;
+
+    const listeners = this.listeners.get(event);
+    const toRemove = [];
+
+    for (let i = 0; i < listeners.length; i++) {
+      const listener = listeners[i];
+
+      try {
+        if (listener.filter && !listener.filter(data)) {
+          continue;
         }
-    }
-    
-    startProcessing() {
-        // Event-driven mode: timer no longer needed, processing triggered by emit()
-        // Method kept for backwards compatibility
-    }
-    
-    stopProcessing() {
-        if (this.processingTimer) {
-            clearInterval(this.processingTimer);
-            this.processingTimer = null;
+
+        if (listener.throttle > 0) {
+          const key = `${event}_${listener.id}`;
+          const lastExec = this.throttleCache.get(key) || 0;
+          const now = Date.now();
+
+          if (now - lastExec < listener.throttle) {
+            continue;
+          }
+
+          this.throttleCache.set(key, now);
+          if (this.throttleCache.size > 100) {
+            this.cleanCaches();
+          }
         }
-    }
-    
-    // ========================================================================
-    // UTILITIES
-    // ========================================================================
-    
-    updateLatencyMetrics(priority, latency) {
-        // Incremental moving average (no array traversal)
-        const prev = this.metrics.averageLatency[priority] || 0;
-        this.metrics.eventsProcessed;
-        // Exponential moving average with alpha=0.05
-        this.metrics.averageLatency[priority] = Math.round((prev * 0.95 + latency * 0.05) * 100) / 100;
-    }
-    
-    cleanCaches() {
-        const now = Date.now();
-        
-        // Clean throttle cache (keep the last 5 seconds)
-        for (const [key, timestamp] of this.throttleCache.entries()) {
-            if (now - timestamp > 5000) {
-                this.throttleCache.delete(key);
-            }
+
+        if (listener.debounce > 0) {
+          const key = `${event}_${listener.id}`;
+
+          if (this.debounceTimers.has(key)) {
+            clearTimeout(this.debounceTimers.get(key));
+          }
+
+          const timer = setTimeout(() => {
+            this.executeCallback(listener, data);
+            this.debounceTimers.delete(key);
+          }, listener.debounce);
+
+          this.debounceTimers.set(key, timer);
+          continue;
         }
-        
-        this._lastCacheClean = now;
-    }
-    
-    getMetrics() {
-        return { ...this.metrics };
-    }
-    
-    getListenerCount(event = null) {
-        if (event) {
-            return this.listeners.has(event) ? this.listeners.get(event).length : 0;
+
+        this.executeCallback(listener, data);
+
+        if (listener.once) {
+          toRemove.push(i);
         }
-        
-        let total = 0;
-        for (const listeners of this.listeners.values()) {
-            total += listeners.length;
-        }
-        return total;
+      } catch (error) {
+        console.error(`EventBus: Error in listener for ${event}:`, error);
+      }
     }
-    
-    clear() {
-        this.listeners.clear();
-        this.queues[EventPriority.HIGH] = [];
-        this.queues[EventPriority.NORMAL] = [];
-        this.queues[EventPriority.LOW] = [];
-        this.throttleCache.clear();
-        
-        for (const timer of this.debounceTimers.values()) {
-            clearTimeout(timer);
-        }
-        this.debounceTimers.clear();
+
+    for (let i = toRemove.length - 1; i >= 0; i--) {
+      listeners.splice(toRemove[i], 1);
     }
-    
-    destroy() {
-        this.stopProcessing();
-        if (this._cacheCleanupTimer) {
-            clearInterval(this._cacheCleanupTimer);
-            this._cacheCleanupTimer = null;
-        }
-        this.clear();
+
+    if (listeners.length === 0) {
+      this.listeners.delete(event);
     }
-    
-    initEventDocumentation() {
-        return {
-            // Device events
-            'device:connected': 'Device connected',
-            'device:disconnected': 'Device disconnected',
-            'device:list': 'Device list updated',
-            'device:error': 'Device error occurred',
-            
-            // MIDI events
-            'midi:note-on': 'MIDI note on received',
-            'midi:note-off': 'MIDI note off received',
-            'midi:cc': 'MIDI control change received',
-            'midi:message': 'Generic MIDI message received',
-            
-            // Playback events
-            'playback:play': 'Playback started',
-            'playback:pause': 'Playback paused',
-            'playback:stop': 'Playback stopped',
-            'playback:time': 'Playback time updated',
-            
-            // System events
-            'app:ready': 'Application ready',
-            'app:error': 'Application error',
-            'backend:connected': 'Backend connected',
-            'backend:disconnected': 'Backend disconnected'
-        };
+
+    this.metrics.eventsProcessed++;
+
+    if (this.config.enableMetrics && priority) {
+      this.updateLatencyMetrics(priority, Date.now() - timestamp);
     }
+  }
+
+  executeCallback(listener, data) {
+    if (listener.context) {
+      listener.callback.call(listener.context, data);
+    } else {
+      listener.callback(data);
+    }
+  }
+
+  startProcessing() {
+    // Event-driven mode: no timer needed. Kept for backwards compatibility.
+  }
+
+  stopProcessing() {
+    if (this.processingTimer) {
+      clearInterval(this.processingTimer);
+      this.processingTimer = null;
+    }
+  }
+
+  // ========================================================================
+  // UTILITIES
+  // ========================================================================
+
+  updateLatencyMetrics(priority, latency) {
+    // Exponential moving average with alpha=0.05 (no array traversal)
+    const prev = this.metrics.averageLatency[priority] || 0;
+    this.metrics.averageLatency[priority] = Math.round((prev * 0.95 + latency * 0.05) * 100) / 100;
+  }
+
+  cleanCaches() {
+    const now = Date.now();
+    // Keep only the last 5 seconds of throttle timestamps
+    for (const [key, timestamp] of this.throttleCache.entries()) {
+      if (now - timestamp > 5000) {
+        this.throttleCache.delete(key);
+      }
+    }
+  }
+
+  getMetrics() {
+    return { ...this.metrics };
+  }
+
+  getListenerCount(event = null) {
+    if (event) {
+      return this.listeners.has(event) ? this.listeners.get(event).length : 0;
+    }
+
+    let total = 0;
+    for (const listeners of this.listeners.values()) {
+      total += listeners.length;
+    }
+    return total;
+  }
+
+  clear() {
+    this.listeners.clear();
+    for (const priority of PRIORITY_ORDER) {
+      this.queues[priority] = [];
+    }
+    this.throttleCache.clear();
+
+    for (const timer of this.debounceTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.debounceTimers.clear();
+  }
+
+  destroy() {
+    this.stopProcessing();
+    this.clear();
+  }
+
+  initEventDocumentation() {
+    return {
+      // Device events
+      'device:connected': 'Device connected',
+      'device:disconnected': 'Device disconnected',
+      'device:list': 'Device list updated',
+      'device:error': 'Device error occurred',
+
+      // MIDI events
+      'midi:note-on': 'MIDI note on received',
+      'midi:note-off': 'MIDI note off received',
+      'midi:cc': 'MIDI control change received',
+      'midi:message': 'Generic MIDI message received',
+
+      // Playback events
+      'playback:play': 'Playback started',
+      'playback:pause': 'Playback paused',
+      'playback:stop': 'Playback stopped',
+      'playback:time': 'Playback time updated',
+
+      // System events
+      'app:ready': 'Application ready',
+      'app:error': 'Application error',
+      'backend:connected': 'Backend connected',
+      'backend:disconnected': 'Backend disconnected'
+    };
+  }
 }
 
 // ============================================================================
@@ -408,16 +356,15 @@ class EventBus {
 // ============================================================================
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { EventBus, EventPriority };
+  module.exports = { EventBus, EventPriority };
 }
 
 if (typeof window !== 'undefined') {
-    window.EventBus = EventBus;
-    window.EventPriority = EventPriority;
-    
-    // ✓ CRITICAL: Create the global instance immediately
-    if (!window.eventBus) {
-        window.eventBus = new EventBus();
-        console.log('✓ Global EventBus instance created');
-    }
+  window.EventBus = EventBus;
+  window.EventPriority = EventPriority;
+
+  if (!window.eventBus) {
+    window.eventBus = new EventBus();
+    console.log('✓ Global EventBus instance created');
+  }
 }

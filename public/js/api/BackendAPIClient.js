@@ -23,596 +23,600 @@ const _BIN_FRAME_MAGIC = 0xb0;
 
 /** Decode a binary frame from the wire into `{ type, payload }`. */
 function _decodeBinaryFrame(buffer) {
-    const view = new DataView(buffer);
-    if (view.byteLength < 4) throw new Error('binary frame too short');
-    if (view.getUint8(0) !== _BIN_FRAME_MAGIC) {
-        throw new Error('binary frame: bad magic');
-    }
-    const code = view.getUint8(1);
-    const payloadLen = view.getUint16(2, true);
-    if (view.byteLength < 4 + payloadLen) {
-        throw new Error('binary frame: truncated');
-    }
-    switch (code) {
-        case 0x01: // playback_position
-            return {
-                type: 'playback_position',
-                payload: {
-                    position: view.getFloat64(4, true),
-                    percentage: view.getFloat32(12, true)
-                }
-            };
-        case 0x03: // tuner:pitch
-            return {
-                type: 'tuner:pitch',
-                payload: {
-                    freqHz: view.getFloat32(4, true),
-                    cents: view.getFloat32(8, true),
-                    noteMidi: view.getInt8(12)
-                }
-            };
-        case 0x04: // calibration:audio_level
-            return {
-                type: 'calibration:audio_level',
-                payload: {
-                    levelDb: view.getFloat32(4, true),
-                    peakDb: view.getFloat32(8, true)
-                }
-            };
-        case 0x05: // system_lag
-            return {
-                type: 'system_lag',
-                payload: {
-                    lagMs: view.getUint16(4, true),
-                    thresholdMs: view.getUint16(6, true)
-                }
-            };
-        default:
-            throw new Error(`binary frame: unknown event code 0x${code.toString(16)}`);
-    }
+  const view = new DataView(buffer);
+  if (view.byteLength < 4) throw new Error('binary frame too short');
+  if (view.getUint8(0) !== _BIN_FRAME_MAGIC) {
+    throw new Error('binary frame: bad magic');
+  }
+  const code = view.getUint8(1);
+  const payloadLen = view.getUint16(2, true);
+  if (view.byteLength < 4 + payloadLen) {
+    throw new Error('binary frame: truncated');
+  }
+  switch (code) {
+    case 0x01: // playback_position
+      return {
+        type: 'playback_position',
+        payload: {
+          position: view.getFloat64(4, true),
+          percentage: view.getFloat32(12, true)
+        }
+      };
+    case 0x03: // tuner:pitch
+      return {
+        type: 'tuner:pitch',
+        payload: {
+          freqHz: view.getFloat32(4, true),
+          cents: view.getFloat32(8, true),
+          noteMidi: view.getInt8(12)
+        }
+      };
+    case 0x04: // calibration:audio_level
+      return {
+        type: 'calibration:audio_level',
+        payload: {
+          levelDb: view.getFloat32(4, true),
+          peakDb: view.getFloat32(8, true)
+        }
+      };
+    case 0x05: // system_lag
+      return {
+        type: 'system_lag',
+        payload: {
+          lagMs: view.getUint16(4, true),
+          thresholdMs: view.getUint16(6, true)
+        }
+      };
+    default:
+      throw new Error(`binary frame: unknown event code 0x${code.toString(16)}`);
+  }
 }
 
 class BackendAPIClient {
-    constructor(wsUrl) {
-        this.wsUrl = wsUrl;
-        this.ws = null;
-        this.requestId = 0;
-        this.pendingRequests = new Map();
-        this.eventHandlers = new Map();
-        this.connected = false;
-        this.reconnectAttempts = 0;
-        this.reconnectBaseDelay = 1000;
-        this.reconnectMaxDelay = 60000;
-        this._reconnecting = false;
-        this._reconnectTimer = null;
-        this._reconnectExhaustedEmitted = false;
-        this._closed = false;
-        this._connectionPromise = null;
+  constructor(wsUrl) {
+    this.wsUrl = wsUrl;
+    this.ws = null;
+    this.requestId = 0;
+    this.pendingRequests = new Map();
+    this.eventHandlers = new Map();
+    this.connected = false;
+    this.reconnectAttempts = 0;
+    this.reconnectBaseDelay = 1000;
+    this.reconnectMaxDelay = 60000;
+    this._reconnecting = false;
+    this._reconnectTimer = null;
+    this._reconnectExhaustedEmitted = false;
+    this._closed = false;
+    this._connectionPromise = null;
+  }
+
+  /**
+   * Connect to WebSocket server
+   */
+  async connect() {
+    // Eviter les connexions paralleles
+    if (this._connectionPromise) {
+      return this._connectionPromise;
     }
 
-    /**
-     * Connect to WebSocket server
-     */
-    async connect() {
-        // Eviter les connexions paralleles
-        if (this._connectionPromise) {
-            return this._connectionPromise;
-        }
-
-        this._connectionPromise = new Promise((resolve, reject) => {
-            try {
-                // Fermer l'ancienne connexion proprement
-                if (this.ws) {
-                    try { this.ws.onclose = null; this.ws.close(); } catch (e) { /* ignore */ }
-                }
-
-                this.ws = new WebSocket(this.wsUrl);
-                // Receive high-frequency events as ArrayBuffer so the
-                // binary decoder runs without an extra Blob → ArrayBuffer
-                // promise round-trip.
-                this.ws.binaryType = 'arraybuffer';
-
-                this.ws.onopen = () => {
-                    this.connected = true;
-                    this.reconnectAttempts = 0;
-                    this._reconnecting = false;
-                    this._reconnectExhaustedEmitted = false;
-                    this._connectionPromise = null;
-                    this.emit('connected');
-                    resolve();
-                };
-
-                this.ws.onclose = (_event) => {
-                    const wasConnected = this.connected;
-                    this.connected = false;
-                    this._connectionPromise = null;
-
-                    // Rejeter toutes les requetes en attente immediatement
-                    this._rejectPendingRequests('WebSocket connection closed');
-
-                    if (wasConnected) {
-                        this.emit('disconnected');
-                    }
-                    this.attemptReconnect();
-                };
-
-                this.ws.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    const errorMessage = error.message || error.type || 'WebSocket connection failed';
-                    this.emit('error', { message: errorMessage, error: error });
-                    // Ne pas reject ici - onclose sera appele ensuite
-                    // Seulement reject si c'est la connexion initiale (pas un reconnect)
-                    if (!this._reconnecting) {
-                        this._connectionPromise = null;
-                        reject(new Error(errorMessage));
-                    }
-                };
-
-                this.ws.onmessage = (event) => {
-                    try {
-                        // Binary frame: dispatched directly to event
-                        // subscribers (skips the JSON envelope wrapping
-                        // because there is no command-response routing for
-                        // the high-frequency events).
-                        if (event.data instanceof ArrayBuffer) {
-                            const decoded = _decodeBinaryFrame(event.data);
-                            this.emit(decoded.type, decoded.payload);
-                            return;
-                        }
-                        const message = JSON.parse(event.data);
-                        this.handleMessage(message);
-                    } catch (error) {
-                        console.error('Failed to parse message:', error);
-                    }
-                };
-
-            } catch (error) {
-                this._connectionPromise = null;
-                reject(error);
-            }
-        });
-
-        return this._connectionPromise;
-    }
-
-    /**
-     * Rejete toutes les requetes en attente (lors d'une deconnexion)
-     */
-    _rejectPendingRequests(reason) {
-        if (this.pendingRequests.size > 0) {
-            console.warn(`Rejecting ${this.pendingRequests.size} pending requests: ${reason}`);
-            for (const [, pending] of this.pendingRequests) {
-                pending.reject(new Error(reason));
-            }
-            this.pendingRequests.clear();
-        }
-    }
-
-    /**
-     * Attempt to reconnect with capped exponential backoff.
-     * Retries indefinitely (no attempt limit) so 24/7 deployments
-     * recover automatically from arbitrarily long outages. The UI
-     * receives `disconnected` then `reconnecting` events; after
-     * RECONNECT_UI_GIVEUP_ATTEMPTS consecutive failures it also gets a
-     * one-shot `reconnect_exhausted` event so it can show a hard
-     * "connection lost" state and stop spinners — retrying continues.
-     */
-    attemptReconnect() {
-        if (this._closed) return;
-        if (this._reconnecting) return;
-
-        this._reconnecting = true;
-        this.reconnectAttempts++;
-
-        // Backoff exponentiel : 1s, 2s, 4s, 8s, 16s, 32s puis plafond 60s
-        const delay = Math.min(
-            this.reconnectBaseDelay * Math.pow(2, this.reconnectAttempts - 1),
-            this.reconnectMaxDelay
-        );
-
-        this.emit('reconnecting', { attempt: this.reconnectAttempts, delayMs: delay });
-
-        if (this.reconnectAttempts >= RECONNECT_UI_GIVEUP_ATTEMPTS &&
-            !this._reconnectExhaustedEmitted) {
-            this._reconnectExhaustedEmitted = true;
-            this.emit('reconnect_exhausted', { attempts: this.reconnectAttempts });
-        }
-
-        if (this._reconnectTimer) {
-            clearTimeout(this._reconnectTimer);
-        }
-        this._reconnectTimer = setTimeout(() => {
-            this._reconnectTimer = null;
-            if (this._closed) return;
-            this.connect().catch(err => {
-                if (this._closed) return;
-                console.warn(`Reconnect attempt ${this.reconnectAttempts} failed:`, err.message);
-                this._reconnecting = false;
-                this.attemptReconnect();
-            });
-        }, delay);
-    }
-
-    /**
-     * Handle incoming message
-     */
-    handleMessage(message) {
-        // Handle command response
-        if (message.id && this.pendingRequests.has(message.id)) {
-            const pending = this.pendingRequests.get(message.id);
-            this.pendingRequests.delete(message.id);
-
-            if (message.error) {
-                // Propagate the structured error envelope (P1-3.4 audit recommendation):
-                // expose `code` and `command` so callers can switch on the error category
-                // (ERR_VALIDATION / ERR_NOT_FOUND / ERR_CONFIGURATION / ...).
-                const err = new Error(message.error);
-                if (message.code !== undefined) err.code = message.code;
-                if (message.command !== undefined) err.command = message.command;
-                pending.reject(err);
-            } else {
-                pending.resolve(message.data || message);
-            }
-            return;
-        }
-
-        // Handle event broadcasts
-        if (message.event) {
-            this.emit(message.event, message.data);
-        }
-    }
-
-    /**
-     * Register event handler
-     */
-    on(event, handler) {
-        if (!this.eventHandlers.has(event)) {
-            this.eventHandlers.set(event, []);
-        }
-        this.eventHandlers.get(event).push(handler);
-    }
-
-    /**
-     * Remove event handler
-     */
-    off(event, handler) {
-        if (!this.eventHandlers.has(event)) return;
-
-        const handlers = this.eventHandlers.get(event);
-        const index = handlers.indexOf(handler);
-        if (index > -1) {
-            handlers.splice(index, 1);
-        }
-    }
-
-    /**
-     * Emit event
-     */
-    emit(event, data) {
-        if (!this.eventHandlers.has(event)) return;
-
-        const handlers = this.eventHandlers.get(event);
-        handlers.forEach(handler => {
-            try {
-                handler(data);
-            } catch (error) {
-                console.error(`Error in event handler for ${event}:`, error);
-            }
-        });
-    }
-
-    /**
-     * Check if connected
-     */
-    isConnected() {
-        return this.connected && this.ws && this.ws.readyState === WebSocket.OPEN;
-    }
-
-    /**
-     * Attend que la connexion soit etablie (utile pendant reconnexion)
-     * @param {number} timeout - Timeout en ms (defaut 5000)
-     * @returns {Promise<void>}
-     */
-    waitForConnection(timeout = 5000) {
-        if (this.isConnected()) return Promise.resolve();
-
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => {
-                this.off('connected', onConnected);
-                reject(new Error('WebSocket connection timeout'));
-            }, timeout);
-
-            const onConnected = () => {
-                clearTimeout(timer);
-                this.off('connected', onConnected);
-                resolve();
-            };
-
-            this.on('connected', onConnected);
-        });
-    }
-
-    /**
-     * Send command to backend
-     * Si deconnecte mais en cours de reconnexion, attend la reconnexion
-     */
-    async sendCommand(command, data = {}, timeout = 10000) {
-        // Si pas connecte, attendre la reconnexion (max 5s)
-        if (!this.isConnected()) {
-            if (this._reconnecting || this._connectionPromise) {
-                try {
-                    await this.waitForConnection(5000);
-                } catch (e) {
-                    throw new Error('WebSocket not connected');
-                }
-            } else {
-                throw new Error('WebSocket not connected');
-            }
-        }
-
-        return new Promise((resolve, reject) => {
-            const id = ++this.requestId;
-            const timeoutId = setTimeout(() => {
-                this.pendingRequests.delete(id);
-                reject(new Error(`Command timeout: ${command}`));
-            }, timeout);
-
-            this.pendingRequests.set(id, {
-                resolve: (response) => {
-                    clearTimeout(timeoutId);
-                    resolve(response);
-                },
-                reject: (error) => {
-                    clearTimeout(timeoutId);
-                    reject(error);
-                }
-            });
-
-            // Verifier encore avant d'envoyer (la connexion a pu se fermer entre-temps)
-            if (!this.isConnected()) {
-                this.pendingRequests.delete(id);
-                clearTimeout(timeoutId);
-                reject(new Error('WebSocket disconnected before send'));
-                return;
-            }
-
-            try {
-                this.ws.send(JSON.stringify({
-                    id,
-                    command,
-                    data,
-                    timestamp: Date.now()
-                }));
-            } catch (sendError) {
-                this.pendingRequests.delete(id);
-                clearTimeout(timeoutId);
-                reject(new Error(`WebSocket send failed: ${sendError.message}`));
-            }
-        });
-    }
-
-    /**
-     * Close connection permanently. Stops any pending reconnect and
-     * prevents future ones until a new client is constructed.
-     */
-    close() {
-        this._closed = true;
-        this._reconnecting = false;
-        if (this._reconnectTimer) {
-            clearTimeout(this._reconnectTimer);
-            this._reconnectTimer = null;
-        }
-        this._rejectPendingRequests('Connection closed');
-        this.eventHandlers.clear();
+    this._connectionPromise = new Promise((resolve, reject) => {
+      try {
+        // Fermer l'ancienne connexion proprement
         if (this.ws) {
-            this.ws.onclose = null; // Eviter le cycle reconnexion
+          try {
+            this.ws.onclose = null;
             this.ws.close();
-            this.ws = null;
+          } catch (e) {
+            /* ignore */
+          }
         }
-        this.connected = false;
+
+        this.ws = new WebSocket(this.wsUrl);
+        // Receive high-frequency events as ArrayBuffer so the
+        // binary decoder runs without an extra Blob → ArrayBuffer
+        // promise round-trip.
+        this.ws.binaryType = 'arraybuffer';
+
+        this.ws.onopen = () => {
+          this.connected = true;
+          this.reconnectAttempts = 0;
+          this._reconnecting = false;
+          this._reconnectExhaustedEmitted = false;
+          this._connectionPromise = null;
+          this.emit('connected');
+          resolve();
+        };
+
+        this.ws.onclose = (_event) => {
+          const wasConnected = this.connected;
+          this.connected = false;
+          this._connectionPromise = null;
+
+          // Rejeter toutes les requetes en attente immediatement
+          this._rejectPendingRequests('WebSocket connection closed');
+
+          if (wasConnected) {
+            this.emit('disconnected');
+          }
+          this.attemptReconnect();
+        };
+
+        this.ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          const errorMessage = error.message || error.type || 'WebSocket connection failed';
+          this.emit('error', { message: errorMessage, error: error });
+          // Ne pas reject ici - onclose sera appele ensuite
+          // Seulement reject si c'est la connexion initiale (pas un reconnect)
+          if (!this._reconnecting) {
+            this._connectionPromise = null;
+            reject(new Error(errorMessage));
+          }
+        };
+
+        this.ws.onmessage = (event) => {
+          try {
+            // Binary frame: dispatched directly to event
+            // subscribers (skips the JSON envelope wrapping
+            // because there is no command-response routing for
+            // the high-frequency events).
+            if (event.data instanceof ArrayBuffer) {
+              const decoded = _decodeBinaryFrame(event.data);
+              this.emit(decoded.type, decoded.payload);
+              return;
+            }
+            const message = JSON.parse(event.data);
+            this.handleMessage(message);
+          } catch (error) {
+            console.error('Failed to parse message:', error);
+          }
+        };
+      } catch (error) {
+        this._connectionPromise = null;
+        reject(error);
+      }
+    });
+
+    return this._connectionPromise;
+  }
+
+  /**
+   * Rejete toutes les requetes en attente (lors d'une deconnexion)
+   */
+  _rejectPendingRequests(reason) {
+    if (this.pendingRequests.size > 0) {
+      console.warn(`Rejecting ${this.pendingRequests.size} pending requests: ${reason}`);
+      for (const [, pending] of this.pendingRequests) {
+        pending.reject(new Error(reason));
+      }
+      this.pendingRequests.clear();
+    }
+  }
+
+  /**
+   * Attempt to reconnect with capped exponential backoff.
+   * Retries indefinitely (no attempt limit) so 24/7 deployments
+   * recover automatically from arbitrarily long outages. The UI
+   * receives `disconnected` then `reconnecting` events; after
+   * RECONNECT_UI_GIVEUP_ATTEMPTS consecutive failures it also gets a
+   * one-shot `reconnect_exhausted` event so it can show a hard
+   * "connection lost" state and stop spinners — retrying continues.
+   */
+  attemptReconnect() {
+    if (this._closed) return;
+    if (this._reconnecting) return;
+
+    this._reconnecting = true;
+    this.reconnectAttempts++;
+
+    // Backoff exponentiel : 1s, 2s, 4s, 8s, 16s, 32s puis plafond 60s
+    const delay = Math.min(
+      this.reconnectBaseDelay * Math.pow(2, this.reconnectAttempts - 1),
+      this.reconnectMaxDelay
+    );
+
+    this.emit('reconnecting', { attempt: this.reconnectAttempts, delayMs: delay });
+
+    if (
+      this.reconnectAttempts >= RECONNECT_UI_GIVEUP_ATTEMPTS &&
+      !this._reconnectExhaustedEmitted
+    ) {
+      this._reconnectExhaustedEmitted = true;
+      this.emit('reconnect_exhausted', { attempts: this.reconnectAttempts });
     }
 
-    // ========================================================================
-    // FILE MANAGEMENT
-    // ========================================================================
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+    }
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      if (this._closed) return;
+      this.connect().catch((err) => {
+        if (this._closed) return;
+        console.warn(`Reconnect attempt ${this.reconnectAttempts} failed:`, err.message);
+        this._reconnecting = false;
+        this.attemptReconnect();
+      });
+    }, delay);
+  }
 
-    /**
-     * Upload a MIDI file to the backend over HTTP.
-     *
-     * Uploads no longer go through the WebSocket as base64; the backend
-     * exposes `POST /api/files` (raw binary body, ?filename + ?folder query
-     * params). Same-origin browser requests are accepted without a token —
-     * see HttpServer auth middleware.
-     *
-     * @param {File|Blob} file - File from an `<input type="file">`.
-     * @param {string} [folder='/'] - Target folder in the library.
-     * @returns {Promise<Object>} The full response body from the server,
-     *   shaped like FileManager.handleUpload's return value (fileId,
-     *   contentHash, status, channels, etc.).
-     */
-    async uploadMidiFile(file, folder = '/') {
-        const url = `/api/files?filename=${encodeURIComponent(file.name)}&folder=${encodeURIComponent(folder)}`;
-        const buffer = await file.arrayBuffer();
-        const resp = await fetch(url, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/octet-stream' },
-            body: buffer
-        });
-        const body = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-            const msg = body && body.error ? body.error : `Upload failed (HTTP ${resp.status})`;
-            throw new Error(msg);
+  /**
+   * Handle incoming message
+   */
+  handleMessage(message) {
+    // Handle command response
+    if (message.id && this.pendingRequests.has(message.id)) {
+      const pending = this.pendingRequests.get(message.id);
+      this.pendingRequests.delete(message.id);
+
+      if (message.error) {
+        // Propagate the structured error envelope (P1-3.4 audit recommendation):
+        // expose `code` and `command` so callers can switch on the error category
+        // (ERR_VALIDATION / ERR_NOT_FOUND / ERR_CONFIGURATION / ...).
+        const err = new Error(message.error);
+        if (message.code !== undefined) err.code = message.code;
+        if (message.command !== undefined) err.command = message.command;
+        pending.reject(err);
+      } else {
+        pending.resolve(message.data || message);
+      }
+      return;
+    }
+
+    // Handle event broadcasts
+    if (message.event) {
+      this.emit(message.event, message.data);
+    }
+  }
+
+  /**
+   * Register event handler
+   */
+  on(event, handler) {
+    if (!this.eventHandlers.has(event)) {
+      this.eventHandlers.set(event, []);
+    }
+    this.eventHandlers.get(event).push(handler);
+  }
+
+  /**
+   * Remove event handler
+   */
+  off(event, handler) {
+    if (!this.eventHandlers.has(event)) return;
+
+    const handlers = this.eventHandlers.get(event);
+    const index = handlers.indexOf(handler);
+    if (index > -1) {
+      handlers.splice(index, 1);
+    }
+  }
+
+  /**
+   * Emit event
+   */
+  emit(event, data) {
+    if (!this.eventHandlers.has(event)) return;
+
+    const handlers = this.eventHandlers.get(event);
+    handlers.forEach((handler) => {
+      try {
+        handler(data);
+      } catch (error) {
+        console.error(`Error in event handler for ${event}:`, error);
+      }
+    });
+  }
+
+  /**
+   * Check if connected
+   */
+  isConnected() {
+    return this.connected && this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Attend que la connexion soit etablie (utile pendant reconnexion)
+   * @param {number} timeout - Timeout en ms (defaut 5000)
+   * @returns {Promise<void>}
+   */
+  waitForConnection(timeout = 5000) {
+    if (this.isConnected()) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.off('connected', onConnected);
+        reject(new Error('WebSocket connection timeout'));
+      }, timeout);
+
+      const onConnected = () => {
+        clearTimeout(timer);
+        this.off('connected', onConnected);
+        resolve();
+      };
+
+      this.on('connected', onConnected);
+    });
+  }
+
+  /**
+   * Send command to backend
+   * Si deconnecte mais en cours de reconnexion, attend la reconnexion
+   */
+  async sendCommand(command, data = {}, timeout = 10000) {
+    // Si pas connecte, attendre la reconnexion (max 5s)
+    if (!this.isConnected()) {
+      if (this._reconnecting || this._connectionPromise) {
+        try {
+          await this.waitForConnection(5000);
+        } catch (e) {
+          throw new Error('WebSocket not connected');
         }
-        return body;
+      } else {
+        throw new Error('WebSocket not connected');
+      }
     }
 
-    /**
-     * Upload a custom SoundFont (.sf2) over HTTP. Reuses the existing
-     * `POST /api/sf2` endpoint (raw binary body, ?filename query param;
-     * RIFF/sfbk + size/quota validated server-side).
-     *
-     * @param {File|Blob} file - File from an `<input type="file">`.
-     * @returns {Promise<Object>} Response body, e.g.
-     *   `{ sf2Id, label, size, status }` ('created' | 'duplicate').
-     */
-    async uploadSf2File(file) {
-        const url = `/api/sf2?filename=${encodeURIComponent(file.name)}`;
-        const buffer = await file.arrayBuffer();
-        const resp = await fetch(url, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/octet-stream' },
-            body: buffer
-        });
-        const body = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-            const msg = body && body.error ? body.error : `Upload failed (HTTP ${resp.status})`;
-            throw new Error(msg);
+    return new Promise((resolve, reject) => {
+      const id = ++this.requestId;
+      const timeoutId = setTimeout(() => {
+        this.pendingRequests.delete(id);
+        reject(new Error(`Command timeout: ${command}`));
+      }, timeout);
+
+      this.pendingRequests.set(id, {
+        resolve: (response) => {
+          clearTimeout(timeoutId);
+          resolve(response);
+        },
+        reject: (error) => {
+          clearTimeout(timeoutId);
+          reject(error);
         }
-        return body;
+      });
+
+      // Verifier encore avant d'envoyer (la connexion a pu se fermer entre-temps)
+      if (!this.isConnected()) {
+        this.pendingRequests.delete(id);
+        clearTimeout(timeoutId);
+        reject(new Error('WebSocket disconnected before send'));
+        return;
+      }
+
+      try {
+        this.ws.send(
+          JSON.stringify({
+            id,
+            command,
+            data,
+            timestamp: Date.now()
+          })
+        );
+      } catch (sendError) {
+        this.pendingRequests.delete(id);
+        clearTimeout(timeoutId);
+        reject(new Error(`WebSocket send failed: ${sendError.message}`));
+      }
+    });
+  }
+
+  /**
+   * Close connection permanently. Stops any pending reconnect and
+   * prevents future ones until a new client is constructed.
+   */
+  close() {
+    this._closed = true;
+    this._reconnecting = false;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
     }
-
-    /**
-     * List MIDI files
-     */
-    async listMidiFiles(folder = '/') {
-        const result = await this.sendCommand('file_list', { folder });
-        return result.files || result || [];
+    this._rejectPendingRequests('Connection closed');
+    this.eventHandlers.clear();
+    if (this.ws) {
+      this.ws.onclose = null; // Eviter le cycle reconnexion
+      this.ws.close();
+      this.ws = null;
     }
+    this.connected = false;
+  }
 
-    /**
-     * Delete MIDI file
-     */
-    async deleteMidiFile(fileId) {
-        return this.sendCommand('file_delete', { fileId });
+  // ========================================================================
+  // FILE MANAGEMENT
+  // ========================================================================
+
+  /**
+   * POST a file's raw bytes to `url` (octet-stream, same-origin) and
+   * return the parsed JSON body, throwing the server error on !ok.
+   * Shared by uploadMidiFile / uploadSf2File.
+   * @private
+   */
+  async _uploadBinary(url, file) {
+    const buffer = await file.arrayBuffer();
+    const resp = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: buffer
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      throw new Error(body && body.error ? body.error : `Upload failed (HTTP ${resp.status})`);
     }
+    return body;
+  }
 
-    /**
-     * Read MIDI file content
-     * @param {string} fileId - File ID or filename
-     * @returns {Promise<Object>} MIDI file data
-     */
-    async readMidiFile(fileId) {
-        return this.sendCommand('file_read', { fileId });
-    }
+  /**
+   * Upload a MIDI file to the backend over HTTP.
+   *
+   * Uploads no longer go through the WebSocket as base64; the backend
+   * exposes `POST /api/files` (raw binary body, ?filename + ?folder query
+   * params). Same-origin browser requests are accepted without a token —
+   * see HttpServer auth middleware.
+   *
+   * @param {File|Blob} file - File from an `<input type="file">`.
+   * @param {string} [folder='/'] - Target folder in the library.
+   * @returns {Promise<Object>} The full response body from the server,
+   *   shaped like FileManager.handleUpload's return value (fileId,
+   *   contentHash, status, channels, etc.).
+   */
+  async uploadMidiFile(file, folder = '/') {
+    const url = `/api/files?filename=${encodeURIComponent(file.name)}&folder=${encodeURIComponent(folder)}`;
+    return this._uploadBinary(url, file);
+  }
 
-    /**
-     * Write/Save MIDI file content
-     * @param {string} fileId - File ID or filename
-     * @param {Object} midiData - MIDI data to write
-     * @returns {Promise<Object>} Response
-     */
-    async writeMidiFile(fileId, midiData) {
-        return this.sendCommand('file_write', {
-            fileId,
-            midiData
-        });
-    }
+  /**
+   * Upload a custom SoundFont (.sf2) over HTTP. Reuses the existing
+   * `POST /api/sf2` endpoint (raw binary body, ?filename query param;
+   * RIFF/sfbk + size/quota validated server-side).
+   *
+   * @param {File|Blob} file - File from an `<input type="file">`.
+   * @returns {Promise<Object>} Response body, e.g.
+   *   `{ sf2Id, label, size, status }` ('created' | 'duplicate').
+   */
+  async uploadSf2File(file) {
+    const url = `/api/sf2?filename=${encodeURIComponent(file.name)}`;
+    return this._uploadBinary(url, file);
+  }
 
-    // ========================================================================
-    // DEVICES
-    // ========================================================================
+  /**
+   * List MIDI files
+   */
+  async listMidiFiles(folder = '/') {
+    const result = await this.sendCommand('file_list', { folder });
+    return result.files || result || [];
+  }
 
-    /**
-     * List all MIDI devices
-     */
-    async listDevices() {
-        const result = await this.sendCommand('device_list');
-        return result.devices || result || [];
-    }
+  /**
+   * Delete MIDI file
+   */
+  async deleteMidiFile(fileId) {
+    return this.sendCommand('file_delete', { fileId });
+  }
 
-    /**
-     * Refresh device list
-     */
-    async refreshDevices() {
-        return this.sendCommand('device_refresh');
-    }
+  /**
+   * Read MIDI file content
+   * @param {string} fileId - File ID or filename
+   * @returns {Promise<Object>} MIDI file data
+   */
+  async readMidiFile(fileId) {
+    return this.sendCommand('file_read', { fileId });
+  }
 
-    // ========================================================================
-    // MIDI MESSAGES
-    // ========================================================================
+  /**
+   * Write/Save MIDI file content
+   * @param {string} fileId - File ID or filename
+   * @param {Object} midiData - MIDI data to write
+   * @returns {Promise<Object>} Response
+   */
+  async writeMidiFile(fileId, midiData) {
+    return this.sendCommand('file_write', {
+      fileId,
+      midiData
+    });
+  }
 
-    /**
-     * Send MIDI Note On message
-     * @param {string} deviceId - Target device ID
-     * @param {number} note - MIDI note number (0-127)
-     * @param {number} velocity - Note velocity (1-127)
-     * @param {number} channel - MIDI channel (0-15, maps to 1-16)
-     */
-    async sendNoteOn(deviceId, note, velocity, channel = 0) {
-        // Utiliser la commande backend 'midi_send_note'
-        return this.sendCommand('midi_send_note', {
-            deviceId: deviceId,
-            channel: channel,
-            note: note,
-            velocity: velocity
-        });
-    }
+  // ========================================================================
+  // DEVICES
+  // ========================================================================
 
-    /**
-     * Send MIDI Note Off message
-     * @param {string} deviceId - Target device ID
-     * @param {number} note - MIDI note number (0-127)
-     * @param {number} channel - MIDI channel (0-15, maps to 1-16)
-     */
-    async sendNoteOff(deviceId, note, channel = 0) {
-        // Note OFF = Note ON avec velocity 0
-        return this.sendCommand('midi_send_note', {
-            deviceId: deviceId,
-            channel: channel,
-            note: note,
-            velocity: 0
-        });
-    }
+  /**
+   * List all MIDI devices
+   */
+  async listDevices() {
+    const result = await this.sendCommand('device_list');
+    return result.devices || result || [];
+  }
 
-    // ========================================================================
-    // PLAYBACK
-    // ========================================================================
+  /**
+   * Refresh device list
+   */
+  async refreshDevices() {
+    return this.sendCommand('device_refresh');
+  }
 
-    /**
-     * Start playback
-     */
-    async startPlayback(fileId, options = {}) {
-        return this.sendCommand('playback_start', {
-            fileId,
-            loop: options.loop || false,
-            tempo: options.tempo || 120,
-            transpose: options.transpose || 0
-        });
-    }
+  // ========================================================================
+  // MIDI MESSAGES
+  // ========================================================================
 
-    /**
-     * Stop playback
-     */
-    async stopPlayback() {
-        return this.sendCommand('playback_stop');
-    }
+  /**
+   * Send MIDI Note On message
+   * @param {string} deviceId - Target device ID
+   * @param {number} note - MIDI note number (0-127)
+   * @param {number} velocity - Note velocity (1-127)
+   * @param {number} channel - MIDI channel (0-15, maps to 1-16)
+   */
+  async sendNoteOn(deviceId, note, velocity, channel = 0) {
+    // Utiliser la commande backend 'midi_send_note'
+    return this.sendCommand('midi_send_note', {
+      deviceId: deviceId,
+      channel: channel,
+      note: note,
+      velocity: velocity
+    });
+  }
 
-    /**
-     * Pause playback
-     */
-    async pausePlayback() {
-        return this.sendCommand('playback_pause');
-    }
+  /**
+   * Send MIDI Note Off message
+   * @param {string} deviceId - Target device ID
+   * @param {number} note - MIDI note number (0-127)
+   * @param {number} channel - MIDI channel (0-15, maps to 1-16)
+   */
+  async sendNoteOff(deviceId, note, channel = 0) {
+    // Note OFF = Note ON avec velocity 0
+    return this.sendCommand('midi_send_note', {
+      deviceId: deviceId,
+      channel: channel,
+      note: note,
+      velocity: 0
+    });
+  }
 
-    /**
-     * Resume playback
-     */
-    async resumePlayback() {
-        return this.sendCommand('playback_resume');
-    }
+  // ========================================================================
+  // PLAYBACK
+  // ========================================================================
 
-    // ========================================================================
-    // UTILITIES
-    // ========================================================================
+  /**
+   * Start playback
+   */
+  async startPlayback(fileId, options = {}) {
+    return this.sendCommand('playback_start', {
+      fileId,
+      loop: options.loop || false,
+      tempo: options.tempo || 120,
+      transpose: options.transpose || 0
+    });
+  }
 
+  /**
+   * Stop playback
+   */
+  async stopPlayback() {
+    return this.sendCommand('playback_stop');
+  }
+
+  /**
+   * Pause playback
+   */
+  async pausePlayback() {
+    return this.sendCommand('playback_pause');
+  }
+
+  /**
+   * Resume playback
+   */
+  async resumePlayback() {
+    return this.sendCommand('playback_resume');
+  }
+
+  // ========================================================================
+  // UTILITIES
+  // ========================================================================
 }
 
 // Export
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = BackendAPIClient;
+  module.exports = BackendAPIClient;
 }
 if (typeof window !== 'undefined') {
-    window.BackendAPIClient = BackendAPIClient;
+  window.BackendAPIClient = BackendAPIClient;
 }
