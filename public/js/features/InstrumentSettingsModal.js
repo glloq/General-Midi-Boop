@@ -66,6 +66,8 @@ class InstrumentSettingsModal extends BaseModal {
         { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes & Capacités' },
         // keyboardsOnly: opt-in, shown only for keyboards/strings with the hands toggle on
         { id: 'hands',    icon: '🫱', labelKey: 'instrumentSettings.sectionHands',    fallback: 'Mains', keyboardsOnly: true },
+        // showWhen: opt-in, shown only when the lighting toggle (Notes & Capacités) is on
+        { id: 'lumiere',  icon: '💡', labelKey: 'instrumentSettings.sectionLumiere',  fallback: 'Lumière', showWhen: '_shouldShowLumiereSection' },
         { id: 'advanced', icon: '⚙️', labelKey: 'instrumentSettings.sectionAdvanced', fallback: 'Avancé' }
     ];
 
@@ -290,7 +292,7 @@ class InstrumentSettingsModal extends BaseModal {
 
     // ========== PUBLIC API ==========
 
-    async show(device) {
+    async show(device, opts = {}) {
         this.device = device;
         this.isCreationMode = false;
         try {
@@ -324,7 +326,18 @@ class InstrumentSettingsModal extends BaseModal {
             this.instrumentTabs.sort((a, b) => a.channel - b.channel);
             const requestedTab = this.instrumentTabs.find(t => t.channel === instrumentChannel);
             this.activeChannel = requestedTab ? instrumentChannel : this.instrumentTabs[0].channel;
+            // Allow callers (e.g. the lighting modal's per-instrument tab) to
+            // deep-link straight to a section. Falls back to identity if the
+            // requested section is unknown or its showWhen predicate fails.
             this.activeSection = 'identity';
+            if (opts && opts.section) {
+                const sec = InstrumentSettingsModal.SECTIONS.find(s => s.id === opts.section);
+                const tab = this.instrumentTabs.find(t => t.channel === this.activeChannel);
+                const visible = sec && (!sec.showWhen
+                    || (typeof window.ISMSections?.[sec.showWhen] === 'function'
+                        && window.ISMSections[sec.showWhen](tab)));
+                if (visible) this.activeSection = opts.section;
+            }
 
             this._syncGlobalState();
 

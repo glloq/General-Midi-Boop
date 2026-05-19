@@ -410,7 +410,8 @@ class InstrumentCapabilitiesDB {
           sysex_manufacturer_id, sysex_family, sysex_model, sysex_version,
           instrument_type, instrument_subtype,
           min_note_interval, min_note_duration, hands_config,
-          bagpipe_config, accordion_config, harmonica_config
+          bagpipe_config, accordion_config, harmonica_config,
+          lighting_enabled
         FROM instruments_latency
         ORDER BY name, custom_name
       `);
@@ -467,6 +468,8 @@ class InstrumentCapabilitiesDB {
           // Timing constraints
           min_note_interval: result.min_note_interval || null,
           min_note_duration: result.min_note_duration || null,
+          // Per-instrument lighting control toggle
+          lighting_enabled: result.lighting_enabled === 1,
           // Hand-position control (optional, piano/strings)
           hands_config: handsConfig,
           bagpipe_config: parseJsonCol(result.bagpipe_config),

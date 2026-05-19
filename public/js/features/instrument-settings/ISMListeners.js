@@ -868,6 +868,7 @@
         this._wireApplyRecommendedCCs();
         this._wireActiveCCTagRemoval();
         this._wireHandsMovementToggle();
+        this._wireLightingEnabledToggle();
         this._wirePianoNotationToggle();
         // Bagpipe / accordion are conditional subsections of Notes &
         // Capacités, so their listeners wire here (not via a section switch).
@@ -933,6 +934,291 @@
                 self._refreshHandsSectionForProgram();
             }
         });
+    };
+
+    /**
+     * Persist the "Contrôle lumière" toggle on the active tab (stored as
+     * 0/1 like omni_mode) and rebuild the sidebar / Lumière section in place
+     * so the tab appears or disappears immediately.
+     */
+    ISMListeners._wireLightingEnabledToggle = function() {
+        const cb = this.$('#lightingEnabled');
+        if (!cb) return;
+        const self = this;
+        cb.addEventListener('change', function() {
+            const tab = self._getActiveTab();
+            if (!tab) return;
+            tab.settings.lighting_enabled = cb.checked ? 1 : 0;
+            self._refreshLumiereSectionVisibility();
+        });
+    };
+
+    /**
+     * Mirror of _refreshHandsSectionForProgram for the Lumière section:
+     * re-render the sidebar in place (re-binding nav clicks) and add/remove
+     * the Lumière section body to match the toggle.
+     */
+    ISMListeners._refreshLumiereSectionVisibility = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return;
+        const show = typeof window.ISMSections?._shouldShowLumiereSection === 'function'
+            && window.ISMSections._shouldShowLumiereSection(tab);
+
+        const sidebar = this.$('.ism-sidebar');
+        if (sidebar && typeof this._renderSidebar === 'function') {
+            sidebar.outerHTML = this._renderSidebar();
+            const self = this;
+            this.$$('.ism-nav-item').forEach(function(btn) {
+                btn.addEventListener('click', function() { self._switchSection(btn.dataset.section); });
+            });
+        }
+
+        const existing = this.$('.ism-section[data-section="lumiere"]');
+        if (show) {
+            if (!existing) {
+                const anchor = this.$('.ism-section[data-section="advanced"]')
+                    || this.$('.ism-section[data-section="notes"]');
+                if (anchor && anchor.parentNode) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'ism-section';
+                    wrapper.setAttribute('data-section', 'lumiere');
+                    wrapper.setAttribute('data-lazy', 'true');
+                    anchor.parentNode.insertBefore(wrapper, anchor);
+                }
+            }
+        } else if (existing) {
+            existing.remove();
+            if (this.activeSection === 'lumiere' && typeof this._switchSection === 'function') {
+                this._switchSection('notes');
+            }
+        }
+    };
+
+    // ========== Lumière section (per-instrument lighting rules) ==========
+
+    ISMListeners._attachLumiereSectionListeners = function() {
+        // Null-safe: no-op until the (lazy / conditional) section is rendered.
+        // Called from both _attachListeners (deep-link / full re-render) and
+        // the navigation listenerMap (first lazy open).
+        if (!this.$('#lumiereRulesList')) return;
+        const self = this;
+        this._lumiereState = { devices: [], rules: [], editingId: null };
+
+        const trigSel = this.$('#lumiereTrigger');
+        if (trigSel) trigSel.addEventListener('change', function() { self._lumiereSyncFormRows(); });
+        const actSel = this.$('#lumiereActionType');
+        if (actSel) actSel.addEventListener('change', function() { self._lumiereSyncFormRows(); });
+
+        const addBtn = this.$('#lumiereAddRuleBtn');
+        if (addBtn) addBtn.addEventListener('click', function() { self._lumiereShowForm(null); });
+        const cancelBtn = this.$('#lumiereCancelRuleBtn');
+        if (cancelBtn) cancelBtn.addEventListener('click', function() { self._lumiereHideForm(); });
+        const saveBtn = this.$('#lumiereSaveRuleBtn');
+        if (saveBtn) saveBtn.addEventListener('click', function() { self._lumiereSaveRule(); });
+
+        const devSel = this.$('#lumiereDeviceSelect');
+        if (devSel) devSel.addEventListener('change', function() {
+            self._lumiereState.deviceId = devSel.value ? parseInt(devSel.value) : null;
+        });
+
+        this._lumiereReload();
+    };
+
+    ISMListeners._lumiereReload = async function() {
+        const self = this;
+        const instrumentId = window.ISMSections?._lumiereInstrumentId?.call(this);
+        try {
+            const [devResp, ruleResp] = await Promise.all([
+                this.api.sendCommand('lighting_device_list').catch(() => null),
+                this.api.sendCommand('lighting_rule_list').catch(() => null),
+            ]);
+            const devices = (devResp && Array.isArray(devResp.devices)) ? devResp.devices : [];
+            const allRules = (ruleResp && Array.isArray(ruleResp.rules)) ? ruleResp.rules : [];
+            const rules = allRules.filter(function(r) { return r.instrument_id === instrumentId; });
+            this._lumiereState.devices = devices;
+            this._lumiereState.rules = rules;
+            if (!this._lumiereState.deviceId && devices.length) {
+                this._lumiereState.deviceId = devices[0].id;
+            }
+
+            const devSel = this.$('#lumiereDeviceSelect');
+            if (devSel) {
+                if (!devices.length) {
+                    devSel.innerHTML = `<option value="">${this.t('instrumentSettings.lumiereNoDevice') || 'Aucun dispositif lumière — ajoutez-en un dans le modal Lumière'}</option>`;
+                } else {
+                    devSel.innerHTML = devices.map(function(d) {
+                        const sel = d.id === self._lumiereState.deviceId ? ' selected' : '';
+                        return `<option value="${d.id}"${sel}>${self.escape(d.name || ('Device ' + d.id))}${d.led_count ? ' (' + d.led_count + ' LED)' : ''}</option>`;
+                    }).join('');
+                }
+            }
+            this._lumiereRenderRules();
+        } catch (e) {
+            const list = this.$('#lumiereRulesList');
+            if (list) list.innerHTML = `<p class="ism-form-hint">${this.escape(e.message || 'Erreur')}</p>`;
+        }
+    };
+
+    ISMListeners._lumiereRenderRules = function() {
+        const list = this.$('#lumiereRulesList');
+        if (!list) return;
+        list.innerHTML = window.ISMSections._renderLumiereRulesList.call(this, this._lumiereState.rules);
+        const self = this;
+        this.$$('.lumiere-edit-rule').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const id = parseInt(btn.dataset.ruleId);
+                const rule = self._lumiereState.rules.find(function(r) { return r.id === id; });
+                if (rule) self._lumiereShowForm(rule);
+            });
+        });
+        this.$$('.lumiere-del-rule').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                self._lumiereDeleteRule(parseInt(btn.dataset.ruleId));
+            });
+        });
+    };
+
+    ISMListeners._lumiereSyncFormRows = function() {
+        const trig = this.$('#lumiereTrigger')?.value || 'noteon';
+        const act = this.$('#lumiereActionType')?.value || 'static';
+        const noteRow = this.$('#lumiereNoteRow');
+        const ccRow = this.$('#lumiereCcRow');
+        if (noteRow) noteRow.style.display = (trig === 'cc') ? 'none' : 'flex';
+        if (ccRow) ccRow.style.display = (trig === 'cc') ? 'flex' : 'none';
+        // Effect types are timed by the EffectsEngine; colour-less effects
+        // (rainbow) still accept a base colour so keep the picker visible.
+        const speedWrap = this.$('#lumiereSpeedWrap');
+        if (speedWrap) {
+            const label = speedWrap.querySelector('label');
+            if (label) {
+                label.textContent = window.ISMSections._lumiereIsEffectType(act)
+                    ? (this.t('instrumentSettings.lumiereSpeedEffect') || 'Vitesse effet (ms)')
+                    : (this.t('instrumentSettings.lumiereSpeed') || 'Fondu (ms)');
+            }
+        }
+    };
+
+    ISMListeners._lumiereShowForm = function(rule) {
+        const sub = this.$('#lumiereFormSubsection');
+        if (!sub) return;
+        sub.style.display = '';
+        const title = this.$('#lumiereFormTitle');
+        if (title) title.textContent = rule
+            ? ('✏️ ' + (this.t('instrumentSettings.lumiereEditRule') || 'Modifier la règle'))
+            : ('➕ ' + (this.t('instrumentSettings.lumiereAddRule') || 'Ajouter une règle'));
+
+        const cond = rule?.condition_config || {};
+        const act = rule?.action_config || {};
+        const set = (id, val) => { const el = this.$('#' + id); if (el) el.value = val; };
+        const setChk = (id, val) => { const el = this.$('#' + id); if (el) el.checked = !!val; };
+
+        this.$('#lumiereRuleId').value = rule?.id != null ? rule.id : '';
+        set('lumiereRuleName', rule?.name || '');
+        set('lumiereTrigger', cond.trigger || 'noteon');
+        setChk('lumiereAllChannels', !(cond.channels && cond.channels.length));
+        set('lumiereNoteMin', cond.note_min != null ? cond.note_min : 0);
+        set('lumiereNoteMax', cond.note_max != null ? cond.note_max : 127);
+        set('lumiereVelMin', cond.velocity_min != null ? cond.velocity_min : 1);
+        set('lumiereVelMax', cond.velocity_max != null ? cond.velocity_max : 127);
+        set('lumiereCcNum', Array.isArray(cond.cc_number) ? cond.cc_number.join(', ') : '');
+        set('lumiereCcMin', cond.cc_value_min != null ? cond.cc_value_min : 0);
+        set('lumiereCcMax', cond.cc_value_max != null ? cond.cc_value_max : 127);
+        set('lumiereActionType', act.type || 'static');
+        set('lumiereColor', act.color || '#FF0000');
+        set('lumiereBrightness', act.brightness != null ? act.brightness : 255);
+        set('lumiereSpeed', act.effect_speed || act.fade_time_ms || 500);
+        set('lumiereOffAction', act.off_action || 'off');
+
+        this._lumiereSyncFormRows();
+        sub.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    ISMListeners._lumiereHideForm = function() {
+        const sub = this.$('#lumiereFormSubsection');
+        if (sub) sub.style.display = 'none';
+    };
+
+    ISMListeners._lumiereSaveRule = async function() {
+        const deviceId = this._lumiereState.deviceId;
+        if (!deviceId) {
+            window.showToast?.(this.t('instrumentSettings.lumiereNoDevice') || 'Aucun dispositif lumière disponible', 'warning');
+            return;
+        }
+        const instrumentId = window.ISMSections._lumiereInstrumentId.call(this);
+        const tab = this._getActiveTab();
+        const clamp = (id, lo, hi, dflt) => {
+            const n = parseInt(this.$('#' + id)?.value);
+            if (isNaN(n)) return dflt;
+            return Math.max(lo, Math.min(hi, n));
+        };
+        const trigger = this.$('#lumiereTrigger').value;
+        const allCh = this.$('#lumiereAllChannels').checked;
+        const ccNumbers = (this.$('#lumiereCcNum').value || '')
+            .split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+
+        const condition_config = {
+            trigger,
+            channels: allCh ? null : [tab.channel],
+            velocity_min: clamp('lumiereVelMin', 0, 127, 0),
+            velocity_max: clamp('lumiereVelMax', 0, 127, 127),
+            note_min: clamp('lumiereNoteMin', 0, 127, 0),
+            note_max: clamp('lumiereNoteMax', 0, 127, 127),
+            cc_number: ccNumbers.length ? ccNumbers : null,
+            cc_value_min: clamp('lumiereCcMin', 0, 127, 0),
+            cc_value_max: clamp('lumiereCcMax', 0, 127, 127)
+        };
+        if (condition_config.velocity_min > condition_config.velocity_max
+            || condition_config.note_min > condition_config.note_max) {
+            window.showToast?.(this.t('instrumentSettings.lumiereRangeError') || 'Min doit être ≤ Max', 'warning');
+            return;
+        }
+
+        const actionType = this.$('#lumiereActionType').value;
+        const speed = clamp('lumiereSpeed', 20, 10000, 500);
+        const action_config = {
+            type: actionType,
+            color: this.$('#lumiereColor').value,
+            brightness: clamp('lumiereBrightness', 0, 255, 255),
+            led_start: 0,
+            off_action: this.$('#lumiereOffAction').value
+        };
+        const dev = this._lumiereState.devices.find(d => d.id === deviceId);
+        if (dev && dev.led_count) action_config.led_end = Math.max(0, dev.led_count - 1);
+        if (window.ISMSections._lumiereIsEffectType(actionType)) {
+            action_config.effect_speed = speed;
+        } else {
+            action_config.fade_time_ms = Math.min(5000, speed);
+        }
+
+        const name = this.$('#lumiereRuleName').value || '';
+        const existingId = this.$('#lumiereRuleId').value;
+        try {
+            if (existingId) {
+                await this.api.sendCommand('lighting_rule_update', {
+                    id: parseInt(existingId), name, instrument_id: instrumentId,
+                    condition_config, action_config
+                });
+            } else {
+                await this.api.sendCommand('lighting_rule_add', {
+                    device_id: deviceId, name, instrument_id: instrumentId,
+                    condition_config, action_config
+                });
+            }
+            window.showToast?.(this.t('common.saved') || 'Enregistré', 'success');
+            this._lumiereHideForm();
+            await this._lumiereReload();
+        } catch (e) {
+            window.showToast?.(e.message || 'Erreur', 'error');
+        }
+    };
+
+    ISMListeners._lumiereDeleteRule = async function(id) {
+        try {
+            await this.api.sendCommand('lighting_rule_delete', { id });
+            await this._lumiereReload();
+        } catch (e) {
+            window.showToast?.(e.message || 'Erreur', 'error');
+        }
     };
 
     // ===== Grouped CC picker (accordion + active-CC tags + recommended) =====
@@ -1497,6 +1783,7 @@
         this._attachIdentitySectionListeners();
         this._attachNotesSectionListeners();   // also wires the bagpipe subsection
         this._attachHandsSectionListeners();
+        this._attachLumiereSectionListeners();
         this._attachAdvancedSectionListeners();
 
         // Measure delay button — hidden by default, revealed only if an audio input is detected

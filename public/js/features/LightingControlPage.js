@@ -21,6 +21,7 @@ class LightingControlPage {
     this.presets = [];
     this.selectedDeviceId = null;
     this.mobilePanelView = 'devices'; // 'devices' or 'rules'
+    this.activeTab = 'direct'; // 'direct' or 'instruments'
     this.lightingEnabled = true;
   }
 
@@ -107,12 +108,6 @@ class LightingControlPage {
       this._resizeObserver = null;
     }
 
-    // Cleanup keyboard handler
-    if (this._escHandler) {
-      document.removeEventListener('keydown', this._escHandler);
-      this._escHandler = null;
-    }
-
     // Remove any open sub-panels
     ['lightingDeviceForm', 'lightingRuleForm', 'lightingPresetsPanel',
      'lightingEffectsPanel', 'lightingGroupsPanel', 'lightingScanPanel',
@@ -145,85 +140,97 @@ class LightingControlPage {
       <div class="lighting-modal-overlay">
         <div class="lighting-modal-container">
 
-          <!-- Header -->
+          <!-- Header: title + single master on/off + close -->
           <div class="lighting-modal-header">
             <div class="lighting-header-row">
               <h2>💡 ${i18n.t('lighting.title') || 'Contrôle Lumière'}</h2>
               <div class="lighting-header-actions">
-                <button id="lightingSystemToggleBtn" class="lighting-header-btn lighting-header-btn--toggle lighting-header-btn--toggle-on" data-action="toggleLightingEnabled" title="${i18n.t('lighting.toggleSystem') || 'Activer/Désactiver la gestion des lumières'}">✅ ${i18n.t('lighting.systemOn') || 'Actif'}</button>
-                <button class="lighting-header-btn" data-action="showEffectsPanel">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
-                <button class="lighting-header-btn" data-action="showGroupsPanel">🔗 ${i18n.t('lighting.groups') || 'Groupes'}</button>
-                <button class="lighting-header-btn" data-action="showPresetsPanel">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
-                <button class="lighting-header-btn lighting-header-btn--danger" data-action="blackout">🚫 Blackout</button>
-                <button class="lighting-header-btn" data-action="allOff">⏹ ${i18n.t('lighting.allOff') || 'Tout éteindre'}</button>
+                <button id="lightingSystemToggleBtn" class="lighting-header-btn lighting-header-btn--toggle lighting-header-btn--toggle-on" data-action="toggleLightingEnabled" title="${i18n.t('lighting.masterToggleHint') || 'Allumer / éteindre toutes les lumières'}">💡 ${i18n.t('lighting.lightsOn') || 'Lumières ON'}</button>
                 <button class="lighting-header-close" data-action="close">×</button>
               </div>
             </div>
-            <!-- Mobile tab bar -->
+            <!-- Top-level tabs -->
+            <div class="lighting-tabs">
+              <button id="lightingMainTabDirect" class="lighting-tab lighting-tab--active" data-action="switchTab" data-tab="direct">🛠 ${i18n.t('lighting.tabDirect') || 'Contrôle direct (Raspberry)'}</button>
+              <button id="lightingMainTabInstruments" class="lighting-tab" data-action="switchTab" data-tab="instruments">🎹 ${i18n.t('lighting.tabPerInstrument') || 'Par instrument'}</button>
+            </div>
+          </div>
+
+          <!-- ===== Tab: Direct control from the Raspberry ===== -->
+          <div id="lightingTabPanelDirect" class="lighting-tab-panel">
+
+            <!-- Manual controls toolbar -->
+            <div class="lighting-controls-bar">
+              <button class="lighting-header-btn" data-action="showEffectsPanel">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
+              <button class="lighting-header-btn" data-action="showGroupsPanel">🔗 ${i18n.t('lighting.groups') || 'Groupes'}</button>
+              <button class="lighting-header-btn" data-action="showPresetsPanel">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
+              <button class="lighting-header-btn lighting-header-btn--danger" data-action="blackout">🚫 Blackout</button>
+              <button class="lighting-header-btn" data-action="allOff">⏹ ${i18n.t('lighting.allOff') || 'Tout éteindre'}</button>
+            </div>
+
+            <!-- Master Dimmer Bar -->
+            <div class="lighting-dimmer-bar">
+              <span class="lighting-dimmer-label">🔆 Master</span>
+              <input id="lightingMasterDimmer" type="range" min="0" max="255" value="255" data-action="masterDimmer">
+              <span id="lightingMasterDimmerVal" class="lighting-dimmer-val">100%</span>
+            </div>
+
+            <!-- Mobile sub-tab bar (device / rules) -->
             <div id="lightingMobileTabs" class="lighting-mobile-tabs">
               <button id="lightingTabDevices" class="lighting-mobile-tab lighting-mobile-tab--active" data-action="showMobilePanel" data-panel="devices">📋 Dispositifs</button>
               <button id="lightingTabRules" class="lighting-mobile-tab" data-action="showMobilePanel" data-panel="rules">📐 Règles</button>
             </div>
-          </div>
 
-          <!-- Keyboard Shortcuts Bar -->
-          <div class="lighting-shortcuts-bar">
-            <span>⌨️ Raccourcis:</span>
-            <span><kbd>Espace</kbd> Blackout</span>
-            <span><kbd>O</kbd> All Off</span>
-            <span><kbd>T</kbd> Test</span>
-            <span><kbd>Esc</kbd> Fermer</span>
-          </div>
+            <!-- Body: two-panel layout -->
+            <div id="lightingBody" class="lighting-body">
 
-          <!-- Master Dimmer Bar -->
-          <div class="lighting-dimmer-bar">
-            <span class="lighting-dimmer-label">🔆 Master</span>
-            <input id="lightingMasterDimmer" type="range" min="0" max="255" value="255" data-action="masterDimmer">
-            <span id="lightingMasterDimmerVal" class="lighting-dimmer-val">100%</span>
-          </div>
-
-          <!-- Body: two-panel layout -->
-          <div id="lightingBody" class="lighting-body">
-
-            <!-- Left panel: Device list -->
-            <div id="lightingDevicePanel" class="lighting-device-panel">
-              <div class="lighting-device-panel-header">
-                <span class="lighting-device-panel-title">📋 ${i18n.t('lighting.devices') || 'Dispositifs'}</span>
-                <button class="lighting-btn--scan" data-action="scanDevices" title="Scanner le réseau">🔍</button>
-                <button class="lighting-btn--outline lighting-btn--outline-yellow" data-action="showAddDeviceForm" style="padding:4px 10px;font-size:12px;">+ ${i18n.t('lighting.addDevice') || 'Ajouter'}</button>
+              <!-- Left panel: Device list -->
+              <div id="lightingDevicePanel" class="lighting-device-panel">
+                <div class="lighting-device-panel-header">
+                  <span class="lighting-device-panel-title">📋 ${i18n.t('lighting.devices') || 'Dispositifs'}</span>
+                  <button class="lighting-btn--scan" data-action="scanDevices" title="Scanner le réseau">🔍</button>
+                  <button class="lighting-btn--outline lighting-btn--outline-yellow" data-action="showAddDeviceForm" style="padding:4px 10px;font-size:12px;">+ ${i18n.t('lighting.addDevice') || 'Ajouter'}</button>
+                </div>
+                <div id="lightingDeviceList" class="lighting-device-list">
+                  <div class="lighting-empty-state">Chargement...</div>
+                </div>
               </div>
-              <div id="lightingDeviceList" class="lighting-device-list">
-                <div class="lighting-empty-state">Chargement...</div>
+
+              <!-- Right panel: Rules for selected device -->
+              <div id="lightingRulesPanel" class="lighting-rules-panel">
+                <div id="lightingRulesHeader" class="lighting-rules-header">
+                  <span class="lighting-rules-title" id="lightingRulesTitle">📐 ${i18n.t('lighting.selectDevice') || 'Sélectionnez un dispositif'}</span>
+                  <div id="lightingRulesActions" class="lighting-rules-actions">
+                    <button data-action="reconnectDevice" id="lightingReconnectBtn" class="lighting-btn--outline lighting-btn--outline-yellow" style="display:none;">🔄 ${i18n.t('lighting.reconnect') || 'Reconnecter'}</button>
+                    <button data-action="showEditDeviceForm" class="lighting-btn--outline lighting-btn--outline-purple">✏️ Modifier</button>
+                    <button data-action="testDevice" class="lighting-btn--outline lighting-btn--outline-blue">🔦 ${i18n.t('lighting.testDevice') || 'Tester'}</button>
+                    <button data-action="batchToggleRules" data-enabled="true" class="lighting-btn--mini" title="${i18n.t('lighting.enableAll') || 'Tout activer'}">✅All</button>
+                    <button data-action="batchToggleRules" data-enabled="false" class="lighting-btn--mini" title="${i18n.t('lighting.disableAll') || 'Tout désactiver'}">⬜All</button>
+                    <button data-action="showAddRuleForm" class="lighting-btn--outline lighting-btn--outline-green">+ ${i18n.t('lighting.addRule') || 'Règle'}</button>
+                  </div>
+                </div>
+                <!-- LED Preview Strip -->
+                <div id="lightingLedPreview" class="lighting-led-preview">
+                  <div class="lighting-led-preview-header">
+                    <span class="lighting-led-preview-label">LED Preview</span>
+                    <button data-action="_testPreviewRainbow" class="lighting-btn--mini">🌈 Test</button>
+                    <button data-action="_clearPreview" class="lighting-btn--mini">⬛ Clear</button>
+                  </div>
+                  <div id="lightingLedStripViz" class="lighting-led-strip-viz"></div>
+                </div>
+                <div id="lightingRulesList" class="lighting-rules-list">
+                  <div class="lighting-empty-state" style="padding:40px;font-size:13px;">
+                    ← ${i18n.t('lighting.selectDeviceHint') || 'Sélectionnez un dispositif pour voir ses règles'}
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
 
-            <!-- Right panel: Rules for selected device -->
-            <div id="lightingRulesPanel" class="lighting-rules-panel">
-              <div id="lightingRulesHeader" class="lighting-rules-header">
-                <span class="lighting-rules-title" id="lightingRulesTitle">📐 ${i18n.t('lighting.selectDevice') || 'Sélectionnez un dispositif'}</span>
-                <div id="lightingRulesActions" class="lighting-rules-actions">
-                  <button data-action="reconnectDevice" id="lightingReconnectBtn" class="lighting-btn--outline lighting-btn--outline-yellow" style="display:none;">🔄 ${i18n.t('lighting.reconnect') || 'Reconnecter'}</button>
-                  <button data-action="showEditDeviceForm" class="lighting-btn--outline lighting-btn--outline-purple">✏️ Modifier</button>
-                  <button data-action="testDevice" class="lighting-btn--outline lighting-btn--outline-blue">🔦 ${i18n.t('lighting.testDevice') || 'Tester'}</button>
-                  <button data-action="batchToggleRules" data-enabled="true" class="lighting-btn--mini" title="${i18n.t('lighting.enableAll') || 'Tout activer'}">✅All</button>
-                  <button data-action="batchToggleRules" data-enabled="false" class="lighting-btn--mini" title="${i18n.t('lighting.disableAll') || 'Tout désactiver'}">⬜All</button>
-                  <button data-action="showAddRuleForm" class="lighting-btn--outline lighting-btn--outline-green">+ ${i18n.t('lighting.addRule') || 'Règle'}</button>
-                </div>
-              </div>
-              <!-- LED Preview Strip -->
-              <div id="lightingLedPreview" class="lighting-led-preview">
-                <div class="lighting-led-preview-header">
-                  <span class="lighting-led-preview-label">LED Preview</span>
-                  <button data-action="_testPreviewRainbow" class="lighting-btn--mini">🌈 Test</button>
-                  <button data-action="_clearPreview" class="lighting-btn--mini">⬛ Clear</button>
-                </div>
-                <div id="lightingLedStripViz" class="lighting-led-strip-viz"></div>
-              </div>
-              <div id="lightingRulesList" class="lighting-rules-list">
-                <div class="lighting-empty-state" style="padding:40px;font-size:13px;">
-                  ← ${i18n.t('lighting.selectDeviceHint') || 'Sélectionnez un dispositif pour voir ses règles'}
-                </div>
-              </div>
+          <!-- ===== Tab: Per-instrument (read-only overview) ===== -->
+          <div id="lightingTabPanelInstruments" class="lighting-tab-panel" style="display:none;">
+            <div id="lightingInstrumentList" class="lighting-instrument-list">
+              <div class="lighting-empty-state">Chargement...</div>
             </div>
           </div>
         </div>
@@ -235,19 +242,6 @@ class LightingControlPage {
 
     // Event delegation for data-action buttons
     this._setupEventDelegation();
-
-    // Keyboard shortcuts
-    this._escHandler = (e) => {
-      const tag = e.target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-      if (e.key === 'Escape') this.close();
-      else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); this.blackout(); }
-      else if (e.key === 'b' || e.key === 'B') this.blackout();
-      else if (e.key === 'o' || e.key === 'O') this.allOff();
-      else if (e.key === 't' || e.key === 'T') this.testDevice();
-    };
-    document.addEventListener('keydown', this._escHandler);
 
     // Close on overlay click
     this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.close(); });
@@ -284,7 +278,11 @@ class LightingControlPage {
       }
 
       // Parameterized actions
-      if (action === 'showMobilePanel') {
+      if (action === 'switchTab') {
+        this._switchTab(btn.dataset.tab);
+      } else if (action === 'openInstrumentSettings') {
+        this._openInstrumentSettings(btn.dataset.deviceId, parseInt(btn.dataset.channel));
+      } else if (action === 'showMobilePanel') {
         this.showMobilePanel(btn.dataset.panel);
       } else if (action === 'batchToggleRules') {
         this.batchToggleRules(btn.dataset.enabled === 'true');
@@ -355,6 +353,87 @@ class LightingControlPage {
     this._checkResponsive();
   }
 
+  // ==================== TOP-LEVEL TABS ====================
+
+  _switchTab(tab) {
+    this.activeTab = tab;
+    const tabD = document.getElementById('lightingMainTabDirect');
+    const tabI = document.getElementById('lightingMainTabInstruments');
+    const panelD = document.getElementById('lightingTabPanelDirect');
+    const panelI = document.getElementById('lightingTabPanelInstruments');
+    if (tabD) tabD.classList.toggle('lighting-tab--active', tab === 'direct');
+    if (tabI) tabI.classList.toggle('lighting-tab--active', tab === 'instruments');
+    if (panelD) panelD.style.display = tab === 'direct' ? '' : 'none';
+    if (panelI) panelI.style.display = tab === 'instruments' ? '' : 'none';
+    if (tab === 'instruments') {
+      this._renderInstrumentList();
+    } else {
+      this._checkResponsive();
+    }
+  }
+
+  /**
+   * Per-instrument tab: read-only overview. The actual per-instrument
+   * lighting config lives in the instrument's settings ("Lumière" tab);
+   * here we only list instruments that have it enabled, summarise their
+   * bound rules, and offer a shortcut to open their settings.
+   */
+  async _renderInstrumentList() {
+    const host = document.getElementById('lightingInstrumentList');
+    if (!host) return;
+    let allRules = [];
+    try {
+      const res = await this.apiClient.sendCommand('lighting_rule_list');
+      allRules = res.rules || [];
+    } catch (e) { /* counts degrade gracefully to 0 */ }
+
+    const enabled = (this.instruments || []).filter(i => i.lighting_enabled === true || i.lighting_enabled === 1);
+    if (enabled.length === 0) {
+      host.innerHTML = `<div class="lighting-empty-state" style="padding:40px;font-size:13px;">
+        ${i18n.t('lighting.noLitInstruments') || 'Aucun instrument avec le contrôle lumière activé. Activez-le depuis les réglages d\'un instrument (onglet « Notes & Capacités »).'}
+      </div>`;
+      return;
+    }
+    const esc = (s) => this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s);
+    host.innerHTML = enabled.map(inst => {
+      const name = inst.custom_name || inst.name || inst.device_id;
+      const count = allRules.filter(r => r.instrument_id === inst.id).length;
+      const sub = count === 1
+        ? (i18n.t('lighting.oneRule') || '1 règle')
+        : `${count} ${i18n.t('lighting.rulesCount') || 'règles'}`;
+      return `
+        <div class="lighting-instrument-card">
+          <div class="lighting-instrument-info">
+            <div class="lighting-instrument-name">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${(inst.channel || 0) + 1}</span></div>
+            <div class="lighting-instrument-sub">${sub}</div>
+          </div>
+          <button class="lighting-btn--outline lighting-btn--outline-yellow"
+                  data-action="openInstrumentSettings"
+                  data-device-id="${esc(inst.device_id)}" data-channel="${inst.channel || 0}">
+            ⚙️ ${i18n.t('lighting.openSettings') || 'Ouvrir les réglages'}
+          </button>
+        </div>`;
+    }).join('');
+  }
+
+  _openInstrumentSettings(deviceId, channel) {
+    const inst = (this.instruments || []).find(
+      i => i.device_id === deviceId && (i.channel || 0) === channel
+    );
+    const device = {
+      id: deviceId,
+      channel: channel,
+      name: inst ? (inst.name || deviceId) : deviceId,
+      displayName: inst ? (inst.custom_name || inst.name || deviceId) : deviceId
+    };
+    // Close the lighting modal first to avoid stacked modals; the
+    // per-instrument config is the single source of truth and lives there.
+    this.close();
+    if (typeof window.showInstrumentSettings === 'function') {
+      window.showInstrumentSettings(device, { section: 'lumiere' });
+    }
+  }
+
   // ==================== DATA LOADING ====================
 
   async loadData() {
@@ -373,6 +452,12 @@ class LightingControlPage {
       this._updateToggleBtn();
       this.renderDeviceList();
 
+      // If the user already opened the per-instrument tab while data was
+      // still loading, refresh it now that instruments/rules are available.
+      if (this.activeTab === 'instruments') {
+        this._renderInstrumentList();
+      }
+
       if (this.selectedDeviceId) {
         await this.loadRulesForDevice(this.selectedDeviceId);
       }
@@ -389,8 +474,8 @@ class LightingControlPage {
       this._updateToggleBtn();
       this.showToast(
         this.lightingEnabled
-          ? (i18n.t('lighting.systemEnabled') || 'Gestion des lumières activée')
-          : (i18n.t('lighting.systemDisabled') || 'Gestion des lumières désactivée'),
+          ? (i18n.t('lighting.lightsOnToast') || 'Lumières allumées')
+          : (i18n.t('lighting.lightsOffToast') || 'Lumières éteintes'),
         this.lightingEnabled ? 'success' : 'warning'
       );
     } catch (error) {
@@ -403,11 +488,11 @@ class LightingControlPage {
     const btn = document.getElementById('lightingSystemToggleBtn');
     if (!btn) return;
     if (this.lightingEnabled) {
-      btn.textContent = `✅ ${i18n.t('lighting.systemOn') || 'Actif'}`;
+      btn.textContent = `💡 ${i18n.t('lighting.lightsOn') || 'Lumières ON'}`;
       btn.classList.remove('lighting-header-btn--toggle-off');
       btn.classList.add('lighting-header-btn--toggle-on');
     } else {
-      btn.textContent = `⏸ ${i18n.t('lighting.systemOff') || 'Inactif'}`;
+      btn.textContent = `🌑 ${i18n.t('lighting.lightsOff') || 'Lumières OFF'}`;
       btn.classList.remove('lighting-header-btn--toggle-on');
       btn.classList.add('lighting-header-btn--toggle-off');
     }

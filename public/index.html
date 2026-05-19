@@ -10728,9 +10728,9 @@
         }
 
         // Afficher la modale de réglages d'instrument (proxy vers le nouveau composant)
-        window.showInstrumentSettings = function(device) {
+        window.showInstrumentSettings = function(device, opts) {
             const modal = new InstrumentSettingsModal(api);
-            return modal.show(device);
+            return modal.show(device, opts || {});
         };
         window.showConfirm = showConfirm;
 

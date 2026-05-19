@@ -24,12 +24,185 @@
         };
         // Bagpipe / accordion are no longer standalone sections — they are
         // conditional subsections inside Notes & Capacités.
+        const showLumiere = ISMSections._shouldShowLumiereSection(tab);
         return `
             ${renderSection('identity', this._renderIdentitySection)}
             ${renderSection('notes', this._renderNotesSection)}
             ${showHands ? renderSection('hands', this._renderHandsSection) : ''}
+            ${showLumiere ? renderSection('lumiere', this._renderLumiereSection) : ''}
             ${renderSection('advanced', this._renderAdvancedSection)}
         `;
+    };
+
+    /**
+     * The Lumière sidebar tab / section is opt-in: rendered only when the
+     * "Contrôle lumière" toggle in Notes & Capacités has been switched on
+     * (`settings.lighting_enabled` truthy — stored as 0/1 in SQLite). This
+     * keeps the toggle the single source of truth and stops a one-off visit
+     * to the Lumière tab from forcing it on at save time.
+     */
+    ISMSections._shouldShowLumiereSection = function(tab) {
+        const v = tab?.settings?.lighting_enabled;
+        return v === true || v === 1;
+    };
+
+    // The lighting engine keys instrument-bound rules by this id. It must
+    // match InstrumentSettingsDB's row id (`${deviceId}_${channel}`) and the
+    // `inst.id` the standalone lighting modal binds rules to.
+    ISMSections._lumiereInstrumentId = function() {
+        const tab = this._getActiveTab && this._getActiveTab();
+        if (!tab || !this.device) return null;
+        return `${this.device.id}_${tab.channel}`;
+    };
+
+    // Action types whose runtime is driven by the EffectsEngine (need
+    // `effect_speed` instead of `fade_time_ms`). Mirrors LightingForms._isEffectType.
+    ISMSections._LUMIERE_EFFECT_TYPES = ['strobe', 'rainbow', 'chase', 'breathe'];
+    ISMSections._lumiereIsEffectType = function(type) {
+        return ISMSections._LUMIERE_EFFECT_TYPES.indexOf(type) !== -1;
+    };
+
+    /**
+     * Per-instrument lighting section. Reuses the existing MIDI→light rule
+     * engine: rules are persisted via the same `lighting_rule_*` commands and
+     * carry this instrument's `instrument_id`. The condition selects which
+     * MIDI messages activate the light; the action selects the light
+     * behaviour. Standard MIDI message types are listed first.
+     *
+     * Devices + rules are async — the skeleton renders synchronously and
+     * `_attachLumiereSectionListeners` fills it in via `_lumiereReload()`.
+     */
+    ISMSections._renderLumiereSection = function() {
+        const tab = this._getActiveTab();
+        if (!tab) return '';
+        const name = tab.settings?.custom_name || tab.settings?.name
+            || (this.device && (this.device.displayName || this.device.name)) || `Ch ${tab.channel + 1}`;
+        return `
+            <div class="ism-subsection">
+                <h4 class="ism-subsection-title">💡 ${this.t('instrumentSettings.lumiereTitle') || 'Contrôle lumière'} — ${this.escape(name)} (ch${tab.channel + 1})</h4>
+                <p class="ism-subsection-hint">${this.t('instrumentSettings.lumiereSectionHint') || 'Les messages MIDI de cet instrument pilotent l\'éclairage via les règles ci-dessous. La condition choisit les messages qui activent la lumière ; l\'action choisit le comportement.'}</p>
+                <div class="ism-form-group">
+                    <label>🔌 ${this.t('instrumentSettings.lumiereTargetDevice') || 'Dispositif lumière cible'}</label>
+                    <select id="lumiereDeviceSelect">
+                        <option value="">${this.t('common.loading') || 'Chargement...'}</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="ism-subsection" id="lumiereRulesSubsection">
+                <h4 class="ism-subsection-title">📐 ${this.t('instrumentSettings.lumiereRules') || 'Règles MIDI → lumière de cet instrument'}</h4>
+                <div id="lumiereRulesList"><p class="ism-form-hint">${this.t('common.loading') || 'Chargement...'}</p></div>
+                <button type="button" id="lumiereAddRuleBtn" class="btn btn-small" style="margin-top:10px;">+ ${this.t('instrumentSettings.lumiereAddRule') || 'Ajouter une règle'}</button>
+            </div>
+
+            <div class="ism-subsection" id="lumiereFormSubsection" style="display:none;">
+                <h4 class="ism-subsection-title" id="lumiereFormTitle">➕ ${this.t('instrumentSettings.lumiereAddRule') || 'Ajouter une règle'}</h4>
+                ${ISMSections._renderLumiereForm.call(this)}
+            </div>
+        `;
+    };
+
+    ISMSections._renderLumiereForm = function() {
+        return `
+            <input type="hidden" id="lumiereRuleId" value="">
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.lumiereRuleName') || 'Nom'}</label>
+                <input type="text" id="lumiereRuleName" placeholder="${this.escape(this.t('instrumentSettings.lumiereRuleNamePh') || 'Note On → Rouge')}">
+            </div>
+
+            <p class="ism-subsection-hint" style="margin:12px 0 6px;"><strong>🎯 ${this.t('instrumentSettings.lumiereCondition') || 'Condition (messages MIDI qui activent la lumière)'}</strong></p>
+
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.lumiereTrigger') || 'Type de message MIDI'}</label>
+                <select id="lumiereTrigger">
+                    <option value="noteon">Note On</option>
+                    <option value="noteoff">Note Off</option>
+                    <option value="cc">Control Change (CC)</option>
+                    <option value="any">${this.t('instrumentSettings.lumiereAnyMsg') || 'Tous les messages'}</option>
+                </select>
+            </div>
+
+            <div class="ism-form-group">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="lumiereAllChannels" style="width:auto;">
+                    ${this.t('instrumentSettings.lumiereAllChannels') || 'Réagir sur tous les canaux MIDI (sinon : uniquement le canal de cet instrument)'}
+                </label>
+            </div>
+
+            <div class="ism-form-row" id="lumiereNoteRow">
+                <div class="ism-form-group"><label>${this.t('instrumentSettings.lumiereNoteMin') || 'Note min'}</label><input type="number" id="lumiereNoteMin" min="0" max="127" value="0"></div>
+                <div class="ism-form-group"><label>${this.t('instrumentSettings.lumiereNoteMax') || 'Note max'}</label><input type="number" id="lumiereNoteMax" min="0" max="127" value="127"></div>
+                <div class="ism-form-group"><label>${this.t('instrumentSettings.lumiereVelMin') || 'Vélo min'}</label><input type="number" id="lumiereVelMin" min="0" max="127" value="1"></div>
+                <div class="ism-form-group"><label>${this.t('instrumentSettings.lumiereVelMax') || 'Vélo max'}</label><input type="number" id="lumiereVelMax" min="0" max="127" value="127"></div>
+            </div>
+
+            <div class="ism-form-row" id="lumiereCcRow" style="display:none;">
+                <div class="ism-form-group"><label>CC #</label><input type="text" id="lumiereCcNum" placeholder="7, 11"></div>
+                <div class="ism-form-group"><label>CC min</label><input type="number" id="lumiereCcMin" min="0" max="127" value="0"></div>
+                <div class="ism-form-group"><label>CC max</label><input type="number" id="lumiereCcMax" min="0" max="127" value="127"></div>
+            </div>
+
+            <p class="ism-subsection-hint" style="margin:12px 0 6px;"><strong>🎨 ${this.t('instrumentSettings.lumiereAction') || 'Action (comportement lumière)'}</strong></p>
+
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.lumiereActionType') || 'Comportement'}</label>
+                <select id="lumiereActionType">
+                    <option value="static">${this.t('instrumentSettings.lumiereActStatic') || 'Couleur fixe'}</option>
+                    <option value="note_led">${this.t('instrumentSettings.lumiereActNoteLed') || 'Note → LED (piano)'}</option>
+                    <option value="velocity_mapped">${this.t('instrumentSettings.lumiereActVelocity') || 'Gradient vélocité'}</option>
+                    <option value="pulse">${this.t('instrumentSettings.lumiereActPulse') || 'Pulse (flash)'}</option>
+                    <option value="fade">${this.t('instrumentSettings.lumiereActFade') || 'Fade (fondu)'}</option>
+                    <option value="breathe">${this.t('instrumentSettings.lumiereActBreathe') || 'Respiration'}</option>
+                    <option value="strobe">${this.t('instrumentSettings.lumiereActStrobe') || 'Stroboscope'}</option>
+                    <option value="rainbow">${this.t('instrumentSettings.lumiereActRainbow') || 'Arc-en-ciel'}</option>
+                    <option value="chase">${this.t('instrumentSettings.lumiereActChase') || 'Chenillard'}</option>
+                </select>
+            </div>
+
+            <div class="ism-form-row">
+                <div class="ism-form-group ism-narrow"><label>${this.t('instrumentSettings.lumiereColor') || 'Couleur'}</label><input type="color" id="lumiereColor" value="#FF0000" style="height:36px;padding:2px;cursor:pointer;"></div>
+                <div class="ism-form-group"><label>${this.t('instrumentSettings.lumiereBrightness') || 'Luminosité (0-255)'}</label><input type="number" id="lumiereBrightness" min="0" max="255" value="255"></div>
+                <div class="ism-form-group" id="lumiereSpeedWrap"><label>${this.t('instrumentSettings.lumiereSpeed') || 'Fondu (ms)'}</label><input type="number" id="lumiereSpeed" min="20" max="10000" value="500"></div>
+            </div>
+
+            <div class="ism-form-group">
+                <label>${this.t('instrumentSettings.lumiereOffAction') || 'À la fin de la note'}</label>
+                <select id="lumiereOffAction">
+                    <option value="off">${this.t('instrumentSettings.lumiereOffOff') || 'Éteindre'}</option>
+                    <option value="fade">${this.t('instrumentSettings.lumiereOffFade') || 'Fondu de sortie'}</option>
+                    <option value="hold">${this.t('instrumentSettings.lumiereOffHold') || 'Maintenir allumé'}</option>
+                </select>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:14px;">
+                <button type="button" id="lumiereSaveRuleBtn" class="btn btn-primary">💾 ${this.t('common.save') || 'Enregistrer'}</button>
+                <button type="button" id="lumiereCancelRuleBtn" class="btn btn-secondary">${this.t('common.cancel') || 'Annuler'}</button>
+            </div>
+        `;
+    };
+
+    ISMSections._renderLumiereRulesList = function(rules) {
+        if (!rules || rules.length === 0) {
+            return `<p class="ism-form-hint">${this.t('instrumentSettings.lumiereNoRules') || 'Aucune règle pour cet instrument. Ajoutez-en une pour piloter l\'éclairage.'}</p>`;
+        }
+        const self = this;
+        return rules.map(function(r) {
+            const cond = r.condition_config || {};
+            const act = r.action_config || {};
+            const trig = cond.trigger || 'any';
+            const sub = `${trig}${act.type ? ' → ' + act.type : ''}`;
+            return `
+                <div class="ism-subsection" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:6px;">
+                    <div style="min-width:0;">
+                        <div style="font-weight:600;">${self.escape(r.name || (self.t('instrumentSettings.lumiereUnnamedRule') || 'Règle sans nom'))}</div>
+                        <div class="ism-form-hint" style="margin:2px 0 0;">${self.escape(sub)}</div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex:none;">
+                        <button type="button" class="btn btn-small lumiere-edit-rule" data-rule-id="${r.id}">✏️</button>
+                        <button type="button" class="btn btn-small btn-danger lumiere-del-rule" data-rule-id="${r.id}">🗑</button>
+                    </div>
+                </div>`;
+        }).join('');
     };
 
     /**
@@ -791,6 +964,19 @@
                     </span>
                 </label>
             </div>` : ''}
+
+            <div class="ism-subsection ism-hands-movement-card" id="lightingEnabledSubsection">
+                <label class="ism-hands-movement-toggle" for="lightingEnabled">
+                    <div class="ism-hands-movement-info">
+                        <h4 class="ism-subsection-title" style="margin:0 0 6px 0;">💡 ${this.t('instrumentSettings.lumiereTitle') || 'Contrôle lumière'}</h4>
+                        <p class="ism-form-hint" style="margin:4px 0 0 0;">${this.t('instrumentSettings.lumiereHint') || 'Active l\'onglet "Lumière" pour piloter l\'éclairage de cet instrument via des messages MIDI.'}</p>
+                    </div>
+                    <span class="ism-toggle-switch">
+                        <input type="checkbox" id="lightingEnabled" ${(settings.lighting_enabled === true || settings.lighting_enabled === 1) ? 'checked' : ''}>
+                        <span class="ism-toggle-slider" aria-hidden="true"></span>
+                    </span>
+                </label>
+            </div>
 
             <div class="ism-subsection" id="timingsSubsection">
                 <h4 class="ism-subsection-title">⏱️ ${this.t('instrumentSettings.sectionTimingsPerGm') || 'Temporisations par instrument GM'}</h4>

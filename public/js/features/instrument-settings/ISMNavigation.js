@@ -12,11 +12,13 @@
         const renderMap = {
             notes: '_renderNotesSection',
             hands: '_renderHandsSection',
+            lumiere: '_renderLumiereSection',
             advanced: '_renderAdvancedSection',
         };
         const listenerMap = {
             notes: '_attachNotesSectionListeners',
             hands: '_attachHandsSectionListeners',
+            lumiere: '_attachLumiereSectionListeners',
             bagpipe: '_wireBagpipeListeners',
             advanced: '_attachAdvancedSectionListeners',
         };

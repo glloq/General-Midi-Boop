@@ -214,6 +214,11 @@ async function instrumentUpdateSettings(app, data) {
     data.omni_mode = data.omni_mode ? 1 : 0;
   }
 
+  // Coerce lighting_enabled to 0/1 for SQLite INTEGER CHECK
+  if (data.lighting_enabled !== undefined && data.lighting_enabled !== null) {
+    data.lighting_enabled = data.lighting_enabled ? 1 : 0;
+  }
+
   // Coerce voices_share_notes to 0/1 for SQLite INTEGER CHECK
   if (data.voices_share_notes !== undefined && data.voices_share_notes !== null) {
     data.voices_share_notes = data.voices_share_notes ? 1 : 0;
@@ -251,6 +256,7 @@ async function instrumentUpdateSettings(app, data) {
     octave_mode: data.octave_mode,
     comm_timeout: data.comm_timeout,
     omni_mode: data.omni_mode,
+    lighting_enabled: data.lighting_enabled,
     voices_share_notes: data.voices_share_notes,
     custom_sf2_id: data.custom_sf2_id !== undefined ? data.custom_sf2_id : undefined
   });
@@ -728,6 +734,9 @@ async function instrumentSaveAll(app, data) {
   if (data.omni_mode !== undefined && data.omni_mode !== null) {
     data.omni_mode = data.omni_mode ? 1 : 0;
   }
+  if (data.lighting_enabled !== undefined && data.lighting_enabled !== null) {
+    data.lighting_enabled = data.lighting_enabled ? 1 : 0;
+  }
   if (data.voices_share_notes !== undefined && data.voices_share_notes !== null) {
     data.voices_share_notes = data.voices_share_notes ? 1 : 0;
   }
@@ -776,6 +785,7 @@ async function instrumentSaveAll(app, data) {
       min_note_interval: data.min_note_interval,
       min_note_duration: data.min_note_duration,
       omni_mode: data.omni_mode,
+      lighting_enabled: data.lighting_enabled,
       voices_share_notes: data.voices_share_notes
     });
 

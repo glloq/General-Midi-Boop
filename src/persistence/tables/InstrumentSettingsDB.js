@@ -47,7 +47,7 @@ class InstrumentSettingsDB {
           'name', 'gm_program', 'octave_mode', 'comm_timeout',
           'instrument_type', 'instrument_subtype',
           'min_note_interval', 'min_note_duration', 'omni_mode',
-          'voices_share_notes', 'custom_sf2_id'
+          'voices_share_notes', 'custom_sf2_id', 'lighting_enabled'
         ], { whereClause: 'device_id = ? AND channel = ?' });
 
         if (!result) return existing.id;
@@ -58,8 +58,8 @@ class InstrumentSettingsDB {
         const stmt = this.db.prepare(`
           INSERT INTO instruments_latency (
             id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, comm_timeout, instrument_type, instrument_subtype,
-            min_note_interval, min_note_duration, omni_mode, voices_share_notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            min_note_interval, min_note_duration, omni_mode, voices_share_notes, lighting_enabled
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const id = `${deviceId}_${channel}`;
@@ -80,7 +80,8 @@ class InstrumentSettingsDB {
           settings.min_note_interval !== undefined ? settings.min_note_interval : null,
           settings.min_note_duration !== undefined ? settings.min_note_duration : null,
           settings.omni_mode ? 1 : 0,
-          settings.voices_share_notes === 0 || settings.voices_share_notes === false ? 0 : 1
+          settings.voices_share_notes === 0 || settings.voices_share_notes === false ? 0 : 1,
+          settings.lighting_enabled ? 1 : 0
         );
 
         return id;

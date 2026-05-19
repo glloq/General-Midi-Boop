@@ -70,6 +70,14 @@
             // Pitch bend enabled
             const pitchBendEnabled = !!(this.$('#pitchBendEnabled')?.checked);
 
+            // Lighting enabled — the toggle handler keeps tab.settings in sync,
+            // so fall back to it when the Notes section DOM isn't rendered
+            // (lazy section never visited) to avoid clobbering a stored value.
+            const lightingCb = this.$('#lightingEnabled');
+            const lightingEnabled = lightingCb
+                ? lightingCb.checked
+                : (primarySettings.lighting_enabled === true || primarySettings.lighting_enabled === 1);
+
             // Validate range
             if (noteSelectionMode === 'range') {
                 if (parsedMin !== null && (isNaN(parsedMin) || parsedMin < 0 || parsedMin > 127))
@@ -349,6 +357,7 @@
                     : ((effNoteSelectionMode === 'discrete' || gmDecoded.isDrumKit) ? effSelectedNotes : null),
                 supported_ccs: supportedCCs,
                 pitch_bend_enabled: pitchBendEnabled,
+                lighting_enabled: lightingEnabled ? 1 : 0,
                 capabilities_source: 'manual',
                 // voices + string (optional)
                 voices: voicesPayload,
