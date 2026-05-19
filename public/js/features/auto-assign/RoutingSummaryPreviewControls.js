@@ -108,16 +108,19 @@
       canvas.height = h * dpr;
       canvas.style.height = h + 'px';
 
+      const _mm0 = performance.now();
       const skipRangeFilter = this._previewMode === 'original';
       const notes = this._extractNotesForMinimap(channelFilter, skipRangeFilter);
 
       // Bucket aggregation delegated to RoutingSummaryMinimapNotes (P2-F.4g).
+      const _mmB = performance.now();
       const bucketState = window.RoutingSummaryMinimapNotes.buildMinimapBuckets({
         notes,
         width: w,
         isSplitView,
         splitSegmentCount: isSplitView ? this.splitAssignments[channelFilter].segments.length : 0
       });
+      console.log('[RS-PERF] buildMinimapBuckets', (performance.now() - _mmB).toFixed(0) + 'ms');
 
       this._minimapWidth = w;
       this._minimapHeight = h;
@@ -128,7 +131,10 @@
       this._minimapMultiChannel = bucketState.multiChannel;
       this._minimapBuckets = bucketState.buckets;
 
+      const _mmD = performance.now();
       this._drawMinimapFrame(0);
+      console.log('[RS-PERF] drawMinimapFrame', (performance.now() - _mmD).toFixed(0) + 'ms',
+        '| _renderMinimap TOTAL', (performance.now() - _mm0).toFixed(0) + 'ms');
     },
 
     _drawMinimapFrame(playheadPct) {
@@ -158,10 +164,19 @@
       // range/split/channel filter over the cached array.
       const Notes = window.RoutingSummaryMinimapNotes;
       if (this._minimapRawForMidi !== this.midiData) {
+        const _t0 = performance.now();
         this._minimapRawNotes = Notes.extractRawNotes(this.midiData);
         this._minimapRawForMidi = this.midiData;
+        const trk = this.midiData?.tracks?.length || 0;
+        let evCount = 0;
+        for (const t of (this.midiData?.tracks || [])) evCount += (t.events?.length || 0);
+        console.log('[RS-PERF] extractRawNotes (1st time, cached after)',
+          (performance.now() - _t0).toFixed(0) + 'ms',
+          '| tracks=' + trk, 'events=' + evCount,
+          'rawNotes=' + this._minimapRawNotes.length);
       }
-      return Notes.extractNotesForMinimap({
+      const _t1 = performance.now();
+      const out = Notes.extractNotesForMinimap({
         rawNotes: this._minimapRawNotes,
         selectedAssignments: this.selectedAssignments,
         splitChannels: this.splitChannels,
@@ -170,6 +185,10 @@
         channelFilter,
         skipRangeFilter
       });
+      console.log('[RS-PERF] minimap filter (per click)',
+        (performance.now() - _t1).toFixed(0) + 'ms',
+        '| chFilter=' + channelFilter, 'outNotes=' + out.length);
+      return out;
     },
 
     // ============================================================================
