@@ -72,12 +72,87 @@
      * Devices + rules are async — the skeleton renders synchronously and
      * `_attachLumiereSectionListeners` fills it in via `_lumiereReload()`.
      */
+    /**
+     * Embedded-LED capabilities editor. Lights physically on the
+     * instrument, driven by its own microcontroller. Auto-filled from a
+     * SysEx Block 8 reply (read-only badge) or entered manually here.
+     * Loaded / saved via instrument_light_* commands by ISMListeners.
+     */
+    ISMSections._renderInstrumentLedCapsSubsection = function() {
+        const t = (k, d) => this.t(k) || d;
+        const opt = (v, label) => `<option value="${v}">${label}</option>`;
+        return `
+            <div class="ism-subsection" id="ilcSubsection">
+                <h4 class="ism-subsection-title">🔆 ${t('instrumentSettings.ilcTitle', 'Capacités lumière embarquée (LED de l\'instrument)')}
+                    <span id="ilcSourceBadge" class="ism-badge" style="margin-left:8px;font-size:11px;"></span>
+                </h4>
+                <p class="ism-subsection-hint">${t('instrumentSettings.ilcHint', 'Décrit ce que les LED pilotées par le microcontrôleur de l\'instrument savent faire. Rempli automatiquement si l\'instrument répond au SysEx, sinon saisissez-le ici.')}</p>
+
+                <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+                    <button type="button" id="ilcDetectBtn" class="btn btn-small">📡 ${t('instrumentSettings.ilcDetect', 'Détecter via SysEx')}</button>
+                    <button type="button" id="ilcTestBtn" class="btn btn-small">✨ ${t('instrumentSettings.ilcTest', 'Tester les LED')}</button>
+                </div>
+
+                <div class="ism-form-row">
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcLedCount', 'Nombre de LED')}</label><input type="number" id="ilcLedCount" min="0" max="16383" value="0"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcAddressing', 'Adressage')}</label>
+                        <select id="ilcAddressing">
+                            ${opt(0, t('instrumentSettings.ilcAddrGlobal', 'Global (1 zone)'))}
+                            ${opt(1, t('instrumentSettings.ilcAddrPerNote', 'Par note'))}
+                            ${opt(2, t('instrumentSettings.ilcAddrString', 'Corde / frette'))}
+                            ${opt(3, t('instrumentSettings.ilcAddrZones', 'Zones'))}
+                            ${opt(4, t('instrumentSettings.ilcAddrStrip', 'Ruban (index libre)'))}
+                        </select>
+                    </div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcColorMode', 'Mode couleur')}</label>
+                        <select id="ilcColorMode">
+                            ${opt(0, t('instrumentSettings.ilcColOnOff', 'On/Off'))}
+                            ${opt(1, t('instrumentSettings.ilcColDim', 'Variable (mono)'))}
+                            ${opt(2, t('instrumentSettings.ilcColFixed', 'Couleur fixe'))}
+                            ${opt(3, t('instrumentSettings.ilcColPalette', 'Palette'))}
+                            ${opt(4, t('instrumentSettings.ilcColRgb', 'RGB complet'))}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="ism-form-row">
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcNoteBase', 'Note de base')}</label><input type="number" id="ilcNoteBase" min="0" max="127" value="0"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcPaletteSize', 'Taille palette')}</label><input type="number" id="ilcPaletteSize" min="0" max="127" value="0"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcLightChannel', 'Canal lumière (vide = même)')}</label><input type="number" id="ilcLightChannel" min="0" max="15" placeholder="${t('instrumentSettings.ilcSame', 'même')}"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcMinInterval', 'Intervalle min (ms)')}</label><input type="number" id="ilcMinInterval" min="0" max="127" value="0"></div>
+                </div>
+
+                <p class="ism-form-hint" style="margin:8px 0 4px;"><strong>${t('instrumentSettings.ilcTransports', 'Méthodes de contrôle supportées')}</strong></p>
+                <div class="ism-form-row">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ilcTrAuto" style="width:auto;"> ${t('instrumentSettings.ilcTrAuto', 'Autonome')}</label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ilcTrNote" style="width:auto;" checked> ${t('instrumentSettings.ilcTrNote', 'Note/vélocité')}</label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ilcTrCc" style="width:auto;"> CC</label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ilcTrSysex" style="width:auto;"> SysEx RGB</label>
+                </div>
+
+                <p class="ism-form-hint" style="margin:8px 0 4px;"><strong>${t('instrumentSettings.ilcCcNumbers', 'Numéros CC (vide = non utilisé)')}</strong></p>
+                <div class="ism-form-row">
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcCcBright', 'Luminosité')}</label><input type="number" id="ilcCcBrightness" min="0" max="127" placeholder="102"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcCcMode', 'Mode')}</label><input type="number" id="ilcCcMode" min="0" max="127" placeholder="103"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcCcEffect', 'Effet')}</label><input type="number" id="ilcCcEffect" min="0" max="127" placeholder="104"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcCcSpeed', 'Vitesse effet')}</label><input type="number" id="ilcCcEffectSpeed" min="0" max="127" placeholder="105"></div>
+                    <div class="ism-form-group"><label>${t('instrumentSettings.ilcCcGuide', 'Guide')}</label><input type="number" id="ilcCcGuide" min="0" max="127" placeholder="106"></div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:14px;">
+                    <button type="button" id="ilcSaveBtn" class="btn btn-primary">💾 ${t('common.save', 'Enregistrer')}</button>
+                </div>
+            </div>`;
+    };
+
     ISMSections._renderLumiereSection = function() {
         const tab = this._getActiveTab();
         if (!tab) return '';
         const name = tab.settings?.custom_name || tab.settings?.name
             || (this.device && (this.device.displayName || this.device.name)) || `Ch ${tab.channel + 1}`;
         return `
+            ${ISMSections._renderInstrumentLedCapsSubsection.call(this)}
+
             <div class="ism-subsection">
                 <h4 class="ism-subsection-title">💡 ${this.t('instrumentSettings.lumiereTitle') || 'Contrôle lumière'} — ${this.escape(name)} (ch${tab.channel + 1})</h4>
                 <p class="ism-subsection-hint">${this.t('instrumentSettings.lumiereSectionHint') || 'Les messages MIDI de cet instrument pilotent l\'éclairage via les règles ci-dessous. La condition choisit les messages qui activent la lumière ; l\'action choisit le comportement.'}</p>

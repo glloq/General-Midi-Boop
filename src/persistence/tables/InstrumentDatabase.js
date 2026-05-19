@@ -17,6 +17,7 @@
  */
 import InstrumentSettingsDB from './InstrumentSettingsDB.js';
 import InstrumentCapabilitiesDB from './InstrumentCapabilitiesDB.js';
+import InstrumentLightDB from './InstrumentLightDB.js';
 import InstrumentVoicesDB from './InstrumentVoicesDB.js';
 import { buildDynamicUpdate } from '../dbHelpers.js';
 import RoutingPersistenceDB from './RoutingPersistenceDB.js';
@@ -29,6 +30,7 @@ class InstrumentDatabase {
 
     this._settings = new InstrumentSettingsDB(db, logger);
     this._capabilities = new InstrumentCapabilitiesDB(db, logger);
+    this._light = new InstrumentLightDB(db, logger);
     this._voices = new InstrumentVoicesDB(db, logger);
     this._routing = new RoutingPersistenceDB(db, logger);
     this._deviceSettings = new DeviceSettingsDB(db, logger);
@@ -134,6 +136,15 @@ class InstrumentDatabase {
   getRegisteredInstrumentIds() { return this._capabilities.getRegisteredInstrumentIds(); }
   getInstrumentsWithCapabilities() { return this._capabilities.getInstrumentsWithCapabilities(); }
   getInstrumentCatalogFingerprint() { return this._capabilities.getCatalogFingerprint(); }
+
+  // ==================== DELEGATED: INSTRUMENT EMBEDDED LIGHTS ====================
+  // Full implementations in InstrumentLightDB.js
+
+  getInstrumentLight(...args) { return this._light.getInstrumentLight(...args); }
+  getAllInstrumentLights() { return this._light.getAllInstrumentLights(); }
+  saveInstrumentLightCapabilities(...args) { return this._light.saveInstrumentLightCapabilities(...args); }
+  saveInstrumentLightConfig(...args) { return this._light.saveInstrumentLightConfig(...args); }
+  deleteInstrumentLightByDevice(...args) { return this._light.deleteInstrumentLightByDevice(...args); }
 
   // ==================== DELEGATED: INSTRUMENT VOICES (multi-GM) ====================
   // Full implementations in InstrumentVoicesDB.js

@@ -1167,6 +1167,149 @@
       });
 
     this._lumiereReload();
+    this._ilcAttach();
+  };
+
+  // ---- Embedded-LED capabilities (instrument_light_* commands) -----------
+
+  ISMListeners._ilcTarget = function () {
+    const tab = this._getActiveTab();
+    return { deviceId: this.device && this.device.id, channel: tab ? tab.channel : 0 };
+  };
+
+  ISMListeners._ilcAttach = function () {
+    if (!this.$('#ilcSubsection')) return;
+    const self = this;
+    const detect = this.$('#ilcDetectBtn');
+    if (detect)
+      detect.addEventListener('click', async function () {
+        const { deviceId, channel } = self._ilcTarget();
+        if (!deviceId) return;
+        try {
+          await self.api.sendCommand('instrument_light_request_sysex', { deviceId, channel });
+          setTimeout(function () { self._ilcReload(); }, 900);
+        } catch (e) { /* device may not answer SysEx */ }
+      });
+    const test = this.$('#ilcTestBtn');
+    if (test)
+      test.addEventListener('click', function () {
+        const { deviceId, channel } = self._ilcTarget();
+        if (deviceId)
+          self.api
+            .sendCommand('instrument_light_test', { deviceId, channel })
+            .catch(() => {});
+      });
+    const save = this.$('#ilcSaveBtn');
+    if (save) save.addEventListener('click', function () { self._ilcSave(); });
+    this._ilcReload();
+  };
+
+  ISMListeners._ilcReload = async function () {
+    if (!this.$('#ilcSubsection')) return;
+    const { deviceId, channel } = this._ilcTarget();
+    if (!deviceId) return;
+    let inst = null;
+    try {
+      const res = await this.api.sendCommand('instrument_light_get', { deviceId, channel });
+      inst = res && res.instrument;
+    } catch (e) { return; }
+
+    const badge = this.$('#ilcSourceBadge');
+    if (badge) {
+      const src = inst && inst.light_caps_source;
+      badge.textContent =
+        src === 'sysex'
+          ? this.t('instrumentSettings.ilcAuto') || 'Auto (SysEx)'
+          : src === 'manual'
+          ? this.t('instrumentSettings.ilcManual') || 'Manuel'
+          : '';
+      badge.style.background = src === 'sysex' ? '#10b981' : src ? '#6b7280' : 'transparent';
+      badge.style.color = src ? '#fff' : 'inherit';
+      badge.style.padding = src ? '2px 8px' : '0';
+      badge.style.borderRadius = '10px';
+    }
+    if (!inst) return;
+
+    const setV = (id, v) => {
+      const el = this.$('#' + id);
+      if (el && v !== undefined && v !== null) el.value = v;
+    };
+    const setU = (id, v) => {
+      const el = this.$('#' + id);
+      if (el) el.value = v === undefined || v === null || v === 127 ? '' : v;
+    };
+    const setC = (id, on) => {
+      const el = this.$('#' + id);
+      if (el) el.checked = !!on;
+    };
+
+    setV('ilcLedCount', inst.light_led_count);
+    setV('ilcAddressing', inst.light_addressing);
+    setV('ilcColorMode', inst.light_color_mode);
+    setV('ilcNoteBase', inst.light_note_base);
+    setV('ilcPaletteSize', inst.light_palette_size);
+    setU('ilcLightChannel', inst.light_channel);
+    setV('ilcMinInterval', inst.light_min_interval_ms);
+    const tr = inst.light_transports || 0;
+    setC('ilcTrAuto', tr & 0x01);
+    setC('ilcTrNote', tr & 0x02);
+    setC('ilcTrCc', tr & 0x04);
+    setC('ilcTrSysex', tr & 0x08);
+    setU('ilcCcBrightness', inst.light_cc_brightness);
+    setU('ilcCcMode', inst.light_cc_mode);
+    setU('ilcCcEffect', inst.light_cc_effect);
+    setU('ilcCcEffectSpeed', inst.light_cc_effect_speed);
+    setU('ilcCcGuide', inst.light_cc_guide);
+  };
+
+  ISMListeners._ilcSave = async function () {
+    const { deviceId, channel } = this._ilcTarget();
+    if (!deviceId) return;
+    const num = (id, dflt) => {
+      const el = this.$('#' + id);
+      if (!el || el.value === '') return dflt;
+      const n = parseInt(el.value, 10);
+      return Number.isNaN(n) ? dflt : n;
+    };
+    const chk = (id) => {
+      const el = this.$('#' + id);
+      return el && el.checked;
+    };
+    const transports =
+      (chk('ilcTrAuto') ? 1 : 0) |
+      (chk('ilcTrNote') ? 2 : 0) |
+      (chk('ilcTrCc') ? 4 : 0) |
+      (chk('ilcTrSysex') ? 8 : 0);
+    const capabilities = {
+      light_led_count: num('ilcLedCount', 0),
+      light_addressing: num('ilcAddressing', 1),
+      light_color_mode: num('ilcColorMode', 0),
+      light_note_base: num('ilcNoteBase', 0),
+      light_palette_size: num('ilcPaletteSize', 0),
+      light_transports: transports,
+      light_channel: num('ilcLightChannel', 127),
+      light_min_interval_ms: num('ilcMinInterval', 0),
+      light_cc_brightness: num('ilcCcBrightness', 127),
+      light_cc_mode: num('ilcCcMode', 127),
+      light_cc_effect: num('ilcCcEffect', 127),
+      light_cc_effect_speed: num('ilcCcEffectSpeed', 127),
+      light_cc_guide: num('ilcCcGuide', 127)
+    };
+    try {
+      await this.api.sendCommand('instrument_light_set_capabilities', {
+        deviceId,
+        channel,
+        capabilities
+      });
+      await this._ilcReload();
+      if (typeof this.showToast === 'function') {
+        this.showToast(this.t('common.saved') || 'Enregistré', 'success');
+      }
+    } catch (e) {
+      if (typeof this.showToast === 'function') {
+        this.showToast(e.message || 'Erreur', 'error');
+      }
+    }
   };
 
   ISMListeners._lumiereReload = async function () {

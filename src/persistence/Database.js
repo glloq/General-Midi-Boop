@@ -703,6 +703,23 @@ class DatabaseManager {
   getInstrumentCatalogFingerprint() {
     return this.instrumentDB.getInstrumentCatalogFingerprint();
   }
+
+  // Instrument Embedded Lights
+  getInstrumentLight(...args) {
+    return this.instrumentDB.getInstrumentLight(...args);
+  }
+  getAllInstrumentLights() {
+    return this.instrumentDB.getAllInstrumentLights();
+  }
+  saveInstrumentLightCapabilities(...args) {
+    return this.instrumentDB.saveInstrumentLightCapabilities(...args);
+  }
+  saveInstrumentLightConfig(...args) {
+    return this.instrumentDB.saveInstrumentLightConfig(...args);
+  }
+  deleteInstrumentLightByDevice(...args) {
+    return this.instrumentDB.deleteInstrumentLightByDevice(...args);
+  }
   getRegisteredInstrumentIds() {
     return this.instrumentDB.getRegisteredInstrumentIds();
   }
