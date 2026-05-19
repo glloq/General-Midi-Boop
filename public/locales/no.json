@@ -2324,7 +2324,9 @@
       "share": "Del",
       "split": "Del opp",
       "single": "Ett instr.",
-      "sameType": "GM-type"
+      "sameType": "GM-type",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Poenginnstillinger",
     "settingsTitle": "Auto-rutinginnstillinger",

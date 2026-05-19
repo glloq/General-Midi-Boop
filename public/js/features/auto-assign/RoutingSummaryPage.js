@@ -210,12 +210,10 @@ class RoutingSummaryPage {
       const fileReadP = this.apiClient.readFile(fileId)
         .catch((e) => { console.warn('[RoutingSummary] Could not load MIDI data for preview:', e.message); return null; });
 
-      const _shT0 = performance.now();
       // Spinner toast only if the analysis is genuinely slow (cold cache).
       const response = await (window.withProgressToast
         ? window.withProgressToast(suggestionsP, _t('autoAssign.analyzing'), { thresholdMs: 500 })
         : suggestionsP);
-      console.log('[RS-PERF] generateSuggestions await', (performance.now() - _shT0).toFixed(0) + 'ms');
 
       if (!response.success) {
         this._showError(response.error || _t('autoAssign.generateFailed'));
@@ -340,7 +338,6 @@ class RoutingSummaryPage {
 
       // Load MIDI data for preview minimap (request already in flight).
       try {
-        const _midT0 = performance.now();
         const fileResponse = await fileReadP;
         if (fileResponse?.midiData) {
           const raw = fileResponse.midiData;
@@ -348,10 +345,6 @@ class RoutingSummaryPage {
             ? { ...raw.midi, tempo: raw.tempo || raw.midi.tempo, duration: raw.duration || undefined }
             : raw;
         }
-        let _ev = 0;
-        for (const t of (this.midiData?.tracks || [])) _ev += (t.events?.length || 0);
-        console.log('[RS-PERF] readFile(midi) await+assign', (performance.now() - _midT0).toFixed(0) + 'ms',
-          '| tracks=' + (this.midiData?.tracks?.length || 0), 'events=' + _ev);
       } catch (e) { console.warn('[RoutingSummary] Could not load MIDI data for preview:', e.message); }
 
       // Initialize audio preview
@@ -360,10 +353,7 @@ class RoutingSummaryPage {
       }
 
       this.loading = false;
-      const _rcT0 = performance.now();
       this._renderContent();
-      console.log('[RS-PERF] show() -> _renderContent() returned',
-        (performance.now() - _rcT0).toFixed(0) + 'ms (minimap is rAF-deferred, see its own logs)');
 
     } catch (error) {
       this._showError(error.message || _t('autoAssign.generateFailed'));
@@ -421,7 +411,6 @@ class RoutingSummaryPage {
       const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
 
       if (hint === 'all') {
-        const _rcAll = performance.now();
         // Full rebuild — initial render or structural changes
         const summaryPanel = this.modal.querySelector('#rsSummaryPanel');
         const detailPanel = this.modal.querySelector('#rsDetailPanel');
@@ -433,17 +422,6 @@ class RoutingSummaryPage {
           ? `Ch ${this.selectedChannel + 1} : ${displayScore}/100`
           : `${displayScore}/100 — ${getScoreLabel(displayScore)}`;
 
-        const _rcSum = performance.now();
-        const summaryTableHTML = this._renderSummaryTable(channelKeys);
-        console.log('[RS-PERF] _renderSummaryTable', (performance.now() - _rcSum).toFixed(0) + 'ms',
-          '| channels=' + channelKeys.length, 'allInstruments=' + (this.allInstruments?.length || 0));
-        const _rcDet = performance.now();
-        const detailPanelHTML = this.selectedChannel !== null
-          ? this._safeRenderDetailPanel(this.selectedChannel)
-          : this._renderDetailPlaceholder();
-        console.log('[RS-PERF] detailPanel render', (performance.now() - _rcDet).toFixed(0) + 'ms');
-
-        const _rcShell = performance.now();
         this.modal.innerHTML = renderContentShell({
           hasDetail: this.selectedChannel !== null,
           hasMidiData: !!this.midiData,
@@ -454,19 +432,17 @@ class RoutingSummaryPage {
           scoreLabel,
           headerButtonsHTML: this._renderHeaderButtons(),
           scoreDetailHTML: this._renderScoreDetail(),
-          summaryTableHTML,
-          detailPanelHTML,
+          summaryTableHTML: this._renderSummaryTable(channelKeys),
+          detailPanelHTML: this.selectedChannel !== null
+            ? this._safeRenderDetailPanel(this.selectedChannel)
+            : this._renderDetailPlaceholder(),
           autoRoutingPanelHTML: this._renderAutoRoutingPanel()
         });
-        console.log('[RS-PERF] shell+innerHTML', (performance.now() - _rcShell).toFixed(0) + 'ms');
 
-        const _rcBind = performance.now();
         this._bindGlobalEvents(channelKeys);
         this._bindSummaryEvents(channelKeys);
         this._bindDetailEvents(channelKeys);
         this._bindPreviewEvents();
-        console.log('[RS-PERF] bindEvents', (performance.now() - _rcBind).toFixed(0) + 'ms',
-          '| _renderContent(all) TOTAL', (performance.now() - _rcAll).toFixed(0) + 'ms');
 
         const newSummary = this.modal.querySelector('#rsSummaryPanel');
         const newDetail = this.modal.querySelector('#rsDetailPanel');
@@ -2199,11 +2175,8 @@ class RoutingSummaryPage {
   _selectChannel(channel) {
     const prevChannel = this.selectedChannel;
     if (prevChannel === channel) return; // no-op if same channel clicked
-    const _scT0 = performance.now();
     this.selectedChannel = channel;
     const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
-    const _scLog = () => console.log('[RS-PERF] _selectChannel(' + channel + ') sync',
-      (performance.now() - _scT0).toFixed(0) + 'ms (minimap rAF-deferred, see its logs)');
     const layoutChanged = (prevChannel === null) !== (channel === null);
 
     if (layoutChanged) {
@@ -2233,7 +2206,6 @@ class RoutingSummaryPage {
     } else {
       this._refreshUI(channelKeys, 'both-panels');
     }
-    _scLog();
   }
 
   _selectInstrument(ch, instrumentId, channelKeys) {

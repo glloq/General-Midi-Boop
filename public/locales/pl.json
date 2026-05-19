@@ -2324,7 +2324,9 @@
       "share": "Współdziel",
       "split": "Podziel",
       "single": "Jeden instr.",
-      "sameType": "Typ GM"
+      "sameType": "Typ GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Ustawienia punktacji",
     "settingsTitle": "Ustawienia auto-routingu",

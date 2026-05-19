@@ -2324,7 +2324,9 @@
       "share": "공유",
       "split": "분할",
       "single": "단일 악기",
-      "sameType": "GM 유형"
+      "sameType": "GM 유형",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "스코어링 설정",
     "settingsTitle": "자동 라우팅 설정",

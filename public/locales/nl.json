@@ -2324,7 +2324,9 @@
       "share": "Delen",
       "split": "Splitsen",
       "single": "Eén instr.",
-      "sameType": "GM-type"
+      "sameType": "GM-type",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Score-instellingen",
     "settingsTitle": "Auto-routing instellingen",

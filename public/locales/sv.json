@@ -2324,7 +2324,9 @@
       "share": "Dela",
       "split": "Dela upp",
       "single": "Ett instr.",
-      "sameType": "GM-typ"
+      "sameType": "GM-typ",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Poänginställningar",
     "settingsTitle": "Auto-routing-inställningar",

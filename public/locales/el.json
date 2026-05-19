@@ -2324,7 +2324,9 @@
       "share": "Κοινή χρήση",
       "split": "Διαχωρισμός",
       "single": "Ένα όργ.",
-      "sameType": "Τύπος GM"
+      "sameType": "Τύπος GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Ρυθμίσεις βαθμολόγησης",
     "settingsTitle": "Ρυθμίσεις αυτόματης δρομολόγησης",

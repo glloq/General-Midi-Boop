@@ -2324,7 +2324,9 @@
       "share": "Megosztás",
       "split": "Felosztás",
       "single": "Egy hangsz.",
-      "sameType": "GM-típus"
+      "sameType": "GM-típus",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Pontozási beállítások",
     "settingsTitle": "Automatikus útválasztási beállítások",

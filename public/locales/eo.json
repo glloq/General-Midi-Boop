@@ -2331,7 +2331,9 @@
       "share": "Kunhavi",
       "split": "Dividi",
       "single": "Unu instr.",
-      "sameType": "GM-tipo"
+      "sameType": "GM-tipo",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Poentaj agordoj",
     "settingsTitle": "Aŭtomata enkursiga agordo",

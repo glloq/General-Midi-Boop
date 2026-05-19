@@ -2331,7 +2331,9 @@
       "share": "แบ่งปัน",
       "split": "แยก",
       "single": "เครื่องเดียว",
-      "sameType": "ประเภท GM"
+      "sameType": "ประเภท GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "การตั้งค่าการให้คะแนน",
     "settingsTitle": "การตั้งค่าการกำหนดเส้นทางอัตโนมัติ",

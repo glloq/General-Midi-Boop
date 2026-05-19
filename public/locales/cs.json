@@ -2324,7 +2324,9 @@
       "share": "Sdílet",
       "split": "Rozdělit",
       "single": "Jeden nástr.",
-      "sameType": "Typ GM"
+      "sameType": "Typ GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Nastavení bodování",
     "settingsTitle": "Nastavení auto-směrování",

@@ -2331,7 +2331,9 @@
       "share": "Compartir",
       "split": "División",
       "single": "Un solo instr.",
-      "sameType": "Tipo GM"
+      "sameType": "Tipo GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Ajustes de puntuación",
     "settingsTitle": "Ajustes de enrutamiento automático",

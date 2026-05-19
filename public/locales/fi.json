@@ -2324,7 +2324,9 @@
       "share": "Jaa",
       "split": "Jaa osiin",
       "single": "Yksi soitin",
-      "sameType": "GM-tyyppi"
+      "sameType": "GM-tyyppi",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Pisteytysasetukset",
     "settingsTitle": "Auto-reititysasetukset",
