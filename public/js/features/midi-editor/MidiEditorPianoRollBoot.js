@@ -104,8 +104,13 @@
             // keeps the legacy "first 20 seconds" framing.
             const ticksPerBeat = m.midiData.header?.ticksPerBeat || 480;
             const twentySeconds = ticksPerBeat * 40; // ~20 seconds at 120 BPM
+            // Loop length in ticks — the loop's end boundary. Independent of
+            // the sequence extent so an empty/short loop still shows where it
+            // stops. (maxTick above was overwritten with the note extent.)
+            const tsNum = m.midiData.header?.timeSignature?.[0] || 4;
+            const loopEndTick = (m.ticksPerBeat || ticksPerBeat) * tsNum * (m.loopBars || 2);
             const xrange = m.loopMode
-                ? (maxTick > 0 ? maxTick : ticksPerBeat * 4)
+                ? loopEndTick
                 : Math.min(maxTick > 0 ? maxTick : twentySeconds, twentySeconds);
 
             // Vertically centered view that keeps every note of visible channels onscreen
@@ -121,7 +126,7 @@
                     .setAttribute('xscroll', '1')
                     .setAttribute('yscroll', '1')
                     .setAttribute('xruler', m.loopMode ? '1' : '0')
-                    .setMarkers(0, maxTick)
+                    .setMarkers(0, m.loopMode ? loopEndTick : maxTick)
                     .setCursor(0);
 
             m.events._applyPianoRollTheme();
