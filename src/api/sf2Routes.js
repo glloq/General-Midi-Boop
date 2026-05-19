@@ -8,6 +8,7 @@
  * PATCH  /api/sf2/:id  { label, reverb_mix }   → rename / adjust
  * GET    /api/sf2/:id/preset/melodic/:program  → WAF preset JSON
  * GET    /api/sf2/:id/preset/drum/:kit/:note   → WAF preset JSON
+ * GET    /api/sf2/:id/kits                     → { drumKits, drumBank, melodicPrograms }
  */
 
 import { Router, raw as expressRaw, json as expressJson } from 'express';
@@ -170,6 +171,27 @@ export function createSF2Router(app) {
       sendPreset(res, preset);
     } catch (err) {
       app.logger.error(`GET /api/sf2/${req.params.id}/preset/melodic/${req.params.program} failed: ${err.message}`);
+      res.status(500).json({ error: 'Internal server error.' });
+    }
+  });
+
+  // ── Inventory: which drum kits and melodic programs the SF2 actually has ─
+  // Lets the frontend grey out unavailable kits instead of letting users
+  // pick a kit that silently falls back to Standard. Cheap: SF2InstanceCache
+  // amortises the RIFF parse.
+  router.get('/:id/kits', (req, res) => {
+    try {
+      const id = parseSF2Id(req.params.id);
+      if (id === null) return res.status(400).json({ error: 'Invalid id' });
+      const drum = app.sf2PresetService.inspectDrumKits(id);
+      const melodicPrograms = app.sf2PresetService.inspectMelodicPrograms(id);
+      res.json({
+        drumKits: drum.kits,
+        drumBank: drum.bankNum,
+        melodicPrograms,
+      });
+    } catch (err) {
+      app.logger.error(`GET /api/sf2/${req.params.id}/kits failed: ${err.message}`);
       res.status(500).json({ error: 'Internal server error.' });
     }
   });

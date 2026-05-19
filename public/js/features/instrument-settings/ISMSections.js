@@ -496,18 +496,33 @@
         if (fam.isDrumKits) {
             const kits = window.InstrumentFamilies.GM_DRUM_KITS_LIST;
             const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
+            // Resolve which kits the active SF2 actually contains so missing
+            // ones can be visually marked as falling back to Standard Kit.
+            // `null` = inventory unknown (non-SF2 bank or fetch still pending)
+            // → show every kit as normally selectable.
+            const savedBankId = (window.MidiSynthesizer && window.MidiSynthesizer.getSavedBank)
+                ? window.MidiSynthesizer.getSavedBank() : null;
+            const available = (window.MidiSynthesizer && savedBankId)
+                ? window.MidiSynthesizer.getAvailableDrumKits(savedBankId) : null;
+            const unavailLabel = self.t('instrumentSettings.kitUnavailable')
+                || 'Absent du SF2 — bascule sur Standard Kit';
             tiles = kits.map(function(kit) {
                 const encoded = kit.program + offset;
                 const isActive = (channel === 9 && currentProgram === kit.program) ? 'active' : '';
+                const isUnavailable = available && !available.has(kit.program);
                 const icon = window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: encoded, channel: 9 });
                 const kitName = icon.name || kit.name;
                 const descKey = 'instruments.drumKitsDesc.' + kit.program;
                 const descTrans = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t(descKey) : descKey;
                 const desc = descTrans && descTrans !== descKey ? descTrans : '';
-                return `<button type="button" class="ism-instrument-btn ${isActive}"
+                const titleText = isUnavailable ? (kitName + ' — ' + unavailLabel) : kitName;
+                const classes = ['ism-instrument-btn', isActive, isUnavailable ? 'ism-kit-unavailable' : '']
+                    .filter(Boolean).join(' ');
+                return `<button type="button" class="${classes}"
                         data-program="${encoded}" data-drum-kit="true"
+                        data-kit-unavailable="${isUnavailable ? '1' : '0'}"
                         data-desc="${self.escape(desc)}"
-                        title="${self.escape(kitName)}">
+                        title="${self.escape(titleText)}">
                     <span class="ism-inst-icon">
                         ${icon.slug ? `<img class="ism-inst-svg" src="${icon.svgUrl}" alt=""
                             onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">

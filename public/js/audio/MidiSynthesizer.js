@@ -84,6 +84,80 @@ class MidiSynthesizer {
   // user moves an effects slider in the Settings modal).
   static _instances = new Set();
 
+  // Per-bank inventory of GM drum kits actually present in the SF2
+  // (fetched from GET /api/sf2/:id/kits). Keyed by bankId ('sf2:default'
+  // or 'sf2:<numericId>'). Static so the UI can read the inventory
+  // without needing a reference to the specific MidiSynthesizer instance
+  // that fetched it. `null` value = "unknown / non-SF2 bank" (callers
+  // should treat as "no filtering").
+  static availableDrumKits = new Map();
+  static _fetchingDrumKits = new Set();
+
+  /**
+   * Translate a `sf2:<id>` bank identifier into the public sf2 route id
+   * (`'default'` or a numeric DB id). Returns null for non-SF2 banks (WAF
+   * legacy banks have no /kits endpoint).
+   */
+  static _sf2IdForBank(bankId) {
+    if (typeof bankId !== 'string' || !bankId.startsWith('sf2:')) return null;
+    const raw = bankId.slice(4);
+    if (raw === 'default') return 'default';
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  /**
+   * Fetch the SF2's real drum-kit inventory from the backend, once. Resolves
+   * with the Set<number> of present kits (or null if the bank isn't an SF2,
+   * the fetch fails, or another fetch for the same bank is already in
+   * flight). Cached: a successful response is reused for the lifetime of
+   * the page (cleared per-bank by `_applyBankSwitch`).
+   * @param {string} bankId
+   * @returns {Promise<Set<number>|null>}
+   */
+  static async refreshAvailableDrumKits(bankId) {
+    const sf2Id = MidiSynthesizer._sf2IdForBank(bankId);
+    if (sf2Id == null) return null;
+    if (MidiSynthesizer.availableDrumKits.has(bankId)) {
+      return MidiSynthesizer.availableDrumKits.get(bankId);
+    }
+    if (MidiSynthesizer._fetchingDrumKits.has(bankId)) return null;
+    MidiSynthesizer._fetchingDrumKits.add(bankId);
+    try {
+      const resp = await fetch(`/api/sf2/${sf2Id}/kits`);
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const kits = new Set(Array.isArray(data.drumKits) ? data.drumKits : []);
+      MidiSynthesizer.availableDrumKits.set(bankId, kits);
+      try {
+        window.dispatchEvent(
+          new CustomEvent('midi-synth-drumkits-updated', {
+            detail: { bankId, kits: [...kits] }
+          })
+        );
+      } catch (_e) {
+        /* ignore */
+      }
+      return kits;
+    } catch (_err) {
+      return null;
+    } finally {
+      MidiSynthesizer._fetchingDrumKits.delete(bankId);
+    }
+  }
+
+  /**
+   * Read the cached drum-kit inventory for a bank. Returns Set<number> if
+   * the inventory has been fetched, otherwise null (fetch pending, fetch
+   * failed, or non-SF2 bank). Callers treat `null` as "no filtering — show
+   * every GM kit as selectable".
+   * @param {string} bankId
+   * @returns {Set<number>|null}
+   */
+  static getAvailableDrumKits(bankId) {
+    return MidiSynthesizer.availableDrumKits.get(bankId) || null;
+  }
+
   // SF2 preset fetch latency threshold (ms) before the loading toast
   // becomes visible. Sized to clear the L1/L2 hit envelope (< 100 ms)
   // and avoid flicker for warm reloads, while still appearing quickly
@@ -287,6 +361,12 @@ class MidiSynthesizer {
     // without colliding. See _instKey / _drumKey.
     this.loadedInstruments = new Map();
     this.loadingInstruments = new Map();
+
+    // Per-bank inventory of drum kits — see the static
+    // `MidiSynthesizer.availableDrumKits` Map below. Each instance reads
+    // through the static state so the UI (which doesn't know which
+    // synthesizer instance fetched the inventory) can query it directly
+    // via `window.MidiSynthesizer.getAvailableDrumKits(bankId)`.
 
     // Scheduler
     this.schedulerInterval = null;
@@ -555,6 +635,11 @@ class MidiSynthesizer {
     // Deferred so the bank-change UI repaint isn't blocked by the
     // download (~20 MB binary for an SF2 preset).
     setTimeout(() => this._preloadCurrentChannelPrograms(), 0);
+
+    // Drop any stale drum-kit inventory and re-fetch for the new bank so
+    // the instrument-settings UI reflects what this SF2 actually contains.
+    this.availableDrumKits.delete(bank.id);
+    this.refreshAvailableDrumKits(bank.id).catch(() => {});
   }
 
   /**
@@ -659,6 +744,11 @@ class MidiSynthesizer {
       // the event loop so the caller's await chain finishes first.
       setTimeout(() => this._preloadCurrentChannelPrograms(), 0);
 
+      // Background-fetch the drum-kit inventory of the current SF2 so the
+      // instrument-settings UI can grey out kits the SF2 doesn't actually
+      // contain (avoids silent Standard-Kit fallbacks).
+      this.refreshAvailableDrumKits().catch(() => {});
+
       return true;
     } catch (error) {
       this.log('error', 'Failed to initialize:', error);
@@ -692,6 +782,26 @@ class MidiSynthesizer {
    */
   _bankForChannel(channel) {
     return this.channelResolvedBank[channel] || this.currentBankId;
+  }
+
+  /**
+   * Fetch the SF2's real drum-kit inventory from the backend, once. See the
+   * static `MidiSynthesizer.refreshAvailableDrumKits` for details. The
+   * instance method simply defers to it with the current bank as default.
+   * @param {string} [bankId]
+   * @returns {Promise<Set<number>|null>}
+   */
+  refreshAvailableDrumKits(bankId = this.currentBankId) {
+    return MidiSynthesizer.refreshAvailableDrumKits(bankId);
+  }
+
+  /**
+   * Read the drum-kit inventory for a bank. Defers to the static map.
+   * @param {string} [bankId]
+   * @returns {Set<number>|null}
+   */
+  getAvailableDrumKits(bankId = this.currentBankId) {
+    return MidiSynthesizer.getAvailableDrumKits(bankId);
   }
 
   /**

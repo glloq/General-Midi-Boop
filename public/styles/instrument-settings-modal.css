@@ -1909,6 +1909,14 @@ body.theme-dark .ism-cc-range {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
+/* Drum kit absent du SF2 actif — le backend bascule sur Standard Kit.
+   Le bouton reste cliquable (l'utilisateur peut quand même le choisir et
+   entendre le Standard Kit), juste visuellement marqué pour éviter le
+   « pourquoi je n'ai pas de TR-808 ? ». */
+.ism-instrument-btn.ism-kit-unavailable {
+  opacity: 0.45;
+}
+
 .ism-inst-icon {
   display: flex;
   align-items: center;

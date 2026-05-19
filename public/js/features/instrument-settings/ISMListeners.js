@@ -1761,15 +1761,25 @@
     if (fam.isDrumKits) {
       const kits = window.InstrumentFamilies.GM_DRUM_KITS_LIST;
       const offset = typeof GM_DRUM_KIT_OFFSET !== 'undefined' ? GM_DRUM_KIT_OFFSET : 128;
+      const savedBankId = (window.MidiSynthesizer && window.MidiSynthesizer.getSavedBank)
+        ? window.MidiSynthesizer.getSavedBank() : null;
+      const available = (window.MidiSynthesizer && savedBankId)
+        ? window.MidiSynthesizer.getAvailableDrumKits(savedBankId) : null;
+      const unavailLabel = self.t('instrumentSettings.kitUnavailable')
+        || 'Absent du SF2 — bascule sur Standard Kit';
       tiles = kits
         .map(function (kit) {
           const encoded = kit.program + offset;
+          const isUnavailable = available && !available.has(kit.program);
           const icon = window.InstrumentFamilies.resolveInstrumentIcon({
             gmProgram: encoded,
             channel: 9
           });
           const kitName = icon.name || kit.name;
-          return `<button type="button" class="ism-instrument-btn" data-program="${encoded}" data-drum-kit="true" title="${self.escape(kitName)}">
+          const titleText = isUnavailable ? (kitName + ' — ' + unavailLabel) : kitName;
+          const classes = ['ism-instrument-btn', isUnavailable ? 'ism-kit-unavailable' : '']
+            .filter(Boolean).join(' ');
+          return `<button type="button" class="${classes}" data-program="${encoded}" data-drum-kit="true" data-kit-unavailable="${isUnavailable ? '1' : '0'}" title="${self.escape(titleText)}">
                     <span class="ism-inst-icon">
                         ${
                           icon.slug

@@ -70,6 +70,11 @@ export class SF2PresetService {
     // multiple program lookups from the same SF2 file. Keyed by abs path
     // + mtime so a file replacement invalidates automatically.
     this._sf2Instances = instanceCache || new SF2InstanceCache();
+    // Tracks SF2 ids for which we've already logged the drum-kit inventory.
+    // Logging once per id surfaces missing kits (so the user knows why some
+    // drum presets fall back to Standard) without spamming on every preset
+    // fetch.
+    this._kitInventoryLogged = new Set();
     fs.mkdirSync(this.sf2Dir, { recursive: true });
     // Drop default-SF2 L2 cache rows if the underlying file changed since
     // they were stored. Wrapped — older DB facades (test mocks) may not
@@ -152,11 +157,20 @@ export class SF2PresetService {
       const sf2 = this._sf2Instances.getForPath(sf2Path);
 
       if (type === 'drum') {
-        // Try GM drum bank (128) first, fall back to bank 0.
-        // If the requested kit is absent, fall back to Standard Kit (0).
-        preset = convertPresetFromSF2(sf2, 128, kit) || convertPresetFromSF2(sf2, 0, kit);
+        this._logKitInventoryOnce(sf2Id, sf2);
+        // Cascade: (128, kit) → (128, 0) → (0, kit) → (0, 0).
+        // Step 2 (Standard Kit in bank 128) MUST be tried before any
+        // bank-0 fallback: bank 0 program N is a melodic preset (e.g.
+        // program 8 = Celesta), and playing it at a drum note's pitch
+        // produces a "bell" timbre instead of percussion. Bank 0 stays
+        // only as last-resort tolerance for non-conformant SF2 files
+        // that store kits outside the GM drum bank.
+        preset = convertPresetFromSF2(sf2, 128, kit);
         if (!preset && kit !== 0) {
-          preset = convertPresetFromSF2(sf2, 128, 0) || convertPresetFromSF2(sf2, 0, 0);
+          preset = convertPresetFromSF2(sf2, 128, 0);
+        }
+        if (!preset) {
+          preset = convertPresetFromSF2(sf2, 0, kit) || convertPresetFromSF2(sf2, 0, 0);
         }
         if (preset) {
           // Filter to zones covering this specific note
@@ -219,6 +233,82 @@ export class SF2PresetService {
    */
   hasDefaultSF2() {
     try { return fs.existsSync(DEFAULT_SF2_PATH); } catch { return false; }
+  }
+
+  /**
+   * Enumerate the GM drum kit programs actually present in the given SF2.
+   * Looks in bank 128 (the GM drum bank); if none are present, falls back
+   * to bank 0 since a handful of non-conformant SF2 files stash kits there.
+   * @param {string|number} sf2Id
+   * @returns {{ bankNum: number, kits: number[] }}  — kits sorted ascending
+   */
+  inspectDrumKits(sf2Id) {
+    const sf2Path = this._resolveSF2Path(sf2Id);
+    if (!sf2Path || !fs.existsSync(sf2Path)) return { bankNum: 128, kits: [] };
+    try {
+      const sf2 = this._sf2Instances.getForPath(sf2Path);
+      const bank128 = sf2.banks?.[128];
+      if (bank128 && bank128.presets) {
+        const kits = Object.keys(bank128.presets).map(Number).sort((a, b) => a - b);
+        if (kits.length > 0) return { bankNum: 128, kits };
+      }
+      const bank0 = sf2.banks?.[0];
+      if (bank0 && bank0.presets) {
+        const kits = Object.keys(bank0.presets).map(Number).sort((a, b) => a - b);
+        return { bankNum: 0, kits };
+      }
+      return { bankNum: 128, kits: [] };
+    } catch (err) {
+      this.logger.warn?.(`SF2PresetService: inspectDrumKits failed for ${sf2Id}: ${err.message}`);
+      return { bankNum: 128, kits: [] };
+    }
+  }
+
+  /**
+   * Enumerate the melodic GM programs (bank 0) present in the SF2.
+   * @param {string|number} sf2Id
+   * @returns {number[]} — programs sorted ascending (empty if SF2 missing)
+   */
+  inspectMelodicPrograms(sf2Id) {
+    const sf2Path = this._resolveSF2Path(sf2Id);
+    if (!sf2Path || !fs.existsSync(sf2Path)) return [];
+    try {
+      const sf2 = this._sf2Instances.getForPath(sf2Path);
+      const bank0 = sf2.banks?.[0];
+      if (!bank0 || !bank0.presets) return [];
+      return Object.keys(bank0.presets).map(Number).sort((a, b) => a - b);
+    } catch (err) {
+      this.logger.warn?.(`SF2PresetService: inspectMelodicPrograms failed for ${sf2Id}: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Log the drum-kit inventory of an SF2 the first time we look up a drum
+   * preset against it. Surfaces missing kits at info level so users can tell
+   * why their custom SF2 falls back to Standard Kit. Idempotent per sf2Id.
+   * @param {string|number} sf2Id
+   * @param {Object}        sf2
+   * @private
+   */
+  _logKitInventoryOnce(sf2Id, sf2) {
+    if (this._kitInventoryLogged.has(sf2Id)) return;
+    this._kitInventoryLogged.add(sf2Id);
+    try {
+      const bank128 = sf2.banks?.[128];
+      const kits = bank128 && bank128.presets
+        ? Object.keys(bank128.presets).map(Number).sort((a, b) => a - b)
+        : [];
+      if (kits.length === 0) {
+        this.logger.warn?.(
+          `SF2PresetService: SF2 '${sf2Id}' has no drum kits in bank 128 — drum requests will fall back to bank 0 (may sound melodic)`
+        );
+      } else {
+        this.logger.info?.(`SF2PresetService: SF2 '${sf2Id}' drum kits in bank 128: [${kits.join(', ')}]`);
+      }
+    } catch (e) {
+      this._kitInventoryLogged.delete(sf2Id);
+    }
   }
 
   /**
@@ -296,6 +386,7 @@ export class SF2PresetService {
    */
   invalidate(sf2Id) {
     this._mem.invalidatePrefix(`${sf2Id}:`);
+    this._kitInventoryLogged.delete(sf2Id);
   }
 
   /**
