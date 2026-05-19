@@ -452,6 +452,12 @@ class LightingControlPage {
       this._updateToggleBtn();
       this.renderDeviceList();
 
+      // If the user already opened the per-instrument tab while data was
+      // still loading, refresh it now that instruments/rules are available.
+      if (this.activeTab === 'instruments') {
+        this._renderInstrumentList();
+      }
+
       if (this.selectedDeviceId) {
         await this.loadRulesForDevice(this.selectedDeviceId);
       }
