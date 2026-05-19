@@ -18,43 +18,28 @@ import { ValidationError, NotFoundError } from '../../core/errors/index.js';
 // ── Arrangements ──────────────────────────────────────────────────────────────
 
 async function arrangementCreate(app, data) {
-  // Opération multi-step : insert arrangement + 3 tracks. On encapsule
-  // dans une transaction pour éviter l'arrangement zombie si un insert
-  // de track échoue. Les labels par défaut sont volontairement vides
-  // côté serveur (le client génère le label traduit à la réception —
-  // voir AUDIT §U1).
-  const txn = app.database?.db?.transaction
-    ? app.database.db.transaction(() => {
-        const id = app.loopArrangementRepository.save({
-          name: data.name.trim(),
-          global_tempo: data.global_tempo,
-          total_bars: data.total_bars
-        });
-        for (let i = 0; i < 3; i++) {
-          app.loopArrangementRepository.addTrack({
-            arrangement_id: id,
-            track_index: i,
-            label: '' // i18n : généré côté client
-          });
-        }
-        return id;
-      })
-    : () => {
-        // Fallback hors better-sqlite3 (tests / autres backends).
-        const id = app.loopArrangementRepository.save({
-          name: data.name.trim(),
-          global_tempo: data.global_tempo,
-          total_bars: data.total_bars
-        });
-        for (let i = 0; i < 3; i++) {
-          app.loopArrangementRepository.addTrack({
-            arrangement_id: id, track_index: i, label: ''
-          });
-        }
-        return id;
-      };
-  const arrangementId = txn();
-  return { arrangementId };
+  // Insert arrangement + 3 tracks. Wrapped in a transaction so a failed
+  // track insert can't leave a zombie arrangement. Default labels are
+  // intentionally empty server-side (the client renders the translated
+  // label on receipt — AUDIT §U1).
+  const insert = () => {
+    const id = app.loopArrangementRepository.save({
+      name: data.name.trim(),
+      global_tempo: data.global_tempo,
+      total_bars: data.total_bars
+    });
+    for (let i = 0; i < 3; i++) {
+      app.loopArrangementRepository.addTrack({
+        arrangement_id: id,
+        track_index: i,
+        label: ''
+      });
+    }
+    return id;
+  };
+  // Fallback to a plain call outside better-sqlite3 (tests / other backends).
+  const txn = app.database?.db?.transaction ? app.database.db.transaction(insert) : insert;
+  return { arrangementId: txn() };
 }
 
 async function arrangementList(app) {
@@ -67,7 +52,9 @@ async function arrangementGet(app, data) {
   // findFullArrangement (si dispo) fait un seul JOIN tracks+blocks.
   // Fallback sur les 3 queries séparées pour préserver la compat tests.
   if (typeof app.loopArrangementRepository.findFullArrangement === 'function') {
-    const { tracks, blocks } = app.loopArrangementRepository.findFullArrangement(data.arrangementId);
+    const { tracks, blocks } = app.loopArrangementRepository.findFullArrangement(
+      data.arrangementId
+    );
     return { arrangement: arr, tracks, blocks };
   }
   const tracks = app.loopArrangementRepository.findTracks(data.arrangementId);
@@ -133,7 +120,10 @@ function _validateBlockRefs(app, { trackId, loopId, position_bar }) {
   if (trackId !== undefined && typeof app.loopArrangementRepository.findTrackById === 'function') {
     const track = app.loopArrangementRepository.findTrackById(trackId);
     if (!track) throw new NotFoundError('Track', trackId);
-    if (position_bar !== undefined && typeof app.loopArrangementRepository.findById === 'function') {
+    if (
+      position_bar !== undefined &&
+      typeof app.loopArrangementRepository.findById === 'function'
+    ) {
       const arrangement = app.loopArrangementRepository.findById(track.arrangement_id);
       if (arrangement && position_bar >= arrangement.total_bars) {
         throw new ValidationError(
@@ -187,15 +177,15 @@ async function arrangementDeleteBlock(app, data) {
 // ── Registration ──────────────────────────────────────────────────────────────
 
 export function register(registry, app) {
-  registry.register('arrangement_create',       (d) => arrangementCreate(app, d));
-  registry.register('arrangement_list',         ()  => arrangementList(app));
-  registry.register('arrangement_get',          (d) => arrangementGet(app, d));
-  registry.register('arrangement_update',       (d) => arrangementUpdate(app, d));
-  registry.register('arrangement_delete',       (d) => arrangementDelete(app, d));
-  registry.register('arrangement_add_track',    (d) => arrangementAddTrack(app, d));
+  registry.register('arrangement_create', (d) => arrangementCreate(app, d));
+  registry.register('arrangement_list', () => arrangementList(app));
+  registry.register('arrangement_get', (d) => arrangementGet(app, d));
+  registry.register('arrangement_update', (d) => arrangementUpdate(app, d));
+  registry.register('arrangement_delete', (d) => arrangementDelete(app, d));
+  registry.register('arrangement_add_track', (d) => arrangementAddTrack(app, d));
   registry.register('arrangement_update_track', (d) => arrangementUpdateTrack(app, d));
   registry.register('arrangement_delete_track', (d) => arrangementDeleteTrack(app, d));
-  registry.register('arrangement_add_block',    (d) => arrangementAddBlock(app, d));
+  registry.register('arrangement_add_block', (d) => arrangementAddBlock(app, d));
   registry.register('arrangement_update_block', (d) => arrangementUpdateBlock(app, d));
   registry.register('arrangement_delete_block', (d) => arrangementDeleteBlock(app, d));
 }

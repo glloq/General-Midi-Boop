@@ -18,6 +18,26 @@
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
 /**
+ * @throws {ConfigurationError}
+ */
+function _requireBle(app) {
+  if (!app.bluetoothManager) {
+    throw new ConfigurationError('Bluetooth not available');
+  }
+  return app.bluetoothManager;
+}
+
+/**
+ * @throws {ValidationError}
+ */
+function _requireAddress(data) {
+  if (!data.address) {
+    throw new ValidationError('Device address is required', 'address');
+  }
+  return data.address;
+}
+
+/**
  * @param {Object} app
  * @param {{duration?:number, filter?:string}} data - `duration` in
  *   seconds (defaults to 5); `filter` substring matched against device
@@ -26,21 +46,10 @@ import { ValidationError, ConfigurationError } from '../../core/errors/index.js'
  * @throws {ConfigurationError}
  */
 async function bleScanStart(app, data) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  const duration = data.duration || 5;
-  const filter = data.filter || '';
-
+  const ble = _requireBle(app);
   try {
-    const devices = await app.bluetoothManager.startScan(duration, filter);
-    return {
-      success: true,
-      data: {
-        devices: devices
-      }
-    };
+    const devices = await ble.startScan(data.duration || 5, data.filter || '');
+    return { success: true, data: { devices } };
   } catch (error) {
     if (error instanceof ConfigurationError) throw error;
     throw new ConfigurationError(`BLE scan error: ${error.message}`);
@@ -53,11 +62,7 @@ async function bleScanStart(app, data) {
  * @throws {ConfigurationError}
  */
 async function bleScanStop(app) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  app.bluetoothManager.stopScan();
+  _requireBle(app).stopScan();
   return { success: true };
 }
 
@@ -68,20 +73,9 @@ async function bleScanStop(app) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function bleConnect(app, data) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  if (!data.address) {
-    throw new ValidationError('Device address is required', 'address');
-  }
-
-  const result = await app.bluetoothManager.connect(data.address);
-
-  return {
-    success: true,
-    data: result
-  };
+  const ble = _requireBle(app);
+  const result = await ble.connect(_requireAddress(data));
+  return { success: true, data: result };
 }
 
 /**
@@ -91,20 +85,9 @@ async function bleConnect(app, data) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function bleDisconnect(app, data) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  if (!data.address) {
-    throw new ValidationError('Device address is required', 'address');
-  }
-
-  const result = await app.bluetoothManager.disconnect(data.address);
-
-  return {
-    success: true,
-    data: result
-  };
+  const ble = _requireBle(app);
+  const result = await ble.disconnect(_requireAddress(data));
+  return { success: true, data: result };
 }
 
 /**
@@ -116,19 +99,9 @@ async function bleDisconnect(app, data) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function bleForget(app, data) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  if (!data.address) {
-    throw new ValidationError('Device address is required', 'address');
-  }
-
-  await app.bluetoothManager.forget(data.address);
-
-  return {
-    success: true
-  };
+  const ble = _requireBle(app);
+  await ble.forget(_requireAddress(data));
+  return { success: true };
 }
 
 /**
@@ -137,18 +110,8 @@ async function bleForget(app, data) {
  * @throws {ConfigurationError}
  */
 async function blePaired(app) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  const devices = app.bluetoothManager.getPairedDevices();
-
-  return {
-    success: true,
-    data: {
-      devices: devices
-    }
-  };
+  const devices = _requireBle(app).getPairedDevices();
+  return { success: true, data: { devices } };
 }
 
 /**
@@ -182,16 +145,8 @@ async function bleStatus(app) {
  * @throws {ConfigurationError}
  */
 async function blePowerOn(app) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  const result = await app.bluetoothManager.powerOn();
-
-  return {
-    success: true,
-    data: result
-  };
+  const result = await _requireBle(app).powerOn();
+  return { success: true, data: result };
 }
 
 /**
@@ -200,16 +155,8 @@ async function blePowerOn(app) {
  * @throws {ConfigurationError}
  */
 async function blePowerOff(app) {
-  if (!app.bluetoothManager) {
-    throw new ConfigurationError('Bluetooth not available');
-  }
-
-  const result = await app.bluetoothManager.powerOff();
-
-  return {
-    success: true,
-    data: result
-  };
+  const result = await _requireBle(app).powerOff();
+  return { success: true, data: result };
 }
 
 /**

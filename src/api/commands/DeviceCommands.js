@@ -19,6 +19,71 @@ import { NotFoundError, ConfigurationError } from '../../core/errors/index.js';
 import { safeJsonParse } from '../../utils/JsonParser.js';
 
 /**
+ * Copy `keys` from `src` onto `dst` when the source value is neither
+ * null nor undefined. Used to fold persisted instrument settings onto a
+ * live device record (backward-compat: first channel only).
+ */
+function _assignDefined(dst, src, keys) {
+  for (const key of keys) {
+    if (src[key] !== null && src[key] !== undefined) {
+      dst[key] = src[key];
+    }
+  }
+}
+
+// Fields lifted from the resolved settings row onto the device record.
+// `sysex_manufacturer_id` lets the frontend decide whether a real
+// external keyboard is plugged in (null for never-probed devices and
+// for our own DIY GMB devices, which use the custom protocol).
+const DEVICE_SETTINGS_FIELDS = [
+  'gm_program',
+  'polyphony',
+  'note_range_min',
+  'note_range_max',
+  'sysex_manufacturer_id'
+];
+
+function _enrichDevice(app, device) {
+  const settings = app.deviceReconciliationService.resolveSettings(device);
+  if (settings) {
+    if (settings.custom_name) device.displayName = settings.custom_name;
+    _assignDefined(device, settings, DEVICE_SETTINGS_FIELDS);
+    // Truthy-gated (original skipped empty strings for these two).
+    if (settings.note_selection_mode) device.note_selection_mode = settings.note_selection_mode;
+    if (settings.usb_serial_number) device.usb_serial_number = settings.usb_serial_number;
+  }
+
+  // Device-level custom_name takes priority over instrument-level.
+  try {
+    const deviceSettings = app.deviceSettingsRepository.findByDeviceId(device.id);
+    if (deviceSettings && deviceSettings.custom_name) {
+      device.displayName = deviceSettings.custom_name;
+      device.deviceCustomName = deviceSettings.custom_name;
+    }
+  } catch (_e) {
+    /* ignore */
+  }
+
+  try {
+    const allInstruments = app.instrumentRepository.findByDevice(device.id);
+    if (allInstruments && allInstruments.length > 0) {
+      device.instruments = allInstruments.map((inst) => ({
+        ...inst,
+        supported_ccs: safeJsonParse(inst.supported_ccs),
+        selected_notes: safeJsonParse(inst.selected_notes),
+        note_selection_mode: inst.note_selection_mode || 'range'
+      }));
+    }
+  } catch (e) {
+    /* no multi-channel instruments — fine */
+  }
+
+  if (device.usbSerialNumber && !device.usb_serial_number) {
+    device.usb_serial_number = device.usbSerialNumber;
+  }
+}
+
+/**
  * Enumerate every MIDI port currently visible to the DeviceManager and
  * enrich each entry with persisted settings (custom display name, GM
  * program, polyphony, note-range, USB serial, channel-level instruments).
@@ -31,82 +96,20 @@ import { safeJsonParse } from '../../utils/JsonParser.js';
 async function deviceList(app) {
   const devices = app.deviceManager.getDeviceList();
 
-  // Enrich devices with data from the database
   if (app.database) {
     for (const device of devices) {
       try {
-        const settings = app.deviceReconciliationService.resolveSettings(device);
-
-        if (settings) {
-          if (settings.custom_name) {
-            device.displayName = settings.custom_name;
-          }
-          // Include instrument configuration fields (backward compatibility: first channel)
-          if (settings.gm_program !== null && settings.gm_program !== undefined) {
-            device.gm_program = settings.gm_program;
-          }
-          if (settings.polyphony !== null && settings.polyphony !== undefined) {
-            device.polyphony = settings.polyphony;
-          }
-          if (settings.note_range_min !== null && settings.note_range_min !== undefined) {
-            device.note_range_min = settings.note_range_min;
-          }
-          if (settings.note_range_max !== null && settings.note_range_max !== undefined) {
-            device.note_range_max = settings.note_range_max;
-          }
-          if (settings.note_selection_mode) {
-            device.note_selection_mode = settings.note_selection_mode;
-          }
-          // Include the usb_serial_number in the response
-          if (settings.usb_serial_number) {
-            device.usb_serial_number = settings.usb_serial_number;
-          }
-          // Expose SysEx identity (used by the frontend to decide whether
-          // a real external keyboard is plugged in). `sysex_manufacturer_id`
-          // is set by parseIdentityReply when a Universal Identity Reply is
-          // received ; it stays null for never-probed devices and for our
-          // own DIY GMB devices (which use the custom protocol).
-          if (settings.sysex_manufacturer_id !== null && settings.sysex_manufacturer_id !== undefined) {
-            device.sysex_manufacturer_id = settings.sysex_manufacturer_id;
-          }
-        }
-
-        // Enrich with device-level custom_name (takes priority over instrument-level)
-        try {
-          const deviceSettings = app.deviceSettingsRepository.findByDeviceId(device.id);
-          if (deviceSettings && deviceSettings.custom_name) {
-            device.displayName = deviceSettings.custom_name;
-            device.deviceCustomName = deviceSettings.custom_name;
-          }
-        } catch (_e) { /* ignore */ }
-
-        // Load all instruments/channels configured on this device
-        try {
-          const allInstruments = app.instrumentRepository.findByDevice(device.id);
-          if (allInstruments && allInstruments.length > 0) {
-            device.instruments = allInstruments.map(inst => ({
-              ...inst,
-              supported_ccs: safeJsonParse(inst.supported_ccs),
-              selected_notes: safeJsonParse(inst.selected_notes),
-              note_selection_mode: inst.note_selection_mode || 'range'
-            }));
-          }
-        } catch (e) {
-          // No multi-channel instruments, not a problem
-        }
-
-        // Always include the device's USB serial number if it has one
-        if (device.usbSerialNumber && !device.usb_serial_number) {
-          device.usb_serial_number = device.usbSerialNumber;
-        }
+        _enrichDevice(app, device);
       } catch (error) {
-        // Ignore errors - the device may not have any settings
+        /* device may have no settings */
       }
     }
   }
 
-  app.logger.debug(`[CommandHandler] deviceList returning ${devices.length} devices:`,
-    devices.map(d => `"${d.displayName || d.name}" (${d.type})`).join(', '));
+  app.logger.debug(
+    `[CommandHandler] deviceList returning ${devices.length} devices:`,
+    devices.map((d) => `"${d.displayName || d.name}" (${d.type})`).join(', ')
+  );
   return { devices: devices };
 }
 
@@ -187,10 +190,7 @@ async function deviceEnable(app, data) {
  * @throws Propagates any error thrown by `DeviceManager#sendIdentityRequest`.
  */
 async function deviceIdentityRequest(app, data) {
-  app.deviceManager.sendIdentityRequest(
-    data.deviceName,
-    data.deviceId || 0x7F
-  );
+  app.deviceManager.sendIdentityRequest(data.deviceName, data.deviceId || 0x7f);
 
   return {
     success: true,

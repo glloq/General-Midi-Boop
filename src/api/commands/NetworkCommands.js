@@ -14,6 +14,28 @@
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 
 /**
+ * @throws {ConfigurationError}
+ */
+function _requireNetwork(app) {
+  if (!app.networkManager) {
+    throw new ConfigurationError('Network manager not available');
+  }
+  return app.networkManager;
+}
+
+/**
+ * Resolve the destination IP, accepting both `ip` and the legacy
+ * `address` alias.
+ * @throws {ValidationError}
+ */
+function _requireIp(data) {
+  if (!data.ip && !data.address) {
+    throw new ValidationError('Device IP address is required', 'ip');
+  }
+  return data.ip || data.address;
+}
+
+/**
  * @param {Object} app
  * @param {{timeout?:number, fullScan?:boolean}} data - `timeout` in
  *   seconds (defaults to 5); `fullScan` defaults to true.
@@ -21,21 +43,10 @@ import { ValidationError, ConfigurationError } from '../../core/errors/index.js'
  * @throws {ConfigurationError}
  */
 async function networkScan(app, data) {
-  if (!app.networkManager) {
-    throw new ConfigurationError('Network manager not available');
-  }
-
-  const timeout = data.timeout || 5;
+  const mgr = _requireNetwork(app);
   const fullScan = data.fullScan !== undefined ? data.fullScan : true;
-
-  const devices = await app.networkManager.startScan(timeout, fullScan);
-
-  return {
-    success: true,
-    data: {
-      devices: devices
-    }
-  };
+  const devices = await mgr.startScan(data.timeout || 5, fullScan);
+  return { success: true, data: { devices } };
 }
 
 /**
@@ -44,18 +55,8 @@ async function networkScan(app, data) {
  * @throws {ConfigurationError}
  */
 async function networkConnectedList(app) {
-  if (!app.networkManager) {
-    throw new ConfigurationError('Network manager not available');
-  }
-
-  const devices = app.networkManager.getConnectedDevices();
-
-  return {
-    success: true,
-    data: {
-      devices: devices
-    }
-  };
+  const devices = _requireNetwork(app).getConnectedDevices();
+  return { success: true, data: { devices } };
 }
 
 /**
@@ -69,23 +70,10 @@ async function networkConnectedList(app) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function networkConnect(app, data) {
-  if (!app.networkManager) {
-    throw new ConfigurationError('Network manager not available');
-  }
-
-  if (!data.ip && !data.address) {
-    throw new ValidationError('Device IP address is required', 'ip');
-  }
-
-  const ip = data.ip || data.address;
-  const port = data.port || '5004';
-
-  const result = await app.networkManager.connect(ip, port);
-
-  return {
-    success: true,
-    data: result
-  };
+  const mgr = _requireNetwork(app);
+  const ip = _requireIp(data);
+  const result = await mgr.connect(ip, data.port || '5004');
+  return { success: true, data: result };
 }
 
 /**
@@ -95,22 +83,9 @@ async function networkConnect(app, data) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function networkDisconnect(app, data) {
-  if (!app.networkManager) {
-    throw new ConfigurationError('Network manager not available');
-  }
-
-  if (!data.ip && !data.address) {
-    throw new ValidationError('Device IP address is required', 'ip');
-  }
-
-  const ip = data.ip || data.address;
-
-  const result = await app.networkManager.disconnect(ip);
-
-  return {
-    success: true,
-    data: result
-  };
+  const mgr = _requireNetwork(app);
+  const result = await mgr.disconnect(_requireIp(data));
+  return { success: true, data: result };
 }
 
 /**

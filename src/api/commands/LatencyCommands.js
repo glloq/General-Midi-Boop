@@ -28,6 +28,21 @@ import { ValidationError } from '../../core/errors/index.js';
 import DelayCalibrator from '../../audio/DelayCalibrator.js';
 
 /**
+ * Validate + parse a required MIDI channel (0-15).
+ * @throws {ValidationError}
+ */
+function _requireChannel(value) {
+  if (value === undefined || value === null) {
+    throw new ValidationError('channel is required', 'channel');
+  }
+  const ch = parseInt(value);
+  if (isNaN(ch) || ch < 0 || ch > 15) {
+    throw new ValidationError('channel must be between 0 and 15', 'channel');
+  }
+  return ch;
+}
+
+/**
  * Run a one-off latency measurement on a device.
  *
  * @param {Object} app
@@ -48,10 +63,7 @@ async function latencyMeasure(app, data) {
     data.iterations = iter;
   }
 
-  const result = await app.latencyCompensator.measureLatency(
-    data.deviceId,
-    data.iterations || 5
-  );
+  const result = await app.latencyCompensator.measureLatency(data.deviceId, data.iterations || 5);
   return result;
 }
 
@@ -164,22 +176,14 @@ async function latencyExport(app) {
 async function calibrateDelay(app, data) {
   const { deviceId, channel, threshold, alsaDevice, measurements } = data;
 
-  // Validate required fields
   if (!deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
-  if (channel === undefined || channel === null) {
-    throw new ValidationError('channel is required', 'channel');
-  }
-  const ch = parseInt(channel);
-  if (isNaN(ch) || ch < 0 || ch > 15) {
-    throw new ValidationError('channel must be between 0 and 15', 'channel');
-  }
+  const ch = _requireChannel(channel);
 
-  // Validate optional fields
   if (threshold !== undefined) {
     const t = parseFloat(threshold);
-    if (isNaN(t) || t < 0.01 || t > 0.10) {
+    if (isNaN(t) || t < 0.01 || t > 0.1) {
       throw new ValidationError('threshold must be between 0.01 and 0.10', 'threshold');
     }
   }
@@ -189,18 +193,14 @@ async function calibrateDelay(app, data) {
       throw new ValidationError('measurements must be between 1 and 20', 'measurements');
     }
   }
-  if (alsaDevice !== undefined) {
-    if (!DelayCalibrator.isValidAlsaDevice(alsaDevice)) {
-      throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
-    }
+  if (alsaDevice !== undefined && !DelayCalibrator.isValidAlsaDevice(alsaDevice)) {
+    throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
   }
 
-  // Guard against concurrent calibration
   if (app.delayCalibrator.isRecording) {
     throw new ValidationError('Calibration already in progress');
   }
 
-  // Configure calibrator if options provided
   if (threshold !== undefined) {
     app.delayCalibrator.setThreshold(parseFloat(threshold));
   }
@@ -209,11 +209,9 @@ async function calibrateDelay(app, data) {
   }
 
   // Run calibration
-  const result = await app.delayCalibrator.calibrateInstrument(
-    deviceId,
-    ch,
-    { measurements: measurements !== undefined ? parseInt(measurements) : undefined }
-  );
+  const result = await app.delayCalibrator.calibrateInstrument(deviceId, ch, {
+    measurements: measurements !== undefined ? parseInt(measurements) : undefined
+  });
 
   return result;
 }
@@ -240,14 +238,7 @@ async function calibratePreviewNote(app, data) {
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
-  if (data.channel === undefined || data.channel === null) {
-    throw new ValidationError('channel is required', 'channel');
-  }
-  const ch = parseInt(data.channel);
-  if (isNaN(ch) || ch < 0 || ch > 15) {
-    throw new ValidationError('channel must be between 0 and 15', 'channel');
-  }
-
+  const ch = _requireChannel(data.channel);
   await app.delayCalibrator.sendTestNote(data.deviceId, ch);
   return { success: true };
 }
@@ -262,26 +253,34 @@ async function calibratePreviewNote(app, data) {
  * @returns {Promise<{success:true}>}
  * @throws {ValidationError}
  */
-async function calibrateMonitorStart(app, data) {
-  const alsaDevice = data.alsaDevice;
-
+/**
+ * Both arecord pipelines (calibration monitor + tuner) are mutually
+ * exclusive on the ALSA device — a lingering one holds it and the new
+ * spawn fails with "busy". So we await BOTH previous processes before
+ * starting a new one.
+ *
+ * @throws {ValidationError}
+ */
+async function _startExclusiveMonitor(app, alsaDevice, startFn) {
   if (alsaDevice !== undefined && !DelayCalibrator.isValidAlsaDevice(alsaDevice)) {
     throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
   }
-
-  // Mutually exclusive on the ALSA device: await both pipelines' previous
-  // arecord processes before spawning a new one. Otherwise a lingering
-  // tuner/monitor holds the device and the new arecord fails with "busy".
   await app.delayCalibrator.stopMonitoring();
   await app.delayCalibrator.stopTunerMonitoring();
 
-  app.delayCalibrator.startMonitoring((level) => {
+  const broadcast = (event) => (payload) => {
     if (app.wsServer && app.wsServer.broadcast) {
-      app.wsServer.broadcast('calibration:audio_level', level);
+      app.wsServer.broadcast(event, payload);
     }
-  }, { alsaDevice });
-
+  };
+  startFn(broadcast, { alsaDevice });
   return { success: true };
+}
+
+async function calibrateMonitorStart(app, data) {
+  return _startExclusiveMonitor(app, data.alsaDevice, (broadcast, opts) =>
+    app.delayCalibrator.startMonitoring(broadcast('calibration:audio_level'), opts)
+  );
 }
 
 /**
@@ -305,24 +304,9 @@ async function calibrateMonitorStop(app) {
  * @throws {ValidationError}
  */
 async function tunerMonitorStart(app, data) {
-  const alsaDevice = data && data.alsaDevice;
-
-  if (alsaDevice !== undefined && !DelayCalibrator.isValidAlsaDevice(alsaDevice)) {
-    throw new ValidationError('Invalid ALSA device format', 'alsaDevice');
-  }
-
-  // Mutually exclusive on the ALSA device: await both pipelines' previous
-  // arecord processes before spawning a new one.
-  await app.delayCalibrator.stopTunerMonitoring();
-  await app.delayCalibrator.stopMonitoring();
-
-  app.delayCalibrator.startTunerMonitoring((payload) => {
-    if (app.wsServer && app.wsServer.broadcast) {
-      app.wsServer.broadcast('tuner:pitch', payload);
-    }
-  }, { alsaDevice });
-
-  return { success: true };
+  return _startExclusiveMonitor(app, data && data.alsaDevice, (broadcast, opts) =>
+    app.delayCalibrator.startTunerMonitoring(broadcast('tuner:pitch'), opts)
+  );
 }
 
 /**
@@ -358,9 +342,8 @@ async function tunerMonitorStop(app) {
  * }>}>}
  */
 async function tunerListInstruments(app) {
-  const devices = (app.deviceManager && app.deviceManager.getDeviceList)
-    ? app.deviceManager.getDeviceList()
-    : [];
+  const devices =
+    app.deviceManager && app.deviceManager.getDeviceList ? app.deviceManager.getDeviceList() : [];
   const items = [];
 
   for (const dev of devices) {
@@ -374,13 +357,25 @@ async function tunerListInstruments(app) {
       if (app.instrumentRepository && app.instrumentRepository.findByDevice) {
         channels = app.instrumentRepository.findByDevice(dev.id) || [];
       }
-    } catch (_e) { channels = []; }
+    } catch (_e) {
+      channels = [];
+    }
 
     // No per-channel config → synthesize a single channel-0 entry so the
     // device still shows up in the list (useful for melodic instruments
     // that haven't had their capabilities completed yet).
     if (channels.length === 0) {
-      channels = [{ channel: 0, gm_program: null, note_range_min: null, note_range_max: null, instrument_type: null, custom_name: null, name: null }];
+      channels = [
+        {
+          channel: 0,
+          gm_program: null,
+          note_range_min: null,
+          note_range_max: null,
+          instrument_type: null,
+          custom_name: null,
+          name: null
+        }
+      ];
     }
 
     for (const inst of channels) {
@@ -389,7 +384,10 @@ async function tunerListInstruments(app) {
       const displayName = channels.length > 1 ? `${base} — Ch ${ch + 1}` : base;
 
       // Pull tuning from the user's saved config only.
-      let tuning = null, numStrings = null, isFretless = false, source = null;
+      let tuning = null,
+        numStrings = null,
+        isFretless = false,
+        source = null;
       try {
         if (app.stringInstrumentRepository && app.stringInstrumentRepository.findByDeviceChannel) {
           const row = app.stringInstrumentRepository.findByDeviceChannel(dev.id, ch);
@@ -400,17 +398,20 @@ async function tunerListInstruments(app) {
             source = 'db';
           }
         }
-      } catch (_e) { /* ignore, tuning stays null */ }
+      } catch (_e) {
+        /* ignore, tuning stays null */
+      }
 
       // Heuristic for "this is a stringed instrument" — drives the UX
       // between "show chromatic picker (melodic)" and "ask user to
       // configure an open-string tuning (stringed)".
       const gm = inst.gm_program;
-      const looksStringed = inst.instrument_type === 'stringed'
-        || inst.instrument_type === 'guitar'
-        || inst.instrument_type === 'bass'
-        || inst.instrument_type === 'strings'
-        || (typeof gm === 'number' && gm >= 24 && gm <= 39);
+      const looksStringed =
+        inst.instrument_type === 'stringed' ||
+        inst.instrument_type === 'guitar' ||
+        inst.instrument_type === 'bass' ||
+        inst.instrument_type === 'strings' ||
+        (typeof gm === 'number' && gm >= 24 && gm <= 39);
 
       items.push({
         deviceId: dev.id,
