@@ -113,7 +113,8 @@
                 colnoteborder:  'rgba(102,126,234,0.25)',
                 colkbwhite:     '#f8f8f8',
                 colkbblack:     '#222222',
-                colcursor:      '#e74c3c'
+                colcursor:      '#e74c3c',
+                colmark:        '#ff9f1c'
             };
 
             // ---- event bus ----
@@ -1612,6 +1613,29 @@
                 ctx.moveTo(cx + 0.5, RULER_H);
                 ctx.lineTo(cx + 0.5, H);
                 ctx.stroke();
+            }
+
+            // Loop-end boundary: a clear vertical line at the loop length
+            // (`_markend`, set to ppq*timeSigNum*bars by the editor) plus a
+            // dimmed overlay on the out-of-loop area beyond it, so the user
+            // can see where the loop stops while drawing notes.
+            if (this._markend > 0) {
+                const mx = this._tickToX(this._markend);
+                ctx.save();
+                const dimX = Math.max(KB_WIDTH, mx);
+                if (dimX < this._cssWidth) {
+                    ctx.fillStyle = 'rgba(20, 22, 32, 0.55)';
+                    ctx.fillRect(dimX, RULER_H, this._cssWidth - dimX, H - RULER_H);
+                }
+                if (mx >= KB_WIDTH && mx <= this._cssWidth) {
+                    ctx.strokeStyle = this._theme.colmark;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(mx + 0.5, RULER_H);
+                    ctx.lineTo(mx + 0.5, H);
+                    ctx.stroke();
+                }
+                ctx.restore();
             }
 
             // Crosshair following the mouse over the notes area — helps
