@@ -107,9 +107,10 @@ class AutoAssigner {
       // the scheduling differs.
       const YIELD_EVERY = 250;
       let _opsSinceYield = 0;
-      const _yield = () => new Promise((resolve) => {
-        (typeof setImmediate === 'function' ? setImmediate : setTimeout)(resolve, 0);
-      });
+      const _yield = () =>
+        new Promise((resolve) => {
+          (typeof setImmediate === 'function' ? setImmediate : setTimeout)(resolve, 0);
+        });
 
       for (const analysis of channelAnalyses) {
         const scores = [];
@@ -367,12 +368,8 @@ class AutoAssigner {
       }
 
       for (const { channel, options, analysis, viableCount } of pendingChannels) {
-        // Find the best instrument even if already used
-        let selected = null;
-        for (const option of options) {
-          selected = option;
-          break; // first = best score (already sorted)
-        }
+        // Best instrument even if already used (options are pre-sorted by score)
+        const selected = options[0] || null;
 
         if (!selected) {
           autoSkipped.add(channel);

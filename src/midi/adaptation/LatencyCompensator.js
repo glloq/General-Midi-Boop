@@ -38,24 +38,16 @@ class LatencyCompensator {
     // instance the application registers later.
     Object.defineProperty(this, 'wsServer', {
       get: () => deps.wsServer,
-      configurable: true,
+      configurable: true
     });
 
     this.profiles = new Map();
-    this.pendingMeasurements = new Map();
     this.calibrationInProgress = false;
 
     this.loadProfilesFromDB();
     this.logger.info('LatencyCompensator initialized');
   }
 
-  /**
-   * Re-hydrate in-memory `profiles` from the database at startup.
-   * Failures are logged but do not abort boot — the server can still
-   * operate without profiles, it just skips compensation.
-   *
-   * @returns {void}
-   */
   /**
    * Re-hydrate `this.profiles` from `instruments_latency` (plural) at
    * boot. Persistence is keyed per-device on the channel-0 row; see
@@ -68,7 +60,7 @@ class LatencyCompensator {
   loadProfilesFromDB() {
     try {
       const profiles = this.database.getAllLatencyProfiles();
-      profiles.forEach(profile => {
+      profiles.forEach((profile) => {
         this.profiles.set(profile.device_id, {
           latency: profile.latency,
           lastCalibrated: profile.lastCalibrated ? new Date(profile.lastCalibrated) : null,
@@ -121,7 +113,7 @@ class LatencyCompensator {
         const latency = await this.measureSingleRoundtrip(deviceId);
         measurements.push(latency);
         this.logger.debug(`Measurement ${i + 1}/${iterations}: ${latency.toFixed(2)}ms`);
-        
+
         // Wait between measurements
         await this.sleep(CALIBRATION_PAUSE_BETWEEN_MS);
       }
@@ -149,7 +141,9 @@ class LatencyCompensator {
         measurements: measurements
       };
 
-      this.logger.info(`Latency measurement complete: ${avgLatency.toFixed(2)}ms (min: ${minLatency.toFixed(2)}ms, max: ${maxLatency.toFixed(2)}ms)`);
+      this.logger.info(
+        `Latency measurement complete: ${avgLatency.toFixed(2)}ms (min: ${minLatency.toFixed(2)}ms, max: ${maxLatency.toFixed(2)}ms)`
+      );
 
       // Broadcast result
       if (this.wsServer) {
@@ -176,56 +170,44 @@ class LatencyCompensator {
    */
   async measureSingleRoundtrip(deviceId) {
     return new Promise((resolve, reject) => {
-      const testNote = CALIBRATION_TEST_NOTE;
-      const testVelocity = CALIBRATION_TEST_VELOCITY;
-      const testChannel = CALIBRATION_TEST_CHANNEL;
-      const timeout = CALIBRATION_TIMEOUT_MS;
-
       let timeoutHandle;
-      let messageHandler;
 
-      // Setup message handler - filter strictly on device, note, channel and velocity
-      // to avoid false positives from other devices or unrelated MIDI events
-      messageHandler = (event) => {
-        if (event.device === deviceId &&
-            event.type === 'noteon' &&
-            event.data.note === testNote &&
-            event.data.channel === testChannel &&
-            event.data.velocity === testVelocity) {
-          
-          const endTime = process.hrtime.bigint();
-          const latency = Number(endTime - startTime) / 1000000; // ns → ms
-          
-          // Cleanup
+      // Filter strictly on device, note, channel and velocity to avoid
+      // false positives from other devices or unrelated MIDI events.
+      const messageHandler = (event) => {
+        if (
+          event.device === deviceId &&
+          event.type === 'noteon' &&
+          event.data.note === CALIBRATION_TEST_NOTE &&
+          event.data.channel === CALIBRATION_TEST_CHANNEL &&
+          event.data.velocity === CALIBRATION_TEST_VELOCITY
+        ) {
+          const latency = Number(process.hrtime.bigint() - startTime) / 1000000; // ns → ms
           clearTimeout(timeoutHandle);
           this.eventBus.off('midi_message', messageHandler);
-          
           resolve(latency);
         }
       };
 
-      // Register handler
       this.eventBus.on('midi_message', messageHandler);
 
-      // Set timeout
       timeoutHandle = setTimeout(() => {
         this.eventBus.off('midi_message', messageHandler);
         reject(new Error('Latency measurement timeout'));
-      }, timeout);
+      }, CALIBRATION_TIMEOUT_MS);
 
-      // Send test note
       const startTime = process.hrtime.bigint();
       this.deviceManager.sendMessage(deviceId, 'noteon', {
-        channel: testChannel,
-        note: testNote,
-        velocity: testVelocity
+        channel: CALIBRATION_TEST_CHANNEL,
+        note: CALIBRATION_TEST_NOTE,
+        velocity: CALIBRATION_TEST_VELOCITY
       });
 
       // Send note off after calibration note duration
       setTimeout(() => {
         this.deviceManager.sendMessage(deviceId, 'noteoff', {
-          channel: testChannel,
-          note: testNote,
+          channel: CALIBRATION_TEST_CHANNEL,
+          note: CALIBRATION_TEST_NOTE,
           velocity: 0
         });
       }, CALIBRATION_NOTE_DURATION_MS);
@@ -389,7 +371,7 @@ class LatencyCompensator {
    */
   async autoCalibrate(deviceIds) {
     const results = [];
-    
+
     for (const deviceId of deviceIds) {
       try {
         const result = await this.measureLatency(deviceId);
@@ -417,7 +399,8 @@ class LatencyCompensator {
       return true;
     }
 
-    const daysSinceCalibration = (Date.now() - profile.lastCalibrated.getTime()) / (1000 * 60 * 60 * 24);
+    const daysSinceCalibration =
+      (Date.now() - profile.lastCalibrated.getTime()) / (1000 * 60 * 60 * 24);
     return daysSinceCalibration > RECALIBRATION_DAYS;
   }
 
@@ -430,7 +413,7 @@ class LatencyCompensator {
    */
   getRecommendedCalibrations() {
     const recommendations = [];
-    
+
     this.profiles.forEach((profile, deviceId) => {
       if (this.shouldRecalibrate(deviceId)) {
         recommendations.push({
@@ -443,7 +426,7 @@ class LatencyCompensator {
 
     // Check for devices without profiles
     const devices = this.deviceManager.getDeviceList();
-    devices.forEach(device => {
+    devices.forEach((device) => {
       if (device.input && device.output && !this.profiles.has(device.id)) {
         recommendations.push({
           deviceId: device.id,
@@ -463,7 +446,7 @@ class LatencyCompensator {
    * @returns {Promise<void>}
    */
   sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

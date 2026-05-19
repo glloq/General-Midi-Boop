@@ -56,7 +56,6 @@
 const EPSILON_SECONDS = 0.0001;
 const CHORD_GROUPING_TOLERANCE = 0.002;
 const DEFAULT_ANCHOR_MIN_DURATION_MS = 60;
-const DEFAULT_ANCHOR_EARLY_RELEASE_MS = 20;
 const DEFAULT_HYSTERESIS_MM = 3;
 const DEFAULT_LOOKAHEAD = 2;
 
@@ -350,9 +349,8 @@ class LongitudinalPlanner {
 
       // 7. Promote sufficiently long notes to anchored. The anchor's
       //    natural release time is the actual note-off (t_on + duration);
-      //    `early_release_ms` is consumed only by the conflict path
-      //    (`_tryReleaseConflict`), which may release the anchor before
-      //    its natural end to make room for an incoming note.
+      //    the conflict path (`_tryReleaseConflict`) may release an
+      //    anchor before its natural end to make room for an incoming note.
       for (const r of reqs) {
         const durMs = (r.note.duration ?? 0) * 1000;
         if (durMs >= this.minAnchorMs) {

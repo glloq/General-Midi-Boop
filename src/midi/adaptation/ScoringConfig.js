@@ -208,15 +208,6 @@ const ScoringConfig = {
   },
 
   /**
-   * Get a threshold
-   * @param {string} threshold
-   * @returns {number|Object}
-   */
-  getThreshold(threshold) {
-    return this.typeThresholds[threshold];
-  },
-
-  /**
    * Get a penalty
    * @param {string} penalty
    * @returns {number}
@@ -247,16 +238,6 @@ const ScoringConfig = {
     if (level === 'warning')   return this.handPosition.warningPenalty || 0;
     if (level === 'infeasible')return this.handPosition.infeasiblePenalty || 0;
     return 0;
-  },
-
-  /**
-   * Get the weight of a criterion for the drums channel (channel 9)
-   * @param {string} criterion
-   * @returns {number}
-   */
-  getDrumWeight(criterion) {
-    return (this.percussion && this.percussion.drumChannelWeights &&
-            this.percussion.drumChannelWeights[criterion]) || this.weights[criterion] || 0;
   },
 
   /**

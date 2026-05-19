@@ -38,7 +38,7 @@ class InstrumentMatcher {
     this.GM_CATEGORIES = Object.fromEntries(
       MidiUtils.GM_CATEGORY_SLUGS.map((slug, i) => [
         slug,
-        Array.from({ length: 8 }, (_, j) => i * 8 + j),
+        Array.from({ length: 8 }, (_, j) => i * 8 + j)
       ])
     );
   }
@@ -58,8 +58,12 @@ class InstrumentMatcher {
     const programScore = this.scoreProgramMatch(
       channelAnalysis.primaryProgram,
       instrument.gm_program,
-      { channelBankMSB: channelAnalysis.bankMSB, channelBankLSB: channelAnalysis.bankLSB,
-        instrumentBankMSB: instrument.bank_msb, instrumentBankLSB: instrument.bank_lsb }
+      {
+        channelBankMSB: channelAnalysis.bankMSB,
+        channelBankLSB: channelAnalysis.bankLSB,
+        instrumentBankMSB: instrument.bank_msb,
+        instrumentBankLSB: instrument.bank_lsb
+      }
     );
     score += programScore.score;
     if (programScore.info) info.push(programScore.info);
@@ -130,16 +134,15 @@ class InstrumentMatcher {
     let parsedCCs = null;
     if (instrument.supported_ccs) {
       try {
-        parsedCCs = typeof instrument.supported_ccs === 'string'
-          ? JSON.parse(instrument.supported_ccs) : instrument.supported_ccs;
+        parsedCCs =
+          typeof instrument.supported_ccs === 'string'
+            ? JSON.parse(instrument.supported_ccs)
+            : instrument.supported_ccs;
       } catch (e) {
         this.logger.warn(`Failed to parse supported_ccs for ${instrument.device_id}`);
       }
     }
-    const ccScore = this.scoreCCSupport(
-      channelAnalysis.usedCCs,
-      parsedCCs
-    );
+    const ccScore = this.scoreCCSupport(channelAnalysis.usedCCs, parsedCCs);
     score += ccScore.score;
     if (ccScore.issue) issues.push(ccScore.issue);
     if (ccScore.info) info.push(ccScore.info);
@@ -188,21 +191,33 @@ class InstrumentMatcher {
       }
     }
 
-    // 7. Re-weighting for drums channel
+    // 7. Re-weighting for drums channel.
+    // Normalize each sub-score relative to standard weights, then re-weight
+    // with drum weights. The unrounded reweighted values feed `score`; the
+    // same values rounded feed `scoreBreakdown` (computed in step 9) so the
+    // displayed breakdown matches the final score.
+    const std = this.config.weights;
+    const drum = this.config.percussion.drumChannelWeights;
+    // Guard against division by zero: if standard weight is 0, the sub-score contribution is 0
+    const reweight = (subScore, stdWeight, drumWeight) =>
+      stdWeight > 0 ? (subScore / stdWeight) * drumWeight : 0;
+    const drumReweighted = isDrumChannel
+      ? {
+          program: reweight(programScore.score, std.programMatch, drum.programMatch),
+          noteRange: reweight(noteScore.score, std.noteRange, drum.noteRange),
+          polyphony: reweight(polyScore.score, std.polyphony, drum.polyphony),
+          ccSupport: reweight(ccScore.score, std.ccSupport, drum.ccSupport),
+          instrumentType: reweight(typeScore.score, std.instrumentType, drum.instrumentType)
+        }
+      : null;
+
     if (isDrumChannel) {
-      const std = this.config.weights;
-      const drum = this.config.percussion.drumChannelWeights;
-      // Normalize each sub-score relative to standard weights, then re-weight with drums weights
-      // Guard against division by zero: if standard weight is 0, the sub-score contribution is 0
-      const safeRatio = (subScore, stdWeight, drumWeight) =>
-        stdWeight > 0 ? (subScore / stdWeight) * drumWeight : 0;
-
-      score = safeRatio(programScore.score, std.programMatch, drum.programMatch)
-            + safeRatio(noteScore.score, std.noteRange, drum.noteRange)
-            + safeRatio(polyScore.score, std.polyphony, drum.polyphony)
-            + safeRatio(ccScore.score, std.ccSupport, drum.ccSupport)
-            + safeRatio(typeScore.score, std.instrumentType, drum.instrumentType);
-
+      score =
+        drumReweighted.program +
+        drumReweighted.noteRange +
+        drumReweighted.polyphony +
+        drumReweighted.ccSupport +
+        drumReweighted.instrumentType;
       // Ensure score is finite (NaN guard)
       if (!isFinite(score)) score = 0;
     }
@@ -220,32 +235,41 @@ class InstrumentMatcher {
     score += percussionPenalty;
 
     // Compatible = notes AND polyphony AND percussion must all be compatible
-    const isCompatible = noteScore.compatible !== false && polyScore.compatible !== false && !percussionIncompatible;
+    const isCompatible =
+      noteScore.compatible !== false && polyScore.compatible !== false && !percussionIncompatible;
 
     // Build score breakdown for UI detail display
     // For drum channels, show reweighted scores to match the final score
     let scoreBreakdown;
     if (isDrumChannel) {
-      const std = this.config.weights;
-      const drum = this.config.percussion.drumChannelWeights;
-      const safeRatioBreakdown = (subScore, stdWeight, drumWeight) =>
-        stdWeight > 0 ? (subScore / stdWeight) * drumWeight : 0;
       scoreBreakdown = {
-        program: { score: Math.round(safeRatioBreakdown(programScore.score, std.programMatch, drum.programMatch)), max: drum.programMatch },
-        noteRange: { score: Math.round(safeRatioBreakdown(noteScore.score, std.noteRange, drum.noteRange)), max: drum.noteRange },
-        polyphony: { score: Math.round(safeRatioBreakdown(polyScore.score, std.polyphony, drum.polyphony)), max: drum.polyphony },
-        ccSupport: { score: Math.round(safeRatioBreakdown(ccScore.score, std.ccSupport, drum.ccSupport)), max: drum.ccSupport },
-        instrumentType: { score: Math.round(safeRatioBreakdown(typeScore.score, std.instrumentType, drum.instrumentType)), max: drum.instrumentType },
-        percussion: { score: Math.round(percussionPenalty), max: this.config.getPercussionValue('drumChannelDrumBonus') },
+        program: { score: Math.round(drumReweighted.program), max: drum.programMatch },
+        noteRange: { score: Math.round(drumReweighted.noteRange), max: drum.noteRange },
+        polyphony: { score: Math.round(drumReweighted.polyphony), max: drum.polyphony },
+        ccSupport: { score: Math.round(drumReweighted.ccSupport), max: drum.ccSupport },
+        instrumentType: {
+          score: Math.round(drumReweighted.instrumentType),
+          max: drum.instrumentType
+        },
+        percussion: {
+          score: Math.round(percussionPenalty),
+          max: this.config.getPercussionValue('drumChannelDrumBonus')
+        },
         timing: { score: Math.round(timingResult.penalty), max: 0 }
       };
     } else {
       scoreBreakdown = {
-        program: { score: Math.round(programScore.score), max: this.config.getWeight('programMatch') },
+        program: {
+          score: Math.round(programScore.score),
+          max: this.config.getWeight('programMatch')
+        },
         noteRange: { score: Math.round(noteScore.score), max: this.config.getWeight('noteRange') },
         polyphony: { score: Math.round(polyScore.score), max: this.config.getWeight('polyphony') },
         ccSupport: { score: Math.round(ccScore.score), max: this.config.getWeight('ccSupport') },
-        instrumentType: { score: Math.round(typeScore.score), max: this.config.getWeight('instrumentType') },
+        instrumentType: {
+          score: Math.round(typeScore.score),
+          max: this.config.getWeight('instrumentType')
+        },
         percussion: { score: 0, max: 0 },
         timing: { score: Math.round(timingResult.penalty), max: 0 }
       };
@@ -405,8 +429,10 @@ class InstrumentMatcher {
     const { channelBankMSB, channelBankLSB, instrumentBankMSB, instrumentBankLSB } = bankInfo;
 
     // If neither side has bank info, it's a non-issue
-    if ((channelBankMSB === null || channelBankMSB === undefined) &&
-        (instrumentBankMSB === null || instrumentBankMSB === undefined)) {
+    if (
+      (channelBankMSB === null || channelBankMSB === undefined) &&
+      (instrumentBankMSB === null || instrumentBankMSB === undefined)
+    ) {
       return 'none';
     }
 
@@ -437,7 +463,12 @@ class InstrumentMatcher {
    * @param {string|null} instrumentSubtype - Optional subtype for transposing instrument offsets
    * @returns {Object}
    */
-  scoreNoteCompatibility(channelRange, instrumentCaps, channelAnalysis = null, instrumentSubtype = null) {
+  scoreNoteCompatibility(
+    channelRange,
+    instrumentCaps,
+    channelAnalysis = null,
+    instrumentSubtype = null
+  ) {
     // Channel without notes (null range) = neutral score, compatible by default
     if (channelRange.min === null || channelRange.max === null) {
       return {
@@ -512,23 +543,33 @@ class InstrumentMatcher {
       // Non-octave transposition (transposing instrument like Bb trumpet, Eb sax...)
       // Slightly higher penalty than pure octave: +1 extra point penalty
       const approxOctaves = Math.abs(Math.round(transposition.semitones / 12));
-      score = Math.max(0, (perfectNoteScore - 6) - approxOctaves * transpositionPenalty);
+      score = Math.max(0, perfectNoteScore - 6 - approxOctaves * transpositionPenalty);
       const direction = transposition.semitones > 0 ? 'up' : 'down';
       info = `Transposing instrument: ${Math.abs(transposition.semitones)} semitone(s) ${direction}`;
     } else {
-      score = Math.max(0, (perfectNoteScore - 5) - Math.abs(transposition.octaves) * transpositionPenalty);
+      score = Math.max(
+        0,
+        perfectNoteScore - 5 - Math.abs(transposition.octaves) * transpositionPenalty
+      );
       const direction = transposition.octaves > 0 ? 'up' : 'down';
       info = `Transposition: ${Math.abs(transposition.octaves)} octave(s) ${direction}`;
     }
 
     // Calculate octave wrapping for notes that exceed the range
-    const wrapping = this.calculateOctaveWrapping(channelRange, instrumentCaps, transposition.semitones);
+    const wrapping = this.calculateOctaveWrapping(
+      channelRange,
+      instrumentCaps,
+      transposition.semitones
+    );
 
     // Playability factor: what % of channel notes are actually playable after transposition?
     const issues = [];
-    if (channelAnalysis?.noteDistribution && Object.keys(channelAnalysis.noteDistribution).length > 0) {
+    if (
+      channelAnalysis?.noteDistribution &&
+      Object.keys(channelAnalysis.noteDistribution).length > 0
+    ) {
       const usedNotes = Object.keys(channelAnalysis.noteDistribution).map(Number);
-      const playableCount = usedNotes.filter(n => {
+      const playableCount = usedNotes.filter((n) => {
         const shifted = n + transposition.semitones;
         // Note is playable if within range, or if wrapping is available
         if (shifted >= instrumentCaps.min && shifted <= instrumentCaps.max) return true;
@@ -726,14 +767,24 @@ class InstrumentMatcher {
     if (channelAnalysis && channelAnalysis.channel === 9 && channelAnalysis.noteEvents) {
       const drumFallback = this.config.routing?.drumFallback || null;
       const hasDepthLimits = drumFallback && Object.keys(drumFallback).length > 0;
-      return this.scoreDiscreteDrumsIntelligent(channelAnalysis, selectedNotes, hasDepthLimits ? drumFallback : null);
+      return this.scoreDiscreteDrumsIntelligent(
+        channelAnalysis,
+        selectedNotes,
+        hasDepthLimits ? drumFallback : null
+      );
     }
 
     // Fallback: simple closest-note mapping for non-drums discrete instruments
     // Use actually present notes if available, otherwise use the range
     let channelNotes;
-    if (channelAnalysis && channelAnalysis.noteDistribution && Object.keys(channelAnalysis.noteDistribution).length > 0) {
-      channelNotes = Object.keys(channelAnalysis.noteDistribution).map(Number).sort((a, b) => a - b);
+    if (
+      channelAnalysis &&
+      channelAnalysis.noteDistribution &&
+      Object.keys(channelAnalysis.noteDistribution).length > 0
+    ) {
+      channelNotes = Object.keys(channelAnalysis.noteDistribution)
+        .map(Number)
+        .sort((a, b) => a - b);
     } else {
       channelNotes = [];
       for (let note = channelRange.min; note <= channelRange.max; note++) {
@@ -741,7 +792,7 @@ class InstrumentMatcher {
       }
     }
 
-    const supportedCount = channelNotes.filter(n => selectedNotes.includes(n)).length;
+    const supportedCount = channelNotes.filter((n) => selectedNotes.includes(n)).length;
     const supportRatio = supportedCount / channelNotes.length;
 
     if (supportRatio === 0) {
@@ -832,7 +883,9 @@ class InstrumentMatcher {
         });
       }
 
-      this.logger.info(`[DrumMapping] Quality: ${quality.score}/100, Score: ${score}/${this.config.getWeight('noteRange')}, Mapped: ${quality.mappedCount}/${quality.totalCount}`);
+      this.logger.info(
+        `[DrumMapping] Quality: ${quality.score}/100, Score: ${score}/${this.config.getWeight('noteRange')}, Mapped: ${quality.mappedCount}/${quality.totalCount}`
+      );
 
       return {
         compatible: quality.score >= 30, // Minimum 30% quality to be compatible
@@ -846,10 +899,13 @@ class InstrumentMatcher {
     } catch (error) {
       this.logger.error(`[DrumMapping] Error: ${error.message}`);
       // Safe fallback: validate noteRange before falling back to simple scoring
-      const fallbackRange = channelAnalysis && channelAnalysis.noteRange &&
-        channelAnalysis.noteRange.min !== null && channelAnalysis.noteRange.max !== null
-        ? channelAnalysis.noteRange
-        : { min: 0, max: 127 };
+      const fallbackRange =
+        channelAnalysis &&
+        channelAnalysis.noteRange &&
+        channelAnalysis.noteRange.min !== null &&
+        channelAnalysis.noteRange.max !== null
+          ? channelAnalysis.noteRange
+          : { min: 0, max: 127 };
       return this.scoreDiscreteNotes(fallbackRange, selectedNotes, null);
     }
   }
@@ -940,22 +996,23 @@ class InstrumentMatcher {
    * @returns {Object}
    */
   scoreCCSupport(channelCCs, instrumentCCs) {
-    const maxCCScore = this.config.getWeight('ccSupport'); // 5
+    const ccWeight = this.config.getWeight('ccSupport'); // 5
     if (channelCCs.length === 0) {
-      return { score: maxCCScore, info: 'No CCs used by channel' };
+      return { score: ccWeight, info: 'No CCs used by channel' };
     }
 
     // If the instrument has no configured CC list: neutral score (not full)
     if (!instrumentCCs || instrumentCCs.length === 0) {
-      const ccWeight = this.config.getWeight('ccSupport');
-      return { score: Math.round(ccWeight * 0.53), info: 'Instrument CC support unknown (not configured)' };
+      return {
+        score: Math.round(ccWeight * 0.53),
+        info: 'Instrument CC support unknown (not configured)'
+      };
     }
 
     // Count how many CCs are supported
-    const supportedCount = channelCCs.filter(cc => instrumentCCs.includes(cc)).length;
+    const supportedCount = channelCCs.filter((cc) => instrumentCCs.includes(cc)).length;
     const supportRatio = supportedCount / channelCCs.length;
 
-    const ccWeight = this.config.getWeight('ccSupport');
     const score = Math.round(ccWeight * supportRatio);
 
     if (supportRatio === 1) {
@@ -964,7 +1021,7 @@ class InstrumentMatcher {
         info: `All ${channelCCs.length} CCs supported`
       };
     } else if (supportRatio >= 0.5) {
-      const unsupported = channelCCs.filter(cc => !instrumentCCs.includes(cc));
+      const unsupported = channelCCs.filter((cc) => !instrumentCCs.includes(cc));
       return {
         score,
         issue: {
@@ -973,7 +1030,7 @@ class InstrumentMatcher {
         }
       };
     } else {
-      const unsupported = channelCCs.filter(cc => !instrumentCCs.includes(cc));
+      const unsupported = channelCCs.filter((cc) => !instrumentCCs.includes(cc));
       return {
         score,
         issue: {
@@ -995,21 +1052,28 @@ class InstrumentMatcher {
 
     // Extract hierarchical type info
     const channelTypeInfo = typeof channelType === 'object' ? channelType : { type: channelType };
-    const channelCategory = channelTypeInfo.category || null;     // ex: 'guitar'
+    const channelCategory = channelTypeInfo.category || null; // ex: 'guitar'
     const channelSubtype = channelTypeInfo.categorySubtype || null; // ex: 'nylon'
-    const channelGenericType = channelTypeInfo.type || null;       // ex: 'melody', 'bass'
+    const channelGenericType = channelTypeInfo.type || null; // ex: 'melody', 'bass'
 
-    const instrumentTypeInfo = typeof instrumentType === 'object' ? instrumentType : { type: instrumentType };
+    const instrumentTypeInfo =
+      typeof instrumentType === 'object' ? instrumentType : { type: instrumentType };
     const instCategory = instrumentTypeInfo.category || null;
     const instSubtype = instrumentTypeInfo.subtype || null;
     const instGenericType = instrumentTypeInfo.type || null;
 
     // If both have a hierarchical category, use hierarchical scoring
-    if (channelCategory && instCategory &&
-        channelCategory !== 'unknown' && instCategory !== 'unknown') {
+    if (
+      channelCategory &&
+      instCategory &&
+      channelCategory !== 'unknown' &&
+      instCategory !== 'unknown'
+    ) {
       return this.scoreHierarchicalType(
-        channelCategory, channelSubtype,
-        instCategory, instSubtype,
+        channelCategory,
+        channelSubtype,
+        instCategory,
+        instSubtype,
         maxScore
       );
     }
@@ -1019,22 +1083,26 @@ class InstrumentMatcher {
     const channelTypeStr = channelCategory || channelGenericType;
     const instTypeStr = instCategory || instGenericType;
 
-    if (!channelTypeStr || channelTypeStr === 'unknown' ||
-        !instTypeStr || instTypeStr === 'unknown') {
+    if (
+      !channelTypeStr ||
+      channelTypeStr === 'unknown' ||
+      !instTypeStr ||
+      instTypeStr === 'unknown'
+    ) {
       return { score: Math.round(maxScore * 0.5), info: 'Instrument type not determined' };
     }
 
     // Legacy mapping for compatibility
     const typeMapping = {
-      'piano': ['melody', 'harmony'],
-      'strings': ['melody', 'harmony'],
-      'organ': ['harmony', 'melody'],
-      'lead': ['melody'],
-      'pad': ['harmony', 'melody'],
-      'brass': ['melody', 'harmony'],
-      'percussive': ['percussive'],
-      'drums': ['percussive'],
-      'bass': ['bass', 'melody']
+      piano: ['melody', 'harmony'],
+      strings: ['melody', 'harmony'],
+      organ: ['harmony', 'melody'],
+      lead: ['melody'],
+      pad: ['harmony', 'melody'],
+      brass: ['melody', 'harmony'],
+      percussive: ['percussive'],
+      drums: ['percussive'],
+      bass: ['bass', 'melody']
     };
 
     const acceptableTypes = typeMapping[channelTypeStr];
@@ -1166,16 +1234,21 @@ class InstrumentMatcher {
     if (!instrument) return unknown;
     let hands = instrument.hands_config;
     if (typeof hands === 'string') {
-      try { hands = JSON.parse(hands); } catch (_) { return unknown; }
+      try {
+        hands = JSON.parse(hands);
+      } catch (_) {
+        return unknown;
+      }
     }
     if (!hands || hands.enabled === false) return unknown;
     if (!Array.isArray(hands.hands) || hands.hands.length === 0) return unknown;
 
     const polyphonyMax = channelAnalysis?.polyphony?.max ?? null;
     const noteRange = channelAnalysis?.noteRange ?? null;
-    const rangeSpan = (noteRange && noteRange.min != null && noteRange.max != null)
-      ? noteRange.max - noteRange.min
-      : null;
+    const rangeSpan =
+      noteRange && noteRange.min != null && noteRange.max != null
+        ? noteRange.max - noteRange.min
+        : null;
 
     const mode = hands.mode === 'frets' ? 'frets' : 'semitones';
     const summary = { mode };
@@ -1185,13 +1258,15 @@ class InstrumentMatcher {
     let qualityScore = 100;
 
     if (mode === 'frets') {
-      const fretting = hands.hands.find(h => h && h.id === 'fretting') || hands.hands[0];
-      const maxFingers = Number.isFinite(fretting?.max_fingers) && fretting.max_fingers > 0
-        ? fretting.max_fingers
-        : null;
-      const handSpanFrets = Number.isFinite(fretting?.hand_span_frets) && fretting.hand_span_frets > 0
-        ? fretting.hand_span_frets
-        : null;
+      const fretting = hands.hands.find((h) => h && h.id === 'fretting') || hands.hands[0];
+      const maxFingers =
+        Number.isFinite(fretting?.max_fingers) && fretting.max_fingers > 0
+          ? fretting.max_fingers
+          : null;
+      const handSpanFrets =
+        Number.isFinite(fretting?.hand_span_frets) && fretting.hand_span_frets > 0
+          ? fretting.hand_span_frets
+          : null;
       summary.maxFingers = maxFingers;
       summary.handSpanFrets = handSpanFrets;
       summary.polyphonyMax = polyphonyMax;
@@ -1226,7 +1301,10 @@ class InstrumentMatcher {
       // all hands (typically 2 × 14 = 28 semitones reachable without
       // crossing hands). Polyphony cap is sum of polyphony per hand,
       // which we approximate as 5 fingers × hands.length.
-      const totalSpan = hands.hands.reduce((s, h) => s + (Number.isFinite(h?.hand_span_semitones) ? h.hand_span_semitones : 14), 0);
+      const totalSpan = hands.hands.reduce(
+        (s, h) => s + (Number.isFinite(h?.hand_span_semitones) ? h.hand_span_semitones : 14),
+        0
+      );
       const totalFingers = hands.hands.length * 5;
       summary.totalSpanSemitones = totalSpan;
       summary.totalFingers = totalFingers;
@@ -1299,7 +1377,8 @@ class InstrumentMatcher {
     }
 
     // Fallback by GM program (legacy)
-    if (program >= 112 && program <= 119) return { type: 'percussive', category: 'drums', subtype: null };
+    if (program >= 112 && program <= 119)
+      return { type: 'percussive', category: 'drums', subtype: null };
     if (program >= 32 && program <= 39) return { type: 'bass', category: 'bass', subtype: null };
     if ((program >= 0 && program <= 7) || (program >= 40 && program <= 55)) {
       return { type: 'harmony', category: null, subtype: null };
@@ -1350,14 +1429,25 @@ class InstrumentMatcher {
     if (!name) return 'unknown';
 
     const keywords = {
-      percussive: ['drum', 'perc', 'kit', 'cymbal', 'snare', 'kick', 'tom', 'hi-hat', 'hihat', 'cajon'],
+      percussive: [
+        'drum',
+        'perc',
+        'kit',
+        'cymbal',
+        'snare',
+        'kick',
+        'tom',
+        'hi-hat',
+        'hihat',
+        'cajon'
+      ],
       bass: ['bass', 'sub'],
       harmony: ['piano', 'keys', 'keyboard', 'organ', 'strings', 'pad', 'chord', 'harp'],
       melody: ['lead', 'synth', 'flute', 'trumpet', 'sax', 'violin', 'guitar', 'clarinet', 'oboe']
     };
 
     for (const [type, words] of Object.entries(keywords)) {
-      if (words.some(w => name.includes(w))) return type;
+      if (words.some((w) => name.includes(w))) return type;
     }
     return 'unknown';
   }
@@ -1369,8 +1459,7 @@ class InstrumentMatcher {
    */
   isDrumsInstrument(instrument) {
     const program = instrument.gm_program;
-    return (program >= 112 && program <= 119) ||
-           instrument.note_selection_mode === 'discrete';
+    return (program >= 112 && program <= 119) || instrument.note_selection_mode === 'discrete';
   }
 }
 

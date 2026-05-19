@@ -29,7 +29,6 @@ const CC_STRING_SELECT_DEFAULT = 20;
 const CC_FRET_SELECT_DEFAULT = 21;
 
 class TablatureConverter {
-
   /**
    * @param {Object} instrumentConfig - String instrument configuration
    * @param {number[]} instrumentConfig.tuning - MIDI note per string (low to high), e.g. [40,45,50,55,59,64]
@@ -63,12 +62,12 @@ class TablatureConverter {
 
   // Viterbi algorithm configuration for min_movement
   static VITERBI_CONFIG = {
-    BEAM_WIDTH: 32,            // Max states kept per time step
-    MAX_CHORD_STATES: 200,     // Max enumerated assignments per chord group
-    MAX_FRET_SPAN: 5,          // Max fret span in a chord (hand stretch)
-    COMFORTABLE_SPAN: 3,       // Span below which no penalty
+    BEAM_WIDTH: 32, // Max states kept per time step
+    MAX_CHORD_STATES: 200, // Max enumerated assignments per chord group
+    MAX_FRET_SPAN: 5, // Max fret span in a chord (hand stretch)
+    COMFORTABLE_SPAN: 3, // Span below which no penalty
     MOVE_THRESHOLD_STRETCH: 2, // Frets reachable by finger stretching
-    MOVE_THRESHOLD_SHIFT: 5,   // Frets reachable by hand shift
+    MOVE_THRESHOLD_SHIFT: 5 // Frets reachable by hand shift
   };
 
   constructor(instrumentConfig) {
@@ -77,15 +76,24 @@ class TablatureConverter {
     this.numStrings = instrumentConfig.tuning?.length || instrumentConfig.num_strings;
     this.numFrets = instrumentConfig.num_frets;
     this.isFretless = instrumentConfig.is_fretless;
-    this.ccEnabled = instrumentConfig.cc_enabled !== undefined ? !!instrumentConfig.cc_enabled : true;
+    this.ccEnabled =
+      instrumentConfig.cc_enabled !== undefined ? !!instrumentConfig.cc_enabled : true;
     this.algorithm = instrumentConfig.tab_algorithm || 'min_movement';
 
     // Configurable CC numbers and parameters
-    this.ccStringNumber = instrumentConfig.cc_string_number !== undefined ? instrumentConfig.cc_string_number : CC_STRING_SELECT_DEFAULT;
-    this.ccStringMin = instrumentConfig.cc_string_min !== undefined ? instrumentConfig.cc_string_min : 1;
-    this.ccStringMax = instrumentConfig.cc_string_max !== undefined ? instrumentConfig.cc_string_max : 12;
+    this.ccStringNumber =
+      instrumentConfig.cc_string_number !== undefined
+        ? instrumentConfig.cc_string_number
+        : CC_STRING_SELECT_DEFAULT;
+    this.ccStringMin =
+      instrumentConfig.cc_string_min !== undefined ? instrumentConfig.cc_string_min : 1;
+    this.ccStringMax =
+      instrumentConfig.cc_string_max !== undefined ? instrumentConfig.cc_string_max : 12;
     this.ccStringOffset = instrumentConfig.cc_string_offset || 0;
-    this.ccFretNumber = instrumentConfig.cc_fret_number !== undefined ? instrumentConfig.cc_fret_number : CC_FRET_SELECT_DEFAULT;
+    this.ccFretNumber =
+      instrumentConfig.cc_fret_number !== undefined
+        ? instrumentConfig.cc_fret_number
+        : CC_FRET_SELECT_DEFAULT;
     this.ccFretMin = instrumentConfig.cc_fret_min !== undefined ? instrumentConfig.cc_fret_min : 0;
     this.ccFretMax = instrumentConfig.cc_fret_max !== undefined ? instrumentConfig.cc_fret_max : 36;
     this.ccFretOffset = instrumentConfig.cc_fret_offset || 0;
@@ -99,9 +107,10 @@ class TablatureConverter {
     // wider instrument capability shape. Open strings (fret 0) are not
     // counted against this cap — they don't press a finger against the
     // fretboard. `null`/`undefined` disables the filter entirely.
-    this.maxFingers = Number.isFinite(instrumentConfig.max_fingers) && instrumentConfig.max_fingers > 0
-      ? instrumentConfig.max_fingers
-      : null;
+    this.maxFingers =
+      Number.isFinite(instrumentConfig.max_fingers) && instrumentConfig.max_fingers > 0
+        ? instrumentConfig.max_fingers
+        : null;
 
     // Physical-model inputs for the optional `hand_aware` algorithm.
     // scale_length_mm lives natively on the string_instruments row;
@@ -109,15 +118,19 @@ class TablatureConverter {
     // from `hands_config.hands[0]`. When any input is missing we fall
     // back to the existing semitone-based costs (still safe because
     // hand_aware then degrades to min_movement-equivalent behaviour).
-    this.scaleLengthMm = Number.isFinite(instrumentConfig.scale_length_mm) && instrumentConfig.scale_length_mm > 0
-      ? instrumentConfig.scale_length_mm
-      : null;
-    this.handSpanMm = Number.isFinite(instrumentConfig.hand_span_mm) && instrumentConfig.hand_span_mm > 0
-      ? instrumentConfig.hand_span_mm
-      : null;
-    this.handMoveMmPerSec = Number.isFinite(instrumentConfig.hand_move_mm_per_sec) && instrumentConfig.hand_move_mm_per_sec > 0
-      ? instrumentConfig.hand_move_mm_per_sec
-      : null;
+    this.scaleLengthMm =
+      Number.isFinite(instrumentConfig.scale_length_mm) && instrumentConfig.scale_length_mm > 0
+        ? instrumentConfig.scale_length_mm
+        : null;
+    this.handSpanMm =
+      Number.isFinite(instrumentConfig.hand_span_mm) && instrumentConfig.hand_span_mm > 0
+        ? instrumentConfig.hand_span_mm
+        : null;
+    this.handMoveMmPerSec =
+      Number.isFinite(instrumentConfig.hand_move_mm_per_sec) &&
+      instrumentConfig.hand_move_mm_per_sec > 0
+        ? instrumentConfig.hand_move_mm_per_sec
+        : null;
     this._handAwareReady = !!(this.scaleLengthMm && this.handSpanMm);
 
     // Open-string MIDI notes per string (kept as a separate field so
@@ -259,7 +272,11 @@ class TablatureConverter {
       if (prevStates === null) {
         // First group — no predecessor, use default hand position
         const occupiedStrings = new Set(); // Nothing occupied yet
-        const assignments = this._enumerateStatesForGroup(chordNotes, occupiedStrings, MAX_CHORD_STATES);
+        const assignments = this._enumerateStatesForGroup(
+          chordNotes,
+          occupiedStrings,
+          MAX_CHORD_STATES
+        );
 
         for (const assignment of assignments) {
           const handPos = this._handPositionFromAssignment(assignment, defaultHandPos);
@@ -273,8 +290,10 @@ class TablatureConverter {
             totalCost,
             backPointer: null,
             // Track recent events for occupied string calculation
-            recentEvents: assignment.map(a => ({
-              tick, string: a.string, duration: a.note.g
+            recentEvents: assignment.map((a) => ({
+              tick,
+              string: a.string,
+              duration: a.note.g
             }))
           });
         }
@@ -289,8 +308,10 @@ class TablatureConverter {
             // Penalise fallback heavily so a valid path is always preferred later.
             totalCost: 100,
             backPointer: null,
-            recentEvents: fallback.map(a => ({
-              tick, string: a.string, duration: a.note.g
+            recentEvents: fallback.map((a) => ({
+              tick,
+              string: a.string,
+              duration: a.note.g
             }))
           });
         }
@@ -304,14 +325,22 @@ class TablatureConverter {
           const occupiedStrings = this._getOccupiedStringsFromRecent(prevState.recentEvents, tick);
 
           // Enumerate valid assignments for this group given occupied strings
-          const assignments = this._enumerateStatesForGroup(chordNotes, occupiedStrings, MAX_CHORD_STATES);
+          const assignments = this._enumerateStatesForGroup(
+            chordNotes,
+            occupiedStrings,
+            MAX_CHORD_STATES
+          );
 
           if (assignments.length === 0) {
             // No valid assignment — fall back to clamped positions (unplayable)
             // so notes are still rendered (in red) instead of dropped silently.
             const fallback = this._buildClampedAssignment(chordNotes, occupiedStrings);
             const key = fallback.length
-              ? 'fallback:' + fallback.map(a => `${a.string}:${a.fret}`).sort().join(',')
+              ? 'fallback:' +
+                fallback
+                  .map((a) => `${a.string}:${a.fret}`)
+                  .sort()
+                  .join(',')
               : 'skip';
             const totalCost = prevState.totalCost + 100; // Heavy penalty
             if (!stateMap.has(key) || totalCost < stateMap.get(key).totalCost) {
@@ -337,7 +366,10 @@ class TablatureConverter {
             const totalCost = prevState.totalCost + emission + transition;
 
             // Use a signature to deduplicate states with same assignment
-            const key = assignment.map(a => `${a.string}:${a.fret}`).sort().join(',');
+            const key = assignment
+              .map((a) => `${a.string}:${a.fret}`)
+              .sort()
+              .join(',');
 
             if (!stateMap.has(key) || totalCost < stateMap.get(key).totalCost) {
               const newRecent = this._pruneRecentEvents(prevState.recentEvents, tick);
@@ -415,8 +447,8 @@ class TablatureConverter {
     for (let i = 0; i < path.length; i++) {
       const tick = chordGroups[i].tick;
       const emitted = path[i];
-      const emittedNotes = new Set(emitted.map(e => e.note));
-      const occupiedAtTick = new Set(emitted.map(e => e.string));
+      const emittedNotes = new Set(emitted.map((e) => e.note));
+      const occupiedAtTick = new Set(emitted.map((e) => e.string));
 
       for (const entry of emitted) {
         tabEvents.push({
@@ -498,9 +530,10 @@ class TablatureConverter {
   _enumerateStatesForGroup(chordNotes, occupiedStrings, maxResults) {
     if (chordNotes.length === 1) {
       const note = chordNotes[0];
-      const positions = this._getPossiblePositions(note.n)
-        .filter(pos => !occupiedStrings.has(pos.string));
-      return positions.map(pos => [{ noteIndex: 0, string: pos.string, fret: pos.fret, note }]);
+      const positions = this._getPossiblePositions(note.n).filter(
+        (pos) => !occupiedStrings.has(pos.string)
+      );
+      return positions.map((pos) => [{ noteIndex: 0, string: pos.string, fret: pos.fret, note }]);
     }
     return this._enumerateAssignments(chordNotes, occupiedStrings, maxResults);
   }
@@ -525,7 +558,7 @@ class TablatureConverter {
    * @private
    */
   _pruneRecentEvents(recentEvents, tick) {
-    return recentEvents.filter(ev => tick - ev.tick <= 7680);
+    return recentEvents.filter((ev) => tick - ev.tick <= 7680);
   }
 
   // ==========================================================================
@@ -534,13 +567,13 @@ class TablatureConverter {
 
   /** @private */
   _convertLowestFret(notes) {
-    const picker = (positions) => positions.reduce((a, b) => a.fret <= b.fret ? a : b);
+    const picker = (positions) => positions.reduce((a, b) => (a.fret <= b.fret ? a : b));
     return this._convertWithPicker(notes, picker, picker);
   }
 
   /** @private */
   _convertHighestFret(notes) {
-    const picker = (positions) => positions.reduce((a, b) => a.fret >= b.fret ? a : b);
+    const picker = (positions) => positions.reduce((a, b) => (a.fret >= b.fret ? a : b));
     return this._convertWithPicker(notes, picker, picker);
   }
 
@@ -560,32 +593,50 @@ class TablatureConverter {
 
       if (chordNotes.length === 1) {
         const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n)
-          .filter(pos => !occupiedStrings.has(pos.string));
+        const positions = this._getPossiblePositions(note.n).filter(
+          (pos) => !occupiedStrings.has(pos.string)
+        );
 
         if (positions.length === 0) {
           const clamp = this._getClampedPosition(note.n, occupiedStrings);
-          if (!clamp) { this._droppedCount++; continue; }
+          if (!clamp) {
+            this._droppedCount++;
+            continue;
+          }
           tabEvents.push({
-            tick, string: clamp.string, fret: clamp.fret,
-            velocity: note.v, duration: note.g,
-            midiNote: note.n, channel: note.c, unplayable: true
+            tick,
+            string: clamp.string,
+            fret: clamp.fret,
+            velocity: note.v,
+            duration: note.g,
+            midiNote: note.n,
+            channel: note.c,
+            unplayable: true
           });
           continue;
         }
 
         const best = singlePicker(positions);
         tabEvents.push({
-          tick, string: best.string, fret: best.fret,
-          velocity: note.v, duration: note.g, midiNote: note.n, channel: note.c
+          tick,
+          string: best.string,
+          fret: best.fret,
+          velocity: note.v,
+          duration: note.g,
+          midiNote: note.n,
+          channel: note.c
         });
       } else {
         const assignment = this._assignChordWithPicker(chordNotes, chordPicker, occupiedStrings);
         for (const entry of assignment) {
           tabEvents.push({
-            tick, string: entry.string, fret: entry.fret,
-            velocity: entry.velocity, duration: entry.duration,
-            midiNote: entry.midiNote, channel: entry.channel,
+            tick,
+            string: entry.string,
+            fret: entry.fret,
+            velocity: entry.velocity,
+            duration: entry.duration,
+            midiNote: entry.midiNote,
+            channel: entry.channel,
             ...(entry.unplayable ? { unplayable: true } : {})
           });
         }
@@ -619,16 +670,25 @@ class TablatureConverter {
 
       if (chordNotes.length === 1) {
         const note = chordNotes[0];
-        const positions = this._getPossiblePositions(note.n)
-          .filter(pos => !occupiedStrings.has(pos.string));
+        const positions = this._getPossiblePositions(note.n).filter(
+          (pos) => !occupiedStrings.has(pos.string)
+        );
 
         if (positions.length === 0) {
           const clamp = this._getClampedPosition(note.n, occupiedStrings);
-          if (!clamp) { this._droppedCount++; continue; }
+          if (!clamp) {
+            this._droppedCount++;
+            continue;
+          }
           tabEvents.push({
-            tick, string: clamp.string, fret: clamp.fret,
-            velocity: note.v, duration: note.g,
-            midiNote: note.n, channel: note.c, unplayable: true
+            tick,
+            string: clamp.string,
+            fret: clamp.fret,
+            velocity: note.v,
+            duration: note.g,
+            midiNote: note.n,
+            channel: note.c,
+            unplayable: true
           });
           continue;
         }
@@ -636,17 +696,31 @@ class TablatureConverter {
         // Pick position closest to that string's zone center
         const best = this._pickBestInZone(positions, stringZones, ZONE_SIZE);
         tabEvents.push({
-          tick, string: best.string, fret: best.fret,
-          velocity: note.v, duration: note.g, midiNote: note.n, channel: note.c
+          tick,
+          string: best.string,
+          fret: best.fret,
+          velocity: note.v,
+          duration: note.g,
+          midiNote: note.n,
+          channel: note.c
         });
       } else {
         // Chord: assign within zones
-        const assignment = this._assignChordInZone(chordNotes, stringZones, ZONE_SIZE, occupiedStrings);
+        const assignment = this._assignChordInZone(
+          chordNotes,
+          stringZones,
+          ZONE_SIZE,
+          occupiedStrings
+        );
         for (const entry of assignment) {
           tabEvents.push({
-            tick, string: entry.string, fret: entry.fret,
-            velocity: entry.velocity, duration: entry.duration,
-            midiNote: entry.midiNote, channel: entry.channel,
+            tick,
+            string: entry.string,
+            fret: entry.fret,
+            velocity: entry.velocity,
+            duration: entry.duration,
+            midiNote: entry.midiNote,
+            channel: entry.channel,
             ...(entry.unplayable ? { unplayable: true } : {})
           });
         }
@@ -745,8 +819,9 @@ class TablatureConverter {
     const sorted = [...chordNotes].sort((a, b) => a.n - b.n);
 
     for (const note of sorted) {
-      const positions = this._getPossiblePositions(note.n)
-        .filter(pos => !usedStrings[pos.string]);
+      const positions = this._getPossiblePositions(note.n).filter(
+        (pos) => !usedStrings[pos.string]
+      );
 
       if (positions.length === 0) {
         this._droppedCount++;
@@ -756,23 +831,29 @@ class TablatureConverter {
       // Score by zone proximity. Same open-string preference as in
       // _pickBestInZone: an open string beats any fretted alternative
       // when the zone is near the nut.
-      const scored = positions.map(pos => {
-        const zoneCenter = stringZones[pos.string - 1];
-        let cost;
-        if (pos.fret === 0) {
-          cost = zoneCenter <= halfZone ? -0.5 : zoneCenter * 0.2;
-        } else {
-          const dist = Math.abs(pos.fret - zoneCenter);
-          cost = dist <= halfZone ? dist * 0.5 : dist * 3;
-        }
-        return { ...pos, cost };
-      }).sort((a, b) => a.cost - b.cost);
+      const scored = positions
+        .map((pos) => {
+          const zoneCenter = stringZones[pos.string - 1];
+          let cost;
+          if (pos.fret === 0) {
+            cost = zoneCenter <= halfZone ? -0.5 : zoneCenter * 0.2;
+          } else {
+            const dist = Math.abs(pos.fret - zoneCenter);
+            cost = dist <= halfZone ? dist * 0.5 : dist * 3;
+          }
+          return { ...pos, cost };
+        })
+        .sort((a, b) => a.cost - b.cost);
 
       const best = scored[0];
       usedStrings[best.string] = true;
       result.push({
-        string: best.string, fret: best.fret,
-        velocity: note.v, duration: note.g, midiNote: note.n, channel: note.c
+        string: best.string,
+        fret: best.fret,
+        velocity: note.v,
+        duration: note.g,
+        midiNote: note.n,
+        channel: note.c
       });
     }
 
@@ -800,8 +881,9 @@ class TablatureConverter {
     const sorted = [...chordNotes].sort((a, b) => a.n - b.n);
 
     for (const note of sorted) {
-      const positions = this._getPossiblePositions(note.n)
-        .filter(pos => !usedStrings[pos.string]);
+      const positions = this._getPossiblePositions(note.n).filter(
+        (pos) => !usedStrings[pos.string]
+      );
 
       if (positions.length === 0) {
         this._droppedCount++;
@@ -811,8 +893,12 @@ class TablatureConverter {
       const best = picker(positions);
       usedStrings[best.string] = true;
       result.push({
-        string: best.string, fret: best.fret,
-        velocity: note.v, duration: note.g, midiNote: note.n, channel: note.c
+        string: best.string,
+        fret: best.fret,
+        velocity: note.v,
+        duration: note.g,
+        midiNote: note.n,
+        channel: note.c
       });
     }
 
@@ -833,8 +919,8 @@ class TablatureConverter {
    * @returns {{ min: number, max: number }}
    */
   getPlayableRange() {
-    const allMins = this.stringRanges.map(r => r.min);
-    const allMaxs = this.stringRanges.map(r => r.max);
+    const allMins = this.stringRanges.map((r) => r.min);
+    const allMaxs = this.stringRanges.map((r) => r.max);
     return {
       min: Math.min(...allMins),
       max: Math.max(...allMaxs)
@@ -873,7 +959,10 @@ class TablatureConverter {
       if (this.ccEnabled) {
         // String select: apply offset, clamp to configured range, then clamp to MIDI 0-127
         const stringRaw = event.string + this.ccStringOffset;
-        const stringVal = Math.max(0, Math.min(127, Math.max(this.ccStringMin, Math.min(this.ccStringMax, stringRaw))));
+        const stringVal = Math.max(
+          0,
+          Math.min(127, Math.max(this.ccStringMin, Math.min(this.ccStringMax, stringRaw)))
+        );
         ccEvents.push({
           tick: event.tick,
           cc: this.ccStringNumber,
@@ -883,7 +972,10 @@ class TablatureConverter {
 
         // Fret select: apply offset, clamp to configured range, then clamp to MIDI 0-127
         const fretRaw = Math.round(event.fret) + this.ccFretOffset;
-        const fretVal = Math.max(0, Math.min(127, Math.max(this.ccFretMin, Math.min(this.ccFretMax, fretRaw))));
+        const fretVal = Math.max(
+          0,
+          Math.min(127, Math.max(this.ccFretMin, Math.min(this.ccFretMax, fretRaw)))
+        );
         ccEvents.push({
           tick: event.tick,
           cc: this.ccFretNumber,
@@ -1001,69 +1093,6 @@ class TablatureConverter {
   }
 
   /**
-   * Pick the position closest to the current hand position
-   * Prefers open strings (fret 0) when hand is near nut
-   * @private
-   */
-  _pickClosest(positions, handPosition) {
-    if (positions.length === 1) return positions[0];
-
-    let best = positions[0];
-    let bestCost = this._positionCost(best, handPosition);
-
-    for (let i = 1; i < positions.length; i++) {
-      const cost = this._positionCost(positions[i], handPosition);
-      if (cost < bestCost) {
-        bestCost = cost;
-        best = positions[i];
-      }
-    }
-
-    return best;
-  }
-
-  /**
-   * Cost function for a position relative to current hand position.
-   * Models realistic guitar playing ergonomics:
-   *  - Hand movement penalty (distance from current position)
-   *  - Preference for lower fret positions (easier to play)
-   *  - Open strings are cheap but penalized when hand is high up the neck
-   *  - High fret positions get progressively harder
-   *  - Max comfortable hand span is ~4 frets (penalize beyond that)
-   * Lower is better.
-   * @private
-   */
-  _positionCost(pos, handPosition) {
-    // Open strings: free if hand is near nut, costly if hand is far up the neck
-    if (pos.fret === 0) {
-      // Slight penalty when hand is above fret 5 (stretching back to open)
-      return handPosition <= 5 ? 0.2 : handPosition * 0.4;
-    }
-
-    // Distance from current hand position (primary cost)
-    const distance = Math.abs(pos.fret - handPosition);
-
-    // Base movement cost with exponential penalty for large jumps
-    // Comfortable: 0-4 frets. Acceptable: 5-7. Difficult: 8+
-    let movementCost;
-    if (distance <= 4) {
-      movementCost = distance;
-    } else if (distance <= 7) {
-      movementCost = distance * 1.5;
-    } else {
-      movementCost = distance * 2.5;
-    }
-
-    // Preference for lower positions (first position is more natural)
-    // Frets 1-5: no penalty, 6-9: small penalty, 10+: increasing penalty
-    const highFretPenalty = pos.fret > 9 ? (pos.fret - 9) * 0.3
-                         : pos.fret > 5 ? (pos.fret - 5) * 0.1
-                         : 0;
-
-    return movementCost + highFretPenalty;
-  }
-
-  /**
    * Default hand position (near the nut)
    * @private
    */
@@ -1092,11 +1121,12 @@ class TablatureConverter {
     const notePositions = chordNotes.map((note, idx) => ({
       noteIndex: idx,
       note,
-      positions: this._getPossiblePositions(note.n)
-        .filter(pos => !occupiedStrings || !occupiedStrings.has(pos.string))
+      positions: this._getPossiblePositions(note.n).filter(
+        (pos) => !occupiedStrings || !occupiedStrings.has(pos.string)
+      )
     }));
 
-    const playable = notePositions.filter(np => np.positions.length > 0);
+    const playable = notePositions.filter((np) => np.positions.length > 0);
     if (playable.length === 0) return [];
 
     // Sort most-constrained-first for better pruning
@@ -1122,9 +1152,7 @@ class TablatureConverter {
     const { noteIndex, note, positions } = playable[index];
 
     // Collect currently assigned fretted positions for span check
-    const assignedFrets = current
-      .filter(a => a.fret > 0)
-      .map(a => a.fret);
+    const assignedFrets = current.filter((a) => a.fret > 0).map((a) => a.fret);
     const assignedFingerCount = assignedFrets.length;
 
     // When hand_aware is active and the physical inputs are wired up,
@@ -1165,7 +1193,15 @@ class TablatureConverter {
       usedStrings[pos.string] = true;
       current.push({ noteIndex, string: pos.string, fret: pos.fret, note });
 
-      this._enumerateRecursive(playable, index + 1, usedStrings, current, results, maxResults, maxFretSpan);
+      this._enumerateRecursive(
+        playable,
+        index + 1,
+        usedStrings,
+        current,
+        results,
+        maxResults,
+        maxFretSpan
+      );
 
       current.pop();
       delete usedStrings[pos.string];
@@ -1188,7 +1224,7 @@ class TablatureConverter {
     if (assignment.length === 0) return 0;
 
     const { COMFORTABLE_SPAN } = TablatureConverter.VITERBI_CONFIG;
-    const frettedNotes = assignment.filter(a => a.fret > 0);
+    const frettedNotes = assignment.filter((a) => a.fret > 0);
     const openCount = assignment.length - frettedNotes.length;
 
     // All open strings — cheapest possible: no finger pressed, no shift.
@@ -1201,8 +1237,8 @@ class TablatureConverter {
     let cost = 0;
 
     // 1. Fret span penalty (quadratic beyond comfortable span)
-    const minFret = Math.min(...frettedNotes.map(a => a.fret));
-    const maxFret = Math.max(...frettedNotes.map(a => a.fret));
+    const minFret = Math.min(...frettedNotes.map((a) => a.fret));
+    const maxFret = Math.max(...frettedNotes.map((a) => a.fret));
     const span = maxFret - minFret;
     if (span > COMFORTABLE_SPAN) {
       cost += (span - COMFORTABLE_SPAN) * (span - COMFORTABLE_SPAN) * 0.5;
@@ -1239,7 +1275,7 @@ class TablatureConverter {
    */
   _emissionCostMm(assignment) {
     if (assignment.length === 0) return 0;
-    const frettedNotes = assignment.filter(a => a.fret > 0);
+    const frettedNotes = assignment.filter((a) => a.fret > 0);
     const openCount = assignment.length - frettedNotes.length;
 
     // All open: cheapest possible, scales with the number of free
@@ -1249,8 +1285,8 @@ class TablatureConverter {
     let cost = 0;
 
     // 1. Physical chord span vs hand width.
-    const minFret = Math.min(...frettedNotes.map(a => a.fret));
-    const maxFret = Math.max(...frettedNotes.map(a => a.fret));
+    const minFret = Math.min(...frettedNotes.map((a) => a.fret));
+    const maxFret = Math.max(...frettedNotes.map((a) => a.fret));
     const chordMm = this._fretDistanceMm(minFret, maxFret);
     if (chordMm > this.handSpanMm) {
       const overshootMm = chordMm - this.handSpanMm;
@@ -1298,12 +1334,14 @@ class TablatureConverter {
     // Smooth movement cost: small moves nearly free, medium proportional, large bounded
     let moveCost;
     if (distance <= MOVE_THRESHOLD_STRETCH) {
-      moveCost = distance * 0.3;  // Finger stretching — nearly free
+      moveCost = distance * 0.3; // Finger stretching — nearly free
     } else if (distance <= MOVE_THRESHOLD_SHIFT) {
       moveCost = MOVE_THRESHOLD_STRETCH * 0.3 + (distance - MOVE_THRESHOLD_STRETCH) * 0.8;
     } else {
-      moveCost = MOVE_THRESHOLD_STRETCH * 0.3 + (MOVE_THRESHOLD_SHIFT - MOVE_THRESHOLD_STRETCH) * 0.8
-        + (distance - MOVE_THRESHOLD_SHIFT) * 1.2;
+      moveCost =
+        MOVE_THRESHOLD_STRETCH * 0.3 +
+        (MOVE_THRESHOLD_SHIFT - MOVE_THRESHOLD_STRETCH) * 0.8 +
+        (distance - MOVE_THRESHOLD_SHIFT) * 1.2;
     }
 
     // Transition to open strings near the nut is easier
@@ -1333,7 +1371,7 @@ class TablatureConverter {
     const SHIFT_MM = 25;
     let cost;
     if (distMm <= STRETCH_MM) {
-      cost = distMm / STRETCH_MM * 0.3;
+      cost = (distMm / STRETCH_MM) * 0.3;
     } else if (distMm <= SHIFT_MM) {
       cost = 0.3 + ((distMm - STRETCH_MM) / (SHIFT_MM - STRETCH_MM)) * 0.5;
     } else {
@@ -1356,159 +1394,9 @@ class TablatureConverter {
    * @returns {number} Hand position (fret number)
    */
   _handPositionFromAssignment(assignment, fallback) {
-    const fretted = assignment.filter(a => a.fret > 0);
+    const fretted = assignment.filter((a) => a.fret > 0);
     if (fretted.length === 0) return fallback;
     return Math.round(fretted.reduce((sum, a) => sum + a.fret, 0) / fretted.length);
-  }
-
-  // ==========================================================================
-  // Internal — Chord Assignment (constraint satisfaction)
-  // ==========================================================================
-
-  /**
-   * Assign chord notes to strings, ensuring:
-   * - One note per string maximum
-   * - All notes are playable
-   * - Minimal hand spread (fret span)
-   * - Closest to current hand position
-   *
-   * Uses backtracking search with cost optimization.
-   * @private
-   */
-  _assignChord(chordNotes, handPosition, occupiedStrings) {
-    // Get possible positions for each note, excluding already-occupied strings
-    const notePositions = chordNotes.map(note => ({
-      note,
-      positions: this._getPossiblePositions(note.n)
-        .filter(pos => !occupiedStrings || !occupiedStrings.has(pos.string))
-    }));
-
-    // Filter out unplayable notes
-    const playable = notePositions.filter(np => np.positions.length > 0);
-    if (playable.length === 0) return [];
-
-    // Sort by number of positions (most constrained first — better pruning)
-    playable.sort((a, b) => a.positions.length - b.positions.length);
-
-    // Backtracking search
-    const bestAssignment = this._backtrackAssign(playable, 0, {}, handPosition);
-
-    if (!bestAssignment) {
-      // Fallback: assign what we can, skipping conflicts
-      return this._greedyAssign(playable, handPosition);
-    }
-
-    return bestAssignment.map(entry => ({
-      string: entry.string,
-      fret: entry.fret,
-      velocity: entry.note.v,
-      duration: entry.note.g,
-      midiNote: entry.note.n,
-      channel: entry.note.c
-    }));
-  }
-
-  /**
-   * Backtracking assignment solver with fret span constraint.
-   * Ensures all fretted notes in a chord fit within a comfortable hand span.
-   * @private
-   * @param {Array} playable - Notes with their possible positions
-   * @param {number} index - Current note index
-   * @param {Object} usedStrings - Map of string number → { fret }
-   * @param {number} handPosition - Current hand position
-   * @returns {Array|null} Best assignment, or null if no valid assignment
-   */
-  _backtrackAssign(playable, index, usedStrings, handPosition) {
-    if (index >= playable.length) {
-      return []; // All notes assigned
-    }
-
-    const { note, positions } = playable[index];
-
-    // Max comfortable fret span for a chord (4 frets = typical hand stretch)
-    const MAX_FRET_SPAN = 5;
-
-    // Collect currently assigned fretted positions
-    const assignedFrets = Object.values(usedStrings)
-      .filter(v => v && v.fret > 0)
-      .map(v => v.fret);
-
-    // Score and sort positions by cost
-    const scoredPositions = positions
-      .filter(pos => !usedStrings[pos.string])
-      .filter(pos => {
-        // Enforce max fret span: check if this position is compatible
-        if (pos.fret === 0 || assignedFrets.length === 0) return true;
-        const allFrets = [...assignedFrets, pos.fret];
-        const span = Math.max(...allFrets) - Math.min(...allFrets);
-        return span <= MAX_FRET_SPAN;
-      })
-      .map(pos => ({ ...pos, cost: this._positionCost(pos, handPosition) }))
-      .sort((a, b) => a.cost - b.cost);
-
-    let bestResult = null;
-    let bestCost = Infinity;
-
-    for (const pos of scoredPositions) {
-      // Try this position
-      usedStrings[pos.string] = { fret: pos.fret };
-
-      const rest = this._backtrackAssign(playable, index + 1, usedStrings, handPosition);
-
-      if (rest !== null) {
-        const totalCost = pos.cost + rest.reduce((sum, e) => sum + (e.cost || 0), 0);
-        if (totalCost < bestCost) {
-          bestCost = totalCost;
-          bestResult = [{ string: pos.string, fret: pos.fret, note, cost: pos.cost }, ...rest];
-        }
-      }
-
-      delete usedStrings[pos.string];
-    }
-
-    return bestResult;
-  }
-
-  /**
-   * Greedy fallback: assign notes one by one, skipping string conflicts
-   * and respecting max fret span.
-   * @private
-   */
-  _greedyAssign(playable, handPosition) {
-    const usedStrings = {};
-    const result = [];
-    const MAX_FRET_SPAN = 5;
-
-    for (const { note, positions } of playable) {
-      const assignedFrets = Object.values(usedStrings)
-        .filter(v => v && v.fret > 0)
-        .map(v => v.fret);
-
-      const available = positions
-        .filter(pos => !usedStrings[pos.string])
-        .filter(pos => {
-          if (pos.fret === 0 || assignedFrets.length === 0) return true;
-          const allFrets = [...assignedFrets, pos.fret];
-          return Math.max(...allFrets) - Math.min(...allFrets) <= MAX_FRET_SPAN;
-        })
-        .sort((a, b) => this._positionCost(a, handPosition) - this._positionCost(b, handPosition));
-
-      if (available.length > 0) {
-        const best = available[0];
-        usedStrings[best.string] = { fret: best.fret };
-        result.push({
-          string: best.string,
-          fret: best.fret,
-          velocity: note.v,
-          duration: note.g,
-          midiNote: note.n,
-          channel: note.c
-        });
-      }
-      // else: note is unplayable with current assignment, skip
-    }
-
-    return result;
   }
 
   // ==========================================================================
@@ -1594,7 +1482,7 @@ class TablatureConverter {
    * @returns {string} e.g. "E2-A2-D3-G3-B3-E4"
    */
   static describeTuning(tuning) {
-    return tuning.map(note => TablatureConverter.midiNoteToName(note)).join('-');
+    return tuning.map((note) => TablatureConverter.midiNoteToName(note)).join('-');
   }
 
   /**
@@ -1604,13 +1492,13 @@ class TablatureConverter {
    * @returns {boolean}
    */
   static isChordPlayable(positions, maxSpan = 4) {
-    const fretted = positions.filter(p => p.fret > 0);
+    const fretted = positions.filter((p) => p.fret > 0);
     if (fretted.length <= 1) return true;
 
-    const minFret = Math.min(...fretted.map(p => p.fret));
-    const maxFret = Math.max(...fretted.map(p => p.fret));
+    const minFret = Math.min(...fretted.map((p) => p.fret));
+    const maxFret = Math.max(...fretted.map((p) => p.fret));
 
-    return (maxFret - minFret) <= maxSpan;
+    return maxFret - minFret <= maxSpan;
   }
 }
 
