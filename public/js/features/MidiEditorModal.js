@@ -318,6 +318,7 @@ class MidiEditorModal {
         this.currentFilename = opts.name || '';
         this.tempo = tempo;
         this.ticksPerBeat = ppq;
+        this.loopBars = Number.isFinite(opts.bars) ? opts.bars : 2;
         this.midiData = {
             header: { ticksPerBeat: ppq, timeSignature: [opts.timeSigNum || 4, opts.timeSigDen || 4] },
             tracks: [],
@@ -405,7 +406,14 @@ class MidiEditorModal {
             if (Number.isFinite(bars) || Number.isFinite(timeSigNum) || Number.isFinite(timeSigDen)) {
                 const [num] = this.midiData.header.timeSignature || [4];
                 const effBars = Number.isFinite(bars) ? bars : ((this.midiData.maxTick || 0) / ((this.ticksPerBeat || 480) * num)) || 2;
+                this.loopBars = effBars;
                 this.midiData.maxTick = (this.ticksPerBeat || 480) * num * effBars;
+                // CanvasPianoRollRenderer ignores element attributes — push
+                // the new loop boundary + view range through its API so the
+                // end indicator follows bars / time-signature / tempo edits.
+                this.pianoRollRenderer?.setMarkers?.(0, this.midiData.maxTick);
+                this.pianoRollRenderer?.setXRange?.(this.midiData.maxTick);
+                this.pianoRollRenderer?.setXOffset?.(0);
                 if (this.pianoRoll) {
                     this.pianoRoll.setAttribute('markend', String(this.midiData.maxTick));
                     // Keep the horizontal zoom locked to the loop length so
