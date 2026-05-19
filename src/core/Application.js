@@ -91,6 +91,7 @@ class Application {
     this.networkManager = null;
     this.serialMidiManager = null;
     this.lightingManager = null;
+    this.instrumentLightManager = null;
     this.midiClockGenerator = null;
     this.autoAssigner = null;
     this.wsServer = null;
@@ -293,6 +294,18 @@ class Application {
         this.logger.info('Lighting manager initialized');
       } catch (error) {
         this.logger.warn(`Lighting manager not available: ${error.message}`);
+      }
+
+      // Initialize the embedded-instrument lighting subsystem (LEDs driven
+      // by the instrument's own microcontroller via MIDI). Independent of
+      // LightingManager; no native deps.
+      try {
+        const { default: InstrumentLightManager } =
+          await import('../lighting/instrument/InstrumentLightManager.js');
+        this._registerService('instrumentLightManager', new InstrumentLightManager(deps));
+        this.logger.info('Instrument lighting manager initialized');
+      } catch (error) {
+        this.logger.warn(`Instrument lighting manager not available: ${error.message}`);
       }
 
       // Initialize auto-assigner (singleton with cache; EventBus invalidates
@@ -610,6 +623,9 @@ class Application {
       // Close Lighting
       if (this.lightingManager) {
         await this.lightingManager.shutdown();
+      }
+      if (this.instrumentLightManager) {
+        await this.instrumentLightManager.shutdown();
       }
 
       // Destroy auto-assigner (cleanup intervals and cache)

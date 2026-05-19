@@ -18,6 +18,8 @@ The GeneralMidiBoop SysEx protocol enables custom identification and automatic c
 | 5 | `0x05` | Instrument Descriptor | Multi-instrument discovery (channels, types) | New |
 | 6 | `0x06` | Instrument Capabilities | Per-instrument detailed capabilities | New |
 | 7 | `0x07` | String Instrument Config | String instrument physical config | New |
+| 8 | `0x08` | Lighting Capabilities | Embedded-LED capabilities (auto-config) | New |
+| 9 | `0x09` | Lighting Control | Realtime LED control (command, no reply) | New |
 
 ### Common Header Format
 
@@ -122,7 +124,8 @@ value |= (data[4] & 0x07) << 28;  // Only 3 useful bits
 | 3 | `INSTRUMENT_DESCRIPTOR` | `0x08` | Supports Block 5 (Instrument Descriptor) |
 | 4 | `INSTRUMENT_CAPABILITIES` | `0x10` | Supports Block 6 (Instrument Capabilities) |
 | 5 | `STRING_CONFIG` | `0x20` | Supports Block 7 (String Instrument Config) |
-| 6-31 | *Reserved* | — | Future use |
+| 6 | `LIGHTING` | `0x40` | Supports Block 8 (Lighting Capabilities) + Block 9 (Lighting Control) |
+| 7-31 | *Reserved* | — | Future use |
 
 ### Examples
 ```c
@@ -1252,6 +1255,151 @@ void checkSysExRequest() {
     }
 }
 ```
+
+---
+
+# Block 8 — Lighting Capabilities
+
+## L1. Purpose
+
+Block 8 declares the capabilities of LEDs that are **physically on the
+instrument and driven by the instrument's own microcontroller** (lit
+keyboard, per-string LED harp, RGB pads, …). General Midi Boop uses it to
+auto-configure the embedded-lighting subsystem without user intervention.
+It is queried per channel exactly like Block 6/7. When the device does
+not support Block 8, the user fills the same fields manually in the
+instrument settings modal.
+
+> Feature flag bit 6 (`LIGHTING`, `0x40`) must be set in the Block 1 reply.
+
+## L2. Lighting Capabilities Request
+
+```
+F0 7D 00 08 00 <channel> F7
+```
+
+| Byte | Value | Description |
+|------|-------|-------------|
+| 0 | `F0` | Start SysEx |
+| 1 | `7D` | Custom SysEx |
+| 2 | `00` | GMB Manufacturer ID |
+| 3 | `08` | Block 8 (Lighting Capabilities) |
+| 4 | `00` | Request flag |
+| 5 | `0x00-0x0F` | Target MIDI channel |
+| 6 | `F7` | End SysEx |
+
+**Size**: 7 bytes
+
+## L3. Lighting Capabilities Response (25 bytes, fixed)
+
+```
+F0 7D 00 08 01 <version> <channel>
+  <led_count_lsb> <led_count_msb>
+  <addressing_model> <note_base> <note_count>
+  <color_mode> <palette_size>
+  <transports> <light_channel>
+  <cc_brightness> <cc_mode> <cc_effect> <cc_effect_speed> <cc_guide>
+  <local_effects> <flags> <min_update_interval_ms>
+F7
+```
+
+| Offset | Field | Description |
+|--------|-------|-------------|
+| 5 | Block Version | `0x01` |
+| 6 | Channel | 0-15 |
+| 7-8 | LED Count | 14-bit, lsb then msb |
+| 9 | Addressing | 0 global, 1 per-note, 2 string/fret, 3 zones, 4 strip |
+| 10 | Note Base | per-note base MIDI note (`0x7F` = follows tessitura) |
+| 11 | Note Count | LED count for per-note addressing |
+| 12 | Color Mode | 0 on/off, 1 dimmable, 2 fixed, 3 palette, 4 RGB |
+| 13 | Palette Size | entries when color_mode = 3, else 0 |
+| 14 | Transports | bitmask: 1 autonomous, 2 note, 4 CC, 8 SysEx RGB |
+| 15 | Light Channel | `0x7F` = same as instrument channel, else 0-15 |
+| 16 | CC Brightness | CC# or `0x7F` (unused) |
+| 17 | CC Mode | CC# or `0x7F` |
+| 18 | CC Effect | CC# or `0x7F` |
+| 19 | CC Effect Speed | CC# or `0x7F` |
+| 20 | CC Guide | CC# or `0x7F` |
+| 21 | Local Effects | bitmask of firmware-side effects |
+| 22 | Flags | bit0 guide-capable, bit1 per-track color, bit2 idle anim |
+| 23 | Min Update Interval | throttle hint in ms (serial 31250 baud) |
+
+### Arduino/Teensy example — 88-LED RGB lit keyboard
+
+```c
+void handleLightingCapsRequest(uint8_t ch) {
+    if (ch != 0) return;
+    uint8_t r[] = {
+        0xF0,0x7D,0x00,0x08,0x01, 0x01, 0,
+        88 & 0x7F, (88 >> 7) & 0x7F,   // 88 LEDs
+        1,                              // per-note
+        21, 88,                         // base A0, 88 notes
+        4, 0,                           // RGB, no palette
+        0x02 | 0x08,                    // note + SysEx
+        0x7F,                           // same channel
+        0x7F,0x7F,0x7F,0x7F,0x7F,       // no CC
+        0x00, 0x01, 5,                  // no local fx, guide-capable, 5ms
+        0xF7
+    };
+    usbMIDI.sendSysEx(sizeof(r), r);
+}
+```
+
+## L4. Block 8 Checklist
+
+- [ ] Detect request `F0 7D 00 08 00 <channel> F7`
+- [ ] Response header `F0 7D 00 08 01`, version `0x01`, ends `F7`
+- [ ] Exactly 25 bytes
+- [ ] All data bytes 0-127 (LED count split lsb/msb)
+- [ ] Feature flag bit 6 (`LIGHTING`) set in Block 1
+
+---
+
+# Block 9 — Lighting Control (command, no reply)
+
+Realtime LED control. General Midi Boop sends these; the instrument never
+replies. Modeled on the Novation Launchpad Pro/X RGB SysEx, re-homed
+under the GMB `F0 7D 00` prefix. RGB bytes are 7-bit (0-127); the
+firmware scales ×2 back to 0-254.
+
+```
+F0 7D 00 09 00 <sub> <payload…> F7
+```
+
+| Sub | Name | Payload |
+|-----|------|---------|
+| `0x01` | Set LED | `<ch> <led_lsb> <led_msb> <r> <g> <b>` |
+| `0x02` | Set Range | `<ch> <s_lsb> <s_msb> <e_lsb> <e_msb> <r> <g> <b>` |
+| `0x03` | Set All | `<ch> <r> <g> <b>` |
+| `0x04` | Clear | `<ch>` |
+| `0x05` | Brightness | `<ch> <0-127>` |
+| `0x06` | Palette Entry | `<index> <r> <g> <b>` |
+| `0x07` | Bulk Frame | `<ch> <count> [<led_lsb> <led_msb> <r> <g> <b>]…` |
+| `0x08` | Effect | `<ch> <effectId> <speed> <r> <g> <b>` |
+
+Bulk frames are chunked so each SysEx stays well under the recommended
+~256-byte limit.
+
+---
+
+# Instrument Lighting Protocol — the 4 control tiers
+
+General Midi Boop drives embedded LEDs using the highest tier the
+`transports` bitmask allows. Conventions are copied from established
+open-source projects so existing firmware ports are trivial:
+
+| Tier | Method | Lineage |
+|------|--------|---------|
+| 0 | **Autonomous** — firmware lights its own LEDs from the notes it already receives; GM Boop only enables it + sets global brightness | — |
+| 1 | **Note / velocity** — `Note On`, note = LED address, velocity = on/off \| brightness \| palette index; `Note Off`/vel 0 = off | Launchpad / Ableton Push / Synthesia / Piano LED Visualizer |
+| 2 | **CC globals** — master brightness / mode / effect / speed / guide on the declared CC numbers (defaults in the 102-111 "undefined" range) | General MIDI CC convention |
+| 3 | **SysEx RGB** — Block 9, full 24-bit per-LED colour, ranges, palette, effects | Launchpad Pro/X Programmer's Reference |
+
+Notes / fields configured **GM-Boop-side** (never via SysEx): master
+on/off (`instruments_latency.lighting_enabled`), per-track colours,
+guide-mode toggle, active effect, brightness preference. These live in
+`instrument_light_config` (migration 025) and are edited in the Lighting
+modal "Par instrument" tab.
 
 ---
 
