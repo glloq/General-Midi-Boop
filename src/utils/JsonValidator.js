@@ -1,19 +1,11 @@
 /**
  * @file src/utils/JsonValidator.js
  * @description Static façade over the {@link SchemaCompiler} engine.
- *
- * Every validator now runs through the same engine:
- *   - `validateByCommand(command, data)` is the canonical entry point
- *     consumed by `CommandRegistry`; it looks up the precompiled
- *     schema for `command` in {@link COMPILED_SCHEMAS}.
- *   - The historical per-category helpers (`validateDeviceCommand`,
- *     `validateFileCommand`, ...) are now thin delegations to
- *     `validateByCommand` and preserved for backward compatibility.
- *   - The data-only validators (`validateMidiMessage`,
- *     `validateSession`, `validatePlaylist`, `validateInstrument`) run
- *     through their own compiled schemas declared below.
- *
- * Commands without a registered schema return the permissive
+ * `validateByCommand` is the canonical entry point (consumed by
+ * CommandRegistry); the per-category helpers are backward-compat shims
+ * (defined in a loop below). Data-only validators (validateMidiMessage,
+ * validateSession, validatePlaylist, validateInstrument) use their own
+ * compiled schemas. Commands without a schema return the permissive
  * `{valid:true, errors:[]}` default.
  */
 import { compileSchema } from './SchemaCompiler.js';
@@ -140,7 +132,11 @@ const INSTRUMENT_SCHEMA = {
       }
     }
     if (data.program_number !== undefined) {
-      if (!Number.isInteger(data.program_number) || data.program_number < 0 || data.program_number > 127) {
+      if (
+        !Number.isInteger(data.program_number) ||
+        data.program_number < 0 ||
+        data.program_number > 127
+      ) {
         errors.push('program_number must be 0-127');
       }
     }
@@ -239,56 +235,6 @@ class JsonValidator {
   }
 
   /**
-   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
-   * @param {string} command
-   * @param {Object} data
-   * @returns {{valid: boolean, errors: string[]}}
-   */
-  static validateDeviceCommand(command, data) {
-    return JsonValidator.validateByCommand(command, data);
-  }
-
-  /**
-   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
-   * @param {string} command
-   * @param {Object} data
-   * @returns {{valid: boolean, errors: string[]}}
-   */
-  static validateRoutingCommand(command, data) {
-    return JsonValidator.validateByCommand(command, data);
-  }
-
-  /**
-   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
-   * @param {string} command
-   * @param {Object} data
-   * @returns {{valid: boolean, errors: string[]}}
-   */
-  static validateFileCommand(command, data) {
-    return JsonValidator.validateByCommand(command, data);
-  }
-
-  /**
-   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
-   * @param {string} command
-   * @param {Object} data
-   * @returns {{valid: boolean, errors: string[]}}
-   */
-  static validatePlaybackCommand(command, data) {
-    return JsonValidator.validateByCommand(command, data);
-  }
-
-  /**
-   * Backward-compat shim. Prefer {@link JsonValidator.validateByCommand}.
-   * @param {string} command
-   * @param {Object} data
-   * @returns {{valid: boolean, errors: string[]}}
-   */
-  static validateLatencyCommand(command, data) {
-    return JsonValidator.validateByCommand(command, data);
-  }
-
-  /**
    * Validate the in-memory MIDI message shape used by the router and
    * player (note on/off, CC, program, pitchbend). Runs through the
    * {@link SchemaCompiler} engine; error messages are preserved
@@ -362,25 +308,8 @@ class JsonValidator {
   }
 
   /**
-   * Backward-compat shim for the system-command validator. Routes
-   * through {@link JsonValidator.validateByCommand} now that
-   * `system_backup` has a real declarative schema in
-   * `schemas/system.schemas.js`. Unrecognised subcommands pass through
-   * with the permissive default.
-   *
-   * @param {string} command
-   * @param {Object} data
-   * @returns {{valid: boolean, errors: string[]}}
-   */
-  static validateSystemCommand(command, data) {
-    return JsonValidator.validateByCommand(command, data);
-  }
-
-  /**
-   * Validate a session record before persistence. Runs through
-   * {@link SESSION_SCHEMA} — requires a string `name`; when `data` is
-   * present it must be a valid JSON-encoded string.
-   *
+   * Validate a session record before persistence (string `name`; `data`,
+   * if present, must be a valid JSON string).
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
@@ -389,9 +318,7 @@ class JsonValidator {
   }
 
   /**
-   * Validate a playlist record before persistence. Runs through
-   * {@link PLAYLIST_SCHEMA} — requires a non-empty string `name`.
-   *
+   * Validate a playlist record before persistence (non-empty string `name`).
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
@@ -400,16 +327,28 @@ class JsonValidator {
   }
 
   /**
-   * Validate an instrument record before persistence. Runs through
-   * {@link INSTRUMENT_SCHEMA} — requires a string `name`, checks
-   * `midi_channel` (0-15) and `program_number` (0-127) when present.
-   *
+   * Validate an instrument record (string `name`; `midi_channel` 0-15 and
+   * `program_number` 0-127 when present).
    * @param {Object} data
    * @returns {{valid: boolean, errors: string[]}}
    */
   static validateInstrument(data) {
     return _run(COMPILED_INSTRUMENT, data);
   }
+}
+
+// Backward-compat per-category shims — all delegate to validateByCommand.
+// Defined via a loop to keep the public surface identical without the
+// six duplicated method bodies.
+for (const name of [
+  'validateDeviceCommand',
+  'validateRoutingCommand',
+  'validateFileCommand',
+  'validatePlaybackCommand',
+  'validateLatencyCommand',
+  'validateSystemCommand'
+]) {
+  JsonValidator[name] = (command, data) => JsonValidator.validateByCommand(command, data);
 }
 
 export default JsonValidator;

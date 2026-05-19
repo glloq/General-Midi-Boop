@@ -1,42 +1,24 @@
 /**
  * @file src/core/EventBus.js
- * @description In-process publish/subscribe bus used by every service in the
- * application (router, player, managers, API layer). Intentionally minimal —
- * no wildcards, no namespaces — to keep dispatch overhead negligible on the
- * hot MIDI path.
- *
- * Canonical events emitted across the codebase:
- *   - `midi_message`           ({ device, type, ... })
- *   - `midi_routed`            ({ route, ... })
- *   - `device_connected`       ({ deviceId, ... })
- *   - `device_disconnected`    ({ deviceId, ... })
- *   - `file_uploaded`          ({ filename, ... })
- *   - `playback_started`       ()
- *   - `playback_stopped`       ()
- *   - `error`                  (Error)
+ * @description Minimal in-process pub/sub bus used by every backend service.
+ * No wildcards/namespaces to keep dispatch cheap on the hot MIDI path.
+ * Canonical events: midi_message, midi_routed, device_connected,
+ * device_disconnected, file_uploaded, playback_started, playback_stopped,
+ * error.
  */
 
-/**
- * Threshold above which {@link EventBus#on} warns about a probable listener
- * leak. The limit is per-event-name; tune via the public field
- * `maxListenersPerEvent` if a legitimate use case needs more handlers.
- * @type {number}
- */
+/** Per-event-name listener count above which a leak warning is emitted. */
 const MAX_LISTENERS_PER_EVENT = 50;
 
 /**
- * Lightweight EventEmitter-like bus.
- *
- * Differences vs Node's `EventEmitter`:
- * - No `error` special-casing — handler exceptions are caught and logged.
- * - Iteration is backwards so `once()` handlers can self-detach without
- *   skipping siblings during emit.
- * - Optional logger injection for leak warnings and error reporting.
+ * Lightweight EventEmitter-like bus. Differs from Node's EventEmitter: no
+ * `error` special-casing (handler exceptions are caught/logged), emit
+ * iterates backwards so `once()` can self-detach safely, optional logger.
  */
 class EventBus {
   /**
-   * @param {?{warn:Function,error:Function}} [logger] - Optional logger; when
-   *   omitted, warnings and handler errors fall back to `console`.
+   * @param {?{warn:Function,error:Function}} [logger] - Optional; falls back
+   *   to `console` for warnings/handler errors.
    */
   constructor(logger = null) {
     /** @type {Map<string, Function[]>} */
@@ -46,15 +28,11 @@ class EventBus {
   }
 
   /**
-   * Subscribe `callback` to `event`. Multiple registrations of the same
-   * function are allowed — each registration receives its own emit call.
-   *
-   * Emits a warning (but does not throw) when more than
-   * {@link EventBus#maxListenersPerEvent} listeners exist for `event`,
-   * which usually indicates a forgotten `off()` somewhere.
-   *
-   * @param {string} event - Event name.
-   * @param {Function} callback - Handler invoked with the emit payload.
+   * Subscribe `callback` to `event` (duplicates allowed). Warns (does not
+   * throw) past {@link EventBus#maxListenersPerEvent} — likely a missing
+   * `off()`.
+   * @param {string} event
+   * @param {Function} callback
    * @returns {void}
    */
   on(event, callback) {
@@ -75,12 +53,10 @@ class EventBus {
   }
 
   /**
-   * Unsubscribe a previously registered `callback`. No-op if the handler is
-   * not registered. The event entry is removed from the underlying Map when
-   * the last listener is detached so {@link EventBus#eventNames} stays clean.
-   *
-   * @param {string} event - Event name.
-   * @param {Function} callback - The exact function reference passed to `on`.
+   * Unsubscribe `callback` (no-op if absent). Removes the event entry when
+   * its last listener is detached so {@link EventBus#eventNames} stays clean.
+   * @param {string} event
+   * @param {Function} callback - Exact reference passed to `on`.
    * @returns {void}
    */
   off(event, callback) {
@@ -102,9 +78,8 @@ class EventBus {
 
   /**
    * Subscribe a one-shot listener that auto-detaches after its first call.
-   *
-   * @param {string} event - Event name.
-   * @param {Function} callback - Handler invoked at most once.
+   * @param {string} event
+   * @param {Function} callback
    * @returns {void}
    */
   once(event, callback) {
@@ -116,13 +91,10 @@ class EventBus {
   }
 
   /**
-   * Synchronously dispatch `data` to every listener registered for `event`.
-   * Handler exceptions are caught and reported through the injected logger
-   * (or `console.error`) to guarantee that one bad subscriber never breaks
-   * sibling subscribers — important on the MIDI hot path.
-   *
-   * @param {string} event - Event name.
-   * @param {*} [data] - Arbitrary payload forwarded as the single argument.
+   * Synchronously dispatch `data` to every listener for `event`. Handler
+   * exceptions are caught/logged so one bad subscriber can't break siblings.
+   * @param {string} event
+   * @param {*} [data] - Forwarded as the single handler argument.
    * @returns {void}
    */
   emit(event, data) {
@@ -130,8 +102,7 @@ class EventBus {
       return;
     }
 
-    // Iterate using index-based loop to avoid array copy overhead.
-    // Loop backwards so once() handlers can safely splice without skipping.
+    // Backwards index loop: no array copy, and once() can splice safely.
     const callbacks = this.listeners.get(event);
     for (let i = callbacks.length - 1; i >= 0; i--) {
       try {
@@ -148,11 +119,9 @@ class EventBus {
   }
 
   /**
-   * Remove all listeners for `event`, or every listener for every event when
-   * called with no argument. Useful in `Application.stop()` and tests to
-   * guarantee no stale handlers survive a restart.
-   *
-   * @param {string} [event] - Specific event name; omit to clear everything.
+   * Remove all listeners for `event`, or for every event when called with
+   * no argument (used by `Application.stop()` and tests).
+   * @param {string} [event] - Omit to clear everything.
    * @returns {void}
    */
   removeAllListeners(event) {

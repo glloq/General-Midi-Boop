@@ -1,23 +1,12 @@
 /**
  * @file src/core/Application.js
- * @description Top-level orchestrator for the GeneralMidiBoop backend. Owns the
- * lifecycle of every long-lived service (database, MIDI router/player,
- * managers, HTTP/WS servers) and the {@link ServiceContainer} used by
- * everyone else for dependency lookup.
- *
- * Lifecycle:
- *   constructor → {@link Application#initialize} → {@link Application#start}
- *   → ... → {@link Application#stop} (typically via OS signals routed
- *   through {@link Application#setupShutdownHandlers}).
- *
- * Each service is registered both on `this` (legacy access pattern) and in
- * the container under the same key. New code should resolve via the
- * container; the duplicated `this.xxx` references will be removed once
- * every consumer has migrated.
- *
- * Optional services (BluetoothManager, NetworkManager, SerialMidiManager,
- * LightingManager) are loaded inside try/catch — missing native deps on a
- * given host are logged as warnings, not fatal errors.
+ * @description Composition root. Owns the lifecycle of every long-lived
+ * service and the {@link ServiceContainer}. Lifecycle: constructor →
+ * {@link Application#initialize} → {@link Application#start} → ... →
+ * {@link Application#stop} (via {@link Application#setupShutdownHandlers}).
+ * Each service is registered both on `this` (legacy) and in the container
+ * under the same key. Optional transports/lighting load inside try/catch
+ * and are silently absent on hosts lacking native deps.
  */
 import { readFileSync } from 'fs';
 import Config from './Config.js';
@@ -74,11 +63,9 @@ import { CapabilityResolver } from '../midi/instrument/CapabilityResolver.js';
 class Application {
   /**
    * Wire the always-available services (config, logger, event bus, DI
-   * container) and pre-declare the slots for the rest. No I/O happens
-   * here; call {@link Application#initialize} next.
-   *
-   * @param {?string} [configPath=null] - Optional path to an alternate
-   *   `config.json` (forwarded to the {@link Config} constructor).
+   * container) and pre-declare the rest. No I/O here; call
+   * {@link Application#initialize} next.
+   * @param {?string} [configPath=null] - Alternate `config.json` path.
    */
   constructor(configPath = null) {
     // Core services (always available)
@@ -130,14 +117,11 @@ class Application {
   }
 
   /**
-   * Register a service in both the container and on `this` for backward
-   * compat. New services should use `container.resolve()` /
-   * `container.inject()` instead.
-   * TODO: drop the `this[name] = instance` line once every consumer has
-   * migrated to container lookup.
-   *
-   * @param {string} name - Service name (becomes the container key).
-   * @param {*} instance - Constructed service instance.
+   * Register a service in both the container and on `this` (backward
+   * compat). The `this[name]` mirror is intentional — many consumers
+   * still capture deps eagerly; see the registration-order contract.
+   * @param {string} name - Service name / container key.
+   * @param {*} instance
    * @returns {void}
    * @private
    */
@@ -226,13 +210,16 @@ class Application {
       // at construction time (the facade Proxy evaluates eagerly on assignment).
       const dataDir = path.dirname(this.config.database.path || './data/gmboop.db');
       this._registerService('blobStore', new BlobStore({ baseDir: dataDir, logger: this.logger }));
-      this._registerService('sf2PresetService', new SF2PresetService({
-        dataDir,
-        database: this.database,
-        logger: this.logger,
-        cacheMaxBytes:   this.config.get('sf2.cacheMaxBytes',   128 * 1024 * 1024),
-        cacheMaxEntries: this.config.get('sf2.cacheMaxEntries', 256),
-      }));
+      this._registerService(
+        'sf2PresetService',
+        new SF2PresetService({
+          dataDir,
+          database: this.database,
+          logger: this.logger,
+          cacheMaxBytes: this.config.get('sf2.cacheMaxBytes', 128 * 1024 * 1024),
+          cacheMaxEntries: this.config.get('sf2.cacheMaxEntries', 256)
+        })
+      );
 
       // Initialize MIDI components.
       //
@@ -329,7 +316,10 @@ class Application {
       this._registerService('sessionRepository', new SessionRepository(this.database));
       this._registerService('playlistRepository', new PlaylistRepository(this.database));
       this._registerService('loopRepository', new LoopRepository(this.database));
-      this._registerService('loopArrangementRepository', new LoopArrangementRepository(this.database));
+      this._registerService(
+        'loopArrangementRepository',
+        new LoopArrangementRepository(this.database)
+      );
       this._registerService(
         'deviceSettingsRepository',
         new DeviceSettingsRepository(this.database)
@@ -339,10 +329,7 @@ class Application {
         'stringInstrumentRepository',
         new StringInstrumentRepository(this.database)
       );
-      this._registerService(
-        'hotspotConfigRepository',
-        new HotspotConfigRepository(this.database)
-      );
+      this._registerService('hotspotConfigRepository', new HotspotConfigRepository(this.database));
       this._registerService('hotspotManager', new HotspotManager({ logger: this.logger }));
 
       // Initialize domain services (Phase 4 — P1-4.1+)
@@ -386,11 +373,9 @@ class Application {
   }
 
   /**
-   * Subscribe Application-level handlers to the canonical EventBus events
-   * (logging + WS broadcast for device connect/disconnect). Idempotent:
-   * existing handlers from a previous call are detached first to avoid
-   * duplicate notifications after a restart.
-   *
+   * Subscribe Application-level EventBus handlers (logging + WS broadcast).
+   * Idempotent: prior handlers are detached first to avoid duplicates on
+   * restart.
    * @returns {void}
    */
   setupEventHandlers() {
@@ -445,7 +430,7 @@ class Application {
       [
         'error',
         (error) => {
-          const msg = (error && error.message) ? error.message : String(error);
+          const msg = error && error.message ? error.message : String(error);
           this.logger.error(`Application error: ${msg}`);
         }
       ]
@@ -466,10 +451,8 @@ class Application {
   }
 
   /**
-   * Detach every handler previously registered through
-   * {@link Application#setupEventHandlers}. Called both before re-binding
-   * and on shutdown to keep the EventBus clean across restarts.
-   *
+   * Detach handlers registered by {@link Application#setupEventHandlers}.
+   * Called before re-binding and on shutdown to keep the EventBus clean.
    * @returns {void}
    */
   removeEventHandlers() {
@@ -486,13 +469,11 @@ class Application {
   }
 
   /**
-   * Bring the application online: scan MIDI devices, start HTTP, then
-   * WebSocket (which needs the http.Server instance), kick off the backup
-   * scheduler, and trigger a one-shot reanalysis of any files missing
-   * channel metadata so GM instrument filters work for legacy uploads.
-   *
+   * Bring the app online: scan MIDI devices, start HTTP then WebSocket
+   * (needs the http.Server), start the backup scheduler + lag monitor,
+   * and one-shot reanalyse files missing channel metadata.
    * @returns {Promise<void>}
-   * @throws Re-throws after logging when a non-optional startup step fails.
+   * @throws Re-throws after logging when a non-optional step fails.
    */
   async start() {
     try {
@@ -556,14 +537,9 @@ class Application {
   }
 
   /**
-   * Tear down everything in roughly the reverse order of {@link
-   * Application#start}/{@link Application#initialize}: backup scheduler,
-   * MIDI player, network servers, MIDI ports, optional managers,
-   * auto-assigner, EventBus subscriptions, and finally the database.
-   *
-   * Each step is wrapped in defensive `if (this.x)` checks because stop()
-   * may run after a partially-failed `initialize()`.
-   *
+   * Tear down in roughly reverse order of start/initialize. Each step is
+   * guarded with `if (this.x)` because stop() may run after a
+   * partially-failed initialize().
    * @returns {Promise<void>}
    * @throws Re-throws after logging if a teardown step throws.
    */
@@ -667,9 +643,7 @@ class Application {
   }
 
   /**
-   * Convenience helper: stop, re-initialise, and start the application
-   * in a single call. Used by some maintenance commands.
-   *
+   * Stop, re-initialise, and start in one call (maintenance commands).
    * @returns {Promise<void>}
    */
   async restart() {
@@ -679,18 +653,9 @@ class Application {
   }
 
   /**
-   * Build a snapshot of runtime metrics (point-in-time, not subscribable).
-   * Used by `server.js` for the boot banner and by `system_status` API.
-   *
-   * @returns {{
-   *   running: boolean,
-   *   uptime: number,
-   *   memory: NodeJS.MemoryUsage,
-   *   devices: number,
-   *   routes: number,
-   *   files: number,
-   *   wsClients: number
-   * }}
+   * Point-in-time runtime metrics snapshot (boot banner / `system_status`).
+   * @returns {{running:boolean, uptime:number, memory:NodeJS.MemoryUsage,
+   *   devices:number, routes:number, files:number, wsClients:number}}
    */
   getStatus() {
     return {
@@ -705,11 +670,9 @@ class Application {
   }
 
   /**
-   * Install OS-signal and last-resort exception handlers that route every
-   * shutdown trigger through {@link Application#stop} exactly once. Safe
-   * to call repeatedly: previously installed handlers are removed first
-   * so they never accumulate across restarts.
-   *
+   * Route every shutdown trigger (SIGINT/SIGTERM/uncaughtException) through
+   * {@link Application#stop} exactly once. Idempotent: prior handlers are
+   * removed first so they never accumulate across restarts.
    * @returns {void}
    */
   setupShutdownHandlers() {
@@ -747,7 +710,7 @@ class Application {
     // upcoming Node default `--unhandled-rejections=throw` will still
     // promote truly fatal cases to `uncaughtException`, which we do handle.
     const onUnhandled = (reason) => {
-      const msg = (reason && reason.message) ? reason.message : String(reason);
+      const msg = reason && reason.message ? reason.message : String(reason);
       this.logger.error(`Unhandled rejection (continuing): ${msg}`);
       if (reason && reason.stack) this.logger.error(reason.stack);
     };

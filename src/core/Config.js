@@ -1,16 +1,8 @@
 /**
  * @file src/core/Config.js
- * @description Runtime configuration loader for GeneralMidiBoop.
- *
- * Resolution order (lowest to highest priority):
- *   1. {@link Config#getDefaultConfig} hard-coded defaults.
- *   2. JSON file at `config.json` (or the path passed to the constructor).
- *   3. Environment variables listed in {@link Config#_applyEnvOverrides}
- *      (loaded via dotenv from `.env` at module-load time).
- *
- * All values flowing through {@link Config#set} are validated against the
- * per-key schema embedded in that method, including range checks and
- * path-traversal protection for filesystem-bound keys.
+ * @description Runtime config loader. Resolution order (low→high): hard-coded
+ * defaults → `config.json` → `GMBOOP_*` env vars. Values flowing through
+ * {@link Config#set} are validated (range + path-traversal protection).
  */
 import fs from 'fs';
 import path from 'path';
@@ -26,14 +18,11 @@ const __dirname = dirname(__filename);
 // before any other module reads process.env).
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-/**
- * In-memory configuration store. Constructed once by `Application` and
- * registered in the DI container under the key `config`.
- */
+/** In-memory config store; DI container key `config`. */
 class Config {
   /**
-   * @param {?string} [configPath=null] - Optional explicit path to a
-   *   JSON config file. When omitted, `config.json` at the repo root is used.
+   * @param {?string} [configPath=null] - JSON config file path; defaults to
+   *   `config.json` at the repo root.
    */
   constructor(configPath = null) {
     this.configPath = configPath || path.join(__dirname, '../../config.json');
@@ -42,11 +31,9 @@ class Config {
   }
 
   /**
-   * Read and parse the JSON config file. Falls back to defaults when the
-   * file is missing OR when parsing fails (logged but non-fatal so the
-   * process can still boot with safe defaults).
-   *
-   * @returns {Object} Loaded or default configuration object.
+   * Read/parse the JSON config file, falling back to defaults when missing
+   * or unparseable (logged, non-fatal).
+   * @returns {Object} Loaded or default config.
    */
   loadConfig() {
     try {
@@ -64,11 +51,9 @@ class Config {
   }
 
   /**
-   * Built-in fallback configuration used when no `config.json` is present
-   * or the file is unreadable. The shape here is the source of truth for
-   * the validators in {@link Config#set}.
-   *
-   * @returns {Object} A fresh defaults object (callers may mutate freely).
+   * Built-in fallback config (also the shape the {@link Config#set}
+   * validators assume).
+   * @returns {Object} Fresh defaults object (callers may mutate).
    */
   getDefaultConfig() {
     return {
@@ -115,24 +100,17 @@ class Config {
         // L1 (in-process) SF2 preset cache budget. Default tuned for
         // Pi 3B+ where Node heap is capped at 384 MB (ecosystem.config.cjs).
         // See src/files/SF2PresetService.js for the consumer.
-        cacheMaxBytes:   128 * 1024 * 1024,
+        cacheMaxBytes: 128 * 1024 * 1024,
         cacheMaxEntries: 256
       }
     };
   }
 
   /**
-   * Apply env-var overrides to config values after JSON load.
-   *
-   * Each known env var is mapped to a dotted config path; the env value is
-   * coerced to the type currently held at that path (number / boolean /
-   * string). Invalid coercions are logged and skipped — they never abort
-   * boot.
-   *
-   * Convention: env var names follow `GMBOOP_SECTION_KEY`
-   * (e.g. `GMBOOP_SERVER_PORT=3000`). The bare `PORT` alias is preserved
-   * for hosting platforms that always inject it.
-   *
+   * Apply `GMBOOP_*` env-var overrides after JSON load, coercing each value
+   * to the type currently held at its dotted path. Invalid coercions are
+   * logged and skipped (never abort boot). Bare `PORT` alias is kept for
+   * hosting platforms.
    * @returns {void}
    * @private
    */
@@ -149,7 +127,7 @@ class Config {
       GMBOOP_SERIAL_BAUD_RATE: 'serial.baudRate',
       GMBOOP_SSL_CERT: 'server.sslCert',
       GMBOOP_SSL_KEY: 'server.sslKey',
-      GMBOOP_SF2_CACHE_MAX_BYTES:   'sf2.cacheMaxBytes',
+      GMBOOP_SF2_CACHE_MAX_BYTES: 'sf2.cacheMaxBytes',
       GMBOOP_SF2_CACHE_MAX_ENTRIES: 'sf2.cacheMaxEntries'
     };
 
@@ -208,14 +186,12 @@ class Config {
   }
 
   /**
-   * Set a configuration value by dotted path. Known keys are validated
-   * (type, range, path-traversal protection); unknown keys are accepted
-   * verbatim so callers can stash ad-hoc state.
-   *
+   * Set a value by dotted path. Known keys are validated (type, range,
+   * path-traversal); unknown keys are accepted verbatim.
    * @param {string} key - Dotted path, e.g. `"server.port"`.
-   * @param {*} value - New value.
+   * @param {*} value
    * @returns {void}
-   * @throws {Error} If `key` is a known key and `value` fails its validator.
+   * @throws {Error} When a known `key`'s `value` fails its validator.
    */
   set(key, value) {
     // Per-key validators. Path-bound keys reject absolute paths and `..`
@@ -264,11 +240,8 @@ class Config {
   }
 
   /**
-   * Persist the current config to disk as pretty-printed JSON.
-   *
-   * @returns {boolean} True on success, false when the write failed (the
-   *   reason is logged to the console; this is intentionally non-throwing
-   *   so a failed save cannot crash the process).
+   * Persist the config to disk as pretty-printed JSON. Non-throwing.
+   * @returns {boolean} True on success; false (logged) on write failure.
    */
   save() {
     try {
@@ -283,9 +256,7 @@ class Config {
   }
 
   /**
-   * Re-read the config file from disk and re-apply the environment
-   * overrides so a hot-reload behaves exactly like a fresh boot.
-   *
+   * Re-read the file and re-apply env overrides (hot-reload == fresh boot).
    * @returns {void}
    */
   reload() {
@@ -293,10 +264,7 @@ class Config {
     this._applyEnvOverrides();
   }
 
-  /**
-   * @returns {Object} A shallow clone of the full config tree (mutating
-   *   the returned object does not affect the live config).
-   */
+  /** @returns {Object} Shallow clone of the full config tree. */
   getAll() {
     return { ...this.config };
   }
