@@ -18,10 +18,10 @@ class AudioPreview {
     this.previewStart = 0; // seconds
 
     // Progress tracking
-    this.onProgress = null;      // callback(currentTick, totalTicks, currentTimeSec, totalTimeSec)
-    this.onPlaybackEnd = null;   // callback()
+    this.onProgress = null; // callback(currentTick, totalTicks, currentTimeSec, totalTimeSec)
+    this.onPlaybackEnd = null; // callback()
     this.totalTicks = 0;
-    this.totalDuration = 0;      // seconds
+    this.totalDuration = 0; // seconds
   }
 
   /**
@@ -85,7 +85,14 @@ class AudioPreview {
    * @param {Object} instrumentPrograms - { channel: gmProgram } (optional)
    * @param {boolean} fullFile - If true, play entire file (no duration limit)
    */
-  async previewAdapted(midiData, transpositions, startTime = 0, duration = 15, instrumentPrograms = {}, fullFile = false) {
+  async previewAdapted(
+    midiData,
+    transpositions,
+    startTime = 0,
+    duration = 15,
+    instrumentPrograms = {},
+    fullFile = false
+  ) {
     try {
       this.isPreviewing = true;
 
@@ -100,8 +107,8 @@ class AudioPreview {
       // nothing GM fallback inside the synthesizer).
       if (instrumentPrograms && this.synthesizer.setChannelInstrument) {
         for (const [channel, value] of Object.entries(instrumentPrograms)) {
-          const program = (value && typeof value === 'object') ? value.program : value;
-          const sf2Id = (value && typeof value === 'object') ? (value.sf2Id ?? null) : null;
+          const program = value && typeof value === 'object' ? value.program : value;
+          const sf2Id = value && typeof value === 'object' ? (value.sf2Id ?? null) : null;
           this.synthesizer.setChannelInstrument(Number(channel), program, sf2Id);
         }
       }
@@ -109,14 +116,23 @@ class AudioPreview {
       const effectiveDuration = fullFile ? this._getFileDuration(midiData) : duration;
 
       // Apply transpositions to create preview sequence
-      const previewSequence = this.createPreviewSequence(midiData, transpositions, startTime, effectiveDuration);
+      const previewSequence = this.createPreviewSequence(
+        midiData,
+        transpositions,
+        startTime,
+        effectiveDuration
+      );
 
       if (!previewSequence || previewSequence.length === 0) {
         throw new Error('No notes to preview');
       }
 
       // Load and play
-      this.synthesizer.loadSequence(previewSequence, midiData.tempo || 120, midiData.header?.ticksPerBeat || 480);
+      this.synthesizer.loadSequence(
+        previewSequence,
+        midiData.tempo || 120,
+        midiData.header?.ticksPerBeat || 480
+      );
       this._computeTotals();
       this._connectCallbacks();
       await this.synthesizer.play();
@@ -151,13 +167,22 @@ class AudioPreview {
       const effectiveDuration = fullFile ? this._getFileDuration(midiData) : duration;
 
       // Create sequence without transpositions
-      const previewSequence = this.createPreviewSequence(midiData, {}, startTime, effectiveDuration);
+      const previewSequence = this.createPreviewSequence(
+        midiData,
+        {},
+        startTime,
+        effectiveDuration
+      );
 
       if (!previewSequence || previewSequence.length === 0) {
         throw new Error('No notes to preview');
       }
 
-      this.synthesizer.loadSequence(previewSequence, midiData.tempo || 120, midiData.header?.ticksPerBeat || 480);
+      this.synthesizer.loadSequence(
+        previewSequence,
+        midiData.tempo || 120,
+        midiData.header?.ticksPerBeat || 480
+      );
       this._computeTotals();
       this._connectCallbacks();
       await this.synthesizer.play();
@@ -183,7 +208,15 @@ class AudioPreview {
    * @param {number} duration - Duration in seconds (default: 15)
    * @param {boolean} fullFile - If true, play entire file
    */
-  async previewSingleChannel(midiData, channel, transposition = {}, instrumentConstraints = {}, startTime = 0, duration = 15, fullFile = false) {
+  async previewSingleChannel(
+    midiData,
+    channel,
+    transposition = {},
+    instrumentConstraints = {},
+    startTime = 0,
+    duration = 15,
+    fullFile = false
+  ) {
     try {
       this.isPreviewing = true;
 
@@ -217,7 +250,11 @@ class AudioPreview {
         throw new Error('No playable notes to preview on this channel');
       }
 
-      this.synthesizer.loadSequence(previewSequence, midiData.tempo || 120, midiData.header?.ticksPerBeat || 480);
+      this.synthesizer.loadSequence(
+        previewSequence,
+        midiData.tempo || 120,
+        midiData.header?.ticksPerBeat || 480
+      );
       this._computeTotals();
       this._connectCallbacks();
       await this.synthesizer.play();
@@ -267,13 +304,22 @@ class AudioPreview {
       const totalDuration = this._getFileDuration(midiData);
 
       // Build combined sequence from all non-skipped channels
-      const sequence = this._createMultiChannelSequence(midiData, channelConfigs, startTime, totalDuration);
+      const sequence = this._createMultiChannelSequence(
+        midiData,
+        channelConfigs,
+        startTime,
+        totalDuration
+      );
 
       if (!sequence || sequence.length === 0) {
         throw new Error('No notes to preview');
       }
 
-      this.synthesizer.loadSequence(sequence, midiData.tempo || 120, midiData.header?.ticksPerBeat || 480);
+      this.synthesizer.loadSequence(
+        sequence,
+        midiData.tempo || 120,
+        midiData.header?.ticksPerBeat || 480
+      );
       this._computeTotals();
       this._connectCallbacks();
       await this.synthesizer.play();
@@ -302,6 +348,17 @@ class AudioPreview {
     const allNotes = [];
     if (!midiData?.tracks) return allNotes;
 
+    // Close an active note: push it with its real gate (>= 1 tick).
+    const closeNote = (noteOn, endTick) => {
+      allNotes.push({
+        tick: noteOn.tick,
+        gate: Math.max(1, endTick - noteOn.tick),
+        note: noteOn.note,
+        channel: noteOn.channel,
+        velocity: noteOn.velocity
+      });
+    };
+
     for (const track of midiData.tracks) {
       if (!track.events) continue;
 
@@ -311,37 +368,24 @@ class AudioPreview {
       for (const event of track.events) {
         currentTick += event.deltaTime || 0;
 
-        if (event.type === 'noteOn' && event.velocity > 0) {
-          const channel = event.channel ?? 0;
-          const note = event.note ?? event.noteNumber ?? 60;
-          const key = `${channel}_${note}`;
+        const isNoteOn = event.type === 'noteOn' && event.velocity > 0;
+        const isNoteOff =
+          event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0);
+        if (!isNoteOn && !isNoteOff) continue;
 
-          // Re-trigger before noteOff: close the previous note at the new noteOn
+        const channel = event.channel ?? 0;
+        const note = event.note ?? event.noteNumber ?? 60;
+        const key = `${channel}_${note}`;
+
+        if (isNoteOn) {
+          // Re-trigger before noteOff: close the previous note at this noteOn
           const existing = activeNotes.get(key);
-          if (existing) {
-            allNotes.push({
-              tick: existing.tick,
-              gate: Math.max(1, currentTick - existing.tick),
-              note: existing.note,
-              channel: existing.channel,
-              velocity: existing.velocity
-            });
-          }
+          if (existing) closeNote(existing, currentTick);
           activeNotes.set(key, { tick: currentTick, note, velocity: event.velocity, channel });
-        }
-        else if (event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0)) {
-          const channel = event.channel ?? 0;
-          const note = event.note ?? event.noteNumber ?? 60;
-          const key = `${channel}_${note}`;
+        } else {
           const noteOn = activeNotes.get(key);
           if (noteOn) {
-            allNotes.push({
-              tick: noteOn.tick,
-              gate: Math.max(1, currentTick - noteOn.tick),
-              note: noteOn.note,
-              channel: noteOn.channel,
-              velocity: noteOn.velocity
-            });
+            closeNote(noteOn, currentTick);
             activeNotes.delete(key);
           }
         }
@@ -349,14 +393,7 @@ class AudioPreview {
 
       // Recover orphan noteOns whose noteOff is missing — same fallback as the editor.
       for (const [, noteOn] of activeNotes) {
-        const defaultGate = Math.max(1, currentTick - noteOn.tick);
-        allNotes.push({
-          tick: noteOn.tick,
-          gate: defaultGate > 0 ? defaultGate : 480,
-          note: noteOn.note,
-          channel: noteOn.channel,
-          velocity: noteOn.velocity
-        });
+        closeNote(noteOn, currentTick);
       }
     }
 
@@ -364,16 +401,58 @@ class AudioPreview {
   }
 
   /**
+   * Compute the [startTick, endTick] window for a preview, from the file's
+   * initial tempo. `duration <= 0` means "no end limit".
+   * @private
+   */
+  _computeTickWindow(midiData, startTime, duration) {
+    const ticksPerBeat = midiData.header?.ticksPerBeat || 480;
+    const tempo = midiData.tempo || 120;
+    const msPerTick = 60000 / tempo / ticksPerBeat;
+    const startTick = (startTime * 1000) / msPerTick;
+    const endTick = duration > 0 ? ((startTime + duration) * 1000) / msPerTick : Infinity;
+    return { startTick, endTick };
+  }
+
+  /**
+   * Apply a per-channel transposition + instrument note filter to one
+   * extracted note. Returns a sequence entry `{t,g,n,c,v}` or null when the
+   * note is outside the window, suppressed (mapped to -1), or filtered out.
+   * @private
+   */
+  _toSequenceEntry(noteData, transposition, noteFilter, startTick, endTick) {
+    if (noteData.tick < startTick || noteData.tick > endTick) return null;
+
+    let note = noteData.note;
+    if (transposition) {
+      if (transposition.semitones) {
+        note = this.clampNote(note + transposition.semitones);
+      }
+      if (transposition.noteRemapping && transposition.noteRemapping[note] !== undefined) {
+        note = transposition.noteRemapping[note];
+      }
+    }
+
+    // Skip suppressed notes (e.g. muted drum notes mapped to -1)
+    if (note < 0) return null;
+
+    if (noteFilter && !noteFilter(note)) return null;
+
+    return {
+      t: noteData.tick - startTick,
+      g: noteData.gate,
+      n: note,
+      c: noteData.channel,
+      v: noteData.velocity || 100
+    };
+  }
+
+  /**
    * Build a combined sequence from all non-skipped channels, applying per-channel
    * transpositions and instrument constraints.
    */
   _createMultiChannelSequence(midiData, channelConfigs, startTime, duration) {
-    const ticksPerBeat = midiData.header?.ticksPerBeat || 480;
-    const tempo = midiData.tempo || 120;
-
-    const msPerTick = (60000 / tempo) / ticksPerBeat;
-    const startTick = (startTime * 1000) / msPerTick;
-    const endTick = duration > 0 ? ((startTime + duration) * 1000) / msPerTick : Infinity;
+    const { startTick, endTick } = this._computeTickWindow(midiData, startTime, duration);
 
     // Build per-channel note filters
     const channelFilters = {};
@@ -386,38 +465,18 @@ class AudioPreview {
     }
 
     const sequence = [];
-    const allNotes = this._extractNotesFromMidi(midiData);
-
-    for (const noteData of allNotes) {
-      if (noteData.tick < startTick || noteData.tick > endTick) continue;
-
+    for (const noteData of this._extractNotesFromMidi(midiData)) {
       const chConfig = channelFilters[noteData.channel];
       if (!chConfig) continue;
 
-      let note = noteData.note;
-      const transposition = chConfig.transposition;
-      if (transposition) {
-        if (transposition.semitones) {
-          note = this.clampNote(note + transposition.semitones);
-        }
-        if (transposition.noteRemapping && transposition.noteRemapping[note] !== undefined) {
-          note = transposition.noteRemapping[note];
-        }
-      }
-
-      // Skip suppressed notes (e.g. muted drum notes mapped to -1)
-      if (note < 0) continue;
-
-      // Filter by instrument playable range
-      if (chConfig.noteFilter && !chConfig.noteFilter(note)) continue;
-
-      sequence.push({
-        t: noteData.tick - startTick,
-        g: noteData.gate,
-        n: note,
-        c: noteData.channel,
-        v: noteData.velocity || 100
-      });
+      const entry = this._toSequenceEntry(
+        noteData,
+        chConfig.transposition,
+        chConfig.noteFilter,
+        startTick,
+        endTick
+      );
+      if (entry) sequence.push(entry);
     }
 
     sequence.sort((a, b) => a.t - b.t);
@@ -454,7 +513,7 @@ class AudioPreview {
 
     // No tempo changes: simple calculation
     if (tempoChanges.length === 0) {
-      const msPerTick = (60000 / initialTempo) / ticksPerBeat;
+      const msPerTick = 60000 / initialTempo / ticksPerBeat;
       return (maxTick * msPerTick) / 1000;
     }
 
@@ -467,7 +526,7 @@ class AudioPreview {
     for (const tc of tempoChanges) {
       const deltaTicks = tc.tick - prevTick;
       if (deltaTicks > 0) {
-        totalMs += deltaTicks * (60000 / currentBpm) / ticksPerBeat;
+        totalMs += (deltaTicks * (60000 / currentBpm)) / ticksPerBeat;
       }
       currentBpm = tc.bpm;
       prevTick = tc.tick;
@@ -476,7 +535,7 @@ class AudioPreview {
     // Remaining ticks after last tempo change
     const remaining = maxTick - prevTick;
     if (remaining > 0) {
-      totalMs += remaining * (60000 / currentBpm) / ticksPerBeat;
+      totalMs += (remaining * (60000 / currentBpm)) / ticksPerBeat;
     }
 
     return totalMs / 1000;
@@ -491,7 +550,7 @@ class AudioPreview {
     const tempo = this.synthesizer.tempo || 120;
     const tick = this.synthesizer.secondsToTicks
       ? this.synthesizer.secondsToTicks(timeSec)
-      : (timeSec * 1000) / ((60000 / tempo) / ticksPerBeat);
+      : (timeSec * 1000) / (60000 / tempo / ticksPerBeat);
     this.synthesizer.seek(tick);
   }
 
@@ -536,47 +595,23 @@ class AudioPreview {
    * @returns {Array} - Sequence in format [{t, g, n, c}, ...]
    */
   createPreviewSequence(midiData, transpositions, startTime, duration, options = {}) {
-    const ticksPerBeat = midiData.header?.ticksPerBeat || 480;
-    const tempo = midiData.tempo || 120;
     const { channelFilter, instrumentConstraints } = options;
-
-    // Convert seconds to ticks (initial tempo — synth handles tempo map)
-    const msPerTick = (60000 / tempo) / ticksPerBeat;
-    const startTick = (startTime * 1000) / msPerTick;
-    const endTick = duration > 0 ? ((startTime + duration) * 1000) / msPerTick : Infinity;
+    const { startTick, endTick } = this._computeTickWindow(midiData, startTime, duration);
 
     const noteFilter = this._buildNoteFilter(instrumentConstraints);
     const sequence = [];
-    const allNotes = this._extractNotesFromMidi(midiData);
 
-    for (const noteData of allNotes) {
-      if (noteData.tick < startTick || noteData.tick > endTick) continue;
-
+    for (const noteData of this._extractNotesFromMidi(midiData)) {
       if (channelFilter !== undefined && noteData.channel !== channelFilter) continue;
 
-      let note = noteData.note;
-      const transposition = transpositions[noteData.channel];
-      if (transposition) {
-        if (transposition.semitones) {
-          note = this.clampNote(note + transposition.semitones);
-        }
-        if (transposition.noteRemapping && transposition.noteRemapping[note] !== undefined) {
-          note = transposition.noteRemapping[note];
-        }
-      }
-
-      // Skip suppressed notes (e.g. muted drum notes mapped to -1)
-      if (note < 0) continue;
-
-      if (noteFilter && !noteFilter(note)) continue;
-
-      sequence.push({
-        t: noteData.tick - startTick,
-        g: noteData.gate,
-        n: note,
-        c: noteData.channel,
-        v: noteData.velocity || 100
-      });
+      const entry = this._toSequenceEntry(
+        noteData,
+        transpositions[noteData.channel],
+        noteFilter,
+        startTick,
+        endTick
+      );
+      if (entry) sequence.push(entry);
     }
 
     sequence.sort((a, b) => a.t - b.t);
@@ -593,7 +628,11 @@ class AudioPreview {
     const { noteRangeMin, noteRangeMax, noteSelectionMode, selectedNotes } = constraints;
 
     // Discrete mode: only specific notes are playable (e.g., drum pads)
-    if (noteSelectionMode === 'discrete' && Array.isArray(selectedNotes) && selectedNotes.length > 0) {
+    if (
+      noteSelectionMode === 'discrete' &&
+      Array.isArray(selectedNotes) &&
+      selectedNotes.length > 0
+    ) {
       const allowedSet = new Set(selectedNotes);
       return (note) => allowedSet.has(note);
     }

@@ -2,60 +2,64 @@
  * DeviceSettingsModal — Modal for device-level settings.
  * Contains: custom name, MIDI clock toggle, message rate limit.
  */
-(function() {
-    'use strict';
+(function () {
+  'use strict';
 
-    class DeviceSettingsModal {
-        constructor(apiClient) {
-            this.api = apiClient;
-            this.deviceId = null;
-            this.deviceName = null;
-            this.settings = null;
-            this.overlay = null;
-            this.modal = null;
-            this._onSaveCallback = null;
-        }
+  const SYSEX_REQUEST_LABEL = "Demander l'identité via SysEx";
 
-        /**
-         * Show the modal for a given device.
-         * @param {string} deviceId
-         * @param {string} deviceName - Original device name (fallback)
-         * @param {Function} [onSave] - Callback after successful save
-         */
-        async show(deviceId, deviceName, onSave) {
-            this.deviceId = deviceId;
-            this.deviceName = deviceName;
-            this._onSaveCallback = onSave || null;
+  class DeviceSettingsModal {
+    constructor(apiClient) {
+      this.api = apiClient;
+      this.deviceId = null;
+      this.deviceName = null;
+      this.settings = null;
+      this.overlay = null;
+      this.modal = null;
+      this._onSaveCallback = null;
+    }
 
-            // Load current settings from backend
-            try {
-                const resp = await this.api.sendCommand('device_get_settings', { deviceId });
-                this.settings = resp.settings || {};
-            } catch (e) {
-                this.settings = { custom_name: null, midi_clock_enabled: 0, message_rate_limit: 0 };
-            }
+    /**
+     * Show the modal for a given device.
+     * @param {string} deviceId
+     * @param {string} deviceName - Original device name (fallback)
+     * @param {Function} [onSave] - Callback after successful save
+     */
+    async show(deviceId, deviceName, onSave) {
+      this.deviceId = deviceId;
+      this.deviceName = deviceName;
+      this._onSaveCallback = onSave || null;
 
-            this._render();
-            this._attachListeners();
-            this.overlay.style.display = 'flex';
-        }
+      // Load current settings from backend
+      try {
+        const resp = await this.api.sendCommand('device_get_settings', { deviceId });
+        this.settings = resp.settings || {};
+      } catch (e) {
+        this.settings = { custom_name: null, midi_clock_enabled: 0, message_rate_limit: 0 };
+      }
 
-        _render() {
-            // Remove previous modal if any
-            if (this.overlay) this.overlay.remove();
+      this._render();
+      this._attachListeners();
+      this.overlay.style.display = 'flex';
+    }
 
-            this.overlay = document.createElement('div');
-            this.overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:10000;';
+    _render() {
+      // Remove previous modal if any
+      if (this.overlay) this.overlay.remove();
 
-            this.modal = document.createElement('div');
-            this.modal.style.cssText = 'background:var(--bg-primary,white);border-radius:16px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;';
+      this.overlay = document.createElement('div');
+      this.overlay.style.cssText =
+        'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:10000;';
 
-            const t = (key, fallback) => (typeof i18n !== 'undefined' ? i18n.t(key) : null) || fallback;
-            const customName = this.settings.custom_name || '';
-            const midiClockEnabled = !!this.settings.midi_clock_enabled;
-            const rateLimit = this.settings.message_rate_limit || 0;
+      this.modal = document.createElement('div');
+      this.modal.style.cssText =
+        'background:var(--bg-primary,white);border-radius:16px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;';
 
-            this.modal.innerHTML = `
+      const t = (key, fallback) => (typeof i18n !== 'undefined' ? i18n.t(key) : null) || fallback;
+      const customName = this.settings.custom_name || '';
+      const midiClockEnabled = !!this.settings.midi_clock_enabled;
+      const rateLimit = this.settings.message_rate_limit || 0;
+
+      this.modal.innerHTML = `
                 <!-- Header -->
                 <div style="padding:16px 20px;border-bottom:1px solid var(--border-color,#e5e7eb);display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(0,0,0,0.02),rgba(0,0,0,0.04));">
                     <h2 style="margin:0;font-size:18px;color:var(--text-primary,#1f2937);">⚙️ ${t('deviceSettings.title', 'Réglages du périphérique')}</h2>
@@ -150,132 +154,136 @@
                 </div>
             `;
 
-            this.overlay.appendChild(this.modal);
-            document.body.appendChild(this.overlay);
-        }
-
-        _attachListeners() {
-            // Close
-            this.modal.querySelector('#dsm-close').addEventListener('click', () => this.close());
-            this.modal.querySelector('#dsm-cancel').addEventListener('click', () => this.close());
-            this.overlay.addEventListener('click', (e) => { if (e.target === this.overlay) this.close(); });
-
-            // Toggle slider visual feedback
-            const checkbox = this.modal.querySelector('#dsm-midiClock');
-            const slider = this.modal.querySelector('.dsm-toggle-slider');
-            const thumb = this.modal.querySelector('.dsm-toggle-thumb');
-            if (checkbox && slider && thumb) {
-                checkbox.addEventListener('change', () => {
-                    slider.style.backgroundColor = checkbox.checked ? '#667eea' : '#ccc';
-                    thumb.style.left = checkbox.checked ? '27px' : '3px';
-                });
-            }
-
-            // Save
-            this.modal.querySelector('#dsm-save').addEventListener('click', () => this._save());
-
-            // SysEx Identity Request
-            const sysexBtn = this.modal.querySelector('#dsm-sysexRequestBtn');
-            if (sysexBtn) {
-                sysexBtn.addEventListener('click', () => this._requestSysExIdentity());
-            }
-
-            // Listen for SysEx identity response
-            this._sysexHandler = (data) => this._handleSysExIdentity(data);
-            if (this.api && typeof this.api.on === 'function') {
-                this.api.on('device_identity', this._sysexHandler);
-            }
-
-            // Escape key
-            this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
-            document.addEventListener('keydown', this._escHandler);
-        }
-
-        async _save() {
-            const customName = (this.modal.querySelector('#dsm-customName')?.value || '').trim();
-            const midiClockEnabled = this.modal.querySelector('#dsm-midiClock')?.checked ?? false;
-            const rateLimit = parseInt(this.modal.querySelector('#dsm-rateLimit')?.value) || 0;
-
-            try {
-                await this.api.sendCommand('device_update_settings', {
-                    deviceId: this.deviceId,
-                    deviceName: this.deviceName,
-                    custom_name: customName || null,
-                    midi_clock_enabled: midiClockEnabled,
-                    message_rate_limit: rateLimit
-                });
-
-                if (this._onSaveCallback) this._onSaveCallback();
-                this.close();
-            } catch (err) {
-                console.error('Failed to save device settings:', err);
-            }
-        }
-
-        _requestSysExIdentity() {
-            if (!this.api || !this.deviceId) return;
-            const btn = this.modal.querySelector('#dsm-sysexRequestBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = '⏳ En attente...';
-            }
-            try {
-                this.api.sendCommand('sysex_identity_request', { deviceId: this.deviceId });
-            } catch (e) {
-                console.error('SysEx identity request failed:', e);
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = "Demander l'identité via SysEx";
-                }
-            }
-            setTimeout(() => {
-                if (btn && btn.disabled) {
-                    btn.disabled = false;
-                    btn.textContent = "Demander l'identité via SysEx";
-                }
-            }, 5000);
-        }
-
-        _handleSysExIdentity(data) {
-            if (!data) return;
-            const btn = this.modal?.querySelector('#dsm-sysexRequestBtn');
-            const resultDiv = this.modal?.querySelector('#dsm-sysexResult');
-            if (resultDiv) {
-                const name = this._escapeHtml(data.name || 'Inconnu');
-                const firmware = this._escapeHtml(data.firmware || data.version || '-');
-                const protocol = this._escapeHtml(data.protocol || '-');
-                resultDiv.innerHTML = `<strong>${name}</strong> — Firmware: ${firmware} — Protocole: ${protocol}`;
-                resultDiv.style.display = 'block';
-            }
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = '✅ Identité reçue';
-                setTimeout(() => {
-                    if (btn) btn.textContent = "Demander l'identité via SysEx";
-                }, 3000);
-            }
-        }
-
-        close() {
-            if (this._sysexHandler && this.api && typeof this.api.off === 'function') {
-                this.api.off('device_identity', this._sysexHandler);
-                this._sysexHandler = null;
-            }
-            if (this.overlay) {
-                this.overlay.style.display = 'none';
-                this.overlay.remove();
-                this.overlay = null;
-            }
-            if (this._escHandler) {
-                document.removeEventListener('keydown', this._escHandler);
-                this._escHandler = null;
-            }
-        }
-
-        _escapeHtml(str) {
-            return window.escapeHtml(str);
-        }
+      this.overlay.appendChild(this.modal);
+      document.body.appendChild(this.overlay);
     }
 
-    if (typeof window !== 'undefined') window.DeviceSettingsModal = DeviceSettingsModal;
+    _attachListeners() {
+      // Close
+      this.modal.querySelector('#dsm-close').addEventListener('click', () => this.close());
+      this.modal.querySelector('#dsm-cancel').addEventListener('click', () => this.close());
+      this.overlay.addEventListener('click', (e) => {
+        if (e.target === this.overlay) this.close();
+      });
+
+      // Toggle slider visual feedback
+      const checkbox = this.modal.querySelector('#dsm-midiClock');
+      const slider = this.modal.querySelector('.dsm-toggle-slider');
+      const thumb = this.modal.querySelector('.dsm-toggle-thumb');
+      if (checkbox && slider && thumb) {
+        checkbox.addEventListener('change', () => {
+          slider.style.backgroundColor = checkbox.checked ? '#667eea' : '#ccc';
+          thumb.style.left = checkbox.checked ? '27px' : '3px';
+        });
+      }
+
+      // Save
+      this.modal.querySelector('#dsm-save').addEventListener('click', () => this._save());
+
+      // SysEx Identity Request
+      const sysexBtn = this.modal.querySelector('#dsm-sysexRequestBtn');
+      if (sysexBtn) {
+        sysexBtn.addEventListener('click', () => this._requestSysExIdentity());
+      }
+
+      // Listen for SysEx identity response
+      this._sysexHandler = (data) => this._handleSysExIdentity(data);
+      if (this.api && typeof this.api.on === 'function') {
+        this.api.on('device_identity', this._sysexHandler);
+      }
+
+      // Escape key
+      this._escHandler = (e) => {
+        if (e.key === 'Escape') this.close();
+      };
+      document.addEventListener('keydown', this._escHandler);
+    }
+
+    async _save() {
+      const customName = (this.modal.querySelector('#dsm-customName')?.value || '').trim();
+      const midiClockEnabled = this.modal.querySelector('#dsm-midiClock')?.checked ?? false;
+      const rateLimit = parseInt(this.modal.querySelector('#dsm-rateLimit')?.value) || 0;
+
+      try {
+        await this.api.sendCommand('device_update_settings', {
+          deviceId: this.deviceId,
+          deviceName: this.deviceName,
+          custom_name: customName || null,
+          midi_clock_enabled: midiClockEnabled,
+          message_rate_limit: rateLimit
+        });
+
+        if (this._onSaveCallback) this._onSaveCallback();
+        this.close();
+      } catch (err) {
+        console.error('Failed to save device settings:', err);
+      }
+    }
+
+    _requestSysExIdentity() {
+      if (!this.api || !this.deviceId) return;
+      const btn = this.modal.querySelector('#dsm-sysexRequestBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ En attente...';
+      }
+      try {
+        this.api.sendCommand('sysex_identity_request', { deviceId: this.deviceId });
+      } catch (e) {
+        console.error('SysEx identity request failed:', e);
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = SYSEX_REQUEST_LABEL;
+        }
+      }
+      setTimeout(() => {
+        if (btn && btn.disabled) {
+          btn.disabled = false;
+          btn.textContent = SYSEX_REQUEST_LABEL;
+        }
+      }, 5000);
+    }
+
+    _handleSysExIdentity(data) {
+      if (!data) return;
+      const btn = this.modal?.querySelector('#dsm-sysexRequestBtn');
+      const resultDiv = this.modal?.querySelector('#dsm-sysexResult');
+      if (resultDiv) {
+        const name = this._escapeHtml(data.name || 'Inconnu');
+        const firmware = this._escapeHtml(data.firmware || data.version || '-');
+        const protocol = this._escapeHtml(data.protocol || '-');
+        resultDiv.innerHTML = `<strong>${name}</strong> — Firmware: ${firmware} — Protocole: ${protocol}`;
+        resultDiv.style.display = 'block';
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '✅ Identité reçue';
+        setTimeout(() => {
+          if (btn) btn.textContent = SYSEX_REQUEST_LABEL;
+        }, 3000);
+      }
+    }
+
+    close() {
+      if (this._sysexHandler && this.api && typeof this.api.off === 'function') {
+        this.api.off('device_identity', this._sysexHandler);
+        this._sysexHandler = null;
+      }
+      if (this.overlay) {
+        this.overlay.style.display = 'none';
+        this.overlay.remove();
+        this.overlay = null;
+      }
+      if (this._escHandler) {
+        document.removeEventListener('keydown', this._escHandler);
+        this._escHandler = null;
+      }
+    }
+
+    _escapeHtml(str) {
+      return window.escapeHtml(str);
+    }
+  }
+
+  if (typeof window !== 'undefined') window.DeviceSettingsModal = DeviceSettingsModal;
 })();

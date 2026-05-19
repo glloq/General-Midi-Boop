@@ -1,19 +1,8 @@
 /**
  * @file src/core/Logger.js
- * @description Lightweight, dependency-free leveled logger with optional
- * file output and size-based rotation. Used by every backend component via
- * the DI container key `logger`.
- *
- * Design notes:
- * - Console output is colorised for human consumption.
- * - File output goes through a non-blocking `fs.WriteStream` so log writes
- *   never stall the MIDI hot path.
- * - Rotation is checked only every {@link ROTATION_CHECK_INTERVAL} writes
- *   to keep the cost of `stat` away from the per-message critical path.
- *
- * TODO: replace with a structured logger (pino/winston) once a perf budget
- * for serialization is established — current console.log + raw file writes
- * are simple but lose context tags (correlation IDs, child loggers).
+ * @description Dependency-free leveled logger (DI key `logger`). Colorised
+ * console output plus optional non-blocking file sink with size-based
+ * rotation checked every {@link ROTATION_CHECK_INTERVAL} writes.
  */
 import fs from 'fs';
 import path from 'path';
@@ -22,43 +11,14 @@ import path from 'path';
 const MAX_LOG_SIZE = 10 * 1024 * 1024;
 /** Default number of rotated files to retain (oldest is deleted). */
 const MAX_LOG_FILES = 5;
-/**
- * How many writes between size checks. Avoids calling `fs.stat` on every
- * message while still rotating promptly enough for typical traffic.
- */
+/** Writes between size checks (keeps `fs.stat` off the per-message path). */
 const ROTATION_CHECK_INTERVAL = 100;
 
 /**
- * Severity-ordered logger with console + optional file sink.
- *
- * Levels (ascending): `debug` < `info` < `warn` < `error`. A configured
- * `level` filters out everything below it.
- *
- * **Level conventions** (used consistently across `src/` to keep noise
- * tractable when an operator tails the log):
- *
- *   | Level   | When to use                                              |
- *   |---------|----------------------------------------------------------|
- *   | `debug` | Per-message tracing (every MIDI byte, every WS frame),   |
- *   |         | cache hits, low-level state transitions. Filtered out    |
- *   |         | in production. Cheap to add; never include in a hot path |
- *   |         | without gating on `shouldLog('debug')`.                  |
- *   | `info`  | Lifecycle events that matter for an operator: service    |
- *   |         | initialised, device connected, file uploaded, rule       |
- *   |         | loaded. One line per logical milestone — not per         |
- *   |         | iteration.                                               |
- *   | `warn`  | A degradation the system recovers from on its own.       |
- *   |         | Examples: malformed CSV value silently dropped, optional |
- *   |         | dependency missing, retry after a transient failure.     |
- *   |         | The caller MUST still return a usable value.             |
- *   | `error` | An operation failed and the failure surfaces to the      |
- *   |         | caller (returned `null`, threw, rejected). The log line  |
- *   |         | is the *root-cause record* — include the full error      |
- *   |         | message + stack via the `data` argument when available.  |
- *
- * A useful mental check: if the same line could plausibly be either
- * `warn` or `error`, ask "does the caller still get the result they
- * asked for?". Yes → `warn`. No → `error`.
+ * Severity-ordered logger (debug < info < warn < error); a configured
+ * `level` filters out everything below it. Convention: `warn` = degradation
+ * the caller still recovers from with a usable value; `error` = the
+ * operation failed and that surfaced to the caller.
  */
 class Logger {
   /**
@@ -104,10 +64,8 @@ class Logger {
   }
 
   /**
-   * Open (or reopen) the log file write stream for non-blocking I/O.
-   * Any previously open stream is end()ed first so no descriptor leaks
-   * across rotations.
-   *
+   * Open (or reopen) the log file stream; ends any previous stream first
+   * so no descriptor leaks across rotations.
    * @returns {void}
    * @private
    */
@@ -123,14 +81,13 @@ class Logger {
   }
 
   /**
-   * Current minimum level. Reading is free; writing recomputes the
-   * cached numeric form so the hot-path branch helpers stay coherent
-   * if an operator changes the level at runtime (e.g. via a `set_log_level`
-   * command).
-   *
+   * Minimum level. Setting it recomputes the cached numeric form so the
+   * hot-path branch helpers stay coherent on runtime level changes.
    * @type {('debug'|'info'|'warn'|'error')}
    */
-  get level() { return this._level; }
+  get level() {
+    return this._level;
+  }
   set level(v) {
     this._level = v;
     this._levelNum = this.levels[v] ?? 1;
@@ -146,48 +103,38 @@ class Logger {
   }
 
   /**
-   * Hot-path branch helper: returns true when debug output is enabled.
-   * Use this before constructing any debug message in a critical loop
-   * (MIDI scheduler, WebSocket broadcast, router) to avoid building the
-   * string when it would be filtered out.
+   * Hot-path branch helper: true when debug output is enabled. Gate
+   * debug-message construction in critical loops on this.
    * @returns {boolean}
    */
   isDebugEnabled() {
     return this._levelNum <= 0;
   }
 
-  /**
-   * Hot-path branch helper: returns true when info output is enabled.
-   * @returns {boolean}
-   */
+  /** @returns {boolean} True when info output is enabled. */
   isInfoEnabled() {
     return this._levelNum <= 1;
   }
 
-  /**
-   * Hot-path branch helper: returns true when warn output is enabled.
-   * @returns {boolean}
-   */
+  /** @returns {boolean} True when warn output is enabled. */
   isWarnEnabled() {
     return this._levelNum <= 2;
   }
 
   /**
-   * Build a single-line, human-readable log entry. Errors are expanded
-   * with stack trace; plain objects are pretty-printed.
-   *
-   * @param {string} level - Severity (already known to pass `shouldLog`).
-   * @param {string} message - Primary message.
-   * @param {*} [data] - Optional payload (Error, object, primitive).
-   * @returns {string} Formatted log line (no trailing newline).
+   * Build a single-line log entry. Errors expand with stack; objects are
+   * pretty-printed. Falsy payloads (0, '', false) are kept; only
+   * null/undefined are skipped.
+   * @param {string} level
+   * @param {string} message
+   * @param {*} [data]
+   * @returns {string} Formatted line (no trailing newline).
    */
   format(level, message, data = null) {
     const timestamp = new Date().toISOString();
     const levelStr = level.toUpperCase().padEnd(5);
     let logMessage = `[${timestamp}] ${levelStr} ${message}`;
 
-    // Falsy payloads (0, '', false) are valid information — only skip
-    // when no payload was passed at all.
     if (data !== null && data !== undefined) {
       if (data instanceof Error) {
         logMessage += `\n  Error: ${data.message}\n  Stack: ${data.stack}`;
@@ -202,10 +149,8 @@ class Logger {
   }
 
   /**
-   * Same inputs as {@link Logger#format} but produces a single JSON object
-   * suitable for log aggregators (e.g. Loki, ELK). Used only for file
-   * output when `jsonFormat` is enabled.
-   *
+   * Like {@link Logger#format} but emits one JSON object per line for log
+   * aggregators. Used for file output when `jsonFormat` is enabled.
    * @param {string} level
    * @param {string} message
    * @param {*} [data]
@@ -218,13 +163,9 @@ class Logger {
       message
     };
 
-    // Same falsy-safe guard as Logger.format — `0`, `''`, `false` are
-    // legitimate payloads and must not be silently dropped.
     if (data !== null && data !== undefined) {
       if (data instanceof Error) {
         entry.error = { message: data.message, stack: data.stack };
-      } else if (typeof data === 'object') {
-        entry.data = data;
       } else {
         entry.data = data;
       }
@@ -234,10 +175,8 @@ class Logger {
   }
 
   /**
-   * Core write path. Filters by level, prints colorised text to the console
-   * and (optionally) appends to the file stream. Rotation is checked at a
-   * sub-rate to avoid `fs.stat` on every call.
-   *
+   * Core write path: level filter → colorised console → optional file
+   * stream (rotation checked at a sub-rate).
    * @param {('debug'|'info'|'warn'|'error')} level
    * @param {string} message
    * @param {*} [data]
@@ -247,14 +186,13 @@ class Logger {
     if (!this.shouldLog(level)) return;
 
     const logMessage = this.format(level, message, data);
-    // Only emit ANSI codes when stdout is an interactive TTY; otherwise
-    // they pollute PM2 / systemd captured logs (AUDIT 2026-05-10 §27).
+    // ANSI only on an interactive TTY; otherwise it pollutes PM2/systemd logs.
     if (process.stdout && process.stdout.isTTY) {
       const colors = {
         debug: '\x1b[36m', // Cyan
-        info: '\x1b[32m',  // Green
-        warn: '\x1b[33m',  // Yellow
-        error: '\x1b[31m'  // Red
+        info: '\x1b[32m', // Green
+        warn: '\x1b[33m', // Yellow
+        error: '\x1b[31m' // Red
       };
       const reset = '\x1b[0m';
       // eslint-disable-next-line no-console
@@ -276,47 +214,29 @@ class Logger {
     }
   }
 
-  /**
-   * @param {string} message
-   * @param {*} [data]
-   * @returns {void}
-   */
+  /** @param {string} message @param {*} [data] @returns {void} */
   debug(message, data = null) {
     this.write('debug', message, data);
   }
 
-  /**
-   * @param {string} message
-   * @param {*} [data]
-   * @returns {void}
-   */
+  /** @param {string} message @param {*} [data] @returns {void} */
   info(message, data = null) {
     this.write('info', message, data);
   }
 
-  /**
-   * @param {string} message
-   * @param {*} [data]
-   * @returns {void}
-   */
+  /** @param {string} message @param {*} [data] @returns {void} */
   warn(message, data = null) {
     this.write('warn', message, data);
   }
 
-  /**
-   * @param {string} message
-   * @param {*} [data]
-   * @returns {void}
-   */
+  /** @param {string} message @param {*} [data] @returns {void} */
   error(message, data = null) {
     this.write('error', message, data);
   }
 
   /**
-   * Trigger rotation when the active log file has grown past
-   * `maxLogSize`. Uses async `fs.stat` so the event loop is never
-   * blocked by the size check itself.
-   *
+   * Rotate when the active log file exceeds `maxLogSize`. Uses async
+   * `fs.stat` so the event loop is never blocked by the size check.
    * @returns {void}
    * @private
    */
@@ -331,24 +251,20 @@ class Logger {
   }
 
   /**
-   * Perform the rotation cycle: oldest file is unlinked, every remaining
-   * `app.log.N` is shifted to `app.log.(N+1)`, the active file becomes
-   * `app.log.1`, and a fresh stream is opened. Synchronous on purpose —
-   * rotation is rare and avoids interleaving partial writes mid-shift.
-   *
+   * Rotation cycle: unlink the oldest file, shift `app.log.N` →
+   * `app.log.(N+1)`, the active file becomes `app.log.1`, reopen a fresh
+   * stream. Synchronous — rotation is rare and must not interleave writes.
    * @returns {void}
    * @private
    */
   _rotate() {
     this._rotating = true;
     try {
-      // Close current stream before renaming files
       if (this._stream) {
         this._stream.end();
         this._stream = null;
       }
 
-      // Remove oldest log file
       const oldest = `${this.logFile}.${this.maxLogFiles}`;
       if (fs.existsSync(oldest)) {
         fs.unlinkSync(oldest);
@@ -379,9 +295,8 @@ class Logger {
   }
 
   /**
-   * Flush and close the file stream. Must be called during graceful
-   * shutdown to avoid losing buffered log lines.
-   *
+   * Flush and close the file stream. Call on graceful shutdown so buffered
+   * lines are not lost.
    * @returns {void}
    */
   close() {
@@ -392,13 +307,10 @@ class Logger {
   }
 
   /**
-   * Truncate the active log file to zero bytes and reopen the write
-   * stream. Safe to call while the logger is in use — in-flight writes
-   * buffered in userspace before the close are flushed; subsequent
-   * writes go to the fresh file. Console output is unaffected.
-   *
-   * @returns {boolean} True on success. Returns false silently when no
-   *   log file is configured (console-only loggers).
+   * Truncate the active log file and reopen the stream. Safe to call while
+   * in use. Console output is unaffected.
+   * @returns {boolean} True on success; false when no log file is
+   *   configured (console-only loggers).
    */
   clear() {
     if (!this.logFile) return false;
@@ -417,15 +329,17 @@ class Logger {
       // eslint-disable-next-line no-console
       console.error('Log clear failed:', error.message);
       // Best-effort reopen so logging can resume even if truncation failed.
-      try { this._openStream(); } catch { /* ignore */ }
+      try {
+        this._openStream();
+      } catch {
+        /* ignore */
+      }
       return false;
     }
   }
 
   /**
-   * Log an Express-style HTTP request at `info`. Captures method, URL, IP
-   * and User-Agent for basic access tracing.
-   *
+   * Log an Express request at `info` (method, URL, IP, User-Agent).
    * @param {import('express').Request} req
    * @returns {void}
    */
@@ -437,9 +351,8 @@ class Logger {
   }
 
   /**
-   * Log a WebSocket event tagged with the originating client id.
-   *
-   * @param {string} event - Event name (e.g. `connect`, `command`).
+   * Log a WebSocket event tagged with the client id.
+   * @param {string} event
    * @param {string|number} clientId
    * @param {*} [data]
    * @returns {void}
@@ -449,8 +362,7 @@ class Logger {
   }
 
   /**
-   * Log a MIDI event tagged with the originating device name/id.
-   *
+   * Log a MIDI event tagged with the device name/id.
    * @param {string} event
    * @param {string} device
    * @param {*} [data]

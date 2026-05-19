@@ -91,21 +91,6 @@ class ChannelSplitter {
   }
 
   /**
-   * Evaluates whether a channel can be split across multiple instruments of the same type.
-   * Delegates to evaluateAllSplits and returns only the best result.
-   * @param {Object} channelAnalysis - Channel analysis (noteRange, polyphony, etc.)
-   * @param {Array<Object>} sameTypeInstruments - Same-type instruments with capabilities
-   * @returns {SplitProposal|null} - Split proposal or null if not applicable
-   */
-  evaluateSplit(channelAnalysis, sameTypeInstruments) {
-    const result = this.evaluateAllSplits(channelAnalysis, sameTypeInstruments);
-    if (!result) return null;
-    // Return the best without alternatives
-    const { alternatives, ...best } = result;
-    return best;
-  }
-
-  /**
    * Evaluates ALL possible split types and returns the best + alternatives.
    * Uses optimal coverage instrument selection instead of .slice(0, max).
    * @param {Object} channelAnalysis
@@ -127,11 +112,15 @@ class ChannelSplitter {
     // Smart selection: choose instruments by optimal coverage
     // For range/mixed splits, prefer 2 instruments (minimal cuts = highest score)
     const instrumentsFor2 = this.selectBestInstrumentsForCoverage(
-      sameTypeInstruments, channelAnalysis, 2
+      sameTypeInstruments,
+      channelAnalysis,
+      2
     );
     // For polyphony splits, select up to maxInstruments but the split itself will minimize
     const instrumentsForPoly = this.selectBestInstrumentsForCoverage(
-      sameTypeInstruments, channelAnalysis, Math.min(maxInstruments, 4)
+      sameTypeInstruments,
+      channelAnalysis,
+      Math.min(maxInstruments, 4)
     );
 
     if (instrumentsFor2.length < minInstruments && instrumentsForPoly.length < minInstruments) {
@@ -141,12 +130,23 @@ class ChannelSplitter {
     // Try full-coverage split first (2 instruments covering 100% of notes, with optional transposition)
     const fullCoverageSplit = this.calculateFullCoverageSplit(channelAnalysis, sameTypeInstruments);
 
-    const rangeSplit = instrumentsFor2.length >= 2 ? this.calculateRangeSplit(channelAnalysis, instrumentsFor2) : null;
-    const polyphonySplit = instrumentsForPoly.length >= 2 ? this.calculatePolyphonySplit(channelAnalysis, instrumentsForPoly) : null;
-    const mixedSplit = instrumentsFor2.length >= 2 ? this.calculateMixedSplit(channelAnalysis, instrumentsFor2) : null;
+    const rangeSplit =
+      instrumentsFor2.length >= 2
+        ? this.calculateRangeSplit(channelAnalysis, instrumentsFor2)
+        : null;
+    const polyphonySplit =
+      instrumentsForPoly.length >= 2
+        ? this.calculatePolyphonySplit(channelAnalysis, instrumentsForPoly)
+        : null;
+    const mixedSplit =
+      instrumentsFor2.length >= 2
+        ? this.calculateMixedSplit(channelAnalysis, instrumentsFor2)
+        : null;
 
     const minQuality = this.config.minQuality || 50;
-    const all = [fullCoverageSplit, rangeSplit, polyphonySplit, mixedSplit].filter(s => s !== null && s.quality >= minQuality);
+    const all = [fullCoverageSplit, rangeSplit, polyphonySplit, mixedSplit].filter(
+      (s) => s !== null && s.quality >= minQuality
+    );
 
     if (all.length === 0) return null;
 
@@ -165,9 +165,11 @@ class ChannelSplitter {
    * @returns {SplitProposal|null}
    */
   calculateRangeSplit(channelAnalysis, instruments) {
-    if (!channelAnalysis.noteRange ||
-        channelAnalysis.noteRange.min === null ||
-        channelAnalysis.noteRange.max === null) {
+    if (
+      !channelAnalysis.noteRange ||
+      channelAnalysis.noteRange.min === null ||
+      channelAnalysis.noteRange.max === null
+    ) {
       return null;
     }
 
@@ -175,9 +177,12 @@ class ChannelSplitter {
     const channelMax = channelAnalysis.noteRange.max;
 
     // Filter instruments that have a defined range
-    const withRange = instruments.filter(inst =>
-      inst.note_range_min !== null && inst.note_range_min !== undefined &&
-      inst.note_range_max !== null && inst.note_range_max !== undefined
+    const withRange = instruments.filter(
+      (inst) =>
+        inst.note_range_min !== null &&
+        inst.note_range_min !== undefined &&
+        inst.note_range_max !== null &&
+        inst.note_range_max !== undefined
     );
 
     if (withRange.length < 2) return null;
@@ -186,12 +191,14 @@ class ChannelSplitter {
     withRange.sort((a, b) => a.note_range_min - b.note_range_min);
 
     // Check combined coverage
-    const combinedMin = Math.min(...withRange.map(i => i.note_range_min));
-    const combinedMax = Math.max(...withRange.map(i => i.note_range_max));
+    const combinedMin = Math.min(...withRange.map((i) => i.note_range_min));
+    const combinedMax = Math.max(...withRange.map((i) => i.note_range_max));
 
     // Combined coverage must cover the channel
     if (combinedMin > channelMin || combinedMax < channelMax) {
-      this.logger.debug(`Channel ${channelAnalysis.channel}: combined range [${combinedMin}-${combinedMax}] doesn't cover channel [${channelMin}-${channelMax}]`);
+      this.logger.debug(
+        `Channel ${channelAnalysis.channel}: combined range [${combinedMin}-${combinedMax}] doesn't cover channel [${channelMin}-${channelMax}]`
+      );
       return null;
     }
 
@@ -261,13 +268,13 @@ class ChannelSplitter {
 
     // Keep all playable instruments (polyphony > 0), sort by descending polyphony
     const withPoly = instruments
-      .filter(inst => (inst.polyphony || 16) > 0)
+      .filter((inst) => (inst.polyphony || 16) > 0)
       .sort((a, b) => (b.polyphony || 16) - (a.polyphony || 16));
 
     if (withPoly.length < 2) return null;
 
     // Check that no single instrument is sufficient (otherwise no split needed)
-    const anyCoversAll = withPoly.some(inst => (inst.polyphony || 16) >= channelMaxPoly);
+    const anyCoversAll = withPoly.some((inst) => (inst.polyphony || 16) >= channelMaxPoly);
     if (anyCoversAll) return null;
 
     // Find minimum number of instruments to cover channel polyphony
@@ -275,7 +282,7 @@ class ChannelSplitter {
     let totalPolyphony = 0;
     for (const inst of withPoly) {
       selected.push(inst);
-      totalPolyphony += (inst.polyphony || 16);
+      totalPolyphony += inst.polyphony || 16;
       if (totalPolyphony >= channelMaxPoly) break;
     }
 
@@ -284,13 +291,15 @@ class ChannelSplitter {
       selected = withPoly;
       totalPolyphony = withPoly.reduce((sum, inst) => sum + (inst.polyphony || 16), 0);
       if (totalPolyphony < channelMaxPoly) {
-        this.logger.debug(`Channel ${channelAnalysis.channel}: combined polyphony ${totalPolyphony} < channel max ${channelMaxPoly}`);
+        this.logger.debug(
+          `Channel ${channelAnalysis.channel}: combined polyphony ${totalPolyphony} < channel max ${channelMaxPoly}`
+        );
         return null;
       }
     }
 
     // Build round-robin segments (only selected instruments)
-    const segments = selected.map(inst =>
+    const segments = selected.map((inst) =>
       this._buildSegment(inst, 0, 127, { strategy: 'round_robin' })
     );
 
@@ -319,18 +328,23 @@ class ChannelSplitter {
    * @returns {SplitProposal|null}
    */
   calculateMixedSplit(channelAnalysis, instruments) {
-    if (!channelAnalysis.noteRange ||
-        channelAnalysis.noteRange.min === null ||
-        channelAnalysis.noteRange.max === null) {
+    if (
+      !channelAnalysis.noteRange ||
+      channelAnalysis.noteRange.min === null ||
+      channelAnalysis.noteRange.max === null
+    ) {
       return null;
     }
 
     const channelMin = channelAnalysis.noteRange.min;
     const channelMax = channelAnalysis.noteRange.max;
 
-    const withRange = instruments.filter(inst =>
-      inst.note_range_min !== null && inst.note_range_min !== undefined &&
-      inst.note_range_max !== null && inst.note_range_max !== undefined
+    const withRange = instruments.filter(
+      (inst) =>
+        inst.note_range_min !== null &&
+        inst.note_range_min !== undefined &&
+        inst.note_range_max !== null &&
+        inst.note_range_max !== undefined
     );
 
     if (withRange.length < 2) return null;
@@ -343,7 +357,9 @@ class ChannelSplitter {
 
     for (let i = 0; i < withRange.length; i++) {
       const inst = withRange[i];
-      const seg = this._buildSegment(inst, channelMin, channelMax, { strategy: 'range_with_polyphony' });
+      const seg = this._buildSegment(inst, channelMin, channelMax, {
+        strategy: 'range_with_polyphony'
+      });
 
       if (seg.noteRange.min > seg.noteRange.max) continue;
 
@@ -440,11 +456,6 @@ class ChannelSplitter {
   }
 
   /**
-   * Split quality score (0-100)
-   * @param {Object} proposal
-   * @returns {number}
-   */
-  /**
    * Calculates a "full coverage" split: finds 2 instruments covering 100% of the channel's notes.
    * Tries without transposition first, then with octave transpositions (+-12, +-24).
    * Prioritizes pairs requiring the least transposition.
@@ -477,8 +488,8 @@ class ChannelSplitter {
     let bestPenalty = Infinity;
 
     // Filter instruments with defined ranges
-    const viable = allInstruments.filter(inst =>
-      inst.note_range_min != null && inst.note_range_max != null
+    const viable = allInstruments.filter(
+      (inst) => inst.note_range_min != null && inst.note_range_max != null
     );
 
     for (let a = 0; a < viable.length; a++) {
@@ -507,7 +518,8 @@ class ChannelSplitter {
 
             if (covered === totalNotes) {
               // Full coverage! Compute transposition penalty
-              const penalty = Math.abs(trA / 12) * penaltyPerOctave + Math.abs(trB / 12) * penaltyPerOctave;
+              const penalty =
+                Math.abs(trA / 12) * penaltyPerOctave + Math.abs(trB / 12) * penaltyPerOctave;
               if (penalty < bestPenalty) {
                 bestPenalty = penalty;
                 bestPair = { instA, instB, trA, trB, aMin, aMax, bMin, bMax };
@@ -525,38 +537,6 @@ class ChannelSplitter {
     if (!bestPair) return null;
 
     const { instA, instB, trA, trB, aMin, aMax, bMin, bMax } = bestPair;
-
-    // Build segment note ranges: split at the boundary where one instrument ends and the other begins
-    // Each note goes to whichever instrument covers it; for overlapping notes, assign to instrument A (low) and B (high)
-    const sortedNotes = [...channelNotes].sort((a, b) => a - b);
-    let splitPoint = chMax + 1; // default: all notes go to A
-    let foundBoundary = false;
-    for (const note of sortedNotes) {
-      const inA = note >= aMin && note <= aMax;
-      const inB = note >= bMin && note <= bMax;
-      if (inA && !inB) continue; // clearly A
-      if (!inA && inB) { splitPoint = note; foundBoundary = true; break; } // boundary: first note only in B
-      // Both cover it → continue looking for a clear boundary
-    }
-    // If no clear boundary found (full overlap), split at midpoint of overlapping channel notes
-    if (!foundBoundary) {
-      const overlapNotes = sortedNotes.filter(n => n >= aMin && n <= aMax && n >= bMin && n <= bMax);
-      if (overlapNotes.length > 0) {
-        const midIdx = Math.ceil(overlapNotes.length / 2);
-        splitPoint = overlapNotes[midIdx] ?? (chMax + 1);
-      }
-    }
-
-    // Determine effective ranges for each segment based on actual channel notes
-    // Use splitPoint to cleanly divide: A gets notes below splitPoint, B gets notes at/above splitPoint
-    const notesArr = [...channelNotes].sort((a, b) => a - b);
-    const segANotes = notesArr.filter(n => n >= aMin && n <= aMax && n < splitPoint);
-    const segBNotes = notesArr.filter(n => n >= bMin && n <= bMax && n >= splitPoint);
-    // If some notes only in B, or assign notes to minimize overlap
-    const segAMin = segANotes.length > 0 ? Math.min(...segANotes) : chMin;
-    const segAMax = segANotes.length > 0 ? Math.max(...segANotes) : chMin;
-    const segBMin = segBNotes.length > 0 ? Math.min(...segBNotes) : segAMax + 1;
-    const segBMax = segBNotes.length > 0 ? Math.max(...segBNotes) : chMax;
 
     const segments = [
       {
@@ -586,11 +566,17 @@ class ChannelSplitter {
     // Detect overlap
     const overlapMin = Math.max(segments[0].noteRange.min, segments[1].noteRange.min);
     const overlapMax = Math.min(segments[0].noteRange.max, segments[1].noteRange.max);
-    const overlapZones = overlapMin <= overlapMax ? [{
-      min: overlapMin, max: overlapMax,
-      strategy: 'least_loaded',
-      instruments: [instA.id, instB.id]
-    }] : [];
+    const overlapZones =
+      overlapMin <= overlapMax
+        ? [
+            {
+              min: overlapMin,
+              max: overlapMax,
+              strategy: 'least_loaded',
+              instruments: [instA.id, instB.id]
+            }
+          ]
+        : [];
 
     const proposal = {
       type: 'fullCoverage',
@@ -607,6 +593,11 @@ class ChannelSplitter {
     return proposal;
   }
 
+  /**
+   * Split quality score (0-100).
+   * @param {Object} proposal
+   * @returns {number}
+   */
   scoreSplitQuality(proposal) {
     const weights = this.config.weights || {
       noteCoverage: 40,
@@ -622,7 +613,7 @@ class ChannelSplitter {
     const channelSpan = channelAnalysis.noteRange.max - channelAnalysis.noteRange.min + 1;
     if (channelSpan > 0) {
       const gapSize = (gaps || []).reduce((sum, g) => sum + (g.max - g.min + 1), 0);
-      const coverage = 1 - (gapSize / channelSpan);
+      const coverage = 1 - gapSize / channelSpan;
       score += coverage * weights.noteCoverage;
     } else {
       score += weights.noteCoverage;
@@ -648,228 +639,6 @@ class ChannelSplitter {
     }
 
     return Math.round(Math.max(0, Math.min(100, score)));
-  }
-
-  /**
-   * Scores the quality of an instrument pair for a given behavior mode.
-   * @param {Object} channelAnalysis - Channel analysis
-   * @param {Object} instA - First instrument (primary)
-   * @param {Object} instB - Second instrument
-   * @param {string} behaviorMode - 'overflow'|'combineNoOverlap'|'combineWithOverlap'|'alternate'
-   * @returns {number} Score 0-100
-   */
-  scorePairQuality(channelAnalysis, instA, instB, behaviorMode) {
-    const bw = (this.config.behaviorWeights || {})[behaviorMode];
-    if (!bw) return 0;
-
-    const chMin = channelAnalysis.noteRange?.min ?? 0;
-    const chMax = channelAnalysis.noteRange?.max ?? 127;
-    const channelSpan = chMax - chMin + 1;
-    const channelMaxPoly = channelAnalysis.polyphony?.max || 1;
-    const channelAvgPoly = channelAnalysis.polyphony?.avg || 1;
-    const channelDensity = channelAnalysis.density || 0;
-
-    const aMin = instA.note_range_min ?? 0;
-    const aMax = instA.note_range_max ?? 127;
-    const bMin = instB.note_range_min ?? 0;
-    const bMax = instB.note_range_max ?? 127;
-    const aPoly = instA.polyphony || 16;
-    const bPoly = instB.polyphony || 16;
-
-    // Combined range coverage
-    const coveredNotes = new Set();
-    for (let n = chMin; n <= chMax; n++) {
-      if ((n >= aMin && n <= aMax) || (n >= bMin && n <= bMax)) coveredNotes.add(n);
-    }
-    const rangeCoverage = channelSpan > 0 ? coveredNotes.size / channelSpan : 1;
-
-    // Combined polyphony coverage
-    const totalPoly = aPoly + bPoly;
-    const polyphonyCoverage = Math.min(1, totalPoly / channelMaxPoly);
-
-    let score = 0;
-
-    switch (behaviorMode) {
-      case 'overflow': {
-        // Does instrument A's polyphony cover at least the channel average?
-        const avgPolyFit = Math.min(1, aPoly / Math.max(1, channelAvgPoly));
-        score = (polyphonyCoverage * bw.polyphonyCoverage +
-                 rangeCoverage * bw.rangeCoverage +
-                 avgPolyFit * bw.avgPolyFit);
-        break;
-      }
-
-      case 'combineNoOverlap': {
-        // Minimal gap between the 2 ranges
-        const overlapMin = Math.max(aMin, bMin);
-        const overlapMax = Math.min(aMax, bMax);
-        const overlapSize = Math.max(0, overlapMax - overlapMin + 1);
-        const gapSize = overlapMin > overlapMax + 1
-          ? Math.max(0, Math.min(bMin, aMin) - Math.max(aMax, bMax) - 1) // no overlap → measure gap
-          : 0;
-        // Compute actual gap between effective ranges (sorted by range start)
-        const low = aMin <= bMin ? { min: aMin, max: aMax } : { min: bMin, max: bMax };
-        const high = aMin <= bMin ? { min: bMin, max: bMax } : { min: aMin, max: aMax };
-        const actualGap = Math.max(0, high.min - low.max - 1);
-        const gapPenalty = channelSpan > 0 ? 1 - Math.min(1, actualGap / channelSpan) : 1;
-        // Natural split point -- bonus if the split point falls in a low-density zone
-        const naturalSplit = overlapSize > 0 ? 0.8 : (actualGap === 0 ? 1 : 0.5);
-        score = (rangeCoverage * bw.rangeCoverage +
-                 gapPenalty * bw.gapMinimization +
-                 naturalSplit * bw.naturalSplit +
-                 polyphonyCoverage * bw.polyphonyCoverage);
-        break;
-      }
-
-      case 'combineWithOverlap': {
-        // Size of the overlap zone (moderate overlap is ideal)
-        const overlapMin = Math.max(Math.max(aMin, chMin), Math.max(bMin, chMin));
-        const overlapMax = Math.min(Math.min(aMax, chMax), Math.min(bMax, chMax));
-        const overlapSize = Math.max(0, overlapMax - overlapMin + 1);
-        // Ideal overlap: 10-30% of the range
-        const overlapRatio = channelSpan > 0 ? overlapSize / channelSpan : 0;
-        const overlapFit = overlapRatio >= 0.1 && overlapRatio <= 0.3 ? 1
-          : overlapRatio > 0 ? 0.6 : 0.2;
-        // Natural fit: the natural ranges cover the channel well
-        const naturalFit = (aMax >= chMin && aMin <= chMax && bMax >= chMin && bMin <= chMax) ? 1 : 0.3;
-        score = (rangeCoverage * bw.rangeCoverage +
-                 overlapFit * bw.overlapSize +
-                 polyphonyCoverage * bw.polyphonyCoverage +
-                 naturalFit * bw.naturalFit);
-        break;
-      }
-
-      case 'alternate': {
-        // Density justifies alternation (> 4 notes/sec = good justification)
-        const densityFit = Math.min(1, channelDensity / 8);
-        // Symmetry: both instruments have similar capabilities
-        const polyRatio = Math.min(aPoly, bPoly) / Math.max(aPoly, bPoly, 1);
-        const rangeRatio = (() => {
-          const aSpan = aMax - aMin + 1;
-          const bSpan = bMax - bMin + 1;
-          return Math.min(aSpan, bSpan) / Math.max(aSpan, bSpan, 1);
-        })();
-        const symmetry = (polyRatio + rangeRatio) / 2;
-        score = (rangeCoverage * bw.rangeCoverage +
-                 densityFit * bw.densityJustification +
-                 polyphonyCoverage * bw.polyphonyCoverage +
-                 symmetry * bw.symmetry);
-        break;
-      }
-
-      default:
-        return 0;
-    }
-
-    return Math.round(Math.max(0, Math.min(100, score)));
-  }
-
-  /**
-   * Calculates an overflow split: A plays with priority, B receives polyphony overflow.
-   * Both instruments cover the full channel range.
-   * @param {Object} channelAnalysis
-   * @param {Array<Object>} instruments - At least 2 instruments
-   * @returns {SplitProposal|null}
-   */
-  calculateOverflowSplit(channelAnalysis, instruments) {
-    if (!instruments || instruments.length < 2) return null;
-    if (!channelAnalysis.noteRange || channelAnalysis.noteRange.min === null) return null;
-
-    const chMin = channelAnalysis.noteRange.min;
-    const chMax = channelAnalysis.noteRange.max;
-
-    // Instrument A = the one with the best polyphony, B = the second
-    const sorted = [...instruments].sort((a, b) => (b.polyphony || 16) - (a.polyphony || 16));
-    const instA = sorted[0];
-    const instB = sorted[1];
-
-    const segments = [
-      {
-        instrumentId: instA.id,
-        deviceId: instA.device_id,
-        instrumentChannel: instA.channel,
-        instrumentName: instA.name || instA.custom_name,
-        gmProgram: instA.gm_program,
-        noteRange: { min: chMin, max: chMax },
-        fullRange: { min: instA.note_range_min ?? 0, max: instA.note_range_max ?? 127 },
-        polyphonyShare: instA.polyphony || 16
-      },
-      {
-        instrumentId: instB.id,
-        deviceId: instB.device_id,
-        instrumentChannel: instB.channel,
-        instrumentName: instB.name || instB.custom_name,
-        gmProgram: instB.gm_program,
-        noteRange: { min: chMin, max: chMax },
-        fullRange: { min: instB.note_range_min ?? 0, max: instB.note_range_max ?? 127 },
-        polyphonyShare: instB.polyphony || 16
-      }
-    ];
-
-    const quality = this.scorePairQuality(channelAnalysis, instA, instB, 'overflow');
-
-    return {
-      type: 'overflow',
-      channel: channelAnalysis.channel,
-      quality,
-      segments,
-      overlapZones: [],
-      gaps: [],
-      behaviorMode: 'overflow'
-    };
-  }
-
-  /**
-   * Calculates an alternation split: global round-robin per channel.
-   * Both instruments cover the full channel range.
-   * @param {Object} channelAnalysis
-   * @param {Array<Object>} instruments - At least 2 instruments
-   * @returns {SplitProposal|null}
-   */
-  calculateAlternateSplit(channelAnalysis, instruments) {
-    if (!instruments || instruments.length < 2) return null;
-    if (!channelAnalysis.noteRange || channelAnalysis.noteRange.min === null) return null;
-
-    const chMin = channelAnalysis.noteRange.min;
-    const chMax = channelAnalysis.noteRange.max;
-
-    const instA = instruments[0];
-    const instB = instruments[1];
-
-    const segments = [
-      {
-        instrumentId: instA.id,
-        deviceId: instA.device_id,
-        instrumentChannel: instA.channel,
-        instrumentName: instA.name || instA.custom_name,
-        gmProgram: instA.gm_program,
-        noteRange: { min: chMin, max: chMax },
-        fullRange: { min: instA.note_range_min ?? 0, max: instA.note_range_max ?? 127 },
-        polyphonyShare: instA.polyphony || 16
-      },
-      {
-        instrumentId: instB.id,
-        deviceId: instB.device_id,
-        instrumentChannel: instB.channel,
-        instrumentName: instB.name || instB.custom_name,
-        gmProgram: instB.gm_program,
-        noteRange: { min: chMin, max: chMax },
-        fullRange: { min: instB.note_range_min ?? 0, max: instB.note_range_max ?? 127 },
-        polyphonyShare: instB.polyphony || 16
-      }
-    ];
-
-    const quality = this.scorePairQuality(channelAnalysis, instA, instB, 'alternate');
-
-    return {
-      type: 'alternate',
-      channel: channelAnalysis.channel,
-      quality,
-      segments,
-      overlapZones: [],
-      gaps: [],
-      behaviorMode: 'alternate'
-    };
   }
 }
 

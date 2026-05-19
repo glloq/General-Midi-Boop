@@ -41,10 +41,6 @@ function _validateIdentity(data) {
  * @returns {Object} normalised payload
  */
 export function validateVoicePayload(v) {
-  return _validateVoicePayload(v);
-}
-
-function _validateVoicePayload(v) {
   const payload = {};
   if (v.gm_program !== undefined && v.gm_program !== null) {
     const p = parseInt(v.gm_program, 10);
@@ -77,7 +73,10 @@ function _validateVoicePayload(v) {
   if (v.note_selection_mode !== undefined && v.note_selection_mode !== null) {
     const allowed = ['range', 'discrete'];
     if (!allowed.includes(v.note_selection_mode)) {
-      throw new ValidationError('note_selection_mode must be "range" or "discrete"', 'note_selection_mode');
+      throw new ValidationError(
+        'note_selection_mode must be "range" or "discrete"',
+        'note_selection_mode'
+      );
     }
     payload.note_selection_mode = v.note_selection_mode;
   } else {
@@ -85,8 +84,11 @@ function _validateVoicePayload(v) {
   }
   payload.note_range_min = num(v.note_range_min, 'note_range_min', 0, 127);
   payload.note_range_max = num(v.note_range_max, 'note_range_max', 0, 127);
-  if (payload.note_range_min != null && payload.note_range_max != null
-      && payload.note_range_min > payload.note_range_max) {
+  if (
+    payload.note_range_min != null &&
+    payload.note_range_max != null &&
+    payload.note_range_min > payload.note_range_max
+  ) {
     throw new ValidationError('note_range_min must be <= note_range_max', 'note_range_min');
   }
   payload.selected_notes = parseValidMidiList(v.selected_notes);
@@ -102,50 +104,62 @@ function _validateVoicePayload(v) {
   return payload;
 }
 
-async function instrumentVoiceList(app, data) {
+/**
+ * @throws {ConfigurationError}
+ */
+function _requireRepo(app) {
   if (!app.instrumentRepository) throw new ConfigurationError('Repository unavailable');
+  return app.instrumentRepository;
+}
+
+/**
+ * Validate + parse `data.id` to a finite integer.
+ * @throws {ValidationError}
+ */
+function _requireNumericId(data) {
+  if (data.id === undefined || data.id === null) {
+    throw new ValidationError('id is required', 'id');
+  }
+  const id = parseInt(data.id, 10);
+  if (!Number.isFinite(id)) throw new ValidationError('id must be numeric', 'id');
+  return id;
+}
+
+async function instrumentVoiceList(app, data) {
+  const repo = _requireRepo(app);
   const { deviceId, channel } = _validateIdentity(data);
-  const voices = app.instrumentRepository.listVoices(deviceId, channel);
-  return { success: true, voices };
+  return { success: true, voices: repo.listVoices(deviceId, channel) };
 }
 
 async function instrumentVoiceCreate(app, data) {
-  if (!app.instrumentRepository) throw new ConfigurationError('Repository unavailable');
+  const repo = _requireRepo(app);
   const { deviceId, channel } = _validateIdentity(data);
-  const payload = _validateVoicePayload(data);
-  const id = app.instrumentRepository.createVoice(deviceId, channel, payload);
+  const id = repo.createVoice(deviceId, channel, validateVoicePayload(data));
   return { success: true, id };
 }
 
 async function instrumentVoiceUpdate(app, data) {
-  if (!app.instrumentRepository) throw new ConfigurationError('Repository unavailable');
-  if (data.id === undefined || data.id === null) {
-    throw new ValidationError('id is required', 'id');
-  }
-  const id = parseInt(data.id, 10);
-  if (!Number.isFinite(id)) throw new ValidationError('id must be numeric', 'id');
-  const payload = _validateVoicePayload(data);
-  app.instrumentRepository.updateVoice(id, payload);
+  const repo = _requireRepo(app);
+  const id = _requireNumericId(data);
+  repo.updateVoice(id, validateVoicePayload(data));
   return { success: true };
 }
 
 async function instrumentVoiceDelete(app, data) {
-  if (!app.instrumentRepository) throw new ConfigurationError('Repository unavailable');
-  if (data.id === undefined || data.id === null) {
-    throw new ValidationError('id is required', 'id');
-  }
-  const id = parseInt(data.id, 10);
-  if (!Number.isFinite(id)) throw new ValidationError('id must be numeric', 'id');
-  const changes = app.instrumentRepository.deleteVoice(id);
-  return { success: true, deleted: changes };
+  const repo = _requireRepo(app);
+  const id = _requireNumericId(data);
+  return { success: true, deleted: repo.deleteVoice(id) };
 }
 
 async function instrumentVoiceReplace(app, data) {
-  if (!app.instrumentRepository) throw new ConfigurationError('Repository unavailable');
+  const repo = _requireRepo(app);
   const { deviceId, channel } = _validateIdentity(data);
   const list = Array.isArray(data.voices) ? data.voices : [];
-  const normalized = list.map((v) => _validateVoicePayload(v));
-  const ids = app.instrumentRepository.replaceVoices(deviceId, channel, normalized);
+  const ids = repo.replaceVoices(
+    deviceId,
+    channel,
+    list.map((v) => validateVoicePayload(v))
+  );
   return { success: true, ids };
 }
 

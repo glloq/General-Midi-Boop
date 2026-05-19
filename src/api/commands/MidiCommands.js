@@ -42,11 +42,7 @@ async function midiSend(app, data) {
     throw new ValidationError(`Invalid MIDI message: ${validation.errors.join(', ')}`);
   }
 
-  const success = app.deviceManager.sendMessage(
-    data.deviceId,
-    data.type,
-    data
-  );
+  const success = app.deviceManager.sendMessage(data.deviceId, data.type, data);
   return { success: success };
 }
 
@@ -131,19 +127,21 @@ async function midiSendPitchbend(app, data) {
  * @param {{deviceId:string}} data
  * @returns {Promise<{success:true}>}
  */
-async function midiPanic(app, data) {
+/**
+ * Send one or more Channel Mode CCs on every one of the 16 MIDI
+ * channels. Controllers are emitted in order per channel (preserving the
+ * exact on-wire sequence the panic/silence helpers always produced).
+ */
+function _ccAllChannels(app, deviceId, controllers) {
   for (let channel = 0; channel < 16; channel++) {
-    app.deviceManager.sendMessage(data.deviceId, 'cc', {
-      channel: channel,
-      controller: MIDI_CC.ALL_SOUND_OFF,
-      value: 0
-    });
-    app.deviceManager.sendMessage(data.deviceId, 'cc', {
-      channel: channel,
-      controller: MIDI_CC.ALL_NOTES_OFF,
-      value: 0
-    });
+    for (const controller of controllers) {
+      app.deviceManager.sendMessage(deviceId, 'cc', { channel, controller, value: 0 });
+    }
   }
+}
+
+async function midiPanic(app, data) {
+  _ccAllChannels(app, data.deviceId, [MIDI_CC.ALL_SOUND_OFF, MIDI_CC.ALL_NOTES_OFF]);
   return { success: true };
 }
 
@@ -156,13 +154,7 @@ async function midiPanic(app, data) {
  * @returns {Promise<{success:true}>}
  */
 async function midiAllNotesOff(app, data) {
-  for (let channel = 0; channel < 16; channel++) {
-    app.deviceManager.sendMessage(data.deviceId, 'cc', {
-      channel: channel,
-      controller: MIDI_CC.ALL_NOTES_OFF,
-      value: 0
-    });
-  }
+  _ccAllChannels(app, data.deviceId, [MIDI_CC.ALL_NOTES_OFF]);
   return { success: true };
 }
 

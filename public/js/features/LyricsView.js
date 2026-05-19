@@ -24,27 +24,27 @@ class LyricsView {
   constructor(eventBus, logger = {}) {
     this.eventBus = eventBus;
     this.log = {
-      info:  m => (logger.info  || console.log)(m),
-      warn:  m => (logger.warn  || console.warn)(m),
-      error: m => (logger.error || console.error)(m),
+      info: (m) => (logger.info || console.log)(m),
+      warn: (m) => (logger.warn || console.warn)(m),
+      error: (m) => (logger.error || console.error)(m)
     };
 
-    this.isEnabled  = false;
-    this.isVisible  = false;
-    this.isPlaying  = false;
+    this.isEnabled = false;
+    this.isVisible = false;
+    this.isPlaying = false;
 
-    this.lyrics     = [];   // [{startSec, endSec, text, _el}]
+    this.lyrics = []; // [{startSec, endSec, text, _el}]
     this.currentIdx = -1;
 
     // rAF interpolation
     this._lastKnownTime = 0;
-    this._lastKnownAt   = 0;
-    this._rafId         = null;
+    this._lastKnownAt = 0;
+    this._rafId = null;
 
     // Timing params for tick→second conversion
-    this.tempo        = 120;
+    this.tempo = 120;
     this.ticksPerBeat = 480;
-    this.tempoMap     = [];
+    this.tempoMap = [];
 
     this._eventUnsubs = [];
 
@@ -105,13 +105,13 @@ class LyricsView {
   setupEvents() {
     if (!this.eventBus) return;
     this._eventUnsubs = [
-      this.eventBus.on('settings:lyrics_changed', d => {
+      this.eventBus.on('settings:lyrics_changed', (d) => {
         this.isEnabled = d.enabled;
         if (!this.isEnabled) this.hide();
         else if (this.lyrics.length > 0 && this.isPlaying) this.show();
       }),
 
-      this.eventBus.on('file:selected', data => {
+      this.eventBus.on('file:selected', (data) => {
         this.loadLyrics(data.lyrics || [], data.tempo, data.ticksPerBeat, data.tempoMap || []);
       }),
 
@@ -135,12 +135,12 @@ class LyricsView {
         this._resetRibbon();
       }),
 
-      this.eventBus.on('playback:time', data => {
+      this.eventBus.on('playback:time', (data) => {
         this._lastKnownTime = data.time || 0;
-        this._lastKnownAt   = performance.now();
+        this._lastKnownAt = performance.now();
         // When rAF isn't running (paused), still update position
         if (!this._rafId && this.isVisible) this._updateRibbon(this._lastKnownTime);
-      }),
+      })
     ];
   }
 
@@ -149,10 +149,10 @@ class LyricsView {
   // ---------------------------------------------------------------------------
 
   loadLyrics(rawLyrics, tempo = 120, ticksPerBeat = 480, tempoMap = []) {
-    this.tempo        = tempo;
+    this.tempo = tempo;
     this.ticksPerBeat = ticksPerBeat;
-    this.tempoMap     = tempoMap;
-    this.currentIdx   = -1;
+    this.tempoMap = tempoMap;
+    this.currentIdx = -1;
 
     if (!rawLyrics || rawLyrics.length === 0) {
       this.lyrics = [];
@@ -162,11 +162,11 @@ class LyricsView {
     }
 
     const converted = rawLyrics
-      .map(ev => ({
+      .map((ev) => ({
         startSec: this._ticksToSeconds(ev.tick),
-        text:     this._stripKarMarkers(ev.text),
+        text: this._stripKarMarkers(ev.text)
       }))
-      .filter(ev => ev.text.length > 0);
+      .filter((ev) => ev.text.length > 0);
 
     if (converted.length === 0) {
       this.lyrics = [];
@@ -176,21 +176,21 @@ class LyricsView {
 
     this.lyrics = converted.map((ev, i) => ({
       startSec: ev.startSec,
-      endSec:   converted[i + 1] ? converted[i + 1].startSec : ev.startSec + 999,
-      text:     ev.text,
-      _el:      null,
+      endSec: converted[i + 1] ? converted[i + 1].startSec : ev.startSec + 999,
+      text: ev.text,
+      _el: null
     }));
 
     this._buildRibbon();
   }
 
   _buildRibbon() {
-    const PPS     = LyricsView.PPS;
+    const PPS = LyricsView.PPS;
     const MIN_GAP = 12; // minimum px between token right edge and next token left edge
     this._trackEl.innerHTML = '';
 
     // 1. Insert all spans (hidden) so the browser can measure their widths
-    this.lyrics.forEach(item => {
+    this.lyrics.forEach((item) => {
       const span = document.createElement('span');
       span.className = 'lyrics-ribbon-token';
       span.textContent = item.text;
@@ -202,11 +202,11 @@ class LyricsView {
 
     // 2. Force layout reflow, then position each span — never overlapping the previous one
     let prevRight = -Infinity;
-    this.lyrics.forEach(item => {
-      const rawX   = item.startSec * PPS;
-      const w      = item._el.offsetWidth;
+    this.lyrics.forEach((item) => {
+      const rawX = item.startSec * PPS;
+      const w = item._el.offsetWidth;
       const finalX = Math.max(rawX, prevRight + MIN_GAP);
-      item._el.style.left       = `${finalX}px`;
+      item._el.style.left = `${finalX}px`;
       item._el.style.visibility = '';
       item._visualLeft = finalX;
       prevRight = finalX + w;
@@ -252,7 +252,7 @@ class LyricsView {
 
   _updateRibbon(time) {
     if (!this._trackEl) return;
-    const PPS        = LyricsView.PPS;
+    const PPS = LyricsView.PPS;
     const markerLeft = LyricsView.MARKER_LEFT;
 
     // Translate the track so "time" aligns with the marker
@@ -272,9 +272,15 @@ class LyricsView {
     this.lyrics.forEach((item, i) => {
       const el = item._el;
       if (!el) return;
-      if      (i < idx)  { el.classList.add('past');   el.classList.remove('active'); }
-      else if (i === idx) { el.classList.add('active'); el.classList.remove('past'); }
-      else               { el.classList.remove('past', 'active'); }
+      if (i < idx) {
+        el.classList.add('past');
+        el.classList.remove('active');
+      } else if (i === idx) {
+        el.classList.add('active');
+        el.classList.remove('past');
+      } else {
+        el.classList.remove('past', 'active');
+      }
     });
     this.currentIdx = idx;
   }
@@ -284,7 +290,7 @@ class LyricsView {
     if (this._trackEl) {
       this._trackEl.style.transform = `translateX(${LyricsView.MARKER_LEFT}px)`;
     }
-    this.lyrics.forEach(item => item._el?.classList.remove('active', 'past'));
+    this.lyrics.forEach((item) => item._el?.classList.remove('active', 'past'));
   }
 
   // ---------------------------------------------------------------------------
@@ -299,7 +305,16 @@ class LyricsView {
     } else if (text.startsWith('%')) {
       return '';
     }
-    return text.replace(/%[A-Za-z0-9#b+°øΔ/-]+/g, '').replace(/[\x00-\x1f]/g, '').trim();
+    // Strip C0 control chars (U+0000–U+001F). Range built at runtime so
+    // the pattern carries no literal control-char escape.
+    const CONTROL_CHARS = new RegExp(
+      '[' + String.fromCharCode(0) + '-' + String.fromCharCode(31) + ']',
+      'g'
+    );
+    return text
+      .replace(/%[A-Za-z0-9#b+°øΔ/-]+/g, '')
+      .replace(CONTROL_CHARS, '')
+      .trim();
   }
 
   // ---------------------------------------------------------------------------
@@ -308,14 +323,14 @@ class LyricsView {
 
   _ticksToSeconds(tick) {
     if (this.tempoMap && this.tempoMap.length > 0) {
-      let elapsed  = 0;
+      let elapsed = 0;
       let prevTick = 0;
-      let prevBpm  = 120;
+      let prevBpm = 120;
       for (const pt of this.tempoMap) {
         if (pt.tick >= tick) break;
         elapsed += ((pt.tick - prevTick) / this.ticksPerBeat) * (60 / prevBpm);
         prevTick = pt.tick;
-        prevBpm  = pt.bpm;
+        prevBpm = pt.bpm;
       }
       elapsed += ((tick - prevTick) / this.ticksPerBeat) * (60 / prevBpm);
       return elapsed;
@@ -345,7 +360,7 @@ class LyricsView {
 
   destroy() {
     this._stopRAF();
-    this._eventUnsubs.forEach(fn => fn && fn());
+    this._eventUnsubs.forEach((fn) => fn && fn());
     this._eventUnsubs = [];
     document.body.classList.remove('lyrics-visible');
     this.container?.remove();

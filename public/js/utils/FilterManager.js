@@ -62,10 +62,10 @@ class FilterManager {
       minCompatibilityScore: null,
 
       // GM instrument filters
-      gmInstruments: [],    // Specific GM instrument names (e.g., "Acoustic Grand Piano")
-      gmCategories: [],     // GM categories (e.g., "Piano", "Strings", "Brass")
-      gmPrograms: [],       // GM program numbers (0-127)
-      gmMode: 'ANY',        // 'ANY' | 'ALL'
+      gmInstruments: [], // Specific GM instrument names (e.g., "Acoustic Grand Piano")
+      gmCategories: [], // GM categories (e.g., "Piano", "Strings", "Brass")
+      gmPrograms: [], // GM program numbers (0-127)
+      gmMode: 'ANY', // 'ANY' | 'ALL'
 
       // Quick filters (boolean)
       hasDrums: null,
@@ -90,26 +90,19 @@ class FilterManager {
    * @param {boolean} debounce - Whether to debounce (for text inputs)
    */
   setFilter(key, value, debounce = false) {
+    const apply = () => {
+      this.filters[key] = value;
+      this.invalidateCache();
+      this._notifyChange();
+    };
+
     if (debounce) {
-      // Clear existing timer
       if (this.debounceTimers[key]) {
         clearTimeout(this.debounceTimers[key]);
       }
-
-      // Set new timer
-      this.debounceTimers[key] = setTimeout(() => {
-        this.filters[key] = value;
-        this.invalidateCache();
-        if (this.onFilterChange) {
-          this.onFilterChange(this.filters);
-        }
-      }, 300); // 300ms debounce
+      this.debounceTimers[key] = setTimeout(apply, 300); // 300ms debounce
     } else {
-      this.filters[key] = value;
-      this.invalidateCache();
-      if (this.onFilterChange) {
-        this.onFilterChange(this.filters);
-      }
+      apply();
     }
   }
 
@@ -128,54 +121,70 @@ class FilterManager {
   }
 
   /**
+   * Fire the onFilterChange callback (if registered) with current filters.
+   * @private
+   */
+  _notifyChange() {
+    if (this.onFilterChange) {
+      this.onFilterChange(this.filters);
+    }
+  }
+
+  /**
    * Reset all filters to default
    */
   resetFilters() {
     this.filters = this.getDefaultFilters();
     this.invalidateCache();
-    if (this.onFilterChange) {
-      this.onFilterChange(this.filters);
-    }
+    this._notifyChange();
   }
 
   /**
    * Reset a specific filter
    */
   resetFilter(key) {
-    const defaults = this.getDefaultFilters();
-    this.filters[key] = defaults[key];
+    this.filters[key] = this.getDefaultFilters()[key];
     this.invalidateCache();
-    if (this.onFilterChange) {
-      this.onFilterChange(this.filters);
+    this._notifyChange();
+  }
+
+  /**
+   * Iterate filters that differ from their default, skipping the
+   * sorting/pagination meta-fields that control display rather than
+   * filtering. Calls `cb(key, value)` for each active filter; if `cb`
+   * returns true, iteration stops early and the call returns true.
+   * @private
+   */
+  _forEachActiveFilter(cb) {
+    const defaults = this.getDefaultFilters();
+    const excludeKeys = new Set([
+      'sortBy',
+      'sortOrder',
+      'limit',
+      'offset',
+      'instrumentMode',
+      'gmMode',
+      'playableMode'
+    ]);
+
+    for (const key in this.filters) {
+      if (excludeKeys.has(key)) continue;
+
+      const value = this.filters[key];
+      const isActive = Array.isArray(value)
+        ? value.length > 0
+        : value !== defaults[key] && value !== null && value !== '';
+
+      if (isActive && cb(key, value) === true) return true;
     }
+    return false;
   }
 
   /**
    * Check if any filters are active (excludes sorting/pagination meta-fields)
    */
   hasActiveFilters() {
-    const defaults = this.getDefaultFilters();
-    // These meta-fields control display, not filtering
-    const excludeKeys = new Set(['sortBy', 'sortOrder', 'limit', 'offset',
-      'instrumentMode', 'gmMode', 'playableMode']);
-
-    for (const key in this.filters) {
-      if (excludeKeys.has(key)) continue;
-
-      const current = this.filters[key];
-      const defaultVal = defaults[key];
-
-      // Compare arrays
-      if (Array.isArray(current)) {
-        if (current.length > 0) return true;
-      }
-      // Compare values
-      else if (current !== defaultVal && current !== null && current !== '') {
-        return true;
-      }
-    }
-
-    return false;
+    return this._forEachActiveFilter(() => true);
   }
 
   /**
@@ -183,25 +192,9 @@ class FilterManager {
    */
   getActiveFilters() {
     const active = [];
-    const defaults = this.getDefaultFilters();
-    const excludeKeys = new Set(['sortBy', 'sortOrder', 'limit', 'offset',
-      'instrumentMode', 'gmMode', 'playableMode']);
-
-    for (const key in this.filters) {
-      if (excludeKeys.has(key)) continue;
-
-      const value = this.filters[key];
-      const defaultVal = defaults[key];
-
-      if (Array.isArray(value)) {
-        if (value.length > 0) {
-          active.push({ key, value, label: this.getFilterLabel(key, value) });
-        }
-      } else if (value !== defaultVal && value !== null && value !== '') {
-        active.push({ key, value, label: this.getFilterLabel(key, value) });
-      }
-    }
-
+    this._forEachActiveFilter((key, value) => {
+      active.push({ key, value, label: this.getFilterLabel(key, value) });
+    });
     return active;
   }
 
@@ -209,50 +202,43 @@ class FilterManager {
    * Get human-readable label for a filter
    */
   getFilterLabel(key, value) {
-    const t = (k, params) => window.i18n ? window.i18n.t(k, params) : k;
+    const t = (k, params) => (window.i18n ? window.i18n.t(k, params) : k);
+    // Range filters share one builder: default min→0, default max→'∞'.
+    const range = (labelKey, minKey, maxKey, fmt = (v) => v) => {
+      const min = this.filters[minKey] || 0;
+      const max = this.filters[maxKey] || '∞';
+      return t(labelKey, {
+        min: fmt(min),
+        max: max === '∞' ? '∞' : fmt(max)
+      });
+    };
     switch (key) {
       case 'filename':
         return t('filters.labelName', { value });
       case 'folder':
         return t('filters.labelFolder', { value });
       case 'durationMin':
-      case 'durationMax': {
-        const durMin = this.filters.durationMin || 0;
-        const durMax = this.filters.durationMax || '∞';
-        return t('filters.labelDuration', { min: this.formatDuration(durMin), max: durMax === '∞' ? '∞' : this.formatDuration(durMax) });
-      }
+      case 'durationMax':
+        return range('filters.labelDuration', 'durationMin', 'durationMax', (v) =>
+          this.formatDuration(v)
+        );
       case 'tempoMin':
-      case 'tempoMax': {
-        const tMin = this.filters.tempoMin || 0;
-        const tMax = this.filters.tempoMax || '∞';
-        return t('filters.labelTempo', { min: tMin, max: tMax });
-      }
+      case 'tempoMax':
+        return range('filters.labelTempo', 'tempoMin', 'tempoMax');
       case 'tracksMin':
-      case 'tracksMax': {
-        const trMin = this.filters.tracksMin || 0;
-        const trMax = this.filters.tracksMax || '∞';
-        return t('filters.labelTracks', { min: trMin, max: trMax });
-      }
+      case 'tracksMax':
+        return range('filters.labelTracks', 'tracksMin', 'tracksMax');
       case 'instrumentTypes':
-        return t('filters.labelInstruments', { value: value.join(', '), mode: this.filters.instrumentMode });
+        return t('filters.labelInstruments', {
+          value: value.join(', '),
+          mode: this.filters.instrumentMode
+        });
       case 'channelCountMin':
-      case 'channelCountMax': {
-        const chMin = this.filters.channelCountMin || 0;
-        const chMax = this.filters.channelCountMax || '∞';
-        return t('filters.labelChannels', { min: chMin, max: chMax });
-      }
+      case 'channelCountMax':
+        return range('filters.labelChannels', 'channelCountMin', 'channelCountMax');
       case 'hasRouting':
         return value ? t('filters.labelRouted') : t('filters.labelUnrouted');
-      case 'routingStatus': {
-        const labels = {
-          unrouted: t('filters.routingUnrouted'),
-          partial: t('filters.routingPartial'),
-          routed_incomplete: t('filters.routingRoutedIncomplete'),
-          playable: t('filters.routingPlayable'),
-          auto_assigned: t('filters.routingAutoAssigned')
-        };
-        return t('filters.labelRoutingStatus', { status: labels[value] || value });
-      }
+      case 'routingStatus':
       case 'routingStatuses': {
         const statusLabels = {
           unrouted: t('filters.routingUnrouted'),
@@ -261,11 +247,16 @@ class FilterManager {
           playable: t('filters.routingPlayable'),
           auto_assigned: t('filters.routingAutoAssigned')
         };
-        const names = value.map(s => statusLabels[s] || s).join(', ');
-        return t('filters.labelRoutingStatus', { status: names });
+        const status = Array.isArray(value)
+          ? value.map((s) => statusLabels[s] || s).join(', ')
+          : statusLabels[value] || value;
+        return t('filters.labelRoutingStatus', { status });
       }
       case 'playableOnInstruments':
-        return t('filters.labelPlayableOn', { count: value.length, mode: this.filters.playableMode });
+        return t('filters.labelPlayableOn', {
+          count: value.length,
+          mode: this.filters.playableMode
+        });
       case 'isOriginal':
         return value ? t('filters.labelOriginals') : t('filters.labelAdapted');
       case 'hasDrums':
@@ -277,14 +268,23 @@ class FilterManager {
       case 'hasLyrics':
         return value ? t('filters.labelWithLyrics') : t('filters.labelWithoutLyrics');
       case 'gmInstruments':
-        return t('filters.labelGmInstruments', { value: value.join(', '), mode: this.filters.gmMode });
+        return t('filters.labelGmInstruments', {
+          value: value.join(', '),
+          mode: this.filters.gmMode
+        });
       case 'gmCategories':
-        return t('filters.labelGmCategories', { value: value.join(', '), mode: this.filters.gmMode });
+        return t('filters.labelGmCategories', {
+          value: value.join(', '),
+          mode: this.filters.gmMode
+        });
       case 'gmPrograms':
         return t('filters.labelGmPrograms', { value: value.join(', ') });
       case 'uploadedAfter':
       case 'uploadedBefore':
-        return t('filters.labelDate', { from: this.filters.uploadedAfter || '', to: this.filters.uploadedBefore || '' });
+        return t('filters.labelDate', {
+          from: this.filters.uploadedAfter || '',
+          to: this.filters.uploadedBefore || ''
+        });
       default:
         return `${key}: ${value}`;
     }
@@ -393,7 +393,7 @@ class FilterManager {
 
     console.log('[FilterManager] Applying client-side filters to', files.length, 'files');
 
-    let filtered = files.filter(file => {
+    let filtered = files.filter((file) => {
       // Filename filter
       if (this.filters.filename) {
         if (!file.filename.toLowerCase().includes(this.filters.filename.toLowerCase())) {
@@ -487,9 +487,7 @@ class FilterManager {
 
       // String comparison
       if (typeof aVal === 'string') {
-        return sortOrder === 'ASC'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
+        return sortOrder === 'ASC' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
 
       // Numeric comparison
@@ -547,7 +545,7 @@ class FilterManager {
    * Load a preset
    */
   loadPreset(name) {
-    const preset = this.presets.find(p => p.name === name);
+    const preset = this.presets.find((p) => p.name === name);
     if (preset) {
       // Merge over defaults so presets saved before a filter key existed
       // come back with that key defaulted instead of missing.
@@ -556,9 +554,7 @@ class FilterManager {
         ...JSON.parse(JSON.stringify(preset.filters))
       };
       this.invalidateCache();
-      if (this.onFilterChange) {
-        this.onFilterChange(this.filters);
-      }
+      this._notifyChange();
       return true;
     }
     return false;
@@ -568,7 +564,7 @@ class FilterManager {
    * Delete a preset
    */
   deletePreset(name) {
-    const index = this.presets.findIndex(p => p.name === name);
+    const index = this.presets.findIndex((p) => p.name === name);
     if (index >= 0) {
       this.presets.splice(index, 1);
       this.savePresetsToStorage();
@@ -620,65 +616,47 @@ class FilterManager {
     this.filters = this.getDefaultFilters();
     this.invalidateCache();
 
-    // Apply quick filter values silently
-    switch (name) {
-      case 'recent': {
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        this.filters.uploadedAfter = oneWeekAgo.toISOString();
-        break;
+    // GM-category quick filters all share { gmCategories, gmMode: 'ANY' }.
+    const GM_CATEGORY_FILTERS = {
+      piano: ['Piano'],
+      guitar: ['Guitar'],
+      strings: ['Strings', 'Ensemble'],
+      brass: ['Brass'],
+      woodwinds: ['Reed', 'Pipe'],
+      synth: ['Synth Lead', 'Synth Pad', 'Synth Effects']
+    };
+
+    if (GM_CATEGORY_FILTERS[name]) {
+      this.filters.gmCategories = GM_CATEGORY_FILTERS[name];
+      this.filters.gmMode = 'ANY';
+    } else {
+      switch (name) {
+        case 'recent': {
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          this.filters.uploadedAfter = oneWeekAgo.toISOString();
+          break;
+        }
+
+        case 'short':
+          this.filters.durationMax = 60;
+          break;
+
+        case 'routed':
+          this.filters.hasRouting = true;
+          break;
+
+        case 'current-folder':
+          // Set by caller with actual folder
+          break;
+
+        default:
+          console.warn('[FilterManager] Unknown quick filter:', name);
       }
-
-      case 'short':
-        this.filters.durationMax = 60;
-        break;
-
-      case 'piano':
-        this.filters.gmCategories = ['Piano'];
-        this.filters.gmMode = 'ANY';
-        break;
-
-      case 'guitar':
-        this.filters.gmCategories = ['Guitar'];
-        this.filters.gmMode = 'ANY';
-        break;
-
-      case 'strings':
-        this.filters.gmCategories = ['Strings', 'Ensemble'];
-        this.filters.gmMode = 'ANY';
-        break;
-
-      case 'brass':
-        this.filters.gmCategories = ['Brass'];
-        this.filters.gmMode = 'ANY';
-        break;
-
-      case 'woodwinds':
-        this.filters.gmCategories = ['Reed', 'Pipe'];
-        this.filters.gmMode = 'ANY';
-        break;
-
-      case 'synth':
-        this.filters.gmCategories = ['Synth Lead', 'Synth Pad', 'Synth Effects'];
-        this.filters.gmMode = 'ANY';
-        break;
-
-      case 'routed':
-        this.filters.hasRouting = true;
-        break;
-
-      case 'current-folder':
-        // Set by caller with actual folder
-        break;
-
-      default:
-        console.warn('[FilterManager] Unknown quick filter:', name);
     }
 
     // Single notification after all changes
-    if (this.onFilterChange) {
-      this.onFilterChange(this.filters);
-    }
+    this._notifyChange();
   }
 
   /**

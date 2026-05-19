@@ -88,13 +88,15 @@ class DeviceDiscovery {
 
     // Longer delay to ensure ports are properly released
     this.logger.info('Waiting for ports to release...');
-    await new Promise(resolve => setTimeout(resolve, PORT_RELEASE_DELAY_MS));
+    await new Promise((resolve) => setTimeout(resolve, PORT_RELEASE_DELAY_MS));
 
     // USB MIDI devices - get fresh list
     const inputNames = this.easymidi.getInputs();
     const outputNames = this.easymidi.getOutputs();
 
-    this.logger.info(`Scanning devices: ${inputNames.length} inputs, ${outputNames.length} outputs`);
+    this.logger.info(
+      `Scanning devices: ${inputNames.length} inputs, ${outputNames.length} outputs`
+    );
     this.logger.info(`Input devices found: ${JSON.stringify(inputNames)}`);
     this.logger.info(`Output devices found: ${JSON.stringify(outputNames)}`);
 
@@ -144,7 +146,7 @@ class DeviceDiscovery {
       /^LoopBe/i,
       /^loopMIDI/i
     ];
-    return systemPatterns.some(pattern => pattern.test(name));
+    return systemPatterns.some((pattern) => pattern.test(name));
   }
 
   // ==================== USB SERIAL NUMBER DETECTION ====================
@@ -181,8 +183,9 @@ class DeviceDiscovery {
 
       // Method 2: Use udevadm for additional info (if available)
       try {
-        const ttyDevices = fs.readdirSync('/sys/class/tty')
-          .filter(d => d.startsWith('ttyUSB') || d.startsWith('ttyACM'));
+        const ttyDevices = fs
+          .readdirSync('/sys/class/tty')
+          .filter((d) => d.startsWith('ttyUSB') || d.startsWith('ttyACM'));
 
         for (const tty of ttyDevices) {
           try {
@@ -217,8 +220,7 @@ class DeviceDiscovery {
 
       // Method 3: Check /sys/class/sound/ for USB MIDI class-compliant devices
       try {
-        const soundDevices = fs.readdirSync('/sys/class/sound')
-          .filter(d => d.startsWith('card'));
+        const soundDevices = fs.readdirSync('/sys/class/sound').filter((d) => d.startsWith('card'));
 
         for (const card of soundDevices) {
           try {
@@ -253,7 +255,6 @@ class DeviceDiscovery {
       } catch (error) {
         this.logger.debug(`/sys/class/sound not available: ${error.message}`);
       }
-
     } catch (error) {
       this.logger.warn(`Failed to get USB serial numbers: ${error.message}`);
     }
@@ -266,8 +267,10 @@ class DeviceDiscovery {
    */
   findSerialNumberInMap(deviceName, serialNumbers) {
     for (const [devicePath, serialNumber] of Object.entries(serialNumbers)) {
-      if (deviceName.includes(path.basename(devicePath)) ||
-          devicePath.includes(deviceName.toLowerCase())) {
+      if (
+        deviceName.includes(path.basename(devicePath)) ||
+        devicePath.includes(deviceName.toLowerCase())
+      ) {
         return serialNumber;
       }
     }
@@ -285,28 +288,12 @@ class DeviceDiscovery {
   }
 
   /**
-   * Try to find USB serial number for a MIDI device
+   * Try to find USB serial number for a MIDI device (fetches a fresh
+   * serial-numbers map, then defers to {@link findSerialNumberInMap}).
    */
   async findSerialNumberForDevice(deviceName) {
     const serialNumbers = await this.getUsbSerialNumbers();
-
-    for (const [devicePath, serialNumber] of Object.entries(serialNumbers)) {
-      if (deviceName.includes(path.basename(devicePath)) ||
-          devicePath.includes(deviceName.toLowerCase())) {
-        return serialNumber;
-      }
-    }
-
-    const cardMatch = deviceName.match(/card\s*(\d+)/i) || deviceName.match(/MIDI\s*(\d+)/i);
-    if (cardMatch) {
-      const cardNum = cardMatch[1];
-      const keys = Object.keys(serialNumbers);
-      if (keys.length > 0 && parseInt(cardNum) < keys.length) {
-        return serialNumbers[keys[parseInt(cardNum)]];
-      }
-    }
-
-    return null;
+    return this.findSerialNumberInMap(deviceName, serialNumbers);
   }
 
   // ==================== HOT-PLUG MONITORING ====================
@@ -376,7 +363,7 @@ class DeviceDiscovery {
           try {
             const cardDir = `/proc/asound/card${cardNum}`;
             const entries = fs.readdirSync(cardDir);
-            const hasMidi = entries.some(entry => /^midi\d+$/.test(entry));
+            const hasMidi = entries.some((entry) => /^midi\d+$/.test(entry));
             if (hasMidi) {
               const idPath = `/proc/asound/card${cardNum}/id`;
               let cardId = `card${cardNum}`;
@@ -397,13 +384,59 @@ class DeviceDiscovery {
 
     // Method 2: Fallback to easymidi
     try {
-      const currentInputs = new Set(this.easymidi.getInputs().filter(name => !this.isSystemDevice(name)));
-      const currentOutputs = new Set(this.easymidi.getOutputs().filter(name => !this.isSystemDevice(name)));
+      const currentInputs = new Set(
+        this.easymidi.getInputs().filter((name) => !this.isSystemDevice(name))
+      );
+      const currentOutputs = new Set(
+        this.easymidi.getOutputs().filter((name) => !this.isSystemDevice(name))
+      );
       return { inputs: currentInputs, outputs: currentOutputs, method: 'easymidi' };
     } catch (e) {
       this.logger.error(`Failed to enumerate MIDI ports: ${e.message}`);
       return null;
     }
+  }
+
+  /**
+   * Close + forget a disconnected input port. Listeners are removed
+   * before close to stop callbacks firing during teardown.
+   * @param {string} name
+   * @param {Map} inputs
+   * @private
+   */
+  _closeRemovedInput(name, inputs) {
+    this.logger.info(`🔌 MIDI input disconnected: ${name}`);
+    const input = inputs.get(name);
+    if (input) {
+      try {
+        input.removeAllListeners();
+        input.close();
+      } catch (error) {
+        this.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
+      }
+      inputs.delete(name);
+    }
+    this.knownInputs.delete(name);
+  }
+
+  /**
+   * Close + forget a disconnected output port.
+   * @param {string} name
+   * @param {Map} outputs
+   * @private
+   */
+  _closeRemovedOutput(name, outputs) {
+    this.logger.info(`🔌 MIDI output disconnected: ${name}`);
+    const output = outputs.get(name);
+    if (output) {
+      try {
+        output.close();
+      } catch (error) {
+        this.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
+      }
+      outputs.delete(name);
+    }
+    this.knownOutputs.delete(name);
   }
 
   /**
@@ -433,9 +466,10 @@ class DeviceDiscovery {
         const removedInputs = [];
         for (const name of this.knownInputs) {
           const cardId = name.split(':')[0].trim();
-          const stillPresent = [...currentCardIds].some(id =>
-            cardId.toLowerCase().includes(id.toLowerCase()) ||
-            id.toLowerCase().includes(cardId.toLowerCase())
+          const stillPresent = [...currentCardIds].some(
+            (id) =>
+              cardId.toLowerCase().includes(id.toLowerCase()) ||
+              id.toLowerCase().includes(cardId.toLowerCase())
           );
           if (!stillPresent) {
             removedInputs.push(name);
@@ -443,18 +477,7 @@ class DeviceDiscovery {
         }
 
         for (const name of removedInputs) {
-          this.logger.info(`🔌 MIDI input disconnected: ${name}`);
-          const input = inputs.get(name);
-          if (input) {
-            try {
-              input.removeAllListeners();
-              input.close();
-            } catch (error) {
-              this.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
-            }
-            inputs.delete(name);
-          }
-          this.knownInputs.delete(name);
+          this._closeRemovedInput(name, inputs);
           hasChanges = true;
         }
 
@@ -462,9 +485,10 @@ class DeviceDiscovery {
         const removedOutputs = [];
         for (const name of this.knownOutputs) {
           const cardId = name.split(':')[0].trim();
-          const stillPresent = [...currentCardIds].some(id =>
-            cardId.toLowerCase().includes(id.toLowerCase()) ||
-            id.toLowerCase().includes(cardId.toLowerCase())
+          const stillPresent = [...currentCardIds].some(
+            (id) =>
+              cardId.toLowerCase().includes(id.toLowerCase()) ||
+              id.toLowerCase().includes(cardId.toLowerCase())
           );
           if (!stillPresent) {
             removedOutputs.push(name);
@@ -472,17 +496,7 @@ class DeviceDiscovery {
         }
 
         for (const name of removedOutputs) {
-          this.logger.info(`🔌 MIDI output disconnected: ${name}`);
-          const output = outputs.get(name);
-          if (output) {
-            try {
-              output.close();
-            } catch (error) {
-              this.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
-            }
-            outputs.delete(name);
-          }
-          this.knownOutputs.delete(name);
+          this._closeRemovedOutput(name, outputs);
           hasChanges = true;
         }
 
@@ -494,9 +508,8 @@ class DeviceDiscovery {
         }
 
         for (const cardId of currentCardIds) {
-          const isKnown = [...knownCardIds].some(known =>
-            known.includes(cardId.toLowerCase()) ||
-            cardId.toLowerCase().includes(known)
+          const isKnown = [...knownCardIds].some(
+            (known) => known.includes(cardId.toLowerCase()) || cardId.toLowerCase().includes(known)
           );
           if (!isKnown) {
             this.logger.info(`🔌 New MIDI card detected: ${cardId} - rescanning...`);
@@ -528,20 +541,9 @@ class DeviceDiscovery {
         }
 
         // Check for removed inputs
-        const removedInputs = [...this.knownInputs].filter(name => !currentInputs.has(name));
+        const removedInputs = [...this.knownInputs].filter((name) => !currentInputs.has(name));
         for (const name of removedInputs) {
-          this.logger.info(`🔌 MIDI input disconnected: ${name}`);
-          const input = inputs.get(name);
-          if (input) {
-            try {
-              input.removeAllListeners();
-              input.close();
-            } catch (error) {
-              this.logger.warn(`Error closing disconnected input ${name}: ${error.message}`);
-            }
-            inputs.delete(name);
-          }
-          this.knownInputs.delete(name);
+          this._closeRemovedInput(name, inputs);
           hasChanges = true;
         }
 
@@ -562,19 +564,9 @@ class DeviceDiscovery {
         }
 
         // Check for removed outputs
-        const removedOutputs = [...this.knownOutputs].filter(name => !currentOutputs.has(name));
+        const removedOutputs = [...this.knownOutputs].filter((name) => !currentOutputs.has(name));
         for (const name of removedOutputs) {
-          this.logger.info(`🔌 MIDI output disconnected: ${name}`);
-          const output = outputs.get(name);
-          if (output) {
-            try {
-              output.close();
-            } catch (error) {
-              this.logger.warn(`Error closing disconnected output ${name}: ${error.message}`);
-            }
-            outputs.delete(name);
-          }
-          this.knownOutputs.delete(name);
+          this._closeRemovedOutput(name, outputs);
           hasChanges = true;
         }
       }
@@ -585,7 +577,6 @@ class DeviceDiscovery {
       if (hasChanges && this._onDeviceChange) {
         await this._onDeviceChange({ type: 'update' });
       }
-
     } catch (error) {
       this.logger.error(`Error checking device changes: ${error.message}`);
       this.hotPlugFailures++;

@@ -86,7 +86,7 @@ class MidiRouter {
     try {
       const routes = this._routeRepo.findAll();
       let loadedCount = 0;
-      routes.forEach(route => {
+      routes.forEach((route) => {
         try {
           this.addRoute({
             id: route.id,
@@ -231,7 +231,7 @@ class MidiRouter {
     this.logger.info(`Filter updated for route ${routeId}`);
   }
 
-/**
+  /**
    * @param {string} routeId
    * @param {Object<string|number, number>} channelMap - source → dest channel.
    * @returns {void}
@@ -279,55 +279,56 @@ class MidiRouter {
         const mapped = this.applyChannelMap(msg, route.channelMap);
 
         // Apply relative latency compensation: fast devices are delayed so all destinations sync
-        const compensation = this._getRelativeCompensation(sourceDevice, route.destination, mapped.channel);
+        const compensation = this._getRelativeCompensation(
+          sourceDevice,
+          route.destination,
+          mapped.channel
+        );
         if (compensation > 0) {
           const timeoutId = setTimeout(() => {
             this.pendingTimeouts.delete(timeoutId);
             // Skip if route was deleted/disabled while waiting
             const currentRoute = this.routes.get(route.id);
             if (!currentRoute || !currentRoute.enabled) return;
-
-            const success = this._deps.deviceManager.sendMessage(
-              route.destination,
-              type,
-              mapped
-            );
-            if (success) {
-              this.eventBus.emit('midi_routed', {
-                route: route.id,
-                source: sourceDevice,
-                destination: route.destination,
-                type: type,
-                data: mapped
-              });
-            }
+            this._sendAndEmit(route, sourceDevice, type, mapped);
           }, compensation);
           this.pendingTimeouts.add(timeoutId);
           continue;
         }
 
         // Send immediately (no compensation needed)
-        const success = this._deps.deviceManager.sendMessage(
-          route.destination,
-          type,
-          mapped
-        );
-
-        if (success) {
-          this.eventBus.emit('midi_routed', {
-            route: route.id,
-            source: sourceDevice,
-            destination: route.destination,
-            type: type,
-            data: mapped
-          });
-        }
+        this._sendAndEmit(route, sourceDevice, type, mapped);
       }
     }
 
     // Handle monitors (per-device or global debug monitor)
     if (this.monitorAll || this.monitors.has(sourceDevice)) {
       this.broadcastMonitorEvent(sourceDevice, type, msg);
+    }
+  }
+
+  /**
+   * Forward `mapped` to `route.destination` and emit `midi_routed` on
+   * success. Shared by the immediate and compensation-delayed paths of
+   * {@link MidiRouter#routeMessage}.
+   *
+   * @param {Object} route
+   * @param {string} sourceDevice
+   * @param {string} type
+   * @param {Object} mapped
+   * @returns {void}
+   * @private
+   */
+  _sendAndEmit(route, sourceDevice, type, mapped) {
+    const success = this._deps.deviceManager.sendMessage(route.destination, type, mapped);
+    if (success) {
+      this.eventBus.emit('midi_routed', {
+        route: route.id,
+        source: sourceDevice,
+        destination: route.destination,
+        type: type,
+        data: mapped
+      });
     }
   }
 
@@ -414,7 +415,7 @@ class MidiRouter {
     // Map channel if specified, clamping to valid MIDI range (0-15)
     if (msg.channel !== undefined && mapping[msg.channel] !== undefined) {
       const targetCh = parseInt(mapping[msg.channel]);
-      mapped.channel = (isNaN(targetCh) || targetCh < 0 || targetCh > 15) ? msg.channel : targetCh;
+      mapped.channel = isNaN(targetCh) || targetCh < 0 || targetCh > 15 ? msg.channel : targetCh;
     }
 
     return mapped;
@@ -481,7 +482,9 @@ class MidiRouter {
             try {
               const settings = db.getInstrumentSettings(deviceId, msg.channel);
               if (settings) instrumentName = settings.custom_name || settings.name;
-            } catch { /* instrument name lookup is optional for monitor events */ }
+            } catch {
+              /* instrument name lookup is optional for monitor events */
+            }
           }
           this._instrumentNameByDevCh.set(key, instrumentName);
         }

@@ -23,14 +23,14 @@ class DrumNoteMapper {
       snares: [37, 38, 40],
       hiHats: [42, 44, 46],
       toms: [41, 43, 45, 47, 48, 50],
-      crashes: [49, 52, 55, 57],                       // +52 Chinese Cymbal
+      crashes: [49, 52, 55, 57], // +52 Chinese Cymbal
       rides: [51, 53, 59],
-      latin: [60, 61, 62, 63, 64, 65, 66, 67, 68],    // Bongos, congas, timbales, agogos
-      shakers: [39, 54, 58, 69, 70],                   // Hand Clap, Tambourine, Vibraslap, Cabasa, Maracas
-      woodsMetal: [56, 75, 76, 77],                    // Cowbell, Claves, Wood Blocks
-      pitched: [71, 72, 73, 74],                       // Whistles, Guiros
-      cuicas: [78, 79],                                // Mute/Open Cuica
-      triangles: [80, 81]                              // Mute/Open Triangle
+      latin: [60, 61, 62, 63, 64, 65, 66, 67, 68], // Bongos, congas, timbales, agogos
+      shakers: [39, 54, 58, 69, 70], // Hand Clap, Tambourine, Vibraslap, Cabasa, Maracas
+      woodsMetal: [56, 75, 76, 77], // Cowbell, Claves, Wood Blocks
+      pitched: [71, 72, 73, 74], // Whistles, Guiros
+      cuicas: [78, 79], // Mute/Open Cuica
+      triangles: [80, 81] // Mute/Open Triangle
     };
 
     // Detailed substitution tables (in order of preference)
@@ -42,7 +42,7 @@ class DrumNoteMapper {
       // Snares
       38: [40, 37, 39, 54, 70, 56, 75], // Acoustic Snare → Electric, Rim, Clap, Tambourine, Maracas, Cowbell, Claves
       40: [38, 37, 39, 54, 70, 56, 75], // Electric Snare → Acoustic, Rim, Clap, Tambourine, Maracas, Cowbell, Claves
-      37: [38, 40, 39, 54, 75, 76],     // Side Stick → Snares, Clap, Tambourine, Claves, Hi Wood Block
+      37: [38, 40, 39, 54, 75, 76], // Side Stick → Snares, Clap, Tambourine, Claves, Hi Wood Block
 
       // Hi-Hats
       42: [44, 46, 54, 70, 69, 53, 75], // Closed HH → Pedal, Open, Tambourine, Maracas, Cabasa, Ride Bell, Claves
@@ -60,13 +60,13 @@ class DrumNoteMapper {
       // Crashes
       49: [57, 55, 52, 46, 51, 59, 81], // Crash 1 → Crash 2, Splash, China, Open HH, Ride 1, Ride 2, Open Triangle
       57: [49, 55, 52, 46, 51, 59, 81], // Crash 2 → Crash 1, Splash, China, Open HH, Ride 1, Ride 2, Open Triangle
-      55: [49, 57, 52, 46, 51, 81],     // Splash → Crashes, China, Open HH, Ride, Open Triangle
-      52: [49, 57, 55, 46, 51, 56],     // Chinese Cymbal → Crashes, Splash, Open HH, Ride, Cowbell
+      55: [49, 57, 52, 46, 51, 81], // Splash → Crashes, China, Open HH, Ride, Open Triangle
+      52: [49, 57, 55, 46, 51, 56], // Chinese Cymbal → Crashes, Splash, Open HH, Ride, Cowbell
 
       // Rides
       51: [59, 53, 42, 49, 55, 81], // Ride 1 → Ride 2, Bell, Closed HH, Crash, Splash, Open Triangle
       59: [51, 53, 42, 49, 55, 81], // Ride 2 → Ride 1, Bell, Closed HH, Crash, Splash, Open Triangle
-      53: [51, 59, 42, 56, 76],     // Ride Bell → Rides, Closed HH, Cowbell, Hi Wood Block
+      53: [51, 59, 42, 56, 76], // Ride Bell → Rides, Closed HH, Cowbell, Hi Wood Block
 
       // Shakers (auxiliary percussion)
       39: [37, 38, 40, 54, 70, 69], // Hand Clap → Rim, Snares, Tambourine, Maracas, Cabasa
@@ -78,8 +78,8 @@ class DrumNoteMapper {
       // Woods & Metal
       56: [53, 75, 76, 77, 67, 68], // Cowbell → Ride Bell, Claves, Wood Blocks, Agogos
       75: [76, 77, 56, 67, 68, 70], // Claves → Wood Blocks, Cowbell, Agogos, Maracas
-      76: [77, 75, 56, 67, 80],     // Hi Wood Block → Low Wood Block, Claves, Cowbell, High Agogo, Mute Triangle
-      77: [76, 75, 56, 68, 81],     // Low Wood Block → Hi Wood Block, Claves, Cowbell, Low Agogo, Open Triangle
+      76: [77, 75, 56, 67, 80], // Hi Wood Block → Low Wood Block, Claves, Cowbell, High Agogo, Mute Triangle
+      77: [76, 75, 56, 68, 81], // Low Wood Block → Hi Wood Block, Claves, Cowbell, Low Agogo, Open Triangle
 
       // Pitched effects (whistles, guiros)
       71: [72, 73, 74, 80, 81], // Short Whistle → Long Whistle, Guiros, Triangles
@@ -104,7 +104,7 @@ class DrumNoteMapper {
       65: [66, 48, 50, 62, 60, 76], // High Timbale → Low Timbale, Toms, Mute Hi Conga, Hi Bongo, Hi Wood Block
       66: [65, 47, 48, 64, 61, 77], // Low Timbale → High Timbale, Toms, Low Conga, Low Bongo, Low Wood Block
       67: [68, 76, 77, 56, 75, 80], // High Agogo → Low Agogo, Wood Blocks, Cowbell, Claves, Mute Triangle
-      68: [67, 76, 77, 56, 75, 81]  // Low Agogo → High Agogo, Wood Blocks, Cowbell, Claves, Open Triangle
+      68: [67, 76, 77, 56, 75, 81] // Low Agogo → High Agogo, Wood Blocks, Cowbell, Claves, Open Triangle
     };
 
     // Priority scores for drum notes (0-100)
@@ -114,53 +114,108 @@ class DrumNoteMapper {
       35: 100, // Kick
       38: 100, // Snare
       40: 100, // Snare (electric)
-      42: 90,  // Closed HH
-      49: 70,  // Crash
+      42: 90, // Closed HH
+      49: 70, // Crash
 
       // Priority 2: Important (SHOULD HAVE)
-      46: 60,  // Open HH
-      41: 50,  // Tom Low
-      45: 50,  // Tom Low
-      48: 50,  // Tom High
-      50: 50,  // Tom High
-      51: 40,  // Ride
+      46: 60, // Open HH
+      41: 50, // Tom Low
+      45: 50, // Tom Low
+      48: 50, // Tom High
+      50: 50, // Tom High
+      51: 40, // Ride
 
       // Priority 3: Optional (NICE TO HAVE)
-      43: 30,  // Tom Mid
-      47: 30,  // Tom Mid
-      37: 25,  // Rim Shot
-      44: 25,  // Pedal HH
-      39: 20,  // Hand Clap
-      57: 20,  // Crash 2
-      55: 20,  // Splash
-      59: 20,  // Ride 2
-      53: 15,  // Ride Bell
-      52: 15,  // China
+      43: 30, // Tom Mid
+      47: 30, // Tom Mid
+      37: 25, // Rim Shot
+      44: 25, // Pedal HH
+      39: 20, // Hand Clap
+      57: 20, // Crash 2
+      55: 20, // Splash
+      59: 20, // Ride 2
+      53: 15, // Ride Bell
+      52: 15, // China
 
       // Priority 4: Effects/Latin (OPTIONAL)
-      54: 15,  // Tambourine
-      56: 15,  // Cowbell
-      70: 10,  // Maracas
+      54: 15, // Tambourine
+      56: 15, // Cowbell
+      70: 10, // Maracas
       // Latin percussion: 60-68
-      60: 10, 61: 10, 62: 10, 63: 10, 64: 10, 65: 10, 66: 10, 67: 10, 68: 10,
+      60: 10,
+      61: 10,
+      62: 10,
+      63: 10,
+      64: 10,
+      65: 10,
+      66: 10,
+      67: 10,
+      68: 10,
       // Shakers, woods/metal, pitched, cuicas, triangles: 58, 69, 71-81
-      58: 5, 69: 5, 71: 5, 72: 5, 73: 5, 74: 5, 75: 5, 76: 5, 77: 5, 78: 5, 79: 5, 80: 5, 81: 5
+      58: 5,
+      69: 5,
+      71: 5,
+      72: 5,
+      73: 5,
+      74: 5,
+      75: 5,
+      76: 5,
+      77: 5,
+      78: 5,
+      79: 5,
+      80: 5,
+      81: 5
     };
 
     // Note names for logging
     this.NOTE_NAMES = {
-      35: 'Acoustic Bass Drum', 36: 'Bass Drum 1', 37: 'Side Stick', 38: 'Acoustic Snare',
-      39: 'Hand Clap', 40: 'Electric Snare', 41: 'Low Floor Tom', 42: 'Closed Hi-Hat',
-      43: 'High Floor Tom', 44: 'Pedal Hi-Hat', 45: 'Low Tom', 46: 'Open Hi-Hat',
-      47: 'Low-Mid Tom', 48: 'Hi-Mid Tom', 49: 'Crash Cymbal 1', 50: 'High Tom',
-      51: 'Ride Cymbal 1', 52: 'Chinese Cymbal', 53: 'Ride Bell', 54: 'Tambourine',
-      55: 'Splash Cymbal', 56: 'Cowbell', 57: 'Crash Cymbal 2', 58: 'Vibraslap',
-      59: 'Ride Cymbal 2', 60: 'Hi Bongo', 61: 'Low Bongo', 62: 'Mute Hi Conga',
-      63: 'Open Hi Conga', 64: 'Low Conga', 65: 'High Timbale', 66: 'Low Timbale',
-      67: 'High Agogo', 68: 'Low Agogo', 69: 'Cabasa', 70: 'Maracas',
-      71: 'Short Whistle', 72: 'Long Whistle', 73: 'Short Guiro', 74: 'Long Guiro',
-      75: 'Claves', 76: 'Hi Wood Block', 77: 'Low Wood Block', 78: 'Mute Cuica',
-      79: 'Open Cuica', 80: 'Mute Triangle', 81: 'Open Triangle'
+      35: 'Acoustic Bass Drum',
+      36: 'Bass Drum 1',
+      37: 'Side Stick',
+      38: 'Acoustic Snare',
+      39: 'Hand Clap',
+      40: 'Electric Snare',
+      41: 'Low Floor Tom',
+      42: 'Closed Hi-Hat',
+      43: 'High Floor Tom',
+      44: 'Pedal Hi-Hat',
+      45: 'Low Tom',
+      46: 'Open Hi-Hat',
+      47: 'Low-Mid Tom',
+      48: 'Hi-Mid Tom',
+      49: 'Crash Cymbal 1',
+      50: 'High Tom',
+      51: 'Ride Cymbal 1',
+      52: 'Chinese Cymbal',
+      53: 'Ride Bell',
+      54: 'Tambourine',
+      55: 'Splash Cymbal',
+      56: 'Cowbell',
+      57: 'Crash Cymbal 2',
+      58: 'Vibraslap',
+      59: 'Ride Cymbal 2',
+      60: 'Hi Bongo',
+      61: 'Low Bongo',
+      62: 'Mute Hi Conga',
+      63: 'Open Hi Conga',
+      64: 'Low Conga',
+      65: 'High Timbale',
+      66: 'Low Timbale',
+      67: 'High Agogo',
+      68: 'Low Agogo',
+      69: 'Cabasa',
+      70: 'Maracas',
+      71: 'Short Whistle',
+      72: 'Long Whistle',
+      73: 'Short Guiro',
+      74: 'Long Guiro',
+      75: 'Claves',
+      76: 'Hi Wood Block',
+      77: 'Low Wood Block',
+      78: 'Mute Cuica',
+      79: 'Open Cuica',
+      80: 'Mute Triangle',
+      81: 'Open Triangle'
     };
   }
 
@@ -171,24 +226,26 @@ class DrumNoteMapper {
    */
   analyzeInstrumentCapabilities(availableNotes) {
     const caps = {
-      hasKick: availableNotes.some(n => this.DRUM_CATEGORIES.kicks.includes(n)),
-      hasSnare: availableNotes.some(n => this.DRUM_CATEGORIES.snares.includes(n)),
-      hasHiHat: availableNotes.some(n => this.DRUM_CATEGORIES.hiHats.includes(n)),
-      hasCrash: availableNotes.some(n => this.DRUM_CATEGORIES.crashes.includes(n)),
-      hasRide: availableNotes.some(n => this.DRUM_CATEGORIES.rides.includes(n)),
+      hasKick: availableNotes.some((n) => this.DRUM_CATEGORIES.kicks.includes(n)),
+      hasSnare: availableNotes.some((n) => this.DRUM_CATEGORIES.snares.includes(n)),
+      hasHiHat: availableNotes.some((n) => this.DRUM_CATEGORIES.hiHats.includes(n)),
+      hasCrash: availableNotes.some((n) => this.DRUM_CATEGORIES.crashes.includes(n)),
+      hasRide: availableNotes.some((n) => this.DRUM_CATEGORIES.rides.includes(n)),
 
-      kicks: availableNotes.filter(n => this.DRUM_CATEGORIES.kicks.includes(n)),
-      snares: availableNotes.filter(n => this.DRUM_CATEGORIES.snares.includes(n)),
-      hiHats: availableNotes.filter(n => this.DRUM_CATEGORIES.hiHats.includes(n)),
-      toms: availableNotes.filter(n => this.DRUM_CATEGORIES.toms.includes(n)).sort((a, b) => a - b),
-      crashes: availableNotes.filter(n => this.DRUM_CATEGORIES.crashes.includes(n)),
-      rides: availableNotes.filter(n => this.DRUM_CATEGORIES.rides.includes(n)),
-      latin: availableNotes.filter(n => this.DRUM_CATEGORIES.latin.includes(n)),
-      shakers: availableNotes.filter(n => this.DRUM_CATEGORIES.shakers.includes(n)),
-      woodsMetal: availableNotes.filter(n => this.DRUM_CATEGORIES.woodsMetal.includes(n)),
-      pitched: availableNotes.filter(n => this.DRUM_CATEGORIES.pitched.includes(n)),
-      cuicas: availableNotes.filter(n => this.DRUM_CATEGORIES.cuicas.includes(n)),
-      triangles: availableNotes.filter(n => this.DRUM_CATEGORIES.triangles.includes(n)),
+      kicks: availableNotes.filter((n) => this.DRUM_CATEGORIES.kicks.includes(n)),
+      snares: availableNotes.filter((n) => this.DRUM_CATEGORIES.snares.includes(n)),
+      hiHats: availableNotes.filter((n) => this.DRUM_CATEGORIES.hiHats.includes(n)),
+      toms: availableNotes
+        .filter((n) => this.DRUM_CATEGORIES.toms.includes(n))
+        .sort((a, b) => a - b),
+      crashes: availableNotes.filter((n) => this.DRUM_CATEGORIES.crashes.includes(n)),
+      rides: availableNotes.filter((n) => this.DRUM_CATEGORIES.rides.includes(n)),
+      latin: availableNotes.filter((n) => this.DRUM_CATEGORIES.latin.includes(n)),
+      shakers: availableNotes.filter((n) => this.DRUM_CATEGORIES.shakers.includes(n)),
+      woodsMetal: availableNotes.filter((n) => this.DRUM_CATEGORIES.woodsMetal.includes(n)),
+      pitched: availableNotes.filter((n) => this.DRUM_CATEGORIES.pitched.includes(n)),
+      cuicas: availableNotes.filter((n) => this.DRUM_CATEGORIES.cuicas.includes(n)),
+      triangles: availableNotes.filter((n) => this.DRUM_CATEGORIES.triangles.includes(n)),
 
       tomCount: 0,
       latinPercCount: 0,
@@ -198,9 +255,16 @@ class DrumNoteMapper {
 
     caps.tomCount = caps.toms.length;
     caps.latinPercCount = caps.latin.length;
-    caps.auxPercCount = caps.shakers.length + caps.woodsMetal.length + caps.pitched.length + caps.cuicas.length + caps.triangles.length;
+    caps.auxPercCount =
+      caps.shakers.length +
+      caps.woodsMetal.length +
+      caps.pitched.length +
+      caps.cuicas.length +
+      caps.triangles.length;
 
-    this.logger.info(`[DrumMapper] Instrument capabilities: Kick=${caps.hasKick}, Snare=${caps.hasSnare}, HH=${caps.hasHiHat}, ${caps.tomCount} toms, ${caps.totalNotes} total notes`);
+    this.logger.info(
+      `[DrumMapper] Instrument capabilities: Kick=${caps.hasKick}, Snare=${caps.hasSnare}, HH=${caps.hasHiHat}, ${caps.tomCount} toms, ${caps.totalNotes} total notes`
+    );
 
     return caps;
   }
@@ -217,7 +281,8 @@ class DrumNoteMapper {
     for (const event of noteEvents) {
       if (event.type !== 'noteOn') continue;
       if (event.velocity === 0) continue; // noteOn with vel=0 is noteOff
-      if (event.note >= 35 && event.note <= 81) { // GM drum range (Acoustic Bass Drum to Open Triangle)
+      if (event.note >= 35 && event.note <= 81) {
+        // GM drum range (Acoustic Bass Drum to Open Triangle)
         usage[event.note] = (usage[event.note] || 0) + 1;
       }
     }
@@ -227,24 +292,26 @@ class DrumNoteMapper {
       .sort((a, b) => b[1] - a[1])
       .map(([note, count]) => ({ note: parseInt(note), count }));
 
-    const usedNoteNumbers = sortedNotes.map(n => n.note);
+    const usedNoteNumbers = sortedNotes.map((n) => n.note);
 
     const categories = {
-      kicks: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.kicks.includes(n)),
-      snares: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.snares.includes(n)),
-      hiHats: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.hiHats.includes(n)),
-      toms: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.toms.includes(n)),
-      crashes: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.crashes.includes(n)),
-      rides: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.rides.includes(n)),
-      latin: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.latin.includes(n)),
-      shakers: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.shakers.includes(n)),
-      woodsMetal: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.woodsMetal.includes(n)),
-      pitched: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.pitched.includes(n)),
-      cuicas: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.cuicas.includes(n)),
-      triangles: usedNoteNumbers.filter(n => this.DRUM_CATEGORIES.triangles.includes(n))
+      kicks: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.kicks.includes(n)),
+      snares: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.snares.includes(n)),
+      hiHats: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.hiHats.includes(n)),
+      toms: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.toms.includes(n)),
+      crashes: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.crashes.includes(n)),
+      rides: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.rides.includes(n)),
+      latin: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.latin.includes(n)),
+      shakers: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.shakers.includes(n)),
+      woodsMetal: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.woodsMetal.includes(n)),
+      pitched: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.pitched.includes(n)),
+      cuicas: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.cuicas.includes(n)),
+      triangles: usedNoteNumbers.filter((n) => this.DRUM_CATEGORIES.triangles.includes(n))
     };
 
-    this.logger.info(`[DrumMapper] MIDI uses: ${categories.kicks.length} kicks, ${categories.snares.length} snares, ${categories.hiHats.length} HH, ${categories.toms.length} toms`);
+    this.logger.info(
+      `[DrumMapper] MIDI uses: ${categories.kicks.length} kicks, ${categories.snares.length} snares, ${categories.hiHats.length} HH, ${categories.toms.length} toms`
+    );
 
     return {
       usage,
@@ -254,13 +321,6 @@ class DrumNoteMapper {
     };
   }
 
-  /**
-   * Generate intelligent drum note mapping
-   * @param {Object} midiNotes - Classified MIDI notes
-   * @param {Array<number>} instrumentNotes - Available instrument notes
-   * @param {Object} options - Mapping options
-   * @returns {Object} Mapping result with quality score
-   */
   /**
    * Get the category key for a MIDI drum note.
    * @param {number} note - MIDI note number
@@ -286,6 +346,13 @@ class DrumNoteMapper {
     return categoryDepthLimits[cat];
   }
 
+  /**
+   * Generate intelligent drum note mapping
+   * @param {Object} midiNotes - Classified MIDI notes
+   * @param {Array<number>} instrumentNotes - Available instrument notes
+   * @param {Object} options - Mapping options
+   * @returns {Object} Mapping result with quality score
+   */
   generateMapping(midiNotes, instrumentNotes, options = {}) {
     const opts = {
       allowSubstitution: true,
@@ -310,7 +377,12 @@ class DrumNoteMapper {
           const catNotes = this.DRUM_CATEGORIES[catKey] || [];
           for (const { note, count } of midiNotes.usedNotes) {
             if (catNotes.includes(note)) {
-              omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'category ignored' });
+              omissions.push({
+                note,
+                count,
+                name: this.NOTE_NAMES[note] || `Note ${note}`,
+                reason: 'category ignored'
+              });
               mapping[note] = null; // mark as handled (ignored)
             }
           }
@@ -319,16 +391,48 @@ class DrumNoteMapper {
     }
 
     // Priority 1: Essential notes
-    this.assignEssentialNotes(midiNotes, instrumentNotes, instrCaps, mapping, used, substitutions, opts);
+    this.assignEssentialNotes(
+      midiNotes,
+      instrumentNotes,
+      instrCaps,
+      mapping,
+      used,
+      substitutions,
+      opts
+    );
 
     // Priority 2: Important notes
-    this.assignImportantNotes(midiNotes, instrumentNotes, instrCaps, mapping, used, substitutions, opts);
+    this.assignImportantNotes(
+      midiNotes,
+      instrumentNotes,
+      instrCaps,
+      mapping,
+      used,
+      substitutions,
+      opts
+    );
 
     // Priority 3: Optional notes
-    this.assignOptionalNotes(midiNotes, instrumentNotes, instrCaps, mapping, used, substitutions, opts);
+    this.assignOptionalNotes(
+      midiNotes,
+      instrumentNotes,
+      instrCaps,
+      mapping,
+      used,
+      substitutions,
+      opts
+    );
 
     // Priority 4: Remaining notes
-    this.assignRemainingNotes(midiNotes, instrumentNotes, mapping, used, substitutions, omissions, opts);
+    this.assignRemainingNotes(
+      midiNotes,
+      instrumentNotes,
+      mapping,
+      used,
+      substitutions,
+      omissions,
+      opts
+    );
 
     // Clean up null mappings (ignored notes)
     for (const key of Object.keys(mapping)) {
@@ -336,9 +440,17 @@ class DrumNoteMapper {
     }
 
     // Calculate quality score
-    const quality = this.calculateMappingQuality(mapping, midiNotes, instrumentNotes, substitutions, omissions);
+    const quality = this.calculateMappingQuality(
+      mapping,
+      midiNotes,
+      instrumentNotes,
+      substitutions,
+      omissions
+    );
 
-    this.logger.info(`[DrumMapper] Mapping complete: ${Object.keys(mapping).length}/${midiNotes.usedNotes.length} notes mapped, quality=${quality.score}/100`);
+    this.logger.info(
+      `[DrumMapper] Mapping complete: ${Object.keys(mapping).length}/${midiNotes.usedNotes.length} notes mapped, quality=${quality.score}/100`
+    );
 
     return {
       mapping,
@@ -357,19 +469,22 @@ class DrumNoteMapper {
 
     // KICK (absolute priority)
     if (categories.kicks.length > 0) {
-      let targetKick = instrNotes.find(n => n === 36) ||
-                       instrNotes.find(n => n === 35);
+      let targetKick = instrNotes.find((n) => n === 36) || instrNotes.find((n) => n === 35);
 
       if (!targetKick && opts.allowSubstitution) {
         // Fallback: low tom
-        targetKick = instrNotes.find(n => [41, 43, 45].includes(n));
+        targetKick = instrNotes.find((n) => [41, 43, 45].includes(n));
         if (targetKick) {
-          substitutions.push({ from: categories.kicks[0], to: targetKick, reason: 'No kick available, using low tom' });
+          substitutions.push({
+            from: categories.kicks[0],
+            to: targetKick,
+            reason: 'No kick available, using low tom'
+          });
         }
       }
 
       if (targetKick) {
-        categories.kicks.forEach(kick => {
+        categories.kicks.forEach((kick) => {
           mapping[kick] = targetKick;
           if (kick !== targetKick) {
             substitutions.push({ from: kick, to: targetKick, type: 'kick consolidation' });
@@ -381,21 +496,26 @@ class DrumNoteMapper {
 
     // SNARE (absolute priority)
     if (categories.snares.length > 0) {
-      let targetSnare = instrNotes.find(n => n === 38) ||
-                        instrNotes.find(n => n === 40) ||
-                        instrNotes.find(n => n === 37);
+      let targetSnare =
+        instrNotes.find((n) => n === 38) ||
+        instrNotes.find((n) => n === 40) ||
+        instrNotes.find((n) => n === 37);
 
       if (!targetSnare && opts.allowSubstitution) {
         // Fallback: hand clap
-        targetSnare = instrNotes.find(n => n === 39);
+        targetSnare = instrNotes.find((n) => n === 39);
         if (targetSnare) {
-          substitutions.push({ from: 'snare', to: targetSnare, reason: 'No snare available, using hand clap' });
+          substitutions.push({
+            from: 'snare',
+            to: targetSnare,
+            reason: 'No snare available, using hand clap'
+          });
         }
       }
 
       if (targetSnare) {
         // Map main snares
-        [38, 40].forEach(snareNote => {
+        [38, 40].forEach((snareNote) => {
           if (categories.snares.includes(snareNote)) {
             mapping[snareNote] = targetSnare;
           }
@@ -403,7 +523,7 @@ class DrumNoteMapper {
 
         // Side stick → rim if available, otherwise main snare
         if (categories.snares.includes(37)) {
-          const rimNote = instrNotes.find(n => n === 37 && !used.has(n));
+          const rimNote = instrNotes.find((n) => n === 37 && !used.has(n));
           mapping[37] = rimNote || targetSnare;
           if (rimNote && rimNote !== 37) {
             used.add(rimNote);
@@ -418,19 +538,22 @@ class DrumNoteMapper {
 
     // CLOSED HI-HAT (very important)
     if (categories.hiHats.length > 0) {
-      let targetHH = instrNotes.find(n => n === 42) ||
-                     instrNotes.find(n => n === 44);
+      let targetHH = instrNotes.find((n) => n === 42) || instrNotes.find((n) => n === 44);
 
       if (!targetHH && opts.allowSubstitution) {
         // Fallback: tambourine, maracas, claves
-        targetHH = instrNotes.find(n => [54, 70, 75].includes(n));
+        targetHH = instrNotes.find((n) => [54, 70, 75].includes(n));
         if (targetHH) {
-          substitutions.push({ from: 'hi-hat', to: targetHH, reason: 'No hi-hat, using ' + this.NOTE_NAMES[targetHH] });
+          substitutions.push({
+            from: 'hi-hat',
+            to: targetHH,
+            reason: 'No hi-hat, using ' + this.NOTE_NAMES[targetHH]
+          });
         }
       }
 
       if (targetHH) {
-        [42, 44].forEach(hhNote => {
+        [42, 44].forEach((hhNote) => {
           if (categories.hiHats.includes(hhNote)) {
             mapping[hhNote] = targetHH;
           }
@@ -441,19 +564,22 @@ class DrumNoteMapper {
 
     // CRASH (important for accents)
     if (categories.crashes.length > 0) {
-      let targetCrash = instrNotes.find(n => n === 49) ||
-                        instrNotes.find(n => n === 57);
+      let targetCrash = instrNotes.find((n) => n === 49) || instrNotes.find((n) => n === 57);
 
       if (!targetCrash && opts.allowSubstitution) {
         // Fallback: ride, splash, china
-        targetCrash = instrNotes.find(n => [51, 55, 52].includes(n));
+        targetCrash = instrNotes.find((n) => [51, 55, 52].includes(n));
         if (targetCrash) {
-          substitutions.push({ from: 'crash', to: targetCrash, reason: 'No crash, using ' + this.NOTE_NAMES[targetCrash] });
+          substitutions.push({
+            from: 'crash',
+            to: targetCrash,
+            reason: 'No crash, using ' + this.NOTE_NAMES[targetCrash]
+          });
         }
       }
 
       if (targetCrash) {
-        categories.crashes.forEach(crash => {
+        categories.crashes.forEach((crash) => {
           mapping[crash] = targetCrash;
         });
         used.add(targetCrash);
@@ -469,8 +595,8 @@ class DrumNoteMapper {
 
     // OPEN HI-HAT
     if (categories.hiHats.includes(46) && !mapping[46]) {
-      const targetOpenHH = instrNotes.find(n => n === 46 && !used.has(n)) ||
-                           (opts.allowSharing && mapping[42]); // Share closed if needed
+      const targetOpenHH =
+        instrNotes.find((n) => n === 46 && !used.has(n)) || (opts.allowSharing && mapping[42]); // Share closed if needed
 
       if (targetOpenHH) {
         mapping[46] = targetOpenHH;
@@ -483,7 +609,7 @@ class DrumNoteMapper {
 
     // TOMS (group intelligently)
     if (categories.toms.length > 0) {
-      const availableToms = instrCaps.toms.filter(n => !used.has(n));
+      const availableToms = instrCaps.toms.filter((n) => !used.has(n));
       const midiToms = categories.toms.sort((a, b) => a - b);
 
       if (availableToms.length > 0) {
@@ -504,16 +630,20 @@ class DrumNoteMapper {
               substitutions.push({ from: midiTom, to: targetTom, type: 'tom grouping' });
             }
           });
-          availableToms.forEach(t => used.add(t));
+          availableToms.forEach((t) => used.add(t));
         }
       } else if (opts.allowSubstitution) {
         // No toms available: try latin percussion or omit
-        const latinFallback = instrCaps.latin.filter(n => !used.has(n));
+        const latinFallback = instrCaps.latin.filter((n) => !used.has(n));
         if (latinFallback.length > 0) {
           midiToms.forEach((midiTom, idx) => {
             const targetIdx = Math.min(idx, latinFallback.length - 1);
             mapping[midiTom] = latinFallback[targetIdx];
-            substitutions.push({ from: midiTom, to: latinFallback[targetIdx], type: 'tom → latin perc' });
+            substitutions.push({
+              from: midiTom,
+              to: latinFallback[targetIdx],
+              type: 'tom → latin perc'
+            });
           });
         }
       }
@@ -521,9 +651,10 @@ class DrumNoteMapper {
 
     // RIDE
     if (categories.rides.length > 0) {
-      let targetRide = instrNotes.find(n => n === 51 && !used.has(n)) ||
-                       instrNotes.find(n => n === 59 && !used.has(n)) ||
-                       instrNotes.find(n => n === 53 && !used.has(n));
+      let targetRide =
+        instrNotes.find((n) => n === 51 && !used.has(n)) ||
+        instrNotes.find((n) => n === 59 && !used.has(n)) ||
+        instrNotes.find((n) => n === 53 && !used.has(n));
 
       if (!targetRide && opts.allowSharing) {
         targetRide = mapping[49]; // Share crash if needed
@@ -533,7 +664,7 @@ class DrumNoteMapper {
       }
 
       if (targetRide) {
-        categories.rides.forEach(ride => {
+        categories.rides.forEach((ride) => {
           mapping[ride] = targetRide;
         });
         if (!used.has(targetRide)) used.add(targetRide);
@@ -549,10 +680,10 @@ class DrumNoteMapper {
 
     // LATIN PERCUSSION
     if (categories.latin.length > 0 && opts.allowSubstitution) {
-      const availableLatin = instrCaps.latin.filter(n => !used.has(n));
+      const availableLatin = instrCaps.latin.filter((n) => !used.has(n));
 
       if (availableLatin.length > 0) {
-        categories.latin.forEach(latinNote => {
+        categories.latin.forEach((latinNote) => {
           const closest = this.findClosestNote(latinNote, availableLatin);
           if (closest) {
             mapping[latinNote] = closest;
@@ -561,12 +692,12 @@ class DrumNoteMapper {
             }
           }
         });
-        availableLatin.forEach(n => used.add(n));
+        availableLatin.forEach((n) => used.add(n));
       } else {
         // Fallback: map to toms if available
-        const tomsForLatin = instrCaps.toms.filter(n => !used.has(n));
+        const tomsForLatin = instrCaps.toms.filter((n) => !used.has(n));
         if (tomsForLatin.length > 0) {
-          categories.latin.forEach(latinNote => {
+          categories.latin.forEach((latinNote) => {
             const targetTom = this.findClosestNote(latinNote, tomsForLatin);
             if (targetTom) {
               mapping[latinNote] = targetTom;
@@ -579,7 +710,7 @@ class DrumNoteMapper {
 
     // SHAKERS (hand clap, tambourine, vibraslap, cabasa, maracas)
     if (categories.shakers && categories.shakers.length > 0) {
-      categories.shakers.forEach(note => {
+      categories.shakers.forEach((note) => {
         if (mapping[note]) return;
         // Hand clap → snare rim or snare
         if (note === 39) {
@@ -592,8 +723,10 @@ class DrumNoteMapper {
         }
         // Tambourine, Maracas, Cabasa → each other or HH
         if ([54, 70, 69].includes(note)) {
-          const target = instrNotes.find(n => [54, 70, 69].includes(n) && !used.has(n)) ||
-                         mapping[42] || mapping[46];
+          const target =
+            instrNotes.find((n) => [54, 70, 69].includes(n) && !used.has(n)) ||
+            mapping[42] ||
+            mapping[46];
           if (target) {
             mapping[note] = target;
             if (note !== target) {
@@ -604,7 +737,7 @@ class DrumNoteMapper {
         }
         // Vibraslap → cabasa, maracas, tambourine, or use substitution table
         if (note === 58) {
-          const target = instrNotes.find(n => [69, 70, 54].includes(n) && !used.has(n));
+          const target = instrNotes.find((n) => [69, 70, 54].includes(n) && !used.has(n));
           if (target) {
             mapping[58] = target;
             substitutions.push({ from: 58, to: target, type: 'vibraslap substitution' });
@@ -615,9 +748,9 @@ class DrumNoteMapper {
 
     // WOODS & METAL (cowbell, claves, wood blocks)
     if (categories.woodsMetal && categories.woodsMetal.length > 0) {
-      categories.woodsMetal.forEach(note => {
+      categories.woodsMetal.forEach((note) => {
         if (mapping[note]) return;
-        const available = instrCaps.woodsMetal.filter(n => !used.has(n));
+        const available = instrCaps.woodsMetal.filter((n) => !used.has(n));
         if (available.length > 0) {
           const closest = this.findClosestNote(note, available);
           if (closest) {
@@ -629,11 +762,13 @@ class DrumNoteMapper {
         } else {
           // Cowbell → ride bell or exact
           if (note === 56) {
-            const target = instrNotes.find(n => n === 56 && !used.has(n)) ||
-                           instrNotes.find(n => n === 53 && !used.has(n));
+            const target =
+              instrNotes.find((n) => n === 56 && !used.has(n)) ||
+              instrNotes.find((n) => n === 53 && !used.has(n));
             if (target) {
               mapping[56] = target;
-              if (target !== 56) substitutions.push({ from: 56, to: target, type: 'cowbell → ride bell' });
+              if (target !== 56)
+                substitutions.push({ from: 56, to: target, type: 'cowbell → ride bell' });
               used.add(target);
             }
           }
@@ -655,7 +790,12 @@ class DrumNoteMapper {
       const maxDepth = this.getMaxDepthForNote(note, opts.categoryDepthLimits);
       if (maxDepth === -1) {
         // Category is set to ignore
-        omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'category ignored' });
+        omissions.push({
+          note,
+          count,
+          name: this.NOTE_NAMES[note] || `Note ${note}`,
+          reason: 'category ignored'
+        });
         return;
       }
 
@@ -665,7 +805,12 @@ class DrumNoteMapper {
           mapping[note] = note;
           used.add(note);
         } else if (opts.allowOmission) {
-          omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'exact only, not available' });
+          omissions.push({
+            note,
+            count,
+            name: this.NOTE_NAMES[note] || `Note ${note}`,
+            reason: 'exact only, not available'
+          });
         }
         return;
       }
@@ -689,7 +834,7 @@ class DrumNoteMapper {
 
         // If still not found, try closest available note (only if depth allows extended search)
         if (!found && maxDepth >= substitutes.length) {
-          const availableNotes = instrNotes.filter(n => !used.has(n));
+          const availableNotes = instrNotes.filter((n) => !used.has(n));
           if (availableNotes.length > 0) {
             const closest = this.findClosestNote(note, availableNotes);
             mapping[note] = closest;
@@ -703,7 +848,12 @@ class DrumNoteMapper {
             omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}` });
           }
         } else if (!found && opts.allowOmission) {
-          omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}`, reason: 'depth limit reached' });
+          omissions.push({
+            note,
+            count,
+            name: this.NOTE_NAMES[note] || `Note ${note}`,
+            reason: 'depth limit reached'
+          });
         }
       } else if (opts.allowOmission) {
         omissions.push({ note, count, name: this.NOTE_NAMES[note] || `Note ${note}` });
@@ -764,9 +914,7 @@ class DrumNoteMapper {
     score += coverageRatio * weights.coverageRatio;
 
     // 5. Accuracy ratio (exact matches)
-    const exactCount = Object.entries(mapping)
-      .filter(([src, tgt]) => parseInt(src) === tgt)
-      .length;
+    const exactCount = Object.entries(mapping).filter(([src, tgt]) => parseInt(src) === tgt).length;
     const accuracyRatio = mappedCount > 0 ? exactCount / mappedCount : 0;
     score += accuracyRatio * weights.accuracyRatio;
 
@@ -792,42 +940,16 @@ class DrumNoteMapper {
     let score = 0;
     let total = 0;
 
-    // Kick
-    if (categories.kicks.length > 0) {
+    // Kick, snare, hi-hat and crash each weigh 25: full credit when the
+    // note maps within its own family, partial credit when it maps to
+    // anything else.
+    for (const key of ['kicks', 'snares', 'hiHats', 'crashes']) {
+      const used = categories[key];
+      if (used.length === 0) continue;
       total += 25;
-      if (categories.kicks.some(k => mapping[k] && this.DRUM_CATEGORIES.kicks.includes(mapping[k]))) {
+      if (used.some((n) => mapping[n] && this.DRUM_CATEGORIES[key].includes(mapping[n]))) {
         score += 25;
-      } else if (categories.kicks.some(k => mapping[k])) {
-        score += 15;
-      }
-    }
-
-    // Snare
-    if (categories.snares.length > 0) {
-      total += 25;
-      if (categories.snares.some(s => mapping[s] && this.DRUM_CATEGORIES.snares.includes(mapping[s]))) {
-        score += 25;
-      } else if (categories.snares.some(s => mapping[s])) {
-        score += 15;
-      }
-    }
-
-    // Hi-Hat
-    if (categories.hiHats.length > 0) {
-      total += 25;
-      if (categories.hiHats.some(h => mapping[h] && this.DRUM_CATEGORIES.hiHats.includes(mapping[h]))) {
-        score += 25;
-      } else if (categories.hiHats.some(h => mapping[h])) {
-        score += 15;
-      }
-    }
-
-    // Crash
-    if (categories.crashes.length > 0) {
-      total += 25;
-      if (categories.crashes.some(c => mapping[c] && this.DRUM_CATEGORIES.crashes.includes(mapping[c]))) {
-        score += 25;
-      } else if (categories.crashes.some(c => mapping[c])) {
+      } else if (used.some((n) => mapping[n])) {
         score += 15;
       }
     }
@@ -856,7 +978,7 @@ class DrumNoteMapper {
     // Toms
     if (categories.toms.length > 0) {
       total += 40;
-      const tomsMapped = categories.toms.filter(t => mapping[t]);
+      const tomsMapped = categories.toms.filter((t) => mapping[t]);
       const ratio = tomsMapped.length / categories.toms.length;
       score += Math.round(40 * ratio);
     }
@@ -864,9 +986,11 @@ class DrumNoteMapper {
     // Ride
     if (categories.rides.length > 0) {
       total += 30;
-      if (categories.rides.some(r => mapping[r] && this.DRUM_CATEGORIES.rides.includes(mapping[r]))) {
+      if (
+        categories.rides.some((r) => mapping[r] && this.DRUM_CATEGORIES.rides.includes(mapping[r]))
+      ) {
         score += 30;
-      } else if (categories.rides.some(r => mapping[r])) {
+      } else if (categories.rides.some((r) => mapping[r])) {
         score += 20;
       }
     }
@@ -895,7 +1019,7 @@ class DrumNoteMapper {
       const catNotes = categories[key];
       if (catNotes && catNotes.length > 0) {
         total += weight;
-        const mapped = catNotes.filter(n => mapping[n]);
+        const mapped = catNotes.filter((n) => mapping[n]);
         const ratio = mapped.length / catNotes.length;
         score += Math.round(weight * ratio);
       }
@@ -938,8 +1062,10 @@ class DrumNoteMapper {
     });
 
     // Omissions
-    omissions.forEach(omission => {
-      report.details.omittedNotes.push(`${omission.name} (${omission.note}) - used ${omission.count} times`);
+    omissions.forEach((omission) => {
+      report.details.omittedNotes.push(
+        `${omission.name} (${omission.note}) - used ${omission.count} times`
+      );
     });
 
     return report;

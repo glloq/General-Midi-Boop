@@ -144,9 +144,7 @@ class DatabaseManager {
    */
   hasMigration(version) {
     try {
-      const row = this.db
-        .prepare('SELECT 1 FROM schema_version WHERE version = ?')
-        .get(version);
+      const row = this.db.prepare('SELECT 1 FROM schema_version WHERE version = ?').get(version);
       return Boolean(row);
     } catch {
       return false;
@@ -180,7 +178,9 @@ class DatabaseManager {
       // `CREATE INDEX IF NOT EXISTS` is still safe because the
       // existing index would be kept and a new one wouldn't fire.
       if (/duplicate column name/i.test(error.message)) {
-        this.logger.warn(`Migration ${version} (${filename}): column already present, marking as applied`);
+        this.logger.warn(
+          `Migration ${version} (${filename}): column already present, marking as applied`
+        );
         this.db
           .prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)')
           .run(version, `${filename} (column already present)`);
@@ -419,7 +419,8 @@ class DatabaseManager {
       const result = stmt.run(playlistId, midiId, position);
 
       // Update playlist updated_at
-      this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+      this.db
+        .prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
         .run(Date.now(), playlistId);
 
       return result.lastInsertRowid;
@@ -437,12 +438,17 @@ class DatabaseManager {
       const remove = this.db.transaction(() => {
         this.db.prepare('DELETE FROM playlist_items WHERE id = ?').run(itemId);
         // Recompact positions
-        this.db.prepare(`
+        this.db
+          .prepare(
+            `
           UPDATE playlist_items SET position = position - 1
           WHERE playlist_id = ? AND position > ?
-        `).run(item.playlist_id, item.position);
+        `
+          )
+          .run(item.playlist_id, item.position);
 
-        this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+        this.db
+          .prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
           .run(Date.now(), item.playlist_id);
       });
       remove();
@@ -454,9 +460,9 @@ class DatabaseManager {
 
   reorderPlaylistItem(playlistId, itemId, newPosition) {
     try {
-      const item = this.db.prepare(
-        'SELECT * FROM playlist_items WHERE id = ? AND playlist_id = ?'
-      ).get(itemId, playlistId);
+      const item = this.db
+        .prepare('SELECT * FROM playlist_items WHERE id = ? AND playlist_id = ?')
+        .get(itemId, playlistId);
       if (!item) throw new Error(`Playlist item ${itemId} not found`);
 
       const oldPosition = item.position;
@@ -465,22 +471,32 @@ class DatabaseManager {
       const reorder = this.db.transaction(() => {
         if (newPosition < oldPosition) {
           // Moving up: shift items between newPosition and oldPosition-1 down
-          this.db.prepare(`
+          this.db
+            .prepare(
+              `
             UPDATE playlist_items SET position = position + 1
             WHERE playlist_id = ? AND position >= ? AND position < ?
-          `).run(playlistId, newPosition, oldPosition);
+          `
+            )
+            .run(playlistId, newPosition, oldPosition);
         } else {
           // Moving down: shift items between oldPosition+1 and newPosition up
-          this.db.prepare(`
+          this.db
+            .prepare(
+              `
             UPDATE playlist_items SET position = position - 1
             WHERE playlist_id = ? AND position > ? AND position <= ?
-          `).run(playlistId, oldPosition, newPosition);
+          `
+            )
+            .run(playlistId, oldPosition, newPosition);
         }
 
-        this.db.prepare('UPDATE playlist_items SET position = ? WHERE id = ?')
+        this.db
+          .prepare('UPDATE playlist_items SET position = ? WHERE id = ?')
           .run(newPosition, itemId);
 
-        this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+        this.db
+          .prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
           .run(Date.now(), playlistId);
       });
       reorder();
@@ -493,7 +509,8 @@ class DatabaseManager {
   clearPlaylistItems(playlistId) {
     try {
       this.db.prepare('DELETE FROM playlist_items WHERE playlist_id = ?').run(playlistId);
-      this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
+      this.db
+        .prepare('UPDATE playlists SET updated_at = ? WHERE id = ?')
         .run(Date.now(), playlistId);
     } catch (error) {
       this.logger.error(`Failed to clear playlist items: ${error.message}`);
@@ -503,7 +520,8 @@ class DatabaseManager {
 
   updatePlaylistLoop(playlistId, loop) {
     try {
-      this.db.prepare('UPDATE playlists SET loop = ?, updated_at = ? WHERE id = ?')
+      this.db
+        .prepare('UPDATE playlists SET loop = ?, updated_at = ? WHERE id = ?')
         .run(loop ? 1 : 0, Date.now(), playlistId);
     } catch (error) {
       this.logger.error(`Failed to update playlist loop: ${error.message}`);
@@ -513,21 +531,19 @@ class DatabaseManager {
 
   updatePlaylistSettings(playlistId, settings) {
     try {
-      const updates = [];
-      const params = [];
-      if (settings.gap_seconds !== undefined) {
-        updates.push('gap_seconds = ?');
-        params.push(Math.max(0, Math.min(60, parseInt(settings.gap_seconds) || 0)));
-      }
-      if (settings.shuffle !== undefined) {
-        updates.push('shuffle = ?');
-        params.push(settings.shuffle ? 1 : 0);
-      }
-      if (updates.length === 0) return;
-      updates.push('updated_at = ?');
-      params.push(Date.now());
-      params.push(playlistId);
-      this.db.prepare(`UPDATE playlists SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      if (settings.gap_seconds === undefined && settings.shuffle === undefined) return;
+      const result = buildDynamicUpdate(
+        'playlists',
+        { ...settings, updated_at: Date.now() },
+        ['gap_seconds', 'shuffle', 'updated_at'],
+        {
+          transforms: {
+            gap_seconds: (v) => Math.max(0, Math.min(60, parseInt(v) || 0)),
+            shuffle: (v) => (v ? 1 : 0)
+          }
+        }
+      );
+      this.db.prepare(result.sql).run(...result.values, playlistId);
     } catch (error) {
       this.logger.error(`Failed to update playlist settings: ${error.message}`);
       throw error;
@@ -618,12 +634,6 @@ class DatabaseManager {
     return this.midiDB.findFilesByCategory(categories, mode);
   }
 
-  // Instruments + LatencyProfile generic CRUD methods removed in v6 —
-  // both the `instruments` and `instrument_latency` (singular) tables
-  // were dropped from the baseline schema. Per-channel settings + latency
-  // now live exclusively on `instruments_latency` (plural) via
-  // InstrumentSettingsDB / InstrumentCapabilitiesDB.
-
   deleteInstrumentSettingsByDevice(...args) {
     return this.instrumentDB.deleteInstrumentSettingsByDevice(...args);
   }
@@ -697,18 +707,25 @@ class DatabaseManager {
     return this.instrumentDB.getRegisteredInstrumentIds();
   }
 
-  // Instrument Voices (secondary GM alternatives keyed by device_id +
-  // channel). The delegating methods exist on InstrumentDatabase; the
-  // InstrumentRepository accesses them via this manager so every voice
-  // call must have a pass-through here — otherwise
-  // `instrument_save_all` / `instrument_voice_replace` blow up with
-  // `TypeError: this.database.replaceInstrumentVoices is not a function`.
-  listInstrumentVoices(...args) { return this.instrumentDB.listInstrumentVoices(...args); }
-  createInstrumentVoice(...args) { return this.instrumentDB.createInstrumentVoice(...args); }
-  updateInstrumentVoice(...args) { return this.instrumentDB.updateInstrumentVoice(...args); }
-  deleteInstrumentVoice(...args) { return this.instrumentDB.deleteInstrumentVoice(...args); }
-  deleteInstrumentVoicesByInstrument(...args) { return this.instrumentDB.deleteInstrumentVoicesByInstrument(...args); }
-  replaceInstrumentVoices(...args) { return this.instrumentDB.replaceInstrumentVoices(...args); }
+  // Instrument Voices (secondary GM alternatives keyed by device_id + channel).
+  listInstrumentVoices(...args) {
+    return this.instrumentDB.listInstrumentVoices(...args);
+  }
+  createInstrumentVoice(...args) {
+    return this.instrumentDB.createInstrumentVoice(...args);
+  }
+  updateInstrumentVoice(...args) {
+    return this.instrumentDB.updateInstrumentVoice(...args);
+  }
+  deleteInstrumentVoice(...args) {
+    return this.instrumentDB.deleteInstrumentVoice(...args);
+  }
+  deleteInstrumentVoicesByInstrument(...args) {
+    return this.instrumentDB.deleteInstrumentVoicesByInstrument(...args);
+  }
+  replaceInstrumentVoices(...args) {
+    return this.instrumentDB.replaceInstrumentVoices(...args);
+  }
 
   // Routing persistence
   insertRouting(routing) {
@@ -906,31 +923,75 @@ class DatabaseManager {
 
   // ==================== LOOP ARRANGEMENTS ====================
 
-  insertArrangement(a)          { return this.loopArrangementsDB.insertArrangement(a); }
-  getArrangement(id)            { return this.loopArrangementsDB.getArrangement(id); }
-  getArrangements()             { return this.loopArrangementsDB.getArrangements(); }
-  updateArrangement(id, f)      { return this.loopArrangementsDB.updateArrangement(id, f); }
-  deleteArrangement(id)         { return this.loopArrangementsDB.deleteArrangement(id); }
-  insertTrack(t)                { return this.loopArrangementsDB.insertTrack(t); }
-  getTracks(arrId)              { return this.loopArrangementsDB.getTracks(arrId); }
-  getTrack(id)                  { return this.loopArrangementsDB.getTrack(id); }
-  updateTrack(id, f)            { return this.loopArrangementsDB.updateTrack(id, f); }
-  deleteTrack(id)               { return this.loopArrangementsDB.deleteTrack(id); }
-  insertBlock(b)                { return this.loopArrangementsDB.insertBlock(b); }
-  getBlocks(trackId)            { return this.loopArrangementsDB.getBlocks(trackId); }
-  getAllBlocksForArrangement(id) { return this.loopArrangementsDB.getAllBlocksForArrangement(id); }
-  getFullArrangement(id)        { return this.loopArrangementsDB.getFullArrangement(id); }
-  countBlocksByLoopId(loopId)   { return this.loopArrangementsDB.countBlocksByLoopId(loopId); }
-  updateBlock(id, f)            { return this.loopArrangementsDB.updateBlock(id, f); }
-  deleteBlock(id)               { return this.loopArrangementsDB.deleteBlock(id); }
+  insertArrangement(a) {
+    return this.loopArrangementsDB.insertArrangement(a);
+  }
+  getArrangement(id) {
+    return this.loopArrangementsDB.getArrangement(id);
+  }
+  getArrangements() {
+    return this.loopArrangementsDB.getArrangements();
+  }
+  updateArrangement(id, f) {
+    return this.loopArrangementsDB.updateArrangement(id, f);
+  }
+  deleteArrangement(id) {
+    return this.loopArrangementsDB.deleteArrangement(id);
+  }
+  insertTrack(t) {
+    return this.loopArrangementsDB.insertTrack(t);
+  }
+  getTracks(arrId) {
+    return this.loopArrangementsDB.getTracks(arrId);
+  }
+  getTrack(id) {
+    return this.loopArrangementsDB.getTrack(id);
+  }
+  updateTrack(id, f) {
+    return this.loopArrangementsDB.updateTrack(id, f);
+  }
+  deleteTrack(id) {
+    return this.loopArrangementsDB.deleteTrack(id);
+  }
+  insertBlock(b) {
+    return this.loopArrangementsDB.insertBlock(b);
+  }
+  getBlocks(trackId) {
+    return this.loopArrangementsDB.getBlocks(trackId);
+  }
+  getAllBlocksForArrangement(id) {
+    return this.loopArrangementsDB.getAllBlocksForArrangement(id);
+  }
+  getFullArrangement(id) {
+    return this.loopArrangementsDB.getFullArrangement(id);
+  }
+  countBlocksByLoopId(loopId) {
+    return this.loopArrangementsDB.countBlocksByLoopId(loopId);
+  }
+  updateBlock(id, f) {
+    return this.loopArrangementsDB.updateBlock(id, f);
+  }
+  deleteBlock(id) {
+    return this.loopArrangementsDB.deleteBlock(id);
+  }
 
   // ==================== LOOPS ====================
 
-  insertLoop(loop) { return this.loopsDB.insertLoop(loop); }
-  getLoop(id) { return this.loopsDB.getLoop(id); }
-  getLoops() { return this.loopsDB.getLoops(); }
-  updateLoop(id, fields) { return this.loopsDB.updateLoop(id, fields); }
-  deleteLoop(id) { return this.loopsDB.deleteLoop(id); }
+  insertLoop(loop) {
+    return this.loopsDB.insertLoop(loop);
+  }
+  getLoop(id) {
+    return this.loopsDB.getLoop(id);
+  }
+  getLoops() {
+    return this.loopsDB.getLoops();
+  }
+  updateLoop(id, fields) {
+    return this.loopsDB.updateLoop(id, fields);
+  }
+  deleteLoop(id) {
+    return this.loopsDB.deleteLoop(id);
+  }
 
   getStats() {
     try {

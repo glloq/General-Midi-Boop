@@ -5,93 +5,96 @@
 //   (P2-F.10d body rewrite — no longer a prototype mixin.)
 // ============================================================================
 
-(function() {
-    'use strict';
+(function () {
+  'use strict';
 
-    class MidiEditorFileOps {
-        constructor(modal) {
-            this.modal = modal;
-            // Sub-feature: MIDI binary writer (audit §1.3).
-            this.midiWriter = typeof MidiEditorMidiWriter !== 'undefined'
-                ? new MidiEditorMidiWriter(this)
-                : null;
-        }
+  class MidiEditorFileOps {
+    constructor(modal) {
+      this.modal = modal;
+      // Sub-feature: MIDI binary writer (audit §1.3).
+      this.midiWriter =
+        typeof MidiEditorMidiWriter !== 'undefined' ? new MidiEditorMidiWriter(this) : null;
+    }
 
-    convertSequenceToMidi() { return this.midiWriter?.convertSequenceToMidi(); }
+    convertSequenceToMidi() {
+      return this.midiWriter?.convertSequenceToMidi();
+    }
+
+    // Shared no-file/no-piano-roll guard for the save paths.
+    _canSave(logContext) {
+      if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
+        this.modal.log('error', `Cannot ${logContext}: no file or piano roll`);
+        this.modal.showError(this.modal.t('midiEditor.cannotSave'));
+        return false;
+      }
+      return true;
+    }
+
+    // Pull every editor surface back into the in-memory model and serialise
+    // to a midi-file payload. Throws if conversion fails.
+    _buildMidiPayload() {
+      this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
+      this.modal.ccPicker.syncCCEventsFromEditor();
+      this.modal.ccPicker.syncTempoEventsFromEditor();
+      this.modal.ccPicker.updateChannelsFromSequence();
+
+      this.modal.log(
+        'info',
+        `Saving ${this.modal.fullSequence.length} notes across ${this.modal.channels.length} channels`
+      );
+
+      const midiData = this.convertSequenceToMidi();
+      if (!midiData) {
+        throw new Error('MIDI conversion failed');
+      }
+      this.modal.log('debug', `MIDI data to save: ${midiData.tracks.length} tracks`);
+      return midiData;
+    }
 
     async saveMidiFile() {
-        if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
-            this.modal.log('error', 'Cannot save: no file or piano roll');
-            this.modal.showError(this.modal.t('midiEditor.cannotSave'));
-            return;
+      if (!this._canSave('save')) return;
+
+      try {
+        this.modal.log('info', `Saving MIDI file: ${this.modal.currentFile}`);
+        const midiData = this._buildMidiPayload();
+
+        const response = await this.modal.api.writeMidiFile(this.modal.currentFile, midiData);
+
+        if (response && response.success) {
+          this.modal.isDirty = false;
+          this.modal.routingOps?.updateSaveButton();
+          this.modal.showNotification(this.modal.t('midiEditor.saveSuccess'), 'success');
+
+          if (this.modal.eventBus) {
+            this.modal.eventBus.emit('midi_editor:saved', {
+              filePath: this.modal.currentFile
+            });
+          }
+        } else {
+          throw new Error('Server response indicates failure');
         }
-
-        try {
-            this.modal.log('info', `Saving MIDI file: ${this.modal.currentFile}`);
-
-    // Sync fullSequence with the current piano roll (handles channels, additions, deletions, etc.)
-            this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
-
-    // Sync CC/pitch-bend events from the editor
-            this.modal.ccPicker.syncCCEventsFromEditor();
-
-    // Sync tempo events from the editor
-            this.modal.ccPicker.syncTempoEventsFromEditor();
-
-    // Update the channel list to reflect the current sequence
-            this.modal.ccPicker.updateChannelsFromSequence();
-
-            this.modal.log('info', `Saving ${this.modal.fullSequence.length} notes across ${this.modal.channels.length} channels`);
-
-    // Convertir en format MIDI
-            const midiData = this.convertSequenceToMidi();
-
-            if (!midiData) {
-                throw new Error('MIDI conversion failed');
-            }
-
-            this.modal.log('debug', `MIDI data to save: ${midiData.tracks.length} tracks`);
-
-    // Send to the backend
-            const response = await this.modal.api.writeMidiFile(this.modal.currentFile, midiData);
-
-            if (response && response.success) {
-                this.modal.isDirty = false;
-                this.modal.routingOps?.updateSaveButton();
-                this.modal.showNotification(this.modal.t('midiEditor.saveSuccess'), 'success');
-
-    // Emit event
-                if (this.modal.eventBus) {
-                    this.modal.eventBus.emit('midi_editor:saved', {
-                        filePath: this.modal.currentFile
-                    });
-                }
-            } else {
-                throw new Error('Server response indicates failure');
-            }
-
-        } catch (error) {
-            this.modal.log('error', 'Failed to save MIDI file:', error);
-            this.modal.showError(`${this.modal.t('errors.saveFailed')}: ${error.message}`);
-        }
+      } catch (error) {
+        this.modal.log('error', 'Failed to save MIDI file:', error);
+        this.modal.showError(`${this.modal.t('errors.saveFailed')}: ${error.message}`);
+      }
     }
 
     showSaveAsDialog() {
-        if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
-            this.modal.log('error', 'Cannot save as: no file or piano roll');
-            this.modal.showError(this.modal.t('midiEditor.cannotSave'));
-            return;
-        }
+      if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
+        this.modal.log('error', 'Cannot save as: no file or piano roll');
+        this.modal.showError(this.modal.t('midiEditor.cannotSave'));
+        return;
+      }
 
-    // Extract current name without extension
-        const currentName = this.modal.currentFilename || this.modal.currentFile || '';
-        const baseName = currentName.replace(/\.(mid|midi)$/i, '');
-        const extension = currentName.match(/\.(mid|midi)$/i)?.[0] || '.mid';
+      // Extract current name without extension
+      const currentName = this.modal.currentFilename || this.modal.currentFile || '';
+      const baseName = currentName.replace(/\.(mid|midi)$/i, '');
+      const extension = currentName.match(/\.(mid|midi)$/i)?.[0] || '.mid';
 
-    // Create the Save As dialog
-        const dialog = document.createElement('div');
-        dialog.className = 'rename-dialog-overlay';
-        dialog.innerHTML = `
+      // Create the Save As dialog
+      const dialog = document.createElement('div');
+      dialog.className = 'rename-dialog-overlay';
+      dialog.innerHTML = `
             <div class="rename-dialog">
                 <div class="rename-dialog-header">
                     <h4>📄 ${this.modal.t('midiEditor.saveAs')}</h4>
@@ -110,163 +113,131 @@
             </div>
         `;
 
-        document.body.appendChild(dialog);
+      document.body.appendChild(dialog);
 
-        const input = dialog.querySelector('.rename-input');
-        const cancelBtn = dialog.querySelector('.rename-cancel');
-        const confirmBtn = dialog.querySelector('.rename-confirm');
+      const input = dialog.querySelector('.rename-input');
+      const cancelBtn = dialog.querySelector('.rename-cancel');
+      const confirmBtn = dialog.querySelector('.rename-confirm');
 
-    // Select name without extension for easy editing
-        setTimeout(() => {
-            input.focus();
-            input.select();
-        }, 100);
+      // Select name without extension for easy editing
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 100);
 
-    // Cancel
-        cancelBtn.addEventListener('click', () => {
-            dialog.remove();
-        });
+      // Cancel
+      cancelBtn.addEventListener('click', () => {
+        dialog.remove();
+      });
 
-    // Confirm - Save As
-        confirmBtn.addEventListener('click', async () => {
-            const newBaseName = input.value.trim();
-            if (!newBaseName) {
-                this.modal.showError(this.modal.t('midiEditor.emptyFilename'));
-                return;
-            }
+      // Confirm - Save As
+      confirmBtn.addEventListener('click', async () => {
+        const newBaseName = input.value.trim();
+        if (!newBaseName) {
+          this.modal.showError(this.modal.t('midiEditor.emptyFilename'));
+          return;
+        }
 
-            const newFilename = newBaseName + extension;
-            dialog.remove();
+        const newFilename = newBaseName + extension;
+        dialog.remove();
 
-    // Call saveAsFile with the new filename
-            await this.saveAsFile(newFilename);
-        });
+        // Call saveAsFile with the new filename
+        await this.saveAsFile(newFilename);
+      });
 
-    // Enter to confirm
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                confirmBtn.click();
-            } else if (e.key === 'Escape') {
-                cancelBtn.click();
-            }
-        });
+      // Enter to confirm
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          confirmBtn.click();
+        } else if (e.key === 'Escape') {
+          cancelBtn.click();
+        }
+      });
 
-    // Click outside to cancel
-        dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) {
-                dialog.remove();
-            }
-        });
+      // Click outside to cancel
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          dialog.remove();
+        }
+      });
     }
 
     async saveAsFile(newFilename) {
-        if (!this.modal.currentFile || !this.modal.pianoRollRenderer?.isMounted()) {
-            this.modal.log('error', 'Cannot save as: no file or piano roll');
-            this.modal.showError(this.modal.t('midiEditor.cannotSave'));
-            return;
-        }
+      if (!this._canSave('save as')) return;
 
-        try {
-            this.modal.log('info', `Saving MIDI file as: ${newFilename}`);
+      try {
+        this.modal.log('info', `Saving MIDI file as: ${newFilename}`);
+        const midiData = this._buildMidiPayload();
 
-    // Synchronize data from piano roll
-            this.modal.sequenceOps.syncFullSequenceFromPianoRoll();
-            this.modal.ccPicker.syncCCEventsFromEditor();
-            this.modal.ccPicker.syncTempoEventsFromEditor();
-            this.modal.ccPicker.updateChannelsFromSequence();
+        // Send to backend with new filename
+        const response = await this.modal.api.sendCommand('file_save_as', {
+          fileId: this.modal.currentFile,
+          newFilename: newFilename,
+          midiData: midiData
+        });
 
-            this.modal.log('info', `Saving ${this.modal.fullSequence.length} notes across ${this.modal.channels.length} channels`);
+        if (response && response.success) {
+          this.modal.showNotification(
+            this.modal.t('midiEditor.saveAsSuccess', { filename: newFilename }),
+            'success'
+          );
 
-    // Convert to MIDI format
-            const midiData = this.convertSequenceToMidi();
-
-            if (!midiData) {
-                throw new Error('Failed to convert to MIDI format');
-            }
-
-            this.modal.log('debug', `MIDI data to save: ${midiData.tracks.length} tracks`);
-
-    // Send to backend with new filename
-            const response = await this.modal.api.sendCommand('file_save_as', {
-                fileId: this.modal.currentFile,
-                newFilename: newFilename,
-                midiData: midiData
+          // Emit event
+          if (this.modal.eventBus) {
+            this.modal.eventBus.emit('midi_editor:saved_as', {
+              originalFile: this.modal.currentFile,
+              newFile: response.newFileId,
+              newFilename: newFilename
             });
+          }
 
-            if (response && response.success) {
-                this.modal.showNotification(
-                    this.modal.t('midiEditor.saveAsSuccess', { filename: newFilename }),
-                    'success'
-                );
-
-    // Emit event
-                if (this.modal.eventBus) {
-                    this.modal.eventBus.emit('midi_editor:saved_as', {
-                        originalFile: this.modal.currentFile,
-                        newFile: response.newFileId,
-                        newFilename: newFilename
-                    });
-                }
-
-    // Optionally reload file list in parent
-                if (window.loadFiles) {
-                    window.loadFiles();
-                }
-            } else {
-                throw new Error('Server response indicates failure');
-            }
-
-        } catch (error) {
-            this.modal.log('error', 'Failed to save file as:', error);
-            this.modal.showError(`${this.modal.t('errors.saveFailed')}: ${error.message}`);
+          // Optionally reload file list in parent
+          if (window.loadFiles) {
+            window.loadFiles();
+          }
+        } else {
+          throw new Error('Server response indicates failure');
         }
+      } catch (error) {
+        this.modal.log('error', 'Failed to save file as:', error);
+        this.modal.showError(`${this.modal.t('errors.saveFailed')}: ${error.message}`);
+      }
     }
 
     async showAutoAssignModal() {
-        if (!this.modal.currentFile) {
-            this.modal.showErrorModal(this.modal.t('midiEditor.noFileLoaded'));
-            return;
+      if (!this.modal.currentFile) {
+        this.modal.showErrorModal(this.modal.t('midiEditor.noFileLoaded'));
+        return;
+      }
+
+      if (!window.RoutingSummaryPage) {
+        this.modal.showErrorModal(this.modal.t('autoAssign.componentNotLoaded'));
+        return;
+      }
+
+      const routingPage = new window.RoutingSummaryPage(this.modal.api);
+      routingPage.show(
+        this.modal.currentFile,
+        this.modal.currentFilename || '',
+        this.modal.channels || [],
+        (result) => {
+          if (result && window.eventBus) {
+            window.eventBus.emit('routing:changed', result);
+          }
         }
-
-        if (!window.RoutingSummaryPage) {
-            this.modal.showErrorModal(this.modal.t('autoAssign.componentNotLoaded'));
-            return;
-        }
-
-        const routingPage = new window.RoutingSummaryPage(this.modal.api);
-        routingPage.show(this.modal.currentFile, this.modal.currentFilename || '', this.modal.channels || [], (result) => {
-            if (result && window.eventBus) {
-                window.eventBus.emit('routing:changed', result);
-            }
-        });
-    }
-
-    loadScript(src) {
-        return new Promise((resolve, reject) => {
-    // Check if already loaded
-            const existing = document.querySelector(`script[src="${src}"]`);
-            if (existing) {
-    // Script tag exists but maybe failed - remove and reload
-                existing.remove();
-            }
-            const script = document.createElement('script');
-            script.src = src + '?v=' + Date.now();
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
+      );
     }
 
     showRenameDialog() {
-    // Extraire le nom sans extension
-        const currentName = this.modal.currentFilename || this.modal.currentFile || '';
-        const baseName = currentName.replace(/\.(mid|midi)$/i, '');
-        const extension = currentName.match(/\.(mid|midi)$/i)?.[0] || '.mid';
+      // Extraire le nom sans extension
+      const currentName = this.modal.currentFilename || this.modal.currentFile || '';
+      const baseName = currentName.replace(/\.(mid|midi)$/i, '');
+      const extension = currentName.match(/\.(mid|midi)$/i)?.[0] || '.mid';
 
-    // Create the rename dialog (centered modal)
-        const dialog = document.createElement('div');
-        dialog.className = 'rename-dialog-overlay';
-        dialog.innerHTML = `
+      // Create the rename dialog (centered modal)
+      const dialog = document.createElement('div');
+      dialog.className = 'rename-dialog-overlay';
+      dialog.innerHTML = `
             <div class="rename-dialog">
                 <div class="rename-dialog-header">
                     <h4>✏️ ${this.modal.t('midiEditor.renameFile')}</h4>
@@ -284,82 +255,82 @@
             </div>
         `;
 
-    // Append to <body> so it sits on top of everything
-        document.body.appendChild(dialog);
+      // Append to <body> so it sits on top of everything
+      document.body.appendChild(dialog);
 
-        const input = dialog.querySelector('.rename-input');
-        const cancelBtn = dialog.querySelector('.rename-cancel');
-        const confirmBtn = dialog.querySelector('.rename-confirm');
+      const input = dialog.querySelector('.rename-input');
+      const cancelBtn = dialog.querySelector('.rename-cancel');
+      const confirmBtn = dialog.querySelector('.rename-confirm');
 
-    // Focus and select the text
-        input.focus();
-        input.select();
+      // Focus and select the text
+      input.focus();
+      input.select();
 
-    // Fonction de fermeture
-        const closeDialog = () => {
-            dialog.remove();
-        };
+      // Fonction de fermeture
+      const closeDialog = () => {
+        dialog.remove();
+      };
 
-    // Fonction de validation
-        const confirmRename = async () => {
-            const newName = input.value.trim();
-            if (!newName) {
-                this.modal.showError(this.modal.t('midiEditor.renameEmpty'));
-                return;
+      // Fonction de validation
+      const confirmRename = async () => {
+        const newName = input.value.trim();
+        if (!newName) {
+          this.modal.showError(this.modal.t('midiEditor.renameEmpty'));
+          return;
+        }
+
+        const newFilename = newName + extension;
+
+        try {
+          // Appeler l'API pour renommer le fichier
+          const response = await this.modal.api.sendCommand('file_rename', {
+            fileId: this.modal.currentFile,
+            newFilename: newFilename
+          });
+
+          if (response && response.success) {
+            // Update the displayed name
+            this.modal.currentFilename = newFilename;
+            const fileNameSpan = this.modal.container.querySelector('#editor-file-name');
+            if (fileNameSpan) {
+              fileNameSpan.textContent = newFilename;
             }
 
-            const newFilename = newName + extension;
+            this.modal.showNotification(this.modal.t('midiEditor.renameSuccess'), 'success');
 
-            try {
-    // Appeler l'API pour renommer le fichier
-                const response = await this.modal.api.sendCommand('file_rename', {
-                    fileId: this.modal.currentFile,
-                    newFilename: newFilename
-                });
-
-                if (response && response.success) {
-    // Update the displayed name
-                    this.modal.currentFilename = newFilename;
-                    const fileNameSpan = this.modal.container.querySelector('#editor-file-name');
-                    if (fileNameSpan) {
-                        fileNameSpan.textContent = newFilename;
-                    }
-
-                    this.modal.showNotification(this.modal.t('midiEditor.renameSuccess'), 'success');
-
-    // Emit event to refresh the file list
-                    if (this.modal.eventBus) {
-                        this.modal.eventBus.emit('midi_editor:file_renamed', {
-                            fileId: this.modal.currentFile,
-                            oldFilename: currentName,
-                            newFilename: newFilename
-                        });
-                    }
-                } else {
-                    throw new Error(response?.error || 'Rename failed');
-                }
-            } catch (error) {
-                this.modal.log('error', 'Failed to rename file:', error);
-                this.modal.showError(`${this.modal.t('midiEditor.renameFailed')}: ${error.message}`);
+            // Emit event to refresh the file list
+            if (this.modal.eventBus) {
+              this.modal.eventBus.emit('midi_editor:file_renamed', {
+                fileId: this.modal.currentFile,
+                oldFilename: currentName,
+                newFilename: newFilename
+              });
             }
+          } else {
+            throw new Error(response?.error || 'Rename failed');
+          }
+        } catch (error) {
+          this.modal.log('error', 'Failed to rename file:', error);
+          this.modal.showError(`${this.modal.t('midiEditor.renameFailed')}: ${error.message}`);
+        }
 
-            closeDialog();
-        };
+        closeDialog();
+      };
 
-    // Events
-        cancelBtn.addEventListener('click', closeDialog);
-        confirmBtn.addEventListener('click', confirmRename);
-        dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) closeDialog();
-        });
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') confirmRename();
-            if (e.key === 'Escape') closeDialog();
-        });
+      // Events
+      cancelBtn.addEventListener('click', closeDialog);
+      confirmBtn.addEventListener('click', confirmRename);
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) closeDialog();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmRename();
+        if (e.key === 'Escape') closeDialog();
+      });
     }
-    }
+  }
 
-    if (typeof window !== 'undefined') {
-        window.MidiEditorFileOps = MidiEditorFileOps;
-    }
+  if (typeof window !== 'undefined') {
+    window.MidiEditorFileOps = MidiEditorFileOps;
+  }
 })();

@@ -13,53 +13,49 @@
 // shrink as functionality migrates over (Phase E and beyond).
 // =============================================================================
 (function () {
-    'use strict';
+  'use strict';
 
-    if (typeof window === 'undefined' || !window.InstrumentView) return;
-    const InstrumentView = window.InstrumentView;
+  if (typeof window === 'undefined' || !window.InstrumentView) return;
+  const InstrumentView = window.InstrumentView;
 
-    class PianoView extends InstrumentView {
-        static viewKind = 'piano';
-        static iconUrl = '/assets/instruments/acoustic_grand.svg';
-        static emoji = '🎹';
-        static labelKey = 'keyboard.viewPiano';
+  class PianoView extends InstrumentView {
+    static viewKind = 'piano';
+    static iconUrl = '/assets/instruments/acoustic_grand.svg';
+    static emoji = '🎹';
+    static labelKey = 'keyboard.viewPiano';
 
-        mount(ctx) {
-            super.mount(ctx);
-            const modal = ctx.modal;
-            if (!modal) return;
-            // Reuse the legacy render pipeline (Phase D delegation).
-            if (typeof modal.regeneratePianoKeys === 'function') {
-                modal.regeneratePianoKeys();
-            }
-        }
-
-        unmount() {
-            const modal = this.ctx && this.ctx.modal;
-            if (modal && typeof modal._cleanFingersCanvas === 'function') {
-                // Hand-fingers overlay is shared with list view; controller
-                // is responsible for tearing it down only when leaving both.
-            }
-            super.unmount();
-        }
-
-        setNoteRange(startNote, noteCount) {
-            const modal = this.ctx && this.ctx.modal;
-            if (!modal) return;
-            modal.startNote = startNote;
-            modal.visibleNoteCount = noteCount;
-            if (typeof modal.regeneratePianoKeys === 'function') {
-                modal.regeneratePianoKeys();
-            }
-        }
-
-        setActiveNotes(_active) {
-            // Active-note highlighting is currently driven by the legacy
-            // mixin via direct DOM class toggling; no extra work needed
-            // until Phase E owns the DOM directly.
-        }
+    mount(ctx) {
+      super.mount(ctx);
+      const modal = ctx.modal;
+      if (!modal) return;
+      // Reuse the legacy render pipeline (Phase D delegation).
+      if (typeof modal.regeneratePianoKeys === 'function') {
+        modal.regeneratePianoKeys();
+      }
     }
 
-    if (typeof window !== 'undefined') window.PianoView = PianoView;
-    if (typeof module !== 'undefined') module.exports = PianoView;
+    // No unmount override: the hand-fingers overlay is shared with the
+    // list view, so the controller (not this view) tears it down only
+    // when leaving both. The base unmount() (clear ctx + mounted) is
+    // all that's needed here.
+
+    setNoteRange(startNote, noteCount) {
+      const modal = this.ctx && this.ctx.modal;
+      if (!modal) return;
+      modal.startNote = startNote;
+      modal.visibleNoteCount = noteCount;
+      if (typeof modal.regeneratePianoKeys === 'function') {
+        modal.regeneratePianoKeys();
+      }
+    }
+
+    setActiveNotes(_active) {
+      // Active-note highlighting is currently driven by the legacy
+      // mixin via direct DOM class toggling; no extra work needed
+      // until Phase E owns the DOM directly.
+    }
+  }
+
+  if (typeof window !== 'undefined') window.PianoView = PianoView;
+  if (typeof module !== 'undefined') module.exports = PianoView;
 })();

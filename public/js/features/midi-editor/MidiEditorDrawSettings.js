@@ -1,40 +1,39 @@
 // ============================================================================
 // File: public/js/features/midi-editor/MidiEditorDrawSettings.js
 // Description: Draw settings popover — sub-component instantiated by
-//   MidiEditorModal (converted from mixin in P2-F.10b). Keeps the mixin
-//   export as backward-compatible forwarders.
+//   MidiEditorModal, accessed via `modal.drawSettings`.
 // ============================================================================
 
-(function() {
-    'use strict';
+(function () {
+  'use strict';
 
-    class MidiEditorDrawSettings {
-        constructor(modal) {
-            this.modal = modal;
-        }
+  class MidiEditorDrawSettings {
+    constructor(modal) {
+      this.modal = modal;
+    }
 
-        /** Toggle the popover visibility; create it on first open. */
-        toggleDrawSettingsPopover() {
-            const popover = this.modal.container?.querySelector('#cc-draw-settings-popover');
-            if (popover) {
-                const isVisible = popover.style.display !== 'none';
-                popover.style.display = isVisible ? 'none' : '';
-                return;
-            }
-            this.createDrawSettingsPopover();
-        }
+    /** Toggle the popover visibility; create it on first open. */
+    toggleDrawSettingsPopover() {
+      const popover = this.modal.container?.querySelector('#cc-draw-settings-popover');
+      if (popover) {
+        const isVisible = popover.style.display !== 'none';
+        popover.style.display = isVisible ? 'none' : '';
+        return;
+      }
+      this.createDrawSettingsPopover();
+    }
 
-        createDrawSettingsPopover() {
-            const m = this.modal;
-            const btn = m.container?.querySelector('#cc-draw-settings-btn');
-            if (!btn) return;
+    createDrawSettingsPopover() {
+      const m = this.modal;
+      const btn = m.container?.querySelector('#cc-draw-settings-btn');
+      if (!btn) return;
 
-            const currentDensity = m.ccEditor?.drawDensityMultiplier || 1;
+      const currentDensity = m.ccEditor?.drawDensityMultiplier || 1;
 
-            const popover = document.createElement('div');
-            popover.id = 'cc-draw-settings-popover';
-            popover.className = 'cc-draw-settings-popover';
-            popover.innerHTML = `
+      const popover = document.createElement('div');
+      popover.id = 'cc-draw-settings-popover';
+      popover.className = 'cc-draw-settings-popover';
+      popover.innerHTML = `
                 <div class="cc-draw-settings-section">
                     <label class="cc-draw-settings-label">${m.t('midiEditor.drawDensity')}</label>
                     <span class="cc-draw-settings-tip">${m.t('midiEditor.drawDensityTip')}</span>
@@ -63,42 +62,42 @@
                 </div>
             `;
 
-            btn.parentElement.style.position = 'relative';
-            btn.parentElement.appendChild(popover);
+      btn.parentElement.style.position = 'relative';
+      btn.parentElement.appendChild(popover);
 
-            popover.querySelectorAll('.cc-density-btn').forEach((densityBtn) => {
-                densityBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const density = parseFloat(densityBtn.dataset.density);
-                    this.applyDrawDensity(density);
-                    popover.querySelectorAll('.cc-density-btn').forEach((b) => b.classList.remove('active'));
-                    densityBtn.classList.add('active');
-                });
-            });
+      popover.querySelectorAll('.cc-density-btn').forEach((densityBtn) => {
+        densityBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const density = parseFloat(densityBtn.dataset.density);
+          this.applyDrawDensity(density);
+          popover.querySelectorAll('.cc-density-btn').forEach((b) => b.classList.remove('active'));
+          densityBtn.classList.add('active');
+        });
+      });
 
-            const closeHandler = (e) => {
-                if (!popover.contains(e.target) && e.target !== btn) {
-                    popover.style.display = 'none';
-                    document.removeEventListener('click', closeHandler);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+      const closeHandler = (e) => {
+        if (!popover.contains(e.target) && e.target !== btn) {
+          popover.style.display = 'none';
+          document.removeEventListener('click', closeHandler);
         }
-
-        applyDrawDensity(multiplier) {
-            const m = this.modal;
-            if (m.ccEditor && typeof m.ccEditor.setDrawDensity === 'function') {
-                m.ccEditor.setDrawDensity(multiplier);
-            }
-            if (m.tempoEditor && typeof m.tempoEditor.setDrawDensity === 'function') {
-                m.tempoEditor.setDrawDensity(multiplier);
-            }
-            m.log('info', `Draw density set to ${multiplier}`);
-        }
+      };
+      setTimeout(() => document.addEventListener('click', closeHandler), 0);
     }
 
-    if (typeof window !== 'undefined') {
-        window.MidiEditorDrawSettings = MidiEditorDrawSettings;
+    applyDrawDensity(multiplier) {
+      const m = this.modal;
+      if (m.ccEditor && typeof m.ccEditor.setDrawDensity === 'function') {
+        m.ccEditor.setDrawDensity(multiplier);
+      }
+      if (m.tempoEditor && typeof m.tempoEditor.setDrawDensity === 'function') {
+        m.tempoEditor.setDrawDensity(multiplier);
+      }
+      m.log('info', `Draw density set to ${multiplier}`);
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.MidiEditorDrawSettings = MidiEditorDrawSettings;
+  }
 })();

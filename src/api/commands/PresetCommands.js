@@ -73,23 +73,6 @@ async function presetRename(app, data) {
 }
 
 /**
- * Identical payload to {@link presetLoad}; named distinctly so the
- * frontend can distinguish "load into UI" from "download as file".
- *
- * @param {Object} app
- * @param {{presetId:(string|number)}} data
- * @returns {Promise<{preset:Object}>}
- * @throws {NotFoundError}
- */
-async function presetExport(app, data) {
-  const preset = app.presetRepository.findById(data.presetId);
-  if (!preset) {
-    throw new NotFoundError('Preset', data.presetId);
-  }
-  return { preset: preset };
-}
-
-/**
  * @param {import('../CommandRegistry.js').default} registry
  * @param {Object} app
  * @returns {void}
@@ -100,5 +83,7 @@ export function register(registry, app) {
   registry.register('preset_list', (data) => presetList(app, data));
   registry.register('preset_delete', (data) => presetDelete(app, data));
   registry.register('preset_rename', (data) => presetRename(app, data));
-  registry.register('preset_export', (data) => presetExport(app, data));
+  // preset_export is identical to preset_load — named distinctly so the
+  // frontend can distinguish "load into UI" from "download as file".
+  registry.register('preset_export', (data) => presetLoad(app, data));
 }

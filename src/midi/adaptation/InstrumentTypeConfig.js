@@ -370,63 +370,6 @@ const InstrumentTypeConfig = {
   },
 
   /**
-   * Return the subtypes of a category for the UI
-   * @param {string} categoryKey
-   * @returns {Array<{ key: string, label: string }>}
-   */
-  getSubtypes(categoryKey) {
-    const category = INSTRUMENT_TYPE_HIERARCHY[categoryKey];
-    if (!category || !category.subtypes) return [];
-    return Object.entries(category.subtypes).map(([key, config]) => ({
-      key,
-      label: config.label
-    }));
-  },
-
-  /**
-   * Check if a type is valid
-   * @param {string} type
-   * @returns {boolean}
-   */
-  isValidType(type) {
-    return type in INSTRUMENT_TYPE_HIERARCHY;
-  },
-
-  /**
-   * Check if a subtype is valid for a given type
-   * @param {string} type
-   * @param {string} subtype
-   * @returns {boolean}
-   */
-  isValidSubtype(type, subtype) {
-    const category = INSTRUMENT_TYPE_HIERARCHY[type];
-    if (!category || !category.subtypes) return false;
-    return subtype in category.subtypes;
-  },
-
-  /**
-   * Get the label of a type
-   * @param {string} type
-   * @returns {string}
-   */
-  getTypeLabel(type) {
-    const category = INSTRUMENT_TYPE_HIERARCHY[type];
-    return category ? category.label : type;
-  },
-
-  /**
-   * Get the label of a subtype
-   * @param {string} type
-   * @param {string} subtype
-   * @returns {string}
-   */
-  getSubtypeLabel(type, subtype) {
-    const category = INSTRUMENT_TYPE_HIERARCHY[type];
-    if (!category || !category.subtypes || !category.subtypes[subtype]) return subtype;
-    return category.subtypes[subtype].label;
-  },
-
-  /**
    * Check if two types belong to the same family
    * @param {string} type1
    * @param {string} type2
@@ -454,16 +397,6 @@ const InstrumentTypeConfig = {
       }
     }
     return null;
-  },
-
-  /**
-   * Return the GM programs associated with a type
-   * @param {string} type
-   * @returns {number[]}
-   */
-  getGmProgramsForType(type) {
-    const category = INSTRUMENT_TYPE_HIERARCHY[type];
-    return category ? category.gmPrograms : [];
   },
 
   /**

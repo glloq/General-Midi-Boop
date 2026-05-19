@@ -40,10 +40,28 @@ class NetworkManager extends EventEmitter {
       5004, // RTP-MIDI (Apple Network MIDI)
       5353, // mDNS
       21928, // RTP-MIDI session
-      7000, 7001, 7002 // Custom ports commonly used
+      7000,
+      7001,
+      7002 // Custom ports commonly used
     ];
 
     this.logger.info('NetworkManager initialized with RTP-MIDI support');
+  }
+
+  /**
+   * First non-internal IPv4 address of this host, or '' if none.
+   * @returns {string}
+   */
+  getLocalIP() {
+    const interfaces = os.networkInterfaces();
+    for (const name in interfaces) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+    return '';
   }
 
   /**
@@ -51,21 +69,10 @@ class NetworkManager extends EventEmitter {
    * @returns {string} Local subnet (e.g. "192.168.1")
    */
   getLocalSubnet() {
-    const interfaces = os.networkInterfaces();
-
-    for (const name in interfaces) {
-      for (const iface of interfaces[name]) {
-        // Skip loopback and non-IPv4 interfaces
-        if (iface.family === 'IPv4' && !iface.internal) {
-          const parts = iface.address.split('.');
-          // Return the class C subnet
-          return `${parts[0]}.${parts[1]}.${parts[2]}`;
-        }
-      }
-    }
-
-    // Fallback to default subnet
-    return '192.168.1';
+    const ip = this.getLocalIP();
+    if (!ip) return '192.168.1';
+    const [a, b, c] = ip.split('.');
+    return `${a}.${b}.${c}`;
   }
 
   /**
@@ -122,16 +129,13 @@ class NetworkManager extends EventEmitter {
         this.logger.debug('Using avahi-browse for mDNS discovery...');
 
         // Scan specifically for RTP-MIDI and Apple MIDI services
-        const serviceTypes = [
-          '_apple-midi._udp',
-          '_rtpmidi._udp',
-          '_midi._udp'
-        ];
+        const serviceTypes = ['_apple-midi._udp', '_rtpmidi._udp', '_midi._udp'];
 
         for (const serviceType of serviceTypes) {
           try {
             const { stdout } = await execFileAsync(
-              'timeout', [String(timeout) + 's', 'avahi-browse', serviceType, '-t', '-r', '-p'],
+              'timeout',
+              [String(timeout) + 's', 'avahi-browse', serviceType, '-t', '-r', '-p'],
               { timeout: (timeout + 1) * 1000 }
             ).catch(() => ({ stdout: '' }));
 
@@ -148,7 +152,8 @@ class NetworkManager extends EventEmitter {
         if (this.devices.size === 0) {
           try {
             const { stdout } = await execFileAsync(
-              'timeout', [String(timeout) + 's', 'avahi-browse', '-a', '-t', '-r', '-p'],
+              'timeout',
+              [String(timeout) + 's', 'avahi-browse', '-a', '-t', '-r', '-p'],
               { timeout: (timeout + 1) * 1000 }
             ).catch(() => ({ stdout: '' }));
 
@@ -163,7 +168,6 @@ class NetworkManager extends EventEmitter {
 
       // Add test devices for development
       this.addTestDevices();
-
     } catch (error) {
       this.logger.warn(`mDNS scan error: ${error.message}`);
     }
@@ -230,7 +234,7 @@ class NetworkManager extends EventEmitter {
 
       // Test reachability via multi-port TCP
       const pingPromise = this.isHostReachable(ip, 1000)
-        .then(isReachable => {
+        .then((isReachable) => {
           if (isReachable) {
             // Don't add if already discovered via mDNS
             if (!this.devices.has(ip)) {
@@ -268,14 +272,18 @@ class NetworkManager extends EventEmitter {
       await Promise.all(pingPromises);
     }
 
-    this.logger.info(`[NetworkManager] TCP scan done - ${ipFoundCount} IPs found, reading ARP table...`);
+    this.logger.info(
+      `[NetworkManager] TCP scan done - ${ipFoundCount} IPs found, reading ARP table...`
+    );
 
     // The TCP connects triggered ARP requests for each IP.
     // Read the ARP table to find hosts that responded to ARP
     // but not to TCP (firewall DROP). ARP is Layer 2, mandatory.
     const arpCount = await this.readARPTable(subnet, localIP);
 
-    this.logger.info(`[NetworkManager] Subnet scan completed - ${ipFoundCount} TCP + ${arpCount} ARP, ${this.devices.size} total devices`);
+    this.logger.info(
+      `[NetworkManager] Subnet scan completed - ${ipFoundCount} TCP + ${arpCount} ARP, ${this.devices.size} total devices`
+    );
 
     // If no IPs found, add test devices (dev environment only)
     if (this.devices.size === 0 && process.env.NODE_ENV !== 'production') {
@@ -367,24 +375,6 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Get the local IP address
-   * @returns {string} Local IP address
-   */
-  getLocalIP() {
-    const interfaces = os.networkInterfaces();
-
-    for (const name in interfaces) {
-      for (const iface of interfaces[name]) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-          return iface.address;
-        }
-      }
-    }
-
-    return '';
-  }
-
-  /**
    * Add test devices (for development)
    */
   addTestDevices() {
@@ -417,7 +407,7 @@ class NetworkManager extends EventEmitter {
         }
       ];
 
-      testDevices.forEach(device => this.devices.set(device.ip, device));
+      testDevices.forEach((device) => this.devices.set(device.ip, device));
     }
   }
 
@@ -494,7 +484,10 @@ class NetworkManager extends EventEmitter {
       // Connect with timeout to prevent indefinite hang
       const RTP_CONNECT_TIMEOUT = 10000; // 10 seconds
       const connectTimeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`RTP-MIDI connection timeout after ${RTP_CONNECT_TIMEOUT}ms`)), RTP_CONNECT_TIMEOUT)
+        setTimeout(
+          () => reject(new Error(`RTP-MIDI connection timeout after ${RTP_CONNECT_TIMEOUT}ms`)),
+          RTP_CONNECT_TIMEOUT
+        )
       );
       await Promise.race([session.connect(ip, parseInt(port)), connectTimeout]);
 
@@ -513,7 +506,9 @@ class NetworkManager extends EventEmitter {
       };
 
       this.connectedDevices.set(ip, connectionInfo);
-      this.logger.info(`[NetworkManager] ✅ Connected to ${deviceInfo.name} (${ip}:${port}) via RTP-MIDI`);
+      this.logger.info(
+        `[NetworkManager] ✅ Connected to ${deviceInfo.name} (${ip}:${port}) via RTP-MIDI`
+      );
 
       // Emit event
       this.emit('network:connected', {
@@ -523,11 +518,41 @@ class NetworkManager extends EventEmitter {
       });
 
       return connectionInfo;
-
     } catch (error) {
       this.logger.error(`[NetworkManager] Failed to connect RTP-MIDI to ${ip}: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * One-shot TCP connect probe. Resolves true on connect, false on
+   * timeout; `errResolves` decides the outcome for socket errors
+   * (`isHostReachable` treats ECONNREFUSED as "host present").
+   * @param {string} ip
+   * @param {number} port
+   * @param {number} timeoutMs
+   * @param {(err:Error)=>boolean} errResolves
+   * @returns {Promise<boolean>}
+   * @private
+   */
+  _tcpProbe(ip, port, timeoutMs, errResolves) {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(timeoutMs);
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve(false);
+      });
+      socket.on('error', (err) => {
+        socket.destroy();
+        resolve(errResolves(err));
+      });
+      socket.connect(port, ip);
+    });
   }
 
   /**
@@ -541,19 +566,7 @@ class NetworkManager extends EventEmitter {
   isHostReachable(ip, timeoutMs = 1000) {
     if (!/^[\d.]+$/.test(ip)) return Promise.resolve(false);
     const safeTimeout = Math.max(500, Math.min(5000, parseInt(timeoutMs, 10) || 1000));
-
-    return new Promise(resolve => {
-      const socket = new net.Socket();
-      socket.setTimeout(safeTimeout);
-      socket.on('connect', () => { socket.destroy(); resolve(true); });
-      socket.on('timeout', () => { socket.destroy(); resolve(false); });
-      socket.on('error', (err) => {
-        socket.destroy();
-        // ECONNREFUSED = port closed but host reachable
-        resolve(err.code === 'ECONNREFUSED');
-      });
-      socket.connect(80, ip);
-    });
+    return this._tcpProbe(ip, 80, safeTimeout, (err) => err.code === 'ECONNREFUSED');
   }
 
   /**
@@ -565,20 +578,11 @@ class NetworkManager extends EventEmitter {
    * @returns {Promise<boolean>} True if reachable
    */
   async checkReachability(ip, timeoutMs = 2000) {
-    // Validate IP format
     if (!/^[\d.]+$/.test(ip) && !/^[a-fA-F\d:]+$/.test(ip)) {
       return false;
     }
     const safeTimeout = Math.max(500, Math.min(10000, parseInt(timeoutMs, 10) || 2000));
-
-    return new Promise(resolve => {
-      const socket = new net.Socket();
-      socket.setTimeout(safeTimeout);
-      socket.on('connect', () => { socket.destroy(); resolve(true); });
-      socket.on('timeout', () => { socket.destroy(); resolve(false); });
-      socket.on('error', () => { socket.destroy(); resolve(false); });
-      socket.connect(5004, ip);
-    });
+    return this._tcpProbe(ip, 5004, safeTimeout, () => false);
   }
 
   /**
@@ -617,7 +621,6 @@ class NetworkManager extends EventEmitter {
         address: ip,
         connected: false
       };
-
     } catch (error) {
       this.logger.error(`[NetworkManager] Error disconnecting ${ip}: ${error.message}`);
       throw error;
@@ -647,7 +650,6 @@ class NetworkManager extends EventEmitter {
       } else {
         this.logger.warn(`[NetworkManager] Unsupported MIDI message type: ${type}`);
       }
-
     } catch (error) {
       this.logger.error(`[NetworkManager] Send MIDI error: ${error.message}`);
       throw error;
@@ -665,7 +667,11 @@ class NetworkManager extends EventEmitter {
       const parsedMessage = this.parseMidiBytes(midiBytes);
 
       if (parsedMessage) {
-        this.logger.debug(`[NetworkManager] MIDI from ${ip}:`, parsedMessage.type, parsedMessage.data);
+        this.logger.debug(
+          `[NetworkManager] MIDI from ${ip}:`,
+          parsedMessage.type,
+          parsedMessage.data
+        );
 
         // Emit MIDI event
         this.emit('midi:data', {
@@ -675,7 +681,6 @@ class NetworkManager extends EventEmitter {
           data: parsedMessage.data
         });
       }
-
     } catch (error) {
       this.logger.error(`[NetworkManager] Error processing MIDI data: ${error.message}`);
     }
@@ -702,71 +707,43 @@ class NetworkManager extends EventEmitter {
     }
 
     const status = bytes[0];
-    const command = status & 0xF0;
-    const channel = status & 0x0F;
+    const command = status & 0xf0;
+    const channel = status & 0x0f;
 
     switch (command) {
       case 0x90: // Note On
         if (bytes.length >= 3) {
-          return {
-            type: 'noteon',
-            data: { channel, note: bytes[1], velocity: bytes[2] }
-          };
+          return { type: 'noteon', data: { channel, note: bytes[1], velocity: bytes[2] } };
         }
         break;
-
       case 0x80: // Note Off
         if (bytes.length >= 3) {
-          return {
-            type: 'noteoff',
-            data: { channel, note: bytes[1], velocity: bytes[2] }
-          };
+          return { type: 'noteoff', data: { channel, note: bytes[1], velocity: bytes[2] } };
         }
         break;
-
-      case 0xB0: // Control Change
+      case 0xb0: // Control Change
         if (bytes.length >= 3) {
-          return {
-            type: 'cc',
-            data: { channel, controller: bytes[1], value: bytes[2] }
-          };
+          return { type: 'cc', data: { channel, controller: bytes[1], value: bytes[2] } };
         }
         break;
-
-      case 0xC0: // Program Change
+      case 0xc0: // Program Change
         if (bytes.length >= 2) {
-          return {
-            type: 'program',
-            data: { channel, number: bytes[1] }
-          };
+          return { type: 'program', data: { channel, number: bytes[1] } };
         }
         break;
-
-      case 0xE0: // Pitch Bend
+      case 0xe0: // Pitch Bend
         if (bytes.length >= 3) {
-          const value = (bytes[2] << 7) | bytes[1];
-          return {
-            type: 'pitchbend',
-            data: { channel, value }
-          };
+          return { type: 'pitchbend', data: { channel, value: (bytes[2] << 7) | bytes[1] } };
         }
         break;
-
-      case 0xA0: // Poly Aftertouch
+      case 0xa0: // Poly Aftertouch
         if (bytes.length >= 3) {
-          return {
-            type: 'poly aftertouch',
-            data: { channel, note: bytes[1], pressure: bytes[2] }
-          };
+          return { type: 'poly aftertouch', data: { channel, note: bytes[1], pressure: bytes[2] } };
         }
         break;
-
-      case 0xD0: // Channel Aftertouch
+      case 0xd0: // Channel Aftertouch
         if (bytes.length >= 2) {
-          return {
-            type: 'channel aftertouch',
-            data: { channel, pressure: bytes[1] }
-          };
+          return { type: 'channel aftertouch', data: { channel, pressure: bytes[1] } };
         }
         break;
     }
@@ -779,7 +756,9 @@ class NetworkManager extends EventEmitter {
    * @returns {Array} List of connected instruments
    */
   getConnectedDevices() {
-    return Array.from(this.connectedDevices.values()).map(({ session: _session, ...device }) => device);
+    return Array.from(this.connectedDevices.values()).map(
+      ({ session: _session, ...device }) => device
+    );
   }
 
   /**
@@ -807,7 +786,7 @@ class NetworkManager extends EventEmitter {
     const disconnectPromises = [];
     for (const ip of this.connectedDevices.keys()) {
       disconnectPromises.push(
-        this.disconnect(ip).catch(err =>
+        this.disconnect(ip).catch((err) =>
           this.logger.error(`Error disconnecting ${ip}: ${err.message}`)
         )
       );

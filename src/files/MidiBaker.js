@@ -64,7 +64,7 @@ class MidiBaker {
     };
 
     // 1. CC20 (string select) + CC21 (fret select) from tablature data.
-    const tabCCs = this._generateTablatureCCs(id, midi, tempoMap, ppq);
+    const tabCCs = this._generateTablatureCCs(id, midi);
     for (const [trackIdx, events] of tabCCs) addCCs(trackIdx, events);
 
     // 2. Hand-position CCs (CC22+) from routings + planners.
@@ -165,7 +165,7 @@ class MidiBaker {
    * @private
    * @returns {Map<number, Array<{absTick, channel, controllerType, value}>>}
    */
-  _generateTablatureCCs(fileId, midi, tempoMap, ppq) {
+  _generateTablatureCCs(fileId, midi) {
     const result = new Map();
 
     let tablatures;
@@ -183,9 +183,13 @@ class MidiBaker {
 
       let instrument;
       try {
-        instrument = this.database.stringInstrumentDB.getStringInstrumentById(tab.string_instrument_id);
+        instrument = this.database.stringInstrumentDB.getStringInstrumentById(
+          tab.string_instrument_id
+        );
       } catch (e) {
-        this.logger.debug(`MidiBaker: instrument ${tab.string_instrument_id} lookup failed: ${e.message}`);
+        this.logger.debug(
+          `MidiBaker: instrument ${tab.string_instrument_id} lookup failed: ${e.message}`
+        );
         continue;
       }
       if (!instrument || instrument.cc_enabled === false) continue;
@@ -193,27 +197,29 @@ class MidiBaker {
       const ch = tab.channel ?? 0;
       const trackIdx = this._findTrackForChannel(midi, ch);
 
-      const ccStr  = instrument.cc_string_number ?? 20;
-      const ccFret = instrument.cc_fret_number   ?? 21;
-      const strMin = instrument.cc_string_min    ?? 1;
-      const strMax = instrument.cc_string_max    ?? 12;
+      const ccStr = instrument.cc_string_number ?? 20;
+      const ccFret = instrument.cc_fret_number ?? 21;
+      const strMin = instrument.cc_string_min ?? 1;
+      const strMax = instrument.cc_string_max ?? 12;
       const strOff = instrument.cc_string_offset ?? 0;
-      const fretMin = instrument.cc_fret_min     ?? 0;
-      const fretMax = instrument.cc_fret_max     ?? 36;
-      const fretOff = instrument.cc_fret_offset  ?? 0;
+      const fretMin = instrument.cc_fret_min ?? 0;
+      const fretMax = instrument.cc_fret_max ?? 36;
+      const fretOff = instrument.cc_fret_offset ?? 0;
 
       const events = [];
       for (const ev of tab.tablature_data) {
         const tick = ev.tick;
 
-        const strVal = Math.max(0, Math.min(127,
-          Math.max(strMin, Math.min(strMax, ev.string + strOff))
-        ));
-        const fretVal = Math.max(0, Math.min(127,
-          Math.max(fretMin, Math.min(fretMax, Math.round(ev.fret) + fretOff))
-        ));
+        const strVal = Math.max(
+          0,
+          Math.min(127, Math.max(strMin, Math.min(strMax, ev.string + strOff)))
+        );
+        const fretVal = Math.max(
+          0,
+          Math.min(127, Math.max(fretMin, Math.min(fretMax, Math.round(ev.fret) + fretOff)))
+        );
 
-        events.push({ absTick: tick, channel: ch, controllerType: ccStr,  value: strVal  });
+        events.push({ absTick: tick, channel: ch, controllerType: ccStr, value: strVal });
         events.push({ absTick: tick, channel: ch, controllerType: ccFret, value: fretVal });
       }
 
@@ -254,7 +260,9 @@ class MidiBaker {
               tabByChannel.set(t.channel ?? 0, t);
             }
           }
-        } catch (e) { /* no tablature is fine */ }
+        } catch (e) {
+          /* no tablature is fine */
+        }
       }
       return tabByChannel.get(ch) || null;
     };
@@ -269,7 +277,9 @@ class MidiBaker {
       let capabilities;
       try {
         capabilities = this.database.getInstrumentCapabilities(device, targetCh);
-      } catch (e) { continue; }
+      } catch (e) {
+        continue;
+      }
 
       const handsCfg = capabilities?.hands_config;
       if (!handsCfg || handsCfg.enabled === false) continue;
@@ -279,8 +289,15 @@ class MidiBaker {
 
       if (handsCfg.mode === 'frets') {
         const events = this._planFretsMode(
-          srcCh, trackIdx, fileId, midi, tempoMap, ppq,
-          handsCfg, capabilities, getTab
+          srcCh,
+          trackIdx,
+          fileId,
+          midi,
+          tempoMap,
+          ppq,
+          handsCfg,
+          capabilities,
+          getTab
         );
         if (events.length > 0) {
           const existing = result.get(trackIdx) || [];
@@ -288,8 +305,13 @@ class MidiBaker {
         }
       } else {
         const events = this._planSemitonesMode(
-          srcCh, trackIdx, midi, tempoMap, ppq,
-          handsCfg, capabilities
+          srcCh,
+          trackIdx,
+          midi,
+          tempoMap,
+          ppq,
+          handsCfg,
+          capabilities
         );
         if (events.length > 0) {
           const existing = result.get(trackIdx) || [];
@@ -313,15 +335,21 @@ class MidiBaker {
     let stringInstrument = null;
     if (tab.string_instrument_id) {
       try {
-        stringInstrument = this.database.stringInstrumentDB
-          .getStringInstrumentById(tab.string_instrument_id);
-      } catch (e) { /* ignore */ }
+        stringInstrument = this.database.stringInstrumentDB.getStringInstrumentById(
+          tab.string_instrument_id
+        );
+      } catch (e) {
+        /* ignore */
+      }
     }
 
     // Determine max addressable fret on this instrument.
     let maxFret = 24;
     if (stringInstrument) {
-      if (Array.isArray(stringInstrument.frets_per_string) && stringInstrument.frets_per_string.length > 0) {
+      if (
+        Array.isArray(stringInstrument.frets_per_string) &&
+        stringInstrument.frets_per_string.length > 0
+      ) {
         maxFret = stringInstrument.frets_per_string.reduce((a, b) => Math.max(a, b ?? 0), 0);
       } else if (Number.isFinite(stringInstrument.num_frets) && stringInstrument.num_frets > 0) {
         maxFret = stringInstrument.num_frets;
@@ -330,9 +358,10 @@ class MidiBaker {
       }
     }
 
-    const scaleLengthMm = (stringInstrument && Number.isFinite(stringInstrument.scale_length_mm))
-      ? stringInstrument.scale_length_mm
-      : null;
+    const scaleLengthMm =
+      stringInstrument && Number.isFinite(stringInstrument.scale_length_mm)
+        ? stringInstrument.scale_length_mm
+        : null;
 
     // Build planner note list from tablature (skip open strings — fret <= 0).
     const notes = [];
@@ -352,8 +381,10 @@ class MidiBaker {
     if (notes.length === 0) return [];
     notes.sort((a, b) => a.time - b.time);
 
-    const useLongitudinal = handsCfg.mechanism === 'string_sliding_fingers'
-      && Number.isFinite(scaleLengthMm) && scaleLengthMm > 0;
+    const useLongitudinal =
+      handsCfg.mechanism === 'string_sliding_fingers' &&
+      Number.isFinite(scaleLengthMm) &&
+      scaleLengthMm > 0;
 
     const plannerCtx = {
       unit: 'frets',
@@ -373,7 +404,7 @@ class MidiBaker {
       );
     }
 
-    return ccEvents.map(cc => ({
+    return ccEvents.map((cc) => ({
       absTick: this._secondsToTicks(cc.time, tempoMap, ppq),
       channel: srcCh,
       controllerType: cc.controller,
@@ -416,7 +447,7 @@ class MidiBaker {
     });
     const { ccEvents } = planner.plan(tagged);
 
-    return ccEvents.map(cc => ({
+    return ccEvents.map((cc) => ({
       absTick: this._secondsToTicks(cc.time, tempoMap, ppq),
       channel: srcCh,
       controllerType: cc.controller,
@@ -435,7 +466,7 @@ class MidiBaker {
    */
   _findTrackForChannel(midi, channel) {
     for (let i = 0; i < midi.tracks.length; i++) {
-      if (midi.tracks[i].some(ev => ev.type === 'noteOn' && ev.channel === channel)) {
+      if (midi.tracks[i].some((ev) => ev.type === 'noteOn' && ev.channel === channel)) {
         return i;
       }
     }
@@ -459,9 +490,7 @@ class MidiBaker {
     // This is the deliberate trade-off described in TODO §"CC main absents"
     // option A: manual edits to those CC streams in the editor are
     // overwritten by the next apply.
-    const ownedPairs = new Set(
-      newCCEvents.map(cc => `${cc.channel}|${cc.controllerType}`)
-    );
+    const ownedPairs = new Set(newCCEvents.map((cc) => `${cc.channel}|${cc.controllerType}`));
     const stripPreviousBake = (ev) => {
       if (ev.type !== 'controller') return false;
       const key = `${ev.channel}|${ev.controllerType ?? ev.controller}`;
@@ -499,7 +528,7 @@ class MidiBaker {
 
     // Recompute delta times and strip the helper property.
     let prev = 0;
-    return expanded.map(ev => {
+    return expanded.map((ev) => {
       const { _absTick, ...rest } = ev;
       rest.deltaTime = _absTick - prev;
       prev = _absTick;

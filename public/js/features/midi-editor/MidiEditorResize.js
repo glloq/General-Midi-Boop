@@ -15,237 +15,260 @@
 // ============================================================================
 
 (function () {
-    'use strict';
+  'use strict';
 
-    class MidiEditorResize {
-        /** @param {MidiEditorEvents} parent */
-        constructor(parent) {
-            this.parent = parent;
-            this.modal = parent.modal;
-        }
+  class MidiEditorResize {
+    /** @param {MidiEditorEvents} parent */
+    constructor(parent) {
+      this.parent = parent;
+      this.modal = parent.modal;
+    }
 
-        attachHandler() {
-    // Drag bar to resize the CC/Velocity section
-        const resizeBar = document.getElementById('cc-resize-btn');
-        const notesSection = this.modal.container.querySelector('.notes-section');
-        const ccSection = document.getElementById('cc-section');
+    // Resize a lane editor now, then once more after 32ms — SOLUTION
+    // 2.3: the second pass lets the flex layout stabilise before the
+    // editor measures its container (audit §2.5).
+    _resizeEditorStabilized(editor) {
+      if (!editor || typeof editor.resize !== 'function') return;
+      editor.resize();
+      setTimeout(() => {
+        if (editor && typeof editor.resize === 'function') editor.resize();
+      }, 32);
+    }
 
-        if (resizeBar && notesSection && ccSection) {
-            this.modal.log('info', 'Resize bar found, attaching drag events');
+    attachHandler() {
+      // Drag bar to resize the CC/Velocity section
+      const resizeBar = document.getElementById('cc-resize-btn');
+      const notesSection = this.modal.container.querySelector('.notes-section');
+      const ccSection = document.getElementById('cc-section');
 
-    // Log on hover to verify the bar is accessible
-            resizeBar.addEventListener('mouseenter', () => {
-                this.modal.log('debug', 'Mouse entered resize bar');
-            });
+      if (resizeBar && notesSection && ccSection) {
+        this.modal.log('info', 'Resize bar found, attaching drag events');
 
-            let isResizing = false;
-            let startY = 0;
-            let startNotesHeight = 0;
-            let availableHeight = 0;  // Actual space available for resizing
-            let startNotesFlex = 3;
-            let startCCFlex = 2;
+        // Log on hover to verify the bar is accessible
+        resizeBar.addEventListener('mouseenter', () => {
+          this.modal.log('debug', 'Mouse entered resize bar');
+        });
 
-            const startResize = (e) => {
-                e.preventDefault();
+        let isResizing = false;
+        let startY = 0;
+        let startNotesHeight = 0;
+        let availableHeight = 0; // Actual space available for resizing
+        let startNotesFlex = 3;
+        let startCCFlex = 2;
 
-                this.modal.log('info', '=== RESIZE MOUSEDOWN DETECTED ===');
+        const startResize = (e) => {
+          e.preventDefault();
 
-    // Only allow resize if the CC section is expanded
-                if (!this.modal.ccSectionExpanded || !ccSection.classList.contains('expanded')) {
-                    this.modal.log('warn', 'Resize blocked: CC section not expanded');
-                    return;
-                }
+          this.modal.log('info', '=== RESIZE MOUSEDOWN DETECTED ===');
 
-                isResizing = true;
-                startY = e.clientY;
-                startNotesHeight = notesSection.clientHeight;
+          // Only allow resize if the CC section is expanded
+          if (!this.modal.ccSectionExpanded || !ccSection.classList.contains('expanded')) {
+            this.modal.log('warn', 'Resize blocked: CC section not expanded');
+            return;
+          }
 
-    // Capture the REAL available space — mode-agnostic. In loop/panel
-    // mode the `.modal-dialog`, `.modal-header`, `.channels-toolbar`
-    // elements don't exist (the panel skips that chrome), so the old
-    // path (dialogHeight - header - toolbars) returned a negative
-    // availableHeight and the resize produced nonsense rectangles.
-    // The available vertical budget for the resize is just whatever
-    // the two collapsible sections + the bar currently occupy ; we
-    // redistribute that budget between them on drag.
-                const resizeBarH0 = resizeBar?.clientHeight || 12;
-                availableHeight = notesSection.clientHeight
-                                + ccSection.clientHeight
-                                + resizeBarH0;
+          isResizing = true;
+          startY = e.clientY;
+          startNotesHeight = notesSection.clientHeight;
 
-                this.modal.log('info', `Resize: notes=${notesSection.clientHeight}px, cc=${ccSection.clientHeight}px, bar=${resizeBarH0}px, available=${availableHeight}px`);
+          // Capture the REAL available space — mode-agnostic. In loop/panel
+          // mode the `.modal-dialog`, `.modal-header`, `.channels-toolbar`
+          // elements don't exist (the panel skips that chrome), so the old
+          // path (dialogHeight - header - toolbars) returned a negative
+          // availableHeight and the resize produced nonsense rectangles.
+          // The available vertical budget for the resize is just whatever
+          // the two collapsible sections + the bar currently occupy ; we
+          // redistribute that budget between them on drag.
+          const resizeBarH0 = resizeBar?.clientHeight || 12;
+          availableHeight = notesSection.clientHeight + ccSection.clientHeight + resizeBarH0;
 
-    // Get the current flex-grow values
-                const notesStyle = window.getComputedStyle(notesSection);
-                const ccStyle = window.getComputedStyle(ccSection);
-                startNotesFlex = parseFloat(notesStyle.flexGrow) || 3;
-                startCCFlex = parseFloat(ccStyle.flexGrow) || 2;
+          this.modal.log(
+            'info',
+            `Resize: notes=${notesSection.clientHeight}px, cc=${ccSection.clientHeight}px, bar=${resizeBarH0}px, available=${availableHeight}px`
+          );
 
-                this.modal.log('info', `Initial flex: notes=${startNotesFlex}, cc=${startCCFlex}`);
+          // Get the current flex-grow values
+          const notesStyle = window.getComputedStyle(notesSection);
+          const ccStyle = window.getComputedStyle(ccSection);
+          startNotesFlex = parseFloat(notesStyle.flexGrow) || 3;
+          startCCFlex = parseFloat(ccStyle.flexGrow) || 2;
 
-    // Disable transitions during the resize to avoid animations
-                notesSection.style.transition = 'none';
-                ccSection.style.transition = 'none';
+          this.modal.log('info', `Initial flex: notes=${startNotesFlex}, cc=${startCCFlex}`);
 
-    // Disable the CSS min-height rules that cap the resize to ~50%
-                notesSection.style.setProperty('min-height', '0px', 'important');
-                ccSection.style.setProperty('min-height', '0px', 'important');
+          // Disable transitions during the resize to avoid animations
+          notesSection.style.transition = 'none';
+          ccSection.style.transition = 'none';
 
-    // Prevent content from overflowing above the CC section
-                notesSection.style.setProperty('overflow', 'hidden', 'important');
+          // Disable the CSS min-height rules that cap the resize to ~50%
+          notesSection.style.setProperty('min-height', '0px', 'important');
+          ccSection.style.setProperty('min-height', '0px', 'important');
 
-                document.body.style.cursor = 'ns-resize';
-                resizeBar.classList.add('dragging');
-            };
+          // Prevent content from overflowing above the CC section
+          notesSection.style.setProperty('overflow', 'hidden', 'important');
 
-            // RAF-coalesced resize: mousemove fires hundreds of times per
-            // second, but the layout/reflow work below only needs to run
-            // once per frame. Skip the body if a previous frame is still
-            // pending; the latest `clientY` is captured into `_resizeLastY`
-            // and consumed when the frame runs.
-            let resizeRafId = 0;
-            let resizeLastY = 0;
+          document.body.style.cursor = 'ns-resize';
+          resizeBar.classList.add('dragging');
+        };
 
-            const doResize = (e) => {
-                if (!isResizing) return;
-                resizeLastY = e.clientY;
-                e.preventDefault();
-                if (resizeRafId) return;
-                resizeRafId = requestAnimationFrame(() => {
-                    resizeRafId = 0;
-                    if (!isResizing) return;
-                    runResizeStep(resizeLastY);
-                });
-            };
+        // RAF-coalesced resize: mousemove fires hundreds of times per
+        // second, but the layout/reflow work below only needs to run
+        // once per frame. Skip the body if a previous frame is still
+        // pending; the latest `clientY` is captured into `_resizeLastY`
+        // and consumed when the frame runs.
+        let resizeRafId = 0;
+        let resizeLastY = 0;
 
-            const runResizeStep = (clientY) => {
-                const deltaY = clientY - startY;
-                const resizeBarHeight = 12; // Bar height
+        const doResize = (e) => {
+          if (!isResizing) return;
+          resizeLastY = e.clientY;
+          e.preventDefault();
+          if (resizeRafId) return;
+          resizeRafId = requestAnimationFrame(() => {
+            resizeRafId = 0;
+            if (!isResizing) return;
+            runResizeStep(resizeLastY);
+          });
+        };
 
-    // Use the REAL available space captured at the start
-                const totalFlexHeight = availableHeight - resizeBarHeight;
+        const runResizeStep = (clientY) => {
+          const deltaY = clientY - startY;
+          const resizeBarHeight = 12; // Bar height
 
-    // Very loose constraints: notes >= 20px (lets CC reach ~98%), cc >= 100px
-                const minNotesHeight = 20;
-                const minCCHeight = 100;
-                const newNotesHeight = Math.max(minNotesHeight, Math.min(totalFlexHeight - minCCHeight, startNotesHeight + deltaY));
-                const newCCHeight = totalFlexHeight - newNotesHeight;
+          // Use the REAL available space captured at the start
+          const totalFlexHeight = availableHeight - resizeBarHeight;
 
-                this.modal.log('debug', `Resize: deltaY=${deltaY}, availableH=${availableHeight}px, notesH=${newNotesHeight}px, ccH=${newCCHeight}px`);
+          // Very loose constraints: notes >= 20px (lets CC reach ~98%), cc >= 100px
+          const minNotesHeight = 20;
+          const minCCHeight = 100;
+          const newNotesHeight = Math.max(
+            minNotesHeight,
+            Math.min(totalFlexHeight - minCCHeight, startNotesHeight + deltaY)
+          );
+          const newCCHeight = totalFlexHeight - newNotesHeight;
 
-    // Apply heights directly in pixels
-    // Disable the CSS min-height rules that block the resize
-                notesSection.style.setProperty('min-height', '0px', 'important');
-                notesSection.style.setProperty('height', `${newNotesHeight}px`, 'important');
-                notesSection.style.setProperty('flex', 'none', 'important');
+          this.modal.log(
+            'debug',
+            `Resize: deltaY=${deltaY}, availableH=${availableHeight}px, notesH=${newNotesHeight}px, ccH=${newCCHeight}px`
+          );
 
-                ccSection.style.setProperty('min-height', '0px', 'important');
-                ccSection.style.setProperty('height', `${newCCHeight}px`, 'important');
-                ccSection.style.setProperty('flex', 'none', 'important');
+          // Apply heights directly in pixels
+          // Disable the CSS min-height rules that block the resize
+          notesSection.style.setProperty('min-height', '0px', 'important');
+          notesSection.style.setProperty('height', `${newNotesHeight}px`, 'important');
+          notesSection.style.setProperty('flex', 'none', 'important');
 
-    // Check whether the styles actually applied
-                const actualNotesHeight = notesSection.clientHeight;
-                const actualCCHeight = ccSection.clientHeight;
-                this.modal.log('debug', `Applied styles - Expected: notes=${newNotesHeight}px cc=${newCCHeight}px, Actual: notes=${actualNotesHeight}px cc=${actualCCHeight}px`);
+          ccSection.style.setProperty('min-height', '0px', 'important');
+          ccSection.style.setProperty('height', `${newCCHeight}px`, 'important');
+          ccSection.style.setProperty('flex', 'none', 'important');
 
-    // Resize the editors during drag so the grid stays visible
-                requestAnimationFrame(() => {
-    // SOLUTION 2.2: Force recalculation of the ENTIRE flex cascade (5 levels)
-                    void ccSection.offsetHeight;
-                    const ccContent = ccSection.querySelector('.cc-section-content');
-                    const ccLayout = ccSection.querySelector('.cc-editor-layout');
-                    const ccMain = ccSection.querySelector('.cc-editor-main');
-                    void ccContent?.offsetHeight;
-                    void ccLayout?.offsetHeight;
-                    void ccMain?.offsetHeight;
+          // Check whether the styles actually applied
+          const actualNotesHeight = notesSection.clientHeight;
+          const actualCCHeight = ccSection.clientHeight;
+          this.modal.log(
+            'debug',
+            `Applied styles - Expected: notes=${newNotesHeight}px cc=${newCCHeight}px, Actual: notes=${actualNotesHeight}px cc=${actualCCHeight}px`
+          );
 
-                    if (this.modal.pianoRollRenderer?.isMounted()) {
-                        this.modal.pianoRollRenderer.redraw();
-                        this.modal.log('debug', 'Piano roll redraw called');
-                    }
+          // Resize the editors during drag so the grid stays visible
+          requestAnimationFrame(() => {
+            // SOLUTION 2.2: Force recalculation of the ENTIRE flex cascade (5 levels)
+            void ccSection.offsetHeight;
+            const ccContent = ccSection.querySelector('.cc-section-content');
+            const ccLayout = ccSection.querySelector('.cc-editor-layout');
+            const ccMain = ccSection.querySelector('.cc-editor-main');
+            void ccContent?.offsetHeight;
+            void ccLayout?.offsetHeight;
+            void ccMain?.offsetHeight;
 
-                    if (this.modal.ccEditor && typeof this.modal.ccEditor.resize === 'function') {
-    // SOLUTION 2.1: fix the selector bug (.cc-pitchbend-editor, not -container)
-                        const ccContainer = ccSection.querySelector('.cc-pitchbend-editor');
-                        const ccHeight = ccContainer?.clientHeight || 0;
-                        this.modal.log('debug', `CC editor resize called - container height: ${ccHeight}px`);
-
-    // First resize call
-                        this.modal.ccEditor.resize();
-
-    // SOLUTION 2.3: double call after 2 frames for layout stabilization
-                        setTimeout(() => {
-                            if (this.modal.ccEditor && typeof this.modal.ccEditor.resize === 'function') {
-                                this.modal.ccEditor.resize();
-                                this.modal.log('debug', 'CC editor re-resize after layout stabilization');
-                            }
-                        }, 32);
-                    }
-
-                    if (this.modal.velocityEditor && typeof this.modal.velocityEditor.resize === 'function') {
-                        this.modal.velocityEditor.resize();
-                        this.modal.log('debug', 'Velocity editor resize called');
-
-    // Double call for the velocity editor too
-                        setTimeout(() => {
-                            if (this.modal.velocityEditor && typeof this.modal.velocityEditor.resize === 'function') {
-                                this.modal.velocityEditor.resize();
-                            }
-                        }, 32);
-                    }
-                });
-            };
-
-            const stopResize = () => {
-                if (resizeRafId) { cancelAnimationFrame(resizeRafId); resizeRafId = 0; }
-                if (isResizing) {
-                    isResizing = false;
-                    document.body.style.cursor = '';
-                    resizeBar.classList.remove('dragging');
-
-    // Re-enable transitions
-                    notesSection.style.transition = '';
-                    ccSection.style.transition = '';
-
-    // KEEP overflow: hidden so the slider stays on top
-    // Do not reset notesSection.style.overflow = '';
-
-    // Resize the editors after the resize
-                    requestAnimationFrame(() => {
-                        this.modal.pianoRollRenderer?.redraw();
-
-                        if (this.modal.ccEditor && typeof this.modal.ccEditor.resize === 'function') {
-                            this.modal.ccEditor.resize();
-                        }
-
-                        if (this.modal.velocityEditor && typeof this.modal.velocityEditor.resize === 'function') {
-                            this.modal.velocityEditor.resize();
-                        }
-                    });
-                }
-            };
-
-            resizeBar.addEventListener('mousedown', startResize);
-    // Bind document-level mousemove/mouseup via the session AbortSignal so
-    // they are detached automatically in detachEvents() — no more manual
-    // removeEventListener bookkeeping in MidiEditorLifecycle (audit §7.1).
-            const signal = this.parent.getAbortSignal();
-            if (signal && !signal.aborted) {
-                document.addEventListener('mousemove', doResize, { signal });
-                document.addEventListener('mouseup',   stopResize, { signal });
-            } else {
-                // Fallback for the (very rare) case where attachEvents()
-                // hasn't run yet. Store refs so doClose can clean up.
-                this.modal._resizeDoResize = doResize;
-                this.modal._resizeStopResize = stopResize;
-                document.addEventListener('mousemove', doResize);
-                document.addEventListener('mouseup',   stopResize);
+            if (this.modal.pianoRollRenderer?.isMounted()) {
+              this.modal.pianoRollRenderer.redraw();
+              this.modal.log('debug', 'Piano roll redraw called');
             }
-        }
-        }
-    }
 
-    if (typeof window !== 'undefined') {
-        window.MidiEditorResize = MidiEditorResize;
+            if (this.modal.ccEditor && typeof this.modal.ccEditor.resize === 'function') {
+              // SOLUTION 2.1: fix the selector bug (.cc-pitchbend-editor, not -container)
+              const ccContainer = ccSection.querySelector('.cc-pitchbend-editor');
+              const ccHeight = ccContainer?.clientHeight || 0;
+              this.modal.log('debug', `CC editor resize called - container height: ${ccHeight}px`);
+
+              // First resize call
+              this.modal.ccEditor.resize();
+
+              // SOLUTION 2.3: double call after 2 frames for layout stabilization
+              setTimeout(() => {
+                if (this.modal.ccEditor && typeof this.modal.ccEditor.resize === 'function') {
+                  this.modal.ccEditor.resize();
+                  this.modal.log('debug', 'CC editor re-resize after layout stabilization');
+                }
+              }, 32);
+            }
+
+            if (
+              this.modal.velocityEditor &&
+              typeof this.modal.velocityEditor.resize === 'function'
+            ) {
+              this.modal.log('debug', 'Velocity editor resize called');
+              this._resizeEditorStabilized(this.modal.velocityEditor);
+            }
+          });
+        };
+
+        const stopResize = () => {
+          if (resizeRafId) {
+            cancelAnimationFrame(resizeRafId);
+            resizeRafId = 0;
+          }
+          if (isResizing) {
+            isResizing = false;
+            document.body.style.cursor = '';
+            resizeBar.classList.remove('dragging');
+
+            // Re-enable transitions
+            notesSection.style.transition = '';
+            ccSection.style.transition = '';
+
+            // KEEP overflow: hidden so the slider stays on top
+            // Do not reset notesSection.style.overflow = '';
+
+            // Resize the editors after the resize
+            requestAnimationFrame(() => {
+              this.modal.pianoRollRenderer?.redraw();
+
+              if (this.modal.ccEditor && typeof this.modal.ccEditor.resize === 'function') {
+                this.modal.ccEditor.resize();
+              }
+
+              if (
+                this.modal.velocityEditor &&
+                typeof this.modal.velocityEditor.resize === 'function'
+              ) {
+                this.modal.velocityEditor.resize();
+              }
+            });
+          }
+        };
+
+        resizeBar.addEventListener('mousedown', startResize);
+        // Bind document-level mousemove/mouseup via the session AbortSignal so
+        // they are detached automatically in detachEvents() — no more manual
+        // removeEventListener bookkeeping in MidiEditorLifecycle (audit §7.1).
+        const signal = this.parent.getAbortSignal();
+        if (signal && !signal.aborted) {
+          document.addEventListener('mousemove', doResize, { signal });
+          document.addEventListener('mouseup', stopResize, { signal });
+        } else {
+          // Fallback for the (very rare) case where attachEvents()
+          // hasn't run yet. Store refs so doClose can clean up.
+          this.modal._resizeDoResize = doResize;
+          this.modal._resizeStopResize = stopResize;
+          document.addEventListener('mousemove', doResize);
+          document.addEventListener('mouseup', stopResize);
+        }
+      }
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.MidiEditorResize = MidiEditorResize;
+  }
 })();

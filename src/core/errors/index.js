@@ -1,22 +1,14 @@
 /**
  * @file src/core/errors/index.js
- * @description Domain-specific Error subclasses thrown across the backend.
- * Each carries a stable string `code` and HTTP-style `statusCode` so the
- * API layer can translate them into structured JSON responses without
- * sniffing `instanceof` everywhere.
- *
- * Convention: any error reaching the WebSocket / HTTP boundary should be
- * (or extend) {@link ApplicationError} so `toJSON()` produces the canonical
- * `{ error, code, message }` shape consumed by the frontend.
+ * @description Domain Error subclasses with a stable string `code`,
+ * HTTP-style `statusCode`, and `toJSON()`. Anything reaching the WS/HTTP
+ * boundary should be (or extend) {@link ApplicationError} so the client
+ * receives the canonical `{ error, code, message }` shape.
  */
 
 /**
- * Base error class for the application. Adds a stable string `code` and an
- * HTTP-style `statusCode` to a regular `Error`, plus a `toJSON()` method so
- * it serialises predictably when sent over HTTP/WS.
- *
- * @example
- *   throw new ApplicationError('Boom', 'ERR_BOOM', 500);
+ * Base error: adds `code` + `statusCode` and a JSON-safe `toJSON()`.
+ * @example throw new ApplicationError('Boom', 'ERR_BOOM', 500);
  */
 export class ApplicationError extends Error {
   /**

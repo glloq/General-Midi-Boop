@@ -42,16 +42,16 @@ class DelayCalibrator {
     // Default configuration
     this.config = {
       alsaDevice: 'hw:1,0', // ALSA device (configurable)
-      sampleRate: 16000,     // 16 kHz
-      format: 'S16_LE',      // 16-bit signed little-endian
-      channels: 1,           // Mono
-      threshold: 0.02,       // RMS detection threshold
-      noteVelocity: 100,     // Test note velocity
-      noteDuration: 500,     // Note duration (ms)
-      testNote: 60,          // C4 (Middle C)
-      preRecordTime: 100,    // Pre-note recording time (ms)
-      maxWaitTime: 2000,     // Detection timeout (ms)
-      measurements: 5        // Number of measurements per instrument
+      sampleRate: 16000, // 16 kHz
+      format: 'S16_LE', // 16-bit signed little-endian
+      channels: 1, // Mono
+      threshold: 0.02, // RMS detection threshold
+      noteVelocity: 100, // Test note velocity
+      noteDuration: 500, // Note duration (ms)
+      testNote: 60, // C4 (Middle C)
+      preRecordTime: 100, // Pre-note recording time (ms)
+      maxWaitTime: 2000, // Detection timeout (ms)
+      measurements: 5 // Number of measurements per instrument
     };
 
     // Biquad filter state for the tuner path. Persists across windows so
@@ -81,7 +81,7 @@ class DelayCalibrator {
    * @param {number} threshold - RMS threshold (0.01 - 0.10)
    */
   setThreshold(threshold) {
-    this.config.threshold = Math.max(0.01, Math.min(0.10, threshold));
+    this.config.threshold = Math.max(0.01, Math.min(0.1, threshold));
     this.logger.info(`Detection threshold set to: ${this.config.threshold}`);
   }
 
@@ -123,9 +123,7 @@ class DelayCalibrator {
 
       delays.sort((a, b) => a - b);
       const mid = Math.floor(delays.length / 2);
-      const median = delays.length % 2 !== 0
-        ? delays[mid]
-        : (delays[mid - 1] + delays[mid]) / 2;
+      const median = delays.length % 2 !== 0 ? delays[mid] : (delays[mid - 1] + delays[mid]) / 2;
 
       // Calculate confidence (based on standard deviation)
       const mean = delays.reduce((sum, d) => sum + d, 0) / delays.length;
@@ -176,7 +174,9 @@ class DelayCalibrator {
       const firstChunk = this.audioBuffer[0];
       if (firstChunk) {
         const firstMs = (firstChunk.chunk.length / 2 / this.config.sampleRate) * 1000;
-        this.logger.info(`First arecord chunk: ${firstChunk.chunk.length} bytes = ${firstMs.toFixed(1)}ms of audio`);
+        this.logger.info(
+          `First arecord chunk: ${firstChunk.chunk.length} bytes = ${firstMs.toFixed(1)}ms of audio`
+        );
       }
 
       // Fire the MIDI note inline right BEFORE capturing sendTime so the
@@ -204,7 +204,9 @@ class DelayCalibrator {
       clearTimeout(noteOffTimer);
       try {
         this.midiController.sendMessage(deviceId, 'noteoff', { channel, note, velocity: 0 });
-      } catch (_) { /* ignore */ }
+      } catch (_) {
+        /* ignore */
+      }
 
       // Stop recording
       await this.stopRecording();
@@ -276,13 +278,20 @@ class DelayCalibrator {
     this._audioTimelineStart = null;
 
     this.recording = spawn('arecord', [
-      '-D', this.config.alsaDevice,
-      '-f', this.config.format,
-      '-r', this.config.sampleRate.toString(),
-      '-c', this.config.channels.toString(),
-      '-B', '20000',  // total buffer in µs → 20 ms
-      '-F', '5000',   // period (interrupt interval) in µs → 5 ms (finer onset resolution)
-      '-t', 'raw'
+      '-D',
+      this.config.alsaDevice,
+      '-f',
+      this.config.format,
+      '-r',
+      this.config.sampleRate.toString(),
+      '-c',
+      this.config.channels.toString(),
+      '-B',
+      '20000', // total buffer in µs → 20 ms
+      '-F',
+      '5000', // period (interrupt interval) in µs → 5 ms (finer onset resolution)
+      '-t',
+      'raw'
     ]);
 
     const BYTES_PER_SAMPLE = 2; // S16_LE mono
@@ -320,7 +329,9 @@ class DelayCalibrator {
       this.isRecording = false;
     });
 
-    this.logger.info(`Recording started on ${this.config.alsaDevice} @${this.config.sampleRate}Hz (period=5ms, buffer=20ms)`);
+    this.logger.info(
+      `Recording started on ${this.config.alsaDevice} @${this.config.sampleRate}Hz (period=5ms, buffer=20ms)`
+    );
   }
 
   /**
@@ -338,7 +349,11 @@ class DelayCalibrator {
 
         // Fallback: force kill if process doesn't exit within 1s
         setTimeout(() => {
-          try { proc.kill('SIGKILL'); } catch (_) { /* already exited */ }
+          try {
+            proc.kill('SIGKILL');
+          } catch (_) {
+            /* already exited */
+          }
           resolve();
         }, 1000);
       } else {
@@ -406,7 +421,9 @@ class DelayCalibrator {
       const interval = setInterval(() => {
         if (performance.now() - startTime > timeoutMs) {
           clearInterval(interval);
-          this.logger.info(`waitForSound timeout — scanned ${lastCheckedIndex} chunks, none crossed threshold after sendTime`);
+          this.logger.info(
+            `waitForSound timeout — scanned ${lastCheckedIndex} chunks, none crossed threshold after sendTime`
+          );
           resolve(null);
           return;
         }
@@ -432,8 +449,8 @@ class DelayCalibrator {
           const delay = detectionTime - sendTime;
           this.logger.info(
             `Detection: chunk #${lastCheckedIndex - 1}, onset sample ${onset} ` +
-            `(abs ${absoluteOnsetSample}), audio-time ${detectionTime.toFixed(1)}ms, ` +
-            `sendTime ${sendTime.toFixed(1)}ms → delay ${delay.toFixed(1)}ms`
+              `(abs ${absoluteOnsetSample}), audio-time ${detectionTime.toFixed(1)}ms, ` +
+              `sendTime ${sendTime.toFixed(1)}ms → delay ${delay.toFixed(1)}ms`
           );
           resolve(detectionTime);
           return;
@@ -455,9 +472,9 @@ class DelayCalibrator {
   findOnsetInChunk(buffer, threshold) {
     if (!buffer || buffer.length < 2) return -1;
 
-    const WINDOW_SAMPLES = 64;  // 4 ms window at 16 kHz — shorter window =
-                                // faster response to a transient onset
-    const HOP_SAMPLES = 16;     // 1 ms hop at 16 kHz — sub-ms onset resolution
+    const WINDOW_SAMPLES = 64; // 4 ms window at 16 kHz — shorter window =
+    // faster response to a transient onset
+    const HOP_SAMPLES = 16; // 1 ms hop at 16 kHz — sub-ms onset resolution
     const BYTES_PER_SAMPLE = 2;
     const totalSamples = Math.floor(buffer.length / BYTES_PER_SAMPLE);
     if (totalSamples < WINDOW_SAMPLES) {
@@ -585,11 +602,16 @@ class DelayCalibrator {
     this.monitorPeakRMS = 0;
 
     this.monitorProcess = spawn('arecord', [
-      '-D', device,
-      '-f', this.config.format,
-      '-r', this.config.sampleRate.toString(),
-      '-c', this.config.channels.toString(),
-      '-t', 'raw'
+      '-D',
+      device,
+      '-f',
+      this.config.format,
+      '-r',
+      this.config.sampleRate.toString(),
+      '-c',
+      this.config.channels.toString(),
+      '-t',
+      'raw'
     ]);
 
     this.monitorProcess.stdout.on('data', (chunk) => {
@@ -627,10 +649,53 @@ class DelayCalibrator {
   }
 
   /**
+   * Gracefully terminate an `arecord` child: SIGTERM, then SIGKILL after
+   * 500 ms, resolving only once the process has actually exited so the
+   * (exclusive) ALSA `hw:` device is released before the next consumer
+   * opens it. Resolves immediately when the process is absent/already dead.
+   *
+   * @param {import('child_process').ChildProcess|null} proc
+   * @param {string} stoppedMsg - Info line logged once the child is gone.
+   * @returns {Promise<void>}
+   * @private
+   */
+  _terminateArecord(proc, stoppedMsg) {
+    if (!proc || proc.exitCode !== null || proc.signalCode !== null) {
+      this.logger.info(stoppedMsg);
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        this.logger.info(stoppedMsg);
+        resolve();
+      };
+      proc.once('close', finish);
+      proc.once('exit', finish);
+      const timer = setTimeout(() => {
+        try {
+          proc.kill('SIGKILL');
+        } catch (_) {
+          /* noop */
+        }
+        // Give the kernel a frame to release the FD before resolving.
+        setTimeout(finish, 50);
+      }, 500);
+      try {
+        proc.kill('SIGTERM');
+      } catch (_) {
+        finish();
+      }
+    });
+  }
+
+  /**
    * Stop audio monitoring. Resolves once the underlying `arecord` child has
-   * actually exited so callers can safely open the device again (ALSA `hw:`
-   * devices are exclusive — returning too early causes a "Device or resource
-   * busy" race with the next consumer, e.g. the tuner).
+   * actually exited so callers can safely open the device again.
    * @returns {Promise<void>}
    */
   stopMonitoring() {
@@ -645,30 +710,7 @@ class DelayCalibrator {
     this.monitorCallback = null;
     this.monitorPeakRMS = 0;
 
-    if (!proc || proc.exitCode !== null || proc.signalCode !== null) {
-      this.logger.info('Audio monitoring stopped');
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        this.logger.info('Audio monitoring stopped');
-        resolve();
-      };
-      proc.once('close', finish);
-      proc.once('exit', finish);
-      // Fallback: SIGKILL + resolve if SIGTERM didn't land within 500 ms
-      const timer = setTimeout(() => {
-        try { proc.kill('SIGKILL'); } catch (_) { /* noop */ }
-        // Give the kernel a frame to release the FD before resolving.
-        setTimeout(finish, 50);
-      }, 500);
-      try { proc.kill('SIGTERM'); } catch (_) { finish(); }
-    });
+    return this._terminateArecord(proc, 'Audio monitoring stopped');
   }
 
   /**
@@ -696,7 +738,7 @@ class DelayCalibrator {
   _buildFilterCoeffs(sampleRate) {
     const Q = Math.SQRT1_2;
     const make = (kind, f0) => {
-      const w0 = 2 * Math.PI * f0 / sampleRate;
+      const w0 = (2 * Math.PI * f0) / sampleRate;
       const cosw = Math.cos(w0);
       const sinw = Math.sin(w0);
       const alpha = sinw / (2 * Q);
@@ -705,7 +747,8 @@ class DelayCalibrator {
         b0 = (1 + cosw) / 2;
         b1 = -(1 + cosw);
         b2 = (1 + cosw) / 2;
-      } else { // lp
+      } else {
+        // lp
         b0 = (1 - cosw) / 2;
         b1 = 1 - cosw;
         b2 = (1 - cosw) / 2;
@@ -714,8 +757,11 @@ class DelayCalibrator {
       const a1 = -2 * cosw;
       const a2 = 1 - alpha;
       return {
-        b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-        a1: a1 / a0, a2: a2 / a0
+        b0: b0 / a0,
+        b1: b1 / a0,
+        b2: b2 / a0,
+        a1: a1 / a0,
+        a2: a2 / a0
       };
     };
     this._filter.coeffs = {
@@ -753,12 +799,16 @@ class DelayCalibrator {
       const x = samples[i];
       // High-pass
       const y = hc.b0 * x + hc.b1 * hp.x1 + hc.b2 * hp.x2 - hc.a1 * hp.y1 - hc.a2 * hp.y2;
-      hp.x2 = hp.x1; hp.x1 = x;
-      hp.y2 = hp.y1; hp.y1 = y;
+      hp.x2 = hp.x1;
+      hp.x1 = x;
+      hp.y2 = hp.y1;
+      hp.y1 = y;
       // Low-pass (input = HP output)
       const z = lc.b0 * y + lc.b1 * lp.x1 + lc.b2 * lp.x2 - lc.a1 * lp.y1 - lc.a2 * lp.y2;
-      lp.x2 = lp.x1; lp.x1 = y;
-      lp.y2 = lp.y1; lp.y1 = z;
+      lp.x2 = lp.x1;
+      lp.x1 = y;
+      lp.y2 = lp.y1;
+      lp.y1 = z;
       samples[i] = z;
     }
   }
@@ -836,7 +886,10 @@ class DelayCalibrator {
       let peakTau = -1;
       let peakVal = -1;
       while (tau <= maxLag && nsdf[tau] > 0) {
-        if (nsdf[tau] > peakVal) { peakVal = nsdf[tau]; peakTau = tau; }
+        if (nsdf[tau] > peakVal) {
+          peakVal = nsdf[tau];
+          peakTau = tau;
+        }
         tau++;
       }
       if (peakTau > 0) keyMaxima.push({ tau: peakTau, val: peakVal });
@@ -849,7 +902,7 @@ class DelayCalibrator {
     let globalMax = 0;
     for (const km of keyMaxima) if (km.val > globalMax) globalMax = km.val;
     const threshold = 0.9 * globalMax;
-    const chosen = keyMaxima.find(km => km.val >= threshold) || keyMaxima[0];
+    const chosen = keyMaxima.find((km) => km.val >= threshold) || keyMaxima[0];
 
     // Parabolic interpolation around the chosen lag for sub-sample precision.
     const y1 = chosen.tau > 0 ? nsdf[chosen.tau - 1] : 0;
@@ -857,14 +910,15 @@ class DelayCalibrator {
     const y3 = nsdf[chosen.tau + 1] || 0;
     const denom = 2 * (2 * y2 - y1 - y3);
     let shift = denom !== 0 ? (y3 - y1) / denom : 0;
-    if (shift > 1) shift = 1; else if (shift < -1) shift = -1;
+    if (shift > 1) shift = 1;
+    else if (shift < -1) shift = -1;
     const refinedLag = chosen.tau + shift;
     const clarity = y2 - 0.25 * (y1 - y3) * shift;
 
     const freq = sampleRate / refinedLag;
     if (freq < 55 || freq > 1200) return { freq: 0, confidence: 0, rms };
 
-    const confidence = clarity > 1 ? 1 : (clarity < 0 ? 0 : clarity);
+    const confidence = clarity > 1 ? 1 : clarity < 0 ? 0 : clarity;
     return { freq, confidence, rms };
   }
 
@@ -907,9 +961,9 @@ class DelayCalibrator {
     const sr = this.config.sampleRate;
 
     this.tunerCallback = callback;
-    this.tunerRing = new Float32Array(windowSize);  // circular buffer
-    this.tunerRingHead = 0;                          // next write position
-    this.tunerRingFilled = 0;                        // total filtered samples ever written
+    this.tunerRing = new Float32Array(windowSize); // circular buffer
+    this.tunerRingHead = 0; // next write position
+    this.tunerRingFilled = 0; // total filtered samples ever written
     this.tunerSamplesSinceAnalysis = 0;
     this.tunerWindow = new Float32Array(windowSize); // linearized analysis window
     this.tunerWindowSize = windowSize;
@@ -921,7 +975,7 @@ class DelayCalibrator {
 
     this._emittedCount = 0;
     this._startedAt = Date.now();
-    this._usePlugFallback = device.startsWith('hw:');  // remember for fallback
+    this._usePlugFallback = device.startsWith('hw:'); // remember for fallback
     this._spawnArecord(captureDevice, sr, windowSize, hopSize);
   }
 
@@ -932,11 +986,16 @@ class DelayCalibrator {
    */
   _spawnArecord(captureDevice, sr, windowSize, hopSize) {
     const args = [
-      '-D', captureDevice,
-      '-f', this.config.format,
-      '-r', sr.toString(),
-      '-c', this.config.channels.toString(),
-      '-t', 'raw'
+      '-D',
+      captureDevice,
+      '-f',
+      this.config.format,
+      '-r',
+      sr.toString(),
+      '-c',
+      this.config.channels.toString(),
+      '-t',
+      'raw'
     ];
     this.logger.info(`Tuner arecord spawn: arecord ${args.join(' ')}`);
     this.tunerProcess = spawn('arecord', args);
@@ -965,13 +1024,17 @@ class DelayCalibrator {
           }
           const result = this.detectPitch(this.tunerWindow, sr);
           if (this.tunerCallback) {
-            try { this.tunerCallback(result); } catch (e) {
+            try {
+              this.tunerCallback(result);
+            } catch (e) {
               this.logger.warn(`Tuner callback threw: ${e.message}`);
             }
           }
           this._emittedCount++;
           if (this._emittedCount <= 3 || this._emittedCount % 40 === 0) {
-            this.logger.info(`Tuner pitch #${this._emittedCount}: freq=${result.freq.toFixed(2)} Hz, conf=${result.confidence.toFixed(3)}, rms=${result.rms.toFixed(4)}`);
+            this.logger.info(
+              `Tuner pitch #${this._emittedCount}: freq=${result.freq.toFixed(2)} Hz, conf=${result.confidence.toFixed(3)}, rms=${result.rms.toFixed(4)}`
+            );
           }
         }
       }
@@ -994,17 +1057,28 @@ class DelayCalibrator {
       // If the process dies within 500 ms without ever producing a chunk,
       // the device probably didn't accept the requested rate/format.
       // Retry once with `hw:` if we originally used `plughw:`.
-      if (!firstChunkSeen && elapsed < 500 && this._usePlugFallback && captureDevice.startsWith('plug')) {
+      if (
+        !firstChunkSeen &&
+        elapsed < 500 &&
+        this._usePlugFallback &&
+        captureDevice.startsWith('plug')
+      ) {
         const fallback = captureDevice.slice(4); // strip "plug"
-        this.logger.warn(`Tuner ${captureDevice} closed after ${elapsed}ms with code ${code}; retrying with ${fallback}. stderr: ${stderrBuf.trim()}`);
+        this.logger.warn(
+          `Tuner ${captureDevice} closed after ${elapsed}ms with code ${code}; retrying with ${fallback}. stderr: ${stderrBuf.trim()}`
+        );
         this._usePlugFallback = false;
         this._spawnArecord(fallback, sr, windowSize, hopSize);
       } else if (!firstChunkSeen) {
-        this.logger.error(`Tuner arecord ${captureDevice} exited after ${elapsed}ms with code ${code} without producing audio. stderr: ${stderrBuf.trim()}`);
+        this.logger.error(
+          `Tuner arecord ${captureDevice} exited after ${elapsed}ms with code ${code} without producing audio. stderr: ${stderrBuf.trim()}`
+        );
       }
     });
 
-    this.logger.info(`Tuner monitoring started on ${captureDevice} (window=${windowSize}, hop=${hopSize})`);
+    this.logger.info(
+      `Tuner monitoring started on ${captureDevice} (window=${windowSize}, hop=${hopSize})`
+    );
   }
 
   /**
@@ -1024,35 +1098,14 @@ class DelayCalibrator {
     this.tunerSamplesSinceAnalysis = 0;
     this._resetFilterState();
 
-    if (!proc || proc.exitCode !== null || proc.signalCode !== null) {
-      this.logger.info('Tuner monitoring stopped');
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        this.logger.info('Tuner monitoring stopped');
-        resolve();
-      };
-      proc.once('close', finish);
-      proc.once('exit', finish);
-      const timer = setTimeout(() => {
-        try { proc.kill('SIGKILL'); } catch (_) { /* noop */ }
-        setTimeout(finish, 50);
-      }, 500);
-      try { proc.kill('SIGTERM'); } catch (_) { finish(); }
-    });
+    return this._terminateArecord(proc, 'Tuner monitoring stopped');
   }
 
   /**
    * Utility: sleep
    */
   sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

@@ -2,6 +2,9 @@
     'use strict';
     const SettingsSerial = {};
 
+    const msg = (color, text) =>
+        `<div style="padding: 16px; text-align: center; color: ${color}; font-size: 13px;">${text}</div>`;
+
     /**
      * Scan serial ports and display results
      */
@@ -10,10 +13,7 @@
         const scanBtn = this.modal.querySelector('#serialScanBtn');
         if (!listEl) return;
 
-        // Show loading
-        listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #667eea; font-size: 13px;">
-            ${i18n.t('settings.serialMidi.scanning')}
-        </div>`;
+        listEl.innerHTML = msg('#667eea', i18n.t('settings.serialMidi.scanning'));
         if (scanBtn) scanBtn.disabled = true;
 
         try {
@@ -31,20 +31,15 @@
             });
 
             if (!result.available) {
-                listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #e53e3e; font-size: 13px;">
-                    ${i18n.t('settings.serialMidi.notAvailable')}
-                </div>`;
+                listEl.innerHTML = msg('#e53e3e', i18n.t('settings.serialMidi.notAvailable'));
                 return;
             }
 
             if (!result.ports || result.ports.length === 0) {
-                listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #999; font-size: 13px;">
-                    ${i18n.t('settings.serialMidi.noPorts')}
-                </div>`;
+                listEl.innerHTML = msg('#999', i18n.t('settings.serialMidi.noPorts'));
                 return;
             }
 
-            // Render ports list
             listEl.innerHTML = result.ports.map(port => `
                 <div style="
                     padding: 12px 16px;

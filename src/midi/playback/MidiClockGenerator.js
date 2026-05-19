@@ -42,12 +42,16 @@ class MidiClockGenerator {
     // latency compensation. Same story for the four transport
     // managers. Use lazy getters so we always pick up the live
     // instance.
-    for (const name of ['deviceManager', 'networkManager',
-                        'serialMidiManager', 'bluetoothManager',
-                        'latencyCompensator']) {
+    for (const name of [
+      'deviceManager',
+      'networkManager',
+      'serialMidiManager',
+      'bluetoothManager',
+      'latencyCompensator'
+    ]) {
       Object.defineProperty(this, name, {
         get: () => deps[name],
-        configurable: true,
+        configurable: true
       });
     }
     this._enabled = false;
@@ -67,8 +71,8 @@ class MidiClockGenerator {
     this._cachedTargetDevices = null;
     this._cachedDeviceCompensations = null; // Map<deviceId, compensationMs>
     this._maxCompensation = 0; // Max compensation across all clock targets
-    this._immediateBucket = null;            // deviceId[] sent inline each tick
-    this._delayedBuckets = null;             // Map<delayMs, deviceId[]> grouped by relative delay
+    this._immediateBucket = null; // deviceId[] sent inline each tick
+    this._delayedBuckets = null; // Map<delayMs, deviceId[]> grouped by relative delay
 
     // Pending compensation timeouts for cleanup
     this._pendingTimeouts = new Set();
@@ -157,7 +161,9 @@ class MidiClockGenerator {
     try {
       const settings = this.database.getDeviceSettings(deviceId);
       return settings && !!settings.midi_clock_enabled;
-    } catch (_e) { /* device settings may not exist yet */ }
+    } catch (_e) {
+      /* device settings may not exist yet */
+    }
     return false;
   }
 
@@ -188,7 +194,9 @@ class MidiClockGenerator {
     this._sendTransportToAll('start');
     this._startClockTimer();
 
-    this.logger.info(`MIDI Clock started at ${tempo.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
+    this.logger.info(
+      `MIDI Clock started at ${tempo.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`
+    );
   }
 
   /**
@@ -246,7 +254,9 @@ class MidiClockGenerator {
     this._tempo = bpm;
     this._tickIntervalMs = this._calcTickInterval(bpm);
 
-    this.logger.debug(`MIDI Clock tempo changed to ${bpm.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`);
+    this.logger.debug(
+      `MIDI Clock tempo changed to ${bpm.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`
+    );
   }
 
   /** @returns {number} Current tempo in BPM. */
@@ -322,24 +332,7 @@ class MidiClockGenerator {
    * relativeDelay(device) = maxCompensation - deviceCompensation
    */
   _sendClockToAll() {
-    this._ensureDeviceCache();
-    if (!this._cachedDeviceCompensations || this._cachedDeviceCompensations.size === 0) return;
-
-    // Immediate bucket: dispatched inline, no timer.
-    for (const deviceId of this._immediateBucket) {
-      this._sendClockToDevice(deviceId);
-    }
-
-    // Delayed buckets: one timer per distinct relative delay.
-    for (const [delayMs, deviceIds] of this._delayedBuckets) {
-      const tid = setTimeout(() => {
-        this._pendingTimeouts.delete(tid);
-        for (const deviceId of deviceIds) {
-          this._sendClockToDevice(deviceId);
-        }
-      }, delayMs);
-      this._pendingTimeouts.add(tid);
-    }
+    this._dispatchToBuckets((deviceId) => this._sendClockToDevice(deviceId));
   }
 
   /**
@@ -348,18 +341,32 @@ class MidiClockGenerator {
    * @param {string} type - 'start', 'stop', or 'continue'
    */
   _sendTransportToAll(type) {
+    this._dispatchToBuckets((deviceId) => this._sendTransportToDevice(deviceId, type));
+  }
+
+  /**
+   * Shared compensation-bucket dispatch for {@link _sendClockToAll} and
+   * {@link _sendTransportToAll}: ensures the device cache, sends to the
+   * immediate bucket inline, then schedules one timer per distinct
+   * relative-delay bucket.
+   * @param {(deviceId: string) => void} sendFn
+   * @private
+   */
+  _dispatchToBuckets(sendFn) {
     this._ensureDeviceCache();
     if (!this._cachedDeviceCompensations || this._cachedDeviceCompensations.size === 0) return;
 
+    // Immediate bucket: dispatched inline, no timer.
     for (const deviceId of this._immediateBucket) {
-      this._sendTransportToDevice(deviceId, type);
+      sendFn(deviceId);
     }
 
+    // Delayed buckets: one timer per distinct relative delay.
     for (const [delayMs, deviceIds] of this._delayedBuckets) {
       const tid = setTimeout(() => {
         this._pendingTimeouts.delete(tid);
         for (const deviceId of deviceIds) {
-          this._sendTransportToDevice(deviceId, type);
+          sendFn(deviceId);
         }
       }, delayMs);
       this._pendingTimeouts.add(tid);
@@ -463,19 +470,22 @@ class MidiClockGenerator {
 
     // Also include BLE, network, serial devices
     const bleDevices = this.bluetoothManager
-      ? this.bluetoothManager.getPairedDevices().filter(d => d.connected).map(d => d.address || d.name)
+      ? this.bluetoothManager
+          .getPairedDevices()
+          .filter((d) => d.connected)
+          .map((d) => d.address || d.name)
       : [];
     const networkDevices = this.networkManager
-      ? this.networkManager.getConnectedDevices().map(d => d.ip || d.name)
+      ? this.networkManager.getConnectedDevices().map((d) => d.ip || d.name)
       : [];
     const serialDevices = this.serialMidiManager
-      ? this.serialMidiManager.getConnectedPorts().map(p => p.path || p.name)
+      ? this.serialMidiManager.getConnectedPorts().map((p) => p.path || p.name)
       : [];
 
     const allDevices = [...allOutputs, ...bleDevices, ...networkDevices, ...serialDevices];
 
     // Filter by per-device clock enable setting
-    return allDevices.filter(id => this.isDeviceClockEnabled(id));
+    return allDevices.filter((id) => this.isDeviceClockEnabled(id));
   }
 
   // ─── Compensation ───────────────────────────────────────────
@@ -506,7 +516,9 @@ class MidiClockGenerator {
             }
           }
         }
-      } catch (_e) { /* device may not have instrument settings configured */ }
+      } catch (_e) {
+        /* device may not have instrument settings configured */
+      }
     }
 
     // Add measured hardware latency

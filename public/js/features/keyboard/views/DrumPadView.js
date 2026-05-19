@@ -9,40 +9,38 @@
 // in KeyboardPiano.js).
 // =============================================================================
 (function () {
-    'use strict';
+  'use strict';
 
-    if (typeof window === 'undefined' || !window.InstrumentView) return;
-    const InstrumentView = window.InstrumentView;
+  if (typeof window === 'undefined' || !window.InstrumentView) return;
+  const InstrumentView = window.InstrumentView;
 
-    class DrumPadView extends InstrumentView {
-        static viewKind = 'drumpad';
-        static iconUrl = '/assets/instruments/family_drum_kits.svg';
-        static emoji = '🥁';
-        static labelKey = 'keyboard.viewDrumPad';
+  class DrumPadView extends InstrumentView {
+    static viewKind = 'drumpad';
+    static iconUrl = '/assets/instruments/family_drum_kits.svg';
+    static emoji = '🥁';
+    static labelKey = 'keyboard.viewDrumPad';
 
-        mount(ctx) {
-            super.mount(ctx);
-            const modal = ctx.modal;
-            if (modal && typeof modal.renderDrumPad === 'function') {
-                modal.renderDrumPad();
-            }
-        }
-
-        unmount() {
-            // Drum pad has no persistent interaction state (each pad listens
-            // via event delegation at render time, and the container is
-            // hidden by the controller). Nothing to tear down.
-            super.unmount();
-        }
-
-        setCapabilities(_caps) {
-            const modal = this.ctx && this.ctx.modal;
-            if (modal && typeof modal.renderDrumPad === 'function') {
-                modal.renderDrumPad();
-            }
-        }
+    mount(ctx) {
+      super.mount(ctx);
+      const modal = ctx.modal;
+      if (modal && typeof modal.renderDrumPad === 'function') {
+        modal.renderDrumPad();
+      }
     }
 
-    if (typeof window !== 'undefined') window.DrumPadView = DrumPadView;
-    if (typeof module !== 'undefined') module.exports = DrumPadView;
+    // No unmount override: each pad listens via event delegation at
+    // render time and the container is hidden by the controller, so
+    // there's no persistent interaction state — the base unmount()
+    // suffices.
+
+    setCapabilities(_caps) {
+      const modal = this.ctx && this.ctx.modal;
+      if (modal && typeof modal.renderDrumPad === 'function') {
+        modal.renderDrumPad();
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined') window.DrumPadView = DrumPadView;
+  if (typeof module !== 'undefined') module.exports = DrumPadView;
 })();

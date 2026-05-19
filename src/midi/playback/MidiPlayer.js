@@ -44,35 +44,54 @@ const MIDI_CC_ALL_NOTES_OFF = 123;
  */
 const EVENT_BUILDERS = {
   noteOn: (e, time) => ({
-    time, type: 'noteOn', channel: e.channel ?? 0,
-    note: e.noteNumber, velocity: e.velocity
+    time,
+    type: 'noteOn',
+    channel: e.channel ?? 0,
+    note: e.noteNumber,
+    velocity: e.velocity
   }),
   noteOff: (e, time) => ({
-    time, type: 'noteOff', channel: e.channel ?? 0,
-    note: e.noteNumber, velocity: e.velocity
+    time,
+    type: 'noteOff',
+    channel: e.channel ?? 0,
+    note: e.noteNumber,
+    velocity: e.velocity
   }),
   controller: (e, time) => ({
-    time, type: 'controller', channel: e.channel ?? 0,
-    controller: e.controllerType, value: e.value
+    time,
+    type: 'controller',
+    channel: e.channel ?? 0,
+    controller: e.controllerType,
+    value: e.value
   }),
   pitchBend: (e, time) => ({
-    time, type: 'pitchBend', channel: e.channel ?? 0,
+    time,
+    type: 'pitchBend',
+    channel: e.channel ?? 0,
     value: e.value
   }),
   programChange: (e, time) => ({
-    time, type: 'programChange', channel: e.channel ?? 0,
+    time,
+    type: 'programChange',
+    channel: e.channel ?? 0,
     program: e.programNumber !== undefined ? e.programNumber : e.value
   }),
   channelAftertouch: (e, time) => ({
-    time, type: 'channelAftertouch', channel: e.channel ?? 0,
+    time,
+    type: 'channelAftertouch',
+    channel: e.channel ?? 0,
     value: e.value
   }),
   noteAftertouch: (e, time) => ({
-    time, type: 'noteAftertouch', channel: e.channel ?? 0,
-    note: e.noteNumber, value: e.value
+    time,
+    type: 'noteAftertouch',
+    channel: e.channel ?? 0,
+    note: e.noteNumber,
+    value: e.value
   }),
   setTempo: (e, time) => ({
-    time, type: 'setTempo',
+    time,
+    type: 'setTempo',
     tempo: MICROSECONDS_PER_MINUTE / e.microsecondsPerBeat
   })
 };
@@ -117,15 +136,15 @@ class MidiPlayer {
     this.mutedChannels = new Set(); // Muted channels
 
     // Queue / Playlist state
-    this.queue = [];           // [{ fileId, filename }]
-    this.queueIndex = -1;      // Current position (-1 = no queue)
-    this.queueLoop = false;    // Loop entire queue
-    this.playlistId = null;    // Active playlist ID
-    this.queueGapSeconds = 0;  // Delay between files (seconds)
+    this.queue = []; // [{ fileId, filename }]
+    this.queueIndex = -1; // Current position (-1 = no queue)
+    this.queueLoop = false; // Loop entire queue
+    this.playlistId = null; // Active playlist ID
+    this.queueGapSeconds = 0; // Delay between files (seconds)
     this.queueShuffle = false; // Shuffle mode
-    this._gapTimer = null;     // setTimeout handle for gap delay
+    this._gapTimer = null; // setTimeout handle for gap delay
     this._gapCountdownInterval = null; // Interval for countdown broadcast
-    this._gapRemaining = 0;    // Seconds remaining in gap
+    this._gapRemaining = 0; // Seconds remaining in gap
 
     // Disconnect policy: 'skip' | 'pause' | 'mute'
     this.disconnectedPolicy = 'skip';
@@ -217,7 +236,9 @@ class MidiPlayer {
       try {
         midi = parseMidi(buffer);
       } catch (parseError) {
-        throw new ValidationError(`File ${fileId} (${file.filename}) contains invalid MIDI data: ${parseError.message}`);
+        throw new ValidationError(
+          `File ${fileId} (${file.filename}) contains invalid MIDI data: ${parseError.message}`
+        );
       }
 
       if (!midi || !midi.header || !Array.isArray(midi.tracks)) {
@@ -238,7 +259,9 @@ class MidiPlayer {
       this._overlapNoteAssign = null;
       this.calculateDuration();
 
-      this.logger.info(`File loaded: ${file.filename} (${this.events.length} events, ${this.duration.toFixed(2)}s)`);
+      this.logger.info(
+        `File loaded: ${file.filename} (${this.events.length} events, ${this.duration.toFixed(2)}s)`
+      );
 
       return {
         filename: file.filename,
@@ -265,13 +288,13 @@ class MidiPlayer {
   }
 
   extractTrackName(track) {
-    const nameEvent = track.find(e => e.type === 'trackName');
+    const nameEvent = track.find((e) => e.type === 'trackName');
     return nameEvent ? nameEvent.text : 'Unnamed Track';
   }
 
   extractTempo(midi) {
     for (const track of midi.tracks) {
-      const tempoEvent = track.find(e => e.type === 'setTempo');
+      const tempoEvent = track.find((e) => e.type === 'setTempo');
       if (tempoEvent) {
         this.tempo = MICROSECONDS_PER_MINUTE / tempoEvent.microsecondsPerBeat;
         // Snapshot the file's native tempo so setPlaybackTempo can
@@ -291,35 +314,38 @@ class MidiPlayer {
     const channelsSet = new Set();
 
     midi.tracks.forEach((track, _trackIndex) => {
-      track.forEach(event => {
-        if (event.channel !== undefined &&
-            (event.type === 'noteOn' || event.type === 'noteOff')) {
+      track.forEach((event) => {
+        if (event.channel !== undefined && (event.type === 'noteOn' || event.type === 'noteOff')) {
           channelsSet.add(event.channel);
         }
       });
     });
 
-    this.channels = Array.from(channelsSet).sort((a, b) => a - b).map(channel => {
-      const tracksUsingChannel = [];
-      midi.tracks.forEach((track, trackIndex) => {
-        const usesChannel = track.some(e => e.channel === channel);
-        if (usesChannel) {
-          tracksUsingChannel.push({
-            index: trackIndex,
-            name: this.tracks[trackIndex]?.name || 'Unnamed'
-          });
-        }
+    this.channels = Array.from(channelsSet)
+      .sort((a, b) => a - b)
+      .map((channel) => {
+        const tracksUsingChannel = [];
+        midi.tracks.forEach((track, trackIndex) => {
+          const usesChannel = track.some((e) => e.channel === channel);
+          if (usesChannel) {
+            tracksUsingChannel.push({
+              index: trackIndex,
+              name: this.tracks[trackIndex]?.name || 'Unnamed'
+            });
+          }
+        });
+
+        return {
+          channel: channel,
+          channelDisplay: channel + 1,
+          tracks: tracksUsingChannel,
+          assignedDevice: null
+        };
       });
 
-      return {
-        channel: channel,
-        channelDisplay: channel + 1,
-        tracks: tracksUsingChannel,
-        assignedDevice: null
-      };
-    });
-
-    this.logger.info(`Found ${this.channels.length} MIDI channels: ${this.channels.map(c => c.channelDisplay).join(', ')}`);
+    this.logger.info(
+      `Found ${this.channels.length} MIDI channels: ${this.channels.map((c) => c.channelDisplay).join(', ')}`
+    );
   }
 
   /**
@@ -338,9 +364,9 @@ class MidiPlayer {
     this.events = [];
     const tempoMap = this._buildTempoMap();
 
-    this.tracks.forEach(track => {
+    this.tracks.forEach((track) => {
       let trackTicks = 0;
-      track.events.forEach(event => {
+      track.events.forEach((event) => {
         trackTicks += event.deltaTime;
         const timeInSeconds = this._ticksToSecondsWithTempoMap(trackTicks, tempoMap);
 
@@ -393,9 +419,13 @@ class MidiPlayer {
 
       let instrument;
       try {
-        instrument = this.database.stringInstrumentDB.getStringInstrumentById(tab.string_instrument_id);
+        instrument = this.database.stringInstrumentDB.getStringInstrumentById(
+          tab.string_instrument_id
+        );
       } catch (e) {
-        this.logger.debug(`Skipping tablature CC: instrument lookup failed for ID ${tab.string_instrument_id}`);
+        this.logger.debug(
+          `Skipping tablature CC: instrument lookup failed for ID ${tab.string_instrument_id}`
+        );
         continue;
       }
       if (!instrument || instrument.cc_enabled === false) continue;
@@ -452,9 +482,15 @@ class MidiPlayer {
 
       if (bestMatch && bestTimeDiff < 0.05) {
         const stringRaw = bestMatch.string + ccConfig.ccStringOffset;
-        const stringVal = Math.max(0, Math.min(127, Math.max(ccConfig.ccStringMin, Math.min(ccConfig.ccStringMax, stringRaw))));
+        const stringVal = Math.max(
+          0,
+          Math.min(127, Math.max(ccConfig.ccStringMin, Math.min(ccConfig.ccStringMax, stringRaw)))
+        );
         const fretRaw = Math.round(bestMatch.fret) + ccConfig.ccFretOffset;
-        const fretVal = Math.max(0, Math.min(127, Math.max(ccConfig.ccFretMin, Math.min(ccConfig.ccFretMax, fretRaw))));
+        const fretVal = Math.max(
+          0,
+          Math.min(127, Math.max(ccConfig.ccFretMin, Math.min(ccConfig.ccFretMax, fretRaw)))
+        );
 
         ccEvents.push({
           time: event.time - EPSILON,
@@ -476,7 +512,9 @@ class MidiPlayer {
     if (ccEvents.length > 0) {
       this.events.push(...ccEvents);
       this.events.sort((a, b) => a.time - b.time);
-      this.logger.info(`Injected ${ccEvents.length} tablature CC events for ${tabByChannel.size} channel(s)`);
+      this.logger.info(
+        `Injected ${ccEvents.length} tablature CC events for ${tabByChannel.size} channel(s)`
+      );
     }
   }
 
@@ -505,7 +543,7 @@ class MidiPlayer {
     // re-routings don't accumulate). Hand CCs carry a `_handInjected`
     // marker to make this safe and cheap.
     if (this._handCCCount) {
-      this.events = this.events.filter(e => !e._handInjected);
+      this.events = this.events.filter((e) => !e._handInjected);
       this._handCCCount = 0;
     }
 
@@ -528,7 +566,9 @@ class MidiPlayer {
               }
             }
           } catch (e) {
-            this.logger.debug(`Hand planner: no tablatures for file ${this.loadedFileId}: ${e.message}`);
+            this.logger.debug(
+              `Hand planner: no tablatures for file ${this.loadedFileId}: ${e.message}`
+            );
           }
         }
       }
@@ -560,22 +600,32 @@ class MidiPlayer {
       // found, skip — the baked stream is authoritative.
       const expectedCcNumbers = new Set(
         handsCfg.hands
-          .map(h => (h && Number.isInteger(h.cc_position_number)) ? h.cc_position_number : null)
-          .filter(v => v !== null)
+          .map((h) => (h && Number.isInteger(h.cc_position_number) ? h.cc_position_number : null))
+          .filter((v) => v !== null)
       );
       if (expectedCcNumbers.size > 0 && this._timelineHasHandCCs(srcChannel, expectedCcNumbers)) {
         this.logger.debug(
           `Hand planner (ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
-          `device ${device}): timeline already carries CC(s) ${[...expectedCcNumbers].join(',')} — skipping injection`
+            `device ${device}): timeline already carries CC(s) ${[...expectedCcNumbers].join(',')} — skipping injection`
         );
         return;
       }
 
       if (handsCfg.mode === 'frets') {
         this._planFretsForDestination({
-          srcChannel, device, targetChannel, segmentLabel, segmentFilter,
-          handsCfg, capabilities, getTabsForChannel, allCCs, allWarnings,
-          markHadAny: () => { hadAny = true; }
+          srcChannel,
+          device,
+          targetChannel,
+          segmentLabel,
+          segmentFilter,
+          handsCfg,
+          capabilities,
+          getTabsForChannel,
+          allCCs,
+          allWarnings,
+          markHadAny: () => {
+            hadAny = true;
+          }
         });
         return;
       }
@@ -606,12 +656,14 @@ class MidiPlayer {
       // assigner's optional `noteAssignments` arg honours them so the
       // operator's choice survives the auto/track/pitch_split decision.
       const routing = this.channelRouting.get(srcChannel);
-      const handPins = (routing?.handOverrides?.note_assignments || [])
-        .filter(a => a && typeof a.handId === 'string' && a.handId.length > 0);
-      const { assignments, warnings: assignWarnings, resolvedMode } = assigner.assign(
-        notes,
-        handPins.length > 0 ? { noteAssignments: handPins } : {}
+      const handPins = (routing?.handOverrides?.note_assignments || []).filter(
+        (a) => a && typeof a.handId === 'string' && a.handId.length > 0
       );
+      const {
+        assignments,
+        warnings: assignWarnings,
+        resolvedMode
+      } = assigner.assign(notes, handPins.length > 0 ? { noteAssignments: handPins } : {});
       for (const w of assignWarnings) {
         allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
       }
@@ -639,8 +691,8 @@ class MidiPlayer {
 
       this.logger.debug(
         `Hand planner (ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
-        `device ${device}): ${ccEvents.length} CC events, ` +
-        `${planWarnings.length + assignWarnings.length} warnings, mode=${resolvedMode}`
+          `device ${device}): ${ccEvents.length} CC events, ` +
+          `${planWarnings.length + assignWarnings.length} warnings, mode=${resolvedMode}`
       );
     };
 
@@ -696,7 +748,9 @@ class MidiPlayer {
       });
     }
 
-    this.logger.info(`Injected ${allCCs.length} hand-position CC events (${allWarnings.length} warnings)`);
+    this.logger.info(
+      `Injected ${allCCs.length} hand-position CC events (${allWarnings.length} warnings)`
+    );
     return allCCs.length;
   }
 
@@ -716,7 +770,7 @@ class MidiPlayer {
     if (!this.events || expectedCcNumbers.size === 0) return false;
     for (let i = 0; i < this.events.length; i++) {
       const e = this.events[i];
-      if (e._handInjected) continue;            // our own previous output — ignore
+      if (e._handInjected) continue; // our own previous output — ignore
       if (e.type !== 'controller') continue;
       if (e.channel !== srcChannel) continue;
       if (expectedCcNumbers.has(e.controller)) return true;
@@ -740,22 +794,44 @@ class MidiPlayer {
    */
   _planFretsForDestination(ctx) {
     const {
-      srcChannel, device, targetChannel, segmentLabel, segmentFilter,
-      handsCfg, capabilities, getTabsForChannel, allCCs, allWarnings, markHadAny
+      srcChannel,
+      device,
+      targetChannel,
+      segmentLabel,
+      segmentFilter,
+      handsCfg,
+      capabilities,
+      getTabsForChannel,
+      allCCs,
+      allWarnings,
+      markHadAny
     } = ctx;
 
     const tablature = getTabsForChannel(srcChannel);
-    if (!tablature || !Array.isArray(tablature.tablature_data) || tablature.tablature_data.length === 0) {
-      this.logger.debug(`Hand planner (ch ${srcChannel + 1}, device ${device}): frets mode but no tablature — skipped`);
+    if (
+      !tablature ||
+      !Array.isArray(tablature.tablature_data) ||
+      tablature.tablature_data.length === 0
+    ) {
+      this.logger.debug(
+        `Hand planner (ch ${srcChannel + 1}, device ${device}): frets mode but no tablature — skipped`
+      );
       return;
     }
 
     let stringInstrument = null;
-    if (tablature.string_instrument_id && this.database?.stringInstrumentDB?.getStringInstrumentById) {
+    if (
+      tablature.string_instrument_id &&
+      this.database?.stringInstrumentDB?.getStringInstrumentById
+    ) {
       try {
-        stringInstrument = this.database.stringInstrumentDB.getStringInstrumentById(tablature.string_instrument_id);
+        stringInstrument = this.database.stringInstrumentDB.getStringInstrumentById(
+          tablature.string_instrument_id
+        );
       } catch (e) {
-        this.logger.debug(`Hand planner: string_instrument ${tablature.string_instrument_id} lookup failed: ${e.message}`);
+        this.logger.debug(
+          `Hand planner: string_instrument ${tablature.string_instrument_id} lookup failed: ${e.message}`
+        );
       }
     }
 
@@ -764,7 +840,10 @@ class MidiPlayer {
     // ceiling (48 semitones / "frets") so fractional positions have room.
     let maxFret = 24;
     if (stringInstrument) {
-      if (Array.isArray(stringInstrument.frets_per_string) && stringInstrument.frets_per_string.length > 0) {
+      if (
+        Array.isArray(stringInstrument.frets_per_string) &&
+        stringInstrument.frets_per_string.length > 0
+      ) {
         maxFret = stringInstrument.frets_per_string.reduce((a, b) => Math.max(a, b ?? 0), 0);
       } else if (Number.isFinite(stringInstrument.num_frets) && stringInstrument.num_frets > 0) {
         maxFret = stringInstrument.num_frets;
@@ -780,9 +859,10 @@ class MidiPlayer {
       if (ev.fret <= 0) continue; // open string: no fretting-hand constraint
       if (segmentFilter && ev.midiNote != null && !segmentFilter(ev.midiNote)) continue;
       const time = this._ticksToSecondsWithTempoMap(ev.tick, tempoMap);
-      const endTime = Number.isFinite(ev.duration) && ev.duration > 0
-        ? this._ticksToSecondsWithTempoMap(ev.tick + ev.duration, tempoMap)
-        : null;
+      const endTime =
+        Number.isFinite(ev.duration) && ev.duration > 0
+          ? this._ticksToSecondsWithTempoMap(ev.tick + ev.duration, tempoMap)
+          : null;
       notes.push({
         time,
         note: ev.midiNote,
@@ -802,9 +882,10 @@ class MidiPlayer {
     // position-dependent physical model when a hand span in mm is also
     // configured. When either input is missing, the planner falls back
     // to the constant-fret-window model (transparent to the caller).
-    const scaleLengthMm = stringInstrument && Number.isFinite(stringInstrument.scale_length_mm)
-      ? stringInstrument.scale_length_mm
-      : null;
+    const scaleLengthMm =
+      stringInstrument && Number.isFinite(stringInstrument.scale_length_mm)
+        ? stringInstrument.scale_length_mm
+        : null;
 
     // Planner selection: LongitudinalPlanner is now the default for
     // `string_sliding_fingers` whenever the geometric input is present.
@@ -813,10 +894,11 @@ class MidiPlayer {
     // gone. The V1 window planner stays as the fallback for
     // `fret_sliding_fingers` and for string instruments that lack a
     // scale length.
-    const useLongitudinal = handsCfg
-      && handsCfg.mechanism === 'string_sliding_fingers'
-      && Number.isFinite(scaleLengthMm)
-      && scaleLengthMm > 0;
+    const useLongitudinal =
+      handsCfg &&
+      handsCfg.mechanism === 'string_sliding_fingers' &&
+      Number.isFinite(scaleLengthMm) &&
+      scaleLengthMm > 0;
 
     const plannerCtx = {
       unit: 'frets',
@@ -842,18 +924,18 @@ class MidiPlayer {
 
     this.logger.debug(
       `Hand planner [frets/${useLongitudinal ? 'longitudinal' : 'window'}] ` +
-      `(ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
-      `device ${device}): ${ccEvents.length} CC events, ${planWarnings.length} warnings, ` +
-      `maxFret=${maxFret}, scaleLengthMm=${scaleLengthMm ?? 'n/a'}`
+        `(ch ${srcChannel + 1}${segmentLabel ? ` seg ${segmentLabel}` : ''}, ` +
+        `device ${device}): ${ccEvents.length} CC events, ${planWarnings.length} warnings, ` +
+        `maxFret=${maxFret}, scaleLengthMm=${scaleLengthMm ?? 'n/a'}`
     );
   }
 
   _buildTempoMap() {
     const tempoEvents = [];
 
-    this.tracks.forEach(track => {
+    this.tracks.forEach((track) => {
       let trackTicks = 0;
-      track.events.forEach(event => {
+      track.events.forEach((event) => {
         trackTicks += event.deltaTime;
         if (event.type === 'setTempo') {
           tempoEvents.push({
@@ -898,7 +980,11 @@ class MidiPlayer {
   }
 
   _ticksToSecondsWithTempoMap(ticks, tempoMap) {
-    let activeEntry = { tick: 0, time: 0, microsecondsPerBeat: MICROSECONDS_PER_MINUTE / this.tempo };
+    let activeEntry = {
+      tick: 0,
+      time: 0,
+      microsecondsPerBeat: MICROSECONDS_PER_MINUTE / this.tempo
+    };
 
     for (const entry of tempoMap) {
       if (entry.tick <= ticks) {
@@ -910,7 +996,7 @@ class MidiPlayer {
 
     const deltaTicks = ticks - activeEntry.tick;
     const secondsPerTick = activeEntry.microsecondsPerBeat / (this.ppq * 1000000);
-    return activeEntry.time + (deltaTicks * secondsPerTick);
+    return activeEntry.time + deltaTicks * secondsPerTick;
   }
 
   /**
@@ -983,7 +1069,7 @@ class MidiPlayer {
       // Rate-aware anchor: elapsed = (now - startTime) * rate must equal
       // resumePosition at the next tick.
       const rate = this.playbackRate > 0 ? this.playbackRate : 1;
-      this.startTime = performance.now() - (resumePosition * 1000 / rate);
+      this.startTime = performance.now() - (resumePosition * 1000) / rate;
     } else {
       this.position = 0;
       this.currentEventIndex = 0;
@@ -1022,7 +1108,9 @@ class MidiPlayer {
 
     this.broadcastStatus();
 
-    this.logger.info(`Playback started on ${outputDevice} at position ${this.position.toFixed(2)}s`);
+    this.logger.info(
+      `Playback started on ${outputDevice} at position ${this.position.toFixed(2)}s`
+    );
   }
 
   /**
@@ -1264,7 +1352,8 @@ class MidiPlayer {
   }
 
   findEventIndexAtTime(time) {
-    let lo = 0, hi = this.events.length;
+    let lo = 0,
+      hi = this.events.length;
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
       if (this.events[mid].time < time) {
@@ -1312,7 +1401,12 @@ class MidiPlayer {
   setPlaybackTempo(bpm) {
     const target = Number(bpm);
     if (!Number.isFinite(target) || target <= 0) {
-      return { success: false, bpm: this.tempo, playbackRate: this.playbackRate, originalTempo: this.originalTempo };
+      return {
+        success: false,
+        bpm: this.tempo,
+        playbackRate: this.playbackRate,
+        originalTempo: this.originalTempo
+      };
     }
 
     // No file loaded yet — store the value for later and forward to the
@@ -1337,7 +1431,7 @@ class MidiPlayer {
     // startTime_new = now - position * 1000 / rate.
     if (this.playing && !this.paused) {
       const now = performance.now();
-      this.startTime = now - (this.position * 1000 / rate);
+      this.startTime = now - (this.position * 1000) / rate;
     }
 
     this.playbackRate = rate;
@@ -1351,7 +1445,12 @@ class MidiPlayer {
       `Playback tempo set to ${effectiveBpm.toFixed(1)} BPM (rate ${rate.toFixed(3)})`
     );
     this.broadcastStatus();
-    return { success: true, bpm: effectiveBpm, playbackRate: rate, originalTempo: this.originalTempo };
+    return {
+      success: true,
+      bpm: effectiveBpm,
+      playbackRate: rate,
+      originalTempo: this.originalTempo
+    };
   }
 
   /**
@@ -1434,7 +1533,7 @@ class MidiPlayer {
    * @returns {void}
    */
   setChannelRouting(channel, deviceId, targetChannel, handOverrides) {
-    const target = (targetChannel !== undefined && targetChannel !== null) ? targetChannel : channel;
+    const target = targetChannel !== undefined && targetChannel !== null ? targetChannel : channel;
     this.channelRouting.set(channel, {
       device: deviceId,
       targetChannel: target,
@@ -1444,7 +1543,7 @@ class MidiPlayer {
 
     this.scheduler.invalidateCompensationCache();
 
-    const channelInfo = this.channels.find(c => c.channel === channel);
+    const channelInfo = this.channels.find((c) => c.channel === channel);
     if (channelInfo) {
       channelInfo.assignedDevice = deviceId;
     }
@@ -1471,27 +1570,23 @@ class MidiPlayer {
   }
 
   /**
-   * Set split routing: one channel → multiple instruments based on note ranges
-   * @param {number} channel - Source MIDI channel
-   * @param {Array<Object>} segments - [{ device_id, target_channel, split_note_min, split_note_max, overlap_strategy }]
-   */
-  /**
    * Split a channel across multiple destinations based on note range
    * (e.g. low notes → bass amp, high notes → guitar amp).
    *
-   * @param {number} channel - Source channel.
-   * @param {Array<{minNote:number, maxNote:number, deviceId:string,
-   *   targetChannel?:number}>} segments
+   * @param {number} channel - Source MIDI channel.
+   * @param {Array<Object>} segments - `[{ device_id, target_channel,
+   *   split_note_min, split_note_max, split_polyphony_share,
+   *   overlap_strategy }]`
    * @returns {void}
    */
   setChannelSplitRouting(channel, segments) {
     // Extract overlap_strategy from first segment that has one (shared across the split)
-    const overlapStrategy = segments.find(s => s.overlap_strategy)?.overlap_strategy || 'first';
+    const overlapStrategy = segments.find((s) => s.overlap_strategy)?.overlap_strategy || 'first';
 
     const splitRouting = {
       split: true,
       overlapStrategy,
-      segments: segments.map(seg => ({
+      segments: segments.map((seg) => ({
         device: seg.device_id,
         targetChannel: seg.target_channel !== undefined ? seg.target_channel : channel,
         noteMin: seg.split_note_min ?? 0,
@@ -1503,9 +1598,9 @@ class MidiPlayer {
     this.channelRouting.set(channel, splitRouting);
     this.scheduler.invalidateCompensationCache();
 
-    const channelInfo = this.channels.find(c => c.channel === channel);
+    const channelInfo = this.channels.find((c) => c.channel === channel);
     if (channelInfo) {
-      channelInfo.assignedDevice = segments.map(s => s.device_id).join('+');
+      channelInfo.assignedDevice = segments.map((s) => s.device_id).join('+');
     }
 
     this.logger.info(`Channel ${channel + 1} split across ${segments.length} instruments`);
@@ -1522,7 +1617,7 @@ class MidiPlayer {
     this.channelTransposition.clear();
     this.scheduler.invalidateCompensationCache();
     this.invalidateOmniFallback();
-    this.channels.forEach(c => c.assignedDevice = null);
+    this.channels.forEach((c) => (c.assignedDevice = null));
     this.logger.info('All channel routing cleared');
   }
 
@@ -1531,10 +1626,12 @@ class MidiPlayer {
    *   map keyed by source channel.
    */
   getChannelRouting() {
-    return this.channels.map(c => {
+    return this.channels.map((c) => {
       const routing = this.channelRouting.get(c.channel);
       const targetChannel = routing
-        ? (typeof routing === 'string' ? c.channel : routing.targetChannel)
+        ? typeof routing === 'string'
+          ? c.channel
+          : routing.targetChannel
         : null;
       return {
         channel: c.channel,
@@ -1548,12 +1645,44 @@ class MidiPlayer {
   }
 
   /**
-   * Get output routing for a channel, optionally considering the note for split routing
+   * Record which split segment a noteOn was routed to, so the matching
+   * noteOff (and any re-trigger) can replay the same decision in FIFO
+   * order. Lazily allocates the per-note assignment map.
    * @param {number} channel
-   * @param {number|null} [note=null] - MIDI note number (for split routing)
-   * @param {string|null} [eventType=null] - 'noteOn' or 'noteOff' (for least_loaded tracking)
-   * @returns {Object|Array|null} - { device, targetChannel } or array for broadcast, or null if muted
+   * @param {number} note
+   * @param {number} segIdx - Index into the `matching` segments array.
+   * @private
    */
+  _pushSegmentAssignment(channel, note, segIdx) {
+    if (!this._overlapNoteAssign) this._overlapNoteAssign = new Map();
+    const noteKey = `${channel}_${note}_seg`;
+    let queue = this._overlapNoteAssign.get(noteKey);
+    if (!queue) {
+      queue = [];
+      this._overlapNoteAssign.set(noteKey, queue);
+    }
+    queue.push(segIdx);
+  }
+
+  /**
+   * Pop the segment index a prior noteOn recorded for (channel, note),
+   * mirroring {@link MidiPlayer#_pushSegmentAssignment}. Returns -1 when
+   * no assignment was tracked (untracked noteOff).
+   * @param {number} channel
+   * @param {number} note
+   * @returns {number}
+   * @private
+   */
+  _popSegmentAssignment(channel, note) {
+    if (!this._overlapNoteAssign) this._overlapNoteAssign = new Map();
+    const noteKey = `${channel}_${note}_seg`;
+    const queue = this._overlapNoteAssign.get(noteKey);
+    if (!queue || queue.length === 0) return -1;
+    const idx = queue.shift();
+    if (queue.length === 0) this._overlapNoteAssign.delete(noteKey);
+    return idx;
+  }
+
   /**
    * Resolve the destination for a single event. Considers (in order):
    * channel-level routing, split routing by note range, and finally the
@@ -1564,7 +1693,8 @@ class MidiPlayer {
    * @param {?number} [note] - For note events; required by split routing.
    * @param {?string} [eventType] - Used to differentiate note-vs-cc when
    *   choosing how to apply target-channel mapping.
-   * @returns {?{deviceId:string, targetChannel:number}}
+   * @returns {Object|Array|null} `{device, targetChannel}`, an array of
+   *   such objects for broadcast (no-note events on a split), or null.
    */
   getOutputForChannel(channel, note = null, eventType = null) {
     if (this.channelRouting.has(channel)) {
@@ -1579,7 +1709,9 @@ class MidiPlayer {
       if (routing.split && routing.segments) {
         if (note !== null) {
           // Find all segments covering this note
-          const matching = routing.segments.filter(seg => note >= seg.noteMin && note <= seg.noteMax);
+          const matching = routing.segments.filter(
+            (seg) => note >= seg.noteMin && note <= seg.noteMax
+          );
 
           if (matching.length === 1) {
             return { device: matching[0].device, targetChannel: matching[0].targetChannel };
@@ -1592,60 +1724,39 @@ class MidiPlayer {
             if (strategy === 'shared' || strategy === 'round_robin') {
               // Round-robin: alternate between matching segments using a per-channel counter
               if (!this._overlapCounters) this._overlapCounters = new Map();
-              if (!this._overlapNoteAssign) this._overlapNoteAssign = new Map();
 
               if (eventType === 'noteOff') {
                 // Route noteOff to whichever segment got the corresponding noteOn (FIFO for re-triggers)
-                const noteKey = `${channel}_${note}_seg`;
-                const assignQueue = this._overlapNoteAssign.get(noteKey);
-                if (assignQueue && assignQueue.length > 0) {
-                  const assignedIdx = assignQueue.shift();
-                  if (assignQueue.length === 0) this._overlapNoteAssign.delete(noteKey);
-                  if (matching[assignedIdx]) {
-                    const seg = matching[assignedIdx];
-                    return { device: seg.device, targetChannel: seg.targetChannel };
-                  }
-                }
-                // Untracked noteOff — route to first matching
-                return { device: matching[0].device, targetChannel: matching[0].targetChannel };
+                const assignedIdx = this._popSegmentAssignment(channel, note);
+                const seg = matching[assignedIdx] || matching[0];
+                return { device: seg.device, targetChannel: seg.targetChannel };
               }
 
               // noteOn: increment counter and record assignment (FIFO queue for re-triggers)
               const key = `${channel}_${note}`;
-              const counter = (this._overlapCounters.get(key) || 0);
+              const counter = this._overlapCounters.get(key) || 0;
               this._overlapCounters.set(key, counter + 1);
               const segIdx = counter % matching.length;
               const seg = matching[segIdx];
-              const noteKey = `${channel}_${note}_seg`;
-              if (!this._overlapNoteAssign.has(noteKey)) this._overlapNoteAssign.set(noteKey, []);
-              this._overlapNoteAssign.get(noteKey).push(segIdx);
+              this._pushSegmentAssignment(channel, note, segIdx);
               return { device: seg.device, targetChannel: seg.targetChannel };
             }
 
             if (strategy === 'second') {
               // Prefer last matching segment (deterministic: both noteOn and noteOff
               // always route to the same segment since matching.length is stable)
-              if (!this._overlapNoteAssign) this._overlapNoteAssign = new Map();
-
               if (eventType === 'noteOff') {
-                const noteKey = `${channel}_${note}_seg`;
-                const assignQueue = this._overlapNoteAssign.get(noteKey);
-                if (assignQueue && assignQueue.length > 0) {
-                  const assignedIdx = assignQueue.shift();
-                  if (assignQueue.length === 0) this._overlapNoteAssign.delete(noteKey);
-                  if (matching[assignedIdx]) {
-                    const seg = matching[assignedIdx];
-                    return { device: seg.device, targetChannel: seg.targetChannel };
-                  }
+                const assignedIdx = this._popSegmentAssignment(channel, note);
+                if (matching[assignedIdx]) {
+                  const seg = matching[assignedIdx];
+                  return { device: seg.device, targetChannel: seg.targetChannel };
                 }
               }
 
               const segIdx = matching.length - 1;
               const seg = matching[segIdx];
               if (eventType === 'noteOn') {
-                const noteKey = `${channel}_${note}_seg`;
-                if (!this._overlapNoteAssign.has(noteKey)) this._overlapNoteAssign.set(noteKey, []);
-                this._overlapNoteAssign.get(noteKey).push(segIdx);
+                this._pushSegmentAssignment(channel, note, segIdx);
               }
               return { device: seg.device, targetChannel: seg.targetChannel };
             }
@@ -1653,21 +1764,15 @@ class MidiPlayer {
             if (strategy === 'least_loaded') {
               // Route to segment with fewer active notes
               if (!this._segmentNoteCounts) this._segmentNoteCounts = new Map();
-              if (!this._overlapNoteAssign) this._overlapNoteAssign = new Map();
               // On noteOff: decrement and route to same segment as the noteOn did (FIFO for re-triggers)
               if (eventType === 'noteOff') {
-                const noteKey = `${channel}_${note}_seg`;
-                const assignQueue = this._overlapNoteAssign.get(noteKey);
-                if (assignQueue && assignQueue.length > 0) {
-                  const assignedIdx = assignQueue.shift();
-                  if (assignQueue.length === 0) this._overlapNoteAssign.delete(noteKey);
-                  if (matching[assignedIdx]) {
-                    const seg = matching[assignedIdx];
-                    const segKey = `${seg.device}_${seg.targetChannel}`;
-                    const count = this._segmentNoteCounts.get(segKey) || 0;
-                    if (count > 0) this._segmentNoteCounts.set(segKey, count - 1);
-                    return { device: seg.device, targetChannel: seg.targetChannel };
-                  }
+                const assignedIdx = this._popSegmentAssignment(channel, note);
+                if (matching[assignedIdx]) {
+                  const seg = matching[assignedIdx];
+                  const segKey = `${seg.device}_${seg.targetChannel}`;
+                  const count = this._segmentNoteCounts.get(segKey) || 0;
+                  if (count > 0) this._segmentNoteCounts.set(segKey, count - 1);
+                  return { device: seg.device, targetChannel: seg.targetChannel };
                 }
                 // Untracked noteOff — route to first matching without modifying counters
                 return { device: matching[0].device, targetChannel: matching[0].targetChannel };
@@ -1679,13 +1784,15 @@ class MidiPlayer {
               for (let i = 0; i < matching.length; i++) {
                 const segKey = `${matching[i].device}_${matching[i].targetChannel}`;
                 const count = this._segmentNoteCounts.get(segKey) || 0;
-                if (count < bestCount) { bestCount = count; bestSeg = matching[i]; bestIdx = i; }
+                if (count < bestCount) {
+                  bestCount = count;
+                  bestSeg = matching[i];
+                  bestIdx = i;
+                }
               }
               const segKey = `${bestSeg.device}_${bestSeg.targetChannel}`;
               this._segmentNoteCounts.set(segKey, (this._segmentNoteCounts.get(segKey) || 0) + 1);
-              const noteKey = `${channel}_${note}_seg`;
-              if (!this._overlapNoteAssign.has(noteKey)) this._overlapNoteAssign.set(noteKey, []);
-              this._overlapNoteAssign.get(noteKey).push(bestIdx);
+              this._pushSegmentAssignment(channel, note, bestIdx);
               return { device: bestSeg.device, targetChannel: bestSeg.targetChannel };
             }
 
@@ -1693,24 +1800,18 @@ class MidiPlayer {
               // Overflow: primary instrument (first segment) plays until its polyphony is full,
               // then excess notes go to secondary instrument (second segment).
               if (!this._segmentNoteCounts) this._segmentNoteCounts = new Map();
-              if (!this._overlapNoteAssign) this._overlapNoteAssign = new Map();
               const primarySeg = matching[0];
               const primaryKey = `${primarySeg.device}_${primarySeg.targetChannel}`;
 
               if (eventType === 'noteOff') {
                 // Route noteOff to whichever segment got the corresponding noteOn (FIFO for re-triggers)
-                const noteKey = `${channel}_${note}_seg`;
-                const assignQueue = this._overlapNoteAssign.get(noteKey);
-                if (assignQueue && assignQueue.length > 0) {
-                  const assignedIdx = assignQueue.shift();
-                  if (assignQueue.length === 0) this._overlapNoteAssign.delete(noteKey);
-                  if (matching[assignedIdx]) {
-                    const seg = matching[assignedIdx];
-                    const sKey = `${seg.device}_${seg.targetChannel}`;
-                    const count = this._segmentNoteCounts.get(sKey) || 0;
-                    if (count > 0) this._segmentNoteCounts.set(sKey, count - 1);
-                    return { device: seg.device, targetChannel: seg.targetChannel };
-                  }
+                const assignedIdx = this._popSegmentAssignment(channel, note);
+                if (matching[assignedIdx]) {
+                  const seg = matching[assignedIdx];
+                  const sKey = `${seg.device}_${seg.targetChannel}`;
+                  const count = this._segmentNoteCounts.get(sKey) || 0;
+                  if (count > 0) this._segmentNoteCounts.set(sKey, count - 1);
+                  return { device: seg.device, targetChannel: seg.targetChannel };
                 }
                 return { device: primarySeg.device, targetChannel: primarySeg.targetChannel };
               }
@@ -1723,16 +1824,12 @@ class MidiPlayer {
                 const overflowSeg = matching[1];
                 const oKey = `${overflowSeg.device}_${overflowSeg.targetChannel}`;
                 this._segmentNoteCounts.set(oKey, (this._segmentNoteCounts.get(oKey) || 0) + 1);
-                const noteKey = `${channel}_${note}_seg`;
-                if (!this._overlapNoteAssign.has(noteKey)) this._overlapNoteAssign.set(noteKey, []);
-                this._overlapNoteAssign.get(noteKey).push(1);
+                this._pushSegmentAssignment(channel, note, 1);
                 return { device: overflowSeg.device, targetChannel: overflowSeg.targetChannel };
               }
               // Route to primary
               this._segmentNoteCounts.set(primaryKey, activeCount + 1);
-              const noteKeyPrimary = `${channel}_${note}_seg`;
-              if (!this._overlapNoteAssign.has(noteKeyPrimary)) this._overlapNoteAssign.set(noteKeyPrimary, []);
-              this._overlapNoteAssign.get(noteKeyPrimary).push(0);
+              this._pushSegmentAssignment(channel, note, 0);
               return { device: primarySeg.device, targetChannel: primarySeg.targetChannel };
             }
 
@@ -1740,21 +1837,12 @@ class MidiPlayer {
               // Alternate: global round-robin counter per channel (not per note pitch).
               // Each noteOn increments and picks next instrument, regardless of which note.
               if (!this._alternateCounters) this._alternateCounters = new Map();
-              if (!this._overlapNoteAssign) this._overlapNoteAssign = new Map();
 
               if (eventType === 'noteOff') {
                 // Route noteOff to whichever segment got the corresponding noteOn (FIFO for re-triggers)
-                const noteKey = `${channel}_${note}_seg`;
-                const assignQueue = this._overlapNoteAssign.get(noteKey);
-                if (assignQueue && assignQueue.length > 0) {
-                  const assignedIdx = assignQueue.shift();
-                  if (assignQueue.length === 0) this._overlapNoteAssign.delete(noteKey);
-                  if (matching[assignedIdx]) {
-                    const seg = matching[assignedIdx];
-                    return { device: seg.device, targetChannel: seg.targetChannel };
-                  }
-                }
-                return { device: matching[0].device, targetChannel: matching[0].targetChannel };
+                const assignedIdx = this._popSegmentAssignment(channel, note);
+                const seg = matching[assignedIdx] || matching[0];
+                return { device: seg.device, targetChannel: seg.targetChannel };
               }
 
               // noteOn: increment global channel counter and record assignment (FIFO queue for re-triggers)
@@ -1762,9 +1850,7 @@ class MidiPlayer {
               this._alternateCounters.set(channel, counter + 1);
               const segIdx = counter % matching.length;
               const seg = matching[segIdx];
-              const noteKey = `${channel}_${note}_seg`;
-              if (!this._overlapNoteAssign.has(noteKey)) this._overlapNoteAssign.set(noteKey, []);
-              this._overlapNoteAssign.get(noteKey).push(segIdx);
+              this._pushSegmentAssignment(channel, note, segIdx);
               return { device: seg.device, targetChannel: seg.targetChannel };
             }
 
@@ -1777,12 +1863,18 @@ class MidiPlayer {
           let minDist = Infinity;
           for (const seg of routing.segments) {
             const dist = Math.min(Math.abs(note - seg.noteMin), Math.abs(note - seg.noteMax));
-            if (dist < minDist) { minDist = dist; closest = seg; }
+            if (dist < minDist) {
+              minDist = dist;
+              closest = seg;
+            }
           }
           return { device: closest.device, targetChannel: closest.targetChannel };
         }
         // No note specified (CC, pitchBend, etc.) → return all segments for broadcast
-        return routing.segments.map(seg => ({ device: seg.device, targetChannel: seg.targetChannel }));
+        return routing.segments.map((seg) => ({
+          device: seg.device,
+          targetChannel: seg.targetChannel
+        }));
       }
 
       return routing;
@@ -1893,7 +1985,7 @@ class MidiPlayer {
    * @returns {void}
    */
   setQueue(items, loop, playlistId, options = {}) {
-    this.queue = items.map(item => ({ fileId: item.fileId, filename: item.filename }));
+    this.queue = items.map((item) => ({ fileId: item.fileId, filename: item.filename }));
     this.queueIndex = -1;
     this.queueLoop = !!loop;
     this.playlistId = playlistId || null;
@@ -1904,7 +1996,9 @@ class MidiPlayer {
       this._shuffleQueue();
     }
 
-    this.logger.info(`Queue set: ${items.length} items, loop=${this.queueLoop}, shuffle=${this.queueShuffle}, gap=${this.queueGapSeconds}s, playlist=${this.playlistId}`);
+    this.logger.info(
+      `Queue set: ${items.length} items, loop=${this.queueLoop}, shuffle=${this.queueShuffle}, gap=${this.queueGapSeconds}s, playlist=${this.playlistId}`
+    );
   }
 
   /**
@@ -1941,9 +2035,10 @@ class MidiPlayer {
       shuffle: this.queueShuffle,
       waiting: this._gapTimer !== null,
       waitingRemaining: this._gapRemaining,
-      currentFile: this.queueIndex >= 0 && this.queueIndex < this.queue.length
-        ? this.queue[this.queueIndex]
-        : null
+      currentFile:
+        this.queueIndex >= 0 && this.queueIndex < this.queue.length
+          ? this.queue[this.queueIndex]
+          : null
     };
   }
 
@@ -2031,7 +2126,7 @@ class MidiPlayer {
     let outputDevice = this.outputDevice;
     if (!outputDevice) {
       const devices = this._deps.deviceManager.getDeviceList();
-      const outputDevices = devices.filter(d => d.output && d.enabled);
+      const outputDevices = devices.filter((d) => d.output && d.enabled);
       if (outputDevices.length === 0) {
         throw new ConfigurationError('No output devices available');
       }
@@ -2137,7 +2232,7 @@ class MidiPlayer {
           // Release pending flag before starting async timer
           this._fileEndPending = false;
           this._startGapDelay(() => {
-            this.nextInQueue().catch(err => {
+            this.nextInQueue().catch((err) => {
               this.logger.error(`Failed to advance queue after gap: ${err.message}`);
               this.stop();
             });
@@ -2169,21 +2264,30 @@ class MidiPlayer {
         let loadedCount = 0;
         for (const routing of savedRoutings) {
           if (routing.channel !== null && routing.channel !== undefined && routing.device_id) {
-            const targetChannel = routing.target_channel !== undefined ? routing.target_channel : routing.channel;
+            const targetChannel =
+              routing.target_channel !== undefined ? routing.target_channel : routing.channel;
             // Parse the JSON blob once on load — the hand-planning path
             // then reads from the in-memory routing entry without
             // re-parsing on every chord.
             let handOverrides = null;
             if (routing.hand_position_overrides != null) {
               try {
-                handOverrides = typeof routing.hand_position_overrides === 'string'
-                  ? JSON.parse(routing.hand_position_overrides)
-                  : routing.hand_position_overrides;
+                handOverrides =
+                  typeof routing.hand_position_overrides === 'string'
+                    ? JSON.parse(routing.hand_position_overrides)
+                    : routing.hand_position_overrides;
               } catch (e) {
-                this.logger.warn(`Invalid hand_position_overrides for ch ${routing.channel}: ${e.message}`);
+                this.logger.warn(
+                  `Invalid hand_position_overrides for ch ${routing.channel}: ${e.message}`
+                );
               }
             }
-            this.setChannelRouting(routing.channel, routing.device_id, targetChannel, handOverrides);
+            this.setChannelRouting(
+              routing.channel,
+              routing.device_id,
+              targetChannel,
+              handOverrides
+            );
             // Per-channel transposition is applied at runtime so the
             // operator's choice in the routing modal survives a reload
             // even when no adapted file was generated.

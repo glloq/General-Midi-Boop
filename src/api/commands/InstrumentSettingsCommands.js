@@ -58,12 +58,22 @@ export function validateBagpipeConfigPayload(cfg) {
     if (!Array.isArray(cfg.drones)) {
       throw new ValidationError('bagpipe_config.drones must be an array', 'bagpipe_config');
     }
-    const allNums = cfg.drones.every(n => Number.isInteger(n) && n >= 0 && n <= 127);
-    const allObjs = cfg.drones.every(d => d && typeof d === 'object' && !Array.isArray(d)
-        && Number.isInteger(d.note) && d.note >= 0 && d.note <= 127
-        && (d.enabled === undefined || typeof d.enabled === 'boolean'));
+    const allNums = cfg.drones.every((n) => Number.isInteger(n) && n >= 0 && n <= 127);
+    const allObjs = cfg.drones.every(
+      (d) =>
+        d &&
+        typeof d === 'object' &&
+        !Array.isArray(d) &&
+        Number.isInteger(d.note) &&
+        d.note >= 0 &&
+        d.note <= 127 &&
+        (d.enabled === undefined || typeof d.enabled === 'boolean')
+    );
     if (cfg.drones.length && !allNums && !allObjs) {
-      throw new ValidationError('bagpipe_config.drones must be MIDI notes 0-127 or {note,enabled} objects', 'bagpipe_config');
+      throw new ValidationError(
+        'bagpipe_config.drones must be MIDI notes 0-127 or {note,enabled} objects',
+        'bagpipe_config'
+      );
     }
   }
   if (cfg.enabled !== undefined && typeof cfg.enabled !== 'boolean') {
@@ -89,7 +99,10 @@ export function validateAccordionConfigPayload(cfg) {
   if (cfg.bass_range !== undefined) {
     const br = cfg.bass_range;
     if (typeof br !== 'object' || br === null || Array.isArray(br)) {
-      throw new ValidationError('accordion_config.bass_range must be an object', 'accordion_config');
+      throw new ValidationError(
+        'accordion_config.bass_range must be an object',
+        'accordion_config'
+      );
     }
     const note = (v) => v === undefined || (Number.isInteger(v) && v >= 0 && v <= 127);
     if (!note(br.min) || !note(br.max)) {
@@ -100,18 +113,21 @@ export function validateAccordionConfigPayload(cfg) {
     }
   }
   // Stradella geometry (left side). All optional; lenient like bass_range.
-  if (cfg.bass_cols !== undefined
-      && !(Number.isInteger(cfg.bass_cols) && cfg.bass_cols >= 1 && cfg.bass_cols <= 20)) {
+  if (
+    cfg.bass_cols !== undefined &&
+    !(Number.isInteger(cfg.bass_cols) && cfg.bass_cols >= 1 && cfg.bass_cols <= 20)
+  ) {
     throw new ValidationError('accordion_config.bass_cols invalid', 'accordion_config');
   }
-  if (cfg.bass_base !== undefined
-      && !(Number.isInteger(cfg.bass_base) && cfg.bass_base >= 0 && cfg.bass_base <= 127)) {
+  if (
+    cfg.bass_base !== undefined &&
+    !(Number.isInteger(cfg.bass_base) && cfg.bass_base >= 0 && cfg.bass_base <= 127)
+  ) {
     throw new ValidationError('accordion_config.bass_base invalid', 'accordion_config');
   }
   if (cfg.bass_funcs !== undefined) {
     const FUNCS = ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7'];
-    if (!Array.isArray(cfg.bass_funcs)
-        || !cfg.bass_funcs.every((f) => FUNCS.includes(f))) {
+    if (!Array.isArray(cfg.bass_funcs) || !cfg.bass_funcs.every((f) => FUNCS.includes(f))) {
       throw new ValidationError('accordion_config.bass_funcs invalid', 'accordion_config');
     }
   }
@@ -135,6 +151,144 @@ export function validateHarmonicaConfigPayload(cfg) {
 }
 
 /**
+ * Resolve a channel from `data.channel` (defaults to 0) and enforce the
+ * 0-15 bound. Shared by every per-channel settings/capabilities handler.
+ * @returns {number}
+ * @throws {ValidationError}
+ */
+function _resolveChannel(data) {
+  const channel = data.channel !== undefined ? parseInt(data.channel) : 0;
+  if (channel < 0 || channel > 15) {
+    throw new ValidationError('channel must be between 0 and 15', 'channel');
+  }
+  return channel;
+}
+
+/**
+ * @throws {ConfigurationError}
+ */
+function _requireDatabase(app) {
+  if (!app.database) {
+    throw new ConfigurationError('Database not available');
+  }
+}
+
+/**
+ * `instruments_latency.device_id` has a FK to `devices(id)`. Ensure the
+ * parent row exists (idempotent) before any settings/capabilities row is
+ * upserted — otherwise the first save for a freshly discovered /
+ * hot-plugged device trips SQLITE_CONSTRAINT and the client sees a
+ * generic "Internal server error".
+ */
+function _ensureDeviceRow(app, data) {
+  if (app.deviceSettingsRepository) {
+    app.deviceSettingsRepository.ensureDevice(data.deviceId, data.name || data.deviceId, 'output');
+  }
+}
+
+const VALID_OCTAVE_MODES = ['chromatic', 'diatonic', 'pentatonic'];
+
+/**
+ * Validate + coerce in place every per-channel settings field shared by
+ * `instrument_update_settings` and `instrument_save_all`. Numeric fields
+ * are parsed to numbers; boolean-ish fields are coerced to 0/1 for the
+ * SQLite INTEGER CHECK constraints. Mutates `data` (same contract the
+ * callers already relied on).
+ *
+ * @param {Object} data
+ * @param {{sf2?:boolean}} [opts] - When `sf2`, also validate
+ *   `custom_sf2_id` (only `instrument_update_settings` accepts it).
+ * @throws {ValidationError}
+ */
+function _validateSettingsFields(data, { sf2 = false } = {}) {
+  if (data.sync_delay !== undefined) {
+    const parsed = parseInt(data.sync_delay);
+    if (isNaN(parsed) || parsed < -5000 || parsed > 5000) {
+      throw new ValidationError(
+        'sync_delay must be between -5000 and 5000 milliseconds',
+        'sync_delay'
+      );
+    }
+    data.sync_delay = parsed;
+  }
+
+  if (data.gm_program !== undefined && data.gm_program !== null) {
+    const gmProg = parseInt(data.gm_program);
+    if (isNaN(gmProg) || gmProg < 0 || gmProg > 127) {
+      throw new ValidationError('gm_program must be between 0 and 127', 'gm_program');
+    }
+    data.gm_program = gmProg;
+  }
+
+  if (data.custom_name && data.custom_name.length > 255) {
+    throw new ValidationError('custom_name must not exceed 255 characters', 'custom_name');
+  }
+
+  if (
+    data.octave_mode !== undefined &&
+    data.octave_mode !== null &&
+    !VALID_OCTAVE_MODES.includes(data.octave_mode)
+  ) {
+    throw new ValidationError(
+      'octave_mode must be one of: chromatic, diatonic, pentatonic',
+      'octave_mode'
+    );
+  }
+
+  if (data.comm_timeout !== undefined && data.comm_timeout !== null) {
+    const timeout = parseInt(data.comm_timeout);
+    if (isNaN(timeout) || timeout < 100 || timeout > 30000) {
+      throw new ValidationError(
+        'comm_timeout must be between 100 and 30000 milliseconds',
+        'comm_timeout'
+      );
+    }
+    data.comm_timeout = timeout;
+  }
+
+  for (const field of ['omni_mode', 'lighting_enabled', 'voices_share_notes']) {
+    if (data[field] !== undefined && data[field] !== null) {
+      data[field] = data[field] ? 1 : 0;
+    }
+  }
+
+  if (sf2 && data.custom_sf2_id !== undefined && data.custom_sf2_id !== null) {
+    const sf2Id = parseInt(data.custom_sf2_id);
+    if (isNaN(sf2Id) || sf2Id <= 0) {
+      throw new ValidationError('custom_sf2_id must be a positive integer', 'custom_sf2_id');
+    }
+    data.custom_sf2_id = sf2Id;
+  }
+}
+
+/**
+ * Validate + coerce `data.polyphony` (1-128) in place when present.
+ * @throws {ValidationError}
+ */
+function _validatePolyphony(data) {
+  if (data.polyphony !== undefined && data.polyphony !== null) {
+    const poly = parseInt(data.polyphony);
+    if (isNaN(poly) || poly < 1 || poly > 128) {
+      throw new ValidationError('polyphony must be between 1 and 128', 'polyphony');
+    }
+    data.polyphony = poly;
+  }
+}
+
+/**
+ * Resolve `usb_serial_number` from the payload, falling back to the live
+ * DeviceManager so a row stays identifiable across USB re-enumerations.
+ */
+function _resolveUsbSerial(app, data) {
+  if (data.usb_serial_number) return data.usb_serial_number;
+  if (app.deviceManager) {
+    const device = app.deviceManager.getDeviceInfo(data.deviceId);
+    if (device && device.usbSerialNumber) return device.usbSerialNumber;
+  }
+  return data.usb_serial_number;
+}
+
+/**
  * Persist per-channel instrument settings (custom name, sync delay,
  * GM program, octave mode, comm timeout). When `usb_serial_number` is
  * not supplied, it is looked up from the live DeviceManager so the row
@@ -150,101 +304,12 @@ export function validateHarmonicaConfigPayload(cfg) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function instrumentUpdateSettings(app, data) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
+  _requireDatabase(app);
 
-  // Get USB serial number from data or from DeviceManager
-  let usbSerialNumber = data.usb_serial_number;
-  if (!usbSerialNumber && app.deviceManager) {
-    const device = app.deviceManager.getDeviceInfo(data.deviceId);
-    if (device && device.usbSerialNumber) {
-      usbSerialNumber = device.usbSerialNumber;
-    }
-  }
-
-  // Channel defaults to 0 for backward compatibility
-  const channel = data.channel !== undefined ? parseInt(data.channel) : 0;
-  if (channel < 0 || channel > 15) {
-    throw new ValidationError('channel must be between 0 and 15', 'channel');
-  }
-
-  // Validate sync_delay range (milliseconds, ±5 seconds max)
-  if (data.sync_delay !== undefined) {
-    const parsedDelay = parseInt(data.sync_delay);
-    if (isNaN(parsedDelay) || parsedDelay < -5000 || parsedDelay > 5000) {
-      throw new ValidationError('sync_delay must be between -5000 and 5000 milliseconds', 'sync_delay');
-    }
-    data.sync_delay = parsedDelay;
-  }
-
-  // Validate gm_program range (0-127 for instruments, null allowed)
-  if (data.gm_program !== undefined && data.gm_program !== null) {
-    const gmProg = parseInt(data.gm_program);
-    if (isNaN(gmProg) || gmProg < 0 || gmProg > 127) {
-      throw new ValidationError('gm_program must be between 0 and 127', 'gm_program');
-    }
-    data.gm_program = gmProg;
-  }
-
-  // Validate custom_name length
-  if (data.custom_name && data.custom_name.length > 255) {
-    throw new ValidationError('custom_name must not exceed 255 characters', 'custom_name');
-  }
-
-  // Validate octave_mode
-  if (data.octave_mode !== undefined && data.octave_mode !== null) {
-    const validModes = ['chromatic', 'diatonic', 'pentatonic'];
-    if (!validModes.includes(data.octave_mode)) {
-      throw new ValidationError('octave_mode must be one of: chromatic, diatonic, pentatonic', 'octave_mode');
-    }
-  }
-
-  // Validate comm_timeout
-  if (data.comm_timeout !== undefined && data.comm_timeout !== null) {
-    const timeout = parseInt(data.comm_timeout);
-    if (isNaN(timeout) || timeout < 100 || timeout > 30000) {
-      throw new ValidationError('comm_timeout must be between 100 and 30000 milliseconds', 'comm_timeout');
-    }
-    data.comm_timeout = timeout;
-  }
-
-  // Coerce omni_mode to 0/1 for SQLite INTEGER CHECK
-  if (data.omni_mode !== undefined && data.omni_mode !== null) {
-    data.omni_mode = data.omni_mode ? 1 : 0;
-  }
-
-  // Coerce lighting_enabled to 0/1 for SQLite INTEGER CHECK
-  if (data.lighting_enabled !== undefined && data.lighting_enabled !== null) {
-    data.lighting_enabled = data.lighting_enabled ? 1 : 0;
-  }
-
-  // Coerce voices_share_notes to 0/1 for SQLite INTEGER CHECK
-  if (data.voices_share_notes !== undefined && data.voices_share_notes !== null) {
-    data.voices_share_notes = data.voices_share_notes ? 1 : 0;
-  }
-
-  // Validate custom_sf2_id (must be a positive integer or null)
-  if (data.custom_sf2_id !== undefined && data.custom_sf2_id !== null) {
-    const sf2Id = parseInt(data.custom_sf2_id);
-    if (isNaN(sf2Id) || sf2Id <= 0) {
-      throw new ValidationError('custom_sf2_id must be a positive integer', 'custom_sf2_id');
-    }
-    data.custom_sf2_id = sf2Id;
-  }
-
-  // `instruments_latency.device_id` has a FK to `devices(id)`. Ensure
-  // the parent row exists (idempotent INSERT OR IGNORE) before the
-  // settings row is upserted — otherwise the first save for a newly
-  // discovered / hot-plugged device trips SQLITE_CONSTRAINT and the
-  // client sees a generic "Internal server error".
-  if (app.deviceSettingsRepository) {
-    app.deviceSettingsRepository.ensureDevice(
-      data.deviceId,
-      data.name || data.deviceId,
-      'output'
-    );
-  }
+  const usbSerialNumber = _resolveUsbSerial(app, data);
+  const channel = _resolveChannel(data);
+  _validateSettingsFields(data, { sf2: true });
+  _ensureDeviceRow(app, data);
 
   const id = app.instrumentRepository.updateSettings(data.deviceId, channel, {
     custom_name: data.custom_name,
@@ -258,10 +323,9 @@ async function instrumentUpdateSettings(app, data) {
     omni_mode: data.omni_mode,
     lighting_enabled: data.lighting_enabled,
     voices_share_notes: data.voices_share_notes,
-    custom_sf2_id: data.custom_sf2_id !== undefined ? data.custom_sf2_id : undefined
+    custom_sf2_id: data.custom_sf2_id
   });
 
-  // Notify routing/playback systems to invalidate cached compensation values
   app.eventBus?.emit('instrument_settings_changed', {
     deviceId: data.deviceId,
     channel
@@ -284,13 +348,8 @@ async function instrumentUpdateSettings(app, data) {
  * @throws {ConfigurationError}
  */
 async function instrumentGetSettings(app, data) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
-
-  const channel = data.channel !== undefined ? data.channel : undefined;
-  const settings = app.instrumentRepository.getSettings(data.deviceId, channel);
-
+  _requireDatabase(app);
+  const settings = app.instrumentRepository.getSettings(data.deviceId, data.channel);
   return {
     settings: settings || null
   };
@@ -308,38 +367,14 @@ async function instrumentGetSettings(app, data) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function instrumentUpdateCapabilities(app, data) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
-
+  _requireDatabase(app);
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
 
-  // Channel defaults to 0 for backward compatibility
-  const channel = data.channel !== undefined ? parseInt(data.channel) : 0;
-  if (channel < 0 || channel > 15) {
-    throw new ValidationError('channel must be between 0 and 15', 'channel');
-  }
-
-  // Validate polyphony range
-  if (data.polyphony !== undefined && data.polyphony !== null) {
-    const poly = parseInt(data.polyphony);
-    if (isNaN(poly) || poly < 1 || poly > 128) {
-      throw new ValidationError('polyphony must be between 1 and 128', 'polyphony');
-    }
-    data.polyphony = poly;
-  }
-
-  // Same FK guard as instrument_update_settings — capabilities can be
-  // saved before settings for a freshly discovered device.
-  if (app.deviceSettingsRepository) {
-    app.deviceSettingsRepository.ensureDevice(
-      data.deviceId,
-      data.name || data.deviceId,
-      'output'
-    );
-  }
+  const channel = _resolveChannel(data);
+  _validatePolyphony(data);
+  _ensureDeviceRow(app, data);
 
   const updatePayload = {
     note_range_min: data.note_range_min,
@@ -388,18 +423,11 @@ async function instrumentUpdateCapabilities(app, data) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function instrumentGetCapabilities(app, data) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
-
+  _requireDatabase(app);
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
-
-  // Pass channel if provided, otherwise backward compat (first match)
-  const channel = data.channel !== undefined ? data.channel : undefined;
-  const capabilities = app.instrumentRepository.getCapabilities(data.deviceId, channel);
-
+  const capabilities = app.instrumentRepository.getCapabilities(data.deviceId, data.channel);
   return {
     capabilities: capabilities || null
   };
@@ -414,14 +442,9 @@ async function instrumentGetCapabilities(app, data) {
  * @throws {ConfigurationError}
  */
 async function instrumentListCapabilities(app) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
-
-  const instruments = app.instrumentRepository.getAllCapabilities();
-
+  _requireDatabase(app);
   return {
-    instruments: instruments
+    instruments: app.instrumentRepository.getAllCapabilities()
   };
 }
 
@@ -434,12 +457,8 @@ async function instrumentListCapabilities(app) {
  * @throws {ConfigurationError}
  */
 async function instrumentListRegistered(app) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
-
+  _requireDatabase(app);
   const instruments = app.instrumentRepository.findAllWithCapabilities();
-
   return {
     success: true,
     instruments: instruments,
@@ -462,13 +481,11 @@ async function instrumentListRegistered(app) {
  * @throws {ConfigurationError}
  */
 async function instrumentListConnected(app) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
+  _requireDatabase(app);
 
   const allInstruments = app.instrumentRepository.findAllWithCapabilities();
   const connectedDevices = app.deviceManager.getDeviceList();
-  const connectedDeviceIds = new Set(connectedDevices.map(d => d.id));
+  const connectedDeviceIds = new Set(connectedDevices.map((d) => d.id));
 
   // Build an index by normalized name, serial, and MAC for fallback matching
   const connectedNormalizedNames = new Set();
@@ -483,34 +500,27 @@ async function instrumentListConnected(app) {
 
   // Find registered instruments that are connected
   const matchedDeviceIds = new Set();
-  const connectedInstruments = allInstruments.filter(inst => {
-    // Exact match by device_id
+  const connectedInstruments = allInstruments.filter((inst) => {
     if (connectedDeviceIds.has(inst.device_id)) {
       matchedDeviceIds.add(inst.device_id);
       return true;
     }
-    // Fallback by USB serial number
     if (inst.usb_serial_number && connectedSerials.has(inst.usb_serial_number)) {
-      // Find the corresponding device_id
-      const matchedDev = connectedDevices.find(d => d.usbSerialNumber === inst.usb_serial_number);
+      const matchedDev = connectedDevices.find((d) => d.usbSerialNumber === inst.usb_serial_number);
       if (matchedDev) matchedDeviceIds.add(matchedDev.id);
       return true;
     }
-    // Fallback by MAC address
     if (inst.mac_address && connectedMacs.has(inst.mac_address)) {
-      const matchedDev = connectedDevices.find(d => d.address === inst.mac_address);
+      const matchedDev = connectedDevices.find((d) => d.address === inst.mac_address);
       if (matchedDev) matchedDeviceIds.add(matchedDev.id);
       return true;
     }
-    // Fallback by normalized name
     if (!inst.device_id.startsWith('virtual_')) {
       const normalized = InstrumentDatabase.normalizeDeviceName(inst.device_id);
       if (normalized && connectedNormalizedNames.has(normalized)) {
-        // Find the corresponding device_id
-        const matchedDev = connectedDevices.find(d => {
-          const dn = InstrumentDatabase.normalizeDeviceName(d.id);
-          return dn === normalized;
-        });
+        const matchedDev = connectedDevices.find(
+          (d) => InstrumentDatabase.normalizeDeviceName(d.id) === normalized
+        );
         if (matchedDev) matchedDeviceIds.add(matchedDev.id);
         return true;
       }
@@ -518,7 +528,7 @@ async function instrumentListConnected(app) {
     return false;
   });
 
-  // Add connected devices that are not registered in instruments_latency
+  // Stub records for live devices that have no instruments_latency row yet.
   for (const device of connectedDevices) {
     if (!matchedDeviceIds.has(device.id) && device.type !== 'virtual') {
       connectedInstruments.push({
@@ -559,10 +569,7 @@ async function instrumentListConnected(app) {
  * @throws {ConfigurationError|ValidationError}
  */
 export async function instrumentDelete(app, data) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
-
+  _requireDatabase(app);
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
@@ -575,43 +582,33 @@ export async function instrumentDelete(app, data) {
     throw new ValidationError('channel must be between 0 and 15', 'channel');
   }
 
-  // Delete instrument settings/capabilities from instruments_latency
+  const scopedChannel = hasChannel ? channel : undefined;
+
   try {
-    app.instrumentRepository.deleteSettingsByDevice(data.deviceId, hasChannel ? channel : undefined);
+    app.instrumentRepository.deleteSettingsByDevice(data.deviceId, scopedChannel);
   } catch (e) {
     errors.push(`instruments_latency: ${e.message}`);
   }
 
-  // Cascade: delete associated string instrument configs
+  // string_instruments / midi_instrument_routings tables may not exist —
+  // their absence must not fail the delete.
   try {
-    app.stringInstrumentRepository.deleteByDevice(data.deviceId, hasChannel ? channel : undefined);
+    app.stringInstrumentRepository.deleteByDevice(data.deviceId, scopedChannel);
   } catch (e) {
-    // string_instruments table may not exist
+    /* table may not exist */
   }
 
-  // Cascade: delete secondary GM voices (multi-GM) for this instrument
   try {
-    if (hasChannel) {
-      app.instrumentRepository.deleteVoicesByInstrument(data.deviceId, channel);
-    } else {
-      // device-wide: purge voices across all channels
-      app.instrumentRepository.deleteVoicesByInstrument(data.deviceId);
-    }
+    app.instrumentRepository.deleteVoicesByInstrument(data.deviceId, scopedChannel);
   } catch (e) {
     errors.push(`instrument_voices: ${e.message}`);
   }
 
-  // Cascade: delete associated MIDI instrument routings
   try {
-    app.routingRepository.deleteByDevice(data.deviceId, hasChannel ? channel : undefined);
+    app.routingRepository.deleteByDevice(data.deviceId, scopedChannel);
   } catch (e) {
-    // midi_instrument_routings table may not exist
+    /* table may not exist */
   }
-
-  // The legacy `instruments` table and `instrument_latency` (singular)
-  // were removed in v6. The deleteSettingsByDevice() call above already
-  // wiped every per-channel row on `instruments_latency` (plural),
-  // which is the only place latency + capabilities live now.
 
   if (errors.length > 0) {
     app.logger.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
@@ -622,13 +619,17 @@ export async function instrumentDelete(app, data) {
   // in the instrument modal until they are evicted from that registry too.
   // Mirror virtualDelete(): once the device's last channel is gone,
   // unregister it from the DeviceManager.
-  if (data.deviceId.startsWith('virtual_') &&
-      app.deviceManager &&
-      typeof app.deviceManager.removeVirtualDevice === 'function') {
+  if (
+    data.deviceId.startsWith('virtual_') &&
+    app.deviceManager &&
+    typeof app.deviceManager.removeVirtualDevice === 'function'
+  ) {
     let remaining = [];
     try {
       remaining = app.instrumentRepository.findByDevice(data.deviceId) || [];
-    } catch (_e) { /* table may not exist */ }
+    } catch (_e) {
+      /* table may not exist */
+    }
     if (remaining.length === 0) {
       app.deviceManager.removeVirtualDevice(data.deviceId);
     }
@@ -679,99 +680,33 @@ export async function instrumentDelete(app, data) {
  * @throws {ConfigurationError|ValidationError}
  */
 async function instrumentSaveAll(app, data) {
-  if (!app.database) {
-    throw new ConfigurationError('Database not available');
-  }
+  _requireDatabase(app);
   if (!data.deviceId) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
 
-  // USB serial fallback — same fallback as instrument_update_settings so
-  // a newly-discovered device keeps its identity across re-enumeration.
-  let usbSerialNumber = data.usb_serial_number;
-  if (!usbSerialNumber && app.deviceManager) {
-    const device = app.deviceManager.getDeviceInfo(data.deviceId);
-    if (device && device.usbSerialNumber) usbSerialNumber = device.usbSerialNumber;
-  }
+  const usbSerialNumber = _resolveUsbSerial(app, data);
+  const channel = _resolveChannel(data);
+  _validateSettingsFields(data);
+  _validatePolyphony(data);
 
-  // Validate identity
-  const channel = data.channel !== undefined ? parseInt(data.channel) : 0;
-  if (channel < 0 || channel > 15) {
-    throw new ValidationError('channel must be between 0 and 15', 'channel');
-  }
-
-  // Validate settings fields (same rules as instrument_update_settings)
-  if (data.sync_delay !== undefined) {
-    const parsedDelay = parseInt(data.sync_delay);
-    if (isNaN(parsedDelay) || parsedDelay < -5000 || parsedDelay > 5000) {
-      throw new ValidationError('sync_delay must be between -5000 and 5000 milliseconds', 'sync_delay');
-    }
-    data.sync_delay = parsedDelay;
-  }
-  if (data.gm_program !== undefined && data.gm_program !== null) {
-    const gmProg = parseInt(data.gm_program);
-    if (isNaN(gmProg) || gmProg < 0 || gmProg > 127) {
-      throw new ValidationError('gm_program must be between 0 and 127', 'gm_program');
-    }
-    data.gm_program = gmProg;
-  }
-  if (data.custom_name && data.custom_name.length > 255) {
-    throw new ValidationError('custom_name must not exceed 255 characters', 'custom_name');
-  }
-  if (data.octave_mode !== undefined && data.octave_mode !== null) {
-    const validModes = ['chromatic', 'diatonic', 'pentatonic'];
-    if (!validModes.includes(data.octave_mode)) {
-      throw new ValidationError('octave_mode must be one of: chromatic, diatonic, pentatonic', 'octave_mode');
-    }
-  }
-  if (data.comm_timeout !== undefined && data.comm_timeout !== null) {
-    const timeout = parseInt(data.comm_timeout);
-    if (isNaN(timeout) || timeout < 100 || timeout > 30000) {
-      throw new ValidationError('comm_timeout must be between 100 and 30000 milliseconds', 'comm_timeout');
-    }
-    data.comm_timeout = timeout;
-  }
-  if (data.omni_mode !== undefined && data.omni_mode !== null) {
-    data.omni_mode = data.omni_mode ? 1 : 0;
-  }
-  if (data.lighting_enabled !== undefined && data.lighting_enabled !== null) {
-    data.lighting_enabled = data.lighting_enabled ? 1 : 0;
-  }
-  if (data.voices_share_notes !== undefined && data.voices_share_notes !== null) {
-    data.voices_share_notes = data.voices_share_notes ? 1 : 0;
-  }
-
-  // Validate capabilities
-  if (data.polyphony !== undefined && data.polyphony !== null) {
-    const poly = parseInt(data.polyphony);
-    if (isNaN(poly) || poly < 1 || poly > 128) {
-      throw new ValidationError('polyphony must be between 1 and 128', 'polyphony');
-    }
-    data.polyphony = poly;
-  }
   // Cross-field range check at the save-all boundary, mirroring the
   // per-voice guard in InstrumentVoiceCommands.
-  if (data.note_range_min != null && data.note_range_max != null
-      && parseInt(data.note_range_min) > parseInt(data.note_range_max)) {
+  if (
+    data.note_range_min != null &&
+    data.note_range_max != null &&
+    parseInt(data.note_range_min) > parseInt(data.note_range_max)
+  ) {
     throw new ValidationError('note_range_min must be <= note_range_max', 'note_range_min');
   }
 
-  // Validate secondary voices via the shared validator (same contract as
-  // instrument_voice_replace).
+  // Same contract as instrument_voice_replace.
   const rawVoices = Array.isArray(data.voices) ? data.voices : [];
   const normalizedVoices = rawVoices.map((v) => validateVoicePayload(v));
 
-  // FK guard — ensureDevice is idempotent.
-  if (app.deviceSettingsRepository) {
-    app.deviceSettingsRepository.ensureDevice(
-      data.deviceId,
-      data.name || data.deviceId,
-      'output'
-    );
-  }
+  _ensureDeviceRow(app, data);
 
-  // Run every DB write in a single SQLite transaction so a failure
-  // anywhere rolls back the whole save.
+  // Single SQLite transaction so a failure anywhere rolls back the save.
   const tx = app.instrumentRepository.transaction(() => {
     app.instrumentRepository.updateSettings(data.deviceId, channel, {
       custom_name: data.custom_name,
@@ -865,7 +800,9 @@ async function instrumentSaveAll(app, data) {
 export function register(registry, app) {
   registry.register('instrument_update_settings', (data) => instrumentUpdateSettings(app, data));
   registry.register('instrument_get_settings', (data) => instrumentGetSettings(app, data));
-  registry.register('instrument_update_capabilities', (data) => instrumentUpdateCapabilities(app, data));
+  registry.register('instrument_update_capabilities', (data) =>
+    instrumentUpdateCapabilities(app, data)
+  );
   registry.register('instrument_get_capabilities', (data) => instrumentGetCapabilities(app, data));
   registry.register('instrument_list_capabilities', () => instrumentListCapabilities(app));
   registry.register('instrument_list_registered', () => instrumentListRegistered(app));

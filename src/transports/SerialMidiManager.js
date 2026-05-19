@@ -24,29 +24,33 @@ import { SYSTEM_MESSAGE_LENGTH } from '../core/constants.js';
 const MIDI_BAUD_RATE = 31250;
 const HOT_PLUG_CHECK_INTERVAL_MS = 3000;
 const MAX_SYSEX_BUFFER_SIZE = 65536; // 64KB max SysEx message
-const PORT_OPEN_TIMEOUT_MS = 10000;  // 10 seconds max to open a port
+const PORT_OPEN_TIMEOUT_MS = 10000; // 10 seconds max to open a port
 
 // MIDI message lengths by status byte high nibble
 const MIDI_MESSAGE_LENGTHS = {
   0x80: 3, // Note Off
   0x90: 3, // Note On
-  0xA0: 3, // Poly Aftertouch
-  0xB0: 3, // Control Change
-  0xC0: 2, // Program Change
-  0xD0: 2, // Channel Aftertouch
-  0xE0: 3  // Pitch Bend
+  0xa0: 3, // Poly Aftertouch
+  0xb0: 3, // Control Change
+  0xc0: 2, // Program Change
+  0xd0: 2, // Channel Aftertouch
+  0xe0: 3 // Pitch Bend
 };
 
 // Status byte to easymidi type mapping
 const STATUS_TO_TYPE = {
   0x80: 'noteoff',
   0x90: 'noteon',
-  0xA0: 'poly aftertouch',
-  0xB0: 'cc',
-  0xC0: 'program',
-  0xD0: 'channel aftertouch',
-  0xE0: 'pitchbend'
+  0xa0: 'poly aftertouch',
+  0xb0: 'cc',
+  0xc0: 'program',
+  0xd0: 'channel aftertouch',
+  0xe0: 'pitchbend'
 };
+
+// /dev entries treated as serial-MIDI candidates: Pi hardware UARTs,
+// Pi serial aliases, standard serial ports, USB-to-serial adapters.
+const SERIAL_MIDI_PATTERN = /^(ttyAMA\d+|serial\d+|ttyS\d+|ttyUSB\d+)$/;
 
 class SerialMidiManager extends EventEmitter {
   /**
@@ -61,7 +65,7 @@ class SerialMidiManager extends EventEmitter {
     this.config = deps.config;
     Object.defineProperty(this, 'deviceManager', {
       get: () => deps.deviceManager,
-      configurable: true,
+      configurable: true
     });
     this.enabled = false;
     this.scanning = false;
@@ -100,7 +104,9 @@ class SerialMidiManager extends EventEmitter {
       this.logger.info(`SerialMidiManager initialized (${this.openPorts.size} port(s) open)`);
     } catch (error) {
       if (error.code === 'ERR_MODULE_NOT_FOUND' || error.code === 'MODULE_NOT_FOUND') {
-        this.logger.warn('SerialMidiManager: serialport package not installed. Run: npm install serialport');
+        this.logger.warn(
+          'SerialMidiManager: serialport package not installed. Run: npm install serialport'
+        );
       } else {
         this.logger.error(`SerialMidiManager init error: ${error.message}`);
       }
@@ -158,7 +164,7 @@ class SerialMidiManager extends EventEmitter {
       // Method 2: Also scan /dev/ttyAMA* directly (may not appear in serialport.list)
       const ttyAMAPorts = this._scanDevFiles();
       for (const devPath of ttyAMAPorts) {
-        if (!availablePorts.find(p => p.path === devPath)) {
+        if (!availablePorts.find((p) => p.path === devPath)) {
           availablePorts.push({
             path: devPath,
             manufacturer: 'Raspberry Pi UART',
@@ -186,24 +192,15 @@ class SerialMidiManager extends EventEmitter {
    */
   _scanDevFiles() {
     const candidates = [];
-    const patterns = [
-      /^ttyAMA\d+$/,    // Pi hardware UARTs
-      /^serial\d+$/,     // Pi serial aliases
-      /^ttyS\d+$/,       // Standard serial ports
-      /^ttyUSB\d+$/      // USB-to-serial adapters
-    ];
-
     try {
-      const devFiles = fs.readdirSync('/dev');
-      for (const file of devFiles) {
-        if (patterns.some(p => p.test(file))) {
+      for (const file of fs.readdirSync('/dev')) {
+        if (SERIAL_MIDI_PATTERN.test(file)) {
           candidates.push(`/dev/${file}`);
         }
       }
     } catch (error) {
       this.logger.debug(`Cannot scan /dev: ${error.message}`);
     }
-
     return candidates;
   }
 
@@ -211,11 +208,7 @@ class SerialMidiManager extends EventEmitter {
    * Check if a serial port path is a MIDI candidate
    */
   _isSerialMidiCandidate(portPath) {
-    const baseName = path.basename(portPath);
-    return /^ttyAMA\d+$/.test(baseName) ||
-           /^serial\d+$/.test(baseName) ||
-           /^ttyS\d+$/.test(baseName) ||
-           /^ttyUSB\d+$/.test(baseName);
+    return SERIAL_MIDI_PATTERN.test(path.basename(portPath));
   }
 
   /**
@@ -224,13 +217,13 @@ class SerialMidiManager extends EventEmitter {
   _getPortFriendlyName(portPath) {
     const baseName = path.basename(portPath);
     const uartMap = {
-      'ttyAMA0': 'UART0 (GPIO14/15)',
-      'ttyAMA1': 'UART2 (GPIO0/1)',
-      'ttyAMA2': 'UART3 (GPIO4/5)',
-      'ttyAMA3': 'UART4 (GPIO8/9)',
-      'ttyAMA4': 'UART5 (GPIO12/13)',
-      'serial0': 'Primary Serial',
-      'serial1': 'Secondary Serial'
+      ttyAMA0: 'UART0 (GPIO14/15)',
+      ttyAMA1: 'UART2 (GPIO0/1)',
+      ttyAMA2: 'UART3 (GPIO4/5)',
+      ttyAMA3: 'UART4 (GPIO8/9)',
+      ttyAMA4: 'UART5 (GPIO12/13)',
+      serial0: 'Primary Serial',
+      serial1: 'Secondary Serial'
     };
     return uartMap[baseName] || `Serial (${baseName})`;
   }
@@ -254,7 +247,9 @@ class SerialMidiManager extends EventEmitter {
 
     // Check if device exists
     if (!fs.existsSync(portPath)) {
-      throw new Error(`Serial device not found: ${portPath}. Check that UART is enabled in /boot/config.txt`);
+      throw new Error(
+        `Serial device not found: ${portPath}. Check that UART is enabled in /boot/config.txt`
+      );
     }
 
     const openPromise = new Promise((resolve, reject) => {
@@ -270,7 +265,11 @@ class SerialMidiManager extends EventEmitter {
       port.open((err) => {
         if (err) {
           if (err.message.includes('Permission denied') || err.message.includes('EACCES')) {
-            reject(new Error(`Permission denied for ${portPath}. Run: sudo usermod -aG dialout $USER && reboot`));
+            reject(
+              new Error(
+                `Permission denied for ${portPath}. Run: sudo usermod -aG dialout $USER && reboot`
+              )
+            );
           } else if (err.message.includes('EBUSY')) {
             reject(new Error(`Port ${portPath} is busy. Another process may be using it.`));
           } else {
@@ -313,7 +312,9 @@ class SerialMidiManager extends EventEmitter {
         this.openPorts.set(portPath, portInfo);
         this.knownPorts.add(portPath);
 
-        this.logger.info(`Serial MIDI port opened: ${portPath} (${portInfo.name}, ${direction}, ${MIDI_BAUD_RATE} baud)`);
+        this.logger.info(
+          `Serial MIDI port opened: ${portPath} (${portInfo.name}, ${direction}, ${MIDI_BAUD_RATE} baud)`
+        );
         this.emit('serial:connected', { path: portPath, name: portInfo.name });
         this._broadcastDeviceList();
 
@@ -323,7 +324,10 @@ class SerialMidiManager extends EventEmitter {
 
     // Wrap with timeout to prevent indefinite hang on hardware issues
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Port ${portPath} open timeout after ${PORT_OPEN_TIMEOUT_MS}ms`)), PORT_OPEN_TIMEOUT_MS)
+      setTimeout(
+        () => reject(new Error(`Port ${portPath} open timeout after ${PORT_OPEN_TIMEOUT_MS}ms`)),
+        PORT_OPEN_TIMEOUT_MS
+      )
     );
 
     return Promise.race([openPromise, timeoutPromise]);
@@ -386,14 +390,14 @@ class SerialMidiManager extends EventEmitter {
     if (!state) return;
 
     // Real-time messages (0xF8-0xFF) can appear anywhere, even inside SysEx
-    if (byte >= 0xF8) {
+    if (byte >= 0xf8) {
       this._emitSystemRealtime(portPath, byte);
       return;
     }
 
     // SysEx handling
     if (state.inSysEx) {
-      if (byte === 0xF7) {
+      if (byte === 0xf7) {
         // SysEx end
         state.sysExBuffer.push(byte);
         this._emitSysEx(portPath, state.sysExBuffer);
@@ -408,7 +412,9 @@ class SerialMidiManager extends EventEmitter {
       } else {
         // SysEx data byte - enforce size limit to prevent unbounded growth
         if (state.sysExBuffer.length >= MAX_SYSEX_BUFFER_SIZE) {
-          this.logger.warn(`SysEx buffer overflow on ${portPath} (>${MAX_SYSEX_BUFFER_SIZE} bytes), discarding`);
+          this.logger.warn(
+            `SysEx buffer overflow on ${portPath} (>${MAX_SYSEX_BUFFER_SIZE} bytes), discarding`
+          );
           state.inSysEx = false;
           state.sysExBuffer = [];
           return;
@@ -419,7 +425,7 @@ class SerialMidiManager extends EventEmitter {
     }
 
     // SysEx start
-    if (byte === 0xF0) {
+    if (byte === 0xf0) {
       state.inSysEx = true;
       state.sysExBuffer = [byte];
       state.runningStatus = 0; // SysEx cancels running status
@@ -427,7 +433,7 @@ class SerialMidiManager extends EventEmitter {
     }
 
     // System Common messages (F1-F6) cancel running status
-    if (byte >= 0xF1 && byte <= 0xF6) {
+    if (byte >= 0xf1 && byte <= 0xf6) {
       state.runningStatus = 0;
       const length = SYSTEM_MESSAGE_LENGTH[byte] || 1;
       if (length === 1) {
@@ -440,9 +446,9 @@ class SerialMidiManager extends EventEmitter {
     }
 
     // Status byte (channel message)
-    if (byte >= 0x80 && byte <= 0xEF) {
+    if (byte >= 0x80 && byte <= 0xef) {
       state.runningStatus = byte;
-      const highNibble = byte & 0xF0;
+      const highNibble = byte & 0xf0;
       state.expectedLength = MIDI_MESSAGE_LENGTHS[highNibble] || 3;
       state.buffer = [byte];
       return;
@@ -452,7 +458,7 @@ class SerialMidiManager extends EventEmitter {
     if (byte < 0x80) {
       if (state.buffer.length === 0 && state.runningStatus) {
         // Running status: use last status byte
-        const highNibble = state.runningStatus & 0xF0;
+        const highNibble = state.runningStatus & 0xf0;
         state.expectedLength = MIDI_MESSAGE_LENGTHS[highNibble] || 3;
         state.buffer = [state.runningStatus];
       }
@@ -462,7 +468,7 @@ class SerialMidiManager extends EventEmitter {
 
         if (state.buffer.length >= state.expectedLength) {
           const statusByte = state.buffer[0];
-          if (statusByte >= 0xF1 && statusByte <= 0xF6) {
+          if (statusByte >= 0xf1 && statusByte <= 0xf6) {
             // System Common message (F1 MTC, F2 Song Position, F3 Song Select)
             this._emitSystemCommon(portPath, statusByte, state.buffer.slice(1));
           } else {
@@ -476,12 +482,22 @@ class SerialMidiManager extends EventEmitter {
   }
 
   /**
+   * Resolve the friendly device name for a port and forward a parsed
+   * message to DeviceManager (no-op if it is not yet registered).
+   */
+  _forwardToDevice(portPath, type, data) {
+    if (!this.deviceManager) return;
+    const deviceName = this.openPorts.get(portPath)?.name || portPath;
+    this.deviceManager.handleMidiMessage(deviceName, type, data);
+  }
+
+  /**
    * Emit a parsed channel message
    */
   _emitChannelMessage(portPath, bytes) {
     const statusByte = bytes[0];
-    const highNibble = statusByte & 0xF0;
-    const channel = statusByte & 0x0F;
+    const highNibble = statusByte & 0xf0;
+    const channel = statusByte & 0x0f;
     const type = STATUS_TO_TYPE[highNibble];
 
     if (!type) return;
@@ -489,95 +505,62 @@ class SerialMidiManager extends EventEmitter {
     let data;
     switch (highNibble) {
       case 0x80: // Note Off
-        data = { channel, note: bytes[1], velocity: bytes[2] };
-        break;
       case 0x90: // Note On
         data = { channel, note: bytes[1], velocity: bytes[2] };
         break;
-      case 0xA0: // Poly Aftertouch
+      case 0xa0: // Poly Aftertouch
         data = { channel, note: bytes[1], pressure: bytes[2] };
         break;
-      case 0xB0: // CC
+      case 0xb0: // CC
         data = { channel, controller: bytes[1], value: bytes[2] };
         break;
-      case 0xC0: // Program Change
+      case 0xc0: // Program Change
         data = { channel, number: bytes[1] };
         break;
-      case 0xD0: // Channel Aftertouch
+      case 0xd0: // Channel Aftertouch
         data = { channel, pressure: bytes[1] };
         break;
-      case 0xE0: // Pitch Bend
+      case 0xe0: // Pitch Bend
         data = { channel, value: (bytes[2] << 7) | bytes[1] };
         break;
     }
 
-    if (data) {
-      const portInfo = this.openPorts.get(portPath);
-      const deviceName = portInfo?.name || portPath;
-
-      // Forward to DeviceManager's message handler
-      if (this.deviceManager) {
-        this.deviceManager.handleMidiMessage(deviceName, type, data);
-      }
-    }
+    if (data) this._forwardToDevice(portPath, type, data);
   }
 
   /**
    * Emit a SysEx message
    */
   _emitSysEx(portPath, bytes) {
-    const portInfo = this.openPorts.get(portPath);
-    const deviceName = portInfo?.name || portPath;
-
-    if (this.deviceManager) {
-      this.deviceManager.handleMidiMessage(deviceName, 'sysex', bytes);
-    }
+    this._forwardToDevice(portPath, 'sysex', bytes);
   }
 
   /**
    * Emit a system real-time message
    */
   _emitSystemRealtime(portPath, byte) {
-    const typeMap = {
-      0xF8: 'clock',
-      0xFA: 'start',
-      0xFB: 'continue',
-      0xFC: 'stop',
-      0xFE: 'sensing',
-      0xFF: 'reset'
-    };
-
-    const type = typeMap[byte];
-    if (type) {
-      const portInfo = this.openPorts.get(portPath);
-      const deviceName = portInfo?.name || portPath;
-
-      if (this.deviceManager) {
-        this.deviceManager.handleMidiMessage(deviceName, type, {});
-      }
-    }
+    const type = {
+      0xf8: 'clock',
+      0xfa: 'start',
+      0xfb: 'continue',
+      0xfc: 'stop',
+      0xfe: 'sensing',
+      0xff: 'reset'
+    }[byte];
+    if (type) this._forwardToDevice(portPath, type, {});
   }
 
   /**
    * Emit a system common message
    */
   _emitSystemCommon(portPath, statusByte, dataBytes) {
-    const typeMap = {
-      0xF1: 'mtc',
-      0xF2: 'position',
-      0xF3: 'select',
-      0xF6: 'tune'
-    };
-
-    const type = typeMap[statusByte];
-    if (type) {
-      const portInfo = this.openPorts.get(portPath);
-      const deviceName = portInfo?.name || portPath;
-
-      if (this.deviceManager) {
-        this.deviceManager.handleMidiMessage(deviceName, type, { bytes: dataBytes });
-      }
-    }
+    const type = {
+      0xf1: 'mtc',
+      0xf2: 'position',
+      0xf3: 'select',
+      0xf6: 'tune'
+    }[statusByte];
+    if (type) this._forwardToDevice(portPath, type, { bytes: dataBytes });
   }
 
   // ==================== MIDI OUTPUT ====================
@@ -635,7 +618,9 @@ class SerialMidiManager extends EventEmitter {
       this._checkPortChanges();
     }, HOT_PLUG_CHECK_INTERVAL_MS);
 
-    this.logger.info(`Serial hot-plug monitoring started (${HOT_PLUG_CHECK_INTERVAL_MS}ms interval)`);
+    this.logger.info(
+      `Serial hot-plug monitoring started (${HOT_PLUG_CHECK_INTERVAL_MS}ms interval)`
+    );
   }
 
   stopHotPlugMonitoring() {
@@ -680,7 +665,7 @@ class SerialMidiManager extends EventEmitter {
    * Get list of connected serial MIDI ports (for DeviceManager)
    */
   getConnectedPorts() {
-    return Array.from(this.openPorts.values()).map(info => ({
+    return Array.from(this.openPorts.values()).map((info) => ({
       path: info.path,
       name: info.name,
       direction: info.direction,
