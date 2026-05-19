@@ -24,8 +24,8 @@
     "clear": "Xóa",
     "unknown": "Không xác định",
     "unknownError": "Lỗi không xác định",
-    "delete": "Delete",
-    "apply": "Apply",
+    "delete": "Xóa",
+    "apply": "Áp dụng",
     "name": "Tên",
     "on": "Bật",
     "off": "Tắt"
@@ -2247,7 +2247,7 @@
       "cello": "Violoncelle (CGDA)",
       "ukulele": "Ukulélé (GCEA)"
     },
-    "displayFormat": "Note display",
+    "displayFormat": "Hiển thị nốt",
     "format": {
       "letters": "C, D, E",
       "solfege": "Do, Ré, Mi",
@@ -2590,7 +2590,7 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Phát trên nhạc cụ MIDI đã kết nối",
     "outputDevice": "Thiết bị đầu ra",
-    "outputChannel": "Channel"
+    "outputChannel": "Kênh"
   },
   "loopManager": {
     "title": "Trình quản lý Loop",
@@ -2717,7 +2717,7 @@
     "confirmDiscardChanges": "Thay đổi chưa lưu. Loại bỏ và đóng?",
     "metronome": "Máy đập nhịp",
     "countIn": "Count-in (1 ô nhịp trước khi ghi)",
-    "countInStatus": "Count-in… {beat}/{total}",
+    "countInStatus": "Đếm vào… {beat}/{total}",
     "velocityHint": "Velocity cần áp dụng (1-127)",
     "applyVelocity": "Áp dụng velocity cho vùng chọn",
     "velocityNoNotes": "Không có nốt để sửa đổi.",
