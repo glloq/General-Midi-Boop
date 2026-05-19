@@ -2292,6 +2292,7 @@
     "applied": "Kalibrace použita pro {count} nástroj(ů)",
     "refresh": "Obnovit",
     "measure": "Změřit",
+    "noMicrophone": "Mikrofon nebyl nalezen. Připojte a vyberte mikrofon pro měření zpoždění.",
     "tests": "Tests",
     "testDelayCategory": "Měření zpoždění",
     "testDelayCategoryHint": "Měří čas mezi odesláním noty MIDI a detekcí zvuku mikrofonem.",

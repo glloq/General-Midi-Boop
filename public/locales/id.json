@@ -2292,6 +2292,7 @@
     "applied": "Kalibrasi diterapkan untuk {count} instrumen",
     "refresh": "Segarkan",
     "measure": "Ukur",
+    "noMicrophone": "Tidak ada mikrofon terdeteksi. Sambungkan dan pilih mikrofon untuk mengukur penundaan.",
     "tests": "Tests",
     "testDelayCategory": "Pengukuran delay",
     "testDelayCategoryHint": "Mengukur waktu antara mengirim not MIDI dan mendeteksi suara dengan mic.",

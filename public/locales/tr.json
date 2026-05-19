@@ -2292,6 +2292,7 @@
     "applied": "{count} enstrüman için kalibrasyon uygulandı",
     "refresh": "Yenile",
     "measure": "Ölç",
+    "noMicrophone": "Mikrofon algılanmadı. Gecikmeleri ölçmek için bir mikrofon bağlayın ve seçin.",
     "tests": "Tests",
     "testDelayCategory": "Gecikme ölçümü",
     "testDelayCategoryHint": "Bir MIDI notası gönderme ile sesin mikrofonla algılanması arasındaki süreyi ölçer.",

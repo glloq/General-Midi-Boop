@@ -2292,6 +2292,7 @@
     "applied": "{count} 個の楽器にキャリブレーションを適用しました",
     "refresh": "更新",
     "measure": "Measure",
+    "noMicrophone": "マイクが検出されません。遅延を測定するにはマイクを接続して選択してください。",
     "tests": "Tests",
     "testDelayCategory": "Delay measurement",
     "testDelayCategoryHint": "Measures the time between sending a MIDI note and detecting the sound with the mic.",

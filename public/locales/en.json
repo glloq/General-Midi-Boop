@@ -2304,6 +2304,7 @@
     "applied": "Calibration applied for {count} instrument(s)",
     "refresh": "Refresh",
     "measure": "Measure",
+    "noMicrophone": "No microphone detected. Connect and select a microphone to measure delays.",
     "tests": "Tests",
     "testDelayCategory": "Delay measurement",
     "testDelayCategoryHint": "Measures the time between sending a MIDI note and detecting the sound with the mic.",

@@ -2299,6 +2299,7 @@
     "applied": "Kalibrierung angewendet für {count} Instrument(e)",
     "refresh": "Aktualisieren",
     "measure": "Messen",
+    "noMicrophone": "Kein Mikrofon erkannt. Mikrofon anschließen und auswählen, um Verzögerungen zu messen.",
     "tests": "Tests",
     "testDelayCategory": "Verzögerungsmessung",
     "testDelayCategoryHint": "Misst die Zeit zwischen dem Senden einer MIDI-Note und der Erkennung des Klangs durch das Mikrofon.",

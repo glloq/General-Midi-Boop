@@ -2292,6 +2292,7 @@
     "applied": "Kalibrację zastosowano dla {count} instrument(ów)",
     "refresh": "Odśwież",
     "measure": "Zmierz",
+    "noMicrophone": "Nie wykryto mikrofonu. Podłącz i wybierz mikrofon, aby zmierzyć opóźnienia.",
     "tests": "Tests",
     "testDelayCategory": "Pomiar opóźnienia",
     "testDelayCategoryHint": "Mierzy czas między wysłaniem nuty MIDI a wykryciem dźwięku przez mikrofon.",

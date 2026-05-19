@@ -2299,6 +2299,7 @@
     "applied": "Na-apply ang calibration para sa {count} (na) instrumento",
     "refresh": "I-refresh",
     "measure": "Sukatin",
+    "noMicrophone": "Walang natukoy na mikropono. Magkonekta at pumili ng mikropono para sukatin ang mga delay.",
     "tests": "Mga test",
     "testDelayCategory": "Pagsukat ng delay",
     "testDelayCategoryHint": "Sinusukat ang oras sa pagitan ng pagpapadala ng MIDI note at pag-detect ng tunog gamit ang mic.",
