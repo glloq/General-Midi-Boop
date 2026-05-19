@@ -2324,7 +2324,9 @@
       "share": "Chia sẻ",
       "split": "Tách",
       "single": "Một nhạc cụ",
-      "sameType": "Loại GM"
+      "sameType": "Loại GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Cài đặt chấm điểm",
     "settingsTitle": "Cài đặt định tuyến tự động",

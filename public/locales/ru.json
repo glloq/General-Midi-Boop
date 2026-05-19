@@ -2324,7 +2324,9 @@
       "share": "Совместно",
       "split": "Разделить",
       "single": "Один инстр.",
-      "sameType": "GM-тип"
+      "sameType": "GM-тип",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Настройки оценки",
     "settingsTitle": "Настройки авто-маршрутизации",

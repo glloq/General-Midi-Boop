@@ -2324,7 +2324,9 @@
       "share": "共有",
       "split": "分割",
       "single": "単一楽器",
-      "sameType": "GM タイプ"
+      "sameType": "GM タイプ",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "スコアリング設定",
     "settingsTitle": "自動ルーティング設定",

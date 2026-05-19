@@ -2331,7 +2331,9 @@
       "share": "Teilen",
       "split": "Aufteilen",
       "single": "Ein Instr.",
-      "sameType": "GM-Typ"
+      "sameType": "GM-Typ",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Scoring-Einstellungen",
     "settingsTitle": "Auto-Routing-Einstellungen",

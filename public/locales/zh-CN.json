@@ -2324,7 +2324,9 @@
       "share": "共享",
       "split": "拆分",
       "single": "单乐器",
-      "sameType": "GM 类型"
+      "sameType": "GM 类型",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "评分设置",
     "settingsTitle": "自动路由设置",

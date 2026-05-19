@@ -2331,7 +2331,9 @@
       "share": "Ibahagi",
       "split": "Split",
       "single": "Isang instr.",
-      "sameType": "GM type"
+      "sameType": "GM type",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Mga setting ng scoring",
     "settingsTitle": "Mga setting ng auto-routing",

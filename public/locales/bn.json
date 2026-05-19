@@ -2331,7 +2331,9 @@
       "share": "ভাগ করুন",
       "split": "বিভক্ত",
       "single": "একক যন্ত্র",
-      "sameType": "GM ধরন"
+      "sameType": "GM ধরন",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "স্কোরিং সেটিংস",
     "settingsTitle": "অটো-রাউটিং সেটিংস",

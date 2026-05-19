@@ -2324,7 +2324,9 @@
       "share": "Berbagi",
       "split": "Pisah",
       "single": "Satu instr.",
-      "sameType": "Tipe GM"
+      "sameType": "Tipe GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Pengaturan penilaian",
     "settingsTitle": "Pengaturan perutean otomatis",

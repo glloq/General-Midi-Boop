@@ -2336,7 +2336,9 @@
       "share": "Partage",
       "split": "Decoupe",
       "single": "Un seul instr.",
-      "sameType": "Type GM"
+      "sameType": "Type GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Autoriser la transposition des notes pour entrer dans la tessiture de l'instrument"
     },
     "settings": "Reglages du scoring",
     "settingsTitle": "Reglages du routage automatique",

@@ -2324,7 +2324,9 @@
       "share": "Paylaş",
       "split": "Böl",
       "single": "Tek enstr.",
-      "sameType": "GM türü"
+      "sameType": "GM türü",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Puanlama ayarları",
     "settingsTitle": "Otomatik yönlendirme ayarları",

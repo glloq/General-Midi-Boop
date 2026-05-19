@@ -2324,7 +2324,9 @@
       "share": "साझा करें",
       "split": "Split",
       "single": "एकल इंस्ट्र.",
-      "sameType": "GM प्रकार"
+      "sameType": "GM प्रकार",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Scoring सेटिंग्स",
     "settingsTitle": "Auto-routing सेटिंग्स",

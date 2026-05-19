@@ -2331,7 +2331,9 @@
       "share": "Condividi",
       "split": "Dividi",
       "single": "Un strum.",
-      "sameType": "Tipo GM"
+      "sameType": "Tipo GM",
+      "transposition": "Transposition",
+      "transpositionDesc": "Allow transposing notes to fit the instrument's range"
     },
     "settings": "Impostazioni di punteggio",
     "settingsTitle": "Impostazioni auto-routing",
