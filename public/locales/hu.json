@@ -2292,6 +2292,7 @@
     "applied": "Kalibrálás alkalmazva {count} hangszerre",
     "refresh": "Frissítés",
     "measure": "Mérés",
+    "noMicrophone": "Nem található mikrofon. Csatlakoztass és válassz mikrofont a késleltetések méréséhez.",
     "tests": "Tests",
     "testDelayCategory": "Késleltetés mérése",
     "testDelayCategoryHint": "Méri a MIDI-hang elküldése és a hang mikrofonnal való érzékelése közötti időt.",

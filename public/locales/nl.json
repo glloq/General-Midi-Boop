@@ -2292,6 +2292,7 @@
     "applied": "Kalibratie toegepast voor {count} instrument(en)",
     "refresh": "Vernieuwen",
     "measure": "Meten",
+    "noMicrophone": "Geen microfoon gedetecteerd. Sluit een microfoon aan en selecteer deze om vertragingen te meten.",
     "tests": "Tests",
     "testDelayCategory": "Vertragingsmeting",
     "testDelayCategoryHint": "Meet de tijd tussen het verzenden van een MIDI-noot en de detectie van het geluid door de microfoon.",

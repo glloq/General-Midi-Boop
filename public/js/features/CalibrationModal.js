@@ -131,6 +131,9 @@ class CalibrationModal extends BaseModal {
                             </label>
                         </div>
                     </div>
+                    <div class="calibration-mic-warning" id="calibMicWarning" style="display:none;">
+                        🎤 ${this.t('calibration.noMicrophone')}
+                    </div>
                     <div id="calibInstrumentsList" class="calibration-instruments-list">
                         <div class="calibration-no-instruments">${this.t('calibration.noInstruments')}</div>
                     </div>
@@ -202,6 +205,7 @@ class CalibrationModal extends BaseModal {
         const alsaSelect = this.$('#calibAlsaDevice');
         if (alsaSelect) {
             alsaSelect.addEventListener('change', async () => {
+                this._updateMeasureButtonsState();
                 if (this.state.isMonitoring) {
                     await this._stopMonitoring();
                     await this._startMonitoring();
@@ -375,6 +379,7 @@ class CalibrationModal extends BaseModal {
                 if (result) this._updateRowResult(inst.key, result);
             }
             this._updateApplyButtonVisibility();
+            this._updateMeasureButtonsState();
 
         } catch (error) {
             console.error('[CalibrationModal] Failed to load instruments:', error);
@@ -427,6 +432,8 @@ class CalibrationModal extends BaseModal {
         } catch (error) {
             this.logger.error('CalibrationModal', 'Failed to load ALSA devices:', error);
         }
+
+        this._updateMeasureButtonsState();
 
         if (this.isOpen && !this.state.isMonitoring) {
             this._startMonitoring();
@@ -549,6 +556,11 @@ class CalibrationModal extends BaseModal {
     async _measureInstrument(instrument) {
         const currentStatus = this.state.instrumentStatuses[instrument.key];
         if (currentStatus === 'running') return;
+
+        if (!this._hasMicrophone()) {
+            if (window.log) window.log(this.t('calibration.noMicrophone'), 'warn');
+            return;
+        }
 
         const threshold = this._getThreshold();
         const alsaDevice = this._getAlsaDevice();
@@ -803,6 +815,34 @@ class CalibrationModal extends BaseModal {
     _getAlsaDevice() {
         const select = this.$('#calibAlsaDevice');
         return select && select.value ? select.value : 'hw:1,0';
+    }
+
+    /**
+     * True only when a real ALSA capture device is listed AND selected.
+     * Without this the delay measurement would fall back to 'hw:1,0' and
+     * fail at the arecord level instead of being blocked in the UI.
+     */
+    _hasMicrophone() {
+        const select = this.$('#calibAlsaDevice');
+        return !!(this.alsaDevices && this.alsaDevices.length > 0 && select && select.value);
+    }
+
+    /**
+     * Enable/disable the per-instrument "Measure" buttons and show the
+     * "connect a microphone" warning depending on mic availability.
+     */
+    _updateMeasureButtonsState() {
+        const enabled = this._hasMicrophone();
+
+        const listEl = this.$('#calibInstrumentsList');
+        if (listEl) {
+            listEl.querySelectorAll('.calibration-measure-btn').forEach(btn => {
+                btn.disabled = !enabled;
+            });
+        }
+
+        const warning = this.$('#calibMicWarning');
+        if (warning) warning.style.display = enabled ? 'none' : '';
     }
 
     _getMeasurements() {

@@ -2292,6 +2292,7 @@
     "applied": "Đã áp dụng hiệu chỉnh cho {count} nhạc cụ",
     "refresh": "Làm mới",
     "measure": "Đo",
+    "noMicrophone": "Không phát hiện micrô. Hãy kết nối và chọn micrô để đo độ trễ.",
     "tests": "Tests",
     "testDelayCategory": "Đo độ trễ",
     "testDelayCategoryHint": "Đo thời gian giữa việc gửi một nốt MIDI và phát hiện âm thanh bằng micro.",

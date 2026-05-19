@@ -2356,6 +2356,7 @@
     "applied": "Calibration appliquée pour {count} instrument(s)",
     "refresh": "Actualiser",
     "measure": "Mesurer",
+    "noMicrophone": "Aucun micro détecté. Branchez et sélectionnez un micro pour mesurer les délais.",
     "tests": "Tests",
     "testDelayCategory": "Mesure de délai",
     "testDelayCategoryHint": "Mesure le temps entre l'envoi d'une note MIDI et la détection du son par le micro.",

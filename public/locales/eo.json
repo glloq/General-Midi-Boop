@@ -2299,6 +2299,7 @@
     "applied": "Alĝustigo aplikita por {count} instrumento(j)",
     "refresh": "Aktualigi",
     "measure": "Mezuri",
+    "noMicrophone": "Neniu mikrofono detektita. Konektu kaj elektu mikrofonon por mezuri prokrastojn.",
     "tests": "Testoj",
     "testDelayCategory": "Prokrasta mezurado",
     "testDelayCategoryHint": "Mezuras la tempon inter sendo de MIDI-noto kaj detekto de la sono per la mikrofono.",

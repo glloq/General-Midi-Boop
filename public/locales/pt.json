@@ -2299,6 +2299,7 @@
     "applied": "Calibração aplicada para {count} instrumento(s)",
     "refresh": "Atualizar",
     "measure": "Medir",
+    "noMicrophone": "Nenhum microfone detectado. Conecte e selecione um microfone para medir os atrasos.",
     "tests": "Tests",
     "testDelayCategory": "Medição de atraso",
     "testDelayCategoryHint": "Mede o tempo entre o envio de uma nota MIDI e a deteção do som pelo microfone.",

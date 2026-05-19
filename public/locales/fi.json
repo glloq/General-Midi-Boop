@@ -2292,6 +2292,7 @@
     "applied": "Kalibrointi otettu käyttöön {count} soittimelle",
     "refresh": "Päivitä",
     "measure": "Mittaa",
+    "noMicrophone": "Mikrofonia ei havaittu. Liitä ja valitse mikrofoni mitataksesi viiveet.",
     "tests": "Tests",
     "testDelayCategory": "Viiveen mittaus",
     "testDelayCategoryHint": "Mittaa ajan MIDI-nuotin lähettämisen ja äänen mikrofonilla havaitsemisen välillä.",

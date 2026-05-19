@@ -2292,6 +2292,7 @@
     "applied": "已为 {count} 个乐器应用校准",
     "refresh": "刷新",
     "measure": "Measure",
+    "noMicrophone": "未检测到麦克风。请连接并选择麦克风以测量延迟。",
     "tests": "Tests",
     "testDelayCategory": "Delay measurement",
     "testDelayCategoryHint": "Measures the time between sending a MIDI note and detecting the sound with the mic.",

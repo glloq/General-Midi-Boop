@@ -2292,6 +2292,7 @@
     "applied": "Kalibrering anvendt for {count} instrument(er)",
     "refresh": "Opdater",
     "measure": "Mål",
+    "noMicrophone": "Ingen mikrofon registreret. Tilslut og vælg en mikrofon for at måle forsinkelser.",
     "tests": "Tests",
     "testDelayCategory": "Forsinkelsesmåling",
     "testDelayCategoryHint": "Måler tiden mellem afsendelse af en MIDI-node og registrering af lyden med mikrofonen.",

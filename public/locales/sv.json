@@ -2292,6 +2292,7 @@
     "applied": "Kalibrering tillämpad för {count} instrument",
     "refresh": "Uppdatera",
     "measure": "Mät",
+    "noMicrophone": "Ingen mikrofon hittades. Anslut och välj en mikrofon för att mäta fördröjningar.",
     "tests": "Tests",
     "testDelayCategory": "Fördröjningsmätning",
     "testDelayCategoryHint": "Mäter tiden mellan att en MIDI-not skickas och att ljudet upptäcks med mikrofonen.",

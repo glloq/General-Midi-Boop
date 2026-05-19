@@ -492,6 +492,31 @@ body.theme-dark .calibration-input-inline {
     border-color: #a5b4fc;
 }
 
+.calibration-measure-btn:disabled,
+.calibration-measure-btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #9ca3af;
+}
+
+.calibration-measure-btn:disabled:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.calibration-mic-warning {
+    margin: 8px 0;
+    padding: 10px 12px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    color: #92400e;
+    font-size: 13px;
+    text-align: center;
+}
+
 @keyframes calibration-pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.08); }
@@ -659,6 +684,19 @@ body.theme-dark .calibration-measure-btn {
 body.theme-dark .calibration-measure-btn:hover {
     background: #333a5c;
     border-color: #4f5a8f;
+}
+
+body.theme-dark .calibration-measure-btn:disabled,
+body.theme-dark .calibration-measure-btn[disabled] {
+    background: #232842;
+    border-color: #313a5c;
+    color: #6b7280;
+}
+
+body.theme-dark .calibration-mic-warning {
+    background: #3a2f12;
+    border-color: #6b531a;
+    color: #fcd34d;
 }
 
 body.theme-dark .calibration-chart-container {
