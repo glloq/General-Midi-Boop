@@ -16,13 +16,12 @@
 //     redistributeSplitChannel, collectUsedChannels)
 //   - window.escapeHtml
 
-(function() {
+(function () {
   'use strict';
 
   const SPLIT_COLORS = (window.RoutingSummaryConstants || {}).SPLIT_COLORS || [];
 
   const PreviewControls = {
-
     _renderHeaderButtons() {
       return window.RoutingSummaryRenderers.renderHeaderButtons({
         selectedChannel: this.selectedChannel,
@@ -36,13 +35,19 @@
       if (!modal) return;
 
       modal.querySelector('#rsPreviewAllBtn')?.addEventListener('click', () => this._previewAll());
-      modal.querySelector('#rsPreviewChBtn')?.addEventListener('click', () => this._previewChannel(this.selectedChannel));
-      modal.querySelector('#rsPreviewOrigBtn')?.addEventListener('click', () => this._previewOriginal(this.selectedChannel));
+      modal
+        .querySelector('#rsPreviewChBtn')
+        ?.addEventListener('click', () => this._previewChannel(this.selectedChannel));
+      modal
+        .querySelector('#rsPreviewOrigBtn')
+        ?.addEventListener('click', () => this._previewOriginal());
       modal.querySelector('#rsPreviewPauseBtn')?.addEventListener('click', () => {
         if (this._previewState === 'paused') this._resumePreview();
         else this._pausePreview();
       });
-      modal.querySelector('#rsPreviewStopBtn')?.addEventListener('click', () => this._stopPreview());
+      modal
+        .querySelector('#rsPreviewStopBtn')
+        ?.addEventListener('click', () => this._stopPreview());
 
       // Minimap click → seek (audio + hands-preview panel together).
       const container = modal.querySelector('#rsMinimapContainer');
@@ -57,7 +62,10 @@
           // Mirror the seek into the hands preview panel — onProgress
           // would catch up eventually, but this avoids a one-frame lag
           // when the audio preview isn't actively playing.
-          if (this._handsPreviewPanel && typeof this._handsPreviewPanel.setCurrentTime === 'function') {
+          if (
+            this._handsPreviewPanel &&
+            typeof this._handsPreviewPanel.setCurrentTime === 'function'
+          ) {
             this._handsPreviewPanel.setCurrentTime(pct * totalSec);
           }
         });
@@ -93,16 +101,17 @@
       } else if (this._previewMode === 'all' || this._previewMode === 'original') {
         channelFilter = null; // show all channels
       } else {
-        channelFilter = (this.selectedChannel !== null) ? this.selectedChannel : null;
+        channelFilter = this.selectedChannel !== null ? this.selectedChannel : null;
       }
 
       // Detect split mode: single channel with multiple instrument segments
-      const isSplitView = channelFilter != null
-        && this.splitChannels.has(channelFilter)
-        && this.splitAssignments[channelFilter]?.segments?.length > 1;
+      const isSplitView =
+        channelFilter != null &&
+        this.splitChannels.has(channelFilter) &&
+        this.splitAssignments[channelFilter]?.segments?.length > 1;
 
       // Adapt height: taller when showing multiple instrument rows in split mode
-      const splitSegCount = isSplitView ? (this.splitAssignments[channelFilter].segments.length) : 0;
+      const splitSegCount = isSplitView ? this.splitAssignments[channelFilter].segments.length : 0;
       const h = splitSegCount > 1 ? Math.max(24, splitSegCount * 12) : 24;
       canvas.width = w * dpr;
       canvas.height = h * dpr;
@@ -199,21 +208,26 @@
       const splitChannelMappings = [];
       for (const [ch, assignment] of Object.entries(this.selectedAssignments)) {
         const chNum = parseInt(ch);
-        if (this.skippedChannels.has(chNum)) { channelConfigs[ch] = { skipped: true }; continue; }
+        if (this.skippedChannels.has(chNum)) {
+          channelConfigs[ch] = { skipped: true };
+          continue;
+        }
 
         const adapt = this.adaptationSettings[ch] || {};
         const semitones = adapt.transpositionSemitones || 0;
 
         // Build full instrument constraints from assignment
-        const constraints = assignment ? {
-          gmProgram: assignment.gmProgram,
-          noteRangeMin: assignment.noteRangeMin,
-          noteRangeMax: assignment.noteRangeMax,
-          noteSelectionMode: assignment.noteSelectionMode || undefined,
-          selectedNotes: assignment.selectedNotes || undefined,
-          suppressOutOfRange: adapt.oorHandling === 'suppress',
-          noteCompression: adapt.oorHandling === 'compress'
-        } : null;
+        const constraints = assignment
+          ? {
+              gmProgram: assignment.gmProgram,
+              noteRangeMin: assignment.noteRangeMin,
+              noteRangeMax: assignment.noteRangeMax,
+              noteSelectionMode: assignment.noteSelectionMode || undefined,
+              selectedNotes: assignment.selectedNotes || undefined,
+              suppressOutOfRange: adapt.oorHandling === 'suppress',
+              noteCompression: adapt.oorHandling === 'compress'
+            }
+          : null;
 
         // For split channels, route each segment to a different synth channel
         if (this.splitChannels.has(chNum) && this.splitAssignments[chNum]) {
@@ -225,7 +239,7 @@
             channelConfigs[ch] = {
               transposition: { semitones },
               instrumentConstraints: {
-                gmProgram: segs[0].gmProgram ?? (constraints?.gmProgram),
+                gmProgram: segs[0].gmProgram ?? constraints?.gmProgram,
                 noteRangeMin: segs[0].noteRange?.min ?? 0,
                 noteRangeMax: segs[0].noteRange?.max ?? 127
               }
@@ -388,13 +402,15 @@
       }
 
       // Single instrument: standard preview
-      const constraints = assignment ? {
-        gmProgram: assignment.gmProgram,
-        noteRangeMin: assignment.noteRangeMin,
-        noteRangeMax: assignment.noteRangeMax,
-        noteSelectionMode: assignment.noteSelectionMode || undefined,
-        selectedNotes: assignment.selectedNotes || undefined
-      } : {};
+      const constraints = assignment
+        ? {
+            gmProgram: assignment.gmProgram,
+            noteRangeMin: assignment.noteRangeMin,
+            noteRangeMax: assignment.noteRangeMax,
+            noteSelectionMode: assignment.noteSelectionMode || undefined,
+            selectedNotes: assignment.selectedNotes || undefined
+          }
+        : {};
 
       // Apply custom drum mappings and muted notes to the transposition's noteRemapping
       const isDrumChannel = channel === 9;
@@ -415,7 +431,13 @@
         await this.audioPreview.initSynthesizer();
         this._applyPreviewVolumes();
         await this.audioPreview.previewSingleChannel(
-          this.midiData, channel, transposition, constraints, 0, 0, true
+          this.midiData,
+          channel,
+          transposition,
+          constraints,
+          0,
+          0,
+          true
         );
         this._previewState = 'playing';
         this._updatePreviewUI();
@@ -428,7 +450,7 @@
       }
     },
 
-    async _previewOriginal(channel) {
+    async _previewOriginal() {
       if (!this.audioPreview || !this.midiData) {
         console.warn('[Preview] No audioPreview or midiData available');
         return;
@@ -453,21 +475,33 @@
 
     _pausePreview() {
       if (!this.audioPreview) return;
-      try { this.audioPreview.pause(); } catch (e) { /* ignore */ }
+      try {
+        this.audioPreview.pause();
+      } catch (e) {
+        /* ignore */
+      }
       this._previewState = 'paused';
       this._updatePreviewUI();
     },
 
     _resumePreview() {
       if (!this.audioPreview) return;
-      try { this.audioPreview.resume(); } catch (e) { /* ignore */ }
+      try {
+        this.audioPreview.resume();
+      } catch (e) {
+        /* ignore */
+      }
       this._previewState = 'playing';
       this._updatePreviewUI();
     },
 
     _safeStopPreview() {
       if (this.audioPreview?.isPreviewing || this.audioPreview?.isPlaying) {
-        try { this.audioPreview.stop(); } catch (e) { /* ignore */ }
+        try {
+          this.audioPreview.stop();
+        } catch (e) {
+          /* ignore */
+        }
       }
       this._previewState = 'stopped';
       this._previewMode = null;
@@ -483,7 +517,12 @@
       if (timeEl) {
         timeEl.textContent = msg || 'Preview error';
         timeEl.style.color = '#e74c3c';
-        setTimeout(() => { if (timeEl) { timeEl.textContent = ''; timeEl.style.color = ''; } }, 4000);
+        setTimeout(() => {
+          if (timeEl) {
+            timeEl.textContent = '';
+            timeEl.style.color = '';
+          }
+        }, 4000);
       }
     },
 
@@ -503,7 +542,10 @@
         // preview uses — the panel has no transport buttons of its
         // own (per the unified-navigation spec), so this is what
         // makes its keyboard / look-ahead / fretboard tick.
-        if (this._handsPreviewPanel && typeof this._handsPreviewPanel.setCurrentTime === 'function') {
+        if (
+          this._handsPreviewPanel &&
+          typeof this._handsPreviewPanel.setCurrentTime === 'function'
+        ) {
           this._handsPreviewPanel.setCurrentTime(currentSec);
         }
       };
@@ -535,7 +577,10 @@
       if (allBtn) allBtn.style.display = active ? 'none' : '';
       if (chBtn) chBtn.style.display = active ? 'none' : '';
       if (origBtn) origBtn.style.display = active ? 'none' : '';
-      if (pauseBtn) { pauseBtn.style.display = active ? '' : 'none'; pauseBtn.innerHTML = paused ? '&#9654;' : '&#10074;&#10074;'; }
+      if (pauseBtn) {
+        pauseBtn.style.display = active ? '' : 'none';
+        pauseBtn.innerHTML = paused ? '&#9654;' : '&#10074;&#10074;';
+      }
       if (stopBtn) stopBtn.style.display = active ? '' : 'none';
     }
   };
