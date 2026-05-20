@@ -140,9 +140,26 @@
                 return;
             }
             if (!this.synth) return;
+            // Canal 9 si le kit drum est sélectionné, sinon 0 (mélodique).
+            const ch = this.isDrum ? 9 : 0;
+            // Drum mode: if loadDrumKit() is still in flight (user clicked
+            // before the presets landed), defer the playNote until it
+            // resolves. Without this the first frappe is silent — playNote
+            // would lazy-load + return null. Melodic path stays sync.
+            if (ch === 9 && typeof this.synth.ensureDrumKitReady === 'function'
+                && this.synth._drumKitLoading) {
+                this.synth.ensureDrumKitReady().then(() => {
+                    if (!this.activeKeys.has(note)) return; // released early
+                    try {
+                        const env = this.synth.playNote(note, velocity, 9, 9999);
+                        if (env) this.envelopes.set(note, env);
+                    } catch (err) {
+                        LoopUtils.handleError(err, 'kbd.synth.playNote');
+                    }
+                });
+                return;
+            }
             try {
-                // Canal 9 si le kit drum est sélectionné, sinon 0 (mélodique).
-                const ch = this.isDrum ? 9 : 0;
                 const env = this.synth.playNote(note, velocity, ch, 9999);
                 if (env) this.envelopes.set(note, env);
             } catch (err) {

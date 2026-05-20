@@ -970,12 +970,27 @@ class LoopEditorModal extends BaseModal {
         }
         // Otherwise play through the local synth so the user hears their input
         if (!this._synth) return;
+        // Long duration acts as "until cancelled"; we cancel on note-off.
+        // Channel 9 pour les kits de batterie (convention GM) — sinon
+        // le synth interprète le programme comme un mélodique et joue
+        // un piano par défaut.
+        const ch = this._isDrumKit ? 9 : 0;
+        // Drum mode: defer the playNote until any in-flight loadDrumKit()
+        // resolves. Otherwise the first key press fires before the presets
+        // land and `playNote` returns null (silent first hit).
+        if (ch === 9 && typeof this._synth.ensureDrumKitReady === 'function'
+            && this._synth._drumKitLoading) {
+            this._synth.ensureDrumKitReady().then(() => {
+                try {
+                    const envelopes = this._synth.playNote(note, velocity, 9, 9999);
+                    if (envelopes) this._liveEnvelopes.set(note, envelopes);
+                } catch (err) {
+                    LoopUtils.handleError(err, 'editor.live.synth.playNote');
+                }
+            });
+            return;
+        }
         try {
-            // Long duration acts as "until cancelled"; we cancel on note-off.
-            // Channel 9 pour les kits de batterie (convention GM) — sinon
-            // le synth interprète le programme comme un mélodique et joue
-            // un piano par défaut.
-            const ch = this._isDrumKit ? 9 : 0;
             const envelopes = this._synth.playNote(note, velocity, ch, 9999);
             if (envelopes) this._liveEnvelopes.set(note, envelopes);
         } catch (err) {
