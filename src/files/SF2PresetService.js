@@ -177,12 +177,36 @@ export class SF2PresetService {
           if (preset) branch = 'bank128_standard';
         }
         if (preset) {
-          // Filter to zones covering this specific note
-          const filtered = preset.zones.filter(
+          // Keep only zones covering this note AND with the narrowest
+          // key range among them. Some SF2 banks (notably GeneralUser
+          // GS Standard Kit) ship a wide "catch-all" zone (e.g. range
+          // [0-64], a short tonal sample) alongside the per-note drum
+          // zones. Without this filter, the synth materialises BOTH
+          // for each note — the dedicated kick sample plus the tonal
+          // catch-all — and the catch-all bleeds through as the bell
+          // timbre layered on top of every percussion hit. Keeping only
+          // the narrowest-range zones drops the catch-all whenever a
+          // dedicated per-note zone exists, and falls back to the
+          // catch-all only for notes the SF2 has no dedicated sample
+          // for (better than silence). Multiple zones with the same
+          // narrowest width are preserved (velocity round-robin).
+          const covering = preset.zones.filter(
             z => note >= z.keyRangeLow && note <= z.keyRangeHigh
           );
-          preset = filtered.length ? { zones: filtered } : null;
-          if (!preset) branch = `${branch}_no_note_${note}`;
+          if (covering.length === 0) {
+            preset = null;
+            branch = `${branch}_no_note_${note}`;
+          } else {
+            let minWidth = Infinity;
+            for (const z of covering) {
+              const w = z.keyRangeHigh - z.keyRangeLow;
+              if (w < minWidth) minWidth = w;
+            }
+            const kept = covering.filter(
+              z => (z.keyRangeHigh - z.keyRangeLow) === minWidth
+            );
+            preset = kept.length ? { zones: kept } : null;
+          }
         }
         if (!preset) {
           // Loud one-line warning so the operator can diagnose: either

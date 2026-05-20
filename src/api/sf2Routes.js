@@ -44,10 +44,15 @@ function sanitizeLabel(raw) {
 
 // Accept either the literal 'default' (built-in soundfont) or a positive
 // integer DB id. Numeric ids are returned as Number; 'default' is returned
-// as the string for SF2PresetService to dispatch on.
+// as the string for SF2PresetService to dispatch on. The numeric id 0 is
+// the sentinel row inserted by migration 020 for the built-in SF2 — some
+// UI paths surface the bank as `sf2:0` instead of `sf2:default`, and both
+// must resolve to the bundled soundfont (otherwise the route returns 400
+// and the synth silently fails to load any drum / melodic preset).
 function parseSF2Id(raw) {
   if (raw === 'default') return 'default';
   const n = Number(raw);
+  if (n === 0) return 'default';
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
