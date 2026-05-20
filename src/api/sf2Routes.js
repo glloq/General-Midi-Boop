@@ -26,6 +26,14 @@ function sendPreset(res, preset) {
   const buf = encodePreset(preset);
   res.setHeader('Content-Type', PRESET_MIME);
   res.setHeader('Content-Length', buf.length);
+  // Without explicit cache directives, browsers cache octet-stream
+  // responses heuristically (often days), so a deploy that changes the
+  // preset bytes (e.g. the bell-bug cascade fix) would not reach users
+  // until they performed a hard reload. `no-cache` lets the browser keep
+  // the response but forces revalidation on every request — cheap once
+  // the server returns 304 — and is mandatory after any code change that
+  // alters preset content for the same URL.
+  res.setHeader('Cache-Control', 'no-cache, max-age=0, must-revalidate');
   res.end(buf);
 }
 
