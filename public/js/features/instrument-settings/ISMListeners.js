@@ -2628,10 +2628,10 @@
     const bit = parseInt(chip.dataset.bit, 10) || 0;
     const next = this._currentMaskFromDom() ^ bit;
     const res = await this.api
-      .sendCommand('instrument_light_set', {
+      .sendCommand('instrument_light_set_supported', {
         deviceId: this.device.id,
         channel: tab.channel,
-        state: { supported_mask: next }
+        supported_mask: next
       })
       .catch(() => null);
     const applied = res && res.state ? (res.state.supported_mask | 0) : next;

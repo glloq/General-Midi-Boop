@@ -119,33 +119,53 @@ class InstrumentLightManager {
   }
 
   /**
-   * Merge a partial state, persist, and send the resulting CC diffs (the
-   * controller already filters by `supported_mask`). When the patch
-   * itself updates `supported_mask`, the freshly-supported CCs are
-   * pushed with their current value. Returns the resulting full state.
+   * Merge a partial state (CC values only) and emit the resulting CC
+   * diffs. `supported_mask` is intentionally **dropped** from the patch:
+   * the catalogue of supported CCs is edited exclusively in the
+   * instrument settings modal via {@link setSupported}.
    */
   setState(deviceId, channel, partial) {
     const ctrl = this._controllerFor(deviceId, channel);
-    const patch = partial || {};
+    const patch = { ...(partial || {}) };
+    delete patch.supported_mask;
     const next = CC.normalizeState({ ...ctrl.state, ...patch });
-    const newMask = patch.supported_mask !== undefined
-      ? ((patch.supported_mask | 0) & CC.MASK_ALL)
-      : ctrl.supportedMask;
 
     this.database.saveInstrumentLightState(deviceId, channel | 0, {
       ...next,
-      supported_mask: newMask
+      supported_mask: ctrl.supportedMask
     });
 
     if (this._isMasterEnabled(deviceId, channel)) {
-      if (patch.supported_mask !== undefined) ctrl.setSupportedMask(newMask);
       ctrl.apply(next);
     } else {
       ctrl.state = next;
-      if (patch.supported_mask !== undefined) ctrl.supportedMask = newMask;
     }
     return {
       ...next,
+      supported_mask: ctrl.supportedMask,
+      master_enabled: this._isMasterEnabled(deviceId, channel)
+    };
+  }
+
+  /**
+   * Edit the catalogue of supported CCs (instrument-settings-only path).
+   * Pushes the current value of any newly-supported CC and persists the
+   * full row so future restarts honour the new mask.
+   */
+  setSupported(deviceId, channel, mask) {
+    const ctrl = this._controllerFor(deviceId, channel);
+    const newMask = (mask | 0) & CC.MASK_ALL;
+    if (this._isMasterEnabled(deviceId, channel)) {
+      ctrl.setSupportedMask(newMask);
+    } else {
+      ctrl.supportedMask = newMask;
+    }
+    this.database.saveInstrumentLightState(deviceId, channel | 0, {
+      ...ctrl.state,
+      supported_mask: newMask
+    });
+    return {
+      ...ctrl.state,
       supported_mask: newMask,
       master_enabled: this._isMasterEnabled(deviceId, channel)
     };

@@ -4,11 +4,12 @@
  * subsystem. Persistence + runtime live in {@link InstrumentLightManager}.
  *
  * Registered commands:
- *   - instrument_light_get        — current 5-CC state for one instrument
- *   - instrument_light_set        — patch the state and emit the CC diffs
- *   - instrument_light_list       — every persisted state
- *   - instrument_light_test       — briefly flash the LEDs
- *   - instrument_light_all_off    — send CC 110 = 0
+ *   - instrument_light_get            — current 5-CC state for one instrument
+ *   - instrument_light_set            — patch the CC values (supported_mask is ignored)
+ *   - instrument_light_set_supported  — edit the supported-CC catalogue (instrument settings only)
+ *   - instrument_light_list           — every persisted state
+ *   - instrument_light_test           — briefly flash the LEDs
+ *   - instrument_light_all_off        — send CC 110 = 0
  */
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 import { requireField } from '../../utils/ValidationUtils.js';
@@ -46,6 +47,20 @@ function instrumentLightSet(app, data) {
   };
 }
 
+function instrumentLightSetSupported(app, data) {
+  const { deviceId, channel } = resolveTarget(data);
+  if (!Number.isInteger(data.supported_mask)) {
+    throw new ValidationError('supported_mask must be an integer 0-31', 'supported_mask');
+  }
+  if (data.supported_mask < 0 || data.supported_mask > 31) {
+    throw new ValidationError('supported_mask must be 0-31', 'supported_mask');
+  }
+  return {
+    success: true,
+    state: requireManager(app).setSupported(deviceId, channel, data.supported_mask)
+  };
+}
+
 function instrumentLightList(app) {
   return { success: true, instruments: requireManager(app).listStates() };
 }
@@ -68,6 +83,7 @@ function instrumentLightAllOff(app, data) {
 export function register(registry, app) {
   registry.register('instrument_light_get', (data) => instrumentLightGet(app, data));
   registry.register('instrument_light_set', (data) => instrumentLightSet(app, data));
+  registry.register('instrument_light_set_supported', (data) => instrumentLightSetSupported(app, data));
   registry.register('instrument_light_list', () => instrumentLightList(app));
   registry.register('instrument_light_test', (data) => instrumentLightTest(app, data));
   registry.register('instrument_light_all_off', (data) => instrumentLightAllOff(app, data));

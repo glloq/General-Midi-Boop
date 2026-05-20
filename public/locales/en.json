@@ -1288,6 +1288,9 @@
     "oneRule": "1 rule",
     "rulesCount": "rules",
     "openSettings": "Open settings",
+    "openSettingsTooltip": "Edit capabilities in the instrument settings",
+    "litChipReadOnly": "Edit in the instrument settings",
+    "litNoCcDeclared": "No CC declared for this instrument. Activate the supported CCs in the instrument settings.",
     "lit": {
       "brightness": "Bright.",
       "effect": "Effect",

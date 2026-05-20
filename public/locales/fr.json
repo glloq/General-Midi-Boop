@@ -1288,6 +1288,9 @@
     "oneRule": "1 règle",
     "rulesCount": "règles",
     "openSettings": "Ouvrir les réglages",
+    "openSettingsTooltip": "Modifier les capacités dans les réglages de l'instrument",
+    "litChipReadOnly": "Modifier dans les réglages de l'instrument",
+    "litNoCcDeclared": "Aucun CC déclaré pour cet instrument. Activez les CC supportés dans les réglages de l'instrument.",
     "lit": {
       "brightness": "Lum.",
       "effect": "Effet",
