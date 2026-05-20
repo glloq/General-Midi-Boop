@@ -704,18 +704,15 @@ class DatabaseManager {
     return this.instrumentDB.getInstrumentCatalogFingerprint();
   }
 
-  // Instrument Embedded Lights
-  getInstrumentLight(...args) {
-    return this.instrumentDB.getInstrumentLight(...args);
+  // Instrument Embedded Lights (CC 110-114 generic scheme)
+  getInstrumentLightState(...args) {
+    return this.instrumentDB.getInstrumentLightState(...args);
   }
-  getAllInstrumentLights() {
-    return this.instrumentDB.getAllInstrumentLights();
+  getAllInstrumentLightStates() {
+    return this.instrumentDB.getAllInstrumentLightStates();
   }
-  saveInstrumentLightCapabilities(...args) {
-    return this.instrumentDB.saveInstrumentLightCapabilities(...args);
-  }
-  saveInstrumentLightConfig(...args) {
-    return this.instrumentDB.saveInstrumentLightConfig(...args);
+  saveInstrumentLightState(...args) {
+    return this.instrumentDB.saveInstrumentLightState(...args);
   }
   deleteInstrumentLightByDevice(...args) {
     return this.instrumentDB.deleteInstrumentLightByDevice(...args);

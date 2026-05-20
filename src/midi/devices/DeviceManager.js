@@ -16,7 +16,6 @@
  */
 import DeviceDiscovery from './DeviceDiscovery.js';
 import { DEVICE_STATUS } from '../../core/constants.js';
-import * as InstrumentLightProtocol from '../../lighting/instrument/InstrumentLightProtocol.js';
 
 let easymidi;
 /**
@@ -92,14 +91,6 @@ class DeviceManager {
     this.virtualDevices = new Map();
     /** Soft virtual devices — no MIDI port, messages logged to debug monitor. */
     this.softVirtualDevices = new Map();
-
-    /**
-     * Optional sink for the embedded-instrument lighting subsystem.
-     * Set by {@link InstrumentLightManager}; invoked for note messages so
-     * it can mirror played notes onto the instrument's own LEDs.
-     * @type {?function(string,string,Object):void}
-     */
-    this.instrumentLightObserver = null;
 
     this.midiAvailable = midiAvailable;
 
@@ -535,16 +526,6 @@ class DeviceManager {
       return false;
     }
 
-    // Mirror played notes onto the instrument's own LEDs. Best-effort and
-    // re-entrancy-guarded inside the observer (its own lighting sends come
-    // back through here).
-    if (this.instrumentLightObserver
-        && (type === 'noteon' || type === 'noteoff')) {
-      try {
-        this.instrumentLightObserver(deviceName, type, data);
-      } catch { /* lighting is best-effort */ }
-    }
-
     // Broadcast to debug monitor if monitorAll is active
     if (this.midiRouter?.monitorAll && this.wsServer) {
       const instrumentName = data ? this._resolveInstrumentName(deviceName, data.channel) : null;
@@ -709,25 +690,6 @@ class DeviceManager {
   }
 
   /**
-   * Send a SysEx Block 8 (Lighting Capabilities) request to a device.
-   * The reply, if any, is handled in {@link DeviceManager#handleMidiMessage}.
-   *
-   * @param {string} deviceName
-   * @param {number} [channel=0] - target MIDI channel (0-15)
-   * @returns {boolean} True when the request was queued for send.
-   */
-  requestLightingCapabilities(deviceName, channel = 0) {
-    const output = this.outputs.get(deviceName);
-    if (!output) {
-      throw new Error(`Output device not found: ${deviceName}`);
-    }
-    const req = InstrumentLightProtocol.buildCapabilitiesRequest(channel);
-    output.send('sysex', req);
-    this.logger.info(`GMB Block 8 Lighting request sent to ${deviceName} (ch ${channel})`);
-    return true;
-  }
-
-  /**
    * Common entry point for every inbound MIDI message. Emits
    * `midi_message` on the EventBus, hands it to the {@link MidiRouter},
    * and intercepts SysEx Identity Replies for auto-detection.
@@ -767,42 +729,8 @@ class DeviceManager {
             timestamp: timestamp
           });
         }
-
-        // Auto-config: if the device advertises embedded lighting, ask
-        // for its Block 8 capabilities (channel 0 default).
-        if (identityInfo.featureFlags && identityInfo.featureFlags.lighting) {
-          try {
-            this.requestLightingCapabilities(deviceName, 0);
-          } catch (e) {
-            this.logger.warn(`Block 8 request failed for ${deviceName}: ${e.message}`);
-          }
-        }
       } else {
-        const lightCaps = InstrumentLightProtocol.parseCapabilitiesResponse(bytes);
-        if (lightCaps) {
-          this.logger.info(`Block 8 lighting capabilities from ${deviceName} (ch ${lightCaps.channel})`);
-          const ch = lightCaps.channel || 0;
-          if (this.database) {
-            try {
-              this.database.saveInstrumentLightCapabilities(
-                deviceName, ch, lightCaps, 'sysex'
-              );
-            } catch (e) {
-              this.logger.warn(`Failed to save lighting capabilities: ${e.message}`);
-            }
-          }
-          this.eventBus.emit('instrument_light_capabilities', {
-            device: deviceName, channel: ch, capabilities: lightCaps
-          });
-          if (this.wsServer) {
-            this.wsServer.broadcast('instrument_light_capabilities', {
-              device: deviceName, channel: ch,
-              capabilities: lightCaps, timestamp
-            });
-          }
-        } else {
-          this.logger.debug(`SysEx message from ${deviceName} is not an Identity / Block 8 reply`);
-        }
+        this.logger.debug(`SysEx message from ${deviceName} is not an Identity Reply`);
       }
     }
 
@@ -920,8 +848,7 @@ class DeviceManager {
       ccMapping: (features & 0x04) !== 0,
       instrumentDescriptor: (features & 0x08) !== 0,
       instrumentCapabilities: (features & 0x10) !== 0,
-      stringConfig: (features & 0x20) !== 0,
-      lighting: (features & InstrumentLightProtocol.FEATURE_LIGHTING) !== 0
+      stringConfig: (features & 0x20) !== 0
     };
 
     return {

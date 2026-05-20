@@ -1,30 +1,13 @@
 /**
  * @file src/persistence/tables/InstrumentLightDB.js
- * @description Persistence for embedded-LED lighting that lives on a MIDI
- * instrument and is driven by the instrument's own microcontroller
- * (table `instrument_light_config`, migration 025). Independent of the
- * Raspberry-side LightingManager. Sub-module of {@link InstrumentDatabase}.
- *
- * Two concerns on one row, keyed by (device_id, channel):
- *   - capabilities  (what the LEDs can do; SysEx Block 8 or manual)
- *   - control config (how GM Boop drives them)
+ * @description Persistence for the generic CC-based instrument lighting
+ * state (table `instrument_light_state`, migration 027). Stores the five
+ * CC values (CC 110-114) per `(device_id, channel)` so they survive a
+ * restart. Sub-module of {@link InstrumentDatabase}.
  */
-import { buildDynamicUpdate } from '../dbHelpers.js';
 
-const CAPABILITY_FIELDS = [
-  'light_caps_source', 'light_led_count', 'light_addressing',
-  'light_note_base', 'light_note_count', 'light_color_mode',
-  'light_palette_size', 'light_transports', 'light_channel',
-  'light_cc_brightness', 'light_cc_mode', 'light_cc_effect',
-  'light_cc_effect_speed', 'light_cc_guide', 'light_local_effects',
-  'light_flags', 'light_min_interval_ms', 'light_messages_bitmask'
-];
-
-const CONTROL_FIELDS = [
-  'light_mode', 'light_brightness', 'light_guide_enabled',
-  'light_palette_json', 'light_track_colors_json',
-  'light_active_effect', 'light_effect_speed'
-];
+const FIELDS = ['brightness', 'effect', 'hue', 'speed', 'intensity'];
+const clamp7 = (v) => Math.max(0, Math.min(127, v | 0));
 
 class InstrumentLightDB {
   /**
@@ -37,109 +20,83 @@ class InstrumentLightDB {
   }
 
   /**
-   * Fetch the light config row for a device+channel, or null.
    * @param {string} deviceId
    * @param {number} [channel=0]
-   * @returns {?Object}
+   * @returns {?Object} { device_id, channel, brightness, effect, hue, speed, intensity }
    */
-  getInstrumentLight(deviceId, channel = 0) {
+  getInstrumentLightState(deviceId, channel = 0) {
     try {
-      return this.db
-        .prepare('SELECT * FROM instrument_light_config WHERE device_id = ? AND channel = ?')
-        .get(deviceId, channel) || null;
+      return (
+        this.db
+          .prepare(
+            'SELECT * FROM instrument_light_state WHERE device_id = ? AND channel = ?'
+          )
+          .get(deviceId, channel) || null
+      );
     } catch (error) {
-      this.logger.error(`Failed to read instrument light config: ${error.message}`);
+      this.logger?.error?.(`Failed to read instrument light state: ${error.message}`);
       return null;
     }
   }
 
-  /**
-   * Every persisted light config row (used by the manager at startup and
-   * by the Lighting modal "Par instrument" tab).
-   * @returns {Object[]}
-   */
-  getAllInstrumentLights() {
+  /** @returns {Object[]} every persisted state */
+  getAllInstrumentLightStates() {
     try {
-      return this.db.prepare('SELECT * FROM instrument_light_config').all();
+      return this.db
+        .prepare('SELECT * FROM instrument_light_state ORDER BY device_id, channel')
+        .all();
     } catch (error) {
-      this.logger.error(`Failed to list instrument light configs: ${error.message}`);
+      this.logger?.error?.(`Failed to list instrument light states: ${error.message}`);
       return [];
     }
   }
 
-  _ensureRow(deviceId, channel) {
+  /**
+   * Insert or replace the row for (deviceId, channel). All five fields
+   * are mandatory; missing ones are coerced to their defaults.
+   * @param {string} deviceId
+   * @param {number} channel
+   * @param {Object} state - { brightness, effect, hue, speed, intensity }
+   * @returns {string} row id
+   */
+  saveInstrumentLightState(deviceId, channel, state) {
+    channel = channel | 0;
     const id = `${deviceId}_${channel}`;
-    const existing = this.db
-      .prepare('SELECT id FROM instrument_light_config WHERE device_id = ? AND channel = ?')
-      .get(deviceId, channel);
-    if (!existing) {
-      this.db
-        .prepare('INSERT INTO instrument_light_config (id, device_id, channel) VALUES (?, ?, ?)')
-        .run(id, deviceId, channel);
-    }
-    return id;
-  }
-
-  _patch(deviceId, channel, fields, allowed) {
-    channel = channel || 0;
+    const v = {};
+    for (const f of FIELDS) v[f] = clamp7((state && state[f]) || 0);
     try {
-      this._ensureRow(deviceId, channel);
-      const patch = { ...fields, updated_at: new Date().toISOString() };
-      const result = buildDynamicUpdate(
-        'instrument_light_config',
-        patch,
-        [...allowed, 'updated_at'],
-        { whereClause: 'device_id = ? AND channel = ?' }
-      );
-      if (!result) return `${deviceId}_${channel}`;
-      this.db.prepare(result.sql).run(...result.values, deviceId, channel);
-      return `${deviceId}_${channel}`;
+      this.db
+        .prepare(
+          `INSERT INTO instrument_light_state
+             (id, device_id, channel, brightness, effect, hue, speed, intensity, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET
+             brightness = excluded.brightness,
+             effect     = excluded.effect,
+             hue        = excluded.hue,
+             speed      = excluded.speed,
+             intensity  = excluded.intensity,
+             updated_at = datetime('now')`
+        )
+        .run(id, deviceId, channel, v.brightness, v.effect, v.hue, v.speed, v.intensity);
+      return id;
     } catch (error) {
-      this.logger.error(`Failed to save instrument light row: ${error.message}`);
+      this.logger?.error?.(`Failed to save instrument light state: ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Persist the LED capabilities (from SysEx Block 8 or manual entry).
-   * @param {string} deviceId
-   * @param {number} channel
-   * @param {Object} capabilities - subset of CAPABILITY_FIELDS
-   * @param {'sysex'|'manual'} source
-   * @returns {string} row id
-   */
-  saveInstrumentLightCapabilities(deviceId, channel, capabilities, source) {
-    return this._patch(
-      deviceId,
-      channel,
-      { ...capabilities, light_caps_source: source },
-      CAPABILITY_FIELDS
-    );
-  }
-
-  /**
-   * Persist the control configuration (Lighting modal "Par instrument").
-   * @param {string} deviceId
-   * @param {number} channel
-   * @param {Object} config - subset of CONTROL_FIELDS
-   * @returns {string} row id
-   */
-  saveInstrumentLightConfig(deviceId, channel, config) {
-    return this._patch(deviceId, channel, config, CONTROL_FIELDS);
-  }
-
-  /**
-   * Drop every light config row for a device (called when a device is
-   * removed/forgotten alongside instruments_latency cleanup).
+   * Drop every state row for a device (called when a device is removed).
    * @param {string} deviceId
    */
   deleteInstrumentLightByDevice(deviceId) {
     try {
       this.db
-        .prepare('DELETE FROM instrument_light_config WHERE device_id = ?')
+        .prepare('DELETE FROM instrument_light_state WHERE device_id = ?')
         .run(deviceId);
     } catch (error) {
-      this.logger.error(`Failed to delete instrument light config: ${error.message}`);
+      this.logger?.error?.(`Failed to delete instrument light state: ${error.message}`);
     }
   }
 }

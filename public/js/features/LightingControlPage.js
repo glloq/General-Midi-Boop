@@ -378,118 +378,97 @@ class LightingControlPage {
    * here we only list instruments that have it enabled, summarise their
    * bound rules, and offer a shortcut to open their settings.
    */
+  /**
+   * Per-instrument tab: one card per `lighting_enabled` instrument with a
+   * generic 5-CC control panel (CC 110-114) driven by the
+   * `instrument_light_*` commands.
+   */
   async _renderInstrumentList() {
     const host = document.getElementById('lightingInstrumentList');
     if (!host) return;
-    let allRules = [];
-    let litRows = [];
+    let states = [];
     try {
-      const [rRes, lRes] = await Promise.all([
-        this.apiClient.sendCommand('lighting_rule_list').catch(() => null),
-        this.apiClient.sendCommand('instrument_light_list').catch(() => null)
-      ]);
-      allRules = (rRes && rRes.rules) || [];
-      litRows = (lRes && lRes.instruments) || [];
-    } catch (e) { /* counts degrade gracefully to 0 */ }
-    this._litRows = litRows;
+      const res = await this.apiClient.sendCommand('instrument_light_list');
+      states = (res && res.instruments) || [];
+    } catch (e) { /* no persisted states yet */ }
 
-    const enabled = (this.instruments || []).filter(i => i.lighting_enabled === true || i.lighting_enabled === 1);
+    const enabled = (this.instruments || []).filter(
+      (i) => i.lighting_enabled === true || i.lighting_enabled === 1
+    );
     if (enabled.length === 0) {
       host.innerHTML = `<div class="lighting-empty-state" style="padding:40px;font-size:13px;">
         ${i18n.t('lighting.noLitInstruments') || 'Aucun instrument avec le contrôle lumière activé. Activez-le depuis les réglages d\'un instrument (onglet « Notes & Capacités »).'}
       </div>`;
       return;
     }
-    const esc = (s) => this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s);
-    host.innerHTML = enabled.map(inst => {
+    const esc = (s) => (this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s));
+    const defaults = { brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64 };
+    host.innerHTML = enabled.map((inst) => {
       const name = inst.custom_name || inst.name || inst.device_id;
       const ch = inst.channel || 0;
-      const count = allRules.filter(r => r.instrument_id === inst.id).length;
-      const sub = count === 1
-        ? (i18n.t('lighting.oneRule') || '1 règle')
-        : `${count} ${i18n.t('lighting.rulesCount') || 'règles'}`;
-      const lit = litRows.find(r => r.device_id === inst.device_id && (r.channel || 0) === ch);
-      return `
-        <div class="lighting-instrument-card" style="flex-direction:column;align-items:stretch;gap:10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-            <div class="lighting-instrument-info">
-              <div class="lighting-instrument-name">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${ch + 1}</span></div>
-              <div class="lighting-instrument-sub">${sub}</div>
-            </div>
-            <button class="lighting-btn--outline lighting-btn--outline-yellow"
-                    data-action="openInstrumentSettings"
-                    data-device-id="${esc(inst.device_id)}" data-channel="${ch}">
-              ⚙️ ${i18n.t('lighting.openSettings') || 'Ouvrir les réglages'}
-            </button>
-          </div>
-          ${this._renderLitControls(inst, lit)}
-        </div>`;
+      const stored = states.find((s) => s.device_id === inst.device_id && (s.channel || 0) === ch);
+      const st = { ...defaults, ...(stored || {}) };
+      return this._renderLitPanel(inst.device_id, ch, name, st);
     }).join('');
 
     this._attachLitControlListeners();
   }
 
-  /**
-   * Per-instrument embedded-LED control widgets, bounded by the
-   * capabilities detected/entered in the instrument settings.
-   */
-  _renderLitControls(inst, lit) {
-    if (!lit) {
-      return `<div class="lighting-instrument-sub" style="opacity:.75;">
-        ${i18n.t('lighting.litNoCaps') || 'Capacités lumière non renseignées. Ouvrez les réglages de l\'instrument pour les définir ou les détecter via SysEx.'}
-      </div>`;
-    }
-    const dev = inst.device_id;
-    const ch = inst.channel || 0;
-    const tr = lit.light_transports || 0;
-    const flags = lit.light_flags || 0;
-    const canAuto = (tr & 0x01) !== 0;
-    const canEffect = (tr & 0x04) !== 0 || (tr & 0x08) !== 0 || (lit.light_local_effects || 0) !== 0;
-    const canGuide = (flags & 0x01) !== 0;
-    const ds = `data-device-id="${dev}" data-channel="${ch}"`;
-    const br = (lit.light_brightness == null) ? 255 : lit.light_brightness;
-    const sp = (lit.light_effect_speed == null) ? 64 : lit.light_effect_speed;
-    const eff = lit.light_active_effect || 0;
-    const mode = lit.light_mode || 'managed';
-    const effOpts = [
-      [0, i18n.t('lighting.effOff') || 'Aucun'],
-      [1, i18n.t('lighting.effFade') || 'Fondu'],
-      [2, i18n.t('lighting.effStrobe') || 'Stroboscope'],
-      [3, i18n.t('lighting.effChase') || 'Chenillard'],
-      [4, i18n.t('lighting.effRainbow') || 'Arc-en-ciel'],
-      [5, i18n.t('lighting.effBreathe') || 'Respiration']
-    ].map(([v, l]) => `<option value="${v}" ${v === eff ? 'selected' : ''}>${l}</option>`).join('');
+  _renderLitPanel(deviceId, channel, name, st) {
+    const esc = (s) => (this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s));
+    const ds = `data-device-id="${esc(deviceId)}" data-channel="${channel}"`;
+    const effects = [
+      'static', 'fade', 'pulse', 'blink', 'rainbow',
+      'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+    ];
+    const effOpts = effects.map((key, i) => {
+      const label = i18n.t('lighting.lightEffect.' + key) || key;
+      return `<option value="${i}"${i === st.effect ? ' selected' : ''}>${esc(label)}</option>`;
+    }).join('');
+    const off = st.brightness === 0;
+    const swatch = LightingControlPage._hueToCss(st.hue);
     return `
-      <div class="lighting-lit-controls" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;border-top:1px solid var(--lt-border,#e5e7eb);padding-top:10px;">
-        ${canAuto ? `
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-          <span>${i18n.t('lighting.litMode') || 'Mode'}</span>
-          <select class="lit-mode" ${ds}>
-            <option value="managed" ${mode === 'managed' ? 'selected' : ''}>${i18n.t('lighting.litManaged') || 'Géré (GM Boop)'}</option>
-            <option value="autonomous" ${mode === 'autonomous' ? 'selected' : ''}>${i18n.t('lighting.litAutonomous') || 'Autonome (firmware)'}</option>
-          </select>
-        </label>` : ''}
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;min-width:160px;">
-          <span>${i18n.t('lighting.litBrightness') || 'Luminosité'}: <b class="lit-br-val">${br}</b></span>
-          <input type="range" class="lit-brightness" min="0" max="255" value="${br}" ${ds}>
-        </label>
-        ${canGuide ? `
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
-          <input type="checkbox" class="lit-guide" ${lit.light_guide_enabled ? 'checked' : ''} ${ds}>
-          ${i18n.t('lighting.litGuide') || 'Mode guide'}
-        </label>` : ''}
-        ${canEffect ? `
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;">
-          <span>${i18n.t('lighting.litEffect') || 'Effet'}</span>
-          <select class="lit-effect" ${ds}>${effOpts}</select>
-        </label>
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;min-width:120px;">
-          <span>${i18n.t('lighting.litSpeed') || 'Vitesse'}</span>
-          <input type="range" class="lit-speed" min="0" max="127" value="${sp}" ${ds}>
-        </label>` : ''}
-        <div style="display:flex;gap:8px;">
-          <button class="lighting-btn--outline lit-test" ${ds}>✨ ${i18n.t('lighting.litTest') || 'Tester'}</button>
-          <button class="lighting-btn--outline lit-alloff" ${ds}>⏻ ${i18n.t('lighting.litAllOff') || 'Tout éteindre'}</button>
+      <div class="lighting-instrument-card lit-card" ${ds} style="flex-direction:column;align-items:stretch;gap:10px;${off ? 'opacity:0.55;' : ''}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div class="lighting-instrument-info">
+            <div class="lighting-instrument-name">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${channel + 1}</span></div>
+            <div class="lighting-instrument-sub lit-status">${off ? (i18n.t('lighting.litOff') || 'OFF') : ''}</div>
+          </div>
+          <button class="lighting-btn--outline lighting-btn--outline-yellow"
+                  data-action="openInstrumentSettings"
+                  data-device-id="${esc(deviceId)}" data-channel="${channel}">
+            ⚙️ ${i18n.t('lighting.openSettings') || 'Ouvrir les réglages'}
+          </button>
+        </div>
+
+        <div class="lit-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 14px;border-top:1px solid var(--lt-border,#e5e7eb);padding-top:10px;font-size:12px;">
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span>${i18n.t('lighting.litBrightness') || 'Luminosité'} (CC110): <b class="lit-brightness-val">${st.brightness}</b></span>
+            <input type="range" class="lit-brightness" min="0" max="127" value="${st.brightness}" ${ds}>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span>${i18n.t('lighting.litEffect') || 'Effet'} (CC111)</span>
+            <select class="lit-effect" ${ds}>${effOpts}</select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span>${i18n.t('lighting.litHue') || 'Couleur (HSV)'} (CC112): <b class="lit-hue-val">${st.hue}</b></span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="lit-hue-swatch" style="display:inline-block;width:20px;height:20px;border-radius:50%;border:1px solid #444;background:${swatch};"></span>
+              <input type="range" class="lit-hue" min="0" max="127" value="${st.hue}" ${ds} style="flex:1;">
+            </div>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span>${i18n.t('lighting.litSpeed') || 'Vitesse'} (CC113): <b class="lit-speed-val">${st.speed}</b></span>
+            <input type="range" class="lit-speed" min="0" max="127" value="${st.speed}" ${ds}>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span>${i18n.t('lighting.litIntensity') || 'Intensité'} (CC114): <b class="lit-intensity-val">${st.intensity}</b></span>
+            <input type="range" class="lit-intensity" min="0" max="127" value="${st.intensity}" ${ds}>
+          </label>
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <button class="lighting-btn--outline lit-test" ${ds}>✨ ${i18n.t('lighting.litTest') || 'Tester'}</button>
+            <button class="lighting-btn--outline lit-alloff" ${ds}>⏻ ${i18n.t('lighting.litAllOff') || 'Tout éteindre'}</button>
+          </div>
         </div>
       </div>`;
   }
@@ -497,38 +476,85 @@ class LightingControlPage {
   _attachLitControlListeners() {
     const host = document.getElementById('lightingInstrumentList');
     if (!host) return;
-    const cfg = (el, patch) => {
-      const deviceId = el.dataset.deviceId;
-      const channel = parseInt(el.dataset.channel, 10) || 0;
+
+    const target = (el) => ({
+      deviceId: el.dataset.deviceId,
+      channel: parseInt(el.dataset.channel, 10) || 0
+    });
+    const setState = (el, patch) => {
+      const { deviceId, channel } = target(el);
       return this.apiClient
-        .sendCommand('instrument_light_set_config', { deviceId, channel, config: patch })
+        .sendCommand('instrument_light_set', { deviceId, channel, state: patch })
         .catch(() => {});
     };
-    host.querySelectorAll('.lit-mode').forEach(el =>
-      el.addEventListener('change', () => cfg(el, { light_mode: el.value })));
-    host.querySelectorAll('.lit-brightness').forEach(el => {
-      const out = el.closest('label')?.querySelector('.lit-br-val');
-      el.addEventListener('input', () => { if (out) out.textContent = el.value; });
-      el.addEventListener('change', () => cfg(el, { light_brightness: parseInt(el.value, 10) }));
+    const updateLabel = (el, cls) => {
+      const out = el.closest('label')?.querySelector('.' + cls);
+      if (out) out.textContent = el.value;
+    };
+    const refreshOff = (el) => {
+      const card = el.closest('.lit-card');
+      if (!card) return;
+      const off = parseInt(card.querySelector('.lit-brightness')?.value || '0', 10) === 0;
+      card.style.opacity = off ? '0.55' : '';
+      const status = card.querySelector('.lit-status');
+      if (status) status.textContent = off ? (i18n.t('lighting.litOff') || 'OFF') : '';
+    };
+
+    host.querySelectorAll('.lit-brightness').forEach((el) => {
+      el.addEventListener('input', () => { updateLabel(el, 'lit-brightness-val'); refreshOff(el); });
+      el.addEventListener('change', () => setState(el, { brightness: parseInt(el.value, 10) }));
     });
-    host.querySelectorAll('.lit-guide').forEach(el =>
-      el.addEventListener('change', () => cfg(el, { light_guide_enabled: el.checked ? 1 : 0 })));
-    host.querySelectorAll('.lit-effect').forEach(el =>
-      el.addEventListener('change', () => cfg(el, { light_active_effect: parseInt(el.value, 10) })));
-    host.querySelectorAll('.lit-speed').forEach(el =>
-      el.addEventListener('change', () => cfg(el, { light_effect_speed: parseInt(el.value, 10) })));
-    host.querySelectorAll('.lit-test').forEach(el =>
+    host.querySelectorAll('.lit-effect').forEach((el) =>
+      el.addEventListener('change', () => setState(el, { effect: parseInt(el.value, 10) })));
+    host.querySelectorAll('.lit-hue').forEach((el) => {
+      el.addEventListener('input', () => {
+        updateLabel(el, 'lit-hue-val');
+        const swatch = el.closest('label')?.querySelector('.lit-hue-swatch');
+        if (swatch) swatch.style.background = LightingControlPage._hueToCss(parseInt(el.value, 10));
+      });
+      el.addEventListener('change', () => setState(el, { hue: parseInt(el.value, 10) }));
+    });
+    host.querySelectorAll('.lit-speed').forEach((el) => {
+      el.addEventListener('input', () => updateLabel(el, 'lit-speed-val'));
+      el.addEventListener('change', () => setState(el, { speed: parseInt(el.value, 10) }));
+    });
+    host.querySelectorAll('.lit-intensity').forEach((el) => {
+      el.addEventListener('input', () => updateLabel(el, 'lit-intensity-val'));
+      el.addEventListener('change', () => setState(el, { intensity: parseInt(el.value, 10) }));
+    });
+    host.querySelectorAll('.lit-test').forEach((el) =>
       el.addEventListener('click', () => {
-        this.apiClient.sendCommand('instrument_light_test', {
-          deviceId: el.dataset.deviceId, channel: parseInt(el.dataset.channel, 10) || 0
-        }).catch(() => {});
+        const { deviceId, channel } = target(el);
+        this.apiClient.sendCommand('instrument_light_test', { deviceId, channel }).catch(() => {});
       }));
-    host.querySelectorAll('.lit-alloff').forEach(el =>
-      el.addEventListener('click', () => {
-        this.apiClient.sendCommand('instrument_light_all_off', {
-          deviceId: el.dataset.deviceId, channel: parseInt(el.dataset.channel, 10) || 0
-        }).catch(() => {});
+    host.querySelectorAll('.lit-alloff').forEach((el) =>
+      el.addEventListener('click', async () => {
+        const { deviceId, channel } = target(el);
+        await this.apiClient.sendCommand('instrument_light_all_off', { deviceId, channel })
+          .catch(() => {});
+        const card = el.closest('.lit-card');
+        const slider = card?.querySelector('.lit-brightness');
+        if (slider) {
+          slider.value = '0';
+          updateLabel(slider, 'lit-brightness-val');
+          refreshOff(slider);
+        }
       }));
+  }
+
+  /** HSV hue 0-127 → CSS color string. Static so it can run in tests. */
+  static _hueToCss(hue127) {
+    const h = ((Math.max(0, Math.min(127, hue127 | 0)) / 128) * 6) % 6;
+    const c = 1, x = c * (1 - Math.abs((h % 2) - 1));
+    let r = 0, g = 0, b = 0;
+    if (h < 1)      { r = c; g = x; }
+    else if (h < 2) { r = x; g = c; }
+    else if (h < 3) { g = c; b = x; }
+    else if (h < 4) { g = x; b = c; }
+    else if (h < 5) { r = x; b = c; }
+    else            { r = c; b = x; }
+    const to = (v) => Math.round(v * 255);
+    return `rgb(${to(r)}, ${to(g)}, ${to(b)})`;
   }
 
   _openInstrumentSettings(deviceId, channel) {

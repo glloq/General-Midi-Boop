@@ -1,8 +1,7 @@
 // tests/instrument-light-manager.test.js
-// Manager + controller behaviour with a fake DeviceManager that faithfully
-// re-invokes the lighting observer (as the real sendMessage hook does),
-// proving the reentrancy guard prevents a lighting note from re-triggering
-// itself, and that played notes are mirrored onto the instrument's LEDs.
+// Manager + controller behaviour with a fake DeviceManager and database.
+// Validates: the master gate suppresses CCs, partial updates emit only the
+// changed CC numbers, and the persisted row matches the in-memory state.
 
 import { describe, test, expect, beforeEach } from '@jest/globals';
 import InstrumentLightManager from '../src/lighting/instrument/InstrumentLightManager.js';
@@ -10,107 +9,102 @@ import InstrumentLightManager from '../src/lighting/instrument/InstrumentLightMa
 const logger = { info() {}, warn() {}, error() {}, debug() {} };
 
 function makeEventBus() {
-  const map = new Map();
-  return {
-    on(e, cb) { (map.get(e) || map.set(e, []).get(e)).push(cb); },
-    removeListener() {},
-    emit(e, d) { (map.get(e) || []).forEach(cb => cb(d)); }
-  };
+  return { on() {}, removeListener() {}, emit() {} };
 }
 
 function makeDeviceManager() {
-  const dm = {
-    instrumentLightObserver: null,
+  return {
     sent: [],
     sendMessage(deviceName, type, data) {
       this.sent.push({ deviceName, type, data });
-      // Mirror the real DeviceManager: notify the observer for notes.
-      if (this.instrumentLightObserver && (type === 'noteon' || type === 'noteoff')) {
-        this.instrumentLightObserver(deviceName, type, data);
-      }
       return true;
-    },
-    requestLightingCapabilities() { return true; }
+    }
   };
-  return dm;
 }
 
-function makeDatabase(rows) {
+function makeDatabase({ lightingEnabled = true, initialState = null } = {}) {
+  let stored = initialState ? { ...initialState } : null;
   return {
-    getAllInstrumentLights: () => rows,
-    getInstrumentSettings: () => ({ lighting_enabled: 1 }),
-    getInstrumentLight: (d, c) =>
-      rows.find(r => r.device_id === d && (r.channel || 0) === (c || 0)) || null,
-    saveInstrumentLightCapabilities() {},
-    saveInstrumentLightConfig() {}
+    getInstrumentSettings: () => ({ lighting_enabled: lightingEnabled ? 1 : 0 }),
+    getInstrumentLightState: () => stored,
+    getAllInstrumentLightStates: () => (stored ? [{ device_id: 'kbd-1', channel: 0, ...stored }] : []),
+    saveInstrumentLightState: (device_id, channel, state) => {
+      stored = { device_id, channel, ...state };
+      return `${device_id}_${channel}`;
+    },
+    _peek: () => stored
   };
 }
-
-const baseRow = {
-  device_id: 'kbd-1',
-  channel: 0,
-  light_caps_source: 'sysex',
-  light_led_count: 88,
-  light_addressing: 1,        // per-note
-  light_note_base: 0,
-  light_color_mode: 0,        // on/off → NOTE transport
-  light_transports: 0x02,     // NOTE only
-  light_channel: 127,         // same as instrument channel
-  light_min_interval_ms: 0,
-  light_mode: 'managed',
-  light_brightness: 255
-};
 
 describe('InstrumentLightManager', () => {
-  let dm, deps;
+  let dm, db, mgr;
   beforeEach(() => {
     dm = makeDeviceManager();
-    deps = { logger, eventBus: makeEventBus(), deviceManager: dm,
-             database: makeDatabase([{ ...baseRow }]) };
+    db = makeDatabase();
+    mgr = new InstrumentLightManager({ logger, eventBus: makeEventBus(), deviceManager: dm, database: db });
   });
 
-  test('installs the DeviceManager observer and builds a controller', () => {
-    const mgr = new InstrumentLightManager(deps);
-    expect(typeof dm.instrumentLightObserver).toBe('function');
-    expect(mgr.controllers.size).toBe(1);
+  test('getState returns defaults + master flag when no row stored yet', () => {
+    const s = mgr.getState('kbd-1', 0);
+    expect(s).toMatchObject({
+      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64, master_enabled: true
+    });
   });
 
-  test('mirrors a played note onto the LED without infinite recursion', () => {
-    new InstrumentLightManager(deps);
-    // Simulate the instrument playing note 60: the real DeviceManager
-    // calls the observer before dispatching.
-    dm.instrumentLightObserver('kbd-1', 'noteon', { channel: 0, note: 60, velocity: 100 });
-    const lightSends = dm.sent.filter(s => s.type === 'noteon');
-    // Exactly one lighting noteon emitted (on/off mode → velocity 127),
-    // and the guard stopped it from re-triggering itself.
-    expect(lightSends.length).toBe(1);
-    expect(lightSends[0].data).toMatchObject({ note: 60, velocity: 127 });
+  test('setState persists every field and emits only the changed CCs', () => {
+    mgr.setState('kbd-1', 0, { brightness: 80, hue: 42 });
+    expect(db._peek()).toMatchObject({ brightness: 80, hue: 42, effect: 0, speed: 64, intensity: 64 });
+    const ccs = dm.sent.filter((s) => s.type === 'cc').map((s) => s.data.controller).sort();
+    expect(ccs).toEqual([110, 112]);
   });
 
-  test('note off clears the LED', () => {
-    new InstrumentLightManager(deps);
-    dm.instrumentLightObserver('kbd-1', 'noteon', { channel: 0, note: 64, velocity: 90 });
+  test('further setState calls only emit the actual diffs', () => {
+    mgr.setState('kbd-1', 0, { brightness: 80, hue: 42 });
     dm.sent.length = 0;
-    dm.instrumentLightObserver('kbd-1', 'noteoff', { channel: 0, note: 64, velocity: 0 });
-    const offs = dm.sent.filter(s => s.type === 'noteoff');
-    expect(offs.length).toBe(1);
-    expect(offs[0].data.note).toBe(64);
+    mgr.setState('kbd-1', 0, { brightness: 80, effect: 4 });
+    const ccs = dm.sent.filter((s) => s.type === 'cc').map((s) => s.data.controller);
+    expect(ccs).toEqual([111]);
+    expect(dm.sent[0].data.value).toBe(4);
   });
 
-  test('disabled master gate keeps the controller silent', () => {
-    deps.database.getInstrumentSettings = () => ({ lighting_enabled: 0 });
-    new InstrumentLightManager(deps);
-    dm.instrumentLightObserver('kbd-1', 'noteon', { channel: 0, note: 60, velocity: 100 });
-    expect(dm.sent.length).toBe(0);
+  test('master toggle off keeps the state persisted but emits nothing', () => {
+    const offDb = makeDatabase({ lightingEnabled: false });
+    const offDm = makeDeviceManager();
+    const offMgr = new InstrumentLightManager({
+      logger, eventBus: makeEventBus(), deviceManager: offDm, database: offDb
+    });
+    offMgr.setState('kbd-1', 0, { brightness: 120, effect: 3, hue: 10, speed: 50, intensity: 90 });
+    expect(offDb._peek()).toMatchObject({ brightness: 120, effect: 3 });
+    expect(offDm.sent.length).toBe(0);
   });
 
-  test('test() flashes then restores without recursion', () => {
-    const mgr = new InstrumentLightManager(deps);
+  test('allOff sends CC110 = 0 and persists brightness 0', () => {
+    mgr.setState('kbd-1', 0, { brightness: 90, hue: 30 });
     dm.sent.length = 0;
-    const ok = mgr.test('kbd-1', 0);
-    expect(ok).toBe(true);
-    // NOTE transport → a burst of noteon, each guarded (no runaway).
-    expect(dm.sent.length).toBeGreaterThan(0);
-    expect(dm.sent.length).toBeLessThan(200);
+    mgr.allOff('kbd-1', 0);
+    expect(dm.sent.length).toBe(1);
+    expect(dm.sent[0].data.controller).toBe(110);
+    expect(dm.sent[0].data.value).toBe(0);
+    expect(db._peek().brightness).toBe(0);
+  });
+
+  test('test() pushes a visible burst then restores the saved state', async () => {
+    mgr.setState('kbd-1', 0, { brightness: 40, hue: 100, effect: 2, speed: 70, intensity: 30 });
+    dm.sent.length = 0;
+    expect(mgr.test('kbd-1', 0)).toBe(true);
+    // Burst should bump brightness to 127 immediately.
+    const burstCc = dm.sent.find((s) => s.data.controller === 110 && s.data.value === 127);
+    expect(burstCc).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 900));
+    // After the timeout, brightness must be back to 40.
+    const restored = dm.sent.filter((s) => s.data.controller === 110).pop();
+    expect(restored.data.value).toBe(40);
+  });
+
+  test('listStates exposes the persisted row with master flag', () => {
+    mgr.setState('kbd-1', 0, { brightness: 60, hue: 20 });
+    const list = mgr.listStates();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ device_id: 'kbd-1', channel: 0, brightness: 60, hue: 20, master_enabled: true });
   });
 });

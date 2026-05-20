@@ -1,17 +1,16 @@
 /**
  * @file src/lighting/instrument/InstrumentLightManager.js
- * @description Dedicated subsystem (independent of the Raspberry-side
- * LightingManager) that drives LEDs physically on MIDI instruments and
- * managed by the instrument's own microcontroller.
+ * @description Generic CC-based lighting control for instrument-side
+ * LEDs. Owns one {@link InstrumentLightController} per lit instrument,
+ * persists the 5-CC state per `(device_id, channel)` and exposes the API
+ * surface consumed by the Lighting modal "Par instrument" tab.
  *
- * It owns one {@link InstrumentLightController} per lit instrument,
- * mirrors every played note onto the instrument's LEDs via a best-effort
- * hook in {@link DeviceManager#sendMessage} (covers both file playback
- * and live routing), and exposes the API surface used by the Lighting
- * modal "Par instrument" tab and the instrument settings modal.
+ * Independent of the Raspberry-side {@link LightingManager}; no native
+ * deps. Sends only CC 110-114 — does not parse SysEx, does not mirror
+ * played notes, does not touch the MIDI router hot path.
  */
 import InstrumentLightController from './InstrumentLightController.js';
-import * as P from './InstrumentLightProtocol.js';
+import * as CC from './InstrumentLightCC.js';
 
 class InstrumentLightManager {
   /**
@@ -29,39 +28,21 @@ class InstrumentLightManager {
 
     /** @type {Map<string, InstrumentLightController>} */
     this.controllers = new Map();
-    // Reentrancy depth: every send our controllers make flows back
-    // through DeviceManager.sendMessage → our observer. While depth > 0
-    // the observer is a no-op so a lighting note never re-triggers itself.
-    this._depth = 0;
 
-    this._sink = (id, type, data) => this._guarded(
-      () => this.deviceManager?.sendMessage(id, type, data)
-    );
-    this._onNote = (name, type, data) => this.onInstrumentNote(name, type, data);
     this._onReload = () => this.reload();
-
     this.initialize();
   }
 
   initialize() {
     try {
-      if (this.deviceManager) {
-        this.deviceManager.instrumentLightObserver = this._onNote;
-      }
       this.eventBus?.on('instrument_settings_changed', this._onReload);
-      this.eventBus?.on('instrument_light_capabilities', this._onReload);
       this.reload();
-      this.logger.info(
-        `InstrumentLightManager initialized: ${this.controllers.size} lit instrument(s)`
+      this.logger?.info?.(
+        `InstrumentLightManager initialized: ${this.controllers.size} state(s) loaded`
       );
     } catch (error) {
-      this.logger.warn(`InstrumentLightManager init partial: ${error.message}`);
+      this.logger?.warn?.(`InstrumentLightManager init partial: ${error.message}`);
     }
-  }
-
-  _guarded(fn) {
-    this._depth++;
-    try { return fn(); } finally { this._depth--; }
   }
 
   _key(deviceId, channel) { return `${deviceId}_${channel | 0}`; }
@@ -73,157 +54,97 @@ class InstrumentLightManager {
     } catch { return false; }
   }
 
-  /** Rebuild every controller from the database. */
+  _controllerFor(deviceId, channel, state) {
+    const key = this._key(deviceId, channel);
+    let ctrl = this.controllers.get(key);
+    if (!ctrl) {
+      ctrl = new InstrumentLightController({
+        deviceId,
+        channel: channel | 0,
+        deviceManager: this.deviceManager,
+        logger: this.logger,
+        state
+      });
+      this.controllers.set(key, ctrl);
+    } else if (state) {
+      ctrl.state = CC.normalizeState(state);
+    }
+    return ctrl;
+  }
+
+  /** Refresh every controller's state from the database. */
   reload() {
     let rows = [];
     try {
-      rows = this.database.getAllInstrumentLights() || [];
+      rows = this.database.getAllInstrumentLightStates() || [];
     } catch (e) {
-      this.logger.warn(`InstrumentLight reload failed: ${e.message}`);
+      this.logger?.warn?.(`InstrumentLight reload failed: ${e.message}`);
       return;
     }
-
-    const seen = new Set();
-    for (const row of rows) {
-      const key = this._key(row.device_id, row.channel);
-      seen.add(key);
-      let ctrl = this.controllers.get(key);
-      if (!ctrl) {
-        ctrl = new InstrumentLightController({
-          deviceId: row.device_id,
-          channel: row.channel,
-          deviceManager: this.deviceManager,
-          sink: this._sink,
-          logger: this.logger,
-          capabilities: row,
-          config: row
-        });
-        this.controllers.set(key, ctrl);
-      } else {
-        ctrl.applyCapabilities(row);
-        ctrl.applyConfig(row);
-      }
-
-      const shouldEnable = this._isMasterEnabled(row.device_id, row.channel);
-      if (shouldEnable && !ctrl.enabled) ctrl.enable();
-      else if (!shouldEnable && ctrl.enabled) ctrl.disable();
-    }
-
-    // Drop controllers whose row disappeared.
-    for (const [key, ctrl] of this.controllers) {
-      if (!seen.has(key)) {
-        ctrl.disable();
-        this.controllers.delete(key);
-      }
-    }
+    for (const r of rows) this._controllerFor(r.device_id, r.channel, r);
   }
 
-  /**
-   * DeviceManager hook. Re-entrancy guarded: the controller's own
-   * lighting sends flow back through DeviceManager.sendMessage.
-   * @param {string} deviceName
-   * @param {string} type
-   * @param {Object} data
-   */
-  onInstrumentNote(deviceName, type, data) {
-    if (this._depth > 0) return;
-    const channel = (data && data.channel != null) ? data.channel : 0;
-    const ctrl = this.controllers.get(this._key(deviceName, channel));
-    if (!ctrl || !ctrl.enabled) return;
-    this._guarded(() => ctrl.onInstrumentNote(type, data));
+  // ---- API surface --------------------------------------------------------
+
+  /** Read the persisted state (+ master enable flag) for one instrument. */
+  getState(deviceId, channel = 0) {
+    const stored = this.database.getInstrumentLightState(deviceId, channel | 0);
+    const state = CC.normalizeState(stored || CC.defaultState());
+    return { ...state, master_enabled: this._isMasterEnabled(deviceId, channel) };
   }
 
-  // ---- API surface (consumed by InstrumentLightCommands) ------------------
-
-  /** Capabilities + control config for one instrument (or null). */
-  getInstrument(deviceId, channel = 0) {
-    const row = this.database.getInstrumentLight(deviceId, channel);
-    if (!row) return null;
-    return { ...row, master_enabled: this._isMasterEnabled(deviceId, channel) };
-  }
-
-  /** Every instrument that has a light config row. */
-  listLitInstruments() {
-    return (this.database.getAllInstrumentLights() || []).map(r => ({
-      ...r,
+  /** Every persisted state, used by the Lighting modal "Par instrument" tab. */
+  listStates() {
+    const rows = this.database.getAllInstrumentLightStates() || [];
+    return rows.map((r) => ({
+      device_id: r.device_id,
+      channel: r.channel,
+      brightness: r.brightness,
+      effect: r.effect,
+      hue: r.hue,
+      speed: r.speed,
+      intensity: r.intensity,
       master_enabled: this._isMasterEnabled(r.device_id, r.channel)
     }));
   }
 
-  /** Save manually-entered capabilities, then reload. */
-  setCapabilities(deviceId, channel, capabilities) {
-    const patch = { ...capabilities };
-    if (patch.light_messages_bitmask === undefined || patch.light_messages_bitmask === null) {
-      patch.light_messages_bitmask = P.deriveMessagesBitmask(patch);
-    }
-    this.database.saveInstrumentLightCapabilities(
-      deviceId, channel | 0, patch, 'manual'
-    );
-    this.reload();
-    return this.getInstrument(deviceId, channel | 0);
-  }
-
-  /** Save control configuration, then reload + push live changes. */
-  setConfig(deviceId, channel, config) {
-    this.database.saveInstrumentLightConfig(deviceId, channel | 0, config);
-    this.reload();
-    const ctrl = this.controllers.get(this._key(deviceId, channel | 0));
-    if (ctrl && ctrl.enabled) {
-      ctrl.pushBrightness();
-      if (config.light_active_effect !== undefined) {
-        ctrl.setEffect(config.light_active_effect, config.light_effect_speed ?? 64);
-      }
-    }
-    return this.getInstrument(deviceId, channel | 0);
-  }
-
-  /** Trigger a fresh SysEx Block 8 capabilities request. */
-  requestSysexCapabilities(deviceId, channel = 0) {
-    return this.deviceManager.requestLightingCapabilities(deviceId, channel);
-  }
-
-  /** Flash the instrument's LEDs so the user can confirm wiring. */
-  test(deviceId, channel = 0) {
-    const ctrl = this.controllers.get(this._key(deviceId, channel | 0));
-    if (!ctrl) return false;
-    const wasEnabled = ctrl.enabled;
-    ctrl.enabled = true;
-    const lc = ctrl.lightChannel;
-    if (ctrl._supports(P.TRANSPORT.SYSEX)) {
-      ctrl._sendSysex(P.sysexSetAll(lc, 255, 255, 255));
-      setTimeout(() => {
-        ctrl._sendSysex(P.sysexClear(lc));
-        ctrl.enabled = wasEnabled;
-      }, 600);
-    } else if (ctrl._supports(P.TRANSPORT.NOTE)) {
-      const count = ctrl.caps.light_led_count || 12;
-      for (let i = 0; i < count; i++) {
-        const m = P.noteColorMessage(lc, (ctrl.caps.light_note_base ?? 0) + i, 127);
-        ctrl._send(m.type, m.data);
-      }
-      setTimeout(() => { ctrl.allOff(); ctrl.enabled = wasEnabled; }, 600);
+  /**
+   * Merge a partial state, persist, and send only the diffs as CCs (if
+   * the master toggle is on). Returns the resulting full state.
+   */
+  setState(deviceId, channel, partial) {
+    const ctrl = this._controllerFor(deviceId, channel);
+    const next = CC.normalizeState({ ...ctrl.state, ...(partial || {}) });
+    this.database.saveInstrumentLightState(deviceId, channel | 0, next);
+    if (this._isMasterEnabled(deviceId, channel)) {
+      ctrl.apply(next);
     } else {
-      ctrl.enabled = wasEnabled;
+      ctrl.state = next;
     }
+    return { ...next, master_enabled: this._isMasterEnabled(deviceId, channel) };
+  }
+
+  /** Briefly drive the LEDs to a known visible setting then restore. */
+  test(deviceId, channel = 0) {
+    if (!this._isMasterEnabled(deviceId, channel)) return false;
+    const ctrl = this._controllerFor(deviceId, channel);
+    const saved = { ...ctrl.state };
+    ctrl.apply({ brightness: 127, effect: 0, hue: 64, intensity: 127, speed: 64 });
+    setTimeout(() => ctrl.apply(saved), 800);
     return true;
   }
 
+  /** Master off — sends CC 110 = 0 and persists. */
   allOff(deviceId, channel = 0) {
-    const ctrl = this.controllers.get(this._key(deviceId, channel | 0));
-    if (ctrl) { ctrl.allOff(); return true; }
-    return false;
+    const ctrl = this._controllerFor(deviceId, channel);
+    ctrl.off();
+    this.database.saveInstrumentLightState(deviceId, channel | 0, ctrl.state);
+    return true;
   }
 
   async shutdown() {
-    for (const ctrl of this.controllers.values()) {
-      try { ctrl.disable(); } catch { /* best-effort */ }
-    }
-    this.controllers.clear();
-    if (this.deviceManager && this.deviceManager.instrumentLightObserver === this._onNote) {
-      this.deviceManager.instrumentLightObserver = null;
-    }
     this.eventBus?.removeListener?.('instrument_settings_changed', this._onReload);
-    this.eventBus?.removeListener?.('instrument_light_capabilities', this._onReload);
+    this.controllers.clear();
   }
 }
 
