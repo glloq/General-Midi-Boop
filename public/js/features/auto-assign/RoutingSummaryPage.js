@@ -98,6 +98,8 @@
       this.channelVolumes = {}; // Per-channel volume overrides (CC7, 0-127, default 100)
       this._instrumentOptionsCache = {}; // Memoized <option> HTML per channel for summary dropdowns
       this._channelNotesCache = {}; // Memoized note arrays per channel for hands preview
+      this._channelNotesForMidi = null; // identity guard: invalidate cache when midiData swaps
+      this._channelNotesPrewarmTimer = null; // setTimeout handle for deferred bulk warm
       // Memoized hand-simulation timelines, keyed by
       // `channel|instrumentId|transpose|overrides` — re-opening a channel
       // (or toggling back to a previous instrument) skips the solver.
@@ -400,6 +402,13 @@
 
         this.loading = false;
         this._renderContent();
+
+        // Pre-warm the per-channel notes cache for the hands preview.
+        // A single track walk now (deferred so the modal paints first)
+        // replaces the per-channel walk that ran on every channel click
+        // — on large MIDIs the lazy version froze the first click for
+        // 15-30 s while the preview panel was being mounted.
+        this._scheduleChannelNotesPrewarm();
       } catch (error) {
         this._showError(error.message || _t('autoAssign.generateFailed'));
       }
@@ -1201,37 +1210,111 @@
      * a `duration` (in ticks) — the trajectory ribbon needs it to
      * know when the previous chord releases and the hand can start
      * travelling to the next anchor.
+     *
+     * The bulk cache (`_channelNotesCache`) is populated in one pass
+     * by `_warmChannelNotesCache()` right after `midiData` lands so
+     * the first channel click never has to scan the whole file. The
+     * inline single-channel walk below is the cold fallback for the
+     * rare case where the user clicks before the prewarm fires.
      * @private
      */
     _getChannelNotesForPreview(channel) {
       if (!this.midiData?.tracks) return [];
-      if (this._channelNotesCache[channel]) return this._channelNotesCache[channel];
-      const notes = [];
+      if (this._channelNotesForMidi !== this.midiData) {
+        // midiData identity changed (or never warmed) — do it now,
+        // synchronously, so any cached entry below is for THIS midi.
+        this._warmChannelNotesCache();
+      }
+      const cached = this._channelNotesCache[channel];
+      return cached || [];
+    }
+
+    /**
+     * Walk every track ONCE and bucket noteOn/noteOff pairs into
+     * `_channelNotesCache[channel] = [{tick, note, channel, duration}]`.
+     * Previously each channel did its own full-file walk via
+     * `_getChannelNotesForPreview`, so opening N channels meant N
+     * full re-walks — on dense MIDIs this was the 15-30 s freeze the
+     * user saw on the first channel click in the routing modal.
+     *
+     * Output is identical to the legacy per-channel walk: arrays are
+     * sorted by tick, durations come from matching noteOff events,
+     * orphan note-ons keep `duration: 0`.
+     * @private
+     */
+    _warmChannelNotesCache() {
+      const cache = Object.create(null);
+      if (!this.midiData?.tracks) {
+        this._channelNotesCache = cache;
+        this._channelNotesForMidi = this.midiData;
+        return;
+      }
       for (const track of this.midiData.tracks) {
         let absoluteTick = 0;
-        const pending = new Map(); // note → { tick, channel, indexInOutput }
+        // Pending keyed by `${channel}|${note}` so concurrent voices on
+        // different channels in the same track don't clobber each other.
+        const pending = new Map();
         for (const ev of track.events || track) {
           absoluteTick += ev.deltaTime || 0;
-          const evCh = ev.channel ?? 0;
-          if (evCh !== channel) continue;
           const noteNumber = ev.note ?? ev.noteNumber;
           if (!Number.isFinite(noteNumber)) continue;
-          if (ev.type === 'noteOn' && (ev.velocity ?? 0) > 0) {
-            const idx = notes.length;
-            notes.push({ tick: absoluteTick, note: noteNumber, channel, duration: 0 });
-            pending.set(noteNumber, idx);
-          } else if (ev.type === 'noteOff' || (ev.type === 'noteOn' && (ev.velocity ?? 0) === 0)) {
-            if (pending.has(noteNumber)) {
-              const idx = pending.get(noteNumber);
-              notes[idx].duration = Math.max(0, absoluteTick - notes[idx].tick);
-              pending.delete(noteNumber);
+          const evCh = ev.channel ?? 0;
+          const isOff =
+            ev.type === 'noteOff' || (ev.type === 'noteOn' && (ev.velocity ?? 0) === 0);
+          const isOn = ev.type === 'noteOn' && (ev.velocity ?? 0) > 0;
+          if (!isOn && !isOff) continue;
+          const key = `${evCh}|${noteNumber}`;
+          if (isOn) {
+            let arr = cache[evCh];
+            if (!arr) {
+              arr = [];
+              cache[evCh] = arr;
+            }
+            arr.push({ tick: absoluteTick, note: noteNumber, channel: evCh, duration: 0 });
+            pending.set(key, arr.length - 1);
+          } else {
+            const idx = pending.get(key);
+            if (idx !== undefined) {
+              const arr = cache[evCh];
+              if (arr && arr[idx]) {
+                arr[idx].duration = Math.max(0, absoluteTick - arr[idx].tick);
+              }
+              pending.delete(key);
             }
           }
         }
       }
-      notes.sort((a, b) => a.tick - b.tick);
-      this._channelNotesCache[channel] = notes;
-      return notes;
+      // Sort each channel by tick — the per-track walk preserves order
+      // within a track but interleaving across tracks needs a tidy-up.
+      for (const ch of Object.keys(cache)) {
+        cache[ch].sort((a, b) => a.tick - b.tick);
+      }
+      this._channelNotesCache = cache;
+      this._channelNotesForMidi = this.midiData;
+    }
+
+    /**
+     * Schedule the bulk channel-notes prewarm to run after the modal
+     * has painted. Using `setTimeout(0)` (rather than the synchronous
+     * call inline) keeps the routing summary visible immediately on
+     * cold open; if the user manages to click a channel before the
+     * timer fires, `_getChannelNotesForPreview` runs the warm itself
+     * — same cost, just charged to that click instead of the open.
+     * @private
+     */
+    _scheduleChannelNotesPrewarm() {
+      if (!this.midiData?.tracks) return;
+      if (this._channelNotesForMidi === this.midiData) return;
+      if (this._channelNotesPrewarmTimer) return;
+      this._channelNotesPrewarmTimer = setTimeout(() => {
+        this._channelNotesPrewarmTimer = null;
+        if (this._channelNotesForMidi === this.midiData) return;
+        try {
+          this._warmChannelNotesCache();
+        } catch (e) {
+          console.warn('[RoutingSummary] channel notes prewarm failed:', e);
+        }
+      }, 0);
     }
 
     /** Pull a starter overrides payload off the routing-summary state. */
@@ -2630,9 +2713,18 @@
           console.warn('[RoutingSummary] mount hands preview failed:', e);
         }
       };
-      // Two rAFs so the browser actually paints the new detail panel
-      // before we burn the main thread on the simulator.
-      requestAnimationFrame(() => requestAnimationFrame(run));
+      // Two rAFs THEN a setTimeout(0): rAF runs before paint, so two
+      // back-to-back rAFs still keep the mount on the same paint
+      // boundary as the detail panel. The trailing macrotask hop
+      // lets the browser actually flush the paint pipeline (style
+      // recalc + layout + composite) before we copy the channel's
+      // notes array, build canvases and call the sub-component
+      // draws — none of which were trivial on dense channels.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          setTimeout(run, 0);
+        })
+      );
     }
 
     /**
@@ -3313,6 +3405,10 @@
         this.modal = null;
       }
       this._minimapCanvas = null;
+      if (this._channelNotesPrewarmTimer) {
+        clearTimeout(this._channelNotesPrewarmTimer);
+        this._channelNotesPrewarmTimer = null;
+      }
       document.body.style.overflow = this._prevBodyOverflow || '';
     }
   }
