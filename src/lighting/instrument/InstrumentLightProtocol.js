@@ -29,8 +29,10 @@ export const DIR_RESPONSE = 0x01;
 /** Feature-flag bit set in the Block 1 identity reply (bit 6). */
 export const FEATURE_LIGHTING = 0x40;
 
-/** Block 8 / Block 9 format version emitted/accepted by this codec. */
+/** Block 8 / Block 9 legacy format version (no message-catalog bitmask). */
 export const BLOCK_VERSION = 0x01;
+/** Block 8 v2 — adds the 16-bit lighting-message-catalog bitmask. */
+export const BLOCK_VERSION_V2 = 0x02;
 
 /** Sentinel meaning "use the instrument's own channel" / "not used". */
 export const UNSET = 0x7F;
@@ -62,6 +64,98 @@ export const DEFAULT_CC = Object.freeze({
   allOff: 111
 });
 
+/**
+ * Lighting Message Catalog — stable IDs (0-15) for the standard MIDI
+ * messages a lit instrument may implement. Block 8 v2 carries a 16-bit
+ * bitmask declaring which catalog entries are supported. Each entry maps
+ * to a concrete CC or SysEx Block 9 sub-command (no new wire format).
+ */
+export const LIGHT_MSG = Object.freeze({
+  ALL_OFF:        0,
+  BRIGHTNESS:     1,
+  LED_ONOFF:      2,
+  LED_DIMMABLE:   3,
+  LED_PALETTE:    4,
+  LED_RGB:        5,
+  RANGE_RGB:      6,
+  SET_ALL_RGB:    7,
+  PALETTE_UPLOAD: 8,
+  FX_FADE:        9,
+  FX_STROBE:     10,
+  FX_CHASE:      11,
+  FX_RAINBOW:    12,
+  FX_BREATHE:    13,
+  GUIDE:         14,
+  IDLE_ANIM:     15
+});
+
+/**
+ * Catalog metadata, consumed by the UI to render the supported-messages
+ * checklist. The `key` is the i18n suffix (instrumentSettings.lightMsg.N).
+ * `category`: 'control' | 'color' | 'effect' | 'mode'.
+ * @returns {Array<{id:number, key:string, label:string, transport:string,
+ *                  category:string}>}
+ */
+export function messageCatalog() {
+  return [
+    { id: 0,  key: 'lightMsg.allOff',       label: 'All Off',           transport: 'CC 111 = 0',                       category: 'control' },
+    { id: 1,  key: 'lightMsg.brightness',   label: 'Master Brightness', transport: 'CC 102 = 0-127',                   category: 'control' },
+    { id: 2,  key: 'lightMsg.ledOnOff',     label: 'LED On/Off',        transport: 'Note On (vel>0 / 0)',              category: 'color'   },
+    { id: 3,  key: 'lightMsg.ledDimmable',  label: 'LED Dimmable',      transport: 'Note On vel=brightness',           category: 'color'   },
+    { id: 4,  key: 'lightMsg.ledPalette',   label: 'LED Palette',       transport: 'Note On vel=palette idx',          category: 'color'   },
+    { id: 5,  key: 'lightMsg.ledRgb',       label: 'LED RGB',           transport: 'SysEx 0x09/01 led rgb',            category: 'color'   },
+    { id: 6,  key: 'lightMsg.rangeRgb',     label: 'Range RGB',         transport: 'SysEx 0x09/02 range rgb',          category: 'color'   },
+    { id: 7,  key: 'lightMsg.setAllRgb',    label: 'Set All RGB',       transport: 'SysEx 0x09/03 rgb',                category: 'color'   },
+    { id: 8,  key: 'lightMsg.paletteUpload', label: 'Palette Upload',   transport: 'SysEx 0x09/06 idx rgb',            category: 'color'   },
+    { id: 9,  key: 'lightMsg.fxFade',       label: 'Effect: Fade',      transport: 'CC 104 = 1 (+ CC 105 speed)',      category: 'effect'  },
+    { id: 10, key: 'lightMsg.fxStrobe',     label: 'Effect: Strobe',    transport: 'CC 104 = 2',                       category: 'effect'  },
+    { id: 11, key: 'lightMsg.fxChase',      label: 'Effect: Chase',     transport: 'CC 104 = 3',                       category: 'effect'  },
+    { id: 12, key: 'lightMsg.fxRainbow',    label: 'Effect: Rainbow',   transport: 'CC 104 = 4',                       category: 'effect'  },
+    { id: 13, key: 'lightMsg.fxBreathe',    label: 'Effect: Breathe',   transport: 'CC 104 = 5',                       category: 'effect'  },
+    { id: 14, key: 'lightMsg.guide',        label: 'Guide Mode',        transport: 'CC 106 = 0 / 127',                 category: 'mode'    },
+    { id: 15, key: 'lightMsg.idleAnim',     label: 'Idle Animation',    transport: 'CC 104 = 7',                       category: 'mode'    }
+  ];
+}
+
+/**
+ * Derive the catalog bitmask from the legacy capability fields (Block 8
+ * v1 firmwares). v2 firmwares transmit their own; this is the fallback.
+ * @param {Object} caps
+ * @returns {number} 16-bit bitmask
+ */
+export function deriveMessagesBitmask(caps) {
+  const tr = caps.light_transports || 0;
+  const cm = caps.light_color_mode || 0;
+  const fx = caps.light_local_effects || 0;
+  const fl = caps.light_flags || 0;
+  const hasCC = (tr & TRANSPORT.CC) !== 0;
+  const hasSysEx = (tr & TRANSPORT.SYSEX) !== 0;
+  const hasNote = (tr & TRANSPORT.NOTE) !== 0;
+  const ccSet = (n) => n !== undefined && n !== null && n !== UNSET;
+  const set = (bit) => (1 << bit);
+  let mask = 0;
+  if ((hasCC && ccSet(caps.light_cc_brightness)) || hasSysEx) mask |= set(LIGHT_MSG.ALL_OFF) | set(LIGHT_MSG.BRIGHTNESS);
+  if (hasNote && cm >= COLOR_MODE.ON_OFF)    mask |= set(LIGHT_MSG.LED_ONOFF);
+  if (hasNote && cm >= COLOR_MODE.DIMMABLE)  mask |= set(LIGHT_MSG.LED_DIMMABLE);
+  if (hasNote && cm === COLOR_MODE.PALETTE && (caps.light_palette_size || 0) > 0)
+    mask |= set(LIGHT_MSG.LED_PALETTE);
+  if (hasSysEx && cm === COLOR_MODE.RGB)
+    mask |= set(LIGHT_MSG.LED_RGB) | set(LIGHT_MSG.RANGE_RGB) | set(LIGHT_MSG.SET_ALL_RGB);
+  if (hasSysEx && cm === COLOR_MODE.PALETTE) mask |= set(LIGHT_MSG.PALETTE_UPLOAD);
+  const fxAvailable = hasSysEx || (hasCC && ccSet(caps.light_cc_effect));
+  if (fxAvailable) {
+    if (fx & 0x01) mask |= set(LIGHT_MSG.FX_FADE);
+    if (fx & 0x02) mask |= set(LIGHT_MSG.FX_STROBE);
+    if (fx & 0x04) mask |= set(LIGHT_MSG.FX_CHASE);
+    if (fx & 0x08) mask |= set(LIGHT_MSG.FX_RAINBOW);
+    if (fx & 0x10) mask |= set(LIGHT_MSG.FX_BREATHE);
+  }
+  if ((fl & CAP_FLAG.GUIDE) && (hasSysEx || (hasCC && ccSet(caps.light_cc_guide))))
+    mask |= set(LIGHT_MSG.GUIDE);
+  if (fl & CAP_FLAG.IDLE_ANIM) mask |= set(LIGHT_MSG.IDLE_ANIM);
+  return mask & 0xFFFF;
+}
+
 const clamp7 = (v) => Math.max(0, Math.min(127, v | 0));
 const clamp14 = (v) => Math.max(0, Math.min(16383, v | 0));
 
@@ -79,6 +173,17 @@ export function split14(v) {
 /** Recombine [lsb, msb] into a 14-bit number. */
 export function join14(lsb, msb) {
   return (clamp7(lsb)) | (clamp7(msb) << 7);
+}
+
+/** Split a 21-bit value into [b0, b1, b2] (7 bits each). */
+export function split21(v) {
+  const x = Math.max(0, Math.min(0x1FFFFF, v | 0));
+  return [x & 0x7F, (x >> 7) & 0x7F, (x >> 14) & 0x7F];
+}
+
+/** Recombine [b0, b1, b2] into a 21-bit number. */
+export function join21(b0, b1, b2) {
+  return clamp7(b0) | (clamp7(b1) << 7) | (clamp7(b2) << 14);
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +236,7 @@ export function parseCapabilitiesResponse(bytes) {
   const flags = bytes[p++];
   const minIntervalMs = bytes[p++];
 
-  return {
+  const caps = {
     blockVersion,
     channel,
     light_led_count: ledCount,
@@ -151,6 +256,16 @@ export function parseCapabilitiesResponse(bytes) {
     light_flags: flags,
     light_min_interval_ms: minIntervalMs
   };
+
+  // v2 appends a 21-bit catalog bitmask (3 SysEx-safe bytes) before F7.
+  // v1 firmwares omit it; we derive it from the legacy fields so the UI
+  // can render a uniform supported-messages checklist either way.
+  if (blockVersion >= BLOCK_VERSION_V2 && bytes.length >= 28 && p + 3 <= bytes.length - 1) {
+    caps.light_messages_bitmask = join21(bytes[p], bytes[p + 1], bytes[p + 2]) & 0xFFFF;
+  } else {
+    caps.light_messages_bitmask = deriveMessagesBitmask(caps);
+  }
+  return caps;
 }
 
 /**
@@ -159,11 +274,13 @@ export function parseCapabilitiesResponse(bytes) {
  * @param {Object} caps
  * @returns {number[]}
  */
-export function buildCapabilitiesResponse(caps) {
+export function buildCapabilitiesResponse(caps, opts = {}) {
+  const v2 = opts.version !== BLOCK_VERSION;
+  const version = v2 ? BLOCK_VERSION_V2 : BLOCK_VERSION;
   const [lcL, lcM] = split14(caps.light_led_count || 0);
-  return [
+  const out = [
     SYSEX_START, SYSEX_CUSTOM, GMB_MFR, BLOCK_LIGHT_CAPS, DIR_RESPONSE,
-    BLOCK_VERSION,
+    version,
     clamp7(caps.channel || 0),
     lcL, lcM,
     clamp7(caps.light_addressing ?? ADDRESSING.PER_NOTE),
@@ -180,9 +297,15 @@ export function buildCapabilitiesResponse(caps) {
     clamp7(caps.light_cc_guide ?? UNSET),
     clamp7(caps.light_local_effects ?? 0),
     clamp7(caps.light_flags ?? 0),
-    clamp7(caps.light_min_interval_ms ?? 0),
-    SYSEX_END
+    clamp7(caps.light_min_interval_ms ?? 0)
   ];
+  if (v2) {
+    const mask = (caps.light_messages_bitmask ?? deriveMessagesBitmask(caps)) & 0xFFFF;
+    const [b0, b1, b2] = split21(mask);
+    out.push(b0, b1, b2);
+  }
+  out.push(SYSEX_END);
+  return out;
 }
 
 // ---------------------------------------------------------------------------

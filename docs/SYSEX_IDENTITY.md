@@ -1348,10 +1348,66 @@ void handleLightingCapsRequest(uint8_t ch) {
 ## L4. Block 8 Checklist
 
 - [ ] Detect request `F0 7D 00 08 00 <channel> F7`
-- [ ] Response header `F0 7D 00 08 01`, version `0x01`, ends `F7`
-- [ ] Exactly 25 bytes
+- [ ] Response header `F0 7D 00 08 0X`, version `0x01` (v1) or `0x02` (v2), ends `F7`
+- [ ] Exactly 25 bytes (v1) or 28 bytes (v2)
 - [ ] All data bytes 0-127 (LED count split lsb/msb)
 - [ ] Feature flag bit 6 (`LIGHTING`) set in Block 1
+
+## L5. Block 8 v2 — Lighting Message Catalog bitmask
+
+Block 8 v2 appends a **21-bit** support bitmask (3 SysEx-safe bytes,
+`b0 b1 b2` = bits 0-6, 7-13, 14-20) just before the closing `F7`. Each
+bit *i* set means catalog message id *i* is implemented by the firmware.
+Only bits 0-15 are currently defined; bits 16-20 are reserved.
+
+```
+… <min_update_interval_ms> <bitmask_b0> <bitmask_b1> <bitmask_b2> F7
+```
+
+GM Boop accepts both v1 and v2 transparently. For v1 replies it derives
+the bitmask from `light_transports`, `light_color_mode`, `light_local_effects`
+and `light_flags` so the UI can always render a uniform supported-messages
+checklist (see `deriveMessagesBitmask` in
+`src/lighting/instrument/InstrumentLightProtocol.js`).
+
+### Catalog (ID → MIDI mapping)
+
+| ID | Name             | Transport                              | Category |
+|----|------------------|----------------------------------------|----------|
+| 0  | All Off          | `CC <cc_brightness or 111> = 0`        | Control  |
+| 1  | Master Brightness| `CC <cc_brightness> = 0-127`           | Control  |
+| 2  | LED On/Off       | `Note On` vel>0 / vel=0                | Color    |
+| 3  | LED Dimmable     | `Note On` vel = brightness 1-127       | Color    |
+| 4  | LED Palette      | `Note On` vel = palette index 1-127    | Color    |
+| 5  | LED RGB          | SysEx `0x09 / 0x01` `<ch> <led_l> <led_m> <r> <g> <b>` | Color |
+| 6  | Range RGB        | SysEx `0x09 / 0x02`                    | Color    |
+| 7  | Set All RGB      | SysEx `0x09 / 0x03`                    | Color    |
+| 8  | Palette Upload   | SysEx `0x09 / 0x06`                    | Color    |
+| 9  | Effect: Fade     | `CC <cc_effect> = 1` (+ `cc_effect_speed`) | Effect |
+| 10 | Effect: Strobe   | `CC <cc_effect> = 2`                   | Effect   |
+| 11 | Effect: Chase    | `CC <cc_effect> = 3`                   | Effect   |
+| 12 | Effect: Rainbow  | `CC <cc_effect> = 4`                   | Effect   |
+| 13 | Effect: Breathe  | `CC <cc_effect> = 5`                   | Effect   |
+| 14 | Guide Mode       | `CC <cc_guide> = 0 / 127`              | Mode     |
+| 15 | Idle Animation   | `CC <cc_effect> = 7`                   | Mode     |
+
+### Arduino/Teensy v2 example (88-LED RGB lit keyboard)
+
+```c
+uint32_t MSG_MASK =
+    (1u<<0) | (1u<<1) |          // All Off, Brightness
+    (1u<<2) | (1u<<3) |          // LED on/off, dimmable
+    (1u<<5) | (1u<<6) | (1u<<7); // LED RGB + Range + All
+
+void appendBitmask(uint8_t* out, int* pos, uint32_t mask) {
+    out[(*pos)++] = (mask      ) & 0x7F;
+    out[(*pos)++] = (mask >>  7) & 0x7F;
+    out[(*pos)++] = (mask >> 14) & 0x7F;
+}
+// … usual Block 8 fields with version byte = 0x02 …
+appendBitmask(response, &pos, MSG_MASK);
+response[pos++] = 0xF7;
+```
 
 ---
 

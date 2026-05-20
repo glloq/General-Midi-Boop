@@ -31,7 +31,7 @@ describe('Block 8 — Lighting Capabilities', () => {
       light_flags: P.CAP_FLAG.GUIDE,
       light_min_interval_ms: 5
     };
-    const bytes = P.buildCapabilitiesResponse(caps);
+    const bytes = P.buildCapabilitiesResponse(caps, { version: P.BLOCK_VERSION });
     expect(bytes.length).toBe(25);
     expect(bytes[0]).toBe(0xF0);
     expect(bytes[bytes.length - 1]).toBe(0xF7);
@@ -56,6 +56,66 @@ describe('Block 8 — Lighting Capabilities', () => {
   test('14-bit LED count survives split/join', () => {
     const caps = P.buildCapabilitiesResponse({ light_led_count: 12345 });
     expect(P.parseCapabilitiesResponse(caps).light_led_count).toBe(12345);
+  });
+});
+
+describe('Block 8 v2 — Lighting Message Catalog', () => {
+  const v2caps = {
+    channel: 0,
+    light_led_count: 16,
+    light_color_mode: P.COLOR_MODE.RGB,
+    light_transports: P.TRANSPORT.NOTE | P.TRANSPORT.SYSEX | P.TRANSPORT.CC,
+    light_cc_brightness: 102,
+    light_cc_effect: 104,
+    light_local_effects: 0x01 | 0x02,        // fade + strobe
+    light_flags: P.CAP_FLAG.GUIDE,
+    light_cc_guide: 106,
+    light_messages_bitmask:
+      (1 << P.LIGHT_MSG.ALL_OFF) |
+      (1 << P.LIGHT_MSG.BRIGHTNESS) |
+      (1 << P.LIGHT_MSG.LED_RGB) |
+      (1 << P.LIGHT_MSG.FX_FADE) |
+      (1 << P.LIGHT_MSG.GUIDE)
+  };
+
+  test('v2 round-trip preserves the catalog bitmask', () => {
+    const bytes = P.buildCapabilitiesResponse(v2caps);
+    expect(bytes.length).toBe(28);
+    expect(bytes[5]).toBe(P.BLOCK_VERSION_V2);
+    const parsed = P.parseCapabilitiesResponse(bytes);
+    expect(parsed.blockVersion).toBe(P.BLOCK_VERSION_V2);
+    expect(parsed.light_messages_bitmask).toBe(v2caps.light_messages_bitmask);
+  });
+
+  test('v1 reply gets a derived bitmask from legacy fields', () => {
+    const v1bytes = P.buildCapabilitiesResponse(v2caps, { version: P.BLOCK_VERSION });
+    expect(v1bytes.length).toBe(25);
+    expect(v1bytes[5]).toBe(P.BLOCK_VERSION);
+    const parsed = P.parseCapabilitiesResponse(v1bytes);
+    // RGB + SysEx ⇒ LED_RGB, RANGE_RGB, SET_ALL_RGB
+    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.LED_RGB)).not.toBe(0);
+    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.SET_ALL_RGB)).not.toBe(0);
+    // CC effect + fade flag ⇒ FX_FADE
+    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.FX_FADE)).not.toBe(0);
+    // Guide flag + cc_guide ⇒ GUIDE
+    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.GUIDE)).not.toBe(0);
+  });
+
+  test('messageCatalog() has 16 well-formed entries', () => {
+    const cat = P.messageCatalog();
+    expect(cat.length).toBe(16);
+    for (let i = 0; i < cat.length; i++) {
+      expect(cat[i].id).toBe(i);
+      expect(typeof cat[i].label).toBe('string');
+      expect(['control', 'color', 'effect', 'mode']).toContain(cat[i].category);
+    }
+  });
+
+  test('21-bit split/join round-trips', () => {
+    for (const v of [0, 1, 0x7F, 0x80, 0xFFFF, 0x1FFFFF]) {
+      const [a, b, c] = P.split21(v);
+      expect(P.join21(a, b, c)).toBe(v);
+    }
   });
 });
 

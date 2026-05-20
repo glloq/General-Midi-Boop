@@ -93,6 +93,13 @@
                     <button type="button" id="ilcTestBtn" class="btn btn-small">✨ ${t('instrumentSettings.ilcTest', 'Tester les LED')}</button>
                 </div>
 
+                <div id="ilcCatalog" class="ism-subsection" style="background:rgba(0,0,0,0.03);padding:10px;border-radius:6px;margin-bottom:10px;">
+                    <h5 style="margin:0 0 8px 0;font-size:13px;">📋 ${t('instrumentSettings.msgCatTitle', 'Messages MIDI supportés (catalogue standard)')}</h5>
+                    <div id="ilcCatalogList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 12px;font-size:12px;">
+                        <p class="ism-form-hint" style="grid-column:1/-1;">${t('common.loading', 'Chargement...')}</p>
+                    </div>
+                </div>
+
                 <div class="ism-form-row">
                     <div class="ism-form-group"><label>${t('instrumentSettings.ilcLedCount', 'Nombre de LED')}</label><input type="number" id="ilcLedCount" min="0" max="16383" value="0"></div>
                     <div class="ism-form-group"><label>${t('instrumentSettings.ilcAddressing', 'Adressage')}</label>

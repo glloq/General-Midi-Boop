@@ -1204,15 +1204,71 @@
     this._ilcReload();
   };
 
+  // Lighting Message Catalog (mirror of LIGHT_MSG /
+  // src/lighting/instrument/InstrumentLightProtocol.js#messageCatalog).
+  // Kept inline so the frontend stays framework-free; if you add IDs,
+  // update both lists.
+  ISMListeners._ilcCatalog = [
+    { id: 0,  key: 'allOff',        label: 'All Off',          transport: 'CC 111 = 0',           cat: 'control' },
+    { id: 1,  key: 'brightness',    label: 'Master Brightness', transport: 'CC 102',              cat: 'control' },
+    { id: 2,  key: 'ledOnOff',      label: 'LED On/Off',       transport: 'Note On (vel>0/0)',    cat: 'color' },
+    { id: 3,  key: 'ledDimmable',   label: 'LED Dimmable',     transport: 'Note On vel=bright.',  cat: 'color' },
+    { id: 4,  key: 'ledPalette',    label: 'LED Palette',      transport: 'Note On vel=idx',      cat: 'color' },
+    { id: 5,  key: 'ledRgb',        label: 'LED RGB',          transport: 'SysEx 0x09/01',        cat: 'color' },
+    { id: 6,  key: 'rangeRgb',      label: 'Range RGB',        transport: 'SysEx 0x09/02',        cat: 'color' },
+    { id: 7,  key: 'setAllRgb',     label: 'Set All RGB',      transport: 'SysEx 0x09/03',        cat: 'color' },
+    { id: 8,  key: 'paletteUpload', label: 'Palette Upload',   transport: 'SysEx 0x09/06',        cat: 'color' },
+    { id: 9,  key: 'fxFade',        label: 'Effect: Fade',     transport: 'CC 104 = 1',           cat: 'effect' },
+    { id: 10, key: 'fxStrobe',      label: 'Effect: Strobe',   transport: 'CC 104 = 2',           cat: 'effect' },
+    { id: 11, key: 'fxChase',       label: 'Effect: Chase',    transport: 'CC 104 = 3',           cat: 'effect' },
+    { id: 12, key: 'fxRainbow',     label: 'Effect: Rainbow',  transport: 'CC 104 = 4',           cat: 'effect' },
+    { id: 13, key: 'fxBreathe',     label: 'Effect: Breathe',  transport: 'CC 104 = 5',           cat: 'effect' },
+    { id: 14, key: 'guide',         label: 'Guide Mode',       transport: 'CC 106 = 0/127',       cat: 'mode' },
+    { id: 15, key: 'idleAnim',      label: 'Idle Animation',   transport: 'CC 104 = 7',           cat: 'mode' }
+  ];
+
+  ISMListeners._ilcRenderCatalog = function (bitmask) {
+    const host = this.$('#ilcCatalogList');
+    if (!host) return;
+    const mask = (bitmask | 0) & 0xFFFF;
+    const catLabel = {
+      control: this.t('instrumentSettings.msgCatControl') || 'Contrôle',
+      color:   this.t('instrumentSettings.msgCatColor')   || 'Couleur',
+      effect:  this.t('instrumentSettings.msgCatEffect')  || 'Effet',
+      mode:    this.t('instrumentSettings.msgCatMode')    || 'Mode'
+    };
+    const groups = { control: [], color: [], effect: [], mode: [] };
+    for (const e of this._ilcCatalog) groups[e.cat].push(e);
+    const order = ['control', 'color', 'effect', 'mode'];
+    const html = order.map((cat) => {
+      const items = groups[cat].map((e) => {
+        const on = (mask & (1 << e.id)) !== 0;
+        const label = this.t('instrumentSettings.lightMsg.' + e.key) || e.label;
+        return `<div title="${this.escape(e.transport)}" style="display:flex;align-items:center;gap:6px;${on ? '' : 'opacity:0.45;'}">
+          <span style="color:${on ? '#10b981' : '#9ca3af'};font-weight:bold;width:14px;">${on ? '✓' : '✗'}</span>
+          <span>${this.escape(label)}</span>
+        </div>`;
+      }).join('');
+      return `<div style="grid-column:1/-1;font-weight:600;color:#6b7280;margin-top:4px;">${catLabel[cat]}</div>${items}`;
+    }).join('');
+    host.innerHTML = html;
+  };
+
   ISMListeners._ilcReload = async function () {
     if (!this.$('#ilcSubsection')) return;
     const { deviceId, channel } = this._ilcTarget();
-    if (!deviceId) return;
+    if (!deviceId) {
+      this._ilcRenderCatalog(0);
+      return;
+    }
     let inst = null;
     try {
       const res = await this.api.sendCommand('instrument_light_get', { deviceId, channel });
       inst = res && res.instrument;
-    } catch (e) { return; }
+    } catch (e) {
+      this._ilcRenderCatalog(0);
+      return;
+    }
 
     const badge = this.$('#ilcSourceBadge');
     if (badge) {
@@ -1228,7 +1284,10 @@
       badge.style.padding = src ? '2px 8px' : '0';
       badge.style.borderRadius = '10px';
     }
-    if (!inst) return;
+    if (!inst) {
+      this._ilcRenderCatalog(0);
+      return;
+    }
 
     const setV = (id, v) => {
       const el = this.$('#' + id);
@@ -1260,6 +1319,7 @@
     setU('ilcCcEffect', inst.light_cc_effect);
     setU('ilcCcEffectSpeed', inst.light_cc_effect_speed);
     setU('ilcCcGuide', inst.light_cc_guide);
+    this._ilcRenderCatalog(inst.light_messages_bitmask || 0);
   };
 
   ISMListeners._ilcSave = async function () {

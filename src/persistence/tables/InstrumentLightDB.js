@@ -17,7 +17,7 @@ const CAPABILITY_FIELDS = [
   'light_palette_size', 'light_transports', 'light_channel',
   'light_cc_brightness', 'light_cc_mode', 'light_cc_effect',
   'light_cc_effect_speed', 'light_cc_guide', 'light_local_effects',
-  'light_flags', 'light_min_interval_ms'
+  'light_flags', 'light_min_interval_ms', 'light_messages_bitmask'
 ];
 
 const CONTROL_FIELDS = [
