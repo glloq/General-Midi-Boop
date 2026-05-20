@@ -117,4 +117,27 @@ describe('GET /api/sf2/:id/kits', () => {
       server.close();
     }
   });
+
+  test('accepts id=0 as the built-in default sentinel (migration 020)', async () => {
+    // Some UI paths surface the bundled SF2 as `sf2:0` (the sentinel
+    // DB row inserted by migration 020) instead of `sf2:default`.
+    // Both must resolve to the same built-in soundfont — pre-fix the
+    // 0 was rejected with 400 and every preset request failed.
+    const appStub = makeAppStub({
+      drumKits: [0, 8],
+      drumBank: 128,
+      melodicPrograms: [0]
+    });
+    const httpApp = express();
+    httpApp.use('/api/sf2', createSF2Router(appStub));
+    const server = await startServer(httpApp);
+
+    try {
+      const { status } = await fetchJSON(server, '/api/sf2/0/kits');
+      expect(status).toBe(200);
+      expect(appStub.sf2PresetService.inspectDrumKits).toHaveBeenCalledWith('default');
+    } finally {
+      server.close();
+    }
+  });
 });

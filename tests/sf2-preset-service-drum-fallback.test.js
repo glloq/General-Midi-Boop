@@ -180,6 +180,82 @@ describe('SF2PresetService — drum cascade fallback (bell-bug fix)', () => {
   });
 });
 
+// The GeneralUser GS Standard Kit ships a "catch-all" zone (range
+// [0-64]) alongside the per-note zones. Both cover the requested drum
+// note, but only the narrow per-note zone is actually meant to fire —
+// the wide one is a fallback. Pre-fix, both got materialised on every
+// drum hit, and the catch-all sample bled through as a tonal ring
+// layered over each percussion (the user-reported "cloche").
+describe('SF2PresetService — narrowest-zone filter (catch-all bleed-through)', () => {
+  beforeEach(() => {
+    availablePresets = new Set();
+  });
+
+  function presetWithZones(zones) {
+    return { zones };
+  }
+
+  test('drops the wide catch-all zone when a per-note zone exists for the same note', async () => {
+    // Hand-craft a Standard Kit with two zones covering note 36 (kick):
+    //   - dedicated kick zone (range exactly [36,36])
+    //   - catch-all zone (range [0,64]) — the bell.
+    // The filter must keep only the dedicated zone.
+    convertPresetFromSF2.mockImplementationOnce(() =>
+      presetWithZones([
+        { keyRangeLow: 36, keyRangeHigh: 36, _tag: 'kick', sample: new Float32Array(8), sampleRate: 29762 },
+        { keyRangeLow: 0,  keyRangeHigh: 64, _tag: 'catch-all', sample: new Float32Array(8), sampleRate: 44100 }
+      ])
+    );
+    availablePresets.add('128:0');
+
+    const svc = makeService();
+    const preset = await svc.getPreset('default', 'drum', 0, 0, 36);
+
+    expect(preset).not.toBeNull();
+    expect(preset.zones.length).toBe(1);
+    expect(preset.zones[0]._tag).toBe('kick');
+  });
+
+  test('keeps the catch-all zone when no dedicated per-note zone exists (better than silence)', async () => {
+    // Note 35: only the wide catch-all covers it (some SF2 banks
+    // don't ship a dedicated sample for the unused-low drum notes).
+    convertPresetFromSF2.mockImplementationOnce(() =>
+      presetWithZones([
+        { keyRangeLow: 36, keyRangeHigh: 36, _tag: 'kick', sample: new Float32Array(8), sampleRate: 29762 },
+        { keyRangeLow: 0,  keyRangeHigh: 64, _tag: 'catch-all', sample: new Float32Array(8), sampleRate: 44100 }
+      ])
+    );
+    availablePresets.add('128:0');
+
+    const svc = makeService();
+    const preset = await svc.getPreset('default', 'drum', 0, 0, 35);
+
+    expect(preset).not.toBeNull();
+    expect(preset.zones.length).toBe(1);
+    expect(preset.zones[0]._tag).toBe('catch-all');
+  });
+
+  test('preserves velocity round-robin: multiple same-width zones all kept', async () => {
+    // Snare with 3 velocity layers all sharing the same key range.
+    convertPresetFromSF2.mockImplementationOnce(() =>
+      presetWithZones([
+        { keyRangeLow: 38, keyRangeHigh: 38, velRangeLow: 0,   velRangeHigh: 63,  _tag: 'soft', sample: new Float32Array(8), sampleRate: 44100 },
+        { keyRangeLow: 38, keyRangeHigh: 38, velRangeLow: 64,  velRangeHigh: 95,  _tag: 'med',  sample: new Float32Array(8), sampleRate: 44100 },
+        { keyRangeLow: 38, keyRangeHigh: 38, velRangeLow: 96,  velRangeHigh: 127, _tag: 'hard', sample: new Float32Array(8), sampleRate: 44100 },
+        { keyRangeLow: 0,  keyRangeHigh: 64, _tag: 'catch-all', sample: new Float32Array(8), sampleRate: 44100 }
+      ])
+    );
+    availablePresets.add('128:0');
+
+    const svc = makeService();
+    const preset = await svc.getPreset('default', 'drum', 0, 0, 38);
+
+    expect(preset).not.toBeNull();
+    expect(preset.zones.length).toBe(3);
+    expect(preset.zones.map(z => z._tag).sort()).toEqual(['hard', 'med', 'soft']);
+  });
+});
+
 describe('SF2PresetService — drum kit inventory introspection', () => {
   beforeEach(() => {
     availablePresets = new Set();
