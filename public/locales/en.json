@@ -1285,6 +1285,7 @@
     "lightsOff": "Lights OFF",
     "lightsOnToast": "Lights on",
     "lightsOffToast": "Lights off",
+    "toggleError": "Error changing lighting state",
     "masterToggleHint": "Turn all lights on / off",
     "tabDirect": "Direct control (Raspberry)",
     "tabPerInstrument": "Per instrument",
