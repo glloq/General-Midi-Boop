@@ -28,37 +28,31 @@ class DrumToolsPanel {
 
     _createDOM() {
         this.containerEl.innerHTML = `
-            <div class="drum-tools-panel">
-                <div class="drum-tools-section">
-                    <div class="drum-tools-section-title">${this.t('drumPattern.velocitySection')}</div>
-                    <div class="drum-tools-row">
-                        <button class="drum-tools-btn" data-action="humanize" title="${this.t('drumPattern.humanize')}">
-                            ${this.t('drumPattern.humanizeShort')}
-                        </button>
-                        <input type="range" class="drum-tools-slider" id="drum-humanize-amount"
-                            min="1" max="30" value="10" title="${this.t('drumPattern.humanizeAmount')}">
-                        <span class="drum-tools-value" id="drum-humanize-val">±10</span>
-                    </div>
-                    <div class="drum-tools-row">
-                        <button class="drum-tools-btn" data-action="accent" title="${this.t('drumPattern.accent')}">
-                            ${this.t('drumPattern.accentShort')}
-                        </button>
-                    </div>
-                    <div class="drum-tools-row">
-                        <label class="drum-tools-label">${this.t('drumPattern.scale')}</label>
-                        <input type="range" class="drum-tools-slider" id="drum-vel-scale"
-                            min="50" max="150" value="100">
-                        <span class="drum-tools-value" id="drum-vel-scale-val">100%</span>
-                        <button class="drum-tools-btn drum-tools-btn-sm" data-action="apply-scale" title="${this.t('drumPattern.applyScale')}">&#10003;</button>
-                    </div>
-                    <div class="drum-tools-row drum-tools-row-btns">
-                        <button class="drum-tools-btn drum-tools-btn-half" data-action="crescendo" title="${this.t('drumPattern.crescendo')}">
-                            ${this.t('drumPattern.crescendoShort')} &#x2197;
-                        </button>
-                        <button class="drum-tools-btn drum-tools-btn-half" data-action="decrescendo" title="${this.t('drumPattern.decrescendo')}">
-                            ${this.t('drumPattern.decrescendoShort')} &#x2198;
-                        </button>
-                    </div>
+            <div class="drum-tools-panel drum-tools-panel--inline">
+                <div class="drum-tools-row drum-tools-row-inline">
+                    <button class="drum-tools-btn" data-action="humanize" title="${this.t('drumPattern.humanize')}">
+                        ${this.t('drumPattern.humanizeShort')}
+                    </button>
+                    <input type="range" class="drum-tools-slider" id="drum-humanize-amount"
+                        min="1" max="30" value="10" title="${this.t('drumPattern.humanizeAmount')}">
+                    <span class="drum-tools-value" id="drum-humanize-val">±10</span>
+                    <span class="drum-tools-sep"></span>
+                    <button class="drum-tools-btn" data-action="accent" title="${this.t('drumPattern.accent')}">
+                        ${this.t('drumPattern.accentShort')}
+                    </button>
+                    <span class="drum-tools-sep"></span>
+                    <label class="drum-tools-label">${this.t('drumPattern.scale')}</label>
+                    <input type="range" class="drum-tools-slider" id="drum-vel-scale"
+                        min="50" max="150" value="100">
+                    <span class="drum-tools-value" id="drum-vel-scale-val">100%</span>
+                    <button class="drum-tools-btn drum-tools-btn-sm" data-action="apply-scale" title="${this.t('drumPattern.applyScale')}">&#10003;</button>
+                    <span class="drum-tools-sep"></span>
+                    <button class="drum-tools-btn" data-action="crescendo" title="${this.t('drumPattern.crescendo')}">
+                        ${this.t('drumPattern.crescendoShort')} &#x2197;
+                    </button>
+                    <button class="drum-tools-btn" data-action="decrescendo" title="${this.t('drumPattern.decrescendo')}">
+                        ${this.t('drumPattern.decrescendoShort')} &#x2198;
+                    </button>
                 </div>
             </div>
         `;

@@ -223,13 +223,15 @@
         const xoffset = renderer.getXOffset() || 0;
         const xrange = renderer.getXRange() || 1920;
 
-        // Page-turn: trigger earlier (85%) and land further from the edge (30%)
-        // so the cursor remains visible without brutal teleport.
-        if (tick > xoffset + xrange * 0.85) {
-          renderer.setXOffset(tick - xrange * 0.3);
+        // 1/3-anchored follow: cursor moves freely until it reaches 1/3 of the
+        // viewport, then stays anchored at 1/3 while notes scroll. Reverse seek
+        // behind the viewport pulls the offset back so the cursor stays visible.
+        const anchorTicks = xrange / 3;
+        if (tick > xoffset + anchorTicks) {
+          renderer.setXOffset(Math.max(0, tick - anchorTicks));
           scrolled = true;
         } else if (tick < xoffset) {
-          renderer.setXOffset(Math.max(0, tick - xrange * 0.1));
+          renderer.setXOffset(Math.max(0, tick - anchorTicks));
           scrolled = true;
         }
 
@@ -239,11 +241,21 @@
         if (scrolled) renderer.redraw();
       }
 
-      // Update PlaybackTimelineBar
+      // Update PlaybackTimelineBar — keep playhead/scroll/leftOffset in lockstep
+      // with the active editor every tick (covers the case where a specialized
+      // editor is visible and the piano roll renderer is unmounted, and avoids
+      // one-frame drift between the timeline ruler and the lane underneath).
       if (m.timelineBar) {
         m.timelineBar.setPlayhead(tick);
-        if (renderer && renderer.isMounted()) {
+        const viewport = m.editActions?._getActiveViewportState?.();
+        if (viewport && Number.isFinite(viewport.xoffset)) {
+          m.timelineBar.setScrollX(viewport.xoffset);
+        } else if (renderer && renderer.isMounted()) {
           m.timelineBar.setScrollX(renderer.getXOffset() || 0);
+        }
+        const activeLeftOffset = m.ccPicker?._getActiveEditorHeaderWidth?.();
+        if (Number.isFinite(activeLeftOffset)) {
+          m.timelineBar.setLeftOffset(activeLeftOffset);
         }
       }
 
