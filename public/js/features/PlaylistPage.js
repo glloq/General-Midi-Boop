@@ -24,10 +24,6 @@ class PlaylistPage {
     return window.escapeHtml(text);
   }
 
-  _isDark() {
-    return document.body.classList.contains('dark-mode') || document.body.classList.contains('theme-dark');
-  }
-
   _t(key) {
     if (typeof i18n !== 'undefined' && i18n.t) return i18n.t(key);
     return key;

@@ -39,13 +39,6 @@ describe('Logger', () => {
       expect(new Logger({ level: 'error' }).isDebugEnabled()).toBe(false);
     });
 
-    test('isInfoEnabled is true for debug+info, false above', () => {
-      expect(new Logger({ level: 'debug' }).isInfoEnabled()).toBe(true);
-      expect(new Logger({ level: 'info' }).isInfoEnabled()).toBe(true);
-      expect(new Logger({ level: 'warn' }).isInfoEnabled()).toBe(false);
-      expect(new Logger({ level: 'error' }).isInfoEnabled()).toBe(false);
-    });
-
     test('isWarnEnabled is true for debug+info+warn, false for error-only', () => {
       expect(new Logger({ level: 'debug' }).isWarnEnabled()).toBe(true);
       expect(new Logger({ level: 'info' }).isWarnEnabled()).toBe(true);
@@ -56,7 +49,6 @@ describe('Logger', () => {
     test('helpers consistent with shouldLog()', () => {
       const logger = new Logger({ level: 'info' });
       expect(logger.isDebugEnabled()).toBe(logger.shouldLog('debug'));
-      expect(logger.isInfoEnabled()).toBe(logger.shouldLog('info'));
       expect(logger.isWarnEnabled()).toBe(logger.shouldLog('warn'));
     });
 
@@ -73,7 +65,7 @@ describe('Logger', () => {
     test('unknown level defaults to info threshold', () => {
       const logger = new Logger({ level: 'bogus' });
       expect(logger.isDebugEnabled()).toBe(false);
-      expect(logger.isInfoEnabled()).toBe(true);
+      expect(logger.isWarnEnabled()).toBe(true);
     });
 
     test('runtime level change keeps the cached numeric threshold in sync', () => {
@@ -87,7 +79,7 @@ describe('Logger', () => {
       // Unknown payload falls back to the info threshold.
       logger.level = 'nonsense';
       expect(logger.isDebugEnabled()).toBe(false);
-      expect(logger.isInfoEnabled()).toBe(true);
+      expect(logger.isWarnEnabled()).toBe(true);
     });
   });
 

@@ -220,9 +220,7 @@ class JsonValidator {
    * `{valid:true, errors:[]}` default when no schema is registered.
    *
    * This is the single entry point consumed by
-   * {@link CommandRegistry#handle} — the per-category helpers below
-   * (`validateDeviceCommand`, `validateFileCommand`, ...) are thin
-   * backward-compat shims.
+   * {@link CommandRegistry#handle}.
    *
    * @param {string} command
    * @param {Object} data
@@ -335,20 +333,6 @@ class JsonValidator {
   static validateInstrument(data) {
     return _run(COMPILED_INSTRUMENT, data);
   }
-}
-
-// Backward-compat per-category shims — all delegate to validateByCommand.
-// Defined via a loop to keep the public surface identical without the
-// six duplicated method bodies.
-for (const name of [
-  'validateDeviceCommand',
-  'validateRoutingCommand',
-  'validateFileCommand',
-  'validatePlaybackCommand',
-  'validateLatencyCommand',
-  'validateSystemCommand'
-]) {
-  JsonValidator[name] = (command, data) => JsonValidator.validateByCommand(command, data);
 }
 
 export default JsonValidator;

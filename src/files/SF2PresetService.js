@@ -158,77 +158,41 @@ export class SF2PresetService {
 
       if (type === 'drum') {
         this._logKitInventoryOnce(sf2Id, sf2);
-        // Cascade: (128, kit) → (128, 0). We REFUSE to fall through to
-        // bank 0 (melodic): empirically, when the bell-bug fix shipped,
-        // some installs still heard bells. The melodic fallback was the
-        // only remaining path that could produce a non-percussive timbre
-        // — the (128, kit) → (128, 0) → (0, kit) → (0, 0) cascade let
-        // a melodic preset slip through whenever an SF2 had a bank-0
-        // entry at `kit` (e.g. Celesta at program 8). Returning null
-        // here surfaces "SF2 has no drum bank" as silence, which is
-        // unambiguously diagnosable, instead of as wrong-timbre playback
-        // that users mistake for a synth bug.
-        let branch = 'none';
+        // Cascade (128, kit) → (128, 0). No bank-0 fallback: a melodic
+        // preset played at a drum note's pitch produces a bell timbre.
+        // Silence is unambiguously diagnosable, bells are not.
         preset = convertPresetFromSF2(sf2, 128, kit);
-        if (preset) {
-          branch = `bank128_kit${kit}`;
-        } else if (kit !== 0) {
+        if (!preset && kit !== 0) {
           preset = convertPresetFromSF2(sf2, 128, 0);
-          if (preset) branch = 'bank128_standard';
         }
         if (preset) {
-          // Keep only zones covering this note AND with the narrowest
-          // key range among them. Some SF2 banks (notably GeneralUser
-          // GS Standard Kit) ship a wide "catch-all" zone (e.g. range
-          // [0-64], a short tonal sample) alongside the per-note drum
-          // zones. Without this filter, the synth materialises BOTH
-          // for each note — the dedicated kick sample plus the tonal
-          // catch-all — and the catch-all bleeds through as the bell
-          // timbre layered on top of every percussion hit. Keeping only
-          // the narrowest-range zones drops the catch-all whenever a
-          // dedicated per-note zone exists, and falls back to the
-          // catch-all only for notes the SF2 has no dedicated sample
-          // for (better than silence). Multiple zones with the same
-          // narrowest width are preserved (velocity round-robin).
+          // Keep only zones covering this note with the narrowest key
+          // range — GeneralUser GS Standard Kit ships a wide catch-all
+          // zone alongside the per-note zones, and without this filter
+          // the synth plays the catch-all sample on top of every drum
+          // hit ("cloche" bleed-through). Same-width zones are kept
+          // (velocity round-robin).
           const covering = preset.zones.filter(
             z => note >= z.keyRangeLow && note <= z.keyRangeHigh
           );
           if (covering.length === 0) {
             preset = null;
-            branch = `${branch}_no_note_${note}`;
           } else {
             let minWidth = Infinity;
             for (const z of covering) {
               const w = z.keyRangeHigh - z.keyRangeLow;
               if (w < minWidth) minWidth = w;
             }
-            const kept = covering.filter(
-              z => (z.keyRangeHigh - z.keyRangeLow) === minWidth
-            );
-            preset = kept.length ? { zones: kept } : null;
+            preset = {
+              zones: covering.filter(
+                z => (z.keyRangeHigh - z.keyRangeLow) === minWidth
+              )
+            };
           }
         }
         if (!preset) {
-          // Loud one-line warning so the operator can diagnose: either
-          // the bundled SF2 is missing/corrupt, or the active custom
-          // SF2 has no GM drum bank. Returning null lets the synth
-          // stay silent for this note instead of materialising a
-          // melodic sample with forced root (which sounds like a bell).
           this.logger.warn?.(
-            `SF2PresetService: no drum preset for sf2=${sf2Id} kit=${kit} note=${note} ` +
-            `(tried ${branch}); SF2 likely lacks GM drum bank — preview will be silent on this note`
-          );
-        } else if (process.env.GMBOOP_DEBUG_DRUMS) {
-          // Opt-in deep diagnostic. Enable by exporting
-          // GMBOOP_DEBUG_DRUMS=1 before starting the server, restart,
-          // then play a drum preview. Surfaces the resolved cascade
-          // branch + first-zone tuning so we can spot a mis-tagged
-          // melodic preset slipping through bank 128.
-          const z0 = preset.zones[0] || {};
-          this.logger.info(
-            `SF2PresetService: drum kit=${kit} note=${note} → ${branch}, ` +
-            `zones=${preset.zones.length}, z0.originalPitch=${z0.originalPitch ?? z0.midi}, ` +
-            `z0.coarseTune=${z0.coarseTune}, z0.fineTune=${z0.fineTune}`
+            `SF2PresetService: no drum preset for sf2=${sf2Id} kit=${kit} note=${note} — SF2 likely lacks GM drum bank`
           );
         }
       } else {

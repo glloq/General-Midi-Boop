@@ -86,31 +86,6 @@ class ServiceContainer {
   }
 
   /**
-   * Get all registered service names
-   * @returns {string[]}
-   */
-  getNames() {
-    return [...this._instances.keys(), ...this._factories.keys()];
-  }
-
-  /**
-   * Create a dependency bag for a service constructor.
-   * Instead of passing `app`, pass only what the service needs.
-   * @param {string[]} names - List of service names needed
-   * @returns {Object} Object with named dependencies
-   */
-  inject(...names) {
-    const deps = {};
-    for (const name of names) {
-      deps[name] = this.resolve(name);
-      if (deps[name] === undefined) {
-        throw new Error(`Cannot inject '${name}': service not registered`);
-      }
-    }
-    return deps;
-  }
-
-  /**
    * Remove a service (factory + instance maps). Does NOT call any teardown
    * on the instance — callers must stop the service first.
    * @param {string} name

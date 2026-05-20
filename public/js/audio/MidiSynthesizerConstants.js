@@ -110,26 +110,6 @@
   }
 
   /**
-   * Read the persisted opt-in for the WAF CDN. Kept for backwards
-   * compatibility: callers that want to detect whether the user has
-   * explicitly enabled the CDN can still read this. We no longer
-   * filter `getAvailableBanks()` on it — see the comment on that
-   * function for the rationale.
-   * @returns {boolean}
-   */
-  function isExternalWafEnabled() {
-    try {
-      if (typeof localStorage === 'undefined') return false;
-      const raw = localStorage.getItem('gmboop_settings');
-      if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      return parsed && parsed.useExternalWaf === true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /**
    * Banks exposed to the rest of the UI:
    *   [ built-in default SF2, ...custom SF2 banks, ...WAF banks ]
    *
@@ -159,6 +139,5 @@
     DEFAULT_BANK_SUFFIX,
     setCustomBanks,
     getAvailableBanks,
-    isExternalWafEnabled,
   };
 })();

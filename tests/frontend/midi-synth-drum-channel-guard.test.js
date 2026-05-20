@@ -104,7 +104,6 @@ describe('MidiSynthesizer.ensureDrumKitReady / loadDrumKit promise tracking', ()
     const synth = makeSynthStub();
     synth.audioContext = null;
     synth.drumPresets = new Map();
-    synth.drumKit = null;
     synth.sequence = null;
     synth._bankForChannel = () => 'sf2:default';
     return synth;

@@ -111,11 +111,6 @@ class Logger {
     return this._levelNum <= 0;
   }
 
-  /** @returns {boolean} True when info output is enabled. */
-  isInfoEnabled() {
-    return this._levelNum <= 1;
-  }
-
   /** @returns {boolean} True when warn output is enabled. */
   isWarnEnabled() {
     return this._levelNum <= 2;
