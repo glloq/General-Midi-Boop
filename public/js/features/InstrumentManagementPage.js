@@ -667,6 +667,13 @@ class InstrumentManagementPage {
       ? `<span title="${handsCount} ${handsCount > 1 ? 'mains configurées' : 'main configurée'}" style="font-size:14px;line-height:1;">${handsEmoji}</span>`
       : '';
 
+    // Lighting badge: 💡 when the instrument's firmware advertises any
+    // of the CC 110-114 lighting controls (`lighting_enabled` in
+    // `instruments_latency`).
+    const lightingBadgeHtml = (instrument.lighting_enabled === true || instrument.lighting_enabled === 1)
+      ? `<span title="${esc(i18n.t('instrumentManagement.lightingCapableTooltip') || 'Pilotage lumière via MIDI activé (CC 110-114)')}" style="font-size:14px;line-height:1;">💡</span>`
+      : '';
+
     const cardBg = `rgba(${this._hexToRgb(channelColor)}, 0.06)`;
     const cardBorder = `1px solid rgba(${this._hexToRgb(channelColor)}, 0.2)`;
     const iconBg = `rgba(${this._hexToRgb(channelColor)}, 0.12)`;
@@ -715,6 +722,7 @@ class InstrumentManagementPage {
               ? `<span style="color: var(--text-primary, #1f2937); font-weight: 700; font-size: 13px;">${esc(displayName)}</span>`
               : `<span style="color: var(--text-muted, #9ca3af); font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
             ${handsBadgeHtml}
+            ${lightingBadgeHtml}
             ${isComplete
               ? `<span style="display:inline-block;padding:2px 7px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:700;">✓</span>`
               : `<span style="display:inline-block;padding:2px 7px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:700;">⚠</span>`}

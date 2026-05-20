@@ -59,13 +59,33 @@
     ISMSections._renderLumiereSection = function() {
         const tab = this._getActiveTab();
         if (!tab) return '';
+        const t = (k, d) => this.t(k) || d;
+        const ccLine = (cc, label, desc) =>
+            `<li><code style="background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:3px;">CC${cc}</code> · <strong>${this.escape(label)}</strong> — ${this.escape(desc)}</li>`;
         return `
             <div class="ism-subsection" id="ilcCcSupportSubsection">
-                <h4 class="ism-subsection-title">💡 ${this.t('instrumentSettings.lumiereTitle') || 'Lumière'}</h4>
-                <p class="ism-subsection-hint">${this.t('instrumentSettings.lumiereSupportedHint') || 'Indiquez quels CC l\'instrument comprend. Les CC activés sont ensuite réglables depuis le modal Lumière → onglet « Par instrument ».'}</p>
+                <h4 class="ism-subsection-title">💡 ${t('instrumentSettings.lumiereTitle', 'Lumière')}</h4>
+                <p class="ism-subsection-hint">${t('instrumentSettings.lumiereSupportedHint', 'Indiquez quels CC l\'instrument comprend. Les CC activés sont ensuite réglables depuis le modal Lumière → onglet « Par instrument ».')}</p>
                 <div id="ilcCcChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
-                    <p class="ism-form-hint" style="width:100%;">${this.t('common.loading') || 'Chargement...'}</p>
+                    <p class="ism-form-hint" style="width:100%;">${t('common.loading', 'Chargement...')}</p>
                 </div>
+                <ul class="ism-form-hint" style="margin:10px 0 0;padding-left:0;list-style:none;font-size:12px;line-height:1.55;">
+                    ${ccLine(110, t('instrumentSettings.lumiereCc.brightness', 'Luminosité'),
+                                  t('instrumentSettings.lumiereCcDesc.brightness',
+                                    'Luminosité maître : 0 = OFF, 1-127 = niveau.'))}
+                    ${ccLine(111, t('instrumentSettings.lumiereCc.effect', 'Effet'),
+                                  t('instrumentSettings.lumiereCcDesc.effect',
+                                    'Sélection d\'effet : 0 statique · 1 fade · 2 pulse · 3 blink · 4 rainbow · 5 réactif (note) · 6 réactif (vélocité) · 7 sparkle · 8 fire · 9 scanner.'))}
+                    ${ccLine(112, t('instrumentSettings.lumiereCc.hue', 'Couleur'),
+                                  t('instrumentSettings.lumiereCcDesc.hue',
+                                    'Teinte HSV 0-127 (firmware libre d\'ignorer pour LED mono).'))}
+                    ${ccLine(113, t('instrumentSettings.lumiereCc.speed', 'Vitesse'),
+                                  t('instrumentSettings.lumiereCcDesc.speed',
+                                    'Vitesse d\'animation des effets (0-127).'))}
+                    ${ccLine(114, t('instrumentSettings.lumiereCc.intensity', 'Intensité'),
+                                  t('instrumentSettings.lumiereCcDesc.intensity',
+                                    'Variation / intensité de l\'effet (0-127).'))}
+                </ul>
             </div>
         `;
     };
