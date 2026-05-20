@@ -223,12 +223,15 @@ class PlaylistEditorModal extends BaseModal {
       const totalCount = files.length;
       const routedCount = files.filter(f => isStatusRouted(this.routingStatusMap.get(f.id))).length;
       countEl.textContent = this.showRoutedOnly
-        ? `${totalCount} routed file(s)`
-        : `${totalCount} file(s) (${routedCount} routed)`;
+        ? (i18n.t('playlist.routedFilesCount', { count: totalCount }) || `${totalCount} routed file(s)`)
+        : (i18n.t('playlist.filesCount', { count: totalCount, routed: routedCount }) || `${totalCount} file(s) (${routedCount} routed)`);
     }
 
     if (files.length === 0) {
-      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">${this.showRoutedOnly ? 'No routed files found' : 'No files found'}</p>`;
+      const emptyMsg = this.showRoutedOnly
+        ? (i18n.t('playlist.noRoutedFiles') || 'No routed files found')
+        : (i18n.t('playlist.noFiles') || 'No files found');
+      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">${emptyMsg}</p>`;
       return;
     }
 
@@ -242,11 +245,14 @@ class PlaylistEditorModal extends BaseModal {
         : (fileStatus === 'partial' || fileStatus === 'routed_incomplete')
           ? 'var(--status-warning,#f39c12)'
           : 'var(--status-critical,#e8365d)';
-      const dotTitle = fileStatus === 'playable' ? 'Routed — all channels'
-        : fileStatus === 'routed_incomplete' ? 'Routed — low compatibility'
-        : fileStatus === 'partial' ? 'Partially routed'
-        : 'Not routed';
+      const dotTitle = fileStatus === 'playable' ? (i18n.t('playlist.statusRoutedAll') || 'Routed — all channels')
+        : fileStatus === 'routed_incomplete' ? (i18n.t('playlist.statusRoutedLow') || 'Routed — low compatibility')
+        : fileStatus === 'partial' ? (i18n.t('playlist.statusPartial') || 'Partially routed')
+        : (i18n.t('playlist.statusNotRouted') || 'Not routed');
       const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
+      const addTitle = isAdded
+        ? (i18n.t('playlist.alreadyAdded') || 'Already added')
+        : (i18n.t('playlist.addToPlaylist') || 'Add to playlist');
 
       return `
         <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid ${itemBorder};background:${itemBg};color:var(--text-primary, #2c3e50);transition:all 0.15s;">
@@ -258,7 +264,7 @@ class PlaylistEditorModal extends BaseModal {
           <button class="btn-add-file" data-file-id="${f.id}"
                   ${isAdded ? 'disabled' : ''}
                   style="background:none;border:none;cursor:${isAdded ? 'default' : 'pointer'};font-size:1rem;opacity:${isAdded ? '0.3' : '1'};"
-                  title="${isAdded ? 'Already added' : 'Add to playlist'}">
+                  title="${addTitle}">
             ${isAdded ? '✓' : '+'}
           </button>
         </div>`;
@@ -277,7 +283,7 @@ class PlaylistEditorModal extends BaseModal {
     if (!container) return;
 
     if (this.playlistItems.length === 0) {
-      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">Empty playlist</p>`;
+      container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">${i18n.t('playlist.emptyPlaylist') || 'Empty playlist'}</p>`;
       this._updateStats();
       return;
     }
@@ -289,10 +295,10 @@ class PlaylistEditorModal extends BaseModal {
         : (fileStatus === 'partial' || fileStatus === 'routed_incomplete')
           ? 'var(--status-warning,#f39c12)'
           : 'var(--status-critical,#e8365d)';
-      const dotTitle = fileStatus === 'playable' ? 'Routed — all channels'
-        : fileStatus === 'routed_incomplete' ? 'Routed — low compatibility'
-        : fileStatus === 'partial' ? 'Partially routed'
-        : 'Not routed';
+      const dotTitle = fileStatus === 'playable' ? (i18n.t('playlist.statusRoutedAll') || 'Routed — all channels')
+        : fileStatus === 'routed_incomplete' ? (i18n.t('playlist.statusRoutedLow') || 'Routed — low compatibility')
+        : fileStatus === 'partial' ? (i18n.t('playlist.statusPartial') || 'Partially routed')
+        : (i18n.t('playlist.statusNotRouted') || 'Not routed');
       const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
 
       return `
@@ -305,7 +311,7 @@ class PlaylistEditorModal extends BaseModal {
           </div>
           <button class="btn-remove-file" data-item-id="${item.id}"
                   style="background:none;border:none;cursor:pointer;font-size:0.9rem;opacity:0.5;"
-                  title="Remove">✕</button>
+                  title="${i18n.t('playlist.remove') || 'Remove'}">✕</button>
         </div>`;
     }).join('');
 
@@ -327,7 +333,11 @@ class PlaylistEditorModal extends BaseModal {
       const s = this.routingStatusMap.get(i.midi_id);
       return s && s !== 'unrouted';
     }).length;
-    statsEl.textContent = `${this.playlistItems.length} file(s) - ${this._formatDuration(totalDuration)} total - ${routedCount} routed`;
+    statsEl.textContent = i18n.t('playlist.playlistStats', {
+      count: this.playlistItems.length,
+      duration: this._formatDuration(totalDuration),
+      routed: routedCount
+    }) || `${this.playlistItems.length} file(s) - ${this._formatDuration(totalDuration)} total - ${routedCount} routed`;
   }
 
   async _addFile(fileId) {

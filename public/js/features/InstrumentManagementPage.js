@@ -117,7 +117,7 @@ class InstrumentManagementPage {
                   style="padding: 6px 10px; font-size: 16px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; background: white; color: #6b7280; transition: all 0.15s ease;"
                   onmouseover="this.style.background='#f3f4f6';this.style.borderColor='#d1d5db'"
                   onmouseout="this.style.background='white';this.style.borderColor='#e5e7eb'"
-                  title="Rafraîchir">
+                  title="${i18n.t('instrumentManagement.refresh') || 'Rafraîchir'}">
                   🔄
                 </button>
               </div>

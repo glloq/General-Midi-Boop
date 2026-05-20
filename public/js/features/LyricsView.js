@@ -78,7 +78,7 @@ class LyricsView {
         <div class="lyrics-ribbon-marker"></div>
         <div class="lyrics-ribbon-track"></div>
       </div>
-      <button class="lyrics-ribbon-close" title="Fermer">✕</button>
+      <button class="lyrics-ribbon-close" title="${i18n.t('common.close') || 'Fermer'}">✕</button>
     `;
 
     // Append directly to body so piano-roll's hidden-for-pianoroll doesn't affect it

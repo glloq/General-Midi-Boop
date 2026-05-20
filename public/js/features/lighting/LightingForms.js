@@ -16,20 +16,20 @@
           <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.deviceName') || 'Nom'} *</label>
             <input id="ldFormName" type="text" placeholder="LED RGB Salon" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
-            <span id="ldFormNameError" style="font-size:11px;color:#ef4444;display:none;">Nom requis</span>
+            <span id="ldFormNameError" style="font-size:11px;color:#ef4444;display:none;">${i18n.t('lighting.nameRequired') || 'Nom requis'}</span>
           </div>
 
           <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.deviceType') || 'Type'}</label>
             <select id="ldFormType" onchange="lightingControlPageInstance._updateDeviceFormFields()" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;background:${t.inputBg};color:${t.inputText};">
-              <option value="gpio">🔌 GPIO (Raspberry Pi RGB)</option>
-              <option value="gpio_strip">💠 Bandeau LED GPIO (WS2812/NeoPixel)</option>
-              <option value="serial">🔗 Serial (WS2812/NeoPixel)</option>
-              <option value="artnet">🌐 Art-Net (DMX sur Ethernet)</option>
-              <option value="sacn">📡 sACN / E1.31 (DMX moderne)</option>
-              <option value="mqtt">📶 MQTT (WLED, Tasmota, ESPHome)</option>
-              <option value="http">🌍 HTTP REST (WLED, Philips Hue)</option>
-              <option value="osc">🎛️ OSC (QLC+, TouchDesigner)</option>
+              <option value="gpio">${i18n.t('lighting.deviceTypeGpio') || '🔌 GPIO (Raspberry Pi RGB)'}</option>
+              <option value="gpio_strip">${i18n.t('lighting.deviceTypeGpioStrip') || '💠 Bandeau LED GPIO (WS2812/NeoPixel)'}</option>
+              <option value="serial">${i18n.t('lighting.deviceTypeSerial') || '🔗 Serial (WS2812/NeoPixel)'}</option>
+              <option value="artnet">${i18n.t('lighting.deviceTypeArtnet') || '🌐 Art-Net (DMX sur Ethernet)'}</option>
+              <option value="sacn">${i18n.t('lighting.deviceTypeSacn') || '📡 sACN / E1.31 (DMX moderne)'}</option>
+              <option value="mqtt">${i18n.t('lighting.deviceTypeMqtt') || '📶 MQTT (WLED, Tasmota, ESPHome)'}</option>
+              <option value="http">${i18n.t('lighting.deviceTypeHttp') || '🌍 HTTP REST (WLED, Philips Hue)'}</option>
+              <option value="osc">${i18n.t('lighting.deviceTypeOsc') || '🎛️ OSC (QLC+, TouchDesigner)'}</option>
             </select>
           </div>
 
@@ -39,7 +39,7 @@
           </div>
 
           <div id="ldFormGpioFields">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">Pins GPIO (R, G, B)</label>
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.gpioPinsLabel') || 'Pins GPIO (R, G, B)'}</label>
             <div style="display:flex;gap:8px;margin-bottom:12px;">
               <input id="ldFormPinR" type="number" min="0" max="27" value="17" placeholder="R" style="flex:1;padding:7px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;background:${t.inputBg};color:${t.inputText};">
               <input id="ldFormPinG" type="number" min="0" max="27" value="27" placeholder="G" style="flex:1;padding:7px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;background:${t.inputBg};color:${t.inputText};">
@@ -48,108 +48,108 @@
           </div>
 
           <div id="ldFormSerialFields" style="display:none;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">Port série</label>
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.serialPortLabel') || 'Port série'}</label>
             <input id="ldFormSerialPort" type="text" value="/dev/ttyUSB0" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
           </div>
 
           <div id="ldFormStripFields" style="display:none;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:6px;">Bandeaux LED</label>
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:6px;">${i18n.t('lighting.stripsLabel') || 'Bandeaux LED'}</label>
             <div id="ldFormStripsContainer"></div>
-            <button type="button" onclick="lightingControlPageInstance._addStripEntry()" style="padding:4px 10px;border:1px dashed ${t.inputBorder};border-radius:6px;background:none;color:${t.textSec};cursor:pointer;font-size:11px;margin-bottom:12px;">+ Ajouter un bandeau</button>
+            <button type="button" onclick="lightingControlPageInstance._addStripEntry()" style="padding:4px 10px;border:1px dashed ${t.inputBorder};border-radius:6px;background:none;color:${t.textSec};cursor:pointer;font-size:11px;margin-bottom:12px;">${i18n.t('lighting.addStripBtn') || '+ Ajouter un bandeau'}</button>
 
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:6px;">Segments (zones logiques)</label>
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:6px;">${i18n.t('lighting.segmentsLabel') || 'Segments (zones logiques)'}</label>
             <div id="ldFormSegmentsContainer"></div>
-            <button type="button" onclick="lightingControlPageInstance._addSegmentEntry()" style="padding:4px 10px;border:1px dashed ${t.inputBorder};border-radius:6px;background:none;color:${t.textSec};cursor:pointer;font-size:11px;margin-bottom:12px;">+ Ajouter un segment</button>
+            <button type="button" onclick="lightingControlPageInstance._addSegmentEntry()" style="padding:4px 10px;border:1px dashed ${t.inputBorder};border-radius:6px;background:none;color:${t.textSec};cursor:pointer;font-size:11px;margin-bottom:12px;">${i18n.t('lighting.addSegmentBtn') || '+ Ajouter un segment'}</button>
 
-            <div style="font-size:11px;color:${t.textMuted};margin-bottom:8px;">Le nombre de LEDs sera calculé automatiquement.</div>
+            <div style="font-size:11px;color:${t.textMuted};margin-bottom:8px;">${i18n.t('lighting.ledsAutoHint') || 'Le nombre de LEDs sera calculé automatiquement.'}</div>
           </div>
 
           <!-- Art-Net fields -->
           <div id="ldFormArtnetFields" style="display:none;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">Adresse IP / Broadcast</label>
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.artnetHost') || 'Adresse IP / Broadcast'}</label>
             <input id="ldFormArtnetHost" type="text" value="255.255.255.255" placeholder="255.255.255.255" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Universe</label><input id="ldFormArtnetUniverse" type="number" min="0" max="32767" value="0" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Subnet</label><input id="ldFormArtnetSubnet" type="number" min="0" max="15" value="0" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Canaux/LED</label><input id="ldFormArtnetChannels" type="number" min="1" max="8" value="3" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.universeLabel') || 'Universe'}</label><input id="ldFormArtnetUniverse" type="number" min="0" max="32767" value="0" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.subnetLabel') || 'Subnet'}</label><input id="ldFormArtnetSubnet" type="number" min="0" max="15" value="0" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.channelsPerLedLabel') || 'Canaux/LED'}</label><input id="ldFormArtnetChannels" type="number" min="1" max="8" value="3" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             </div>
             <div style="margin-bottom:8px;">
-              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Profil de fixture DMX</label>
+              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.dmxProfileLabel') || 'Profil de fixture DMX'}</label>
               <select id="ldFormArtnetProfile" onchange="lightingControlPageInstance._onDmxProfileChange('artnet')" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
-                <option value="">-- Manuel --</option>
+                <option value="">${i18n.t('lighting.manualOption') || '-- Manuel --'}</option>
               </select>
             </div>
-            <div style="font-size:10px;color:${t.textMuted};margin-bottom:8px;">3 canaux = RGB, 4 = RGBW. Max 170 LEDs RGB par univers (512/3).</div>
+            <div style="font-size:10px;color:${t.textMuted};margin-bottom:8px;">${i18n.t('lighting.dmxChannelsHint') || '3 canaux = RGB, 4 = RGBW. Max 170 LEDs RGB par univers (512/3).'}</div>
           </div>
 
           <!-- sACN fields -->
           <div id="ldFormSacnFields" style="display:none;">
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Universe</label><input id="ldFormSacnUniverse" type="number" min="1" max="63999" value="1" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Priorité</label><input id="ldFormSacnPriority" type="number" min="0" max="200" value="100" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Canaux/LED</label><input id="ldFormSacnChannels" type="number" min="1" max="8" value="3" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.universeLabel') || 'Universe'}</label><input id="ldFormSacnUniverse" type="number" min="1" max="63999" value="1" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.priorityLabel') || 'Priorité'}</label><input id="ldFormSacnPriority" type="number" min="0" max="200" value="100" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.channelsPerLedLabel') || 'Canaux/LED'}</label><input id="ldFormSacnChannels" type="number" min="1" max="8" value="3" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             </div>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:6px;">
               <input id="ldFormSacnMulticast" type="checkbox" checked>
-              <span style="font-size:12px;color:${t.text};">Multicast (recommandé)</span>
+              <span style="font-size:12px;color:${t.text};">${i18n.t('lighting.multicastLabel') || 'Multicast (recommandé)'}</span>
             </label>
             <div id="ldFormSacnUnicastRow" style="display:none;">
-              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Adresse unicast</label>
+              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.unicastLabel') || 'Adresse unicast'}</label>
               <input id="ldFormSacnHost" type="text" value="" placeholder="192.168.1.100" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
             </div>
             <div style="margin-bottom:8px;">
-              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Profil de fixture DMX</label>
+              <label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.dmxProfileLabel') || 'Profil de fixture DMX'}</label>
               <select id="ldFormSacnProfile" onchange="lightingControlPageInstance._onDmxProfileChange('sacn')" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
-                <option value="">-- Manuel --</option>
+                <option value="">${i18n.t('lighting.manualOption') || '-- Manuel --'}</option>
               </select>
             </div>
           </div>
 
           <!-- MQTT fields -->
           <div id="ldFormMqttFields" style="display:none;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">URL du Broker MQTT</label>
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.mqttBrokerLabel') || 'URL du Broker MQTT'}</label>
             <input id="ldFormMqttBroker" type="text" value="mqtt://localhost:1883" placeholder="mqtt://host:1883" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Topic de base</label><input id="ldFormMqttTopic" type="text" value="wled/gmboop" placeholder="wled/all" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Firmware</label>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.mqttTopic') || 'Topic de base'}</label><input id="ldFormMqttTopic" type="text" value="wled/gmboop" placeholder="wled/all" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.firmwareLabel') || 'Firmware'}</label>
                 <select id="ldFormMqttFirmware" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
                   <option value="wled">WLED</option>
                   <option value="tasmota">Tasmota</option>
                   <option value="esphome">ESPHome</option>
-                  <option value="generic">Générique</option>
+                  <option value="generic">${i18n.t('lighting.firmwareGeneric') || 'Générique'}</option>
                 </select>
               </div>
             </div>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Utilisateur (opt.)</label><input id="ldFormMqttUser" type="text" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Mot de passe (opt.)</label><input id="ldFormMqttPass" type="password" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.userOpt') || 'Utilisateur (opt.)'}</label><input id="ldFormMqttUser" type="text" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.passwordOpt') || 'Mot de passe (opt.)'}</label><input id="ldFormMqttPass" type="password" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             </div>
           </div>
 
           <!-- HTTP REST fields -->
           <div id="ldFormHttpFields" style="display:none;">
-            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">URL de base</label>
+            <label style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;">${i18n.t('lighting.httpUrl') || 'URL de base'}</label>
             <input id="ldFormHttpUrl" type="text" value="http://192.168.1.100" placeholder="http://wled-ip" style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};">
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Firmware</label>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.firmwareLabel') || 'Firmware'}</label>
                 <select id="ldFormHttpFirmware" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
                   <option value="wled">WLED</option>
                   <option value="hue">Philips Hue</option>
-                  <option value="generic">Générique</option>
+                  <option value="generic">${i18n.t('lighting.firmwareGeneric') || 'Générique'}</option>
                 </select>
               </div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Clé API (opt.)</label><input id="ldFormHttpApiKey" type="text" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.apiKeyOpt') || 'Clé API (opt.)'}</label><input id="ldFormHttpApiKey" type="text" placeholder="" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             </div>
           </div>
 
           <!-- OSC fields -->
           <div id="ldFormOscFields" style="display:none;">
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-              <div style="flex:2;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Adresse IP</label><input id="ldFormOscHost" type="text" value="127.0.0.1" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Port</label><input id="ldFormOscPort" type="number" min="1" max="65535" value="8000" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:2;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.ipAddress') || 'Adresse IP'}</label><input id="ldFormOscHost" type="text" value="127.0.0.1" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+              <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.portLabel') || 'Port'}</label><input id="ldFormOscPort" type="number" min="1" max="65535" value="8000" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             </div>
-            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Motif d'adresse OSC</label><input id="ldFormOscPattern" type="text" value="/light/{led}" placeholder="/light/{led}" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">Format couleur</label>
+            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.oscPattern') || 'Motif d\'adresse OSC'}</label><input id="ldFormOscPattern" type="text" value="/light/{led}" placeholder="/light/{led}" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.colorFormatLabel') || 'Format couleur'}</label>
               <select id="ldFormOscFormat" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
                 <option value="rgb_float">RGB float (0.0-1.0)</option>
                 <option value="rgb_int">RGB int (0-255)</option>
@@ -160,8 +160,8 @@
           </div>
 
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
-            <button onclick="document.getElementById('lightingDeviceForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Annuler</button>
-            <button onclick="lightingControlPageInstance.submitAddDevice()" style="padding:7px 14px;border:none;border-radius:8px;background:#eab308;color:white;cursor:pointer;font-weight:600;font-size:12px;">Ajouter</button>
+            <button onclick="document.getElementById('lightingDeviceForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">${i18n.t('lighting.cancel') || 'Annuler'}</button>
+            <button onclick="lightingControlPageInstance.submitAddDevice()" style="padding:7px 14px;border:none;border-radius:8px;background:#eab308;color:white;cursor:pointer;font-weight:600;font-size:12px;">${i18n.t('lighting.add') || 'Ajouter'}</button>
           </div>
         </div>
       </div>`;
@@ -230,8 +230,8 @@
         <option value="2" ${defaultChannel === 2 ? 'selected' : ''}>Ch2 SPI</option>
       </select>
       <select class="strip-gpio" style="width:65px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};"></select>
-      <input class="strip-ledcount" type="number" min="1" max="1000" value="30" placeholder="LEDs" style="width:60px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
-      <input class="strip-brightness" type="number" min="0" max="255" value="255" placeholder="Lum" style="width:50px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="strip-ledcount" type="number" min="1" max="1000" value="30" placeholder="${i18n.t('lighting.stripLedsPlaceholder') || 'LEDs'}" style="width:60px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="strip-brightness" type="number" min="0" max="255" value="255" placeholder="${i18n.t('lighting.stripBriPlaceholder') || 'Lum'}" style="width:50px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
       <button type="button" onclick="this.closest('.strip-entry').remove()" style="padding:2px 6px;border:none;background:none;color:#ef4444;cursor:pointer;font-size:14px;">×</button>`;
     container.appendChild(entry);
     this._onStripChannelChange(entry.querySelector('.strip-channel'));
@@ -355,7 +355,7 @@
       const formEl = document.getElementById('lightingDeviceForm');
       if (!formEl) return;
       const h3 = formEl.querySelector('h3');
-      if (h3) h3.textContent = `✏️ ${i18n.t('lighting.editDevice') || 'Modifier'} "${device.name}"`;
+      if (h3) h3.textContent = (i18n.t('lighting.editDeviceTitle') || '✏️ Modifier « {name} »').replace('{name}', device.name);
 
       // Pre-fill common fields
       const nameEl = document.getElementById('ldFormName');
@@ -478,15 +478,16 @@
         enabledDiv.style.cssText = 'margin-bottom:12px;';
         enabledDiv.innerHTML = `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input id="ldFormEnabled" type="checkbox" ${device.enabled ? 'checked' : ''}>
-          <span style="font-size:12px;color:${t.text};">Activé</span>
+          <span style="font-size:12px;color:${t.text};">${i18n.t('lighting.enabledLabel') || 'Activé'}</span>
         </label>`;
         buttonsDiv.parentNode.insertBefore(enabledDiv, buttonsDiv);
       }
 
       // Change submit button text
       const submitBtns = formEl.querySelectorAll('button');
+      const addLabel = i18n.t('lighting.add') || 'Ajouter';
       submitBtns.forEach(btn => {
-        if (btn.textContent.trim() === 'Ajouter') {
+        if (btn.textContent.trim() === addLabel) {
           btn.textContent = i18n.t('lighting.save') || 'Enregistrer';
           btn.style.background = '#8b5cf6';
           btn.onclick = () => lightingControlPageInstance.submitEditDevice();
@@ -627,14 +628,14 @@
         <div style="background:${t.bg};border-radius:12px;padding:20px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
           <h3 style="margin:0 0 14px;font-size:16px;color:${t.text};">📐 ${isEdit ? (i18n.t('lighting.editRule') || 'Modifier la règle') : (i18n.t('lighting.addRule') || 'Ajouter une règle')}</h3>
 
-          <div style="margin-bottom:10px;"><label ${lb}>Nom</label><input id="lrFormName" type="text" value="${this._escapeHtml(existingRule?.name || '')}" placeholder="Note On Rouge" ${is}></div>
+          <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.ruleNameLabel') || 'Nom'}</label><input id="lrFormName" type="text" value="${this._escapeHtml(existingRule?.name || '')}" placeholder="${i18n.t('lighting.ruleNamePlaceholder') || 'Note On Rouge'}" ${is}></div>
 
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.instrument') || 'Instrument'}</label>
             <select id="lrFormInstrument" ${is}><option value="">${i18n.t('lighting.anyInstrument') || 'Tout instrument'}</option>${instrumentOptions}</select>
           </div>
 
           <div style="margin-bottom:10px;">
-            <button type="button" onclick="lightingControlPageInstance._startMidiLearn()" id="lrMidiLearnBtn" style="width:100%;padding:8px;border:2px dashed #f59e0b;border-radius:8px;background:${t.bgAlt};color:#d97706;cursor:pointer;font-size:12px;font-weight:600;">🎹 MIDI Learn — Jouez une note pour auto-configurer la condition</button>
+            <button type="button" onclick="lightingControlPageInstance._startMidiLearn()" id="lrMidiLearnBtn" style="width:100%;padding:8px;border:2px dashed #f59e0b;border-radius:8px;background:${t.bgAlt};color:#d97706;cursor:pointer;font-size:12px;font-weight:600;">${i18n.t('lighting.midiLearnDefault') || '🎹 MIDI Learn — Jouez une note pour auto-configurer la condition'}</button>
           </div>
 
           <hr style="border:none;border-top:1px solid ${t.border};margin:14px 0;">
@@ -642,16 +643,16 @@
 
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.triggerType') || 'Type'}</label>
             <select id="lrFormTrigger" ${is}>
-              <option value="noteon" ${cond.trigger === 'noteon' ? 'selected' : ''}>Note On</option>
-              <option value="noteoff" ${cond.trigger === 'noteoff' ? 'selected' : ''}>Note Off</option>
-              <option value="cc" ${cond.trigger === 'cc' ? 'selected' : ''}>CC</option>
-              <option value="any" ${cond.trigger === 'any' ? 'selected' : ''}>Tous</option>
+              <option value="noteon" ${cond.trigger === 'noteon' ? 'selected' : ''}>${i18n.t('lighting.triggerNoteOn') || 'Note On'}</option>
+              <option value="noteoff" ${cond.trigger === 'noteoff' ? 'selected' : ''}>${i18n.t('lighting.triggerNoteOff') || 'Note Off'}</option>
+              <option value="cc" ${cond.trigger === 'cc' ? 'selected' : ''}>${i18n.t('lighting.triggerCc') || 'CC'}</option>
+              <option value="any" ${cond.trigger === 'any' ? 'selected' : ''}>${i18n.t('lighting.triggerAny') || 'Tous'}</option>
             </select>
           </div>
 
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.channel') || 'Canal MIDI'}</label>
-            <input id="lrFormChannels" type="text" value="${(cond.channels || []).map(c => c + 1).join(', ')}" placeholder="Tous (ou 1, 2, 10)" ${is}>
-            <span style="font-size:10px;color:${t.textMuted};">Vide = tous. Séparez par virgule (1-16)</span>
+            <input id="lrFormChannels" type="text" value="${(cond.channels || []).map(c => c + 1).join(', ')}" placeholder="${i18n.t('lighting.channelsPlaceholder') || 'Tous (ou 1, 2, 10)'}" ${is}>
+            <span style="font-size:10px;color:${t.textMuted};">${i18n.t('lighting.channelsHint') || 'Vide = tous. Séparez par virgule (1-16)'}</span>
           </div>
 
           <div style="display:flex;gap:10px;margin-bottom:10px;">
@@ -675,26 +676,26 @@
 
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.actionType') || 'Type'}</label>
             <select id="lrFormActionType" onchange="lightingControlPageInstance._updateActionFields()" ${is}>
-              <optgroup label="Couleurs">
-                <option value="static" ${action.type === 'static' || !action.type ? 'selected' : ''}>Couleur fixe</option>
-                <option value="velocity_mapped" ${action.type === 'velocity_mapped' ? 'selected' : ''}>Gradient vélocité</option>
-                <option value="note_color" ${action.type === 'note_color' ? 'selected' : ''}>🎹 Note → Couleur</option>
-                <option value="color_temp" ${action.type === 'color_temp' ? 'selected' : ''}>🌡️ Température couleur</option>
-                <option value="random_color" ${action.type === 'random_color' ? 'selected' : ''}>🎲 Couleur aléatoire</option>
-                <option value="note_led" ${action.type === 'note_led' ? 'selected' : ''}>🎹 Note → LED (piano)</option>
-                <option value="vu_meter" ${action.type === 'vu_meter' ? 'selected' : ''}>📊 VU-mètre (vélocité)</option>
-                <option value="pulse" ${action.type === 'pulse' ? 'selected' : ''}>Pulse (flash)</option>
-                <option value="fade" ${action.type === 'fade' ? 'selected' : ''}>Fade (fondu)</option>
+              <optgroup label="${i18n.t('lighting.actionGroupColors') || 'Couleurs'}">
+                <option value="static" ${action.type === 'static' || !action.type ? 'selected' : ''}>${i18n.t('lighting.actionStaticOpt') || 'Couleur fixe'}</option>
+                <option value="velocity_mapped" ${action.type === 'velocity_mapped' ? 'selected' : ''}>${i18n.t('lighting.actionVelocityMappedOpt') || 'Gradient vélocité'}</option>
+                <option value="note_color" ${action.type === 'note_color' ? 'selected' : ''}>${i18n.t('lighting.actionNoteColorOpt') || '🎹 Note → Couleur'}</option>
+                <option value="color_temp" ${action.type === 'color_temp' ? 'selected' : ''}>${i18n.t('lighting.actionColorTempOpt') || '🌡️ Température couleur'}</option>
+                <option value="random_color" ${action.type === 'random_color' ? 'selected' : ''}>${i18n.t('lighting.actionRandomColorOpt') || '🎲 Couleur aléatoire'}</option>
+                <option value="note_led" ${action.type === 'note_led' ? 'selected' : ''}>${i18n.t('lighting.actionNoteLedOpt') || '🎹 Note → LED (piano)'}</option>
+                <option value="vu_meter" ${action.type === 'vu_meter' ? 'selected' : ''}>${i18n.t('lighting.actionVuMeterOpt') || '📊 VU-mètre (vélocité)'}</option>
+                <option value="pulse" ${action.type === 'pulse' ? 'selected' : ''}>${i18n.t('lighting.actionPulseOpt') || 'Pulse (flash)'}</option>
+                <option value="fade" ${action.type === 'fade' ? 'selected' : ''}>${i18n.t('lighting.actionFadeOpt') || 'Fade (fondu)'}</option>
               </optgroup>
-              <optgroup label="Effets animés">
-                <option value="strobe" ${action.type === 'strobe' ? 'selected' : ''}>⚡ Stroboscope</option>
-                <option value="rainbow" ${action.type === 'rainbow' ? 'selected' : ''}>🌈 Arc-en-ciel</option>
-                <option value="chase" ${action.type === 'chase' ? 'selected' : ''}>🏃 Chenillard</option>
-                <option value="fire" ${action.type === 'fire' ? 'selected' : ''}>🔥 Feu</option>
-                <option value="breathe" ${action.type === 'breathe' ? 'selected' : ''}>💨 Respiration</option>
-                <option value="sparkle" ${action.type === 'sparkle' ? 'selected' : ''}>✨ Étincelles</option>
-                <option value="color_cycle" ${action.type === 'color_cycle' ? 'selected' : ''}>🎨 Cycle couleurs</option>
-                <option value="wave" ${action.type === 'wave' ? 'selected' : ''}>🌊 Vague</option>
+              <optgroup label="${i18n.t('lighting.actionGroupEffects') || 'Effets animés'}">
+                <option value="strobe" ${action.type === 'strobe' ? 'selected' : ''}>${i18n.t('lighting.effectStrobeOpt') || '⚡ Stroboscope'}</option>
+                <option value="rainbow" ${action.type === 'rainbow' ? 'selected' : ''}>${i18n.t('lighting.effectRainbowOpt') || '🌈 Arc-en-ciel'}</option>
+                <option value="chase" ${action.type === 'chase' ? 'selected' : ''}>${i18n.t('lighting.effectChaseOpt') || '🏃 Chenillard'}</option>
+                <option value="fire" ${action.type === 'fire' ? 'selected' : ''}>${i18n.t('lighting.effectFireOpt') || '🔥 Feu'}</option>
+                <option value="breathe" ${action.type === 'breathe' ? 'selected' : ''}>${i18n.t('lighting.effectBreatheOpt') || '💨 Respiration'}</option>
+                <option value="sparkle" ${action.type === 'sparkle' ? 'selected' : ''}>${i18n.t('lighting.effectSparkleOpt') || '✨ Étincelles'}</option>
+                <option value="color_cycle" ${action.type === 'color_cycle' ? 'selected' : ''}>${i18n.t('lighting.effectColorCycleOpt') || '🎨 Cycle couleurs'}</option>
+                <option value="wave" ${action.type === 'wave' ? 'selected' : ''}>${i18n.t('lighting.effectWaveOpt') || '🌊 Vague'}</option>
               </optgroup>
             </select>
           </div>
@@ -704,7 +705,7 @@
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
               <input id="lrFormColor" type="color" value="${action.color || '#FF0000'}" style="width:50px;height:36px;border:1px solid ${t.inputBorder};border-radius:8px;cursor:pointer;padding:2px;">
               <span id="lrFormColorHex" style="font-size:12px;color:${t.textSec};font-family:monospace;">${action.color || '#FF0000'}</span>
-              <button type="button" onclick="lightingControlPageInstance.showColorWheel('lrFormColor')" style="padding:4px 8px;border:1px solid ${t.inputBorder};border-radius:6px;background:${t.btnBg};color:${t.textSec};cursor:pointer;font-size:11px;">🎨 Roue</button>
+              <button type="button" onclick="lightingControlPageInstance.showColorWheel('lrFormColor')" style="padding:4px 8px;border:1px solid ${t.inputBorder};border-radius:6px;background:${t.btnBg};color:${t.textSec};cursor:pointer;font-size:11px;">${i18n.t('lighting.colorWheelBtn') || '🎨 Roue'}</button>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:3px;">${this._renderQuickColors('lrFormColor')}</div>
           </div>
@@ -712,11 +713,11 @@
           <div id="lrFormGradientSection" style="display:${action.type === 'velocity_mapped' ? 'block' : 'none'};margin-bottom:10px;">
             <label ${lb}>${i18n.t('lighting.colorGradient') || 'Gradient (vélocité)'}</label>
             <div style="display:flex;align-items:center;gap:6px;">
-              <span style="font-size:10px;color:${t.textMuted};">Doux</span>
+              <span style="font-size:10px;color:${t.textMuted};">${i18n.t('lighting.gradientLow') || 'Doux'}</span>
               <input id="lrFormColorLow" type="color" value="${this._getColorMapValue(action.color_map, 0) || '#0000FF'}" style="width:36px;height:28px;border:1px solid ${t.inputBorder};border-radius:6px;cursor:pointer;">
-              <span style="font-size:10px;color:${t.textMuted};">Moyen</span>
+              <span style="font-size:10px;color:${t.textMuted};">${i18n.t('lighting.gradientMid') || 'Moyen'}</span>
               <input id="lrFormColorMid" type="color" value="${this._getColorMapValue(action.color_map, 64) || '#FFFF00'}" style="width:36px;height:28px;border:1px solid ${t.inputBorder};border-radius:6px;cursor:pointer;">
-              <span style="font-size:10px;color:${t.textMuted};">Fort</span>
+              <span style="font-size:10px;color:${t.textMuted};">${i18n.t('lighting.gradientHigh') || 'Fort'}</span>
               <input id="lrFormColorHigh" type="color" value="${this._getColorMapValue(action.color_map, 127) || '#FF0000'}" style="width:36px;height:28px;border:1px solid ${t.inputBorder};border-radius:6px;cursor:pointer;">
             </div>
             <div id="lrFormGradientPreview" style="margin-top:6px;height:12px;border-radius:6px;background:linear-gradient(to right,${this._getColorMapValue(action.color_map, 0) || '#0000FF'},${this._getColorMapValue(action.color_map, 64) || '#FFFF00'},${this._getColorMapValue(action.color_map, 127) || '#FF0000'});"></div>
@@ -725,24 +726,24 @@
           <!-- Color temperature fields -->
           <div id="lrFormColorTempSection" style="display:${action.type === 'color_temp' ? 'block' : 'none'};">
             <div style="padding:8px 10px;background:${t.bgAlt};border:1px solid ${t.borderLight};border-radius:8px;margin-bottom:10px;">
-              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:6px;">🌡️ Température de couleur</div>
+              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:6px;">${i18n.t('lighting.colorTempTitle') || '🌡️ Température de couleur'}</div>
               <div style="display:flex;gap:8px;">
-                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Chaud (K)</label><input id="lrFormTempWarm" type="number" min="1000" max="10000" value="${action.temp_warm || 2700}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Froid (K)</label><input id="lrFormTempCool" type="number" min="1000" max="10000" value="${action.temp_cool || 6500}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.colorTempWarm') || 'Chaud (K)'}</label><input id="lrFormTempWarm" type="number" min="1000" max="10000" value="${action.temp_warm || 2700}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.colorTempCool') || 'Froid (K)'}</label><input id="lrFormTempCool" type="number" min="1000" max="10000" value="${action.temp_cool || 6500}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
               </div>
               <div style="margin-top:4px;height:10px;border-radius:4px;background:linear-gradient(to right,#FF9329,#FFD4A3,#FFF4E5,#F5F3FF,#CAE2FF);"></div>
-              <div style="display:flex;justify-content:space-between;font-size:9px;color:${t.textMuted};"><span>Chaud (bougie)</span><span>Froid (ciel)</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:${t.textMuted};"><span>${i18n.t('lighting.colorTempWarmDesc') || 'Chaud (bougie)'}</span><span>${i18n.t('lighting.colorTempCoolDesc') || 'Froid (ciel)'}</span></div>
             </div>
           </div>
 
           <!-- Note-to-LED mapping info -->
           <div id="lrFormNoteLedSection" style="display:${action.type === 'note_led' ? 'block' : 'none'};">
             <div style="padding:8px 10px;background:${t.bgAlt};border:1px solid ${t.borderLight};border-radius:8px;margin-bottom:10px;">
-              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:4px;">🎹 Note → LED (visualisation piano)</div>
-              <div style="font-size:10px;color:${t.textMuted};margin-bottom:6px;">Chaque note MIDI allume une LED spécifique le long du bandeau.</div>
+              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:4px;">${i18n.t('lighting.noteLedTitle') || '🎹 Note → LED (visualisation piano)'}</div>
+              <div style="font-size:10px;color:${t.textMuted};margin-bottom:6px;">${i18n.t('lighting.noteLedDesc') || 'Chaque note MIDI allume une LED spécifique le long du bandeau.'}</div>
               <div style="display:flex;gap:8px;">
-                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Note MIDI min</label><input id="lrFormNoteLedMin" type="number" min="0" max="127" value="${action.note_led_min || 36}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Note MIDI max</label><input id="lrFormNoteLedMax" type="number" min="0" max="127" value="${action.note_led_max || 96}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.noteLedMinLabel') || 'Note MIDI min'}</label><input id="lrFormNoteLedMin" type="number" min="0" max="127" value="${action.note_led_min || 36}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.noteLedMaxLabel') || 'Note MIDI max'}</label><input id="lrFormNoteLedMax" type="number" min="0" max="127" value="${action.note_led_max || 96}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
               </div>
               <div style="margin-top:4px;height:10px;border-radius:4px;background:linear-gradient(to right,#FF0000,#FF8000,#FFFF00,#80FF00,#00FF00,#00FF80,#00FFFF,#0080FF,#0000FF,#8000FF,#FF00FF,#FF0080);"></div>
             </div>
@@ -751,7 +752,7 @@
           <!-- Note-to-color info -->
           <div id="lrFormNoteColorSection" style="display:${action.type === 'note_color' ? 'block' : 'none'};">
             <div style="padding:8px 10px;background:${t.bgAlt};border:1px solid ${t.borderLight};border-radius:8px;margin-bottom:10px;">
-              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:4px;">🎹 Note → Couleur chromatique</div>
+              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:4px;">${i18n.t('lighting.noteColorTitle') || '🎹 Note → Couleur chromatique'}</div>
               <div style="height:14px;border-radius:4px;background:linear-gradient(to right,#FF0000,#FF8000,#FFFF00,#80FF00,#00FF00,#00FF80,#00FFFF,#0080FF,#0000FF,#8000FF,#FF00FF,#FF0080,#FF0000);margin-bottom:2px;"></div>
               <div style="display:flex;justify-content:space-between;font-size:8px;color:${t.textMuted};"><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>A</span><span>B</span><span>C</span></div>
             </div>
@@ -760,12 +761,12 @@
           <!-- Effect-specific fields -->
           <div id="lrFormEffectSection" style="display:${this._isEffectType(action.type) ? 'block' : 'none'};">
             <div style="padding:8px 10px;background:${t.bgAlt};border:1px solid ${t.borderLight};border-radius:8px;margin-bottom:10px;">
-              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:6px;">⚡ Paramètres de l'effet</div>
+              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:6px;">${i18n.t('lighting.effectParamsTitle') || '⚡ Paramètres de l\'effet'}</div>
               <div style="display:flex;gap:8px;margin-bottom:6px;">
-                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Vitesse (ms)</label><input id="lrFormEffectSpeed" type="number" min="20" max="10000" value="${action.effect_speed || 500}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
-                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Densité (étincelles)</label><input id="lrFormEffectDensity" type="number" min="0.01" max="1" step="0.05" value="${action.effect_density || 0.1}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.effectSpeed') || 'Vitesse (ms)'}</label><input id="lrFormEffectSpeed" type="number" min="20" max="10000" value="${action.effect_speed || 500}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+                <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.effectDensityLabel') || 'Densité (étincelles)'}</label><input id="lrFormEffectDensity" type="number" min="0.01" max="1" step="0.05" value="${action.effect_density || 0.1}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
               </div>
-              <div style="margin-bottom:4px;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">Couleur secondaire (chenillard, vague)</label>
+              <div style="margin-bottom:4px;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.effectColor2Label') || 'Couleur secondaire (chenillard, vague)'}</label>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <input id="lrFormColor2" type="color" value="${action.color2 || '#000000'}" style="width:36px;height:28px;border:1px solid ${t.inputBorder};border-radius:6px;cursor:pointer;">
                   <span id="lrFormColor2Hex" style="font-size:11px;color:${t.textMuted};font-family:monospace;">${action.color2 || '#000000'}</span>
@@ -790,31 +791,31 @@
           </div>
 
           <div id="lrFormSegmentRow" style="display:none;margin-bottom:10px;">
-            <label ${lb}>Segment</label>
+            <label ${lb}>${i18n.t('lighting.segmentLabel') || 'Segment'}</label>
             <select id="lrFormSegment" onchange="lightingControlPageInstance._onSegmentSelect()" ${is}>
-              <option value="">-- Aucun (manuel) --</option>
+              <option value="">${i18n.t('lighting.manualSegmentOption') || '-- Aucun (manuel) --'}</option>
             </select>
           </div>
 
           <div style="display:flex;gap:10px;margin-bottom:10px;">
-            <div style="flex:1;"><label ${lb}>LED début</label><input id="lrFormLedStart" type="number" min="0" value="${action.led_start || 0}" ${is}></div>
-            <div style="flex:1;"><label ${lb}>LED fin (-1=toutes)</label><input id="lrFormLedEnd" type="number" min="-1" value="${action.led_end !== undefined ? action.led_end : -1}" ${is}></div>
+            <div style="flex:1;"><label ${lb}>${i18n.t('lighting.ledStartLabel') || 'LED début'}</label><input id="lrFormLedStart" type="number" min="0" value="${action.led_start || 0}" ${is}></div>
+            <div style="flex:1;"><label ${lb}>${i18n.t('lighting.ledEndLabel') || 'LED fin (-1=toutes)'}</label><input id="lrFormLedEnd" type="number" min="-1" value="${action.led_end !== undefined ? action.led_end : -1}" ${is}></div>
           </div>
 
           <div style="display:flex;gap:10px;margin-bottom:10px;">
             <div style="flex:1;"><label ${lb}>${i18n.t('lighting.fadeTime') || 'Fondu (ms)'}</label><input id="lrFormFadeTime" type="number" min="0" max="5000" value="${action.fade_time_ms || 200}" ${is}></div>
             <div style="flex:1;"><label ${lb}>${i18n.t('lighting.offAction') || 'Relâchement'}</label>
               <select id="lrFormOffAction" ${is}>
-                <option value="instant" ${action.off_action === 'instant' || !action.off_action ? 'selected' : ''}>Instant</option>
-                <option value="fade" ${action.off_action === 'fade' ? 'selected' : ''}>Fondu</option>
-                <option value="hold" ${action.off_action === 'hold' ? 'selected' : ''}>Maintenir</option>
+                <option value="instant" ${action.off_action === 'instant' || !action.off_action ? 'selected' : ''}>${i18n.t('lighting.offActionInstantOpt') || 'Instant'}</option>
+                <option value="fade" ${action.off_action === 'fade' ? 'selected' : ''}>${i18n.t('lighting.offActionFadeOpt') || 'Fondu'}</option>
+                <option value="hold" ${action.off_action === 'hold' ? 'selected' : ''}>${i18n.t('lighting.offActionHoldOpt') || 'Maintenir'}</option>
               </select>
             </div>
           </div>
 
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
-            <button onclick="document.getElementById('lightingRuleForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Annuler</button>
-            <button onclick="lightingControlPageInstance.submitRule(${existingRule ? existingRule.id : 'null'})" style="padding:7px 14px;border:none;border-radius:8px;background:#10b981;color:white;cursor:pointer;font-weight:600;font-size:12px;">${isEdit ? 'Modifier' : 'Ajouter'}</button>
+            <button onclick="document.getElementById('lightingRuleForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">${i18n.t('lighting.cancel') || 'Annuler'}</button>
+            <button onclick="lightingControlPageInstance.submitRule(${existingRule ? existingRule.id : 'null'})" style="padding:7px 14px;border:none;border-radius:8px;background:#10b981;color:white;cursor:pointer;font-weight:600;font-size:12px;">${isEdit ? (i18n.t('lighting.modify') || 'Modifier') : (i18n.t('lighting.add') || 'Ajouter')}</button>
           </div>
         </div>
       </div>`;

@@ -520,7 +520,7 @@ class PlaylistPage {
             <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-primary, #2c3e50);">${this._escapeHtml(item.filename)}</div>
             <div style="font-size:0.8rem;color:var(--text-muted, #6c757d);">${this._formatDuration(item.duration)}${item.tempo ? ` - ${Math.round(item.tempo)} BPM` : ''}</div>
           </div>
-          <button class="btn-remove-file" data-item-id="${item.id}" style="background:none;border:none;cursor:pointer;opacity:0.5;padding:4px;color:var(--text-muted, #999);" title="Remove">✕</button>
+          <button class="btn-remove-file" data-item-id="${item.id}" style="background:none;border:none;cursor:pointer;opacity:0.5;padding:4px;color:var(--text-muted, #999);" title="${i18n.t('playlist.remove') || 'Remove'}">✕</button>
         </div>`;
     }).join('');
 
@@ -545,7 +545,10 @@ class PlaylistPage {
 
     if (this.selectedPlaylist && this.playlistItems.length > 0) {
       const totalDuration = this.playlistItems.reduce((sum, item) => sum + (item.duration || 0), 0);
-      info.textContent = `${this.playlistItems.length} files - ${this._formatDuration(totalDuration)} total`;
+      info.textContent = i18n.t('playlist.playlistStatsShort', {
+        count: this.playlistItems.length,
+        duration: this._formatDuration(totalDuration)
+      }) || `${this.playlistItems.length} files - ${this._formatDuration(totalDuration)} total`;
     } else {
       info.textContent = '';
     }
