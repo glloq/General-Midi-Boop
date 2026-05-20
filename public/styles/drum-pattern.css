@@ -165,42 +165,38 @@
     cursor: crosshair;
 }
 
-/* ---- Tools Panel Sidebar ---- */
-.drum-tools-panel-wrapper {
-    width: 200px;
-    min-width: 160px;
-    max-width: 240px;
-    border-left: 1px solid var(--border-color, #e9ecef);
-    overflow-y: auto;
-    overflow-x: hidden;
+/* ---- Tools Panel (inline in header) ---- */
+.drum-pattern-header-tools {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    margin: 0 8px;
+}
+
+.drum-tools-panel--inline {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.drum-tools-row-inline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.drum-tools-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border-color, #e9ecef);
+    margin: 0 2px;
     flex-shrink: 0;
-    background: var(--bg-secondary, #fff);
-}
-
-.drum-tools-panel {
-    display: flex;
-    flex-direction: column;
-    padding: 6px;
-    gap: 8px;
-}
-
-.drum-tools-section {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 6px;
-    background: var(--bg-tertiary, #f5f5f5);
-    border-radius: var(--border-radius, 4px);
-    border: 1px solid var(--border-color, #e9ecef);
-}
-
-.drum-tools-section-title {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #ef476f;
-    margin-bottom: 2px;
 }
 
 .drum-tools-row {
@@ -208,10 +204,6 @@
     align-items: center;
     gap: 4px;
     flex-wrap: wrap;
-}
-
-.drum-tools-row-btns {
-    gap: 4px;
 }
 
 .drum-tools-btn {
@@ -258,15 +250,17 @@
 }
 
 .drum-tools-slider {
-    flex: 1;
+    width: 70px;
     min-width: 40px;
+    max-width: 100px;
     height: 16px;
     accent-color: #ef476f;
     cursor: pointer;
+    flex-shrink: 1;
 }
 
 .drum-tools-slider-wide {
-    flex: 2;
+    width: 110px;
 }
 
 .drum-tools-value {
@@ -345,14 +339,8 @@ body.dark-mode .drum-separator {
     background: #4a5568;
 }
 
-body.dark-mode .drum-tools-panel-wrapper {
-    border-left-color: #4a5568;
-    background: #1a1a2e;
-}
-
-body.dark-mode .drum-tools-section {
-    background: #2d3748;
-    border-color: #4a5568;
+body.dark-mode .drum-tools-sep {
+    background: #4a5568;
 }
 
 body.dark-mode .drum-tools-btn {
@@ -380,9 +368,21 @@ body.dark-mode .drum-velocity-input {
     background: #2d3748;
     color: #e0e0e0;
     border-color: #4a5568;
-}/* ---- Responsive ---- */
-@media (max-width: 768px) {
-    .drum-tools-panel-wrapper {
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+    .drum-tools-row-inline .drum-tools-label,
+    .drum-tools-row-inline .drum-tools-value {
+        display: none;
+    }
+    .drum-tools-slider {
+        width: 50px;
+    }
+}
+
+@media (max-width: 640px) {
+    .drum-pattern-header-tools {
         display: none;
     }
 }

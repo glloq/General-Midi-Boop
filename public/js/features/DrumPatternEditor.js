@@ -171,6 +171,7 @@ class DrumPatternEditor {
                             min="1" max="127" value="${this.defaultVelocity}" />
                     </label>
                 </div>
+                <div class="drum-pattern-header-tools" id="drum-tools-panel-wrapper"></div>
                 <div class="drum-pattern-toolbar">
                     <button class="drum-tool-btn drum-mode-btn active" data-action="drum-mode" data-mode="pan" title="${this.t('windEditor.pan')}">&#x2725;</button>
                     <button class="drum-tool-btn drum-mode-btn" data-action="drum-mode" data-mode="select" title="${this.t('windEditor.select')}">&#x2B1C;</button>
@@ -181,8 +182,6 @@ class DrumPatternEditor {
             <div class="drum-pattern-body">
                 <div class="drum-grid-canvas-wrapper">
                     <canvas id="drum-grid-canvas" class="drum-grid-canvas"></canvas>
-                </div>
-                <div class="drum-tools-panel-wrapper" id="drum-tools-panel-wrapper">
                 </div>
             </div>
         `;
