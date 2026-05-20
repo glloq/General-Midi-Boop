@@ -152,8 +152,12 @@ class InstrumentLightManager {
 
   /** Save manually-entered capabilities, then reload. */
   setCapabilities(deviceId, channel, capabilities) {
+    const patch = { ...capabilities };
+    if (patch.light_messages_bitmask === undefined || patch.light_messages_bitmask === null) {
+      patch.light_messages_bitmask = P.deriveMessagesBitmask(patch);
+    }
     this.database.saveInstrumentLightCapabilities(
-      deviceId, channel | 0, capabilities, 'manual'
+      deviceId, channel | 0, patch, 'manual'
     );
     this.reload();
     return this.getInstrument(deviceId, channel | 0);
