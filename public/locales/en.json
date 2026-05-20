@@ -1074,6 +1074,13 @@
       "speed": "Speed",
       "intensity": "Int."
     },
+    "lumiereCcDesc": {
+      "brightness": "Master brightness: 0 = OFF, 1-127 = level.",
+      "effect": "Effect selection: 0 static · 1 fade · 2 pulse · 3 blink · 4 rainbow · 5 reactive (note) · 6 reactive (velocity) · 7 sparkle · 8 fire · 9 scanner.",
+      "hue": "HSV hue 0-127 (firmware may ignore on mono LEDs).",
+      "speed": "Effect animation speed (0-127).",
+      "intensity": "Effect intensity / variation (0-127)."
+    },
     "lumiereSectionHint": "This instrument's MIDI messages drive the lighting via the rules below. The condition picks which messages turn the light on; the action picks the behaviour.",
     "lumiereTargetDevice": "Target lighting device",
     "lumiereRules": "MIDI → lighting rules for this instrument",
