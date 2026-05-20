@@ -158,19 +158,23 @@ export class SF2PresetService {
 
       if (type === 'drum') {
         this._logKitInventoryOnce(sf2Id, sf2);
-        // Cascade: (128, kit) → (128, 0) → (0, kit) → (0, 0).
-        // Step 2 (Standard Kit in bank 128) MUST be tried before any
-        // bank-0 fallback: bank 0 program N is a melodic preset (e.g.
-        // program 8 = Celesta), and playing it at a drum note's pitch
-        // produces a "bell" timbre instead of percussion. Bank 0 stays
-        // only as last-resort tolerance for non-conformant SF2 files
-        // that store kits outside the GM drum bank.
+        // Cascade: (128, kit) → (128, 0). We REFUSE to fall through to
+        // bank 0 (melodic): empirically, when the bell-bug fix shipped,
+        // some installs still heard bells. The melodic fallback was the
+        // only remaining path that could produce a non-percussive timbre
+        // — the (128, kit) → (128, 0) → (0, kit) → (0, 0) cascade let
+        // a melodic preset slip through whenever an SF2 had a bank-0
+        // entry at `kit` (e.g. Celesta at program 8). Returning null
+        // here surfaces "SF2 has no drum bank" as silence, which is
+        // unambiguously diagnosable, instead of as wrong-timbre playback
+        // that users mistake for a synth bug.
+        let branch = 'none';
         preset = convertPresetFromSF2(sf2, 128, kit);
-        if (!preset && kit !== 0) {
+        if (preset) {
+          branch = `bank128_kit${kit}`;
+        } else if (kit !== 0) {
           preset = convertPresetFromSF2(sf2, 128, 0);
-        }
-        if (!preset) {
-          preset = convertPresetFromSF2(sf2, 0, kit) || convertPresetFromSF2(sf2, 0, 0);
+          if (preset) branch = 'bank128_standard';
         }
         if (preset) {
           // Filter to zones covering this specific note
@@ -178,6 +182,30 @@ export class SF2PresetService {
             z => note >= z.keyRangeLow && note <= z.keyRangeHigh
           );
           preset = filtered.length ? { zones: filtered } : null;
+          if (!preset) branch = `${branch}_no_note_${note}`;
+        }
+        if (!preset) {
+          // Loud one-line warning so the operator can diagnose: either
+          // the bundled SF2 is missing/corrupt, or the active custom
+          // SF2 has no GM drum bank. Returning null lets the synth
+          // stay silent for this note instead of materialising a
+          // melodic sample with forced root (which sounds like a bell).
+          this.logger.warn?.(
+            `SF2PresetService: no drum preset for sf2=${sf2Id} kit=${kit} note=${note} ` +
+            `(tried ${branch}); SF2 likely lacks GM drum bank — preview will be silent on this note`
+          );
+        } else if (process.env.GMBOOP_DEBUG_DRUMS) {
+          // Opt-in deep diagnostic. Enable by exporting
+          // GMBOOP_DEBUG_DRUMS=1 before starting the server, restart,
+          // then play a drum preview. Surfaces the resolved cascade
+          // branch + first-zone tuning so we can spot a mis-tagged
+          // melodic preset slipping through bank 128.
+          const z0 = preset.zones[0] || {};
+          this.logger.info(
+            `SF2PresetService: drum kit=${kit} note=${note} → ${branch}, ` +
+            `zones=${preset.zones.length}, z0.originalPitch=${z0.originalPitch ?? z0.midi}, ` +
+            `z0.coarseTune=${z0.coarseTune}, z0.fineTune=${z0.fineTune}`
+          );
         }
       } else {
         preset = convertPresetFromSF2(sf2, 0, program);

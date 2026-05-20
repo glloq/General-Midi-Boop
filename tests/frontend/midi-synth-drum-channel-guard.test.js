@@ -138,6 +138,15 @@ describe('MidiSynthesizer.ensureDrumKitReady / loadDrumKit promise tracking', ()
 
   it('loadDrumKit deduplicates concurrent calls', async () => {
     const synth = makeLoadableStub();
+    // Eager preload only runs when a sequence is loaded (otherwise the
+    // lazy mode returns early without touching _loadDrumPreset, see the
+    // "lazy mode" branch below). Stub a 3-note sequence so the fan-out
+    // actually fires and gives us something to dedupe against.
+    synth.sequence = [
+      { c: 9, n: 36, t: 0 },
+      { c: 9, n: 38, t: 100 },
+      { c: 9, n: 42, t: 200 }
+    ];
     const resolvers = [];
     synth._loadDrumPreset = vi.fn(
       () => new Promise((res) => resolvers.push(res))
@@ -145,14 +154,25 @@ describe('MidiSynthesizer.ensureDrumKitReady / loadDrumKit promise tracking', ()
     const p1 = synth.loadDrumKit();
     const p2 = synth.loadDrumKit();
     expect(p1).toBe(p2); // same promise reused
-    // _loadDrumPreset is called once per note in the kit (47 notes when no
-    // sequence is loaded), but only by the first invocation — the second
-    // loadDrumKit() didn't trigger another fan-out.
+    // Three sequence notes → three _loadDrumPreset calls from the first
+    // invocation; the second loadDrumKit() must NOT re-fan-out.
     const callsAfterFirst = synth._loadDrumPreset.mock.calls.length;
-    expect(callsAfterFirst).toBeGreaterThan(0);
+    expect(callsAfterFirst).toBe(3);
     for (const r of resolvers) r();
     await p1;
     expect(synth._loadDrumPreset.mock.calls.length).toBe(callsAfterFirst);
+  });
+
+  it('loadDrumKit lazy mode: no sequence → no _loadDrumPreset fan-out', async () => {
+    const synth = makeLoadableStub();
+    synth._loadDrumPreset = vi.fn(() => Promise.resolve());
+    await synth.loadDrumKit();
+    // No sequence loaded → preload is skipped; per-note presets land
+    // via the lazy branch in playNote on first frappe instead.
+    expect(synth._loadDrumPreset).not.toHaveBeenCalled();
+    // The drumKit "ready" flag is set so legacy callers don't loop on
+    // ensureDrumKitReady forever.
+    expect(synth.drumKit).toBe(true);
   });
 
   it('ensureDrumKitReady resolves after a fresh loadDrumKit finishes', async () => {

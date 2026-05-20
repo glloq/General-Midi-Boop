@@ -135,16 +135,18 @@ describe('SF2PresetService — drum cascade fallback (bell-bug fix)', () => {
     expect(originOf(preset)).toEqual({ bank: 128, program: 16 });
   });
 
-  test('SF2 with no bank-128 presets at all: bank-0 last-resort fallback still fires', async () => {
-    // Pure-melodic SF2 with no drum bank — the last-resort branch must
-    // keep a noise audible rather than going silent.
+  test('SF2 with no bank-128 presets at all: returns null (no melodic fallback)', async () => {
+    // Pure-melodic SF2 with no drum bank — must return null so the
+    // synthesizer stays silent on that note. The earlier behaviour
+    // (cascade to bank 0) let melodic samples slip through with a
+    // forced root, producing the bell timbre this test exists to
+    // prevent. Silence is unambiguously diagnosable, bells are not.
     for (let p = 0; p < 128; p++) availablePresets.add(`0:${p}`);
 
     const svc = makeService();
     const preset = await svc.getPreset('default', 'drum', 0, 0, 38);
 
-    expect(preset).not.toBeNull();
-    expect(originOf(preset).bank).toBe(0);
+    expect(preset).toBeNull();
   });
 
   test('SF2 with Standard Kit only: kit=25 (TR-808) request returns Standard, NOT Steel Guitar', async () => {
