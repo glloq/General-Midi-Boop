@@ -46,6 +46,18 @@
    *
    * drumKits — drum kits available in this bank on the WAF CDN.
    */
+  // Curated WAF (online CDN) banks. The original menu surfaced seven
+  // banks (FluidR3, GeneralUserGS WAF, JCLive, Aspirin, SBLive, Chaos,
+  // SoundBlasterOld), all online-only. On an offline-first Pi most of
+  // them are dead links; the low-quality entries (Chaos, SoundBlasterOld)
+  // add nothing the built-in SF2 doesn't do better; and GeneralUserGS
+  // WAF was a strict duplicate of the bundled built-in. We keep:
+  //   • FluidR3 — the only WAF bank that exposes all 9 GM drum kits,
+  //     also the SF2-missing self-heal target in SettingsSF2.js;
+  //   • JCLive — distinct timbre + bankIndex 12 drums, used as the
+  //     last-resort drum fallback in MidiSynthesizer._buildDrumPresetEntry.
+  // 3 banks total (built-in + 2) keeps the menu focused without losing
+  // any feature the rest of the codebase depends on.
   const WAF_BANKS = [
     {
       id: 'FluidR3_GM', label: 'FluidR3 GM', suffix: 'FluidR3_GM_sf2_file',
@@ -64,40 +76,10 @@
       ]
     },
     {
-      id: 'GeneralUserGS', label: 'GeneralUser GS (WAF)', suffix: 'GeneralUserGS_sf2_file',
-      quality: 'high', sizeMB: 30, descKey: 'settings.soundBank.banks.GeneralUserGS', reverbMix: 0.12,
-      requiresExternal: true,
-      drumKits: [{ midiProgram: 0, bankIndex: 0, verified: false }]
-    },
-    {
       id: 'JCLive', label: 'JCLive', suffix: 'JCLive_sf2_file',
       quality: 'medium', sizeMB: 26, descKey: 'settings.soundBank.banks.JCLive', reverbMix: 0.10,
       requiresExternal: true,
       drumKits: [{ midiProgram: 0, bankIndex: 12, verified: true }]
-    },
-    {
-      id: 'Aspirin', label: 'Aspirin', suffix: 'Aspirin_sf2_file',
-      quality: 'medium', sizeMB: 17, descKey: 'settings.soundBank.banks.Aspirin', reverbMix: 0.14,
-      requiresExternal: true,
-      drumKits: [{ midiProgram: 0, bankIndex: 0, verified: false }]
-    },
-    {
-      id: 'SBLive', label: 'Sound Blaster Live', suffix: 'SBLive_sf2',
-      quality: 'medium', sizeMB: 12, descKey: 'settings.soundBank.banks.SBLive', reverbMix: 0.14,
-      requiresExternal: true,
-      drumKits: [{ midiProgram: 0, bankIndex: 0, verified: false }]
-    },
-    {
-      id: 'Chaos', label: 'Chaos', suffix: 'Chaos_sf2_file',
-      quality: 'low', sizeMB: 8, descKey: 'settings.soundBank.banks.Chaos', reverbMix: 0.16,
-      requiresExternal: true,
-      drumKits: [{ midiProgram: 0, bankIndex: 0, verified: false }]
-    },
-    {
-      id: 'SoundBlasterOld', label: 'Sound Blaster Old', suffix: 'SoundBlasterOld_sf2',
-      quality: 'low', sizeMB: 5, descKey: 'settings.soundBank.banks.SoundBlasterOld', reverbMix: 0.18,
-      requiresExternal: true,
-      drumKits: [{ midiProgram: 0, bankIndex: 0, verified: false }]
     }
   ];
 
@@ -151,12 +133,11 @@
    * Banks exposed to the rest of the UI:
    *   [ built-in default SF2, ...custom SF2 banks, ...WAF banks ]
    *
-   * The legacy WAF banks (FluidR3, GeneralUserGS WAF, JCLive, Aspirin,
-   * SBLive, Chaos, SoundBlasterOld) are *visible* by default so users
-   * keep their choices, but the **default selection** stays
+   * The curated WAF banks (FluidR3, JCLive) are *visible* by default so
+   * users can opt into them, but the **default selection** stays
    * `sf2:default` (DEFAULT_BANK_ID). No public-CDN request is made
    * until the user actively picks a WAF bank — fulfilling the
-   * "offline-first" rule while not amputating the bank menu.
+   * "offline-first" rule.
    *
    * The `requiresExternal: true` flag on each WAF entry lets the UI
    * surface a warning badge if it wants to.
