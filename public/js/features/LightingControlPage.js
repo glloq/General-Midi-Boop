@@ -379,9 +379,10 @@ class LightingControlPage {
    * bound rules, and offer a shortcut to open their settings.
    */
   /**
-   * Per-instrument tab: one card per `lighting_enabled` instrument with a
-   * generic 5-CC control panel (CC 110-114) driven by the
-   * `instrument_light_*` commands.
+   * Per-instrument tab — compact view: one row per `lighting_enabled`
+   * instrument, with five small chips declaring which CCs the firmware
+   * understands. The matching inline control appears only when its chip
+   * is active. State is driven by the `instrument_light_*` commands.
    */
   async _renderInstrumentList() {
     const host = document.getElementById('lightingInstrumentList');
@@ -401,8 +402,7 @@ class LightingControlPage {
       </div>`;
       return;
     }
-    const esc = (s) => (this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s));
-    const defaults = { brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64 };
+    const defaults = { brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64, supported_mask: 0 };
     host.innerHTML = enabled.map((inst) => {
       const name = inst.custom_name || inst.name || inst.device_id;
       const ch = inst.channel || 0;
@@ -417,60 +417,68 @@ class LightingControlPage {
   _renderLitPanel(deviceId, channel, name, st) {
     const esc = (s) => (this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s));
     const ds = `data-device-id="${esc(deviceId)}" data-channel="${channel}"`;
-    const effects = [
-      'static', 'fade', 'pulse', 'blink', 'rainbow',
-      'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+    const mask = st.supported_mask | 0;
+    const BITS = [
+      { bit: 0x01, cc: 110, field: 'brightness', label: i18n.t('lighting.lit.brightness') || 'Lum.' },
+      { bit: 0x02, cc: 111, field: 'effect',     label: i18n.t('lighting.lit.effect')     || 'Effet' },
+      { bit: 0x04, cc: 112, field: 'hue',        label: i18n.t('lighting.lit.hue')        || 'Couleur' },
+      { bit: 0x08, cc: 113, field: 'speed',      label: i18n.t('lighting.lit.speed')      || 'Vit.' },
+      { bit: 0x10, cc: 114, field: 'intensity',  label: i18n.t('lighting.lit.intensity')  || 'Int.' }
     ];
-    const effOpts = effects.map((key, i) => {
-      const label = i18n.t('lighting.lightEffect.' + key) || key;
-      return `<option value="${i}"${i === st.effect ? ' selected' : ''}>${esc(label)}</option>`;
-    }).join('');
-    const off = st.brightness === 0;
-    const swatch = LightingControlPage._hueToCss(st.hue);
+    const chips = BITS.map((b) => {
+      const on = (mask & b.bit) !== 0;
+      return `<button type="button" class="lit-chip${on ? ' lit-chip--on' : ''}" data-bit="${b.bit}" ${ds}
+        style="font-size:11px;padding:3px 8px;border-radius:12px;border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
+               background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+        <span aria-hidden="true">${on ? '●' : '○'}</span>CC${b.cc} ${esc(b.label)}</button>`;
+    }).join(' ');
+    const controls = BITS
+      .filter((b) => (mask & b.bit) !== 0)
+      .map((b) => this._renderLitControl(b, st, ds))
+      .join('');
     return `
-      <div class="lighting-instrument-card lit-card" ${ds} style="flex-direction:column;align-items:stretch;gap:10px;${off ? 'opacity:0.55;' : ''}">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div class="lighting-instrument-info">
-            <div class="lighting-instrument-name">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${channel + 1}</span></div>
-            <div class="lighting-instrument-sub lit-status">${off ? (i18n.t('lighting.litOff') || 'OFF') : ''}</div>
-          </div>
-          <button class="lighting-btn--outline lighting-btn--outline-yellow"
-                  data-action="openInstrumentSettings"
-                  data-device-id="${esc(deviceId)}" data-channel="${channel}">
-            ⚙️ ${i18n.t('lighting.openSettings') || 'Ouvrir les réglages'}
-          </button>
+      <div class="lighting-instrument-card lit-card" ${ds}
+           style="flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <div class="lighting-instrument-name" style="font-size:13px;">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${channel + 1}</span></div>
+          <div class="lit-chips" style="display:flex;flex-wrap:wrap;gap:4px;">${chips}</div>
         </div>
-
-        <div class="lit-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 14px;border-top:1px solid var(--lt-border,#e5e7eb);padding-top:10px;font-size:12px;">
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span>${i18n.t('lighting.litBrightness') || 'Luminosité'} (CC110): <b class="lit-brightness-val">${st.brightness}</b></span>
-            <input type="range" class="lit-brightness" min="0" max="127" value="${st.brightness}" ${ds}>
-          </label>
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span>${i18n.t('lighting.litEffect') || 'Effet'} (CC111)</span>
-            <select class="lit-effect" ${ds}>${effOpts}</select>
-          </label>
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span>${i18n.t('lighting.litHue') || 'Couleur (HSV)'} (CC112): <b class="lit-hue-val">${st.hue}</b></span>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="lit-hue-swatch" style="display:inline-block;width:20px;height:20px;border-radius:50%;border:1px solid #444;background:${swatch};"></span>
-              <input type="range" class="lit-hue" min="0" max="127" value="${st.hue}" ${ds} style="flex:1;">
-            </div>
-          </label>
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span>${i18n.t('lighting.litSpeed') || 'Vitesse'} (CC113): <b class="lit-speed-val">${st.speed}</b></span>
-            <input type="range" class="lit-speed" min="0" max="127" value="${st.speed}" ${ds}>
-          </label>
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span>${i18n.t('lighting.litIntensity') || 'Intensité'} (CC114): <b class="lit-intensity-val">${st.intensity}</b></span>
-            <input type="range" class="lit-intensity" min="0" max="127" value="${st.intensity}" ${ds}>
-          </label>
-          <div style="display:flex;gap:8px;align-items:flex-end;">
-            <button class="lighting-btn--outline lit-test" ${ds}>✨ ${i18n.t('lighting.litTest') || 'Tester'}</button>
-            <button class="lighting-btn--outline lit-alloff" ${ds}>⏻ ${i18n.t('lighting.litAllOff') || 'Tout éteindre'}</button>
-          </div>
+        <div class="lit-controls" style="display:${controls ? 'grid' : 'none'};grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 12px;font-size:12px;">
+          ${controls}
         </div>
       </div>`;
+  }
+
+  _renderLitControl(b, st, ds) {
+    if (b.field === 'effect') {
+      const effects = [
+        'static', 'fade', 'pulse', 'blink', 'rainbow',
+        'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+      ];
+      const opts = effects.map((key, i) => {
+        const label = i18n.t('lighting.lightEffect.' + key) || key;
+        return `<option value="${i}"${i === st.effect ? ' selected' : ''}>${label}</option>`;
+      }).join('');
+      return `<label style="display:flex;align-items:center;gap:6px;">
+        <span style="opacity:.7;">CC111</span>
+        <select class="lit-effect" ${ds} style="flex:1;">${opts}</select>
+      </label>`;
+    }
+    if (b.field === 'hue') {
+      const swatch = LightingControlPage._hueToCss(st.hue);
+      return `<label style="display:flex;align-items:center;gap:6px;">
+        <span style="opacity:.7;">CC112</span>
+        <span class="lit-hue-swatch" style="display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid #444;background:${swatch};"></span>
+        <input type="range" class="lit-hue" min="0" max="127" value="${st.hue}" ${ds} style="flex:1;">
+        <b class="lit-hue-val" style="min-width:24px;text-align:right;">${st.hue}</b>
+      </label>`;
+    }
+    const cls = `lit-${b.field}`;
+    return `<label style="display:flex;align-items:center;gap:6px;">
+      <span style="opacity:.7;">CC${b.cc}</span>
+      <input type="range" class="${cls}" min="0" max="127" value="${st[b.field]}" ${ds} style="flex:1;">
+      <b class="${cls}-val" style="min-width:24px;text-align:right;">${st[b.field]}</b>
+    </label>`;
   }
 
   _attachLitControlListeners() {
@@ -491,55 +499,46 @@ class LightingControlPage {
       const out = el.closest('label')?.querySelector('.' + cls);
       if (out) out.textContent = el.value;
     };
-    const refreshOff = (el) => {
-      const card = el.closest('.lit-card');
-      if (!card) return;
-      const off = parseInt(card.querySelector('.lit-brightness')?.value || '0', 10) === 0;
-      card.style.opacity = off ? '0.55' : '';
-      const status = card.querySelector('.lit-status');
-      if (status) status.textContent = off ? (i18n.t('lighting.litOff') || 'OFF') : '';
+    const rangeChange = (selector, field, extra) => {
+      host.querySelectorAll(selector).forEach((el) => {
+        el.addEventListener('input', () => {
+          updateLabel(el, selector.slice(1) + '-val');
+          extra?.(el);
+        });
+        el.addEventListener('change', () => setState(el, { [field]: parseInt(el.value, 10) }));
+      });
     };
 
-    host.querySelectorAll('.lit-brightness').forEach((el) => {
-      el.addEventListener('input', () => { updateLabel(el, 'lit-brightness-val'); refreshOff(el); });
-      el.addEventListener('change', () => setState(el, { brightness: parseInt(el.value, 10) }));
+    // Chips: toggle the support bit and let the server push freshly-activated CCs.
+    host.querySelectorAll('.lit-chip').forEach((chip) => {
+      chip.addEventListener('click', async () => {
+        const { deviceId, channel } = target(chip);
+        const bit = parseInt(chip.dataset.bit, 10) || 0;
+        const card = chip.closest('.lit-card');
+        const currentMask = card
+          ? Array.from(card.querySelectorAll('.lit-chip'))
+              .reduce((m, c) => m | (c.classList.contains('lit-chip--on')
+                ? (parseInt(c.dataset.bit, 10) || 0) : 0), 0)
+          : 0;
+        const nextMask = currentMask ^ bit;
+        const res = await this.apiClient
+          .sendCommand('instrument_light_set', {
+            deviceId, channel, state: { supported_mask: nextMask }
+          })
+          .catch(() => null);
+        if (res && res.state) this._renderInstrumentList();
+      });
     });
+
+    rangeChange('.lit-brightness', 'brightness');
     host.querySelectorAll('.lit-effect').forEach((el) =>
       el.addEventListener('change', () => setState(el, { effect: parseInt(el.value, 10) })));
-    host.querySelectorAll('.lit-hue').forEach((el) => {
-      el.addEventListener('input', () => {
-        updateLabel(el, 'lit-hue-val');
-        const swatch = el.closest('label')?.querySelector('.lit-hue-swatch');
-        if (swatch) swatch.style.background = LightingControlPage._hueToCss(parseInt(el.value, 10));
-      });
-      el.addEventListener('change', () => setState(el, { hue: parseInt(el.value, 10) }));
+    rangeChange('.lit-hue', 'hue', (el) => {
+      const swatch = el.closest('label')?.querySelector('.lit-hue-swatch');
+      if (swatch) swatch.style.background = LightingControlPage._hueToCss(parseInt(el.value, 10));
     });
-    host.querySelectorAll('.lit-speed').forEach((el) => {
-      el.addEventListener('input', () => updateLabel(el, 'lit-speed-val'));
-      el.addEventListener('change', () => setState(el, { speed: parseInt(el.value, 10) }));
-    });
-    host.querySelectorAll('.lit-intensity').forEach((el) => {
-      el.addEventListener('input', () => updateLabel(el, 'lit-intensity-val'));
-      el.addEventListener('change', () => setState(el, { intensity: parseInt(el.value, 10) }));
-    });
-    host.querySelectorAll('.lit-test').forEach((el) =>
-      el.addEventListener('click', () => {
-        const { deviceId, channel } = target(el);
-        this.apiClient.sendCommand('instrument_light_test', { deviceId, channel }).catch(() => {});
-      }));
-    host.querySelectorAll('.lit-alloff').forEach((el) =>
-      el.addEventListener('click', async () => {
-        const { deviceId, channel } = target(el);
-        await this.apiClient.sendCommand('instrument_light_all_off', { deviceId, channel })
-          .catch(() => {});
-        const card = el.closest('.lit-card');
-        const slider = card?.querySelector('.lit-brightness');
-        if (slider) {
-          slider.value = '0';
-          updateLabel(slider, 'lit-brightness-val');
-          refreshOff(slider);
-        }
-      }));
+    rangeChange('.lit-speed', 'speed');
+    rangeChange('.lit-intensity', 'intensity');
   }
 
   /** HSV hue 0-127 → CSS color string. Static so it can run in tests. */

@@ -1273,14 +1273,13 @@
     "oneRule": "1 règle",
     "rulesCount": "règles",
     "openSettings": "Ouvrir les réglages",
-    "litOff": "OFF",
-    "litBrightness": "Luminosité",
-    "litEffect": "Effet",
-    "litHue": "Couleur (HSV)",
-    "litSpeed": "Vitesse",
-    "litIntensity": "Intensité",
-    "litTest": "Tester",
-    "litAllOff": "Tout éteindre",
+    "lit": {
+      "brightness": "Lum.",
+      "effect": "Effet",
+      "hue": "Couleur",
+      "speed": "Vit.",
+      "intensity": "Int."
+    },
     "lightEffect": {
       "static": "Statique",
       "fade": "Fondu",
