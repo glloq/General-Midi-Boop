@@ -165,6 +165,12 @@ class MidiSynthesizer {
   // mysteriously wrong-sounding drums.
   static GM_DRUM_KIT_PROGRAMS = new Set([0, 8, 16, 24, 25, 32, 40, 48, 56]);
 
+  // Diagnostic toggle: when true, every drum preset load is logged to
+  // the DevTools console with its materialised tuning + sample shape.
+  // Off by default (zero runtime cost). Enable via the console with
+  // `window.MidiSynthesizer.DEBUG_DRUMS = true` then play drum notes.
+  static DEBUG_DRUMS = false;
+
   // SF2 preset fetch latency threshold (ms) before the loading toast
   // becomes visible. Sized to clear the L1/L2 hit envelope (< 100 ms)
   // and avoid flicker for warm reloads, while still appearing quickly
@@ -1186,6 +1192,24 @@ class MidiSynthesizer {
           return null;
         }
         this._materialiseSF2Preset(preset, note);
+        // Diagnostic: log the materialised tuning + sample shape for
+        // EACH drum preset on first load. Lets the user spot a mis-
+        // tagged zone (e.g. snare zone with originalPitch=60 that
+        // should have been forced to 38) without enabling server-side
+        // env vars. Disabled by default — toggle via the DevTools
+        // console: `window.MidiSynthesizer.DEBUG_DRUMS = true;` and
+        // reload. Off in production = zero overhead.
+        if (MidiSynthesizer.DEBUG_DRUMS) {
+          for (const z of preset.zones || []) {
+            // eslint-disable-next-line no-console
+            console.info(
+              `[drum] kit=${kit} note=${note} ` +
+              `range=[${z.keyRangeLow}-${z.keyRangeHigh}] ` +
+              `origPitch=${z.originalPitch} coarse=${z.coarseTune} fine=${z.fineTune} ` +
+              `sampleLen=${z.buffer?.length} sr=${z.sampleRate}`
+            );
+          }
+        }
         this.drumPresets.set(cacheKey, preset);
         return preset;
       })
@@ -1270,18 +1294,19 @@ class MidiSynthesizer {
       });
     }
 
-    // Live preview (no sequence loaded): we used to eagerly fetch all 47
-    // GM percussion notes (35-81) here, but that's wasteful — most kits
-    // only contain a handful of notes, and the user typically plays
-    // ≤10 different drums in a session. Skip the bulk preload; the
-    // lazy-load branch in `playNote` (channel 9, no preset cached) will
-    // fetch each note on first press. ensureDrumKitReady() now resolves
-    // immediately on cold start so UI handlers don't block waiting for
-    // a preload that no longer happens.
+    // Live preview (no sequence loaded): preload the "common 25" GM
+    // drum notes that cover a typical drum-kit workflow — kicks, snares,
+    // toms, hi-hat, cymbals, hand-claps, cowbell. The remaining 22 GM
+    // percussion notes (60-81: bongos, congas, agogos, claves, etc.)
+    // stay lazy: the playNote ch-9 miss branch fetches them on first
+    // press. This compromise kills the per-key click-lag introduced by
+    // fully-lazy mode while still saving ~half the eager requests.
     if (usedNotes.size === 0) {
-      this.log('info', `Drum kit ${kit} ready (lazy mode, no preload — bank: ${this.currentBankId})`);
-      this.drumKit = true; // signal "kit chosen" so legacy callers don't re-trigger
-      return;
+      const COMMON_DRUMS = [
+        35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+        49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59
+      ];
+      for (const n of COMMON_DRUMS) usedNotes.add(n);
     }
 
     this.log(
