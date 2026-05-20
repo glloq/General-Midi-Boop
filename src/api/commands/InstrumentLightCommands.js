@@ -4,11 +4,12 @@
  * subsystem. Persistence + runtime live in {@link InstrumentLightManager}.
  *
  * Registered commands:
- *   - instrument_light_get        — current 5-CC state for one instrument
- *   - instrument_light_set        — patch the state and emit the CC diffs
- *   - instrument_light_list       — every persisted state
- *   - instrument_light_test       — briefly flash the LEDs
- *   - instrument_light_all_off    — send CC 110 = 0
+ *   - instrument_light_get            — current 5-CC state for one instrument
+ *   - instrument_light_set            — patch the CC values (supported_mask is ignored)
+ *   - instrument_light_set_supported  — edit the supported-CC catalogue (instrument settings only)
+ *   - instrument_light_list           — every persisted state
+ *   - instrument_light_test           — briefly flash the LEDs
+ *   - instrument_light_all_off        — send CC 110 = 0
  */
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 import { requireField } from '../../utils/ValidationUtils.js';
@@ -46,6 +47,38 @@ function instrumentLightSet(app, data) {
   };
 }
 
+function instrumentLightSetSupported(app, data) {
+  const { deviceId, channel } = resolveTarget(data);
+  const patch = {};
+  if (data.supported_mask !== undefined) {
+    if (!Number.isInteger(data.supported_mask) || data.supported_mask < 0 || data.supported_mask > 31) {
+      throw new ValidationError('supported_mask must be an integer 0-31', 'supported_mask');
+    }
+    patch.supported_mask = data.supported_mask;
+  }
+  if (data.brightness_mode !== undefined) {
+    if (data.brightness_mode !== 0 && data.brightness_mode !== 1) {
+      throw new ValidationError('brightness_mode must be 0 (on/off) or 1 (dimmable)', 'brightness_mode');
+    }
+    patch.brightness_mode = data.brightness_mode;
+  }
+  if (data.supported_effects !== undefined) {
+    if (!Number.isInteger(data.supported_effects) || data.supported_effects < 0 || data.supported_effects > 1023) {
+      throw new ValidationError('supported_effects must be an integer 0-1023', 'supported_effects');
+    }
+    patch.supported_effects = data.supported_effects;
+  }
+  if (Object.keys(patch).length === 0) {
+    throw new ValidationError(
+      'at least one of supported_mask / brightness_mode / supported_effects is required'
+    );
+  }
+  return {
+    success: true,
+    state: requireManager(app).setSupported(deviceId, channel, patch)
+  };
+}
+
 function instrumentLightList(app) {
   return { success: true, instruments: requireManager(app).listStates() };
 }
@@ -68,6 +101,7 @@ function instrumentLightAllOff(app, data) {
 export function register(registry, app) {
   registry.register('instrument_light_get', (data) => instrumentLightGet(app, data));
   registry.register('instrument_light_set', (data) => instrumentLightSet(app, data));
+  registry.register('instrument_light_set_supported', (data) => instrumentLightSetSupported(app, data));
   registry.register('instrument_light_list', () => instrumentLightList(app));
   registry.register('instrument_light_test', (data) => instrumentLightTest(app, data));
   registry.register('instrument_light_all_off', (data) => instrumentLightAllOff(app, data));

@@ -2591,12 +2591,19 @@
     ];
   };
 
-  ISMListeners._renderCcChips = function (mask) {
+  ISMListeners._ilcEffectKeys = function () {
+    return [
+      'static', 'fade', 'pulse', 'blink', 'rainbow',
+      'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+    ];
+  };
+
+  ISMListeners._renderCcChips = function (state) {
     const host = this.$('#ilcCcChips');
     if (!host) return;
-    const m = mask | 0;
+    const mask = (state && state.supported_mask | 0) || 0;
     host.innerHTML = this._ilcCcChipsBits().map((b) => {
-      const on = (m & b.bit) !== 0;
+      const on = (mask & b.bit) !== 0;
       return `<button type="button" class="ilc-cc-chip" data-bit="${b.bit}"
         style="font-size:12px;padding:4px 10px;border-radius:14px;
                border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
@@ -2609,6 +2616,59 @@
     host.querySelectorAll('.ilc-cc-chip').forEach((chip) => {
       chip.addEventListener('click', function () { self._toggleCcChip(this); });
     });
+    this._renderCcDetails(state);
+  };
+
+  ISMListeners._renderCcDetails = function (state) {
+    const host = this.$('#ilcCcDetails');
+    if (!host) return;
+    const mask = (state && state.supported_mask | 0) || 0;
+    const bMode = state && state.brightness_mode !== undefined ? (state.brightness_mode | 0) : 1;
+    const fx = state && state.supported_effects !== undefined && state.supported_effects !== null
+      ? (state.supported_effects | 0) : 0x3FF;
+    const blocks = [];
+    if (mask & 0x01) {
+      const t = (k, d) => this.t(k) || d;
+      blocks.push(`
+        <div class="ism-form-group" style="margin:6px 0;">
+          <strong style="font-size:12px;">CC110 — ${t('instrumentSettings.lumiereCcModeTitle', 'Mode')} :</strong>
+          <label style="display:inline-flex;align-items:center;gap:4px;margin-left:10px;font-size:12px;cursor:pointer;">
+            <input type="radio" name="ilcBMode" class="ilc-bmode" value="0"${bMode === 0 ? ' checked' : ''}>
+            ${t('instrumentSettings.lumiereCcModeOnOff', 'On/Off (relais)')}
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;margin-left:10px;font-size:12px;cursor:pointer;">
+            <input type="radio" name="ilcBMode" class="ilc-bmode" value="1"${bMode === 1 ? ' checked' : ''}>
+            ${t('instrumentSettings.lumiereCcModeDimmable', 'Variable (0-127)')}
+          </label>
+        </div>`);
+    }
+    if (mask & 0x02) {
+      const t = (k, d) => this.t(k) || d;
+      const items = this._ilcEffectKeys().map((key, i) => {
+        const on = (fx & (1 << i)) !== 0;
+        const label = this.t('lighting.lightEffect.' + key) || key;
+        return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" class="ilc-fx" data-fx-bit="${1 << i}"${on ? ' checked' : ''}>
+          ${this.escape(label)}
+        </label>`;
+      }).join('');
+      blocks.push(`
+        <div class="ism-form-group" style="margin:6px 0;">
+          <strong style="font-size:12px;display:block;margin-bottom:4px;">CC111 — ${t('instrumentSettings.lumiereCcEffectsTitle', 'Effets supportés')} :</strong>
+          <div style="display:flex;flex-wrap:wrap;gap:6px 14px;">${items}</div>
+        </div>`);
+    }
+    host.innerHTML = blocks.join('');
+    host.style.display = blocks.length ? '' : 'none';
+    const self = this;
+    host.querySelectorAll('.ilc-bmode').forEach((el) =>
+      el.addEventListener('change', function () {
+        self._patchCapabilities({ brightness_mode: parseInt(this.value, 10) | 0 });
+      }));
+    host.querySelectorAll('.ilc-fx').forEach((el) =>
+      el.addEventListener('change', function () {
+        self._patchCapabilities({ supported_effects: self._currentEffectsFromDom() });
+      }));
   };
 
   ISMListeners._currentMaskFromDom = function () {
@@ -2621,43 +2681,55 @@
     }, 0);
   };
 
-  ISMListeners._toggleCcChip = async function (chip) {
+  ISMListeners._currentEffectsFromDom = function () {
+    const host = this.$('#ilcCcDetails');
+    if (!host) return 0;
+    return Array.from(host.querySelectorAll('.ilc-fx')).reduce((m, c) => {
+      const bit = parseInt(c.dataset.fxBit, 10) || 0;
+      return c.checked ? (m | bit) : m;
+    }, 0);
+  };
+
+  ISMListeners._patchCapabilities = async function (patch) {
     if (!this.api || !this.device) return;
     const tab = this._getActiveTab();
     if (!tab) return;
-    const bit = parseInt(chip.dataset.bit, 10) || 0;
-    const next = this._currentMaskFromDom() ^ bit;
     const res = await this.api
-      .sendCommand('instrument_light_set', {
+      .sendCommand('instrument_light_set_supported', {
         deviceId: this.device.id,
         channel: tab.channel,
-        state: { supported_mask: next }
+        ...patch
       })
       .catch(() => null);
-    const applied = res && res.state ? (res.state.supported_mask | 0) : next;
-    this._renderCcChips(applied);
+    if (res && res.state) this._renderCcChips(res.state);
+  };
+
+  ISMListeners._toggleCcChip = async function (chip) {
+    const bit = parseInt(chip.dataset.bit, 10) || 0;
+    const next = this._currentMaskFromDom() ^ bit;
+    await this._patchCapabilities({ supported_mask: next });
   };
 
   ISMListeners._attachLumiereSectionListeners = async function () {
     if (!this.$('#ilcCcChips')) return;
     if (!this.api || !this.device) {
-      this._renderCcChips(0);
+      this._renderCcChips({});
       return;
     }
     const tab = this._getActiveTab();
     if (!tab) {
-      this._renderCcChips(0);
+      this._renderCcChips({});
       return;
     }
-    let mask = 0;
+    let state = {};
     try {
       const res = await this.api.sendCommand('instrument_light_get', {
         deviceId: this.device.id,
         channel: tab.channel
       });
-      if (res && res.state) mask = res.state.supported_mask | 0;
-    } catch (e) { /* fall through with mask = 0 */ }
-    this._renderCcChips(mask);
+      if (res && res.state) state = res.state;
+    } catch (e) { /* fall through with empty state */ }
+    this._renderCcChips(state);
   };
 
   if (typeof window !== 'undefined') window.ISMListeners = ISMListeners;

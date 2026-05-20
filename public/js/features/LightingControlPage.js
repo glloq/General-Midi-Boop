@@ -402,7 +402,10 @@ class LightingControlPage {
       </div>`;
       return;
     }
-    const defaults = { brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64, supported_mask: 0 };
+    const defaults = {
+      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64,
+      supported_mask: 0, brightness_mode: 1, supported_effects: 0x3FF
+    };
     host.innerHTML = enabled.map((inst) => {
       const name = inst.custom_name || inst.name || inst.device_id;
       const ch = inst.channel || 0;
@@ -418,6 +421,8 @@ class LightingControlPage {
     const esc = (s) => (this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s));
     const ds = `data-device-id="${esc(deviceId)}" data-channel="${channel}"`;
     const mask = st.supported_mask | 0;
+    const editHint = i18n.t('lighting.litChipReadOnly')
+      || 'Modifier dans les réglages de l\'instrument';
     const BITS = [
       { bit: 0x01, cc: 110, field: 'brightness', label: i18n.t('lighting.lit.brightness') || 'Lum.' },
       { bit: 0x02, cc: 111, field: 'effect',     label: i18n.t('lighting.lit.effect')     || 'Effet' },
@@ -425,24 +430,38 @@ class LightingControlPage {
       { bit: 0x08, cc: 113, field: 'speed',      label: i18n.t('lighting.lit.speed')      || 'Vit.' },
       { bit: 0x10, cc: 114, field: 'intensity',  label: i18n.t('lighting.lit.intensity')  || 'Int.' }
     ];
+    // Chips are purely informative here: capabilities are edited in the
+    // instrument settings modal (single source of truth). The ⚙ button
+    // on the right of the row jumps there.
     const chips = BITS.map((b) => {
       const on = (mask & b.bit) !== 0;
-      return `<button type="button" class="lit-chip${on ? ' lit-chip--on' : ''}" data-bit="${b.bit}" ${ds}
+      return `<span class="lit-chip${on ? ' lit-chip--on' : ''}" title="${esc(editHint)}"
         style="font-size:11px;padding:3px 8px;border-radius:12px;border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
-               background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-        <span aria-hidden="true">${on ? '●' : '○'}</span>CC${b.cc} ${esc(b.label)}</button>`;
+               background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;cursor:default;display:inline-flex;align-items:center;gap:4px;">
+        <span aria-hidden="true">${on ? '●' : '○'}</span>CC${b.cc} ${esc(b.label)}</span>`;
     }).join(' ');
     const controls = BITS
       .filter((b) => (mask & b.bit) !== 0)
       .map((b) => this._renderLitControl(b, st, ds))
       .join('');
+    const emptyHint = mask === 0
+      ? `<p class="lighting-instrument-sub" style="opacity:.75;margin:4px 0 0;">${esc(i18n.t('lighting.litNoCcDeclared') || 'Aucun CC déclaré pour cet instrument. Activez les CC supportés dans les réglages de l\'instrument.')}</p>`
+      : '';
     return `
       <div class="lighting-instrument-card lit-card" ${ds}
            style="flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
           <div class="lighting-instrument-name" style="font-size:13px;">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${channel + 1}</span></div>
-          <div class="lit-chips" style="display:flex;flex-wrap:wrap;gap:4px;">${chips}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div class="lit-chips" style="display:flex;flex-wrap:wrap;gap:4px;">${chips}</div>
+            <button class="lighting-btn--outline lighting-btn--outline-yellow"
+                    data-action="openInstrumentSettings"
+                    data-device-id="${esc(deviceId)}" data-channel="${channel}"
+                    title="${esc(i18n.t('lighting.openSettingsTooltip') || 'Modifier les capacités dans les réglages de l\'instrument')}"
+                    style="padding:3px 8px;font-size:11px;">⚙️</button>
+          </div>
         </div>
+        ${emptyHint}
         <div class="lit-controls" style="display:${controls ? 'grid' : 'none'};grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 12px;font-size:12px;">
           ${controls}
         </div>
@@ -450,18 +469,41 @@ class LightingControlPage {
   }
 
   _renderLitControl(b, st, ds) {
+    if (b.field === 'brightness' && (st.brightness_mode | 0) === 0) {
+      // On/off relay firmware: render a single toggle button that sends
+      // CC 110 = 0 or 127 instead of a continuous slider.
+      const on = (st.brightness | 0) > 0;
+      return `<label style="display:flex;align-items:center;gap:6px;">
+        <span style="opacity:.7;">CC110</span>
+        <button type="button" class="lit-brightness-toggle ${on ? 'is-on' : ''}" ${ds}
+          aria-pressed="${on ? 'true' : 'false'}"
+          style="flex:1;padding:4px 10px;border-radius:14px;cursor:pointer;
+                 border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
+                 background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;">
+          ${on ? (i18n.t('lighting.litOnOffOn') || 'ON') : (i18n.t('lighting.litOnOffOff') || 'OFF')}
+        </button>
+      </label>`;
+    }
     if (b.field === 'effect') {
       const effects = [
         'static', 'fade', 'pulse', 'blink', 'rainbow',
         'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
       ];
-      const opts = effects.map((key, i) => {
-        const label = i18n.t('lighting.lightEffect.' + key) || key;
-        return `<option value="${i}"${i === st.effect ? ' selected' : ''}>${label}</option>`;
-      }).join('');
+      const fxMask = st.supported_effects === undefined || st.supported_effects === null
+        ? 0x3FF : (st.supported_effects | 0);
+      const opts = effects
+        .map((key, i) => ({ key, i }))
+        .filter(({ i }) => (fxMask & (1 << i)) !== 0)
+        .map(({ key, i }) => {
+          const label = i18n.t('lighting.lightEffect.' + key) || key;
+          return `<option value="${i}"${i === st.effect ? ' selected' : ''}>${label}</option>`;
+        }).join('');
+      const empty = opts.length === 0;
       return `<label style="display:flex;align-items:center;gap:6px;">
         <span style="opacity:.7;">CC111</span>
-        <select class="lit-effect" ${ds} style="flex:1;">${opts}</select>
+        <select class="lit-effect" ${ds} style="flex:1;"${empty ? ' disabled' : ''}>${
+          empty ? `<option>${i18n.t('lighting.litNoEffects') || 'Aucun effet déclaré'}</option>` : opts
+        }</select>
       </label>`;
     }
     if (b.field === 'hue') {
@@ -509,28 +551,24 @@ class LightingControlPage {
       });
     };
 
-    // Chips: toggle the support bit and let the server push freshly-activated CCs.
-    host.querySelectorAll('.lit-chip').forEach((chip) => {
-      chip.addEventListener('click', async () => {
-        const { deviceId, channel } = target(chip);
-        const bit = parseInt(chip.dataset.bit, 10) || 0;
-        const card = chip.closest('.lit-card');
-        const currentMask = card
-          ? Array.from(card.querySelectorAll('.lit-chip'))
-              .reduce((m, c) => m | (c.classList.contains('lit-chip--on')
-                ? (parseInt(c.dataset.bit, 10) || 0) : 0), 0)
-          : 0;
-        const nextMask = currentMask ^ bit;
-        const res = await this.apiClient
-          .sendCommand('instrument_light_set', {
-            deviceId, channel, state: { supported_mask: nextMask }
-          })
-          .catch(() => null);
-        if (res && res.state) this._renderInstrumentList();
-      });
-    });
+    // Chips are read-only here — the supported_mask is edited in the
+    // instrument settings modal. The ⚙ button (data-action="openInstrumentSettings")
+    // is already wired by the page-level data-action delegation.
 
     rangeChange('.lit-brightness', 'brightness');
+    host.querySelectorAll('.lit-brightness-toggle').forEach((el) =>
+      el.addEventListener('click', () => {
+        const isOn = el.classList.contains('is-on');
+        const next = isOn ? 0 : 127;
+        el.classList.toggle('is-on', !isOn);
+        el.setAttribute('aria-pressed', String(!isOn));
+        el.textContent = !isOn
+          ? (i18n.t('lighting.litOnOffOn') || 'ON')
+          : (i18n.t('lighting.litOnOffOff') || 'OFF');
+        el.style.background = !isOn ? 'rgba(16,185,129,0.15)' : 'transparent';
+        el.style.borderColor = !isOn ? '#10b981' : 'var(--lt-border,#d1d5db)';
+        setState(el, { brightness: next });
+      }));
     host.querySelectorAll('.lit-effect').forEach((el) =>
       el.addEventListener('change', () => setState(el, { effect: parseInt(el.value, 10) })));
     rangeChange('.lit-hue', 'hue', (el) => {

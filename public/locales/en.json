@@ -1081,6 +1081,10 @@
       "speed": "Effect animation speed (0-127).",
       "intensity": "Effect intensity / variation (0-127)."
     },
+    "lumiereCcModeTitle": "Mode",
+    "lumiereCcModeOnOff": "On/Off (relay)",
+    "lumiereCcModeDimmable": "Dimmable (0-127)",
+    "lumiereCcEffectsTitle": "Supported effects",
     "lumiereSectionHint": "This instrument's MIDI messages drive the lighting via the rules below. The condition picks which messages turn the light on; the action picks the behaviour.",
     "lumiereTargetDevice": "Target lighting device",
     "lumiereRules": "MIDI → lighting rules for this instrument",
@@ -1288,6 +1292,12 @@
     "oneRule": "1 rule",
     "rulesCount": "rules",
     "openSettings": "Open settings",
+    "openSettingsTooltip": "Edit capabilities in the instrument settings",
+    "litChipReadOnly": "Edit in the instrument settings",
+    "litNoCcDeclared": "No CC declared for this instrument. Activate the supported CCs in the instrument settings.",
+    "litNoEffects": "No effect declared",
+    "litOnOffOn": "ON",
+    "litOnOffOff": "OFF",
     "lit": {
       "brightness": "Bright.",
       "effect": "Effect",

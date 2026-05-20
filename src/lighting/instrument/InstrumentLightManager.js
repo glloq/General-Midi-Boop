@@ -64,13 +64,23 @@ class InstrumentLightManager {
         deviceManager: this.deviceManager,
         logger: this.logger,
         state: row,
-        supportedMask: row?.supported_mask
+        supportedMask: row?.supported_mask,
+        brightnessMode: row?.brightness_mode,
+        supportedEffects: row?.supported_effects
       });
       this.controllers.set(key, ctrl);
     } else if (row) {
       ctrl.state = CC.normalizeState(row);
       if (row.supported_mask !== undefined) {
         ctrl.supportedMask = (row.supported_mask | 0) & CC.MASK_ALL;
+      }
+      if (row.brightness_mode !== undefined) {
+        ctrl.brightnessMode = row.brightness_mode === CC.BRIGHTNESS_MODE.ON_OFF
+          ? CC.BRIGHTNESS_MODE.ON_OFF
+          : CC.BRIGHTNESS_MODE.DIMMABLE;
+      }
+      if (row.supported_effects !== undefined && row.supported_effects !== null) {
+        ctrl.supportedEffects = (row.supported_effects | 0) & CC.EFFECTS_ALL;
       }
     }
     return ctrl;
@@ -90,14 +100,26 @@ class InstrumentLightManager {
 
   // ---- API surface --------------------------------------------------------
 
+  _capabilityFields(row) {
+    return {
+      supported_mask: (row?.supported_mask | 0) & CC.MASK_ALL,
+      brightness_mode: row && row.brightness_mode !== undefined && row.brightness_mode !== null
+        ? (row.brightness_mode === CC.BRIGHTNESS_MODE.ON_OFF
+            ? CC.BRIGHTNESS_MODE.ON_OFF : CC.BRIGHTNESS_MODE.DIMMABLE)
+        : CC.BRIGHTNESS_MODE.DIMMABLE,
+      supported_effects: row && row.supported_effects !== undefined && row.supported_effects !== null
+        ? (row.supported_effects | 0) & CC.EFFECTS_ALL
+        : CC.EFFECTS_ALL
+    };
+  }
+
   /** Read the persisted state (+ master enable flag) for one instrument. */
   getState(deviceId, channel = 0) {
     const stored = this.database.getInstrumentLightState(deviceId, channel | 0);
     const state = CC.normalizeState(stored || CC.defaultState());
-    const supported_mask = (stored?.supported_mask | 0) & CC.MASK_ALL;
     return {
       ...state,
-      supported_mask,
+      ...this._capabilityFields(stored),
       master_enabled: this._isMasterEnabled(deviceId, channel)
     };
   }
@@ -113,41 +135,90 @@ class InstrumentLightManager {
       hue: r.hue,
       speed: r.speed,
       intensity: r.intensity,
-      supported_mask: (r.supported_mask | 0) & CC.MASK_ALL,
+      ...this._capabilityFields(r),
       master_enabled: this._isMasterEnabled(r.device_id, r.channel)
     }));
   }
 
   /**
-   * Merge a partial state, persist, and send the resulting CC diffs (the
-   * controller already filters by `supported_mask`). When the patch
-   * itself updates `supported_mask`, the freshly-supported CCs are
-   * pushed with their current value. Returns the resulting full state.
+   * Merge a partial state (CC values only) and emit the resulting CC
+   * diffs. `supported_mask`, `brightness_mode` and `supported_effects`
+   * are intentionally **dropped** from the patch: capability fields are
+   * edited exclusively in the instrument settings modal via
+   * {@link setSupported}.
    */
   setState(deviceId, channel, partial) {
     const ctrl = this._controllerFor(deviceId, channel);
-    const patch = partial || {};
+    const patch = { ...(partial || {}) };
+    delete patch.supported_mask;
+    delete patch.brightness_mode;
+    delete patch.supported_effects;
     const next = CC.normalizeState({ ...ctrl.state, ...patch });
-    const newMask = patch.supported_mask !== undefined
-      ? ((patch.supported_mask | 0) & CC.MASK_ALL)
-      : ctrl.supportedMask;
-
-    this.database.saveInstrumentLightState(deviceId, channel | 0, {
-      ...next,
-      supported_mask: newMask
-    });
 
     if (this._isMasterEnabled(deviceId, channel)) {
-      if (patch.supported_mask !== undefined) ctrl.setSupportedMask(newMask);
       ctrl.apply(next);
     } else {
       ctrl.state = next;
-      if (patch.supported_mask !== undefined) ctrl.supportedMask = newMask;
     }
+    this.database.saveInstrumentLightState(deviceId, channel | 0, {
+      ...ctrl.state,
+      supported_mask: ctrl.supportedMask,
+      brightness_mode: ctrl.brightnessMode,
+      supported_effects: ctrl.supportedEffects
+    });
     return {
-      ...next,
-      supported_mask: newMask,
+      ...ctrl.state,
+      supported_mask: ctrl.supportedMask,
+      brightness_mode: ctrl.brightnessMode,
+      supported_effects: ctrl.supportedEffects,
       master_enabled: this._isMasterEnabled(deviceId, channel)
+    };
+  }
+
+  /**
+   * Edit the capability fields (instrument-settings-only path). Each
+   * field is optional in the patch — only the ones present are touched.
+   * @param {string} deviceId
+   * @param {number} channel
+   * @param {{supported_mask?:number, brightness_mode?:number, supported_effects?:number}} patch
+   */
+  setSupported(deviceId, channel, patch = {}) {
+    const ctrl = this._controllerFor(deviceId, channel);
+    const enabled = this._isMasterEnabled(deviceId, channel);
+
+    if (patch.supported_mask !== undefined) {
+      const newMask = (patch.supported_mask | 0) & CC.MASK_ALL;
+      if (enabled) ctrl.setSupportedMask(newMask);
+      else ctrl.supportedMask = newMask;
+    }
+    const metaPatch = {};
+    if (patch.brightness_mode !== undefined) metaPatch.brightnessMode = patch.brightness_mode;
+    if (patch.supported_effects !== undefined) metaPatch.supportedEffects = patch.supported_effects;
+    if (Object.keys(metaPatch).length > 0) {
+      if (enabled) ctrl.setMeta(metaPatch);
+      else {
+        if (metaPatch.brightnessMode !== undefined) {
+          ctrl.brightnessMode = metaPatch.brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
+            ? CC.BRIGHTNESS_MODE.ON_OFF : CC.BRIGHTNESS_MODE.DIMMABLE;
+        }
+        if (metaPatch.supportedEffects !== undefined) {
+          ctrl.supportedEffects = (metaPatch.supportedEffects | 0) & CC.EFFECTS_ALL;
+        }
+      }
+    }
+
+    this.database.saveInstrumentLightState(deviceId, channel | 0, {
+      ...ctrl.state,
+      supported_mask: ctrl.supportedMask,
+      brightness_mode: ctrl.brightnessMode,
+      supported_effects: ctrl.supportedEffects
+    });
+    return {
+      ...ctrl.state,
+      supported_mask: ctrl.supportedMask,
+      brightness_mode: ctrl.brightnessMode,
+      supported_effects: ctrl.supportedEffects,
+      master_enabled: enabled
     };
   }
 
@@ -165,7 +236,12 @@ class InstrumentLightManager {
   allOff(deviceId, channel = 0) {
     const ctrl = this._controllerFor(deviceId, channel);
     ctrl.off();
-    this.database.saveInstrumentLightState(deviceId, channel | 0, ctrl.state);
+    this.database.saveInstrumentLightState(deviceId, channel | 0, {
+      ...ctrl.state,
+      supported_mask: ctrl.supportedMask,
+      brightness_mode: ctrl.brightnessMode,
+      supported_effects: ctrl.supportedEffects
+    });
     return true;
   }
 

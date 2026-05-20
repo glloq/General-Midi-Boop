@@ -18,13 +18,19 @@ class InstrumentLightController {
    * @param {Object} [opts.state]
    * @param {number} [opts.supportedMask=0] - which CC bits the device understands
    */
-  constructor({ deviceId, channel, deviceManager, logger, state, supportedMask }) {
+  constructor({ deviceId, channel, deviceManager, logger, state, supportedMask, brightnessMode, supportedEffects }) {
     this.deviceId = deviceId;
     this.channel = channel | 0;
     this.deviceManager = deviceManager;
     this.logger = logger;
     this.state = CC.normalizeState(state);
     this.supportedMask = (supportedMask | 0) & CC.MASK_ALL;
+    this.brightnessMode = brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
+      ? CC.BRIGHTNESS_MODE.ON_OFF
+      : CC.BRIGHTNESS_MODE.DIMMABLE;
+    this.supportedEffects = supportedEffects === undefined || supportedEffects === null
+      ? CC.EFFECTS_ALL
+      : (supportedEffects | 0) & CC.EFFECTS_ALL;
   }
 
   _send(msg) {
@@ -35,17 +41,22 @@ class InstrumentLightController {
     }
   }
 
-  /** Merge `partial` into state and emit the supported CCs that changed. */
+  /**
+   * Merge `partial` into state and emit the supported CCs that changed.
+   * Brightness is snapped to 0/127 when the firmware is wired on/off.
+   */
   apply(partial) {
-    const next = CC.normalizeState({ ...this.state, ...partial });
-    for (const m of CC.messagesForDiff(this.channel, this.state, next, this.supportedMask)) {
+    const merged = CC.normalizeState({ ...this.state, ...partial });
+    merged.brightness = CC.snapBrightness(merged.brightness, this.brightnessMode);
+    for (const m of CC.messagesForDiff(this.channel, this.state, merged, this.supportedMask)) {
       this._send(m);
     }
-    this.state = next;
+    this.state = merged;
   }
 
   /** Emit the current value of every supported CC (used on activation). */
   pushAll() {
+    this.state.brightness = CC.snapBrightness(this.state.brightness, this.brightnessMode);
     for (const m of CC.messagesFor(this.channel, this.state, this.supportedMask)) {
       this._send(m);
     }
@@ -61,7 +72,29 @@ class InstrumentLightController {
     const newly = next & ~prev;
     this.supportedMask = next;
     if (newly !== 0) {
+      this.state.brightness = CC.snapBrightness(this.state.brightness, this.brightnessMode);
       for (const m of CC.messagesFor(this.channel, this.state, newly)) this._send(m);
+    }
+  }
+
+  /**
+   * Replace the extra capability metadata. When `brightnessMode` flips
+   * to on/off, the current brightness is re-snapped (and CC110 re-sent
+   * if it changed).
+   */
+  setMeta({ brightnessMode, supportedEffects } = {}) {
+    if (brightnessMode !== undefined) {
+      const prev = this.brightnessMode;
+      this.brightnessMode = brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
+        ? CC.BRIGHTNESS_MODE.ON_OFF
+        : CC.BRIGHTNESS_MODE.DIMMABLE;
+      if (prev !== this.brightnessMode) {
+        const snapped = CC.snapBrightness(this.state.brightness, this.brightnessMode);
+        if (snapped !== this.state.brightness) this.apply({ brightness: snapped });
+      }
+    }
+    if (supportedEffects !== undefined) {
+      this.supportedEffects = (supportedEffects | 0) & CC.EFFECTS_ALL;
     }
   }
 
