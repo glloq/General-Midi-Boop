@@ -421,68 +421,104 @@ class LightingControlPage {
     const esc = (s) => (this._escapeHtml ? this._escapeHtml(s) : String(s == null ? '' : s));
     const ds = `data-device-id="${esc(deviceId)}" data-channel="${channel}"`;
     const mask = st.supported_mask | 0;
-    const editHint = i18n.t('lighting.litChipReadOnly')
-      || 'Modifier dans les réglages de l\'instrument';
-    const BITS = [
-      { bit: 0x01, cc: 110, field: 'brightness', label: i18n.t('lighting.lit.brightness') || 'Lum.' },
-      { bit: 0x02, cc: 111, field: 'effect',     label: i18n.t('lighting.lit.effect')     || 'Effet' },
-      { bit: 0x04, cc: 112, field: 'hue',        label: i18n.t('lighting.lit.hue')        || 'Couleur' },
-      { bit: 0x08, cc: 113, field: 'speed',      label: i18n.t('lighting.lit.speed')      || 'Vit.' },
-      { bit: 0x10, cc: 114, field: 'intensity',  label: i18n.t('lighting.lit.intensity')  || 'Int.' }
-    ];
-    // Chips are purely informative here: capabilities are edited in the
-    // instrument settings modal (single source of truth). The ⚙ button
-    // on the right of the row jumps there.
-    const chips = BITS.map((b) => {
-      const on = (mask & b.bit) !== 0;
-      return `<span class="lit-chip${on ? ' lit-chip--on' : ''}" title="${esc(editHint)}"
-        style="font-size:11px;padding:3px 8px;border-radius:12px;border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
-               background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;cursor:default;display:inline-flex;align-items:center;gap:4px;">
-        <span aria-hidden="true">${on ? '●' : '○'}</span>CC${b.cc} ${esc(b.label)}</span>`;
-    }).join(' ');
-    const controls = BITS
-      .filter((b) => (mask & b.bit) !== 0)
-      .map((b) => this._renderLitControl(b, st, ds))
-      .join('');
-    const emptyHint = mask === 0
-      ? `<p class="lighting-instrument-sub" style="opacity:.75;margin:4px 0 0;">${esc(i18n.t('lighting.litNoCcDeclared') || 'Aucun CC déclaré pour cet instrument. Activez les CC supportés dans les réglages de l\'instrument.')}</p>`
-      : '';
+    const t = (k, d) => i18n.t(k) || d;
+
+    const cogBtn = `
+      <button class="lighting-btn--outline lighting-btn--outline-yellow"
+              data-action="openInstrumentSettings"
+              data-device-id="${esc(deviceId)}" data-channel="${channel}"
+              title="${esc(t('lighting.openSettingsTooltip', 'Modifier les capacités dans les réglages de l\'instrument'))}"
+              style="padding:3px 8px;font-size:11px;">⚙️</button>`;
+
+    if (mask === 0) {
+      return `
+        <div class="lighting-instrument-card lit-card" ${ds}
+             style="flex-direction:column;align-items:stretch;gap:6px;padding:10px 12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div class="lighting-instrument-name" style="font-size:13px;">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${channel + 1}</span></div>
+            ${cogBtn}
+          </div>
+          <p class="lighting-instrument-sub" style="opacity:.75;margin:0;font-size:12px;">
+            ${esc(t('lighting.litNoCcDeclared', 'Aucun CC déclaré pour cet instrument. Activez les CC supportés dans les réglages de l\'instrument.'))}
+          </p>
+        </div>`;
+    }
+
+    // Summary line: a discrete read-only list of every supported CC.
+    const SUPPORTED = [
+      { bit: 0x01, cc: 110, label: t('lighting.lit.brightness', 'Lum.') },
+      { bit: 0x02, cc: 111, label: t('lighting.lit.effect',     'Effet') },
+      { bit: 0x04, cc: 112, label: t('lighting.lit.hue',        'Couleur') },
+      { bit: 0x08, cc: 113, label: t('lighting.lit.speed',      'Vit.') },
+      { bit: 0x10, cc: 114, label: t('lighting.lit.intensity',  'Int.') }
+    ].filter((b) => (mask & b.bit) !== 0);
+    const summary = SUPPORTED
+      .map((b) => `<span style="opacity:.7;">CC${b.cc}</span>`)
+      .join(' · ');
+
+    const rows = SUPPORTED.map((b) => this._renderLitRow(b, st, ds)).join('');
+
     return `
       <div class="lighting-instrument-card lit-card" ${ds}
-           style="flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;">
+           style="flex-direction:column;align-items:stretch;gap:8px;padding:12px 14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-          <div class="lighting-instrument-name" style="font-size:13px;">🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${channel + 1}</span></div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <div class="lit-chips" style="display:flex;flex-wrap:wrap;gap:4px;">${chips}</div>
-            <button class="lighting-btn--outline lighting-btn--outline-yellow"
-                    data-action="openInstrumentSettings"
-                    data-device-id="${esc(deviceId)}" data-channel="${channel}"
-                    title="${esc(i18n.t('lighting.openSettingsTooltip') || 'Modifier les capacités dans les réglages de l\'instrument')}"
-                    style="padding:3px 8px;font-size:11px;">⚙️</button>
+          <div>
+            <div class="lighting-instrument-name" style="font-size:14px;">
+              🎹 ${esc(name)} <span class="lighting-instrument-ch">ch${channel + 1}</span>
+            </div>
+            <div style="font-size:11px;margin-top:2px;">
+              ${t('lighting.litSupports', 'Supporte')} : ${summary}
+            </div>
           </div>
+          ${cogBtn}
         </div>
-        ${emptyHint}
-        <div class="lit-controls" style="display:${controls ? 'grid' : 'none'};grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 12px;font-size:12px;">
-          ${controls}
+        <div class="lit-controls" style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
+          ${rows}
         </div>
       </div>`;
   }
 
+  /**
+   * One row per supported CC. Friendly label + icon on the left, value
+   * widget on the right. The "CC110" tag is kept as a tiny tooltip-style
+   * suffix for users who want to see the underlying MIDI mapping.
+   */
+  _renderLitRow(b, st, ds) {
+    const t = (k, d) => i18n.t(k) || d;
+    const ICONS = { brightness: '💡', effect: '🎬', hue: '🎨', speed: '⏩', intensity: '✨' };
+    const FULL_LABEL = {
+      brightness: t('lighting.litFull.brightness', 'Luminosité'),
+      effect:     t('lighting.litFull.effect',     'Effet'),
+      hue:        t('lighting.litFull.hue',        'Couleur'),
+      speed:      t('lighting.litFull.speed',      'Vitesse'),
+      intensity:  t('lighting.litFull.intensity',  'Intensité')
+    };
+    const field = b.field || ({ 110: 'brightness', 111: 'effect', 112: 'hue', 113: 'speed', 114: 'intensity' }[b.cc]);
+    const labelHtml = `
+      <div style="display:flex;align-items:center;gap:6px;min-width:140px;">
+        <span aria-hidden="true">${ICONS[field]}</span>
+        <span>${FULL_LABEL[field]}</span>
+        <span style="opacity:.45;font-size:10px;">CC${b.cc}</span>
+      </div>`;
+    return `<div class="lit-row" style="display:flex;align-items:center;gap:10px;padding:2px 0;">
+      ${labelHtml}
+      <div style="flex:1;display:flex;align-items:center;gap:8px;">
+        ${this._renderLitControl({ ...b, field }, st, ds)}
+      </div>
+    </div>`;
+  }
+
   _renderLitControl(b, st, ds) {
     if (b.field === 'brightness' && (st.brightness_mode | 0) === 0) {
-      // On/off relay firmware: render a single toggle button that sends
-      // CC 110 = 0 or 127 instead of a continuous slider.
+      // On/off relay firmware: a single big toggle button.
       const on = (st.brightness | 0) > 0;
-      return `<label style="display:flex;align-items:center;gap:6px;">
-        <span style="opacity:.7;">CC110</span>
-        <button type="button" class="lit-brightness-toggle ${on ? 'is-on' : ''}" ${ds}
-          aria-pressed="${on ? 'true' : 'false'}"
-          style="flex:1;padding:4px 10px;border-radius:14px;cursor:pointer;
-                 border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
-                 background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;">
-          ${on ? (i18n.t('lighting.litOnOffOn') || 'ON') : (i18n.t('lighting.litOnOffOff') || 'OFF')}
-        </button>
-      </label>`;
+      return `<button type="button" class="lit-brightness-toggle ${on ? 'is-on' : ''}" ${ds}
+        aria-pressed="${on ? 'true' : 'false'}"
+        style="flex:1;padding:6px 12px;border-radius:16px;cursor:pointer;font-weight:600;
+               border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
+               background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;">
+        ${on ? (i18n.t('lighting.litOnOffOn') || 'ON') : (i18n.t('lighting.litOnOffOff') || 'OFF')}
+      </button>`;
     }
     if (b.field === 'effect') {
       const effects = [
@@ -499,28 +535,28 @@ class LightingControlPage {
           return `<option value="${i}"${i === st.effect ? ' selected' : ''}>${label}</option>`;
         }).join('');
       const empty = opts.length === 0;
-      return `<label style="display:flex;align-items:center;gap:6px;">
-        <span style="opacity:.7;">CC111</span>
-        <select class="lit-effect" ${ds} style="flex:1;"${empty ? ' disabled' : ''}>${
-          empty ? `<option>${i18n.t('lighting.litNoEffects') || 'Aucun effet déclaré'}</option>` : opts
-        }</select>
-      </label>`;
+      return `<select class="lit-effect" ${ds} style="flex:1;padding:4px 6px;"${empty ? ' disabled' : ''}>${
+        empty ? `<option>${i18n.t('lighting.litNoEffects') || 'Aucun effet déclaré'}</option>` : opts
+      }</select>`;
     }
     if (b.field === 'hue') {
       const swatch = LightingControlPage._hueToCss(st.hue);
-      return `<label style="display:flex;align-items:center;gap:6px;">
-        <span style="opacity:.7;">CC112</span>
-        <span class="lit-hue-swatch" style="display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid #444;background:${swatch};"></span>
+      return `
+        <span class="lit-hue-swatch" aria-hidden="true"
+              style="display:inline-block;width:22px;height:22px;border-radius:50%;border:1px solid #444;background:${swatch};flex-shrink:0;"></span>
         <input type="range" class="lit-hue" min="0" max="127" value="${st.hue}" ${ds} style="flex:1;">
-        <b class="lit-hue-val" style="min-width:24px;text-align:right;">${st.hue}</b>
-      </label>`;
+        <b class="lit-hue-val" style="min-width:28px;text-align:right;font-variant-numeric:tabular-nums;">${st.hue}</b>`;
     }
+    // Generic slider (brightness dimmable, speed, intensity).
     const cls = `lit-${b.field}`;
-    return `<label style="display:flex;align-items:center;gap:6px;">
-      <span style="opacity:.7;">CC${b.cc}</span>
-      <input type="range" class="${cls}" min="0" max="127" value="${st[b.field]}" ${ds} style="flex:1;">
-      <b class="${cls}-val" style="min-width:24px;text-align:right;">${st[b.field]}</b>
-    </label>`;
+    const value = st[b.field] | 0;
+    const isBrightnessOff = b.field === 'brightness' && value === 0;
+    const valDisplay = isBrightnessOff
+      ? `<b class="${cls}-val" style="min-width:34px;text-align:right;color:#ef4444;font-weight:700;">${i18n.t('lighting.litOnOffOff') || 'OFF'}</b>`
+      : `<b class="${cls}-val" style="min-width:34px;text-align:right;font-variant-numeric:tabular-nums;">${value}</b>`;
+    return `
+      <input type="range" class="${cls}" min="0" max="127" value="${value}" ${ds} style="flex:1;">
+      ${valDisplay}`;
   }
 
   _attachLitControlListeners() {
@@ -537,14 +573,30 @@ class LightingControlPage {
         .sendCommand('instrument_light_set', { deviceId, channel, state: patch })
         .catch(() => {});
     };
+    const rowOf = (el) => el.closest('.lit-row') || el.closest('label');
     const updateLabel = (el, cls) => {
-      const out = el.closest('label')?.querySelector('.' + cls);
+      const out = rowOf(el)?.querySelector('.' + cls);
       if (out) out.textContent = el.value;
+    };
+    const refreshBrightnessLabel = (el) => {
+      const out = rowOf(el)?.querySelector('.lit-brightness-val');
+      if (!out) return;
+      const v = parseInt(el.value, 10) || 0;
+      if (v === 0) {
+        out.textContent = i18n.t('lighting.litOnOffOff') || 'OFF';
+        out.style.color = '#ef4444';
+        out.style.fontWeight = '700';
+      } else {
+        out.textContent = String(v);
+        out.style.color = '';
+        out.style.fontWeight = '';
+      }
     };
     const rangeChange = (selector, field, extra) => {
       host.querySelectorAll(selector).forEach((el) => {
         el.addEventListener('input', () => {
-          updateLabel(el, selector.slice(1) + '-val');
+          if (field === 'brightness') refreshBrightnessLabel(el);
+          else updateLabel(el, selector.slice(1) + '-val');
           extra?.(el);
         });
         el.addEventListener('change', () => setState(el, { [field]: parseInt(el.value, 10) }));
@@ -572,7 +624,7 @@ class LightingControlPage {
     host.querySelectorAll('.lit-effect').forEach((el) =>
       el.addEventListener('change', () => setState(el, { effect: parseInt(el.value, 10) })));
     rangeChange('.lit-hue', 'hue', (el) => {
-      const swatch = el.closest('label')?.querySelector('.lit-hue-swatch');
+      const swatch = rowOf(el)?.querySelector('.lit-hue-swatch');
       if (swatch) swatch.style.background = LightingControlPage._hueToCss(parseInt(el.value, 10));
     });
     rangeChange('.lit-speed', 'speed');
