@@ -59,6 +59,27 @@ export const CC_BIT = Object.freeze({
 
 export const MASK_ALL = 0x1F;
 
+/** CC 110 interpretation declared by the firmware. */
+export const BRIGHTNESS_MODE = Object.freeze({
+  ON_OFF:   0,
+  DIMMABLE: 1
+});
+
+/** Bitmask covering every effect in {@link EFFECTS} (10 bits). */
+export const EFFECTS_ALL = 0x3FF;
+
+/**
+ * Snap a brightness value to 0/127 when the firmware is wired as an on/off
+ * relay; pass through unchanged for dimmable firmwares. Used right before
+ * emitting CC 110.
+ */
+export function snapBrightness(value, brightnessMode) {
+  if (brightnessMode === BRIGHTNESS_MODE.ON_OFF) {
+    return ((value | 0) > 0) ? 127 : 0;
+  }
+  return Math.max(0, Math.min(127, value | 0));
+}
+
 /** Returns true when the field's CC is declared supported by the device. */
 export function isSupported(mask, field) {
   if (mask === undefined || mask === null) return false;

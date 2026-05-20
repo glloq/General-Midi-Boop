@@ -69,6 +69,7 @@
                 <div id="ilcCcChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
                     <p class="ism-form-hint" style="width:100%;">${t('common.loading', 'Chargement...')}</p>
                 </div>
+                <div id="ilcCcDetails" style="display:none;margin-top:8px;padding:6px 10px;border-left:3px solid rgba(16,185,129,0.4);background:rgba(16,185,129,0.04);border-radius:4px;"></div>
                 <ul class="ism-form-hint" style="margin:10px 0 0;padding-left:0;list-style:none;font-size:12px;line-height:1.55;">
                     ${ccLine(110, t('instrumentSettings.lumiereCc.brightness', 'Luminosité'),
                                   t('instrumentSettings.lumiereCcDesc.brightness',

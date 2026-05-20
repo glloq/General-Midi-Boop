@@ -49,15 +49,33 @@ function instrumentLightSet(app, data) {
 
 function instrumentLightSetSupported(app, data) {
   const { deviceId, channel } = resolveTarget(data);
-  if (!Number.isInteger(data.supported_mask)) {
-    throw new ValidationError('supported_mask must be an integer 0-31', 'supported_mask');
+  const patch = {};
+  if (data.supported_mask !== undefined) {
+    if (!Number.isInteger(data.supported_mask) || data.supported_mask < 0 || data.supported_mask > 31) {
+      throw new ValidationError('supported_mask must be an integer 0-31', 'supported_mask');
+    }
+    patch.supported_mask = data.supported_mask;
   }
-  if (data.supported_mask < 0 || data.supported_mask > 31) {
-    throw new ValidationError('supported_mask must be 0-31', 'supported_mask');
+  if (data.brightness_mode !== undefined) {
+    if (data.brightness_mode !== 0 && data.brightness_mode !== 1) {
+      throw new ValidationError('brightness_mode must be 0 (on/off) or 1 (dimmable)', 'brightness_mode');
+    }
+    patch.brightness_mode = data.brightness_mode;
+  }
+  if (data.supported_effects !== undefined) {
+    if (!Number.isInteger(data.supported_effects) || data.supported_effects < 0 || data.supported_effects > 1023) {
+      throw new ValidationError('supported_effects must be an integer 0-1023', 'supported_effects');
+    }
+    patch.supported_effects = data.supported_effects;
+  }
+  if (Object.keys(patch).length === 0) {
+    throw new ValidationError(
+      'at least one of supported_mask / brightness_mode / supported_effects is required'
+    );
   }
   return {
     success: true,
-    state: requireManager(app).setSupported(deviceId, channel, data.supported_mask)
+    state: requireManager(app).setSupported(deviceId, channel, patch)
   };
 }
 
