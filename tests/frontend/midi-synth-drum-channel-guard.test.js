@@ -163,16 +163,17 @@ describe('MidiSynthesizer.ensureDrumKitReady / loadDrumKit promise tracking', ()
     expect(synth._loadDrumPreset.mock.calls.length).toBe(callsAfterFirst);
   });
 
-  it('loadDrumKit lazy mode: no sequence → no _loadDrumPreset fan-out', async () => {
+  it('loadDrumKit no-sequence mode: preloads the 25 common GM drum notes (35-59)', async () => {
     const synth = makeLoadableStub();
     synth._loadDrumPreset = vi.fn(() => Promise.resolve());
     await synth.loadDrumKit();
-    // No sequence loaded → preload is skipped; per-note presets land
-    // via the lazy branch in playNote on first frappe instead.
-    expect(synth._loadDrumPreset).not.toHaveBeenCalled();
-    // The drumKit "ready" flag is set so legacy callers don't loop on
-    // ensureDrumKitReady forever.
-    expect(synth.drumKit).toBe(true);
+    // Common-drums preload kills the per-key lag without paying the
+    // full 47-note cost of the legacy eager mode. Notes 60-81
+    // (bongos, agogos, claves…) stay lazy.
+    expect(synth._loadDrumPreset).toHaveBeenCalledTimes(25);
+    const loadedNotes = synth._loadDrumPreset.mock.calls.map((c) => c[0]).sort((a, b) => a - b);
+    expect(loadedNotes[0]).toBe(35);
+    expect(loadedNotes[loadedNotes.length - 1]).toBe(59);
   });
 
   it('ensureDrumKitReady resolves after a fresh loadDrumKit finishes', async () => {
