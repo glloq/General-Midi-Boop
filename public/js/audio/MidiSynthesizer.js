@@ -165,12 +165,6 @@ class MidiSynthesizer {
   // mysteriously wrong-sounding drums.
   static GM_DRUM_KIT_PROGRAMS = new Set([0, 8, 16, 24, 25, 32, 40, 48, 56]);
 
-  // Diagnostic toggle: when true, every drum preset load is logged to
-  // the DevTools console with its materialised tuning + sample shape.
-  // Off by default (zero runtime cost). Enable via the console with
-  // `window.MidiSynthesizer.DEBUG_DRUMS = true` then play drum notes.
-  static DEBUG_DRUMS = false;
-
   // SF2 preset fetch latency threshold (ms) before the loading toast
   // becomes visible. Sized to clear the L1/L2 hit envelope (< 100 ms)
   // and avoid flicker for warm reloads, while still appearing quickly
@@ -436,7 +430,6 @@ class MidiSynthesizer {
     // ships every GM drum kit (Standard, Room, Power, Electronic, TR-808,
     // Jazz, Brush, Orchestra, SFX). Falls back to kit 0 then to JCLive
     // bank 12 when a specific (kit, note) is missing on the CDN.
-    this.drumKit = null; // Legacy single-kit (unused, kept for compat)
     this.drumPresets = new Map(); // "kitProgram:note" → loaded preset
     this._drumLoading = new Map(); // "kitProgram:note" → in-flight Promise
     this._drumVariables = new Map(); // "kitProgram:note" → window variable name
@@ -1192,24 +1185,6 @@ class MidiSynthesizer {
           return null;
         }
         this._materialiseSF2Preset(preset, note);
-        // Diagnostic: log the materialised tuning + sample shape for
-        // EACH drum preset on first load. Lets the user spot a mis-
-        // tagged zone (e.g. snare zone with originalPitch=60 that
-        // should have been forced to 38) without enabling server-side
-        // env vars. Disabled by default — toggle via the DevTools
-        // console: `window.MidiSynthesizer.DEBUG_DRUMS = true;` and
-        // reload. Off in production = zero overhead.
-        if (MidiSynthesizer.DEBUG_DRUMS) {
-          for (const z of preset.zones || []) {
-            // eslint-disable-next-line no-console
-            console.info(
-              `[drum] kit=${kit} note=${note} ` +
-              `range=[${z.keyRangeLow}-${z.keyRangeHigh}] ` +
-              `origPitch=${z.originalPitch} coarse=${z.coarseTune} fine=${z.fineTune} ` +
-              `sampleLen=${z.buffer?.length} sr=${z.sampleRate}`
-            );
-          }
-        }
         this.drumPresets.set(cacheKey, preset);
         return preset;
       })
@@ -1320,9 +1295,6 @@ class MidiSynthesizer {
     }
 
     await Promise.all(promises);
-
-    // Set legacy drumKit flag for compatibility checks
-    this.drumKit = this.drumPresets.size > 0 ? true : null;
     this.log('info', `Drum kit ready: ${this.drumPresets.size} presets loaded`);
   }
 
@@ -2376,7 +2348,6 @@ class MidiSynthesizer {
 
     this.audioContext = null;
     this.player = null;
-    this.drumKit = null;
     this.isInitialized = false;
 
     MidiSynthesizer._instances.delete(this);

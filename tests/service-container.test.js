@@ -86,29 +86,6 @@ describe('ServiceContainer', () => {
     });
   });
 
-  describe('getNames', () => {
-    test('returns all registered service names', () => {
-      container.register('a', 1);
-      container.factory('b', () => 2);
-      expect(container.getNames().sort()).toEqual(['a', 'b']);
-    });
-  });
-
-  describe('inject', () => {
-    test('returns object with requested dependencies', () => {
-      container.register('logger', { log: true });
-      container.register('config', { port: 80 });
-
-      const deps = container.inject('logger', 'config');
-      expect(deps.logger).toEqual({ log: true });
-      expect(deps.config).toEqual({ port: 80 });
-    });
-
-    test('throws when injecting unregistered service', () => {
-      expect(() => container.inject('missing')).toThrow(/Cannot inject 'missing'/);
-    });
-  });
-
   describe('unregister', () => {
     test('removes a registered instance', () => {
       container.register('a', 1);
