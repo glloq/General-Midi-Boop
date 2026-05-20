@@ -158,6 +158,13 @@ class MidiSynthesizer {
     return MidiSynthesizer.availableDrumKits.get(bankId) || null;
   }
 
+  // The 9 canonical GM drum kit program numbers (raw, before offset
+  // encoding). Anything else sent to channel 9 is a routing bug — the
+  // backend cascade would map it to Standard Kit anyway, but we warn
+  // the caller so the upstream code can be fixed instead of producing
+  // mysteriously wrong-sounding drums.
+  static GM_DRUM_KIT_PROGRAMS = new Set([0, 8, 16, 24, 25, 32, 40, 48, 56]);
+
   // SF2 preset fetch latency threshold (ms) before the loading toast
   // becomes visible. Sized to clear the L1/L2 hit envelope (< 100 ms)
   // and avoid flicker for warm reloads, while still appearing quickly
@@ -1234,8 +1241,22 @@ class MidiSynthesizer {
    * Load the drum kit — loads per-(kit, note) presets for all drum notes
    * used in the sequence. The kit program comes from
    * `channelInstruments[9]` (decoded if offset-encoded).
+   *
+   * Tracks the in-flight promise on `this._drumKitLoading` so callers can
+   * `await synth.ensureDrumKitReady()` before the first click — without
+   * that, the first drum key press fires before the presets land and the
+   * lazy-load fallback in `playNote` returns null (first hit silent).
+   * @returns {Promise<void>}
    */
-  async loadDrumKit() {
+  loadDrumKit() {
+    if (this._drumKitLoading) return this._drumKitLoading;
+    this._drumKitLoading = this._loadDrumKitInner().finally(() => {
+      this._drumKitLoading = null;
+    });
+    return this._drumKitLoading;
+  }
+
+  async _loadDrumKitInner() {
     const kit = this._decodeKitProgram(this.channelInstruments[9] ?? 0);
     const bankId = this._bankForChannel(9);
 
@@ -1272,6 +1293,19 @@ class MidiSynthesizer {
     // Set legacy drumKit flag for compatibility checks
     this.drumKit = this.drumPresets.size > 0 ? true : null;
     this.log('info', `Drum kit ready: ${this.drumPresets.size} presets loaded`);
+  }
+
+  /**
+   * Returns a promise that resolves when any in-flight `loadDrumKit()` call
+   * has finished, or immediately if no load is pending. Callers that play a
+   * drum note from a UI event handler should `await` this before
+   * `playNote(note, vel, 9, …)` to guarantee the first hit is audible
+   * (instead of relying on `playNote`'s fire-and-forget lazy fallback,
+   * which leaves the first frappe silent on a cold start).
+   * @returns {Promise<void>}
+   */
+  ensureDrumKitReady() {
+    return this._drumKitLoading || Promise.resolve();
   }
 
   /**
@@ -1424,6 +1458,28 @@ class MidiSynthesizer {
    */
   setChannelInstrument(channel, program, sf2Id = null) {
     if (channel < 0 || channel >= 16) return;
+
+    // Channel 9 is the GM drum channel: the program must be a valid kit
+    // (one of the 9 GM kits, optionally offset-encoded by adding 128).
+    // Anything else is almost certainly an upstream bug — the backend
+    // cascade would still fall back to Standard Kit (so the user hears
+    // drums instead of a melodic timbre, see SF2PresetService cascade),
+    // but we snap to kit 0 and log a warning so the caller can fix the
+    // routing instead of relying on the safety net.
+    if (channel === 9) {
+      const decoded = this._decodeKitProgram(program ?? 0);
+      if (!MidiSynthesizer.GM_DRUM_KIT_PROGRAMS.has(decoded)) {
+        this.log(
+          'warn',
+          `setChannelInstrument(9, ${program}): not a GM drum kit ` +
+            `(decoded ${decoded}, expected one of ` +
+            `${[...MidiSynthesizer.GM_DRUM_KIT_PROGRAMS].join(', ')}). ` +
+            `Snapping to Standard Kit (0).`
+        );
+        program = 0;
+      }
+    }
+
     this.channelInstruments[channel] = program;
 
     const normSf2 =
