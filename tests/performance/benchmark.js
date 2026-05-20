@@ -77,8 +77,6 @@ results.push(
   })
 );
 
-results.push(bench('inject (2 deps)', () => container.inject('logger', 'config')));
-
 // 3. Config get/set
 console.log('\nConfig:');
 const { default: Config } = await import('../../src/core/Config.js');
