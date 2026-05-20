@@ -230,6 +230,15 @@ class MidiEditorModal {
         this.channelRouting.clear();
         this.channelDisabled.clear();
         this.channelPlayableHighlights.clear();
+        // Also reset routed-preview caches and the preview-source toggle so
+        // file B doesn't inherit file A's routed playable-notes mask or its
+        // 'routed' preview mode. `_routedGmPrograms` / `_routedSf2Ids` are
+        // re-populated by `_loadSavedRoutings()`; clearing defensively
+        // covers the case where file B has no persisted routings at all.
+        this._routedGmPrograms.clear();
+        this._routedSf2Ids.clear();
+        this._routedPlayableNotes.clear();
+        this.previewSource = 'gm';
 
         try {
             // Load the MIDI file
