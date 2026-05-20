@@ -1305,6 +1305,14 @@
       "speed": "Vit.",
       "intensity": "Int."
     },
+    "litFull": {
+      "brightness": "Luminosité",
+      "effect": "Effet",
+      "hue": "Couleur",
+      "speed": "Vitesse",
+      "intensity": "Intensité"
+    },
+    "litSupports": "Supporte",
     "lightEffect": {
       "static": "Statique",
       "fade": "Fondu",
