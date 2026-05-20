@@ -6,7 +6,7 @@
  * restart. Sub-module of {@link InstrumentDatabase}.
  */
 
-const FIELDS = ['brightness', 'effect', 'hue', 'speed', 'intensity'];
+const FIELDS = ['brightness', 'effect', 'hue', 'speed', 'intensity', 'supported_mask'];
 const clamp7 = (v) => Math.max(0, Math.min(127, v | 0));
 
 class InstrumentLightDB {
@@ -64,21 +64,23 @@ class InstrumentLightDB {
     const id = `${deviceId}_${channel}`;
     const v = {};
     for (const f of FIELDS) v[f] = clamp7((state && state[f]) || 0);
+    v.supported_mask = Math.max(0, Math.min(31, v.supported_mask | 0));
     try {
       this.db
         .prepare(
           `INSERT INTO instrument_light_state
-             (id, device_id, channel, brightness, effect, hue, speed, intensity, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+             (id, device_id, channel, brightness, effect, hue, speed, intensity, supported_mask, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
            ON CONFLICT(id) DO UPDATE SET
-             brightness = excluded.brightness,
-             effect     = excluded.effect,
-             hue        = excluded.hue,
-             speed      = excluded.speed,
-             intensity  = excluded.intensity,
-             updated_at = datetime('now')`
+             brightness     = excluded.brightness,
+             effect         = excluded.effect,
+             hue            = excluded.hue,
+             speed          = excluded.speed,
+             intensity      = excluded.intensity,
+             supported_mask = excluded.supported_mask,
+             updated_at     = datetime('now')`
         )
-        .run(id, deviceId, channel, v.brightness, v.effect, v.hue, v.speed, v.intensity);
+        .run(id, deviceId, channel, v.brightness, v.effect, v.hue, v.speed, v.intensity, v.supported_mask);
       return id;
     } catch (error) {
       this.logger?.error?.(`Failed to save instrument light state: ${error.message}`);

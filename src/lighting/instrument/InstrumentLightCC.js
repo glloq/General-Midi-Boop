@@ -48,6 +48,24 @@ const CC_OF = Object.freeze({
   intensity:  CC.INTENSITY
 });
 
+/** Bit position in `supported_mask`, one per CC field. */
+export const CC_BIT = Object.freeze({
+  brightness: 0x01,
+  effect:     0x02,
+  hue:        0x04,
+  speed:      0x08,
+  intensity:  0x10
+});
+
+export const MASK_ALL = 0x1F;
+
+/** Returns true when the field's CC is declared supported by the device. */
+export function isSupported(mask, field) {
+  if (mask === undefined || mask === null) return false;
+  const bit = CC_BIT[field];
+  return bit !== undefined && ((mask & bit) !== 0);
+}
+
 const clamp7 = (v) => Math.max(0, Math.min(127, v | 0));
 
 /** Whitelisted state shape, ready for persistence + transmission. */
@@ -80,18 +98,26 @@ export function ccMessage(channel, controller, value) {
   };
 }
 
-/** All five CC messages for the given state (used on first push / test). */
-export function messagesFor(channel, state) {
+/**
+ * Build CC messages for every field whose bit is set in `mask`.
+ * When `mask` is omitted, every field is emitted.
+ */
+export function messagesFor(channel, state, mask = MASK_ALL) {
   const s = normalizeState(state);
-  return FIELDS.map((f) => ccMessage(channel, CC_OF[f], s[f]));
+  return FIELDS
+    .filter((f) => isSupported(mask, f))
+    .map((f) => ccMessage(channel, CC_OF[f], s[f]));
 }
 
-/** Only the CC messages whose value changed between `prev` and `next`. */
-export function messagesForDiff(channel, prev, next) {
+/**
+ * Only the CC messages whose value changed between `prev` and `next`, and
+ * whose bit is set in `mask`.
+ */
+export function messagesForDiff(channel, prev, next, mask = MASK_ALL) {
   const p = normalizeState(prev);
   const n = normalizeState(next);
   return FIELDS
-    .filter((f) => p[f] !== n[f])
+    .filter((f) => isSupported(mask, f) && p[f] !== n[f])
     .map((f) => ccMessage(channel, CC_OF[f], n[f]));
 }
 

@@ -54,7 +54,7 @@ class InstrumentLightManager {
     } catch { return false; }
   }
 
-  _controllerFor(deviceId, channel, state) {
+  _controllerFor(deviceId, channel, row) {
     const key = this._key(deviceId, channel);
     let ctrl = this.controllers.get(key);
     if (!ctrl) {
@@ -63,11 +63,15 @@ class InstrumentLightManager {
         channel: channel | 0,
         deviceManager: this.deviceManager,
         logger: this.logger,
-        state
+        state: row,
+        supportedMask: row?.supported_mask
       });
       this.controllers.set(key, ctrl);
-    } else if (state) {
-      ctrl.state = CC.normalizeState(state);
+    } else if (row) {
+      ctrl.state = CC.normalizeState(row);
+      if (row.supported_mask !== undefined) {
+        ctrl.supportedMask = (row.supported_mask | 0) & CC.MASK_ALL;
+      }
     }
     return ctrl;
   }
@@ -90,7 +94,12 @@ class InstrumentLightManager {
   getState(deviceId, channel = 0) {
     const stored = this.database.getInstrumentLightState(deviceId, channel | 0);
     const state = CC.normalizeState(stored || CC.defaultState());
-    return { ...state, master_enabled: this._isMasterEnabled(deviceId, channel) };
+    const supported_mask = (stored?.supported_mask | 0) & CC.MASK_ALL;
+    return {
+      ...state,
+      supported_mask,
+      master_enabled: this._isMasterEnabled(deviceId, channel)
+    };
   }
 
   /** Every persisted state, used by the Lighting modal "Par instrument" tab. */
@@ -104,24 +113,42 @@ class InstrumentLightManager {
       hue: r.hue,
       speed: r.speed,
       intensity: r.intensity,
+      supported_mask: (r.supported_mask | 0) & CC.MASK_ALL,
       master_enabled: this._isMasterEnabled(r.device_id, r.channel)
     }));
   }
 
   /**
-   * Merge a partial state, persist, and send only the diffs as CCs (if
-   * the master toggle is on). Returns the resulting full state.
+   * Merge a partial state, persist, and send the resulting CC diffs (the
+   * controller already filters by `supported_mask`). When the patch
+   * itself updates `supported_mask`, the freshly-supported CCs are
+   * pushed with their current value. Returns the resulting full state.
    */
   setState(deviceId, channel, partial) {
     const ctrl = this._controllerFor(deviceId, channel);
-    const next = CC.normalizeState({ ...ctrl.state, ...(partial || {}) });
-    this.database.saveInstrumentLightState(deviceId, channel | 0, next);
+    const patch = partial || {};
+    const next = CC.normalizeState({ ...ctrl.state, ...patch });
+    const newMask = patch.supported_mask !== undefined
+      ? ((patch.supported_mask | 0) & CC.MASK_ALL)
+      : ctrl.supportedMask;
+
+    this.database.saveInstrumentLightState(deviceId, channel | 0, {
+      ...next,
+      supported_mask: newMask
+    });
+
     if (this._isMasterEnabled(deviceId, channel)) {
+      if (patch.supported_mask !== undefined) ctrl.setSupportedMask(newMask);
       ctrl.apply(next);
     } else {
       ctrl.state = next;
+      if (patch.supported_mask !== undefined) ctrl.supportedMask = newMask;
     }
-    return { ...next, master_enabled: this._isMasterEnabled(deviceId, channel) };
+    return {
+      ...next,
+      supported_mask: newMask,
+      master_enabled: this._isMasterEnabled(deviceId, channel)
+    };
   }
 
   /** Briefly drive the LEDs to a known visible setting then restore. */

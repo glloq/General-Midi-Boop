@@ -57,14 +57,14 @@ describe('InstrumentLightCC — message builders', () => {
     expect(CC.ccMessage(0, 110, 999).data.value).toBe(127);
   });
 
-  test('messagesFor returns the 5 CCs in order 110..114', () => {
+  test('messagesFor returns the 5 CCs in order 110..114 when mask = ALL', () => {
     const msgs = CC.messagesFor(3, { brightness: 1, effect: 2, hue: 3, speed: 4, intensity: 5 });
     expect(msgs.map((m) => m.data.controller)).toEqual([110, 111, 112, 113, 114]);
     expect(msgs.map((m) => m.data.value)).toEqual([1, 2, 3, 4, 5]);
     for (const m of msgs) expect(m.data.channel).toBe(3);
   });
 
-  test('messagesForDiff only emits changed fields', () => {
+  test('messagesForDiff only emits changed fields when mask = ALL', () => {
     const prev = CC.defaultState();
     const next = { ...prev, hue: 64, intensity: 100 };
     const diff = CC.messagesForDiff(0, prev, next);
@@ -75,6 +75,41 @@ describe('InstrumentLightCC — message builders', () => {
   test('messagesForDiff returns nothing when state is identical', () => {
     const s = { brightness: 64, effect: 1, hue: 32, speed: 80, intensity: 90 };
     expect(CC.messagesForDiff(0, s, s)).toEqual([]);
+  });
+});
+
+describe('InstrumentLightCC — supported_mask filtering', () => {
+  test('CC_BIT exposes the per-CC bit positions', () => {
+    expect(CC.CC_BIT.brightness).toBe(0x01);
+    expect(CC.CC_BIT.effect).toBe(0x02);
+    expect(CC.CC_BIT.hue).toBe(0x04);
+    expect(CC.CC_BIT.speed).toBe(0x08);
+    expect(CC.CC_BIT.intensity).toBe(0x10);
+    expect(CC.MASK_ALL).toBe(0x1F);
+  });
+
+  test('isSupported reflects the mask bits', () => {
+    expect(CC.isSupported(0x05, 'brightness')).toBe(true);
+    expect(CC.isSupported(0x05, 'hue')).toBe(true);
+    expect(CC.isSupported(0x05, 'effect')).toBe(false);
+    expect(CC.isSupported(0, 'brightness')).toBe(false);
+    expect(CC.isSupported(undefined, 'hue')).toBe(false);
+  });
+
+  test('messagesFor drops CCs whose bit is unset', () => {
+    const st = { brightness: 1, effect: 2, hue: 3, speed: 4, intensity: 5 };
+    const onlyHue = CC.messagesFor(0, st, CC.CC_BIT.hue);
+    expect(onlyHue.length).toBe(1);
+    expect(onlyHue[0].data.controller).toBe(112);
+    expect(CC.messagesFor(0, st, 0)).toEqual([]);
+  });
+
+  test('messagesForDiff respects both the diff and the mask', () => {
+    const prev = CC.defaultState();
+    const next = { ...prev, brightness: 64, effect: 3, hue: 80 };
+    // mask covers brightness + effect — hue change is silently dropped.
+    const out = CC.messagesForDiff(0, prev, next, CC.CC_BIT.brightness | CC.CC_BIT.effect);
+    expect(out.map((m) => m.data.controller).sort()).toEqual([110, 111]);
   });
 });
 
