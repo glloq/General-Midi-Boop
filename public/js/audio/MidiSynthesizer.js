@@ -1270,12 +1270,18 @@ class MidiSynthesizer {
       });
     }
 
-    // If no specific notes found (preview live / clavier virtuel sans
-    // séquence), charger la gamme GM percussion complète (35-81 — voir
-    // _loadDrumPreset:470). Sans ça l'utilisateur n'entendait que 8
-    // sons essentiels et les autres touches étaient silencieuses.
+    // Live preview (no sequence loaded): we used to eagerly fetch all 47
+    // GM percussion notes (35-81) here, but that's wasteful — most kits
+    // only contain a handful of notes, and the user typically plays
+    // ≤10 different drums in a session. Skip the bulk preload; the
+    // lazy-load branch in `playNote` (channel 9, no preset cached) will
+    // fetch each note on first press. ensureDrumKitReady() now resolves
+    // immediately on cold start so UI handlers don't block waiting for
+    // a preload that no longer happens.
     if (usedNotes.size === 0) {
-      for (let n = 35; n <= 81; n++) usedNotes.add(n);
+      this.log('info', `Drum kit ${kit} ready (lazy mode, no preload — bank: ${this.currentBankId})`);
+      this.drumKit = true; // signal "kit chosen" so legacy callers don't re-trigger
+      return;
     }
 
     this.log(
