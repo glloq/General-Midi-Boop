@@ -1064,8 +1064,16 @@
     "bagpipeNoDrone": "No drone selected.",
     "bagpipeDuplicate": "Duplicate this drone",
     "sectionLumiere": "Lighting",
-    "lumiereTitle": "Lighting control",
-    "lumiereHint": "Enable the \"Lighting\" tab to drive this instrument's lighting via MIDI messages.",
+    "lumiereTitle": "Lighting",
+    "lumiereHint": "Enable the \"Lighting\" tab to declare which CCs the instrument understands.",
+    "lumiereSupportedHint": "Declare which CCs this instrument understands. Activated CCs become adjustable from the Lighting modal → \"Par instrument\" tab.",
+    "lumiereCc": {
+      "brightness": "Bright.",
+      "effect": "Effect",
+      "hue": "Color",
+      "speed": "Speed",
+      "intensity": "Int."
+    },
     "lumiereSectionHint": "This instrument's MIDI messages drive the lighting via the rules below. The condition picks which messages turn the light on; the action picks the behaviour.",
     "lumiereTargetDevice": "Target lighting device",
     "lumiereRules": "MIDI → lighting rules for this instrument",
