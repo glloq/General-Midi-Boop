@@ -1,180 +1,106 @@
 // tests/instrument-light-protocol.test.js
-// Round-trip + builder tests for the embedded-instrument lighting codec
-// (SysEx Block 8 / Block 9, Note & CC builders).
+// Pure-function tests for the CC-based instrument lighting helpers.
 
 import { describe, test, expect } from '@jest/globals';
-import * as P from '../src/lighting/instrument/InstrumentLightProtocol.js';
+import * as CC from '../src/lighting/instrument/InstrumentLightCC.js';
 
-describe('Block 8 — Lighting Capabilities', () => {
-  test('request is 7 bytes and well-formed', () => {
-    const req = P.buildCapabilitiesRequest(3);
-    expect(req).toEqual([0xF0, 0x7D, 0x00, 0x08, 0x00, 3, 0xF7]);
+describe('InstrumentLightCC — constants', () => {
+  test('CC numbers are 110-114', () => {
+    expect(CC.CC.MASTER).toBe(110);
+    expect(CC.CC.EFFECT).toBe(111);
+    expect(CC.CC.HUE).toBe(112);
+    expect(CC.CC.SPEED).toBe(113);
+    expect(CC.CC.INTENSITY).toBe(114);
   });
 
-  test('response round-trips through build → parse', () => {
-    const caps = {
-      channel: 2,
-      light_led_count: 200,
-      light_addressing: P.ADDRESSING.PER_NOTE,
-      light_note_base: 21,
-      light_note_count: 88,
-      light_color_mode: P.COLOR_MODE.RGB,
-      light_palette_size: 0,
-      light_transports: P.TRANSPORT.NOTE | P.TRANSPORT.SYSEX,
-      light_channel: P.UNSET,
-      light_cc_brightness: 102,
-      light_cc_mode: P.UNSET,
-      light_cc_effect: 104,
-      light_cc_effect_speed: 105,
-      light_cc_guide: P.UNSET,
-      light_local_effects: 0,
-      light_flags: P.CAP_FLAG.GUIDE,
-      light_min_interval_ms: 5
-    };
-    const bytes = P.buildCapabilitiesResponse(caps, { version: P.BLOCK_VERSION });
-    expect(bytes.length).toBe(25);
-    expect(bytes[0]).toBe(0xF0);
-    expect(bytes[bytes.length - 1]).toBe(0xF7);
-
-    const parsed = P.parseCapabilitiesResponse(bytes);
-    expect(parsed).not.toBeNull();
-    expect(parsed.channel).toBe(2);
-    expect(parsed.light_led_count).toBe(200);
-    expect(parsed.light_color_mode).toBe(P.COLOR_MODE.RGB);
-    expect(parsed.light_transports).toBe(P.TRANSPORT.NOTE | P.TRANSPORT.SYSEX);
-    expect(parsed.light_cc_brightness).toBe(102);
-    expect(parsed.light_flags).toBe(P.CAP_FLAG.GUIDE);
-    expect(parsed.light_min_interval_ms).toBe(5);
-  });
-
-  test('rejects malformed payloads', () => {
-    expect(P.parseCapabilitiesResponse([0xF0, 0x7D, 0x00, 0x01, 0x01])).toBeNull();
-    expect(P.parseCapabilitiesResponse([])).toBeNull();
-    expect(P.parseCapabilitiesResponse(null)).toBeNull();
-  });
-
-  test('14-bit LED count survives split/join', () => {
-    const caps = P.buildCapabilitiesResponse({ light_led_count: 12345 });
-    expect(P.parseCapabilitiesResponse(caps).light_led_count).toBe(12345);
+  test('EFFECTS lists the 10 specified effects in order', () => {
+    expect(CC.EFFECTS).toEqual([
+      'static', 'fade', 'pulse', 'blink', 'rainbow',
+      'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+    ]);
+    expect(CC.effectName(0)).toBe('static');
+    expect(CC.effectName(9)).toBe('scanner');
+    expect(CC.effectName(99)).toBe('static');
   });
 });
 
-describe('Block 8 v2 — Lighting Message Catalog', () => {
-  const v2caps = {
-    channel: 0,
-    light_led_count: 16,
-    light_color_mode: P.COLOR_MODE.RGB,
-    light_transports: P.TRANSPORT.NOTE | P.TRANSPORT.SYSEX | P.TRANSPORT.CC,
-    light_cc_brightness: 102,
-    light_cc_effect: 104,
-    light_local_effects: 0x01 | 0x02,        // fade + strobe
-    light_flags: P.CAP_FLAG.GUIDE,
-    light_cc_guide: 106,
-    light_messages_bitmask:
-      (1 << P.LIGHT_MSG.ALL_OFF) |
-      (1 << P.LIGHT_MSG.BRIGHTNESS) |
-      (1 << P.LIGHT_MSG.LED_RGB) |
-      (1 << P.LIGHT_MSG.FX_FADE) |
-      (1 << P.LIGHT_MSG.GUIDE)
-  };
-
-  test('v2 round-trip preserves the catalog bitmask', () => {
-    const bytes = P.buildCapabilitiesResponse(v2caps);
-    expect(bytes.length).toBe(28);
-    expect(bytes[5]).toBe(P.BLOCK_VERSION_V2);
-    const parsed = P.parseCapabilitiesResponse(bytes);
-    expect(parsed.blockVersion).toBe(P.BLOCK_VERSION_V2);
-    expect(parsed.light_messages_bitmask).toBe(v2caps.light_messages_bitmask);
+describe('InstrumentLightCC — state', () => {
+  test('defaultState is OFF + speed/intensity 64', () => {
+    expect(CC.defaultState()).toEqual({
+      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64
+    });
   });
 
-  test('v1 reply gets a derived bitmask from legacy fields', () => {
-    const v1bytes = P.buildCapabilitiesResponse(v2caps, { version: P.BLOCK_VERSION });
-    expect(v1bytes.length).toBe(25);
-    expect(v1bytes[5]).toBe(P.BLOCK_VERSION);
-    const parsed = P.parseCapabilitiesResponse(v1bytes);
-    // RGB + SysEx ⇒ LED_RGB, RANGE_RGB, SET_ALL_RGB
-    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.LED_RGB)).not.toBe(0);
-    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.SET_ALL_RGB)).not.toBe(0);
-    // CC effect + fade flag ⇒ FX_FADE
-    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.FX_FADE)).not.toBe(0);
-    // Guide flag + cc_guide ⇒ GUIDE
-    expect(parsed.light_messages_bitmask & (1 << P.LIGHT_MSG.GUIDE)).not.toBe(0);
+  test('normalizeState clamps every field to 0-127', () => {
+    const s = CC.normalizeState({ brightness: -5, effect: 200, hue: 64, speed: 999, intensity: 'x' });
+    expect(s.brightness).toBe(0);
+    expect(s.effect).toBe(127);
+    expect(s.hue).toBe(64);
+    expect(s.speed).toBe(127);
+    expect(s.intensity).toBe(0);
   });
 
-  test('messageCatalog() has 16 well-formed entries', () => {
-    const cat = P.messageCatalog();
-    expect(cat.length).toBe(16);
-    for (let i = 0; i < cat.length; i++) {
-      expect(cat[i].id).toBe(i);
-      expect(typeof cat[i].label).toBe('string');
-      expect(['control', 'color', 'effect', 'mode']).toContain(cat[i].category);
+  test('normalizeState fills missing fields with defaults', () => {
+    expect(CC.normalizeState({ brightness: 50 })).toEqual({
+      brightness: 50, effect: 0, hue: 0, speed: 64, intensity: 64
+    });
+  });
+});
+
+describe('InstrumentLightCC — message builders', () => {
+  test('ccMessage targets the right MIDI channel and clamps the value', () => {
+    expect(CC.ccMessage(2, 110, 64)).toEqual({
+      type: 'cc',
+      data: { channel: 2, controller: 110, value: 64 }
+    });
+    expect(CC.ccMessage(99, 110, 999).data.channel).toBe(99 & 0x0F);
+    expect(CC.ccMessage(0, 110, 999).data.value).toBe(127);
+  });
+
+  test('messagesFor returns the 5 CCs in order 110..114', () => {
+    const msgs = CC.messagesFor(3, { brightness: 1, effect: 2, hue: 3, speed: 4, intensity: 5 });
+    expect(msgs.map((m) => m.data.controller)).toEqual([110, 111, 112, 113, 114]);
+    expect(msgs.map((m) => m.data.value)).toEqual([1, 2, 3, 4, 5]);
+    for (const m of msgs) expect(m.data.channel).toBe(3);
+  });
+
+  test('messagesForDiff only emits changed fields', () => {
+    const prev = CC.defaultState();
+    const next = { ...prev, hue: 64, intensity: 100 };
+    const diff = CC.messagesForDiff(0, prev, next);
+    expect(diff.map((m) => m.data.controller).sort()).toEqual([112, 114]);
+    expect(diff.find((m) => m.data.controller === 112).data.value).toBe(64);
+  });
+
+  test('messagesForDiff returns nothing when state is identical', () => {
+    const s = { brightness: 64, effect: 1, hue: 32, speed: 80, intensity: 90 };
+    expect(CC.messagesForDiff(0, s, s)).toEqual([]);
+  });
+});
+
+describe('InstrumentLightCC — hueToRgb', () => {
+  test('primary hues land on the expected RGB channels', () => {
+    // hue 0 → exact red, hue 64 → exact cyan (h = 3.0 boundary).
+    expect(CC.hueToRgb(0)).toEqual({ r: 255, g: 0, b: 0 });
+    expect(CC.hueToRgb(64)).toEqual({ r: 0, g: 255, b: 255 });
+    // Near-green (h ≈ 2): g dominates, r/b ~ 0.
+    const green = CC.hueToRgb(43);
+    expect(green.g).toBeGreaterThanOrEqual(250);
+    expect(green.r).toBeLessThan(10);
+    expect(green.b).toBeLessThan(10);
+    // Near-blue (h ≈ 4): b dominates.
+    const blue = CC.hueToRgb(85);
+    expect(blue.b).toBe(255);
+    expect(blue.r).toBeLessThan(10);
+  });
+
+  test('hue values out of range are clamped/wrapped safely', () => {
+    expect(() => CC.hueToRgb(-1)).not.toThrow();
+    expect(() => CC.hueToRgb(999)).not.toThrow();
+    const rgb = CC.hueToRgb(64);
+    for (const v of [rgb.r, rgb.g, rgb.b]) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(255);
     }
-  });
-
-  test('21-bit split/join round-trips', () => {
-    for (const v of [0, 1, 0x7F, 0x80, 0xFFFF, 0x1FFFFF]) {
-      const [a, b, c] = P.split21(v);
-      expect(P.join21(a, b, c)).toBe(v);
-    }
-  });
-});
-
-describe('Tier 1 — Note / velocity', () => {
-  test('velocity > 0 → noteon, 0 → noteoff', () => {
-    const on = P.noteColorMessage(4, 60, 100);
-    expect(on.type).toBe('noteon');
-    expect(on.data).toEqual({ channel: 4, note: 60, velocity: 100 });
-
-    const off = P.noteColorMessage(4, 60, 0);
-    expect(off.type).toBe('noteoff');
-    expect(off.data.velocity).toBe(0);
-  });
-});
-
-describe('Tier 2 — CC', () => {
-  test('clamps to 7-bit and masks channel', () => {
-    const m = P.ccMessage(20, 102, 300);
-    expect(m.type).toBe('cc');
-    expect(m.data).toEqual({ channel: 20 & 0x0F, controller: 102, value: 127 });
-  });
-});
-
-describe('Tier 3 — SysEx control (Block 9)', () => {
-  test('set LED encodes 14-bit index and 7-bit RGB', () => {
-    const b = P.sysexSetLed(1, 130, 254, 0, 128);
-    expect(b[0]).toBe(0xF0);
-    expect(b[3]).toBe(0x09);
-    expect(b[5]).toBe(P.CTRL.SET_LED);
-    expect(b[6]).toBe(1);                 // channel
-    expect(P.join14(b[7], b[8])).toBe(130); // led index
-    expect(b[9]).toBe(127);               // 254 → 127
-    expect(b[10]).toBe(0);
-    expect(b[b.length - 1]).toBe(0xF7);
-  });
-
-  test('clear / brightness / all are well-formed', () => {
-    expect(P.sysexClear(0)).toEqual([0xF0, 0x7D, 0x00, 0x09, 0x00, P.CTRL.CLEAR, 0, 0xF7]);
-    const br = P.sysexBrightness(0, 255);
-    expect(br[5]).toBe(P.CTRL.BRIGHTNESS);
-    expect(br[7]).toBe(127);
-  });
-
-  test('bulk frames chunk under the byte budget', () => {
-    const entries = Array.from({ length: 100 }, (_, i) => ({ led: i, r: 10, g: 20, b: 30 }));
-    const frames = P.sysexBulkFrames(0, entries, 64);
-    expect(frames.length).toBeGreaterThan(1);
-    for (const f of frames) {
-      expect(f.length).toBeLessThanOrEqual(64);
-      expect(f[0]).toBe(0xF0);
-      expect(f[f.length - 1]).toBe(0xF7);
-    }
-  });
-});
-
-describe('hexToRgb', () => {
-  test('parses with and without #', () => {
-    expect(P.hexToRgb('#FF8000')).toEqual({ r: 255, g: 128, b: 0 });
-    expect(P.hexToRgb('00ff00')).toEqual({ r: 0, g: 255, b: 0 });
-    expect(P.hexToRgb('bad')).toEqual({ r: 255, g: 255, b: 255 });
   });
 });

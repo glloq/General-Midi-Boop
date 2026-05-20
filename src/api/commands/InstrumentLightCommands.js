@@ -1,19 +1,14 @@
 /**
  * @file src/api/commands/InstrumentLightCommands.js
- * @description WebSocket commands for the embedded-instrument lighting
- * subsystem (LEDs on the instrument, driven by its own microcontroller).
- * Persistence + runtime live in {@link InstrumentLightManager}.
+ * @description WebSocket commands for the CC-based instrument lighting
+ * subsystem. Persistence + runtime live in {@link InstrumentLightManager}.
  *
  * Registered commands:
- *   - instrument_light_list                — every lit instrument
- *   - instrument_light_get                 — caps + config for one
- *   - instrument_light_set_capabilities    — manual capability entry
- *   - instrument_light_set_config          — control config
- *   - instrument_light_request_sysex       — trigger Block 8 auto-detect
- *   - instrument_light_test                — flash the LEDs
- *   - instrument_light_all_off             — blackout one instrument
- *
- * Validation: imperative inside each handler.
+ *   - instrument_light_get        — current 5-CC state for one instrument
+ *   - instrument_light_set        — patch the state and emit the CC diffs
+ *   - instrument_light_list       — every persisted state
+ *   - instrument_light_test       — briefly flash the LEDs
+ *   - instrument_light_all_off    — send CC 110 = 0
  */
 import { ValidationError, ConfigurationError } from '../../core/errors/index.js';
 import { requireField } from '../../utils/ValidationUtils.js';
@@ -34,43 +29,25 @@ function resolveTarget(data) {
   return { deviceId, channel };
 }
 
-function instrumentLightList(app) {
-  return { success: true, instruments: requireManager(app).listLitInstruments() };
-}
-
 function instrumentLightGet(app, data) {
   const { deviceId, channel } = resolveTarget(data);
-  return { success: true, instrument: requireManager(app).getInstrument(deviceId, channel) };
+  return { success: true, state: requireManager(app).getState(deviceId, channel) };
 }
 
-function instrumentLightSetCapabilities(app, data) {
+function instrumentLightSet(app, data) {
   const { deviceId, channel } = resolveTarget(data);
-  const capabilities = data.capabilities;
-  if (!capabilities || typeof capabilities !== 'object') {
-    throw new ValidationError('capabilities object is required', 'capabilities');
+  const patch = data.state;
+  if (!patch || typeof patch !== 'object') {
+    throw new ValidationError('state object is required', 'state');
   }
   return {
     success: true,
-    instrument: requireManager(app).setCapabilities(deviceId, channel, capabilities)
+    state: requireManager(app).setState(deviceId, channel, patch)
   };
 }
 
-function instrumentLightSetConfig(app, data) {
-  const { deviceId, channel } = resolveTarget(data);
-  const config = data.config;
-  if (!config || typeof config !== 'object') {
-    throw new ValidationError('config object is required', 'config');
-  }
-  return {
-    success: true,
-    instrument: requireManager(app).setConfig(deviceId, channel, config)
-  };
-}
-
-function instrumentLightRequestSysex(app, data) {
-  const { deviceId, channel } = resolveTarget(data);
-  requireManager(app).requestSysexCapabilities(deviceId, channel);
-  return { success: true };
+function instrumentLightList(app) {
+  return { success: true, instruments: requireManager(app).listStates() };
 }
 
 function instrumentLightTest(app, data) {
@@ -89,11 +66,9 @@ function instrumentLightAllOff(app, data) {
  * @returns {void}
  */
 export function register(registry, app) {
-  registry.register('instrument_light_list', () => instrumentLightList(app));
   registry.register('instrument_light_get', (data) => instrumentLightGet(app, data));
-  registry.register('instrument_light_set_capabilities', (data) => instrumentLightSetCapabilities(app, data));
-  registry.register('instrument_light_set_config', (data) => instrumentLightSetConfig(app, data));
-  registry.register('instrument_light_request_sysex', (data) => instrumentLightRequestSysex(app, data));
+  registry.register('instrument_light_set', (data) => instrumentLightSet(app, data));
+  registry.register('instrument_light_list', () => instrumentLightList(app));
   registry.register('instrument_light_test', (data) => instrumentLightTest(app, data));
   registry.register('instrument_light_all_off', (data) => instrumentLightAllOff(app, data));
 }

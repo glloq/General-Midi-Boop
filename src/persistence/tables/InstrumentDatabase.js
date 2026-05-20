@@ -140,10 +140,9 @@ class InstrumentDatabase {
   // ==================== DELEGATED: INSTRUMENT EMBEDDED LIGHTS ====================
   // Full implementations in InstrumentLightDB.js
 
-  getInstrumentLight(...args) { return this._light.getInstrumentLight(...args); }
-  getAllInstrumentLights() { return this._light.getAllInstrumentLights(); }
-  saveInstrumentLightCapabilities(...args) { return this._light.saveInstrumentLightCapabilities(...args); }
-  saveInstrumentLightConfig(...args) { return this._light.saveInstrumentLightConfig(...args); }
+  getInstrumentLightState(...args) { return this._light.getInstrumentLightState(...args); }
+  getAllInstrumentLightStates() { return this._light.getAllInstrumentLightStates(); }
+  saveInstrumentLightState(...args) { return this._light.saveInstrumentLightState(...args); }
   deleteInstrumentLightByDevice(...args) { return this._light.deleteInstrumentLightByDevice(...args); }
 
   // ==================== DELEGATED: INSTRUMENT VOICES (multi-GM) ====================
