@@ -529,15 +529,44 @@
           if (hint === 'summary' || hint === 'both-panels') {
             const panel = this.modal.querySelector('#rsSummaryPanel');
             if (panel) {
+              const _st0 =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
               const saved = panel.scrollTop;
-              panel.innerHTML = this._renderSummaryTable(channelKeys);
+              const stHtml = this._renderSummaryTable(channelKeys);
+              const _stHtmlDone =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
+              panel.innerHTML = stHtml;
+              const _stInjectDone =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
               panel.scrollTop = saved;
               this._bindSummaryEvents(channelKeys);
+              const _stDone =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
+              console.log(
+                `[RS-PERF] summary-render` +
+                  ` build=${(_stHtmlDone - _st0).toFixed(0)}ms` +
+                  ` html-len=${stHtml.length}` +
+                  ` innerHTML=${(_stInjectDone - _stHtmlDone).toFixed(0)}ms` +
+                  ` bind=${(_stDone - _stInjectDone).toFixed(0)}ms` +
+                  ` total=${(_stDone - _st0).toFixed(0)}ms`
+              );
             }
           }
           if (hint === 'detail' || hint === 'both-panels') {
             const panel = this.modal.querySelector('#rsDetailPanel');
             if (panel) {
+              const _pt0 =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
               const saved = panel.scrollTop;
               // The previous hands-preview panel's container will be
               // wiped by the innerHTML assignment below. Tear it down
@@ -548,12 +577,37 @@
                 this._handsPreviewPanel = null;
                 this._handsPreviewChannel = null;
               }
-              panel.innerHTML =
+              const _ptBuild =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
+              const html =
                 this.selectedChannel !== null
                   ? this._safeRenderDetailPanel(this.selectedChannel)
                   : this._renderDetailPlaceholder();
+              const _ptInject =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
+              panel.innerHTML = html;
+              const _ptBind =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
               panel.scrollTop = saved;
               this._bindDetailEvents(channelKeys);
+              const _ptDone =
+                typeof performance !== 'undefined' && performance.now
+                  ? performance.now()
+                  : Date.now();
+              console.log(
+                `[RS-PERF] detail-render ch=${this.selectedChannel}` +
+                  ` build=${(_ptInject - _ptBuild).toFixed(0)}ms` +
+                  ` html-len=${html.length}` +
+                  ` innerHTML=${(_ptBind - _ptInject).toFixed(0)}ms` +
+                  ` bind=${(_ptDone - _ptBind).toFixed(0)}ms` +
+                  ` total=${(_ptDone - _pt0).toFixed(0)}ms`
+              );
               if (this.selectedChannel !== null) {
                 this._scheduleHandsPreviewMount(this.selectedChannel);
               }
@@ -1096,9 +1150,14 @@
      * @private
      */
     async _mountHandsPreview(channel) {
+      const _mtT0 =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       if (!window.HandsPreviewPanel) return;
       const host = this.modal?.querySelector(`#rsHandsPreview-${channel}`);
-      if (!host) return;
+      if (!host) {
+        console.log(`[RS-PERF] _mountHandsPreview(${channel}) skipped — no host element`);
+        return;
+      }
 
       if (this._handsPreviewPanel && this._handsPreviewChannel !== channel) {
         this._handsPreviewPanel.destroy();
@@ -1116,7 +1175,16 @@
       );
       if (!instrumentRecord) return;
 
+      const _mtNotesT0 =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       const notes = this._getChannelNotesForPreview(channel);
+      const _mtNotesT1 =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+      if (_mtNotesT1 - _mtNotesT0 > 5) {
+        console.log(
+          `[RS-PERF] _getChannelNotesForPreview(${channel}) ${(_mtNotesT1 - _mtNotesT0).toFixed(0)}ms notes=${notes?.length || 0}`
+        );
+      }
       if (!notes || notes.length === 0) return;
 
       const ticksPerBeat =
@@ -1173,6 +1241,8 @@
       // NB: never pass `eagerEngine` here — the solver must stay gated
       // behind the first panel expand so a plain channel click never
       // triggers the (off-thread, but still scheduled) simulation.
+      const _mtCtorT0 =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       this._handsPreviewPanel = new window.HandsPreviewPanel(host, {
         channel,
         notes,
@@ -1202,6 +1272,13 @@
         }
       });
       this._handsPreviewChannel = channel;
+      const _mtDone =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+      console.log(
+        `[RS-PERF] _mountHandsPreview(${channel}) total=${(_mtDone - _mtT0).toFixed(0)}ms` +
+          ` ctor=${(_mtDone - _mtCtorT0).toFixed(0)}ms notes=${notes.length}` +
+          ` mode=${this._handsPreviewPanel?.mode}`
+      );
     }
 
     /**
@@ -1243,18 +1320,22 @@
      * @private
      */
     _warmChannelNotesCache() {
+      const _wT0 =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       const cache = Object.create(null);
       if (!this.midiData?.tracks) {
         this._channelNotesCache = cache;
         this._channelNotesForMidi = this.midiData;
         return;
       }
+      let _evCount = 0;
       for (const track of this.midiData.tracks) {
         let absoluteTick = 0;
         // Pending keyed by `${channel}|${note}` so concurrent voices on
         // different channels in the same track don't clobber each other.
         const pending = new Map();
         for (const ev of track.events || track) {
+          _evCount++;
           absoluteTick += ev.deltaTime || 0;
           const noteNumber = ev.note ?? ev.noteNumber;
           if (!Number.isFinite(noteNumber)) continue;
@@ -1286,11 +1367,20 @@
       }
       // Sort each channel by tick — the per-track walk preserves order
       // within a track but interleaving across tracks needs a tidy-up.
+      let _totalNotes = 0;
       for (const ch of Object.keys(cache)) {
         cache[ch].sort((a, b) => a.tick - b.tick);
+        _totalNotes += cache[ch].length;
       }
       this._channelNotesCache = cache;
       this._channelNotesForMidi = this.midiData;
+      const _wT1 =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+      console.log(
+        `[RS-PERF] _warmChannelNotesCache ${(_wT1 - _wT0).toFixed(0)}ms` +
+          ` tracks=${this.midiData.tracks.length} events=${_evCount}` +
+          ` channels=${Object.keys(cache).length} notes=${_totalNotes}`
+      );
     }
 
     /**
@@ -2475,6 +2565,8 @@
     _selectChannel(channel) {
       const prevChannel = this.selectedChannel;
       if (prevChannel === channel) return; // no-op if same channel clicked
+      const _perfT0 =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       this.selectedChannel = channel;
       const channelKeys = Object.keys(this.suggestions).sort((a, b) => parseInt(a) - parseInt(b));
       const layoutChanged = (prevChannel === null) !== (channel === null);
@@ -2506,6 +2598,12 @@
       } else {
         this._refreshUI(channelKeys, 'both-panels');
       }
+      const _now =
+        typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+      console.log(
+        `[RS-PERF] _selectChannel(${channel}) sync ${(_now - _perfT0).toFixed(0)}ms` +
+          ' — rAF detail/summary/mount/minimap scheduled (see their own logs)'
+      );
     }
 
     _selectInstrument(ch, instrumentId, channelKeys) {
