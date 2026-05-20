@@ -34,21 +34,21 @@
           ${presetsHTML}
 
           <hr style="border:none;border-top:1px solid ${t.border};margin:12px 0;">
-          <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">🎬 Scènes (état lumière)</div>
+          <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">${i18n.t('lighting.scenesTitle') || '🎬 Scènes (état lumière)'}</div>
           <div style="display:flex;gap:8px;margin-bottom:12px;">
             <input id="lpSceneName" type="text" placeholder="${i18n.t('lighting.sceneName') || 'Nom de la scène'}" style="flex:1;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:12px;background:${t.inputBg};color:${t.inputText};box-sizing:border-box;">
-            <button onclick="lightingControlPageInstance.saveScene()" style="padding:7px 12px;border:1px solid #8b5cf6;border-radius:8px;background:${t.btnBg};color:#8b5cf6;cursor:pointer;font-size:12px;white-space:nowrap;">💾 Sauvegarder</button>
+            <button onclick="lightingControlPageInstance.saveScene()" style="padding:7px 12px;border:1px solid #8b5cf6;border-radius:8px;background:${t.btnBg};color:#8b5cf6;cursor:pointer;font-size:12px;white-space:nowrap;">${i18n.t('lighting.saveSceneBtn') || '💾 Sauvegarder'}</button>
           </div>
 
           <hr style="border:none;border-top:1px solid ${t.border};margin:12px 0;">
-          <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">📤 Import / Export</div>
+          <div style="font-size:12px;font-weight:600;color:${t.textSec};margin-bottom:8px;">${i18n.t('lighting.importExportTitle') || '📤 Import / Export'}</div>
           <div style="display:flex;gap:8px;margin-bottom:12px;">
-            <button onclick="lightingControlPageInstance.exportRules()" style="flex:1;padding:7px;border:1px solid #3b82f6;border-radius:8px;background:${t.btnBg};color:#3b82f6;cursor:pointer;font-size:12px;">📤 Exporter les règles</button>
-            <button onclick="lightingControlPageInstance.importRules()" style="flex:1;padding:7px;border:1px solid #10b981;border-radius:8px;background:${t.btnBg};color:#10b981;cursor:pointer;font-size:12px;">📥 Importer des règles</button>
+            <button onclick="lightingControlPageInstance.exportRules()" style="flex:1;padding:7px;border:1px solid #3b82f6;border-radius:8px;background:${t.btnBg};color:#3b82f6;cursor:pointer;font-size:12px;">${i18n.t('lighting.exportRulesBtn') || '📤 Exporter les règles'}</button>
+            <button onclick="lightingControlPageInstance.importRules()" style="flex:1;padding:7px;border:1px solid #10b981;border-radius:8px;background:${t.btnBg};color:#10b981;cursor:pointer;font-size:12px;">${i18n.t('lighting.importRulesBtn') || '📥 Importer des règles'}</button>
           </div>
 
           <div style="text-align:right;margin-top:12px;">
-            <button onclick="document.getElementById('lightingPresetsPanel').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">Fermer</button>
+            <button onclick="document.getElementById('lightingPresetsPanel').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">${i18n.t('lighting.close') || 'Fermer'}</button>
           </div>
         </div>
       </div>`;
@@ -72,7 +72,12 @@
           import_data: importData,
           default_device_id: this.selectedDeviceId || undefined
         });
-        this.showToast(`Import: ${res.imported} règle(s) importée(s), ${res.skipped} ignorée(s)`, 'success');
+        this.showToast(
+          (i18n.t('lighting.importSuccessToast') || 'Import : {imported} règle(s) importée(s), {skipped} ignorée(s)')
+            .replace('{imported}', res.imported)
+            .replace('{skipped}', res.skipped),
+          'success'
+        );
         document.getElementById('lightingPresetsPanel')?.remove();
         await this.loadData();
       } catch (error) { this.showToast((i18n.t('lighting.importError') || 'Erreur import: ') + error.message, 'error'); }

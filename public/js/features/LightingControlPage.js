@@ -56,8 +56,8 @@ class LightingControlPage {
           <div class="lighting-confirm-icon">⚠️</div>
           <p class="lighting-confirm-message">${this._escapeHtml(message)}</p>
           <div class="lighting-confirm-actions">
-            <button class="lighting-btn lighting-btn--secondary" style="min-width:80px;font-size:13px;" id="_lcpConfirmNo">Annuler</button>
-            <button class="lighting-btn lighting-btn--danger" style="min-width:80px;font-size:13px;" id="_lcpConfirmYes">Confirmer</button>
+            <button class="lighting-btn lighting-btn--secondary" style="min-width:80px;font-size:13px;" id="_lcpConfirmNo">${i18n.t('lighting.cancel') || 'Annuler'}</button>
+            <button class="lighting-btn lighting-btn--danger" style="min-width:80px;font-size:13px;" id="_lcpConfirmYes">${i18n.t('lighting.confirm') || 'Confirmer'}</button>
           </div>
         </div>`;
       document.body.appendChild(overlay);
@@ -164,21 +164,21 @@ class LightingControlPage {
               <button class="lighting-header-btn" data-action="showEffectsPanel">⚡ ${i18n.t('lighting.effects') || 'Effets'}</button>
               <button class="lighting-header-btn" data-action="showGroupsPanel">🔗 ${i18n.t('lighting.groups') || 'Groupes'}</button>
               <button class="lighting-header-btn" data-action="showPresetsPanel">📦 ${i18n.t('lighting.presets') || 'Presets'}</button>
-              <button class="lighting-header-btn lighting-header-btn--danger" data-action="blackout">🚫 Blackout</button>
+              <button class="lighting-header-btn lighting-header-btn--danger" data-action="blackout">🚫 ${i18n.t('lighting.blackout') || 'Blackout'}</button>
               <button class="lighting-header-btn" data-action="allOff">⏹ ${i18n.t('lighting.allOff') || 'Tout éteindre'}</button>
             </div>
 
             <!-- Master Dimmer Bar -->
             <div class="lighting-dimmer-bar">
-              <span class="lighting-dimmer-label">🔆 Master</span>
+              <span class="lighting-dimmer-label">🔆 ${i18n.t('lighting.masterDimmer') || 'Master'}</span>
               <input id="lightingMasterDimmer" type="range" min="0" max="255" value="255" data-action="masterDimmer">
               <span id="lightingMasterDimmerVal" class="lighting-dimmer-val">100%</span>
             </div>
 
             <!-- Mobile sub-tab bar (device / rules) -->
             <div id="lightingMobileTabs" class="lighting-mobile-tabs">
-              <button id="lightingTabDevices" class="lighting-mobile-tab lighting-mobile-tab--active" data-action="showMobilePanel" data-panel="devices">📋 Dispositifs</button>
-              <button id="lightingTabRules" class="lighting-mobile-tab" data-action="showMobilePanel" data-panel="rules">📐 Règles</button>
+              <button id="lightingTabDevices" class="lighting-mobile-tab lighting-mobile-tab--active" data-action="showMobilePanel" data-panel="devices">📋 ${i18n.t('lighting.mobileTabDevices') || 'Dispositifs'}</button>
+              <button id="lightingTabRules" class="lighting-mobile-tab" data-action="showMobilePanel" data-panel="rules">📐 ${i18n.t('lighting.mobileTabRules') || 'Règles'}</button>
             </div>
 
             <!-- Body: two-panel layout -->
@@ -188,11 +188,11 @@ class LightingControlPage {
               <div id="lightingDevicePanel" class="lighting-device-panel">
                 <div class="lighting-device-panel-header">
                   <span class="lighting-device-panel-title">📋 ${i18n.t('lighting.devices') || 'Dispositifs'}</span>
-                  <button class="lighting-btn--scan" data-action="scanDevices" title="Scanner le réseau">🔍</button>
+                  <button class="lighting-btn--scan" data-action="scanDevices" title="${i18n.t('lighting.scanNetworkTooltip') || 'Scanner le réseau'}">🔍</button>
                   <button class="lighting-btn--outline lighting-btn--outline-yellow" data-action="showAddDeviceForm" style="padding:4px 10px;font-size:12px;">+ ${i18n.t('lighting.addDevice') || 'Ajouter'}</button>
                 </div>
                 <div id="lightingDeviceList" class="lighting-device-list">
-                  <div class="lighting-empty-state">Chargement...</div>
+                  <div class="lighting-empty-state">${i18n.t('lighting.loading') || 'Chargement...'}</div>
                 </div>
               </div>
 
@@ -202,7 +202,7 @@ class LightingControlPage {
                   <span class="lighting-rules-title" id="lightingRulesTitle">📐 ${i18n.t('lighting.selectDevice') || 'Sélectionnez un dispositif'}</span>
                   <div id="lightingRulesActions" class="lighting-rules-actions">
                     <button data-action="reconnectDevice" id="lightingReconnectBtn" class="lighting-btn--outline lighting-btn--outline-yellow" style="display:none;">🔄 ${i18n.t('lighting.reconnect') || 'Reconnecter'}</button>
-                    <button data-action="showEditDeviceForm" class="lighting-btn--outline lighting-btn--outline-purple">✏️ Modifier</button>
+                    <button data-action="showEditDeviceForm" class="lighting-btn--outline lighting-btn--outline-purple">✏️ ${i18n.t('lighting.editDevice') || 'Modifier'}</button>
                     <button data-action="testDevice" class="lighting-btn--outline lighting-btn--outline-blue">🔦 ${i18n.t('lighting.testDevice') || 'Tester'}</button>
                     <button data-action="batchToggleRules" data-enabled="true" class="lighting-btn--mini" title="${i18n.t('lighting.enableAll') || 'Tout activer'}">✅All</button>
                     <button data-action="batchToggleRules" data-enabled="false" class="lighting-btn--mini" title="${i18n.t('lighting.disableAll') || 'Tout désactiver'}">⬜All</button>
@@ -212,9 +212,9 @@ class LightingControlPage {
                 <!-- LED Preview Strip -->
                 <div id="lightingLedPreview" class="lighting-led-preview">
                   <div class="lighting-led-preview-header">
-                    <span class="lighting-led-preview-label">LED Preview</span>
-                    <button data-action="_testPreviewRainbow" class="lighting-btn--mini">🌈 Test</button>
-                    <button data-action="_clearPreview" class="lighting-btn--mini">⬛ Clear</button>
+                    <span class="lighting-led-preview-label">${i18n.t('lighting.ledPreview') || 'Aperçu LEDs'}</span>
+                    <button data-action="_testPreviewRainbow" class="lighting-btn--mini">${i18n.t('lighting.previewTest') || '🌈 Test'}</button>
+                    <button data-action="_clearPreview" class="lighting-btn--mini">${i18n.t('lighting.previewClear') || '⬛ Effacer'}</button>
                   </div>
                   <div id="lightingLedStripViz" class="lighting-led-strip-viz"></div>
                 </div>
@@ -230,7 +230,7 @@ class LightingControlPage {
           <!-- ===== Tab: Per-instrument (read-only overview) ===== -->
           <div id="lightingTabPanelInstruments" class="lighting-tab-panel" style="display:none;">
             <div id="lightingInstrumentList" class="lighting-instrument-list">
-              <div class="lighting-empty-state">Chargement...</div>
+              <div class="lighting-empty-state">${i18n.t('lighting.loading') || 'Chargement...'}</div>
             </div>
           </div>
         </div>
@@ -756,7 +756,7 @@ class LightingControlPage {
   async _deleteGroupByIdx(idx) {
     const name = this._groupNames?.[idx];
     if (!name) return;
-    if (!await this._confirm(`Supprimer le groupe "${name}" ?`)) return;
+    if (!await this._confirm((i18n.t('lighting.confirmDeleteGroup') || 'Supprimer le groupe « {name} » ?').replace('{name}', name))) return;
     try {
       await this.apiClient.sendCommand('lighting_group_delete', { name });
       this.showGroupsPanel();
@@ -789,7 +789,7 @@ class LightingControlPage {
 
     try {
       await this.apiClient.sendCommand('lighting_device_add', {
-        name: device.name + ' (copie)',
+        name: device.name + (i18n.t('lighting.cloneSuffix') || ' (copie)'),
         type: device.type,
         led_count: device.led_count,
         connection_config: device.connection_config,
@@ -905,7 +905,7 @@ class LightingControlPage {
     if (!name) { this.showToast(i18n.t('lighting.sceneName') || 'Nom requis', 'warning'); return; }
     try {
       await this.apiClient.sendCommand('lighting_scene_save', { name });
-      this.showToast(`Scène "${name}" sauvegardée`, 'success');
+      this.showToast((i18n.t('lighting.sceneSaved') || 'Scène « {name} » sauvegardée').replace('{name}', name), 'success');
       document.getElementById('lightingPresetsPanel')?.remove();
       const res = await this.apiClient.sendCommand('lighting_preset_list');
       this.presets = res.presets || [];
@@ -962,9 +962,9 @@ class LightingControlPage {
     entry.className = 'segment-entry';
     entry.style.cssText = `display:flex;gap:6px;align-items:center;margin-bottom:6px;`;
     entry.innerHTML = `
-      <input class="seg-name" type="text" placeholder="Nom" style="flex:1;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
-      <input class="seg-start" type="number" min="0" value="0" placeholder="Début" style="width:55px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
-      <input class="seg-end" type="number" min="0" value="0" placeholder="Fin" style="width:55px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="seg-name" type="text" placeholder="${i18n.t('lighting.segmentNamePlaceholder') || 'Nom'}" style="flex:1;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="seg-start" type="number" min="0" value="0" placeholder="${i18n.t('lighting.segmentStartPlaceholder') || 'Début'}" style="width:55px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
+      <input class="seg-end" type="number" min="0" value="0" placeholder="${i18n.t('lighting.segmentEndPlaceholder') || 'Fin'}" style="width:55px;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:11px;background:${t.inputBg};color:${t.inputText};">
       <button type="button" onclick="this.closest('.segment-entry').remove()" style="padding:2px 6px;border:none;background:none;color:#ef4444;cursor:pointer;font-size:14px;">×</button>`;
     container.appendChild(entry);
   }
@@ -1079,7 +1079,7 @@ class LightingControlPage {
     try {
       await this.apiClient.sendCommand('lighting_rule_add', {
         device_id: this.selectedDeviceId,
-        name: (rule.name || 'Rule') + ' (copie)',
+        name: (rule.name || 'Rule') + (i18n.t('lighting.cloneSuffix') || ' (copie)'),
         instrument_id: rule.instrument_id,
         priority: rule.priority,
         enabled: false,

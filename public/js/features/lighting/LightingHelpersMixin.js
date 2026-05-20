@@ -30,9 +30,14 @@
 
   LightingHelpersMixin._getTriggerLabel = function (trigger) {
     return (
-      { noteon: 'Note On', noteoff: 'Note Off', cc: 'CC', any: 'Tous' }[trigger] ||
+      {
+        noteon: i18n.t('lighting.triggerNoteOn') || 'Note On',
+        noteoff: i18n.t('lighting.triggerNoteOff') || 'Note Off',
+        cc: i18n.t('lighting.triggerCc') || 'CC',
+        any: i18n.t('lighting.triggerAny') || 'Tous'
+      }[trigger] ||
       trigger ||
-      'Note On'
+      (i18n.t('lighting.triggerNoteOn') || 'Note On')
     );
   };
 
@@ -41,24 +46,24 @@
       {
         static: i18n.t('lighting.colorStatic') || 'Couleur fixe',
         velocity_mapped: i18n.t('lighting.colorVelocity') || 'Gradient',
-        note_color: '\uD83C\uDFB9 Note\u2192Couleur',
-        color_temp: '\uD83C\uDF21\uFE0F Temp. couleur',
-        random_color: '\uD83C\uDFB2 Al\u00E9atoire',
-        note_led: '\uD83C\uDFB9 Note\u2192LED',
-        vu_meter: '\uD83D\uDCCA VU-m\u00E8tre',
-        pulse: 'Pulse',
-        fade: 'Fade',
-        strobe: '\u26A1 Stroboscope',
-        rainbow: '\uD83C\uDF08 Arc-en-ciel',
-        chase: '\uD83C\uDFC3 Chenillard',
-        fire: '\uD83D\uDD25 Feu',
-        breathe: '\uD83D\uDCA8 Respiration',
-        sparkle: '\u2728 \u00C9tincelles',
-        color_cycle: '\uD83C\uDFA8 Cycle',
-        wave: '\uD83C\uDF0A Vague'
+        note_color: i18n.t('lighting.actionNoteColorOpt') || '\uD83C\uDFB9 Note\u2192Couleur',
+        color_temp: i18n.t('lighting.actionColorTempOpt') || '\uD83C\uDF21\uFE0F Temp. couleur',
+        random_color: i18n.t('lighting.actionRandomColorOpt') || '\uD83C\uDFB2 Al\u00E9atoire',
+        note_led: i18n.t('lighting.actionNoteLedOpt') || '\uD83C\uDFB9 Note\u2192LED',
+        vu_meter: i18n.t('lighting.actionVuMeterOpt') || '\uD83D\uDCCA VU-m\u00E8tre',
+        pulse: i18n.t('lighting.actionPulseOpt') || 'Pulse',
+        fade: i18n.t('lighting.actionFadeOpt') || 'Fade',
+        strobe: i18n.t('lighting.effectStrobeOpt') || '\u26A1 Stroboscope',
+        rainbow: i18n.t('lighting.effectRainbowOpt') || '\uD83C\uDF08 Arc-en-ciel',
+        chase: i18n.t('lighting.effectChaseOpt') || '\uD83C\uDFC3 Chenillard',
+        fire: i18n.t('lighting.effectFireOpt') || '\uD83D\uDD25 Feu',
+        breathe: i18n.t('lighting.effectBreatheOpt') || '\uD83D\uDCA8 Respiration',
+        sparkle: i18n.t('lighting.effectSparkleOpt') || '\u2728 \u00C9tincelles',
+        color_cycle: i18n.t('lighting.effectColorCycleOpt') || '\uD83C\uDFA8 Cycle',
+        wave: i18n.t('lighting.effectWaveOpt') || '\uD83C\uDF0A Vague'
       }[type] ||
       type ||
-      'Couleur fixe'
+      (i18n.t('lighting.colorStatic') || 'Couleur fixe')
     );
   };
 
@@ -340,11 +345,11 @@
     div.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;`;
     div.innerHTML = `
             <div style="background:${t.bg};border-radius:12px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
-                <h3 style="margin:0 0 12px;font-size:14px;color:${t.text};">\uD83C\uDFA8 S\u00E9lecteur de couleur</h3>
+                <h3 style="margin:0 0 12px;font-size:14px;color:${t.text};">${i18n.t('lighting.colorWheelTitle') || '\uD83C\uDFA8 S\u00E9lecteur de couleur'}</h3>
                 <div style="display:flex;align-items:center;gap:12px;justify-content:center;">
                     <canvas id="colorWheelCanvas" width="220" height="220" style="cursor:crosshair;border-radius:50%;"></canvas>
                     <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                        <span style="font-size:10px;color:${t.textMuted};">Luminosit\u00E9</span>
+                        <span style="font-size:10px;color:${t.textMuted};">${i18n.t('lighting.brightness') || 'Luminosit\u00E9'}</span>
                         <input id="colorWheelBrightness" type="range" min="10" max="100" value="100" orient="vertical" style="writing-mode:vertical-lr;direction:rtl;height:200px;width:20px;cursor:pointer;">
                         <span id="colorWheelBriVal" style="font-size:10px;color:${t.textMuted};">100%</span>
                     </div>
@@ -354,8 +359,8 @@
                     <span id="colorWheelHex" style="font-size:14px;color:${t.text};font-family:monospace;">#FF0000</span>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;">
-                    <button id="colorWheelApply" style="padding:7px 18px;border:none;border-radius:8px;background:#10b981;color:white;cursor:pointer;font-weight:600;font-size:13px;">Appliquer</button>
-                    <button onclick="document.getElementById('lightingColorWheel').remove()" style="padding:7px 18px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:13px;">Annuler</button>
+                    <button id="colorWheelApply" style="padding:7px 18px;border:none;border-radius:8px;background:#10b981;color:white;cursor:pointer;font-weight:600;font-size:13px;">${i18n.t('lighting.apply') || 'Appliquer'}</button>
+                    <button onclick="document.getElementById('lightingColorWheel').remove()" style="padding:7px 18px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:13px;">${i18n.t('lighting.cancel') || 'Annuler'}</button>
                 </div>
             </div>`;
 
