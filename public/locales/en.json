@@ -1326,6 +1326,7 @@
     "incomplete": "INCOMPLETE",
     "gmProgram": "GM Program",
     "gmProgramNotSet": "GM Program not set",
+    "lightingCapableTooltip": "MIDI lighting control enabled (CC 110-114)",
     "range": "Range",
     "rangeNotSet": "Note range not set",
     "polyphony": "Polyphony",

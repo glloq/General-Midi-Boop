@@ -1326,6 +1326,7 @@
     "incomplete": "INCOMPLET",
     "gmProgram": "Programme GM",
     "gmProgramNotSet": "Programme GM non défini",
+    "lightingCapableTooltip": "Pilotage lumière via MIDI activé (CC 110-114)",
     "range": "Plage",
     "rangeNotSet": "Plage de notes non définie",
     "polyphony": "Polyphonie",
