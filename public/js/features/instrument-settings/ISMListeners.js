@@ -1123,280 +1123,6 @@
     }
   };
 
-  // ========== Lumière section (per-instrument lighting rules) ==========
-
-  ISMListeners._attachLumiereSectionListeners = function () {
-    // Null-safe: no-op until the (lazy / conditional) section is rendered.
-    // Called from both _attachListeners (deep-link / full re-render) and
-    // the navigation listenerMap (first lazy open).
-    if (!this.$('#lumiereRulesList')) return;
-    const self = this;
-    this._lumiereState = { devices: [], rules: [], editingId: null };
-
-    const trigSel = this.$('#lumiereTrigger');
-    if (trigSel)
-      trigSel.addEventListener('change', function () {
-        self._lumiereSyncFormRows();
-      });
-    const actSel = this.$('#lumiereActionType');
-    if (actSel)
-      actSel.addEventListener('change', function () {
-        self._lumiereSyncFormRows();
-      });
-
-    const addBtn = this.$('#lumiereAddRuleBtn');
-    if (addBtn)
-      addBtn.addEventListener('click', function () {
-        self._lumiereShowForm(null);
-      });
-    const cancelBtn = this.$('#lumiereCancelRuleBtn');
-    if (cancelBtn)
-      cancelBtn.addEventListener('click', function () {
-        self._lumiereHideForm();
-      });
-    const saveBtn = this.$('#lumiereSaveRuleBtn');
-    if (saveBtn)
-      saveBtn.addEventListener('click', function () {
-        self._lumiereSaveRule();
-      });
-
-    const devSel = this.$('#lumiereDeviceSelect');
-    if (devSel)
-      devSel.addEventListener('change', function () {
-        self._lumiereState.deviceId = devSel.value ? parseInt(devSel.value) : null;
-      });
-
-    this._lumiereReload();
-  };
-  ISMListeners._lumiereReload = async function () {
-    const self = this;
-    const instrumentId = window.ISMSections?._lumiereInstrumentId?.call(this);
-    try {
-      const [devResp, ruleResp] = await Promise.all([
-        this.api.sendCommand('lighting_device_list').catch(() => null),
-        this.api.sendCommand('lighting_rule_list').catch(() => null)
-      ]);
-      const devices = devResp && Array.isArray(devResp.devices) ? devResp.devices : [];
-      const allRules = ruleResp && Array.isArray(ruleResp.rules) ? ruleResp.rules : [];
-      const rules = allRules.filter(function (r) {
-        return r.instrument_id === instrumentId;
-      });
-      this._lumiereState.devices = devices;
-      this._lumiereState.rules = rules;
-      if (!this._lumiereState.deviceId && devices.length) {
-        this._lumiereState.deviceId = devices[0].id;
-      }
-
-      const devSel = this.$('#lumiereDeviceSelect');
-      if (devSel) {
-        if (!devices.length) {
-          devSel.innerHTML = `<option value="">${this.t('instrumentSettings.lumiereNoDevice') || 'Aucun dispositif lumière — ajoutez-en un dans le modal Lumière'}</option>`;
-        } else {
-          devSel.innerHTML = devices
-            .map(function (d) {
-              const sel = d.id === self._lumiereState.deviceId ? ' selected' : '';
-              return `<option value="${d.id}"${sel}>${self.escape(d.name || 'Device ' + d.id)}${d.led_count ? ' (' + d.led_count + ' LED)' : ''}</option>`;
-            })
-            .join('');
-        }
-      }
-      this._lumiereRenderRules();
-    } catch (e) {
-      const list = this.$('#lumiereRulesList');
-      if (list)
-        list.innerHTML = `<p class="ism-form-hint">${this.escape(e.message || 'Erreur')}</p>`;
-    }
-  };
-
-  ISMListeners._lumiereRenderRules = function () {
-    const list = this.$('#lumiereRulesList');
-    if (!list) return;
-    list.innerHTML = window.ISMSections._renderLumiereRulesList.call(
-      this,
-      this._lumiereState.rules
-    );
-    const self = this;
-    this.$$('.lumiere-edit-rule').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const id = parseInt(btn.dataset.ruleId);
-        const rule = self._lumiereState.rules.find(function (r) {
-          return r.id === id;
-        });
-        if (rule) self._lumiereShowForm(rule);
-      });
-    });
-    this.$$('.lumiere-del-rule').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        self._lumiereDeleteRule(parseInt(btn.dataset.ruleId));
-      });
-    });
-  };
-
-  ISMListeners._lumiereSyncFormRows = function () {
-    const trig = this.$('#lumiereTrigger')?.value || 'noteon';
-    const act = this.$('#lumiereActionType')?.value || 'static';
-    const noteRow = this.$('#lumiereNoteRow');
-    const ccRow = this.$('#lumiereCcRow');
-    if (noteRow) noteRow.style.display = trig === 'cc' ? 'none' : 'flex';
-    if (ccRow) ccRow.style.display = trig === 'cc' ? 'flex' : 'none';
-    // Effect types are timed by the EffectsEngine; colour-less effects
-    // (rainbow) still accept a base colour so keep the picker visible.
-    const speedWrap = this.$('#lumiereSpeedWrap');
-    if (speedWrap) {
-      const label = speedWrap.querySelector('label');
-      if (label) {
-        label.textContent = window.ISMSections._lumiereIsEffectType(act)
-          ? this.t('instrumentSettings.lumiereSpeedEffect') || 'Vitesse effet (ms)'
-          : this.t('instrumentSettings.lumiereSpeed') || 'Fondu (ms)';
-      }
-    }
-  };
-
-  ISMListeners._lumiereShowForm = function (rule) {
-    const sub = this.$('#lumiereFormSubsection');
-    if (!sub) return;
-    sub.style.display = '';
-    const title = this.$('#lumiereFormTitle');
-    if (title)
-      title.textContent = rule
-        ? '✏️ ' + (this.t('instrumentSettings.lumiereEditRule') || 'Modifier la règle')
-        : '➕ ' + (this.t('instrumentSettings.lumiereAddRule') || 'Ajouter une règle');
-
-    const cond = rule?.condition_config || {};
-    const act = rule?.action_config || {};
-    const set = (id, val) => {
-      const el = this.$('#' + id);
-      if (el) el.value = val;
-    };
-    const setChk = (id, val) => {
-      const el = this.$('#' + id);
-      if (el) el.checked = !!val;
-    };
-
-    this.$('#lumiereRuleId').value = rule?.id != null ? rule.id : '';
-    set('lumiereRuleName', rule?.name || '');
-    set('lumiereTrigger', cond.trigger || 'noteon');
-    setChk('lumiereAllChannels', !(cond.channels && cond.channels.length));
-    set('lumiereNoteMin', cond.note_min != null ? cond.note_min : 0);
-    set('lumiereNoteMax', cond.note_max != null ? cond.note_max : 127);
-    set('lumiereVelMin', cond.velocity_min != null ? cond.velocity_min : 1);
-    set('lumiereVelMax', cond.velocity_max != null ? cond.velocity_max : 127);
-    set('lumiereCcNum', Array.isArray(cond.cc_number) ? cond.cc_number.join(', ') : '');
-    set('lumiereCcMin', cond.cc_value_min != null ? cond.cc_value_min : 0);
-    set('lumiereCcMax', cond.cc_value_max != null ? cond.cc_value_max : 127);
-    set('lumiereActionType', act.type || 'static');
-    set('lumiereColor', act.color || '#FF0000');
-    set('lumiereBrightness', act.brightness != null ? act.brightness : 255);
-    set('lumiereSpeed', act.effect_speed || act.fade_time_ms || 500);
-    set('lumiereOffAction', act.off_action || 'off');
-
-    this._lumiereSyncFormRows();
-    sub.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
-
-  ISMListeners._lumiereHideForm = function () {
-    const sub = this.$('#lumiereFormSubsection');
-    if (sub) sub.style.display = 'none';
-  };
-
-  ISMListeners._lumiereSaveRule = async function () {
-    const deviceId = this._lumiereState.deviceId;
-    if (!deviceId) {
-      window.showToast?.(
-        this.t('instrumentSettings.lumiereNoDevice') || 'Aucun dispositif lumière disponible',
-        'warning'
-      );
-      return;
-    }
-    const instrumentId = window.ISMSections._lumiereInstrumentId.call(this);
-    const tab = this._getActiveTab();
-    const clamp = (id, lo, hi, dflt) => {
-      const n = parseInt(this.$('#' + id)?.value);
-      if (isNaN(n)) return dflt;
-      return Math.max(lo, Math.min(hi, n));
-    };
-    const trigger = this.$('#lumiereTrigger').value;
-    const allCh = this.$('#lumiereAllChannels').checked;
-    const ccNumbers = (this.$('#lumiereCcNum').value || '')
-      .split(',')
-      .map((s) => parseInt(s.trim()))
-      .filter((n) => !isNaN(n));
-
-    const condition_config = {
-      trigger,
-      channels: allCh ? null : [tab.channel],
-      velocity_min: clamp('lumiereVelMin', 0, 127, 0),
-      velocity_max: clamp('lumiereVelMax', 0, 127, 127),
-      note_min: clamp('lumiereNoteMin', 0, 127, 0),
-      note_max: clamp('lumiereNoteMax', 0, 127, 127),
-      cc_number: ccNumbers.length ? ccNumbers : null,
-      cc_value_min: clamp('lumiereCcMin', 0, 127, 0),
-      cc_value_max: clamp('lumiereCcMax', 0, 127, 127)
-    };
-    if (
-      condition_config.velocity_min > condition_config.velocity_max ||
-      condition_config.note_min > condition_config.note_max
-    ) {
-      window.showToast?.(
-        this.t('instrumentSettings.lumiereRangeError') || 'Min doit être ≤ Max',
-        'warning'
-      );
-      return;
-    }
-
-    const actionType = this.$('#lumiereActionType').value;
-    const speed = clamp('lumiereSpeed', 20, 10000, 500);
-    const action_config = {
-      type: actionType,
-      color: this.$('#lumiereColor').value,
-      brightness: clamp('lumiereBrightness', 0, 255, 255),
-      led_start: 0,
-      off_action: this.$('#lumiereOffAction').value
-    };
-    const dev = this._lumiereState.devices.find((d) => d.id === deviceId);
-    if (dev && dev.led_count) action_config.led_end = Math.max(0, dev.led_count - 1);
-    if (window.ISMSections._lumiereIsEffectType(actionType)) {
-      action_config.effect_speed = speed;
-    } else {
-      action_config.fade_time_ms = Math.min(5000, speed);
-    }
-
-    const name = this.$('#lumiereRuleName').value || '';
-    const existingId = this.$('#lumiereRuleId').value;
-    try {
-      if (existingId) {
-        await this.api.sendCommand('lighting_rule_update', {
-          id: parseInt(existingId),
-          name,
-          instrument_id: instrumentId,
-          condition_config,
-          action_config
-        });
-      } else {
-        await this.api.sendCommand('lighting_rule_add', {
-          device_id: deviceId,
-          name,
-          instrument_id: instrumentId,
-          condition_config,
-          action_config
-        });
-      }
-      window.showToast?.(this.t('common.saved') || 'Enregistré', 'success');
-      this._lumiereHideForm();
-      await this._lumiereReload();
-    } catch (e) {
-      window.showToast?.(e.message || 'Erreur', 'error');
-    }
-  };
-
-  ISMListeners._lumiereDeleteRule = async function (id) {
-    try {
-      await this.api.sendCommand('lighting_rule_delete', { id });
-      await this._lumiereReload();
-    } catch (e) {
-      window.showToast?.(e.message || 'Erreur', 'error');
-    }
-  };
 
   // ===== Grouped CC picker (accordion + active-CC tags + recommended) =====
 
@@ -2847,6 +2573,91 @@
 
     renderPiano();
     renderList();
+  };
+
+  // ========== Lumière section — compact CC declaration ==========
+  // Five chips, one per CC (110-114), each toggling its bit in
+  // `supported_mask`. The actual sliders/select live in the Lighting
+  // modal "Par instrument" tab; this section only declares which CCs
+  // the instrument's firmware understands.
+
+  ISMListeners._ilcCcChipsBits = function () {
+    return [
+      { bit: 0x01, cc: 110, label: this.t('instrumentSettings.lumiereCc.brightness') || 'Lum.' },
+      { bit: 0x02, cc: 111, label: this.t('instrumentSettings.lumiereCc.effect')     || 'Effet' },
+      { bit: 0x04, cc: 112, label: this.t('instrumentSettings.lumiereCc.hue')        || 'Couleur' },
+      { bit: 0x08, cc: 113, label: this.t('instrumentSettings.lumiereCc.speed')      || 'Vit.' },
+      { bit: 0x10, cc: 114, label: this.t('instrumentSettings.lumiereCc.intensity')  || 'Int.' }
+    ];
+  };
+
+  ISMListeners._renderCcChips = function (mask) {
+    const host = this.$('#ilcCcChips');
+    if (!host) return;
+    const m = mask | 0;
+    host.innerHTML = this._ilcCcChipsBits().map((b) => {
+      const on = (m & b.bit) !== 0;
+      return `<button type="button" class="ilc-cc-chip" data-bit="${b.bit}"
+        style="font-size:12px;padding:4px 10px;border-radius:14px;
+               border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
+               background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};
+               cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+        <span aria-hidden="true">${on ? '●' : '○'}</span>CC${b.cc} ${this.escape(b.label)}
+      </button>`;
+    }).join('');
+    const self = this;
+    host.querySelectorAll('.ilc-cc-chip').forEach((chip) => {
+      chip.addEventListener('click', function () { self._toggleCcChip(this); });
+    });
+  };
+
+  ISMListeners._currentMaskFromDom = function () {
+    const host = this.$('#ilcCcChips');
+    if (!host) return 0;
+    return Array.from(host.querySelectorAll('.ilc-cc-chip')).reduce((m, c) => {
+      const bit = parseInt(c.dataset.bit, 10) || 0;
+      const on = c.style.background && c.style.background !== 'transparent';
+      return on ? (m | bit) : m;
+    }, 0);
+  };
+
+  ISMListeners._toggleCcChip = async function (chip) {
+    if (!this.api || !this.device) return;
+    const tab = this._getActiveTab();
+    if (!tab) return;
+    const bit = parseInt(chip.dataset.bit, 10) || 0;
+    const next = this._currentMaskFromDom() ^ bit;
+    const res = await this.api
+      .sendCommand('instrument_light_set', {
+        deviceId: this.device.id,
+        channel: tab.channel,
+        state: { supported_mask: next }
+      })
+      .catch(() => null);
+    const applied = res && res.state ? (res.state.supported_mask | 0) : next;
+    this._renderCcChips(applied);
+  };
+
+  ISMListeners._attachLumiereSectionListeners = async function () {
+    if (!this.$('#ilcCcChips')) return;
+    if (!this.api || !this.device) {
+      this._renderCcChips(0);
+      return;
+    }
+    const tab = this._getActiveTab();
+    if (!tab) {
+      this._renderCcChips(0);
+      return;
+    }
+    let mask = 0;
+    try {
+      const res = await this.api.sendCommand('instrument_light_get', {
+        deviceId: this.device.id,
+        channel: tab.channel
+      });
+      if (res && res.state) mask = res.state.supported_mask | 0;
+    } catch (e) { /* fall through with mask = 0 */ }
+    this._renderCcChips(mask);
   };
 
   if (typeof window !== 'undefined') window.ISMListeners = ISMListeners;
