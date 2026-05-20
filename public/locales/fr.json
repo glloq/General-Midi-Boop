@@ -1152,7 +1152,19 @@
     "shuffleEnabled": "Lecture aléatoire activée",
     "shuffleDisabled": "Lecture aléatoire désactivée",
     "gapDelay": "Délai entre les fichiers",
-    "gapDelayPrompt": "Secondes d'attente entre les fichiers (0-60) :"
+    "gapDelayPrompt": "Secondes d'attente entre les fichiers (0-60) :",
+    "routedFilesCount": "{count} fichier(s) routé(s)",
+    "filesCount": "{count} fichier(s) ({routed} routé(s))",
+    "noRoutedFiles": "Aucun fichier routé",
+    "noFiles": "Aucun fichier",
+    "statusRoutedAll": "Routé — tous les canaux",
+    "statusRoutedLow": "Routé — compatibilité faible",
+    "statusPartial": "Partiellement routé",
+    "statusNotRouted": "Non routé",
+    "alreadyAdded": "Déjà ajouté",
+    "remove": "Retirer",
+    "playlistStats": "{count} fichier(s) - {duration} au total - {routed} routé(s)",
+    "playlistStatsShort": "{count} fichiers - {duration} au total"
   },
   "lighting": {
     "title": "Contrôle Lumière",

@@ -1152,7 +1152,19 @@
     "shuffleEnabled": "Shuffle enabled",
     "shuffleDisabled": "Shuffle disabled",
     "gapDelay": "Delay between files",
-    "gapDelayPrompt": "Seconds to wait between files (0-60):"
+    "gapDelayPrompt": "Seconds to wait between files (0-60):",
+    "routedFilesCount": "{count} routed file(s)",
+    "filesCount": "{count} file(s) ({routed} routed)",
+    "noRoutedFiles": "No routed files found",
+    "noFiles": "No files found",
+    "statusRoutedAll": "Routed — all channels",
+    "statusRoutedLow": "Routed — low compatibility",
+    "statusPartial": "Partially routed",
+    "statusNotRouted": "Not routed",
+    "alreadyAdded": "Already added",
+    "remove": "Remove",
+    "playlistStats": "{count} file(s) - {duration} total - {routed} routed",
+    "playlistStatsShort": "{count} files - {duration} total"
   },
   "lighting": {
     "title": "Lighting Control",
