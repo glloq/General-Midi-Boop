@@ -28,6 +28,66 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * Split a migration SQL file into individual top-level statements so
+ * each DDL can be executed (and tolerated) in isolation. Strips `--`
+ * line comments and `/* ... *\/` block comments, then splits on `;` —
+ * single/double quoted strings are tracked to avoid breaking on
+ * semicolons inside literals. Empty statements are filtered out.
+ *
+ * Migrations are author-controlled SQL, so we deliberately keep this
+ * splitter minimal: no support for nested block comments, dollar
+ * quoting, or compound triggers (none used here).
+ *
+ * @param {string} sql
+ * @returns {string[]} Trimmed statements ready for `db.exec()`.
+ */
+function splitSqlStatements(sql) {
+  const statements = [];
+  let buf = '';
+  let i = 0;
+  let inSingle = false;
+  let inDouble = false;
+  while (i < sql.length) {
+    const c = sql[i];
+    const next = sql[i + 1];
+    if (!inSingle && !inDouble && c === '-' && next === '-') {
+      while (i < sql.length && sql[i] !== '\n') i++;
+      continue;
+    }
+    if (!inSingle && !inDouble && c === '/' && next === '*') {
+      i += 2;
+      while (i < sql.length && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    if (!inDouble && c === "'") {
+      inSingle = !inSingle;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (!inSingle && c === '"') {
+      inDouble = !inDouble;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (!inSingle && !inDouble && c === ';') {
+      const trimmed = buf.trim();
+      if (trimmed) statements.push(trimmed);
+      buf = '';
+      i++;
+      continue;
+    }
+    buf += c;
+    i++;
+  }
+  const tail = buf.trim();
+  if (tail) statements.push(tail);
+  return statements;
+}
+
+/**
  * Top-level database manager. One instance per process; registered as
  * `database` in the DI container.
  */
@@ -156,36 +216,45 @@ class DatabaseManager {
     const sql = fs.readFileSync(filePath, 'utf8');
 
     this.logger.info(`Running migration ${version}: ${filename}`);
+    const statements = splitSqlStatements(sql);
+    let hadDuplicateColumn = false;
+
     try {
       this.db.exec('BEGIN TRANSACTION');
-      this.db.exec(sql);
+      for (const stmt of statements) {
+        try {
+          this.db.exec(stmt);
+        } catch (error) {
+          // Duplicate-column errors from `ALTER TABLE ADD COLUMN` mean
+          // the column already exists — typically because an earlier,
+          // differently-numbered copy of the same migration ran on this
+          // install (see `006_omni_mode.sql` for the concrete scenario).
+          // Tolerate THIS statement only and continue with the rest of
+          // the file, so that follow-on `CREATE INDEX IF NOT EXISTS` and
+          // other DDL still execute instead of being silently skipped by
+          // a whole-file rollback.
+          if (/duplicate column name/i.test(error.message)) {
+            this.logger.warn(
+              `Migration ${version} (${filename}): column already present in statement, skipping`
+            );
+            hadDuplicateColumn = true;
+            continue;
+          }
+          throw error;
+        }
+      }
 
-      // Ensure the migration is recorded even if the SQL forgot to
-      // INSERT into schema_version (defensive).
+      const description = hadDuplicateColumn
+        ? `${filename} (column already present)`
+        : filename;
       this.db
         .prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)')
-        .run(version, filename);
+        .run(version, description);
 
       this.db.exec('COMMIT');
       this.logger.info(`Migration ${version} completed`);
     } catch (error) {
       this.db.exec('ROLLBACK');
-      // Duplicate-column errors from `ALTER TABLE ADD COLUMN` mean the
-      // schema is already in the desired state — typically because an
-      // earlier, differently-numbered copy of the same migration ran
-      // on this install (see `006_omni_mode.sql` for the concrete
-      // scenario). Record the version and continue; a partial
-      // `CREATE INDEX IF NOT EXISTS` is still safe because the
-      // existing index would be kept and a new one wouldn't fire.
-      if (/duplicate column name/i.test(error.message)) {
-        this.logger.warn(
-          `Migration ${version} (${filename}): column already present, marking as applied`
-        );
-        this.db
-          .prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)')
-          .run(version, `${filename} (column already present)`);
-        return;
-      }
       this.logger.error(`Migration ${version} failed: ${error.message}`);
       throw error;
     }

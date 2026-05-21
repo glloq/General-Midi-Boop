@@ -56,6 +56,7 @@ import BackupScheduler from '../persistence/BackupScheduler.js';
 import { CompensationService } from '../midi/compensation/CompensationService.js';
 import { EventLoopMonitor } from '../infrastructure/monitoring/EventLoopMonitor.js';
 import { CapabilityResolver } from '../midi/instrument/CapabilityResolver.js';
+import { SuggestionCacheService } from '../midi/adaptation/SuggestionCacheService.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -243,6 +244,12 @@ class Application {
       // Centralised instrument capability lookups (string CC, timing constraints)
       // replacing duplicated private caches in PlaybackScheduler.
       this._registerService('capabilityResolver', new CapabilityResolver(deps));
+
+      // Cache + critical-section mutex for the assignment-suggestion
+      // command. Previously hung off `app._suggestionCache` on the
+      // facade Proxy target — see SuggestionCacheService for the
+      // background on the extraction.
+      this._registerService('suggestionCache', new SuggestionCacheService(deps));
 
       this._registerService('midiPlayer', new MidiPlayer(deps));
       this._registerService(

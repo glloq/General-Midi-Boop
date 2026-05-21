@@ -17,7 +17,8 @@ Général Midi Boop is a real-time MIDI orchestration system for Raspberry Pi. I
 │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
 │  │ HttpServer   │  │ WebSocket    │  │ CommandHandler   │   │
 │  │ (Express)    │  │ Server       │──│ + CommandRegistry│   │
-│  │ + Helmet     │  │ + Auth       │  │ (15 modules)     │   │
+│  │ + Helmet     │  │ + Auth       │  │ (24 modules,     │   │
+│  │              │  │              │  │  267 commands)   │   │
 │  └─────────────┘  └──────────────┘  └──────────────────┘   │
 │         │                                     │             │
 │         ▼                                     ▼             │
@@ -58,7 +59,7 @@ General-Midi-Boop/
 │   │   ├── WebSocketServer.js # WS server + heartbeat
 │   │   ├── CommandHandler.js  # Command dispatch
 │   │   ├── CommandRegistry.js # Auto-discovery of commands
-│   │   └── commands/          # 15 command modules
+│   │   └── commands/          # 24 command modules (267 commands)
 │   ├── midi/                  # MIDI domain (split into sub-modules)
 │   │   ├── devices/           # Device discovery & management
 │   │   ├── routing/           # Router, channel analysis, splitters

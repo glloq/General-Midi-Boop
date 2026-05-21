@@ -12,6 +12,7 @@
 import { jest, describe, test, expect, afterEach } from '@jest/globals';
 import { register } from '../../src/midi/playback/commands/PlaybackAnalysisCommands.js';
 import ScoringConfig from '../../src/midi/adaptation/ScoringConfig.js';
+import { SuggestionCacheService } from '../../src/midi/adaptation/SuggestionCacheService.js';
 
 // Smallest valid Standard MIDI File: header + one empty track.
 const MIN_MIDI = Buffer.from([
@@ -30,9 +31,12 @@ function deferred() {
 function buildApp() {
   const calls = [];
   const gates = [];
+  const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+  const eventBus = { on: jest.fn() };
   const app = {
-    logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
-    eventBus: { on: jest.fn() },
+    logger,
+    eventBus,
+    suggestionCache: new SuggestionCacheService({ logger, eventBus }),
     fileRepository: { findById: () => ({ id: 1, content_hash: 'h1', blob_path: 'p1' }) },
     blobStore: { read: () => MIN_MIDI },
     instrumentRepository: { getCatalogFingerprint: () => 'cf1' },
