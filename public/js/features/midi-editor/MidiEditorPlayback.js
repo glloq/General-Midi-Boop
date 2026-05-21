@@ -506,11 +506,29 @@
       const m = this.modal;
       this.releaseAllNotes();
       if (m.synthesizer) {
+        // Halt scheduler + envelopes before tearing down audio nodes so a
+        // preview that was actively playing doesn't keep ringing while the
+        // modal closes.
+        try { m.synthesizer.stop(); } catch (_) { /* best-effort */ }
         m.synthesizer.dispose();
         m.synthesizer = null;
       }
       m.isPlaying = false;
       m.isPaused = false;
+      // Reset per-session warm-up flags so the loading indicator re-runs
+      // when the next file is opened (the synth was disposed above, so the
+      // cached instruments no longer exist).
+      this._feedbackInstrumentsLoaded = false;
+      this._warmupPromise = null;
+      // Defensive: ensure the global indicator counter doesn't leak a stuck
+      // reference if a load promise was rejected without `end()` running.
+      if (typeof SoundBankLoadingIndicator !== 'undefined') {
+        try {
+          while (SoundBankLoadingIndicator._count > 0) {
+            SoundBankLoadingIndicator.end();
+          }
+        } catch (_) { /* best-effort */ }
+      }
       // Cancel any pending playback-cursor rAF scheduled by the transport
       // sub-feature so a tick queued by the (now-disposed) synthesizer
       // doesn't wake up one frame later to paint stale state (audit §6.4).
