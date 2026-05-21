@@ -1147,25 +1147,26 @@
           0,
           Math.min(NOTE_MAX - this._yrange, Math.round(d.startYOffset + dy * notePerPx))
         );
-        if (newXOff !== this._xoffset) {
-          this._xoffset = newXOff;
-          this._bgDirty = true;
-          this._emit('viewportchange', {
-            xoffset: this._xoffset,
-            yoffset: this._yoffset,
-            xrange: this._xrange
-          });
-        }
-        if (newYOff !== this._yoffset) {
+        // Coalesce both axes into ONE viewportchange emit so downstream
+        // listeners (overview bar, lane editor sync) don't run twice per
+        // mousemove frame. The bg cache is horizontally invariant (see
+        // `_paintBackground` / `setXOffset`), so only Y changes invalidate it.
+        const xChanged = newXOff !== this._xoffset;
+        const yChanged = newYOff !== this._yoffset;
+        if (xChanged) this._xoffset = newXOff;
+        if (yChanged) {
           this._yoffset = newYOff;
           this._bgDirty = true;
+        }
+        if (xChanged || yChanged) {
           this._emit('viewportchange', {
             xoffset: this._xoffset,
             yoffset: this._yoffset,
-            xrange: this._xrange
+            xrange: this._xrange,
+            yrange: this._yrange
           });
+          this._scheduleRender();
         }
-        this._scheduleRender();
       } else if (d.mode === 'move') {
         // Δ from drag start, snapped to grid
         const tick = this._xToTick(x);
@@ -1634,7 +1635,8 @@
           } else {
             this._xrange = newRange;
           }
-          this._bgDirty = true;
+          // Horizontal zoom only: bg cache is horizontally invariant
+          // (see setXRange). Don't invalidate.
           this._emit('viewportchange', {
             xoffset: this._xoffset,
             yoffset: this._yoffset,
@@ -1668,7 +1670,7 @@
         const newOff = Math.max(0, this._xoffset + delta);
         if (newOff !== this._xoffset) {
           this._xoffset = newOff;
-          this._bgDirty = true;
+          // Horizontal pan only: bg cache is horizontally invariant.
           this._emit('viewportchange', {
             xoffset: this._xoffset,
             yoffset: this._yoffset,

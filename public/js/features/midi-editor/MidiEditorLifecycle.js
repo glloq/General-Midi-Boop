@@ -284,6 +284,11 @@
                 this.modal.windInstrumentEditor = null;
             }
 
+    // Stop playback BEFORE disposing the synth so any in-flight preview
+    // (transport tick loop, scheduler) is halted on a known-good code path
+    // even if the dispose chain later throws.
+            try { this.modal.playbackStop?.(); } catch (_) { /* best-effort */ }
+
     // Clean up the synthesizer
             this.modal.disposeSynthesizer();
 
