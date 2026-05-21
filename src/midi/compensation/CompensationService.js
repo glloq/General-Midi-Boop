@@ -30,12 +30,27 @@ export class CompensationService {
    * @param {Object} [deps.latencyCompensator] - Optional hardware latency source.
    * @param {Object} deps.eventBus          - EventBus instance.
    * @param {Object} deps.logger            - Logger instance.
+   *
+   * DEPENDENCY-ORDER CONTRACT
+   * -------------------------
+   * `latencyCompensator` is registered only 4 lines above
+   * `compensationService` in `Application.initialize()`. Capturing it
+   * eagerly (the previous behaviour) makes any future re-ordering
+   * silently freeze `null` here and disable hardware-latency
+   * compensation. Expose it as a lazy getter that re-resolves through
+   * the DI Proxy on each access — `database`, `eventBus` and `logger`
+   * are registered earlier in the boot sequence and remain safe to
+   * capture eagerly.
    */
-  constructor({ database, latencyCompensator, eventBus, logger }) {
+  constructor(deps) {
+    this._deps = deps;
+    const { database, eventBus, logger } = deps;
     this._db = database;
-    this._lc = latencyCompensator || null;
     this._log = logger;
     this._eventBus = eventBus ?? null;
+    Object.defineProperty(this, '_lc', {
+      get: () => this._deps.latencyCompensator || null
+    });
     /** @type {Map<string, number>} */
     this._cache = new Map();
 

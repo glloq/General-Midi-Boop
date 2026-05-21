@@ -27,17 +27,32 @@ class LatencyCompensator {
    *   and `wsServer` from it; everything else is destructured at
    *   construction so the rest of the class doesn't reach back to
    *   the full app surface.
+   *
+   * DEPENDENCY-ORDER CONTRACT
+   * -------------------------
+   * `logger`, `database` and `eventBus` are registered very early in
+   * `Application.initialize()` and are safe to capture eagerly.
+   *
+   * `deviceManager` and `wsServer` are exposed as lazy getters that
+   * re-resolve through the DI Proxy on each access:
+   *   - `deviceManager` is registered only 3 lines above
+   *     `latencyCompensator` in `Application.initialize()` — a future
+   *     re-ordering of those two `_registerService` calls would
+   *     silently freeze `undefined` here and break calibration. The
+   *     getter makes the binding order-independent.
+   *   - `wsServer` is genuinely late-bound (registered in
+   *     `Application.start()` after the HTTP server is up).
    */
   constructor(deps) {
+    this._deps = deps;
     this.logger = deps.logger;
     this.database = deps.database;
-    this.deviceManager = deps.deviceManager;
     this.eventBus = deps.eventBus;
-    // `wsServer` may not be registered yet when this service is built
-    // — resolve lazily through a getter so we always pick up the live
-    // instance the application registers later.
+    Object.defineProperty(this, 'deviceManager', {
+      get: () => this._deps.deviceManager || null
+    });
     Object.defineProperty(this, 'wsServer', {
-      get: () => deps.wsServer,
+      get: () => this._deps.wsServer || null,
       configurable: true
     });
 
