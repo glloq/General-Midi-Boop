@@ -17,6 +17,9 @@ import latencySchemas from '../api/commands/schemas/latency.schemas.js';
 import systemSchemas from '../api/commands/schemas/system.schemas.js';
 import hotspotSchemas from '../api/commands/schemas/hotspot.schemas.js';
 import loopSchemas from '../api/commands/schemas/loop.schemas.js';
+import bankEffectsSchemas from '../api/commands/schemas/bank_effects.schemas.js';
+import networkSchemas from '../api/commands/schemas/network.schemas.js';
+import presetSchemas from '../api/commands/schemas/preset.schemas.js';
 
 /**
  * Map of command name -> compiled validator (`(data) => string[]`).
@@ -33,7 +36,10 @@ for (const schemas of [
   latencySchemas,
   systemSchemas,
   hotspotSchemas,
-  loopSchemas
+  loopSchemas,
+  bankEffectsSchemas,
+  networkSchemas,
+  presetSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);
