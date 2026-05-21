@@ -20,6 +20,7 @@ import loopSchemas from '../api/commands/schemas/loop.schemas.js';
 import bankEffectsSchemas from '../api/commands/schemas/bank_effects.schemas.js';
 import networkSchemas from '../api/commands/schemas/network.schemas.js';
 import presetSchemas from '../api/commands/schemas/preset.schemas.js';
+import midiSchemas from '../api/commands/schemas/midi.schemas.js';
 
 /**
  * Map of command name -> compiled validator (`(data) => string[]`).
@@ -39,7 +40,8 @@ for (const schemas of [
   loopSchemas,
   bankEffectsSchemas,
   networkSchemas,
-  presetSchemas
+  presetSchemas,
+  midiSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);

@@ -8,58 +8,6 @@
 import ScoringConfig from '../../adaptation/ScoringConfig.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
-import AnalysisCache from '../AnalysisCache.js';
-
-/**
- * Lazily build (once per app) the LRU cache backing
- * `generate_assignment_suggestions`. The full response is keyed by
- * everything that can change its content: the file's content hash, the
- * instrument-catalog fingerprint, the request options and the scoring
- * overrides. The cache auto-invalidates a file on
- * `file_write`/`file_delete`/`file_uploaded` (AnalysisCache eventBus
- * wiring); instrument/device setting edits clear it wholesale (rare).
- * @param {Object} app
- * @returns {AnalysisCache}
- */
-function getSuggestionCache(app) {
-  if (app._suggestionCache) return app._suggestionCache;
-  const cache = new AnalysisCache({
-    maxSize: 64,
-    maxBytes: 16 * 1024 * 1024,
-    eventBus: app.eventBus,
-    logger: app.logger
-  });
-  if (app.eventBus && typeof app.eventBus.on === 'function') {
-    const clear = () => cache.clear();
-    app.eventBus.on('instrument_settings_changed', clear);
-    app.eventBus.on('device_settings_changed', clear);
-  }
-  app._suggestionCache = cache;
-  return cache;
-}
-
-/**
- * Serialize the suggestion critical section. `applyScoringOverrides`
- * mutates the GLOBAL singleton ScoringConfig and `restoreScoringConfig`
- * reverts it; the scoring loop now yields cooperatively, so without this
- * lock two concurrent requests could interleave and compute one
- * request's suggestions under another request's scoring weights (and
- * scramble the restore). Runs at most one apply→compute→restore at a
- * time. The read-only cache fast-path stays OUTSIDE this lock, so the
- * common "reopen the modal" hit is never serialized.
- * @template T
- * @param {Object} app
- * @param {() => Promise<T>} fn
- * @returns {Promise<T>}
- */
-function runSuggestionExclusive(app, fn) {
-  const prev = app._suggestionLock || Promise.resolve();
-  let release;
-  app._suggestionLock = new Promise((r) => { release = r; });
-  const run = prev.then(() => fn());
-  run.then(release, release);
-  return run;
-}
 
 /**
  * Stable string key for one suggestion request. Object key order is
@@ -268,7 +216,7 @@ async function generateAssignmentSuggestions(app, data) {
   // single most expensive thing the routing modal triggers (multi-second
   // on a large library / Pi). Re-opening the modal, switching back to it,
   // or re-applying the same scoring would otherwise recompute it all.
-  const cache = getSuggestionCache(app);
+  const cache = app.suggestionCache;
   let cacheKey = null;
   try {
     const catalogFp = app.instrumentRepository?.getCatalogFingerprint?.() || '';
@@ -280,7 +228,7 @@ async function generateAssignmentSuggestions(app, data) {
     cacheKey = null;
   }
 
-  return runSuggestionExclusive(app, async () => {
+  return cache.runExclusive(async () => {
     // Re-check the cache inside the lock: a concurrent identical request
     // we queued behind may have just computed and cached this exact
     // result — return it instead of recomputing.
