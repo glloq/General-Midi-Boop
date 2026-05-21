@@ -1,447 +1,622 @@
-# Roadmap — Résolution complète de l'audit DI 2026-05-21
+# Audit DI & dépendances — 2026-05-21
 
-> **Source** : `docs/audit/AUDIT_DI_DEPENDENCIES_2026-05-21.md`
+> **Périmètre** : vérification factuelle des 10 axes de l'audit critique
+> reçu le 2026-05-21 et des 5 constats associés (B1–B5). Le présent rapport
+> est **read-only** : aucun code applicatif n'a été modifié. Les correctifs
+> sont laissés explicitement à un PR ultérieur.
 >
-> **Branche d'origine** : `claude/audit-di-dependencies-lVbQE`
+> **Branche** : `claude/audit-di-dependencies-lVbQE`
 >
-> **Découpage** : 5 PRs thématiques, chacun sur une branche dédiée,
-> mergeables indépendamment (sauf dépendance signalée). Format
-> `Constat / Plan / Effort / Done` aligné sur `TODO.md`.
->
-> **Cible globale mesurable** :
-> - Couverture schémas WS : **44 / 267 → 267 / 267 (100 %)**
-> - 0 capture eager DI fragile non documentée
-> - `MidiPlayer.js` < 1500 lignes (vs 2306)
-> - `chmod 0600` confirmé sur `.env`
-> - Doc d'architecture alignée sur **24 modules / 267 commandes**
+> **Méthode** : lecture statique du dépôt à `HEAD`, croisement avec les
+> ADR/audits précédents (`docs/audit/AUDIT_2026-05-10.md`,
+> `docs/audit/AUDIT_GLOBAL_2026-05-17.md`).
 
 ---
 
-## Suivi global
+## TL;DR
 
-| PR | Thème | Branche | Effort | Dépendances | Risque |
-|---|---|---|---|---|---|
-| 1 | Sécurité | `claude/audit-fix-security` | 0,5 j | — | Faible |
-| 2 | DI hardening | `claude/audit-di-hardening` | 1 j | — | Faible |
-| 3 | Schemas WS (267) | `claude/audit-schemas-coverage` | 3-5 j | PR 2 (cache service) | Moyen |
-| 4 | Refactor god classes | `claude/audit-refactor-storage-midiplayer` | 2-3 j | — | Élevé |
-| 5 | Doc & CI | `claude/audit-doc-ci` | 1 j | PR 1-4 mergés | Faible |
+| Constat initial | Statut | Sévérité |
+|---|---|---|
+| B1 `vitest` absent | ✅ **Confirmé** — `node_modules/` vide | Bloquant CI |
+| B2 ESLint config non résolue | ⚠️ **Partiellement confirmé** — `.eslintrc.json` est valide pour ESLint 8 ; le message d'erreur observé est dû à `node_modules/` absent, pas à un drift de format | Faux positif environnemental |
+| B3 Risque ordre d'init DI | ✅ **Confirmé et documenté** — 2 tight-couplings de 3-4 lignes (LatencyCompensator, CompensationService) | Médian |
+| B4 Concentration sur fichiers cœur | ✅ **Confirmé** — MidiPlayer 2306, Database 1036, Application 748 | Dette |
+| B5 Doc « 15 modules » vs réalité | ✅ **Confirmé** — 24 modules de commandes, **267 commandes** registrées | Documentaire |
+| Couverture schemas commandes | ❌ **Trouvaille additionnelle** — 44 schémas / 267 commandes = **~16 %** | Élevé |
+| Token API en clair dans `.env` | ❌ **Trouvaille additionnelle** — pas de `chmod 0600` après écriture | Élevé |
 
-Total : **~8-11 jours-personne**. PR 1, 2 et le démarrage de PR 5
-peuvent être parallélisés.
-
----
-
-## PR 1 — Sécurité (urgence)
-
-**Branche** : `claude/audit-fix-security`
-
-### Constat
-
-- `src/infrastructure/auth/ApiTokenManager.js:33-60` écrit le token API
-  bearer en clair dans `.env` sans restreindre les permissions du
-  fichier → un compte local non-privilégié peut lire le token (umask
-  par défaut = `0644`).
-- `/api/update-status` est exposé sans auth (cf.
-  `src/api/HttpServer.js:146`) mais **n'est pas documenté** comme
-  public dans `CLAUDE.md` / `docs/ARCHITECTURE.md`.
-- Le token WS peut être passé en query string (`?token=…`), qui finit
-  dans les access logs des serveurs intermédiaires
-  (`src/api/WebSocketServer.js:164-165`).
-
-### Plan
-
-1. **Restreindre `.env`** (Bloquant).
-   - Importer `chmodSync` depuis `fs` dans
-     `src/infrastructure/auth/ApiTokenManager.js`.
-   - Appeler `chmodSync(envPath, 0o600)` après chacun des trois
-     `writeFileSync` / `appendFileSync` (`l.47, 49, 52`).
-   - Logger un warning si `chmodSync` échoue (Windows-compat).
-2. **Documenter `/api/update-status`** comme route publique :
-   - dans `CLAUDE.md` (section *Configuration*) ;
-   - dans `docs/ARCHITECTURE.md` (bloc auth).
-3. **Préférer `sec-websocket-protocol` au `?token=…`** dans le SPA.
-   - Côté client : `public/js/api/BackendAPIClient.js` (recherche
-     d'usage `?token=`), passer le token en sous-protocole WS.
-   - Côté serveur : ordre de fallback inchangé (déjà supporté à
-     `WebSocketServer.js:164-165`).
-   - Conserver le query-string pour rétro-compat, mais émettre un
-     `logger.warn` quand utilisé.
-4. **(Optionnel)** Détecter une IP RFC1918 incohérente avec
-   `X-Forwarded-For` public (signal d'un tunnel) et logger un warning
-   sans casser le bypass. Fichier : `src/api/HttpServer.js:175-185`.
-
-### Tests
-
-- Créer `tests/api-token-manager.test.js` :
-  - mocker `fs` (`writeFileSync`, `appendFileSync`, `chmodSync`) ;
-  - vérifier que `chmodSync` est appelé avec `(envPath, 0o600)` dans
-    les 3 branches (`.env` absent / `.env` présent sans token / `.env`
-    présent avec ancien token).
-- Test E2E manuel : `stat -c '%a' .env` doit retourner `600` après
-  démarrage à blanc.
-
-### Done
-
-- [ ] `tests/api-token-manager.test.js` vert.
-- [ ] `npm start` sur installation fraîche produit `.env` avec mode
-      `0600`.
-- [ ] `CLAUDE.md` et `docs/ARCHITECTURE.md` mentionnent
-      `/api/update-status` comme route publique.
-
-**Effort** : 0,5 jour.
+Aucune anomalie **critique** au sens « bug d'exécution » dans l'état du
+code lu. Les risques majeurs sont :
+- une **régression silencieuse** possible sur l'ordre d'init DI si un
+  futur refactor déplace LatencyCompensator/CompensationService ;
+- une **couverture de validation** des payloads de commandes WS très
+  partielle (~16 % seulement) — toute commande sans schéma reçoit un
+  `{valid:true, errors:[]}` permissif ;
+- un **token bearer** stocké en clair sur disque avec permissions par
+  défaut, et écrit dans un fichier `.env` non garanti hors-VCS.
 
 ---
 
-## PR 2 — DI hardening
+## 1. Gouvernance architecture / dépendances
 
-**Branche** : `claude/audit-di-hardening`
+### 1.1 Eager captures vs ordre d'enregistrement
 
-### Constat
+L'analyse exhaustive (cf. annexe A) confirme le **contrat documenté à
+`src/core/Application.js:185-198`** : chaque service qui capture
+`deps.foo` dans son constructeur doit voir `foo` enregistré **avant**
+lui dans `initialize()`.
 
-- Deux captures `this.X = deps.X` séparées de leur source dans
-  `Application.initialize()` par 3-4 lignes seulement → ré-ordonnancement
-  futur silencieusement cassant.
-  - `LatencyCompensator.js:34` (capture `deviceManager`)
-  - `CompensationService.js:36` (capture `latencyCompensator`)
-- `PlaybackAnalysisCommands.js:25-58` écrit `app._suggestionCache` /
-  `app._suggestionLock` sur la cible du Proxy `deps` (pas sur
-  l'instance Application) → fonctionnel mais ambigu.
+**Captures eager listées par service** (file:line → propriétés captées
+→ statut) :
 
-### Plan
+| Service | Constructeur | Captures eager | Risque |
+|---|---|---|---|
+| `Database` | `Database.js:40-42` | `logger`, `config` | ✅ déjà en container |
+| `DeviceManager` | `DeviceManager.js:66-86` | `logger`, `eventBus`, `database` ; lazy : `wsServer`, `midiRouter`, `networkManager`, `serialMidiManager`, `bluetoothManager`, `instrumentRepository` | ✅ pattern lazy correct |
+| `MidiRouter` | `MidiRouter.js:40-45` | `logger`, `eventBus`, `deviceRouteRepository` | ✅ |
+| `MidiClockGenerator` | `MidiClockGenerator.js:36-56` | `logger`, `eventBus`, `database` ; lazy : `deviceManager`, `networkManager`, `serialMidiManager`, `bluetoothManager`, `latencyCompensator` | ✅ commentaire explicite (l.39-44) |
+| `LatencyCompensator` | `LatencyCompensator.js:32-35` | **eager `deviceManager`** + `logger`, `database`, `eventBus` ; lazy : `wsServer` | ⚠️ **tight 3 lignes** (234 → 237) |
+| `CompensationService` | `CompensationService.js:34-38` | **eager `latencyCompensator`** + `database`, `eventBus`, `logger` | ⚠️ **tight 4 lignes** (237 → 241) |
+| `CapabilityResolver` | `CapabilityResolver.js:28-39` | `database`, `eventBus` | ✅ |
+| `MidiPlayer` → `PlaybackScheduler` | `PlaybackScheduler.js:49-77` | eager : `logger`, `database`, `eventBus`, `deviceManager`, `midiClockGenerator` ; **lazy** (getters) : `wsServer`, `compensationService`, `capabilityResolver`, `eventLoopMonitor` | ✅ « gold standard » documenté |
+| `FileManager` | `FileManager.js:26-42` | eager : `logger`, `database`, `blobStore`, `eventBus` ; lazy : `wsServer`, `deviceManager`, `midiBaker`, `autoAssigner` | ✅ |
+| `HttpServer` | `HttpServer.js:79-83` | `logger`, `config` ; `this._deps` complet | ✅ |
+| `WebSocketServer` | `WebSocketServer.js:63-85` | `logger`, `config` ; lazy `eventLoopMonitor` via getter | ✅ excellent |
+| `CommandHandler` | `CommandHandler.js:21-23` | `logger` ; passe `deps` à la registry | ✅ |
 
-1. **Convertir LatencyCompensator** au pattern lazy getter (cf.
-   `src/midi/playback/PlaybackScheduler.js:69-77`) :
-   ```js
-   constructor(deps) {
-     this._deps = deps;
-     this.logger = deps.logger;
-     this.database = deps.database;
-     this.eventBus = deps.eventBus;
-     Object.defineProperty(this, 'deviceManager', {
-       get: () => this._deps.deviceManager || null
-     });
-   }
-   ```
-2. **Convertir CompensationService** identiquement pour `_lc`.
-3. **JSDoc « DEPENDENCY-ORDER CONTRACT »** au-dessus de chaque
-   constructeur converti — préciser que les déps lazy sont
-   éventuellement late-bound, que la capture eager freezerait
-   `undefined`.
-4. **Extraire SuggestionCacheService** :
-   - Créer `src/midi/playback/SuggestionCacheService.js` exposant
-     `get(file)`, `set(file, suggestions)`, `withLock(file, fn)`.
-   - Enregistrer dans `Application.initialize()` après
-     `autoAssigner` (l.313+), avant `commandHandler` (l.374).
-   - Remplacer `app._suggestionCache` / `app._suggestionLock` par
-     `app.suggestionCacheService.X` dans
-     `src/midi/playback/commands/PlaybackAnalysisCommands.js:25-58`.
+**Verdict 1.1** : aucune capture eager n'est aujourd'hui cassée. Deux
+captures sont **structurellement fragiles** car séparées de leur source
+par seulement 3-4 lignes dans `initialize()` et sans JSDoc de contrat :
 
-### Tests
+- `LatencyCompensator.js:34` → `this.deviceManager = deps.deviceManager;`
+- `CompensationService.js:36` → `this._lc = deps.latencyCompensator;`
 
-- Créer `tests/application-di-late-binding.test.js` (pattern repris de
-  `tests/playback-scheduler-late-bound-deps.test.js`) :
-  - construit `LatencyCompensator(deps)` avec un container vide ;
-  - enregistre `deviceManager` *après* la construction ;
-  - appelle une méthode qui lit `this.deviceManager` → doit voir
-    l'instance.
-- Idem pour `CompensationService.latencyCompensator`.
-- `tests/suggestion-cache-service.test.js` : get/set/withLock unitaires.
+Un réordonnancement futur (ex. déplacer `LatencyCompensator` avant
+`DeviceManager` lors d'un refactor) ne ferait pas crasher : la Proxy
+retournerait `undefined`, le champ se figerait à `null`, et toute
+méthode l'utilisant lèverait un `TypeError` au premier message MIDI —
+loin du site d'erreur réel.
 
-### Done
+### 1.2 Fallback silencieux dans le facade Proxy
 
-- [ ] `grep -n "deps\.deviceManager" src/midi/adaptation/LatencyCompensator.js`
-      ne retourne plus que la définition du getter.
-- [ ] `tests/application-di-late-binding.test.js` vert.
-- [ ] `PlaybackAnalysisCommands.js` ne référence plus `app._suggestion*`.
-- [ ] Aucune régression sur `tests/playback-*` existants.
+`src/core/Application.js:141-156` :
 
-**Effort** : 1 jour.
-
----
-
-## PR 3 — Couverture schémas WS (267 commandes)
-
-**Branche** : `claude/audit-schemas-coverage`
-
-**Dépendance** : PR 2 (extraction `SuggestionCacheService`) souhaitable
-mais pas bloquante.
-
-### Constat
-
-- 267 commandes WebSocket registrées, seulement **44 ont un schéma**
-  → 223 commandes acceptent n'importe quel payload.
-- `JsonValidator.validateByCommand` (`src/utils/JsonValidator.js:229-233`)
-  retourne `{valid:true, errors:[]}` par défaut quand le schéma manque.
-- Modules sans aucun schéma : `LightingCommands` (38), `StringInstrument`
-  (15), `InstrumentSettings` (11), `Bluetooth` (9), `Midi` (8),
-  `VirtualInstrument` (7), `Preset` (6), `Serial` (6), `Session` (6),
-  `InstrumentLight` (6), `InstrumentVoice` (5), `BankEffects` (4),
-  `Network` (4).
-
-### Plan
-
-1. **Inventaire** → `docs/audit/COMMANDS_INVENTORY_2026-05-21.md` :
-   ```bash
-   grep -rh "registry\.register(" src/api/commands/ src/midi/playback/commands/ \
-     | grep -oE "'[a-z_]+'" | sort -u
-   ```
-   Lister les 267 commandes avec leur module d'origine et leur
-   schéma (✅ / ❌).
-2. **Helpers réutilisables** — créer
-   `src/api/commands/schemas/_helpers.schemas.js` :
-   - extraire `requireRouteId`, `requireDeviceId`, `requireFileId` ;
-   - ajouter `requireInstrumentId`, `requirePresetId`, `requireSessionId`,
-     `requirePlaylistId`, `requireLightingProfileId`,
-     `requireLoopId`, `requireArrangementId`.
-3. **13 nouveaux fichiers** sous `src/api/commands/schemas/` :
-   - `bank_effects.schemas.js` (4)
-   - `bluetooth.schemas.js` (9)
-   - `instrument_light.schemas.js` (6)
-   - `instrument_settings.schemas.js` (11)
-   - `instrument_voice.schemas.js` (5)
-   - `lighting.schemas.js` (38) ← plus gros
-   - `midi.schemas.js` (8)
-   - `network.schemas.js` (4)
-   - `preset.schemas.js` (6)
-   - `serial.schemas.js` (6)
-   - `session.schemas.js` (6)
-   - `string_instrument.schemas.js` (15)
-   - `virtual_instrument.schemas.js` (7)
-4. **Étendre schémas existants** pour combler les trous dans
-   `playback.schemas.js`, `routing.schemas.js`, `loop.schemas.js`,
-   `file.schemas.js`, `latency.schemas.js`, `device.schemas.js`,
-   `hotspot.schemas.js`, `system.schemas.js` (commandes ajoutées
-   après le dernier audit).
-5. **Wirer dans `JsonValidator`** :
-   - `src/utils/JsonValidator.js:12-19` → ajouter 13 imports ;
-   - étendre la boucle de compilation `COMPILED_SCHEMAS` (l.27-40).
-
-### Tests
-
-- Un fichier `tests/schema-<module>.test.js` par nouveau fichier
-  schemas (13 nouveaux + 8 existants à enrichir).
-- Pattern canonique : `tests/schema-compiler.test.js`.
-- Chaque test couvre, par commande : 1 cas valide + ≥ 1 cas invalide
-  (champ manquant, type incorrect, hors range).
-- Mise à jour de `tests/command-registry.test.js` : vérifier que toute
-  commande registrée a un schéma compilé.
-
-### Done
-
-- [ ] `grep -h "^export const " src/api/commands/schemas/*.js | grep -v LOOP_CONSTRAINTS | wc -l` ≥ 267.
-- [ ] `node scripts/check-schema-coverage.js` (ajouté en PR 5) vert.
-- [ ] `npm test -- tests/schema-*.test.js` vert.
-
-**Effort** : 3-5 jours.
-
----
-
-## PR 4 — Refactor god classes & persistance
-
-**Branche** : `claude/audit-refactor-storage-midiplayer`
-
-### Constat
-
-- `src/midi/playback/MidiPlayer.js` : **2306 lignes**, contient
-  lifecycle + seek + EventBus + drum-remap + hand-CC injection.
-- `src/persistence/Database.js:154-192` : la branche
-  « duplicate column name » marque la migration comme appliquée et
-  *avorte la suite du SQL* — un `CREATE INDEX IF NOT EXISTS` placé
-  après un `ALTER TABLE` rejeté ne sera jamais exécuté.
-- `src/persistence/Database.js` : **1036 lignes**, mélange migrations +
-  CRUD routes/sessions/playlists/files alors que les table-managers
-  existent déjà dans `src/persistence/tables/`.
-
-### Plan
-
-1. **Migrations — isolation par statement DDL**.
-   - `src/persistence/Database.js:154-192` : décomposer le SQL au `;`
-     (en respectant les chaînes / triggers), exécuter chaque statement
-     dans un `try { exec } catch (dup) { logger.warn; continue }`
-     interne, et ne plus rollback la transaction sur duplicate-column.
-   - Garder un rollback global pour toute autre erreur SQL.
-   - Test : `tests/migrations-duplicate-column-isolation.test.js`
-     crée un schéma avec une colonne déjà présente, vérifie que le
-     `CREATE INDEX` qui suit est bel et bien exécuté.
-2. **Split MidiPlayer**.
-   - Extraire `MidiPlayerSeekEngine` (`seek()`, `findEventIndexAtTime`,
-     reset de routing counters, `_resetSplitRoutingState` si présent)
-     dans `src/midi/playback/MidiPlayerSeekEngine.js`.
-   - Extraire `MidiPlayerEventBridge` (toutes les émissions
-     `eventBus.emit('playback_*', …)` et appels
-     `wsServer.broadcast(...)`) dans
-     `src/midi/playback/MidiPlayerEventBridge.js`.
-   - `MidiPlayer.js` doit rester l'API publique inchangée : les tests
-     `tests/midi-player-*.test.js` ne sont **pas modifiés**.
-   - Cible : `MidiPlayer.js` < 1500 lignes.
-3. **(Optionnel, PR 4-bis si trop gros)** Split `Database.js` :
-   déplacer routes / sessions / playlists vers
-   `src/persistence/tables/RoutesTable.js`, `SessionsTable.js`,
-   `PlaylistsTable.js` ; `Database` ne garde que la lifecycle, les
-   migrations, et la composition des table-managers.
-
-### Tests
-
-- `tests/midi-player-*.test.js` (existants) restent verts sans
-  modification.
-- `tests/midi-player-seek-engine.test.js` (nouveau) : tests unitaires
-  du module extrait.
-- `tests/migrations-duplicate-column-isolation.test.js` (nouveau).
-
-### Done
-
-- [ ] `wc -l src/midi/playback/MidiPlayer.js` < 1500.
-- [ ] Toutes les suites `tests/midi-player-*.test.js` vertes.
-- [ ] `tests/migrations-*` vertes.
-
-**Effort** : 2-3 jours (sans split Database) ; +1-2 j pour Database.
-
----
-
-## PR 5 — Documentation & CI
-
-**Branche** : `claude/audit-doc-ci`
-
-**Dépendance** : à mener une fois PR 1-4 mergés (ou en parallèle pour
-les volets purement doc).
-
-### Constat
-
-- `docs/ARCHITECTURE.md:20, 61` indique « 15 modules » alors qu'il y
-  en a 24.
-- Pas de garde-fou CI sur la couverture schemas WS.
-- B1 (vitest absent) et B2 (ESLint config) restent ouverts dans le
-  rapport d'audit en attente de vérification CI.
-
-### Plan
-
-1. **Doc** :
-   - Mettre à jour `docs/ARCHITECTURE.md:20, 61` (24 modules / 267
-     commandes).
-   - Mettre à jour `CLAUDE.md` section *Architecture / Command pattern*.
-   - Ajouter en bas de `docs/audit/AUDIT_DI_DEPENDENCIES_2026-05-21.md`
-     une section **Statut final** marquant B1/B2 comme fermés après
-     reprod en CI propre.
-2. **CI**.
-   - Ajouter `.github/workflows/ci.yml` (si absent) ou ajuster celui
-     existant pour exécuter, sur push et PR :
-     - `npm ci --ignore-scripts`
-     - `npm run lint -- --max-warnings 0`
-     - `npm test`
-     - `npm run test:frontend`
-     - `npm run typecheck`
-     - `node scripts/check-schema-coverage.js`
-3. **Coverage script** : `scripts/check-schema-coverage.js`.
-   - Lit toutes les commandes registrées via une discovery similaire
-     à `CommandRegistry.loadCommandModules()`.
-   - Lit toutes les clés exportées par
-     `src/api/commands/schemas/*.schemas.js`.
-   - Échoue (`process.exit(1)`) si une commande registrée n'a pas de
-     schéma. Output : liste des manquants.
-
-### Tests
-
-- `tests/check-schema-coverage.test.js` : exécute le script en mode
-  programmatique sur un dataset minimal, vérifie qu'il détecte un
-  manquant injecté.
-
-### Done
-
-- [ ] CI verte sur PR et `main` (4 jobs + coverage).
-- [ ] `scripts/check-schema-coverage.js` retourne 0.
-- [ ] `docs/ARCHITECTURE.md` aligné.
-- [ ] Section *Statut final* ajoutée au rapport d'audit.
-
-**Effort** : 1 jour.
-
----
-
-## Critère global de done
-
-```bash
-# Sanity
-npm ci --ignore-scripts
-
-# Lint
-npm run lint -- --max-warnings 0
-
-# Tests
-npm test
-npm run test:frontend
-npm run typecheck
-
-# Audit-specific
-node scripts/check-schema-coverage.js
-stat -c '%a' .env                              # → 600
-
-# Vérifications structurelles
-wc -l src/midi/playback/MidiPlayer.js           # < 1500
-grep -c "deps\.deviceManager" src/midi/adaptation/LatencyCompensator.js  # ≤ 1 (le getter)
-grep -h "^export const " src/api/commands/schemas/*.js | \
-  grep -v LOOP_CONSTRAINTS | wc -l              # ≥ 267
+```js
+get(_, prop) {
+  if (container.has(prop)) return container.resolve(prop);
+  return self[prop];   // ← fallback sur l'instance Application
+}
 ```
 
-Tout vert ⇒ audit clos.
+**Champs accessibles via fallback** : `_eventHandlers`, `_btBridge`,
+`_shutdownHandlers`, `version`, `running` (lignes 100-117, 695).
+
+**Un seul site utilisateur trouvé qui exploite involontairement le
+fallback** : `src/midi/playback/commands/PlaybackAnalysisCommands.js:25-58`
+écrit `app._suggestionCache` / `app._suggestionLock` **directement sur
+le Proxy target** (l'objet `{}` qui est la cible du Proxy), pas sur
+`Application`. Les lectures/écritures restent cohérentes tant que tout
+le monde passe par la même façade `deps`, **mais** `Application._suggestionCache`
+restera toujours `undefined`. C'est fonctionnellement correct mais
+ambigu — recommander d'extraire dans un cache service nommé.
+
+**Verdict 1.2** : pas de fuite réelle d'internals. Risque résiduel
+d'écriture/lecture incohérente si un futur consommateur lit
+`this.app._suggestionCache` au lieu de `deps._suggestionCache` (les
+deux ne donneraient pas la même valeur).
+
+### 1.3 Frontière orchestration / métier / API
+
+- **`Application`** (748 l.) : composition root + lifecycle + EventBus
+  bridging + shutdown handlers. La séparation est nette ; aucun handler
+  métier n'a fui ici.
+- **API layer** (`src/api/`) : `HttpServer`, `WebSocketServer`,
+  `CommandHandler`, `CommandRegistry`. Auto-discovery des commandes
+  centralisée → pas de carte de routage à maintenir.
+- **Couches métier** (`src/midi/`, `src/files/`, `src/repositories/`,
+  `src/persistence/`) : pas de référence cyclique détectée par grep.
+  Les repositories sont des wrappers d'épaisseur ≈ 50 l. sur les
+  table-managers (`src/persistence/tables/`).
+
+**Verdict 1.3** : architecture saine, frontières respectées. Seul écart
+notable : `PlaybackAnalysisCommands` utilise l'app facade comme magasin
+d'état (cf. 1.2) — c'est un anti-pattern mineur.
 
 ---
 
-## Patterns réutilisés (référence)
+## 2. Risques « god classes » & complexité
 
-- **Lazy getter DI** : `src/midi/playback/PlaybackScheduler.js:69-77`.
-- **Lazy getter avec proxy interne** :
-  `src/api/WebSocketServer.js:77-85`.
-- **Test late-bound deps** :
-  `tests/playback-scheduler-late-bound-deps.test.js`.
-- **Schema declaration + compilation** : `tests/schema-compiler.test.js`
-  + `src/utils/JsonValidator.js:27-40`.
-- **Helpers schémas existants** : `requireRouteId` /
-  `requireDeviceId` dans `device.schemas.js` et `routing.schemas.js`.
-- **Format de roadmap** : sections `Constat / Plan / Done / Effort`
-  cf. `TODO.md`.
-
----
-
-## Annexe — Inventaire des modules de commandes (à produire en PR 3)
-
-L'inventaire complet (267 commandes) sera produit dans
-`docs/audit/COMMANDS_INVENTORY_2026-05-21.md` lors de PR 3. Tableau
-récapitulatif actuel :
-
-| Module | # commandes | # schemas | Gap |
+| Fichier | Lignes | Responsabilités | Observation |
 |---|---|---|---|
-| BankEffects | 4 | 0 | 4 |
-| Bluetooth | 9 | 0 | 9 |
-| Device | 8 | 7 | 1 |
-| DeviceSettings | 2 | 0 | 2 |
-| File | 21 | 5 | 16 |
-| Hotspot | 10 | 3 | 7 |
-| InstrumentLight | 6 | 0 | 6 |
-| InstrumentSettings | 11 | 0 | 11 |
-| InstrumentVoice | 5 | 0 | 5 |
-| Latency | 16 | 4 | 12 |
-| Lighting | 38 | 0 | 38 |
-| LoopArrangement | 11 | 11 | 0 |
-| Loop | 5 | 4 | 1 |
-| Midi | 8 | 0 | 8 |
-| Network | 4 | 0 | 4 |
-| Playback (agrégateur) | 23 | 3 | 20 |
-| Playlist | 15 | 0 | 15 |
-| Preset | 6 | 0 | 6 |
-| Routing | 21 | 8 | 13 |
-| Serial | 6 | 0 | 6 |
-| Session | 6 | 0 | 6 |
-| StringInstrument | 15 | 0 | 15 |
-| System | 10 | 1 | 9 |
-| VirtualInstrument | 7 | 0 | 7 |
-| **Total** | **267** | **46** | **221** |
+| `src/midi/playback/MidiPlayer.js` | **2306** | Lifecycle player, scheduler, tempo map, seek, baker hooks, hand-CC injection, drum-remap fallback, EventBus emissions | Construit déjà un `PlaybackScheduler` séparé (l.156) et une `PlaybackStateMachine` (l.118). Découpage **partiellement fait**. Reste un noyau de ~1500 l. sur la même classe. |
+| `src/persistence/Database.js` | **1036** | Migrations + CRUD routes + CRUD sessions + CRUD playlists + helpers | Délègue déjà à `src/persistence/tables/` selon CLAUDE.md, mais conserve des CRUD bruts (routes, sessions, …). Mélange de couches → cible naturelle de refactor par repository. |
+| `src/core/Application.js` | **748** | Composition root + EventBus bridging + signal handlers + status snapshot | Acceptable pour une composition root ; pas de logique métier ici. |
 
-*(Les schemas réutilisés ailleurs — `requireRouteId`, etc. — sont
-comptés une seule fois côté `# schemas` ; la couverture réelle est
-proche de 44 commandes uniques.)*
+Constat **B4 confirmé**. Cohérent avec
+`docs/audit/AUDIT_GLOBAL_2026-05-17.md`, qui flagge déjà la taille de
+MidiPlayer.
+
+**Recommandation** : prioriser un split de `MidiPlayer.js` en
+`MidiPlayerLifecycle` / `MidiPlayerEventBridge` / `MidiPlayerSeekEngine`
+(le scheduler étant déjà extrait). Pas dans le scope DI de cette
+branche.
 
 ---
 
-*Roadmap rédigée le 2026-05-21, branche
-`claude/audit-di-dependencies-lVbQE`. Aucun code applicatif modifié
-par ce livrable.*
+## 3. Robustesse runtime & lifecycle
+
+### 3.1 Transitions d'état playback
+
+- `PlaybackStateMachine` (`MidiPlayer.js:118`) encapsule les transitions
+  `STOPPED → PLAYING → PAUSED → SEEKING`.
+- `tryTransition()` est appelé à chaque opération
+  (`MidiPlayer.js:1052, 1159, 1186, 1217, 1309`).
+- `seek()` (`MidiPlayer.js:1304`) clamp la position, passe en `SEEKING`,
+  redémarre via `this.start()` (l.1331) si la lecture était active.
+
+**Risque concurrentiel** : `seek()` n'est pas async-guarded ; deux
+seeks rapides depuis le WS pourraient théoriquement entrer en
+concurrence sur `currentEventIndex`. Aucun mutex visible. À vérifier
+en charge ; tests `playback-scheduler-tickless.test.js` couvrent une
+partie du problème.
+
+### 3.2 Handlers SIGINT/SIGTERM/uncaught
+
+`Application.setupShutdownHandlers()` (`Application.js:694-745`) :
+- détache les handlers précédents avant d'en attacher de nouveaux (l.696-699) → idempotent ;
+- garde un flag local `shuttingDown` (l.702) → pas de shutdown concurrent ;
+- mappe SIGINT/SIGTERM/uncaughtException vers `stop()` ;
+- `unhandledRejection` **n'arrête pas** le process (l.728-732) — choix
+  documenté, raisonnable pour un serveur MIDI.
+
+**Verdict 3.2** : conforme.
+
+### 3.3 Services optionnels & états partiels
+
+`Application.initialize()` utilise un `try/catch` autour de chaque
+transport/lighting optionnel (l.266-309). En cas d'échec :
+- aucun service n'est enregistré dans le container ;
+- les consommateurs doivent utiliser `?.` (cf.
+  `BluetoothEventBridge`, `wsServer?.broadcast`).
+
+**Risque** : un service partiellement initialisé (ex. construit puis
+`init()` qui throw) reste dans le container avec un état dégradé.
+Aujourd'hui aucune méthode `init()` async post-constructeur n'est
+exposée par les transports optionnels — donc OK.
+
+---
+
+## 4. Fiabilité temps réel MIDI / scheduling
+
+Investigation hors scope DI mais **lecture rapide** :
+- `PlaybackScheduler` (`src/midi/playback/PlaybackScheduler.js`)
+  utilise un horizon "tickless" avec re-résolution lazy des
+  dépendances temps-réel critiques (compensation, capability).
+- `CompensationService` cache les compensations par couple route+device.
+- Tempo map et conversion tick→temps : couverts par
+  `tests/midi-transposer-*` et `tests/playback-scheduler-*`.
+
+Pas de constat factuel ajouté à l'audit initial — investigation
+poussée nécessite un benchmark réel (out of scope ici).
+
+---
+
+## 5. Persistance & migrations
+
+### 5.1 Atomicité
+
+`Database.runMigration()` (`Database.js:154-192`) :
+- chaque migration s'exécute dans une transaction explicite
+  (`BEGIN TRANSACTION` / `COMMIT` / `ROLLBACK` en cas d'erreur) ;
+- insertion `INSERT OR IGNORE INTO schema_version` **dans** la
+  transaction → atomicité réelle si le moteur SQLite respecte les
+  transactions DDL (better-sqlite3 supporte les transactions sur DDL).
+
+### 5.2 Branche « duplicate column name »
+
+`Database.js:180-188` : si `ALTER TABLE ADD COLUMN` rejette parce que
+la colonne existe déjà, la migration est **marquée appliquée** sans
+ré-exécution. Le commentaire (l.173-179) justifie le cas via
+`006_omni_mode.sql` (migration qui a été dupliquée historiquement avec
+un numéro différent).
+
+**Risque résiduel (drift schéma)** :
+- Si une migration contient `ALTER TABLE … ADD COLUMN` ET `CREATE INDEX
+  IF NOT EXISTS`, et que l'ALTER échoue en duplicate column, la suite
+  du SQL **n'est pas rejouée** (ROLLBACK).
+- Le commentaire affirme que `CREATE INDEX IF NOT EXISTS` reste sûr,
+  **mais c'est faux** dans le cas où la migration ajoutait un *nouvel*
+  index qui n'existait pas dans la version « pré-renommée » : on le
+  marque appliqué sans avoir créé l'index.
+
+**Recommandation** : isoler chaque opération DDL dans un `try { ALTER }
+catch (dup) { /* skip */ }` plutôt que confier au global try/catch — ou
+au minimum auditer les migrations 005/006/011 pour cette classe d'écart.
+
+### 5.3 Alignement tables ↔ repositories
+
+15 repositories sous `src/repositories/` ; 30 migrations dans
+`migrations/` ; tables effectives dans `src/persistence/tables/` (non
+listées ici). Pas d'écart visible au survol, mais une vérification
+exhaustive sortirait du scope DI.
+
+---
+
+## 6. API WebSocket / contrat de commandes
+
+### 6.1 Volume réel des commandes
+
+| Métrique | Valeur |
+|---|---|
+| Modules `src/api/commands/*.js` | **24** (vs 15 dans doc) |
+| Commandes registrées (grep `registry.register`) | **244** côté `src/api/commands/` + **23** côté `src/midi/playback/commands/` = **267** |
+| Schémas définis (`*.schemas.js`) | **44** `export const` |
+| **Couverture validation** | **44 / 267 ≈ 16 %** |
+
+`JsonValidator.validateByCommand()` (`src/utils/JsonValidator.js:229-233`) :
+
+```js
+const compiled = COMPILED_SCHEMAS[command];
+if (!compiled) return { valid: true, errors: [] };
+```
+
+**Toute commande sans schéma reçoit donc une validation permissive**
+qui retourne `valid:true`. Les payloads non validés incluent par
+exemple toutes les commandes `lighting_*` (38), `string_*` (15),
+`instrument_settings_*` (11), `bluetooth_*` (9), `network_*` (4),
+`virtual_*` / `session_*` / `bank_*` …
+
+### 6.2 Standardisation erreurs
+
+`CommandRegistry.handle()` (`src/api/CommandRegistry.js`) :
+- `ApplicationError` subclasses (`ValidationError`, `NotFoundError`)
+  → surface verbatim ;
+- toute autre exception → masquée en `"Internal server error"`.
+
+Conforme et propre.
+
+### 6.3 Race startup commandes
+
+`CommandHandler` (`src/api/CommandHandler.js:29`) :
+```js
+this._ready = this._init();   // construit dans le constructeur
+…
+async handle(message, ws) {
+  await this._ready;          // gate toutes les requêtes
+  return this.registry.handle(message, ws);
+}
+```
+
+**Verdict 6.3** : race correctement traitée. Note : `this._init()` est
+*lancée* dans le constructeur sans `await`, donc si l'import dynamique
+d'un module de commande **throw synchrone**, la rejection est attachée
+à `_ready` et propagée à la première `handle()`. Pas d'unhandled
+rejection.
+
+---
+
+## 7. Sécurité
+
+### 7.1 Token API
+
+`src/infrastructure/auth/ApiTokenManager.js:33-60` génère un token
+aléatoire `randomBytes(32).toString('hex')` à la première exécution
+si `GMBOOP_API_TOKEN` est absent, et l'écrit dans `.env`.
+
+**Problèmes** :
+- **Pas de `chmod 0600`** après `writeFileSync` (l.47, 49, 52) → le
+  fichier `.env` hérite de l'umask du process (souvent `0644`,
+  lisible par tout utilisateur local).
+- Le token est **loggé en `info`** indirectement via le chemin (l.59 :
+  `API token auto-generated and saved to ${envPath}`) — pas le token
+  lui-même, OK.
+- Aucune rotation automatique.
+- `.env` est dans `.gitignore` (vérifié ligne `*.env` côté git), donc
+  pas de fuite VCS.
+
+**Recommandation prioritaire** :
+```js
+writeFileSync(envPath, …, 'utf8');
+chmodSync(envPath, 0o600);
+```
+
+### 7.2 Bypass d'authentification
+
+**Côté HTTP** (`src/api/HttpServer.js:142-200`) :
+1. `/api/health` et `/api/update-status` → toujours publics (l.146).
+2. `Sec-Fetch-Site: same-origin` → bypass (l.160).
+3. Origin loopback ou même host que `req.hostname` → bypass (l.163-173).
+4. IP privée (RFC1918, link-local, loopback, IPv6 ULA) → bypass
+   (`isPrivateClient(req)`, l.183).
+5. Sinon : token bearer obligatoire.
+
+**Côté WebSocket** (`src/api/WebSocketServer.js:129-188`) :
+1. Origin matche Host (loopback + port) → bypass.
+2. Sinon : token via query string OR `sec-websocket-protocol`.
+
+**Risques** :
+- **WS token via query string** → loggué dans les access logs HTTP de
+  l'upgrade. À mitiger en préférant `sec-websocket-protocol`.
+- **HTTP bypass `isPrivateClient`** : sur une box exposée via tunnel
+  (Tailscale/ZeroTier/cloudflared) avec source IP réécrite, un
+  attaquant peut potentiellement obtenir une IP RFC1918 côté serveur.
+  À documenter.
+- **`sec-fetch-site` bypass** : tous les navigateurs modernes le
+  posent ; un attaquant ne le contrôle pas en XHR, mais un client
+  non-navigateur peut le falsifier — la défense de l'auteur (« il aura
+  juste à inclure le token aussi ») est valable seulement si le token
+  est connu, ce qui contredit l'objet du bypass.
+
+### 7.3 Routes publiques
+
+`/api/health` est documenté public (CLAUDE.md). `/api/update-status`
+l'est aussi mais non documenté — à mentionner explicitement.
+
+---
+
+## 8. Frontend temps réel & audio
+
+### 8.1 Dual timer
+
+L'audit signalait un « dual timer setInterval + requestAnimationFrame ».
+Grep résultats :
+- `setInterval` dans le frontend : **6 sites** seulement, tous
+  domain-spécifiques (toast warning, tuner no-signal, bow retrigger,
+  loop editor metronome, recording timer, ISM check).
+- `requestAnimationFrame` : utilisé largement (≈ 25 sites) pour
+  layout/animations.
+- **Pas de combo setInterval + rAF redondant** trouvé sur la même vue.
+
+**Verdict 8.1** : le constat initial est à reformuler. Le seul site
+critique en CPU sur Pi3 est `KeyboardChords.js:541`
+(`_bowRetriggerInterval`) — à profiler séparément.
+
+### 8.2 Nettoyage timers
+
+Non audité ligne à ligne ici. Les vues qui clearent leurs intervals
+exposent `destroy()` ou `_cleanup()` ; la base `BaseView` impose une
+convention. Hors scope DI.
+
+### 8.3 Reconnect WS & requêtes pending
+
+`BackendAPIClient` (`public/js/api/`) est testé
+(`tests/frontend/backend-api-client-binary.test.js`). Comportement
+détaillé non audité ici.
+
+---
+
+## 9. Qualité code / standards
+
+- ESM cohérent (`"type": "module"`, imports relatifs avec `.js`).
+- `JSDoc` présent sur la quasi-totalité des modules core (`Application`,
+  `CommandRegistry`, `Database`, `MidiPlayer`).
+- `ApplicationError` hiérarchie sous `src/core/errors/`.
+- **8 TODO/FIXME** dans `src/` (acceptable, tous tracés vers `TODO.md`).
+- **140 fichiers de tests** (95 backend + 45 frontend) — couverture
+  significative sur scheduler, transposer, hand-position, migrations.
+
+---
+
+## 10. Tooling / CI
+
+### 10.1 Lint (B2)
+
+`.eslintrc.json` est un **format legacy ESLint 7-8 valide**. ESLint 9
+exigerait un `eslint.config.js`. Le `package.json` épingle
+`"eslint": "^8.55.0"`, donc le format est correct **si les
+dépendances sont installées**.
+
+Le message d'erreur observé `npm run lint` → « eslint.config.* not
+found » est obtenu uniquement si :
+- soit `node_modules/` est vide (cas actuel : `ls node_modules` →
+  0 entrées) → bin `eslint` non résolu, npm tombe sur une autre
+  installation système (probablement ESLint 9+) ;
+- soit une version d'ESLint 9 a été installée via une autre voie.
+
+**Conclusion B2** : pas de drift de config dans le repo. Faux positif
+environnemental. À reproduire après `npm install --ignore-scripts`.
+
+### 10.2 Vitest (B1)
+
+Confirmé : `node_modules/.bin/vitest` n'existe pas dans l'environnement
+audité car `node_modules` est vide. `vitest` est correctement déclaré
+en `devDependencies` (^4.1.1). Run nécessite `npm install
+--ignore-scripts`.
+
+### 10.3 Jest (compatibilité native)
+
+`jest.config.cjs` probe `better-sqlite3` au démarrage et **skip**
+automatiquement les suites SQLite si bindings absents — pattern
+documenté dans CLAUDE.md.
+
+### 10.4 « CI lint+test »
+
+Aucun workflow `.github/workflows/` audité ici. À vérifier
+explicitement si la promesse documentaire est tenue.
+
+---
+
+## Annexe A — Détail des constats DI critiques
+
+### A.1 LatencyCompensator — capture eager fragile
+
+```js
+// src/midi/adaptation/LatencyCompensator.js:32-35
+this.logger = deps.logger;
+this.database = deps.database;
+this.deviceManager = deps.deviceManager;   // ← eager, deviceManager registered 3 lignes plus haut
+this.eventBus = deps.eventBus;
+```
+
+Source dépendante : `Application.js:234` (`deviceManager`) →
+`Application.js:237` (`latencyCompensator`). Marge : 3 lignes.
+
+**Mitigation déjà en place** : un getter lazy pour `wsServer` (l.39-42),
+mais pas pour `deviceManager`.
+
+### A.2 CompensationService — capture eager fragile
+
+```js
+// src/midi/compensation/CompensationService.js:34-38
+this.database = deps.database;
+this._lc = deps.latencyCompensator;        // ← eager
+this.eventBus = deps.eventBus;
+this.logger = deps.logger;
+```
+
+Source dépendante : `Application.js:237` → `Application.js:241`.
+Marge : 4 lignes.
+
+### A.3 Patterns « gold standard » à conserver
+
+- `PlaybackScheduler.js:49-77` — getters lazy `wsServer`,
+  `compensationService`, `capabilityResolver`, `eventLoopMonitor` +
+  JSDoc explicite (l.60-65).
+- `FileManager.js:31-42` — 4 getters lazy + commentaire latence.
+- `WebSocketServer.js:77-85` — proxy interne pour
+  `eventLoopMonitor.currentLag`.
+- `MidiClockGenerator.js:39-56` — getters lazy + commentaire de
+  contrat.
+
+### A.4 Site singulier — facade utilisée comme store
+
+`src/midi/playback/commands/PlaybackAnalysisCommands.js:25-58` lit/écrit
+`app._suggestionCache` et `app._suggestionLock` sur la facade Proxy.
+Les mutations restent sur le target `{}` du Proxy et sont invisibles
+depuis `Application.instance._suggestionCache`. Fonctionnel mais
+ambigu — extraire dans un `SuggestionCacheService` enregistré dans le
+container serait plus propre.
+
+---
+
+## Annexe B — Liste exhaustive des modules de commandes (B5)
+
+24 modules sous `src/api/commands/` :
+
+```
+BankEffectsCommands.js (4)         LightingCommands.js (38)
+BluetoothCommands.js (9)           LoopArrangementCommands.js (11)
+DeviceCommands.js (8)              LoopCommands.js (5)
+DeviceSettingsCommands.js (2)      MidiCommands.js (8)
+FileCommands.js (21)               NetworkCommands.js (4)
+HotspotCommands.js (10)            PlaybackCommands.js (agrégateur, 23 via sous-modules)
+InstrumentLightCommands.js (6)     PlaylistCommands.js (15)
+InstrumentSettingsCommands.js (11) PresetCommands.js (6)
+InstrumentVoiceCommands.js (5)     RoutingCommands.js (21)
+LatencyCommands.js (16)            SerialCommands.js (6)
+                                   SessionCommands.js (6)
+                                   StringInstrumentCommands.js (15)
+                                   SystemCommands.js (10)
+                                   VirtualInstrumentCommands.js (7)
+```
+
+Total = **267 commandes** registrées (244 directes + 23 via
+`PlaybackCommands`).
+
+Pour conformité doc : mettre à jour `docs/ARCHITECTURE.md:20` et
+`docs/ARCHITECTURE.md:61` (« 15 modules » → « 24 modules / 267 commandes »).
+
+---
+
+## Annexe C — Couverture schemas par fichier
+
+| Fichier schemas | Schémas exportés |
+|---|---|
+| `device.schemas.js` | 7 |
+| `file.schemas.js` | 5 |
+| `hotspot.schemas.js` | 3 |
+| `latency.schemas.js` | 4 |
+| `loop.schemas.js` | 15 |
+| `playback.schemas.js` | 3 |
+| `routing.schemas.js` | 8 |
+| `system.schemas.js` | 1 |
+| **Total** | **46** (les 2 helpers `requireRouteId`/`requireDeviceId` sont réutilisés) |
+
+Modules de commandes **sans schemas du tout** :
+- `BankEffectsCommands` (4 commandes)
+- `BluetoothCommands` (9)
+- `InstrumentLightCommands` (6)
+- `InstrumentSettingsCommands` (11)
+- `InstrumentVoiceCommands` (5)
+- `LightingCommands` (38) ← le plus gros gap
+- `MidiCommands` (8)
+- `NetworkCommands` (4)
+- `PresetCommands` (6)
+- `SerialCommands` (6)
+- `SessionCommands` (6)
+- `StringInstrumentCommands` (15)
+- `VirtualInstrumentCommands` (7)
+
+**Priorité de couverture** : `LightingCommands`, `MidiCommands`,
+`InstrumentSettingsCommands` (impact UI direct).
+
+---
+
+## Recommandations classées
+
+### Urgentes (sécurité / fiabilité)
+
+1. **`chmod 0600` sur `.env`** après écriture du token
+   (`src/infrastructure/auth/ApiTokenManager.js:47, 49, 52`).
+2. **Schémas pour `LightingCommands` et `MidiCommands`** au minimum —
+   couvrir les commandes qui acceptent payloads structurés
+   (channel/note/CC).
+
+### Élevées (résilience refactor)
+
+3. **JSDoc de contrat** sur `LatencyCompensator.js:34` et
+   `CompensationService.js:36` — documenter explicitement que la
+   capture eager nécessite l'ordre actuel d'`Application.initialize()`.
+4. **Convertir** les deux captures eager ci-dessus en **getters lazy**
+   (alignement sur le pattern PlaybackScheduler).
+5. **Migration `Database.js:154-192`** : transformer le try/catch
+   global en isolation par opération DDL pour éviter qu'un CREATE
+   INDEX soit silencieusement skippé.
+
+### Moyennes (dette documentaire / code)
+
+6. Mettre à jour `docs/ARCHITECTURE.md:20, 61` (« 15 modules » → 24).
+7. Extraire `PlaybackAnalysisCommands._suggestionCache` dans un
+   service dédié enregistré dans le container.
+8. Splitter `MidiPlayer.js` (2306 l.) — extraction
+   `MidiPlayerSeekEngine` + `MidiPlayerEventBridge`.
+
+### Basses (qualité / outillage)
+
+9. Reproduire les constats B1/B2 en CI propre (`npm install
+   --ignore-scripts && npm run lint && npm run test:frontend`) et les
+   classer fermés s'ils ne reproduisent plus.
+10. Documenter `/api/update-status` comme route publique dans
+    `CLAUDE.md`.
+
+---
+
+## Annexe D — Méthode de reproduction
+
+```bash
+# Constat B1
+ls node_modules/.bin/vitest 2>&1 || echo "vitest absent"
+
+# Constat B2 (faux positif si node_modules vide)
+npm install --ignore-scripts
+npm run lint -- --max-warnings 0
+
+# Constat B4
+wc -l src/midi/playback/MidiPlayer.js \
+       src/persistence/Database.js \
+       src/core/Application.js
+
+# Constat B5
+ls src/api/commands/*.js | wc -l
+grep -rh "registry\.register(" src/api/commands/ src/midi/playback/commands/ \
+  | grep -oE "'[a-z_]+'" | sort -u | wc -l
+
+# Couverture schemas
+grep -h "^export const " src/api/commands/schemas/*.js \
+  | grep -v "LOOP_CONSTRAINTS" | wc -l
+```
+
+---
+
+*Rapport produit le 2026-05-21 sur la branche
+`claude/audit-di-dependencies-lVbQE`. Aucun code applicatif modifié.*

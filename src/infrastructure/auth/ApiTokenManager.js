@@ -11,7 +11,7 @@
  * root free of filesystem/bootstrap concerns.
  */
 import { randomBytes } from 'crypto';
-import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, appendFileSync, writeFileSync, chmodSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -21,9 +21,13 @@ const __dirname = dirname(__filename);
 const ENV_PATH = resolve(join(__dirname, '../../../.env'));
 
 export class ApiTokenManager {
-  /** @param {Object} logger */
-  constructor(logger) {
+  /**
+   * @param {Object} logger
+   * @param {string} [envPath] Optional override (tests only).
+   */
+  constructor(logger, envPath = ENV_PATH) {
     this.logger = logger;
+    this.envPath = envPath;
   }
 
   /**
@@ -37,7 +41,7 @@ export class ApiTokenManager {
     }
 
     const token = randomBytes(32).toString('hex');
-    const envPath = ENV_PATH;
+    const envPath = this.envPath;
 
     try {
       if (existsSync(envPath)) {
@@ -49,7 +53,17 @@ export class ApiTokenManager {
           appendFileSync(envPath, `\nGMBOOP_API_TOKEN=${token}\n`, 'utf8');
         }
       } else {
-        writeFileSync(envPath, `GMBOOP_API_TOKEN=${token}\n`, 'utf8');
+        // mode 0o600 only takes effect when the file is created; when overwriting
+        // an existing file Node ignores it — the chmodSync below covers both cases.
+        writeFileSync(envPath, `GMBOOP_API_TOKEN=${token}\n`, { encoding: 'utf8', mode: 0o600 });
+      }
+      // Restrict to owner read/write — the token grants full API access.
+      try {
+        chmodSync(envPath, 0o600);
+      } catch (chmodErr) {
+        // chmod can fail on filesystems that don't support POSIX perms (e.g. FAT-mounted USB).
+        // The token is still persisted; log so the operator can harden manually.
+        this.logger.warn(`Could not chmod 0600 on ${envPath}: ${chmodErr.message}`);
       }
     } catch (err) {
       this.logger.warn(`Could not persist API token to .env: ${err.message}`);
