@@ -620,3 +620,36 @@ grep -h "^export const " src/api/commands/schemas/*.js \
 
 *Rapport produit le 2026-05-21 sur la branche
 `claude/audit-di-dependencies-lVbQE`. Aucun code applicatif modifié.*
+
+---
+
+## Suivi — Doc & CI (clôture du 2026-05-21)
+
+Les 5 actions Doc & CI dérivées du rapport ci-dessus ont été appliquées sur
+la branche `claude/docs-ci-improvements-Q2H7U` :
+
+1. **CLAUDE.md** — section *Configuration* mise à jour : `/api/update-status`
+   ajouté aux routes publiques, mention explicite des bypass d'auth
+   (same-origin, `isPrivateClient`) et de l'avertissement « tunnel qui
+   réécrit les IP ». (Rec. #10, §7.2, §7.3.)
+2. **docs/ARCHITECTURE.md** — section *Security* complétée :
+   - `/api/update-status` listée comme route publique ;
+   - couverture validation ≈ 16 % (44 schémas / 267 commandes) documentée
+     avec renvoi vers ce rapport ;
+   - section *CI/CD* élargie pour refléter les nouveaux jobs.
+3. **package.json** — script `format:check` ajouté (`prettier --check`),
+   utilisable en local et en CI sans toucher au filesystem.
+4. **.github/workflows/ci.yml** — pipeline restructuré :
+   - job `lint` étendu avec `prettier --check` ;
+   - job `typecheck` ajouté (`tsc --noEmit`) ;
+   - nouveau job `frontend-smoke` qui reproduit explicitement B1/B2 sur un
+     install `--ignore-scripts` (sans `libasound2-dev`) ;
+   - le job `test` historique reste avec les deps natives pour Jest + Vitest.
+   (Rec. #9, §10.1, §10.2, §10.4.)
+5. **Annexe B** déjà répercutée dans `docs/ARCHITECTURE.md` (mention « 24
+   command modules / 267 commands » en ligne 20 et 62). Vérifié — aucun
+   correctif supplémentaire requis (Rec. #6 confirmée close).
+
+Hors scope de cette passe Doc & CI : les recommandations urgentes (#1
+`chmod 0600`, #2 schémas `LightingCommands`/`MidiCommands`) et élevées
+(#3/#4/#5 sur DI et migrations) restent ouvertes.
