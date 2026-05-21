@@ -177,9 +177,27 @@ See `.env.example` for all supported variables.
 
 - **Helmet.js** for HTTP security headers
 - **Optional token auth** via `GMBOOP_API_TOKEN` (HTTP Bearer + WS query param)
-- Health check (`/api/health`) always public
+- **Public routes** (always bypass token): `/api/health`, `/api/update-status`
+- **Auth bypasses** for convenience on a LAN/Pi deployment: same-origin
+  requests (`Sec-Fetch-Site`), loopback/RFC1918 clients (`isPrivateClient`),
+  and same-host Origin. When the box is reachable through a tunnel that
+  rewrites client IPs into a private range, the token must be enforced.
+- **Command payload validation** is precompiled at startup from
+  `src/api/commands/schemas/*.schemas.js`. Coverage is **partial** (≈ 44
+  schemas vs 267 registered commands); commands without a schema receive a
+  permissive `{valid:true}` pass-through. New command modules should ship
+  with a matching schema — see `docs/audit/ROADMAP_DI_2026-05-21.md` for the
+  current gap list.
 
 ## CI/CD
 
-- **GitHub Actions**: lint + test on push/PR to main
-- **Pre-commit hooks**: Husky + lint-staged (ESLint + Prettier)
+- **GitHub Actions** (`.github/workflows/ci.yml`):
+  - `lint` — `npm ci --ignore-scripts` + `eslint` + `prettier --check`
+  - `typecheck` — `tsc --noEmit` against JSDoc + `src/types/`
+  - `audit` — `npm audit --omit=dev --audit-level=critical`
+  - `test` — Jest backend (with native deps) + coverage upload
+  - `test-frontend-smoke` — Vitest only, `npm ci --ignore-scripts`, no
+    `libasound2-dev` (catches B1-class regressions where `vitest` is absent
+    or relies on native modules)
+- **Pre-commit hooks**: Husky + lint-staged (ESLint `--max-warnings 5` +
+  Prettier `--check` on staged `*.js`)

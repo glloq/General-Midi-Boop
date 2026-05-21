@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,6 +18,19 @@ jobs:
           cache: 'npm'
       - run: npm ci --ignore-scripts
       - run: npm run lint
+      - run: npm run format:check
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
 
   audit:
     name: Security Audit
@@ -31,8 +44,28 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm audit --omit=dev --audit-level=critical
 
+  # Reproduces audit constats B1 (vitest absent) and B2 (eslint config drift)
+  # in a clean environment without native build deps (libasound2-dev). If this
+  # job goes red, the frontend toolchain has regressed independently of the
+  # native MIDI build chain.
+  frontend-smoke:
+    name: Frontend smoke (no native deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install without native build scripts
+        run: npm ci --ignore-scripts
+      - name: Lint (B2 reproducer)
+        run: npm run lint
+      - name: Frontend tests (B1 reproducer)
+        run: npm run test:frontend
+
   test:
-    name: Test
+    name: Test (backend + frontend)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

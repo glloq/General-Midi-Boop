@@ -102,7 +102,12 @@ Automated daily backups via `BackupScheduler`.
 
 Layered: `config.json` (committed defaults) → `.env` (dotenv) →
 `GMBOOP_*` environment variables. See `.env.example`. Optional token auth via
-`GMBOOP_API_TOKEN` (HTTP Bearer + WS query param); `/api/health` is always public.
+`GMBOOP_API_TOKEN` (HTTP Bearer + WS query param); `/api/health` and
+`/api/update-status` are always public (the latter so the dashboard can poll
+during an in-place update). HTTP auth is also bypassed for same-origin
+requests and RFC1918/loopback clients (`isPrivateClient` in
+`src/api/HttpServer.js`); avoid exposing the box behind a tunnel that
+rewrites the source IP into a private range without enforcing the token.
 
 ### Frontend
 
