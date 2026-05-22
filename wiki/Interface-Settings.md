@@ -46,9 +46,27 @@ The note-name format affects the [[Interface-Microphone|tuner]], the [[MIDI-Edit
 | **Keyboard feedback** | Highlight keys on the virtual keyboard as computer keyboard keys are pressed |
 | **Drag feedback** | Show ghost element during drag-and-drop operations in the playlist and editor |
 
+## Wi-Fi Hotspot
+
+For offline-first deployments the settings modal includes a **Wi-Fi hotspot** panel
+([`public/js/features/settings/SettingsHotspot.js`](https://github.com/glloq/General-Midi-Boop/blob/main/public/js/features/settings/SettingsHotspot.js)),
+which turns the Raspberry Pi into its own access point so phones and tablets can reach the UI
+without any existing network.
+
+| Field | Description |
+|-------|-------------|
+| **SSID** | Network name broadcast by the Pi |
+| **Band / channel** | 2.4 GHz or 5 GHz and the radio channel |
+| **Password** | WPA passphrase (left blank means "keep the stored one") |
+| **Activate / Deactivate** | Toggles the hotspot; a live status indicator shows whether it is running |
+
+Configuration is persisted server-side (not in `localStorage`) by `HotspotConfigRepository` and
+driven by the `hotspot_*` / `wifi_*` WebSocket commands (`hotspot_get_config`, `hotspot_update_config`,
+`hotspot_status`, `hotspot_enable`, `hotspot_disable`, `wifi_scan`, `wifi_connect`, …) — see [[API-Reference]].
+
 ## Persistence
 
-Settings are stored in:
+UI preferences (theme, language, keyboard, interaction) are stored in:
 
 ```
 localStorage["gmboop_settings"] = {

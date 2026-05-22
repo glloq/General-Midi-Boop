@@ -17,6 +17,7 @@ Every driver extends [`BaseLightingDriver`](https://github.com/glloq/General-Mid
 | **OSC** | [`OscLightDriver.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/lighting/OscLightDriver.js) | Open Sound Control consoles (QLab, etc.) |
 | **HTTP** | [`HttpLightDriver.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/lighting/HttpLightDriver.js) | REST endpoints / webhooks (smart bulbs, hub gateways) |
 | **MQTT** | [`MqttLightDriver.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/lighting/MqttLightDriver.js) | IoT brokers (Home Assistant, Zigbee2MQTT) |
+| **Serial LED** | [`SerialLedDriver.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/lighting/SerialLedDriver.js) | WS281x strip driven by an external Arduino / ESP32 over a serial line |
 
 ## Effects Engine
 
@@ -41,10 +42,11 @@ The lighting manager subscribes to playback events on the `EventBus` (`playback_
 
 A subset (full list in [[API-Reference]] / [`docs/API.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/API.md)):
 
-- `lighting_list_drivers`
-- `lighting_set_color`
-- `lighting_effect_start` / `lighting_effect_stop`
-- `lighting_fixture_create` / `lighting_fixture_update`
+- `lighting_device_list` / `lighting_device_add` / `lighting_device_update`
+- `lighting_group_color` / `lighting_group_create`
+- `lighting_effect_start` / `lighting_effect_stop` / `lighting_effect_list`
+- `lighting_scene_save` / `lighting_scene_apply`
+- `lighting_rule_add` / `lighting_midi_learn` / `lighting_blackout`
 
 ## Permissions Note
 

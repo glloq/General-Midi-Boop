@@ -44,7 +44,7 @@ Then open `http://<Raspberry-Pi-IP>:8080`. Full instructions in [[Installation]]
 | Understand the codebase | [[Architecture]] |
 | Edit MIDI (piano roll, tab, drums, wind) | [[MIDI-Editor]] |
 | Auto-assign channels to instruments | [[Auto-Assignment]] |
-| Drive 146 WebSocket commands | [[API-Reference]] |
+| Drive 267 WebSocket commands | [[API-Reference]] |
 | Wire USB / BLE / RTP-MIDI / GPIO UART | [[Hardware-Integration]] |
 | Control lights (DMX, sACN, OSC, MQTT…) | [[Lighting]] |
 | Tablature, hand-position, calibration | [[Advanced-Topics]] |

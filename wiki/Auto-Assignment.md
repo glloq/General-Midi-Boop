@@ -30,6 +30,7 @@ Source code: [`src/midi/adaptation/`](https://github.com/glloq/General-Midi-Boop
 `InstrumentMatcher` scores each (channel, connected-instrument) pair from **0 to 100** based on:
 
 - Type compatibility (a piano channel matches a polyphonic keyboard better than a monophonic flute)
+- **Physical-family affinity** — a cross-category bonus from the shared 13-family taxonomy (e.g. a sitar still scores well against a nylon guitar because both are *plucked strings*). See [[Architecture]] § Instrument Families and `ScoringConfig` in [`src/midi/adaptation/`](https://github.com/glloq/General-Midi-Boop/tree/main/src/midi/adaptation).
 - Range coverage (penalty for missing notes)
 - Polyphony capacity
 - User preference weight (favoured instruments get a bonus)
@@ -66,8 +67,8 @@ Before committing, an audio preview plays the proposed assignment through the GM
 
 Triggerable via WebSocket commands (subset):
 
-- `auto_assign_suggest` — returns the proposed mapping without persisting.
-- `auto_assign_apply` — writes the routing.
-- `auto_assign_preview` — kicks off audio preview.
+- `generate_assignment_suggestions` — returns the proposed mapping without persisting.
+- `apply_assignments` — writes the routing to the database.
+- `validate_routing_feasibility` — checks a routing against connected-instrument capabilities.
 
 Full command list in [[API-Reference]] and [`docs/API.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/API.md).

@@ -32,6 +32,7 @@ A driver is a connection to one lighting system. Add as many as needed.
 | **OSC** | Open Sound Control (QLab, lighting consoles) |
 | **HTTP** | REST webhooks — smart bulbs, hub gateways, custom firmware |
 | **MQTT** | IoT brokers (Home Assistant, Zigbee2MQTT, Shelly, …) |
+| **Serial LED** | WS281x strip driven by an external Arduino / ESP32 over a serial line |
 
 Each driver has its own configuration panel (IP/host, port, universe number, GPIO pin, topic, etc.). A status indicator shows whether the driver is connected and active.
 
@@ -110,13 +111,13 @@ The lighting manager subscribes to playback events on the internal EventBus (`pl
 A subset (full list in [[API-Reference]]):
 
 ```
-lighting_list_drivers
-lighting_add_driver / lighting_update_driver / lighting_remove_driver
-lighting_list_fixtures / lighting_add_fixture / lighting_update_fixture
-lighting_set_color
-lighting_effect_start / lighting_effect_stop
+lighting_device_list
+lighting_device_add / lighting_device_update / lighting_device_delete
+lighting_group_create / lighting_group_color / lighting_group_list
+lighting_effect_start / lighting_effect_stop / lighting_effect_list
+lighting_rule_add / lighting_midi_learn
 lighting_scene_save / lighting_scene_apply
-lighting_blackout
+lighting_master_dimmer / lighting_blackout
 ```
 
 ## Related Pages

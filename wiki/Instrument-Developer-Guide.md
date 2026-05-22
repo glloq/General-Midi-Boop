@@ -230,6 +230,12 @@ Each instrument entry is 3 bytes. Total size = `8 + (3 × N)` bytes.
 
 Use `0x7F` for `gm_program` when the program is undefined (typical for drums).
 
+> **Note** — these `type_id` values are the fixed SysEx wire format and are independent of the
+> server-side **13 physical instrument families** (`shared/instrument-families.json`, see
+> [[Architecture]] § Instrument Families) used for auto-assignment scoring and UI grouping. You
+> only need to send the `type_id` above; the server maps the channel's GM program onto the
+> physical family automatically.
+
 ### Example — Piano + Guitar + Drums
 
 ```c

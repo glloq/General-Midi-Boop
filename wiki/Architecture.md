@@ -56,6 +56,18 @@ A high-level orientation. The full design is in [`docs/ARCHITECTURE.md`](https:/
 - **Observer / EventBus** — decouples command handlers from real-time fan-out (UI updates, MIDI input echoes, lifecycle hooks).
 - **Driver pattern** — lighting backends extend [`BaseLightingDriver`](https://github.com/glloq/General-Midi-Boop/blob/main/src/lighting/BaseLightingDriver.js); transports follow the same shape (`BluetoothManager`, `NetworkManager`, `SerialMidiManager`).
 
+## Instrument Families
+
+A shared taxonomy of **13 physical instrument families** (keyboards, chromatic percussion,
+organs, plucked strings, bowed strings, ensembles, brass, reeds, winds, synths, percussive,
+sound-effects, drum kits) is defined once in
+[`shared/instrument-families.json`](https://github.com/glloq/General-Midi-Boop/blob/main/shared/instrument-families.json).
+The backend loads it through [`src/midi/gm/InstrumentFamilies.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/midi/gm/InstrumentFamilies.js),
+and a parity test keeps the frontend and backend copies in lockstep. These families progressively
+replace the 16 non-homogeneous General-MIDI categories — they drive the auto-assignment scoring
+bonus (e.g. a sitar still matches a nylon guitar because both are *plucked strings*), MIDI-editor
+channel colours and lighting presets.
+
 ## Request Flow
 
 1. Browser opens WebSocket (auth via `?token=` if `GMBOOP_API_TOKEN` is set).
@@ -68,14 +80,14 @@ A high-level orientation. The full design is in [`docs/ARCHITECTURE.md`](https:/
 ## Frontend Architecture
 
 - Custom `BaseView` / `BaseModal` framework (no React/Vue).
-- Each feature lives under [`public/js/features/`](https://github.com/glloq/General-Midi-Boop/tree/main/public/js/features) (40+ modules, e.g. `midi-editor/`, `lighting/`, `auto-assign/`).
+- Each feature lives under [`public/js/features/`](https://github.com/glloq/General-Midi-Boop/tree/main/public/js/features) — eight directories (`auto-assign/`, `instrument-settings/`, `keyboard/`, `lighting/`, `loop/`, `midi-editor/`, `piano-roll/`, `settings/`), each grouping several modules.
 - `BackendAPIClient` wraps the WebSocket with request correlation, auto-retry, and event subscriptions.
 - i18n via JSON dictionaries in [`public/locales/`](https://github.com/glloq/General-Midi-Boop/tree/main/public/locales) (28 languages).
 
 ## Persistence
 
 - SQLite via `better-sqlite3` in WAL mode.
-- Migrations in [`migrations/`](https://github.com/glloq/General-Midi-Boop/tree/main/migrations) (29 files; `001_baseline.sql` is the consolidated baseline).
+- Migrations in [`migrations/`](https://github.com/glloq/General-Midi-Boop/tree/main/migrations) (30 files; `001_baseline.sql` is the consolidated baseline).
 - Daily automated backups via [`BackupScheduler`](https://github.com/glloq/General-Midi-Boop/blob/main/src/persistence/BackupScheduler.js).
 - File blobs use a content-addressable store (SHA-256 keys) in [`src/files/BlobStore.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/files/BlobStore.js) for deduplication.
 
