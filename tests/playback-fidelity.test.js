@@ -11,6 +11,7 @@ import { describe, test, expect, jest } from '@jest/globals';
 import MidiPlayer from '../src/midi/playback/MidiPlayer.js';
 import PlaybackScheduler from '../src/midi/playback/PlaybackScheduler.js';
 import { SEND_STATUS, DEFAULT_MICROSECONDS_PER_BEAT } from '../src/core/constants.js';
+import { writeMidi } from 'midi-file';
 
 function makeLogger() {
   return {
@@ -185,5 +186,37 @@ describe('PlaybackScheduler disconnect policy uses typed status (P0-6)', () => {
   test('DISCONNECTED marks the device as failed', () => {
     const scheduler = runDispatch(SEND_STATUS.DISCONNECTED);
     expect(scheduler._failedDevices.has('dev-x')).toBe(true);
+  });
+});
+
+describe('MidiPlayer.loadFile rejects unplayable timings (P0-4)', () => {
+  function playerWithFile(midiObject) {
+    const bytes = Buffer.from(writeMidi(midiObject));
+    const player = new MidiPlayer({
+      logger: makeLogger(),
+      database: { getFile: () => ({ filename: 'x.mid', blob_path: 'x' }) },
+      blobStore: { read: () => bytes }
+    });
+    return player;
+  }
+
+  test('SMF format 2 is rejected', async () => {
+    const player = playerWithFile({
+      header: { format: 2, numTracks: 1, ticksPerBeat: 480 },
+      tracks: [[{ deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
+                { deltaTime: 240, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }]]
+    });
+    await expect(player.loadFile('f1')).rejects.toThrow(/format 2/i);
+  });
+
+  test('a format-1 PPQ file still loads and keeps its events', async () => {
+    const player = playerWithFile({
+      header: { format: 1, numTracks: 1, ticksPerBeat: 480 },
+      tracks: [[{ deltaTime: 0, type: 'setTempo', microsecondsPerBeat: 500000 },
+                { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
+                { deltaTime: 480, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }]]
+    });
+    const info = await player.loadFile('f2');
+    expect(info.events).toBeGreaterThanOrEqual(2);
   });
 });

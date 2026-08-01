@@ -7,7 +7,7 @@
 //     (P0-2 — BLE/network input reaching the router)
 //   - DeviceManager device dedup no longer merges different transports (P1)
 
-import { describe, test, expect, jest } from '@jest/globals';
+import { describe, test, expect } from '@jest/globals';
 import BluetoothManager from '../src/transports/BluetoothManager.js';
 import InMemoryBleAdapter from '../src/midi/adapters/InMemoryBleAdapter.js';
 import DeviceManager from '../src/midi/devices/DeviceManager.js';

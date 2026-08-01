@@ -105,6 +105,9 @@ class PlaybackScheduler {
     // so the matching noteOff can be suppressed exactly once.
     this._droppedNoteOns = new Map(); // key: "device:channel:note" -> count
 
+    // Per-playback timing observability (see getTimingMetrics).
+    this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
+
     // Invalidate caches immediately when instrument settings change.
     // Note: _syncDelayCache is removed — compensation is now handled by
     // CompensationService. The remaining caches (string CC, timing constraints)
@@ -152,6 +155,7 @@ class PlaybackScheduler {
     this._activeNotes.clear();
     this._noteOnTimes.clear();
     this._droppedNoteOns.clear();
+    this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
     // CapabilityResolver caches survive across playbacks (invalidated on settings change).
     // No need to clear them here — they hold per-device capability data, not per-file state.
   }
@@ -498,14 +502,44 @@ class PlaybackScheduler {
    */
   _emit(delayMs, emit) {
     if (delayMs <= EMIT_AHEAD_MS) {
+      // Fired directly from the tick: the event goes out up to EMIT_AHEAD_MS
+      // early. Record the earliness so operators can see the actual timing
+      // distribution (audit P1 — "scheduler can send up to 5 ms early").
+      if (delayMs > 0) {
+        const m = this._metrics;
+        m.earlyCount++;
+        m.sumEarlinessMs += delayMs;
+        if (delayMs > m.maxEarlinessMs) m.maxEarlinessMs = delayMs;
+      }
+      this._metrics.emitted++;
       emit();
       return;
     }
     const timeoutId = setTimeout(() => {
       this.pendingTimeouts.delete(timeoutId);
+      this._metrics.emitted++;
       emit();
     }, delayMs);
     this.pendingTimeouts.add(timeoutId);
+  }
+
+  /**
+   * Per-playback timing metrics for observability (reset by
+   * {@link PlaybackScheduler#resetForPlayback}). `avgEarlinessMs` is over
+   * the events that fired inside the EMIT_AHEAD window; `eventLoopLagMs` is
+   * the current monitored loop lag when available.
+   * @returns {{emitted:number, earlyCount:number, maxEarlinessMs:number,
+   *   avgEarlinessMs:number, eventLoopLagMs:number}}
+   */
+  getTimingMetrics() {
+    const m = this._metrics;
+    return {
+      emitted: m.emitted,
+      earlyCount: m.earlyCount,
+      maxEarlinessMs: m.maxEarlinessMs,
+      avgEarlinessMs: m.earlyCount ? m.sumEarlinessMs / m.earlyCount : 0,
+      eventLoopLagMs: this.eventLoopMonitor?.currentLag ?? 0
+    };
   }
 
   /**
@@ -717,7 +751,6 @@ class PlaybackScheduler {
    * @private
    */
   _dispatchToDevice(event, routing, state) {
-    const device = this.deviceManager;
     const outChannel = routing.targetChannel;
 
     const transposeSemis = state.channelTransposition
