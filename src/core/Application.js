@@ -105,6 +105,11 @@ class Application {
     /** @type {BluetoothEventBridge|null} */
     this._btBridge = null;
 
+    // Records why an optional capability failed to load, so the health
+    // endpoint can report `failed` (load error) vs `disabled` (absent).
+    /** @type {Record<string, string>} */
+    this._capabilityErrors = {};
+
     this.version = (() => {
       try {
         const pkg = JSON.parse(
@@ -274,6 +279,7 @@ class Application {
         this._registerService('bluetoothManager', new BluetoothManager(deps));
         this.logger.info('Bluetooth initialized');
       } catch (error) {
+        this._capabilityErrors.ble = error.message;
         this.logger.warn(`Bluetooth not available: ${error.message}`);
       }
 
@@ -282,6 +288,7 @@ class Application {
         this._registerService('networkManager', new NetworkManager(deps));
         this.logger.info('Network manager initialized');
       } catch (error) {
+        this._capabilityErrors.network = error.message;
         this.logger.warn(`Network manager not available: ${error.message}`);
       }
 
@@ -291,6 +298,7 @@ class Application {
         this._registerService('serialMidiManager', new SerialMidiManager(deps));
         this.logger.info('Serial MIDI manager initialized');
       } catch (error) {
+        this._capabilityErrors.serial = error.message;
         this.logger.warn(`Serial MIDI not available: ${error.message}`);
       }
 
@@ -330,6 +338,7 @@ class Application {
         this._registerService('lightingManager', new LightingManager(deps));
         this.logger.info('Lighting manager initialized');
       } catch (error) {
+        this._capabilityErrors.lighting = error.message;
         this.logger.warn(`Lighting manager not available: ${error.message}`);
       }
 
@@ -720,6 +729,56 @@ class Application {
       files: this.database?.getFiles('/')?.length ?? 0,
       wsClients: this.wsServer?.getStats()?.clients ?? 0
     };
+  }
+
+  /**
+   * Per-capability health so the UI/monitoring can tell what the running
+   * server can actually do — "server started" no longer implies every
+   * advertised feature is available (audit P2). Each capability reports
+   * one of: `ready`, `degraded`, `failed` (load error) or `disabled`
+   * (absent / not configured).
+   *
+   * @returns {{overall:string, capabilities:Object<string,{status:string, detail?:string}>}}
+   */
+  getCapabilityStatus() {
+    const errored = (key) => this._capabilityErrors[key];
+    const optional = (service, key, { degraded, degradedDetail } = {}) => {
+      if (service) {
+        return degraded
+          ? { status: 'degraded', detail: degradedDetail }
+          : { status: 'ready' };
+      }
+      return errored(key)
+        ? { status: 'failed', detail: errored(key) }
+        : { status: 'disabled' };
+    };
+
+    const capabilities = {
+      database: { status: this.database ? 'ready' : 'failed' },
+      playback: { status: this.midiPlayer ? 'ready' : 'failed' },
+      usb: this.deviceManager ? { status: 'ready' } : { status: 'failed' },
+      ble: optional(this.bluetoothManager, 'ble'),
+      // RTP-MIDI is a simplified, non-conformant AppleMIDI implementation —
+      // report it as degraded even when loaded so operators aren't misled.
+      network: optional(this.networkManager, 'network', {
+        degraded: true,
+        degradedDetail: 'RTP-MIDI is a simplified AppleMIDI implementation (no IN/OK, CK sync or journal)'
+      }),
+      serial: optional(this.serialMidiManager, 'serial'),
+      lighting: optional(this.lightingManager, 'lighting')
+    };
+
+    // Overall: failed if a core capability failed, else degraded if any
+    // capability is degraded/failed, else ready.
+    const statuses = Object.values(capabilities).map((c) => c.status);
+    let overall = 'ready';
+    if (capabilities.database.status === 'failed' || capabilities.playback.status === 'failed') {
+      overall = 'failed';
+    } else if (statuses.includes('degraded') || statuses.includes('failed')) {
+      overall = 'degraded';
+    }
+
+    return { overall, capabilities };
   }
 
   /**

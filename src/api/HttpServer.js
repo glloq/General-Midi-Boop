@@ -89,6 +89,31 @@ class HttpServer {
   }
 
   /**
+   * Constant-time bearer-token check. Calls `next()` on success or sends
+   * 401 on failure. Length mismatch short-circuits before `timingSafeEqual`
+   * (which throws on differing lengths).
+   *
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   * @param {import('express').NextFunction} next
+   * @param {Buffer} apiTokenBuf
+   * @returns {void}
+   * @private
+   */
+  _checkBearer(req, res, next, apiTokenBuf) {
+    const token = req.headers.authorization?.replace('Bearer ', '') || '';
+    try {
+      const tokenBuf = Buffer.from(token);
+      if (tokenBuf.length !== apiTokenBuf.length || !timingSafeEqual(tokenBuf, apiTokenBuf)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    } catch {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    return next();
+  }
+
+  /**
    * Wire every middleware and route on the underlying Express app.
    * Idempotent only if called once — re-invoking would stack middleware.
    *
@@ -138,12 +163,38 @@ class HttpServer {
     // Bearer-token auth, enabled when GMBOOP_API_TOKEN is set.
     // `Application#_ensureApiToken` guarantees this is the case in normal
     // runs, so the `if` is mostly for tests that intentionally clear it.
+    // Security mode (audit P2). `trusted-lan` (default) keeps the
+    // convenience bypasses for same-origin SPA and RFC1918/loopback
+    // clients. `secure` requires the bearer token for EVERY non-public
+    // request — no same-origin or private-network exception — for
+    // deployments on shared/untrusted networks. Set via GMBOOP_SECURITY_MODE
+    // or config.security.mode.
+    const securityMode = (
+      process.env.GMBOOP_SECURITY_MODE ||
+      this.config?.security?.mode ||
+      'trusted-lan'
+    ).toLowerCase();
+    const secureMode = securityMode === 'secure';
+    this.logger.info(`HTTP security mode: ${secureMode ? 'secure' : 'trusted-lan'}`);
+
     const apiToken = process.env.GMBOOP_API_TOKEN;
     if (apiToken) {
       const apiTokenBuf = Buffer.from(apiToken);
       this.expressApp.use('/api', (req, res, next) => {
-        // Public endpoints used by the frontend dashboard during update.
-        if (req.path === '/health' || req.path === '/update-status') return next();
+        // Public endpoints: liveness + update polling + capability probe.
+        if (
+          req.path === '/health' ||
+          req.path === '/update-status' ||
+          req.path === '/capabilities'
+        ) {
+          return next();
+        }
+
+        // In secure mode every other request must present the token — skip
+        // all convenience bypasses below.
+        if (secureMode) {
+          return this._checkBearer(req, res, next, apiTokenBuf);
+        }
 
         // Same-origin SPA bypass: mirrors WebSocketServer.verifyClient.
         // The CORS middleware above already restricts the Origin header to
@@ -184,21 +235,13 @@ class HttpServer {
           return next();
         }
 
-        const token = req.headers.authorization?.replace('Bearer ', '') || '';
-        try {
-          const tokenBuf = Buffer.from(token);
-          // Constant-time comparison to defeat timing oracles. Length
-          // mismatch must short-circuit BEFORE timingSafeEqual since that
-          // function throws on differing lengths.
-          if (tokenBuf.length !== apiTokenBuf.length || !timingSafeEqual(tokenBuf, apiTokenBuf)) {
-            return res.status(401).json({ error: 'Unauthorized' });
-          }
-        } catch {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-        next();
+        return this._checkBearer(req, res, next, apiTokenBuf);
       });
-      this.logger.info('API token authentication enabled (same-origin bypass for SPA)');
+      this.logger.info(
+        secureMode
+          ? 'API token authentication enabled (secure mode — token required for all requests)'
+          : 'API token authentication enabled (same-origin/LAN bypass for SPA)'
+      );
     }
 
     // Serve static files — use dist/ in production if available, public/ otherwise

@@ -994,6 +994,52 @@ class DatabaseManager {
     }
   }
 
+  /**
+   * Restore the live database from a backup file. The backup is validated
+   * (SQLite magic header) and copied over the live DB file while the
+   * connection is closed; the WAL/SHM sidecars are removed so the next
+   * open starts from a clean, consistent file. The caller is expected to
+   * restart the process afterwards so every service reopens the new DB.
+   *
+   * @param {string} backupPath - Absolute path to a backup `.db` file.
+   * @returns {void}
+   * @throws {Error} If the source is missing or is not a SQLite file.
+   */
+  restoreFromBackup(backupPath) {
+    if (!fs.existsSync(backupPath)) {
+      throw new Error(`Backup file not found: ${backupPath}`);
+    }
+    // Validate the SQLite magic header ("SQLite format 3\0").
+    const fd = fs.openSync(backupPath, 'r');
+    try {
+      const header = Buffer.alloc(16);
+      fs.readSync(fd, header, 0, 16, 0);
+      if (header.toString('utf8', 0, 15) !== 'SQLite format 3') {
+        throw new Error('Backup file is not a valid SQLite database');
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+
+    // Close the live connection before overwriting the file on disk.
+    try {
+      if (this.db) this.db.close();
+    } catch (err) {
+      this.logger.warn(`Closing DB before restore failed: ${err.message}`);
+    }
+    this.db = null;
+
+    fs.copyFileSync(backupPath, this.dbPath);
+    for (const sidecar of [`${this.dbPath}-wal`, `${this.dbPath}-shm`]) {
+      try {
+        if (fs.existsSync(sidecar)) fs.unlinkSync(sidecar);
+      } catch (err) {
+        this.logger.warn(`Removing ${sidecar} during restore failed: ${err.message}`);
+      }
+    }
+    this.logger.info(`Database restored from ${backupPath}; a restart is required`);
+  }
+
   vacuum() {
     try {
       this.db.exec('VACUUM');
