@@ -172,9 +172,23 @@ class MidiUtils {
       case 'polyaftertouch':
         return [0xA0 | channel, data.note & 0x7F, data.pressure & 0x7F];
       case 'pitchbend': {
-        // Accept both centered (-8192..8191) and raw 14-bit (0..16383) formats
-        let raw = data.value ?? 8192;
-        if (raw < 0) raw += 8192; // Convert centered format to raw 14-bit
+        // Prefer EXPLICIT, unambiguous fields (audit P1 — the old `value`
+        // field could not distinguish a centered +100 from a raw 14-bit
+        // 100):
+        //   - `value14`       : raw 14-bit, 0..16383 (center = 8192)
+        //   - `centeredValue` : signed, -8192..8191 (center = 0)
+        // Legacy `value` is retained for back-compat: negative is treated
+        // as centered, non-negative as raw 14-bit.
+        let raw;
+        if (typeof data.value14 === 'number') {
+          raw = data.value14;
+        } else if (typeof data.centeredValue === 'number') {
+          raw = data.centeredValue + 8192;
+        } else {
+          raw = data.value ?? 8192;
+          if (raw < 0) raw += 8192;
+        }
+        raw = Math.max(0, Math.min(16383, raw));
         return [0xE0 | channel, raw & 0x7F, (raw >> 7) & 0x7F];
       }
       case 'sysex':

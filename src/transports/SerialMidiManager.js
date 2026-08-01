@@ -25,6 +25,10 @@ const MIDI_BAUD_RATE = 31250;
 const HOT_PLUG_CHECK_INTERVAL_MS = 3000;
 const MAX_SYSEX_BUFFER_SIZE = 65536; // 64KB max SysEx message
 const PORT_OPEN_TIMEOUT_MS = 10000; // 10 seconds max to open a port
+// Bounded per-port write queue. At 31 250 baud a MIDI byte takes ~320 µs;
+// this bounds worst-case buffered latency to a fraction of a second while
+// preventing unbounded memory growth under a saturating burst.
+const MAX_SERIAL_WRITE_QUEUE = 1024;
 
 // MIDI message lengths by status byte high nibble
 const MIDI_MESSAGE_LENGTHS = {
@@ -594,7 +598,132 @@ class SerialMidiManager extends EventEmitter {
 
     const bytes = this._convertToMidiBytes(type, data);
     if (bytes && bytes.length > 0) {
-      portInfo.port.write(Buffer.from(bytes));
+      this._enqueueWrite(portInfo, bytes, this._isPrioritySerial(type, data));
+    }
+  }
+
+  /**
+   * Whether a message must never be dropped from the serial write queue:
+   * Note Off and the Channel-Mode silencing/reset CCs, plus System Reset.
+   * @param {string} type
+   * @param {Object} data
+   * @returns {boolean}
+   * @private
+   */
+  _isPrioritySerial(type, data) {
+    if (type === 'noteoff' || type === 'reset' || type === 'stop') return true;
+    if (type === 'cc' && data) {
+      const cc = data.controller;
+      // 120 All Sound Off, 121 Reset All Controllers, 123 All Notes Off.
+      return cc === 120 || cc === 121 || cc === 123;
+    }
+    return false;
+  }
+
+  /**
+   * Enqueue a raw-byte MIDI write on a bounded per-port FIFO. At 31 250
+   * baud the UART can saturate; a bounded queue with backpressure prevents
+   * unbounded memory growth and lets us surface write errors instead of
+   * firing `port.write()` blind (audit P1 — "serial emission without queue
+   * or backpressure"). Priority messages (Note Off / silencing / reset) are
+   * kept ahead of ordinary traffic and are never the ones dropped when the
+   * queue is full.
+   *
+   * @param {Object} portInfo
+   * @param {number[]} bytes
+   * @param {boolean} priority
+   * @private
+   */
+  _enqueueWrite(portInfo, bytes, priority) {
+    if (!portInfo.writeQueue) {
+      portInfo.writeQueue = [];
+      portInfo.writing = false;
+      portInfo.droppedWrites = 0;
+      portInfo.writeErrors = 0;
+    }
+    const q = portInfo.writeQueue;
+
+    if (q.length >= MAX_SERIAL_WRITE_QUEUE) {
+      // Make room by dropping the newest non-priority item; if the queue is
+      // entirely priority traffic, drop this one (unless it too is priority).
+      let removedIdx = -1;
+      for (let i = q.length - 1; i >= 0; i--) {
+        if (!q[i].priority) {
+          removedIdx = i;
+          break;
+        }
+      }
+      if (removedIdx >= 0) {
+        q.splice(removedIdx, 1);
+        portInfo.droppedWrites++;
+      } else if (!priority) {
+        portInfo.droppedWrites++;
+        return;
+      }
+      if (portInfo.droppedWrites % 32 === 1) {
+        this.logger.warn(
+          `Serial write queue saturated on ${portInfo.name || portInfo.path}: ` +
+            `${portInfo.droppedWrites} message(s) dropped`
+        );
+      }
+    }
+
+    const item = { bytes, priority };
+    if (priority) {
+      // Insert after any already-queued priority items, before normal traffic.
+      let idx = 0;
+      while (idx < q.length && q[idx].priority) idx++;
+      q.splice(idx, 0, item);
+    } else {
+      q.push(item);
+    }
+    this._drainSerialQueue(portInfo);
+  }
+
+  /**
+   * Drain the per-port write queue one message at a time, honouring
+   * `port.write()` backpressure via the `drain` event so we never outrun
+   * the UART.
+   * @param {Object} portInfo
+   * @private
+   */
+  _drainSerialQueue(portInfo) {
+    if (portInfo.writing) return;
+    const item = portInfo.writeQueue.shift();
+    if (!item) return;
+
+    portInfo.writing = true;
+    let flushed;
+    try {
+      flushed = portInfo.port.write(Buffer.from(item.bytes), (err) => {
+        if (err) {
+          portInfo.writeErrors++;
+          this.logger.error(
+            `Serial write error on ${portInfo.name || portInfo.path}: ${err.message}`
+          );
+          this.emit('write:error', { port: portInfo.path, error: err });
+        }
+      });
+    } catch (err) {
+      portInfo.writing = false;
+      portInfo.writeErrors++;
+      this.logger.error(
+        `Serial write threw on ${portInfo.name || portInfo.path}: ${err.message}`
+      );
+      this.emit('write:error', { port: portInfo.path, error: err });
+      return;
+    }
+
+    if (flushed) {
+      portInfo.writing = false;
+      // Continue on the next tick to avoid deep recursion on large bursts.
+      setImmediate(() => this._drainSerialQueue(portInfo));
+    } else {
+      // Kernel buffer full — resume when it drains.
+      portInfo.port.once('drain', () => {
+        portInfo.writing = false;
+        this._drainSerialQueue(portInfo);
+      });
     }
   }
 

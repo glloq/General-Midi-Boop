@@ -18,6 +18,11 @@ import MidiUtils from '../utils/MidiUtils.js';
 import NobleBleAdapter from '../midi/adapters/NobleBleAdapter.js';
 import { BLE_EVENTS } from '../midi/ports/BluetoothPort.js';
 
+/** Data-byte counts for MIDI System Common messages (status → data bytes). */
+const BLE_SYSTEM_COMMON_DATA = { 0xf1: 1, 0xf2: 2, 0xf3: 1, 0xf6: 0 };
+/** Max reassembled BLE SysEx size before the frame is abandoned. */
+const MAX_BLE_SYSEX = 65536;
+
 class BluetoothManager extends EventEmitter {
   /**
    * @param {object} deps - Service-container facade. Only `logger`
@@ -305,60 +310,126 @@ class BluetoothManager extends EventEmitter {
   _handleIncomingMidi(address, buffer) {
     try {
       const data = Array.from(buffer);
-      if (data.length < 3) return;
+      if (data.length < 2) return;
       if (!(data[0] & 0x80)) {
         this.logger.debug(`Invalid BLE MIDI header from ${address}: 0x${data[0].toString(16)}`);
         return;
       }
 
-      let i = 1;
-      let runningStatus = 0;
+      // Persistent per-device state so a SysEx spanning multiple BLE
+      // notifications is reassembled correctly (audit P1 — "BLE parser
+      // incomplete"). Running status is intentionally NOT carried across
+      // packets (the Apple BLE-MIDI spec restarts it per packet).
+      const state = this._getBleParseState(address);
+      let i = 1; // byte 0 is the packet header (timestamp high)
+      let running = 0;
+
+      const emit = (bytes) => this.emit('midi:data', { address, data: bytes });
+
+      // Consume SysEx payload bytes until F7 / interruption / end-of-packet.
+      const consumeSysExPayload = () => {
+        while (i < data.length) {
+          const b = data[i];
+          if (b === 0xf7) {
+            state.sysex.push(0xf7);
+            i++;
+            emit(state.sysex);
+            state.sysex = null;
+            return;
+          }
+          if (b & 0x80) return; // timestamp / status interrupts payload
+          if (state.sysex.length >= MAX_BLE_SYSEX) {
+            // Overflow guard: abandon the frame.
+            state.sysex = null;
+            i++;
+            return;
+          }
+          state.sysex.push(b);
+          i++;
+        }
+      };
 
       while (i < data.length) {
+        // A high-bit byte here is a BLE timestamp, a status byte, or a
+        // System Real-Time message.
         if (data[i] & 0x80) {
-          if (i + 1 < data.length && data[i + 1] >= 0x80 && data[i + 1] < 0xF8) {
-            i++;
-            runningStatus = data[i];
-            i++;
-          } else if (i + 1 < data.length && data[i + 1] < 0x80) {
-            i++;
-          } else {
+          const b = data[i];
+          if (b >= 0xf8) {
+            // System Real-Time — valid anywhere, including inside a SysEx.
+            emit([b]);
             i++;
             continue;
           }
-        }
-
-        if (runningStatus === 0) {
-          if (i < data.length && data[i] >= 0x80 && data[i] <= 0xEF) {
-            runningStatus = data[i];
-            i++;
-          } else {
-            i++;
-            continue;
-          }
-        }
-
-        const command = runningStatus & 0xF0;
-        let msgLength;
-        if (command === 0xC0 || command === 0xD0) {
-          msgLength = 1;
-        } else if (command >= 0x80 && command <= 0xE0) {
-          msgLength = 2;
-        } else {
+          // Otherwise treat this high-bit byte as a timestamp and advance;
+          // the following byte carries the status / data.
           i++;
+          if (i >= data.length) break;
+        }
+
+        // Resume an in-progress SysEx from a previous notification.
+        if (state.sysex) {
+          consumeSysExPayload();
           continue;
         }
 
+        let status;
+        if (data[i] & 0x80) {
+          status = data[i];
+          i++;
+        } else if (running) {
+          status = running; // running status: data byte without a new status
+        } else {
+          i++; // stray data byte with no status context
+          continue;
+        }
+
+        if (status === 0xf0) {
+          state.sysex = [0xf0];
+          running = 0;
+          consumeSysExPayload();
+          continue;
+        }
+        if (status >= 0xf8) {
+          emit([status]);
+          continue;
+        }
+        if (status >= 0xf1 && status <= 0xf6) {
+          const len = BLE_SYSTEM_COMMON_DATA[status] ?? 0;
+          if (i + len > data.length) break;
+          emit([status, ...data.slice(i, i + len)]);
+          i += len;
+          running = 0; // System Common cancels running status
+          continue;
+        }
+
+        // Channel voice message.
+        const command = status & 0xf0;
+        const msgLength = command === 0xc0 || command === 0xd0 ? 1 : 2;
         if (i + msgLength > data.length) break;
-
-        const midiBytes = [runningStatus, ...data.slice(i, i + msgLength)];
+        emit([status, ...data.slice(i, i + msgLength)]);
         i += msgLength;
-
-        this.emit('midi:data', { address, data: midiBytes });
+        running = status;
       }
     } catch (error) {
       this.logger.error(`Error processing BLE MIDI data: ${error.message}`);
     }
+  }
+
+  /**
+   * Lazily create/return the per-device BLE parse state (SysEx reassembly
+   * buffer) keyed by address.
+   * @param {string} address
+   * @returns {{ sysex: ?number[] }}
+   * @private
+   */
+  _getBleParseState(address) {
+    if (!this._bleParseState) this._bleParseState = new Map();
+    let state = this._bleParseState.get(address);
+    if (!state) {
+      state = { sysex: null };
+      this._bleParseState.set(address, state);
+    }
+    return state;
   }
 
   /**

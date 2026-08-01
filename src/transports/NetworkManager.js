@@ -455,10 +455,13 @@ class NetworkManager extends EventEmitter {
     }
 
     try {
-      // Create RTP-MIDI session
+      // Create RTP-MIDI session. Bind the local socket to an EPHEMERAL port
+      // (0 → OS-assigned) instead of the fixed 5004: binding every session
+      // to 5004 makes the second concurrent connection fail with EADDRINUSE
+      // (audit P0-1e). The remote AppleMIDI/RTP-MIDI port is still 5004.
       const session = new RtpMidiSession({
         localName: 'GeneralMidiBoop',
-        localPort: 5004
+        localPort: 0
       });
 
       // Listen for incoming MIDI messages
@@ -570,19 +573,27 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Check if a host is reachable via TCP connect on the RTP-MIDI port.
-   * Uses net.Socket instead of ping to avoid spawning processes
-   * and to check the MIDI port directly.
+   * Check whether a host is present on the network.
+   *
+   * NOTE: RTP-MIDI is a UDP protocol (RFC 6295), so a TCP connect to 5004
+   * does not prove RTP-MIDI reachability — nothing listens on TCP 5004 even
+   * on a live AppleMIDI host, so the old probe returned false for reachable
+   * hosts (audit P0-1d). A UDP probe is equally unreliable (no guaranteed
+   * response), and a truthful RTP-MIDI reachability check requires the
+   * AppleMIDI invitation (IN/OK) handshake, which this simplified session
+   * does not yet implement. As a pragmatic host-liveness signal we treat an
+   * ECONNREFUSED (a TCP RST from a reachable host) the same as a successful
+   * connect; only a timeout means the host is absent or filtered.
    * @param {string} ip - IP address
    * @param {number} timeoutMs - Timeout in milliseconds (default: 2000)
-   * @returns {Promise<boolean>} True if reachable
+   * @returns {Promise<boolean>} True if the host appears to be present
    */
   async checkReachability(ip, timeoutMs = 2000) {
     if (!/^[\d.]+$/.test(ip) && !/^[a-fA-F\d:]+$/.test(ip)) {
       return false;
     }
     const safeTimeout = Math.max(500, Math.min(10000, parseInt(timeoutMs, 10) || 2000));
-    return this._tcpProbe(ip, 5004, safeTimeout, () => false);
+    return this._tcpProbe(ip, 5004, safeTimeout, (err) => err.code === 'ECONNREFUSED');
   }
 
   /**

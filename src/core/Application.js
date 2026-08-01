@@ -294,6 +294,36 @@ class Application {
         this.logger.warn(`Serial MIDI not available: ${error.message}`);
       }
 
+      // Route inbound BLE-MIDI and RTP-MIDI INPUT into the same central
+      // pipeline as USB and serial (audit P0-2). Previously both transports
+      // emitted `midi:data` that nothing consumed, so a BLE/network keyboard
+      // appeared connected but its notes were never routed. BLE delivers raw
+      // bytes (parsed by DeviceManager.handleRawMidi); NetworkManager already
+      // delivers an easymidi-shaped {type, data} pair.
+      if (this.bluetoothManager?.on) {
+        this.bluetoothManager.on('midi:data', ({ name, address, data }) => {
+          try {
+            this.deviceManager.handleRawMidi(name || address, data);
+          } catch (err) {
+            this.logger.warn(`BLE inbound MIDI routing failed: ${err.message}`);
+          }
+        });
+      }
+      if (this.networkManager?.on) {
+        this.networkManager.on('midi:data', ({ name, ip, address, type, data }) => {
+          try {
+            const source = name || ip || address;
+            if (Array.isArray(data)) {
+              this.deviceManager.handleRawMidi(source, data);
+            } else if (type) {
+              this.deviceManager.handleMidiMessage(source, type, data);
+            }
+          } catch (err) {
+            this.logger.warn(`Network inbound MIDI routing failed: ${err.message}`);
+          }
+        });
+      }
+
       // Initialize Lighting Manager (optional - requires pigpio on Raspberry Pi)
       try {
         const { default: LightingManager } = await import('../lighting/LightingManager.js');
