@@ -192,6 +192,7 @@ const MIDI_EVENT_TYPES = Object.freeze({
   CHANNEL_AFTERTOUCH:  'channelAftertouch',
   NOTE_AFTERTOUCH:     'noteAftertouch',
   SET_TEMPO:           'setTempo',
+  SYSEX:               'sysEx',
 });
 
 // DEVICE_MSG_TYPES — strings used when calling DeviceManager.sendMessage().
@@ -205,6 +206,56 @@ const DEVICE_MSG_TYPES = Object.freeze({
   PITCH_BEND:          'pitchbend',
   CHANNEL_AFTERTOUCH:  'channel aftertouch',
   POLY_AFTERTOUCH:     'poly aftertouch',
+  SYSEX:               'sysex',
+});
+
+// Default tempo before the first Set Tempo meta event: 120 BPM =
+// 500000 microseconds per quarter note (SMF spec default).
+const DEFAULT_MICROSECONDS_PER_BEAT = 500000;
+
+/**
+ * Deterministic ordering priority for events that share the exact same
+ * absolute time (same tick across tracks). Lower number = emitted first.
+ * Follows the standard "state before notes" convention so a synth is put
+ * into the right bank/program/mode before the notes that depend on it,
+ * and Note Off precedes Note On so a re-struck pitch is released first.
+ */
+const EVENT_ORDER_PRIORITY = Object.freeze({
+  sysEx:              0,
+  setTempo:           1,
+  programChange:      3,
+  controller:         4,
+  pitchBend:          5,
+  channelAftertouch:  6,
+  noteAftertouch:     7,
+  noteOff:            8,
+  noteOn:             9,
+});
+
+// DeviceManager.sendMessage message types that must bypass the per-device
+// rate limiter: silencing / reset / emergency-stop traffic must never be
+// dropped by rate limiting, otherwise a panic burst can leave stuck notes.
+const PRIORITY_MSG_TYPES = Object.freeze(new Set([
+  'noteoff',
+  'reset',
+  'clock',
+  'start',
+  'stop',
+  'continue',
+]));
+
+/**
+ * Typed result of a DeviceManager send. Replaces the ambiguous boolean so
+ * the scheduler can tell a rate-limit drop / unsupported type apart from a
+ * genuine transport disconnect or error.
+ */
+const SEND_STATUS = Object.freeze({
+  SENT:         'sent',
+  QUEUED:       'queued',
+  RATE_LIMITED: 'rate_limited',
+  DISCONNECTED: 'disconnected',
+  UNSUPPORTED:  'unsupported',
+  ERROR:        'error',
 });
 
 // ============================================
@@ -234,5 +285,9 @@ export {
   LIMITS,
   EVENTS,
   MIDI_EVENT_TYPES,
-  DEVICE_MSG_TYPES
+  DEVICE_MSG_TYPES,
+  DEFAULT_MICROSECONDS_PER_BEAT,
+  EVENT_ORDER_PRIORITY,
+  PRIORITY_MSG_TYPES,
+  SEND_STATUS
 };

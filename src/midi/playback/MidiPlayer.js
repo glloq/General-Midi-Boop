@@ -30,12 +30,32 @@ import HandAssigner from '../adaptation/HandAssigner.js';
 import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
 import LongitudinalPlanner from '../adaptation/LongitudinalPlanner.js';
 import { ConfigurationError, NotFoundError, ValidationError } from '../../core/errors/index.js';
+import { DEFAULT_MICROSECONDS_PER_BEAT, EVENT_ORDER_PRIORITY } from '../../core/constants.js';
 
 /** Used to convert MIDI `microsecondsPerBeat` into BPM. */
 const MICROSECONDS_PER_MINUTE = 60000000;
 
 /** MIDI Channel Mode CC #123. */
 const MIDI_CC_ALL_NOTES_OFF = 123;
+
+/**
+ * Deterministic comparator for the merged event list. Primary key is the
+ * absolute time; ties (same tick across tracks) are broken by the standard
+ * "state before notes" priority (see {@link EVENT_ORDER_PRIORITY}) and then
+ * by the stable per-build sequence number so ordering never depends on
+ * V8's unstable-for-large-arrays sort or on track iteration order.
+ *
+ * @param {Object} a
+ * @param {Object} b
+ * @returns {number}
+ */
+function compareEvents(a, b) {
+  if (a.time !== b.time) return a.time - b.time;
+  const pa = EVENT_ORDER_PRIORITY[a.type] ?? 50;
+  const pb = EVENT_ORDER_PRIORITY[b.type] ?? 50;
+  if (pa !== pb) return pa - pb;
+  return (a._seq ?? 0) - (b._seq ?? 0);
+}
 
 /**
  * Maps `midi-file` event types to constructors that produce the
@@ -245,7 +265,26 @@ class MidiPlayer {
         throw new ValidationError(`File ${fileId} (${file.filename}) contains invalid MIDI data`);
       }
 
-      this.ppq = midi.header.ticksPerBeat || 480;
+      // Reject formats/timings we cannot play back with a correct
+      // chronology rather than silently producing wrong output (audit
+      // P0-4). SMF format 2 holds independent sequences that cannot be
+      // merged onto one timeline, and SMPTE (negative division) timing is
+      // frame-based, not PPQ — playing it as PPQ 480 desynchronises it.
+      if (midi.header.format === 2) {
+        throw new ValidationError(
+          `File ${fileId} (${file.filename}) is SMF format 2 (independent sequences), which is not supported for playback`
+        );
+      }
+      const rawTicksPerBeat = midi.header.ticksPerBeat;
+      if (typeof rawTicksPerBeat === 'number' && rawTicksPerBeat < 0) {
+        // Negative ticksPerBeat encodes SMPTE frame timing; `|| 480` does
+        // NOT catch it because a negative number is truthy.
+        throw new ValidationError(
+          `File ${fileId} (${file.filename}) uses SMPTE frame-based timing, which is not supported for playback`
+        );
+      }
+
+      this.ppq = rawTicksPerBeat && rawTicksPerBeat > 0 ? rawTicksPerBeat : 480;
       this.parseTracks(midi);
       this.extractTempo(midi);
       this.extractChannels(midi);
@@ -363,12 +402,32 @@ class MidiPlayer {
   buildEventList() {
     this.events = [];
     const tempoMap = this._buildTempoMap();
+    // Monotonic sequence number giving every event a stable identity so the
+    // deterministic sort (see compareEvents) never depends on V8 sort
+    // stability or on track iteration order (audit P1 "event ordering").
+    let seq = 0;
 
     this.tracks.forEach((track) => {
       let trackTicks = 0;
+      // Per-track pending SysEx buffer for divided/multi-packet SysEx
+      // (F0 … then one or more F7 continuation packets). Reset per track.
+      let pendingSysEx = null;
       track.events.forEach((event) => {
         trackTicks += event.deltaTime;
         const timeInSeconds = this._ticksToSecondsWithTempoMap(trackTicks, tempoMap);
+
+        // SysEx / divided-SysEx capture (audit P0-3). midi-file emits
+        // `sysEx` (0xF0 …) and `endSysEx` (0xF7 …) with `data` = the raw
+        // payload bytes. Reassemble into a complete 0xF0 … 0xF7 frame.
+        if (event.type === 'sysEx' || event.type === 'endSysEx') {
+          const built = this._accumulateSysEx(pendingSysEx, event, timeInSeconds, track.index, seq);
+          pendingSysEx = built.pending;
+          if (built.event) {
+            built.event._seq = seq++;
+            this.events.push(built.event);
+          }
+          return;
+        }
 
         const builder = EVENT_BUILDERS[event.type];
         if (builder) {
@@ -376,12 +435,13 @@ class MidiPlayer {
           // Tag the source track so downstream passes (hand-position
           // planner, split router) can use track identity when available.
           built.track = track.index;
+          built._seq = seq++;
           this.events.push(built);
         }
       });
     });
 
-    this.events.sort((a, b) => a.time - b.time);
+    this.events.sort(compareEvents);
 
     // Deduplicate setTempo events at the same time (multiple tracks may contain identical tempo changes)
     this.events = this.events.filter((event, idx, arr) => {
@@ -511,7 +571,7 @@ class MidiPlayer {
 
     if (ccEvents.length > 0) {
       this.events.push(...ccEvents);
-      this.events.sort((a, b) => a.time - b.time);
+      this.events.sort(compareEvents);
       this.logger.info(
         `Injected ${ccEvents.length} tablature CC events for ${tabByChannel.size} channel(s)`
       );
@@ -733,7 +793,7 @@ class MidiPlayer {
     if (!hadAny) return 0;
 
     this.events.push(...allCCs);
-    this.events.sort((a, b) => a.time - b.time);
+    this.events.sort(compareEvents);
     this._handCCCount = allCCs.length;
 
     if (allWarnings.length > 0) {
@@ -930,6 +990,63 @@ class MidiPlayer {
     );
   }
 
+  /**
+   * Accumulate a (possibly divided) SysEx message into a complete
+   * `0xF0 … 0xF7` byte frame. midi-file emits `sysEx` for the initial
+   * `0xF0` packet and `endSysEx` for `0xF7` continuation/escape packets,
+   * each with `data` holding the raw payload bytes (the leading 0xF0 and
+   * trailing 0xF7 are NOT included in `data`).
+   *
+   * @param {?number[]} pending - Bytes accumulated so far, or null.
+   * @param {Object} event - The `sysEx` / `endSysEx` raw event.
+   * @param {number} time - Absolute time (s) of this packet.
+   * @param {number} trackIndex
+   * @returns {{ pending: ?number[], event: ?Object }} Updated pending
+   *   buffer and, when the frame is complete, the normalised event.
+   * @private
+   */
+  _accumulateSysEx(pending, event, time, trackIndex) {
+    const data = Array.isArray(event.data) ? event.data : [];
+
+    if (event.type === 'sysEx') {
+      // A fresh F0 packet. It already carries its terminating F7 when the
+      // message is not divided.
+      const bytes = [0xf0, ...data];
+      if (bytes[bytes.length - 1] === 0xf7) {
+        return { pending: null, event: this._makeSysExEvent(bytes, time, trackIndex) };
+      }
+      // Divided: remember the start time and wait for continuation packets.
+      return { pending: { bytes, time, trackIndex }, event: null };
+    }
+
+    // endSysEx (0xF7 …): a continuation of a divided SysEx, OR a raw
+    // "escape" sequence when there is nothing pending.
+    if (pending) {
+      pending.bytes.push(...data);
+      if (data[data.length - 1] === 0xf7) {
+        return {
+          pending: null,
+          event: this._makeSysExEvent(pending.bytes, pending.time, pending.trackIndex)
+        };
+      }
+      return { pending, event: null };
+    }
+
+    // Standalone escape packet: emit the raw bytes as-is so nothing is lost.
+    return { pending: null, event: this._makeSysExEvent([...data], time, trackIndex) };
+  }
+
+  /**
+   * @param {number[]} bytes - Complete SysEx frame.
+   * @param {number} time
+   * @param {number} trackIndex
+   * @returns {Object}
+   * @private
+   */
+  _makeSysExEvent(bytes, time, trackIndex) {
+    return { time, type: 'sysEx', channel: -1, bytes, track: trackIndex };
+  }
+
   _buildTempoMap() {
     const tempoEvents = [];
 
@@ -946,34 +1063,48 @@ class MidiPlayer {
       });
     });
 
+    // Collect every tempo across all tracks with its absolute tick, sort
+    // globally, then keep only the last value at each tick (a later track
+    // overriding an earlier one at the same tick is undefined in the spec;
+    // taking the last is deterministic given the stable sort input order).
     tempoEvents.sort((a, b) => a.tick - b.tick);
 
+    // The SMF spec mandates 120 BPM (500000 µs/beat) until the first Set
+    // Tempo. Seed the running tempo with that default — NOT with
+    // `this.tempo`, which is the first setTempo found in track order and
+    // may sit at a non-zero tick (audit P0-5).
     const tempoMap = [];
     let cumulativeSeconds = 0;
     let lastTick = 0;
-    let currentMicrosecondsPerBeat = MICROSECONDS_PER_MINUTE / this.tempo;
+    let currentMicrosecondsPerBeat = DEFAULT_MICROSECONDS_PER_BEAT;
+
+    // Guarantee an explicit tick-0 anchor so ticks before the first Set
+    // Tempo are always converted at 120 BPM. If a Set Tempo already sits at
+    // tick 0 it will overwrite this entry below.
+    if (!tempoEvents.length || tempoEvents[0].tick > 0) {
+      tempoMap.push({ tick: 0, time: 0, microsecondsPerBeat: DEFAULT_MICROSECONDS_PER_BEAT });
+    }
 
     for (const te of tempoEvents) {
       const deltaTicks = te.tick - lastTick;
       const secondsPerTick = currentMicrosecondsPerBeat / (this.ppq * 1000000);
       cumulativeSeconds += deltaTicks * secondsPerTick;
 
-      tempoMap.push({
-        tick: te.tick,
-        time: cumulativeSeconds,
-        microsecondsPerBeat: te.microsecondsPerBeat
-      });
+      const existing = tempoMap.length && tempoMap[tempoMap.length - 1].tick === te.tick
+        ? tempoMap[tempoMap.length - 1]
+        : null;
+      if (existing) {
+        existing.microsecondsPerBeat = te.microsecondsPerBeat;
+      } else {
+        tempoMap.push({
+          tick: te.tick,
+          time: cumulativeSeconds,
+          microsecondsPerBeat: te.microsecondsPerBeat
+        });
+      }
 
       lastTick = te.tick;
       currentMicrosecondsPerBeat = te.microsecondsPerBeat;
-    }
-
-    if (tempoMap.length === 0) {
-      tempoMap.push({
-        tick: 0,
-        time: 0,
-        microsecondsPerBeat: currentMicrosecondsPerBeat
-      });
     }
 
     return tempoMap;
@@ -983,7 +1114,7 @@ class MidiPlayer {
     let activeEntry = {
       tick: 0,
       time: 0,
-      microsecondsPerBeat: MICROSECONDS_PER_MINUTE / this.tempo
+      microsecondsPerBeat: DEFAULT_MICROSECONDS_PER_BEAT
     };
 
     for (const entry of tempoMap) {
@@ -1128,6 +1259,7 @@ class MidiPlayer {
     state.playbackRate = this.playbackRate;
     state.loop = this.loop;
     state.channelRouting = this.channelRouting;
+    state.outputDevice = this.outputDevice;
     state.channelTransposition = this.channelTransposition;
     state.mutedChannels = this.mutedChannels;
     state.disconnectedPolicy = this.disconnectedPolicy;
@@ -1327,11 +1459,158 @@ class MidiPlayer {
     this._alternateCounters = null;
     this._overlapNoteAssign = null;
 
+    // Reconstruct the MIDI channel state at the seek target so the
+    // instruments resume with the correct bank/program/controllers/
+    // pitch-bend and the last global SysEx (GM/GS/XG reset, master volume)
+    // — not the stale state left over from before the jump (audit P0-8).
+    try {
+      this._emitReconstructedState(seekPosition);
+    } catch (err) {
+      this.logger.warn(`Seek state reconstruction failed: ${err.message}`);
+    }
+
     if (wasPlaying) {
       this.start(savedOutputDevice, seekPosition);
     } else {
       this.broadcastPosition();
     }
+  }
+
+  /**
+   * Scan the event list up to and including `position` and compute the
+   * effective per-channel MIDI state (controllers, program, pitch bend,
+   * channel pressure) plus the most recent global SysEx frame.
+   *
+   * @param {number} position - Target time in seconds.
+   * @returns {{ channelState: Map<number, Object>, lastSysEx: ?Object }}
+   * @private
+   */
+  _reconstructChannelStateAt(position) {
+    const channelState = new Map();
+    let lastSysEx = null;
+
+    const getChannel = (channel) => {
+      let st = channelState.get(channel);
+      if (!st) {
+        st = { controllers: new Map(), program: null, pitchBend: null, channelPressure: null };
+        channelState.set(channel, st);
+      }
+      return st;
+    };
+
+    for (const ev of this.events) {
+      // events are sorted by ascending time; everything at exactly the
+      // seek position still belongs to the state we resume into.
+      if (ev.time > position) break;
+      switch (ev.type) {
+        case 'controller':
+          getChannel(ev.channel).controllers.set(ev.controller, ev.value);
+          break;
+        case 'programChange':
+          getChannel(ev.channel).program = ev.program;
+          break;
+        case 'pitchBend':
+          getChannel(ev.channel).pitchBend = ev.value;
+          break;
+        case 'channelAftertouch':
+          getChannel(ev.channel).channelPressure = ev.value;
+          break;
+        case 'sysEx':
+          lastSysEx = ev;
+          break;
+        default:
+          break;
+      }
+    }
+
+    return { channelState, lastSysEx };
+  }
+
+  /**
+   * Emit the reconstructed channel state (see
+   * {@link MidiPlayer#_reconstructChannelStateAt}) to the routed devices in
+   * a spec-sensible order: Bank Select MSB/LSB → Program Change → remaining
+   * controllers → pitch bend → channel pressure. Long notes that span the
+   * seek point are intentionally NOT re-triggered (avoids spurious
+   * re-attacks on mechanical instruments).
+   *
+   * @param {number} position
+   * @returns {void}
+   * @private
+   */
+  _emitReconstructedState(position) {
+    if (!this.scheduler || typeof this.scheduler.dispatchStateEvent !== 'function') return;
+    const { channelState, lastSysEx } = this._reconstructChannelStateAt(position);
+    if (channelState.size === 0 && !lastSysEx) return;
+
+    const dummyState = {
+      playing: true,
+      channelTransposition: this.channelTransposition,
+      mutedChannels: new Set()
+    };
+
+    // Re-broadcast the last global SysEx (e.g. GM System On, GS/XG reset,
+    // Master Volume) so the synth is back in the correct mode.
+    if (lastSysEx && Array.isArray(lastSysEx.bytes)) {
+      for (const device of this._routedDeviceSet()) {
+        this.deviceManager.sendMessage(device, 'sysex', { bytes: lastSysEx.bytes });
+      }
+    }
+
+    const BANK_MSB = 0;
+    const BANK_LSB = 32;
+
+    for (const [channel, st] of channelState) {
+      const routing = this.getOutputForChannel(channel);
+      const targets = Array.isArray(routing) ? routing : routing ? [routing] : [];
+      for (const target of targets) {
+        if (!target || !target.device) continue;
+        const emit = (event) => this.scheduler.dispatchStateEvent(event, target, dummyState);
+
+        if (st.controllers.has(BANK_MSB)) {
+          emit({ type: 'controller', channel, controller: BANK_MSB, value: st.controllers.get(BANK_MSB) });
+        }
+        if (st.controllers.has(BANK_LSB)) {
+          emit({ type: 'controller', channel, controller: BANK_LSB, value: st.controllers.get(BANK_LSB) });
+        }
+        if (st.program !== null) {
+          emit({ type: 'programChange', channel, program: st.program });
+        }
+        // Remaining controllers in ascending CC order (bank select already sent).
+        for (const cc of [...st.controllers.keys()].sort((a, b) => a - b)) {
+          if (cc === BANK_MSB || cc === BANK_LSB) continue;
+          emit({ type: 'controller', channel, controller: cc, value: st.controllers.get(cc) });
+        }
+        if (st.pitchBend !== null) {
+          emit({ type: 'pitchBend', channel, value: st.pitchBend });
+        }
+        if (st.channelPressure !== null) {
+          emit({ type: 'channelAftertouch', channel, value: st.channelPressure });
+        }
+      }
+    }
+  }
+
+  /**
+   * Unique set of physical devices referenced by the current routing map
+   * (all split segments included), used for global (channel-less) sends
+   * like SysEx during seek reconstruction.
+   * @returns {Set<string>}
+   * @private
+   */
+  _routedDeviceSet() {
+    const devices = new Set();
+    for (const [, routing] of this.channelRouting) {
+      if (!routing) continue;
+      if (routing.split && routing.segments) {
+        for (const seg of routing.segments) if (seg.device) devices.add(seg.device);
+      } else {
+        const device = typeof routing === 'string' ? routing : routing.device;
+        if (device) devices.add(device);
+      }
+    }
+    if (devices.size === 0 && this.outputDevice) devices.add(this.outputDevice);
+    return devices;
   }
 
   /**

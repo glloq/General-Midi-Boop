@@ -15,7 +15,7 @@
  * elsewhere from crashing.
  */
 import DeviceDiscovery from './DeviceDiscovery.js';
-import { DEVICE_STATUS } from '../../core/constants.js';
+import { DEVICE_STATUS, PRIORITY_MSG_TYPES, SEND_STATUS } from '../../core/constants.js';
 
 let easymidi;
 /**
@@ -515,15 +515,33 @@ class DeviceManager {
    * @returns {boolean} True on successful enqueue.
    */
   sendMessage(deviceName, type, data) {
-    // Skip rate limiting for real-time messages (clock, transport, reset)
-    const isRealTime =
-      type === 'clock' ||
-      type === 'start' ||
-      type === 'stop' ||
-      type === 'continue' ||
-      type === 'reset';
-    if (!isRealTime && this._isRateLimited(deviceName)) {
-      return false;
+    const result = this.sendMessageEx(deviceName, type, data);
+    return result.status === SEND_STATUS.SENT || result.status === SEND_STATUS.QUEUED;
+  }
+
+  /**
+   * Typed dispatch entry (audit P0-6). Resolves the named device to an
+   * output port / transport, enforces per-device rate limiting (except for
+   * priority silencing/reset traffic — audit P0-7), then sends. Unlike
+   * {@link DeviceManager#sendMessage} it distinguishes *why* a send did not
+   * land so the scheduler does not treat a rate-limit drop or an
+   * unsupported message the same as a real device disconnect.
+   *
+   * Note: for the async transports (BLE, network) a `queued` status means
+   * the write was handed to the transport; a later async failure is
+   * reported out-of-band via the transport's own error events, not here.
+   *
+   * @param {string} deviceName
+   * @param {string} type
+   * @param {Object} data
+   * @returns {{status:string, error?:Error}} One of {@link SEND_STATUS}.
+   */
+  sendMessageEx(deviceName, type, data) {
+    // Priority messages (Note Off, All Sound/Notes Off via reset, transport,
+    // clock) bypass the rate limiter so a silencing/panic burst is never
+    // partially dropped and cannot leave stuck notes.
+    if (!PRIORITY_MSG_TYPES.has(type) && this._isRateLimited(deviceName)) {
+      return { status: SEND_STATUS.RATE_LIMITED };
     }
 
     // Broadcast to debug monitor if monitorAll is active
@@ -543,11 +561,11 @@ class DeviceManager {
     const output = this.outputs.get(deviceName);
     if (output) {
       try {
-        output.send(type, data);
-        return true;
+        this._sendToOutput(output, type, data);
+        return { status: SEND_STATUS.SENT };
       } catch (error) {
         this.logger.error(`Failed to send MIDI message to ${deviceName}: ${error.message}`);
-        return false;
+        return { status: SEND_STATUS.ERROR, error };
       }
     }
 
@@ -563,11 +581,14 @@ class DeviceManager {
           this.bluetoothManager.sendMidiMessage(bleDevice.address, type, data).catch((error) => {
             this.logger.error(`BLE MIDI send failed to ${deviceName}: ${error.message}`);
           });
-          return true;
+          return { status: SEND_STATUS.QUEUED };
         } catch (error) {
           this.logger.error(`Failed to send MIDI via Bluetooth to ${deviceName}: ${error.message}`);
-          return false;
+          return { status: SEND_STATUS.ERROR, error };
         }
+      }
+      if (bleDevice && !bleDevice.connected) {
+        return { status: SEND_STATUS.DISCONNECTED };
       }
     }
 
@@ -583,10 +604,10 @@ class DeviceManager {
           this.networkManager.sendMidiMessage(networkDevice.ip, type, data).catch((error) => {
             this.logger.error(`Network MIDI send failed to ${deviceName}: ${error.message}`);
           });
-          return true;
+          return { status: SEND_STATUS.QUEUED };
         } catch (error) {
           this.logger.error(`Failed to send MIDI via Network to ${deviceName}: ${error.message}`);
-          return false;
+          return { status: SEND_STATUS.ERROR, error };
         }
       }
     }
@@ -599,12 +620,12 @@ class DeviceManager {
       if (serialPort) {
         try {
           this.serialMidiManager.sendMidiMessage(serialPort.path, type, data);
-          return true;
+          return { status: SEND_STATUS.SENT };
         } catch (error) {
           this.logger.error(
             `Failed to send MIDI message via Serial to ${deviceName}: ${error.message}`
           );
-          return false;
+          return { status: SEND_STATUS.ERROR, error };
         }
       }
     }
@@ -627,11 +648,31 @@ class DeviceManager {
           virtual: true
         });
       }
-      return true;
+      return { status: SEND_STATUS.SENT };
     }
 
     this.logger.warn(`Output device not found: ${deviceName}`);
-    return false;
+    return { status: SEND_STATUS.DISCONNECTED };
+  }
+
+  /**
+   * Low-level send to an easymidi Output, translating our SysEx payload
+   * (`{ bytes:[0xF0,…,0xF7] }` or a raw byte array) into easymidi's
+   * `send('sysex', bytes)` contract; all other types pass through
+   * unchanged.
+   * @param {Object} output - easymidi Output.
+   * @param {string} type
+   * @param {Object} data
+   * @private
+   */
+  _sendToOutput(output, type, data) {
+    if (type === 'sysex') {
+      const bytes = Array.isArray(data) ? data : data?.bytes;
+      if (!Array.isArray(bytes) || bytes.length === 0) return;
+      output.send('sysex', bytes);
+      return;
+    }
+    output.send(type, data);
   }
 
   /**
