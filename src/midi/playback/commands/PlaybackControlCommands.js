@@ -201,8 +201,13 @@ async function playbackSetTempo(app, data) {
  *
  * @returns {Promise<{success:true}>}
  */
-async function playbackTranspose(_app, _data) {
-  return { success: true };
+async function playbackTranspose(app, data) {
+  const semitones = Number(data?.semitones) || 0;
+  if (!app.midiPlayer || typeof app.midiPlayer.setGlobalTranspose !== 'function') {
+    throw new Error('Playback transpose unavailable');
+  }
+  app.midiPlayer.setGlobalTranspose(semitones);
+  return { success: true, semitones: Math.trunc(semitones) };
 }
 
 /**

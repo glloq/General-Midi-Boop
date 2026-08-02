@@ -203,9 +203,39 @@ class PlaybackScheduler {
       this.capabilityResolver?.getTimingConstraints(deviceId, channel) ?? {
         minNoteInterval: null,
         minNoteDuration: null,
-        polyphony: null
+        polyphony: null,
+        noteRangeMin: null,
+        noteRangeMax: null
       }
     );
+  }
+
+  /**
+   * Fold a note into the instrument's playable [min,max] window by whole
+   * octaves, preserving pitch class. Notes outside the declared range would
+   * otherwise be sent verbatim to an instrument that physically cannot produce
+   * them (audit P1 — no range clamp by default). When no octave of the pitch
+   * class fits (range narrower than an octave), clamp to the nearest bound.
+   * Returns the note unchanged when the instrument declares no range.
+   *
+   * @param {number} note
+   * @param {?number} min
+   * @param {?number} max
+   * @returns {number}
+   */
+  _foldIntoRange(note, min, max) {
+    if (min == null && max == null) return note;
+    const lo = min == null ? 0 : min;
+    const hi = max == null ? 127 : max;
+    if (lo > hi) return note; // misconfigured range — leave untouched
+    let n = note;
+    while (n < lo) n += 12;
+    while (n > hi) n -= 12;
+    // If folding overshot (range < 1 octave and no pitch-class member fits),
+    // clamp to the nearest in-range bound.
+    if (n < lo) n = lo;
+    if (n > hi) n = hi;
+    return n;
   }
 
   /**
@@ -246,9 +276,13 @@ class PlaybackScheduler {
     // eventType === MIDI_EVENT_TYPES.NOTE_ON
     const now = performance.now();
 
-    // Check min_note_interval: if the last noteOn on this device:channel was too recent, drop
+    // Check min_note_interval PER PITCH (per actuator), not per channel: a
+    // mechanical actuator can't re-strike the SAME note faster than this, but
+    // DIFFERENT pitches are different actuators and must be free to sound
+    // together. Keying on the channel dropped the 2nd/3rd note of a chord
+    // (audit P2). `_lastNoteOnTime` is keyed by `device:channel:note`.
     if (constraints.minNoteInterval) {
-      const lastTime = this._lastNoteOnTime.get(cacheKey) || 0;
+      const lastTime = this._lastNoteOnTime.get(noteKey) || 0;
       if (lastTime > 0 && now - lastTime < constraints.minNoteInterval) {
         this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
         return true; // Gate: too fast for this instrument
@@ -273,7 +307,7 @@ class PlaybackScheduler {
     if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Map());
     const counts = this._activeNotes.get(cacheKey);
     counts.set(note, (counts.get(note) || 0) + 1);
-    this._lastNoteOnTime.set(cacheKey, now);
+    this._lastNoteOnTime.set(noteKey, now); // per-pitch retrigger guard
     this._noteOnTimes.set(noteKey, now);
 
     return false; // Allow
@@ -392,10 +426,16 @@ class PlaybackScheduler {
   scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
     // Handle tempo change events (for MIDI clock synchronization)
     if (event.type === MIDI_EVENT_TYPES.SET_TEMPO) {
-      const delayMs = Math.max(0, (event.time - currentPosition) * 1000);
+      const rate = state.playbackRate > 0 ? state.playbackRate : 1;
+      const delayMs = Math.max(0, ((event.time - currentPosition) * 1000) / rate);
+      // Drive the MIDI clock at the EFFECTIVE tempo (file BPM × playbackRate)
+      // so external gear (arpeggiators/drum machines) stays in sync when the
+      // operator changes playback speed — the raw file tempo desynced them
+      // above/below 1× (audit P2).
+      const effectiveTempo = event.tempo * rate;
       this._emit(delayMs, () => {
         if (this.midiClockGenerator) {
-          this.midiClockGenerator.setTempo(event.tempo);
+          this.midiClockGenerator.setTempo(effectiveTempo);
         }
       });
       return;
@@ -486,7 +526,13 @@ class PlaybackScheduler {
       );
     }
 
-    this._emit(adjustedMs, () => this.sendEvent(event, state, getOutputForChannel, callbacks));
+    // Pass the routing already resolved above so sendEvent does NOT call
+    // getOutputForChannel a second time — a second call re-advances the
+    // split overlap/round-robin counters, so every note landed on the same
+    // segment and the other instruments stayed silent (audit P1).
+    this._emit(adjustedMs, () =>
+      this.sendEvent(event, state, getOutputForChannel, callbacks, routing)
+    );
   }
 
   /**
@@ -548,7 +594,7 @@ class PlaybackScheduler {
    * @param {Object} state - Player state { playing, mutedChannels }
    * @param {Function} getOutputForChannel - Routing lookup
    */
-  sendEvent(event, state, getOutputForChannel, callbacks) {
+  sendEvent(event, state, getOutputForChannel, callbacks, precomputedRouting) {
     if (!state.playing) {
       return;
     }
@@ -561,7 +607,13 @@ class PlaybackScheduler {
     const isNoteEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
     const note = isNoteEvent ? (event.note ?? null) : null;
-    const routing = getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
+    // Reuse a routing already resolved by scheduleEvent when provided, so the
+    // stateful split lookup runs exactly once per event (audit P1). Callers
+    // that omit it (direct/test invocations) still resolve it here.
+    const routing =
+      precomputedRouting !== undefined
+        ? precomputedRouting
+        : getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
 
     // Handle broadcast for split routing (non-note events go to all segments)
     if (Array.isArray(routing)) {
@@ -749,11 +801,32 @@ class PlaybackScheduler {
    */
   _send(deviceId, type, data) {
     const dm = this.deviceManager;
+    let result;
     if (typeof dm.sendMessageEx === 'function') {
-      return dm.sendMessageEx(deviceId, type, data);
+      result = dm.sendMessageEx(deviceId, type, data);
+    } else {
+      const ok = dm.sendMessage(deviceId, type, data);
+      result = { status: ok ? SEND_STATUS.SENT : SEND_STATUS.DISCONNECTED };
     }
-    const ok = dm.sendMessage(deviceId, type, data);
-    return { status: ok ? SEND_STATUS.SENT : SEND_STATUS.DISCONNECTED };
+
+    // Mirror a routed-out event onto the EventBus so lighting rules (and any
+    // other `midi_routed` consumer) react to FILE PLAYBACK, not only to live
+    // physical input — playback sends never went through MidiRouter, so
+    // external fixtures stayed dark during a song (audit P1). Shape matches
+    // MidiRouter's `midi_routed` payload. Only for actually-landed sends.
+    if (
+      typeof this.eventBus?.emit === 'function' &&
+      (result.status === SEND_STATUS.SENT || result.status === SEND_STATUS.QUEUED)
+    ) {
+      this.eventBus.emit('midi_routed', {
+        source: 'playback',
+        destination: deviceId,
+        type,
+        data,
+        timestamp: Date.now()
+      });
+    }
+    return result;
   }
 
   /**
@@ -778,9 +851,9 @@ class PlaybackScheduler {
   _dispatchToDevice(event, routing, state) {
     const outChannel = routing.targetChannel;
 
-    const transposeSemis = state.channelTransposition
-      ? state.channelTransposition.get(event.channel) || 0
-      : 0;
+    const transposeSemis =
+      (state.channelTransposition ? state.channelTransposition.get(event.channel) || 0 : 0) +
+      (state.globalTranspose || 0); // live global performance offset (audit P2)
     const isNoteTypeEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON ||
       event.type === MIDI_EVENT_TYPES.NOTE_OFF ||
@@ -802,6 +875,18 @@ class PlaybackScheduler {
         if (remapped !== undefined && remapped !== null) {
           outNote = Math.max(0, Math.min(127, remapped));
         }
+      }
+    }
+
+    // Fold an out-of-range pitch into the instrument's declared playable
+    // window (octave fold, pitch-class preserving) so a note the instrument
+    // physically cannot produce isn't sent verbatim (audit P1 — no range clamp
+    // by default). Skip the GM drum channel (9): those are voice selectors,
+    // not pitches, and drum remap already handles substitution.
+    if (isNoteTypeEvent && event.channel !== 9) {
+      const c = this._getTimingConstraints(routing.device, outChannel);
+      if (c.noteRangeMin != null || c.noteRangeMax != null) {
+        outNote = this._foldIntoRange(outNote, c.noteRangeMin, c.noteRangeMax);
       }
     }
 
@@ -851,9 +936,14 @@ class PlaybackScheduler {
       });
     }
     if (event.type === MIDI_EVENT_TYPES.PITCH_BEND) {
+      // `event.value` is the midi-file CENTERED value (-8192..8191, center 0).
+      // Pass it in the unambiguous `centeredValue` field — the legacy `value`
+      // field is treated as raw 14-bit for non-negatives, which turned a
+      // return-to-center (0) into a full downward bend on BLE/net/serial
+      // (audit P0). Also covers the seek state-reconstruction path.
       return this._send(routing.device, DEVICE_MSG_TYPES.PITCH_BEND, {
         channel: outChannel,
-        value: event.value
+        centeredValue: event.value
       });
     }
     if (event.type === MIDI_EVENT_TYPES.CHANNEL_AFTERTOUCH) {

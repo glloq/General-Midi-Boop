@@ -96,7 +96,13 @@ export class PlaybackSnapshot {
     if (cached !== undefined) return cached;
     const value = this._cap
       ? this._cap.getTimingConstraints(deviceId, channel)
-      : { minNoteInterval: null, minNoteDuration: null, polyphony: null };
+      : {
+          minNoteInterval: null,
+          minNoteDuration: null,
+          polyphony: null,
+          noteRangeMin: null,
+          noteRangeMax: null
+        };
     // Defensive freeze so a downstream caller cannot mutate the cached object.
     const frozen = Object.freeze({ ...value });
     this._timing.set(key, frozen);

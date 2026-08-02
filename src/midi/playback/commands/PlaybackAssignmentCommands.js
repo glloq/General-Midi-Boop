@@ -145,6 +145,13 @@ async function applyAssignments(app, data) {
 
   let adaptedFileId = null;
   let stats = null;
+  // True once transpose/remap have been BAKED into the target file's bytes.
+  // The routing rows must then NOT also carry transposition_applied /
+  // note_remapping, or the runtime player would apply the shift a SECOND time
+  // on top of the baked notes — sending them octaves off and out of the
+  // instrument's range (audit P0 — double application). Runtime routing params
+  // are only for the un-baked case (createAdaptedFile=false).
+  let adaptationBaked = false;
 
   if (createAdaptedFile) {
     const transpositions = {};
@@ -310,6 +317,9 @@ async function applyAssignments(app, data) {
           throw new MidiError(`Failed to persist adapted file: ${e.message}`);
         }
       }
+      // Transpose/remap are now baked into the target file's bytes → routing
+      // rows must not re-apply them at runtime (audit P0 — double application).
+      adaptationBaked = true;
     } else {
       app.logger.info(`No transposition needed, saving routings against original file ${data.originalFileId}`);
     }
@@ -317,6 +327,13 @@ async function applyAssignments(app, data) {
 
   const routings = [];
   const targetFileId = adaptedFileId || data.originalFileId;
+
+  // Runtime routing params are suppressed once the transform is baked into the
+  // file (adaptationBaked); otherwise they carry the operator's choice so the
+  // player applies it live on the original file (audit P0 — no double-apply).
+  const runtimeSemitones = (a) => (adaptationBaked ? 0 : a.transposition?.semitones || 0);
+  const runtimeRemapJson = (a) =>
+    adaptationBaked || !a.noteRemapping ? null : JSON.stringify(a.noteRemapping);
 
   // D.1: pre-compute the hand-position feasibility per (channel, deviceId)
   // so each routing row gets persisted with its current classification.
@@ -354,10 +371,10 @@ async function applyAssignments(app, data) {
             device_id: seg.deviceId,
             instrument_name: seg.instrumentName,
             compatibility_score: seg.score || null,
-            // Persist channel-level transposition so playback applies
-            // it at runtime for the original file too (split segments
-            // share the source channel's transposition).
-            transposition_applied: assignment.transposition?.semitones || 0,
+            // Channel-level transposition — applied at runtime only when NOT
+            // baked into the file (split segments share the source channel's
+            // transposition).
+            transposition_applied: runtimeSemitones(assignment),
             auto_assigned: true,
             assignment_reason: `Split ${assignment.splitMode || 'range'} from ch ${channelNum}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
             note_remapping: null,
@@ -373,7 +390,7 @@ async function applyAssignments(app, data) {
           if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
             app.midiPlayer.setChannelRouting(resolvedCh, seg.deviceId, segTargetChannel);
             if (typeof app.midiPlayer.setChannelTransposition === 'function') {
-              app.midiPlayer.setChannelTransposition(resolvedCh, assignment.transposition?.semitones || 0);
+              app.midiPlayer.setChannelTransposition(resolvedCh, runtimeSemitones(assignment));
             }
           }
           routings.push(routing);
@@ -392,10 +409,9 @@ async function applyAssignments(app, data) {
             device_id: seg.deviceId,
             instrument_name: seg.instrumentName,
             compatibility_score: seg.score || null,
-            // Channel-level transposition shared across split segments
-            // (same source channel → same shift) — persisted so the
-            // runtime player can apply it without an adapted file.
-            transposition_applied: assignment.transposition?.semitones || 0,
+            // Channel-level transposition shared across split segments —
+            // runtime-applied only when NOT baked into the file.
+            transposition_applied: runtimeSemitones(assignment),
             auto_assigned: true,
             assignment_reason: `Split ${assignment.splitMode || 'range'}: notes ${seg.noteRange?.min ?? '?'}-${seg.noteRange?.max ?? '?'}`,
             note_remapping: null,
@@ -423,7 +439,7 @@ async function applyAssignments(app, data) {
         if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
           app.midiPlayer.setChannelSplitRouting(channelNum, segments);
           if (typeof app.midiPlayer.setChannelTransposition === 'function') {
-            app.midiPlayer.setChannelTransposition(channelNum, assignment.transposition?.semitones || 0);
+            app.midiPlayer.setChannelTransposition(channelNum, runtimeSemitones(assignment));
           }
         }
 
@@ -446,12 +462,12 @@ async function applyAssignments(app, data) {
       device_id: assignment.deviceId,
       instrument_name: assignment.instrumentName,
       compatibility_score: assignment.score,
-      transposition_applied: assignment.transposition?.semitones || 0,
+      transposition_applied: runtimeSemitones(assignment),
       auto_assigned: true,
       assignment_reason: assignment.info
         ? (Array.isArray(assignment.info) ? assignment.info.join('; ') : String(assignment.info))
         : 'Auto-assigned',
-      note_remapping: assignment.noteRemapping ? JSON.stringify(assignment.noteRemapping) : null,
+      note_remapping: runtimeRemapJson(assignment),
       enabled: true,
       created_at: Date.now(),
       hand_position_feasibility: feasibilityByChannelDevice.get(`${channelNum}:${assignment.deviceId}`) || null
@@ -467,7 +483,13 @@ async function applyAssignments(app, data) {
     if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
       app.midiPlayer.setChannelRouting(channelNum, assignment.deviceId, instrumentTargetChannel);
       if (typeof app.midiPlayer.setChannelTransposition === 'function') {
-        app.midiPlayer.setChannelTransposition(channelNum, assignment.transposition?.semitones || 0);
+        app.midiPlayer.setChannelTransposition(channelNum, runtimeSemitones(assignment));
+      }
+      if (typeof app.midiPlayer.setChannelNoteRemapping === 'function') {
+        app.midiPlayer.setChannelNoteRemapping(
+          channelNum,
+          adaptationBaked ? null : assignment.noteRemapping || null
+        );
       }
     }
 

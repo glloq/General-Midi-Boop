@@ -104,7 +104,13 @@ describe('PlaybackSnapshot', () => {
     test('no resolver => timing constraints are all null', () => {
       const snap = new PlaybackSnapshot({});
       const tc = snap.getTimingConstraints('dev-1', 0);
-      expect(tc).toEqual({ minNoteInterval: null, minNoteDuration: null, polyphony: null });
+      expect(tc).toEqual({
+        minNoteInterval: null,
+        minNoteDuration: null,
+        polyphony: null,
+        noteRangeMin: null,
+        noteRangeMax: null
+      });
     });
 
     test('no compensation service => 0', () => {

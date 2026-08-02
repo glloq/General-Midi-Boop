@@ -255,6 +255,7 @@ const SEND_STATUS = Object.freeze({
   RATE_LIMITED: 'rate_limited',
   DISCONNECTED: 'disconnected',
   UNSUPPORTED:  'unsupported',
+  DISABLED:     'disabled',
   ERROR:        'error',
 });
 

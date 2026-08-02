@@ -106,14 +106,18 @@ async function midiSendCc(app, data) {
 /**
  * @param {Object} app
  * @param {{deviceId:string, channel:number, value:number}} data - `value`
- *   may be either centered (-8192..8191) or raw 14-bit (0..16383); the
- *   transport layer normalises both formats.
+ *   is centered (-8192..8191, center 0) when <= 8191, else raw 14-bit
+ *   (0..16383). Normalised HERE to an unambiguous raw 14-bit `value14` so the
+ *   transport layer never has to guess (audit — the old pass-through of a
+ *   bare `value` mis-encoded on some transports).
  * @returns {Promise<{success:true}>}
  */
 async function midiSendPitchbend(app, data) {
+  const v = data.value;
+  const value14 = v > 8191 ? v : v + 8192; // >8191 already raw; else centered→raw
   app.deviceManager.sendMessage(data.deviceId, 'pitchbend', {
     channel: data.channel,
-    value: data.value
+    value14: Math.max(0, Math.min(16383, value14))
   });
   return { success: true };
 }
