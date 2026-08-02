@@ -80,13 +80,24 @@ export class CapabilityResolver {
       minNoteDuration: null,
       polyphony: null,
       noteRangeMin: null,
-      noteRangeMax: null
+      noteRangeMax: null,
+      selectedNotes: null
     };
     try {
       const capDB = this._db?.instrumentCapabilitiesDB;
       if (capDB) {
         const instrument = capDB.getInstrumentCapabilities(deviceId, channel);
         if (instrument) {
+          // Only expose the discrete note set when the instrument is in
+          // 'discrete' selection mode with a non-empty list — that is the
+          // authoritative set of physically playable pitches (no key/root
+          // guessing needed, unlike octave_mode).
+          const selected =
+            instrument.note_selection_mode === 'discrete' &&
+            Array.isArray(instrument.selected_notes) &&
+            instrument.selected_notes.length > 0
+              ? instrument.selected_notes.filter((n) => Number.isInteger(n))
+              : null;
           constraints = {
             minNoteInterval: instrument.min_note_interval || null,
             minNoteDuration: instrument.min_note_duration || null,
@@ -94,7 +105,8 @@ export class CapabilityResolver {
             noteRangeMin:
               instrument.note_range_min === undefined ? null : instrument.note_range_min,
             noteRangeMax:
-              instrument.note_range_max === undefined ? null : instrument.note_range_max
+              instrument.note_range_max === undefined ? null : instrument.note_range_max,
+            selectedNotes: selected && selected.length > 0 ? selected : null
           };
         }
       }
