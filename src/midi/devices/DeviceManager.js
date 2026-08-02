@@ -15,7 +15,8 @@
  * elsewhere from crashing.
  */
 import DeviceDiscovery from './DeviceDiscovery.js';
-import { DEVICE_STATUS, PRIORITY_MSG_TYPES, SEND_STATUS } from '../../core/constants.js';
+import { DEVICE_STATUS, PRIORITY_MSG_TYPES, SEND_STATUS, DEVICE_MSG_TYPES } from '../../core/constants.js';
+import MidiUtils from '../../utils/MidiUtils.js';
 
 let easymidi;
 /**
@@ -253,7 +254,14 @@ class DeviceManager {
       input.on('noteoff', (msg) => this.handleMidiMessage(name, 'noteoff', msg));
       input.on('cc', (msg) => this.handleMidiMessage(name, 'cc', msg));
       input.on('program', (msg) => this.handleMidiMessage(name, 'program', msg));
-      input.on('pitchbend', (msg) => this.handleMidiMessage(name, 'pitchbend', msg));
+      // easymidi emits pitch bend as `'pitch'` with a raw 14-bit `value`
+      // (0..16383, center 8192) — NOT `'pitchbend'`, so the old listener never
+      // fired and USB pitch-bend INPUT was silently dropped (audit P0). Map it
+      // to the canonical `'pitchbend'` type with an unambiguous `value14` so
+      // every downstream encoder (BLE/net/serial + USB out) reproduces it.
+      input.on('pitch', (msg) =>
+        this.handleMidiMessage(name, 'pitchbend', { channel: msg.channel, value14: msg.value })
+      );
       input.on('poly aftertouch', (msg) => this.handleMidiMessage(name, 'poly aftertouch', msg));
       input.on('channel aftertouch', (msg) =>
         this.handleMidiMessage(name, 'channel aftertouch', msg)
@@ -447,7 +455,14 @@ class DeviceManager {
     // name and transport — and never fold genuinely different devices from
     // different transports into one entry with artificially OR-combined
     // input/output capabilities (audit P1 — "dangerous deduplication").
-    const normalizeName = (name) => name.split(':')[0].trim();
+    //
+    // Normalize by stripping ONLY a trailing ALSA port index (":0"/":1"), not
+    // everything after the first colon. The old `split(':')[0]` discarded the
+    // ALSA client/card number too, so two IDENTICAL-model instruments
+    // ("Boop:Boop MIDI 1 20:0" and "…24:0") collapsed to the same key and the
+    // second became invisible/uncontrollable (audit P1). Keeping the client
+    // number distinguishes them while still merging one device's in/out ports.
+    const normalizeName = (name) => name.replace(/:\d+$/, '').trim();
     const dedupKey = (device) => `${device.type}:${normalizeName(device.name)}`;
 
     for (const device of allDevices) {
@@ -544,10 +559,25 @@ class DeviceManager {
    * @returns {{status:string, error?:Error}} One of {@link SEND_STATUS}.
    */
   sendMessageEx(deviceName, type, data) {
-    // Priority messages (Note Off, All Sound/Notes Off via reset, transport,
-    // clock) bypass the rate limiter so a silencing/panic burst is never
-    // partially dropped and cannot leave stuck notes.
-    if (!PRIORITY_MSG_TYPES.has(type) && this._isRateLimited(deviceName)) {
+    // A device disabled via enableDevice() must receive NO MIDI — from live
+    // routing and direct sends too, not just file playback (audit P1 —
+    // device_enable(false) previously only muted playback). Return a
+    // non-failure status so the scheduler never mistakes it for a disconnect.
+    const known = this.devices.get(deviceName);
+    if (known && known.enabled === false) {
+      return { status: SEND_STATUS.DISABLED };
+    }
+
+    // Priority messages bypass the rate limiter so a silencing/panic burst is
+    // never partially dropped and cannot leave stuck notes. Besides the typed
+    // priorities (Note Off, reset, transport, clock), this MUST include the
+    // Channel Mode CCs (controller >= 120: All Sound Off 120, Reset All
+    // Controllers 121, All Notes Off 123, Omni/Mono/Poly …) — panic and
+    // all-notes-off are emitted as `cc`, so keying only on the type string let
+    // the limiter drop part of a panic burst (audit P2).
+    const isChannelModeCc =
+      type === DEVICE_MSG_TYPES.CC && data && (data.controller ?? 0) >= 120;
+    if (!PRIORITY_MSG_TYPES.has(type) && !isChannelModeCc && this._isRateLimited(deviceName)) {
       return { status: SEND_STATUS.RATE_LIMITED };
     }
 
@@ -677,6 +707,51 @@ class DeviceManager {
       const bytes = Array.isArray(data) ? data : data?.bytes;
       if (!Array.isArray(bytes) || bytes.length === 0) return;
       output.send('sysex', bytes);
+      return;
+    }
+
+    // Translate GMBoop's canonical (type, data) into easymidi's vocabulary.
+    // easymidi names pitch bend `'pitch'` (not `'pitchbend'`) and reads the
+    // program number from `number` (not `program`); sending our names/fields
+    // verbatim made pitch bend THROW and program change send `undefined`
+    // (audit P0/P1). Also 7-bit-clamp data bytes so an out-of-range value is
+    // masked (like the other transports) instead of throwing in the addon.
+    const ch = (data.channel ?? 0) & 0x0f;
+
+    if (type === DEVICE_MSG_TYPES.PITCH_BEND) {
+      output.send('pitch', { channel: ch, value: MidiUtils.pitchBendRaw14(data) });
+      return;
+    }
+    if (type === DEVICE_MSG_TYPES.PROGRAM) {
+      output.send('program', { channel: ch, number: (data.number ?? data.program ?? 0) & 0x7f });
+      return;
+    }
+    if (type === DEVICE_MSG_TYPES.NOTE_ON || type === DEVICE_MSG_TYPES.NOTE_OFF) {
+      output.send(type, {
+        channel: ch,
+        note: (data.note ?? 0) & 0x7f,
+        velocity: (data.velocity ?? 0) & 0x7f
+      });
+      return;
+    }
+    if (type === DEVICE_MSG_TYPES.CC) {
+      output.send('cc', {
+        channel: ch,
+        controller: (data.controller ?? 0) & 0x7f,
+        value: (data.value ?? 0) & 0x7f
+      });
+      return;
+    }
+    if (type === DEVICE_MSG_TYPES.POLY_AFTERTOUCH) {
+      output.send('poly aftertouch', {
+        channel: ch,
+        note: (data.note ?? 0) & 0x7f,
+        pressure: (data.pressure ?? 0) & 0x7f
+      });
+      return;
+    }
+    if (type === DEVICE_MSG_TYPES.CHANNEL_AFTERTOUCH) {
+      output.send('channel aftertouch', { channel: ch, pressure: (data.pressure ?? 0) & 0x7f });
       return;
     }
     output.send(type, data);
@@ -1113,9 +1188,22 @@ class DeviceManager {
     const input = new easymidi.Input(name, true);
     const output = new easymidi.Output(name, true);
 
+    // Subscribe to the FULL channel-voice + sysex set, matching addInput —
+    // the old virtual port wired only noteon/noteoff/cc, silently dropping
+    // program change, pitch bend, aftertouch and SysEx (incl. Identity Reply)
+    // for anything routed through it (audit P2).
     input.on('noteon', (msg) => this.handleMidiMessage(name, 'noteon', msg));
     input.on('noteoff', (msg) => this.handleMidiMessage(name, 'noteoff', msg));
     input.on('cc', (msg) => this.handleMidiMessage(name, 'cc', msg));
+    input.on('program', (msg) => this.handleMidiMessage(name, 'program', msg));
+    input.on('pitch', (msg) =>
+      this.handleMidiMessage(name, 'pitchbend', { channel: msg.channel, value14: msg.value })
+    );
+    input.on('poly aftertouch', (msg) => this.handleMidiMessage(name, 'poly aftertouch', msg));
+    input.on('channel aftertouch', (msg) =>
+      this.handleMidiMessage(name, 'channel aftertouch', msg)
+    );
+    input.on('sysex', (msg) => this.handleMidiMessage(name, 'sysex', msg));
 
     this.virtualDevices.set(name, { input, output });
     await this.updateDeviceMap();

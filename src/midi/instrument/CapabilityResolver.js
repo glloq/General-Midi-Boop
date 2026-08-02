@@ -69,13 +69,19 @@ export class CapabilityResolver {
    *
    * @param {string} deviceId
    * @param {number} channel
-   * @returns {{ minNoteInterval: number|null, minNoteDuration: number|null, polyphony: number|null }}
+   * @returns {{ minNoteInterval: number|null, minNoteDuration: number|null, polyphony: number|null, noteRangeMin: number|null, noteRangeMax: number|null }}
    */
   getTimingConstraints(deviceId, channel) {
     const key = `${deviceId}:${channel}`;
     if (this._timingCache.has(key)) return this._timingCache.get(key);
 
-    let constraints = { minNoteInterval: null, minNoteDuration: null, polyphony: null };
+    let constraints = {
+      minNoteInterval: null,
+      minNoteDuration: null,
+      polyphony: null,
+      noteRangeMin: null,
+      noteRangeMax: null
+    };
     try {
       const capDB = this._db?.instrumentCapabilitiesDB;
       if (capDB) {
@@ -84,7 +90,11 @@ export class CapabilityResolver {
           constraints = {
             minNoteInterval: instrument.min_note_interval || null,
             minNoteDuration: instrument.min_note_duration || null,
-            polyphony: instrument.polyphony || null
+            polyphony: instrument.polyphony || null,
+            noteRangeMin:
+              instrument.note_range_min === undefined ? null : instrument.note_range_min,
+            noteRangeMax:
+              instrument.note_range_max === undefined ? null : instrument.note_range_max
           };
         }
       }

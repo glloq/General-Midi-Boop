@@ -1,139 +1,202 @@
 /**
  * @file src/transports/RtpMidiSession.js
- * @description Simplified RTP-MIDI (RFC 6295) session implementation.
- * One instance per remote endpoint; created and owned by
- * {@link NetworkManager}. Handles the UDP socket, RTP sequence /
- * timestamp bookkeeping, and bidirectional MIDI frame conversion.
+ * @description One AppleMIDI (RTP-MIDI) session with a single remote peer.
+ * Created and owned by {@link NetworkManager}. Performs the AppleMIDI
+ * invitation handshake (control port then data port) so real network-MIDI
+ * peers actually accept our MIDI, responds to incoming invitations, keeps the
+ * session alive with clock-sync (CK), and converts RTP-MIDI frames both ways.
  *
- * The simplified implementation does not implement the AppleMIDI
- * journal recovery; lost packets manifest as occasional dropped
- * notes which is acceptable on a stable LAN.
- *
- * TODO: implement the journal once a real-world deployment surfaces
- * recurring packet loss.
+ * Socket I/O is injected (`sendControl` / `sendData`) so the handshake state
+ * machine can be unit-tested without real UDP sockets or hardware. The
+ * RFC-6295 RTP-MIDI packet build/parse is unchanged.
  */
 
-import dgram from 'dgram';
 import EventEmitter from 'events';
+import {
+  CMD,
+  isControlPacket,
+  commandOf,
+  encodeInvitation,
+  decodeInvitation,
+  encodeEnd,
+  encodeClockSync,
+  decodeClockSync
+} from './AppleMidi.js';
+
+const HANDSHAKE_TIMEOUT_MS = 8000;
+const CLOCK_SYNC_INTERVAL_MS = 10000;
+
+function randomU32() {
+  return Math.floor(Math.random() * 0xffffffff) >>> 0;
+}
 
 class RtpMidiSession extends EventEmitter {
+  /**
+   * @param {Object} [options]
+   * @param {string} [options.localName]
+   * @param {number} [options.ssrc]
+   * @param {(buf:Buffer)=>void} [options.sendControl] - send to remote control port
+   * @param {(buf:Buffer)=>void} [options.sendData]    - send to remote data port
+   * @param {number} [options.handshakeTimeoutMs]
+   */
   constructor(options = {}) {
     super();
-
     this.localName = options.localName || 'GeneralMidiBoop';
-    this.localPort = options.localPort || 0; // 0 = OS assigns random available port
-    // Optional shared UDP socket owned by NetworkManager. When present, this
-    // session does NOT bind its own port: every session sends through the one
-    // shared socket and NetworkManager demultiplexes inbound frames by sender
-    // IP. This is what lets several remotes connect without the second bind
-    // failing with EADDRINUSE, while still listening on a fixed, known port
-    // so peers can actually reach us (audit P1 — RTP-MIDI inbound port).
-    this.sharedSocket = options.sharedSocket || null;
-    this.ownsSocket = false;
+    this.ssrc = options.ssrc != null ? options.ssrc >>> 0 : randomU32();
+    this._sendControl = typeof options.sendControl === 'function' ? options.sendControl : null;
+    this._sendData = typeof options.sendData === 'function' ? options.sendData : null;
+    this.handshakeTimeoutMs = options.handshakeTimeoutMs || HANDSHAKE_TIMEOUT_MS;
+
     this.remoteHost = null;
-    this.remotePort = null;
-    this.socket = null;
+    this.remoteControlPort = null;
+    this.remoteDataPort = null;
+    this.remoteSsrc = null;
+    this.initiatorToken = null;
+
+    // 'idle' | 'inviting-control' | 'inviting-data' | 'established' | 'closed'
+    this.state = 'idle';
     this.connected = false;
 
     // RTP state
-    this.sequenceNumber = Math.floor(Math.random() * 0xFFFF);
+    this.sequenceNumber = randomU32() & 0xffff;
     this.timestamp = 0;
-    this.ssrc = Math.floor(Math.random() * 0xFFFFFFFF); // Synchronization source identifier
-    this.timestampEpoch = Date.now(); // Reference time for RTP timestamp calculation
-    this.RTP_MIDI_CLOCK_RATE = 10000; // 10 kHz clock rate per RFC 6295
+    this.timestampEpoch = Date.now();
+    this.RTP_MIDI_CLOCK_RATE = 10000; // 10 kHz per RFC 6295
 
-    // Session state
-    this.sessionInitialized = false;
+    this._handshakeTimer = null;
+    this._clockTimer = null;
+    this._resolveConnect = null;
+    this._rejectConnect = null;
   }
 
   /**
-   * Connect to a remote peer
-   * @param {string} host - Peer IP address
-   * @param {number} port - Peer port
+   * Initiate a session with a remote peer: send an AppleMIDI invitation on the
+   * control port; on acceptance invite on the data port; the returned promise
+   * resolves once the peer accepts BOTH (session established) and rejects on
+   * timeout or an explicit rejection.
+   *
+   * @param {string} host
+   * @param {number} [controlPort=5004]
+   * @param {number} [dataPort=controlPort+1]
+   * @returns {Promise<void>}
    */
-  async connect(host, port = 5004) {
+  connect(host, controlPort = 5004, dataPort) {
     this.remoteHost = host;
-    this.remotePort = port;
+    this.remoteControlPort = controlPort;
+    this.remoteDataPort = dataPort != null ? dataPort : controlPort + 1;
+    this.initiatorToken = randomU32();
+    this.state = 'inviting-control';
 
-    // Shared-socket mode: NetworkManager owns the UDP socket (one bound
-    // port shared by every session, inbound demuxed by sender IP). We only
-    // record the remote endpoint and announce readiness — there is no
-    // per-session bind, so a second remote never trips EADDRINUSE.
-    if (this.sharedSocket) {
-      this.socket = this.sharedSocket;
-      this.ownsSocket = false;
-      this.sendInvitation();
-      this.connected = true;
-      this.emit('connected', { host, port });
-      return;
-    }
-
-    // Standalone mode: this session owns its socket (direct use / tests).
     return new Promise((resolve, reject) => {
-      try {
-        this.ownsSocket = true;
-
-        // Create UDP socket
-        this.socket = dgram.createSocket('udp4');
-
-        // Listen for incoming messages
-        this.socket.on('message', (msg, rinfo) => {
-          this.handleIncomingMessage(msg, rinfo);
-        });
-
-        // Listen for errors
-        this.socket.on('error', (err) => {
-          this.emit('error', err);
-          reject(err);
-        });
-
-        // Listen for socket close
-        this.socket.on('close', () => {
-          this.connected = false;
-          this.emit('disconnected');
-        });
-
-        // Bind to the local port
-        this.socket.bind(this.localPort, () => {
-          this.emit('log', `Listening on port ${this.localPort}`);
-
-          // Send invitation (simplified handshake)
-          this.sendInvitation();
-
-          this.connected = true;
-          this.emit('connected', { host, port });
-          resolve();
-        });
-
-      } catch (error) {
-        reject(error);
+      this._resolveConnect = resolve;
+      this._rejectConnect = reject;
+      if (!this._sendControl) {
+        reject(new Error('RtpMidiSession: no control sender wired'));
+        return;
       }
+      this._sendControl(
+        encodeInvitation(CMD.INVITATION, {
+          initiatorToken: this.initiatorToken,
+          ssrc: this.ssrc,
+          name: this.localName
+        })
+      );
+      this._handshakeTimer = setTimeout(() => {
+        if (this.state !== 'established') {
+          this._failConnect(new Error(`AppleMIDI handshake timeout (${host})`));
+        }
+      }, this.handshakeTimeoutMs);
     });
   }
 
   /**
-   * Send an invitation to the peer (simplified RTP-MIDI handshake)
+   * Handle a datagram received on the CONTROL port for this peer.
+   * @param {Buffer} msg
    */
-  sendInvitation() {
-    // Simplified: In a full RTP-MIDI implementation, we would send
-    // a control packet with the INVITATION command
-    // For this simplified version, we just mark the session as initialized
-    this.sessionInitialized = true;
-    this.emit('session:initialized');
+  handleControlPacket(msg) {
+    const cmd = commandOf(msg);
+    if (cmd === CMD.INVITATION) {
+      // Incoming invitation (we are the responder): accept it.
+      const inv = decodeInvitation(msg);
+      if (!inv) return;
+      this.remoteSsrc = inv.ssrc;
+      this._sendControl?.(
+        encodeInvitation(CMD.INVITATION_ACCEPTED, {
+          initiatorToken: inv.initiatorToken,
+          ssrc: this.ssrc,
+          name: this.localName
+        })
+      );
+      return;
+    }
+    if (cmd === CMD.INVITATION_ACCEPTED) {
+      // Our control invitation was accepted → invite on the data port.
+      const inv = decodeInvitation(msg);
+      if (inv) this.remoteSsrc = inv.ssrc;
+      if (this.state === 'inviting-control') {
+        this.state = 'inviting-data';
+        this._sendData?.(
+          encodeInvitation(CMD.INVITATION, {
+            initiatorToken: this.initiatorToken,
+            ssrc: this.ssrc,
+            name: this.localName
+          })
+        );
+      }
+      return;
+    }
+    if (cmd === CMD.INVITATION_REJECTED) {
+      this._failConnect(new Error('AppleMIDI invitation rejected by peer'));
+      return;
+    }
+    if (cmd === CMD.END) {
+      this._onPeerEnd();
+    }
   }
 
   /**
-   * Handle incoming messages
-   * @param {Buffer} msg - Received message
-   * @param {Object} rinfo - Sender information
+   * Handle a datagram received on the DATA port for this peer: AppleMIDI
+   * control (data-port invitation OK / incoming IN / clock-sync) or an
+   * RTP-MIDI data frame.
+   * @param {Buffer} msg
    */
-  handleIncomingMessage(msg, _rinfo) {
-    try {
-      // Parse the RTP packet
-      const rtpPacket = this.parseRtpPacket(msg);
+  handleDataPacket(msg) {
+    if (isControlPacket(msg)) {
+      const cmd = commandOf(msg);
+      if (cmd === CMD.INVITATION_ACCEPTED) {
+        if (this.state === 'inviting-data') this._establish();
+        return;
+      }
+      if (cmd === CMD.INVITATION) {
+        // Responder path: accept the data-port invitation and go live.
+        const inv = decodeInvitation(msg);
+        if (inv) {
+          this.remoteSsrc = inv.ssrc;
+          this._sendData?.(
+            encodeInvitation(CMD.INVITATION_ACCEPTED, {
+              initiatorToken: inv.initiatorToken,
+              ssrc: this.ssrc,
+              name: this.localName
+            })
+          );
+        }
+        this._establish();
+        return;
+      }
+      if (cmd === CMD.CLOCK_SYNC) {
+        this._handleClockSync(msg);
+        return;
+      }
+      if (cmd === CMD.END) {
+        this._onPeerEnd();
+      }
+      return;
+    }
 
+    // RTP-MIDI data frame → emit each parsed MIDI command.
+    try {
+      const rtpPacket = this.parseRtpPacket(msg);
       if (rtpPacket && rtpPacket.midiCommands.length > 0) {
-        // Emit each MIDI command
         for (const midiCommand of rtpPacket.midiCommands) {
           this.emit('message', 0, midiCommand);
         }
@@ -143,285 +206,287 @@ class RtpMidiSession extends EventEmitter {
     }
   }
 
+  /** Transition to the established state exactly once. @private */
+  _establish() {
+    if (this.state === 'established') return;
+    this.state = 'established';
+    this.connected = true;
+    if (this._handshakeTimer) {
+      clearTimeout(this._handshakeTimer);
+      this._handshakeTimer = null;
+    }
+    this.emit('connected', { host: this.remoteHost, port: this.remoteControlPort });
+    if (this._resolveConnect) {
+      this._resolveConnect();
+      this._resolveConnect = null;
+      this._rejectConnect = null;
+    }
+    this._startClockSync();
+  }
+
+  /** @private */
+  _failConnect(err) {
+    if (this._rejectConnect) {
+      this._rejectConnect(err);
+      this._resolveConnect = null;
+      this._rejectConnect = null;
+    } else {
+      this.emit('error', err);
+    }
+    this.close();
+  }
+
+  /** @private */
+  _onPeerEnd() {
+    this.emit('log', `Peer ended AppleMIDI session (${this.remoteHost})`);
+    this.close();
+  }
+
+  /** Current 10 kHz session timestamp. @private */
+  _now10k() {
+    return Math.floor(((Date.now() - this.timestampEpoch) * this.RTP_MIDI_CLOCK_RATE) / 1000);
+  }
+
   /**
-   * Parse an RTP-MIDI packet
-   * Simplified format (for full implementation, see RFC 6295)
-   * @param {Buffer} buffer - Raw RTP packet
-   * @returns {Object} Parsed packet
+   * Clock-sync state machine (3-way). We answer a peer-initiated CK (count 0 →
+   * reply 1; count 1 → reply 2) and complete our own initiated sync. Precise
+   * offset estimation isn't required for correct delivery, but responding
+   * keeps peers (which drop silent sessions) alive.
+   * @private
+   */
+  _handleClockSync(msg) {
+    const ck = decodeClockSync(msg);
+    if (!ck) return;
+    if (ck.count === 0) {
+      this._sendData?.(
+        encodeClockSync({ ssrc: this.ssrc, count: 1, ts1: ck.ts1, ts2: this._now10k(), ts3: 0 })
+      );
+    } else if (ck.count === 1) {
+      this._sendData?.(
+        encodeClockSync({ ssrc: this.ssrc, count: 2, ts1: ck.ts1, ts2: ck.ts2, ts3: this._now10k() })
+      );
+    }
+    // count === 2 → synchronization round complete; nothing to send.
+  }
+
+  /** Periodically initiate a clock-sync so the peer keeps the session. @private */
+  _startClockSync() {
+    if (this._clockTimer) return;
+    const tick = () => {
+      if (this.state !== 'established') return;
+      this._sendData?.(
+        encodeClockSync({ ssrc: this.ssrc, count: 0, ts1: this._now10k(), ts2: 0, ts3: 0 })
+      );
+    };
+    tick();
+    this._clockTimer = setInterval(tick, CLOCK_SYNC_INTERVAL_MS);
+    if (this._clockTimer.unref) this._clockTimer.unref();
+  }
+
+  /**
+   * Send a MIDI message to the peer as an RTP-MIDI data frame.
+   * @param {Array<number>} midiBytes
+   */
+  sendMessage(midiBytes) {
+    if (this.state !== 'established' || !this._sendData) {
+      throw new Error('Session not established');
+    }
+    this._sendData(this.createRtpPacket(midiBytes));
+    this.sequenceNumber = (this.sequenceNumber + 1) & 0xffff;
+  }
+
+  /**
+   * Parse an RTP-MIDI packet (RFC 6295).
+   * @param {Buffer} buffer
+   * @returns {Object|null}
    */
   parseRtpPacket(buffer) {
     if (buffer.length < 12) {
-      return null; // Packet too short
+      return null;
     }
-
-    // Header RTP (12 bytes minimum)
     const version = (buffer[0] >> 6) & 0x03;
     const padding = (buffer[0] >> 5) & 0x01;
     const extension = (buffer[0] >> 4) & 0x01;
-    const csrcCount = buffer[0] & 0x0F;
-    const payloadType = buffer[1] & 0x7F;
+    const csrcCount = buffer[0] & 0x0f;
+    const payloadType = buffer[1] & 0x7f;
     const sequenceNumber = buffer.readUInt16BE(2);
     const timestamp = buffer.readUInt32BE(4);
     const ssrc = buffer.readUInt32BE(8);
 
-    let offset = 12 + (csrcCount * 4); // Skip CSRC identifiers
-
+    let offset = 12 + csrcCount * 4;
     if (extension) {
-      // Skip extension header
       const extLength = buffer.readUInt16BE(offset + 2) * 4;
       offset += 4 + extLength;
     }
-
     if (padding) {
       const paddingLength = buffer[buffer.length - 1];
       buffer = buffer.slice(0, buffer.length - paddingLength);
     }
 
-    // Payload = MIDI commands
     const payload = buffer.slice(offset);
-
-    // Parse MIDI commands from the payload (simplified)
     const midiCommands = this.parseMidiPayload(payload);
-
-    return {
-      version,
-      payloadType,
-      sequenceNumber,
-      timestamp,
-      ssrc,
-      midiCommands
-    };
+    return { version, payloadType, sequenceNumber, timestamp, ssrc, midiCommands };
   }
 
   /**
-   * Parse the MIDI payload (RFC 6295 MIDI command section)
-   * The first byte is a header byte indicating the length and structure
-   * of the MIDI command section, followed by raw MIDI data.
-   * @param {Buffer} payload - MIDI payload
-   * @returns {Array<Array<number>>} List of MIDI commands
+   * Parse the RFC-6295 MIDI command section.
+   * @param {Buffer} payload
+   * @returns {Array<Array<number>>}
    */
   parseMidiPayload(payload) {
     const commands = [];
-
     if (payload.length === 0) return commands;
 
-    // RFC 6295: First byte is the MIDI command section header
-    // Bit 7 (B): 1 if long header (2 bytes), 0 if short header (1 byte)
-    // For short header: bits 3-0 = length of MIDI list in bytes
     let midiOffset = 0;
     let midiLength = 0;
-
     const headerByte = payload[0];
     if (headerByte & 0x80) {
-      // Long header (2 bytes)
       if (payload.length < 2) return commands;
-      midiLength = ((headerByte & 0x0F) << 8) | payload[1];
+      midiLength = ((headerByte & 0x0f) << 8) | payload[1];
       midiOffset = 2;
     } else {
-      // Short header (1 byte)
-      midiLength = headerByte & 0x0F;
+      midiLength = headerByte & 0x0f;
       midiOffset = 1;
     }
 
-    // If midiLength is 0 or offset exceeds payload, no MIDI data
     if (midiLength === 0 || midiOffset >= payload.length) return commands;
 
-    // Parse MIDI commands from the MIDI list
     const midiEnd = Math.min(midiOffset + midiLength, payload.length);
     let i = midiOffset;
     let runningStatus = 0;
 
     while (i < midiEnd) {
-      // Skip delta-time bytes (RTP-MIDI uses variable-length delta-times)
-      // Delta-time bytes have bit 7 clear; if byte has bit 7 set, it's a status byte
       while (i < midiEnd && !(payload[i] & 0x80)) {
-        i++; // Skip delta-time
+        i++; // skip delta-time
       }
-
       if (i >= midiEnd) break;
-
       const status = payload[i];
 
-      // SysEx start
-      if (status === 0xF0) {
+      if (status === 0xf0) {
         const sysexStart = i;
         i++;
-        while (i < midiEnd && payload[i] !== 0xF7) i++;
-        if (i < midiEnd) i++; // Include F7
+        while (i < midiEnd && payload[i] !== 0xf7) i++;
+        if (i < midiEnd) i++;
         commands.push(Array.from(payload.slice(sysexStart, i)));
         runningStatus = 0;
         continue;
       }
-
-      // System real-time (single byte, doesn't affect running status)
-      if (status >= 0xF8) {
+      if (status >= 0xf8) {
         commands.push([status]);
         i++;
         continue;
       }
-
-      // Channel message or system common
       if (status >= 0x80) {
         runningStatus = status;
         i++;
       }
-
       if (runningStatus === 0) {
         i++;
         continue;
       }
-
       const commandLength = this.getMidiCommandLength(runningStatus);
-      const dataBytes = commandLength - 1; // Exclude status byte
-
+      const dataBytes = commandLength - 1;
       if (i + dataBytes <= midiEnd) {
-        const command = [runningStatus, ...Array.from(payload.slice(i, i + dataBytes))];
-        commands.push(command);
+        commands.push([runningStatus, ...Array.from(payload.slice(i, i + dataBytes))]);
         i += dataBytes;
       } else {
         break;
       }
     }
-
     return commands;
   }
 
   /**
-   * Determine the length of a MIDI command based on the status byte
-   * @param {number} status - Status byte
-   * @returns {number} Length in bytes
+   * MIDI message length from its status byte.
+   * @param {number} status
+   * @returns {number}
    */
   getMidiCommandLength(status) {
-    const command = status & 0xF0;
-
+    const command = status & 0xf0;
     switch (command) {
-      case 0x80: // Note Off
-      case 0x90: // Note On
-      case 0xA0: // Poly Aftertouch
-      case 0xB0: // Control Change
-      case 0xE0: // Pitch Bend
+      case 0x80:
+      case 0x90:
+      case 0xa0:
+      case 0xb0:
+      case 0xe0:
         return 3;
-      case 0xC0: // Program Change
-      case 0xD0: // Channel Aftertouch
+      case 0xc0:
+      case 0xd0:
         return 2;
-      case 0xF0: // System messages
-        if (status === 0xF1) return 2; // MTC Quarter Frame
-        if (status === 0xF2) return 3; // Song Position Pointer
-        if (status === 0xF3) return 2; // Song Select
-        if (status === 0xF6) return 1; // Tune Request
-        if (status >= 0xF8) return 1;  // Real-time messages
-        return 1; // SysEx and others: handled separately
+      case 0xf0:
+        if (status === 0xf1) return 2;
+        if (status === 0xf2) return 3;
+        if (status === 0xf3) return 2;
+        if (status === 0xf6) return 1;
+        if (status >= 0xf8) return 1;
+        return 1;
       default:
         return 1;
     }
   }
 
   /**
-   * Send a MIDI message
-   * @param {Array<number>} midiBytes - MIDI bytes to send
-   */
-  sendMessage(midiBytes) {
-    if (!this.connected || !this.socket) {
-      throw new Error('Session not connected');
-    }
-
-    // Create RTP packet
-    const rtpPacket = this.createRtpPacket(midiBytes);
-
-    // Send via UDP
-    this.socket.send(rtpPacket, this.remotePort, this.remoteHost, (err) => {
-      if (err) {
-        this.emit('error', err);
-      }
-    });
-
-    // Increment sequence number (timestamp is now calculated from real time in createRtpPacket)
-    this.sequenceNumber = (this.sequenceNumber + 1) & 0xFFFF;
-  }
-
-  /**
-   * Create an RTP packet containing MIDI commands
-   * RFC 6295 compliant: RTP header + MIDI command section header + MIDI data
-   * @param {Array<number>} midiBytes - MIDI commands
-   * @returns {Buffer} RTP packet
+   * Build an RTP-MIDI packet (RFC 6295: RTP header + MIDI command section).
+   * @param {Array<number>} midiBytes
+   * @returns {Buffer}
    */
   createRtpPacket(midiBytes) {
-    // Calculate real-time based RTP timestamp (10 kHz clock rate per RFC 6295)
-    const elapsedMs = Date.now() - this.timestampEpoch;
-    this.timestamp = Math.floor(elapsedMs * this.RTP_MIDI_CLOCK_RATE / 1000) & 0xFFFFFFFF;
+    this.timestamp = this._now10k() & 0xffffffff;
 
-    // Header RTP (12 bytes)
     const header = Buffer.alloc(12);
-
-    // Byte 0: Version (2), Padding (0), Extension (0), CSRC count (0)
-    header[0] = 0x80; // Version 2
-
-    // Byte 1: Marker (0), Payload type (97 for MIDI)
-    header[1] = 97;
-
-    // Bytes 2-3: Sequence number
+    header[0] = 0x80; // version 2
+    header[1] = 97; // payload type 97 (RTP-MIDI)
     header.writeUInt16BE(this.sequenceNumber, 2);
+    header.writeUInt32BE(this.timestamp >>> 0, 4);
+    header.writeUInt32BE(this.ssrc >>> 0, 8);
 
-    // Bytes 4-7: Timestamp
-    header.writeUInt32BE(this.timestamp, 4);
-
-    // Bytes 8-11: SSRC
-    header.writeUInt32BE(this.ssrc, 8);
-
-    // RFC 6295 MIDI command section header
-    // Short header (1 byte) when MIDI data length <= 15 bytes
-    // Long header (2 bytes) when MIDI data length > 15 bytes
-    // Bit 4 (P): 0 = no phantom status, Bit 5 (Z): 0 = MIDI list present
-    // Bit 6 (J): 0 = no journal section
     const midiLength = midiBytes.length;
     let midiHeader;
-
-    if (midiLength <= 0x0F) {
-      // Short header: B=0, J=0, Z=0, P=0, length in bits 3-0
-      midiHeader = Buffer.from([midiLength & 0x0F]);
+    if (midiLength <= 0x0f) {
+      midiHeader = Buffer.from([midiLength & 0x0f]);
     } else {
-      // Long header: B=1, J=0, Z=0, P=0, length in 12 bits
-      const highByte = 0x80 | ((midiLength >> 8) & 0x0F);
-      const lowByte = midiLength & 0xFF;
+      const highByte = 0x80 | ((midiLength >> 8) & 0x0f);
+      const lowByte = midiLength & 0xff;
       midiHeader = Buffer.from([highByte, lowByte]);
     }
 
-    // Payload: MIDI command section header + MIDI data
     const payload = Buffer.from(midiBytes);
-
-    // Combine header + MIDI command section header + payload
     return Buffer.concat([header, midiHeader, payload]);
   }
 
   /**
-   * Disconnect the session
+   * End the session: send an AppleMIDI BY on the control port (best effort),
+   * stop timers, and emit `disconnected`.
    */
-  async disconnect() {
-    return new Promise((resolve) => {
-      // Only close a socket this session actually owns. A shared socket is
-      // owned (and closed) by NetworkManager and must survive this session.
-      if (this.socket && this.ownsSocket) {
-        this.socket.close(() => {
-          this.socket = null;
-          this.connected = false;
-          this.sessionInitialized = false;
-          this.emit('disconnected');
-          resolve();
-        });
-      } else {
-        this.socket = null;
-        this.connected = false;
-        this.sessionInitialized = false;
-        this.emit('disconnected');
-        resolve();
+  disconnect() {
+    if (this.state !== 'closed' && this._sendControl && this.initiatorToken != null) {
+      try {
+        this._sendControl(encodeEnd({ initiatorToken: this.initiatorToken, ssrc: this.ssrc }));
+      } catch {
+        /* best effort */
       }
-    });
+    }
+    this.close();
+    return Promise.resolve();
   }
 
-  /**
-   * Check if the session is connected
-   * @returns {boolean}
-   */
+  /** Tear down local state and timers. */
+  close() {
+    if (this.state === 'closed') return;
+    this.state = 'closed';
+    this.connected = false;
+    if (this._handshakeTimer) {
+      clearTimeout(this._handshakeTimer);
+      this._handshakeTimer = null;
+    }
+    if (this._clockTimer) {
+      clearInterval(this._clockTimer);
+      this._clockTimer = null;
+    }
+    this.emit('disconnected');
+  }
+
+  /** @returns {boolean} */
   isConnected() {
     return this.connected;
   }

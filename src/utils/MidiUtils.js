@@ -145,6 +145,31 @@ class MidiUtils {
   }
 
   /**
+   * Resolve a pitch-bend payload to a raw 14-bit value (0..16383, center =
+   * 8192), accepting any of the accepted fields in priority order:
+   *   - `value14`       : raw 14-bit, 0..16383 (center = 8192)
+   *   - `centeredValue` : signed, -8192..8191 (center = 0)
+   *   - legacy `value`  : negative treated as centered, non-negative as raw
+   * Centralized so every transport (easymidi/USB, BLE, network, serial) and
+   * every caller encode pitch bend identically (audit P0 — the USB path threw
+   * on the wrong type name and the legacy `value` field mis-encoded center).
+   * @param {Object} data
+   * @returns {number} clamped 0..16383
+   */
+  static pitchBendRaw14(data) {
+    let raw;
+    if (typeof data.value14 === 'number') {
+      raw = data.value14;
+    } else if (typeof data.centeredValue === 'number') {
+      raw = data.centeredValue + 8192;
+    } else {
+      raw = data.value ?? 8192;
+      if (raw < 0) raw += 8192;
+    }
+    return Math.max(0, Math.min(16383, raw));
+  }
+
+  /**
    * Convert easymidi-format message to raw MIDI bytes
    * Shared utility used by all transport managers (Bluetooth, Network, Serial)
    * @param {string} type - Message type (noteon, noteoff, cc, program, etc.)
@@ -172,23 +197,7 @@ class MidiUtils {
       case 'polyaftertouch':
         return [0xA0 | channel, data.note & 0x7F, data.pressure & 0x7F];
       case 'pitchbend': {
-        // Prefer EXPLICIT, unambiguous fields (audit P1 — the old `value`
-        // field could not distinguish a centered +100 from a raw 14-bit
-        // 100):
-        //   - `value14`       : raw 14-bit, 0..16383 (center = 8192)
-        //   - `centeredValue` : signed, -8192..8191 (center = 0)
-        // Legacy `value` is retained for back-compat: negative is treated
-        // as centered, non-negative as raw 14-bit.
-        let raw;
-        if (typeof data.value14 === 'number') {
-          raw = data.value14;
-        } else if (typeof data.centeredValue === 'number') {
-          raw = data.centeredValue + 8192;
-        } else {
-          raw = data.value ?? 8192;
-          if (raw < 0) raw += 8192;
-        }
-        raw = Math.max(0, Math.min(16383, raw));
+        const raw = MidiUtils.pitchBendRaw14(data);
         return [0xE0 | channel, raw & 0x7F, (raw >> 7) & 0x7F];
       }
       case 'sysex':

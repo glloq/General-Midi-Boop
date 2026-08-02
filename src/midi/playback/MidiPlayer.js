@@ -38,6 +38,29 @@ const MICROSECONDS_PER_MINUTE = 60000000;
 /** MIDI Channel Mode CC #123. */
 const MIDI_CC_ALL_NOTES_OFF = 123;
 
+/** Bank Select MSB (CC0) / LSB (CC32). */
+const BANK_SELECT_CCS = new Set([0, 32]);
+/**
+ * Effective ordering priority slotted BETWEEN setTempo (1) and programChange
+ * (3). Bank Select is a `controller` (default priority 4), which would sort it
+ * AFTER a Program Change at the same tick — so the PC would latch the old bank
+ * and the selected variation/drum-kit would be ignored (audit P1). Ordering
+ * Bank Select just before the PC fixes it while leaving ordinary CCs after.
+ */
+const BANK_SELECT_PRIORITY = 2;
+
+/**
+ * Effective same-tick ordering priority for one event.
+ * @param {Object} e
+ * @returns {number}
+ */
+function eventPriority(e) {
+  if (e.type === 'controller' && BANK_SELECT_CCS.has(e.controller)) {
+    return BANK_SELECT_PRIORITY;
+  }
+  return EVENT_ORDER_PRIORITY[e.type] ?? 50;
+}
+
 /**
  * Deterministic comparator for the merged event list. Primary key is the
  * absolute time; ties (same tick across tracks) are broken by the standard
@@ -51,8 +74,8 @@ const MIDI_CC_ALL_NOTES_OFF = 123;
  */
 function compareEvents(a, b) {
   if (a.time !== b.time) return a.time - b.time;
-  const pa = EVENT_ORDER_PRIORITY[a.type] ?? 50;
-  const pb = EVENT_ORDER_PRIORITY[b.type] ?? 50;
+  const pa = eventPriority(a);
+  const pb = eventPriority(b);
   if (pa !== pb) return pa - pb;
   return (a._seq ?? 0) - (b._seq ?? 0);
 }
