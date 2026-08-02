@@ -240,7 +240,27 @@ class BluetoothManager extends EventEmitter {
     if (this._initPromise) await this._initPromise;
 
     try {
-      await this._port.connect(address);
+      // Bound the connect: a powered-but-unresponsive device can stall the
+      // underlying GATT sequence indefinitely (audit P2 — no BLE timeout).
+      // On timeout, best-effort disconnect to release the half-open link.
+      const BLE_CONNECT_TIMEOUT_MS = 15000;
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`BLE connect timeout after ${BLE_CONNECT_TIMEOUT_MS}ms`)),
+          BLE_CONNECT_TIMEOUT_MS
+        );
+      });
+      try {
+        await Promise.race([this._port.connect(address), timeout]);
+      } catch (err) {
+        clearTimeout(timer);
+        if (/timeout/i.test(err.message)) {
+          await this._port.disconnect(address).catch(() => {});
+        }
+        throw err;
+      }
+      clearTimeout(timer);
 
       const name =
         this.devices.get(address)?.name ||
@@ -441,23 +461,65 @@ class BluetoothManager extends EventEmitter {
       throw new Error(`Device ${address} not connected or MIDI not configured`);
     }
     try {
-      const now = Date.now() % 8192;
-      const timestampHigh = (now >> 7) & 0x3F;
-      const timestampLow = now & 0x7F;
-      const headerByte = 0x80 | timestampHigh;
-      const tsByte = 0x80 | timestampLow;
-
-      const bleFrame = new Uint8Array(midiData.length + 2);
-      bleFrame[0] = headerByte;
-      bleFrame[1] = tsByte;
-      bleFrame.set(midiData, 2);
-
-      await this._port.sendMidi(address, bleFrame);
+      for (const frame of BluetoothManager.encodeBleMidiPackets(midiData)) {
+        await this._port.sendMidi(address, frame);
+      }
       this.logger.debug(`MIDI sent to ${address}:`, midiData);
     } catch (error) {
       this.logger.error(`Send MIDI error: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Encode a raw MIDI message into one or more Apple BLE-MIDI packets.
+   *
+   * Channel-voice / system messages (≤ a few bytes) become a single
+   * `[header, timestamp, ...data]` packet. SysEx is framed per spec — a
+   * timestamp byte immediately before the leading 0xF0 AND before the
+   * terminating 0xF7 — and split across `maxPacket`-sized packets (each
+   * prefixed with the running header) so payloads larger than the ATT MTU are
+   * not truncated (audit P2 — BLE SysEx framing/fragmentation).
+   *
+   * @param {Uint8Array|number[]} midiData
+   * @param {number} [maxPacket=20] - Max bytes per BLE write (conservative MTU).
+   * @returns {Uint8Array[]}
+   */
+  static encodeBleMidiPackets(midiData, maxPacket = 20) {
+    const data = midiData instanceof Uint8Array ? midiData : Uint8Array.from(midiData);
+    const now = Date.now() % 8192;
+    const header = 0x80 | ((now >> 7) & 0x3f);
+    const tsByte = 0x80 | (now & 0x7f);
+
+    if (data.length === 0) return [];
+
+    if (data[0] !== 0xf0) {
+      // Non-SysEx: single packet (channel-voice/system messages fit the MTU).
+      const frame = new Uint8Array(data.length + 2);
+      frame[0] = header;
+      frame[1] = tsByte;
+      frame.set(data, 2);
+      return [frame];
+    }
+
+    // SysEx: build the body stream with timestamps before F0 and F7.
+    const body = [];
+    for (let i = 0; i < data.length; i++) {
+      const b = data[i];
+      if (b === 0xf0 || b === 0xf7) body.push(tsByte, b);
+      else body.push(b);
+    }
+    // Chunk into packets, each prefixed with the header byte.
+    const packets = [];
+    const chunkSize = Math.max(1, maxPacket - 1);
+    for (let i = 0; i < body.length; i += chunkSize) {
+      const chunk = body.slice(i, i + chunkSize);
+      const frame = new Uint8Array(chunk.length + 1);
+      frame[0] = header;
+      frame.set(chunk, 1);
+      packets.push(frame);
+    }
+    return packets;
   }
 
   /**

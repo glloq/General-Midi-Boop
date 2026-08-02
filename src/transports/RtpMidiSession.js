@@ -25,6 +25,10 @@ import {
 
 const HANDSHAKE_TIMEOUT_MS = 8000;
 const CLOCK_SYNC_INTERVAL_MS = 10000;
+// Close the session if no packet arrives from the peer for this long. We send
+// clock-sync every CLOCK_SYNC_INTERVAL_MS and the peer echoes it, so silence
+// this long means the peer is gone (audit P2 — network drops undetected).
+const RECEIVER_TIMEOUT_MS = 35000;
 
 function randomU32() {
   return Math.floor(Math.random() * 0xffffffff) >>> 0;
@@ -65,6 +69,8 @@ class RtpMidiSession extends EventEmitter {
 
     this._handshakeTimer = null;
     this._clockTimer = null;
+    this._watchdogTimer = null;
+    this._lastRxAt = Date.now();
     this._resolveConnect = null;
     this._rejectConnect = null;
   }
@@ -114,6 +120,7 @@ class RtpMidiSession extends EventEmitter {
    * @param {Buffer} msg
    */
   handleControlPacket(msg) {
+    this._lastRxAt = Date.now();
     const cmd = commandOf(msg);
     if (cmd === CMD.INVITATION) {
       // Incoming invitation (we are the responder): accept it.
@@ -161,6 +168,7 @@ class RtpMidiSession extends EventEmitter {
    * @param {Buffer} msg
    */
   handleDataPacket(msg) {
+    this._lastRxAt = Date.now();
     if (isControlPacket(msg)) {
       const cmd = commandOf(msg);
       if (cmd === CMD.INVITATION_ACCEPTED) {
@@ -221,7 +229,22 @@ class RtpMidiSession extends EventEmitter {
       this._resolveConnect = null;
       this._rejectConnect = null;
     }
+    this._lastRxAt = Date.now();
     this._startClockSync();
+    this._startWatchdog();
+  }
+
+  /** Close the session if the peer goes silent past RECEIVER_TIMEOUT_MS. @private */
+  _startWatchdog() {
+    if (this._watchdogTimer) return;
+    this._watchdogTimer = setInterval(() => {
+      if (this.state !== 'established') return;
+      if (Date.now() - this._lastRxAt > RECEIVER_TIMEOUT_MS) {
+        this.emit('log', `RTP-MIDI peer ${this.remoteHost} timed out (no traffic)`);
+        this.close();
+      }
+    }, RECEIVER_TIMEOUT_MS);
+    if (this._watchdogTimer.unref) this._watchdogTimer.unref();
   }
 
   /** @private */
@@ -482,6 +505,10 @@ class RtpMidiSession extends EventEmitter {
     if (this._clockTimer) {
       clearInterval(this._clockTimer);
       this._clockTimer = null;
+    }
+    if (this._watchdogTimer) {
+      clearInterval(this._watchdogTimer);
+      this._watchdogTimer = null;
     }
     this.emit('disconnected');
   }

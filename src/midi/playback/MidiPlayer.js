@@ -176,6 +176,7 @@ class MidiPlayer {
     this.channels = []; // MIDI channels found in file
     this.channelRouting = new Map(); // channel -> { device, targetChannel } mapping
     this.channelTransposition = new Map(); // channel -> semitones (signed integer)
+    this.globalTranspose = 0; // live performance offset added to every channel
     this.channelNoteRemapping = new Map(); // channel -> { [srcNote]: destNote } (e.g. drum remap)
     this.mutedChannels = new Set(); // Muted channels
 
@@ -1277,10 +1278,13 @@ class MidiPlayer {
       this._schedulerTick();
     });
 
-    // Start MIDI clock if enabled, using the tempo at current position
+    // Start MIDI clock if enabled, at the EFFECTIVE tempo (file tempo at the
+    // current position × playbackRate) so external gear tracks the operator's
+    // playback speed rather than the notated BPM (audit P2).
     if (this.midiClockGenerator) {
       const tempoAtPosition = this._getTempoAtPosition(this.position);
-      this.midiClockGenerator.startPlayback(tempoAtPosition);
+      const rate = this.playbackRate > 0 ? this.playbackRate : 1;
+      this.midiClockGenerator.startPlayback(tempoAtPosition * rate);
     }
 
     this.broadcastStatus();
@@ -1307,6 +1311,7 @@ class MidiPlayer {
     state.channelRouting = this.channelRouting;
     state.outputDevice = this.outputDevice;
     state.channelTransposition = this.channelTransposition;
+    state.globalTranspose = this.globalTranspose;
     state.channelNoteRemapping = this.channelNoteRemapping;
     state.mutedChannels = this.mutedChannels;
     state.disconnectedPolicy = this.disconnectedPolicy;
@@ -1613,6 +1618,7 @@ class MidiPlayer {
     const dummyState = {
       playing: true,
       channelTransposition: this.channelTransposition,
+      globalTranspose: this.globalTranspose,
       channelNoteRemapping: this.channelNoteRemapping,
       mutedChannels: new Set()
     };
@@ -1929,6 +1935,19 @@ class MidiPlayer {
    *   empty/null clears.
    * @returns {void}
    */
+  /**
+   * Set a GLOBAL live transposition (semitones) added to every channel on top
+   * of any per-channel transposition — a performance control to shift the
+   * whole song up/down without re-adapting. Applied at runtime by the
+   * scheduler (audit P2 — `playback_transpose` was a no-op).
+   *
+   * @param {number} semitones - signed integer; 0 clears.
+   * @returns {void}
+   */
+  setGlobalTranspose(semitones) {
+    this.globalTranspose = Number.isFinite(semitones) ? Math.trunc(semitones) : 0;
+  }
+
   setChannelNoteRemapping(channel, mapping) {
     if (mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0) {
       this.channelNoteRemapping.set(channel, mapping);

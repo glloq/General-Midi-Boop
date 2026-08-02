@@ -47,12 +47,23 @@ export const playback_set_loop = {
   }
 };
 
+export const playback_transpose = {
+  custom: (data) => {
+    if (data.semitones === undefined) return 'semitones is required';
+    if (!Number.isInteger(data.semitones) || data.semitones < -48 || data.semitones > 48) {
+      return 'semitones must be an integer between -48 and 48';
+    }
+    return null;
+  }
+};
+
 // Indexed by command name — consumed by JsonValidator.validatePlaybackCommand
 // which now first looks up this map before falling back to the legacy switch.
 const schemas = {
   playback_start,
   playback_seek,
-  playback_set_loop
+  playback_set_loop,
+  playback_transpose
 };
 
 export default schemas;

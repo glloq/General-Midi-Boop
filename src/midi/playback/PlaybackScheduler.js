@@ -276,9 +276,13 @@ class PlaybackScheduler {
     // eventType === MIDI_EVENT_TYPES.NOTE_ON
     const now = performance.now();
 
-    // Check min_note_interval: if the last noteOn on this device:channel was too recent, drop
+    // Check min_note_interval PER PITCH (per actuator), not per channel: a
+    // mechanical actuator can't re-strike the SAME note faster than this, but
+    // DIFFERENT pitches are different actuators and must be free to sound
+    // together. Keying on the channel dropped the 2nd/3rd note of a chord
+    // (audit P2). `_lastNoteOnTime` is keyed by `device:channel:note`.
     if (constraints.minNoteInterval) {
-      const lastTime = this._lastNoteOnTime.get(cacheKey) || 0;
+      const lastTime = this._lastNoteOnTime.get(noteKey) || 0;
       if (lastTime > 0 && now - lastTime < constraints.minNoteInterval) {
         this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
         return true; // Gate: too fast for this instrument
@@ -303,7 +307,7 @@ class PlaybackScheduler {
     if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Map());
     const counts = this._activeNotes.get(cacheKey);
     counts.set(note, (counts.get(note) || 0) + 1);
-    this._lastNoteOnTime.set(cacheKey, now);
+    this._lastNoteOnTime.set(noteKey, now); // per-pitch retrigger guard
     this._noteOnTimes.set(noteKey, now);
 
     return false; // Allow
@@ -422,10 +426,16 @@ class PlaybackScheduler {
   scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
     // Handle tempo change events (for MIDI clock synchronization)
     if (event.type === MIDI_EVENT_TYPES.SET_TEMPO) {
-      const delayMs = Math.max(0, (event.time - currentPosition) * 1000);
+      const rate = state.playbackRate > 0 ? state.playbackRate : 1;
+      const delayMs = Math.max(0, ((event.time - currentPosition) * 1000) / rate);
+      // Drive the MIDI clock at the EFFECTIVE tempo (file BPM × playbackRate)
+      // so external gear (arpeggiators/drum machines) stays in sync when the
+      // operator changes playback speed — the raw file tempo desynced them
+      // above/below 1× (audit P2).
+      const effectiveTempo = event.tempo * rate;
       this._emit(delayMs, () => {
         if (this.midiClockGenerator) {
-          this.midiClockGenerator.setTempo(event.tempo);
+          this.midiClockGenerator.setTempo(effectiveTempo);
         }
       });
       return;
@@ -841,9 +851,9 @@ class PlaybackScheduler {
   _dispatchToDevice(event, routing, state) {
     const outChannel = routing.targetChannel;
 
-    const transposeSemis = state.channelTransposition
-      ? state.channelTransposition.get(event.channel) || 0
-      : 0;
+    const transposeSemis =
+      (state.channelTransposition ? state.channelTransposition.get(event.channel) || 0 : 0) +
+      (state.globalTranspose || 0); // live global performance offset (audit P2)
     const isNoteTypeEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON ||
       event.type === MIDI_EVENT_TYPES.NOTE_OFF ||
