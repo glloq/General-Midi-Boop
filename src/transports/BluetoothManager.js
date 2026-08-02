@@ -36,14 +36,27 @@ class BluetoothManager extends EventEmitter {
     // BluetoothManager only ever read `logger` off the legacy
     // `this.app` facade — destructure it explicitly.
     this.logger = deps.logger;
+    // Persistence for the paired list (optional — absent in tests / when the
+    // DB failed to load). Guarded everywhere with `?.`.
+    this._db = deps.database || null;
     this.scanning = false;
     this.devices = new Map(); // address → enriched device info
     this.connectedDevices = new Map(); // address → { name }
     this.pairedDevices = []; // persistent list
 
+    // Auto-reconnect state: address → { attempts, timer }.
+    this._reconnect = new Map();
+    this._autoReconnect = true;
+    this._maxReconnectAttempts = 5;
+
     this._port = options.port || new NobleBleAdapter({ logger: this.logger });
 
     this._wirePortEvents();
+
+    // Load the persisted paired list so devices survive a reboot, then
+    // best-effort reconnect the ones flagged auto_reconnect (audit — the list
+    // was in-memory only). Runs after port init resolves.
+    this._restoreAndReconnect();
 
     // Kick off port initialisation best-effort (the port's methods are
     // also safe to call before _init completes — they await it lazily).
@@ -88,14 +101,24 @@ class BluetoothManager extends EventEmitter {
           connected: true
         });
       }
+      // A successful (re)connection clears any pending reconnect backoff and
+      // persists the device so it is remembered across reboots.
+      this._cancelReconnect(address);
+      this._db?.bluetoothDB?.upsertPaired(address, name);
+      this._db?.bluetoothDB?.markConnected(address);
       this.emit('bluetooth:connected', { address, device_id: address, name });
     });
 
-    this._port.on(BLE_EVENTS.DISCONNECTED, ({ address }) => {
+    this._port.on(BLE_EVENTS.DISCONNECTED, ({ address, unexpected }) => {
       this.connectedDevices.delete(address);
       const existing = this.pairedDevices.find((d) => d.address === address);
       if (existing) existing.connected = false;
       this.emit('bluetooth:disconnected', { address, device_id: address });
+      // Auto-reconnect only an UNEXPECTED drop (out of range / powered off) —
+      // never a deliberate disconnect()/unpair() (audit — no BLE reconnection).
+      if (unexpected && this._autoReconnect && this._isAutoReconnect(address)) {
+        this._scheduleReconnect(address);
+      }
     });
 
     this._port.on(BLE_EVENTS.MIDI_MESSAGE, ({ address, data }) => {
@@ -110,6 +133,85 @@ class BluetoothManager extends EventEmitter {
 
   _pairedName(address) {
     return this.pairedDevices.find((d) => d.address === address)?.name;
+  }
+
+  /** Whether a persisted device is flagged for auto-reconnection. @private */
+  _isAutoReconnect(address) {
+    if (!this._db?.bluetoothDB) return true; // no DB → default on
+    const row = this._db.bluetoothDB.listPaired().find((d) => d.address === address);
+    return row ? row.auto_reconnect !== 0 : true;
+  }
+
+  /** Cancel any pending reconnect backoff for `address`. @private */
+  _cancelReconnect(address) {
+    const entry = this._reconnect.get(address);
+    if (entry?.timer) clearTimeout(entry.timer);
+    this._reconnect.delete(address);
+  }
+
+  /**
+   * Schedule a bounded, backing-off reconnection to a dropped device. Attempts
+   * 2s, 4s, 8s, 16s, 30s then gives up. A successful CONNECTED clears state.
+   * @param {string} address
+   * @private
+   */
+  _scheduleReconnect(address) {
+    const entry = this._reconnect.get(address) || { attempts: 0, timer: null };
+    if (entry.attempts >= this._maxReconnectAttempts) {
+      this.logger.warn(
+        `[BLE] giving up reconnection to ${address} after ${entry.attempts} attempts`
+      );
+      this._reconnect.delete(address);
+      return;
+    }
+    entry.attempts += 1;
+    const delay = Math.min(30000, 2000 * 2 ** (entry.attempts - 1));
+    entry.timer = setTimeout(() => {
+      if (this.connectedDevices.has(address)) {
+        this._reconnect.delete(address);
+        return;
+      }
+      this.logger.info(`[BLE] reconnection attempt ${entry.attempts} → ${address}`);
+      this.connect(address).catch(() => this._scheduleReconnect(address));
+    }, delay);
+    if (entry.timer.unref) entry.timer.unref();
+    this._reconnect.set(address, entry);
+  }
+
+  /**
+   * Load the persisted paired list and best-effort reconnect the ones flagged
+   * for auto-reconnection. Non-fatal: a missing DB or a failed reconnect just
+   * leaves the device listed as disconnected.
+   * @private
+   */
+  async _restoreAndReconnect() {
+    try {
+      await this._initPromise;
+    } catch {
+      /* port init failure already logged */
+    }
+    const rows = this._db?.bluetoothDB?.listPaired?.() || [];
+    for (const row of rows) {
+      if (!this.pairedDevices.find((d) => d.address === row.address)) {
+        this.pairedDevices.push({
+          address: row.address,
+          name: row.name || row.address,
+          type: 'ble',
+          paired: true,
+          connected: false
+        });
+      }
+    }
+    if (rows.length > 0) {
+      this.logger.info(`[BLE] restored ${rows.length} paired device(s) from storage`);
+    }
+    // Opportunistic reconnect for auto-reconnect devices.
+    for (const row of rows) {
+      if (row.auto_reconnect === 0) continue;
+      this.connect(row.address).catch(() => {
+        /* not in range yet — user can reconnect, or a later drop retries */
+      });
+    }
   }
 
   async _initializePort() {
@@ -282,6 +384,9 @@ class BluetoothManager extends EventEmitter {
    * Disconnect a device.
    */
   async disconnect(address) {
+    // A deliberate disconnect stops auto-reconnect (the DISCONNECTED it
+    // triggers is not flagged `unexpected`, but cancel any earlier backoff).
+    this._cancelReconnect(address);
     if (!this._port.isConnected(address)) {
       throw new Error(`Device ${address} not connected`);
     }
@@ -298,10 +403,14 @@ class BluetoothManager extends EventEmitter {
    * Unpair a device (disconnect first, then remove from paired list).
    */
   async unpair(address) {
+    // Stop any auto-reconnect first so a deliberate unpair is not immediately
+    // undone by a scheduled retry.
+    this._cancelReconnect(address);
     if (this._port.isConnected(address)) {
       await this.disconnect(address);
     }
     this.pairedDevices = this.pairedDevices.filter((d) => d.address !== address);
+    this._db?.bluetoothDB?.removePaired(address);
     this.logger.info(`Unpaired device ${address}`);
     this.emit('bluetooth:unpaired', { address });
   }
@@ -596,6 +705,11 @@ class BluetoothManager extends EventEmitter {
 
   async cleanup() {
     try {
+      // Stop all pending auto-reconnect timers.
+      for (const entry of this._reconnect.values()) {
+        if (entry.timer) clearTimeout(entry.timer);
+      }
+      this._reconnect.clear();
       for (const address of Array.from(this.connectedDevices.keys())) {
         await this.disconnect(address).catch(() => {});
       }
