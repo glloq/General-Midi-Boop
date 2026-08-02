@@ -11,8 +11,6 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import MidiDatabase from './tables/MidiDatabase.js';
 import InstrumentDatabase from './tables/InstrumentDatabase.js';
 import LightingDatabase from './tables/LightingDatabase.js';
@@ -23,69 +21,7 @@ import CustomSF2DB from './tables/CustomSF2DB.js';
 import LoopsDB from './tables/LoopsDB.js';
 import LoopArrangementsDB from './tables/LoopArrangementsDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/**
- * Split a migration SQL file into individual top-level statements so
- * each DDL can be executed (and tolerated) in isolation. Strips `--`
- * line comments and `/* ... *\/` block comments, then splits on `;` —
- * single/double quoted strings are tracked to avoid breaking on
- * semicolons inside literals. Empty statements are filtered out.
- *
- * Migrations are author-controlled SQL, so we deliberately keep this
- * splitter minimal: no support for nested block comments, dollar
- * quoting, or compound triggers (none used here).
- *
- * @param {string} sql
- * @returns {string[]} Trimmed statements ready for `db.exec()`.
- */
-function splitSqlStatements(sql) {
-  const statements = [];
-  let buf = '';
-  let i = 0;
-  let inSingle = false;
-  let inDouble = false;
-  while (i < sql.length) {
-    const c = sql[i];
-    const next = sql[i + 1];
-    if (!inSingle && !inDouble && c === '-' && next === '-') {
-      while (i < sql.length && sql[i] !== '\n') i++;
-      continue;
-    }
-    if (!inSingle && !inDouble && c === '/' && next === '*') {
-      i += 2;
-      while (i < sql.length && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
-      i += 2;
-      continue;
-    }
-    if (!inDouble && c === "'") {
-      inSingle = !inSingle;
-      buf += c;
-      i++;
-      continue;
-    }
-    if (!inSingle && c === '"') {
-      inDouble = !inDouble;
-      buf += c;
-      i++;
-      continue;
-    }
-    if (!inSingle && !inDouble && c === ';') {
-      const trimmed = buf.trim();
-      if (trimmed) statements.push(trimmed);
-      buf = '';
-      i++;
-      continue;
-    }
-    buf += c;
-    i++;
-  }
-  const tail = buf.trim();
-  if (tail) statements.push(tail);
-  return statements;
-}
+import { runMigrations as runSchemaMigrations } from './DatabaseLifecycle.js';
 
 /**
  * Top-level database manager. One instance per process; registered as
@@ -162,102 +98,16 @@ class DatabaseManager {
    * schema; subsequent migrations are single-feature SQL files that
    * each register themselves into `schema_version`.
    *
-   * Each migration runs inside a transaction so partial application
-   * cannot poison the DB.
+   * Delegates to the shared runner in `DatabaseLifecycle.js` so the
+   * startup path and the one-shot `scripts/migrate-db.js` runner apply
+   * migrations identically — including compound `CREATE TRIGGER ...
+   * BEGIN ... END;` statements, which the previous statement-splitter
+   * broke apart on a fresh install.
    *
    * @returns {void}
    */
   runMigrations() {
-    const migrationsDir = path.join(__dirname, '../../migrations');
-    const migrationFiles = fs
-      .readdirSync(migrationsDir)
-      .filter((f) => f.endsWith('.sql'))
-      .sort();
-
-    for (const file of migrationFiles) {
-      const version = parseInt(file.split('_')[0], 10);
-      if (!Number.isFinite(version)) continue;
-
-      if (this.hasMigration(version)) continue;
-      this.runMigration(version, file, migrationsDir);
-    }
-
-    this.logger.info(`Migrations up to date (current version: ${this.getCurrentVersion()})`);
-  }
-
-  /**
-   * Current (maximum) applied schema version. Returns 0 when the DB is
-   * brand new and `schema_version` does not exist yet.
-   */
-  getCurrentVersion() {
-    try {
-      const row = this.db.prepare('SELECT MAX(version) as v FROM schema_version').get();
-      return row?.v ?? 0;
-    } catch {
-      return 0;
-    }
-  }
-
-  /**
-   * Check whether a migration is already recorded. Returns false when
-   * `schema_version` does not exist yet (baseline not applied).
-   */
-  hasMigration(version) {
-    try {
-      const row = this.db.prepare('SELECT 1 FROM schema_version WHERE version = ?').get(version);
-      return Boolean(row);
-    } catch {
-      return false;
-    }
-  }
-
-  runMigration(version, filename, migrationsDir) {
-    const filePath = path.join(migrationsDir, filename);
-    const sql = fs.readFileSync(filePath, 'utf8');
-
-    this.logger.info(`Running migration ${version}: ${filename}`);
-    const statements = splitSqlStatements(sql);
-    let hadDuplicateColumn = false;
-
-    try {
-      this.db.exec('BEGIN TRANSACTION');
-      for (const stmt of statements) {
-        try {
-          this.db.exec(stmt);
-        } catch (error) {
-          // Duplicate-column errors from `ALTER TABLE ADD COLUMN` mean
-          // the column already exists — typically because an earlier,
-          // differently-numbered copy of the same migration ran on this
-          // install (see `006_omni_mode.sql` for the concrete scenario).
-          // Tolerate THIS statement only and continue with the rest of
-          // the file, so that follow-on `CREATE INDEX IF NOT EXISTS` and
-          // other DDL still execute instead of being silently skipped by
-          // a whole-file rollback.
-          if (/duplicate column name/i.test(error.message)) {
-            this.logger.warn(
-              `Migration ${version} (${filename}): column already present in statement, skipping`
-            );
-            hadDuplicateColumn = true;
-            continue;
-          }
-          throw error;
-        }
-      }
-
-      const description = hadDuplicateColumn
-        ? `${filename} (column already present)`
-        : filename;
-      this.db
-        .prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)')
-        .run(version, description);
-
-      this.db.exec('COMMIT');
-      this.logger.info(`Migration ${version} completed`);
-    } catch (error) {
-      this.db.exec('ROLLBACK');
-      this.logger.error(`Migration ${version} failed: ${error.message}`);
-      throw error;
-    }
+    runSchemaMigrations(this.db, this.logger);
   }
 
   // ==================== ROUTING ====================

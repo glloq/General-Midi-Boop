@@ -88,10 +88,43 @@ class BackupScheduler {
       this.logger.info(`Scheduled backup completed: ${backupPath}`);
       this._writeManifest(manifestPath, backupPath);
       this._pruneOldBackups();
+      this._gcOrphanBlobs();
     } catch (error) {
       this.logger.error(`Scheduled backup failed: ${error.message}`);
     } finally {
       this._running = false;
+    }
+  }
+
+  /**
+   * Sweep blob files no DB row references anymore. Runs inside the scheduled
+   * backup — the intended quiescent maintenance window per BlobStore.gcOrphans'
+   * race note — so it never contends with live uploads. Without this the
+   * orphan GC was never scheduled and deleted/replaced-file blobs accumulated
+   * forever (audit P2). Best-effort: failures are logged, not thrown.
+   * @returns {void}
+   * @private
+   */
+  _gcOrphanBlobs() {
+    if (
+      !this.blobStore ||
+      typeof this.blobStore.gcOrphans !== 'function' ||
+      !this.database?.midiDB
+    ) {
+      return;
+    }
+    try {
+      const referenced = new Set(
+        this.database.midiDB.listBlobsForManifest().map((r) => r.blob_path)
+      );
+      const { scanned, deleted } = this.blobStore.gcOrphans((rel) => referenced.has(rel));
+      if (deleted > 0) {
+        this.logger.info(`Blob GC: removed ${deleted} orphaned blob(s) of ${scanned} scanned`);
+      } else {
+        this.logger.debug(`Blob GC: no orphans (${scanned} scanned)`);
+      }
+    } catch (err) {
+      this.logger.warn(`Blob GC failed: ${err.message}`);
     }
   }
 

@@ -153,6 +153,7 @@ class MidiPlayer {
     this.channels = []; // MIDI channels found in file
     this.channelRouting = new Map(); // channel -> { device, targetChannel } mapping
     this.channelTransposition = new Map(); // channel -> semitones (signed integer)
+    this.channelNoteRemapping = new Map(); // channel -> { [srcNote]: destNote } (e.g. drum remap)
     this.mutedChannels = new Set(); // Muted channels
 
     // Queue / Playlist state
@@ -453,6 +454,30 @@ class MidiPlayer {
   }
 
   /**
+   * Append injected events to the timeline with a deterministic `_seq`
+   * stamp, then re-sort. Injected CCs (tablature / hand-position) previously
+   * carried no `_seq`, so `compareEvents` fell back to `0` for all of them
+   * and their order among same-time / same-priority events depended on push
+   * order — non-deterministic across runs (audit P2). Continuing the seq
+   * counter past the current max gives every injected event a unique, stable
+   * tiebreak.
+   *
+   * @param {Object[]} newEvents
+   * @returns {void}
+   * @private
+   */
+  _appendEventsWithSeq(newEvents) {
+    if (!newEvents || newEvents.length === 0) return;
+    let seq = 0;
+    for (const e of this.events) {
+      if ((e._seq ?? -1) >= seq) seq = e._seq + 1;
+    }
+    for (const e of newEvents) e._seq = seq++;
+    this.events.push(...newEvents);
+    this.events.sort(compareEvents);
+  }
+
+  /**
    * Inject CC events (string select + fret select) from tablature data.
    */
   _injectTablatureCCEvents() {
@@ -570,8 +595,7 @@ class MidiPlayer {
     }
 
     if (ccEvents.length > 0) {
-      this.events.push(...ccEvents);
-      this.events.sort(compareEvents);
+      this._appendEventsWithSeq(ccEvents);
       this.logger.info(
         `Injected ${ccEvents.length} tablature CC events for ${tabByChannel.size} channel(s)`
       );
@@ -792,8 +816,7 @@ class MidiPlayer {
 
     if (!hadAny) return 0;
 
-    this.events.push(...allCCs);
-    this.events.sort(compareEvents);
+    this._appendEventsWithSeq(allCCs);
     this._handCCCount = allCCs.length;
 
     if (allWarnings.length > 0) {
@@ -1261,6 +1284,7 @@ class MidiPlayer {
     state.channelRouting = this.channelRouting;
     state.outputDevice = this.outputDevice;
     state.channelTransposition = this.channelTransposition;
+    state.channelNoteRemapping = this.channelNoteRemapping;
     state.mutedChannels = this.mutedChannels;
     state.disconnectedPolicy = this.disconnectedPolicy;
     state._lastBroadcastPosition = this._lastBroadcastPosition;
@@ -1434,7 +1458,11 @@ class MidiPlayer {
    * @returns {boolean} True when the seek was applied.
    */
   seek(position) {
-    const wasPlaying = this.playing;
+    // A paused player has `playing === true`, so keying the post-seek action
+    // off `this.playing` alone made seeking-while-paused RESTART playback
+    // (audit P2). Distinguish the two: only actively-playing seeks resume.
+    const wasActivelyPlaying = this.playing && !this.paused;
+    const wasPaused = this.playing && this.paused;
     const seekPosition = Math.max(0, Math.min(position, this.duration));
     const savedOutputDevice = this.outputDevice;
 
@@ -1469,8 +1497,24 @@ class MidiPlayer {
       this.logger.warn(`Seek state reconstruction failed: ${err.message}`);
     }
 
-    if (wasPlaying) {
+    if (wasActivelyPlaying) {
       this.start(savedOutputDevice, seekPosition);
+    } else if (wasPaused) {
+      // Stay PAUSED at the new position instead of resuming. Re-enter the
+      // paused state with the scheduler stopped and anchor the clocks so a
+      // later resume() continues from exactly `seekPosition`:
+      //   resume() does startTime += (now - pauseTime), then elapsed =
+      //   now - startTime. With pauseTime = startTime + seekPosition, that
+      //   elapsed resolves to seekPosition regardless of pause duration.
+      const rate = this.playbackRate || 1;
+      const now = performance.now();
+      this.playing = true;
+      this.paused = true;
+      this.startTime = now - (seekPosition * 1000) / rate;
+      this.pauseTime = now;
+      this.stateMachine.tryTransition(PLAYBACK_STATES.PAUSED);
+      this.broadcastStatus();
+      this.broadcastPosition();
     } else {
       this.broadcastPosition();
     }
@@ -1546,6 +1590,7 @@ class MidiPlayer {
     const dummyState = {
       playing: true,
       channelTransposition: this.channelTransposition,
+      channelNoteRemapping: this.channelNoteRemapping,
       mutedChannels: new Set()
     };
 
@@ -1849,6 +1894,27 @@ class MidiPlayer {
   }
 
   /**
+   * Set (or clear) a per-channel note-remapping table, applied at runtime by
+   * the scheduler after transposition — e.g. GM drum substitution when a
+   * pad instrument lacks a given drum voice. Applying it live means the
+   * remap works even when playing the ORIGINAL file with no baked adapted
+   * copy (audit P1 — note_remapping was persisted on routings but never
+   * applied at playback).
+   *
+   * @param {number} channel
+   * @param {?Object<string|number, number>} mapping - `{ srcNote: destNote }`;
+   *   empty/null clears.
+   * @returns {void}
+   */
+  setChannelNoteRemapping(channel, mapping) {
+    if (mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0) {
+      this.channelNoteRemapping.set(channel, mapping);
+    } else {
+      this.channelNoteRemapping.delete(channel);
+    }
+  }
+
+  /**
    * Split a channel across multiple destinations based on note range
    * (e.g. low notes → bass amp, high notes → guitar amp).
    *
@@ -1894,6 +1960,7 @@ class MidiPlayer {
   clearChannelRouting() {
     this.channelRouting.clear();
     this.channelTransposition.clear();
+    this.channelNoteRemapping.clear();
     this.scheduler.invalidateCompensationCache();
     this.invalidateOmniFallback();
     this.channels.forEach((c) => (c.assignedDevice = null));
@@ -2571,6 +2638,24 @@ class MidiPlayer {
             // operator's choice in the routing modal survives a reload
             // even when no adapted file was generated.
             this.setChannelTransposition(routing.channel, routing.transposition_applied || 0);
+            // Same for note remapping (e.g. GM drum substitution): apply it
+            // live so it works when playing the original file too.
+            if (routing.note_remapping != null) {
+              let remap = routing.note_remapping;
+              if (typeof remap === 'string') {
+                try {
+                  remap = JSON.parse(remap);
+                } catch (e) {
+                  this.logger.warn(
+                    `Invalid note_remapping for ch ${routing.channel}: ${e.message}`
+                  );
+                  remap = null;
+                }
+              }
+              this.setChannelNoteRemapping(routing.channel, remap);
+            } else {
+              this.setChannelNoteRemapping(routing.channel, null);
+            }
             loadedCount++;
           }
         }

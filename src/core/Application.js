@@ -308,10 +308,16 @@ class Application {
       // appeared connected but its notes were never routed. BLE delivers raw
       // bytes (parsed by DeviceManager.handleRawMidi); NetworkManager already
       // delivers an easymidi-shaped {type, data} pair.
+      //
+      // The source identifier MUST be the transport's `getDeviceList().id`
+      // — BLE uses the device address, network uses the IP — because routes
+      // are stored keyed by that id. Falling back to the friendly `name`
+      // would (if a transport ever populated it) desync the source from the
+      // route key and silently drop input (audit P1 — inbound source id).
       if (this.bluetoothManager?.on) {
         this.bluetoothManager.on('midi:data', ({ name, address, data }) => {
           try {
-            this.deviceManager.handleRawMidi(name || address, data);
+            this.deviceManager.handleRawMidi(address || name, data);
           } catch (err) {
             this.logger.warn(`BLE inbound MIDI routing failed: ${err.message}`);
           }
@@ -320,7 +326,7 @@ class Application {
       if (this.networkManager?.on) {
         this.networkManager.on('midi:data', ({ name, ip, address, type, data }) => {
           try {
-            const source = name || ip || address;
+            const source = ip || address || name;
             if (Array.isArray(data)) {
               this.deviceManager.handleRawMidi(source, data);
             } else if (type) {

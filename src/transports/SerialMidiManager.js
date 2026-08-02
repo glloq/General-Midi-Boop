@@ -78,6 +78,7 @@ class SerialMidiManager extends EventEmitter {
     this.configuredPorts = []; // From config.json
     this.hotPlugInterval = null;
     this.knownPorts = new Set();
+    this._reopenInFlight = new Set(); // paths with an in-progress hot-plug re-open
 
     // Load config
     const serialConfig = this.config.serial || {};
@@ -486,13 +487,19 @@ class SerialMidiManager extends EventEmitter {
   }
 
   /**
-   * Resolve the friendly device name for a port and forward a parsed
-   * message to DeviceManager (no-op if it is not yet registered).
+   * Forward a parsed message to DeviceManager (no-op if it is not yet
+   * registered).
+   *
+   * The source identifier MUST be the port PATH, not the friendly name:
+   * `DeviceManager.getDeviceList()` exposes serial ports with
+   * `id: port.path`, so routes are stored keyed by the path. Emitting the
+   * friendly name here (the previous behaviour) meant serial input never
+   * matched any route and was silently dropped (audit P1 — inbound source
+   * id mismatch). Every transport must route by its `getDeviceList().id`.
    */
   _forwardToDevice(portPath, type, data) {
     if (!this.deviceManager) return;
-    const deviceName = this.openPorts.get(portPath)?.name || portPath;
-    this.deviceManager.handleMidiMessage(deviceName, type, data);
+    this.deviceManager.handleMidiMessage(portPath, type, data);
   }
 
   /**
@@ -785,6 +792,31 @@ class SerialMidiManager extends EventEmitter {
 
     if (removedPorts.length > 0) {
       this._broadcastDeviceList();
+    }
+
+    // Insertion: re-open a CONFIGURED (enabled) port that has (re)appeared
+    // but is not currently open — e.g. a UART hat re-plugged after a drop.
+    // Only configured ports are auto-opened so hot-plug never grabs a port
+    // the operator did not opt into (audit P2 — hot-plug handled removal
+    // only, leaving re-plugged ports dark until a restart). `_reopenInFlight`
+    // stops overlapping async opens from stacking up across ticks.
+    for (const portPath of currentPorts) {
+      if (this.openPorts.has(portPath) || this._reopenInFlight.has(portPath)) continue;
+      const cfg = this.configuredPorts.find((p) => p.path === portPath && p.enabled !== false);
+      if (!cfg) continue;
+
+      this._reopenInFlight.add(portPath);
+      this.openPort(cfg.path, cfg.name, cfg.direction || 'both')
+        .then(() => {
+          this.logger.info(`Serial port reconnected: ${portPath}`);
+          this._broadcastDeviceList();
+        })
+        .catch((e) => {
+          this.logger.warn(`Failed to reopen serial port ${portPath}: ${e.message}`);
+        })
+        .finally(() => {
+          this._reopenInFlight.delete(portPath);
+        });
     }
   }
 

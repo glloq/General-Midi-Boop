@@ -524,7 +524,10 @@ async function systemBackup(app, data) {
 
   const backupPath = resolve(backupsDir, filename);
   // Admin-level op on the whole database file; no domain Repository fits here.
-  app.database.backup(backupPath);
+  // `backup()` is async (better-sqlite3 streams pages) — await it so the
+  // command only resolves once the file is fully written, not while the
+  // backup is still in flight (audit P2 — missing await).
+  await app.database.backup(backupPath);
   return { path: backupPath };
 }
 

@@ -438,6 +438,174 @@ class FileManager {
     return { success: true, stats };
   }
 
+  /**
+   * Replace an existing file's bytes in place from a ready MIDI Buffer
+   * (unlike {@link FileManager#saveFile}, which serialises parsed midiData).
+   * Writes the blob, updates content_hash + blob_path + recomputed metadata
+   * + channels/tempo/text, and deletes the now-orphaned old blob.
+   *
+   * Used by the adaptation apply flow to persist an adapted file: bytes MUST
+   * go through BlobStore. The previous code passed a base64 `data` field to
+   * the DB layer, which its column whitelist silently dropped — so the
+   * adapted transpose/remap/compress never actually reached the instrument
+   * (audit P1 — adapted file never persisted).
+   *
+   * @param {number|string} fileId
+   * @param {Buffer} buffer - Ready standard-MIDI bytes.
+   * @returns {Promise<{success:true, fileId:number, contentHash:string}>}
+   */
+  async replaceFileBytes(fileId, buffer) {
+    if (!Buffer.isBuffer(buffer)) throw new Error('replaceFileBytes requires a Buffer');
+    const file = this.database.getFile(fileId);
+    if (!file) throw new Error(`File not found: ${fileId}`);
+
+    const newBlob = this.blobStore.write(buffer);
+    if (newBlob.hash !== file.content_hash) {
+      const collision = this.database.midiDB.getFileByContentHash(newBlob.hash);
+      if (collision && collision.id !== file.id) {
+        if (!newBlob.deduplicated) this._safeBlobDelete(newBlob.relativePath);
+        throw new Error(
+          `Replacement would collide with existing file id=${collision.id} (identical content hash)`
+        );
+      }
+    }
+
+    const parsed = parseMidi(buffer);
+    const metadata = this.midiFileParser.extractMetadata(parsed);
+    const tempoMap = this.midiFileParser.extractTempoMap(parsed);
+    const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
+    const { events: textEvents, summary: textSummary } =
+      this.midiFileParser.extractTextEvents(parsed);
+
+    const oldBlobPath = file.blob_path;
+    const persist = this.database.transaction(() => {
+      this.database.updateFile(fileId, {
+        blob_path: newBlob.relativePath,
+        size: buffer.length,
+        tracks: parsed.tracks.length,
+        duration: metadata.duration,
+        tempo: metadata.tempo,
+        ppq: parsed.header.ticksPerBeat || 480,
+        ...instrumentMetadata.fileMetadata,
+        title: textSummary.title ?? null,
+        copyright: textSummary.copyright ?? null,
+        has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
+      });
+      // content_hash is UNIQUE — not in updateFile's allow-list, raw UPDATE.
+      if (newBlob.hash !== file.content_hash) {
+        this.database.db
+          .prepare('UPDATE midi_files SET content_hash = ? WHERE id = ?')
+          .run(newBlob.hash, fileId);
+      }
+      this.database.deleteFileChannels(fileId);
+      if (instrumentMetadata.channelDetails.length > 0) {
+        this.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
+      }
+      this.database.midiDB.deleteFileTempoMap(fileId);
+      if (tempoMap.length > 0) {
+        this.database.midiDB.insertFileTempoMap(fileId, tempoMap);
+      }
+      this.database.midiDB.deleteFileTextEvents(fileId);
+      if (textEvents.length > 0) {
+        this.database.midiDB.insertFileTextEvents(fileId, textEvents);
+      }
+    });
+    persist();
+
+    if (oldBlobPath && oldBlobPath !== newBlob.relativePath) {
+      this._safeBlobDelete(oldBlobPath);
+    }
+    if (this.autoAssigner) this.autoAssigner.invalidateCache(fileId);
+
+    this.logger.info(`File bytes replaced: ${fileId} (hash=${newBlob.hash.slice(0, 8)}…)`);
+    if (this.eventBus) {
+      this.eventBus.emit('file_write', { fileId: Number(fileId), contentHash: newBlob.hash });
+    }
+    this.broadcastFileList();
+    return { success: true, fileId: Number(fileId), contentHash: newBlob.hash };
+  }
+
+  /**
+   * Persist a NEW file derived from an existing one (e.g. an adapted copy),
+   * linked via `parent_file_id` and marked non-original. Writes the blob,
+   * inserts the row + channels + tempo map + text events in one transaction.
+   * If identical bytes already exist, returns that row (dedup) rather than
+   * inserting a duplicate.
+   *
+   * @param {string} filename
+   * @param {Buffer} buffer - Ready standard-MIDI bytes.
+   * @param {{folder?:string, parentFileId:(number|string)}} opts
+   * @returns {Promise<{fileId:number, contentHash:string,
+   *   status:('created'|'duplicate')}>}
+   */
+  async createDerivedFile(filename, buffer, { folder = '/', parentFileId } = {}) {
+    if (!Buffer.isBuffer(buffer)) throw new Error('createDerivedFile requires a Buffer');
+
+    const blob = this.blobStore.write(buffer);
+    const existing = this.database.midiDB.getFileByContentHash(blob.hash);
+    if (existing) {
+      // Identical bytes already stored — reuse rather than duplicate.
+      return { fileId: existing.id, contentHash: blob.hash, status: 'duplicate' };
+    }
+
+    const parsed = parseMidi(buffer);
+    const metadata = this.midiFileParser.extractMetadata(parsed);
+    const tempoMap = this.midiFileParser.extractTempoMap(parsed);
+    const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
+    const { events: textEvents, summary: textSummary } =
+      this.midiFileParser.extractTextEvents(parsed);
+
+    const persist = this.database.transaction(() => {
+      const id = this.database.insertFile({
+        content_hash: blob.hash,
+        filename,
+        folder,
+        blob_path: blob.relativePath,
+        size: buffer.length,
+        tracks: parsed.tracks.length,
+        duration: metadata.duration,
+        tempo: metadata.tempo,
+        ppq: parsed.header.ticksPerBeat || 480,
+        ...instrumentMetadata.fileMetadata,
+        title: textSummary.title ?? null,
+        copyright: textSummary.copyright ?? null,
+        has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0,
+        is_original: false,
+        parent_file_id: parentFileId,
+        uploaded_at: new Date().toISOString()
+      });
+      if (instrumentMetadata.channelDetails.length > 0) {
+        this.database.insertFileChannels(id, instrumentMetadata.channelDetails);
+      }
+      if (tempoMap.length > 0) {
+        this.database.midiDB.insertFileTempoMap(id, tempoMap);
+      }
+      if (textEvents.length > 0) {
+        this.database.midiDB.insertFileTextEvents(id, textEvents);
+      }
+      return id;
+    });
+
+    let fileId;
+    try {
+      fileId = persist();
+    } catch (err) {
+      if (err.code !== 'DUPLICATE_CONTENT' && !this.database.midiDB.getFileByContentHash(blob.hash)) {
+        this._safeBlobDelete(blob.relativePath);
+      }
+      throw err;
+    }
+
+    this.logger.info(
+      `Adapted file created: ${filename} (id=${fileId}, parent=${parentFileId}, hash=${blob.hash.slice(0, 8)}…)`
+    );
+    if (this.eventBus) {
+      this.eventBus.emit('file_uploaded', { fileId, filename, contentHash: blob.hash });
+    }
+    this.broadcastFileList();
+    return { fileId, contentHash: blob.hash, status: 'created' };
+  }
+
   async renameFile(fileId, newFilename) {
     const file = this.database.getFileInfo(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);

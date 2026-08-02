@@ -372,6 +372,16 @@ else
     fi
 fi
 
+# Rebuild the production SPA bundle so the server serves the updated, bundled
+# UI from dist/ instead of falling back to the unbundled public/ tree (audit
+# P1 — dist bundle never built). Best-effort: a build failure is not fatal.
+print_info "Building production web bundle..."
+if NODE_ENV=production npm run build 2>&1; then
+    print_success "Web bundle built (dist/)"
+else
+    print_warning "Web build failed — server will serve the unbundled public/ assets"
+fi
+
 # ============================================================================
 # 5. Run Database Migrations
 # ============================================================================

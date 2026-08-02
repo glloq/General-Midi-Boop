@@ -25,7 +25,7 @@
  *   - `midi_instruments_list`    — distinct GM instruments across library
  *   - `midi_categories_list`     — distinct GM categories across library
  *
- * Validation: see `file.schemas.js` for upload/delete/rename/move/export;
+ * Validation: see `file.schemas.js` for delete/rename/move/export/write;
  * other commands rely on imperative checks inside the handler.
  */
 import { ValidationError, NotFoundError } from '../../core/errors/index.js';

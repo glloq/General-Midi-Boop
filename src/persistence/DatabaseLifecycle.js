@@ -84,11 +84,58 @@ function runSingleMigration(db, logger, version, filename, migrationsDir) {
   const sql = fs.readFileSync(filePath, 'utf8');
 
   logger.info(`Running migration ${version}: ${filename}`);
+
+  // Fast path: execute the whole file in one transaction. This is the
+  // ONLY path that correctly handles compound statements such as
+  // `CREATE TRIGGER ... BEGIN ... END;` (001_baseline defines 15 of
+  // them). The statement-splitter fallback below would break those
+  // apart on the inner `;`.
   try {
     db.exec('BEGIN TRANSACTION');
     db.exec(sql);
-    db.prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)')
-      .run(version, filename);
+    db.prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)').run(
+      version,
+      filename
+    );
+    db.exec('COMMIT');
+    logger.info(`Migration ${version} completed`);
+    return;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    if (!/duplicate column name/i.test(error.message)) {
+      logger.error(`Migration ${version} failed: ${error.message}`);
+      throw error;
+    }
+    logger.warn(
+      `Migration ${version} (${filename}): a column already exists, retrying statement-by-statement`
+    );
+  }
+
+  // Fallback: a differently-numbered copy of this migration already
+  // added one of its columns (see 006_omni_mode.sql). Re-run each
+  // top-level statement in isolation, tolerating `duplicate column
+  // name` so the remaining DDL still applies. Migrations that reach
+  // this path are plain ALTER/CREATE INDEX files — none use compound
+  // triggers, so the naive splitter is safe here.
+  try {
+    db.exec('BEGIN TRANSACTION');
+    for (const stmt of splitSqlStatements(sql)) {
+      try {
+        db.exec(stmt);
+      } catch (error) {
+        if (/duplicate column name/i.test(error.message)) {
+          logger.warn(
+            `Migration ${version} (${filename}): column already present, skipping statement`
+          );
+          continue;
+        }
+        throw error;
+      }
+    }
+    db.prepare('INSERT OR IGNORE INTO schema_version (version, description) VALUES (?, ?)').run(
+      version,
+      `${filename} (column already present)`
+    );
     db.exec('COMMIT');
     logger.info(`Migration ${version} completed`);
   } catch (error) {
@@ -96,4 +143,61 @@ function runSingleMigration(db, logger, version, filename, migrationsDir) {
     logger.error(`Migration ${version} failed: ${error.message}`);
     throw error;
   }
+}
+
+/**
+ * Split a migration SQL file into top-level statements for the
+ * duplicate-column fallback path only. Strips `--` line and block
+ * comments, then splits on `;`, tracking single/double quoted string
+ * literals so semicolons inside them do not split. Does NOT understand
+ * compound `BEGIN ... END` bodies — callers must run trigger-bearing
+ * migrations through the whole-file fast path first.
+ *
+ * @param {string} sql
+ * @returns {string[]} Trimmed statements ready for `db.exec()`.
+ */
+export function splitSqlStatements(sql) {
+  const statements = [];
+  let buf = '';
+  let i = 0;
+  let inSingle = false;
+  let inDouble = false;
+  while (i < sql.length) {
+    const c = sql[i];
+    const next = sql[i + 1];
+    if (!inSingle && !inDouble && c === '-' && next === '-') {
+      while (i < sql.length && sql[i] !== '\n') i++;
+      continue;
+    }
+    if (!inSingle && !inDouble && c === '/' && next === '*') {
+      i += 2;
+      while (i < sql.length && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    if (!inDouble && c === "'") {
+      inSingle = !inSingle;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (!inSingle && c === '"') {
+      inDouble = !inDouble;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (!inSingle && !inDouble && c === ';') {
+      const trimmed = buf.trim();
+      if (trimmed) statements.push(trimmed);
+      buf = '';
+      i++;
+      continue;
+    }
+    buf += c;
+    i++;
+  }
+  const tail = buf.trim();
+  if (tail) statements.push(tail);
+  return statements;
 }

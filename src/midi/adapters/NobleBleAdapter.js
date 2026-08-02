@@ -238,7 +238,25 @@ export default class NobleBleAdapter extends EventEmitter {
     characteristic.on('valuechanged', handler);
     await characteristic.startNotifications();
 
-    this._connections.set(address, { device, gatt, characteristic, handler });
+    // Detect an UNEXPECTED drop (device out of range / powered off). Without
+    // this the connection entry lingered, isConnected() kept reporting true,
+    // and inbound notes silently stopped (audit P2 — BLE disconnects not
+    // detected). Surfacing DISCONNECTED lets BluetoothManager mark the device
+    // offline. The explicit disconnect() path removes this listener first so
+    // the event is emitted exactly once.
+    const onDisconnect = () => {
+      if (!this._connections.has(address)) return; // already torn down cleanly
+      try {
+        characteristic.off?.('valuechanged', handler);
+      } catch {
+        /* ignore */
+      }
+      this._connections.delete(address);
+      this.emit(BLE_EVENTS.DISCONNECTED, { address, unexpected: true });
+    };
+    device.on?.('disconnect', onDisconnect);
+
+    this._connections.set(address, { device, gatt, characteristic, handler, onDisconnect });
     this.emit(BLE_EVENTS.CONNECTED, { address });
   }
 
@@ -246,6 +264,9 @@ export default class NobleBleAdapter extends EventEmitter {
     const entry = this._connections.get(address);
     if (!entry) return;
     try {
+      // Drop the unexpected-disconnect listener first so the teardown below
+      // does not also fire the onDisconnect path (double DISCONNECTED emit).
+      entry.device.off?.('disconnect', entry.onDisconnect);
       entry.characteristic.off?.('valuechanged', entry.handler);
       await entry.characteristic.stopNotifications().catch(() => {});
       await entry.device.disconnect().catch(() => {});

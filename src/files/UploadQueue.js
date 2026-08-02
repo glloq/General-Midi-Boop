@@ -13,11 +13,16 @@
  */
 
 class UploadQueue {
-  constructor({ logger, onProgress } = {}) {
+  constructor({ logger, onProgress, maxPending = 100 } = {}) {
     this.logger = logger || { info() {}, warn() {}, error() {}, debug() {} };
     this.onProgress = typeof onProgress === 'function' ? onProgress : null;
     this._chain = Promise.resolve();
     this._pending = 0;
+    // Bound the queue depth so a burst of concurrent uploads cannot pin
+    // unbounded MIDI buffers in memory while the single worker drains the
+    // FIFO (audit P2 — unbounded queue). Overflow rejects with a typed
+    // error the HTTP route maps to 503 "try again".
+    this.maxPending = Number.isFinite(maxPending) && maxPending > 0 ? maxPending : 100;
   }
 
   /** Current queue depth (tasks waiting + running). */
@@ -35,6 +40,13 @@ class UploadQueue {
    * @returns {Promise<T>}
    */
   add(uploadId, task) {
+    if (this._pending >= this.maxPending) {
+      const err = new Error(
+        `Upload queue full (${this._pending}/${this.maxPending}); try again shortly`
+      );
+      err.code = 'UPLOAD_QUEUE_FULL';
+      return Promise.reject(err);
+    }
     this._pending++;
     const report = (stage) => {
       if (this.onProgress) {

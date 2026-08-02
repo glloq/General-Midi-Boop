@@ -426,7 +426,7 @@ class PlaybackScheduler {
     if (event._routeTo && event._routeTo.device) {
       const syncDelay = this._getSyncDelay(event._routeTo.device, event._routeTo.targetChannel);
       const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
-      this._emit(adjustedMs, () => this._sendEventToRouting(event, event._routeTo, state));
+      this._emit(adjustedMs, () => this._sendEventToRouting(event, event._routeTo, state, callbacks));
       return;
     }
 
@@ -457,7 +457,7 @@ class PlaybackScheduler {
         if (!segRouting || !segRouting.device) continue;
         const syncDelay = this._getSyncDelay(segRouting.device, segRouting.targetChannel);
         const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
-        this._emit(adjustedMs, () => this._sendEventToRouting(event, segRouting, state));
+        this._emit(adjustedMs, () => this._sendEventToRouting(event, segRouting, state, callbacks));
       }
       return;
     }
@@ -567,7 +567,7 @@ class PlaybackScheduler {
     if (Array.isArray(routing)) {
       for (const segRouting of routing) {
         if (segRouting && segRouting.device) {
-          this._sendEventToRouting(event, segRouting, state);
+          this._sendEventToRouting(event, segRouting, state, callbacks);
         }
       }
       return;
@@ -592,53 +592,75 @@ class PlaybackScheduler {
     // triggers the disconnect policy — a rate-limit drop or unsupported
     // message must NOT be mistaken for an unreachable device (audit P0-6).
     const sendResult = this._dispatchToDevice(event, routing, state);
+    this._applyDisconnectPolicy(sendResult, routing.device, event.channel, state, callbacks);
+  }
+
+  /**
+   * Apply the disconnect policy (`skip` | `pause` | `mute`) when a send
+   * returns a genuine DISCONNECTED/ERROR status. Notifies once per device.
+   * Factored out of {@link PlaybackScheduler#sendEvent} so the split /
+   * broadcast path ({@link PlaybackScheduler#_sendEventToRouting}) applies
+   * the same handling — previously a disconnected split segment went
+   * undetected (audit P2). A rate-limit drop or unsupported message returns a
+   * non-failure status and is ignored here.
+   *
+   * @param {?{status:string}} sendResult
+   * @param {string} device
+   * @param {number} channel
+   * @param {Object} state
+   * @param {Object} [callbacks]
+   * @private
+   */
+  _applyDisconnectPolicy(sendResult, device, channel, state, callbacks) {
     const isFailure =
       sendResult &&
       (sendResult.status === SEND_STATUS.DISCONNECTED || sendResult.status === SEND_STATUS.ERROR);
+    if (!isFailure || !device || this._failedDevices.has(device)) return;
 
-    // Notify once per device if send fails, apply disconnect policy
-    if (isFailure && !this._failedDevices.has(routing.device)) {
-      this._failedDevices.add(routing.device);
-      this.logger.warn(`Device unreachable during playback: ${routing.device}`);
+    this._failedDevices.add(device);
+    this.logger.warn(`Device unreachable during playback: ${device}`);
 
-      const policy = state.disconnectedPolicy || 'skip';
+    const policy = state.disconnectedPolicy || 'skip';
 
-      if (policy === 'pause') {
-        this.wsServer?.broadcast('playback_device_disconnected', {
-          deviceId: routing.device,
-          channel: event.channel,
-          policy: 'pause',
-          message: `Device ${routing.device} is unreachable`
-        });
-        if (callbacks && callbacks.onPause) {
-          callbacks.onPause();
-        }
-      } else if (policy === 'mute') {
-        // Auto-mute all channels routed to this device
-        const mutedChannels = [];
-        if (state.channelRouting) {
-          for (const [ch, r] of state.channelRouting) {
-            if (r && r.device === routing.device) {
-              state.mutedChannels.add(ch);
-              mutedChannels.push(ch);
-            }
+    if (policy === 'pause') {
+      this.wsServer?.broadcast('playback_device_disconnected', {
+        deviceId: device,
+        channel,
+        policy: 'pause',
+        message: `Device ${device} is unreachable`
+      });
+      if (callbacks && callbacks.onPause) {
+        callbacks.onPause();
+      }
+    } else if (policy === 'mute') {
+      // Auto-mute all channels routed to this device (including split segments).
+      const mutedChannels = [];
+      if (state.channelRouting) {
+        for (const [ch, r] of state.channelRouting) {
+          const routesToDevice =
+            r &&
+            (r.device === device ||
+              (r.split && Array.isArray(r.segments) && r.segments.some((s) => s.device === device)));
+          if (routesToDevice) {
+            state.mutedChannels.add(ch);
+            mutedChannels.push(ch);
           }
         }
-        this.wsServer?.broadcast('playback_device_disconnected', {
-          deviceId: routing.device,
-          channel: event.channel,
-          policy: 'mute',
-          mutedChannels,
-          message: `Device ${routing.device} is unreachable, channels auto-muted`
-        });
-      } else {
-        // 'skip' - existing behavior
-        this.wsServer?.broadcast('playback_device_error', {
-          deviceId: routing.device,
-          channel: event.channel,
-          message: `Device ${routing.device} is unreachable`
-        });
       }
+      this.wsServer?.broadcast('playback_device_disconnected', {
+        deviceId: device,
+        channel,
+        policy: 'mute',
+        mutedChannels,
+        message: `Device ${device} is unreachable, channels auto-muted`
+      });
+    } else {
+      // 'skip' - existing behavior
+      this.wsServer?.broadcast('playback_device_error', {
+        deviceId: device,
+        channel,
+        message: `Device ${device} is unreachable`
+      });
     }
   }
 
@@ -704,10 +726,13 @@ class PlaybackScheduler {
    * @param {Object} routing - { device, targetChannel }
    * @param {Object} state
    */
-  _sendEventToRouting(event, routing, state) {
+  _sendEventToRouting(event, routing, state, callbacks) {
     if (!state.playing) return;
     if (state.mutedChannels && state.mutedChannels.has(event.channel)) return;
-    this._dispatchToDevice(event, routing, state);
+    const sendResult = this._dispatchToDevice(event, routing, state);
+    // Detect a disconnected split segment too (audit P2 — the broadcast path
+    // used to ignore the dispatch result, so a dead split device was silent).
+    this._applyDisconnectPolicy(sendResult, routing.device, event.channel, state, callbacks);
   }
 
   /**
@@ -756,12 +781,29 @@ class PlaybackScheduler {
     const transposeSemis = state.channelTransposition
       ? state.channelTransposition.get(event.channel) || 0
       : 0;
-    const outNote =
+    const isNoteTypeEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON ||
       event.type === MIDI_EVENT_TYPES.NOTE_OFF ||
-      event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH
-        ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
-        : event.note;
+      event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH;
+    let outNote = isNoteTypeEvent
+      ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
+      : event.note;
+
+    // Apply per-channel note remapping AFTER transposition (mirrors the
+    // adapted-file MidiTransposer order). Runtime application means the remap
+    // — e.g. GM drum substitution — works even when playing the original
+    // file with no baked adapted copy (audit P1 — note_remapping never
+    // applied at playback). The same deterministic map is applied to the
+    // matching note-off, so paired events stay consistent.
+    if (isNoteTypeEvent && state.channelNoteRemapping) {
+      const mapping = state.channelNoteRemapping.get(event.channel);
+      if (mapping) {
+        const remapped = mapping[outNote];
+        if (remapped !== undefined && remapped !== null) {
+          outNote = Math.max(0, Math.min(127, remapped));
+        }
+      }
+    }
 
     // Enforce timing and polyphony constraints for note events
     if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {

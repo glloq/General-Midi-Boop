@@ -128,7 +128,9 @@ class Config {
       GMBOOP_SSL_CERT: 'server.sslCert',
       GMBOOP_SSL_KEY: 'server.sslKey',
       GMBOOP_SF2_CACHE_MAX_BYTES: 'sf2.cacheMaxBytes',
-      GMBOOP_SF2_CACHE_MAX_ENTRIES: 'sf2.cacheMaxEntries'
+      GMBOOP_SF2_CACHE_MAX_ENTRIES: 'sf2.cacheMaxEntries',
+      GMBOOP_SECURITY_MODE: 'security.mode',
+      GMBOOP_RTP_MIDI_PORT: 'network.rtpMidiPort'
     };
 
     for (const [envKey, configKey] of Object.entries(envMap)) {
@@ -310,6 +312,24 @@ class Config {
    */
   get serial() {
     return this.config.serial || { enabled: false, autoDetect: true, baudRate: 31250, ports: [] };
+  }
+
+  /**
+   * @returns {Object} `network` section (RTP-MIDI). Falls back to the
+   *   default port so callers can read `.rtpMidiPort` without null-checks.
+   */
+  get network() {
+    return this.config.network || { rtpMidiPort: 5004 };
+  }
+
+  /**
+   * @returns {Object} `security` section. Falls back to `trusted-lan` so
+   *   `config.security.mode` is always readable (the direct-property access
+   *   used by HttpServer relies on this getter existing — without it the
+   *   config path was dead and only GMBOOP_SECURITY_MODE worked).
+   */
+  get security() {
+    return this.config.security || { mode: 'trusted-lan' };
   }
 }
 
