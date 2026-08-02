@@ -27,7 +27,7 @@ The installer sets up Node.js, system dependencies, auto-start on boot and (opti
 
 ## Highlights
 
-- Connect instruments over **USB, Bluetooth LE, network (RTP-MIDI) or physical MIDI IN/OUT** on the Raspberry Pi GPIO.
+- Connect instruments over **USB, Bluetooth LE, network (RTP-MIDI, experimental) or physical MIDI IN/OUT** on the Raspberry Pi GPIO.
 - **Conduct up to 16 instruments at once**, with per-device latency compensation and an optional MIDI clock.
 - **Automatic routing** of MIDI channels to the best-suited connected instrument.
 - **Automatic adaptation** of any MIDI file to each instrument's note range and polyphony.
@@ -44,9 +44,20 @@ The installer sets up Node.js, system dependencies, auto-start on boot and (opti
 Whatever you built, there's a way in:
 
 - **USB MIDI** — automatic detection and hot-plug.
-- **Bluetooth LE MIDI** — scan and pair wireless instruments.
-- **Network MIDI (RTP-MIDI)** — connect over WiFi or Ethernet.
-- **Physical MIDI IN/OUT via GPIO** — wire real 5-pin MIDI to the Raspberry Pi at 31250 baud using a MIDI HAT *or* a simple DIY circuit. Multiple hardware UARTs are supported (up to 6 on a Pi 4), with Running Status and SysEx. See [docs/GPIO_MIDI_WIRING.md](./docs/GPIO_MIDI_WIRING.md) for HAT and DIY wiring.
+- **Bluetooth LE MIDI** — scan and pair wireless instruments; inbound BLE notes are routed like any other input.
+- **Network MIDI (RTP-MIDI)** — *experimental.* Connect over WiFi or Ethernet. The current RTP-MIDI session is a **simplified, not-yet-conformant AppleMIDI implementation** (no invitation handshake, clock synchronisation or journal/recovery) and is not guaranteed to interoperate with macOS Network MIDI or other AppleMIDI peers yet. Reported as `degraded` on the health endpoint.
+- **Physical MIDI IN/OUT via GPIO** — wire real 5-pin MIDI to the Raspberry Pi at 31250 baud using a MIDI HAT *or* a simple DIY circuit. Multiple hardware UARTs are supported (up to 6 on a Pi 4), with Running Status and SysEx, and a bounded, back-pressured write queue on output. See [docs/GPIO_MIDI_WIRING.md](./docs/GPIO_MIDI_WIRING.md) for HAT and DIY wiring.
+
+> **Capability health.** Optional transports load only when their native
+> dependencies are present, so a running server may not expose every
+> transport above. Query `GET /api/capabilities` (or the `capabilities`
+> block in `/api/health`) for the live `ready` / `degraded` / `failed` /
+> `disabled` status of each subsystem.
+>
+> **File support.** Standard MIDI files in **format 0 and 1 with PPQ
+> timing** are supported, including SysEx (GM/GS/XG resets, Master Volume).
+> **Format 2** and **SMPTE (frame-based) timing** are explicitly rejected
+> rather than played with an incorrect chronology.
 
 Each instrument gets its own settings — note range, polyphony, type, latency, tuning and more — defined once and persisted.
 

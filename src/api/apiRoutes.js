@@ -56,13 +56,26 @@ export function createApiRouter(app) {
 
   // Health check (public — excluded from auth middleware)
   router.get('/health', (_req, res) => {
+    const cap = typeof app.getCapabilityStatus === 'function' ? app.getCapabilityStatus() : null;
     res.json({
       status: 'ok',
       version: APP_VERSION,
       gitHash: GIT_HASH,
       uptime: process.uptime(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      // Per-capability health so "ok" liveness doesn't imply every
+      // advertised transport/feature is actually available (audit P2).
+      ...(cap ? { capabilitiesOverall: cap.overall, capabilities: cap.capabilities } : {})
     });
+  });
+
+  // Detailed per-capability health (public — monitoring probe).
+  router.get('/capabilities', (_req, res) => {
+    if (typeof app.getCapabilityStatus !== 'function') {
+      res.status(503).json({ error: 'capability status unavailable' });
+      return;
+    }
+    res.json({ ...app.getCapabilityStatus(), uptime: process.uptime(), timestamp: Date.now() });
   });
 
   // Application status
@@ -137,11 +150,13 @@ export function createApiRouter(app) {
       res.status(status).json({ uploadId, ...result });
     } catch (err) {
       app.logger.error(`POST /api/files failed: ${err.message}`);
-      const code = /too large/i.test(err.message)
-        ? 413
-        : /invalid midi/i.test(err.message)
-          ? 415
-          : 500;
+      const code = err.code === 'UPLOAD_QUEUE_FULL'
+        ? 503
+        : /too large/i.test(err.message)
+          ? 413
+          : /invalid midi/i.test(err.message)
+            ? 415
+            : 500;
       res.status(code).json({ error: err.message });
     }
   });

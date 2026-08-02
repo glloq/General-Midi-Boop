@@ -26,7 +26,13 @@
  * silenced for the rest of the playback.
  */
 import { performance } from 'perf_hooks';
-import { TIMING, MIDI_CC, MIDI_EVENT_TYPES, DEVICE_MSG_TYPES } from '../../core/constants.js';
+import {
+  TIMING,
+  MIDI_CC,
+  MIDI_EVENT_TYPES,
+  DEVICE_MSG_TYPES,
+  SEND_STATUS
+} from '../../core/constants.js';
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
@@ -90,8 +96,17 @@ class PlaybackScheduler {
 
     // Timing constraint enforcement: track last noteOn timestamp per (device:channel)
     this._lastNoteOnTime = new Map(); // key: "device:channel" -> timestamp (ms)
-    // Polyphony enforcement: track active notes per (device:channel)
-    this._activeNotes = new Map(); // key: "device:channel" -> Set of active note numbers
+    // Polyphony enforcement: track active notes per (device:channel) as a
+    // count map so overlapping same-pitch notes are counted separately.
+    this._activeNotes = new Map(); // key: "device:channel" -> Map<note, count>
+    // noteOn timestamps per (device:channel:note) for min_note_duration.
+    this._noteOnTimes = new Map(); // key: "device:channel:note" -> timestamp (ms)
+    // Count of noteOns dropped by a constraint, per (device:channel:note),
+    // so the matching noteOff can be suppressed exactly once.
+    this._droppedNoteOns = new Map(); // key: "device:channel:note" -> count
+
+    // Per-playback timing observability (see getTimingMetrics).
+    this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
 
     // Invalidate caches immediately when instrument settings change.
     // Note: _syncDelayCache is removed — compensation is now handled by
@@ -138,6 +153,9 @@ class PlaybackScheduler {
     this._maxCompensationMs = 0;
     this._lastNoteOnTime.clear();
     this._activeNotes.clear();
+    this._noteOnTimes.clear();
+    this._droppedNoteOns.clear();
+    this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
     // CapabilityResolver caches survive across playbacks (invalidated on settings change).
     // No need to clear them here — they hold per-device capability data, not per-file state.
   }
@@ -201,13 +219,28 @@ class PlaybackScheduler {
    */
   _shouldGateNote(deviceId, channel, note, eventType) {
     const cacheKey = `${deviceId}:${channel}`;
+    const noteKey = `${cacheKey}:${note}`;
     const constraints = this._getTimingConstraints(deviceId, channel);
 
     if (eventType === MIDI_EVENT_TYPES.NOTE_OFF) {
-      // Track noteOff for polyphony counting
-      const activeSet = this._activeNotes.get(cacheKey);
-      if (activeSet) activeSet.delete(note);
-      return false; // Never gate noteOff
+      // If the matching noteOn was previously dropped by a constraint,
+      // swallow exactly one noteOff for this pitch so it cannot cut a
+      // still-sounding earlier note of the same pitch (audit P1 —
+      // "note tracking insufficient").
+      const dropped = this._droppedNoteOns.get(noteKey) || 0;
+      if (dropped > 0) {
+        this._droppedNoteOns.set(noteKey, dropped - 1);
+        return true; // suppress: this noteOff belongs to a dropped noteOn
+      }
+      // Decrement the active-note count (Map<note, count>) so overlapping
+      // same-pitch notes are released one at a time, not all at once.
+      const counts = this._activeNotes.get(cacheKey);
+      if (counts) {
+        const c = counts.get(note) || 0;
+        if (c > 1) counts.set(note, c - 1);
+        else counts.delete(note);
+      }
+      return false; // Never gate a real noteOff
     }
 
     // eventType === MIDI_EVENT_TYPES.NOTE_ON
@@ -217,24 +250,57 @@ class PlaybackScheduler {
     if (constraints.minNoteInterval) {
       const lastTime = this._lastNoteOnTime.get(cacheKey) || 0;
       if (lastTime > 0 && now - lastTime < constraints.minNoteInterval) {
+        this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
         return true; // Gate: too fast for this instrument
       }
     }
 
-    // Check polyphony limit: if active notes on this device:channel exceed the limit, drop
+    // Check polyphony limit against the total active voice count. Unlike a
+    // Set, the count Map counts two overlapping same-pitch notes as two
+    // voices (audit P1).
     if (constraints.polyphony) {
-      if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Set());
-      const activeSet = this._activeNotes.get(cacheKey);
-      if (activeSet.size >= constraints.polyphony && !activeSet.has(note)) {
+      if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Map());
+      const counts = this._activeNotes.get(cacheKey);
+      let activeVoices = 0;
+      for (const c of counts.values()) activeVoices += c;
+      if (activeVoices >= constraints.polyphony) {
+        this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
         return true; // Gate: polyphony limit reached
       }
-      activeSet.add(note);
     }
 
-    // Update last noteOn timestamp
+    // Accept: register the active voice and timestamps.
+    if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Map());
+    const counts = this._activeNotes.get(cacheKey);
+    counts.set(note, (counts.get(note) || 0) + 1);
     this._lastNoteOnTime.set(cacheKey, now);
+    this._noteOnTimes.set(noteKey, now);
 
     return false; // Allow
+  }
+
+  /**
+   * Compute how long (ms) a noteOff for this voice must be held back to
+   * honour the instrument's `min_note_duration` constraint (audit P1). A
+   * solenoid/actuator needs the note to stay physically engaged for a
+   * minimum time; releasing it too soon can miss the strike entirely.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
+   * @param {number} note
+   * @returns {number} Milliseconds to defer the noteOff (0 = send now).
+   * @private
+   */
+  _noteOffDeferMs(deviceId, channel, note) {
+    const constraints = this._getTimingConstraints(deviceId, channel);
+    const minDur = constraints.minNoteDuration;
+    if (!minDur) return 0;
+    const noteKey = `${deviceId}:${channel}:${note}`;
+    const startedAt = this._noteOnTimes.get(noteKey);
+    if (startedAt === undefined) return 0;
+    const held = performance.now() - startedAt;
+    if (held >= minDur) return 0;
+    return minDur - held;
   }
 
   /**
@@ -342,6 +408,15 @@ class PlaybackScheduler {
     const rate = state.playbackRate > 0 ? state.playbackRate : 1;
     const delaySec = Math.max(0, eventTime - currentPosition) / rate;
 
+    // SysEx is global (no MIDI channel), so it cannot be routed per-channel
+    // like note/CC events (audit P0-3). Broadcast the raw frame to every
+    // device that has any routing so GM/GS/XG resets and Master Volume
+    // reach all instruments.
+    if (event.type === MIDI_EVENT_TYPES.SYSEX) {
+      this._emit(Math.max(0, delaySec * 1000), () => this._broadcastSysEx(event, state));
+      return;
+    }
+
     // Routing override: events injected by the hand-position planner for
     // a specific split-routing segment carry `_routeTo: { device,
     // targetChannel }` so they reach only that segment's device. Without
@@ -351,7 +426,7 @@ class PlaybackScheduler {
     if (event._routeTo && event._routeTo.device) {
       const syncDelay = this._getSyncDelay(event._routeTo.device, event._routeTo.targetChannel);
       const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
-      this._emit(adjustedMs, () => this._sendEventToRouting(event, event._routeTo, state));
+      this._emit(adjustedMs, () => this._sendEventToRouting(event, event._routeTo, state, callbacks));
       return;
     }
 
@@ -382,7 +457,7 @@ class PlaybackScheduler {
         if (!segRouting || !segRouting.device) continue;
         const syncDelay = this._getSyncDelay(segRouting.device, segRouting.targetChannel);
         const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
-        this._emit(adjustedMs, () => this._sendEventToRouting(event, segRouting, state));
+        this._emit(adjustedMs, () => this._sendEventToRouting(event, segRouting, state, callbacks));
       }
       return;
     }
@@ -427,14 +502,44 @@ class PlaybackScheduler {
    */
   _emit(delayMs, emit) {
     if (delayMs <= EMIT_AHEAD_MS) {
+      // Fired directly from the tick: the event goes out up to EMIT_AHEAD_MS
+      // early. Record the earliness so operators can see the actual timing
+      // distribution (audit P1 — "scheduler can send up to 5 ms early").
+      if (delayMs > 0) {
+        const m = this._metrics;
+        m.earlyCount++;
+        m.sumEarlinessMs += delayMs;
+        if (delayMs > m.maxEarlinessMs) m.maxEarlinessMs = delayMs;
+      }
+      this._metrics.emitted++;
       emit();
       return;
     }
     const timeoutId = setTimeout(() => {
       this.pendingTimeouts.delete(timeoutId);
+      this._metrics.emitted++;
       emit();
     }, delayMs);
     this.pendingTimeouts.add(timeoutId);
+  }
+
+  /**
+   * Per-playback timing metrics for observability (reset by
+   * {@link PlaybackScheduler#resetForPlayback}). `avgEarlinessMs` is over
+   * the events that fired inside the EMIT_AHEAD window; `eventLoopLagMs` is
+   * the current monitored loop lag when available.
+   * @returns {{emitted:number, earlyCount:number, maxEarlinessMs:number,
+   *   avgEarlinessMs:number, eventLoopLagMs:number}}
+   */
+  getTimingMetrics() {
+    const m = this._metrics;
+    return {
+      emitted: m.emitted,
+      earlyCount: m.earlyCount,
+      maxEarlinessMs: m.maxEarlinessMs,
+      avgEarlinessMs: m.earlyCount ? m.sumEarlinessMs / m.earlyCount : 0,
+      eventLoopLagMs: this.eventLoopMonitor?.currentLag ?? 0
+    };
   }
 
   /**
@@ -462,7 +567,7 @@ class PlaybackScheduler {
     if (Array.isArray(routing)) {
       for (const segRouting of routing) {
         if (segRouting && segRouting.device) {
-          this._sendEventToRouting(event, segRouting, state);
+          this._sendEventToRouting(event, segRouting, state, callbacks);
         }
       }
       return;
@@ -482,54 +587,137 @@ class PlaybackScheduler {
     }
 
     // Dispatch (transpose + gate + per-type send). Returns null when no
-    // send was attempted (gated / CC-filtered / unhandled type) so the
-    // disconnect-policy block below only reacts to a real failed send.
+    // send was attempted (gated / CC-filtered / unhandled type). Returns a
+    // typed {status} object otherwise; only a genuine disconnect/error
+    // triggers the disconnect policy — a rate-limit drop or unsupported
+    // message must NOT be mistaken for an unreachable device (audit P0-6).
     const sendResult = this._dispatchToDevice(event, routing, state);
+    this._applyDisconnectPolicy(sendResult, routing.device, event.channel, state, callbacks);
+  }
 
-    // Notify once per device if send fails, apply disconnect policy
-    if (sendResult === false && !this._failedDevices.has(routing.device)) {
-      this._failedDevices.add(routing.device);
-      this.logger.warn(`Device unreachable during playback: ${routing.device}`);
+  /**
+   * Apply the disconnect policy (`skip` | `pause` | `mute`) when a send
+   * returns a genuine DISCONNECTED/ERROR status. Notifies once per device.
+   * Factored out of {@link PlaybackScheduler#sendEvent} so the split /
+   * broadcast path ({@link PlaybackScheduler#_sendEventToRouting}) applies
+   * the same handling — previously a disconnected split segment went
+   * undetected (audit P2). A rate-limit drop or unsupported message returns a
+   * non-failure status and is ignored here.
+   *
+   * @param {?{status:string}} sendResult
+   * @param {string} device
+   * @param {number} channel
+   * @param {Object} state
+   * @param {Object} [callbacks]
+   * @private
+   */
+  _applyDisconnectPolicy(sendResult, device, channel, state, callbacks) {
+    const isFailure =
+      sendResult &&
+      (sendResult.status === SEND_STATUS.DISCONNECTED || sendResult.status === SEND_STATUS.ERROR);
+    if (!isFailure || !device || this._failedDevices.has(device)) return;
 
-      const policy = state.disconnectedPolicy || 'skip';
+    this._failedDevices.add(device);
+    this.logger.warn(`Device unreachable during playback: ${device}`);
 
-      if (policy === 'pause') {
-        this.wsServer?.broadcast('playback_device_disconnected', {
-          deviceId: routing.device,
-          channel: event.channel,
-          policy: 'pause',
-          message: `Device ${routing.device} is unreachable`
-        });
-        if (callbacks && callbacks.onPause) {
-          callbacks.onPause();
-        }
-      } else if (policy === 'mute') {
-        // Auto-mute all channels routed to this device
-        const mutedChannels = [];
-        if (state.channelRouting) {
-          for (const [ch, r] of state.channelRouting) {
-            if (r && r.device === routing.device) {
-              state.mutedChannels.add(ch);
-              mutedChannels.push(ch);
-            }
+    const policy = state.disconnectedPolicy || 'skip';
+
+    if (policy === 'pause') {
+      this.wsServer?.broadcast('playback_device_disconnected', {
+        deviceId: device,
+        channel,
+        policy: 'pause',
+        message: `Device ${device} is unreachable`
+      });
+      if (callbacks && callbacks.onPause) {
+        callbacks.onPause();
+      }
+    } else if (policy === 'mute') {
+      // Auto-mute all channels routed to this device (including split segments).
+      const mutedChannels = [];
+      if (state.channelRouting) {
+        for (const [ch, r] of state.channelRouting) {
+          const routesToDevice =
+            r &&
+            (r.device === device ||
+              (r.split && Array.isArray(r.segments) && r.segments.some((s) => s.device === device)));
+          if (routesToDevice) {
+            state.mutedChannels.add(ch);
+            mutedChannels.push(ch);
           }
         }
-        this.wsServer?.broadcast('playback_device_disconnected', {
-          deviceId: routing.device,
-          channel: event.channel,
-          policy: 'mute',
-          mutedChannels,
-          message: `Device ${routing.device} is unreachable, channels auto-muted`
-        });
-      } else {
-        // 'skip' - existing behavior
-        this.wsServer?.broadcast('playback_device_error', {
-          deviceId: routing.device,
-          channel: event.channel,
-          message: `Device ${routing.device} is unreachable`
-        });
+      }
+      this.wsServer?.broadcast('playback_device_disconnected', {
+        deviceId: device,
+        channel,
+        policy: 'mute',
+        mutedChannels,
+        message: `Device ${device} is unreachable, channels auto-muted`
+      });
+    } else {
+      // 'skip' - existing behavior
+      this.wsServer?.broadcast('playback_device_error', {
+        deviceId: device,
+        channel,
+        message: `Device ${device} is unreachable`
+      });
+    }
+  }
+
+  /**
+   * Broadcast a raw SysEx frame to every device that has any routing (or
+   * the default output device when nothing is explicitly routed). Each
+   * device receives the frame exactly once.
+   * @param {Object} event - `{ type:'sysEx', bytes:number[] }`
+   * @param {Object} state
+   * @private
+   */
+  _broadcastSysEx(event, state) {
+    if (!state.playing) return;
+    if (!Array.isArray(event.bytes) || event.bytes.length === 0) return;
+    for (const device of this._collectRoutedDevices(state)) {
+      this.deviceManager.sendMessage(device, DEVICE_MSG_TYPES.SYSEX, { bytes: event.bytes });
+    }
+  }
+
+  /**
+   * Collect the unique set of physical devices referenced by the current
+   * routing map (including every segment of split routings), falling back
+   * to the default output device when no explicit routing exists.
+   * @param {Object} state
+   * @returns {Set<string>}
+   * @private
+   */
+  _collectRoutedDevices(state) {
+    const devices = new Set();
+    if (state.channelRouting) {
+      for (const [, routing] of state.channelRouting) {
+        if (!routing) continue;
+        if (routing.split && routing.segments) {
+          for (const seg of routing.segments) if (seg.device) devices.add(seg.device);
+        } else {
+          const device = typeof routing === 'string' ? routing : routing.device;
+          if (device) devices.add(device);
+        }
       }
     }
+    if (devices.size === 0 && state.outputDevice) devices.add(state.outputDevice);
+    return devices;
+  }
+
+  /**
+   * Immediately dispatch a single control/state event (Bank Select /
+   * Program Change / CC / pitch-bend / channel-pressure) to a routing
+   * target, bypassing the scheduling window. Used by
+   * {@link MidiPlayer#seek} to reconstruct channel state at the target
+   * position before playback resumes (audit P0-8).
+   * @param {Object} event
+   * @param {{device:string, targetChannel:number}} routing
+   * @param {Object} [state]
+   */
+  dispatchStateEvent(event, routing, state) {
+    if (!routing || !routing.device) return;
+    this._dispatchToDevice(event, routing, state || { playing: true });
   }
 
   /**
@@ -538,10 +726,34 @@ class PlaybackScheduler {
    * @param {Object} routing - { device, targetChannel }
    * @param {Object} state
    */
-  _sendEventToRouting(event, routing, state) {
+  _sendEventToRouting(event, routing, state, callbacks) {
     if (!state.playing) return;
     if (state.mutedChannels && state.mutedChannels.has(event.channel)) return;
-    this._dispatchToDevice(event, routing, state);
+    const sendResult = this._dispatchToDevice(event, routing, state);
+    // Detect a disconnected split segment too (audit P2 — the broadcast path
+    // used to ignore the dispatch result, so a dead split device was silent).
+    this._applyDisconnectPolicy(sendResult, routing.device, event.channel, state, callbacks);
+  }
+
+  /**
+   * Send through the device manager, preferring the typed
+   * {@link DeviceManager#sendMessageEx} and falling back to the boolean
+   * `sendMessage` (test doubles / older device managers that expose only
+   * the boolean API). Always returns a typed `{status}` object.
+   *
+   * @param {string} deviceId
+   * @param {string} type
+   * @param {Object} data
+   * @returns {{status:string, error?:Error}}
+   * @private
+   */
+  _send(deviceId, type, data) {
+    const dm = this.deviceManager;
+    if (typeof dm.sendMessageEx === 'function') {
+      return dm.sendMessageEx(deviceId, type, data);
+    }
+    const ok = dm.sendMessage(deviceId, type, data);
+    return { status: ok ? SEND_STATUS.SENT : SEND_STATUS.DISCONNECTED };
   }
 
   /**
@@ -564,18 +776,34 @@ class PlaybackScheduler {
    * @private
    */
   _dispatchToDevice(event, routing, state) {
-    const device = this.deviceManager;
     const outChannel = routing.targetChannel;
 
     const transposeSemis = state.channelTransposition
       ? state.channelTransposition.get(event.channel) || 0
       : 0;
-    const outNote =
+    const isNoteTypeEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON ||
       event.type === MIDI_EVENT_TYPES.NOTE_OFF ||
-      event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH
-        ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
-        : event.note;
+      event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH;
+    let outNote = isNoteTypeEvent
+      ? Math.max(0, Math.min(127, (event.note ?? 0) + transposeSemis))
+      : event.note;
+
+    // Apply per-channel note remapping AFTER transposition (mirrors the
+    // adapted-file MidiTransposer order). Runtime application means the remap
+    // — e.g. GM drum substitution — works even when playing the original
+    // file with no baked adapted copy (audit P1 — note_remapping never
+    // applied at playback). The same deterministic map is applied to the
+    // matching note-off, so paired events stay consistent.
+    if (isNoteTypeEvent && state.channelNoteRemapping) {
+      const mapping = state.channelNoteRemapping.get(event.channel);
+      if (mapping) {
+        const remapped = mapping[outNote];
+        if (remapped !== undefined && remapped !== null) {
+          outNote = Math.max(0, Math.min(127, remapped));
+        }
+      }
+    }
 
     // Enforce timing and polyphony constraints for note events
     if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
@@ -588,29 +816,23 @@ class PlaybackScheduler {
 
     if (event.type === MIDI_EVENT_TYPES.NOTE_ON) {
       if (event.velocity === 0) {
-        // velocity 0 noteOn = noteOff, track for polyphony
-        this._shouldGateNote(routing.device, outChannel, outNote, MIDI_EVENT_TYPES.NOTE_OFF);
-        return device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, {
-          channel: outChannel,
-          note: outNote,
-          velocity: 0
-        });
+        // velocity-0 noteOn == noteOff. Gating/counting was already applied
+        // by the block above (it maps velocity-0 to NOTE_OFF), so do NOT
+        // call _shouldGateNote again here (that double-decremented the
+        // active-note count).
+        return this._sendNoteOff(routing.device, outChannel, outNote, 0);
       }
-      return device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_ON, {
+      return this._send(routing.device, DEVICE_MSG_TYPES.NOTE_ON, {
         channel: outChannel,
         note: outNote,
         velocity: event.velocity
       });
     }
     if (event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
-      return device.sendMessage(routing.device, DEVICE_MSG_TYPES.NOTE_OFF, {
-        channel: outChannel,
-        note: outNote,
-        velocity: event.velocity
-      });
+      return this._sendNoteOff(routing.device, outChannel, outNote, event.velocity);
     }
     if (event.type === MIDI_EVENT_TYPES.PROGRAM_CHANGE) {
-      return device.sendMessage(routing.device, DEVICE_MSG_TYPES.PROGRAM, {
+      return this._send(routing.device, DEVICE_MSG_TYPES.PROGRAM, {
         channel: outChannel,
         program: event.program
       });
@@ -622,32 +844,60 @@ class PlaybackScheduler {
           return null;
         }
       }
-      return device.sendMessage(routing.device, DEVICE_MSG_TYPES.CC, {
+      return this._send(routing.device, DEVICE_MSG_TYPES.CC, {
         channel: outChannel,
         controller: event.controller,
         value: event.value
       });
     }
     if (event.type === MIDI_EVENT_TYPES.PITCH_BEND) {
-      return device.sendMessage(routing.device, DEVICE_MSG_TYPES.PITCH_BEND, {
+      return this._send(routing.device, DEVICE_MSG_TYPES.PITCH_BEND, {
         channel: outChannel,
         value: event.value
       });
     }
     if (event.type === MIDI_EVENT_TYPES.CHANNEL_AFTERTOUCH) {
-      return device.sendMessage(routing.device, DEVICE_MSG_TYPES.CHANNEL_AFTERTOUCH, {
+      return this._send(routing.device, DEVICE_MSG_TYPES.CHANNEL_AFTERTOUCH, {
         channel: outChannel,
         pressure: event.value
       });
     }
     if (event.type === MIDI_EVENT_TYPES.NOTE_AFTERTOUCH) {
-      return device.sendMessage(routing.device, DEVICE_MSG_TYPES.POLY_AFTERTOUCH, {
+      return this._send(routing.device, DEVICE_MSG_TYPES.POLY_AFTERTOUCH, {
         channel: outChannel,
         note: outNote,
         pressure: event.value
       });
     }
     return null; // unhandled event type — no send attempted
+  }
+
+  /**
+   * Send a Note Off, deferring it when the note has not yet been held for
+   * the instrument's `min_note_duration` (audit P1). Deferral reuses the
+   * tracked `pendingTimeouts` so a stop/seek cancels the pending release.
+   *
+   * @param {string} deviceId
+   * @param {number} channel
+   * @param {number} note
+   * @param {number} velocity
+   * @returns {{status:string}|null} Send result, or a queued marker when
+   *   the release was deferred.
+   * @private
+   */
+  _sendNoteOff(deviceId, channel, note, velocity) {
+    const deferMs = this._noteOffDeferMs(deviceId, channel, note);
+    const send = () =>
+      this._send(deviceId, DEVICE_MSG_TYPES.NOTE_OFF, {
+        channel,
+        note,
+        velocity
+      });
+    if (deferMs <= EMIT_AHEAD_MS) {
+      return send();
+    }
+    this._emit(deferMs, send);
+    return { status: SEND_STATUS.QUEUED };
   }
 
   /**

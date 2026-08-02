@@ -16,6 +16,7 @@
       this.currentLocale = 'fr';
       this.fallbackLocale = 'fr';
       this.translations = {};
+      this.fallbackTranslations = {};
       this.supportedLocales = [
         'id',
         'cs',
@@ -125,6 +126,17 @@
         this._translationCache = new Map(); // Invalidate cache on locale change
         localStorage.setItem('gmboop_locale', locale);
 
+        // Load the fallback-locale translations too, so a key missing from a
+        // partially-translated locale falls back to a real string instead of
+        // showing the raw key (audit P2 — ~9% of keys are absent outside
+        // EN/FR). Skip the extra fetch when the current locale IS the
+        // fallback.
+        if (locale === this.fallbackLocale) {
+          this.fallbackTranslations = this.translations;
+        } else {
+          await this._loadFallbackTranslations();
+        }
+
         // Update the HTML lang attribute
         document.documentElement.lang = locale;
       } catch (error) {
@@ -136,6 +148,43 @@
           await this.loadLocale(this.fallbackLocale);
         }
       }
+    }
+
+    /**
+     * Fetch the fallback-locale translation file into `fallbackTranslations`.
+     * Best-effort: a failure just leaves the previous fallback (or none) in
+     * place — `t()` still degrades to the raw key.
+     * @private
+     */
+    async _loadFallbackTranslations() {
+      try {
+        const response = await fetch(`/locales/${this.fallbackLocale}.json?v=${Date.now()}`);
+        if (response.ok) {
+          this.fallbackTranslations = await response.json();
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn(`[I18n] Failed to load fallback locale "${this.fallbackLocale}":`, error);
+      }
+    }
+
+    /**
+     * Walk a dotted key path through a translations object.
+     * @param {Object} source
+     * @param {string[]} keys
+     * @returns {*} The value at the path, or `undefined` when any segment is missing.
+     * @private
+     */
+    _resolvePath(source, keys) {
+      let value = source;
+      for (const k of keys) {
+        if (value && typeof value === 'object' && k in value) {
+          value = value[k];
+        } else {
+          return undefined;
+        }
+      }
+      return value;
     }
 
     /**
@@ -153,15 +202,17 @@
       }
 
       const keys = key.split('.');
-      let value = this.translations;
+      let value = this._resolvePath(this.translations, keys);
 
-      for (const k of keys) {
-        if (value && typeof value === 'object' && k in value) {
-          value = value[k];
-        } else {
+      // Missing in the active locale → fall back to the fallback-locale
+      // string before giving up and echoing the raw key.
+      if (value === undefined) {
+        const fallback = this._resolvePath(this.fallbackTranslations, keys);
+        if (fallback === undefined) {
           console.warn(`[I18n] Missing translation: ${key}`);
           return key;
         }
+        value = fallback;
       }
 
       // If it's an array, return it as-is

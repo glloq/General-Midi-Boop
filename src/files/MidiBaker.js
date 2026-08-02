@@ -42,18 +42,7 @@ class MidiBaker {
     const midi = parseMidi(buffer);
     const ppq = midi.header.ticksPerBeat || 480;
 
-    // Determine initial tempo (first setTempo event across all tracks).
-    let globalTempoMicros = MICROSECONDS_PER_MINUTE / 120;
-    outer: for (const track of midi.tracks) {
-      for (const ev of track) {
-        if (ev.type === 'setTempo') {
-          globalTempoMicros = ev.microsecondsPerBeat;
-          break outer;
-        }
-      }
-    }
-
-    const tempoMap = this._buildTempoMap(midi, ppq, globalTempoMicros);
+    const tempoMap = this._buildTempoMap(midi, ppq);
 
     // Accumulate CC events per track index.
     const ccByTrack = new Map(); // Map<trackIdx, [{absTick, channel, controllerType, value}]>
@@ -99,7 +88,9 @@ class MidiBaker {
    * Build a tempo map: [{tick, time, microsecondsPerBeat}, …].
    * @private
    */
-  _buildTempoMap(midi, ppq, globalTempoMicros) {
+  _buildTempoMap(midi, ppq) {
+    const DEFAULT_MICROS = MICROSECONDS_PER_MINUTE / 120; // 500000 (120 BPM)
+
     // Collect all setTempo events with their absolute tick positions.
     const tempoEvents = [];
     for (const track of midi.tracks) {
@@ -116,18 +107,35 @@ class MidiBaker {
     const map = [];
     let cumSecs = 0;
     let lastTick = 0;
-    let curMicros = globalTempoMicros;
+    // The SMF spec mandates 120 BPM until the first Set Tempo. Seed the
+    // running tempo with that default — NOT the first tempo event's value,
+    // which may sit at a non-zero tick — so baked event times match actual
+    // playback (audit P1 — mirror MidiPlayer._buildTempoMap's tick-0 anchor).
+    let curMicros = DEFAULT_MICROS;
+
+    // Anchor tick 0 at 120 BPM unless a tempo event already sits there.
+    if (!tempoEvents.length || tempoEvents[0].tick > 0) {
+      map.push({ tick: 0, time: 0, microsecondsPerBeat: DEFAULT_MICROS });
+    }
 
     for (const te of tempoEvents) {
       const delta = te.tick - lastTick;
       cumSecs += (delta * curMicros) / (ppq * 1e6);
-      map.push({ tick: te.tick, time: cumSecs, microsecondsPerBeat: te.microsecondsPerBeat });
+      // A tempo event exactly at the previous entry's tick overwrites it
+      // (deterministic last-wins) rather than appending a zero-width segment.
+      const existing =
+        map.length && map[map.length - 1].tick === te.tick ? map[map.length - 1] : null;
+      if (existing) {
+        existing.microsecondsPerBeat = te.microsecondsPerBeat;
+      } else {
+        map.push({ tick: te.tick, time: cumSecs, microsecondsPerBeat: te.microsecondsPerBeat });
+      }
       lastTick = te.tick;
       curMicros = te.microsecondsPerBeat;
     }
 
     if (map.length === 0) {
-      map.push({ tick: 0, time: 0, microsecondsPerBeat: curMicros });
+      map.push({ tick: 0, time: 0, microsecondsPerBeat: DEFAULT_MICROS });
     }
 
     return map;

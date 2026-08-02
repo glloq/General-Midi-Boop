@@ -7,7 +7,7 @@
  *   - `device_list`                 — enumerate ports + enrich with DB
  *   - `device_refresh`              — rescan hardware then deduplicate
  *   - `device_info`                 — single-device detail
- *   - `device_set_properties`       — placeholder, currently no-op
+ *   - `device_set_properties`       — persist per-device settings
  *   - `device_enable`               — toggle a port on/off
  *   - `device_identity_request`     — emit MIDI Universal Identity Request
  *   - `sysex_identity_request`      — alias of the above
@@ -155,13 +155,26 @@ async function deviceInfo(app, data) {
 }
 
 /**
- * Placeholder for per-device property updates.
- * TODO: wire to `DeviceSettingsRepository#update` once the UI surfaces
- * an editor.
+ * Persist per-device settings. Writes the whitelisted device-level fields
+ * (`custom_name`, `midi_clock_enabled`, `message_rate_limit`) via
+ * `DeviceSettingsDB#updateDeviceSettings`; any other property in the payload
+ * is ignored by that method's column whitelist. Previously a no-op that
+ * returned success without persisting anything (audit P2).
  *
+ * @param {Object} app
+ * @param {{deviceId:string, properties:Object}} data
  * @returns {Promise<{success: true}>}
  */
-async function deviceSetProperties(_app, _data) {
+async function deviceSetProperties(app, data) {
+  const device = app.deviceManager?.getDeviceInfo?.(data.deviceId);
+  // Ensure a row exists so the UPDATE targets something even for a device
+  // that has no persisted settings yet.
+  app.database.ensureDevice(
+    data.deviceId,
+    device?.name || data.deviceId,
+    device?.type || 'output'
+  );
+  app.database.updateDeviceSettings(data.deviceId, data.properties || {});
   return { success: true };
 }
 

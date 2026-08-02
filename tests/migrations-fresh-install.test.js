@@ -78,6 +78,19 @@ describe('migration runner — fresh install (real SQLite)', () => {
     expect(tables.length).toBeGreaterThan(5);
   });
 
+  test('compound BEGIN..END triggers materialised (splitter-regression guard)', () => {
+    // 001_baseline defines many `CREATE TRIGGER ... BEGIN ... END;`
+    // statements. A naive `;`-splitting runner shears those on the
+    // inner `;` and silently drops every trigger. Assert they exist so
+    // that regression can never reach a release again.
+    const triggers = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='trigger'")
+      .all()
+      .map((r) => r.name);
+    expect(triggers.length).toBeGreaterThan(5);
+    expect(triggers).toContain('trg_settings_update');
+  });
+
   test('runMigrations is idempotent (re-run is a no-op, no throw)', () => {
     const before = db.prepare('SELECT MAX(version) v, COUNT(*) c FROM schema_version').get();
     expect(() => runMigrations(db, silentLogger)).not.toThrow();

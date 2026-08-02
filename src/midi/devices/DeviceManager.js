@@ -15,7 +15,7 @@
  * elsewhere from crashing.
  */
 import DeviceDiscovery from './DeviceDiscovery.js';
-import { DEVICE_STATUS } from '../../core/constants.js';
+import { DEVICE_STATUS, PRIORITY_MSG_TYPES, SEND_STATUS } from '../../core/constants.js';
 
 let easymidi;
 /**
@@ -442,20 +442,27 @@ class DeviceManager {
       this.logger.debug(`  - "${d.name}" (${d.type})`);
     });
 
+    // Dedup key includes the transport type so we only merge the two ALSA
+    // ports (input + output) of a SINGLE physical device — which share both
+    // name and transport — and never fold genuinely different devices from
+    // different transports into one entry with artificially OR-combined
+    // input/output capabilities (audit P1 — "dangerous deduplication").
     const normalizeName = (name) => name.split(':')[0].trim();
+    const dedupKey = (device) => `${device.type}:${normalizeName(device.name)}`;
 
     for (const device of allDevices) {
-      const normalizedName = normalizeName(device.name);
+      const key = dedupKey(device);
 
-      if (!seenNames.has(normalizedName)) {
-        seenNames.add(normalizedName);
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
         uniqueDevices.push(device);
         this.logger.debug(
-          `[Deduplication] ✓ KEPT: "${device.name}" (${device.type}) [normalized: "${normalizedName}"]`
+          `[Deduplication] ✓ KEPT: "${device.name}" (${device.type}) [key: "${key}"]`
         );
       } else {
-        // Merge capabilities: if the duplicate has input/output the kept one lacks, merge them
-        const kept = uniqueDevices.find((d) => normalizeName(d.name) === normalizedName);
+        // Merge capabilities: if the duplicate (same transport + name) has
+        // input/output the kept one lacks, merge them.
+        const kept = uniqueDevices.find((d) => dedupKey(d) === key);
         if (kept) {
           if (device.input && !kept.input) kept.input = true;
           if (device.output && !kept.output) kept.output = true;
@@ -464,7 +471,7 @@ class DeviceManager {
           );
         } else {
           this.logger.debug(
-            `[Deduplication] ✗ SKIP: "${device.name}" (${device.type}) [normalized: "${normalizedName}"] - duplicate`
+            `[Deduplication] ✗ SKIP: "${device.name}" (${device.type}) [key: "${key}"] - duplicate`
           );
         }
       }
@@ -515,15 +522,33 @@ class DeviceManager {
    * @returns {boolean} True on successful enqueue.
    */
   sendMessage(deviceName, type, data) {
-    // Skip rate limiting for real-time messages (clock, transport, reset)
-    const isRealTime =
-      type === 'clock' ||
-      type === 'start' ||
-      type === 'stop' ||
-      type === 'continue' ||
-      type === 'reset';
-    if (!isRealTime && this._isRateLimited(deviceName)) {
-      return false;
+    const result = this.sendMessageEx(deviceName, type, data);
+    return result.status === SEND_STATUS.SENT || result.status === SEND_STATUS.QUEUED;
+  }
+
+  /**
+   * Typed dispatch entry (audit P0-6). Resolves the named device to an
+   * output port / transport, enforces per-device rate limiting (except for
+   * priority silencing/reset traffic — audit P0-7), then sends. Unlike
+   * {@link DeviceManager#sendMessage} it distinguishes *why* a send did not
+   * land so the scheduler does not treat a rate-limit drop or an
+   * unsupported message the same as a real device disconnect.
+   *
+   * Note: for the async transports (BLE, network) a `queued` status means
+   * the write was handed to the transport; a later async failure is
+   * reported out-of-band via the transport's own error events, not here.
+   *
+   * @param {string} deviceName
+   * @param {string} type
+   * @param {Object} data
+   * @returns {{status:string, error?:Error}} One of {@link SEND_STATUS}.
+   */
+  sendMessageEx(deviceName, type, data) {
+    // Priority messages (Note Off, All Sound/Notes Off via reset, transport,
+    // clock) bypass the rate limiter so a silencing/panic burst is never
+    // partially dropped and cannot leave stuck notes.
+    if (!PRIORITY_MSG_TYPES.has(type) && this._isRateLimited(deviceName)) {
+      return { status: SEND_STATUS.RATE_LIMITED };
     }
 
     // Broadcast to debug monitor if monitorAll is active
@@ -543,11 +568,11 @@ class DeviceManager {
     const output = this.outputs.get(deviceName);
     if (output) {
       try {
-        output.send(type, data);
-        return true;
+        this._sendToOutput(output, type, data);
+        return { status: SEND_STATUS.SENT };
       } catch (error) {
         this.logger.error(`Failed to send MIDI message to ${deviceName}: ${error.message}`);
-        return false;
+        return { status: SEND_STATUS.ERROR, error };
       }
     }
 
@@ -563,11 +588,14 @@ class DeviceManager {
           this.bluetoothManager.sendMidiMessage(bleDevice.address, type, data).catch((error) => {
             this.logger.error(`BLE MIDI send failed to ${deviceName}: ${error.message}`);
           });
-          return true;
+          return { status: SEND_STATUS.QUEUED };
         } catch (error) {
           this.logger.error(`Failed to send MIDI via Bluetooth to ${deviceName}: ${error.message}`);
-          return false;
+          return { status: SEND_STATUS.ERROR, error };
         }
+      }
+      if (bleDevice && !bleDevice.connected) {
+        return { status: SEND_STATUS.DISCONNECTED };
       }
     }
 
@@ -583,10 +611,10 @@ class DeviceManager {
           this.networkManager.sendMidiMessage(networkDevice.ip, type, data).catch((error) => {
             this.logger.error(`Network MIDI send failed to ${deviceName}: ${error.message}`);
           });
-          return true;
+          return { status: SEND_STATUS.QUEUED };
         } catch (error) {
           this.logger.error(`Failed to send MIDI via Network to ${deviceName}: ${error.message}`);
-          return false;
+          return { status: SEND_STATUS.ERROR, error };
         }
       }
     }
@@ -599,12 +627,12 @@ class DeviceManager {
       if (serialPort) {
         try {
           this.serialMidiManager.sendMidiMessage(serialPort.path, type, data);
-          return true;
+          return { status: SEND_STATUS.SENT };
         } catch (error) {
           this.logger.error(
             `Failed to send MIDI message via Serial to ${deviceName}: ${error.message}`
           );
-          return false;
+          return { status: SEND_STATUS.ERROR, error };
         }
       }
     }
@@ -627,11 +655,31 @@ class DeviceManager {
           virtual: true
         });
       }
-      return true;
+      return { status: SEND_STATUS.SENT };
     }
 
     this.logger.warn(`Output device not found: ${deviceName}`);
-    return false;
+    return { status: SEND_STATUS.DISCONNECTED };
+  }
+
+  /**
+   * Low-level send to an easymidi Output, translating our SysEx payload
+   * (`{ bytes:[0xF0,…,0xF7] }` or a raw byte array) into easymidi's
+   * `send('sysex', bytes)` contract; all other types pass through
+   * unchanged.
+   * @param {Object} output - easymidi Output.
+   * @param {string} type
+   * @param {Object} data
+   * @private
+   */
+  _sendToOutput(output, type, data) {
+    if (type === 'sysex') {
+      const bytes = Array.isArray(data) ? data : data?.bytes;
+      if (!Array.isArray(bytes) || bytes.length === 0) return;
+      output.send('sysex', bytes);
+      return;
+    }
+    output.send(type, data);
   }
 
   /**
@@ -699,6 +747,72 @@ class DeviceManager {
    * @param {Object} msg
    * @returns {void}
    */
+  /**
+   * Parse a single complete raw-MIDI message (status byte + data bytes)
+   * into an easymidi-style `(type, data)` pair and route it through
+   * {@link DeviceManager#handleMidiMessage}. This is the common entry
+   * point for transports that deliver raw bytes rather than pre-parsed
+   * messages — BLE-MIDI in particular — so their input reaches the router
+   * exactly like USB and serial input (audit P0-2).
+   *
+   * @param {string} deviceName
+   * @param {number[]} bytes - One complete MIDI message.
+   * @returns {void}
+   */
+  handleRawMidi(deviceName, bytes) {
+    if (!Array.isArray(bytes) || bytes.length === 0) return;
+    const status = bytes[0];
+
+    // SysEx (0xF0 … 0xF7): forward the whole frame.
+    if (status === 0xf0) {
+      this.handleMidiMessage(deviceName, 'sysex', bytes);
+      return;
+    }
+
+    const high = status & 0xf0;
+    const channel = status & 0x0f;
+    switch (high) {
+      case 0x80:
+        this.handleMidiMessage(deviceName, 'noteoff', { channel, note: bytes[1], velocity: bytes[2] });
+        return;
+      case 0x90:
+        // Running-status / velocity-0 Note On is a Note Off.
+        this.handleMidiMessage(
+          deviceName,
+          bytes[2] === 0 ? 'noteoff' : 'noteon',
+          { channel, note: bytes[1], velocity: bytes[2] }
+        );
+        return;
+      case 0xa0:
+        this.handleMidiMessage(deviceName, 'poly aftertouch', { channel, note: bytes[1], pressure: bytes[2] });
+        return;
+      case 0xb0:
+        this.handleMidiMessage(deviceName, 'cc', { channel, controller: bytes[1], value: bytes[2] });
+        return;
+      case 0xc0:
+        this.handleMidiMessage(deviceName, 'program', { channel, number: bytes[1] });
+        return;
+      case 0xd0:
+        this.handleMidiMessage(deviceName, 'channel aftertouch', { channel, pressure: bytes[1] });
+        return;
+      case 0xe0:
+        this.handleMidiMessage(deviceName, 'pitchbend', { channel, value: (bytes[2] << 7) | bytes[1] });
+        return;
+      default: {
+        // System common / real-time.
+        const sysType = {
+          0xf8: 'clock',
+          0xfa: 'start',
+          0xfb: 'continue',
+          0xfc: 'stop',
+          0xfe: 'sensing',
+          0xff: 'reset'
+        }[status];
+        if (sysType) this.handleMidiMessage(deviceName, sysType, {});
+      }
+    }
+  }
+
   handleMidiMessage(deviceName, type, msg) {
     const timestamp = Date.now();
 

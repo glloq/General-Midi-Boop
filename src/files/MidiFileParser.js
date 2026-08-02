@@ -100,30 +100,26 @@ class MidiFileParser {
       totalTicks = Math.max(totalTicks, trackTicks);
     });
 
-    // Calculate duration using tempo map (handles multi-tempo files)
-    let duration;
-    if (dedupedTempoEvents.length <= 1) {
-      const tempo = dedupedTempoEvents.length === 1
-        ? 60000000 / dedupedTempoEvents[0].microsecondsPerBeat
-        : 120;
-      const beatsPerSecond = tempo / 60;
-      const ticksPerSecond = beatsPerSecond * ppq;
-      duration = totalTicks / ticksPerSecond;
-    } else {
-      let cumulativeSeconds = 0;
-      let lastTick = 0;
-      let currentMicrosPerBeat = dedupedTempoEvents[0].microsecondsPerBeat;
-
-      for (let i = 1; i < dedupedTempoEvents.length; i++) {
-        const deltaTicks = dedupedTempoEvents[i].tick - lastTick;
-        cumulativeSeconds += (deltaTicks * currentMicrosPerBeat) / (ppq * 1000000);
-        lastTick = dedupedTempoEvents[i].tick;
-        currentMicrosPerBeat = dedupedTempoEvents[i].microsecondsPerBeat;
-      }
-      const remainingTicks = totalTicks - lastTick;
-      cumulativeSeconds += (remainingTicks * currentMicrosPerBeat) / (ppq * 1000000);
-      duration = cumulativeSeconds;
+    // Calculate duration by walking the tempo map. The SMF spec mandates
+    // 120 BPM (500000 µs/beat) until the FIRST Set Tempo, so seed the
+    // running tempo with that default and treat every tempo event's value
+    // as taking effect only AT its own tick. This mirrors
+    // MidiPlayer._buildTempoMap's tick-0/120 BPM anchor so the stored/
+    // displayed duration matches actual playback (audit P1 — the metadata
+    // must not treat pre-first-tempo ticks at the first event's tempo).
+    const DEFAULT_MICROS_PER_BEAT = 500000; // 120 BPM
+    let cumulativeSeconds = 0;
+    let lastTick = 0;
+    let currentMicrosPerBeat = DEFAULT_MICROS_PER_BEAT;
+    for (const te of dedupedTempoEvents) {
+      const deltaTicks = te.tick - lastTick;
+      cumulativeSeconds += (deltaTicks * currentMicrosPerBeat) / (ppq * 1000000);
+      lastTick = te.tick;
+      currentMicrosPerBeat = te.microsecondsPerBeat;
     }
+    const remainingTicks = Math.max(0, totalTicks - lastTick);
+    cumulativeSeconds += (remainingTicks * currentMicrosPerBeat) / (ppq * 1000000);
+    const duration = cumulativeSeconds;
 
     return {
       tempo: isFinite(firstTempo) ? firstTempo : 120,

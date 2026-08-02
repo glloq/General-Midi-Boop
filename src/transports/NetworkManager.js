@@ -14,6 +14,7 @@
 import EventEmitter from 'events';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import dgram from 'dgram';
 import net from 'net';
 import os from 'os';
 import RtpMidiSession from './RtpMidiSession.js';
@@ -34,6 +35,13 @@ class NetworkManager extends EventEmitter {
     this.devices = new Map(); // Map of IP -> device info
     this.connectedDevices = new Map(); // Map of IP -> connection info
     this.rtpSessions = new Map(); // Map of IP -> RtpMidiSession
+
+    // Single shared UDP socket for ALL RTP-MIDI sessions. Bound once to a
+    // fixed local port so remote peers can reach us on a known address;
+    // inbound frames are demuxed to the right session by sender IP. Created
+    // lazily on first connect (see `_ensureReceiveSocket`).
+    this.rtpMidiPort = Number(deps.config?.network?.rtpMidiPort) || 5004;
+    this.rxSocket = null;
 
     // Commonly used MIDI over network ports
     this.MIDI_NETWORK_PORTS = [
@@ -285,8 +293,8 @@ class NetworkManager extends EventEmitter {
       `[NetworkManager] Subnet scan completed - ${ipFoundCount} TCP + ${arpCount} ARP, ${this.devices.size} total devices`
     );
 
-    // If no IPs found, add test devices (dev environment only)
-    if (this.devices.size === 0 && process.env.NODE_ENV !== 'production') {
+    // If no IPs found, add test devices (opt-in dev aid only)
+    if (this.devices.size === 0 && this._testDevicesEnabled()) {
       this.logger.warn('[NetworkManager] No IPs found - adding test devices for development');
       this.addTestDevicesIP(subnet);
     }
@@ -342,11 +350,25 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
+   * Whether synthetic "test" devices may be injected into scan results.
+   * These are a development aid only and MUST be opt-in: gating them on
+   * `NODE_ENV !== 'production'` used to leak fake instruments into real
+   * deployments because `npm start` does not set NODE_ENV=production
+   * (audit P2). Require an explicit `GMBOOP_NETWORK_TEST_DEVICES` flag.
+   * @returns {boolean}
+   * @private
+   */
+  _testDevicesEnabled() {
+    const v = process.env.GMBOOP_NETWORK_TEST_DEVICES;
+    return v === '1' || v === 'true';
+  }
+
+  /**
    * Add test IPs for the development environment
    * @param {string} subnet - Subnet
    */
   addTestDevicesIP(subnet) {
-    if (process.env.NODE_ENV === 'production') return;
+    if (!this._testDevicesEnabled()) return;
     const testIPs = [
       { ip: `${subnet}.1`, name: 'Routeur (Test)' },
       { ip: `${subnet}.10`, name: 'Ordinateur Bureau (Test)' },
@@ -378,7 +400,7 @@ class NetworkManager extends EventEmitter {
    * Add test devices (for development)
    */
   addTestDevices() {
-    if (process.env.NODE_ENV === 'production') return;
+    if (!this._testDevicesEnabled()) return;
     // Add some test devices if none were found
     if (this.devices.size === 0) {
       this.logger.debug('Adding test network devices...');
@@ -455,15 +477,16 @@ class NetworkManager extends EventEmitter {
     }
 
     try {
-      // Create RTP-MIDI session
+      // Create RTP-MIDI session over the ONE shared receive socket. Every
+      // session shares a single bound port (default 5004): a second remote
+      // no longer trips EADDRINUSE (which is why the previous fix used an
+      // ephemeral port), yet we still listen on a fixed, known port so peers
+      // can actually reach us. Inbound frames are demuxed centrally by
+      // sender IP in `_handleSharedInbound` (audit P1 — RTP-MIDI inbound).
+      const sharedSocket = await this._ensureReceiveSocket();
       const session = new RtpMidiSession({
         localName: 'GeneralMidiBoop',
-        localPort: 5004
-      });
-
-      // Listen for incoming MIDI messages
-      session.on('message', (deltaTime, midiBytes) => {
-        this.handleMidiData(ip, midiBytes);
+        sharedSocket
       });
 
       // Listen for errors
@@ -570,19 +593,27 @@ class NetworkManager extends EventEmitter {
   }
 
   /**
-   * Check if a host is reachable via TCP connect on the RTP-MIDI port.
-   * Uses net.Socket instead of ping to avoid spawning processes
-   * and to check the MIDI port directly.
+   * Check whether a host is present on the network.
+   *
+   * NOTE: RTP-MIDI is a UDP protocol (RFC 6295), so a TCP connect to 5004
+   * does not prove RTP-MIDI reachability — nothing listens on TCP 5004 even
+   * on a live AppleMIDI host, so the old probe returned false for reachable
+   * hosts (audit P0-1d). A UDP probe is equally unreliable (no guaranteed
+   * response), and a truthful RTP-MIDI reachability check requires the
+   * AppleMIDI invitation (IN/OK) handshake, which this simplified session
+   * does not yet implement. As a pragmatic host-liveness signal we treat an
+   * ECONNREFUSED (a TCP RST from a reachable host) the same as a successful
+   * connect; only a timeout means the host is absent or filtered.
    * @param {string} ip - IP address
    * @param {number} timeoutMs - Timeout in milliseconds (default: 2000)
-   * @returns {Promise<boolean>} True if reachable
+   * @returns {Promise<boolean>} True if the host appears to be present
    */
   async checkReachability(ip, timeoutMs = 2000) {
     if (!/^[\d.]+$/.test(ip) && !/^[a-fA-F\d:]+$/.test(ip)) {
       return false;
     }
     const safeTimeout = Math.max(500, Math.min(10000, parseInt(timeoutMs, 10) || 2000));
-    return this._tcpProbe(ip, 5004, safeTimeout, () => false);
+    return this._tcpProbe(ip, 5004, safeTimeout, (err) => err.code === 'ECONNREFUSED');
   }
 
   /**
@@ -653,6 +684,87 @@ class NetworkManager extends EventEmitter {
     } catch (error) {
       this.logger.error(`[NetworkManager] Send MIDI error: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Bind a fresh UDP/IPv4 socket to `port` and resolve with it once it is
+   * listening; reject on bind error. `reuseAddr` lets us re-bind quickly
+   * across restarts.
+   * @param {number} port
+   * @returns {Promise<import('dgram').Socket>}
+   * @private
+   */
+  _bindSocket(port) {
+    return new Promise((resolve, reject) => {
+      const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+      const onError = (err) => {
+        socket.removeListener('listening', onListening);
+        reject(err);
+      };
+      const onListening = () => {
+        socket.removeListener('error', onError);
+        resolve(socket);
+      };
+      socket.once('error', onError);
+      socket.once('listening', onListening);
+      socket.bind(port);
+    });
+  }
+
+  /**
+   * Lazily create the single shared RTP-MIDI UDP socket used by every
+   * session for both send and receive. Binds the fixed local port so peers
+   * can reach us on a known address; if that port is busy we fall back to
+   * an ephemeral send-only port (outbound still works, inbound disabled)
+   * rather than failing the connection.
+   * @returns {Promise<import('dgram').Socket>}
+   * @private
+   */
+  async _ensureReceiveSocket() {
+    if (this.rxSocket) return this.rxSocket;
+
+    let socket;
+    try {
+      socket = await this._bindSocket(this.rtpMidiPort);
+      this.logger.info(`[NetworkManager] RTP-MIDI listening on udp/${this.rtpMidiPort}`);
+    } catch (err) {
+      this.logger.warn(
+        `[NetworkManager] Cannot bind RTP-MIDI port ${this.rtpMidiPort} (${err.message}); ` +
+          'inbound MIDI disabled, using an ephemeral send-only port'
+      );
+      socket = await this._bindSocket(0);
+    }
+
+    socket.on('message', (msg, rinfo) => this._handleSharedInbound(msg, rinfo));
+    socket.on('error', (err) =>
+      this.logger.error(`[NetworkManager] RTP-MIDI socket error: ${err.message}`)
+    );
+
+    this.rxSocket = socket;
+    return socket;
+  }
+
+  /**
+   * Demultiplex an inbound RTP-MIDI packet on the shared socket to the
+   * session that owns the sender IP, then forward each parsed MIDI command.
+   * Packets from unknown senders are ignored.
+   * @param {Buffer} msg
+   * @param {{address:string}} rinfo
+   * @private
+   */
+  _handleSharedInbound(msg, rinfo) {
+    const session = this.rtpSessions.get(rinfo.address);
+    if (!session) return; // Not a connected peer — ignore.
+    try {
+      const packet = session.parseRtpPacket(msg);
+      if (packet && packet.midiCommands.length > 0) {
+        for (const midiCommand of packet.midiCommands) {
+          this.handleMidiData(rinfo.address, midiCommand);
+        }
+      }
+    } catch (err) {
+      this.logger.debug(`[NetworkManager] RTP parse error from ${rinfo.address}: ${err.message}`);
     }
   }
 
@@ -793,6 +905,13 @@ class NetworkManager extends EventEmitter {
     }
 
     await Promise.all(disconnectPromises);
+
+    // Close the shared RTP-MIDI socket last, after all sessions are gone.
+    if (this.rxSocket) {
+      await new Promise((resolve) => this.rxSocket.close(resolve));
+      this.rxSocket = null;
+    }
+
     this.logger.info('NetworkManager shutdown complete');
   }
 }

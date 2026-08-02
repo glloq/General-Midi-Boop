@@ -176,13 +176,31 @@ mkdir -p examples
 
 print_success "Directories created"
 
-# Install Node.js dependencies (deterministic prod install from lockfile).
-# --omit=dev skips Jest/Vitest/ESLint/etc. which are not needed at runtime.
-# NODE_ENV=production makes the `prepare` script (.husky/install.mjs) no-op
-# so it doesn't try to invoke the husky binary that --omit=dev just skipped.
+# Install Node.js dependencies (deterministic install from lockfile).
+# We install the FULL set (including devDependencies) so Vite is available
+# to build the production SPA bundle below, then prune the dev tooling to
+# keep the runtime footprint small. NODE_ENV=production keeps the `prepare`
+# script (.husky/install.mjs) a no-op so it doesn't invoke the husky binary.
 print_info "Installing Node.js dependencies (this may take a few minutes)..."
-NODE_ENV=production npm ci --omit=dev --silent
+NODE_ENV=production npm ci --silent
 print_success "Dependencies installed"
+
+# Build the production SPA bundle (served from dist/ in production). Without
+# this the server falls back to the unbundled public/ tree — 190+ sequential
+# <script> requests — which is slow to cold-start on a Raspberry Pi (audit
+# P1 — dist bundle never built). Best-effort: a build failure is not fatal,
+# the server still serves public/.
+print_info "Building production web bundle..."
+if NODE_ENV=production npm run build --silent; then
+    print_success "Web bundle built (dist/)"
+else
+    print_warning "Web build failed — server will serve the unbundled public/ assets"
+fi
+
+# Drop devDependencies now that the bundle is built, keeping the runtime lean.
+print_info "Pruning development dependencies..."
+NODE_ENV=production npm prune --omit=dev --silent
+print_success "Development dependencies pruned"
 
 # =============================================================================
 # DATABASE

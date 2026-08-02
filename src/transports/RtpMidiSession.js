@@ -22,6 +22,14 @@ class RtpMidiSession extends EventEmitter {
 
     this.localName = options.localName || 'GeneralMidiBoop';
     this.localPort = options.localPort || 0; // 0 = OS assigns random available port
+    // Optional shared UDP socket owned by NetworkManager. When present, this
+    // session does NOT bind its own port: every session sends through the one
+    // shared socket and NetworkManager demultiplexes inbound frames by sender
+    // IP. This is what lets several remotes connect without the second bind
+    // failing with EADDRINUSE, while still listening on a fixed, known port
+    // so peers can actually reach us (audit P1 — RTP-MIDI inbound port).
+    this.sharedSocket = options.sharedSocket || null;
+    this.ownsSocket = false;
     this.remoteHost = null;
     this.remotePort = null;
     this.socket = null;
@@ -44,10 +52,26 @@ class RtpMidiSession extends EventEmitter {
    * @param {number} port - Peer port
    */
   async connect(host, port = 5004) {
+    this.remoteHost = host;
+    this.remotePort = port;
+
+    // Shared-socket mode: NetworkManager owns the UDP socket (one bound
+    // port shared by every session, inbound demuxed by sender IP). We only
+    // record the remote endpoint and announce readiness — there is no
+    // per-session bind, so a second remote never trips EADDRINUSE.
+    if (this.sharedSocket) {
+      this.socket = this.sharedSocket;
+      this.ownsSocket = false;
+      this.sendInvitation();
+      this.connected = true;
+      this.emit('connected', { host, port });
+      return;
+    }
+
+    // Standalone mode: this session owns its socket (direct use / tests).
     return new Promise((resolve, reject) => {
       try {
-        this.remoteHost = host;
-        this.remotePort = port;
+        this.ownsSocket = true;
 
         // Create UDP socket
         this.socket = dgram.createSocket('udp4');
@@ -374,14 +398,21 @@ class RtpMidiSession extends EventEmitter {
    */
   async disconnect() {
     return new Promise((resolve) => {
-      if (this.socket) {
+      // Only close a socket this session actually owns. A shared socket is
+      // owned (and closed) by NetworkManager and must survive this session.
+      if (this.socket && this.ownsSocket) {
         this.socket.close(() => {
+          this.socket = null;
           this.connected = false;
           this.sessionInitialized = false;
           this.emit('disconnected');
           resolve();
         });
       } else {
+        this.socket = null;
+        this.connected = false;
+        this.sessionInitialized = false;
+        this.emit('disconnected');
         resolve();
       }
     });

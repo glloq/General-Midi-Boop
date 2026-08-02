@@ -10,7 +10,6 @@
  *
  * Also exposes capability-validation helpers used by the same UI.
  */
-import { parseMidi } from 'midi-file';
 import InstrumentCapabilitiesValidator from '../../adaptation/InstrumentCapabilitiesValidator.js';
 import InstrumentMatcher from '../../adaptation/InstrumentMatcher.js';
 import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
@@ -265,30 +264,18 @@ async function applyAssignments(app, data) {
         throw new MidiError(`Failed to convert adapted MIDI: ${error.message}`);
       }
 
-      let adaptedMeta = { duration: originalFile.duration, tempo: originalFile.tempo, tracks: originalFile.tracks };
-      let adaptedInstrumentMeta = {};
-      try {
-        const parsedAdapted = parseMidi(adaptedBuffer);
-        if (parsedAdapted && app.fileManager) {
-          adaptedMeta = app.fileManager.extractMetadata(parsedAdapted);
-          adaptedMeta.tracks = parsedAdapted.tracks?.length || originalFile.tracks;
-          adaptedInstrumentMeta = app.fileManager.extractInstrumentMetadata(parsedAdapted);
-        }
-      } catch (e) {
-        app.logger.warn(`[ApplyAssignments] Could not recalculate adapted metadata: ${e.message}`);
+      // Persist the adapted bytes through FileManager so they actually reach
+      // disk (BlobStore) with a fresh content_hash + recomputed metadata. The
+      // previous code handed a base64 `data` field to the DB layer, whose
+      // column whitelist dropped it — the adapted file was never stored and
+      // playback kept using the original (audit P1 — adapted file lost).
+      if (!app.fileManager) {
+        throw new MidiError('FileManager unavailable — cannot persist adapted file');
       }
 
       if (overwriteOriginal) {
         try {
-          app.fileRepository.update(data.originalFileId, {
-            data: adaptedBuffer.toString('base64'),
-            size: adaptedBuffer.length,
-            tracks: adaptedMeta.tracks || originalFile.tracks,
-            duration: adaptedMeta.duration || originalFile.duration,
-            tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
-            ppq: originalFile.ppq,
-            ...(adaptedInstrumentMeta.fileMetadata || {})
-          });
+          await app.fileManager.replaceFileBytes(data.originalFileId, adaptedBuffer);
           adaptedFileId = null;
           app.logger.info(`Overwritten original file ${data.originalFileId} with adapted data`);
         } catch (e) {
@@ -306,35 +293,21 @@ async function applyAssignments(app, data) {
           if (existingAdapted) existingAdaptedId = existingAdapted.id;
         } catch (e) { app.logger.debug('Could not check for existing adapted file', e); }
 
-        if (existingAdaptedId) {
-          app.fileRepository.update(existingAdaptedId, {
-            data: adaptedBuffer.toString('base64'),
-            size: adaptedBuffer.length,
-            tracks: adaptedMeta.tracks || originalFile.tracks,
-            duration: adaptedMeta.duration || originalFile.duration,
-            tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
-            ppq: originalFile.ppq,
-            ...(adaptedInstrumentMeta.fileMetadata || {})
-          });
-          adaptedFileId = existingAdaptedId;
-          app.logger.info(`Updated existing adapted file: ${adaptedFileId} (${adaptedFilename})`);
-        } else {
-          const adaptedFile = {
-            filename: adaptedFilename,
-            data: adaptedBuffer.toString('base64'),
-            size: adaptedBuffer.length,
-            tracks: adaptedMeta.tracks || originalFile.tracks,
-            duration: adaptedMeta.duration || originalFile.duration,
-            tempo: Math.round(adaptedMeta.tempo || originalFile.tempo),
-            ppq: originalFile.ppq,
-            uploaded_at: new Date().toISOString(),
-            folder: originalFile.folder,
-            is_original: false,
-            parent_file_id: data.originalFileId,
-            ...(adaptedInstrumentMeta.fileMetadata || {})
-          };
-          adaptedFileId = app.fileRepository.save(adaptedFile);
-          app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
+        try {
+          if (existingAdaptedId) {
+            await app.fileManager.replaceFileBytes(existingAdaptedId, adaptedBuffer);
+            adaptedFileId = existingAdaptedId;
+            app.logger.info(`Updated existing adapted file: ${adaptedFileId} (${adaptedFilename})`);
+          } else {
+            const created = await app.fileManager.createDerivedFile(adaptedFilename, adaptedBuffer, {
+              folder: originalFile.folder,
+              parentFileId: data.originalFileId
+            });
+            adaptedFileId = created.fileId;
+            app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
+          }
+        } catch (e) {
+          throw new MidiError(`Failed to persist adapted file: ${e.message}`);
         }
       }
     } else {

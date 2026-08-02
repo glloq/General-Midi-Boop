@@ -35,5 +35,11 @@
     "autoDetect": true,
     "baudRate": 31250,
     "ports": []
+  },
+  "network": {
+    "rtpMidiPort": 5004
+  },
+  "security": {
+    "mode": "trusted-lan"
   }
 }

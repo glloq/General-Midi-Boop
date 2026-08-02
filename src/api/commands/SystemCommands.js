@@ -103,25 +103,113 @@ function requireTokenConfigured() {
  */
 async function systemRestart(app) {
   requireTokenConfigured();
-  app.logger.info('System restart requested');
+  app.logger.info('System restart requested (application process)');
+  // Restart just the application process: the supervisor (PM2/systemd)
+  // brings it back up. This is intentionally distinct from system_shutdown,
+  // which powers the host off (audit P2 — "restart and shutdown had almost
+  // the same semantics").
   setTimeout(() => process.exit(0), 1000);
-  return { success: true };
+  return { success: true, action: 'process_restart' };
 }
 
 /**
- * Same semantics as {@link systemRestart} — the process supervisor
- * decides whether to bring the server back up. Distinct command name so
- * the UI can label the action correctly.
+ * Power the host OFF (not merely exit the process). Attempts the usual
+ * privileged power-off commands in order; if none can run (e.g. the
+ * service account lacks permission), falls back to a clean process exit
+ * and reports that the host was not powered off, so the caller is not
+ * misled into thinking the Pi shut down (audit P2).
  *
  * @param {Object} app
- * @returns {Promise<{success:true}>}
+ * @returns {Promise<{success:true, action:string, poweredOff:boolean}>}
  * @throws {AuthenticationError}
  */
 async function systemShutdown(app) {
   requireTokenConfigured();
-  app.logger.info('System shutdown requested');
-  setTimeout(() => process.exit(0), 1000);
-  return { success: true };
+  app.logger.info('System shutdown requested (host power-off)');
+
+  const poweredOff = await _tryHostPowerCommand(app, [
+    ['shutdown', ['-h', 'now']],
+    ['poweroff', []],
+    ['systemctl', ['poweroff']]
+  ]);
+
+  if (!poweredOff) {
+    app.logger.warn(
+      'Host power-off command unavailable or not permitted; exiting the process instead'
+    );
+    setTimeout(() => process.exit(0), 1000);
+  }
+  return { success: true, action: 'host_shutdown', poweredOff };
+}
+
+/**
+ * Reboot the host machine. Distinct from system_restart (process only).
+ *
+ * @param {Object} app
+ * @returns {Promise<{success:true, action:string, rebooted:boolean}>}
+ * @throws {AuthenticationError}
+ */
+async function systemReboot(app) {
+  requireTokenConfigured();
+  app.logger.info('System reboot requested (host reboot)');
+  const rebooted = await _tryHostPowerCommand(app, [
+    ['shutdown', ['-r', 'now']],
+    ['reboot', []],
+    ['systemctl', ['reboot']]
+  ]);
+  if (!rebooted) {
+    app.logger.warn('Host reboot command unavailable or not permitted; exiting the process instead');
+    setTimeout(() => process.exit(0), 1000);
+  }
+  return { success: true, action: 'host_reboot', rebooted };
+}
+
+/**
+ * Try each `[cmd, args]` power command in order; resolve true as soon as
+ * one spawns without an immediate error, false if all fail (missing
+ * binary / permission denied). The command itself schedules the power
+ * event, so a clean spawn is treated as success.
+ *
+ * @param {Object} app
+ * @param {Array<[string, string[]]>} candidates
+ * @returns {Promise<boolean>}
+ * @private
+ */
+async function _tryHostPowerCommand(app, candidates) {
+  const { spawn } = await import('child_process');
+  for (const [cmd, args] of candidates) {
+    const ok = await new Promise((resolvePromise) => {
+      let settled = false;
+      const finish = (value) => {
+        if (!settled) {
+          settled = true;
+          resolvePromise(value);
+        }
+      };
+      let child;
+      try {
+        child = spawn(cmd, args, { stdio: 'ignore', detached: true });
+      } catch {
+        finish(false);
+        return;
+      }
+      child.on('error', () => finish(false)); // ENOENT / EACCES
+      child.on('exit', (code) => finish(code === 0));
+      // If the host is going down, the command may not report exit before
+      // the process is killed — treat "still running after 1.5s, no error"
+      // as success.
+      setTimeout(() => {
+        try {
+          child.unref();
+        } catch {
+          /* ignore */
+        }
+        finish(true);
+      }, 1500);
+    });
+    if (ok) return true;
+  }
+  return false;
 }
 
 /**
@@ -436,19 +524,54 @@ async function systemBackup(app, data) {
 
   const backupPath = resolve(backupsDir, filename);
   // Admin-level op on the whole database file; no domain Repository fits here.
-  app.database.backup(backupPath);
+  // `backup()` is async (better-sqlite3 streams pages) — await it so the
+  // command only resolves once the file is fully written, not while the
+  // backup is still in flight (audit P2 — missing await).
+  await app.database.backup(backupPath);
   return { path: backupPath };
 }
 
 /**
- * Placeholder for full database restore.
- * TODO: implement once the UI exposes a confirmation dialog and a way
- * to upload a backup blob securely.
+ * Restore the database from a backup previously written to `backups/`.
+ * The provided name is reduced to its basename and must resolve inside
+ * `backups/`; the file is validated as SQLite and copied over the live
+ * database, after which the process restarts so every service reopens the
+ * restored DB. Gated by {@link requireTokenConfigured} (destructive).
  *
- * @returns {Promise<{success:true}>}
+ * @param {Object} app
+ * @param {{path?:string}} data - Backup filename (within `backups/`).
+ * @returns {Promise<{success:true, restored:string, restart:true}>}
+ * @throws {AuthenticationError|ValidationError}
  */
-async function systemRestore(_app, _data) {
-  return { success: true };
+async function systemRestore(app, data) {
+  requireTokenConfigured();
+  const { resolve, basename } = await import('path');
+  const backupsDir = resolve('./backups');
+
+  if (!data || !data.path) {
+    throw new ValidationError('A backup filename is required', 'path');
+  }
+  const filename = basename(data.path);
+  if (filename.includes('..') || filename.startsWith('.')) {
+    throw new ValidationError('Invalid backup filename', 'path');
+  }
+  const backupPath = resolve(backupsDir, filename);
+  if (!backupPath.startsWith(backupsDir)) {
+    throw new ValidationError('Backup path escapes the backups directory', 'path');
+  }
+  if (!existsSync(backupPath)) {
+    throw new ValidationError(`Backup not found: ${filename}`, 'path');
+  }
+  if (typeof app.database.restoreFromBackup !== 'function') {
+    throw new ValidationError('Restore is not supported by this database backend', 'path');
+  }
+
+  app.logger.info(`System restore requested from ${filename}`);
+  app.database.restoreFromBackup(backupPath);
+
+  // Restart so all services reopen the restored database cleanly.
+  setTimeout(() => process.exit(0), 1000);
+  return { success: true, restored: filename, restart: true };
 }
 
 /**
@@ -534,6 +657,7 @@ export function register(registry, app) {
   registry.register('system_info', () => systemInfo(app));
   registry.register('system_restart', () => systemRestart(app));
   registry.register('system_shutdown', () => systemShutdown(app));
+  registry.register('system_reboot', () => systemReboot(app));
   registry.register('system_update', (data) => systemUpdate(app, data));
   registry.register('system_check_update', () => systemCheckUpdate(app));
   registry.register('system_backup', (data) => systemBackup(app, data));
