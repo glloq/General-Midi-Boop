@@ -109,7 +109,8 @@ describe('PlaybackSnapshot', () => {
         minNoteDuration: null,
         polyphony: null,
         noteRangeMin: null,
-        noteRangeMax: null
+        noteRangeMax: null,
+        selectedNotes: null
       });
     });
 

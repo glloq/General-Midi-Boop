@@ -20,6 +20,7 @@ import BankEffectsDB from './tables/BankEffectsDB.js';
 import CustomSF2DB from './tables/CustomSF2DB.js';
 import LoopsDB from './tables/LoopsDB.js';
 import LoopArrangementsDB from './tables/LoopArrangementsDB.js';
+import BluetoothDB from './tables/BluetoothDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
 import { runMigrations as runSchemaMigrations } from './DatabaseLifecycle.js';
 
@@ -46,6 +47,7 @@ class DatabaseManager {
     this.customSF2DB = null;
     this.loopsDB = null;
     this.loopArrangementsDB = null;
+    this.bluetoothDB = null;
 
     this.ensureDataDir();
     this.connect();
@@ -60,6 +62,7 @@ class DatabaseManager {
     this.customSF2DB = new CustomSF2DB(this.db, this.logger);
     this.loopsDB = new LoopsDB(this.db, this.logger);
     this.loopArrangementsDB = new LoopArrangementsDB(this.db, this.logger);
+    this.bluetoothDB = new BluetoothDB(this.db, this.logger);
 
     this.logger.info('Database initialized');
   }

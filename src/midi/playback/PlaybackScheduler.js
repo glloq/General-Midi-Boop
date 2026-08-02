@@ -205,9 +205,34 @@ class PlaybackScheduler {
         minNoteDuration: null,
         polyphony: null,
         noteRangeMin: null,
-        noteRangeMax: null
+        noteRangeMax: null,
+        selectedNotes: null
       }
     );
+  }
+
+  /**
+   * Snap a note to the nearest value in the instrument's discrete playable set
+   * (`selectedNotes`), preserving the note only if it is already available.
+   * Ties break downward. Used for instruments (kalimba, handpan, tuned
+   * percussion…) that can only produce specific pitches, so an off-set note is
+   * played as its closest available neighbour instead of being lost.
+   *
+   * @param {number} note
+   * @param {number[]} selected - sorted or unsorted non-empty list of MIDI notes
+   * @returns {number}
+   */
+  _snapToSelected(note, selected) {
+    let best = selected[0];
+    let bestDist = Math.abs(note - best);
+    for (let i = 1; i < selected.length; i++) {
+      const d = Math.abs(note - selected[i]);
+      if (d < bestDist || (d === bestDist && selected[i] < best)) {
+        best = selected[i];
+        bestDist = d;
+      }
+    }
+    return best;
   }
 
   /**
@@ -887,6 +912,13 @@ class PlaybackScheduler {
       const c = this._getTimingConstraints(routing.device, outChannel);
       if (c.noteRangeMin != null || c.noteRangeMax != null) {
         outNote = this._foldIntoRange(outNote, c.noteRangeMin, c.noteRangeMax);
+      }
+      // Discrete instruments (kalimba/handpan/tuned percussion): snap to the
+      // nearest physically available pitch so an off-set note still sounds
+      // rather than being silently unplayable (audit — octave_mode/
+      // selected_notes had no output consumer). Applied after range folding.
+      if (Array.isArray(c.selectedNotes) && c.selectedNotes.length > 0) {
+        outNote = this._snapToSelected(outNote, c.selectedNotes);
       }
     }
 
