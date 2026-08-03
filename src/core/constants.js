@@ -178,7 +178,11 @@ const CALIBRATION = {
 // ============================================
 const LIMITS = {
   MAX_MIDI_FILE_SIZE: 10 * 1024 * 1024, // 10 MB (RPi-friendly, must stay < WebSocket 16MB payload)
-  MAX_SF2_FILE_SIZE: 500 * 1024 * 1024, // 500 MB per file
+  // 160 MB per SF2 file. The upload path buffers the whole file in memory and
+  // parsing allocates a full-file copy, so on a 1 GB Pi the previous 500 MB cap
+  // could OOM the process on a single upload. 160 MB still fits common GM
+  // soundfonts (FluidR3_GM ≈ 140 MB) while keeping the worst case bounded.
+  MAX_SF2_FILE_SIZE: 160 * 1024 * 1024, // 160 MB per file
   MAX_SF2_TOTAL_SIZE: 1024 * 1024 * 1024, // 1 GB total storage for all SF2 files
   MAX_SYSEX_BUFFER_SIZE: 65536, // 64 KB
   MAX_UNDO_HISTORY: 100,

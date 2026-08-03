@@ -142,8 +142,10 @@ export function createApiRouter(app) {
       }
       const uploadId = randomBytes(8).toString('hex');
 
-      const result = await app.uploadQueue.add(uploadId, (report) =>
-        app.fileManager.handleUpload(filename, req.body, { folder, report })
+      const result = await app.uploadQueue.add(
+        uploadId,
+        (report) => app.fileManager.handleUpload(filename, req.body, { folder, report }),
+        req.body.length
       );
 
       const status = result.status === 'duplicate' ? 200 : 201;

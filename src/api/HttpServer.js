@@ -202,6 +202,18 @@ class HttpServer {
           return this._checkBearer(req, res, next, apiTokenBuf);
         }
 
+        // SECURITY NOTE (accepted risk, trusted-lan mode): the Sec-Fetch-Site
+        // and Origin==Host bypasses below are browser-set signals but are
+        // freely forgeable by a NON-browser client (curl/script can send any
+        // header). They therefore do NOT prove same-origin against a direct
+        // WAN attacker, so in this default mode the API token can be bypassed
+        // by an internet client that reaches the box directly. This is
+        // acceptable only while the box is NOT exposed to the WAN (the token's
+        // stated job). If you port-forward / tunnel the box to the internet,
+        // switch security.mode to "secure" (token required for every request)
+        // — see the CLAUDE.md security section. A stricter option is to gate
+        // these header bypasses behind isPrivateClient(req).
+        //
         // Same-origin SPA bypass: mirrors WebSocketServer.verifyClient.
         // The CORS middleware above already restricts the Origin header to
         // localhost / the request host, so an Origin echo here is a strong
