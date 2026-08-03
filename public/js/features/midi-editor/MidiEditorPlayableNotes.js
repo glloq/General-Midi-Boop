@@ -57,6 +57,11 @@
             const promises = [];
             for (const [channel, routedValue] of m.channelRouting) {
                 promises.push((async () => {
+                    // Guard against null/undefined/non-string routing values so a
+                    // malformed entry can't throw synchronously and reject the whole
+                    // Promise.all with an unhandled rejection (mirrors the guard in
+                    // fetchAndCacheRoutedGmProgram).
+                    if (!routedValue || typeof routedValue !== 'string') return;
                     let deviceId = routedValue;
                     let devChannel = undefined;
                     if (routedValue.includes('::')) {

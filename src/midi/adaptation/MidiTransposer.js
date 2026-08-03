@@ -345,16 +345,19 @@ class MidiTransposer {
    */
   compressNoteToRange(note, min, max) {
     if (note >= min && note <= max) return note;
-    const range = max - min;
-    if (range <= 0) return min;
+    if (max - min <= 0) return min;
 
-    if (note < min) {
-      const diff = min - note;
-      return min + (diff % range);
-    } else {
-      const diff = note - max;
-      return max - (diff % range);
-    }
+    // True octave folding: shift by whole octaves toward the range so the
+    // pitch CLASS is preserved. The previous reflection math
+    // (`min + diff % range`) mapped e.g. note 49 (C#) into [60,72] as 71 (B)
+    // instead of the correct 61 (C#); only exact octaves of a boundary landed
+    // right. Folding in 12-semitone steps keeps the note's pitch class.
+    let n = note;
+    while (n < min) n += 12;
+    while (n > max) n -= 12;
+    // Instruments narrower than an octave can't hold every pitch class; the
+    // octave shift may overshoot, so clamp to the nearest boundary.
+    return Math.max(min, Math.min(max, n));
   }
 
   /**

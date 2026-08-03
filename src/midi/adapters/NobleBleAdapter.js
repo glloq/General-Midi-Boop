@@ -248,6 +248,11 @@ export default class NobleBleAdapter extends EventEmitter {
       if (!this._connections.has(address)) return; // already torn down cleanly
       try {
         characteristic.off?.('valuechanged', handler);
+        // Remove ourselves too: a device that repeatedly drops and reconnects
+        // reuses the same `device` object, so without this the unexpected-drop
+        // path accumulates one stale 'disconnect' listener per cycle (unbounded
+        // leak that eventually trips Node's MaxListeners warning).
+        device.off?.('disconnect', onDisconnect);
       } catch {
         /* ignore */
       }

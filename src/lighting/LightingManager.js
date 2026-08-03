@@ -652,7 +652,12 @@ class LightingManager extends EventEmitter {
     const stepTime = fadeTimeMs / steps;
     let step = 0;
 
-    const fadeKey = `fadein_${Date.now()}`;
+    // Append a monotonic counter: two fades started in the same millisecond
+    // would otherwise share a key, the second overwriting the first in
+    // `activeFades`, so blackout()/allOff() could not cancel the orphaned
+    // interval and it kept running through a requested blackout.
+    this._fadeSeq = (this._fadeSeq || 0) + 1;
+    const fadeKey = `fadein_${Date.now()}_${this._fadeSeq}`;
     const interval = setInterval(() => {
       step++;
       const factor = step / steps;
@@ -673,7 +678,8 @@ class LightingManager extends EventEmitter {
     const stepTime = fadeTimeMs / steps;
     let step = 0;
 
-    const fadeKey = `fadeout_${Date.now()}`;
+    this._fadeSeq = (this._fadeSeq || 0) + 1;
+    const fadeKey = `fadeout_${Date.now()}_${this._fadeSeq}`;
     const interval = setInterval(() => {
       step++;
       const factor = 1 - (step / steps);

@@ -608,6 +608,15 @@ class DatabaseManager {
   findInstrumentByUsbSerial(usbSerialNumber) {
     return this.instrumentDB.findInstrumentByUsbSerial(usbSerialNumber);
   }
+  findInstrumentByNormalizedName(...args) {
+    return this.instrumentDB.findInstrumentByNormalizedName(...args);
+  }
+  reconcileDeviceId(...args) {
+    return this.instrumentDB.reconcileDeviceId(...args);
+  }
+  deduplicateByUsbSerial(...args) {
+    return this.instrumentDB.deduplicateByUsbSerial(...args);
+  }
 
   // Instrument Capabilities
   updateInstrumentCapabilities(...args) {

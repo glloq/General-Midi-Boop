@@ -73,11 +73,17 @@ class MidiFileValidator {
       report.warnings.push('Format 2 (independent tracks): tracks will be merged by channel');
     }
 
-    // SMPTE detection
-    if (header.ticksPerBeat != null && header.ticksPerBeat < 0) {
+    // SMPTE detection. `midi-file` encodes SMPTE division as framesPerSecond +
+    // ticksPerFrame and leaves ticksPerBeat undefined (never negative), so the
+    // old `ticksPerBeat < 0` test was dead and SMPTE files fell into the
+    // "missing ticksPerBeat" branch instead. Frame-based timing is not
+    // supported for playback (MidiPlayer rejects it).
+    if (header.framesPerSecond != null && header.ticksPerFrame != null) {
       report.stats.hasSMPTE = true;
-      report.warnings.push(`SMPTE timing detected (ticksPerBeat=${header.ticksPerBeat}), timing calculations use heuristic PPQ=480`);
-    } else if (!header.ticksPerBeat || header.ticksPerBeat === 0) {
+      report.warnings.push(
+        `SMPTE timing (${header.framesPerSecond} fps × ${header.ticksPerFrame} ticks/frame) is not supported for playback`
+      );
+    } else if (!header.ticksPerBeat || header.ticksPerBeat <= 0) {
       report.warnings.push('Missing or zero ticksPerBeat, using default 480');
     }
 

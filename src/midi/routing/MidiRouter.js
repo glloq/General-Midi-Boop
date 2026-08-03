@@ -135,7 +135,7 @@ class MidiRouter {
       this.routesBySource.set(routeObj.source, new Set());
     }
     this.routesBySource.get(routeObj.source).add(routeId);
-    this._maxCompBySource.delete(routeObj.source);
+    this._invalidateCompForSource(routeObj.source);
 
     // Save to database if new route
     if (!route.id) {
@@ -190,7 +190,7 @@ class MidiRouter {
         this.routesBySource.delete(route.source);
       }
     }
-    this._maxCompBySource.delete(route.source);
+    this._invalidateCompForSource(route.source);
 
     this.routes.delete(routeId);
     this.logger.info(`Route deleted: ${routeId}`);
@@ -209,7 +209,7 @@ class MidiRouter {
     }
 
     route.enabled = enabled;
-    this._maxCompBySource.delete(route.source);
+    this._invalidateCompForSource(route.source);
     this._routeRepo.update(routeId, { enabled: enabled ? 1 : 0 });
     this.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
   }
@@ -523,6 +523,22 @@ class MidiRouter {
    * @param {number} channel - MIDI channel
    * @returns {number} Relative delay in milliseconds (0 = send immediately)
    */
+  /**
+   * Invalidate the cached relative-compensation for every channel of a source.
+   * The cache is keyed `${source}|${channel}`, so deleting the bare `source`
+   * key (as earlier code did) never cleared anything — a route add/remove/
+   * enable left stale per-channel maxComp in place until a full settings-change
+   * clear. This drops every `${source}|*` entry.
+   * @param {string} source
+   * @returns {void}
+   */
+  _invalidateCompForSource(source) {
+    const prefix = `${source}|`;
+    for (const key of this._maxCompBySource.keys()) {
+      if (key.startsWith(prefix)) this._maxCompBySource.delete(key);
+    }
+  }
+
   _getRelativeCompensation(sourceDevice, destDevice, channel) {
     const routeIds = this.routesBySource.get(sourceDevice);
     if (!routeIds || routeIds.size <= 1) {

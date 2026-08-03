@@ -47,10 +47,14 @@ export function runMigrations(db, logger) {
   const migrationsDir = path.join(__dirname, '../../migrations');
   if (!fs.existsSync(migrationsDir)) return;
 
+  // Sort by the NUMERIC version prefix, not lexicographically: a string sort
+  // is correct only while every prefix is zero-padded to the same width. A
+  // future 4-digit ("1000_") or unpadded ("99_") prefix would otherwise apply
+  // out of order and could run a migration before the table it depends on.
   const migrationFiles = fs
     .readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))
-    .sort();
+    .sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b));
 
   for (const file of migrationFiles) {
     const version = parseInt(file.split('_')[0], 10);

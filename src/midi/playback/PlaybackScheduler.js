@@ -177,6 +177,23 @@ class PlaybackScheduler {
   }
 
   /**
+   * Reset per-note physical-voice tracking to "nothing sounding". Called on
+   * pause, after All Notes Off has physically released every note: the held
+   * notes' noteOff events are still pending on the timeline, so without this
+   * `_activeNotes` keeps over-reporting active voices after resume and a
+   * polyphony-limited (mechanical) instrument gates/drops new noteOns until
+   * those stale noteOffs drain (audit P2). Clearing `_droppedNoteOns` also
+   * prevents a later real noteOff from being wrongly swallowed.
+   * @returns {void}
+   */
+  resetNoteTracking() {
+    this._activeNotes.clear();
+    this._lastNoteOnTime.clear();
+    this._noteOnTimes.clear();
+    this._droppedNoteOns.clear();
+  }
+
+  /**
    * Attach the per-playback snapshot. Subsequent hot-path lookups
    * (`_isStringCCAllowed`, `_getTimingConstraints`, `_getSyncDelay`)
    * read from the snapshot instead of touching CapabilityResolver /
@@ -1099,7 +1116,7 @@ class PlaybackScheduler {
    * @param {Map} channelRouting - Channel routing map
    * @param {Array} channels - MIDI channels from file
    */
-  sendAllNotesOff(outputDevice, channelRouting, channels) {
+  sendAllNotesOff(outputDevice, channelRouting, channels, resolveChannel = null) {
     if (!outputDevice) {
       return;
     }
@@ -1132,13 +1149,27 @@ class PlaybackScheduler {
       channelsPerDevice.get(deviceName).add(targetChannel);
     }
 
-    // Also include channels from the MIDI file that use the default device (no explicit routing)
+    // Also include channels from the MIDI file that have no explicit routing.
+    // Resolve each through the omni-aware resolver when available so an
+    // omni-fallback channel gets its panic on the omni instrument's device;
+    // only truly unresolved channels fall back to the default output device.
     for (const ch of channels) {
       if (!channelRouting.has(ch.channel)) {
-        if (!channelsPerDevice.has(outputDevice)) {
-          channelsPerDevice.set(outputDevice, new Set());
+        let targets = [];
+        if (resolveChannel) {
+          const resolved = resolveChannel(ch.channel);
+          if (Array.isArray(resolved)) targets = resolved.filter((t) => t && t.device);
+          else if (resolved && resolved.device) targets = [resolved];
         }
-        channelsPerDevice.get(outputDevice).add(ch.channel);
+        if (targets.length === 0) {
+          targets = [{ device: outputDevice, targetChannel: ch.channel }];
+        }
+        for (const t of targets) {
+          const dev = t.device;
+          const tch = t.targetChannel != null ? t.targetChannel : ch.channel;
+          if (!channelsPerDevice.has(dev)) channelsPerDevice.set(dev, new Set());
+          channelsPerDevice.get(dev).add(tch);
+        }
       }
     }
 

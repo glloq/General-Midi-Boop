@@ -171,7 +171,13 @@ class BaseLightingDriver extends EventEmitter {
    * @returns {number} Adjusted color value
    */
   _applyBrightness(colorValue, brightness) {
-    return Math.round((colorValue * brightness) / 255);
+    // Clamp both inputs to [0,255] so an out-of-range value from the (schema-
+    // less) lighting API can't produce a byte that overflows/underflows when
+    // written into a DMX/packed-RGB buffer (e.g. 1000 & 0xFF = 232, wrong
+    // channel value; negative values wrap the same way).
+    const c = Math.max(0, Math.min(255, colorValue));
+    const b = Math.max(0, Math.min(255, brightness));
+    return Math.round((c * b) / 255);
   }
 
   /**

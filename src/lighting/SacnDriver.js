@@ -135,8 +135,12 @@ class SacnDriver extends BaseLightingDriver {
   }
 
   _buildDataPacket(slotCount) {
-    // E1.31 Data Packet - simplified but protocol-compliant structure
-    const packetLength = 126 + slotCount;
+    // E1.31 Data Packet - simplified but protocol-compliant structure.
+    // Fixed overhead is 125 bytes (Root 38 + Framing 77 + DMP header 10); the
+    // DMP property values (slotCount, start code included) follow. Using 126
+    // appended a stray trailing zero and inflated all three PDU length fields
+    // (root/framing/DMP) by one, so strict E1.31 receivers rejected the frame.
+    const packetLength = 125 + slotCount;
     const buf = Buffer.alloc(packetLength, 0);
     let offset = 0;
 

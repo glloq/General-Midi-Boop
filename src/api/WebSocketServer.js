@@ -215,6 +215,12 @@ class WebSocketServer {
     // Enforce connection limit
     if (this.clients.size >= MAX_WS_CLIENTS) {
       this.logger.warn(`Connection rejected (limit ${MAX_WS_CLIENTS} reached): ${clientIp}`);
+      // Attach an error listener BEFORE closing. A ws that emits 'error' with
+      // no listener throws ("Unhandled 'error' event"), which bubbles to the
+      // process uncaughtException handler and shuts the server down — a
+      // remotely-triggerable DoS if an over-limit peer resets during the close
+      // handshake.
+      ws.on('error', () => {});
       ws.close(1013, 'Maximum connections reached');
       return;
     }
@@ -293,7 +299,7 @@ class WebSocketServer {
       // Per-message debug — gated so the template string is not built when
       // the log level filters it out (60 msg/s rate limit applies upstream).
       if (this.logger.isDebugEnabled?.()) {
-        this.logger.debug(`Received command: ${parsedMessage.command} (id: ${parsedMessage.id})`);
+        this.logger.debug(`Received command: ${parsedMessage?.command} (id: ${parsedMessage?.id})`);
       }
 
       // Awaited so async errors (rejections inside handlers) are caught here

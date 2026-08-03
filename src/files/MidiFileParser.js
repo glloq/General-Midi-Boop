@@ -44,10 +44,16 @@ class MidiFileParser {
    * @returns {{ tempo: number, duration: number, totalTicks: number }}
    */
   extractMetadata(midi) {
-    // Detect SMPTE timing (negative ticksPerBeat indicates SMPTE format)
+    // Detect SMPTE timing. `midi-file` reports SMPTE division via
+    // framesPerSecond + ticksPerFrame and leaves ticksPerBeat undefined (never
+    // negative), so the old `ticksPerBeat < 0` check never fired. SMPTE is not
+    // PPQ; falling back to 480 yields wrong duration but keeps metadata usable
+    // (playback itself rejects SMPTE — see MidiPlayer.loadFile).
     const rawTicksPerBeat = midi.header.ticksPerBeat;
-    if (rawTicksPerBeat != null && rawTicksPerBeat < 0) {
-      this.logger.warn(`SMPTE timing detected (ticksPerBeat=${rawTicksPerBeat}), using heuristic PPQ=480`);
+    if (midi.header.framesPerSecond != null && midi.header.ticksPerFrame != null) {
+      this.logger.warn(
+        `SMPTE timing detected (${midi.header.framesPerSecond} fps × ${midi.header.ticksPerFrame}), using heuristic PPQ=480 for metadata`
+      );
     }
     const ppq = (rawTicksPerBeat > 0) ? rawTicksPerBeat : 480;
     if (!isFinite(ppq)) {

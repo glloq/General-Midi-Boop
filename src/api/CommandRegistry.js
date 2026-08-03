@@ -229,9 +229,13 @@ class CommandRegistry {
       if (ws.readyState === 1) {
         ws.send(
           JSON.stringify({
-            id: message.id,
+            // Optional chaining: a client can send the literal frame `null`
+            // (JSON.parse('null') === null); dereferencing message.id here would
+            // throw a TypeError inside the catch, losing the intended
+            // ValidationError response and returning an uncorrelated generic error.
+            id: message?.id,
             type: 'error',
-            command: message.command,
+            command: message?.command,
             error: isKnownError ? error.message : 'Internal server error',
             code: isKnownError ? error.code : undefined,
             timestamp: Date.now()

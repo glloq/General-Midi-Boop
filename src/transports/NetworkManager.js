@@ -858,6 +858,19 @@ class NetworkManager extends EventEmitter {
    */
   handleMidiData(ip, midiBytes) {
     try {
+      // System messages — SysEx (0xF0), System Common (0xF1–0xF7) and System
+      // Real-Time (0xF8–0xFF) — are not channel-voice, so parseMidiBytes (which
+      // only switches on 0x80–0xE0) returns null and drops them: a network
+      // keyboard's SysEx Identity Reply never reached parseIdentityReply and
+      // inbound MIDI clock/transport was ignored (BLE and serial both handle
+      // these). Forward the raw bytes so DeviceManager.handleRawMidi parses them
+      // (Application routes an Array-shaped `data` through handleRawMidi).
+      const status = Array.isArray(midiBytes) ? midiBytes[0] : undefined;
+      if (status != null && (status & 0xf0) === 0xf0) {
+        this.emit('midi:data', { ip, address: ip, data: Array.from(midiBytes) });
+        return;
+      }
+
       // Parse the MIDI bytes
       const parsedMessage = this.parseMidiBytes(midiBytes);
 

@@ -305,6 +305,16 @@ class DeviceManager {
    * @returns {Promise<void>}
    */
   async updateDeviceMap() {
+    // Preserve operator-set "disabled" flags across the rebuild. `enableDevice`
+    // mutates only the in-memory `devices` entry (there is no persisted enabled
+    // column), so a naive clear()+rebuild — triggered by any hot-plug,
+    // `device_refresh`, or virtual-device add/remove — would silently
+    // re-enable a device the operator muted, and it would immediately start
+    // receiving routed live MIDI and file playback again.
+    const disabledIds = new Set();
+    for (const [id, dev] of this.devices) {
+      if (dev && dev.enabled === false) disabledIds.add(id);
+    }
     this.devices.clear();
 
     this.logger.debug(
@@ -328,7 +338,7 @@ class DeviceManager {
         type: 'usb',
         input: isInput,
         output: isInput ? this.outputs.has(name) : true,
-        enabled: true,
+        enabled: !disabledIds.has(name),
         connected: true,
         status: DEVICE_STATUS.CONNECTED,
         usbSerialNumber: serialNumber || null
@@ -349,7 +359,7 @@ class DeviceManager {
         type: 'virtual',
         input: vdev.input !== null,
         output: vdev.output !== null,
-        enabled: true,
+        enabled: !disabledIds.has(name),
         connected: true,
         status: DEVICE_STATUS.CONNECTED,
         usbSerialNumber: null
@@ -364,7 +374,7 @@ class DeviceManager {
         type: 'virtual',
         input: false,
         output: true,
-        enabled: vdev.enabled,
+        enabled: vdev.enabled !== false && !disabledIds.has(id),
         connected: true,
         status: DEVICE_STATUS.CONNECTED,
         usbSerialNumber: null

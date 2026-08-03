@@ -30,7 +30,10 @@ export function computeRoutingStatus({ file, routings, connectedDeviceIds = null
     if (connectedDeviceIds && !connectedDeviceIds.has(r.device_id)) return false;
     return true;
   });
-  const routedCount = enabledRoutings.length;
+  // Count DISTINCT channels, not routing rows: a split channel is persisted as
+  // several rows sharing the same `channel`, so `enabledRoutings.length` would
+  // over-count and report a file with an unrouted channel as fully playable.
+  const routedCount = new Set(enabledRoutings.map((r) => r.channel)).size;
 
   let status = 'unrouted';
   if (routedCount > 0 && routedCount < channelCount) {

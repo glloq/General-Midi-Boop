@@ -374,14 +374,31 @@ class RtpMidiSession extends EventEmitter {
 
     if (midiLength === 0 || midiOffset >= payload.length) return commands;
 
+    // Header Z bit (0x20): when set, a delta-time precedes the FIRST command;
+    // when clear the first command has an implicit delta-time of 0. (GMBoop's
+    // own encoder sends Z=0 with a single full-status command.)
+    const hasFirstDelta = (headerByte & 0x20) !== 0;
     const midiEnd = Math.min(midiOffset + midiLength, payload.length);
     let i = midiOffset;
     let runningStatus = 0;
+    let firstCommand = true;
 
     while (i < midiEnd) {
-      while (i < midiEnd && !(payload[i] & 0x80)) {
-        i++; // skip delta-time
+      // Each command (except the first when Z=0) is preceded by a variable-
+      // length delta-time: 1–4 octets, bit 7 = continuation. The previous code
+      // skipped EVERY high-bit-clear byte as "delta-time", which also swallowed
+      // the DATA bytes of a running-status command (which has no status byte),
+      // silently dropping notes sent by peers that use running status. Parse
+      // the delta-time as a proper VLQ instead.
+      if (!firstCommand || hasFirstDelta) {
+        let dtBytes = 0;
+        while (i < midiEnd && dtBytes < 4) {
+          const b = payload[i++];
+          dtBytes++;
+          if (!(b & 0x80)) break;
+        }
       }
+      firstCommand = false;
       if (i >= midiEnd) break;
       const status = payload[i];
 

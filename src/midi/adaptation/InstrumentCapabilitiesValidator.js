@@ -76,7 +76,12 @@ class InstrumentCapabilitiesValidator {
     for (const [capability, condition] of Object.entries(this.conditionalCapabilities)) {
       if (condition(instrument)) {
         const value = instrument[capability];
-        if (!value || (Array.isArray(value) && value.length === 0)) {
+        // Use a null/empty test rather than `!value`: `note_range_min` is a
+        // MIDI note number and 0 (C-1) is a legitimate, falsy value. The old
+        // `!value` wrongly reported a correctly-configured full-range
+        // instrument (min:0) as missing its range. Empty `selected_notes`
+        // arrays still count as missing.
+        if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) {
           missing.push({
             field: capability,
             label: this.getCapabilityLabel(capability),
@@ -85,6 +90,25 @@ class InstrumentCapabilitiesValidator {
             conditional: true
           });
         }
+      }
+    }
+
+    // Range coherence: a present-but-inverted range (min > max) passes every
+    // field-presence check above yet makes `scoreNoteCompatibility` compute a
+    // negative instrument span, silently marking the instrument incompatible
+    // with every melodic channel and emitting a confusing "span too wide"
+    // message. Flag it explicitly so the operator gets an actionable error.
+    if (instrument.note_selection_mode !== 'discrete') {
+      const rmin = instrument.note_range_min;
+      const rmax = instrument.note_range_max;
+      if (rmin != null && rmin !== '' && rmax != null && rmax !== '' && Number(rmin) > Number(rmax)) {
+        missing.push({
+          field: 'note_range_max',
+          label: this.getCapabilityLabel('note_range_max'),
+          type: this.getCapabilityType('note_range_max'),
+          required: true,
+          reason: `note_range_min (${rmin}) must be ≤ note_range_max (${rmax}).`
+        });
       }
     }
 
