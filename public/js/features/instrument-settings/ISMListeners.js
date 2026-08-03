@@ -405,6 +405,13 @@
       // Update hidden input
       const modeInput = self.$('#octaveModeInput');
       if (modeInput) modeInput.value = modeKey;
+      // The tonic only matters for diatonic/pentatonic — hide it for chromatic.
+      const rootRow = self.$('#scaleRootRow');
+      if (rootRow) rootRow.style.display = modeKey === 'chromatic' ? 'none' : '';
+      const rootSelect = self.$('#scaleRootSelect');
+      const root = rootSelect ? parseInt(rootSelect.value) || 0 : 0;
+      const rootInput = self.$('#scaleRootInput');
+      if (rootInput) rootInput.value = String(root);
       // Compute playable notes
       const minInput = document.getElementById('noteRangeMin');
       const maxInput = document.getElementById('noteRangeMax');
@@ -413,7 +420,8 @@
       const playableNotes = InstrumentSettingsModal.computePlayableNotes(
         rangeMin,
         rangeMax,
-        modeKey
+        modeKey,
+        root
       );
       const playableInput = self.$('#playableNotesInput');
       if (playableInput) playableInput.value = JSON.stringify(playableNotes);
@@ -432,6 +440,11 @@
         updateOctaveMode();
       });
     });
+    // Root/tonic selector — same recompute path as the octave buttons.
+    const rootSelectEl = this.$('#scaleRootSelect');
+    if (rootSelectEl) {
+      rootSelectEl.addEventListener('change', updateOctaveMode);
+    }
   };
 
   /**
@@ -1123,7 +1136,6 @@
     }
   };
 
-
   // ===== Grouped CC picker (accordion + active-CC tags + recommended) =====
 
   ISMListeners._wireCCAccordionListeners = function () {
@@ -1486,12 +1498,16 @@
     if (fam.isDrumKits) {
       const kits = window.InstrumentFamilies.GM_DRUM_KITS_LIST;
       const offset = typeof GM_DRUM_KIT_OFFSET !== 'undefined' ? GM_DRUM_KIT_OFFSET : 128;
-      const savedBankId = (window.MidiSynthesizer && window.MidiSynthesizer.getSavedBank)
-        ? window.MidiSynthesizer.getSavedBank() : null;
-      const available = (window.MidiSynthesizer && savedBankId)
-        ? window.MidiSynthesizer.getAvailableDrumKits(savedBankId) : null;
-      const unavailLabel = self.t('instrumentSettings.kitUnavailable')
-        || 'Absent du SF2 — bascule sur Standard Kit';
+      const savedBankId =
+        window.MidiSynthesizer && window.MidiSynthesizer.getSavedBank
+          ? window.MidiSynthesizer.getSavedBank()
+          : null;
+      const available =
+        window.MidiSynthesizer && savedBankId
+          ? window.MidiSynthesizer.getAvailableDrumKits(savedBankId)
+          : null;
+      const unavailLabel =
+        self.t('instrumentSettings.kitUnavailable') || 'Absent du SF2 — bascule sur Standard Kit';
       tiles = kits
         .map(function (kit) {
           const encoded = kit.program + offset;
@@ -1501,9 +1517,10 @@
             channel: 9
           });
           const kitName = icon.name || kit.name;
-          const titleText = isUnavailable ? (kitName + ' — ' + unavailLabel) : kitName;
+          const titleText = isUnavailable ? kitName + ' — ' + unavailLabel : kitName;
           const classes = ['ism-instrument-btn', isUnavailable ? 'ism-kit-unavailable' : '']
-            .filter(Boolean).join(' ');
+            .filter(Boolean)
+            .join(' ');
           return `<button type="button" class="${classes}" data-program="${encoded}" data-drum-kit="true" data-kit-unavailable="${isUnavailable ? '1' : '0'}" title="${self.escape(titleText)}">
                     <span class="ism-inst-icon">
                         ${
@@ -2584,17 +2601,25 @@
   ISMListeners._ilcCcChipsBits = function () {
     return [
       { bit: 0x01, cc: 110, label: this.t('instrumentSettings.lumiereCc.brightness') || 'Lum.' },
-      { bit: 0x02, cc: 111, label: this.t('instrumentSettings.lumiereCc.effect')     || 'Effet' },
-      { bit: 0x04, cc: 112, label: this.t('instrumentSettings.lumiereCc.hue')        || 'Couleur' },
-      { bit: 0x08, cc: 113, label: this.t('instrumentSettings.lumiereCc.speed')      || 'Vit.' },
-      { bit: 0x10, cc: 114, label: this.t('instrumentSettings.lumiereCc.intensity')  || 'Int.' }
+      { bit: 0x02, cc: 111, label: this.t('instrumentSettings.lumiereCc.effect') || 'Effet' },
+      { bit: 0x04, cc: 112, label: this.t('instrumentSettings.lumiereCc.hue') || 'Couleur' },
+      { bit: 0x08, cc: 113, label: this.t('instrumentSettings.lumiereCc.speed') || 'Vit.' },
+      { bit: 0x10, cc: 114, label: this.t('instrumentSettings.lumiereCc.intensity') || 'Int.' }
     ];
   };
 
   ISMListeners._ilcEffectKeys = function () {
     return [
-      'static', 'fade', 'pulse', 'blink', 'rainbow',
-      'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+      'static',
+      'fade',
+      'pulse',
+      'blink',
+      'rainbow',
+      'reactive_note',
+      'reactive_velocity',
+      'sparkle',
+      'fire',
+      'scanner'
     ];
   };
 
@@ -2602,19 +2627,23 @@
     const host = this.$('#ilcCcChips');
     if (!host) return;
     const mask = (state && state.supported_mask | 0) || 0;
-    host.innerHTML = this._ilcCcChipsBits().map((b) => {
-      const on = (mask & b.bit) !== 0;
-      return `<button type="button" class="ilc-cc-chip" data-bit="${b.bit}"
+    host.innerHTML = this._ilcCcChipsBits()
+      .map((b) => {
+        const on = (mask & b.bit) !== 0;
+        return `<button type="button" class="ilc-cc-chip" data-bit="${b.bit}"
         style="font-size:12px;padding:4px 10px;border-radius:14px;
                border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
                background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};
                cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
         <span aria-hidden="true">${on ? '●' : '○'}</span>CC${b.cc} ${this.escape(b.label)}
       </button>`;
-    }).join('');
+      })
+      .join('');
     const self = this;
     host.querySelectorAll('.ilc-cc-chip').forEach((chip) => {
-      chip.addEventListener('click', function () { self._toggleCcChip(this); });
+      chip.addEventListener('click', function () {
+        self._toggleCcChip(this);
+      });
     });
     this._renderCcDetails(state);
   };
@@ -2623,9 +2652,11 @@
     const host = this.$('#ilcCcDetails');
     if (!host) return;
     const mask = (state && state.supported_mask | 0) || 0;
-    const bMode = state && state.brightness_mode !== undefined ? (state.brightness_mode | 0) : 1;
-    const fx = state && state.supported_effects !== undefined && state.supported_effects !== null
-      ? (state.supported_effects | 0) : 0x3FF;
+    const bMode = state && state.brightness_mode !== undefined ? state.brightness_mode | 0 : 1;
+    const fx =
+      state && state.supported_effects !== undefined && state.supported_effects !== null
+        ? state.supported_effects | 0
+        : 0x3ff;
     const blocks = [];
     if (mask & 0x01) {
       const t = (k, d) => this.t(k) || d;
@@ -2644,14 +2675,16 @@
     }
     if (mask & 0x02) {
       const t = (k, d) => this.t(k) || d;
-      const items = this._ilcEffectKeys().map((key, i) => {
-        const on = (fx & (1 << i)) !== 0;
-        const label = this.t('lighting.lightEffect.' + key) || key;
-        return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+      const items = this._ilcEffectKeys()
+        .map((key, i) => {
+          const on = (fx & (1 << i)) !== 0;
+          const label = this.t('lighting.lightEffect.' + key) || key;
+          return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
           <input type="checkbox" class="ilc-fx" data-fx-bit="${1 << i}"${on ? ' checked' : ''}>
           ${this.escape(label)}
         </label>`;
-      }).join('');
+        })
+        .join('');
       blocks.push(`
         <div class="ism-form-group" style="margin:6px 0;">
           <strong style="font-size:12px;display:block;margin-bottom:4px;">CC111 — ${t('instrumentSettings.lumiereCcEffectsTitle', 'Effets supportés')} :</strong>
@@ -2664,11 +2697,13 @@
     host.querySelectorAll('.ilc-bmode').forEach((el) =>
       el.addEventListener('change', function () {
         self._patchCapabilities({ brightness_mode: parseInt(this.value, 10) | 0 });
-      }));
+      })
+    );
     host.querySelectorAll('.ilc-fx').forEach((el) =>
       el.addEventListener('change', function () {
         self._patchCapabilities({ supported_effects: self._currentEffectsFromDom() });
-      }));
+      })
+    );
   };
 
   ISMListeners._currentMaskFromDom = function () {
@@ -2677,7 +2712,7 @@
     return Array.from(host.querySelectorAll('.ilc-cc-chip')).reduce((m, c) => {
       const bit = parseInt(c.dataset.bit, 10) || 0;
       const on = c.style.background && c.style.background !== 'transparent';
-      return on ? (m | bit) : m;
+      return on ? m | bit : m;
     }, 0);
   };
 
@@ -2686,7 +2721,7 @@
     if (!host) return 0;
     return Array.from(host.querySelectorAll('.ilc-fx')).reduce((m, c) => {
       const bit = parseInt(c.dataset.fxBit, 10) || 0;
-      return c.checked ? (m | bit) : m;
+      return c.checked ? m | bit : m;
     }, 0);
   };
 
@@ -2728,7 +2763,9 @@
         channel: tab.channel
       });
       if (res && res.state) state = res.state;
-    } catch (e) { /* fall through with empty state */ }
+    } catch (e) {
+      /* fall through with empty state */
+    }
     this._renderCcChips(state);
   };
 

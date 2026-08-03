@@ -10,10 +10,7 @@
  * INSTRUMENT_FAMILY_REFACTOR_ROADMAP.md Phase 8.
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
-import {
-  parseValidMidiList,
-  serializeValidMidiList,
-} from '../../utils/MidiListParser.js';
+import { parseValidMidiList, serializeValidMidiList } from '../../utils/MidiListParser.js';
 
 class InstrumentVoicesDB {
   /**
@@ -38,17 +35,21 @@ class InstrumentVoicesDB {
    */
   listByInstrument(deviceId, channel) {
     try {
-      const rows = this.db.prepare(`
+      const rows = this.db
+        .prepare(
+          `
         SELECT id, device_id, channel, gm_program,
                min_note_interval, min_note_duration,
                supported_ccs, display_order,
                note_selection_mode, note_range_min, note_range_max,
-               selected_notes, octave_mode,
+               selected_notes, octave_mode, scale_root,
                created_at, updated_at
         FROM instrument_voices
         WHERE device_id = ? AND channel = ?
         ORDER BY display_order ASC, id ASC
-      `).all(deviceId, channel);
+      `
+        )
+        .all(deviceId, channel);
       return rows.map((r) => ({
         ...r,
         supported_ccs: _parseCcList(r.supported_ccs),
@@ -75,28 +76,33 @@ class InstrumentVoicesDB {
       const order = Number.isFinite(payload.display_order)
         ? payload.display_order
         : _nextDisplayOrder(this.db, deviceId, channel);
-      const result = this.db.prepare(`
+      const result = this.db
+        .prepare(
+          `
         INSERT INTO instrument_voices
           (device_id, channel, gm_program,
            min_note_interval, min_note_duration,
            supported_ccs, display_order,
            note_selection_mode, note_range_min, note_range_max,
-           selected_notes, octave_mode)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        deviceId,
-        channel,
-        payload.gm_program ?? null,
-        payload.min_note_interval ?? null,
-        payload.min_note_duration ?? null,
-        _serializeCcList(payload.supported_ccs),
-        order,
-        payload.note_selection_mode ?? null,
-        payload.note_range_min ?? null,
-        payload.note_range_max ?? null,
-        _serializeNoteList(payload.selected_notes),
-        payload.octave_mode ?? null
-      );
+           selected_notes, octave_mode, scale_root)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+        )
+        .run(
+          deviceId,
+          channel,
+          payload.gm_program ?? null,
+          payload.min_note_interval ?? null,
+          payload.min_note_duration ?? null,
+          _serializeCcList(payload.supported_ccs),
+          order,
+          payload.note_selection_mode ?? null,
+          payload.note_range_min ?? null,
+          payload.note_range_max ?? null,
+          _serializeNoteList(payload.selected_notes),
+          payload.octave_mode ?? null,
+          Number.isInteger(payload.scale_root) ? payload.scale_root : null
+        );
       return Number(result.lastInsertRowid);
     } catch (error) {
       this.logger.error(`Failed to create instrument voice: ${error.message}`);
@@ -121,10 +127,17 @@ class InstrumentVoicesDB {
         next.selected_notes = _serializeNoteList(next.selected_notes);
       }
       const result = buildDynamicUpdate('instrument_voices', next, [
-        'gm_program', 'min_note_interval', 'min_note_duration',
-        'supported_ccs', 'display_order',
-        'note_selection_mode', 'note_range_min', 'note_range_max',
-        'selected_notes', 'octave_mode'
+        'gm_program',
+        'min_note_interval',
+        'min_note_duration',
+        'supported_ccs',
+        'display_order',
+        'note_selection_mode',
+        'note_range_min',
+        'note_range_max',
+        'selected_notes',
+        'octave_mode',
+        'scale_root'
       ]);
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, id);
@@ -161,13 +174,12 @@ class InstrumentVoicesDB {
   deleteByInstrument(deviceId, channel) {
     try {
       if (channel !== undefined && channel !== null) {
-        return this.db.prepare(
-          'DELETE FROM instrument_voices WHERE device_id = ? AND channel = ?'
-        ).run(deviceId, channel).changes;
+        return this.db
+          .prepare('DELETE FROM instrument_voices WHERE device_id = ? AND channel = ?')
+          .run(deviceId, channel).changes;
       }
-      return this.db.prepare(
-        'DELETE FROM instrument_voices WHERE device_id = ?'
-      ).run(deviceId).changes;
+      return this.db.prepare('DELETE FROM instrument_voices WHERE device_id = ?').run(deviceId)
+        .changes;
     } catch (error) {
       this.logger.error(`Failed to bulk-delete instrument voices: ${error.message}`);
       throw error;
@@ -192,8 +204,8 @@ class InstrumentVoicesDB {
          min_note_interval, min_note_duration,
          supported_ccs, display_order,
          note_selection_mode, note_range_min, note_range_max,
-         selected_notes, octave_mode)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         selected_notes, octave_mode, scale_root)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const del = this.db.prepare(
       'DELETE FROM instrument_voices WHERE device_id = ? AND channel = ?'
@@ -215,7 +227,8 @@ class InstrumentVoicesDB {
           v.note_range_min ?? null,
           v.note_range_max ?? null,
           _serializeNoteList(v.selected_notes),
-          v.octave_mode ?? null
+          v.octave_mode ?? null,
+          Number.isInteger(v.scale_root) ? v.scale_root : null
         );
         ids.push(Number(res.lastInsertRowid));
       }
@@ -240,10 +253,12 @@ const _parseNoteList = parseValidMidiList;
 const _serializeNoteList = serializeValidMidiList;
 
 function _nextDisplayOrder(db, deviceId, channel) {
-  const row = db.prepare(
-    'SELECT MAX(display_order) AS m FROM instrument_voices WHERE device_id = ? AND channel = ?'
-  ).get(deviceId, channel);
-  return (row && Number.isFinite(row.m)) ? row.m + 1 : 0;
+  const row = db
+    .prepare(
+      'SELECT MAX(display_order) AS m FROM instrument_voices WHERE device_id = ? AND channel = ?'
+    )
+    .get(deviceId, channel);
+  return row && Number.isFinite(row.m) ? row.m + 1 : 0;
 }
 
 export default InstrumentVoicesDB;

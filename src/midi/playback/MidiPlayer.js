@@ -838,6 +838,10 @@ class MidiPlayer {
       );
     }
 
+    // Retain the feasibility warnings so the scheduler can optionally
+    // anticipate impossible actuator shifts (opt-in hand-shift compensation).
+    this._handPositionWarnings = allWarnings;
+
     if (!hadAny) return 0;
 
     this._appendEventsWithSeq(allCCs);
@@ -1137,9 +1141,10 @@ class MidiPlayer {
       const secondsPerTick = currentMicrosecondsPerBeat / (this.ppq * 1000000);
       cumulativeSeconds += deltaTicks * secondsPerTick;
 
-      const existing = tempoMap.length && tempoMap[tempoMap.length - 1].tick === te.tick
-        ? tempoMap[tempoMap.length - 1]
-        : null;
+      const existing =
+        tempoMap.length && tempoMap[tempoMap.length - 1].tick === te.tick
+          ? tempoMap[tempoMap.length - 1]
+          : null;
       if (existing) {
         existing.microsecondsPerBeat = te.microsecondsPerBeat;
       } else {
@@ -1273,6 +1278,9 @@ class MidiPlayer {
     }
     this._pendingMutationCount = 0;
     this.scheduler.setSnapshot(this._snapshot);
+    // Feed the loaded file's hand-position feasibility warnings so the
+    // scheduler can (when enabled) dispatch actuator-limited notes early.
+    this.scheduler.setHandWarnings?.(this._handPositionWarnings || null);
 
     this.scheduler.startScheduler(() => {
       this._schedulerTick();
@@ -1642,10 +1650,20 @@ class MidiPlayer {
         const emit = (event) => this.scheduler.dispatchStateEvent(event, target, dummyState);
 
         if (st.controllers.has(BANK_MSB)) {
-          emit({ type: 'controller', channel, controller: BANK_MSB, value: st.controllers.get(BANK_MSB) });
+          emit({
+            type: 'controller',
+            channel,
+            controller: BANK_MSB,
+            value: st.controllers.get(BANK_MSB)
+          });
         }
         if (st.controllers.has(BANK_LSB)) {
-          emit({ type: 'controller', channel, controller: BANK_LSB, value: st.controllers.get(BANK_LSB) });
+          emit({
+            type: 'controller',
+            channel,
+            controller: BANK_LSB,
+            value: st.controllers.get(BANK_LSB)
+          });
         }
         if (st.program !== null) {
           emit({ type: 'programChange', channel, program: st.program });

@@ -858,6 +858,7 @@
     "modeDiscrete": "Notes individuelles",
     "clickToToggle": "Cliquez pour sélectionner/désélectionner",
     "octaveModeTitle": "Notes jouables par octave",
+    "scaleRootLabel": "Tonalité",
     "playableNotes": "notes jouables",
     "octaveModeHint": "Restreint l'instrument à une gamme : 12 = chromatique (toutes les notes), 7 = diatonique (gamme majeure), 5 = pentatonique.",
     "selectedNote": "Note sélectionnée",

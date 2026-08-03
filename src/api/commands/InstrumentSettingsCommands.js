@@ -235,6 +235,14 @@ function _validateSettingsFields(data, { sf2 = false } = {}) {
     );
   }
 
+  if (data.scale_root !== undefined && data.scale_root !== null) {
+    const root = parseInt(data.scale_root);
+    if (isNaN(root) || root < 0 || root > 11) {
+      throw new ValidationError('scale_root must be a pitch class 0..11', 'scale_root');
+    }
+    data.scale_root = root;
+  }
+
   if (data.comm_timeout !== undefined && data.comm_timeout !== null) {
     const timeout = parseInt(data.comm_timeout);
     if (isNaN(timeout) || timeout < 100 || timeout > 30000) {
@@ -319,6 +327,7 @@ async function instrumentUpdateSettings(app, data) {
     name: data.name,
     gm_program: data.gm_program,
     octave_mode: data.octave_mode,
+    scale_root: data.scale_root,
     comm_timeout: data.comm_timeout,
     omni_mode: data.omni_mode,
     lighting_enabled: data.lighting_enabled,
@@ -716,6 +725,7 @@ async function instrumentSaveAll(app, data) {
       name: data.name,
       gm_program: data.gm_program,
       octave_mode: data.octave_mode,
+      scale_root: data.scale_root,
       comm_timeout: data.comm_timeout,
       min_note_interval: data.min_note_interval,
       min_note_duration: data.min_note_duration,

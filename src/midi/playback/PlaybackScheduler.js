@@ -81,6 +81,20 @@ class PlaybackScheduler {
     Object.defineProperty(this, 'eventLoopMonitor', {
       get: () => this._deps.eventLoopMonitor || null
     });
+    Object.defineProperty(this, 'latencyCompensator', {
+      get: () => this._deps.latencyCompensator || null
+    });
+
+    // Hand-shift travel-time compensation (opt-in, default off). When enabled,
+    // a note whose window needs a fret/position shift the actuator physically
+    // can't complete in time (a `move_too_fast` planner warning) is dispatched
+    // that shortfall earlier, so the hand arrives before the note sounds — at
+    // the cost of nudging that note off the beat. Off by default because the
+    // right value is hardware-specific and the early note desyncs from other
+    // instruments; see docs/adr and config `playback.handShiftCompensation`.
+    this._handShiftEnabled = false;
+    this._handWarnings = null; // move_too_fast warnings for the loaded file
+    this._maxHandShiftMs = 0; // max shortfall across warnings (lookahead budget)
 
     this.scheduler = null;
     this.pendingTimeouts = new Set(); // Track scheduled setTimeout IDs for cleanup
@@ -155,6 +169,8 @@ class PlaybackScheduler {
     this._activeNotes.clear();
     this._noteOnTimes.clear();
     this._droppedNoteOns.clear();
+    this._handWarnings = null;
+    this._maxHandShiftMs = 0;
     this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
     // CapabilityResolver caches survive across playbacks (invalidated on settings change).
     // No need to clear them here — they hold per-device capability data, not per-file state.
@@ -181,6 +197,51 @@ class PlaybackScheduler {
    */
   clearSnapshot() {
     this._snapshot = null;
+  }
+
+  /**
+   * Register the `move_too_fast` hand-position warnings for the loaded file so
+   * note-on dispatch can anticipate impossible actuator shifts. Reads the
+   * opt-in config flag once per playback (avoids a per-event lookup) and caches
+   * the largest shortfall as the extra lookahead budget. Pass `null` (or an
+   * empty list) to disable — e.g. at stop or for a file with no warnings.
+   *
+   * @param {Array<{code:string,time:number,channel?:number,requiredMs?:number,
+   *   availableMs?:number}>|null} warnings
+   * @returns {void}
+   */
+  setHandWarnings(warnings) {
+    this._handShiftEnabled = !!this._deps.config?.get?.('playback.handShiftCompensation', false);
+    if (!this._handShiftEnabled || !Array.isArray(warnings) || warnings.length === 0) {
+      this._handWarnings = null;
+      this._maxHandShiftMs = 0;
+      return;
+    }
+    this._handWarnings = warnings;
+    let maxMs = 0;
+    for (const w of warnings) {
+      if (!w || w.code !== 'move_too_fast') continue;
+      const required = Number.isFinite(w.requiredMs) ? w.requiredMs : 0;
+      const available = Number.isFinite(w.availableMs) ? w.availableMs : 0;
+      const shortfall = Math.max(0, required - available);
+      if (shortfall > maxMs) maxMs = shortfall;
+    }
+    this._maxHandShiftMs = maxMs;
+  }
+
+  /**
+   * Extra ms a note-on should depart early to cover an actuator shift the
+   * planner flagged as `move_too_fast`. 0 when disabled, not a note-on, or no
+   * matching warning. Delegates the matching to LatencyCompensator so the
+   * shortfall logic lives in one place.
+   * @private
+   */
+  _handShiftMsFor(event) {
+    if (!this._handShiftEnabled || !this._handWarnings) return 0;
+    if (event.type !== MIDI_EVENT_TYPES.NOTE_ON) return 0;
+    return (
+      this.latencyCompensator?.shiftExtraMs(this._handWarnings, event.time, event.channel) || 0
+    );
   }
 
   /**
@@ -415,7 +476,10 @@ class PlaybackScheduler {
     // doesn't collapse the window and cause re-scheduling churn.
     const effectiveLookahead =
       lagMs > 20 ? Math.max(0.05, LOOKAHEAD_SECONDS - (lagMs / 1000) * 0.5) : LOOKAHEAD_SECONDS;
-    const targetTime = state.position + effectiveLookahead + maxCompSec;
+    // Hand-shift compensation fires note-ons up to _maxHandShiftMs early, so the
+    // window must reach that far ahead too or those notes would queue late.
+    const handShiftSec = this._handShiftEnabled ? this._maxHandShiftMs / 1000 : 0;
+    const targetTime = state.position + effectiveLookahead + maxCompSec + handShiftSec;
 
     let idx = state.currentEventIndex;
     while (idx < state.events.length) {
@@ -491,7 +555,9 @@ class PlaybackScheduler {
     if (event._routeTo && event._routeTo.device) {
       const syncDelay = this._getSyncDelay(event._routeTo.device, event._routeTo.targetChannel);
       const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
-      this._emit(adjustedMs, () => this._sendEventToRouting(event, event._routeTo, state, callbacks));
+      this._emit(adjustedMs, () =>
+        this._sendEventToRouting(event, event._routeTo, state, callbacks)
+      );
       return;
     }
 
@@ -541,8 +607,11 @@ class PlaybackScheduler {
     // Get sync_delay from cache using device + targetChannel key
     const syncDelay = this._getSyncDelay(routing.device, routing.targetChannel);
 
-    // Apply sync_delay compensation (convert ms to seconds)
-    const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay);
+    // Apply sync_delay compensation (convert ms to seconds), plus optional
+    // hand-shift travel time so a note whose actuator can't reach in time
+    // departs early (0 unless enabled + this is a flagged note-on).
+    const handShiftMs = this._handShiftMsFor(event);
+    const adjustedMs = Math.max(0, delaySec * 1000 - syncDelay - handShiftMs);
 
     // Per-event debug — gated to avoid building the string when filtered out.
     if (syncDelay > 0 && delaySec * 1000 < syncDelay && (this.logger.isDebugEnabled?.() ?? false)) {
@@ -717,7 +786,9 @@ class PlaybackScheduler {
           const routesToDevice =
             r &&
             (r.device === device ||
-              (r.split && Array.isArray(r.segments) && r.segments.some((s) => s.device === device)));
+              (r.split &&
+                Array.isArray(r.segments) &&
+                r.segments.some((s) => s.device === device)));
           if (routesToDevice) {
             state.mutedChannels.add(ch);
             mutedChannels.push(ch);

@@ -36,19 +36,36 @@ class InstrumentSettingsDB {
 
     try {
       // Check if entry exists for this device + channel
-      const existing = this.db.prepare(
-        'SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?'
-      ).get(deviceId, channel);
+      const existing = this.db
+        .prepare('SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?')
+        .get(deviceId, channel);
 
       if (existing) {
         // Update existing entry
-        const result = buildDynamicUpdate('instruments_latency', settings, [
-          'custom_name', 'sync_delay', 'mac_address', 'usb_serial_number',
-          'name', 'gm_program', 'octave_mode', 'comm_timeout',
-          'instrument_type', 'instrument_subtype',
-          'min_note_interval', 'min_note_duration', 'omni_mode',
-          'voices_share_notes', 'custom_sf2_id', 'lighting_enabled'
-        ], { whereClause: 'device_id = ? AND channel = ?' });
+        const result = buildDynamicUpdate(
+          'instruments_latency',
+          settings,
+          [
+            'custom_name',
+            'sync_delay',
+            'mac_address',
+            'usb_serial_number',
+            'name',
+            'gm_program',
+            'octave_mode',
+            'scale_root',
+            'comm_timeout',
+            'instrument_type',
+            'instrument_subtype',
+            'min_note_interval',
+            'min_note_duration',
+            'omni_mode',
+            'voices_share_notes',
+            'custom_sf2_id',
+            'lighting_enabled'
+          ],
+          { whereClause: 'device_id = ? AND channel = ?' }
+        );
 
         if (!result) return existing.id;
         this.db.prepare(result.sql).run(...result.values, deviceId, channel);
@@ -57,9 +74,9 @@ class InstrumentSettingsDB {
         // Insert new entry with correct channel
         const stmt = this.db.prepare(`
           INSERT INTO instruments_latency (
-            id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, comm_timeout, instrument_type, instrument_subtype,
+            id, device_id, channel, name, custom_name, sync_delay, mac_address, usb_serial_number, gm_program, octave_mode, scale_root, comm_timeout, instrument_type, instrument_subtype,
             min_note_interval, min_note_duration, omni_mode, voices_share_notes, lighting_enabled
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const id = `${deviceId}_${channel}`;
@@ -74,6 +91,7 @@ class InstrumentSettingsDB {
           settings.usb_serial_number || null,
           settings.gm_program !== undefined ? settings.gm_program : null,
           settings.octave_mode || 'chromatic',
+          Number.isInteger(settings.scale_root) ? settings.scale_root : 0,
           settings.comm_timeout !== undefined ? settings.comm_timeout : 5000,
           settings.instrument_type || 'unknown',
           settings.instrument_subtype || null,
@@ -100,7 +118,9 @@ class InstrumentSettingsDB {
   getInstrumentSettings(deviceId, channel) {
     try {
       if (channel !== undefined && channel !== null) {
-        const stmt = this.db.prepare('SELECT * FROM instruments_latency WHERE device_id = ? AND channel = ?');
+        const stmt = this.db.prepare(
+          'SELECT * FROM instruments_latency WHERE device_id = ? AND channel = ?'
+        );
         return stmt.get(deviceId, channel);
       }
       // Backward compatibility: return first match
@@ -153,7 +173,7 @@ class InstrumentSettingsDB {
         )
         WHERE rn = 1
       `);
-      return stmt.all().map(row => ({
+      return stmt.all().map((row) => ({
         device_id: row.device_id,
         latency: row.sync_delay || 0,
         lastCalibrated: row.last_calibration,
@@ -183,9 +203,10 @@ class InstrumentSettingsDB {
   saveDeviceLatency(deviceId, profile) {
     try {
       const id = `${deviceId}_0`;
-      const lastCal = (profile.lastCalibrated instanceof Date)
-        ? profile.lastCalibrated.toISOString()
-        : (profile.lastCalibrated || new Date().toISOString());
+      const lastCal =
+        profile.lastCalibrated instanceof Date
+          ? profile.lastCalibrated.toISOString()
+          : profile.lastCalibrated || new Date().toISOString();
       const avg = Math.round(profile.averageLatency ?? profile.latency ?? 0);
       const min = Math.round(profile.minLatency ?? profile.latency ?? 0);
       const max = Math.round(profile.maxLatency ?? profile.latency ?? 0);
@@ -195,15 +216,21 @@ class InstrumentSettingsDB {
       const persist = this.db.transaction(() => {
         // Seed the row if it doesn't exist yet — minimal shape so we
         // don't clobber a richer existing settings row.
-        this.db.prepare(`
+        this.db
+          .prepare(
+            `
           INSERT OR IGNORE INTO instruments_latency
             (id, device_id, channel, name, calibration_method)
           VALUES (?, ?, 0, 'Calibrated Device', 'manual')
-        `).run(id, deviceId);
+        `
+          )
+          .run(id, deviceId);
 
         // Apply the latency fields. WHERE on `id` so this never
         // accidentally touches another device's rows.
-        this.db.prepare(`
+        this.db
+          .prepare(
+            `
           UPDATE instruments_latency
           SET sync_delay = ?,
               avg_latency = ?,
@@ -213,7 +240,9 @@ class InstrumentSettingsDB {
               last_calibration = ?,
               calibration_method = 'manual'
           WHERE id = ?
-        `).run(sync, avg, min, max, count, lastCal, id);
+        `
+          )
+          .run(sync, avg, min, max, count, lastCal, id);
       });
       persist();
     } catch (error) {
@@ -232,7 +261,9 @@ class InstrumentSettingsDB {
    */
   clearDeviceLatency(deviceId) {
     try {
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         UPDATE instruments_latency
         SET sync_delay = 0,
             avg_latency = 0,
@@ -241,7 +272,9 @@ class InstrumentSettingsDB {
             measurement_count = 0,
             last_calibration = NULL
         WHERE device_id = ?
-      `).run(deviceId);
+      `
+        )
+        .run(deviceId);
     } catch (error) {
       this.logger.error(`Failed to clear latency profile for ${deviceId}: ${error.message}`);
       throw error;
@@ -258,9 +291,7 @@ class InstrumentSettingsDB {
    */
   findById(instrumentId) {
     try {
-      return this.db
-        .prepare('SELECT * FROM instruments_latency WHERE id = ?')
-        .get(instrumentId);
+      return this.db.prepare('SELECT * FROM instruments_latency WHERE id = ?').get(instrumentId);
     } catch (error) {
       this.logger.error(`Failed to find instrument by id: ${error.message}`);
       throw error;
@@ -278,10 +309,22 @@ class InstrumentSettingsDB {
   updateById(instrumentId, fields) {
     try {
       const result = buildDynamicUpdate('instruments_latency', fields, [
-        'name', 'custom_name', 'instrument_type', 'instrument_subtype',
-        'sync_delay', 'mac_address', 'usb_serial_number',
-        'gm_program', 'octave_mode', 'comm_timeout', 'midi_clock_enabled',
-        'min_note_interval', 'min_note_duration', 'enabled', 'custom_sf2_id'
+        'name',
+        'custom_name',
+        'instrument_type',
+        'instrument_subtype',
+        'sync_delay',
+        'mac_address',
+        'usb_serial_number',
+        'gm_program',
+        'octave_mode',
+        'scale_root',
+        'comm_timeout',
+        'midi_clock_enabled',
+        'min_note_interval',
+        'min_note_duration',
+        'enabled',
+        'custom_sf2_id'
       ]);
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, instrumentId);
@@ -298,9 +341,9 @@ class InstrumentSettingsDB {
    */
   getOmniInstruments() {
     try {
-      return this.db.prepare(
-        'SELECT device_id, channel FROM instruments_latency WHERE omni_mode = 1'
-      ).all();
+      return this.db
+        .prepare('SELECT device_id, channel FROM instruments_latency WHERE omni_mode = 1')
+        .all();
     } catch (error) {
       this.logger.error(`Failed to list omni instruments: ${error.message}`);
       return [];
@@ -314,7 +357,9 @@ class InstrumentSettingsDB {
    */
   getInstrumentsByDevice(deviceId) {
     try {
-      const stmt = this.db.prepare('SELECT * FROM instruments_latency WHERE device_id = ? ORDER BY channel');
+      const stmt = this.db.prepare(
+        'SELECT * FROM instruments_latency WHERE device_id = ? ORDER BY channel'
+      );
       return stmt.all(deviceId);
     } catch (error) {
       this.logger.error(`Failed to get instruments by device: ${error.message}`);
@@ -338,9 +383,9 @@ class InstrumentSettingsDB {
 
     try {
       // Check if entry exists for this device + channel
-      const existing = this.db.prepare(
-        'SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?'
-      ).get(deviceId, channel);
+      const existing = this.db
+        .prepare('SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?')
+        .get(deviceId, channel);
 
       const now = new Date().toISOString();
 
@@ -459,9 +504,11 @@ class InstrumentSettingsDB {
       if (!normalizedTarget || normalizedTarget === 'virtual') return null;
 
       // Get all non-virtual entries
-      const entries = this.db.prepare(
-        "SELECT * FROM instruments_latency WHERE device_id NOT LIKE 'virtual_%' ORDER BY capabilities_updated_at DESC"
-      ).all();
+      const entries = this.db
+        .prepare(
+          "SELECT * FROM instruments_latency WHERE device_id NOT LIKE 'virtual_%' ORDER BY capabilities_updated_at DESC"
+        )
+        .all();
 
       for (const entry of entries) {
         const normalizedEntry = InstrumentSettingsDB.normalizeDeviceName(entry.device_id);
@@ -487,9 +534,9 @@ class InstrumentSettingsDB {
     // Wrap all updates in a transaction to prevent partial state on failure
     const runReconciliation = this.db.transaction(() => {
       // Get all entries for old device_id
-      const oldEntries = this.db.prepare(
-        'SELECT * FROM instruments_latency WHERE device_id = ?'
-      ).all(oldDeviceId);
+      const oldEntries = this.db
+        .prepare('SELECT * FROM instruments_latency WHERE device_id = ?')
+        .all(oldDeviceId);
 
       if (oldEntries.length === 0) {
         return; // Nothing to reconcile
@@ -497,20 +544,22 @@ class InstrumentSettingsDB {
 
       for (const oldEntry of oldEntries) {
         // Check if new device_id + channel already exists
-        const existingNew = this.db.prepare(
-          'SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?'
-        ).get(newDeviceId, oldEntry.channel);
+        const existingNew = this.db
+          .prepare('SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?')
+          .get(newDeviceId, oldEntry.channel);
 
         if (existingNew) {
           // New entry already exists - delete the old duplicate
           this.db.prepare('DELETE FROM instruments_latency WHERE id = ?').run(oldEntry.id);
-          this.logger.info(`[reconcileDeviceId] Removed duplicate entry "${oldEntry.id}" (kept "${existingNew.id}")`);
+          this.logger.info(
+            `[reconcileDeviceId] Removed duplicate entry "${oldEntry.id}" (kept "${existingNew.id}")`
+          );
         } else {
           // Update old entry to use new device_id
           const newId = `${newDeviceId}_${oldEntry.channel}`;
-          this.db.prepare(
-            'UPDATE instruments_latency SET id = ?, device_id = ? WHERE id = ?'
-          ).run(newId, newDeviceId, oldEntry.id);
+          this.db
+            .prepare('UPDATE instruments_latency SET id = ?, device_id = ? WHERE id = ?')
+            .run(newId, newDeviceId, oldEntry.id);
           this.logger.info(`[reconcileDeviceId] Updated "${oldEntry.id}" -> "${newId}"`);
         }
       }
@@ -521,18 +570,18 @@ class InstrumentSettingsDB {
 
       // Also update routing table if it exists
       try {
-        this.db.prepare(
-          'UPDATE midi_instrument_routings SET device_id = ? WHERE device_id = ?'
-        ).run(newDeviceId, oldDeviceId);
+        this.db
+          .prepare('UPDATE midi_instrument_routings SET device_id = ? WHERE device_id = ?')
+          .run(newDeviceId, oldDeviceId);
       } catch (e) {
         // Table may not exist
       }
 
       // Also update string_instruments table if it exists
       try {
-        this.db.prepare(
-          'UPDATE string_instruments SET device_id = ? WHERE device_id = ?'
-        ).run(newDeviceId, oldDeviceId);
+        this.db
+          .prepare('UPDATE string_instruments SET device_id = ? WHERE device_id = ?')
+          .run(newDeviceId, oldDeviceId);
       } catch (e) {
         // Table may not exist
       }
@@ -541,7 +590,9 @@ class InstrumentSettingsDB {
     try {
       runReconciliation();
     } catch (error) {
-      this.logger.error(`Failed to reconcile device_id "${oldDeviceId}" -> "${newDeviceId}": ${error.message}`);
+      this.logger.error(
+        `Failed to reconcile device_id "${oldDeviceId}" -> "${newDeviceId}": ${error.message}`
+      );
       throw error;
     }
   }
@@ -554,11 +605,15 @@ class InstrumentSettingsDB {
   deduplicateByUsbSerial() {
     try {
       // Find all entries with USB serial numbers
-      const entries = this.db.prepare(`
+      const entries = this.db
+        .prepare(
+          `
         SELECT * FROM instruments_latency
         WHERE usb_serial_number IS NOT NULL AND usb_serial_number != ''
         ORDER BY usb_serial_number, capabilities_updated_at DESC
-      `).all();
+      `
+        )
+        .all();
 
       const bySerial = new Map();
       for (const entry of entries) {
@@ -587,17 +642,25 @@ class InstrumentSettingsDB {
 
           // Keep the one with the most complete data (most non-null fields)
           channelGroup.sort((a, b) => {
-            const scoreA = (a.gm_program != null ? 1 : 0) + (a.note_range_min != null ? 1 : 0) +
-                          (a.polyphony != null ? 1 : 0) + (a.custom_name ? 1 : 0);
-            const scoreB = (b.gm_program != null ? 1 : 0) + (b.note_range_min != null ? 1 : 0) +
-                          (b.polyphony != null ? 1 : 0) + (b.custom_name ? 1 : 0);
+            const scoreA =
+              (a.gm_program != null ? 1 : 0) +
+              (a.note_range_min != null ? 1 : 0) +
+              (a.polyphony != null ? 1 : 0) +
+              (a.custom_name ? 1 : 0);
+            const scoreB =
+              (b.gm_program != null ? 1 : 0) +
+              (b.note_range_min != null ? 1 : 0) +
+              (b.polyphony != null ? 1 : 0) +
+              (b.custom_name ? 1 : 0);
             return scoreB - scoreA; // Higher score first
           });
 
           // Remove all but the first (most complete)
           for (let i = 1; i < channelGroup.length; i++) {
             this.db.prepare('DELETE FROM instruments_latency WHERE id = ?').run(channelGroup[i].id);
-            this.logger.info(`[deduplicateByUsbSerial] Removed duplicate "${channelGroup[i].id}" for serial "${serial}" ch${channel}`);
+            this.logger.info(
+              `[deduplicateByUsbSerial] Removed duplicate "${channelGroup[i].id}" for serial "${serial}" ch${channel}`
+            );
             removedCount++;
           }
         }
@@ -621,13 +684,12 @@ class InstrumentSettingsDB {
   deleteByDevice(deviceId, channel) {
     try {
       if (channel !== undefined && channel !== null) {
-        return this.db.prepare(
-          'DELETE FROM instruments_latency WHERE device_id = ? AND channel = ?'
-        ).run(deviceId, channel).changes;
+        return this.db
+          .prepare('DELETE FROM instruments_latency WHERE device_id = ? AND channel = ?')
+          .run(deviceId, channel).changes;
       }
-      return this.db.prepare(
-        'DELETE FROM instruments_latency WHERE device_id = ?'
-      ).run(deviceId).changes;
+      return this.db.prepare('DELETE FROM instruments_latency WHERE device_id = ?').run(deviceId)
+        .changes;
     } catch (error) {
       this.logger.error(`Failed to delete instrument settings: ${error.message}`);
       throw error;

@@ -101,6 +101,15 @@ export function validateVoicePayload(v) {
   } else {
     payload.octave_mode = null;
   }
+  if (v.scale_root !== undefined && v.scale_root !== null) {
+    const root = parseInt(v.scale_root);
+    if (isNaN(root) || root < 0 || root > 11) {
+      throw new ValidationError('scale_root must be a pitch class 0..11', 'scale_root');
+    }
+    payload.scale_root = root;
+  } else {
+    payload.scale_root = null;
+  }
   return payload;
 }
 

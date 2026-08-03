@@ -20,7 +20,8 @@
   "playback": {
     "defaultTempo": 120,
     "defaultVolume": 100,
-    "lookahead": 100
+    "lookahead": 100,
+    "handShiftCompensation": false
   },
   "latency": {
     "defaultIterations": 5,
