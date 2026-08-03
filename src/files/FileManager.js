@@ -49,6 +49,24 @@ class FileManager {
   // ==========================================================================
 
   /**
+   * Reject a buffer that exceeds the MIDI size cap before it is written to the
+   * blob store. Every user-supplied write path must call this — the upload
+   * route enforced it but the editor-save / replace / derive paths did not, so
+   * a large editor payload could persist a blob past the documented 10 MB limit
+   * (only the ~16 MB WS frame bounded it).
+   * @param {Buffer} buffer
+   * @returns {void}
+   * @throws {Error} When the buffer exceeds LIMITS.MAX_MIDI_FILE_SIZE.
+   */
+  _assertMidiSizeLimit(buffer) {
+    if (buffer.length > LIMITS.MAX_MIDI_FILE_SIZE) {
+      const mb = (buffer.length / (1024 * 1024)).toFixed(1);
+      const cap = LIMITS.MAX_MIDI_FILE_SIZE / (1024 * 1024);
+      throw new Error(`File too large: ${mb}MB exceeds ${cap}MB limit`);
+    }
+  }
+
+  /**
    * Persist a MIDI buffer end-to-end. Designed to be called from inside an
    * `UploadQueue.add()` task — the optional `report(stage)` callback emits
    * progress events to the WS client (`received | hashed | parsed | analyzed
@@ -65,11 +83,7 @@ class FileManager {
     if (!Buffer.isBuffer(buffer)) {
       throw new Error('handleUpload requires a Buffer');
     }
-    if (buffer.length > LIMITS.MAX_MIDI_FILE_SIZE) {
-      const mb = (buffer.length / (1024 * 1024)).toFixed(1);
-      const cap = LIMITS.MAX_MIDI_FILE_SIZE / (1024 * 1024);
-      throw new Error(`File too large: ${mb}MB exceeds ${cap}MB limit`);
-    }
+    this._assertMidiSizeLimit(buffer);
     const t0 = Date.now();
     report('received');
 
@@ -112,14 +126,25 @@ class FileManager {
     const parseMs = Date.now() - parseStart;
     report('parsed');
 
-    const validation = this.midiFileValidator.validate(midi);
-
+    // Analysis runs on a parseable-but-possibly-pathological AST. If any
+    // extractor throws, the blob written above is orphaned (no DB row will ever
+    // reference it), so clean it up before bailing — mirroring the parse-failure
+    // path. Without this a rare malformed-but-accepted file leaves a dangling
+    // blob that only gcOrphans reclaims.
+    let validation, metadata, tempoMap, instrumentMetadata, textEvents, textSummary;
     const analysisStart = Date.now();
-    const metadata = this.midiFileParser.extractMetadata(midi);
-    const tempoMap = this.midiFileParser.extractTempoMap(midi);
-    const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
-    const { events: textEvents, summary: textSummary } =
-      this.midiFileParser.extractTextEvents(midi);
+    try {
+      validation = this.midiFileValidator.validate(midi);
+      metadata = this.midiFileParser.extractMetadata(midi);
+      tempoMap = this.midiFileParser.extractTempoMap(midi);
+      instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
+      ({ events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(midi));
+    } catch (err) {
+      if (!this.database.midiDB.getFileByContentHash(blob.hash)) {
+        this._safeBlobDelete(blob.relativePath);
+      }
+      throw new Error(`MIDI analysis failed: ${err.message}`);
+    }
     const analysisMs = Date.now() - analysisStart;
     report('analyzed');
 
@@ -286,6 +311,7 @@ class FileManager {
     if (!file) throw new Error(`File not found: ${fileId}`);
 
     const buffer = Buffer.from(writeMidi(midiData));
+    this._assertMidiSizeLimit(buffer);
     const newBlob = this.blobStore.write(buffer);
 
     // If the new content matches another row's hash, refuse rather than
@@ -458,6 +484,7 @@ class FileManager {
    */
   async replaceFileBytes(fileId, buffer) {
     if (!Buffer.isBuffer(buffer)) throw new Error('replaceFileBytes requires a Buffer');
+    this._assertMidiSizeLimit(buffer);
     const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
 
@@ -542,6 +569,7 @@ class FileManager {
    */
   async createDerivedFile(filename, buffer, { folder = '/', parentFileId } = {}) {
     if (!Buffer.isBuffer(buffer)) throw new Error('createDerivedFile requires a Buffer');
+    this._assertMidiSizeLimit(buffer);
 
     const blob = this.blobStore.write(buffer);
     const existing = this.database.midiDB.getFileByContentHash(blob.hash);

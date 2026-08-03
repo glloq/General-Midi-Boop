@@ -228,6 +228,14 @@ class LightingManager extends EventEmitter {
     const instrumentId = event.destination;
     const midiData = this._normalizeMidiData(event);
 
+    // KNOWN LIMITATION (audit P3, deferred): this dedup between `midi_message`
+    // (raw device input, carries a device timestamp) and `midi_routed` (no
+    // timestamp; `data` is the channel-mapped/transposed value) does not
+    // reliably match, so `*` wildcard rules can fire more than once per logical
+    // input event. A correct fix needs a shared per-event id plumbed from
+    // DeviceManager through the router (and dedup across multi-destination
+    // fan-out), which is out of scope for a minimal change without rule-engine
+    // test coverage. Left as-is intentionally.
     // Mark this event as routed so _evaluateWildcardEvent skips wildcard rules for it
     const evtKey = `${midiData.type}_${midiData.channel}_${midiData.note ?? ''}_${midiData.controller ?? ''}_${event.timestamp || Date.now()}`;
     this._recentRoutedEvents.add(evtKey);
@@ -374,6 +382,7 @@ class LightingManager extends EventEmitter {
         const li = startLed + Math.round((no / Math.max(1, noteRange)) * lr);
         const cl = Math.max(startLed, Math.min(endLed === -1 ? lc - 1 : endLed, li));
         driver.setColor(cl, 0, 0, 0, 0);
+        this._untrackNote(rule.device_id, midiData.note);
         return;
       }
 
@@ -620,6 +629,22 @@ class LightingManager extends EventEmitter {
     }
     const notes = this.activeNotes.get(deviceId);
     notes.set(note, (notes.get(note) || 0) + 1);
+  }
+
+  /**
+   * Decrement the active-note counter without the LED/effect teardown that
+   * `_handleNoteOff` performs. Used by the `note_led` note-off path, which
+   * clears its own single LED and would otherwise leave the counter to
+   * accumulate until the stale-note safety sweep clears it.
+   * @param {string} deviceId
+   * @param {number} note
+   */
+  _untrackNote(deviceId, note) {
+    const notes = this.activeNotes.get(deviceId);
+    if (!notes) return;
+    const count = (notes.get(note) || 1) - 1;
+    if (count <= 0) notes.delete(note);
+    else notes.set(note, count);
   }
 
   _handleNoteOff(deviceId, note, driver, startLed, endLed) {

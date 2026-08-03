@@ -849,6 +849,25 @@ class NetworkManager extends EventEmitter {
     session.on('error', (error) =>
       this.logger.error(`[NetworkManager] RTP-MIDI error for ${ip}: ${error.message}`)
     );
+
+    // Establishment watchdog (audit P3). A responder session is registered on
+    // the first inbound control-port packet, but if the peer never sends the
+    // data-port invitation the session would linger in rtpSessions forever
+    // (idle, connected=false, never emitting 'disconnected'). Close it if the
+    // handshake hasn't completed within the window; close() emits 'disconnected'
+    // which removes it via the handler above. Cleared once connected.
+    const establishTimer = setTimeout(() => {
+      if (!session.isConnected()) {
+        this.logger.warn(
+          `[NetworkManager] inbound RTP-MIDI session from ${ip} did not establish; closing`
+        );
+        session.close();
+      }
+    }, 10000);
+    if (typeof establishTimer.unref === 'function') establishTimer.unref();
+    session.on('connected', () => clearTimeout(establishTimer));
+    session.on('disconnected', () => clearTimeout(establishTimer));
+
     this.rtpSessions.set(ip, session);
     return session;
   }

@@ -197,6 +197,14 @@ class MidiPlayer {
     // Guard against concurrent _handleFileEnd calls
     this._fileEndPending = false;
 
+    // Monotonic token that lets an in-flight async queue advance detect that it
+    // was superseded (by stop() or a newer advance) while awaiting loadFile, so
+    // it does not restart playback the user asked to stop (audit P3). `_advancing`
+    // lets stop() finalize cleanly even though `playing` is briefly false during
+    // the advance.
+    this._playToken = 0;
+    this._advancing = false;
+
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
     this.scheduler = new PlaybackScheduler(deps);
 
@@ -1407,9 +1415,17 @@ class MidiPlayer {
    * @returns {boolean} True when the call actually transitioned state.
    */
   stop() {
+    // Invalidate any in-flight queue advance so its pending start() aborts.
+    this._playToken++;
     this._clearGapTimer();
 
-    if (!this.playing) {
+    // During a no-gap queue advance `playing` is briefly false (the next item is
+    // still loading), so a naive `!this.playing` guard would make stop() a no-op
+    // and the in-flight advance would restart playback. `_advancing` forces the
+    // full stop cleanup in that window.
+    const wasAdvancing = this._advancing;
+    this._advancing = false;
+    if (!this.playing && !wasAdvancing) {
       return;
     }
 
@@ -2566,6 +2582,12 @@ class MidiPlayer {
       throw new ConfigurationError(`Queue index out of range: ${index}`);
     }
 
+    // Claim this advance. A stop() (or a newer playQueueItem) that runs while we
+    // await loadFile below will bump `_playToken`, and we bail before start()
+    // rather than resurrect playback the user stopped (audit P3).
+    const myToken = ++this._playToken;
+    this._advancing = true;
+
     // Cancel any pending gap timer
     this._clearGapTimer();
 
@@ -2582,6 +2604,14 @@ class MidiPlayer {
 
     // Load file
     await this.loadFile(item.fileId);
+
+    // Superseded while loading? stop() (or a newer advance) bumped the token —
+    // do not start. Leave state ownership to whoever superseded us (stop()
+    // already finalized; a newer playQueueItem will start itself).
+    if (myToken !== this._playToken) {
+      return;
+    }
+    this._advancing = false;
 
     // Auto-load saved routings from database
     this._loadRoutingsFromDB(item.fileId);

@@ -73,10 +73,33 @@ class BlobStore {
 
     fs.mkdirSync(dir, { recursive: true });
 
-    // Atomic write: stage in tmp then rename into place.
+    // Atomic + durable write: stage in tmp, fsync the data, rename into place,
+    // then fsync the directory. Without the fsyncs a power loss on the Pi's SD
+    // card between rename and the OS flush can leave a truncated/zero blob at
+    // the canonical path whose content no longer matches its content_hash, and
+    // reads (existence-only) would serve it silently.
     const tmpPath = path.join(this.tmpDir, `${hash}.part-${process.pid}-${Date.now()}`);
     fs.writeFileSync(tmpPath, buffer);
+    const fileFd = fs.openSync(tmpPath, 'r');
+    try {
+      fs.fsyncSync(fileFd);
+    } finally {
+      fs.closeSync(fileFd);
+    }
     fs.renameSync(tmpPath, absolutePath);
+    // Persist the new directory entry. Directory fsync is a no-op / unsupported
+    // on some platforms (e.g. Windows) — non-fatal, the file data is already
+    // durable at this point.
+    try {
+      const dirFd = fs.openSync(dir, 'r');
+      try {
+        fs.fsyncSync(dirFd);
+      } finally {
+        fs.closeSync(dirFd);
+      }
+    } catch (err) {
+      this.logger.warn?.(`BlobStore: directory fsync skipped for ${dir}: ${err.message}`);
+    }
 
     return {
       hash,
