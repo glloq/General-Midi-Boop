@@ -252,7 +252,7 @@ async function routeImport(app, data) {
  */
 async function routeClearAll(app) {
   const routes = app.midiRouter.getRouteList();
-  routes.forEach(route => app.midiRouter.deleteRoute(route.id));
+  routes.forEach((route) => app.midiRouter.deleteRoute(route.id));
   return { success: true, deleted: routes.length };
 }
 
@@ -283,10 +283,14 @@ async function fileRoutingSync(app, data) {
   const result = app.fileRoutingSyncService.syncFile(data.fileId, data.channels);
 
   if (result.invalidDevices.length > 0) {
-    app.logger.info(`[fileRoutingSync] Skipped invalid device(s): ${result.invalidDevices.join(', ')}`);
+    app.logger.info(
+      `[fileRoutingSync] Skipped invalid device(s): ${result.invalidDevices.join(', ')}`
+    );
   }
   if (result.invalidChannels.length > 0) {
-    app.logger.info(`[fileRoutingSync] Skipped channels not present in file: ${result.invalidChannels.join(', ')}`);
+    app.logger.info(
+      `[fileRoutingSync] Skipped channels not present in file: ${result.invalidChannels.join(', ')}`
+    );
   }
   app.logger.info(`[fileRoutingSync] Synced ${result.synced} channels for file ${data.fileId}`);
 
@@ -314,7 +318,9 @@ async function fileRoutingBulkSync(app, data) {
       `[fileRoutingBulkSync] Skipped ${result.invalidDevices.length} invalid device(s): ${result.invalidDevices.join(', ')}`
     );
   }
-  app.logger.info(`[fileRoutingBulkSync] Synced ${result.synced} channels across ${result.files} files`);
+  app.logger.info(
+    `[fileRoutingBulkSync] Synced ${result.synced} channels across ${result.files} files`
+  );
 
   return { success: true, ...result };
 }
@@ -361,7 +367,9 @@ async function validateRoutingFeasibility(app, data) {
   if (app.instrumentRepository?.getCapabilities) {
     try {
       capabilities = app.instrumentRepository.getCapabilities(data.deviceId, targetChannel);
-    } catch (_) { /* fall through to unknown */ }
+    } catch (_) {
+      /* fall through to unknown */
+    }
   }
   if (!capabilities) {
     return {
@@ -384,11 +392,15 @@ async function validateRoutingFeasibility(app, data) {
         const buffer = app.blobStore.read(file.blob_path);
         midiData = parseMidi(buffer);
       }
-    } catch (_) { /* surface unknown below */ }
+    } catch (_) {
+      /* surface unknown below */
+    }
     if (midiData) {
       try {
         analysis = app.adaptationService.analyzeChannel(midiData, channel, data.fileId);
-      } catch (_) { /* surface unknown below */ }
+      } catch (_) {
+        /* surface unknown below */
+      }
     }
   }
   if (!analysis) {
@@ -446,9 +458,11 @@ async function routingSaveHandOverrides(app, data) {
     if (typeof overrides !== 'object' || Array.isArray(overrides)) {
       throw new ValidationError('overrides must be an object or null', 'overrides');
     }
-    if (!Array.isArray(overrides.hand_anchors)
-        && !Array.isArray(overrides.disabled_notes)
-        && !Array.isArray(overrides.note_assignments)) {
+    if (
+      !Array.isArray(overrides.hand_anchors) &&
+      !Array.isArray(overrides.disabled_notes) &&
+      !Array.isArray(overrides.note_assignments)
+    ) {
       throw new ValidationError(
         'overrides must declare hand_anchors, disabled_notes and/or note_assignments arrays',
         'overrides'
@@ -456,9 +470,13 @@ async function routingSaveHandOverrides(app, data) {
     }
     if (Array.isArray(overrides.hand_anchors)) {
       for (const a of overrides.hand_anchors) {
-        if (!a || typeof a !== 'object'
-            || !Number.isFinite(a.tick) || !Number.isFinite(a.anchor)
-            || typeof a.handId !== 'string') {
+        if (
+          !a ||
+          typeof a !== 'object' ||
+          !Number.isFinite(a.tick) ||
+          !Number.isFinite(a.anchor) ||
+          typeof a.handId !== 'string'
+        ) {
           throw new ValidationError(
             'each hand_anchors entry must carry {tick, handId, anchor}',
             'overrides.hand_anchors'
@@ -477,8 +495,7 @@ async function routingSaveHandOverrides(app, data) {
       // `string`/`fret`; mixing both is rejected so a copy-paste typo
       // can't smuggle in an ambiguous entry.
       for (const a of overrides.note_assignments) {
-        if (!a || typeof a !== 'object'
-            || !Number.isFinite(a.tick) || !Number.isFinite(a.note)) {
+        if (!a || typeof a !== 'object' || !Number.isFinite(a.tick) || !Number.isFinite(a.note)) {
           throw new ValidationError(
             'each note_assignments entry must carry tick + note',
             'overrides.note_assignments'
@@ -502,8 +519,7 @@ async function routingSaveHandOverrides(app, data) {
     }
     if (Array.isArray(overrides.disabled_notes)) {
       for (const n of overrides.disabled_notes) {
-        if (!n || typeof n !== 'object'
-            || !Number.isFinite(n.tick) || !Number.isFinite(n.note)) {
+        if (!n || typeof n !== 'object' || !Number.isFinite(n.tick) || !Number.isFinite(n.note)) {
           throw new ValidationError(
             'each disabled_notes entry must carry {tick, note}',
             'overrides.disabled_notes'
@@ -517,7 +533,9 @@ async function routingSaveHandOverrides(app, data) {
     throw new ValidationError('routing repository is not wired', 'routingRepository');
   }
   const updated = app.routingRepository.saveHandOverrides(
-    data.fileId, channel, data.deviceId,
+    data.fileId,
+    channel,
+    data.deviceId,
     overrides == null ? null : overrides
   );
   return { success: true, updated };
@@ -543,7 +561,9 @@ export function register(registry, app) {
   registry.register('route_clear_all', () => routeClearAll(app));
   registry.register('file_routing_sync', (data) => fileRoutingSync(app, data));
   registry.register('file_routing_bulk_sync', (data) => fileRoutingBulkSync(app, data));
-  registry.register('validate_routing_feasibility', (data) => validateRoutingFeasibility(app, data));
+  registry.register('validate_routing_feasibility', (data) =>
+    validateRoutingFeasibility(app, data)
+  );
   registry.register('routing_save_hand_overrides', (data) => routingSaveHandOverrides(app, data));
 }
 

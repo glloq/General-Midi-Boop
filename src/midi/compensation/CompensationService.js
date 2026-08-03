@@ -132,14 +132,14 @@ export class CompensationService {
     if (total > MAX_COMPENSATION_MS) {
       this._log.warn(
         `CompensationService: ${total.toFixed(0)}ms for ${deviceId}:${channel} ` +
-        `exceeds max ${MAX_COMPENSATION_MS}ms, clamping`
+          `exceeds max ${MAX_COMPENSATION_MS}ms, clamping`
       );
       return MAX_COMPENSATION_MS;
     }
     if (total < -MAX_COMPENSATION_MS) {
       this._log.warn(
         `CompensationService: ${total.toFixed(0)}ms for ${deviceId}:${channel} ` +
-        `exceeds min -${MAX_COMPENSATION_MS}ms, clamping`
+          `exceeds min -${MAX_COMPENSATION_MS}ms, clamping`
       );
       return -MAX_COMPENSATION_MS;
     }

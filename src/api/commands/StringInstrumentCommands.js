@@ -120,9 +120,7 @@ async function stringInstrumentDelete(app, data) {
   if (data.id) {
     app.stringInstrumentRepository.delete(data.id);
   } else if (data.device_id !== undefined) {
-    app.stringInstrumentRepository.deleteByDeviceChannel(
-      data.device_id, data.channel
-    );
+    app.stringInstrumentRepository.deleteByDeviceChannel(data.device_id, data.channel);
   } else {
     throw new ValidationError('id or device_id is required', 'id');
   }
@@ -261,9 +259,12 @@ async function stringInstrumentGetScaleLengthPresets(app) {
  * @throws {ValidationError}
  */
 async function tablatureSave(app, data) {
-  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
-  if (data.string_instrument_id === undefined) throw new ValidationError('string_instrument_id is required', 'string_instrument_id');
-  if (!Array.isArray(data.tablature_data)) throw new ValidationError('tablature_data must be an array', 'tablature_data');
+  if (data.midi_file_id === undefined)
+    throw new ValidationError('midi_file_id is required', 'midi_file_id');
+  if (data.string_instrument_id === undefined)
+    throw new ValidationError('string_instrument_id is required', 'string_instrument_id');
+  if (!Array.isArray(data.tablature_data))
+    throw new ValidationError('tablature_data must be an array', 'tablature_data');
 
   const id = app.stringInstrumentRepository.saveTablature(
     data.midi_file_id,
@@ -281,11 +282,10 @@ async function tablatureSave(app, data) {
  * @throws {ValidationError}
  */
 async function tablatureGet(app, data) {
-  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
+  if (data.midi_file_id === undefined)
+    throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
-  const tablature = app.stringInstrumentRepository.findTablature(
-    data.midi_file_id, data.channel
-  );
+  const tablature = app.stringInstrumentRepository.findTablature(data.midi_file_id, data.channel);
   return { tablature };
 }
 
@@ -296,7 +296,8 @@ async function tablatureGet(app, data) {
  * @throws {ValidationError}
  */
 async function tablatureGetByFile(app, data) {
-  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
+  if (data.midi_file_id === undefined)
+    throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
   const tablatures = app.stringInstrumentRepository.findTablaturesByFile(data.midi_file_id);
   return { tablatures };
@@ -312,7 +313,8 @@ async function tablatureGetByFile(app, data) {
  * @throws {ValidationError}
  */
 async function tablatureDelete(app, data) {
-  if (data.midi_file_id === undefined) throw new ValidationError('midi_file_id is required', 'midi_file_id');
+  if (data.midi_file_id === undefined)
+    throw new ValidationError('midi_file_id is required', 'midi_file_id');
 
   if (data.channel !== undefined) {
     app.stringInstrumentRepository.deleteTablature(data.midi_file_id, data.channel);
@@ -336,9 +338,13 @@ async function tablatureDelete(app, data) {
  * @throws {ValidationError|NotFoundError}
  */
 async function tablatureConvertFromMidi(app, data) {
-  if (!data.notes || !Array.isArray(data.notes)) throw new ValidationError('notes array is required', 'notes');
+  if (!data.notes || !Array.isArray(data.notes))
+    throw new ValidationError('notes array is required', 'notes');
   if (!data.instrument_config && !data.string_instrument_id) {
-    throw new ValidationError('instrument_config or string_instrument_id is required', 'instrument_config');
+    throw new ValidationError(
+      'instrument_config or string_instrument_id is required',
+      'instrument_config'
+    );
   }
 
   let config = data.instrument_config;
@@ -393,9 +399,15 @@ function _withMaxFingersFromHandsConfig(app, config) {
   }
   let hands = caps?.hands_config;
   if (typeof hands === 'string') {
-    try { hands = JSON.parse(hands); } catch (_) { return config; }
+    try {
+      hands = JSON.parse(hands);
+    } catch (_) {
+      return config;
+    }
   }
-  const fretting = Array.isArray(hands?.hands) ? hands.hands.find(h => h?.id === 'fretting') : null;
+  const fretting = Array.isArray(hands?.hands)
+    ? hands.hands.find((h) => h?.id === 'fretting')
+    : null;
   if (!fretting) return config;
 
   const out = { ...config };
@@ -422,9 +434,13 @@ function _withMaxFingersFromHandsConfig(app, config) {
  * @throws {ValidationError|NotFoundError}
  */
 async function tablatureConvertToMidi(app, data) {
-  if (!data.tab_events || !Array.isArray(data.tab_events)) throw new ValidationError('tab_events array is required', 'tab_events');
+  if (!data.tab_events || !Array.isArray(data.tab_events))
+    throw new ValidationError('tab_events array is required', 'tab_events');
   if (!data.instrument_config && !data.string_instrument_id) {
-    throw new ValidationError('instrument_config or string_instrument_id is required', 'instrument_config');
+    throw new ValidationError(
+      'instrument_config or string_instrument_id is required',
+      'instrument_config'
+    );
   }
 
   let config = data.instrument_config;
@@ -456,9 +472,15 @@ export function register(registry, app) {
 
   // Tuning presets
   registry.register('string_instrument_get_presets', () => stringInstrumentGetPresets(app));
-  registry.register('string_instrument_apply_preset', (data) => stringInstrumentApplyPreset(app, data));
-  registry.register('string_instrument_create_from_preset', (data) => stringInstrumentCreateFromPreset(app, data));
-  registry.register('string_instrument_get_scale_length_presets', () => stringInstrumentGetScaleLengthPresets(app));
+  registry.register('string_instrument_apply_preset', (data) =>
+    stringInstrumentApplyPreset(app, data)
+  );
+  registry.register('string_instrument_create_from_preset', (data) =>
+    stringInstrumentCreateFromPreset(app, data)
+  );
+  registry.register('string_instrument_get_scale_length_presets', () =>
+    stringInstrumentGetScaleLengthPresets(app)
+  );
 
   // Tablature data
   registry.register('tablature_save', (data) => tablatureSave(app, data));

@@ -26,47 +26,149 @@ class StringInstrumentDatabase {
    */
   static TUNING_PRESETS = {
     // Guitar (6 strings)
-    'guitar_standard':    { name: 'Guitar Standard (EADGBE)',      strings: 6, frets: 24, tuning: [40, 45, 50, 55, 59, 64] },
-    'guitar_drop_d':      { name: 'Guitar Drop D (DADGBE)',        strings: 6, frets: 24, tuning: [38, 45, 50, 55, 59, 64] },
-    'guitar_open_g':      { name: 'Guitar Open G (DGDGBD)',        strings: 6, frets: 24, tuning: [38, 43, 50, 55, 59, 62] },
-    'guitar_open_d':      { name: 'Guitar Open D (DADF#AD)',       strings: 6, frets: 24, tuning: [38, 45, 50, 54, 57, 62] },
-    'guitar_dadgad':      { name: 'Guitar DADGAD',                 strings: 6, frets: 24, tuning: [38, 45, 50, 55, 57, 62] },
-    'guitar_open_e':      { name: 'Guitar Open E (EBEG#BE)',       strings: 6, frets: 24, tuning: [40, 47, 52, 56, 59, 64] },
-    'guitar_half_down':   { name: 'Guitar Half Step Down',         strings: 6, frets: 24, tuning: [39, 44, 49, 54, 58, 63] },
-    'guitar_full_down':   { name: 'Guitar Full Step Down',         strings: 6, frets: 24, tuning: [38, 43, 48, 53, 57, 62] },
+    guitar_standard: {
+      name: 'Guitar Standard (EADGBE)',
+      strings: 6,
+      frets: 24,
+      tuning: [40, 45, 50, 55, 59, 64]
+    },
+    guitar_drop_d: {
+      name: 'Guitar Drop D (DADGBE)',
+      strings: 6,
+      frets: 24,
+      tuning: [38, 45, 50, 55, 59, 64]
+    },
+    guitar_open_g: {
+      name: 'Guitar Open G (DGDGBD)',
+      strings: 6,
+      frets: 24,
+      tuning: [38, 43, 50, 55, 59, 62]
+    },
+    guitar_open_d: {
+      name: 'Guitar Open D (DADF#AD)',
+      strings: 6,
+      frets: 24,
+      tuning: [38, 45, 50, 54, 57, 62]
+    },
+    guitar_dadgad: {
+      name: 'Guitar DADGAD',
+      strings: 6,
+      frets: 24,
+      tuning: [38, 45, 50, 55, 57, 62]
+    },
+    guitar_open_e: {
+      name: 'Guitar Open E (EBEG#BE)',
+      strings: 6,
+      frets: 24,
+      tuning: [40, 47, 52, 56, 59, 64]
+    },
+    guitar_half_down: {
+      name: 'Guitar Half Step Down',
+      strings: 6,
+      frets: 24,
+      tuning: [39, 44, 49, 54, 58, 63]
+    },
+    guitar_full_down: {
+      name: 'Guitar Full Step Down',
+      strings: 6,
+      frets: 24,
+      tuning: [38, 43, 48, 53, 57, 62]
+    },
 
     // Guitar 7-string
-    'guitar_7_standard':  { name: 'Guitar 7-String Standard (BEADGBE)', strings: 7, frets: 24, tuning: [35, 40, 45, 50, 55, 59, 64] },
+    guitar_7_standard: {
+      name: 'Guitar 7-String Standard (BEADGBE)',
+      strings: 7,
+      frets: 24,
+      tuning: [35, 40, 45, 50, 55, 59, 64]
+    },
 
     // Guitar 12-string (same tuning as standard, doubled strings)
-    'guitar_12_standard': { name: 'Guitar 12-String Standard (EADGBE)', strings: 6, frets: 24, tuning: [40, 45, 50, 55, 59, 64] },
+    guitar_12_standard: {
+      name: 'Guitar 12-String Standard (EADGBE)',
+      strings: 6,
+      frets: 24,
+      tuning: [40, 45, 50, 55, 59, 64]
+    },
 
     // Bass (4 strings)
-    'bass_4_standard':    { name: 'Bass 4-String Standard (EADG)', strings: 4, frets: 24, tuning: [28, 33, 38, 43] },
-    'bass_4_drop_d':      { name: 'Bass 4-String Drop D (DADG)',   strings: 4, frets: 24, tuning: [26, 33, 38, 43] },
+    bass_4_standard: {
+      name: 'Bass 4-String Standard (EADG)',
+      strings: 4,
+      frets: 24,
+      tuning: [28, 33, 38, 43]
+    },
+    bass_4_drop_d: {
+      name: 'Bass 4-String Drop D (DADG)',
+      strings: 4,
+      frets: 24,
+      tuning: [26, 33, 38, 43]
+    },
 
     // Bass (5 strings)
-    'bass_5_standard':    { name: 'Bass 5-String Standard (BEADG)', strings: 5, frets: 24, tuning: [23, 28, 33, 38, 43] },
+    bass_5_standard: {
+      name: 'Bass 5-String Standard (BEADG)',
+      strings: 5,
+      frets: 24,
+      tuning: [23, 28, 33, 38, 43]
+    },
 
     // Bass (6 strings)
-    'bass_6_standard':    { name: 'Bass 6-String Standard (BEADGC)', strings: 6, frets: 24, tuning: [23, 28, 33, 38, 43, 48] },
+    bass_6_standard: {
+      name: 'Bass 6-String Standard (BEADGC)',
+      strings: 6,
+      frets: 24,
+      tuning: [23, 28, 33, 38, 43, 48]
+    },
 
     // Ukulele (4 strings)
-    'ukulele_standard':   { name: 'Ukulele Standard (GCEA)',       strings: 4, frets: 18, tuning: [67, 60, 64, 69] },
-    'ukulele_low_g':      { name: 'Ukulele Low G (GCEA)',           strings: 4, frets: 18, tuning: [55, 60, 64, 69] },
-    'ukulele_baritone':   { name: 'Ukulele Baritone (DGBE)',       strings: 4, frets: 18, tuning: [50, 55, 59, 64] },
+    ukulele_standard: {
+      name: 'Ukulele Standard (GCEA)',
+      strings: 4,
+      frets: 18,
+      tuning: [67, 60, 64, 69]
+    },
+    ukulele_low_g: {
+      name: 'Ukulele Low G (GCEA)',
+      strings: 4,
+      frets: 18,
+      tuning: [55, 60, 64, 69]
+    },
+    ukulele_baritone: {
+      name: 'Ukulele Baritone (DGBE)',
+      strings: 4,
+      frets: 18,
+      tuning: [50, 55, 59, 64]
+    },
 
     // Banjo (5 strings)
-    'banjo_standard':     { name: 'Banjo Open G (gDGBD)',          strings: 5, frets: 22, tuning: [67, 50, 55, 59, 62] },
+    banjo_standard: {
+      name: 'Banjo Open G (gDGBD)',
+      strings: 5,
+      frets: 22,
+      tuning: [67, 50, 55, 59, 62]
+    },
 
     // Violin family (fretless)
-    'violin':             { name: 'Violin (GDAE)',                 strings: 4, frets: 0, tuning: [55, 62, 69, 76], fretless: true },
-    'viola':              { name: 'Viola (CGDA)',                   strings: 4, frets: 0, tuning: [48, 55, 62, 69], fretless: true },
-    'cello':              { name: 'Cello (CGDA)',                   strings: 4, frets: 0, tuning: [36, 43, 50, 57], fretless: true },
-    'contrabass':         { name: 'Contrabass (EADG)',              strings: 4, frets: 0, tuning: [28, 33, 38, 43], fretless: true },
+    violin: {
+      name: 'Violin (GDAE)',
+      strings: 4,
+      frets: 0,
+      tuning: [55, 62, 69, 76],
+      fretless: true
+    },
+    viola: { name: 'Viola (CGDA)', strings: 4, frets: 0, tuning: [48, 55, 62, 69], fretless: true },
+    cello: { name: 'Cello (CGDA)', strings: 4, frets: 0, tuning: [36, 43, 50, 57], fretless: true },
+    contrabass: {
+      name: 'Contrabass (EADG)',
+      strings: 4,
+      frets: 0,
+      tuning: [28, 33, 38, 43],
+      fretless: true
+    },
 
     // Mandolin (4 doubled strings, same tuning as violin)
-    'mandolin':           { name: 'Mandolin (GDAE)',               strings: 4, frets: 20, tuning: [55, 62, 69, 76] },
+    mandolin: { name: 'Mandolin (GDAE)', strings: 4, frets: 20, tuning: [55, 62, 69, 76] }
   };
 
   /**
@@ -81,25 +183,25 @@ class StringInstrumentDatabase {
    * fret count by less than a quarter of a fret).
    */
   static SCALE_LENGTH_PRESETS = {
-    guitar_classical:    { name: 'Classical Guitar',           scale_length_mm: 650 },
-    guitar_acoustic:     { name: 'Acoustic Guitar',            scale_length_mm: 648 },
-    guitar_electric:     { name: 'Electric Guitar (Fender)',   scale_length_mm: 648 },
-    guitar_gibson:       { name: 'Electric Guitar (Gibson)',   scale_length_mm: 628 },
-    guitar_baritone:     { name: 'Baritone Guitar',            scale_length_mm: 686 },
-    guitar_7string:      { name: '7-String Guitar',            scale_length_mm: 648 },
-    bass_long:           { name: 'Bass (long scale 34")',      scale_length_mm: 864 },
-    bass_short:          { name: 'Bass (short scale 30")',     scale_length_mm: 762 },
-    bass_5string:        { name: '5-String Bass (35")',        scale_length_mm: 889 },
-    ukulele_soprano:     { name: 'Ukulele (soprano)',          scale_length_mm: 350 },
-    ukulele_concert:     { name: 'Ukulele (concert)',          scale_length_mm: 380 },
-    ukulele_tenor:       { name: 'Ukulele (tenor)',            scale_length_mm: 430 },
-    ukulele_baritone:    { name: 'Ukulele (baritone)',         scale_length_mm: 510 },
-    banjo_5string:       { name: 'Banjo (5-string)',           scale_length_mm: 660 },
-    mandolin:            { name: 'Mandolin',                   scale_length_mm: 350 },
-    violin:              { name: 'Violin',                     scale_length_mm: 328 },
-    viola:               { name: 'Viola',                      scale_length_mm: 380 },
-    cello:               { name: 'Cello',                      scale_length_mm: 690 },
-    contrabass:          { name: 'Double Bass',                scale_length_mm: 1050 }
+    guitar_classical: { name: 'Classical Guitar', scale_length_mm: 650 },
+    guitar_acoustic: { name: 'Acoustic Guitar', scale_length_mm: 648 },
+    guitar_electric: { name: 'Electric Guitar (Fender)', scale_length_mm: 648 },
+    guitar_gibson: { name: 'Electric Guitar (Gibson)', scale_length_mm: 628 },
+    guitar_baritone: { name: 'Baritone Guitar', scale_length_mm: 686 },
+    guitar_7string: { name: '7-String Guitar', scale_length_mm: 648 },
+    bass_long: { name: 'Bass (long scale 34")', scale_length_mm: 864 },
+    bass_short: { name: 'Bass (short scale 30")', scale_length_mm: 762 },
+    bass_5string: { name: '5-String Bass (35")', scale_length_mm: 889 },
+    ukulele_soprano: { name: 'Ukulele (soprano)', scale_length_mm: 350 },
+    ukulele_concert: { name: 'Ukulele (concert)', scale_length_mm: 380 },
+    ukulele_tenor: { name: 'Ukulele (tenor)', scale_length_mm: 430 },
+    ukulele_baritone: { name: 'Ukulele (baritone)', scale_length_mm: 510 },
+    banjo_5string: { name: 'Banjo (5-string)', scale_length_mm: 660 },
+    mandolin: { name: 'Mandolin', scale_length_mm: 350 },
+    violin: { name: 'Violin', scale_length_mm: 328 },
+    viola: { name: 'Viola', scale_length_mm: 380 },
+    cello: { name: 'Cello', scale_length_mm: 690 },
+    contrabass: { name: 'Double Bass', scale_length_mm: 1050 }
   };
 
   // ==================== STRING INSTRUMENTS CRUD ====================
@@ -130,7 +232,11 @@ class StringInstrumentDatabase {
       const tuningJson = JSON.stringify(tuning);
 
       const fretsPerStringJson = config.frets_per_string
-        ? JSON.stringify(Array.isArray(config.frets_per_string) ? config.frets_per_string : JSON.parse(config.frets_per_string))
+        ? JSON.stringify(
+            Array.isArray(config.frets_per_string)
+              ? config.frets_per_string
+              : JSON.parse(config.frets_per_string)
+          )
         : null;
 
       const scaleLengthMm = this._normalizeScaleLength(config.scale_length_mm);
@@ -199,7 +305,9 @@ class StringInstrumentDatabase {
         config.cc_bow_up_value !== undefined ? config.cc_bow_up_value : 127
       );
 
-      this.logger.info(`String instrument created/updated for ${config.device_id} ch${config.channel}`);
+      this.logger.info(
+        `String instrument created/updated for ${config.device_id} ch${config.channel}`
+      );
       return result.lastInsertRowid;
     } catch (error) {
       this.logger.error(`Failed to create string instrument: ${error.message}`);
@@ -215,9 +323,9 @@ class StringInstrumentDatabase {
    */
   getStringInstrument(deviceId, channel) {
     try {
-      const row = this.db.prepare(
-        'SELECT * FROM string_instruments WHERE device_id = ? AND channel = ?'
-      ).get(deviceId, channel || 0);
+      const row = this.db
+        .prepare('SELECT * FROM string_instruments WHERE device_id = ? AND channel = ?')
+        .get(deviceId, channel || 0);
 
       return row ? this._parseRow(row) : null;
     } catch (error) {
@@ -247,8 +355,10 @@ class StringInstrumentDatabase {
    */
   getAllStringInstruments() {
     try {
-      const rows = this.db.prepare('SELECT * FROM string_instruments ORDER BY device_id, channel').all();
-      return rows.map(row => this._parseRow(row));
+      const rows = this.db
+        .prepare('SELECT * FROM string_instruments ORDER BY device_id, channel')
+        .all();
+      return rows.map((row) => this._parseRow(row));
     } catch (error) {
       this.logger.error(`Failed to get all string instruments: ${error.message}`);
       throw error;
@@ -262,10 +372,10 @@ class StringInstrumentDatabase {
    */
   getStringInstrumentsByDevice(deviceId) {
     try {
-      const rows = this.db.prepare(
-        'SELECT * FROM string_instruments WHERE device_id = ? ORDER BY channel'
-      ).all(deviceId);
-      return rows.map(row => this._parseRow(row));
+      const rows = this.db
+        .prepare('SELECT * FROM string_instruments WHERE device_id = ? ORDER BY channel')
+        .all(deviceId);
+      return rows.map((row) => this._parseRow(row));
     } catch (error) {
       this.logger.error(`Failed to get string instruments by device: ${error.message}`);
       throw error;
@@ -380,7 +490,8 @@ class StringInstrumentDatabase {
             ? updates.frets_per_string
             : JSON.parse(updates.frets_per_string);
           for (const f of fps) {
-            if (f < 0 || f > 36) throw new Error('frets_per_string values must be between 0 and 36');
+            if (f < 0 || f > 36)
+              throw new Error('frets_per_string values must be between 0 and 36');
           }
           fields.push('frets_per_string = ?');
           values.push(JSON.stringify(fps));
@@ -417,7 +528,9 @@ class StringInstrumentDatabase {
       if (fields.length === 0) return false;
 
       values.push(id);
-      this.db.prepare(`UPDATE string_instruments SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+      this.db
+        .prepare(`UPDATE string_instruments SET ${fields.join(', ')} WHERE id = ?`)
+        .run(...values);
 
       this.logger.info(`String instrument ${id} updated`);
       return true;
@@ -449,9 +562,9 @@ class StringInstrumentDatabase {
    */
   deleteStringInstrumentByDeviceChannel(deviceId, channel) {
     try {
-      this.db.prepare(
-        'DELETE FROM string_instruments WHERE device_id = ? AND channel = ?'
-      ).run(deviceId, channel || 0);
+      this.db
+        .prepare('DELETE FROM string_instruments WHERE device_id = ? AND channel = ?')
+        .run(deviceId, channel || 0);
       this.logger.info(`String instrument deleted for ${deviceId} ch${channel}`);
     } catch (error) {
       this.logger.error(`Failed to delete string instrument by device/channel: ${error.message}`);
@@ -467,13 +580,11 @@ class StringInstrumentDatabase {
   deleteByDevice(deviceId, channel) {
     try {
       if (channel !== undefined && channel !== null) {
-        this.db.prepare(
-          'DELETE FROM string_instruments WHERE device_id = ? AND channel = ?'
-        ).run(deviceId, channel);
+        this.db
+          .prepare('DELETE FROM string_instruments WHERE device_id = ? AND channel = ?')
+          .run(deviceId, channel);
       } else {
-        this.db.prepare(
-          'DELETE FROM string_instruments WHERE device_id = ?'
-        ).run(deviceId);
+        this.db.prepare('DELETE FROM string_instruments WHERE device_id = ?').run(deviceId);
       }
     } catch (error) {
       this.logger.error(`Failed to delete string instruments by device: ${error.message}`);
@@ -558,9 +669,11 @@ class StringInstrumentDatabase {
    */
   getTablature(midiFileId, channel) {
     try {
-      const row = this.db.prepare(
-        'SELECT * FROM string_instrument_tablatures WHERE midi_file_id = ? AND channel = ?'
-      ).get(midiFileId, channel || 0);
+      const row = this.db
+        .prepare(
+          'SELECT * FROM string_instrument_tablatures WHERE midi_file_id = ? AND channel = ?'
+        )
+        .get(midiFileId, channel || 0);
 
       if (!row) return null;
 
@@ -581,11 +694,13 @@ class StringInstrumentDatabase {
    */
   getTablaturesByFile(midiFileId) {
     try {
-      const rows = this.db.prepare(
-        'SELECT * FROM string_instrument_tablatures WHERE midi_file_id = ? ORDER BY channel'
-      ).all(midiFileId);
+      const rows = this.db
+        .prepare(
+          'SELECT * FROM string_instrument_tablatures WHERE midi_file_id = ? ORDER BY channel'
+        )
+        .all(midiFileId);
 
-      return rows.map(row => ({
+      return rows.map((row) => ({
         ...row,
         tablature_data: JSON.parse(row.tablature_data)
       }));
@@ -602,9 +717,9 @@ class StringInstrumentDatabase {
    */
   deleteTablature(midiFileId, channel) {
     try {
-      this.db.prepare(
-        'DELETE FROM string_instrument_tablatures WHERE midi_file_id = ? AND channel = ?'
-      ).run(midiFileId, channel || 0);
+      this.db
+        .prepare('DELETE FROM string_instrument_tablatures WHERE midi_file_id = ? AND channel = ?')
+        .run(midiFileId, channel || 0);
     } catch (error) {
       this.logger.error(`Failed to delete tablature: ${error.message}`);
       throw error;
@@ -617,9 +732,9 @@ class StringInstrumentDatabase {
    */
   deleteTablaturesByFile(midiFileId) {
     try {
-      this.db.prepare(
-        'DELETE FROM string_instrument_tablatures WHERE midi_file_id = ?'
-      ).run(midiFileId);
+      this.db
+        .prepare('DELETE FROM string_instrument_tablatures WHERE midi_file_id = ?')
+        .run(midiFileId);
     } catch (error) {
       this.logger.error(`Failed to delete tablatures for file: ${error.message}`);
       throw error;
@@ -651,7 +766,9 @@ class StringInstrumentDatabase {
       try {
         frets_per_string = JSON.parse(row.frets_per_string);
       } catch (e) {
-        this.logger.warn(`Failed to parse frets_per_string for string instrument ${row.id}: ${e.message}`);
+        this.logger.warn(
+          `Failed to parse frets_per_string for string instrument ${row.id}: ${e.message}`
+        );
       }
     }
 
@@ -684,7 +801,8 @@ class StringInstrumentDatabase {
       string_slider_enabled: !!row.string_slider_enabled,
       string_sliding_system_enabled: !!row.string_sliding_system_enabled,
       // Bow direction CC (drives the bow servo direction on bowed instruments)
-      cc_bow_direction_number: row.cc_bow_direction_number !== undefined ? row.cc_bow_direction_number : 22,
+      cc_bow_direction_number:
+        row.cc_bow_direction_number !== undefined ? row.cc_bow_direction_number : 22,
       cc_bow_down_value: row.cc_bow_down_value !== undefined ? row.cc_bow_down_value : 0,
       cc_bow_up_value: row.cc_bow_up_value !== undefined ? row.cc_bow_up_value : 127,
       created_at: row.created_at,
@@ -734,7 +852,9 @@ class StringInstrumentDatabase {
       const tuning = Array.isArray(config.tuning) ? config.tuning : JSON.parse(config.tuning);
       const expectedStrings = config.num_strings || 6;
       if (tuning.length !== expectedStrings) {
-        throw new Error(`Tuning array length (${tuning.length}) must match num_strings (${expectedStrings})`);
+        throw new Error(
+          `Tuning array length (${tuning.length}) must match num_strings (${expectedStrings})`
+        );
       }
       for (const note of tuning) {
         if (note < 0 || note > 127) {

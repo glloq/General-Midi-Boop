@@ -55,16 +55,16 @@ class LightingManager extends EventEmitter {
     this.eventBus = deps.eventBus;
     Object.defineProperty(this, 'wsServer', {
       get: () => deps.wsServer,
-      configurable: true,
+      configurable: true
     });
-    this.drivers = new Map();         // deviceId -> driver instance
+    this.drivers = new Map(); // deviceId -> driver instance
     this.rulesByInstrument = new Map(); // instrumentId -> Rule[], '*' for wildcards
     this.allRules = [];
-    this.activeNotes = new Map();     // deviceId -> Map<note, count> for polyphonic note-off tracking
-    this.activeFades = new Map();     // fadeKey -> { interval, driver }
-    this.masterDimmer = 255;          // Global master dimmer (0-255)
-    this._systemEnabled = true;       // Global lighting system on/off
-    this.deviceGroups = new Map();    // groupName -> Set<deviceId>
+    this.activeNotes = new Map(); // deviceId -> Map<note, count> for polyphonic note-off tracking
+    this.activeFades = new Map(); // fadeKey -> { interval, driver }
+    this.masterDimmer = 255; // Global master dimmer (0-255)
+    this._systemEnabled = true; // Global lighting system on/off
+    this.deviceGroups = new Map(); // groupName -> Set<deviceId>
     this._healthCheckInterval = null;
     this._reloading = false;
 
@@ -81,7 +81,9 @@ class LightingManager extends EventEmitter {
       this._loadGroups();
       this._setupEventListeners();
       this._startHealthCheck();
-      this.logger.info(`LightingManager initialized: ${this.drivers.size} device(s), ${this.allRules.length} rule(s), ${this.deviceGroups.size} group(s)`);
+      this.logger.info(
+        `LightingManager initialized: ${this.drivers.size} device(s), ${this.allRules.length} rule(s), ${this.deviceGroups.size} group(s)`
+      );
     } catch (error) {
       this.logger.warn(`LightingManager init partial: ${error.message}`);
     }
@@ -298,8 +300,10 @@ class LightingManager extends EventEmitter {
 
     // Check velocity range (for note events)
     if (midi.velocity !== null) {
-      if (condition.velocity_min !== undefined && midi.velocity < condition.velocity_min) return false;
-      if (condition.velocity_max !== undefined && midi.velocity > condition.velocity_max) return false;
+      if (condition.velocity_min !== undefined && midi.velocity < condition.velocity_min)
+        return false;
+      if (condition.velocity_max !== undefined && midi.velocity > condition.velocity_max)
+        return false;
     }
 
     // Check note range
@@ -333,7 +337,9 @@ class LightingManager extends EventEmitter {
     try {
       ({ r, g, b } = this._resolveColor(action, midiData));
     } catch {
-      r = 255; g = 255; b = 255;
+      r = 255;
+      g = 255;
+      b = 255;
     }
     const brightness = clamp(this._resolveBrightness(action, midiData));
     // Resolve segment if specified (for gpio_strip devices)
@@ -372,7 +378,18 @@ class LightingManager extends EventEmitter {
       }
 
       if (action.off_action === 'fade') {
-        this._handleNoteOffWithFade(rule.device_id, midiData.note, driver, startLed, endLed, r, g, b, brightness, action.fade_time_ms || 500);
+        this._handleNoteOffWithFade(
+          rule.device_id,
+          midiData.note,
+          driver,
+          startLed,
+          endLed,
+          r,
+          g,
+          b,
+          brightness,
+          action.fade_time_ms || 500
+        );
       } else {
         this._handleNoteOff(rule.device_id, midiData.note, driver, startLed, endLed);
       }
@@ -402,9 +419,19 @@ class LightingManager extends EventEmitter {
             // Default VU: green→yellow→red
             const ratio = i / Math.max(1, totalLeds - 1);
             let vr, vg, vb;
-            if (ratio < 0.6) { vr = Math.round(ratio * 255 / 0.6); vg = 255; vb = 0; }
-            else if (ratio < 0.8) { vr = 255; vg = Math.round(255 * (1 - (ratio - 0.6) / 0.2)); vb = 0; }
-            else { vr = 255; vg = 0; vb = 0; }
+            if (ratio < 0.6) {
+              vr = Math.round((ratio * 255) / 0.6);
+              vg = 255;
+              vb = 0;
+            } else if (ratio < 0.8) {
+              vr = 255;
+              vg = Math.round(255 * (1 - (ratio - 0.6) / 0.2));
+              vb = 0;
+            } else {
+              vr = 255;
+              vg = 0;
+              vb = 0;
+            }
             driver.setColor(led, vr, vg, vb, brightness);
           }
         } else {
@@ -421,7 +448,10 @@ class LightingManager extends EventEmitter {
       const ledRange = (endLed === -1 ? ledCount - 1 : endLed) - startLed;
       const noteOffset = midiData.note - (action.note_led_min || 0);
       const ledIndex = startLed + Math.round((noteOffset / Math.max(1, noteRange)) * ledRange);
-      const clampedLed = Math.max(startLed, Math.min(endLed === -1 ? ledCount - 1 : endLed, ledIndex));
+      const clampedLed = Math.max(
+        startLed,
+        Math.min(endLed === -1 ? ledCount - 1 : endLed, ledIndex)
+      );
 
       // Use note_color if no explicit color
       const noteColor = action.color ? hexToRgb(action.color) : this._noteToColor(midiData.note);
@@ -480,7 +510,7 @@ class LightingManager extends EventEmitter {
 
     // Color temperature mode: map value (CC or velocity) to warm-cool
     if (action.type === 'color_temp') {
-      const val = midiData.value !== null ? midiData.value : (midiData.velocity || 64);
+      const val = midiData.value !== null ? midiData.value : midiData.velocity || 64;
       return this._colorTemperature(val, action.temp_warm || 2700, action.temp_cool || 6500);
     }
 
@@ -501,7 +531,9 @@ class LightingManager extends EventEmitter {
   }
 
   _interpolateColorMap(colorMap, value) {
-    const stops = Object.keys(colorMap).map(Number).sort((a, b) => a - b);
+    const stops = Object.keys(colorMap)
+      .map(Number)
+      .sort((a, b) => a - b);
     if (stops.length === 0) return { r: 255, g: 255, b: 255 };
     if (stops.length === 1) return hexToRgb(colorMap[stops[0]]);
 
@@ -509,7 +541,8 @@ class LightingManager extends EventEmitter {
     if (value <= stops[0]) return hexToRgb(colorMap[stops[0]]);
     if (value >= stops[stops.length - 1]) return hexToRgb(colorMap[stops[stops.length - 1]]);
 
-    let lower = stops[0], upper = stops[1];
+    let lower = stops[0],
+      upper = stops[1];
     for (let i = 0; i < stops.length - 1; i++) {
       if (value >= stops[i] && value <= stops[i + 1]) {
         lower = stops[i];
@@ -608,7 +641,18 @@ class LightingManager extends EventEmitter {
     }
   }
 
-  _handleNoteOffWithFade(deviceId, note, driver, startLed, endLed, r, g, b, brightness, fadeTimeMs) {
+  _handleNoteOffWithFade(
+    deviceId,
+    note,
+    driver,
+    startLed,
+    endLed,
+    r,
+    g,
+    b,
+    brightness,
+    fadeTimeMs
+  ) {
     const notes = this.activeNotes.get(deviceId);
     if (notes) {
       const count = (notes.get(note) || 1) - 1;
@@ -682,7 +726,7 @@ class LightingManager extends EventEmitter {
     const fadeKey = `fadeout_${Date.now()}_${this._fadeSeq}`;
     const interval = setInterval(() => {
       step++;
-      const factor = 1 - (step / steps);
+      const factor = 1 - step / steps;
       const bri = Math.round(startBrightness * factor);
       driver.setRange(startLed, endLed, r, g, b, bri);
 
@@ -745,7 +789,16 @@ class LightingManager extends EventEmitter {
 
     // Turn off after 2 seconds (longer for effects)
     const action = rule.action_config;
-    const isEffect = ['strobe', 'rainbow', 'chase', 'fire', 'breathe', 'sparkle', 'color_cycle', 'wave'].includes(action.type);
+    const isEffect = [
+      'strobe',
+      'rainbow',
+      'chase',
+      'fire',
+      'breathe',
+      'sparkle',
+      'color_cycle',
+      'wave'
+    ].includes(action.type);
     const timeout = isEffect ? 3000 : 1000;
 
     setTimeout(() => {
@@ -807,16 +860,20 @@ class LightingManager extends EventEmitter {
 
       // Schedule flush if not already pending
       if (!this._ledBatchTimers.has(key)) {
-        this._ledBatchTimers.set(key, setTimeout(() => {
-          const updates = this._ledBatchBuffer.get(key);
-          this._ledBatchBuffer.delete(key);
-          this._ledBatchTimers.delete(key);
-          if (updates && updates.length > 0) {
-            this.wsServer.broadcast('lighting_led_state', {
-              deviceId, leds: updates
-            });
-          }
-        }, 33)); // ~30fps
+        this._ledBatchTimers.set(
+          key,
+          setTimeout(() => {
+            const updates = this._ledBatchBuffer.get(key);
+            this._ledBatchBuffer.delete(key);
+            this._ledBatchTimers.delete(key);
+            if (updates && updates.length > 0) {
+              this.wsServer.broadcast('lighting_led_state', {
+                deviceId,
+                leds: updates
+              });
+            }
+          }, 33)
+        ); // ~30fps
       }
     }
   }

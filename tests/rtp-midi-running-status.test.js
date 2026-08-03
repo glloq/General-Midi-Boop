@@ -16,7 +16,12 @@ afterEach(() => {
 });
 
 function makeSession() {
-  const s = new RtpMidiSession({ localName: 'T', ssrc: 0x1, sendControl: () => {}, sendData: () => {} });
+  const s = new RtpMidiSession({
+    localName: 'T',
+    ssrc: 0x1,
+    sendControl: () => {},
+    sendData: () => {}
+  });
   sessions.push(s);
   return s;
 }

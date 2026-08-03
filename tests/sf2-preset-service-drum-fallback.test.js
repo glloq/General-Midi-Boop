@@ -202,8 +202,20 @@ describe('SF2PresetService — narrowest-zone filter (catch-all bleed-through)',
     // The filter must keep only the dedicated zone.
     convertPresetFromSF2.mockImplementationOnce(() =>
       presetWithZones([
-        { keyRangeLow: 36, keyRangeHigh: 36, _tag: 'kick', sample: new Float32Array(8), sampleRate: 29762 },
-        { keyRangeLow: 0,  keyRangeHigh: 64, _tag: 'catch-all', sample: new Float32Array(8), sampleRate: 44100 }
+        {
+          keyRangeLow: 36,
+          keyRangeHigh: 36,
+          _tag: 'kick',
+          sample: new Float32Array(8),
+          sampleRate: 29762
+        },
+        {
+          keyRangeLow: 0,
+          keyRangeHigh: 64,
+          _tag: 'catch-all',
+          sample: new Float32Array(8),
+          sampleRate: 44100
+        }
       ])
     );
     availablePresets.add('128:0');
@@ -221,8 +233,20 @@ describe('SF2PresetService — narrowest-zone filter (catch-all bleed-through)',
     // don't ship a dedicated sample for the unused-low drum notes).
     convertPresetFromSF2.mockImplementationOnce(() =>
       presetWithZones([
-        { keyRangeLow: 36, keyRangeHigh: 36, _tag: 'kick', sample: new Float32Array(8), sampleRate: 29762 },
-        { keyRangeLow: 0,  keyRangeHigh: 64, _tag: 'catch-all', sample: new Float32Array(8), sampleRate: 44100 }
+        {
+          keyRangeLow: 36,
+          keyRangeHigh: 36,
+          _tag: 'kick',
+          sample: new Float32Array(8),
+          sampleRate: 29762
+        },
+        {
+          keyRangeLow: 0,
+          keyRangeHigh: 64,
+          _tag: 'catch-all',
+          sample: new Float32Array(8),
+          sampleRate: 44100
+        }
       ])
     );
     availablePresets.add('128:0');
@@ -239,10 +263,40 @@ describe('SF2PresetService — narrowest-zone filter (catch-all bleed-through)',
     // Snare with 3 velocity layers all sharing the same key range.
     convertPresetFromSF2.mockImplementationOnce(() =>
       presetWithZones([
-        { keyRangeLow: 38, keyRangeHigh: 38, velRangeLow: 0,   velRangeHigh: 63,  _tag: 'soft', sample: new Float32Array(8), sampleRate: 44100 },
-        { keyRangeLow: 38, keyRangeHigh: 38, velRangeLow: 64,  velRangeHigh: 95,  _tag: 'med',  sample: new Float32Array(8), sampleRate: 44100 },
-        { keyRangeLow: 38, keyRangeHigh: 38, velRangeLow: 96,  velRangeHigh: 127, _tag: 'hard', sample: new Float32Array(8), sampleRate: 44100 },
-        { keyRangeLow: 0,  keyRangeHigh: 64, _tag: 'catch-all', sample: new Float32Array(8), sampleRate: 44100 }
+        {
+          keyRangeLow: 38,
+          keyRangeHigh: 38,
+          velRangeLow: 0,
+          velRangeHigh: 63,
+          _tag: 'soft',
+          sample: new Float32Array(8),
+          sampleRate: 44100
+        },
+        {
+          keyRangeLow: 38,
+          keyRangeHigh: 38,
+          velRangeLow: 64,
+          velRangeHigh: 95,
+          _tag: 'med',
+          sample: new Float32Array(8),
+          sampleRate: 44100
+        },
+        {
+          keyRangeLow: 38,
+          keyRangeHigh: 38,
+          velRangeLow: 96,
+          velRangeHigh: 127,
+          _tag: 'hard',
+          sample: new Float32Array(8),
+          sampleRate: 44100
+        },
+        {
+          keyRangeLow: 0,
+          keyRangeHigh: 64,
+          _tag: 'catch-all',
+          sample: new Float32Array(8),
+          sampleRate: 44100
+        }
       ])
     );
     availablePresets.add('128:0');
@@ -252,7 +306,7 @@ describe('SF2PresetService — narrowest-zone filter (catch-all bleed-through)',
 
     expect(preset).not.toBeNull();
     expect(preset.zones.length).toBe(3);
-    expect(preset.zones.map(z => z._tag).sort()).toEqual(['hard', 'med', 'soft']);
+    expect(preset.zones.map((z) => z._tag).sort()).toEqual(['hard', 'med', 'soft']);
   });
 });
 

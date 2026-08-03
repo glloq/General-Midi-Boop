@@ -8,10 +8,7 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const src = readFileSync(
-  resolve(__dirname, '../../public/js/features/PlaylistPage.js'),
-  'utf8'
-);
+const src = readFileSync(resolve(__dirname, '../../public/js/features/PlaylistPage.js'), 'utf8');
 
 beforeAll(() => {
   // Avoid evaluating the IIFE-style module — just expose the class
@@ -24,9 +21,13 @@ beforeEach(() => {
   delete window.i18n;
   // PlaylistPage relies on a global escapeHtml helper (loaded earlier
   // in the page boot order). Provide a minimal one for the test.
-  window.escapeHtml = (s) => String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  window.escapeHtml = (s) =>
+    String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 });
 
 function makePage() {
@@ -85,32 +86,31 @@ describe('PlaylistPage — worst-level aggregation logic', () => {
   }
 
   it('returns null when no routing has a level', () => {
-    expect(worstLevel([
-      {},
-      { hand_position_feasibility: null }
-    ])).toBeNull();
+    expect(worstLevel([{}, { hand_position_feasibility: null }])).toBeNull();
   });
 
   it('returns the worst level across a set of routings', () => {
-    expect(worstLevel([
-      { hand_position_feasibility: { level: 'ok' } },
-      { hand_position_feasibility: { level: 'warning' } },
-      { hand_position_feasibility: { level: 'ok' } }
-    ])).toBe('warning');
+    expect(
+      worstLevel([
+        { hand_position_feasibility: { level: 'ok' } },
+        { hand_position_feasibility: { level: 'warning' } },
+        { hand_position_feasibility: { level: 'ok' } }
+      ])
+    ).toBe('warning');
   });
 
   it('infeasible wins over warning + ok', () => {
-    expect(worstLevel([
-      { hand_position_feasibility: { level: 'warning' } },
-      { hand_position_feasibility: { level: 'infeasible' } },
-      { hand_position_feasibility: { level: 'ok' } }
-    ])).toBe('infeasible');
+    expect(
+      worstLevel([
+        { hand_position_feasibility: { level: 'warning' } },
+        { hand_position_feasibility: { level: 'infeasible' } },
+        { hand_position_feasibility: { level: 'ok' } }
+      ])
+    ).toBe('infeasible');
   });
 
   it('ignores entries with unknown levels but reports them when nothing better is around', () => {
-    expect(worstLevel([
-      { hand_position_feasibility: { level: 'unknown' } }
-    ])).toBe('unknown');
+    expect(worstLevel([{ hand_position_feasibility: { level: 'unknown' } }])).toBe('unknown');
   });
 });
 

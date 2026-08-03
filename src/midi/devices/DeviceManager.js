@@ -15,7 +15,12 @@
  * elsewhere from crashing.
  */
 import DeviceDiscovery from './DeviceDiscovery.js';
-import { DEVICE_STATUS, PRIORITY_MSG_TYPES, SEND_STATUS, DEVICE_MSG_TYPES } from '../../core/constants.js';
+import {
+  DEVICE_STATUS,
+  PRIORITY_MSG_TYPES,
+  SEND_STATUS,
+  DEVICE_MSG_TYPES
+} from '../../core/constants.js';
 import MidiUtils from '../../utils/MidiUtils.js';
 
 let easymidi;
@@ -585,8 +590,7 @@ class DeviceManager {
     // Controllers 121, All Notes Off 123, Omni/Mono/Poly …) — panic and
     // all-notes-off are emitted as `cc`, so keying only on the type string let
     // the limiter drop part of a panic burst (audit P2).
-    const isChannelModeCc =
-      type === DEVICE_MSG_TYPES.CC && data && (data.controller ?? 0) >= 120;
+    const isChannelModeCc = type === DEVICE_MSG_TYPES.CC && data && (data.controller ?? 0) >= 120;
     if (!PRIORITY_MSG_TYPES.has(type) && !isChannelModeCc && this._isRateLimited(deviceName)) {
       return { status: SEND_STATUS.RATE_LIMITED };
     }
@@ -858,21 +862,33 @@ class DeviceManager {
     const channel = status & 0x0f;
     switch (high) {
       case 0x80:
-        this.handleMidiMessage(deviceName, 'noteoff', { channel, note: bytes[1], velocity: bytes[2] });
+        this.handleMidiMessage(deviceName, 'noteoff', {
+          channel,
+          note: bytes[1],
+          velocity: bytes[2]
+        });
         return;
       case 0x90:
         // Running-status / velocity-0 Note On is a Note Off.
-        this.handleMidiMessage(
-          deviceName,
-          bytes[2] === 0 ? 'noteoff' : 'noteon',
-          { channel, note: bytes[1], velocity: bytes[2] }
-        );
+        this.handleMidiMessage(deviceName, bytes[2] === 0 ? 'noteoff' : 'noteon', {
+          channel,
+          note: bytes[1],
+          velocity: bytes[2]
+        });
         return;
       case 0xa0:
-        this.handleMidiMessage(deviceName, 'poly aftertouch', { channel, note: bytes[1], pressure: bytes[2] });
+        this.handleMidiMessage(deviceName, 'poly aftertouch', {
+          channel,
+          note: bytes[1],
+          pressure: bytes[2]
+        });
         return;
       case 0xb0:
-        this.handleMidiMessage(deviceName, 'cc', { channel, controller: bytes[1], value: bytes[2] });
+        this.handleMidiMessage(deviceName, 'cc', {
+          channel,
+          controller: bytes[1],
+          value: bytes[2]
+        });
         return;
       case 0xc0:
         this.handleMidiMessage(deviceName, 'program', { channel, number: bytes[1] });
@@ -881,7 +897,10 @@ class DeviceManager {
         this.handleMidiMessage(deviceName, 'channel aftertouch', { channel, pressure: bytes[1] });
         return;
       case 0xe0:
-        this.handleMidiMessage(deviceName, 'pitchbend', { channel, value: (bytes[2] << 7) | bytes[1] });
+        this.handleMidiMessage(deviceName, 'pitchbend', {
+          channel,
+          value: (bytes[2] << 7) | bytes[1]
+        });
         return;
       default: {
         // System common / real-time.

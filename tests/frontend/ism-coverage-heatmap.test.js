@@ -30,25 +30,33 @@ beforeEach(() => {
 
 function makeCanvasStub() {
   const calls = [];
-  const ctx = new Proxy({ calls }, {
-    get(target, prop) {
-      if (prop === 'calls') return target.calls;
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|measureText)$/.test(prop)) {
-        return (...args) => target.calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    { calls },
+    {
+      get(target, prop) {
+        if (prop === 'calls') return target.calls;
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|measureText)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => target.calls.push({ method: prop, args });
+        }
+        return target[prop];
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        target.calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return target[prop];
-    },
-    set(target, prop, value) {
-      target[prop] = value;
-      target.calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   const canvas = document.createElement('canvas');
   canvas.width = 600;
   canvas.height = 60;
-  Object.defineProperty(canvas, 'clientWidth',  { value: 600, configurable: true });
-  Object.defineProperty(canvas, 'clientHeight', { value: 60,  configurable: true });
+  Object.defineProperty(canvas, 'clientWidth', { value: 600, configurable: true });
+  Object.defineProperty(canvas, 'clientHeight', { value: 60, configurable: true });
   canvas.getContext = () => ctx;
   document.body.appendChild(canvas);
   return { canvas, ctx };
@@ -81,7 +89,7 @@ describe('ISMSections._drawCoverageHeatmap', () => {
   it('paints one rectangle per fret column (1..maxFrets)', () => {
     const { canvas, ctx } = makeCanvasStub();
     window.ISMSections._drawCoverageHeatmap(canvas, 650, 80, 22);
-    const fillRectCalls = ctx.calls.filter(c => c.method === 'fillRect');
+    const fillRectCalls = ctx.calls.filter((c) => c.method === 'fillRect');
     // Background + 22 fret columns = 23 fillRects.
     expect(fillRectCalls.length).toBeGreaterThanOrEqual(22);
   });
@@ -89,7 +97,7 @@ describe('ISMSections._drawCoverageHeatmap', () => {
   it('draws fret-number labels every 5 frets (0, 5, 10, 15, 20)', () => {
     const { canvas, ctx } = makeCanvasStub();
     window.ISMSections._drawCoverageHeatmap(canvas, 650, 80, 22);
-    const labels = ctx.calls.filter(c => c.method === 'fillText').map(c => c.args[0]);
+    const labels = ctx.calls.filter((c) => c.method === 'fillText').map((c) => c.args[0]);
     expect(labels).toEqual(expect.arrayContaining(['0', '5', '10', '15', '20']));
     expect(labels).not.toContain('1');
     expect(labels).not.toContain('3');
@@ -101,7 +109,7 @@ describe('ISMSections._drawCoverageHeatmap', () => {
     window.ISMSections._drawCoverageHeatmap(canvas, NaN, 80, 22);
     window.ISMSections._drawCoverageHeatmap(canvas, 650, 0, 22);
     window.ISMSections._drawCoverageHeatmap(canvas, 650, NaN, 22);
-    expect(ctx.calls.filter(c => c.method === 'fillRect').length).toBe(0);
+    expect(ctx.calls.filter((c) => c.method === 'fillRect').length).toBe(0);
   });
 
   it('is a no-op for a missing canvas (defensive)', () => {
@@ -131,7 +139,7 @@ describe('ISMSections._drawCoverageHeatmap', () => {
   it('honours a custom maxFrets argument', () => {
     const { canvas, ctx } = makeCanvasStub();
     window.ISMSections._drawCoverageHeatmap(canvas, 650, 80, 12);
-    const fillRects = ctx.calls.filter(c => c.method === 'fillRect');
+    const fillRects = ctx.calls.filter((c) => c.method === 'fillRect');
     // Background + 12 fret columns.
     expect(fillRects.length).toBe(13);
   });

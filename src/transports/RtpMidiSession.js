@@ -286,7 +286,13 @@ class RtpMidiSession extends EventEmitter {
       );
     } else if (ck.count === 1) {
       this._sendData?.(
-        encodeClockSync({ ssrc: this.ssrc, count: 2, ts1: ck.ts1, ts2: ck.ts2, ts3: this._now10k() })
+        encodeClockSync({
+          ssrc: this.ssrc,
+          count: 2,
+          ts1: ck.ts1,
+          ts2: ck.ts2,
+          ts3: this._now10k()
+        })
       );
     }
     // count === 2 → synchronization round complete; nothing to send.

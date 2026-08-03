@@ -39,13 +39,15 @@ class DeviceSettingsDB {
    * @param {Object} settings - { custom_name?, midi_clock_enabled?, message_rate_limit? }
    */
   updateDeviceSettings(deviceId, settings) {
-    const result = buildDynamicUpdate('devices', settings,
+    const result = buildDynamicUpdate(
+      'devices',
+      settings,
       ['custom_name', 'midi_clock_enabled', 'message_rate_limit'],
       {
         transforms: {
-          custom_name: v => v || null,
-          midi_clock_enabled: v => v ? 1 : 0,
-          message_rate_limit: v => Math.max(0, parseInt(v) || 0)
+          custom_name: (v) => v || null,
+          midi_clock_enabled: (v) => (v ? 1 : 0),
+          message_rate_limit: (v) => Math.max(0, parseInt(v) || 0)
         }
       }
     );

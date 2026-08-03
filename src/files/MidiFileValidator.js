@@ -115,7 +115,9 @@ class MidiFileValidator {
           if (event.channel < 0 || event.channel > 15 || !Number.isInteger(event.channel)) {
             report.stats.invalidChannels++;
             if (report.stats.invalidChannels <= 5) {
-              report.warnings.push(`Track ${trackIdx}: invalid channel ${event.channel} at tick ${absoluteTick}`);
+              report.warnings.push(
+                `Track ${trackIdx}: invalid channel ${event.channel} at tick ${absoluteTick}`
+              );
             }
           }
         }
@@ -125,7 +127,9 @@ class MidiFileValidator {
           report.stats.hasTempoEvent = true;
           report.stats.tempoEventCount++;
           if (event.microsecondsPerBeat <= 0) {
-            report.warnings.push(`Track ${trackIdx}: invalid tempo value ${event.microsecondsPerBeat} at tick ${absoluteTick}`);
+            report.warnings.push(
+              `Track ${trackIdx}: invalid tempo value ${event.microsecondsPerBeat} at tick ${absoluteTick}`
+            );
           }
         }
 
@@ -139,7 +143,9 @@ class MidiFileValidator {
           if (note < 0 || note > 127) {
             report.stats.outOfRangeNotes++;
             if (report.stats.outOfRangeNotes <= 5) {
-              report.warnings.push(`Track ${trackIdx}: note ${note} out of range [0-127] at tick ${absoluteTick}`);
+              report.warnings.push(
+                `Track ${trackIdx}: note ${note} out of range [0-127] at tick ${absoluteTick}`
+              );
             }
           }
 
@@ -198,11 +204,15 @@ class MidiFileValidator {
     }
 
     if (report.stats.orphanedNoteOns > 0) {
-      report.warnings.push(`${report.stats.orphanedNoteOns} orphaned Note On(s) without matching Note Off`);
+      report.warnings.push(
+        `${report.stats.orphanedNoteOns} orphaned Note On(s) without matching Note Off`
+      );
     }
 
     if (report.stats.overlappingNotes > 0) {
-      report.warnings.push(`${report.stats.overlappingNotes} overlapping note(s) on same channel+note`);
+      report.warnings.push(
+        `${report.stats.overlappingNotes} overlapping note(s) on same channel+note`
+      );
     }
 
     if (report.stats.totalNotes === 0) {
@@ -214,7 +224,9 @@ class MidiFileValidator {
     }
 
     if (report.stats.invalidChannels > 5) {
-      report.warnings.push(`... and ${report.stats.invalidChannels - 5} more invalid channel values`);
+      report.warnings.push(
+        `... and ${report.stats.invalidChannels - 5} more invalid channel values`
+      );
     }
 
     if (report.stats.outOfRangeNotes > 5) {
@@ -226,7 +238,9 @@ class MidiFileValidator {
       this.logger.error(`MIDI validation errors: ${report.errors.join('; ')}`);
     }
     if (report.warnings.length > 0) {
-      this.logger.info(`MIDI validation: ${report.warnings.length} warning(s) - ${report.warnings.slice(0, 5).join('; ')}`);
+      this.logger.info(
+        `MIDI validation: ${report.warnings.length} warning(s) - ${report.warnings.slice(0, 5).join('; ')}`
+      );
     } else {
       this.logger.debug('MIDI validation: no issues detected');
     }

@@ -28,26 +28,37 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/NoteEngine.js');
   load('../../../public/js/features/keyboard/VoicingEngine.js');
   load('../../../public/js/features/keyboard/NoteSlider.js');
-  for (const mx of ['KeyboardPiano', 'KeyboardEvents', 'KeyboardControls',
-                     'KeyboardChords', 'KeyboardSlider', 'KeyboardListView',
-                     'KeyboardWind']) {
+  for (const mx of [
+    'KeyboardPiano',
+    'KeyboardEvents',
+    'KeyboardControls',
+    'KeyboardChords',
+    'KeyboardSlider',
+    'KeyboardListView',
+    'KeyboardWind'
+  ]) {
     load(`../../../public/js/features/keyboard/${mx}.js`);
   }
   load('../../../public/js/features/KeyboardModal.js');
 
   // Apply mixins exactly like KeyboardModal.js's _applyMixin would, in the
   // same order (later wins on collision — matches production semantics).
-  for (const name of ['KeyboardPianoMixin', 'KeyboardEventsMixin',
-                       'KeyboardControlsMixin', 'KeyboardChordsMixin',
-                       'KeyboardSliderMixin', 'KeyboardListViewMixin',
-                       'KeyboardWindMixin']) {
+  for (const name of [
+    'KeyboardPianoMixin',
+    'KeyboardEventsMixin',
+    'KeyboardControlsMixin',
+    'KeyboardChordsMixin',
+    'KeyboardSliderMixin',
+    'KeyboardListViewMixin',
+    'KeyboardWindMixin'
+  ]) {
     if (win[name]) Object.assign(win.KeyboardModal.prototype, win[name]);
   }
 });
 
 function buildModal() {
   document.body.innerHTML = '';
-  const m = new (win.KeyboardModal)();
+  const m = new win.KeyboardModal();
   m.createModal();
   return m;
 }
@@ -69,7 +80,7 @@ describe('PE-1 — createModal() structural contract', () => {
   it('keeps the 6 built-in canvas children in the expected order', () => {
     buildModal();
     const canvas = document.getElementById('keyboard-canvas-container');
-    const ids = [...canvas.children].map(c => c.id).filter(Boolean);
+    const ids = [...canvas.children].map((c) => c.id).filter(Boolean);
     expect(ids).toEqual([
       'piano-container',
       'piano-slider-container',
@@ -83,28 +94,44 @@ describe('PE-1 — createModal() structural contract', () => {
   it('only #piano-container is visible by default (others .hidden)', () => {
     buildModal();
     expect(document.getElementById('piano-container').classList.contains('hidden')).toBe(false);
-    for (const id of ['piano-slider-container', 'fretboard-container',
-                      'drumpad-container', 'keyboard-list-container', 'km-hand-band']) {
+    for (const id of [
+      'piano-slider-container',
+      'fretboard-container',
+      'drumpad-container',
+      'keyboard-list-container',
+      'km-hand-band'
+    ]) {
       expect(document.getElementById(id).classList.contains('hidden')).toBe(true);
     }
   });
 
   it('exposes the stable chrome ids (header / minimap / octave bar)', () => {
     buildModal();
-    for (const id of ['instrument-trigger', 'instrument-dropdown',
-                      'keyboard-close-btn', 'keyboard-view-mode-group',
-                      'keyboard-view-toggle', 'keyboard-minimap-row',
-                      'keyboard-minimap-track', 'keyboard-octave-bar',
-                      'keyboard-octave-display']) {
+    for (const id of [
+      'instrument-trigger',
+      'instrument-dropdown',
+      'keyboard-close-btn',
+      'keyboard-view-mode-group',
+      'keyboard-view-toggle',
+      'keyboard-minimap-row',
+      'keyboard-minimap-track',
+      'keyboard-octave-bar',
+      'keyboard-octave-display'
+    ]) {
       expect(document.getElementById(id), `#${id}`).not.toBeNull();
     }
   });
 
   it('exposes the slider/control panels and their inputs', () => {
     buildModal();
-    for (const id of ['velocity-control-panel', 'modulation-control-panel',
-                      'pitch-bend-control-panel', 'keyboard-velocity',
-                      'mod-wheel-track', 'pitch-bend-track']) {
+    for (const id of [
+      'velocity-control-panel',
+      'modulation-control-panel',
+      'pitch-bend-control-panel',
+      'keyboard-velocity',
+      'mod-wheel-track',
+      'pitch-bend-track'
+    ]) {
       expect(document.getElementById(id), `#${id}`).not.toBeNull();
     }
   });
@@ -114,7 +141,8 @@ describe('PE-1 — createModal() structural contract', () => {
     const toggle = document.getElementById('keyboard-notation-toggle');
     expect(toggle).not.toBeNull();
     const fmts = [...toggle.querySelectorAll('.notation-btn')]
-      .map(b => b.dataset.notation).sort();
+      .map((b) => b.dataset.notation)
+      .sort();
     expect(fmts).toEqual(['english', 'midi', 'solfege']);
   });
 
@@ -122,7 +150,7 @@ describe('PE-1 — createModal() structural contract', () => {
     const snap = () => {
       buildModal();
       const c = document.getElementById('keyboard-canvas-container');
-      return [...c.children].map(x => x.id).join(',');
+      return [...c.children].map((x) => x.id).join(',');
     };
     expect(snap()).toBe(snap());
   });
@@ -147,7 +175,7 @@ describe('Wind — breath slider removed + piano-slider colours (QA)', () => {
     m.generatePianoSlider();
     let keys = document.querySelectorAll('#piano-slider-container .piano-slider-key');
     expect(keys.length).toBe(12);
-    expect([...keys].some(k => k.classList.contains('note-colored'))).toBe(false);
+    expect([...keys].some((k) => k.classList.contains('note-colored'))).toBe(false);
 
     m.showNoteColors = true;
     m.generatePianoSlider();
@@ -158,7 +186,7 @@ describe('Wind — breath slider removed + piano-slider colours (QA)', () => {
       expect(k.style.background).not.toBe('');
     }
     // C (MIDI 60) must use the canonical red from getNoteColor.
-    const cKey = [...keys].find(k => parseInt(k.dataset.note, 10) === 60);
+    const cKey = [...keys].find((k) => parseInt(k.dataset.note, 10) === 60);
     expect(cKey.style.background).toBe('rgb(239, 68, 68)'); // #EF4444
   });
 });

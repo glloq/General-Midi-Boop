@@ -9,7 +9,7 @@
 // Extracted as a pure module to keep the draw path testable without a
 // DOM. Exposed on `window.RoutingSummaryMinimapNotes`.
 
-(function() {
+(function () {
   'use strict';
 
   /**
@@ -146,7 +146,10 @@
             const rMin = splitSegs[si].noteRange?.min ?? 0;
             const rMax = splitSegs[si].noteRange?.max ?? 127;
             const dist = note < rMin ? rMin - note : note - rMax;
-            if (dist < bestDist) { bestDist = dist; bestSeg = si; }
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestSeg = si;
+            }
           }
           notes.push({ t: tick, n: note, ch, seg: bestSeg });
         }
@@ -213,7 +216,14 @@
         const col = Math.floor((note.t / totalTicks) * width);
         if (col >= 0 && col < width) bucketMap.get(note.ch)[col] = true;
       }
-      return { totalTicks, splitMode: false, segments: null, channels, multiChannel: true, buckets: bucketMap };
+      return {
+        totalTicks,
+        splitMode: false,
+        segments: null,
+        channels,
+        multiChannel: true,
+        buckets: bucketMap
+      };
     }
 
     const buckets = new Array(width).fill(false);

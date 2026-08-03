@@ -29,25 +29,29 @@ class GpioLedDriver extends BaseLightingDriver {
       // OR for single LED: config.pins = {r: 17, g: 27, b: 22}
       const ledConfigs = config.leds || [config.pins || { r: 17, g: 27, b: 22 }];
 
-      this.gpioInstances = ledConfigs.map((pins, index) => {
-        try {
-          return {
-            r: new Gpio(pins.r, { mode: Gpio.OUTPUT }),
-            g: new Gpio(pins.g, { mode: Gpio.OUTPUT }),
-            b: new Gpio(pins.b, { mode: Gpio.OUTPUT })
-          };
-        } catch (err) {
-          this.logger.error(`Failed to init GPIO LED ${index}: ${err.message}`);
-          return null;
-        }
-      }).filter(Boolean);
+      this.gpioInstances = ledConfigs
+        .map((pins, index) => {
+          try {
+            return {
+              r: new Gpio(pins.r, { mode: Gpio.OUTPUT }),
+              g: new Gpio(pins.g, { mode: Gpio.OUTPUT }),
+              b: new Gpio(pins.b, { mode: Gpio.OUTPUT })
+            };
+          } catch (err) {
+            this.logger.error(`Failed to init GPIO LED ${index}: ${err.message}`);
+            return null;
+          }
+        })
+        .filter(Boolean);
 
       if (this.gpioInstances.length === 0) {
         throw new Error('No GPIO LEDs could be initialized');
       }
 
       this.connected = true;
-      this.logger.info(`GPIO LED driver connected: ${this.gpioInstances.length} LED(s) on device "${this.device.name}"`);
+      this.logger.info(
+        `GPIO LED driver connected: ${this.gpioInstances.length} LED(s) on device "${this.device.name}"`
+      );
       this.emit('connected');
     } catch (error) {
       this.logger.error(`GPIO LED driver connect failed: ${error.message}`);

@@ -16,12 +16,10 @@ beforeAll(() => {
   // eval time, so materialise the constants IIFE first.
   delete window.MidiSynthesizerConstants;
   new Function(
-    readFileSync(resolve(__dirname,
-      '../../public/js/audio/MidiSynthesizerConstants.js'), 'utf8')
+    readFileSync(resolve(__dirname, '../../public/js/audio/MidiSynthesizerConstants.js'), 'utf8')
   ).call(window);
   new Function(
-    readFileSync(resolve(__dirname,
-      '../../public/js/audio/MidiSynthesizer.js'), 'utf8')
+    readFileSync(resolve(__dirname, '../../public/js/audio/MidiSynthesizer.js'), 'utf8')
   ).call(window);
 });
 
@@ -30,11 +28,14 @@ beforeAll(() => {
 function materialise(preset, forcedRootMidi) {
   const fakeThis = {
     audioContext: {
-      createBuffer: () => ({ getChannelData: () => ({ set() {} }) }),
-    },
+      createBuffer: () => ({ getChannelData: () => ({ set() {} }) })
+    }
   };
   return window.MidiSynthesizer.prototype._materialiseSF2Preset.call(
-    fakeThis, preset, forcedRootMidi);
+    fakeThis,
+    preset,
+    forcedRootMidi
+  );
 }
 
 describe('MidiSynthesizer._materialiseSF2Preset — drum tuning / bell fix', () => {
@@ -44,7 +45,7 @@ describe('MidiSynthesizer._materialiseSF2Preset — drum tuning / bell fix', () 
       sampleRate: 44100,
       originalPitch: 6000,
       coarseTune: -5,
-      fineTune: 40,
+      fineTune: 40
     };
     materialise({ zones: [zone] }, 45);
 
@@ -62,7 +63,7 @@ describe('MidiSynthesizer._materialiseSF2Preset — drum tuning / bell fix', () 
       originalPitch: 3000,
       midi: 30,
       coarseTune: -5,
-      fineTune: 40,
+      fineTune: 40
     };
     materialise({ zones: [zone] }, null);
 

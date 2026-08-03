@@ -1,46 +1,48 @@
-(function() {
-    'use strict';
-    const SettingsSerial = {};
+(function () {
+  'use strict';
+  const SettingsSerial = {};
 
-    const msg = (color, text) =>
-        `<div style="padding: 16px; text-align: center; color: ${color}; font-size: 13px;">${text}</div>`;
+  const msg = (color, text) =>
+    `<div style="padding: 16px; text-align: center; color: ${color}; font-size: 13px;">${text}</div>`;
 
-    /**
-     * Scan serial ports and display results
-     */
-    SettingsSerial.scanSerialPorts = async function() {
-        const listEl = this.modal.querySelector('#serialPortsList');
-        const scanBtn = this.modal.querySelector('#serialScanBtn');
-        if (!listEl) return;
+  /**
+   * Scan serial ports and display results
+   */
+  SettingsSerial.scanSerialPorts = async function () {
+    const listEl = this.modal.querySelector('#serialPortsList');
+    const scanBtn = this.modal.querySelector('#serialScanBtn');
+    if (!listEl) return;
 
-        listEl.innerHTML = msg('#667eea', i18n.t('settings.serialMidi.scanning'));
-        if (scanBtn) scanBtn.disabled = true;
+    listEl.innerHTML = msg('#667eea', i18n.t('settings.serialMidi.scanning'));
+    if (scanBtn) scanBtn.disabled = true;
 
-        try {
-            this.eventBus?.emit('serial:scan_requested');
+    try {
+      this.eventBus?.emit('serial:scan_requested');
 
-            // Wait for response via event
-            const result = await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error('Scan timeout')), 10000);
-                const handler = (data) => {
-                    clearTimeout(timeout);
-                    this.eventBus?.off('serial:scan_result', handler);
-                    resolve(data);
-                };
-                this.eventBus?.on('serial:scan_result', handler);
-            });
+      // Wait for response via event
+      const result = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Scan timeout')), 10000);
+        const handler = (data) => {
+          clearTimeout(timeout);
+          this.eventBus?.off('serial:scan_result', handler);
+          resolve(data);
+        };
+        this.eventBus?.on('serial:scan_result', handler);
+      });
 
-            if (!result.available) {
-                listEl.innerHTML = msg('#e53e3e', i18n.t('settings.serialMidi.notAvailable'));
-                return;
-            }
+      if (!result.available) {
+        listEl.innerHTML = msg('#e53e3e', i18n.t('settings.serialMidi.notAvailable'));
+        return;
+      }
 
-            if (!result.ports || result.ports.length === 0) {
-                listEl.innerHTML = msg('#999', i18n.t('settings.serialMidi.noPorts'));
-                return;
-            }
+      if (!result.ports || result.ports.length === 0) {
+        listEl.innerHTML = msg('#999', i18n.t('settings.serialMidi.noPorts'));
+        return;
+      }
 
-            listEl.innerHTML = result.ports.map(port => `
+      listEl.innerHTML = result.ports
+        .map(
+          (port) => `
                 <div style="
                     padding: 12px 16px;
                     border-bottom: 1px solid #f0f0f0;
@@ -73,48 +75,53 @@
                         transition: all 0.2s;
                     ">${port.isOpen ? i18n.t('common.disconnect') : i18n.t('common.connect')}</button>
                 </div>
-            `).join('');
+            `
+        )
+        .join('');
 
-            // Attach toggle buttons
-            listEl.querySelectorAll('.serial-port-toggle-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const portPath = btn.dataset.path;
-                    const portName = btn.dataset.name;
-                    const isOpen = btn.dataset.open === 'true';
+      // Attach toggle buttons
+      listEl.querySelectorAll('.serial-port-toggle-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const portPath = btn.dataset.path;
+          const portName = btn.dataset.name;
+          const isOpen = btn.dataset.open === 'true';
 
-                    // Disable button during action
-                    btn.disabled = true;
-                    btn.textContent = '...';
+          // Disable button during action
+          btn.disabled = true;
+          btn.textContent = '...';
 
-                    try {
-                        if (isOpen) {
-                            this.eventBus?.emit('serial:close_requested', { path: portPath });
-                        } else {
-                            this.eventBus?.emit('serial:open_requested', { path: portPath, name: portName, direction: 'both' });
-                        }
+          try {
+            if (isOpen) {
+              this.eventBus?.emit('serial:close_requested', { path: portPath });
+            } else {
+              this.eventBus?.emit('serial:open_requested', {
+                path: portPath,
+                name: portName,
+                direction: 'both'
+              });
+            }
 
-                        // Wait then rescan to show updated state
-                        await new Promise(r => setTimeout(r, 500));
-                        await this.scanSerialPorts();
-                    } catch (error) {
-                        btn.textContent = i18n.t('common.error');
-                        btn.style.color = '#e53e3e';
-                        btn.style.borderColor = '#e53e3e';
-                        this.logger?.error(`Serial port ${isOpen ? 'close' : 'open'} error: ${error.message}`);
-                        // Rescan after error to show current state
-                        setTimeout(() => this.scanSerialPorts(), 1000);
-                    }
-                });
-            });
-
-        } catch (error) {
-            listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #e53e3e; font-size: 13px;">
+            // Wait then rescan to show updated state
+            await new Promise((r) => setTimeout(r, 500));
+            await this.scanSerialPorts();
+          } catch (error) {
+            btn.textContent = i18n.t('common.error');
+            btn.style.color = '#e53e3e';
+            btn.style.borderColor = '#e53e3e';
+            this.logger?.error(`Serial port ${isOpen ? 'close' : 'open'} error: ${error.message}`);
+            // Rescan after error to show current state
+            setTimeout(() => this.scanSerialPorts(), 1000);
+          }
+        });
+      });
+    } catch (error) {
+      listEl.innerHTML = `<div style="padding: 16px; text-align: center; color: #e53e3e; font-size: 13px;">
                 ${escapeHtml(error.message)}
             </div>`;
-        } finally {
-            if (scanBtn) scanBtn.disabled = false;
-        }
-    };
+    } finally {
+      if (scanBtn) scanBtn.disabled = false;
+    }
+  };
 
-    if (typeof window !== 'undefined') window.SettingsSerial = SettingsSerial;
+  if (typeof window !== 'undefined') window.SettingsSerial = SettingsSerial;
 })();

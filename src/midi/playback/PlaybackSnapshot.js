@@ -60,9 +60,7 @@ export class PlaybackSnapshot {
    * @private
    */
   _key(deviceId, channel) {
-    return channel !== undefined && channel !== null
-      ? `${deviceId}:${channel}`
-      : `${deviceId}`;
+    return channel !== undefined && channel !== null ? `${deviceId}:${channel}` : `${deviceId}`;
   }
 
   /**

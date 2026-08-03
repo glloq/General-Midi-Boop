@@ -121,10 +121,13 @@ describe('PlaybackScheduler — channel transposition', () => {
     );
 
     expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('devA', 'cc', {
-      channel: 2, controller: 7, value: 100
+      channel: 2,
+      controller: 7,
+      value: 100
     });
     expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('devA', 'program', {
-      channel: 2, program: 25
+      channel: 2,
+      program: 25
     });
   });
 
@@ -144,7 +147,9 @@ describe('PlaybackScheduler — channel transposition', () => {
     );
 
     expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('devA', 'noteon', {
-      channel: 0, note: 60, velocity: 100
+      channel: 0,
+      note: 60,
+      velocity: 100
     });
   });
 
@@ -160,7 +165,9 @@ describe('PlaybackScheduler — channel transposition', () => {
     );
 
     expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('devSplit', 'noteon', {
-      channel: 5, note: 63, velocity: 110
+      channel: 5,
+      note: 63,
+      velocity: 110
     });
   });
 });

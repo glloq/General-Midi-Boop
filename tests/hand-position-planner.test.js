@@ -11,7 +11,7 @@ const pianoCfg = {
   enabled: true,
   hand_move_semitones_per_sec: 60,
   hands: [
-    { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
     { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
@@ -19,7 +19,12 @@ const pianoCfg = {
 const pianoCtx = { noteRangeMin: 21, noteRangeMax: 108, minNoteIntervalMs: 40 };
 
 const note = (time, pitch, hand, extra = {}) => ({
-  time, note: pitch, channel: 0, velocity: 80, hand, ...extra
+  time,
+  note: pitch,
+  channel: 0,
+  velocity: 80,
+  hand,
+  ...extra
 });
 
 describe('HandPositionPlanner — basic emission', () => {
@@ -28,8 +33,8 @@ describe('HandPositionPlanner — basic emission', () => {
     const { ccEvents } = p.plan([note(1.0, 40, 'left'), note(1.0, 72, 'right')]);
     // One CC per hand.
     expect(ccEvents).toHaveLength(2);
-    const left = ccEvents.find(e => e.hand === 'left');
-    const right = ccEvents.find(e => e.hand === 'right');
+    const left = ccEvents.find((e) => e.hand === 'left');
+    const right = ccEvents.find((e) => e.hand === 'right');
     expect(left.controller).toBe(23);
     expect(left.value).toBe(40);
     expect(left.time).toBeLessThan(1.0);
@@ -55,7 +60,7 @@ describe('HandPositionPlanner — basic emission', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
     const notes = [
       note(0.0, 48, 'left'),
-      note(2.0, 70, 'left')  // +22 semitones > span 14 → shift
+      note(2.0, 70, 'left') // +22 semitones > span 14 → shift
     ];
     const { ccEvents, stats } = p.plan(notes);
     expect(ccEvents).toHaveLength(2);
@@ -65,11 +70,7 @@ describe('HandPositionPlanner — basic emission', () => {
 
   test('shift for a chord anchors so the chord fits at the top of the window', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
-    const notes = [
-      note(0.0, 40, 'left'),
-      note(5.0, 62, 'left'),
-      note(5.0, 68, 'left')
-    ];
+    const notes = [note(0.0, 40, 'left'), note(5.0, 62, 'left'), note(5.0, 68, 'left')];
     const { ccEvents } = p.plan(notes);
     expect(ccEvents).toHaveLength(2);
     expect(ccEvents[1].value).toBe(62);
@@ -77,10 +78,7 @@ describe('HandPositionPlanner — basic emission', () => {
 
   test('shifts window when next note goes below window', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
-    const notes = [
-      note(0.0, 60, 'left'),
-      note(2.0, 40, 'left')
-    ];
+    const notes = [note(0.0, 60, 'left'), note(2.0, 40, 'left')];
     const { ccEvents } = p.plan(notes);
     expect(ccEvents).toHaveLength(2);
     expect(ccEvents[1].value).toBe(40);
@@ -96,7 +94,7 @@ describe('HandPositionPlanner — basic emission', () => {
 describe('HandPositionPlanner — chord handling', () => {
   test('simultaneous notes on same hand merge into one chord group', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
-    const chord = [48, 52, 55].map(pitch => note(0, pitch, 'left'));
+    const chord = [48, 52, 55].map((pitch) => note(0, pitch, 'left'));
     const { ccEvents, stats } = p.plan(chord);
     expect(ccEvents).toHaveLength(1);
     expect(stats.shifts.left).toBe(1);
@@ -113,18 +111,18 @@ describe('HandPositionPlanner — chord handling', () => {
     ];
     const { ccEvents } = p.plan(events);
     expect(ccEvents).toHaveLength(2);
-    expect(ccEvents.find(e => e.hand === 'left').value).toBe(40);
-    expect(ccEvents.find(e => e.hand === 'right').value).toBe(72);
+    expect(ccEvents.find((e) => e.hand === 'left').value).toBe(40);
+    expect(ccEvents.find((e) => e.hand === 'right').value).toBe(72);
   });
 
   test('chord wider than span flags chord_span_exceeded', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
     const events = [
       note(0, 40, 'left'),
-      note(0, 60, 'left')  // span 20 > 14
+      note(0, 60, 'left') // span 20 > 14
     ];
     const { warnings } = p.plan(events);
-    expect(warnings.some(w => w.code === 'chord_span_exceeded')).toBe(true);
+    expect(warnings.some((w) => w.code === 'chord_span_exceeded')).toBe(true);
   });
 });
 
@@ -132,42 +130,33 @@ describe('HandPositionPlanner — feasibility warnings', () => {
   test('move_too_fast fires when shift does not fit in available time', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
     // 20-semitone shift at 60 semitones/sec needs 333ms. We give 50ms.
-    const events = [
-      note(0.0, 40, 'left'),
-      note(0.05, 60, 'left')
-    ];
+    const events = [note(0.0, 40, 'left'), note(0.05, 60, 'left')];
     const { warnings } = p.plan(events);
-    expect(warnings.some(w => w.code === 'move_too_fast')).toBe(true);
+    expect(warnings.some((w) => w.code === 'move_too_fast')).toBe(true);
   });
 
   test('move_too_fast does not fire when there is enough time', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
-    const events = [
-      note(0.0, 40, 'left'),
-      note(5.0, 60, 'left')
-    ];
+    const events = [note(0.0, 40, 'left'), note(5.0, 60, 'left')];
     const { warnings } = p.plan(events);
-    expect(warnings.some(w => w.code === 'move_too_fast')).toBe(false);
+    expect(warnings.some((w) => w.code === 'move_too_fast')).toBe(false);
   });
 
   test('finger_interval_violated fires when two notes are closer than min_note_interval', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
     const events = [
-      note(0.000, 48, 'left'),
-      note(0.010, 50, 'left')  // 10ms < 40ms min
+      note(0.0, 48, 'left'),
+      note(0.01, 50, 'left') // 10ms < 40ms min
     ];
     const { warnings } = p.plan(events);
-    expect(warnings.some(w => w.code === 'finger_interval_violated')).toBe(true);
+    expect(warnings.some((w) => w.code === 'finger_interval_violated')).toBe(true);
   });
 
   test('finger_interval check is disabled when instrument has no min_note_interval', () => {
     const p = new HandPositionPlanner(pianoCfg, { noteRangeMin: 21, noteRangeMax: 108 });
-    const events = [
-      note(0.000, 48, 'left'),
-      note(0.001, 50, 'left')
-    ];
+    const events = [note(0.0, 48, 'left'), note(0.001, 50, 'left')];
     const { warnings } = p.plan(events);
-    expect(warnings.some(w => w.code === 'finger_interval_violated')).toBe(false);
+    expect(warnings.some((w) => w.code === 'finger_interval_violated')).toBe(false);
   });
 
   test('out_of_range fires for notes outside instrument reach', () => {
@@ -179,12 +168,12 @@ describe('HandPositionPlanner — feasibility warnings', () => {
     };
     const p = new HandPositionPlanner(cfg, ctx);
     const events = [
-      note(0, 20, 'left'),  // below min 21
-      note(1, 80, 'left')   // above max 72
+      note(0, 20, 'left'), // below min 21
+      note(1, 80, 'left') // above max 72
     ];
     const { warnings } = p.plan(events);
-    const codes = warnings.map(w => w.code);
-    expect(codes.filter(c => c === 'out_of_range').length).toBe(2);
+    const codes = warnings.map((w) => w.code);
+    expect(codes.filter((c) => c === 'out_of_range').length).toBe(2);
   });
 });
 
@@ -201,7 +190,7 @@ describe('HandPositionPlanner — clamp to instrument range', () => {
       { time: 0, note: 30, channel: 0, velocity: 80, hand: 'left' }
     ]);
     expect(ccEvents[0].value).toBe(40);
-    expect(warnings.some(w => w.code === 'out_of_range')).toBe(true);
+    expect(warnings.some((w) => w.code === 'out_of_range')).toBe(true);
   });
 
   test('CC anchor is clamped so window top stays <= noteRangeMax', () => {
@@ -211,14 +200,12 @@ describe('HandPositionPlanner — clamp to instrument range', () => {
     ]);
     // 70 alone would anchor at 70, but 70+14=84 > max 60 → clamp to 60-14=46.
     expect(ccEvents[0].value).toBe(46);
-    expect(warnings.some(w => w.code === 'out_of_range')).toBe(true);
+    expect(warnings.some((w) => w.code === 'out_of_range')).toBe(true);
   });
 
   test('clamping never drops below noteRangeMin', () => {
     const p = new HandPositionPlanner(cfg, { noteRangeMin: 60, noteRangeMax: 65 });
-    const { ccEvents } = p.plan([
-      { time: 0, note: 80, channel: 0, velocity: 80, hand: 'left' }
-    ]);
+    const { ccEvents } = p.plan([{ time: 0, note: 80, channel: 0, velocity: 80, hand: 'left' }]);
     expect(ccEvents[0].value).toBeGreaterThanOrEqual(60);
   });
 });
@@ -226,10 +213,7 @@ describe('HandPositionPlanner — clamp to instrument range', () => {
 describe('HandPositionPlanner — CC emission timing', () => {
   test('subsequent shift CC is scheduled right after previous note-on', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
-    const events = [
-      note(1.0, 40, 'left'),
-      note(5.0, 70, 'left')
-    ];
+    const events = [note(1.0, 40, 'left'), note(5.0, 70, 'left')];
     const { ccEvents } = p.plan(events);
     expect(ccEvents).toHaveLength(2);
     expect(ccEvents[1].time).toBeGreaterThan(1.0);
@@ -254,9 +238,7 @@ const guitarCfg = {
   enabled: true,
   mode: 'frets',
   hand_move_frets_per_sec: 12,
-  hands: [
-    { id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }
-  ]
+  hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
 };
 // Standard 22-fret guitar: axis is [0, 22].
 const guitarCtx = { unit: 'frets', noteRangeMin: 0, noteRangeMax: 22 };
@@ -296,20 +278,14 @@ describe('HandPositionPlanner — frets mode', () => {
 
   test('shifts window upward when next fret exceeds span', () => {
     const p = new HandPositionPlanner(guitarCfg, guitarCtx);
-    const { ccEvents } = p.plan([
-      fretNote(0.0, 5),
-      fretNote(2.0, 15)
-    ]);
+    const { ccEvents } = p.plan([fretNote(0.0, 5), fretNote(2.0, 15)]);
     expect(ccEvents).toHaveLength(2);
     expect(ccEvents[1].value).toBe(15);
   });
 
   test('shifts window downward when next fret is below current window', () => {
     const p = new HandPositionPlanner(guitarCfg, guitarCtx);
-    const { ccEvents } = p.plan([
-      fretNote(0.0, 10),
-      fretNote(2.0, 2)
-    ]);
+    const { ccEvents } = p.plan([fretNote(0.0, 10), fretNote(2.0, 2)]);
     expect(ccEvents).toHaveLength(2);
     expect(ccEvents[1].value).toBe(2);
   });
@@ -336,34 +312,39 @@ describe('HandPositionPlanner — frets mode', () => {
       fretNote(0, 3),
       fretNote(0, 10) // chord span 7 > 4
     ]);
-    expect(warnings.some(w => w.code === 'chord_span_exceeded')).toBe(true);
-    expect(warnings.find(w => w.code === 'chord_span_exceeded').message).toMatch(/frets/);
+    expect(warnings.some((w) => w.code === 'chord_span_exceeded')).toBe(true);
+    expect(warnings.find((w) => w.code === 'chord_span_exceeded').message).toMatch(/frets/);
   });
 
   test('move_too_fast reports frets unit and fires when shift is too fast', () => {
     const p = new HandPositionPlanner(guitarCfg, guitarCtx);
     // 15 frets shift at 12 frets/sec needs 1250ms; we give 50ms.
-    const { warnings } = p.plan([
-      fretNote(0.0, 2),
-      fretNote(0.05, 20)
-    ]);
-    const mtf = warnings.find(w => w.code === 'move_too_fast');
+    const { warnings } = p.plan([fretNote(0.0, 2), fretNote(0.05, 20)]);
+    const mtf = warnings.find((w) => w.code === 'move_too_fast');
     expect(mtf).toBeDefined();
     expect(mtf.message).toMatch(/frets/);
   });
 
   test('out_of_range fires for fret above instrument max', () => {
-    const p = new HandPositionPlanner(guitarCfg, { unit: 'frets', noteRangeMin: 0, noteRangeMax: 12 });
+    const p = new HandPositionPlanner(guitarCfg, {
+      unit: 'frets',
+      noteRangeMin: 0,
+      noteRangeMax: 12
+    });
     const { warnings } = p.plan([fretNote(0, 18)]);
-    const oor = warnings.find(w => w.code === 'out_of_range');
+    const oor = warnings.find((w) => w.code === 'out_of_range');
     expect(oor).toBeDefined();
     expect(oor.message).toMatch(/Fret 18/);
   });
 
   test('fretless (float positions) produces rounded CC values', () => {
-    const p = new HandPositionPlanner(guitarCfg, { unit: 'frets', noteRangeMin: 0, noteRangeMax: 24 });
+    const p = new HandPositionPlanner(guitarCfg, {
+      unit: 'frets',
+      noteRangeMin: 0,
+      noteRangeMax: 24
+    });
     const { ccEvents } = p.plan([fretNote(0, 3.4), fretNote(2, 8.6)]);
-    expect(ccEvents.map(e => e.value)).toEqual([3, 9]);
+    expect(ccEvents.map((e) => e.value)).toEqual([3, 9]);
   });
 
   test('semitones fields on a frets config are ignored (unit is explicit)', () => {
@@ -432,8 +413,9 @@ describe('HandPositionPlanner — frets mode (physical model)', () => {
   test('shift-up anchor for a chord lands below chordHigh so the chord fits', () => {
     const planner = new HandPositionPlanner(guitarPhysCfg, guitarPhysCtx);
     const { ccEvents } = planner.plan([
-      fretNote(0, 1),                  // initial anchor near nut
-      fretNote(2, 12), fretNote(2, 15) // chord: low=12, high=15
+      fretNote(0, 1), // initial anchor near nut
+      fretNote(2, 12),
+      fretNote(2, 15) // chord: low=12, high=15
     ]);
     expect(ccEvents).toHaveLength(2);
     // Anchor must cover both 12 and 15. With the 10 mm index-finger
@@ -449,7 +431,7 @@ describe('HandPositionPlanner — frets mode (physical model)', () => {
     // 80 mm hand. d(0, 5) on L=650 ≈ 168 mm, well beyond 80 mm.
     const planner = new HandPositionPlanner(guitarPhysCfg, guitarPhysCtx);
     const { warnings } = planner.plan([fretNote(0, 0), fretNote(0, 5)]);
-    const w = warnings.find(x => x.code === 'chord_span_exceeded');
+    const w = warnings.find((x) => x.code === 'chord_span_exceeded');
     expect(w).toBeDefined();
     expect(w.spanMm).toBeGreaterThan(80);
     expect(w.handMm).toBe(80);
@@ -461,11 +443,8 @@ describe('HandPositionPlanner — frets mode (physical model)', () => {
   test('move_too_fast carries travelMm and ms metrics', () => {
     // 250 mm/s. Distance(0,12) on 650 mm ≈ 325 mm → needs ~1.3s; we give 50ms.
     const planner = new HandPositionPlanner(guitarPhysCfg, guitarPhysCtx);
-    const { warnings } = planner.plan([
-      fretNote(0.0, 0),
-      fretNote(0.05, 14)
-    ]);
-    const w = warnings.find(x => x.code === 'move_too_fast');
+    const { warnings } = planner.plan([fretNote(0.0, 0), fretNote(0.05, 14)]);
+    const w = warnings.find((x) => x.code === 'move_too_fast');
     expect(w).toBeDefined();
     expect(w.travelMm).toBeGreaterThan(80);
     expect(w.requiredMs).toBeGreaterThan(w.availableMs);
@@ -511,9 +490,9 @@ describe('HandPositionPlanner — frets mode (physical model)', () => {
       fretNote(0, 5),
       fretNote(0, 5),
       fretNote(0, 6),
-      fretNote(0, 7)  // 4 fretted notes, max 3
+      fretNote(0, 7) // 4 fretted notes, max 3
     ]);
-    const w = warnings.find(x => x.code === 'too_many_fingers');
+    const w = warnings.find((x) => x.code === 'too_many_fingers');
     expect(w).toBeDefined();
     expect(w.count).toBe(4);
     expect(w.limit).toBe(3);
@@ -530,10 +509,10 @@ describe('HandPositionPlanner — frets mode (physical model)', () => {
     const { warnings } = planner.plan([
       fretNote(0, 5),
       fretNote(0, 5),
-      fretNote(0, 0),  // open
-      fretNote(0, 0)   // open
+      fretNote(0, 0), // open
+      fretNote(0, 0) // open
     ]);
-    expect(warnings.some(w => w.code === 'too_many_fingers')).toBe(false);
+    expect(warnings.some((w) => w.code === 'too_many_fingers')).toBe(false);
   });
 });
 
@@ -590,7 +569,7 @@ describe('HandPositionPlanner — 10 mm index-finger backoff (physical mode)', (
     expect(ccEvents[0].value).toBe(2);
     // No span warning — fret 2 fits the band (which now reaches well
     // past fret 5 on a 80 mm hand at this scale).
-    expect(warnings.filter(w => w.code === 'chord_span_exceeded')).toHaveLength(0);
+    expect(warnings.filter((w) => w.code === 'chord_span_exceeded')).toHaveLength(0);
   });
 
   test('high-fret chord (12..15) anchors slightly behind fret 12 to extend the reach', () => {
@@ -625,7 +604,11 @@ describe('HandPositionPlanner — 10 mm index-finger backoff (physical mode)', (
       hand_move_frets_per_sec: 12,
       hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
     };
-    const p = new HandPositionPlanner(cfgFallback, { unit: 'frets', noteRangeMin: 0, noteRangeMax: 22 });
+    const p = new HandPositionPlanner(cfgFallback, {
+      unit: 'frets',
+      noteRangeMin: 0,
+      noteRangeMax: 22
+    });
     expect(p._physical).toBeNull();
     // Anchor lands exactly on the chord's lowest fret (legacy behavior).
     const { ccEvents } = p.plan([fretNote(0, 5)]);
@@ -649,9 +632,7 @@ describe('HandPositionPlanner — edge cases', () => {
 
   test('velocity-0 note-ons (logical note-offs) are ignored', () => {
     const p = new HandPositionPlanner(pianoCfg, pianoCtx);
-    const events = [
-      { time: 0, note: 60, hand: 'right', channel: 0, velocity: 0 }
-    ];
+    const events = [{ time: 0, note: 60, hand: 'right', channel: 0, velocity: 0 }];
     const { ccEvents } = p.plan(events);
     expect(ccEvents).toHaveLength(0);
   });

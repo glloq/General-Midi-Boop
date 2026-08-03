@@ -80,9 +80,7 @@ class CommandRegistry {
    */
   register(command, handler) {
     if (this.handlers[command]) {
-      this.logger.warn(
-        `CommandRegistry: overwriting handler for '${command}'.`
-      );
+      this.logger.warn(`CommandRegistry: overwriting handler for '${command}'.`);
     }
     this.handlers[command] = handler;
   }
@@ -171,7 +169,9 @@ class CommandRegistry {
       // may still rely on imperative checks inside the handler.
       const cmdValidation = JsonValidator.validateByCommand(message.command, message.data || {});
       if (!cmdValidation.valid) {
-        throw new ValidationError(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
+        throw new ValidationError(
+          `Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`
+        );
       }
 
       const handler = this.handlers[message.command];
@@ -219,7 +219,7 @@ class CommandRegistry {
         cid,
         duration,
         success: false,
-        errorCode: (error instanceof ApplicationError) ? error.code : 'ERR_INTERNAL'
+        errorCode: error instanceof ApplicationError ? error.code : 'ERR_INTERNAL'
       });
 
       // Only expose ApplicationError messages to the client;

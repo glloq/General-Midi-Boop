@@ -22,21 +22,29 @@ const src = readFileSync(
 
 function installCanvasStub() {
   const calls = [];
-  const ctx = new Proxy({ calls }, {
-    get(target, prop) {
-      if (prop === 'calls') return target.calls;
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc)$/.test(prop)) {
-        return (...args) => target.calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    { calls },
+    {
+      get(target, prop) {
+        if (prop === 'calls') return target.calls;
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => target.calls.push({ method: prop, args });
+        }
+        return target[prop];
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        target.calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return target[prop];
-    },
-    set(target, prop, value) {
-      target[prop] = value;
-      target.calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -53,7 +61,7 @@ beforeEach(() => {
 
 function makeCanvas(width = 600, height = 120) {
   const canvas = document.createElement('canvas');
-  Object.defineProperty(canvas, 'clientWidth',  { value: width,  configurable: true });
+  Object.defineProperty(canvas, 'clientWidth', { value: width, configurable: true });
   Object.defineProperty(canvas, 'clientHeight', { value: height, configurable: true });
   canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width, height });
   document.body.appendChild(canvas);
@@ -125,7 +133,7 @@ describe('KeyboardPreview — rendering', () => {
     const ctx = installCanvasStub();
     const kb = new window.KeyboardPreview(makeCanvas(), { rangeMin: 60, rangeMax: 71 }); // one octave
     kb.draw();
-    const fillRects = ctx.calls.filter(c => c.method === 'fillRect');
+    const fillRects = ctx.calls.filter((c) => c.method === 'fillRect');
     // background + 7 whites + 5 blacks = 13.
     expect(fillRects.length).toBeGreaterThanOrEqual(13);
   });
@@ -155,7 +163,7 @@ describe('KeyboardPreview — rendering', () => {
     kb.draw();
     const strokeColors = ctx.calls
       .filter((c, i) => c.method === 'set' && c.prop === 'strokeStyle')
-      .map(c => c.value);
+      .map((c) => c.value);
     expect(strokeColors).toContain('#dc2626');
   });
 
@@ -169,7 +177,10 @@ describe('KeyboardPreview — rendering', () => {
     for (const c of ctx.calls) {
       if (c.method === 'set' && c.prop === 'fillStyle') lastFill = c.value;
       // Black-key red fill is the strong red, not the light one.
-      if (c.method === 'fillRect' && lastFill === '#dc2626') { found = true; break; }
+      if (c.method === 'fillRect' && lastFill === '#dc2626') {
+        found = true;
+        break;
+      }
     }
     expect(found).toBe(true);
   });
@@ -179,9 +190,11 @@ describe('KeyboardPreview — rendering', () => {
     const kb = new window.KeyboardPreview(makeCanvas(), { rangeMin: 21, rangeMax: 108 });
     kb.setHandBands([{ id: 'left', low: 40, high: 54, color: '#3b82f6' }]);
     kb.draw();
-    const fillStyles = ctx.calls.filter(c => c.method === 'set' && c.prop === 'fillStyle').map(c => c.value);
+    const fillStyles = ctx.calls
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
     // Band fill uses an rgba derived from #3b82f6.
-    expect(fillStyles.some(v => v.startsWith('rgba(59, 130, 246'))).toBe(true);
+    expect(fillStyles.some((v) => v.startsWith('rgba(59, 130, 246'))).toBe(true);
   });
 
   it('does not throw on a 0-width canvas (skips drawing)', () => {
@@ -198,9 +211,9 @@ describe('KeyboardPreview — rendering', () => {
     // Active white note 60 should fill with rgba derived from #3b82f6
     // (alpha 0.45) BEFORE the unplayable-red fill.
     const fillStyles = ctx.calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
-    expect(fillStyles.some(v => /rgba\(59, 130, 246, 0\.45\)/.test(v))).toBe(true);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
+    expect(fillStyles.some((v) => /rgba\(59, 130, 246, 0\.45\)/.test(v))).toBe(true);
   });
 
   it('paints an active BLACK key in the FULL hand colour (not the legacy blue)', () => {
@@ -209,8 +222,8 @@ describe('KeyboardPreview — rendering', () => {
     kb.setHandBands([{ id: 'right', low: 60, high: 74, color: '#10b981' }]);
     kb.setActiveNotes([{ midi: 61, handId: 'right' }]); // C#5 is black
     const fillStyles = ctx.calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
     expect(fillStyles).toContain('#10b981');
     // The legacy active-black colour should NOT be used.
     expect(fillStyles).not.toContain('#1d4ed8');
@@ -221,8 +234,8 @@ describe('KeyboardPreview — rendering', () => {
     const kb = new window.KeyboardPreview(makeCanvas(), { rangeMin: 60, rangeMax: 71 });
     kb.setActiveNotes([60]); // legacy form
     const fillStyles = ctx.calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
     expect(fillStyles).toContain('#bfdbfe');
   });
 });
@@ -250,8 +263,10 @@ describe('KeyboardPreview — click handler', () => {
 describe('KeyboardPreview — band drag', () => {
   function dispatchOn(canvas, type, x, y) {
     const evt = new MouseEvent(type, {
-      bubbles: true, cancelable: true,
-      clientX: x, clientY: y
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y
     });
     canvas.dispatchEvent(evt);
   }
@@ -263,7 +278,9 @@ describe('KeyboardPreview — band drag', () => {
     const onBandDrag = vi.fn();
     const canvas = makeCanvas(700, 120);
     const kb = new window.KeyboardPreview(canvas, {
-      rangeMin: 60, rangeMax: 71, onBandDrag
+      rangeMin: 60,
+      rangeMax: 71,
+      onBandDrag
     });
     kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
     kb.draw();
@@ -278,7 +295,8 @@ describe('KeyboardPreview — band drag', () => {
   it('mousemove updates the band low/high and triggers a redraw', () => {
     const canvas = makeCanvas(700, 120);
     const kb = new window.KeyboardPreview(canvas, {
-      rangeMin: 60, rangeMax: 71,
+      rangeMin: 60,
+      rangeMax: 71,
       onBandDrag: () => {}
     });
     kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
@@ -295,7 +313,9 @@ describe('KeyboardPreview — band drag', () => {
     const onBandDrag = vi.fn();
     const canvas = makeCanvas(700, 120);
     const kb = new window.KeyboardPreview(canvas, {
-      rangeMin: 60, rangeMax: 71, onBandDrag
+      rangeMin: 60,
+      rangeMax: 71,
+      onBandDrag
     });
     kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
     kb.draw();
@@ -312,7 +332,9 @@ describe('KeyboardPreview — band drag', () => {
     const onBandDrag = vi.fn();
     const canvas = makeCanvas(700, 120);
     const kb = new window.KeyboardPreview(canvas, {
-      rangeMin: 60, rangeMax: 71, onBandDrag
+      rangeMin: 60,
+      rangeMax: 71,
+      onBandDrag
     });
     kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
     kb.draw();
@@ -325,7 +347,9 @@ describe('KeyboardPreview — band drag', () => {
     const onBandDrag = vi.fn();
     const canvas = makeCanvas(700, 120);
     const kb = new window.KeyboardPreview(canvas, {
-      rangeMin: 60, rangeMax: 71, onBandDrag
+      rangeMin: 60,
+      rangeMax: 71,
+      onBandDrag
     });
     kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
     kb.draw();
@@ -342,7 +366,9 @@ describe('KeyboardPreview — band drag', () => {
     const onBandDrag = vi.fn();
     const canvas = makeCanvas(700, 120);
     const kb = new window.KeyboardPreview(canvas, {
-      rangeMin: 60, rangeMax: 71, onBandDrag
+      rangeMin: 60,
+      rangeMax: 71,
+      onBandDrag
     });
     kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
     kb.draw();
@@ -355,7 +381,10 @@ describe('KeyboardPreview — band drag', () => {
     const onBandDrag = vi.fn();
     const canvas = makeCanvas(700, 120);
     const kb = new window.KeyboardPreview(canvas, {
-      rangeMin: 60, rangeMax: 71, onKeyClick, onBandDrag
+      rangeMin: 60,
+      rangeMax: 71,
+      onKeyClick,
+      onBandDrag
     });
     kb.setHandBands([{ id: 'left', low: 60, high: 64, color: '#3b82f6' }]);
     kb.draw();
@@ -387,11 +416,12 @@ describe('KeyboardPreview — public key-position API (for fingers overlay)', ()
     // Single-octave window 60..71 (C4..B4) on a 700px canvas →
     // 7 white keys + 5 black. White key width = 100px each.
     const kb = new window.KeyboardPreview(makeCanvas(700, 120), {
-      rangeMin: 60, rangeMax: 71
+      rangeMin: 60,
+      rangeMax: 71
     });
     kb._geo();
     // White keys: C, D, E, F, G, A, B at indices 0..6.
-    expect(kb.keyXAt(60)).toBe(0);          // C4 left edge
+    expect(kb.keyXAt(60)).toBe(0); // C4 left edge
     expect(kb.keyWidth(60)).toBeCloseTo(100, 1);
     expect(kb.keyXAt(62)).toBeCloseTo(100, 1); // D4 left edge (after C4)
     expect(kb.keyXAt(64)).toBeCloseTo(200, 1); // E4
@@ -403,7 +433,8 @@ describe('KeyboardPreview — public key-position API (for fingers overlay)', ()
 
   it('keyCenterAt interpolates between adjacent keys for smooth animation', () => {
     const kb = new window.KeyboardPreview(makeCanvas(700, 120), {
-      rangeMin: 60, rangeMax: 71
+      rangeMin: 60,
+      rangeMax: 71
     });
     kb._geo();
     const cC = kb.keyCenterAt(60); // C4 centre = 0 + 50 = 50
@@ -417,7 +448,8 @@ describe('KeyboardPreview — public key-position API (for fingers overlay)', ()
 
   it('keyXAt clamps to the visible range so out-of-range queries are safe', () => {
     const kb = new window.KeyboardPreview(makeCanvas(700, 120), {
-      rangeMin: 60, rangeMax: 71
+      rangeMin: 60,
+      rangeMax: 71
     });
     kb._geo();
     // Below range — clamped to 60.
@@ -431,7 +463,8 @@ describe('KeyboardPreview — public key-position API (for fingers overlay)', ()
     // the 88-key span. The fingers overlay used to use that and
     // fingers slid off the keys at the extremes.
     const kb = new window.KeyboardPreview(makeCanvas(800, 140), {
-      rangeMin: 21, rangeMax: 108
+      rangeMin: 21,
+      rangeMax: 108
     });
     kb._geo();
     const ww = kb._whiteKeyWidth();
@@ -442,7 +475,7 @@ describe('KeyboardPreview — public key-position API (for fingers overlay)', ()
     // Compare with the uniform-pxPerPitch fallback the modal used
     // to use: those would diverge by several pixels at the extremes.
     const uniformC8 = (108 - 21 + 0.5) * (800 / 88);
-    const realC8    = kb.keyCenterAt(108);
+    const realC8 = kb.keyCenterAt(108);
     expect(Math.abs(realC8 - uniformC8)).toBeGreaterThan(2);
   });
 });

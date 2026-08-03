@@ -30,10 +30,23 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/InstrumentDetector.js');
   load('../../../public/js/features/keyboard/InstrumentView.js');
   load('../../../public/js/features/keyboard/InstrumentViewRegistry.js');
-  for (const v of ['PianoView', 'FretboardView', 'DrumPadView', 'PianoSliderView',
-                   'ListView', 'HarmonicaView', 'HarpView', 'AccordionView',
-                   'MalletView', 'MusicBoxView', 'KalimbaView', 'BagpipeView',
-                   'SteelDrumView', 'ThereminView', 'PercussionPadView']) {
+  for (const v of [
+    'PianoView',
+    'FretboardView',
+    'DrumPadView',
+    'PianoSliderView',
+    'ListView',
+    'HarmonicaView',
+    'HarpView',
+    'AccordionView',
+    'MalletView',
+    'MusicBoxView',
+    'KalimbaView',
+    'BagpipeView',
+    'SteelDrumView',
+    'ThereminView',
+    'PercussionPadView'
+  ]) {
     load(`../../../public/js/features/keyboard/views/${v}.js`);
   }
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
@@ -69,19 +82,37 @@ function makeModal(overrides = {}) {
     sendCC: (c, v) => calls.cc.push([c, v]),
     showNoteColors: false,
     getNoteColor: () => ({ bg: '', text: '' }),
-    ...overrides,
+    ...overrides
   };
   const realPlay = modal.playNote;
   const realStop = modal.stopNote;
-  modal.playNote = function (n) { calls.play.push(n); return realPlay.call(modal, n); };
-  modal.stopNote = function (n) { calls.stop.push(n); return realStop.call(modal, n); };
+  modal.playNote = function (n) {
+    calls.play.push(n);
+    return realPlay.call(modal, n);
+  };
+  modal.stopNote = function (n) {
+    calls.stop.push(n);
+    return realStop.call(modal, n);
+  };
   return { modal, logs, calls };
 }
 
 const ALL_KINDS = [
-  'piano', 'fretboard', 'drumpad', 'piano-slider', 'keyboard-list',
-  'harmonica', 'harp', 'accordion', 'mallet', 'music-box', 'kalimba',
-  'bagpipe', 'steel-drum', 'theremin', 'perc-pad',
+  'piano',
+  'fretboard',
+  'drumpad',
+  'piano-slider',
+  'keyboard-list',
+  'harmonica',
+  'harp',
+  'accordion',
+  'mallet',
+  'music-box',
+  'kalimba',
+  'bagpipe',
+  'steel-drum',
+  'theremin',
+  'perc-pad'
 ];
 
 describe('every registered view kind exists (no silent drop)', () => {
@@ -95,49 +126,63 @@ describe('every registered view kind exists (no silent drop)', () => {
 
 // ── Self-owned views: real cell press+release must always trace ────────────
 describe.each([
-  ['harmonica',  () => win.HarmonicaView,      '#harmonica-container',  '.harmonica-hole'],
-  ['harp',       () => win.HarpView,           '#harp-container',       '.harp-string'],
-  ['accordion',  () => win.AccordionView,      '#accordion-container',  '.accordion-key'],
-  ['mallet',     () => win.MalletView,         '#mallet-container',     '.mallet-bar'],
-  ['music-box',  () => win.MusicBoxView,       '#music-box-container',  '.music-box-tooth'],
-  ['kalimba',    () => win.KalimbaView,        '#kalimba-container',    '.kalimba-tine'],
-  ['bagpipe',    () => win.BagpipeView,        '#bagpipe-container',    '.bagpipe-hole'],
-  ['steel-drum', () => win.SteelDrumView,      '#steel-drum-container', '.steel-section'],
-  ['perc-pad',   () => win.PercussionPadView,  '#perc-pad-container',   '.perc-pad'],
-])('%s — press+release always emits one on + one off trace (no device selected)',
-   (kind, cls, containerSel, cellSel) => {
-  let modal, logs, calls, view;
-  beforeEach(() => {
-    document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    ({ modal, logs, calls } = makeModal());          // selectedDevice/backend null
-    view = new (cls())();
-    view.mount({ modal });
-  });
-  afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+  ['harmonica', () => win.HarmonicaView, '#harmonica-container', '.harmonica-hole'],
+  ['harp', () => win.HarpView, '#harp-container', '.harp-string'],
+  ['accordion', () => win.AccordionView, '#accordion-container', '.accordion-key'],
+  ['mallet', () => win.MalletView, '#mallet-container', '.mallet-bar'],
+  ['music-box', () => win.MusicBoxView, '#music-box-container', '.music-box-tooth'],
+  ['kalimba', () => win.KalimbaView, '#kalimba-container', '.kalimba-tine'],
+  ['bagpipe', () => win.BagpipeView, '#bagpipe-container', '.bagpipe-hole'],
+  ['steel-drum', () => win.SteelDrumView, '#steel-drum-container', '.steel-section'],
+  ['perc-pad', () => win.PercussionPadView, '#perc-pad-container', '.perc-pad']
+])(
+  '%s — press+release always emits one on + one off trace (no device selected)',
+  (kind, cls, containerSel, cellSel) => {
+    let modal, logs, calls, view;
+    beforeEach(() => {
+      document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
+      ({ modal, logs, calls } = makeModal()); // selectedDevice/backend null
+      view = new (cls())();
+      view.mount({ modal });
+    });
+    afterEach(() => {
+      try {
+        view.unmount();
+      } catch {
+        /* idempotent */
+      }
+    });
 
-  it('plays + stops the real mixin and logs a virtual trace', () => {
-    const cell = document.querySelector(`${containerSel} ${cellSel}`)
-      || document.querySelector(cellSel);
-    expect(cell).not.toBeNull();
-    fire(cell, 'pointerdown');
-    document.dispatchEvent(new Event('pointerup'));
+    it('plays + stops the real mixin and logs a virtual trace', () => {
+      const cell =
+        document.querySelector(`${containerSel} ${cellSel}`) || document.querySelector(cellSel);
+      expect(cell).not.toBeNull();
+      fire(cell, 'pointerdown');
+      document.dispatchEvent(new Event('pointerup'));
 
-    expect(calls.play.length).toBeGreaterThan(0);
-    expect(calls.stop.length).toBeGreaterThan(0);
-    expect(logs.some((m) => m.includes('virtualNoteOn'))).toBe(true);
-    expect(logs.some((m) => m.includes('virtualNoteOff'))).toBe(true);
-  });
-});
+      expect(calls.play.length).toBeGreaterThan(0);
+      expect(calls.stop.length).toBeGreaterThan(0);
+      expect(logs.some((m) => m.includes('virtualNoteOn'))).toBe(true);
+      expect(logs.some((m) => m.includes('virtualNoteOff'))).toBe(true);
+    });
+  }
+);
 
 describe('theremin — pad press+release always emits a trace (no device selected)', () => {
   let modal, logs, calls, view;
   beforeEach(() => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     ({ modal, logs, calls } = makeModal());
-    view = new (win.ThereminView)();
+    view = new win.ThereminView();
     view.mount({ modal });
   });
-  afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => {
+    try {
+      view.unmount();
+    } catch {
+      /* idempotent */
+    }
+  });
 
   it('plays + stops the real mixin and logs a virtual trace', () => {
     const pad = document.getElementById('theremin-container');
@@ -153,18 +198,20 @@ describe('theremin — pad press+release always emits a trace (no device selecte
 // ── Legacy piano-family views: assert the shared trace layer they funnel
 //    through (no _pressCell of their own; routed via legacy key handlers). ──
 describe.each(['piano', 'fretboard', 'drumpad', 'piano-slider', 'keyboard-list'])(
-  '%s (legacy delegate) — shared playNote/stopNote always traces', (kind) => {
-  it('exactly one on-line + one off-line, no device selected', () => {
-    expect(typeof win.instrumentViews.get(kind)).toBe('function');
-    const { modal, logs, calls } = makeModal();
-    modal.playNote(60);
-    modal.stopNote(60);
-    expect(calls.play).toEqual([60]);
-    expect(calls.stop).toEqual([60]);
-    expect(logs.filter((m) => m.includes('virtualNoteOn')).length).toBe(1);
-    expect(logs.filter((m) => m.includes('virtualNoteOff')).length).toBe(1);
-  });
-});
+  '%s (legacy delegate) — shared playNote/stopNote always traces',
+  (kind) => {
+    it('exactly one on-line + one off-line, no device selected', () => {
+      expect(typeof win.instrumentViews.get(kind)).toBe('function');
+      const { modal, logs, calls } = makeModal();
+      modal.playNote(60);
+      modal.stopNote(60);
+      expect(calls.play).toEqual([60]);
+      expect(calls.stop).toEqual([60]);
+      expect(logs.filter((m) => m.includes('virtualNoteOn')).length).toBe(1);
+      expect(logs.filter((m) => m.includes('virtualNoteOff')).length).toBe(1);
+    });
+  }
+);
 
 // ── Device-state matrix on the shared layer ────────────────────────────────
 describe('playNote/stopNote device-state matrix', () => {
@@ -182,9 +229,15 @@ describe('playNote/stopNote device-state matrix', () => {
     const { modal, logs } = makeModal({
       selectedDevice: { device_id: 'virtual_1', isVirtual: true },
       backend: {
-        sendNoteOn: () => { sent++; return Promise.resolve(); },
-        sendNoteOff: () => { sent++; return Promise.resolve(); },
-      },
+        sendNoteOn: () => {
+          sent++;
+          return Promise.resolve();
+        },
+        sendNoteOff: () => {
+          sent++;
+          return Promise.resolve();
+        }
+      }
     });
     modal.playNote(67);
     modal.stopNote(67);
@@ -198,9 +251,15 @@ describe('playNote/stopNote device-state matrix', () => {
     const { modal, logs } = makeModal({
       selectedDevice: { device_id: 'hw_1', isVirtual: false },
       backend: {
-        sendNoteOn: (...a) => { sent.push(['on', ...a]); return Promise.resolve(); },
-        sendNoteOff: (...a) => { sent.push(['off', ...a]); return Promise.resolve(); },
-      },
+        sendNoteOn: (...a) => {
+          sent.push(['on', ...a]);
+          return Promise.resolve();
+        },
+        sendNoteOff: (...a) => {
+          sent.push(['off', ...a]);
+          return Promise.resolve();
+        }
+      }
     });
     modal.playNote(69);
     modal.stopNote(69);

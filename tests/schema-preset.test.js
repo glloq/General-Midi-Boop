@@ -17,12 +17,14 @@ describe('preset_save', () => {
     ok(JsonValidator.validateByCommand('preset_save', { name: 'My preset', data: {} }));
   });
   test('valid with optional fields', () => {
-    ok(JsonValidator.validateByCommand('preset_save', {
-      name: 'Mix A',
-      description: 'Live set',
-      type: 'routing',
-      data: { routes: [] }
-    }));
+    ok(
+      JsonValidator.validateByCommand('preset_save', {
+        name: 'Mix A',
+        description: 'Live set',
+        type: 'routing',
+        data: { routes: [] }
+      })
+    );
   });
   test('missing name', () => {
     errs(JsonValidator.validateByCommand('preset_save', { data: {} }), ['name is required']);
@@ -31,10 +33,9 @@ describe('preset_save', () => {
     errs(JsonValidator.validateByCommand('preset_save', { name: 'X' }), ['data is required']);
   });
   test('data must be object', () => {
-    errs(
-      JsonValidator.validateByCommand('preset_save', { name: 'X', data: 'string-not-object' }),
-      ['data must be an object']
-    );
+    errs(JsonValidator.validateByCommand('preset_save', { name: 'X', data: 'string-not-object' }), [
+      'data must be an object'
+    ]);
   });
 });
 
@@ -75,15 +76,13 @@ describe('preset_rename', () => {
     ok(JsonValidator.validateByCommand('preset_rename', { presetId: 1, newName: 'Renamed' }));
   });
   test('missing newName', () => {
-    errs(
-      JsonValidator.validateByCommand('preset_rename', { presetId: 1 }),
-      ['newName is required']
-    );
+    errs(JsonValidator.validateByCommand('preset_rename', { presetId: 1 }), [
+      'newName is required'
+    ]);
   });
   test('missing presetId', () => {
-    errs(
-      JsonValidator.validateByCommand('preset_rename', { newName: 'X' }),
-      ['presetId is required']
-    );
+    errs(JsonValidator.validateByCommand('preset_rename', { newName: 'X' }), [
+      'presetId is required'
+    ]);
   });
 });

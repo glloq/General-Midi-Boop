@@ -17,9 +17,7 @@ describe('computeRoutingStatus', () => {
   });
 
   test('partial when some but not all channels are routed', () => {
-    const routings = [
-      { channel: 0, device_id: 'a', enabled: true, compatibility_score: 95 }
-    ];
+    const routings = [{ channel: 0, device_id: 'a', enabled: true, compatibility_score: 95 }];
     const r = make({ channel_count: 3 }, routings);
     expect(r.status).toBe('partial');
     expect(r.routedCount).toBe(1);

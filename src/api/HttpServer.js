@@ -149,12 +149,18 @@ class HttpServer {
       if (origin) {
         try {
           const url = new URL(origin);
-          if (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === req.hostname) {
+          if (
+            url.hostname === 'localhost' ||
+            url.hostname === '127.0.0.1' ||
+            url.hostname === req.hostname
+          ) {
             res.setHeader('Access-Control-Allow-Origin', origin);
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
           }
-        } catch { /* invalid origin, ignore */ }
+        } catch {
+          /* invalid origin, ignore */
+        }
       }
       if (req.method === 'OPTIONS') return res.sendStatus(204);
       next();
@@ -215,12 +221,16 @@ class HttpServer {
         if (origin) {
           try {
             const url = new URL(origin);
-            if (url.hostname === 'localhost'
-                || url.hostname === '127.0.0.1'
-                || url.hostname === req.hostname) {
+            if (
+              url.hostname === 'localhost' ||
+              url.hostname === '127.0.0.1' ||
+              url.hostname === req.hostname
+            ) {
               return next();
             }
-          } catch { /* fall through to token check */ }
+          } catch {
+            /* fall through to token check */
+          }
         }
 
         // Private-network bypass. The API token guards against random
@@ -248,7 +258,8 @@ class HttpServer {
     const isProduction = process.env.NODE_ENV === 'production';
     const distPath = path.join(__dirname, '../../dist');
     const devPath = path.join(__dirname, '../../public');
-    const publicPath = (isProduction && existsSync(path.join(distPath, 'index.html'))) ? distPath : devPath;
+    const publicPath =
+      isProduction && existsSync(path.join(distPath, 'index.html')) ? distPath : devPath;
 
     this.expressApp.use(
       express.static(publicPath, {
@@ -285,10 +296,13 @@ class HttpServer {
       const sslKey = this.config.server.sslKey;
 
       if (sslCert && sslKey && existsSync(sslCert) && existsSync(sslKey)) {
-        this.server = createHttpsServer({
-          cert: readFileSync(sslCert),
-          key: readFileSync(sslKey)
-        }, this.expressApp);
+        this.server = createHttpsServer(
+          {
+            cert: readFileSync(sslCert),
+            key: readFileSync(sslKey)
+          },
+          this.expressApp
+        );
         this.server.listen(port, host, () => {
           this.logger.info(`HTTPS server listening on https://${host}:${port}`);
           resolve();

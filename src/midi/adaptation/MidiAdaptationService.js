@@ -129,9 +129,10 @@ export default class MidiAdaptationService {
       if (!analysis) continue;
 
       const baseline = this._matcher._scoreHandPositionFeasibility(analysis, instrument);
-      const recommendations = (baseline.level === 'warning' || baseline.level === 'infeasible')
-        ? this._buildRecommendations(analysis, instrument, baseline)
-        : [];
+      const recommendations =
+        baseline.level === 'warning' || baseline.level === 'infeasible'
+          ? this._buildRecommendations(analysis, instrument, baseline)
+          : [];
 
       out[channel] = {
         level: baseline.level,
@@ -188,7 +189,11 @@ export default class MidiAdaptationService {
       if (Number.isFinite(limit) && baseline.summary.polyphonyMax > limit) {
         recs.push({
           type: 'split',
-          params: { reason: 'polyphony_exceeds_fingers', polyphony: baseline.summary.polyphonyMax, limit },
+          params: {
+            reason: 'polyphony_exceeds_fingers',
+            polyphony: baseline.summary.polyphonyMax,
+            limit
+          },
           projectedLevel: 'requires-second-instrument',
           rationale: `Polyphony ${baseline.summary.polyphonyMax} exceeds finger budget ${limit}; consider splitting onto a second instrument.`
         });

@@ -40,10 +40,8 @@ describe('GM instrument names — shared JSON parity', () => {
 
   it.each([
     ['public/index.html', /const\s+GM_INSTRUMENTS\s*=\s*\[([\s\S]*?)\];/],
-    ['public/js/features/midi-editor/MidiEditorConstants.js',
-      /gmInstruments:\s*\[([\s\S]*?)\]/],
-    ['public/js/features/LoopCreatorModal.js',
-      /GM_PROGRAM_NAMES\s*=\s*\[([\s\S]*?)\];/],
+    ['public/js/features/midi-editor/MidiEditorConstants.js', /gmInstruments:\s*\[([\s\S]*?)\]/],
+    ['public/js/features/LoopCreatorModal.js', /GM_PROGRAM_NAMES\s*=\s*\[([\s\S]*?)\];/]
   ])('matches the inline copy in %s', (relPath, pattern) => {
     const src = readFileSync(resolve(__dirname, '../../', relPath), 'utf8');
     const items = extractArrayAfter(src, pattern);

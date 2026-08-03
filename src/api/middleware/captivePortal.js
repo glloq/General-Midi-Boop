@@ -25,16 +25,16 @@
  * and a captive proxy is in front).
  */
 const PROBE_PATHS = new Set([
-  '/hotspot-detect.html',                  // Apple iOS / macOS
-  '/library/test/success.html',            // Apple legacy
-  '/generate_204',                         // Android / Chrome OS
-  '/gen_204',                              // Android legacy
-  '/connecttest.txt',                      // Windows 10/11
-  '/ncsi.txt',                             // Windows NCSI
-  '/redirect',                             // Windows captive
-  '/canonical.html',                       // Firefox
-  '/success.txt',                          // Firefox / various
-  '/check_network_status.txt'              // Various
+  '/hotspot-detect.html', // Apple iOS / macOS
+  '/library/test/success.html', // Apple legacy
+  '/generate_204', // Android / Chrome OS
+  '/gen_204', // Android legacy
+  '/connecttest.txt', // Windows 10/11
+  '/ncsi.txt', // Windows NCSI
+  '/redirect', // Windows captive
+  '/canonical.html', // Firefox
+  '/success.txt', // Firefox / various
+  '/check_network_status.txt' // Various
 ]);
 
 /**
@@ -72,11 +72,11 @@ export function createCaptivePortalMiddleware({ hotspotManager, logger } = {}) {
     if (!hotspotManager || typeof hotspotManager.isActive !== 'function') return next();
     if (!hotspotManager.isActive()) return next();
 
-    const rawHost = String(req.headers.host || '').split(':')[0].toLowerCase();
-    const isOurs = !rawHost
-      || rawHost === 'localhost'
-      || rawHost === '127.0.0.1'
-      || _isNumericIp(rawHost);
+    const rawHost = String(req.headers.host || '')
+      .split(':')[0]
+      .toLowerCase();
+    const isOurs =
+      !rawHost || rawHost === 'localhost' || rawHost === '127.0.0.1' || _isNumericIp(rawHost);
 
     // Probe path → always treat as captive probe, even when it resolves
     // to us (some OSes hard-code the IP). Non-IP host (i.e. DNS hijack

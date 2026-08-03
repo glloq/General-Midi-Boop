@@ -12,19 +12,27 @@ let calls;
 
 function installCanvasStub() {
   calls = [];
-  const ctx = new Proxy({}, {
-    get(_t, prop) {
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
-        return (...args) => calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => calls.push({ method: prop, args });
+        }
+        return undefined;
+      },
+      set(_t, prop, value) {
+        calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return undefined;
-    },
-    set(_t, prop, value) {
-      calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -43,9 +51,10 @@ beforeEach(() => {
 
 function makeCanvas(w = 600, h = 160) {
   const c = document.createElement('canvas');
-  Object.defineProperty(c, 'clientWidth',  { get: () => w });
+  Object.defineProperty(c, 'clientWidth', { get: () => w });
   Object.defineProperty(c, 'clientHeight', { get: () => h });
-  c.width = w; c.height = h;
+  c.width = w;
+  c.height = h;
   return c;
 }
 
@@ -58,14 +67,16 @@ function placeBandAt(fb, anchor) {
 
 function findArcAt(x, y, tolerance = 1) {
   return calls
-    .filter(c => c.method === 'arc')
-    .find(c => Math.abs(c.args[0] - x) < tolerance && Math.abs(c.args[1] - y) < tolerance);
+    .filter((c) => c.method === 'arc')
+    .find((c) => Math.abs(c.args[0] - x) < tolerance && Math.abs(c.args[1] - y) < tolerance);
 }
 
 describe('FretboardHandPreview — direction-aware outside_window markers', () => {
   it('parks a left-direction marker just left of the band', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     placeBandAt(fb, 7);
     // Bracket is computed via _handWindowX(7) which we read directly so
@@ -82,7 +93,9 @@ describe('FretboardHandPreview — direction-aware outside_window markers', () =
 
   it('parks a right-direction marker just right of the band', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     placeBandAt(fb, 5);
     const { x1 } = fb._handWindowX(5);
@@ -97,13 +110,13 @@ describe('FretboardHandPreview — direction-aware outside_window markers', () =
 
   it('falls back to the fret slot when no direction is provided', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     placeBandAt(fb, 5);
     calls.length = 0;
-    fb.setUnplayablePositions([
-      { string: 1, fret: 12, reason: 'too_many_fingers' }
-    ]);
+    fb.setUnplayablePositions([{ string: 1, fret: 12, reason: 'too_many_fingers' }]);
     fb.draw();
     const expectedX = (fb._fretX(11) + fb._fretX(12)) / 2;
     const arc = findArcAt(expectedX, fb._stringY(1), 1.5);

@@ -28,7 +28,7 @@ describe('HandAssigner — pitch_split', () => {
     // 60 is at the split exactly, inside band → sticks to previous hand (left)
     expect(assignments[1].hand).toBe('left');
     expect(assignments[2].hand).toBe('left');
-    expect(warnings.some(w => w.code === 'auto_split_ambiguous')).toBe(true);
+    expect(warnings.some((w) => w.code === 'auto_split_ambiguous')).toBe(true);
   });
 
   test('pure above/below split gives no warnings', () => {
@@ -60,7 +60,7 @@ describe('HandAssigner — track mode', () => {
     const a = new HandAssigner(cfg);
     const { assignments, warnings } = a.assign([n(0, 40, { track: 99 })]);
     expect(assignments[0].hand).toBe('left'); // below 60 → left
-    expect(warnings.some(w => w.code === 'auto_track_conflict')).toBe(true);
+    expect(warnings.some((w) => w.code === 'auto_track_conflict')).toBe(true);
   });
 });
 
@@ -105,15 +105,15 @@ describe('HandAssigner — auto mode', () => {
     };
     const a = new HandAssigner(cfg);
     const notes = [
-      ...[36, 40, 44].map((p, i) => n(i, p, { track: 0 })),         // lowest — left
-      ...[55, 57, 59].map((p, i) => n(i + 10, p, { track: 1 })),    // middle — assigned by proximity
-      ...[72, 76, 80].map((p, i) => n(i + 20, p, { track: 2 }))     // highest — right
+      ...[36, 40, 44].map((p, i) => n(i, p, { track: 0 })), // lowest — left
+      ...[55, 57, 59].map((p, i) => n(i + 10, p, { track: 1 })), // middle — assigned by proximity
+      ...[72, 76, 80].map((p, i) => n(i + 20, p, { track: 2 })) // highest — right
     ];
     const { assignments, warnings } = a.assign(notes);
-    expect(assignments.find(x => notes[x.idx].track === 0).hand).toBe('left');
-    expect(assignments.find(x => notes[x.idx].track === 2).hand).toBe('right');
+    expect(assignments.find((x) => notes[x.idx].track === 0).hand).toBe('left');
+    expect(assignments.find((x) => notes[x.idx].track === 2).hand).toBe('right');
     // Middle track flagged as auto-assigned
-    expect(warnings.some(w => w.code === 'auto_track_conflict')).toBe(true);
+    expect(warnings.some((w) => w.code === 'auto_track_conflict')).toBe(true);
   });
 });
 
@@ -123,7 +123,7 @@ describe('HandAssigner — single-hand shortcut', () => {
     const a = new HandAssigner(cfg);
     const { assignments, resolvedMode } = a.assign([n(0, 40), n(1, 80)]);
     expect(resolvedMode).toBe('single_hand');
-    expect(assignments.every(x => x.hand === 'left')).toBe(true);
+    expect(assignments.every((x) => x.hand === 'left')).toBe(true);
   });
 });
 

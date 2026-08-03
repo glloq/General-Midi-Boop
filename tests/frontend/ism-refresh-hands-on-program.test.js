@@ -28,12 +28,15 @@ const listenersSrc = readFileSync(
 
 beforeAll(() => {
   new Function(familiesSrc)();
-  window.InstrumentSettingsModal = { GM_CATEGORY_EMOJIS: {}, SECTIONS: [
-    { id: 'identity', icon: '🎵', fallback: 'Identity' },
-    { id: 'notes',    icon: '🎹', fallback: 'Notes' },
-    { id: 'hands',    icon: '🫱', fallback: 'Hands', keyboardsOnly: true },
-    { id: 'advanced', icon: '⚙️', fallback: 'Advanced' }
-  ]};
+  window.InstrumentSettingsModal = {
+    GM_CATEGORY_EMOJIS: {},
+    SECTIONS: [
+      { id: 'identity', icon: '🎵', fallback: 'Identity' },
+      { id: 'notes', icon: '🎹', fallback: 'Notes' },
+      { id: 'hands', icon: '🫱', fallback: 'Hands', keyboardsOnly: true },
+      { id: 'advanced', icon: '⚙️', fallback: 'Advanced' }
+    ]
+  };
   new Function(sectionsSrc)();
   new Function(listenersSrc)();
 });
@@ -60,10 +63,19 @@ function makeStubModal(initialTab, { initialHands = true } = {}) {
     activeSection: 'notes',
     _tab: initialTab,
     _switchedTo: null,
-    $(sel) { return document.querySelector(sel); },
-    $$(sel) { return Array.from(document.querySelectorAll(sel)); },
-    _getActiveTab() { return this._tab; },
-    _switchSection(id) { this._switchedTo = id; this.activeSection = id; },
+    $(sel) {
+      return document.querySelector(sel);
+    },
+    $$(sel) {
+      return Array.from(document.querySelectorAll(sel));
+    },
+    _getActiveTab() {
+      return this._tab;
+    },
+    _switchSection(id) {
+      this._switchedTo = id;
+      this.activeSection = id;
+    },
     _renderSidebar() {
       const tab = this._getActiveTab();
       const show = window.ISMSections._shouldShowHandsSection(tab);
@@ -93,7 +105,11 @@ describe('ISMListeners._refreshHandsSectionForProgram', () => {
     // User flips to acoustic guitar (gm_program 24). Hand management is
     // opt-in: the section only renders when the toggle is on, so the tab
     // carries hands_config.enabled = true.
-    modal._tab = { settings: { gm_program: 24, hands_config: { enabled: true } }, channel: 0, stringInstrumentConfig: { num_strings: 6 } };
+    modal._tab = {
+      settings: { gm_program: 24, hands_config: { enabled: true } },
+      channel: 0,
+      stringInstrumentConfig: { num_strings: 6 }
+    };
     modal._refreshHandsSectionForProgram();
 
     const hands = document.querySelector('.ism-section[data-section="hands"]');
@@ -117,7 +133,11 @@ describe('ISMListeners._refreshHandsSectionForProgram', () => {
       '<input type="hidden" id="handsMode" value="semitones">';
 
     // User switches to classical guitar (hand management still enabled).
-    modal._tab = { settings: { gm_program: 24, hands_config: { enabled: true } }, channel: 0, stringInstrumentConfig: { num_strings: 6 } };
+    modal._tab = {
+      settings: { gm_program: 24, hands_config: { enabled: true } },
+      channel: 0,
+      stringInstrumentConfig: { num_strings: 6 }
+    };
     modal._refreshHandsSectionForProgram();
 
     const hiddenMode = document.querySelector('#handsMode');

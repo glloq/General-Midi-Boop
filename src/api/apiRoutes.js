@@ -150,13 +150,14 @@ export function createApiRouter(app) {
       res.status(status).json({ uploadId, ...result });
     } catch (err) {
       app.logger.error(`POST /api/files failed: ${err.message}`);
-      const code = err.code === 'UPLOAD_QUEUE_FULL'
-        ? 503
-        : /too large/i.test(err.message)
-          ? 413
-          : /invalid midi/i.test(err.message)
-            ? 415
-            : 500;
+      const code =
+        err.code === 'UPLOAD_QUEUE_FULL'
+          ? 503
+          : /too large/i.test(err.message)
+            ? 413
+            : /invalid midi/i.test(err.message)
+              ? 415
+              : 500;
       res.status(code).json({ error: err.message });
     }
   });

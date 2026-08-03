@@ -15,9 +15,34 @@ const __dirname = path.dirname(__filename);
 const LOCALES_DIR = path.resolve(__dirname, '..', 'public', 'locales');
 
 const EXPECTED_LOCALES = [
-  'bn', 'cs', 'da', 'de', 'el', 'en', 'eo', 'es', 'fi', 'fr',
-  'hi', 'hu', 'id', 'it', 'ja', 'ko', 'nl', 'no', 'pl', 'pt',
-  'ru', 'sv', 'th', 'tl', 'tr', 'uk', 'vi', 'zh-CN',
+  'bn',
+  'cs',
+  'da',
+  'de',
+  'el',
+  'en',
+  'eo',
+  'es',
+  'fi',
+  'fr',
+  'hi',
+  'hu',
+  'id',
+  'it',
+  'ja',
+  'ko',
+  'nl',
+  'no',
+  'pl',
+  'pt',
+  'ru',
+  'sv',
+  'th',
+  'tl',
+  'tr',
+  'uk',
+  'vi',
+  'zh-CN'
 ];
 
 /**
@@ -107,7 +132,8 @@ describe('i18n audit', () => {
   // ----------------------------------------------------------
   describe('locale file inventory', () => {
     it('should have all 28 expected locale files', () => {
-      const existing = fs.readdirSync(LOCALES_DIR)
+      const existing = fs
+        .readdirSync(LOCALES_DIR)
         .filter((f) => f.endsWith('.json'))
         .map((f) => f.replace('.json', ''))
         .sort();
@@ -149,9 +175,7 @@ describe('i18n audit', () => {
     for (const code of EXPECTED_LOCALES) {
       it(`${code} should contain no empty string values`, () => {
         const allStrings = flattenStringValues(localeData[code]);
-        const empties = allStrings
-          .filter((entry) => entry.value === '')
-          .map((entry) => entry.key);
+        const empties = allStrings.filter((entry) => entry.value === '').map((entry) => entry.key);
 
         expect(empties).toEqual([]);
       });
@@ -179,9 +203,7 @@ describe('i18n audit', () => {
     for (const code of nonEnglishLocales) {
       it(`${code} should have the same nesting structure as en.json`, () => {
         // Compare structures; on mismatch Jest's diff shows the divergence
-        expect(structureSignature(localeData[code])).toEqual(
-          structureSignature(referenceLocale)
-        );
+        expect(structureSignature(localeData[code])).toEqual(structureSignature(referenceLocale));
       });
     }
   });

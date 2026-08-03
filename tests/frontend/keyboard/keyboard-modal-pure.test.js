@@ -25,7 +25,7 @@ beforeAll(() => {
   load('../../../public/js/features/KeyboardModal.js');
 });
 
-const makeModal = () => new (win.KeyboardModal)();
+const makeModal = () => new win.KeyboardModal();
 
 describe('KeyboardModal.getNoteLabel — notation formats', () => {
   it('english (default): middle C is C4, MIDI 54 is F#3', () => {
@@ -72,14 +72,18 @@ describe('KeyboardModal._getStringPresetForGmProgram', () => {
     const m = makeModal();
     expect(m._getStringPresetForGmProgram(null)).toBeNull();
     expect(m._getStringPresetForGmProgram(undefined)).toBeNull();
-    expect(m._getStringPresetForGmProgram(0)).toBeNull();   // grand piano
-    expect(m._getStringPresetForGmProgram(56)).toBeNull();  // trumpet (wind)
+    expect(m._getStringPresetForGmProgram(0)).toBeNull(); // grand piano
+    expect(m._getStringPresetForGmProgram(56)).toBeNull(); // trumpet (wind)
   });
 
   it('acoustic guitars (24 nylon / 25 steel) — 6 strings, EADGBE', () => {
     const m = makeModal();
-    expect(m._getStringPresetForGmProgram(24)).toEqual(
-      { num_strings: 6, num_frets: 19, tuning: [40, 45, 50, 55, 59, 64], is_fretless: false });
+    expect(m._getStringPresetForGmProgram(24)).toEqual({
+      num_strings: 6,
+      num_frets: 19,
+      tuning: [40, 45, 50, 55, 59, 64],
+      is_fretless: false
+    });
     expect(m._getStringPresetForGmProgram(25).num_frets).toBe(20);
   });
 
@@ -95,11 +99,19 @@ describe('KeyboardModal._getStringPresetForGmProgram', () => {
 
   it('basses: 32 acoustic fretted, 35 fretless, 33-39 fretted', () => {
     const m = makeModal();
-    expect(m._getStringPresetForGmProgram(32)).toEqual(
-      { num_strings: 4, num_frets: 20, tuning: [28, 33, 38, 43], is_fretless: false });
+    expect(m._getStringPresetForGmProgram(32)).toEqual({
+      num_strings: 4,
+      num_frets: 20,
+      tuning: [28, 33, 38, 43],
+      is_fretless: false
+    });
     // 35 must be evaluated before the 33-39 range → fretless
-    expect(m._getStringPresetForGmProgram(35)).toEqual(
-      { num_strings: 4, num_frets: 0, tuning: [28, 33, 38, 43], is_fretless: true });
+    expect(m._getStringPresetForGmProgram(35)).toEqual({
+      num_strings: 4,
+      num_frets: 0,
+      tuning: [28, 33, 38, 43],
+      is_fretless: true
+    });
     for (const gm of [33, 34, 36, 37, 38, 39]) {
       const p = m._getStringPresetForGmProgram(gm);
       expect(p.num_strings).toBe(4);
@@ -128,14 +140,14 @@ describe('KeyboardModal._getStringPresetForGmProgram', () => {
     expect(harp.num_frets).toBe(0);
     expect(harp.is_fretless).toBe(true);
     expect(harp.tuning.length).toBe(47);
-    expect(harp.tuning[0]).toBe(24);   // C1
+    expect(harp.tuning[0]).toBe(24); // C1
     expect(harp.tuning[46]).toBe(103); // G7
     // Diatonic C-major: no accidentals.
     const scale = new Set([0, 2, 4, 5, 7, 9, 11]);
     for (const n of harp.tuning) expect(scale.has(n % 12)).toBe(true);
-    expect(m._getStringPresetForGmProgram(104).num_strings).toBe(7);  // sitar
-    expect(m._getStringPresetForGmProgram(105).num_strings).toBe(5);  // banjo
-    expect(m._getStringPresetForGmProgram(106).num_strings).toBe(3);  // shamisen
+    expect(m._getStringPresetForGmProgram(104).num_strings).toBe(7); // sitar
+    expect(m._getStringPresetForGmProgram(105).num_strings).toBe(5); // banjo
+    expect(m._getStringPresetForGmProgram(106).num_strings).toBe(3); // shamisen
     expect(m._getStringPresetForGmProgram(107).num_strings).toBe(13); // koto
   });
 });
@@ -143,12 +155,12 @@ describe('KeyboardModal._getStringPresetForGmProgram', () => {
 describe('KeyboardModal._resolveKeyToNote — PC keyboard mapping', () => {
   // Minimal `this` context: the method only reads keyboardLayout +
   // visibleWhiteNotes + visibleBlackNotes.
-  const resolve_ = win => win.KeyboardEventsMixin._resolveKeyToNote;
+  const resolve_ = (win) => win.KeyboardEventsMixin._resolveKeyToNote;
   const ctx = (layout) => ({
     keyboardLayout: layout,
     // One octave starting at middle C (C4=60 .. B4=71)
     visibleWhiteNotes: [60, 62, 64, 65, 67, 69, 71],
-    visibleBlackNotes: [61, 63, 66, 68, 70],
+    visibleBlackNotes: [61, 63, 66, 68, 70]
   });
 
   it('AZERTY: white-key row maps in order from the first visible white note', () => {

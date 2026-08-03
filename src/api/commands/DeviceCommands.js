@@ -169,11 +169,7 @@ async function deviceSetProperties(app, data) {
   const device = app.deviceManager?.getDeviceInfo?.(data.deviceId);
   // Ensure a row exists so the UPDATE targets something even for a device
   // that has no persisted settings yet.
-  app.database.ensureDevice(
-    data.deviceId,
-    device?.name || data.deviceId,
-    device?.type || 'output'
-  );
+  app.database.ensureDevice(data.deviceId, device?.name || data.deviceId, device?.type || 'output');
   app.database.updateDeviceSettings(data.deviceId, data.properties || {});
   return { success: true };
 }

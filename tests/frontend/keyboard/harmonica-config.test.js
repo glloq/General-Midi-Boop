@@ -33,7 +33,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
 function mountWith(cfg, range, extra = {}) {
   document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-  const played = [], stopped = [];
+  const played = [],
+    stopped = [];
   const modal = {
     playNote: (n) => played.push(n),
     stopNote: (n) => stopped.push(n),
@@ -42,16 +43,18 @@ function mountWith(cfg, range, extra = {}) {
     getInstrumentNoteRange: () => range,
     ...extra
   };
-  const view = new (win.HarmonicaView)();
+  const view = new win.HarmonicaView();
   view.mount({ modal, i18n: extra.i18n });
   const root = document.getElementById('harmonica-container');
-  const notes = (kind) => [...root.querySelectorAll(`.harmonica-${kind}`)]
-    .map(c => parseInt(c.dataset.note, 10));
+  const notes = (kind) =>
+    [...root.querySelectorAll(`.harmonica-${kind}`)].map((c) => parseInt(c.dataset.note, 10));
   return { view, root, played, stopped, notes };
 }
 
 describe('Harmonica — diatonic key transpose', () => {
-  afterEach(() => { document.body.innerHTML = ''; });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
 
   it('default diatonic C over the configured range is the classic layout', () => {
     const { notes } = mountWith({ type: 'diatonic', key: 'C' }, { min: 60, max: 96 });
@@ -76,47 +79,60 @@ describe('Harmonica — diatonic key transpose', () => {
   // a non-octave amount → spurious sharps. A C harmonica must stay natural.
   const BLACK_PC = new Set([1, 3, 6, 8, 10]);
   it('diatonic C stays strictly natural for a non-C-aligned range', () => {
-    for (const range of [{ min: 53, max: 96 }, { min: 50, max: 89 },
-                         { min: 48, max: 84 }]) {
+    for (const range of [
+      { min: 53, max: 96 },
+      { min: 50, max: 89 },
+      { min: 48, max: 84 }
+    ]) {
       const { notes } = mountWith({ type: 'diatonic', key: 'C' }, range);
       const all = [...notes('blow'), ...notes('draw')];
       expect(all.length).toBeGreaterThan(0);
-      expect(all.some(n => BLACK_PC.has(n % 12))).toBe(false);
+      expect(all.some((n) => BLACK_PC.has(n % 12))).toBe(false);
     }
   });
 
   it('diatonic A faithfully reproduces the real instrument accidentals', () => {
     const { notes } = mountWith({ type: 'diatonic', key: 'A' }, { min: 53, max: 96 });
-    const pcs = new Set([...notes('blow'), ...notes('draw')].map(n => n % 12));
+    const pcs = new Set([...notes('blow'), ...notes('draw')].map((n) => n % 12));
     // A-major harp really sounds C#, F#, G#.
-    expect(pcs.has(1)).toBe(true);  // C#
-    expect(pcs.has(6)).toBe(true);  // F#
-    expect(pcs.has(8)).toBe(true);  // G#
+    expect(pcs.has(1)).toBe(true); // C#
+    expect(pcs.has(6)).toBe(true); // F#
+    expect(pcs.has(8)).toBe(true); // G#
   });
 });
 
 describe('Harmonica — virtual-piano restriction', () => {
-  afterEach(() => { document.body.innerHTML = ''; });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
 
   const make = (caps) => {
-    const m = new (win.KeyboardModal)();
+    const m = new win.KeyboardModal();
     m.selectedDeviceCapabilities = caps;
     return m;
   };
 
   it('diatonic C harmonica: no black key is playable', () => {
-    const m = make({ gm_program: 22, note_range_min: 53, note_range_max: 96,
-      harmonica_config: { type: 'diatonic', key: 'C' } });
+    const m = make({
+      gm_program: 22,
+      note_range_min: 53,
+      note_range_max: 96,
+      harmonica_config: { type: 'diatonic', key: 'C' }
+    });
     const set = m.getHarmonicaPlayableNotes();
     expect(set).toBeInstanceOf(Set);
-    expect([...set].some(n => [1, 3, 6, 8, 10].includes(n % 12))).toBe(false);
-    expect(set.has(60)).toBe(true);   // C is in the layout
-    expect(set.has(61)).toBe(false);  // C# is not
+    expect([...set].some((n) => [1, 3, 6, 8, 10].includes(n % 12))).toBe(false);
+    expect(set.has(60)).toBe(true); // C is in the layout
+    expect(set.has(61)).toBe(false); // C# is not
   });
 
   it('chromatic harmonica imposes no restriction (slide reaches all)', () => {
-    const m = make({ gm_program: 22, note_range_min: 60, note_range_max: 96,
-      harmonica_config: { type: 'chromatic', key: 'C' } });
+    const m = make({
+      gm_program: 22,
+      note_range_min: 60,
+      note_range_max: 96,
+      harmonica_config: { type: 'chromatic', key: 'C' }
+    });
     expect(m.getHarmonicaPlayableNotes()).toBeNull();
   });
 
@@ -127,17 +143,21 @@ describe('Harmonica — virtual-piano restriction', () => {
 });
 
 describe('Harmonica — chromatic solo tuning', () => {
-  afterEach(() => { document.body.innerHTML = ''; });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
 
   it('emits 4-hole groups with C-E-G-C / D-F-A-B offsets', () => {
     const { notes, root } = mountWith({ type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
-    const blow = notes('blow'), draw = notes('draw');
+    const blow = notes('blow'),
+      draw = notes('draw');
     expect(blow.slice(0, 4)).toEqual([60, 64, 67, 72]);
     expect(draw.slice(0, 4)).toEqual([62, 65, 69, 71]);
     expect(blow.slice(4, 8)).toEqual([72, 76, 79, 84]); // group 2 (+12)
-    expect(blow.length).toBe(12);                        // 3 groups fit in C4..C7
-    expect(root.querySelector('.harmonica-chromatic')
-      || root.classList.contains('harmonica-chromatic')).toBeTruthy();
+    expect(blow.length).toBe(12); // 3 groups fit in C4..C7
+    expect(
+      root.querySelector('.harmonica-chromatic') || root.classList.contains('harmonica-chromatic')
+    ).toBeTruthy();
   });
 
   it('tiny range falls back to a single hole; never crashes', () => {
@@ -157,21 +177,23 @@ describe('Harmonica — chromatic solo tuning', () => {
 });
 
 describe('Harmonica — count-driven discrete note selection', () => {
-  afterEach(() => { document.body.innerHTML = ''; });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
 
   // 1 hole = 1 blow + 1 draw, so N discrete notes → round(N/2) holes.
-  const consecutive = (lo, n) =>
-    Array.from({ length: n }, (_, i) => lo + i);
+  const consecutive = (lo, n) => Array.from({ length: n }, (_, i) => lo + i);
 
   it('diatonic: 20 selected notes → 10 holes per row', () => {
     const notesArr = consecutive(60, 20);
     const { notes } = mountWith(
       { type: 'diatonic', key: 'C' },
-      { min: 60, max: 79, notes: notesArr });
+      { min: 60, max: 79, notes: notesArr }
+    );
     expect(notes('blow').length).toBe(10);
     expect(notes('draw').length).toBe(10);
-    expect(notes('blow')[0]).toBe(60);   // base = lowest selected note
-    expect(notes('draw')[0]).toBe(62);   // Richter draw offset +2
+    expect(notes('blow')[0]).toBe(60); // base = lowest selected note
+    expect(notes('draw')[0]).toBe(62); // Richter draw offset +2
     expect(notes('blow').at(-1)).toBe(96);
   });
 
@@ -179,18 +201,20 @@ describe('Harmonica — count-driven discrete note selection', () => {
     const notesArr = consecutive(60, 20);
     const { notes } = mountWith(
       { type: 'chromatic', key: 'C' },
-      { min: 60, max: 79, notes: notesArr });
+      { min: 60, max: 79, notes: notesArr }
+    );
     expect(notes('blow').length).toBe(10);
     expect(notes('blow').slice(0, 4)).toEqual([60, 64, 67, 72]);
     expect(notes('draw').slice(0, 4)).toEqual([62, 65, 69, 71]);
-    expect(notes('blow')[4]).toBe(72);   // next group (+12)
+    expect(notes('blow')[4]).toBe(72); // next group (+12)
   });
 
   it('diatonic: 40 notes → 20 holes, pattern extended by octave', () => {
     const notesArr = consecutive(36, 40);
     const { notes } = mountWith(
       { type: 'diatonic', key: 'C' },
-      { min: 36, max: 75, notes: notesArr });
+      { min: 36, max: 75, notes: notesArr }
+    );
     const blow = notes('blow');
     expect(blow.length).toBe(20);
     // Beyond the 10-hole reference it tiles by octave (+12, period 3).
@@ -202,20 +226,22 @@ describe('Harmonica — count-driven discrete note selection', () => {
     const notesArr = consecutive(60, 21);
     const { notes } = mountWith(
       { type: 'diatonic', key: 'C' },
-      { min: 60, max: 80, notes: notesArr });
+      { min: 60, max: 80, notes: notesArr }
+    );
     expect(notes('blow').length).toBe(11);
   });
 
   it('a min/max range without a discrete list keeps the legacy clamp', () => {
-    const { notes } = mountWith(
-      { type: 'diatonic', key: 'C' }, { min: 60, max: 96 });
-    expect(notes('blow').length).toBe(10);   // unchanged reference behaviour
+    const { notes } = mountWith({ type: 'diatonic', key: 'C' }, { min: 60, max: 96 });
+    expect(notes('blow').length).toBe(10); // unchanged reference behaviour
     expect(notes('blow').at(-1)).toBe(96);
   });
 });
 
 describe('Harmonica — slide button (chromatic only)', () => {
-  afterEach(() => { document.body.innerHTML = ''; });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
 
   it('diatonic has no slide button', () => {
     const { root } = mountWith({ type: 'diatonic', key: 'C' }, { min: 60, max: 96 });
@@ -224,7 +250,9 @@ describe('Harmonica — slide button (chromatic only)', () => {
 
   it('click toggles the slide; it is NOT dropped by a global pointerup', () => {
     const { root, played, stopped } = mountWith(
-      { type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
+      { type: 'chromatic', key: 'C' },
+      { min: 60, max: 96 }
+    );
     const slide = root.querySelector('.harmonica-slide');
     expect(slide).not.toBeNull();
     expect(slide.getAttribute('aria-pressed')).toBe('false');
@@ -233,26 +261,25 @@ describe('Harmonica — slide button (chromatic only)', () => {
     fire(hole, 'pointerdown');
     expect(played).toEqual([60]);
 
-    fire(slide, 'click');                        // engage (toggle on)
-    expect(stopped).toEqual([60]);               // old pitch released
-    expect(played).toEqual([60, 61]);            // +1 semitone replayed
+    fire(slide, 'click'); // engage (toggle on)
+    expect(stopped).toEqual([60]); // old pitch released
+    expect(played).toEqual([60, 61]); // +1 semitone replayed
     expect(slide.classList.contains('engaged')).toBe(true);
     expect(slide.getAttribute('aria-pressed')).toBe('true');
 
     // A global pointerup releases the held hole but the slide stays latched.
     document.dispatchEvent(new Event('pointerup'));
-    expect(stopped).toEqual([60, 61]);           // held note released at +1
-    expect(slide.classList.contains('engaged')).toBe(true);   // still on
+    expect(stopped).toEqual([60, 61]); // held note released at +1
+    expect(slide.classList.contains('engaged')).toBe(true); // still on
     expect(root.querySelectorAll('.harmonica-hole.active').length).toBe(0);
 
-    fire(slide, 'click');                        // click again → release
+    fire(slide, 'click'); // click again → release
     expect(slide.classList.contains('engaged')).toBe(false);
     expect(slide.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('pressing a hole while engaged plays the shifted pitch', () => {
-    const { root, played } = mountWith(
-      { type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
+    const { root, played } = mountWith({ type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
     const slide = root.querySelector('.harmonica-slide');
     fire(slide, 'click');
     const hole = root.querySelector('.harmonica-blow'); // base 60
@@ -261,21 +288,22 @@ describe('Harmonica — slide button (chromatic only)', () => {
   });
 
   it('toggling the slide rewrites the displayed note labels', () => {
-    const { root } = mountWith(
-      { type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
+    const { root } = mountWith({ type: 'chromatic', key: 'C' }, { min: 60, max: 96 });
     const hole = root.querySelector('.harmonica-blow'); // base 60
     const noteEl = hole.querySelector('.harmonica-hole-note');
     expect(noteEl.textContent).toBe('N60');
     const slide = root.querySelector('.harmonica-slide');
     fire(slide, 'click');
-    expect(noteEl.textContent).toBe('N61');       // shifted +1
+    expect(noteEl.textContent).toBe('N61'); // shifted +1
     fire(slide, 'click');
-    expect(noteEl.textContent).toBe('N60');       // restored
+    expect(noteEl.textContent).toBe('N60'); // restored
   });
 });
 
 describe('Harmonica — row labels', () => {
-  afterEach(() => { document.body.innerHTML = ''; });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
 
   it('renders Souffler/Aspirer fallbacks without i18n', () => {
     const { root } = mountWith({ type: 'diatonic', key: 'C' }, { min: 60, max: 96 });
@@ -284,11 +312,16 @@ describe('Harmonica — row labels', () => {
   });
 
   it('uses ctx.i18n.t when provided', () => {
-    const t = (k) => ({
-      'keyboard.harmonicaBlow': 'Blow', 'keyboard.harmonicaDraw': 'Draw'
-    }[k] || k);
+    const t = (k) =>
+      ({
+        'keyboard.harmonicaBlow': 'Blow',
+        'keyboard.harmonicaDraw': 'Draw'
+      })[k] || k;
     const { root } = mountWith(
-      { type: 'diatonic', key: 'C' }, { min: 60, max: 96 }, { i18n: { t } });
+      { type: 'diatonic', key: 'C' },
+      { min: 60, max: 96 },
+      { i18n: { t } }
+    );
     expect(root.querySelector('.harmonica-row-label-blow').textContent).toBe('Blow');
     expect(root.querySelector('.harmonica-row-label-draw').textContent).toBe('Draw');
   });
@@ -296,7 +329,7 @@ describe('Harmonica — row labels', () => {
 
 describe('KeyboardModal.getHarmonicaConfig', () => {
   it('defaults to diatonic C for null / garbage configs', () => {
-    const m = new (win.KeyboardModal)();
+    const m = new win.KeyboardModal();
     m.selectedDeviceCapabilities = null;
     expect(m.getHarmonicaConfig()).toEqual({ type: 'diatonic', key: 'C' });
     m.selectedDeviceCapabilities = { harmonica_config: { type: 'x', key: 'H' } };
@@ -304,7 +337,7 @@ describe('KeyboardModal.getHarmonicaConfig', () => {
   });
 
   it('honours valid values', () => {
-    const m = new (win.KeyboardModal)();
+    const m = new win.KeyboardModal();
     m.selectedDeviceCapabilities = { harmonica_config: { type: 'chromatic', key: 'F#' } };
     expect(m.getHarmonicaConfig()).toEqual({ type: 'chromatic', key: 'F#' });
   });

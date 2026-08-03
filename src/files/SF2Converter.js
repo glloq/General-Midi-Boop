@@ -20,12 +20,12 @@ const { SoundFont2, GeneratorType } = pkg;
 const GT = GeneratorType;
 
 // H-3: output limits to prevent DoS from malicious/oversized SF2 files
-const MAX_ZONES       = 512;                       // max zones per preset
+const MAX_ZONES = 512; // max zones per preset
 // 30 s lets piano/harp/plucked decay samples survive intact (typical SF2
 // piano sample is ~3–8 s, some legacy banks go higher). Below this the
 // natural decay tail was being trimmed, sounding "cut off".
-const MAX_SAMPLE_SECS = 30;                        // max sample duration per zone (seconds)
-const MAX_TOTAL_SAMPLES = 20 * 1024 * 1024 / 4;  // ~20 MB of Float32 data total
+const MAX_SAMPLE_SECS = 30; // max sample duration per zone (seconds)
+const MAX_TOTAL_SAMPLES = (20 * 1024 * 1024) / 4; // ~20 MB of Float32 data total
 
 /**
  * Parse raw SF2 bytes into a SoundFont2 instance. Expensive (~450 ms for a
@@ -99,13 +99,14 @@ export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
 
       // ── Root key ───────────────────────────────────────────────────
       const overrideRoot = merged[GT.OverridingRootKey];
-      const rootKey = (overrideRoot?.value != null && overrideRoot.value !== -1)
-        ? overrideRoot.value
-        : hdr.originalPitch;
+      const rootKey =
+        overrideRoot?.value != null && overrideRoot.value !== -1
+          ? overrideRoot.value
+          : hdr.originalPitch;
 
       // ── Tuning ─────────────────────────────────────────────────────
       const coarseTune = merged[GT.CoarseTune]?.value ?? 0;
-      const fineTune   = merged[GT.FineTune]?.value   ?? 0;
+      const fineTune = merged[GT.FineTune]?.value ?? 0;
 
       // ── Scale tuning ───────────────────────────────────────────────
       // SF2 ScaleTuning = cents of pitch change per key away from the
@@ -114,16 +115,16 @@ export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
       // the per-zone coarse/fine tune must NOT be applied or percussive
       // samples get pitch-shifted into a sustained tonal "bell" ring.
       const scaleTuning = merged[GT.ScaleTuning]?.value ?? 100;
-      const fixedPitch  = scaleTuning === 0;
+      const fixedPitch = scaleTuning === 0;
 
       // ── Loop ───────────────────────────────────────────────────────
-      const loopFineStart   = merged[GT.StartLoopAddrsOffset]?.value       ?? 0;
-      const loopFineEnd     = merged[GT.EndLoopAddrsOffset]?.value         ?? 0;
+      const loopFineStart = merged[GT.StartLoopAddrsOffset]?.value ?? 0;
+      const loopFineEnd = merged[GT.EndLoopAddrsOffset]?.value ?? 0;
       const loopCoarseStart = merged[GT.StartLoopAddrsCoarseOffset]?.value ?? 0;
-      const loopCoarseEnd   = merged[GT.EndLoopAddrsCoarseOffset]?.value   ?? 0;
+      const loopCoarseEnd = merged[GT.EndLoopAddrsCoarseOffset]?.value ?? 0;
 
       const loopStart = hdr.startLoop + loopFineStart + loopCoarseStart * 32768;
-      const loopEnd   = hdr.endLoop   + loopFineEnd   + loopCoarseEnd   * 32768;
+      const loopEnd = hdr.endLoop + loopFineEnd + loopCoarseEnd * 32768;
 
       // ── Sample modes (SampleModes bit 0 = loop) ────────────────────
       const sampleModes = merged[GT.SampleModes]?.value ?? 0;
@@ -151,24 +152,24 @@ export function convertPresetFromSF2(sf2, bankNumber, presetNumber) {
       // would silently mis-interpret (audible as a tiny click loop or a
       // dead note past the truncation point).
       let outLoopStart = loopsEnabled ? loopStart : 0;
-      let outLoopEnd   = loopsEnabled ? loopEnd   : 0;
+      let outLoopEnd = loopsEnabled ? loopEnd : 0;
       if (outLoopEnd > sampleLength || outLoopStart >= sampleLength) {
         outLoopStart = 0;
-        outLoopEnd   = 0;
+        outLoopEnd = 0;
       }
 
       zones.push({
-        sample:       f32,
-        sampleRate:   sampleRate,
-        loopStart:    outLoopStart,
-        loopEnd:      outLoopEnd,
-        keyRangeLow:  keyLo,
+        sample: f32,
+        sampleRate: sampleRate,
+        loopStart: outLoopStart,
+        loopEnd: outLoopEnd,
+        keyRangeLow: keyLo,
         keyRangeHigh: keyHi,
-        velRangeLow:  velLo,
+        velRangeLow: velLo,
         velRangeHigh: velHi,
-        midi:         rootKey,
-        coarseTune:   fixedPitch ? 0 : coarseTune,
-        fineTune:     fixedPitch ? 0 : fineTune,
+        midi: rootKey,
+        coarseTune: fixedPitch ? 0 : coarseTune,
+        fineTune: fixedPitch ? 0 : fineTune
       });
     }
     // Also break outer loop if limits are reached
@@ -187,7 +188,9 @@ export function listMelodicPrograms(sf2Buffer) {
   const sf2 = new SoundFont2(new Uint8Array(sf2Buffer));
   const bank = sf2.banks[0];
   if (!bank) return [];
-  return Object.keys(bank.presets).map(Number).sort((a, b) => a - b);
+  return Object.keys(bank.presets)
+    .map(Number)
+    .sort((a, b) => a - b);
 }
 
 /**
@@ -199,11 +202,21 @@ export function listDrumKits(sf2Buffer) {
   const sf2 = new SoundFont2(new Uint8Array(sf2Buffer));
   const bank128 = sf2.banks[128];
   if (bank128) {
-    return { bankNum: 128, presets: Object.keys(bank128.presets).map(Number).sort((a, b) => a - b) };
+    return {
+      bankNum: 128,
+      presets: Object.keys(bank128.presets)
+        .map(Number)
+        .sort((a, b) => a - b)
+    };
   }
   const bank0 = sf2.banks[0];
   if (bank0) {
-    return { bankNum: 0, presets: Object.keys(bank0.presets).map(Number).sort((a, b) => a - b) };
+    return {
+      bankNum: 0,
+      presets: Object.keys(bank0.presets)
+        .map(Number)
+        .sort((a, b) => a - b)
+    };
   }
   return { bankNum: 0, presets: [] };
 }

@@ -224,7 +224,8 @@ async function fileFilter(app, data) {
 
     // Playable on instruments filter
     playableOnInstruments: data.playableOnInstruments,
-    playableMode: data.playableOnInstruments?.length > 0 ? (data.playableMode || 'routed') : undefined,
+    playableMode:
+      data.playableOnInstruments?.length > 0 ? data.playableMode || 'routed' : undefined,
 
     // Quick filters
     hasDrums: data.hasDrums,
@@ -235,20 +236,22 @@ async function fileFilter(app, data) {
     // Sorting and pagination
     sortBy: data.sortBy || 'uploaded_at',
     sortOrder: data.sortOrder || 'DESC',
-    limit: (Number.isInteger(data.limit) && data.limit > 0) ? data.limit : undefined,
-    offset: (Number.isInteger(data.offset) && data.offset >= 0) ? data.offset : undefined
+    limit: Number.isInteger(data.limit) && data.limit > 0 ? data.limit : undefined,
+    offset: Number.isInteger(data.offset) && data.offset >= 0 ? data.offset : undefined
   };
 
   // Inject connected device IDs for routing status accuracy
   try {
     const deviceList = app.deviceManager?.getDeviceList?.() || [];
     if (deviceList.length > 0) {
-      filters.connectedDeviceIds = deviceList.map(d => d.id).filter(Boolean);
+      filters.connectedDeviceIds = deviceList.map((d) => d.id).filter(Boolean);
     }
-  } catch (e) { /* skip device filtering */ }
+  } catch (e) {
+    /* skip device filtering */
+  }
 
   // Remove empty/null/undefined values (FilterManager sends null as default for inactive filters)
-  Object.keys(filters).forEach(key => {
+  Object.keys(filters).forEach((key) => {
     const val = filters[key];
     if (val === undefined || val === null || val === '') {
       delete filters[key];
@@ -260,11 +263,11 @@ async function fileFilter(app, data) {
   const rawFiles = app.fileRepository.filter(filters);
 
   // Batch-fetch routing status for all filtered files (same as FileManager.listFiles)
-  const fileIds = rawFiles.map(f => f.id);
+  const fileIds = rawFiles.map((f) => f.id);
   const routingMap = app.fileManager._batchGetRoutingStatus(fileIds, rawFiles);
 
   // Normalize field names to match FileManager.listFiles() format (camelCase + formatted fields)
-  const files = rawFiles.map(file => ({
+  const files = rawFiles.map((file) => ({
     id: file.id,
     filename: file.filename,
     size: file.size,
@@ -281,7 +284,7 @@ async function fileFilter(app, data) {
     routingStatus: routingMap.get(file.id) || 'unrouted',
     // Keep snake_case aliases for backward compatibility
     channel_count: file.channel_count || 0,
-    uploaded_at: file.uploaded_at,
+    uploaded_at: file.uploaded_at
   }));
 
   // Build filter summary for response
@@ -298,10 +301,14 @@ async function fileFilter(app, data) {
     appliedFilters.push(`channels: ${data.channelCountMin || 0}-${data.channelCountMax || '∞'}`);
   }
   if (data.instrumentTypes && data.instrumentTypes.length > 0) {
-    appliedFilters.push(`instruments: ${data.instrumentTypes.join(', ')} (${data.instrumentMode || 'ANY'})`);
+    appliedFilters.push(
+      `instruments: ${data.instrumentTypes.join(', ')} (${data.instrumentMode || 'ANY'})`
+    );
   }
   if (data.gmInstruments && data.gmInstruments.length > 0) {
-    appliedFilters.push(`GM instruments: ${data.gmInstruments.join(', ')} (${data.gmMode || 'ANY'})`);
+    appliedFilters.push(
+      `GM instruments: ${data.gmInstruments.join(', ')} (${data.gmMode || 'ANY'})`
+    );
   }
   if (data.gmCategories && data.gmCategories.length > 0) {
     appliedFilters.push(`GM categories: ${data.gmCategories.join(', ')} (${data.gmMode || 'ANY'})`);
@@ -313,7 +320,9 @@ async function fileFilter(app, data) {
     appliedFilters.push(`routing statuses: ${data.routingStatuses.join(', ')}`);
   }
   if (data.playableOnInstruments && data.playableOnInstruments.length > 0) {
-    appliedFilters.push(`playable on: ${data.playableOnInstruments.join(', ')} (${data.playableMode || 'routed'})`);
+    appliedFilters.push(
+      `playable on: ${data.playableOnInstruments.join(', ')} (${data.playableMode || 'routed'})`
+    );
   }
 
   return {
@@ -448,9 +457,11 @@ async function fileRoutingStatus(app, data) {
   try {
     const deviceList = app.deviceManager?.getDeviceList?.() || [];
     if (deviceList.length > 0) {
-      connectedDeviceIds = new Set(deviceList.map(d => d.id).filter(Boolean));
+      connectedDeviceIds = new Set(deviceList.map((d) => d.id).filter(Boolean));
     }
-  } catch (e) { /* skip filtering */ }
+  } catch (e) {
+    /* skip filtering */
+  }
 
   const result = app.fileRoutingStatusService.computeForFile(fileId, connectedDeviceIds);
   if (!result) throw new NotFoundError('File', fileId);

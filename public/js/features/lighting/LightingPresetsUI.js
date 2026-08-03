@@ -1,23 +1,27 @@
 // Auto-extracted from LightingControlPage.js
-(function() {
-    'use strict';
-    const LightingPresetsUIMixin = {};
-
+(function () {
+  'use strict';
+  const LightingPresetsUIMixin = {};
 
   // ==================== PRESETS UI ====================
 
-    LightingPresetsUIMixin.showPresetsPanel = function() {
+  LightingPresetsUIMixin.showPresetsPanel = function () {
     const t = this._t();
-    const presetsHTML = this.presets.length === 0
-      ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:16px;">${i18n.t('lighting.noPresets') || 'Aucun preset sauvegardé'}</p>`
-      : this.presets.map(p => `
+    const presetsHTML =
+      this.presets.length === 0
+        ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:16px;">${i18n.t('lighting.noPresets') || 'Aucun preset sauvegardé'}</p>`
+        : this.presets
+            .map(
+              (p) => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid ${t.border};border-radius:8px;margin-bottom:6px;background:${t.cardBg};">
             <span style="font-size:13px;color:${t.text};font-weight:500;">${this._escapeHtml(p.name)}</span>
             <div style="display:flex;gap:4px;">
               <button onclick="lightingControlPageInstance.loadPreset(${p.id})" style="padding:3px 8px;border:1px solid #3b82f6;border-radius:4px;background:${t.btnBg};color:#3b82f6;cursor:pointer;font-size:11px;">${i18n.t('lighting.loadPreset') || 'Charger'}</button>
               <button onclick="lightingControlPageInstance.deletePreset(${p.id})" style="padding:3px 8px;border:1px solid #ef4444;border-radius:4px;background:${t.btnBg};color:#ef4444;cursor:pointer;font-size:11px;">🗑</button>
             </div>
-          </div>`).join('');
+          </div>`
+            )
+            .join('');
 
     const formHTML = `
       <div id="lightingPresetsPanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
@@ -56,9 +60,9 @@
     const div = document.createElement('div');
     div.innerHTML = formHTML;
     document.body.appendChild(div.firstElementChild);
-  }
+  };
 
-    LightingPresetsUIMixin.importRules = async function() {
+  LightingPresetsUIMixin.importRules = async function () {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
@@ -73,20 +77,28 @@
           default_device_id: this.selectedDeviceId || undefined
         });
         this.showToast(
-          (i18n.t('lighting.importSuccessToast') || 'Import : {imported} règle(s) importée(s), {skipped} ignorée(s)')
+          (
+            i18n.t('lighting.importSuccessToast') ||
+            'Import : {imported} règle(s) importée(s), {skipped} ignorée(s)'
+          )
             .replace('{imported}', res.imported)
             .replace('{skipped}', res.skipped),
           'success'
         );
         document.getElementById('lightingPresetsPanel')?.remove();
         await this.loadData();
-      } catch (error) { this.showToast((i18n.t('lighting.importError') || 'Erreur import: ') + error.message, 'error'); }
+      } catch (error) {
+        this.showToast(
+          (i18n.t('lighting.importError') || 'Erreur import: ') + error.message,
+          'error'
+        );
+      }
     };
     input.click();
-  }
+  };
 
   // LED Preview, MIDI Learn, Quick Colors, and Color Wheel
   // are provided by LightingHelpersMixin (removed duplicates from here)
 
-    if (typeof window !== 'undefined') window.LightingPresetsUIMixin = LightingPresetsUIMixin;
+  if (typeof window !== 'undefined') window.LightingPresetsUIMixin = LightingPresetsUIMixin;
 })();

@@ -16,15 +16,15 @@ import { SuggestionCacheService } from '../../src/midi/adaptation/SuggestionCach
 
 // Smallest valid Standard MIDI File: header + one empty track.
 const MIN_MIDI = Buffer.from([
-  0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06,
-  0x00, 0x00, 0x00, 0x01, 0x01, 0xe0,
-  0x4d, 0x54, 0x72, 0x6b, 0x00, 0x00, 0x00, 0x04,
-  0x00, 0xff, 0x2f, 0x00
+  0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0, 0x4d, 0x54,
+  0x72, 0x6b, 0x00, 0x00, 0x00, 0x04, 0x00, 0xff, 0x2f, 0x00
 ]);
 
 function deferred() {
   let resolve;
-  const promise = new Promise((r) => { resolve = r; });
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
   return { promise, resolve };
 }
 
@@ -61,7 +61,14 @@ function buildApp() {
     }
   };
   const handlers = {};
-  register({ register: (name, fn) => { handlers[name] = fn; } }, app);
+  register(
+    {
+      register: (name, fn) => {
+        handlers[name] = fn;
+      }
+    },
+    app
+  );
   return { app, handlers, calls, gates };
 }
 

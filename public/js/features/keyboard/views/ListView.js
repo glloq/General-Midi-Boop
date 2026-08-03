@@ -11,47 +11,47 @@
 // KeyboardListView.js).
 // =============================================================================
 (function () {
-    'use strict';
+  'use strict';
 
-    if (typeof window === 'undefined' || !window.InstrumentView) return;
-    const InstrumentView = window.InstrumentView;
+  if (typeof window === 'undefined' || !window.InstrumentView) return;
+  const InstrumentView = window.InstrumentView;
 
-    class ListView extends InstrumentView {
-        static viewKind = 'keyboard-list';
-        static iconUrl = null;       // no instrument SVG — emoji fallback
-        static emoji = '☰';
-        static labelKey = 'keyboard.viewList';
+  class ListView extends InstrumentView {
+    static viewKind = 'keyboard-list';
+    static iconUrl = null; // no instrument SVG — emoji fallback
+    static emoji = '☰';
+    static labelKey = 'keyboard.viewList';
 
-        mount(ctx) {
-            super.mount(ctx);
-            const modal = ctx.modal;
-            if (!modal) return;
-            if (typeof modal.renderKeyboardList === 'function') {
-                modal.renderKeyboardList();
-            }
-            // Interaction binding (mouse → velocity Y + pitch bend X)
-            // is attached by the legacy code inside renderKeyboardList().
-        }
-
-        unmount() {
-            const modal = this.ctx && this.ctx.modal;
-            if (modal && typeof modal._destroyKeyboardListInteraction === 'function') {
-                modal._destroyKeyboardListInteraction();
-            }
-            super.unmount();
-        }
-
-        setNoteRange(startNote, noteCount) {
-            const modal = this.ctx && this.ctx.modal;
-            if (!modal) return;
-            modal.startNote = startNote;
-            modal.visibleNoteCount = noteCount;
-            if (typeof modal.renderKeyboardList === 'function') {
-                modal.renderKeyboardList();
-            }
-        }
+    mount(ctx) {
+      super.mount(ctx);
+      const modal = ctx.modal;
+      if (!modal) return;
+      if (typeof modal.renderKeyboardList === 'function') {
+        modal.renderKeyboardList();
+      }
+      // Interaction binding (mouse → velocity Y + pitch bend X)
+      // is attached by the legacy code inside renderKeyboardList().
     }
 
-    if (typeof window !== 'undefined') window.ListView = ListView;
-    if (typeof module !== 'undefined') module.exports = ListView;
+    unmount() {
+      const modal = this.ctx && this.ctx.modal;
+      if (modal && typeof modal._destroyKeyboardListInteraction === 'function') {
+        modal._destroyKeyboardListInteraction();
+      }
+      super.unmount();
+    }
+
+    setNoteRange(startNote, noteCount) {
+      const modal = this.ctx && this.ctx.modal;
+      if (!modal) return;
+      modal.startNote = startNote;
+      modal.visibleNoteCount = noteCount;
+      if (typeof modal.renderKeyboardList === 'function') {
+        modal.renderKeyboardList();
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined') window.ListView = ListView;
+  if (typeof module !== 'undefined') module.exports = ListView;
 })();

@@ -18,19 +18,30 @@ class InstrumentLightController {
    * @param {Object} [opts.state]
    * @param {number} [opts.supportedMask=0] - which CC bits the device understands
    */
-  constructor({ deviceId, channel, deviceManager, logger, state, supportedMask, brightnessMode, supportedEffects }) {
+  constructor({
+    deviceId,
+    channel,
+    deviceManager,
+    logger,
+    state,
+    supportedMask,
+    brightnessMode,
+    supportedEffects
+  }) {
     this.deviceId = deviceId;
     this.channel = channel | 0;
     this.deviceManager = deviceManager;
     this.logger = logger;
     this.state = CC.normalizeState(state);
     this.supportedMask = (supportedMask | 0) & CC.MASK_ALL;
-    this.brightnessMode = brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
-      ? CC.BRIGHTNESS_MODE.ON_OFF
-      : CC.BRIGHTNESS_MODE.DIMMABLE;
-    this.supportedEffects = supportedEffects === undefined || supportedEffects === null
-      ? CC.EFFECTS_ALL
-      : (supportedEffects | 0) & CC.EFFECTS_ALL;
+    this.brightnessMode =
+      brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
+        ? CC.BRIGHTNESS_MODE.ON_OFF
+        : CC.BRIGHTNESS_MODE.DIMMABLE;
+    this.supportedEffects =
+      supportedEffects === undefined || supportedEffects === null
+        ? CC.EFFECTS_ALL
+        : (supportedEffects | 0) & CC.EFFECTS_ALL;
   }
 
   _send(msg) {
@@ -85,9 +96,10 @@ class InstrumentLightController {
   setMeta({ brightnessMode, supportedEffects } = {}) {
     if (brightnessMode !== undefined) {
       const prev = this.brightnessMode;
-      this.brightnessMode = brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
-        ? CC.BRIGHTNESS_MODE.ON_OFF
-        : CC.BRIGHTNESS_MODE.DIMMABLE;
+      this.brightnessMode =
+        brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
+          ? CC.BRIGHTNESS_MODE.ON_OFF
+          : CC.BRIGHTNESS_MODE.DIMMABLE;
       if (prev !== this.brightnessMode) {
         const snapped = CC.snapBrightness(this.state.brightness, this.brightnessMode);
         if (snapped !== this.state.brightness) this.apply({ brightness: snapped });

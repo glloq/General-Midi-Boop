@@ -21,7 +21,7 @@ function makeZone({ key, coarseTune, fineTune, scaleTuning }) {
   const generators = {
     [GT.KeyRange]: { range: { lo: key, hi: key } },
     [GT.CoarseTune]: { value: coarseTune },
-    [GT.FineTune]: { value: fineTune },
+    [GT.FineTune]: { value: fineTune }
   };
   if (scaleTuning !== undefined) {
     generators[GT.ScaleTuning] = { value: scaleTuning };
@@ -30,8 +30,8 @@ function makeZone({ key, coarseTune, fineTune, scaleTuning }) {
     generators,
     sample: {
       header: { originalPitch: 60, sampleRate: 44100, startLoop: 0, endLoop: 0 },
-      data: new Int16Array([0, 1, -1, 2, -2, 0]),
-    },
+      data: new Int16Array([0, 1, -1, 2, -2, 0])
+    }
   };
 }
 
@@ -41,11 +41,11 @@ function makeSF2({ bank, preset, zones }) {
       [bank]: {
         presets: {
           [preset]: {
-            zones: [{ generators: {}, instrument: { zones } }],
-          },
-        },
-      },
-    },
+            zones: [{ generators: {}, instrument: { zones } }]
+          }
+        }
+      }
+    }
   };
 }
 
@@ -56,8 +56,8 @@ describe('convertPresetFromSF2 — drum scaleTuning / bell fix', () => {
       preset: 0,
       zones: [
         makeZone({ key: 38, coarseTune: -5, fineTune: 40, scaleTuning: 0 }),
-        makeZone({ key: 45, coarseTune: 0, fineTune: 0, scaleTuning: 0 }),
-      ],
+        makeZone({ key: 45, coarseTune: 0, fineTune: 0, scaleTuning: 0 })
+      ]
     });
 
     const out = convertPresetFromSF2(sf2, 128, 0);
@@ -74,7 +74,7 @@ describe('convertPresetFromSF2 — drum scaleTuning / bell fix', () => {
       bank: 0,
       preset: 0,
       // No ScaleTuning generator → converter defaults to 100 (normal).
-      zones: [makeZone({ key: 60, coarseTune: -5, fineTune: 40 })],
+      zones: [makeZone({ key: 60, coarseTune: -5, fineTune: 40 })]
     });
 
     const out = convertPresetFromSF2(sf2, 0, 0);

@@ -12,7 +12,13 @@ import ScoringConfig from '../src/midi/adaptation/ScoringConfig.js';
 
 const silentLogger = { info: () => {}, warn: () => {}, debug: () => {}, error: () => {} };
 
-function baseAnalysis({ polyphonyMax = 4, rangeMin = 60, rangeMax = 72, channel = 0, program = 0 } = {}) {
+function baseAnalysis({
+  polyphonyMax = 4,
+  rangeMin = 60,
+  rangeMax = 72,
+  channel = 0,
+  program = 0
+} = {}) {
   return {
     channel,
     primaryProgram: program,
@@ -88,11 +94,14 @@ describe('InstrumentMatcher.handPositionFeasibility — unknown', () => {
       mode: 'semitones',
       hand_move_semitones_per_sec: 60,
       hands: [
-        { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+        { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
         { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
       ]
     });
-    const r = m.calculateCompatibility(baseAnalysis(), pianoInstrument({ hands_config: handsJson }));
+    const r = m.calculateCompatibility(
+      baseAnalysis(),
+      pianoInstrument({ hands_config: handsJson })
+    );
     expect(r.handPositionFeasibility.level).not.toBe('unknown');
   });
 
@@ -112,7 +121,7 @@ describe('InstrumentMatcher.handPositionFeasibility — semitones mode', () => {
     mode: 'semitones',
     hand_move_semitones_per_sec: 60,
     hands: [
-      { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+      { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
       { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
     ]
   };
@@ -151,12 +160,26 @@ describe('InstrumentMatcher.handPositionFeasibility — frets mode', () => {
     mode: 'frets',
     mechanism: 'string_sliding_fingers',
     hand_move_mm_per_sec: 250,
-    hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }]
+    hands: [
+      {
+        id: 'fretting',
+        cc_position_number: 22,
+        hand_span_mm: 80,
+        hand_span_frets: 4,
+        max_fingers: 4
+      }
+    ]
   };
 
   test('comfortable channel yields level "ok"', () => {
     const m = new InstrumentMatcher(silentLogger);
-    const analysis = baseAnalysis({ polyphonyMax: 3, rangeMin: 50, rangeMax: 60, channel: 0, program: 24 });
+    const analysis = baseAnalysis({
+      polyphonyMax: 3,
+      rangeMin: 50,
+      rangeMax: 60,
+      channel: 0,
+      program: 24
+    });
     const r = m.calculateCompatibility(analysis, guitarInstrument({ hands_config: fretsHands }));
     expect(r.handPositionFeasibility.level).toBe('ok');
     expect(r.handPositionFeasibility.summary.mode).toBe('frets');
@@ -202,7 +225,7 @@ describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution
     mode: 'semitones',
     hand_move_semitones_per_sec: 60,
     hands: [
-      { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+      { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
       { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
     ]
   };
@@ -212,7 +235,10 @@ describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution
     const m = new InstrumentMatcher(silentLogger, cfg);
     const analysis = baseAnalysis();
     const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
-    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
+    const withHands = m.calculateCompatibility(
+      analysis,
+      pianoInstrument({ hands_config: semitonesHands })
+    ).score;
     expect(withHands).toBe(baseline);
   });
 
@@ -220,7 +246,10 @@ describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution
     const m = new InstrumentMatcher(silentLogger);
     const analysis = baseAnalysis({ polyphonyMax: 4, rangeMin: 60, rangeMax: 72 });
     const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
-    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
+    const withHands = m.calculateCompatibility(
+      analysis,
+      pianoInstrument({ hands_config: semitonesHands })
+    ).score;
     // Default config: okBonus = +4 (clamped to 100 ceiling).
     expect(withHands).toBeGreaterThanOrEqual(baseline);
     expect(withHands - baseline).toBeLessThanOrEqual(4);
@@ -231,7 +260,10 @@ describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution
     // Wide pitch span → warning.
     const analysis = baseAnalysis({ polyphonyMax: 4, rangeMin: 30, rangeMax: 95 });
     const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
-    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
+    const withHands = m.calculateCompatibility(
+      analysis,
+      pianoInstrument({ hands_config: semitonesHands })
+    ).score;
     expect(withHands).toBeLessThan(baseline);
   });
 
@@ -239,7 +271,10 @@ describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution
     const m = new InstrumentMatcher(silentLogger);
     const analysis = baseAnalysis({ polyphonyMax: 12, rangeMin: 60, rangeMax: 72 });
     const baseline = m.calculateCompatibility(analysis, pianoInstrument()).score;
-    const withHands = m.calculateCompatibility(analysis, pianoInstrument({ hands_config: semitonesHands })).score;
+    const withHands = m.calculateCompatibility(
+      analysis,
+      pianoInstrument({ hands_config: semitonesHands })
+    ).score;
     expect(baseline - withHands).toBeGreaterThanOrEqual(15);
   });
 
@@ -250,7 +285,10 @@ describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution
     const b = m.calculateCompatibility(analysis, pianoInstrument()).score;
     expect(a).toBe(b);
     // And that score is still the un-bonused baseline.
-    const handPositionFeasibility = m.calculateCompatibility(analysis, pianoInstrument()).handPositionFeasibility;
+    const handPositionFeasibility = m.calculateCompatibility(
+      analysis,
+      pianoInstrument()
+    ).handPositionFeasibility;
     expect(handPositionFeasibility.level).toBe('unknown');
   });
 
@@ -259,9 +297,18 @@ describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution
 
     // Same instrument config, three different channel analyses spanning
     // the three feasibility levels.
-    const ok       = m.calculateCompatibility(baseAnalysis({ polyphonyMax: 4, rangeMin: 60, rangeMax: 72 }), pianoInstrument({ hands_config: semitonesHands })).score;
-    const warning  = m.calculateCompatibility(baseAnalysis({ polyphonyMax: 4, rangeMin: 30, rangeMax: 95 }), pianoInstrument({ hands_config: semitonesHands })).score;
-    const infeas   = m.calculateCompatibility(baseAnalysis({ polyphonyMax: 12, rangeMin: 60, rangeMax: 72 }), pianoInstrument({ hands_config: semitonesHands })).score;
+    const ok = m.calculateCompatibility(
+      baseAnalysis({ polyphonyMax: 4, rangeMin: 60, rangeMax: 72 }),
+      pianoInstrument({ hands_config: semitonesHands })
+    ).score;
+    const warning = m.calculateCompatibility(
+      baseAnalysis({ polyphonyMax: 4, rangeMin: 30, rangeMax: 95 }),
+      pianoInstrument({ hands_config: semitonesHands })
+    ).score;
+    const infeas = m.calculateCompatibility(
+      baseAnalysis({ polyphonyMax: 12, rangeMin: 60, rangeMax: 72 }),
+      pianoInstrument({ hands_config: semitonesHands })
+    ).score;
 
     expect(ok).toBeGreaterThan(warning);
     expect(warning).toBeGreaterThan(infeas);

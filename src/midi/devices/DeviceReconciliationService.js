@@ -37,12 +37,16 @@ export default class DeviceReconciliationService {
     if (settings) return settings;
 
     if (device.usbSerialNumber) {
-      const bySerial = this._safe(() => this.instrumentRepository.findByUsbSerial(device.usbSerialNumber));
+      const bySerial = this._safe(() =>
+        this.instrumentRepository.findByUsbSerial(device.usbSerialNumber)
+      );
       if (bySerial && bySerial.device_id !== device.id) {
         this.logger.info(
           `[DeviceReconciliation] USB device "${device.id}" matched by serial "${device.usbSerialNumber}" to DB entry "${bySerial.device_id}" - reconciling`
         );
-        this._safe(() => this.instrumentRepository.reconcileDeviceId(bySerial.device_id, device.id));
+        this._safe(() =>
+          this.instrumentRepository.reconcileDeviceId(bySerial.device_id, device.id)
+        );
         settings = this._safe(() => this.instrumentRepository.getAllSettings(device.id));
         if (settings) return settings;
       }

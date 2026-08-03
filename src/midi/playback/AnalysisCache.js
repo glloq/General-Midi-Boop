@@ -41,7 +41,7 @@ class AnalysisCache {
     this.maxSize = opts.maxSize > 0 ? opts.maxSize : DEFAULT_MAX_SIZE;
     this.maxBytes = opts.maxBytes > 0 ? opts.maxBytes : DEFAULT_MAX_BYTES;
     this.cache = new Map(); // key -> { data, bytes }
-    this.accessOrder = [];  // LRU order, oldest first
+    this.accessOrder = []; // LRU order, oldest first
     this.totalBytes = 0;
     this.logger = opts.logger || null;
 
@@ -189,9 +189,10 @@ class AnalysisCache {
       this.totalBytes -= this.cache.get(key).bytes;
       this._removeFromAccessOrder(key);
     }
-    const bytes = (typeof explicitBytes === 'number' && explicitBytes >= 0)
-      ? explicitBytes
-      : this._estimateBytes(data);
+    const bytes =
+      typeof explicitBytes === 'number' && explicitBytes >= 0
+        ? explicitBytes
+        : this._estimateBytes(data);
     this.cache.set(key, { data, bytes });
     this.accessOrder.push(key);
     this.totalBytes += bytes;
@@ -229,9 +230,8 @@ class AnalysisCache {
       bytes: this.totalBytes,
       maxBytes: this.maxBytes,
       oldestEntry: this.accessOrder.length > 0 ? this.accessOrder[0] : null,
-      newestEntry: this.accessOrder.length > 0
-        ? this.accessOrder[this.accessOrder.length - 1]
-        : null
+      newestEntry:
+        this.accessOrder.length > 0 ? this.accessOrder[this.accessOrder.length - 1] : null
     };
   }
 }

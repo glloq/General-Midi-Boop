@@ -16,11 +16,13 @@ function midiBuffer() {
   return Buffer.from(
     writeMidi({
       header: { format: 1, numTracks: 1, ticksPerBeat: 480 },
-      tracks: [[
-        { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
-        { deltaTime: 480, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 },
-        { deltaTime: 0, meta: true, type: 'endOfTrack' }
-      ]]
+      tracks: [
+        [
+          { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
+          { deltaTime: 480, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 },
+          { deltaTime: 0, meta: true, type: 'endOfTrack' }
+        ]
+      ]
     })
   );
 }
@@ -37,7 +39,16 @@ function makeApp() {
       bakeAndSave: async () => ({ success: true, stats: {} })
     },
     fileRepository: {
-      findById: () => ({ id: 1, filename: 'song.mid', folder: '/', blob_path: 'x', tracks: 1, duration: 1, tempo: 120, ppq: 480 }),
+      findById: () => ({
+        id: 1,
+        filename: 'song.mid',
+        folder: '/',
+        blob_path: 'x',
+        tracks: 1,
+        duration: 1,
+        tempo: 120,
+        ppq: 480
+      }),
       findByFolder: () => []
     },
     routingRepository: {
@@ -53,7 +64,14 @@ function makeApp() {
 
 function getHandler(app) {
   let handler;
-  register({ register: (name, fn) => { if (name === 'apply_assignments') handler = fn; } }, app);
+  register(
+    {
+      register: (name, fn) => {
+        if (name === 'apply_assignments') handler = fn;
+      }
+    },
+    app
+  );
   return handler;
 }
 
@@ -68,7 +86,9 @@ describe('apply_assignments — no double transposition', () => {
     await handler({
       originalFileId: 1,
       createAdaptedFile: true,
-      assignments: { 0: { deviceId: 'd1', instrumentName: 'x', score: 1, transposition: { semitones: 12 } } }
+      assignments: {
+        0: { deviceId: 'd1', instrumentName: 'x', score: 1, transposition: { semitones: 12 } }
+      }
     });
     const row = saved.find((r) => r.channel === 0);
     expect(row).toBeTruthy();
@@ -80,7 +100,9 @@ describe('apply_assignments — no double transposition', () => {
     await handler({
       originalFileId: 1,
       createAdaptedFile: false,
-      assignments: { 0: { deviceId: 'd1', instrumentName: 'x', score: 1, transposition: { semitones: 12 } } }
+      assignments: {
+        0: { deviceId: 'd1', instrumentName: 'x', score: 1, transposition: { semitones: 12 } }
+      }
     });
     const row = saved.find((r) => r.channel === 0);
     expect(row).toBeTruthy();

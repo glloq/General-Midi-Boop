@@ -20,7 +20,13 @@
 
 /** Field types accepted by the compiler. */
 const SUPPORTED_TYPES = new Set([
-  'id', 'string', 'number', 'integer', 'boolean', 'object', 'array'
+  'id',
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'object',
+  'array'
 ]);
 
 /**
@@ -74,14 +80,22 @@ function checkType(value, type) {
  */
 function typeLabel(type) {
   switch (type) {
-    case 'id':      return 'a number or non-empty string';
-    case 'string':  return 'a string';
-    case 'number':  return 'a number';
-    case 'integer': return 'an integer';
-    case 'boolean': return 'a boolean';
-    case 'object':  return 'an object';
-    case 'array':   return 'an array';
-    default:        return type;
+    case 'id':
+      return 'a number or non-empty string';
+    case 'string':
+      return 'a string';
+    case 'number':
+      return 'a number';
+    case 'integer':
+      return 'an integer';
+    case 'boolean':
+      return 'a boolean';
+    case 'object':
+      return 'an object';
+    case 'array':
+      return 'an array';
+    default:
+      return type;
   }
 }
 
@@ -99,9 +113,10 @@ function typeLabel(type) {
  */
 function validateField(name, spec, data) {
   const errors = [];
-  const present = Object.prototype.hasOwnProperty.call(data, name)
-    && data[name] !== undefined
-    && data[name] !== null;
+  const present =
+    Object.prototype.hasOwnProperty.call(data, name) &&
+    data[name] !== undefined &&
+    data[name] !== null;
 
   if (!present) {
     if (spec.required) errors.push(`${name} is required`);
@@ -115,7 +130,7 @@ function validateField(name, spec, data) {
     return errors;
   }
 
-  if ((spec.type === 'number' || spec.type === 'integer')) {
+  if (spec.type === 'number' || spec.type === 'integer') {
     if (typeof spec.min === 'number' && value < spec.min) {
       errors.push(
         typeof spec.max === 'number'

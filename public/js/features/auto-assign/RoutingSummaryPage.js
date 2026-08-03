@@ -1340,8 +1340,7 @@
           const noteNumber = ev.note ?? ev.noteNumber;
           if (!Number.isFinite(noteNumber)) continue;
           const evCh = ev.channel ?? 0;
-          const isOff =
-            ev.type === 'noteOff' || (ev.type === 'noteOn' && (ev.velocity ?? 0) === 0);
+          const isOff = ev.type === 'noteOff' || (ev.type === 'noteOn' && (ev.velocity ?? 0) === 0);
           const isOn = ev.type === 'noteOn' && (ev.velocity ?? 0) > 0;
           if (!isOn && !isOff) continue;
           const key = `${evCh}|${noteNumber}`;

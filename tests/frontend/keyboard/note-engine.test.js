@@ -95,21 +95,21 @@ describe('NoteEngine — getScaleNotes', () => {
 
   it('C major returns the 7 diatonic degrees per octave', () => {
     const e = new (NE())();
-    e.setRange(60, 72);   // C4..C5
+    e.setRange(60, 72); // C4..C5
     e.setScale(0, 'major');
     expect(e.getScaleNotes()).toEqual([60, 62, 64, 65, 67, 69, 71, 72]);
   });
 
   it('A minor returns A B C D E F G', () => {
     const e = new (NE())();
-    e.setRange(57, 69);   // A3..A4
+    e.setRange(57, 69); // A3..A4
     e.setScale(9, 'minor');
     expect(e.getScaleNotes()).toEqual([57, 59, 60, 62, 64, 65, 67, 69]);
   });
 
   it('pentatonic returns 5 notes per octave', () => {
     const e = new (NE())();
-    e.setRange(60, 72);   // C4..C5
+    e.setRange(60, 72); // C4..C5
     e.setScale(0, 'pentatonic');
     expect(e.getScaleNotes()).toEqual([60, 62, 64, 67, 69, 72]);
   });
@@ -147,8 +147,8 @@ describe('NoteEngine — noteFromRatio', () => {
     e.setRange(60, 71);
     e.setScale(0, 'major');
     // 7 + 1 = 8 notes : indices 0..7 → C, D, E, F, G, A, B, C
-    expect(e.noteFromRatio(0)).toBe(60);  // C4
-    expect(e.noteFromRatio(0.5)).toBe(65);  // F4 (idx 3 of 0..7)
+    expect(e.noteFromRatio(0)).toBe(60); // C4
+    expect(e.noteFromRatio(0.5)).toBe(65); // F4 (idx 3 of 0..7)
   });
 });
 
@@ -214,10 +214,10 @@ describe('NoteEngine — noteName', () => {
 describe('NoteEngine — noteClass', () => {
   it('returns 0..11 from MIDI note', () => {
     const e = new (NE())();
-    expect(e.noteClass(60)).toBe(0);   // C
-    expect(e.noteClass(61)).toBe(1);   // C#
-    expect(e.noteClass(71)).toBe(11);  // B
-    expect(e.noteClass(72)).toBe(0);   // C again
+    expect(e.noteClass(60)).toBe(0); // C
+    expect(e.noteClass(61)).toBe(1); // C#
+    expect(e.noteClass(71)).toBe(11); // B
+    expect(e.noteClass(72)).toBe(0); // C again
   });
 });
 

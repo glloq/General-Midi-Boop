@@ -9,31 +9,39 @@
 const MIDI_STATUS = {
   NOTE_OFF: 0x80,
   NOTE_ON: 0x90,
-  POLY_AFTERTOUCH: 0xA0,
-  CONTROL_CHANGE: 0xB0,
-  PROGRAM_CHANGE: 0xC0,
-  CHANNEL_AFTERTOUCH: 0xD0,
-  PITCH_BEND: 0xE0,
-  SYSTEM: 0xF0
+  POLY_AFTERTOUCH: 0xa0,
+  CONTROL_CHANGE: 0xb0,
+  PROGRAM_CHANGE: 0xc0,
+  CHANNEL_AFTERTOUCH: 0xd0,
+  PITCH_BEND: 0xe0,
+  SYSTEM: 0xf0
 };
 
 const MIDI_SYSTEM_MESSAGES = {
-  MTC_QUARTER_FRAME: 0xF1,
-  SONG_POSITION: 0xF2,
-  SONG_SELECT: 0xF3,
-  TUNE_REQUEST: 0xF6,
-  TIMING_CLOCK: 0xF8,
-  START: 0xFA,
-  CONTINUE: 0xFB,
-  STOP: 0xFC,
-  ACTIVE_SENSING: 0xFE,
-  SYSTEM_RESET: 0xFF
+  MTC_QUARTER_FRAME: 0xf1,
+  SONG_POSITION: 0xf2,
+  SONG_SELECT: 0xf3,
+  TUNE_REQUEST: 0xf6,
+  TIMING_CLOCK: 0xf8,
+  START: 0xfa,
+  CONTINUE: 0xfb,
+  STOP: 0xfc,
+  ACTIVE_SENSING: 0xfe,
+  SYSTEM_RESET: 0xff
 };
 
 // Bytes per system message (for serial parsing)
 const SYSTEM_MESSAGE_LENGTH = {
-  0xF1: 2, 0xF2: 3, 0xF3: 2,
-  0xF6: 1, 0xF8: 1, 0xFA: 1, 0xFB: 1, 0xFC: 1, 0xFE: 1, 0xFF: 1
+  0xf1: 2,
+  0xf2: 3,
+  0xf3: 2,
+  0xf6: 1,
+  0xf8: 1,
+  0xfa: 1,
+  0xfb: 1,
+  0xfc: 1,
+  0xfe: 1,
+  0xff: 1
 };
 
 // ============================================
@@ -53,8 +61,8 @@ const MIDI_CC = {
   EFFECT_1: 12,
   EFFECT_2: 13,
   // String instrument control (acoustic instrument automation)
-  STRING_SELECT: 20,     // CC20: select string number (1-6)
-  FRET_SELECT: 21,       // CC21: select fret position (0-36)
+  STRING_SELECT: 20, // CC20: select string number (1-6)
+  FRET_SELECT: 21, // CC21: select fret position (0-36)
   BANK_SELECT_LSB: 32,
   SUSTAIN_PEDAL: 64,
   PORTAMENTO: 65,
@@ -156,7 +164,7 @@ const TIMING = {
 // CALIBRATION CONSTANTS
 // ============================================
 const CALIBRATION = {
-  TEST_NOTE: 60,       // Middle C
+  TEST_NOTE: 60, // Middle C
   TEST_VELOCITY: 64,
   TEST_CHANNEL: 0,
   TIMEOUT_MS: 5000,
@@ -169,10 +177,10 @@ const CALIBRATION = {
 // SIZE LIMITS
 // ============================================
 const LIMITS = {
-  MAX_MIDI_FILE_SIZE:  10 * 1024 * 1024,    // 10 MB (RPi-friendly, must stay < WebSocket 16MB payload)
-  MAX_SF2_FILE_SIZE:  500 * 1024 * 1024,    // 500 MB per file
-  MAX_SF2_TOTAL_SIZE: 1024 * 1024 * 1024,   // 1 GB total storage for all SF2 files
-  MAX_SYSEX_BUFFER_SIZE: 65536,             // 64 KB
+  MAX_MIDI_FILE_SIZE: 10 * 1024 * 1024, // 10 MB (RPi-friendly, must stay < WebSocket 16MB payload)
+  MAX_SF2_FILE_SIZE: 500 * 1024 * 1024, // 500 MB per file
+  MAX_SF2_TOTAL_SIZE: 1024 * 1024 * 1024, // 1 GB total storage for all SF2 files
+  MAX_SYSEX_BUFFER_SIZE: 65536, // 64 KB
   MAX_UNDO_HISTORY: 100,
   MAX_EDITOR_HISTORY: 50
 };
@@ -184,29 +192,29 @@ const LIMITS = {
 // These are the event.type values produced by MidiFileParser and consumed
 // by PlaybackScheduler when dispatching events from a loaded file.
 const MIDI_EVENT_TYPES = Object.freeze({
-  NOTE_ON:             'noteOn',
-  NOTE_OFF:            'noteOff',
-  CONTROLLER:          'controller',
-  PROGRAM_CHANGE:      'programChange',
-  PITCH_BEND:          'pitchBend',
-  CHANNEL_AFTERTOUCH:  'channelAftertouch',
-  NOTE_AFTERTOUCH:     'noteAftertouch',
-  SET_TEMPO:           'setTempo',
-  SYSEX:               'sysEx',
+  NOTE_ON: 'noteOn',
+  NOTE_OFF: 'noteOff',
+  CONTROLLER: 'controller',
+  PROGRAM_CHANGE: 'programChange',
+  PITCH_BEND: 'pitchBend',
+  CHANNEL_AFTERTOUCH: 'channelAftertouch',
+  NOTE_AFTERTOUCH: 'noteAftertouch',
+  SET_TEMPO: 'setTempo',
+  SYSEX: 'sysEx'
 });
 
 // DEVICE_MSG_TYPES — strings used when calling DeviceManager.sendMessage().
 // These are the lowercase/spaced type names expected by the easymidi/midi
 // output adapter layer.
 const DEVICE_MSG_TYPES = Object.freeze({
-  NOTE_ON:             'noteon',
-  NOTE_OFF:            'noteoff',
-  CC:                  'cc',
-  PROGRAM:             'program',
-  PITCH_BEND:          'pitchbend',
-  CHANNEL_AFTERTOUCH:  'channel aftertouch',
-  POLY_AFTERTOUCH:     'poly aftertouch',
-  SYSEX:               'sysex',
+  NOTE_ON: 'noteon',
+  NOTE_OFF: 'noteoff',
+  CC: 'cc',
+  PROGRAM: 'program',
+  PITCH_BEND: 'pitchbend',
+  CHANNEL_AFTERTOUCH: 'channel aftertouch',
+  POLY_AFTERTOUCH: 'poly aftertouch',
+  SYSEX: 'sysex'
 });
 
 // Default tempo before the first Set Tempo meta event: 120 BPM =
@@ -221,28 +229,23 @@ const DEFAULT_MICROSECONDS_PER_BEAT = 500000;
  * and Note Off precedes Note On so a re-struck pitch is released first.
  */
 const EVENT_ORDER_PRIORITY = Object.freeze({
-  sysEx:              0,
-  setTempo:           1,
-  programChange:      3,
-  controller:         4,
-  pitchBend:          5,
-  channelAftertouch:  6,
-  noteAftertouch:     7,
-  noteOff:            8,
-  noteOn:             9,
+  sysEx: 0,
+  setTempo: 1,
+  programChange: 3,
+  controller: 4,
+  pitchBend: 5,
+  channelAftertouch: 6,
+  noteAftertouch: 7,
+  noteOff: 8,
+  noteOn: 9
 });
 
 // DeviceManager.sendMessage message types that must bypass the per-device
 // rate limiter: silencing / reset / emergency-stop traffic must never be
 // dropped by rate limiting, otherwise a panic burst can leave stuck notes.
-const PRIORITY_MSG_TYPES = Object.freeze(new Set([
-  'noteoff',
-  'reset',
-  'clock',
-  'start',
-  'stop',
-  'continue',
-]));
+const PRIORITY_MSG_TYPES = Object.freeze(
+  new Set(['noteoff', 'reset', 'clock', 'start', 'stop', 'continue'])
+);
 
 /**
  * Typed result of a DeviceManager send. Replaces the ambiguous boolean so
@@ -250,13 +253,13 @@ const PRIORITY_MSG_TYPES = Object.freeze(new Set([
  * genuine transport disconnect or error.
  */
 const SEND_STATUS = Object.freeze({
-  SENT:         'sent',
-  QUEUED:       'queued',
+  SENT: 'sent',
+  QUEUED: 'queued',
   RATE_LIMITED: 'rate_limited',
   DISCONNECTED: 'disconnected',
-  UNSUPPORTED:  'unsupported',
-  DISABLED:     'disabled',
-  ERROR:        'error',
+  UNSUPPORTED: 'unsupported',
+  DISABLED: 'disabled',
+  ERROR: 'error'
 });
 
 // ============================================

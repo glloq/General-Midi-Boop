@@ -15,10 +15,19 @@ import { writeMidi } from 'midi-file';
 
 function makeLogger() {
   return {
-    info() {}, warn() {}, debug() {}, error() {},
-    isDebugEnabled() { return false; },
-    isWarnEnabled() { return true; },
-    isInfoEnabled() { return true; }
+    info() {},
+    warn() {},
+    debug() {},
+    error() {},
+    isDebugEnabled() {
+      return false;
+    },
+    isWarnEnabled() {
+      return true;
+    },
+    isInfoEnabled() {
+      return true;
+    }
   };
 }
 
@@ -35,14 +44,16 @@ describe('MidiPlayer._buildTempoMap — tick-0 / 120 BPM anchor (P0-5)', () => {
     player.tracks = [
       {
         index: 0,
-        events: [
-          { deltaTime: 480, type: 'setTempo', microsecondsPerBeat: 1000000 }
-        ]
+        events: [{ deltaTime: 480, type: 'setTempo', microsecondsPerBeat: 1000000 }]
       }
     ];
     const map = player._buildTempoMap();
     // Must begin with an explicit 120 BPM anchor at tick 0.
-    expect(map[0]).toEqual({ tick: 0, time: 0, microsecondsPerBeat: DEFAULT_MICROSECONDS_PER_BEAT });
+    expect(map[0]).toEqual({
+      tick: 0,
+      time: 0,
+      microsecondsPerBeat: DEFAULT_MICROSECONDS_PER_BEAT
+    });
     // Ticks before the first setTempo convert at 120 BPM (0.5 s/beat),
     // NOT at the file's later 90/60 BPM.
     const secondsAt480 = player._ticksToSecondsWithTempoMap(480, map);
@@ -109,7 +120,10 @@ describe('MidiPlayer deterministic same-tick ordering (P1)', () => {
     // Two tracks so the note is authored BEFORE the program/bank in track order;
     // deterministic priority must still put state first.
     player.tracks = [
-      { index: 0, events: [{ deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 }] },
+      {
+        index: 0,
+        events: [{ deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 }]
+      },
       {
         index: 1,
         events: [
@@ -131,7 +145,10 @@ function makeSchedulerDeps(overrides = {}) {
     database: null,
     eventBus: { on: () => {} },
     wsServer: { broadcast: jest.fn() },
-    deviceManager: { sendMessage: jest.fn(() => true), sendMessageEx: jest.fn(() => ({ status: SEND_STATUS.SENT })) },
+    deviceManager: {
+      sendMessage: jest.fn(() => true),
+      sendMessageEx: jest.fn(() => ({ status: SEND_STATUS.SENT }))
+    },
     ...overrides
   };
 }
@@ -139,7 +156,11 @@ function makeSchedulerDeps(overrides = {}) {
 describe('PlaybackScheduler note gating (P1)', () => {
   test('polyphony counts two overlapping same-pitch notes as two voices', () => {
     const scheduler = new PlaybackScheduler(makeSchedulerDeps());
-    scheduler._getTimingConstraints = () => ({ minNoteInterval: null, minNoteDuration: null, polyphony: 1 });
+    scheduler._getTimingConstraints = () => ({
+      minNoteInterval: null,
+      minNoteDuration: null,
+      polyphony: 1
+    });
     // First noteOn on note 60 allowed.
     expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOn')).toBe(false);
     // Second overlapping noteOn on the SAME pitch must be gated (2 > polyphony 1),
@@ -149,7 +170,11 @@ describe('PlaybackScheduler note gating (P1)', () => {
 
   test('a noteOff for a dropped noteOn is suppressed so it cannot cut a live note', () => {
     const scheduler = new PlaybackScheduler(makeSchedulerDeps());
-    scheduler._getTimingConstraints = () => ({ minNoteInterval: null, minNoteDuration: null, polyphony: 1 });
+    scheduler._getTimingConstraints = () => ({
+      minNoteInterval: null,
+      minNoteDuration: null,
+      polyphony: 1
+    });
     scheduler._shouldGateNote('dev', 0, 60, 'noteOn'); // voice 1 (live)
     scheduler._shouldGateNote('dev', 0, 60, 'noteOn'); // gated (dropped)
     // The first noteOff must be swallowed (belongs to the dropped noteOn)...
@@ -167,7 +192,12 @@ describe('PlaybackScheduler disconnect policy uses typed status (P0-6)', () => {
     };
     const scheduler = new PlaybackScheduler(makeSchedulerDeps({ deviceManager: dm }));
     const routing = { device: 'dev-x', targetChannel: 0 };
-    const state = { playing: true, mutedChannels: new Set(), disconnectedPolicy: 'skip', channelRouting: new Map() };
+    const state = {
+      playing: true,
+      mutedChannels: new Set(),
+      disconnectedPolicy: 'skip',
+      channelRouting: new Map()
+    };
     const getOutput = () => routing;
     scheduler.sendEvent(
       { type: 'noteOn', channel: 0, note: 60, velocity: 100 },
@@ -203,8 +233,12 @@ describe('MidiPlayer.loadFile rejects unplayable timings (P0-4)', () => {
   test('SMF format 2 is rejected', async () => {
     const player = playerWithFile({
       header: { format: 2, numTracks: 1, ticksPerBeat: 480 },
-      tracks: [[{ deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
-                { deltaTime: 240, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }]]
+      tracks: [
+        [
+          { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
+          { deltaTime: 240, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }
+        ]
+      ]
     });
     await expect(player.loadFile('f1')).rejects.toThrow(/format 2/i);
   });
@@ -212,9 +246,13 @@ describe('MidiPlayer.loadFile rejects unplayable timings (P0-4)', () => {
   test('a format-1 PPQ file still loads and keeps its events', async () => {
     const player = playerWithFile({
       header: { format: 1, numTracks: 1, ticksPerBeat: 480 },
-      tracks: [[{ deltaTime: 0, type: 'setTempo', microsecondsPerBeat: 500000 },
-                { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
-                { deltaTime: 480, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }]]
+      tracks: [
+        [
+          { deltaTime: 0, type: 'setTempo', microsecondsPerBeat: 500000 },
+          { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
+          { deltaTime: 480, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }
+        ]
+      ]
     });
     const info = await player.loadFile('f2');
     expect(info.events).toBeGreaterThanOrEqual(2);

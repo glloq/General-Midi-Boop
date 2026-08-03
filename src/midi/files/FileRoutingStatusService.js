@@ -43,7 +43,7 @@ export function computeRoutingStatus({ file, routings, connectedDeviceIds = null
       .map((r) => r.compatibility_score)
       .filter((s) => s !== null && s !== undefined);
     const minScore = scores.length > 0 ? Math.min(...scores) : null;
-    status = (minScore === null || minScore === 100) ? 'playable' : 'routed_incomplete';
+    status = minScore === null || minScore === 100 ? 'playable' : 'routed_incomplete';
   }
 
   const hasAutoAssigned = enabledRoutings.some((r) => r.auto_assigned);

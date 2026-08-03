@@ -54,7 +54,10 @@ class LightingEffectsEngine {
 
     // Reset after 3 seconds of no taps
     setTimeout(() => {
-      if (this._tapTimes.length > 0 && Date.now() - this._tapTimes[this._tapTimes.length - 1] > 3000) {
+      if (
+        this._tapTimes.length > 0 &&
+        Date.now() - this._tapTimes[this._tapTimes.length - 1] > 3000
+      ) {
         this._tapTimes = [];
       }
     }, 3500);
@@ -80,9 +83,10 @@ class LightingEffectsEngine {
     this.stopEffect(effectKey);
 
     const startLed = config.led_start || 0;
-    const endLed = config.led_end === -1 || config.led_end === undefined
-      ? (driver.device?.led_count || 1) - 1
-      : config.led_end;
+    const endLed =
+      config.led_end === -1 || config.led_end === undefined
+        ? (driver.device?.led_count || 1) - 1
+        : config.led_end;
     const speed = config.speed || 500; // ms per cycle
     const brightness = config.brightness !== undefined ? config.brightness : 255;
     const color = config.color ? hexToRgb(config.color) : { r: 255, g: 0, b: 0 };
@@ -92,25 +96,26 @@ class LightingEffectsEngine {
     const ledCount = endLed - startLed + 1;
 
     const intervalMap = {
-      strobe:      Math.max(20, speed / 2),
-      rainbow:     Math.max(16, speed / 60),
-      chase:       Math.max(16, speed / ledCount),
-      fire:        Math.max(16, speed / 30),
-      breathe:     Math.max(16, speed / 60),
-      sparkle:     Math.max(16, speed / 20),
+      strobe: Math.max(20, speed / 2),
+      rainbow: Math.max(16, speed / 60),
+      chase: Math.max(16, speed / ledCount),
+      fire: Math.max(16, speed / 30),
+      breathe: Math.max(16, speed / 60),
+      sparkle: Math.max(16, speed / 20),
       color_cycle: Math.max(16, speed / 60),
-      wave:        Math.max(16, speed / 60)
+      wave: Math.max(16, speed / 60)
     };
 
     const fnMap = {
-      strobe:      () => this._strobe(driver, startLed, endLed, color, brightness, state),
-      rainbow:     () => this._rainbow(driver, startLed, endLed, brightness, state, speed),
-      chase:       () => this._chase(driver, startLed, endLed, color, color2, brightness, state),
-      fire:        () => this._fire(driver, startLed, endLed, brightness, state),
-      breathe:     () => this._breathe(driver, startLed, endLed, color, brightness, state, speed),
-      sparkle:     () => this._sparkle(driver, startLed, endLed, color, brightness, config.density || 0.1),
+      strobe: () => this._strobe(driver, startLed, endLed, color, brightness, state),
+      rainbow: () => this._rainbow(driver, startLed, endLed, brightness, state, speed),
+      chase: () => this._chase(driver, startLed, endLed, color, color2, brightness, state),
+      fire: () => this._fire(driver, startLed, endLed, brightness, state),
+      breathe: () => this._breathe(driver, startLed, endLed, color, brightness, state, speed),
+      sparkle: () =>
+        this._sparkle(driver, startLed, endLed, color, brightness, config.density || 0.1),
       color_cycle: () => this._colorCycle(driver, startLed, endLed, brightness, state, speed),
-      wave:        () => this._wave(driver, startLed, endLed, color, color2, brightness, state, speed)
+      wave: () => this._wave(driver, startLed, endLed, color, color2, brightness, state, speed)
     };
 
     const fn = fnMap[effectType];
@@ -174,7 +179,7 @@ class LightingEffectsEngine {
 
     const ledCount = endLed - startLed + 1;
     for (let i = 0; i <= endLed - startLed; i++) {
-      const hue = (state.phase + (i * 360 / ledCount)) % 360;
+      const hue = (state.phase + (i * 360) / ledCount) % 360;
       const { r, g, b } = hsvToRgb(hue, 1.0, 1.0);
       driver.setColor(startLed + i, r, g, b, brightness);
     }
@@ -246,7 +251,7 @@ class LightingEffectsEngine {
     const ledCount = endLed - startLed + 1;
 
     for (let i = 0; i <= endLed - startLed; i++) {
-      const factor = (Math.sin(state.phase + (i * 2 * Math.PI / ledCount)) + 1) / 2;
+      const factor = (Math.sin(state.phase + (i * 2 * Math.PI) / ledCount) + 1) / 2;
       const r = Math.round(bg.r + (color.r - bg.r) * factor);
       const g = Math.round(bg.g + (color.g - bg.g) * factor);
       const b = Math.round(bg.b + (color.b - bg.b) * factor);

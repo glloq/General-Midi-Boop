@@ -12,19 +12,19 @@ import BaseLightingDriver from './BaseLightingDriver.js';
 
 /** Valid GPIO pins per WS281x hardware channel. */
 const CHANNEL_GPIO_MAP = {
-  0: [18, 12],  // PWM0
-  1: [13, 19],  // PWM1
-  2: [10]       // SPI0
+  0: [18, 12], // PWM0
+  1: [13, 19], // PWM1
+  2: [10] // SPI0
 };
 
 class GpioStripDriver extends BaseLightingDriver {
   constructor(device, logger) {
     super(device, logger);
     this.ws281x = null;
-    this.strips = [];          // Strip configs from connection_config
-    this.segments = [];        // Named logical zones
-    this.pixelBuffers = [];    // Uint32Array per strip
-    this.indexLookup = [];     // Virtual index -> { stripIndex, offset }
+    this.strips = []; // Strip configs from connection_config
+    this.segments = []; // Named logical zones
+    this.pixelBuffers = []; // Uint32Array per strip
+    this.indexLookup = []; // Virtual index -> { stripIndex, offset }
     this._totalLeds = 0;
   }
 
@@ -57,7 +57,9 @@ class GpioStripDriver extends BaseLightingDriver {
           throw new Error(`Invalid channel ${strip.channel}. Must be 0, 1, or 2`);
         }
         if (!validPins.includes(strip.gpio)) {
-          throw new Error(`GPIO ${strip.gpio} is not valid for channel ${strip.channel}. Valid pins: ${validPins.join(', ')}`);
+          throw new Error(
+            `GPIO ${strip.gpio} is not valid for channel ${strip.channel}. Valid pins: ${validPins.join(', ')}`
+          );
         }
       }
 
@@ -73,7 +75,7 @@ class GpioStripDriver extends BaseLightingDriver {
       }
 
       // Initialize ws281x with channel config
-      const channels = this.strips.map(strip => ({
+      const channels = this.strips.map((strip) => ({
         count: strip.led_count,
         gpio: strip.gpio,
         brightness: strip.brightness !== undefined ? strip.brightness : 255,
@@ -87,12 +89,12 @@ class GpioStripDriver extends BaseLightingDriver {
       });
 
       // Create pixel buffers
-      this.pixelBuffers = this.strips.map(strip =>
-        new Uint32Array(strip.led_count)
-      );
+      this.pixelBuffers = this.strips.map((strip) => new Uint32Array(strip.led_count));
 
       this.connected = true;
-      this.logger.info(`GPIO Strip driver connected: ${this.strips.length} strip(s), ${this._totalLeds} total LEDs on device "${this.device.name}"`);
+      this.logger.info(
+        `GPIO Strip driver connected: ${this.strips.length} strip(s), ${this._totalLeds} total LEDs on device "${this.device.name}"`
+      );
       this.emit('connected');
     } catch (error) {
       this.logger.error(`GPIO Strip driver connect failed: ${error.message}`);
@@ -121,8 +123,7 @@ class GpioStripDriver extends BaseLightingDriver {
     const { r: adjR, g: adjG, b: adjB } = this._adjustColor(r, g, b, brightness);
 
     // Pack as 0x00RRGGBB (rpi-ws281x-native handles color order via strip_type)
-    this.pixelBuffers[lookup.stripIndex][lookup.offset] =
-      (adjR << 16) | (adjG << 8) | adjB;
+    this.pixelBuffers[lookup.stripIndex][lookup.offset] = (adjR << 16) | (adjG << 8) | adjB;
 
     this._scheduleRender();
   }
@@ -153,7 +154,7 @@ class GpioStripDriver extends BaseLightingDriver {
   // ==================== SEGMENT HELPERS ====================
 
   getSegment(name) {
-    return this.segments.find(s => s.name === name) || null;
+    return this.segments.find((s) => s.name === name) || null;
   }
 
   setSegmentColor(segmentName, r, g, b, brightness = 255) {

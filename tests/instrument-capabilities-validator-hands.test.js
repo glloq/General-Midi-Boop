@@ -44,7 +44,7 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
         enabled: true,
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
@@ -56,7 +56,7 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
     const v = new InstrumentCapabilitiesValidator();
     const r = v.validateInstrument({ ...baseInstrument(), hands_config: '{ bad json' });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config')).toBe(true);
   });
 
   test('empty hands array is flagged', () => {
@@ -66,7 +66,7 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
       hands_config: { enabled: true, hands: [] }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands')).toBe(true);
   });
 
   test('duplicate hand id is flagged', () => {
@@ -82,7 +82,7 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => /Duplicate hand id/.test(m.reason || ''))).toBe(true);
+    expect(r.missing.some((m) => /Duplicate hand id/.test(m.reason || ''))).toBe(true);
   });
 
   test('non-positive travel speed is flagged', () => {
@@ -92,13 +92,13 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
       hands_config: {
         enabled: true,
         hand_move_semitones_per_sec: 0,
-        hands: [
-          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 }
-        ]
+        hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14 }]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hand_move_semitones_per_sec')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hand_move_semitones_per_sec')).toBe(
+      true
+    );
   });
 
   test('unknown assignment mode is flagged', () => {
@@ -112,7 +112,7 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.assignment.mode')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.assignment.mode')).toBe(true);
   });
 
   test('explicit semitones mode is valid', () => {
@@ -124,7 +124,7 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
         mode: 'semitones',
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
@@ -139,7 +139,7 @@ describe('InstrumentCapabilitiesValidator — hands_config', () => {
       hands_config: { enabled: true, mode: 'bananas', hands: [] }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.mode')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.mode')).toBe(true);
   });
 });
 
@@ -161,9 +161,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
         mode: 'frets',
         mechanism: 'string_sliding_fingers',
         hand_move_frets_per_sec: 12,
-        hands: [
-          { id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }
-        ]
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
       }
     });
     expect(r.isValid).toBe(true);
@@ -180,12 +178,12 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
         hand_move_frets_per_sec: 12,
         hands: [
           { id: 'fretting', cc_position_number: 22, hand_span_frets: 4 },
-          { id: 'other',    cc_position_number: 23, hand_span_frets: 4 }
+          { id: 'other', cc_position_number: 23, hand_span_frets: 4 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => /exactly one hand/.test(m.reason || ''))).toBe(true);
+    expect(r.missing.some((m) => /exactly one hand/.test(m.reason || ''))).toBe(true);
   });
 
   test('frets mode with wrong hand id is flagged', () => {
@@ -201,7 +199,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].id')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].id')).toBe(true);
   });
 
   test('frets mode missing both hand_span_mm and hand_span_frets is flagged', () => {
@@ -217,7 +215,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => /hand_span/.test(m.field || ''))).toBe(true);
+    expect(r.missing.some((m) => /hand_span/.test(m.field || ''))).toBe(true);
   });
 
   test('frets mode rejects cross-unit semitone fields on hand', () => {
@@ -229,11 +227,15 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
         mode: 'frets',
         mechanism: 'string_sliding_fingers',
         hand_move_frets_per_sec: 12,
-        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4, hand_span_semitones: 14 }]
+        hands: [
+          { id: 'fretting', cc_position_number: 22, hand_span_frets: 4, hand_span_semitones: 14 }
+        ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].hand_span_semitones')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].hand_span_semitones')).toBe(
+      true
+    );
   });
 
   test('frets mode rejects cross-unit semitone travel speed', () => {
@@ -249,7 +251,9 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hand_move_semitones_per_sec')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hand_move_semitones_per_sec')).toBe(
+      true
+    );
   });
 
   test('frets mode rejects an assignment block', () => {
@@ -266,7 +270,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.assignment')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.assignment')).toBe(true);
   });
 
   test('frets mode without mechanism is flagged', () => {
@@ -281,7 +285,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.mechanism')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.mechanism')).toBe(true);
   });
 
   test('mechanism = independent_fingers is rejected (V2 stub)', () => {
@@ -297,9 +301,9 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m =>
-      m.field === 'hands_config.mechanism' && /V2/.test(m.reason || '')
-    )).toBe(true);
+    expect(
+      r.missing.some((m) => m.field === 'hands_config.mechanism' && /V2/.test(m.reason || ''))
+    ).toBe(true);
   });
 
   test('unknown mechanism value is flagged', () => {
@@ -315,7 +319,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.mechanism')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.mechanism')).toBe(true);
   });
 
   test('fret_sliding_fingers requires num_fingers', () => {
@@ -331,7 +335,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
   });
 
   test('fret_sliding_fingers num_fingers in [1,8] is accepted', () => {
@@ -362,7 +366,7 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
   });
 
   test('fret_sliding_fingers variable_height_fingers_count > num_fingers is flagged', () => {
@@ -374,16 +378,21 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
         mode: 'frets',
         mechanism: 'fret_sliding_fingers',
         hand_move_mm_per_sec: 250,
-        hands: [{
-          id: 'fretting', cc_position_number: 22, hand_span_mm: 80,
-          num_fingers: 3, variable_height_fingers_count: 5
-        }]
+        hands: [
+          {
+            id: 'fretting',
+            cc_position_number: 22,
+            hand_span_mm: 80,
+            num_fingers: 3,
+            variable_height_fingers_count: 5
+          }
+        ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m =>
-      m.field === 'hands_config.hands[0].variable_height_fingers_count'
-    )).toBe(true);
+    expect(
+      r.missing.some((m) => m.field === 'hands_config.hands[0].variable_height_fingers_count')
+    ).toBe(true);
   });
 
   test('string_sliding_fingers rejects fret_sliding-only fields', () => {
@@ -395,16 +404,18 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
         mode: 'frets',
         mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 250,
-        hands: [{
-          id: 'fretting', cc_position_number: 22, hand_span_mm: 80,
-          num_fingers: 4
-        }]
+        hands: [
+          {
+            id: 'fretting',
+            cc_position_number: 22,
+            hand_span_mm: 80,
+            num_fingers: 4
+          }
+        ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m =>
-      m.field === 'hands_config.hands[0].num_fingers'
-    )).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
   });
 
   test('semitones mode rejects stray hand_span_frets', () => {
@@ -415,13 +426,13 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
         enabled: true,
         mode: 'semitones',
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, hand_span_frets: 4 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14, hand_span_frets: 4 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].hand_span_frets')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].hand_span_frets')).toBe(true);
   });
 
   test('semitones mode rejects stray hand_move_frets_per_sec', () => {
@@ -433,13 +444,13 @@ describe('InstrumentCapabilitiesValidator — hands_config (frets mode)', () => 
         mode: 'semitones',
         hand_move_frets_per_sec: 12,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hand_move_frets_per_sec')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hand_move_frets_per_sec')).toBe(true);
   });
 });
 
@@ -492,10 +503,14 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
         mechanism: 'string_sliding_fingers',
         hand_move_mm_per_sec: 250,
         hand_move_frets_per_sec: 12,
-        hands: [{
-          id: 'fretting', cc_position_number: 22,
-          hand_span_mm: 80, hand_span_frets: 4
-        }]
+        hands: [
+          {
+            id: 'fretting',
+            cc_position_number: 22,
+            hand_span_mm: 80,
+            hand_span_frets: 4
+          }
+        ]
       }
     });
     expect(r.isValid).toBe(true);
@@ -514,7 +529,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].hand_span_mm')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].hand_span_mm')).toBe(true);
   });
 
   test('hand_move_mm_per_sec out of [50, 2000] is flagged', () => {
@@ -530,7 +545,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hand_move_mm_per_sec')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hand_move_mm_per_sec')).toBe(true);
   });
 
   test('missing both speeds is flagged', () => {
@@ -545,7 +560,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => /hand_move/.test(m.field || ''))).toBe(true);
+    expect(r.missing.some((m) => /hand_move/.test(m.field || ''))).toBe(true);
   });
 
   test('max_fingers in [1, 12] is accepted', () => {
@@ -576,7 +591,7 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].max_fingers')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].max_fingers')).toBe(true);
   });
 
   test('semitones mode rejects stray hand_span_mm and max_fingers', () => {
@@ -587,14 +602,20 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
         enabled: true,
         mode: 'semitones',
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, hand_span_mm: 80, max_fingers: 5 },
+          {
+            id: 'left',
+            cc_position_number: 23,
+            hand_span_semitones: 14,
+            hand_span_mm: 80,
+            max_fingers: 5
+          },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].hand_span_mm')).toBe(true);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].max_fingers')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].hand_span_mm')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].max_fingers')).toBe(true);
   });
 
   test('semitones mode rejects stray hand_move_mm_per_sec', () => {
@@ -606,13 +627,13 @@ describe('InstrumentCapabilitiesValidator — frets mode mm + max_fingers', () =
         mode: 'semitones',
         hand_move_mm_per_sec: 250,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hand_move_mm_per_sec')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hand_move_mm_per_sec')).toBe(true);
   });
 });
 
@@ -635,7 +656,7 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         mechanism: 'aligned_fingers',
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 5 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14, num_fingers: 5 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 5 }
         ]
       }
@@ -653,15 +674,15 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         mechanism: 'independent_fingers_5',
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m =>
-      m.field === 'hands_config.mechanism' && /V2/.test(m.reason || '')
-    )).toBe(true);
+    expect(
+      r.missing.some((m) => m.field === 'hands_config.mechanism' && /V2/.test(m.reason || ''))
+    ).toBe(true);
   });
 
   test('unknown semitones mechanism is flagged', () => {
@@ -674,13 +695,13 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         mechanism: 'bogus',
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.mechanism')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.mechanism')).toBe(true);
   });
 
   test('num_fingers in [1,16] is accepted', () => {
@@ -692,7 +713,7 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         mode: 'semitones',
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 1 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14, num_fingers: 1 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14, num_fingers: 16 }
         ]
       }
@@ -709,13 +730,13 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         mode: 'semitones',
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14, num_fingers: 17 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14, num_fingers: 17 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }
     });
     expect(r.isValid).toBe(false);
-    expect(r.missing.some(m => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
+    expect(r.missing.some((m) => m.field === 'hands_config.hands[0].num_fingers')).toBe(true);
   });
 
   test('legacy semitones config without mechanism still validates', () => {
@@ -728,7 +749,7 @@ describe('InstrumentCapabilitiesValidator — semitones mode mechanism + num_fin
         enabled: true,
         hand_move_semitones_per_sec: 60,
         hands: [
-          { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
           { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
         ]
       }

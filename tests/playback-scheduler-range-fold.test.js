@@ -55,8 +55,11 @@ describe('PlaybackScheduler — note range folding', () => {
       {}
     );
     // 84 → 72 (C5), same pitch class, within range.
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('dev', 'noteon',
-      expect.objectContaining({ note: 72 }));
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
+      'dev',
+      'noteon',
+      expect.objectContaining({ note: 72 })
+    );
   });
 
   test('folds a too-low note up into range', () => {
@@ -69,8 +72,11 @@ describe('PlaybackScheduler — note range folding', () => {
       () => ({ device: 'dev', targetChannel: 0 }),
       {}
     );
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('dev', 'noteon',
-      expect.objectContaining({ note: 60 }));
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
+      'dev',
+      'noteon',
+      expect.objectContaining({ note: 60 })
+    );
   });
 
   test('leaves in-range notes untouched', () => {
@@ -83,8 +89,11 @@ describe('PlaybackScheduler — note range folding', () => {
       () => ({ device: 'dev', targetChannel: 0 }),
       {}
     );
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('dev', 'noteon',
-      expect.objectContaining({ note: 65 }));
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
+      'dev',
+      'noteon',
+      expect.objectContaining({ note: 65 })
+    );
   });
 
   test('does not fold the GM drum channel (9)', () => {
@@ -97,8 +106,11 @@ describe('PlaybackScheduler — note range folding', () => {
       () => ({ device: 'drum', targetChannel: 9 }),
       {}
     );
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('drum', 'noteon',
-      expect.objectContaining({ note: 35 }));
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
+      'drum',
+      'noteon',
+      expect.objectContaining({ note: 35 })
+    );
   });
 
   test('_foldIntoRange clamps when range is narrower than an octave', () => {

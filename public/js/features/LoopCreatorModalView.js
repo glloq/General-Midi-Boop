@@ -18,28 +18,28 @@
 // ============================================================================
 
 (function () {
-    'use strict';
+  'use strict';
 
-    class LoopCreatorModalView {
-        /** @param {LoopCreatorModal} parent */
-        constructor(parent) {
-            this.parent = parent;
-        }
+  class LoopCreatorModalView {
+    /** @param {LoopCreatorModal} parent */
+    constructor(parent) {
+      this.parent = parent;
+    }
 
     _renderHeader() {
-        const showSave = this.parent.activeTab === 'arranger';
-        return `
+      const showSave = this.parent.activeTab === 'arranger';
+      return `
         <div class="modal-header lc-header">
             <div class="lc-header-left">
                 <span class="lc-header-title" aria-hidden="true">∞</span>
                 <span class="lc-header-subtitle">${this.parent.t('loopManager.title')}</span>
             </div>
             <div class="lc-header-tabs" role="tablist" aria-label="${this.parent.t('loopManager.title')}">
-                <button class="lc-tab${this.parent.activeTab==='library'  ? ' lc-tab--active':''}" data-tab="library"  role="tab" id="lc-tab-library"  aria-controls="lc-pane-library"  aria-selected="${this.parent.activeTab==='library'}"  tabindex="${this.parent.activeTab==='library'?'0':'-1'}"><span aria-hidden="true">🗂</span> ${this.parent.t('loopManager.tabLibrary')}</button>
-                <button class="lc-tab${this.parent.activeTab==='pad'      ? ' lc-tab--active':''}" data-tab="pad"      role="tab" id="lc-tab-pad"      aria-controls="lc-pane-pad"      aria-selected="${this.parent.activeTab==='pad'}"      tabindex="${this.parent.activeTab==='pad'?'0':'-1'}"><span class="lc-tab-icon lc-tab-icon--pad" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><circle cx="5" cy="5"  r="1.1" fill="currentColor" stroke="none"/><circle cx="11" cy="5"  r="1.1" fill="currentColor" stroke="none"/><circle cx="5" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="11" cy="11" r="1.1" fill="currentColor" stroke="none"/></svg></span> ${this.parent.t('loopManager.tabPad')}</button>
-                <button class="lc-tab${this.parent.activeTab==='live'     ? ' lc-tab--active':''}" data-tab="live"     role="tab" id="lc-tab-live"     aria-controls="lc-pane-live"     aria-selected="${this.parent.activeTab==='live'}"     tabindex="${this.parent.activeTab==='live'?'0':'-1'}"><span aria-hidden="true">⚡</span> ${this.parent.t('loopManager.tabLive')}</button>
-                <button class="lc-tab${this.parent.activeTab==='keyboard' ? ' lc-tab--active':''}" data-tab="keyboard" role="tab" id="lc-tab-keyboard" aria-controls="lc-pane-keyboard" aria-selected="${this.parent.activeTab==='keyboard'}" tabindex="${this.parent.activeTab==='keyboard'?'0':'-1'}"><span aria-hidden="true">🎹</span> ${this.parent.t('loopManager.tabKeyboard')}</button>
-                <button class="lc-tab${this.parent.activeTab==='arranger' ? ' lc-tab--active':''}" data-tab="arranger" role="tab" id="lc-tab-arranger" aria-controls="lc-pane-arranger" aria-selected="${this.parent.activeTab==='arranger'}" tabindex="${this.parent.activeTab==='arranger'?'0':'-1'}"><span aria-hidden="true">∞</span> ${this.parent.t('loopManager.tabArranger')}</button>
+                <button class="lc-tab${this.parent.activeTab === 'library' ? ' lc-tab--active' : ''}" data-tab="library"  role="tab" id="lc-tab-library"  aria-controls="lc-pane-library"  aria-selected="${this.parent.activeTab === 'library'}"  tabindex="${this.parent.activeTab === 'library' ? '0' : '-1'}"><span aria-hidden="true">🗂</span> ${this.parent.t('loopManager.tabLibrary')}</button>
+                <button class="lc-tab${this.parent.activeTab === 'pad' ? ' lc-tab--active' : ''}" data-tab="pad"      role="tab" id="lc-tab-pad"      aria-controls="lc-pane-pad"      aria-selected="${this.parent.activeTab === 'pad'}"      tabindex="${this.parent.activeTab === 'pad' ? '0' : '-1'}"><span class="lc-tab-icon lc-tab-icon--pad" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/><circle cx="5" cy="5"  r="1.1" fill="currentColor" stroke="none"/><circle cx="11" cy="5"  r="1.1" fill="currentColor" stroke="none"/><circle cx="5" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="11" cy="11" r="1.1" fill="currentColor" stroke="none"/></svg></span> ${this.parent.t('loopManager.tabPad')}</button>
+                <button class="lc-tab${this.parent.activeTab === 'live' ? ' lc-tab--active' : ''}" data-tab="live"     role="tab" id="lc-tab-live"     aria-controls="lc-pane-live"     aria-selected="${this.parent.activeTab === 'live'}"     tabindex="${this.parent.activeTab === 'live' ? '0' : '-1'}"><span aria-hidden="true">⚡</span> ${this.parent.t('loopManager.tabLive')}</button>
+                <button class="lc-tab${this.parent.activeTab === 'keyboard' ? ' lc-tab--active' : ''}" data-tab="keyboard" role="tab" id="lc-tab-keyboard" aria-controls="lc-pane-keyboard" aria-selected="${this.parent.activeTab === 'keyboard'}" tabindex="${this.parent.activeTab === 'keyboard' ? '0' : '-1'}"><span aria-hidden="true">🎹</span> ${this.parent.t('loopManager.tabKeyboard')}</button>
+                <button class="lc-tab${this.parent.activeTab === 'arranger' ? ' lc-tab--active' : ''}" data-tab="arranger" role="tab" id="lc-tab-arranger" aria-controls="lc-pane-arranger" aria-selected="${this.parent.activeTab === 'arranger'}" tabindex="${this.parent.activeTab === 'arranger' ? '0' : '-1'}"><span aria-hidden="true">∞</span> ${this.parent.t('loopManager.tabArranger')}</button>
             </div>
             <div class="lc-header-actions">
                 <button class="lc-btn lc-btn-sm lc-header-output-btn" id="lc-header-output-btn"
@@ -62,7 +62,7 @@
     }
 
     renderBody() {
-        return `
+      return `
         <div class="lc-layout">
             <div class="lc-tab-content" id="lc-tab-content">
                 ${this._renderLibraryTab()}
@@ -79,20 +79,22 @@
     // =========================================================
 
     _renderKeyboardTab() {
-        return `
-        <div class="lc-pane${this.parent.activeTab==='keyboard' ? '' : ' lc-pane--hidden'} lm-kbd-pane" id="lc-pane-keyboard" role="tabpanel" aria-labelledby="lc-tab-keyboard">
+      return `
+        <div class="lc-pane${this.parent.activeTab === 'keyboard' ? '' : ' lc-pane--hidden'} lm-kbd-pane" id="lc-pane-keyboard" role="tabpanel" aria-labelledby="lc-tab-keyboard">
             <div class="lm-kbd-panel" id="lm-kbd-panel"></div>
         </div>`;
     }
 
-    renderFooter() { return ''; }
+    renderFooter() {
+      return '';
+    }
 
     // =========================================================
     // RENDERING — TAB 1: LIBRARY
     // =========================================================
 
     _renderLibraryTab() {
-        return this.parent.libraryFeature ? this.parent.libraryFeature.renderTabHtml() : "";
+      return this.parent.libraryFeature ? this.parent.libraryFeature.renderTabHtml() : '';
     }
 
     // =========================================================
@@ -100,16 +102,15 @@
     // =========================================================
 
     _renderPadTab() {
-        return this.parent.padFeature ? this.parent.padFeature.renderTabHtml() : "";
+      return this.parent.padFeature ? this.parent.padFeature.renderTabHtml() : '';
     }
-
 
     // =========================================================
     // RENDERING — TAB 3: LIVE
     // =========================================================
 
     _renderLiveTab() {
-        return this.parent.liveFeature ? this.parent.liveFeature.renderTabHtml() : "";
+      return this.parent.liveFeature ? this.parent.liveFeature.renderTabHtml() : '';
     }
 
     // =========================================================
@@ -117,11 +118,11 @@
     // =========================================================
 
     _renderArrangerTab() {
-        // Raccourcis platform-aware (AUDIT §U2 : ⌘ sur Mac, Ctrl ailleurs).
-        const mod = LoopUtils.modKeyLabel();
-        const sft = LoopUtils.shiftKeyLabel();
-        return `
-        <div class="lc-pane${this.parent.activeTab==='arranger' ? '' : ' lc-pane--hidden'}" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
+      // Raccourcis platform-aware (AUDIT §U2 : ⌘ sur Mac, Ctrl ailleurs).
+      const mod = LoopUtils.modKeyLabel();
+      const sft = LoopUtils.shiftKeyLabel();
+      return `
+        <div class="lc-pane${this.parent.activeTab === 'arranger' ? '' : ' lc-pane--hidden'}" id="lc-pane-arranger" role="tabpanel" aria-labelledby="lc-tab-arranger">
             <div class="lc-ctrl-bar lc-ctrl-bar--arr">
                 <!-- Groupe 1 — Identité de l'arrangement -->
                 <input type="text" class="lc-name-input la-toolbar-name" id="la-name-input"
@@ -223,84 +224,87 @@
         </div>`;
     }
     _renderPlaybar() {
-        const fill = this.parent.$('#lc-playbar-fill');
-        if (!fill) return;
+      const fill = this.parent.$('#lc-playbar-fill');
+      if (!fill) return;
 
-        if (this.parent.isArrangerPlaying && this.parent._arrangerStartTime) {
-            fill.classList.remove('lc-playbar-fill--looping');
-            fill.style.removeProperty('--playbar-dur');
-            const secPerBar = 60 / this.parent.arrangementTempo * 4;
-            const totalMs   = this.parent.arrangementBars * secPerBar * 1000;
-            const startMs   = this.parent._arrangerStartBar * secPerBar * 1000;
-            const elapsed   = performance.now() - this.parent._arrangerStartTime;
-            const pct = Math.min(100, Math.max(0, (startMs + elapsed) / totalMs * 100));
-            fill.style.width = pct + '%';
-            this.parent._renderArrangerPlayhead(elapsed / 1000);
-            return;
-        }
-        this.parent._renderArrangerPlayhead(null);
+      if (this.parent.isArrangerPlaying && this.parent._arrangerStartTime) {
+        fill.classList.remove('lc-playbar-fill--looping');
+        fill.style.removeProperty('--playbar-dur');
+        const secPerBar = (60 / this.parent.arrangementTempo) * 4;
+        const totalMs = this.parent.arrangementBars * secPerBar * 1000;
+        const startMs = this.parent._arrangerStartBar * secPerBar * 1000;
+        const elapsed = performance.now() - this.parent._arrangerStartTime;
+        const pct = Math.min(100, Math.max(0, ((startMs + elapsed) / totalMs) * 100));
+        fill.style.width = pct + '%';
+        this.parent._renderArrangerPlayhead(elapsed / 1000);
+        return;
+      }
+      this.parent._renderArrangerPlayhead(null);
 
-        const hasPad  = this.parent._padPlayingIndex.size > 0;
-        const hasLive = this.parent._livePlayingLoops.size > 0;
-        if (hasPad || hasLive) {
-            // Use the shortest active loop duration to pace the fill animation
-            let minDurMs = Infinity;
-            for (const [idx, data] of this.parent._padPlayTimes) {
-                if (this.parent._padPlayingIndex.has(idx) && data.durMs < minDurMs) minDurMs = data.durMs;
-            }
-            for (const [, state] of this.parent._livePlayingLoops) {
-                if (state.durMs && state.durMs < minDurMs) minDurMs = state.durMs;
-            }
-            if (!isFinite(minDurMs)) minDurMs = 2000;
-            fill.style.setProperty('--playbar-dur', (minDurMs / 1000).toFixed(3) + 's');
-            if (!fill.classList.contains('lc-playbar-fill--looping')) {
-                fill.classList.add('lc-playbar-fill--looping');
-            }
-        } else {
-            fill.classList.remove('lc-playbar-fill--looping');
-            fill.style.width = '0%';
+      const hasPad = this.parent._padPlayingIndex.size > 0;
+      const hasLive = this.parent._livePlayingLoops.size > 0;
+      if (hasPad || hasLive) {
+        // Use the shortest active loop duration to pace the fill animation
+        let minDurMs = Infinity;
+        for (const [idx, data] of this.parent._padPlayTimes) {
+          if (this.parent._padPlayingIndex.has(idx) && data.durMs < minDurMs) minDurMs = data.durMs;
         }
+        for (const [, state] of this.parent._livePlayingLoops) {
+          if (state.durMs && state.durMs < minDurMs) minDurMs = state.durMs;
+        }
+        if (!isFinite(minDurMs)) minDurMs = 2000;
+        fill.style.setProperty('--playbar-dur', (minDurMs / 1000).toFixed(3) + 's');
+        if (!fill.classList.contains('lc-playbar-fill--looping')) {
+          fill.classList.add('lc-playbar-fill--looping');
+        }
+      } else {
+        fill.classList.remove('lc-playbar-fill--looping');
+        fill.style.width = '0%';
+      }
     }
-
 
     // ---------------------------------------------------------
     // GM program → display name / icon
     // ---------------------------------------------------------
 
     gmProgramName(prog) {
-        // GM_PROGRAM_NAMES is a script-scope const declared in
-        // LoopCreatorModal.js — visible across classic scripts in the
-        // shared global script lexical environment.
-        return (typeof GM_PROGRAM_NAMES !== 'undefined' && GM_PROGRAM_NAMES[prog])
-            || `Program ${prog}`;
+      // GM_PROGRAM_NAMES is a script-scope const declared in
+      // LoopCreatorModal.js — visible across classic scripts in the
+      // shared global script lexical environment.
+      return (
+        (typeof GM_PROGRAM_NAMES !== 'undefined' && GM_PROGRAM_NAMES[prog]) || `Program ${prog}`
+      );
     }
 
     instrIconHtml(prog, kind = 'instrument', extraClass = '') {
-        const family = LoopUtils.familyForProgram(prog);
-        const emoji  = family?.icon || '🎵';
-        let svgUrl = null;
-        const IF = (typeof window !== 'undefined') ? window.InstrumentFamilies : null;
-        if (IF) {
-            if (kind === 'instrument') {
-                const ico = IF.resolveInstrumentIcon({ gmProgram: prog });
-                svgUrl = ico?.svgUrl || null;
-                if (!svgUrl && ico?.family) svgUrl = IF.familyIconUrl(ico.family.slug);
-            } else {
-                const fam = IF.getFamilyForProgram(prog);
-                if (fam) svgUrl = IF.familyIconUrl(fam.slug);
-            }
+      const family = LoopUtils.familyForProgram(prog);
+      const emoji = family?.icon || '🎵';
+      let svgUrl = null;
+      const IF = typeof window !== 'undefined' ? window.InstrumentFamilies : null;
+      if (IF) {
+        if (kind === 'instrument') {
+          const ico = IF.resolveInstrumentIcon({ gmProgram: prog });
+          svgUrl = ico?.svgUrl || null;
+          if (!svgUrl && ico?.family) svgUrl = IF.familyIconUrl(ico.family.slug);
+        } else {
+          const fam = IF.getFamilyForProgram(prog);
+          if (fam) svgUrl = IF.familyIconUrl(fam.slug);
         }
-        const wrap = `lc-instr-icon${extraClass ? ' ' + extraClass : ''}`;
-        if (!svgUrl) return `<span class="${wrap}"><span class="lc-instr-emoji">${emoji}</span></span>`;
-        return `<span class="${wrap}">`
-             + `<img class="lc-instr-svg" src="${svgUrl}" alt="" loading="lazy" decoding="async"`
-             + ` onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">`
-             + `<span class="lc-instr-emoji" style="display:none">${emoji}</span>`
-             + `</span>`;
+      }
+      const wrap = `lc-instr-icon${extraClass ? ' ' + extraClass : ''}`;
+      if (!svgUrl)
+        return `<span class="${wrap}"><span class="lc-instr-emoji">${emoji}</span></span>`;
+      return (
+        `<span class="${wrap}">` +
+        `<img class="lc-instr-svg" src="${svgUrl}" alt="" loading="lazy" decoding="async"` +
+        ` onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">` +
+        `<span class="lc-instr-emoji" style="display:none">${emoji}</span>` +
+        `</span>`
+      );
     }
-    }
+  }
 
-    if (typeof window !== 'undefined') {
-        window.LoopCreatorModalView = LoopCreatorModalView;
-    }
+  if (typeof window !== 'undefined') {
+    window.LoopCreatorModalView = LoopCreatorModalView;
+  }
 })();

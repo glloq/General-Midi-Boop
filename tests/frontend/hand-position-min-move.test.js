@@ -27,35 +27,40 @@ const span14 = 14;
 
 function oneHand() {
   return {
-    enabled: true, mode: 'semitones',
+    enabled: true,
+    mode: 'semitones',
     hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: span14 }]
   };
 }
 function twoHand() {
   return {
-    enabled: true, mode: 'semitones',
+    enabled: true,
+    mode: 'semitones',
     hands: [
-      { id: 'left',  cc_position_number: 23, hand_span_semitones: span14 },
+      { id: 'left', cc_position_number: 23, hand_span_semitones: span14 },
       { id: 'right', cc_position_number: 24, hand_span_semitones: span14 }
     ]
   };
 }
 function nHand(K) {
   return {
-    enabled: true, mode: 'semitones',
+    enabled: true,
+    mode: 'semitones',
     hands: Array.from({ length: K }, (_, i) => ({
-      id: `h${i + 1}`, cc_position_number: 20 + i, hand_span_semitones: span14
+      id: `h${i + 1}`,
+      cc_position_number: 20 + i,
+      hand_span_semitones: span14
     }))
   };
 }
 
 function realShifts(out) {
-  return out.filter(e => e.type === 'shift'
-                      && e.fromAnchor !== null
-                      && e.fromAnchor !== e.toAnchor);
+  return out.filter(
+    (e) => e.type === 'shift' && e.fromAnchor !== null && e.fromAnchor !== e.toAnchor
+  );
 }
 function chordAt(out, tick) {
-  return out.find(e => e.type === 'chord' && e.tick === tick);
+  return out.find((e) => e.type === 'chord' && e.tick === tick);
 }
 
 describe('1-hand semitones — minimum-displacement shifts', () => {
@@ -64,7 +69,11 @@ describe('1-hand semitones — minimum-displacement shifts', () => {
     // Optimal anchor: 80 − 14 = 66 (distance 6).
     // Buggy: anchor = lo = 70 (distance 10).
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 480, note: 70 }, { tick: 480, note: 80 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 70 },
+        { tick: 480, note: 80 }
+      ],
       { hands_config: oneHand() }
     );
     const shifts = realShifts(out);
@@ -76,21 +85,29 @@ describe('1-hand semitones — minimum-displacement shifts', () => {
 
   it('downward shift uses lo (already correct, no regression)', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 70 }, { tick: 0, note: 84 },
-       { tick: 480, note: 60 }, { tick: 480, note: 65 }],
+      [
+        { tick: 0, note: 70 },
+        { tick: 0, note: 84 },
+        { tick: 480, note: 60 },
+        { tick: 480, note: 65 }
+      ],
       { hands_config: oneHand() }
     );
-    const shifts = realShifts(out).filter(s => s.tick === 480);
+    const shifts = realShifts(out).filter((s) => s.tick === 480);
     expect(shifts).toHaveLength(1);
     expect(shifts[0].toAnchor).toBe(60);
   });
 
   it('chord already in window emits no follow-up shift', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 480, note: 65 }, { tick: 480, note: 72 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 65 },
+        { tick: 480, note: 72 }
+      ],
       { hands_config: oneHand() }
     );
-    const followUp = realShifts(out).filter(s => s.tick === 480);
+    const followUp = realShifts(out).filter((s) => s.tick === 480);
     expect(followUp).toHaveLength(0);
   });
 });
@@ -100,12 +117,16 @@ describe('3-hand semitones — partition + minimum-displacement', () => {
     // The buggy greedy assigned all three notes to h1 because every
     // uninitialised hand reported distance 0.
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 30 }, { tick: 0, note: 60 }, { tick: 0, note: 90 }],
+      [
+        { tick: 0, note: 30 },
+        { tick: 0, note: 60 },
+        { tick: 0, note: 90 }
+      ],
       { hands_config: nHand(3) }
     );
     const chord = chordAt(out, 0);
     expect(chord).toBeDefined();
-    const byNote = new Map(chord.notes.map(n => [n.note, n.handId]));
+    const byNote = new Map(chord.notes.map((n) => [n.note, n.handId]));
     expect(byNote.get(30)).toBe('h1');
     expect(byNote.get(60)).toBe('h2');
     expect(byNote.get(90)).toBe('h3');
@@ -113,11 +134,15 @@ describe('3-hand semitones — partition + minimum-displacement', () => {
 
   it('follow-up note inside h3 window emits no shift', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 30 }, { tick: 0, note: 60 }, { tick: 0, note: 90 },
-       { tick: 480, note: 100 }],
+      [
+        { tick: 0, note: 30 },
+        { tick: 0, note: 60 },
+        { tick: 0, note: 90 },
+        { tick: 480, note: 100 }
+      ],
       { hands_config: nHand(3) }
     );
-    const followUp = realShifts(out).filter(s => s.tick === 480);
+    const followUp = realShifts(out).filter((s) => s.tick === 480);
     expect(followUp).toHaveLength(0);
     // h3 keeps the note (was already covering 90..104 → 100 fits).
     const chord = chordAt(out, 480);
@@ -128,11 +153,15 @@ describe('3-hand semitones — partition + minimum-displacement', () => {
     // h3 anchor 90 (covers 90..104); new note 110 forces shift.
     // Optimal: anchor = 110 − 14 = 96 (distance 6). Buggy: 90 → 110 (dist 20).
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 30 }, { tick: 0, note: 60 }, { tick: 0, note: 90 },
-       { tick: 480, note: 110 }],
+      [
+        { tick: 0, note: 30 },
+        { tick: 0, note: 60 },
+        { tick: 0, note: 90 },
+        { tick: 480, note: 110 }
+      ],
       { hands_config: nHand(3) }
     );
-    const followUp = realShifts(out).filter(s => s.tick === 480);
+    const followUp = realShifts(out).filter((s) => s.tick === 480);
     expect(followUp).toHaveLength(1);
     expect(followUp[0].handId).toBe('h3');
     expect(followUp[0].fromAnchor).toBe(90);
@@ -146,15 +175,22 @@ describe('3-hand semitones — partition + minimum-displacement', () => {
     // span 14, no partition can avoid all overflow (the wider
     // pinned slice forces it) — but the pin contract still holds.
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 30 }, { tick: 0, note: 60 }, { tick: 0, note: 90 }],
+      [
+        { tick: 0, note: 30 },
+        { tick: 0, note: 60 },
+        { tick: 0, note: 90 }
+      ],
       { hands_config: nHand(3) },
-      { overrides: {
-          hand_anchors: [], disabled_notes: [],
+      {
+        overrides: {
+          hand_anchors: [],
+          disabled_notes: [],
           note_assignments: [{ tick: 0, note: 60, handId: 'h3' }]
-      } }
+        }
+      }
     );
     const chord = chordAt(out, 0);
-    const byNote = new Map(chord.notes.map(n => [n.note, n.handId]));
+    const byNote = new Map(chord.notes.map((n) => [n.note, n.handId]));
     expect(byNote.get(60)).toBe('h3');
     // Pin order is preserved by construction (slices are
     // pitch-monotonic): note 30 lands somewhere ≤ h3, note 90 ≥ h3.
@@ -167,12 +203,16 @@ describe('3-hand semitones — partition + minimum-displacement', () => {
 describe('4-hand semitones — partition + minimum-displacement', () => {
   it('opening chord with 4 notes distributes one per hand', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 30 }, { tick: 0, note: 50 },
-       { tick: 0, note: 70 }, { tick: 0, note: 90 }],
+      [
+        { tick: 0, note: 30 },
+        { tick: 0, note: 50 },
+        { tick: 0, note: 70 },
+        { tick: 0, note: 90 }
+      ],
       { hands_config: nHand(4) }
     );
     const chord = chordAt(out, 0);
-    const byNote = new Map(chord.notes.map(n => [n.note, n.handId]));
+    const byNote = new Map(chord.notes.map((n) => [n.note, n.handId]));
     expect(byNote.get(30)).toBe('h1');
     expect(byNote.get(50)).toBe('h2');
     expect(byNote.get(70)).toBe('h3');
@@ -182,12 +222,16 @@ describe('4-hand semitones — partition + minimum-displacement', () => {
   it('follow-up shift on a 4-hand keyboard uses minimum displacement', () => {
     // h4 at 90..104; new note 105 → optimal anchor = 105 − 14 = 91 (dist 1).
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 30 }, { tick: 0, note: 50 },
-       { tick: 0, note: 70 }, { tick: 0, note: 90 },
-       { tick: 480, note: 105 }],
+      [
+        { tick: 0, note: 30 },
+        { tick: 0, note: 50 },
+        { tick: 0, note: 70 },
+        { tick: 0, note: 90 },
+        { tick: 480, note: 105 }
+      ],
       { hands_config: nHand(4) }
     );
-    const followUp = realShifts(out).filter(s => s.tick === 480);
+    const followUp = realShifts(out).filter((s) => s.tick === 480);
     expect(followUp).toHaveLength(1);
     expect(followUp[0].handId).toBe('h4');
     expect(followUp[0].fromAnchor).toBe(90);
@@ -209,11 +253,15 @@ describe('chord events carry anchorByHand for visualization', () => {
     // chord events should all report anchorByHand.left = 60
     // (NOT the chord's lowest note, which would be 65, 70, 62).
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 480, note: 65 },
-       { tick: 960, note: 70 }, { tick: 1440, note: 62 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 65 },
+        { tick: 960, note: 70 },
+        { tick: 1440, note: 62 }
+      ],
       { hands_config: oneHand() }
     );
-    const chords = out.filter(e => e.type === 'chord');
+    const chords = out.filter((e) => e.type === 'chord');
     expect(chords).toHaveLength(4);
     for (const ch of chords) {
       expect(ch.anchorByHand).toBeDefined();
@@ -226,10 +274,14 @@ describe('chord events carry anchorByHand for visualization', () => {
     // shift. The min-move anchor is 86 (= 100 − 14), not 100.
     // The chord event must carry anchorByHand.right = 86.
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 50 }, { tick: 0, note: 80 }, { tick: 480, note: 100 }],
+      [
+        { tick: 0, note: 50 },
+        { tick: 0, note: 80 },
+        { tick: 480, note: 100 }
+      ],
       { hands_config: twoHand() }
     );
-    const chord480 = out.find(e => e.type === 'chord' && e.tick === 480);
+    const chord480 = out.find((e) => e.type === 'chord' && e.tick === 480);
     expect(chord480.anchorByHand.right).toBe(86);
   });
 
@@ -239,11 +291,16 @@ describe('chord events carry anchorByHand for visualization', () => {
     // must still appear in the chord's anchorByHand so the
     // visualization can keep drawing h3's band.
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 30 }, { tick: 0, note: 60 }, { tick: 0, note: 90 },
-       { tick: 480, note: 30 }, { tick: 480, note: 60 }],
+      [
+        { tick: 0, note: 30 },
+        { tick: 0, note: 60 },
+        { tick: 0, note: 90 },
+        { tick: 480, note: 30 },
+        { tick: 480, note: 60 }
+      ],
       { hands_config: nHand(3) }
     );
-    const chord480 = out.find(e => e.type === 'chord' && e.tick === 480);
+    const chord480 = out.find((e) => e.type === 'chord' && e.tick === 480);
     expect(chord480.anchorByHand.h1).toBe(30);
     expect(chord480.anchorByHand.h2).toBe(60);
     expect(chord480.anchorByHand.h3).toBe(90); // unchanged from initial
@@ -251,15 +308,19 @@ describe('chord events carry anchorByHand for visualization', () => {
 
   it('frets: chord anchorByHand reflects the fretting hand position', () => {
     const fretsHands = {
-      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      enabled: true,
+      mode: 'frets',
+      hand_move_frets_per_sec: 12,
       hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 45, fret: 5, string: 1 },
-       { tick: 480, note: 47, fret: 7, string: 1 }],
+      [
+        { tick: 0, note: 45, fret: 5, string: 1 },
+        { tick: 480, note: 47, fret: 7, string: 1 }
+      ],
       { hands_config: fretsHands }
     );
-    const chord480 = out.find(e => e.type === 'chord' && e.tick === 480);
+    const chord480 = out.find((e) => e.type === 'chord' && e.tick === 480);
     expect(chord480.anchorByHand.fretting).toBeDefined();
     // Fret 7 fits in window [5..9] → no shift; anchor stays 5.
     expect(chord480.anchorByHand.fretting).toBe(5);
@@ -272,18 +333,26 @@ describe('2-hand semitones — preserved minimum-displacement (no regression)', 
     // right's window to cover it. Right is at 80..94 → already covers
     // 90 → no shift.
     const noShift = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 50 }, { tick: 0, note: 80 }, { tick: 480, note: 90 }],
+      [
+        { tick: 0, note: 50 },
+        { tick: 0, note: 80 },
+        { tick: 480, note: 90 }
+      ],
       { hands_config: twoHand() }
     );
-    expect(realShifts(noShift).filter(s => s.tick === 480)).toHaveLength(0);
+    expect(realShifts(noShift).filter((s) => s.tick === 480)).toHaveLength(0);
 
     // Now force a real shift: right at 80, new note 100 (out of 80..94).
     // Optimal: right shifts 80 → 86 (dist 6) so window covers 86..100.
     const withShift = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 50 }, { tick: 0, note: 80 }, { tick: 480, note: 100 }],
+      [
+        { tick: 0, note: 50 },
+        { tick: 0, note: 80 },
+        { tick: 480, note: 100 }
+      ],
       { hands_config: twoHand() }
     );
-    const followUp = realShifts(withShift).filter(s => s.tick === 480);
+    const followUp = realShifts(withShift).filter((s) => s.tick === 480);
     expect(followUp).toHaveLength(1);
     expect(followUp[0].handId).toBe('right');
     expect(followUp[0].fromAnchor).toBe(80);

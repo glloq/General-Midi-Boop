@@ -57,9 +57,12 @@ class SerialLedDriver extends BaseLightingDriver {
 
     // Protocol: [0xAA, ledIndex (2 bytes LE), R, G, B, 0x55]
     const buf = Buffer.from([
-      0xAA,
-      ledIndex & 0xFF, (ledIndex >> 8) & 0xFF,
-      adjR, adjG, adjB,
+      0xaa,
+      ledIndex & 0xff,
+      (ledIndex >> 8) & 0xff,
+      adjR,
+      adjG,
+      adjB,
       0x55
     ]);
 
@@ -69,7 +72,7 @@ class SerialLedDriver extends BaseLightingDriver {
   allOff() {
     if (!this.port || !this.port.isOpen) return;
     // Special command: [0xAA, 0xFF, 0xFF, 0, 0, 0, 0x55] = all off
-    const buf = Buffer.from([0xAA, 0xFF, 0xFF, 0, 0, 0, 0x55]);
+    const buf = Buffer.from([0xaa, 0xff, 0xff, 0, 0, 0, 0x55]);
     this.port.write(buf);
   }
 }

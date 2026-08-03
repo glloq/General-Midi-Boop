@@ -30,7 +30,7 @@ const semitonesHands = {
   mode: 'semitones',
   hand_move_semitones_per_sec: 60,
   hands: [
-    { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
     { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
@@ -39,19 +39,29 @@ const fretsHands = {
   enabled: true,
   mode: 'frets',
   hand_move_mm_per_sec: 250,
-  hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }]
+  hands: [
+    { id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }
+  ]
 };
 
 const piano = (extra = {}) => ({
-  device_id: 'piano-1', channel: 0, gm_program: 0, polyphony: 64,
-  note_range_min: 21, note_range_max: 108,
+  device_id: 'piano-1',
+  channel: 0,
+  gm_program: 0,
+  polyphony: 64,
+  note_range_min: 21,
+  note_range_max: 108,
   note_selection_mode: 'range',
   ...extra
 });
 
 const guitar = (extra = {}) => ({
-  device_id: 'guitar-1', channel: 0, gm_program: 24, polyphony: 6,
-  note_range_min: 40, note_range_max: 86,
+  device_id: 'guitar-1',
+  channel: 0,
+  gm_program: 24,
+  polyphony: 6,
+  note_range_min: 40,
+  note_range_max: 86,
   note_selection_mode: 'range',
   scale_length_mm: 650,
   ...extra
@@ -65,28 +75,37 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
   });
 
   test('emits level=ok with no recommendations for a comfortable channel', () => {
-    const svc = makeService({ '0': analysis() });
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: piano({ hands_config: semitonesHands }) }
-    });
+    const svc = makeService({ 0: analysis() });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
     expect(out[0].level).toBe('ok');
     expect(out[0].recommendations).toEqual([]);
   });
 
   test('emits level=unknown when instrument has no hands_config', () => {
-    const svc = makeService({ '0': analysis() });
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: piano() }
-    });
+    const svc = makeService({ 0: analysis() });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano() }
+      }
+    );
     expect(out[0].level).toBe('unknown');
     expect(out[0].recommendations).toEqual([]);
   });
 
   test('skips channels whose analyzeChannel returns null', () => {
     const svc = makeService({}); // no analyses → returns null
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: piano({ hands_config: semitonesHands }) }
-    });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
     expect(out[0]).toBeUndefined();
   });
 
@@ -95,10 +114,13 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
     // Shifting it up an octave keeps the same span → still warning. The
     // recommendation may not always fire here; what we test is that the
     // search does run when the level is sub-optimal.
-    const svc = makeService({ '0': analysis({ rangeMin: 30, rangeMax: 95 }) });
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: piano({ hands_config: semitonesHands }) }
-    });
+    const svc = makeService({ 0: analysis({ rangeMin: 30, rangeMax: 95 }) });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
     expect(['warning', 'infeasible']).toContain(out[0].level);
     // Recommendations array exists (possibly empty if no octave fix helps).
     expect(Array.isArray(out[0].recommendations)).toBe(true);
@@ -110,22 +132,28 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
     // up should not change feasibility (polyphony invariant). We use a
     // pitch-only warning case (wide range) and check that the recs are
     // computed without throwing and report a known type.
-    const svc = makeService({ '0': analysis({ rangeMin: 30, rangeMax: 95 }) });
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: piano({ hands_config: semitonesHands }) }
-    });
+    const svc = makeService({ 0: analysis({ rangeMin: 30, rangeMax: 95 }) });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
     for (const rec of out[0].recommendations) {
       expect(['transpose', 'split']).toContain(rec.type);
     }
   });
 
   test('proposes a split when polyphony exceeds the finger budget', () => {
-    const svc = makeService({ '0': analysis({ polyphonyMax: 12 }) });
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: piano({ hands_config: semitonesHands }) }
-    });
+    const svc = makeService({ 0: analysis({ polyphonyMax: 12 }) });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
     expect(out[0].level).toBe('infeasible');
-    const split = out[0].recommendations.find(r => r.type === 'split');
+    const split = out[0].recommendations.find((r) => r.type === 'split');
     expect(split).toBeDefined();
     expect(split.params).toMatchObject({
       reason: 'polyphony_exceeds_fingers',
@@ -137,26 +165,35 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
     // Both frets and semitones instruments. Capo suggestions used to
     // fire for fretted instruments only; after the feature removal the
     // recommendation set is restricted to `transpose` / `split`.
-    const svc = makeService({ '0': analysis({ rangeMin: 40, rangeMax: 75 }) });
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: guitar({ hands_config: fretsHands }) }
-    });
-    expect(out[0].recommendations.some(r => r.type === 'capo')).toBe(false);
+    const svc = makeService({ 0: analysis({ rangeMin: 40, rangeMax: 75 }) });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: guitar({ hands_config: fretsHands }) }
+      }
+    );
+    expect(out[0].recommendations.some((r) => r.type === 'capo')).toBe(false);
 
-    const svc2 = makeService({ '0': analysis({ rangeMin: 30, rangeMax: 95 }) });
-    const out2 = svc2.adaptAndOptimize({}, {
-      0: { instrument: piano({ hands_config: semitonesHands }) }
-    });
-    expect(out2[0].recommendations.some(r => r.type === 'capo')).toBe(false);
+    const svc2 = makeService({ 0: analysis({ rangeMin: 30, rangeMax: 95 }) });
+    const out2 = svc2.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
+    expect(out2[0].recommendations.some((r) => r.type === 'capo')).toBe(false);
   });
 
   test('handles malformed assignment entries without throwing', () => {
-    const svc = makeService({ '0': analysis() });
-    const out = svc.adaptAndOptimize({}, {
-      0: null,
-      1: {},
-      'not-a-channel': { instrument: piano({ hands_config: semitonesHands }) }
-    });
+    const svc = makeService({ 0: analysis() });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: null,
+        1: {},
+        'not-a-channel': { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
     expect(out).toEqual({});
   });
 
@@ -168,10 +205,13 @@ describe('MidiAdaptationService.adaptAndOptimize', () => {
       })
     };
     const svc = new MidiAdaptationService(silentLogger, autoAssigner);
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: piano({ hands_config: semitonesHands }) },
-      1: { instrument: piano({ hands_config: semitonesHands }) }
-    });
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: piano({ hands_config: semitonesHands }) },
+        1: { instrument: piano({ hands_config: semitonesHands }) }
+      }
+    );
     expect(out[0]).toBeUndefined();
     expect(out[1].level).toBeDefined();
   });
@@ -188,16 +228,19 @@ describe('MidiAdaptationService — capo feature removal', () => {
     // shift lifts the level. Before the removal the service would
     // emit a `{type:'capo', params:{fret:1}}` recommendation; after
     // the removal it must not.
-    const svc = makeService({ '0': analysis({ rangeMin: 40, rangeMax: 75 }) });
+    const svc = makeService({ 0: analysis({ rangeMin: 40, rangeMax: 75 }) });
     svc._matcher._scoreHandPositionFeasibility = (an) => {
       const min = an.noteRange.min;
       if (min === 41) return { level: 'ok', qualityScore: 100, summary: { mode: 'frets' } };
       return { level: 'warning', qualityScore: 70, summary: { mode: 'frets' } };
     };
-    const out = svc.adaptAndOptimize({}, {
-      0: { instrument: guitar({ hands_config: fretsHands }) }
-    });
-    expect(out[0].recommendations.some(r => r.type === 'capo')).toBe(false);
+    const out = svc.adaptAndOptimize(
+      {},
+      {
+        0: { instrument: guitar({ hands_config: fretsHands }) }
+      }
+    );
+    expect(out[0].recommendations.some((r) => r.type === 'capo')).toBe(false);
   });
 });
 

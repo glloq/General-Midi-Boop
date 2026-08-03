@@ -1,12 +1,11 @@
 // Auto-extracted from LightingControlPage.js
-(function() {
-    'use strict';
-    const LightingDeviceUIMixin = {};
-
+(function () {
+  'use strict';
+  const LightingDeviceUIMixin = {};
 
   // ==================== DEVICE LIST RENDERING ====================
 
-    LightingDeviceUIMixin.renderDeviceList = function() {
+  LightingDeviceUIMixin.renderDeviceList = function () {
     const container = document.getElementById('lightingDeviceList');
     if (!container) return;
 
@@ -20,12 +19,13 @@
       return;
     }
 
-    container.innerHTML = this.devices.map(device => {
-      const sel = device.id === this.selectedDeviceId;
-      const icon = this._getTypeIcon(device.type);
-      const dot = device.connected ? '🟢' : '⚪';
+    container.innerHTML = this.devices
+      .map((device) => {
+        const sel = device.id === this.selectedDeviceId;
+        const icon = this._getTypeIcon(device.type);
+        const dot = device.connected ? '🟢' : '⚪';
 
-      return `
+        return `
         <div class="lighting-device-card ${sel ? 'lighting-device-card--selected' : ''}"
              data-action="selectDevice" data-id="${device.id}">
           <div class="lighting-device-card-row">
@@ -43,19 +43,20 @@
             </div>
           </div>
         </div>`;
-    }).join('');
-  }
+      })
+      .join('');
+  };
 
   // ==================== RULES LIST RENDERING ====================
 
-    LightingDeviceUIMixin.renderRulesList = function() {
+  LightingDeviceUIMixin.renderRulesList = function () {
     const container = document.getElementById('lightingRulesList');
     const title = document.getElementById('lightingRulesTitle');
     const actions = document.getElementById('lightingRulesActions');
     const reconnectBtn = document.getElementById('lightingReconnectBtn');
     if (!container) return;
 
-    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    const device = this.devices.find((d) => d.id === this.selectedDeviceId);
     if (!device) return;
 
     title.textContent = `📐 ${i18n.t('lighting.rulesFor') || 'Règles pour'} "${device.name}"`;
@@ -79,10 +80,10 @@
       return;
     }
 
-    container.innerHTML = this.rules.map(rule => this._renderRuleCard(rule)).join('');
-  }
+    container.innerHTML = this.rules.map((rule) => this._renderRuleCard(rule)).join('');
+  };
 
-    LightingDeviceUIMixin._renderRuleCard = function(rule) {
+  LightingDeviceUIMixin._renderRuleCard = function (rule) {
     const cond = rule.condition_config || {};
     const action = rule.action_config || {};
     const instrument = this._getInstrumentName(rule.instrument_id);
@@ -109,7 +110,7 @@
         </div>
         <div class="lighting-rule-card-body">
           <div><b>${i18n.t('lighting.triggerLabel') || 'Déclencheur'}:</b> ${triggerLabel}</div>
-          <div><b>${i18n.t('lighting.channelShort') || 'Canal'}:</b> ${cond.channels?.length ? cond.channels.map(c => c + 1).join(', ') : (i18n.t('lighting.channelAll') || 'Tous')}</div>
+          <div><b>${i18n.t('lighting.channelShort') || 'Canal'}:</b> ${cond.channels?.length ? cond.channels.map((c) => c + 1).join(', ') : i18n.t('lighting.channelAll') || 'Tous'}</div>
           <div><b>${i18n.t('lighting.velocityShort') || 'Vélocité'}:</b> ${cond.velocity_min || 0}–${cond.velocity_max || 127}</div>
           <div><b>${i18n.t('lighting.notesShort') || 'Notes'}:</b> ${this._noteName(cond.note_min || 0)}–${this._noteName(cond.note_max || 127)}</div>
           ${cond.cc_number?.length ? `<div><b>CC:</b> #${cond.cc_number.join(', #')} (${cond.cc_value_min || 0}–${cond.cc_value_max || 127})</div>` : ''}
@@ -117,32 +118,38 @@
           ${rule.priority ? `<div><b>${i18n.t('lighting.priorityShort') || 'Priorité'}:</b> ${rule.priority}</div>` : ''}
         </div>
       </div>`;
-  }
+  };
 
   // _buildColorPreview is provided by LightingHelpersMixin
 
   // ==================== DEVICE GROUPS PANEL ====================
 
-    LightingDeviceUIMixin.showGroupsPanel = async function() {
+  LightingDeviceUIMixin.showGroupsPanel = async function () {
     const t = this._t();
     let groups = {};
     try {
       const res = await this.apiClient.sendCommand('lighting_group_list');
       groups = res.groups || {};
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
     const groupNames = Object.keys(groups);
     // Store for safe access from onclick handlers
     this._groupNames = groupNames;
-    const groupsHTML = groupNames.length === 0
-      ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:12px;">${i18n.t('lighting.noGroups') || 'Aucun groupe créé'}</p>`
-      : groupNames.map((name, idx) => {
-          const ids = groups[name];
-          const deviceNames = ids.map(id => {
-            const d = this.devices.find(dev => dev.id === id);
-            return d ? this._escapeHtml(d.name) : `#${id}`;
-          }).join(', ');
-          return `
+    const groupsHTML =
+      groupNames.length === 0
+        ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:12px;">${i18n.t('lighting.noGroups') || 'Aucun groupe créé'}</p>`
+        : groupNames
+            .map((name, idx) => {
+              const ids = groups[name];
+              const deviceNames = ids
+                .map((id) => {
+                  const d = this.devices.find((dev) => dev.id === id);
+                  return d ? this._escapeHtml(d.name) : `#${id}`;
+                })
+                .join(', ');
+              return `
             <div style="padding:8px 10px;border:1px solid ${t.border};border-radius:8px;margin-bottom:6px;background:${t.cardBg};">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
                 <span style="font-size:13px;font-weight:600;color:${t.text};">${this._escapeHtml(name)}</span>
@@ -155,14 +162,18 @@
               </div>
               <div style="font-size:11px;color:${t.textMuted};">${deviceNames}</div>
             </div>`;
-        }).join('');
+            })
+            .join('');
 
-    const deviceCheckboxes = this.devices.map(d =>
-      `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 0;">
+    const deviceCheckboxes = this.devices
+      .map(
+        (d) =>
+          `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:2px 0;">
         <input type="checkbox" class="lgDeviceCb" value="${d.id}">
         <span style="font-size:12px;color:${t.text};">${this._escapeHtml(d.name)}</span>
       </label>`
-    ).join('');
+      )
+      .join('');
 
     const formHTML = `
       <div id="lightingGroupsPanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
@@ -192,11 +203,11 @@
     const div = document.createElement('div');
     div.innerHTML = formHTML;
     document.body.appendChild(div.firstElementChild);
-  }
+  };
 
   // ==================== DEVICE SCAN ====================
 
-    LightingDeviceUIMixin.scanDevices = async function() {
+  LightingDeviceUIMixin.scanDevices = async function () {
     const t = this._t();
     const scanHTML = `
       <div id="lightingScanPanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
@@ -228,7 +239,9 @@
 
       // Store discovered devices for safe access by index
       this._discoveredDevices = res.discovered;
-      results.innerHTML = res.discovered.map((d, idx) => `
+      results.innerHTML = res.discovered
+        .map(
+          (d, idx) => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid ${t.border};border-radius:8px;margin-bottom:6px;background:${t.cardBg};text-align:left;">
           <div>
             <div style="font-size:13px;font-weight:600;color:${t.text};">${this._escapeHtml(d.name)}</div>
@@ -236,14 +249,17 @@
           </div>
           <button onclick="lightingControlPageInstance._addScannedDevice(lightingControlPageInstance._discoveredDevices[${idx}])" style="padding:4px 10px;border:1px solid #10b981;border-radius:6px;background:none;color:#10b981;cursor:pointer;font-size:11px;">${i18n.t('lighting.addScanned') || '+ Ajouter'}</button>
         </div>
-      `).join('');
+      `
+        )
+        .join('');
     } catch (error) {
       const results = document.getElementById('scanResults');
-      if (results) results.innerHTML = `<p style="color:#ef4444;font-size:12px;">${(i18n.t('lighting.errorPrefix') || 'Erreur: {error}').replace('{error}', this._escapeHtml(error.message))}</p>`;
+      if (results)
+        results.innerHTML = `<p style="color:#ef4444;font-size:12px;">${(i18n.t('lighting.errorPrefix') || 'Erreur: {error}').replace('{error}', this._escapeHtml(error.message))}</p>`;
     }
-  }
+  };
 
-    LightingDeviceUIMixin._addScannedDevice = async function(deviceInfo) {
+  LightingDeviceUIMixin._addScannedDevice = async function (deviceInfo) {
     try {
       let connectionConfig = {};
       let type = 'http';
@@ -265,19 +281,24 @@
 
       document.getElementById('lightingScanPanel')?.remove();
       await this.loadData();
-    } catch (error) { this.showToast(error.message, 'error'); }
-  }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
+  };
 
   // ==================== LIVE EFFECTS PANEL ====================
 
-    LightingDeviceUIMixin.showEffectsPanel = async function() {
+  LightingDeviceUIMixin.showEffectsPanel = async function () {
     const t = this._t();
     if (!this.selectedDeviceId) {
-      this.showToast(i18n.t('lighting.selectDeviceFirst') || 'Sélectionnez un dispositif d\'abord', 'warning');
+      this.showToast(
+        i18n.t('lighting.selectDeviceFirst') || "Sélectionnez un dispositif d'abord",
+        'warning'
+      );
       return;
     }
 
-    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    const device = this.devices.find((d) => d.id === this.selectedDeviceId);
     if (!device) return;
 
     let activeEffects = [];
@@ -285,11 +306,15 @@
     try {
       const bpmRes = await this.apiClient.sendCommand('lighting_bpm_get');
       currentBpm = bpmRes.bpm || 120;
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
     try {
       const res = await this.apiClient.sendCommand('lighting_effect_list');
       activeEffects = res.effects || [];
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
     const effectTypes = [
       { value: 'strobe', label: i18n.t('lighting.effectStrobeOpt') || '⚡ Stroboscope' },
@@ -298,21 +323,29 @@
       { value: 'fire', label: i18n.t('lighting.effectFireOpt') || '🔥 Feu' },
       { value: 'breathe', label: i18n.t('lighting.effectBreatheOpt') || '💨 Respiration' },
       { value: 'sparkle', label: i18n.t('lighting.effectSparkleOpt') || '✨ Étincelles' },
-      { value: 'color_cycle', label: i18n.t('lighting.effectColorCycleOpt') || '🎨 Cycle couleurs' },
+      {
+        value: 'color_cycle',
+        label: i18n.t('lighting.effectColorCycleOpt') || '🎨 Cycle couleurs'
+      },
       { value: 'wave', label: i18n.t('lighting.effectWaveOpt') || '🌊 Vague' }
     ];
 
-    const activeHTML = activeEffects.length === 0
-      ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:8px;">${i18n.t('lighting.noActiveEffect') || 'Aucun effet actif'}</p>`
-      : activeEffects.map(e => `
+    const activeHTML =
+      activeEffects.length === 0
+        ? `<p style="text-align:center;color:${t.textMuted};font-size:12px;padding:8px;">${i18n.t('lighting.noActiveEffect') || 'Aucun effet actif'}</p>`
+        : activeEffects
+            .map(
+              (e) => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border:1px solid ${t.border};border-radius:6px;margin-bottom:4px;background:${t.cardBg};">
             <span style="font-size:12px;color:${t.text};">${this._escapeHtml(e.effectType)} (${this._escapeHtml(e.key)})</span>
             <button onclick="lightingControlPageInstance._stopLiveEffect('${this._escapeHtml(e.key)}')" style="padding:2px 8px;border:1px solid #ef4444;border-radius:4px;background:none;color:#ef4444;cursor:pointer;font-size:11px;">${i18n.t('lighting.stopBtn') || 'Stop'}</button>
-          </div>`).join('');
+          </div>`
+            )
+            .join('');
 
-    const effectOptions = effectTypes.map(et =>
-      `<option value="${et.value}">${et.label}</option>`
-    ).join('');
+    const effectOptions = effectTypes
+      .map((et) => `<option value="${et.value}">${et.label}</option>`)
+      .join('');
 
     const formHTML = `
       <div id="lightingEffectsPanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
@@ -365,7 +398,7 @@
     const div = document.createElement('div');
     div.innerHTML = formHTML;
     document.body.appendChild(div.firstElementChild);
-  }
+  };
 
-    if (typeof window !== 'undefined') window.LightingDeviceUIMixin = LightingDeviceUIMixin;
+  if (typeof window !== 'undefined') window.LightingDeviceUIMixin = LightingDeviceUIMixin;
 })();

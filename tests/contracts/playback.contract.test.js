@@ -19,7 +19,11 @@ function loadContract(name) {
   return JSON.parse(readFileSync(path, 'utf-8'));
 }
 
-function createMockApp({ deviceList = [{ id: 'out-1', output: true, enabled: true }], routings = [], fileLoadResult } = {}) {
+function createMockApp({
+  deviceList = [{ id: 'out-1', output: true, enabled: true }],
+  routings = [],
+  fileLoadResult
+} = {}) {
   const defaultFileLoadResult = {
     filename: 'test.mid',
     duration: 120,
@@ -120,7 +124,11 @@ describe('Contract: playback_start', () => {
     const ws = createMockWs();
 
     await registry.handle(
-      { id: 'req-1', command: 'playback_start', data: { fileId: 'file-001', outputDevice: 'out-1' } },
+      {
+        id: 'req-1',
+        command: 'playback_start',
+        data: { fileId: 'file-001', outputDevice: 'out-1' }
+      },
       ws
     );
 
@@ -240,10 +248,7 @@ describe('Contract: playback_seek', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-1', command: 'playback_seek', data: { position: 42.5 } },
-      ws
-    );
+    await registry.handle({ id: 'req-1', command: 'playback_seek', data: { position: 42.5 } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
@@ -256,10 +261,7 @@ describe('Contract: playback_seek', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-2', command: 'playback_seek', data: { position: 0 } },
-      ws
-    );
+    await registry.handle({ id: 'req-2', command: 'playback_seek', data: { position: 0 } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
@@ -288,17 +290,12 @@ describe('Contract: playback_seek', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-4', command: 'playback_seek', data: { position: -5 } },
-      ws
-    );
+    await registry.handle({ id: 'req-4', command: 'playback_seek', data: { position: -5 } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('error');
     expect(resp.code).toBe('ERR_VALIDATION');
-    expect(resp.error).toBe(
-      'Invalid playback_seek data: position must be a positive number'
-    );
+    expect(resp.error).toBe('Invalid playback_seek data: position must be a positive number');
     expect(app.midiPlayer.seek).not.toHaveBeenCalled();
   });
 });
@@ -423,9 +420,7 @@ describe('Contract: playback_set_loop', () => {
     const resp = ws._messages[0];
     expect(resp.type).toBe('error');
     expect(resp.code).toBe('ERR_VALIDATION');
-    expect(resp.error).toBe(
-      'Invalid playback_set_loop data: enabled must be a boolean'
-    );
+    expect(resp.error).toBe('Invalid playback_set_loop data: enabled must be a boolean');
     expect(app.midiPlayer.setLoop).not.toHaveBeenCalled();
   });
 });

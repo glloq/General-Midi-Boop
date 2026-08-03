@@ -20,10 +20,17 @@ let database;
 
 beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'gmboop-ble-'));
-  database = new DatabaseManager({ logger: silent, config: { database: { path: join(tempDir, 'db.sqlite') } } });
+  database = new DatabaseManager({
+    logger: silent,
+    config: { database: { path: join(tempDir, 'db.sqlite') } }
+  });
 });
 afterEach(async () => {
-  try { database.close?.(); } catch { /* ignore */ }
+  try {
+    database.close?.();
+  } catch {
+    /* ignore */
+  }
   rmSync(tempDir, { recursive: true, force: true });
 });
 

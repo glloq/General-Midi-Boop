@@ -37,7 +37,7 @@ function makeDatabase({ lightingEnabled = true, initialState = null } = {}) {
   };
 }
 
-const ALL = 0x1F; // supported_mask covering CC110-114
+const ALL = 0x1f; // supported_mask covering CC110-114
 
 describe('InstrumentLightManager', () => {
   let dm, db, mgr;
@@ -46,27 +46,41 @@ describe('InstrumentLightManager', () => {
     dm = makeDeviceManager();
     db = makeDatabase({ initialState: { supported_mask: ALL } });
     mgr = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: dm, database: db
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: dm,
+      database: db
     });
   });
 
   test('getState returns defaults + master flag when no row stored yet', () => {
     const freshDb = makeDatabase();
     const freshMgr = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: makeDeviceManager(), database: freshDb
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: makeDeviceManager(),
+      database: freshDb
     });
     const s = freshMgr.getState('kbd-1', 0);
     expect(s).toMatchObject({
-      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64,
-      supported_mask: 0, master_enabled: true
+      brightness: 0,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64,
+      supported_mask: 0,
+      master_enabled: true
     });
   });
 
   test('default supported_mask = 0 silences every CC emission', () => {
-    const silentDb = makeDatabase();   // no initial row → mask defaults to 0
+    const silentDb = makeDatabase(); // no initial row → mask defaults to 0
     const silentDm = makeDeviceManager();
     const silentMgr = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: silentDm, database: silentDb
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: silentDm,
+      database: silentDb
     });
     silentMgr.setState('kbd-1', 0, { brightness: 80, hue: 42, effect: 3 });
     expect(silentDm.sent.length).toBe(0);
@@ -77,22 +91,33 @@ describe('InstrumentLightManager', () => {
     const dm2 = makeDeviceManager();
     const db2 = makeDatabase({ initialState: { supported_mask: 0 } });
     const mgr2 = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: dm2, database: db2
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: dm2,
+      database: db2
     });
     // Even when a client sends supported_mask through instrument_light_set,
     // the manager strips it — the mask is only mutable via setSupported.
-    mgr2.setState('kbd-1', 0, { brightness: 50, supported_mask: 0x1F });
+    mgr2.setState('kbd-1', 0, { brightness: 50, supported_mask: 0x1f });
     expect(db2._peek().supported_mask).toBe(0);
     expect(dm2.sent.length).toBe(0); // mask still 0 → nothing emitted
   });
 
   test('setSupported activates a CC bit and pushes its current value', () => {
     db.saveInstrumentLightState('kbd-1', 0, {
-      brightness: 90, effect: 0, hue: 0, speed: 64, intensity: 64, supported_mask: 0
+      brightness: 90,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64,
+      supported_mask: 0
     });
     const dm2 = makeDeviceManager();
     const mgr2 = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: dm2, database: db
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: dm2,
+      database: db
     });
     mgr2.setSupported('kbd-1', 0, { supported_mask: 0x01 }); // activate CC110
     const sent = dm2.sent.filter((s) => s.type === 'cc');
@@ -103,12 +128,20 @@ describe('InstrumentLightManager', () => {
 
   test('brightness_mode on/off snaps CC 110 to 0 or 127', () => {
     db.saveInstrumentLightState('kbd-1', 0, {
-      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64,
-      supported_mask: ALL, brightness_mode: 0
+      brightness: 0,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64,
+      supported_mask: ALL,
+      brightness_mode: 0
     });
     const dm2 = makeDeviceManager();
     const mgr2 = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: dm2, database: db
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: dm2,
+      database: db
     });
     mgr2.setState('kbd-1', 0, { brightness: 64 });
     const sent = dm2.sent.filter((s) => s.data.controller === 110);
@@ -119,12 +152,20 @@ describe('InstrumentLightManager', () => {
 
   test('flipping brightness_mode to on/off re-snaps current brightness', () => {
     db.saveInstrumentLightState('kbd-1', 0, {
-      brightness: 50, effect: 0, hue: 0, speed: 64, intensity: 64,
-      supported_mask: ALL, brightness_mode: 1
+      brightness: 50,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64,
+      supported_mask: ALL,
+      brightness_mode: 1
     });
     const dm2 = makeDeviceManager();
     const mgr2 = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: dm2, database: db
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: dm2,
+      database: db
     });
     mgr2.setSupported('kbd-1', 0, { brightness_mode: 0 });
     const cc110 = dm2.sent.filter((s) => s.data.controller === 110);
@@ -134,12 +175,19 @@ describe('InstrumentLightManager', () => {
 
   test('setSupported persists supported_effects and exposes them in getState', () => {
     db.saveInstrumentLightState('kbd-1', 0, {
-      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64,
+      brightness: 0,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64,
       supported_mask: 0x02
     });
     const dm2 = makeDeviceManager();
     const mgr2 = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: dm2, database: db
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: dm2,
+      database: db
     });
     // 5 effects: static + fade + pulse + blink + rainbow
     const fxMask = 0b0000011111;
@@ -150,8 +198,17 @@ describe('InstrumentLightManager', () => {
 
   test('setState persists every field and emits only the changed CCs', () => {
     mgr.setState('kbd-1', 0, { brightness: 80, hue: 42 });
-    expect(db._peek()).toMatchObject({ brightness: 80, hue: 42, effect: 0, speed: 64, intensity: 64 });
-    const ccs = dm.sent.filter((s) => s.type === 'cc').map((s) => s.data.controller).sort();
+    expect(db._peek()).toMatchObject({
+      brightness: 80,
+      hue: 42,
+      effect: 0,
+      speed: 64,
+      intensity: 64
+    });
+    const ccs = dm.sent
+      .filter((s) => s.type === 'cc')
+      .map((s) => s.data.controller)
+      .sort();
     expect(ccs).toEqual([110, 112]);
   });
 
@@ -168,7 +225,10 @@ describe('InstrumentLightManager', () => {
     const offDb = makeDatabase({ lightingEnabled: false });
     const offDm = makeDeviceManager();
     const offMgr = new InstrumentLightManager({
-      logger, eventBus: makeEventBus(), deviceManager: offDm, database: offDb
+      logger,
+      eventBus: makeEventBus(),
+      deviceManager: offDm,
+      database: offDb
     });
     offMgr.setState('kbd-1', 0, { brightness: 120, effect: 3, hue: 10, speed: 50, intensity: 90 });
     expect(offDb._peek()).toMatchObject({ brightness: 120, effect: 3 });
@@ -202,6 +262,12 @@ describe('InstrumentLightManager', () => {
     mgr.setState('kbd-1', 0, { brightness: 60, hue: 20 });
     const list = mgr.listStates();
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ device_id: 'kbd-1', channel: 0, brightness: 60, hue: 20, master_enabled: true });
+    expect(list[0]).toMatchObject({
+      device_id: 'kbd-1',
+      channel: 0,
+      brightness: 60,
+      hue: 20,
+      master_enabled: true
+    });
   });
 });

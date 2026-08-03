@@ -15,8 +15,16 @@ describe('InstrumentLightCC — constants', () => {
 
   test('EFFECTS lists the 10 specified effects in order', () => {
     expect(CC.EFFECTS).toEqual([
-      'static', 'fade', 'pulse', 'blink', 'rainbow',
-      'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+      'static',
+      'fade',
+      'pulse',
+      'blink',
+      'rainbow',
+      'reactive_note',
+      'reactive_velocity',
+      'sparkle',
+      'fire',
+      'scanner'
     ]);
     expect(CC.effectName(0)).toBe('static');
     expect(CC.effectName(9)).toBe('scanner');
@@ -27,12 +35,22 @@ describe('InstrumentLightCC — constants', () => {
 describe('InstrumentLightCC — state', () => {
   test('defaultState is OFF + speed/intensity 64', () => {
     expect(CC.defaultState()).toEqual({
-      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64
+      brightness: 0,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64
     });
   });
 
   test('normalizeState clamps every field to 0-127', () => {
-    const s = CC.normalizeState({ brightness: -5, effect: 200, hue: 64, speed: 999, intensity: 'x' });
+    const s = CC.normalizeState({
+      brightness: -5,
+      effect: 200,
+      hue: 64,
+      speed: 999,
+      intensity: 'x'
+    });
     expect(s.brightness).toBe(0);
     expect(s.effect).toBe(127);
     expect(s.hue).toBe(64);
@@ -42,7 +60,11 @@ describe('InstrumentLightCC — state', () => {
 
   test('normalizeState fills missing fields with defaults', () => {
     expect(CC.normalizeState({ brightness: 50 })).toEqual({
-      brightness: 50, effect: 0, hue: 0, speed: 64, intensity: 64
+      brightness: 50,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64
     });
   });
 });
@@ -53,7 +75,7 @@ describe('InstrumentLightCC — message builders', () => {
       type: 'cc',
       data: { channel: 2, controller: 110, value: 64 }
     });
-    expect(CC.ccMessage(99, 110, 999).data.channel).toBe(99 & 0x0F);
+    expect(CC.ccMessage(99, 110, 999).data.channel).toBe(99 & 0x0f);
     expect(CC.ccMessage(0, 110, 999).data.value).toBe(127);
   });
 
@@ -85,7 +107,7 @@ describe('InstrumentLightCC — supported_mask filtering', () => {
     expect(CC.CC_BIT.hue).toBe(0x04);
     expect(CC.CC_BIT.speed).toBe(0x08);
     expect(CC.CC_BIT.intensity).toBe(0x10);
-    expect(CC.MASK_ALL).toBe(0x1F);
+    expect(CC.MASK_ALL).toBe(0x1f);
   });
 
   test('isSupported reflects the mask bits', () => {

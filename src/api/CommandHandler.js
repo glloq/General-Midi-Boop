@@ -38,7 +38,9 @@ class CommandHandler {
    */
   async _init() {
     await this.registry.loadCommandModules();
-    this.logger.info(`CommandHandler initialized with ${Object.keys(this.registry.handlers).length} commands`);
+    this.logger.info(
+      `CommandHandler initialized with ${Object.keys(this.registry.handlers).length} commands`
+    );
   }
 
   /**

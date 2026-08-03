@@ -6,33 +6,33 @@
 // ============================================================================
 
 class WindArticulationPanel {
-    constructor(containerEl, options = {}) {
-        this.containerEl = containerEl;
-        this.renderer = null;          // Set by WindInstrumentEditor after renderer init
-        this.onChanged = options.onChanged || null;
-        this.onArticulationSelected = options.onArticulationSelected || null;
+  constructor(containerEl, options = {}) {
+    this.containerEl = containerEl;
+    this.renderer = null; // Set by WindInstrumentEditor after renderer init
+    this.onChanged = options.onChanged || null;
+    this.onArticulationSelected = options.onArticulationSelected || null;
 
-        // State
-        this.currentArticulation = 'normal';
+    // State
+    this.currentArticulation = 'normal';
 
-        this._createDOM();
-        this._attachEvents();
-    }
+    this._createDOM();
+    this._attachEvents();
+  }
 
-    // ========================================================================
-    // I18N
-    // ========================================================================
+  // ========================================================================
+  // I18N
+  // ========================================================================
 
-    t(key, params = {}) {
-        return typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
-    }
+  t(key, params = {}) {
+    return typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
+  }
 
-    // ========================================================================
-    // DOM
-    // ========================================================================
+  // ========================================================================
+  // DOM
+  // ========================================================================
 
-    _createDOM() {
-        this.containerEl.innerHTML = `
+  _createDOM() {
+    this.containerEl.innerHTML = `
             <div class="wind-tools-panel">
                 <div class="wind-tools-section">
                     <div class="wind-tools-section-title">${this.t('windEditor.articulationSection')}</div>
@@ -73,80 +73,81 @@ class WindArticulationPanel {
                 </div>
             </div>
         `;
+  }
+
+  // ========================================================================
+  // EVENTS
+  // ========================================================================
+
+  _attachEvents() {
+    // Articulation buttons
+    this.containerEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-articulation]');
+      if (!btn) return;
+
+      const art = btn.dataset.articulation;
+      this.currentArticulation = art;
+
+      // Update active state
+      this.containerEl
+        .querySelectorAll('.wind-art-btn')
+        .forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (this.onArticulationSelected) {
+        this.onArticulationSelected(art);
+      }
+    });
+  }
+
+  // ========================================================================
+  // PUBLIC API
+  // ========================================================================
+
+  setRenderer(renderer) {
+    this.renderer = renderer;
+  }
+
+  getCurrentArticulation() {
+    return this.currentArticulation;
+  }
+
+  setArticulation(art) {
+    this.currentArticulation = art;
+    this.containerEl.querySelectorAll('.wind-art-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.articulation === art);
+    });
+  }
+
+  updateInfo(preset, noteCount, selectedCount) {
+    const rangeEl = this.containerEl.querySelector('#wind-range-value');
+    const notesEl = this.containerEl.querySelector('#wind-notes-count');
+    const selEl = this.containerEl.querySelector('#wind-selected-count');
+
+    if (rangeEl && preset) {
+      rangeEl.textContent = `${WindInstrumentDatabase.noteName(preset.rangeMin)}-${WindInstrumentDatabase.noteName(preset.rangeMax)}`;
     }
+    if (notesEl) notesEl.textContent = String(noteCount);
+    if (selEl) selEl.textContent = String(selectedCount);
+  }
 
-    // ========================================================================
-    // EVENTS
-    // ========================================================================
+  // ========================================================================
+  // CLEANUP
+  // ========================================================================
 
-    _attachEvents() {
-        // Articulation buttons
-        this.containerEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-articulation]');
-            if (!btn) return;
-
-            const art = btn.dataset.articulation;
-            this.currentArticulation = art;
-
-            // Update active state
-            this.containerEl.querySelectorAll('.wind-art-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            if (this.onArticulationSelected) {
-                this.onArticulationSelected(art);
-            }
-        });
-
+  destroy() {
+    if (this.containerEl) {
+      this.containerEl.innerHTML = '';
     }
-
-    // ========================================================================
-    // PUBLIC API
-    // ========================================================================
-
-    setRenderer(renderer) {
-        this.renderer = renderer;
-    }
-
-    getCurrentArticulation() {
-        return this.currentArticulation;
-    }
-
-    setArticulation(art) {
-        this.currentArticulation = art;
-        this.containerEl.querySelectorAll('.wind-art-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.articulation === art);
-        });
-    }
-
-    updateInfo(preset, noteCount, selectedCount) {
-        const rangeEl = this.containerEl.querySelector('#wind-range-value');
-        const notesEl = this.containerEl.querySelector('#wind-notes-count');
-        const selEl = this.containerEl.querySelector('#wind-selected-count');
-
-        if (rangeEl && preset) {
-            rangeEl.textContent = `${WindInstrumentDatabase.noteName(preset.rangeMin)}-${WindInstrumentDatabase.noteName(preset.rangeMax)}`;
-        }
-        if (notesEl) notesEl.textContent = String(noteCount);
-        if (selEl) selEl.textContent = String(selectedCount);
-    }
-
-    // ========================================================================
-    // CLEANUP
-    // ========================================================================
-
-    destroy() {
-        if (this.containerEl) {
-            this.containerEl.innerHTML = '';
-        }
-    }
+  }
 }
 
 // ============================================================================
 // EXPORT
 // ============================================================================
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = WindArticulationPanel;
+  module.exports = WindArticulationPanel;
 }
 if (typeof window !== 'undefined') {
-    window.WindArticulationPanel = WindArticulationPanel;
+  window.WindArticulationPanel = WindArticulationPanel;
 }

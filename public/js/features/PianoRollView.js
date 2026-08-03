@@ -4,104 +4,116 @@
 // ============================================================================
 
 class PianoRollView {
-    constructor(eventBus, logger) {
-        this.eventBus = eventBus;
-        this.logger = logger;
+  constructor(eventBus, logger) {
+    this.eventBus = eventBus;
+    this.logger = logger;
 
-        // State
-        this.isVisible = false;
-        this.isEnabled = false;
-        this.isPlaying = false;
+    // State
+    this.isVisible = false;
+    this.isEnabled = false;
+    this.isPlaying = false;
 
-        // MIDI data - stored in SECONDS (like VirtualMidiPlayer)
-        this.notes = [];
-        this.channels = [];
-        this.mutedChannels = new Set();
+    // MIDI data - stored in SECONDS (like VirtualMidiPlayer)
+    this.notes = [];
+    this.channels = [];
+    this.mutedChannels = new Set();
 
-        // Timing - received DIRECTLY from the external source in SECONDS
-        this.currentTime = 0;
-        this.tempo = 120;
-        this.ticksPerBeat = 480;
+    // Timing - received DIRECTLY from the external source in SECONDS
+    this.currentTime = 0;
+    this.tempo = 120;
+    this.ticksPerBeat = 480;
 
-        // Display window in seconds (default 20s, same as in settings)
-        this.displayWindowSeconds = 20;
+    // Display window in seconds (default 20s, same as in settings)
+    this.displayWindowSeconds = 20;
 
-        // Note range
-        this.noteMin = 21;
-        this.noteMax = 108;
+    // Note range
+    this.noteMin = 21;
+    this.noteMax = 108;
 
-        // Canvas
-        this.canvas = null;
-        this.ctx = null;
-        this.container = null;
+    // Canvas
+    this.canvas = null;
+    this.ctx = null;
+    this.container = null;
 
-        // Colors
-        this.channelColors = [
-            '#FF0066', '#00FFFF', '#FF00FF', '#FFFF00',
-            '#00FF00', '#FF6600', '#9D00FF', '#00FF99',
-            '#FF0000', '#00BFFF', '#FFD700', '#FF1493',
-            '#00FFAA', '#FF4500', '#7FFF00', '#FF69B4'
-        ];
-        this.mutedColor = '#444';
-        this.bgColor = '#111';
-        this.gridColor = '#333';
-        this.labelColor = '#888';
+    // Colors
+    this.channelColors = [
+      '#FF0066',
+      '#00FFFF',
+      '#FF00FF',
+      '#FFFF00',
+      '#00FF00',
+      '#FF6600',
+      '#9D00FF',
+      '#00FF99',
+      '#FF0000',
+      '#00BFFF',
+      '#FFD700',
+      '#FF1493',
+      '#00FFAA',
+      '#FF4500',
+      '#7FFF00',
+      '#FF69B4'
+    ];
+    this.mutedColor = '#444';
+    this.bgColor = '#111';
+    this.gridColor = '#333';
+    this.labelColor = '#888';
 
-        this.init();
+    this.init();
 
-        // Listen for theme changes (bound reference for cleanup)
-        this._onThemeChanged = () => this.updateTheme();
-        document.addEventListener('theme-changed', this._onThemeChanged);
+    // Listen for theme changes (bound reference for cleanup)
+    this._onThemeChanged = () => this.updateTheme();
+    document.addEventListener('theme-changed', this._onThemeChanged);
+  }
+
+  log(level, msg) {
+    const text = `[PianoRoll] ${msg}`;
+    if (this.logger && this.logger[level]) {
+      this.logger[level](text);
+    } else {
+      console.log(text);
     }
+  }
 
-    log(level, msg) {
-        const text = `[PianoRoll] ${msg}`;
-        if (this.logger && this.logger[level]) {
-            this.logger[level](text);
-        } else {
-            console.log(text);
-        }
+  init() {
+    this.createDOM();
+    this.setupEvents();
+    this.loadSettings();
+    this.updateTheme();
+    this.log('info', 'v6 initialized (direct audio timing)');
+  }
+
+  updateTheme() {
+    const isDark = document.body.classList.contains('dark-mode');
+    if (isDark) {
+      this.bgColor = '#111';
+      this.mutedColor = '#444';
+      this.gridColor = '#333';
+      this.labelColor = '#888';
+    } else {
+      this.bgColor = '#d8d0ec';
+      this.mutedColor = '#9490b0';
+      this.gridColor = '#c8c0de';
+      this.labelColor = '#4a3f6b';
     }
+  }
 
-    init() {
-        this.createDOM();
-        this.setupEvents();
-        this.loadSettings();
-        this.updateTheme();
-        this.log('info', 'v6 initialized (direct audio timing)');
-    }
+  loadSettings() {
+    try {
+      const saved = localStorage.getItem('gmboop_settings');
+      if (saved) {
+        const s = JSON.parse(saved);
+        this.isEnabled = s.showPianoRoll || false;
+        this.displayWindowSeconds = s.noteDisplayTime || 20;
+      }
+    } catch (e) {}
+  }
 
-    updateTheme() {
-        const isDark = document.body.classList.contains('dark-mode');
-        if (isDark) {
-            this.bgColor = '#111';
-            this.mutedColor = '#444';
-            this.gridColor = '#333';
-            this.labelColor = '#888';
-        } else {
-            this.bgColor = '#d8d0ec';
-            this.mutedColor = '#9490b0';
-            this.gridColor = '#c8c0de';
-            this.labelColor = '#4a3f6b';
-        }
-    }
-
-    loadSettings() {
-        try {
-            const saved = localStorage.getItem('gmboop_settings');
-            if (saved) {
-                const s = JSON.parse(saved);
-                this.isEnabled = s.showPianoRoll || false;
-                this.displayWindowSeconds = s.noteDisplayTime || 20;
-            }
-        } catch (e) {}
-    }
-
-    createDOM() {
-        this.container = document.createElement('div');
-        this.container.id = 'piano-roll-view';
-        this.container.className = 'piano-roll-view hidden';
-        this.container.innerHTML = `
+  createDOM() {
+    this.container = document.createElement('div');
+    this.container.id = 'piano-roll-view';
+    this.container.className = 'piano-roll-view hidden';
+    this.container.innerHTML = `
             <div class="piano-roll-view-header">
                 <div class="piano-roll-view-title">
                     <span class="piano-roll-icon">🎹</span>
@@ -114,444 +126,464 @@ class PianoRollView {
             </div>
         `;
 
-        const main = document.querySelector('.container');
-        if (main) main.appendChild(this.container);
-        else document.body.appendChild(this.container);
+    const main = document.querySelector('.container');
+    if (main) main.appendChild(this.container);
+    else document.body.appendChild(this.container);
 
-        this.canvas = document.getElementById('pianoRollCanvas');
-        this.ctx = this.canvas.getContext('2d');
+    this.canvas = document.getElementById('pianoRollCanvas');
+    this.ctx = this.canvas.getContext('2d');
+  }
+
+  setupEvents() {
+    if (!this.eventBus) return;
+
+    this._eventUnsubs = [
+      // Settings
+      this.eventBus.on('settings:piano_roll_changed', (d) => {
+        this.isEnabled = d.enabled;
+        if (!this.isEnabled && this.isVisible) this.hide();
+      }),
+
+      // Display time in preview
+      this.eventBus.on('settings:display_time_changed', (d) => {
+        if (d.time) {
+          this.displayWindowSeconds = d.time;
+          this.log('info', `Display window set to ${d.time}s`);
+        }
+      }),
+
+      // File loaded - USE parsedEvents if available (timing IDENTICAL to audio)
+      this.eventBus.on('file:selected', (data) => {
+        if (data.tempo) this.tempo = data.tempo;
+        if (data.ticksPerBeat) this.ticksPerBeat = data.ticksPerBeat;
+
+        // PRIORITY: use parsedEvents if they exist (exact timing from VirtualMidiPlayer)
+        if (data.parsedEvents && data.parsedEvents.length > 0) {
+          this.loadFromParsedEvents(data.parsedEvents);
+          this.log('info', `Using pre-parsed events: ${this.notes.length} notes`);
+        } else if (data.midiData) {
+          this.loadMidiData(data.midiData);
+          this.log('info', `Parsed MIDI: ${this.notes.length} notes`);
+        }
+      }),
+
+      // Play - start our own animation loop
+      this.eventBus.on('playback:play', () => {
+        this.isPlaying = true;
+        if (this.isEnabled && this.notes.length > 0) {
+          this.show();
+          this.startAnimationLoop();
+        }
+      }),
+
+      // Pause - immediate stop
+      this.eventBus.on('playback:pause', () => {
+        this.isPlaying = false;
+        this.stopAnimationLoop();
+      }),
+
+      // Stop
+      this.eventBus.on('playback:stop', () => {
+        this.isPlaying = false;
+        this.currentTime = 0;
+        this.stopAnimationLoop();
+        this.hide();
+      }),
+
+      // Time - use as a DIRECT timing source
+      this.eventBus.on('playback:time', (data) => {
+        if (data.time !== undefined) {
+          this.currentTime = data.time;
+        }
+      })
+    ];
+  }
+
+  // Animation loop specific to the piano roll - READS TIME DIRECTLY from audio
+  startAnimationLoop() {
+    if (this.animationFrame) return;
+
+    const animate = () => {
+      if (!this.isPlaying) return;
+
+      // READ TIME DIRECTLY from the synthesizer - NOT via events!
+      this.updateTimeFromSynth();
+
+      // Skip draw if time hasn't changed significantly (saves GPU)
+      if (this.isVisible && Math.abs(this.currentTime - (this._lastDrawnTime || -1)) > 0.016) {
+        this.draw();
+        this._lastDrawnTime = this.currentTime;
+      }
+      this.animationFrame = requestAnimationFrame(animate);
+    };
+    this.animationFrame = requestAnimationFrame(animate);
+  }
+
+  // Get the time from the appropriate source
+  updateTimeFromSynth() {
+    // Try the virtual player first (virtual instrument mode)
+    const player = window.virtualPlayer;
+    if (player && player.synthesizer && player.synthesizer.audioContext) {
+      const synth = player.synthesizer;
+      const audioTime = synth.audioContext.currentTime;
+      const startTime = synth.startTime || 0;
+      const newTime = Math.max(0, audioTime - startTime);
+
+      // DEBUG: Log timing every second
+      if (this._debug && (!this._lastDebugLog || newTime - this._lastDebugLog >= 1)) {
+        console.log(`[PianoRoll DEBUG] VIRTUAL mode: time=${newTime.toFixed(2)}s`);
+        this._lastDebugLog = newTime;
+      }
+
+      this.currentTime = newTime;
+      return;
     }
 
-    setupEvents() {
-        if (!this.eventBus) return;
+    // Backend mode: use the time received via playback:time events
+    // (already updated by the event handler)
+    // DEBUG: Log timing every second
+    if (this._debug && (!this._lastDebugLog || this.currentTime - this._lastDebugLog >= 1)) {
+      console.log(`[PianoRoll DEBUG] BACKEND mode: time=${this.currentTime.toFixed(2)}s`);
+      this._lastDebugLog = this.currentTime;
+    }
+  }
 
-        this._eventUnsubs = [
-            // Settings
-            this.eventBus.on('settings:piano_roll_changed', (d) => {
-                this.isEnabled = d.enabled;
-                if (!this.isEnabled && this.isVisible) this.hide();
-            }),
+  stopAnimationLoop() {
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
+  }
 
-            // Display time in preview
-            this.eventBus.on('settings:display_time_changed', (d) => {
-                if (d.time) {
-                    this.displayWindowSeconds = d.time;
-                    this.log('info', `Display window set to ${d.time}s`);
-                }
-            }),
-
-            // File loaded - USE parsedEvents if available (timing IDENTICAL to audio)
-            this.eventBus.on('file:selected', (data) => {
-                if (data.tempo) this.tempo = data.tempo;
-                if (data.ticksPerBeat) this.ticksPerBeat = data.ticksPerBeat;
-
-                // PRIORITY: use parsedEvents if they exist (exact timing from VirtualMidiPlayer)
-                if (data.parsedEvents && data.parsedEvents.length > 0) {
-                    this.loadFromParsedEvents(data.parsedEvents);
-                    this.log('info', `Using pre-parsed events: ${this.notes.length} notes`);
-                } else if (data.midiData) {
-                    this.loadMidiData(data.midiData);
-                    this.log('info', `Parsed MIDI: ${this.notes.length} notes`);
-                }
-            }),
-
-            // Play - start our own animation loop
-            this.eventBus.on('playback:play', () => {
-                this.isPlaying = true;
-                if (this.isEnabled && this.notes.length > 0) {
-                    this.show();
-                    this.startAnimationLoop();
-                }
-            }),
-
-            // Pause - immediate stop
-            this.eventBus.on('playback:pause', () => {
-                this.isPlaying = false;
-                this.stopAnimationLoop();
-            }),
-
-            // Stop
-            this.eventBus.on('playback:stop', () => {
-                this.isPlaying = false;
-                this.currentTime = 0;
-                this.stopAnimationLoop();
-                this.hide();
-            }),
-
-            // Time - use as a DIRECT timing source
-            this.eventBus.on('playback:time', (data) => {
-                if (data.time !== undefined) {
-                    this.currentTime = data.time;
-                }
-            }),
-        ];
+  loadMidiData(midiData) {
+    if (!midiData || !midiData.tracks) {
+      this.notes = [];
+      this.channels = [];
+      return;
     }
 
-    // Animation loop specific to the piano roll - READS TIME DIRECTLY from audio
-    startAnimationLoop() {
-        if (this.animationFrame) return;
+    // Parse notes - EXACTLY like VirtualMidiPlayer.buildEventList()
+    // Store in SECONDS for perfect synchronization
+    this.notes = [];
+    const channelSet = new Set();
+    const noteOns = {};
 
-        const animate = () => {
-            if (!this.isPlaying) return;
+    // Compute ticksPerSecond from the source's tempo and ticksPerBeat
+    const beatsPerSecond = this.tempo / 60;
+    const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
 
-            // READ TIME DIRECTLY from the synthesizer - NOT via events!
-            this.updateTimeFromSynth();
+    midiData.tracks.forEach((track) => {
+      if (!track.events) return;
+      const events = track.events;
 
-            // Skip draw if time hasn't changed significantly (saves GPU)
-            if (this.isVisible && Math.abs(this.currentTime - (this._lastDrawnTime || -1)) > 0.016) {
-                this.draw();
-                this._lastDrawnTime = this.currentTime;
-            }
-            this.animationFrame = requestAnimationFrame(animate);
+      let currentTick = 0; // Accumulation of deltaTime
+
+      events.forEach((event) => {
+        // Accumulate deltaTime (like VirtualMidiPlayer)
+        currentTick += event.deltaTime || 0;
+
+        // Convert to seconds EXACTLY like VirtualMidiPlayer
+        const timeInSeconds = currentTick / ticksPerSecond;
+
+        const ch = event.channel !== undefined ? event.channel : 0;
+        const note = event.noteNumber;
+        const vel = event.velocity || 0;
+
+        // noteOn with velocity > 0
+        if (event.type === 'noteOn' && vel > 0 && note !== undefined) {
+          noteOns[`${ch}_${note}`] = { time: timeInSeconds, ch, note, vel };
+          channelSet.add(ch);
+        }
+        // noteOff or noteOn with velocity 0
+        else if (
+          (event.type === 'noteOff' || (event.type === 'noteOn' && vel === 0)) &&
+          note !== undefined
+        ) {
+          const key = `${ch}_${note}`;
+          if (noteOns[key]) {
+            const on = noteOns[key];
+            this.notes.push({
+              startTime: on.time,
+              endTime: timeInSeconds,
+              note: on.note,
+              channel: on.ch
+            });
+            delete noteOns[key];
+          }
+        }
+      });
+    });
+
+    this.notes.sort((a, b) => a.startTime - b.startTime);
+
+    // Note range
+    if (this.notes.length > 0) {
+      let minN = 127,
+        maxN = 0;
+      this.notes.forEach((n) => {
+        if (n.note < minN) minN = n.note;
+        if (n.note > maxN) maxN = n.note;
+      });
+      this.noteMin = Math.max(0, minN - 2);
+      this.noteMax = Math.min(127, maxN + 2);
+    }
+
+    this.channels = Array.from(channelSet)
+      .sort((a, b) => a - b)
+      .map((ch) => ({ channel: ch }));
+    this.renderButtons();
+  }
+
+  // Load from pre-parsed VirtualMidiPlayer events
+  // These events have EXACTLY the same timing as audio
+  loadFromParsedEvents(events) {
+    this.notes = [];
+    const channelSet = new Set();
+    const noteOns = {}; // key: "channel_note" -> {time, channel, note, velocity}
+
+    // Pair noteOn/noteOff (events already sorted by time)
+    for (const event of events) {
+      const key = `${event.channel}_${event.note}`;
+
+      if (event.type === 'noteOn' && event.velocity > 0) {
+        noteOns[key] = {
+          time: event.time,
+          channel: event.channel,
+          note: event.note,
+          velocity: event.velocity
         };
-        this.animationFrame = requestAnimationFrame(animate);
+        channelSet.add(event.channel);
+      } else if (event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0)) {
+        if (noteOns[key]) {
+          const on = noteOns[key];
+          this.notes.push({
+            startTime: on.time,
+            endTime: event.time,
+            note: on.note,
+            channel: on.channel
+          });
+          delete noteOns[key];
+        }
+      }
     }
 
-    // Get the time from the appropriate source
-    updateTimeFromSynth() {
-        // Try the virtual player first (virtual instrument mode)
-        const player = window.virtualPlayer;
-        if (player && player.synthesizer && player.synthesizer.audioContext) {
-            const synth = player.synthesizer;
-            const audioTime = synth.audioContext.currentTime;
-            const startTime = synth.startTime || 0;
-            const newTime = Math.max(0, audioTime - startTime);
+    this.notes.sort((a, b) => a.startTime - b.startTime);
 
-            // DEBUG: Log timing every second
-            if (this._debug && (!this._lastDebugLog || newTime - this._lastDebugLog >= 1)) {
-                console.log(`[PianoRoll DEBUG] VIRTUAL mode: time=${newTime.toFixed(2)}s`);
-                this._lastDebugLog = newTime;
-            }
-
-            this.currentTime = newTime;
-            return;
-        }
-
-        // Backend mode: use the time received via playback:time events
-        // (already updated by the event handler)
-        // DEBUG: Log timing every second
-        if (this._debug && (!this._lastDebugLog || this.currentTime - this._lastDebugLog >= 1)) {
-            console.log(`[PianoRoll DEBUG] BACKEND mode: time=${this.currentTime.toFixed(2)}s`);
-            this._lastDebugLog = this.currentTime;
-        }
+    // Note range
+    if (this.notes.length > 0) {
+      let minN = 127,
+        maxN = 0;
+      this.notes.forEach((n) => {
+        if (n.note < minN) minN = n.note;
+        if (n.note > maxN) maxN = n.note;
+      });
+      this.noteMin = Math.max(0, minN - 2);
+      this.noteMax = Math.min(127, maxN + 2);
     }
 
-    stopAnimationLoop() {
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
-            this.animationFrame = null;
-        }
+    // DEBUG: Log first few notes timing
+    if (this._debug && this.notes.length > 0) {
+      console.log(
+        '[PianoRoll DEBUG] First 5 notes loaded:',
+        this.notes.slice(0, 5).map((n) => ({
+          start: n.startTime.toFixed(3),
+          end: n.endTime.toFixed(3),
+          note: n.note,
+          ch: n.channel
+        }))
+      );
     }
 
-    loadMidiData(midiData) {
-        if (!midiData || !midiData.tracks) {
-            this.notes = [];
-            this.channels = [];
-            return;
-        }
+    this.channels = Array.from(channelSet)
+      .sort((a, b) => a - b)
+      .map((ch) => ({ channel: ch }));
+    this.renderButtons();
+  }
 
-        // Parse notes - EXACTLY like VirtualMidiPlayer.buildEventList()
-        // Store in SECONDS for perfect synchronization
-        this.notes = [];
-        const channelSet = new Set();
-        const noteOns = {};
+  renderButtons() {
+    const c = document.getElementById('pianoRollChannelBtns');
+    if (!c) return;
 
-        // Compute ticksPerSecond from the source's tempo and ticksPerBeat
-        const beatsPerSecond = this.tempo / 60;
-        const ticksPerSecond = beatsPerSecond * this.ticksPerBeat;
-
-        midiData.tracks.forEach(track => {
-            if (!track.events) return;
-            const events = track.events;
-
-            let currentTick = 0; // Accumulation of deltaTime
-
-            events.forEach(event => {
-                // Accumulate deltaTime (like VirtualMidiPlayer)
-                currentTick += event.deltaTime || 0;
-
-                // Convert to seconds EXACTLY like VirtualMidiPlayer
-                const timeInSeconds = currentTick / ticksPerSecond;
-
-                const ch = event.channel !== undefined ? event.channel : 0;
-                const note = event.noteNumber;
-                const vel = event.velocity || 0;
-
-                // noteOn with velocity > 0
-                if (event.type === 'noteOn' && vel > 0 && note !== undefined) {
-                    noteOns[`${ch}_${note}`] = { time: timeInSeconds, ch, note, vel };
-                    channelSet.add(ch);
-                }
-                // noteOff or noteOn with velocity 0
-                else if ((event.type === 'noteOff' || (event.type === 'noteOn' && vel === 0)) && note !== undefined) {
-                    const key = `${ch}_${note}`;
-                    if (noteOns[key]) {
-                        const on = noteOns[key];
-                        this.notes.push({
-                            startTime: on.time,
-                            endTime: timeInSeconds,
-                            note: on.note,
-                            channel: on.ch
-                        });
-                        delete noteOns[key];
-                    }
-                }
-            });
-        });
-
-        this.notes.sort((a, b) => a.startTime - b.startTime);
-
-        // Note range
-        if (this.notes.length > 0) {
-            let minN = 127, maxN = 0;
-            this.notes.forEach(n => {
-                if (n.note < minN) minN = n.note;
-                if (n.note > maxN) maxN = n.note;
-            });
-            this.noteMin = Math.max(0, minN - 2);
-            this.noteMax = Math.min(127, maxN + 2);
-        }
-
-        this.channels = Array.from(channelSet).sort((a, b) => a - b).map(ch => ({ channel: ch }));
-        this.renderButtons();
+    if (this.channels.length === 0) {
+      c.innerHTML = `<span style="color:#666">${typeof i18n !== 'undefined' ? i18n.t('pianoRoll.noChannels') : 'No channels'}</span>`;
+      return;
     }
 
-    // Load from pre-parsed VirtualMidiPlayer events
-    // These events have EXACTLY the same timing as audio
-    loadFromParsedEvents(events) {
-        this.notes = [];
-        const channelSet = new Set();
-        const noteOns = {}; // key: "channel_note" -> {time, channel, note, velocity}
-
-        // Pair noteOn/noteOff (events already sorted by time)
-        for (const event of events) {
-            const key = `${event.channel}_${event.note}`;
-
-            if (event.type === 'noteOn' && event.velocity > 0) {
-                noteOns[key] = {
-                    time: event.time,
-                    channel: event.channel,
-                    note: event.note,
-                    velocity: event.velocity
-                };
-                channelSet.add(event.channel);
-            } else if (event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0)) {
-                if (noteOns[key]) {
-                    const on = noteOns[key];
-                    this.notes.push({
-                        startTime: on.time,
-                        endTime: event.time,
-                        note: on.note,
-                        channel: on.channel
-                    });
-                    delete noteOns[key];
-                }
-            }
-        }
-
-        this.notes.sort((a, b) => a.startTime - b.startTime);
-
-        // Note range
-        if (this.notes.length > 0) {
-            let minN = 127, maxN = 0;
-            this.notes.forEach(n => {
-                if (n.note < minN) minN = n.note;
-                if (n.note > maxN) maxN = n.note;
-            });
-            this.noteMin = Math.max(0, minN - 2);
-            this.noteMax = Math.min(127, maxN + 2);
-        }
-
-        // DEBUG: Log first few notes timing
-        if (this._debug && this.notes.length > 0) {
-            console.log('[PianoRoll DEBUG] First 5 notes loaded:', this.notes.slice(0, 5).map(n => ({
-                start: n.startTime.toFixed(3),
-                end: n.endTime.toFixed(3),
-                note: n.note,
-                ch: n.channel
-            })));
-        }
-
-        this.channels = Array.from(channelSet).sort((a, b) => a - b).map(ch => ({ channel: ch }));
-        this.renderButtons();
-    }
-
-    renderButtons() {
-        const c = document.getElementById('pianoRollChannelBtns');
-        if (!c) return;
-
-        if (this.channels.length === 0) {
-            c.innerHTML = `<span style="color:#666">${typeof i18n !== 'undefined' ? i18n.t('pianoRoll.noChannels') : 'No channels'}</span>`;
-            return;
-        }
-
-        c.innerHTML = this.channels.map(ch => {
-            const muted = this.mutedChannels.has(ch.channel);
-            const color = this.channelColors[ch.channel % 16];
-            return `<button class="channel-btn" data-ch="${ch.channel}"
+    c.innerHTML = this.channels
+      .map((ch) => {
+        const muted = this.mutedChannels.has(ch.channel);
+        const color = this.channelColors[ch.channel % 16];
+        return `<button class="channel-btn" data-ch="${ch.channel}"
                 style="background:${muted ? '#333' : color};border-color:${muted ? '#555' : color};color:${muted ? '#888' : '#000'}">
                 Ch ${ch.channel + 1}</button>`;
-        }).join('');
+      })
+      .join('');
 
-        c.querySelectorAll('.channel-btn').forEach(btn => {
-            btn.onclick = () => this.toggleMute(parseInt(btn.dataset.ch));
-        });
+    c.querySelectorAll('.channel-btn').forEach((btn) => {
+      btn.onclick = () => this.toggleMute(parseInt(btn.dataset.ch));
+    });
+  }
+
+  toggleMute(ch) {
+    if (this.mutedChannels.has(ch)) this.mutedChannels.delete(ch);
+    else this.mutedChannels.add(ch);
+    this.renderButtons();
+    if (this.eventBus) {
+      this.eventBus.emit('pianoroll:channel_toggled', {
+        channel: ch,
+        muted: this.mutedChannels.has(ch)
+      });
+    }
+    if (this.isVisible) this.draw();
+  }
+
+  show() {
+    if (this.isVisible) return;
+    this.isVisible = true;
+    this.container.classList.remove('hidden');
+    this.container.classList.add('fullscreen');
+
+    const mainGrid = document.querySelector('.main-grid');
+    if (mainGrid) mainGrid.classList.add('hidden-for-pianoroll');
+
+    requestAnimationFrame(() => {
+      const header = document.querySelector('header');
+      if (header) this.container.style.top = `${header.getBoundingClientRect().bottom + 8}px`;
+      this.resizeCanvas();
+      this.draw();
+    });
+  }
+
+  hide() {
+    this.isVisible = false;
+    this.container.classList.add('hidden');
+    this.container.classList.remove('fullscreen');
+    const mainGrid = document.querySelector('.main-grid');
+    if (mainGrid) mainGrid.classList.remove('hidden-for-pianoroll');
+  }
+
+  resizeCanvas() {
+    if (!this.canvas) return;
+    const parent = this.canvas.parentElement;
+    if (!parent) return;
+
+    const rect = parent.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+
+    this.canvas.width = rect.width * dpr;
+    this.canvas.height = rect.height * dpr;
+    this.canvas.style.width = `${rect.width}px`;
+    this.canvas.style.height = `${rect.height}px`;
+
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.scale(dpr, dpr);
+  }
+
+  draw() {
+    if (!this.ctx || !this.canvas) return;
+
+    const w = this.canvas.width / (window.devicePixelRatio || 1);
+    const h = this.canvas.height / (window.devicePixelRatio || 1);
+
+    // Background
+    this.ctx.fillStyle = this.bgColor;
+    this.ctx.fillRect(0, 0, w, h);
+
+    if (this.notes.length === 0) {
+      this.ctx.fillStyle = '#666';
+      this.ctx.font = '14px sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Aucune note', w / 2, h / 2);
+      return;
     }
 
-    toggleMute(ch) {
-        if (this.mutedChannels.has(ch)) this.mutedChannels.delete(ch);
-        else this.mutedChannels.add(ch);
-        this.renderButtons();
-        if (this.eventBus) {
-            this.eventBus.emit('pianoroll:channel_toggled', { channel: ch, muted: this.mutedChannels.has(ch) });
-        }
-        if (this.isVisible) this.draw();
+    // Display window directly in SECONDS
+    const windowSeconds = this.displayWindowSeconds;
+    const startTime = this.currentTime;
+    const endTime = startTime + windowSeconds;
+
+    // Dimensions
+    const noteRange = this.noteMax - this.noteMin;
+    const noteH = Math.max(3, h / noteRange);
+    const playheadX = 50;
+
+    // Binary search to find the first note that could be visible
+    // (notes are sorted by startTime)
+    let lo = 0,
+      hi = this.notes.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.notes[mid].endTime < startTime) lo = mid + 1;
+      else hi = mid;
     }
 
-    show() {
-        if (this.isVisible) return;
-        this.isVisible = true;
-        this.container.classList.remove('hidden');
-        this.container.classList.add('fullscreen');
-
-        const mainGrid = document.querySelector('.main-grid');
-        if (mainGrid) mainGrid.classList.add('hidden-for-pianoroll');
-
-        requestAnimationFrame(() => {
-            const header = document.querySelector('header');
-            if (header) this.container.style.top = `${header.getBoundingClientRect().bottom + 8}px`;
-            this.resizeCanvas();
-            this.draw();
-        });
+    // Compute alpha: semi-transparent when multiple channels are visible
+    const visibleChannels = new Set();
+    for (let i = lo; i < this.notes.length; i++) {
+      const n = this.notes[i];
+      if (n.startTime > endTime) break;
+      if (!this.mutedChannels.has(n.channel)) visibleChannels.add(n.channel);
+      if (visibleChannels.size > 1) break;
     }
+    const noteAlpha = visibleChannels.size > 1 ? 0.7 : 1.0;
 
-    hide() {
-        this.isVisible = false;
-        this.container.classList.add('hidden');
-        this.container.classList.remove('fullscreen');
-        const mainGrid = document.querySelector('.main-grid');
-        if (mainGrid) mainGrid.classList.remove('hidden-for-pianoroll');
+    // Draw only visible notes starting from binary search result
+    for (let i = lo; i < this.notes.length; i++) {
+      const n = this.notes[i];
+      if (n.startTime > endTime) break;
+
+      const muted = this.mutedChannels.has(n.channel);
+
+      // X position - directly in seconds
+      const x1 = playheadX + ((n.startTime - startTime) / windowSeconds) * (w - playheadX);
+      const x2 = playheadX + ((n.endTime - startTime) / windowSeconds) * (w - playheadX);
+
+      // Y position (inverted)
+      const y = h - ((n.note - this.noteMin) / noteRange) * h;
+
+      // Color with semi-transparency for multi-channel blending
+      this.ctx.globalAlpha = muted ? 0.4 : noteAlpha;
+      this.ctx.fillStyle = muted ? this.mutedColor : this.channelColors[n.channel % 16];
+      this.ctx.fillRect(x1, y - noteH / 2, Math.max(2, x2 - x1), noteH);
     }
+    this.ctx.globalAlpha = 1.0;
 
-    resizeCanvas() {
-        if (!this.canvas) return;
-        const parent = this.canvas.parentElement;
-        if (!parent) return;
+    // Playhead
+    const isDarkTheme = document.body.classList.contains('dark-mode');
+    this.ctx.strokeStyle = isDarkTheme ? '#fff' : '#667eea';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(playheadX, 0);
+    this.ctx.lineTo(playheadX, h);
+    this.ctx.stroke();
 
-        const rect = parent.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
+    // Time - directly in seconds
+    const m = Math.floor(this.currentTime / 60);
+    const s = Math.floor(this.currentTime % 60);
+    this.ctx.fillStyle = isDarkTheme ? '#fff' : '#2d3561';
+    this.ctx.font = '12px monospace';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, 5, 15);
+  }
 
-        this.canvas.width = rect.width * dpr;
-        this.canvas.height = rect.height * dpr;
-        this.canvas.style.width = `${rect.width}px`;
-        this.canvas.style.height = `${rect.height}px`;
-
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.ctx.scale(dpr, dpr);
+  destroy() {
+    this.stopAnimationLoop();
+    if (this._onThemeChanged) {
+      document.removeEventListener('theme-changed', this._onThemeChanged);
     }
-
-    draw() {
-        if (!this.ctx || !this.canvas) return;
-
-        const w = this.canvas.width / (window.devicePixelRatio || 1);
-        const h = this.canvas.height / (window.devicePixelRatio || 1);
-
-        // Background
-        this.ctx.fillStyle = this.bgColor;
-        this.ctx.fillRect(0, 0, w, h);
-
-        if (this.notes.length === 0) {
-            this.ctx.fillStyle = '#666';
-            this.ctx.font = '14px sans-serif';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('Aucune note', w / 2, h / 2);
-            return;
-        }
-
-        // Display window directly in SECONDS
-        const windowSeconds = this.displayWindowSeconds;
-        const startTime = this.currentTime;
-        const endTime = startTime + windowSeconds;
-
-        // Dimensions
-        const noteRange = this.noteMax - this.noteMin;
-        const noteH = Math.max(3, h / noteRange);
-        const playheadX = 50;
-
-        // Binary search to find the first note that could be visible
-        // (notes are sorted by startTime)
-        let lo = 0, hi = this.notes.length;
-        while (lo < hi) {
-            const mid = (lo + hi) >>> 1;
-            if (this.notes[mid].endTime < startTime) lo = mid + 1;
-            else hi = mid;
-        }
-
-        // Compute alpha: semi-transparent when multiple channels are visible
-        const visibleChannels = new Set();
-        for (let i = lo; i < this.notes.length; i++) {
-            const n = this.notes[i];
-            if (n.startTime > endTime) break;
-            if (!this.mutedChannels.has(n.channel)) visibleChannels.add(n.channel);
-            if (visibleChannels.size > 1) break;
-        }
-        const noteAlpha = visibleChannels.size > 1 ? 0.7 : 1.0;
-
-        // Draw only visible notes starting from binary search result
-        for (let i = lo; i < this.notes.length; i++) {
-            const n = this.notes[i];
-            if (n.startTime > endTime) break;
-
-            const muted = this.mutedChannels.has(n.channel);
-
-            // X position - directly in seconds
-            const x1 = playheadX + ((n.startTime - startTime) / windowSeconds) * (w - playheadX);
-            const x2 = playheadX + ((n.endTime - startTime) / windowSeconds) * (w - playheadX);
-
-            // Y position (inverted)
-            const y = h - ((n.note - this.noteMin) / noteRange) * h;
-
-            // Color with semi-transparency for multi-channel blending
-            this.ctx.globalAlpha = muted ? 0.4 : noteAlpha;
-            this.ctx.fillStyle = muted ? this.mutedColor : this.channelColors[n.channel % 16];
-            this.ctx.fillRect(x1, y - noteH / 2, Math.max(2, x2 - x1), noteH);
-        }
-        this.ctx.globalAlpha = 1.0;
-
-        // Playhead
-        const isDarkTheme = document.body.classList.contains('dark-mode');
-        this.ctx.strokeStyle = isDarkTheme ? '#fff' : '#667eea';
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(playheadX, 0);
-        this.ctx.lineTo(playheadX, h);
-        this.ctx.stroke();
-
-        // Time - directly in seconds
-        const m = Math.floor(this.currentTime / 60);
-        const s = Math.floor(this.currentTime % 60);
-        this.ctx.fillStyle = isDarkTheme ? '#fff' : '#2d3561';
-        this.ctx.font = '12px monospace';
-        this.ctx.textAlign = 'left';
-        this.ctx.fillText(`${m}:${s.toString().padStart(2, '0')}`, 5, 15);
+    if (this._eventUnsubs) {
+      this._eventUnsubs.forEach((unsub) => {
+        if (typeof unsub === 'function') unsub();
+      });
+      this._eventUnsubs = [];
     }
-
-    destroy() {
-        this.stopAnimationLoop();
-        if (this._onThemeChanged) {
-            document.removeEventListener('theme-changed', this._onThemeChanged);
-        }
-        if (this._eventUnsubs) {
-            this._eventUnsubs.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
-            this._eventUnsubs = [];
-        }
-        this.notes = [];
-        if (this.container && this.container.parentNode) {
-            this.container.parentNode.removeChild(this.container);
-        }
+    this.notes = [];
+    if (this.container && this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
     }
+  }
 }
 
 if (typeof window !== 'undefined') {
-    window.PianoRollView = PianoRollView;
+  window.PianoRollView = PianoRollView;
 }

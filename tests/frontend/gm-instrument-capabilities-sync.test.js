@@ -15,21 +15,22 @@ const root = resolve(__dirname, '../..');
 const shared = JSON.parse(
   readFileSync(resolve(root, 'shared/gm-instrument-capabilities.json'), 'utf8')
 );
-const names = JSON.parse(
-  readFileSync(resolve(root, 'shared/gm-instrument-names.json'), 'utf8')
-);
+const names = JSON.parse(readFileSync(resolve(root, 'shared/gm-instrument-names.json'), 'utf8'));
 const feSource = readFileSync(
-  resolve(root, 'public/js/features/GmInstrumentCapabilities.js'), 'utf8'
+  resolve(root, 'public/js/features/GmInstrumentCapabilities.js'),
+  'utf8'
 );
 const windSource = readFileSync(
-  resolve(root, 'public/js/features/WindInstrumentDatabase.js'), 'utf8'
+  resolve(root, 'public/js/features/WindInstrumentDatabase.js'),
+  'utf8'
 );
 
 // Extract wind range tuples (program → [rangeMin,rangeMax,comfortMin,comfortMax])
 // straight from the WindInstrumentDatabase source literal.
 function parseWindRanges(src) {
   const out = {};
-  const re = /(\d+):\s*\{[^}]*?rangeMin:\s*(\d+),\s*rangeMax:\s*(\d+),\s*comfortMin:\s*(\d+),\s*comfortMax:\s*(\d+)/g;
+  const re =
+    /(\d+):\s*\{[^}]*?rangeMin:\s*(\d+),\s*rangeMax:\s*(\d+),\s*comfortMin:\s*(\d+),\s*comfortMax:\s*(\d+)/g;
   let m;
   while ((m = re.exec(src)) !== null) {
     out[Number(m[1])] = [Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5])];
@@ -65,9 +66,7 @@ describe('GM instrument capabilities — sync & integrity', () => {
 
   it('polyphony equals the backend getGmDefaultPolyphony for all 0-127', () => {
     for (let p = 0; p <= 127; p++) {
-      expect(shared[String(p)].polyphony).toBe(
-        InstrumentTypeConfig.getGmDefaultPolyphony(p)
-      );
+      expect(shared[String(p)].polyphony).toBe(InstrumentTypeConfig.getGmDefaultPolyphony(p));
     }
   });
 

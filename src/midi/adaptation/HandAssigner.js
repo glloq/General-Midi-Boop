@@ -49,12 +49,14 @@ class HandAssigner {
     const a = this.config.assignment || {};
     this.mode = a.mode || 'auto';
     this.trackMap = a.track_map || null;
-    this.hysteresis = Number.isFinite(a.pitch_split_hysteresis) ? a.pitch_split_hysteresis : DEFAULT_HYSTERESIS;
+    this.hysteresis = Number.isFinite(a.pitch_split_hysteresis)
+      ? a.pitch_split_hysteresis
+      : DEFAULT_HYSTERESIS;
 
     // Ordered list of hand ids — the order in `hands_config.hands[]`
     // determines pitch ascending order (h1 = lowest, hN = highest).
     this.handIds = (this.config.hands || [])
-      .map(h => (h && typeof h.id === 'string') ? h.id : null)
+      .map((h) => (h && typeof h.id === 'string' ? h.id : null))
       .filter(Boolean);
     this.singleHandId = this.handIds.length === 1 ? this.handIds[0] : null;
 
@@ -142,8 +144,13 @@ class HandAssigner {
     if (!Array.isArray(input)) return new Map();
     const map = new Map();
     for (const a of input) {
-      if (a && Number.isFinite(a.tick) && Number.isFinite(a.note)
-          && typeof a.handId === 'string' && a.handId.length > 0) {
+      if (
+        a &&
+        Number.isFinite(a.tick) &&
+        Number.isFinite(a.note) &&
+        typeof a.handId === 'string' &&
+        a.handId.length > 0
+      ) {
         map.set(`${a.tick}:${a.note}`, a.handId);
       }
     }
@@ -167,13 +174,17 @@ class HandAssigner {
     const out = [];
     const center = legacy;
     const step = 12;
-    const start = center - Math.floor((N - 2) / 2) * step - (N % 2 === 0 ? 0 : Math.floor(step / 2));
+    const start =
+      center - Math.floor((N - 2) / 2) * step - (N % 2 === 0 ? 0 : Math.floor(step / 2));
     for (let i = 0; i < N - 1; i++) out.push(start + i * step);
     return out;
   }
 
   _resolveAutoMode(notes, warnings) {
-    if (this.trackMap && Object.values(this.trackMap).some(arr => Array.isArray(arr) && arr.length > 0)) {
+    if (
+      this.trackMap &&
+      Object.values(this.trackMap).some((arr) => Array.isArray(arr) && arr.length > 0)
+    ) {
       return 'track';
     }
 
@@ -194,7 +205,10 @@ class HandAssigner {
         .map(([track, pitches]) => ({ track, median: median(pitches) }))
         .sort((a, b) => a.median - b.median);
 
-      const buckets = kmeans1D(medians.map(m => m.median), N);
+      const buckets = kmeans1D(
+        medians.map((m) => m.median),
+        N
+      );
       // buckets[i] is the hand index (0..N-1) for medians[i].
       const trackMap = {};
       for (let i = 0; i < N; i++) trackMap[this.handIds[i]] = [];
@@ -236,7 +250,7 @@ class HandAssigner {
     if (this.trackMap) {
       for (const [handId, tracks] of Object.entries(this.trackMap)) {
         if (!sets.has(handId)) continue; // stale entry — silently drop
-        for (const t of (tracks || [])) sets.get(handId).add(t);
+        for (const t of tracks || []) sets.get(handId).add(t);
       }
     }
 
@@ -247,7 +261,10 @@ class HandAssigner {
       let hand = null;
       if (ev.track !== undefined) {
         for (const [id, set] of sets) {
-          if (set.has(ev.track)) { hand = id; break; }
+          if (set.has(ev.track)) {
+            hand = id;
+            break;
+          }
         }
       }
       if (hand == null) {
@@ -365,15 +382,24 @@ function kmeans1D(values, k) {
       let bestDist = Math.abs(values[i] - centroids[0]);
       for (let c = 1; c < k; c++) {
         const d = Math.abs(values[i] - centroids[c]);
-        if (d < bestDist) { best = c; bestDist = d; }
+        if (d < bestDist) {
+          best = c;
+          bestDist = d;
+        }
       }
-      if (assign[i] !== best) { assign[i] = best; changed = true; }
+      if (assign[i] !== best) {
+        assign[i] = best;
+        changed = true;
+      }
     }
     if (!changed) break;
     // Recompute centroids.
     const sums = new Array(k).fill(0);
     const counts = new Array(k).fill(0);
-    for (let i = 0; i < n; i++) { sums[assign[i]] += values[i]; counts[assign[i]]++; }
+    for (let i = 0; i < n; i++) {
+      sums[assign[i]] += values[i];
+      counts[assign[i]]++;
+    }
     for (let c = 0; c < k; c++) if (counts[c] > 0) centroids[c] = sums[c] / counts[c];
   }
   // Re-label clusters in ascending centroid order so cluster 0 is the
@@ -381,10 +407,10 @@ function kmeans1D(values, k) {
   const order = centroids
     .map((c, i) => ({ c, i }))
     .sort((a, b) => a.c - b.c)
-    .map(o => o.i);
+    .map((o) => o.i);
   const label = new Array(k);
   for (let rank = 0; rank < k; rank++) label[order[rank]] = rank;
-  return assign.map(c => label[c]);
+  return assign.map((c) => label[c]);
 }
 
 export default HandAssigner;

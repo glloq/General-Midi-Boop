@@ -38,7 +38,11 @@ describe('DeviceManager._sendToOutput — easymidi boundary', () => {
   test('note on is 7-bit clamped', () => {
     const out = fakeOutput();
     sendTo(out, 'noteon', { channel: 1, note: 200, velocity: 300 });
-    expect(out.send).toHaveBeenCalledWith('noteon', { channel: 1, note: 200 & 0x7f, velocity: 300 & 0x7f });
+    expect(out.send).toHaveBeenCalledWith('noteon', {
+      channel: 1,
+      note: 200 & 0x7f,
+      velocity: 300 & 0x7f
+    });
   });
 
   test('cc is 7-bit clamped', () => {

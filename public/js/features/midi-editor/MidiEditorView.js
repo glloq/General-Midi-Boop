@@ -15,26 +15,28 @@
 // ============================================================================
 
 (function () {
-    'use strict';
+  'use strict';
 
-    class MidiEditorView {
-        /** @param {MidiEditorRouting} parent */
-        constructor(parent) {
-            this.parent = parent;
-            this.modal = parent.modal;
-        }
+  class MidiEditorView {
+    /** @param {MidiEditorRouting} parent */
+    constructor(parent) {
+      this.parent = parent;
+      this.modal = parent.modal;
+    }
 
-        render() {
-        const loop = this.modal.loopMode === true;
+    render() {
+      const loop = this.modal.loopMode === true;
 
-    // Create the modal container — in loop/panel mode we render directly
-    // inside the host element (no modal-overlay wrapper), so the outer
-    // LoopEditorModal owns the framing chrome.
-        this.modal.container = document.createElement('div');
-        this.modal.container.className = loop
-            ? 'midi-editor-modal midi-editor-modal--loop'
-            : 'modal-overlay midi-editor-modal';
-        const headerHtml = loop ? '' : `
+      // Create the modal container — in loop/panel mode we render directly
+      // inside the host element (no modal-overlay wrapper), so the outer
+      // LoopEditorModal owns the framing chrome.
+      this.modal.container = document.createElement('div');
+      this.modal.container.className = loop
+        ? 'midi-editor-modal midi-editor-modal--loop'
+        : 'modal-overlay midi-editor-modal';
+      const headerHtml = loop
+        ? ''
+        : `
                 <div class="modal-header">
                     <div class="modal-title">
                         <h3>🎹 ÉDIB∞P</h3>
@@ -64,7 +66,9 @@
                     <button class="modal-close" data-action="close">&times;</button>
                 </div>`;
 
-        const channelsToolbarHtml = loop ? '' : `
+      const channelsToolbarHtml = loop
+        ? ''
+        : `
                     <!-- Channel toolbar (just below the header) -->
                     <div class="channels-toolbar-wrapper">
                         <div class="channels-toolbar">
@@ -75,11 +79,13 @@
                         </div>
                     </div>`;
 
-        // In loop mode the LoopEditorModal owns play/pause/stop in its big
-        // transport bar — we hide the toolbar playback section to avoid
-        // duplicated controls (and the routed/GM preview toggle, which
-        // doesn't apply when the loop is single-instrument).
-        const playbackSectionHtml = loop ? '' : `
+      // In loop mode the LoopEditorModal owns play/pause/stop in its big
+      // transport bar — we hide the toolbar playback section to avoid
+      // duplicated controls (and the routed/GM preview toggle, which
+      // doesn't apply when the loop is single-instrument).
+      const playbackSectionHtml = loop
+        ? ''
+        : `
                         <!-- Section Playback -->
                         <div class="toolbar-section playback-section">
                             <button class="tool-btn playback-btn" data-action="playback-play" id="play-btn" title="${this.modal.t('midiEditor.play')} (Space)">
@@ -101,10 +107,12 @@
                         <div class="toolbar-divider"></div>
         `;
 
-        // Settings popover (gear) — entirely removed in loop mode. The
-        // outer LoopEditorModal already exposes instrument/output choices
-        // and channel routing is irrelevant for a mono-channel loop.
-        const settingsPopoverHtml = loop ? '' : `
+      // Settings popover (gear) — entirely removed in loop mode. The
+      // outer LoopEditorModal already exposes instrument/output choices
+      // and channel routing is irrelevant for a mono-channel loop.
+      const settingsPopoverHtml = loop
+        ? ''
+        : `
                         <div class="toolbar-divider"></div>
 
                         <!-- Settings button (opens Channel / Instrument / Device popover) -->
@@ -202,25 +210,29 @@
                         </div>
         `;
 
-        // Inline touch-mode toggle — only rendered in loop mode, where the
-        // gear popover is gone and this becomes the only way to flip touch
-        // UX. Standard mode keeps the existing toggle inside the popover.
-        const inlineTouchToggleHtml = loop ? `
+      // Inline touch-mode toggle — only rendered in loop mode, where the
+      // gear popover is gone and this becomes the only way to flip touch
+      // UX. Standard mode keeps the existing toggle inside the popover.
+      const inlineTouchToggleHtml = loop
+        ? `
                             <button class="tool-btn touch-mode-inline-toggle" data-action="toggle-touch-mode" id="touch-mode-inline-toggle"
                                 data-active="${this.modal.touchMode ? 'true' : 'false'}"
                                 title="${this.modal.t('midiEditor.touchModeTitle')}"
                                 aria-pressed="${this.modal.touchMode ? 'true' : 'false'}">
                                 <span class="icon">👆</span>
-                            </button>` : '';
+                            </button>`
+        : '';
 
-        // Wrap the editor body. Outside loop mode we keep the historical
-        // <div class="modal-dialog modal-xl"><…/></div> wrapper ; inside
-        // loop mode we drop it so the panel inherits its host's flex
-        // sizing.
-        const bodyOpen  = loop ? '<div class="midi-editor-panel">' : '<div class="modal-dialog modal-xl">';
-        const bodyClose = loop ? '</div>' : '</div>';
+      // Wrap the editor body. Outside loop mode we keep the historical
+      // <div class="modal-dialog modal-xl"><…/></div> wrapper ; inside
+      // loop mode we drop it so the panel inherits its host's flex
+      // sizing.
+      const bodyOpen = loop
+        ? '<div class="midi-editor-panel">'
+        : '<div class="modal-dialog modal-xl">';
+      const bodyClose = loop ? '</div>' : '</div>';
 
-        this.modal.container.innerHTML = `
+      this.modal.container.innerHTML = `
             ${bodyOpen}
                 ${headerHtml}
                 <div class="modal-body">
@@ -280,9 +292,13 @@
 
                         <div class="toolbar-divider"></div>
 
-                        ${loop ? `<!-- Specialized modes (drum / tab / wind) — loop mode only -->
+                        ${
+                          loop
+                            ? `<!-- Specialized modes (drum / tab / wind) — loop mode only -->
                         <div class="toolbar-section specialized-mode-section" id="loop-specialized-modes"></div>
-                        <div class="toolbar-divider"></div>` : ''}
+                        <div class="toolbar-divider"></div>`
+                            : ''
+                        }
 
                         <!-- Edit section (Copy / Paste / Delete) -->
                         <div class="toolbar-section">
@@ -347,9 +363,13 @@
                                     <span class="cc-collapse-icon">▼</span>
                                     <span>${this.modal.t('midiEditor.ccSection')}</span>
                                 </div>
-                                ${loop ? '' : `<div class="cc-header-channels" id="editor-channel-selector">
+                                ${
+                                  loop
+                                    ? ''
+                                    : `<div class="cc-header-channels" id="editor-channel-selector">
                                     <!-- Channels are added dynamically -->
-                                </div>`}
+                                </div>`
+                                }
                                 <button class="cc-settings-btn" id="cc-draw-settings-btn" title="${this.modal.t('midiEditor.drawSettings')}">⚙</button>
                             </div>
 
@@ -450,21 +470,21 @@
             ${bodyClose}
         `;
 
-        // Mount: append to the configured host (panel mode) or to body
-        // (standalone overlay mode). The host attribute lets the loop
-        // editor drop the editor straight into its tab pane.
-        const mountTarget = this.modal.panelHost || document.body;
-        mountTarget.appendChild(this.modal.container);
+      // Mount: append to the configured host (panel mode) or to body
+      // (standalone overlay mode). The host attribute lets the loop
+      // editor drop the editor straight into its tab pane.
+      const mountTarget = this.modal.panelHost || document.body;
+      mountTarget.appendChild(this.modal.container);
 
-    // Attach events
-        this.modal.events.attachEvents();
+      // Attach events
+      this.modal.events.attachEvents();
 
-    // Keyboard shortcuts (includes Escape → close)
-        this.modal.editActions?.setupKeyboardShortcuts();
-        }
+      // Keyboard shortcuts (includes Escape → close)
+      this.modal.editActions?.setupKeyboardShortcuts();
     }
+  }
 
-    if (typeof window !== 'undefined') {
-        window.MidiEditorView = MidiEditorView;
-    }
+  if (typeof window !== 'undefined') {
+    window.MidiEditorView = MidiEditorView;
+  }
 })();

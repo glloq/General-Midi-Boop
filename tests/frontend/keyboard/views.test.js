@@ -64,7 +64,13 @@ describe('Built-in views — registration', () => {
   });
 
   it('every view has a non-empty emoji + labelKey', () => {
-    for (const V of [win.PianoView, win.FretboardView, win.DrumPadView, win.PianoSliderView, win.ListView]) {
+    for (const V of [
+      win.PianoView,
+      win.FretboardView,
+      win.DrumPadView,
+      win.PianoSliderView,
+      win.ListView
+    ]) {
       expect(typeof V.emoji).toBe('string');
       expect(V.emoji.length).toBeGreaterThan(0);
       expect(typeof V.labelKey).toBe('string');
@@ -131,34 +137,38 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
   // For each test case, the viewKind returned by InstrumentDetector
   // must equal the viewKind returned by the registry.
   const windDb = {
-    isWindInstrument(p) { return (p >= 56 && p <= 79) || p === 111; },
-    getPresetByProgram(p) { return { name: `wind-${p}` }; }
+    isWindInstrument(p) {
+      return (p >= 56 && p <= 79) || p === 111;
+    },
+    getPresetByProgram(p) {
+      return { name: `wind-${p}` };
+    }
   };
   const cases = [
-    { caps: { gm_program: 0 },                expected: 'piano' },
-    { caps: { gm_program: 7 },                expected: 'piano' },
-    { caps: { channel: 9 },                   expected: 'drumpad' },
-    { caps: { instrument_type: 'percussion' },expected: 'drumpad' },
-    { caps: { gm_program: 24 },               expected: 'fretboard' },
-    { caps: { gm_program: 40 },               expected: 'fretboard' },
-    { caps: { gm_program: 104 },              expected: 'fretboard' },
-    { caps: { gm_program: 56 },               expected: 'piano-slider', wind: true },
-    { caps: { gm_program: 79 },               expected: 'piano-slider', wind: true },
-    { caps: { gm_program: 111 },              expected: 'piano-slider', wind: true },
-    { caps: { gm_program: 8 },                expected: 'piano' },
-    { caps: { gm_program: 10 },               expected: 'music-box' },
-    { caps: { gm_program: 47 },               expected: 'piano' },
-    { caps: { gm_program: 12 },               expected: 'mallet' },
-    { caps: { gm_program: 22 },               expected: 'harmonica' },
-    { caps: { gm_program: 46 },               expected: 'harp' },
-    { caps: { gm_program: 21 },               expected: 'accordion' },
-    { caps: { gm_program: 23 },               expected: 'accordion' },
-    { caps: { gm_program: 12 },               expected: 'mallet' },
-    { caps: { gm_program: 15 },               expected: 'mallet' },
-    { caps: { gm_program: 108 },              expected: 'kalimba' },
-    { caps: { gm_program: 109 },              expected: 'bagpipe' },
-    { caps: { gm_program: 114 },              expected: 'steel-drum' },
-    { caps: { instrument_type: 'theremin' },  expected: 'theremin' },
+    { caps: { gm_program: 0 }, expected: 'piano' },
+    { caps: { gm_program: 7 }, expected: 'piano' },
+    { caps: { channel: 9 }, expected: 'drumpad' },
+    { caps: { instrument_type: 'percussion' }, expected: 'drumpad' },
+    { caps: { gm_program: 24 }, expected: 'fretboard' },
+    { caps: { gm_program: 40 }, expected: 'fretboard' },
+    { caps: { gm_program: 104 }, expected: 'fretboard' },
+    { caps: { gm_program: 56 }, expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 79 }, expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 111 }, expected: 'piano-slider', wind: true },
+    { caps: { gm_program: 8 }, expected: 'piano' },
+    { caps: { gm_program: 10 }, expected: 'music-box' },
+    { caps: { gm_program: 47 }, expected: 'piano' },
+    { caps: { gm_program: 12 }, expected: 'mallet' },
+    { caps: { gm_program: 22 }, expected: 'harmonica' },
+    { caps: { gm_program: 46 }, expected: 'harp' },
+    { caps: { gm_program: 21 }, expected: 'accordion' },
+    { caps: { gm_program: 23 }, expected: 'accordion' },
+    { caps: { gm_program: 12 }, expected: 'mallet' },
+    { caps: { gm_program: 15 }, expected: 'mallet' },
+    { caps: { gm_program: 108 }, expected: 'kalimba' },
+    { caps: { gm_program: 109 }, expected: 'bagpipe' },
+    { caps: { gm_program: 114 }, expected: 'steel-drum' },
+    { caps: { instrument_type: 'theremin' }, expected: 'theremin' }
   ];
 
   for (const { caps, expected, wind } of cases) {
@@ -180,11 +190,20 @@ describe('Built-in views — InstrumentDetector ↔ registry consistency', () =>
 describe('Built-in views — toolbarGroups removed', () => {
   it('no view (nor the base class) declares toolbarGroups anymore', () => {
     const classes = [
-      win.PianoView, win.FretboardView, win.DrumPadView,
-      win.PianoSliderView, win.ListView, win.HarmonicaView,
-      win.HarpView, win.AccordionView, win.MalletView,
-      win.KalimbaView, win.BagpipeView, win.SteelDrumView,
-      win.ThereminView, win.InstrumentView
+      win.PianoView,
+      win.FretboardView,
+      win.DrumPadView,
+      win.PianoSliderView,
+      win.ListView,
+      win.HarmonicaView,
+      win.HarpView,
+      win.AccordionView,
+      win.MalletView,
+      win.KalimbaView,
+      win.BagpipeView,
+      win.SteelDrumView,
+      win.ThereminView,
+      win.InstrumentView
     ];
     for (const C of classes) {
       if (typeof C !== 'function') continue;
@@ -197,9 +216,18 @@ describe('Built-in views — SVG icon identity (emoji fallback)', () => {
   // NB: win.* are only populated by beforeAll, so resolve the class
   // lists lazily inside each test (not at describe-collection time).
   const specific = () => [
-    win.HarmonicaView, win.HarpView, win.AccordionView, win.MalletView,
-    win.MusicBoxView, win.KalimbaView, win.BagpipeView, win.SteelDrumView,
-    win.PianoSliderView, win.FretboardView, win.DrumPadView, win.PianoView
+    win.HarmonicaView,
+    win.HarpView,
+    win.AccordionView,
+    win.MalletView,
+    win.MusicBoxView,
+    win.KalimbaView,
+    win.BagpipeView,
+    win.SteelDrumView,
+    win.PianoSliderView,
+    win.FretboardView,
+    win.DrumPadView,
+    win.PianoView
   ];
 
   it('every view keeps a non-empty emoji fallback + labelKey', () => {
@@ -225,24 +253,30 @@ describe('Built-in views — SVG icon identity (emoji fallback)', () => {
 
   it('emoji fallbacks are distinct across the specific instrument views', () => {
     const specificEmojis = [
-      win.HarmonicaView, win.HarpView, win.AccordionView, win.MalletView,
-      win.MusicBoxView, win.KalimbaView, win.BagpipeView,
-      win.SteelDrumView, win.ThereminView
-    ].map(V => V.emoji);
+      win.HarmonicaView,
+      win.HarpView,
+      win.AccordionView,
+      win.MalletView,
+      win.MusicBoxView,
+      win.KalimbaView,
+      win.BagpipeView,
+      win.SteelDrumView,
+      win.ThereminView
+    ].map((V) => V.emoji);
     expect(new Set(specificEmojis).size).toBe(specificEmojis.length);
   });
 });
 
 describe('Built-in views — willPlayNote default vs PianoSlider', () => {
   it('Piano default: pass-through', () => {
-    const v = new (win.PianoView)();
+    const v = new win.PianoView();
     v.mount({ modal: null });
     expect(v.willPlayNote(60, 80, {})).toEqual({ midi: 60, velocity: 80, opts: {} });
     v.unmount();
   });
 
   it('PianoSlider applies wind articulation factor', () => {
-    const v = new (win.PianoSliderView)();
+    const v = new win.PianoSliderView();
     // staccato → 0.9 factor
     v.mount({ modal: { currentArticulation: 'staccato' } });
     const r = v.willPlayNote(60, 100, { x: 1 });
@@ -252,7 +286,7 @@ describe('Built-in views — willPlayNote default vs PianoSlider', () => {
   });
 
   it('PianoSlider accent boosts velocity (×1.2 clamped to 127)', () => {
-    const v = new (win.PianoSliderView)();
+    const v = new win.PianoSliderView();
     v.mount({ modal: { currentArticulation: 'accent' } });
     expect(v.willPlayNote(60, 100, {}).velocity).toBe(120);
     expect(v.willPlayNote(60, 127, {}).velocity).toBe(127); // clamp
@@ -260,7 +294,7 @@ describe('Built-in views — willPlayNote default vs PianoSlider', () => {
   });
 
   it('PianoSlider falls back to normal factor when articulation is unknown', () => {
-    const v = new (win.PianoSliderView)();
+    const v = new win.PianoSliderView();
     v.mount({ modal: { currentArticulation: 'something_made_up' } });
     expect(v.willPlayNote(60, 80, {}).velocity).toBe(80);
     v.unmount();

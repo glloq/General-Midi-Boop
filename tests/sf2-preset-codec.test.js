@@ -21,7 +21,7 @@ function makePreset() {
         velRangeHigh: 127,
         midi: 60,
         coarseTune: 0,
-        fineTune: 0,
+        fineTune: 0
       },
       {
         sample: Float32Array.from([1e-6, -1e-6, 2.5, -2.5]),
@@ -34,9 +34,9 @@ function makePreset() {
         velRangeHigh: 127,
         midi: 42,
         coarseTune: 12,
-        fineTune: -50,
-      },
-    ],
+        fineTune: -50
+      }
+    ]
   };
 }
 
@@ -56,9 +56,18 @@ describe('SF2PresetCodec', () => {
       // Float32 → Float32 must be bit-identical (no precision loss).
       expect(Array.from(b.sample)).toEqual(Array.from(a.sample));
       // Metadata must round-trip exactly.
-      for (const key of ['sampleRate', 'loopStart', 'loopEnd',
-        'keyRangeLow', 'keyRangeHigh', 'velRangeLow', 'velRangeHigh',
-        'midi', 'coarseTune', 'fineTune']) {
+      for (const key of [
+        'sampleRate',
+        'loopStart',
+        'loopEnd',
+        'keyRangeLow',
+        'keyRangeHigh',
+        'velRangeLow',
+        'velRangeHigh',
+        'midi',
+        'coarseTune',
+        'fineTune'
+      ]) {
         expect(b[key]).toBe(a[key]);
       }
     }
@@ -67,13 +76,33 @@ describe('SF2PresetCodec', () => {
   test('handles zero-length samples without misaligning subsequent zones', () => {
     const preset = {
       zones: [
-        { sample: new Float32Array(0), sampleRate: 44100, loopStart: 0, loopEnd: 0,
-          keyRangeLow: 0, keyRangeHigh: 127, velRangeLow: 0, velRangeHigh: 127,
-          midi: 60, coarseTune: 0, fineTune: 0 },
-        { sample: Float32Array.from([0.25, -0.25]), sampleRate: 44100, loopStart: 0, loopEnd: 0,
-          keyRangeLow: 0, keyRangeHigh: 127, velRangeLow: 0, velRangeHigh: 127,
-          midi: 61, coarseTune: 0, fineTune: 0 },
-      ],
+        {
+          sample: new Float32Array(0),
+          sampleRate: 44100,
+          loopStart: 0,
+          loopEnd: 0,
+          keyRangeLow: 0,
+          keyRangeHigh: 127,
+          velRangeLow: 0,
+          velRangeHigh: 127,
+          midi: 60,
+          coarseTune: 0,
+          fineTune: 0
+        },
+        {
+          sample: Float32Array.from([0.25, -0.25]),
+          sampleRate: 44100,
+          loopStart: 0,
+          loopEnd: 0,
+          keyRangeLow: 0,
+          keyRangeHigh: 127,
+          velRangeLow: 0,
+          velRangeHigh: 127,
+          midi: 61,
+          coarseTune: 0,
+          fineTune: 0
+        }
+      ]
     };
     const decoded = decodePreset(encodePreset(preset));
     expect(decoded.zones[0].sample.length).toBe(0);
@@ -113,7 +142,7 @@ describe('SF2PresetCodec', () => {
     const preset = makePreset();
     const buf = encodePreset(preset);
     // Tamper metaLen to a huge value
-    buf.writeUInt32LE(0xFFFF_FFFF, 8);
+    buf.writeUInt32LE(0xffff_ffff, 8);
     expect(() => decodePreset(buf)).toThrow(/metaLen/);
   });
 
@@ -148,14 +177,27 @@ describe('SF2PresetCodec', () => {
   });
 
   test('decode rejects zone whose sample range overflows the buffer', () => {
-    const meta = Buffer.from(JSON.stringify({
-      zones: [{
-        sampleOffset: 0, sampleLength: 1_000_000,
-        sampleRate: 44100, loopStart: 0, loopEnd: 0,
-        keyRangeLow: 0, keyRangeHigh: 127, velRangeLow: 0, velRangeHigh: 127,
-        midi: 60, coarseTune: 0, fineTune: 0,
-      }],
-    }), 'utf8');
+    const meta = Buffer.from(
+      JSON.stringify({
+        zones: [
+          {
+            sampleOffset: 0,
+            sampleLength: 1_000_000,
+            sampleRate: 44100,
+            loopStart: 0,
+            loopEnd: 0,
+            keyRangeLow: 0,
+            keyRangeHigh: 127,
+            velRangeLow: 0,
+            velRangeHigh: 127,
+            midi: 60,
+            coarseTune: 0,
+            fineTune: 0
+          }
+        ]
+      }),
+      'utf8'
+    );
     const buf = Buffer.alloc(12 + meta.length); // no sample bytes
     buf.writeUInt32LE(0x50_42_4d_47, 0);
     buf.writeUInt32LE(2, 4);
@@ -165,14 +207,27 @@ describe('SF2PresetCodec', () => {
   });
 
   test('decode rejects negative sampleLength', () => {
-    const meta = Buffer.from(JSON.stringify({
-      zones: [{
-        sampleOffset: 0, sampleLength: -1,
-        sampleRate: 44100, loopStart: 0, loopEnd: 0,
-        keyRangeLow: 0, keyRangeHigh: 127, velRangeLow: 0, velRangeHigh: 127,
-        midi: 60, coarseTune: 0, fineTune: 0,
-      }],
-    }), 'utf8');
+    const meta = Buffer.from(
+      JSON.stringify({
+        zones: [
+          {
+            sampleOffset: 0,
+            sampleLength: -1,
+            sampleRate: 44100,
+            loopStart: 0,
+            loopEnd: 0,
+            keyRangeLow: 0,
+            keyRangeHigh: 127,
+            velRangeLow: 0,
+            velRangeHigh: 127,
+            midi: 60,
+            coarseTune: 0,
+            fineTune: 0
+          }
+        ]
+      }),
+      'utf8'
+    );
     const buf = Buffer.alloc(12 + meta.length);
     buf.writeUInt32LE(0x50_42_4d_47, 0);
     buf.writeUInt32LE(2, 4);

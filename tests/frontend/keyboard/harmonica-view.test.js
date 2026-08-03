@@ -50,16 +50,24 @@ describe('Harmonica — registration & detection', () => {
     expect(d.isHarmonica).toBe(true);
     // GM 21 (Accordion) / 23 (Tango Accordion) now route to AccordionView;
     // 22 (Harmonica) keeps its own view between them.
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 21 } }).viewKind).toBe('accordion');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 23 } }).viewKind).toBe('accordion');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 0 } }).viewKind).toBe('piano');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 21 } }).viewKind).toBe(
+      'accordion'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 23 } }).viewKind).toBe(
+      'accordion'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 0 } }).viewKind).toBe(
+      'piano'
+    );
   });
 
   it('drum/string/wind still win over harmonica when ambiguous', () => {
     // channel 9 drum kit must not be hijacked by a stray GM 22 program
-    expect(win.InstrumentDetector.detect({
-      capabilities: { gm_program: 22, channel: 9 }
-    }).viewKind).toBe('drumpad');
+    expect(
+      win.InstrumentDetector.detect({
+        capabilities: { gm_program: 22, channel: 9 }
+      }).viewKind
+    ).toBe('drumpad');
   });
 });
 
@@ -75,14 +83,20 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
       stopNote: (n) => stopped.push(n),
       getNoteLabel: (n) => `N${n}`
     };
-    view = new (win.HarmonicaView)();
+    view = new win.HarmonicaView();
     view.mount({ modal });
   });
 
   // Each view registers a document-level pointerup listener; tearing it
   // down keeps tests isolated (no cross-test listener accumulation) and
   // exercises unmount() idempotence.
-  afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => {
+    try {
+      view.unmount();
+    } catch {
+      /* idempotent */
+    }
+  });
 
   it('mount() lazy-creates #harmonica-container with 10 blow + 10 draw holes', () => {
     const root = document.getElementById('harmonica-container');
@@ -117,9 +131,9 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
     expect(blows[2].dataset.note).toBe('67');
     fire(draws[1], 'pointerdown');
     fire(blows[2], 'pointerdown');
-    expect(played).toEqual([67, 67]);            // independent hole tracking
+    expect(played).toEqual([67, 67]); // independent hole tracking
     document.dispatchEvent(new Event('pointerup'));
-    expect(stopped.sort()).toEqual([67, 67]);    // global release frees both
+    expect(stopped.sort()).toEqual([67, 67]); // global release frees both
     expect(root.querySelectorAll('.harmonica-hole.active').length).toBe(0);
   });
 
@@ -128,7 +142,7 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
     const cell = root.querySelector('.harmonica-blow');
     fire(cell, 'pointerdown');
     fire(cell, 'pointerdown');
-    expect(played).toEqual([60]);                 // guarded by _pressed map
+    expect(played).toEqual([60]); // guarded by _pressed map
   });
 
   it('global pointerup releases every held hole (no stuck notes)', () => {
@@ -146,7 +160,8 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
     const root = document.getElementById('harmonica-container');
     view.setActiveNotes(new Set([60, 62]));
     const lit = [...root.querySelectorAll('.harmonica-hole.active')]
-      .map(c => c.dataset.note).sort();
+      .map((c) => c.dataset.note)
+      .sort();
     expect(lit).toEqual(['60', '62']);
   });
 
@@ -154,7 +169,7 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
     const root = document.getElementById('harmonica-container');
     fire(root.querySelector('.harmonica-blow'), 'pointerdown'); // hold 60
     view.unmount();
-    expect(stopped).toEqual([60]);                       // released on teardown
+    expect(stopped).toEqual([60]); // released on teardown
     expect(document.getElementById('harmonica-container')).toBeNull();
     expect(view.mounted).toBe(false);
   });
@@ -171,7 +186,7 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
     fire(holes[0], 'pointerdown');
     expect(played).toContain(nA);
     fire(holes[1], 'pointermove');
-    expect(stopped).toContain(nA);            // previous released (piano-like)
+    expect(stopped).toContain(nA); // previous released (piano-like)
     expect(played).toContain(nB);
     document.dispatchEvent(new Event('pointerup'));
     expect(stopped).toContain(nB);
@@ -180,14 +195,16 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
 
   it('rerender() preserves the chromatic slide latch across a rebuild', () => {
     view.unmount();
-    const cv = new (win.HarmonicaView)();
-    cv.mount({ modal: Object.assign({}, modal, {
-      getHarmonicaConfig: () => ({ type: 'chromatic', key: 'C' })
-    }) });
+    const cv = new win.HarmonicaView();
+    cv.mount({
+      modal: Object.assign({}, modal, {
+        getHarmonicaConfig: () => ({ type: 'chromatic', key: 'C' })
+      })
+    });
     cv._setSlide(true);
     expect(cv._slide).toBe(true);
-    cv.rerender();                             // = US/FR/MIDI toggle
-    expect(cv._slide).toBe(true);              // latch survived unmount+mount
+    cv.rerender(); // = US/FR/MIDI toggle
+    expect(cv._slide).toBe(true); // latch survived unmount+mount
     expect(cv._slideBtn.getAttribute('aria-pressed')).toBe('true');
     cv.unmount();
   });
@@ -196,7 +213,7 @@ describe('Harmonica — self-owned DOM lifecycle', () => {
 describe('Harmonica — KeyboardModal._activateView integration', () => {
   it('_activateView("harmonica") resolves & mounts HarmonicaView; switching unmounts it', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const m = new (win.KeyboardModal)();
+    const m = new win.KeyboardModal();
     // Piano fallback render is a mixin (absent in this harness) — stub it.
     m.regeneratePianoKeys = () => {};
 

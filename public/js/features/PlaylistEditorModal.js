@@ -38,7 +38,10 @@ class PlaylistEditorModal extends BaseModal {
   }
 
   _isDark() {
-    return document.body.classList.contains('dark-mode') || document.body.classList.contains('theme-dark');
+    return (
+      document.body.classList.contains('dark-mode') ||
+      document.body.classList.contains('theme-dark')
+    );
   }
 
   _formatDuration(seconds) {
@@ -85,7 +88,8 @@ class PlaylistEditorModal extends BaseModal {
     if (this.dialog) {
       const header = this.dialog.querySelector('.modal-header');
       if (header) {
-        header.style.background = 'var(--accent-gradient, linear-gradient(135deg, #667eea, #764ba2))';
+        header.style.background =
+          'var(--accent-gradient, linear-gradient(135deg, #667eea, #764ba2))';
         header.style.borderBottom = 'none';
         header.style.borderRadius = '12px 12px 0 0';
         const h2 = header.querySelector('h2');
@@ -102,10 +106,7 @@ class PlaylistEditorModal extends BaseModal {
       }
     }
 
-    await Promise.all([
-      this._loadAvailableFiles(),
-      this._loadPlaylistItems()
-    ]);
+    await Promise.all([this._loadAvailableFiles(), this._loadPlaylistItems()]);
 
     // Load routing status for all files
     await this._loadRoutingStatuses();
@@ -158,7 +159,9 @@ class PlaylistEditorModal extends BaseModal {
 
   async _loadPlaylistItems() {
     try {
-      const result = await this.apiClient.sendCommand('playlist_get', { playlistId: this.playlistId });
+      const result = await this.apiClient.sendCommand('playlist_get', {
+        playlistId: this.playlistId
+      });
       this.playlistItems = result.items || [];
     } catch (error) {
       console.error('Failed to load playlist items:', error);
@@ -178,9 +181,10 @@ class PlaylistEditorModal extends BaseModal {
     if (Array.isArray(this.availableFiles)) flatten(this.availableFiles);
 
     // Batch check routing for all files
-    const checks = files.map(f =>
-      this.apiClient.sendCommand('get_file_routings', { fileId: f.id })
-        .then(res => ({ id: f.id, count: (res.routings || []).length, status: res.status }))
+    const checks = files.map((f) =>
+      this.apiClient
+        .sendCommand('get_file_routings', { fileId: f.id })
+        .then((res) => ({ id: f.id, count: (res.routings || []).length, status: res.status }))
         .catch(() => ({ id: f.id, count: 0, status: 'unrouted' }))
     );
 
@@ -209,52 +213,64 @@ class PlaylistEditorModal extends BaseModal {
     if (Array.isArray(this.availableFiles)) flatten(this.availableFiles);
 
     if (this.searchQuery) {
-      files = files.filter(f => (f.filename || '').toLowerCase().includes(this.searchQuery));
+      files = files.filter((f) => (f.filename || '').toLowerCase().includes(this.searchQuery));
     }
     const isStatusRouted = (s) => s && s !== 'unrouted';
 
     if (this.showRoutedOnly) {
-      files = files.filter(f => isStatusRouted(this.routingStatusMap.get(f.id)));
+      files = files.filter((f) => isStatusRouted(this.routingStatusMap.get(f.id)));
     }
 
-    const addedIds = new Set(this.playlistItems.map(i => i.midi_id));
+    const addedIds = new Set(this.playlistItems.map((i) => i.midi_id));
 
     if (countEl) {
       const totalCount = files.length;
-      const routedCount = files.filter(f => isStatusRouted(this.routingStatusMap.get(f.id))).length;
+      const routedCount = files.filter((f) =>
+        isStatusRouted(this.routingStatusMap.get(f.id))
+      ).length;
       countEl.textContent = this.showRoutedOnly
-        ? (i18n.t('playlist.routedFilesCount', { count: totalCount }) || `${totalCount} routed file(s)`)
-        : (i18n.t('playlist.filesCount', { count: totalCount, routed: routedCount }) || `${totalCount} file(s) (${routedCount} routed)`);
+        ? i18n.t('playlist.routedFilesCount', { count: totalCount }) ||
+          `${totalCount} routed file(s)`
+        : i18n.t('playlist.filesCount', { count: totalCount, routed: routedCount }) ||
+          `${totalCount} file(s) (${routedCount} routed)`;
     }
 
     if (files.length === 0) {
       const emptyMsg = this.showRoutedOnly
-        ? (i18n.t('playlist.noRoutedFiles') || 'No routed files found')
-        : (i18n.t('playlist.noFiles') || 'No files found');
+        ? i18n.t('playlist.noRoutedFiles') || 'No routed files found'
+        : i18n.t('playlist.noFiles') || 'No files found';
       container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">${emptyMsg}</p>`;
       return;
     }
 
-    container.innerHTML = files.map(f => {
-      const isAdded = addedIds.has(f.id);
-      const fileStatus = this.routingStatusMap.get(f.id) || 'unrouted';
-      const itemBorder = isAdded ? 'var(--status-ok,#27ae60)' : 'var(--border-color, #dee2e6)';
-      const itemBg = isAdded ? 'var(--status-ok-bg,rgba(39,174,96,0.08))' : 'var(--bg-secondary, #fff)';
-      const dotColor = fileStatus === 'playable'
-        ? 'var(--status-ok,#27ae60)'
-        : (fileStatus === 'partial' || fileStatus === 'routed_incomplete')
-          ? 'var(--status-warning,#f39c12)'
-          : 'var(--status-critical,#e8365d)';
-      const dotTitle = fileStatus === 'playable' ? (i18n.t('playlist.statusRoutedAll') || 'Routed — all channels')
-        : fileStatus === 'routed_incomplete' ? (i18n.t('playlist.statusRoutedLow') || 'Routed — low compatibility')
-        : fileStatus === 'partial' ? (i18n.t('playlist.statusPartial') || 'Partially routed')
-        : (i18n.t('playlist.statusNotRouted') || 'Not routed');
-      const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
-      const addTitle = isAdded
-        ? (i18n.t('playlist.alreadyAdded') || 'Already added')
-        : (i18n.t('playlist.addToPlaylist') || 'Add to playlist');
+    container.innerHTML = files
+      .map((f) => {
+        const isAdded = addedIds.has(f.id);
+        const fileStatus = this.routingStatusMap.get(f.id) || 'unrouted';
+        const itemBorder = isAdded ? 'var(--status-ok,#27ae60)' : 'var(--border-color, #dee2e6)';
+        const itemBg = isAdded
+          ? 'var(--status-ok-bg,rgba(39,174,96,0.08))'
+          : 'var(--bg-secondary, #fff)';
+        const dotColor =
+          fileStatus === 'playable'
+            ? 'var(--status-ok,#27ae60)'
+            : fileStatus === 'partial' || fileStatus === 'routed_incomplete'
+              ? 'var(--status-warning,#f39c12)'
+              : 'var(--status-critical,#e8365d)';
+        const dotTitle =
+          fileStatus === 'playable'
+            ? i18n.t('playlist.statusRoutedAll') || 'Routed — all channels'
+            : fileStatus === 'routed_incomplete'
+              ? i18n.t('playlist.statusRoutedLow') || 'Routed — low compatibility'
+              : fileStatus === 'partial'
+                ? i18n.t('playlist.statusPartial') || 'Partially routed'
+                : i18n.t('playlist.statusNotRouted') || 'Not routed';
+        const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
+        const addTitle = isAdded
+          ? i18n.t('playlist.alreadyAdded') || 'Already added'
+          : i18n.t('playlist.addToPlaylist') || 'Add to playlist';
 
-      return `
+        return `
         <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid ${itemBorder};background:${itemBg};color:var(--text-primary, #2c3e50);transition:all 0.15s;">
           ${dot}
           <div style="flex:1;min-width:0;">
@@ -268,9 +284,10 @@ class PlaylistEditorModal extends BaseModal {
             ${isAdded ? '✓' : '+'}
           </button>
         </div>`;
-    }).join('');
+      })
+      .join('');
 
-    container.querySelectorAll('.btn-add-file:not([disabled])').forEach(btn => {
+    container.querySelectorAll('.btn-add-file:not([disabled])').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const fileId = parseInt(btn.dataset.fileId);
         await this._addFile(fileId);
@@ -288,20 +305,26 @@ class PlaylistEditorModal extends BaseModal {
       return;
     }
 
-    container.innerHTML = this.playlistItems.map((item, index) => {
-      const fileStatus = this.routingStatusMap.get(item.midi_id) || 'unrouted';
-      const dotColor = fileStatus === 'playable'
-        ? 'var(--status-ok,#27ae60)'
-        : (fileStatus === 'partial' || fileStatus === 'routed_incomplete')
-          ? 'var(--status-warning,#f39c12)'
-          : 'var(--status-critical,#e8365d)';
-      const dotTitle = fileStatus === 'playable' ? (i18n.t('playlist.statusRoutedAll') || 'Routed — all channels')
-        : fileStatus === 'routed_incomplete' ? (i18n.t('playlist.statusRoutedLow') || 'Routed — low compatibility')
-        : fileStatus === 'partial' ? (i18n.t('playlist.statusPartial') || 'Partially routed')
-        : (i18n.t('playlist.statusNotRouted') || 'Not routed');
-      const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
+    container.innerHTML = this.playlistItems
+      .map((item, index) => {
+        const fileStatus = this.routingStatusMap.get(item.midi_id) || 'unrouted';
+        const dotColor =
+          fileStatus === 'playable'
+            ? 'var(--status-ok,#27ae60)'
+            : fileStatus === 'partial' || fileStatus === 'routed_incomplete'
+              ? 'var(--status-warning,#f39c12)'
+              : 'var(--status-critical,#e8365d)';
+        const dotTitle =
+          fileStatus === 'playable'
+            ? i18n.t('playlist.statusRoutedAll') || 'Routed — all channels'
+            : fileStatus === 'routed_incomplete'
+              ? i18n.t('playlist.statusRoutedLow') || 'Routed — low compatibility'
+              : fileStatus === 'partial'
+                ? i18n.t('playlist.statusPartial') || 'Partially routed'
+                : i18n.t('playlist.statusNotRouted') || 'Not routed';
+        const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;" title="${dotTitle}"></span>`;
 
-      return `
+        return `
         <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:3px;border-radius:6px;border:1px solid var(--border-color, #dee2e6);background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);transition:all 0.15s;">
           <span style="background:var(--accent-primary, #667eea);color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;flex-shrink:0;">${index + 1}</span>
           ${dot}
@@ -313,9 +336,10 @@ class PlaylistEditorModal extends BaseModal {
                   style="background:none;border:none;cursor:pointer;font-size:0.9rem;opacity:0.5;"
                   title="${i18n.t('playlist.remove') || 'Remove'}">✕</button>
         </div>`;
-    }).join('');
+      })
+      .join('');
 
-    container.querySelectorAll('.btn-remove-file').forEach(btn => {
+    container.querySelectorAll('.btn-remove-file').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const itemId = parseInt(btn.dataset.itemId);
         await this._removeFile(itemId);
@@ -329,15 +353,17 @@ class PlaylistEditorModal extends BaseModal {
     const statsEl = this.$('#playlistEditorStats');
     if (!statsEl) return;
     const totalDuration = this.playlistItems.reduce((sum, item) => sum + (item.duration || 0), 0);
-    const routedCount = this.playlistItems.filter(i => {
+    const routedCount = this.playlistItems.filter((i) => {
       const s = this.routingStatusMap.get(i.midi_id);
       return s && s !== 'unrouted';
     }).length;
-    statsEl.textContent = i18n.t('playlist.playlistStats', {
-      count: this.playlistItems.length,
-      duration: this._formatDuration(totalDuration),
-      routed: routedCount
-    }) || `${this.playlistItems.length} file(s) - ${this._formatDuration(totalDuration)} total - ${routedCount} routed`;
+    statsEl.textContent =
+      i18n.t('playlist.playlistStats', {
+        count: this.playlistItems.length,
+        duration: this._formatDuration(totalDuration),
+        routed: routedCount
+      }) ||
+      `${this.playlistItems.length} file(s) - ${this._formatDuration(totalDuration)} total - ${routedCount} routed`;
   }
 
   async _addFile(fileId) {

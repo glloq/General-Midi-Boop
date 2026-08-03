@@ -19,39 +19,41 @@
  * applyTheme()) are unchanged.
  */
 class PianoRollEditorSetup {
-    /** @param {PianoRollEditor} parent */
-    constructor(parent) {
-        this.parent = parent;
-    }
+  /** @param {PianoRollEditor} parent */
+  constructor(parent) {
+    this.parent = parent;
+  }
 
-    renderToolbarGroups() {
-        const sg = this.parent.showGroups;
-        return `
-            ${sg.mode    ? this.renderGroupMode()    : ''}
+  renderToolbarGroups() {
+    const sg = this.parent.showGroups;
+    return `
+            ${sg.mode ? this.renderGroupMode() : ''}
             ${sg.history ? this.renderGroupHistory() : ''}
-            ${sg.edit    ? this.renderGroupEdit()    : ''}
-            ${sg.grid    ? this.renderGroupGrid()    : ''}
+            ${sg.edit ? this.renderGroupEdit() : ''}
+            ${sg.grid ? this.renderGroupGrid() : ''}
             <span class="lc-ctrl-spacer"></span>
-            ${sg.view    ? this.renderGroupView()    : ''}
+            ${sg.view ? this.renderGroupView() : ''}
         `;
-    }
+  }
 
-    renderShell() {
-        const minimapHtml = this.parent.externalMinimapEl ? '' : `
+  renderShell() {
+    const minimapHtml = this.parent.externalMinimapEl
+      ? ''
+      : `
         <canvas class="lc-minimap" id="pre-minimap"
                 role="slider" tabindex="0"
                 aria-label="${this.parent.t('loopEditor.minimapAria')}"></canvas>`;
-        return `
+    return `
         <div class="pre-toolbar">${this.renderToolbarGroups()}</div>
         <div class="lc-pianoroll-area" id="pre-pianoroll-area">
             <div class="lc-pianoroll-wrap" id="pre-pianoroll-wrap"></div>
         </div>
         ${minimapHtml}
         `;
-    }
+  }
 
-    renderGroupMode() {
-        return `
+  renderGroupMode() {
+    return `
         <div class="le-group le-group-mode">
             <span class="le-group-label">${this.parent.t('loopEditor.groupMode')}</span>
             <div class="lc-btn-group">
@@ -60,10 +62,10 @@ class PianoRollEditorSetup {
                 <button class="lc-btn lc-btn-icon" data-pre-action="mode-draw"   title="${this.parent.t('loopCreator.modeDraw')} (D)"   aria-pressed="true">✏️</button>
             </div>
         </div>`;
-    }
+  }
 
-    renderGroupHistory() {
-        return `
+  renderGroupHistory() {
+    return `
         <div class="le-group le-group-history">
             <span class="le-group-label">${this.parent.t('loopEditor.groupHistory')}</span>
             <div class="lc-btn-group">
@@ -71,10 +73,10 @@ class PianoRollEditorSetup {
                 <button class="lc-btn lc-btn-icon" data-pre-action="redo" title="${this.parent.t('loopCreator.redo')} (⌘⇧Z)">↷</button>
             </div>
         </div>`;
-    }
+  }
 
-    renderGroupEdit() {
-        return `
+  renderGroupEdit() {
+    return `
         <div class="le-group le-group-edit">
             <span class="le-group-label">${this.parent.t('loopEditor.groupEdit')}</span>
             <div class="lc-btn-group">
@@ -89,10 +91,10 @@ class PianoRollEditorSetup {
                 value="100" min="1" max="127" step="1" title="${this.parent.t('loopEditor.velocityHint')}" />
             <button class="lc-btn lc-btn-icon" data-pre-action="apply-velocity" title="${this.parent.t('loopEditor.applyVelocity')}">→v</button>
         </div>`;
-    }
+  }
 
-    renderGroupGrid() {
-        return `
+  renderGroupGrid() {
+    return `
         <div class="le-group le-group-grid">
             <span class="le-group-label">${this.parent.t('loopEditor.groupGrid')}</span>
             <select data-pre-field="pre-snap" class="lc-select lc-select-xs" title="${this.parent.t('loopCreator.snap')}">
@@ -108,10 +110,10 @@ class PianoRollEditorSetup {
             </select>
             <button class="lc-btn lc-btn-icon" data-pre-action="quantize-selection" title="${this.parent.t('loopEditor.quantizeSelection')}">⊞</button>
         </div>`;
-    }
+  }
 
-    renderGroupView() {
-        return `
+  renderGroupView() {
+    return `
         <div class="le-group le-group-view">
             <span class="le-group-label">${this.parent.t('loopEditor.groupView')}</span>
             <div class="lc-btn-group">
@@ -121,156 +123,165 @@ class PianoRollEditorSetup {
                 <button class="lc-btn lc-btn-icon" data-pre-action="zoom-v-in"  title="${this.parent.t('loopEditor.zoomVIn')}">+V</button>
             </div>
         </div>`;
+  }
+
+  // =====================================================================
+  // INTERNAL — PIANO ROLL INIT
+  // =====================================================================
+
+  initPianoRoll() {
+    const container = this.parent.host.querySelector('#pre-pianoroll-wrap');
+    if (!container) return;
+
+    // Piano roll renderer (audit §1.1) — Canvas 2D. The invariant
+    // `this.parent.pianoRoll === this.parent.renderer.getElement()` is
+    // maintained so any external consumer of getPianoRollElement()
+    // keeps working unchanged.
+    if (typeof CanvasPianoRollRenderer === 'undefined') {
+      container.innerHTML = `<div class="lc-pianoroll-error">${this.parent.t('loopCreator.pianoRollUnavailable')}</div>`;
+      return;
     }
 
-    // =====================================================================
-    // INTERNAL — PIANO ROLL INIT
-    // =====================================================================
+    const total = this.totalTicks();
+    const noteSpan0 = this.parent.noteMax - this.parent.noteMin;
+    const yrange0 = Math.min(noteSpan0 + 1, 36);
+    const yoffset0 = this.centeredYOffset(this.parent.noteMin, this.parent.noteMax, yrange0);
 
-    initPianoRoll() {
-        const container = this.parent.host.querySelector('#pre-pianoroll-wrap');
-        if (!container) return;
-
-        // Piano roll renderer (audit §1.1) — Canvas 2D. The invariant
-        // `this.parent.pianoRoll === this.parent.renderer.getElement()` is
-        // maintained so any external consumer of getPianoRollElement()
-        // keeps working unchanged.
-        if (typeof CanvasPianoRollRenderer === 'undefined') {
-            container.innerHTML = `<div class="lc-pianoroll-error">${this.parent.t('loopCreator.pianoRollUnavailable')}</div>`;
-            return;
-        }
-
-        const total = this.totalTicks();
-        const noteSpan0 = this.parent.noteMax - this.parent.noteMin;
-        const yrange0   = Math.min(noteSpan0 + 1, 36);
-        const yoffset0  = this.centeredYOffset(this.parent.noteMin, this.parent.noteMax, yrange0);
-
-        this.parent.renderer = new CanvasPianoRollRenderer({
-            container,
-            width:  container.clientWidth  || 900,
-            height: container.clientHeight || 200,
-            ppq:    this.parent.ppq,
-            tempo:  this.parent.tempo,
-            mode:   'dragpoly'
-        });
-        this.parent.renderer.mount();
-        // Reproduce the legacy attribute init sequence via the chainable
-        // renderer API. Adapter forwards to setAttribute on the element;
-        // CanvasPianoRollRenderer applies them to its own state.
-        this.parent.renderer
-            .setXRange(total).setYRange(yrange0).setYOffset(yoffset0)
-            .setMarkers(0, total)
-            .setCursor(0)
-            .beginBatchUpdate()
-                .setTimebase(this.parent.ppq)
-                .setTempo(this.parent.tempo)
-                .setSnap(120)
-            .endBatchUpdate();
-        if (typeof this.parent.renderer.setAttribute === 'function') {
-            // Legacy webaudio-pianoroll knobs that don't map to a contract
-            // method — apply via the adapter's raw setAttribute escape hatch.
-            // CanvasPianoRollRenderer ignores these (no-ops).
-            this.parent.renderer.setAttribute('wheelzoom', '1');
-            this.parent.renderer.setAttribute('xscroll',   '1');
-            this.parent.renderer.setAttribute('yscroll',   '1');
-            this.parent.renderer.setAttribute('xruler',    '1');
-            this.parent.renderer.setAttribute('colcursor', 'rgba(0,0,0,0)');
-            this.parent.renderer.setAttribute('colmark',   'rgba(0,0,0,0)');
-            if (this.parent.multiChannel) this.parent.renderer.setAttribute('colorize', '1');
-        }
-        this.parent.applyTheme(document.body.classList.contains('theme-dark'));
-        if (typeof this.parent.renderer.attachToContainer === 'function') {
-            this.parent.renderer.attachToContainer();
-        }
-        this.parent.pianoRoll = this.parent.renderer.getElement();
-        this.parent.renderer.setSequence(this.parent._sequence).redraw();
+    this.parent.renderer = new CanvasPianoRollRenderer({
+      container,
+      width: container.clientWidth || 900,
+      height: container.clientHeight || 200,
+      ppq: this.parent.ppq,
+      tempo: this.parent.tempo,
+      mode: 'dragpoly'
+    });
+    this.parent.renderer.mount();
+    // Reproduce the legacy attribute init sequence via the chainable
+    // renderer API. Adapter forwards to setAttribute on the element;
+    // CanvasPianoRollRenderer applies them to its own state.
+    this.parent.renderer
+      .setXRange(total)
+      .setYRange(yrange0)
+      .setYOffset(yoffset0)
+      .setMarkers(0, total)
+      .setCursor(0)
+      .beginBatchUpdate()
+      .setTimebase(this.parent.ppq)
+      .setTempo(this.parent.tempo)
+      .setSnap(120)
+      .endBatchUpdate();
+    if (typeof this.parent.renderer.setAttribute === 'function') {
+      // Legacy webaudio-pianoroll knobs that don't map to a contract
+      // method — apply via the adapter's raw setAttribute escape hatch.
+      // CanvasPianoRollRenderer ignores these (no-ops).
+      this.parent.renderer.setAttribute('wheelzoom', '1');
+      this.parent.renderer.setAttribute('xscroll', '1');
+      this.parent.renderer.setAttribute('yscroll', '1');
+      this.parent.renderer.setAttribute('xruler', '1');
+      this.parent.renderer.setAttribute('colcursor', 'rgba(0,0,0,0)');
+      this.parent.renderer.setAttribute('colmark', 'rgba(0,0,0,0)');
+      if (this.parent.multiChannel) this.parent.renderer.setAttribute('colorize', '1');
     }
+    this.parent.applyTheme(document.body.classList.contains('theme-dark'));
+    if (typeof this.parent.renderer.attachToContainer === 'function') {
+      this.parent.renderer.attachToContainer();
+    }
+    this.parent.pianoRoll = this.parent.renderer.getElement();
+    this.parent.renderer.setSequence(this.parent._sequence).redraw();
+  }
 
-    initMinimap() {
-        const canvas = this.parent.externalMinimapEl || this.parent.host.querySelector('#pre-minimap');
-        if (!canvas || typeof window.LoopCreatorMinimap !== 'function') return;
-        const seekHandler = this.parent.minimapReadOnly ? null : (newOffset) => {
-            if (!this.parent.renderer?.isMounted()) return;
-            this.parent.renderer?.setXOffset(newOffset);
-            this.parent.renderer?.redraw();
-            this.syncMinimap();
+  initMinimap() {
+    const canvas = this.parent.externalMinimapEl || this.parent.host.querySelector('#pre-minimap');
+    if (!canvas || typeof window.LoopCreatorMinimap !== 'function') return;
+    const seekHandler = this.parent.minimapReadOnly
+      ? null
+      : (newOffset) => {
+          if (!this.parent.renderer?.isMounted()) return;
+          this.parent.renderer?.setXOffset(newOffset);
+          this.parent.renderer?.redraw();
+          this.syncMinimap();
         };
-        this.parent._minimap = new window.LoopCreatorMinimap(canvas, {
-            ppq:        this.parent.ppq,
-            timeSigNum: this.parent.timeSigNum,
-            bars:       this.parent.bars,
-            noteMin:    this.parent.noteMin,
-            noteMax:    this.parent.noteMax,
-            onSeek:     seekHandler
-        });
-        if (this.parent.minimapReadOnly) {
-            // Block both pointer and keyboard interaction so the canvas
-            // behaves as a pure visualiser.
-            canvas.style.cursor = 'default';
-            canvas.style.pointerEvents = 'none';
-            canvas.removeAttribute('tabindex');
-            canvas.removeAttribute('role');
-        }
-        // Sync minimap on viewport changes. Previously this was a
-        // MutationObserver watching xoffset/xrange attributes on the
-        // `<webaudio-pianoroll>` element — works only with that legacy
-        // impl. Audit §1.1 : route via the renderer's `viewportchange`
-        // event which both adapters emit.
-        if (this.parent.renderer?.isMounted()) {
-            this.parent._viewportListener = () => this.syncMinimap();
-            this.parent.renderer.on('viewportchange', this.parent._viewportListener);
-        }
-        const wrap = this.parent.host.querySelector('#pre-pianoroll-wrap');
-        if (wrap) {
-            wrap.addEventListener('wheel', () => requestAnimationFrame(() => this.syncMinimap()), { passive: true });
-        }
-        this.syncMinimap();
+    this.parent._minimap = new window.LoopCreatorMinimap(canvas, {
+      ppq: this.parent.ppq,
+      timeSigNum: this.parent.timeSigNum,
+      bars: this.parent.bars,
+      noteMin: this.parent.noteMin,
+      noteMax: this.parent.noteMax,
+      onSeek: seekHandler
+    });
+    if (this.parent.minimapReadOnly) {
+      // Block both pointer and keyboard interaction so the canvas
+      // behaves as a pure visualiser.
+      canvas.style.cursor = 'default';
+      canvas.style.pointerEvents = 'none';
+      canvas.removeAttribute('tabindex');
+      canvas.removeAttribute('role');
     }
+    // Sync minimap on viewport changes. Previously this was a
+    // MutationObserver watching xoffset/xrange attributes on the
+    // `<webaudio-pianoroll>` element — works only with that legacy
+    // impl. Audit §1.1 : route via the renderer's `viewportchange`
+    // event which both adapters emit.
+    if (this.parent.renderer?.isMounted()) {
+      this.parent._viewportListener = () => this.syncMinimap();
+      this.parent.renderer.on('viewportchange', this.parent._viewportListener);
+    }
+    const wrap = this.parent.host.querySelector('#pre-pianoroll-wrap');
+    if (wrap) {
+      wrap.addEventListener('wheel', () => requestAnimationFrame(() => this.syncMinimap()), {
+        passive: true
+      });
+    }
+    this.syncMinimap();
+  }
 
-    syncMinimap() {
-        const m = this.parent._minimap;
-        if (!m) return;
-        const total  = this.totalTicks();
-        const xoff   = parseFloat(this.parent.renderer?.getXOffset() ?? 0);
-        const xrange = parseFloat(this.parent.renderer?.getXRange() ?? total) || total;
-        m.setConfig({ ppq: this.parent.ppq, timeSigNum: this.parent.timeSigNum, bars: this.parent.bars, noteMin: this.parent.noteMin, noteMax: this.parent.noteMax });
-        m.setNotes(this.parent.renderer?.getSequence() ?? []);
-        m.setViewport(xoff, xrange);
-        if (this.parent._isRecording && this.parent._recordingPlayheadTick != null) {
-            m.setPlayhead(Math.min(total, this.parent._recordingPlayheadTick | 0), true);
-        } else {
-            m.setPlayhead(this.parent.renderer?.getCursor() ?? 0, false);
-        }
+  syncMinimap() {
+    const m = this.parent._minimap;
+    if (!m) return;
+    const total = this.totalTicks();
+    const xoff = parseFloat(this.parent.renderer?.getXOffset() ?? 0);
+    const xrange = parseFloat(this.parent.renderer?.getXRange() ?? total) || total;
+    m.setConfig({
+      ppq: this.parent.ppq,
+      timeSigNum: this.parent.timeSigNum,
+      bars: this.parent.bars,
+      noteMin: this.parent.noteMin,
+      noteMax: this.parent.noteMax
+    });
+    m.setNotes(this.parent.renderer?.getSequence() ?? []);
+    m.setViewport(xoff, xrange);
+    if (this.parent._isRecording && this.parent._recordingPlayheadTick != null) {
+      m.setPlayhead(Math.min(total, this.parent._recordingPlayheadTick | 0), true);
+    } else {
+      m.setPlayhead(this.parent.renderer?.getCursor() ?? 0, false);
     }
+  }
 
-    refreshRange() {
-        if (!this.parent.renderer?.isMounted()) return;
-        const total = this.totalTicks();
-        this.parent.renderer
-            ?.setXRange(total)
-             .setMarkers(0, total)
-             .setTimebase(this.parent.ppq)
-             .setTempo(this.parent.tempo);
-        const noteSpan = this.parent.noteMax - this.parent.noteMin;
-        const yrange   = Math.min(noteSpan + 1, 36);
-        const yoffset  = this.centeredYOffset(this.parent.noteMin, this.parent.noteMax, yrange);
-        this.parent.renderer
-            ?.setYRange(yrange)
-             .setYOffset(yoffset)
-             .redraw();
-        this.syncMinimap();
-    }
+  refreshRange() {
+    if (!this.parent.renderer?.isMounted()) return;
+    const total = this.totalTicks();
+    this.parent.renderer
+      ?.setXRange(total)
+      .setMarkers(0, total)
+      .setTimebase(this.parent.ppq)
+      .setTempo(this.parent.tempo);
+    const noteSpan = this.parent.noteMax - this.parent.noteMin;
+    const yrange = Math.min(noteSpan + 1, 36);
+    const yoffset = this.centeredYOffset(this.parent.noteMin, this.parent.noteMax, yrange);
+    this.parent.renderer?.setYRange(yrange).setYOffset(yoffset).redraw();
+    this.syncMinimap();
+  }
 
-    totalTicks() {
-        return this.parent.ppq * this.parent.timeSigNum * this.parent.bars;
-    }
+  totalTicks() {
+    return this.parent.ppq * this.parent.timeSigNum * this.parent.bars;
+  }
 
-    centeredYOffset(noteMin, noteMax, yrange) {
-        const center = (noteMin + noteMax) / 2;
-        return Math.max(0, Math.min(127 - yrange, Math.round(center - yrange / 2)));
-    }
+  centeredYOffset(noteMin, noteMax, yrange) {
+    const center = (noteMin + noteMax) / 2;
+    return Math.max(0, Math.min(127 - yrange, Math.round(center - yrange / 2)));
+  }
 }
 
 if (typeof window !== 'undefined') {
-    window.PianoRollEditorSetup = PianoRollEditorSetup;
+  window.PianoRollEditorSetup = PianoRollEditorSetup;
 }

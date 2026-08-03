@@ -52,7 +52,9 @@ describe('PlaybackScheduler — split-segment disconnect', () => {
     const state = makeState('pause');
     const onPause = jest.fn();
 
-    scheduler._sendEventToRouting(ccEvent, { device: 'devDead', targetChannel: 0 }, state, { onPause });
+    scheduler._sendEventToRouting(ccEvent, { device: 'devDead', targetChannel: 0 }, state, {
+      onPause
+    });
 
     expect(onPause).toHaveBeenCalledTimes(1);
     expect(app.wsServer.broadcast).toHaveBeenCalledWith(

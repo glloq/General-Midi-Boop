@@ -10,10 +10,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 beforeAll(() => {
-  const src = readFileSync(
-    resolve(__dirname, '../../public/js/utils/escapeHtml.js'),
-    'utf8'
-  );
+  const src = readFileSync(resolve(__dirname, '../../public/js/utils/escapeHtml.js'), 'utf8');
   new Function('window', src)(window);
 });
 
@@ -38,9 +35,7 @@ describe('canonical escapeHtml', () => {
     const escaped = window.escapeHtml(evil);
     expect(escaped).not.toContain('"');
     expect(escaped).not.toContain('<');
-    expect(escaped).toBe(
-      '&quot;&gt;&lt;img src=x onerror=alert(1)&gt;'
-    );
+    expect(escaped).toBe('&quot;&gt;&lt;img src=x onerror=alert(1)&gt;');
   });
 
   it('coerces non-strings', () => {

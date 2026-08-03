@@ -12,7 +12,12 @@ describe('UploadQueue', () => {
     const q = new UploadQueue({ logger: silent });
     const order = [];
     const mk = (n) => () =>
-      new Promise((resolve) => setTimeout(() => { order.push(n); resolve(n); }, 5));
+      new Promise((resolve) =>
+        setTimeout(() => {
+          order.push(n);
+          resolve(n);
+        }, 5)
+      );
 
     const results = await Promise.all([q.add('a', mk(1)), q.add('b', mk(2)), q.add('c', mk(3))]);
     expect(results).toEqual([1, 2, 3]);
@@ -22,7 +27,9 @@ describe('UploadQueue', () => {
   test('rejects new work with a typed error when the queue is full', async () => {
     const q = new UploadQueue({ logger: silent, maxPending: 2 });
     let release;
-    const block = new Promise((r) => { release = r; });
+    const block = new Promise((r) => {
+      release = r;
+    });
 
     // Fill the queue: two slow tasks occupy both slots.
     const p1 = q.add('1', () => block);

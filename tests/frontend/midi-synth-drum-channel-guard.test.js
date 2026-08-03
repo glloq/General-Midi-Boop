@@ -21,10 +21,7 @@ beforeAll(() => {
   delete window.MidiSynthesizerConstants;
   delete window.MidiSynthesizer;
   new Function(
-    readFileSync(
-      resolve(__dirname, '../../public/js/audio/MidiSynthesizerConstants.js'),
-      'utf8'
-    )
+    readFileSync(resolve(__dirname, '../../public/js/audio/MidiSynthesizerConstants.js'), 'utf8')
   ).call(window);
   new Function(
     readFileSync(resolve(__dirname, '../../public/js/audio/MidiSynthesizer.js'), 'utf8')
@@ -119,9 +116,7 @@ describe('MidiSynthesizer.ensureDrumKitReady / loadDrumKit promise tracking', ()
   it('loadDrumKit stores the in-flight promise on _drumKitLoading and clears it on resolve', async () => {
     const synth = makeLoadableStub();
     const resolvers = [];
-    synth._loadDrumPreset = vi.fn(
-      () => new Promise((res) => resolvers.push(res))
-    );
+    synth._loadDrumPreset = vi.fn(() => new Promise((res) => resolvers.push(res)));
     const loadPromise = synth.loadDrumKit();
     expect(synth._drumKitLoading).not.toBeNull();
     expect(synth._drumKitLoading).toBe(loadPromise);
@@ -147,9 +142,7 @@ describe('MidiSynthesizer.ensureDrumKitReady / loadDrumKit promise tracking', ()
       { c: 9, n: 42, t: 200 }
     ];
     const resolvers = [];
-    synth._loadDrumPreset = vi.fn(
-      () => new Promise((res) => resolvers.push(res))
-    );
+    synth._loadDrumPreset = vi.fn(() => new Promise((res) => resolvers.push(res)));
     const p1 = synth.loadDrumKit();
     const p2 = synth.loadDrumKit();
     expect(p1).toBe(p2); // same promise reused
@@ -178,13 +171,13 @@ describe('MidiSynthesizer.ensureDrumKitReady / loadDrumKit promise tracking', ()
   it('ensureDrumKitReady resolves after a fresh loadDrumKit finishes', async () => {
     const synth = makeLoadableStub();
     const resolvers = [];
-    synth._loadDrumPreset = vi.fn(
-      () => new Promise((res) => resolvers.push(res))
-    );
+    synth._loadDrumPreset = vi.fn(() => new Promise((res) => resolvers.push(res)));
     const loadP = synth.loadDrumKit();
     const readyP = synth.ensureDrumKitReady();
     let done = false;
-    readyP.then(() => { done = true; });
+    readyP.then(() => {
+      done = true;
+    });
     expect(done).toBe(false);
     for (const r of resolvers) r();
     await loadP;

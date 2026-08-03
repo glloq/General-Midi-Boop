@@ -786,7 +786,9 @@ class NetworkManager extends EventEmitter {
     try {
       session.handleControlPacket(msg);
     } catch (err) {
-      this.logger.debug(`[NetworkManager] control parse error from ${rinfo.address}: ${err.message}`);
+      this.logger.debug(
+        `[NetworkManager] control parse error from ${rinfo.address}: ${err.message}`
+      );
     }
   }
 

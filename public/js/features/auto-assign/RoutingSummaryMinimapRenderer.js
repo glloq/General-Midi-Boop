@@ -6,14 +6,26 @@
 // No access to `this` state — suitable for unit testing via a mocked
 // canvas context.
 
-(function() {
+(function () {
   'use strict';
 
   const CHANNEL_COLORS = Object.freeze([
-    '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
-    '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
-    '#f97316', '#6366f1', '#14b8a6', '#e11d48',
-    '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
+    '#3b82f6',
+    '#ef4444',
+    '#10b981',
+    '#f59e0b',
+    '#8b5cf6',
+    '#ec4899',
+    '#06b6d4',
+    '#84cc16',
+    '#f97316',
+    '#6366f1',
+    '#14b8a6',
+    '#e11d48',
+    '#a855f7',
+    '#0ea5e9',
+    '#22c55e',
+    '#eab308'
   ]);
 
   function resolveBgColor(explicit) {

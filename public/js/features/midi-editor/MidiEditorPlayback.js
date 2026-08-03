@@ -509,7 +509,11 @@
         // Halt scheduler + envelopes before tearing down audio nodes so a
         // preview that was actively playing doesn't keep ringing while the
         // modal closes.
-        try { m.synthesizer.stop(); } catch (_) { /* best-effort */ }
+        try {
+          m.synthesizer.stop();
+        } catch (_) {
+          /* best-effort */
+        }
         m.synthesizer.dispose();
         m.synthesizer = null;
       }
@@ -527,7 +531,9 @@
           while (SoundBankLoadingIndicator._count > 0) {
             SoundBankLoadingIndicator.end();
           }
-        } catch (_) { /* best-effort */ }
+        } catch (_) {
+          /* best-effort */
+        }
       }
       // Cancel any pending playback-cursor rAF scheduled by the transport
       // sub-feature so a tick queued by the (now-disposed) synthesizer

@@ -80,7 +80,9 @@ export class SuggestionCacheService {
   runExclusive(fn) {
     const prev = this._lock;
     let release;
-    this._lock = new Promise((r) => { release = r; });
+    this._lock = new Promise((r) => {
+      release = r;
+    });
     const run = prev.then(() => fn());
     run.then(release, release);
     return run;

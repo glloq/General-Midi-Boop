@@ -21,7 +21,11 @@ export const hotspot_update_config = {
       }
     }
     if (data.password !== undefined) {
-      if (typeof data.password !== 'string' || data.password.length < 8 || data.password.length > 63) {
+      if (
+        typeof data.password !== 'string' ||
+        data.password.length < 8 ||
+        data.password.length > 63
+      ) {
         return 'password must be a string of 8..63 characters (WPA2)';
       }
     }
@@ -49,7 +53,11 @@ export const wifi_connect = {
       return 'ssid must be a string of 1..32 characters';
     }
     if (data.password !== undefined && data.password !== null && data.password !== '') {
-      if (typeof data.password !== 'string' || data.password.length < 8 || data.password.length > 63) {
+      if (
+        typeof data.password !== 'string' ||
+        data.password.length < 8 ||
+        data.password.length > 63
+      ) {
         return 'password must be a string of 8..63 characters when provided';
       }
     }

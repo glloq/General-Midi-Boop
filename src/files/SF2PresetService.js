@@ -40,7 +40,7 @@ const DEFAULT_SF2_PATH = path.resolve(path.dirname(__filename), '../../assets/sf
 // ecosystem.config.cjs --max-old-space-size). 128 MB leaves comfortable
 // headroom for app/parsing buffers without forcing eviction under a typical
 // session (a handful of melodic instruments + one drum kit).
-const DEFAULT_CACHE_MAX_BYTES   = 128 * 1024 * 1024;
+const DEFAULT_CACHE_MAX_BYTES = 128 * 1024 * 1024;
 const DEFAULT_CACHE_MAX_ENTRIES = 256;
 
 export class SF2PresetService {
@@ -56,16 +56,18 @@ export class SF2PresetService {
    */
   constructor({ dataDir, database, logger, cache, instanceCache, cacheMaxBytes, cacheMaxEntries }) {
     this.sf2Dir = path.join(dataDir, 'sf2');
-    this.db     = database;
+    this.db = database;
     this.logger = logger;
     // L1 cache: bounded LRU (bytes + entry count). Default SF2 has no L2
     // safety net, so eviction is the only thing preventing heap blowup on
     // long sessions — see plan #5 in the audit follow-up.
-    this._mem = cache || new AnalysisCache({
-      maxBytes: cacheMaxBytes   || DEFAULT_CACHE_MAX_BYTES,
-      maxSize:  cacheMaxEntries || DEFAULT_CACHE_MAX_ENTRIES,
-      logger,
-    });
+    this._mem =
+      cache ||
+      new AnalysisCache({
+        maxBytes: cacheMaxBytes || DEFAULT_CACHE_MAX_BYTES,
+        maxSize: cacheMaxEntries || DEFAULT_CACHE_MAX_ENTRIES,
+        logger
+      });
     // SoundFont2 instance LRU — amortises the ~450 ms RIFF parse across
     // multiple program lookups from the same SF2 file. Keyed by abs path
     // + mtime so a file replacement invalidates automatically.
@@ -103,7 +105,9 @@ export class SF2PresetService {
       if (typeof this.db.customSF2DB.setSize === 'function') {
         this.db.customSF2DB.setSize(DEFAULT_SF2_DB_ID, mtimeInt);
       }
-      this.logger.info?.(`SF2PresetService: default SF2 L2 cache invalidated (mtime ${row.size} → ${mtimeInt})`);
+      this.logger.info?.(
+        `SF2PresetService: default SF2 L2 cache invalidated (mtime ${row.size} → ${mtimeInt})`
+      );
     } catch (e) {
       this.logger.warn?.(`SF2PresetService: default-staleness check failed: ${e.message}`);
     }
@@ -173,7 +177,7 @@ export class SF2PresetService {
           // hit ("cloche" bleed-through). Same-width zones are kept
           // (velocity round-robin).
           const covering = preset.zones.filter(
-            z => note >= z.keyRangeLow && note <= z.keyRangeHigh
+            (z) => note >= z.keyRangeLow && note <= z.keyRangeHigh
           );
           if (covering.length === 0) {
             preset = null;
@@ -184,9 +188,7 @@ export class SF2PresetService {
               if (w < minWidth) minWidth = w;
             }
             preset = {
-              zones: covering.filter(
-                z => (z.keyRangeHigh - z.keyRangeLow) === minWidth
-              )
+              zones: covering.filter((z) => z.keyRangeHigh - z.keyRangeLow === minWidth)
             };
           }
         }
@@ -248,7 +250,11 @@ export class SF2PresetService {
    * @returns {boolean}
    */
   hasDefaultSF2() {
-    try { return fs.existsSync(DEFAULT_SF2_PATH); } catch { return false; }
+    try {
+      return fs.existsSync(DEFAULT_SF2_PATH);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -265,12 +271,16 @@ export class SF2PresetService {
       const sf2 = this._sf2Instances.getForPath(sf2Path);
       const bank128 = sf2.banks?.[128];
       if (bank128 && bank128.presets) {
-        const kits = Object.keys(bank128.presets).map(Number).sort((a, b) => a - b);
+        const kits = Object.keys(bank128.presets)
+          .map(Number)
+          .sort((a, b) => a - b);
         if (kits.length > 0) return { bankNum: 128, kits };
       }
       const bank0 = sf2.banks?.[0];
       if (bank0 && bank0.presets) {
-        const kits = Object.keys(bank0.presets).map(Number).sort((a, b) => a - b);
+        const kits = Object.keys(bank0.presets)
+          .map(Number)
+          .sort((a, b) => a - b);
         return { bankNum: 0, kits };
       }
       return { bankNum: 128, kits: [] };
@@ -292,9 +302,13 @@ export class SF2PresetService {
       const sf2 = this._sf2Instances.getForPath(sf2Path);
       const bank0 = sf2.banks?.[0];
       if (!bank0 || !bank0.presets) return [];
-      return Object.keys(bank0.presets).map(Number).sort((a, b) => a - b);
+      return Object.keys(bank0.presets)
+        .map(Number)
+        .sort((a, b) => a - b);
     } catch (err) {
-      this.logger.warn?.(`SF2PresetService: inspectMelodicPrograms failed for ${sf2Id}: ${err.message}`);
+      this.logger.warn?.(
+        `SF2PresetService: inspectMelodicPrograms failed for ${sf2Id}: ${err.message}`
+      );
       return [];
     }
   }
@@ -312,15 +326,20 @@ export class SF2PresetService {
     this._kitInventoryLogged.add(sf2Id);
     try {
       const bank128 = sf2.banks?.[128];
-      const kits = bank128 && bank128.presets
-        ? Object.keys(bank128.presets).map(Number).sort((a, b) => a - b)
-        : [];
+      const kits =
+        bank128 && bank128.presets
+          ? Object.keys(bank128.presets)
+              .map(Number)
+              .sort((a, b) => a - b)
+          : [];
       if (kits.length === 0) {
         this.logger.warn?.(
           `SF2PresetService: SF2 '${sf2Id}' has no drum kits in bank 128 — drum requests will fall back to bank 0 (may sound melodic)`
         );
       } else {
-        this.logger.info?.(`SF2PresetService: SF2 '${sf2Id}' drum kits in bank 128: [${kits.join(', ')}]`);
+        this.logger.info?.(
+          `SF2PresetService: SF2 '${sf2Id}' drum kits in bank 128: [${kits.join(', ')}]`
+        );
       }
     } catch (e) {
       this._kitInventoryLogged.delete(sf2Id);
@@ -341,7 +360,12 @@ export class SF2PresetService {
 
     const existing = this.db.customSF2DB.getByHash(hash);
     if (existing) {
-      return { sf2Id: existing.id, label: existing.label, size: existing.size, status: 'duplicate' };
+      return {
+        sf2Id: existing.id,
+        label: existing.label,
+        size: existing.size,
+        status: 'duplicate'
+      };
     }
 
     // L-4: derive a safe label; never fall back to the raw unsanitized filename
@@ -361,11 +385,13 @@ export class SF2PresetService {
         blob_path: blobPath,
         content_hash: hash,
         size: buf.length,
-        label,
+        label
       });
     } catch (err) {
       // Roll back the file write if DB insert fails
-      try { fs.unlinkSync(dest); } catch {}
+      try {
+        fs.unlinkSync(dest);
+      } catch {}
       throw err;
     }
 
@@ -383,7 +409,9 @@ export class SF2PresetService {
     // H-4: validate blob_path before deletion
     const sf2Path = path.join(this.sf2Dir, row.blob_path);
     if (sf2Path.startsWith(this.sf2Dir + path.sep)) {
-      try { fs.unlinkSync(sf2Path); } catch {}
+      try {
+        fs.unlinkSync(sf2Path);
+      } catch {}
       this._sf2Instances.invalidate(sf2Path);
     } else {
       this.logger.error(`SF2PresetService: blob_path escape on delete for id ${sf2Id}`);

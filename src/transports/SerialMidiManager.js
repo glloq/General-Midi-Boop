@@ -714,9 +714,7 @@ class SerialMidiManager extends EventEmitter {
     } catch (err) {
       portInfo.writing = false;
       portInfo.writeErrors++;
-      this.logger.error(
-        `Serial write threw on ${portInfo.name || portInfo.path}: ${err.message}`
-      );
+      this.logger.error(`Serial write threw on ${portInfo.name || portInfo.path}: ${err.message}`);
       this.emit('write:error', { port: portInfo.path, error: err });
       return;
     }

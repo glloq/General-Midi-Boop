@@ -27,7 +27,7 @@ const semitonesHands = {
   mode: 'semitones',
   hand_move_semitones_per_sec: 60,
   hands: [
-    { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
     { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
@@ -36,7 +36,9 @@ const fretsHands = {
   enabled: true,
   mode: 'frets',
   hand_move_mm_per_sec: 250,
-  hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }]
+  hands: [
+    { id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }
+  ]
 };
 
 function note(tick, n, extra = {}) {
@@ -45,21 +47,30 @@ function note(tick, n, extra = {}) {
 
 describe('simulateHandWindows — guards and unknown', () => {
   it('returns [] when notes are empty / not an array', () => {
-    expect(window.HandPositionFeasibility.simulateHandWindows([], { hands_config: semitonesHands })).toEqual([]);
-    expect(window.HandPositionFeasibility.simulateHandWindows(null, { hands_config: semitonesHands })).toEqual([]);
-    expect(window.HandPositionFeasibility.simulateHandWindows('nope', { hands_config: semitonesHands })).toEqual([]);
+    expect(
+      window.HandPositionFeasibility.simulateHandWindows([], { hands_config: semitonesHands })
+    ).toEqual([]);
+    expect(
+      window.HandPositionFeasibility.simulateHandWindows(null, { hands_config: semitonesHands })
+    ).toEqual([]);
+    expect(
+      window.HandPositionFeasibility.simulateHandWindows('nope', { hands_config: semitonesHands })
+    ).toEqual([]);
   });
 
   it('returns [] when instrument has no usable hands_config', () => {
     expect(window.HandPositionFeasibility.simulateHandWindows([note(0, 60)], {})).toEqual([]);
-    expect(window.HandPositionFeasibility.simulateHandWindows([note(0, 60)], { hands_config: { enabled: false, hands: [] } })).toEqual([]);
+    expect(
+      window.HandPositionFeasibility.simulateHandWindows([note(0, 60)], {
+        hands_config: { enabled: false, hands: [] }
+      })
+    ).toEqual([]);
   });
 
   it('parses hands_config from a JSON string', () => {
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [note(0, 60)],
-      { hands_config: JSON.stringify(semitonesHands) }
-    );
+    const out = window.HandPositionFeasibility.simulateHandWindows([note(0, 60)], {
+      hands_config: JSON.stringify(semitonesHands)
+    });
     expect(out.length).toBeGreaterThan(0);
   });
 });
@@ -70,8 +81,8 @@ describe('simulateHandWindows — semitones mode', () => {
       [note(0, 60), note(480, 64), note(960, 67)],
       { hands_config: semitonesHands }
     );
-    const chords = out.filter(e => e.type === 'chord');
-    expect(chords.map(c => c.tick)).toEqual([0, 480, 960]);
+    const chords = out.filter((e) => e.type === 'chord');
+    expect(chords.map((c) => c.tick)).toEqual([0, 480, 960]);
   });
 
   it('groups simultaneous notes (within 8-tick tolerance) into one chord', () => {
@@ -79,28 +90,26 @@ describe('simulateHandWindows — semitones mode', () => {
       [note(0, 60), note(4, 64), note(7, 67), note(480, 72)],
       { hands_config: semitonesHands }
     );
-    const chords = out.filter(e => e.type === 'chord');
+    const chords = out.filter((e) => e.type === 'chord');
     expect(chords).toHaveLength(2);
-    expect(chords[0].notes.map(n => n.note).sort((a, b) => a - b)).toEqual([60, 64, 67]);
+    expect(chords[0].notes.map((n) => n.note).sort((a, b) => a - b)).toEqual([60, 64, 67]);
   });
 
   it('emits an initial shift per hand on first chord touched', () => {
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [note(0, 40), note(0, 72)],
-      { hands_config: semitonesHands }
-    );
-    const shifts = out.filter(e => e.type === 'shift');
+    const out = window.HandPositionFeasibility.simulateHandWindows([note(0, 40), note(0, 72)], {
+      hands_config: semitonesHands
+    });
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts.length).toBeGreaterThanOrEqual(2);
-    const handIds = new Set(shifts.map(s => s.handId));
+    const handIds = new Set(shifts.map((s) => s.handId));
     expect(handIds.has('left') && handIds.has('right')).toBe(true);
   });
 
   it('emits a follow-up shift when a hand needs to move', () => {
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [note(0, 60), note(480, 80)],
-      { hands_config: semitonesHands }
-    );
-    const shifts = out.filter(e => e.type === 'shift');
+    const out = window.HandPositionFeasibility.simulateHandWindows([note(0, 60), note(480, 80)], {
+      hands_config: semitonesHands
+    });
+    const shifts = out.filter((e) => e.type === 'shift');
     // First chord pulls one hand down to 60; second chord requires the
     // same hand (only one used so far) to shift up to reach 80.
     expect(shifts.length).toBeGreaterThanOrEqual(2);
@@ -114,7 +123,7 @@ describe('simulateHandWindows — semitones mode', () => {
       [note(0, 60), note(0, 64), note(0, 80)],
       { hands_config: semitonesHands }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     // Two hands are available but the planner picks closest; depending
     // on the assignment, 80 may land on right (which gets anchored low
     // by 80 itself) → playable; or 80 may be assigned to a hand whose
@@ -126,18 +135,20 @@ describe('simulateHandWindows — semitones mode', () => {
 describe('simulateHandWindows — frets mode (fallback frets count)', () => {
   it('uses the fretting hand and emits shifts only when fret moves out', () => {
     const fallbackOnly = {
-      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      enabled: true,
+      mode: 'frets',
+      hand_move_frets_per_sec: 12,
       hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        note(0,   45, { fret: 5, string: 1 }),
+        note(0, 45, { fret: 5, string: 1 }),
         note(480, 47, { fret: 7, string: 1 }), // within [5..9]: no shift
         note(960, 50, { fret: 12, string: 1 }) // outside: shift
       ],
       { hands_config: fallbackOnly }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts).toHaveLength(2);
     expect(shifts[0].toAnchor).toBe(5);
     // Min-movement: with span=4 the hand only needs anchor ≥ 12-4=8
@@ -148,18 +159,20 @@ describe('simulateHandWindows — frets mode (fallback frets count)', () => {
 
   it('open strings (fret 0) do not move the window', () => {
     const fallbackOnly = {
-      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      enabled: true,
+      mode: 'frets',
+      hand_move_frets_per_sec: 12,
       hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        note(0,   45, { fret: 5, string: 1 }),
+        note(0, 45, { fret: 5, string: 1 }),
         note(480, 64, { fret: 0, string: 0 }), // open string
-        note(960, 50, { fret: 7, string: 1 })  // still inside window
+        note(960, 50, { fret: 7, string: 1 }) // still inside window
       ],
       { hands_config: fallbackOnly }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts).toHaveLength(1);
     expect(shifts[0].toAnchor).toBe(5);
   });
@@ -168,25 +181,19 @@ describe('simulateHandWindows — frets mode (fallback frets count)', () => {
     // 80 mm hand on a 650 mm scale ≈ 4.4 frets at fret 12 → a
     // 12→16 jump fits in the same window.
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [
-        note(0,   76, { fret: 12, string: 1 }),
-        note(480, 79, { fret: 15, string: 1 })
-      ],
+      [note(0, 76, { fret: 12, string: 1 }), note(480, 79, { fret: 15, string: 1 })],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts).toHaveLength(1); // only the initial anchor
   });
 
   it('the same fret span at the nut does not fit (≈ 2.2 frets reach)', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [
-        note(0,   41, { fret: 1, string: 1 }),
-        note(480, 44, { fret: 4, string: 1 })
-      ],
+      [note(0, 41, { fret: 1, string: 1 }), note(480, 44, { fret: 4, string: 1 })],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts.length).toBe(2);
   });
 });
@@ -196,10 +203,14 @@ describe('simulateHandWindows — overrides', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [note(0, 60), note(480, 64)],
       { hands_config: semitonesHands },
-      { overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 30 }], disabled_notes: [] } }
+      {
+        overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 30 }], disabled_notes: [] }
+      }
     );
-    const shifts = out.filter(e => e.type === 'shift' && e.tick === 480);
-    expect(shifts.find(s => s.source === 'override' && s.handId === 'left' && s.toAnchor === 30)).toBeDefined();
+    const shifts = out.filter((e) => e.type === 'shift' && e.tick === 480);
+    expect(
+      shifts.find((s) => s.source === 'override' && s.handId === 'left' && s.toAnchor === 30)
+    ).toBeDefined();
   });
 
   it('filters out notes listed in disabled_notes', () => {
@@ -208,8 +219,8 @@ describe('simulateHandWindows — overrides', () => {
       { hands_config: semitonesHands },
       { overrides: { hand_anchors: [], disabled_notes: [{ tick: 0, note: 64, reason: 'user' }] } }
     );
-    const chord = out.find(e => e.type === 'chord');
-    expect(chord.notes.map(n => n.note).sort()).toEqual([60, 67]);
+    const chord = out.find((e) => e.type === 'chord');
+    expect(chord.notes.map((n) => n.note).sort()).toEqual([60, 67]);
   });
 });
 
@@ -223,10 +234,9 @@ describe('simulateHandWindows — semitones non-overlap (E.6.x)', () => {
   }
 
   it('two-note opening chord puts left below right (no overlap)', () => {
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [note(0, 40), note(0, 80)],
-      { hands_config: semitonesHands }
-    );
+    const out = window.HandPositionFeasibility.simulateHandWindows([note(0, 40), note(0, 80)], {
+      hands_config: semitonesHands
+    });
     const a = getAnchors(out);
     expect(a.get('left')).toBeLessThan(a.get('right'));
     // No-overlap invariant: left.anchor + left.span < right.anchor.
@@ -267,9 +277,10 @@ describe('simulateHandWindows — semitones non-overlap (E.6.x)', () => {
       [note(0, 40), note(0, 60), note(0, 80)],
       { hands_config: semitonesHands }
     );
-    const chord = out.find(e => e.type === 'chord');
-    expect(chord.unplayable.some(u => u.reason === 'hand_overlap'
-                                  || u.reason === 'outside_window')).toBe(true);
+    const chord = out.find((e) => e.type === 'chord');
+    expect(
+      chord.unplayable.some((u) => u.reason === 'hand_overlap' || u.reason === 'outside_window')
+    ).toBe(true);
   });
 
   it('honours an override that anchors left HIGH and forces right to push up', () => {
@@ -278,7 +289,9 @@ describe('simulateHandWindows — semitones non-overlap (E.6.x)', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [note(0, 40), note(0, 80), note(480, 60)],
       { hands_config: semitonesHands },
-      { overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 60 }], disabled_notes: [] } }
+      {
+        overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 60 }], disabled_notes: [] }
+      }
     );
     const a = getAnchors(out);
     expect(a.get('left')).toBe(60);
@@ -293,39 +306,45 @@ describe('simulateHandWindows — semitones non-overlap (E.6.x)', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [note(0, 40), note(0, 80), note(480, 75)],
       { hands_config: semitonesHands },
-      { overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 70 }], disabled_notes: [] } }
+      {
+        overrides: { hand_anchors: [{ tick: 480, handId: 'left', anchor: 70 }], disabled_notes: [] }
+      }
     );
     const a = getAnchors(out);
     expect(a.get('left')).toBe(70);
     expect(a.get('left') + 14).toBeLessThan(a.get('right'));
-    const collisions = out.filter(e => e.type === 'shift' && e.source === 'collision');
+    const collisions = out.filter((e) => e.type === 'shift' && e.source === 'collision');
     expect(collisions.length).toBeGreaterThanOrEqual(1);
   });
 
   it('single-hand keyboard configs are not constrained', () => {
     const oneHand = {
-      enabled: true, mode: 'semitones', hand_move_semitones_per_sec: 60,
+      enabled: true,
+      mode: 'semitones',
+      hand_move_semitones_per_sec: 60,
       hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14 }]
     };
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [note(0, 60), note(480, 80)],
-      { hands_config: oneHand }
-    );
+    const out = window.HandPositionFeasibility.simulateHandWindows([note(0, 60), note(480, 80)], {
+      hands_config: oneHand
+    });
     // A single-hand instrument doesn't even attempt the partition;
     // it just shifts the single hand as needed.
-    const shifts = out.filter(e => e.type === 'shift');
-    expect(shifts.every(s => s.handId === 'left')).toBe(true);
+    const shifts = out.filter((e) => e.type === 'shift');
+    expect(shifts.every((s) => s.handId === 'left')).toBe(true);
   });
 });
 
 describe('simulateHandWindows — speed-limit motion envelope on shift events', () => {
   it('attaches motion = { requiredSec, availableSec, feasible } to every shift', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 480, note: 70 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 70 }
+      ],
       { hands_config: semitonesHands },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts.length).toBeGreaterThan(0);
     for (const s of shifts) {
       expect(s.motion).toBeDefined();
@@ -340,7 +359,7 @@ describe('simulateHandWindows — speed-limit motion envelope on shift events', 
       { hands_config: semitonesHands },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const firstShift = out.find(e => e.type === 'shift');
+    const firstShift = out.find((e) => e.type === 'shift');
     expect(firstShift).toBeDefined();
     expect(firstShift.motion.availableSec).toBe(Infinity);
     expect(firstShift.motion.feasible).toBe(true);
@@ -356,15 +375,15 @@ describe('simulateHandWindows — speed-limit motion envelope on shift events', 
     const slowHands = { ...semitonesHands, hand_move_semitones_per_sec: 5 };
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 80, duration: 100 },
+        { tick: 0, note: 80, duration: 100 },
         { tick: 240, note: 100 } // forces same hand to shift up by 20 sem
       ],
       { hands_config: slowHands },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const shifts = out.filter(e => e.type === 'shift' && e.tick === 240);
+    const shifts = out.filter((e) => e.type === 'shift' && e.tick === 240);
     expect(shifts.length).toBeGreaterThan(0);
-    const movingShift = shifts.find(s => s.fromAnchor != null && s.fromAnchor !== s.toAnchor);
+    const movingShift = shifts.find((s) => s.fromAnchor != null && s.fromAnchor !== s.toAnchor);
     expect(movingShift).toBeDefined();
     expect(movingShift.motion.feasible).toBe(false);
     expect(movingShift.motion.requiredSec).toBeGreaterThan(movingShift.motion.availableSec);
@@ -372,29 +391,36 @@ describe('simulateHandWindows — speed-limit motion envelope on shift events', 
 
   it('feasible=true when no speed limit is configured', () => {
     const noSpeedHands = {
-      enabled: true, mode: 'semitones',
+      enabled: true,
+      mode: 'semitones',
       // hand_move_semitones_per_sec intentionally absent
       hands: [
-        { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+        { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
         { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
       ]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 10, note: 80 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 10, note: 80 }
+      ],
       { hands_config: noSpeedHands },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     for (const s of shifts) expect(s.motion.feasible).toBe(true);
   });
 
   it('feasible=true when no tempo info is provided', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 1, note: 80 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 1, note: 80 }
+      ],
       { hands_config: semitonesHands }
       // no options → no ticksPerBeat / bpm
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     for (const s of shifts) expect(s.motion.feasible).toBe(true);
   });
 
@@ -407,14 +433,16 @@ describe('simulateHandWindows — speed-limit motion envelope on shift events', 
     // Available for right = (480 − 100) / 480 = 0.792 s.
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 40, duration: 1000 }, // left, long
-        { tick: 0,   note: 80, duration: 100 },  // right, short
-        { tick: 480, note: 105 }                 // forces right to shift up
+        { tick: 0, note: 40, duration: 1000 }, // left, long
+        { tick: 0, note: 80, duration: 100 }, // right, short
+        { tick: 480, note: 105 } // forces right to shift up
       ],
       { hands_config: semitonesHands },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const rightShift = out.find(e => e.type === 'shift' && e.handId === 'right' && e.tick === 480);
+    const rightShift = out.find(
+      (e) => e.type === 'shift' && e.handId === 'right' && e.tick === 480
+    );
     expect(rightShift).toBeDefined();
     // Available should be (480 − 100) / 480 ≈ 0.792 s, NOT (480 − 1000)/480 (negative).
     expect(rightShift.motion.availableSec).toBeCloseTo((480 - 100) / 480, 3);
@@ -428,12 +456,12 @@ describe('simulateHandWindows — per-note handId + per-hand releaseByHand', () 
         { tick: 0, note: 40 }, // low → left
         { tick: 0, note: 45 }, // low → left
         { tick: 0, note: 70 }, // high → right
-        { tick: 0, note: 75 }  // high → right
+        { tick: 0, note: 75 } // high → right
       ],
       { hands_config: semitonesHands }
     );
-    const chord = out.find(e => e.type === 'chord');
-    const byNote = new Map(chord.notes.map(n => [n.note, n.handId]));
+    const chord = out.find((e) => e.type === 'chord');
+    const byNote = new Map(chord.notes.map((n) => [n.note, n.handId]));
     expect(byNote.get(40)).toBe('left');
     expect(byNote.get(45)).toBe('left');
     expect(byNote.get(70)).toBe('right');
@@ -442,50 +470,57 @@ describe('simulateHandWindows — per-note handId + per-hand releaseByHand', () 
 
   it('single-hand keyboard tags every note with the only hand', () => {
     const oneHand = {
-      enabled: true, mode: 'semitones', hand_move_semitones_per_sec: 60,
+      enabled: true,
+      mode: 'semitones',
+      hand_move_semitones_per_sec: 60,
       hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14 }]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 480, note: 67 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 67 }
+      ],
       { hands_config: oneHand }
     );
-    const chords = out.filter(e => e.type === 'chord');
-    for (const c of chords) for (const n of c.notes) {
-      expect(n.handId).toBe('left');
-    }
+    const chords = out.filter((e) => e.type === 'chord');
+    for (const c of chords)
+      for (const n of c.notes) {
+        expect(n.handId).toBe('left');
+      }
   });
 
-  it('emits releaseByHand per chord with each hand\'s last note-off', () => {
+  it("emits releaseByHand per chord with each hand's last note-off", () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
         { tick: 0, note: 40, duration: 240 }, // left releases at 240
         { tick: 0, note: 45, duration: 360 }, // left releases at 360 (later)
         { tick: 0, note: 70, duration: 120 }, // right releases at 120
-        { tick: 0, note: 75, duration: 480 }  // right releases at 480 (later)
+        { tick: 0, note: 75, duration: 480 } // right releases at 480 (later)
       ],
       { hands_config: semitonesHands }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     expect(chord.releaseByHand).toBeDefined();
     expect(chord.releaseByHand.left).toBe(360);
     expect(chord.releaseByHand.right).toBe(480);
   });
 
-  it('right hand can leave early when its notes release before left\'s', () => {
+  it("right hand can leave early when its notes release before left's", () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
         { tick: 0, note: 40, duration: 1000 }, // left holds long
-        { tick: 0, note: 80, duration: 100 }   // right releases fast
+        { tick: 0, note: 80, duration: 100 } // right releases fast
       ],
       { hands_config: semitonesHands }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     expect(chord.releaseByHand.left).toBe(1000);
     expect(chord.releaseByHand.right).toBe(100);
     // Hand-wide release is now strictly less than chord-wide release
     // for at least one hand → the visualization can react earlier.
-    expect(Math.min(chord.releaseByHand.left, chord.releaseByHand.right))
-      .toBeLessThan(chord.releaseTick);
+    expect(Math.min(chord.releaseByHand.left, chord.releaseByHand.right)).toBeLessThan(
+      chord.releaseTick
+    );
   });
 
   it('idle hand defaults to releaseByHand[id] = chord.tick (free immediately)', () => {
@@ -495,7 +530,7 @@ describe('simulateHandWindows — per-note handId + per-hand releaseByHand', () 
       ],
       { hands_config: semitonesHands }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     // Left has the note; right is idle → its release equals the chord tick.
     expect(chord.releaseByHand.right).toBe(480);
   });
@@ -511,10 +546,14 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // fret 0.
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [{ tick: 0, note: 50 }], // no fret/string supplied
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     const note = chord.notes[0];
     expect(note.string).toBe(3);
     expect(note.fret).toBe(0);
@@ -523,10 +562,14 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
   it('preserves notes that already carry fret/string', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [{ tick: 0, note: 50, fret: 10, string: 1 }],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      }
     );
-    const note = out.find(e => e.type === 'chord').notes[0];
+    const note = out.find((e) => e.type === 'chord').notes[0];
     expect(note.string).toBe(1);
     expect(note.fret).toBe(10);
   });
@@ -534,14 +577,18 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
   it('emits a shift + active fret position when only MIDI numbers are supplied', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 56, duration: 100 }, // G#3 → string 1 fret 16
-        { tick: 480, note: 64 }                  // E4 → string 1 fret 24 (out
-                                                  // of range), string 2 fret
-                                                  // 19, … lowest = string 6
-                                                  // fret 0 (open E)
+        { tick: 0, note: 56, duration: 100 }, // G#3 → string 1 fret 16
+        { tick: 480, note: 64 } // E4 → string 1 fret 24 (out
+        // of range), string 2 fret
+        // 19, … lowest = string 6
+        // fret 0 (open E)
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      },
       { ticksPerBeat: 480, bpm: 60 }
     );
     // The chord events should carry resolved string + fret on each
@@ -550,26 +597,27 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // = 59. 56 − 59 = -3 invalid. String 4 open = 55. 56 − 55 = 1.
     // → resolved as string 4 fret 1.
     // Note 64 = E4 = string 6 open → fret 0.
-    const chords = out.filter(e => e.type === 'chord');
+    const chords = out.filter((e) => e.type === 'chord');
     const note0 = chords[0].notes[0];
     expect(Number.isFinite(note0.fret)).toBe(true);
     expect(Number.isFinite(note0.string)).toBe(true);
     expect(note0.fret).toBeGreaterThan(0); // fretted, not open
     // At least one shift event is emitted (anchor moves to the
     // first fretted note's fret).
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts.length).toBeGreaterThanOrEqual(1);
   });
 
   it('falls back to an unresolved note when no string fits in the fret range', () => {
     // Note way too high for any string: 120 (C9). On standard tuning
     // (highest open is E4=64 + 22 frets = 86), 120 is unreachable.
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 120 }],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
-    );
-    const note = out.find(e => e.type === 'chord').notes[0];
+    const out = window.HandPositionFeasibility.simulateHandWindows([{ tick: 0, note: 120 }], {
+      hands_config: fretsHands,
+      scale_length_mm: 650,
+      tuning: [40, 45, 50, 55, 59, 64],
+      num_frets: 22
+    });
+    const note = out.find((e) => e.type === 'chord').notes[0];
     expect(note.string).toBeUndefined();
     expect(note.fret).toBeUndefined();
   });
@@ -593,15 +641,19 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
         // Chord 1: forces hand to fret 5 (note 49 = string 2 fret 4
         // → no, that's fret 4 on string 2 ... let me use note 50 =
         // string 2 fret 5, in standard tuning).
-        { tick: 0,   note: 50, fret: 5, string: 2, duration: 100 }, // hand → 5
-        { tick: 480, note: 51 }                                      // unresolved
+        { tick: 0, note: 50, fret: 5, string: 2, duration: 100 }, // hand → 5
+        { tick: 480, note: 51 } // unresolved
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const chord2 = out.filter(e => e.type === 'chord')[1];
-    const note51 = chord2.notes.find(n => n.note === 51);
+    const chord2 = out.filter((e) => e.type === 'chord')[1];
+    const note51 = chord2.notes.find((n) => n.note === 51);
     expect(note51).toBeDefined();
     // Should be picked on string 2 fret 6 (inside [5..9]), NOT
     // string 3 fret 1 (lower fret but outside the window).
@@ -617,15 +669,19 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // case the operator flagged).
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 49, fret: 4, string: 2, duration: 100 }, // hand → 4
-        { tick: 480, note: 50 }                                      // unresolved
+        { tick: 0, note: 49, fret: 4, string: 2, duration: 100 }, // hand → 4
+        { tick: 480, note: 50 } // unresolved
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const chord2 = out.filter(e => e.type === 'chord')[1];
-    const note50 = chord2.notes.find(n => n.note === 50);
+    const chord2 = out.filter((e) => e.type === 'chord')[1];
+    const note50 = chord2.notes.find((n) => n.note === 50);
     expect(note50).toBeDefined();
     // String 3 (D3) fret 0 wins over string 2 fret 5.
     expect(note50.fret).toBe(0);
@@ -638,15 +694,19 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // in [15..19] → open string wins (cheaper than out-of-window).
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 64, fret: 15, string: 1, duration: 100 }, // hand → 15
+        { tick: 0, note: 64, fret: 15, string: 1, duration: 100 }, // hand → 15
         { tick: 480, note: 50 }
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const chord2 = out.filter(e => e.type === 'chord')[1];
-    const note50 = chord2.notes.find(n => n.note === 50);
+    const chord2 = out.filter((e) => e.type === 'chord')[1];
+    const note50 = chord2.notes.find((n) => n.note === 50);
     expect(note50).toBeDefined();
     expect(note50.fret).toBe(0); // open
     expect(note50.string).toBe(3);
@@ -660,18 +720,20 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // tad further but the next forced shift is smaller (10 → 10
     // vs 8 → 10).
     const fallbackOnly = {
-      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      enabled: true,
+      mode: 'frets',
+      hand_move_frets_per_sec: 12,
       hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 0, note: 45, fret: 5, string: 1 },
         { tick: 480, note: 52, fret: 12, string: 1 },
         { tick: 960, note: 54, fret: 14, string: 1 }
       ],
       { hands_config: fallbackOnly }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts[0].toAnchor).toBe(5);
     // Chord 2 forces a shift; lookahead biases toward chord 3's
     // range [10, 14] so the shift target lands inside the
@@ -687,17 +749,19 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // anchor (5) into [8, 12] yields 8 — the hand moves the LEAST
     // possible to cover the chord, instead of jumping to fret 12.
     const fallbackOnly = {
-      enabled: true, mode: 'frets', hand_move_frets_per_sec: 12,
+      enabled: true,
+      mode: 'frets',
+      hand_move_frets_per_sec: 12,
       hands: [{ id: 'fretting', cc_position_number: 22, hand_span_frets: 4 }]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 0, note: 45, fret: 5, string: 1 },
         { tick: 480, note: 50, fret: 12, string: 1 }
       ],
       { hands_config: fallbackOnly }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts.length).toBe(2);
     expect(shifts[0].toAnchor).toBe(5);
     expect(shifts[1].toAnchor).toBe(8); // clamp(5, [8, 12]) = 8
@@ -713,10 +777,14 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
         { tick: 0, note: 50 },
         { tick: 0, note: 51 }
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     const stringsUsed = new Set();
     for (const n of chord.notes) {
       if (Number.isFinite(n.string)) {
@@ -732,14 +800,18 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
         { tick: 0, note: 45 }, // A2 → string 2 fret 0
-        { tick: 0, note: 50 }  // D3 → string 3 fret 0 (or fret 5 on string 2)
+        { tick: 0, note: 50 } // D3 → string 3 fret 0 (or fret 5 on string 2)
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      }
     );
-    const chord = out.find(e => e.type === 'chord');
-    const note45 = chord.notes.find(n => n.note === 45);
-    const note50 = chord.notes.find(n => n.note === 50);
+    const chord = out.find((e) => e.type === 'chord');
+    const note45 = chord.notes.find((n) => n.note === 45);
+    const note50 = chord.notes.find((n) => n.note === 50);
     expect(note45.string).toBeLessThan(note50.string);
   });
 
@@ -752,12 +824,16 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
         { tick: 0, note: 45 },
         { tick: 0, note: 50, fret: 0, string: 3 }
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 }
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      }
     );
-    const chord = out.find(e => e.type === 'chord');
-    const note45 = chord.notes.find(n => n.note === 45);
-    const note50 = chord.notes.find(n => n.note === 50);
+    const chord = out.find((e) => e.type === 'chord');
+    const note45 = chord.notes.find((n) => n.note === 45);
+    const note50 = chord.notes.find((n) => n.note === 50);
     expect(note50.string).toBe(3); // pre-tagged kept
     expect(note45.string).not.toBe(3);
   });
@@ -768,15 +844,19 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // outside_window.
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 50, fret: 5, string: 2, duration: 100 },
+        { tick: 0, note: 50, fret: 5, string: 2, duration: 100 },
         { tick: 480, note: 51 }
       ],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22 },
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const chord2 = out.filter(e => e.type === 'chord')[1];
-    const outOfWindow = chord2.unplayable.find(u => u.reason === 'outside_window');
+    const chord2 = out.filter((e) => e.type === 'chord')[1];
+    const outOfWindow = chord2.unplayable.find((u) => u.reason === 'outside_window');
     expect(outOfWindow).toBeUndefined();
   });
 
@@ -788,12 +868,14 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     // Pick: 50 = string 3 fret 0 still (50 − 50 − 5 = -5 invalid),
     // try string 1: 50 − 40 − 5 = 5, valid. String 2: 50 − 45 − 5 =
     // 0, valid. Picks the lowest → string 2 fret 0.
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 50 }],
-      { hands_config: fretsHands, scale_length_mm: 650,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22, capo_fret: 5 }
-    );
-    const note = out.find(e => e.type === 'chord').notes[0];
+    const out = window.HandPositionFeasibility.simulateHandWindows([{ tick: 0, note: 50 }], {
+      hands_config: fretsHands,
+      scale_length_mm: 650,
+      tuning: [40, 45, 50, 55, 59, 64],
+      num_frets: 22,
+      capo_fret: 5
+    });
+    const note = out.find((e) => e.type === 'chord').notes[0];
     expect(note.string).toBe(2);
     expect(note.fret).toBe(0);
   });
@@ -808,12 +890,12 @@ describe('simulateHandWindows — frets parity (handId + releaseByHand + motion 
       ],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     expect(chord.notes.length).toBe(2);
     for (const n of chord.notes) expect(n.handId).toBe('fretting');
   });
 
-  it('emits releaseByHand with the chord\'s last note-off tick', () => {
+  it("emits releaseByHand with the chord's last note-off tick", () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
         { tick: 0, note: 45, fret: 5, string: 1, duration: 240 },
@@ -821,7 +903,7 @@ describe('simulateHandWindows — frets parity (handId + releaseByHand + motion 
       ],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     expect(chord.releaseByHand).toBeDefined();
     expect(chord.releaseByHand.fretting).toBe(360);
   });
@@ -829,13 +911,13 @@ describe('simulateHandWindows — frets parity (handId + releaseByHand + motion 
   it('attaches motion = { requiredSec, availableSec, feasible } to every shift', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 45, fret: 5,  string: 1, duration: 100 },
+        { tick: 0, note: 45, fret: 5, string: 1, duration: 100 },
         { tick: 240, note: 47, fret: 12, string: 1 }
       ],
       { hands_config: fretsHands, scale_length_mm: 650 },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const shifts = out.filter(e => e.type === 'shift');
+    const shifts = out.filter((e) => e.type === 'shift');
     expect(shifts.length).toBeGreaterThan(0);
     for (const s of shifts) {
       expect(s.motion).toBeDefined();
@@ -850,19 +932,28 @@ describe('simulateHandWindows — frets parity (handId + releaseByHand + motion 
     //          ≈ 650 * (0.5 − 0.0561) ≈ 288 mm.
     // Required = 288 / 50 = 5.77 s; available ≈ 0.5 s → infeasible.
     const slowHands = {
-      enabled: true, mode: 'frets',
+      enabled: true,
+      mode: 'frets',
       hand_move_mm_per_sec: 50,
-      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }]
+      hands: [
+        {
+          id: 'fretting',
+          cc_position_number: 22,
+          hand_span_mm: 80,
+          hand_span_frets: 4,
+          max_fingers: 4
+        }
+      ]
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 41, fret: 1,  string: 1, duration: 100 },
+        { tick: 0, note: 41, fret: 1, string: 1, duration: 100 },
         { tick: 240, note: 52, fret: 12, string: 1 }
       ],
       { hands_config: slowHands, scale_length_mm: 650 },
       { ticksPerBeat: 480, bpm: 60 }
     );
-    const shift = out.find(e => e.type === 'shift' && e.tick === 240);
+    const shift = out.find((e) => e.type === 'shift' && e.tick === 240);
     expect(shift).toBeDefined();
     expect(shift.motion.feasible).toBe(false);
   });
@@ -880,12 +971,16 @@ describe('simulateHandWindows — frets parity (handId + releaseByHand + motion 
       ],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     // Chord-level marker.
-    const chordMarker = chord.unplayable.find(u => u.note === null && u.reason === 'too_many_fingers');
+    const chordMarker = chord.unplayable.find(
+      (u) => u.note === null && u.reason === 'too_many_fingers'
+    );
     expect(chordMarker).toBeDefined();
     // Per-note tagging on every fretted note.
-    const perNote = chord.unplayable.filter(u => u.reason === 'too_many_fingers' && u.note !== null);
+    const perNote = chord.unplayable.filter(
+      (u) => u.reason === 'too_many_fingers' && u.note !== null
+    );
     expect(perNote.length).toBe(5);
   });
 
@@ -898,8 +993,8 @@ describe('simulateHandWindows — frets parity (handId + releaseByHand + motion 
       ],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const chord = out.find(e => e.type === 'chord');
-    const tooMany = chord.unplayable.find(u => u.reason === 'too_many_fingers');
+    const chord = out.find((e) => e.type === 'chord');
+    const tooMany = chord.unplayable.find((u) => u.reason === 'too_many_fingers');
     expect(tooMany).toBeUndefined();
   });
 
@@ -914,8 +1009,8 @@ describe('simulateHandWindows — frets parity (handId + releaseByHand + motion 
       ],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const chord = out.find(e => e.type === 'chord');
-    const tooMany = chord.unplayable.find(u => u.reason === 'too_many_fingers');
+    const chord = out.find((e) => e.type === 'chord');
+    const tooMany = chord.unplayable.find((u) => u.reason === 'too_many_fingers');
     expect(tooMany).toBeUndefined();
   });
 });
@@ -924,23 +1019,26 @@ describe('simulateHandWindows — chord release ticks (note-off propagation)', (
   it('chord events carry releaseTick = tick + max(duration)', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
       [
-        { tick: 0,   note: 60, duration: 240 },
-        { tick: 0,   note: 64, duration: 480 }, // longer note dictates release
+        { tick: 0, note: 60, duration: 240 },
+        { tick: 0, note: 64, duration: 480 }, // longer note dictates release
         { tick: 960, note: 67, duration: 240 }
       ],
       { hands_config: semitonesHands }
     );
-    const chords = out.filter(e => e.type === 'chord');
+    const chords = out.filter((e) => e.type === 'chord');
     expect(chords[0].releaseTick).toBe(480); // 0 + 480
     expect(chords[1].releaseTick).toBe(1200); // 960 + 240
   });
 
   it('falls back to releaseTick = tick when notes have no duration', () => {
     const out = window.HandPositionFeasibility.simulateHandWindows(
-      [{ tick: 0, note: 60 }, { tick: 480, note: 64 }],
+      [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 64 }
+      ],
       { hands_config: semitonesHands }
     );
-    const chords = out.filter(e => e.type === 'chord');
+    const chords = out.filter((e) => e.type === 'chord');
     expect(chords[0].releaseTick).toBe(0);
     expect(chords[1].releaseTick).toBe(480);
   });
@@ -950,14 +1048,14 @@ describe('simulateHandWindows — chord release ticks (note-off propagation)', (
       [{ tick: 0, note: 45, fret: 5, string: 1, duration: 360 }],
       { hands_config: fretsHands, scale_length_mm: 650 }
     );
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     expect(chord.releaseTick).toBe(360);
   });
 });
 
 describe('simulateHandWindows — semitones lookahead-aware anchor placement', () => {
   function shiftsByHand(out, handId) {
-    return out.filter(e => e.type === 'shift' && e.handId === handId);
+    return out.filter((e) => e.type === 'shift' && e.handId === handId);
   }
 
   it('keeps the previous anchor when the next chord still fits the same window', () => {
@@ -968,7 +1066,7 @@ describe('simulateHandWindows — semitones lookahead-aware anchor placement', (
       [note(0, 50), note(0, 55), note(480, 52), note(480, 58)],
       { hands_config: semitonesHands }
     );
-    const leftAutoShifts = shiftsByHand(out, 'left').filter(s => s.source === 'auto');
+    const leftAutoShifts = shiftsByHand(out, 'left').filter((s) => s.source === 'auto');
     // Only the initial pull — the second chord lands inside the
     // pre-existing window.
     expect(leftAutoShifts).toHaveLength(1);
@@ -985,7 +1083,7 @@ describe('simulateHandWindows — semitones lookahead-aware anchor placement', (
       [note(0, 50), note(0, 55), note(480, 80)],
       { hands_config: semitonesHands }
     );
-    const rightAutoShifts = shiftsByHand(out, 'right').filter(s => s.source === 'auto');
+    const rightAutoShifts = shiftsByHand(out, 'right').filter((s) => s.source === 'auto');
     expect(rightAutoShifts.length).toBeGreaterThanOrEqual(1);
     const finalRight = rightAutoShifts[rightAutoShifts.length - 1].toAnchor;
     // Critical: NOT jumping to 80 — the shift uses the minimum
@@ -997,10 +1095,9 @@ describe('simulateHandWindows — semitones lookahead-aware anchor placement', (
   it('returns to a music-driven anchor when no future chord constrains', () => {
     // Lone chord, all notes below SPLIT_REF → left hand. With no
     // future to bias the anchor, the fallback (lo of lowSet) wins.
-    const out = window.HandPositionFeasibility.simulateHandWindows(
-      [note(0, 50), note(0, 55)],
-      { hands_config: semitonesHands }
-    );
+    const out = window.HandPositionFeasibility.simulateHandWindows([note(0, 50), note(0, 55)], {
+      hands_config: semitonesHands
+    });
     const leftShifts = shiftsByHand(out, 'left');
     expect(leftShifts[0].toAnchor).toBe(50);
   });
@@ -1015,7 +1112,7 @@ describe('simulateHandWindows — semitones lookahead-aware anchor placement', (
       [note(0, 50), note(480, 56), note(960, 50)],
       { hands_config: semitonesHands }
     );
-    const leftAutoShifts = shiftsByHand(out, 'left').filter(s => s.source === 'auto');
+    const leftAutoShifts = shiftsByHand(out, 'left').filter((s) => s.source === 'auto');
     let total = 0;
     for (let i = 1; i < leftAutoShifts.length; i++) {
       total += Math.abs(leftAutoShifts[i].toAnchor - leftAutoShifts[i - 1].toAnchor);
@@ -1037,7 +1134,7 @@ describe('simulateHandWindows — semitones lookahead-aware anchor placement', (
       [note(0, 50), note(0, 55), note(480, 30)],
       { hands_config: semitonesHands }
     );
-    const leftAuto = shiftsByHand(out, 'left').filter(s => s.source === 'auto');
+    const leftAuto = shiftsByHand(out, 'left').filter((s) => s.source === 'auto');
     // First auto-shift is the initial pull. Look-ahead pushes it to
     // 41 instead of 50 because chord 2 is below.
     expect(leftAuto[0].toAnchor).toBeLessThan(50);

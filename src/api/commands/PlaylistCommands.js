@@ -110,7 +110,10 @@ async function playlistRemoveFile(app, data) {
  */
 async function playlistReorder(app, data) {
   if (!data.playlistId || !data.itemId || data.newPosition === undefined) {
-    throw new ValidationError('playlistId, itemId, and newPosition are required', 'playlistId,itemId,newPosition');
+    throw new ValidationError(
+      'playlistId, itemId, and newPosition are required',
+      'playlistId,itemId,newPosition'
+    );
   }
   app.playlistRepository.reorderItem(data.playlistId, data.itemId, data.newPosition);
   return { success: true };
@@ -201,14 +204,17 @@ async function playlistStart(app, data) {
   }
 
   // Build queue from playlist items
-  const queue = items.map(item => ({
+  const queue = items.map((item) => ({
     fileId: item.midi_id,
     filename: item.filename
   }));
 
   const startIndex = parseInt(data.startIndex) || 0;
   if (startIndex < 0 || startIndex >= items.length) {
-    throw new ValidationError(`startIndex ${startIndex} out of range (0-${items.length - 1})`, 'startIndex');
+    throw new ValidationError(
+      `startIndex ${startIndex} out of range (0-${items.length - 1})`,
+      'startIndex'
+    );
   }
   const loop = playlist.loop === 1;
   const shuffle = playlist.shuffle === 1;

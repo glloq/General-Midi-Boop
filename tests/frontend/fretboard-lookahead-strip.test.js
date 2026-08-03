@@ -12,19 +12,27 @@ let calls;
 
 function installCanvasStub() {
   calls = [];
-  const ctx = new Proxy({}, {
-    get(_t, prop) {
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
-        return (...args) => calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => calls.push({ method: prop, args });
+        }
+        return undefined;
+      },
+      set(_t, prop, value) {
+        calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return undefined;
-    },
-    set(_t, prop, value) {
-      calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -43,16 +51,20 @@ beforeEach(() => {
 
 function makeCanvas(w = 600, h = 140) {
   const c = document.createElement('canvas');
-  Object.defineProperty(c, 'clientWidth',  { get: () => w });
+  Object.defineProperty(c, 'clientWidth', { get: () => w });
   Object.defineProperty(c, 'clientHeight', { get: () => h });
-  c.width = w; c.height = h;
+  c.width = w;
+  c.height = h;
   return c;
 }
 
 function makeStrip(opts = {}) {
   return new window.FretboardLookaheadStrip(makeCanvas(opts.w, opts.h), {
-    tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
-    windowSeconds: 4, ...opts
+    tuning: [40, 45, 50, 55, 59, 64],
+    numFrets: 22,
+    handSpanFrets: 4,
+    windowSeconds: 4,
+    ...opts
   });
 }
 
@@ -75,7 +87,7 @@ describe('FretboardLookaheadStrip — drawing', () => {
     s.draw();
     // Background fill + the now-line stroke is OK; no trapezoid /
     // band rectangle paint happens.
-    const fillRects = calls.filter(c => c.method === 'fillRect');
+    const fillRects = calls.filter((c) => c.method === 'fillRect');
     // Only the background (covering the whole canvas).
     expect(fillRects.length).toBeLessThanOrEqual(1);
   });
@@ -87,30 +99,31 @@ describe('FretboardLookaheadStrip — drawing', () => {
       { tick: 0, anchor: 5, releaseTick: 480 } // 1-sec hold from now
     ]);
     s.setCurrentTime(0);
-    const fills = calls.filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
+    const fills = calls
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
     // HOLD fill is the green tint at alpha 0.20.
-    expect(fills.some(v => /rgba\(34, 197, 94, 0\.20\)/.test(v))).toBe(true);
+    expect(fills.some((v) => /rgba\(34, 197, 94, 0\.20\)/.test(v))).toBe(true);
   });
 
   it('paints a TRANSITION trapezoid between consecutive shifts', () => {
     const s = makeStrip();
     s.setTicksPerSec(480);
     s.setHandTrajectory([
-      { tick: 0,    anchor: 5, releaseTick: 240 },
+      { tick: 0, anchor: 5, releaseTick: 240 },
       { tick: 1000, anchor: 12, releaseTick: 1100 }
     ]);
     s.setCurrentTime(0);
     // The transition uses a closed quadrilateral path. Count the
     // moveTo/lineTo/closePath sequences.
-    const closes = calls.filter(c => c.method === 'closePath');
+    const closes = calls.filter((c) => c.method === 'closePath');
     expect(closes.length).toBeGreaterThan(0);
   });
 
   it('time runs vertically: future at the top, now at the bottom', () => {
     const s = makeStrip({ w: 600, h: 140 });
-    expect(s._yAt(0, 140)).toBeCloseTo(140, 1);   // currentSec → bottom
-    expect(s._yAt(4, 140)).toBeCloseTo(0, 1);     // currentSec + windowSeconds → top
+    expect(s._yAt(0, 140)).toBeCloseTo(140, 1); // currentSec → bottom
+    expect(s._yAt(4, 140)).toBeCloseTo(0, 1); // currentSec + windowSeconds → top
   });
 
   it('the X-axis matches the live fretboard span at anchor=5', () => {
@@ -141,7 +154,7 @@ describe('FretboardLookaheadStrip — throttle', () => {
     calls.length = 0;
     s.setCurrentTime(0.001);
     // 0.001 s × (140 / 4) ≈ 0.035 px → sub-pixel → no redraw.
-    const fillRects = calls.filter(c => c.method === 'fillRect');
+    const fillRects = calls.filter((c) => c.method === 'fillRect');
     expect(fillRects.length).toBe(0);
   });
 });

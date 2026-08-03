@@ -21,7 +21,7 @@ function installStubApi() {
       handlers.get(event).push(handler);
     },
     __emit(event, data) {
-      (handlers.get(event) || []).forEach(h => h(data));
+      (handlers.get(event) || []).forEach((h) => h(data));
     }
   };
   return window.api;

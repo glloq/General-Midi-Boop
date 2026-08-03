@@ -8,7 +8,11 @@ function silentLogger() {
   return { info: () => {}, warn: () => {}, error: () => {} };
 }
 
-function makeDeps({ existingRoutings = [], knownDevices = ['dev-1', 'dev-2'], fileChannels = [{ channel: 0 }, { channel: 1 }] } = {}) {
+function makeDeps({
+  existingRoutings = [],
+  knownDevices = ['dev-1', 'dev-2'],
+  fileChannels = [{ channel: 0 }, { channel: 1 }]
+} = {}) {
   const routingRepo = {
     findByFileId: jest.fn().mockReturnValue(existingRoutings),
     deleteByFileId: jest.fn(),
@@ -59,7 +63,9 @@ describe('syncFile', () => {
     expect(routingRepo.deleteNonSplitByFileId).toHaveBeenCalledWith(42);
     expect(routingRepo.deleteByFileId).not.toHaveBeenCalled();
     expect(routingRepo.save).toHaveBeenCalledTimes(1);
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({ channel: 1, device_id: 'dev-1' }));
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 1, device_id: 'dev-1' })
+    );
     expect(result.synced).toBe(1);
     expect(result.splitPreserved).toBe(1);
   });
@@ -82,71 +88,87 @@ describe('syncFile', () => {
     const { svc, routingRepo } = makeDeps({ knownDevices: ['dev-1'] });
     const result = svc.syncFile(42, { 0: 'virtual-instrument' });
     expect(result.synced).toBe(1);
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({ device_id: 'virtual-instrument' }));
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ device_id: 'virtual-instrument' })
+    );
   });
 
   test('parses deviceId::targetChannel syntax', () => {
     const { svc, routingRepo } = makeDeps();
     svc.syncFile(42, { 0: 'dev-1::7' });
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-      device_id: 'dev-1',
-      target_channel: 7
-    }));
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device_id: 'dev-1',
+        target_channel: 7
+      })
+    );
   });
 
   test('preserves auto-assign metadata when the device does not change', () => {
     const { svc, routingRepo } = makeDeps({
-      existingRoutings: [{
-        channel: 0,
-        device_id: 'dev-1',
+      existingRoutings: [
+        {
+          channel: 0,
+          device_id: 'dev-1',
+          instrument_name: 'Piano',
+          compatibility_score: 92,
+          auto_assigned: true,
+          assignment_reason: 'auto-score',
+          split_mode: null
+        }
+      ]
+    });
+    svc.syncFile(42, { 0: 'dev-1' });
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
         instrument_name: 'Piano',
         compatibility_score: 92,
         auto_assigned: true,
-        assignment_reason: 'auto-score',
-        split_mode: null
-      }]
-    });
-    svc.syncFile(42, { 0: 'dev-1' });
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-      instrument_name: 'Piano',
-      compatibility_score: 92,
-      auto_assigned: true,
-      assignment_reason: 'auto-score'
-    }));
+        assignment_reason: 'auto-score'
+      })
+    );
   });
 
   test('carries hand-position overrides forward when the device is unchanged', () => {
     const overrides = { hand_anchors: [{ tick: 480, handId: 'fretting', anchor: 5 }], version: 1 };
     const { svc, routingRepo } = makeDeps({
-      existingRoutings: [{
-        channel: 0,
-        device_id: 'dev-1',
-        split_mode: null,
-        hand_position_overrides: overrides,
-        hand_position_feasibility: { level: 'ok' }
-      }]
+      existingRoutings: [
+        {
+          channel: 0,
+          device_id: 'dev-1',
+          split_mode: null,
+          hand_position_overrides: overrides,
+          hand_position_feasibility: { level: 'ok' }
+        }
+      ]
     });
     svc.syncFile(42, { 0: 'dev-1' });
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-      device_id: 'dev-1',
-      hand_position_overrides: overrides
-    }));
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device_id: 'dev-1',
+        hand_position_overrides: overrides
+      })
+    );
   });
 
   test('clears hand-position overrides when the device changes', () => {
     const { svc, routingRepo } = makeDeps({
-      existingRoutings: [{
-        channel: 0,
-        device_id: 'dev-1',
-        split_mode: null,
-        hand_position_overrides: { hand_anchors: [], version: 1 }
-      }]
+      existingRoutings: [
+        {
+          channel: 0,
+          device_id: 'dev-1',
+          split_mode: null,
+          hand_position_overrides: { hand_anchors: [], version: 1 }
+        }
+      ]
     });
     svc.syncFile(42, { 0: 'dev-2' });
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({
-      device_id: 'dev-2',
-      hand_position_overrides: null
-    }));
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device_id: 'dev-2',
+        hand_position_overrides: null
+      })
+    );
   });
 
   test('a split channel is preserved, not re-saved as a plain routing', () => {
@@ -163,7 +185,11 @@ describe('syncFile', () => {
 
   test('swallows save errors and increments nothing for that channel', () => {
     const { svc, routingRepo } = makeDeps();
-    routingRepo.save = jest.fn().mockImplementationOnce(() => { throw new Error('dup'); })
+    routingRepo.save = jest
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('dup');
+      })
       .mockReturnValueOnce(null);
     const result = svc.syncFile(42, { 0: 'dev-1', 1: 'dev-2' });
     expect(result.synced).toBe(1);
@@ -207,6 +233,8 @@ describe('bulkSync', () => {
   test('uses config.lastModified as created_at when provided', () => {
     const { svc, routingRepo } = makeDeps();
     svc.bulkSync({ 10: { channels: { 0: 'dev-1' }, lastModified: 1700000000000 } });
-    expect(routingRepo.save).toHaveBeenCalledWith(expect.objectContaining({ created_at: 1700000000000 }));
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ created_at: 1700000000000 })
+    );
   });
 });

@@ -31,8 +31,7 @@ function load(relativePath) {
 // init; the detector only ever calls these two methods.
 const windDb = {
   isWindInstrument: (p) => (p >= 56 && p <= 79) || p === 111,
-  getPresetByProgram: (p) => (((p >= 56 && p <= 79) || p === 111)
-    ? { name: `wind-${p}` } : null)
+  getPresetByProgram: (p) => ((p >= 56 && p <= 79) || p === 111 ? { name: `wind-${p}` } : null)
 };
 
 beforeAll(() => {
@@ -44,8 +43,7 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
 });
 
-const detect = (caps) =>
-  win.InstrumentDetector.detect({ capabilities: caps, windDb }).viewKind;
+const detect = (caps) => win.InstrumentDetector.detect({ capabilities: caps, windDb }).viewKind;
 
 const resolveKind = (caps) => win.instrumentViews.resolve(caps).viewKind;
 
@@ -63,22 +61,22 @@ describe('InstrumentDetector ⇄ registerBuiltins rule parity', () => {
 
   it('agree on the special, non-GM-range capability shapes', () => {
     const cases = [
-      { channel: 9, gm_program: 0 },                 // drum channel
-      { channel: 9, gm_program: 65 },                // drum channel wins over wind
+      { channel: 9, gm_program: 0 }, // drum channel
+      { channel: 9, gm_program: 65 }, // drum channel wins over wind
       { instrument_type: 'drum', gm_program: 0 },
       { instrument_type: 'drum_kit', gm_program: 24 },
       { instrument_type: 'percussion', gm_program: 0 },
       { instrument_type: 'theremin', gm_program: 0 },
       { instrument_type: 'theremin' },
       { instrument_type: 'string', gm_program: 24 }, // explicit string → fretboard
-      { gm_program: 128 },                           // ≥128 → drumpad
+      { gm_program: 128 }, // ≥128 → drumpad
       { gm_program: 200 },
-      { gm_program: 46 },                            // harp (excluded from fretboard)
-      { gm_program: 108 },                           // kalimba
-      { gm_program: 109 },                           // bagpipe
-      { gm_program: 111 },                           // shanai → wind piano-slider
-      { gm_program: 114 },                           // steel-drum (not perc-pad)
-      {}                                             // nothing → piano fallback
+      { gm_program: 46 }, // harp (excluded from fretboard)
+      { gm_program: 108 }, // kalimba
+      { gm_program: 109 }, // bagpipe
+      { gm_program: 111 }, // shanai → wind piano-slider
+      { gm_program: 114 }, // steel-drum (not perc-pad)
+      {} // nothing → piano fallback
     ];
     const mismatches = [];
     for (const caps of cases) {

@@ -37,7 +37,8 @@
         any: i18n.t('lighting.triggerAny') || 'Tous'
       }[trigger] ||
       trigger ||
-      (i18n.t('lighting.triggerNoteOn') || 'Note On')
+      i18n.t('lighting.triggerNoteOn') ||
+      'Note On'
     );
   };
 
@@ -63,7 +64,8 @@
         wave: i18n.t('lighting.effectWaveOpt') || '\uD83C\uDF0A Vague'
       }[type] ||
       type ||
-      (i18n.t('lighting.colorStatic') || 'Couleur fixe')
+      i18n.t('lighting.colorStatic') ||
+      'Couleur fixe'
     );
   };
 

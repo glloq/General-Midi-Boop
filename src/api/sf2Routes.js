@@ -39,7 +39,10 @@ function sendPreset(res, preset) {
 
 // Strip HTML-significant chars from user-supplied label (server-side XSS guard).
 function sanitizeLabel(raw) {
-  return String(raw).replace(/[<>"'&]/g, '').trim().slice(0, 128);
+  return String(raw)
+    .replace(/[<>"'&]/g, '')
+    .trim()
+    .slice(0, 128);
 }
 
 // Accept either the literal 'default' (built-in soundfont) or a positive
@@ -59,12 +62,12 @@ function parseSF2Id(raw) {
 // Safely project only public fields from a DB row.
 function publicRow(r) {
   return {
-    id:         r.id,
-    label:      r.label,
-    filename:   r.filename,
-    size:       r.size,
-    reverbMix:  r.reverb_mix,
-    uploadedAt: r.uploaded_at,
+    id: r.id,
+    label: r.label,
+    filename: r.filename,
+    size: r.size,
+    reverbMix: r.reverb_mix,
+    uploadedAt: r.uploaded_at
   };
 }
 
@@ -82,7 +85,7 @@ export function createSF2Router(app) {
       const rows = app.sf2PresetService.listAll();
       res.json({
         defaultPresent: app.sf2PresetService.hasDefaultSF2(),
-        banks: rows.map(publicRow),
+        banks: rows.map(publicRow)
       });
     } catch (err) {
       app.logger.error(`GET /api/sf2 failed: ${err.message}`);
@@ -97,11 +100,15 @@ export function createSF2Router(app) {
         return res.status(400).json({ error: 'Empty body. Send raw SF2 bytes.' });
       }
       if (req.body.length > LIMITS.MAX_SF2_FILE_SIZE) {
-        return res.status(413).json({ error: `File too large. Max ${LIMITS.MAX_SF2_FILE_SIZE / (1024 * 1024)} MB.` });
+        return res
+          .status(413)
+          .json({ error: `File too large. Max ${LIMITS.MAX_SF2_FILE_SIZE / (1024 * 1024)} MB.` });
       }
       // H-1: validate both RIFF container header and sfbk type field
-      if (req.body.slice(0, 4).toString('ascii') !== 'RIFF' ||
-          req.body.slice(8, 12).toString('ascii') !== 'sfbk') {
+      if (
+        req.body.slice(0, 4).toString('ascii') !== 'RIFF' ||
+        req.body.slice(8, 12).toString('ascii') !== 'sfbk'
+      ) {
         return res.status(415).json({ error: 'Not a valid SF2 file.' });
       }
       // L-2: enforce per-server total storage quota (1 GB default)
@@ -174,7 +181,7 @@ export function createSF2Router(app) {
   // ── Melodic preset ────────────────────────────────────────────────────────
   router.get('/:id/preset/melodic/:program', async (req, res) => {
     try {
-      const id      = parseSF2Id(req.params.id);
+      const id = parseSF2Id(req.params.id);
       const program = Number(req.params.program);
       if (id === null || !Number.isFinite(program) || program < 0 || program > 127) {
         return res.status(400).json({ error: 'Invalid id or program' });
@@ -183,7 +190,9 @@ export function createSF2Router(app) {
       if (!preset) return res.status(404).json({ error: 'Preset not found in this SF2' });
       sendPreset(res, preset);
     } catch (err) {
-      app.logger.error(`GET /api/sf2/${req.params.id}/preset/melodic/${req.params.program} failed: ${err.message}`);
+      app.logger.error(
+        `GET /api/sf2/${req.params.id}/preset/melodic/${req.params.program} failed: ${err.message}`
+      );
       res.status(500).json({ error: 'Internal server error.' });
     }
   });
@@ -201,7 +210,7 @@ export function createSF2Router(app) {
       res.json({
         drumKits: drum.kits,
         drumBank: drum.bankNum,
-        melodicPrograms,
+        melodicPrograms
       });
     } catch (err) {
       app.logger.error(`GET /api/sf2/${req.params.id}/kits failed: ${err.message}`);
@@ -212,19 +221,27 @@ export function createSF2Router(app) {
   // ── Drum preset ───────────────────────────────────────────────────────────
   router.get('/:id/preset/drum/:kit/:note', async (req, res) => {
     try {
-      const id   = parseSF2Id(req.params.id);
-      const kit  = Number(req.params.kit);
+      const id = parseSF2Id(req.params.id);
+      const kit = Number(req.params.kit);
       const note = Number(req.params.note);
-      if (id === null
-          || !Number.isFinite(kit)  || kit  < 0 || kit  > 127
-          || !Number.isFinite(note) || note < 0 || note > 127) {
+      if (
+        id === null ||
+        !Number.isFinite(kit) ||
+        kit < 0 ||
+        kit > 127 ||
+        !Number.isFinite(note) ||
+        note < 0 ||
+        note > 127
+      ) {
         return res.status(400).json({ error: 'Invalid id, kit, or note' });
       }
       const preset = await app.sf2PresetService.getPreset(id, 'drum', 0, kit, note);
       if (!preset) return res.status(404).json({ error: 'Drum preset not found in this SF2' });
       sendPreset(res, preset);
     } catch (err) {
-      app.logger.error(`GET /api/sf2/${req.params.id}/preset/drum/${req.params.kit}/${req.params.note} failed: ${err.message}`);
+      app.logger.error(
+        `GET /api/sf2/${req.params.id}/preset/drum/${req.params.kit}/${req.params.note} failed: ${err.message}`
+      );
       res.status(500).json({ error: 'Internal server error.' });
     }
   });

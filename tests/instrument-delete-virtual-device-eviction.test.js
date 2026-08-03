@@ -33,8 +33,10 @@ describe('instrumentDelete — virtual device eviction', () => {
     const res = await instrumentDelete(app, { deviceId: 'virtual_123_abc', channel: 0 });
 
     expect(res).toEqual({ success: true });
-    expect(app.instrumentRepository.deleteSettingsByDevice)
-      .toHaveBeenCalledWith('virtual_123_abc', 0);
+    expect(app.instrumentRepository.deleteSettingsByDevice).toHaveBeenCalledWith(
+      'virtual_123_abc',
+      0
+    );
     expect(removeVirtualDevice).toHaveBeenCalledWith('virtual_123_abc');
   });
 

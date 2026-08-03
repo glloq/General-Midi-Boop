@@ -9,7 +9,10 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const sourcePath = resolve(__dirname, '../../public/js/features/instrument-settings/InstrumentFamilies.js');
+const sourcePath = resolve(
+  __dirname,
+  '../../public/js/features/instrument-settings/InstrumentFamilies.js'
+);
 const jsonPath = resolve(__dirname, '../../shared/instrument-families.json');
 const source = readFileSync(sourcePath, 'utf8');
 const shared = JSON.parse(readFileSync(jsonPath, 'utf8'));
@@ -54,8 +57,9 @@ describe('InstrumentFamilies shared JSON ↔ frontend parity', () => {
     // Parse the literal from the source (same trick as above).
     const m = source.match(/const\s+GM_DRUM_KITS_LIST\s*=\s*\[([\s\S]*?)\];/);
     expect(m).toBeTruthy();
-    const kits = [...m[1].matchAll(/{\s*program:\s*(\d+)[^}]*name:\s*'([^']+)'/g)]
-      .map(([, p, n]) => ({ program: Number(p), name: n }));
+    const kits = [...m[1].matchAll(/{\s*program:\s*(\d+)[^}]*name:\s*'([^']+)'/g)].map(
+      ([, p, n]) => ({ program: Number(p), name: n })
+    );
     expect(kits).toEqual(shared.gmDrumKits);
   });
 
@@ -75,7 +79,10 @@ describe('InstrumentFamilies shared JSON ↔ frontend parity', () => {
     const path = require('path');
     const dir = path.resolve(__dirname, '../../public/assets/instruments');
     const files = new Set(
-      fs.readdirSync(dir).filter((f) => f.endsWith('.svg')).map((f) => f.replace(/\.svg$/, ''))
+      fs
+        .readdirSync(dir)
+        .filter((f) => f.endsWith('.svg'))
+        .map((f) => f.replace(/\.svg$/, ''))
     );
     for (const slug of Object.values(shared.programToSlug)) {
       expect(files.has(slug)).toBe(true);

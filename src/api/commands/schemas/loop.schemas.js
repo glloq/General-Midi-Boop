@@ -196,7 +196,8 @@ function push(errors, ...maybeErrs) {
 export const loop_create = {
   custom: (data) => {
     const errors = [];
-    push(errors,
+    push(
+      errors,
       validateName(data.name),
       validateTempo(data.tempo),
       validateTimeSigNum(data.time_sig_num),
@@ -227,7 +228,8 @@ export const loop_update = {
       const e = validateName(data.name);
       if (e) errors.push(e);
     }
-    push(errors,
+    push(
+      errors,
       validateTempo(data.tempo),
       validateTimeSigNum(data.time_sig_num),
       validateTimeSigDen(data.time_sig_den),
@@ -306,7 +308,8 @@ function validateLabel(v) {
 export const arrangement_create = {
   custom: (data) => {
     const errors = [];
-    push(errors,
+    push(
+      errors,
       validateName(data.name),
       validateTempo(data.global_tempo, 'global_tempo'),
       validateTotalBars(data.total_bars)
@@ -331,7 +334,8 @@ export const arrangement_update = {
       const e = validateName(data.name);
       if (e) errors.push(e);
     }
-    push(errors,
+    push(
+      errors,
       validateTempo(data.global_tempo, 'global_tempo'),
       validateTotalBars(data.total_bars)
     );
@@ -351,7 +355,8 @@ export const arrangement_add_track = {
     if (data.arrangementId === undefined || data.arrangementId === null) {
       errors.push('arrangementId is required');
     }
-    push(errors,
+    push(
+      errors,
       validateTrackIndex(data.track_index),
       validateLabel(data.label),
       validateMidiChannel(data.midi_channel)
@@ -366,10 +371,7 @@ export const arrangement_update_track = {
     if (data.trackId === undefined || data.trackId === null) {
       errors.push('trackId is required');
     }
-    push(errors,
-      validateLabel(data.label),
-      validateMidiChannel(data.midi_channel)
-    );
+    push(errors, validateLabel(data.label), validateMidiChannel(data.midi_channel));
     return errors;
   }
 };
@@ -389,10 +391,7 @@ export const arrangement_add_block = {
     if (data.loopId === undefined || data.loopId === null) {
       errors.push('loopId is required');
     }
-    push(errors,
-      validatePositionBar(data.position_bar),
-      validateRepetitions(data.repetitions)
-    );
+    push(errors, validatePositionBar(data.position_bar), validateRepetitions(data.repetitions));
     return errors;
   }
 };
@@ -403,10 +402,7 @@ export const arrangement_update_block = {
     if (data.blockId === undefined || data.blockId === null) {
       errors.push('blockId is required');
     }
-    push(errors,
-      validatePositionBar(data.position_bar),
-      validateRepetitions(data.repetitions)
-    );
+    push(errors, validatePositionBar(data.position_bar), validateRepetitions(data.repetitions));
     return errors;
   }
 };

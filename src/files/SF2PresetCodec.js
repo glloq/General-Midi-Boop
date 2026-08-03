@@ -60,18 +60,18 @@ export function encodePreset(preset) {
     const f32 = z.sample;
     const len = f32 ? f32.length : 0;
     metaZones[i] = {
-      sampleOffset: totalSamples,   // in Float32 units
+      sampleOffset: totalSamples, // in Float32 units
       sampleLength: len,
-      sampleRate:   z.sampleRate,
-      loopStart:    z.loopStart,
-      loopEnd:      z.loopEnd,
-      keyRangeLow:  z.keyRangeLow,
+      sampleRate: z.sampleRate,
+      loopStart: z.loopStart,
+      loopEnd: z.loopEnd,
+      keyRangeLow: z.keyRangeLow,
       keyRangeHigh: z.keyRangeHigh,
-      velRangeLow:  z.velRangeLow,
+      velRangeLow: z.velRangeLow,
       velRangeHigh: z.velRangeHigh,
-      midi:         z.midi,
-      coarseTune:   z.coarseTune,
-      fineTune:     z.fineTune,
+      midi: z.midi,
+      coarseTune: z.coarseTune,
+      fineTune: z.fineTune
     };
     totalSamples += len;
   }
@@ -81,8 +81,8 @@ export function encodePreset(preset) {
   const sampleBytes = totalSamples * 4;
   const out = Buffer.allocUnsafe(HEADER_BYTES + metaBuf.length + sampleBytes);
 
-  out.writeUInt32LE(MAGIC,       0);
-  out.writeUInt32LE(VERSION,     4);
+  out.writeUInt32LE(MAGIC, 0);
+  out.writeUInt32LE(VERSION, 4);
   out.writeUInt32LE(metaBuf.length, 8);
   metaBuf.copy(out, HEADER_BYTES);
 
@@ -108,9 +108,12 @@ export function encodePreset(preset) {
  * @returns {{ zones: Array }}
  */
 export function decodePreset(input) {
-  const buf = input instanceof ArrayBuffer
-    ? Buffer.from(input)
-    : (Buffer.isBuffer(input) ? input : Buffer.from(input.buffer, input.byteOffset, input.byteLength));
+  const buf =
+    input instanceof ArrayBuffer
+      ? Buffer.from(input)
+      : Buffer.isBuffer(input)
+        ? input
+        : Buffer.from(input.buffer, input.byteOffset, input.byteLength);
   if (!looksLikeBinaryPreset(buf)) {
     throw new Error('SF2PresetCodec: not a GMBP buffer');
   }
@@ -134,28 +137,33 @@ export function decodePreset(input) {
   const zones = meta.zones.map((z, i) => {
     const sampleOffset = z.sampleOffset | 0;
     const sampleLength = z.sampleLength | 0;
-    if (sampleLength < 0 || sampleOffset < 0 ||
-        (sampleOffset + sampleLength) * 4 > sampleBytesAvailable) {
+    if (
+      sampleLength < 0 ||
+      sampleOffset < 0 ||
+      (sampleOffset + sampleLength) * 4 > sampleBytesAvailable
+    ) {
       throw new Error(`SF2PresetCodec: zone ${i} sample range out of bounds`);
     }
     // Float32Array view over the underlying ArrayBuffer at the right offset.
     // Slice into a fresh ArrayBuffer to guarantee 4-byte alignment for the
     // Float32Array view (HEADER_BYTES + metaLen has arbitrary alignment).
     const byteOffset = sampleBase + sampleOffset * 4;
-    const slice = buf.buffer.slice(buf.byteOffset + byteOffset,
-                                   buf.byteOffset + byteOffset + sampleLength * 4);
+    const slice = buf.buffer.slice(
+      buf.byteOffset + byteOffset,
+      buf.byteOffset + byteOffset + sampleLength * 4
+    );
     return {
-      sample:       new Float32Array(slice),
-      sampleRate:   z.sampleRate,
-      loopStart:    z.loopStart,
-      loopEnd:      z.loopEnd,
-      keyRangeLow:  z.keyRangeLow,
+      sample: new Float32Array(slice),
+      sampleRate: z.sampleRate,
+      loopStart: z.loopStart,
+      loopEnd: z.loopEnd,
+      keyRangeLow: z.keyRangeLow,
       keyRangeHigh: z.keyRangeHigh,
-      velRangeLow:  z.velRangeLow,
+      velRangeLow: z.velRangeLow,
       velRangeHigh: z.velRangeHigh,
-      midi:         z.midi,
-      coarseTune:   z.coarseTune,
-      fineTune:     z.fineTune,
+      midi: z.midi,
+      coarseTune: z.coarseTune,
+      fineTune: z.fineTune
     };
   });
   return { zones };

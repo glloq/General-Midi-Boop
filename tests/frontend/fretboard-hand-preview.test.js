@@ -13,19 +13,27 @@ let calls;
 
 function installCanvasStub() {
   calls = [];
-  const ctx = new Proxy({}, {
-    get(_t, prop) {
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
-        return (...args) => calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => calls.push({ method: prop, args });
+        }
+        return undefined;
+      },
+      set(_t, prop, value) {
+        calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return undefined;
-    },
-    set(_t, prop, value) {
-      calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -44,9 +52,10 @@ beforeEach(() => {
 
 function makeCanvas(w = 600, h = 160) {
   const c = document.createElement('canvas');
-  Object.defineProperty(c, 'clientWidth',  { get: () => w });
+  Object.defineProperty(c, 'clientWidth', { get: () => w });
   Object.defineProperty(c, 'clientHeight', { get: () => h });
-  c.width = w; c.height = h;
+  c.width = w;
+  c.height = h;
   return c;
 }
 
@@ -62,7 +71,8 @@ function placeAt(fb, anchor, level = 'ok') {
 describe('FretboardHandPreview — geometric fret spacing', () => {
   it('places fret 12 at half the available scale length', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 24
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 24
     });
     const x0 = fb._fretX(0);
     const x12 = fb._fretX(12);
@@ -80,12 +90,11 @@ describe('FretboardHandPreview — geometric fret spacing', () => {
 
   it('D1 — paints a tuning label per string left of the nut', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22 // standard guitar
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22 // standard guitar
     });
     fb.draw();
-    const texts = calls
-      .filter(c => c.method === 'fillText')
-      .map(c => c.args[0]);
+    const texts = calls.filter((c) => c.method === 'fillText').map((c) => c.args[0]);
     // Expect each string's open-note name to appear at least once.
     expect(texts).toContain('E2'); // string 1 = midi 40
     expect(texts).toContain('A2'); // string 2 = midi 45
@@ -94,8 +103,9 @@ describe('FretboardHandPreview — geometric fret spacing', () => {
     expect(texts).toContain('B3'); // string 5 = midi 59
     expect(texts).toContain('E4'); // string 6 = midi 64
     // And those are positioned LEFT of the nut.
-    const labelCalls = calls.filter(c => c.method === 'fillText'
-        && /^[A-G]#?\d+$/.test(c.args[0]));
+    const labelCalls = calls.filter(
+      (c) => c.method === 'fillText' && /^[A-G]#?\d+$/.test(c.args[0])
+    );
     for (const c of labelCalls) {
       expect(c.args[1]).toBeLessThan(fb._fretX(0));
     }
@@ -109,25 +119,26 @@ describe('FretboardHandPreview — geometric fret spacing', () => {
     // values during _drawFrets must include a value ≥ 2 (major
     // marker frets).
     const lineWidths = calls
-      .filter(c => c.method === 'set' && c.prop === 'lineWidth')
-      .map(c => c.value);
-    expect(lineWidths.some(v => v >= 2)).toBe(true);
+      .filter((c) => c.method === 'set' && c.prop === 'lineWidth')
+      .map((c) => c.value);
+    expect(lineWidths.some((v) => v >= 2)).toBe(true);
   });
 
   it('B1 — body sketch paints an arc + concentric soundhole right of the last fret', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(800, 200), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     fb.draw();
     // Body region starts at fretX(numFrets) and reaches the right edge.
     const xLastFret = fb._fretX(fb.numFrets);
     // The body uses two arcs (soundhole rings). Check at least one
     // arc with cx > xLastFret.
-    const arcCalls = calls.filter(c => c.method === 'arc');
-    expect(arcCalls.some(c => c.args[0] > xLastFret)).toBe(true);
+    const arcCalls = calls.filter((c) => c.method === 'arc');
+    expect(arcCalls.some((c) => c.args[0] > xLastFret)).toBe(true);
     // Plus the shoulder uses quadraticCurveTo (added to the canvas
     // stub via the existing regex).
-    const quads = calls.filter(c => c.method === 'quadraticCurveTo');
+    const quads = calls.filter((c) => c.method === 'quadraticCurveTo');
     expect(quads.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -144,7 +155,7 @@ describe('FretboardHandPreview — geometric fret spacing', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(600, 200), {
       tuning: [40, 45, 50, 55, 59, 64]
     });
-    const yLow  = fb._stringY(1); // E2
+    const yLow = fb._stringY(1); // E2
     const yHigh = fb._stringY(6); // E4
     expect(yLow).toBeGreaterThan(yHigh);
   });
@@ -153,26 +164,36 @@ describe('FretboardHandPreview — geometric fret spacing', () => {
 describe('FretboardHandPreview — hand window rectangle', () => {
   it('renders a translucent green band at the configured anchor', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22,
-      scaleLengthMm: 650, handSpanMm: 80
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      scaleLengthMm: 650,
+      handSpanMm: 80
     });
     placeAt(fb, 5, 'ok');
     const fillStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
-    expect(fillStyles.some(v => /rgba\(34,\s*197,\s*94/.test(v))).toBe(true);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
+    expect(fillStyles.some((v) => /rgba\(34,\s*197,\s*94/.test(v))).toBe(true);
   });
 
   it('warning level paints amber, infeasible paints red', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     placeAt(fb, 1, 'warning');
-    expect(calls.some(c => c.method === 'set' && c.prop === 'fillStyle'
-      && /rgba\(245,\s*158,\s*11/.test(c.value))).toBe(true);
+    expect(
+      calls.some(
+        (c) =>
+          c.method === 'set' && c.prop === 'fillStyle' && /rgba\(245,\s*158,\s*11/.test(c.value)
+      )
+    ).toBe(true);
     placeAt(fb, 1, 'infeasible');
-    expect(calls.some(c => c.method === 'set' && c.prop === 'fillStyle'
-      && /rgba\(239,\s*68,\s*68/.test(c.value))).toBe(true);
+    expect(
+      calls.some(
+        (c) => c.method === 'set' && c.prop === 'fillStyle' && /rgba\(239,\s*68,\s*68/.test(c.value)
+      )
+    ).toBe(true);
   });
 
   it('clearing the trajectory hides the band', () => {
@@ -203,8 +224,10 @@ describe('FretboardHandPreview — hand window rectangle', () => {
       return null;
     }
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22,
-      scaleLengthMm: 650, handSpanMm: 80
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      scaleLengthMm: 650,
+      handSpanMm: 80
     });
     placeAt(fb, 0);
     const bandAtNut = bandRect();
@@ -219,9 +242,10 @@ describe('FretboardHandPreview — hand window rectangle', () => {
 
     // …and the right edge at fret 12 covers MORE frets than at the
     // nut because fret spacing compresses upward.
-    const reachAtNut  = bandAtNut.args[0]  + bandAtNut.args[2];
-    const reachAtH12  = bandAtH12.args[0]  + bandAtH12.args[2];
-    let fretsReachedAtNut = 0, fretsReachedAtH12 = 0;
+    const reachAtNut = bandAtNut.args[0] + bandAtNut.args[2];
+    const reachAtH12 = bandAtH12.args[0] + bandAtH12.args[2];
+    let fretsReachedAtNut = 0,
+      fretsReachedAtH12 = 0;
     for (let f = 1; f <= fb.numFrets; f++) {
       if (fb._fretX(f) <= reachAtNut) fretsReachedAtNut = f;
       if (fb._fretX(f) <= reachAtH12) fretsReachedAtH12 = f - 12;
@@ -233,23 +257,21 @@ describe('FretboardHandPreview — hand window rectangle', () => {
     // The hand doesn't shrink toward the bridge — the band's pixel
     // width must stay constant regardless of where it's pinned.
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
       // no scale_length_mm, no hand_span_mm — the widget falls back
       // to derived defaults and the band stays in mm coordinates.
     });
 
     placeAt(fb, 3);
-    const lowAnchorBand = calls
-      .filter(c => c.method === 'fillRect')
-      .find(c => c.args[2] > 20); // band is the only wide fillRect
+    const lowAnchorBand = calls.filter((c) => c.method === 'fillRect').find((c) => c.args[2] > 20); // band is the only wide fillRect
     expect(lowAnchorBand).toBeDefined();
     const widthAtFret3 = lowAnchorBand.args[2];
 
     calls.length = 0;
     placeAt(fb, 15);
-    const highAnchorBand = calls
-      .filter(c => c.method === 'fillRect')
-      .find(c => c.args[2] > 20);
+    const highAnchorBand = calls.filter((c) => c.method === 'fillRect').find((c) => c.args[2] > 20);
     expect(highAnchorBand).toBeDefined();
     const widthAtFret15 = highAnchorBand.args[2];
 
@@ -258,26 +280,28 @@ describe('FretboardHandPreview — hand window rectangle', () => {
 
   it('anchor=1 starts the band AT the nut (NOT at the fret 1 wire)', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     placeAt(fb, 1);
     const xNut = fb._fretX(0);
     const bandRect = calls
-      .filter(c => c.method === 'fillRect')
-      .find(c => Math.abs(c.args[0] - xNut) < 0.5);
+      .filter((c) => c.method === 'fillRect')
+      .find((c) => Math.abs(c.args[0] - xNut) < 0.5);
     expect(bandRect).toBeDefined();
   });
 
   it('hand band overflows above and below the fretboard (better visibility)', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(600, 200), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     placeAt(fb, 5);
     const fbY = fb.margin.top;
     const fbH = 200 - fb.margin.top - fb.margin.bottom;
-    const bandRect = calls
-      .filter(c => c.method === 'fillRect')
-      .find(c => c.args[1] < fbY); // a fillRect with y < fretboard top edge
+    const bandRect = calls.filter((c) => c.method === 'fillRect').find((c) => c.args[1] < fbY); // a fillRect with y < fretboard top edge
     expect(bandRect).toBeDefined();
     // Band y is ABOVE fbY and band height extends BELOW fbY+fbH.
     expect(bandRect.args[1]).toBeLessThan(fbY);
@@ -288,25 +312,30 @@ describe('FretboardHandPreview — hand window rectangle', () => {
 describe('FretboardHandPreview — active positions', () => {
   it('paints a finger dot at the centre of the (string × fret) cell', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     calls.length = 0;
     fb.setActivePositions([{ string: 3, fret: 5, velocity: 100 }]);
-    const arcCalls = calls.filter(c => c.method === 'arc');
+    const arcCalls = calls.filter((c) => c.method === 'arc');
     expect(arcCalls.length).toBeGreaterThan(0);
     const expectedX = (fb._fretX(4) + fb._fretX(5)) / 2;
     const expectedY = fb._stringY(3);
-    expect(arcCalls.some(c => Math.abs(c.args[0] - expectedX) < 1
-                          && Math.abs(c.args[1] - expectedY) < 1)).toBe(true);
+    expect(
+      arcCalls.some(
+        (c) => Math.abs(c.args[0] - expectedX) < 1 && Math.abs(c.args[1] - expectedY) < 1
+      )
+    ).toBe(true);
   });
 
   it('open-string notes paint an OPEN dot before the nut', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     calls.length = 0;
     fb.setActivePositions([{ string: 6, fret: 0, velocity: 100 }]);
-    const arcCalls = calls.filter(c => c.method === 'arc');
+    const arcCalls = calls.filter((c) => c.method === 'arc');
     expect(arcCalls.length).toBeGreaterThan(0);
     const lastArc = arcCalls[arcCalls.length - 1];
     // x is left of fret 0 (the nut).
@@ -322,27 +351,31 @@ describe('FretboardHandPreview — active positions', () => {
     const expectedY = fb._stringY(3);
     calls.length = 0;
     fb.setActivePositions([]);
-    const arcCalls = calls.filter(c => c.method === 'arc');
-    expect(arcCalls.some(c => Math.abs(c.args[0] - expectedX) < 1
-                          && Math.abs(c.args[1] - expectedY) < 1)).toBe(false);
+    const arcCalls = calls.filter((c) => c.method === 'arc');
+    expect(
+      arcCalls.some(
+        (c) => Math.abs(c.args[0] - expectedX) < 1 && Math.abs(c.args[1] - expectedY) < 1
+      )
+    ).toBe(false);
   });
 });
 
 describe('FretboardHandPreview — unplayable positions', () => {
   it('setUnplayablePositions paints a red disc on top of the fret cell', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     calls.length = 0;
     fb.setUnplayablePositions([{ string: 3, fret: 7, reason: 'too_many_fingers' }]);
     const fillStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
-    expect(fillStyles.some(v => /rgba\(239, 68, 68, 0\.55\)/.test(v))).toBe(true);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
+    expect(fillStyles.some((v) => /rgba\(239, 68, 68, 0\.55\)/.test(v))).toBe(true);
     // Plus a stroke at the same position with the dark red border.
     const strokeStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'strokeStyle')
-      .map(c => c.value);
+      .filter((c) => c.method === 'set' && c.prop === 'strokeStyle')
+      .map((c) => c.value);
     expect(strokeStyles).toContain('#dc2626');
   });
 
@@ -350,9 +383,9 @@ describe('FretboardHandPreview — unplayable positions', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), { numFrets: 22 });
     fb.setUnplayablePositions([
       { string: 3, fret: 5 },
-      { string: 'bad' },             // dropped
-      { fret: 7 },                   // dropped
-      null,                          // dropped
+      { string: 'bad' }, // dropped
+      { fret: 7 }, // dropped
+      null, // dropped
       { string: 1, fret: 0 }
     ]);
     expect(fb.unplayablePositions).toHaveLength(2);
@@ -370,7 +403,8 @@ describe('FretboardHandPreview — unplayable positions', () => {
 describe('FretboardHandPreview — active note feedback (N1 / N2 / N3)', () => {
   it('N1 — paints the VIBRATING portion of the string (fret → bridge side)', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     fb.setActivePositions([{ string: 3, fret: 5, velocity: 100 }]);
     // The N1 helper sets an amber stroke + draws a line FROM the
@@ -378,59 +412,71 @@ describe('FretboardHandPreview — active note feedback (N1 / N2 / N3)', () => {
     // of the neck (= bridge side), on the y of string 3.
     const yString3 = fb._stringY(3);
     const xCentreF5 = (fb._fretX(4) + fb._fretX(5)) / 2;
-    const xEnd      = fb._fretX(fb.numFrets);
-    const moves = calls.filter(c => c.method === 'moveTo'
-        && Math.abs(c.args[1] - yString3) < 0.5
-        && Math.abs(c.args[0] - xCentreF5) < 1);
-    const lines = calls.filter(c => c.method === 'lineTo'
-        && Math.abs(c.args[1] - yString3) < 0.5
-        && Math.abs(c.args[0] - xEnd) < 1);
+    const xEnd = fb._fretX(fb.numFrets);
+    const moves = calls.filter(
+      (c) =>
+        c.method === 'moveTo' &&
+        Math.abs(c.args[1] - yString3) < 0.5 &&
+        Math.abs(c.args[0] - xCentreF5) < 1
+    );
+    const lines = calls.filter(
+      (c) =>
+        c.method === 'lineTo' &&
+        Math.abs(c.args[1] - yString3) < 0.5 &&
+        Math.abs(c.args[0] - xEnd) < 1
+    );
     expect(moves.length).toBeGreaterThan(0);
     expect(lines.length).toBeGreaterThan(0);
     const strokeStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'strokeStyle')
-      .map(c => c.value);
-    expect(strokeStyles.some(v => /rgba\(255, 215, 64/.test(v))).toBe(true);
+      .filter((c) => c.method === 'set' && c.prop === 'strokeStyle')
+      .map((c) => c.value);
+    expect(strokeStyles.some((v) => /rgba\(255, 215, 64/.test(v))).toBe(true);
   });
 
   it('N1 — open string (fret=0) lights up the entire string length', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     fb.setActivePositions([{ string: 6, fret: 0 }]);
     const yString6 = fb._stringY(6);
     const xRight = fb._fretX(fb.numFrets);
-    const lines = calls.filter(c => c.method === 'lineTo'
-        && Math.abs(c.args[1] - yString6) < 0.5
-        && Math.abs(c.args[0] - xRight) < 1);
+    const lines = calls.filter(
+      (c) =>
+        c.method === 'lineTo' &&
+        Math.abs(c.args[1] - yString6) < 0.5 &&
+        Math.abs(c.args[0] - xRight) < 1
+    );
     expect(lines.length).toBeGreaterThan(0);
   });
 
   it('does NOT paint per-finger numbers inside the band (simple rectangle only)', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(800, 200), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     placeAt(fb, 5);
-    const fillTexts = calls.filter(c => c.method === 'fillText').map(c => c.args[0]);
+    const fillTexts = calls.filter((c) => c.method === 'fillText').map((c) => c.args[0]);
     // The "1"/"2"/"3"/"4" finger labels were removed — the band is
     // a plain rectangle. Tuning labels (E2/A2/…) and fret numbers
     // ("1", "2", …) for the FRET ROW are still painted, but only
     // outside the hand band's vertical centre.
-    const numericTexts = fillTexts.filter(v => /^\d+$/.test(v));
+    const numericTexts = fillTexts.filter((v) => /^\d+$/.test(v));
     expect(numericTexts.includes('1')).toBe(true); // fret-row label is OK
     // We didn't add overlay finger labels at the band's mid-y any more.
   });
 
   it('N3 — paints a green "O" left of the nut for active open strings', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     fb.setActivePositions([{ string: 6, fret: 0 }]);
     const fillStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
     expect(fillStyles).toContain('#06d6a0');
-    const oTexts = calls.filter(c => c.method === 'fillText' && c.args[0] === 'O');
+    const oTexts = calls.filter((c) => c.method === 'fillText' && c.args[0] === 'O');
     expect(oTexts.length).toBeGreaterThan(0);
     // Plotted left of the nut.
     expect(oTexts[0].args[1]).toBeLessThan(fb._fretX(0));
@@ -438,10 +484,11 @@ describe('FretboardHandPreview — active note feedback (N1 / N2 / N3)', () => {
 
   it('N3 — paints a red "X" left of the nut for muted (unplayable) strings', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22
     });
     fb.setUnplayablePositions([{ string: 5, fret: 12, reason: 'outside_window' }]);
-    const xTexts = calls.filter(c => c.method === 'fillText' && c.args[0] === 'X');
+    const xTexts = calls.filter((c) => c.method === 'fillText' && c.args[0] === 'X');
     expect(xTexts.length).toBeGreaterThan(0);
     // Centred on string 5's y.
     expect(Math.abs(xTexts[0].args[2] - fb._stringY(5))).toBeLessThan(1);
@@ -458,48 +505,48 @@ describe('FretboardHandPreview — derived ghost anchor', () => {
   it('paints a NEUTRAL grey ghost rectangle at the next planned shift', () => {
     const fb = makeFb();
     fb.setHandTrajectory([
-      { tick: 0,    anchor: 1,  releaseTick: 0 },
+      { tick: 0, anchor: 1, releaseTick: 0 },
       { tick: 1000, anchor: 12, releaseTick: 1000 }
     ]);
     fb.setCurrentTime(0);
     const fillStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
     // Ghost is ALWAYS painted in a neutral grey — never red, never
     // level-tinted. (Reserves red exclusively for the live band's
     // unreachability signal.)
-    expect(fillStyles.some(v => /rgba\(120, 120, 140, 0\.10\)/.test(v))).toBe(true);
+    expect(fillStyles.some((v) => /rgba\(120, 120, 140, 0\.10\)/.test(v))).toBe(true);
     // No red anywhere on the ghost path.
-    expect(fillStyles.some(v => /rgba\(239, 68, 68, 0\.14\)/.test(v))).toBe(false);
+    expect(fillStyles.some((v) => /rgba\(239, 68, 68, 0\.14\)/.test(v))).toBe(false);
   });
 
   it('hides the ghost when the next anchor matches the current one', () => {
     const fb = makeFb();
     fb.setHandTrajectory([
-      { tick: 0,    anchor: 5, releaseTick: 0 },
+      { tick: 0, anchor: 5, releaseTick: 0 },
       { tick: 1000, anchor: 5, releaseTick: 1000 } // same anchor
     ]);
     calls.length = 0;
     fb.setCurrentTime(0.001); // bust the throttle without changing visual
-    fb.draw();                // force a fresh paint regardless of throttle
+    fb.draw(); // force a fresh paint regardless of throttle
     const fillStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
-    expect(fillStyles.some(v => /rgba\(120, 120, 140, 0\.10\)/.test(v))).toBe(false);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
+    expect(fillStyles.some((v) => /rgba\(120, 120, 140, 0\.10\)/.test(v))).toBe(false);
   });
 
   it('hides the ghost once the playhead passes every shift', () => {
     const fb = makeFb();
     fb.setHandTrajectory([
-      { tick: 0,    anchor: 5,  releaseTick: 0 },
+      { tick: 0, anchor: 5, releaseTick: 0 },
       { tick: 1000, anchor: 12, releaseTick: 1000 }
     ]);
     calls.length = 0; // ignore the initial paint at sec=0
     fb.setCurrentTime(99);
     const fillStyles = calls
-      .filter(c => c.method === 'set' && c.prop === 'fillStyle')
-      .map(c => c.value);
-    expect(fillStyles.some(v => /rgba\(120, 120, 140, 0\.10\)/.test(v))).toBe(false);
+      .filter((c) => c.method === 'set' && c.prop === 'fillStyle')
+      .map((c) => c.value);
+    expect(fillStyles.some((v) => /rgba\(120, 120, 140, 0\.10\)/.test(v))).toBe(false);
   });
 });
 
@@ -513,9 +560,13 @@ describe('FretboardHandPreview — trajectory-driven animation', () => {
   it('setHandTrajectory + setCurrentTime drives the displayed anchor from the playhead', () => {
     const fb = makeFb();
     fb.setHandTrajectory([
-      { tick: 0,    anchor: 1,  releaseTick: 100 },
-      { tick: 1000, anchor: 12, releaseTick: 1100,
-        motion: { requiredSec: 0.4, availableSec: 1.5, feasible: true } }
+      { tick: 0, anchor: 1, releaseTick: 100 },
+      {
+        tick: 1000,
+        anchor: 12,
+        releaseTick: 1100,
+        motion: { requiredSec: 0.4, availableSec: 1.5, feasible: true }
+      }
     ]);
     fb.setCurrentTime(0);
     expect(fb._currentDisplayedAnchor()).toBe(1);
@@ -530,9 +581,13 @@ describe('FretboardHandPreview — trajectory-driven animation', () => {
   it('arrives EARLY (compressed by motion.requiredSec) when the move is fast', () => {
     const fb = makeFb();
     fb.setHandTrajectory([
-      { tick: 0,    anchor: 1, releaseTick: 0 },
-      { tick: 480,  anchor: 5, releaseTick: 480, // 1 sec gap
-        motion: { requiredSec: 0.2, availableSec: 1, feasible: true } }
+      { tick: 0, anchor: 1, releaseTick: 0 },
+      {
+        tick: 480,
+        anchor: 5,
+        releaseTick: 480, // 1 sec gap
+        motion: { requiredSec: 0.2, availableSec: 1, feasible: true }
+      }
     ]);
     // At sec 0.5: prevRelease=0, arrival=0+0.2=0.2 → already arrived.
     fb.setCurrentTime(0.5);
@@ -547,14 +602,18 @@ describe('FretboardHandPreview — trajectory-driven animation', () => {
     // tick at sec 1) does it finally arrive.
     const fb = makeFb();
     fb.setHandTrajectory([
-      { tick: 0,   anchor: 1,  releaseTick: 0 },
-      { tick: 480, anchor: 12, releaseTick: 480, // 1-sec gap
-        motion: { requiredSec: 2, availableSec: 1, feasible: false } }
+      { tick: 0, anchor: 1, releaseTick: 0 },
+      {
+        tick: 480,
+        anchor: 12,
+        releaseTick: 480, // 1-sec gap
+        motion: { requiredSec: 2, availableSec: 1, feasible: false }
+      }
     ]);
-    fb.setCurrentTime(0.5);  // 25 % through the physical move
+    fb.setCurrentTime(0.5); // 25 % through the physical move
     expect(fb._currentDisplayedAnchor()).toBeGreaterThan(2);
     expect(fb._currentDisplayedAnchor()).toBeLessThan(7);
-    fb.setCurrentTime(2.1);  // past the full physical duration
+    fb.setCurrentTime(2.1); // past the full physical duration
     expect(fb._currentDisplayedAnchor()).toBe(12);
   });
 
@@ -572,7 +631,7 @@ describe('FretboardHandPreview — trajectory-driven animation', () => {
     fb.setCurrentTime(0); // first paint
     calls.length = 0;
     fb.setCurrentTime(0.001); // sub-pixel + within 33 ms → SKIP
-    expect(calls.filter(c => c.method === 'fillRect').length).toBe(0);
+    expect(calls.filter((c) => c.method === 'fillRect').length).toBe(0);
   });
 });
 

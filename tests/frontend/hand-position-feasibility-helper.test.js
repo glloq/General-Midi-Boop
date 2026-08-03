@@ -26,7 +26,7 @@ const semitonesHands = {
   mode: 'semitones',
   hand_move_semitones_per_sec: 60,
   hands: [
-    { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
     { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
@@ -35,7 +35,9 @@ const fretsHands = {
   enabled: true,
   mode: 'frets',
   hand_move_mm_per_sec: 250,
-  hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, max_fingers: 4, hand_span_frets: 4 }]
+  hands: [
+    { id: 'fretting', cc_position_number: 22, hand_span_mm: 80, max_fingers: 4, hand_span_frets: 4 }
+  ]
 };
 
 function analysis({ polyphonyMax = 4, rangeMin = 60, rangeMax = 72 } = {}) {
@@ -71,18 +73,16 @@ describe('HandPositionFeasibility.classify', () => {
   });
 
   it('semitones: wide pitch span → warning', () => {
-    const r = window.HandPositionFeasibility.classify(
-      analysis({ rangeMin: 30, rangeMax: 95 }),
-      { hands_config: semitonesHands }
-    );
+    const r = window.HandPositionFeasibility.classify(analysis({ rangeMin: 30, rangeMax: 95 }), {
+      hands_config: semitonesHands
+    });
     expect(r.level).toBe('warning');
   });
 
   it('semitones: polyphony > total fingers → infeasible', () => {
-    const r = window.HandPositionFeasibility.classify(
-      analysis({ polyphonyMax: 12 }),
-      { hands_config: semitonesHands }
-    );
+    const r = window.HandPositionFeasibility.classify(analysis({ polyphonyMax: 12 }), {
+      hands_config: semitonesHands
+    });
     expect(r.level).toBe('infeasible');
   });
 
@@ -137,7 +137,9 @@ describe('HandPositionFeasibility.renderBadge', () => {
   });
 
   it('appends the optional extra-title when provided', () => {
-    const html = window.HandPositionFeasibility.renderBadge('warning', { extraTitle: 'span exceeds hand' });
+    const html = window.HandPositionFeasibility.renderBadge('warning', {
+      extraTitle: 'span exceeds hand'
+    });
     expect(html).toMatch(/span exceeds hand/);
   });
 });
@@ -164,7 +166,7 @@ describe('HandPositionFeasibility.aggregateByChannel', () => {
   it('preserves summary + message from the dominating entry', () => {
     const map = window.HandPositionFeasibility.aggregateByChannel([
       { channel: 0, level: 'warning', summary: { mode: 'frets' }, message: 'too wide' },
-      { channel: 0, level: 'ok',      summary: { mode: 'frets' } }
+      { channel: 0, level: 'ok', summary: { mode: 'frets' } }
     ]);
     expect(map.get(0).message).toBe('too wide');
   });

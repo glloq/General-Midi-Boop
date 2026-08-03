@@ -24,10 +24,7 @@ const BANK_ID_MAX_LEN = 64;
 function _validateFloat(value, field, min, max) {
   const num = Number(value);
   if (!Number.isFinite(num) || num < min || num > max) {
-    throw new ValidationError(
-      `${field} must be a number between ${min} and ${max}`,
-      field
-    );
+    throw new ValidationError(`${field} must be a number between ${min} and ${max}`, field);
   }
   return num;
 }
@@ -35,10 +32,7 @@ function _validateFloat(value, field, min, max) {
 function _validateInt(value, field, min, max) {
   const num = parseInt(value, 10);
   if (!Number.isFinite(num) || num < min || num > max) {
-    throw new ValidationError(
-      `${field} must be an integer between ${min} and ${max}`,
-      field
-    );
+    throw new ValidationError(`${field} must be an integer between ${min} and ${max}`, field);
   }
   return num;
 }
@@ -48,10 +42,7 @@ function _validateBankId(bankId) {
     throw new ValidationError('bankId is required', 'bankId');
   }
   if (bankId.length > BANK_ID_MAX_LEN) {
-    throw new ValidationError(
-      `bankId must not exceed ${BANK_ID_MAX_LEN} characters`,
-      'bankId'
-    );
+    throw new ValidationError(`bankId must not exceed ${BANK_ID_MAX_LEN} characters`, 'bankId');
   }
   return bankId;
 }
@@ -101,21 +92,26 @@ function bankEffectsUpdate(app, data) {
   };
 
   const merged = {
-    reverb_mix: data.reverb_mix !== undefined
-      ? _validateFloat(data.reverb_mix, 'reverb_mix', 0, 1)
-      : existing.reverb_mix,
-    reverb_decay_s: data.reverb_decay_s !== undefined
-      ? _validateFloat(data.reverb_decay_s, 'reverb_decay_s', 0.3, 3.0)
-      : existing.reverb_decay_s,
-    echo_mix: data.echo_mix !== undefined
-      ? _validateFloat(data.echo_mix, 'echo_mix', 0, 1)
-      : existing.echo_mix,
-    echo_time_ms: data.echo_time_ms !== undefined
-      ? _validateInt(data.echo_time_ms, 'echo_time_ms', 50, 1000)
-      : existing.echo_time_ms,
-    echo_feedback: data.echo_feedback !== undefined
-      ? _validateFloat(data.echo_feedback, 'echo_feedback', 0, 0.9)
-      : existing.echo_feedback
+    reverb_mix:
+      data.reverb_mix !== undefined
+        ? _validateFloat(data.reverb_mix, 'reverb_mix', 0, 1)
+        : existing.reverb_mix,
+    reverb_decay_s:
+      data.reverb_decay_s !== undefined
+        ? _validateFloat(data.reverb_decay_s, 'reverb_decay_s', 0.3, 3.0)
+        : existing.reverb_decay_s,
+    echo_mix:
+      data.echo_mix !== undefined
+        ? _validateFloat(data.echo_mix, 'echo_mix', 0, 1)
+        : existing.echo_mix,
+    echo_time_ms:
+      data.echo_time_ms !== undefined
+        ? _validateInt(data.echo_time_ms, 'echo_time_ms', 50, 1000)
+        : existing.echo_time_ms,
+    echo_feedback:
+      data.echo_feedback !== undefined
+        ? _validateFloat(data.echo_feedback, 'echo_feedback', 0, 0.9)
+        : existing.echo_feedback
   };
 
   app.database.upsertBankEffects(bankId, merged);

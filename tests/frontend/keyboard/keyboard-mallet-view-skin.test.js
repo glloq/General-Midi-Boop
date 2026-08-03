@@ -30,15 +30,22 @@ let view;
 const mount = (caps) => {
   document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
   const modal = {
-    playNote() {}, stopNote() {},
+    playNote() {},
+    stopNote() {},
     getNoteLabel: (n) => `${n}`,
     getInstrumentNoteRange: () => ({ min: 60, max: 71, notes: null }),
-    selectedDeviceCapabilities: caps,
+    selectedDeviceCapabilities: caps
   };
-  view = new (win.MalletView)();
+  view = new win.MalletView();
   view.mount({ modal });
 };
-afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+afterEach(() => {
+  try {
+    view.unmount();
+  } catch {
+    /* idempotent */
+  }
+});
 
 const root = () => document.getElementById('mallet-container');
 const natBar = () => root().querySelector('.mallet-bar-nat');
@@ -49,7 +56,7 @@ describe('MalletView — realistic per-instrument bar material', () => {
     [9, 'metal-bright'],
     [11, 'metal-warm'],
     [12, 'wood-dark'],
-    [13, 'wood-light'],
+    [13, 'wood-light']
   ];
 
   for (const [gm, skin] of skinned) {
@@ -69,7 +76,7 @@ describe('MalletView — realistic per-instrument bar material', () => {
 
   it('no capabilities → default wood look, no skin', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.MalletView)();
+    const v = new win.MalletView();
     v.mount({ modal: { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}` } });
     expect(document.getElementById('mallet-container').dataset.malletSkin).toBeUndefined();
     v.unmount();
@@ -77,19 +84,32 @@ describe('MalletView — realistic per-instrument bar material', () => {
 
   it('falls back to selectedDevice.gm_program when capabilities absent', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.MalletView)();
-    v.mount({ modal: { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-      selectedDevice: { gm_program: 12 } } });
+    const v = new win.MalletView();
+    v.mount({
+      modal: {
+        playNote() {},
+        stopNote() {},
+        getNoteLabel: (n) => `${n}`,
+        selectedDevice: { gm_program: 12 }
+      }
+    });
     expect(document.getElementById('mallet-container').dataset.malletSkin).toBe('wood-dark');
     v.unmount();
   });
 
   it('showNoteColors still overrides the material colour (🎨 unchanged)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.MalletView)();
-    v.mount({ modal: { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-      selectedDeviceCapabilities: { gm_program: 9 },
-      showNoteColors: true, getNoteColor: () => ({ bg: 'rgb(1, 2, 3)', text: '#fff' }) } });
+    const v = new win.MalletView();
+    v.mount({
+      modal: {
+        playNote() {},
+        stopNote() {},
+        getNoteLabel: (n) => `${n}`,
+        selectedDeviceCapabilities: { gm_program: 9 },
+        showNoteColors: true,
+        getNoteColor: () => ({ bg: 'rgb(1, 2, 3)', text: '#fff' })
+      }
+    });
     for (const bar of document.querySelectorAll('.mallet-bar')) {
       expect(bar.style.background).toBe('rgb(1, 2, 3)');
     }

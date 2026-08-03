@@ -76,7 +76,9 @@ class WebSocketServer {
     // reads `_deps.eventLoopMonitor.currentLag` on every flush.
     const self = this;
     const eventLoopMonitorProxy = {
-      get currentLag() { return self._deps.eventLoopMonitor?.currentLag ?? 0; }
+      get currentLag() {
+        return self._deps.eventLoopMonitor?.currentLag ?? 0;
+      }
     };
     this._outQueue = new WsOutputQueue({
       clients: this.clients,
@@ -109,8 +111,8 @@ class WebSocketServer {
     if (!apiToken) {
       this.logger.warn(
         'GMBOOP_API_TOKEN is empty — cross-origin clients will be rejected ' +
-        'since timingSafeEqual against an empty key always fails. Verify ' +
-        'ApiTokenManager.ensure() ran successfully.'
+          'since timingSafeEqual against an empty key always fails. Verify ' +
+          'ApiTokenManager.ensure() ran successfully.'
       );
     }
 
@@ -156,27 +158,25 @@ class WebSocketServer {
               done(true);
               return;
             }
-          } catch { /* invalid origin, fall through to token check */ }
+          } catch {
+            /* invalid origin, fall through to token check */
+          }
         }
 
         // External (cross-origin) connections must present the token.
         const url = new URL(req.url, 'http://localhost');
-        const token =
-          url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
+        const token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
         try {
           const tokenBuf = Buffer.from(token);
           const apiTokenBuf = Buffer.from(apiToken);
-          if (
-            tokenBuf.length !== apiTokenBuf.length ||
-            !timingSafeEqual(tokenBuf, apiTokenBuf)
-          ) {
+          if (tokenBuf.length !== apiTokenBuf.length || !timingSafeEqual(tokenBuf, apiTokenBuf)) {
             // Include the headers we just compared so operators can tell
             // apart "running the old build" from "headers don't actually
             // match" without instrumenting the runtime.
             this.logger.warn(
               `WebSocket auth rejected: ip=${req.socket.remoteAddress} ` +
-              `origin=${req.headers.origin || '(none)'} host=${req.headers.host || '(none)'} ` +
-              `expectedPort=${serverPort}`
+                `origin=${req.headers.origin || '(none)'} host=${req.headers.host || '(none)'} ` +
+                `expectedPort=${serverPort}`
             );
             done(false, 401, 'Unauthorized');
           } else {
@@ -197,7 +197,9 @@ class WebSocketServer {
     });
 
     this.startHeartbeat();
-    this.logger.info(`WebSocket server attached to HTTP server (max clients: ${MAX_WS_CLIENTS}, max payload: ${MAX_PAYLOAD_BYTES / 1024 / 1024}MB)`);
+    this.logger.info(
+      `WebSocket server attached to HTTP server (max clients: ${MAX_WS_CLIENTS}, max payload: ${MAX_PAYLOAD_BYTES / 1024 / 1024}MB)`
+    );
   }
 
   /**

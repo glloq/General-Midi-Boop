@@ -45,13 +45,17 @@ class InstrumentLightManager {
     }
   }
 
-  _key(deviceId, channel) { return `${deviceId}_${channel | 0}`; }
+  _key(deviceId, channel) {
+    return `${deviceId}_${channel | 0}`;
+  }
 
   _isMasterEnabled(deviceId, channel) {
     try {
       const s = this.database.getInstrumentSettings(deviceId, channel);
       return !!(s && s.lighting_enabled);
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   _controllerFor(deviceId, channel, row) {
@@ -75,9 +79,10 @@ class InstrumentLightManager {
         ctrl.supportedMask = (row.supported_mask | 0) & CC.MASK_ALL;
       }
       if (row.brightness_mode !== undefined) {
-        ctrl.brightnessMode = row.brightness_mode === CC.BRIGHTNESS_MODE.ON_OFF
-          ? CC.BRIGHTNESS_MODE.ON_OFF
-          : CC.BRIGHTNESS_MODE.DIMMABLE;
+        ctrl.brightnessMode =
+          row.brightness_mode === CC.BRIGHTNESS_MODE.ON_OFF
+            ? CC.BRIGHTNESS_MODE.ON_OFF
+            : CC.BRIGHTNESS_MODE.DIMMABLE;
       }
       if (row.supported_effects !== undefined && row.supported_effects !== null) {
         ctrl.supportedEffects = (row.supported_effects | 0) & CC.EFFECTS_ALL;
@@ -103,13 +108,16 @@ class InstrumentLightManager {
   _capabilityFields(row) {
     return {
       supported_mask: (row?.supported_mask | 0) & CC.MASK_ALL,
-      brightness_mode: row && row.brightness_mode !== undefined && row.brightness_mode !== null
-        ? (row.brightness_mode === CC.BRIGHTNESS_MODE.ON_OFF
-            ? CC.BRIGHTNESS_MODE.ON_OFF : CC.BRIGHTNESS_MODE.DIMMABLE)
-        : CC.BRIGHTNESS_MODE.DIMMABLE,
-      supported_effects: row && row.supported_effects !== undefined && row.supported_effects !== null
-        ? (row.supported_effects | 0) & CC.EFFECTS_ALL
-        : CC.EFFECTS_ALL
+      brightness_mode:
+        row && row.brightness_mode !== undefined && row.brightness_mode !== null
+          ? row.brightness_mode === CC.BRIGHTNESS_MODE.ON_OFF
+            ? CC.BRIGHTNESS_MODE.ON_OFF
+            : CC.BRIGHTNESS_MODE.DIMMABLE
+          : CC.BRIGHTNESS_MODE.DIMMABLE,
+      supported_effects:
+        row && row.supported_effects !== undefined && row.supported_effects !== null
+          ? (row.supported_effects | 0) & CC.EFFECTS_ALL
+          : CC.EFFECTS_ALL
     };
   }
 
@@ -198,8 +206,10 @@ class InstrumentLightManager {
       if (enabled) ctrl.setMeta(metaPatch);
       else {
         if (metaPatch.brightnessMode !== undefined) {
-          ctrl.brightnessMode = metaPatch.brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
-            ? CC.BRIGHTNESS_MODE.ON_OFF : CC.BRIGHTNESS_MODE.DIMMABLE;
+          ctrl.brightnessMode =
+            metaPatch.brightnessMode === CC.BRIGHTNESS_MODE.ON_OFF
+              ? CC.BRIGHTNESS_MODE.ON_OFF
+              : CC.BRIGHTNESS_MODE.DIMMABLE;
         }
         if (metaPatch.supportedEffects !== undefined) {
           ctrl.supportedEffects = (metaPatch.supportedEffects | 0) & CC.EFFECTS_ALL;

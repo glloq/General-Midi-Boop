@@ -3,7 +3,7 @@
 // Exposed on `window.MidiSynthesizerConstants` because the codebase uses
 // IIFE+globals (no ES modules in /public/js).
 
-(function() {
+(function () {
   'use strict';
 
   /**
@@ -27,7 +27,7 @@
     reverbMix: 0.12,
     isBuiltInSF2: true,
     sf2Id: 'default',
-    drumKits: [0, 8, 16, 24, 25, 32, 40, 48, 56].map(function(p) {
+    drumKits: [0, 8, 16, 24, 25, 32, 40, 48, 56].map(function (p) {
       return { midiProgram: p, bankIndex: p, verified: true };
     })
   };
@@ -60,15 +60,20 @@
   // any feature the rest of the codebase depends on.
   const WAF_BANKS = [
     {
-      id: 'FluidR3_GM', label: 'FluidR3 GM', suffix: 'FluidR3_GM_sf2_file',
-      quality: 'high', sizeMB: 141, descKey: 'settings.soundBank.banks.FluidR3_GM', reverbMix: 0.08,
+      id: 'FluidR3_GM',
+      label: 'FluidR3 GM',
+      suffix: 'FluidR3_GM_sf2_file',
+      quality: 'high',
+      sizeMB: 141,
+      descKey: 'settings.soundBank.banks.FluidR3_GM',
+      reverbMix: 0.08,
       requiresExternal: true,
       drumKits: [
-        { midiProgram:  0, bankIndex:  0, verified: true  },
-        { midiProgram:  8, bankIndex:  8, verified: true  },
-        { midiProgram: 16, bankIndex: 16, verified: true  },
-        { midiProgram: 24, bankIndex: 24, verified: true  },
-        { midiProgram: 25, bankIndex: 25, verified: true  },
+        { midiProgram: 0, bankIndex: 0, verified: true },
+        { midiProgram: 8, bankIndex: 8, verified: true },
+        { midiProgram: 16, bankIndex: 16, verified: true },
+        { midiProgram: 24, bankIndex: 24, verified: true },
+        { midiProgram: 25, bankIndex: 25, verified: true },
         { midiProgram: 32, bankIndex: 32, verified: false },
         { midiProgram: 40, bankIndex: 40, verified: false },
         { midiProgram: 48, bankIndex: 48, verified: false },
@@ -76,8 +81,13 @@
       ]
     },
     {
-      id: 'JCLive', label: 'JCLive', suffix: 'JCLive_sf2_file',
-      quality: 'medium', sizeMB: 26, descKey: 'settings.soundBank.banks.JCLive', reverbMix: 0.10,
+      id: 'JCLive',
+      label: 'JCLive',
+      suffix: 'JCLive_sf2_file',
+      quality: 'medium',
+      sizeMB: 26,
+      descKey: 'settings.soundBank.banks.JCLive',
+      reverbMix: 0.1,
       requiresExternal: true,
       drumKits: [{ midiProgram: 0, bankIndex: 12, verified: true }]
     }
@@ -92,19 +102,19 @@
   let _customBanks = [];
 
   function setCustomBanks(banks) {
-    _customBanks = (banks || []).map(function(b) {
+    _customBanks = (banks || []).map(function (b) {
       return {
-        id:         'sf2:' + b.id,
-        label:      b.label + ' [SF2]',
-        suffix:     null,
-        quality:    'custom',
-        sizeMB:     Math.round((b.size || 0) / (1024 * 1024)),
-        reverbMix:  b.reverbMix != null ? b.reverbMix : 0.12,
-        isCustom:   true,
-        sf2Id:      b.id,
-        drumKits: [0, 8, 16, 24, 25, 32, 40, 48, 56].map(function(p) {
+        id: 'sf2:' + b.id,
+        label: b.label + ' [SF2]',
+        suffix: null,
+        quality: 'custom',
+        sizeMB: Math.round((b.size || 0) / (1024 * 1024)),
+        reverbMix: b.reverbMix != null ? b.reverbMix : 0.12,
+        isCustom: true,
+        sf2Id: b.id,
+        drumKits: [0, 8, 16, 24, 25, 32, 40, 48, 56].map(function (p) {
           return { midiProgram: p, bankIndex: p, verified: false };
-        }),
+        })
       };
     });
   }
@@ -131,13 +141,21 @@
     // for backwards compatibility (InstrumentSettingsModal still reads it),
     // but it now resolves to the gated list — never the legacy WAF banks.
     get SOUND_BANKS() {
-      return Object.freeze([BUILT_IN_DEFAULT_SF2_BANK].map(function(b) { return Object.freeze(b); }));
+      return Object.freeze(
+        [BUILT_IN_DEFAULT_SF2_BANK].map(function (b) {
+          return Object.freeze(b);
+        })
+      );
     },
     BUILT_IN_DEFAULT_SF2_BANK: Object.freeze(BUILT_IN_DEFAULT_SF2_BANK),
-    WAF_BANKS: Object.freeze(WAF_BANKS.map(function(b) { return Object.freeze(b); })),
+    WAF_BANKS: Object.freeze(
+      WAF_BANKS.map(function (b) {
+        return Object.freeze(b);
+      })
+    ),
     DEFAULT_BANK_ID,
     DEFAULT_BANK_SUFFIX,
     setCustomBanks,
-    getAvailableBanks,
+    getAvailableBanks
   };
 })();

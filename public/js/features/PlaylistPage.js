@@ -48,7 +48,8 @@ class PlaylistPage {
   _showPrompt(message, defaultValue = '', icon = '🎶') {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+      overlay.style.cssText =
+        'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
 
       overlay.innerHTML = `
         <div style="background:var(--bg-secondary, #fff);border:1px solid var(--border-color, #dee2e6);border-radius:12px;overflow:hidden;width:380px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:var(--text-primary, #2c3e50);">
@@ -72,17 +73,25 @@ class PlaylistPage {
       const okBtn = overlay.querySelector('#_plPromptOk');
       const cancelBtn = overlay.querySelector('#_plPromptCancel');
 
-      const close = (val) => { overlay.remove(); resolve(val); };
+      const close = (val) => {
+        overlay.remove();
+        resolve(val);
+      };
 
       okBtn.addEventListener('click', () => close(input.value));
       cancelBtn.addEventListener('click', () => close(null));
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close(null);
+      });
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') close(input.value);
         if (e.key === 'Escape') close(null);
       });
 
-      setTimeout(() => { input.focus(); input.select(); }, 50);
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 50);
     });
   }
 
@@ -95,7 +104,8 @@ class PlaylistPage {
   _showConfirm(message, icon = '⚠️') {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+      overlay.style.cssText =
+        'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
 
       overlay.innerHTML = `
         <div style="background:var(--bg-secondary, #fff);border:1px solid var(--border-color, #dee2e6);border-radius:12px;overflow:hidden;width:360px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:var(--text-primary, #2c3e50);">
@@ -113,13 +123,21 @@ class PlaylistPage {
 
       document.body.appendChild(overlay);
 
-      const close = (val) => { overlay.remove(); resolve(val); };
+      const close = (val) => {
+        overlay.remove();
+        resolve(val);
+      };
 
       overlay.querySelector('#_plConfirmOk').addEventListener('click', () => close(true));
       overlay.querySelector('#_plConfirmCancel').addEventListener('click', () => close(false));
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close(false);
+      });
       document.addEventListener('keydown', function esc(e) {
-        if (e.key === 'Escape') { document.removeEventListener('keydown', esc); close(false); }
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', esc);
+          close(false);
+        }
       });
 
       overlay.querySelector('#_plConfirmCancel').focus();
@@ -224,7 +242,9 @@ class PlaylistPage {
 
   _bindEvents() {
     // Close button
-    this.modal.querySelector('#playlistPageCloseBtn')?.addEventListener('click', () => this.close());
+    this.modal
+      .querySelector('#playlistPageCloseBtn')
+      ?.addEventListener('click', () => this.close());
 
     // Close on overlay click
     this.modal.querySelector('.plpage-overlay')?.addEventListener('click', (e) => {
@@ -232,29 +252,45 @@ class PlaylistPage {
     });
 
     // ESC to close
-    this._escHandler = (e) => { if (e.key === 'Escape') this.close(); };
+    this._escHandler = (e) => {
+      if (e.key === 'Escape') this.close();
+    };
     document.addEventListener('keydown', this._escHandler);
 
     // Create playlist
-    this.modal.querySelector('#playlistCreateBtn')?.addEventListener('click', () => this._createPlaylist());
+    this.modal
+      .querySelector('#playlistCreateBtn')
+      ?.addEventListener('click', () => this._createPlaylist());
 
     // Add files
-    this.modal.querySelector('#playlistAddFilesBtn')?.addEventListener('click', () => this._openAddFilesModal());
+    this.modal
+      .querySelector('#playlistAddFilesBtn')
+      ?.addEventListener('click', () => this._openAddFilesModal());
 
     // Play playlist
-    this.modal.querySelector('#playlistPlayBtn')?.addEventListener('click', () => this._playPlaylist());
+    this.modal
+      .querySelector('#playlistPlayBtn')
+      ?.addEventListener('click', () => this._playPlaylist());
 
     // Rename playlist
-    this.modal.querySelector('#playlistRenameBtn')?.addEventListener('click', () => this._renamePlaylist());
+    this.modal
+      .querySelector('#playlistRenameBtn')
+      ?.addEventListener('click', () => this._renamePlaylist());
 
     // Toggle loop
-    this.modal.querySelector('#playlistLoopBtn')?.addEventListener('click', () => this._toggleLoop());
+    this.modal
+      .querySelector('#playlistLoopBtn')
+      ?.addEventListener('click', () => this._toggleLoop());
 
     // Toggle shuffle
-    this.modal.querySelector('#playlistShuffleBtn')?.addEventListener('click', () => this._toggleShuffle());
+    this.modal
+      .querySelector('#playlistShuffleBtn')
+      ?.addEventListener('click', () => this._toggleShuffle());
 
     // Set gap delay
-    this.modal.querySelector('#playlistGapBtn')?.addEventListener('click', () => this._setGapDelay());
+    this.modal
+      .querySelector('#playlistGapBtn')
+      ?.addEventListener('click', () => this._setGapDelay());
   }
 
   // ==================== DATA LOADING ====================
@@ -295,11 +331,14 @@ class PlaylistPage {
       return;
     }
 
-    container.innerHTML = this.playlists.map(pl => {
-      const isActive = this.selectedPlaylist && this.selectedPlaylist.id === pl.id;
-      const itemBg = isActive ? 'rgba(102,126,234,0.15)' : 'transparent';
-      const itemBorder = isActive ? '2px solid var(--accent-primary, #667eea)' : '1px solid transparent';
-      return `
+    container.innerHTML = this.playlists
+      .map((pl) => {
+        const isActive = this.selectedPlaylist && this.selectedPlaylist.id === pl.id;
+        const itemBg = isActive ? 'rgba(102,126,234,0.15)' : 'transparent';
+        const itemBorder = isActive
+          ? '2px solid var(--accent-primary, #667eea)'
+          : '1px solid transparent';
+        return `
         <div class="playlist-item${isActive ? ' active' : ''}" data-playlist-id="${pl.id}"
              style="padding:10px 12px;margin-bottom:6px;border-radius:8px;cursor:pointer;background:${itemBg};border:${itemBorder};transition:all 0.2s;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -313,10 +352,11 @@ class PlaylistPage {
             ${pl.loop ? '🔁 ' : ''}
           </div>
         </div>`;
-    }).join('');
+      })
+      .join('');
 
     // Bind click events
-    container.querySelectorAll('.playlist-item').forEach(el => {
+    container.querySelectorAll('.playlist-item').forEach((el) => {
       el.addEventListener('click', (e) => {
         if (e.target.closest('.playlist-delete-btn')) return;
         const id = parseInt(el.dataset.playlistId);
@@ -324,7 +364,7 @@ class PlaylistPage {
       });
     });
 
-    container.querySelectorAll('.playlist-delete-btn').forEach(btn => {
+    container.querySelectorAll('.playlist-delete-btn').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = parseInt(btn.dataset.playlistId);
@@ -357,9 +397,7 @@ class PlaylistPage {
     if (loopBtn) {
       const isLoop = this.selectedPlaylist.loop === 1;
       loopBtn.style.opacity = isLoop ? '1' : '0.4';
-      loopBtn.title = isLoop
-        ? (this._t('playlist.loopEnabled'))
-        : (this._t('playlist.loop'));
+      loopBtn.title = isLoop ? this._t('playlist.loopEnabled') : this._t('playlist.loop');
     }
 
     if (this.playlistItems.length === 0) {
@@ -372,9 +410,10 @@ class PlaylistPage {
     // Show loading state then render with routing data
     container.innerHTML = `<p style="color:var(--text-muted, #6c757d);text-align:center;padding:20px;">Loading...</p>`;
 
-    const routingChecks = this.playlistItems.map(item =>
-      this.apiClient.sendCommand('get_file_routings', { fileId: item.midi_id })
-        .then(res => {
+    const routingChecks = this.playlistItems.map((item) =>
+      this.apiClient
+        .sendCommand('get_file_routings', { fileId: item.midi_id })
+        .then((res) => {
           const routings = res.routings || [];
           // C.8: aggregate worst hand-position feasibility for the badge.
           const order = { unknown: 0, ok: 1, warning: 2, infeasible: 3 };
@@ -393,18 +432,23 @@ class PlaylistPage {
             routedCount: res.routedCount ?? routings.length,
             channelCount: res.channelCount ?? routings.length,
             avgScore: res.avgScore ?? null,
-            transpositions: res.transpositions || [],
+            transpositions: res.transpositions || []
           };
         })
         .catch(() => ({
-          midi_id: item.midi_id, count: 0, handLevel: null,
-          status: 'unrouted', routedCount: 0, channelCount: 0,
-          avgScore: null, transpositions: [],
+          midi_id: item.midi_id,
+          count: 0,
+          handLevel: null,
+          status: 'unrouted',
+          routedCount: 0,
+          channelCount: 0,
+          avgScore: null,
+          transpositions: []
         }))
     );
 
-    Promise.all(routingChecks).then(results => {
-      const routingMap = new Map(results.map(r => [r.midi_id, r]));
+    Promise.all(routingChecks).then((results) => {
+      const routingMap = new Map(results.map((r) => [r.midi_id, r]));
       this._renderPlaylistItemsWithRouting(container, routingMap);
     });
   }
@@ -417,10 +461,13 @@ class PlaylistPage {
    */
   _renderHandFeasibilityBadge(level) {
     if (!level || level === 'unknown' || level === 'ok') return '';
-    const t = (k, fb) => (window.i18n?.t ? (window.i18n.t(k) || fb) : fb);
-    const colors = { warning: 'var(--status-warning, #f59e0b)', infeasible: 'var(--status-critical, #ef4444)' };
+    const t = (k, fb) => (window.i18n?.t ? window.i18n.t(k) || fb : fb);
+    const colors = {
+      warning: 'var(--status-warning, #f59e0b)',
+      infeasible: 'var(--status-critical, #ef4444)'
+    };
     const titles = {
-      warning:    t('handPosition.badgeWarning',    'Hand-position warning'),
+      warning: t('handPosition.badgeWarning', 'Hand-position warning'),
       infeasible: t('handPosition.badgeInfeasible', 'Hand-position infeasible')
     };
     const glyph = level === 'infeasible' ? '✗' : '⚠';
@@ -442,44 +489,53 @@ class PlaylistPage {
     const { status, routedCount, channelCount, avgScore, transpositions } = entry;
 
     // Score color: ≥70% green, 40–69% orange, <40% red, null = none.
-    const scoreColor = avgScore === null
-      ? 'var(--status-none,#8c8c8c)'
-      : avgScore >= 70 ? 'var(--status-ok,#27ae60)'
-      : avgScore >= 40 ? 'var(--status-warning,#f39c12)'
-      : 'var(--status-critical,#e8365d)';
+    const scoreColor =
+      avgScore === null
+        ? 'var(--status-none,#8c8c8c)'
+        : avgScore >= 70
+          ? 'var(--status-ok,#27ae60)'
+          : avgScore >= 40
+            ? 'var(--status-warning,#f39c12)'
+            : 'var(--status-critical,#e8365d)';
 
-    const scorePart = avgScore !== null
-      ? `<span style="font-weight:700;color:${scoreColor};font-size:11px;">${avgScore}%</span>`
-      : `<span style="font-size:11px;color:var(--status-none,#8c8c8c);">—</span>`;
+    const scorePart =
+      avgScore !== null
+        ? `<span style="font-weight:700;color:${scoreColor};font-size:11px;">${avgScore}%</span>`
+        : `<span style="font-size:11px;color:var(--status-none,#8c8c8c);">—</span>`;
 
     // 🎵 notes indicator: based on score level.
-    const notesGlyph = avgScore === null
-      ? '✗'
-      : avgScore >= 70 ? '✓'
-      : avgScore >= 40 ? '⚠'
-      : '✗';
-    const notesColor = avgScore === null
-      ? 'var(--status-none,#8c8c8c)'
-      : avgScore >= 70 ? 'var(--status-ok,#27ae60)'
-      : avgScore >= 40 ? 'var(--status-warning,#f39c12)'
-      : 'var(--status-critical,#e8365d)';
-    const notesTooltip = avgScore === null
-      ? 'No note coverage data'
-      : avgScore >= 70 ? 'Notes: all in playable range'
-      : avgScore >= 40 ? 'Notes: partial coverage'
-      : 'Notes: poor coverage';
+    const notesGlyph = avgScore === null ? '✗' : avgScore >= 70 ? '✓' : avgScore >= 40 ? '⚠' : '✗';
+    const notesColor =
+      avgScore === null
+        ? 'var(--status-none,#8c8c8c)'
+        : avgScore >= 70
+          ? 'var(--status-ok,#27ae60)'
+          : avgScore >= 40
+            ? 'var(--status-warning,#f39c12)'
+            : 'var(--status-critical,#e8365d)';
+    const notesTooltip =
+      avgScore === null
+        ? 'No note coverage data'
+        : avgScore >= 70
+          ? 'Notes: all in playable range'
+          : avgScore >= 40
+            ? 'Notes: partial coverage'
+            : 'Notes: poor coverage';
     const notesPart = `<span title="${notesTooltip}" style="font-size:11px;color:${notesColor};white-space:nowrap;">🎵${notesGlyph}</span>`;
 
     // 📢 channels indicator: based on routedCount vs channelCount.
     let chGlyph, chColor, chTooltip;
     if (status === 'unrouted' || routedCount === 0) {
-      chGlyph = '✗'; chColor = 'var(--status-critical,#e8365d)';
+      chGlyph = '✗';
+      chColor = 'var(--status-critical,#e8365d)';
       chTooltip = 'Channels: no routing configured';
     } else if (status === 'partial') {
-      chGlyph = '⚠'; chColor = 'var(--status-warning,#f39c12)';
+      chGlyph = '⚠';
+      chColor = 'var(--status-warning,#f39c12)';
       chTooltip = `Channels: ${routedCount}/${channelCount} assigned`;
     } else {
-      chGlyph = '✓'; chColor = 'var(--status-ok,#27ae60)';
+      chGlyph = '✓';
+      chColor = 'var(--status-ok,#27ae60)';
       chTooltip = `Channels: all ${routedCount} assigned`;
     }
     const chPart = `<span title="${chTooltip}" style="font-size:11px;color:${chColor};white-space:nowrap;">📢${chGlyph}</span>`;
@@ -490,7 +546,7 @@ class PlaylistPage {
       const val = transpositions[0];
       const sign = val > 0 ? '+' : '';
       const label = transpositions.length > 1 ? `↕${sign}${val}…` : `↕${sign}${val}`;
-      const allVals = transpositions.map(t => (t > 0 ? `+${t}` : `${t}`)).join(', ');
+      const allVals = transpositions.map((t) => (t > 0 ? `+${t}` : `${t}`)).join(', ');
       transPart = `<span title="Transposition applied: ${allVals} semitones" style="font-size:11px;color:var(--status-info,#6b7280);white-space:nowrap;">${label}</span>`;
     }
 
@@ -498,13 +554,14 @@ class PlaylistPage {
   }
 
   _renderPlaylistItemsWithRouting(container, routingMap) {
-    container.innerHTML = this.playlistItems.map((item, index) => {
-      const entry = routingMap.get(item.midi_id) || null;
-      const handLevel = entry?.handLevel ?? null;
-      const handBadge = this._renderHandFeasibilityBadge(handLevel);
-      const statusIndicator = this._renderRoutingStatusIndicator(entry);
+    container.innerHTML = this.playlistItems
+      .map((item, index) => {
+        const entry = routingMap.get(item.midi_id) || null;
+        const handLevel = entry?.handLevel ?? null;
+        const handBadge = this._renderHandFeasibilityBadge(handLevel);
+        const statusIndicator = this._renderRoutingStatusIndicator(entry);
 
-      return `
+        return `
         <div class="playlist-file-item" data-item-id="${item.id}" data-position="${item.position}"
              draggable="true"
              style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:4px;border-radius:8px;border:1px solid var(--border-color, #dee2e6);background:var(--bg-secondary, #fff);color:var(--text-primary, #2c3e50);cursor:grab;transition:all 0.2s;">
@@ -518,10 +575,11 @@ class PlaylistPage {
           </div>
           <button class="btn-remove-file" data-item-id="${item.id}" style="background:none;border:none;cursor:pointer;opacity:0.5;padding:4px;color:var(--text-muted, #999);" title="${(window.i18n?.t && window.i18n.t('playlist.remove')) || 'Remove'}">✕</button>
         </div>`;
-    }).join('');
+      })
+      .join('');
 
     // Bind remove buttons
-    container.querySelectorAll('.btn-remove-file').forEach(btn => {
+    container.querySelectorAll('.btn-remove-file').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const itemId = parseInt(btn.dataset.itemId);
         await this._removeItem(itemId);
@@ -542,10 +600,13 @@ class PlaylistPage {
     if (this.selectedPlaylist && this.playlistItems.length > 0) {
       const totalDuration = this.playlistItems.reduce((sum, item) => sum + (item.duration || 0), 0);
       const fallback = `${this.playlistItems.length} files - ${this._formatDuration(totalDuration)} total`;
-      info.textContent = (window.i18n?.t && window.i18n.t('playlist.playlistStatsShort', {
-        count: this.playlistItems.length,
-        duration: this._formatDuration(totalDuration)
-      })) || fallback;
+      info.textContent =
+        (window.i18n?.t &&
+          window.i18n.t('playlist.playlistStatsShort', {
+            count: this.playlistItems.length,
+            duration: this._formatDuration(totalDuration)
+          })) ||
+        fallback;
     } else {
       info.textContent = '';
     }
@@ -556,7 +617,7 @@ class PlaylistPage {
   _setupDragAndDrop(container) {
     const items = container.querySelectorAll('.playlist-file-item');
 
-    items.forEach(item => {
+    items.forEach((item) => {
       item.addEventListener('dragstart', (e) => {
         this.draggedItem = item;
         item.classList.add('dragging');
@@ -639,7 +700,10 @@ class PlaylistPage {
       const res = await this.apiClient.sendCommand('playlist_create', { name: newName.trim() });
       const newId = res.playlistId;
       for (const item of items) {
-        await this.apiClient.sendCommand('playlist_add_file', { playlistId: newId, midiId: item.midi_id });
+        await this.apiClient.sendCommand('playlist_add_file', {
+          playlistId: newId,
+          midiId: item.midi_id
+        });
       }
       if (loop) {
         await this.apiClient.sendCommand('playlist_set_loop', { playlistId: newId, loop: true });
@@ -647,9 +711,13 @@ class PlaylistPage {
       // Copy shuffle and gap_seconds settings
       const settingsToClone = {};
       if (this.selectedPlaylist.shuffle) settingsToClone.shuffle = true;
-      if (this.selectedPlaylist.gap_seconds) settingsToClone.gap_seconds = this.selectedPlaylist.gap_seconds;
+      if (this.selectedPlaylist.gap_seconds)
+        settingsToClone.gap_seconds = this.selectedPlaylist.gap_seconds;
       if (Object.keys(settingsToClone).length > 0) {
-        await this.apiClient.sendCommand('playlist_update_settings', { playlistId: newId, ...settingsToClone });
+        await this.apiClient.sendCommand('playlist_update_settings', {
+          playlistId: newId,
+          ...settingsToClone
+        });
       }
       await this.apiClient.sendCommand('playlist_delete', { playlistId: oldId });
       await this.loadPlaylists();
@@ -672,9 +740,7 @@ class PlaylistPage {
       const loopBtn = this.modal?.querySelector('#playlistLoopBtn');
       if (loopBtn) {
         loopBtn.style.opacity = newLoop ? '1' : '0.4';
-        loopBtn.title = newLoop
-          ? (this._t('playlist.loopEnabled'))
-          : (this._t('playlist.loop'));
+        loopBtn.title = newLoop ? this._t('playlist.loopEnabled') : this._t('playlist.loop');
       }
     } catch (error) {
       console.error('Failed to toggle loop:', error);
@@ -694,8 +760,8 @@ class PlaylistPage {
       if (shuffleBtn) {
         shuffleBtn.style.opacity = newShuffle ? '1' : '0.4';
         shuffleBtn.title = newShuffle
-          ? (this._t('playlist.shuffleEnabled'))
-          : (this._t('playlist.shuffle'));
+          ? this._t('playlist.shuffleEnabled')
+          : this._t('playlist.shuffle');
       }
     } catch (error) {
       console.error('Failed to toggle shuffle:', error);
@@ -740,8 +806,8 @@ class PlaylistPage {
       const shuffleOn = this.selectedPlaylist.shuffle === 1;
       shuffleBtn.style.opacity = shuffleOn ? '1' : '0.4';
       shuffleBtn.title = shuffleOn
-        ? (this._t('playlist.shuffleEnabled'))
-        : (this._t('playlist.shuffle'));
+        ? this._t('playlist.shuffleEnabled')
+        : this._t('playlist.shuffle');
     }
     // Gap button
     this._updateGapButton();

@@ -43,15 +43,19 @@ class InstrumentDatabase {
 
   insertPreset(preset) {
     try {
-      const result = this.db.prepare(`
+      const result = this.db
+        .prepare(
+          `
         INSERT INTO presets (name, description, category, data)
         VALUES (?, ?, ?, ?)
-      `).run(
-        preset.name,
-        preset.description || null,
-        preset.type || preset.category || 'routing',
-        preset.data
-      );
+      `
+        )
+        .run(
+          preset.name,
+          preset.description || null,
+          preset.type || preset.category || 'routing',
+          preset.data
+        );
       return result.lastInsertRowid;
     } catch (error) {
       this.logger.error(`Failed to insert preset: ${error.message}`);
@@ -88,7 +92,12 @@ class InstrumentDatabase {
         patch.category = patch.type;
         delete patch.type;
       }
-      const result = buildDynamicUpdate('presets', patch, ['name', 'description', 'category', 'data']);
+      const result = buildDynamicUpdate('presets', patch, [
+        'name',
+        'description',
+        'category',
+        'data'
+      ]);
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, presetId);
     } catch (error) {
@@ -109,72 +118,164 @@ class InstrumentDatabase {
   // ==================== DELEGATED: INSTRUMENT SETTINGS ====================
   // Full implementations in InstrumentSettingsDB.js
 
-  updateInstrumentSettings(...args) { return this._settings.updateInstrumentSettings(...args); }
-  getInstrumentSettings(...args) { return this._settings.getInstrumentSettings(...args); }
-  getInstrumentsByDevice(...args) { return this._settings.getInstrumentsByDevice(...args); }
-  getOmniInstruments(...args) { return this._settings.getOmniInstruments(...args); }
-  findInstrumentById(...args) { return this._settings.findById(...args); }
-  updateInstrumentById(...args) { return this._settings.updateById(...args); }
-  getAllLatencyProfiles() { return this._settings.getAllLatencyProfiles(); }
-  saveDeviceLatency(...args) { return this._settings.saveDeviceLatency(...args); }
-  clearDeviceLatency(...args) { return this._settings.clearDeviceLatency(...args); }
-  saveSysExIdentity(...args) { return this._settings.saveSysExIdentity(...args); }
-  findInstrumentByMac(...args) { return this._settings.findInstrumentByMac(...args); }
-  findInstrumentByUsbSerial(...args) { return this._settings.findInstrumentByUsbSerial(...args); }
-  findInstrumentByNormalizedName(...args) { return this._settings.findInstrumentByNormalizedName(...args); }
-  reconcileDeviceId(...args) { return this._settings.reconcileDeviceId(...args); }
-  deduplicateByUsbSerial(...args) { return this._settings.deduplicateByUsbSerial(...args); }
-  deleteInstrumentSettingsByDevice(...args) { return this._settings.deleteByDevice(...args); }
-  static normalizeDeviceName(deviceId) { return InstrumentSettingsDB.normalizeDeviceName(deviceId); }
+  updateInstrumentSettings(...args) {
+    return this._settings.updateInstrumentSettings(...args);
+  }
+  getInstrumentSettings(...args) {
+    return this._settings.getInstrumentSettings(...args);
+  }
+  getInstrumentsByDevice(...args) {
+    return this._settings.getInstrumentsByDevice(...args);
+  }
+  getOmniInstruments(...args) {
+    return this._settings.getOmniInstruments(...args);
+  }
+  findInstrumentById(...args) {
+    return this._settings.findById(...args);
+  }
+  updateInstrumentById(...args) {
+    return this._settings.updateById(...args);
+  }
+  getAllLatencyProfiles() {
+    return this._settings.getAllLatencyProfiles();
+  }
+  saveDeviceLatency(...args) {
+    return this._settings.saveDeviceLatency(...args);
+  }
+  clearDeviceLatency(...args) {
+    return this._settings.clearDeviceLatency(...args);
+  }
+  saveSysExIdentity(...args) {
+    return this._settings.saveSysExIdentity(...args);
+  }
+  findInstrumentByMac(...args) {
+    return this._settings.findInstrumentByMac(...args);
+  }
+  findInstrumentByUsbSerial(...args) {
+    return this._settings.findInstrumentByUsbSerial(...args);
+  }
+  findInstrumentByNormalizedName(...args) {
+    return this._settings.findInstrumentByNormalizedName(...args);
+  }
+  reconcileDeviceId(...args) {
+    return this._settings.reconcileDeviceId(...args);
+  }
+  deduplicateByUsbSerial(...args) {
+    return this._settings.deduplicateByUsbSerial(...args);
+  }
+  deleteInstrumentSettingsByDevice(...args) {
+    return this._settings.deleteByDevice(...args);
+  }
+  static normalizeDeviceName(deviceId) {
+    return InstrumentSettingsDB.normalizeDeviceName(deviceId);
+  }
 
   // ==================== DELEGATED: INSTRUMENT CAPABILITIES ====================
   // Full implementations in InstrumentCapabilitiesDB.js
 
-  updateInstrumentCapabilities(...args) { return this._capabilities.updateInstrumentCapabilities(...args); }
-  getInstrumentCapabilities(...args) { return this._capabilities.getInstrumentCapabilities(...args); }
-  getAllInstrumentCapabilities() { return this._capabilities.getAllInstrumentCapabilities(); }
-  getRegisteredInstrumentIds() { return this._capabilities.getRegisteredInstrumentIds(); }
-  getInstrumentsWithCapabilities() { return this._capabilities.getInstrumentsWithCapabilities(); }
-  getInstrumentCatalogFingerprint() { return this._capabilities.getCatalogFingerprint(); }
+  updateInstrumentCapabilities(...args) {
+    return this._capabilities.updateInstrumentCapabilities(...args);
+  }
+  getInstrumentCapabilities(...args) {
+    return this._capabilities.getInstrumentCapabilities(...args);
+  }
+  getAllInstrumentCapabilities() {
+    return this._capabilities.getAllInstrumentCapabilities();
+  }
+  getRegisteredInstrumentIds() {
+    return this._capabilities.getRegisteredInstrumentIds();
+  }
+  getInstrumentsWithCapabilities() {
+    return this._capabilities.getInstrumentsWithCapabilities();
+  }
+  getInstrumentCatalogFingerprint() {
+    return this._capabilities.getCatalogFingerprint();
+  }
 
   // ==================== DELEGATED: INSTRUMENT EMBEDDED LIGHTS ====================
   // Full implementations in InstrumentLightDB.js
 
-  getInstrumentLightState(...args) { return this._light.getInstrumentLightState(...args); }
-  getAllInstrumentLightStates() { return this._light.getAllInstrumentLightStates(); }
-  saveInstrumentLightState(...args) { return this._light.saveInstrumentLightState(...args); }
-  deleteInstrumentLightByDevice(...args) { return this._light.deleteInstrumentLightByDevice(...args); }
+  getInstrumentLightState(...args) {
+    return this._light.getInstrumentLightState(...args);
+  }
+  getAllInstrumentLightStates() {
+    return this._light.getAllInstrumentLightStates();
+  }
+  saveInstrumentLightState(...args) {
+    return this._light.saveInstrumentLightState(...args);
+  }
+  deleteInstrumentLightByDevice(...args) {
+    return this._light.deleteInstrumentLightByDevice(...args);
+  }
 
   // ==================== DELEGATED: INSTRUMENT VOICES (multi-GM) ====================
   // Full implementations in InstrumentVoicesDB.js
 
-  listInstrumentVoices(...args) { return this._voices.listByInstrument(...args); }
-  createInstrumentVoice(...args) { return this._voices.create(...args); }
-  updateInstrumentVoice(...args) { return this._voices.update(...args); }
-  deleteInstrumentVoice(...args) { return this._voices.deleteById(...args); }
-  deleteInstrumentVoicesByInstrument(...args) { return this._voices.deleteByInstrument(...args); }
-  replaceInstrumentVoices(...args) { return this._voices.replaceAll(...args); }
+  listInstrumentVoices(...args) {
+    return this._voices.listByInstrument(...args);
+  }
+  createInstrumentVoice(...args) {
+    return this._voices.create(...args);
+  }
+  updateInstrumentVoice(...args) {
+    return this._voices.update(...args);
+  }
+  deleteInstrumentVoice(...args) {
+    return this._voices.deleteById(...args);
+  }
+  deleteInstrumentVoicesByInstrument(...args) {
+    return this._voices.deleteByInstrument(...args);
+  }
+  replaceInstrumentVoices(...args) {
+    return this._voices.replaceAll(...args);
+  }
 
   // ==================== DELEGATED: ROUTING PERSISTENCE ====================
   // Full implementations in RoutingPersistenceDB.js
 
-  insertRouting(...args) { return this._routing.insertRouting(...args); }
-  insertSplitRoutings(...args) { return this._routing.insertSplitRoutings(...args); }
-  updateHandOverrides(...args) { return this._routing.updateHandOverrides(...args); }
-  getRoutingsByFile(...args) { return this._routing.getRoutingsByFile(...args); }
-  getRoutingCountsByFiles(...args) { return this._routing.getRoutingCountsByFiles(...args); }
-  deleteRoutingsByFile(...args) { return this._routing.deleteRoutingsByFile(...args); }
-  deleteNonSplitRoutingsByFile(...args) { return this._routing.deleteNonSplitRoutingsByFile(...args); }
-  deleteRoutingsByDevice(...args) { return this._routing.deleteRoutingsByDevice(...args); }
-  disableVirtualRoutings(...args) { return this._routing.disableVirtualRoutings(...args); }
-  enableVirtualRoutings(...args) { return this._routing.enableVirtualRoutings(...args); }
+  insertRouting(...args) {
+    return this._routing.insertRouting(...args);
+  }
+  insertSplitRoutings(...args) {
+    return this._routing.insertSplitRoutings(...args);
+  }
+  updateHandOverrides(...args) {
+    return this._routing.updateHandOverrides(...args);
+  }
+  getRoutingsByFile(...args) {
+    return this._routing.getRoutingsByFile(...args);
+  }
+  getRoutingCountsByFiles(...args) {
+    return this._routing.getRoutingCountsByFiles(...args);
+  }
+  deleteRoutingsByFile(...args) {
+    return this._routing.deleteRoutingsByFile(...args);
+  }
+  deleteNonSplitRoutingsByFile(...args) {
+    return this._routing.deleteNonSplitRoutingsByFile(...args);
+  }
+  deleteRoutingsByDevice(...args) {
+    return this._routing.deleteRoutingsByDevice(...args);
+  }
+  disableVirtualRoutings(...args) {
+    return this._routing.disableVirtualRoutings(...args);
+  }
+  enableVirtualRoutings(...args) {
+    return this._routing.enableVirtualRoutings(...args);
+  }
 
   // ==================== DELEGATED: DEVICE SETTINGS ====================
   // Full implementations in DeviceSettingsDB.js
 
-  getDeviceSettings(...args) { return this._deviceSettings.getDeviceSettings(...args); }
-  updateDeviceSettings(...args) { return this._deviceSettings.updateDeviceSettings(...args); }
-  ensureDevice(...args) { return this._deviceSettings.ensureDevice(...args); }
+  getDeviceSettings(...args) {
+    return this._deviceSettings.getDeviceSettings(...args);
+  }
+  updateDeviceSettings(...args) {
+    return this._deviceSettings.updateDeviceSettings(...args);
+  }
+  ensureDevice(...args) {
+    return this._deviceSettings.ensureDevice(...args);
+  }
 }
 
 export default InstrumentDatabase;

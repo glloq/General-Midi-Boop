@@ -16,23 +16,16 @@
 class InstrumentCapabilitiesValidator {
   constructor() {
     // Always required capabilities
-    this.requiredCapabilities = [
-      'gm_program',
-      'polyphony',
-      'note_selection_mode'
-    ];
+    this.requiredCapabilities = ['gm_program', 'polyphony', 'note_selection_mode'];
 
     // Optional but recommended capabilities
-    this.recommendedCapabilities = [
-      'supported_ccs',
-      'type'
-    ];
+    this.recommendedCapabilities = ['supported_ccs', 'type'];
 
     // Conditional capabilities depending on the mode
     this.conditionalCapabilities = {
-      'selected_notes': (instrument) => instrument.note_selection_mode === 'discrete',
-      'note_range_min': (instrument) => instrument.note_selection_mode !== 'discrete',
-      'note_range_max': (instrument) => instrument.note_selection_mode !== 'discrete'
+      selected_notes: (instrument) => instrument.note_selection_mode === 'discrete',
+      note_range_min: (instrument) => instrument.note_selection_mode !== 'discrete',
+      note_range_max: (instrument) => instrument.note_selection_mode !== 'discrete'
     };
   }
 
@@ -61,8 +54,13 @@ class InstrumentCapabilitiesValidator {
 
     // Validate that note_selection_mode has a recognized value
     const mode = instrument.note_selection_mode;
-    if (mode !== null && mode !== undefined && mode !== '' &&
-        mode !== 'range' && mode !== 'discrete') {
+    if (
+      mode !== null &&
+      mode !== undefined &&
+      mode !== '' &&
+      mode !== 'range' &&
+      mode !== 'discrete'
+    ) {
       missing.push({
         field: 'note_selection_mode',
         label: this.getCapabilityLabel('note_selection_mode'),
@@ -101,7 +99,13 @@ class InstrumentCapabilitiesValidator {
     if (instrument.note_selection_mode !== 'discrete') {
       const rmin = instrument.note_range_min;
       const rmax = instrument.note_range_max;
-      if (rmin != null && rmin !== '' && rmax != null && rmax !== '' && Number(rmin) > Number(rmax)) {
+      if (
+        rmin != null &&
+        rmin !== '' &&
+        rmax != null &&
+        rmax !== '' &&
+        Number(rmin) > Number(rmax)
+      ) {
         missing.push({
           field: 'note_range_max',
           label: this.getCapabilityLabel('note_range_max'),
@@ -116,8 +120,12 @@ class InstrumentCapabilitiesValidator {
     for (const capability of this.recommendedCapabilities) {
       const value = instrument[capability];
 
-      if (value === null || value === undefined || value === '' ||
-          (Array.isArray(value) && value.length === 0)) {
+      if (
+        value === null ||
+        value === undefined ||
+        value === '' ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
         recommended.push({
           field: capability,
           label: this.getCapabilityLabel(capability),
@@ -174,21 +182,26 @@ class InstrumentCapabilitiesValidator {
       try {
         cfg = JSON.parse(cfg);
       } catch (e) {
-        return [{
-          field: 'hands_config',
-          label: this.getCapabilityLabel('hands_config'),
-          type: 'json',
-          required: true,
-          reason: `Invalid JSON: ${e.message}`
-        }];
+        return [
+          {
+            field: 'hands_config',
+            label: this.getCapabilityLabel('hands_config'),
+            type: 'json',
+            required: true,
+            reason: `Invalid JSON: ${e.message}`
+          }
+        ];
       }
     }
 
     const issues = [];
     if (typeof cfg !== 'object' || Array.isArray(cfg)) {
       issues.push({
-        field: 'hands_config', label: this.getCapabilityLabel('hands_config'),
-        type: 'json', required: true, reason: 'Must be an object.'
+        field: 'hands_config',
+        label: this.getCapabilityLabel('hands_config'),
+        type: 'json',
+        required: true,
+        reason: 'Must be an object.'
       });
       return issues;
     }
@@ -198,8 +211,10 @@ class InstrumentCapabilitiesValidator {
     const mode = cfg.mode === 'frets' ? 'frets' : 'semitones';
     if (cfg.mode != null && cfg.mode !== 'semitones' && cfg.mode !== 'frets') {
       issues.push({
-        field: 'hands_config.mode', label: 'Hand-position mode',
-        type: 'select', required: true,
+        field: 'hands_config.mode',
+        label: 'Hand-position mode',
+        type: 'select',
+        required: true,
         reason: `Unknown mode '${cfg.mode}'. Must be 'semitones' or 'frets'.`
       });
       return issues;
@@ -207,8 +222,11 @@ class InstrumentCapabilitiesValidator {
 
     if (!Array.isArray(cfg.hands) || cfg.hands.length === 0) {
       issues.push({
-        field: 'hands_config.hands', label: 'Hands list',
-        type: 'array', required: true, conditional: true,
+        field: 'hands_config.hands',
+        label: 'Hands list',
+        type: 'array',
+        required: true,
+        conditional: true,
         reason: 'hands_config requires at least one hand.'
       });
       return issues;
@@ -240,14 +258,18 @@ class InstrumentCapabilitiesValidator {
     if (cfg.mechanism != null && cfg.mechanism !== '') {
       if (V2_KB_MECHANISMS.has(cfg.mechanism)) {
         issues.push({
-          field: 'hands_config.mechanism', label: 'Hand mechanism',
-          type: 'select', required: true,
+          field: 'hands_config.mechanism',
+          label: 'Hand mechanism',
+          type: 'select',
+          required: true,
           reason: `mechanism '${cfg.mechanism}' is reserved for V2 and not yet implemented.`
         });
       } else if (!VALID_KB_MECHANISMS.has(cfg.mechanism)) {
         issues.push({
-          field: 'hands_config.mechanism', label: 'Hand mechanism',
-          type: 'select', required: true,
+          field: 'hands_config.mechanism',
+          label: 'Hand mechanism',
+          type: 'select',
+          required: true,
           reason: `Unknown mechanism '${cfg.mechanism}'. Must be 'aligned_fingers'.`
         });
       }
@@ -261,19 +283,26 @@ class InstrumentCapabilitiesValidator {
     // The save UI shows num_fingers alone for chromatic and exposes
     // the span separately for piano. Defaults to chromatic when absent.
     const VALID_KB_TYPES = new Set(['chromatic', 'piano']);
-    if (cfg.keyboard_type != null && cfg.keyboard_type !== ''
-        && !VALID_KB_TYPES.has(cfg.keyboard_type)) {
+    if (
+      cfg.keyboard_type != null &&
+      cfg.keyboard_type !== '' &&
+      !VALID_KB_TYPES.has(cfg.keyboard_type)
+    ) {
       issues.push({
-        field: 'hands_config.keyboard_type', label: 'Keyboard type',
-        type: 'select', required: true,
+        field: 'hands_config.keyboard_type',
+        label: 'Keyboard type',
+        type: 'select',
+        required: true,
         reason: `Unknown keyboard_type '${cfg.keyboard_type}'. Must be 'chromatic' or 'piano'.`
       });
     }
 
     if (cfg.hands.length > 4) {
       issues.push({
-        field: 'hands_config.hands', label: 'Hands list',
-        type: 'array', required: true,
+        field: 'hands_config.hands',
+        label: 'Hands list',
+        type: 'array',
+        required: true,
         reason: 'semitones mode supports at most 4 hands.'
       });
     }
@@ -283,32 +312,84 @@ class InstrumentCapabilitiesValidator {
     for (let i = 0; i < cfg.hands.length; i++) {
       const h = cfg.hands[i];
       if (!h || typeof h !== 'object') {
-        issues.push({ field: `hands_config.hands[${i}]`, label: 'Hand entry', type: 'object', required: true, reason: 'Must be an object.' });
+        issues.push({
+          field: `hands_config.hands[${i}]`,
+          label: 'Hand entry',
+          type: 'object',
+          required: true,
+          reason: 'Must be an object.'
+        });
         continue;
       }
-      const idOk = typeof h.id === 'string'
-        && (/^h[1-4]$/.test(h.id) || VALID_LEGACY_IDS.has(h.id));
+      const idOk =
+        typeof h.id === 'string' && (/^h[1-4]$/.test(h.id) || VALID_LEGACY_IDS.has(h.id));
       if (!idOk) {
-        issues.push({ field: `hands_config.hands[${i}].id`, label: 'Hand id', type: 'text', required: true, reason: "id must be 'h1'..'h4' (or legacy 'left'/'right')." });
+        issues.push({
+          field: `hands_config.hands[${i}].id`,
+          label: 'Hand id',
+          type: 'text',
+          required: true,
+          reason: "id must be 'h1'..'h4' (or legacy 'left'/'right')."
+        });
       }
       if (h.id && seenIds.has(h.id)) {
-        issues.push({ field: `hands_config.hands[${i}].id`, label: 'Hand id', type: 'text', required: true, reason: `Duplicate hand id '${h.id}'.` });
+        issues.push({
+          field: `hands_config.hands[${i}].id`,
+          label: 'Hand id',
+          type: 'text',
+          required: true,
+          reason: `Duplicate hand id '${h.id}'.`
+        });
       }
       if (h.id) seenIds.add(h.id);
-      if (!Number.isFinite(h.cc_position_number) || h.cc_position_number < 0 || h.cc_position_number > 127) {
-        issues.push({ field: `hands_config.hands[${i}].cc_position_number`, label: 'CC number', type: 'number', required: true, reason: 'Must be an integer in [0,127].' });
+      if (
+        !Number.isFinite(h.cc_position_number) ||
+        h.cc_position_number < 0 ||
+        h.cc_position_number > 127
+      ) {
+        issues.push({
+          field: `hands_config.hands[${i}].cc_position_number`,
+          label: 'CC number',
+          type: 'number',
+          required: true,
+          reason: 'Must be an integer in [0,127].'
+        });
       }
       if (!Number.isFinite(h.hand_span_semitones) || h.hand_span_semitones <= 0) {
-        issues.push({ field: `hands_config.hands[${i}].hand_span_semitones`, label: 'Hand span', type: 'number', required: true, reason: 'Must be a positive number of semitones.' });
+        issues.push({
+          field: `hands_config.hands[${i}].hand_span_semitones`,
+          label: 'Hand span',
+          type: 'number',
+          required: true,
+          reason: 'Must be a positive number of semitones.'
+        });
       }
       if (h.hand_span_frets != null) {
-        issues.push({ field: `hands_config.hands[${i}].hand_span_frets`, label: 'Hand span', type: 'number', required: true, reason: 'hand_span_frets is only valid in frets mode.' });
+        issues.push({
+          field: `hands_config.hands[${i}].hand_span_frets`,
+          label: 'Hand span',
+          type: 'number',
+          required: true,
+          reason: 'hand_span_frets is only valid in frets mode.'
+        });
       }
       if (h.hand_span_mm != null) {
-        issues.push({ field: `hands_config.hands[${i}].hand_span_mm`, label: 'Hand span', type: 'number', required: true, reason: 'hand_span_mm is only valid in frets mode.' });
+        issues.push({
+          field: `hands_config.hands[${i}].hand_span_mm`,
+          label: 'Hand span',
+          type: 'number',
+          required: true,
+          reason: 'hand_span_mm is only valid in frets mode.'
+        });
       }
       if (h.max_fingers != null) {
-        issues.push({ field: `hands_config.hands[${i}].max_fingers`, label: 'Max fingers', type: 'number', required: true, reason: 'max_fingers is only valid in frets mode.' });
+        issues.push({
+          field: `hands_config.hands[${i}].max_fingers`,
+          label: 'Max fingers',
+          type: 'number',
+          required: true,
+          reason: 'max_fingers is only valid in frets mode.'
+        });
       }
       // num_fingers — optional, capped at 16. The keyboard hand-
       // position editor lays out fingers as alternating white-key /
@@ -320,40 +401,52 @@ class InstrumentCapabilitiesValidator {
       if (h.num_fingers != null) {
         if (!Number.isFinite(h.num_fingers) || h.num_fingers < 1 || h.num_fingers > 16) {
           issues.push({
-            field: `hands_config.hands[${i}].num_fingers`, label: 'Number of fingers',
-            type: 'number', required: true,
+            field: `hands_config.hands[${i}].num_fingers`,
+            label: 'Number of fingers',
+            type: 'number',
+            required: true,
             reason: 'num_fingers must be a positive integer between 1 and 16.'
           });
         }
       }
     }
 
-    if (cfg.hand_move_semitones_per_sec != null
-        && (!Number.isFinite(cfg.hand_move_semitones_per_sec) || cfg.hand_move_semitones_per_sec <= 0)) {
+    if (
+      cfg.hand_move_semitones_per_sec != null &&
+      (!Number.isFinite(cfg.hand_move_semitones_per_sec) || cfg.hand_move_semitones_per_sec <= 0)
+    ) {
       issues.push({
-        field: 'hands_config.hand_move_semitones_per_sec', label: 'Travel speed',
-        type: 'number', required: true,
+        field: 'hands_config.hand_move_semitones_per_sec',
+        label: 'Travel speed',
+        type: 'number',
+        required: true,
         reason: 'hand_move_semitones_per_sec must be a positive number.'
       });
     }
     if (cfg.hand_move_frets_per_sec != null) {
       issues.push({
-        field: 'hands_config.hand_move_frets_per_sec', label: 'Travel speed',
-        type: 'number', required: true,
+        field: 'hands_config.hand_move_frets_per_sec',
+        label: 'Travel speed',
+        type: 'number',
+        required: true,
         reason: 'hand_move_frets_per_sec is only valid in frets mode.'
       });
     }
     if (cfg.hand_move_mm_per_sec != null) {
       issues.push({
-        field: 'hands_config.hand_move_mm_per_sec', label: 'Travel speed',
-        type: 'number', required: true,
+        field: 'hands_config.hand_move_mm_per_sec',
+        label: 'Travel speed',
+        type: 'number',
+        required: true,
         reason: 'hand_move_mm_per_sec is only valid in frets mode.'
       });
     }
     if (cfg.finger_move_mm_per_sec != null) {
       issues.push({
-        field: 'hands_config.finger_move_mm_per_sec', label: 'Finger speed',
-        type: 'number', required: true,
+        field: 'hands_config.finger_move_mm_per_sec',
+        label: 'Finger speed',
+        type: 'number',
+        required: true,
         reason: 'finger_move_mm_per_sec is only valid in frets mode.'
       });
     }
@@ -362,17 +455,27 @@ class InstrumentCapabilitiesValidator {
     if (a) {
       const mode = a.mode;
       if (mode && mode !== 'auto' && mode !== 'track' && mode !== 'pitch_split') {
-        issues.push({ field: 'hands_config.assignment.mode', label: 'Assignment mode', type: 'select', required: true, reason: `Unknown mode '${mode}'.` });
+        issues.push({
+          field: 'hands_config.assignment.mode',
+          label: 'Assignment mode',
+          type: 'select',
+          required: true,
+          reason: `Unknown mode '${mode}'.`
+        });
       }
       // pitch_split_notes: optional array of N-1 ascending split points.
       // Coexists with the legacy scalar pitch_split_note (which becomes the
       // unique split when there are exactly 2 hands).
       if (a.pitch_split_notes != null) {
-        if (!Array.isArray(a.pitch_split_notes)
-            || a.pitch_split_notes.some(n => !Number.isFinite(n) || n < 0 || n > 127)) {
+        if (
+          !Array.isArray(a.pitch_split_notes) ||
+          a.pitch_split_notes.some((n) => !Number.isFinite(n) || n < 0 || n > 127)
+        ) {
           issues.push({
             field: 'hands_config.assignment.pitch_split_notes',
-            label: 'Pitch split notes', type: 'array', required: true,
+            label: 'Pitch split notes',
+            type: 'array',
+            required: true,
             reason: 'pitch_split_notes must be an array of MIDI notes in [0,127].'
           });
         } else {
@@ -380,17 +483,20 @@ class InstrumentCapabilitiesValidator {
             if (a.pitch_split_notes[i] <= a.pitch_split_notes[i - 1]) {
               issues.push({
                 field: 'hands_config.assignment.pitch_split_notes',
-                label: 'Pitch split notes', type: 'array', required: true,
+                label: 'Pitch split notes',
+                type: 'array',
+                required: true,
                 reason: 'pitch_split_notes must be strictly ascending.'
               });
               break;
             }
           }
-          if (cfg.hands.length > 1
-              && a.pitch_split_notes.length !== cfg.hands.length - 1) {
+          if (cfg.hands.length > 1 && a.pitch_split_notes.length !== cfg.hands.length - 1) {
             issues.push({
               field: 'hands_config.assignment.pitch_split_notes',
-              label: 'Pitch split notes', type: 'array', required: true,
+              label: 'Pitch split notes',
+              type: 'array',
+              required: true,
               reason: `pitch_split_notes must have ${cfg.hands.length - 1} entries (hands - 1).`
             });
           }
@@ -403,7 +509,9 @@ class InstrumentCapabilitiesValidator {
         if (typeof a.track_map !== 'object' || Array.isArray(a.track_map)) {
           issues.push({
             field: 'hands_config.assignment.track_map',
-            label: 'Track map', type: 'object', required: true,
+            label: 'Track map',
+            type: 'object',
+            required: true,
             reason: 'track_map must be an object keyed by hand id.'
           });
         } else {
@@ -411,14 +519,18 @@ class InstrumentCapabilitiesValidator {
             if (!seenIds.has(key)) {
               issues.push({
                 field: `hands_config.assignment.track_map.${key}`,
-                label: 'Track map', type: 'object', required: true,
+                label: 'Track map',
+                type: 'object',
+                required: true,
                 reason: `track_map key '${key}' does not match any declared hand id.`
               });
             }
-            if (!Array.isArray(val) || val.some(v => !Number.isInteger(v) || v < 0)) {
+            if (!Array.isArray(val) || val.some((v) => !Number.isInteger(v) || v < 0)) {
               issues.push({
                 field: `hands_config.assignment.track_map.${key}`,
-                label: 'Track map', type: 'array', required: true,
+                label: 'Track map',
+                type: 'array',
+                required: true,
                 reason: 'track_map values must be arrays of non-negative integers.'
               });
             }
@@ -454,41 +566,72 @@ class InstrumentCapabilitiesValidator {
     const V2_MECHANISMS = new Set(['independent_fingers']);
     if (cfg.mechanism == null || cfg.mechanism === '') {
       issues.push({
-        field: 'hands_config.mechanism', label: 'Hand mechanism',
-        type: 'select', required: true,
-        reason: "mechanism is required in frets mode (one of: 'string_sliding_fingers', 'fret_sliding_fingers')."
+        field: 'hands_config.mechanism',
+        label: 'Hand mechanism',
+        type: 'select',
+        required: true,
+        reason:
+          "mechanism is required in frets mode (one of: 'string_sliding_fingers', 'fret_sliding_fingers')."
       });
     } else if (V2_MECHANISMS.has(cfg.mechanism)) {
       issues.push({
-        field: 'hands_config.mechanism', label: 'Hand mechanism',
-        type: 'select', required: true,
+        field: 'hands_config.mechanism',
+        label: 'Hand mechanism',
+        type: 'select',
+        required: true,
         reason: `mechanism '${cfg.mechanism}' is reserved for V2 and not yet implemented.`
       });
     } else if (!VALID_MECHANISMS.has(cfg.mechanism)) {
       issues.push({
-        field: 'hands_config.mechanism', label: 'Hand mechanism',
-        type: 'select', required: true,
+        field: 'hands_config.mechanism',
+        label: 'Hand mechanism',
+        type: 'select',
+        required: true,
         reason: `Unknown mechanism '${cfg.mechanism}'. Must be 'string_sliding_fingers' or 'fret_sliding_fingers'.`
       });
     }
 
     if (cfg.hands.length !== 1) {
       issues.push({
-        field: 'hands_config.hands', label: 'Hands list',
-        type: 'array', required: true,
-        reason: "frets mode requires exactly one hand entry (the fretting hand)."
+        field: 'hands_config.hands',
+        label: 'Hands list',
+        type: 'array',
+        required: true,
+        reason: 'frets mode requires exactly one hand entry (the fretting hand).'
       });
     }
     const h = cfg.hands[0];
     if (!h || typeof h !== 'object') {
-      issues.push({ field: 'hands_config.hands[0]', label: 'Hand entry', type: 'object', required: true, reason: 'Must be an object.' });
+      issues.push({
+        field: 'hands_config.hands[0]',
+        label: 'Hand entry',
+        type: 'object',
+        required: true,
+        reason: 'Must be an object.'
+      });
       return;
     }
     if (h.id !== 'fretting') {
-      issues.push({ field: 'hands_config.hands[0].id', label: 'Hand id', type: 'text', required: true, reason: "id must be 'fretting' in frets mode." });
+      issues.push({
+        field: 'hands_config.hands[0].id',
+        label: 'Hand id',
+        type: 'text',
+        required: true,
+        reason: "id must be 'fretting' in frets mode."
+      });
     }
-    if (!Number.isFinite(h.cc_position_number) || h.cc_position_number < 0 || h.cc_position_number > 127) {
-      issues.push({ field: 'hands_config.hands[0].cc_position_number', label: 'CC number', type: 'number', required: true, reason: 'Must be an integer in [0,127].' });
+    if (
+      !Number.isFinite(h.cc_position_number) ||
+      h.cc_position_number < 0 ||
+      h.cc_position_number > 127
+    ) {
+      issues.push({
+        field: 'hands_config.hands[0].cc_position_number',
+        label: 'CC number',
+        type: 'number',
+        required: true,
+        reason: 'Must be an integer in [0,127].'
+      });
     }
 
     // Hand span — at least one of (mm, frets) must be present and valid.
@@ -496,29 +639,57 @@ class InstrumentCapabilitiesValidator {
     // accepted for legacy rows but no longer written by the UI.
     const mmSpanValid = Number.isFinite(h.hand_span_mm) && h.hand_span_mm > 0;
     const fretsSpanValid = Number.isFinite(h.hand_span_frets) && h.hand_span_frets > 0;
-    if (h.hand_span_mm != null && (!Number.isFinite(h.hand_span_mm) || h.hand_span_mm < 30 || h.hand_span_mm > 200)) {
-      issues.push({ field: 'hands_config.hands[0].hand_span_mm', label: 'Hand span (mm)', type: 'number', required: true, reason: 'hand_span_mm must be between 30 and 200 mm.' });
+    if (
+      h.hand_span_mm != null &&
+      (!Number.isFinite(h.hand_span_mm) || h.hand_span_mm < 30 || h.hand_span_mm > 200)
+    ) {
+      issues.push({
+        field: 'hands_config.hands[0].hand_span_mm',
+        label: 'Hand span (mm)',
+        type: 'number',
+        required: true,
+        reason: 'hand_span_mm must be between 30 and 200 mm.'
+      });
     }
-    if (h.hand_span_frets != null && (!Number.isFinite(h.hand_span_frets) || h.hand_span_frets <= 0 || h.hand_span_frets > 24)) {
-      issues.push({ field: 'hands_config.hands[0].hand_span_frets', label: 'Hand span (frets)', type: 'number', required: true, reason: 'hand_span_frets must be a positive integer ≤ 24.' });
+    if (
+      h.hand_span_frets != null &&
+      (!Number.isFinite(h.hand_span_frets) || h.hand_span_frets <= 0 || h.hand_span_frets > 24)
+    ) {
+      issues.push({
+        field: 'hands_config.hands[0].hand_span_frets',
+        label: 'Hand span (frets)',
+        type: 'number',
+        required: true,
+        reason: 'hand_span_frets must be a positive integer ≤ 24.'
+      });
     }
     if (!mmSpanValid && !fretsSpanValid) {
       issues.push({
-        field: 'hands_config.hands[0].hand_span_mm', label: 'Hand span',
-        type: 'number', required: true,
+        field: 'hands_config.hands[0].hand_span_mm',
+        label: 'Hand span',
+        type: 'number',
+        required: true,
         reason: 'frets mode requires hand_span_mm (preferred) or hand_span_frets (legacy).'
       });
     }
     if (h.hand_span_semitones != null) {
-      issues.push({ field: 'hands_config.hands[0].hand_span_semitones', label: 'Hand span', type: 'number', required: true, reason: 'hand_span_semitones is only valid in semitones mode.' });
+      issues.push({
+        field: 'hands_config.hands[0].hand_span_semitones',
+        label: 'Hand span',
+        type: 'number',
+        required: true,
+        reason: 'hand_span_semitones is only valid in semitones mode.'
+      });
     }
 
     // max_fingers — optional, capped at 12 (== num_strings DB cap).
     if (h.max_fingers != null) {
       if (!Number.isFinite(h.max_fingers) || h.max_fingers < 1 || h.max_fingers > 12) {
         issues.push({
-          field: 'hands_config.hands[0].max_fingers', label: 'Max fingers',
-          type: 'number', required: true,
+          field: 'hands_config.hands[0].max_fingers',
+          label: 'Max fingers',
+          type: 'number',
+          required: true,
           reason: 'max_fingers must be a positive integer between 1 and 12.'
         });
       }
@@ -529,25 +700,32 @@ class InstrumentCapabilitiesValidator {
     // `variable_height_fingers_count` is how many of those fingers have
     // an adjustable fret offset (0 = all fixed, max = all variable).
     if (cfg.mechanism === 'fret_sliding_fingers') {
-      if (h.num_fingers == null
-          || !Number.isFinite(h.num_fingers)
-          || h.num_fingers < 1
-          || h.num_fingers > 8) {
+      if (
+        h.num_fingers == null ||
+        !Number.isFinite(h.num_fingers) ||
+        h.num_fingers < 1 ||
+        h.num_fingers > 8
+      ) {
         issues.push({
-          field: 'hands_config.hands[0].num_fingers', label: 'Number of fingers',
-          type: 'number', required: true,
+          field: 'hands_config.hands[0].num_fingers',
+          label: 'Number of fingers',
+          type: 'number',
+          required: true,
           reason: 'fret_sliding_fingers requires num_fingers in [1,8].'
         });
       }
       if (h.variable_height_fingers_count != null) {
         const max = Number.isFinite(h.num_fingers) ? h.num_fingers : 8;
-        if (!Number.isFinite(h.variable_height_fingers_count)
-            || h.variable_height_fingers_count < 0
-            || h.variable_height_fingers_count > max) {
+        if (
+          !Number.isFinite(h.variable_height_fingers_count) ||
+          h.variable_height_fingers_count < 0 ||
+          h.variable_height_fingers_count > max
+        ) {
           issues.push({
             field: 'hands_config.hands[0].variable_height_fingers_count',
             label: 'Variable-height fingers',
-            type: 'number', required: true,
+            type: 'number',
+            required: true,
             reason: `variable_height_fingers_count must be between 0 and num_fingers (${max}).`
           });
         }
@@ -556,8 +734,10 @@ class InstrumentCapabilitiesValidator {
       // string_sliding_fingers must NOT carry the fret-sliding-only fields.
       if (h.num_fingers != null) {
         issues.push({
-          field: 'hands_config.hands[0].num_fingers', label: 'Number of fingers',
-          type: 'number', required: true,
+          field: 'hands_config.hands[0].num_fingers',
+          label: 'Number of fingers',
+          type: 'number',
+          required: true,
           reason: 'num_fingers is only valid for fret_sliding_fingers.'
         });
       }
@@ -565,7 +745,8 @@ class InstrumentCapabilitiesValidator {
         issues.push({
           field: 'hands_config.hands[0].variable_height_fingers_count',
           label: 'Variable-height fingers',
-          type: 'number', required: true,
+          type: 'number',
+          required: true,
           reason: 'variable_height_fingers_count is only valid for fret_sliding_fingers.'
         });
       }
@@ -583,34 +764,52 @@ class InstrumentCapabilitiesValidator {
 
     // Travel speed — same dual-unit logic as span.
     const mmSpeedValid = Number.isFinite(cfg.hand_move_mm_per_sec) && cfg.hand_move_mm_per_sec > 0;
-    const fretsSpeedValid = Number.isFinite(cfg.hand_move_frets_per_sec) && cfg.hand_move_frets_per_sec > 0;
-    if (cfg.hand_move_mm_per_sec != null
-        && (!Number.isFinite(cfg.hand_move_mm_per_sec) || cfg.hand_move_mm_per_sec < 50 || cfg.hand_move_mm_per_sec > 2000)) {
+    const fretsSpeedValid =
+      Number.isFinite(cfg.hand_move_frets_per_sec) && cfg.hand_move_frets_per_sec > 0;
+    if (
+      cfg.hand_move_mm_per_sec != null &&
+      (!Number.isFinite(cfg.hand_move_mm_per_sec) ||
+        cfg.hand_move_mm_per_sec < 50 ||
+        cfg.hand_move_mm_per_sec > 2000)
+    ) {
       issues.push({
-        field: 'hands_config.hand_move_mm_per_sec', label: 'Travel speed (mm/s)',
-        type: 'number', required: true,
+        field: 'hands_config.hand_move_mm_per_sec',
+        label: 'Travel speed (mm/s)',
+        type: 'number',
+        required: true,
         reason: 'hand_move_mm_per_sec must be between 50 and 2000.'
       });
     }
-    if (cfg.hand_move_frets_per_sec != null
-        && (!Number.isFinite(cfg.hand_move_frets_per_sec) || cfg.hand_move_frets_per_sec <= 0 || cfg.hand_move_frets_per_sec > 120)) {
+    if (
+      cfg.hand_move_frets_per_sec != null &&
+      (!Number.isFinite(cfg.hand_move_frets_per_sec) ||
+        cfg.hand_move_frets_per_sec <= 0 ||
+        cfg.hand_move_frets_per_sec > 120)
+    ) {
       issues.push({
-        field: 'hands_config.hand_move_frets_per_sec', label: 'Travel speed (frets/s)',
-        type: 'number', required: true,
+        field: 'hands_config.hand_move_frets_per_sec',
+        label: 'Travel speed (frets/s)',
+        type: 'number',
+        required: true,
         reason: 'hand_move_frets_per_sec must be a positive number ≤ 120.'
       });
     }
     if (!mmSpeedValid && !fretsSpeedValid) {
       issues.push({
-        field: 'hands_config.hand_move_mm_per_sec', label: 'Travel speed',
-        type: 'number', required: true,
-        reason: 'frets mode requires hand_move_mm_per_sec (preferred) or hand_move_frets_per_sec (legacy).'
+        field: 'hands_config.hand_move_mm_per_sec',
+        label: 'Travel speed',
+        type: 'number',
+        required: true,
+        reason:
+          'frets mode requires hand_move_mm_per_sec (preferred) or hand_move_frets_per_sec (legacy).'
       });
     }
     if (cfg.hand_move_semitones_per_sec != null) {
       issues.push({
-        field: 'hands_config.hand_move_semitones_per_sec', label: 'Travel speed',
-        type: 'number', required: true,
+        field: 'hands_config.hand_move_semitones_per_sec',
+        label: 'Travel speed',
+        type: 'number',
+        required: true,
         reason: 'hand_move_semitones_per_sec is only valid in semitones mode.'
       });
     }
@@ -622,12 +821,16 @@ class InstrumentCapabilitiesValidator {
     // `min(hand_move_mm_per_sec, finger_move_mm_per_sec)`. Optional;
     // the planner falls back to a sane internal default when absent.
     if (cfg.finger_move_mm_per_sec != null) {
-      if (!Number.isFinite(cfg.finger_move_mm_per_sec)
-          || cfg.finger_move_mm_per_sec < 50
-          || cfg.finger_move_mm_per_sec > 5000) {
+      if (
+        !Number.isFinite(cfg.finger_move_mm_per_sec) ||
+        cfg.finger_move_mm_per_sec < 50 ||
+        cfg.finger_move_mm_per_sec > 5000
+      ) {
         issues.push({
-          field: 'hands_config.finger_move_mm_per_sec', label: 'Finger speed (mm/s)',
-          type: 'number', required: true,
+          field: 'hands_config.finger_move_mm_per_sec',
+          label: 'Finger speed (mm/s)',
+          type: 'number',
+          required: true,
           reason: 'finger_move_mm_per_sec must be between 50 and 5000.'
         });
       }
@@ -635,8 +838,10 @@ class InstrumentCapabilitiesValidator {
 
     if (cfg.assignment != null) {
       issues.push({
-        field: 'hands_config.assignment', label: 'Assignment mode',
-        type: 'object', required: true,
+        field: 'hands_config.assignment',
+        label: 'Assignment mode',
+        type: 'object',
+        required: true,
         reason: 'assignment is not used in frets mode (single hand).'
       });
     }
@@ -648,17 +853,17 @@ class InstrumentCapabilitiesValidator {
    * @returns {Object} { valid, incomplete, allValid }
    */
   validateInstruments(instruments) {
-    const results = instruments.map(inst => this.validateInstrument(inst));
+    const results = instruments.map((inst) => this.validateInstrument(inst));
 
-    const incomplete = results.filter(r => !r.isValid || !r.isComplete);
-    const allValid = results.every(r => r.isValid);
+    const incomplete = results.filter((r) => !r.isValid || !r.isComplete);
+    const allValid = results.every((r) => r.isValid);
 
     return {
       results,
       incomplete,
       allValid,
-      validCount: results.filter(r => r.isValid).length,
-      completeCount: results.filter(r => r.isComplete).length,
+      validCount: results.filter((r) => r.isValid).length,
+      completeCount: results.filter((r) => r.isComplete).length,
       totalCount: results.length
     };
   }
@@ -670,15 +875,15 @@ class InstrumentCapabilitiesValidator {
    */
   getCapabilityLabel(capability) {
     const labels = {
-      'gm_program': 'General MIDI Program',
-      'note_range_min': 'Lowest Note',
-      'note_range_max': 'Highest Note',
-      'polyphony': 'Maximum Polyphony',
-      'note_selection_mode': 'Play Mode',
-      'supported_ccs': 'Supported Control Changes',
-      'type': 'Instrument Type',
-      'selected_notes': 'Playable Notes (Discrete Mode)',
-      'hands_config': 'Hand-Position Configuration'
+      gm_program: 'General MIDI Program',
+      note_range_min: 'Lowest Note',
+      note_range_max: 'Highest Note',
+      polyphony: 'Maximum Polyphony',
+      note_selection_mode: 'Play Mode',
+      supported_ccs: 'Supported Control Changes',
+      type: 'Instrument Type',
+      selected_notes: 'Playable Notes (Discrete Mode)',
+      hands_config: 'Hand-Position Configuration'
     };
 
     return labels[capability] || capability;
@@ -691,14 +896,14 @@ class InstrumentCapabilitiesValidator {
    */
   getCapabilityType(capability) {
     const types = {
-      'gm_program': 'number',
-      'note_range_min': 'note',
-      'note_range_max': 'note',
-      'polyphony': 'number',
-      'note_selection_mode': 'select',
-      'supported_ccs': 'array',
-      'type': 'select',
-      'selected_notes': 'note-array'
+      gm_program: 'number',
+      note_range_min: 'note',
+      note_range_max: 'note',
+      polyphony: 'number',
+      note_selection_mode: 'select',
+      supported_ccs: 'array',
+      type: 'select',
+      selected_notes: 'note-array'
     };
 
     return types[capability] || 'text';
@@ -720,8 +925,7 @@ class InstrumentCapabilitiesValidator {
       defaults.polyphony = 64;
       defaults.note_selection_mode = 'range';
       defaults.supported_ccs = [1, 7, 10, 11, 64, 71, 91, 93];
-    }
-    else if (instrument.type === 'drums' || instrument.type === 'percussion') {
+    } else if (instrument.type === 'drums' || instrument.type === 'percussion') {
       defaults.gm_program = 0; // Standard Drum Kit (on channel 9)
       defaults.note_range_min = 35; // Acoustic Bass Drum
       defaults.note_range_max = 81; // Open Triangle
@@ -729,24 +933,21 @@ class InstrumentCapabilitiesValidator {
       defaults.note_selection_mode = 'discrete';
       defaults.selected_notes = [36, 38, 42, 44, 46, 48, 50, 51]; // Common drum notes
       defaults.supported_ccs = [7, 10]; // Volume, Pan
-    }
-    else if (instrument.type === 'bass') {
+    } else if (instrument.type === 'bass') {
       defaults.gm_program = 33; // Electric Bass (finger)
       defaults.note_range_min = 28; // E1
       defaults.note_range_max = 60; // C4
       defaults.polyphony = 4;
       defaults.note_selection_mode = 'range';
       defaults.supported_ccs = [1, 7, 10, 11];
-    }
-    else if (instrument.type === 'synth') {
+    } else if (instrument.type === 'synth') {
       defaults.gm_program = 81; // Lead 2 (sawtooth)
       defaults.note_range_min = 0; // Full MIDI range
       defaults.note_range_max = 127;
       defaults.polyphony = 8;
       defaults.note_selection_mode = 'range';
       defaults.supported_ccs = [1, 7, 10, 11, 71, 72, 73, 74];
-    }
-    else {
+    } else {
       // Generic default values
       defaults.gm_program = 0;
       defaults.note_range_min = 48; // C3

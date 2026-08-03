@@ -71,7 +71,8 @@ export function planChannelRouting({
   const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
 
   if (
-    knownDevices && knownDevices.size > 0 &&
+    knownDevices &&
+    knownDevices.size > 0 &&
     !knownDevices.has(deviceId) &&
     deviceId !== 'virtual-instrument'
   ) {
@@ -93,21 +94,20 @@ export function planChannelRouting({
       transposition_applied: sameDevice ? (existing.transposition_applied ?? 0) : 0,
       auto_assigned: sameDevice ? existing.auto_assigned : false,
       assignment_reason: sameDevice ? existing.assignment_reason : 'manual',
-      note_remapping: sameDevice && existing.note_remapping
-        ? JSON.stringify(existing.note_remapping)
-        : null,
+      note_remapping:
+        sameDevice && existing.note_remapping ? JSON.stringify(existing.note_remapping) : null,
       // Hand-position plan is bound to the physical instrument. Keep it
       // when the device is unchanged (the editor re-syncs the WHOLE
       // channel map on any single edit, so dropping it here would wipe
       // hand overrides for every hand-edited channel on an unrelated
       // change). Clear it when the device changes — the previous
       // instrument's hand mechanics no longer apply.
-      hand_position_overrides: sameDevice && existing.hand_position_overrides
-        ? existing.hand_position_overrides
-        : null,
-      hand_position_feasibility: sameDevice && existing.hand_position_feasibility
-        ? existing.hand_position_feasibility
-        : null,
+      hand_position_overrides:
+        sameDevice && existing.hand_position_overrides ? existing.hand_position_overrides : null,
+      hand_position_feasibility:
+        sameDevice && existing.hand_position_feasibility
+          ? existing.hand_position_feasibility
+          : null,
       enabled: true,
       created_at: now
     }
@@ -139,7 +139,9 @@ export default class FileRoutingSyncService {
     try {
       const list = this.deviceManager?.getDeviceList?.() || [];
       for (const d of list) if (d.id) set.add(d.id);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return set;
   }
 
@@ -161,7 +163,9 @@ export default class FileRoutingSyncService {
     try {
       const channels = this.fileRepository.getChannels(fileId) || [];
       for (const c of channels) if (c.channel != null) set.add(c.channel);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     if (Array.isArray(existingRoutings)) {
       for (const r of existingRoutings) if (r && r.channel != null) set.add(r.channel);
     }

@@ -11,7 +11,7 @@ import dgram from 'dgram';
 import { clamp } from '../utils/MathUtils.js';
 
 const ARTNET_PORT = 6454;
-const ARTNET_HEADER = Buffer.from([0x41, 0x72, 0x74, 0x2D, 0x4E, 0x65, 0x74, 0x00]); // "Art-Net\0"
+const ARTNET_HEADER = Buffer.from([0x41, 0x72, 0x74, 0x2d, 0x4e, 0x65, 0x74, 0x00]); // "Art-Net\0"
 const OPCODE_DMX = 0x5000;
 
 class ArtNetDriver extends BaseLightingDriver {
@@ -49,7 +49,9 @@ class ArtNetDriver extends BaseLightingDriver {
       });
 
       this.connected = true;
-      this.logger.info(`ArtNet driver connected: ${this.host}:${this.port}, universe ${this.universe}, ${this.device.led_count} LED(s)`);
+      this.logger.info(
+        `ArtNet driver connected: ${this.host}:${this.port}, universe ${this.universe}, ${this.device.led_count} LED(s)`
+      );
       this.emit('connected');
     } catch (error) {
       this.logger.error(`ArtNet driver connect failed: ${error.message}`);
@@ -158,8 +160,8 @@ class ArtNetDriver extends BaseLightingDriver {
     // Header "Art-Net\0"
     ARTNET_HEADER.copy(packet, 0);
     // OpCode (little-endian)
-    packet[8] = OPCODE_DMX & 0xFF;
-    packet[9] = (OPCODE_DMX >> 8) & 0xFF;
+    packet[8] = OPCODE_DMX & 0xff;
+    packet[9] = (OPCODE_DMX >> 8) & 0xff;
     // Protocol version (14)
     packet[10] = 0x00;
     packet[11] = 14;
@@ -168,12 +170,12 @@ class ArtNetDriver extends BaseLightingDriver {
     // Physical port
     packet[13] = 0;
     // SubUni (universe in lower nibble, subnet in upper)
-    packet[14] = (this.subnet << 4) | (this.universe & 0x0F);
+    packet[14] = (this.subnet << 4) | (this.universe & 0x0f);
     // Net
-    packet[15] = this.net & 0x7F;
+    packet[15] = this.net & 0x7f;
     // Length (big-endian)
-    packet[16] = (dataLength >> 8) & 0xFF;
-    packet[17] = dataLength & 0xFF;
+    packet[16] = (dataLength >> 8) & 0xff;
+    packet[17] = dataLength & 0xff;
     // DMX data
     this.dmxData.copy(packet, 18);
 
