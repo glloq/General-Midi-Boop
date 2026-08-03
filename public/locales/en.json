@@ -858,6 +858,7 @@
     "modeDiscrete": "Individual notes",
     "clickToToggle": "Click to select/deselect",
     "octaveModeTitle": "Playable notes per octave",
+    "scaleRootLabel": "Key",
     "playableNotes": "playable notes",
     "octaveModeHint": "Restricts the instrument to a scale: 12 = chromatic (all notes), 7 = diatonic (major scale), 5 = pentatonic.",
     "selectedNote": "Selected note",

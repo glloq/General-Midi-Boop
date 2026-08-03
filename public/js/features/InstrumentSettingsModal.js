@@ -11,405 +11,620 @@
  *                  _updateDrumSummary, _attachStringsSectionListeners, _initNeckDiagram)
  */
 class InstrumentSettingsModal extends BaseModal {
+  static CHANNEL_COLORS = [
+    '#3b82f6',
+    '#ef4444',
+    '#10b981',
+    '#f59e0b',
+    '#8b5cf6',
+    '#ec4899',
+    '#06b6d4',
+    '#84cc16',
+    '#f97316',
+    '#6366f1',
+    '#14b8a6',
+    '#e11d48',
+    '#a855f7',
+    '#0ea5e9',
+    '#22c55e',
+    '#eab308'
+  ];
 
-    static CHANNEL_COLORS = [
-        '#3b82f6','#ef4444','#10b981','#f59e0b',
-        '#8b5cf6','#ec4899','#06b6d4','#84cc16',
-        '#f97316','#6366f1','#14b8a6','#e11d48',
-        '#a855f7','#0ea5e9','#22c55e','#eab308'
-    ];
+  static DRUM_CATEGORIES = {
+    kicks: { notes: [35, 36], icon: '🥁', name: 'Kicks' },
+    snares: { notes: [37, 38, 40], icon: '🪘', name: 'Snares' },
+    hiHats: { notes: [42, 44, 46], icon: '🎩', name: 'Hi-Hats' },
+    toms: { notes: [41, 43, 45, 47, 48, 50], icon: '🥁', name: 'Toms' },
+    crashes: { notes: [49, 52, 55, 57], icon: '💥', name: 'Crashes' },
+    rides: { notes: [51, 53, 59], icon: '🔔', name: 'Rides' },
+    latin: { notes: [60, 61, 62, 63, 64, 65, 66, 67, 68], icon: '🪇', name: 'Latin' },
+    shakers: { notes: [39, 54, 58, 69, 70], icon: '🫧', name: 'Shakers' },
+    woodsMetal: { notes: [56, 75, 76, 77], icon: '🪵', name: 'Bois & Métal' },
+    pitched: { notes: [71, 72, 73, 74], icon: '🎶', name: 'Effets mélodiques' },
+    cuicas: { notes: [78, 79], icon: '🪘', name: 'Cuicas' },
+    triangles: { notes: [80, 81], icon: '🔺', name: 'Triangles' }
+  };
 
-    static DRUM_CATEGORIES = {
-        kicks:      { notes: [35, 36], icon: '🥁', name: 'Kicks' },
-        snares:     { notes: [37, 38, 40], icon: '🪘', name: 'Snares' },
-        hiHats:     { notes: [42, 44, 46], icon: '🎩', name: 'Hi-Hats' },
-        toms:       { notes: [41, 43, 45, 47, 48, 50], icon: '🥁', name: 'Toms' },
-        crashes:    { notes: [49, 52, 55, 57], icon: '💥', name: 'Crashes' },
-        rides:      { notes: [51, 53, 59], icon: '🔔', name: 'Rides' },
-        latin:      { notes: [60, 61, 62, 63, 64, 65, 66, 67, 68], icon: '🪇', name: 'Latin' },
-        shakers:    { notes: [39, 54, 58, 69, 70], icon: '🫧', name: 'Shakers' },
-        woodsMetal: { notes: [56, 75, 76, 77], icon: '🪵', name: 'Bois & Métal' },
-        pitched:    { notes: [71, 72, 73, 74], icon: '🎶', name: 'Effets mélodiques' },
-        cuicas:     { notes: [78, 79], icon: '🪘', name: 'Cuicas' },
-        triangles:  { notes: [80, 81], icon: '🔺', name: 'Triangles' }
-    };
+  static DRUM_NOTE_NAMES = {
+    35: 'Ac. Bass Drum',
+    36: 'Bass Drum 1',
+    37: 'Side Stick',
+    38: 'Ac. Snare',
+    39: 'Hand Clap',
+    40: 'Electric Snare',
+    41: 'Low Floor Tom',
+    42: 'Closed Hi-Hat',
+    43: 'High Floor Tom',
+    44: 'Pedal Hi-Hat',
+    45: 'Low Tom',
+    46: 'Open Hi-Hat',
+    47: 'Low-Mid Tom',
+    48: 'Hi-Mid Tom',
+    49: 'Crash Cymbal 1',
+    50: 'High Tom',
+    51: 'Ride Cymbal 1',
+    52: 'Chinese Cymbal',
+    53: 'Ride Bell',
+    54: 'Tambourine',
+    55: 'Splash Cymbal',
+    56: 'Cowbell',
+    57: 'Crash Cymbal 2',
+    58: 'Vibraslap',
+    59: 'Ride Cymbal 2',
+    60: 'Hi Bongo',
+    61: 'Low Bongo',
+    62: 'Mute Hi Conga',
+    63: 'Open Hi Conga',
+    64: 'Low Conga',
+    65: 'High Timbale',
+    66: 'Low Timbale',
+    67: 'High Agogô',
+    68: 'Low Agogô',
+    69: 'Cabasa',
+    70: 'Maracas',
+    71: 'Short Whistle',
+    72: 'Long Whistle',
+    73: 'Short Güiro',
+    74: 'Long Güiro',
+    75: 'Claves',
+    76: 'Hi Wood Block',
+    77: 'Low Wood Block',
+    78: 'Mute Cuíca',
+    79: 'Open Cuíca',
+    80: 'Mute Triangle',
+    81: 'Open Triangle'
+  };
 
-    static DRUM_NOTE_NAMES = {
-        35:'Ac. Bass Drum',36:'Bass Drum 1',37:'Side Stick',38:'Ac. Snare',39:'Hand Clap',
-        40:'Electric Snare',41:'Low Floor Tom',42:'Closed Hi-Hat',43:'High Floor Tom',
-        44:'Pedal Hi-Hat',45:'Low Tom',46:'Open Hi-Hat',47:'Low-Mid Tom',48:'Hi-Mid Tom',
-        49:'Crash Cymbal 1',50:'High Tom',51:'Ride Cymbal 1',52:'Chinese Cymbal',
-        53:'Ride Bell',54:'Tambourine',55:'Splash Cymbal',56:'Cowbell',57:'Crash Cymbal 2',
-        58:'Vibraslap',59:'Ride Cymbal 2',60:'Hi Bongo',61:'Low Bongo',62:'Mute Hi Conga',
-        63:'Open Hi Conga',64:'Low Conga',65:'High Timbale',66:'Low Timbale',67:'High Agogô',
-        68:'Low Agogô',69:'Cabasa',70:'Maracas',71:'Short Whistle',72:'Long Whistle',
-        73:'Short Güiro',74:'Long Güiro',75:'Claves',76:'Hi Wood Block',77:'Low Wood Block',
-        78:'Mute Cuíca',79:'Open Cuíca',80:'Mute Triangle',81:'Open Triangle'
-    };
+  static DRUM_PRIORITIES = {
+    36: 100,
+    35: 100,
+    38: 100,
+    40: 100,
+    42: 90,
+    49: 70,
+    46: 60,
+    41: 50,
+    43: 50,
+    45: 50,
+    47: 50,
+    48: 50,
+    50: 50,
+    51: 40,
+    53: 40,
+    59: 40
+  };
 
-    static DRUM_PRIORITIES = {
-        36:100,35:100,38:100,40:100,42:90,49:70,46:60,
-        41:50,43:50,45:50,47:50,48:50,50:50,51:40,53:40,59:40
-    };
+  static DRUM_PRESETS = {
+    gm_standard: { name: 'GM Standard', notes: Array.from({ length: 47 }, (_, i) => i + 35) },
+    gm_reduced: {
+      name: 'Kit Essentiel',
+      notes: [35, 36, 38, 40, 42, 44, 46, 41, 43, 45, 47, 48, 49, 50, 51]
+    },
+    rock: { name: 'Rock', notes: [35, 36, 38, 40, 42, 46, 41, 43, 45, 48, 49, 51, 55, 57] },
+    jazz: { name: 'Jazz', notes: [35, 38, 42, 44, 46, 41, 43, 45, 49, 51, 53, 59, 55] },
+    electronic: {
+      name: 'Électronique',
+      notes: [36, 38, 40, 42, 46, 41, 45, 48, 49, 51, 39, 54, 56]
+    },
+    latin: { name: 'Latin', notes: [35, 38, 42, 46, 60, 61, 62, 63, 64, 65, 66, 67, 68, 75, 76] }
+  };
 
-    static DRUM_PRESETS = {
-        gm_standard:  { name: 'GM Standard', notes: Array.from({length:47}, (_,i) => i+35) },
-        gm_reduced:   { name: 'Kit Essentiel', notes: [35,36,38,40,42,44,46,41,43,45,47,48,49,50,51] },
-        rock:         { name: 'Rock', notes: [35,36,38,40,42,46,41,43,45,48,49,51,55,57] },
-        jazz:         { name: 'Jazz', notes: [35,38,42,44,46,41,43,45,49,51,53,59,55] },
-        electronic:   { name: 'Électronique', notes: [36,38,40,42,46,41,45,48,49,51,39,54,56] },
-        latin:        { name: 'Latin', notes: [35,38,42,46,60,61,62,63,64,65,66,67,68,75,76] }
-    };
-
-    static SECTIONS = [
-        { id: 'identity', icon: '🎵', labelKey: 'instrumentSettings.sectionIdentity', fallback: 'Identité' },
-        { id: 'notes',    icon: '🎹', labelKey: 'instrumentSettings.sectionNotes',    fallback: 'Notes & Capacités' },
-        // keyboardsOnly: opt-in, shown only for keyboards/strings with the hands toggle on
-        { id: 'hands',    icon: '🫱', labelKey: 'instrumentSettings.sectionHands',    fallback: 'Mains', keyboardsOnly: true },
-        // showWhen: opt-in, shown only when the lighting toggle (Notes & Capacités) is on
-        { id: 'lumiere',  icon: '💡', labelKey: 'instrumentSettings.sectionLumiere',  fallback: 'Lumière', showWhen: '_shouldShowLumiereSection' },
-        { id: 'advanced', icon: '⚙️', labelKey: 'instrumentSettings.sectionAdvanced', fallback: 'Avancé' }
-    ];
-
-    static CC_GROUPS = {
-        performance: {
-            label: 'Performance', icon: '🎹',
-            ccs: {
-                1:  { name: 'Modulation Wheel', desc: 'Vibrato, trémolo ou effet modulant', range: '0-127' },
-                2:  { name: 'Breath Controller', desc: 'Contrôle par souffle (instruments à vent)', range: '0-127' },
-                4:  { name: 'Foot Controller', desc: 'Pédale d\'expression au pied', range: '0-127' },
-                5:  { name: 'Portamento Time', desc: 'Vitesse du glissando entre notes', range: '0-127' },
-                11: { name: 'Expression', desc: 'Volume expressif (sous-volume du CC7)', range: '0-127' },
-                64: { name: 'Sustain Pedal', desc: 'Pédale de maintien (on/off)', range: '0=off, 64+=on' },
-                65: { name: 'Portamento On/Off', desc: 'Active le glissando entre notes', range: '0=off, 64+=on' },
-                66: { name: 'Sostenuto', desc: 'Maintient les notes déjà enfoncées', range: '0=off, 64+=on' },
-                67: { name: 'Soft Pedal', desc: 'Pédale douce (réduit le volume/timbre)', range: '0=off, 64+=on' },
-                68: { name: 'Legato Footswitch', desc: 'Mode legato entre notes successives', range: '0=off, 64+=on' },
-                69: { name: 'Hold 2', desc: 'Prolonge la résonance des notes', range: '0=off, 64+=on' },
-                84: { name: 'Portamento Control', desc: 'Note source du portamento', range: '0-127 (note)' }
-            }
-        },
-        volume: {
-            label: 'Volume & Pan', icon: '🔊',
-            ccs: {
-                7:  { name: 'Volume', desc: 'Volume principal du canal', range: '0-127' },
-                8:  { name: 'Balance', desc: 'Balance stéréo gauche/droite', range: '0=L, 64=C, 127=R' },
-                10: { name: 'Pan', desc: 'Panoramique stéréo', range: '0=L, 64=C, 127=R' }
-            }
-        },
-        sound: {
-            label: 'Son / Timbre', icon: '🎛️',
-            ccs: {
-                70: { name: 'Sound Variation', desc: 'Variation timbrale du son', range: '0-127' },
-                71: { name: 'Resonance', desc: 'Résonance du filtre (Q)', range: '0-127' },
-                72: { name: 'Release Time', desc: 'Temps de relâchement de l\'enveloppe', range: '0-127' },
-                73: { name: 'Attack Time', desc: 'Temps d\'attaque de l\'enveloppe', range: '0-127' },
-                74: { name: 'Brightness (Cutoff)', desc: 'Fréquence de coupure du filtre', range: '0-127' },
-                75: { name: 'Decay Time', desc: 'Temps de déclin de l\'enveloppe', range: '0-127' },
-                76: { name: 'Vibrato Rate', desc: 'Vitesse du vibrato', range: '0-127' },
-                77: { name: 'Vibrato Depth', desc: 'Profondeur du vibrato', range: '0-127' },
-                78: { name: 'Vibrato Delay', desc: 'Délai avant début du vibrato', range: '0-127' },
-                79: { name: 'Sound Controller 10', desc: 'Contrôle de son générique', range: '0-127' }
-            }
-        },
-        effects: {
-            label: 'Effets', icon: '✨',
-            ccs: {
-                12: { name: 'Effect Control 1', desc: 'Contrôle de l\'effet 1 (paramètre)', range: '0-127' },
-                13: { name: 'Effect Control 2', desc: 'Contrôle de l\'effet 2 (paramètre)', range: '0-127' },
-                91: { name: 'Reverb Depth', desc: 'Profondeur de réverbération', range: '0-127' },
-                92: { name: 'Tremolo Depth', desc: 'Profondeur du trémolo', range: '0-127' },
-                93: { name: 'Chorus Depth', desc: 'Profondeur du chorus', range: '0-127' },
-                94: { name: 'Detune Depth', desc: 'Profondeur du détunage', range: '0-127' },
-                95: { name: 'Phaser Depth', desc: 'Profondeur du phaser', range: '0-127' }
-            }
-        },
-        dataBank: {
-            label: 'Data / Bank', icon: '💾',
-            ccs: {
-                0:  { name: 'Bank Select MSB', desc: 'Sélection de banque (octet haut)', range: '0-127' },
-                6:  { name: 'Data Entry MSB', desc: 'Valeur de donnée RPN/NRPN (haut)', range: '0-127' },
-                32: { name: 'Bank Select LSB', desc: 'Sélection de banque (octet bas)', range: '0-127' },
-                38: { name: 'Data Entry LSB', desc: 'Valeur de donnée RPN/NRPN (bas)', range: '0-127' },
-                96: { name: 'Data Increment', desc: 'Incrémente la valeur RPN/NRPN', range: 'N/A' },
-                97: { name: 'Data Decrement', desc: 'Décrémente la valeur RPN/NRPN', range: 'N/A' },
-                98: { name: 'NRPN LSB', desc: 'Paramètre non-enregistré (octet bas)', range: '0-127' },
-                99: { name: 'NRPN MSB', desc: 'Paramètre non-enregistré (octet haut)', range: '0-127' },
-                100: { name: 'RPN LSB', desc: 'Paramètre enregistré (octet bas)', range: '0-127' },
-                101: { name: 'RPN MSB', desc: 'Paramètre enregistré (octet haut)', range: '0-127' }
-            }
-        },
-        robotics: {
-            label: 'Robotique (libres)', icon: '🤖',
-            ccs: {
-                3:  { name: 'CC 3', desc: 'Non défini — usage libre', range: '0-127' },
-                9:  { name: 'CC 9', desc: 'Non défini — usage libre', range: '0-127' },
-                14: { name: 'CC 14', desc: 'Non défini — usage libre', range: '0-127' },
-                15: { name: 'CC 15', desc: 'Non défini — usage libre', range: '0-127' },
-                16: { name: 'General Purpose 1', desc: 'Usage libre (GP1)', range: '0-127' },
-                17: { name: 'General Purpose 2', desc: 'Usage libre (GP2)', range: '0-127' },
-                18: { name: 'General Purpose 3', desc: 'Usage libre (GP3)', range: '0-127' },
-                19: { name: 'General Purpose 4', desc: 'Usage libre (GP4)', range: '0-127' },
-                20: { name: 'CC 20 (String Select)', desc: 'Sélection de corde (robotique)', range: '0-127' },
-                21: { name: 'CC 21 (Fret Select)', desc: 'Sélection de frette (robotique)', range: '0-127' },
-                22: { name: 'CC 22', desc: 'Non défini — usage libre', range: '0-127' },
-                23: { name: 'CC 23', desc: 'Non défini — usage libre', range: '0-127' },
-                24: { name: 'CC 24', desc: 'Non défini — usage libre', range: '0-127' },
-                25: { name: 'CC 25', desc: 'Non défini — usage libre', range: '0-127' },
-                26: { name: 'CC 26', desc: 'Non défini — usage libre', range: '0-127' },
-                27: { name: 'CC 27', desc: 'Non défini — usage libre', range: '0-127' },
-                28: { name: 'CC 28', desc: 'Non défini — usage libre', range: '0-127' },
-                29: { name: 'CC 29', desc: 'Non défini — usage libre', range: '0-127' },
-                30: { name: 'CC 30', desc: 'Non défini — usage libre', range: '0-127' },
-                31: { name: 'CC 31', desc: 'Non défini — usage libre', range: '0-127' },
-                80: { name: 'General Purpose 5', desc: 'Usage libre (GP5, on/off)', range: '0=off, 64+=on' },
-                81: { name: 'General Purpose 6', desc: 'Usage libre (GP6, on/off)', range: '0=off, 64+=on' },
-                82: { name: 'General Purpose 7', desc: 'Usage libre (GP7, on/off)', range: '0=off, 64+=on' },
-                83: { name: 'General Purpose 8', desc: 'Usage libre (GP8, on/off)', range: '0=off, 64+=on' },
-                85: { name: 'CC 85', desc: 'Non défini — usage libre', range: '0-127' },
-                86: { name: 'CC 86', desc: 'Non défini — usage libre', range: '0-127' },
-                87: { name: 'CC 87', desc: 'Non défini — usage libre', range: '0-127' },
-                88: { name: 'CC 88', desc: 'Non défini — usage libre', range: '0-127' },
-                89: { name: 'CC 89', desc: 'Non défini — usage libre', range: '0-127' },
-                90: { name: 'CC 90', desc: 'Non défini — usage libre', range: '0-127' },
-                102: { name: 'CC 102', desc: 'Non défini — usage libre', range: '0-127' },
-                103: { name: 'CC 103', desc: 'Non défini — usage libre', range: '0-127' },
-                104: { name: 'CC 104', desc: 'Non défini — usage libre', range: '0-127' },
-                105: { name: 'CC 105', desc: 'Non défini — usage libre', range: '0-127' },
-                106: { name: 'CC 106', desc: 'Non défini — usage libre', range: '0-127' },
-                107: { name: 'CC 107', desc: 'Non défini — usage libre', range: '0-127' },
-                108: { name: 'CC 108', desc: 'Non défini — usage libre', range: '0-127' },
-                109: { name: 'CC 109', desc: 'Non défini — usage libre', range: '0-127' },
-                110: { name: 'CC 110', desc: 'Non défini — usage libre', range: '0-127' },
-                111: { name: 'CC 111', desc: 'Non défini — usage libre', range: '0-127' },
-                112: { name: 'CC 112', desc: 'Non défini — usage libre', range: '0-127' },
-                113: { name: 'CC 113', desc: 'Non défini — usage libre', range: '0-127' },
-                114: { name: 'CC 114', desc: 'Non défini — usage libre', range: '0-127' },
-                115: { name: 'CC 115', desc: 'Non défini — usage libre', range: '0-127' },
-                116: { name: 'CC 116', desc: 'Non défini — usage libre', range: '0-127' },
-                117: { name: 'CC 117', desc: 'Non défini — usage libre', range: '0-127' },
-                118: { name: 'CC 118', desc: 'Non défini — usage libre', range: '0-127' },
-                119: { name: 'CC 119', desc: 'Non défini — usage libre', range: '0-127' }
-            }
-        },
-        channelMode: {
-            label: 'Channel Mode', icon: '📡',
-            ccs: {
-                120: { name: 'All Sound Off', desc: 'Coupe immédiatement tous les sons', range: '0 (fixe)' },
-                121: { name: 'Reset All Controllers', desc: 'Réinitialise tous les CC à leur défaut', range: '0 (fixe)' },
-                122: { name: 'Local Control', desc: 'Active/désactive le clavier local', range: '0=off, 127=on' },
-                123: { name: 'All Notes Off', desc: 'Envoie un Note Off sur toutes les notes', range: '0 (fixe)' },
-                124: { name: 'Omni Mode Off', desc: 'Désactive la réception omni-canal', range: '0 (fixe)' },
-                125: { name: 'Omni Mode On', desc: 'Active la réception omni-canal', range: '0 (fixe)' },
-                126: { name: 'Mono Mode On', desc: 'Mode monophonique (N canaux)', range: '0-16 (nb canaux)' },
-                127: { name: 'Poly Mode On', desc: 'Mode polyphonique standard', range: '0 (fixe)' }
-            }
-        }
-    };
-
-    static GM_RECOMMENDED_CCS = {
-        piano:       [1, 7, 10, 11, 64, 71, 91, 93],
-        chromPerc:   [1, 7, 10, 11, 64, 91, 93],
-        organ:       [1, 7, 10, 11, 91, 93],
-        guitar:      [1, 7, 10, 11, 64, 71, 74, 91, 93],
-        bass:        [1, 7, 10, 11, 64, 71, 74, 91],
-        strings:     [1, 7, 10, 11, 64, 71, 74, 91, 93],
-        ensemble:    [1, 7, 10, 11, 64, 91, 93],
-        brass:       [1, 2, 7, 10, 11, 64, 71, 91],
-        reed:        [1, 2, 7, 10, 11, 64, 71, 91],
-        pipe:        [1, 2, 7, 10, 11, 64, 91],
-        synthLead:   [1, 7, 10, 11, 71, 74, 91, 93],
-        synthPad:    [1, 7, 10, 11, 71, 74, 91, 93],
-        synthFx:     [1, 7, 10, 11, 71, 74, 91, 93],
-        ethnic:      [1, 7, 10, 11, 91],
-        percussive:  [7, 10, 91],
-        soundFx:     [7, 10, 91],
-        drums:       [7, 10, 91]
-    };
-
-    // 3 octave modes: how many notes per octave
-    static OCTAVE_MODES = {
-        chromatic:  { name: '12 notes', label: 'Chromatique',  count: 12, intervals: [0,1,2,3,4,5,6,7,8,9,10,11] },
-        diatonic:   { name: '7 notes',  label: 'Diatonique',   count: 7,  intervals: [0,2,4,5,7,9,11] },
-        pentatonic: { name: '5 notes',  label: 'Pentatonique', count: 5,  intervals: [0,2,4,7,9] }
-    };
-
-    static computePlayableNotes(min, max, modeKey) {
-        const mode = InstrumentSettingsModal.OCTAVE_MODES[modeKey];
-        if (!mode || modeKey === 'chromatic') {
-            const notes = [];
-            for (let n = min; n <= max; n++) notes.push(n);
-            return notes;
-        }
-        const notes = [];
-        for (let n = min; n <= max; n++) {
-            const semitone = n % 12;
-            if (mode.intervals.includes(semitone)) notes.push(n);
-        }
-        return notes;
+  static SECTIONS = [
+    {
+      id: 'identity',
+      icon: '🎵',
+      labelKey: 'instrumentSettings.sectionIdentity',
+      fallback: 'Identité'
+    },
+    {
+      id: 'notes',
+      icon: '🎹',
+      labelKey: 'instrumentSettings.sectionNotes',
+      fallback: 'Notes & Capacités'
+    },
+    // keyboardsOnly: opt-in, shown only for keyboards/strings with the hands toggle on
+    {
+      id: 'hands',
+      icon: '🫱',
+      labelKey: 'instrumentSettings.sectionHands',
+      fallback: 'Mains',
+      keyboardsOnly: true
+    },
+    // showWhen: opt-in, shown only when the lighting toggle (Notes & Capacités) is on
+    {
+      id: 'lumiere',
+      icon: '💡',
+      labelKey: 'instrumentSettings.sectionLumiere',
+      fallback: 'Lumière',
+      showWhen: '_shouldShowLumiereSection'
+    },
+    {
+      id: 'advanced',
+      icon: '⚙️',
+      labelKey: 'instrumentSettings.sectionAdvanced',
+      fallback: 'Avancé'
     }
+  ];
 
-    static MICROPROCESSOR_PATTERNS = [
-        { pattern: /arduino\s*(mega|uno|nano|due|leo|micro|mini|zero|mkr|33|every)/i, name: 'Arduino', variant: null },
-        { pattern: /arduino/i, name: 'Arduino', variant: null },
-        { pattern: /teensy\s*(4\.[01]|3\.[0-6]|LC|2\.0|2\+\+)?/i, name: 'Teensy', variant: null },
-        { pattern: /esp32[\s-]?(s[23]|c[236]|h2)?/i, name: 'ESP32', variant: null },
-        { pattern: /raspberry\s*pi\s*(pico|zero|[0-5])?/i, name: 'Raspberry Pi', variant: null },
-        { pattern: /stm32[a-z]?[0-9]*/i, name: 'STM32', variant: null },
-        { pattern: /rp2040|pico/i, name: 'RP2040/Pico', variant: null },
-        { pattern: /feather/i, name: 'Adafruit Feather', variant: null },
-        { pattern: /seeeduino|xiao/i, name: 'Seeeduino', variant: null }
-    ];
-
-    static GM_CATEGORY_EMOJIS = {
-        piano: '🎹', chromPerc: '🔔', organ: '🎹', guitar: '🎸',
-        bass: '🎸', strings: '🎻', ensemble: '🎻', brass: '🎺',
-        reed: '🎷', pipe: '🪈', synthLead: '🎛️', synthPad: '🎛️',
-        synthFx: '🎛️', ethnic: '🪕', percussive: '🥁', soundFx: '🔊',
-        drums: '🥁'
-    };
-
-    constructor(api) {
-        super({
-            id: 'instrument-settings-modal',
-            size: 'xl',
-            title: 'instrumentSettings.title',
-            customClass: 'ism-modal'
-        });
-        this.api = api;
-        this.device = null;
-        this.instrumentTabs = [];
-        this.activeChannel = 0;
-        this.tuningPresets = {};
-        this.scaleLengthPresets = {};
-        this._sf2Banks = [];
-        this.activeSection = 'identity';
-        this.isCreationMode = false;
-        // Identity picker state: { step: 'family'|'instruments'|'selected', currentFamilySlug }
-        // Initialized on each full render by ISMSections._renderIdentitySection.
-        this._identityUI = null;
+  static CC_GROUPS = {
+    performance: {
+      label: 'Performance',
+      icon: '🎹',
+      ccs: {
+        1: { name: 'Modulation Wheel', desc: 'Vibrato, trémolo ou effet modulant', range: '0-127' },
+        2: {
+          name: 'Breath Controller',
+          desc: 'Contrôle par souffle (instruments à vent)',
+          range: '0-127'
+        },
+        4: { name: 'Foot Controller', desc: "Pédale d'expression au pied", range: '0-127' },
+        5: { name: 'Portamento Time', desc: 'Vitesse du glissando entre notes', range: '0-127' },
+        11: { name: 'Expression', desc: 'Volume expressif (sous-volume du CC7)', range: '0-127' },
+        64: { name: 'Sustain Pedal', desc: 'Pédale de maintien (on/off)', range: '0=off, 64+=on' },
+        65: {
+          name: 'Portamento On/Off',
+          desc: 'Active le glissando entre notes',
+          range: '0=off, 64+=on'
+        },
+        66: {
+          name: 'Sostenuto',
+          desc: 'Maintient les notes déjà enfoncées',
+          range: '0=off, 64+=on'
+        },
+        67: {
+          name: 'Soft Pedal',
+          desc: 'Pédale douce (réduit le volume/timbre)',
+          range: '0=off, 64+=on'
+        },
+        68: {
+          name: 'Legato Footswitch',
+          desc: 'Mode legato entre notes successives',
+          range: '0=off, 64+=on'
+        },
+        69: { name: 'Hold 2', desc: 'Prolonge la résonance des notes', range: '0=off, 64+=on' },
+        84: { name: 'Portamento Control', desc: 'Note source du portamento', range: '0-127 (note)' }
+      }
+    },
+    volume: {
+      label: 'Volume & Pan',
+      icon: '🔊',
+      ccs: {
+        7: { name: 'Volume', desc: 'Volume principal du canal', range: '0-127' },
+        8: { name: 'Balance', desc: 'Balance stéréo gauche/droite', range: '0=L, 64=C, 127=R' },
+        10: { name: 'Pan', desc: 'Panoramique stéréo', range: '0=L, 64=C, 127=R' }
+      }
+    },
+    sound: {
+      label: 'Son / Timbre',
+      icon: '🎛️',
+      ccs: {
+        70: { name: 'Sound Variation', desc: 'Variation timbrale du son', range: '0-127' },
+        71: { name: 'Resonance', desc: 'Résonance du filtre (Q)', range: '0-127' },
+        72: { name: 'Release Time', desc: "Temps de relâchement de l'enveloppe", range: '0-127' },
+        73: { name: 'Attack Time', desc: "Temps d'attaque de l'enveloppe", range: '0-127' },
+        74: { name: 'Brightness (Cutoff)', desc: 'Fréquence de coupure du filtre', range: '0-127' },
+        75: { name: 'Decay Time', desc: "Temps de déclin de l'enveloppe", range: '0-127' },
+        76: { name: 'Vibrato Rate', desc: 'Vitesse du vibrato', range: '0-127' },
+        77: { name: 'Vibrato Depth', desc: 'Profondeur du vibrato', range: '0-127' },
+        78: { name: 'Vibrato Delay', desc: 'Délai avant début du vibrato', range: '0-127' },
+        79: { name: 'Sound Controller 10', desc: 'Contrôle de son générique', range: '0-127' }
+      }
+    },
+    effects: {
+      label: 'Effets',
+      icon: '✨',
+      ccs: {
+        12: { name: 'Effect Control 1', desc: "Contrôle de l'effet 1 (paramètre)", range: '0-127' },
+        13: { name: 'Effect Control 2', desc: "Contrôle de l'effet 2 (paramètre)", range: '0-127' },
+        91: { name: 'Reverb Depth', desc: 'Profondeur de réverbération', range: '0-127' },
+        92: { name: 'Tremolo Depth', desc: 'Profondeur du trémolo', range: '0-127' },
+        93: { name: 'Chorus Depth', desc: 'Profondeur du chorus', range: '0-127' },
+        94: { name: 'Detune Depth', desc: 'Profondeur du détunage', range: '0-127' },
+        95: { name: 'Phaser Depth', desc: 'Profondeur du phaser', range: '0-127' }
+      }
+    },
+    dataBank: {
+      label: 'Data / Bank',
+      icon: '💾',
+      ccs: {
+        0: { name: 'Bank Select MSB', desc: 'Sélection de banque (octet haut)', range: '0-127' },
+        6: { name: 'Data Entry MSB', desc: 'Valeur de donnée RPN/NRPN (haut)', range: '0-127' },
+        32: { name: 'Bank Select LSB', desc: 'Sélection de banque (octet bas)', range: '0-127' },
+        38: { name: 'Data Entry LSB', desc: 'Valeur de donnée RPN/NRPN (bas)', range: '0-127' },
+        96: { name: 'Data Increment', desc: 'Incrémente la valeur RPN/NRPN', range: 'N/A' },
+        97: { name: 'Data Decrement', desc: 'Décrémente la valeur RPN/NRPN', range: 'N/A' },
+        98: { name: 'NRPN LSB', desc: 'Paramètre non-enregistré (octet bas)', range: '0-127' },
+        99: { name: 'NRPN MSB', desc: 'Paramètre non-enregistré (octet haut)', range: '0-127' },
+        100: { name: 'RPN LSB', desc: 'Paramètre enregistré (octet bas)', range: '0-127' },
+        101: { name: 'RPN MSB', desc: 'Paramètre enregistré (octet haut)', range: '0-127' }
+      }
+    },
+    robotics: {
+      label: 'Robotique (libres)',
+      icon: '🤖',
+      ccs: {
+        3: { name: 'CC 3', desc: 'Non défini — usage libre', range: '0-127' },
+        9: { name: 'CC 9', desc: 'Non défini — usage libre', range: '0-127' },
+        14: { name: 'CC 14', desc: 'Non défini — usage libre', range: '0-127' },
+        15: { name: 'CC 15', desc: 'Non défini — usage libre', range: '0-127' },
+        16: { name: 'General Purpose 1', desc: 'Usage libre (GP1)', range: '0-127' },
+        17: { name: 'General Purpose 2', desc: 'Usage libre (GP2)', range: '0-127' },
+        18: { name: 'General Purpose 3', desc: 'Usage libre (GP3)', range: '0-127' },
+        19: { name: 'General Purpose 4', desc: 'Usage libre (GP4)', range: '0-127' },
+        20: {
+          name: 'CC 20 (String Select)',
+          desc: 'Sélection de corde (robotique)',
+          range: '0-127'
+        },
+        21: {
+          name: 'CC 21 (Fret Select)',
+          desc: 'Sélection de frette (robotique)',
+          range: '0-127'
+        },
+        22: { name: 'CC 22', desc: 'Non défini — usage libre', range: '0-127' },
+        23: { name: 'CC 23', desc: 'Non défini — usage libre', range: '0-127' },
+        24: { name: 'CC 24', desc: 'Non défini — usage libre', range: '0-127' },
+        25: { name: 'CC 25', desc: 'Non défini — usage libre', range: '0-127' },
+        26: { name: 'CC 26', desc: 'Non défini — usage libre', range: '0-127' },
+        27: { name: 'CC 27', desc: 'Non défini — usage libre', range: '0-127' },
+        28: { name: 'CC 28', desc: 'Non défini — usage libre', range: '0-127' },
+        29: { name: 'CC 29', desc: 'Non défini — usage libre', range: '0-127' },
+        30: { name: 'CC 30', desc: 'Non défini — usage libre', range: '0-127' },
+        31: { name: 'CC 31', desc: 'Non défini — usage libre', range: '0-127' },
+        80: {
+          name: 'General Purpose 5',
+          desc: 'Usage libre (GP5, on/off)',
+          range: '0=off, 64+=on'
+        },
+        81: {
+          name: 'General Purpose 6',
+          desc: 'Usage libre (GP6, on/off)',
+          range: '0=off, 64+=on'
+        },
+        82: {
+          name: 'General Purpose 7',
+          desc: 'Usage libre (GP7, on/off)',
+          range: '0=off, 64+=on'
+        },
+        83: {
+          name: 'General Purpose 8',
+          desc: 'Usage libre (GP8, on/off)',
+          range: '0=off, 64+=on'
+        },
+        85: { name: 'CC 85', desc: 'Non défini — usage libre', range: '0-127' },
+        86: { name: 'CC 86', desc: 'Non défini — usage libre', range: '0-127' },
+        87: { name: 'CC 87', desc: 'Non défini — usage libre', range: '0-127' },
+        88: { name: 'CC 88', desc: 'Non défini — usage libre', range: '0-127' },
+        89: { name: 'CC 89', desc: 'Non défini — usage libre', range: '0-127' },
+        90: { name: 'CC 90', desc: 'Non défini — usage libre', range: '0-127' },
+        102: { name: 'CC 102', desc: 'Non défini — usage libre', range: '0-127' },
+        103: { name: 'CC 103', desc: 'Non défini — usage libre', range: '0-127' },
+        104: { name: 'CC 104', desc: 'Non défini — usage libre', range: '0-127' },
+        105: { name: 'CC 105', desc: 'Non défini — usage libre', range: '0-127' },
+        106: { name: 'CC 106', desc: 'Non défini — usage libre', range: '0-127' },
+        107: { name: 'CC 107', desc: 'Non défini — usage libre', range: '0-127' },
+        108: { name: 'CC 108', desc: 'Non défini — usage libre', range: '0-127' },
+        109: { name: 'CC 109', desc: 'Non défini — usage libre', range: '0-127' },
+        110: { name: 'CC 110', desc: 'Non défini — usage libre', range: '0-127' },
+        111: { name: 'CC 111', desc: 'Non défini — usage libre', range: '0-127' },
+        112: { name: 'CC 112', desc: 'Non défini — usage libre', range: '0-127' },
+        113: { name: 'CC 113', desc: 'Non défini — usage libre', range: '0-127' },
+        114: { name: 'CC 114', desc: 'Non défini — usage libre', range: '0-127' },
+        115: { name: 'CC 115', desc: 'Non défini — usage libre', range: '0-127' },
+        116: { name: 'CC 116', desc: 'Non défini — usage libre', range: '0-127' },
+        117: { name: 'CC 117', desc: 'Non défini — usage libre', range: '0-127' },
+        118: { name: 'CC 118', desc: 'Non défini — usage libre', range: '0-127' },
+        119: { name: 'CC 119', desc: 'Non défini — usage libre', range: '0-127' }
+      }
+    },
+    channelMode: {
+      label: 'Channel Mode',
+      icon: '📡',
+      ccs: {
+        120: {
+          name: 'All Sound Off',
+          desc: 'Coupe immédiatement tous les sons',
+          range: '0 (fixe)'
+        },
+        121: {
+          name: 'Reset All Controllers',
+          desc: 'Réinitialise tous les CC à leur défaut',
+          range: '0 (fixe)'
+        },
+        122: {
+          name: 'Local Control',
+          desc: 'Active/désactive le clavier local',
+          range: '0=off, 127=on'
+        },
+        123: {
+          name: 'All Notes Off',
+          desc: 'Envoie un Note Off sur toutes les notes',
+          range: '0 (fixe)'
+        },
+        124: {
+          name: 'Omni Mode Off',
+          desc: 'Désactive la réception omni-canal',
+          range: '0 (fixe)'
+        },
+        125: { name: 'Omni Mode On', desc: 'Active la réception omni-canal', range: '0 (fixe)' },
+        126: {
+          name: 'Mono Mode On',
+          desc: 'Mode monophonique (N canaux)',
+          range: '0-16 (nb canaux)'
+        },
+        127: { name: 'Poly Mode On', desc: 'Mode polyphonique standard', range: '0 (fixe)' }
+      }
     }
+  };
 
-    // ========== PUBLIC API ==========
+  static GM_RECOMMENDED_CCS = {
+    piano: [1, 7, 10, 11, 64, 71, 91, 93],
+    chromPerc: [1, 7, 10, 11, 64, 91, 93],
+    organ: [1, 7, 10, 11, 91, 93],
+    guitar: [1, 7, 10, 11, 64, 71, 74, 91, 93],
+    bass: [1, 7, 10, 11, 64, 71, 74, 91],
+    strings: [1, 7, 10, 11, 64, 71, 74, 91, 93],
+    ensemble: [1, 7, 10, 11, 64, 91, 93],
+    brass: [1, 2, 7, 10, 11, 64, 71, 91],
+    reed: [1, 2, 7, 10, 11, 64, 71, 91],
+    pipe: [1, 2, 7, 10, 11, 64, 91],
+    synthLead: [1, 7, 10, 11, 71, 74, 91, 93],
+    synthPad: [1, 7, 10, 11, 71, 74, 91, 93],
+    synthFx: [1, 7, 10, 11, 71, 74, 91, 93],
+    ethnic: [1, 7, 10, 11, 91],
+    percussive: [7, 10, 91],
+    soundFx: [7, 10, 91],
+    drums: [7, 10, 91]
+  };
 
-    async show(device, opts = {}) {
-        this.device = device;
-        this.isCreationMode = false;
-        try {
-            this.tuningPresets = {};
-            this.scaleLengthPresets = {};
-            this.instrumentTabs = [];
-            const instrumentChannel = device.channel !== undefined ? device.channel : 0;
+  // 3 octave modes: how many notes per octave
+  static OCTAVE_MODES = {
+    chromatic: {
+      name: '12 notes',
+      label: 'Chromatique',
+      count: 12,
+      intervals: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    },
+    diatonic: { name: '7 notes', label: 'Diatonique', count: 7, intervals: [0, 2, 4, 5, 7, 9, 11] },
+    pentatonic: { name: '5 notes', label: 'Pentatonique', count: 5, intervals: [0, 2, 4, 7, 9] }
+  };
 
-            // Four independent top-level calls — fire in parallel.
-            const [presetsResp, scaleLengthResp, listResp, sf2Resp] = await Promise.all([
-                this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),
-                this.api.sendCommand('string_instrument_get_scale_length_presets', {}).catch(() => null),
-                this.api.sendCommand('instrument_list_by_device', { deviceId: device.id }).catch(e => {
-                    console.warn('Failed to load device instruments:', e);
-                    return null;
-                }),
-                fetch('/api/sf2').then(r => r.ok ? r.json() : { banks: [] }).catch(() => ({ banks: [] })),
-            ]);
-            if (presetsResp && presetsResp.presets) this.tuningPresets = presetsResp.presets;
-            if (scaleLengthResp && scaleLengthResp.presets) this.scaleLengthPresets = scaleLengthResp.presets;
-            this._sf2Banks = (sf2Resp && sf2Resp.banks) ? sf2Resp.banks : [];
+  // `root` is a pitch class 0..11 (0 = C) — the tonic the diatonic/pentatonic
+  // scale is built on. Chromatic ignores it. Intervals are relative to the
+  // root, so a note is in-scale when (note - root) mod 12 is one of them.
+  static computePlayableNotes(min, max, modeKey, root = 0) {
+    const mode = InstrumentSettingsModal.OCTAVE_MODES[modeKey];
+    if (!mode || modeKey === 'chromatic') {
+      const notes = [];
+      for (let n = min; n <= max; n++) notes.push(n);
+      return notes;
+    }
+    const r = Number.isInteger(root) ? ((root % 12) + 12) % 12 : 0;
+    const notes = [];
+    for (let n = min; n <= max; n++) {
+      const semitone = (((n - r) % 12) + 12) % 12;
+      if (mode.intervals.includes(semitone)) notes.push(n);
+    }
+    return notes;
+  }
 
-            // Load all channels in parallel.
-            const instruments = (listResp && listResp.instruments && listResp.instruments.length > 0)
-                ? listResp.instruments
-                : [{ channel: instrumentChannel }];
-            this.instrumentTabs = await Promise.all(
-                instruments.map(inst => this._loadChannelData(device.id, inst.channel, device.type))
-            );
+  static MICROPROCESSOR_PATTERNS = [
+    {
+      pattern: /arduino\s*(mega|uno|nano|due|leo|micro|mini|zero|mkr|33|every)/i,
+      name: 'Arduino',
+      variant: null
+    },
+    { pattern: /arduino/i, name: 'Arduino', variant: null },
+    { pattern: /teensy\s*(4\.[01]|3\.[0-6]|LC|2\.0|2\+\+)?/i, name: 'Teensy', variant: null },
+    { pattern: /esp32[\s-]?(s[23]|c[236]|h2)?/i, name: 'ESP32', variant: null },
+    { pattern: /raspberry\s*pi\s*(pico|zero|[0-5])?/i, name: 'Raspberry Pi', variant: null },
+    { pattern: /stm32[a-z]?[0-9]*/i, name: 'STM32', variant: null },
+    { pattern: /rp2040|pico/i, name: 'RP2040/Pico', variant: null },
+    { pattern: /feather/i, name: 'Adafruit Feather', variant: null },
+    { pattern: /seeeduino|xiao/i, name: 'Seeeduino', variant: null }
+  ];
 
-            this.instrumentTabs.sort((a, b) => a.channel - b.channel);
-            const requestedTab = this.instrumentTabs.find(t => t.channel === instrumentChannel);
-            this.activeChannel = requestedTab ? instrumentChannel : this.instrumentTabs[0].channel;
-            // Allow callers (e.g. the lighting modal's per-instrument tab) to
-            // deep-link straight to a section. Falls back to identity if the
-            // requested section is unknown or its showWhen predicate fails.
-            this.activeSection = 'identity';
-            if (opts && opts.section) {
-                const sec = InstrumentSettingsModal.SECTIONS.find(s => s.id === opts.section);
-                const tab = this.instrumentTabs.find(t => t.channel === this.activeChannel);
-                const visible = sec && (!sec.showWhen
-                    || (typeof window.ISMSections?.[sec.showWhen] === 'function'
-                        && window.ISMSections[sec.showWhen](tab)));
-                if (visible) this.activeSection = opts.section;
-            }
+  static GM_CATEGORY_EMOJIS = {
+    piano: '🎹',
+    chromPerc: '🔔',
+    organ: '🎹',
+    guitar: '🎸',
+    bass: '🎸',
+    strings: '🎻',
+    ensemble: '🎻',
+    brass: '🎺',
+    reed: '🎷',
+    pipe: '🪈',
+    synthLead: '🎛️',
+    synthPad: '🎛️',
+    synthFx: '🎛️',
+    ethnic: '🪕',
+    percussive: '🥁',
+    soundFx: '🔊',
+    drums: '🥁'
+  };
 
-            this._syncGlobalState();
+  constructor(api) {
+    super({
+      id: 'instrument-settings-modal',
+      size: 'xl',
+      title: 'instrumentSettings.title',
+      customClass: 'ism-modal'
+    });
+    this.api = api;
+    this.device = null;
+    this.instrumentTabs = [];
+    this.activeChannel = 0;
+    this.tuningPresets = {};
+    this.scaleLengthPresets = {};
+    this._sf2Banks = [];
+    this.activeSection = 'identity';
+    this.isCreationMode = false;
+    // Identity picker state: { step: 'family'|'instruments'|'selected', currentFamilySlug }
+    // Initialized on each full render by ISMSections._renderIdentitySection.
+    this._identityUI = null;
+  }
 
-            this.options.title = '';
-            this.open();
+  // ========== PUBLIC API ==========
 
-            this._updateHeader();
+  async show(device, opts = {}) {
+    this.device = device;
+    this.isCreationMode = false;
+    try {
+      this.tuningPresets = {};
+      this.scaleLengthPresets = {};
+      this.instrumentTabs = [];
+      const instrumentChannel = device.channel !== undefined ? device.channel : 0;
 
-            // Piano will be initialized when user switches to Notes section
-            // (viewport needs to be visible for correct size calculation)
+      // Four independent top-level calls — fire in parallel.
+      const [presetsResp, scaleLengthResp, listResp, sf2Resp] = await Promise.all([
+        this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),
+        this.api.sendCommand('string_instrument_get_scale_length_presets', {}).catch(() => null),
+        this.api.sendCommand('instrument_list_by_device', { deviceId: device.id }).catch((e) => {
+          console.warn('Failed to load device instruments:', e);
+          return null;
+        }),
+        fetch('/api/sf2')
+          .then((r) => (r.ok ? r.json() : { banks: [] }))
+          .catch(() => ({ banks: [] }))
+      ]);
+      if (presetsResp && presetsResp.presets) this.tuningPresets = presetsResp.presets;
+      if (scaleLengthResp && scaleLengthResp.presets)
+        this.scaleLengthPresets = scaleLengthResp.presets;
+      this._sf2Banks = sf2Resp && sf2Resp.banks ? sf2Resp.banks : [];
 
-        } catch (error) {
-            console.error('Error opening instrument settings:', error);
-            if (typeof showAlert === 'function') {
-                await showAlert(`${this.t('instrumentSettings.loadError') || 'Impossible de charger les réglages'}: ${error.message}`, { title: this.t('common.error') || 'Erreur', icon: '❌' });
-            }
+      // Load all channels in parallel.
+      const instruments =
+        listResp && listResp.instruments && listResp.instruments.length > 0
+          ? listResp.instruments
+          : [{ channel: instrumentChannel }];
+      this.instrumentTabs = await Promise.all(
+        instruments.map((inst) => this._loadChannelData(device.id, inst.channel, device.type))
+      );
+
+      this.instrumentTabs.sort((a, b) => a.channel - b.channel);
+      const requestedTab = this.instrumentTabs.find((t) => t.channel === instrumentChannel);
+      this.activeChannel = requestedTab ? instrumentChannel : this.instrumentTabs[0].channel;
+      // Allow callers (e.g. the lighting modal's per-instrument tab) to
+      // deep-link straight to a section. Falls back to identity if the
+      // requested section is unknown or its showWhen predicate fails.
+      this.activeSection = 'identity';
+      if (opts && opts.section) {
+        const sec = InstrumentSettingsModal.SECTIONS.find((s) => s.id === opts.section);
+        const tab = this.instrumentTabs.find((t) => t.channel === this.activeChannel);
+        const visible =
+          sec &&
+          (!sec.showWhen ||
+            (typeof window.ISMSections?.[sec.showWhen] === 'function' &&
+              window.ISMSections[sec.showWhen](tab)));
+        if (visible) this.activeSection = opts.section;
+      }
+
+      this._syncGlobalState();
+
+      this.options.title = '';
+      this.open();
+
+      this._updateHeader();
+
+      // Piano will be initialized when user switches to Notes section
+      // (viewport needs to be visible for correct size calculation)
+    } catch (error) {
+      console.error('Error opening instrument settings:', error);
+      if (typeof showAlert === 'function') {
+        await showAlert(
+          `${this.t('instrumentSettings.loadError') || 'Impossible de charger les réglages'}: ${error.message}`,
+          { title: this.t('common.error') || 'Erreur', icon: '❌' }
+        );
+      }
+    }
+  }
+
+  async showCreate(deviceId) {
+    this.isCreationMode = true;
+    try {
+      this.tuningPresets = {};
+      this.scaleLengthPresets = {};
+      this._sf2Banks = [];
+      // Two independent calls — fire in parallel.
+      const [presetsResp, scaleLengthResp] = await Promise.all([
+        this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),
+        this.api.sendCommand('string_instrument_get_scale_length_presets', {}).catch(() => null)
+      ]);
+      if (presetsResp && presetsResp.presets) this.tuningPresets = presetsResp.presets;
+      if (scaleLengthResp && scaleLengthResp.presets)
+        this.scaleLengthPresets = scaleLengthResp.presets;
+
+      // Start with empty defaults on channel 0
+      const defaultSettings = {
+        custom_name: '',
+        gm_program: null,
+        note_selection_mode: 'range',
+        note_range_min: 21,
+        note_range_max: 108,
+        selected_notes: null,
+        supported_ccs: [],
+        polyphony: 16,
+        sync_delay: 0,
+        mac_address: null,
+        octave_mode: 'chromatic',
+        comm_timeout: 5000
+      };
+
+      this.device = { id: deviceId, name: deviceId, displayName: deviceId };
+      this.instrumentTabs = [
+        {
+          channel: 0,
+          settings: defaultSettings,
+          stringInstrumentConfig: null,
+          isBleDevice: false,
+          voices: []
         }
+      ];
+      this.activeChannel = 0;
+      this.activeSection = 'identity';
+
+      this._syncGlobalState();
+
+      this.options.title = '';
+      this.open();
+
+      this._updateHeader();
+    } catch (error) {
+      console.error('Error opening instrument creation:', error);
+      if (typeof showAlert === 'function') {
+        await showAlert(
+          `${this.t('instrumentSettings.loadError') || 'Impossible de charger les réglages'}: ${error.message}`,
+          { title: this.t('common.error') || 'Erreur', icon: '❌' }
+        );
+      }
     }
+  }
 
-    async showCreate(deviceId) {
-        this.isCreationMode = true;
-        try {
-            this.tuningPresets = {};
-            this.scaleLengthPresets = {};
-            this._sf2Banks = [];
-            // Two independent calls — fire in parallel.
-            const [presetsResp, scaleLengthResp] = await Promise.all([
-                this.api.sendCommand('string_instrument_get_presets', {}).catch(() => null),
-                this.api.sendCommand('string_instrument_get_scale_length_presets', {}).catch(() => null),
-            ]);
-            if (presetsResp && presetsResp.presets) this.tuningPresets = presetsResp.presets;
-            if (scaleLengthResp && scaleLengthResp.presets) this.scaleLengthPresets = scaleLengthResp.presets;
+  // ========== BaseModal OVERRIDES ==========
 
-            // Start with empty defaults on channel 0
-            const defaultSettings = {
-                custom_name: '',
-                gm_program: null,
-                note_selection_mode: 'range',
-                note_range_min: 21,
-                note_range_max: 108,
-                selected_notes: null,
-                supported_ccs: [],
-                polyphony: 16,
-                sync_delay: 0,
-                mac_address: null,
-                octave_mode: 'chromatic',
-                comm_timeout: 5000
-            };
-
-            this.device = { id: deviceId, name: deviceId, displayName: deviceId };
-            this.instrumentTabs = [{ channel: 0, settings: defaultSettings, stringInstrumentConfig: null, isBleDevice: false, voices: [] }];
-            this.activeChannel = 0;
-            this.activeSection = 'identity';
-
-            this._syncGlobalState();
-
-            this.options.title = '';
-            this.open();
-
-            this._updateHeader();
-        } catch (error) {
-            console.error('Error opening instrument creation:', error);
-            if (typeof showAlert === 'function') {
-                await showAlert(`${this.t('instrumentSettings.loadError') || 'Impossible de charger les réglages'}: ${error.message}`, { title: this.t('common.error') || 'Erreur', icon: '❌' });
-            }
-        }
-    }
-
-    // ========== BaseModal OVERRIDES ==========
-
-    renderBody() {
-        return `
+  renderBody() {
+    return `
             ${this._renderTabsBar()}
             <div class="ism-layout">
                 ${this._renderSidebar()}
@@ -418,908 +633,978 @@ class InstrumentSettingsModal extends BaseModal {
                 </div>
             </div>
         `;
-    }
+  }
 
-    renderFooter() {
-        const showDelete = this.instrumentTabs.length > 1;
-        return `
+  renderFooter() {
+    const showDelete = this.instrumentTabs.length > 1;
+    return `
             <div class="ism-footer-left">
                 ${showDelete ? `<button type="button" class="btn btn-danger ism-delete-btn" title="${this.t('instrumentManagement.deleteChannelBtn') || 'Supprimer cet instrument'}">🗑️ Ch ${this.activeChannel + 1}</button>` : ''}
             </div>
             <button type="button" class="btn btn-secondary ism-cancel-btn">${this.t('common.cancel') || 'Annuler'}</button>
             <button type="button" class="btn ism-save-btn">💾 ${this.t('common.save') || 'Sauvegarder'}</button>
         `;
+  }
+
+  onOpen() {
+    this._isDirty = false;
+    this._forceClose = false;
+    this._attachListeners();
+    this._installDirtyTracker();
+  }
+
+  onClose() {
+    if (window.currentDeviceSettings) window.currentDeviceSettings = null;
+    if (this._neckDiagram) {
+      this._neckDiagram.destroy();
+      this._neckDiagram = null;
+    }
+    this._previewAllNotesOff();
+    if (this._previewLoadingToast) {
+      this._previewLoadingToast.done();
+      this._previewLoadingToast = null;
+    }
+    this._previewLoadingRefs = 0;
+    if (window.__ismReapplyOctaveHighlight) window.__ismReapplyOctaveHighlight = null;
+    if (typeof this._micTestCleanup === 'function') {
+      try {
+        this._micTestCleanup();
+      } catch (_) {
+        /* best-effort teardown */
+      }
+      this._micTestCleanup = null;
+    }
+    if (this.dialog && this._dirtyHandler) {
+      this.dialog.removeEventListener('input', this._dirtyHandler, true);
+      this.dialog.removeEventListener('change', this._dirtyHandler, true);
+      this.dialog.removeEventListener('click', this._dirtyHandler, true);
+    }
+    this._isDirty = false;
+    this._forceClose = false;
+    this._dirtyTrackerInstalled = false;
+    this._dirtyHandler = null;
+  }
+
+  /**
+   * Mark the modal as having unsaved changes. Called by every section
+   * listener (and exposed for ad-hoc state mutations like adding a tab
+   * or toggling Hands movement).
+   */
+  _markDirty() {
+    this._isDirty = true;
+  }
+
+  /**
+   * Wire a single delegated input/change/click listener on the modal
+   * body so any user edit flips the dirty flag without each section
+   * having to call _markDirty individually. Click is included to catch
+   * piano-key taps and identity-picker clicks that mutate hidden inputs
+   * silently (no native input/change event fires for `el.value = …`).
+   */
+  _installDirtyTracker() {
+    if (!this.dialog || this._dirtyTrackerInstalled) return;
+    const self = this;
+    // Clicks on these targets are not real edits and must not flip dirty:
+    //  - footer Save/Cancel buttons (Save persists, Cancel discards)
+    //  - the modal close button (handled by the close() guard itself)
+    //  - the sidebar nav (just navigates between sections)
+    //  - the section-tab bar (channel switching is its own flow)
+    //  - the preview keyboard (audio-only preview, no setting change)
+    //  - the notation toggle (cosmetic display preference)
+    const SKIP =
+      '.ism-save-btn, .ism-cancel-btn, .modal-close, .ism-nav-item, .ism-tab, .ism-prv-key, .ism-prv-pad, #pianoNotationToggle';
+    const handler = function (e) {
+      const t = e.target;
+      if (t && t.closest && t.closest(SKIP)) return;
+      self._markDirty();
+    };
+    this.dialog.addEventListener('input', handler, true);
+    this.dialog.addEventListener('change', handler, true);
+    this.dialog.addEventListener('click', handler, true);
+    this._dirtyTrackerInstalled = true;
+    this._dirtyHandler = handler;
+  }
+
+  /**
+   * Override BaseModal.close: when the modal has unsaved changes and the
+   * close was not initiated by Save (which sets `_forceClose = true`),
+   * ask the user to confirm. Cancel button also bypasses the prompt
+   * because clicking Cancel is itself an explicit "discard changes".
+   */
+  async close() {
+    if (!this.isOpen) return;
+    if (this._isDirty && !this._forceClose) {
+      const proceed = await this._confirmDiscardChanges();
+      if (!proceed) return;
+    }
+    super.close();
+  }
+
+  /**
+   * Show the existing showConfirm dialog asking whether to discard
+   * unsaved edits. Falls back to window.confirm in environments where
+   * the styled dialog isn't available.
+   */
+  async _confirmDiscardChanges() {
+    const message =
+      this.t('instrumentSettings.discardChangesMessage') ||
+      'Vous avez des modifications non enregistrées. Quitter sans enregistrer ?';
+    const opts = {
+      title: this.t('instrumentSettings.discardChangesTitle') || 'Modifications non enregistrées',
+      icon: '⚠️',
+      okText: this.t('instrumentSettings.discardChangesOk') || 'Quitter sans enregistrer',
+      cancelText: this.t('common.cancel') || 'Annuler',
+      danger: true
+    };
+    if (typeof window.showConfirm === 'function') {
+      try {
+        return await window.showConfirm(message, opts);
+      } catch (e) {
+        /* fall through */
+      }
+    }
+    return window.confirm(message);
+  }
+
+  // ========== PREVIEW KEYBOARD (in header) ==========
+
+  /**
+   * Resolve the GM voice that should be audibly previewed by the mini
+   * keyboard. Defaults to the primary (tab.settings.gm_program) but can
+   * be switched to any secondary voice by the user via `_previewActiveVoice`
+   * (null = primary, number = index in tab.voices).
+   *
+   * Returns { program, channel, isDrumKit } or { program: null, ... } when
+   * nothing is selected yet.
+   */
+  _getActivePreviewVoice() {
+    const tab = this._getActiveTab();
+    if (!tab) return { program: null, channel: 0, isDrumKit: false };
+    const idx = this._previewActiveVoice;
+    const OFFSET = typeof GM_DRUM_KIT_OFFSET !== 'undefined' ? GM_DRUM_KIT_OFFSET : 128;
+
+    if (idx != null && Array.isArray(tab.voices) && tab.voices[idx]) {
+      const stored = tab.voices[idx].gm_program;
+      const isDrumKit = stored != null && stored >= OFFSET;
+      const program = isDrumKit ? stored - OFFSET : stored;
+      return { program: program, channel: isDrumKit ? 9 : tab.channel, isDrumKit: isDrumKit };
+    }
+    const gmProgram = tab.settings.gm_program;
+    const isDrumKit = tab.channel === 9 || (gmProgram != null && gmProgram >= 128);
+    const program =
+      isDrumKit && gmProgram != null && gmProgram >= OFFSET ? gmProgram - OFFSET : gmProgram;
+    return { program: program, channel: tab.channel, isDrumKit: isDrumKit };
+  }
+
+  _renderPreviewKeyboard() {
+    const slot = this.$('#ismPreviewSlot');
+    if (!slot) return;
+    const { program, isDrumKit } = this._getActivePreviewVoice();
+
+    if (program == null && !isDrumKit) {
+      slot.innerHTML = `<span class="ism-preview-hint">${this.escape(this.t('instrumentSettings.previewPickInstrument') || '🎵 Choisir un instrument pour activer la preview')}</span>`;
+      return;
     }
 
-    onOpen() {
-        this._isDirty = false;
-        this._forceClose = false;
-        this._attachListeners();
-        this._installDirtyTracker();
+    slot.innerHTML = isDrumKit ? this._renderPreviewDrums() : this._renderPreviewPiano();
+    this._wirePreviewKeyboardListeners();
+  }
+
+  _renderPreviewPiano() {
+    const whites = [60, 62, 64, 65, 67, 69, 71];
+    const blacks = [
+      { note: 61, pos: 0 },
+      { note: 63, pos: 1 },
+      { note: 66, pos: 3 },
+      { note: 68, pos: 4 },
+      { note: 70, pos: 5 }
+    ];
+    const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    let html = '<div class="ism-preview-piano" aria-label="preview keyboard">';
+    for (const n of whites) {
+      html += `<button type="button" class="ism-prv-key ism-prv-white" data-note="${n}"><span class="ism-prv-key-label">${NAMES[n % 12]}</span></button>`;
     }
-
-    onClose() {
-        if (window.currentDeviceSettings) window.currentDeviceSettings = null;
-        if (this._neckDiagram) {
-            this._neckDiagram.destroy();
-            this._neckDiagram = null;
-        }
-        this._previewAllNotesOff();
-        if (this._previewLoadingToast) {
-            this._previewLoadingToast.done();
-            this._previewLoadingToast = null;
-        }
-        this._previewLoadingRefs = 0;
-        if (window.__ismReapplyOctaveHighlight) window.__ismReapplyOctaveHighlight = null;
-        if (typeof this._micTestCleanup === 'function') {
-            try { this._micTestCleanup(); } catch (_) { /* best-effort teardown */ }
-            this._micTestCleanup = null;
-        }
-        if (this.dialog && this._dirtyHandler) {
-            this.dialog.removeEventListener('input', this._dirtyHandler, true);
-            this.dialog.removeEventListener('change', this._dirtyHandler, true);
-            this.dialog.removeEventListener('click', this._dirtyHandler, true);
-        }
-        this._isDirty = false;
-        this._forceClose = false;
-        this._dirtyTrackerInstalled = false;
-        this._dirtyHandler = null;
+    html += '<div class="ism-prv-black-overlay">';
+    for (const b of blacks) {
+      html += `<button type="button" class="ism-prv-key ism-prv-black" data-note="${b.note}" style="--pos:${b.pos}"></button>`;
     }
+    html += '</div></div>';
+    return html;
+  }
 
-    /**
-     * Mark the modal as having unsaved changes. Called by every section
-     * listener (and exposed for ad-hoc state mutations like adding a tab
-     * or toggling Hands movement).
-     */
-    _markDirty() {
-        this._isDirty = true;
-    }
-
-    /**
-     * Wire a single delegated input/change/click listener on the modal
-     * body so any user edit flips the dirty flag without each section
-     * having to call _markDirty individually. Click is included to catch
-     * piano-key taps and identity-picker clicks that mutate hidden inputs
-     * silently (no native input/change event fires for `el.value = …`).
-     */
-    _installDirtyTracker() {
-        if (!this.dialog || this._dirtyTrackerInstalled) return;
-        const self = this;
-        // Clicks on these targets are not real edits and must not flip dirty:
-        //  - footer Save/Cancel buttons (Save persists, Cancel discards)
-        //  - the modal close button (handled by the close() guard itself)
-        //  - the sidebar nav (just navigates between sections)
-        //  - the section-tab bar (channel switching is its own flow)
-        //  - the preview keyboard (audio-only preview, no setting change)
-        //  - the notation toggle (cosmetic display preference)
-        const SKIP = '.ism-save-btn, .ism-cancel-btn, .modal-close, .ism-nav-item, .ism-tab, .ism-prv-key, .ism-prv-pad, #pianoNotationToggle';
-        const handler = function(e) {
-            const t = e.target;
-            if (t && t.closest && t.closest(SKIP)) return;
-            self._markDirty();
-        };
-        this.dialog.addEventListener('input', handler, true);
-        this.dialog.addEventListener('change', handler, true);
-        this.dialog.addEventListener('click', handler, true);
-        this._dirtyTrackerInstalled = true;
-        this._dirtyHandler = handler;
-    }
-
-    /**
-     * Override BaseModal.close: when the modal has unsaved changes and the
-     * close was not initiated by Save (which sets `_forceClose = true`),
-     * ask the user to confirm. Cancel button also bypasses the prompt
-     * because clicking Cancel is itself an explicit "discard changes".
-     */
-    async close() {
-        if (!this.isOpen) return;
-        if (this._isDirty && !this._forceClose) {
-            const proceed = await this._confirmDiscardChanges();
-            if (!proceed) return;
-        }
-        super.close();
-    }
-
-    /**
-     * Show the existing showConfirm dialog asking whether to discard
-     * unsaved edits. Falls back to window.confirm in environments where
-     * the styled dialog isn't available.
-     */
-    async _confirmDiscardChanges() {
-        const message = this.t('instrumentSettings.discardChangesMessage')
-            || 'Vous avez des modifications non enregistrées. Quitter sans enregistrer ?';
-        const opts = {
-            title: this.t('instrumentSettings.discardChangesTitle') || 'Modifications non enregistrées',
-            icon: '⚠️',
-            okText: this.t('instrumentSettings.discardChangesOk') || 'Quitter sans enregistrer',
-            cancelText: this.t('common.cancel') || 'Annuler',
-            danger: true
-        };
-        if (typeof window.showConfirm === 'function') {
-            try { return await window.showConfirm(message, opts); }
-            catch (e) { /* fall through */ }
-        }
-        return window.confirm(message);
-    }
-
-    // ========== PREVIEW KEYBOARD (in header) ==========
-
-    /**
-     * Resolve the GM voice that should be audibly previewed by the mini
-     * keyboard. Defaults to the primary (tab.settings.gm_program) but can
-     * be switched to any secondary voice by the user via `_previewActiveVoice`
-     * (null = primary, number = index in tab.voices).
-     *
-     * Returns { program, channel, isDrumKit } or { program: null, ... } when
-     * nothing is selected yet.
-     */
-    _getActivePreviewVoice() {
-        const tab = this._getActiveTab();
-        if (!tab) return { program: null, channel: 0, isDrumKit: false };
-        const idx = this._previewActiveVoice;
-        const OFFSET = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
-
-        if (idx != null && Array.isArray(tab.voices) && tab.voices[idx]) {
-            const stored = tab.voices[idx].gm_program;
-            const isDrumKit = stored != null && stored >= OFFSET;
-            const program = isDrumKit ? (stored - OFFSET) : stored;
-            return { program: program, channel: isDrumKit ? 9 : tab.channel, isDrumKit: isDrumKit };
-        }
-        const gmProgram = tab.settings.gm_program;
-        const isDrumKit = tab.channel === 9 || (gmProgram != null && gmProgram >= 128);
-        const program = isDrumKit && gmProgram != null && gmProgram >= OFFSET ? (gmProgram - OFFSET) : gmProgram;
-        return { program: program, channel: tab.channel, isDrumKit: isDrumKit };
-    }
-
-    _renderPreviewKeyboard() {
-        const slot = this.$('#ismPreviewSlot');
-        if (!slot) return;
-        const { program, isDrumKit } = this._getActivePreviewVoice();
-
-        if (program == null && !isDrumKit) {
-            slot.innerHTML = `<span class="ism-preview-hint">${this.escape(this.t('instrumentSettings.previewPickInstrument') || '🎵 Choisir un instrument pour activer la preview')}</span>`;
-            return;
-        }
-
-        slot.innerHTML = isDrumKit ? this._renderPreviewDrums() : this._renderPreviewPiano();
-        this._wirePreviewKeyboardListeners();
-    }
-
-    _renderPreviewPiano() {
-        const whites = [60, 62, 64, 65, 67, 69, 71];
-        const blacks = [
-            { note: 61, pos: 0 },
-            { note: 63, pos: 1 },
-            { note: 66, pos: 3 },
-            { note: 68, pos: 4 },
-            { note: 70, pos: 5 }
-        ];
-        const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-        let html = '<div class="ism-preview-piano" aria-label="preview keyboard">';
-        for (const n of whites) {
-            html += `<button type="button" class="ism-prv-key ism-prv-white" data-note="${n}"><span class="ism-prv-key-label">${NAMES[n % 12]}</span></button>`;
-        }
-        html += '<div class="ism-prv-black-overlay">';
-        for (const b of blacks) {
-            html += `<button type="button" class="ism-prv-key ism-prv-black" data-note="${b.note}" style="--pos:${b.pos}"></button>`;
-        }
-        html += '</div></div>';
-        return html;
-    }
-
-    _renderPreviewDrums() {
-        const pads = [
-            { note: 36, label: 'Kick',  icon: '🥁' },
-            { note: 38, label: 'Snare', icon: '🪘' },
-            { note: 42, label: 'HH',    icon: '🎩' },
-            { note: 46, label: 'OHH',   icon: '🎩' },
-            { note: 50, label: 'Tom↑',  icon: '🥁' },
-            { note: 45, label: 'Tom↓',  icon: '🥁' },
-            { note: 49, label: 'Crash', icon: '💥' },
-            { note: 51, label: 'Ride',  icon: '🔔' }
-        ];
-        let html = '<div class="ism-preview-drums" aria-label="preview drum pads">';
-        for (const p of pads) {
-            html += `<button type="button" class="ism-prv-pad" data-note="${p.note}" title="${p.label}">
+  _renderPreviewDrums() {
+    const pads = [
+      { note: 36, label: 'Kick', icon: '🥁' },
+      { note: 38, label: 'Snare', icon: '🪘' },
+      { note: 42, label: 'HH', icon: '🎩' },
+      { note: 46, label: 'OHH', icon: '🎩' },
+      { note: 50, label: 'Tom↑', icon: '🥁' },
+      { note: 45, label: 'Tom↓', icon: '🥁' },
+      { note: 49, label: 'Crash', icon: '💥' },
+      { note: 51, label: 'Ride', icon: '🔔' }
+    ];
+    let html = '<div class="ism-preview-drums" aria-label="preview drum pads">';
+    for (const p of pads) {
+      html += `<button type="button" class="ism-prv-pad" data-note="${p.note}" title="${p.label}">
                 <span class="ism-prv-pad-icon">${p.icon}</span>
                 <span class="ism-prv-pad-label">${p.label}</span>
             </button>`;
-        }
-        html += '</div>';
-        return html;
     }
+    html += '</div>';
+    return html;
+  }
 
-    _wirePreviewKeyboardListeners() {
-        const self = this;
-        const keys = this.$$('.ism-prv-key, .ism-prv-pad');
-        keys.forEach(function(k) {
-            k.addEventListener('mouseenter', function() {
-                self._previewNoteOn(parseInt(k.dataset.note), k);
-            });
-            k.addEventListener('mouseleave', function() {
-                self._previewNoteOff(parseInt(k.dataset.note), k);
-            });
-        });
-        const slot = this.$('#ismPreviewSlot');
-        if (slot) {
-            slot.addEventListener('mouseleave', function() { self._previewAllNotesOff(); });
-        }
+  _wirePreviewKeyboardListeners() {
+    const self = this;
+    const keys = this.$$('.ism-prv-key, .ism-prv-pad');
+    keys.forEach(function (k) {
+      k.addEventListener('mouseenter', function () {
+        self._previewNoteOn(parseInt(k.dataset.note), k);
+      });
+      k.addEventListener('mouseleave', function () {
+        self._previewNoteOff(parseInt(k.dataset.note), k);
+      });
+    });
+    const slot = this.$('#ismPreviewSlot');
+    if (slot) {
+      slot.addEventListener('mouseleave', function () {
+        self._previewAllNotesOff();
+      });
     }
+  }
 
-    /**
-     * Lazily create (and reuse across modal opens) a local MidiSynthesizer for
-     * sound preview. The preview never sends MIDI to the physical instrument —
-     * it plays the sound of the currently-selected system soundbank locally.
-     */
-    _getPreviewSynth() {
-        if (window.__ismPreviewSynth && window.__ismPreviewSynth.isInitialized) {
-            return Promise.resolve(window.__ismPreviewSynth);
-        }
-        if (window.__ismPreviewSynthInit) return window.__ismPreviewSynthInit;
-        window.__ismPreviewSynthInit = (async () => {
-            if (typeof MidiSynthesizer !== 'function') return null;
-            const synth = new MidiSynthesizer();
-            const ok = await synth.initialize();
-            if (!ok) return null;
-            window.__ismPreviewSynth = synth;
-            return synth;
-        })();
-        return window.__ismPreviewSynthInit;
+  /**
+   * Lazily create (and reuse across modal opens) a local MidiSynthesizer for
+   * sound preview. The preview never sends MIDI to the physical instrument —
+   * it plays the sound of the currently-selected system soundbank locally.
+   */
+  _getPreviewSynth() {
+    if (window.__ismPreviewSynth && window.__ismPreviewSynth.isInitialized) {
+      return Promise.resolve(window.__ismPreviewSynth);
     }
+    if (window.__ismPreviewSynthInit) return window.__ismPreviewSynthInit;
+    window.__ismPreviewSynthInit = (async () => {
+      if (typeof MidiSynthesizer !== 'function') return null;
+      const synth = new MidiSynthesizer();
+      const ok = await synth.initialize();
+      if (!ok) return null;
+      window.__ismPreviewSynth = synth;
+      return synth;
+    })();
+    return window.__ismPreviewSynthInit;
+  }
 
-    /**
-     * The per-instrument custom SF2 id currently selected in the modal,
-     * read LIVE from the DOM (not the persisted value) so the preview
-     * reflects a just-picked / just-uploaded SF2 before the user saves.
-     * Reads the Advanced-tab control (#customSf2Id) when rendered, else the
-     * always-present Identity mirror (#customSf2IdMirror).
-     * @returns {?number}
-     */
-    _getActivePreviewSf2Id() {
-        const el = this.$('#customSf2Id') || this.$('#customSf2IdMirror');
-        if (!el) return null;
-        const raw = el.value;
-        if (raw === '' || raw == null) return null;
-        const n = parseInt(raw, 10);
-        return Number.isFinite(n) && n > 0 ? n : null;
+  /**
+   * The per-instrument custom SF2 id currently selected in the modal,
+   * read LIVE from the DOM (not the persisted value) so the preview
+   * reflects a just-picked / just-uploaded SF2 before the user saves.
+   * Reads the Advanced-tab control (#customSf2Id) when rendered, else the
+   * always-present Identity mirror (#customSf2IdMirror).
+   * @returns {?number}
+   */
+  _getActivePreviewSf2Id() {
+    const el = this.$('#customSf2Id') || this.$('#customSf2IdMirror');
+    if (!el) return null;
+    const raw = el.value;
+    if (raw === '' || raw == null) return null;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  _syncPreviewBank(synth) {
+    if (!synth || typeof MidiSynthesizer !== 'function') return;
+    try {
+      const saved = MidiSynthesizer.getSavedBank && MidiSynthesizer.getSavedBank();
+      if (saved && synth.setSoundBank && saved !== synth.currentBankId) {
+        synth.setSoundBank(saved);
+      }
+    } catch (e) {
+      /* ignore */
     }
+  }
 
-    _syncPreviewBank(synth) {
-        if (!synth || typeof MidiSynthesizer !== 'function') return;
-        try {
-            const saved = MidiSynthesizer.getSavedBank && MidiSynthesizer.getSavedBank();
-            if (saved && synth.setSoundBank && saved !== synth.currentBankId) {
-                synth.setSoundBank(saved);
-            }
-        } catch (e) { /* ignore */ }
+  _getCurrentBankLabel() {
+    try {
+      const savedId = MidiSynthesizer.getSavedBank ? MidiSynthesizer.getSavedBank() : null;
+      // Use getAvailableBanks() (built-in default + custom SF2 + opt-in
+      // WAF) — SOUND_BANKS is now scoped to the built-in default only,
+      // so custom labels would never resolve through it.
+      const banks =
+        window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.getAvailableBanks
+          ? window.MidiSynthesizerConstants.getAvailableBanks()
+          : [];
+      const bank = banks.find((b) => b.id === savedId);
+      return bank ? bank.label || bank.id : savedId || '';
+    } catch (e) {
+      return '';
     }
+  }
 
-    _getCurrentBankLabel() {
-        try {
-            const savedId = MidiSynthesizer.getSavedBank ? MidiSynthesizer.getSavedBank() : null;
-            // Use getAvailableBanks() (built-in default + custom SF2 + opt-in
-            // WAF) — SOUND_BANKS is now scoped to the built-in default only,
-            // so custom labels would never resolve through it.
-            const banks = (window.MidiSynthesizerConstants && window.MidiSynthesizerConstants.getAvailableBanks)
-                ? window.MidiSynthesizerConstants.getAvailableBanks()
-                : [];
-            const bank = banks.find(b => b.id === savedId);
-            return bank ? (bank.label || bank.id) : (savedId || '');
-        } catch (e) { return ''; }
+  _showPreviewLoading() {
+    const label = this._getCurrentBankLabel();
+    const baseMsg = this.t('instrumentSettings.previewLoadingBank') || 'Chargement banque son';
+    const fullMsg = label ? `${baseMsg} · ${label}…` : `${baseMsg}…`;
+    this._previewLoadingRefs = (this._previewLoadingRefs || 0) + 1;
+    if (this._previewLoadingToast) {
+      this._previewLoadingToast.update(fullMsg);
+    } else if (typeof window.showProgressToast === 'function') {
+      this._previewLoadingToast = window.showProgressToast(fullMsg);
     }
+  }
 
-    _showPreviewLoading() {
-        const label = this._getCurrentBankLabel();
-        const baseMsg = this.t('instrumentSettings.previewLoadingBank') || 'Chargement banque son';
-        const fullMsg = label ? `${baseMsg} · ${label}…` : `${baseMsg}…`;
-        this._previewLoadingRefs = (this._previewLoadingRefs || 0) + 1;
-        if (this._previewLoadingToast) {
-            this._previewLoadingToast.update(fullMsg);
-        } else if (typeof window.showProgressToast === 'function') {
-            this._previewLoadingToast = window.showProgressToast(fullMsg);
-        }
+  _hidePreviewLoading() {
+    if (this._previewLoadingRefs > 0) this._previewLoadingRefs--;
+    if (this._previewLoadingRefs === 0 && this._previewLoadingToast) {
+      this._previewLoadingToast.done();
+      this._previewLoadingToast = null;
     }
+  }
 
-    _hidePreviewLoading() {
-        if (this._previewLoadingRefs > 0) this._previewLoadingRefs--;
-        if (this._previewLoadingRefs === 0 && this._previewLoadingToast) {
-            this._previewLoadingToast.done();
-            this._previewLoadingToast = null;
-        }
+  /**
+   * Ensure the instrument (melodic GM program or drum note preset) is loaded
+   * before playing. Shows/hides the header loading indicator while lazy-loading.
+   */
+  async _ensurePreviewLoaded(synth, isDrumKit, gmProgram, note, channel = 0) {
+    if (!synth) return false;
+    this._syncPreviewBank(synth);
+    // setChannelInstrument (called by the caller before this) has set the
+    // channel's effective bank (custom SF2 or its GM fallback). Resolve
+    // load/cache through that bank so the preview honours the per-
+    // instrument SF2.
+    const bankFor = () =>
+      typeof synth._bankForChannel === 'function'
+        ? synth._bankForChannel(channel)
+        : synth.currentBankId;
+    let needsLoad = false;
+    let loadPromise = null;
+    if (isDrumKit) {
+      const kit = gmProgram != null ? gmProgram | 0 : 0;
+      const key =
+        typeof synth._drumKey === 'function'
+          ? synth._drumKey(bankFor(), kit, note)
+          : `${kit}:${note}`;
+      if (note >= 35 && note <= 81 && !synth.drumPresets.has(key)) {
+        needsLoad = true;
+        loadPromise = synth._loadDrumPreset(note, kit, bankFor());
+      }
+    } else {
+      const prog = gmProgram != null ? gmProgram & 0x7f : 0;
+      const key = typeof synth._instKey === 'function' ? synth._instKey(bankFor(), prog) : prog;
+      if (!synth.loadedInstruments.has(key)) {
+        needsLoad = true;
+        loadPromise = synth.loadInstrument(prog, bankFor());
+      }
     }
-
-    /**
-     * Ensure the instrument (melodic GM program or drum note preset) is loaded
-     * before playing. Shows/hides the header loading indicator while lazy-loading.
-     */
-    async _ensurePreviewLoaded(synth, isDrumKit, gmProgram, note, channel = 0) {
-        if (!synth) return false;
-        this._syncPreviewBank(synth);
-        // setChannelInstrument (called by the caller before this) has set the
-        // channel's effective bank (custom SF2 or its GM fallback). Resolve
-        // load/cache through that bank so the preview honours the per-
-        // instrument SF2.
-        const bankFor = () => (typeof synth._bankForChannel === 'function'
-            ? synth._bankForChannel(channel) : synth.currentBankId);
-        let needsLoad = false;
-        let loadPromise = null;
+    if (needsLoad) {
+      this._showPreviewLoading();
+      try {
+        await loadPromise;
+      } catch (e) {
+        /* ignore */
+      }
+      // The custom-SF2 probe resolves via the same load; if it 404'd,
+      // the channel just fell back to the GM bank. Warm that bank too
+      // so the very first preview note is audible (not just the next).
+      try {
+        const b = bankFor();
         if (isDrumKit) {
-            const kit = (gmProgram != null) ? (gmProgram | 0) : 0;
-            const key = (typeof synth._drumKey === 'function')
-                ? synth._drumKey(bankFor(), kit, note) : `${kit}:${note}`;
-            if (note >= 35 && note <= 81 && !synth.drumPresets.has(key)) {
-                needsLoad = true;
-                loadPromise = synth._loadDrumPreset(note, kit, bankFor());
-            }
+          const kit = gmProgram != null ? gmProgram | 0 : 0;
+          const k =
+            typeof synth._drumKey === 'function' ? synth._drumKey(b, kit, note) : `${kit}:${note}`;
+          if (note >= 35 && note <= 81 && !synth.drumPresets.has(k)) {
+            await synth._loadDrumPreset(note, kit, b);
+          }
         } else {
-            const prog = (gmProgram != null) ? (gmProgram & 0x7f) : 0;
-            const key = (typeof synth._instKey === 'function')
-                ? synth._instKey(bankFor(), prog) : prog;
-            if (!synth.loadedInstruments.has(key)) {
-                needsLoad = true;
-                loadPromise = synth.loadInstrument(prog, bankFor());
-            }
+          const prog = gmProgram != null ? gmProgram & 0x7f : 0;
+          const k = typeof synth._instKey === 'function' ? synth._instKey(b, prog) : prog;
+          if (!synth.loadedInstruments.has(k)) {
+            await synth.loadInstrument(prog, b);
+          }
         }
-        if (needsLoad) {
-            this._showPreviewLoading();
-            try { await loadPromise; }
-            catch (e) { /* ignore */ }
-            // The custom-SF2 probe resolves via the same load; if it 404'd,
-            // the channel just fell back to the GM bank. Warm that bank too
-            // so the very first preview note is audible (not just the next).
+      } catch (e) {
+        /* ignore */
+      } finally {
+        if (!synth.loadingInstruments || synth.loadingInstruments.size === 0) {
+          this._hidePreviewLoading();
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Resolve which object the Notes section should read/write note-range
+   * data from. When the user has the "voices share notes" toggle ON
+   * (default), always the primary. When OFF and the user is on a voice
+   * tab, the matching entry in tab.voices.
+   *
+   * @returns {?{kind:'primary'|'voice', idx:?number, obj:Object}}
+   */
+  _getActiveNotesTarget() {
+    const tab = this._getActiveTab();
+    if (!tab) return null;
+    const shareNotes =
+      tab.settings.voices_share_notes === 0 || tab.settings.voices_share_notes === false
+        ? false
+        : true;
+    const idx = this._activeNotesVoiceIdx;
+    if (!shareNotes && idx != null && Array.isArray(tab.voices) && tab.voices[idx]) {
+      return { kind: 'voice', idx: idx, obj: tab.voices[idx] };
+    }
+    return { kind: 'primary', idx: null, obj: tab.settings };
+  }
+
+  /**
+   * Flush whatever the user currently has in the Notes editor hidden
+   * inputs into the active target (primary or a voice), so the values
+   * survive across tab switches and eventual save.
+   */
+  _commitCurrentNotesEditor() {
+    const target = this._getActiveNotesTarget();
+    if (!target) return;
+    const obj = target.obj;
+    const modeInput = this.$('#noteSelectionModeInput');
+    const minInput = this.$('#noteRangeMin');
+    const maxInput = this.$('#noteRangeMax');
+    const selInput = this.$('#selectedNotesInput');
+    const octInput = this.$('#octaveModeInput');
+    const rootInput = this.$('#scaleRootInput');
+    if (!modeInput) return; // Notes section not mounted (e.g. drum/strings layout)
+
+    const mode = modeInput.value || 'range';
+    const minRaw = (minInput?.value || '').trim();
+    const maxRaw = (maxInput?.value || '').trim();
+    const selRaw = (selInput?.value || '').trim();
+    const oct = (octInput?.value || '').trim() || 'chromatic';
+    const rootRaw = (rootInput?.value || '').trim();
+
+    obj.note_selection_mode = mode;
+    obj.note_range_min = minRaw === '' ? null : parseInt(minRaw, 10);
+    obj.note_range_max = maxRaw === '' ? null : parseInt(maxRaw, 10);
+    if (selRaw) {
+      try {
+        const parsed = JSON.parse(selRaw);
+        obj.selected_notes = Array.isArray(parsed) ? parsed : null;
+      } catch {
+        obj.selected_notes = null;
+      }
+    } else {
+      obj.selected_notes = null;
+    }
+    obj.octave_mode = oct;
+    obj.scale_root = rootRaw === '' ? 0 : parseInt(rootRaw, 10) || 0;
+  }
+
+  _cancelPreviewEnvelope(note) {
+    if (!this._previewEnvelopes) return;
+    const envs = this._previewEnvelopes.get(note);
+    if (envs) {
+      for (const env of envs) {
+        try {
+          if (env && typeof env.cancel === 'function') env.cancel();
+        } catch (e) {
+          /* ignore */
+        }
+      }
+      this._previewEnvelopes.delete(note);
+    }
+  }
+
+  _previewNoteOn(note, el) {
+    if (isNaN(note)) return;
+    if (!this._previewActive) this._previewActive = new Set();
+    if (!this._previewEnvelopes) this._previewEnvelopes = new Map();
+    if (this._previewActive.has(note)) return;
+    this._previewActive.add(note);
+    if (el) el.classList.add('active');
+
+    const active = this._getActivePreviewVoice();
+    const isDrumKit = active.isDrumKit;
+    const synthChannel = isDrumKit ? 9 : 0;
+    // For drums, `program` is the GM drum kit number (0/8/16/24/25/32/40/48/56);
+    // for melodic, it's the GM program (0–127).
+    const program = isDrumKit
+      ? active.program | 0
+      : active.program != null
+        ? active.program & 0x7f
+        : 0;
+
+    const self = this;
+    (async () => {
+      const synth = await self._getPreviewSynth();
+      if (!synth) return;
+      try {
+        if (synth.audioContext && synth.audioContext.state === 'suspended') {
+          await synth.audioContext.resume();
+        }
+      } catch (e) {
+        /* ignore */
+      }
+      // Set the channel (incl. the live per-instrument SF2 selection)
+      // BEFORE loading so _ensurePreviewLoaded resolves through the
+      // channel's effective bank (custom SF2 or its GM fallback).
+      if (typeof synth.setChannelInstrument === 'function') {
+        // For drums, `program` is the GM kit number; playNote() uses
+        // channelInstruments[9] to pick the right per-kit preset.
+        synth.setChannelInstrument(synthChannel, program, self._getActivePreviewSf2Id());
+      }
+      await self._ensurePreviewLoaded(synth, isDrumKit, program, note, synthChannel);
+      // User already released the key before loading finished — don't play
+      if (!self._previewActive.has(note)) return;
+      // Long duration (30 s) acts as a safety net — the envelope is
+      // cancelled explicitly in _previewNoteOff when the pointer leaves
+      // the key, so the real "sustain" length is how long the user
+      // hovers. This replaces the old fixed 1.8 s behaviour, which
+      // caused overlapping sustained notes when sliding across keys.
+      try {
+        const envelopes = synth.playNote(note, 100, synthChannel, 30);
+        if (envelopes && self._previewActive.has(note)) {
+          self._previewEnvelopes.set(note, envelopes);
+        } else if (envelopes) {
+          // mouseleave fired between load and scheduling — cancel now
+          for (const env of envelopes) {
             try {
-                const b = bankFor();
-                if (isDrumKit) {
-                    const kit = (gmProgram != null) ? (gmProgram | 0) : 0;
-                    const k = (typeof synth._drumKey === 'function') ? synth._drumKey(b, kit, note) : `${kit}:${note}`;
-                    if (note >= 35 && note <= 81 && !synth.drumPresets.has(k)) {
-                        await synth._loadDrumPreset(note, kit, b);
-                    }
-                } else {
-                    const prog = (gmProgram != null) ? (gmProgram & 0x7f) : 0;
-                    const k = (typeof synth._instKey === 'function') ? synth._instKey(b, prog) : prog;
-                    if (!synth.loadedInstruments.has(k)) {
-                        await synth.loadInstrument(prog, b);
-                    }
-                }
-            } catch (e) { /* ignore */ }
-            finally {
-                if (!synth.loadingInstruments || synth.loadingInstruments.size === 0) {
-                    this._hidePreviewLoading();
-                }
+              if (env.cancel) env.cancel();
+            } catch (e) {
+              /* ignore */
             }
+          }
         }
-        return true;
-    }
+      } catch (e) {
+        /* ignore */
+      }
+    })();
+  }
 
-    /**
-     * Resolve which object the Notes section should read/write note-range
-     * data from. When the user has the "voices share notes" toggle ON
-     * (default), always the primary. When OFF and the user is on a voice
-     * tab, the matching entry in tab.voices.
-     *
-     * @returns {?{kind:'primary'|'voice', idx:?number, obj:Object}}
-     */
-    _getActiveNotesTarget() {
-        const tab = this._getActiveTab();
-        if (!tab) return null;
-        const shareNotes = tab.settings.voices_share_notes === 0 || tab.settings.voices_share_notes === false
-            ? false : true;
-        const idx = this._activeNotesVoiceIdx;
-        if (!shareNotes && idx != null && Array.isArray(tab.voices) && tab.voices[idx]) {
-            return { kind: 'voice', idx: idx, obj: tab.voices[idx] };
+  _previewNoteOff(note, el) {
+    if (isNaN(note)) return;
+    if (this._previewActive) this._previewActive.delete(note);
+    if (el) el.classList.remove('active');
+    this._cancelPreviewEnvelope(note);
+  }
+
+  _previewAllNotesOff() {
+    if (this._previewActive) this._previewActive.clear();
+    this.$$('.ism-prv-key.active, .ism-prv-pad.active').forEach(function (el) {
+      el.classList.remove('active');
+    });
+    if (this._previewEnvelopes) {
+      for (const envs of this._previewEnvelopes.values()) {
+        for (const env of envs) {
+          try {
+            if (env && typeof env.cancel === 'function') env.cancel();
+          } catch (e) {
+            /* ignore */
+          }
         }
-        return { kind: 'primary', idx: null, obj: tab.settings };
+      }
+      this._previewEnvelopes.clear();
     }
+  }
 
-    /**
-     * Flush whatever the user currently has in the Notes editor hidden
-     * inputs into the active target (primary or a voice), so the values
-     * survive across tab switches and eventual save.
-     */
-    _commitCurrentNotesEditor() {
-        const target = this._getActiveNotesTarget();
-        if (!target) return;
-        const obj = target.obj;
-        const modeInput = this.$('#noteSelectionModeInput');
-        const minInput = this.$('#noteRangeMin');
-        const maxInput = this.$('#noteRangeMax');
-        const selInput = this.$('#selectedNotesInput');
-        const octInput = this.$('#octaveModeInput');
-        if (!modeInput) return; // Notes section not mounted (e.g. drum/strings layout)
+  /**
+   * Called when the user picks a new GM program. Instead of sending a MIDI
+   * program change to the physical instrument, pre-load the soundbank voice
+   * locally so the header preview is responsive when hovered.
+   */
+  /**
+   * Route the preview keyboard to a specific GM voice.
+   * @param {?number} idx - null selects the primary voice, a number selects
+   *   the matching entry in `tab.voices`.
+   */
+  _setPreviewActiveVoice(idx) {
+    const tab = this._getActiveTab();
+    if (!tab) return;
+    if (idx != null) {
+      if (!Array.isArray(tab.voices) || idx < 0 || idx >= tab.voices.length) return;
+    }
+    if (this._previewActiveVoice === idx) return;
+    // Cancel any currently-held preview notes on the old voice before switching
+    this._previewAllNotesOff();
+    this._previewActiveVoice = idx;
+    this._rerenderIdentityPicker();
+    this._renderPreviewKeyboard();
+    // Preload the new voice so the keyboard is responsive on first hover
+    const active = this._getActivePreviewVoice();
+    if (active.program != null || active.isDrumKit) {
+      const previewChannel = active.isDrumKit ? 9 : 0;
+      this._sendPreviewProgramChange(active.program, previewChannel);
+    }
+  }
 
-        const mode = modeInput.value || 'range';
-        const minRaw = (minInput?.value || '').trim();
-        const maxRaw = (maxInput?.value || '').trim();
-        const selRaw = (selInput?.value || '').trim();
-        const oct = (octInput?.value || '').trim() || 'chromatic';
+  /**
+   * Re-warm the preview keyboard for the currently-active voice. Used after
+   * the per-instrument SF2 selection changes (pick or upload) so the modal
+   * piano immediately reflects the new sound.
+   */
+  _sendActivePreviewProgramChange() {
+    const active = this._getActivePreviewVoice && this._getActivePreviewVoice();
+    if (!active) return;
+    if (active.program == null && !active.isDrumKit) return;
+    const previewChannel = active.isDrumKit ? 9 : 0;
+    this._sendPreviewProgramChange(active.program, previewChannel);
+  }
 
-        obj.note_selection_mode = mode;
-        obj.note_range_min = minRaw === '' ? null : parseInt(minRaw, 10);
-        obj.note_range_max = maxRaw === '' ? null : parseInt(maxRaw, 10);
-        if (selRaw) {
-            try {
-                const parsed = JSON.parse(selRaw);
-                obj.selected_notes = Array.isArray(parsed) ? parsed : null;
-            } catch { obj.selected_notes = null; }
-        } else {
-            obj.selected_notes = null;
+  _sendPreviewProgramChange(program, channel) {
+    if (program == null) return;
+    const isDrum = channel === 9 || program >= 128;
+    const self = this;
+    (async () => {
+      const synth = await self._getPreviewSynth();
+      if (!synth) return;
+      self._syncPreviewBank(synth);
+      const sf2Id = self._getActivePreviewSf2Id();
+      if (isDrum) {
+        const kit = program >= 128 ? program - 128 : program | 0;
+        if (typeof synth.setChannelInstrument === 'function') {
+          synth.setChannelInstrument(9, kit, sf2Id);
         }
-        obj.octave_mode = oct;
-    }
-
-    _cancelPreviewEnvelope(note) {
-        if (!this._previewEnvelopes) return;
-        const envs = this._previewEnvelopes.get(note);
-        if (envs) {
-            for (const env of envs) {
-                try {
-                    if (env && typeof env.cancel === 'function') env.cancel();
-                } catch (e) { /* ignore */ }
-            }
-            this._previewEnvelopes.delete(note);
+        const bankId =
+          typeof synth._bankForChannel === 'function'
+            ? synth._bankForChannel(9)
+            : synth.currentBankId;
+        const drumKey = (n) =>
+          typeof synth._drumKey === 'function' ? synth._drumKey(bankId, kit, n) : `${kit}:${n}`;
+        const padNotes = [36, 38, 42, 46, 50, 45, 49, 51];
+        const missing = padNotes.filter((n) => !synth.drumPresets.has(drumKey(n)));
+        if (missing.length === 0) return;
+        self._showPreviewLoading();
+        try {
+          await Promise.all(missing.map((n) => synth._loadDrumPreset(n, kit, bankId)));
+        } catch (e) {
+          /* ignore */
+        } finally {
+          self._hidePreviewLoading();
         }
-    }
-
-    _previewNoteOn(note, el) {
-        if (isNaN(note)) return;
-        if (!this._previewActive) this._previewActive = new Set();
-        if (!this._previewEnvelopes) this._previewEnvelopes = new Map();
-        if (this._previewActive.has(note)) return;
-        this._previewActive.add(note);
-        if (el) el.classList.add('active');
-
-        const active = this._getActivePreviewVoice();
-        const isDrumKit = active.isDrumKit;
-        const synthChannel = isDrumKit ? 9 : 0;
-        // For drums, `program` is the GM drum kit number (0/8/16/24/25/32/40/48/56);
-        // for melodic, it's the GM program (0–127).
-        const program = isDrumKit
-            ? (active.program | 0)
-            : ((active.program != null) ? (active.program & 0x7f) : 0);
-
-        const self = this;
-        (async () => {
-            const synth = await self._getPreviewSynth();
-            if (!synth) return;
-            try {
-                if (synth.audioContext && synth.audioContext.state === 'suspended') {
-                    await synth.audioContext.resume();
-                }
-            } catch (e) { /* ignore */ }
-            // Set the channel (incl. the live per-instrument SF2 selection)
-            // BEFORE loading so _ensurePreviewLoaded resolves through the
-            // channel's effective bank (custom SF2 or its GM fallback).
-            if (typeof synth.setChannelInstrument === 'function') {
-                // For drums, `program` is the GM kit number; playNote() uses
-                // channelInstruments[9] to pick the right per-kit preset.
-                synth.setChannelInstrument(synthChannel, program, self._getActivePreviewSf2Id());
-            }
-            await self._ensurePreviewLoaded(synth, isDrumKit, program, note, synthChannel);
-            // User already released the key before loading finished — don't play
-            if (!self._previewActive.has(note)) return;
-            // Long duration (30 s) acts as a safety net — the envelope is
-            // cancelled explicitly in _previewNoteOff when the pointer leaves
-            // the key, so the real "sustain" length is how long the user
-            // hovers. This replaces the old fixed 1.8 s behaviour, which
-            // caused overlapping sustained notes when sliding across keys.
-            try {
-                const envelopes = synth.playNote(note, 100, synthChannel, 30);
-                if (envelopes && self._previewActive.has(note)) {
-                    self._previewEnvelopes.set(note, envelopes);
-                } else if (envelopes) {
-                    // mouseleave fired between load and scheduling — cancel now
-                    for (const env of envelopes) {
-                        try { if (env.cancel) env.cancel(); } catch (e) { /* ignore */ }
-                    }
-                }
-            } catch (e) { /* ignore */ }
-        })();
-    }
-
-    _previewNoteOff(note, el) {
-        if (isNaN(note)) return;
-        if (this._previewActive) this._previewActive.delete(note);
-        if (el) el.classList.remove('active');
-        this._cancelPreviewEnvelope(note);
-    }
-
-    _previewAllNotesOff() {
-        if (this._previewActive) this._previewActive.clear();
-        this.$$('.ism-prv-key.active, .ism-prv-pad.active').forEach(function(el) {
-            el.classList.remove('active');
-        });
-        if (this._previewEnvelopes) {
-            for (const envs of this._previewEnvelopes.values()) {
-                for (const env of envs) {
-                    try {
-                        if (env && typeof env.cancel === 'function') env.cancel();
-                    } catch (e) { /* ignore */ }
-                }
-            }
-            this._previewEnvelopes.clear();
+      } else {
+        const prog = program & 0x7f;
+        if (typeof synth.setChannelInstrument === 'function') {
+          synth.setChannelInstrument(0, prog, sf2Id);
         }
-    }
-
-    /**
-     * Called when the user picks a new GM program. Instead of sending a MIDI
-     * program change to the physical instrument, pre-load the soundbank voice
-     * locally so the header preview is responsive when hovered.
-     */
-    /**
-     * Route the preview keyboard to a specific GM voice.
-     * @param {?number} idx - null selects the primary voice, a number selects
-     *   the matching entry in `tab.voices`.
-     */
-    _setPreviewActiveVoice(idx) {
-        const tab = this._getActiveTab();
-        if (!tab) return;
-        if (idx != null) {
-            if (!Array.isArray(tab.voices) || idx < 0 || idx >= tab.voices.length) return;
+        const bankId =
+          typeof synth._bankForChannel === 'function'
+            ? synth._bankForChannel(0)
+            : synth.currentBankId;
+        const key = typeof synth._instKey === 'function' ? synth._instKey(bankId, prog) : prog;
+        if (synth.loadedInstruments.has(key)) return;
+        self._showPreviewLoading();
+        try {
+          await synth.loadInstrument(prog, bankId);
+        } catch (e) {
+          /* ignore */
+        } finally {
+          self._hidePreviewLoading();
         }
-        if (this._previewActiveVoice === idx) return;
-        // Cancel any currently-held preview notes on the old voice before switching
-        this._previewAllNotesOff();
-        this._previewActiveVoice = idx;
-        this._rerenderIdentityPicker();
-        this._renderPreviewKeyboard();
-        // Preload the new voice so the keyboard is responsive on first hover
-        const active = this._getActivePreviewVoice();
-        if (active.program != null || active.isDrumKit) {
-            const previewChannel = active.isDrumKit ? 9 : 0;
-            this._sendPreviewProgramChange(active.program, previewChannel);
-        }
-    }
+      }
+    })();
+  }
 
-    /**
-     * Re-warm the preview keyboard for the currently-active voice. Used after
-     * the per-instrument SF2 selection changes (pick or upload) so the modal
-     * piano immediately reflects the new sound.
-     */
-    _sendActivePreviewProgramChange() {
-        const active = this._getActivePreviewVoice && this._getActivePreviewVoice();
-        if (!active) return;
-        if (active.program == null && !active.isDrumKit) return;
-        const previewChannel = active.isDrumKit ? 9 : 0;
-        this._sendPreviewProgramChange(active.program, previewChannel);
-    }
+  // ========== HEADER ==========
 
-    _sendPreviewProgramChange(program, channel) {
-        if (program == null) return;
-        const isDrum = channel === 9 || program >= 128;
-        const self = this;
-        (async () => {
-            const synth = await self._getPreviewSynth();
-            if (!synth) return;
-            self._syncPreviewBank(synth);
-            const sf2Id = self._getActivePreviewSf2Id();
-            if (isDrum) {
-                const kit = (program >= 128) ? (program - 128) : (program | 0);
-                if (typeof synth.setChannelInstrument === 'function') {
-                    synth.setChannelInstrument(9, kit, sf2Id);
-                }
-                const bankId = (typeof synth._bankForChannel === 'function')
-                    ? synth._bankForChannel(9) : synth.currentBankId;
-                const drumKey = (n) => (typeof synth._drumKey === 'function')
-                    ? synth._drumKey(bankId, kit, n) : `${kit}:${n}`;
-                const padNotes = [36, 38, 42, 46, 50, 45, 49, 51];
-                const missing = padNotes.filter(n => !synth.drumPresets.has(drumKey(n)));
-                if (missing.length === 0) return;
-                self._showPreviewLoading();
-                try { await Promise.all(missing.map(n => synth._loadDrumPreset(n, kit, bankId))); }
-                catch (e) { /* ignore */ }
-                finally { self._hidePreviewLoading(); }
-            } else {
-                const prog = program & 0x7f;
-                if (typeof synth.setChannelInstrument === 'function') {
-                    synth.setChannelInstrument(0, prog, sf2Id);
-                }
-                const bankId = (typeof synth._bankForChannel === 'function')
-                    ? synth._bankForChannel(0) : synth.currentBankId;
-                const key = (typeof synth._instKey === 'function')
-                    ? synth._instKey(bankId, prog) : prog;
-                if (synth.loadedInstruments.has(key)) return;
-                self._showPreviewLoading();
-                try { await synth.loadInstrument(prog, bankId); }
-                catch (e) { /* ignore */ }
-                finally { self._hidePreviewLoading(); }
-            }
-        })();
-    }
+  _updateHeader() {
+    const headerEl = this.$('.modal-header h2');
+    if (!headerEl) return;
+    const tab = this._getActiveTab();
+    const instrumentName = tab
+      ? tab.settings.custom_name ||
+        tab.settings.name ||
+        (this.device && this.device.displayName) ||
+        (this.device && this.device.name) ||
+        `Ch ${tab.channel + 1}`
+      : (this.device && this.device.displayName) || (this.device && this.device.name) || '';
 
-    // ========== HEADER ==========
-
-    _updateHeader() {
-        const headerEl = this.$('.modal-header h2');
-        if (!headerEl) return;
-        const tab = this._getActiveTab();
-        const instrumentName = tab
-            ? (tab.settings.custom_name || tab.settings.name || (this.device && this.device.displayName) || (this.device && this.device.name) || `Ch ${tab.channel + 1}`)
-            : ((this.device && this.device.displayName) || (this.device && this.device.name) || '');
-
-        // Resolve the SVG of the main voice (gm_program of the active tab).
-        // Drum-channel programs are encoded with the GM_DRUM_KIT_OFFSET so the
-        // resolver can pick the matching `drum_kit_<n>.svg`.
-        let iconHtml = '<span class="ism-header-gear">⚙️</span>';
-        if (tab && window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon) {
-            const gmProgram = tab.settings ? tab.settings.gm_program : null;
-            const channel = tab.channel;
-            const isDrumChannel = channel === 9;
-            const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
-            const resolverProgram = (isDrumChannel && gmProgram != null && gmProgram < offset)
-                ? (gmProgram + offset) : gmProgram;
-            const icon = window.InstrumentFamilies.resolveInstrumentIcon({
-                gmProgram: resolverProgram,
-                channel: channel
-            });
-            if (icon && icon.slug) {
-                iconHtml = `<span class="ism-header-icon">
+    // Resolve the SVG of the main voice (gm_program of the active tab).
+    // Drum-channel programs are encoded with the GM_DRUM_KIT_OFFSET so the
+    // resolver can pick the matching `drum_kit_<n>.svg`.
+    let iconHtml = '<span class="ism-header-gear">⚙️</span>';
+    if (tab && window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon) {
+      const gmProgram = tab.settings ? tab.settings.gm_program : null;
+      const channel = tab.channel;
+      const isDrumChannel = channel === 9;
+      const offset = typeof GM_DRUM_KIT_OFFSET !== 'undefined' ? GM_DRUM_KIT_OFFSET : 128;
+      const resolverProgram =
+        isDrumChannel && gmProgram != null && gmProgram < offset ? gmProgram + offset : gmProgram;
+      const icon = window.InstrumentFamilies.resolveInstrumentIcon({
+        gmProgram: resolverProgram,
+        channel: channel
+      });
+      if (icon && icon.slug) {
+        iconHtml = `<span class="ism-header-icon">
                     <img class="ism-header-svg" src="${icon.svgUrl}" alt=""
                          onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
                     <span class="ism-header-emoji" style="display:none">${icon.emoji}</span>
                 </span>`;
-            } else if (icon && icon.emoji) {
-                iconHtml = `<span class="ism-header-icon"><span class="ism-header-emoji">${icon.emoji}</span></span>`;
-            }
-        }
+      } else if (icon && icon.emoji) {
+        iconHtml = `<span class="ism-header-icon"><span class="ism-header-emoji">${icon.emoji}</span></span>`;
+      }
+    }
 
-        headerEl.innerHTML = `
+    headerEl.innerHTML = `
             <span class="ism-header-main">
                 ${iconHtml}
                 <span class="ism-header-name">${this.escape(instrumentName)}</span>
             </span>
         `;
-        // Preview keyboard is now rendered inline next to the Identity-section
-        // "Instrument" label, not in the modal header.
-        this._renderPreviewKeyboard();
+    // Preview keyboard is now rendered inline next to the Identity-section
+    // "Instrument" label, not in the modal header.
+    this._renderPreviewKeyboard();
+  }
+
+  // ========== TABS BAR ==========
+
+  _renderTabsBar() {
+    // Count instruments per channel
+    const channelCounts = {};
+    for (const tab of this.instrumentTabs) {
+      const ch = tab.channel;
+      channelCounts[ch] = (channelCounts[ch] || 0) + 1;
     }
 
-    // ========== TABS BAR ==========
-
-    _renderTabsBar() {
-        // Count instruments per channel
-        const channelCounts = {};
-        for (const tab of this.instrumentTabs) {
-            const ch = tab.channel;
-            channelCounts[ch] = (channelCounts[ch] || 0) + 1;
-        }
-
-        let html = '<div class="ism-tabs-bar">';
-        for (const tab of this.instrumentTabs) {
-            const ch = tab.channel;
-            const isActive = ch === this.activeChannel;
-            const color = InstrumentSettingsModal.CHANNEL_COLORS[ch % 16];
-            const name = tab.settings.custom_name || tab.settings.name || `Ch ${ch + 1}`;
-            const isDrum = (ch === 9);
-            const count = channelCounts[ch] || 1;
-            html += `<button type="button" class="ism-tab ${isActive ? 'active' : ''}" data-channel="${ch}" style="${isActive ? `border-bottom-color: ${color}; color: ${color}; background: ${color}1a;` : ''}">
+    let html = '<div class="ism-tabs-bar">';
+    for (const tab of this.instrumentTabs) {
+      const ch = tab.channel;
+      const isActive = ch === this.activeChannel;
+      const color = InstrumentSettingsModal.CHANNEL_COLORS[ch % 16];
+      const name = tab.settings.custom_name || tab.settings.name || `Ch ${ch + 1}`;
+      const isDrum = ch === 9;
+      const count = channelCounts[ch] || 1;
+      html += `<button type="button" class="ism-tab ${isActive ? 'active' : ''}" data-channel="${ch}" style="${isActive ? `border-bottom-color: ${color}; color: ${color}; background: ${color}1a;` : ''}">
                 <span class="ism-tab-ch" style="background: ${color};">Ch ${ch + 1}${isDrum ? ' DR' : ''}</span>
                 <span class="ism-tab-name">${this.escape(name)}</span>
                 ${count > 1 ? `<span class="ism-tab-badge" title="${count} instruments sur ce canal">\u00d7${count}</span>` : ''}
             </button>`;
-        }
-        html += `<button type="button" class="ism-tab ism-tab-add" title="${this.t('instrumentManagement.addInstrument') || 'Ajouter un instrument'}">
+    }
+    html += `<button type="button" class="ism-tab ism-tab-add" title="${this.t('instrumentManagement.addInstrument') || 'Ajouter un instrument'}">
             <span style="font-size: 18px; font-weight: bold;">+</span>
         </button>`;
-        html += '</div>';
-        return html;
-    }
+    html += '</div>';
+    return html;
+  }
 
-    // ========== SIDEBAR ==========
+  // ========== SIDEBAR ==========
 
-    _renderSidebar() {
-        // Sections flagged `keyboardsOnly` (the hand-position section) are
-        // shown only when the family is keyboard / plucked or bowed strings
-        // AND the "Gestion du déplacement des mains" toggle is enabled —
-        // see ISMSections._shouldShowHandsSection.
-        const tab = this._getActiveTab?.();
-        const showHands = typeof window.ISMSections?._shouldShowHandsSection === 'function'
-            && window.ISMSections._shouldShowHandsSection(tab);
+  _renderSidebar() {
+    // Sections flagged `keyboardsOnly` (the hand-position section) are
+    // shown only when the family is keyboard / plucked or bowed strings
+    // AND the "Gestion du déplacement des mains" toggle is enabled —
+    // see ISMSections._shouldShowHandsSection.
+    const tab = this._getActiveTab?.();
+    const showHands =
+      typeof window.ISMSections?._shouldShowHandsSection === 'function' &&
+      window.ISMSections._shouldShowHandsSection(tab);
 
-        let html = '<nav class="ism-sidebar">';
-        for (const sec of InstrumentSettingsModal.SECTIONS) {
-            if (sec.keyboardsOnly && !showHands) continue;
-            // Generic per-instrument predicate (bagpipe / accordion …).
-            if (sec.showWhen) {
-                const fn = window.ISMSections?.[sec.showWhen];
-                if (typeof fn !== 'function' || !fn(tab)) continue;
-            }
-            const active = this.activeSection === sec.id ? 'active' : '';
-            html += `<button type="button" class="ism-nav-item ${active}" data-section="${sec.id}">
+    let html = '<nav class="ism-sidebar">';
+    for (const sec of InstrumentSettingsModal.SECTIONS) {
+      if (sec.keyboardsOnly && !showHands) continue;
+      // Generic per-instrument predicate (bagpipe / accordion …).
+      if (sec.showWhen) {
+        const fn = window.ISMSections?.[sec.showWhen];
+        if (typeof fn !== 'function' || !fn(tab)) continue;
+      }
+      const active = this.activeSection === sec.id ? 'active' : '';
+      html += `<button type="button" class="ism-nav-item ${active}" data-section="${sec.id}">
                 <span class="ism-nav-icon">${sec.icon}</span>
                 <span class="ism-nav-label">${this.t(sec.labelKey) || sec.fallback}</span>
             </button>`;
-        }
-        html += '</nav>';
-        return html;
+    }
+    html += '</nav>';
+    return html;
+  }
+
+  // ========== GLOBAL STATE SYNC ==========
+
+  _syncGlobalState() {
+    const tab = this._getActiveTab();
+    if (!tab || !this.device) return;
+    window.currentDeviceSettings = {
+      device: { ...this.device, channel: this.activeChannel },
+      settings: tab.settings,
+      stringInstrumentConfig: tab.stringInstrumentConfig,
+      tuningPresets: this.tuningPresets
+    };
+  }
+
+  // ========== HELPERS ==========
+
+  _getActiveTab() {
+    return this.instrumentTabs.find((t) => t.channel === this.activeChannel) || null;
+  }
+
+  /**
+   * Init piano keyboard — must be called when the Notes section is VISIBLE
+   * so that the viewport has a real width for octave calculations.
+   */
+  _initPianoForActiveTab() {
+    const tab = this._getActiveTab();
+    if (!tab) return;
+    // When a secondary voice tab is active (shareNotes=false), the piano
+    // must reflect that voice's note capabilities, not the primary's.
+    const target = this._getActiveNotesTarget();
+    const s = target ? target.obj : tab.settings;
+    if (typeof initPianoKeyboard !== 'function') return;
+
+    // Mirror the Notes-section reconciliation: a Diatonic/Pentatonic
+    // save is materialized to 'discrete' in the capabilities row, but
+    // the piano must still open as a range with octave-mode dots, not
+    // as a flat discrete pad selection.
+    const _oct = s.octave_mode || 'chromatic';
+    const _hasBounds = s.note_range_min != null && s.note_range_max != null;
+    const effMode = _oct !== 'chromatic' && _hasBounds ? 'range' : s.note_selection_mode || 'range';
+    const effSelected = effMode === 'range' ? [] : s.selected_notes || [];
+
+    // Don't init piano for drum instruments (no piano needed) — decision
+    // based on PRIMARY, since the section layout depends on primary type.
+    const primaryProg = tab.settings.gm_program;
+    const isDrum = this.activeChannel === 9 || (primaryProg != null && primaryProg >= 128);
+    if (isDrum) return;
+
+    const self = this;
+
+    // Re-highlight hook: renderPianoKeyboard() rebuilds the key DOM on
+    // resize/navigation and only restores range/discrete display, wiping
+    // the octave-mode dots. Expose a stable callback it can invoke so the
+    // playable-note markers survive every re-render.
+    window.__ismReapplyOctaveHighlight = function () {
+      if (self && typeof self._applyOctaveModeHighlight === 'function') {
+        self._applyOctaveModeHighlight();
+      }
+    };
+
+    function doInit(viewport) {
+      // 1) Compute center note
+      let centerNote = 60;
+      if (effMode === 'discrete' && effSelected.length > 0) {
+        const sorted = [...effSelected].sort((a, b) => a - b);
+        centerNote = sorted[Math.floor(sorted.length / 2)];
+      } else if (s.note_range_min != null && s.note_range_max != null) {
+        centerNote = Math.round((s.note_range_min + s.note_range_max) / 2);
+      }
+
+      // 2) Set start note BEFORE calling initPianoKeyboard
+      const OCTAVE_WIDTH = 126;
+      const availableWidth = viewport.offsetWidth;
+      const visibleOctaves = Math.max(1, Math.floor(availableWidth / OCTAVE_WIDTH));
+      const visibleNotes = visibleOctaves * 12;
+      const startNote = Math.max(0, centerNote - Math.floor(visibleNotes / 2));
+      const maxStart = Math.max(0, 127 - visibleNotes + 1);
+      window.currentPianoStartNote = Math.min(maxStart, startNote);
+
+      // 3) Init piano
+      initPianoKeyboard(s.note_range_min, s.note_range_max, effMode, effSelected);
+
+      // 4) Trigger GM program change handler
+      if (typeof onGmProgramChanged === 'function') {
+        const gmSelect = document.getElementById('gmProgramSelect');
+        if (gmSelect) onGmProgramChanged(gmSelect);
+      }
+
+      // 5) Apply octave mode highlighting after piano is rendered
+      requestAnimationFrame(function () {
+        self._applyOctaveModeHighlight();
+      });
     }
 
-    // ========== GLOBAL STATE SYNC ==========
-
-    _syncGlobalState() {
-        const tab = this._getActiveTab();
-        if (!tab || !this.device) return;
-        window.currentDeviceSettings = {
-            device: { ...this.device, channel: this.activeChannel },
-            settings: tab.settings,
-            stringInstrumentConfig: tab.stringInstrumentConfig,
-            tuningPresets: this.tuningPresets
-        };
-    }
-
-    // ========== HELPERS ==========
-
-    _getActiveTab() {
-        return this.instrumentTabs.find(t => t.channel === this.activeChannel) || null;
-    }
-
-    /**
-     * Init piano keyboard — must be called when the Notes section is VISIBLE
-     * so that the viewport has a real width for octave calculations.
-     */
-    _initPianoForActiveTab() {
-        const tab = this._getActiveTab();
-        if (!tab) return;
-        // When a secondary voice tab is active (shareNotes=false), the piano
-        // must reflect that voice's note capabilities, not the primary's.
-        const target = this._getActiveNotesTarget();
-        const s = target ? target.obj : tab.settings;
-        if (typeof initPianoKeyboard !== 'function') return;
-
-        // Mirror the Notes-section reconciliation: a Diatonic/Pentatonic
-        // save is materialized to 'discrete' in the capabilities row, but
-        // the piano must still open as a range with octave-mode dots, not
-        // as a flat discrete pad selection.
-        const _oct = s.octave_mode || 'chromatic';
-        const _hasBounds = s.note_range_min != null && s.note_range_max != null;
-        const effMode = (_oct !== 'chromatic' && _hasBounds)
-            ? 'range'
-            : (s.note_selection_mode || 'range');
-        const effSelected = effMode === 'range' ? [] : (s.selected_notes || []);
-
-        // Don't init piano for drum instruments (no piano needed) — decision
-        // based on PRIMARY, since the section layout depends on primary type.
-        const primaryProg = tab.settings.gm_program;
-        const isDrum = this.activeChannel === 9 || (primaryProg != null && primaryProg >= 128);
-        if (isDrum) return;
-
-        const self = this;
-
-        // Re-highlight hook: renderPianoKeyboard() rebuilds the key DOM on
-        // resize/navigation and only restores range/discrete display, wiping
-        // the octave-mode dots. Expose a stable callback it can invoke so the
-        // playable-note markers survive every re-render.
-        window.__ismReapplyOctaveHighlight = function() {
-            if (self && typeof self._applyOctaveModeHighlight === 'function') {
-                self._applyOctaveModeHighlight();
-            }
-        };
-
-        function doInit(viewport) {
-            // 1) Compute center note
-            let centerNote = 60;
-            if (effMode === 'discrete' && effSelected.length > 0) {
-                const sorted = [...effSelected].sort((a, b) => a - b);
-                centerNote = sorted[Math.floor(sorted.length / 2)];
-            } else if (s.note_range_min != null && s.note_range_max != null) {
-                centerNote = Math.round((s.note_range_min + s.note_range_max) / 2);
-            }
-
-            // 2) Set start note BEFORE calling initPianoKeyboard
-            const OCTAVE_WIDTH = 126;
-            const availableWidth = viewport.offsetWidth;
-            const visibleOctaves = Math.max(1, Math.floor(availableWidth / OCTAVE_WIDTH));
-            const visibleNotes = visibleOctaves * 12;
-            const startNote = Math.max(0, centerNote - Math.floor(visibleNotes / 2));
-            const maxStart = Math.max(0, 127 - visibleNotes + 1);
-            window.currentPianoStartNote = Math.min(maxStart, startNote);
-
-            // 3) Init piano
-            initPianoKeyboard(
-                s.note_range_min, s.note_range_max,
-                effMode,
-                effSelected
-            );
-
-            // 4) Trigger GM program change handler
-            if (typeof onGmProgramChanged === 'function') {
-                const gmSelect = document.getElementById('gmProgramSelect');
-                if (gmSelect) onGmProgramChanged(gmSelect);
-            }
-
-            // 5) Apply octave mode highlighting after piano is rendered
-            requestAnimationFrame(function() {
-                self._applyOctaveModeHighlight();
-            });
-        }
-
-        // Wait for the piano viewport to have a real layout width.
-        // Using ResizeObserver avoids the brittle fixed-interval polling loop:
-        // the observer fires as soon as the CSS layout assigns a non-zero width
-        // to the viewport (typically after the first paint of the Notes section).
-        function tryInit() {
-            const viewport = document.querySelector('.piano-viewport');
-            if (!viewport) {
-                // Section not mounted yet — retry once on the next frame
-                requestAnimationFrame(tryInit);
-                return;
-            }
-
-            if (viewport.offsetWidth >= 20) {
-                doInit(viewport);
-                return;
-            }
-
-            // Viewport exists but has no width yet (section just became active,
-            // layout not computed). Observe it and fire doInit on first resize.
-            const ro = new ResizeObserver(function(entries) {
-                const w = entries[0] && entries[0].contentRect.width;
-                if (w >= 20) {
-                    ro.disconnect();
-                    clearTimeout(roTimeout);
-                    doInit(viewport);
-                }
-            });
-            ro.observe(viewport);
-            // Safety valve: disconnect after 2 s so the observer is never leaked
-            // if the section is hidden again before layout fires.
-            const roTimeout = setTimeout(function() { ro.disconnect(); }, 2000);
-        }
-
+    // Wait for the piano viewport to have a real layout width.
+    // Using ResizeObserver avoids the brittle fixed-interval polling loop:
+    // the observer fires as soon as the CSS layout assigns a non-zero width
+    // to the viewport (typically after the first paint of the Notes section).
+    function tryInit() {
+      const viewport = document.querySelector('.piano-viewport');
+      if (!viewport) {
+        // Section not mounted yet — retry once on the next frame
         requestAnimationFrame(tryInit);
-    }
+        return;
+      }
 
-    _applyOctaveModeHighlight() {
-        const octaveModeInput = document.getElementById('octaveModeInput');
-        const noteRangeMin = document.getElementById('noteRangeMin');
-        const noteRangeMax = document.getElementById('noteRangeMax');
-        const modeInput = document.getElementById('noteSelectionModeInput');
-        if (!octaveModeInput || typeof this._highlightPlayableNotes !== 'function') return;
+      if (viewport.offsetWidth >= 20) {
+        doInit(viewport);
+        return;
+      }
 
-        // Octave dots only make sense for a continuous range. With no range
-        // (e.g. just cleared) or in discrete mode, strip any stale markers
-        // instead of painting the whole keyboard.
-        const isRangeMode = !modeInput || modeInput.value !== 'discrete';
-        const hasRange = noteRangeMin && noteRangeMax
-            && noteRangeMin.value !== '' && noteRangeMax.value !== '';
-        if (!isRangeMode || !hasRange) {
-            this._highlightPlayableNotes([]);
-            return;
+      // Viewport exists but has no width yet (section just became active,
+      // layout not computed). Observe it and fire doInit on first resize.
+      const ro = new ResizeObserver(function (entries) {
+        const w = entries[0] && entries[0].contentRect.width;
+        if (w >= 20) {
+          ro.disconnect();
+          clearTimeout(roTimeout);
+          doInit(viewport);
         }
-
-        const modeKey = octaveModeInput.value || 'chromatic';
-        const rangeMin = parseInt(noteRangeMin.value);
-        const rangeMax = parseInt(noteRangeMax.value);
-        const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, modeKey);
-        this._highlightPlayableNotes(playableNotes);
+      });
+      ro.observe(viewport);
+      // Safety valve: disconnect after 2 s so the observer is never leaked
+      // if the section is hidden again before layout fires.
+      const roTimeout = setTimeout(function () {
+        ro.disconnect();
+      }, 2000);
     }
 
-    _detectMicroprocessor(deviceName, sysexName) {
-        const patterns = InstrumentSettingsModal.MICROPROCESSOR_PATTERNS;
-        const sources = [deviceName, sysexName].filter(Boolean);
-        for (const src of sources) {
-            for (const entry of patterns) {
-                const match = src.match(entry.pattern);
-                if (match) {
-                    return { name: entry.name, variant: match[1] || null, source: src };
-                }
-            }
+    requestAnimationFrame(tryInit);
+  }
+
+  _applyOctaveModeHighlight() {
+    const octaveModeInput = document.getElementById('octaveModeInput');
+    const noteRangeMin = document.getElementById('noteRangeMin');
+    const noteRangeMax = document.getElementById('noteRangeMax');
+    const modeInput = document.getElementById('noteSelectionModeInput');
+    if (!octaveModeInput || typeof this._highlightPlayableNotes !== 'function') return;
+
+    // Octave dots only make sense for a continuous range. With no range
+    // (e.g. just cleared) or in discrete mode, strip any stale markers
+    // instead of painting the whole keyboard.
+    const isRangeMode = !modeInput || modeInput.value !== 'discrete';
+    const hasRange =
+      noteRangeMin && noteRangeMax && noteRangeMin.value !== '' && noteRangeMax.value !== '';
+    if (!isRangeMode || !hasRange) {
+      this._highlightPlayableNotes([]);
+      return;
+    }
+
+    const modeKey = octaveModeInput.value || 'chromatic';
+    const rangeMin = parseInt(noteRangeMin.value);
+    const rangeMax = parseInt(noteRangeMax.value);
+    const playableNotes = InstrumentSettingsModal.computePlayableNotes(rangeMin, rangeMax, modeKey);
+    this._highlightPlayableNotes(playableNotes);
+  }
+
+  _detectMicroprocessor(deviceName, sysexName) {
+    const patterns = InstrumentSettingsModal.MICROPROCESSOR_PATTERNS;
+    const sources = [deviceName, sysexName].filter(Boolean);
+    for (const src of sources) {
+      for (const entry of patterns) {
+        const match = src.match(entry.pattern);
+        if (match) {
+          return { name: entry.name, variant: match[1] || null, source: src };
         }
-        return null;
+      }
     }
+    return null;
+  }
 
-    _getGmCategoryKey(gmProgram) {
-        if (gmProgram == null) return null;
-        if (gmProgram >= 128) return 'drums';
-        const categoryKeys = [
-            'piano', 'chromPerc', 'organ', 'guitar',
-            'bass', 'strings', 'ensemble', 'brass',
-            'reed', 'pipe', 'synthLead', 'synthPad',
-            'synthFx', 'ethnic', 'percussive', 'soundFx'
-        ];
-        const index = Math.floor(gmProgram / 8);
-        return categoryKeys[index] || null;
-    }
+  _getGmCategoryKey(gmProgram) {
+    if (gmProgram == null) return null;
+    if (gmProgram >= 128) return 'drums';
+    const categoryKeys = [
+      'piano',
+      'chromPerc',
+      'organ',
+      'guitar',
+      'bass',
+      'strings',
+      'ensemble',
+      'brass',
+      'reed',
+      'pipe',
+      'synthLead',
+      'synthPad',
+      'synthFx',
+      'ethnic',
+      'percussive',
+      'soundFx'
+    ];
+    const index = Math.floor(gmProgram / 8);
+    return categoryKeys[index] || null;
+  }
 }
 
 // Apply mixins
@@ -1330,13 +1615,19 @@ Object.assign(InstrumentSettingsModal.prototype, ISMListeners);
 
 // Expose globally
 if (typeof window !== 'undefined') {
-    window.InstrumentSettingsModal = InstrumentSettingsModal;
-    // Dispose the lazily-created preview synth on page unload to close its AudioContext.
-    window.addEventListener('beforeunload', () => {
-        if (window.__ismPreviewSynth) {
-            try { window.__ismPreviewSynth.dispose(); } catch (e) {}
-            window.__ismPreviewSynth = null;
-            window.__ismPreviewSynthInit = null;
-        }
-    }, { once: true });
+  window.InstrumentSettingsModal = InstrumentSettingsModal;
+  // Dispose the lazily-created preview synth on page unload to close its AudioContext.
+  window.addEventListener(
+    'beforeunload',
+    () => {
+      if (window.__ismPreviewSynth) {
+        try {
+          window.__ismPreviewSynth.dispose();
+        } catch (e) {}
+        window.__ismPreviewSynth = null;
+        window.__ismPreviewSynthInit = null;
+      }
+    },
+    { once: true }
+  );
 }
