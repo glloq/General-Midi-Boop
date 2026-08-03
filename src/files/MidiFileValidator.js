@@ -73,11 +73,17 @@ class MidiFileValidator {
       report.warnings.push('Format 2 (independent tracks): tracks will be merged by channel');
     }
 
-    // SMPTE detection
-    if (header.ticksPerBeat != null && header.ticksPerBeat < 0) {
+    // SMPTE detection. `midi-file` encodes SMPTE division as framesPerSecond +
+    // ticksPerFrame and leaves ticksPerBeat undefined (never negative), so the
+    // old `ticksPerBeat < 0` test was dead and SMPTE files fell into the
+    // "missing ticksPerBeat" branch instead. Frame-based timing is not
+    // supported for playback (MidiPlayer rejects it).
+    if (header.framesPerSecond != null && header.ticksPerFrame != null) {
       report.stats.hasSMPTE = true;
-      report.warnings.push(`SMPTE timing detected (ticksPerBeat=${header.ticksPerBeat}), timing calculations use heuristic PPQ=480`);
-    } else if (!header.ticksPerBeat || header.ticksPerBeat === 0) {
+      report.warnings.push(
+        `SMPTE timing (${header.framesPerSecond} fps × ${header.ticksPerFrame} ticks/frame) is not supported for playback`
+      );
+    } else if (!header.ticksPerBeat || header.ticksPerBeat <= 0) {
       report.warnings.push('Missing or zero ticksPerBeat, using default 480');
     }
 
@@ -109,7 +115,9 @@ class MidiFileValidator {
           if (event.channel < 0 || event.channel > 15 || !Number.isInteger(event.channel)) {
             report.stats.invalidChannels++;
             if (report.stats.invalidChannels <= 5) {
-              report.warnings.push(`Track ${trackIdx}: invalid channel ${event.channel} at tick ${absoluteTick}`);
+              report.warnings.push(
+                `Track ${trackIdx}: invalid channel ${event.channel} at tick ${absoluteTick}`
+              );
             }
           }
         }
@@ -119,7 +127,9 @@ class MidiFileValidator {
           report.stats.hasTempoEvent = true;
           report.stats.tempoEventCount++;
           if (event.microsecondsPerBeat <= 0) {
-            report.warnings.push(`Track ${trackIdx}: invalid tempo value ${event.microsecondsPerBeat} at tick ${absoluteTick}`);
+            report.warnings.push(
+              `Track ${trackIdx}: invalid tempo value ${event.microsecondsPerBeat} at tick ${absoluteTick}`
+            );
           }
         }
 
@@ -133,7 +143,9 @@ class MidiFileValidator {
           if (note < 0 || note > 127) {
             report.stats.outOfRangeNotes++;
             if (report.stats.outOfRangeNotes <= 5) {
-              report.warnings.push(`Track ${trackIdx}: note ${note} out of range [0-127] at tick ${absoluteTick}`);
+              report.warnings.push(
+                `Track ${trackIdx}: note ${note} out of range [0-127] at tick ${absoluteTick}`
+              );
             }
           }
 
@@ -192,11 +204,15 @@ class MidiFileValidator {
     }
 
     if (report.stats.orphanedNoteOns > 0) {
-      report.warnings.push(`${report.stats.orphanedNoteOns} orphaned Note On(s) without matching Note Off`);
+      report.warnings.push(
+        `${report.stats.orphanedNoteOns} orphaned Note On(s) without matching Note Off`
+      );
     }
 
     if (report.stats.overlappingNotes > 0) {
-      report.warnings.push(`${report.stats.overlappingNotes} overlapping note(s) on same channel+note`);
+      report.warnings.push(
+        `${report.stats.overlappingNotes} overlapping note(s) on same channel+note`
+      );
     }
 
     if (report.stats.totalNotes === 0) {
@@ -208,7 +224,9 @@ class MidiFileValidator {
     }
 
     if (report.stats.invalidChannels > 5) {
-      report.warnings.push(`... and ${report.stats.invalidChannels - 5} more invalid channel values`);
+      report.warnings.push(
+        `... and ${report.stats.invalidChannels - 5} more invalid channel values`
+      );
     }
 
     if (report.stats.outOfRangeNotes > 5) {
@@ -220,7 +238,9 @@ class MidiFileValidator {
       this.logger.error(`MIDI validation errors: ${report.errors.join('; ')}`);
     }
     if (report.warnings.length > 0) {
-      this.logger.info(`MIDI validation: ${report.warnings.length} warning(s) - ${report.warnings.slice(0, 5).join('; ')}`);
+      this.logger.info(
+        `MIDI validation: ${report.warnings.length} warning(s) - ${report.warnings.slice(0, 5).join('; ')}`
+      );
     } else {
       this.logger.debug('MIDI validation: no issues detected');
     }

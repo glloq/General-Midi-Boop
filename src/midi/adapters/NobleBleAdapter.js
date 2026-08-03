@@ -32,7 +32,12 @@ export default class NobleBleAdapter extends EventEmitter {
    */
   constructor(options = {}) {
     super();
-    this.logger = options.logger || { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
+    this.logger = options.logger || {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {}
+    };
     this._createBluetooth = options.createBluetooth || null;
 
     this._bluetooth = null;
@@ -184,11 +189,14 @@ export default class NobleBleAdapter extends EventEmitter {
           const name = await device.getName().catch(() => address);
           const rssi = await device.getRSSI().catch(() => -100);
           const uuids = await device.getUUIDs().catch(() => []);
-          const isMidiDevice = Array.isArray(uuids) && uuids.some((u) =>
-            typeof u === 'string' &&
-            (u.toLowerCase().includes('03b80e5a') ||
-             u.toLowerCase() === BLE_MIDI_SERVICE_UUID.toLowerCase())
-          );
+          const isMidiDevice =
+            Array.isArray(uuids) &&
+            uuids.some(
+              (u) =>
+                typeof u === 'string' &&
+                (u.toLowerCase().includes('03b80e5a') ||
+                  u.toLowerCase() === BLE_MIDI_SERVICE_UUID.toLowerCase())
+            );
           const descriptor = { address, name, rssi, uuids, isMidiDevice };
           this._discovered.set(address, descriptor);
           this.emit(BLE_EVENTS.DEVICE_DISCOVERED, { ...descriptor });
@@ -248,6 +256,11 @@ export default class NobleBleAdapter extends EventEmitter {
       if (!this._connections.has(address)) return; // already torn down cleanly
       try {
         characteristic.off?.('valuechanged', handler);
+        // Remove ourselves too: a device that repeatedly drops and reconnects
+        // reuses the same `device` object, so without this the unexpected-drop
+        // path accumulates one stale 'disconnect' listener per cycle (unbounded
+        // leak that eventually trips Node's MaxListeners warning).
+        device.off?.('disconnect', onDisconnect);
       } catch {
         /* ignore */
       }
@@ -300,7 +313,11 @@ export default class NobleBleAdapter extends EventEmitter {
       await this.disconnect(address).catch(() => {});
     }
     if (this._destroy) {
-      try { this._destroy(); } catch { /* ignore */ }
+      try {
+        this._destroy();
+      } catch {
+        /* ignore */
+      }
     }
     this._bluetooth = null;
     this._adapter = null;

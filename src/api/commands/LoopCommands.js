@@ -51,7 +51,16 @@ async function loopUpdate(app, data) {
   }
 
   const fields = {};
-  const allowed = ['name', 'tempo', 'time_sig_num', 'time_sig_den', 'bars', 'ppq', 'instrument_program', 'midi_data'];
+  const allowed = [
+    'name',
+    'tempo',
+    'time_sig_num',
+    'time_sig_den',
+    'bars',
+    'ppq',
+    'instrument_program',
+    'midi_data'
+  ];
   for (const key of allowed) {
     if (key in data) fields[key] = data[key];
   }
@@ -77,7 +86,9 @@ async function loopDelete(app, data) {
   }
   app.loopRepository.delete(data.loopId);
   if (cascadedBlocks > 0) {
-    app.logger?.info?.(`Loop ${data.loopId} deletion cascaded ${cascadedBlocks} arrangement block(s)`);
+    app.logger?.info?.(
+      `Loop ${data.loopId} deletion cascaded ${cascadedBlocks} arrangement block(s)`
+    );
   }
   return { success: true, cascadedBlocks };
 }

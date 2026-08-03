@@ -5,7 +5,10 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const sourcePath = resolve(__dirname, '../../public/js/features/instrument-settings/InstrumentFamilies.js');
+const sourcePath = resolve(
+  __dirname,
+  '../../public/js/features/instrument-settings/InstrumentFamilies.js'
+);
 const source = readFileSync(sourcePath, 'utf8');
 
 // Execute the IIFE once in jsdom context; it registers window.InstrumentFamilies
@@ -188,7 +191,10 @@ describe('InstrumentFamilies.resolveInstrumentIcon', () => {
 
   it('handles drum kits: encoded value (128+program) maps to drum_kit_<p>', () => {
     const encoded = GM_DRUM_KIT_OFFSET + 32; // Jazz Kit
-    const icon = window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: encoded, channel: 9 });
+    const icon = window.InstrumentFamilies.resolveInstrumentIcon({
+      gmProgram: encoded,
+      channel: 9
+    });
     expect(icon.family.slug).toBe('drum_kits');
     expect(icon.slug).toBe('drum_kit_32');
     expect(icon.svgUrl).toBe('/assets/instruments/drum_kit_32.svg');
@@ -211,7 +217,8 @@ describe('InstrumentFamilies.resolveInstrumentIcon', () => {
   });
 
   it('familyIconUrl builds the expected path', () => {
-    expect(window.InstrumentFamilies.familyIconUrl('brass'))
-      .toBe('/assets/instruments/family_brass.svg');
+    expect(window.InstrumentFamilies.familyIconUrl('brass')).toBe(
+      '/assets/instruments/family_brass.svg'
+    );
   });
 });

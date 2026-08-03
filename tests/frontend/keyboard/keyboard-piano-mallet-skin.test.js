@@ -10,7 +10,9 @@ import { resolve } from 'path';
 const win = {};
 beforeAll(() => {
   const src = readFileSync(
-    resolve(__dirname, '../../../public/js/features/keyboard/KeyboardPiano.js'), 'utf8');
+    resolve(__dirname, '../../../public/js/features/keyboard/KeyboardPiano.js'),
+    'utf8'
+  );
   new Function('window', src)(win);
 });
 
@@ -23,7 +25,7 @@ function ctx(overrides = {}) {
     showNoteColors: false,
     getNoteLabel: (n) => String(n),
     isNotePlayable: () => true,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -36,11 +38,11 @@ const container = () => document.getElementById('piano-container');
 
 describe('generatePianoKeys — data-mallet-skin', () => {
   const cases = [
-    [8, 'metal-soft'],   // Celesta
+    [8, 'metal-soft'], // Celesta
     [9, 'metal-bright'], // Glockenspiel
-    [11, 'metal-warm'],  // Vibraphone
-    [12, 'wood-dark'],   // Marimba
-    [13, 'wood-light'],  // Xylophone
+    [11, 'metal-warm'], // Vibraphone
+    [12, 'wood-dark'], // Marimba
+    [13, 'wood-light'] // Xylophone
   ];
 
   for (const [program, skin] of cases) {

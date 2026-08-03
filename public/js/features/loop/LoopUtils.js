@@ -13,285 +13,317 @@
  *   - LoopUtils.GM_FAMILIES / familyForProgram(p)  family lookup + colours
  */
 (function () {
-    'use strict';
+  'use strict';
 
-    const PAD_STORAGE_KEY = 'gmboop_pad_layout_v1';
+  const PAD_STORAGE_KEY = 'gmboop_pad_layout_v1';
 
-    // ── GM family palette (used for colour-coding loops by instrument) ──
-    const GM_FAMILIES = [
-        { name: 'Piano',          icon: '🎹', start: 0,   color: '#5B8DEF' },
-        { name: 'Chromatic Perc', icon: '🔔', start: 8,   color: '#F0B429' },
-        { name: 'Organ',          icon: '🎹', start: 16,  color: '#9B59B6' },
-        { name: 'Guitar',         icon: '🎸', start: 24,  color: '#E67E22' },
-        { name: 'Bass',           icon: '🎸', start: 32,  color: '#7F4F2A' },
-        { name: 'Strings',        icon: '🎻', start: 40,  color: '#27AE60' },
-        { name: 'Ensemble',       icon: '🎻', start: 48,  color: '#16A085' },
-        { name: 'Brass',          icon: '🎺', start: 56,  color: '#D4AC0D' },
-        { name: 'Reed',           icon: '🎷', start: 64,  color: '#CA6F1E' },
-        { name: 'Pipe',           icon: '🪗', start: 72,  color: '#48C9B0' },
-        { name: 'Synth Lead',     icon: '🎹', start: 80,  color: '#E74C3C' },
-        { name: 'Synth Pad',      icon: '🎹', start: 88,  color: '#A569BD' },
-        { name: 'Synth FX',       icon: '✨', start: 96,  color: '#5DADE2' },
-        { name: 'Ethnic',         icon: '🥁', start: 104, color: '#A04000' },
-        { name: 'Percussive',     icon: '🥁', start: 112, color: '#7B241C' },
-        { name: 'Sound FX',       icon: '🔊', start: 120, color: '#566573' }
-    ];
+  // ── GM family palette (used for colour-coding loops by instrument) ──
+  const GM_FAMILIES = [
+    { name: 'Piano', icon: '🎹', start: 0, color: '#5B8DEF' },
+    { name: 'Chromatic Perc', icon: '🔔', start: 8, color: '#F0B429' },
+    { name: 'Organ', icon: '🎹', start: 16, color: '#9B59B6' },
+    { name: 'Guitar', icon: '🎸', start: 24, color: '#E67E22' },
+    { name: 'Bass', icon: '🎸', start: 32, color: '#7F4F2A' },
+    { name: 'Strings', icon: '🎻', start: 40, color: '#27AE60' },
+    { name: 'Ensemble', icon: '🎻', start: 48, color: '#16A085' },
+    { name: 'Brass', icon: '🎺', start: 56, color: '#D4AC0D' },
+    { name: 'Reed', icon: '🎷', start: 64, color: '#CA6F1E' },
+    { name: 'Pipe', icon: '🪗', start: 72, color: '#48C9B0' },
+    { name: 'Synth Lead', icon: '🎹', start: 80, color: '#E74C3C' },
+    { name: 'Synth Pad', icon: '🎹', start: 88, color: '#A569BD' },
+    { name: 'Synth FX', icon: '✨', start: 96, color: '#5DADE2' },
+    { name: 'Ethnic', icon: '🥁', start: 104, color: '#A04000' },
+    { name: 'Percussive', icon: '🥁', start: 112, color: '#7B241C' },
+    { name: 'Sound FX', icon: '🔊', start: 120, color: '#566573' }
+  ];
 
-    function familyForProgram(prog = 0) {
-        for (let i = GM_FAMILIES.length - 1; i >= 0; i--) {
-            if (prog >= GM_FAMILIES[i].start) return GM_FAMILIES[i];
-        }
-        return GM_FAMILIES[0];
+  function familyForProgram(prog = 0) {
+    for (let i = GM_FAMILIES.length - 1; i >= 0; i--) {
+      if (prog >= GM_FAMILIES[i].start) return GM_FAMILIES[i];
     }
+    return GM_FAMILIES[0];
+  }
 
-    // ── Safe sequence parsing ──────────────────────────────────────────
-    function parseSequence(midi_data) {
-        if (!midi_data) return [];
-        if (Array.isArray(midi_data)) return midi_data;
-        if (typeof midi_data !== 'string') return [];
+  // ── Safe sequence parsing ──────────────────────────────────────────
+  function parseSequence(midi_data) {
+    if (!midi_data) return [];
+    if (Array.isArray(midi_data)) return midi_data;
+    if (typeof midi_data !== 'string') return [];
+    try {
+      const parsed = JSON.parse(midi_data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.warn('[LoopUtils] Corrupted midi_data, returning empty sequence', err);
+      return [];
+    }
+  }
+
+  // ── Structured error handler ───────────────────────────────────────
+  /**
+   * Logs a structured warning and, when `opts.toast` is truthy, surfaces a
+   * transient toast to the user.
+   *
+   *   handleError(err, 'pad.trigger', { toast: 'Could not trigger pad' })
+   */
+  function handleError(err, context = 'loop', opts = {}) {
+    const message = err?.message || String(err);
+    console.warn(`[Loop:${context}]`, message, err || '');
+    if (opts.toast) toast(opts.toast, opts.type || 'error');
+  }
+
+  // ── Toast (lightweight, no dependency) ─────────────────────────────
+  let _toastContainer = null;
+  function _ensureToastContainer() {
+    if (_toastContainer && document.body.contains(_toastContainer)) return _toastContainer;
+    _toastContainer = document.createElement('div');
+    _toastContainer.className = 'lc-toast-container';
+    _toastContainer.setAttribute('role', 'status');
+    _toastContainer.setAttribute('aria-live', 'polite');
+    document.body.appendChild(_toastContainer);
+    return _toastContainer;
+  }
+
+  function toast(message, type = 'info', timeoutMs = 3200) {
+    if (!message) return;
+    const c = _ensureToastContainer();
+    const el = document.createElement('div');
+    el.className = `lc-toast lc-toast--${type}`;
+    const icon = type === 'error' ? '✗' : type === 'success' ? '✓' : 'ℹ';
+    el.innerHTML = `<span class="lc-toast-icon">${icon}</span><span class="lc-toast-msg"></span>`;
+    el.querySelector('.lc-toast-msg').textContent = String(message);
+    c.appendChild(el);
+    // animate in
+    requestAnimationFrame(() => el.classList.add('lc-toast--shown'));
+    setTimeout(() => {
+      el.classList.remove('lc-toast--shown');
+      setTimeout(() => el.remove(), 250);
+    }, timeoutMs);
+  }
+
+  // ── MidiSynthesizer factory ────────────────────────────────────────
+  async function createSynth({ initialProgram = null } = {}) {
+    if (typeof MidiSynthesizer === 'undefined') return null;
+    try {
+      const synth = new MidiSynthesizer();
+      await synth.initialize();
+      if (initialProgram != null) {
         try {
-            const parsed = JSON.parse(midi_data);
-            return Array.isArray(parsed) ? parsed : [];
+          synth.setChannelInstrument(0, initialProgram);
         } catch (err) {
-            console.warn('[LoopUtils] Corrupted midi_data, returning empty sequence', err);
-            return [];
+          handleError(err, 'synth.setChannelInstrument');
         }
+        await synth
+          .loadInstrument(initialProgram)
+          .catch((err) => handleError(err, 'synth.loadInstrument'));
+      }
+      return synth;
+    } catch (err) {
+      handleError(err, 'synth.init');
+      return null;
     }
+  }
 
-    // ── Structured error handler ───────────────────────────────────────
-    /**
-     * Logs a structured warning and, when `opts.toast` is truthy, surfaces a
-     * transient toast to the user.
-     *
-     *   handleError(err, 'pad.trigger', { toast: 'Could not trigger pad' })
-     */
-    function handleError(err, context = 'loop', opts = {}) {
-        const message = err?.message || String(err);
-        console.warn(`[Loop:${context}]`, message, err || '');
-        if (opts.toast) toast(opts.toast, opts.type || 'error');
-    }
+  // ── Loop duration helpers ──────────────────────────────────────────
+  /**
+   * Durée d'un loop en millisecondes.
+   *
+   * Formule complète : `num × bars × 60000 / tempo × (4 / den)`.
+   * Le facteur `4 / den` est crucial pour les time signatures non-4/4 :
+   * en 6/8, une mesure fait 6 huitièmes = 3 temps (au lieu de 4 en 4/4),
+   * sinon la durée est surestimée d'un facteur `4/den`.
+   */
+  function loopDurationMs({ tempo = 120, bars = 2, time_sig_num = 4, time_sig_den = 4 } = {}) {
+    const den = Number.isFinite(time_sig_den) && time_sig_den > 0 ? time_sig_den : 4;
+    return ((time_sig_num * bars * 60000) / tempo) * (4 / den);
+  }
 
-    // ── Toast (lightweight, no dependency) ─────────────────────────────
-    let _toastContainer = null;
-    function _ensureToastContainer() {
-        if (_toastContainer && document.body.contains(_toastContainer)) return _toastContainer;
-        _toastContainer = document.createElement('div');
-        _toastContainer.className = 'lc-toast-container';
-        _toastContainer.setAttribute('role', 'status');
-        _toastContainer.setAttribute('aria-live', 'polite');
-        document.body.appendChild(_toastContainer);
-        return _toastContainer;
-    }
+  // ── Shared sequence scheduler ──────────────────────────────────────
+  /**
+   * Schedule a MIDI sequence on a synth.
+   *
+   *  opts.synth        MidiSynthesizer instance (required)
+   *  opts.sequence     [{ t, n, v?, g?, l? }]  PPQ ticks
+   *  opts.tempo        BPM
+   *  opts.ppq          ticks per quarter
+   *  opts.channel      MIDI channel (0-15)
+   *  opts.startDelayMs delay before sequence start (ms)
+   *  opts.isAlive      () => boolean   guard called inside each timer
+   *  opts.onCycleEnd   () => void      called once the cycle finishes
+   *  opts.cycleMs      length of one loop cycle (ms) — required for onCycleEnd
+   *
+   *  Returns an array of timer ids. Caller is responsible for clearing them
+   *  on stop (`timers.forEach(clearTimeout)`).
+   */
+  function scheduleSequence(opts) {
+    const {
+      synth,
+      sequence = [],
+      tempo = 120,
+      ppq = 480,
+      channel = 0,
+      startDelayMs = 0,
+      isAlive = () => true,
+      onCycleEnd = null,
+      cycleMs = null
+    } = opts || {};
+    if (!synth || !sequence.length) return [];
 
-    function toast(message, type = 'info', timeoutMs = 3200) {
-        if (!message) return;
-        const c = _ensureToastContainer();
-        const el = document.createElement('div');
-        el.className = `lc-toast lc-toast--${type}`;
-        const icon = type === 'error' ? '✗' : type === 'success' ? '✓' : 'ℹ';
-        el.innerHTML = `<span class="lc-toast-icon">${icon}</span><span class="lc-toast-msg"></span>`;
-        el.querySelector('.lc-toast-msg').textContent = String(message);
-        c.appendChild(el);
-        // animate in
-        requestAnimationFrame(() => el.classList.add('lc-toast--shown'));
+    const spt = 60 / (tempo * ppq); // seconds per tick
+    const timers = [];
+    for (const note of sequence) {
+      const onMs = startDelayMs + note.t * spt * 1000;
+      const durSec = (note.g || note.l || 120) * spt;
+      timers.push(
         setTimeout(() => {
-            el.classList.remove('lc-toast--shown');
-            setTimeout(() => el.remove(), 250);
-        }, timeoutMs);
+          if (!isAlive()) return;
+          try {
+            synth.playNote?.(note.n, note.v || 80, channel, durSec);
+          } catch (err) {
+            handleError(err, 'schedule.playNote');
+          }
+        }, onMs)
+      );
     }
-
-    // ── MidiSynthesizer factory ────────────────────────────────────────
-    async function createSynth({ initialProgram = null } = {}) {
-        if (typeof MidiSynthesizer === 'undefined') return null;
-        try {
-            const synth = new MidiSynthesizer();
-            await synth.initialize();
-            if (initialProgram != null) {
-                try { synth.setChannelInstrument(0, initialProgram); } catch (err) { handleError(err, 'synth.setChannelInstrument'); }
-                await synth.loadInstrument(initialProgram).catch(err => handleError(err, 'synth.loadInstrument'));
-            }
-            return synth;
-        } catch (err) {
-            handleError(err, 'synth.init');
-            return null;
-        }
+    if (onCycleEnd && cycleMs != null) {
+      timers.push(
+        setTimeout(() => {
+          if (isAlive()) onCycleEnd();
+        }, startDelayMs + cycleMs)
+      );
     }
+    return timers;
+  }
 
-    // ── Loop duration helpers ──────────────────────────────────────────
-    /**
-     * Durée d'un loop en millisecondes.
-     *
-     * Formule complète : `num × bars × 60000 / tempo × (4 / den)`.
-     * Le facteur `4 / den` est crucial pour les time signatures non-4/4 :
-     * en 6/8, une mesure fait 6 huitièmes = 3 temps (au lieu de 4 en 4/4),
-     * sinon la durée est surestimée d'un facteur `4/den`.
-     */
-    function loopDurationMs({ tempo = 120, bars = 2, time_sig_num = 4, time_sig_den = 4 } = {}) {
-        const den = (Number.isFinite(time_sig_den) && time_sig_den > 0) ? time_sig_den : 4;
-        return time_sig_num * bars * 60000 / tempo * (4 / den);
-    }
+  // ── UI validation helpers ──────────────────────────────────────────
+  function clampInt(v, min, max, fallback) {
+    const n = parseInt(v);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(min, Math.min(max, n));
+  }
 
-    // ── Shared sequence scheduler ──────────────────────────────────────
-    /**
-     * Schedule a MIDI sequence on a synth.
-     *
-     *  opts.synth        MidiSynthesizer instance (required)
-     *  opts.sequence     [{ t, n, v?, g?, l? }]  PPQ ticks
-     *  opts.tempo        BPM
-     *  opts.ppq          ticks per quarter
-     *  opts.channel      MIDI channel (0-15)
-     *  opts.startDelayMs delay before sequence start (ms)
-     *  opts.isAlive      () => boolean   guard called inside each timer
-     *  opts.onCycleEnd   () => void      called once the cycle finishes
-     *  opts.cycleMs      length of one loop cycle (ms) — required for onCycleEnd
-     *
-     *  Returns an array of timer ids. Caller is responsible for clearing them
-     *  on stop (`timers.forEach(clearTimeout)`).
-     */
-    function scheduleSequence(opts) {
-        const {
-            synth, sequence = [], tempo = 120, ppq = 480, channel = 0,
-            startDelayMs = 0, isAlive = () => true, onCycleEnd = null, cycleMs = null
-        } = opts || {};
-        if (!synth || !sequence.length) return [];
+  const validate = {
+    tempo: (v, fallback = 120) => clampInt(v, 20, 300, fallback),
+    editorBars: (v, fallback = 2) => clampInt(v, 1, 32, fallback),
+    arrBars: (v, fallback = 16) => clampInt(v, 4, 256, fallback),
+    loopBars: (v, fallback = 2) => clampInt(v, 1, 32, fallback)
+  };
 
-        const spt = 60 / (tempo * ppq);  // seconds per tick
-        const timers = [];
-        for (const note of sequence) {
-            const onMs   = startDelayMs + note.t * spt * 1000;
-            const durSec = (note.g || note.l || 120) * spt;
-            timers.push(setTimeout(() => {
-                if (!isAlive()) return;
-                try { synth.playNote?.(note.n, note.v || 80, channel, durSec); }
-                catch (err) { handleError(err, 'schedule.playNote'); }
-            }, onMs));
-        }
-        if (onCycleEnd && cycleMs != null) {
-            timers.push(setTimeout(() => { if (isAlive()) onCycleEnd(); }, startDelayMs + cycleMs));
-        }
-        return timers;
-    }
-
-    // ── UI validation helpers ──────────────────────────────────────────
-    function clampInt(v, min, max, fallback) {
-        const n = parseInt(v);
-        if (!Number.isFinite(n)) return fallback;
-        return Math.max(min, Math.min(max, n));
-    }
-
-    const validate = {
-        tempo:    (v, fallback = 120) => clampInt(v, 20,  300, fallback),
-        editorBars: (v, fallback = 2)   => clampInt(v, 1,   32,  fallback),
-        arrBars:  (v, fallback = 16)  => clampInt(v, 4,   256, fallback),
-        loopBars: (v, fallback = 2)   => clampInt(v, 1,   32,  fallback)
-    };
-
-    // ── Pad layout persistence (localStorage + JSON import/export) ──────
-    // Pad layout payload shape (v2):
-    //   { slots: Array<slot|null>, cols, rows, playMode, quantize }
-    // v1 stored only `slots` (16 entries). load() returns the whole config so
-    // callers can extract slots + grid + global settings.
-    const PadStorage = {
-        load() {
-            try {
-                const raw = localStorage.getItem(PAD_STORAGE_KEY);
-                if (!raw) return null;
-                const data = JSON.parse(raw);
-                if (!data || !Array.isArray(data.slots)) return null;
-                return {
-                    slots:    data.slots,
-                    cols:     data.cols ?? null,
-                    rows:     data.rows ?? null,
-                    playMode: data.playMode ?? null,
-                    quantize: data.quantize ?? null
-                };
-            } catch (err) {
-                handleError(err, 'pad.storage.load');
-                return null;
-            }
-        },
-        save(config) {
-            try {
-                // Accept legacy plain-array calls for backward compatibility.
-                const payload = Array.isArray(config)
-                    ? { slots: config }
-                    : (config || {});
-                localStorage.setItem(PAD_STORAGE_KEY, JSON.stringify({
-                    version: 2,
-                    savedAt: Date.now(),
-                    slots:    payload.slots,
-                    cols:     payload.cols,
-                    rows:     payload.rows,
-                    playMode: payload.playMode,
-                    quantize: payload.quantize
-                }));
-                return true;
-            } catch (err) {
-                handleError(err, 'pad.storage.save');
-                return false;
-            }
-        },
-        clear() {
-            try { localStorage.removeItem(PAD_STORAGE_KEY); } catch (_) {}
-        }
-    };
-
-    /**
-     * Label de la touche modificatrice principale selon l'OS. macOS
-     * affiche `⌘`, le reste `Ctrl`. Utilisé pour les tooltips de
-     * raccourcis (AUDIT §U2 — avant, `⌘` était affiché partout).
-     */
-    function modKeyLabel() {
-        try {
-            const plat = navigator.userAgentData?.platform || navigator.platform || '';
-            return /mac|iphone|ipad/i.test(plat) ? '⌘' : 'Ctrl';
-        } catch (_) { return 'Ctrl'; }
-    }
-    function shiftKeyLabel() {
-        try {
-            const plat = navigator.userAgentData?.platform || navigator.platform || '';
-            return /mac|iphone|ipad/i.test(plat) ? '⇧' : 'Shift';
-        } catch (_) { return 'Shift'; }
-    }
-
-    /**
-     * Confirmation accessible : façade autour de `window.showConfirm`
-     * (modale stylable, focus trap propre — cf. AUDIT §A1) avec fallback
-     * sur `window.confirm` pour les environnements de test sans le markup
-     * du dialog (jsdom, Vitest).
-     *
-     * @param {string} message
-     * @param {{icon?:string, title?:string, okText?:string, cancelText?:string, danger?:boolean}} [options]
-     * @returns {Promise<boolean>}
-     */
-    async function confirm(message, options = {}) {
-        if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
-            try { return await window.showConfirm(message, options); }
-            catch (err) { handleError(err, 'confirm.showConfirm'); }
-        }
-        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-            return window.confirm(message);
-        }
+  // ── Pad layout persistence (localStorage + JSON import/export) ──────
+  // Pad layout payload shape (v2):
+  //   { slots: Array<slot|null>, cols, rows, playMode, quantize }
+  // v1 stored only `slots` (16 entries). load() returns the whole config so
+  // callers can extract slots + grid + global settings.
+  const PadStorage = {
+    load() {
+      try {
+        const raw = localStorage.getItem(PAD_STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.slots)) return null;
+        return {
+          slots: data.slots,
+          cols: data.cols ?? null,
+          rows: data.rows ?? null,
+          playMode: data.playMode ?? null,
+          quantize: data.quantize ?? null
+        };
+      } catch (err) {
+        handleError(err, 'pad.storage.load');
+        return null;
+      }
+    },
+    save(config) {
+      try {
+        // Accept legacy plain-array calls for backward compatibility.
+        const payload = Array.isArray(config) ? { slots: config } : config || {};
+        localStorage.setItem(
+          PAD_STORAGE_KEY,
+          JSON.stringify({
+            version: 2,
+            savedAt: Date.now(),
+            slots: payload.slots,
+            cols: payload.cols,
+            rows: payload.rows,
+            playMode: payload.playMode,
+            quantize: payload.quantize
+          })
+        );
+        return true;
+      } catch (err) {
+        handleError(err, 'pad.storage.save');
         return false;
+      }
+    },
+    clear() {
+      try {
+        localStorage.removeItem(PAD_STORAGE_KEY);
+      } catch (_) {}
     }
+  };
 
-    // ── Public namespace ───────────────────────────────────────────────
-    const LoopUtils = {
-        GM_FAMILIES,
-        familyForProgram,
-        parseSequence,
-        handleError,
-        toast,
-        confirm,
-        modKeyLabel,
-        shiftKeyLabel,
-        createSynth,
-        loopDurationMs,
-        scheduleSequence,
-        validate,
-        PadStorage
-    };
+  /**
+   * Label de la touche modificatrice principale selon l'OS. macOS
+   * affiche `⌘`, le reste `Ctrl`. Utilisé pour les tooltips de
+   * raccourcis (AUDIT §U2 — avant, `⌘` était affiché partout).
+   */
+  function modKeyLabel() {
+    try {
+      const plat = navigator.userAgentData?.platform || navigator.platform || '';
+      return /mac|iphone|ipad/i.test(plat) ? '⌘' : 'Ctrl';
+    } catch (_) {
+      return 'Ctrl';
+    }
+  }
+  function shiftKeyLabel() {
+    try {
+      const plat = navigator.userAgentData?.platform || navigator.platform || '';
+      return /mac|iphone|ipad/i.test(plat) ? '⇧' : 'Shift';
+    } catch (_) {
+      return 'Shift';
+    }
+  }
 
-    if (typeof window !== 'undefined') window.LoopUtils = LoopUtils;
-    if (typeof module !== 'undefined' && module.exports) module.exports = LoopUtils;
+  /**
+   * Confirmation accessible : façade autour de `window.showConfirm`
+   * (modale stylable, focus trap propre — cf. AUDIT §A1) avec fallback
+   * sur `window.confirm` pour les environnements de test sans le markup
+   * du dialog (jsdom, Vitest).
+   *
+   * @param {string} message
+   * @param {{icon?:string, title?:string, okText?:string, cancelText?:string, danger?:boolean}} [options]
+   * @returns {Promise<boolean>}
+   */
+  async function confirm(message, options = {}) {
+    if (typeof window !== 'undefined' && typeof window.showConfirm === 'function') {
+      try {
+        return await window.showConfirm(message, options);
+      } catch (err) {
+        handleError(err, 'confirm.showConfirm');
+      }
+    }
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      return window.confirm(message);
+    }
+    return false;
+  }
+
+  // ── Public namespace ───────────────────────────────────────────────
+  const LoopUtils = {
+    GM_FAMILIES,
+    familyForProgram,
+    parseSequence,
+    handleError,
+    toast,
+    confirm,
+    modKeyLabel,
+    shiftKeyLabel,
+    createSynth,
+    loopDurationMs,
+    scheduleSequence,
+    validate,
+    PadStorage
+  };
+
+  if (typeof window !== 'undefined') window.LoopUtils = LoopUtils;
+  if (typeof module !== 'undefined' && module.exports) module.exports = LoopUtils;
 })();

@@ -15,9 +15,7 @@ const FIXTURES = [
   { address: 'AA:BB:CC:00:00:02', name: 'Test Pad', rssi: -52 }
 ];
 
-const adapters = [
-  ['InMemoryBleAdapter', () => new InMemoryBleAdapter({ fixtures: FIXTURES })]
-];
+const adapters = [['InMemoryBleAdapter', () => new InMemoryBleAdapter({ fixtures: FIXTURES })]];
 
 describe.each(adapters)('BluetoothPort contract — %s', (_name, factory) => {
   let adapter;
@@ -83,9 +81,9 @@ describe.each(adapters)('BluetoothPort contract — %s', (_name, factory) => {
       adapter.sendMidi(FIXTURES[1].address, new Uint8Array([0x80, 60, 0]))
     ).rejects.toThrow(/not connected/);
 
-    await expect(
-      adapter.sendMidi(FIXTURES[0].address, [0x90, 60, 100])
-    ).rejects.toThrow(/Uint8Array/);
+    await expect(adapter.sendMidi(FIXTURES[0].address, [0x90, 60, 100])).rejects.toThrow(
+      /Uint8Array/
+    );
   });
 
   test('dispose makes the adapter inert', async () => {
@@ -96,7 +94,9 @@ describe.each(adapters)('BluetoothPort contract — %s', (_name, factory) => {
 
 describe('NobleBleAdapter — surface (no hardware)', () => {
   test('exposes the full port surface without initialising D-Bus', () => {
-    const adapter = new NobleBleAdapter({ logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } });
+    const adapter = new NobleBleAdapter({
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }
+    });
     for (const method of BLE_PORT_METHODS) {
       expect(typeof adapter[method]).toBe('function');
     }
@@ -106,8 +106,9 @@ describe('NobleBleAdapter — surface (no hardware)', () => {
 
   test('sendMidi rejects non-Uint8Array input before connection check', async () => {
     const adapter = new NobleBleAdapter();
-    await expect(adapter.sendMidi('AA:BB:CC:00:00:01', [0x90, 60, 100]))
-      .rejects.toThrow(/Uint8Array/);
+    await expect(adapter.sendMidi('AA:BB:CC:00:00:01', [0x90, 60, 100])).rejects.toThrow(
+      /Uint8Array/
+    );
     await adapter.dispose();
   });
 });

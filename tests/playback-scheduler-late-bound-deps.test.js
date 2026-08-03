@@ -18,7 +18,7 @@ describe('PlaybackScheduler late-bound deps (#12)', () => {
       logger: noopLogger,
       database: {},
       eventBus,
-      deviceManager: {},
+      deviceManager: {}
       // The four late-bound deps are deliberately absent at construction
       // time, just like during real boot.
       // wsServer: undefined

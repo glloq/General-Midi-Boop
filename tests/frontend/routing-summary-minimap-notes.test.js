@@ -106,10 +106,7 @@ describe('extractNotesForMinimap — split segments', () => {
       splitChannels: new Set([0]),
       splitAssignments: {
         0: {
-          segments: [
-            { noteRange: { min: 0, max: 63 } },
-            { noteRange: { min: 64, max: 127 } }
-          ]
+          segments: [{ noteRange: { min: 0, max: 63 } }, { noteRange: { min: 64, max: 127 } }]
         }
       }
     });
@@ -124,10 +121,7 @@ describe('extractNotesForMinimap — split segments', () => {
       splitChannels: new Set([0]),
       splitAssignments: {
         0: {
-          segments: [
-            { noteRange: { min: 60, max: 80 } },
-            { noteRange: { min: 90, max: 127 } }
-          ]
+          segments: [{ noteRange: { min: 60, max: 80 } }, { noteRange: { min: 90, max: 127 } }]
         }
       }
     });
@@ -142,10 +136,7 @@ describe('extractNotesForMinimap — split segments', () => {
       splitChannels: new Set([0]),
       splitAssignments: {
         0: {
-          segments: [
-            { noteRange: { min: 60, max: 80 } },
-            { noteRange: { min: 70, max: 90 } }
-          ]
+          segments: [{ noteRange: { min: 60, max: 80 } }, { noteRange: { min: 70, max: 90 } }]
         }
       }
     });

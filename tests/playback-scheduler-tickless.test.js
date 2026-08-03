@@ -13,10 +13,19 @@ function makeDeps() {
   return {
     logger: {
       _levelNum: 1,
-      info() {}, warn() {}, debug() {}, error() {},
-      isDebugEnabled() { return false; },
-      isWarnEnabled() { return true; },
-      isInfoEnabled() { return true; }
+      info() {},
+      warn() {},
+      debug() {},
+      error() {},
+      isDebugEnabled() {
+        return false;
+      },
+      isWarnEnabled() {
+        return true;
+      },
+      isInfoEnabled() {
+        return true;
+      }
     },
     database: null,
     eventBus: { on: () => {} },
@@ -119,10 +128,14 @@ describe('PlaybackScheduler — tickless emit (Phase D)', () => {
 
     expect(deps.deviceManager.sendMessage).toHaveBeenCalledTimes(2);
     expect(deps.deviceManager.sendMessage).toHaveBeenCalledWith(
-      'dev-A', 'cc', expect.objectContaining({ channel: 0 })
+      'dev-A',
+      'cc',
+      expect.objectContaining({ channel: 0 })
     );
     expect(deps.deviceManager.sendMessage).toHaveBeenCalledWith(
-      'dev-B', 'cc', expect.objectContaining({ channel: 1 })
+      'dev-B',
+      'cc',
+      expect.objectContaining({ channel: 1 })
     );
     expect(setTimeoutSpy).not.toHaveBeenCalled();
   });
@@ -146,7 +159,8 @@ describe('PlaybackScheduler — tickless emit (Phase D)', () => {
     scheduler.scheduleEvent(event, 0, getOutputForChannel, state, {});
 
     expect(deps.deviceManager.sendMessage).toHaveBeenCalledWith(
-      'specific-device', 'cc',
+      'specific-device',
+      'cc',
       expect.objectContaining({ channel: 2, controller: 23, value: 40 })
     );
     expect(setTimeoutSpy).not.toHaveBeenCalled();
@@ -160,7 +174,13 @@ describe('PlaybackScheduler — tickless emit (Phase D)', () => {
     const getOutputForChannel = jest.fn(() => routing);
 
     // Residual is (EMIT_AHEAD_MS + 1) ms — just outside the fast path.
-    const event = { time: (EMIT_AHEAD_MS + 1) / 1000, type: 'controller', channel: 0, controller: 7, value: 1 };
+    const event = {
+      time: (EMIT_AHEAD_MS + 1) / 1000,
+      type: 'controller',
+      channel: 0,
+      controller: 7,
+      value: 1
+    };
     scheduler.scheduleEvent(event, 0, getOutputForChannel, state, {});
 
     expect(setTimeoutSpy).toHaveBeenCalledTimes(1);

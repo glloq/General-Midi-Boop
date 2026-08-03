@@ -44,12 +44,18 @@ class MidiFileParser {
    * @returns {{ tempo: number, duration: number, totalTicks: number }}
    */
   extractMetadata(midi) {
-    // Detect SMPTE timing (negative ticksPerBeat indicates SMPTE format)
+    // Detect SMPTE timing. `midi-file` reports SMPTE division via
+    // framesPerSecond + ticksPerFrame and leaves ticksPerBeat undefined (never
+    // negative), so the old `ticksPerBeat < 0` check never fired. SMPTE is not
+    // PPQ; falling back to 480 yields wrong duration but keeps metadata usable
+    // (playback itself rejects SMPTE — see MidiPlayer.loadFile).
     const rawTicksPerBeat = midi.header.ticksPerBeat;
-    if (rawTicksPerBeat != null && rawTicksPerBeat < 0) {
-      this.logger.warn(`SMPTE timing detected (ticksPerBeat=${rawTicksPerBeat}), using heuristic PPQ=480`);
+    if (midi.header.framesPerSecond != null && midi.header.ticksPerFrame != null) {
+      this.logger.warn(
+        `SMPTE timing detected (${midi.header.framesPerSecond} fps × ${midi.header.ticksPerFrame}), using heuristic PPQ=480 for metadata`
+      );
     }
-    const ppq = (rawTicksPerBeat > 0) ? rawTicksPerBeat : 480;
+    const ppq = rawTicksPerBeat > 0 ? rawTicksPerBeat : 480;
     if (!isFinite(ppq)) {
       this.logger.warn(`Invalid PPQ value ${ppq}, using default 480`);
       return { tempo: 120, duration: 0, totalTicks: 0 };
@@ -92,9 +98,9 @@ class MidiFileParser {
     }
 
     // Calculate total ticks across all tracks
-    midi.tracks.forEach(track => {
+    midi.tracks.forEach((track) => {
       let trackTicks = 0;
-      track.forEach(event => {
+      track.forEach((event) => {
         trackTicks += event.deltaTime;
       });
       totalTicks = Math.max(totalTicks, trackTicks);
@@ -154,11 +160,11 @@ class MidiFileParser {
       for (const analysis of channelAnalyses) {
         if (analysis.estimatedType) {
           const typeMapping = {
-            'drums': 'Drums',
-            'percussive': 'Percussion',
-            'bass': 'Bass',
-            'melody': 'Melody',
-            'harmony': 'Harmony'
+            drums: 'Drums',
+            percussive: 'Percussion',
+            bass: 'Bass',
+            melody: 'Melody',
+            harmony: 'Harmony'
           };
 
           const friendlyType = typeMapping[analysis.estimatedType] || analysis.estimatedType;
@@ -179,9 +185,10 @@ class MidiFileParser {
           instrumentTypes.add('Drums');
           instrumentTypes.add('Percussive');
         } else {
-          const program = (analysis.primaryProgram !== null && analysis.primaryProgram !== undefined)
-            ? analysis.primaryProgram
-            : 0;
+          const program =
+            analysis.primaryProgram !== null && analysis.primaryProgram !== undefined
+              ? analysis.primaryProgram
+              : 0;
           gmInstrumentName = MidiUtils.getGMInstrumentName(program);
           gmCategory = MidiUtils.getGMCategory(program);
           if (gmCategory) {
@@ -189,11 +196,12 @@ class MidiFileParser {
           }
         }
 
-        const resolvedProgram = (analysis.channel === 9)
-          ? analysis.primaryProgram
-          : (analysis.primaryProgram !== null && analysis.primaryProgram !== undefined)
+        const resolvedProgram =
+          analysis.channel === 9
             ? analysis.primaryProgram
-            : 0;
+            : analysis.primaryProgram !== null && analysis.primaryProgram !== undefined
+              ? analysis.primaryProgram
+              : 0;
 
         channelDetails.push({
           channel: analysis.channel,
@@ -211,7 +219,11 @@ class MidiFileParser {
           trackNames: analysis.trackNames || []
         });
 
-        if (analysis.noteRange && analysis.noteRange.min !== null && analysis.noteRange.max !== null) {
+        if (
+          analysis.noteRange &&
+          analysis.noteRange.min !== null &&
+          analysis.noteRange.max !== null
+        ) {
           noteMin = Math.min(noteMin, analysis.noteRange.min);
           noteMax = Math.max(noteMax, analysis.noteRange.max);
         }
@@ -268,8 +280,15 @@ class MidiFileParser {
    */
   extractTextEvents(midi) {
     const TEXT_TYPES = new Set([
-      'text', 'copyright', 'trackName', 'instrumentName',
-      'lyrics', 'marker', 'cuePoint', 'programName', 'deviceName'
+      'text',
+      'copyright',
+      'trackName',
+      'instrumentName',
+      'lyrics',
+      'marker',
+      'cuePoint',
+      'programName',
+      'deviceName'
     ]);
 
     const events = [];
@@ -305,13 +324,14 @@ class MidiFileParser {
     }
 
     // Build summary from raw events
-    const byType = (type) => events.filter(e => e.eventType === type).map(e => e.text);
+    const byType = (type) => events.filter((e) => e.eventType === type).map((e) => e.text);
 
     // Title = first trackName on track 0 (SMF convention), fallback to any trackName
-    const track0Names = events.filter(e => e.eventType === 'trackName' && e.track === 0);
-    const title = track0Names.length > 0
-      ? track0Names[0].text
-      : (events.find(e => e.eventType === 'trackName')?.text ?? null);
+    const track0Names = events.filter((e) => e.eventType === 'trackName' && e.track === 0);
+    const title =
+      track0Names.length > 0
+        ? track0Names[0].text
+        : (events.find((e) => e.eventType === 'trackName')?.text ?? null);
 
     const copyrightTexts = byType('copyright');
 
@@ -321,11 +341,11 @@ class MidiFileParser {
         title,
         copyright: copyrightTexts.length > 0 ? copyrightTexts.join(' | ') : null,
         markers: events
-          .filter(e => e.eventType === 'marker')
-          .map(e => ({ tick: e.tick, text: e.text })),
+          .filter((e) => e.eventType === 'marker')
+          .map((e) => ({ tick: e.tick, text: e.text })),
         lyrics: events
-          .filter(e => e.eventType === 'lyrics')
-          .map(e => ({ tick: e.tick, track: e.track, text: e.text })),
+          .filter((e) => e.eventType === 'lyrics')
+          .map((e) => ({ tick: e.tick, track: e.track, text: e.text })),
         timeSignatures,
         keySignatures
       }
@@ -371,7 +391,7 @@ class MidiFileParser {
     // Log channel statistics for debugging
     const channelCounts = new Map();
     midi.tracks.forEach((track, _trackIdx) => {
-      track.forEach(event => {
+      track.forEach((event) => {
         if (event.channel !== undefined) {
           channelCounts.set(event.channel, (channelCounts.get(event.channel) || 0) + 1);
         }
@@ -379,7 +399,11 @@ class MidiFileParser {
     });
 
     if (channelCounts.size > 0) {
-      this.logger.info(`MIDI channels detected during parsing: [${Array.from(channelCounts.keys()).sort((a,b) => a-b).join(', ')}]`);
+      this.logger.info(
+        `MIDI channels detected during parsing: [${Array.from(channelCounts.keys())
+          .sort((a, b) => a - b)
+          .join(', ')}]`
+      );
     } else {
       this.logger.warn('No MIDI channels detected during parsing! This may indicate a problem.');
     }
@@ -394,7 +418,7 @@ class MidiFileParser {
         return {
           index: index,
           name: this.extractTrackName(track),
-          events: track.map(event => {
+          events: track.map((event) => {
             const cleanEvent = {
               deltaTime: event.deltaTime || 0,
               type: event.type
@@ -419,7 +443,7 @@ class MidiFileParser {
    * @returns {string} Track name or 'Unnamed Track'
    */
   extractTrackName(track) {
-    const nameEvent = track.find(e => e.type === 'trackName');
+    const nameEvent = track.find((e) => e.type === 'trackName');
     return nameEvent ? nameEvent.text : 'Unnamed Track';
   }
 }

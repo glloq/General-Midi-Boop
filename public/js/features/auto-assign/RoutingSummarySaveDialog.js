@@ -8,7 +8,7 @@
 // Exposed on `window.RoutingSummarySaveDialog.askSaveChoice({ ... })`.
 // Resolves with 'adapted' | 'overwrite' | 'cancel'.
 
-(function() {
+(function () {
   'use strict';
 
   const _t = (key, params) => (typeof i18n !== 'undefined' ? i18n.t(key, params) : key);
@@ -23,7 +23,8 @@
    */
   function askSaveChoice(opts = {}) {
     const splitInfo = opts.hasSplit
-      ? (_t('routingSummary.splitChannelInfo') || 'Des canaux seront dupliqués pour le multi-instrument.') + ' '
+      ? (_t('routingSummary.splitChannelInfo') ||
+          'Des canaux seront dupliqués pour le multi-instrument.') + ' '
       : '';
     const transposeInfo = opts.hasTransposition
       ? (_t('routingSummary.transposeInfo') || 'Des transpositions seront appliquées.') + ' '
@@ -43,7 +44,7 @@
           <div class="rs-save-dialog-buttons">
             <button class="btn" data-action="cancel">${_t('common.cancel') || 'Annuler'}</button>
             <button class="btn btn-primary" data-action="adapted">${_t('routingSummary.saveAsAdapted') || 'Version adaptée'}</button>
-            <button class="btn btn-danger" data-action="overwrite">${_t('routingSummary.overwriteOriginal') || 'Écraser l\'original'}</button>
+            <button class="btn btn-danger" data-action="overwrite">${_t('routingSummary.overwriteOriginal') || "Écraser l'original"}</button>
           </div>
         </div>
       `;

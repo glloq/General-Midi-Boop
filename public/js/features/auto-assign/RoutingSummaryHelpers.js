@@ -2,10 +2,10 @@
 // Pure computational helpers extracted from RoutingSummaryPage.js (P2-F.4u).
 // Exposed on `window.RoutingSummaryHelpers` — IIFE+globals convention.
 
-(function() {
+(function () {
   'use strict';
 
-  const _t = (key, params) => typeof i18n !== 'undefined' ? i18n.t(key, params) : key;
+  const _t = (key, params) => (typeof i18n !== 'undefined' ? i18n.t(key, params) : key);
 
   // Cap the number of <option> tags rendered per channel dropdown in the
   // summary table. Without this cap, 16 rows × (suggestions + lowScoreSuggestions)
@@ -19,7 +19,8 @@
     if (a === 'all' || b === 'all') return 'all';
     if (a === b) return a;
     if (a === 'both-panels' || b === 'both-panels') return 'both-panels';
-    if ((a === 'summary' && b === 'detail') || (a === 'detail' && b === 'summary')) return 'both-panels';
+    if ((a === 'summary' && b === 'detail') || (a === 'detail' && b === 'summary'))
+      return 'both-panels';
     return 'all';
   }
 
@@ -45,14 +46,14 @@
     if (!splitData?.segments?.length) return 0;
     const dist = analysis?.noteDistribution;
     if (!dist) return splitData.quality || 0;
-    const semi = (autoAdaptation && adapt?.pitchShift !== 'none')
-      ? (adapt?.transpositionSemitones || 0) : 0;
+    const semi =
+      autoAdaptation && adapt?.pitchShift !== 'none' ? adapt?.transpositionSemitones || 0 : 0;
     let covered = 0;
     let total = 0;
     for (const [note, count] of Object.entries(dist)) {
       const shifted = parseInt(note) + semi;
       total += count;
-      const inRange = splitData.segments.some(seg => {
+      const inRange = splitData.segments.some((seg) => {
         const rMin = seg.noteRange?.min ?? 0;
         const rMax = seg.noteRange?.max ?? 127;
         return shifted >= rMin && shifted <= rMax;
@@ -78,15 +79,23 @@
   }
 
   function getInstrumentCCs(instrumentId, allInstruments, findInstrumentById) {
-    const fullInst = (allInstruments || []).find(i => i.id === instrumentId);
+    const fullInst = (allInstruments || []).find((i) => i.id === instrumentId);
     if (fullInst?.supported_ccs) {
       if (Array.isArray(fullInst.supported_ccs)) return fullInst.supported_ccs;
-      try { return JSON.parse(fullInst.supported_ccs || '[]'); } catch { return null; }
+      try {
+        return JSON.parse(fullInst.supported_ccs || '[]');
+      } catch {
+        return null;
+      }
     }
     const found = findInstrumentById ? findInstrumentById(instrumentId) : null;
     if (found?.supported_ccs) {
       if (Array.isArray(found.supported_ccs)) return found.supported_ccs;
-      try { return JSON.parse(found.supported_ccs || '[]'); } catch { return null; }
+      try {
+        return JSON.parse(found.supported_ccs || '[]');
+      } catch {
+        return null;
+      }
     }
     return null;
   }
@@ -109,13 +118,15 @@
 
     if (isSplit && splitAssignments[channel]) {
       const segs = splitAssignments[channel].segments || [];
-      const segCCs = segs.map(seg => resolveCCs(seg.instrumentId));
-      const allUnknown = segCCs.every(ccs => ccs === null);
+      const segCCs = segs.map((seg) => resolveCCs(seg.instrumentId));
+      const allUnknown = segCCs.every((ccs) => ccs === null);
 
-      let supportedByAll = 0, unsupportedByAny = 0;
+      let supportedByAll = 0,
+        unsupportedByAny = 0;
       for (const ccNum of channelCCs) {
         const isDisabled = currentRemap[ccNum] === -1;
-        const anyUnsupported = !isDisabled && segCCs.some(ccs => ccs !== null && !ccs.includes(ccNum));
+        const anyUnsupported =
+          !isDisabled && segCCs.some((ccs) => ccs !== null && !ccs.includes(ccNum));
         if (isDisabled || anyUnsupported) unsupportedByAny++;
         else supportedByAll++;
       }
@@ -128,23 +139,37 @@
       } else {
         summaryHTML = `<span class="rs-cc-summary rs-cc-warn-summary">${supportedByAll}/${channelCCs.length} ${_t('routingSummary.ccSupported') || 'CC supportés'} \u2014 ${unsupportedByAny} ${_t('routingSummary.ccUnsupported') || 'non supportés'}</span>`;
       }
-      return { summaryHTML, supportedCount: supportedByAll, unsupportedCount: unsupportedByAny, allUnknown };
+      return {
+        summaryHTML,
+        supportedCount: supportedByAll,
+        unsupportedCount: unsupportedByAny,
+        allUnknown
+      };
     }
 
     let instrumentCCs = assignment?.supportedCcs ?? null;
     if (instrumentCCs && typeof instrumentCCs === 'string') {
-      try { instrumentCCs = JSON.parse(instrumentCCs); } catch { instrumentCCs = null; }
+      try {
+        instrumentCCs = JSON.parse(instrumentCCs);
+      } catch {
+        instrumentCCs = null;
+      }
     }
     if (instrumentCCs == null && assignment?.instrumentId) {
       instrumentCCs = resolveCCs(assignment.instrumentId);
     }
 
-    let supportedCount = 0, unsupportedCount = 0;
+    let supportedCount = 0,
+      unsupportedCount = 0;
     for (const ccNum of channelCCs) {
       const isDisabled = currentRemap[ccNum] === -1;
-      if (isDisabled) { unsupportedCount++; }
-      else if (instrumentCCs === null || instrumentCCs.includes(ccNum)) { supportedCount++; }
-      else { unsupportedCount++; }
+      if (isDisabled) {
+        unsupportedCount++;
+      } else if (instrumentCCs === null || instrumentCCs.includes(ccNum)) {
+        supportedCount++;
+      } else {
+        unsupportedCount++;
+      }
     }
 
     let summaryHTML;
@@ -161,7 +186,7 @@
   function resolveSegmentGmProgram(seg, allInstruments) {
     if (seg.gmProgram != null) return seg.gmProgram;
     if (seg.instrumentId) {
-      const inst = (allInstruments || []).find(i => i.id === seg.instrumentId);
+      const inst = (allInstruments || []).find((i) => i.id === seg.instrumentId);
       if (inst) return inst.gm_program;
     }
     return null;
@@ -170,9 +195,10 @@
   function getInstrumentDisplayName(inst) {
     if (!inst) return '?';
     if (inst.custom_name) return inst.custom_name;
-    const gmName = (typeof getGmProgramName === 'function')
-      ? getGmProgramName(inst.gm_program ?? inst.gmProgram ?? null)
-      : null;
+    const gmName =
+      typeof getGmProgramName === 'function'
+        ? getGmProgramName(inst.gm_program ?? inst.gmProgram ?? null)
+        : null;
     if (gmName) return gmName;
     return inst.name || '?';
   }
@@ -185,18 +211,24 @@
     return analysis.polyphony.max ?? null;
   }
 
-  function getInstrumentPolyphony({ channel, splitChannels, splitAssignments, selectedAssignments, allInstruments }) {
+  function getInstrumentPolyphony({
+    channel,
+    splitChannels,
+    splitAssignments,
+    selectedAssignments,
+    allInstruments
+  }) {
     const ch = String(channel);
     const chNum = parseInt(channel);
     if (splitChannels.has(chNum) && splitAssignments[chNum]) {
       return (splitAssignments[chNum].segments || []).reduce((s, seg) => {
-        const inst = (allInstruments || []).find(i => i.id === seg.instrumentId);
+        const inst = (allInstruments || []).find((i) => i.id === seg.instrumentId);
         return s + (inst?.polyphony || seg.polyphonyShare || 16);
       }, 0);
     }
     const assignment = selectedAssignments[ch];
     if (!assignment) return null;
-    const inst = (allInstruments || []).find(i => i.id === assignment.instrumentId);
+    const inst = (allInstruments || []).find((i) => i.id === assignment.instrumentId);
     return inst?.polyphony || assignment.polyphony || null;
   }
 
@@ -271,7 +303,11 @@
       min: Math.max(0, Math.min(127, baseMin + (newSemitones || 0))),
       max: Math.max(0, Math.min(127, baseMax + (newSemitones || 0)))
     };
-    if (tCh.min > tCh.max) { const t = tCh.min; tCh.min = tCh.max; tCh.max = t; }
+    if (tCh.min > tCh.max) {
+      const t = tCh.min;
+      tCh.min = tCh.max;
+      tCh.max = t;
+    }
 
     for (const seg of splitData.segments) {
       const physMin = seg.fullRange?.min ?? 0;
@@ -282,7 +318,7 @@
       const sMax = Math.max(0, Math.min(127, shiftedMaxRaw));
       const lo = Math.max(sMin, tCh.min);
       const hi = Math.min(sMax, tCh.max);
-      seg.noteRange = (lo > hi) ? { min: hi, max: lo } : { min: lo, max: hi };
+      seg.noteRange = lo > hi ? { min: hi, max: lo } : { min: lo, max: hi };
     }
   }
 
@@ -325,7 +361,16 @@
     splitData.overlapStrategy = strategy;
   }
 
-  function buildInstrumentOptions({ channel, assignment, isSkipped, suggestions, lowScoreSuggestions, maxNameLen, escape, getDisplayName }) {
+  function buildInstrumentOptions({
+    channel,
+    assignment,
+    isSkipped,
+    suggestions,
+    lowScoreSuggestions,
+    maxNameLen,
+    escape,
+    getDisplayName
+  }) {
     const options = suggestions[String(channel)] || [];
     const lowOptions = lowScoreSuggestions[String(channel)] || [];
     const allOptions = [...options, ...lowOptions];
@@ -339,11 +384,12 @@
     // Cap the list to avoid generating thousands of <option> nodes per row.
     // Always keep the currently-selected instrument visible, even if it's
     // ranked beyond the cap.
-    let trimmed = allOptions.length > SUMMARY_DROPDOWN_MAX
-      ? allOptions.slice(0, SUMMARY_DROPDOWN_MAX)
-      : allOptions;
-    if (currentId && !trimmed.some(o => o.instrument?.id === currentId)) {
-      const cur = allOptions.find(o => o.instrument?.id === currentId);
+    let trimmed =
+      allOptions.length > SUMMARY_DROPDOWN_MAX
+        ? allOptions.slice(0, SUMMARY_DROPDOWN_MAX)
+        : allOptions;
+    if (currentId && !trimmed.some((o) => o.instrument?.id === currentId)) {
+      const cur = allOptions.find((o) => o.instrument?.id === currentId);
       if (cur) trimmed = [cur, ...trimmed];
     }
 
@@ -351,14 +397,21 @@
       const inst = opt.instrument;
       const score = opt.compatibility?.score || 0;
       const name = getDisplayName(inst);
-      const displayName = name.length > maxNameLen ? name.slice(0, maxNameLen - 1) + '\u2026' : name;
-      const selected = (!isSkipped && inst.id === currentId) ? 'selected' : '';
+      const displayName =
+        name.length > maxNameLen ? name.slice(0, maxNameLen - 1) + '\u2026' : name;
+      const selected = !isSkipped && inst.id === currentId ? 'selected' : '';
       html += `<option value="${inst.id}" ${selected}>${escape(displayName)} (${score})</option>`;
     }
     return html;
   }
 
-  function computePlayableNotes({ channel, selectedAssignments, channelAnalyses, adaptationSettings, autoAdaptation }) {
+  function computePlayableNotes({
+    channel,
+    selectedAssignments,
+    channelAnalyses,
+    adaptationSettings,
+    autoAdaptation
+  }) {
     const assignment = selectedAssignments[String(channel)];
     const analysis = channelAnalyses[parseInt(channel)] || assignment?.channelAnalysis;
     if (!assignment || !analysis?.noteDistribution) return null;
@@ -370,8 +423,9 @@
     const instMin = assignment.noteRangeMin ?? 0;
     const instMax = assignment.noteRangeMax ?? 127;
     const adapt = adaptationSettings[String(channel)] || {};
-    const semi = (autoAdaptation && adapt.pitchShift !== 'none') ? (adapt.transpositionSemitones || 0) : 0;
-    const playable = usedNotes.filter(n => {
+    const semi =
+      autoAdaptation && adapt.pitchShift !== 'none' ? adapt.transpositionSemitones || 0 : 0;
+    const playable = usedNotes.filter((n) => {
       const shifted = n + semi;
       return shifted >= instMin && shifted <= instMax;
     }).length;

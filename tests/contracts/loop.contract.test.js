@@ -91,9 +91,7 @@ describe('Contract: loop_create', () => {
     const app = createMockApp();
     const registry = buildRegistry(app);
     const ws = createMockWs();
-    await registry.handle(
-      { id: 'r', command: 'loop_create', data: { name: 'Mon loop' } }, ws
-    );
+    await registry.handle({ id: 'r', command: 'loop_create', data: { name: 'Mon loop' } }, ws);
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
     expect(resp.data.loopId).toBeDefined();
@@ -117,7 +115,8 @@ describe('Contract: loop_create', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_create', data: { name: 'X', tempo: 'fast' } }, ws
+      { id: 'r', command: 'loop_create', data: { name: 'X', tempo: 'fast' } },
+      ws
     );
     const resp = ws._messages[0];
     expect(resp.type).toBe('error');
@@ -129,7 +128,8 @@ describe('Contract: loop_create', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_create', data: { name: 'X', tempo: 9999 } }, ws
+      { id: 'r', command: 'loop_create', data: { name: 'X', tempo: 9999 } },
+      ws
     );
     expect(ws._messages[0].error).toContain('tempo must be between 20 and 300');
   });
@@ -138,7 +138,8 @@ describe('Contract: loop_create', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_create', data: { name: 'X', time_sig_den: 0 } }, ws
+      { id: 'r', command: 'loop_create', data: { name: 'X', time_sig_den: 0 } },
+      ws
     );
     expect(ws._messages[0].error).toContain('time_sig_den must be one of');
   });
@@ -147,7 +148,8 @@ describe('Contract: loop_create', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_create', data: { name: 'X', midi_data: '[{not json' } }, ws
+      { id: 'r', command: 'loop_create', data: { name: 'X', midi_data: '[{not json' } },
+      ws
     );
     expect(ws._messages[0].error).toContain('midi_data must be valid JSON');
   });
@@ -156,9 +158,15 @@ describe('Contract: loop_create', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_create', data: {
-        name: 'X', midi_data: [{ t: 0, n: 999, v: 100, l: 240 }]
-      } }, ws
+      {
+        id: 'r',
+        command: 'loop_create',
+        data: {
+          name: 'X',
+          midi_data: [{ t: 0, n: 999, v: 100, l: 240 }]
+        }
+      },
+      ws
     );
     expect(ws._messages[0].error).toContain('note) must be an integer between 0 and 127');
   });
@@ -169,7 +177,8 @@ describe('Contract: loop_create', () => {
     // 300 KB de string JSON
     const huge = 'x'.repeat(300 * 1024);
     await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_create', data: { name: 'X', midi_data: `"${huge}"` } }, ws
+      { id: 'r', command: 'loop_create', data: { name: 'X', midi_data: `"${huge}"` } },
+      ws
     );
     expect(ws._messages[0].error).toContain('exceeds');
   });
@@ -178,7 +187,8 @@ describe('Contract: loop_create', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_create', data: { name: 'a'.repeat(200) } }, ws
+      { id: 'r', command: 'loop_create', data: { name: 'a'.repeat(200) } },
+      ws
     );
     expect(ws._messages[0].error).toContain('name must be at most 120');
   });
@@ -190,9 +200,7 @@ describe('Contract: loop_delete', () => {
   test('nominal — sans block référent, cascadedBlocks = 0', async () => {
     const app = createMockApp({ loops: { 1: { id: 1, name: 'L' } } });
     const ws = createMockWs();
-    await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_delete', data: { loopId: 1 } }, ws
-    );
+    await buildRegistry(app).handle({ id: 'r', command: 'loop_delete', data: { loopId: 1 } }, ws);
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
     expect(resp.data).toEqual({ success: true, cascadedBlocks: 0 });
@@ -205,9 +213,7 @@ describe('Contract: loop_delete', () => {
       blockCountByLoop: { 2: 5 }
     });
     const ws = createMockWs();
-    await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_delete', data: { loopId: 2 } }, ws
-    );
+    await buildRegistry(app).handle({ id: 'r', command: 'loop_delete', data: { loopId: 2 } }, ws);
     expect(ws._messages[0].data.cascadedBlocks).toBe(5);
     expect(app.logger.info).toHaveBeenCalledWith(
       expect.stringContaining('cascaded 5 arrangement block(s)')
@@ -229,9 +235,7 @@ describe('Contract: loop_get', () => {
   test('error — loop introuvable', async () => {
     const app = createMockApp();
     const ws = createMockWs();
-    await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_get', data: { loopId: 999 } }, ws
-    );
+    await buildRegistry(app).handle({ id: 'r', command: 'loop_get', data: { loopId: 999 } }, ws);
     expect(ws._messages[0].type).toBe('error');
     expect(ws._messages[0].code).toBe('ERR_NOT_FOUND');
   });
@@ -239,9 +243,7 @@ describe('Contract: loop_get', () => {
   test('nominal — retourne le loop trouvé', async () => {
     const app = createMockApp({ loops: { 1: { id: 1, name: 'X', tempo: 120 } } });
     const ws = createMockWs();
-    await buildRegistry(app).handle(
-      { id: 'r', command: 'loop_get', data: { loopId: 1 } }, ws
-    );
+    await buildRegistry(app).handle({ id: 'r', command: 'loop_get', data: { loopId: 1 } }, ws);
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
     expect(resp.data.loop.id).toBe(1);
@@ -255,7 +257,8 @@ describe('Contract: arrangement_add_block', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'arrangement_add_block', data: { loopId: 1 } }, ws
+      { id: 'r', command: 'arrangement_add_block', data: { loopId: 1 } },
+      ws
     );
     expect(ws._messages[0].type).toBe('error');
     expect(ws._messages[0].error).toContain('trackId is required');
@@ -265,8 +268,12 @@ describe('Contract: arrangement_add_block', () => {
     const app = createMockApp();
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'arrangement_add_block',
-        data: { trackId: 1, loopId: 1, repetitions: 999 } }, ws
+      {
+        id: 'r',
+        command: 'arrangement_add_block',
+        data: { trackId: 1, loopId: 1, repetitions: 999 }
+      },
+      ws
     );
     expect(ws._messages[0].error).toContain('repetitions must be an integer between 1 and 256');
   });
@@ -275,8 +282,8 @@ describe('Contract: arrangement_add_block', () => {
     const app = createMockApp(); // tracks vide
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'arrangement_add_block',
-        data: { trackId: 99999, loopId: 1 } }, ws
+      { id: 'r', command: 'arrangement_add_block', data: { trackId: 99999, loopId: 1 } },
+      ws
     );
     expect(ws._messages[0].type).toBe('error');
     expect(ws._messages[0].code).toBe('ERR_NOT_FOUND');
@@ -289,8 +296,8 @@ describe('Contract: arrangement_add_block', () => {
     });
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'arrangement_add_block',
-        data: { trackId: 1, loopId: 99999 } }, ws
+      { id: 'r', command: 'arrangement_add_block', data: { trackId: 1, loopId: 99999 } },
+      ws
     );
     expect(ws._messages[0].type).toBe('error');
     expect(ws._messages[0].code).toBe('ERR_NOT_FOUND');
@@ -304,8 +311,12 @@ describe('Contract: arrangement_add_block', () => {
     });
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'arrangement_add_block',
-        data: { trackId: 1, loopId: 1, position_bar: 50 } }, ws
+      {
+        id: 'r',
+        command: 'arrangement_add_block',
+        data: { trackId: 1, loopId: 1, position_bar: 50 }
+      },
+      ws
     );
     expect(ws._messages[0].type).toBe('error');
     expect(ws._messages[0].error).toContain('position_bar must be < arrangement total_bars (16)');
@@ -319,13 +330,20 @@ describe('Contract: arrangement_add_block', () => {
     });
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'arrangement_add_block',
-        data: { trackId: 1, loopId: 1, position_bar: 4, repetitions: 2 } }, ws
+      {
+        id: 'r',
+        command: 'arrangement_add_block',
+        data: { trackId: 1, loopId: 1, position_bar: 4, repetitions: 2 }
+      },
+      ws
     );
     expect(ws._messages[0].type).toBe('response');
     expect(ws._messages[0].data.blockId).toBeDefined();
     expect(app.loopArrangementRepository.addBlock).toHaveBeenCalledWith({
-      track_id: 1, loop_id: 1, position_bar: 4, repetitions: 2
+      track_id: 1,
+      loop_id: 1,
+      position_bar: 4,
+      repetitions: 2
     });
   });
 });
@@ -339,7 +357,8 @@ describe('Contract: arrangement_create', () => {
     app.database.db.transaction = txnSpy;
     const ws = createMockWs();
     await buildRegistry(app).handle(
-      { id: 'r', command: 'arrangement_create', data: { name: 'Test Arr' } }, ws
+      { id: 'r', command: 'arrangement_create', data: { name: 'Test Arr' } },
+      ws
     );
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');

@@ -30,11 +30,17 @@ class HttpLightDriver extends BaseLightingDriver {
       }
 
       // Test connectivity with a GET
-      const testUrl = this.firmware === 'wled' ? `${this.baseUrl}/json/info`
-        : this.firmware === 'hue' ? `${this.baseUrl}/api/${this.apiKey || 'test'}/lights`
-        : `${this.baseUrl}/status`;
+      const testUrl =
+        this.firmware === 'wled'
+          ? `${this.baseUrl}/json/info`
+          : this.firmware === 'hue'
+            ? `${this.baseUrl}/api/${this.apiKey || 'test'}/lights`
+            : `${this.baseUrl}/status`;
 
-      const res = await fetch(testUrl, { headers: this.headers, signal: AbortSignal.timeout(5000) });
+      const res = await fetch(testUrl, {
+        headers: this.headers,
+        signal: AbortSignal.timeout(5000)
+      });
       if (!res.ok && this.firmware !== 'generic') {
         throw new Error(`HTTP test failed: ${res.status} ${res.statusText}`);
       }
@@ -73,7 +79,10 @@ class HttpLightDriver extends BaseLightingDriver {
 
   allOff() {
     this._pendingUpdates.clear();
-    if (this._batchTimer) { clearTimeout(this._batchTimer); this._batchTimer = null; }
+    if (this._batchTimer) {
+      clearTimeout(this._batchTimer);
+      this._batchTimer = null;
+    }
 
     switch (this.firmware) {
       case 'wled':
@@ -131,11 +140,12 @@ class HttpLightDriver extends BaseLightingDriver {
     for (const [idx, color] of updates) {
       const lightId = idx + 1; // Hue lights are 1-indexed
       const { h, s, bri } = this._rgbToHsv(color.r, color.g, color.b);
-      this._sendRequest(
-        'PUT',
-        `/api/${this.apiKey}/lights/${lightId}/state`,
-        { on: true, hue: Math.round(h * 65535 / 360), sat: Math.round(s * 254), bri: Math.round(bri * 254 / 255) }
-      );
+      this._sendRequest('PUT', `/api/${this.apiKey}/lights/${lightId}/state`, {
+        on: true,
+        hue: Math.round((h * 65535) / 360),
+        sat: Math.round(s * 254),
+        bri: Math.round((bri * 254) / 255)
+      });
     }
   }
 
@@ -169,8 +179,11 @@ class HttpLightDriver extends BaseLightingDriver {
   }
 
   _rgbToHsv(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    const max = Math.max(r, g, b),
+      min = Math.min(r, g, b);
     const d = max - min;
     let h = 0;
     const s = max === 0 ? 0 : d / max;

@@ -33,10 +33,22 @@ describe('InstrumentView — abstract base', () => {
   it('mount sets ctx and mounted, throws on double-mount', () => {
     const v = new (InstrumentView())();
     expect(v.mounted).toBe(false);
-    v.mount({ host: null, state: {}, backend: {}, eventBus: {}, i18n: { t: x => x }, capabilities: {}, options: {} });
+    v.mount({
+      host: null,
+      state: {},
+      backend: {},
+      eventBus: {},
+      i18n: { t: (x) => x },
+      capabilities: {},
+      options: {}
+    });
     expect(v.mounted).toBe(true);
     let err = null;
-    try { v.mount({}); } catch (e) { err = e; }
+    try {
+      v.mount({});
+    } catch (e) {
+      err = e;
+    }
     expect(err).not.toBe(null);
   });
 
@@ -62,7 +74,7 @@ describe('InstrumentView — abstract base', () => {
 
   it('_t falls back when no translation is available', () => {
     const v = new (InstrumentView())();
-    v.mount({ i18n: { t: (k) => k } });   // i18n echoes the key → miss
+    v.mount({ i18n: { t: (k) => k } }); // i18n echoes the key → miss
     expect(v._t('some.key', 'Fallback')).toBe('Fallback');
     v.unmount();
     expect(v._t('some.key', 'Fallback')).toBe('Fallback'); // no ctx → fallback
@@ -78,21 +90,33 @@ describe('InstrumentViewRegistry — register / get', () => {
   it('register requires a viewKind', () => {
     const r = new (Registry())();
     let err = null;
-    try { r.register(class Foo {}); } catch (e) { err = e; }
+    try {
+      r.register(class Foo {});
+    } catch (e) {
+      err = e;
+    }
     expect(err).not.toBe(null);
   });
 
   it('rejects "abstract" viewKind', () => {
     const r = new (Registry())();
-    class Abs { static viewKind = 'abstract'; }
+    class Abs {
+      static viewKind = 'abstract';
+    }
     let err = null;
-    try { r.register(Abs); } catch (e) { err = e; }
+    try {
+      r.register(Abs);
+    } catch (e) {
+      err = e;
+    }
     expect(err).not.toBe(null);
   });
 
   it('get returns the registered class', () => {
     const r = new (Registry())();
-    class MyView { static viewKind = 'mock'; }
+    class MyView {
+      static viewKind = 'mock';
+    }
     r.register(MyView);
     expect(r.get('mock')).toBe(MyView);
     expect(r.kinds()).toContain('mock');
@@ -102,42 +126,55 @@ describe('InstrumentViewRegistry — register / get', () => {
 describe('InstrumentViewRegistry — rules & resolve', () => {
   it('first matching rule wins', () => {
     const r = new (Registry())();
-    class A { static viewKind = 'a'; }
-    class B { static viewKind = 'b'; }
+    class A {
+      static viewKind = 'a';
+    }
+    class B {
+      static viewKind = 'b';
+    }
     r.register(A).register(B);
-    r.addRule(c => c.x === 1, 'a')
-     .addRule(c => c.x === 1, 'b'); // never reached
+    r.addRule((c) => c.x === 1, 'a').addRule((c) => c.x === 1, 'b'); // never reached
     expect(r.resolve({ x: 1 }).viewKind).toBe('a');
   });
 
   it('falls back when no rule matches', () => {
     const r = new (Registry())();
-    class P { static viewKind = 'piano'; }
-    class O { static viewKind = 'other'; }
+    class P {
+      static viewKind = 'piano';
+    }
+    class O {
+      static viewKind = 'other';
+    }
     r.register(P).register(O);
-    r.addRule(c => c.x === 999, 'other');
+    r.addRule((c) => c.x === 999, 'other');
     expect(r.resolve({ x: 1 }).viewKind).toBe('piano');
     expect(r.resolve({ x: 1 }).ViewClass).toBe(P);
   });
 
   it('falls back with custom default', () => {
     const r = new (Registry())();
-    class O { static viewKind = 'other'; }
+    class O {
+      static viewKind = 'other';
+    }
     r.register(O);
     expect(r.resolve({}, 'other').ViewClass).toBe(O);
   });
 
   it('options propagate through resolve', () => {
     const r = new (Registry())();
-    class W { static viewKind = 'wind'; }
+    class W {
+      static viewKind = 'wind';
+    }
     r.register(W);
-    r.addRule(c => c.gm === 65, 'wind', { breath: true });
+    r.addRule((c) => c.gm === 65, 'wind', { breath: true });
     expect(r.resolve({ gm: 65 }).options.breath).toBe(true);
   });
 
   it('resolveByKind looks up directly without running predicates', () => {
     const r = new (Registry())();
-    class X { static viewKind = 'x'; }
+    class X {
+      static viewKind = 'x';
+    }
     r.register(X);
     expect(r.resolveByKind('x').ViewClass).toBe(X);
     expect(r.resolveByKind('x', { foo: 1 }).options.foo).toBe(1);
@@ -145,16 +182,27 @@ describe('InstrumentViewRegistry — rules & resolve', () => {
 
   it('addRule requires function predicate + viewKind', () => {
     const r = new (Registry())();
-    let err1 = null, err2 = null;
-    try { r.addRule(null, 'piano'); } catch (e) { err1 = e; }
-    try { r.addRule(() => true, ''); } catch (e) { err2 = e; }
+    let err1 = null,
+      err2 = null;
+    try {
+      r.addRule(null, 'piano');
+    } catch (e) {
+      err1 = e;
+    }
+    try {
+      r.addRule(() => true, '');
+    } catch (e) {
+      err2 = e;
+    }
     expect(err1).not.toBe(null);
     expect(err2).not.toBe(null);
   });
 
   it('reset clears classes + rules', () => {
     const r = new (Registry())();
-    class Y { static viewKind = 'y'; }
+    class Y {
+      static viewKind = 'y';
+    }
     r.register(Y);
     r.addRule(() => true, 'y');
     r.reset();

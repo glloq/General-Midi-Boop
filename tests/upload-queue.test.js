@@ -12,7 +12,12 @@ describe('UploadQueue', () => {
     const q = new UploadQueue({ logger: silent });
     const order = [];
     const mk = (n) => () =>
-      new Promise((resolve) => setTimeout(() => { order.push(n); resolve(n); }, 5));
+      new Promise((resolve) =>
+        setTimeout(() => {
+          order.push(n);
+          resolve(n);
+        }, 5)
+      );
 
     const results = await Promise.all([q.add('a', mk(1)), q.add('b', mk(2)), q.add('c', mk(3))]);
     expect(results).toEqual([1, 2, 3]);
@@ -22,7 +27,9 @@ describe('UploadQueue', () => {
   test('rejects new work with a typed error when the queue is full', async () => {
     const q = new UploadQueue({ logger: silent, maxPending: 2 });
     let release;
-    const block = new Promise((r) => { release = r; });
+    const block = new Promise((r) => {
+      release = r;
+    });
 
     // Fill the queue: two slow tasks occupy both slots.
     const p1 = q.add('1', () => block);
@@ -49,5 +56,36 @@ describe('UploadQueue', () => {
 
     await expect(bad).rejects.toThrow('boom');
     await expect(good).resolves.toBe('fine');
+  });
+
+  test('rejects when the in-flight BYTE budget is exceeded (not just task count)', async () => {
+    // High task count, small byte budget: a burst of large uploads must be
+    // rejected on bytes even though slots remain (Pi OOM guard).
+    const q = new UploadQueue({ logger: silent, maxPending: 100, maxPendingBytes: 10 });
+    let release;
+    const block = new Promise((r) => {
+      release = r;
+    });
+
+    const p1 = q.add('1', () => block, 8); // 8 of 10 bytes in flight
+    expect(q.pendingBytes).toBe(8);
+
+    // Adding 5 more bytes would exceed the 10-byte budget → reject.
+    await expect(q.add('2', () => Promise.resolve(), 5)).rejects.toMatchObject({
+      code: 'UPLOAD_QUEUE_FULL'
+    });
+
+    release();
+    await p1;
+    expect(q.pendingBytes).toBe(0);
+
+    // Budget freed: the same large task is now admitted.
+    await expect(q.add('3', () => Promise.resolve('ok'), 8)).resolves.toBe('ok');
+  });
+
+  test('always admits a single task even if it alone exceeds the byte budget', async () => {
+    // A legal-but-large lone upload must never deadlock the empty queue.
+    const q = new UploadQueue({ logger: silent, maxPendingBytes: 4 });
+    await expect(q.add('big', () => Promise.resolve('done'), 999)).resolves.toBe('done');
   });
 });

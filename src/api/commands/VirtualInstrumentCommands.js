@@ -182,19 +182,33 @@ async function instrumentCreateVirtual(app, data) {
   // Create instrument settings entry
   const id = app.instrumentRepository.updateSettings(deviceId, channel, {
     custom_name: name,
-    gm_program: data.gm_program !== undefined ? data.gm_program : (preset ? preset.gm_program : null),
+    gm_program: data.gm_program !== undefined ? data.gm_program : preset ? preset.gm_program : null,
     name: name
   });
 
   // Create capabilities entry if preset or explicit capabilities provided
   const capabilities = {
     polyphony: data.polyphony || (preset ? preset.polyphony : null),
-    note_range_min: data.note_range_min !== undefined ? data.note_range_min : (preset ? preset.note_range_min : null),
-    note_range_max: data.note_range_max !== undefined ? data.note_range_max : (preset ? preset.note_range_max : null),
-    note_selection_mode: data.note_selection_mode || (preset ? preset.note_selection_mode : 'range'),
-    selected_notes: data.selected_notes !== undefined
-      ? data.selected_notes
-      : (preset && preset.selected_notes ? preset.selected_notes : null),
+    note_range_min:
+      data.note_range_min !== undefined
+        ? data.note_range_min
+        : preset
+          ? preset.note_range_min
+          : null,
+    note_range_max:
+      data.note_range_max !== undefined
+        ? data.note_range_max
+        : preset
+          ? preset.note_range_max
+          : null,
+    note_selection_mode:
+      data.note_selection_mode || (preset ? preset.note_selection_mode : 'range'),
+    selected_notes:
+      data.selected_notes !== undefined
+        ? data.selected_notes
+        : preset && preset.selected_notes
+          ? preset.selected_notes
+          : null,
     capabilities_source: 'manual'
   };
 
@@ -295,7 +309,7 @@ async function virtualDelete(app, data) {
  */
 async function virtualList(app) {
   const devices = app.deviceManager.getDeviceList();
-  const virtualDevices = devices.filter(d => d.type === 'virtual');
+  const virtualDevices = devices.filter((d) => d.type === 'virtual');
 
   // Enrich with database info if available
   if (app.instrumentRepository) {
@@ -382,11 +396,7 @@ async function instrumentAddToDevice(app, data) {
   // the guard the first add to that device trips SQLITE_CONSTRAINT
   // and the client sees "Internal server error".
   if (app.deviceSettingsRepository) {
-    app.deviceSettingsRepository.ensureDevice(
-      data.deviceId,
-      data.name || data.deviceId,
-      'output'
-    );
+    app.deviceSettingsRepository.ensureDevice(data.deviceId, data.name || data.deviceId, 'output');
   }
 
   const id = app.instrumentRepository.updateSettings(data.deviceId, channel, {

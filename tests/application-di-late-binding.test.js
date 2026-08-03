@@ -45,9 +45,7 @@ describe('LatencyCompensator late-bound deps (DI hardening)', () => {
 
     expect(lc.deviceManager).toBe(deviceManager);
     // And exercise a method that reads through the getter.
-    expect(lc.getRecommendedCalibrations()).toEqual([
-      { deviceId: 'd1', reason: 'missing' }
-    ]);
+    expect(lc.getRecommendedCalibrations()).toEqual([{ deviceId: 'd1', reason: 'missing' }]);
   });
 
   test('reflects wsServer injected AFTER construction', () => {

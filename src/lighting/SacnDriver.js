@@ -11,8 +11,7 @@ import dgram from 'dgram';
 
 const SACN_PORT = 5568;
 const ACN_PACKET_ID = Buffer.from([
-  0x41, 0x53, 0x43, 0x2D, 0x45, 0x31, 0x2E, 0x31,
-  0x37, 0x00, 0x00, 0x00
+  0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00
 ]); // "ASC-E1.17\0\0\0"
 
 class SacnDriver extends BaseLightingDriver {
@@ -54,8 +53,12 @@ class SacnDriver extends BaseLightingDriver {
       });
 
       this.connected = true;
-      const target = this.multicast ? `multicast ${this._getMulticastAddress()}` : `unicast ${this.unicastHost}`;
-      this.logger.info(`sACN driver connected: ${target}:${SACN_PORT}, universe ${this.universe}, ${this.device.led_count} LED(s)`);
+      const target = this.multicast
+        ? `multicast ${this._getMulticastAddress()}`
+        : `unicast ${this.unicastHost}`;
+      this.logger.info(
+        `sACN driver connected: ${target}:${SACN_PORT}, universe ${this.universe}, ${this.device.led_count} LED(s)`
+      );
       this.emit('connected');
     } catch (error) {
       this.logger.error(`sACN driver connect failed: ${error.message}`);
@@ -117,7 +120,7 @@ class SacnDriver extends BaseLightingDriver {
 
   _getMulticastAddress() {
     // sACN multicast: 239.255.{universe_hi}.{universe_lo}
-    return `239.255.${(this.universe >> 8) & 0xFF}.${this.universe & 0xFF}`;
+    return `239.255.${(this.universe >> 8) & 0xff}.${this.universe & 0xff}`;
   }
 
   _sendPacket() {
@@ -135,31 +138,43 @@ class SacnDriver extends BaseLightingDriver {
   }
 
   _buildDataPacket(slotCount) {
-    // E1.31 Data Packet - simplified but protocol-compliant structure
-    const packetLength = 126 + slotCount;
+    // E1.31 Data Packet - simplified but protocol-compliant structure.
+    // Fixed overhead is 125 bytes (Root 38 + Framing 77 + DMP header 10); the
+    // DMP property values (slotCount, start code included) follow. Using 126
+    // appended a stray trailing zero and inflated all three PDU length fields
+    // (root/framing/DMP) by one, so strict E1.31 receivers rejected the frame.
+    const packetLength = 125 + slotCount;
     const buf = Buffer.alloc(packetLength, 0);
     let offset = 0;
 
     // === Root Layer ===
     // Preamble Size (0x0010)
-    buf.writeUInt16BE(0x0010, offset); offset += 2;
+    buf.writeUInt16BE(0x0010, offset);
+    offset += 2;
     // Post-amble Size (0x0000)
-    buf.writeUInt16BE(0x0000, offset); offset += 2;
+    buf.writeUInt16BE(0x0000, offset);
+    offset += 2;
     // ACN Packet Identifier
-    ACN_PACKET_ID.copy(buf, offset); offset += 12;
+    ACN_PACKET_ID.copy(buf, offset);
+    offset += 12;
     // Flags & Length (root)
     const rootLength = packetLength - 16;
-    buf.writeUInt16BE(0x7000 | (rootLength & 0x0FFF), offset); offset += 2;
+    buf.writeUInt16BE(0x7000 | (rootLength & 0x0fff), offset);
+    offset += 2;
     // Vector (VECTOR_ROOT_E131_DATA = 0x00000004)
-    buf.writeUInt32BE(0x00000004, offset); offset += 4;
+    buf.writeUInt32BE(0x00000004, offset);
+    offset += 4;
     // CID
-    this._cid.copy(buf, offset); offset += 16;
+    this._cid.copy(buf, offset);
+    offset += 16;
 
     // === Framing Layer ===
     const framingLength = packetLength - 38;
-    buf.writeUInt16BE(0x7000 | (framingLength & 0x0FFF), offset); offset += 2;
+    buf.writeUInt16BE(0x7000 | (framingLength & 0x0fff), offset);
+    offset += 2;
     // Vector (VECTOR_E131_DATA_PACKET = 0x00000002)
-    buf.writeUInt32BE(0x00000002, offset); offset += 4;
+    buf.writeUInt32BE(0x00000002, offset);
+    offset += 4;
     // Source Name (64 bytes)
     const nameBytes = Buffer.from(this.sourceName, 'utf8');
     nameBytes.copy(buf, offset, 0, Math.min(63, nameBytes.length));
@@ -167,27 +182,33 @@ class SacnDriver extends BaseLightingDriver {
     // Priority
     buf[offset++] = this.priority;
     // Synchronization Address
-    buf.writeUInt16BE(0, offset); offset += 2;
+    buf.writeUInt16BE(0, offset);
+    offset += 2;
     // Sequence Number
     buf[offset++] = this.sequence;
     // Options
     buf[offset++] = 0;
     // Universe
-    buf.writeUInt16BE(this.universe, offset); offset += 2;
+    buf.writeUInt16BE(this.universe, offset);
+    offset += 2;
 
     // === DMP Layer ===
     const dmpLength = packetLength - 115;
-    buf.writeUInt16BE(0x7000 | (dmpLength & 0x0FFF), offset); offset += 2;
+    buf.writeUInt16BE(0x7000 | (dmpLength & 0x0fff), offset);
+    offset += 2;
     // Vector (VECTOR_DMP_SET_PROPERTY = 0x02)
     buf[offset++] = 0x02;
     // Address Type & Data Type
-    buf[offset++] = 0xA1;
+    buf[offset++] = 0xa1;
     // First Property Address
-    buf.writeUInt16BE(0x0000, offset); offset += 2;
+    buf.writeUInt16BE(0x0000, offset);
+    offset += 2;
     // Address Increment
-    buf.writeUInt16BE(0x0001, offset); offset += 2;
+    buf.writeUInt16BE(0x0001, offset);
+    offset += 2;
     // Property value count
-    buf.writeUInt16BE(slotCount, offset); offset += 2;
+    buf.writeUInt16BE(slotCount, offset);
+    offset += 2;
     // DMX data (including start code at byte 0)
     this.dmxData.copy(buf, offset);
 

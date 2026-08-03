@@ -29,7 +29,11 @@ import { performance } from 'perf_hooks';
 import { fileURLToPath } from 'url';
 import pkg from 'soundfont2';
 
-import { convertPreset, parseSoundFont, convertPresetFromSF2 } from '../../src/files/SF2Converter.js';
+import {
+  convertPreset,
+  parseSoundFont,
+  convertPresetFromSF2
+} from '../../src/files/SF2Converter.js';
 import { encodePreset, decodePreset } from '../../src/files/SF2PresetCodec.js';
 
 const { SoundFont2 } = pkg;
@@ -71,31 +75,44 @@ async function main() {
 
   section('2. SoundFont2 RIFF parse + index');
   // Done inside convertPreset, but isolate it once for attribution.
-  const { elapsed: tParse } = timed('new SoundFont2()', () => new SoundFont2(new Uint8Array(sf2Buf)));
+  const { elapsed: tParse } = timed(
+    'new SoundFont2()',
+    () => new SoundFont2(new Uint8Array(sf2Buf))
+  );
 
   section('3. convertPreset (Int16 PCM → WAF zone array, Float32Array)');
-  const { out: preset, elapsed: tConvert } = timed('convertPreset', () => convertPreset(sf2Buf, 0, program));
+  const { out: preset, elapsed: tConvert } = timed('convertPreset', () =>
+    convertPreset(sf2Buf, 0, program)
+  );
   if (!preset) {
     console.error(`  ERROR: preset ${program} not found.`);
     process.exit(1);
   }
   let totalSamples = 0;
   for (const z of preset.zones) totalSamples += z.sample.length;
-  console.log(`  zones=${preset.zones.length}  total samples=${totalSamples.toLocaleString()}  (~${mb(totalSamples * 4)} as Float32)`);
+  console.log(
+    `  zones=${preset.zones.length}  total samples=${totalSamples.toLocaleString()}  (~${mb(totalSamples * 4)} as Float32)`
+  );
 
   // ── Legacy JSON path (for comparison) ────────────────────────────────────
   console.log('\n[Legacy JSON path — for comparison]');
   // Simulate the old shape: convertPreset used to return Array<number>.
   const legacyPreset = {
-    zones: preset.zones.map(z => ({ ...z, sample: Array.from(z.sample) })),
+    zones: preset.zones.map((z) => ({ ...z, sample: Array.from(z.sample) }))
   };
   section('4a. JSON.stringify (legacy)');
-  const { out: json, elapsed: tStringify } = timed('JSON.stringify(preset)', () => JSON.stringify(legacyPreset));
+  const { out: json, elapsed: tStringify } = timed('JSON.stringify(preset)', () =>
+    JSON.stringify(legacyPreset)
+  );
   console.log(`  json size: ${mb(json.length)}`);
 
   section('5a. gzip level 6 (legacy compression path)');
-  const { out: gz, elapsed: tGzip } = timed('zlib.gzipSync (level 6)', () => zlib.gzipSync(Buffer.from(json)));
-  console.log(`  gzipped: ${mb(gz.length)} (${(gz.length / json.length * 100).toFixed(1)}% of raw)`);
+  const { out: gz, elapsed: tGzip } = timed('zlib.gzipSync (level 6)', () =>
+    zlib.gzipSync(Buffer.from(json))
+  );
+  console.log(
+    `  gzipped: ${mb(gz.length)} (${((gz.length / json.length) * 100).toFixed(1)}% of raw)`
+  );
 
   section('6a. JSON.parse (legacy browser)');
   const { out: parsed, elapsed: tParse2 } = timed('JSON.parse(json)', () => JSON.parse(json));
@@ -125,17 +142,17 @@ async function main() {
 
   section('Summary — legacy JSON path');
   const legacyStages = [
-    ['1. fs.readFileSync',          tDisk],
-    ['2. SoundFont2 parse',         tParse],
-    ['3. convertPreset',            tConvert],
-    ['4. JSON.stringify',           tStringify],
-    ['5. gzip (level 6)',           tGzip],
-    ['6. JSON.parse',               tParse2],
-    ['7. Float32Array reconstruct', tMaterialise],
+    ['1. fs.readFileSync', tDisk],
+    ['2. SoundFont2 parse', tParse],
+    ['3. convertPreset', tConvert],
+    ['4. JSON.stringify', tStringify],
+    ['5. gzip (level 6)', tGzip],
+    ['6. JSON.parse', tParse2],
+    ['7. Float32Array reconstruct', tMaterialise]
   ];
   const legacyTotal = tDisk + tParse + tConvert + tStringify + tGzip + tParse2 + tMaterialise;
   for (const [label, ms] of legacyStages) {
-    const pct = (ms / legacyTotal * 100).toFixed(1).padStart(5);
+    const pct = ((ms / legacyTotal) * 100).toFixed(1).padStart(5);
     console.log(`  ${label.padEnd(36)} ${fmt(ms)}  ${pct}%`);
   }
   console.log(`  ${'─'.repeat(60)}`);
@@ -144,41 +161,56 @@ async function main() {
 
   section('Summary — new GMBP binary path');
   const newStages = [
-    ['1. fs.readFileSync',          tDisk],
-    ['2. SoundFont2 parse',         tParse],
-    ['3. convertPreset',            tConvert],
-    ['4. encodePreset (binary)',    tEncode],
-    ['5. (no gzip)',                0],
-    ['6. decodePreset (binary)',    tDecode],
+    ['1. fs.readFileSync', tDisk],
+    ['2. SoundFont2 parse', tParse],
+    ['3. convertPreset', tConvert],
+    ['4. encodePreset (binary)', tEncode],
+    ['5. (no gzip)', 0],
+    ['6. decodePreset (binary)', tDecode]
   ];
   const newTotal = tDisk + tParse + tConvert + tEncode + tDecode;
   for (const [label, ms] of newStages) {
-    const pct = (ms / newTotal * 100).toFixed(1).padStart(5);
+    const pct = ((ms / newTotal) * 100).toFixed(1).padStart(5);
     console.log(`  ${label.padEnd(36)} ${fmt(ms)}  ${pct}%`);
   }
   console.log(`  ${'─'.repeat(60)}`);
   console.log(`  ${'TOTAL GMBP binary'.padEnd(36)} ${fmt(newTotal)}`);
   console.log(`  payload over the wire (raw):     ${mb(wire.length)}`);
 
-  console.log(`\n  ⇒ Speedup: ${(legacyTotal / newTotal).toFixed(2)}× faster, ${fmt(legacyTotal - newTotal)} saved`);
-  console.log(`  ⇒ Wire bytes: ${mb(gz.length)} → ${mb(wire.length)} (${wire.length > gz.length ? '+' : ''}${((wire.length - gz.length) / gz.length * 100).toFixed(0)}%)`);
+  console.log(
+    `\n  ⇒ Speedup: ${(legacyTotal / newTotal).toFixed(2)}× faster, ${fmt(legacyTotal - newTotal)} saved`
+  );
+  console.log(
+    `  ⇒ Wire bytes: ${mb(gz.length)} → ${mb(wire.length)} (${wire.length > gz.length ? '+' : ''}${(((wire.length - gz.length) / gz.length) * 100).toFixed(0)}%)`
+  );
 
   // ── Warm-process scenarios (SoundFont2 instance cache + L2 hit) ────────
   console.log('\n[Warm-process scenarios with caches in place]');
 
   section('A. 2nd program from same SF2 (SoundFont2 instance cached)');
   const sf2 = parseSoundFont(sf2Buf); // pretend cache hit — reuse the instance
-  const { elapsed: tCachedConvert } = timed('convertPresetFromSF2 (no parse)', () => convertPresetFromSF2(sf2, 0, program));
+  const { elapsed: tCachedConvert } = timed('convertPresetFromSF2 (no parse)', () =>
+    convertPresetFromSF2(sf2, 0, program)
+  );
   const warmInstanceTotal = tCachedConvert + tEncode + tDecode;
   console.log(`  scenario total (skip readFile+parse):   ${fmt(warmInstanceTotal)}`);
-  console.log(`  vs. cold GMBP total ${fmt(newTotal)} → ${(newTotal / warmInstanceTotal).toFixed(2)}× faster`);
+  console.log(
+    `  vs. cold GMBP total ${fmt(newTotal)} → ${(newTotal / warmInstanceTotal).toFixed(2)}× faster`
+  );
 
   section('B. L2 cache hit (decode GMBP from SQLite blob)');
   // The L2 path returns the binary buffer directly — only decode runs.
   const wireFromL2 = encodePreset(preset); // simulate what SQLite returns
-  const { elapsed: tL2Decode } = timed('decodePreset (L2 hit only)', () => decodePreset(wireFromL2));
+  const { elapsed: tL2Decode } = timed('decodePreset (L2 hit only)', () =>
+    decodePreset(wireFromL2)
+  );
   console.log(`  scenario total (skip readFile+parse+convert): ${fmt(tL2Decode)}`);
-  console.log(`  vs. cold GMBP total ${fmt(newTotal)} → ${(newTotal / tL2Decode).toFixed(2)}× faster`);
+  console.log(
+    `  vs. cold GMBP total ${fmt(newTotal)} → ${(newTotal / tL2Decode).toFixed(2)}× faster`
+  );
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

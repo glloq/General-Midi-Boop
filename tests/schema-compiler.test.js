@@ -62,44 +62,51 @@ describe('SchemaCompiler — numeric ranges', () => {
   });
 
   test('error below min', () => {
-    expect(validateAgainstSchema(schema, { channel: -1 }))
-      .toEqual(['channel must be between 0 and 15']);
+    expect(validateAgainstSchema(schema, { channel: -1 })).toEqual([
+      'channel must be between 0 and 15'
+    ]);
   });
 
   test('error above max', () => {
-    expect(validateAgainstSchema(schema, { channel: 16 }))
-      .toEqual(['channel must be between 0 and 15']);
+    expect(validateAgainstSchema(schema, { channel: 16 })).toEqual([
+      'channel must be between 0 and 15'
+    ]);
   });
 
   test('error when not integer', () => {
-    expect(validateAgainstSchema(schema, { channel: 1.5 }))
-      .toEqual(['channel must be an integer']);
+    expect(validateAgainstSchema(schema, { channel: 1.5 })).toEqual(['channel must be an integer']);
   });
 });
 
 describe('SchemaCompiler — enum constraint', () => {
-  const schema = { fields: { policy: { type: 'string', required: true, enum: ['skip', 'pause', 'mute'] } } };
+  const schema = {
+    fields: { policy: { type: 'string', required: true, enum: ['skip', 'pause', 'mute'] } }
+  };
 
   test('valid value', () => {
     expect(validateAgainstSchema(schema, { policy: 'pause' })).toEqual([]);
   });
 
   test('invalid value', () => {
-    expect(validateAgainstSchema(schema, { policy: 'kill' }))
-      .toEqual(['policy must be one of: skip, pause, mute']);
+    expect(validateAgainstSchema(schema, { policy: 'kill' })).toEqual([
+      'policy must be one of: skip, pause, mute'
+    ]);
   });
 });
 
 describe('SchemaCompiler — string length', () => {
-  const schema = { fields: { name: { type: 'string', required: true, minLength: 1, maxLength: 20 } } };
+  const schema = {
+    fields: { name: { type: 'string', required: true, minLength: 1, maxLength: 20 } }
+  };
 
   test('valid', () => {
     expect(validateAgainstSchema(schema, { name: 'x' })).toEqual([]);
   });
 
   test('too long', () => {
-    expect(validateAgainstSchema(schema, { name: 'x'.repeat(21) }))
-      .toEqual(['name must be at most 20 characters']);
+    expect(validateAgainstSchema(schema, { name: 'x'.repeat(21) })).toEqual([
+      'name must be at most 20 characters'
+    ]);
   });
 });
 
@@ -138,8 +145,7 @@ describe('SchemaCompiler — custom cross-field', () => {
   });
 
   test('error when neither provided', () => {
-    expect(validateAgainstSchema(schema, {}))
-      .toEqual(['fileId or outputDevice is required']);
+    expect(validateAgainstSchema(schema, {})).toEqual(['fileId or outputDevice is required']);
   });
 
   test('custom can return an array of messages', () => {

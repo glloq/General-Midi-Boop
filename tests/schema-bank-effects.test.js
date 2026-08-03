@@ -20,10 +20,9 @@ describe('bank_effects_get', () => {
     errs(JsonValidator.validateByCommand('bank_effects_get', {}), ['bankId is required']);
   });
   test('bankId too long', () => {
-    errs(
-      JsonValidator.validateByCommand('bank_effects_get', { bankId: 'x'.repeat(65) }),
-      ['bankId must be at most 64 characters']
-    );
+    errs(JsonValidator.validateByCommand('bank_effects_get', { bankId: 'x'.repeat(65) }), [
+      'bankId must be at most 64 characters'
+    ]);
   });
 });
 
@@ -38,14 +37,16 @@ describe('bank_effects_update', () => {
     ok(JsonValidator.validateByCommand('bank_effects_update', { bankId: 'GM' }));
   });
   test('valid with all fields at bounds', () => {
-    ok(JsonValidator.validateByCommand('bank_effects_update', {
-      bankId: 'GM',
-      reverb_mix: 0,
-      reverb_decay_s: 3.0,
-      echo_mix: 1,
-      echo_time_ms: 50,
-      echo_feedback: 0.9
-    }));
+    ok(
+      JsonValidator.validateByCommand('bank_effects_update', {
+        bankId: 'GM',
+        reverb_mix: 0,
+        reverb_decay_s: 3.0,
+        echo_mix: 1,
+        echo_time_ms: 50,
+        echo_feedback: 0.9
+      })
+    );
   });
   test('reverb_mix out of range', () => {
     errs(
@@ -66,10 +67,9 @@ describe('bank_effects_update', () => {
     );
   });
   test('missing bankId', () => {
-    errs(
-      JsonValidator.validateByCommand('bank_effects_update', { reverb_mix: 0.5 }),
-      ['bankId is required']
-    );
+    errs(JsonValidator.validateByCommand('bank_effects_update', { reverb_mix: 0.5 }), [
+      'bankId is required'
+    ]);
   });
 });
 

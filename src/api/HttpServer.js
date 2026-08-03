@@ -149,12 +149,18 @@ class HttpServer {
       if (origin) {
         try {
           const url = new URL(origin);
-          if (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === req.hostname) {
+          if (
+            url.hostname === 'localhost' ||
+            url.hostname === '127.0.0.1' ||
+            url.hostname === req.hostname
+          ) {
             res.setHeader('Access-Control-Allow-Origin', origin);
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
           }
-        } catch { /* invalid origin, ignore */ }
+        } catch {
+          /* invalid origin, ignore */
+        }
       }
       if (req.method === 'OPTIONS') return res.sendStatus(204);
       next();
@@ -196,6 +202,18 @@ class HttpServer {
           return this._checkBearer(req, res, next, apiTokenBuf);
         }
 
+        // SECURITY NOTE (accepted risk, trusted-lan mode): the Sec-Fetch-Site
+        // and Origin==Host bypasses below are browser-set signals but are
+        // freely forgeable by a NON-browser client (curl/script can send any
+        // header). They therefore do NOT prove same-origin against a direct
+        // WAN attacker, so in this default mode the API token can be bypassed
+        // by an internet client that reaches the box directly. This is
+        // acceptable only while the box is NOT exposed to the WAN (the token's
+        // stated job). If you port-forward / tunnel the box to the internet,
+        // switch security.mode to "secure" (token required for every request)
+        // — see the CLAUDE.md security section. A stricter option is to gate
+        // these header bypasses behind isPrivateClient(req).
+        //
         // Same-origin SPA bypass: mirrors WebSocketServer.verifyClient.
         // The CORS middleware above already restricts the Origin header to
         // localhost / the request host, so an Origin echo here is a strong
@@ -215,12 +233,16 @@ class HttpServer {
         if (origin) {
           try {
             const url = new URL(origin);
-            if (url.hostname === 'localhost'
-                || url.hostname === '127.0.0.1'
-                || url.hostname === req.hostname) {
+            if (
+              url.hostname === 'localhost' ||
+              url.hostname === '127.0.0.1' ||
+              url.hostname === req.hostname
+            ) {
               return next();
             }
-          } catch { /* fall through to token check */ }
+          } catch {
+            /* fall through to token check */
+          }
         }
 
         // Private-network bypass. The API token guards against random
@@ -248,7 +270,8 @@ class HttpServer {
     const isProduction = process.env.NODE_ENV === 'production';
     const distPath = path.join(__dirname, '../../dist');
     const devPath = path.join(__dirname, '../../public');
-    const publicPath = (isProduction && existsSync(path.join(distPath, 'index.html'))) ? distPath : devPath;
+    const publicPath =
+      isProduction && existsSync(path.join(distPath, 'index.html')) ? distPath : devPath;
 
     this.expressApp.use(
       express.static(publicPath, {
@@ -285,10 +308,13 @@ class HttpServer {
       const sslKey = this.config.server.sslKey;
 
       if (sslCert && sslKey && existsSync(sslCert) && existsSync(sslKey)) {
-        this.server = createHttpsServer({
-          cert: readFileSync(sslCert),
-          key: readFileSync(sslKey)
-        }, this.expressApp);
+        this.server = createHttpsServer(
+          {
+            cert: readFileSync(sslCert),
+            key: readFileSync(sslKey)
+          },
+          this.expressApp
+        );
         this.server.listen(port, host, () => {
           this.logger.info(`HTTPS server listening on https://${host}:${port}`);
           resolve();

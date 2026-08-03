@@ -3,7 +3,7 @@
 // from MidiSynthesizer.js (P2-F.8b).
 // Exposed on `window.MidiSynthesizerTempoMap` (IIFE+globals convention).
 
-(function() {
+(function () {
   'use strict';
 
   /**
@@ -79,7 +79,8 @@
    * The sequence is assumed sorted by `t` ascending.
    */
   function findNoteIndex(sequence, tick) {
-    let lo = 0, hi = sequence.length;
+    let lo = 0,
+      hi = sequence.length;
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
       if (sequence[mid].t <= tick) lo = mid + 1;

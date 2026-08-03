@@ -11,19 +11,27 @@ let calls;
 
 function installCanvasStub() {
   calls = [];
-  const ctx = new Proxy({}, {
-    get(_t, prop) {
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
-        return (...args) => calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => calls.push({ method: prop, args });
+        }
+        return undefined;
+      },
+      set(_t, prop, value) {
+        calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return undefined;
-    },
-    set(_t, prop, value) {
-      calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -42,9 +50,10 @@ beforeEach(() => {
 
 function makeCanvas(w = 600, h = 160) {
   const c = document.createElement('canvas');
-  Object.defineProperty(c, 'clientWidth',  { get: () => w });
+  Object.defineProperty(c, 'clientWidth', { get: () => w });
   Object.defineProperty(c, 'clientHeight', { get: () => h });
-  c.width = w; c.height = h;
+  c.width = w;
+  c.height = h;
   // jsdom returns a zero-rect by default; that's fine — clientX maps
   // 1:1 to the canvas's pixel x for this test.
   c.getBoundingClientRect = () => ({ left: 0, top: 0, right: w, bottom: h, width: w, height: h });
@@ -61,7 +70,9 @@ function placeBandAt(fb, anchor) {
 describe('FretboardHandPreview — band drag (PR3)', () => {
   it('does nothing when onBandDrag is not provided', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     placeBandAt(fb, 5);
     const startAnchor = fb._currentDisplayedAnchor();
@@ -76,9 +87,13 @@ describe('FretboardHandPreview — band drag (PR3)', () => {
   it('emits onBandDrag with an integer anchor when the band is dragged', () => {
     let received = null;
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4,
       handId: 'fretting',
-      onBandDrag: (id, anchor) => { received = { id, anchor }; }
+      onBandDrag: (id, anchor) => {
+        received = { id, anchor };
+      }
     });
     placeBandAt(fb, 3);
     const { x0 } = fb._handWindowX(3);
@@ -100,8 +115,12 @@ describe('FretboardHandPreview — band drag (PR3)', () => {
   it('does not fire onBandDrag if the click did not move the band', () => {
     let fired = false;
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
-      onBandDrag: () => { fired = true; }
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4,
+      onBandDrag: () => {
+        fired = true;
+      }
     });
     placeBandAt(fb, 5);
     const { x0 } = fb._handWindowX(5);
@@ -112,7 +131,9 @@ describe('FretboardHandPreview — band drag (PR3)', () => {
 
   it('clears the drag-anchor override when a fresh trajectory lands', () => {
     const fb = new window.FretboardHandPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4,
       onBandDrag: () => {}
     });
     placeBandAt(fb, 3);

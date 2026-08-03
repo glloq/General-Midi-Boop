@@ -28,7 +28,7 @@ describe('getGmDefaultPolyphony', () => {
 
   it('returns the map value for piano programs (0-7)', () => {
     expect(C().getGmDefaultPolyphony(0)).toBe(16); // Acoustic Grand Piano
-    expect(C().getGmDefaultPolyphony(6)).toBe(8);  // Harpsichord
+    expect(C().getGmDefaultPolyphony(6)).toBe(8); // Harpsichord
   });
 
   it('returns 1 for solo brass / reed / pipe programs', () => {

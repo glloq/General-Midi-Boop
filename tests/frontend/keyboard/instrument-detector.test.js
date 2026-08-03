@@ -20,8 +20,12 @@ const D = () => win.InstrumentDetector;
 
 // Minimal wind DB mock — only programs 56..79 are wind.
 const windDb = {
-  isWindInstrument(p) { return p >= 56 && p <= 79; },
-  getPresetByProgram(p) { return { name: `wind-${p}`, range: [48, 84] }; }
+  isWindInstrument(p) {
+    return p >= 56 && p <= 79;
+  },
+  getPresetByProgram(p) {
+    return { name: `wind-${p}`, range: [48, 84] };
+  }
 };
 
 describe('InstrumentDetector — defaults & fallback', () => {
@@ -34,9 +38,9 @@ describe('InstrumentDetector — defaults & fallback', () => {
   });
 
   it('returns viewKind=piano when only GM program is set (piano family)', () => {
-    expect(D().detect({ capabilities: { gm_program: 0 } }).viewKind).toBe('piano');   // Grand Piano
-    expect(D().detect({ capabilities: { gm_program: 7 } }).viewKind).toBe('piano');   // Clavinet
-    expect(D().detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano');  // Drawbar Organ
+    expect(D().detect({ capabilities: { gm_program: 0 } }).viewKind).toBe('piano'); // Grand Piano
+    expect(D().detect({ capabilities: { gm_program: 7 } }).viewKind).toBe('piano'); // Clavinet
+    expect(D().detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano'); // Drawbar Organ
   });
 });
 
@@ -134,7 +138,7 @@ describe('InstrumentDetector — mallet / perc-pad detection', () => {
   it('GM 47 (Timpani) stays on the piano keyboard (user spec), not mallet/fretboard', () => {
     const r = D().detect({ capabilities: { gm_program: 47 } });
     expect(r.viewKind).toBe('piano');
-    expect(r.canFretboard).toBe(false);   // 47 excluded from the 24-45 range
+    expect(r.canFretboard).toBe(false); // 47 excluded from the 24-45 range
   });
 
   it('keeps marimba…dulcimer (12-15) as mallet', () => {
@@ -187,8 +191,12 @@ describe('InstrumentDetector — wind / piano-slider detection', () => {
 
   it('detects Shanai (GM 111) as piano-slider when windDb knows it', () => {
     const windDb111 = {
-      isWindInstrument(p) { return (p >= 56 && p <= 79) || p === 111; },
-      getPresetByProgram(p) { return { name: `wind-${p}` }; }
+      isWindInstrument(p) {
+        return (p >= 56 && p <= 79) || p === 111;
+      },
+      getPresetByProgram(p) {
+        return { name: `wind-${p}` };
+      }
     };
     const r = D().detect({ capabilities: { gm_program: 111 }, windDb: windDb111 });
     expect(r.viewKind).toBe('piano-slider');
@@ -229,7 +237,10 @@ describe('InstrumentDetector — wind / piano-slider detection', () => {
 
 describe('InstrumentDetector — output shape', () => {
   it('always returns the legacy fields used by callers', () => {
-    const r = D().detect({ capabilities: { gm_program: 65, instrument_type: 'wind', instrument_subtype: 'sax' }, windDb });
+    const r = D().detect({
+      capabilities: { gm_program: 65, instrument_type: 'wind', instrument_subtype: 'sax' },
+      windDb
+    });
     expect(r).toHaveProperty('viewKind');
     expect(r).toHaveProperty('options');
     expect(r).toHaveProperty('canFretboard');

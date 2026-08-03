@@ -8,12 +8,20 @@ import MidiPlayer from '../src/midi/playback/MidiPlayer.js';
 
 function makeDeps(handsConfig, extraCapabilities) {
   const logger = {
-    info: () => {}, warn: () => {}, debug: () => {}, error: () => {}
+    info: () => {},
+    warn: () => {},
+    debug: () => {},
+    error: () => {}
   };
   // Accept either a single config (applied to every lookup) or a map
   // keyed by `deviceId:channel` for split-routing scenarios.
   const lookup = (deviceId, channel) => {
-    if (handsConfig && typeof handsConfig === 'object' && !Array.isArray(handsConfig) && handsConfig.__byKey) {
+    if (
+      handsConfig &&
+      typeof handsConfig === 'object' &&
+      !Array.isArray(handsConfig) &&
+      handsConfig.__byKey
+    ) {
       const cfg = handsConfig.__byKey[`${deviceId}:${channel}`];
       return cfg ? { hands_config: cfg, ...(extraCapabilities || {}) } : null;
     }
@@ -28,7 +36,7 @@ function makeDeps(handsConfig, extraCapabilities) {
 
 function primePlayer(player, notes) {
   // Bypass loadFile — stub the pieces `_injectHandPositionCCEvents` needs.
-  player.events = notes.map(n => ({
+  player.events = notes.map((n) => ({
     time: n.time,
     type: 'noteOn',
     channel: n.channel ?? 0,
@@ -53,30 +61,33 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     const deps = makeDeps(pianoHands);
     const player = new MidiPlayer(deps);
     primePlayer(player, [
-      { time: 0.5, note: 40 },  // left
-      { time: 1.0, note: 72 }   // right
+      { time: 0.5, note: 40 }, // left
+      { time: 1.0, note: 72 } // right
     ]);
 
     const injected = player._injectHandPositionCCEvents();
     expect(injected).toBeGreaterThan(0);
 
-    const ccs = player.events.filter(e => e.type === 'controller');
-    expect(ccs.map(e => e.controller).sort()).toEqual([23, 24]);
+    const ccs = player.events.filter((e) => e.type === 'controller');
+    expect(ccs.map((e) => e.controller).sort()).toEqual([23, 24]);
     // CC values should match the lowest note per hand.
-    expect(ccs.find(e => e.controller === 23).value).toBe(40);
-    expect(ccs.find(e => e.controller === 24).value).toBe(72);
+    expect(ccs.find((e) => e.controller === 23).value).toBe(40);
+    expect(ccs.find((e) => e.controller === 24).value).toBe(72);
   });
 
   test('no CCs injected when instrument has no hands_config (regression)', () => {
     const deps = makeDeps(null);
     const player = new MidiPlayer(deps);
-    primePlayer(player, [{ time: 0.5, note: 40 }, { time: 1.0, note: 72 }]);
+    primePlayer(player, [
+      { time: 0.5, note: 40 },
+      { time: 1.0, note: 72 }
+    ]);
 
     const before = player.events.length;
     const injected = player._injectHandPositionCCEvents();
     expect(injected).toBe(0);
     expect(player.events.length).toBe(before);
-    expect(player.events.some(e => e.type === 'controller')).toBe(false);
+    expect(player.events.some((e) => e.type === 'controller')).toBe(false);
   });
 
   test('skips injection when the file already carries a baked hand CC (cc_position_number guard)', () => {
@@ -90,11 +101,18 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     };
     const deps = makeDeps(hands);
     const player = new MidiPlayer(deps);
-    primePlayer(player, [{ time: 0.5, note: 40 }, { time: 1.0, note: 52 }]);
+    primePlayer(player, [
+      { time: 0.5, note: 40 },
+      { time: 1.0, note: 52 }
+    ]);
     // A hand-position CC22 already baked into the timeline on the same
     // source channel (e.g. written by PlaybackAssignmentCommands).
     player.events.push({
-      time: 0.4, type: 'controller', channel: 0, controller: 22, value: 3
+      time: 0.4,
+      type: 'controller',
+      channel: 0,
+      controller: 22,
+      value: 3
     });
 
     const injected = player._injectHandPositionCCEvents();
@@ -102,21 +120,23 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     // The baked stream is authoritative — nothing new injected, no
     // duplicate CC22.
     expect(injected).toBe(0);
-    const cc22 = player.events.filter(
-      e => e.type === 'controller' && e.controller === 22);
+    const cc22 = player.events.filter((e) => e.type === 'controller' && e.controller === 22);
     expect(cc22.length).toBe(1);
   });
 
   test('idempotent across re-runs (no accumulation)', () => {
     const deps = makeDeps(pianoHands);
     const player = new MidiPlayer(deps);
-    primePlayer(player, [{ time: 0.5, note: 40 }, { time: 1.0, note: 72 }]);
+    primePlayer(player, [
+      { time: 0.5, note: 40 },
+      { time: 1.0, note: 72 }
+    ]);
 
     player._injectHandPositionCCEvents();
-    const firstCount = player.events.filter(e => e.type === 'controller').length;
+    const firstCount = player.events.filter((e) => e.type === 'controller').length;
 
     player._injectHandPositionCCEvents();
-    const secondCount = player.events.filter(e => e.type === 'controller').length;
+    const secondCount = player.events.filter((e) => e.type === 'controller').length;
 
     expect(secondCount).toBe(firstCount);
   });
@@ -124,9 +144,7 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
   test('broadcasts feasibility warnings when present', () => {
     const handsCfg = {
       enabled: true,
-      hands: [
-        { id: 'left', cc_position_number: 23, hand_span_semitones: 14 }
-      ]
+      hands: [{ id: 'left', cc_position_number: 23, hand_span_semitones: 14 }]
     };
     // The playable range (used for out_of_range checks) now lives on
     // the instrument's capabilities, not on each hand.
@@ -161,23 +179,23 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     });
     const player = new MidiPlayer(deps);
     primePlayer(player, [
-      { time: 0.5, note: 40 },  // bass segment
-      { time: 1.0, note: 72 },  // treble segment
-      { time: 1.5, note: 45 }   // bass segment
+      { time: 0.5, note: 40 }, // bass segment
+      { time: 1.0, note: 72 }, // treble segment
+      { time: 1.5, note: 45 } // bass segment
     ]);
     player.channelRouting.set(0, {
       split: true,
       segments: [
-        { device: 'dev-bass',   targetChannel: 0, noteMin: 0,  noteMax: 59 },
+        { device: 'dev-bass', targetChannel: 0, noteMin: 0, noteMax: 59 },
         { device: 'dev-treble', targetChannel: 0, noteMin: 60, noteMax: 127 }
       ]
     });
 
     player._injectHandPositionCCEvents();
 
-    const ccs = player.events.filter(e => e.type === 'controller');
-    const bassCCs = ccs.filter(e => e._routeTo?.device === 'dev-bass');
-    const trebleCCs = ccs.filter(e => e._routeTo?.device === 'dev-treble');
+    const ccs = player.events.filter((e) => e.type === 'controller');
+    const bassCCs = ccs.filter((e) => e._routeTo?.device === 'dev-bass');
+    const trebleCCs = ccs.filter((e) => e._routeTo?.device === 'dev-treble');
 
     expect(bassCCs.length).toBeGreaterThan(0);
     expect(trebleCCs.length).toBeGreaterThan(0);
@@ -208,16 +226,16 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
     player.channelRouting.set(0, {
       split: true,
       segments: [
-        { device: 'dev-bass',   targetChannel: 0, noteMin: 0,  noteMax: 59 },
+        { device: 'dev-bass', targetChannel: 0, noteMin: 0, noteMax: 59 },
         { device: 'dev-treble', targetChannel: 0, noteMin: 60, noteMax: 127 }
       ]
     });
 
     player._injectHandPositionCCEvents();
 
-    const ccs = player.events.filter(e => e.type === 'controller');
-    expect(ccs.every(e => e._routeTo?.device === 'dev-treble')).toBe(true);
-    expect(ccs.some(e => e._routeTo?.device === 'dev-bass')).toBe(false);
+    const ccs = player.events.filter((e) => e.type === 'controller');
+    expect(ccs.every((e) => e._routeTo?.device === 'dev-treble')).toBe(true);
+    expect(ccs.some((e) => e._routeTo?.device === 'dev-bass')).toBe(false);
   });
 
   test('no-op when there are no routings', () => {
@@ -238,12 +256,14 @@ describe('MidiPlayer._injectHandPositionCCEvents', () => {
 
 function makeFretsDeps({ handsConfig, tablature, stringInstrument, extraCapabilities }) {
   const logger = {
-    info: () => {}, warn: () => {}, debug: () => {}, error: () => {}
+    info: () => {},
+    warn: () => {},
+    debug: () => {},
+    error: () => {}
   };
   const database = {
-    getInstrumentCapabilities: () => handsConfig
-      ? { hands_config: handsConfig, ...(extraCapabilities || {}) }
-      : null,
+    getInstrumentCapabilities: () =>
+      handsConfig ? { hands_config: handsConfig, ...(extraCapabilities || {}) } : null,
     getTablaturesByFile: () => (tablature ? [tablature] : []),
     stringInstrumentDB: {
       getStringInstrumentById: () => stringInstrument || null
@@ -258,7 +278,7 @@ function makeFretsDeps({ handsConfig, tablature, stringInstrument, extraCapabili
 function primeFretsPlayer(player, tabEvents) {
   // Note-on events mirror the tablature entries so the scheduler has
   // something to route. With ppq=480 and tempo=120, tick 960 == 1s.
-  player.events = tabEvents.map(ev => ({
+  player.events = tabEvents.map((ev) => ({
     time: ev.tick / (480 * 2), // ticksToSeconds at 120 BPM, ppq 480
     type: 'noteOn',
     channel: 0,
@@ -280,8 +300,8 @@ const guitarHands = {
 describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
   test('injects CC22 with absolute fret for a fretted sequence', () => {
     const tabEvents = [
-      { tick: 0,    string: 5, fret: 3, midiNote: 43 },
-      { tick: 480,  string: 5, fret: 5, midiNote: 45 },
+      { tick: 0, string: 5, fret: 3, midiNote: 43 },
+      { tick: 480, string: 5, fret: 5, midiNote: 45 },
       { tick: 1920, string: 3, fret: 12, midiNote: 62 } // forces shift
     ];
     const deps = makeFretsDeps({
@@ -295,12 +315,12 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     const injected = player._injectHandPositionCCEvents();
     expect(injected).toBeGreaterThan(0);
 
-    const ccs = player.events.filter(e => e.type === 'controller' && e._handInjected);
-    expect(ccs.every(e => e.controller === 22)).toBe(true);
+    const ccs = player.events.filter((e) => e.type === 'controller' && e._handInjected);
+    expect(ccs.every((e) => e.controller === 22)).toBe(true);
     // First CC anchors the initial window at fret 3.
     expect(ccs[0].value).toBe(3);
     // A subsequent shift to fret 12 lands above span 4.
-    expect(ccs.some(e => e.value === 12)).toBe(true);
+    expect(ccs.some((e) => e.value === 12)).toBe(true);
     // Every injected CC carries _routeTo for the split-broadcast bypass.
     for (const cc of ccs) {
       expect(cc._routeTo).toEqual(expect.objectContaining({ device: 'gtr' }));
@@ -309,9 +329,9 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
 
   test('open strings (fret=0) do not force shifts', () => {
     const tabEvents = [
-      { tick: 0,    string: 5, fret: 5, midiNote: 45 },
-      { tick: 480,  string: 0, fret: 0, midiNote: 64 }, // open high E
-      { tick: 960,  string: 5, fret: 7, midiNote: 47 }
+      { tick: 0, string: 5, fret: 5, midiNote: 45 },
+      { tick: 480, string: 0, fret: 0, midiNote: 64 }, // open high E
+      { tick: 960, string: 5, fret: 7, midiNote: 47 }
     ];
     const deps = makeFretsDeps({
       handsConfig: guitarHands,
@@ -322,7 +342,7 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     primeFretsPlayer(player, tabEvents);
 
     player._injectHandPositionCCEvents();
-    const ccs = player.events.filter(e => e.type === 'controller' && e._handInjected);
+    const ccs = player.events.filter((e) => e.type === 'controller' && e._handInjected);
     // Only one CC: the initial anchor. The open string must not move the hand
     // and the return to fret 7 stays inside [5..9].
     expect(ccs).toHaveLength(1);
@@ -330,9 +350,7 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
   });
 
   test('initial CC is scheduled before the first fretted note', () => {
-    const tabEvents = [
-      { tick: 960, string: 5, fret: 5, midiNote: 45 }
-    ];
+    const tabEvents = [{ tick: 960, string: 5, fret: 5, midiNote: 45 }];
     const deps = makeFretsDeps({
       handsConfig: guitarHands,
       tablature: { channel: 0, string_instrument_id: 7, tablature_data: tabEvents },
@@ -342,7 +360,7 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     primeFretsPlayer(player, tabEvents);
 
     player._injectHandPositionCCEvents();
-    const ccs = player.events.filter(e => e.type === 'controller' && e._handInjected);
+    const ccs = player.events.filter((e) => e.type === 'controller' && e._handInjected);
     expect(ccs).toHaveLength(1);
     // Note is at 1.0s; CC must fire strictly before.
     expect(ccs[0].time).toBeLessThan(1.0);
@@ -361,7 +379,7 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
 
     const injected = player._injectHandPositionCCEvents();
     expect(injected).toBe(0);
-    expect(player.events.some(e => e.type === 'controller' && e._handInjected)).toBe(false);
+    expect(player.events.some((e) => e.type === 'controller' && e._handInjected)).toBe(false);
   });
 
   test('maxFret comes from frets_per_string when present', () => {
@@ -369,7 +387,7 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     // should still be accepted (it's within max=22), but a fret beyond
     // max=22 should raise an out_of_range warning.
     const tabEvents = [
-      { tick: 0,   string: 0, fret: 25, midiNote: 100 } // 25 > maxFret 22
+      { tick: 0, string: 0, fret: 25, midiNote: 100 } // 25 > maxFret 22
     ];
     const deps = makeFretsDeps({
       handsConfig: guitarHands,
@@ -383,16 +401,14 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     expect(deps.wsServer.broadcast).toHaveBeenCalledWith(
       'playback_hand_position_warnings',
       expect.objectContaining({
-        warnings: expect.arrayContaining([
-          expect.objectContaining({ code: 'out_of_range' })
-        ])
+        warnings: expect.arrayContaining([expect.objectContaining({ code: 'out_of_range' })])
       })
     );
   });
 
   test('idempotent across re-runs in frets mode', () => {
     const tabEvents = [
-      { tick: 0,   string: 5, fret: 3, midiNote: 43 },
+      { tick: 0, string: 5, fret: 3, midiNote: 43 },
       { tick: 480, string: 5, fret: 5, midiNote: 45 }
     ];
     const deps = makeFretsDeps({
@@ -404,9 +420,9 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     primeFretsPlayer(player, tabEvents);
 
     player._injectHandPositionCCEvents();
-    const first = player.events.filter(e => e._handInjected).length;
+    const first = player.events.filter((e) => e._handInjected).length;
     player._injectHandPositionCCEvents();
-    const second = player.events.filter(e => e._handInjected).length;
+    const second = player.events.filter((e) => e._handInjected).length;
     expect(second).toBe(first);
   });
 
@@ -414,9 +430,9 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     // 80 mm hand on 650 mm scale ≈ 2.2 frets at fret 0. A 4-fret jump
     // exceeds that → 2 CCs.
     const tabEvents = [
-      { tick: 0,    string: 0, fret: 0, midiNote: 60 }, // open: filtered upstream
-      { tick: 240,  string: 0, fret: 1, midiNote: 61 },
-      { tick: 960,  string: 0, fret: 4, midiNote: 64 }
+      { tick: 0, string: 0, fret: 0, midiNote: 60 }, // open: filtered upstream
+      { tick: 240, string: 0, fret: 1, midiNote: 61 },
+      { tick: 960, string: 0, fret: 4, midiNote: 64 }
     ];
     const handsCfgPhys = {
       enabled: true,
@@ -433,15 +449,15 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     primeFretsPlayer(player, tabEvents);
 
     player._injectHandPositionCCEvents();
-    const ccs = player.events.filter(e => e._handInjected);
+    const ccs = player.events.filter((e) => e._handInjected);
     expect(ccs.length).toBeGreaterThanOrEqual(2);
   });
 
   test('physical model: same 0→4 jump high on the neck (fret 12→16) does not shift', () => {
     // ~4.4 frets reach at fret 12, so 12→15 fits in the same window.
     const tabEvents = [
-      { tick: 0,    string: 0, fret: 12, midiNote: 76 },
-      { tick: 960,  string: 0, fret: 15, midiNote: 79 }
+      { tick: 0, string: 0, fret: 12, midiNote: 76 },
+      { tick: 960, string: 0, fret: 15, midiNote: 79 }
     ];
     const handsCfgPhys = {
       enabled: true,
@@ -458,7 +474,7 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     primeFretsPlayer(player, tabEvents);
 
     player._injectHandPositionCCEvents();
-    const ccs = player.events.filter(e => e._handInjected);
+    const ccs = player.events.filter((e) => e._handInjected);
     expect(ccs).toHaveLength(1);
     // 10 mm index-finger backoff: anchor for fret 12 ≈ 11.5
     // (rounded to 11 or 12 in the CC value). The chord 12→15 still
@@ -470,8 +486,8 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
   test('falls back to fret-count model when scale_length_mm is null', () => {
     // No scale length → 4-fret constant window, regardless of position.
     const tabEvents = [
-      { tick: 0,    string: 0, fret: 12, midiNote: 76 },
-      { tick: 960,  string: 0, fret: 15, midiNote: 79 } // within 4 frets → no shift
+      { tick: 0, string: 0, fret: 12, midiNote: 76 },
+      { tick: 960, string: 0, fret: 15, midiNote: 79 } // within 4 frets → no shift
     ];
     const deps = makeFretsDeps({
       handsConfig: guitarHands,
@@ -482,7 +498,7 @@ describe('MidiPlayer._injectHandPositionCCEvents — frets mode', () => {
     primeFretsPlayer(player, tabEvents);
 
     player._injectHandPositionCCEvents();
-    const ccs = player.events.filter(e => e._handInjected);
+    const ccs = player.events.filter((e) => e._handInjected);
     expect(ccs).toHaveLength(1);
   });
 });

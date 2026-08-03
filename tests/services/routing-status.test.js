@@ -17,9 +17,7 @@ describe('computeRoutingStatus', () => {
   });
 
   test('partial when some but not all channels are routed', () => {
-    const routings = [
-      { device_id: 'a', enabled: true, compatibility_score: 95 }
-    ];
+    const routings = [{ channel: 0, device_id: 'a', enabled: true, compatibility_score: 95 }];
     const r = make({ channel_count: 3 }, routings);
     expect(r.status).toBe('partial');
     expect(r.routedCount).toBe(1);
@@ -27,8 +25,8 @@ describe('computeRoutingStatus', () => {
 
   test('playable when all channels routed with full compatibility', () => {
     const routings = [
-      { device_id: 'a', enabled: true, compatibility_score: 100 },
-      { device_id: 'b', enabled: true, compatibility_score: 100 }
+      { channel: 0, device_id: 'a', enabled: true, compatibility_score: 100 },
+      { channel: 1, device_id: 'b', enabled: true, compatibility_score: 100 }
     ];
     const r = make({ channel_count: 2 }, routings);
     expect(r.status).toBe('playable');
@@ -36,8 +34,8 @@ describe('computeRoutingStatus', () => {
 
   test('routed_incomplete when all routed but min score < 100', () => {
     const routings = [
-      { device_id: 'a', enabled: true, compatibility_score: 100 },
-      { device_id: 'b', enabled: true, compatibility_score: 80 }
+      { channel: 0, device_id: 'a', enabled: true, compatibility_score: 100 },
+      { channel: 1, device_id: 'b', enabled: true, compatibility_score: 80 }
     ];
     const r = make({ channel_count: 2 }, routings);
     expect(r.status).toBe('routed_incomplete');
@@ -45,8 +43,8 @@ describe('computeRoutingStatus', () => {
 
   test('playable when all scores are null (manual routings)', () => {
     const routings = [
-      { device_id: 'a', enabled: true, compatibility_score: null },
-      { device_id: 'b', enabled: true, compatibility_score: null }
+      { channel: 0, device_id: 'a', enabled: true, compatibility_score: null },
+      { channel: 1, device_id: 'b', enabled: true, compatibility_score: null }
     ];
     const r = make({ channel_count: 2 }, routings);
     expect(r.status).toBe('playable');
@@ -54,8 +52,8 @@ describe('computeRoutingStatus', () => {
 
   test('excludes disabled routings from the count', () => {
     const routings = [
-      { device_id: 'a', enabled: true, compatibility_score: 100 },
-      { device_id: 'b', enabled: false, compatibility_score: 100 }
+      { channel: 0, device_id: 'a', enabled: true, compatibility_score: 100 },
+      { channel: 1, device_id: 'b', enabled: false, compatibility_score: 100 }
     ];
     const r = make({ channel_count: 2 }, routings);
     expect(r.routedCount).toBe(1);
@@ -64,10 +62,22 @@ describe('computeRoutingStatus', () => {
 
   test('excludes routings to disconnected devices when filter is provided', () => {
     const routings = [
-      { device_id: 'a', enabled: true, compatibility_score: 100 },
-      { device_id: 'b', enabled: true, compatibility_score: 100 }
+      { channel: 0, device_id: 'a', enabled: true, compatibility_score: 100 },
+      { channel: 1, device_id: 'b', enabled: true, compatibility_score: 100 }
     ];
     const r = make({ channel_count: 2 }, routings, new Set(['a']));
+    expect(r.routedCount).toBe(1);
+    expect(r.status).toBe('partial');
+  });
+
+  test('counts a split channel (multiple rows, same channel) as ONE routed channel', () => {
+    // A split channel persists as several rows sharing `channel`. With
+    // channel 1 left unrouted the file must read as partial, not playable.
+    const routings = [
+      { channel: 0, device_id: 'a', enabled: true, compatibility_score: 100, split_mode: true },
+      { channel: 0, device_id: 'b', enabled: true, compatibility_score: 100, split_mode: true }
+    ];
+    const r = make({ channel_count: 2 }, routings);
     expect(r.routedCount).toBe(1);
     expect(r.status).toBe('partial');
   });

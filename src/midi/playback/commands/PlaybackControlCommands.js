@@ -12,7 +12,12 @@
  *   - `playback_set_loop`     — toggle loop-on-end behaviour
  *   - `playback_set_tempo` / `_transpose` / `_set_volume` — placeholders
  */
-import { ValidationError, ConfigurationError, MidiError, ApplicationError } from '../../../core/errors/index.js';
+import {
+  ValidationError,
+  ConfigurationError,
+  MidiError,
+  ApplicationError
+} from '../../../core/errors/index.js';
 
 /**
  * Load a file, restore any persisted per-channel routings (with
@@ -51,16 +56,17 @@ async function _playbackStartInner(app, data) {
 
       const routingsByChannel = new Map();
       for (const routing of savedRoutings) {
-        if (routing.channel === null || routing.channel === undefined || !routing.device_id) continue;
+        if (routing.channel === null || routing.channel === undefined || !routing.device_id)
+          continue;
         if (!routingsByChannel.has(routing.channel)) routingsByChannel.set(routing.channel, []);
         routingsByChannel.get(routing.channel).push(routing);
       }
 
       for (const [channel, channelRoutings] of routingsByChannel) {
-        const hasSplit = channelRoutings.length > 1 && channelRoutings.some(r => r.split_mode);
+        const hasSplit = channelRoutings.length > 1 && channelRoutings.some((r) => r.split_mode);
 
         if (hasSplit) {
-          const segments = channelRoutings.map(r => ({
+          const segments = channelRoutings.map((r) => ({
             device_id: r.device_id,
             target_channel: r.target_channel !== undefined ? r.target_channel : channel,
             split_note_min: r.split_note_min ?? 0,
@@ -70,10 +76,13 @@ async function _playbackStartInner(app, data) {
           }));
           app.midiPlayer.setChannelSplitRouting(channel, segments);
           loadedRoutings += channelRoutings.length;
-          app.logger.info(`Auto-loaded split routing for channel ${channel + 1} with ${segments.length} segments`);
+          app.logger.info(
+            `Auto-loaded split routing for channel ${channel + 1} with ${segments.length} segments`
+          );
         } else {
           const routing = channelRoutings[0];
-          const targetChannel = routing.target_channel !== undefined ? routing.target_channel : channel;
+          const targetChannel =
+            routing.target_channel !== undefined ? routing.target_channel : channel;
           app.midiPlayer.setChannelRouting(channel, routing.device_id, targetChannel);
           loadedRoutings++;
         }
@@ -90,7 +99,9 @@ async function _playbackStartInner(app, data) {
         }
       }
 
-      app.logger.info(`Auto-loaded ${loadedRoutings} channel routings from database for file ${data.fileId}`);
+      app.logger.info(
+        `Auto-loaded ${loadedRoutings} channel routings from database for file ${data.fileId}`
+      );
     }
   } catch (routingError) {
     app.logger.warn(`Failed to auto-load routings: ${routingError.message}`);
@@ -100,7 +111,7 @@ async function _playbackStartInner(app, data) {
 
   if (!outputDevice) {
     const devices = app.deviceManager.getDeviceList();
-    const outputDevices = devices.filter(d => d.output && d.enabled);
+    const outputDevices = devices.filter((d) => d.output && d.enabled);
 
     if (outputDevices.length === 0) {
       throw new ConfigurationError('No output devices available');

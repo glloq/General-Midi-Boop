@@ -70,7 +70,7 @@ const INSTRUMENT_TYPE_HIERARCHY = {
       drawbar: { label: 'Orgue à tirettes', gmPrograms: [16] },
       percussive_organ: { label: 'Orgue percussif', gmPrograms: [17] },
       rock_organ: { label: 'Orgue rock', gmPrograms: [18] },
-      church_organ: { label: 'Orgue d\'église', gmPrograms: [19] },
+      church_organ: { label: "Orgue d'église", gmPrograms: [19] },
       reed_organ: { label: 'Orgue à anches', gmPrograms: [20] },
       accordion: { label: 'Accordéon', gmPrograms: [21] },
       harmonica: { label: 'Harmonica', gmPrograms: [22] },
@@ -331,7 +331,7 @@ const TRANSPOSING_OFFSETS = {
   bass: [-12, -7],
   // Piccolo (+12), double bass (-12)
   piccolo: [12],
-  contrabass: [-12],
+  contrabass: [-12]
 };
 
 const InstrumentTypeConfig = {

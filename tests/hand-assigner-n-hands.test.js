@@ -32,18 +32,20 @@ describe('HandAssigner — N hands (h1..h4 ids)', () => {
     };
     const a = new HandAssigner(cfg);
     const notes = [
-      n(0, 40, { track: 0 }), n(1, 50, { track: 1 }),
-      n(2, 70, { track: 2 }), n(3, 90, { track: 3 })
+      n(0, 40, { track: 0 }),
+      n(1, 50, { track: 1 }),
+      n(2, 70, { track: 2 }),
+      n(3, 90, { track: 3 })
     ];
     const { assignments } = a.assign(notes);
-    expect(assignments.map(x => x.hand)).toEqual(['h1', 'h2', 'h3', 'h4']);
+    expect(assignments.map((x) => x.hand)).toEqual(['h1', 'h2', 'h3', 'h4']);
   });
 
   test('one hand: every note is tagged with that single id', () => {
     const a = new HandAssigner({ enabled: true, hands: [{ id: 'h1' }] });
     const { assignments, resolvedMode } = a.assign([n(0, 40), n(1, 80)]);
     expect(resolvedMode).toBe('single_hand');
-    expect(assignments.every(x => x.hand === 'h1')).toBe(true);
+    expect(assignments.every((x) => x.hand === 'h1')).toBe(true);
   });
 
   test('auto with 4 tracks promotes to track mode and clusters by median', () => {
@@ -54,15 +56,15 @@ describe('HandAssigner — N hands (h1..h4 ids)', () => {
     };
     const a = new HandAssigner(cfg);
     const notes = [
-      ...[36, 38].map((p, i) => n(i, p, { track: 0 })),       // lowest → h1
-      ...[52, 54].map((p, i) => n(i + 10, p, { track: 1 })),  // → h2
-      ...[68, 70].map((p, i) => n(i + 20, p, { track: 2 })),  // → h3
-      ...[84, 86].map((p, i) => n(i + 30, p, { track: 3 }))   // → h4
+      ...[36, 38].map((p, i) => n(i, p, { track: 0 })), // lowest → h1
+      ...[52, 54].map((p, i) => n(i + 10, p, { track: 1 })), // → h2
+      ...[68, 70].map((p, i) => n(i + 20, p, { track: 2 })), // → h3
+      ...[84, 86].map((p, i) => n(i + 30, p, { track: 3 })) // → h4
     ];
     const { assignments, resolvedMode } = a.assign(notes);
     expect(resolvedMode).toBe('track');
-    expect(assignments.find(x => notes[x.idx].track === 0).hand).toBe('h1');
-    expect(assignments.find(x => notes[x.idx].track === 3).hand).toBe('h4');
+    expect(assignments.find((x) => notes[x.idx].track === 0).hand).toBe('h1');
+    expect(assignments.find((x) => notes[x.idx].track === 3).hand).toBe('h4');
   });
 
   test('noteAssignments override the resolved-mode decision', () => {
@@ -87,10 +89,9 @@ describe('HandAssigner — N hands (h1..h4 ids)', () => {
       hands: [{ id: 'h1' }, { id: 'h2' }]
     };
     const a = new HandAssigner(cfg);
-    const { assignments } = a.assign(
-      [{ time: 0, tick: 0, note: 40 }],
-      { noteAssignments: [{ tick: 0, note: 40, handId: 'h9' }] }
-    );
+    const { assignments } = a.assign([{ time: 0, tick: 0, note: 40 }], {
+      noteAssignments: [{ tick: 0, note: 40, handId: 'h9' }]
+    });
     // h9 isn't declared → fall back to the resolved pitch-split decision.
     expect(assignments[0].hand).toBe('h1');
   });

@@ -160,8 +160,8 @@ class InstrumentManagementPage {
     try {
       // 1. Load the connected devices (enriched with multi-channel instruments[])
       const response = await this.apiClient.sendCommand('device_list', {});
-      const connectedDevices = (response && response.devices) ? response.devices : [];
-      const connectedIds = new Set(connectedDevices.map(d => d.id));
+      const connectedDevices = response && response.devices ? response.devices : [];
+      const connectedIds = new Set(connectedDevices.map((d) => d.id));
 
       // 2. Load instruments saved in the DB (even if disconnected)
       let registeredInstruments = [];
@@ -187,7 +187,7 @@ class InstrumentManagementPage {
           _deviceName: device.name,
           _deviceDisplayName: device.deviceCustomName || null,
           _deviceType: device.type,
-          _deviceAddress: device.address,
+          _deviceAddress: device.address
         };
 
         // If the device has multi-channel instruments, create one entry per channel
@@ -196,7 +196,9 @@ class InstrumentManagementPage {
             const dbId = inst.id || `${device.id}_${inst.channel}`;
             matchedDbIds.add(dbId);
             // Also mark it in registeredInstruments
-            const regMatch = registeredInstruments.find(r => r.id === dbId || (r.device_id === device.id && r.channel === inst.channel));
+            const regMatch = registeredInstruments.find(
+              (r) => r.id === dbId || (r.device_id === device.id && r.channel === inst.channel)
+            );
             if (regMatch) matchedDbIds.add(regMatch.id);
 
             this.instruments.push({
@@ -211,31 +213,33 @@ class InstrumentManagementPage {
               output: device.output,
               usb_serial_number: device.usb_serial_number || device.usbSerialNumber,
               displayName: inst.custom_name || inst.name || device.displayName || device.name,
-              channel: inst.channel !== undefined ? inst.channel : 0,
+              channel: inst.channel !== undefined ? inst.channel : 0
             });
           }
         } else {
           // Device without multi-channel instruments: search in DB (legacy behavior)
-          let dbInstrument = registeredInstruments.find(r => r.device_id === device.id);
+          let dbInstrument = registeredInstruments.find((r) => r.device_id === device.id);
 
           // Fallback: search by USB serial number if not found by device_id
           if (!dbInstrument && (device.usb_serial_number || device.usbSerialNumber)) {
             const serial = device.usb_serial_number || device.usbSerialNumber;
-            dbInstrument = registeredInstruments.find(r => r.usb_serial_number === serial);
+            dbInstrument = registeredInstruments.find((r) => r.usb_serial_number === serial);
           }
 
           // Fallback: search by MAC address for Bluetooth devices
           if (!dbInstrument && device.address && device.type === 'bluetooth') {
-            dbInstrument = registeredInstruments.find(r => r.mac_address === device.address);
+            dbInstrument = registeredInstruments.find((r) => r.mac_address === device.address);
           }
 
           // Fallback: search by normalized name (without ALSA port numbers)
           if (!dbInstrument && device.id) {
             const normalizedDeviceName = InstrumentManagementPage.normalizeDeviceName(device.id);
             if (normalizedDeviceName && normalizedDeviceName !== 'virtual') {
-              dbInstrument = registeredInstruments.find(r => {
+              dbInstrument = registeredInstruments.find((r) => {
                 const normalizedDbName = InstrumentManagementPage.normalizeDeviceName(r.device_id);
-                return normalizedDbName === normalizedDeviceName && !r.device_id.startsWith('virtual_');
+                return (
+                  normalizedDbName === normalizedDeviceName && !r.device_id.startsWith('virtual_')
+                );
               });
             }
           }
@@ -282,14 +286,16 @@ class InstrumentManagementPage {
       const deviceCustomNames = new Map();
       const disconnectedDeviceIds = new Set(
         registeredInstruments
-          .filter(r => !matchedDbIds.has(r.id) && !connectedIds.has(r.device_id))
-          .map(r => r.device_id)
+          .filter((r) => !matchedDbIds.has(r.id) && !connectedIds.has(r.device_id))
+          .map((r) => r.device_id)
       );
       for (const did of disconnectedDeviceIds) {
         try {
           const resp = await this.apiClient.sendCommand('device_get_settings', { deviceId: did });
           if (resp?.settings?.custom_name) deviceCustomNames.set(did, resp.settings.custom_name);
-        } catch (_e) { /* ignore */ }
+        } catch (_e) {
+          /* ignore */
+        }
       }
 
       for (const registered of registeredInstruments) {
@@ -303,11 +309,22 @@ class InstrumentManagementPage {
         if (registered.usb_serial_number && seenSerials.has(registered.usb_serial_number)) continue;
 
         // Deduplicate: if an instrument with the same MAC is already shown
-        if (registered.mac_address && connectedDevices.some(d => d.address === registered.mac_address)) continue;
+        if (
+          registered.mac_address &&
+          connectedDevices.some((d) => d.address === registered.mac_address)
+        )
+          continue;
 
         // Deduplicate: if a connected device has the same normalized name
-        const normalizedRegName = InstrumentManagementPage.normalizeDeviceName(registered.device_id);
-        if (normalizedRegName && !registered.device_id.startsWith('virtual_') && seenNormalizedNames.has(normalizedRegName)) continue;
+        const normalizedRegName = InstrumentManagementPage.normalizeDeviceName(
+          registered.device_id
+        );
+        if (
+          normalizedRegName &&
+          !registered.device_id.startsWith('virtual_') &&
+          seenNormalizedNames.has(normalizedRegName)
+        )
+          continue;
 
         registered.id = registered.device_id;
         registered._deviceId = registered.device_id;
@@ -324,7 +341,7 @@ class InstrumentManagementPage {
 
       // Filter out virtual instruments if disabled in settings
       if (!this._isVirtualEnabled()) {
-        this.instruments = this.instruments.filter(inst => !this.isVirtualInstrument(inst));
+        this.instruments = this.instruments.filter((inst) => !this.isVirtualInstrument(inst));
       }
 
       // Mark virtual instruments as always available
@@ -364,7 +381,9 @@ class InstrumentManagementPage {
       if (saved) {
         return !!JSON.parse(saved).virtualInstrument;
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
     return false;
   }
 
@@ -378,7 +397,9 @@ class InstrumentManagementPage {
       const parsed = saved ? JSON.parse(saved) : {};
       parsed.virtualInstrument = !!enabled;
       localStorage.setItem('gmboop_settings', JSON.stringify(parsed));
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
     // Update the slider visuals without a full re-render
     const slider = this.modal && this.modal.querySelector('.inst-mgmt-virt-slider');
@@ -429,22 +450,25 @@ class InstrumentManagementPage {
     // Search
     if (this.searchQuery) {
       const query = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(inst =>
-        (inst.name || '').toLowerCase().includes(query) ||
-        (inst.custom_name || '').toLowerCase().includes(query) ||
-        (inst.manufacturer || '').toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (inst) =>
+          (inst.name || '').toLowerCase().includes(query) ||
+          (inst.custom_name || '').toLowerCase().includes(query) ||
+          (inst.manufacturer || '').toLowerCase().includes(query)
       );
     }
 
     // Filter by status
     if (this.filterStatus === 'complete') {
-      filtered = filtered.filter(inst => this.isInstrumentComplete(inst));
+      filtered = filtered.filter((inst) => this.isInstrumentComplete(inst));
     } else if (this.filterStatus === 'incomplete') {
-      filtered = filtered.filter(inst => !this.isInstrumentComplete(inst));
+      filtered = filtered.filter((inst) => !this.isInstrumentComplete(inst));
     } else if (this.filterStatus === 'connected') {
-      filtered = filtered.filter(inst => (inst.status === 2 || inst.connected) && !this.isVirtualInstrument(inst));
+      filtered = filtered.filter(
+        (inst) => (inst.status === 2 || inst.connected) && !this.isVirtualInstrument(inst)
+      );
     } else if (this.filterStatus === 'virtual') {
-      filtered = filtered.filter(inst => this.isVirtualInstrument(inst));
+      filtered = filtered.filter((inst) => this.isVirtualInstrument(inst));
     }
 
     if (filtered.length === 0) {
@@ -453,9 +477,13 @@ class InstrumentManagementPage {
           <div style="font-size: 64px; margin-bottom: 16px;">🎹</div>
           <h3 class="inst-mgmt-empty-title" style="margin: 0 0 8px 0; color: #666;">${i18n.t('instrumentManagement.noInstruments') || 'Aucun instrument trouvé'}</h3>
           <p style="margin: 0; font-size: 14px;">
-            ${this.searchQuery || this.filterStatus !== 'all'
-              ? (i18n.t('instrumentManagement.adjustFilter') || 'Essayez de modifier votre recherche ou filtre')
-              : (i18n.t('instrumentManagement.scanToStart') || 'Scannez vos périphériques pour commencer')}
+            ${
+              this.searchQuery || this.filterStatus !== 'all'
+                ? i18n.t('instrumentManagement.adjustFilter') ||
+                  'Essayez de modifier votre recherche ou filtre'
+                : i18n.t('instrumentManagement.scanToStart') ||
+                  'Scannez vos périphériques pour commencer'
+            }
           </p>
         </div>
       `;
@@ -504,7 +532,7 @@ class InstrumentManagementPage {
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #10b981; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px;">
-            ${connectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
+            ${connectedGroups.map((g) => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
       `;
@@ -521,7 +549,7 @@ class InstrumentManagementPage {
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #8b5cf6; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px;">
-            ${virtualGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
+            ${virtualGroups.map((g) => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
       `;
@@ -538,7 +566,7 @@ class InstrumentManagementPage {
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #94a3b8; color: white; border-radius: 50%; font-size: 12px; font-weight: 700;">${totalInst}</span>
           </div>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px;">
-            ${disconnectedGroups.map(g => this.renderDeviceBlock(g.instruments)).join('')}
+            ${disconnectedGroups.map((g) => this.renderDeviceBlock(g.instruments)).join('')}
           </div>
         </div>
       `;
@@ -573,18 +601,22 @@ class InstrumentManagementPage {
     const isConnected = first.status === 2 || first.connected;
     const isVirtual = this.isVirtualInstrument(first);
     const connType = this.getConnectionTypeInfo(first);
-    const borderColor = isVirtual ? '#8b5cf6' : (isConnected ? '#10b981' : '#e5e7eb');
+    const borderColor = isVirtual ? '#8b5cf6' : isConnected ? '#10b981' : '#e5e7eb';
     const headerBg = isVirtual
       ? 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(139,92,246,0.05))'
-      : (isConnected
+      : isConnected
         ? 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.04))'
-        : 'rgba(0,0,0,0.02)');
-    const headerBorder = isVirtual ? '1px solid rgba(139,92,246,0.2)' : (isConnected ? '1px solid rgba(16,185,129,0.2)' : '1px solid #e5e7eb');
+        : 'rgba(0,0,0,0.02)';
+    const headerBorder = isVirtual
+      ? '1px solid rgba(139,92,246,0.2)'
+      : isConnected
+        ? '1px solid rgba(16,185,129,0.2)'
+        : '1px solid #e5e7eb';
     const statusDot = isVirtual
       ? `<span style="font-size:18px;line-height:1;">🎛️</span>`
-      : (isConnected
+      : isConnected
         ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.25);animation:pulse 2s infinite;flex-shrink:0;"></span>`
-        : `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8;flex-shrink:0;"></span>`);
+        : `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8;flex-shrink:0;"></span>`;
 
     return `
       <div class="device-block" style="
@@ -613,12 +645,12 @@ class InstrumentManagementPage {
             data-device-name="${esc(rawDeviceName)}"
             class="inst-mgmt-device-settings-btn"
             style="background:none; border:1px solid transparent; cursor:pointer; font-size:16px; padding:5px 8px; border-radius:7px; transition:all 0.15s; flex-shrink:0; color:#6b7280;"
-            title="${typeof i18n !== 'undefined' ? (i18n.t('instruments.deviceSettings') || 'Réglages du périphérique') : 'Réglages du périphérique'}">⚙️</button>
+            title="${typeof i18n !== 'undefined' ? i18n.t('instruments.deviceSettings') || 'Réglages du périphérique' : 'Réglages du périphérique'}">⚙️</button>
         </div>
 
         <!-- Instrument sub-cards -->
         <div style="padding: 6px; display: flex; flex-direction: column; gap: 5px;">
-          ${instruments.map(inst => this.renderInstrumentSubCard(inst)).join('')}
+          ${instruments.map((inst) => this.renderInstrumentSubCard(inst)).join('')}
         </div>
       </div>
     `;
@@ -640,12 +672,13 @@ class InstrumentManagementPage {
     // resolver can look up the matching `drum_kit_<n>.svg`.
     const gmProgram = instrument.gm_program;
     const isDrumChannel = channel === 9;
-    const offset = (typeof GM_DRUM_KIT_OFFSET !== 'undefined') ? GM_DRUM_KIT_OFFSET : 128;
-    const resolverProgram = (isDrumChannel && gmProgram != null && gmProgram < offset)
-      ? (gmProgram + offset) : gmProgram;
-    const icon = (window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon)
-      ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: resolverProgram, channel })
-      : { svgUrl: null, emoji: '🎵', slug: null };
+    const offset = typeof GM_DRUM_KIT_OFFSET !== 'undefined' ? GM_DRUM_KIT_OFFSET : 128;
+    const resolverProgram =
+      isDrumChannel && gmProgram != null && gmProgram < offset ? gmProgram + offset : gmProgram;
+    const icon =
+      window.InstrumentFamilies && window.InstrumentFamilies.resolveInstrumentIcon
+        ? window.InstrumentFamilies.resolveInstrumentIcon({ gmProgram: resolverProgram, channel })
+        : { svgUrl: null, emoji: '🎵', slug: null };
 
     const iconHtml = icon.slug
       ? `<img src="${icon.svgUrl}" alt=""
@@ -658,21 +691,27 @@ class InstrumentManagementPage {
     // for the emoji badge next to the name and for the meta line).
     let handsCfg = instrument.hands_config;
     if (typeof handsCfg === 'string') {
-      try { handsCfg = JSON.parse(handsCfg); } catch (_) { handsCfg = null; }
+      try {
+        handsCfg = JSON.parse(handsCfg);
+      } catch (_) {
+        handsCfg = null;
+      }
     }
     const handsEnabled = !!(handsCfg && handsCfg.enabled === true);
     const handsCount = handsEnabled && Array.isArray(handsCfg.hands) ? handsCfg.hands.length : 0;
-    const handsEmoji = handsCount >= 2 ? '🙌' : (handsCount === 1 ? '🫱' : '');
-    const handsBadgeHtml = handsEnabled && handsEmoji
-      ? `<span title="${handsCount} ${handsCount > 1 ? 'mains configurées' : 'main configurée'}" style="font-size:14px;line-height:1;">${handsEmoji}</span>`
-      : '';
+    const handsEmoji = handsCount >= 2 ? '🙌' : handsCount === 1 ? '🫱' : '';
+    const handsBadgeHtml =
+      handsEnabled && handsEmoji
+        ? `<span title="${handsCount} ${handsCount > 1 ? 'mains configurées' : 'main configurée'}" style="font-size:14px;line-height:1;">${handsEmoji}</span>`
+        : '';
 
     // Lighting badge: 💡 when the instrument's firmware advertises any
     // of the CC 110-114 lighting controls (`lighting_enabled` in
     // `instruments_latency`).
-    const lightingBadgeHtml = (instrument.lighting_enabled === true || instrument.lighting_enabled === 1)
-      ? `<span title="${esc(i18n.t('instrumentManagement.lightingCapableTooltip') || 'Pilotage lumière via MIDI activé (CC 110-114)')}" style="font-size:14px;line-height:1;">💡</span>`
-      : '';
+    const lightingBadgeHtml =
+      instrument.lighting_enabled === true || instrument.lighting_enabled === 1
+        ? `<span title="${esc(i18n.t('instrumentManagement.lightingCapableTooltip') || 'Pilotage lumière via MIDI activé (CC 110-114)')}" style="font-size:14px;line-height:1;">💡</span>`
+        : '';
 
     const cardBg = `rgba(${this._hexToRgb(channelColor)}, 0.06)`;
     const cardBorder = `1px solid rgba(${this._hexToRgb(channelColor)}, 0.2)`;
@@ -718,23 +757,31 @@ class InstrumentManagementPage {
         <!-- Name (top) + channel tag (below) + secondary info -->
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px;">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            ${gmProgram !== null && gmProgram !== undefined
-              ? `<span style="color: var(--text-primary, #1f2937); font-weight: 700; font-size: 13px;">${esc(displayName)}</span>`
-              : `<span style="color: var(--text-muted, #9ca3af); font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`}
+            ${
+              gmProgram !== null && gmProgram !== undefined
+                ? `<span style="color: var(--text-primary, #1f2937); font-weight: 700; font-size: 13px;">${esc(displayName)}</span>`
+                : `<span style="color: var(--text-muted, #9ca3af); font-style: italic;">${i18n.t('instrumentManagement.gmProgramNotSet') || 'Programme GM non défini'}</span>`
+            }
             ${handsBadgeHtml}
             ${lightingBadgeHtml}
-            ${isComplete
-              ? `<span style="display:inline-block;padding:2px 7px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:700;">✓</span>`
-              : `<span style="display:inline-block;padding:2px 7px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:700;">⚠</span>`}
+            ${
+              isComplete
+                ? `<span style="display:inline-block;padding:2px 7px;background:#10b981;color:white;border-radius:10px;font-size:10px;font-weight:700;">✓</span>`
+                : `<span style="display:inline-block;padding:2px 7px;background:#f59e0b;color:white;border-radius:10px;font-size:10px;font-weight:700;">⚠</span>`
+            }
           </div>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <span style="display: inline-flex; align-items: center; padding: 1px 7px; background: ${channelColor}; color: white; border-radius: 10px; font-size: 10px; font-weight: 700; min-width: 38px; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">Ch ${channel + 1}</span>
             <span style="display: flex; gap: 8px; font-size: 11px; color: var(--text-secondary, #9ca3af);">
-              ${instrument.note_range_min != null && instrument.note_range_max != null
-                ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
-                : ((instrument.note_selection_mode === 'discrete' && Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
-                  ? `<span>🥁 ${instrument.selected_notes.length} notes</span>`
-                  : '')}
+              ${
+                instrument.note_range_min != null && instrument.note_range_max != null
+                  ? `<span>🎹 ${this.getNoteName(instrument.note_range_min)}-${this.getNoteName(instrument.note_range_max)}</span>`
+                  : instrument.note_selection_mode === 'discrete' &&
+                      Array.isArray(instrument.selected_notes) &&
+                      instrument.selected_notes.length > 0
+                    ? `<span>🥁 ${instrument.selected_notes.length} notes</span>`
+                    : ''
+              }
               ${instrument.polyphony ? `<span>poly: ${instrument.polyphony}</span>` : ''}
               ${handsEnabled ? `<span>${handsEmoji} ${handsCount} ${handsCount > 1 ? 'mains' : 'main'}</span>` : ''}
             </span>
@@ -759,12 +806,18 @@ class InstrumentManagementPage {
   getConnectionTypeInfo(instrument) {
     const type = instrument.type || '';
     switch (type) {
-      case 'bluetooth': return { icon: '📡', label: 'Bluetooth' };
-      case 'network': return { icon: '🌐', label: 'WiFi/Réseau' };
-      case 'serial': return { icon: '🔌', label: 'Série/GPIO' };
-      case 'usb': return { icon: '🔌', label: 'USB' };
-      case 'virtual': return { icon: '🖥️', label: 'Virtuel' };
-      default: return { icon: '🎹', label: type || 'Inconnu' };
+      case 'bluetooth':
+        return { icon: '📡', label: 'Bluetooth' };
+      case 'network':
+        return { icon: '🌐', label: 'WiFi/Réseau' };
+      case 'serial':
+        return { icon: '🔌', label: 'Série/GPIO' };
+      case 'usb':
+        return { icon: '🔌', label: 'USB' };
+      case 'virtual':
+        return { icon: '🖥️', label: 'Virtuel' };
+      default:
+        return { icon: '🎹', label: type || 'Inconnu' };
     }
   }
 
@@ -773,10 +826,22 @@ class InstrumentManagementPage {
    */
   getChannelColor(channel) {
     const colors = [
-      '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
-      '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16',
-      '#f97316', '#6366f1', '#14b8a6', '#e11d48',
-      '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
+      '#3b82f6',
+      '#ef4444',
+      '#10b981',
+      '#f59e0b',
+      '#8b5cf6',
+      '#ec4899',
+      '#06b6d4',
+      '#84cc16',
+      '#f97316',
+      '#6366f1',
+      '#14b8a6',
+      '#e11d48',
+      '#a855f7',
+      '#0ea5e9',
+      '#22c55e',
+      '#eab308'
     ];
     return colors[channel % colors.length];
   }
@@ -803,9 +868,11 @@ class InstrumentManagementPage {
     // For discrete mode, selected_notes defines the playable notes (no range needed)
     const isDiscrete = (instrument.note_selection_mode || instrument.mode) === 'discrete';
     const hasNotes = isDiscrete
-      ? (Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0)
-      : (instrument.note_range_min !== null && instrument.note_range_min !== undefined &&
-         instrument.note_range_max !== null && instrument.note_range_max !== undefined);
+      ? Array.isArray(instrument.selected_notes) && instrument.selected_notes.length > 0
+      : instrument.note_range_min !== null &&
+        instrument.note_range_min !== undefined &&
+        instrument.note_range_max !== null &&
+        instrument.note_range_max !== undefined;
 
     return hasGm && hasNotes && hasPolyphony && hasMode;
   }
@@ -828,8 +895,8 @@ class InstrumentManagementPage {
     if (!statsElement) return;
 
     const total = this.instruments.length;
-    const connected = this.instruments.filter(inst => inst.status === 2 || inst.connected).length;
-    const complete = this.instruments.filter(inst => this.isInstrumentComplete(inst)).length;
+    const connected = this.instruments.filter((inst) => inst.status === 2 || inst.connected).length;
+    const complete = this.instruments.filter((inst) => this.isInstrumentComplete(inst)).length;
     const incomplete = total - complete;
 
     statsElement.innerHTML = `
@@ -838,10 +905,14 @@ class InstrumentManagementPage {
       <span style="color: #10b981;"><strong>${connected}</strong> ${i18n.t('instrumentManagement.connectedCount') || 'connectés'}</span>
       <span>•</span>
       <span style="color: #10b981;"><strong>${complete}</strong> ${i18n.t('instrumentManagement.completeCount') || 'complets'}</span>
-      ${incomplete > 0 ? `
+      ${
+        incomplete > 0
+          ? `
         <span>•</span>
         <span style="color: #f59e0b;"><strong>${incomplete}</strong> ${i18n.t('instrumentManagement.incompleteCount') || 'incomplets'}</span>
-      ` : ''}
+      `
+          : ''
+      }
     `;
   }
 
@@ -882,8 +953,8 @@ class InstrumentManagementPage {
 
   editInstrument(deviceId, channel) {
     // Use the existing showInstrumentSettings modal
-    const instrument = this.instruments.find(inst =>
-      inst.id === deviceId && (channel === undefined || inst.channel === channel)
+    const instrument = this.instruments.find(
+      (inst) => inst.id === deviceId && (channel === undefined || inst.channel === channel)
     );
     if (instrument && window.showInstrumentSettings) {
       // Make sure the channel is set for showInstrumentSettings
@@ -892,7 +963,11 @@ class InstrumentManagementPage {
       }
       window.showInstrumentSettings(instrument);
     } else {
-      this.showToast(i18n.t('instrumentManagement.settingsNotAvailable') || 'Réglages non disponibles. Vérifiez que le module est chargé.', 'error');
+      this.showToast(
+        i18n.t('instrumentManagement.settingsNotAvailable') ||
+          'Réglages non disponibles. Vérifiez que le module est chargé.',
+        'error'
+      );
     }
   }
 
@@ -900,7 +975,7 @@ class InstrumentManagementPage {
    * Complete an instrument via InstrumentCapabilitiesModal or settings
    */
   async completeInstrument(deviceId) {
-    const instrument = this.instruments.find(inst => inst.id === deviceId);
+    const instrument = this.instruments.find((inst) => inst.id === deviceId);
     if (!instrument) return;
 
     try {
@@ -909,9 +984,10 @@ class InstrumentManagementPage {
 
       if (response && response.incompleteInstruments) {
         const incomplete = response.incompleteInstruments.find(
-          item => item.instrument.device_id === deviceId ||
-                  item.instrument.id === deviceId ||
-                  item.instrument.id === instrument.instrumentId
+          (item) =>
+            item.instrument.device_id === deviceId ||
+            item.instrument.id === deviceId ||
+            item.instrument.id === instrument.instrumentId
         );
 
         if (incomplete && window.InstrumentCapabilitiesModal) {
@@ -937,8 +1013,8 @@ class InstrumentManagementPage {
    */
   async testInstrument(deviceId, channel) {
     try {
-      const instrument = this.instruments.find(inst =>
-        inst.id === deviceId && (channel === undefined || inst.channel === channel)
+      const instrument = this.instruments.find(
+        (inst) => inst.id === deviceId && (channel === undefined || inst.channel === channel)
       );
 
       // Use provided channel, or instrument's channel, default to 0
@@ -949,13 +1025,20 @@ class InstrumentManagementPage {
       // Pick a test note within the instrument's capabilities
       let testNote = 60; // Default C4
       if (instrument) {
-        if (instrument.note_selection_mode === 'discrete' && instrument.selected_notes && instrument.selected_notes.length > 0) {
+        if (
+          instrument.note_selection_mode === 'discrete' &&
+          instrument.selected_notes &&
+          instrument.selected_notes.length > 0
+        ) {
           // For discrete mode, pick the first available note
           testNote = instrument.selected_notes[0];
         } else if (instrument.note_range_min !== undefined && instrument.note_range_min !== null) {
           // For range mode, ensure C4 is within range, otherwise pick middle of range
           const min = instrument.note_range_min;
-          const max = instrument.note_range_max !== undefined && instrument.note_range_max !== null ? instrument.note_range_max : 127;
+          const max =
+            instrument.note_range_max !== undefined && instrument.note_range_max !== null
+              ? instrument.note_range_max
+              : 127;
           if (testNote < min || testNote > max) {
             testNote = Math.round((min + max) / 2);
           }
@@ -970,9 +1053,17 @@ class InstrumentManagementPage {
         duration: 500
       });
 
-      this.showToast(i18n.t('instrumentManagement.testNoteSent') || 'Note de test envoyée ! (C4 - Do central)', 'success');
+      this.showToast(
+        i18n.t('instrumentManagement.testNoteSent') || 'Note de test envoyée ! (C4 - Do central)',
+        'success'
+      );
     } catch (error) {
-      this.showToast((i18n.t('instrumentManagement.testNoteFailed') || 'Échec de l\'envoi de la note de test') + ': ' + error.message, 'error');
+      this.showToast(
+        (i18n.t('instrumentManagement.testNoteFailed') || "Échec de l'envoi de la note de test") +
+          ': ' +
+          error.message,
+        'error'
+      );
     }
   }
 
@@ -981,9 +1072,10 @@ class InstrumentManagementPage {
    */
   async deleteInstrument(deviceId, channel) {
     const confirmed = await window.showConfirm(
-      i18n.t('instrumentManagement.deleteConfirm') || 'Êtes-vous sûr de vouloir supprimer cet instrument de la base de données ?\n\nNote : Le périphérique physique ne sera pas affecté.',
+      i18n.t('instrumentManagement.deleteConfirm') ||
+        'Êtes-vous sûr de vouloir supprimer cet instrument de la base de données ?\n\nNote : Le périphérique physique ne sera pas affecté.',
       {
-        title: i18n.t('instrumentManagement.deleteTitle') || 'Supprimer l\'instrument',
+        title: i18n.t('instrumentManagement.deleteTitle') || "Supprimer l'instrument",
         icon: '🗑️',
         okText: i18n.t('common.delete') || 'Supprimer',
         danger: true
@@ -999,10 +1091,18 @@ class InstrumentManagementPage {
         deleteData.channel = channel;
       }
       await this.apiClient.sendCommand('instrument_delete', deleteData);
-      this.showToast(i18n.t('instrumentManagement.deleteSuccess') || 'Instrument supprimé avec succès', 'success');
+      this.showToast(
+        i18n.t('instrumentManagement.deleteSuccess') || 'Instrument supprimé avec succès',
+        'success'
+      );
       await this.refresh();
     } catch (error) {
-      this.showToast((i18n.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') + ': ' + error.message, 'error');
+      this.showToast(
+        (i18n.t('instrumentManagement.deleteFailed') || 'Échec de la suppression') +
+          ': ' +
+          error.message,
+        'error'
+      );
     }
   }
 
@@ -1011,7 +1111,12 @@ class InstrumentManagementPage {
    */
   static VIRTUAL_PRESETS = [
     { type: 'piano', icon: '🎹', label: 'Piano', description: 'A0-C8, polyphonie 64' },
-    { type: 'electric_piano', icon: '🎹', label: 'Piano Électrique', description: 'E1-G7, polyphonie 32' },
+    {
+      type: 'electric_piano',
+      icon: '🎹',
+      label: 'Piano Électrique',
+      description: 'E1-G7, polyphonie 32'
+    },
     { type: 'organ', icon: '🎵', label: 'Orgue', description: 'C2-C7, polyphonie 16' },
     { type: 'guitar', icon: '🎸', label: 'Guitare', description: 'E2-E6, polyphonie 6' },
     { type: 'bass', icon: '🎸', label: 'Basse', description: 'E1-G4, polyphonie 4' },
@@ -1036,7 +1141,8 @@ class InstrumentManagementPage {
 
     // Create the selection dialog
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10100;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText =
+      'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:10100;display:flex;align-items:center;justify-content:center;';
 
     overlay.innerHTML = `
       <div class="inst-virt-dialog" style="background:white;border-radius:16px;width:90%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -1053,9 +1159,11 @@ class InstrumentManagementPage {
                  onfocus="this.style.borderColor='#8b5cf6'" onblur="this.style.borderColor='#e5e7eb'">
         </div>
         <div style="flex:1;overflow-y:auto;padding:16px 24px;">
-          <p class="inst-virt-hint" style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">${esc(i18n.t('instrumentManagement.selectType') || 'Sélectionnez un type d\'instrument :')}</p>
+          <p class="inst-virt-hint" style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">${esc(i18n.t('instrumentManagement.selectType') || "Sélectionnez un type d'instrument :")}</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
-            ${presets.map(p => `
+            ${presets
+              .map(
+                (p) => `
               <button class="virtual-preset-btn" data-type="${p.type || ''}"
                       style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:2px solid #e5e7eb;border-radius:10px;background:white;cursor:pointer;text-align:left;transition:all 0.15s;"
                       onmouseover="this.style.borderColor='#8b5cf6'"
@@ -1066,7 +1174,9 @@ class InstrumentManagementPage {
                   <div class="inst-virt-preset-desc" style="font-size:11px;color:#6b7280;margin-top:2px;">${esc(p.description)}</div>
                 </div>
               </button>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
       </div>
@@ -1080,7 +1190,7 @@ class InstrumentManagementPage {
     });
 
     // Handle a preset click
-    overlay.querySelectorAll('.virtual-preset-btn').forEach(btn => {
+    overlay.querySelectorAll('.virtual-preset-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const type = btn.dataset.type || null;
         const nameInput = overlay.querySelector('#virtualInstrumentName');
@@ -1111,8 +1221,8 @@ class InstrumentManagementPage {
 
       // Open settings for custom instruments (no type)
       if (!type && response.deviceId && window.showInstrumentSettings) {
-        const newInstrument = this.instruments.find(i =>
-          i.device_id === response.deviceId || i.id === response.deviceId
+        const newInstrument = this.instruments.find(
+          (i) => i.device_id === response.deviceId || i.id === response.deviceId
         );
         if (newInstrument) {
           window.showInstrumentSettings(newInstrument);
@@ -1120,7 +1230,9 @@ class InstrumentManagementPage {
       }
     } catch (error) {
       this.showToast(
-        (i18n.t('instrumentManagement.virtualCreateFailed') || 'Erreur de création') + ': ' + error.message,
+        (i18n.t('instrumentManagement.virtualCreateFailed') || 'Erreur de création') +
+          ': ' +
+          error.message,
         'error'
       );
     }
@@ -1135,7 +1247,10 @@ class InstrumentManagementPage {
       this.showToast(i18n.t('instrumentManagement.scanStarted') || 'Scan USB lancé...', 'success');
       setTimeout(() => this.refresh(), 1000);
     } catch (error) {
-      this.showToast((i18n.t('instrumentManagement.scanFailed') || 'Échec du scan') + ': ' + error.message, 'error');
+      this.showToast(
+        (i18n.t('instrumentManagement.scanFailed') || 'Échec du scan') + ': ' + error.message,
+        'error'
+      );
     }
   }
 
@@ -1147,7 +1262,10 @@ class InstrumentManagementPage {
     if (window.showBluetoothScan) {
       window.showBluetoothScan();
     } else {
-      this.showToast(i18n.t('instrumentManagement.bluetoothNotAvailable') || 'Scan Bluetooth non disponible', 'error');
+      this.showToast(
+        i18n.t('instrumentManagement.bluetoothNotAvailable') || 'Scan Bluetooth non disponible',
+        'error'
+      );
     }
   }
 
@@ -1159,7 +1277,10 @@ class InstrumentManagementPage {
     if (window.showNetworkScan) {
       window.showNetworkScan();
     } else {
-      this.showToast(i18n.t('instrumentManagement.networkNotAvailable') || 'Scan réseau non disponible', 'error');
+      this.showToast(
+        i18n.t('instrumentManagement.networkNotAvailable') || 'Scan réseau non disponible',
+        'error'
+      );
     }
   }
 

@@ -15,20 +15,28 @@ const src = readFileSync(
 
 function installCanvasStub() {
   const calls = [];
-  const ctx = new Proxy({ calls }, {
-    get(target, prop) {
-      if (prop === 'calls') return target.calls;
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|measureText|rect|clip|arc)$/.test(prop)) {
-        return (...args) => target.calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    { calls },
+    {
+      get(target, prop) {
+        if (prop === 'calls') return target.calls;
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|measureText|rect|clip|arc)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => target.calls.push({ method: prop, args });
+        }
+        return target[prop];
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        target.calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return target[prop];
-    },
-    set(target, prop, value) {
-      target[prop] = value;
-      target.calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -44,7 +52,7 @@ beforeEach(() => {
 
 function makeDiagram(opts = {}) {
   const canvas = document.getElementById('fb');
-  Object.defineProperty(canvas, 'clientWidth',  { value: 300, configurable: true });
+  Object.defineProperty(canvas, 'clientWidth', { value: 300, configurable: true });
   Object.defineProperty(canvas, 'clientHeight', { value: 600, configurable: true });
   return new window.FretboardDiagram(canvas, opts);
 }
@@ -108,20 +116,20 @@ describe('FretboardDiagram._drawHandWindow — paint side effect', () => {
     const ctx = installCanvasStub();
     document.body.innerHTML = '<canvas id="fb"></canvas>';
     const canvas = document.getElementById('fb');
-    Object.defineProperty(canvas, 'clientWidth',  { value: 300, configurable: true });
+    Object.defineProperty(canvas, 'clientWidth', { value: 300, configurable: true });
     Object.defineProperty(canvas, 'clientHeight', { value: 600, configurable: true });
     const d = new window.FretboardDiagram(canvas);
     d.setHandWindow({ anchorFret: 5, spanFrets: 4, level: 'warning' });
     // _drawHandWindow needs the fret-Y cache populated.
     d._drawHandWindow(300, 600);
 
-    const fillRects = ctx.calls.filter(c => c.method === 'fillRect');
-    const strokeRects = ctx.calls.filter(c => c.method === 'strokeRect');
+    const fillRects = ctx.calls.filter((c) => c.method === 'fillRect');
+    const strokeRects = ctx.calls.filter((c) => c.method === 'strokeRect');
     expect(fillRects.length).toBeGreaterThanOrEqual(1);
     expect(strokeRects.length).toBeGreaterThanOrEqual(1);
     // Dashed stroke: setLineDash called once with a non-empty array,
     // then once with [] to reset.
-    const dashCalls = ctx.calls.filter(c => c.method === 'setLineDash');
+    const dashCalls = ctx.calls.filter((c) => c.method === 'setLineDash');
     expect(dashCalls.length).toBe(2);
     expect(dashCalls[0].args[0]).toEqual([4, 3]);
     expect(dashCalls[1].args[0]).toEqual([]);
@@ -131,7 +139,7 @@ describe('FretboardDiagram._drawHandWindow — paint side effect', () => {
     const ctx = installCanvasStub();
     document.body.innerHTML = '<canvas id="fb"></canvas>';
     const canvas = document.getElementById('fb');
-    Object.defineProperty(canvas, 'clientWidth',  { value: 300, configurable: true });
+    Object.defineProperty(canvas, 'clientWidth', { value: 300, configurable: true });
     Object.defineProperty(canvas, 'clientHeight', { value: 600, configurable: true });
     const d = new window.FretboardDiagram(canvas);
     d.setHandWindow({ anchorFret: 5, spanFrets: 4, level: 'warning' });
@@ -150,7 +158,7 @@ describe('FretboardDiagram._drawHandWindow — paint side effect', () => {
     const ctx = installCanvasStub();
     document.body.innerHTML = '<canvas id="fb"></canvas>';
     const canvas = document.getElementById('fb');
-    Object.defineProperty(canvas, 'clientWidth',  { value: 300, configurable: true });
+    Object.defineProperty(canvas, 'clientWidth', { value: 300, configurable: true });
     Object.defineProperty(canvas, 'clientHeight', { value: 600, configurable: true });
     const d = new window.FretboardDiagram(canvas);
     d.setHandWindow({ anchorFret: 5, spanFrets: 4, level: 'infeasible' });

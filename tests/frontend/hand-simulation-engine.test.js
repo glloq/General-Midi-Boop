@@ -27,7 +27,7 @@ const semitonesHands = {
   mode: 'semitones',
   hand_move_semitones_per_sec: 60,
   hands: [
-    { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
     { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
@@ -87,7 +87,11 @@ describe('HandSimulationEngine — construction', () => {
 
   it('totalTicks equals the max note tick', () => {
     const { engine } = makeEngine({
-      notes: [{ tick: 0, note: 60 }, { tick: 1920, note: 64 }, { tick: 480, note: 62 }]
+      notes: [
+        { tick: 0, note: 60 },
+        { tick: 1920, note: 64 },
+        { tick: 480, note: 62 }
+      ]
     });
     expect(engine.totalTicks).toBe(1920);
   });
@@ -150,9 +154,9 @@ describe('HandSimulationEngine — events', () => {
   it('emits chord events as the playhead crosses note ticks', () => {
     const { engine, clock } = makeEngine({
       notes: [
-        { tick: 0,    note: 60 },
-        { tick: 480,  note: 64 },
-        { tick: 960,  note: 67 }
+        { tick: 0, note: 60 },
+        { tick: 480, note: 64 },
+        { tick: 960, note: 67 }
       ]
     });
     const chords = [];
@@ -160,7 +164,7 @@ describe('HandSimulationEngine — events', () => {
     engine.play();
     clock.tick(2000); // enough to cover all notes at 120bpm
     expect(chords.length).toBe(3);
-    expect(chords.map(c => c.tick)).toEqual([0, 480, 960]);
+    expect(chords.map((c) => c.tick)).toEqual([0, 480, 960]);
   });
 
   it('emits an end event once at end-of-timeline', () => {
@@ -175,8 +179,8 @@ describe('HandSimulationEngine — events', () => {
   it('emits shift events when hands move', () => {
     const { engine, clock } = makeEngine({
       notes: [
-        { tick: 0,    note: 60 },
-        { tick: 480,  note: 96 } // far above span — forces shift
+        { tick: 0, note: 60 },
+        { tick: 480, note: 96 } // far above span — forces shift
       ]
     });
     const shifts = [];
@@ -191,9 +195,9 @@ describe('HandSimulationEngine — seek', () => {
   it('jumps without re-emitting passed chords', () => {
     const { engine } = makeEngine({
       notes: [
-        { tick: 0,    note: 60 },
-        { tick: 480,  note: 64 },
-        { tick: 960,  note: 67 }
+        { tick: 0, note: 60 },
+        { tick: 480, note: 64 },
+        { tick: 960, note: 67 }
       ]
     });
     const chords = [];
@@ -207,7 +211,9 @@ describe('HandSimulationEngine — seek', () => {
   it('emits a tick event after seek (so the UI redraws)', () => {
     const { engine } = makeEngine({ notes: [{ tick: 1920, note: 60 }] });
     let lastTick = -1;
-    engine.on('tick', (e) => { lastTick = e.detail.currentTick; });
+    engine.on('tick', (e) => {
+      lastTick = e.detail.currentTick;
+    });
     engine.seek(960);
     expect(lastTick).toBe(960);
   });
@@ -222,7 +228,10 @@ describe('HandSimulationEngine — seek', () => {
 
   it('rewinding silently re-drains so future events fire correctly', () => {
     const { engine, clock } = makeEngine({
-      notes: [{ tick: 0, note: 60 }, { tick: 480, note: 64 }]
+      notes: [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 64 }
+      ]
     });
     const chords = [];
     engine.on('chord', (e) => chords.push(e.detail));
@@ -234,24 +243,31 @@ describe('HandSimulationEngine — seek', () => {
     engine.play();
     clock.tick(2000);
     // Chord at 480 must fire.
-    expect(chords.find(c => c.tick === 480)).toBeDefined();
+    expect(chords.find((c) => c.tick === 480)).toBeDefined();
   });
 });
 
 describe('HandSimulationEngine — advanceTo / advanceToSec (external clock)', () => {
   it('emits chord events as advanceTo crosses note ticks', () => {
     const { engine } = makeEngine({
-      notes: [{ tick: 0, note: 60 }, { tick: 240, note: 64 }, { tick: 480, note: 67 }]
+      notes: [
+        { tick: 0, note: 60 },
+        { tick: 240, note: 64 },
+        { tick: 480, note: 67 }
+      ]
     });
     const chords = [];
     engine.on('chord', (e) => chords.push(e.detail));
     engine.advanceTo(480);
-    expect(chords.map(c => c.tick)).toEqual([0, 240, 480]);
+    expect(chords.map((c) => c.tick)).toEqual([0, 240, 480]);
   });
 
   it('backward advanceTo falls back to silent seek', () => {
     const { engine } = makeEngine({
-      notes: [{ tick: 0, note: 60 }, { tick: 480, note: 64 }]
+      notes: [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 64 }
+      ]
     });
     const chords = [];
     engine.on('chord', (e) => chords.push(e.detail));
@@ -273,11 +289,14 @@ describe('HandSimulationEngine — advanceTo / advanceToSec (external clock)', (
   it('advanceToSec converts seconds to ticks at the configured tempo', () => {
     const { engine } = makeEngine({
       notes: [{ tick: 480, note: 60 }],
-      bpm: 60, ticksPerBeat: 480
+      bpm: 60,
+      ticksPerBeat: 480
     });
     // 0.5s at 60 bpm / 480 ppq → 240 ticks (one beat = 1s, 0.5s = half a beat).
     let ticks = 0;
-    engine.on('tick', (e) => { ticks = e.detail.currentTick; });
+    engine.on('tick', (e) => {
+      ticks = e.detail.currentTick;
+    });
     engine.advanceToSec(0.5);
     expect(ticks).toBe(240);
   });
@@ -287,7 +306,7 @@ describe('HandSimulationEngine — getHandTrajectories with note-off propagation
   it('attaches PER-HAND releaseTick from the matching chord to each shift point', () => {
     const { engine } = makeEngine({
       notes: [
-        { tick: 0,   note: 60, duration: 240 },
+        { tick: 0, note: 60, duration: 240 },
         { tick: 480, note: 80, duration: 120 }
       ]
     });
@@ -302,14 +321,17 @@ describe('HandSimulationEngine — getHandTrajectories with note-off propagation
     // Note 60 lands on ONE hand → that hand's first shift has
     // releaseTick = 240. The other hand is idle on chord 1 →
     // releaseTick = chord.tick = 0.
-    const firstShifts = [...trajectories.values()].flatMap(h => h.filter(p => p.tick === 0));
-    const releases = firstShifts.map(p => p.releaseTick).sort((a, b) => a - b);
+    const firstShifts = [...trajectories.values()].flatMap((h) => h.filter((p) => p.tick === 0));
+    const releases = firstShifts.map((p) => p.releaseTick).sort((a, b) => a - b);
     expect(releases).toContain(240);
   });
 
   it('falls back to releaseTick = tick when notes have no duration', () => {
     const { engine } = makeEngine({
-      notes: [{ tick: 0, note: 60 }, { tick: 480, note: 80 }]
+      notes: [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 80 }
+      ]
     });
     const trajectories = engine.getHandTrajectories();
     for (const points of trajectories.values()) {
@@ -319,7 +341,10 @@ describe('HandSimulationEngine — getHandTrajectories with note-off propagation
 
   it('attaches motion = { requiredSec, availableSec, feasible } and prevAnchor', () => {
     const { engine } = makeEngine({
-      notes: [{ tick: 0, note: 60 }, { tick: 480, note: 80 }]
+      notes: [
+        { tick: 0, note: 60 },
+        { tick: 480, note: 80 }
+      ]
     });
     const trajectories = engine.getHandTrajectories();
     for (const points of trajectories.values()) {
@@ -337,22 +362,23 @@ describe('HandSimulationEngine — getHandTrajectories with note-off propagation
     // ticksPerBeat=480 ⇒ 0.25 s available). A shift > 1.25 sem is
     // already infeasible.
     const slowHands = {
-      enabled: true, mode: 'semitones',
+      enabled: true,
+      mode: 'semitones',
       hand_move_semitones_per_sec: 5,
       hands: [
-        { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+        { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
         { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
       ]
     };
     const { engine } = makeEngine({
       instrument: { hands_config: slowHands },
       notes: [
-        { tick: 0,   note: 80, duration: 100 },
+        { tick: 0, note: 80, duration: 100 },
         { tick: 240, note: 105 }
       ]
     });
     const traj = engine.getHandTrajectories().get('right') || [];
-    const moving = traj.find(p => p.tick === 240);
+    const moving = traj.find((p) => p.tick === 240);
     expect(moving).toBeDefined();
     expect(moving.motion.feasible).toBe(false);
   });
@@ -363,10 +389,15 @@ describe('HandSimulationEngine — fallback when simulator absent', () => {
     const Eng = window.HandSimulationEngine;
     const clock = makeClock();
     const engine = new Eng({
-      notes: [{ tick: 0, note: 60 }, { tick: 240, note: 64 }],
+      notes: [
+        { tick: 0, note: 60 },
+        { tick: 240, note: 64 }
+      ],
       instrument: { hands_config: semitonesHands },
       simulator: null, // explicitly bypass
-      now: clock.now, requestAnimationFrame: clock.raf, cancelAnimationFrame: clock.caf
+      now: clock.now,
+      requestAnimationFrame: clock.raf,
+      cancelAnimationFrame: clock.caf
     });
     const chords = [];
     engine.on('chord', (e) => chords.push(e.detail));

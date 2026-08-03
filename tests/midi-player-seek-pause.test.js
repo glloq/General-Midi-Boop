@@ -68,4 +68,40 @@ describe('MidiPlayer.seek — pause preservation', () => {
     expect(player.position).toBe(10);
     expect(player.broadcastPosition).toHaveBeenCalled();
   });
+
+  test('seeking while paused does NOT stop the MIDI clock (resume must still work)', () => {
+    const player = makePlayer();
+    // A paused clock is still `_running`; stopPlayback() would clear that and
+    // make a later resume()'s resumePlayback() a permanent no-op (audit P2).
+    player.midiClockGenerator = {
+      stopPlayback: jest.fn(),
+      startPlayback: jest.fn(),
+      pausePlayback: jest.fn(),
+      resumePlayback: jest.fn()
+    };
+    player.playing = true;
+    player.paused = true;
+
+    player.seek(30);
+
+    expect(player.midiClockGenerator.stopPlayback).not.toHaveBeenCalled();
+    expect(player.paused).toBe(true);
+  });
+
+  test('seeking while actively playing stops the clock (it is restarted by start())', () => {
+    const player = makePlayer();
+    player.midiClockGenerator = {
+      stopPlayback: jest.fn(),
+      startPlayback: jest.fn(),
+      pausePlayback: jest.fn(),
+      resumePlayback: jest.fn()
+    };
+    player.playing = true;
+    player.paused = false;
+    player.outputDevice = 'devX';
+
+    player.seek(42);
+
+    expect(player.midiClockGenerator.stopPlayback).toHaveBeenCalled();
+  });
 });

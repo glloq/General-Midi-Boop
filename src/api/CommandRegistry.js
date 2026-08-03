@@ -80,9 +80,7 @@ class CommandRegistry {
    */
   register(command, handler) {
     if (this.handlers[command]) {
-      this.logger.warn(
-        `CommandRegistry: overwriting handler for '${command}'.`
-      );
+      this.logger.warn(`CommandRegistry: overwriting handler for '${command}'.`);
     }
     this.handlers[command] = handler;
   }
@@ -171,7 +169,9 @@ class CommandRegistry {
       // may still rely on imperative checks inside the handler.
       const cmdValidation = JsonValidator.validateByCommand(message.command, message.data || {});
       if (!cmdValidation.valid) {
-        throw new ValidationError(`Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`);
+        throw new ValidationError(
+          `Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`
+        );
       }
 
       const handler = this.handlers[message.command];
@@ -219,7 +219,7 @@ class CommandRegistry {
         cid,
         duration,
         success: false,
-        errorCode: (error instanceof ApplicationError) ? error.code : 'ERR_INTERNAL'
+        errorCode: error instanceof ApplicationError ? error.code : 'ERR_INTERNAL'
       });
 
       // Only expose ApplicationError messages to the client;
@@ -229,9 +229,13 @@ class CommandRegistry {
       if (ws.readyState === 1) {
         ws.send(
           JSON.stringify({
-            id: message.id,
+            // Optional chaining: a client can send the literal frame `null`
+            // (JSON.parse('null') === null); dereferencing message.id here would
+            // throw a TypeError inside the catch, losing the intended
+            // ValidationError response and returning an uncorrelated generic error.
+            id: message?.id,
             type: 'error',
-            command: message.command,
+            command: message?.command,
             error: isKnownError ? error.message : 'Internal server error',
             code: isKnownError ? error.code : undefined,
             timestamp: Date.now()

@@ -44,7 +44,11 @@ describe('planChannelRouting — guards', () => {
   });
 
   test('always accepts virtual-instrument even if not in knownDevices', () => {
-    const r = planChannelRouting({ ...baseArgs, routingValue: 'virtual-instrument', knownDevices: new Set(['dev-1']) });
+    const r = planChannelRouting({
+      ...baseArgs,
+      routingValue: 'virtual-instrument',
+      knownDevices: new Set(['dev-1'])
+    });
     expect(r.action).toBe('insert');
     expect(r.routing.device_id).toBe('virtual-instrument');
   });
@@ -94,15 +98,18 @@ describe('planChannelRouting — insert payloads', () => {
 
   test('preserves metadata when the same device is re-mapped', () => {
     const existing = new Map([
-      [0, {
-        device_id: 'dev-1',
-        instrument_name: 'Piano',
-        compatibility_score: 92,
-        transposition_applied: -2,
-        auto_assigned: true,
-        assignment_reason: 'auto-score',
-        note_remapping: null
-      }]
+      [
+        0,
+        {
+          device_id: 'dev-1',
+          instrument_name: 'Piano',
+          compatibility_score: 92,
+          transposition_applied: -2,
+          auto_assigned: true,
+          assignment_reason: 'auto-score',
+          note_remapping: null
+        }
+      ]
     ]);
     const r = planChannelRouting({ ...baseArgs, existingByChannel: existing });
     expect(r.routing).toMatchObject({
@@ -116,13 +123,16 @@ describe('planChannelRouting — insert payloads', () => {
 
   test('resets metadata when a different device takes over', () => {
     const existing = new Map([
-      [0, {
-        device_id: 'old-dev',
-        instrument_name: 'Piano',
-        compatibility_score: 92,
-        auto_assigned: true,
-        assignment_reason: 'auto-score'
-      }]
+      [
+        0,
+        {
+          device_id: 'old-dev',
+          instrument_name: 'Piano',
+          compatibility_score: 92,
+          auto_assigned: true,
+          assignment_reason: 'auto-score'
+        }
+      ]
     ]);
     const r = planChannelRouting({ ...baseArgs, existingByChannel: existing });
     expect(r.routing.device_id).toBe('dev-1');
@@ -134,9 +144,7 @@ describe('planChannelRouting — insert payloads', () => {
 
   test('serialises note_remapping to JSON when same device and object present', () => {
     const mapping = { 60: 72 };
-    const existing = new Map([
-      [0, { device_id: 'dev-1', note_remapping: mapping }]
-    ]);
+    const existing = new Map([[0, { device_id: 'dev-1', note_remapping: mapping }]]);
     const r = planChannelRouting({ ...baseArgs, existingByChannel: existing });
     expect(r.routing.note_remapping).toBe(JSON.stringify(mapping));
   });

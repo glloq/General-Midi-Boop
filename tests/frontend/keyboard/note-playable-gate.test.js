@@ -20,8 +20,7 @@ beforeAll(() => {
 });
 
 const playable = (caps, note) =>
-  win.KeyboardPianoMixin.isNotePlayable.call(
-    { selectedDeviceCapabilities: caps }, note);
+  win.KeyboardPianoMixin.isNotePlayable.call({ selectedDeviceCapabilities: caps }, note);
 
 describe('isNotePlayable — the chord-range gate', () => {
   it('no capabilities → entire 0..127 MIDI range is allowed', () => {
@@ -33,7 +32,7 @@ describe('isNotePlayable — the chord-range gate', () => {
   it('range mode honours note_range_min/max (incl. notes below the old 21 floor)', () => {
     const caps = { note_range_min: 12, note_range_max: 96 };
     expect(playable(caps, 11)).toBe(false);
-    expect(playable(caps, 12)).toBe(true);   // would be dropped by the old >=21 clamp
+    expect(playable(caps, 12)).toBe(true); // would be dropped by the old >=21 clamp
     expect(playable(caps, 60)).toBe(true);
     expect(playable(caps, 96)).toBe(true);
     expect(playable(caps, 97)).toBe(false);

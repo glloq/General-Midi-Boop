@@ -25,13 +25,25 @@ function makeLogger() {
     debugCalls: [],
     warnCalls: [],
     errorCalls: [],
-    isDebugEnabled() { return false; },
-    isInfoEnabled() { return true; },
-    isWarnEnabled() { return true; },
-    debug(msg) { this.debugCalls.push(msg); },
+    isDebugEnabled() {
+      return false;
+    },
+    isInfoEnabled() {
+      return true;
+    },
+    isWarnEnabled() {
+      return true;
+    },
+    debug(msg) {
+      this.debugCalls.push(msg);
+    },
     info() {},
-    warn(msg) { this.warnCalls.push(msg); },
-    error(msg) { this.errorCalls.push(msg); }
+    warn(msg) {
+      this.warnCalls.push(msg);
+    },
+    error(msg) {
+      this.errorCalls.push(msg);
+    }
   };
 }
 
@@ -47,7 +59,9 @@ function makeQueue(opts = {}) {
   const queue = new WsOutputQueue({
     clients,
     logger,
-    scheduleFlush: (cb) => { scheduled.push(cb); },
+    scheduleFlush: (cb) => {
+      scheduled.push(cb);
+    },
     ...rest
   });
   const drain = () => {

@@ -48,7 +48,9 @@ export function buildHandPositionWarnings(app, midiData, assignments) {
       if (analysis) return analysis;
       try {
         analysis = app.adaptationService?.analyzeChannel?.(midiData, channel) || null;
-      } catch (_) { analysis = null; }
+      } catch (_) {
+        analysis = null;
+      }
       return analysis;
     };
 
@@ -79,12 +81,15 @@ export function buildHandPositionWarnings(app, midiData, assignments) {
       let caps = null;
       try {
         caps = app.instrumentRepository.getCapabilities(target.deviceId, target.targetChannel);
-      } catch (_) { /* leave caps null → level 'unknown' */ }
+      } catch (_) {
+        /* leave caps null → level 'unknown' */
+      }
 
       const channelAnalysis = getAnalysis();
-      const feasibility = (caps && channelAnalysis)
-        ? matcher._scoreHandPositionFeasibility(channelAnalysis, caps)
-        : { level: 'unknown', qualityScore: 0, summary: {}, info: null, issue: null };
+      const feasibility =
+        caps && channelAnalysis
+          ? matcher._scoreHandPositionFeasibility(channelAnalysis, caps)
+          : { level: 'unknown', qualityScore: 0, summary: {}, info: null, issue: null };
 
       out.push({
         channel,
@@ -164,12 +169,25 @@ async function applyAssignments(app, data) {
         suppressOutOfRange: assignment.suppressOutOfRange || false,
         noteRangeMin: assignment.noteRangeMin,
         noteRangeMax: assignment.noteRangeMax,
-        maxPolyphony: (assignment.polyReduction && assignment.maxPolyphony) ? assignment.maxPolyphony : null,
+        maxPolyphony:
+          assignment.polyReduction && assignment.maxPolyphony ? assignment.maxPolyphony : null,
         polyStrategy: assignment.polyStrategy || 'drop',
-        ccMapping: (assignment.ccRemapping && Object.keys(assignment.ccRemapping).length > 0) ? assignment.ccRemapping : null
+        ccMapping:
+          assignment.ccRemapping && Object.keys(assignment.ccRemapping).length > 0
+            ? assignment.ccRemapping
+            : null
       };
-      if (assignment.noteCompression && assignment.noteRangeMin != null && assignment.noteRangeMax != null) {
-        postProcessing.push({ type: 'compression', channel: channelNum, min: assignment.noteRangeMin, max: assignment.noteRangeMax });
+      if (
+        assignment.noteCompression &&
+        assignment.noteRangeMin != null &&
+        assignment.noteRangeMax != null
+      ) {
+        postProcessing.push({
+          type: 'compression',
+          channel: channelNum,
+          min: assignment.noteRangeMin,
+          max: assignment.noteRangeMax
+        });
       }
     }
 
@@ -180,9 +198,14 @@ async function applyAssignments(app, data) {
 
     for (const step of postProcessing) {
       if (step.type === 'compression') {
-        const compResult = adaptation.compressChannel(adaptedMidiData, step.channel, step.min, step.max);
+        const compResult = adaptation.compressChannel(
+          adaptedMidiData,
+          step.channel,
+          step.min,
+          step.max
+        );
         adaptedMidiData = compResult.midiData;
-        stats.notesRemapped += (compResult.stats?.notesRemapped || 0);
+        stats.notesRemapped += compResult.stats?.notesRemapped || 0;
       }
     }
 
@@ -191,13 +214,15 @@ async function applyAssignments(app, data) {
       if (!assignment.split || !assignment.segments || assignment.segments.length < 2) continue;
       const channelNum = parseInt(channel);
 
-      if (assignment.behaviorMode === 'overflow' || assignment.behaviorMode === 'alternate') continue;
+      if (assignment.behaviorMode === 'overflow' || assignment.behaviorMode === 'alternate')
+        continue;
 
       const freeChannels = adaptation.findFreeChannels(adaptedMidiData);
       const neededChannels = assignment.segments.length - 1;
 
       if (freeChannels.length < neededChannels) {
-        const msg = `Channel ${channelNum + 1}: not enough free MIDI channels for physical split ` +
+        const msg =
+          `Channel ${channelNum + 1}: not enough free MIDI channels for physical split ` +
           `(${neededChannels} needed, ${freeChannels.length} available). Using real-time routing instead.`;
         app.logger.warn(`[ApplyAssignments] ${msg}`);
         warnings.push(msg);
@@ -222,7 +247,7 @@ async function applyAssignments(app, data) {
 
       app.logger.info(
         `[ApplyAssignments] Physically split ch ${channelNum} → ` +
-        `[${splitSegments.map(s => `ch${s.targetChannel}(${s.noteMin}-${s.noteMax})`).join(', ')}]`
+          `[${splitSegments.map((s) => `ch${s.targetChannel}(${s.noteMin}-${s.noteMax})`).join(', ')}]`
       );
     }
 
@@ -244,7 +269,7 @@ async function applyAssignments(app, data) {
       for (const targetCh of targetChannels) {
         let targetTrack = adaptedMidiData.tracks[0];
         for (const track of adaptedMidiData.tracks) {
-          if (track.events?.some(e => (e.channel ?? -1) === targetCh)) {
+          if (track.events?.some((e) => (e.channel ?? -1) === targetCh)) {
             targetTrack = track;
             break;
           }
@@ -260,8 +285,12 @@ async function applyAssignments(app, data) {
       }
     }
 
-    const hasModifications = (stats.notesChanged > 0 || stats.notesRemapped > 0 || stats.notesSuppressed > 0
-      || splitStats.channelsSplit > 0 || volumeEventsInjected > 0);
+    const hasModifications =
+      stats.notesChanged > 0 ||
+      stats.notesRemapped > 0 ||
+      stats.notesSuppressed > 0 ||
+      splitStats.channelsSplit > 0 ||
+      volumeEventsInjected > 0;
 
     if (hasModifications) {
       let adaptedBuffer;
@@ -294,11 +323,13 @@ async function applyAssignments(app, data) {
         let existingAdaptedId = null;
         try {
           const existingFiles = app.fileRepository.findByFolder(originalFile.folder);
-          const existingAdapted = existingFiles.find(f =>
-            f.parent_file_id === data.originalFileId && f.is_original === 0
+          const existingAdapted = existingFiles.find(
+            (f) => f.parent_file_id === data.originalFileId && f.is_original === 0
           );
           if (existingAdapted) existingAdaptedId = existingAdapted.id;
-        } catch (e) { app.logger.debug('Could not check for existing adapted file', e); }
+        } catch (e) {
+          app.logger.debug('Could not check for existing adapted file', e);
+        }
 
         try {
           if (existingAdaptedId) {
@@ -306,10 +337,14 @@ async function applyAssignments(app, data) {
             adaptedFileId = existingAdaptedId;
             app.logger.info(`Updated existing adapted file: ${adaptedFileId} (${adaptedFilename})`);
           } else {
-            const created = await app.fileManager.createDerivedFile(adaptedFilename, adaptedBuffer, {
-              folder: originalFile.folder,
-              parentFileId: data.originalFileId
-            });
+            const created = await app.fileManager.createDerivedFile(
+              adaptedFilename,
+              adaptedBuffer,
+              {
+                folder: originalFile.folder,
+                parentFileId: data.originalFileId
+              }
+            );
             adaptedFileId = created.fileId;
             app.logger.info(`Created adapted file: ${adaptedFileId} (${adaptedFilename})`);
           }
@@ -321,7 +356,9 @@ async function applyAssignments(app, data) {
       // rows must not re-apply them at runtime (audit P0 — double application).
       adaptationBaked = true;
     } else {
-      app.logger.info(`No transposition needed, saving routings against original file ${data.originalFileId}`);
+      app.logger.info(
+        `No transposition needed, saving routings against original file ${data.originalFileId}`
+      );
     }
   }
 
@@ -356,14 +393,15 @@ async function applyAssignments(app, data) {
     const channelNum = parseInt(channel);
 
     if (assignment.split && assignment.segments) {
-      const physicalSplit = assignment.segments.some(s => s._resolvedChannel !== undefined);
+      const physicalSplit = assignment.segments.some((s) => s._resolvedChannel !== undefined);
 
       if (physicalSplit) {
         for (const seg of assignment.segments) {
           const resolvedCh = seg._resolvedChannel ?? channelNum;
-          const segTargetChannel = seg.instrumentChannel !== undefined
-            ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
-            : resolvedCh;
+          const segTargetChannel =
+            seg.instrumentChannel !== undefined
+              ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
+              : resolvedCh;
           const routing = {
             midi_file_id: targetFileId,
             channel: resolvedCh,
@@ -380,12 +418,15 @@ async function applyAssignments(app, data) {
             note_remapping: null,
             enabled: true,
             created_at: Date.now(),
-            hand_position_feasibility: feasibilityByChannelDevice.get(`${channelNum}:${seg.deviceId}`) || null
+            hand_position_feasibility:
+              feasibilityByChannelDevice.get(`${channelNum}:${seg.deviceId}`) || null
           };
           try {
             app.routingRepository.save(routing);
           } catch (dbError) {
-            app.logger.warn(`Failed to persist routing for split segment ch ${resolvedCh}: ${dbError.message}`);
+            app.logger.warn(
+              `Failed to persist routing for split segment ch ${resolvedCh}: ${dbError.message}`
+            );
           }
           if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
             app.midiPlayer.setChannelRouting(resolvedCh, seg.deviceId, segTargetChannel);
@@ -396,13 +437,14 @@ async function applyAssignments(app, data) {
           routings.push(routing);
         }
         app.logger.info(
-          `Physically split channel ${channelNum} → ${assignment.segments.map(s => `ch${s._resolvedChannel}`).join(', ')} (${assignment.splitMode})`
+          `Physically split channel ${channelNum} → ${assignment.segments.map((s) => `ch${s._resolvedChannel}`).join(', ')} (${assignment.splitMode})`
         );
       } else {
-        const segments = assignment.segments.map(seg => {
-          const segTargetChannel = seg.instrumentChannel !== undefined
-            ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
-            : channelNum;
+        const segments = assignment.segments.map((seg) => {
+          const segTargetChannel =
+            seg.instrumentChannel !== undefined
+              ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
+              : channelNum;
 
           return {
             target_channel: segTargetChannel,
@@ -433,7 +475,9 @@ async function applyAssignments(app, data) {
         try {
           app.routingRepository.saveSplit(targetFileId, channelNum, segments);
         } catch (dbError) {
-          app.logger.warn(`Failed to persist split routings for channel ${channelNum}: ${dbError.message}`);
+          app.logger.warn(
+            `Failed to persist split routings for channel ${channelNum}: ${dbError.message}`
+          );
         }
 
         if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
@@ -443,7 +487,9 @@ async function applyAssignments(app, data) {
           }
         }
 
-        routings.push(...segments.map(s => ({ ...s, midi_file_id: targetFileId, channel: channelNum })));
+        routings.push(
+          ...segments.map((s) => ({ ...s, midi_file_id: targetFileId, channel: channelNum }))
+        );
         app.logger.info(
           `Split channel ${channelNum} across ${segments.length} instruments using playback routing (${assignment.splitMode})`
         );
@@ -451,9 +497,10 @@ async function applyAssignments(app, data) {
       continue;
     }
 
-    let instrumentTargetChannel = assignment.instrumentChannel !== undefined
-      ? Math.max(0, Math.min(15, parseInt(assignment.instrumentChannel) || 0))
-      : channelNum;
+    let instrumentTargetChannel =
+      assignment.instrumentChannel !== undefined
+        ? Math.max(0, Math.min(15, parseInt(assignment.instrumentChannel) || 0))
+        : channelNum;
 
     const routing = {
       midi_file_id: targetFileId,
@@ -465,12 +512,15 @@ async function applyAssignments(app, data) {
       transposition_applied: runtimeSemitones(assignment),
       auto_assigned: true,
       assignment_reason: assignment.info
-        ? (Array.isArray(assignment.info) ? assignment.info.join('; ') : String(assignment.info))
+        ? Array.isArray(assignment.info)
+          ? assignment.info.join('; ')
+          : String(assignment.info)
         : 'Auto-assigned',
       note_remapping: runtimeRemapJson(assignment),
       enabled: true,
       created_at: Date.now(),
-      hand_position_feasibility: feasibilityByChannelDevice.get(`${channelNum}:${assignment.deviceId}`) || null
+      hand_position_feasibility:
+        feasibilityByChannelDevice.get(`${channelNum}:${assignment.deviceId}`) || null
     };
 
     try {
@@ -545,9 +595,10 @@ async function applyAssignments(app, data) {
       warnings.push(msg);
     }
   } else if (await _hasHandConfigRouting(app, routings)) {
-    const msg = `Hand-position CCs not baked into file ${targetFileId}: ` +
-                `adapted-blob persistence is incomplete (see PlaybackAssignmentCommands ` +
-                `bake-gate comment). Live playback unaffected; editor CC pane will be empty.`;
+    const msg =
+      `Hand-position CCs not baked into file ${targetFileId}: ` +
+      `adapted-blob persistence is incomplete (see PlaybackAssignmentCommands ` +
+      `bake-gate comment). Live playback unaffected; editor CC pane will be empty.`;
     app.logger.warn(`[ApplyAssignments] ${msg}`);
     warnings.push(msg);
   }
@@ -588,7 +639,9 @@ async function _hasHandConfigRouting(app, routings) {
       if (cfg && cfg.enabled !== false && Array.isArray(cfg.hands) && cfg.hands.length > 0) {
         return true;
       }
-    } catch { /* skip — missing caps is the same as "no hands_config" */ }
+    } catch {
+      /* skip — missing caps is the same as "no hands_config" */
+    }
   }
   return false;
 }
@@ -638,7 +691,8 @@ async function getInstrumentDefaults(app, data) {
   if (instrument.device_id) {
     try {
       currentCapabilities = app.instrumentRepository.getCapabilities(
-        instrument.device_id, instrument.channel || 0
+        instrument.device_id,
+        instrument.channel || 0
       );
     } catch (e) {
       // Capabilities may not exist yet
@@ -681,8 +735,14 @@ async function updateInstrumentCapabilities(app, data) {
 
       const basicFields = {};
       const capabilityFields = {};
-      const capabilityFieldNames = ['note_range_min', 'note_range_max', 'polyphony',
-                                    'note_selection_mode', 'supported_ccs', 'selected_notes'];
+      const capabilityFieldNames = [
+        'note_range_min',
+        'note_range_max',
+        'polyphony',
+        'note_selection_mode',
+        'supported_ccs',
+        'selected_notes'
+      ];
 
       for (const [field, value] of Object.entries(fields)) {
         if (capabilityFieldNames.includes(field)) {
@@ -697,12 +757,18 @@ async function updateInstrumentCapabilities(app, data) {
       }
 
       if (Object.keys(capabilityFields).length > 0) {
-        const channel = fields.channel !== undefined ? fields.channel : (instrument.channel || 0);
-        app.instrumentRepository.updateCapabilities(instrument.device_id, channel, capabilityFields);
+        const channel = fields.channel !== undefined ? fields.channel : instrument.channel || 0;
+        app.instrumentRepository.updateCapabilities(
+          instrument.device_id,
+          channel,
+          capabilityFields
+        );
       }
 
       updated.push(id);
-      app.logger.info(`Updated capabilities for instrument ${id}: ${Object.keys(fields).join(', ')}`);
+      app.logger.info(
+        `Updated capabilities for instrument ${id}: ${Object.keys(fields).join(', ')}`
+      );
     } catch (error) {
       failed.push({ instrumentId: parseInt(instrumentId), error: error.message });
     }
@@ -738,15 +804,14 @@ async function getFileRoutings(app, data) {
     : { status: 'unrouted', routedCount: 0, channelCount: 0 };
 
   const scores = routings
-    .map(r => r.compatibility_score)
-    .filter(s => s !== null && s !== undefined);
-  const avgScore = scores.length > 0
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-    : null;
+    .map((r) => r.compatibility_score)
+    .filter((s) => s !== null && s !== undefined);
+  const avgScore =
+    scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 
-  const transpositions = [...new Set(
-    routings.map(r => r.transposition_applied || 0).filter(t => t !== 0)
-  )];
+  const transpositions = [
+    ...new Set(routings.map((r) => r.transposition_applied || 0).filter((t) => t !== 0))
+  ];
 
   return {
     success: true,
@@ -756,7 +821,7 @@ async function getFileRoutings(app, data) {
     routedCount: statusResult.routedCount,
     channelCount: statusResult.channelCount,
     avgScore,
-    transpositions,
+    transpositions
   };
 }
 
@@ -767,8 +832,12 @@ async function getFileRoutings(app, data) {
  */
 export function register(registry, app) {
   registry.register('apply_assignments', (data) => applyAssignments(app, data));
-  registry.register('validate_instrument_capabilities', (_data) => validateInstrumentCapabilities(app));
+  registry.register('validate_instrument_capabilities', (_data) =>
+    validateInstrumentCapabilities(app)
+  );
   registry.register('get_instrument_defaults', (data) => getInstrumentDefaults(app, data));
-  registry.register('update_instrument_capabilities', (data) => updateInstrumentCapabilities(app, data));
+  registry.register('update_instrument_capabilities', (data) =>
+    updateInstrumentCapabilities(app, data)
+  );
   registry.register('get_file_routings', (data) => getFileRoutings(app, data));
 }

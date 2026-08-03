@@ -8,41 +8,41 @@
 //   (P2-F.10l body rewrite — no longer a prototype mixin.)
 // ============================================================================
 
-(function() {
-    'use strict';
+(function () {
+  'use strict';
 
-    class MidiEditorLifecycle {
-        constructor(modal) {
-            this.modal = modal;
-        }
+  class MidiEditorLifecycle {
+    constructor(modal) {
+      this.modal = modal;
+    }
 
     close() {
-        this.log('debug', `close() called, isDirty: ${this.modal.isDirty}`);
+      this.log('debug', `close() called, isDirty: ${this.modal.isDirty}`);
 
-    // Prevent a second unsaved-changes dialog while one is already visible,
-    // or while a "save and close" async save is in progress.
-        if (document.querySelector('.unsaved-changes-modal') || this.modal._isSavingAndClosing) {
-            return;
-        }
+      // Prevent a second unsaved-changes dialog while one is already visible,
+      // or while a "save and close" async save is in progress.
+      if (document.querySelector('.unsaved-changes-modal') || this.modal._isSavingAndClosing) {
+        return;
+      }
 
-    // Check for unsaved changes
-        if (this.modal.isDirty) {
-            this.log('debug', 'Has unsaved changes, showing modal');
-            this.showUnsavedChangesModal();
-            return;
-        }
+      // Check for unsaved changes
+      if (this.modal.isDirty) {
+        this.log('debug', 'Has unsaved changes, showing modal');
+        this.showUnsavedChangesModal();
+        return;
+      }
 
-        this.log('debug', 'No unsaved changes, closing directly');
-        this.doClose();
+      this.log('debug', 'No unsaved changes, closing directly');
+      this.doClose();
     }
 
     showUnsavedChangesModal() {
-        this.log('debug', 'Showing unsaved changes modal');
+      this.log('debug', 'Showing unsaved changes modal');
 
-    // Create the confirmation modal
-        const confirmModal = document.createElement('div');
-        confirmModal.className = 'modal-overlay unsaved-changes-modal';
-        confirmModal.style.cssText = `
+      // Create the confirmation modal
+      const confirmModal = document.createElement('div');
+      confirmModal.className = 'modal-overlay unsaved-changes-modal';
+      confirmModal.style.cssText = `
             position: fixed;
             top: 0;
             left: 0;
@@ -55,19 +55,19 @@
             z-index: 10003 !important;
         `;
 
-        const isDark = document.body.classList.contains('dark-mode');
-        const dlgBg = isDark ? '#2a2a2a' : '#ffffff';
-        const dlgBorder = isDark ? '#ff6b6b' : '#ef476f';
-        const dlgShadow = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(102,126,234,0.2)';
-        const dlgTextColor = isDark ? '#ddd' : '#2d3561';
-        const dlgWarnColor = isDark ? '#ff6b6b' : '#ef476f';
-        const cancelBg = isDark ? '#444' : '#e8eeff';
-        const cancelBorder = isDark ? '#666' : '#d4daff';
-        const cancelColor = isDark ? '#fff' : '#2d3561';
-        const saveBg = isDark ? '#4CAF50' : '#06d6a0';
-        const discardBg = isDark ? '#f44336' : '#ef476f';
+      const isDark = document.body.classList.contains('dark-mode');
+      const dlgBg = isDark ? '#2a2a2a' : '#ffffff';
+      const dlgBorder = isDark ? '#ff6b6b' : '#ef476f';
+      const dlgShadow = isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(102,126,234,0.2)';
+      const dlgTextColor = isDark ? '#ddd' : '#2d3561';
+      const dlgWarnColor = isDark ? '#ff6b6b' : '#ef476f';
+      const cancelBg = isDark ? '#444' : '#e8eeff';
+      const cancelBorder = isDark ? '#666' : '#d4daff';
+      const cancelColor = isDark ? '#fff' : '#2d3561';
+      const saveBg = isDark ? '#4CAF50' : '#06d6a0';
+      const discardBg = isDark ? '#f44336' : '#ef476f';
 
-        confirmModal.innerHTML = `
+      confirmModal.innerHTML = `
             <div class="modal-dialog" style="
                 background: ${dlgBg};
                 border: 2px solid ${dlgBorder};
@@ -134,281 +134,298 @@
             </div>
         `;
 
-        document.body.appendChild(confirmModal);
-        this.log('debug', 'Modal appended to body');
+      document.body.appendChild(confirmModal);
+      this.log('debug', 'Modal appended to body');
 
-    // Fermer avec Escape
-        const escHandler = (e) => {
-            if (e.key === 'Escape') {
-                this.log('debug', 'Escape pressed in modal');
-                confirmModal.remove();
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
-        document.addEventListener('keydown', escHandler);
+      // Fermer avec Escape
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          this.log('debug', 'Escape pressed in modal');
+          confirmModal.remove();
+          document.removeEventListener('keydown', escHandler);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
 
-    // Bouton Annuler
-        const cancelBtn = confirmModal.querySelector('#unsaved-cancel-btn');
-        cancelBtn.addEventListener('click', () => {
-            this.log('debug', 'Cancel clicked');
-            document.removeEventListener('keydown', escHandler);
-            confirmModal.remove();
-        });
+      // Bouton Annuler
+      const cancelBtn = confirmModal.querySelector('#unsaved-cancel-btn');
+      cancelBtn.addEventListener('click', () => {
+        this.log('debug', 'Cancel clicked');
+        document.removeEventListener('keydown', escHandler);
+        confirmModal.remove();
+      });
 
-    // Bouton Sauvegarder et fermer
-        const saveBtn = confirmModal.querySelector('#unsaved-save-btn');
-        saveBtn.addEventListener('click', async () => {
-            this.log('debug', 'Save and close clicked');
-            document.removeEventListener('keydown', escHandler);
-            confirmModal.remove();
-            this.modal._isSavingAndClosing = true;
-            try {
-                await this.modal.fileOps.saveMidiFile();
-            } finally {
-                this.modal._isSavingAndClosing = false;
-            }
-    // Close after saving
-            this.doClose();
-        });
+      // Bouton Sauvegarder et fermer
+      const saveBtn = confirmModal.querySelector('#unsaved-save-btn');
+      saveBtn.addEventListener('click', async () => {
+        this.log('debug', 'Save and close clicked');
+        document.removeEventListener('keydown', escHandler);
+        confirmModal.remove();
+        this.modal._isSavingAndClosing = true;
+        try {
+          await this.modal.fileOps.saveMidiFile();
+        } finally {
+          this.modal._isSavingAndClosing = false;
+        }
+        // Close after saving
+        this.doClose();
+      });
 
-    // Bouton Fermer sans sauvegarder
-        const discardBtn = confirmModal.querySelector('#unsaved-discard-btn');
-        discardBtn.addEventListener('click', () => {
-            this.log('debug', 'Discard and close clicked');
-            document.removeEventListener('keydown', escHandler);
-            confirmModal.remove();
-            this.doClose();
-        });
+      // Bouton Fermer sans sauvegarder
+      const discardBtn = confirmModal.querySelector('#unsaved-discard-btn');
+      discardBtn.addEventListener('click', () => {
+        this.log('debug', 'Discard and close clicked');
+        document.removeEventListener('keydown', escHandler);
+        confirmModal.remove();
+        this.doClose();
+      });
     }
 
     doClose() {
-    // Re-entrancy guard: doClose() may be called a second time if cleanup
-    // threw on a previous attempt and the container was left visible.
-        if (this.modal._isClosing) {
-            this.log('warn', 'doClose() re-entered — skipping duplicate call');
-            return;
+      // Re-entrancy guard: doClose() may be called a second time if cleanup
+      // threw on a previous attempt and the container was left visible.
+      if (this.modal._isClosing) {
+        this.log('warn', 'doClose() re-entered — skipping duplicate call');
+        return;
+      }
+      this.modal._isClosing = true;
+
+      try {
+        // Clean up channel settings popover (now in document.body)
+        this.modal.tablatureOps._closeChannelSettingsPopover();
+
+        // Unsubscribe from locale changes
+        if (this.modal.localeUnsubscribe) {
+          this.modal.localeUnsubscribe();
+          this.modal.localeUnsubscribe = null;
         }
-        this.modal._isClosing = true;
 
-        try {
-    // Clean up channel settings popover (now in document.body)
-            this.modal.tablatureOps._closeChannelSettingsPopover();
-
-    // Unsubscribe from locale changes
-            if (this.modal.localeUnsubscribe) {
-                this.modal.localeUnsubscribe();
-                this.modal.localeUnsubscribe = null;
-            }
-
-    // Stop viewport synchronization
-            if (this.modal.pianoRollRenderer && this.modal._viewportChangeHandler) {
-                this.modal.pianoRollRenderer.off('viewportchange', this.modal._viewportChangeHandler);
-                this.modal._viewportChangeHandler = null;
-            }
+        // Stop viewport synchronization
+        if (this.modal.pianoRollRenderer && this.modal._viewportChangeHandler) {
+          this.modal.pianoRollRenderer.off('viewportchange', this.modal._viewportChangeHandler);
+          this.modal._viewportChangeHandler = null;
+        }
         // Fallback: clear legacy polling interval if still present
-            if (this.modal.syncInterval) {
-                clearInterval(this.modal.syncInterval);
-                this.modal.syncInterval = null;
-            }
-
-    // Nettoyer le piano roll
-            if (this.modal.pianoRollRenderer) {
-                this.modal.pianoRollRenderer.destroy();
-                this.modal.pianoRollRenderer = null;
-                this.modal.pianoRoll = null;
-            }
-
-    // Nettoyer la barre de navigation overview
-            if (this.modal.navigationBar) {
-                this.modal.navigationBar.destroy();
-                this.modal.navigationBar = null;
-            }
-
-    // Tear down the piano-roll container ResizeObserver
-            if (this.modal._pianoRollContainerObs) {
-                try { this.modal._pianoRollContainerObs.disconnect(); } catch (_) { /* best-effort */ }
-                this.modal._pianoRollContainerObs = null;
-            }
-
-    // Cancel a still-pending background synth warm-up (audit P1.1) so it
-    // can't run after teardown and re-create an orphan AudioContext.
-            if (this.modal._warmupIdleHandle != null && this.modal._warmupIdleCancel) {
-                try { this.modal._warmupIdleCancel(this.modal._warmupIdleHandle); } catch (_) { /* best-effort */ }
-                this.modal._warmupIdleHandle = null;
-            }
-
-    // Nettoyer la barre de timeline
-            if (this.modal.timelineBar) {
-                this.modal.timelineBar.destroy();
-                this.modal.timelineBar = null;
-            }
-
-    // Clean up the CC/pitch-bend editor
-            if (this.modal.ccEditor) {
-                this.modal.ccEditor.destroy();
-                this.modal.ccEditor = null;
-            }
-            this.modal.ccEvents = [];
-            this.modal.ccSectionExpanded = false;
-            this.modal.currentCCType = 'cc1';
-            this.modal._ccChannelDelegationAttached = false;
-
-    // Clean up the velocity editor
-            if (this.modal.velocityEditor) {
-                this.modal.velocityEditor.destroy();
-                this.modal.velocityEditor = null;
-            }
-
-    // Clean up the tempo editor
-            if (this.modal.tempoEditor) {
-                this.modal.tempoEditor.destroy();
-                this.modal.tempoEditor = null;
-            }
-            this.modal.tempoEvents = [];
-
-    // Clean up the tablature editor
-            if (this.modal.tablatureEditor) {
-                this.modal.tablatureEditor.destroy();
-                this.modal.tablatureEditor = null;
-            }
-
-    // Clean up the drum-pattern editor
-            if (this.modal.drumPatternEditor) {
-                this.modal.drumPatternEditor.destroy();
-                this.modal.drumPatternEditor = null;
-            }
-
-    // Clean up the wind-instrument editor
-            if (this.modal.windInstrumentEditor) {
-                this.modal.windInstrumentEditor.destroy();
-                this.modal.windInstrumentEditor = null;
-            }
-
-    // Stop playback BEFORE disposing the synth so any in-flight preview
-    // (transport tick loop, scheduler) is halted on a known-good code path
-    // even if the dispose chain later throws.
-            try { this.modal.playbackStop?.(); } catch (_) { /* best-effort */ }
-
-    // Clean up the synthesizer
-            this.modal.disposeSynthesizer();
-
-    // Resize-drag listeners (mousemove/mouseup on document) are now
-    // detached automatically via the AbortController signal in
-    // MidiEditorEvents.detachEvents() (audit §7.1). The fallback path
-    // below only fires when attachEvents() hadn't run yet (very rare
-    // init ordering edge-case) — keep the manual removal for safety.
-            if (this.modal._resizeDoResize) {
-                document.removeEventListener('mousemove', this.modal._resizeDoResize);
-                document.removeEventListener('mouseup',   this.modal._resizeStopResize);
-                this.modal._resizeDoResize = null;
-                this.modal._resizeStopResize = null;
-            }
-
-    // Retirer le gestionnaire beforeunload
-            this.removeBeforeUnloadHandler();
-
-    // Unsubscribe from external routing changes
-            if (this.modal.eventBus && this.modal._onExternalRoutingChanged) {
-                this.modal.eventBus.off('routing:changed', this.modal._onExternalRoutingChanged);
-                this.modal._onExternalRoutingChanged = null;
-            }
-
-    // Abort the session-scoped AbortController so any `document`/`window`
-    // listener registered through MidiEditorEvents.getAbortSignal() is
-    // detached. Catches popover close handlers that survived past the
-    // modal lifetime (audit §7.1).
-            try { this.modal.events?.detachEvents?.(); } catch (_) { /* best-effort */ }
-
-        } catch (err) {
-            this.log('error', 'Error during editor cleanup (container will still be removed):', err);
-        } finally {
-    // ALWAYS remove the keyboard shortcut handler, the container, and reset
-    // isOpen — even if any cleanup step above threw. This prevents the
-    // "close twice" symptom where a partial cleanup leaves the modal visible.
-            if (this.modal.keyboardHandler) {
-                document.removeEventListener('keydown', this.modal.keyboardHandler);
-                this.modal.keyboardHandler = null;
-            }
-
-            if (this.modal.container) {
-                this.modal.container.remove();
-                this.modal.container = null;
-            }
-
-            this.modal.isOpen = false;
-            this.modal._isClosing = false;
-            this.modal.currentFile = null;
-            this.modal.currentFilename = null;
-            this.modal.midiData = null;
-            this.modal.isDirty = false;
-            this.modal.sequence = [];
-            this.modal.fullSequence = [];
-            this.modal.activeChannels.clear();
-            this.modal.channels = [];
-            this.modal.clipboard = [];
-
-    // Emit event
-            if (this.modal.eventBus) {
-                this.modal.eventBus.emit('midi_editor:closed', {});
-            }
+        if (this.modal.syncInterval) {
+          clearInterval(this.modal.syncInterval);
+          this.modal.syncInterval = null;
         }
+
+        // Nettoyer le piano roll
+        if (this.modal.pianoRollRenderer) {
+          this.modal.pianoRollRenderer.destroy();
+          this.modal.pianoRollRenderer = null;
+          this.modal.pianoRoll = null;
+        }
+
+        // Nettoyer la barre de navigation overview
+        if (this.modal.navigationBar) {
+          this.modal.navigationBar.destroy();
+          this.modal.navigationBar = null;
+        }
+
+        // Tear down the piano-roll container ResizeObserver
+        if (this.modal._pianoRollContainerObs) {
+          try {
+            this.modal._pianoRollContainerObs.disconnect();
+          } catch (_) {
+            /* best-effort */
+          }
+          this.modal._pianoRollContainerObs = null;
+        }
+
+        // Cancel a still-pending background synth warm-up (audit P1.1) so it
+        // can't run after teardown and re-create an orphan AudioContext.
+        if (this.modal._warmupIdleHandle != null && this.modal._warmupIdleCancel) {
+          try {
+            this.modal._warmupIdleCancel(this.modal._warmupIdleHandle);
+          } catch (_) {
+            /* best-effort */
+          }
+          this.modal._warmupIdleHandle = null;
+        }
+
+        // Nettoyer la barre de timeline
+        if (this.modal.timelineBar) {
+          this.modal.timelineBar.destroy();
+          this.modal.timelineBar = null;
+        }
+
+        // Clean up the CC/pitch-bend editor
+        if (this.modal.ccEditor) {
+          this.modal.ccEditor.destroy();
+          this.modal.ccEditor = null;
+        }
+        this.modal.ccEvents = [];
+        this.modal.ccSectionExpanded = false;
+        this.modal.currentCCType = 'cc1';
+        this.modal._ccChannelDelegationAttached = false;
+
+        // Clean up the velocity editor
+        if (this.modal.velocityEditor) {
+          this.modal.velocityEditor.destroy();
+          this.modal.velocityEditor = null;
+        }
+
+        // Clean up the tempo editor
+        if (this.modal.tempoEditor) {
+          this.modal.tempoEditor.destroy();
+          this.modal.tempoEditor = null;
+        }
+        this.modal.tempoEvents = [];
+
+        // Clean up the tablature editor
+        if (this.modal.tablatureEditor) {
+          this.modal.tablatureEditor.destroy();
+          this.modal.tablatureEditor = null;
+        }
+
+        // Clean up the drum-pattern editor
+        if (this.modal.drumPatternEditor) {
+          this.modal.drumPatternEditor.destroy();
+          this.modal.drumPatternEditor = null;
+        }
+
+        // Clean up the wind-instrument editor
+        if (this.modal.windInstrumentEditor) {
+          this.modal.windInstrumentEditor.destroy();
+          this.modal.windInstrumentEditor = null;
+        }
+
+        // Stop playback BEFORE disposing the synth so any in-flight preview
+        // (transport tick loop, scheduler) is halted on a known-good code path
+        // even if the dispose chain later throws.
+        try {
+          this.modal.playbackStop?.();
+        } catch (_) {
+          /* best-effort */
+        }
+
+        // Clean up the synthesizer
+        this.modal.disposeSynthesizer();
+
+        // Resize-drag listeners (mousemove/mouseup on document) are now
+        // detached automatically via the AbortController signal in
+        // MidiEditorEvents.detachEvents() (audit §7.1). The fallback path
+        // below only fires when attachEvents() hadn't run yet (very rare
+        // init ordering edge-case) — keep the manual removal for safety.
+        if (this.modal._resizeDoResize) {
+          document.removeEventListener('mousemove', this.modal._resizeDoResize);
+          document.removeEventListener('mouseup', this.modal._resizeStopResize);
+          this.modal._resizeDoResize = null;
+          this.modal._resizeStopResize = null;
+        }
+
+        // Retirer le gestionnaire beforeunload
+        this.removeBeforeUnloadHandler();
+
+        // Unsubscribe from external routing changes
+        if (this.modal.eventBus && this.modal._onExternalRoutingChanged) {
+          this.modal.eventBus.off('routing:changed', this.modal._onExternalRoutingChanged);
+          this.modal._onExternalRoutingChanged = null;
+        }
+
+        // Abort the session-scoped AbortController so any `document`/`window`
+        // listener registered through MidiEditorEvents.getAbortSignal() is
+        // detached. Catches popover close handlers that survived past the
+        // modal lifetime (audit §7.1).
+        try {
+          this.modal.events?.detachEvents?.();
+        } catch (_) {
+          /* best-effort */
+        }
+      } catch (err) {
+        this.log('error', 'Error during editor cleanup (container will still be removed):', err);
+      } finally {
+        // ALWAYS remove the keyboard shortcut handler, the container, and reset
+        // isOpen — even if any cleanup step above threw. This prevents the
+        // "close twice" symptom where a partial cleanup leaves the modal visible.
+        if (this.modal.keyboardHandler) {
+          document.removeEventListener('keydown', this.modal.keyboardHandler);
+          this.modal.keyboardHandler = null;
+        }
+
+        if (this.modal.container) {
+          this.modal.container.remove();
+          this.modal.container = null;
+        }
+
+        this.modal.isOpen = false;
+        this.modal._isClosing = false;
+        this.modal.currentFile = null;
+        this.modal.currentFilename = null;
+        this.modal.midiData = null;
+        this.modal.isDirty = false;
+        this.modal.sequence = [];
+        this.modal.fullSequence = [];
+        this.modal.activeChannels.clear();
+        this.modal.channels = [];
+        this.modal.clipboard = [];
+
+        // Emit event
+        if (this.modal.eventBus) {
+          this.modal.eventBus.emit('midi_editor:closed', {});
+        }
+      }
     }
 
     setupBeforeUnloadHandler() {
-        this.modal.beforeUnloadHandler = (e) => {
-            if (this.modal.isDirty) {
-    // Message standard du navigateur
-                e.preventDefault();
-                e.returnValue = ''; // Requis pour Chrome
-                return ''; // Pour les navigateurs plus anciens
-            }
-        };
-        window.addEventListener('beforeunload', this.modal.beforeUnloadHandler);
+      this.modal.beforeUnloadHandler = (e) => {
+        if (this.modal.isDirty) {
+          // Message standard du navigateur
+          e.preventDefault();
+          e.returnValue = ''; // Requis pour Chrome
+          return ''; // Pour les navigateurs plus anciens
+        }
+      };
+      window.addEventListener('beforeunload', this.modal.beforeUnloadHandler);
     }
 
     removeBeforeUnloadHandler() {
-        if (this.modal.beforeUnloadHandler) {
-            window.removeEventListener('beforeunload', this.modal.beforeUnloadHandler);
-            this.modal.beforeUnloadHandler = null;
-        }
+      if (this.modal.beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', this.modal.beforeUnloadHandler);
+        this.modal.beforeUnloadHandler = null;
+      }
     }
 
     showNotification(message, type = 'info') {
-        if (window.app?.notifications) {
-            window.app.notifications.show(this.modal.t('midiEditor.title'), message, type, 3000);
-        } else {
-            this.log('info', message);
-        }
+      if (window.app?.notifications) {
+        window.app.notifications.show(this.modal.t('midiEditor.title'), message, type, 3000);
+      } else {
+        this.log('info', message);
+      }
     }
 
     showError(message) {
-        this.showErrorModal(message);
+      this.showErrorModal(message);
     }
 
     showErrorModal(message, title = null) {
-        title = title || this.modal.t('common.error');
-        this.log('error', message);
-        this.modal.dialogs.showConfirmModal({
-            title: title,
-            message: message,
-            icon: '❌',
-            confirmText: 'OK',
-            confirmClass: 'primary',
-            cancelText: ''
-        }).catch(() => {});
+      title = title || this.modal.t('common.error');
+      this.log('error', message);
+      this.modal.dialogs
+        .showConfirmModal({
+          title: title,
+          message: message,
+          icon: '❌',
+          confirmText: 'OK',
+          confirmClass: 'primary',
+          cancelText: ''
+        })
+        .catch(() => {});
     }
 
     log(level, ...args) {
-        const prefix = '[MidiEditorModal]';
-        if (typeof this.modal.logger[level] === 'function') {
-            this.modal.logger[level](prefix, ...args);
-        } else {
-            console[level](prefix, ...args);
-        }
+      const prefix = '[MidiEditorModal]';
+      if (typeof this.modal.logger[level] === 'function') {
+        this.modal.logger[level](prefix, ...args);
+      } else {
+        console[level](prefix, ...args);
+      }
     }
-    }
+  }
 
-    if (typeof window !== 'undefined') {
-        window.MidiEditorLifecycle = MidiEditorLifecycle;
-    }
+  if (typeof window !== 'undefined') {
+    window.MidiEditorLifecycle = MidiEditorLifecycle;
+  }
 })();

@@ -63,7 +63,9 @@ describe('P2-OBS.1 — correlation ID in command logs', () => {
   test('error logs also carry the correlation ID', async () => {
     const app = makeApp();
     const registry = new CommandRegistry(app);
-    registry.register('boom', async () => { throw new Error('kaboom'); });
+    registry.register('boom', async () => {
+      throw new Error('kaboom');
+    });
 
     const ws = makeWs();
     await registry.handle({ id: 'req-99', command: 'boom', data: {} }, ws);

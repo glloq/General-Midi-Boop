@@ -61,9 +61,20 @@ class LightingControlPage {
           </div>
         </div>`;
       document.body.appendChild(overlay);
-      overlay.querySelector('#_lcpConfirmYes').onclick = () => { overlay.remove(); resolve(true); };
-      overlay.querySelector('#_lcpConfirmNo').onclick = () => { overlay.remove(); resolve(false); };
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+      overlay.querySelector('#_lcpConfirmYes').onclick = () => {
+        overlay.remove();
+        resolve(true);
+      };
+      overlay.querySelector('#_lcpConfirmNo').onclick = () => {
+        overlay.remove();
+        resolve(false);
+      };
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+          resolve(false);
+        }
+      });
     });
   }
 
@@ -109,9 +120,15 @@ class LightingControlPage {
     }
 
     // Remove any open sub-panels
-    ['lightingDeviceForm', 'lightingRuleForm', 'lightingPresetsPanel',
-     'lightingEffectsPanel', 'lightingGroupsPanel', 'lightingScanPanel',
-     'lightingColorWheel'].forEach(id => {
+    [
+      'lightingDeviceForm',
+      'lightingRuleForm',
+      'lightingPresetsPanel',
+      'lightingEffectsPanel',
+      'lightingGroupsPanel',
+      'lightingScanPanel',
+      'lightingColorWheel'
+    ].forEach((id) => {
       document.getElementById(id)?.remove();
     });
 
@@ -244,7 +261,9 @@ class LightingControlPage {
     this._setupEventDelegation();
 
     // Close on overlay click
-    this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.close(); });
+    this.modal.addEventListener('click', (e) => {
+      if (e.target === this.modal) this.close();
+    });
 
     // Responsive
     this._checkResponsive();
@@ -265,11 +284,20 @@ class LightingControlPage {
 
       // Simple actions (no params)
       const simpleMethods = [
-        'showEffectsPanel', 'showGroupsPanel', 'showPresetsPanel',
-        'blackout', 'allOff', 'close', 'testDevice',
-        'showAddDeviceForm', 'showEditDeviceForm', 'showAddRuleForm',
-        'scanDevices', 'reconnectDevice',
-        '_testPreviewRainbow', '_clearPreview',
+        'showEffectsPanel',
+        'showGroupsPanel',
+        'showPresetsPanel',
+        'blackout',
+        'allOff',
+        'close',
+        'testDevice',
+        'showAddDeviceForm',
+        'showEditDeviceForm',
+        'showAddRuleForm',
+        'scanDevices',
+        'reconnectDevice',
+        '_testPreviewRainbow',
+        '_clearPreview',
         'toggleLightingEnabled'
       ];
       if (simpleMethods.includes(action) && typeof this[action] === 'function') {
@@ -327,7 +355,12 @@ class LightingControlPage {
     if (w < 640) {
       if (tabs) tabs.style.display = 'flex';
       if (this.mobilePanelView === 'devices') {
-        if (devicePanel) { devicePanel.style.display = 'flex'; devicePanel.style.width = '100%'; devicePanel.style.minWidth = '0'; devicePanel.style.borderRight = 'none'; }
+        if (devicePanel) {
+          devicePanel.style.display = 'flex';
+          devicePanel.style.width = '100%';
+          devicePanel.style.minWidth = '0';
+          devicePanel.style.borderRight = 'none';
+        }
         if (rulesPanel) rulesPanel.style.display = 'none';
       } else {
         if (devicePanel) devicePanel.style.display = 'none';
@@ -335,7 +368,12 @@ class LightingControlPage {
       }
     } else {
       if (tabs) tabs.style.display = 'none';
-      if (devicePanel) { devicePanel.style.display = 'flex'; devicePanel.style.width = ''; devicePanel.style.minWidth = ''; devicePanel.style.borderRight = ''; }
+      if (devicePanel) {
+        devicePanel.style.display = 'flex';
+        devicePanel.style.width = '';
+        devicePanel.style.minWidth = '';
+        devicePanel.style.borderRight = '';
+      }
       if (rulesPanel) rulesPanel.style.display = 'flex';
     }
   }
@@ -391,28 +429,40 @@ class LightingControlPage {
     try {
       const res = await this.apiClient.sendCommand('instrument_light_list');
       states = (res && res.instruments) || [];
-    } catch (e) { /* no persisted states yet */ }
+    } catch (e) {
+      /* no persisted states yet */
+    }
 
     const enabled = (this.instruments || []).filter(
       (i) => i.lighting_enabled === true || i.lighting_enabled === 1
     );
     if (enabled.length === 0) {
       host.innerHTML = `<div class="lighting-empty-state" style="padding:40px;font-size:13px;">
-        ${i18n.t('lighting.noLitInstruments') || 'Aucun instrument avec le contrôle lumière activé. Activez-le depuis les réglages d\'un instrument (onglet « Notes & Capacités »).'}
+        ${i18n.t('lighting.noLitInstruments') || "Aucun instrument avec le contrôle lumière activé. Activez-le depuis les réglages d'un instrument (onglet « Notes & Capacités »)."}
       </div>`;
       return;
     }
     const defaults = {
-      brightness: 0, effect: 0, hue: 0, speed: 64, intensity: 64,
-      supported_mask: 0, brightness_mode: 1, supported_effects: 0x3FF
+      brightness: 0,
+      effect: 0,
+      hue: 0,
+      speed: 64,
+      intensity: 64,
+      supported_mask: 0,
+      brightness_mode: 1,
+      supported_effects: 0x3ff
     };
-    host.innerHTML = enabled.map((inst) => {
-      const name = inst.custom_name || inst.name || inst.device_id;
-      const ch = inst.channel || 0;
-      const stored = states.find((s) => s.device_id === inst.device_id && (s.channel || 0) === ch);
-      const st = { ...defaults, ...(stored || {}) };
-      return this._renderLitPanel(inst.device_id, ch, name, st);
-    }).join('');
+    host.innerHTML = enabled
+      .map((inst) => {
+        const name = inst.custom_name || inst.name || inst.device_id;
+        const ch = inst.channel || 0;
+        const stored = states.find(
+          (s) => s.device_id === inst.device_id && (s.channel || 0) === ch
+        );
+        const st = { ...defaults, ...(stored || {}) };
+        return this._renderLitPanel(inst.device_id, ch, name, st);
+      })
+      .join('');
 
     this._attachLitControlListeners();
   }
@@ -427,7 +477,7 @@ class LightingControlPage {
       <button class="lighting-btn--outline lighting-btn--outline-yellow"
               data-action="openInstrumentSettings"
               data-device-id="${esc(deviceId)}" data-channel="${channel}"
-              title="${esc(t('lighting.openSettingsTooltip', 'Modifier les capacités dans les réglages de l\'instrument'))}"
+              title="${esc(t('lighting.openSettingsTooltip', "Modifier les capacités dans les réglages de l'instrument"))}"
               style="padding:3px 8px;font-size:11px;">⚙️</button>`;
 
     if (mask === 0) {
@@ -439,7 +489,7 @@ class LightingControlPage {
             ${cogBtn}
           </div>
           <p class="lighting-instrument-sub" style="opacity:.75;margin:0;font-size:12px;">
-            ${esc(t('lighting.litNoCcDeclared', 'Aucun CC déclaré pour cet instrument. Activez les CC supportés dans les réglages de l\'instrument.'))}
+            ${esc(t('lighting.litNoCcDeclared', "Aucun CC déclaré pour cet instrument. Activez les CC supportés dans les réglages de l'instrument."))}
           </p>
         </div>`;
     }
@@ -447,14 +497,12 @@ class LightingControlPage {
     // Summary line: a discrete read-only list of every supported CC.
     const SUPPORTED = [
       { bit: 0x01, cc: 110, label: t('lighting.lit.brightness', 'Lum.') },
-      { bit: 0x02, cc: 111, label: t('lighting.lit.effect',     'Effet') },
-      { bit: 0x04, cc: 112, label: t('lighting.lit.hue',        'Couleur') },
-      { bit: 0x08, cc: 113, label: t('lighting.lit.speed',      'Vit.') },
-      { bit: 0x10, cc: 114, label: t('lighting.lit.intensity',  'Int.') }
+      { bit: 0x02, cc: 111, label: t('lighting.lit.effect', 'Effet') },
+      { bit: 0x04, cc: 112, label: t('lighting.lit.hue', 'Couleur') },
+      { bit: 0x08, cc: 113, label: t('lighting.lit.speed', 'Vit.') },
+      { bit: 0x10, cc: 114, label: t('lighting.lit.intensity', 'Int.') }
     ].filter((b) => (mask & b.bit) !== 0);
-    const summary = SUPPORTED
-      .map((b) => `<span style="opacity:.7;">CC${b.cc}</span>`)
-      .join(' · ');
+    const summary = SUPPORTED.map((b) => `<span style="opacity:.7;">CC${b.cc}</span>`).join(' · ');
 
     const rows = SUPPORTED.map((b) => this._renderLitRow(b, st, ds)).join('');
 
@@ -488,12 +536,14 @@ class LightingControlPage {
     const ICONS = { brightness: '💡', effect: '🎬', hue: '🎨', speed: '⏩', intensity: '✨' };
     const FULL_LABEL = {
       brightness: t('lighting.litFull.brightness', 'Luminosité'),
-      effect:     t('lighting.litFull.effect',     'Effet'),
-      hue:        t('lighting.litFull.hue',        'Couleur'),
-      speed:      t('lighting.litFull.speed',      'Vitesse'),
-      intensity:  t('lighting.litFull.intensity',  'Intensité')
+      effect: t('lighting.litFull.effect', 'Effet'),
+      hue: t('lighting.litFull.hue', 'Couleur'),
+      speed: t('lighting.litFull.speed', 'Vitesse'),
+      intensity: t('lighting.litFull.intensity', 'Intensité')
     };
-    const field = b.field || ({ 110: 'brightness', 111: 'effect', 112: 'hue', 113: 'speed', 114: 'intensity' }[b.cc]);
+    const field =
+      b.field ||
+      { 110: 'brightness', 111: 'effect', 112: 'hue', 113: 'speed', 114: 'intensity' }[b.cc];
     const labelHtml = `
       <div style="display:flex;align-items:center;gap:6px;min-width:140px;">
         <span aria-hidden="true">${ICONS[field]}</span>
@@ -517,26 +567,39 @@ class LightingControlPage {
         style="flex:1;padding:6px 12px;border-radius:16px;cursor:pointer;font-weight:600;
                border:1px solid ${on ? '#10b981' : 'var(--lt-border,#d1d5db)'};
                background:${on ? 'rgba(16,185,129,0.15)' : 'transparent'};color:inherit;">
-        ${on ? (i18n.t('lighting.litOnOffOn') || 'ON') : (i18n.t('lighting.litOnOffOff') || 'OFF')}
+        ${on ? i18n.t('lighting.litOnOffOn') || 'ON' : i18n.t('lighting.litOnOffOff') || 'OFF'}
       </button>`;
     }
     if (b.field === 'effect') {
       const effects = [
-        'static', 'fade', 'pulse', 'blink', 'rainbow',
-        'reactive_note', 'reactive_velocity', 'sparkle', 'fire', 'scanner'
+        'static',
+        'fade',
+        'pulse',
+        'blink',
+        'rainbow',
+        'reactive_note',
+        'reactive_velocity',
+        'sparkle',
+        'fire',
+        'scanner'
       ];
-      const fxMask = st.supported_effects === undefined || st.supported_effects === null
-        ? 0x3FF : (st.supported_effects | 0);
+      const fxMask =
+        st.supported_effects === undefined || st.supported_effects === null
+          ? 0x3ff
+          : st.supported_effects | 0;
       const opts = effects
         .map((key, i) => ({ key, i }))
         .filter(({ i }) => (fxMask & (1 << i)) !== 0)
         .map(({ key, i }) => {
           const label = i18n.t('lighting.lightEffect.' + key) || key;
           return `<option value="${i}"${i === st.effect ? ' selected' : ''}>${label}</option>`;
-        }).join('');
+        })
+        .join('');
       const empty = opts.length === 0;
       return `<select class="lit-effect" ${ds} style="flex:1;padding:4px 6px;"${empty ? ' disabled' : ''}>${
-        empty ? `<option>${i18n.t('lighting.litNoEffects') || 'Aucun effet déclaré'}</option>` : opts
+        empty
+          ? `<option>${i18n.t('lighting.litNoEffects') || 'Aucun effet déclaré'}</option>`
+          : opts
       }</select>`;
     }
     if (b.field === 'hue') {
@@ -615,14 +678,18 @@ class LightingControlPage {
         el.classList.toggle('is-on', !isOn);
         el.setAttribute('aria-pressed', String(!isOn));
         el.textContent = !isOn
-          ? (i18n.t('lighting.litOnOffOn') || 'ON')
-          : (i18n.t('lighting.litOnOffOff') || 'OFF');
+          ? i18n.t('lighting.litOnOffOn') || 'ON'
+          : i18n.t('lighting.litOnOffOff') || 'OFF';
         el.style.background = !isOn ? 'rgba(16,185,129,0.15)' : 'transparent';
         el.style.borderColor = !isOn ? '#10b981' : 'var(--lt-border,#d1d5db)';
         setState(el, { brightness: next });
-      }));
-    host.querySelectorAll('.lit-effect').forEach((el) =>
-      el.addEventListener('change', () => setState(el, { effect: parseInt(el.value, 10) })));
+      })
+    );
+    host
+      .querySelectorAll('.lit-effect')
+      .forEach((el) =>
+        el.addEventListener('change', () => setState(el, { effect: parseInt(el.value, 10) }))
+      );
     rangeChange('.lit-hue', 'hue', (el) => {
       const swatch = rowOf(el)?.querySelector('.lit-hue-swatch');
       if (swatch) swatch.style.background = LightingControlPage._hueToCss(parseInt(el.value, 10));
@@ -634,27 +701,43 @@ class LightingControlPage {
   /** HSV hue 0-127 → CSS color string. Static so it can run in tests. */
   static _hueToCss(hue127) {
     const h = ((Math.max(0, Math.min(127, hue127 | 0)) / 128) * 6) % 6;
-    const c = 1, x = c * (1 - Math.abs((h % 2) - 1));
-    let r = 0, g = 0, b = 0;
-    if (h < 1)      { r = c; g = x; }
-    else if (h < 2) { r = x; g = c; }
-    else if (h < 3) { g = c; b = x; }
-    else if (h < 4) { g = x; b = c; }
-    else if (h < 5) { r = x; b = c; }
-    else            { r = c; b = x; }
+    const c = 1,
+      x = c * (1 - Math.abs((h % 2) - 1));
+    let r = 0,
+      g = 0,
+      b = 0;
+    if (h < 1) {
+      r = c;
+      g = x;
+    } else if (h < 2) {
+      r = x;
+      g = c;
+    } else if (h < 3) {
+      g = c;
+      b = x;
+    } else if (h < 4) {
+      g = x;
+      b = c;
+    } else if (h < 5) {
+      r = x;
+      b = c;
+    } else {
+      r = c;
+      b = x;
+    }
     const to = (v) => Math.round(v * 255);
     return `rgb(${to(r)}, ${to(g)}, ${to(b)})`;
   }
 
   _openInstrumentSettings(deviceId, channel) {
     const inst = (this.instruments || []).find(
-      i => i.device_id === deviceId && (i.channel || 0) === channel
+      (i) => i.device_id === deviceId && (i.channel || 0) === channel
     );
     const device = {
       id: deviceId,
       channel: channel,
-      name: inst ? (inst.name || deviceId) : deviceId,
-      displayName: inst ? (inst.custom_name || inst.name || deviceId) : deviceId
+      name: inst ? inst.name || deviceId : deviceId,
+      displayName: inst ? inst.custom_name || inst.name || deviceId : deviceId
     };
     // Close the lighting modal first to avoid stacked modals; the
     // per-instrument config is the single source of truth and lives there.
@@ -704,13 +787,13 @@ class LightingControlPage {
       this._updateToggleBtn();
       this.showToast(
         this.lightingEnabled
-          ? (i18n.t('lighting.lightsOnToast') || 'Lumières allumées')
-          : (i18n.t('lighting.lightsOffToast') || 'Lumières éteintes'),
+          ? i18n.t('lighting.lightsOnToast') || 'Lumières allumées'
+          : i18n.t('lighting.lightsOffToast') || 'Lumières éteintes',
         this.lightingEnabled ? 'success' : 'warning'
       );
     } catch (error) {
       console.error('Failed to toggle lighting system:', error);
-      this.showToast(i18n.t('lighting.toggleError') || 'Erreur lors du changement d\'état', 'error');
+      this.showToast(i18n.t('lighting.toggleError') || "Erreur lors du changement d'état", 'error');
     }
   }
 
@@ -742,25 +825,46 @@ class LightingControlPage {
 
   async _createGroup() {
     const name = document.getElementById('lgFormName')?.value.trim();
-    if (!name) { this.showToast(i18n.t('lighting.nameRequired') || 'Nom requis', 'warning'); return; }
+    if (!name) {
+      this.showToast(i18n.t('lighting.nameRequired') || 'Nom requis', 'warning');
+      return;
+    }
     const checkboxes = document.querySelectorAll('#lightingGroupsPanel .lgDeviceCb:checked');
-    const deviceIds = [...checkboxes].map(cb => parseInt(cb.value));
-    if (deviceIds.length === 0) { this.showToast(i18n.t('lighting.selectAtLeastOneDevice') || 'Sélectionnez au moins un dispositif', 'warning'); return; }
+    const deviceIds = [...checkboxes].map((cb) => parseInt(cb.value));
+    if (deviceIds.length === 0) {
+      this.showToast(
+        i18n.t('lighting.selectAtLeastOneDevice') || 'Sélectionnez au moins un dispositif',
+        'warning'
+      );
+      return;
+    }
 
     try {
       await this.apiClient.sendCommand('lighting_group_create', { name, device_ids: deviceIds });
       this.showGroupsPanel();
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async _deleteGroupByIdx(idx) {
     const name = this._groupNames?.[idx];
     if (!name) return;
-    if (!await this._confirm((i18n.t('lighting.confirmDeleteGroup') || 'Supprimer le groupe « {name} » ?').replace('{name}', name))) return;
+    if (
+      !(await this._confirm(
+        (i18n.t('lighting.confirmDeleteGroup') || 'Supprimer le groupe « {name} » ?').replace(
+          '{name}',
+          name
+        )
+      ))
+    )
+      return;
     try {
       await this.apiClient.sendCommand('lighting_group_delete', { name });
       this.showGroupsPanel();
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async _setGroupColorByIdx(idx) {
@@ -770,7 +874,9 @@ class LightingControlPage {
     const color = colorInput?.value || '#FF0000';
     try {
       await this.apiClient.sendCommand('lighting_group_color', { name, color, brightness: 255 });
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async _groupOffByIdx(idx) {
@@ -778,13 +884,15 @@ class LightingControlPage {
     if (!name) return;
     try {
       await this.apiClient.sendCommand('lighting_group_off', { name });
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   // ==================== DEVICE CLONE ====================
 
   async cloneDevice(deviceId) {
-    const device = this.devices.find(d => d.id === deviceId);
+    const device = this.devices.find((d) => d.id === deviceId);
     if (!device) return;
 
     try {
@@ -796,7 +904,9 @@ class LightingControlPage {
         enabled: false // Start disabled to avoid conflicts
       });
       await this.loadData();
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async _startLiveEffect() {
@@ -810,7 +920,9 @@ class LightingControlPage {
       await this.apiClient.sendCommand('lighting_effect_start', {
         device_id: this.selectedDeviceId,
         effect_type: effectType,
-        color, speed, brightness
+        color,
+        speed,
+        brightness
       });
       // Refresh the panel
       this.showEffectsPanel();
@@ -826,7 +938,9 @@ class LightingControlPage {
       const inputEl = document.getElementById('leEffectBpmInput');
       if (bpmEl) bpmEl.textContent = res.bpm;
       if (inputEl) inputEl.value = res.bpm;
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   async _setBpm(value) {
@@ -834,7 +948,9 @@ class LightingControlPage {
       const res = await this.apiClient.sendCommand('lighting_bpm_set', { bpm: parseInt(value) });
       const bpmEl = document.getElementById('leEffectBpm');
       if (bpmEl) bpmEl.textContent = res.bpm;
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   async _stopLiveEffect(effectKey) {
@@ -859,12 +975,17 @@ class LightingControlPage {
       a.download = `lighting-rules-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async savePreset() {
     const name = document.getElementById('lpFormName')?.value.trim();
-    if (!name) { this.showToast(i18n.t('lighting.presetName') || 'Nom requis', 'warning'); return; }
+    if (!name) {
+      this.showToast(i18n.t('lighting.presetName') || 'Nom requis', 'warning');
+      return;
+    }
     try {
       await this.apiClient.sendCommand('lighting_preset_save', { name });
       document.getElementById('lightingPresetsPanel')?.remove();
@@ -877,7 +998,13 @@ class LightingControlPage {
   }
 
   async loadPreset(id) {
-    if (!await this._confirm(i18n.t('lighting.confirmLoadPreset') || 'Charger ce preset ? Les règles actuelles seront remplacées.')) return;
+    if (
+      !(await this._confirm(
+        i18n.t('lighting.confirmLoadPreset') ||
+          'Charger ce preset ? Les règles actuelles seront remplacées.'
+      ))
+    )
+      return;
     try {
       await this.apiClient.sendCommand('lighting_preset_load', { id });
       document.getElementById('lightingPresetsPanel')?.remove();
@@ -888,7 +1015,8 @@ class LightingControlPage {
   }
 
   async deletePreset(id) {
-    if (!await this._confirm(i18n.t('lighting.confirmDeletePreset') || 'Supprimer ce preset ?')) return;
+    if (!(await this._confirm(i18n.t('lighting.confirmDeletePreset') || 'Supprimer ce preset ?')))
+      return;
     try {
       await this.apiClient.sendCommand('lighting_preset_delete', { id });
       document.getElementById('lightingPresetsPanel')?.remove();
@@ -902,10 +1030,16 @@ class LightingControlPage {
 
   async saveScene() {
     const name = document.getElementById('lpSceneName')?.value.trim();
-    if (!name) { this.showToast(i18n.t('lighting.sceneName') || 'Nom requis', 'warning'); return; }
+    if (!name) {
+      this.showToast(i18n.t('lighting.sceneName') || 'Nom requis', 'warning');
+      return;
+    }
     try {
       await this.apiClient.sendCommand('lighting_scene_save', { name });
-      this.showToast((i18n.t('lighting.sceneSaved') || 'Scène « {name} » sauvegardée').replace('{name}', name), 'success');
+      this.showToast(
+        (i18n.t('lighting.sceneSaved') || 'Scène « {name} » sauvegardée').replace('{name}', name),
+        'success'
+      );
       document.getElementById('lightingPresetsPanel')?.remove();
       const res = await this.apiClient.sendCommand('lighting_preset_list');
       this.presets = res.presets || [];
@@ -925,11 +1059,17 @@ class LightingControlPage {
         this._dmxProfiles = res.profiles || [];
       }
 
-      select.innerHTML = `<option value="">${i18n.t('lighting.manualOption') || '-- Manuel --'}</option>` +
-        this._dmxProfiles.map(p =>
-          `<option value="${this._escapeHtml(p.key)}">${this._escapeHtml(p.name)} (${p.channels}ch)</option>`
-        ).join('');
-    } catch (e) { /* ignore - profiles not available */ }
+      select.innerHTML =
+        `<option value="">${i18n.t('lighting.manualOption') || '-- Manuel --'}</option>` +
+        this._dmxProfiles
+          .map(
+            (p) =>
+              `<option value="${this._escapeHtml(p.key)}">${this._escapeHtml(p.name)} (${p.channels}ch)</option>`
+          )
+          .join('');
+    } catch (e) {
+      /* ignore - profiles not available */
+    }
   }
 
   _onDmxProfileChange(deviceType) {
@@ -939,7 +1079,7 @@ class LightingControlPage {
     const channelsInput = document.getElementById(channelsId);
     if (!select || !channelsInput || !this._dmxProfiles) return;
 
-    const profile = this._dmxProfiles.find(p => p.key === select.value);
+    const profile = this._dmxProfiles.find((p) => p.key === select.value);
     if (profile) {
       channelsInput.value = profile.channels;
     }
@@ -950,7 +1090,9 @@ class LightingControlPage {
     const gpioSelect = selectEl.closest('.strip-entry').querySelector('.strip-gpio');
     const gpioMap = { 0: [18, 12], 1: [13, 19], 2: [10] };
     const pins = gpioMap[ch] || [];
-    gpioSelect.innerHTML = pins.map((p, i) => `<option value="${p}" ${i === 0 ? 'selected' : ''}>GPIO ${p}</option>`).join('');
+    gpioSelect.innerHTML = pins
+      .map((p, i) => `<option value="${p}" ${i === 0 ? 'selected' : ''}>GPIO ${p}</option>`)
+      .join('');
   }
 
   _addSegmentEntry() {
@@ -970,10 +1112,18 @@ class LightingControlPage {
   }
 
   async deleteDevice(id) {
-    if (!await this._confirm(i18n.t('lighting.confirmDeleteDevice') || 'Supprimer ce dispositif et toutes ses règles ?')) return;
+    if (
+      !(await this._confirm(
+        i18n.t('lighting.confirmDeleteDevice') || 'Supprimer ce dispositif et toutes ses règles ?'
+      ))
+    )
+      return;
     try {
       await this.apiClient.sendCommand('lighting_device_delete', { id });
-      if (this.selectedDeviceId === id) { this.selectedDeviceId = null; this.rules = []; }
+      if (this.selectedDeviceId === id) {
+        this.selectedDeviceId = null;
+        this.rules = [];
+      }
       await this.loadData();
     } catch (error) {
       this.showToast(error.message, 'error');
@@ -993,19 +1143,28 @@ class LightingControlPage {
   async reconnectDevice() {
     if (!this.selectedDeviceId) return;
     const btn = document.getElementById('lightingReconnectBtn');
-    if (btn) { btn.textContent = `⏳ ${i18n.t('lighting.reconnecting') || 'Reconnexion...'}`; btn.disabled = true; }
+    if (btn) {
+      btn.textContent = `⏳ ${i18n.t('lighting.reconnecting') || 'Reconnexion...'}`;
+      btn.disabled = true;
+    }
     try {
-      await this.apiClient.sendCommand('lighting_device_update', { id: this.selectedDeviceId, enabled: true });
+      await this.apiClient.sendCommand('lighting_device_update', {
+        id: this.selectedDeviceId,
+        enabled: true
+      });
       await this.loadData();
     } catch (error) {
       this.showToast(error.message, 'error');
     } finally {
-      if (btn) { btn.textContent = `🔄 ${i18n.t('lighting.reconnect') || 'Reconnecter'}`; btn.disabled = false; }
+      if (btn) {
+        btn.textContent = `🔄 ${i18n.t('lighting.reconnect') || 'Reconnecter'}`;
+        btn.disabled = false;
+      }
     }
   }
 
   _populateSegmentDropdown(selectedSegment) {
-    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    const device = this.devices.find((d) => d.id === this.selectedDeviceId);
     const segRow = document.getElementById('lrFormSegmentRow');
     const segSelect = document.getElementById('lrFormSegment');
     if (!segRow || !segSelect || !device) return;
@@ -1013,8 +1172,14 @@ class LightingControlPage {
     if (device.type === 'gpio_strip' && device.connection_config?.segments?.length) {
       segRow.style.display = 'block';
       const segments = device.connection_config.segments;
-      segSelect.innerHTML = `<option value="">${i18n.t('lighting.manualSegmentOption') || '-- Aucun (manuel) --'}</option>` +
-        segments.map(s => `<option value="${this._escapeHtml(s.name)}" ${selectedSegment === s.name ? 'selected' : ''}>${this._escapeHtml(s.name)} (${s.start}-${s.end})</option>`).join('');
+      segSelect.innerHTML =
+        `<option value="">${i18n.t('lighting.manualSegmentOption') || '-- Aucun (manuel) --'}</option>` +
+        segments
+          .map(
+            (s) =>
+              `<option value="${this._escapeHtml(s.name)}" ${selectedSegment === s.name ? 'selected' : ''}>${this._escapeHtml(s.name)} (${s.start}-${s.end})</option>`
+          )
+          .join('');
       if (selectedSegment) this._onSegmentSelect();
     } else {
       segRow.style.display = 'none';
@@ -1022,11 +1187,11 @@ class LightingControlPage {
   }
 
   _onSegmentSelect() {
-    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    const device = this.devices.find((d) => d.id === this.selectedDeviceId);
     const segName = document.getElementById('lrFormSegment')?.value;
     if (!segName || !device?.connection_config?.segments) return;
 
-    const seg = device.connection_config.segments.find(s => s.name === segName);
+    const seg = device.connection_config.segments.find((s) => s.name === segName);
     if (seg) {
       const startEl = document.getElementById('lrFormLedStart');
       const endEl = document.getElementById('lrFormLedEnd');
@@ -1047,7 +1212,13 @@ class LightingControlPage {
     const nl = document.getElementById('lrFormNoteLedSection');
 
     // Color picker: show for most types, hide for special modes
-    const hideColor = ['velocity_mapped', 'note_color', 'color_temp', 'random_color', 'note_led'].includes(type);
+    const hideColor = [
+      'velocity_mapped',
+      'note_color',
+      'color_temp',
+      'random_color',
+      'note_led'
+    ].includes(type);
     if (s) s.style.display = hideColor ? 'none' : 'block';
     if (g) g.style.display = type === 'velocity_mapped' ? 'block' : 'none';
     if (e) e.style.display = isEffect ? 'block' : 'none';
@@ -1069,12 +1240,12 @@ class LightingControlPage {
   // _clamp is provided by LightingHelpersMixin
 
   async editRule(ruleId) {
-    const rule = this.rules.find(r => r.id === ruleId);
+    const rule = this.rules.find((r) => r.id === ruleId);
     if (rule) this.showAddRuleForm(rule);
   }
 
   async cloneRule(ruleId) {
-    const rule = this.rules.find(r => r.id === ruleId);
+    const rule = this.rules.find((r) => r.id === ruleId);
     if (!rule) return;
     try {
       await this.apiClient.sendCommand('lighting_rule_add', {
@@ -1087,42 +1258,55 @@ class LightingControlPage {
         action_config: rule.action_config
       });
       await this.loadRulesForDevice(this.selectedDeviceId);
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async deleteRule(id) {
-    if (!await this._confirm(i18n.t('lighting.confirmDeleteRule') || 'Supprimer cette règle ?')) return;
+    if (!(await this._confirm(i18n.t('lighting.confirmDeleteRule') || 'Supprimer cette règle ?')))
+      return;
     try {
       await this.apiClient.sendCommand('lighting_rule_delete', { id });
       await this.loadRulesForDevice(this.selectedDeviceId);
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async toggleRule(id, enabled) {
     try {
       await this.apiClient.sendCommand('lighting_rule_update', { id, enabled });
       await this.loadRulesForDevice(this.selectedDeviceId);
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async batchToggleRules(enabled) {
     try {
       const updates = this.rules
-        .filter(rule => rule.enabled !== enabled)
-        .map(rule => this.apiClient.sendCommand('lighting_rule_update', { id: rule.id, enabled }));
+        .filter((rule) => rule.enabled !== enabled)
+        .map((rule) =>
+          this.apiClient.sendCommand('lighting_rule_update', { id: rule.id, enabled })
+        );
       await Promise.all(updates);
       await this.loadRulesForDevice(this.selectedDeviceId);
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   async moveRulePriority(id, delta) {
-    const rule = this.rules.find(r => r.id === id);
+    const rule = this.rules.find((r) => r.id === id);
     if (!rule) return;
     const newPriority = (rule.priority || 0) + delta;
     try {
       await this.apiClient.sendCommand('lighting_rule_update', { id, priority: newPriority });
       await this.loadRulesForDevice(this.selectedDeviceId);
-    } catch (error) { this.showToast(error.message, 'error'); }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
   }
 
   // Actions (testDevice, testRule, allOff, blackout, _onMasterDimmerChange)
@@ -1137,16 +1321,16 @@ class LightingControlPage {
 // this file. Methods defined directly on the class take precedence over mixin
 // methods (they are applied first, class methods shadow them).
 // ============================================================================
-(function() {
+(function () {
   const mixins = [
     window.LightingHelpersMixin,
     window.LightingFormsMixin,
     window.LightingDeviceUIMixin,
     window.LightingPresetsUIMixin
   ];
-  mixins.forEach(mixin => {
+  mixins.forEach((mixin) => {
     if (!mixin) return;
-    Object.keys(mixin).forEach(key => {
+    Object.keys(mixin).forEach((key) => {
       // Only add mixin method if NOT already defined on the class prototype
       // This avoids overwriting class methods with mixin duplicates
       if (!Object.hasOwn(LightingControlPage.prototype, key)) {

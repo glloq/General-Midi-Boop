@@ -34,9 +34,7 @@ class InstrumentLightDB {
     try {
       return (
         this.db
-          .prepare(
-            'SELECT * FROM instrument_light_state WHERE device_id = ? AND channel = ?'
-          )
+          .prepare('SELECT * FROM instrument_light_state WHERE device_id = ? AND channel = ?')
           .get(deviceId, channel) || null
       );
     } catch (error) {
@@ -73,11 +71,13 @@ class InstrumentLightDB {
     v.supported_mask = clampInt((state && state.supported_mask) || 0, 0, 31);
     v.brightness_mode = clampInt(
       state && state.brightness_mode !== undefined ? state.brightness_mode : 1,
-      0, 1
+      0,
+      1
     );
     v.supported_effects = clampInt(
       state && state.supported_effects !== undefined ? state.supported_effects : 1023,
-      0, 1023
+      0,
+      1023
     );
     try {
       this.db
@@ -100,9 +100,17 @@ class InstrumentLightDB {
              updated_at        = datetime('now')`
         )
         .run(
-          id, deviceId, channel,
-          v.brightness, v.effect, v.hue, v.speed, v.intensity,
-          v.supported_mask, v.brightness_mode, v.supported_effects
+          id,
+          deviceId,
+          channel,
+          v.brightness,
+          v.effect,
+          v.hue,
+          v.speed,
+          v.intensity,
+          v.supported_mask,
+          v.brightness_mode,
+          v.supported_effects
         );
       return id;
     } catch (error) {
@@ -117,9 +125,7 @@ class InstrumentLightDB {
    */
   deleteInstrumentLightByDevice(deviceId) {
     try {
-      this.db
-        .prepare('DELETE FROM instrument_light_state WHERE device_id = ?')
-        .run(deviceId);
+      this.db.prepare('DELETE FROM instrument_light_state WHERE device_id = ?').run(deviceId);
     } catch (error) {
       this.logger?.error?.(`Failed to delete instrument light state: ${error.message}`);
     }

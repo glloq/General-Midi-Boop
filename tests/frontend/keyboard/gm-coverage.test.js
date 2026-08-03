@@ -20,10 +20,23 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/InstrumentDetector.js');
   load('../../../public/js/features/keyboard/InstrumentView.js');
   load('../../../public/js/features/keyboard/InstrumentViewRegistry.js');
-  for (const v of ['PianoView', 'FretboardView', 'DrumPadView', 'PianoSliderView',
-                   'ListView', 'HarmonicaView', 'HarpView', 'AccordionView',
-                   'MalletView', 'MusicBoxView', 'KalimbaView', 'BagpipeView',
-                   'SteelDrumView', 'ThereminView', 'PercussionPadView']) {
+  for (const v of [
+    'PianoView',
+    'FretboardView',
+    'DrumPadView',
+    'PianoSliderView',
+    'ListView',
+    'HarmonicaView',
+    'HarpView',
+    'AccordionView',
+    'MalletView',
+    'MusicBoxView',
+    'KalimbaView',
+    'BagpipeView',
+    'SteelDrumView',
+    'ThereminView',
+    'PercussionPadView'
+  ]) {
     load(`../../../public/js/features/keyboard/views/${v}.js`);
   }
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
@@ -32,13 +45,16 @@ beforeAll(() => {
 // Mirrors the real WindInstrumentDatabase.isWindInstrument after Shanai
 // (GM 111) was added alongside the contiguous 56-79 wind range.
 const windDb = {
-  isWindInstrument(p) { return (p >= 56 && p <= 79) || p === 111; },
-  getPresetByProgram(p) { return { name: `wind-${p}` }; }
+  isWindInstrument(p) {
+    return (p >= 56 && p <= 79) || p === 111;
+  },
+  getPresetByProgram(p) {
+    return { name: `wind-${p}` };
+  }
 };
 
 const registry = () => win.instrumentViews;
-const detect = (caps) =>
-  win.InstrumentDetector.detect({ capabilities: caps, windDb }).viewKind;
+const detect = (caps) => win.InstrumentDetector.detect({ capabilities: caps, windDb }).viewKind;
 
 describe('GM coverage — every program resolves to a registered view', () => {
   for (let gm = 0; gm <= 127; gm++) {
@@ -107,11 +123,13 @@ describe('GM coverage — non-melodic & custom types', () => {
   });
 
   it('instrument_type "theremin" → theremin', () => {
-    expect(registry().resolve({ instrument_type: 'theremin' }).ViewClass)
-      .toBe(win.ThereminView);
-    expect(win.InstrumentDetector.detect({
-      capabilities: { instrument_type: 'theremin' }, windDb
-    }).viewKind).toBe('theremin');
+    expect(registry().resolve({ instrument_type: 'theremin' }).ViewClass).toBe(win.ThereminView);
+    expect(
+      win.InstrumentDetector.detect({
+        capabilities: { instrument_type: 'theremin' },
+        windDb
+      }).viewKind
+    ).toBe('theremin');
   });
 });
 
@@ -120,17 +138,32 @@ describe('GM coverage — KeyboardModal self-owned dispatch completeness', () =>
   // _selectInstrumentOption forgot to dispatch its viewKind, so it fell
   // back to piano (the Music Box bug). Assert every self-owned kind is
   // both registered AND present in that dispatch list.
-  const SELF_OWNED = ['harmonica', 'accordion', 'mallet', 'music-box',
-    'kalimba', 'bagpipe', 'steel-drum', 'perc-pad', 'theremin'];
+  const SELF_OWNED = [
+    'harmonica',
+    'accordion',
+    'mallet',
+    'music-box',
+    'kalimba',
+    'bagpipe',
+    'steel-drum',
+    'perc-pad',
+    'theremin'
+  ];
 
   it('every self-owned view kind is dispatched by _selectInstrumentOption', () => {
-    const src = readFileSync(resolve(__dirname,
-      '../../../public/js/features/KeyboardModal.js'), 'utf8');
-    const m = src.match(
-      /else if \(\[([^\]]*?)\]\s*\.includes\(info\.viewKind\)\)/);
+    const src = readFileSync(
+      resolve(__dirname, '../../../public/js/features/KeyboardModal.js'),
+      'utf8'
+    );
+    // Tolerate Prettier's multi-line array formatting: allow whitespace/newlines
+    // between `(` and `[` (and around `]`). The list contents, not the source
+    // layout, are what this guard checks.
+    const m = src.match(/else if \(\s*\[([^\]]*?)\]\s*\.includes\(info\.viewKind\)\s*\)/);
     expect(m).not.toBeNull();
-    const dispatched = m[1].split(',')
-      .map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+    const dispatched = m[1]
+      .split(',')
+      .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
     for (const k of SELF_OWNED) expect(dispatched).toContain(k);
   });
 

@@ -54,11 +54,11 @@ function requireLightingManager(app) {
 function lightingDeviceList(app) {
   const devices = app.lightingRepository.findAllDevices();
   const statuses = app.lightingManager?.getDeviceStatus() || [];
-  const statusMap = new Map(statuses.map(s => [s.id, s.connected]));
+  const statusMap = new Map(statuses.map((s) => [s.id, s.connected]));
 
   return {
     success: true,
-    devices: devices.map(d => ({
+    devices: devices.map((d) => ({
       ...d,
       connected: statusMap.get(d.id) || false
     }))
@@ -171,7 +171,14 @@ function lightingRuleAdd(app, data) {
 
   // Validate condition ranges
   const cond = data.condition_config || {};
-  for (const field of ['velocity_min', 'velocity_max', 'note_min', 'note_max', 'cc_value_min', 'cc_value_max']) {
+  for (const field of [
+    'velocity_min',
+    'velocity_max',
+    'note_min',
+    'note_max',
+    'cc_value_min',
+    'cc_value_max'
+  ]) {
     validateMidiRange(cond[field], field);
   }
 
@@ -279,12 +286,15 @@ function lightingPresetLoad(app, data) {
   requireField(data, 'id');
 
   const presets = app.lightingRepository.findAllPresets();
-  const preset = presets.find(p => p.id === data.id);
+  const preset = presets.find((p) => p.id === data.id);
   if (!preset) throw new NotFoundError('LightingPreset', data.id);
 
   // Guard: only load if rules_snapshot is an array of rules (not a scene object)
   if (!Array.isArray(preset.rules_snapshot)) {
-    throw new ValidationError('This preset is a scene snapshot, not a rules preset. Use scene_apply instead.', 'rules_snapshot');
+    throw new ValidationError(
+      'This preset is a scene snapshot, not a rules preset. Use scene_apply instead.',
+      'rules_snapshot'
+    );
   }
 
   // Delete existing rules and recreate from snapshot
@@ -421,7 +431,8 @@ function lightingBlackout(app) {
  */
 function lightingGroupCreate(app, data) {
   requireField(data, 'name');
-  if (!data.device_ids || !Array.isArray(data.device_ids)) throw new ValidationError('device_ids array is required', 'device_ids');
+  if (!data.device_ids || !Array.isArray(data.device_ids))
+    throw new ValidationError('device_ids array is required', 'device_ids');
   const lm = requireLightingManager(app);
   return lm.createGroup(data.name, data.device_ids);
 }
@@ -460,7 +471,9 @@ function lightingGroupList(app) {
 function lightingGroupColor(app, data) {
   requireField(data, 'name');
   const lm = requireLightingManager(app);
-  const color = data.color ? hexToRgb(data.color) : { r: data.r || 0, g: data.g || 0, b: data.b || 0 };
+  const color = data.color
+    ? hexToRgb(data.color)
+    : { r: data.r || 0, g: data.g || 0, b: data.b || 0 };
   return lm.setGroupColor(data.name, color.r, color.g, color.b, data.brightness || 255);
 }
 
@@ -500,10 +513,15 @@ function lightingRulesExport(app, data) {
     export_data: {
       version: 1,
       exported_at: new Date().toISOString(),
-      devices: devices.map(d => ({ name: d.name, type: d.type, led_count: d.led_count, connection_config: d.connection_config })),
-      rules: rules.map(r => ({
+      devices: devices.map((d) => ({
+        name: d.name,
+        type: d.type,
+        led_count: d.led_count,
+        connection_config: d.connection_config
+      })),
+      rules: rules.map((r) => ({
         name: r.name,
-        device_name: devices.find(d => d.id === r.device_id)?.name || null,
+        device_name: devices.find((d) => d.id === r.device_id)?.name || null,
         instrument_id: r.instrument_id,
         priority: r.priority,
         enabled: r.enabled,
@@ -526,9 +544,11 @@ function lightingRulesExport(app, data) {
  */
 function lightingRulesImport(app, data) {
   requireField(data, 'import_data');
-  const importData = typeof data.import_data === 'string' ? JSON.parse(data.import_data) : data.import_data;
+  const importData =
+    typeof data.import_data === 'string' ? JSON.parse(data.import_data) : data.import_data;
 
-  if (!importData.rules || !Array.isArray(importData.rules)) throw new ValidationError('Invalid import data: missing rules array', 'import_data');
+  if (!importData.rules || !Array.isArray(importData.rules))
+    throw new ValidationError('Invalid import data: missing rules array', 'import_data');
 
   const devices = app.lightingRepository.findAllDevices();
   let imported = 0;
@@ -538,7 +558,7 @@ function lightingRulesImport(app, data) {
     // Try to match device by name
     let deviceId = null;
     if (rule.device_name) {
-      const device = devices.find(d => d.name === rule.device_name);
+      const device = devices.find((d) => d.name === rule.device_name);
       if (device) deviceId = device.id;
     }
     if (!deviceId && data.default_device_id) {
@@ -593,7 +613,7 @@ async function lightingDeviceScan(app, data) {
       const ip = `${subnet}.${i}`;
       scanPromises.push(
         fetch(`http://${ip}/json/info`, { signal: AbortSignal.timeout(800) })
-          .then(async res => {
+          .then(async (res) => {
             if (res.ok) {
               const info = await res.json();
               discovered.push({
@@ -620,7 +640,9 @@ async function lightingDeviceScan(app, data) {
   // Scan for Philips Hue bridges
   if (scanType === 'all' || scanType === 'hue') {
     try {
-      const res = await fetch('https://discovery.meethue.com/', { signal: AbortSignal.timeout(5000) });
+      const res = await fetch('https://discovery.meethue.com/', {
+        signal: AbortSignal.timeout(5000)
+      });
       if (res.ok) {
         const bridges = await res.json();
         for (const bridge of bridges) {
@@ -632,7 +654,9 @@ async function lightingDeviceScan(app, data) {
           });
         }
       }
-    } catch (e) { app.logger.debug('Hue bridge discovery skipped', e); }
+    } catch (e) {
+      app.logger.debug('Hue bridge discovery skipped', e);
+    }
   }
 
   return { success: true, discovered };
@@ -753,7 +777,11 @@ function lightingMidiLearnStart(app, _data) {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       app.eventBus.removeListener('midi_message', handler);
-      resolve({ success: false, error: 'timeout', message: 'No MIDI event received within 10 seconds' });
+      resolve({
+        success: false,
+        error: 'timeout',
+        message: 'No MIDI event received within 10 seconds'
+      });
     }, 10000);
 
     const handler = (event) => {

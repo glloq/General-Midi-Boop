@@ -23,7 +23,16 @@
  * `JsonValidator.validateSystemCommand`; the rest take no payload.
  */
 import os from 'os';
-import { readFileSync, accessSync, openSync, closeSync, mkdirSync, unlinkSync, existsSync, constants as fsConstants } from 'fs';
+import {
+  readFileSync,
+  accessSync,
+  openSync,
+  closeSync,
+  mkdirSync,
+  unlinkSync,
+  existsSync,
+  constants as fsConstants
+} from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { AuthenticationError, ValidationError } from '../../core/errors/index.js';
@@ -158,7 +167,9 @@ async function systemReboot(app) {
     ['systemctl', ['reboot']]
   ]);
   if (!rebooted) {
-    app.logger.warn('Host reboot command unavailable or not permitted; exiting the process instead');
+    app.logger.warn(
+      'Host reboot command unavailable or not permitted; exiting the process instead'
+    );
     setTimeout(() => process.exit(0), 1000);
   }
   return { success: true, action: 'host_reboot', rebooted };
@@ -242,12 +253,26 @@ async function systemCheckUpdate(app) {
   const cwd = PROJECT_ROOT;
 
   try {
-    const localHash = execSync('git rev-parse HEAD', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
-    const localDate = execSync('git log -1 --format=%ci HEAD', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
-    const currentBranch = execSync('git branch --show-current', { cwd, encoding: 'utf8', timeout: 5000 }).trim() || 'main';
+    const localHash = execSync('git rev-parse HEAD', {
+      cwd,
+      encoding: 'utf8',
+      timeout: 5000
+    }).trim();
+    const localDate = execSync('git log -1 --format=%ci HEAD', {
+      cwd,
+      encoding: 'utf8',
+      timeout: 5000
+    }).trim();
+    const currentBranch =
+      execSync('git branch --show-current', { cwd, encoding: 'utf8', timeout: 5000 }).trim() ||
+      'main';
 
     // ── Stable channel: origin/main ──
-    const lsRemoteMain = execSync('git ls-remote origin refs/heads/main', { cwd, encoding: 'utf8', timeout: 15000 }).trim();
+    const lsRemoteMain = execSync('git ls-remote origin refs/heads/main', {
+      cwd,
+      encoding: 'utf8',
+      timeout: 15000
+    }).trim();
     const stableRemoteHashFull = lsRemoteMain.split(/\s/)[0] || '';
 
     if (!stableRemoteHashFull) {
@@ -260,14 +285,28 @@ async function systemCheckUpdate(app) {
 
     try {
       execSync('git fetch origin main', { cwd, timeout: 15000, stdio: 'pipe' });
-      stableRemoteDate = execSync('git log -1 --format=%ci origin/main', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      stableRemoteDate = execSync('git log -1 --format=%ci origin/main', {
+        cwd,
+        encoding: 'utf8',
+        timeout: 5000
+      }).trim();
       if (localHash !== stableRemoteHashFull) {
-        const behind = execSync('git rev-list --count HEAD..origin/main', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+        const behind = execSync('git rev-list --count HEAD..origin/main', {
+          cwd,
+          encoding: 'utf8',
+          timeout: 5000
+        }).trim();
         stableBehindCount = parseInt(behind) || 0;
         try {
-          const remotePkgRaw = execSync('git show origin/main:package.json', { cwd, encoding: 'utf8', timeout: 5000 });
+          const remotePkgRaw = execSync('git show origin/main:package.json', {
+            cwd,
+            encoding: 'utf8',
+            timeout: 5000
+          });
           stableRemoteVersion = JSON.parse(remotePkgRaw).version || null;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     } catch {
       // No write access — use ls-remote result only
@@ -278,10 +317,14 @@ async function systemCheckUpdate(app) {
     // A "stable" release is defined by a change in the first two version components
     // (MAJOR.MINOR). A change only in the patch segment is a beta/hotfix, not a
     // stable release. Helper kept local to avoid polluting module scope.
-    const _majorMinor = (v) => { const p = (v || '').split('.'); return `${p[0]||'0'}.${p[1]||'0'}`; };
-    const stableMajorMinorChanged = !stableUpToDate
-      && stableRemoteVersion !== null
-      && _majorMinor(stableRemoteVersion) !== _majorMinor(APP_VERSION);
+    const _majorMinor = (v) => {
+      const p = (v || '').split('.');
+      return `${p[0] || '0'}.${p[1] || '0'}`;
+    };
+    const stableMajorMinorChanged =
+      !stableUpToDate &&
+      stableRemoteVersion !== null &&
+      _majorMinor(stableRemoteVersion) !== _majorMinor(APP_VERSION);
 
     // ── Beta channel: current branch (only when different from main) ──
     // Validate branch name against a safe pattern before interpolating into shell commands.
@@ -289,19 +332,33 @@ async function systemCheckUpdate(app) {
     let betaInfo = null;
     if (currentBranch && currentBranch !== 'main' && SAFE_BRANCH_RE.test(currentBranch)) {
       try {
-        const lsRemoteBeta = execSync(`git ls-remote origin refs/heads/${currentBranch}`, { cwd, encoding: 'utf8', timeout: 15000 }).trim();
+        const lsRemoteBeta = execSync(`git ls-remote origin refs/heads/${currentBranch}`, {
+          cwd,
+          encoding: 'utf8',
+          timeout: 15000
+        }).trim();
         const betaRemoteHashFull = lsRemoteBeta.split(/\s/)[0] || '';
         if (betaRemoteHashFull) {
           let betaBehindCount = 0;
           let betaRemoteDate = '';
           try {
             execSync(`git fetch origin ${currentBranch}`, { cwd, timeout: 15000, stdio: 'pipe' });
-            betaRemoteDate = execSync(`git log -1 --format=%ci origin/${currentBranch}`, { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+            betaRemoteDate = execSync(`git log -1 --format=%ci origin/${currentBranch}`, {
+              cwd,
+              encoding: 'utf8',
+              timeout: 5000
+            }).trim();
             if (localHash !== betaRemoteHashFull) {
-              const behind = execSync(`git rev-list --count HEAD..origin/${currentBranch}`, { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+              const behind = execSync(`git rev-list --count HEAD..origin/${currentBranch}`, {
+                cwd,
+                encoding: 'utf8',
+                timeout: 5000
+              }).trim();
               betaBehindCount = parseInt(behind) || 0;
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
           betaInfo = {
             upToDate: localHash === betaRemoteHashFull,
             remoteHash: betaRemoteHashFull.substring(0, 7),
@@ -310,7 +367,9 @@ async function systemCheckUpdate(app) {
             branch: currentBranch
           };
         }
-      } catch { /* beta check failed silently */ }
+      } catch {
+        /* beta check failed silently */
+      }
     }
 
     return {
@@ -357,7 +416,7 @@ async function systemCheckUpdate(app) {
  */
 async function systemUpdate(app, data = {}) {
   requireTokenConfigured();
-  const updateType = (data?.type === 'beta') ? 'beta' : 'stable';
+  const updateType = data?.type === 'beta' ? 'beta' : 'stable';
   app.logger.info(`System update requested (type: ${updateType})`);
 
   // Prevent concurrent updates
@@ -370,7 +429,9 @@ async function systemUpdate(app, data = {}) {
       if (lastStatus === 'done' || lastStatus === 'failed') {
         stale = true;
       }
-    } catch { /* file doesn't exist */ }
+    } catch {
+      /* file doesn't exist */
+    }
 
     if (!stale) {
       return { success: false, error: 'Update already in progress' };
@@ -379,7 +440,10 @@ async function systemUpdate(app, data = {}) {
     // Previous update finished but flag wasn't cleared (server didn't restart)
     app.logger.warn('Stale _updateInProgress flag detected (status: done/failed) — resetting');
     _updateInProgress = false;
-    if (_updateInProgressTimer) { clearTimeout(_updateInProgressTimer); _updateInProgressTimer = null; }
+    if (_updateInProgressTimer) {
+      clearTimeout(_updateInProgressTimer);
+      _updateInProgressTimer = null;
+    }
   }
 
   const scriptPath = join(PROJECT_ROOT, 'scripts/update.sh');
@@ -397,11 +461,14 @@ async function systemUpdate(app, data = {}) {
 
   // Safety timeout: reset flag after 5 minutes in case update fails without restarting server
   if (_updateInProgressTimer) clearTimeout(_updateInProgressTimer);
-  _updateInProgressTimer = setTimeout(() => {
-    _updateInProgress = false;
-    _updateInProgressTimer = null;
-    app.logger.warn('Update flag reset after 5 minute safety timeout');
-  }, 5 * 60 * 1000);
+  _updateInProgressTimer = setTimeout(
+    () => {
+      _updateInProgress = false;
+      _updateInProgressTimer = null;
+      app.logger.warn('Update flag reset after 5 minute safety timeout');
+    },
+    5 * 60 * 1000
+  );
 
   const { spawn } = await import('child_process');
   const serverPort = app.config?.server?.port || 8080;
@@ -409,25 +476,42 @@ async function systemUpdate(app, data = {}) {
   // Open log file from Node.js so the child has a valid stdout/stderr.
   // Use the project logs/ directory to avoid /tmp permission conflicts.
   const logsDir = join(PROJECT_ROOT, 'logs');
-  try { mkdirSync(logsDir, { recursive: true }); } catch { /* exists */ }
+  try {
+    mkdirSync(logsDir, { recursive: true });
+  } catch {
+    /* exists */
+  }
 
   // Remove stale status file from previous update so frontend doesn't see old "done"
-  try { unlinkSync(join(logsDir, 'update-status')); } catch { /* doesn't exist */ }
+  try {
+    unlinkSync(join(logsDir, 'update-status'));
+  } catch {
+    /* doesn't exist */
+  }
 
   const logPath = join(logsDir, 'update.log');
   let logFd;
   try {
     // Remove stale file that may be owned by another user
-    try { unlinkSync(logPath); } catch { /* doesn't exist */ }
+    try {
+      unlinkSync(logPath);
+    } catch {
+      /* doesn't exist */
+    }
     logFd = openSync(logPath, 'w');
   } catch (err) {
     app.logger.error(`Cannot open update log file ${logPath}: ${err.message}`);
     _updateInProgress = false;
-    if (_updateInProgressTimer) { clearTimeout(_updateInProgressTimer); _updateInProgressTimer = null; }
+    if (_updateInProgressTimer) {
+      clearTimeout(_updateInProgressTimer);
+      _updateInProgressTimer = null;
+    }
     return { success: false, error: `Cannot open update log: ${err.message}` };
   }
 
-  app.logger.info(`Spawning update script: bash ${scriptPath} --non-interactive (cwd: ${cwd}, type: ${updateType})`);
+  app.logger.info(
+    `Spawning update script: bash ${scriptPath} --non-interactive (cwd: ${cwd}, type: ${updateType})`
+  );
 
   // Launch update script detached so it survives server restart
   const child = spawn('bash', [scriptPath, '--non-interactive'], {
@@ -445,7 +529,11 @@ async function systemUpdate(app, data = {}) {
   });
 
   // Close fd in parent process (child has its own copy)
-  try { closeSync(logFd); } catch { /* ignore */ }
+  try {
+    closeSync(logFd);
+  } catch {
+    /* ignore */
+  }
 
   // Monitor child process exit. The script double-forks to escape PM2 treekill,
   // so the first fork exits immediately with code 0 (expected). Only warn on errors.
@@ -468,7 +556,10 @@ async function systemUpdate(app, data = {}) {
     });
   } catch (err) {
     _updateInProgress = false;
-    if (_updateInProgressTimer) { clearTimeout(_updateInProgressTimer); _updateInProgressTimer = null; }
+    if (_updateInProgressTimer) {
+      clearTimeout(_updateInProgressTimer);
+      _updateInProgressTimer = null;
+    }
     app.logger.error(`Failed to spawn update script: ${err.message}`);
     return { success: false, error: `Failed to start update: ${err.message}` };
   }
@@ -487,7 +578,9 @@ async function systemUpdate(app, data = {}) {
         app.logger.info(`Update safety net: status="${status}", triggering self-exit for restart`);
         setTimeout(() => process.exit(0), 2000);
       }
-    } catch { /* file doesn't exist yet, ignore */ }
+    } catch {
+      /* file doesn't exist yet, ignore */
+    }
   }, 3000);
 
   // Stop polling after 5 minutes (matches existing safety timeout)
@@ -599,7 +692,8 @@ function _resolveLogPath(app) {
  *   `truncated:true` indicates the file had more lines than returned.
  */
 async function systemLogs(app, data) {
-  const requested = Number.isInteger(data?.lines) && data.lines > 0 ? data.lines : LOG_TAIL_DEFAULT_LINES;
+  const requested =
+    Number.isInteger(data?.lines) && data.lines > 0 ? data.lines : LOG_TAIL_DEFAULT_LINES;
   const lineLimit = Math.min(requested, LOG_TAIL_MAX_LINES);
   const logPath = _resolveLogPath(app);
 

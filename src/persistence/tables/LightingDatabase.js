@@ -60,7 +60,7 @@ class LightingDatabase {
   getDevices() {
     try {
       const rows = this.db.prepare('SELECT * FROM lighting_devices ORDER BY name').all();
-      return rows.map(r => this._parseDevice(r));
+      return rows.map((r) => this._parseDevice(r));
     } catch (error) {
       this.logger.error(`Failed to get lighting devices: ${error.message}`);
       throw error;
@@ -69,13 +69,15 @@ class LightingDatabase {
 
   updateDevice(id, updates) {
     try {
-      const jsonify = v => typeof v === 'string' ? v : JSON.stringify(v);
-      const result = buildDynamicUpdate('lighting_devices', updates,
+      const jsonify = (v) => (typeof v === 'string' ? v : JSON.stringify(v));
+      const result = buildDynamicUpdate(
+        'lighting_devices',
+        updates,
         ['name', 'type', 'connection_config', 'led_count', 'enabled'],
         {
           transforms: {
             connection_config: jsonify,
-            enabled: v => v ? 1 : 0
+            enabled: (v) => (v ? 1 : 0)
           }
         }
       );
@@ -138,10 +140,10 @@ class LightingDatabase {
 
   getRulesForDevice(deviceId) {
     try {
-      const rows = this.db.prepare(
-        'SELECT * FROM lighting_rules WHERE device_id = ? ORDER BY priority DESC, id'
-      ).all(deviceId);
-      return rows.map(r => this._parseRule(r));
+      const rows = this.db
+        .prepare('SELECT * FROM lighting_rules WHERE device_id = ? ORDER BY priority DESC, id')
+        .all(deviceId);
+      return rows.map((r) => this._parseRule(r));
     } catch (error) {
       this.logger.error(`Failed to get rules for device: ${error.message}`);
       throw error;
@@ -150,10 +152,12 @@ class LightingDatabase {
 
   getAllEnabledRules() {
     try {
-      const rows = this.db.prepare(
-        'SELECT r.*, d.enabled as device_enabled FROM lighting_rules r JOIN lighting_devices d ON r.device_id = d.id WHERE r.enabled = 1 AND d.enabled = 1 ORDER BY r.priority DESC, r.id'
-      ).all();
-      return rows.map(r => this._parseRule(r));
+      const rows = this.db
+        .prepare(
+          'SELECT r.*, d.enabled as device_enabled FROM lighting_rules r JOIN lighting_devices d ON r.device_id = d.id WHERE r.enabled = 1 AND d.enabled = 1 ORDER BY r.priority DESC, r.id'
+        )
+        .all();
+      return rows.map((r) => this._parseRule(r));
     } catch (error) {
       this.logger.error(`Failed to get all enabled rules: ${error.message}`);
       throw error;
@@ -162,8 +166,10 @@ class LightingDatabase {
 
   getAllRules() {
     try {
-      const rows = this.db.prepare('SELECT * FROM lighting_rules ORDER BY device_id, priority DESC, id').all();
-      return rows.map(r => this._parseRule(r));
+      const rows = this.db
+        .prepare('SELECT * FROM lighting_rules ORDER BY device_id, priority DESC, id')
+        .all();
+      return rows.map((r) => this._parseRule(r));
     } catch (error) {
       this.logger.error(`Failed to get all rules: ${error.message}`);
       throw error;
@@ -172,12 +178,22 @@ class LightingDatabase {
 
   updateRule(id, updates) {
     try {
-      const jsonify = v => typeof v === 'string' ? v : JSON.stringify(v);
-      const result = buildDynamicUpdate('lighting_rules', updates,
-        ['name', 'device_id', 'instrument_id', 'priority', 'enabled', 'condition_config', 'action_config'],
+      const jsonify = (v) => (typeof v === 'string' ? v : JSON.stringify(v));
+      const result = buildDynamicUpdate(
+        'lighting_rules',
+        updates,
+        [
+          'name',
+          'device_id',
+          'instrument_id',
+          'priority',
+          'enabled',
+          'condition_config',
+          'action_config'
+        ],
         {
           transforms: {
-            enabled: v => v ? 1 : 0,
+            enabled: (v) => (v ? 1 : 0),
             condition_config: jsonify,
             action_config: jsonify
           }
@@ -225,7 +241,7 @@ class LightingDatabase {
   getPresets() {
     try {
       const rows = this.db.prepare('SELECT * FROM lighting_presets ORDER BY name').all();
-      return rows.map(r => ({
+      return rows.map((r) => ({
         ...r,
         rules_snapshot: this._safeJsonParse(r.rules_snapshot, [])
       }));
@@ -260,7 +276,7 @@ class LightingDatabase {
   getGroups() {
     try {
       const rows = this.db.prepare('SELECT * FROM lighting_groups ORDER BY name').all();
-      return rows.map(r => ({
+      return rows.map((r) => ({
         ...r,
         device_ids: this._safeJsonParse(r.device_ids, [])
       }));
@@ -272,7 +288,8 @@ class LightingDatabase {
 
   updateGroup(name, deviceIds) {
     try {
-      this.db.prepare('UPDATE lighting_groups SET device_ids = ? WHERE name = ?')
+      this.db
+        .prepare('UPDATE lighting_groups SET device_ids = ? WHERE name = ?')
         .run(JSON.stringify(deviceIds), name);
     } catch (error) {
       this.logger.error(`Failed to update lighting group: ${error.message}`);

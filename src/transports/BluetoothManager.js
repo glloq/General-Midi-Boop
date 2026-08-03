@@ -260,7 +260,9 @@ class BluetoothManager extends EventEmitter {
 
       await this._runPortScan(duration * 1000);
 
-      this.logger.info(`[TIMING] Scan found ${this.devices.size} devices in ${Date.now() - startTime}ms`);
+      this.logger.info(
+        `[TIMING] Scan found ${this.devices.size} devices in ${Date.now() - startTime}ms`
+      );
 
       let devicesArray = Array.from(this.devices.values());
       if (filter) {
@@ -364,10 +366,7 @@ class BluetoothManager extends EventEmitter {
       }
       clearTimeout(timer);
 
-      const name =
-        this.devices.get(address)?.name ||
-        this._pairedName(address) ||
-        address;
+      const name = this.devices.get(address)?.name || this._pairedName(address) || address;
 
       const totalTime = Date.now() - startTime;
       this.logger.info(`[TIMING] 🚀 TOTAL CONNECTION TIME: ${totalTime}ms`);

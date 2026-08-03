@@ -31,7 +31,11 @@ describe('harmonica_config — DB round-trip (real SQLite)', () => {
   });
 
   afterAll(() => {
-    try { database.close?.(); } catch { /* ignore */ }
+    try {
+      database.close?.();
+    } catch {
+      /* ignore */
+    }
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -72,7 +76,9 @@ describe('harmonica_config — DB round-trip (real SQLite)', () => {
       harmonica_config: { type: 'diatonic', key: 'C' }
     });
     expect(() => database.getInstrumentCapabilities(DEV, 0)).not.toThrow();
-    expect(database.getInstrumentCapabilities(DEV, 0).harmonica_config)
-      .toEqual({ type: 'diatonic', key: 'C' });
+    expect(database.getInstrumentCapabilities(DEV, 0).harmonica_config).toEqual({
+      type: 'diatonic',
+      key: 'C'
+    });
   });
 });

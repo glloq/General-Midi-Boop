@@ -60,493 +60,510 @@
  * keyboard widget have produced their first values, without a try-
  * catch around every call.
  */
-(function() {
-    'use strict';
+(function () {
+  'use strict';
 
-    const DEFAULT_OPTIONS = {
-        bandHeight: 22,
-        // White fingers are short stubs that hug the band — they
-        // mark "this finger lands on the white key in front of the
-        // hand" without obscuring the key body. tipY = keysH × 0.75
-        // makes the finger occupy the bottom quarter of the keys
-        // area; half the height of the older 0.5 layout.
-        whiteTipFraction: 0.75,
-        // Black fingers reach into the black-key zone: tip at the
-        // bottom of the black key (blackH × 0.85) so the finger
-        // appears resting against the lower part of the black key.
-        // Finger tip at 90 % of the black key height → right at the bottom
-        // of the black key (just before it meets the white-key body).
-        blackTipFraction: 0.9,
-        // Must match the CSS .black-key { height: 65% } rule exactly.
-        blackHeightRatio: 0.65,
-        chromaticTipFraction: 0.55,
-        // Cosmetic — kept here so the editor can theme the widget
-        // without re-opening the renderer's source file later.
-        idleFingerFill: '#94a3b8',
-        activeFingerFill: '#3b82f6',
-        fingerStroke: 'rgba(15,23,42,0.65)',
-        knuckleHeight: 2,
-        fingerWidthRatio: 0.7  // finger body width = slotWidth × this
-    };
+  const DEFAULT_OPTIONS = {
+    bandHeight: 22,
+    // White fingers are short stubs that hug the band — they
+    // mark "this finger lands on the white key in front of the
+    // hand" without obscuring the key body. tipY = keysH × 0.75
+    // makes the finger occupy the bottom quarter of the keys
+    // area; half the height of the older 0.5 layout.
+    whiteTipFraction: 0.75,
+    // Black fingers reach into the black-key zone: tip at the
+    // bottom of the black key (blackH × 0.85) so the finger
+    // appears resting against the lower part of the black key.
+    // Finger tip at 90 % of the black key height → right at the bottom
+    // of the black key (just before it meets the white-key body).
+    blackTipFraction: 0.9,
+    // Must match the CSS .black-key { height: 65% } rule exactly.
+    blackHeightRatio: 0.65,
+    chromaticTipFraction: 0.55,
+    // Cosmetic — kept here so the editor can theme the widget
+    // without re-opening the renderer's source file later.
+    idleFingerFill: '#94a3b8',
+    activeFingerFill: '#3b82f6',
+    fingerStroke: 'rgba(15,23,42,0.65)',
+    knuckleHeight: 2,
+    fingerWidthRatio: 0.7 // finger body width = slotWidth × this
+  };
 
-    class KeyboardFingersRenderer {
-        /**
-         * @param {HTMLCanvasElement} canvas
-         * @param {Object} [opts]
-         */
-        constructor(canvas, opts = {}) {
-            this.canvas = canvas;
-            this.options = Object.assign({}, DEFAULT_OPTIONS, opts);
+  class KeyboardFingersRenderer {
+    /**
+     * @param {HTMLCanvasElement} canvas
+     * @param {Object} [opts]
+     */
+    constructor(canvas, opts = {}) {
+      this.canvas = canvas;
+      this.options = Object.assign({}, DEFAULT_OPTIONS, opts);
 
-            // Inputs — every field is set via a public setter. The
-            // setters validate and (when relevant) assign defaults
-            // so `draw()` can iterate without re-checking each frame.
-            this._kb = null;                  // {keyXAt(midi), keyWidth(midi)}
-            this._layout = 'chromatic';
-            this._hands = [];                 // [{id, span, numFingers, color}]
-            this._anchors = new Map();        // handId → anchor (animated)
-            this._activeNotes = new Set();    // Set<midi>
-            this._extent = { lo: 0, hi: 127 };
-        }
-
-        // -----------------------------------------------------------------
-        //  Public setters
-        // -----------------------------------------------------------------
-
-        /** Plug the underlying keyboard widget so the renderer can ask
-         *  it for pixel positions (`keyXAt`) and key widths
-         *  (`keyWidth`). Pass `null` to detach (e.g. when the keyboard
-         *  is being rebuilt) — the next `draw()` will become a no-op. */
-        setKeyboardWidget(kb) {
-            this._kb = (kb && typeof kb.keyXAt === 'function'
-                        && typeof kb.keyWidth === 'function') ? kb : null;
-        }
-
-        /** Switch between `'piano'` (W/B alternation) and
-         *  `'chromatic'` (uniform). Unknown values fall back to
-         *  chromatic so a malformed instrument config doesn't
-         *  break the overlay. */
-        setLayout(layout) {
-            this._layout = layout === 'piano' ? 'piano' : 'chromatic';
-        }
-
-        /** `[{ id, span, numFingers, color }, …]`. Hands without an id
-         *  or with a non-finite span are silently dropped. */
-        setHands(hands) {
-            this._hands = Array.isArray(hands)
-                ? hands.filter(h => h && h.id
-                    && Number.isFinite(h.span)
-                    && typeof h.color === 'string')
-                : [];
-        }
-
-        /** Map from `handId` to the (live, animated) anchor in MIDI
-         *  semitones. Accepts a Map or a plain object — the latter
-         *  is normalised once for cheap per-frame lookup. */
-        setAnchors(anchors) {
-            if (anchors instanceof Map) {
-                this._anchors = anchors;
-            } else if (anchors && typeof anchors === 'object') {
-                this._anchors = new Map(Object.entries(anchors));
-            } else {
-                this._anchors = new Map();
-            }
-        }
-
-        /** Set of currently sounding MIDI semitones; only fingers
-         *  that map to one of these light up. Accepts a Set, a plain
-         *  array, or null/undefined. */
-        setActiveNotes(notes) {
-            if (notes instanceof Set) {
-                this._activeNotes = notes;
-            } else if (Array.isArray(notes)) {
-                this._activeNotes = new Set(notes);
-            } else {
-                this._activeNotes = new Set();
-            }
-        }
-
-        /** `{lo, hi}` — the MIDI range currently rendered by the
-         *  underlying keyboard widget. Used for the off-screen check
-         *  BEFORE consulting `keyXAt` (see file header). */
-        setVisibleExtent(extent) {
-            if (extent && Number.isFinite(extent.lo) && Number.isFinite(extent.hi)
-                    && extent.hi > extent.lo) {
-                this._extent = { lo: extent.lo, hi: extent.hi };
-            }
-        }
-
-        // -----------------------------------------------------------------
-        //  Render
-        // -----------------------------------------------------------------
-
-        /** Redraw the overlay. Safe to call without inputs (no-ops). */
-        draw() {
-            const c = this.canvas;
-            if (!c) return;
-            const W = c.clientWidth;
-            const H = c.clientHeight;
-            if (W <= 0 || H <= 0) return;
-
-            const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
-            const wantW = Math.round(W * dpr);
-            const wantH = Math.round(H * dpr);
-            if (c.width !== wantW || c.height !== wantH) {
-                c.width = wantW;
-                c.height = wantH;
-            }
-            const ctx = c.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, W, H);
-
-            if (this._hands.length === 0) return;
-
-            if (this._layout === 'piano') {
-                this._drawPiano(ctx, W, H);
-            } else {
-                this._drawChromatic(ctx, W, H);
-            }
-        }
-
-        /** Detach from the canvas. The widget is single-canvas and
-         *  attaches no DOM listeners (it's a pure renderer); destroy
-         *  just clears its inputs so subsequent calls are cheap and
-         *  GC-friendly. Provided for symmetry with sibling widgets. */
-        destroy() {
-            this._kb = null;
-            this._hands = [];
-            this._anchors = new Map();
-            this._activeNotes = new Set();
-        }
-
-        // -----------------------------------------------------------------
-        //  Piano layout — fingers distributed across the declared span
-        // -----------------------------------------------------------------
-
-        _drawPiano(ctx, W, H) {
-            // Without the keyboard widget we can't compute per-key
-            // pixel positions accurately; fall back to chromatic.
-            if (!this._kb) {
-                this._drawChromatic(ctx, W, H);
-                return;
-            }
-
-            const opts = this.options;
-            const bandH = opts.bandHeight;
-            const handY = Math.max(0, H - bandH);
-            const keysH = handY;
-            const blackH = keysH * opts.blackHeightRatio;
-            const knuckleTop = handY;
-            const kb = this._kb;
-
-            const rangeMin = Number.isFinite(kb.rangeMin) ? kb.rangeMin : this._extent.lo;
-            const rangeMax = Number.isFinite(kb.rangeMax) ? kb.rangeMax : this._extent.hi;
-
-            // Build a white-key index table. Only white keys get an index ≥ 0;
-            // black key entries stay -1 so `keyCenter` can branch on it.
-            const whiteIdxOf = new Int16Array(128).fill(-1);
-            let wIdx = 0;
-            for (let m = rangeMin; m <= rangeMax; m++) {
-                if (!this._isBlackKey(m)) whiteIdxOf[m] = wIdx++;
-            }
-            const numWhites = wIdx;
-            if (numWhites <= 0) return;
-            const ww = W / numWhites;          // pixels per white key
-
-            // Pixel centre of any key (white or black).
-            // White  → index × ww + half white key.
-            // Black  → midpoint of its two surrounding white key centres,
-            //          which matches the DOM placement of `left: (i+0.7)*ww%`.
-            const keyCenter = (midi) => {
-                const m = Math.max(rangeMin, Math.min(rangeMax, Math.round(midi)));
-                if (!this._isBlackKey(m)) {
-                    const i = whiteIdxOf[m];
-                    return (i >= 0 ? i : 0) * ww + ww * 0.5;
-                }
-                const wL = m - 1, wR = m + 1;
-                const xL = (wL >= rangeMin && whiteIdxOf[wL] >= 0)
-                    ? whiteIdxOf[wL] * ww + ww * 0.5 : 0;
-                const xR = (wR <= rangeMax && whiteIdxOf[wR] >= 0)
-                    ? whiteIdxOf[wR] * ww + ww * 0.5 : W;
-                return (xL + xR) * 0.5;
-            };
-
-            // T-shape dimensions (shared across all hands in this draw call).
-            // Black-key fingers: tip within the black-key zone (top blackHeightRatio
-            // of the key area) so they appear above/on the black keys.
-            // White-key fingers: tip in the lower white-only zone (unchanged).
-            const blackSlotTipY = Math.round(blackH * opts.blackTipFraction);
-            const whiteKeyTipY  = Math.round(keysH * 0.85);
-            const tBarH     = Math.max(4, Math.round(keysH * 0.09));
-            const whiteBarW = Math.max(4, ww * 0.52);   // moderate width for white key
-            const gapBarW   = Math.max(3, ww * 0.52);   // ≈ black key width
-            const tStemW    = Math.max(2, ww * 0.18);   // thin stem for all fingers
-
-            for (const hand of this._hands) {
-                const numFingers = this._effectiveNumFingers(hand);
-                const a = this._anchorFor(hand);
-                if (!Number.isFinite(a)) continue;
-
-                const lowMidi  = Math.round(a);
-                const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                if (this._isOffScreen(lowMidi, highMidi)) continue;
-
-                // Piano mode: alternating W–G–W–G–W pattern gives exactly
-                // numFingers visual elements. ceil(n/2) fall on consecutive
-                // white keys; floor(n/2) fall in the gaps between them as
-                // virtual black-key-style slots (real black key if it exists,
-                // empty visual slot over E–F / B–C gaps).
-                const numWhites = Math.ceil(numFingers / 2);
-                const numGaps   = Math.floor(numFingers / 2);
-                // Even numFingers ends on a gap, which needs the next white
-                // key (after the last finger) to compute its x position.
-                const keysToFetch = numWhites + (numGaps >= numWhites ? 1 : 0);
-                const fetchedWhites = this._whiteKeysFromAnchor(a, keysToFetch)
-                    .filter(m => m >= rangeMin && m <= rangeMax);
-
-                const whiteFingers = fetchedWhites.slice(0, numWhites);
-                if (whiteFingers.length === 0) continue;
-
-                const gapSlots = [];
-                for (let i = 0; i < numGaps && (i + 1) < fetchedWhites.length; i++) {
-                    const left  = whiteFingers[i];
-                    const right = fetchedWhites[i + 1];
-                    const blackMidi = left + 1;
-                    const hasBlack = this._isBlackKey(blackMidi) && blackMidi < right
-                                     && blackMidi >= rangeMin && blackMidi <= rangeMax;
-                    gapSlots.push({
-                        xCenter: (keyCenter(left) + keyCenter(right)) * 0.5,
-                        isActive: hasBlack && this._activeNotes.has(blackMidi),
-                    });
-                }
-
-                const kLeft  = keyCenter(whiteFingers[0]) - ww * 0.5;
-                const kRight = Math.max(
-                    keyCenter(whiteFingers[whiteFingers.length - 1]) + ww * 0.5,
-                    gapSlots.length > 0 ? gapSlots[gapSlots.length - 1].xCenter + ww * 0.3 : 0
-                );
-                // Fill the full band height so the hand body is visible
-                // across the entire km-hand-band area.
-                this._drawKnuckleBar(ctx, hand.color, kLeft, kRight,
-                                      knuckleTop, H - knuckleTop, W);
-
-                // Pass 1 — gap (black-key position) T-shapes first so white
-                // fingers overdraw their stem bottoms (same layering as real keys).
-                for (const slot of gapSlots) {
-                    this._drawPianoFinger(ctx, slot.xCenter,
-                        blackSlotTipY, keysH, gapBarW, tStemW, tBarH, slot.isActive, W);
-                }
-                // Pass 2 — white-key T-shapes on top.
-                for (const mi of whiteFingers) {
-                    this._drawPianoFinger(ctx, keyCenter(mi),
-                        whiteKeyTipY, keysH, whiteBarW, tStemW, tBarH,
-                        this._activeNotes.has(mi), W);
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        //  Chromatic layout — uniform spacing AND uniform height
-        // -----------------------------------------------------------------
-
-        _drawChromatic(ctx, W, H) {
-            const opts = this.options;
-            const kb = this._kb;
-
-            // Pixel-per-semitone computed against the fingers canvas
-            // width (NOT via `kb.keyXAt`). See the same rationale in
-            // `_drawPiano`: the keyboard canvas can have a stale
-            // size cached, while the fingers canvas reports the
-            // accurate live clientWidth.
-            const rangeMin = (kb && Number.isFinite(kb.rangeMin)) ? kb.rangeMin : this._extent.lo;
-            const rangeMax = (kb && Number.isFinite(kb.rangeMax)) ? kb.rangeMax : this._extent.hi;
-            const semitoneCount = Math.max(1, rangeMax - rangeMin + 1);
-            const pxPerPitch = W / semitoneCount;
-            const xLeftOf = (midi) => (midi - rangeMin) * pxPerPitch;
-            const xRightOf = (midi) => (midi - rangeMin + 1) * pxPerPitch;
-
-            const bandH = opts.bandHeight;
-            const handY = Math.max(0, H - bandH);
-            const knuckleTop = handY;
-            const tipY = Math.round(handY * opts.chromaticTipFraction);
-
-            // T-shape dimensions — same visual style as piano fingers.
-            const tBarH = Math.max(5, Math.round(handY * 0.14));
-            const barW  = Math.max(4, pxPerPitch * 0.70);
-            const stemW = Math.max(2, pxPerPitch * 0.30);
-
-            for (const hand of this._hands) {
-                const numFingers = this._effectiveNumFingers(hand);
-                const a = this._anchorFor(hand);
-                if (!Number.isFinite(a)) continue;
-
-                const lowMidi  = Math.round(a);
-                const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
-                if (this._isOffScreen(lowMidi, highMidi)) continue;
-
-                const handLeftX  = xLeftOf(Math.floor(a));
-                const handRightX = xRightOf(Math.floor(a) + Math.round(hand.span));
-                if (!(handRightX > handLeftX)) continue;
-                const handPxW = handRightX - handLeftX;
-
-                // Knuckle bar fills the full band height, matching piano style.
-                this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX,
-                                      knuckleTop, H - knuckleTop, W);
-
-                for (let i = 0; i < numFingers; i++) {
-                    const m = this._slotMidi(a, hand.span, numFingers, i);
-                    // Align finger centre with its MIDI note cell; fall back to
-                    // uniform spacing when the slot midi is not finite.
-                    const xCenter = Number.isFinite(m)
-                        ? (m - rangeMin + 0.5) * pxPerPitch
-                        : handLeftX + (i + 0.5) * (handPxW / numFingers);
-                    const isActive = Number.isFinite(m) && this._activeNotes.has(m);
-                    this._drawPianoFinger(ctx, xCenter, tipY, handY,
-                                          barW, stemW, tBarH, isActive, W);
-                }
-            }
-        }
-
-        // -----------------------------------------------------------------
-        //  Internals
-        // -----------------------------------------------------------------
-
-        /** Animated anchor for a hand. Prefers the value the editor
-         *  pushed via `setAnchors` (Map keyed by handId), falling
-         *  back to the hand's own static `anchor` field when no
-         *  animated value has been pushed yet — that mirrors the
-         *  modal's `_displayedAnchorMapForRender` fallback so the
-         *  hand still renders during the first frames after mount
-         *  (or any time the animation map briefly drops an entry). */
-        _anchorFor(hand) {
-            const animated = this._anchors.get(hand.id);
-            if (Number.isFinite(animated)) return animated;
-            if (hand && Number.isFinite(hand.anchor)) return hand.anchor;
-            return NaN;
-        }
-
-        /** Honour the configured `numFingers`, falling back to
-         *  `span + 1` (the chromatic convention: one slot per
-         *  semitone) when the hands_config didn't set the field. */
-        _effectiveNumFingers(hand) {
-            if (Number.isFinite(hand.numFingers) && hand.numFingers > 0) {
-                return Math.max(1, Math.round(hand.numFingers));
-            }
-            return Math.max(1, Math.round(hand.span) + 1);
-        }
-
-        /** Slot → MIDI mapping. Even when `numFingers` exceeds
-         *  `span + 1` (e.g. 16 fingers on a 14-semitone span), the
-         *  rounded value keeps `activeNotes.has(slot)` looking up an
-         *  integer MIDI value. The drawing pass uses the slot
-         *  INDEX, not the semitone, for visual placement so the
-         *  alternating white/black pattern stays uniform. */
-        _slotMidi(anchor, span, numFingers, i) {
-            if (!Number.isFinite(anchor) || !Number.isFinite(span)) return NaN;
-            if (numFingers <= 1) return Math.round(anchor);
-            return Math.round(anchor + (i * span) / (numFingers - 1));
-        }
-
-        /** True when the hand's MIDI window sits entirely outside the
-         *  current visible extent. Faster than a pixel-based check
-         *  and immune to `KeyboardPreview.keyXAt`'s clamping. */
-        _isOffScreen(lowMidi, highMidi) {
-            return highMidi < this._extent.lo || lowMidi > this._extent.hi;
-        }
-
-        /** True when MIDI `m` is a black-key pitch class (C#, D#,
-         *  F#, G#, A#). Used by `_whiteKeysFromAnchor` to skip
-         *  blacks while building the alternation sequence. */
-        _isBlackKey(midi) {
-            return MidiConstants.isBlackKey(midi);
-        }
-
-        /** Walk MIDI from `startMidi` upward, collecting `count`
-         *  consecutive white keys. If `startMidi` happens to be on
-         *  a black key (rare anchor position) we snap back to the
-         *  preceding white so the pattern stays in phase with the
-         *  keyboard (e.g. C# anchor → thumb on C, index on C#).
-         *  Returns fewer than `count` only when we run out of MIDI
-         *  space (>127). */
-        _whiteKeysFromAnchor(startMidi, count) {
-            const out = [];
-            let m = Math.max(0, Math.round(startMidi));
-            // Snap FORWARD on black anchors so the sequence stays in phase
-            // with KeyboardHandPositionState._whiteKeysFromAnchor.
-            if (this._isBlackKey(m)) m++;
-            while (out.length < count && m <= 127) {
-                if (!this._isBlackKey(m)) out.push(m);
-                m++;
-            }
-            return out;
-        }
-
-        /** Draw the hand-coloured knuckle bar inside the band's top
-         *  edge. Clipped to the canvas so a partially off-screen hand
-         *  still draws its on-screen portion cleanly. */
-        _drawKnuckleBar(ctx, color, leftX, rightX, top, height, W) {
-            const x0 = Math.max(0, leftX);
-            const x1 = Math.min(W, rightX);
-            if (x1 <= x0) return;
-            ctx.fillStyle = color;
-            ctx.fillRect(x0, top, x1 - x0, height);
-        }
-
-        /** Draw a T-shaped piano finger.
-         *  The wide horizontal bar represents the fingertip pressing the key;
-         *  the narrower stem below connects to the knuckle band.
-         *  `tipY`  — top of the bar (where the finger meets the key surface).
-         *  `handY` — bottom of the stem (= knuckle line = keysH).
-         *  `barW`  — full width of the horizontal bar.
-         *  `stemW` — width of the stem (narrower than the bar).
-         *  `barH`  — height of the horizontal bar. */
-        _drawPianoFinger(ctx, xCenter, tipY, handY, barW, stemW, barH, isActive, W) {
-            if (xCenter < -barW || xCenter > W + barW) return;
-            const opts = this.options;
-            const barBottom = Math.min(tipY + barH, handY);
-            const bL = xCenter - barW  * 0.5;
-            const bR = xCenter + barW  * 0.5;
-            const sL = xCenter - stemW * 0.5;
-            const sR = xCenter + stemW * 0.5;
-            ctx.fillStyle = isActive ? opts.activeFingerFill : opts.idleFingerFill;
-            ctx.beginPath();
-            ctx.moveTo(bL, tipY);
-            ctx.lineTo(bR, tipY);
-            ctx.lineTo(bR, barBottom);
-            ctx.lineTo(sR, barBottom);
-            ctx.lineTo(sR, handY);
-            ctx.lineTo(sL, handY);
-            ctx.lineTo(sL, barBottom);
-            ctx.lineTo(bL, barBottom);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = opts.fingerStroke;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        }
-
-        /** Draw a single finger rectangle (body + outline). Skips
-         *  fingers whose centre falls outside the canvas plus a
-         *  half-finger margin so an animation that briefly overshoots
-         *  the edge doesn't smear. */
-        _drawFingerBar(ctx, xCenter, tip, height, fingerW, isActive, W) {
-            if (xCenter < -fingerW || xCenter > W + fingerW) return;
-            const fx = xCenter - fingerW / 2;
-            const opts = this.options;
-            ctx.fillStyle = isActive ? opts.activeFingerFill : opts.idleFingerFill;
-            ctx.fillRect(fx, tip, fingerW, height);
-            ctx.strokeStyle = opts.fingerStroke;
-            ctx.lineWidth = 1;
-            ctx.strokeRect(fx + 0.5, tip + 0.5,
-                            Math.max(1, fingerW - 1),
-                            Math.max(1, height - 1));
-        }
+      // Inputs — every field is set via a public setter. The
+      // setters validate and (when relevant) assign defaults
+      // so `draw()` can iterate without re-checking each frame.
+      this._kb = null; // {keyXAt(midi), keyWidth(midi)}
+      this._layout = 'chromatic';
+      this._hands = []; // [{id, span, numFingers, color}]
+      this._anchors = new Map(); // handId → anchor (animated)
+      this._activeNotes = new Set(); // Set<midi>
+      this._extent = { lo: 0, hi: 127 };
     }
 
-    if (typeof window !== 'undefined') {
-        window.KeyboardFingersRenderer = KeyboardFingersRenderer;
+    // -----------------------------------------------------------------
+    //  Public setters
+    // -----------------------------------------------------------------
+
+    /** Plug the underlying keyboard widget so the renderer can ask
+     *  it for pixel positions (`keyXAt`) and key widths
+     *  (`keyWidth`). Pass `null` to detach (e.g. when the keyboard
+     *  is being rebuilt) — the next `draw()` will become a no-op. */
+    setKeyboardWidget(kb) {
+      this._kb =
+        kb && typeof kb.keyXAt === 'function' && typeof kb.keyWidth === 'function' ? kb : null;
     }
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { KeyboardFingersRenderer };
+
+    /** Switch between `'piano'` (W/B alternation) and
+     *  `'chromatic'` (uniform). Unknown values fall back to
+     *  chromatic so a malformed instrument config doesn't
+     *  break the overlay. */
+    setLayout(layout) {
+      this._layout = layout === 'piano' ? 'piano' : 'chromatic';
     }
+
+    /** `[{ id, span, numFingers, color }, …]`. Hands without an id
+     *  or with a non-finite span are silently dropped. */
+    setHands(hands) {
+      this._hands = Array.isArray(hands)
+        ? hands.filter((h) => h && h.id && Number.isFinite(h.span) && typeof h.color === 'string')
+        : [];
+    }
+
+    /** Map from `handId` to the (live, animated) anchor in MIDI
+     *  semitones. Accepts a Map or a plain object — the latter
+     *  is normalised once for cheap per-frame lookup. */
+    setAnchors(anchors) {
+      if (anchors instanceof Map) {
+        this._anchors = anchors;
+      } else if (anchors && typeof anchors === 'object') {
+        this._anchors = new Map(Object.entries(anchors));
+      } else {
+        this._anchors = new Map();
+      }
+    }
+
+    /** Set of currently sounding MIDI semitones; only fingers
+     *  that map to one of these light up. Accepts a Set, a plain
+     *  array, or null/undefined. */
+    setActiveNotes(notes) {
+      if (notes instanceof Set) {
+        this._activeNotes = notes;
+      } else if (Array.isArray(notes)) {
+        this._activeNotes = new Set(notes);
+      } else {
+        this._activeNotes = new Set();
+      }
+    }
+
+    /** `{lo, hi}` — the MIDI range currently rendered by the
+     *  underlying keyboard widget. Used for the off-screen check
+     *  BEFORE consulting `keyXAt` (see file header). */
+    setVisibleExtent(extent) {
+      if (
+        extent &&
+        Number.isFinite(extent.lo) &&
+        Number.isFinite(extent.hi) &&
+        extent.hi > extent.lo
+      ) {
+        this._extent = { lo: extent.lo, hi: extent.hi };
+      }
+    }
+
+    // -----------------------------------------------------------------
+    //  Render
+    // -----------------------------------------------------------------
+
+    /** Redraw the overlay. Safe to call without inputs (no-ops). */
+    draw() {
+      const c = this.canvas;
+      if (!c) return;
+      const W = c.clientWidth;
+      const H = c.clientHeight;
+      if (W <= 0 || H <= 0) return;
+
+      const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+      const wantW = Math.round(W * dpr);
+      const wantH = Math.round(H * dpr);
+      if (c.width !== wantW || c.height !== wantH) {
+        c.width = wantW;
+        c.height = wantH;
+      }
+      const ctx = c.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+
+      if (this._hands.length === 0) return;
+
+      if (this._layout === 'piano') {
+        this._drawPiano(ctx, W, H);
+      } else {
+        this._drawChromatic(ctx, W, H);
+      }
+    }
+
+    /** Detach from the canvas. The widget is single-canvas and
+     *  attaches no DOM listeners (it's a pure renderer); destroy
+     *  just clears its inputs so subsequent calls are cheap and
+     *  GC-friendly. Provided for symmetry with sibling widgets. */
+    destroy() {
+      this._kb = null;
+      this._hands = [];
+      this._anchors = new Map();
+      this._activeNotes = new Set();
+    }
+
+    // -----------------------------------------------------------------
+    //  Piano layout — fingers distributed across the declared span
+    // -----------------------------------------------------------------
+
+    _drawPiano(ctx, W, H) {
+      // Without the keyboard widget we can't compute per-key
+      // pixel positions accurately; fall back to chromatic.
+      if (!this._kb) {
+        this._drawChromatic(ctx, W, H);
+        return;
+      }
+
+      const opts = this.options;
+      const bandH = opts.bandHeight;
+      const handY = Math.max(0, H - bandH);
+      const keysH = handY;
+      const blackH = keysH * opts.blackHeightRatio;
+      const knuckleTop = handY;
+      const kb = this._kb;
+
+      const rangeMin = Number.isFinite(kb.rangeMin) ? kb.rangeMin : this._extent.lo;
+      const rangeMax = Number.isFinite(kb.rangeMax) ? kb.rangeMax : this._extent.hi;
+
+      // Build a white-key index table. Only white keys get an index ≥ 0;
+      // black key entries stay -1 so `keyCenter` can branch on it.
+      const whiteIdxOf = new Int16Array(128).fill(-1);
+      let wIdx = 0;
+      for (let m = rangeMin; m <= rangeMax; m++) {
+        if (!this._isBlackKey(m)) whiteIdxOf[m] = wIdx++;
+      }
+      const numWhites = wIdx;
+      if (numWhites <= 0) return;
+      const ww = W / numWhites; // pixels per white key
+
+      // Pixel centre of any key (white or black).
+      // White  → index × ww + half white key.
+      // Black  → midpoint of its two surrounding white key centres,
+      //          which matches the DOM placement of `left: (i+0.7)*ww%`.
+      const keyCenter = (midi) => {
+        const m = Math.max(rangeMin, Math.min(rangeMax, Math.round(midi)));
+        if (!this._isBlackKey(m)) {
+          const i = whiteIdxOf[m];
+          return (i >= 0 ? i : 0) * ww + ww * 0.5;
+        }
+        const wL = m - 1,
+          wR = m + 1;
+        const xL = wL >= rangeMin && whiteIdxOf[wL] >= 0 ? whiteIdxOf[wL] * ww + ww * 0.5 : 0;
+        const xR = wR <= rangeMax && whiteIdxOf[wR] >= 0 ? whiteIdxOf[wR] * ww + ww * 0.5 : W;
+        return (xL + xR) * 0.5;
+      };
+
+      // T-shape dimensions (shared across all hands in this draw call).
+      // Black-key fingers: tip within the black-key zone (top blackHeightRatio
+      // of the key area) so they appear above/on the black keys.
+      // White-key fingers: tip in the lower white-only zone (unchanged).
+      const blackSlotTipY = Math.round(blackH * opts.blackTipFraction);
+      const whiteKeyTipY = Math.round(keysH * 0.85);
+      const tBarH = Math.max(4, Math.round(keysH * 0.09));
+      const whiteBarW = Math.max(4, ww * 0.52); // moderate width for white key
+      const gapBarW = Math.max(3, ww * 0.52); // ≈ black key width
+      const tStemW = Math.max(2, ww * 0.18); // thin stem for all fingers
+
+      for (const hand of this._hands) {
+        const numFingers = this._effectiveNumFingers(hand);
+        const a = this._anchorFor(hand);
+        if (!Number.isFinite(a)) continue;
+
+        const lowMidi = Math.round(a);
+        const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
+        if (this._isOffScreen(lowMidi, highMidi)) continue;
+
+        // Piano mode: alternating W–G–W–G–W pattern gives exactly
+        // numFingers visual elements. ceil(n/2) fall on consecutive
+        // white keys; floor(n/2) fall in the gaps between them as
+        // virtual black-key-style slots (real black key if it exists,
+        // empty visual slot over E–F / B–C gaps).
+        const numWhites = Math.ceil(numFingers / 2);
+        const numGaps = Math.floor(numFingers / 2);
+        // Even numFingers ends on a gap, which needs the next white
+        // key (after the last finger) to compute its x position.
+        const keysToFetch = numWhites + (numGaps >= numWhites ? 1 : 0);
+        const fetchedWhites = this._whiteKeysFromAnchor(a, keysToFetch).filter(
+          (m) => m >= rangeMin && m <= rangeMax
+        );
+
+        const whiteFingers = fetchedWhites.slice(0, numWhites);
+        if (whiteFingers.length === 0) continue;
+
+        const gapSlots = [];
+        for (let i = 0; i < numGaps && i + 1 < fetchedWhites.length; i++) {
+          const left = whiteFingers[i];
+          const right = fetchedWhites[i + 1];
+          const blackMidi = left + 1;
+          const hasBlack =
+            this._isBlackKey(blackMidi) &&
+            blackMidi < right &&
+            blackMidi >= rangeMin &&
+            blackMidi <= rangeMax;
+          gapSlots.push({
+            xCenter: (keyCenter(left) + keyCenter(right)) * 0.5,
+            isActive: hasBlack && this._activeNotes.has(blackMidi)
+          });
+        }
+
+        const kLeft = keyCenter(whiteFingers[0]) - ww * 0.5;
+        const kRight = Math.max(
+          keyCenter(whiteFingers[whiteFingers.length - 1]) + ww * 0.5,
+          gapSlots.length > 0 ? gapSlots[gapSlots.length - 1].xCenter + ww * 0.3 : 0
+        );
+        // Fill the full band height so the hand body is visible
+        // across the entire km-hand-band area.
+        this._drawKnuckleBar(ctx, hand.color, kLeft, kRight, knuckleTop, H - knuckleTop, W);
+
+        // Pass 1 — gap (black-key position) T-shapes first so white
+        // fingers overdraw their stem bottoms (same layering as real keys).
+        for (const slot of gapSlots) {
+          this._drawPianoFinger(
+            ctx,
+            slot.xCenter,
+            blackSlotTipY,
+            keysH,
+            gapBarW,
+            tStemW,
+            tBarH,
+            slot.isActive,
+            W
+          );
+        }
+        // Pass 2 — white-key T-shapes on top.
+        for (const mi of whiteFingers) {
+          this._drawPianoFinger(
+            ctx,
+            keyCenter(mi),
+            whiteKeyTipY,
+            keysH,
+            whiteBarW,
+            tStemW,
+            tBarH,
+            this._activeNotes.has(mi),
+            W
+          );
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------
+    //  Chromatic layout — uniform spacing AND uniform height
+    // -----------------------------------------------------------------
+
+    _drawChromatic(ctx, W, H) {
+      const opts = this.options;
+      const kb = this._kb;
+
+      // Pixel-per-semitone computed against the fingers canvas
+      // width (NOT via `kb.keyXAt`). See the same rationale in
+      // `_drawPiano`: the keyboard canvas can have a stale
+      // size cached, while the fingers canvas reports the
+      // accurate live clientWidth.
+      const rangeMin = kb && Number.isFinite(kb.rangeMin) ? kb.rangeMin : this._extent.lo;
+      const rangeMax = kb && Number.isFinite(kb.rangeMax) ? kb.rangeMax : this._extent.hi;
+      const semitoneCount = Math.max(1, rangeMax - rangeMin + 1);
+      const pxPerPitch = W / semitoneCount;
+      const xLeftOf = (midi) => (midi - rangeMin) * pxPerPitch;
+      const xRightOf = (midi) => (midi - rangeMin + 1) * pxPerPitch;
+
+      const bandH = opts.bandHeight;
+      const handY = Math.max(0, H - bandH);
+      const knuckleTop = handY;
+      const tipY = Math.round(handY * opts.chromaticTipFraction);
+
+      // T-shape dimensions — same visual style as piano fingers.
+      const tBarH = Math.max(5, Math.round(handY * 0.14));
+      const barW = Math.max(4, pxPerPitch * 0.7);
+      const stemW = Math.max(2, pxPerPitch * 0.3);
+
+      for (const hand of this._hands) {
+        const numFingers = this._effectiveNumFingers(hand);
+        const a = this._anchorFor(hand);
+        if (!Number.isFinite(a)) continue;
+
+        const lowMidi = Math.round(a);
+        const highMidi = Math.round(a + (Number.isFinite(hand.span) ? hand.span : 0));
+        if (this._isOffScreen(lowMidi, highMidi)) continue;
+
+        const handLeftX = xLeftOf(Math.floor(a));
+        const handRightX = xRightOf(Math.floor(a) + Math.round(hand.span));
+        if (!(handRightX > handLeftX)) continue;
+        const handPxW = handRightX - handLeftX;
+
+        // Knuckle bar fills the full band height, matching piano style.
+        this._drawKnuckleBar(ctx, hand.color, handLeftX, handRightX, knuckleTop, H - knuckleTop, W);
+
+        for (let i = 0; i < numFingers; i++) {
+          const m = this._slotMidi(a, hand.span, numFingers, i);
+          // Align finger centre with its MIDI note cell; fall back to
+          // uniform spacing when the slot midi is not finite.
+          const xCenter = Number.isFinite(m)
+            ? (m - rangeMin + 0.5) * pxPerPitch
+            : handLeftX + (i + 0.5) * (handPxW / numFingers);
+          const isActive = Number.isFinite(m) && this._activeNotes.has(m);
+          this._drawPianoFinger(ctx, xCenter, tipY, handY, barW, stemW, tBarH, isActive, W);
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------
+    //  Internals
+    // -----------------------------------------------------------------
+
+    /** Animated anchor for a hand. Prefers the value the editor
+     *  pushed via `setAnchors` (Map keyed by handId), falling
+     *  back to the hand's own static `anchor` field when no
+     *  animated value has been pushed yet — that mirrors the
+     *  modal's `_displayedAnchorMapForRender` fallback so the
+     *  hand still renders during the first frames after mount
+     *  (or any time the animation map briefly drops an entry). */
+    _anchorFor(hand) {
+      const animated = this._anchors.get(hand.id);
+      if (Number.isFinite(animated)) return animated;
+      if (hand && Number.isFinite(hand.anchor)) return hand.anchor;
+      return NaN;
+    }
+
+    /** Honour the configured `numFingers`, falling back to
+     *  `span + 1` (the chromatic convention: one slot per
+     *  semitone) when the hands_config didn't set the field. */
+    _effectiveNumFingers(hand) {
+      if (Number.isFinite(hand.numFingers) && hand.numFingers > 0) {
+        return Math.max(1, Math.round(hand.numFingers));
+      }
+      return Math.max(1, Math.round(hand.span) + 1);
+    }
+
+    /** Slot → MIDI mapping. Even when `numFingers` exceeds
+     *  `span + 1` (e.g. 16 fingers on a 14-semitone span), the
+     *  rounded value keeps `activeNotes.has(slot)` looking up an
+     *  integer MIDI value. The drawing pass uses the slot
+     *  INDEX, not the semitone, for visual placement so the
+     *  alternating white/black pattern stays uniform. */
+    _slotMidi(anchor, span, numFingers, i) {
+      if (!Number.isFinite(anchor) || !Number.isFinite(span)) return NaN;
+      if (numFingers <= 1) return Math.round(anchor);
+      return Math.round(anchor + (i * span) / (numFingers - 1));
+    }
+
+    /** True when the hand's MIDI window sits entirely outside the
+     *  current visible extent. Faster than a pixel-based check
+     *  and immune to `KeyboardPreview.keyXAt`'s clamping. */
+    _isOffScreen(lowMidi, highMidi) {
+      return highMidi < this._extent.lo || lowMidi > this._extent.hi;
+    }
+
+    /** True when MIDI `m` is a black-key pitch class (C#, D#,
+     *  F#, G#, A#). Used by `_whiteKeysFromAnchor` to skip
+     *  blacks while building the alternation sequence. */
+    _isBlackKey(midi) {
+      return MidiConstants.isBlackKey(midi);
+    }
+
+    /** Walk MIDI from `startMidi` upward, collecting `count`
+     *  consecutive white keys. If `startMidi` happens to be on
+     *  a black key (rare anchor position) we snap back to the
+     *  preceding white so the pattern stays in phase with the
+     *  keyboard (e.g. C# anchor → thumb on C, index on C#).
+     *  Returns fewer than `count` only when we run out of MIDI
+     *  space (>127). */
+    _whiteKeysFromAnchor(startMidi, count) {
+      const out = [];
+      let m = Math.max(0, Math.round(startMidi));
+      // Snap FORWARD on black anchors so the sequence stays in phase
+      // with KeyboardHandPositionState._whiteKeysFromAnchor.
+      if (this._isBlackKey(m)) m++;
+      while (out.length < count && m <= 127) {
+        if (!this._isBlackKey(m)) out.push(m);
+        m++;
+      }
+      return out;
+    }
+
+    /** Draw the hand-coloured knuckle bar inside the band's top
+     *  edge. Clipped to the canvas so a partially off-screen hand
+     *  still draws its on-screen portion cleanly. */
+    _drawKnuckleBar(ctx, color, leftX, rightX, top, height, W) {
+      const x0 = Math.max(0, leftX);
+      const x1 = Math.min(W, rightX);
+      if (x1 <= x0) return;
+      ctx.fillStyle = color;
+      ctx.fillRect(x0, top, x1 - x0, height);
+    }
+
+    /** Draw a T-shaped piano finger.
+     *  The wide horizontal bar represents the fingertip pressing the key;
+     *  the narrower stem below connects to the knuckle band.
+     *  `tipY`  — top of the bar (where the finger meets the key surface).
+     *  `handY` — bottom of the stem (= knuckle line = keysH).
+     *  `barW`  — full width of the horizontal bar.
+     *  `stemW` — width of the stem (narrower than the bar).
+     *  `barH`  — height of the horizontal bar. */
+    _drawPianoFinger(ctx, xCenter, tipY, handY, barW, stemW, barH, isActive, W) {
+      if (xCenter < -barW || xCenter > W + barW) return;
+      const opts = this.options;
+      const barBottom = Math.min(tipY + barH, handY);
+      const bL = xCenter - barW * 0.5;
+      const bR = xCenter + barW * 0.5;
+      const sL = xCenter - stemW * 0.5;
+      const sR = xCenter + stemW * 0.5;
+      ctx.fillStyle = isActive ? opts.activeFingerFill : opts.idleFingerFill;
+      ctx.beginPath();
+      ctx.moveTo(bL, tipY);
+      ctx.lineTo(bR, tipY);
+      ctx.lineTo(bR, barBottom);
+      ctx.lineTo(sR, barBottom);
+      ctx.lineTo(sR, handY);
+      ctx.lineTo(sL, handY);
+      ctx.lineTo(sL, barBottom);
+      ctx.lineTo(bL, barBottom);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = opts.fingerStroke;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    /** Draw a single finger rectangle (body + outline). Skips
+     *  fingers whose centre falls outside the canvas plus a
+     *  half-finger margin so an animation that briefly overshoots
+     *  the edge doesn't smear. */
+    _drawFingerBar(ctx, xCenter, tip, height, fingerW, isActive, W) {
+      if (xCenter < -fingerW || xCenter > W + fingerW) return;
+      const fx = xCenter - fingerW / 2;
+      const opts = this.options;
+      ctx.fillStyle = isActive ? opts.activeFingerFill : opts.idleFingerFill;
+      ctx.fillRect(fx, tip, fingerW, height);
+      ctx.strokeStyle = opts.fingerStroke;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(fx + 0.5, tip + 0.5, Math.max(1, fingerW - 1), Math.max(1, height - 1));
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.KeyboardFingersRenderer = KeyboardFingersRenderer;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { KeyboardFingersRenderer };
+  }
 })();

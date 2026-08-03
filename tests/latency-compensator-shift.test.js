@@ -59,23 +59,19 @@ describe('LatencyCompensator.shiftExtraMs', () => {
   });
 
   test('returns 0 when no move_too_fast warning matches the event time', () => {
-    const warnings = [
-      { code: 'move_too_fast', time: 5.0, requiredMs: 200, availableMs: 50 }
-    ];
+    const warnings = [{ code: 'move_too_fast', time: 5.0, requiredMs: 200, availableMs: 50 }];
     expect(lc.shiftExtraMs(warnings, 1.0)).toBe(0);
   });
 
   test('returns the shortfall (required - available) for a matching warning', () => {
-    const warnings = [
-      { code: 'move_too_fast', time: 1.0, requiredMs: 200, availableMs: 50 }
-    ];
+    const warnings = [{ code: 'move_too_fast', time: 1.0, requiredMs: 200, availableMs: 50 }];
     expect(lc.shiftExtraMs(warnings, 1.0)).toBe(150);
   });
 
   test('picks the largest shortfall when multiple warnings match', () => {
     const warnings = [
       { code: 'move_too_fast', time: 1.0, requiredMs: 120, availableMs: 40 }, // 80
-      { code: 'move_too_fast', time: 1.0, requiredMs: 300, availableMs: 50 }  // 250
+      { code: 'move_too_fast', time: 1.0, requiredMs: 300, availableMs: 50 } // 250
     ];
     expect(lc.shiftExtraMs(warnings, 1.0)).toBe(250);
   });
@@ -92,22 +88,18 @@ describe('LatencyCompensator.shiftExtraMs', () => {
   test('ignores non-move_too_fast codes', () => {
     const warnings = [
       { code: 'chord_span_exceeded', time: 1.0, spanMm: 200, handMm: 80 },
-      { code: 'out_of_range',        time: 1.0 }
+      { code: 'out_of_range', time: 1.0 }
     ];
     expect(lc.shiftExtraMs(warnings, 1.0)).toBe(0);
   });
 
   test('no shortfall (required < available) returns 0', () => {
-    const warnings = [
-      { code: 'move_too_fast', time: 1.0, requiredMs: 30, availableMs: 100 }
-    ];
+    const warnings = [{ code: 'move_too_fast', time: 1.0, requiredMs: 30, availableMs: 100 }];
     expect(lc.shiftExtraMs(warnings, 1.0)).toBe(0);
   });
 
   test('matches within a 10ms event-time tolerance', () => {
-    const warnings = [
-      { code: 'move_too_fast', time: 1.0, requiredMs: 200, availableMs: 50 }
-    ];
+    const warnings = [{ code: 'move_too_fast', time: 1.0, requiredMs: 200, availableMs: 50 }];
     // Well within 10ms.
     expect(lc.shiftExtraMs(warnings, 1.005)).toBe(150);
     // Just outside 10ms.
@@ -119,9 +111,7 @@ describe('LatencyCompensator — end-to-end composition', () => {
   test('compensateTimestamp composes with shiftExtraMs from planner warnings', () => {
     const lc = new LatencyCompensator(makeApp());
     lc.setLatency('guitar-1', 25);
-    const warnings = [
-      { code: 'move_too_fast', time: 4.0, requiredMs: 180, availableMs: 40 }
-    ];
+    const warnings = [{ code: 'move_too_fast', time: 4.0, requiredMs: 180, availableMs: 40 }];
     const extra = lc.shiftExtraMs(warnings, 4.0);
     expect(extra).toBe(140);
     // Device 25 ms + shift 140 ms = 165 ms shift back.

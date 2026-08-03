@@ -23,7 +23,11 @@ function loadConstants() {
 
 describe('MidiSynthesizerConstants — offline-first defaults', () => {
   beforeEach(() => {
-    try { localStorage.clear(); } catch (e) { /* jsdom */ }
+    try {
+      localStorage.clear();
+    } catch (e) {
+      /* jsdom */
+    }
   });
 
   it('DEFAULT_BANK_ID is sf2: prefixed', () => {

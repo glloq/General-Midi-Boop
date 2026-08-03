@@ -4,7 +4,7 @@
 // note redistribution algorithm shared by `_previewAll` and `_previewChannel`.
 // Exposed on `window.RoutingSummaryPreview` — IIFE+globals.
 
-(function() {
+(function () {
   'use strict';
 
   /**
@@ -32,9 +32,11 @@
     let alternateCounter = 0;
     const activeNotes = new Map();
     for (const sCh of segChannels) activeNotes.set(sCh, 0);
-    const segPolyphony = segments.map(seg => seg.polyphonyShare || seg.fullRange?.polyphony || 16);
+    const segPolyphony = segments.map(
+      (seg) => seg.polyphonyShare || seg.fullRange?.polyphony || 16
+    );
 
-    for (const track of (midiData.tracks || [])) {
+    for (const track of midiData.tracks || []) {
       const dupes = [];
       const evtsToRemove = [];
       let tick = 0;
@@ -43,7 +45,10 @@
         if (evt.deltaTime !== undefined) tick += evt.deltaTime;
         evt._absTick = tick;
 
-        if ((evt.type === 'noteOn' || evt.type === 'noteOff') && (evt.channel ?? 0) === sourceChannel) {
+        if (
+          (evt.type === 'noteOn' || evt.type === 'noteOff') &&
+          (evt.channel ?? 0) === sourceChannel
+        ) {
           const note = evt.note ?? evt.noteNumber ?? 60;
           const isNoteOn = evt.type === 'noteOn' && (evt.velocity ?? 0) > 0;
           const matches = [];
@@ -88,7 +93,8 @@
                 evt.channel = segChannels[matches[0]];
                 for (const si of matches) {
                   const sCh = segChannels[si];
-                  if ((activeNotes.get(sCh) || 0) > 0) activeNotes.set(sCh, activeNotes.get(sCh) - 1);
+                  if ((activeNotes.get(sCh) || 0) > 0)
+                    activeNotes.set(sCh, activeNotes.get(sCh) - 1);
                 }
                 for (let mi = 1; mi < matches.length; mi++) {
                   dupes.push({ ...evt, channel: segChannels[matches[mi]], _absTick: tick });
@@ -98,9 +104,15 @@
               evt.channel = segChannels[matches[0]];
             }
           }
-        } else if ((evt.type === 'controlChange' || evt.type === 'cc') && (evt.channel ?? 0) === sourceChannel) {
+        } else if (
+          (evt.type === 'controlChange' || evt.type === 'cc') &&
+          (evt.channel ?? 0) === sourceChannel
+        ) {
           const cc = evt.controllerNumber ?? evt.controller ?? evt.cc;
-          if (chRemap[cc] === -1) { evtsToRemove.push(ei); continue; }
+          if (chRemap[cc] === -1) {
+            evtsToRemove.push(ei);
+            continue;
+          }
           const mutedSegs = chSegMute[cc];
           if (mutedSegs?.has(0)) {
             evtsToRemove.push(ei);
@@ -120,7 +132,10 @@
         const allEvts = [...track.events, ...dupes];
         allEvts.sort((a, b) => a._absTick - b._absTick);
         let prev = 0;
-        for (const e of allEvts) { e.deltaTime = e._absTick - prev; prev = e._absTick; }
+        for (const e of allEvts) {
+          e.deltaTime = e._absTick - prev;
+          prev = e._absTick;
+        }
         track.events = allEvts;
       }
       for (const evt of track.events) delete evt._absTick;
@@ -148,8 +163,8 @@
    */
   function collectUsedChannels(midiData) {
     const used = new Set();
-    for (const track of (midiData?.tracks || [])) {
-      for (const evt of (track.events || [])) {
+    for (const track of midiData?.tracks || []) {
+      for (const evt of track.events || []) {
         if (evt.type === 'noteOn' && evt.channel != null) used.add(evt.channel);
       }
     }

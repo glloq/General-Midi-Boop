@@ -7,9 +7,10 @@
  *
  * Memory envelope: a SoundFont2 instance holds a reference to its source
  * Uint8Array (the full file bytes), so the bookkeeping size is roughly the
- * SF2 file size + a small parse tree. Capping the cache at 3 entries keeps
- * the worst case under ~100 MB for our 30 MB default soundfont, which
- * coexists comfortably with the 128 MB L1 preset LRU on a 384 MB heap.
+ * SF2 file size + a small parse tree. The cache is capped at 2 entries — enough
+ * to hold a melodic + drum soundfont without re-parse thrash, but low enough
+ * that even two near-max (160 MB) files stay within a 1 GB Pi envelope. It was
+ * previously 3, which combined with the old 500 MB file cap risked OOM.
  *
  * Invalidation: the `mtimeMs` component of the key makes a stale instance
  * disappear automatically when the underlying SF2 file is re-installed or
@@ -20,12 +21,12 @@
 import fs from 'fs';
 import { parseSoundFont } from './SF2Converter.js';
 
-const DEFAULT_CAPACITY = 3;
+const DEFAULT_CAPACITY = 2;
 
 export class SF2InstanceCache {
   /**
    * @param {Object} [opts]
-   * @param {number} [opts.capacity=3]
+   * @param {number} [opts.capacity=2]
    */
   constructor({ capacity = DEFAULT_CAPACITY } = {}) {
     this.capacity = capacity;

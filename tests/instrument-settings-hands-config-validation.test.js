@@ -21,25 +21,29 @@ describe('validateHandsConfigPayload', () => {
   });
 
   test('well-formed semitones config is accepted', () => {
-    expect(() => validateHandsConfigPayload({
-      enabled: true,
-      mode: 'semitones',
-      hand_move_semitones_per_sec: 60,
-      hands: [
-        { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
-        { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
-      ]
-    })).not.toThrow();
+    expect(() =>
+      validateHandsConfigPayload({
+        enabled: true,
+        mode: 'semitones',
+        hand_move_semitones_per_sec: 60,
+        hands: [
+          { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
+          { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
+        ]
+      })
+    ).not.toThrow();
   });
 
   test('well-formed frets config (mm-only) is accepted', () => {
-    expect(() => validateHandsConfigPayload({
-      enabled: true,
-      mode: 'frets',
-      mechanism: 'string_sliding_fingers',
-      hand_move_mm_per_sec: 250,
-      hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
-    })).not.toThrow();
+    expect(() =>
+      validateHandsConfigPayload({
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'string_sliding_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
+      })
+    ).not.toThrow();
   });
 
   test('cross-unit fields are rejected with a ValidationError', () => {
@@ -48,7 +52,7 @@ describe('validateHandsConfigPayload', () => {
       mode: 'frets',
       mechanism: 'string_sliding_fingers',
       hand_move_mm_per_sec: 250,
-      hand_move_semitones_per_sec: 60,  // cross-unit
+      hand_move_semitones_per_sec: 60, // cross-unit
       hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80 }]
     };
     expect(() => validateHandsConfigPayload(bad)).toThrow(ValidationError);
@@ -120,16 +124,23 @@ describe('validateHandsConfigPayload', () => {
   });
 
   test('fret_sliding_fingers with valid num_fingers is accepted', () => {
-    expect(() => validateHandsConfigPayload({
-      enabled: true,
-      mode: 'frets',
-      mechanism: 'fret_sliding_fingers',
-      hand_move_mm_per_sec: 250,
-      hands: [{
-        id: 'fretting', cc_position_number: 22, hand_span_mm: 80,
-        num_fingers: 4, variable_height_fingers_count: 2
-      }]
-    })).not.toThrow();
+    expect(() =>
+      validateHandsConfigPayload({
+        enabled: true,
+        mode: 'frets',
+        mechanism: 'fret_sliding_fingers',
+        hand_move_mm_per_sec: 250,
+        hands: [
+          {
+            id: 'fretting',
+            cc_position_number: 22,
+            hand_span_mm: 80,
+            num_fingers: 4,
+            variable_height_fingers_count: 2
+          }
+        ]
+      })
+    ).not.toThrow();
   });
 
   test('invalid JSON string is rejected', () => {

@@ -5,11 +5,7 @@
 // silently produced corrupt SF2 files when the mirror served a .zip.
 
 import zlib from 'zlib';
-import {
-  isSF2Buffer,
-  isZipBuffer,
-  extractSf2FromZip,
-} from '../scripts/install-default-sf2.js';
+import { isSF2Buffer, isZipBuffer, extractSf2FromZip } from '../scripts/install-default-sf2.js';
 
 function makeSF2Body(extraBytes = 1024 * 1024) {
   // 12-byte RIFF/sfbk header is what the SF2 sniffer + the upload route check.
@@ -23,18 +19,18 @@ function makeZip(filename, data, { deflate = false } = {}) {
   const payload = deflate ? zlib.deflateRawSync(data) : data;
 
   const lfh = Buffer.alloc(30);
-  lfh.writeUInt32LE(0x04034b50, 0);   // LFH sig
-  lfh.writeUInt16LE(20, 4);            // version needed
-  lfh.writeUInt16LE(0, 6);             // flags
+  lfh.writeUInt32LE(0x04034b50, 0); // LFH sig
+  lfh.writeUInt16LE(20, 4); // version needed
+  lfh.writeUInt16LE(0, 6); // flags
   lfh.writeUInt16LE(method, 8);
   lfh.writeUInt32LE(payload.length, 18);
   lfh.writeUInt32LE(data.length, 22);
   lfh.writeUInt16LE(fname.length, 26);
-  lfh.writeUInt16LE(0, 28);            // extra len
+  lfh.writeUInt16LE(0, 28); // extra len
   const lfhBlock = Buffer.concat([lfh, fname, payload]);
 
   const cdfh = Buffer.alloc(46);
-  cdfh.writeUInt32LE(0x02014b50, 0);   // CDFH sig
+  cdfh.writeUInt32LE(0x02014b50, 0); // CDFH sig
   cdfh.writeUInt16LE(20, 4);
   cdfh.writeUInt16LE(20, 6);
   cdfh.writeUInt16LE(0, 8);

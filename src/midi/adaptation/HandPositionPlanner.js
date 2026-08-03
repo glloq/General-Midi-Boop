@@ -97,7 +97,7 @@ class HandPositionPlanner {
     this.ctx = instrumentContext || {};
     this.unit = this.ctx.unit === 'frets' ? 'frets' : 'semitones';
     this.handById = new Map();
-    for (const h of (this.config.hands || [])) {
+    for (const h of this.config.hands || []) {
       this.handById.set(h.id, h);
     }
 
@@ -113,9 +113,8 @@ class HandPositionPlanner {
     // fret simultaneously (mechanical slide/capo bar). The CC value is the
     // bar fret. The planner additionally warns when a chord requires notes
     // on more than one fret (vertical_bar_fret_conflict).
-    this.mechanism = this.unit === 'frets'
-      ? (this.config.mechanism || 'string_sliding_fingers')
-      : null;
+    this.mechanism =
+      this.unit === 'frets' ? this.config.mechanism || 'string_sliding_fingers' : null;
     if (this.mechanism === 'independent_fingers') {
       throw new Error(
         'HandPositionPlanner: mechanism "independent_fingers" is reserved for V2 and not yet implemented'
@@ -265,8 +264,8 @@ class HandPositionPlanner {
     const state = new Map();
     for (const id of this.handById.keys()) {
       state.set(id, {
-        windowLowest: null,       // MIDI note of current lowest reachable
-        lastNoteOnTime: null,     // last note-on time inside current window
+        windowLowest: null, // MIDI note of current lowest reachable
+        lastNoteOnTime: null, // last note-on time inside current window
         lastSingleNoteOnTime: null, // for finger-interval check (ignores chord clumping)
         firstCCEmitted: false
       });
@@ -295,14 +294,18 @@ class HandPositionPlanner {
         if (axisVal == null) continue;
         if (instrumentMin != null && axisVal < instrumentMin) {
           warnings.push({
-            time: n.time, hand: g.hand, note: n.note,
+            time: n.time,
+            hand: g.hand,
+            note: n.note,
             code: 'out_of_range',
             message: `${axisLabel} ${axisVal} < instrument range min ${instrumentMin}`
           });
         }
         if (instrumentMax != null && axisVal > instrumentMax) {
           warnings.push({
-            time: n.time, hand: g.hand, note: n.note,
+            time: n.time,
+            hand: g.hand,
+            note: n.note,
             code: 'out_of_range',
             message: `${axisLabel} ${axisVal} > instrument range max ${instrumentMax}`
           });
@@ -320,7 +323,9 @@ class HandPositionPlanner {
         if (chordMm > hand.hand_span_mm) {
           const approxFretsAtAnchor = this._maxReachFromMm(groupLow, hand.hand_span_mm) - groupLow;
           warnings.push({
-            time: g.time, hand: g.hand, note: null,
+            time: g.time,
+            hand: g.hand,
+            note: null,
             code: 'chord_span_exceeded',
             spanMm: Math.round(chordMm),
             handMm: hand.hand_span_mm,
@@ -333,7 +338,9 @@ class HandPositionPlanner {
         const groupSpan = groupHigh - groupLow;
         if (groupSpan > span) {
           warnings.push({
-            time: g.time, hand: g.hand, note: null,
+            time: g.time,
+            hand: g.hand,
+            note: null,
             code: 'chord_span_exceeded',
             message: `Chord span ${groupSpan} ${unitLabel} > hand span ${span} ${unitLabel}`
           });
@@ -350,9 +357,14 @@ class HandPositionPlanner {
       //   - fret_sliding_fingers:   1 finger per fret-offset → cap is `num_fingers`.
       //   - vertical_bar: 1 bar presses ALL strings at once — no per-finger cap.
       if (this.unit === 'frets' && this.mechanism !== 'vertical_bar') {
-        const fingerCap = this.mechanism === 'fret_sliding_fingers'
-          ? (Number.isFinite(hand.num_fingers) && hand.num_fingers > 0 ? hand.num_fingers : null)
-          : (Number.isFinite(hand.max_fingers) && hand.max_fingers > 0 ? hand.max_fingers : null);
+        const fingerCap =
+          this.mechanism === 'fret_sliding_fingers'
+            ? Number.isFinite(hand.num_fingers) && hand.num_fingers > 0
+              ? hand.num_fingers
+              : null
+            : Number.isFinite(hand.max_fingers) && hand.max_fingers > 0
+              ? hand.max_fingers
+              : null;
         if (fingerCap != null) {
           let frettedCount = 0;
           for (const nIdx of g.notes) {
@@ -361,7 +373,9 @@ class HandPositionPlanner {
           }
           if (frettedCount > fingerCap) {
             warnings.push({
-              time: g.time, hand: g.hand, note: null,
+              time: g.time,
+              hand: g.hand,
+              note: null,
               code: 'too_many_fingers',
               count: frettedCount,
               limit: fingerCap,
@@ -376,12 +390,14 @@ class HandPositionPlanner {
       // the operator knows the adaptation will have to drop or transpose notes.
       if (this.mechanism === 'vertical_bar') {
         const pressedFrets = g.notes
-          .map(i => notes[i].fretPosition)
-          .filter(f => Number.isFinite(f) && f > 0);
+          .map((i) => notes[i].fretPosition)
+          .filter((f) => Number.isFinite(f) && f > 0);
         const uniqueFrets = [...new Set(pressedFrets)];
         if (uniqueFrets.length > 1) {
           warnings.push({
-            time: g.time, hand: g.hand, note: null,
+            time: g.time,
+            hand: g.hand,
+            note: null,
             code: 'vertical_bar_fret_conflict',
             frets: uniqueFrets,
             message: `Vertical bar chord spans frets [${uniqueFrets.join(', ')}] — only one fret can be pressed simultaneously`
@@ -391,9 +407,10 @@ class HandPositionPlanner {
 
       // Need a shift if: no window yet, or any note falls outside current window.
       const currentSpan = s.windowLowest != null ? this._spanAt(hand, s.windowLowest) : null;
-      const needShift = s.windowLowest == null
-        || groupLow < s.windowLowest
-        || groupHigh > s.windowLowest + currentSpan;
+      const needShift =
+        s.windowLowest == null ||
+        groupLow < s.windowLowest ||
+        groupHigh > s.windowLowest + currentSpan;
 
       if (needShift) {
         // Anchor the new window. The PREFERRED anchor sits 10 mm behind
@@ -430,7 +447,10 @@ class HandPositionPlanner {
           // playable range. After this point the hand's furthest reach
           // sits exactly on the last fret.
           if (this._physical && Number.isFinite(hand.hand_span_mm) && hand.hand_span_mm > 0) {
-            newLow = Math.max(instrumentMin ?? 0, this._minAnchorForTopMm(instrumentMax, hand.hand_span_mm));
+            newLow = Math.max(
+              instrumentMin ?? 0,
+              this._minAnchorForTopMm(instrumentMax, hand.hand_span_mm)
+            );
           } else {
             newLow = Math.max(instrumentMin ?? 0, instrumentMax - newSpan);
           }
@@ -446,15 +466,19 @@ class HandPositionPlanner {
           ccTime = (s.lastNoteOnTime ?? g.time) + EPSILON_SECONDS;
           // Feasibility: enough time to physically move?
           if (this._physical) {
-            const travelMm = Math.abs(this._fretDistanceMm(
-              Math.min(s.windowLowest, newLow),
-              Math.max(s.windowLowest, newLow)
-            ));
+            const travelMm = Math.abs(
+              this._fretDistanceMm(
+                Math.min(s.windowLowest, newLow),
+                Math.max(s.windowLowest, newLow)
+              )
+            );
             const requiredSec = travelMm / this._physical.moveMmPerSec;
             const availableSec = g.time - ccTime;
             if (requiredSec > availableSec) {
               warnings.push({
-                time: g.time, hand: g.hand, note: null,
+                time: g.time,
+                hand: g.hand,
+                note: null,
                 code: 'move_too_fast',
                 travelMm: Math.round(travelMm),
                 requiredMs: Math.round(requiredSec * 1000),
@@ -468,7 +492,9 @@ class HandPositionPlanner {
             const availableSec = g.time - ccTime;
             if (requiredSec > availableSec) {
               warnings.push({
-                time: g.time, hand: g.hand, note: null,
+                time: g.time,
+                hand: g.hand,
+                note: null,
                 code: 'move_too_fast',
                 message: `Shift ${travelUnits} ${unitLabel} needs ${(requiredSec * 1000).toFixed(0)}ms, only ${(availableSec * 1000).toFixed(0)}ms available`
               });
@@ -498,7 +524,9 @@ class HandPositionPlanner {
           const deltaMs = (g.time - s.lastSingleNoteOnTime) * 1000;
           if (deltaMs < minIntervalMs) {
             warnings.push({
-              time: g.time, hand: g.hand, note: null,
+              time: g.time,
+              hand: g.hand,
+              note: null,
               code: 'finger_interval_violated',
               message: `Gap ${deltaMs.toFixed(0)}ms < min ${minIntervalMs}ms between notes`
             });

@@ -22,7 +22,11 @@ import { buildDynamicUpdate } from '../dbHelpers.js';
 /** Parse an optional JSON column → object, or null on absence/parse error. */
 function parseJsonCol(value) {
   if (!value) return null;
-  try { return JSON.parse(value); } catch { return null; }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 class InstrumentCapabilitiesDB {
@@ -53,9 +57,9 @@ class InstrumentCapabilitiesDB {
 
     try {
       // Check if entry exists for this device + channel
-      const existing = this.db.prepare(
-        'SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?'
-      ).get(deviceId, channel);
+      const existing = this.db
+        .prepare('SELECT id FROM instruments_latency WHERE device_id = ? AND channel = ?')
+        .get(deviceId, channel);
 
       const now = new Date().toISOString();
 
@@ -72,12 +76,20 @@ class InstrumentCapabilitiesDB {
       }
 
       // Validate cross-field: min <= max
-      const effectiveMin = capabilities.note_range_min !== undefined ? capabilities.note_range_min : null;
-      const effectiveMax = capabilities.note_range_max !== undefined ? capabilities.note_range_max : null;
-      if (effectiveMin !== null && effectiveMin !== undefined &&
-          effectiveMax !== null && effectiveMax !== undefined &&
-          effectiveMin > effectiveMax) {
-        throw new Error(`note_range_min (${effectiveMin}) must be <= note_range_max (${effectiveMax})`);
+      const effectiveMin =
+        capabilities.note_range_min !== undefined ? capabilities.note_range_min : null;
+      const effectiveMax =
+        capabilities.note_range_max !== undefined ? capabilities.note_range_max : null;
+      if (
+        effectiveMin !== null &&
+        effectiveMin !== undefined &&
+        effectiveMax !== null &&
+        effectiveMax !== undefined &&
+        effectiveMin > effectiveMax
+      ) {
+        throw new Error(
+          `note_range_min (${effectiveMin}) must be <= note_range_max (${effectiveMax})`
+        );
       }
 
       // Validate polyphony
@@ -151,23 +163,36 @@ class InstrumentCapabilitiesDB {
       if (existing) {
         // Build update with timestamp always included
         const capWithTimestamp = { ...capabilities, capabilities_updated_at: now };
-        const result = buildDynamicUpdate('instruments_latency', capWithTimestamp, [
-          'note_range_min', 'note_range_max', 'supported_ccs',
-          'note_selection_mode', 'selected_notes', 'polyphony',
-          'capabilities_source', 'capabilities_updated_at', 'hands_config',
-          'bagpipe_config', 'accordion_config', 'harmonica_config'
-        ], {
-          whereClause: 'device_id = ? AND channel = ?',
-          transforms: {
-            supported_ccs: () => supportedCcsJson,
-            selected_notes: () => selectedNotesJson,
-            polyphony: v => v !== null ? parseInt(v) : null,
-            hands_config: () => handsConfigJson,
-            bagpipe_config: () => bagpipeConfigJson,
-            accordion_config: () => accordionConfigJson,
-            harmonica_config: () => harmonicaConfigJson
+        const result = buildDynamicUpdate(
+          'instruments_latency',
+          capWithTimestamp,
+          [
+            'note_range_min',
+            'note_range_max',
+            'supported_ccs',
+            'note_selection_mode',
+            'selected_notes',
+            'polyphony',
+            'capabilities_source',
+            'capabilities_updated_at',
+            'hands_config',
+            'bagpipe_config',
+            'accordion_config',
+            'harmonica_config'
+          ],
+          {
+            whereClause: 'device_id = ? AND channel = ?',
+            transforms: {
+              supported_ccs: () => supportedCcsJson,
+              selected_notes: () => selectedNotesJson,
+              polyphony: (v) => (v !== null ? parseInt(v) : null),
+              hands_config: () => handsConfigJson,
+              bagpipe_config: () => bagpipeConfigJson,
+              accordion_config: () => accordionConfigJson,
+              harmonica_config: () => harmonicaConfigJson
+            }
           }
-        });
+        );
 
         if (!result) return existing.id;
         this.db.prepare(result.sql).run(...result.values, deviceId, channel);
@@ -189,12 +214,18 @@ class InstrumentCapabilitiesDB {
           deviceId,
           channel,
           'Unnamed Instrument',
-          capabilities.note_range_min !== undefined && capabilities.note_range_min !== null ? capabilities.note_range_min : null,
-          capabilities.note_range_max !== undefined && capabilities.note_range_max !== null ? capabilities.note_range_max : null,
+          capabilities.note_range_min !== undefined && capabilities.note_range_min !== null
+            ? capabilities.note_range_min
+            : null,
+          capabilities.note_range_max !== undefined && capabilities.note_range_max !== null
+            ? capabilities.note_range_max
+            : null,
           supportedCcsJson,
           capabilities.note_selection_mode || 'range',
           selectedNotesJson,
-          capabilities.polyphony !== undefined && capabilities.polyphony !== null ? parseInt(capabilities.polyphony) : 16,
+          capabilities.polyphony !== undefined && capabilities.polyphony !== null
+            ? parseInt(capabilities.polyphony)
+            : 16,
           capabilities.capabilities_source || 'manual',
           now
         );
@@ -330,7 +361,7 @@ class InstrumentCapabilitiesDB {
       const results = stmt.all();
 
       // Parse JSON arrays for each result
-      return results.map(result => {
+      return results.map((result) => {
         let supportedCcs = null;
         if (result.supported_ccs) {
           try {
@@ -418,7 +449,7 @@ class InstrumentCapabilitiesDB {
       const results = stmt.all();
 
       // Parse JSON fields and return
-      return results.map(result => {
+      return results.map((result) => {
         let supportedCcs = null;
         if (result.supported_ccs) {
           try {
@@ -500,12 +531,16 @@ class InstrumentCapabilitiesDB {
    */
   getCatalogFingerprint() {
     try {
-      const row = this.db.prepare(`
+      const row = this.db
+        .prepare(
+          `
         SELECT COUNT(*) AS n,
                COALESCE(MAX(id), 0) AS maxid,
                COALESCE(MAX(capabilities_updated_at), '') AS capu
         FROM instruments_latency
-      `).get();
+      `
+        )
+        .get();
       return `${row.n}:${row.maxid}:${row.capu}`;
     } catch (error) {
       this.logger.warn(`Failed to compute instrument catalog fingerprint: ${error.message}`);

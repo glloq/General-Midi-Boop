@@ -42,7 +42,9 @@ describe('AppleMidi codec', () => {
 
   test('accepted/rejected commands roundtrip', () => {
     for (const cmd of [CMD.INVITATION_ACCEPTED, CMD.INVITATION_REJECTED]) {
-      const dec = decodeInvitation(encodeInvitation(cmd, { initiatorToken: 7, ssrc: 8, name: 'x' }));
+      const dec = decodeInvitation(
+        encodeInvitation(cmd, { initiatorToken: 7, ssrc: 8, name: 'x' })
+      );
       expect(dec.command).toBe(cmd);
       expect(dec.initiatorToken).toBe(7);
       expect(dec.ssrc).toBe(8);
@@ -69,6 +71,8 @@ describe('AppleMidi codec', () => {
 
   test('decoders reject malformed / wrong-length buffers', () => {
     expect(decodeInvitation(Buffer.from([0xff, 0xff, 0x49]))).toBeNull();
-    expect(decodeClockSync(encodeInvitation(CMD.INVITATION, { initiatorToken: 1, ssrc: 1 }))).toBeNull();
+    expect(
+      decodeClockSync(encodeInvitation(CMD.INVITATION, { initiatorToken: 1, ssrc: 1 }))
+    ).toBeNull();
   });
 });

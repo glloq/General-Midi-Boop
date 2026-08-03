@@ -84,9 +84,8 @@ class LongitudinalPlanner {
     //     `max_fingers`, with each finger free to move anywhere within
     //     the hand width (`offset ∈ [0, hand_span_mm]`). This matches
     //     the simplified spec in docs/LONGITUDINAL_MODEL.md.
-    const explicitFingers = Array.isArray(hand.fingers) && hand.fingers.length > 0
-      ? hand.fingers
-      : null;
+    const explicitFingers =
+      Array.isArray(hand.fingers) && hand.fingers.length > 0 ? hand.fingers : null;
     this.fingers = explicitFingers || this._deriveAutoFingers(hand);
     this.fingerByString = new Map();
     for (const f of this.fingers) this.fingerByString.set(f.string, f);
@@ -114,7 +113,9 @@ class LongitudinalPlanner {
     // legacy block is still read for tests and tooling that need to
     // override the defaults, but it is not part of the public schema.
     const a = this.config.anchor || {};
-    this.minAnchorMs = Number.isFinite(a.min_duration_ms) ? a.min_duration_ms : DEFAULT_ANCHOR_MIN_DURATION_MS;
+    this.minAnchorMs = Number.isFinite(a.min_duration_ms)
+      ? a.min_duration_ms
+      : DEFAULT_ANCHOR_MIN_DURATION_MS;
     this.hysteresisMm = Number.isFinite(a.hysteresis_mm) ? a.hysteresis_mm : DEFAULT_HYSTERESIS_MM;
     this.lookahead = Number.isInteger(a.lookahead_events) ? a.lookahead_events : DEFAULT_LOOKAHEAD;
 
@@ -139,12 +140,10 @@ class LongitudinalPlanner {
    * @private
    */
   _deriveAutoFingers(hand) {
-    const span = Number.isFinite(hand.hand_span_mm) && hand.hand_span_mm > 0
-      ? hand.hand_span_mm
-      : 80;
-    const requested = Number.isInteger(hand.max_fingers) && hand.max_fingers > 0
-      ? hand.max_fingers
-      : 4;
+    const span =
+      Number.isFinite(hand.hand_span_mm) && hand.hand_span_mm > 0 ? hand.hand_span_mm : 80;
+    const requested =
+      Number.isInteger(hand.max_fingers) && hand.max_fingers > 0 ? hand.max_fingers : 4;
     const N = Math.min(12, Math.max(1, requested));
     const out = [];
     for (let i = 1; i <= N; i++) {
@@ -226,14 +225,18 @@ class LongitudinalPlanner {
         const fret = n.fretPosition;
         if (fret < this.noteRangeMin || fret > this.noteRangeMax) {
           warnings.push({
-            time: n.time, note: n.note, code: 'out_of_range',
+            time: n.time,
+            note: n.note,
+            code: 'out_of_range',
             message: `Fret ${fret} outside instrument range [${this.noteRangeMin},${this.noteRangeMax}]`
           });
         }
         const f = this._resolveFinger(n);
         if (!f) {
           warnings.push({
-            time: n.time, note: n.note, code: 'no_finger_for_string',
+            time: n.time,
+            note: n.note,
+            code: 'no_finger_for_string',
             message: `No finger pinned to string ${n.string ?? '?'} (longitudinal mode requires one finger per string).`
           });
           continue;
@@ -259,7 +262,9 @@ class LongitudinalPlanner {
             stats.anchors_released_forced += released.releasedIds.length;
             for (const id of released.releasedIds) {
               warnings.push({
-                time: g.time, code: 'release_forced', fingerId: id,
+                time: g.time,
+                code: 'release_forced',
+                fingerId: id,
                 message: `Released anchor on finger ${id} early to satisfy fret ${r.note.fretPosition}.`
               });
             }
@@ -267,7 +272,9 @@ class LongitudinalPlanner {
             const after = intersect(band, r.interval);
             if (after == null) {
               warnings.push({
-                time: g.time, code: 'anchor_conflict', note: r.note.note,
+                time: g.time,
+                code: 'anchor_conflict',
+                note: r.note.note,
                 message: `Cannot place P for fret ${r.note.fretPosition}; conflict survives release.`
               });
               continue;
@@ -275,7 +282,9 @@ class LongitudinalPlanner {
             band = after;
           } else {
             warnings.push({
-              time: g.time, code: 'anchor_conflict', note: r.note.note,
+              time: g.time,
+              code: 'anchor_conflict',
+              note: r.note.note,
               message: `Cannot place P for fret ${r.note.fretPosition}; no anchor releasable.`
             });
             continue;
@@ -294,9 +303,10 @@ class LongitudinalPlanner {
       let feasible = band;
       if (P != null && firstCCEmitted) {
         const dt = Math.max(0, g.time - (lastNoteOnTime ?? g.time));
-        const effectiveSpeed = anchors.size > 0
-          ? Math.min(this.handSpeedMmPerSec, this.fingerSpeedMmPerSec)
-          : this.handSpeedMmPerSec;
+        const effectiveSpeed =
+          anchors.size > 0
+            ? Math.min(this.handSpeedMmPerSec, this.fingerSpeedMmPerSec)
+            : this.handSpeedMmPerSec;
         const reach = effectiveSpeed * dt;
         const speedBand = [P - reach, P + reach];
         const next = intersect(feasible, speedBand);
@@ -313,8 +323,8 @@ class LongitudinalPlanner {
           const requested = clampToInterval(P, feasible);
           const direction = requested >= P ? 1 : -1;
           const reachableP = P + direction * reach;
-          const fingerLimited = anchors.size > 0
-            && this.fingerSpeedMmPerSec < this.handSpeedMmPerSec;
+          const fingerLimited =
+            anchors.size > 0 && this.fingerSpeedMmPerSec < this.handSpeedMmPerSec;
           warnings.push({
             time: g.time,
             code: fingerLimited ? 'finger_speed_saturation' : 'speed_saturation',
@@ -354,9 +364,7 @@ class LongitudinalPlanner {
       for (const r of reqs) {
         const durMs = (r.note.duration ?? 0) * 1000;
         if (durMs >= this.minAnchorMs) {
-          const t_off = r.note.duration != null
-            ? r.note.time + r.note.duration
-            : null;
+          const t_off = r.note.duration != null ? r.note.time + r.note.duration : null;
           anchors.set(r.fingerId, {
             fingerId: r.fingerId,
             finger: r.finger,
@@ -401,7 +409,8 @@ class LongitudinalPlanner {
         const deltaMs = (g.time - lastSingleNoteOnTime) * 1000;
         if (deltaMs < this.minNoteIntervalMs) {
           warnings.push({
-            time: g.time, code: 'finger_interval_violated',
+            time: g.time,
+            code: 'finger_interval_violated',
             message: `Gap ${deltaMs.toFixed(0)} ms < min ${this.minNoteIntervalMs} ms between notes`
           });
         }
@@ -510,10 +519,13 @@ class LongitudinalPlanner {
     const handId = this.hand.id;
     const indexed = notes
       .map((n, i) => ({ n, i }))
-      .filter(({ n }) => n
-        && (n.hand == null || n.hand === handId)
-        && n.velocity !== 0
-        && Number.isFinite(n.fretPosition))
+      .filter(
+        ({ n }) =>
+          n &&
+          (n.hand == null || n.hand === handId) &&
+          n.velocity !== 0 &&
+          Number.isFinite(n.fretPosition)
+      )
       .sort((a, b) => a.n.time - b.n.time);
     const groups = [];
     let current = null;

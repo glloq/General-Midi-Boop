@@ -50,10 +50,15 @@ describe('ISMSections._shouldShowHandsSection', () => {
     // Regression guard for the "hands forced active on save" bug: an
     // eligible family without the toggle enabled must NOT render the
     // section, so _collectHandsConfig never forces enabled=true.
-    expect(window.ISMSections._shouldShowHandsSection(
-      { settings: { gm_program: 0 }, channel: 0 })).toBe(false);
-    expect(window.ISMSections._shouldShowHandsSection(
-      { settings: { gm_program: 0, hands_config: { enabled: false } }, channel: 0 })).toBe(false);
+    expect(
+      window.ISMSections._shouldShowHandsSection({ settings: { gm_program: 0 }, channel: 0 })
+    ).toBe(false);
+    expect(
+      window.ISMSections._shouldShowHandsSection({
+        settings: { gm_program: 0, hands_config: { enabled: false } },
+        channel: 0
+      })
+    ).toBe(false);
   });
 
   it('hides for chromatic percussion even when enabled (no longer eligible)', () => {
@@ -79,37 +84,59 @@ describe('ISMSections._shouldShowHandsSection', () => {
 
 describe('ISMSections._handsTabEligible (family eligibility, toggle-agnostic)', () => {
   it('keyboards / plucked strings / bowed strings are eligible', () => {
-    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 0 }, channel: 0 })).toBe(true);
-    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 24 }, channel: 0 })).toBe(true);
-    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 40 }, channel: 0 })).toBe(true);
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 0 }, channel: 0 })).toBe(
+      true
+    );
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 24 }, channel: 0 })).toBe(
+      true
+    );
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 40 }, channel: 0 })).toBe(
+      true
+    );
   });
 
   it('chromatic percussion is NOT eligible (button removed for non-keyboard/non-string)', () => {
-    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 8 }, channel: 0 })).toBe(false);  // Celesta
-    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 11 }, channel: 0 })).toBe(false); // Vibraphone
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 8 }, channel: 0 })).toBe(
+      false
+    ); // Celesta
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 11 }, channel: 0 })).toBe(
+      false
+    ); // Vibraphone
   });
 
   it('winds and drum kits are not eligible', () => {
-    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 73 }, channel: 0 })).toBe(false);
-    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 0 }, channel: 9 })).toBe(false);
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 73 }, channel: 0 })).toBe(
+      false
+    );
+    expect(window.ISMSections._handsTabEligible({ settings: { gm_program: 0 }, channel: 9 })).toBe(
+      false
+    );
   });
 });
 
 describe('ISMSections._handsModeForTab', () => {
   it('keyboard → semitones', () => {
-    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 0 }, channel: 0 })).toBe('semitones');
+    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 0 }, channel: 0 })).toBe(
+      'semitones'
+    );
   });
 
   it('plucked string → frets', () => {
-    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 24 }, channel: 0 })).toBe('frets');
+    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 24 }, channel: 0 })).toBe(
+      'frets'
+    );
   });
 
   it('bowed string → frets', () => {
-    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 40 }, channel: 0 })).toBe('frets');
+    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 40 }, channel: 0 })).toBe(
+      'frets'
+    );
   });
 
   it('organ → semitones', () => {
-    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 16 }, channel: 0 })).toBe('semitones');
+    expect(window.ISMSections._handsModeForTab({ settings: { gm_program: 16 }, channel: 0 })).toBe(
+      'semitones'
+    );
   });
 });
 
@@ -119,7 +146,7 @@ describe('ISMSections._defaultHandsConfig', () => {
     expect(cfg.mode).toBe('semitones');
     expect(cfg.enabled).toBe(true);
     expect(cfg.hands).toHaveLength(2);
-    expect(cfg.hands.map(h => h.id).sort()).toEqual(['h1', 'h2']);
+    expect(cfg.hands.map((h) => h.id).sort()).toEqual(['h1', 'h2']);
     expect(cfg.hands[0].hand_span_semitones).toBeGreaterThan(0);
     expect(cfg.hand_move_semitones_per_sec).toBeGreaterThan(0);
     expect(cfg.assignment).toEqual(expect.objectContaining({ mode: 'auto' }));
@@ -178,10 +205,14 @@ describe('ISMSections — frets render → collect round-trip', () => {
       mechanism: 'string_sliding_fingers',
       hand_move_frets_per_sec: 20,
       hand_move_mm_per_sec: 250,
-      hands: [{
-        id: 'fretting', cc_position_number: 30,
-        hand_span_frets: 5, hand_span_mm: 80
-      }]
+      hands: [
+        {
+          id: 'fretting',
+          cc_position_number: 30,
+          hand_span_frets: 5,
+          hand_span_mm: 80
+        }
+      ]
     };
     const html = window.ISMSections._renderHandsSectionFrets(cfg);
     const root = mountSection(html);
@@ -199,11 +230,16 @@ describe('ISMSections — frets render → collect round-trip', () => {
       mechanism: 'fret_sliding_fingers',
       hand_move_mm_per_sec: 250,
       hand_move_frets_per_sec: 12,
-      hands: [{
-        id: 'fretting', cc_position_number: 22,
-        hand_span_mm: 80, hand_span_frets: 4,
-        num_fingers: 4, variable_height_fingers_count: 2
-      }]
+      hands: [
+        {
+          id: 'fretting',
+          cc_position_number: 22,
+          hand_span_mm: 80,
+          hand_span_frets: 4,
+          num_fingers: 4,
+          variable_height_fingers_count: 2
+        }
+      ]
     };
     const html = window.ISMSections._renderHandsSectionFrets(cfg);
     expect(html).toMatch(/num_fingers/);
@@ -260,13 +296,19 @@ describe('ISMSections — frets render with physical model (scale length present
 
   it('round-trip preserves mm fields and max_fingers', () => {
     const cfg = {
-      enabled: true, mode: 'frets',
+      enabled: true,
+      mode: 'frets',
       hand_move_mm_per_sec: 300,
       hand_move_frets_per_sec: 12,
-      hands: [{
-        id: 'fretting', cc_position_number: 22,
-        hand_span_mm: 90, hand_span_frets: 4, max_fingers: 5
-      }]
+      hands: [
+        {
+          id: 'fretting',
+          cc_position_number: 22,
+          hand_span_mm: 90,
+          hand_span_frets: 4,
+          max_fingers: 5
+        }
+      ]
     };
     const html = window.ISMSections._renderHandsSectionFrets(cfg, tabWithScale);
     const root = mountSection(html);
@@ -345,7 +387,7 @@ describe('ISMSections — semitones render → collect round-trip', () => {
     expect(collected.mode).toBe('semitones');
     expect(collected.enabled).toBe(true);
     expect(collected.hand_move_semitones_per_sec).toBe(cfg.hand_move_semitones_per_sec);
-    expect(collected.hands.map(h => h.id).sort()).toEqual(['h1', 'h2']);
+    expect(collected.hands.map((h) => h.id).sort()).toEqual(['h1', 'h2']);
     expect(collected.hand_move_frets_per_sec).toBeUndefined();
     expect(collected.assignment.mode).toBe('auto');
   });
@@ -367,7 +409,7 @@ describe('ISMSections — semitones render → collect round-trip', () => {
     const collected = window.ISMSections._collectHandsConfig(root);
     expect(collected.hand_move_semitones_per_sec).toBe(90);
     expect(collected.assignment.mode).toBe('auto');
-    expect(collected.hands.find(h => h.id === 'h1').hand_span_semitones).toBeGreaterThan(0);
-    expect(collected.hands.find(h => h.id === 'h2').hand_span_semitones).toBeGreaterThan(0);
+    expect(collected.hands.find((h) => h.id === 'h1').hand_span_semitones).toBeGreaterThan(0);
+    expect(collected.hands.find((h) => h.id === 'h2').hand_span_semitones).toBeGreaterThan(0);
   });
 });

@@ -11,7 +11,10 @@ function makeApp() {
   return {
     _events: events,
     logger: {
-      info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn()
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn()
     },
     eventBus: {
       emit: jest.fn((name, data) => events.push({ name, data }))

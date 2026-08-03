@@ -48,11 +48,20 @@ describe('FileManager — adapted file persistence (real SQLite + BlobStore)', (
       config: { database: { path: join(tempDir, 'gmboop.db') } }
     });
     blobStore = new BlobStore({ baseDir: tempDir, logger: silentLogger });
-    fm = new FileManager({ logger: silentLogger, database, blobStore, eventBus: { emit: () => {} } });
+    fm = new FileManager({
+      logger: silentLogger,
+      database,
+      blobStore,
+      eventBus: { emit: () => {} }
+    });
   });
 
   afterAll(() => {
-    try { database.close?.(); } catch { /* ignore */ }
+    try {
+      database.close?.();
+    } catch {
+      /* ignore */
+    }
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -102,10 +111,12 @@ describe('FileManager — adapted file persistence (real SQLite + BlobStore)', (
 
     const adapted = midiBuffer(1, 55);
     const first = await fm.createDerivedFile('mel_adapted.mid', adapted, {
-      folder: '/', parentFileId: parentId
+      folder: '/',
+      parentFileId: parentId
     });
     const second = await fm.createDerivedFile('mel_adapted.mid', adapted, {
-      folder: '/', parentFileId: parentId
+      folder: '/',
+      parentFileId: parentId
     });
 
     expect(first.status).toBe('created');

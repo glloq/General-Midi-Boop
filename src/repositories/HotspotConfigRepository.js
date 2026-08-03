@@ -16,8 +16,8 @@ const KEY = 'hotspot_config';
 const DEFAULTS = Object.freeze({
   ssid: 'GMBoop',
   password: '',
-  band: 'bg',     // 'bg' = 2.4 GHz, 'a' = 5 GHz
-  channel: 0      // 0 = auto
+  band: 'bg', // 'bg' = 2.4 GHz, 'a' = 5 GHz
+  channel: 0 // 0 = auto
 });
 
 export default class HotspotConfigRepository {
@@ -29,7 +29,7 @@ export default class HotspotConfigRepository {
    *   better-sqlite3 Database instance.
    */
   constructor(database) {
-    this.db = (database && database.db) ? database.db : database;
+    this.db = database && database.db ? database.db : database;
   }
 
   /**
@@ -59,11 +59,13 @@ export default class HotspotConfigRepository {
     const value = JSON.stringify(merged);
     // Two-statement upsert: the table has a CHECK on `type`, so we set
     // it explicitly when creating the row.
-    this.db.prepare(
-      `INSERT INTO settings (key, value, type, description)
+    this.db
+      .prepare(
+        `INSERT INTO settings (key, value, type, description)
        VALUES (?, ?, 'json', 'WiFi hotspot configuration (SSID, password, band, channel)')
        ON CONFLICT(key) DO UPDATE SET value = excluded.value, type = 'json'`
-    ).run(KEY, value);
+      )
+      .run(KEY, value);
     return merged;
   }
 }

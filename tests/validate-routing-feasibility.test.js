@@ -16,7 +16,7 @@ const semitonesHands = {
   mode: 'semitones',
   hand_move_semitones_per_sec: 60,
   hands: [
-    { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
     { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
@@ -51,23 +51,27 @@ function makeApp({ caps = null, analyzer = null, file = null, blobThrows = false
 
 describe('validate_routing_feasibility — input validation', () => {
   test('throws when fileId is missing', async () => {
-    await expect(validateRoutingFeasibility(makeApp(), { channel: 0, deviceId: 'p' }))
-      .rejects.toThrow(ValidationError);
+    await expect(
+      validateRoutingFeasibility(makeApp(), { channel: 0, deviceId: 'p' })
+    ).rejects.toThrow(ValidationError);
   });
 
   test('throws when deviceId is missing', async () => {
-    await expect(validateRoutingFeasibility(makeApp(), { fileId: 1, channel: 0 }))
-      .rejects.toThrow(ValidationError);
+    await expect(validateRoutingFeasibility(makeApp(), { fileId: 1, channel: 0 })).rejects.toThrow(
+      ValidationError
+    );
   });
 
   test('throws when channel is missing', async () => {
-    await expect(validateRoutingFeasibility(makeApp(), { fileId: 1, deviceId: 'p' }))
-      .rejects.toThrow(ValidationError);
+    await expect(
+      validateRoutingFeasibility(makeApp(), { fileId: 1, deviceId: 'p' })
+    ).rejects.toThrow(ValidationError);
   });
 
   test('throws when channel is out of range', async () => {
-    await expect(validateRoutingFeasibility(makeApp(), { fileId: 1, deviceId: 'p', channel: 16 }))
-      .rejects.toThrow(/0 and 15/);
+    await expect(
+      validateRoutingFeasibility(makeApp(), { fileId: 1, deviceId: 'p', channel: 16 })
+    ).rejects.toThrow(/0 and 15/);
   });
 });
 
@@ -79,7 +83,9 @@ describe('validate_routing_feasibility — happy paths', () => {
       file: { blob_path: 'fake/path' }
     });
     const r = await validateRoutingFeasibility(app, {
-      fileId: 1, deviceId: 'piano-1', channel: 0
+      fileId: 1,
+      deviceId: 'piano-1',
+      channel: 0
     });
     expect(r.level).toBe('ok');
     expect(r.qualityScore).toBe(100);
@@ -93,7 +99,9 @@ describe('validate_routing_feasibility — happy paths', () => {
       file: { blob_path: 'fake' }
     });
     const r = await validateRoutingFeasibility(app, {
-      fileId: 1, deviceId: 'piano-1', channel: 0
+      fileId: 1,
+      deviceId: 'piano-1',
+      channel: 0
     });
     expect(r.level).toBe('infeasible');
     expect(r.message).toMatch(/finger/);
@@ -106,10 +114,15 @@ describe('validate_routing_feasibility — happy paths', () => {
       instrumentRepository: { getCapabilities: getCaps },
       adaptationService: { analyzeChannel: () => analysis() },
       fileRepository: { findById: () => ({ blob_path: 'f' }) },
-      blobStore: { read: () => Buffer.from([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0, 96]) }
+      blobStore: {
+        read: () => Buffer.from([0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0, 96])
+      }
     };
     await validateRoutingFeasibility(app, {
-      fileId: 1, deviceId: 'piano-1', channel: 3, targetChannel: 7
+      fileId: 1,
+      deviceId: 'piano-1',
+      channel: 3,
+      targetChannel: 7
     });
     expect(getCaps).toHaveBeenCalledWith('piano-1', 7);
   });
@@ -119,7 +132,9 @@ describe('validate_routing_feasibility — degraded paths', () => {
   test('returns level=unknown when the instrument has no capabilities row', async () => {
     const app = makeApp({ caps: null, analyzer: () => analysis() });
     const r = await validateRoutingFeasibility(app, {
-      fileId: 1, deviceId: 'unknown', channel: 0
+      fileId: 1,
+      deviceId: 'unknown',
+      channel: 0
     });
     expect(r.level).toBe('unknown');
     expect(r.message).toMatch(/No capabilities found/);
@@ -132,7 +147,9 @@ describe('validate_routing_feasibility — degraded paths', () => {
       file: null
     });
     const r = await validateRoutingFeasibility(app, {
-      fileId: 999, deviceId: 'piano-1', channel: 0
+      fileId: 999,
+      deviceId: 'piano-1',
+      channel: 0
     });
     expect(r.level).toBe('unknown');
   });
@@ -145,7 +162,9 @@ describe('validate_routing_feasibility — degraded paths', () => {
       blobThrows: true
     });
     const r = await validateRoutingFeasibility(app, {
-      fileId: 1, deviceId: 'piano-1', channel: 0
+      fileId: 1,
+      deviceId: 'piano-1',
+      channel: 0
     });
     expect(r.level).toBe('unknown');
   });
@@ -153,11 +172,15 @@ describe('validate_routing_feasibility — degraded paths', () => {
   test('returns level=unknown when the analyzer throws', async () => {
     const app = makeApp({
       caps: { hands_config: semitonesHands },
-      analyzer: () => { throw new Error('analyzer down'); },
+      analyzer: () => {
+        throw new Error('analyzer down');
+      },
       file: { blob_path: 'fake' }
     });
     const r = await validateRoutingFeasibility(app, {
-      fileId: 1, deviceId: 'piano-1', channel: 0
+      fileId: 1,
+      deviceId: 'piano-1',
+      channel: 0
     });
     expect(r.level).toBe('unknown');
   });
@@ -169,7 +192,9 @@ describe('validate_routing_feasibility — degraded paths', () => {
       file: { blob_path: 'fake' }
     });
     const r = await validateRoutingFeasibility(app, {
-      fileId: 1, deviceId: 'piano-1', channel: 0
+      fileId: 1,
+      deviceId: 'piano-1',
+      channel: 0
     });
     expect(r.level).toBe('unknown');
   });

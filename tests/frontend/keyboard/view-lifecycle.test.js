@@ -38,9 +38,15 @@ beforeAll(() => {
 // unmount) in isolation. regeneratePianoKeys is a real class method that
 // calls the generatePianoKeys mixin, so it must be stubbed too.
 function makeModal() {
-  const m = new (win.KeyboardModal)();
-  for (const fn of ['regeneratePianoKeys', 'generatePianoKeys', 'renderFretboard',
-                     'renderDrumPad', 'generatePianoSlider', 'renderKeyboardList']) {
+  const m = new win.KeyboardModal();
+  for (const fn of [
+    'regeneratePianoKeys',
+    'generatePianoKeys',
+    'renderFretboard',
+    'renderDrumPad',
+    'generatePianoSlider',
+    'renderKeyboardList'
+  ]) {
     m[fn] = () => {};
   }
   return m;
@@ -48,8 +54,13 @@ function makeModal() {
 
 describe('Registry is the authoritative view owner', () => {
   it('registers the 5 built-in views', () => {
-    expect(win.instrumentViews.kinds().sort()).toEqual(
-      ['drumpad', 'fretboard', 'keyboard-list', 'piano', 'piano-slider']);
+    expect(win.instrumentViews.kinds().sort()).toEqual([
+      'drumpad',
+      'fretboard',
+      'keyboard-list',
+      'piano',
+      'piano-slider'
+    ]);
   });
 
   it('_activateView resolves & mounts the registered view for a kind', () => {
@@ -66,7 +77,7 @@ describe('Registry is the authoritative view owner', () => {
     m._activateView('fretboard');
     const fretboard = m._activeView;
     m._activateView('piano');
-    expect(fretboard.mounted).toBe(false);          // previous torn down
+    expect(fretboard.mounted).toBe(false); // previous torn down
     expect(m._activeView).toBeInstanceOf(win.PianoView);
     expect(m._activeView.mounted).toBe(true);
     expect(m._activeViewKind).toBe('piano');
@@ -77,7 +88,7 @@ describe('Registry is the authoritative view owner', () => {
     m._activateView('piano');
     const first = m._activeView;
     m._activateView('piano');
-    expect(m._activeView).toBe(first);              // same instance reused
+    expect(m._activeView).toBe(first); // same instance reused
     expect(first.mounted).toBe(true);
   });
 
@@ -109,7 +120,7 @@ describe('Registry is the authoritative view owner', () => {
     expect(view.mounted).toBe(true);
 
     m.close();
-    expect(view.mounted).toBe(false);        // unmount() ran
+    expect(view.mounted).toBe(false); // unmount() ran
     expect(m._activeView).toBeNull();
     expect(m._activeViewKind).toBeNull();
 
@@ -124,8 +135,12 @@ describe('Safe legacy fallback (zero-regression guarantee)', () => {
   it('falls back without throwing when no view is registered for the kind', () => {
     const m = makeModal();
     let called = null;
-    m.regeneratePianoKeys = () => { called = 'piano'; };
-    m.renderFretboard = () => { called = 'fretboard'; };
+    m.regeneratePianoKeys = () => {
+      called = 'piano';
+    };
+    m.renderFretboard = () => {
+      called = 'fretboard';
+    };
     expect(() => m._activateView('totally-unknown-kind')).not.toThrow();
     expect(m._activeView).toBeNull();
     expect(m._activeViewKind).toBe('totally-unknown-kind');
@@ -135,11 +150,11 @@ describe('Safe legacy fallback (zero-regression guarantee)', () => {
   it('legacy fallback routes each known mode to its render method', () => {
     const m = makeModal();
     const hits = [];
-    m.renderFretboard      = () => hits.push('fretboard');
-    m.renderDrumPad        = () => hits.push('drumpad');
-    m.generatePianoSlider  = () => hits.push('piano-slider');
-    m.renderKeyboardList   = () => hits.push('keyboard-list');
-    m.regeneratePianoKeys  = () => hits.push('piano');
+    m.renderFretboard = () => hits.push('fretboard');
+    m.renderDrumPad = () => hits.push('drumpad');
+    m.generatePianoSlider = () => hits.push('piano-slider');
+    m.renderKeyboardList = () => hits.push('keyboard-list');
+    m.regeneratePianoKeys = () => hits.push('piano');
     m._legacyRenderForMode('fretboard');
     m._legacyRenderForMode('drumpad');
     m._legacyRenderForMode('piano-slider');
@@ -153,11 +168,15 @@ describe('Safe legacy fallback (zero-regression guarantee)', () => {
     let legacy = false;
     // 'broken' is an unknown mode → legacy switch hits the default branch
     // (regeneratePianoKeys).
-    m.regeneratePianoKeys = () => { legacy = true; };
+    m.regeneratePianoKeys = () => {
+      legacy = true;
+    };
     const reg = win.instrumentViews;
     const Broken = class extends win.InstrumentView {
       static viewKind = 'broken';
-      mount() { throw new Error('boom'); }
+      mount() {
+        throw new Error('boom');
+      }
     };
     reg.register(Broken);
     expect(() => m._activateView('broken')).not.toThrow();
@@ -191,14 +210,18 @@ describe('playNote ↔ InstrumentView contract (KM-C4)', () => {
 
   it('willPlayNote transforms the velocity actually sent', () => {
     const { ctx, out } = play(
-      { _activeView: { willPlayNote: (n, v) => ({ midi: n, velocity: v + 7 }) } }, 60);
+      { _activeView: { willPlayNote: (n, v) => ({ midi: n, velocity: v + 7 }) } },
+      60
+    );
     expect(out).toEqual([[60, 87]]);
     expect(ctx.activeNotes.has(60)).toBe(true);
   });
 
   it('willPlayNote can remap the midi note', () => {
     const { ctx, out } = play(
-      { _activeView: { willPlayNote: (n, v) => ({ midi: n + 12, velocity: v }) } }, 60);
+      { _activeView: { willPlayNote: (n, v) => ({ midi: n + 12, velocity: v }) } },
+      60
+    );
     expect(out).toEqual([[72, 80]]);
     expect(ctx.activeNotes.has(72)).toBe(true);
     expect(ctx.activeNotes.has(60)).toBe(false);
@@ -223,15 +246,17 @@ describe('playNote ↔ InstrumentView contract (KM-C4)', () => {
 });
 
 describe('PianoSliderView — wind articulation + staccato (KM-C4)', () => {
-  afterEach(() => { vi.useRealTimers(); });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('willPlayNote scales velocity by the current articulation factor', () => {
-    const v = new (win.PianoSliderView)();
-    v.ctx = { modal: { currentArticulation: 'accent' } };  // ×1.2
+    const v = new win.PianoSliderView();
+    v.ctx = { modal: { currentArticulation: 'accent' } }; // ×1.2
     expect(v.willPlayNote(60, 100).velocity).toBe(120);
-    v.ctx.modal.currentArticulation = 'staccato';          // ×0.9
+    v.ctx.modal.currentArticulation = 'staccato'; // ×0.9
     expect(v.willPlayNote(60, 100).velocity).toBe(90);
-    v.ctx.modal.currentArticulation = 'normal';            // ×1
+    v.ctx.modal.currentArticulation = 'normal'; // ×1
     expect(v.willPlayNote(60, 100).velocity).toBe(100);
   });
 
@@ -244,21 +269,26 @@ describe('PianoSliderView — wind articulation + staccato (KM-C4)', () => {
       stopNote: (n) => stopped.push(n),
       generatePianoSlider: undefined
     };
-    const v = new (win.PianoSliderView)();
+    const v = new win.PianoSliderView();
     v.mount({ modal });
     v.afterPlayNote(60);
-    expect(stopped).toEqual([]);            // not yet
+    expect(stopped).toEqual([]); // not yet
     vi.advanceTimersByTime(120);
-    expect(stopped).toEqual([60]);          // auto note-off fired
+    expect(stopped).toEqual([60]); // auto note-off fired
     v.unmount();
   });
 
   it('afterPlayNote does nothing when articulation is not staccato', () => {
     vi.useFakeTimers();
     const stopped = [];
-    const v = new (win.PianoSliderView)();
-    v.mount({ modal: { currentArticulation: 'legato', activeNotes: new Set([60]),
-                        stopNote: (n) => stopped.push(n) } });
+    const v = new win.PianoSliderView();
+    v.mount({
+      modal: {
+        currentArticulation: 'legato',
+        activeNotes: new Set([60]),
+        stopNote: (n) => stopped.push(n)
+      }
+    });
     v.afterPlayNote(60);
     vi.advanceTimersByTime(500);
     expect(stopped).toEqual([]);
@@ -268,11 +298,16 @@ describe('PianoSliderView — wind articulation + staccato (KM-C4)', () => {
   it('unmount() clears pending staccato timers (no leak)', () => {
     vi.useFakeTimers();
     const stopped = [];
-    const v = new (win.PianoSliderView)();
-    v.mount({ modal: { currentArticulation: 'staccato', activeNotes: new Set([60]),
-                        stopNote: (n) => stopped.push(n) } });
+    const v = new win.PianoSliderView();
+    v.mount({
+      modal: {
+        currentArticulation: 'staccato',
+        activeNotes: new Set([60]),
+        stopNote: (n) => stopped.push(n)
+      }
+    });
     v.afterPlayNote(60);
-    v.unmount();                            // cancels the timer
+    v.unmount(); // cancels the timer
     vi.advanceTimersByTime(500);
     expect(stopped).toEqual([]);
   });

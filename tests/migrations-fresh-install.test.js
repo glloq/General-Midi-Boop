@@ -25,7 +25,9 @@ const MIGRATIONS_DIR = join(__dirname, '../migrations');
 const silentLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
 
 function migrationFiles() {
-  return readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
 }
 
 describe('migration runner — fresh install (real SQLite)', () => {
@@ -39,7 +41,11 @@ describe('migration runner — fresh install (real SQLite)', () => {
   });
 
   afterAll(() => {
-    try { db.close(); } catch { /* ignore */ }
+    try {
+      db.close();
+    } catch {
+      /* ignore */
+    }
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -57,7 +63,10 @@ describe('migration runner — fresh install (real SQLite)', () => {
     const distinctVersions = new Set(files.map((f) => parseInt(f.split('_')[0], 10)));
     const maxFileVersion = Math.max(...distinctVersions);
 
-    const recorded = db.prepare('SELECT version FROM schema_version').all().map((r) => r.version);
+    const recorded = db
+      .prepare('SELECT version FROM schema_version')
+      .all()
+      .map((r) => r.version);
     const recordedSet = new Set(recorded);
 
     // Every file version must be recorded — no silent skip.

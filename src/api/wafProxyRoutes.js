@@ -39,7 +39,7 @@ const SAFE_FILENAME = /^[A-Za-z0-9_]{1,200}\.js$/;
 // for a drum note). Worst-case heap is bounded by the file count: 128
 // melodic + 47 drums × 9 kits ≈ 600 entries × 80 KB = ~50 MB ceiling.
 // We add a hard-cap to stay safe even when other consumers ever land here.
-const MAX_CACHE_BYTES   = 64 * 1024 * 1024;
+const MAX_CACHE_BYTES = 64 * 1024 * 1024;
 const MAX_CACHE_ENTRIES = 1024;
 const cache = new Map(); // filename -> { body: Buffer, status: 200|404 }
 let cacheBytes = 0;
@@ -50,9 +50,10 @@ function cacheSet(filename, entry) {
   // because they're effectively immutable; an evicted file is just
   // re-fetched on the next request.
   const incomingBytes = entry.body ? entry.body.length : 0;
-  while ((cache.size >= MAX_CACHE_ENTRIES
-          || cacheBytes + incomingBytes > MAX_CACHE_BYTES)
-         && cache.size > 0) {
+  while (
+    (cache.size >= MAX_CACHE_ENTRIES || cacheBytes + incomingBytes > MAX_CACHE_BYTES) &&
+    cache.size > 0
+  ) {
     const [oldKey, oldVal] = cache.entries().next().value;
     cacheBytes -= oldVal.body ? oldVal.body.length : 0;
     cache.delete(oldKey);
@@ -64,20 +65,22 @@ function cacheSet(filename, entry) {
 function fetchFromCdn(filename) {
   return new Promise((resolve, reject) => {
     const url = CDN_BASE + filename;
-    https.get(url, { headers: { 'User-Agent': 'gmboop-waf-proxy/1' } }, (res) => {
-      const chunks = [];
-      res.on('data', (c) => chunks.push(c));
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          resolve({ status: 200, body: Buffer.concat(chunks) });
-        } else if (res.statusCode === 404) {
-          resolve({ status: 404, body: null });
-        } else {
-          reject(new Error(`CDN responded HTTP ${res.statusCode}`));
-        }
-      });
-      res.on('error', reject);
-    }).on('error', reject);
+    https
+      .get(url, { headers: { 'User-Agent': 'gmboop-waf-proxy/1' } }, (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve({ status: 200, body: Buffer.concat(chunks) });
+          } else if (res.statusCode === 404) {
+            resolve({ status: 404, body: null });
+          } else {
+            reject(new Error(`CDN responded HTTP ${res.statusCode}`));
+          }
+        });
+        res.on('error', reject);
+      })
+      .on('error', reject);
   });
 }
 

@@ -19,21 +19,29 @@ const src = readFileSync(
 
 function installCanvasStub() {
   const calls = [];
-  const ctx = new Proxy({ calls }, {
-    get(target, prop) {
-      if (prop === 'calls') return target.calls;
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc)$/.test(prop)) {
-        return (...args) => target.calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    { calls },
+    {
+      get(target, prop) {
+        if (prop === 'calls') return target.calls;
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => target.calls.push({ method: prop, args });
+        }
+        return target[prop];
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        target.calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return target[prop];
-    },
-    set(target, prop, value) {
-      target[prop] = value;
-      target.calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -117,7 +125,7 @@ describe('TablatureRenderer._eventWarningLevel', () => {
   it('matches by tick within ±30 ticks tolerance', () => {
     const r = makeRenderer();
     r.setHandWarnings([{ tick: 100, level: 'warning' }]);
-    expect(r._eventWarningLevel({ tick: 90,  string: 1, fret: 3 })).toBe('warning');
+    expect(r._eventWarningLevel({ tick: 90, string: 1, fret: 3 })).toBe('warning');
     expect(r._eventWarningLevel({ tick: 130, string: 1, fret: 3 })).toBe('warning');
     expect(r._eventWarningLevel({ tick: 150, string: 1, fret: 3 })).toBeNull();
   });
@@ -151,12 +159,11 @@ describe('TablatureRenderer._drawTabEvents — warning border', () => {
     const ctx = installCanvasStub();
     document.body.innerHTML = '<canvas id="tab"></canvas>';
     const canvas = document.getElementById('tab');
-    canvas.width = 800; canvas.height = 200;
-    const r = new window.TablatureRenderer(canvas, { tuning: [40,45,50,55,59,64] });
+    canvas.width = 800;
+    canvas.height = 200;
+    const r = new window.TablatureRenderer(canvas, { tuning: [40, 45, 50, 55, 59, 64] });
     r.scrollX = 0;
-    r.setTabEvents([
-      { tick: 100, string: 1, fret: 5, duration: 480, midiNote: 64, channel: 0 }
-    ]);
+    r.setTabEvents([{ tick: 100, string: 1, fret: 5, duration: 480, midiNote: 64, channel: 0 }]);
     r.setHandWarnings([{ tick: 100, level: 'warning' }]);
     r._drawTabEvents(800, 200);
 
@@ -173,12 +180,11 @@ describe('TablatureRenderer._drawTabEvents — warning border', () => {
     const ctx = installCanvasStub();
     document.body.innerHTML = '<canvas id="tab"></canvas>';
     const canvas = document.getElementById('tab');
-    canvas.width = 800; canvas.height = 200;
-    const r = new window.TablatureRenderer(canvas, { tuning: [40,45,50,55,59,64] });
+    canvas.width = 800;
+    canvas.height = 200;
+    const r = new window.TablatureRenderer(canvas, { tuning: [40, 45, 50, 55, 59, 64] });
     r.scrollX = 0;
-    r.setTabEvents([
-      { tick: 100, string: 1, fret: 5, duration: 480, midiNote: 64, channel: 0 }
-    ]);
+    r.setTabEvents([{ tick: 100, string: 1, fret: 5, duration: 480, midiNote: 64, channel: 0 }]);
     r.setHandWarnings([{ tick: 100, level: 'infeasible' }]);
     r._drawTabEvents(800, 200);
 
@@ -194,15 +200,14 @@ describe('TablatureRenderer._drawTabEvents — warning border', () => {
     const ctx = installCanvasStub();
     document.body.innerHTML = '<canvas id="tab"></canvas>';
     const canvas = document.getElementById('tab');
-    canvas.width = 800; canvas.height = 200;
-    const r = new window.TablatureRenderer(canvas, { tuning: [40,45,50,55,59,64] });
+    canvas.width = 800;
+    canvas.height = 200;
+    const r = new window.TablatureRenderer(canvas, { tuning: [40, 45, 50, 55, 59, 64] });
     r.scrollX = 0;
-    r.setTabEvents([
-      { tick: 100, string: 1, fret: 5, duration: 480, midiNote: 64, channel: 0 }
-    ]);
+    r.setTabEvents([{ tick: 100, string: 1, fret: 5, duration: 480, midiNote: 64, channel: 0 }]);
     r.setHandWarnings([]); // empty
     r._drawTabEvents(800, 200);
 
-    expect(ctx.calls.filter(c => c.method === 'strokeRect').length).toBe(0);
+    expect(ctx.calls.filter((c) => c.method === 'strokeRect').length).toBe(0);
   });
 });

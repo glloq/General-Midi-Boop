@@ -63,7 +63,8 @@ describe('PlaybackScheduler._routeTo override', () => {
       try {
         expect(getOutputForChannel).not.toHaveBeenCalled();
         expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
-          'specific-device', 'cc',
+          'specific-device',
+          'cc',
           expect.objectContaining({ channel: 2, controller: 23, value: 40 })
         );
         scheduler.stopScheduler();

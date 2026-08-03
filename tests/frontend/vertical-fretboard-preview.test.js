@@ -14,19 +14,27 @@ let calls;
 
 function installCanvasStub() {
   calls = [];
-  const ctx = new Proxy({}, {
-    get(_t, prop) {
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
-        return (...args) => calls.push({ method: prop, args });
+  const ctx = new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(
+            prop
+          )
+        ) {
+          return (...args) => calls.push({ method: prop, args });
+        }
+        return undefined;
+      },
+      set(_t, prop, value) {
+        calls.push({ method: 'set', prop, value });
+        return true;
       }
-      return undefined;
-    },
-    set(_t, prop, value) {
-      calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -45,9 +53,10 @@ beforeEach(() => {
 
 function makeCanvas(w = 600, h = 150) {
   const c = document.createElement('canvas');
-  Object.defineProperty(c, 'clientWidth',  { get: () => w });
+  Object.defineProperty(c, 'clientWidth', { get: () => w });
   Object.defineProperty(c, 'clientHeight', { get: () => h });
-  c.width = w; c.height = h;
+  c.width = w;
+  c.height = h;
   c.getBoundingClientRect = () => ({ left: 0, top: 0, right: w, bottom: h, width: w, height: h });
   return c;
 }
@@ -75,7 +84,9 @@ function bandRect() {
 describe('VerticalFretboardPreview (horizontal neck)', () => {
   it('draws strings as horizontal lines and frets as vertical lines', () => {
     const fb = new window.VerticalFretboardPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     fb.draw();
     const verticalLines = calls.filter((c, i) => {
@@ -88,7 +99,9 @@ describe('VerticalFretboardPreview (horizontal neck)', () => {
 
   it('keeps a constant pixel band width as the anchor slides along the neck', () => {
     const fb = new window.VerticalFretboardPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4
     });
     placeAt(fb, 3);
     const low = bandRect();
@@ -105,9 +118,13 @@ describe('VerticalFretboardPreview (horizontal neck)', () => {
   it('drag emits onBandDrag with an integer fret anchor', () => {
     let received = null;
     const fb = new window.VerticalFretboardPreview(makeCanvas(), {
-      tuning: [40, 45, 50, 55, 59, 64], numFrets: 22, handSpanFrets: 4,
+      tuning: [40, 45, 50, 55, 59, 64],
+      numFrets: 22,
+      handSpanFrets: 4,
       handId: 'fretting',
-      onBandDrag: (id, anchor) => { received = { id, anchor }; }
+      onBandDrag: (id, anchor) => {
+        received = { id, anchor };
+      }
     });
     placeAt(fb, 3);
     const { x0 } = fb._handWindowX(3);

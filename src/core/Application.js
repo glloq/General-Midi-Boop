@@ -750,13 +750,9 @@ class Application {
     const errored = (key) => this._capabilityErrors[key];
     const optional = (service, key, { degraded, degradedDetail } = {}) => {
       if (service) {
-        return degraded
-          ? { status: 'degraded', detail: degradedDetail }
-          : { status: 'ready' };
+        return degraded ? { status: 'degraded', detail: degradedDetail } : { status: 'ready' };
       }
-      return errored(key)
-        ? { status: 'failed', detail: errored(key) }
-        : { status: 'disabled' };
+      return errored(key) ? { status: 'failed', detail: errored(key) } : { status: 'disabled' };
     };
 
     const capabilities = {
@@ -768,7 +764,8 @@ class Application {
       // report it as degraded even when loaded so operators aren't misled.
       network: optional(this.networkManager, 'network', {
         degraded: true,
-        degradedDetail: 'RTP-MIDI is a simplified AppleMIDI implementation (no IN/OK, CK sync or journal)'
+        degradedDetail:
+          'RTP-MIDI is a simplified AppleMIDI implementation (no IN/OK, CK sync or journal)'
       }),
       serial: optional(this.serialMidiManager, 'serial'),
       lighting: optional(this.lightingManager, 'lighting')

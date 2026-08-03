@@ -32,7 +32,12 @@ function deviceGetSettings(app, data) {
   const settings = app.deviceSettingsRepository.findByDeviceId(data.deviceId);
   return {
     success: true,
-    settings: settings || { id: data.deviceId, custom_name: null, midi_clock_enabled: 0, message_rate_limit: 0 }
+    settings: settings || {
+      id: data.deviceId,
+      custom_name: null,
+      midi_clock_enabled: 0,
+      message_rate_limit: 0
+    }
   };
 }
 
@@ -62,7 +67,11 @@ function deviceUpdateSettings(app, data) {
   }
 
   // Ensure the device row exists before updating
-  app.deviceSettingsRepository.ensureDevice(data.deviceId, data.deviceName || data.deviceId, 'output');
+  app.deviceSettingsRepository.ensureDevice(
+    data.deviceId,
+    data.deviceName || data.deviceId,
+    'output'
+  );
 
   // Validate fields
   if (data.midi_clock_enabled !== undefined) {

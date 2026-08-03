@@ -26,7 +26,13 @@ function makeReceiver(win) {
 }
 function callMap(win, { rootClass, intervals, tuning, maxPoly }, receiver) {
   const self = receiver || makeReceiver(win);
-  return win.KeyboardChordsMixin._mapChordToStrings.call(self, rootClass, intervals, tuning, maxPoly);
+  return win.KeyboardChordsMixin._mapChordToStrings.call(
+    self,
+    rootClass,
+    intervals,
+    tuning,
+    maxPoly
+  );
 }
 
 describe('KeyboardChords._mapChordToStrings — VoicingEngine delegation', () => {
@@ -98,17 +104,19 @@ describe('KeyboardModal._on / _offAll — tracked DOM listeners', () => {
     const handler = () => calls++;
     const el = {
       _listeners: [],
-      addEventListener(evt, h) { this._listeners.push({ evt, h }); },
-      removeEventListener(evt, h) {
-        this._listeners = this._listeners.filter(L => !(L.evt === evt && L.h === h));
+      addEventListener(evt, h) {
+        this._listeners.push({ evt, h });
       },
-      dispatch(evt) { this._listeners.filter(L => L.evt === evt).forEach(L => L.h()); }
+      removeEventListener(evt, h) {
+        this._listeners = this._listeners.filter((L) => !(L.evt === evt && L.h === h));
+      },
+      dispatch(evt) {
+        this._listeners.filter((L) => L.evt === evt).forEach((L) => L.h());
+      }
     };
 
     // Build a minimal "modal" with just the helpers attached.
-    const w = loadFresh([
-      '../../../public/js/features/KeyboardModal.js'
-    ]);
+    const w = loadFresh(['../../../public/js/features/KeyboardModal.js']);
     const proto = w.KeyboardModal && w.KeyboardModal.prototype;
     expect(typeof proto._on).toBe('function');
     expect(typeof proto._offAll).toBe('function');

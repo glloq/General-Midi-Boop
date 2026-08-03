@@ -29,7 +29,7 @@ import { setImmediate as nodeSetImmediate } from 'node:timers';
 import codec from '../../shared/BinaryFrameCodec.js';
 
 /** Default backpressure thresholds (bytes). */
-export const DEFAULT_HIGH_WATERMARK = 64 * 1024;       // skip this msg for slow client
+export const DEFAULT_HIGH_WATERMARK = 64 * 1024; // skip this msg for slow client
 export const DEFAULT_CRITICAL_WATERMARK = 1024 * 1024; // log + reset coalescing slot
 
 /**
@@ -130,10 +130,10 @@ export class WsOutputQueue {
       enqueued: 0,
       coalesced: 0,
       sent: 0,
-      droppedByClient: 0,   // skipped due to bufferedAmount
-      droppedByDepth: 0,    // oldest pruned because queue full
-      criticalEvents: 0,    // bufferedAmount > critical threshold
-      jsonFallback: 0,      // binary event with encoder error
+      droppedByClient: 0, // skipped due to bufferedAmount
+      droppedByDepth: 0, // oldest pruned because queue full
+      criticalEvents: 0, // bufferedAmount > critical threshold
+      jsonFallback: 0, // binary event with encoder error
       flushes: 0
     };
   }
@@ -212,9 +212,7 @@ export class WsOutputQueue {
     if (this._coalescable.has(eventType)) {
       this.enqueueLatest(eventType, payload);
     } else {
-      const severity = INFORMATIONAL_EVENTS.has(eventType)
-        ? 'informational'
-        : 'critical';
+      const severity = INFORMATIONAL_EVENTS.has(eventType) ? 'informational' : 'critical';
       this.enqueue(eventType, payload, severity);
     }
   }

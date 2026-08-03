@@ -10,12 +10,8 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const root = resolve(__dirname, '../..');
-const shared = JSON.parse(
-  readFileSync(resolve(root, 'shared/instrument-presets.json'), 'utf8')
-);
-const families = JSON.parse(
-  readFileSync(resolve(root, 'shared/instrument-families.json'), 'utf8')
-);
+const shared = JSON.parse(readFileSync(resolve(root, 'shared/instrument-presets.json'), 'utf8'));
+const families = JSON.parse(readFileSync(resolve(root, 'shared/instrument-families.json'), 'utf8'));
 const feSource = readFileSync(
   resolve(root, 'public/js/features/instrument-settings/InstrumentPresets.js'),
   'utf8'
@@ -34,7 +30,10 @@ describe('InstrumentPresets — sync with shared JSON', () => {
 
   it('mechanism ids/labels match the shared JSON (svg is FE-only)', () => {
     const fe = window.InstrumentPresets.MECHANISMS.map((m) => ({
-      id: m.id, label: m.label, description: m.description, v2: m.v2,
+      id: m.id,
+      label: m.label,
+      description: m.description,
+      v2: m.v2
     }));
     expect(fe).toEqual(shared.mechanisms);
   });

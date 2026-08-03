@@ -22,10 +22,23 @@ beforeAll(() => {
   load('../../../public/js/features/keyboard/InstrumentView.js');
   load('../../../public/js/features/keyboard/InstrumentViewRegistry.js');
   load('../../../public/js/features/keyboard/HarmonicaLayout.js');
-  for (const v of ['PianoView', 'FretboardView', 'DrumPadView', 'PianoSliderView',
-                   'ListView', 'HarmonicaView', 'HarpView', 'AccordionView',
-                   'MalletView', 'MusicBoxView', 'KalimbaView', 'BagpipeView',
-                   'SteelDrumView', 'ThereminView', 'PercussionPadView']) {
+  for (const v of [
+    'PianoView',
+    'FretboardView',
+    'DrumPadView',
+    'PianoSliderView',
+    'ListView',
+    'HarmonicaView',
+    'HarpView',
+    'AccordionView',
+    'MalletView',
+    'MusicBoxView',
+    'KalimbaView',
+    'BagpipeView',
+    'SteelDrumView',
+    'ThereminView',
+    'PercussionPadView'
+  ]) {
     load(`../../../public/js/features/keyboard/views/${v}.js`);
   }
   load('../../../public/js/features/keyboard/views/registerBuiltins.js');
@@ -47,19 +60,19 @@ const mkModal = (sink) => ({
 
 describe('Roadmap views — registration & detection', () => {
   const expectations = [
-    ['accordion',  win => win.AccordionView,  { gm_program: 21 }],
-    ['accordion',  win => win.AccordionView,  { gm_program: 23 }],
-    ['mallet',     win => win.MalletView,     { gm_program: 12 }],
-    ['mallet',     win => win.MalletView,     { gm_program: 15 }],
-    ['kalimba',    win => win.KalimbaView,    { gm_program: 108 }],
-    ['bagpipe',    win => win.BagpipeView,    { gm_program: 109 }],
-    ['steel-drum', win => win.SteelDrumView,  { gm_program: 114 }],
-    ['theremin',   win => win.ThereminView,   { instrument_type: 'theremin' }],
-    ['mallet',     win => win.MalletView,     { gm_program: 9 }],
-    ['mallet',     win => win.MalletView,     { gm_program: 11 }],
-    ['music-box',  win => win.MusicBoxView,   { gm_program: 10 }],
-    ['perc-pad',   win => win.PercussionPadView, { gm_program: 112 }],
-    ['perc-pad',   win => win.PercussionPadView, { gm_program: 127 }],
+    ['accordion', (win) => win.AccordionView, { gm_program: 21 }],
+    ['accordion', (win) => win.AccordionView, { gm_program: 23 }],
+    ['mallet', (win) => win.MalletView, { gm_program: 12 }],
+    ['mallet', (win) => win.MalletView, { gm_program: 15 }],
+    ['kalimba', (win) => win.KalimbaView, { gm_program: 108 }],
+    ['bagpipe', (win) => win.BagpipeView, { gm_program: 109 }],
+    ['steel-drum', (win) => win.SteelDrumView, { gm_program: 114 }],
+    ['theremin', (win) => win.ThereminView, { instrument_type: 'theremin' }],
+    ['mallet', (win) => win.MalletView, { gm_program: 9 }],
+    ['mallet', (win) => win.MalletView, { gm_program: 11 }],
+    ['music-box', (win) => win.MusicBoxView, { gm_program: 10 }],
+    ['perc-pad', (win) => win.PercussionPadView, { gm_program: 112 }],
+    ['perc-pad', (win) => win.PercussionPadView, { gm_program: 127 }]
   ];
 
   for (const [kind, cls, caps] of expectations) {
@@ -72,13 +85,27 @@ describe('Roadmap views — registration & detection', () => {
   }
 
   it('GM 22 harmonica; 9/11 mallet; 10 music-box; 8/16/47 piano', () => {
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 22 } }).viewKind).toBe('harmonica');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 9 } }).viewKind).toBe('mallet');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 11 } }).viewKind).toBe('mallet');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 10 } }).viewKind).toBe('music-box');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 8 } }).viewKind).toBe('piano');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('piano');
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 16 } }).viewKind).toBe('piano');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 22 } }).viewKind).toBe(
+      'harmonica'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 9 } }).viewKind).toBe(
+      'mallet'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 11 } }).viewKind).toBe(
+      'mallet'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 10 } }).viewKind).toBe(
+      'music-box'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 8 } }).viewKind).toBe(
+      'piano'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe(
+      'piano'
+    );
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 16 } }).viewKind).toBe(
+      'piano'
+    );
   });
 
   it('GM 111 (Shanai) → piano-slider (reed, non-contiguous with 56-79)', () => {
@@ -87,28 +114,33 @@ describe('Roadmap views — registration & detection', () => {
       getPresetByProgram: (p) => ({ name: `wind-${p}` })
     };
     expect(win.instrumentViews.get('piano-slider')).toBe(win.PianoSliderView);
-    expect(win.InstrumentDetector.detect({
-      capabilities: { gm_program: 111 }, windDb
-    }).viewKind).toBe('piano-slider');
+    expect(
+      win.InstrumentDetector.detect({
+        capabilities: { gm_program: 111 },
+        windDb
+      }).viewKind
+    ).toBe('piano-slider');
     expect(win.instrumentViews.resolve({ gm_program: 111 }).viewKind).toBe('piano-slider');
     expect(win.instrumentViews.resolve({ gm_program: 111 }).options.wind).toBe(true);
   });
 
   it('theremin type wins even with a GM patch present', () => {
-    expect(win.InstrumentDetector.detect({
-      capabilities: { instrument_type: 'theremin', gm_program: 80 }
-    }).viewKind).toBe('theremin');
+    expect(
+      win.InstrumentDetector.detect({
+        capabilities: { instrument_type: 'theremin', gm_program: 80 }
+      }).viewKind
+    ).toBe('theremin');
   });
 });
 
 // ── Pluck-style views: identical lifecycle contract ─────────────────────────
 describe.each([
-  ['accordion',  'accordion-container',  '.accordion-key'],
-  ['mallet',     'mallet-container',     '.mallet-bar'],
-  ['music-box',  'music-box-container',  '.music-box-tooth'],
-  ['kalimba',    'kalimba-container',    '.kalimba-tine'],
+  ['accordion', 'accordion-container', '.accordion-key'],
+  ['mallet', 'mallet-container', '.mallet-bar'],
+  ['music-box', 'music-box-container', '.music-box-tooth'],
+  ['kalimba', 'kalimba-container', '.kalimba-tine'],
   ['steel-drum', 'steel-drum-container', '.steel-section'],
-  ['perc-pad',   'perc-pad-container',   '.perc-pad'],
+  ['perc-pad', 'perc-pad-container', '.perc-pad']
 ])('%s — self-owned DOM lifecycle', (kind, containerId, cellSel) => {
   let sink, modal, view;
   beforeEach(() => {
@@ -118,7 +150,13 @@ describe.each([
     view = new (win.instrumentViews.get(kind))();
     view.mount({ modal });
   });
-  afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => {
+    try {
+      view.unmount();
+    } catch {
+      /* idempotent */
+    }
+  });
 
   it('mounts its own container with playable cells', () => {
     const root = document.getElementById(containerId);
@@ -142,14 +180,14 @@ describe.each([
     const root = document.getElementById(containerId);
     const cells = [...root.querySelectorAll(cellSel)];
     const a = cells[0];
-    const b = cells.find(c => c.dataset.note !== a.dataset.note) || cells[1];
+    const b = cells.find((c) => c.dataset.note !== a.dataset.note) || cells[1];
     const nA = parseInt(a.dataset.note, 10);
     const nB = parseInt(b.dataset.note, 10);
     fire(a, 'pointerdown');
     expect(sink.played).toContain(nA);
-    fire(b, 'pointermove');                  // drag onto the next cell
-    expect(sink.stopped).toContain(nA);      // previous released (monophonic)
-    expect(sink.played).toContain(nB);       // new cell sounded
+    fire(b, 'pointermove'); // drag onto the next cell
+    expect(sink.stopped).toContain(nA); // previous released (monophonic)
+    expect(sink.played).toContain(nB); // new cell sounded
     document.dispatchEvent(new Event('pointerup'));
     expect(sink.stopped).toContain(nB);
     expect(root.querySelectorAll(`${cellSel}.active`).length).toBe(0); // no stuck
@@ -170,7 +208,7 @@ describe.each([
   });
 
   it('_activateView resolves & mounts it, switching unmounts it', () => {
-    const m = new (win.KeyboardModal)();
+    const m = new win.KeyboardModal();
     m.regeneratePianoKeys = () => {};
     m._activateView(kind);
     expect(m._activeView).toBeInstanceOf(win.instrumentViews.get(kind));
@@ -189,17 +227,22 @@ describe('accordion — Stradella grid, soufflet, no volume slider', () => {
       playNote: (n) => sink.played.push(n),
       stopNote: (n) => sink.stopped.push(n),
       getNoteLabel: (n) => `N${n}`,
-      getAccordionConfig: () => cfg,
+      getAccordionConfig: () => cfg
     };
-    v = new (win.AccordionView)();
+    v = new win.AccordionView();
     v.mount({ modal });
   };
-  afterEach(() => { try { v.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => {
+    try {
+      v.unmount();
+    } catch {
+      /* idempotent */
+    }
+  });
 
   it('Stradella bass = 6 rows × 12 circle-of-fifths columns (72 points)', () => {
     mount({ bass_system: 'stradella', right_display: 'buttons' });
-    expect(document.querySelectorAll('.accordion-bass .accordion-key').length)
-      .toBe(72);
+    expect(document.querySelectorAll('.accordion-bass .accordion-key').length).toBe(72);
     expect(document.querySelector('.accordion-stradella')).not.toBeNull();
   });
 
@@ -207,8 +250,9 @@ describe('accordion — Stradella grid, soufflet, no volume slider', () => {
     mount({ bass_system: 'stradella', right_display: 'buttons' });
     // Row order: CB, B, M, m, 7, °. The "M" (major) button of the C
     // column triggers a 3-note chord.
-    const major = [...document.querySelectorAll('.accordion-bass .accordion-key')]
-      .find((b) => /N\d+M$/.test(b.title));
+    const major = [...document.querySelectorAll('.accordion-bass .accordion-key')].find((b) =>
+      /N\d+M$/.test(b.title)
+    );
     expect(major).toBeTruthy();
     fire(major, 'pointerdown');
     expect(sink.played.length).toBe(3);
@@ -232,24 +276,22 @@ describe('accordion — Stradella grid, soufflet, no volume slider', () => {
   });
 
   it('free-bass renders a chromatic single-note board on bass_range', () => {
-    mount({ bass_system: 'free', right_display: 'keyboard',
-            bass_range: { min: 36, max: 47 } });
+    mount({ bass_system: 'free', right_display: 'keyboard', bass_range: { min: 36, max: 47 } });
     const board = document.querySelector('.accordion-bass.accordion-board');
     expect(board).not.toBeNull();
     expect(board.querySelectorAll('.accordion-key').length).toBe(12);
   });
 
   it('glissando: sliding onto a new key releases the old and plays the new', () => {
-    mount({ bass_system: 'free', right_display: 'buttons',
-            bass_range: { min: 36, max: 47 } });
+    mount({ bass_system: 'free', right_display: 'buttons', bass_range: { min: 36, max: 47 } });
     const keys = [...document.querySelectorAll('.accordion-bass .accordion-key')];
     const n0 = parseInt(keys[0].dataset.note, 10);
     const n1 = parseInt(keys[1].dataset.note, 10);
     fire(keys[0], 'pointerdown');
     expect(sink.played).toContain(n0);
-    fire(keys[1], 'pointermove');                 // slide onto the next key
-    expect(sink.stopped).toContain(n0);           // previous released
-    expect(sink.played).toContain(n1);            // new one sounding
+    fire(keys[1], 'pointermove'); // slide onto the next key
+    expect(sink.stopped).toContain(n0); // previous released
+    expect(sink.played).toContain(n1); // new one sounding
     document.dispatchEvent(new Event('pointerup'));
     expect(sink.stopped).toContain(n1);
   });
@@ -276,8 +318,7 @@ describe('accordion — Stradella grid, soufflet, no volume slider', () => {
     fire(twins[0], 'pointerdown');
     expect(twins[0].classList.contains('active')).toBe(true);
     expect(twins[1].classList.contains('active')).toBe(true); // twin lit too
-    expect(document.querySelectorAll('.accordion-bass .accordion-key.active')
-      .length).toBe(0);                                       // bass untouched
+    expect(document.querySelectorAll('.accordion-bass .accordion-key.active').length).toBe(0); // bass untouched
     document.dispatchEvent(new Event('pointerup'));
     expect(document.querySelectorAll('.accordion-key.active').length).toBe(0);
   });
@@ -285,18 +326,20 @@ describe('accordion — Stradella grid, soufflet, no volume slider', () => {
 
 describe('configured note range (QA) — views follow instrument settings', () => {
   const rangedModal = (min, max) => ({
-    playNote() {}, stopNote() {}, sendCC() {},
+    playNote() {},
+    stopNote() {},
+    sendCC() {},
     getNoteLabel: (n) => `N${n}`,
-    getInstrumentNoteRange: () => ({ min, max, notes: null }),
+    getInstrumentNoteRange: () => ({ min, max, notes: null })
   });
 
   it('MalletView: piano-like layout, bar count follows the range', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.MalletView)();
-    v.mount({ modal: rangedModal(60, 64) });        // C4..E4
+    const v = new win.MalletView();
+    v.mount({ modal: rangedModal(60, 64) }); // C4..E4
     const bars = [...document.querySelectorAll('.mallet-bar')];
     // 60 C,61 C#,62 D,63 D#,64 E → 3 naturals + 2 accidentals
-    expect(bars.map(b => b.dataset.note)).toEqual(['60', '61', '62', '63', '64']);
+    expect(bars.map((b) => b.dataset.note)).toEqual(['60', '61', '62', '63', '64']);
     const nat = document.querySelectorAll('.mallet-bar-nat');
     const acc = document.querySelectorAll('.mallet-bar-acc');
     expect(nat.length).toBe(3);
@@ -312,50 +355,55 @@ describe('configured note range (QA) — views follow instrument settings', () =
 
   it('MalletView: no caps → default C4..B5 (24 chromatic)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.MalletView)();
+    const v = new win.MalletView();
     v.mount({ modal: { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}` } });
     const bars = document.querySelectorAll('.mallet-bar');
-    expect(bars.length).toBe(24);                    // 60..83
+    expect(bars.length).toBe(24); // 60..83
     v.unmount();
   });
 
   it('SteelDrumView: section count follows the range', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.SteelDrumView)();
-    v.mount({ modal: rangedModal(48, 59) });         // 12 notes
+    const v = new win.SteelDrumView();
+    v.mount({ modal: rangedModal(48, 59) }); // 12 notes
     expect(document.querySelectorAll('.steel-section').length).toBe(12);
     v.unmount();
   });
 
   it('HarpView: diatonic strings within the range', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.HarpView)();
-    v.mount({ modal: rangedModal(60, 64) });         // C,D,E in C-major
-    expect([...document.querySelectorAll('.harp-string')]
-      .map(s => s.dataset.note)).toEqual(['60', '62', '64']);
+    const v = new win.HarpView();
+    v.mount({ modal: rangedModal(60, 64) }); // C,D,E in C-major
+    expect([...document.querySelectorAll('.harp-string')].map((s) => s.dataset.note)).toEqual([
+      '60',
+      '62',
+      '64'
+    ]);
     v.unmount();
   });
 
   it('KalimbaView: tine count follows the range (chromatic, incl. sharps)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.KalimbaView)();
-    v.mount({ modal: rangedModal(60, 71) });         // C..B = 12 chromatic
+    const v = new win.KalimbaView();
+    v.mount({ modal: rangedModal(60, 71) }); // C..B = 12 chromatic
     const notes = [...document.querySelectorAll('.kalimba-tine')]
-      .map(t => parseInt(t.dataset.note, 10)).sort((a, b) => a - b);
+      .map((t) => parseInt(t.dataset.note, 10))
+      .sort((a, b) => a - b);
     expect(notes.length).toBe(12);
-    expect(notes).toContain(61);                     // C#4 — sharp shown
+    expect(notes).toContain(61); // C#4 — sharp shown
     v.unmount();
   });
 
   it('HarmonicaView: holes trimmed to the configured range', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const v = new (win.HarmonicaView)();
-    v.mount({ modal: rangedModal(60, 72) });         // Richter from 60, ≤72
-    const blow = [...document.querySelectorAll('.harmonica-blow')]
-      .map(b => parseInt(b.dataset.note, 10));
+    const v = new win.HarmonicaView();
+    v.mount({ modal: rangedModal(60, 72) }); // Richter from 60, ≤72
+    const blow = [...document.querySelectorAll('.harmonica-blow')].map((b) =>
+      parseInt(b.dataset.note, 10)
+    );
     expect(blow[0]).toBe(60);
     expect(Math.max(...blow)).toBeLessThanOrEqual(72);
-    expect(blow.length).toBeLessThan(10);            // trimmed vs full 10
+    expect(blow.length).toBeLessThan(10); // trimmed vs full 10
     v.unmount();
   });
 
@@ -364,53 +412,84 @@ describe('configured note range (QA) — views follow instrument settings', () =
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
     m.getInstrumentNoteRange = () => ({ min: 55, max: 60, notes: null });
-    const v = new (win.BagpipeView)();
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
-    const ch = [...document.querySelectorAll('.bagpipe-hole')]
-      .map(h => parseInt(h.dataset.note, 10));
+    const ch = [...document.querySelectorAll('.bagpipe-hole')].map((h) =>
+      parseInt(h.dataset.note, 10)
+    );
     expect(ch[0]).toBe(55);
     expect(Math.max(...ch)).toBeLessThanOrEqual(60);
-    expect(sink.played).not.toContain(45);           // no auto-start
+    expect(sink.played).not.toContain(45); // no auto-start
     v.unmount();
   });
 });
 
 describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
   it('getBagpipeConfig: defaults + normalizes legacy/object shapes', () => {
-    const m = new (win.KeyboardModal)();
+    const m = new win.KeyboardModal();
     expect(m.getBagpipeConfig()).toEqual({
-      drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled: true });
+      drones: [45],
+      droneObjs: [{ note: 45, enabled: true }],
+      enabled: true
+    });
     // legacy number[] → all enabled
     m.selectedDeviceCapabilities = { bagpipe_config: { drones: [45, 45, 33], enabled: false } };
     expect(m.getBagpipeConfig()).toEqual({
       drones: [45, 45, 33],
-      droneObjs: [{ note: 45, enabled: true }, { note: 45, enabled: true }, { note: 33, enabled: true }],
-      enabled: false });
+      droneObjs: [
+        { note: 45, enabled: true },
+        { note: 45, enabled: true },
+        { note: 33, enabled: true }
+      ],
+      enabled: false
+    });
     // object shape: `drones` keeps only enabled notes, `droneObjs` keeps all
-    m.selectedDeviceCapabilities = { bagpipe_config: {
-      drones: [{ note: 33, enabled: true }, { note: 45, enabled: false }] } };
+    m.selectedDeviceCapabilities = {
+      bagpipe_config: {
+        drones: [
+          { note: 33, enabled: true },
+          { note: 45, enabled: false }
+        ]
+      }
+    };
     const cfg = m.getBagpipeConfig();
     expect(cfg.drones).toEqual([33]);
-    expect(cfg.droneObjs).toEqual([{ note: 33, enabled: true }, { note: 45, enabled: false }]);
+    expect(cfg.droneObjs).toEqual([
+      { note: 33, enabled: true },
+      { note: 45, enabled: false }
+    ]);
     m.selectedDeviceCapabilities = { bagpipe_config: { drones: [] } };
-    expect(m.getBagpipeConfig().drones).toEqual([45]);   // empty → default
+    expect(m.getBagpipeConfig().drones).toEqual([45]); // empty → default
   });
 
   it('getAccordionConfig: defaults + normalizes caps.accordion_config (no hands)', () => {
     const ALL = ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7'];
-    const m = new (win.KeyboardModal)();
-    expect(m.getAccordionConfig()).toEqual(
-      { bass_system: 'stradella', right_display: 'buttons',
-        bass_range: { min: 36, max: 60 },
-        bass_cols: 12, bass_base: 36, bass_funcs: ALL });
-    m.selectedDeviceCapabilities = { accordion_config:
-      { bass_system: 'free', right_display: 'keyboard', hands: 'left',
-        bass_range: { min: 48, max: 55 } } };
+    const m = new win.KeyboardModal();
+    expect(m.getAccordionConfig()).toEqual({
+      bass_system: 'stradella',
+      right_display: 'buttons',
+      bass_range: { min: 36, max: 60 },
+      bass_cols: 12,
+      bass_base: 36,
+      bass_funcs: ALL
+    });
+    m.selectedDeviceCapabilities = {
+      accordion_config: {
+        bass_system: 'free',
+        right_display: 'keyboard',
+        hands: 'left',
+        bass_range: { min: 48, max: 55 }
+      }
+    };
     // `hands` is ignored — only per-side play possibilities are kept.
-    expect(m.getAccordionConfig()).toEqual(
-      { bass_system: 'free', right_display: 'keyboard',
-        bass_range: { min: 48, max: 55 },
-        bass_cols: 12, bass_base: 36, bass_funcs: ALL });
+    expect(m.getAccordionConfig()).toEqual({
+      bass_system: 'free',
+      right_display: 'keyboard',
+      bass_range: { min: 48, max: 55 },
+      bass_cols: 12,
+      bass_base: 36,
+      bass_funcs: ALL
+    });
     // legacy 'chromatic' normalized → 'free'
     m.selectedDeviceCapabilities = { accordion_config: { bass_system: 'chromatic' } };
     expect(m.getAccordionConfig().bass_system).toBe('free');
@@ -420,32 +499,42 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     m.selectedDeviceCapabilities = { accordion_config: { bass_range: { min: 70, max: 40 } } };
     expect(m.getAccordionConfig().bass_range).toEqual({ min: 40, max: 70 });
     // Stradella geometry: clamped + normalized; bad funcs → all six
-    m.selectedDeviceCapabilities = { accordion_config:
-      { bass_cols: 8, bass_base: 41, bass_funcs: ['bass', 'major', 'bogus'] } };
+    m.selectedDeviceCapabilities = {
+      accordion_config: { bass_cols: 8, bass_base: 41, bass_funcs: ['bass', 'major', 'bogus'] }
+    };
     const g = m.getAccordionConfig();
     expect(g.bass_cols).toBe(8);
     expect(g.bass_base).toBe(41);
     expect(g.bass_funcs).toEqual(['bass', 'major']);
-    m.selectedDeviceCapabilities = { accordion_config:
-      { bass_cols: 99, bass_base: 999, bass_funcs: [] } };
+    m.selectedDeviceCapabilities = {
+      accordion_config: { bass_cols: 99, bass_base: 999, bass_funcs: [] }
+    };
     const g2 = m.getAccordionConfig();
     expect(g2.bass_cols).toBe(12);
     expect(g2.bass_base).toBe(36);
     expect(g2.bass_funcs).toEqual(ALL);
-    m.selectedDeviceCapabilities = { accordion_config:
-      { bass_system: 'bogus', right_display: 'z' } };
-    expect(m.getAccordionConfig()).toEqual(
-      { bass_system: 'stradella', right_display: 'buttons',
-        bass_range: { min: 36, max: 60 },
-        bass_cols: 12, bass_base: 36, bass_funcs: ALL });
+    m.selectedDeviceCapabilities = {
+      accordion_config: { bass_system: 'bogus', right_display: 'z' }
+    };
+    expect(m.getAccordionConfig()).toEqual({
+      bass_system: 'stradella',
+      right_display: 'buttons',
+      bass_range: { min: 36, max: 60 },
+      bass_cols: 12,
+      bass_base: 36,
+      bass_funcs: ALL
+    });
   });
 
   it('AccordionView: both sides ALWAYS present (no hand show/hide)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-                getAccordionConfig: () => ({ bass_system: 'stradella',
-                  right_display: 'buttons' }) };
-    const v = new (win.AccordionView)();
+    const m = {
+      playNote() {},
+      stopNote() {},
+      getNoteLabel: (n) => `${n}`,
+      getAccordionConfig: () => ({ bass_system: 'stradella', right_display: 'buttons' })
+    };
+    const v = new win.AccordionView();
     v.mount({ modal: m });
     expect(document.querySelector('.accordion-bass')).not.toBeNull();
     expect(document.querySelector('.accordion-treble')).not.toBeNull();
@@ -457,11 +546,14 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
 
   it('AccordionView: right_display=keyboard → piano-style right side', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-                getInstrumentNoteRange: () => ({ min: 60, max: 71, notes: null }),
-                getAccordionConfig: () => ({ bass_system: 'stradella',
-                  right_display: 'keyboard' }) };
-    const v = new (win.AccordionView)();
+    const m = {
+      playNote() {},
+      stopNote() {},
+      getNoteLabel: (n) => `${n}`,
+      getInstrumentNoteRange: () => ({ min: 60, max: 71, notes: null }),
+      getAccordionConfig: () => ({ bass_system: 'stradella', right_display: 'keyboard' })
+    };
+    const v = new win.AccordionView();
     v.mount({ modal: m });
     const treble = document.querySelector('.accordion-treble');
     expect(treble.classList.contains('accordion-piano')).toBe(true);
@@ -478,13 +570,13 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({ drones: [45, 33, 57], enabled: true });
-    const v = new (win.BagpipeView)();
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
-    expect(sink.played.filter(n => [45, 33, 57].includes(n))).toEqual([]);  // no auto-start
-    document.getElementById('bagpipe-drone-toggle').click();   // all on
-    expect(sink.played.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
-    document.getElementById('bagpipe-drone-toggle').click();   // all off
-    expect(sink.stopped.filter(n => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
+    expect(sink.played.filter((n) => [45, 33, 57].includes(n))).toEqual([]); // no auto-start
+    document.getElementById('bagpipe-drone-toggle').click(); // all on
+    expect(sink.played.filter((n) => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
+    document.getElementById('bagpipe-drone-toggle').click(); // all off
+    expect(sink.stopped.filter((n) => [45, 33, 57].includes(n)).sort()).toEqual([33, 45, 57]);
     v.unmount();
   });
 
@@ -493,15 +585,19 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({ drones: [45, 33], enabled: true });
-    const v = new (win.BagpipeView)();
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
-    document.getElementById('bagpipe-drone-toggle').click();   // all on
-    sink.played.length = 0; sink.stopped.length = 0;
-    v.rerender();                                              // US/FR/MIDI toggle
-    expect(v._drones.filter(d => d.on).map(d => d.note).sort())
-      .toEqual([33, 45]);
-    expect(sink.played.filter(n => [33, 45].includes(n)).sort())
-      .toEqual([33, 45]);                                      // restarted
+    document.getElementById('bagpipe-drone-toggle').click(); // all on
+    sink.played.length = 0;
+    sink.stopped.length = 0;
+    v.rerender(); // US/FR/MIDI toggle
+    expect(
+      v._drones
+        .filter((d) => d.on)
+        .map((d) => d.note)
+        .sort()
+    ).toEqual([33, 45]);
+    expect(sink.played.filter((n) => [33, 45].includes(n)).sort()).toEqual([33, 45]); // restarted
     v.unmount();
   });
 
@@ -510,20 +606,23 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({
-      drones: [45], droneObjs: [{ note: 45, enabled: true }], enabled: true });
-    const v = new (win.BagpipeView)();
+      drones: [45],
+      droneObjs: [{ note: 45, enabled: true }],
+      enabled: true
+    });
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
     const holes = [...document.querySelectorAll('.bagpipe-hole')];
     const nA = parseInt(holes[0].dataset.note, 10);
     const nB = parseInt(holes[1].dataset.note, 10);
     fire(holes[0], 'pointerdown');
     expect(sink.played).toContain(nA);
-    fire(holes[1], 'pointermove');             // glide along the chanter
+    fire(holes[1], 'pointermove'); // glide along the chanter
     expect(sink.stopped).toContain(nA);
     expect(sink.played).toContain(nB);
     document.dispatchEvent(new Event('pointerup'));
     expect(sink.stopped).toContain(nB);
-    expect(sink.played).not.toContain(45);     // drone never auto-sounds
+    expect(sink.played).not.toContain(45); // drone never auto-sounds
     v.unmount();
   });
 
@@ -532,10 +631,10 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({ drones: [45], enabled: true });
-    const v = new (win.BagpipeView)();
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
     expect(sink.played).not.toContain(45);
-    document.getElementById('bagpipe-drone-toggle').click();    // user starts it
+    document.getElementById('bagpipe-drone-toggle').click(); // user starts it
     expect(sink.played).toContain(45);
     v.unmount();
   });
@@ -546,9 +645,13 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({
       drones: [33, 45],
-      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: true }],
-      enabled: true });
-    const v = new (win.BagpipeView)();
+      droneObjs: [
+        { note: 33, enabled: true },
+        { note: 45, enabled: true }
+      ],
+      enabled: true
+    });
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
     expect(document.getElementById('bagpipe-drone-toggle')).not.toBeNull();
     expect(document.querySelectorAll('.bagpipe-drone-one').length).toBe(2);
@@ -561,16 +664,20 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({
       drones: [33, 45],
-      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: true }],
-      enabled: true });
-    const v = new (win.BagpipeView)();
+      droneObjs: [
+        { note: 33, enabled: true },
+        { note: 45, enabled: true }
+      ],
+      enabled: true
+    });
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
     const box = document.querySelector('.bagpipe-drones');
     const master = document.getElementById('bagpipe-drone-toggle');
     expect(box.contains(master)).toBe(true);
     const ones = box.querySelectorAll('.bagpipe-drone-one');
     expect(ones.length).toBe(2);
-    ones.forEach(o => expect(box.contains(o)).toBe(true));   // nested in master box
+    ones.forEach((o) => expect(box.contains(o)).toBe(true)); // nested in master box
     v.unmount();
   });
 
@@ -580,18 +687,22 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({
       drones: [33, 45],
-      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: true }],
-      enabled: true });
-    const v = new (win.BagpipeView)();
+      droneObjs: [
+        { note: 33, enabled: true },
+        { note: 45, enabled: true }
+      ],
+      enabled: true
+    });
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
-    expect(sink.played.filter(n => [33, 45].includes(n))).toEqual([]);  // silent on mount
+    expect(sink.played.filter((n) => [33, 45].includes(n))).toEqual([]); // silent on mount
     const btn0 = document.querySelector('.bagpipe-drone-one[data-idx="0"]');
     const btn1 = document.querySelector('.bagpipe-drone-one[data-idx="1"]');
-    btn0.click();                                  // 33 on
-    btn1.click();                                  // 45 on
-    expect(sink.played.filter(n => [33, 45].includes(n)).sort()).toEqual([33, 45]);
-    btn1.click();                                  // 45 off only
-    expect(sink.stopped.filter(n => [33, 45].includes(n))).toEqual([45]);
+    btn0.click(); // 33 on
+    btn1.click(); // 45 on
+    expect(sink.played.filter((n) => [33, 45].includes(n)).sort()).toEqual([33, 45]);
+    btn1.click(); // 45 off only
+    expect(sink.stopped.filter((n) => [33, 45].includes(n))).toEqual([45]);
     v.unmount();
   });
 
@@ -599,22 +710,27 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const sink = { played: [], stopped: [], cc: [] };
     const m = mkModal(sink);
-    m.getBagpipeConfig = () => ({                   // Great Highland: 33, 45, 45
+    m.getBagpipeConfig = () => ({
+      // Great Highland: 33, 45, 45
       drones: [33, 45, 45],
-      droneObjs: [{ note: 33, enabled: true },
-                  { note: 45, enabled: true }, { note: 45, enabled: true }],
-      enabled: true });
-    const v = new (win.BagpipeView)();
+      droneObjs: [
+        { note: 33, enabled: true },
+        { note: 45, enabled: true },
+        { note: 45, enabled: true }
+      ],
+      enabled: true
+    });
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
     const b1 = document.querySelector('.bagpipe-drone-one[data-idx="1"]');
     const b2 = document.querySelector('.bagpipe-drone-one[data-idx="2"]');
-    b1.click();                                              // first 45 on
-    b2.click();                                              // second 45 on
-    expect(sink.played.filter(n => n === 45).length).toBe(1); // played once (ref count)
-    b1.click();                                              // one 45 off
-    expect(sink.stopped.filter(n => n === 45).length).toBe(0); // still sounding
-    b2.click();                                              // last 45 off
-    expect(sink.stopped.filter(n => n === 45).length).toBe(1);
+    b1.click(); // first 45 on
+    b2.click(); // second 45 on
+    expect(sink.played.filter((n) => n === 45).length).toBe(1); // played once (ref count)
+    b1.click(); // one 45 off
+    expect(sink.stopped.filter((n) => n === 45).length).toBe(0); // still sounding
+    b2.click(); // last 45 off
+    expect(sink.stopped.filter((n) => n === 45).length).toBe(1);
     v.unmount();
   });
 
@@ -624,23 +740,30 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
     const m = mkModal(sink);
     m.getBagpipeConfig = () => ({
       drones: [33],
-      droneObjs: [{ note: 33, enabled: true }, { note: 45, enabled: false }],
-      enabled: true });
-    const v = new (win.BagpipeView)();
+      droneObjs: [
+        { note: 33, enabled: true },
+        { note: 45, enabled: false }
+      ],
+      enabled: true
+    });
+    const v = new win.BagpipeView();
     v.mount({ modal: m });
-    expect(sink.played.filter(n => [33, 45].includes(n))).toEqual([]);   // nothing auto-starts
+    expect(sink.played.filter((n) => [33, 45].includes(n))).toEqual([]); // nothing auto-starts
     expect(document.querySelectorAll('.bagpipe-drone-one').length).toBe(2);
-    document.querySelector('.bagpipe-drone-one[data-idx="1"]').click();  // enable 45
+    document.querySelector('.bagpipe-drone-one[data-idx="1"]').click(); // enable 45
     expect(sink.played).toContain(45);
     v.unmount();
   });
 
   it('AccordionView: stradella bass = full 6×12 grid (72 points)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-                getAccordionConfig: () => ({ bass_system: 'stradella',
-                  right_display: 'buttons' }) };
-    const v = new (win.AccordionView)();
+    const m = {
+      playNote() {},
+      stopNote() {},
+      getNoteLabel: (n) => `${n}`,
+      getAccordionConfig: () => ({ bass_system: 'stradella', right_display: 'buttons' })
+    };
+    const v = new win.AccordionView();
     v.mount({ modal: m });
     expect(document.querySelectorAll('.accordion-bass .accordion-key').length).toBe(72);
     expect(document.querySelector('.accordion-bass.accordion-stradella')).not.toBeNull();
@@ -649,45 +772,55 @@ describe('instrument-specific settings (QA #3) — bagpipe + accordion', () => {
 
   it('AccordionView: free-bass uses configured span, decoupled from treble (no negatives)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-                // a low treble range used to make the OLD bHi-23 derivation
-                // produce negative MIDI notes — must no longer matter.
-                getInstrumentNoteRange: () => ({ min: 12, max: 35, notes: null }),
-                getAccordionConfig: () => ({ bass_system: 'free',
-                  right_display: 'buttons', bass_range: { min: 48, max: 52 } }) };
-    const v = new (win.AccordionView)();
+    const m = {
+      playNote() {},
+      stopNote() {},
+      getNoteLabel: (n) => `${n}`,
+      // a low treble range used to make the OLD bHi-23 derivation
+      // produce negative MIDI notes — must no longer matter.
+      getInstrumentNoteRange: () => ({ min: 12, max: 35, notes: null }),
+      getAccordionConfig: () => ({
+        bass_system: 'free',
+        right_display: 'buttons',
+        bass_range: { min: 48, max: 52 }
+      })
+    };
+    const v = new win.AccordionView();
     v.mount({ modal: m });
     const bass = [...document.querySelectorAll('.accordion-bass .accordion-key')];
-    const notes = bass.map(b => parseInt(b.dataset.note, 10));
-    expect(notes).toEqual([48, 49, 50, 51, 52]);   // from config, not derived
-    expect(notes.every(n => n >= 0)).toBe(true);   // negative-note bug fixed
-    expect(bass.length).not.toBe(12);              // not Stradella
+    const notes = bass.map((b) => parseInt(b.dataset.note, 10));
+    expect(notes).toEqual([48, 49, 50, 51, 52]); // from config, not derived
+    expect(notes.every((n) => n >= 0)).toBe(true); // negative-note bug fixed
+    expect(bass.length).not.toBe(12); // not Stradella
     v.unmount();
   });
 
   it('AccordionView: free-bass with no configured range → C2..C4 default', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const m = { playNote() {}, stopNote() {}, getNoteLabel: (n) => `${n}`,
-                getAccordionConfig: () => ({ bass_system: 'free',
-                  right_display: 'buttons' }) };
-    const v = new (win.AccordionView)();
+    const m = {
+      playNote() {},
+      stopNote() {},
+      getNoteLabel: (n) => `${n}`,
+      getAccordionConfig: () => ({ bass_system: 'free', right_display: 'buttons' })
+    };
+    const v = new win.AccordionView();
     v.mount({ modal: m });
     const bass = [...document.querySelectorAll('.accordion-bass .accordion-key')];
-    const notes = bass.map(b => parseInt(b.dataset.note, 10));
+    const notes = bass.map((b) => parseInt(b.dataset.note, 10));
     expect(notes[0]).toBe(36);
-    expect(notes[notes.length - 1]).toBe(60);      // FREE_BASS_LO..FREE_BASS_HI
+    expect(notes[notes.length - 1]).toBe(60); // FREE_BASS_LO..FREE_BASS_HI
     v.unmount();
   });
 });
 
 describe('note colours — 🎨 applies to every instrument view', () => {
   it('KeyboardModal.getNoteColor: octave-invariant 12-colour palette', () => {
-    const m = new (win.KeyboardModal)();
-    expect(m.getNoteColor(60)).toEqual(m.getNoteColor(72));   // C == C
-    expect(m.getNoteColor(60).bg).toBe('#EF4444');            // C red
-    expect(m.getNoteColor(61).bg).toBe('#F4622A');            // C#
-    expect(m.getNoteColor(59).bg).toBe('#A855F7');            // B violet
-    expect(m.getNoteColor(0)).toEqual(m.getNoteColor(120));   // wraps
+    const m = new win.KeyboardModal();
+    expect(m.getNoteColor(60)).toEqual(m.getNoteColor(72)); // C == C
+    expect(m.getNoteColor(60).bg).toBe('#EF4444'); // C red
+    expect(m.getNoteColor(61).bg).toBe('#F4622A'); // C#
+    expect(m.getNoteColor(59).bg).toBe('#A855F7'); // B violet
+    expect(m.getNoteColor(0)).toEqual(m.getNoteColor(120)); // wraps
   });
 
   const VIEWS = [
@@ -698,27 +831,30 @@ describe('note colours — 🎨 applies to every instrument view', () => {
     ['KalimbaView', 'kalimba-container', '.kalimba-tine'],
     ['BagpipeView', 'bagpipe-container', '.bagpipe-hole'],
     ['SteelDrumView', 'steel-drum-container', '.steel-section'],
-    ['PercussionPadView', 'perc-pad-container', '.perc-pad'],
+    ['PercussionPadView', 'perc-pad-container', '.perc-pad']
   ];
 
   for (const [cls, containerId, sel] of VIEWS) {
     it(`${cls}: cells get the chromatic colour only when showNoteColors`, () => {
       document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
       const modal = {
-        playNote() {}, stopNote() {}, sendCC() {},
+        playNote() {},
+        stopNote() {},
+        sendCC() {},
         getNoteLabel: (n) => `N${n}`,
         showNoteColors: false,
         getNoteColor: () => ({ bg: 'rgb(1, 2, 3)', text: 'rgb(255, 255, 255)' })
       };
       // OFF → no forced colour
-      let v = new (win[cls])();
+      let v = new win[cls]();
       v.mount({ modal });
-      const offBg = document.querySelector(`${containerId ? '#' + containerId + ' ' : ''}${sel}`).style.background;
+      const offBg = document.querySelector(`${containerId ? '#' + containerId + ' ' : ''}${sel}`)
+        .style.background;
       expect(offBg).not.toBe('rgb(1, 2, 3)');
       v.unmount();
       // ON → every cell painted with getNoteColor().bg
       modal.showNoteColors = true;
-      v = new (win[cls])();
+      v = new win[cls]();
       v.mount({ modal });
       const cells = document.querySelectorAll(`#${containerId} ${sel}`);
       expect(cells.length).toBeGreaterThan(0);
@@ -732,15 +868,17 @@ describe('note colours — 🎨 applies to every instrument view', () => {
   it('the 🎨 toggle rerenders a self-owned view (live colour update)', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     const modal = {
-      playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}`,
+      playNote() {},
+      stopNote() {},
+      getNoteLabel: (n) => `N${n}`,
       showNoteColors: false,
       getNoteColor: () => ({ bg: 'rgb(9, 9, 9)', text: 'rgb(0, 0, 0)' })
     };
-    const v = new (win.KalimbaView)();
+    const v = new win.KalimbaView();
     v.mount({ modal });
     expect(document.querySelector('.kalimba-tine').style.background).not.toBe('rgb(9, 9, 9)');
-    modal.showNoteColors = true;          // user clicks 🎨
-    v.rerender();                          // what the toggle handler calls
+    modal.showNoteColors = true; // user clicks 🎨
+    v.rerender(); // what the toggle handler calls
     for (const t of document.querySelectorAll('.kalimba-tine')) {
       expect(t.style.background).toBe('rgb(9, 9, 9)');
     }
@@ -754,11 +892,17 @@ describe('kalimba — top-down orientation + tine labels + notation', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     sink = { played: [], stopped: [], cc: [] };
     modal = mkModal(sink);
-    modal.getNoteLabel = (n) => `US${n}`;            // simulate US format
-    v = new (win.KalimbaView)();
+    modal.getNoteLabel = (n) => `US${n}`; // simulate US format
+    v = new win.KalimbaView();
     v.mount({ modal });
   });
-  afterEach(() => { try { v.unmount(); } catch { /* */ } });
+  afterEach(() => {
+    try {
+      v.unmount();
+    } catch {
+      /* */
+    }
+  });
 
   it('is anchored at the top (played from top → bottom)', () => {
     const root = document.getElementById('kalimba-container');
@@ -780,7 +924,7 @@ describe('kalimba — top-down orientation + tine labels + notation', () => {
   it('rerender() rebuilds the labels with the new notation format', () => {
     const note0 = document.querySelector('.kalimba-tine').dataset.note;
     expect(document.querySelector('.kalimba-tine-label').textContent).toBe(`US${note0}`);
-    modal.getNoteLabel = (n) => `${n}`;              // switch to MIDI format
+    modal.getNoteLabel = (n) => `${n}`; // switch to MIDI format
     v.rerender();
     const t0 = document.querySelector('.kalimba-tine');
     expect(t0.querySelector('.kalimba-tine-label').textContent).toBe(`${t0.dataset.note}`);
@@ -801,17 +945,23 @@ describe('bagpipe — drone lifecycle', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     sink = { played: [], stopped: [], cc: [] };
-    view = new (win.BagpipeView)();
+    view = new win.BagpipeView();
     view.mount({ modal: mkModal(sink) });
   });
-  afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => {
+    try {
+      view.unmount();
+    } catch {
+      /* idempotent */
+    }
+  });
 
   it('drone is silent on mount and the toggle starts/stops it', () => {
-    expect(sink.played).not.toContain(45);             // no auto-start
+    expect(sink.played).not.toContain(45); // no auto-start
     document.getElementById('bagpipe-drone-toggle').click();
-    expect(sink.played).toContain(45);                 // toggled on
+    expect(sink.played).toContain(45); // toggled on
     document.getElementById('bagpipe-drone-toggle').click();
-    expect(sink.stopped).toContain(45);                // toggled off
+    expect(sink.stopped).toContain(45); // toggled off
   });
 
   it('chanter holes play independently of the drone', () => {
@@ -824,7 +974,7 @@ describe('bagpipe — drone lifecycle', () => {
   });
 
   it('unmount() stops a running drone and removes the container', () => {
-    document.getElementById('bagpipe-drone-toggle').click();   // start it
+    document.getElementById('bagpipe-drone-toggle').click(); // start it
     expect(sink.played).toContain(45);
     view.unmount();
     expect(sink.stopped).toContain(45);
@@ -837,25 +987,31 @@ describe('theremin — 2-D pitch/volume pad', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
     sink = { played: [], stopped: [], cc: [] };
-    view = new (win.ThereminView)();
+    view = new win.ThereminView();
     view.mount({ modal: mkModal(sink) });
   });
-  afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => {
+    try {
+      view.unmount();
+    } catch {
+      /* idempotent */
+    }
+  });
 
   it('pointerdown starts a note from X and sends volume CC from Y', () => {
     const pad = document.getElementById('theremin-container');
     // jsdom has no layout → fallback PAD_W=480: x=240/480=0.5 → note 66
     fire(pad, 'pointerdown', { clientX: 240, clientY: 0 });
     expect(sink.played).toEqual([66]);
-    expect(sink.cc.some(([c]) => c === 7)).toBe(true);   // volume CC#7
+    expect(sink.cc.some(([c]) => c === 7)).toBe(true); // volume CC#7
   });
 
   it('dragging across a semitone retriggers the note', () => {
     const pad = document.getElementById('theremin-container');
-    fire(pad, 'pointerdown', { clientX: 0, clientY: 0 });   // note 48
+    fire(pad, 'pointerdown', { clientX: 0, clientY: 0 }); // note 48
     fire(pad, 'pointermove', { clientX: 480, clientY: 0 }); // note 84
     expect(sink.played).toEqual([48, 84]);
-    expect(sink.stopped).toEqual([48]);                     // old note released
+    expect(sink.stopped).toEqual([48]); // old note released
   });
 
   it('pointerup stops the note; unmount cleans up', () => {
@@ -877,37 +1033,62 @@ describe('PianoSliderView — wind controls wiring', () => {
       _hideWindControls: () => {},
       currentArticulation: 'normal'
     };
-    const v = new (win.PianoSliderView)();
-    v.mount({ modal, options: { windPreset: {
-      name: 'Shanai', gmProgram: 111, category: 'reed' } } });
+    const v = new win.PianoSliderView();
+    v.mount({
+      modal,
+      options: {
+        windPreset: {
+          name: 'Shanai',
+          gmProgram: 111,
+          category: 'reed'
+        }
+      }
+    });
     // Panel + comfort centring BEFORE the strip is rendered.
     expect(order).toEqual(['wind:Shanai', 'slider']);
     v.unmount();
   });
 
-  it('resolves the wind preset from the live instrument (flute, GM 73) — '
-     + 'the production path, since _pendingViewOptions is never populated', () => {
-    const order = [];
-    const flute = { name: 'Flute', gmProgram: 73, category: 'pipe',
-      rangeMin: 60, rangeMax: 96, comfortMin: 62, comfortMax: 91 };
-    const modal = {
-      generatePianoSlider: () => order.push('slider'),
-      _showWindControls: (p) => order.push(`wind:${p.name}`),
-      _hideWindControls: () => {},
-      // Same source _selectInstrumentOption uses (the detector).
-      getInstrumentViewInfo: () => ({ isWind: true, windPreset: flute }),
-      currentArticulation: 'normal'
-    };
-    const v = new (win.PianoSliderView)();
-    v.mount({ modal, options: {} });            // ctx.options empty (real life)
-    expect(order).toEqual(['wind:Flute', 'slider']);  // shown, then rendered
-    v.unmount();
-  });
+  it(
+    'resolves the wind preset from the live instrument (flute, GM 73) — ' +
+      'the production path, since _pendingViewOptions is never populated',
+    () => {
+      const order = [];
+      const flute = {
+        name: 'Flute',
+        gmProgram: 73,
+        category: 'pipe',
+        rangeMin: 60,
+        rangeMax: 96,
+        comfortMin: 62,
+        comfortMax: 91
+      };
+      const modal = {
+        generatePianoSlider: () => order.push('slider'),
+        _showWindControls: (p) => order.push(`wind:${p.name}`),
+        _hideWindControls: () => {},
+        // Same source _selectInstrumentOption uses (the detector).
+        getInstrumentViewInfo: () => ({ isWind: true, windPreset: flute }),
+        currentArticulation: 'normal'
+      };
+      const v = new win.PianoSliderView();
+      v.mount({ modal, options: {} }); // ctx.options empty (real life)
+      expect(order).toEqual(['wind:Flute', 'slider']); // shown, then rendered
+      v.unmount();
+    }
+  );
 
   it('a wind→wind switch via setCapabilities re-syncs the panel', () => {
     const seen = [];
-    const mk = (name) => ({ name, gmProgram: 73, category: 'pipe',
-      rangeMin: 60, rangeMax: 96, comfortMin: 62, comfortMax: 91 });
+    const mk = (name) => ({
+      name,
+      gmProgram: 73,
+      category: 'pipe',
+      rangeMin: 60,
+      rangeMax: 96,
+      comfortMin: 62,
+      comfortMax: 91
+    });
     let current = mk('Flute');
     const modal = {
       generatePianoSlider: () => {},
@@ -916,7 +1097,7 @@ describe('PianoSliderView — wind controls wiring', () => {
       getInstrumentViewInfo: () => ({ isWind: true, windPreset: current }),
       currentArticulation: 'normal'
     };
-    const v = new (win.PianoSliderView)();
+    const v = new win.PianoSliderView();
     v.mount({ modal, options: {} });
     current = mk('Oboe');
     v.setCapabilities({});
@@ -927,13 +1108,17 @@ describe('PianoSliderView — wind controls wiring', () => {
   it('non-wind instrument → no wind panel (slider still renders)', () => {
     const calls = { wind: 0, slider: 0 };
     const modal = {
-      generatePianoSlider: () => { calls.slider++; },
-      _showWindControls: () => { calls.wind++; },
+      generatePianoSlider: () => {
+        calls.slider++;
+      },
+      _showWindControls: () => {
+        calls.wind++;
+      },
       _hideWindControls: () => {},
       getInstrumentViewInfo: () => ({ isWind: false, windPreset: null }),
       currentArticulation: 'normal'
     };
-    const v = new (win.PianoSliderView)();
+    const v = new win.PianoSliderView();
     v.mount({ modal, options: {} });
     expect(calls.wind).toBe(0);
     expect(calls.slider).toBe(1);

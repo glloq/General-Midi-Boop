@@ -58,7 +58,10 @@ describe('BluetoothManager BLE-MIDI parser (P1)', () => {
     const got = collectBle(mgr);
     // header, ts, 0x90 60 100, ts, (running) 62 100
     mgr._handleIncomingMidi('X', Buffer.from([0x80, 0x80, 0x90, 60, 100, 0x80, 62, 100]));
-    expect(got).toEqual([[0x90, 60, 100], [0x90, 62, 100]]);
+    expect(got).toEqual([
+      [0x90, 60, 100],
+      [0x90, 62, 100]
+    ]);
     await mgr.cleanup();
   });
 
@@ -82,13 +85,19 @@ describe('DeviceManager.handleRawMidi (P0-2)', () => {
   test('routes a raw Note On into handleMidiMessage', () => {
     const { dm, seen } = makeDM();
     dm.handleRawMidi('ble-kbd', [0x90, 60, 100]);
-    expect(seen).toEqual([{ name: 'ble-kbd', type: 'noteon', data: { channel: 0, note: 60, velocity: 100 } }]);
+    expect(seen).toEqual([
+      { name: 'ble-kbd', type: 'noteon', data: { channel: 0, note: 60, velocity: 100 } }
+    ]);
   });
 
   test('maps a velocity-0 Note On to noteoff', () => {
     const { dm, seen } = makeDM();
     dm.handleRawMidi('ble-kbd', [0x95, 60, 0]);
-    expect(seen[0]).toEqual({ name: 'ble-kbd', type: 'noteoff', data: { channel: 5, note: 60, velocity: 0 } });
+    expect(seen[0]).toEqual({
+      name: 'ble-kbd',
+      type: 'noteoff',
+      data: { channel: 5, note: 60, velocity: 0 }
+    });
   });
 
   test('routes a raw SysEx frame', () => {
@@ -118,8 +127,10 @@ describe('DeviceManager dedup keeps different transports separate (P1)', () => {
     const unique = [];
     for (const d of devices) {
       const key = dedupKey(d);
-      if (!seen.has(key)) { seen.add(key); unique.push({ ...d }); }
-      else {
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push({ ...d });
+      } else {
         const kept = unique.find((u) => dedupKey(u) === key);
         if (d.input) kept.input = true;
         if (d.output) kept.output = true;

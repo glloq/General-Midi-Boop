@@ -4,6 +4,7 @@
 // (ADR-002 option B) stays in sync with the sub-DB surface.
 
 import { jest, describe, test, expect } from '@jest/globals';
+import DatabaseManager from '../../src/persistence/Database.js';
 import FileRepository from '../../src/repositories/FileRepository.js';
 import RoutingRepository from '../../src/repositories/RoutingRepository.js';
 import InstrumentRepository from '../../src/repositories/InstrumentRepository.js';
@@ -234,5 +235,101 @@ describe('StringInstrumentRepository — delegations via sub-module', () => {
     const r = repo[repoMethod](...args);
     expect(db.stringInstrumentDB[subMethod]).toHaveBeenCalledWith(...args);
     expect(r).toBe(`ret:${subMethod}`);
+  });
+});
+
+// Regression guard: the delegation tests above run against MOCK dbs that are
+// handed exactly the method under test, so they prove a repository calls the
+// right NAME but never that the real DatabaseManager façade actually exposes
+// it. A method present only on an inner sub-module (e.g. InstrumentDatabase)
+// but forgotten on the top-level façade therefore passes every mock test yet
+// throws `TypeError: … is not a function` in production. This block asserts
+// the real façade surface. Reading the class prototype needs no SQLite
+// connection, so it runs even without the native better-sqlite3 binding.
+describe('DatabaseManager façade exposes every method the repositories delegate to', () => {
+  const FACADE_METHODS = [
+    // FileRepository
+    'getFile',
+    'getFileInfo',
+    'getFiles',
+    'insertFile',
+    'updateFile',
+    'deleteFile',
+    'getFileChannels',
+    'searchFiles',
+    'filterFiles',
+    'countFilesNeedingReanalysis',
+    'getDistinctInstruments',
+    'getDistinctCategories',
+    'transaction',
+    // RoutingRepository
+    'insertRouting',
+    'insertSplitRoutings',
+    'getRoutingsByFile',
+    'getRoutingCountsByFiles',
+    'deleteRoutingsByFile',
+    'deleteRoutingsByDevice',
+    // InstrumentRepository (the reconciliation trio was the real-world gap)
+    'findInstrumentById',
+    'getInstrumentsWithCapabilities',
+    'updateInstrumentById',
+    'getInstrumentCapabilities',
+    'updateInstrumentCapabilities',
+    'updateInstrumentSettings',
+    'getInstrumentSettings',
+    'getInstrumentsByDevice',
+    'deleteInstrumentSettingsByDevice',
+    'findInstrumentByUsbSerial',
+    'findInstrumentByMac',
+    'findInstrumentByNormalizedName',
+    'reconcileDeviceId',
+    'deduplicateByUsbSerial',
+    'saveSysExIdentity',
+    'getAllInstrumentCapabilities',
+    // PresetRepository
+    'insertPreset',
+    'getPreset',
+    'getPresets',
+    'deletePreset',
+    'updatePreset',
+    // SessionRepository
+    'insertSession',
+    'getSession',
+    'getSessions',
+    'deleteSession',
+    // PlaylistRepository
+    'insertPlaylist',
+    'deletePlaylist',
+    'getPlaylists',
+    'getPlaylist',
+    'getPlaylistItems',
+    'addPlaylistItem',
+    'removePlaylistItem',
+    'reorderPlaylistItem',
+    'updatePlaylistLoop',
+    'clearPlaylistItems',
+    'updatePlaylistSettings',
+    // LightingRepository
+    'getLightingDevices',
+    'getLightingDevice',
+    'insertLightingDevice',
+    'updateLightingDevice',
+    'deleteLightingDevice',
+    'getAllLightingRules',
+    'getLightingRulesForDevice',
+    'insertLightingRule',
+    'updateLightingRule',
+    'deleteLightingRule',
+    'getLightingPresets',
+    'insertLightingPreset',
+    'deleteLightingPreset',
+    // DeviceSettingsRepository
+    'getDeviceSettings',
+    'ensureDevice',
+    'updateDeviceSettings'
+  ];
+
+  test.each(FACADE_METHODS)('DatabaseManager.prototype.%s is a function', (name) => {
+    expect(typeof DatabaseManager.prototype[name]).toBe('function');
   });
 });

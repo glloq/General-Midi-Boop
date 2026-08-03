@@ -6,7 +6,7 @@
 // and argument shapes here so future schema migrations (ADR-004) need to
 // touch only this file. Exposed on `window.RoutingSummaryApi`.
 
-(function() {
+(function () {
   'use strict';
 
   /**
@@ -25,7 +25,7 @@
    * @param {number} [params.topN=5]
    * @param {number} [params.minScore=30]
    */
-  RoutingSummaryApi.prototype.generateSuggestions = function(params) {
+  RoutingSummaryApi.prototype.generateSuggestions = function (params) {
     const overrides = params.scoringOverrides || {};
     return this.backend.sendCommand('generate_assignment_suggestions', {
       fileId: params.fileId,
@@ -44,7 +44,7 @@
    * Read the persisted routings for a file.
    * @param {string|number} fileId
    */
-  RoutingSummaryApi.prototype.getSavedRoutings = function(fileId) {
+  RoutingSummaryApi.prototype.getSavedRoutings = function (fileId) {
     return this.backend.sendCommand('get_file_routings', { fileId });
   };
 
@@ -52,7 +52,7 @@
    * Fetch the MIDI payload for preview purposes.
    * @param {string|number} fileId
    */
-  RoutingSummaryApi.prototype.readFile = function(fileId) {
+  RoutingSummaryApi.prototype.readFile = function (fileId) {
     return this.backend.sendCommand('file_read', { fileId });
   };
 
@@ -60,7 +60,7 @@
    * Apply a set of assignments (normal or split) to a file, optionally
    * creating an adapted copy.
    */
-  RoutingSummaryApi.prototype.applyAssignments = function(params) {
+  RoutingSummaryApi.prototype.applyAssignments = function (params) {
     return this.backend.sendCommand('apply_assignments', {
       originalFileId: params.originalFileId,
       assignments: params.assignments,

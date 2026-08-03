@@ -52,7 +52,19 @@ class DatabaseManager {
     this.ensureDataDir();
     this.connect();
     this.runMigrations();
+    this._initSubModules();
 
+    this.logger.info('Database initialized');
+  }
+
+  /**
+   * (Re)build the per-domain sub-modules bound to the current `this.db`
+   * connection. Extracted so it can run both at construction and after
+   * restoreFromBackup reopens a fresh connection — otherwise the sub-modules
+   * would keep a reference to a closed handle.
+   * @returns {void}
+   */
+  _initSubModules() {
     this.midiDB = new MidiDatabase(this.db, this.logger);
     this.instrumentDB = new InstrumentDatabase(this.db, this.logger);
     this.lightingDB = new LightingDatabase(this.db, this.logger);
@@ -63,8 +75,6 @@ class DatabaseManager {
     this.loopsDB = new LoopsDB(this.db, this.logger);
     this.loopArrangementsDB = new LoopArrangementsDB(this.db, this.logger);
     this.bluetoothDB = new BluetoothDB(this.db, this.logger);
-
-    this.logger.info('Database initialized');
   }
 
   /**
@@ -608,6 +618,15 @@ class DatabaseManager {
   findInstrumentByUsbSerial(usbSerialNumber) {
     return this.instrumentDB.findInstrumentByUsbSerial(usbSerialNumber);
   }
+  findInstrumentByNormalizedName(...args) {
+    return this.instrumentDB.findInstrumentByNormalizedName(...args);
+  }
+  reconcileDeviceId(...args) {
+    return this.instrumentDB.reconcileDeviceId(...args);
+  }
+  deduplicateByUsbSerial(...args) {
+    return this.instrumentDB.deduplicateByUsbSerial(...args);
+  }
 
   // Instrument Capabilities
   updateInstrumentCapabilities(...args) {
@@ -890,7 +909,17 @@ class DatabaseManager {
         this.logger.warn(`Removing ${sidecar} during restore failed: ${err.message}`);
       }
     }
-    this.logger.info(`Database restored from ${backupPath}; a restart is required`);
+
+    // Reopen the connection and rebuild the sub-modules so this manager is
+    // immediately usable instead of leaving every sub-module holding the closed
+    // handle (audit P3 — a caller that touched the DB before an external restart
+    // hit "database connection is not open"). A full process restart is still
+    // recommended so other long-lived caches drop stale state.
+    this.connect();
+    this.runMigrations();
+    this._initSubModules();
+
+    this.logger.info(`Database restored from ${backupPath}; a process restart is recommended`);
   }
 
   vacuum() {

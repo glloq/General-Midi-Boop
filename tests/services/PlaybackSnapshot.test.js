@@ -13,12 +13,21 @@ function makeResolver(initial = {}) {
     },
     getTimingConstraints(device, channel) {
       this.calls.timing++;
-      return timing.get(`${device}:${channel}`)
-        || { minNoteInterval: null, minNoteDuration: null, polyphony: null };
+      return (
+        timing.get(`${device}:${channel}`) || {
+          minNoteInterval: null,
+          minNoteDuration: null,
+          polyphony: null
+        }
+      );
     },
     // Mutators (these would normally be triggered by DB writes).
-    setStringCC(device, channel, v) { stringCC.set(`${device}:${channel}`, v); },
-    setTiming(device, channel, v) { timing.set(`${device}:${channel}`, v); }
+    setStringCC(device, channel, v) {
+      stringCC.set(`${device}:${channel}`, v);
+    },
+    setTiming(device, channel, v) {
+      timing.set(`${device}:${channel}`, v);
+    }
   };
 }
 
@@ -133,7 +142,9 @@ describe('PlaybackSnapshot', () => {
       });
       const snap = new PlaybackSnapshot({ capabilityResolver: resolver });
       const tc = snap.getTimingConstraints('dev-1', 0);
-      expect(() => { tc.minNoteInterval = 999; }).toThrow(TypeError);
+      expect(() => {
+        tc.minNoteInterval = 999;
+      }).toThrow(TypeError);
     });
   });
 
@@ -147,7 +158,10 @@ describe('PlaybackSnapshot', () => {
         }
       });
       const comp = makeCompensation({ 'dev-A:0': 7, 'dev-B:5': 12 });
-      const snap = new PlaybackSnapshot({ capabilityResolver: resolver, compensationService: comp });
+      const snap = new PlaybackSnapshot({
+        capabilityResolver: resolver,
+        compensationService: comp
+      });
       const routing = new Map([
         [0, { device: 'dev-A', targetChannel: 0 }],
         [5, { device: 'dev-B', targetChannel: 5 }]
@@ -168,15 +182,21 @@ describe('PlaybackSnapshot', () => {
     test('walks split routings recursively', () => {
       const resolver = makeResolver({});
       const comp = makeCompensation({});
-      const snap = new PlaybackSnapshot({ capabilityResolver: resolver, compensationService: comp });
+      const snap = new PlaybackSnapshot({
+        capabilityResolver: resolver,
+        compensationService: comp
+      });
       const routing = new Map([
-        [0, {
-          split: true,
-          segments: [
-            { device: 'dev-A', targetChannel: 0 },
-            { device: 'dev-B', targetChannel: 1 }
-          ]
-        }]
+        [
+          0,
+          {
+            split: true,
+            segments: [
+              { device: 'dev-A', targetChannel: 0 },
+              { device: 'dev-B', targetChannel: 1 }
+            ]
+          }
+        ]
       ]);
       expect(snap.warmup(routing)).toBe(2);
       expect(snap.getStats().comp).toBe(2);
@@ -216,7 +236,10 @@ describe('PlaybackSnapshot', () => {
     test('getStats reports cache sizes', () => {
       const resolver = makeResolver({ stringCC: { 'dev-1:0': true } });
       const comp = makeCompensation({ 'dev-1:0': 5 });
-      const snap = new PlaybackSnapshot({ capabilityResolver: resolver, compensationService: comp });
+      const snap = new PlaybackSnapshot({
+        capabilityResolver: resolver,
+        compensationService: comp
+      });
       snap.isStringCCAllowed('dev-1', 0);
       snap.getTimingConstraints('dev-1', 0);
       snap.getCompensationMs('dev-1', 0);

@@ -31,9 +31,9 @@ describe('SCALE_LENGTH_PRESETS catalogue', () => {
   test('covers the families the UI advertises', () => {
     const presets = StringInstrumentDatabase.SCALE_LENGTH_PRESETS;
     // At least one entry per advertised family.
-    expect(Object.keys(presets).some(k => k.startsWith('guitar'))).toBe(true);
-    expect(Object.keys(presets).some(k => k.startsWith('bass'))).toBe(true);
-    expect(Object.keys(presets).some(k => k.startsWith('ukulele'))).toBe(true);
+    expect(Object.keys(presets).some((k) => k.startsWith('guitar'))).toBe(true);
+    expect(Object.keys(presets).some((k) => k.startsWith('bass'))).toBe(true);
+    expect(Object.keys(presets).some((k) => k.startsWith('ukulele'))).toBe(true);
     expect(presets.violin).toBeDefined();
     expect(presets.cello).toBeDefined();
     expect(presets.contrabass).toBeDefined();

@@ -32,7 +32,7 @@ function makeSink({ rafThrottle = false, disabledNotes = [] } = {}) {
       if (disabled.has(note)) return null; // simulate .disabled key
       return { note, key: `key-${note}` };
     },
-    onNoteOn:  (note, key, pointer) => events.push({ type: 'on',  note, key, pointer }),
+    onNoteOn: (note, key, pointer) => events.push({ type: 'on', note, key, pointer }),
     onNoteOff: (note, key, pointer) => events.push({ type: 'off', note, key, pointer }),
     rafThrottle,
     // Synchronous frame for deterministic tests.
@@ -44,7 +44,11 @@ function makeSink({ rafThrottle = false, disabledNotes = [] } = {}) {
 describe('SwipeTracker — construction', () => {
   it('requires hitTest + onNoteOn + onNoteOff', () => {
     let err = null;
-    try { new (SwipeTracker())({}); } catch (e) { err = e; }
+    try {
+      new (SwipeTracker())({});
+    } catch (e) {
+      err = e;
+    }
     expect(err).not.toBe(null);
   });
 
@@ -58,9 +62,7 @@ describe('SwipeTracker — basic lifecycle', () => {
   it('start emits a single note-on on the initial key', () => {
     const { tracker, events } = makeSink();
     tracker.start(1, 35, 50); // key 3
-    expect(events).toEqual([
-      { type: 'on', note: 3, key: 'key-3', pointer: 1 }
-    ]);
+    expect(events).toEqual([{ type: 'on', note: 3, key: 'key-3', pointer: 1 }]);
     expect(tracker.activePointerCount).toBe(1);
   });
 
@@ -69,9 +71,7 @@ describe('SwipeTracker — basic lifecycle', () => {
     tracker.start(1, 35, 50);
     events.length = 0;
     tracker.end(1);
-    expect(events).toEqual([
-      { type: 'off', note: 3, key: 'key-3', pointer: 1 }
-    ]);
+    expect(events).toEqual([{ type: 'off', note: 3, key: 'key-3', pointer: 1 }]);
     expect(tracker.activePointerCount).toBe(0);
   });
 
@@ -96,10 +96,10 @@ describe('SwipeTracker — move semantics', () => {
     const { tracker, events } = makeSink();
     tracker.start(1, 35, 50); // key 3
     events.length = 0;
-    tracker.move(1, 45, 50);  // key 4
+    tracker.move(1, 45, 50); // key 4
     expect(events).toEqual([
       { type: 'off', note: 3, key: 'key-3', pointer: 1 },
-      { type: 'on',  note: 4, key: 'key-4', pointer: 1 }
+      { type: 'on', note: 4, key: 'key-4', pointer: 1 }
     ]);
   });
 
@@ -113,7 +113,7 @@ describe('SwipeTracker — move semantics', () => {
     tracker.move(1, 85, 50);
     expect(events).toEqual([
       { type: 'off', note: 3, key: 'key-3', pointer: 1 },
-      { type: 'on',  note: 8, key: 'key-8', pointer: 1 }
+      { type: 'on', note: 8, key: 'key-8', pointer: 1 }
     ]);
   });
 
@@ -122,9 +122,7 @@ describe('SwipeTracker — move semantics', () => {
     tracker.start(1, 35, 50);
     events.length = 0;
     tracker.move(1, -100, 50);
-    expect(events).toEqual([
-      { type: 'off', note: 3, key: 'key-3', pointer: 1 }
-    ]);
+    expect(events).toEqual([{ type: 'off', note: 3, key: 'key-3', pointer: 1 }]);
   });
 
   it('re-entry after exit emits a note-on without orphan note-off', () => {
@@ -132,10 +130,8 @@ describe('SwipeTracker — move semantics', () => {
     tracker.start(1, 35, 50);
     tracker.move(1, -100, 50); // exit
     events.length = 0;
-    tracker.move(1, 75, 50);   // re-enter on key 7
-    expect(events).toEqual([
-      { type: 'on', note: 7, key: 'key-7', pointer: 1 }
-    ]);
+    tracker.move(1, 75, 50); // re-enter on key 7
+    expect(events).toEqual([{ type: 'on', note: 7, key: 'key-7', pointer: 1 }]);
   });
 
   it('move without prior start is ignored', () => {
@@ -152,9 +148,7 @@ describe('SwipeTracker — move semantics', () => {
     expect(tracker.activePointerCount).toBe(1);
     // Subsequent move onto a key emits note-on.
     tracker.move(1, 25, 50);
-    expect(events).toEqual([
-      { type: 'on', note: 2, key: 'key-2', pointer: 1 }
-    ]);
+    expect(events).toEqual([{ type: 'on', note: 2, key: 'key-2', pointer: 1 }]);
   });
 });
 
@@ -165,9 +159,7 @@ describe('SwipeTracker — end / cancel', () => {
     tracker.move(1, 85, 50);
     events.length = 0;
     tracker.end(1);
-    expect(events).toEqual([
-      { type: 'off', note: 8, key: 'key-8', pointer: 1 }
-    ]);
+    expect(events).toEqual([{ type: 'off', note: 8, key: 'key-8', pointer: 1 }]);
   });
 
   it('end outside any key still cleans up state silently', () => {
@@ -185,9 +177,7 @@ describe('SwipeTracker — end / cancel', () => {
     tracker.start(1, 35, 50);
     events.length = 0;
     tracker.cancel(1);
-    expect(events).toEqual([
-      { type: 'off', note: 3, key: 'key-3', pointer: 1 }
-    ]);
+    expect(events).toEqual([{ type: 'off', note: 3, key: 'key-3', pointer: 1 }]);
   });
 
   it('endAll releases every pointer', () => {
@@ -207,7 +197,7 @@ describe('SwipeTracker — end / cancel', () => {
     tracker.start(1, 85, 50);
     expect(events).toEqual([
       { type: 'off', note: 3, key: 'key-3', pointer: 1 },
-      { type: 'on',  note: 8, key: 'key-8', pointer: 1 }
+      { type: 'on', note: 8, key: 'key-8', pointer: 1 }
     ]);
     expect(tracker.activePointerCount).toBe(1);
   });
@@ -216,16 +206,16 @@ describe('SwipeTracker — end / cancel', () => {
 describe('SwipeTracker — multi-pointer', () => {
   it('two pointers keep independent lastNote state', () => {
     const { tracker, events } = makeSink();
-    tracker.start(1, 35, 50);   // pointer 1 → key 3
-    tracker.start(2, 85, 50);   // pointer 2 → key 8
+    tracker.start(1, 35, 50); // pointer 1 → key 3
+    tracker.start(2, 85, 50); // pointer 2 → key 8
     events.length = 0;
-    tracker.move(1, 45, 50);    // pointer 1 → key 4
-    tracker.move(2, 95, 50);    // pointer 2 → key 9
+    tracker.move(1, 45, 50); // pointer 1 → key 4
+    tracker.move(2, 95, 50); // pointer 2 → key 9
     expect(events).toEqual([
       { type: 'off', note: 3, key: 'key-3', pointer: 1 },
-      { type: 'on',  note: 4, key: 'key-4', pointer: 1 },
+      { type: 'on', note: 4, key: 'key-4', pointer: 1 },
       { type: 'off', note: 8, key: 'key-8', pointer: 2 },
-      { type: 'on',  note: 9, key: 'key-9', pointer: 2 }
+      { type: 'on', note: 9, key: 'key-9', pointer: 2 }
     ]);
   });
 
@@ -245,10 +235,8 @@ describe('SwipeTracker — disabled keys (hitTest returns null)', () => {
     const { tracker, events } = makeSink({ disabledNotes: [4] });
     tracker.start(1, 35, 50); // key 3
     events.length = 0;
-    tracker.move(1, 45, 50);  // key 4 disabled → null
-    expect(events).toEqual([
-      { type: 'off', note: 3, key: 'key-3', pointer: 1 }
-    ]);
+    tracker.move(1, 45, 50); // key 4 disabled → null
+    expect(events).toEqual([{ type: 'off', note: 3, key: 'key-3', pointer: 1 }]);
   });
 });
 
@@ -257,15 +245,19 @@ describe('SwipeTracker — rAF throttling', () => {
     let hitTestCalls = 0;
     let scheduled = null;
     const tracker = new (SwipeTracker())({
-      hitTest: (x, _y) => { hitTestCalls++;
+      hitTest: (x, _y) => {
+        hitTestCalls++;
         if (x < 0 || x >= 1000) return null;
         const note = Math.floor(x / 10);
         return { note, key: `key-${note}` };
       },
-      onNoteOn: () => {}, onNoteOff: () => {},
+      onNoteOn: () => {},
+      onNoteOff: () => {},
       rafThrottle: true,
       // Capture the callback so we control when the "frame" runs.
-      requestFrame: (cb) => { scheduled = cb; }
+      requestFrame: (cb) => {
+        scheduled = cb;
+      }
     });
     tracker.start(1, 35, 50); // synchronous hit-test
     expect(hitTestCalls).toBe(1);
@@ -286,11 +278,13 @@ describe('SwipeTracker — rAF throttling', () => {
   it('synchronous mode (rafThrottle=false) hit-tests every move', () => {
     let hitTestCalls = 0;
     const tracker = new (SwipeTracker())({
-      hitTest: (x, _y) => { hitTestCalls++;
+      hitTest: (x, _y) => {
+        hitTestCalls++;
         const note = Math.floor(x / 10);
         return { note, key: `key-${note}` };
       },
-      onNoteOn: () => {}, onNoteOff: () => {},
+      onNoteOn: () => {},
+      onNoteOff: () => {},
       rafThrottle: false
     });
     tracker.start(1, 35, 50);

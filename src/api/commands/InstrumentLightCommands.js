@@ -51,19 +51,30 @@ function instrumentLightSetSupported(app, data) {
   const { deviceId, channel } = resolveTarget(data);
   const patch = {};
   if (data.supported_mask !== undefined) {
-    if (!Number.isInteger(data.supported_mask) || data.supported_mask < 0 || data.supported_mask > 31) {
+    if (
+      !Number.isInteger(data.supported_mask) ||
+      data.supported_mask < 0 ||
+      data.supported_mask > 31
+    ) {
       throw new ValidationError('supported_mask must be an integer 0-31', 'supported_mask');
     }
     patch.supported_mask = data.supported_mask;
   }
   if (data.brightness_mode !== undefined) {
     if (data.brightness_mode !== 0 && data.brightness_mode !== 1) {
-      throw new ValidationError('brightness_mode must be 0 (on/off) or 1 (dimmable)', 'brightness_mode');
+      throw new ValidationError(
+        'brightness_mode must be 0 (on/off) or 1 (dimmable)',
+        'brightness_mode'
+      );
     }
     patch.brightness_mode = data.brightness_mode;
   }
   if (data.supported_effects !== undefined) {
-    if (!Number.isInteger(data.supported_effects) || data.supported_effects < 0 || data.supported_effects > 1023) {
+    if (
+      !Number.isInteger(data.supported_effects) ||
+      data.supported_effects < 0 ||
+      data.supported_effects > 1023
+    ) {
       throw new ValidationError('supported_effects must be an integer 0-1023', 'supported_effects');
     }
     patch.supported_effects = data.supported_effects;
@@ -101,7 +112,9 @@ function instrumentLightAllOff(app, data) {
 export function register(registry, app) {
   registry.register('instrument_light_get', (data) => instrumentLightGet(app, data));
   registry.register('instrument_light_set', (data) => instrumentLightSet(app, data));
-  registry.register('instrument_light_set_supported', (data) => instrumentLightSetSupported(app, data));
+  registry.register('instrument_light_set_supported', (data) =>
+    instrumentLightSetSupported(app, data)
+  );
   registry.register('instrument_light_list', () => instrumentLightList(app));
   registry.register('instrument_light_test', (data) => instrumentLightTest(app, data));
   registry.register('instrument_light_all_off', (data) => instrumentLightAllOff(app, data));

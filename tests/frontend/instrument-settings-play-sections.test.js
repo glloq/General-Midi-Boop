@@ -25,7 +25,7 @@ const S = () => win.ISMSections;
 // Minimal `this` for the render fns (mirrors the modal's surface).
 const ctx = (settings) => ({
   _getActiveTab: () => ({ channel: 0, settings }),
-  t: () => null,                         // force fallback strings
+  t: () => null, // force fallback strings
   escape: (s) => String(s)
 });
 // Bagpipe / accordion are now subsections of Notes & Capacités — the
@@ -38,16 +38,26 @@ const mountSection = (id, html) => {
 describe('ISM — section visibility predicates', () => {
   it('bagpipe shows only for GM 109 on a non-drum channel', () => {
     expect(S()._shouldShowBagpipeSection({ channel: 0, settings: { gm_program: 109 } })).toBe(true);
-    expect(S()._shouldShowBagpipeSection({ channel: 9, settings: { gm_program: 109 } })).toBe(false);
+    expect(S()._shouldShowBagpipeSection({ channel: 9, settings: { gm_program: 109 } })).toBe(
+      false
+    );
     expect(S()._shouldShowBagpipeSection({ channel: 0, settings: { gm_program: 0 } })).toBe(false);
     expect(S()._shouldShowBagpipeSection(null)).toBe(false);
   });
 
   it('accordion shows for GM 21 / 23 only', () => {
-    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 21 } })).toBe(true);
-    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 23 } })).toBe(true);
-    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 22 } })).toBe(false);
-    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 24 } })).toBe(false);
+    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 21 } })).toBe(
+      true
+    );
+    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 23 } })).toBe(
+      true
+    );
+    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 22 } })).toBe(
+      false
+    );
+    expect(S()._shouldShowAccordionSection({ channel: 0, settings: { gm_program: 24 } })).toBe(
+      false
+    );
   });
 });
 
@@ -55,23 +65,28 @@ describe('ISM — bagpipe section render + collect', () => {
   const drones = () => JSON.parse(document.getElementById('bagpipeDrones').value);
 
   it('renders piano + list + preset; legacy number[] → enabled objects', () => {
-    const html = S()._renderBagpipeSection.call(
-      ctx({ bagpipe_config: { drones: [45, 33] } }));
+    const html = S()._renderBagpipeSection.call(ctx({ bagpipe_config: { drones: [45, 33] } }));
     mountSection('bagpipe', html);
-    expect(document.getElementById('bagpipeEnabled')).toBeNull();   // no startup toggle
-    expect(drones()).toEqual([{ note: 45, enabled: true }, { note: 33, enabled: true }]);
+    expect(document.getElementById('bagpipeEnabled')).toBeNull(); // no startup toggle
+    expect(drones()).toEqual([
+      { note: 45, enabled: true },
+      { note: 33, enabled: true }
+    ]);
     expect(document.getElementById('bagpipeDronePiano')).not.toBeNull();
     expect(document.getElementById('bagpipeDroneList')).not.toBeNull();
     const presetSel = document.getElementById('bagpipePreset');
     expect(presetSel).not.toBeNull();
-    const ids = [...presetSel.querySelectorAll('option')]
-      .map(o => o.value).filter(Boolean);
-    expect(ids).toEqual(S()._BAGPIPE_PRESETS.map(p => p.id));
+    const ids = [...presetSel.querySelectorAll('option')].map((o) => o.value).filter(Boolean);
+    expect(ids).toEqual(S()._BAGPIPE_PRESETS.map((p) => p.id));
   });
 
   it('renders new object shape, preserving per-drone enabled', () => {
-    mountSection('bagpipe', S()._renderBagpipeSection.call(
-      ctx({ bagpipe_config: { drones: [{ note: 33, enabled: false }] } })));
+    mountSection(
+      'bagpipe',
+      S()._renderBagpipeSection.call(
+        ctx({ bagpipe_config: { drones: [{ note: 33, enabled: false }] } })
+      )
+    );
     expect(drones()).toEqual([{ note: 33, enabled: false }]);
   });
 
@@ -83,18 +98,22 @@ describe('ISM — bagpipe section render + collect', () => {
 
   it('collect round-trips the JSON state (no startup flag)', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
-    document.getElementById('bagpipeDrones').value = JSON.stringify(
-      [{ note: 45, enabled: true }, { note: 33, enabled: false }]);
+    document.getElementById('bagpipeDrones').value = JSON.stringify([
+      { note: 45, enabled: true },
+      { note: 33, enabled: false }
+    ]);
     expect(S()._collectBagpipeConfig(document.body)).toEqual({
-      drones: [{ note: 45, enabled: true }, { note: 33, enabled: false }]
+      drones: [
+        { note: 45, enabled: true },
+        { note: 33, enabled: false }
+      ]
     });
   });
 
   it('collect with invalid JSON falls back to [{note:45,enabled:true}]', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
     document.getElementById('bagpipeDrones').value = 'not json';
-    expect(S()._collectBagpipeConfig(document.body).drones)
-      .toEqual([{ note: 45, enabled: true }]);
+    expect(S()._collectBagpipeConfig(document.body).drones).toEqual([{ note: 45, enabled: true }]);
   });
 
   it('collect → undefined when section absent or not visited', () => {
@@ -107,8 +126,7 @@ describe('ISM — bagpipe section render + collect', () => {
   it('empty drones array falls back to [{note:45,enabled:true}]', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
     document.getElementById('bagpipeDrones').value = '[]';
-    expect(S()._collectBagpipeConfig(document.body).drones)
-      .toEqual([{ note: 45, enabled: true }]);
+    expect(S()._collectBagpipeConfig(document.body).drones).toEqual([{ note: 45, enabled: true }]);
   });
 });
 
@@ -118,43 +136,48 @@ describe('ISM — bagpipe drone picker wiring (_wireBagpipeListeners)', () => {
   const lctx = () => ({
     $: (sel) => document.querySelector(sel),
     t: () => null,
-    escape: (s) => String(s),
+    escape: (s) => String(s)
   });
   const drones = () => JSON.parse(document.getElementById('bagpipeDrones').value);
 
   it('renders the mini-piano + list once the subsection is mounted', () => {
-    mountSection('bagpipe', S()._renderBagpipeSection.call(
-      ctx({ bagpipe_config: { drones: [45] } })));
+    mountSection(
+      'bagpipe',
+      S()._renderBagpipeSection.call(ctx({ bagpipe_config: { drones: [45] } }))
+    );
     L()._wireBagpipeListeners.call(lctx());
-    expect(document.querySelectorAll('#bagpipeDronePiano .piano-key').length)
-      .toBeGreaterThan(0);
+    expect(document.querySelectorAll('#bagpipeDronePiano .piano-key').length).toBeGreaterThan(0);
     // the configured drone (45) is preselected on the piano + listed
-    expect(document.querySelector('#bagpipeDronePiano .piano-key[data-note="45"]')
-      .classList.contains('selected')).toBe(true);
-    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length)
-      .toBe(1);
+    expect(
+      document
+        .querySelector('#bagpipeDronePiano .piano-key[data-note="45"]')
+        .classList.contains('selected')
+    ).toBe(true);
+    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length).toBe(1);
   });
 
   it('clicking a piano key adds/removes a drone', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
     L()._wireBagpipeListeners.call(lctx());
-    const key = () =>
-      document.querySelector('#bagpipeDronePiano .piano-key[data-note="33"]');
-    key().dispatchEvent(new Event('click', { bubbles: true }));   // add
-    expect(drones().some(d => d.note === 33)).toBe(true);
-    key().dispatchEvent(new Event('click', { bubbles: true }));   // re-query: piano re-rendered
-    expect(drones().some(d => d.note === 33)).toBe(false);
+    const key = () => document.querySelector('#bagpipeDronePiano .piano-key[data-note="33"]');
+    key().dispatchEvent(new Event('click', { bubbles: true })); // add
+    expect(drones().some((d) => d.note === 33)).toBe(true);
+    key().dispatchEvent(new Event('click', { bubbles: true })); // re-query: piano re-rendered
+    expect(drones().some((d) => d.note === 33)).toBe(false);
   });
 
   it('selecting a preset fills the drone notes', () => {
     mountSection('bagpipe', S()._renderBagpipeSection.call(ctx({})));
     L()._wireBagpipeListeners.call(lctx());
-    const preset = S()._BAGPIPE_PRESETS[0];   // Great Highland: [33,45,45]
+    const preset = S()._BAGPIPE_PRESETS[0]; // Great Highland: [33,45,45]
     const sel = document.getElementById('bagpipePreset');
     sel.value = preset.id;
     sel.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(drones().map(d => d.note).sort((a, b) => a - b))
-      .toEqual([...preset.drones].sort((a, b) => a - b));
+    expect(
+      drones()
+        .map((d) => d.note)
+        .sort((a, b) => a - b)
+    ).toEqual([...preset.drones].sort((a, b) => a - b));
   });
 
   it('piano keys show their MIDI number', () => {
@@ -166,52 +189,61 @@ describe('ISM — bagpipe drone picker wiring (_wireBagpipeListeners)', () => {
   });
 
   it('the duplicate button adds an independent copy of the drone', () => {
-    mountSection('bagpipe', S()._renderBagpipeSection.call(
-      ctx({ bagpipe_config: { drones: [45] } })));
+    mountSection(
+      'bagpipe',
+      S()._renderBagpipeSection.call(ctx({ bagpipe_config: { drones: [45] } }))
+    );
     L()._wireBagpipeListeners.call(lctx());
-    document.querySelector('#bagpipeDroneList .bagpipe-drone-dup[data-idx="0"]')
+    document
+      .querySelector('#bagpipeDroneList .bagpipe-drone-dup[data-idx="0"]')
       .dispatchEvent(new Event('click', { bubbles: true }));
     expect(drones()).toEqual([
-      { note: 45, enabled: true }, { note: 45, enabled: true }]);
-    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length)
-      .toBe(2);
+      { note: 45, enabled: true },
+      { note: 45, enabled: true }
+    ]);
+    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length).toBe(2);
     // toggling the 2nd copy off (by index) leaves the 1st untouched
-    const cb1 = document.querySelector(
-      '#bagpipeDroneList .bagpipe-drone-enabled[data-idx="1"]');
+    const cb1 = document.querySelector('#bagpipeDroneList .bagpipe-drone-enabled[data-idx="1"]');
     cb1.checked = false;
     cb1.dispatchEvent(new Event('change', { bubbles: true }));
     expect(drones()).toEqual([
-      { note: 45, enabled: true }, { note: 45, enabled: false }]);
+      { note: 45, enabled: true },
+      { note: 45, enabled: false }
+    ]);
   });
 
   it('removing a duplicated drone by index removes only that row', () => {
-    mountSection('bagpipe', S()._renderBagpipeSection.call(
-      ctx({ bagpipe_config: { drones: [33, 45, 45] } })));
+    mountSection(
+      'bagpipe',
+      S()._renderBagpipeSection.call(ctx({ bagpipe_config: { drones: [33, 45, 45] } }))
+    );
     L()._wireBagpipeListeners.call(lctx());
-    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length)
-      .toBe(3);
-    document.querySelector('#bagpipeDroneList .bagpipe-drone-remove[data-idx="1"]')
+    expect(document.querySelectorAll('#bagpipeDroneList .bagpipe-drone-row').length).toBe(3);
+    document
+      .querySelector('#bagpipeDroneList .bagpipe-drone-remove[data-idx="1"]')
       .dispatchEvent(new Event('click', { bubbles: true }));
-    expect(drones().map(d => d.note)).toEqual([33, 45]);
+    expect(drones().map((d) => d.note)).toEqual([33, 45]);
   });
 });
 
 describe('ISM — accordion section render + collect (no hands)', () => {
   it('renders 2 bass options (no chromatic) + current values', () => {
     const html = S()._renderAccordionSection.call(
-      ctx({ accordion_config: { bass_system: 'free', right_display: 'keyboard' } }));
+      ctx({ accordion_config: { bass_system: 'free', right_display: 'keyboard' } })
+    );
     mountSection('accordion', html);
     expect(document.getElementById('accordionBassSystem').value).toBe('free');
-    const opts = [...document.querySelectorAll('#accordionBassSystem option')]
-      .map(o => o.value);
-    expect(opts).toEqual(['stradella', 'free']);   // chromatic removed
+    const opts = [...document.querySelectorAll('#accordionBassSystem option')].map((o) => o.value);
+    expect(opts).toEqual(['stradella', 'free']); // chromatic removed
     expect(document.getElementById('accordionRightDisplay').value).toBe('keyboard');
     expect(document.getElementById('accordionHands')).toBeNull();
   });
 
   it('legacy chromatic normalized → free on render', () => {
-    mountSection('accordion', S()._renderAccordionSection.call(
-      ctx({ accordion_config: { bass_system: 'chromatic' } })));
+    mountSection(
+      'accordion',
+      S()._renderAccordionSection.call(ctx({ accordion_config: { bass_system: 'chromatic' } }))
+    );
     expect(document.getElementById('accordionBassSystem').value).toBe('free');
   });
 
@@ -226,8 +258,12 @@ describe('ISM — accordion section render + collect (no hands)', () => {
   });
 
   it('free → range inputs enabled with stored span', () => {
-    mountSection('accordion', S()._renderAccordionSection.call(
-      ctx({ accordion_config: { bass_system: 'free', bass_range: { min: 48, max: 55 } } })));
+    mountSection(
+      'accordion',
+      S()._renderAccordionSection.call(
+        ctx({ accordion_config: { bass_system: 'free', bass_range: { min: 48, max: 55 } } })
+      )
+    );
     expect(document.getElementById('accordionBassRangeMin').value).toBe('48');
     expect(document.getElementById('accordionBassRangeMax').value).toBe('55');
     expect(document.getElementById('accordionBassRangeMin').disabled).toBe(false);
@@ -240,9 +276,11 @@ describe('ISM — accordion section render + collect (no hands)', () => {
     document.getElementById('accordionBassRangeMin').value = '48';
     document.getElementById('accordionBassRangeMax').value = '55';
     expect(S()._collectAccordionConfig(document.body)).toEqual({
-      bass_system: 'free', right_display: 'keyboard',
+      bass_system: 'free',
+      right_display: 'keyboard',
       bass_range: { min: 48, max: 55 },
-      bass_cols: 12, bass_base: 36,
+      bass_cols: 12,
+      bass_base: 36,
       bass_funcs: ['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7']
     });
   });
@@ -252,24 +290,38 @@ describe('ISM — accordion section render + collect (no hands)', () => {
     document.getElementById('accordionBassCols').value = '8';
     document.getElementById('accordionBassBase').value = '41';
     const cbs = [...document.querySelectorAll('.accordionFuncCb')];
-    cbs.forEach((cb) => { cb.checked = ['bass', 'major'].includes(cb.value); });
+    cbs.forEach((cb) => {
+      cb.checked = ['bass', 'major'].includes(cb.value);
+    });
     const out = S()._collectAccordionConfig(document.body);
     expect(out.bass_cols).toBe(8);
     expect(out.bass_base).toBe(41);
     expect(out.bass_funcs).toEqual(['bass', 'major']);
     // empty selection normalizes to all six
-    cbs.forEach((cb) => { cb.checked = false; });
-    expect(S()._collectAccordionConfig(document.body).bass_funcs)
-      .toEqual(['counterbass', 'bass', 'major', 'minor', 'dom7', 'dim7']);
+    cbs.forEach((cb) => {
+      cb.checked = false;
+    });
+    expect(S()._collectAccordionConfig(document.body).bass_funcs).toEqual([
+      'counterbass',
+      'bass',
+      'major',
+      'minor',
+      'dom7',
+      'dim7'
+    ]);
   });
 
   it('render: Stradella inputs disabled under free, enabled under stradella', () => {
-    mountSection('accordion', S()._renderAccordionSection.call(
-      ctx({ accordion_config: { bass_system: 'free' } })));
+    mountSection(
+      'accordion',
+      S()._renderAccordionSection.call(ctx({ accordion_config: { bass_system: 'free' } }))
+    );
     expect(document.getElementById('accordionBassCols').disabled).toBe(true);
     expect(document.querySelector('.accordionFuncCb').disabled).toBe(true);
-    mountSection('accordion', S()._renderAccordionSection.call(
-      ctx({ accordion_config: { bass_system: 'stradella' } })));
+    mountSection(
+      'accordion',
+      S()._renderAccordionSection.call(ctx({ accordion_config: { bass_system: 'stradella' } }))
+    );
     expect(document.getElementById('accordionBassCols').disabled).toBe(false);
     expect(document.querySelector('.accordionFuncCb').disabled).toBe(false);
   });
@@ -284,12 +336,10 @@ describe('ISM — accordion section render + collect (no hands)', () => {
     document.getElementById('accordionBassSystem').value = 'free';
     document.getElementById('accordionBassRangeMin').value = '70';
     document.getElementById('accordionBassRangeMax').value = '40';
-    expect(S()._collectAccordionConfig(document.body).bass_range)
-      .toEqual({ min: 40, max: 70 });
+    expect(S()._collectAccordionConfig(document.body).bass_range).toEqual({ min: 40, max: 70 });
     document.getElementById('accordionBassRangeMin').value = '';
     document.getElementById('accordionBassRangeMax').value = 'abc';
-    expect(S()._collectAccordionConfig(document.body).bass_range)
-      .toEqual({ min: 36, max: 60 });
+    expect(S()._collectAccordionConfig(document.body).bass_range).toEqual({ min: 36, max: 60 });
   });
 
   it('collect: bass_range persisted even under stradella', () => {
@@ -306,8 +356,10 @@ describe('ISM — accordion section render + collect (no hands)', () => {
   });
 
   it('_syncAccordionBassRange toggles disabled live', () => {
-    mountSection('accordion', S()._renderAccordionSection.call(
-      ctx({ accordion_config: { bass_system: 'free' } })));
+    mountSection(
+      'accordion',
+      S()._renderAccordionSection.call(ctx({ accordion_config: { bass_system: 'free' } }))
+    );
     const min = document.getElementById('accordionBassRangeMin');
     expect(min.disabled).toBe(false);
     document.getElementById('accordionBassSystem').value = 'stradella';

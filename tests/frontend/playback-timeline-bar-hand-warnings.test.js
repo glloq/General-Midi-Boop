@@ -16,22 +16,32 @@ const src = readFileSync(
 // fill/stroke/path calls — enough for the test to count drawn markers.
 function installCanvasStub() {
   const calls = [];
-  const ctx = new Proxy({ calls }, {
-    get(target, prop) {
-      if (prop === 'calls') return target.calls;
-      // Methods: record + return undefined.
-      if (typeof prop === 'string' && /^(begin|move|line|close|fill|stroke|clip|save|restore|rect|arc|fillText|setLineDash|measureText|translate|scale|drawImage|set)/.test(prop)) {
-        return (...args) => { target.calls.push({ method: prop, args }); };
+  const ctx = new Proxy(
+    { calls },
+    {
+      get(target, prop) {
+        if (prop === 'calls') return target.calls;
+        // Methods: record + return undefined.
+        if (
+          typeof prop === 'string' &&
+          /^(begin|move|line|close|fill|stroke|clip|save|restore|rect|arc|fillText|setLineDash|measureText|translate|scale|drawImage|set)/.test(
+            prop
+          )
+        ) {
+          return (...args) => {
+            target.calls.push({ method: prop, args });
+          };
+        }
+        // Properties: just absorb.
+        return target[prop];
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        target.calls.push({ method: 'set', prop, value });
+        return true;
       }
-      // Properties: just absorb.
-      return target[prop];
-    },
-    set(target, prop, value) {
-      target[prop] = value;
-      target.calls.push({ method: 'set', prop, value });
-      return true;
     }
-  });
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
   return ctx;
 }
@@ -67,7 +77,11 @@ describe('PlaybackTimelineBar.setHandWarnings', () => {
       { tick: 480, level: 'infeasible' }
     ]);
     expect(bar.handWarnings).toHaveLength(2);
-    expect(bar.handWarnings[0]).toMatchObject({ tick: 100, level: 'warning', message: 'wide chord' });
+    expect(bar.handWarnings[0]).toMatchObject({
+      tick: 100,
+      level: 'warning',
+      message: 'wide chord'
+    });
   });
 
   it('filters out non-warning levels (ok / unknown / null)', () => {
@@ -89,7 +103,7 @@ describe('PlaybackTimelineBar.setHandWarnings', () => {
       { tick: 'abc', level: 'warning' },
       { level: 'warning' }
     ]);
-    expect(bar.handWarnings.map(w => w.tick).sort((a, b) => a - b)).toEqual([0]);
+    expect(bar.handWarnings.map((w) => w.tick).sort((a, b) => a - b)).toEqual([0]);
   });
 
   it('clears markers when called with [] / null / non-array', () => {

@@ -32,12 +32,11 @@ const SETTINGS_KEY = 'gmboop_settings';
 
 function makeModal({ listDevices, instruments, virtualEnabled = true }) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ virtualInstrument: virtualEnabled }));
-  const m = new (win.KeyboardModal)();
+  const m = new win.KeyboardModal();
   m.logger = { info() {}, warn() {}, debug() {}, error() {} };
   m.backend = {
     listDevices: async () => listDevices,
-    sendCommand: async (cmd) =>
-      cmd === 'instrument_list_capabilities' ? { instruments } : {},
+    sendCommand: async (cmd) => (cmd === 'instrument_list_capabilities' ? { instruments } : {})
   };
   return m;
 }
@@ -53,55 +52,60 @@ describe('loadDevices — virtual instruments surface per (device_id, channel)',
       instruments: [
         { device_id: 'virtual_a', channel: 0, gm_program: 21, custom_name: 'Accordion', id: 1 },
         { device_id: 'virtual_a', channel: 1, gm_program: 22, custom_name: 'Harmonica', id: 2 },
-        { device_id: 'virtual_a', channel: 2, gm_program: 0,  custom_name: 'Piano', id: 3 },
-        { device_id: 'virtual_b', channel: 0, gm_program: 46, custom_name: 'Harp', id: 4 },
-      ],
+        { device_id: 'virtual_a', channel: 2, gm_program: 0, custom_name: 'Piano', id: 3 },
+        { device_id: 'virtual_b', channel: 0, gm_program: 46, custom_name: 'Harp', id: 4 }
+      ]
     });
 
     await m.loadDevices();
 
-    const virt = m.devices.filter(d => d.isVirtual);
+    const virt = m.devices.filter((d) => d.isVirtual);
     expect(virt).toHaveLength(4);
     // No collapsed/duplicate (device_id, channel) pairs.
     expect(new Set(virt.map(keyOf)).size).toBe(4);
 
-    const accordion = virt.find(d => d.device_id === 'virtual_a' && d.channel === 0);
-    const harmonica = virt.find(d => d.device_id === 'virtual_a' && d.channel === 1);
+    const accordion = virt.find((d) => d.device_id === 'virtual_a' && d.channel === 0);
+    const harmonica = virt.find((d) => d.device_id === 'virtual_a' && d.channel === 1);
     expect(accordion).toBeTruthy();
     expect(accordion.gm_program).toBe(21);
     expect(accordion._multiInstrument).toBe(true);
     expect(harmonica).toBeTruthy();
-    expect(harmonica.gm_program).toBe(22);   // previously hidden behind ch0
+    expect(harmonica.gm_program).toBe(22); // previously hidden behind ch0
     expect(harmonica._multiInstrument).toBe(true);
   });
 
   it('does not duplicate channels already expanded from the backend device list', async () => {
     const m = makeModal({
-      listDevices: [{
-        id: 'virtual_a', device_id: 'virtual_a', name: 'Virtual A',
-        status: 2, type: 'virtual',
-        instruments: [
-          { channel: 0, gm_program: 21, name: 'Accordion', id: 1 },
-          { channel: 1, gm_program: 22, name: 'Harmonica', id: 2 },
-        ],
-      }],
+      listDevices: [
+        {
+          id: 'virtual_a',
+          device_id: 'virtual_a',
+          name: 'Virtual A',
+          status: 2,
+          type: 'virtual',
+          instruments: [
+            { channel: 0, gm_program: 21, name: 'Accordion', id: 1 },
+            { channel: 1, gm_program: 22, name: 'Harmonica', id: 2 }
+          ]
+        }
+      ],
       instruments: [
         { device_id: 'virtual_a', channel: 0, gm_program: 21, custom_name: 'Accordion', id: 1 },
         { device_id: 'virtual_a', channel: 1, gm_program: 22, custom_name: 'Harmonica', id: 2 },
-        { device_id: 'virtual_a', channel: 2, gm_program: 0,  custom_name: 'Piano', id: 3 },
-        { device_id: 'virtual_b', channel: 0, gm_program: 46, custom_name: 'Harp', id: 4 },
-      ],
+        { device_id: 'virtual_a', channel: 2, gm_program: 0, custom_name: 'Piano', id: 3 },
+        { device_id: 'virtual_b', channel: 0, gm_program: 46, custom_name: 'Harp', id: 4 }
+      ]
     });
 
     await m.loadDevices();
 
     const keys = m.devices.map(keyOf);
-    expect(new Set(keys).size).toBe(keys.length);          // no dup (dev,ch)
+    expect(new Set(keys).size).toBe(keys.length); // no dup (dev,ch)
     expect(keys).toContain('virtual_a::0');
     expect(keys).toContain('virtual_a::1');
-    expect(keys).toContain('virtual_a::2');                // added by caps merge
-    expect(keys).toContain('virtual_b::0');                // added by caps merge
-    expect(keys.filter(k => k === 'virtual_a::1')).toHaveLength(1);
+    expect(keys).toContain('virtual_a::2'); // added by caps merge
+    expect(keys).toContain('virtual_b::0'); // added by caps merge
+    expect(keys.filter((k) => k === 'virtual_a::1')).toHaveLength(1);
   });
 
   it('respects the virtualInstrument setting (disabled → no virtual entries)', async () => {
@@ -110,13 +114,13 @@ describe('loadDevices — virtual instruments surface per (device_id, channel)',
       listDevices: [],
       instruments: [
         { device_id: 'virtual_a', channel: 0, gm_program: 21, custom_name: 'Accordion', id: 1 },
-        { device_id: 'virtual_a', channel: 1, gm_program: 22, custom_name: 'Harmonica', id: 2 },
-      ],
+        { device_id: 'virtual_a', channel: 1, gm_program: 22, custom_name: 'Harmonica', id: 2 }
+      ]
     });
 
     await m.loadDevices();
 
-    expect(m.devices.filter(d => d.isVirtual)).toHaveLength(0);
+    expect(m.devices.filter((d) => d.isVirtual)).toHaveLength(0);
   });
 
   it('unnamed virtual instruments are labelled by their GM program (distinguishable)', async () => {
@@ -126,21 +130,21 @@ describe('loadDevices — virtual instruments surface per (device_id, channel)',
         // No custom_name / name → must fall back to the GM program name.
         { device_id: 'virtual_a', channel: 0, gm_program: 21, id: 1 },
         { device_id: 'virtual_b', channel: 0, gm_program: 22, id: 2 },
-        { device_id: 'virtual_c', channel: 0, gm_program: 0,  id: 3 },
+        { device_id: 'virtual_c', channel: 0, gm_program: 0, id: 3 },
         // Placeholder name equal to the device id is treated as not meaningful.
-        { device_id: 'virtual_d', channel: 0, gm_program: 46, name: 'virtual_d', id: 4 },
-      ],
+        { device_id: 'virtual_d', channel: 0, gm_program: 46, name: 'virtual_d', id: 4 }
+      ]
     });
 
     await m.loadDevices();
 
-    const byDev = (id) => m.devices.find(d => d.device_id === id);
+    const byDev = (id) => m.devices.find((d) => d.device_id === id);
     expect(byDev('virtual_a').displayName).toBe('🖥️ Accordion');
     expect(byDev('virtual_b').displayName).toBe('🖥️ Harmonica');
     expect(byDev('virtual_c').displayName).toBe('🖥️ Acoustic Grand Piano');
     expect(byDev('virtual_d').displayName).toBe('🖥️ Orchestral Harp');
     // Distinct GM programs → distinct labels (no more "all the same").
-    const labels = m.devices.filter(d => d.isVirtual).map(d => d.displayName);
+    const labels = m.devices.filter((d) => d.isVirtual).map((d) => d.displayName);
     expect(new Set(labels).size).toBe(labels.length);
   });
 
@@ -148,13 +152,12 @@ describe('loadDevices — virtual instruments surface per (device_id, channel)',
     const m = makeModal({
       listDevices: [],
       instruments: [
-        { device_id: 'virtual_a', channel: 0, gm_program: 21, custom_name: 'My Box', id: 1 },
-      ],
+        { device_id: 'virtual_a', channel: 0, gm_program: 21, custom_name: 'My Box', id: 1 }
+      ]
     });
 
     await m.loadDevices();
 
-    expect(m.devices.find(d => d.device_id === 'virtual_a').displayName)
-      .toBe('🖥️ My Box');
+    expect(m.devices.find((d) => d.device_id === 'virtual_a').displayName).toBe('🖥️ My Box');
   });
 });

@@ -7,8 +7,14 @@ import BluetoothManager from '../../src/transports/BluetoothManager.js';
 import InMemoryBleAdapter from '../../src/midi/adapters/InMemoryBleAdapter.js';
 
 const FIXTURES = [
-  { address: 'AA:BB:CC:00:00:01', name: 'Test Synth', rssi: -40, uuids: ['03b80e5a-ede8-4b33-a751-6ce34ec4c700'], isMidiDevice: true },
-  { address: 'AA:BB:CC:00:00:02', name: 'Test Pad',   rssi: -70, uuids: [], isMidiDevice: false }
+  {
+    address: 'AA:BB:CC:00:00:01',
+    name: 'Test Synth',
+    rssi: -40,
+    uuids: ['03b80e5a-ede8-4b33-a751-6ce34ec4c700'],
+    isMidiDevice: true
+  },
+  { address: 'AA:BB:CC:00:00:02', name: 'Test Pad', rssi: -70, uuids: [], isMidiDevice: false }
 ];
 
 function makeApp() {
@@ -142,10 +148,12 @@ describe('BluetoothManager — connect / disconnect', () => {
     await mgr.disconnect(FIXTURES[0].address);
 
     expect(mgr.isConnected(FIXTURES[0].address)).toBe(false);
-    expect(events).toEqual([{
-      address: FIXTURES[0].address,
-      device_id: FIXTURES[0].address
-    }]);
+    expect(events).toEqual([
+      {
+        address: FIXTURES[0].address,
+        device_id: FIXTURES[0].address
+      }
+    ]);
     const paired = mgr.getPairedDevices().find((d) => d.address === FIXTURES[0].address);
     expect(paired.connected).toBe(false);
   });
@@ -176,14 +184,16 @@ describe('BluetoothManager — send MIDI', () => {
     const bytes = Array.from(sent[0].data);
     // [headerByte, timestampByte, status, note, velocity]
     expect(bytes).toHaveLength(5);
-    expect(bytes[0] & 0x80).toBe(0x80);   // header bit 7 set
-    expect(bytes[1] & 0x80).toBe(0x80);   // timestamp bit 7 set
+    expect(bytes[0] & 0x80).toBe(0x80); // header bit 7 set
+    expect(bytes[1] & 0x80).toBe(0x80); // timestamp bit 7 set
     expect(bytes.slice(2)).toEqual([0x90, 60, 100]);
   });
 
   test('sendMidiMessage converts an easymidi descriptor to bytes', async () => {
     await mgr.sendMidiMessage(FIXTURES[0].address, 'noteon', {
-      channel: 0, note: 60, velocity: 100
+      channel: 0,
+      note: 60,
+      velocity: 100
     });
     const sent = port._getSentMidi();
     expect(sent).toHaveLength(1);
@@ -192,9 +202,9 @@ describe('BluetoothManager — send MIDI', () => {
   });
 
   test('sendMidiData rejects when the device is not connected', async () => {
-    await expect(
-      mgr.sendMidiData(FIXTURES[1].address, [0x90, 60, 100])
-    ).rejects.toThrow(/not connected/);
+    await expect(mgr.sendMidiData(FIXTURES[1].address, [0x90, 60, 100])).rejects.toThrow(
+      /not connected/
+    );
   });
 });
 

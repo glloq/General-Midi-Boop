@@ -74,7 +74,10 @@ async function sessionLoad(app, data) {
   try {
     parsed = JSON.parse(session.data);
   } catch (err) {
-    throw new ValidationError(`Session ${data.sessionId} contains invalid JSON: ${err.message}`, 'data');
+    throw new ValidationError(
+      `Session ${data.sessionId} contains invalid JSON: ${err.message}`,
+      'data'
+    );
   }
 
   const savedRoutes = Array.isArray(parsed?.routes) ? parsed.routes : [];

@@ -15,82 +15,86 @@
  *   instantané (sample déjà en cache navigateur).
  */
 class SoundBankLoadingIndicator {
-    static _count = 0;
-    static _el = null;
-    static _showTimer = null;
-    static _hideTimer = null;
+  static _count = 0;
+  static _el = null;
+  static _showTimer = null;
+  static _hideTimer = null;
 
-    static begin() {
-        SoundBankLoadingIndicator._count++;
-        if (SoundBankLoadingIndicator._hideTimer) {
-            clearTimeout(SoundBankLoadingIndicator._hideTimer);
-            SoundBankLoadingIndicator._hideTimer = null;
+  static begin() {
+    SoundBankLoadingIndicator._count++;
+    if (SoundBankLoadingIndicator._hideTimer) {
+      clearTimeout(SoundBankLoadingIndicator._hideTimer);
+      SoundBankLoadingIndicator._hideTimer = null;
+    }
+    if (
+      SoundBankLoadingIndicator._count === 1 &&
+      !SoundBankLoadingIndicator._showTimer &&
+      !SoundBankLoadingIndicator._el
+    ) {
+      SoundBankLoadingIndicator._showTimer = setTimeout(() => {
+        SoundBankLoadingIndicator._showTimer = null;
+        if (SoundBankLoadingIndicator._count > 0) {
+          SoundBankLoadingIndicator._render();
         }
-        if (SoundBankLoadingIndicator._count === 1 &&
-            !SoundBankLoadingIndicator._showTimer &&
-            !SoundBankLoadingIndicator._el) {
-            SoundBankLoadingIndicator._showTimer = setTimeout(() => {
-                SoundBankLoadingIndicator._showTimer = null;
-                if (SoundBankLoadingIndicator._count > 0) {
-                    SoundBankLoadingIndicator._render();
-                }
-            }, 150);
+      }, 150);
+    }
+  }
+
+  static end() {
+    SoundBankLoadingIndicator._count = Math.max(0, SoundBankLoadingIndicator._count - 1);
+    if (SoundBankLoadingIndicator._count === 0) {
+      if (SoundBankLoadingIndicator._showTimer) {
+        clearTimeout(SoundBankLoadingIndicator._showTimer);
+        SoundBankLoadingIndicator._showTimer = null;
+      }
+      const el = SoundBankLoadingIndicator._el;
+      if (el) {
+        el.classList.remove('sound-loading-toast--visible');
+        SoundBankLoadingIndicator._el = null;
+        SoundBankLoadingIndicator._hideTimer = setTimeout(() => {
+          SoundBankLoadingIndicator._hideTimer = null;
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }, 250);
+      }
+    }
+  }
+
+  static _render() {
+    let label = 'Chargement de la banque de son…';
+    try {
+      if (window.i18n && typeof window.i18n.t === 'function') {
+        const translated = window.i18n.t('midiEditor.loadingSoundBank');
+        if (translated && translated !== 'midiEditor.loadingSoundBank') {
+          label = translated;
         }
+      }
+    } catch (_) {
+      /* fallback */
     }
 
-    static end() {
-        SoundBankLoadingIndicator._count = Math.max(0, SoundBankLoadingIndicator._count - 1);
-        if (SoundBankLoadingIndicator._count === 0) {
-            if (SoundBankLoadingIndicator._showTimer) {
-                clearTimeout(SoundBankLoadingIndicator._showTimer);
-                SoundBankLoadingIndicator._showTimer = null;
-            }
-            const el = SoundBankLoadingIndicator._el;
-            if (el) {
-                el.classList.remove('sound-loading-toast--visible');
-                SoundBankLoadingIndicator._el = null;
-                SoundBankLoadingIndicator._hideTimer = setTimeout(() => {
-                    SoundBankLoadingIndicator._hideTimer = null;
-                    if (el.parentNode) el.parentNode.removeChild(el);
-                }, 250);
-            }
-        }
-    }
+    const el = document.createElement('div');
+    el.className = 'sound-loading-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
 
-    static _render() {
-        let label = 'Chargement de la banque de son…';
-        try {
-            if (window.i18n && typeof window.i18n.t === 'function') {
-                const translated = window.i18n.t('midiEditor.loadingSoundBank');
-                if (translated && translated !== 'midiEditor.loadingSoundBank') {
-                    label = translated;
-                }
-            }
-        } catch (_) { /* fallback */ }
+    const spinner = document.createElement('span');
+    spinner.className = 'sound-loading-toast__spinner';
+    const text = document.createElement('span');
+    text.className = 'sound-loading-toast__label';
+    text.textContent = label;
 
-        const el = document.createElement('div');
-        el.className = 'sound-loading-toast';
-        el.setAttribute('role', 'status');
-        el.setAttribute('aria-live', 'polite');
+    el.appendChild(spinner);
+    el.appendChild(text);
+    document.body.appendChild(el);
 
-        const spinner = document.createElement('span');
-        spinner.className = 'sound-loading-toast__spinner';
-        const text = document.createElement('span');
-        text.className = 'sound-loading-toast__label';
-        text.textContent = label;
+    requestAnimationFrame(() => {
+      el.classList.add('sound-loading-toast--visible');
+    });
 
-        el.appendChild(spinner);
-        el.appendChild(text);
-        document.body.appendChild(el);
-
-        requestAnimationFrame(() => {
-            el.classList.add('sound-loading-toast--visible');
-        });
-
-        SoundBankLoadingIndicator._el = el;
-    }
+    SoundBankLoadingIndicator._el = el;
+  }
 }
 
 if (typeof window !== 'undefined') {
-    window.SoundBankLoadingIndicator = SoundBankLoadingIndicator;
+  window.SoundBankLoadingIndicator = SoundBankLoadingIndicator;
 }

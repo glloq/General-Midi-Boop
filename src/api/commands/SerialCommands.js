@@ -27,7 +27,12 @@ import { ValidationError, ConfigurationError } from '../../core/errors/index.js'
  */
 async function serialScan(app) {
   if (!app.serialMidiManager) {
-    return { success: true, available: false, ports: [], message: 'Serial MIDI not available. Install: npm install serialport' };
+    return {
+      success: true,
+      available: false,
+      ports: [],
+      message: 'Serial MIDI not available. Install: npm install serialport'
+    };
   }
 
   const ports = await app.serialMidiManager.scanPorts();

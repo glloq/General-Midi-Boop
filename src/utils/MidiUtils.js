@@ -21,10 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const GM_INSTRUMENT_NAMES = Object.freeze(
   JSON.parse(
-    fs.readFileSync(
-      path.resolve(__dirname, '../../shared/gm-instrument-names.json'),
-      'utf8'
-    )
+    fs.readFileSync(path.resolve(__dirname, '../../shared/gm-instrument-names.json'), 'utf8')
   )
 );
 
@@ -57,8 +54,8 @@ class MidiUtils {
    */
   static parseStatus(status) {
     return {
-      type: status & 0xF0,
-      channel: status & 0x0F
+      type: status & 0xf0,
+      channel: status & 0x0f
     };
   }
 
@@ -69,7 +66,7 @@ class MidiUtils {
    * @returns {number} Status byte
    */
   static createStatus(type, channel) {
-    return (type & 0xF0) | (channel & 0x0F);
+    return (type & 0xf0) | (channel & 0x0f);
   }
 
   /**
@@ -127,8 +124,8 @@ class MidiUtils {
    */
   static encode14bit(value) {
     return {
-      msb: (value >> 7) & 0x7F,
-      lsb: value & 0x7F
+      msb: (value >> 7) & 0x7f,
+      lsb: value & 0x7f
     };
   }
 
@@ -181,38 +178,38 @@ class MidiUtils {
 
     switch (type.toLowerCase()) {
       case 'noteon':
-        return [0x90 | channel, data.note & 0x7F, (data.velocity ?? 127) & 0x7F];
+        return [0x90 | channel, data.note & 0x7f, (data.velocity ?? 127) & 0x7f];
       case 'noteoff':
-        return [0x80 | channel, data.note & 0x7F, (data.velocity ?? 0) & 0x7F];
+        return [0x80 | channel, data.note & 0x7f, (data.velocity ?? 0) & 0x7f];
       case 'cc':
       case 'controlchange':
-        return [0xB0 | channel, data.controller & 0x7F, data.value & 0x7F];
+        return [0xb0 | channel, data.controller & 0x7f, data.value & 0x7f];
       case 'program':
       case 'programchange':
-        return [0xC0 | channel, (data.program ?? data.number ?? 0) & 0x7F];
+        return [0xc0 | channel, (data.program ?? data.number ?? 0) & 0x7f];
       case 'channel aftertouch':
       case 'channelaftertouch':
-        return [0xD0 | channel, data.pressure & 0x7F];
+        return [0xd0 | channel, data.pressure & 0x7f];
       case 'poly aftertouch':
       case 'polyaftertouch':
-        return [0xA0 | channel, data.note & 0x7F, data.pressure & 0x7F];
+        return [0xa0 | channel, data.note & 0x7f, data.pressure & 0x7f];
       case 'pitchbend': {
         const raw = MidiUtils.pitchBendRaw14(data);
-        return [0xE0 | channel, raw & 0x7F, (raw >> 7) & 0x7F];
+        return [0xe0 | channel, raw & 0x7f, (raw >> 7) & 0x7f];
       }
       case 'sysex':
-        return Array.isArray(data) ? data : (data.bytes || []);
+        return Array.isArray(data) ? data : data.bytes || [];
       // System Realtime messages (no data bytes)
       case 'clock':
-        return [0xF8];
+        return [0xf8];
       case 'start':
-        return [0xFA];
+        return [0xfa];
       case 'continue':
-        return [0xFB];
+        return [0xfb];
       case 'stop':
-        return [0xFC];
+        return [0xfc];
       case 'reset':
-        return [0xFF];
+        return [0xff];
       default:
         return null;
     }
@@ -228,29 +225,41 @@ class MidiUtils {
    *     (`piano`, `chromatic`, `synth_lead`, …).
    */
   static GMCategories = [
-    'Piano',              // 0-7
+    'Piano', // 0-7
     'Chromatic Percussion', // 8-15
-    'Organ',              // 16-23
-    'Guitar',             // 24-31
-    'Bass',               // 32-39
-    'Strings',            // 40-47
-    'Ensemble',           // 48-55
-    'Brass',              // 56-63
-    'Reed',               // 64-71
-    'Pipe',               // 72-79
-    'Synth Lead',         // 80-87
-    'Synth Pad',          // 88-95
-    'Synth Effects',      // 96-103
-    'Ethnic',             // 104-111
-    'Percussive',         // 112-119
-    'Sound Effects'       // 120-127
+    'Organ', // 16-23
+    'Guitar', // 24-31
+    'Bass', // 32-39
+    'Strings', // 40-47
+    'Ensemble', // 48-55
+    'Brass', // 56-63
+    'Reed', // 64-71
+    'Pipe', // 72-79
+    'Synth Lead', // 80-87
+    'Synth Pad', // 88-95
+    'Synth Effects', // 96-103
+    'Ethnic', // 104-111
+    'Percussive', // 112-119
+    'Sound Effects' // 120-127
   ];
 
   static GM_CATEGORY_SLUGS = [
-    'piano', 'chromatic', 'organ', 'guitar',
-    'bass', 'strings', 'ensemble', 'brass',
-    'reed', 'pipe', 'synth_lead', 'synth_pad',
-    'synth_effects', 'ethnic', 'percussive', 'sound_effects',
+    'piano',
+    'chromatic',
+    'organ',
+    'guitar',
+    'bass',
+    'strings',
+    'ensemble',
+    'brass',
+    'reed',
+    'pipe',
+    'synth_lead',
+    'synth_pad',
+    'synth_effects',
+    'ethnic',
+    'percussive',
+    'sound_effects'
   ];
 
   /**
@@ -275,7 +284,6 @@ class MidiUtils {
     if (program < 0 || program > 127) return null;
     return this.GM_CATEGORY_SLUGS[Math.floor(program / 8)];
   }
-
 }
 
 export default MidiUtils;

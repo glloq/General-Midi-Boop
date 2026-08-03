@@ -786,7 +786,9 @@ class NetworkManager extends EventEmitter {
     try {
       session.handleControlPacket(msg);
     } catch (err) {
-      this.logger.debug(`[NetworkManager] control parse error from ${rinfo.address}: ${err.message}`);
+      this.logger.debug(
+        `[NetworkManager] control parse error from ${rinfo.address}: ${err.message}`
+      );
     }
   }
 
@@ -847,6 +849,25 @@ class NetworkManager extends EventEmitter {
     session.on('error', (error) =>
       this.logger.error(`[NetworkManager] RTP-MIDI error for ${ip}: ${error.message}`)
     );
+
+    // Establishment watchdog (audit P3). A responder session is registered on
+    // the first inbound control-port packet, but if the peer never sends the
+    // data-port invitation the session would linger in rtpSessions forever
+    // (idle, connected=false, never emitting 'disconnected'). Close it if the
+    // handshake hasn't completed within the window; close() emits 'disconnected'
+    // which removes it via the handler above. Cleared once connected.
+    const establishTimer = setTimeout(() => {
+      if (!session.isConnected()) {
+        this.logger.warn(
+          `[NetworkManager] inbound RTP-MIDI session from ${ip} did not establish; closing`
+        );
+        session.close();
+      }
+    }, 10000);
+    if (typeof establishTimer.unref === 'function') establishTimer.unref();
+    session.on('connected', () => clearTimeout(establishTimer));
+    session.on('disconnected', () => clearTimeout(establishTimer));
+
     this.rtpSessions.set(ip, session);
     return session;
   }
@@ -858,6 +879,19 @@ class NetworkManager extends EventEmitter {
    */
   handleMidiData(ip, midiBytes) {
     try {
+      // System messages — SysEx (0xF0), System Common (0xF1–0xF7) and System
+      // Real-Time (0xF8–0xFF) — are not channel-voice, so parseMidiBytes (which
+      // only switches on 0x80–0xE0) returns null and drops them: a network
+      // keyboard's SysEx Identity Reply never reached parseIdentityReply and
+      // inbound MIDI clock/transport was ignored (BLE and serial both handle
+      // these). Forward the raw bytes so DeviceManager.handleRawMidi parses them
+      // (Application routes an Array-shaped `data` through handleRawMidi).
+      const status = Array.isArray(midiBytes) ? midiBytes[0] : undefined;
+      if (status != null && (status & 0xf0) === 0xf0) {
+        this.emit('midi:data', { ip, address: ip, data: Array.from(midiBytes) });
+        return;
+      }
+
       // Parse the MIDI bytes
       const parsedMessage = this.parseMidiBytes(midiBytes);
 

@@ -1,12 +1,11 @@
 // Auto-extracted from LightingControlPage.js
-(function() {
-    'use strict';
-    const LightingFormsMixin = {};
-
+(function () {
+  'use strict';
+  const LightingFormsMixin = {};
 
   // ==================== ADD/EDIT DEVICE ====================
 
-    LightingFormsMixin.showAddDeviceForm = function() {
+  LightingFormsMixin.showAddDeviceForm = function () {
     const t = this._t();
     const formHTML = `
       <div id="lightingDeviceForm" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
@@ -148,7 +147,7 @@
               <div style="flex:2;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.ipAddress') || 'Adresse IP'}</label><input id="ldFormOscHost" type="text" value="127.0.0.1" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
               <div style="flex:1;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.portLabel') || 'Port'}</label><input id="ldFormOscPort" type="number" min="1" max="65535" value="8000" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             </div>
-            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.oscPattern') || 'Motif d\'adresse OSC'}</label><input id="ldFormOscPattern" type="text" value="/light/{led}" placeholder="/light/{led}" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
+            <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.oscPattern') || "Motif d'adresse OSC"}</label><input id="ldFormOscPattern" type="text" value="/light/{led}" placeholder="/light/{led}" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
             <div style="margin-bottom:8px;"><label style="font-size:11px;color:${t.textSec};display:block;margin-bottom:2px;">${i18n.t('lighting.colorFormatLabel') || 'Format couleur'}</label>
               <select id="ldFormOscFormat" style="width:100%;padding:6px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;background:${t.inputBg};color:${t.inputText};">
                 <option value="rgb_float">RGB float (0.0-1.0)</option>
@@ -169,22 +168,42 @@
     const div = document.createElement('div');
     div.innerHTML = formHTML;
     document.body.appendChild(div.firstElementChild);
-  }
+  };
 
-    LightingFormsMixin._updateDeviceFormFields = function() {
+  LightingFormsMixin._updateDeviceFormFields = function () {
     const type = document.getElementById('ldFormType').value;
     // Hide all type-specific fields first
-    const allTypeFields = ['ldFormGpioFields', 'ldFormSerialFields', 'ldFormStripFields', 'ldFormArtnetFields', 'ldFormSacnFields', 'ldFormMqttFields', 'ldFormHttpFields', 'ldFormOscFields'];
-    allTypeFields.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    const allTypeFields = [
+      'ldFormGpioFields',
+      'ldFormSerialFields',
+      'ldFormStripFields',
+      'ldFormArtnetFields',
+      'ldFormSacnFields',
+      'ldFormMqttFields',
+      'ldFormHttpFields',
+      'ldFormOscFields'
+    ];
+    allTypeFields.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
 
     // Show the correct field set
     const fieldMap = {
-      gpio: 'ldFormGpioFields', serial: 'ldFormSerialFields', gpio_strip: 'ldFormStripFields',
-      artnet: 'ldFormArtnetFields', sacn: 'ldFormSacnFields', mqtt: 'ldFormMqttFields',
-      http: 'ldFormHttpFields', osc: 'ldFormOscFields'
+      gpio: 'ldFormGpioFields',
+      serial: 'ldFormSerialFields',
+      gpio_strip: 'ldFormStripFields',
+      artnet: 'ldFormArtnetFields',
+      sacn: 'ldFormSacnFields',
+      mqtt: 'ldFormMqttFields',
+      http: 'ldFormHttpFields',
+      osc: 'ldFormOscFields'
     };
     const targetId = fieldMap[type];
-    if (targetId) { const el = document.getElementById(targetId); if (el) el.style.display = 'block'; }
+    if (targetId) {
+      const el = document.getElementById(targetId);
+      if (el) el.style.display = 'block';
+    }
 
     // Handle auto-calculated LED count for strips
     const ledCountEl = document.getElementById('ldFormLedCount');
@@ -209,9 +228,9 @@
     if (type === 'artnet' || type === 'sacn') {
       this._loadDmxProfiles(type);
     }
-  }
+  };
 
-    LightingFormsMixin._addStripEntry = function() {
+  LightingFormsMixin._addStripEntry = function () {
     const t = this._t();
     const container = document.getElementById('ldFormStripsContainer');
     if (!container) return;
@@ -235,9 +254,9 @@
       <button type="button" onclick="this.closest('.strip-entry').remove()" style="padding:2px 6px;border:none;background:none;color:#ef4444;cursor:pointer;font-size:14px;">×</button>`;
     container.appendChild(entry);
     this._onStripChannelChange(entry.querySelector('.strip-channel'));
-  }
+  };
 
-    LightingFormsMixin.submitAddDevice = async function() {
+  LightingFormsMixin.submitAddDevice = async function () {
     const nameEl = document.getElementById('ldFormName');
     const nameErr = document.getElementById('ldFormNameError');
     const name = nameEl.value.trim();
@@ -249,7 +268,10 @@
     }
 
     const type = document.getElementById('ldFormType').value;
-    let ledCount = Math.max(1, Math.min(10000, parseInt(document.getElementById('ldFormLedCount').value) || 1));
+    let ledCount = Math.max(
+      1,
+      Math.min(10000, parseInt(document.getElementById('ldFormLedCount').value) || 1)
+    );
 
     let connectionConfig = {};
     if (type === 'gpio') {
@@ -264,19 +286,25 @@
       const stripEntries = document.querySelectorAll('#ldFormStripsContainer .strip-entry');
       const strips = [];
       let totalLeds = 0;
-      stripEntries.forEach(entry => {
-        const count = Math.max(1, Math.min(1000, parseInt(entry.querySelector('.strip-ledcount').value) || 30));
+      stripEntries.forEach((entry) => {
+        const count = Math.max(
+          1,
+          Math.min(1000, parseInt(entry.querySelector('.strip-ledcount').value) || 30)
+        );
         strips.push({
           channel: parseInt(entry.querySelector('.strip-channel').value),
           gpio: parseInt(entry.querySelector('.strip-gpio').value),
           led_count: count,
-          brightness: Math.max(0, Math.min(255, parseInt(entry.querySelector('.strip-brightness').value) || 255))
+          brightness: Math.max(
+            0,
+            Math.min(255, parseInt(entry.querySelector('.strip-brightness').value) || 255)
+          )
         });
         totalLeds += count;
       });
       const segEntries = document.querySelectorAll('#ldFormSegmentsContainer .segment-entry');
       const segments = [];
-      segEntries.forEach(entry => {
+      segEntries.forEach((entry) => {
         const name = entry.querySelector('.seg-name').value.trim();
         if (name) {
           segments.push({
@@ -290,7 +318,10 @@
       // Override ledCount with auto-calculated total
       ledCount = totalLeds || 1;
     } else if (type === 'serial') {
-      connectionConfig = { port: document.getElementById('ldFormSerialPort').value || '/dev/ttyUSB0', baud: 115200 };
+      connectionConfig = {
+        port: document.getElementById('ldFormSerialPort').value || '/dev/ttyUSB0',
+        baud: 115200
+      };
     } else if (type === 'artnet') {
       connectionConfig = {
         host: document.getElementById('ldFormArtnetHost')?.value || '255.255.255.255',
@@ -305,7 +336,7 @@
         priority: parseInt(document.getElementById('ldFormSacnPriority')?.value) || 100,
         channels_per_led: parseInt(document.getElementById('ldFormSacnChannels')?.value) || 3,
         multicast,
-        host: !multicast ? (document.getElementById('ldFormSacnHost')?.value || null) : null
+        host: !multicast ? document.getElementById('ldFormSacnHost')?.value || null : null
       };
     } else if (type === 'mqtt') {
       connectionConfig = {
@@ -331,17 +362,22 @@
     }
 
     try {
-      await this.apiClient.sendCommand('lighting_device_add', { name, type, led_count: ledCount, connection_config: connectionConfig });
+      await this.apiClient.sendCommand('lighting_device_add', {
+        name,
+        type,
+        led_count: ledCount,
+        connection_config: connectionConfig
+      });
       document.getElementById('lightingDeviceForm')?.remove();
       await this.loadData();
     } catch (error) {
       this.showToast(error.message, 'error');
     }
-  }
+  };
 
-    LightingFormsMixin.showEditDeviceForm = async function() {
+  LightingFormsMixin.showEditDeviceForm = async function () {
     if (!this.selectedDeviceId) return;
-    const device = this.devices.find(d => d.id === this.selectedDeviceId);
+    const device = this.devices.find((d) => d.id === this.selectedDeviceId);
     if (!device) return;
 
     // Reuse the add device form, then populate with existing values
@@ -355,14 +391,21 @@
       const formEl = document.getElementById('lightingDeviceForm');
       if (!formEl) return;
       const h3 = formEl.querySelector('h3');
-      if (h3) h3.textContent = (i18n.t('lighting.editDeviceTitle') || '✏️ Modifier « {name} »').replace('{name}', device.name);
+      if (h3)
+        h3.textContent = (i18n.t('lighting.editDeviceTitle') || '✏️ Modifier « {name} »').replace(
+          '{name}',
+          device.name
+        );
 
       // Pre-fill common fields
       const nameEl = document.getElementById('ldFormName');
       if (nameEl) nameEl.value = device.name;
 
       const typeEl = document.getElementById('ldFormType');
-      if (typeEl) { typeEl.value = device.type; this._updateDeviceFormFields(); }
+      if (typeEl) {
+        typeEl.value = device.type;
+        this._updateDeviceFormFields();
+      }
 
       const ledCountEl = document.getElementById('ldFormLedCount');
       if (ledCountEl) ledCountEl.value = device.led_count;
@@ -390,7 +433,10 @@
             const entry = entries[entries.length - 1];
             if (entry) {
               const chSel = entry.querySelector('.strip-channel');
-              if (chSel) { chSel.value = strip.channel ?? 0; this._onStripChannelChange(chSel); }
+              if (chSel) {
+                chSel.value = strip.channel ?? 0;
+                this._onStripChannelChange(chSel);
+              }
               const gpioSel = entry.querySelector('.strip-gpio');
               if (gpioSel) gpioSel.value = strip.gpio ?? 18;
               const ledEl = entry.querySelector('.strip-ledcount');
@@ -437,7 +483,10 @@
         const chEl = document.getElementById('ldFormSacnChannels');
         if (chEl) chEl.value = cfg.channels_per_led ?? 3;
         const mcEl = document.getElementById('ldFormSacnMulticast');
-        if (mcEl) { mcEl.checked = cfg.multicast !== false; mcEl.dispatchEvent(new Event('change')); }
+        if (mcEl) {
+          mcEl.checked = cfg.multicast !== false;
+          mcEl.dispatchEvent(new Event('change'));
+        }
         if (!cfg.multicast) {
           const hostEl = document.getElementById('ldFormSacnHost');
           if (hostEl) hostEl.value = cfg.host || '';
@@ -486,7 +535,7 @@
       // Change submit button text
       const submitBtns = formEl.querySelectorAll('button');
       const addLabel = i18n.t('lighting.add') || 'Ajouter';
-      submitBtns.forEach(btn => {
+      submitBtns.forEach((btn) => {
         if (btn.textContent.trim() === addLabel) {
           btn.textContent = i18n.t('lighting.save') || 'Enregistrer';
           btn.style.background = '#8b5cf6';
@@ -495,11 +544,14 @@
       });
 
       // Disable type selector (cannot change type during edit)
-      if (typeEl) { typeEl.disabled = true; typeEl.style.opacity = '0.6'; }
+      if (typeEl) {
+        typeEl.disabled = true;
+        typeEl.style.opacity = '0.6';
+      }
     });
-  }
+  };
 
-    LightingFormsMixin.submitEditDevice = async function() {
+  LightingFormsMixin.submitEditDevice = async function () {
     if (!this._editingDeviceId) return;
 
     const nameEl = document.getElementById('ldFormName');
@@ -512,15 +564,24 @@
     }
 
     const type = document.getElementById('ldFormType')?.value;
-    let ledCount = Math.max(1, Math.min(10000, parseInt(document.getElementById('ldFormLedCount')?.value) || 1));
+    let ledCount = Math.max(
+      1,
+      Math.min(10000, parseInt(document.getElementById('ldFormLedCount')?.value) || 1)
+    );
 
     // Reuse the same connection_config building logic from submitAddDevice
     let connectionConfig = {};
     if (type === 'gpio') {
       connectionConfig = {
         pins: {
-          r: Math.max(0, Math.min(27, parseInt(document.getElementById('ldFormPinR')?.value) || 17)),
-          g: Math.max(0, Math.min(27, parseInt(document.getElementById('ldFormPinG')?.value) || 27)),
+          r: Math.max(
+            0,
+            Math.min(27, parseInt(document.getElementById('ldFormPinR')?.value) || 17)
+          ),
+          g: Math.max(
+            0,
+            Math.min(27, parseInt(document.getElementById('ldFormPinG')?.value) || 27)
+          ),
           b: Math.max(0, Math.min(27, parseInt(document.getElementById('ldFormPinB')?.value) || 22))
         }
       };
@@ -528,19 +589,25 @@
       const stripEntries = document.querySelectorAll('#ldFormStripsContainer .strip-entry');
       const strips = [];
       let totalLeds = 0;
-      stripEntries.forEach(entry => {
-        const count = Math.max(1, Math.min(1000, parseInt(entry.querySelector('.strip-ledcount')?.value) || 30));
+      stripEntries.forEach((entry) => {
+        const count = Math.max(
+          1,
+          Math.min(1000, parseInt(entry.querySelector('.strip-ledcount')?.value) || 30)
+        );
         strips.push({
           channel: parseInt(entry.querySelector('.strip-channel')?.value),
           gpio: parseInt(entry.querySelector('.strip-gpio')?.value),
           led_count: count,
-          brightness: Math.max(0, Math.min(255, parseInt(entry.querySelector('.strip-brightness')?.value) || 255))
+          brightness: Math.max(
+            0,
+            Math.min(255, parseInt(entry.querySelector('.strip-brightness')?.value) || 255)
+          )
         });
         totalLeds += count;
       });
       const segEntries = document.querySelectorAll('#ldFormSegmentsContainer .segment-entry');
       const segments = [];
-      segEntries.forEach(entry => {
+      segEntries.forEach((entry) => {
         const segName = entry.querySelector('.seg-name')?.value.trim();
         if (segName) {
           segments.push({
@@ -553,7 +620,10 @@
       connectionConfig = { strips, segments, frequency: 800000, dma: 10 };
       ledCount = totalLeds || 1;
     } else if (type === 'serial') {
-      connectionConfig = { port: document.getElementById('ldFormSerialPort')?.value || '/dev/ttyUSB0', baud: 115200 };
+      connectionConfig = {
+        port: document.getElementById('ldFormSerialPort')?.value || '/dev/ttyUSB0',
+        baud: 115200
+      };
     } else if (type === 'artnet') {
       connectionConfig = {
         host: document.getElementById('ldFormArtnetHost')?.value || '255.255.255.255',
@@ -568,7 +638,7 @@
         priority: parseInt(document.getElementById('ldFormSacnPriority')?.value) || 100,
         channels_per_led: parseInt(document.getElementById('ldFormSacnChannels')?.value) || 3,
         multicast,
-        host: !multicast ? (document.getElementById('ldFormSacnHost')?.value || null) : null
+        host: !multicast ? document.getElementById('ldFormSacnHost')?.value || null : null
       };
     } else if (type === 'mqtt') {
       connectionConfig = {
@@ -596,29 +666,35 @@
     try {
       await this.apiClient.sendCommand('lighting_device_update', {
         id: this._editingDeviceId,
-        name, led_count: ledCount,
-        enabled: document.getElementById('ldFormEnabled')?.checked ?? this._editingDeviceEnabled ?? true,
+        name,
+        led_count: ledCount,
+        enabled:
+          document.getElementById('ldFormEnabled')?.checked ?? this._editingDeviceEnabled ?? true,
         connection_config: connectionConfig
       });
       document.getElementById('lightingDeviceForm')?.remove();
       this._editingDeviceId = null;
       await this.loadData();
-    } catch (error) { this.showToast(error.message, 'error'); }
-  }
+    } catch (error) {
+      this.showToast(error.message, 'error');
+    }
+  };
 
   // ==================== ADD/EDIT RULE ====================
 
-    LightingFormsMixin.showAddRuleForm = function(existingRule = null) {
+  LightingFormsMixin.showAddRuleForm = function (existingRule = null) {
     const isEdit = !!existingRule;
     const cond = existingRule?.condition_config || {};
     const action = existingRule?.action_config || {};
     const t = this._t();
 
-    const instrumentOptions = this.instruments.map(inst => {
-      const name = inst.custom_name || inst.name || inst.device_id;
-      const selected = existingRule?.instrument_id === inst.id ? 'selected' : '';
-      return `<option value="${this._escapeHtml(inst.id)}" ${selected}>${this._escapeHtml(name)} (ch${(inst.channel || 0) + 1})</option>`;
-    }).join('');
+    const instrumentOptions = this.instruments
+      .map((inst) => {
+        const name = inst.custom_name || inst.name || inst.device_id;
+        const selected = existingRule?.instrument_id === inst.id ? 'selected' : '';
+        return `<option value="${this._escapeHtml(inst.id)}" ${selected}>${this._escapeHtml(name)} (ch${(inst.channel || 0) + 1})</option>`;
+      })
+      .join('');
 
     const is = `style="width:100%;padding:7px 10px;border:1px solid ${t.inputBorder};border-radius:8px;font-size:13px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"`;
     const lb = `style="font-size:12px;font-weight:600;color:${t.text};display:block;margin-bottom:3px;"`;
@@ -626,7 +702,7 @@
     const formHTML = `
       <div id="lightingRuleForm" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;">
         <div style="background:${t.bg};border-radius:12px;padding:20px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-          <h3 style="margin:0 0 14px;font-size:16px;color:${t.text};">📐 ${isEdit ? (i18n.t('lighting.editRule') || 'Modifier la règle') : (i18n.t('lighting.addRule') || 'Ajouter une règle')}</h3>
+          <h3 style="margin:0 0 14px;font-size:16px;color:${t.text};">📐 ${isEdit ? i18n.t('lighting.editRule') || 'Modifier la règle' : i18n.t('lighting.addRule') || 'Ajouter une règle'}</h3>
 
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.ruleNameLabel') || 'Nom'}</label><input id="lrFormName" type="text" value="${this._escapeHtml(existingRule?.name || '')}" placeholder="${i18n.t('lighting.ruleNamePlaceholder') || 'Note On Rouge'}" ${is}></div>
 
@@ -651,7 +727,7 @@
           </div>
 
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.channel') || 'Canal MIDI'}</label>
-            <input id="lrFormChannels" type="text" value="${(cond.channels || []).map(c => c + 1).join(', ')}" placeholder="${i18n.t('lighting.channelsPlaceholder') || 'Tous (ou 1, 2, 10)'}" ${is}>
+            <input id="lrFormChannels" type="text" value="${(cond.channels || []).map((c) => c + 1).join(', ')}" placeholder="${i18n.t('lighting.channelsPlaceholder') || 'Tous (ou 1, 2, 10)'}" ${is}>
             <span style="font-size:10px;color:${t.textMuted};">${i18n.t('lighting.channelsHint') || 'Vide = tous. Séparez par virgule (1-16)'}</span>
           </div>
 
@@ -761,7 +837,7 @@
           <!-- Effect-specific fields -->
           <div id="lrFormEffectSection" style="display:${this._isEffectType(action.type) ? 'block' : 'none'};">
             <div style="padding:8px 10px;background:${t.bgAlt};border:1px solid ${t.borderLight};border-radius:8px;margin-bottom:10px;">
-              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:6px;">${i18n.t('lighting.effectParamsTitle') || '⚡ Paramètres de l\'effet'}</div>
+              <div style="font-size:11px;font-weight:600;color:${t.textSec};margin-bottom:6px;">${i18n.t('lighting.effectParamsTitle') || "⚡ Paramètres de l'effet"}</div>
               <div style="display:flex;gap:8px;margin-bottom:6px;">
                 <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.effectSpeed') || 'Vitesse (ms)'}</label><input id="lrFormEffectSpeed" type="number" min="20" max="10000" value="${action.effect_speed || 500}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
                 <div style="flex:1;"><label style="font-size:10px;color:${t.textMuted};display:block;margin-bottom:2px;">${i18n.t('lighting.effectDensityLabel') || 'Densité (étincelles)'}</label><input id="lrFormEffectDensity" type="number" min="0.01" max="1" step="0.05" value="${action.effect_density || 0.1}" style="width:100%;padding:5px;border:1px solid ${t.inputBorder};border-radius:6px;font-size:12px;box-sizing:border-box;background:${t.inputBg};color:${t.inputText};"></div>
@@ -815,7 +891,7 @@
 
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
             <button onclick="document.getElementById('lightingRuleForm').remove()" style="padding:7px 14px;border:1px solid ${t.btnBorder};border-radius:8px;background:${t.btnBg};color:${t.text};cursor:pointer;font-size:12px;">${i18n.t('lighting.cancel') || 'Annuler'}</button>
-            <button onclick="lightingControlPageInstance.submitRule(${existingRule ? existingRule.id : 'null'})" style="padding:7px 14px;border:none;border-radius:8px;background:#10b981;color:white;cursor:pointer;font-weight:600;font-size:12px;">${isEdit ? (i18n.t('lighting.modify') || 'Modifier') : (i18n.t('lighting.add') || 'Ajouter')}</button>
+            <button onclick="lightingControlPageInstance.submitRule(${existingRule ? existingRule.id : 'null'})" style="padding:7px 14px;border:none;border-radius:8px;background:#10b981;color:white;cursor:pointer;font-weight:600;font-size:12px;">${isEdit ? i18n.t('lighting.modify') || 'Modifier' : i18n.t('lighting.add') || 'Ajouter'}</button>
           </div>
         </div>
       </div>`;
@@ -827,14 +903,20 @@
     // Bind live updates
     const colorInput = document.getElementById('lrFormColor');
     const colorHex = document.getElementById('lrFormColorHex');
-    if (colorInput && colorHex) colorInput.addEventListener('input', () => { colorHex.textContent = colorInput.value; });
+    if (colorInput && colorHex)
+      colorInput.addEventListener('input', () => {
+        colorHex.textContent = colorInput.value;
+      });
 
     const brightnessInput = document.getElementById('lrFormBrightness');
     const brightnessVal = document.getElementById('lrFormBrightnessVal');
-    if (brightnessInput && brightnessVal) brightnessInput.addEventListener('input', () => { brightnessVal.textContent = brightnessInput.value; });
+    if (brightnessInput && brightnessVal)
+      brightnessInput.addEventListener('input', () => {
+        brightnessVal.textContent = brightnessInput.value;
+      });
 
     // Bind gradient live preview
-    ['lrFormColorLow', 'lrFormColorMid', 'lrFormColorHigh'].forEach(id => {
+    ['lrFormColorLow', 'lrFormColorMid', 'lrFormColorHigh'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('input', () => this._updateGradientPreview());
     });
@@ -842,22 +924,35 @@
     // Bind color2 live update
     const color2Input = document.getElementById('lrFormColor2');
     const color2Hex = document.getElementById('lrFormColor2Hex');
-    if (color2Input && color2Hex) color2Input.addEventListener('input', () => { color2Hex.textContent = color2Input.value; });
+    if (color2Input && color2Hex)
+      color2Input.addEventListener('input', () => {
+        color2Hex.textContent = color2Input.value;
+      });
 
     // Populate segment dropdown if selected device is gpio_strip
     this._populateSegmentDropdown(existingRule?.action_config?.segment);
-  }
+  };
 
-    LightingFormsMixin.submitRule = async function(existingId) {
+  LightingFormsMixin.submitRule = async function (existingId) {
     const name = document.getElementById('lrFormName').value.trim();
     const instrumentId = document.getElementById('lrFormInstrument').value || null;
     const trigger = document.getElementById('lrFormTrigger').value;
 
     const channelsStr = document.getElementById('lrFormChannels').value.trim();
-    const channels = channelsStr ? channelsStr.split(',').map(s => parseInt(s.trim()) - 1).filter(n => n >= 0 && n <= 15) : null;
+    const channels = channelsStr
+      ? channelsStr
+          .split(',')
+          .map((s) => parseInt(s.trim()) - 1)
+          .filter((n) => n >= 0 && n <= 15)
+      : null;
 
     const ccStr = document.getElementById('lrFormCcNum').value.trim();
-    const ccNumbers = ccStr ? ccStr.split(',').map(s => parseInt(s.trim())).filter(n => n >= 0 && n <= 127) : null;
+    const ccNumbers = ccStr
+      ? ccStr
+          .split(',')
+          .map((s) => parseInt(s.trim()))
+          .filter((n) => n >= 0 && n <= 127)
+      : null;
 
     const conditionConfig = {
       trigger,
@@ -887,16 +982,18 @@
 
     if (actionType === 'velocity_mapped') {
       actionConfig.color_map = {
-        '0': document.getElementById('lrFormColorLow').value,
-        '64': document.getElementById('lrFormColorMid').value,
-        '127': document.getElementById('lrFormColorHigh').value
+        0: document.getElementById('lrFormColorLow').value,
+        64: document.getElementById('lrFormColorMid').value,
+        127: document.getElementById('lrFormColorHigh').value
       };
     }
 
     // Note-to-LED config
     if (actionType === 'note_led') {
-      actionConfig.note_led_min = parseInt(document.getElementById('lrFormNoteLedMin')?.value) || 36;
-      actionConfig.note_led_max = parseInt(document.getElementById('lrFormNoteLedMax')?.value) || 96;
+      actionConfig.note_led_min =
+        parseInt(document.getElementById('lrFormNoteLedMin')?.value) || 36;
+      actionConfig.note_led_max =
+        parseInt(document.getElementById('lrFormNoteLedMax')?.value) || 96;
     }
 
     // Color temperature config
@@ -907,30 +1004,50 @@
 
     // Effect-specific config
     if (this._isEffectType(actionType)) {
-      actionConfig.effect_speed = Math.max(20, Math.min(10000, parseInt(document.getElementById('lrFormEffectSpeed')?.value) || 500));
-      actionConfig.effect_density = Math.max(0.01, Math.min(1, parseFloat(document.getElementById('lrFormEffectDensity')?.value) || 0.1));
+      actionConfig.effect_speed = Math.max(
+        20,
+        Math.min(10000, parseInt(document.getElementById('lrFormEffectSpeed')?.value) || 500)
+      );
+      actionConfig.effect_density = Math.max(
+        0.01,
+        Math.min(1, parseFloat(document.getElementById('lrFormEffectDensity')?.value) || 0.1)
+      );
       const color2 = document.getElementById('lrFormColor2')?.value;
       if (color2 && color2 !== '#000000') actionConfig.color2 = color2;
     }
 
     // Validation
     if (conditionConfig.velocity_min > conditionConfig.velocity_max) {
-      this.showToast(i18n.t('lighting.velocityMinMaxError') || 'Vélocité min doit être ≤ vélocité max', 'warning'); return;
+      this.showToast(
+        i18n.t('lighting.velocityMinMaxError') || 'Vélocité min doit être ≤ vélocité max',
+        'warning'
+      );
+      return;
     }
     if (conditionConfig.note_min > conditionConfig.note_max) {
-      this.showToast(i18n.t('lighting.noteMinMaxError') || 'Note min doit être ≤ note max', 'warning'); return;
+      this.showToast(
+        i18n.t('lighting.noteMinMaxError') || 'Note min doit être ≤ note max',
+        'warning'
+      );
+      return;
     }
 
     try {
       if (existingId) {
         await this.apiClient.sendCommand('lighting_rule_update', {
-          id: existingId, name, instrument_id: instrumentId,
-          condition_config: conditionConfig, action_config: actionConfig
+          id: existingId,
+          name,
+          instrument_id: instrumentId,
+          condition_config: conditionConfig,
+          action_config: actionConfig
         });
       } else {
         await this.apiClient.sendCommand('lighting_rule_add', {
-          device_id: this.selectedDeviceId, name, instrument_id: instrumentId,
-          condition_config: conditionConfig, action_config: actionConfig
+          device_id: this.selectedDeviceId,
+          name,
+          instrument_id: instrumentId,
+          condition_config: conditionConfig,
+          action_config: actionConfig
         });
       }
       document.getElementById('lightingRuleForm')?.remove();
@@ -938,7 +1055,7 @@
     } catch (error) {
       this.showToast(error.message, 'error');
     }
-  }
+  };
 
-    if (typeof window !== 'undefined') window.LightingFormsMixin = LightingFormsMixin;
+  if (typeof window !== 'undefined') window.LightingFormsMixin = LightingFormsMixin;
 })();

@@ -21,8 +21,13 @@ beforeAll(() => {
 });
 
 const SHAPE = [
-  'id', 'label', 'note_selection_mode', 'octave_mode',
-  'note_range_min', 'note_range_max', 'polyphony',
+  'id',
+  'label',
+  'note_selection_mode',
+  'octave_mode',
+  'note_range_min',
+  'note_range_max',
+  'polyphony'
 ];
 const BLACK_PC = new Set([1, 3, 6, 8, 10]);
 
@@ -55,10 +60,16 @@ describe('InstrumentPresets.getPresetsForProgram', () => {
     const presets = window.InstrumentPresets.getPresetsForProgram(22, 0);
     const ids = presets.map((p) => p.id);
     expect(ids).toEqual([
-      'harmo_diatonic_c', 'harmo_diatonic_g', 'harmo_diatonic_a',
-      'harmo_diatonic_d', 'harmo_diatonic_f', 'harmo_diatonic_as',
-      'harmo_diatonic_e', 'harmo_diatonic_ds',
-      'harmo_chromatic_c_12', 'harmo_chromatic_c_16',
+      'harmo_diatonic_c',
+      'harmo_diatonic_g',
+      'harmo_diatonic_a',
+      'harmo_diatonic_d',
+      'harmo_diatonic_f',
+      'harmo_diatonic_as',
+      'harmo_diatonic_e',
+      'harmo_diatonic_ds',
+      'harmo_chromatic_c_12',
+      'harmo_chromatic_c_16'
     ]);
     for (const p of presets) {
       expect(p.polyphony).toBe(1);
@@ -91,16 +102,19 @@ describe('InstrumentPresets — string geometry helpers', () => {
     const list = window.InstrumentPresets.filterStringPresetsByGmProgram(40);
     const violin = list.find((p) => p.id === 'violin');
     expect(violin).toMatchObject({
-      num_strings: 4, num_frets: 0, default_mechanism: 'string_sliding_fingers',
-      fretless: true,
+      num_strings: 4,
+      num_frets: 0,
+      default_mechanism: 'string_sliding_fingers',
+      fretless: true
     });
     expect(violin.tuning).toEqual([55, 62, 69, 76]);
     expect(violin.scale_length_mm).toBeGreaterThan(0);
   });
 
   it('string presets expose a standard tuning whose length matches num_strings', () => {
-    const all = window.InstrumentPresets.filterStringPresetsByFamily('plucked_strings')
-      .concat(window.InstrumentPresets.filterStringPresetsByFamily('bowed_strings'));
+    const all = window.InstrumentPresets.filterStringPresetsByFamily('plucked_strings').concat(
+      window.InstrumentPresets.filterStringPresetsByFamily('bowed_strings')
+    );
     for (const p of all) {
       if (p.tuning === null) continue; // harp/sitar/koto/shamisen: no neck UI
       expect(p.tuning.length, `${p.id} tuning/strings mismatch`).toBe(p.num_strings);
@@ -132,9 +146,12 @@ describe('InstrumentPresets — string geometry helpers', () => {
 
 describe('InstrumentPresets — harmonica ranges resolve to the right layout', () => {
   const harmos = () => window.InstrumentPresets.getPresetsForProgram(22, 0);
-  const layoutOf = (p) => window.HarmonicaLayout.computeLayout(
-    p.harmonica_config,
-    { min: p.note_range_min, max: p.note_range_max, notes: null });
+  const layoutOf = (p) =>
+    window.HarmonicaLayout.computeLayout(p.harmonica_config, {
+      min: p.note_range_min,
+      max: p.note_range_max,
+      notes: null
+    });
 
   it('every diatonic preset → exactly 10 holes, starting at its low note', () => {
     for (const p of harmos().filter((x) => x.harmonica_config.type === 'diatonic')) {

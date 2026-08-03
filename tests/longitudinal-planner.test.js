@@ -18,17 +18,19 @@ function makeConfig(overrides = {}) {
     mode: 'frets',
     mechanism: 'string_sliding_fingers',
     hand_move_mm_per_sec: 250,
-    hands: [{
-      id: 'fretting',
-      cc_position_number: 22,
-      hand_span_mm: 80,
-      fingers: [
-        { id: 1, string: 1, offset_min_mm: -10, offset_max_mm: 30,  rest_offset_mm: 0  },
-        { id: 2, string: 2, offset_min_mm: 10,  offset_max_mm: 65,  rest_offset_mm: 25 },
-        { id: 3, string: 3, offset_min_mm: 25,  offset_max_mm: 95,  rest_offset_mm: 45 },
-        { id: 4, string: 4, offset_min_mm: 40,  offset_max_mm: 120, rest_offset_mm: 65 }
-      ]
-    }],
+    hands: [
+      {
+        id: 'fretting',
+        cc_position_number: 22,
+        hand_span_mm: 80,
+        fingers: [
+          { id: 1, string: 1, offset_min_mm: -10, offset_max_mm: 30, rest_offset_mm: 0 },
+          { id: 2, string: 2, offset_min_mm: 10, offset_max_mm: 65, rest_offset_mm: 25 },
+          { id: 3, string: 3, offset_min_mm: 25, offset_max_mm: 95, rest_offset_mm: 45 },
+          { id: 4, string: 4, offset_min_mm: 40, offset_max_mm: 120, rest_offset_mm: 65 }
+        ]
+      }
+    ],
     anchor: { min_duration_ms: 60, early_release_ms: 20, hysteresis_mm: 3, lookahead_events: 2 },
     ...overrides
   };
@@ -56,8 +58,9 @@ const note = (time, fret, str, duration = 0.05, extra = {}) => ({
 
 describe('LongitudinalPlanner — construction guards', () => {
   test('rejects non-frets unit', () => {
-    expect(() => new LongitudinalPlanner(makeConfig(), ctx({ unit: 'semitones' })))
-      .toThrow(/unit must be 'frets'/);
+    expect(() => new LongitudinalPlanner(makeConfig(), ctx({ unit: 'semitones' }))).toThrow(
+      /unit must be 'frets'/
+    );
   });
 
   test('auto-derives fingers when hand.fingers[] is omitted', () => {
@@ -77,12 +80,13 @@ describe('LongitudinalPlanner — construction guards', () => {
     const p = new LongitudinalPlanner(cfg, ctx());
     const { ccEvents, warnings } = p.plan([note(0.0, 5, 3, 0.05)]);
     expect(ccEvents.length).toBeGreaterThanOrEqual(1);
-    expect(warnings.find(w => w.code === 'no_finger_for_string')).toBeUndefined();
+    expect(warnings.find((w) => w.code === 'no_finger_for_string')).toBeUndefined();
   });
 
   test('requires scaleLengthMm', () => {
-    expect(() => new LongitudinalPlanner(makeConfig(), ctx({ scaleLengthMm: undefined })))
-      .toThrow(/scaleLengthMm is required/);
+    expect(() => new LongitudinalPlanner(makeConfig(), ctx({ scaleLengthMm: undefined }))).toThrow(
+      /scaleLengthMm is required/
+    );
   });
 
   test('rejects mechanisms other than string_sliding_fingers', () => {
@@ -103,11 +107,7 @@ describe('LongitudinalPlanner — basic emission', () => {
 
   test('no shift when subsequent notes stay reachable from current P', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx());
-    const notes = [
-      note(0.0, 5, 1, 0.05),
-      note(0.5, 6, 2, 0.05),
-      note(1.0, 7, 3, 0.05)
-    ];
+    const notes = [note(0.0, 5, 1, 0.05), note(0.5, 6, 2, 0.05), note(1.0, 7, 3, 0.05)];
     const { ccEvents } = p.plan(notes);
     // All three notes lie within the same hand position (fingers 1,2,3
     // in their natural offset bands centred on the initial P).
@@ -119,14 +119,14 @@ describe('LongitudinalPlanner — T1 anchored finger across a movement', () => {
   test('long held note keeps its finger anchored while another finger plays', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx());
     const notes = [
-      note(0.0, 5, 1, 1.0),   // long: finger 1 anchored on string 1, fret 5
-      note(0.5, 7, 2, 0.05)   // finger 2 plays string 2, fret 7
+      note(0.0, 5, 1, 1.0), // long: finger 1 anchored on string 1, fret 5
+      note(0.5, 7, 2, 0.05) // finger 2 plays string 2, fret 7
     ];
     const { ccEvents, stats } = p.plan(notes);
     expect(stats.anchors_kept).toBeGreaterThanOrEqual(1);
     // No "release_forced" warning: finger 1 stays anchored.
     const { warnings } = p.plan(notes);
-    expect(warnings.find(w => w.code === 'release_forced')).toBeUndefined();
+    expect(warnings.find((w) => w.code === 'release_forced')).toBeUndefined();
     expect(ccEvents.length).toBeGreaterThanOrEqual(1);
   });
 });
@@ -135,14 +135,14 @@ describe('LongitudinalPlanner — T4 release_forced when an anchor is unreachabl
   test('warns when keeping the anchor would prevent reaching the next note', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx());
     const notes = [
-      note(0.0, 3, 1, 2.0),   // finger 1 anchored low
-      note(0.5, 18, 1, 0.05)  // same string, very high — must release
+      note(0.0, 3, 1, 2.0), // finger 1 anchored low
+      note(0.5, 18, 1, 0.05) // same string, very high — must release
     ];
     const { warnings, stats } = p.plan(notes);
     // Same finger needs to be at two different frets at once → either
     // the anchor is released, or anchor_conflict is raised.
-    const released = warnings.find(w => w.code === 'release_forced');
-    const conflict = warnings.find(w => w.code === 'anchor_conflict');
+    const released = warnings.find((w) => w.code === 'release_forced');
+    const conflict = warnings.find((w) => w.code === 'anchor_conflict');
     expect(released || conflict).toBeTruthy();
     expect(stats.anchors_released_forced + (conflict ? 0 : 1)).toBeGreaterThanOrEqual(0);
   });
@@ -175,7 +175,7 @@ describe('LongitudinalPlanner — T8 speed_saturation warning on fast slides', (
       note(0.05, 18, 1, 0.05) // huge jump in 50 ms with slow hand
     ];
     const { warnings } = p.plan(notes);
-    expect(warnings.find(w => w.code === 'speed_saturation')).toBeDefined();
+    expect(warnings.find((w) => w.code === 'speed_saturation')).toBeDefined();
   });
 
   test('finger_speed_saturation fires when a finger is anchored and the per-finger speed is the binding constraint', () => {
@@ -198,12 +198,12 @@ describe('LongitudinalPlanner — T8 speed_saturation warning on fast slides', (
     cfg.hands[0].hand_span_mm = 200;
     const p = new LongitudinalPlanner(cfg, ctx());
     const notes = [
-      note(0.0, 1, 1, 1.0),   // anchored on string 1, fret 1 (low)
-      note(0.01, 6, 2, 0.05)  // string 2 fret 6, only 10 ms later
+      note(0.0, 1, 1, 1.0), // anchored on string 1, fret 1 (low)
+      note(0.01, 6, 2, 0.05) // string 2 fret 6, only 10 ms later
     ];
     const { warnings } = p.plan(notes);
-    expect(warnings.find(w => w.code === 'finger_speed_saturation')).toBeDefined();
-    expect(warnings.find(w => w.code === 'release_forced')).toBeUndefined();
+    expect(warnings.find((w) => w.code === 'finger_speed_saturation')).toBeDefined();
+    expect(warnings.find((w) => w.code === 'release_forced')).toBeUndefined();
   });
 
   test('saturated emission lands on the reachable position, not the unreachable target', () => {
@@ -213,10 +213,7 @@ describe('LongitudinalPlanner — T8 speed_saturation warning on fast slides', (
     // target.
     const cfg = makeConfig({ hand_move_mm_per_sec: 50 });
     const p = new LongitudinalPlanner(cfg, ctx());
-    const notes = [
-      note(0.0, 1,  1, 0.05),
-      note(0.1, 15, 1, 0.05)
-    ];
+    const notes = [note(0.0, 1, 1, 0.05), note(0.1, 15, 1, 0.05)];
     const { ccEvents } = p.plan(notes);
     // The second event (the saturated one) should be much closer to the
     // first than to fret 15.
@@ -235,15 +232,12 @@ describe('LongitudinalPlanner — anchor lifecycle', () => {
       note(0.6, 8, 2, 0.05) // strictly after t_on + duration
     ];
     const { warnings } = p.plan(notes);
-    expect(warnings.find(w => w.code === 'release_forced')).toBeUndefined();
+    expect(warnings.find((w) => w.code === 'release_forced')).toBeUndefined();
   });
 
   test('ignores notes whose hand differs from the planner hand', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx());
-    const notes = [
-      note(0.0, 5, 1, 0.05),
-      { ...note(0.5, 7, 1, 0.05), hand: 'other' }
-    ];
+    const notes = [note(0.0, 5, 1, 0.05), { ...note(0.5, 7, 1, 0.05), hand: 'other' }];
     const { ccEvents } = p.plan(notes);
     expect(ccEvents).toHaveLength(1);
   });
@@ -253,13 +247,13 @@ describe('LongitudinalPlanner — out-of-range and missing-finger warnings', () 
   test('warns when fret is out of instrument range', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx({ noteRangeMax: 12 }));
     const { warnings } = p.plan([note(0.0, 22, 1, 0.05)]);
-    expect(warnings.find(w => w.code === 'out_of_range')).toBeDefined();
+    expect(warnings.find((w) => w.code === 'out_of_range')).toBeDefined();
   });
 
   test('warns when a note targets a string with no finger pinned', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx());
     const { warnings } = p.plan([note(0.0, 5, 99, 0.05)]);
-    expect(warnings.find(w => w.code === 'no_finger_for_string')).toBeDefined();
+    expect(warnings.find((w) => w.code === 'no_finger_for_string')).toBeDefined();
   });
 });
 
@@ -268,7 +262,7 @@ describe('LongitudinalPlanner — chord (T5) two anchored fingers', () => {
     const p = new LongitudinalPlanner(makeConfig(), ctx());
     const notes = [
       note(0.0, 5, 1, 1.0),
-      note(0.0, 8, 2, 1.0)  // same chord
+      note(0.0, 8, 2, 1.0) // same chord
     ];
     const { stats } = p.plan(notes);
     expect(stats.anchors_kept).toBe(2);

@@ -6,10 +6,19 @@ function makeDeps() {
   return {
     logger: {
       _levelNum: 1,
-      info() {}, warn() {}, debug() {}, error() {},
-      isDebugEnabled() { return false; },
-      isWarnEnabled() { return true; },
-      isInfoEnabled() { return true; }
+      info() {},
+      warn() {},
+      debug() {},
+      error() {},
+      isDebugEnabled() {
+        return false;
+      },
+      isWarnEnabled() {
+        return true;
+      },
+      isInfoEnabled() {
+        return true;
+      }
     },
     database: {},
     eventBus: { on: jest.fn(), off: jest.fn(), emit: jest.fn() },
@@ -17,14 +26,23 @@ function makeDeps() {
     compensationService: {
       _delay: 10,
       calls: 0,
-      getDelay() { this.calls++; return this._delay; }
+      getDelay() {
+        this.calls++;
+        return this._delay;
+      }
     },
     capabilityResolver: {
       _stringCC: false,
       _timing: { minNoteInterval: null, minNoteDuration: null, polyphony: null },
       calls: { stringCC: 0, timing: 0 },
-      isStringCCAllowed() { this.calls.stringCC++; return this._stringCC; },
-      getTimingConstraints() { this.calls.timing++; return this._timing; }
+      isStringCCAllowed() {
+        this.calls.stringCC++;
+        return this._stringCC;
+      },
+      getTimingConstraints() {
+        this.calls.timing++;
+        return this._timing;
+      }
     }
   };
 }

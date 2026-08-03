@@ -23,8 +23,8 @@ jest.unstable_mockModule('soundfont2', () => ({
         this.banks = {};
       }
     },
-    GeneratorType: {},
-  },
+    GeneratorType: {}
+  }
 }));
 
 const fakeFiles = new Map(); // absPath → { content: Buffer, mtimeMs }
@@ -41,7 +41,7 @@ jest.unstable_mockModule('fs', () => {
       statSync: jest.fn((p) => {
         if (!fakeFiles.has(p)) throw new Error(`ENOENT: ${p}`);
         return { mtimeMs: fakeFiles.get(p).mtimeMs };
-      }),
+      })
     },
     readFileSync: jest.fn((p) => {
       if (!fakeFiles.has(p)) throw new Error(`ENOENT: ${p}`);
@@ -50,7 +50,7 @@ jest.unstable_mockModule('fs', () => {
     statSync: jest.fn((p) => {
       if (!fakeFiles.has(p)) throw new Error(`ENOENT: ${p}`);
       return { mtimeMs: fakeFiles.get(p).mtimeMs };
-    }),
+    })
   };
 });
 

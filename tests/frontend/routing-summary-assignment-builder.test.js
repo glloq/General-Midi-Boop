@@ -164,25 +164,34 @@ describe('buildAssignmentsPayload — split channels', () => {
 
 describe('computeModificationFlags', () => {
   it('flags hasTransposition when any semitone is non-zero', () => {
-    const flags = builder().computeModificationFlags({
-      0: { transposition: { semitones: 0 } },
-      1: { transposition: { semitones: 3 } }
-    }, false);
+    const flags = builder().computeModificationFlags(
+      {
+        0: { transposition: { semitones: 0 } },
+        1: { transposition: { semitones: 3 } }
+      },
+      false
+    );
     expect(flags.hasTransposition).toBe(true);
     expect(flags.needsFileModification).toBe(true);
   });
 
   it('flags hasCCRemap when any channel has a non-empty ccRemapping', () => {
-    const flags = builder().computeModificationFlags({
-      0: { ccRemapping: { cc1: 2 } }
-    }, false);
+    const flags = builder().computeModificationFlags(
+      {
+        0: { ccRemapping: { cc1: 2 } }
+      },
+      false
+    );
     expect(flags.hasCCRemap).toBe(true);
   });
 
   it('flags hasVolumeChange when any channelVolume differs from 100', () => {
-    const flags = builder().computeModificationFlags({
-      0: { channelVolume: 80 }
-    }, false);
+    const flags = builder().computeModificationFlags(
+      {
+        0: { channelVolume: 80 }
+      },
+      false
+    );
     expect(flags.hasVolumeChange).toBe(true);
   });
 
@@ -192,9 +201,12 @@ describe('computeModificationFlags', () => {
   });
 
   it('returns needsFileModification = false when no flag set', () => {
-    const flags = builder().computeModificationFlags({
-      0: { transposition: { semitones: 0 }, channelVolume: 100 }
-    }, false);
+    const flags = builder().computeModificationFlags(
+      {
+        0: { transposition: { semitones: 0 }, channelVolume: 100 }
+      },
+      false
+    );
     expect(flags.needsFileModification).toBe(false);
   });
 });

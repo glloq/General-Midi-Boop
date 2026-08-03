@@ -17,10 +17,10 @@
  */
 
 export const CC = Object.freeze({
-  MASTER:    110,
-  EFFECT:    111,
-  HUE:       112,
-  SPEED:     113,
+  MASTER: 110,
+  EFFECT: 111,
+  HUE: 112,
+  SPEED: 113,
   INTENSITY: 114
 });
 
@@ -42,31 +42,31 @@ const FIELDS = Object.freeze(['brightness', 'effect', 'hue', 'speed', 'intensity
 
 const CC_OF = Object.freeze({
   brightness: CC.MASTER,
-  effect:     CC.EFFECT,
-  hue:        CC.HUE,
-  speed:      CC.SPEED,
-  intensity:  CC.INTENSITY
+  effect: CC.EFFECT,
+  hue: CC.HUE,
+  speed: CC.SPEED,
+  intensity: CC.INTENSITY
 });
 
 /** Bit position in `supported_mask`, one per CC field. */
 export const CC_BIT = Object.freeze({
   brightness: 0x01,
-  effect:     0x02,
-  hue:        0x04,
-  speed:      0x08,
-  intensity:  0x10
+  effect: 0x02,
+  hue: 0x04,
+  speed: 0x08,
+  intensity: 0x10
 });
 
-export const MASK_ALL = 0x1F;
+export const MASK_ALL = 0x1f;
 
 /** CC 110 interpretation declared by the firmware. */
 export const BRIGHTNESS_MODE = Object.freeze({
-  ON_OFF:   0,
+  ON_OFF: 0,
   DIMMABLE: 1
 });
 
 /** Bitmask covering every effect in {@link EFFECTS} (10 bits). */
-export const EFFECTS_ALL = 0x3FF;
+export const EFFECTS_ALL = 0x3ff;
 
 /**
  * Snap a brightness value to 0/127 when the firmware is wired as an on/off
@@ -75,7 +75,7 @@ export const EFFECTS_ALL = 0x3FF;
  */
 export function snapBrightness(value, brightnessMode) {
   if (brightnessMode === BRIGHTNESS_MODE.ON_OFF) {
-    return ((value | 0) > 0) ? 127 : 0;
+    return (value | 0) > 0 ? 127 : 0;
   }
   return Math.max(0, Math.min(127, value | 0));
 }
@@ -84,7 +84,7 @@ export function snapBrightness(value, brightnessMode) {
 export function isSupported(mask, field) {
   if (mask === undefined || mask === null) return false;
   const bit = CC_BIT[field];
-  return bit !== undefined && ((mask & bit) !== 0);
+  return bit !== undefined && (mask & bit) !== 0;
 }
 
 const clamp7 = (v) => Math.max(0, Math.min(127, v | 0));
@@ -112,7 +112,7 @@ export function ccMessage(channel, controller, value) {
   return {
     type: 'cc',
     data: {
-      channel: clamp7(channel) & 0x0F,
+      channel: clamp7(channel) & 0x0f,
       controller: clamp7(controller),
       value: clamp7(value)
     }
@@ -125,9 +125,7 @@ export function ccMessage(channel, controller, value) {
  */
 export function messagesFor(channel, state, mask = MASK_ALL) {
   const s = normalizeState(state);
-  return FIELDS
-    .filter((f) => isSupported(mask, f))
-    .map((f) => ccMessage(channel, CC_OF[f], s[f]));
+  return FIELDS.filter((f) => isSupported(mask, f)).map((f) => ccMessage(channel, CC_OF[f], s[f]));
 }
 
 /**
@@ -137,9 +135,9 @@ export function messagesFor(channel, state, mask = MASK_ALL) {
 export function messagesForDiff(channel, prev, next, mask = MASK_ALL) {
   const p = normalizeState(prev);
   const n = normalizeState(next);
-  return FIELDS
-    .filter((f) => isSupported(mask, f) && p[f] !== n[f])
-    .map((f) => ccMessage(channel, CC_OF[f], n[f]));
+  return FIELDS.filter((f) => isSupported(mask, f) && p[f] !== n[f]).map((f) =>
+    ccMessage(channel, CC_OF[f], n[f])
+  );
 }
 
 /** Effect index → display key. Unknown indexes fall back to 'static'. */
@@ -162,13 +160,28 @@ export function hueToRgb(hue127, sat = 1, val = 1) {
   const c = val * sat;
   const x = c * (1 - Math.abs((h % 2) - 1));
   const m = val - c;
-  let r = 0, g = 0, b = 0;
-  if (h < 1) { r = c; g = x; }
-  else if (h < 2) { r = x; g = c; }
-  else if (h < 3) { g = c; b = x; }
-  else if (h < 4) { g = x; b = c; }
-  else if (h < 5) { r = x; b = c; }
-  else { r = c; b = x; }
+  let r = 0,
+    g = 0,
+    b = 0;
+  if (h < 1) {
+    r = c;
+    g = x;
+  } else if (h < 2) {
+    r = x;
+    g = c;
+  } else if (h < 3) {
+    g = c;
+    b = x;
+  } else if (h < 4) {
+    g = x;
+    b = c;
+  } else if (h < 5) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
   return {
     r: Math.round((r + m) * 255),
     g: Math.round((g + m) * 255),

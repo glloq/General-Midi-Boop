@@ -53,26 +53,36 @@ describe('Harp — registration & detection', () => {
   });
 
   it('neighbours: 45 pizzicato stays fretboard, 47 timpani → piano', () => {
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 45 } }).viewKind).toBe('fretboard');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 45 } }).viewKind).toBe(
+      'fretboard'
+    );
     // GM 46 (Harp) and 47 (Timpani) are both excluded from the fretboard
     // range; 47 stays on the standard piano keyboard (user spec).
-    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe('piano');
+    expect(win.InstrumentDetector.detect({ capabilities: { gm_program: 47 } }).viewKind).toBe(
+      'piano'
+    );
   });
 
   it('escape hatch: explicit string type / stringConfig still forces fretboard for GM 46', () => {
-    expect(win.InstrumentDetector.detect({
-      capabilities: { gm_program: 46, instrument_type: 'string' }
-    }).viewKind).toBe('fretboard');
-    expect(win.InstrumentDetector.detect({
-      capabilities: { gm_program: 46 },
-      stringInstrumentConfig: { strings: 22 }
-    }).viewKind).toBe('fretboard');
+    expect(
+      win.InstrumentDetector.detect({
+        capabilities: { gm_program: 46, instrument_type: 'string' }
+      }).viewKind
+    ).toBe('fretboard');
+    expect(
+      win.InstrumentDetector.detect({
+        capabilities: { gm_program: 46 },
+        stringInstrumentConfig: { strings: 22 }
+      }).viewKind
+    ).toBe('fretboard');
   });
 
   it('drum still wins over harp on channel 9', () => {
-    expect(win.InstrumentDetector.detect({
-      capabilities: { gm_program: 46, channel: 9 }
-    }).viewKind).toBe('drumpad');
+    expect(
+      win.InstrumentDetector.detect({
+        capabilities: { gm_program: 46, channel: 9 }
+      }).viewKind
+    ).toBe('drumpad');
   });
 });
 
@@ -88,19 +98,25 @@ describe('Harp — self-owned DOM lifecycle', () => {
       stopNote: (n) => stopped.push(n),
       getNoteLabel: (n) => `N${n}`
     };
-    view = new (win.HarpView)();
+    view = new win.HarpView();
     view.mount({ modal });
   });
 
-  afterEach(() => { try { view.unmount(); } catch { /* idempotent */ } });
+  afterEach(() => {
+    try {
+      view.unmount();
+    } catch {
+      /* idempotent */
+    }
+  });
 
   it('mount() builds 22 C-major strings C3..C6 (C/F landmarks coloured)', () => {
     const root = document.getElementById('harp-container');
     expect(root).not.toBeNull();
     const strings = root.querySelectorAll('.harp-string');
     expect(strings.length).toBe(22);
-    expect(strings[0].dataset.note).toBe('48');   // C3
-    expect(strings[21].dataset.note).toBe('84');  // C6
+    expect(strings[0].dataset.note).toBe('48'); // C3
+    expect(strings[21].dataset.note).toBe('84'); // C6
     // Diatonic: no accidentals (every note class in the C-major scale)
     const scale = new Set([0, 2, 4, 5, 7, 9, 11]);
     for (const s of strings) expect(scale.has(parseInt(s.dataset.note, 10) % 12)).toBe(true);
@@ -122,10 +138,10 @@ describe('Harp — self-owned DOM lifecycle', () => {
   it('dragging across strings performs a glissando (each new string plucked once)', () => {
     const root = document.getElementById('harp-container');
     const s = root.querySelectorAll('.harp-string');
-    fire(s[0], 'pointerdown');     // press C3
-    fire(s[1], 'pointermove');     // drag → D3
-    fire(s[2], 'pointermove');     // → E3
-    fire(s[2], 'pointermove');     // same string, no re-trigger
+    fire(s[0], 'pointerdown'); // press C3
+    fire(s[1], 'pointermove'); // drag → D3
+    fire(s[2], 'pointermove'); // → E3
+    fire(s[2], 'pointermove'); // same string, no re-trigger
     expect(played).toEqual([48, 50, 52]);
     document.dispatchEvent(new Event('pointerup'));
     expect(stopped.sort((a, b) => a - b)).toEqual([48, 50, 52]);
@@ -137,8 +153,8 @@ describe('Harp — self-owned DOM lifecycle', () => {
     const first = root.querySelectorAll('.harp-string')[0]; // C3 = 48
     const lbl = first.querySelector('.harp-string-label');
     expect(lbl).not.toBeNull();
-    expect(lbl.textContent).toBe('N48');             // mock format
-    expect(lbl.style.pointerEvents).toBe('none');    // no hit-test interference
+    expect(lbl.textContent).toBe('N48'); // mock format
+    expect(lbl.style.pointerEvents).toBe('none'); // no hit-test interference
   });
 
   it('glissando hit-tests the live pointer position (implicit capture)', () => {
@@ -172,8 +188,7 @@ describe('Harp — self-owned DOM lifecycle', () => {
   it('setActiveNotes highlights matching strings', () => {
     const root = document.getElementById('harp-container');
     view.setActiveNotes(new Set([48, 84]));
-    const lit = [...root.querySelectorAll('.harp-string.active')]
-      .map(c => c.dataset.note).sort();
+    const lit = [...root.querySelectorAll('.harp-string.active')].map((c) => c.dataset.note).sort();
     expect(lit).toEqual(['48', '84']);
   });
 
@@ -194,24 +209,25 @@ describe('Harp — configured strings (modal._harpStringConfig)', () => {
 
   it('renders exactly the configured tuning, in order', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const view = new (win.HarpView)();
+    const view = new win.HarpView();
     view.mount({
       modal: {
-        playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}`,
+        playNote() {},
+        stopNote() {},
+        getNoteLabel: (n) => `N${n}`,
         _harpStringConfig: { tuning: [40, 45, 50, 55, 59], num_strings: 5 }
       }
     });
     const root = document.getElementById('harp-container');
     const strings = root.querySelectorAll('.harp-string');
     expect(strings.length).toBe(5);
-    expect([...strings].map(s => s.dataset.note))
-      .toEqual(['40', '45', '50', '55', '59']);
+    expect([...strings].map((s) => s.dataset.note)).toEqual(['40', '45', '50', '55', '59']);
     view.unmount();
   });
 
   it('falls back to the 22 diatonic strings when no config is present', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const view = new (win.HarpView)();
+    const view = new win.HarpView();
     view.mount({ modal: { playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}` } });
     const strings = document.querySelectorAll('.harp-string');
     expect(strings.length).toBe(22);
@@ -222,14 +238,17 @@ describe('Harp — configured strings (modal._harpStringConfig)', () => {
 });
 
 describe('Harp — strings follow the configured note selection', () => {
-  afterEach(() => { document.getElementById('harp-container')?.remove(); });
+  afterEach(() => {
+    document.getElementById('harp-container')?.remove();
+  });
 
   function mountWith(caps, range, played = []) {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const view = new (win.HarpView)();
+    const view = new win.HarpView();
     view.mount({
       modal: {
-        playNote: (n) => played.push(n), stopNote() {},
+        playNote: (n) => played.push(n),
+        stopNote() {},
         getNoteLabel: (n) => `N${n}`,
         selectedDeviceCapabilities: caps,
         getInstrumentNoteRange: () => range,
@@ -247,19 +266,20 @@ describe('Harp — strings follow the configured note selection', () => {
     const notes = [36, 40, 43, 48, 55, 60];
     const view = mountWith(
       { note_selection_mode: 'discrete', selected_notes: notes },
-      { min: 36, max: 60, notes });
+      { min: 36, max: 60, notes }
+    );
     const strings = document.querySelectorAll('.harp-string');
     expect(strings.length).toBe(notes.length);
-    expect([...strings].map(s => Number(s.dataset.note))).toEqual(notes);
+    expect([...strings].map((s) => Number(s.dataset.note))).toEqual(notes);
     view.unmount();
   });
 
   it('continuous range → diatonic strings across the configured range', () => {
     const view = mountWith(
       { note_range_min: 60, note_range_max: 71 },
-      { min: 60, max: 71, notes: null });
-    const notes = [...document.querySelectorAll('.harp-string')]
-      .map(s => Number(s.dataset.note));
+      { min: 60, max: 71, notes: null }
+    );
+    const notes = [...document.querySelectorAll('.harp-string')].map((s) => Number(s.dataset.note));
     // C-major within 60..71: C4 D4 E4 F4 G4 A4 B4
     expect(notes).toEqual([60, 62, 64, 65, 67, 69, 71]);
     view.unmount();
@@ -267,16 +287,17 @@ describe('Harp — strings follow the configured note selection', () => {
 
   it('configured range wins over the 47-string preset fallback', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const view = new (win.HarpView)();
+    const view = new win.HarpView();
     view.mount({
       modal: {
-        playNote() {}, stopNote() {}, getNoteLabel: (n) => `N${n}`,
+        playNote() {},
+        stopNote() {},
+        getNoteLabel: (n) => `N${n}`,
         getInstrumentNoteRange: () => ({ min: 48, max: 52, notes: null }),
         _harpStringConfig: { tuning: new Array(47).fill(0).map((_, i) => i), num_strings: 47 }
       }
     });
-    const notes = [...document.querySelectorAll('.harp-string')]
-      .map(s => Number(s.dataset.note));
+    const notes = [...document.querySelectorAll('.harp-string')].map((s) => Number(s.dataset.note));
     expect(notes).toEqual([48, 50, 52]); // diatonic 48..52, NOT the 47 preset
     view.unmount();
   });
@@ -285,7 +306,7 @@ describe('Harp — strings follow the configured note selection', () => {
 describe('Harp — KeyboardModal._activateView integration', () => {
   it('_activateView("harp") mounts HarpView; switching unmounts it', () => {
     document.body.innerHTML = '<div id="keyboard-canvas-container"></div>';
-    const m = new (win.KeyboardModal)();
+    const m = new win.KeyboardModal();
     m.regeneratePianoKeys = () => {}; // piano fallback is a mixin (absent here)
 
     m._activateView('harp');

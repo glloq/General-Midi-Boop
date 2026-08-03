@@ -23,7 +23,8 @@ function bench(name, fn, iterations = 10000) {
   return { name, avgMs: parseFloat(avgMs), opsPerSec, iterations };
 }
 
-async function benchAsync(name, fn, iterations = 1000) { // eslint-disable-line no-unused-vars
+async function benchAsync(name, fn, iterations = 1000) {
+  // eslint-disable-line no-unused-vars
   // Warmup
   for (let i = 0; i < 10; i++) await fn();
 
@@ -147,17 +148,26 @@ function assertPerf(name, actual, op, threshold) {
   const ok = op === '<' ? actual < threshold : actual > threshold;
   assertions.push({ name, actual, threshold, op, ok });
   const tag = ok ? 'OK' : 'FAIL';
-  console.log(`  [${tag}] ${name}: ${typeof actual === 'number' ? actual.toFixed(3) : actual} ${op} ${threshold}`);
+  console.log(
+    `  [${tag}] ${name}: ${typeof actual === 'number' ? actual.toFixed(3) : actual} ${op} ${threshold}`
+  );
 }
 
 console.log('\nbench-playback-jitter:');
 {
-  const { default: PlaybackScheduler } = await import('../../src/midi/playback/PlaybackScheduler.js');
+  const { default: PlaybackScheduler } =
+    await import('../../src/midi/playback/PlaybackScheduler.js');
   const noop = () => {};
   const deps = {
     logger: {
-      _levelNum: 2, info: noop, warn: noop, debug: noop, error: noop,
-      isDebugEnabled: () => false, isInfoEnabled: () => true, isWarnEnabled: () => true
+      _levelNum: 2,
+      info: noop,
+      warn: noop,
+      debug: noop,
+      error: noop,
+      isDebugEnabled: () => false,
+      isInfoEnabled: () => true,
+      isWarnEnabled: () => true
     },
     database: null,
     eventBus: { on: noop },
@@ -168,9 +178,18 @@ console.log('\nbench-playback-jitter:');
   const routing = { device: 'bench-dev', targetChannel: 0 };
   const getOutputForChannel = () => routing;
   const state = {
-    playing: true, paused: false, position: 0, duration: 1000,
-    events: [], currentEventIndex: 0, startTime: 0, playbackRate: 1,
-    loop: false, channelRouting: new Map(), mutedChannels: new Set(), disconnectedPolicy: 'skip'
+    playing: true,
+    paused: false,
+    position: 0,
+    duration: 1000,
+    events: [],
+    currentEventIndex: 0,
+    startTime: 0,
+    playbackRate: 1,
+    loop: false,
+    channelRouting: new Map(),
+    mutedChannels: new Set(),
+    disconnectedPolicy: 'skip'
   };
   // Generate 10000 synthetic events spread 1 ms apart, all within
   // the EMIT_AHEAD window so the tickless fast path is exercised.
@@ -183,13 +202,20 @@ console.log('\nbench-playback-jitter:');
     samples[i] = performance.now() - t0;
   }
   samples.sort((a, b) => a - b);
-  const p50 = pickPercentile(samples, 0.50);
+  const p50 = pickPercentile(samples, 0.5);
   const p99 = pickPercentile(samples, 0.99);
   const p999 = pickPercentile(samples, 0.999);
-  console.log(`  emit overhead p50=${p50.toFixed(3)}ms p99=${p99.toFixed(3)}ms p999=${p999.toFixed(3)}ms (${total} events)`);
+  console.log(
+    `  emit overhead p50=${p50.toFixed(3)}ms p99=${p99.toFixed(3)}ms p999=${p999.toFixed(3)}ms (${total} events)`
+  );
   assertPerf('playback-jitter p99 < 5ms', p99, '<', 5);
   assertPerf('playback-jitter p999 < 15ms', p999, '<', 15);
-  results.push({ name: 'playback emit p99', avgMs: parseFloat(p99.toFixed(3)), opsPerSec: 0, iterations: total });
+  results.push({
+    name: 'playback emit p99',
+    avgMs: parseFloat(p99.toFixed(3)),
+    opsPerSec: 0,
+    iterations: total
+  });
 }
 
 console.log('\nbench-ws-flood:');
@@ -197,24 +223,39 @@ console.log('\nbench-ws-flood:');
   const { WsOutputQueue } = await import('../../src/api/WsOutputQueue.js');
   const fastClients = [];
   for (let i = 0; i < 4; i++) {
-    fastClients.push({ readyState: 1, bufferedAmount: 0, sent: 0, send() { this.sent++; } });
+    fastClients.push({
+      readyState: 1,
+      bufferedAmount: 0,
+      sent: 0,
+      send() {
+        this.sent++;
+      }
+    });
   }
   // Slow client: bufferedAmount grows past the high watermark.
   const slowClient = {
     readyState: 1,
     bufferedAmount: 200 * 1024, // already above the 64 KB high-water mark
     sent: 0,
-    send() { this.sent++; }
+    send() {
+      this.sent++;
+    }
   };
   const clients = new Set([...fastClients, slowClient]);
   const logger = {
-    isWarnEnabled: () => false, isDebugEnabled: () => false,
-    warn: () => {}, debug: () => {}, info: () => {}, error: () => {}
+    isWarnEnabled: () => false,
+    isDebugEnabled: () => false,
+    warn: () => {},
+    debug: () => {},
+    info: () => {},
+    error: () => {}
   };
   // Manual flush so we can measure how the queue behaves under repeated bursts.
   const scheduled = [];
   const queue = new WsOutputQueue({
-    clients, logger, scheduleFlush: (cb) => scheduled.push(cb)
+    clients,
+    logger,
+    scheduleFlush: (cb) => scheduled.push(cb)
   });
 
   const burstSize = 2000;
@@ -228,7 +269,9 @@ console.log('\nbench-ws-flood:');
   const burstMs = performance.now() - startBurst;
   const stats = queue.getStats();
   console.log(`  burst of ${burstSize * 2} broadcasts took ${burstMs.toFixed(2)}ms`);
-  console.log(`  stats: enqueued=${stats.enqueued} coalesced=${stats.coalesced} sent=${stats.sent} droppedByClient=${stats.droppedByClient}`);
+  console.log(
+    `  stats: enqueued=${stats.enqueued} coalesced=${stats.coalesced} sent=${stats.sent} droppedByClient=${stats.droppedByClient}`
+  );
   // Coalescing: 2000 playback_position + 2000 monitor_event collapse to 2 actual sends per client.
   const expectedSendsPerFastClient = 2;
   for (const c of fastClients) {
@@ -239,7 +282,12 @@ console.log('\nbench-ws-flood:');
   assertPerf('ws-flood burst time < 50ms', burstMs, '<', 50);
   assertPerf('ws-flood droppedByClient > 0 (slow drop)', stats.droppedByClient, '>', 0);
   assertPerf('ws-flood coalesced count > 0', stats.coalesced, '>', 0);
-  results.push({ name: 'ws-flood burst', avgMs: parseFloat(burstMs.toFixed(2)), opsPerSec: 0, iterations: burstSize * 2 });
+  results.push({
+    name: 'ws-flood burst',
+    avgMs: parseFloat(burstMs.toFixed(2)),
+    opsPerSec: 0,
+    iterations: burstSize * 2
+  });
 }
 
 console.log('\nbench-snapshot-mutation:');
@@ -248,13 +296,19 @@ console.log('\nbench-snapshot-mutation:');
   let mutations = 0;
   const comp = {
     delay: 10,
-    getDelay() { return this.delay; }
+    getDelay() {
+      return this.delay;
+    }
   };
   const cap = {
     sc: false,
     tc: { minNoteInterval: null, minNoteDuration: null, polyphony: null },
-    isStringCCAllowed() { return this.sc; },
-    getTimingConstraints() { return this.tc; }
+    isStringCCAllowed() {
+      return this.sc;
+    },
+    getTimingConstraints() {
+      return this.tc;
+    }
   };
   const snap = new PlaybackSnapshot({ capabilityResolver: cap, compensationService: comp });
   // Warm cache.
@@ -284,13 +338,30 @@ console.log('\nbench-snapshot-mutation:');
   // Snapshot value must be stable.
   if (snap.getCompensationMs('dev', 0) !== 10) {
     console.log('  [FAIL] snapshot leaked underlying mutation!');
-    assertions.push({ name: 'snapshot-stability', actual: 'leaked', threshold: 'frozen', op: '==', ok: false });
+    assertions.push({
+      name: 'snapshot-stability',
+      actual: 'leaked',
+      threshold: 'frozen',
+      op: '==',
+      ok: false
+    });
   } else {
-    assertions.push({ name: 'snapshot-stability', actual: 'frozen', threshold: 'frozen', op: '==', ok: true });
+    assertions.push({
+      name: 'snapshot-stability',
+      actual: 'frozen',
+      threshold: 'frozen',
+      op: '==',
+      ok: true
+    });
     console.log('  [OK]   snapshot value frozen at original (10ms) despite mutations');
   }
   assertPerf('snapshot lookup p99 < 0.1ms', p99, '<', 0.1);
-  results.push({ name: 'snapshot lookup p99', avgMs: parseFloat(p99.toFixed(4)), opsPerSec: 0, iterations: 10000 });
+  results.push({
+    name: 'snapshot lookup p99',
+    avgMs: parseFloat(p99.toFixed(4)),
+    opsPerSec: 0,
+    iterations: 10000
+  });
 }
 
 // ── Summary ──────────────────────────────────────────────────────────────

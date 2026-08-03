@@ -142,21 +142,24 @@ export function createApiRouter(app) {
       }
       const uploadId = randomBytes(8).toString('hex');
 
-      const result = await app.uploadQueue.add(uploadId, (report) =>
-        app.fileManager.handleUpload(filename, req.body, { folder, report })
+      const result = await app.uploadQueue.add(
+        uploadId,
+        (report) => app.fileManager.handleUpload(filename, req.body, { folder, report }),
+        req.body.length
       );
 
       const status = result.status === 'duplicate' ? 200 : 201;
       res.status(status).json({ uploadId, ...result });
     } catch (err) {
       app.logger.error(`POST /api/files failed: ${err.message}`);
-      const code = err.code === 'UPLOAD_QUEUE_FULL'
-        ? 503
-        : /too large/i.test(err.message)
-          ? 413
-          : /invalid midi/i.test(err.message)
-            ? 415
-            : 500;
+      const code =
+        err.code === 'UPLOAD_QUEUE_FULL'
+          ? 503
+          : /too large/i.test(err.message)
+            ? 413
+            : /invalid midi/i.test(err.message)
+              ? 415
+              : 500;
       res.status(code).json({ error: err.message });
     }
   });

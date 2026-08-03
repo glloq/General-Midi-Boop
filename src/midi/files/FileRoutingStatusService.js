@@ -30,7 +30,10 @@ export function computeRoutingStatus({ file, routings, connectedDeviceIds = null
     if (connectedDeviceIds && !connectedDeviceIds.has(r.device_id)) return false;
     return true;
   });
-  const routedCount = enabledRoutings.length;
+  // Count DISTINCT channels, not routing rows: a split channel is persisted as
+  // several rows sharing the same `channel`, so `enabledRoutings.length` would
+  // over-count and report a file with an unrouted channel as fully playable.
+  const routedCount = new Set(enabledRoutings.map((r) => r.channel)).size;
 
   let status = 'unrouted';
   if (routedCount > 0 && routedCount < channelCount) {
@@ -40,7 +43,7 @@ export function computeRoutingStatus({ file, routings, connectedDeviceIds = null
       .map((r) => r.compatibility_score)
       .filter((s) => s !== null && s !== undefined);
     const minScore = scores.length > 0 ? Math.min(...scores) : null;
-    status = (minScore === null || minScore === 100) ? 'playable' : 'routed_incomplete';
+    status = minScore === null || minScore === 100 ? 'playable' : 'routed_incomplete';
   }
 
   const hasAutoAssigned = enabledRoutings.some((r) => r.auto_assigned);

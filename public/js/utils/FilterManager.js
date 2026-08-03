@@ -405,7 +405,11 @@ class FilterManager {
       if (this.filters.folder) {
         const fileFolder = file.folder || '/';
         if (this.filters.includeSubfolders) {
-          if (!fileFolder.startsWith(this.filters.folder)) {
+          // Require a path-separator boundary so folder "/Rock" matches
+          // "/Rock" and "/Rock/sub" but NOT sibling "/Rockabilly".
+          const base = this.filters.folder;
+          const baseWithSep = base.endsWith('/') ? base : base + '/';
+          if (fileFolder !== base && !fileFolder.startsWith(baseWithSep)) {
             return false;
           }
         } else {

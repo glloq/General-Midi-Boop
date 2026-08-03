@@ -525,9 +525,13 @@ class DrumNoteMapper {
         if (categories.snares.includes(37)) {
           const rimNote = instrNotes.find((n) => n === 37 && !used.has(n));
           mapping[37] = rimNote || targetSnare;
-          if (rimNote && rimNote !== 37) {
+          if (rimNote) {
+            // rimNote is always 37 here (the find predicate is `n === 37`).
+            // Reserve it so a later closest-match assignment can't also land on
+            // 37 and double-trigger the rim pad. The old `rimNote !== 37` guard
+            // was never true, so the reservation never happened.
             used.add(rimNote);
-          } else if (!rimNote) {
+          } else {
             substitutions.push({ from: 37, to: targetSnare, type: 'rim → snare' });
           }
         }
@@ -639,6 +643,10 @@ class DrumNoteMapper {
           midiToms.forEach((midiTom, idx) => {
             const targetIdx = Math.min(idx, latinFallback.length - 1);
             mapping[midiTom] = latinFallback[targetIdx];
+            // Reserve the latin target so a later latin-percussion assignment
+            // (assignOptionalNotes recomputes `latin.filter(!used)`) can't grab
+            // the same pad and collide a tom with a conga.
+            used.add(latinFallback[targetIdx]);
             substitutions.push({
               from: midiTom,
               to: latinFallback[targetIdx],

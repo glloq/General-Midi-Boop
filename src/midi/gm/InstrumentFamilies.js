@@ -31,9 +31,7 @@ const _data = JSON.parse(fs.readFileSync(JSON_PATH, 'utf8'));
 
 const FAMILIES = Object.freeze(_data.families.map((f) => Object.freeze({ ...f })));
 const PROGRAM_TO_SLUG = Object.freeze(
-  Object.fromEntries(
-    Object.entries(_data.programToSlug).map(([k, v]) => [Number(k), v])
-  )
+  Object.fromEntries(Object.entries(_data.programToSlug).map(([k, v]) => [Number(k), v]))
 );
 const GM_DRUM_KITS = Object.freeze(_data.gmDrumKits.map((k) => Object.freeze({ ...k })));
 const DRUM_KIT_OFFSET = _data.drumKitOffset;

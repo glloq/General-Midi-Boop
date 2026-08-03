@@ -48,8 +48,12 @@ class HotspotManager {
    */
   _bootstrapState() {
     this.status()
-      .then((s) => { this._active = !!s.hotspotActive; })
-      .catch(() => { /* nmcli unavailable, leave default false */ });
+      .then((s) => {
+        this._active = !!s.hotspotActive;
+      })
+      .catch(() => {
+        /* nmcli unavailable, leave default false */
+      });
   }
 
   /**
@@ -105,7 +109,11 @@ class HotspotManager {
   _tryParse(text) {
     const line = (text || '').trim().split('\n').pop();
     if (!line) return null;
-    try { return JSON.parse(line); } catch { return null; }
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null;
+    }
   }
 
   /**

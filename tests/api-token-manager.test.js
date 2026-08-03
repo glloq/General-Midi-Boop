@@ -1,5 +1,13 @@
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, chmodSync } from 'fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+  chmodSync
+} from 'fs';
 import { tmpdir, platform } from 'os';
 import { join } from 'path';
 import { ApiTokenManager } from '../src/infrastructure/auth/ApiTokenManager.js';
@@ -10,7 +18,7 @@ function makeLogger() {
   return {
     info: () => {},
     warn: () => {},
-    error: () => {},
+    error: () => {}
   };
 }
 

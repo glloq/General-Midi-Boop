@@ -138,7 +138,7 @@ describe('Logger', () => {
       logger.info('file test');
 
       // Wait for the write stream to flush
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         logger.close();
         setTimeout(resolve, 50);
       });
@@ -153,7 +153,7 @@ describe('Logger', () => {
       logger.info('json test');
 
       // Wait for the write stream to flush
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         logger.close();
         setTimeout(resolve, 50);
       });
@@ -179,7 +179,7 @@ describe('Logger', () => {
       logger._checkRotation();
 
       // Wait for async stat + rotation to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       logger.close();
 
       expect(fs.existsSync(`${logFile}.1`)).toBe(true);

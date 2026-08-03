@@ -41,7 +41,7 @@ class MidiTransposer {
     // Shallow clone + deep clone tracks only (more performant)
     const modifiedData = {
       ...midiData,
-      tracks: midiData.tracks.map(track => ({
+      tracks: midiData.tracks.map((track) => ({
         ...track,
         events: track.events ? [...track.events] : []
       }))
@@ -102,7 +102,10 @@ class MidiTransposer {
               notesRemapped++;
 
               // Apply optional velocity scaling for remapped notes (e.g., drum substitutions)
-              if (transposition.velocityScale && transposition.velocityScale[remappedNote] !== undefined) {
+              if (
+                transposition.velocityScale &&
+                transposition.velocityScale[remappedNote] !== undefined
+              ) {
                 const scale = transposition.velocityScale[remappedNote];
                 const velocity = newEvent.velocity ?? event.velocity;
                 if (velocity !== undefined && velocity > 0) {
@@ -113,8 +116,15 @@ class MidiTransposer {
           }
 
           // Step 3: Suppress out-of-range notes if requested
-          if (transposition.suppressOutOfRange && transposition.noteRangeMin != null && transposition.noteRangeMax != null) {
-            if (currentNote < transposition.noteRangeMin || currentNote > transposition.noteRangeMax) {
+          if (
+            transposition.suppressOutOfRange &&
+            transposition.noteRangeMin != null &&
+            transposition.noteRangeMax != null
+          ) {
+            if (
+              currentNote < transposition.noteRangeMin ||
+              currentNote > transposition.noteRangeMax
+            ) {
               eventsToRemove.push(i);
               if (event.type === 'noteOn') {
                 notesSuppressed++;
@@ -132,10 +142,17 @@ class MidiTransposer {
           }
 
           // Step 4: Polyphony reduction — drop strategy only (shorten is post-processed)
-          if (transposition.maxPolyphony && transposition.maxPolyphony > 0 && transposition.polyStrategy !== 'shorten') {
+          if (
+            transposition.maxPolyphony &&
+            transposition.maxPolyphony > 0 &&
+            transposition.polyStrategy !== 'shorten'
+          ) {
             const finalNote = eventModified ? currentNote : (event.note ?? event.noteNumber);
-            const isNoteOn = event.type === 'noteOn' && (event.velocity ?? (eventModified ? newEvent.velocity : event.velocity)) > 0;
-            const isNoteOff = event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
+            const isNoteOn =
+              event.type === 'noteOn' &&
+              (event.velocity ?? (eventModified ? newEvent.velocity : event.velocity)) > 0;
+            const isNoteOff =
+              event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
 
             if (!activeNotesPerChannel.has(channel)) {
               activeNotesPerChannel.set(channel, new Map());
@@ -196,8 +213,15 @@ class MidiTransposer {
           }
 
           // Suppress out-of-range aftertouch
-          if (transposition.suppressOutOfRange && transposition.noteRangeMin != null && transposition.noteRangeMax != null) {
-            if (currentNote < transposition.noteRangeMin || currentNote > transposition.noteRangeMax) {
+          if (
+            transposition.suppressOutOfRange &&
+            transposition.noteRangeMin != null &&
+            transposition.noteRangeMax != null
+          ) {
+            if (
+              currentNote < transposition.noteRangeMin ||
+              currentNote > transposition.noteRangeMax
+            ) {
               eventsToRemove.push(i);
               continue;
             }
@@ -252,7 +276,11 @@ class MidiTransposer {
     let notesShortened = 0;
     let finalMidiData = modifiedData;
     for (const [channelStr, transposition] of Object.entries(transpositions)) {
-      if (transposition.polyStrategy === 'shorten' && transposition.maxPolyphony && transposition.maxPolyphony > 0) {
+      if (
+        transposition.polyStrategy === 'shorten' &&
+        transposition.maxPolyphony &&
+        transposition.maxPolyphony > 0
+      ) {
         const ch = parseInt(channelStr);
         const result = this.reducePolyphonyGentle(finalMidiData, ch, transposition.maxPolyphony);
         finalMidiData = result.midiData;
@@ -345,16 +373,19 @@ class MidiTransposer {
    */
   compressNoteToRange(note, min, max) {
     if (note >= min && note <= max) return note;
-    const range = max - min;
-    if (range <= 0) return min;
+    if (max - min <= 0) return min;
 
-    if (note < min) {
-      const diff = min - note;
-      return min + (diff % range);
-    } else {
-      const diff = note - max;
-      return max - (diff % range);
-    }
+    // True octave folding: shift by whole octaves toward the range so the
+    // pitch CLASS is preserved. The previous reflection math
+    // (`min + diff % range`) mapped e.g. note 49 (C#) into [60,72] as 71 (B)
+    // instead of the correct 61 (C#); only exact octaves of a boundary landed
+    // right. Folding in 12-semitone steps keeps the note's pitch class.
+    let n = note;
+    while (n < min) n += 12;
+    while (n > max) n -= 12;
+    // Instruments narrower than an octave can't hold every pitch class; the
+    // octave shift may overshoot, so clamp to the nearest boundary.
+    return Math.max(min, Math.min(max, n));
   }
 
   /**
@@ -390,8 +421,8 @@ class MidiTransposer {
     // whenever rangeMax-rangeMin < 116 — the metric needs to reflect
     // the file's content to be actionable.
     const usedSources = new Set();
-    for (const track of (midiData?.tracks || [])) {
-      for (const e of (track.events || [])) {
+    for (const track of midiData?.tracks || []) {
+      for (const e of track.events || []) {
         if ((e.channel ?? -1) !== channel) continue;
         if (e.type !== 'noteOn') continue;
         const note = e.note ?? e.noteNumber;
@@ -465,9 +496,9 @@ class MidiTransposer {
 
     const modifiedData = {
       ...midiData,
-      tracks: midiData.tracks.map(track => ({
+      tracks: midiData.tracks.map((track) => ({
         ...track,
-        events: track.events ? track.events.map(e => ({ ...e })) : []
+        events: track.events ? track.events.map((e) => ({ ...e })) : []
       }))
     };
 
@@ -480,7 +511,7 @@ class MidiTransposer {
       const absTicks = [];
       let tick = 0;
       for (let i = 0; i < track.events.length; i++) {
-        tick += (track.events[i].deltaTime || 0);
+        tick += track.events[i].deltaTime || 0;
         absTicks.push(tick);
       }
 
@@ -497,7 +528,8 @@ class MidiTransposer {
         if (note === undefined) continue;
 
         const isNoteOn = event.type === 'noteOn' && (event.velocity ?? 0) > 0;
-        const isNoteOff = event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
+        const isNoteOff =
+          event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
 
         if (isNoteOn) {
           if (!pendingNotes.has(note)) pendingNotes.set(note, []);
@@ -593,8 +625,8 @@ class MidiTransposer {
       const indices = track.events.map((_, i) => i);
       indices.sort((a, b) => newAbsTicks[a] - newAbsTicks[b] || a - b);
 
-      const reorderedEvents = indices.map(i => track.events[i]);
-      const reorderedAbsTicks = indices.map(i => newAbsTicks[i]);
+      const reorderedEvents = indices.map((i) => track.events[i]);
+      const reorderedAbsTicks = indices.map((i) => newAbsTicks[i]);
 
       // Recompute deltaTime
       for (let i = 0; i < reorderedEvents.length; i++) {
@@ -649,7 +681,7 @@ class MidiTransposer {
 
     const modifiedData = {
       ...midiData,
-      tracks: midiData.tracks.map(track => ({
+      tracks: midiData.tracks.map((track) => ({
         ...track,
         events: track.events ? [...track.events] : []
       }))
@@ -663,7 +695,7 @@ class MidiTransposer {
       if (!track.events) continue;
 
       // Check if this track has events on the source channel
-      const hasSourceChannel = track.events.some(e => e.channel === sourceChannel);
+      const hasSourceChannel = track.events.some((e) => e.channel === sourceChannel);
       if (!hasSourceChannel) continue;
 
       const newEvents = [];
@@ -686,41 +718,53 @@ class MidiTransposer {
           continue;
         }
 
-        const isNoteOn = event.type === 'noteOn' && (event.velocity > 0);
-        const isNoteOff = event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0);
+        const isNoteOn = event.type === 'noteOn' && event.velocity > 0;
+        const isNoteOff =
+          event.type === 'noteOff' || (event.type === 'noteOn' && event.velocity === 0);
         const note = event.note ?? event.noteNumber;
 
         if (isNoteOn && note !== undefined) {
           // Find which segment handles this note
-          const segIdx = segments.findIndex(s => note >= s.noteMin && note <= s.noteMax);
+          const segIdx = segments.findIndex((s) => note >= s.noteMin && note <= s.noteMax);
           let resolvedIdx;
           if (segIdx >= 0) {
             resolvedIdx = segIdx;
           } else {
             // Note outside all segments — route to nearest segment
-            let closest = 0, minDist = Infinity;
+            let closest = 0,
+              minDist = Infinity;
             for (let s = 0; s < segments.length; s++) {
-              const dist = Math.min(Math.abs(note - segments[s].noteMin), Math.abs(note - segments[s].noteMax));
-              if (dist < minDist) { minDist = dist; closest = s; }
+              const dist = Math.min(
+                Math.abs(note - segments[s].noteMin),
+                Math.abs(note - segments[s].noteMax)
+              );
+              if (dist < minDist) {
+                minDist = dist;
+                closest = s;
+              }
             }
             resolvedIdx = closest;
           }
           // Push onto stack for this note (handles overlapping NoteOn)
           const stack = activeNotes.get(note);
-          if (stack) { stack.push(resolvedIdx); } else { activeNotes.set(note, [resolvedIdx]); }
+          if (stack) {
+            stack.push(resolvedIdx);
+          } else {
+            activeNotes.set(note, [resolvedIdx]);
+          }
           newEvents.push({ ...event, channel: segments[resolvedIdx].targetChannel });
           segmentCounts[resolvedIdx]++;
           if (segments[resolvedIdx].targetChannel !== sourceChannel) notesMoved++;
         } else if (isNoteOff && note !== undefined) {
           // Route noteOff to the same segment as its matching noteOn (LIFO)
           const stack = activeNotes.get(note);
-          const segIdx = (stack && stack.length > 0) ? stack.pop() : 0;
+          const segIdx = stack && stack.length > 0 ? stack.pop() : 0;
           if (stack && stack.length === 0) activeNotes.delete(note);
           newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
         } else {
           // Control events (CC, pitch bend, program change, aftertouch, etc.)
           // Broadcast to all target channels
-          const uniqueChannels = [...new Set(segments.map(s => s.targetChannel))];
+          const uniqueChannels = [...new Set(segments.map((s) => s.targetChannel))];
           for (let c = 0; c < uniqueChannels.length; c++) {
             if (c === 0) {
               // First copy: modify in place
@@ -741,7 +785,7 @@ class MidiTransposer {
     for (const seg of segments) {
       if (seg.gmProgram != null && seg.targetChannel !== sourceChannel) {
         // Find the first track with events and prepend a program change
-        const firstTrack = modifiedData.tracks.find(t => t.events?.length > 0);
+        const firstTrack = modifiedData.tracks.find((t) => t.events?.length > 0);
         if (firstTrack) {
           firstTrack.events.unshift({
             deltaTime: 0,
@@ -755,8 +799,8 @@ class MidiTransposer {
 
     this.logger?.info?.(
       `[SplitChannel] Ch ${sourceChannel} → ${segments.length} segments: ` +
-      `${notesMoved} notes moved, ${controlsDuplicated} controls duplicated, ` +
-      `counts: [${segmentCounts.join(', ')}]`
+        `${notesMoved} notes moved, ${controlsDuplicated} controls duplicated, ` +
+        `counts: [${segmentCounts.join(', ')}]`
     );
 
     return {
@@ -776,8 +820,8 @@ class MidiTransposer {
    */
   findFreeChannels(midiData, includeDrumChannel = false) {
     const usedChannels = new Set();
-    for (const track of (midiData.tracks || [])) {
-      for (const event of (track.events || [])) {
+    for (const track of midiData.tracks || []) {
+      for (const event of track.events || []) {
         if ((event.type === 'noteOn' || event.type === 'noteOff') && event.channel !== undefined) {
           usedChannels.add(event.channel);
         }
@@ -871,17 +915,19 @@ class MidiTransposer {
         isOctave: s % 12 === 0
       };
 
-      if (best == null
-        || candidate.improvement > best.improvement
-        || (candidate.improvement === best.improvement
-            && candidate.projectedQualityScore > best.projectedQualityScore)
-        || (candidate.improvement === best.improvement
-            && candidate.projectedQualityScore === best.projectedQualityScore
-            && Math.abs(candidate.semitones) < Math.abs(best.semitones))
-        || (candidate.improvement === best.improvement
-            && candidate.projectedQualityScore === best.projectedQualityScore
-            && Math.abs(candidate.semitones) === Math.abs(best.semitones)
-            && candidate.isOctave && !best.isOctave)
+      if (
+        best == null ||
+        candidate.improvement > best.improvement ||
+        (candidate.improvement === best.improvement &&
+          candidate.projectedQualityScore > best.projectedQualityScore) ||
+        (candidate.improvement === best.improvement &&
+          candidate.projectedQualityScore === best.projectedQualityScore &&
+          Math.abs(candidate.semitones) < Math.abs(best.semitones)) ||
+        (candidate.improvement === best.improvement &&
+          candidate.projectedQualityScore === best.projectedQualityScore &&
+          Math.abs(candidate.semitones) === Math.abs(best.semitones) &&
+          candidate.isOctave &&
+          !best.isOctave)
       ) {
         best = candidate;
       }
@@ -895,7 +941,8 @@ class MidiTransposer {
 
   /** @private — same shape AdaptationService uses for its own dry-run. */
   _shiftAnalysis(analysis, semitones) {
-    if (!analysis?.noteRange || analysis.noteRange.min == null || analysis.noteRange.max == null) return null;
+    if (!analysis?.noteRange || analysis.noteRange.min == null || analysis.noteRange.max == null)
+      return null;
     return {
       ...analysis,
       noteRange: {

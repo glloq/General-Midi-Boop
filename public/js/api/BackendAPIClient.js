@@ -138,6 +138,15 @@ class BackendAPIClient {
           if (wasConnected) {
             this.emit('disconnected');
           }
+          // Clear the in-flight reconnect guard before rescheduling. When a
+          // reconnect attempt's socket fails asynchronously, `onerror` does not
+          // reject (it is suppressed while `_reconnecting` is true) and this
+          // `connect()` promise never settles, so the timer's `.catch` that
+          // would reset `_reconnecting` never runs. Without resetting it here,
+          // `attemptReconnect()` early-returns and the retry loop dies after a
+          // single attempt — contradicting the "retries indefinitely" contract
+          // and requiring a manual page reload to recover.
+          this._reconnecting = false;
           this.attemptReconnect();
         };
 
@@ -257,7 +266,10 @@ class BackendAPIClient {
         if (message.command !== undefined) err.command = message.command;
         pending.reject(err);
       } else {
-        pending.resolve(message.data || message);
+        // Use presence, not truthiness: a handler that legitimately returns
+        // falsy `data` (0, false, '', null) must not leak the raw protocol
+        // envelope ({ id, data, timestamp, … }) to the caller.
+        pending.resolve('data' in message ? message.data : message);
       }
       return;
     }

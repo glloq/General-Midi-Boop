@@ -28,10 +28,20 @@ function setup() {
       this.sent = [];
       sockets.push(this);
     }
-    send(d) { this.sent.push(d); }
-    close() { this.readyState = 3; if (this.onclose) this.onclose({}); }
-    _open() { this.readyState = 1; if (this.onopen) this.onopen({}); }
-    _message(data) { if (this.onmessage) this.onmessage({ data }); }
+    send(d) {
+      this.sent.push(d);
+    }
+    close() {
+      this.readyState = 3;
+      if (this.onclose) this.onclose({});
+    }
+    _open() {
+      this.readyState = 1;
+      if (this.onopen) this.onopen({});
+    }
+    _message(data) {
+      if (this.onmessage) this.onmessage({ data });
+    }
   }
   // Mirror static OPEN constant used in BackendAPIClient.connected check.
   FakeWebSocket.OPEN = 1;
@@ -120,12 +130,14 @@ describe('BackendAPIClient — binary frame decoding', () => {
     sockets[0]._open();
     await cp;
 
-    sockets[0]._message(JSON.stringify({
-      type: 'event',
-      event: 'device_connected',
-      data: { id: 'foo' },
-      timestamp: Date.now()
-    }));
+    sockets[0]._message(
+      JSON.stringify({
+        type: 'event',
+        event: 'device_connected',
+        data: { id: 'foo' },
+        timestamp: Date.now()
+      })
+    );
 
     expect(seen).toEqual([{ id: 'foo' }]);
   });

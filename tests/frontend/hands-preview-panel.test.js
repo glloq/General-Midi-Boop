@@ -25,16 +25,26 @@ const sources = [
 ];
 
 function installCanvasStub() {
-  const ctx = new Proxy({}, {
-    get(_t, prop) {
-      if (prop === 'measureText') return () => ({ width: 8 });
-      if (typeof prop === 'string' && /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(prop)) {
-        return () => {};
+  const ctx = new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        if (prop === 'measureText') return () => ({ width: 8 });
+        if (
+          typeof prop === 'string' &&
+          /^(setTransform|fillRect|strokeRect|fillText|strokeText|beginPath|moveTo|lineTo|closePath|fill|stroke|clearRect|save|restore|translate|scale|rotate|setLineDash|rect|clip|arc|bezierCurveTo|quadraticCurveTo)$/.test(
+            prop
+          )
+        ) {
+          return () => {};
+        }
+        return undefined;
+      },
+      set() {
+        return true;
       }
-      return undefined;
-    },
-    set() { return true; }
-  });
+    }
+  );
   HTMLCanvasElement.prototype.getContext = () => ctx;
 }
 
@@ -51,18 +61,22 @@ beforeEach(() => {
 });
 
 const semitonesHands = {
-  enabled: true, mode: 'semitones',
+  enabled: true,
+  mode: 'semitones',
   hand_move_semitones_per_sec: 60,
   hands: [
-    { id: 'left',  cc_position_number: 23, hand_span_semitones: 14 },
+    { id: 'left', cc_position_number: 23, hand_span_semitones: 14 },
     { id: 'right', cc_position_number: 24, hand_span_semitones: 14 }
   ]
 };
 
 const fretsHands = {
-  enabled: true, mode: 'frets',
+  enabled: true,
+  mode: 'frets',
   hand_move_mm_per_sec: 250,
-  hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }]
+  hands: [
+    { id: 'fretting', cc_position_number: 22, hand_span_mm: 80, hand_span_frets: 4, max_fingers: 4 }
+  ]
 };
 
 function makePanel(overrideOpts = {}) {
@@ -73,9 +87,13 @@ function makePanel(overrideOpts = {}) {
   // the operator actually wants to look at hand geometry.
   return new window.HandsPreviewPanel(container, {
     channel: 0,
-    notes: [{ tick: 0, note: 60 }, { tick: 480, note: 64 }],
+    notes: [
+      { tick: 0, note: 60 },
+      { tick: 480, note: 64 }
+    ],
     instrument: { hands_config: semitonesHands, note_range_min: 21, note_range_max: 108 },
-    ticksPerBeat: 480, bpm: 120,
+    ticksPerBeat: 480,
+    bpm: 120,
     eagerEngine: true,
     ...overrideOpts
   });
@@ -94,7 +112,8 @@ describe('HandsPreviewPanel — layout dispatch', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       }
     });
     expect(document.querySelector('.hpp-fretboard')).not.toBeNull();
@@ -153,9 +172,13 @@ describe('HandsPreviewPanel — setCurrentTime drives the engine', () => {
 });
 
 describe('HandsPreviewPanel — hand trajectory ribbons (semitones)', () => {
-  it('pushes the engine\'s trajectories into the lookahead at construction', () => {
+  it("pushes the engine's trajectories into the lookahead at construction", () => {
     const panel = makePanel({
-      notes: [{ tick: 0, note: 40 }, { tick: 0, note: 80 }, { tick: 480, note: 95 }]
+      notes: [
+        { tick: 0, note: 40 },
+        { tick: 0, note: 80 },
+        { tick: 480, note: 95 }
+      ]
     });
     expect(Array.isArray(panel.lookahead.handTrajectories)).toBe(true);
     expect(panel.lookahead.handTrajectories.length).toBeGreaterThanOrEqual(1);
@@ -173,11 +196,14 @@ describe('HandsPreviewPanel — hand trajectory ribbons (semitones)', () => {
 
   it('attaches the right colour per hand band', () => {
     const panel = makePanel({
-      notes: [{ tick: 0, note: 40 }, { tick: 0, note: 80 }]
+      notes: [
+        { tick: 0, note: 40 },
+        { tick: 0, note: 80 }
+      ]
     });
-    const left  = panel.lookahead.handTrajectories.find(t => t.id === 'left');
-    const right = panel.lookahead.handTrajectories.find(t => t.id === 'right');
-    if (left)  expect(left.color).toMatch(/^#/);
+    const left = panel.lookahead.handTrajectories.find((t) => t.id === 'left');
+    const right = panel.lookahead.handTrajectories.find((t) => t.id === 'right');
+    if (left) expect(left.color).toMatch(/^#/);
     if (right) expect(right.color).toMatch(/^#/);
     panel.destroy();
   });
@@ -187,11 +213,18 @@ describe('HandsPreviewPanel — engine wiring (semitones)', () => {
   it('chord event paints active notes on the keyboard with handId tags', () => {
     const panel = makePanel();
     const setActive = vi.spyOn(panel.keyboard, 'setActiveNotes');
-    panel.engine.dispatchEvent(new CustomEvent('chord', {
-      detail: { tick: 0,
-                notes: [{ note: 60, handId: 'left' }, { note: 64, handId: 'right' }],
-                unplayable: [] }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('chord', {
+        detail: {
+          tick: 0,
+          notes: [
+            { note: 60, handId: 'left' },
+            { note: 64, handId: 'right' }
+          ],
+          unplayable: []
+        }
+      })
+    );
     expect(setActive).toHaveBeenCalledWith([
       { midi: 60, handId: 'left' },
       { midi: 64, handId: 'right' }
@@ -202,9 +235,11 @@ describe('HandsPreviewPanel — engine wiring (semitones)', () => {
   it('chord event with unplayable notes paints them on the keyboard', () => {
     const panel = makePanel();
     const setUnplayable = vi.spyOn(panel.keyboard, 'setUnplayableNotes');
-    panel.engine.dispatchEvent(new CustomEvent('chord', {
-      detail: { tick: 0, notes: [{ note: 60 }], unplayable: [{ note: 100, handId: 'right' }] }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('chord', {
+        detail: { tick: 0, notes: [{ note: 60 }], unplayable: [{ note: 100, handId: 'right' }] }
+      })
+    );
     expect(setUnplayable).toHaveBeenCalled();
     const arg = setUnplayable.mock.calls[0][0];
     expect(arg).toEqual([{ note: 100, hand: 'right' }]);
@@ -214,14 +249,14 @@ describe('HandsPreviewPanel — engine wiring (semitones)', () => {
   it('shift event populates the hand band on the keyboard', () => {
     const panel = makePanel();
     const setBands = vi.spyOn(panel.keyboard, 'setHandBands');
-    panel.engine.dispatchEvent(new CustomEvent('shift', {
-      detail: { handId: 'left', toAnchor: 60 }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('shift', {
+        detail: { handId: 'left', toAnchor: 60 }
+      })
+    );
     expect(setBands).toHaveBeenCalled();
     const bands = setBands.mock.calls[0][0];
-    expect(bands).toEqual([
-      { id: 'left', low: 60, high: 60 + 14, color: expect.any(String) }
-    ]);
+    expect(bands).toEqual([{ id: 'left', low: 60, high: 60 + 14, color: expect.any(String) }]);
     panel.destroy();
   });
 
@@ -229,9 +264,11 @@ describe('HandsPreviewPanel — engine wiring (semitones)', () => {
     const onSeek = vi.fn();
     const panel = makePanel({ onSeek });
     const setTime = vi.spyOn(panel.lookahead, 'setCurrentTime');
-    panel.engine.dispatchEvent(new CustomEvent('tick', {
-      detail: { currentTick: 240, currentSec: 0.5, totalTicks: 1920 }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('tick', {
+        detail: { currentTick: 240, currentSec: 0.5, totalTicks: 1920 }
+      })
+    );
     expect(setTime).toHaveBeenCalledWith(0.5);
     expect(onSeek).toHaveBeenCalledWith(240, 1920);
     panel.destroy();
@@ -243,14 +280,21 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       },
       notes: [{ tick: 0, note: 50, fret: 5, string: 3 }]
     });
     const setPositions = vi.spyOn(panel.fretboard, 'setActivePositions');
-    panel.engine.dispatchEvent(new CustomEvent('chord', {
-      detail: { tick: 0, notes: [{ note: 50, fret: 5, string: 3, velocity: 100 }], unplayable: [] }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('chord', {
+        detail: {
+          tick: 0,
+          notes: [{ note: 50, fret: 5, string: 3, velocity: 100 }],
+          unplayable: []
+        }
+      })
+    );
     expect(setPositions).toHaveBeenCalledWith([{ string: 3, fret: 5, velocity: 100 }]);
     panel.destroy();
   });
@@ -259,19 +303,22 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       }
     });
     const setLevel = vi.spyOn(panel.fretboard, 'setLevel');
-    panel.engine.dispatchEvent(new CustomEvent('chord', {
-      detail: {
-        tick: 0,
-        notes: [],
-        unplayable: [
-          { note: 50, fret: 12, string: 3, reason: 'outside_window', handId: 'fretting' }
-        ]
-      }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('chord', {
+        detail: {
+          tick: 0,
+          notes: [],
+          unplayable: [
+            { note: 50, fret: 12, string: 3, reason: 'outside_window', handId: 'fretting' }
+          ]
+        }
+      })
+    );
     expect(setLevel).toHaveBeenLastCalledWith('infeasible');
     panel.destroy();
   });
@@ -280,19 +327,20 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       }
     });
     const setLevel = vi.spyOn(panel.fretboard, 'setLevel');
-    panel.engine.dispatchEvent(new CustomEvent('chord', {
-      detail: {
-        tick: 0,
-        notes: [],
-        unplayable: [
-          { note: null, reason: 'too_many_fingers', handId: 'fretting' }
-        ]
-      }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('chord', {
+        detail: {
+          tick: 0,
+          notes: [],
+          unplayable: [{ note: null, reason: 'too_many_fingers', handId: 'fretting' }]
+        }
+      })
+    );
     expect(setLevel).toHaveBeenLastCalledWith('infeasible');
     panel.destroy();
   });
@@ -301,13 +349,16 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       }
     });
     const setLevel = vi.spyOn(panel.fretboard, 'setLevel');
-    panel.engine.dispatchEvent(new CustomEvent('chord', {
-      detail: { tick: 0, notes: [], unplayable: [] }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('chord', {
+        detail: { tick: 0, notes: [], unplayable: [] }
+      })
+    );
     expect(setLevel).toHaveBeenLastCalledWith('ok');
     panel.destroy();
   });
@@ -316,29 +367,30 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       }
     });
     const setUnplayable = vi.spyOn(panel.fretboard, 'setUnplayablePositions');
-    panel.engine.dispatchEvent(new CustomEvent('chord', {
-      detail: {
-        tick: 0,
-        notes: [],
-        unplayable: [
-          { note: 50, fret: 12, string: 3, reason: 'outside_window', handId: 'fretting' },
-          { note: null, reason: 'too_many_fingers', handId: 'fretting' }
-        ]
-      }
-    }));
-    expect(setUnplayable).toHaveBeenCalledWith([
-      expect.objectContaining({ fret: 12, string: 3 })
-    ]);
+    panel.engine.dispatchEvent(
+      new CustomEvent('chord', {
+        detail: {
+          tick: 0,
+          notes: [],
+          unplayable: [
+            { note: 50, fret: 12, string: 3, reason: 'outside_window', handId: 'fretting' },
+            { note: null, reason: 'too_many_fingers', handId: 'fretting' }
+          ]
+        }
+      })
+    );
+    expect(setUnplayable).toHaveBeenCalledWith([expect.objectContaining({ fret: 12, string: 3 })]);
     panel.destroy();
   });
 
-  it('pushes the engine\'s fretting trajectory + tempo to the fretboard at construction', () => {
+  it("pushes the engine's fretting trajectory + tempo to the fretboard at construction", () => {
     const setTraj = vi.fn();
-    const setTps  = vi.fn();
+    const setTps = vi.fn();
     const origNew = window.FretboardHandPreview;
     window.FretboardHandPreview = function (canvas, opts) {
       const inst = new origNew(canvas, opts);
@@ -350,13 +402,15 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
       const panel = makePanel({
         instrument: {
           hands_config: fretsHands,
-          tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+          tuning: [40, 45, 50, 55, 59, 64],
+          num_frets: 22
         },
         notes: [
-          { tick: 0,   note: 45, fret: 5,  string: 1 },
+          { tick: 0, note: 45, fret: 5, string: 1 },
           { tick: 480, note: 47, fret: 12, string: 1 }
         ],
-        ticksPerBeat: 480, bpm: 60
+        ticksPerBeat: 480,
+        bpm: 60
       });
       expect(setTps).toHaveBeenCalledWith(480);
       expect(setTraj).toHaveBeenCalled();
@@ -373,13 +427,15 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       },
       notes: [
-        { tick: 0,   note: 45, fret: 5,  string: 1 },
+        { tick: 0, note: 45, fret: 5, string: 1 },
         { tick: 480, note: 47, fret: 12, string: 1 }
       ],
-      ticksPerBeat: 480, bpm: 60
+      ticksPerBeat: 480,
+      bpm: 60
     });
     expect(panel.fretboardLookahead).toBeDefined();
     expect(panel.fretboardLookahead).not.toBeNull();
@@ -392,14 +448,17 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       },
       notes: [{ tick: 0, note: 45, fret: 5, string: 1 }]
     });
     const setTime = vi.spyOn(panel.fretboardLookahead, 'setCurrentTime');
-    panel.engine.dispatchEvent(new CustomEvent('tick', {
-      detail: { currentTick: 240, currentSec: 0.5, totalTicks: 960 }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('tick', {
+        detail: { currentTick: 240, currentSec: 0.5, totalTicks: 960 }
+      })
+    );
     expect(setTime).toHaveBeenCalledWith(0.5);
     panel.destroy();
   });
@@ -408,13 +467,16 @@ describe('HandsPreviewPanel — engine wiring (frets)', () => {
     const panel = makePanel({
       instrument: {
         hands_config: fretsHands,
-        tuning: [40, 45, 50, 55, 59, 64], num_frets: 22
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
       }
     });
     const setTime = vi.spyOn(panel.fretboard, 'setCurrentTime');
-    panel.engine.dispatchEvent(new CustomEvent('tick', {
-      detail: { currentTick: 240, currentSec: 0.5, totalTicks: 960 }
-    }));
+    panel.engine.dispatchEvent(
+      new CustomEvent('tick', {
+        detail: { currentTick: 240, currentSec: 0.5, totalTicks: 960 }
+      })
+    );
     expect(setTime).toHaveBeenCalledWith(0.5);
     panel.destroy();
   });
@@ -443,7 +505,7 @@ describe('HandsPreviewPanel — edit mode (E.6.8)', () => {
   it('keyboard click triggers toggleDisabledNote (semitones layout)', () => {
     const panel = makePanel();
     panel.keyboard.onKeyClick(64);
-    expect(panel.overrides.disabled_notes.find(n => n.note === 64)).toBeDefined();
+    expect(panel.overrides.disabled_notes.find((n) => n.note === 64)).toBeDefined();
     panel.destroy();
   });
 
@@ -496,14 +558,17 @@ describe('HandsPreviewPanel — edit mode (E.6.8)', () => {
     panel.toggleDisabledNote(60);
     const r = await panel.saveOverrides();
     expect(r.updated).toBe(1);
-    expect(sendCommand).toHaveBeenCalledWith('routing_save_hand_overrides', expect.objectContaining({
-      fileId: 42,
-      channel: 0,
-      deviceId: 'piano-1',
-      overrides: expect.objectContaining({
-        disabled_notes: [expect.objectContaining({ note: 60 })]
+    expect(sendCommand).toHaveBeenCalledWith(
+      'routing_save_hand_overrides',
+      expect.objectContaining({
+        fileId: 42,
+        channel: 0,
+        deviceId: 'piano-1',
+        overrides: expect.objectContaining({
+          disabled_notes: [expect.objectContaining({ note: 60 })]
+        })
       })
-    }));
+    );
     panel.destroy();
   });
 
@@ -521,7 +586,7 @@ describe('HandsPreviewPanel — edit mode (E.6.8)', () => {
     panel.toggleDisabledNote(60);
     document.querySelector('.hpp-save').click();
     // Wait a microtask for the async save() to resolve.
-    await new Promise(r => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
     expect(sendCommand).toHaveBeenCalled();
     panel.destroy();
   });

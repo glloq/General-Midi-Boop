@@ -34,12 +34,24 @@ beforeAll(() => {
       this.dialog = null;
       this.isOpen = false;
     }
-    $(sel) { return this.dialog ? this.dialog.querySelector(sel) : null; }
-    $$(sel) { return this.dialog ? this.dialog.querySelectorAll(sel) : []; }
-    t(k) { return k; }
-    escape(s) { return s; }
-    renderBody() { return ''; }
-    renderFooter() { return ''; }
+    $(sel) {
+      return this.dialog ? this.dialog.querySelector(sel) : null;
+    }
+    $$(sel) {
+      return this.dialog ? this.dialog.querySelectorAll(sel) : [];
+    }
+    t(k) {
+      return k;
+    }
+    escape(s) {
+      return s;
+    }
+    renderBody() {
+      return '';
+    }
+    renderFooter() {
+      return '';
+    }
     onOpen() {}
     onClose() {}
   }
@@ -65,9 +77,15 @@ beforeAll(() => {
     setShowFingerRange() {}
     draw() {}
     destroy() {}
-    get pxPerSec() { return 80; }
-    get scrollSec() { return 0; }
-    _viewportSec() { return 5; }
+    get pxPerSec() {
+      return 80;
+    }
+    get scrollSec() {
+      return 0;
+    }
+    _viewportSec() {
+      return 5;
+    }
   }
   window.VerticalFretboardPreview = NoopWidget;
   window.FretboardTimelineRenderer = NoopWidget;
@@ -76,24 +94,37 @@ beforeAll(() => {
   // Lightweight engine stub — emits no events but exposes the few
   // methods the modal calls.
   class NoopEngine {
-    constructor(opts) { this.opts = opts; this._tick = 0; }
+    constructor(opts) {
+      this.opts = opts;
+      this._tick = 0;
+    }
     addEventListener() {}
     removeEventListener() {}
     advanceToSec() {}
-    currentSec() { return 0; }
-    currentTick() { return this._tick; }
-    getHandTrajectories() { return new Map(); }
+    currentSec() {
+      return 0;
+    }
+    currentTick() {
+      return this._tick;
+    }
+    getHandTrajectories() {
+      return new Map();
+    }
     dispose() {}
-    get _timeline() { return []; }
+    get _timeline() {
+      return [];
+    }
   }
   window.HandSimulationEngine = NoopEngine;
 
   // Load HandEditorShared first — the modal references it for
   // history management and the discard-confirm dialog.
-  new Function(readFileSync(
-    resolve(__dirname, '../../public/js/features/auto-assign/HandEditorShared.js'),
-    'utf8'
-  ))();
+  new Function(
+    readFileSync(
+      resolve(__dirname, '../../public/js/features/auto-assign/HandEditorShared.js'),
+      'utf8'
+    )
+  )();
 
   const src = readFileSync(
     resolve(__dirname, '../../public/js/features/auto-assign/HandPositionEditorModal.js'),
@@ -108,9 +139,15 @@ function makeModal(overrides = null) {
     channel: 0,
     deviceId: 'guitar-1',
     midiData: { tracks: [] },
-    instrument: { tuning: [40, 45, 50, 55, 59, 64], num_frets: 22,
-                  hands_config: { enabled: true, mode: 'frets',
-                                  hands: [{ id: 'fretting', hand_span_frets: 4 }] } },
+    instrument: {
+      tuning: [40, 45, 50, 55, 59, 64],
+      num_frets: 22,
+      hands_config: {
+        enabled: true,
+        mode: 'frets',
+        hands: [{ id: 'fretting', hand_span_frets: 4 }]
+      }
+    },
     initialOverrides: overrides,
     apiClient: null
   });
@@ -159,9 +196,7 @@ describe('HandPositionEditorModal — history layer', () => {
     m._pushHistory();
     m._undo();
     m._redo();
-    expect(m.overrides.hand_anchors).toEqual([
-      { tick: 0, handId: 'fretting', anchor: 5 }
-    ]);
+    expect(m.overrides.hand_anchors).toEqual([{ tick: 0, handId: 'fretting', anchor: 5 }]);
     expect(m._history.canRedo).toBe(false);
     expect(m._history.canUndo).toBe(true);
   });
@@ -177,9 +212,14 @@ describe('HandPositionEditorModal — history layer', () => {
     m._pushHistory();
     expect(m.isDirty).toBe(true);
     await m._save();
-    expect(sendCommand).toHaveBeenCalledWith('routing_save_hand_overrides', expect.objectContaining({
-      fileId: 42, channel: 0, deviceId: 'guitar-1'
-    }));
+    expect(sendCommand).toHaveBeenCalledWith(
+      'routing_save_hand_overrides',
+      expect.objectContaining({
+        fileId: 42,
+        channel: 0,
+        deviceId: 'guitar-1'
+      })
+    );
     expect(m.isDirty).toBe(false);
     m._undo();
     expect(m.isDirty).toBe(true);
@@ -190,34 +230,32 @@ describe('HandPositionEditorModal — history layer', () => {
     m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m._pinNoteAssignment(480, 64, 5, 5);
-    expect(m.overrides.note_assignments).toEqual([
-      { tick: 480, note: 64, string: 5, fret: 5 }
-    ]);
+    expect(m.overrides.note_assignments).toEqual([{ tick: 480, note: 64, string: 5, fret: 5 }]);
     m._pinNoteAssignment(480, 64, 4, 9);
-    expect(m.overrides.note_assignments).toEqual([
-      { tick: 480, note: 64, string: 4, fret: 9 }
-    ]);
+    expect(m.overrides.note_assignments).toEqual([{ tick: 480, note: 64, string: 4, fret: 9 }]);
   });
 
   it('clearNoteAssignment removes a single (tick, note) pin', () => {
-    const m = makeModal({ hand_anchors: [], disabled_notes: [],
-                          note_assignments: [
-                            { tick: 0, note: 60, string: 1, fret: 0 },
-                            { tick: 480, note: 64, string: 5, fret: 5 }
-                          ], version: 1 });
+    const m = makeModal({
+      hand_anchors: [],
+      disabled_notes: [],
+      note_assignments: [
+        { tick: 0, note: 60, string: 1, fret: 0 },
+        { tick: 480, note: 64, string: 5, fret: 5 }
+      ],
+      version: 1
+    });
     m._scheduleEngineRebuild = () => {};
     m._refreshHistoryButtons = () => {};
     m._clearNoteAssignment(480, 64);
-    expect(m.overrides.note_assignments).toEqual([
-      { tick: 0, note: 60, string: 1, fret: 0 }
-    ]);
+    expect(m.overrides.note_assignments).toEqual([{ tick: 0, note: 60, string: 1, fret: 0 }]);
   });
 
   it('resetOverrides wipes all three arrays', () => {
     const m = makeModal({
-      hand_anchors:      [{ tick: 0, handId: 'fretting', anchor: 5 }],
-      disabled_notes:    [{ tick: 0, note: 60 }],
-      note_assignments:  [{ tick: 0, note: 60, string: 1, fret: 0 }],
+      hand_anchors: [{ tick: 0, handId: 'fretting', anchor: 5 }],
+      disabled_notes: [{ tick: 0, note: 60 }],
+      note_assignments: [{ tick: 0, note: 60, string: 1, fret: 0 }],
       version: 1
     });
     m._scheduleEngineRebuild = () => {};
@@ -242,7 +280,10 @@ describe('HandPositionEditorModal — close + audio offset + note drag', () => {
     // touching real DOM timers.
     let prompted = 0;
     let accept = false;
-    m._showDiscardConfirm = () => { prompted++; return Promise.resolve(accept); };
+    m._showDiscardConfirm = () => {
+      prompted++;
+      return Promise.resolve(accept);
+    };
     m.close();
     await Promise.resolve();
     expect(prompted).toBe(1);
@@ -258,7 +299,10 @@ describe('HandPositionEditorModal — close + audio offset + note drag', () => {
     const m = makeModal({ hand_anchors: [], disabled_notes: [], version: 1 });
     m.open();
     let prompted = 0;
-    m._showDiscardConfirm = () => { prompted++; return Promise.resolve(true); };
+    m._showDiscardConfirm = () => {
+      prompted++;
+      return Promise.resolve(true);
+    };
     m.close();
     expect(prompted).toBe(0);
     expect(m.isOpen).toBe(false);
@@ -267,7 +311,11 @@ describe('HandPositionEditorModal — close + audio offset + note drag', () => {
   it('_onAudioProgress re-bases progress against _playStartSec', () => {
     const m = makeModal();
     let advanced = null;
-    m.engine = { advanceToSec: (s) => { advanced = s; } };
+    m.engine = {
+      advanceToSec: (s) => {
+        advanced = s;
+      }
+    };
     m._maybeFollowPlayhead = () => {};
     m._playStartSec = 12; // simulate previously seeked + played
     m._onAudioProgress(12 + 3); // synth reports 3s into its own frame
@@ -307,20 +355,22 @@ describe('HandPositionEditorModal — problem navigation', () => {
     m._refreshProblemUI = () => {};
     // Default ticksPerSec = ticksPerBeat (480) × bpm/60 (120/60 = 2) = 960
     m._buildProblemList([
-      { type: 'chord', tick: 960,  unplayable: [{ note: 60, reason: 'outside_window' }] },
-      { type: 'shift', tick: 480,  motion: { feasible: false, requiredSec: 1, availableSec: 0.2 } },
-      { type: 'chord', tick: 0,    unplayable: [] }, // no problem → skipped
+      { type: 'chord', tick: 960, unplayable: [{ note: 60, reason: 'outside_window' }] },
+      { type: 'shift', tick: 480, motion: { feasible: false, requiredSec: 1, availableSec: 0.2 } },
+      { type: 'chord', tick: 0, unplayable: [] }, // no problem → skipped
       { type: 'chord', tick: 1920, unplayable: [{ note: 64, reason: 'too_many_fingers' }] }
     ]);
-    expect(m._problems.map(p => p.kind)).toEqual(['speed', 'chord', 'chord']);
-    expect(m._problems.map(p => p.sec.toFixed(1))).toEqual(['0.5', '1.0', '2.0']);
+    expect(m._problems.map((p) => p.kind)).toEqual(['speed', 'chord', 'chord']);
+    expect(m._problems.map((p) => p.sec.toFixed(1))).toEqual(['0.5', '1.0', '2.0']);
   });
 
   it('next-problem jumps forward; wraps to the first when past the end', () => {
     const m = makeModal();
     let seekedTo = null;
     m._refreshProblemUI = () => {};
-    m._seekToSec = (s) => { seekedTo = s; };
+    m._seekToSec = (s) => {
+      seekedTo = s;
+    };
     m.engine = { currentSec: () => 1.5 };
     m.timeline = null;
     m._problems = [
@@ -341,7 +391,9 @@ describe('HandPositionEditorModal — problem navigation', () => {
     const m = makeModal();
     let seekedTo = null;
     m._refreshProblemUI = () => {};
-    m._seekToSec = (s) => { seekedTo = s; };
+    m._seekToSec = (s) => {
+      seekedTo = s;
+    };
     m.engine = { currentSec: () => 1.5 };
     m.timeline = null;
     m._problems = [

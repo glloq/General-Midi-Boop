@@ -197,6 +197,14 @@ class MidiPlayer {
     // Guard against concurrent _handleFileEnd calls
     this._fileEndPending = false;
 
+    // Monotonic token that lets an in-flight async queue advance detect that it
+    // was superseded (by stop() or a newer advance) while awaiting loadFile, so
+    // it does not restart playback the user asked to stop (audit P3). `_advancing`
+    // lets stop() finalize cleanly even though `playing` is briefly false during
+    // the advance.
+    this._playToken = 0;
+    this._advancing = false;
+
     // Delegate scheduling, timing compensation, and event sending to PlaybackScheduler
     this.scheduler = new PlaybackScheduler(deps);
 
@@ -300,10 +308,13 @@ class MidiPlayer {
           `File ${fileId} (${file.filename}) is SMF format 2 (independent sequences), which is not supported for playback`
         );
       }
+      // SMPTE frame timing is not PPQ; playing it as PPQ 480 desynchronises it.
+      // The `midi-file` parser encodes SMPTE division as `framesPerSecond` +
+      // `ticksPerFrame` and leaves `ticksPerBeat` UNDEFINED (never negative), so
+      // the previous `ticksPerBeat < 0` guard never fired and SMPTE files were
+      // silently played at PPQ 480. Detect it via the real fields and reject.
       const rawTicksPerBeat = midi.header.ticksPerBeat;
-      if (typeof rawTicksPerBeat === 'number' && rawTicksPerBeat < 0) {
-        // Negative ticksPerBeat encodes SMPTE frame timing; `|| 480` does
-        // NOT catch it because a negative number is truthy.
+      if (midi.header.framesPerSecond != null && midi.header.ticksPerFrame != null) {
         throw new ValidationError(
           `File ${fileId} (${file.filename}) uses SMPTE frame-based timing, which is not supported for playback`
         );
@@ -1353,6 +1364,10 @@ class MidiPlayer {
     this.pauseTime = performance.now();
     this.scheduler.stopScheduler();
     this.sendAllNotesOff();
+    // All Notes Off just released every sounding voice; reset the scheduler's
+    // per-note tracking so stale held-note state can't gate new noteOns after
+    // resume on polyphony-limited instruments (audit P2).
+    this.scheduler.resetNoteTracking?.();
 
     // Pause MIDI clock
     if (this.midiClockGenerator) {
@@ -1400,9 +1415,17 @@ class MidiPlayer {
    * @returns {boolean} True when the call actually transitioned state.
    */
   stop() {
+    // Invalidate any in-flight queue advance so its pending start() aborts.
+    this._playToken++;
     this._clearGapTimer();
 
-    if (!this.playing) {
+    // During a no-gap queue advance `playing` is briefly false (the next item is
+    // still loading), so a naive `!this.playing` guard would make stop() a no-op
+    // and the in-flight advance would restart playback. `_advancing` forces the
+    // full stop cleanup in that window.
+    const wasAdvancing = this._advancing;
+    this._advancing = false;
+    if (!this.playing && !wasAdvancing) {
       return;
     }
 
@@ -1507,8 +1530,12 @@ class MidiPlayer {
     if (this.playing) {
       this.scheduler.stopScheduler();
       this.sendAllNotesOff();
-      // Stop clock before restarting to avoid timer leaks
-      if (this.midiClockGenerator) {
+      // Stop the clock only when we will restart it (active-play seek, where
+      // start() calls startPlayback() again). For a PAUSED seek the clock is
+      // already paused but still `_running`; calling stopPlayback() here clears
+      // `_running`, so the later resume()'s resumePlayback() becomes a no-op and
+      // external clock/transport sync is silently lost forever (audit P2).
+      if (this.midiClockGenerator && wasActivelyPlaying) {
         this.midiClockGenerator.stopPlayback();
       }
       this.playing = false;
@@ -1635,7 +1662,7 @@ class MidiPlayer {
     // Master Volume) so the synth is back in the correct mode.
     if (lastSysEx && Array.isArray(lastSysEx.bytes)) {
       for (const device of this._routedDeviceSet()) {
-        this.deviceManager.sendMessage(device, 'sysex', { bytes: lastSysEx.bytes });
+        this._deps.deviceManager?.sendMessage(device, 'sysex', { bytes: lastSysEx.bytes });
       }
     }
 
@@ -1743,7 +1770,13 @@ class MidiPlayer {
    * @returns {void}
    */
   sendAllNotesOff() {
-    this.scheduler.sendAllNotesOff(this.outputDevice, this.channelRouting, this.channels);
+    // Pass the omni-aware resolver so channels routed only via the omni
+    // fallback (absent from channelRouting) get their panic on the omni
+    // instrument's device rather than the default output (audit P3 —
+    // otherwise the omni instrument can retain stuck notes on stop/pause/seek).
+    this.scheduler.sendAllNotesOff(this.outputDevice, this.channelRouting, this.channels, (ch) =>
+      this.getOutputForChannel(ch)
+    );
   }
 
   /**
@@ -1933,10 +1966,16 @@ class MidiPlayer {
    */
   setChannelTransposition(channel, semitones) {
     const semi = Number.isFinite(semitones) ? Math.trunc(semitones) : 0;
+    const prev = this.channelTransposition.get(channel) || 0;
     if (semi === 0) {
       this.channelTransposition.delete(channel);
     } else {
       this.channelTransposition.set(channel, semi);
+    }
+    // Release sounding notes on this channel so a note turned on under the old
+    // offset can't be left stuck when its noteOff is emitted at the new pitch.
+    if (semi !== prev && this.playing && !this.paused) {
+      this._panicChannel(channel);
     }
   }
 
@@ -1963,7 +2002,16 @@ class MidiPlayer {
    * @returns {void}
    */
   setGlobalTranspose(semitones) {
-    this.globalTranspose = Number.isFinite(semitones) ? Math.trunc(semitones) : 0;
+    const next = Number.isFinite(semitones) ? Math.trunc(semitones) : 0;
+    const prev = this.globalTranspose;
+    this.globalTranspose = next;
+    // A global change affects every channel: release all sounding notes and
+    // reset the scheduler's voice tracking so notes turned on under the old
+    // offset aren't left stuck (audit P2).
+    if (next !== prev && this.playing && !this.paused) {
+      this.sendAllNotesOff();
+      this.scheduler.resetNoteTracking?.();
+    }
   }
 
   setChannelNoteRemapping(channel, mapping) {
@@ -2324,6 +2372,32 @@ class MidiPlayer {
   }
 
   /**
+   * Send All Notes Off to the device(s) a single channel is currently routed
+   * to. Used when a live change (transposition) would otherwise turn a note ON
+   * under one pitch offset and emit its noteOff under a different one, leaving
+   * the sounding pitch with no matching noteOff (stuck note, audit P2).
+   * @param {number} channel
+   * @returns {void}
+   */
+  _panicChannel(channel) {
+    if (!this.outputDevice) return;
+    const routing = this.getOutputForChannel(channel);
+    const targets = Array.isArray(routing) ? routing : routing ? [routing] : [];
+    for (const t of targets) {
+      if (!t || !t.device) continue;
+      try {
+        this._deps.deviceManager?.sendMessage(t.device, 'cc', {
+          channel: t.targetChannel != null ? t.targetChannel : channel,
+          controller: MIDI_CC_ALL_NOTES_OFF,
+          value: 0
+        });
+      } catch {
+        /* device may be disconnected */
+      }
+    }
+  }
+
+  /**
    * @param {number} channel
    * @returns {void}
    */
@@ -2508,6 +2582,12 @@ class MidiPlayer {
       throw new ConfigurationError(`Queue index out of range: ${index}`);
     }
 
+    // Claim this advance. A stop() (or a newer playQueueItem) that runs while we
+    // await loadFile below will bump `_playToken`, and we bail before start()
+    // rather than resurrect playback the user stopped (audit P3).
+    const myToken = ++this._playToken;
+    this._advancing = true;
+
     // Cancel any pending gap timer
     this._clearGapTimer();
 
@@ -2524,6 +2604,14 @@ class MidiPlayer {
 
     // Load file
     await this.loadFile(item.fileId);
+
+    // Superseded while loading? stop() (or a newer advance) bumped the token —
+    // do not start. Leave state ownership to whoever superseded us (stop()
+    // already finalized; a newer playQueueItem will start itself).
+    if (myToken !== this._playToken) {
+      return;
+    }
+    this._advancing = false;
 
     // Auto-load saved routings from database
     this._loadRoutingsFromDB(item.fileId);

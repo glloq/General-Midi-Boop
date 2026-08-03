@@ -32,7 +32,9 @@ class OscLightDriver extends BaseLightingDriver {
       });
 
       this.connected = true;
-      this.logger.info(`OSC Light driver connected: ${this.host}:${this.port}, pattern=${this.addressPattern}`);
+      this.logger.info(
+        `OSC Light driver connected: ${this.host}:${this.port}, pattern=${this.addressPattern}`
+      );
       this.emit('connected');
     } catch (error) {
       this.logger.error(`OSC Light driver connect failed: ${error.message}`);
@@ -93,15 +95,15 @@ class OscLightDriver extends BaseLightingDriver {
     const isFloat = this.colorFormat.includes('float');
     const args = isFloat
       ? [
-        { type: 'f', value: r / 255 },
-        { type: 'f', value: g / 255 },
-        { type: 'f', value: b / 255 }
-      ]
+          { type: 'f', value: r / 255 },
+          { type: 'f', value: g / 255 },
+          { type: 'f', value: b / 255 }
+        ]
       : [
-        { type: 'i', value: r },
-        { type: 'i', value: g },
-        { type: 'i', value: b }
-      ];
+          { type: 'i', value: r },
+          { type: 'i', value: g },
+          { type: 'i', value: b }
+        ];
 
     if (this.colorFormat.includes('rgbw')) {
       args.push(isFloat ? { type: 'f', value: 0.0 } : { type: 'i', value: 0 });
@@ -120,10 +122,10 @@ class OscLightDriver extends BaseLightingDriver {
   _encodeOscMessage(address, args) {
     // OSC message format: address string, type tag string, arguments
     const addrBuf = this._encodeOscString(address);
-    const typeTag = ',' + args.map(a => a.type).join('');
+    const typeTag = ',' + args.map((a) => a.type).join('');
     const typeBuf = this._encodeOscString(typeTag);
 
-    const argBuffers = args.map(arg => {
+    const argBuffers = args.map((arg) => {
       const buf = Buffer.alloc(4);
       if (arg.type === 'f') buf.writeFloatBE(arg.value, 0);
       else if (arg.type === 'i') buf.writeInt32BE(arg.value, 0);

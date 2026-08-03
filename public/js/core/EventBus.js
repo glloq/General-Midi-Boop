@@ -107,7 +107,17 @@ class EventBus {
     const index = listeners.findIndex((l) => l.callback === callback);
 
     if (index !== -1) {
+      const removed = listeners[index];
       listeners.splice(index, 1);
+      // Cancel any pending debounce timer for the removed listener; otherwise a
+      // queued debounced callback still fires after the caller unsubscribed
+      // (e.g. a view torn down within the debounce window), touching state it
+      // already released.
+      const key = `${event}_${removed.id}`;
+      if (this.debounceTimers.has(key)) {
+        clearTimeout(this.debounceTimers.get(key));
+        this.debounceTimers.delete(key);
+      }
     }
 
     if (listeners.length === 0) {
@@ -218,6 +228,12 @@ class EventBus {
           const timer = setTimeout(() => {
             this.executeCallback(listener, data);
             this.debounceTimers.delete(key);
+            // A `once` listener that also debounces must still be removed after
+            // it fires; the `continue` below skips the normal once-removal path,
+            // so handle it here or it would fire (debounced) on every emit.
+            if (listener.once) {
+              this.off(event, listener.callback);
+            }
           }, listener.debounce);
 
           this.debounceTimers.set(key, timer);

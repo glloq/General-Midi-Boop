@@ -1,9 +1,15 @@
 /**
  * @file src/midi/playback/state/PlaybackStateMachine.js
- * @description Finite state machine for MIDI playback lifecycle.
+ * @description Finite state machine that TRACKS the MIDI playback lifecycle.
  *
- * Prevents invalid transitions (e.g. seeking while stopped, double-stop)
- * that would otherwise be silently ignored or cause stale state in MidiPlayer.
+ * IMPORTANT — advisory, not enforcing. MidiPlayer calls `tryTransition(...)`
+ * for observability/telemetry but the authoritative guards are the
+ * `this.playing` / `this.paused` flag checks at the top of each MidiPlayer
+ * method (e.g. `resume()` early-returns unless paused). Do NOT convert callers
+ * to gate on `tryTransition`'s return value: the graph below intentionally
+ * forbids `stopped → seeking`, yet the player legitimately supports
+ * repositioning while stopped, so gating would regress that path. This class
+ * records the lifecycle state; it does not police it.
  *
  * States:
  *   stopped  — no file loaded or playback fully ended.
@@ -24,8 +30,8 @@ const VALID_TRANSITIONS = Object.freeze({
   stopped: ['loading', 'playing'],
   loading: ['stopped', 'playing'],
   playing: ['paused', 'stopped', 'seeking'],
-  paused:  ['playing', 'stopped', 'seeking'],
-  seeking: ['playing', 'paused', 'stopped'],
+  paused: ['playing', 'stopped', 'seeking'],
+  seeking: ['playing', 'paused', 'stopped']
 });
 
 export class PlaybackStateMachine {
@@ -50,7 +56,7 @@ export class PlaybackStateMachine {
     if (!allowed || !allowed.includes(next)) {
       throw new Error(
         `PlaybackStateMachine: invalid transition '${this.state}' → '${next}'. ` +
-        `Allowed from '${this.state}': [${allowed?.join(', ') ?? 'none'}]`
+          `Allowed from '${this.state}': [${allowed?.join(', ') ?? 'none'}]`
       );
     }
     const prev = this.state;
@@ -97,6 +103,6 @@ export const PLAYBACK_STATES = Object.freeze({
   STOPPED: 'stopped',
   LOADING: 'loading',
   PLAYING: 'playing',
-  PAUSED:  'paused',
-  SEEKING: 'seeking',
+  PAUSED: 'paused',
+  SEEKING: 'seeking'
 });

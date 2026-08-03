@@ -156,7 +156,7 @@ async function playbackValidateRouting(app, data) {
   }
 
   const deviceList = app.deviceManager?.getDeviceList?.() || [];
-  const connectedDevices = new Set(deviceList.filter(d => d.output).map(d => d.id));
+  const connectedDevices = new Set(deviceList.filter((d) => d.output).map((d) => d.id));
 
   const channels = [];
   const warnings = [];
@@ -181,7 +181,9 @@ async function playbackValidateRouting(app, data) {
         deviceOnline
       });
       if (!deviceOnline) {
-        warnings.push(`Channel ${channel + 1}: device "${routing.instrument_name || routing.device_id}" is offline`);
+        warnings.push(
+          `Channel ${channel + 1}: device "${routing.instrument_name || routing.device_id}" is offline`
+        );
         allOnline = false;
       }
     }
@@ -209,7 +211,10 @@ async function playbackValidateRouting(app, data) {
 async function playbackSetDisconnectPolicy(app, data) {
   const validPolicies = ['skip', 'pause', 'mute'];
   if (!data.policy || !validPolicies.includes(data.policy)) {
-    throw new ValidationError(`Invalid policy. Must be one of: ${validPolicies.join(', ')}`, 'policy');
+    throw new ValidationError(
+      `Invalid policy. Must be one of: ${validPolicies.join(', ')}`,
+      'policy'
+    );
   }
   app.midiPlayer.disconnectedPolicy = data.policy;
   app.logger.info(`Disconnect policy set to: ${data.policy}`);
@@ -227,5 +232,7 @@ export function register(registry, app) {
   registry.register('playback_clear_channel_routing', () => playbackClearChannelRouting(app));
   registry.register('playback_mute_channel', (data) => playbackMuteChannel(app, data));
   registry.register('playback_validate_routing', (data) => playbackValidateRouting(app, data));
-  registry.register('playback_set_disconnect_policy', (data) => playbackSetDisconnectPolicy(app, data));
+  registry.register('playback_set_disconnect_policy', (data) =>
+    playbackSetDisconnectPolicy(app, data)
+  );
 }

@@ -22,8 +22,7 @@ const guitar = {
   hands_config: {
     enabled: true,
     mode: 'frets',
-    hands: [{ id: 'fretting', hand_span_frets: 4, max_fingers: 4,
-              hand_move_semitones_per_sec: 80 }]
+    hands: [{ id: 'fretting', hand_span_frets: 4, max_fingers: 4, hand_move_semitones_per_sec: 80 }]
   },
   tuning: [40, 45, 50, 55, 59, 64], // standard 6-string EADGBE
   num_frets: 22
@@ -45,11 +44,11 @@ describe('HandPositionFeasibility.findStringCandidates', () => {
       expect(candidates[i].fret).toBeGreaterThanOrEqual(candidates[i - 1].fret);
     }
     // Open string 6 must be present (E4 on the high-E open string)
-    expect(candidates.find(c => c.string === 6 && c.fret === 0)).toBeDefined();
+    expect(candidates.find((c) => c.string === 6 && c.fret === 0)).toBeDefined();
     // Fret-19 candidate on string 2 must be present (within num_frets=22)
-    expect(candidates.find(c => c.string === 2 && c.fret === 19)).toBeDefined();
+    expect(candidates.find((c) => c.string === 2 && c.fret === 19)).toBeDefined();
     // Fret-24 candidate on string 1 should NOT be present (num_frets=22)
-    expect(candidates.find(c => c.string === 1 && c.fret === 24)).toBeUndefined();
+    expect(candidates.find((c) => c.string === 1 && c.fret === 24)).toBeUndefined();
   });
 
   it('returns an empty list when MIDI pitch is below every open string', () => {
@@ -74,11 +73,13 @@ describe('HandPositionFeasibility.simulateHandWindows — note_assignments', () 
       version: 1
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(notes, guitar, {
-      overrides, ticksPerBeat: 480, bpm: 120
+      overrides,
+      ticksPerBeat: 480,
+      bpm: 120
     });
-    const chord = out.find(e => e.type === 'chord');
+    const chord = out.find((e) => e.type === 'chord');
     expect(chord).toBeDefined();
-    const tagged = chord.notes.find(n => n.note === 64);
+    const tagged = chord.notes.find((n) => n.note === 64);
     expect(tagged.string).toBe(5);
     expect(tagged.fret).toBe(5);
   });
@@ -97,10 +98,12 @@ describe('HandPositionFeasibility.simulateHandWindows — note_assignments', () 
       version: 1
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(notes, guitar, {
-      overrides, ticksPerBeat: 480, bpm: 120
+      overrides,
+      ticksPerBeat: 480,
+      bpm: 120
     });
-    const chord = out.find(e => e.type === 'chord');
-    const tagged = chord.notes.find(n => n.note === 64);
+    const chord = out.find((e) => e.type === 'chord');
+    const tagged = chord.notes.find((n) => n.note === 64);
     expect(tagged.fret).toBe(0);
     expect(tagged.string).toBe(6);
   });
@@ -110,7 +113,7 @@ describe('HandPositionFeasibility.simulateHandWindows — note_assignments', () 
     // still be auto-resolved.
     const notes = [
       { tick: 0, note: 55, duration: 240 }, // G3 — open on string 4 (G)
-      { tick: 0, note: 64, duration: 240 }  // E4 — open on string 6 (high E)
+      { tick: 0, note: 64, duration: 240 } // E4 — open on string 6 (high E)
     ];
     const overrides = {
       hand_anchors: [],
@@ -118,11 +121,13 @@ describe('HandPositionFeasibility.simulateHandWindows — note_assignments', () 
       version: 1
     };
     const out = window.HandPositionFeasibility.simulateHandWindows(notes, guitar, {
-      overrides, ticksPerBeat: 480, bpm: 120
+      overrides,
+      ticksPerBeat: 480,
+      bpm: 120
     });
-    const chord = out.find(e => e.type === 'chord');
-    const pinned = chord.notes.find(n => n.note === 55);
-    const free = chord.notes.find(n => n.note === 64);
+    const chord = out.find((e) => e.type === 'chord');
+    const pinned = chord.notes.find((n) => n.note === 55);
+    const free = chord.notes.find((n) => n.note === 64);
     expect(pinned.string).toBe(3);
     expect(pinned.fret).toBe(5);
     expect(free.string).toBeDefined();

@@ -27,7 +27,7 @@ function createMockApp({
   existingRoutings = [],
   sendMessageResult = true
 } = {}) {
-  const routeMap = new Map(routes.map(r => [r.id, r]));
+  const routeMap = new Map(routes.map((r) => [r.id, r]));
   let nextRouteId = 1;
 
   // Shared spies so existing `app.database.*` assertions keep working after
@@ -125,7 +125,11 @@ describe('Contract: route_create', () => {
     const ws = createMockWs();
 
     await registry.handle(
-      { id: 'req-1', command: 'route_create', data: { source: 'dev-in-1', destination: 'dev-out-1' } },
+      {
+        id: 'req-1',
+        command: 'route_create',
+        data: { source: 'dev-in-1', destination: 'dev-out-1' }
+      },
       ws
     );
 
@@ -234,9 +238,7 @@ describe('Contract: route_list', () => {
 
   test('nominal — returns registered routes', async () => {
     const app = createMockApp({
-      routes: [
-        { id: 'route-1', source: 'dev-in-1', destination: 'dev-out-1', enabled: true }
-      ]
+      routes: [{ id: 'route-1', source: 'dev-in-1', destination: 'dev-out-1', enabled: true }]
     });
     const registry = buildRegistry(app);
     const ws = createMockWs();
@@ -264,10 +266,7 @@ describe('Contract: route_info', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-1', command: 'route_info', data: { routeId: 'route-1' } },
-      ws
-    );
+    await registry.handle({ id: 'req-1', command: 'route_info', data: { routeId: 'route-1' } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
@@ -279,10 +278,7 @@ describe('Contract: route_info', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-2', command: 'route_info', data: { routeId: 'ghost' } },
-      ws
-    );
+    await registry.handle({ id: 'req-2', command: 'route_info', data: { routeId: 'ghost' } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('error');
@@ -336,10 +332,7 @@ describe('Contract: route_enable', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-3', command: 'route_enable', data: { enabled: true } },
-      ws
-    );
+    await registry.handle({ id: 'req-3', command: 'route_enable', data: { enabled: true } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('error');
@@ -364,10 +357,7 @@ describe('Contract: route_test', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-1', command: 'route_test', data: { routeId: 'route-1' } },
-      ws
-    );
+    await registry.handle({ id: 'req-1', command: 'route_test', data: { routeId: 'route-1' } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
@@ -377,11 +367,11 @@ describe('Contract: route_test', () => {
       note: 60,
       channel: 0
     });
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
-      'dev-out-1',
-      'noteon',
-      { channel: 0, note: 60, velocity: 80 }
-    );
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('dev-out-1', 'noteon', {
+      channel: 0,
+      note: 60,
+      velocity: 80
+    });
     jest.useRealTimers();
   });
 
@@ -390,10 +380,7 @@ describe('Contract: route_test', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-2', command: 'route_test', data: { routeId: 'ghost' } },
-      ws
-    );
+    await registry.handle({ id: 'req-2', command: 'route_test', data: { routeId: 'ghost' } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('error');
@@ -407,10 +394,7 @@ describe('Contract: route_test', () => {
     const registry = buildRegistry(app);
     const ws = createMockWs();
 
-    await registry.handle(
-      { id: 'req-3', command: 'route_test', data: { routeId: 'route-1' } },
-      ws
-    );
+    await registry.handle({ id: 'req-3', command: 'route_test', data: { routeId: 'route-1' } }, ws);
 
     const resp = ws._messages[0];
     expect(resp.type).toBe('response');
@@ -453,7 +437,7 @@ describe('Contract: file_routing_sync', () => {
       {
         id: 'req-2',
         command: 'file_routing_sync',
-        data: { fileId: 42, channels: { '0': 'dev-1', '1': 'dev-2::5' } }
+        data: { fileId: 42, channels: { 0: 'dev-1', 1: 'dev-2::5' } }
       },
       ws
     );
@@ -479,7 +463,7 @@ describe('Contract: file_routing_sync', () => {
       {
         id: 'req-3',
         command: 'file_routing_sync',
-        data: { fileId: 42, channels: { '0': 'unknown-dev', '1': 'dev-2' } }
+        data: { fileId: 42, channels: { 0: 'unknown-dev', 1: 'dev-2' } }
       },
       ws
     );
@@ -499,7 +483,7 @@ describe('Contract: file_routing_sync', () => {
       {
         id: 'req-4',
         command: 'file_routing_sync',
-        data: { fileId: 42, channels: { '0': 'virtual-instrument' } }
+        data: { fileId: 42, channels: { 0: 'virtual-instrument' } }
       },
       ws
     );
@@ -579,8 +563,8 @@ describe('Contract: file_routing_bulk_sync', () => {
         command: 'file_routing_bulk_sync',
         data: {
           routings: {
-            '1': { channels: { '0': 'dev-1', '1': 'dev-2' } },
-            '2': { channels: { '0': 'dev-1' } }
+            1: { channels: { 0: 'dev-1', 1: 'dev-2' } },
+            2: { channels: { 0: 'dev-1' } }
           }
         }
       },
@@ -606,8 +590,8 @@ describe('Contract: file_routing_bulk_sync', () => {
         command: 'file_routing_bulk_sync',
         data: {
           routings: {
-            '1': { channels: {} },
-            '2': { channels: { '0': 'dev-1' } }
+            1: { channels: {} },
+            2: { channels: { 0: 'dev-1' } }
           }
         }
       },

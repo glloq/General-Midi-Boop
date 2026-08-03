@@ -17,27 +17,29 @@ import { jest } from '@jest/globals';
 // SF2PresetService now calls convertPresetFromSF2 after going through the
 // SF2InstanceCache. We mock both so the test doesn't need a real SF2 file.
 const makeFakePreset = (presetNumber) => ({
-  zones: [{
-    // Float32Array matches the converter's real output shape; the byte
-    // estimator multiplies sample length by 4.
-    sample: new Float32Array(64),
-    sampleRate: 44100,
-    loopStart: 0,
-    loopEnd: 0,
-    keyRangeLow: 0,
-    keyRangeHigh: 127,
-    velRangeLow: 0,
-    velRangeHigh: 127,
-    midi: 60 + (presetNumber % 12),
-    coarseTune: 0,
-    fineTune: 0,
-  }],
+  zones: [
+    {
+      // Float32Array matches the converter's real output shape; the byte
+      // estimator multiplies sample length by 4.
+      sample: new Float32Array(64),
+      sampleRate: 44100,
+      loopStart: 0,
+      loopEnd: 0,
+      keyRangeLow: 0,
+      keyRangeHigh: 127,
+      velRangeLow: 0,
+      velRangeHigh: 127,
+      midi: 60 + (presetNumber % 12),
+      coarseTune: 0,
+      fineTune: 0
+    }
+  ]
 });
 
 await jest.unstable_mockModule('../src/files/SF2Converter.js', () => ({
   parseSoundFont: jest.fn(() => ({ banks: {} })),
   convertPresetFromSF2: jest.fn((_sf2, _bank, presetNumber) => makeFakePreset(presetNumber)),
-  convertPreset: jest.fn((_buf, _bank, presetNumber) => makeFakePreset(presetNumber)),
+  convertPreset: jest.fn((_buf, _bank, presetNumber) => makeFakePreset(presetNumber))
 }));
 
 jest.unstable_mockModule('fs', () => {
@@ -51,12 +53,12 @@ jest.unstable_mockModule('fs', () => {
       existsSync: jest.fn(() => true),
       readFileSync: jest.fn(() => fakeBuf),
       statSync: jest.fn(() => fakeStat),
-      mkdirSync: jest.fn(),
+      mkdirSync: jest.fn()
     },
     existsSync: jest.fn(() => true),
     readFileSync: jest.fn(() => fakeBuf),
     statSync: jest.fn(() => fakeStat),
-    mkdirSync: jest.fn(),
+    mkdirSync: jest.fn()
   };
 });
 
@@ -69,8 +71,8 @@ function makeFakeDB() {
     customSF2DB: {
       getCachedPreset: jest.fn(() => null),
       setCachedPreset: jest.fn(),
-      getById: jest.fn((id) => ({ id, blob_path: `${id}.sf2` })),
-    },
+      getById: jest.fn((id) => ({ id, blob_path: `${id}.sf2` }))
+    }
   };
 }
 
@@ -81,7 +83,7 @@ function makeService({ maxBytes = 1500, maxEntries = 100 } = {}) {
     dataDir: '/tmp/gmboop-test',
     database,
     logger: { info() {}, warn() {}, error() {} },
-    cache,
+    cache
   });
   return { service, cache, database };
 }
@@ -123,8 +125,8 @@ describe('SF2PresetService — bounded L1 cache', () => {
   test('invalidate(sf2Id) only wipes that bank prefix', async () => {
     const { service, cache } = makeService({ maxBytes: 10_000 });
     await service.getPreset('default', 'melodic', 0, 0, 0);
-    await service.getPreset('1',       'melodic', 0, 0, 0);
-    await service.getPreset('2',       'melodic', 0, 0, 0);
+    await service.getPreset('1', 'melodic', 0, 0, 0);
+    await service.getPreset('2', 'melodic', 0, 0, 0);
     expect(cache.getStats().size).toBe(3);
 
     service.invalidate('1');
@@ -133,7 +135,7 @@ describe('SF2PresetService — bounded L1 cache', () => {
     convertPresetFromSF2.mockClear();
     // 'default' and '2' survive — no re-parse.
     await service.getPreset('default', 'melodic', 0, 0, 0);
-    await service.getPreset('2',       'melodic', 0, 0, 0);
+    await service.getPreset('2', 'melodic', 0, 0, 0);
     expect(convertPresetFromSF2).not.toHaveBeenCalled();
 
     // '1' was wiped — re-parse expected.
@@ -148,19 +150,28 @@ describe('SF2PresetService — bounded L1 cache', () => {
     // comes back without re-running the converter.
     const database = makeFakeDB();
     let storedBlob = null;
-    database.customSF2DB.setCachedPreset = jest.fn((_id, _t, _p, _k, _n, buf) => { storedBlob = buf; });
+    database.customSF2DB.setCachedPreset = jest.fn((_id, _t, _p, _k, _n, buf) => {
+      storedBlob = buf;
+    });
 
     const s1 = new SF2PresetService({
       dataDir: '/tmp/gmboop-test',
       database,
       logger: { info() {}, warn() {}, error() {} },
-      cache: new AnalysisCache({ maxBytes: 100_000, maxSize: 10 }),
+      cache: new AnalysisCache({ maxBytes: 100_000, maxSize: 10 })
     });
     await s1.getPreset('default', 'melodic', 0, 0, 0);
     expect(convertPresetFromSF2).toHaveBeenCalledTimes(1);
     expect(storedBlob).toBeTruthy();
     // Sentinel id (0) is used for the default in the DB.
-    expect(database.customSF2DB.setCachedPreset).toHaveBeenCalledWith(0, 'melodic', 0, 0, 0, expect.any(Buffer));
+    expect(database.customSF2DB.setCachedPreset).toHaveBeenCalledWith(
+      0,
+      'melodic',
+      0,
+      0,
+      0,
+      expect.any(Buffer)
+    );
 
     // Second service shares the DB but starts with cold L1. Inject the
     // previously-stored blob through getCachedPreset.
@@ -170,7 +181,7 @@ describe('SF2PresetService — bounded L1 cache', () => {
       dataDir: '/tmp/gmboop-test',
       database,
       logger: { info() {}, warn() {}, error() {} },
-      cache: new AnalysisCache({ maxBytes: 100_000, maxSize: 10 }),
+      cache: new AnalysisCache({ maxBytes: 100_000, maxSize: 10 })
     });
     const preset = await s2.getPreset('default', 'melodic', 0, 0, 0);
     expect(preset).toBeTruthy();
@@ -180,10 +191,7 @@ describe('SF2PresetService — bounded L1 cache', () => {
   test('_estimatePresetBytes accounts for sample size + zone overhead', () => {
     const { service } = makeService();
     const preset = {
-      zones: [
-        { sample: new Float32Array(100) },
-        { sample: new Float32Array(50)  },
-      ],
+      zones: [{ sample: new Float32Array(100) }, { sample: new Float32Array(50) }]
     };
     // (100 + 50) * 4 + 2 * 200 = 600 + 400 = 1000
     expect(service._estimatePresetBytes(preset)).toBe(1000);

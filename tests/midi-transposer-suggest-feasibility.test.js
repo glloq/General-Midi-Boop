@@ -24,7 +24,9 @@ function analysis({ rangeMin = 60, rangeMax = 72, polyphonyMax = 4 } = {}) {
 function stubMatcher(decide) {
   return {
     _scoreHandPositionFeasibility(an, _instr) {
-      const min = an.noteRange.min, max = an.noteRange.max, p = an.polyphony.max;
+      const min = an.noteRange.min,
+        max = an.noteRange.max,
+        p = an.polyphony.max;
       const level = decide(min, max, p);
       const qualityScore = { ok: 100, warning: 70, infeasible: 50, unknown: 0 }[level] || 0;
       return { level, qualityScore, summary: {}, info: null, issue: null };
@@ -126,9 +128,14 @@ describe('MidiTransposer.suggestTranspositionForFeasibility', () => {
     const t = new MidiTransposer(silentLogger);
     // +5 would otherwise win (smaller |s|), but it's filtered out.
     const matcher = stubMatcher((min) => (min === 65 || min === 72 ? 'ok' : 'warning'));
-    const r = t.suggestTranspositionForFeasibility(analysis(), {}, {
-      matcher, allowNonOctave: false
-    });
+    const r = t.suggestTranspositionForFeasibility(
+      analysis(),
+      {},
+      {
+        matcher,
+        allowNonOctave: false
+      }
+    );
     expect(r).not.toBeNull();
     expect(r.semitones).toBe(12);
   });
@@ -137,8 +144,8 @@ describe('MidiTransposer.suggestTranspositionForFeasibility', () => {
     const t = new MidiTransposer(silentLogger);
     const matcher = stubMatcher((min) => {
       if (min === 60) return 'infeasible'; // baseline
-      if (min === 65) return 'warning';    // +5 → mild improvement
-      if (min === 72) return 'ok';         // +12 → big improvement
+      if (min === 65) return 'warning'; // +5 → mild improvement
+      if (min === 72) return 'ok'; // +12 → big improvement
       return 'infeasible';
     });
     const r = t.suggestTranspositionForFeasibility(analysis(), {}, { matcher });

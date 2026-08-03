@@ -33,11 +33,10 @@ class FileManager {
     // freeze `undefined` and the cache-invalidation hooks would never
     // fire, leaving the matcher with stale suggestions after file
     // edits. Lazy getter to pick up the live instance.
-    for (const name of ['wsServer', 'deviceManager', 'midiBaker',
-                        'autoAssigner']) {
+    for (const name of ['wsServer', 'deviceManager', 'midiBaker', 'autoAssigner']) {
       Object.defineProperty(this, name, {
         get: () => deps[name],
-        configurable: true,
+        configurable: true
       });
     }
     this.midiFileParser = new MidiFileParser(this.logger);
@@ -48,6 +47,24 @@ class FileManager {
   // ==========================================================================
   // Upload pipeline
   // ==========================================================================
+
+  /**
+   * Reject a buffer that exceeds the MIDI size cap before it is written to the
+   * blob store. Every user-supplied write path must call this — the upload
+   * route enforced it but the editor-save / replace / derive paths did not, so
+   * a large editor payload could persist a blob past the documented 10 MB limit
+   * (only the ~16 MB WS frame bounded it).
+   * @param {Buffer} buffer
+   * @returns {void}
+   * @throws {Error} When the buffer exceeds LIMITS.MAX_MIDI_FILE_SIZE.
+   */
+  _assertMidiSizeLimit(buffer) {
+    if (buffer.length > LIMITS.MAX_MIDI_FILE_SIZE) {
+      const mb = (buffer.length / (1024 * 1024)).toFixed(1);
+      const cap = LIMITS.MAX_MIDI_FILE_SIZE / (1024 * 1024);
+      throw new Error(`File too large: ${mb}MB exceeds ${cap}MB limit`);
+    }
+  }
 
   /**
    * Persist a MIDI buffer end-to-end. Designed to be called from inside an
@@ -66,11 +83,7 @@ class FileManager {
     if (!Buffer.isBuffer(buffer)) {
       throw new Error('handleUpload requires a Buffer');
     }
-    if (buffer.length > LIMITS.MAX_MIDI_FILE_SIZE) {
-      const mb = (buffer.length / (1024 * 1024)).toFixed(1);
-      const cap = LIMITS.MAX_MIDI_FILE_SIZE / (1024 * 1024);
-      throw new Error(`File too large: ${mb}MB exceeds ${cap}MB limit`);
-    }
+    this._assertMidiSizeLimit(buffer);
     const t0 = Date.now();
     report('received');
 
@@ -113,13 +126,25 @@ class FileManager {
     const parseMs = Date.now() - parseStart;
     report('parsed');
 
-    const validation = this.midiFileValidator.validate(midi);
-
+    // Analysis runs on a parseable-but-possibly-pathological AST. If any
+    // extractor throws, the blob written above is orphaned (no DB row will ever
+    // reference it), so clean it up before bailing — mirroring the parse-failure
+    // path. Without this a rare malformed-but-accepted file leaves a dangling
+    // blob that only gcOrphans reclaims.
+    let validation, metadata, tempoMap, instrumentMetadata, textEvents, textSummary;
     const analysisStart = Date.now();
-    const metadata = this.midiFileParser.extractMetadata(midi);
-    const tempoMap = this.midiFileParser.extractTempoMap(midi);
-    const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
-    const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(midi);
+    try {
+      validation = this.midiFileValidator.validate(midi);
+      metadata = this.midiFileParser.extractMetadata(midi);
+      tempoMap = this.midiFileParser.extractTempoMap(midi);
+      instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
+      ({ events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(midi));
+    } catch (err) {
+      if (!this.database.midiDB.getFileByContentHash(blob.hash)) {
+        this._safeBlobDelete(blob.relativePath);
+      }
+      throw new Error(`MIDI analysis failed: ${err.message}`);
+    }
     const analysisMs = Date.now() - analysisStart;
     report('analyzed');
 
@@ -199,7 +224,7 @@ class FileManager {
       ppq: midi.header.ticksPerBeat || 480,
       format: midi.header.format,
       channelCount: instrumentMetadata.fileMetadata.channel_count,
-      channels: instrumentMetadata.channelDetails.map(ch => ({
+      channels: instrumentMetadata.channelDetails.map((ch) => ({
         channel: ch.channel,
         channelDisplay: ch.channel + 1,
         program: ch.primaryProgram,
@@ -286,6 +311,7 @@ class FileManager {
     if (!file) throw new Error(`File not found: ${fileId}`);
 
     const buffer = Buffer.from(writeMidi(midiData));
+    this._assertMidiSizeLimit(buffer);
     const newBlob = this.blobStore.write(buffer);
 
     // If the new content matches another row's hash, refuse rather than
@@ -305,7 +331,8 @@ class FileManager {
     const metadata = this.midiFileParser.extractMetadata(parsed);
     const tempoMap = this.midiFileParser.extractTempoMap(parsed);
     const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
-    const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(parsed);
+    const { events: textEvents, summary: textSummary } =
+      this.midiFileParser.extractTextEvents(parsed);
 
     const oldBlobPath = file.blob_path;
     const persist = this.database.transaction(() => {
@@ -386,7 +413,8 @@ class FileManager {
     const metadata = this.midiFileParser.extractMetadata(parsed);
     const tempoMap = this.midiFileParser.extractTempoMap(parsed);
     const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
-    const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(parsed);
+    const { events: textEvents, summary: textSummary } =
+      this.midiFileParser.extractTextEvents(parsed);
 
     const oldBlobPath = file.blob_path;
     const persist = this.database.transaction(() => {
@@ -456,6 +484,7 @@ class FileManager {
    */
   async replaceFileBytes(fileId, buffer) {
     if (!Buffer.isBuffer(buffer)) throw new Error('replaceFileBytes requires a Buffer');
+    this._assertMidiSizeLimit(buffer);
     const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
 
@@ -540,6 +569,7 @@ class FileManager {
    */
   async createDerivedFile(filename, buffer, { folder = '/', parentFileId } = {}) {
     if (!Buffer.isBuffer(buffer)) throw new Error('createDerivedFile requires a Buffer');
+    this._assertMidiSizeLimit(buffer);
 
     const blob = this.blobStore.write(buffer);
     const existing = this.database.midiDB.getFileByContentHash(blob.hash);
@@ -590,7 +620,10 @@ class FileManager {
     try {
       fileId = persist();
     } catch (err) {
-      if (err.code !== 'DUPLICATE_CONTENT' && !this.database.midiDB.getFileByContentHash(blob.hash)) {
+      if (
+        err.code !== 'DUPLICATE_CONTENT' &&
+        !this.database.midiDB.getFileByContentHash(blob.hash)
+      ) {
         this._safeBlobDelete(blob.relativePath);
       }
       throw err;
@@ -664,7 +697,8 @@ class FileManager {
         const midi = parseMidi(buffer);
         const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(midi);
         const tempoMap = this.midiFileParser.extractTempoMap(midi);
-        const { events: textEvents, summary: textSummary } = this.midiFileParser.extractTextEvents(midi);
+        const { events: textEvents, summary: textSummary } =
+          this.midiFileParser.extractTextEvents(midi);
 
         const persist = this.database.transaction(() => {
           this.database.updateFile(file.id, {
@@ -704,10 +738,10 @@ class FileManager {
 
   listFiles(folder = '/') {
     const files = this.database.getFiles(folder);
-    const fileIds = files.map(f => f.id);
+    const fileIds = files.map((f) => f.id);
     const routingMap = this._batchGetRoutingStatus(fileIds, files);
 
-    return files.map(file => ({
+    return files.map((file) => ({
       id: file.id,
       filename: file.filename,
       size: file.size,
@@ -747,7 +781,7 @@ class FileManager {
           const minScore = row.min_score;
           result.set(
             row.midi_file_id,
-            (minScore === null || minScore === undefined || minScore === 100)
+            minScore === null || minScore === undefined || minScore === 100
               ? 'playable'
               : 'routed_incomplete'
           );
@@ -799,7 +833,7 @@ class FileManager {
     let format = 1;
     try {
       const channelRows = this.database.getFileChannels(fileId);
-      channels = channelRows.map(ch => ch.channel).sort((a, b) => a - b);
+      channels = channelRows.map((ch) => ch.channel).sort((a, b) => a - b);
       noteCount = channelRows.reduce((sum, ch) => sum + (ch.total_notes || 0), 0);
     } catch (chErr) {
       this.logger.warn(`Failed to get channel details for file ${fileId}: ${chErr.message}`);
@@ -812,10 +846,12 @@ class FileManager {
         const midi = parseMidi(buffer);
         format = midi.header.format;
         const channelsUsed = new Set();
-        midi.tracks.forEach(track => {
-          track.forEach(event => {
-            if (event.channel !== undefined &&
-                (event.type === 'noteOn' || event.type === 'noteOff')) {
+        midi.tracks.forEach((track) => {
+          track.forEach((event) => {
+            if (
+              event.channel !== undefined &&
+              (event.type === 'noteOn' || event.type === 'noteOff')
+            ) {
               channelsUsed.add(event.channel);
               noteCount++;
             }
@@ -837,7 +873,7 @@ class FileManager {
       const routings = this.database.getRoutingsByFile(fileId);
       const connectedDeviceIds = this._getConnectedDeviceIds();
       const effectiveChannelCount = channels.length || file.channel_count || 1;
-      const enabledRoutings = routings.filter(r => {
+      const enabledRoutings = routings.filter((r) => {
         if (r.enabled === false) return false;
         if (connectedDeviceIds && !connectedDeviceIds.has(r.device_id)) return false;
         return true;
@@ -848,16 +884,18 @@ class FileManager {
         routingStatus = 'partial';
       } else if (routedCount >= effectiveChannelCount && effectiveChannelCount > 0) {
         const scores = enabledRoutings
-          .map(r => r.compatibility_score)
-          .filter(s => s !== null && s !== undefined);
+          .map((r) => r.compatibility_score)
+          .filter((s) => s !== null && s !== undefined);
         const minScore = scores.length > 0 ? Math.min(...scores) : null;
-        routingStatus = (minScore === null || minScore === 100) ? 'playable' : 'routed_incomplete';
+        routingStatus = minScore === null || minScore === 100 ? 'playable' : 'routed_incomplete';
       }
 
       isAdapted = file.is_original === 0 || file.is_original === false;
-      hasAutoAssigned = enabledRoutings.some(r => r.auto_assigned);
+      hasAutoAssigned = enabledRoutings.some((r) => r.auto_assigned);
     } catch (routingErr) {
-      this.logger.warn(`Failed to compute routing status for file ${fileId}: ${routingErr.message}`);
+      this.logger.warn(
+        `Failed to compute routing status for file ${fileId}: ${routingErr.message}`
+      );
     }
 
     return {
@@ -930,11 +968,21 @@ class FileManager {
   }
 
   // Pass-through helpers used by other modules / tests.
-  extractMetadata(midi) { return this.midiFileParser.extractMetadata(midi); }
-  extractInstrumentMetadata(midi) { return this.midiFileParser.extractInstrumentMetadata(midi); }
-  extractTextEvents(midi) { return this.midiFileParser.extractTextEvents(midi); }
-  convertMidiToJSON(midi) { return this.midiFileParser.convertMidiToJSON(midi); }
-  extractTrackName(track) { return this.midiFileParser.extractTrackName(track); }
+  extractMetadata(midi) {
+    return this.midiFileParser.extractMetadata(midi);
+  }
+  extractInstrumentMetadata(midi) {
+    return this.midiFileParser.extractInstrumentMetadata(midi);
+  }
+  extractTextEvents(midi) {
+    return this.midiFileParser.extractTextEvents(midi);
+  }
+  convertMidiToJSON(midi) {
+    return this.midiFileParser.convertMidiToJSON(midi);
+  }
+  extractTrackName(track) {
+    return this.midiFileParser.extractTrackName(track);
+  }
 
   _safeBlobDelete(relativePath) {
     try {

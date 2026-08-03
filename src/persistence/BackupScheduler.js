@@ -149,7 +149,11 @@ class BackupScheduler {
       const blobs = [];
       const missing = [];
       let dbSize = 0;
-      try { dbSize = fs.statSync(backupPath).size; } catch { /* ignore */ }
+      try {
+        dbSize = fs.statSync(backupPath).size;
+      } catch {
+        /* ignore */
+      }
 
       for (const row of rows) {
         let exists = false;
@@ -159,7 +163,9 @@ class BackupScheduler {
           const stat = fs.statSync(abs);
           exists = true;
           onDiskSize = stat.size;
-        } catch { /* blob missing */ }
+        } catch {
+          /* blob missing */
+        }
 
         const entry = {
           fileId: row.id,

@@ -45,31 +45,52 @@ describe('PlaybackScheduler — discrete note snapping', () => {
     const app = makeApp();
     const s = new PlaybackScheduler(app);
     withSelected(s, [60, 62, 64, 67, 69]); // C major pentatonic
-    s.sendEvent({ type: 'noteOn', channel: 0, note: 61, velocity: 100 }, makeState(),
-      () => ({ device: 'kalimba', targetChannel: 0 }), {});
+    s.sendEvent(
+      { type: 'noteOn', channel: 0, note: 61, velocity: 100 },
+      makeState(),
+      () => ({ device: 'kalimba', targetChannel: 0 }),
+      {}
+    );
     // 61 is equidistant to 60 and 62 → tie breaks downward → 60.
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('kalimba', 'noteon',
-      expect.objectContaining({ note: 60 }));
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
+      'kalimba',
+      'noteon',
+      expect.objectContaining({ note: 60 })
+    );
   });
 
   test('leaves an available note untouched', () => {
     const app = makeApp();
     const s = new PlaybackScheduler(app);
     withSelected(s, [60, 62, 64, 67, 69]);
-    s.sendEvent({ type: 'noteOn', channel: 0, note: 67, velocity: 100 }, makeState(),
-      () => ({ device: 'kalimba', targetChannel: 0 }), {});
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('kalimba', 'noteon',
-      expect.objectContaining({ note: 67 }));
+    s.sendEvent(
+      { type: 'noteOn', channel: 0, note: 67, velocity: 100 },
+      makeState(),
+      () => ({ device: 'kalimba', targetChannel: 0 }),
+      {}
+    );
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
+      'kalimba',
+      'noteon',
+      expect.objectContaining({ note: 67 })
+    );
   });
 
   test('does not snap the GM drum channel (9)', () => {
     const app = makeApp();
     const s = new PlaybackScheduler(app);
     withSelected(s, [60, 62, 64]);
-    s.sendEvent({ type: 'noteOn', channel: 9, note: 38, velocity: 100 }, makeState(),
-      () => ({ device: 'drum', targetChannel: 9 }), {});
-    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('drum', 'noteon',
-      expect.objectContaining({ note: 38 }));
+    s.sendEvent(
+      { type: 'noteOn', channel: 9, note: 38, velocity: 100 },
+      makeState(),
+      () => ({ device: 'drum', targetChannel: 9 }),
+      {}
+    );
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith(
+      'drum',
+      'noteon',
+      expect.objectContaining({ note: 38 })
+    );
   });
 
   test('_snapToSelected picks the nearest, ties downward', () => {

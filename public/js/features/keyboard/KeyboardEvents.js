@@ -1,521 +1,533 @@
 // Auto-extracted from KeyboardModal.js
-(function() {
-    'use strict';
-    const KeyboardEventsMixin = {};
+(function () {
+  'use strict';
+  const KeyboardEventsMixin = {};
 
+  // ========================================================================
+  // EVENTS
+  // ========================================================================
 
-    // ========================================================================
-    // EVENTS
-    // ========================================================================
+  KeyboardEventsMixin.attachEvents = function () {
+    // Buttons
+    document.getElementById('keyboard-close-btn')?.addEventListener('click', () => this.close());
 
-    KeyboardEventsMixin.attachEvents = function() {
-        // Buttons
-        document.getElementById('keyboard-close-btn')?.addEventListener('click', () => this.close());
+    document.getElementById('keyboard-octave-up')?.addEventListener('click', () => {
+      const totalNotes = this.visibleNoteCount;
+      this.startNote = Math.min(127 - totalNotes, this.startNote + 12);
+      this._updateOctaveDisplay();
+      this.regeneratePianoKeys();
+    });
 
-        document.getElementById('keyboard-octave-up')?.addEventListener('click', () => {
-            const totalNotes = this.visibleNoteCount;
-            this.startNote = Math.min(127 - totalNotes, this.startNote + 12);
+    document.getElementById('keyboard-octave-down')?.addEventListener('click', () => {
+      this.startNote = Math.max(0, this.startNote - 12);
+      this._updateOctaveDisplay();
+      this.regeneratePianoKeys();
+    });
+
+    // Zoom in/out — step by `this.zoomStep` notes (4 by default).
+    document.getElementById('keyboard-zoom-in')?.addEventListener('click', () => {
+      const next = this.visibleNoteCount - this.zoomStep;
+      if (next >= this.minVisibleNotes) {
+        this.setVisibleNotes(next);
+        this.saveOctavesToSettings();
+        this._updateOctaveDisplay();
+        this.regeneratePianoKeys();
+      }
+    });
+    document.getElementById('keyboard-zoom-out')?.addEventListener('click', () => {
+      const next = this.visibleNoteCount + this.zoomStep;
+      if (next <= this.maxVisibleNotes) {
+        this.setVisibleNotes(next);
+        this.saveOctavesToSettings();
+        this._updateOctaveDisplay();
+        this.regeneratePianoKeys();
+      }
+    });
+
+    // Wheel zoom over the canvas (only while hovering it)
+    const canvasContainer = document.getElementById('keyboard-canvas-container');
+    if (canvasContainer) {
+      this._canvasWheelHandler = (e) => {
+        if (
+          this.viewMode !== 'piano' &&
+          this.viewMode !== 'piano-slider' &&
+          this.viewMode !== 'keyboard-list'
+        )
+          return;
+        e.preventDefault();
+        const delta = Math.sign(e.deltaY);
+        if (delta < 0) {
+          const next = this.visibleNoteCount - this.zoomStep;
+          if (next >= this.minVisibleNotes) {
+            this.setVisibleNotes(next);
+            this.saveOctavesToSettings();
             this._updateOctaveDisplay();
             this.regeneratePianoKeys();
-        });
-
-        document.getElementById('keyboard-octave-down')?.addEventListener('click', () => {
-            this.startNote = Math.max(0, this.startNote - 12);
+          }
+        } else if (delta > 0) {
+          const next = this.visibleNoteCount + this.zoomStep;
+          if (next <= this.maxVisibleNotes) {
+            this.setVisibleNotes(next);
+            this.saveOctavesToSettings();
             this._updateOctaveDisplay();
             this.regeneratePianoKeys();
-        });
-
-        // Zoom in/out — step by `this.zoomStep` notes (4 by default).
-        document.getElementById('keyboard-zoom-in')?.addEventListener('click', () => {
-            const next = this.visibleNoteCount - this.zoomStep;
-            if (next >= this.minVisibleNotes) {
-                this.setVisibleNotes(next);
-                this.saveOctavesToSettings();
-                this._updateOctaveDisplay();
-                this.regeneratePianoKeys();
-            }
-        });
-        document.getElementById('keyboard-zoom-out')?.addEventListener('click', () => {
-            const next = this.visibleNoteCount + this.zoomStep;
-            if (next <= this.maxVisibleNotes) {
-                this.setVisibleNotes(next);
-                this.saveOctavesToSettings();
-                this._updateOctaveDisplay();
-                this.regeneratePianoKeys();
-            }
-        });
-
-        // Wheel zoom over the canvas (only while hovering it)
-        const canvasContainer = document.getElementById('keyboard-canvas-container');
-        if (canvasContainer) {
-            this._canvasWheelHandler = (e) => {
-                if (this.viewMode !== 'piano' && this.viewMode !== 'piano-slider' && this.viewMode !== 'keyboard-list') return;
-                e.preventDefault();
-                const delta = Math.sign(e.deltaY);
-                if (delta < 0) {
-                    const next = this.visibleNoteCount - this.zoomStep;
-                    if (next >= this.minVisibleNotes) {
-                        this.setVisibleNotes(next);
-                        this.saveOctavesToSettings();
-                        this._updateOctaveDisplay();
-                        this.regeneratePianoKeys();
-                    }
-                } else if (delta > 0) {
-                    const next = this.visibleNoteCount + this.zoomStep;
-                    if (next <= this.maxVisibleNotes) {
-                        this.setVisibleNotes(next);
-                        this.saveOctavesToSettings();
-                        this._updateOctaveDisplay();
-                        this.regeneratePianoKeys();
-                    }
-                }
-            };
-            canvasContainer.addEventListener('wheel', this._canvasWheelHandler, { passive: false });
+          }
         }
-
-        // Minimap navigation — the minimap shows the full MIDI range (0-127).
-        const minimapTrack = document.getElementById('keyboard-minimap-track');
-        if (minimapTrack) {
-            const minMidi = 0;
-            const maxMidi = 127;
-            const totalRange = maxMidi - minMidi + 1;
-            const moveTo = (clientX) => {
-                const rect = minimapTrack.getBoundingClientRect();
-                const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                const totalNotes = this.visibleNoteCount;
-                // Center the viewport on the click position
-                const centerMidi = minMidi + ratio * totalRange;
-                let newStart = Math.round(centerMidi - totalNotes / 2);
-                newStart = Math.max(0, Math.min(127 - totalNotes, newStart));
-                this.startNote = newStart;
-                this._updateOctaveDisplay();
-                this.regeneratePianoKeys();
-            };
-            this._minimapMouseDown = (e) => {
-                e.preventDefault();
-                this._minimapDragging = true;
-                moveTo(e.clientX);
-            };
-            this._minimapMouseMove = (e) => {
-                if (this._minimapDragging) moveTo(e.clientX);
-            };
-            this._minimapMouseUp = () => { this._minimapDragging = false; };
-            minimapTrack.addEventListener('mousedown', this._minimapMouseDown);
-            document.addEventListener('mousemove', this._minimapMouseMove);
-            document.addEventListener('mouseup', this._minimapMouseUp);
-        }
-
-        // Notation selector (radio-style group of buttons)
-        const notationToggle = document.getElementById('keyboard-notation-toggle');
-        if (notationToggle) {
-            notationToggle.addEventListener('click', (e) => {
-                const btn = e.target.closest('.notation-btn');
-                if (!btn) return;
-                const value = btn.dataset.notation;
-                if (!['english', 'solfege', 'midi'].includes(value)) return;
-                this.noteLabelFormat = value;
-                // Update active state on all buttons
-                notationToggle.querySelectorAll('.notation-btn').forEach(b => {
-                    const isActive = b.dataset.notation === value;
-                    b.classList.toggle('active', isActive);
-                    b.setAttribute('aria-checked', isActive ? 'true' : 'false');
-                });
-                try {
-                    const saved = localStorage.getItem('gmboop_settings');
-                    const settings = saved ? JSON.parse(saved) : {};
-                    settings.keyboardNotation = this.noteLabelFormat;
-                    localStorage.setItem('gmboop_settings', JSON.stringify(settings));
-                } catch (err) { /* ignore */ }
-                this._updateOctaveDisplay();
-                this.regeneratePianoKeys();
-                if (this.viewMode === 'fretboard') this.renderFretboard();
-                if (this.viewMode === 'drumpad') this.renderDrumPad();
-                // Self-owned instrument views (harmonica/harp/accordion/
-                // mallet/kalimba/bagpipe/steel-drum/…) render their own
-                // note labels via modal.getNoteLabel — rebuild them so the
-                // US / FR / MIDI choice applies everywhere.
-                const ak = this._activeViewKind;
-                const BUILTIN = ['piano', 'piano-slider', 'fretboard',
-                                 'drumpad', 'keyboard-list'];
-                if (ak && !BUILTIN.includes(ak)
-                    && this._activeView && typeof this._activeView.rerender === 'function') {
-                    this._activeView.rerender();
-                }
-            });
-        }
-
-        // Note-color toggle (piano and fretboard modes)
-        document.getElementById('keyboard-note-colors-toggle')?.addEventListener('click', () => {
-            this.showNoteColors = !this.showNoteColors;
-            const btn = document.getElementById('keyboard-note-colors-toggle');
-            if (btn) btn.classList.toggle('active', this.showNoteColors);
-            if (this.viewMode === 'fretboard') this.renderFretboard();
-            else if (this.viewMode === 'keyboard-list') {
-                if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
-            } else if (this.viewMode === 'piano' || this.viewMode === 'piano-slider') {
-                // regeneratePianoKeys routes piano-slider → generatePianoSlider
-                this.regeneratePianoKeys();
-            }
-            // Self-owned instrument views colour their own cells from
-            // modal.showNoteColors / modal.getNoteColor — rebuild so the
-            // 🎨 toggle works for every instrument.
-            const ak = this._activeViewKind;
-            const BUILTIN = ['piano', 'piano-slider', 'fretboard',
-                             'drumpad', 'keyboard-list'];
-            if (ak && !BUILTIN.includes(ak)
-                && this._activeView && typeof this._activeView.rerender === 'function') {
-                this._activeView.rerender();
-            }
-        });
-
-        // String slide mode toggle
-        document.getElementById('keyboard-slide-toggle')?.addEventListener('click', () => {
-            if (typeof this._toggleStringSlideMode === 'function') {
-                this._toggleStringSlideMode();
-            }
-        });
-
-        // Piano slider toggle (equal-width chromatic keys + pitch bend)
-        document.getElementById('keyboard-piano-slider-toggle')?.addEventListener('click', () => {
-            if (this.viewMode === 'piano-slider') {
-                this.setViewMode('piano');
-            } else {
-                this.setViewMode('piano-slider');
-            }
-        });
-
-        // List view toggle — disabled when the instrument has fingers configured
-        // (switching between piano and chromatic-list layouts cannot adapt finger positions).
-        document.getElementById('keyboard-list-view-toggle')?.addEventListener('click', () => {
-            if (typeof this._instrumentHasFingers === 'function' && this._instrumentHasFingers()) return;
-            if (this.viewMode === 'keyboard-list') {
-                this.setViewMode('piano');
-            } else {
-                this.setViewMode('keyboard-list');
-            }
-        });
-
-        // List view: CC selector for Y-axis
-        document.getElementById('keyboard-list-cc-select')?.addEventListener('change', (e) => {
-            const val = e.target.value;
-            this.listViewYCC = val === '' ? null : parseInt(val, 10);
-        });
-
-        // List view: pitch bend toggle for X-axis
-        document.getElementById('keyboard-list-pb-toggle')?.addEventListener('click', () => {
-            this.listViewPitchBendEnabled = !this.listViewPitchBendEnabled;
-            const btn = document.getElementById('keyboard-list-pb-toggle');
-            if (btn) {
-                btn.classList.toggle('active', this.listViewPitchBendEnabled);
-                btn.setAttribute('aria-pressed', String(this.listViewPitchBendEnabled));
-            }
-            // Reset pitch bend to centre si on désactive
-            if (!this.listViewPitchBendEnabled && typeof this._sendPitchBend === 'function') {
-                this._sendPitchBend(0);
-            }
-        });
-
-        // View mode toggle (piano <-> fretboard / drumpad)
-        // piano-slider is treated as part of piano family → exits to fretboard/drumpad normally
-        document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {
-            const info = this.getInstrumentViewInfo();
-            if (info.isDrum) {
-                this.setViewMode(this.viewMode === 'drumpad' ? 'piano' : 'drumpad');
-            } else if (info.canFretboard) {
-                this.setViewMode(this.viewMode === 'fretboard' ? 'piano' : 'fretboard');
-            } else {
-                // Specific instruments (harmonica/harp/accordion/mallet/
-                // kalimba/bagpipe/steel-drum/theremin/wind…) toggle between
-                // their natural view and the standard virtual piano, so the
-                // piano stays available for every instrument.
-                const natural = info.viewKind && info.viewKind !== 'piano'
-                    ? info.viewKind : 'piano';
-                this.setViewMode(this.viewMode === natural ? 'piano' : natural);
-            }
-        });
-
-        // Instrument trigger: open/close custom dropdown
-        const instrumentTrigger = document.getElementById('instrument-trigger');
-        if (instrumentTrigger) {
-            this._instrumentTriggerClick = (e) => {
-                e.stopPropagation();
-                const dropdown = document.getElementById('instrument-dropdown');
-                const selector = document.getElementById('header-instrument-selector');
-                if (!dropdown || !selector) return;
-                const isOpen = dropdown.classList.contains('open');
-                dropdown.classList.toggle('open', !isOpen);
-                selector.classList.toggle('open', !isOpen);
-                instrumentTrigger.setAttribute('aria-expanded', String(!isOpen));
-                this._sizeInstrumentDropdown(!isOpen);
-            };
-            instrumentTrigger.addEventListener('click', this._instrumentTriggerClick);
-        }
-
-        // Close dropdown when clicking outside
-        this._closeDropdownOnOutside = (e) => {
-            const selector = document.getElementById('header-instrument-selector');
-            if (selector && !selector.contains(e.target)) {
-                const dropdown = document.getElementById('instrument-dropdown');
-                const trigger = document.getElementById('instrument-trigger');
-                dropdown?.classList.remove('open');
-                selector.classList.remove('open');
-                if (trigger) trigger.setAttribute('aria-expanded', 'false');
-                this._sizeInstrumentDropdown(false);
-            }
-        };
-        document.addEventListener('click', this._closeDropdownOnOutside);
-
-        // Velocity
-        document.getElementById('keyboard-velocity')?.addEventListener('input', (e) => {
-            this.velocity = Math.max(1, Math.min(127, parseInt(e.target.value, 10) || 80));
-            document.getElementById('keyboard-velocity-display').textContent = this.velocity;
-        });
-
-        // Wind instrument panel (articulation buttons)
-        if (typeof this._initWindPanel === 'function') {
-            this._initWindPanel();
-        }
-
-        // Modulation wheel (custom drag)
-        this.initModWheel();
-
-        // Pitch bend wheel (custom drag, springs back to center)
-        if (typeof this.initPitchBendWheel === 'function') {
-            this.initPitchBendWheel();
-        }
-
-        // Piano keys - use delegated listeners on the container (not individual per key)
-        this._setupPianoDelegation();
-
-        // Global mouseup handling for the drag
-        document.addEventListener('mouseup', this.handleGlobalMouseUp);
-
-        // PC keyboard
-        window.addEventListener('keydown', this.handleKeyDown);
-        window.addEventListener('keyup', this.handleKeyUp);
-
-        // Release held notes when the page/window loses focus or becomes
-        // hidden — a mouse-pressed key otherwise never receives mouseup and
-        // the note sustains forever. Registered through _on() so close()'s
-        // _offAll() cleans these up automatically.
-        const releaseHeld = () => {
-            this.activeNotes.forEach(note => this.stopNote(note));
-        };
-        this._on(window, 'blur', releaseHeld);
-        this._on(document, 'visibilitychange', () => {
-            if (document.hidden) releaseHeld();
-        });
+      };
+      canvasContainer.addEventListener('wheel', this._canvasWheelHandler, { passive: false });
     }
 
-    KeyboardEventsMixin.detachEvents = function() {
-        document.removeEventListener('mouseup', this.handleGlobalMouseUp);
-        window.removeEventListener('keydown', this.handleKeyDown);
-        window.removeEventListener('keyup', this.handleKeyUp);
-
-        // Instrument dropdown outside-click handler
-        if (this._closeDropdownOnOutside) {
-            document.removeEventListener('click', this._closeDropdownOnOutside);
-            this._closeDropdownOnOutside = null;
-        }
-
-        // Instrument trigger click handler
-        const instrumentTrigger = document.getElementById('instrument-trigger');
-        if (instrumentTrigger && this._instrumentTriggerClick) {
-            instrumentTrigger.removeEventListener('click', this._instrumentTriggerClick);
-            this._instrumentTriggerClick = null;
-        }
-
-        // Remove canvas wheel zoom
-        const canvasContainer = document.getElementById('keyboard-canvas-container');
-        if (canvasContainer && this._canvasWheelHandler) {
-            canvasContainer.removeEventListener('wheel', this._canvasWheelHandler);
-            this._canvasWheelHandler = null;
-        }
-
-        // Remove minimap listeners
-        if (this._minimapMouseMove) {
-            document.removeEventListener('mousemove', this._minimapMouseMove);
-            document.removeEventListener('mouseup', this._minimapMouseUp);
-            this._minimapMouseMove = null;
-            this._minimapMouseUp = null;
-            this._minimapMouseDown = null;
-        }
-
-        // Remove delegated piano container listeners
-        this._removePianoDelegation();
-
-        // Cleanup mod wheel listeners
-        if (this._modWheelOnMove) {
-            const track = document.getElementById('mod-wheel-track');
-            if (track) {
-                track.removeEventListener('mousedown', this._modWheelOnTrackDown);
-                track.removeEventListener('touchstart', this._modWheelOnTouchStart);
-            }
-            document.removeEventListener('mousemove', this._modWheelOnMove);
-            document.removeEventListener('mouseup', this._modWheelOnEnd);
-            document.removeEventListener('touchmove', this._modWheelOnTouchMove);
-            document.removeEventListener('touchend', this._modWheelOnEnd);
-            document.removeEventListener('touchcancel', this._modWheelOnEnd);
-        }
-
-        // Cleanup pitch bend wheel listeners
-        if (this._pitchBendOnMove) {
-            const pbTrack = document.getElementById('pitch-bend-track');
-            if (pbTrack) {
-                pbTrack.removeEventListener('mousedown', this._pitchBendOnTrackDown);
-                pbTrack.removeEventListener('touchstart', this._pitchBendOnTouchStart);
-            }
-            document.removeEventListener('mousemove', this._pitchBendOnMove);
-            document.removeEventListener('mouseup', this._pitchBendOnEnd);
-            document.removeEventListener('touchmove', this._pitchBendOnTouchMove);
-            document.removeEventListener('touchend', this._pitchBendOnEnd);
-            document.removeEventListener('touchcancel', this._pitchBendOnEnd);
-        }
+    // Minimap navigation — the minimap shows the full MIDI range (0-127).
+    const minimapTrack = document.getElementById('keyboard-minimap-track');
+    if (minimapTrack) {
+      const minMidi = 0;
+      const maxMidi = 127;
+      const totalRange = maxMidi - minMidi + 1;
+      const moveTo = (clientX) => {
+        const rect = minimapTrack.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const totalNotes = this.visibleNoteCount;
+        // Center the viewport on the click position
+        const centerMidi = minMidi + ratio * totalRange;
+        let newStart = Math.round(centerMidi - totalNotes / 2);
+        newStart = Math.max(0, Math.min(127 - totalNotes, newStart));
+        this.startNote = newStart;
+        this._updateOctaveDisplay();
+        this.regeneratePianoKeys();
+      };
+      this._minimapMouseDown = (e) => {
+        e.preventDefault();
+        this._minimapDragging = true;
+        moveTo(e.clientX);
+      };
+      this._minimapMouseMove = (e) => {
+        if (this._minimapDragging) moveTo(e.clientX);
+      };
+      this._minimapMouseUp = () => {
+        this._minimapDragging = false;
+      };
+      minimapTrack.addEventListener('mousedown', this._minimapMouseDown);
+      document.addEventListener('mousemove', this._minimapMouseMove);
+      document.addEventListener('mouseup', this._minimapMouseUp);
     }
 
-    /**
-     * Resolve a PC key to a MIDI note via the visible keys
-     * White keys map to the lower letter row, black keys to the upper letter row.
-     * AZERTY: Q S D F G H J K L M ù * (white) / Z E T Y U O P (black)
-     * QWERTY: S D F G H J K L ; (white) / W E T Y U O P (black)
-     */
-    KeyboardEventsMixin._resolveKeyToNote = function(code) {
-        // Mapping of PC keys to indices of visible white keys
-        // event.code reflects the physical (US-QWERTY) position; AZERTY users press
-        // their labeled letter, which on hardware corresponds to the US-QWERTY name below.
-        const whiteKeyIndices = this.keyboardLayout === 'qwerty'
-            ? { 'KeyS': 0, 'KeyD': 1, 'KeyF': 2, 'KeyG': 3, 'KeyH': 4, 'KeyJ': 5, 'KeyK': 6, 'KeyL': 7, 'Semicolon': 8 }
-            : {
-                'KeyA': 0,        // Q
-                'KeyS': 1,        // S
-                'KeyD': 2,        // D
-                'KeyF': 3,        // F
-                'KeyG': 4,        // G
-                'KeyH': 5,        // H
-                'KeyJ': 6,        // J
-                'KeyK': 7,        // K
-                'KeyL': 8,        // L
-                'Semicolon': 9,   // M
-                'Quote': 10,      // ù
-                'Backslash': 11   // *
-            };
-
-        // Black keys: between which white keys (index of the white key on the left)
-        const blackKeyIndices = this.keyboardLayout === 'qwerty'
-            ? { 'KeyW': 0, 'KeyE': 1, 'KeyT': 3, 'KeyY': 4, 'KeyU': 5, 'KeyO': 7, 'KeyP': 8 }
-            : {
-                'KeyW': 0,  // Z
-                'KeyE': 1,  // E
-                'KeyT': 3,  // T
-                'KeyY': 4,  // Y
-                'KeyU': 5,  // U
-                'KeyO': 7,  // O
-                'KeyP': 8   // P
-            };
-
-        // White key?
-        if (whiteKeyIndices[code] !== undefined) {
-            const idx = whiteKeyIndices[code];
-            return idx < this.visibleWhiteNotes.length ? this.visibleWhiteNotes[idx] : null;
+    // Notation selector (radio-style group of buttons)
+    const notationToggle = document.getElementById('keyboard-notation-toggle');
+    if (notationToggle) {
+      notationToggle.addEventListener('click', (e) => {
+        const btn = e.target.closest('.notation-btn');
+        if (!btn) return;
+        const value = btn.dataset.notation;
+        if (!['english', 'solfege', 'midi'].includes(value)) return;
+        this.noteLabelFormat = value;
+        // Update active state on all buttons
+        notationToggle.querySelectorAll('.notation-btn').forEach((b) => {
+          const isActive = b.dataset.notation === value;
+          b.classList.toggle('active', isActive);
+          b.setAttribute('aria-checked', isActive ? 'true' : 'false');
+        });
+        try {
+          const saved = localStorage.getItem('gmboop_settings');
+          const settings = saved ? JSON.parse(saved) : {};
+          settings.keyboardNotation = this.noteLabelFormat;
+          localStorage.setItem('gmboop_settings', JSON.stringify(settings));
+        } catch (err) {
+          /* ignore */
         }
-
-        // Black key? Find the black key just above the matching white key
-        if (blackKeyIndices[code] !== undefined) {
-            const whiteIdx = blackKeyIndices[code];
-            if (whiteIdx >= this.visibleWhiteNotes.length) return null;
-            const whiteNote = this.visibleWhiteNotes[whiteIdx];
-            // The black key is 1 semitone above if it exists among the visible ones
-            const blackNote = whiteNote + 1;
-            return this.visibleBlackNotes.includes(blackNote) ? blackNote : null;
+        this._updateOctaveDisplay();
+        this.regeneratePianoKeys();
+        if (this.viewMode === 'fretboard') this.renderFretboard();
+        if (this.viewMode === 'drumpad') this.renderDrumPad();
+        // Self-owned instrument views (harmonica/harp/accordion/
+        // mallet/kalimba/bagpipe/steel-drum/…) render their own
+        // note labels via modal.getNoteLabel — rebuild them so the
+        // US / FR / MIDI choice applies everywhere.
+        const ak = this._activeViewKind;
+        const BUILTIN = ['piano', 'piano-slider', 'fretboard', 'drumpad', 'keyboard-list'];
+        if (
+          ak &&
+          !BUILTIN.includes(ak) &&
+          this._activeView &&
+          typeof this._activeView.rerender === 'function'
+        ) {
+          this._activeView.rerender();
         }
-
-        return null;
+      });
     }
 
-    // Always emit exactly one app-log line per note so the debug console
-    // shows every note regardless of device state. The backend midi_send
-    // path only echoes to the MIDI pane when midiRouter.monitorAll is on,
-    // so the keyboard cannot rely on it for feedback.
-    KeyboardEventsMixin._logNoteEvent = function(kind /* 'on' | 'off' */, note, velocity) {
-        const noteName = this.getNoteNameFromNumber(note);
-        const message = kind === 'on'
-            ? `🎹 ${this.t('keyboard.virtualNoteOn',  { note: noteName, number: note, velocity })}`
-            : `🎹 ${this.t('keyboard.virtualNoteOff', { note: noteName, number: note })}`;
-        if (this.logger && this.logger.info) this.logger.info(message);
-        else console.log(message);
+    // Note-color toggle (piano and fretboard modes)
+    document.getElementById('keyboard-note-colors-toggle')?.addEventListener('click', () => {
+      this.showNoteColors = !this.showNoteColors;
+      const btn = document.getElementById('keyboard-note-colors-toggle');
+      if (btn) btn.classList.toggle('active', this.showNoteColors);
+      if (this.viewMode === 'fretboard') this.renderFretboard();
+      else if (this.viewMode === 'keyboard-list') {
+        if (typeof this.renderKeyboardList === 'function') this.renderKeyboardList();
+      } else if (this.viewMode === 'piano' || this.viewMode === 'piano-slider') {
+        // regeneratePianoKeys routes piano-slider → generatePianoSlider
+        this.regeneratePianoKeys();
+      }
+      // Self-owned instrument views colour their own cells from
+      // modal.showNoteColors / modal.getNoteColor — rebuild so the
+      // 🎨 toggle works for every instrument.
+      const ak = this._activeViewKind;
+      const BUILTIN = ['piano', 'piano-slider', 'fretboard', 'drumpad', 'keyboard-list'];
+      if (
+        ak &&
+        !BUILTIN.includes(ak) &&
+        this._activeView &&
+        typeof this._activeView.rerender === 'function'
+      ) {
+        this._activeView.rerender();
+      }
+    });
+
+    // String slide mode toggle
+    document.getElementById('keyboard-slide-toggle')?.addEventListener('click', () => {
+      if (typeof this._toggleStringSlideMode === 'function') {
+        this._toggleStringSlideMode();
+      }
+    });
+
+    // Piano slider toggle (equal-width chromatic keys + pitch bend)
+    document.getElementById('keyboard-piano-slider-toggle')?.addEventListener('click', () => {
+      if (this.viewMode === 'piano-slider') {
+        this.setViewMode('piano');
+      } else {
+        this.setViewMode('piano-slider');
+      }
+    });
+
+    // List view toggle — disabled when the instrument has fingers configured
+    // (switching between piano and chromatic-list layouts cannot adapt finger positions).
+    document.getElementById('keyboard-list-view-toggle')?.addEventListener('click', () => {
+      if (typeof this._instrumentHasFingers === 'function' && this._instrumentHasFingers()) return;
+      if (this.viewMode === 'keyboard-list') {
+        this.setViewMode('piano');
+      } else {
+        this.setViewMode('keyboard-list');
+      }
+    });
+
+    // List view: CC selector for Y-axis
+    document.getElementById('keyboard-list-cc-select')?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      this.listViewYCC = val === '' ? null : parseInt(val, 10);
+    });
+
+    // List view: pitch bend toggle for X-axis
+    document.getElementById('keyboard-list-pb-toggle')?.addEventListener('click', () => {
+      this.listViewPitchBendEnabled = !this.listViewPitchBendEnabled;
+      const btn = document.getElementById('keyboard-list-pb-toggle');
+      if (btn) {
+        btn.classList.toggle('active', this.listViewPitchBendEnabled);
+        btn.setAttribute('aria-pressed', String(this.listViewPitchBendEnabled));
+      }
+      // Reset pitch bend to centre si on désactive
+      if (!this.listViewPitchBendEnabled && typeof this._sendPitchBend === 'function') {
+        this._sendPitchBend(0);
+      }
+    });
+
+    // View mode toggle (piano <-> fretboard / drumpad)
+    // piano-slider is treated as part of piano family → exits to fretboard/drumpad normally
+    document.getElementById('keyboard-view-toggle')?.addEventListener('click', () => {
+      const info = this.getInstrumentViewInfo();
+      if (info.isDrum) {
+        this.setViewMode(this.viewMode === 'drumpad' ? 'piano' : 'drumpad');
+      } else if (info.canFretboard) {
+        this.setViewMode(this.viewMode === 'fretboard' ? 'piano' : 'fretboard');
+      } else {
+        // Specific instruments (harmonica/harp/accordion/mallet/
+        // kalimba/bagpipe/steel-drum/theremin/wind…) toggle between
+        // their natural view and the standard virtual piano, so the
+        // piano stays available for every instrument.
+        const natural = info.viewKind && info.viewKind !== 'piano' ? info.viewKind : 'piano';
+        this.setViewMode(this.viewMode === natural ? 'piano' : natural);
+      }
+    });
+
+    // Instrument trigger: open/close custom dropdown
+    const instrumentTrigger = document.getElementById('instrument-trigger');
+    if (instrumentTrigger) {
+      this._instrumentTriggerClick = (e) => {
+        e.stopPropagation();
+        const dropdown = document.getElementById('instrument-dropdown');
+        const selector = document.getElementById('header-instrument-selector');
+        if (!dropdown || !selector) return;
+        const isOpen = dropdown.classList.contains('open');
+        dropdown.classList.toggle('open', !isOpen);
+        selector.classList.toggle('open', !isOpen);
+        instrumentTrigger.setAttribute('aria-expanded', String(!isOpen));
+        this._sizeInstrumentDropdown(!isOpen);
+      };
+      instrumentTrigger.addEventListener('click', this._instrumentTriggerClick);
+    }
+
+    // Close dropdown when clicking outside
+    this._closeDropdownOnOutside = (e) => {
+      const selector = document.getElementById('header-instrument-selector');
+      if (selector && !selector.contains(e.target)) {
+        const dropdown = document.getElementById('instrument-dropdown');
+        const trigger = document.getElementById('instrument-trigger');
+        dropdown?.classList.remove('open');
+        selector.classList.remove('open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        this._sizeInstrumentDropdown(false);
+      }
     };
+    document.addEventListener('click', this._closeDropdownOnOutside);
 
-    KeyboardEventsMixin.playNote = function(note) {
-        if (note < 0 || note > 127) return;
+    // Velocity
+    document.getElementById('keyboard-velocity')?.addEventListener('input', (e) => {
+      this.velocity = Math.max(1, Math.min(127, parseInt(e.target.value, 10) || 80));
+      document.getElementById('keyboard-velocity-display').textContent = this.velocity;
+    });
 
-        // Active-view pre-play hook (KM-C4): transform velocity / cancel.
-        // Replaces the old KeyboardWindMixin.playNote override + the
-        // _windOrigPlayNote workaround. Default InstrumentView.willPlayNote
-        // is an identity, so non-transforming views are unaffected.
-        let velocity = this.velocity;
-        const view = this._activeView;
-        if (view && typeof view.willPlayNote === 'function') {
-            const t = view.willPlayNote(note, velocity, {});
-            if (t === false) return;                       // view cancelled
-            if (t && typeof t === 'object') {
-                if (typeof t.midi === 'number') note = t.midi;
-                if (typeof t.velocity === 'number') velocity = t.velocity;
-            }
-            if (note < 0 || note > 127) return;
-        }
-        velocity = Math.max(1, Math.min(127, Math.round(velocity)));
-
-        // Add to active notes
-        this.activeNotes.add(note);
-        this.updatePianoDisplay();
-
-        if (this._panelCallbacks?.onNoteOn) this._panelCallbacks.onNoteOn(note, velocity);
-
-        // Send MIDI only to a real hardware device; the debug trace below
-        // is emitted unconditionally.
-        const realHardware =
-            this.selectedDevice && this.backend && !this.selectedDevice.isVirtual;
-
-        if (realHardware) {
-            const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
-            const channel = this.getSelectedChannel();
-            this.backend.sendNoteOn(deviceId, note, velocity, channel)
-                .catch(err => {
-                    this.logger.error('[KeyboardModal] Note ON failed:', err);
-                });
-        }
-
-        this._logNoteEvent('on', note, velocity);
-
-        // Active-view post-play hook (e.g. wind staccato auto note-off).
-        if (view && typeof view.afterPlayNote === 'function') {
-            view.afterPlayNote(note);
-        }
+    // Wind instrument panel (articulation buttons)
+    if (typeof this._initWindPanel === 'function') {
+      this._initWindPanel();
     }
 
-    KeyboardEventsMixin.stopNote = function(note) {
-        // Remove from active notes
-        this.activeNotes.delete(note);
-        this.updatePianoDisplay();
+    // Modulation wheel (custom drag)
+    this.initModWheel();
 
-        if (this._panelCallbacks?.onNoteOff) this._panelCallbacks.onNoteOff(note);
-
-        // Send MIDI only to a real hardware device; the debug trace below
-        // is emitted unconditionally.
-        const realHardware =
-            this.selectedDevice && this.backend && !this.selectedDevice.isVirtual;
-
-        if (realHardware) {
-            const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
-            const channel = this.getSelectedChannel();
-            this.backend.sendNoteOff(deviceId, note, channel)
-                .catch(err => {
-                    this.logger.error('[KeyboardModal] Note OFF failed:', err);
-                });
-        }
-
-        this._logNoteEvent('off', note);
+    // Pitch bend wheel (custom drag, springs back to center)
+    if (typeof this.initPitchBendWheel === 'function') {
+      this.initPitchBendWheel();
     }
 
-    if (typeof window !== 'undefined') window.KeyboardEventsMixin = KeyboardEventsMixin;
+    // Piano keys - use delegated listeners on the container (not individual per key)
+    this._setupPianoDelegation();
+
+    // Global mouseup handling for the drag
+    document.addEventListener('mouseup', this.handleGlobalMouseUp);
+
+    // PC keyboard
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+
+    // Release held notes when the page/window loses focus or becomes
+    // hidden — a mouse-pressed key otherwise never receives mouseup and
+    // the note sustains forever. Registered through _on() so close()'s
+    // _offAll() cleans these up automatically.
+    const releaseHeld = () => {
+      this.activeNotes.forEach((note) => this.stopNote(note));
+    };
+    this._on(window, 'blur', releaseHeld);
+    this._on(document, 'visibilitychange', () => {
+      if (document.hidden) releaseHeld();
+    });
+  };
+
+  KeyboardEventsMixin.detachEvents = function () {
+    document.removeEventListener('mouseup', this.handleGlobalMouseUp);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
+
+    // Instrument dropdown outside-click handler
+    if (this._closeDropdownOnOutside) {
+      document.removeEventListener('click', this._closeDropdownOnOutside);
+      this._closeDropdownOnOutside = null;
+    }
+
+    // Instrument trigger click handler
+    const instrumentTrigger = document.getElementById('instrument-trigger');
+    if (instrumentTrigger && this._instrumentTriggerClick) {
+      instrumentTrigger.removeEventListener('click', this._instrumentTriggerClick);
+      this._instrumentTriggerClick = null;
+    }
+
+    // Remove canvas wheel zoom
+    const canvasContainer = document.getElementById('keyboard-canvas-container');
+    if (canvasContainer && this._canvasWheelHandler) {
+      canvasContainer.removeEventListener('wheel', this._canvasWheelHandler);
+      this._canvasWheelHandler = null;
+    }
+
+    // Remove minimap listeners
+    if (this._minimapMouseMove) {
+      document.removeEventListener('mousemove', this._minimapMouseMove);
+      document.removeEventListener('mouseup', this._minimapMouseUp);
+      this._minimapMouseMove = null;
+      this._minimapMouseUp = null;
+      this._minimapMouseDown = null;
+    }
+
+    // Remove delegated piano container listeners
+    this._removePianoDelegation();
+
+    // Cleanup mod wheel listeners
+    if (this._modWheelOnMove) {
+      const track = document.getElementById('mod-wheel-track');
+      if (track) {
+        track.removeEventListener('mousedown', this._modWheelOnTrackDown);
+        track.removeEventListener('touchstart', this._modWheelOnTouchStart);
+      }
+      document.removeEventListener('mousemove', this._modWheelOnMove);
+      document.removeEventListener('mouseup', this._modWheelOnEnd);
+      document.removeEventListener('touchmove', this._modWheelOnTouchMove);
+      document.removeEventListener('touchend', this._modWheelOnEnd);
+      document.removeEventListener('touchcancel', this._modWheelOnEnd);
+    }
+
+    // Cleanup pitch bend wheel listeners
+    if (this._pitchBendOnMove) {
+      const pbTrack = document.getElementById('pitch-bend-track');
+      if (pbTrack) {
+        pbTrack.removeEventListener('mousedown', this._pitchBendOnTrackDown);
+        pbTrack.removeEventListener('touchstart', this._pitchBendOnTouchStart);
+      }
+      document.removeEventListener('mousemove', this._pitchBendOnMove);
+      document.removeEventListener('mouseup', this._pitchBendOnEnd);
+      document.removeEventListener('touchmove', this._pitchBendOnTouchMove);
+      document.removeEventListener('touchend', this._pitchBendOnEnd);
+      document.removeEventListener('touchcancel', this._pitchBendOnEnd);
+    }
+  };
+
+  /**
+   * Resolve a PC key to a MIDI note via the visible keys
+   * White keys map to the lower letter row, black keys to the upper letter row.
+   * AZERTY: Q S D F G H J K L M ù * (white) / Z E T Y U O P (black)
+   * QWERTY: S D F G H J K L ; (white) / W E T Y U O P (black)
+   */
+  KeyboardEventsMixin._resolveKeyToNote = function (code) {
+    // Mapping of PC keys to indices of visible white keys
+    // event.code reflects the physical (US-QWERTY) position; AZERTY users press
+    // their labeled letter, which on hardware corresponds to the US-QWERTY name below.
+    const whiteKeyIndices =
+      this.keyboardLayout === 'qwerty'
+        ? { KeyS: 0, KeyD: 1, KeyF: 2, KeyG: 3, KeyH: 4, KeyJ: 5, KeyK: 6, KeyL: 7, Semicolon: 8 }
+        : {
+            KeyA: 0, // Q
+            KeyS: 1, // S
+            KeyD: 2, // D
+            KeyF: 3, // F
+            KeyG: 4, // G
+            KeyH: 5, // H
+            KeyJ: 6, // J
+            KeyK: 7, // K
+            KeyL: 8, // L
+            Semicolon: 9, // M
+            Quote: 10, // ù
+            Backslash: 11 // *
+          };
+
+    // Black keys: between which white keys (index of the white key on the left)
+    const blackKeyIndices =
+      this.keyboardLayout === 'qwerty'
+        ? { KeyW: 0, KeyE: 1, KeyT: 3, KeyY: 4, KeyU: 5, KeyO: 7, KeyP: 8 }
+        : {
+            KeyW: 0, // Z
+            KeyE: 1, // E
+            KeyT: 3, // T
+            KeyY: 4, // Y
+            KeyU: 5, // U
+            KeyO: 7, // O
+            KeyP: 8 // P
+          };
+
+    // White key?
+    if (whiteKeyIndices[code] !== undefined) {
+      const idx = whiteKeyIndices[code];
+      return idx < this.visibleWhiteNotes.length ? this.visibleWhiteNotes[idx] : null;
+    }
+
+    // Black key? Find the black key just above the matching white key
+    if (blackKeyIndices[code] !== undefined) {
+      const whiteIdx = blackKeyIndices[code];
+      if (whiteIdx >= this.visibleWhiteNotes.length) return null;
+      const whiteNote = this.visibleWhiteNotes[whiteIdx];
+      // The black key is 1 semitone above if it exists among the visible ones
+      const blackNote = whiteNote + 1;
+      return this.visibleBlackNotes.includes(blackNote) ? blackNote : null;
+    }
+
+    return null;
+  };
+
+  // Always emit exactly one app-log line per note so the debug console
+  // shows every note regardless of device state. The backend midi_send
+  // path only echoes to the MIDI pane when midiRouter.monitorAll is on,
+  // so the keyboard cannot rely on it for feedback.
+  KeyboardEventsMixin._logNoteEvent = function (kind /* 'on' | 'off' */, note, velocity) {
+    const noteName = this.getNoteNameFromNumber(note);
+    const message =
+      kind === 'on'
+        ? `🎹 ${this.t('keyboard.virtualNoteOn', { note: noteName, number: note, velocity })}`
+        : `🎹 ${this.t('keyboard.virtualNoteOff', { note: noteName, number: note })}`;
+    if (this.logger && this.logger.info) this.logger.info(message);
+    else console.log(message);
+  };
+
+  KeyboardEventsMixin.playNote = function (note) {
+    if (note < 0 || note > 127) return;
+
+    // Active-view pre-play hook (KM-C4): transform velocity / cancel.
+    // Replaces the old KeyboardWindMixin.playNote override + the
+    // _windOrigPlayNote workaround. Default InstrumentView.willPlayNote
+    // is an identity, so non-transforming views are unaffected.
+    let velocity = this.velocity;
+    const view = this._activeView;
+    if (view && typeof view.willPlayNote === 'function') {
+      const t = view.willPlayNote(note, velocity, {});
+      if (t === false) return; // view cancelled
+      if (t && typeof t === 'object') {
+        if (typeof t.midi === 'number') note = t.midi;
+        if (typeof t.velocity === 'number') velocity = t.velocity;
+      }
+      if (note < 0 || note > 127) return;
+    }
+    velocity = Math.max(1, Math.min(127, Math.round(velocity)));
+
+    // Add to active notes
+    this.activeNotes.add(note);
+    this.updatePianoDisplay();
+
+    if (this._panelCallbacks?.onNoteOn) this._panelCallbacks.onNoteOn(note, velocity);
+
+    // Send MIDI only to a real hardware device; the debug trace below
+    // is emitted unconditionally.
+    const realHardware = this.selectedDevice && this.backend && !this.selectedDevice.isVirtual;
+
+    if (realHardware) {
+      const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+      const channel = this.getSelectedChannel();
+      this.backend.sendNoteOn(deviceId, note, velocity, channel).catch((err) => {
+        this.logger.error('[KeyboardModal] Note ON failed:', err);
+      });
+    }
+
+    this._logNoteEvent('on', note, velocity);
+
+    // Active-view post-play hook (e.g. wind staccato auto note-off).
+    if (view && typeof view.afterPlayNote === 'function') {
+      view.afterPlayNote(note);
+    }
+  };
+
+  KeyboardEventsMixin.stopNote = function (note) {
+    // Remove from active notes
+    this.activeNotes.delete(note);
+    this.updatePianoDisplay();
+
+    if (this._panelCallbacks?.onNoteOff) this._panelCallbacks.onNoteOff(note);
+
+    // Send MIDI only to a real hardware device; the debug trace below
+    // is emitted unconditionally.
+    const realHardware = this.selectedDevice && this.backend && !this.selectedDevice.isVirtual;
+
+    if (realHardware) {
+      const deviceId = this.selectedDevice.device_id || this.selectedDevice.id;
+      const channel = this.getSelectedChannel();
+      this.backend.sendNoteOff(deviceId, note, channel).catch((err) => {
+        this.logger.error('[KeyboardModal] Note OFF failed:', err);
+      });
+    }
+
+    this._logNoteEvent('off', note);
+  };
+
+  if (typeof window !== 'undefined') window.KeyboardEventsMixin = KeyboardEventsMixin;
 })();
