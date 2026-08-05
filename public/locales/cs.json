@@ -28,7 +28,10 @@
     "apply": "Použít",
     "name": "Název",
     "on": "Zap.",
-    "off": "Vyp."
+    "off": "Vyp.",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Zvuk",
       "buttons": "Tlačítka rozhraní",
       "system": "Hardware a systém",
-      "wifi": "Správa WiFi"
+      "wifi": "Správa WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi hotspot",
@@ -301,7 +305,8 @@
       "warning": "Tím se odstraní párování s tímto zařízením."
     },
     "device": "Bluetooth zařízení",
-    "unknownAddress": "Neznámá adresa"
+    "unknownAddress": "Neznámá adresa",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Hledání síťových nástrojů",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Smyk dolů (tah)",
     "bowUp": "Smyk nahoru (tlak)",
-    "bowHint": "Podržte levou polovinu pro smyk dolů, pravou pro smyk nahoru"
+    "bowHint": "Podržte levou polovinu pro smyk dolů, pravou pro smyk nahoru",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI editor",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Soubor je příliš velký. Zkontrolujte velikost souboru.",
     "errorInvalidMidi": "Tento soubor se nezdá být platným MIDI souborem. Zkontrolujte formát.",
     "errorUploadTimeout": "Nahrávání trvalo příliš dlouho. Zkuste to prosím znovu.",
-    "fileCount": "{count} soubor(ů) — {size}"
+    "fileCount": "{count} soubor(ů) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Nastavení zařízení",
@@ -757,7 +770,9 @@
     "saveDirty": "Neuložené změny",
     "saveClean": "Žádné změny k uložení",
     "resetOverrides": "Zahodit změny",
-    "noHandsConfig": "Pro tento nástroj není konfigurace rukou — náhled je vypnutý."
+    "noHandsConfig": "Pro tento nástroj není konfigurace rukou — náhled je vypnutý.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Editor pozice ruky (klávesnice)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Vymazat tuto volbu",
     "confirmDiscardTitle": "Neuložené změny",
     "confirmDiscard": "Odejít bez uložení?",
-    "discardConfirmBtn": "Odejít bez uložení"
+    "discardConfirmBtn": "Odejít bez uložení",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Editor pozice ruky",
@@ -812,7 +839,8 @@
     "string": "Struna",
     "fret": "pražec",
     "clearAssignment": "Resetovat tuto volbu",
-    "hint": "Posouvejte časovou osu (kolečko = posun, Ctrl+kolečko = přiblížení, klik = přejít). Kliknutím na notu změníte její strunu. Přetažením pásu ruky v náhledu výše připnete novou pozici."
+    "hint": "Posouvejte časovou osu (kolečko = posun, Ctrl+kolečko = přiblížení, klik = přejít). Kliknutím na notu změníte její strunu. Přetažením pásu ruky v náhledu výše připnete novou pozici.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Nastavení nástroje",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Zap."
+    "drumEnabled": "Zap.",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Doplnit možnosti nástroje",
@@ -2310,7 +2346,8 @@
       "contrabass": "Kontrabas (EADG)"
     },
     "configCreated": "Konfigurace strunného nástroje vytvořena s výchozím přednastavením.",
-    "configExists": "Konfigurace strunného nástroje pro toto zařízení již existuje."
+    "configExists": "Konfigurace strunného nástroje pro toto zařízení již existuje.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Přehrát na připojeném MIDI nástroji",
     "outputDevice": "Výstupní zařízení",
-    "outputChannel": "Kanál"
+    "outputChannel": "Kanál",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Správce smyček",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Velocity {velocity} použito na {count} not.",
     "tabPianoVirtuel": "🎹 Virtuální piano",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Přehled not (pouze zobrazení)"
+    "minimapInfoAria": "Přehled not (pouze zobrazení)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Nová verze v{version} je k dispozici!",

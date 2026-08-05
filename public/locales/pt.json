@@ -28,7 +28,10 @@
     "apply": "Aplicar",
     "name": "Nome",
     "on": "Ligado",
-    "off": "Desligado"
+    "off": "Desligado",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Som",
       "buttons": "Botões da interface",
       "system": "Hardware e sistema",
-      "wifi": "Gestão de WiFi"
+      "wifi": "Gestão de WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "Hotspot WiFi",
@@ -301,7 +305,8 @@
       "warning": "Esta ação removerá o pareamento com este dispositivo."
     },
     "device": "Dispositivo Bluetooth",
-    "unknownAddress": "Endereço desconhecido"
+    "unknownAddress": "Endereço desconhecido",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Busca de instrumentos de rede",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Arco para baixo (puxar)",
     "bowUp": "Arco para cima (empurrar)",
-    "bowHint": "Mantém a metade esquerda para arco para baixo, a metade direita para arco para cima"
+    "bowHint": "Mantém a metade esquerda para arco para baixo, a metade direita para arco para cima",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "Editor MIDI",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Ficheiro demasiado grande. Verifique o tamanho do ficheiro.",
     "errorInvalidMidi": "Este ficheiro não parece ser um ficheiro MIDI válido. Verifique o formato.",
     "errorUploadTimeout": "O envio demorou demasiado. Por favor, tente novamente.",
-    "fileCount": "{count} ficheiro(s) — {size}"
+    "fileCount": "{count} ficheiro(s) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Configurações do dispositivo",
@@ -757,7 +770,9 @@
     "saveDirty": "Alterações não guardadas",
     "saveClean": "Nenhuma alteração para guardar",
     "resetOverrides": "Descartar alterações",
-    "noHandsConfig": "Sem configuração de mãos neste instrumento — a pré-visualização está desativada."
+    "noHandsConfig": "Sem configuração de mãos neste instrumento — a pré-visualização está desativada.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Editor de posição da mão (teclado)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Limpar esta escolha",
     "confirmDiscardTitle": "Alterações não guardadas",
     "confirmDiscard": "Sair sem guardar?",
-    "discardConfirmBtn": "Sair sem guardar"
+    "discardConfirmBtn": "Sair sem guardar",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Editor de posição da mão",
@@ -812,7 +839,8 @@
     "string": "Corda",
     "fret": "traste",
     "clearAssignment": "Redefinir esta escolha",
-    "hint": "Desloca a linha do tempo (roda = deslocar, Ctrl+roda = zoom, clique = ir para). Clica numa nota para mudar a sua corda. Arrasta a banda da mão na pré-visualização acima para fixar uma nova posição."
+    "hint": "Desloca a linha do tempo (roda = deslocar, Ctrl+roda = zoom, clique = ir para). Clica numa nota para mudar a sua corda. Arrasta a banda da mão na pré-visualização acima para fixar uma nova posição.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Configurações do instrumento",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Ativo"
+    "drumEnabled": "Ativo",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Completar capacidades do instrumento",
@@ -2310,7 +2346,8 @@
       "contrabass": "Contrabaixo (EADG)"
     },
     "configCreated": "Configuração de instrumento de cordas criada com a predefinição padrão.",
-    "configExists": "Já existe uma configuração de instrumento de cordas para este dispositivo."
+    "configExists": "Já existe uma configuração de instrumento de cordas para este dispositivo.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Reproduzir num instrumento MIDI ligado",
     "outputDevice": "Dispositivo de saída",
-    "outputChannel": "Canal"
+    "outputChannel": "Canal",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Gestor de loops",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Velocity {velocity} aplicada a {count} nota(s).",
     "tabPianoVirtuel": "🎹 Piano virtual",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Vista geral de notas (apenas visualização)"
+    "minimapInfoAria": "Vista geral de notas (apenas visualização)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Nova versão v{version} disponível!",

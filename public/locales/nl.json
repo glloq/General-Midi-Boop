@@ -28,7 +28,10 @@
     "apply": "Toepassen",
     "name": "Naam",
     "on": "Aan",
-    "off": "Uit"
+    "off": "Uit",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Geluid",
       "buttons": "Interfaceknoppen",
       "system": "Hardware & systeem",
-      "wifi": "WiFi-beheer"
+      "wifi": "WiFi-beheer",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi-hotspot",
@@ -301,7 +305,8 @@
       "warning": "Deze actie verwijdert de koppeling met dit apparaat."
     },
     "device": "Bluetooth-apparaat",
-    "unknownAddress": "Onbekend adres"
+    "unknownAddress": "Onbekend adres",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Netwerkinstrumenten zoeken",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Neerstreek (trekken)",
     "bowUp": "Opstreek (duwen)",
-    "bowHint": "Houd de linkerhelft vast voor neerstreek, de rechterhelft voor opstreek"
+    "bowHint": "Houd de linkerhelft vast voor neerstreek, de rechterhelft voor opstreek",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI-editor",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Bestand te groot. Controleer de bestandsgrootte.",
     "errorInvalidMidi": "Dit bestand lijkt geen geldig MIDI-bestand te zijn. Controleer het formaat.",
     "errorUploadTimeout": "Upload duurde te lang. Probeer het opnieuw.",
-    "fileCount": "{count} bestand(en) — {size}"
+    "fileCount": "{count} bestand(en) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Apparaatinstellingen",
@@ -757,7 +770,9 @@
     "saveDirty": "Niet-opgeslagen wijzigingen",
     "saveClean": "Geen wijzigingen om op te slaan",
     "resetOverrides": "Wijzigingen verwerpen",
-    "noHandsConfig": "Geen handconfiguratie voor dit instrument — voorbeeld is uitgeschakeld."
+    "noHandsConfig": "Geen handconfiguratie voor dit instrument — voorbeeld is uitgeschakeld.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Handpositie-editor (toetsenbord)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Deze keuze wissen",
     "confirmDiscardTitle": "Niet-opgeslagen wijzigingen",
     "confirmDiscard": "Verlaten zonder opslaan?",
-    "discardConfirmBtn": "Verlaten zonder opslaan"
+    "discardConfirmBtn": "Verlaten zonder opslaan",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Handpositie-editor",
@@ -812,7 +839,8 @@
     "string": "Snaar",
     "fret": "fret",
     "clearAssignment": "Deze keuze resetten",
-    "hint": "Scroll de tijdlijn (wiel = scrollen, Ctrl+wiel = zoomen, klik = zoeken). Klik op een noot om de snaar te wijzigen. Sleep de handband in het voorbeeld hierboven om een nieuwe positie vast te zetten."
+    "hint": "Scroll de tijdlijn (wiel = scrollen, Ctrl+wiel = zoomen, klik = zoeken). Klik op een noot om de snaar te wijzigen. Sleep de handband in het voorbeeld hierboven om een nieuwe positie vast te zetten.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Instrumentinstellingen",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Aan"
+    "drumEnabled": "Aan",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Instrumentmogelijkheden voltooien",
@@ -2310,7 +2346,8 @@
       "contrabass": "Contrabas (EADG)"
     },
     "configCreated": "Snaarinstrumentconfiguratie aangemaakt met standaardpreset.",
-    "configExists": "Er bestaat al een snaarinstrumentconfiguratie voor dit apparaat."
+    "configExists": "Er bestaat al een snaarinstrumentconfiguratie voor dit apparaat.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Afspelen op een aangesloten MIDI-instrument",
     "outputDevice": "Uitvoerapparaat",
-    "outputChannel": "Kanaal"
+    "outputChannel": "Kanaal",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Loopbeheer",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Velocity {velocity} toegepast op {count} no(o)t(en).",
     "tabPianoVirtuel": "🎹 Virtuele piano",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Notenoverzicht (alleen weergave)"
+    "minimapInfoAria": "Notenoverzicht (alleen weergave)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Nieuwe versie v{version} beschikbaar!",

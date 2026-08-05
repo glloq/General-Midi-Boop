@@ -620,6 +620,39 @@ class BackendAPIClient {
     return this.sendCommand('playback_resume');
   }
 
+  /**
+   * Seek playback to an absolute position.
+   * @param {number} position - Position in seconds (>= 0).
+   */
+  async seekPlayback(position) {
+    return this.sendCommand('playback_seek', { position });
+  }
+
+  /**
+   * Change playback tempo. Applies a rate multiplier (clamped 0.25x-4x
+   * server-side) and forwards the new tempo to the MIDI clock.
+   * @param {number} bpm - Target tempo in BPM.
+   */
+  async setPlaybackTempo(bpm) {
+    return this.sendCommand('playback_set_tempo', { bpm });
+  }
+
+  /**
+   * Set master volume by broadcasting CC#7 on every connected output.
+   * @param {number} volume - MIDI value 0..127 (clamped server-side).
+   */
+  async setPlaybackVolume(volume) {
+    return this.sendCommand('playback_set_volume', { volume });
+  }
+
+  /**
+   * Globally transpose playback.
+   * @param {number} semitones - Integer semitones (-48..48 server-side).
+   */
+  async setPlaybackTranspose(semitones) {
+    return this.sendCommand('playback_transpose', { semitones });
+  }
+
   // ========================================================================
   // UTILITIES
   // ========================================================================

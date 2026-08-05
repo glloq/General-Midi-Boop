@@ -28,7 +28,10 @@
     "apply": "लागू करें",
     "name": "नाम",
     "on": "चालू",
-    "off": "बंद"
+    "off": "बंद",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "ध्वनि",
       "buttons": "इंटरफ़ेस बटन",
       "system": "हार्डवेयर और सिस्टम",
-      "wifi": "WiFi प्रबंधन"
+      "wifi": "WiFi प्रबंधन",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi हॉटस्पॉट",
@@ -301,7 +305,8 @@
       "warning": "इससे इस डिवाइस के साथ पेयरिंग हट जाएगी।"
     },
     "device": "ब्लूटूथ डिवाइस",
-    "unknownAddress": "अज्ञात पता"
+    "unknownAddress": "अज्ञात पता",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "नेटवर्क इंस्ट्रूमेंट खोज",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "डाउन-बो (खींचें)",
     "bowUp": "अप-बो (धकेलें)",
-    "bowHint": "डाउन-बो के लिए बायाँ आधा भाग दबाएँ, अप-बो के लिए दायाँ आधा"
+    "bowHint": "डाउन-बो के लिए बायाँ आधा भाग दबाएँ, अप-बो के लिए दायाँ आधा",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI एडिटर",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "फ़ाइल बहुत बड़ी है। फ़ाइल का आकार जाँचें।",
     "errorInvalidMidi": "यह फ़ाइल एक वैध MIDI फ़ाइल नहीं लगती। प्रारूप जाँचें।",
     "errorUploadTimeout": "अपलोड में बहुत समय लगा। कृपया पुनः प्रयास करें।",
-    "fileCount": "{count} फ़ाइल — {size}"
+    "fileCount": "{count} फ़ाइल — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "डिवाइस सेटिंग्स",
@@ -757,7 +770,9 @@
     "saveDirty": "असहेजे गए परिवर्तन",
     "saveClean": "सहेजने के लिए कोई परिवर्तन नहीं",
     "resetOverrides": "ओवरराइड हटाएं",
-    "noHandsConfig": "इस इंस्ट्रूमेंट पर कोई हाथ कॉन्फ़िगरेशन नहीं — पूर्वावलोकन अक्षम है।"
+    "noHandsConfig": "इस इंस्ट्रूमेंट पर कोई हाथ कॉन्फ़िगरेशन नहीं — पूर्वावलोकन अक्षम है।",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "हाथ स्थिति एडिटर (कीबोर्ड)",
@@ -773,7 +788,19 @@
     "clearAssignment": "यह चयन हटाएं",
     "confirmDiscardTitle": "असहेजे गए परिवर्तन",
     "confirmDiscard": "बिना सहेजे छोड़ें?",
-    "discardConfirmBtn": "बिना सहेजे छोड़ें"
+    "discardConfirmBtn": "बिना सहेजे छोड़ें",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "हाथ स्थिति एडिटर",
@@ -812,7 +839,8 @@
     "string": "स्ट्रिंग",
     "fret": "fret",
     "clearAssignment": "यह चयन रीसेट करें",
-    "hint": "टाइमलाइन स्क्रॉल करें (व्हील = स्क्रॉल, Ctrl+व्हील = ज़ूम, क्लिक = सीक)। नोट की स्ट्रिंग बदलने के लिए उस पर क्लिक करें। नई स्थिति पिन करने के लिए ऊपर पूर्वावलोकन में हैंड बैंड को ड्रैग करें।"
+    "hint": "टाइमलाइन स्क्रॉल करें (व्हील = स्क्रॉल, Ctrl+व्हील = ज़ूम, क्लिक = सीक)। नोट की स्ट्रिंग बदलने के लिए उस पर क्लिक करें। नई स्थिति पिन करने के लिए ऊपर पूर्वावलोकन में हैंड बैंड को ड्रैग करें।",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "इंस्ट्रूमेंट सेटिंग्स",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "चालू"
+    "drumEnabled": "चालू",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "इंस्ट्रूमेंट क्षमताएं पूर्ण करें",
@@ -2310,7 +2346,8 @@
       "contrabass": "कॉन्ट्राबास (EADG)"
     },
     "configCreated": "डिफ़ॉल्ट प्रीसेट के साथ स्ट्रिंग इंस्ट्रूमेंट कॉन्फ़िगरेशन बनाया गया।",
-    "configExists": "इस डिवाइस के लिए पहले से एक स्ट्रिंग इंस्ट्रूमेंट कॉन्फ़िगरेशन मौजूद है।"
+    "configExists": "इस डिवाइस के लिए पहले से एक स्ट्रिंग इंस्ट्रूमेंट कॉन्फ़िगरेशन मौजूद है।",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "कनेक्टेड MIDI इंस्ट्रूमेंट पर बजाएं",
     "outputDevice": "Output डिवाइस",
-    "outputChannel": "Channel"
+    "outputChannel": "Channel",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "लूप मैनेजर",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "{count} नोट पर velocity {velocity} लागू किया गया।",
     "tabPianoVirtuel": "🎹 वर्चुअल पियानो",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "नोट्स अवलोकन (केवल प्रदर्शन)"
+    "minimapInfoAria": "नोट्स अवलोकन (केवल प्रदर्शन)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "नया संस्करण v{version} उपलब्ध!",

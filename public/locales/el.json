@@ -28,7 +28,10 @@
     "apply": "Apply",
     "name": "Όνομα",
     "on": "Ενεργό",
-    "off": "Ανενεργό"
+    "off": "Ανενεργό",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Ήχος",
       "buttons": "Κουμπιά διεπαφής",
       "system": "Υλικό και σύστημα",
-      "wifi": "Διαχείριση WiFi"
+      "wifi": "Διαχείριση WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi Hotspot",
@@ -301,7 +305,8 @@
       "warning": "Αυτό θα αφαιρέσει τη σύζευξη με αυτήν τη συσκευή."
     },
     "device": "Συσκευή Bluetooth",
-    "unknownAddress": "Άγνωστη διεύθυνση"
+    "unknownAddress": "Άγνωστη διεύθυνση",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Αναζήτηση Δικτυακών Οργάνων",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Κάτω δοξαριά (τράβηγμα)",
     "bowUp": "Πάνω δοξαριά (σπρώξιμο)",
-    "bowHint": "Κρατήστε το αριστερό μισό για κάτω δοξαριά, το δεξί μισό για πάνω δοξαριά"
+    "bowHint": "Κρατήστε το αριστερό μισό για κάτω δοξαριά, το δεξί μισό για πάνω δοξαριά",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "Επεξεργαστής MIDI",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Αρχείο πολύ μεγάλο. Ελέγξτε το μέγεθος του αρχείου.",
     "errorInvalidMidi": "Αυτό το αρχείο δεν φαίνεται να είναι έγκυρο αρχείο MIDI. Ελέγξτε τη μορφή.",
     "errorUploadTimeout": "Η μεταφόρτωση διήρκεσε πολύ. Δοκιμάστε ξανά.",
-    "fileCount": "{count} αρχείο(α) — {size}"
+    "fileCount": "{count} αρχείο(α) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Ρυθμίσεις συσκευής",
@@ -757,7 +770,9 @@
     "saveDirty": "Μη αποθηκευμένες αλλαγές",
     "saveClean": "Δεν υπάρχουν αλλαγές προς αποθήκευση",
     "resetOverrides": "Απόρριψη παρακάμψεων",
-    "noHandsConfig": "Δεν υπάρχει διαμόρφωση χεριών σε αυτό το όργανο — η προεπισκόπηση είναι απενεργοποιημένη."
+    "noHandsConfig": "Δεν υπάρχει διαμόρφωση χεριών σε αυτό το όργανο — η προεπισκόπηση είναι απενεργοποιημένη.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Επεξεργαστής θέσης χεριού (πληκτρολόγιο)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Εκκαθάριση αυτής της επιλογής",
     "confirmDiscardTitle": "Μη αποθηκευμένες αλλαγές",
     "confirmDiscard": "Έξοδος χωρίς αποθήκευση;",
-    "discardConfirmBtn": "Έξοδος χωρίς αποθήκευση"
+    "discardConfirmBtn": "Έξοδος χωρίς αποθήκευση",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Επεξεργαστής θέσης χεριού",
@@ -812,7 +839,8 @@
     "string": "Χορδή",
     "fret": "τάστο",
     "clearAssignment": "Επαναφορά αυτής της επιλογής",
-    "hint": "Κυλήστε τη γραμμή χρόνου (τροχός = κύλιση, Ctrl+τροχός = ζουμ, κλικ = αναζήτηση). Κάντε κλικ σε μια νότα για να αλλάξετε τη χορδή της. Σύρετε τη μπάρα χεριού στην παραπάνω προεπισκόπηση για να καρφιτσώσετε νέα θέση."
+    "hint": "Κυλήστε τη γραμμή χρόνου (τροχός = κύλιση, Ctrl+τροχός = ζουμ, κλικ = αναζήτηση). Κάντε κλικ σε μια νότα για να αλλάξετε τη χορδή της. Σύρετε τη μπάρα χεριού στην παραπάνω προεπισκόπηση για να καρφιτσώσετε νέα θέση.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Ρυθμίσεις οργάνου",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Ενεργό"
+    "drumEnabled": "Ενεργό",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Ολοκλήρωση δυνατοτήτων οργάνων",
@@ -2310,7 +2346,8 @@
       "contrabass": "Κοντραμπάσο (EADG)"
     },
     "configCreated": "Η διαμόρφωση έγχορδου οργάνου δημιουργήθηκε με την προεπιλεγμένη ρύθμιση.",
-    "configExists": "Υπάρχει ήδη διαμόρφωση έγχορδου οργάνου για αυτή τη συσκευή."
+    "configExists": "Υπάρχει ήδη διαμόρφωση έγχορδου οργάνου για αυτή τη συσκευή.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Αναπαραγωγή σε συνδεδεμένο όργανο MIDI",
     "outputDevice": "Συσκευή εξόδου",
-    "outputChannel": "Κανάλι"
+    "outputChannel": "Κανάλι",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Διαχείριση Loop",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Ένταση {velocity} εφαρμόστηκε σε {count} νότα(ες).",
     "tabPianoVirtuel": "🎹 Εικονικό πιάνο",
     "tabEditor": "🎼 Επεξεργαστής",
-    "minimapInfoAria": "Επισκόπηση νοτών (μόνο εμφάνιση)"
+    "minimapInfoAria": "Επισκόπηση νοτών (μόνο εμφάνιση)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Νέα έκδοση v{version} διαθέσιμη!",

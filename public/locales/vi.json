@@ -28,7 +28,10 @@
     "apply": "Áp dụng",
     "name": "Tên",
     "on": "Bật",
-    "off": "Tắt"
+    "off": "Tắt",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Âm thanh",
       "buttons": "Nút giao diện",
       "system": "Phần cứng & Hệ thống",
-      "wifi": "Quản lý WiFi"
+      "wifi": "Quản lý WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi Hotspot",
@@ -301,7 +305,8 @@
       "warning": "Điều này sẽ xóa ghép đôi với thiết bị này."
     },
     "device": "Thiết bị Bluetooth",
-    "unknownAddress": "Địa chỉ không xác định"
+    "unknownAddress": "Địa chỉ không xác định",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Tìm kiếm Nhạc cụ Mạng",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Kéo vĩ xuống (kéo)",
     "bowUp": "Kéo vĩ lên (đẩy)",
-    "bowHint": "Giữ nửa bên trái để kéo vĩ xuống, nửa bên phải để kéo vĩ lên"
+    "bowHint": "Giữ nửa bên trái để kéo vĩ xuống, nửa bên phải để kéo vĩ lên",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "Trình chỉnh sửa MIDI",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Tệp quá lớn. Kiểm tra kích thước tệp.",
     "errorInvalidMidi": "Tệp này có vẻ không phải tệp MIDI hợp lệ. Kiểm tra định dạng.",
     "errorUploadTimeout": "Tải lên mất quá nhiều thời gian. Vui lòng thử lại.",
-    "fileCount": "{count} tệp — {size}"
+    "fileCount": "{count} tệp — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Cài đặt thiết bị",
@@ -757,7 +770,9 @@
     "saveDirty": "Thay đổi chưa lưu",
     "saveClean": "Không có thay đổi để lưu",
     "resetOverrides": "Loại bỏ ghi đè",
-    "noHandsConfig": "Không có cấu hình tay trên nhạc cụ này — xem trước bị tắt."
+    "noHandsConfig": "Không có cấu hình tay trên nhạc cụ này — xem trước bị tắt.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Trình chỉnh sửa vị trí tay (keyboard)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Xóa lựa chọn này",
     "confirmDiscardTitle": "Thay đổi chưa lưu",
     "confirmDiscard": "Rời đi mà không lưu?",
-    "discardConfirmBtn": "Rời đi mà không lưu"
+    "discardConfirmBtn": "Rời đi mà không lưu",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Trình chỉnh sửa vị trí tay",
@@ -812,7 +839,8 @@
     "string": "Dây",
     "fret": "phím đàn",
     "clearAssignment": "Đặt lại lựa chọn này",
-    "hint": "Cuộn timeline (con lăn = cuộn, Ctrl+con lăn = thu phóng, nhấp = tua). Nhấp vào một nốt để thay đổi dây của nó. Kéo dải tay trên phần xem trước ở trên để ghim vị trí mới."
+    "hint": "Cuộn timeline (con lăn = cuộn, Ctrl+con lăn = thu phóng, nhấp = tua). Nhấp vào một nốt để thay đổi dây của nó. Kéo dải tay trên phần xem trước ở trên để ghim vị trí mới.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Cài đặt nhạc cụ",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Bật"
+    "drumEnabled": "Bật",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Hoàn tất khả năng nhạc cụ",
@@ -2310,7 +2346,8 @@
       "contrabass": "Contrabass (EADG)"
     },
     "configCreated": "Đã tạo cấu hình nhạc cụ dây với preset mặc định.",
-    "configExists": "Đã tồn tại cấu hình nhạc cụ dây cho thiết bị này."
+    "configExists": "Đã tồn tại cấu hình nhạc cụ dây cho thiết bị này.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Phát trên nhạc cụ MIDI đã kết nối",
     "outputDevice": "Thiết bị đầu ra",
-    "outputChannel": "Kênh"
+    "outputChannel": "Kênh",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Trình quản lý Loop",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Đã áp dụng velocity {velocity} cho {count} nốt.",
     "tabPianoVirtuel": "🎹 Piano ảo",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Tổng quan nốt (chỉ hiển thị)"
+    "minimapInfoAria": "Tổng quan nốt (chỉ hiển thị)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Phiên bản mới v{version} đã có!",

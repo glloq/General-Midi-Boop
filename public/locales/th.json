@@ -28,7 +28,10 @@
     "apply": "ใช้งาน",
     "name": "ชื่อ",
     "on": "เปิด",
-    "off": "ปิด"
+    "off": "ปิด",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - ระบบเรียบเรียงดนตรี MIDI",
@@ -107,7 +110,8 @@
       "sound": "เสียง",
       "buttons": "ปุ่มอินเทอร์เฟซ",
       "system": "ฮาร์ดแวร์และระบบ",
-      "wifi": "การจัดการ WiFi"
+      "wifi": "การจัดการ WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi ฮอตสปอต",
@@ -301,7 +305,8 @@
       "warning": "การดำเนินการนี้จะลบการจับคู่กับอุปกรณ์นี้"
     },
     "device": "อุปกรณ์บลูทูธ",
-    "unknownAddress": "ที่อยู่ไม่ทราบ"
+    "unknownAddress": "ที่อยู่ไม่ทราบ",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "ค้นหาเครื่องดนตรีเครือข่าย",
@@ -387,7 +392,10 @@
     "pitchBend": "พิตช์เบนด์",
     "bowDown": "สีลง (ดึง)",
     "bowUp": "สีขึ้น (ดัน)",
-    "bowHint": "กดครึ่งซ้ายเพื่อสีลง ครึ่งขวาเพื่อสีขึ้น"
+    "bowHint": "กดครึ่งซ้ายเพื่อสีลง ครึ่งขวาเพื่อสีขึ้น",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "ตัวแก้ไข MIDI",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "ไฟล์ใหญ่เกินไป ตรวจสอบขนาดไฟล์",
     "errorInvalidMidi": "ไฟล์นี้ดูเหมือนจะไม่ใช่ไฟล์ MIDI ที่ถูกต้อง ตรวจสอบรูปแบบ",
     "errorUploadTimeout": "การอัปโหลดใช้เวลานานเกินไป กรุณาลองอีกครั้ง",
-    "fileCount": "{count} ไฟล์ — {size}"
+    "fileCount": "{count} ไฟล์ — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "การตั้งค่าอุปกรณ์",
@@ -757,7 +770,9 @@
     "saveDirty": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
     "saveClean": "ไม่มีการเปลี่ยนแปลงให้บันทึก",
     "resetOverrides": "ละทิ้งการแทนที่",
-    "noHandsConfig": "ไม่มีการตั้งค่ามือสำหรับเครื่องดนตรีนี้ — การแสดงตัวอย่างถูกปิดใช้งาน"
+    "noHandsConfig": "ไม่มีการตั้งค่ามือสำหรับเครื่องดนตรีนี้ — การแสดงตัวอย่างถูกปิดใช้งาน",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "ตัวแก้ไขตำแหน่งมือ (คีย์บอร์ด)",
@@ -773,7 +788,19 @@
     "clearAssignment": "ล้างตัวเลือกนี้",
     "confirmDiscardTitle": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
     "confirmDiscard": "ออกโดยไม่บันทึก?",
-    "discardConfirmBtn": "ออกโดยไม่บันทึก"
+    "discardConfirmBtn": "ออกโดยไม่บันทึก",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "ตัวแก้ไขตำแหน่งมือ",
@@ -812,7 +839,8 @@
     "string": "สาย",
     "fret": "เฟร็ต",
     "clearAssignment": "รีเซ็ตตัวเลือกนี้",
-    "hint": "เลื่อนไทม์ไลน์ (ล้อ = เลื่อน, Ctrl+ล้อ = ซูม, คลิก = ไปยังตำแหน่ง) คลิกโน้ตเพื่อเปลี่ยนสาย ลากแถบมือบนตัวอย่างด้านบนเพื่อปักตำแหน่งใหม่"
+    "hint": "เลื่อนไทม์ไลน์ (ล้อ = เลื่อน, Ctrl+ล้อ = ซูม, คลิก = ไปยังตำแหน่ง) คลิกโน้ตเพื่อเปลี่ยนสาย ลากแถบมือบนตัวอย่างด้านบนเพื่อปักตำแหน่งใหม่",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "การตั้งค่าเครื่องดนตรี",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "เพลย์ลิสต์",
@@ -1964,7 +1999,8 @@
     "drumSource": "ต้นทาง",
     "drumDest": "ปลายทาง",
     "drumType": "ประเภท",
-    "drumEnabled": "เปิด"
+    "drumEnabled": "เปิด",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "กรอกความสามารถของเครื่องดนตรี",
@@ -2310,7 +2346,8 @@
       "contrabass": "คอนทราเบส (EADG)"
     },
     "configCreated": "สร้างการตั้งค่าเครื่องสายด้วยพรีเซ็ตเริ่มต้นแล้ว",
-    "configExists": "มีการตั้งค่าเครื่องสายสำหรับอุปกรณ์นี้อยู่แล้ว"
+    "configExists": "มีการตั้งค่าเครื่องสายสำหรับอุปกรณ์นี้อยู่แล้ว",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "เล่นบนเครื่องดนตรี MIDI ที่เชื่อมต่อ",
     "outputDevice": "อุปกรณ์เอาต์พุต",
-    "outputChannel": "ช่อง"
+    "outputChannel": "ช่อง",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "ตัวจัดการลูป",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "ใช้ความเร็ว {velocity} กับโน้ต {count} ตัวแล้ว",
     "tabPianoVirtuel": "🎹 เปียโนเสมือน",
     "tabEditor": "🎼 ตัวแก้ไข",
-    "minimapInfoAria": "ภาพรวมโน้ต (แสดงเท่านั้น)"
+    "minimapInfoAria": "ภาพรวมโน้ต (แสดงเท่านั้น)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "เวอร์ชันใหม่ v{version} พร้อมใช้งาน!",

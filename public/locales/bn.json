@@ -28,7 +28,10 @@
     "apply": "প্রয়োগ",
     "name": "নাম",
     "on": "চালু",
-    "off": "বন্ধ"
+    "off": "বন্ধ",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI অর্কেস্ট্রেশন সিস্টেম",
@@ -107,7 +110,8 @@
       "sound": "শব্দ",
       "buttons": "ইন্টারফেস বোতাম",
       "system": "হার্ডওয়্যার ও সিস্টেম",
-      "wifi": "WiFi ব্যবস্থাপনা"
+      "wifi": "WiFi ব্যবস্থাপনা",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi হটস্পট",
@@ -301,7 +305,8 @@
       "warning": "এটি এই ডিভাইসের সাথে পেয়ারিং সরিয়ে দেবে।"
     },
     "device": "ব্লুটুথ ডিভাইস",
-    "unknownAddress": "অজানা ঠিকানা"
+    "unknownAddress": "অজানা ঠিকানা",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "নেটওয়ার্ক যন্ত্র অনুসন্ধান",
@@ -387,7 +392,10 @@
     "pitchBend": "পিচ বেন্ড",
     "bowDown": "নিচের ছড় (টান)",
     "bowUp": "উপরের ছড় (ধাক্কা)",
-    "bowHint": "নিচের ছড়ের জন্য বাম অর্ধেক ধরে রাখুন, উপরের ছড়ের জন্য ডান অর্ধেক"
+    "bowHint": "নিচের ছড়ের জন্য বাম অর্ধেক ধরে রাখুন, উপরের ছড়ের জন্য ডান অর্ধেক",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI সম্পাদক",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "ফাইল খুব বড়। ফাইলের আকার পরীক্ষা করুন।",
     "errorInvalidMidi": "এই ফাইলটি একটি বৈধ MIDI ফাইল বলে মনে হচ্ছে না। ফরম্যাট পরীক্ষা করুন।",
     "errorUploadTimeout": "আপলোডে অনেক সময় লেগেছে। অনুগ্রহ করে আবার চেষ্টা করুন।",
-    "fileCount": "{count} ফাইল — {size}"
+    "fileCount": "{count} ফাইল — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "ডিভাইস সেটিংস",
@@ -757,7 +770,9 @@
     "saveDirty": "অসংরক্ষিত পরিবর্তন",
     "saveClean": "সংরক্ষণের জন্য কোনো পরিবর্তন নেই",
     "resetOverrides": "ওভাররাইড বাতিল করুন",
-    "noHandsConfig": "এই ইনস্ট্রুমেন্টে হাতের কনফিগারেশন নেই — প্রিভিউ নিষ্ক্রিয়।"
+    "noHandsConfig": "এই ইনস্ট্রুমেন্টে হাতের কনফিগারেশন নেই — প্রিভিউ নিষ্ক্রিয়।",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "হাতের অবস্থান এডিটর (কীবোর্ড)",
@@ -773,7 +788,19 @@
     "clearAssignment": "এই পছন্দ মুছুন",
     "confirmDiscardTitle": "অসংরক্ষিত পরিবর্তন",
     "confirmDiscard": "সংরক্ষণ না করে চলে যাবেন?",
-    "discardConfirmBtn": "সংরক্ষণ না করে চলে যান"
+    "discardConfirmBtn": "সংরক্ষণ না করে চলে যান",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "হাতের অবস্থান এডিটর",
@@ -812,7 +839,8 @@
     "string": "তার",
     "fret": "ফ্রেট",
     "clearAssignment": "এই পছন্দ রিসেট করুন",
-    "hint": "টাইমলাইন স্ক্রোল করুন (হুইল = স্ক্রোল, Ctrl+হুইল = জুম, ক্লিক = সিক)। তার পরিবর্তন করতে একটি নোট ক্লিক করুন। নতুন অবস্থান পিন করতে উপরের প্রিভিউতে হাতের ব্যান্ড টেনে আনুন।"
+    "hint": "টাইমলাইন স্ক্রোল করুন (হুইল = স্ক্রোল, Ctrl+হুইল = জুম, ক্লিক = সিক)। তার পরিবর্তন করতে একটি নোট ক্লিক করুন। নতুন অবস্থান পিন করতে উপরের প্রিভিউতে হাতের ব্যান্ড টেনে আনুন।",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "যন্ত্র সেটিংস",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "প্লেলিস্ট",
@@ -1964,7 +1999,8 @@
     "drumSource": "উৎস",
     "drumDest": "গন্তব্য",
     "drumType": "ধরন",
-    "drumEnabled": "চালু"
+    "drumEnabled": "চালু",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "ইনস্ট্রুমেন্ট ক্ষমতা সম্পূর্ণ করুন",
@@ -2310,7 +2346,8 @@
       "contrabass": "কন্ট্রাবেস (EADG)"
     },
     "configCreated": "ডিফল্ট প্রিসেট সহ তার যন্ত্র কনফিগারেশন তৈরি হয়েছে।",
-    "configExists": "এই ডিভাইসের জন্য একটি তার যন্ত্র কনফিগারেশন ইতিমধ্যে বিদ্যমান।"
+    "configExists": "এই ডিভাইসের জন্য একটি তার যন্ত্র কনফিগারেশন ইতিমধ্যে বিদ্যমান।",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "একটি সংযুক্ত MIDI যন্ত্রে বাজান",
     "outputDevice": "আউটপুট ডিভাইস",
-    "outputChannel": "চ্যানেল"
+    "outputChannel": "চ্যানেল",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "লুপ ম্যানেজার",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "{count} টি নোটে ভেলোসিটি {velocity} প্রয়োগ হয়েছে।",
     "tabPianoVirtuel": "🎹 ভার্চুয়াল পিয়ানো",
     "tabEditor": "🎼 এডিটর",
-    "minimapInfoAria": "নোট পর্যালোচনা (শুধু প্রদর্শন)"
+    "minimapInfoAria": "নোট পর্যালোচনা (শুধু প্রদর্শন)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "নতুন সংস্করণ v{version} উপলব্ধ!",

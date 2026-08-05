@@ -3958,6 +3958,48 @@
             opacity: 1;
         }
 
+        /* Seekable progress bar + real-time playback controls popover */
+        .header-progress { cursor: pointer; }
+        .header-playback { position: relative; }
+        .playback-ctrl-popover {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            z-index: 1200;
+            min-width: 250px;
+            padding: 12px 14px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .playback-ctrl-popover[hidden] { display: none; }
+        .pbc-row {
+            display: grid;
+            grid-template-columns: 74px 1fr 58px;
+            align-items: center;
+            gap: 8px;
+        }
+        .pbc-label { font-size: 0.8rem; font-weight: 600; }
+        .pbc-row input[type="range"] { width: 100%; margin: 0; }
+        .pbc-value {
+            font-size: 0.78rem;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+            opacity: 0.85;
+        }
+        .pbc-actions { display: flex; justify-content: flex-end; }
+        .pbc-actions .btn { padding: 3px 12px; font-size: 0.8rem; }
+        body.theme-dark .playback-ctrl-popover {
+            background: #1f2430;
+            border-color: #374151;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            color: #e5e7eb;
+        }
+
         @media (max-width: 768px) {
             .header-tools {
                 flex-wrap: wrap;
@@ -5478,12 +5520,33 @@
                             <button class="btn" id="headerPrevBtn" style="display:none;" aria-label="Previous track" title="Previous">⏮</button>
                             <button class="btn" id="headerPlayPauseBtn" disabled aria-label="Play">▶️&nbsp;&nbsp;<span data-i18n="ui.play">Lecture</span></button>
                             <button class="btn btn-danger" id="headerStopBtn" disabled aria-label="Stop">⏹️&nbsp;&nbsp;<span data-i18n="ui.stop">Stop</span></button>
+                            <button class="btn" id="headerPlaybackCtrlBtn" disabled data-i18n-title="ui.playbackSettings" title="Réglages de lecture" aria-label="Playback settings" aria-haspopup="true" aria-expanded="false">🎛️</button>
                             <button class="btn" id="headerNextBtn" style="display:none;" aria-label="Next track" title="Next">⏭</button>
                         </div>
                         <div class="header-controls-right">
                             <span class="header-file-name" id="headerFileName" aria-live="polite" data-i18n="ui.noFileSelected">Aucun fichier sélectionné</span>
                             <span class="header-playlist-info hidden" id="headerPlaylistInfo" style="font-size:0.8rem;opacity:0.7;"></span>
                             <span class="header-time" id="headerTime" aria-live="off" aria-label="Playback time">00:00 / 00:00</span>
+                        </div>
+                    </div>
+                    <div id="playbackControlsPopover" class="playback-ctrl-popover" role="dialog" aria-label="Playback settings" hidden>
+                        <div class="pbc-row">
+                            <label class="pbc-label" for="pbTempoRange" data-i18n="ui.tempo">Tempo</label>
+                            <input type="range" id="pbTempoRange" min="40" max="240" step="1" value="120" aria-label="Tempo (BPM)">
+                            <span class="pbc-value" id="pbTempoValue">120 BPM</span>
+                        </div>
+                        <div class="pbc-row">
+                            <label class="pbc-label" for="pbVolumeRange" data-i18n="ui.volume">Volume</label>
+                            <input type="range" id="pbVolumeRange" min="0" max="127" step="1" value="100" aria-label="Volume">
+                            <span class="pbc-value" id="pbVolumeValue">100</span>
+                        </div>
+                        <div class="pbc-row">
+                            <label class="pbc-label" for="pbTransposeRange" data-i18n="ui.transpose">Transpose</label>
+                            <input type="range" id="pbTransposeRange" min="-12" max="12" step="1" value="0" aria-label="Transpose (semitones)">
+                            <span class="pbc-value" id="pbTransposeValue">0</span>
+                        </div>
+                        <div class="pbc-actions">
+                            <button type="button" class="btn" id="pbResetBtn" data-i18n="ui.resetPlayback">Reset</button>
                         </div>
                     </div>
                 </div>
@@ -10279,6 +10342,19 @@
             playPauseBtn.disabled = !currentFileId;
             stopBtn.disabled = !currentFileId;
 
+            // Bouton "Réglages de lecture" (tempo/volume/transposition)
+            const ctrlBtn = document.getElementById('headerPlaybackCtrlBtn');
+            if (ctrlBtn) {
+                ctrlBtn.disabled = !currentFileId;
+                if (!currentFileId) {
+                    const pop = document.getElementById('playbackControlsPopover');
+                    if (pop && !pop.hidden) {
+                        pop.hidden = true;
+                        ctrlBtn.setAttribute('aria-expanded', 'false');
+                    }
+                }
+            }
+
             // Afficher/masquer les boutons prev/next selon playlist active
             const showPlaylistNav = !!activePlaylistId;
             prevBtn.style.display = showPlaylistNav ? '' : 'none';
@@ -10300,6 +10376,109 @@
             const progressFill = document.getElementById('headerProgressFill');
             if (progressFill) {
                 progressFill.classList.toggle('playing', isPlaying);
+            }
+        }
+
+        // Contrôles de lecture temps réel : seek (barre de progression),
+        // tempo / volume / transposition (popover). Câble l'UI aux commandes
+        // backend playback_seek / playback_set_tempo / playback_set_volume /
+        // playback_transpose. Appelé une fois à l'initialisation.
+        function setupPlaybackControls() {
+            const progress = document.querySelector('.header-progress');
+            const ctrlBtn = document.getElementById('headerPlaybackCtrlBtn');
+            const popover = document.getElementById('playbackControlsPopover');
+            const tempoRange = document.getElementById('pbTempoRange');
+            const tempoValue = document.getElementById('pbTempoValue');
+            const volRange = document.getElementById('pbVolumeRange');
+            const volValue = document.getElementById('pbVolumeValue');
+            const transRange = document.getElementById('pbTransposeRange');
+            const transValue = document.getElementById('pbTransposeValue');
+            const resetBtn = document.getElementById('pbResetBtn');
+            if (!progress || !ctrlBtn || !popover) return;
+
+            const fmtTranspose = (v) => (v > 0 ? `+${v}` : `${v}`);
+
+            // Seek en cliquant sur la barre de progression du header.
+            progress.addEventListener('click', (e) => {
+                if (!currentFileId || !(currentDuration > 0)) return;
+                const rect = progress.getBoundingClientRect();
+                if (rect.width <= 0) return;
+                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                const position = ratio * currentDuration;
+                // Retour visuel optimiste ; playback_position corrigera.
+                document.getElementById('headerProgressFill').style.width = `${ratio * 100}%`;
+                api.seekPlayback(position).catch((err) => log(`❌ Seek: ${err.message || err}`));
+            });
+
+            const closePopover = () => {
+                popover.hidden = true;
+                ctrlBtn.setAttribute('aria-expanded', 'false');
+            };
+            const openPopover = () => {
+                // Synchroniser le tempo depuis l'état connu du fichier.
+                if (tempoRange && currentTempo && Number.isFinite(currentTempo)) {
+                    const bpm = Math.round(currentTempo);
+                    tempoRange.value = String(bpm);
+                    if (tempoValue) tempoValue.textContent = `${bpm} BPM`;
+                }
+                popover.hidden = false;
+                ctrlBtn.setAttribute('aria-expanded', 'true');
+            };
+
+            ctrlBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (ctrlBtn.disabled) return;
+                if (popover.hidden) openPopover();
+                else closePopover();
+            });
+            document.addEventListener('click', (e) => {
+                if (!popover.hidden && !popover.contains(e.target) && e.target !== ctrlBtn) {
+                    closePopover();
+                }
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !popover.hidden) closePopover();
+            });
+
+            if (tempoRange) {
+                tempoRange.addEventListener('input', () => {
+                    if (tempoValue) tempoValue.textContent = `${tempoRange.value} BPM`;
+                });
+                tempoRange.addEventListener('change', () => {
+                    api.setPlaybackTempo(Number(tempoRange.value)).catch((err) => log(`❌ Tempo: ${err.message || err}`));
+                });
+            }
+
+            let volTimer = null;
+            if (volRange) {
+                volRange.addEventListener('input', () => {
+                    if (volValue) volValue.textContent = volRange.value;
+                    clearTimeout(volTimer);
+                    volTimer = setTimeout(() => {
+                        api.setPlaybackVolume(Number(volRange.value)).catch((err) => log(`❌ Volume: ${err.message || err}`));
+                    }, 120);
+                });
+            }
+
+            if (transRange) {
+                transRange.addEventListener('input', () => {
+                    if (transValue) transValue.textContent = fmtTranspose(Number(transRange.value));
+                });
+                transRange.addEventListener('change', () => {
+                    api.setPlaybackTranspose(Number(transRange.value)).catch((err) => log(`❌ Transpose: ${err.message || err}`));
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    const baseTempo = (currentTempo && Number.isFinite(currentTempo)) ? Math.round(currentTempo) : 120;
+                    if (tempoRange) { tempoRange.value = String(baseTempo); if (tempoValue) tempoValue.textContent = `${baseTempo} BPM`; }
+                    if (volRange) { volRange.value = '100'; if (volValue) volValue.textContent = '100'; }
+                    if (transRange) { transRange.value = '0'; if (transValue) transValue.textContent = '0'; }
+                    api.setPlaybackTempo(baseTempo).catch(() => {});
+                    api.setPlaybackVolume(100).catch(() => {});
+                    api.setPlaybackTranspose(0).catch(() => {});
+                });
             }
         }
 
@@ -12647,6 +12826,9 @@
         // Event listeners pour les contrôles du header
         document.getElementById('headerPlayPauseBtn').addEventListener('click', togglePlayPause);
         document.getElementById('headerStopBtn').addEventListener('click', stopPlayback);
+
+        // Contrôles de lecture temps réel (seek + tempo/volume/transposition)
+        setupPlaybackControls();
 
         // Event listener pour le bouton de debug
         const debugResizeHandle = document.getElementById('debugResizeHandle');

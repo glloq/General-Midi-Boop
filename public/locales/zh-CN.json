@@ -28,7 +28,10 @@
     "apply": "Apply",
     "name": "名称",
     "on": "开",
-    "off": "关"
+    "off": "关",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "声音",
       "buttons": "界面按钮",
       "system": "硬件与系统",
-      "wifi": "WiFi 管理"
+      "wifi": "WiFi 管理",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi 热点",
@@ -301,7 +305,8 @@
       "warning": "此操作将删除与此设备的配对。"
     },
     "device": "蓝牙设备",
-    "unknownAddress": "未知地址"
+    "unknownAddress": "未知地址",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "搜索网络乐器",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "下弓（拉）",
     "bowUp": "上弓（推）",
-    "bowHint": "按住左半边为下弓，右半边为上弓"
+    "bowHint": "按住左半边为下弓，右半边为上弓",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI编辑器",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "文件太大。请检查文件大小。",
     "errorInvalidMidi": "此文件似乎不是有效的 MIDI 文件。请检查格式。",
     "errorUploadTimeout": "上传时间过长。请重试。",
-    "fileCount": "{count} 个文件 — {size}"
+    "fileCount": "{count} 个文件 — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "设备设置",
@@ -757,7 +770,9 @@
     "saveDirty": "未保存的更改",
     "saveClean": "没有要保存的更改",
     "resetOverrides": "放弃更改",
-    "noHandsConfig": "此乐器没有手部配置 — 预览已禁用。"
+    "noHandsConfig": "此乐器没有手部配置 — 预览已禁用。",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "手部位置编辑器（键盘）",
@@ -773,7 +788,19 @@
     "clearAssignment": "清除此选择",
     "confirmDiscardTitle": "未保存的更改",
     "confirmDiscard": "不保存就离开吗？",
-    "discardConfirmBtn": "不保存离开"
+    "discardConfirmBtn": "不保存离开",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "手部位置编辑器",
@@ -812,7 +839,8 @@
     "string": "弦",
     "fret": "品",
     "clearAssignment": "重置此选择",
-    "hint": "滚动时间线（滚轮 = 滚动，Ctrl+滚轮 = 缩放，点击 = 定位）。点击音符更改其弦。拖动上方预览中的手部条带以固定新位置。"
+    "hint": "滚动时间线（滚轮 = 滚动，Ctrl+滚轮 = 缩放，点击 = 定位）。点击音符更改其弦。拖动上方预览中的手部条带以固定新位置。",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "乐器设置",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "开"
+    "drumEnabled": "开",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "完善乐器功能",
@@ -2310,7 +2346,8 @@
       "contrabass": "低音提琴 (EADG)"
     },
     "configCreated": "已使用默认预设创建弦乐器配置。",
-    "configExists": "此设备已存在弦乐器配置。"
+    "configExists": "此设备已存在弦乐器配置。",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "在已连接的 MIDI 乐器上播放",
     "outputDevice": "输出设备",
-    "outputChannel": "通道"
+    "outputChannel": "通道",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "循环管理器",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "已对 {count} 个音符应用力度 {velocity}。",
     "tabPianoVirtuel": "🎹 虚拟钢琴",
     "tabEditor": "🎼 编辑器",
-    "minimapInfoAria": "音符概览（仅显示）"
+    "minimapInfoAria": "音符概览（仅显示）",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "新版本 v{version} 可用！",

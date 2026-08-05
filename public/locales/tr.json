@@ -28,7 +28,10 @@
     "apply": "Uygula",
     "name": "Ad",
     "on": "Açık",
-    "off": "Kapalı"
+    "off": "Kapalı",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Ses",
       "buttons": "Arayüz düğmeleri",
       "system": "Donanım & Sistem",
-      "wifi": "WiFi Yönetimi"
+      "wifi": "WiFi Yönetimi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi Hotspot",
@@ -301,7 +305,8 @@
       "warning": "Bu, cihazla eşleştirmeyi kaldıracak."
     },
     "device": "Bluetooth Cihazı",
-    "unknownAddress": "Bilinmeyen adres"
+    "unknownAddress": "Bilinmeyen adres",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Ağ Enstrümanı Arama",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Aşağı yay (çek)",
     "bowUp": "Yukarı yay (it)",
-    "bowHint": "Aşağı yay için sol yarıyı, yukarı yay için sağ yarıyı basılı tutun"
+    "bowHint": "Aşağı yay için sol yarıyı, yukarı yay için sağ yarıyı basılı tutun",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI Düzenleyici",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Dosya çok büyük. Dosya boyutunu kontrol edin.",
     "errorInvalidMidi": "Bu dosya geçerli bir MIDI dosyası gibi görünmüyor. Formatı kontrol edin.",
     "errorUploadTimeout": "Yükleme çok uzun sürdü. Lütfen tekrar deneyin.",
-    "fileCount": "{count} dosya — {size}"
+    "fileCount": "{count} dosya — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Cihaz ayarları",
@@ -757,7 +770,9 @@
     "saveDirty": "Kaydedilmemiş değişiklikler",
     "saveClean": "Kaydedilecek değişiklik yok",
     "resetOverrides": "Geçersiz kılmaları at",
-    "noHandsConfig": "Bu enstrümanda el yapılandırması yok — önizleme devre dışı."
+    "noHandsConfig": "Bu enstrümanda el yapılandırması yok — önizleme devre dışı.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "El konumu düzenleyici (klavye)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Bu seçimi temizle",
     "confirmDiscardTitle": "Kaydedilmemiş değişiklikler",
     "confirmDiscard": "Kaydetmeden çıkılsın mı?",
-    "discardConfirmBtn": "Kaydetmeden çık"
+    "discardConfirmBtn": "Kaydetmeden çık",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "El konumu düzenleyici",
@@ -812,7 +839,8 @@
     "string": "Tel",
     "fret": "perde",
     "clearAssignment": "Bu seçimi sıfırla",
-    "hint": "Zaman çizelgesini kaydırın (tekerlek = kaydır, Ctrl+tekerlek = yakınlaştır, tıklama = ara). Telini değiştirmek için bir notaya tıklayın. Yeni bir konumu sabitlemek için yukarıdaki önizlemedeki el bandını sürükleyin."
+    "hint": "Zaman çizelgesini kaydırın (tekerlek = kaydır, Ctrl+tekerlek = yakınlaştır, tıklama = ara). Telini değiştirmek için bir notaya tıklayın. Yeni bir konumu sabitlemek için yukarıdaki önizlemedeki el bandını sürükleyin.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Enstrüman Ayarları",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Açık"
+    "drumEnabled": "Açık",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Enstrüman Yeteneklerini Tamamla",
@@ -2310,7 +2346,8 @@
       "contrabass": "Kontrabas (EADG)"
     },
     "configCreated": "Telli enstrüman yapılandırması varsayılan ön ayarla oluşturuldu.",
-    "configExists": "Bu cihaz için zaten bir telli enstrüman yapılandırması var."
+    "configExists": "Bu cihaz için zaten bir telli enstrüman yapılandırması var.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Bağlı bir MIDI enstrümanında çal",
     "outputDevice": "Çıkış cihazı",
-    "outputChannel": "Kanal"
+    "outputChannel": "Kanal",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Loop Yöneticisi",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "{count} notaya {velocity} hızı uygulandı.",
     "tabPianoVirtuel": "🎹 Sanal piyano",
     "tabEditor": "🎼 Düzenleyici",
-    "minimapInfoAria": "Nota genel görünümü (yalnızca görüntüleme)"
+    "minimapInfoAria": "Nota genel görünümü (yalnızca görüntüleme)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Yeni sürüm v{version} mevcut!",

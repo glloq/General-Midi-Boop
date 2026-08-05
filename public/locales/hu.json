@@ -28,7 +28,10 @@
     "apply": "Apply",
     "name": "Név",
     "on": "Be",
-    "off": "Ki"
+    "off": "Ki",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Hang",
       "buttons": "Felületi gombok",
       "system": "Hardver és rendszer",
-      "wifi": "WiFi-kezelés"
+      "wifi": "WiFi-kezelés",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi hotspot",
@@ -301,7 +305,8 @@
       "warning": "Ez eltávolítja a párosítást ezzel az eszközzel."
     },
     "device": "Bluetooth eszköz",
-    "unknownAddress": "Ismeretlen cím"
+    "unknownAddress": "Ismeretlen cím",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Hálózati hangszerek keresése",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Lefelé vonó (húzás)",
     "bowUp": "Felfelé vonó (tolás)",
-    "bowHint": "Tartsa a bal felét lefelé vonóhoz, a jobb felét felfelé vonóhoz"
+    "bowHint": "Tartsa a bal felét lefelé vonóhoz, a jobb felét felfelé vonóhoz",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI szerkesztő",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "A fájl túl nagy. Ellenőrizze a fájl méretét.",
     "errorInvalidMidi": "Ez a fájl nem tűnik érvényes MIDI fájlnak. Ellenőrizze a formátumot.",
     "errorUploadTimeout": "A feltöltés túl sokáig tartott. Próbálja újra.",
-    "fileCount": "{count} fájl — {size}"
+    "fileCount": "{count} fájl — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Eszközbeállítások",
@@ -757,7 +770,9 @@
     "saveDirty": "Nem mentett változások",
     "saveClean": "Nincs menthető változás",
     "resetOverrides": "Felülbírálások elvetése",
-    "noHandsConfig": "Ezen a hangszeren nincs kézkonfiguráció — az előnézet le van tiltva."
+    "noHandsConfig": "Ezen a hangszeren nincs kézkonfiguráció — az előnézet le van tiltva.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Kéztartás-szerkesztő (billentyűzet)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Választás törlése",
     "confirmDiscardTitle": "Nem mentett változások",
     "confirmDiscard": "Kilép mentés nélkül?",
-    "discardConfirmBtn": "Kilépés mentés nélkül"
+    "discardConfirmBtn": "Kilépés mentés nélkül",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Kéztartás-szerkesztő",
@@ -812,7 +839,8 @@
     "string": "Húr",
     "fret": "bund",
     "clearAssignment": "Választás visszaállítása",
-    "hint": "Görgesse az idővonalat (görgő = görgetés, Ctrl+görgő = nagyítás, kattintás = ugrás). Kattintson egy hangra a húr megváltoztatásához. Húzza a fenti előnézet kézsávját egy új pozíció rögzítéséhez."
+    "hint": "Görgesse az idővonalat (görgő = görgetés, Ctrl+görgő = nagyítás, kattintás = ugrás). Kattintson egy hangra a húr megváltoztatásához. Húzza a fenti előnézet kézsávját egy új pozíció rögzítéséhez.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Hangszerbeállítások",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Be"
+    "drumEnabled": "Be",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Hangszer-képességek kiegészítése",
@@ -2310,7 +2346,8 @@
       "contrabass": "Nagybőgő (EADG)"
     },
     "configCreated": "Húros hangszer beállítása létrehozva az alapértelmezett előbeállítással.",
-    "configExists": "Ehhez az eszközhöz már létezik húros hangszer beállítás."
+    "configExists": "Ehhez az eszközhöz már létezik húros hangszer beállítás.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Lejátszás csatlakoztatott MIDI-hangszeren",
     "outputDevice": "Kimeneti eszköz",
-    "outputChannel": "Csatorna"
+    "outputChannel": "Csatorna",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Loop-kezelő",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "{velocity} erősség alkalmazva {count} hangra.",
     "tabPianoVirtuel": "🎹 Virtuális zongora",
     "tabEditor": "🎼 Szerkesztő",
-    "minimapInfoAria": "Hangok áttekintése (csak megjelenítés)"
+    "minimapInfoAria": "Hangok áttekintése (csak megjelenítés)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Új verzió v{version} elérhető!",

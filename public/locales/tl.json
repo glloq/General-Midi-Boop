@@ -28,7 +28,10 @@
     "apply": "Ilapat",
     "name": "Pangalan",
     "on": "Nakabukas",
-    "off": "Nakapatay"
+    "off": "Nakapatay",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Tunog",
       "buttons": "Mga Interface Button",
       "system": "Hardware at System",
-      "wifi": "Pamamahala ng WiFi"
+      "wifi": "Pamamahala ng WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi Hotspot",
@@ -301,7 +305,8 @@
       "warning": "Aalisin nito ang pairing sa device na ito."
     },
     "device": "Bluetooth Device",
-    "unknownAddress": "Hindi kilalang address"
+    "unknownAddress": "Hindi kilalang address",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Paghahanap ng Network Instrument",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Down-bow (hila)",
     "bowUp": "Up-bow (tulak)",
-    "bowHint": "Pindutin ang kaliwang kalahati para sa down-bow, kanang kalahati para sa up-bow"
+    "bowHint": "Pindutin ang kaliwang kalahati para sa down-bow, kanang kalahati para sa up-bow",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI Editor",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Masyadong malaki ang file. Suriin ang laki ng file.",
     "errorInvalidMidi": "Ang file na ito ay mukhang hindi isang valid na MIDI file. Suriin ang format.",
     "errorUploadTimeout": "Masyadong matagal ang pag-upload. Pakisubukan ulit.",
-    "fileCount": "{count} file — {size}"
+    "fileCount": "{count} file — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Device Settings",
@@ -757,7 +770,9 @@
     "saveDirty": "May hindi pa na-save na pagbabago",
     "saveClean": "Walang pagbabagong ise-save",
     "resetOverrides": "Itapon ang mga override",
-    "noHandsConfig": "Walang hands configuration sa instrumentong ito — naka-disable ang preview."
+    "noHandsConfig": "Walang hands configuration sa instrumentong ito — naka-disable ang preview.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Hand position editor (keyboard)",
@@ -773,7 +788,19 @@
     "clearAssignment": "I-clear ang piniling ito",
     "confirmDiscardTitle": "May hindi pa na-save na pagbabago",
     "confirmDiscard": "Aalis nang hindi nagse-save?",
-    "discardConfirmBtn": "Umalis nang hindi nagse-save"
+    "discardConfirmBtn": "Umalis nang hindi nagse-save",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Hand position editor",
@@ -812,7 +839,8 @@
     "string": "String",
     "fret": "fret",
     "clearAssignment": "I-reset ang piniling ito",
-    "hint": "I-scroll ang timeline (wheel = scroll, Ctrl+wheel = zoom, click = seek). I-click ang note para palitan ang string nito. I-drag ang hand band sa preview sa itaas para mag-pin ng bagong posisyon."
+    "hint": "I-scroll ang timeline (wheel = scroll, Ctrl+wheel = zoom, click = seek). I-click ang note para palitan ang string nito. I-drag ang hand band sa preview sa itaas para mag-pin ng bagong posisyon.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Mga Setting ng Instrumento",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Mga Playlist",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "On"
+    "drumEnabled": "On",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Kumpletuhin ang Instrument Capabilities",
@@ -2310,7 +2346,8 @@
       "contrabass": "Contrabass (EADG)"
     },
     "configCreated": "Nagawa ang string instrument configuration gamit ang default preset.",
-    "configExists": "May umiiral nang string instrument configuration para sa device na ito."
+    "configExists": "May umiiral nang string instrument configuration para sa device na ito.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "I-play sa nakakonektang MIDI instrument",
     "outputDevice": "Output device",
-    "outputChannel": "Channel"
+    "outputChannel": "Channel",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Loop Manager",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Velocity {velocity} ang inilapat sa {count} (na) note.",
     "tabPianoVirtuel": "🎹 Virtual piano",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Notes overview (display lang)"
+    "minimapInfoAria": "Notes overview (display lang)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Available na ang bagong bersyon v{version}!",
