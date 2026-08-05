@@ -228,3 +228,60 @@ function _deepEqual(a, b) {
   }
   return false;
 }
+
+/**
+ * Map a §5 descriptor instrument onto the capability object consumed by
+ * `InstrumentRepository.updateInstrumentCapabilities`. Only the fields the
+ * descriptor actually declares are emitted (absent = unknown, left to the
+ * user). `polyphony.constraints` are not modelled by the scalar capability
+ * store yet — only `polyphony.max` is taken.
+ *
+ * `capabilities_source` defaults to 'auto' rather than the spec's 'descriptor'
+ * because the current instruments_latency CHECK is IN ('manual','sysex','auto')
+ * — see docs/SYSEX_IDENTITY.md §12. Pass `source` to override once the CHECK is
+ * widened.
+ *
+ * @param {Object} inst - one entry of descriptor.instruments
+ * @param {string} [source='auto']
+ * @returns {Object}
+ */
+export function descriptorToCapabilities(inst, source = 'auto') {
+  const caps = { channel: inst.channel, capabilities_source: source };
+  if (inst.gm_program != null) caps.gm_program = inst.gm_program;
+  const notes = inst.notes;
+  if (notes && notes.mode === 'range') {
+    caps.note_selection_mode = 'range';
+    if (notes.min != null) caps.note_range_min = notes.min;
+    if (notes.max != null) caps.note_range_max = notes.max;
+  } else if (notes && notes.mode === 'discrete' && Array.isArray(notes.list)) {
+    caps.note_selection_mode = 'discrete';
+    caps.selected_notes = notes.list;
+  }
+  if (inst.polyphony && Number.isInteger(inst.polyphony.max) && inst.polyphony.max > 0) {
+    caps.polyphony = inst.polyphony.max;
+  }
+  if (inst.expression && Array.isArray(inst.expression.cc)) {
+    caps.supported_ccs = inst.expression.cc;
+  }
+  return caps;
+}
+
+/**
+ * Required playback lookahead for a descriptor (§7 step 9 / §5.6): the maximum
+ * `timing.prepare.max_ms` across its instruments, so the scheduler can hide
+ * every instrument's silent preparation gesture. Returns 0 when none declare a
+ * prepare phase.
+ *
+ * @param {Object} descriptor
+ * @returns {number}
+ */
+export function descriptorLookaheadMs(descriptor) {
+  const instruments =
+    descriptor && Array.isArray(descriptor.instruments) ? descriptor.instruments : [];
+  let max = 0;
+  for (const inst of instruments) {
+    const ms = inst && inst.timing && inst.timing.prepare && inst.timing.prepare.max_ms;
+    if (Number.isFinite(ms) && ms > max) max = ms;
+  }
+  return max;
+}
