@@ -55,6 +55,13 @@ try {
   };
 }
 
+// Automatic recognition tuning. On connect GMBoop probes each device once
+// (debounced to coalesce a device's input+output ports), then re-probes on no
+// reply up to a small cap.
+const AUTO_IDENTITY_DEBOUNCE_MS = 750;
+const AUTO_IDENTITY_REPLY_TIMEOUT_MS = 5000;
+const AUTO_IDENTITY_MAX_ATTEMPTS = 3;
+
 /**
  * Stateful MIDI device manager. Registered as `deviceManager` in the
  * DI container.
@@ -97,6 +104,14 @@ class DeviceManager {
     this.virtualDevices = new Map();
     /** Soft virtual devices — no MIDI port, messages logged to debug monitor. */
     this.softVirtualDevices = new Map();
+
+    // Automatic identity recognition on connect. `_identityProbes` holds the
+    // per-device debounce/reply timers + whether a reply was seen;
+    // `_announcedDevices` dedupes the `device_connected` emit across a device's
+    // input and output ports.
+    this._autoIdentity = true;
+    this._identityProbes = new Map();
+    this._announcedDevices = new Set();
 
     this.midiAvailable = midiAvailable;
 
@@ -274,6 +289,7 @@ class DeviceManager {
       input.on('sysex', (msg) => this.handleMidiMessage(name, 'sysex', msg));
 
       this.inputs.set(name, input);
+      this._onDevicePortAdded(name, 'input');
     } catch (error) {
       this.logger.error(`Cannot open input ${name}: ${error.message}`);
       throw error;
@@ -295,9 +311,110 @@ class DeviceManager {
     try {
       const output = new easymidi.Output(name);
       this.outputs.set(name, output);
+      this._onDevicePortAdded(name, 'output');
     } catch (error) {
       this.logger.error(`Cannot open output ${name}: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * React to a newly opened device port: announce the device once on the
+   * EventBus (`device_connected` — previously never emitted, so the UI and the
+   * clock generator's device cache never learned of hot-plugged devices) and
+   * kick off a debounced automatic identity probe. The probe is what makes
+   * recognition automatic; until now it only ran when the Loop Editor opened.
+   *
+   * @param {string} name
+   * @param {'input'|'output'} kind
+   * @returns {void}
+   */
+  _onDevicePortAdded(name, kind) {
+    if (!this._announcedDevices.has(name)) {
+      this._announcedDevices.add(name);
+      this.eventBus?.emit('device_connected', { device: name, kind });
+    }
+    this._scheduleAutoIdentityProbe(name);
+  }
+
+  /**
+   * Debounce an automatic identity probe for `name`. Coalesces the input- and
+   * output-port adds of the same device, and is a no-op once the device has
+   * replied or while a probe is already in flight.
+   *
+   * @param {string} name
+   * @returns {void}
+   */
+  _scheduleAutoIdentityProbe(name) {
+    if (!this._autoIdentity) return;
+    let probe = this._identityProbes.get(name);
+    if (probe?.identified) return;
+    if (probe?.debounceTimer || probe?.replyTimer) return;
+    if (!probe) {
+      probe = { attempts: 0, identified: false, debounceTimer: null, replyTimer: null };
+      this._identityProbes.set(name, probe);
+    }
+    probe.debounceTimer = setTimeout(() => {
+      probe.debounceTimer = null;
+      this._sendAutoIdentity(name);
+    }, AUTO_IDENTITY_DEBOUNCE_MS);
+    if (typeof probe.debounceTimer?.unref === 'function') probe.debounceTimer.unref();
+  }
+
+  /**
+   * Send one identity probe to `name` and arm a reply timeout that retries up
+   * to {@link AUTO_IDENTITY_MAX_ATTEMPTS}. Skips devices with no output port
+   * (nothing to send the request through — e.g. a DIN-IN-only keyboard),
+   * leaving the probe armed for when an output for the same name appears.
+   *
+   * @param {string} name
+   * @returns {void}
+   */
+  _sendAutoIdentity(name) {
+    const probe = this._identityProbes.get(name);
+    if (!probe || probe.identified) return;
+    if (!this.outputs.has(name)) return; // no return path → cannot auto-recognise
+    probe.attempts += 1;
+    try {
+      this.sendIdentityRequest(name);
+    } catch (e) {
+      this.logger?.debug?.(`Auto identity probe skipped for ${name}: ${e.message}`);
+      return;
+    }
+    probe.replyTimer = setTimeout(() => {
+      probe.replyTimer = null;
+      if (probe.identified) return;
+      if (probe.attempts < AUTO_IDENTITY_MAX_ATTEMPTS) {
+        this._sendAutoIdentity(name);
+      } else {
+        this.logger?.debug?.(`No identity reply from ${name} after ${probe.attempts} attempt(s)`);
+      }
+    }, AUTO_IDENTITY_REPLY_TIMEOUT_MS);
+    if (typeof probe.replyTimer?.unref === 'function') probe.replyTimer.unref();
+  }
+
+  /**
+   * Mark a device as recognised, cancelling any pending probe/retry timers.
+   * Called from the SysEx handler when an identity reply is parsed.
+   *
+   * @param {string} name
+   * @returns {void}
+   */
+  _markIdentified(name) {
+    let probe = this._identityProbes.get(name);
+    if (!probe) {
+      probe = { attempts: 0, identified: true, debounceTimer: null, replyTimer: null };
+      this._identityProbes.set(name, probe);
+      return;
+    }
+    probe.identified = true;
+    if (probe.debounceTimer) {
+      clearTimeout(probe.debounceTimer);
+      probe.debounceTimer = null;
+    }
+    if (probe.replyTimer) {
+      clearTimeout(probe.replyTimer);
+      probe.replyTimer = null;
     }
   }
 
@@ -929,6 +1046,7 @@ class DeviceManager {
 
       const identityInfo = this.parseIdentityReply(msg);
       if (identityInfo) {
+        this._markIdentified(deviceName);
         this.logger.info(`Identity Reply received from ${deviceName}:`, identityInfo);
 
         if (this.database) {
@@ -1486,6 +1604,13 @@ class DeviceManager {
         this.logger.error(`Error closing virtual device: ${error.message}`);
       }
     });
+
+    // Cancel any pending auto-identity probe/retry timers
+    this._identityProbes.forEach((probe) => {
+      if (probe.debounceTimer) clearTimeout(probe.debounceTimer);
+      if (probe.replyTimer) clearTimeout(probe.replyTimer);
+    });
+    this._identityProbes.clear();
 
     this.logger.info('DeviceManager closed');
   }
