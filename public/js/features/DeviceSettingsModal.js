@@ -249,9 +249,13 @@
       const btn = this.modal?.querySelector('#dsm-sysexRequestBtn');
       const resultDiv = this.modal?.querySelector('#dsm-sysexResult');
       if (resultDiv) {
-        const name = this._escapeHtml(data.name || 'Inconnu');
-        const firmware = this._escapeHtml(data.firmware || data.version || '-');
-        const protocol = this._escapeHtml(data.protocol || '-');
+        // The 'device_identity' broadcast is { device, identity, timestamp };
+        // read the nested identity (the old top-level reads were always
+        // undefined, so the panel always showed "Inconnu / - / -").
+        const info = data.identity || data;
+        const name = this._escapeHtml(info.deviceName || info.manufacturerName || 'Inconnu');
+        const firmware = this._escapeHtml(info.firmwareVersion || info.version || '-');
+        const protocol = this._escapeHtml(info.protocol || '-');
         resultDiv.innerHTML = `<strong>${name}</strong> — Firmware: ${firmware} — Protocole: ${protocol}`;
         resultDiv.style.display = 'block';
       }

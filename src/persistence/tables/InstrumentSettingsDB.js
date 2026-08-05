@@ -6,6 +6,30 @@
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
 
+/**
+ * Map a parsed SysEx identity onto the `sysex_*` columns, tolerant of the three
+ * shapes DeviceManager's parsers emit — Universal reply (`family`/`model`/
+ * `firmwareVersion`/`manufacturerId`), GMB v1 block 1 (`deviceName`/`deviceId`/
+ * `firmwareVersion`) and GMB v2 handshake (`instanceId`/`deviceId`/
+ * `firmwareVersion`). Previously `saveSysExIdentity` read v1-only names
+ * (`deviceFamily`, `deviceFamilyMember`, `softwareRevision`) that **no** parser
+ * emits, so `sysex_family` / `sysex_model` / `sysex_version` were always
+ * persisted null. Pure + exported for unit testing.
+ *
+ * @param {Object} [identity]
+ * @returns {{manufacturer:*, family:*, model:*, version:*, deviceId:*, raw:*}}
+ */
+export function normalizeSysexIdentity(identity = {}) {
+  return {
+    manufacturer: identity.manufacturerId ?? identity.manufacturerName ?? null,
+    family: identity.family ?? null,
+    model: identity.model ?? identity.deviceName ?? null,
+    version: identity.firmwareVersion ?? identity.softwareRevision ?? null,
+    deviceId: identity.deviceId ?? identity.instanceId ?? null,
+    raw: identity.rawBytes ?? null
+  };
+}
+
 class InstrumentSettingsDB {
   /**
    * @param {import('better-sqlite3').Database} db
@@ -381,6 +405,8 @@ class InstrumentSettingsDB {
     }
     channel = channel || 0;
 
+    const sx = normalizeSysexIdentity(identity);
+
     try {
       // Check if entry exists for this device + channel
       const existing = this.db
@@ -404,12 +430,12 @@ class InstrumentSettingsDB {
         `);
 
         stmt.run(
-          identity.manufacturerId || null,
-          identity.deviceFamily || null,
-          identity.deviceFamilyMember || null,
-          identity.softwareRevision || null,
-          identity.deviceId || null,
-          identity.rawBytes || null,
+          sx.manufacturer,
+          sx.family,
+          sx.model,
+          sx.version,
+          sx.deviceId,
+          sx.raw,
           now,
           deviceId,
           channel
@@ -433,12 +459,12 @@ class InstrumentSettingsDB {
           deviceId,
           channel,
           'Unnamed Instrument',
-          identity.manufacturerId || null,
-          identity.deviceFamily || null,
-          identity.deviceFamilyMember || null,
-          identity.softwareRevision || null,
-          identity.deviceId || null,
-          identity.rawBytes || null,
+          sx.manufacturer,
+          sx.family,
+          sx.model,
+          sx.version,
+          sx.deviceId,
+          sx.raw,
           now
         );
 
