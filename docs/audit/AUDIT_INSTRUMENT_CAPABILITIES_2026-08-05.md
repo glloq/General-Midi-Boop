@@ -41,8 +41,11 @@ Plus deux bugs pré-existants confirmés dans la persistance/affichage de l'iden
 | P2-1 reconnaissance jamais auto | ✅ sonde debouncée + `device_connected` + timeout/retry | `feat(devices)` |
 | P2-5 `octave_mode`/`scale_root` moteur aveugle | ✅ snap de gamme dans le moteur (`ScaleSnapper`) | `feat(playback)` |
 | P2-3 route-through live sans enforcement | ✅ clamp stateless partagé (`NoteEnforcement`) | `feat(routing)` |
+| P2-2 pipeline descripteur v2 (cœur) | ✅ cœur pur livré (`DescriptorProtocol` : réassemblage 0x10 / validation §5 / diff des surcharges §6) — câblage transport+DB restant | `feat(instrument)` |
 
-**Restant** (non couvert par cette PR) : P2-2 (pipeline descripteur v2), P2-4
+**Restant** (non couvert par cette PR) : P2-2 (**cœur pur livré** ci-dessus ;
+reste le câblage — requête/timeout bloc `0x10`, écoute `0x11`, base
+`instance_id→config`, application du descripteur aux capacités), P2-4
 (`supported_ccs` non filtré — volontairement laissé optionnel), P2-6 (schémas
 d'enveloppe `instrument_*` — le durcissement DB est fait, le schéma déclaratif
 reste), P2-7 (voix secondaires côté moteur), P2-8 (cordes → flux audible), P2-9
