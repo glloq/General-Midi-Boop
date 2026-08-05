@@ -247,7 +247,9 @@ function _deepEqual(a, b) {
  */
 export function descriptorToCapabilities(inst, source = 'auto') {
   const caps = { channel: inst.channel, capabilities_source: source };
-  if (inst.gm_program != null) caps.gm_program = inst.gm_program;
+  // gm_program / type / subtype are NOT capability-store columns — the
+  // updateInstrumentCapabilities allow-list would silently drop them — so they
+  // are mapped separately by descriptorToSettings → updateInstrumentSettings.
   const notes = inst.notes;
   if (notes && notes.mode === 'range') {
     caps.note_selection_mode = 'range';
@@ -264,6 +266,53 @@ export function descriptorToCapabilities(inst, source = 'auto') {
     caps.supported_ccs = inst.expression.cc;
   }
   return caps;
+}
+
+/**
+ * Map a §5.2 descriptor instrument onto the *settings* columns of
+ * `instruments_latency` — the allow-list consumed by
+ * `InstrumentRepository.updateInstrumentSettings`: the GM program and the
+ * instrument type/subtype. These are deliberately NOT part of
+ * {@link descriptorToCapabilities} because `updateInstrumentCapabilities` does
+ * not persist them, so routing them here is what makes a descriptor's declared
+ * program/type actually stick. Only declared fields are emitted; returns an
+ * empty object when the descriptor declares none.
+ *
+ * @param {Object} inst - one entry of descriptor.instruments
+ * @returns {Object}
+ */
+export function descriptorToSettings(inst) {
+  const settings = {};
+  if (inst.gm_program != null) settings.gm_program = inst.gm_program;
+  if (typeof inst.type === 'string' && inst.type) settings.instrument_type = inst.type;
+  if (typeof inst.subtype === 'string' && inst.subtype) settings.instrument_subtype = inst.subtype;
+  return settings;
+}
+
+/**
+ * Flatten a §5 descriptor instrument into the single flat bag of persisted leaf
+ * fields it declares — the union of {@link descriptorToCapabilities},
+ * {@link descriptorToSettings} and (for a strings instrument)
+ * {@link descriptorToStringConfig}. This is the shape the §6 override
+ * arbitration compares against: a user's overridden field names are stored
+ * *column* names (`note_range_min`, `polyphony`, `gm_program`, `tuning`…), so
+ * both the previous and the new descriptor must be reduced to that same flat
+ * vocabulary before diffing — otherwise a nested move (e.g. `notes.min`) is
+ * invisible and the override is never purged. Bookkeeping keys that are never
+ * user-overridable (`channel`, `capabilities_source`) are stripped.
+ *
+ * @param {Object} inst - one entry of descriptor.instruments
+ * @returns {Object}
+ */
+export function descriptorToOverrideView(inst) {
+  const view = { ...descriptorToCapabilities(inst), ...descriptorToSettings(inst) };
+  delete view.channel;
+  delete view.capabilities_source;
+  if (inst && inst.physical && inst.physical.family === 'strings') {
+    const cfg = descriptorToStringConfig(inst.physical);
+    if (cfg) Object.assign(view, cfg);
+  }
+  return view;
 }
 
 /**
@@ -299,10 +348,14 @@ export function descriptorLookaheadMs(descriptor) {
 export function descriptorToStringConfig(physical) {
   if (!physical || typeof physical !== 'object') return null;
   const cfg = {};
-  if (Array.isArray(physical.tuning)) cfg.tuning = physical.tuning;
+  // A tuning/frets array is positional (element i = string i): one malformed
+  // entry must drop the WHOLE array rather than shift every later string, so a
+  // partially-valid geometry is never persisted.
+  if (_isMidiNoteArray(physical.tuning)) cfg.tuning = physical.tuning;
   if (Number.isInteger(physical.string_count)) cfg.num_strings = physical.string_count;
   if (Number.isInteger(physical.fret_count)) cfg.num_frets = physical.fret_count;
-  if (Array.isArray(physical.frets_per_string)) cfg.frets_per_string = physical.frets_per_string;
+  if (_isNonNegIntArray(physical.frets_per_string))
+    cfg.frets_per_string = physical.frets_per_string;
   if (typeof physical.fretless === 'boolean') cfg.is_fretless = physical.fretless ? 1 : 0;
   if (Number.isInteger(physical.capo)) cfg.capo_fret = physical.capo;
   const sel = physical.selection;
@@ -312,4 +365,16 @@ export function descriptorToStringConfig(physical) {
     cfg.cc_enabled = 1;
   }
   return Object.keys(cfg).length > 0 ? cfg : null;
+}
+
+/** True for a non-empty array whose every element is an integer MIDI note 0-127. */
+function _isMidiNoteArray(v) {
+  return (
+    Array.isArray(v) && v.length > 0 && v.every((n) => Number.isInteger(n) && n >= 0 && n <= 127)
+  );
+}
+
+/** True for a non-empty array whose every element is a non-negative integer. */
+function _isNonNegIntArray(v) {
+  return Array.isArray(v) && v.length > 0 && v.every((n) => Number.isInteger(n) && n >= 0);
 }

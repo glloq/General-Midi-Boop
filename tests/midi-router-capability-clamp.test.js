@@ -93,4 +93,49 @@ describe('MidiRouter — live capability clamp', () => {
     router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: 84, velocity: 100 });
     expect(routedNote(deviceManager)).toBe(84);
   });
+
+  test('note-off releases the note-on pitch even if capabilities narrow mid-note', () => {
+    // The core stuck-note fix: note-on 84 sounds (in range [60,84]); the range
+    // then narrows to [60,72] while it is held; the note-off for 84 must release
+    // 84 — NOT fold to 72 — or the mechanical instrument hangs forever.
+    const deviceManager = { sendMessage: jest.fn(() => true) };
+    let constraints = { noteRangeMin: 60, noteRangeMax: 84 };
+    const router = new MidiRouter({
+      logger: { info: () => {}, warn: () => {}, debug: () => {}, error: () => {} },
+      eventBus: { on: () => {}, emit: jest.fn() },
+      deviceRouteRepository: { findAll: () => [] },
+      deviceManager,
+      capabilityResolver: { getTimingConstraints: () => constraints }
+    });
+    router.routes.set('r1', {
+      id: 'r1',
+      enabled: true,
+      destination: 'robot',
+      filter: null,
+      channelMap: null
+    });
+    router.routesBySource.set('kbd', new Set(['r1']));
+
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: 84, velocity: 100 });
+    expect(deviceManager.sendMessage.mock.calls[0][2].note).toBe(84); // in range → 84
+
+    constraints = { noteRangeMin: 60, noteRangeMax: 72 }; // capabilities narrow
+
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_OFF, { channel: 0, note: 84, velocity: 0 });
+    expect(deviceManager.sendMessage.mock.calls[1][2].note).toBe(84); // releases 84, no hang
+  });
+
+  test('poly-aftertouch follows the note-on to its clamped pitch', () => {
+    const { router, deviceManager } = makeRouter({ noteRangeMin: 60, noteRangeMax: 72 });
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: 84, velocity: 100 });
+    expect(deviceManager.sendMessage.mock.calls[0][2].note).toBe(72); // clamped
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.POLY_AFTERTOUCH, {
+      channel: 0,
+      note: 84,
+      pressure: 50
+    });
+    // Aftertouch addressed to source note 84 is redirected to the sounding 72,
+    // not passed through unclamped to the silent 84.
+    expect(deviceManager.sendMessage.mock.calls[1][2].note).toBe(72);
+  });
 });

@@ -8,7 +8,7 @@ import { describe, test, expect, jest } from '@jest/globals';
 import { DescriptorService } from '../src/midi/instrument/DescriptorService.js';
 
 function makeService() {
-  const repo = { updateCapabilities: jest.fn() };
+  const repo = { updateCapabilities: jest.fn(), updateSettings: jest.fn() };
   const eventBus = { emit: jest.fn() };
   const svc = new DescriptorService({
     instrumentRepository: repo,
@@ -63,6 +63,18 @@ describe('DescriptorService.applyDescriptor', () => {
     );
   });
 
+  test('gm_program is persisted via updateSettings, not updateCapabilities', () => {
+    const { svc, repo } = makeService();
+    svc.applyDescriptor('dev', twoInstruments);
+    // Channel 0 declares gm_program 24 → routed to the settings allow-list.
+    expect(repo.updateSettings).toHaveBeenCalledWith('dev', 0, { gm_program: 24 });
+    // It must NOT ride along in the capabilities write (which would drop it).
+    const capsCall = repo.updateCapabilities.mock.calls.find((c) => c[1] === 0);
+    expect(capsCall[2].gm_program).toBeUndefined();
+    // Channel 1 declares no settings fields → no settings write for it.
+    expect(repo.updateSettings).not.toHaveBeenCalledWith('dev', 1, expect.anything());
+  });
+
   test('an unconfigured instrument is skipped (manual entry, nothing written)', () => {
     const { svc, repo } = makeService();
     const d = {
@@ -90,7 +102,12 @@ describe('DescriptorService.applyDescriptor', () => {
     expect(eventBus.emit).not.toHaveBeenCalled();
   });
 
-  test('override diff: only fields the device moved are purged (§6)', () => {
+  test('override diff (§6): purges only moved fields, incl. NESTED ones, by column name', () => {
+    // Override vocabulary is the stored COLUMN names — gm_program (a settings
+    // field) and note_range_min/max (which the descriptor nests under `notes`).
+    // The arbitration compares the flattened override views, so a nested move
+    // (notes.min 60→62) is detected; comparing raw descriptors would have missed
+    // it and never purged the override (the latent bug this proves fixed).
     const { svc } = makeService();
     const previous = {
       gmb_descriptor: 2,
@@ -101,16 +118,16 @@ describe('DescriptorService.applyDescriptor', () => {
     const next = {
       gmb_descriptor: 2,
       instruments: [
-        { channel: 0, configured: true, gm_program: 25, notes: { mode: 'range', min: 60, max: 88 } }
+        { channel: 0, configured: true, gm_program: 25, notes: { mode: 'range', min: 62, max: 88 } }
       ]
     };
     const res = svc.applyDescriptor('dev', next, {
       previousDescriptor: previous,
-      overriddenFieldsByChannel: { 0: ['gm_program', 'notes'] }
+      overriddenFieldsByChannel: { 0: ['gm_program', 'note_range_min', 'note_range_max'] }
     });
     const inst0 = res.instruments.find((i) => i.channel === 0);
-    expect(inst0.purgedOverrides).toEqual(['gm_program']); // device moved gm_program
-    expect(inst0.keptOverrides).toEqual(['notes']); // notes unchanged → override kept
+    expect(inst0.purgedOverrides.sort()).toEqual(['gm_program', 'note_range_min']); // both moved
+    expect(inst0.keptOverrides).toEqual(['note_range_max']); // max unchanged → kept
   });
 
   test('lookahead is reported from timing.prepare.max_ms', () => {
