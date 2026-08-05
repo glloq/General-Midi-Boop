@@ -335,7 +335,8 @@ class InstrumentCapabilitiesDB {
         supported_ccs: supportedCcs,
         note_selection_mode: result.note_selection_mode || 'range',
         selected_notes: selectedNotes,
-        polyphony: result.polyphony || null,
+        polyphony:
+          Number.isInteger(result.polyphony) && result.polyphony > 0 ? result.polyphony : null,
         min_note_interval: result.min_note_interval ?? null,
         min_note_duration: result.min_note_duration ?? null,
         octave_mode: result.octave_mode ?? 'chromatic',

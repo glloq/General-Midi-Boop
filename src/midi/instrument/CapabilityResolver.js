@@ -103,7 +103,10 @@ export class CapabilityResolver {
           constraints = {
             minNoteInterval: instrument.min_note_interval || null,
             minNoteDuration: instrument.min_note_duration || null,
-            polyphony: instrument.polyphony || null,
+            polyphony:
+              Number.isInteger(instrument.polyphony) && instrument.polyphony > 0
+                ? instrument.polyphony
+                : null,
             noteRangeMin:
               instrument.note_range_min === undefined ? null : instrument.note_range_min,
             noteRangeMax:
