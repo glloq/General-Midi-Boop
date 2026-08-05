@@ -33,7 +33,7 @@ import {
   DEVICE_MSG_TYPES,
   SEND_STATUS
 } from '../../core/constants.js';
-import { scaleNotes, restrictsScale } from '../adaptation/ScaleSnapper.js';
+import { clampNote, foldIntoRange, snapToNearest } from '../adaptation/NoteEnforcement.js';
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
@@ -302,16 +302,7 @@ class PlaybackScheduler {
    * @returns {number}
    */
   _snapToSelected(note, selected) {
-    let best = selected[0];
-    let bestDist = Math.abs(note - best);
-    for (let i = 1; i < selected.length; i++) {
-      const d = Math.abs(note - selected[i]);
-      if (d < bestDist || (d === bestDist && selected[i] < best)) {
-        best = selected[i];
-        bestDist = d;
-      }
-    }
-    return best;
+    return snapToNearest(note, selected);
   }
 
   /**
@@ -328,18 +319,7 @@ class PlaybackScheduler {
    * @returns {number}
    */
   _foldIntoRange(note, min, max) {
-    if (min == null && max == null) return note;
-    const lo = min == null ? 0 : min;
-    const hi = max == null ? 127 : max;
-    if (lo > hi) return note; // misconfigured range — leave untouched
-    let n = note;
-    while (n < lo) n += 12;
-    while (n > hi) n -= 12;
-    // If folding overshot (range < 1 octave and no pitch-class member fits),
-    // clamp to the nearest in-range bound.
-    if (n < lo) n = lo;
-    if (n > hi) n = hi;
-    return n;
+    return foldIntoRange(note, min, max);
   }
 
   /**
@@ -998,32 +978,10 @@ class PlaybackScheduler {
     // by default). Skip the GM drum channel (9): those are voice selectors,
     // not pitches, and drum remap already handles substitution.
     if (isNoteTypeEvent && event.channel !== 9) {
-      const c = this._getTimingConstraints(routing.device, outChannel);
-      if (c.noteRangeMin != null || c.noteRangeMax != null) {
-        outNote = this._foldIntoRange(outNote, c.noteRangeMin, c.noteRangeMax);
-      }
-      // Discrete instruments (kalimba/handpan/tuned percussion): snap to the
-      // nearest physically available pitch so an off-set note still sounds
-      // rather than being silently unplayable (audit — octave_mode/
-      // selected_notes had no output consumer). Applied after range folding.
-      if (Array.isArray(c.selectedNotes) && c.selectedNotes.length > 0) {
-        outNote = this._snapToSelected(outNote, c.selectedNotes);
-      } else if (
-        restrictsScale(c.octaveMode) &&
-        (c.noteRangeMin != null || c.noteRangeMax != null)
-      ) {
-        // Range-mode instrument restricted to a diatonic/pentatonic scale whose
-        // in-scale set was never materialised into selected_notes (any non-UI
-        // writer: auto-assign editor, API, descriptor). Snap to the scale here
-        // so the engine enforces it too, not only the settings editor (P2-5).
-        const inScale = scaleNotes(
-          c.noteRangeMin ?? 0,
-          c.noteRangeMax ?? 127,
-          c.octaveMode,
-          c.scaleRoot ?? 0
-        );
-        if (inScale.length > 0) outNote = this._snapToSelected(outNote, inScale);
-      }
+      // Fold into range, then snap to the physically playable set (explicit
+      // selected_notes, else the octave_mode/scale_root scale). Shared with the
+      // live router via NoteEnforcement so both paths clamp identically.
+      outNote = clampNote(outNote, this._getTimingConstraints(routing.device, outChannel));
     }
 
     // Enforce timing and polyphony constraints for note events

@@ -24,6 +24,7 @@
  */
 
 import { DEVICE_MSG_TYPES } from '../../core/constants.js';
+import { clampNote } from '../adaptation/NoteEnforcement.js';
 
 /**
  * Stateful router. One instance per process; registered in the DI
@@ -320,16 +321,44 @@ class MidiRouter {
    * @private
    */
   _sendAndEmit(route, sourceDevice, type, mapped) {
-    const success = this._deps.deviceManager.sendMessage(route.destination, type, mapped);
+    const out = this._clampToCapabilities(route.destination, type, mapped);
+    const success = this._deps.deviceManager.sendMessage(route.destination, type, out);
     if (success) {
       this.eventBus.emit('midi_routed', {
         route: route.id,
         source: sourceDevice,
         destination: route.destination,
         type: type,
-        data: mapped
+        data: out
       });
     }
+  }
+
+  /**
+   * Clamp a live-routed note to the destination instrument's physical
+   * capabilities (range fold + discrete/scale snap), so a source keyboard can't
+   * send a mechanical instrument pitches it cannot produce — the same clamp the
+   * file-playback engine applies. Stateless only: polyphony / min-note timing
+   * gating needs per-stream note state the live path does not track yet (audit
+   * P2-3). No-op for non-note messages, the GM drum channel (9), and when no
+   * CapabilityResolver is wired.
+   *
+   * @param {string} destination
+   * @param {string} type
+   * @param {Object} mapped
+   * @returns {Object} `mapped` unchanged, or a shallow copy with a clamped `note`.
+   * @private
+   */
+  _clampToCapabilities(destination, type, mapped) {
+    if (type !== DEVICE_MSG_TYPES.NOTE_ON && type !== DEVICE_MSG_TYPES.NOTE_OFF) return mapped;
+    if (!mapped || mapped.note == null || mapped.channel === 9) return mapped;
+    const resolver = this._deps.capabilityResolver;
+    if (!resolver || typeof resolver.getTimingConstraints !== 'function') return mapped;
+    const clamped = clampNote(
+      mapped.note,
+      resolver.getTimingConstraints(destination, mapped.channel)
+    );
+    return clamped === mapped.note ? mapped : { ...mapped, note: clamped };
   }
 
   /**
