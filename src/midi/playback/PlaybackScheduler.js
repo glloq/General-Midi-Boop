@@ -33,6 +33,7 @@ import {
   DEVICE_MSG_TYPES,
   SEND_STATUS
 } from '../../core/constants.js';
+import { scaleNotes, restrictsScale } from '../adaptation/ScaleSnapper.js';
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
@@ -1007,6 +1008,21 @@ class PlaybackScheduler {
       // selected_notes had no output consumer). Applied after range folding.
       if (Array.isArray(c.selectedNotes) && c.selectedNotes.length > 0) {
         outNote = this._snapToSelected(outNote, c.selectedNotes);
+      } else if (
+        restrictsScale(c.octaveMode) &&
+        (c.noteRangeMin != null || c.noteRangeMax != null)
+      ) {
+        // Range-mode instrument restricted to a diatonic/pentatonic scale whose
+        // in-scale set was never materialised into selected_notes (any non-UI
+        // writer: auto-assign editor, API, descriptor). Snap to the scale here
+        // so the engine enforces it too, not only the settings editor (P2-5).
+        const inScale = scaleNotes(
+          c.noteRangeMin ?? 0,
+          c.noteRangeMax ?? 127,
+          c.octaveMode,
+          c.scaleRoot ?? 0
+        );
+        if (inScale.length > 0) outNote = this._snapToSelected(outNote, inScale);
       }
     }
 

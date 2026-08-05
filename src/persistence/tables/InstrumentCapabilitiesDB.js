@@ -265,6 +265,7 @@ class InstrumentCapabilitiesDB {
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
+            octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
             custom_sf2_id
@@ -280,6 +281,7 @@ class InstrumentCapabilitiesDB {
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
+            octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
             custom_sf2_id
@@ -336,6 +338,8 @@ class InstrumentCapabilitiesDB {
         polyphony: result.polyphony || null,
         min_note_interval: result.min_note_interval ?? null,
         min_note_duration: result.min_note_duration ?? null,
+        octave_mode: result.octave_mode ?? 'chromatic',
+        scale_root: Number.isInteger(result.scale_root) ? result.scale_root : 0,
         capabilities_source: result.capabilities_source,
         capabilities_updated_at: result.capabilities_updated_at,
         hands_config: handsConfig,
