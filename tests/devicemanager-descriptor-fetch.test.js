@@ -110,6 +110,30 @@ describe('descriptor fetch state machine', () => {
     expect(ctx._descriptorFetches.has('dev')).toBe(false);
   });
 
+  test('a newer revision mid-transfer abandons the in-flight fetch and restarts (§3/§4)', () => {
+    const ctx = makeCtx({ _descriptorRevisions: new Map() });
+    ctx._startDescriptorFetch('dev', 5); // in-flight for revision 5
+    expect(sends(ctx)).toHaveBeenCalledTimes(1);
+    expect(ctx._descriptorFetches.get('dev').revision).toBe(5);
+
+    // A change notification carrying a NEWER revision restarts from chunk 0.
+    ctx._startDescriptorFetch('dev', 6);
+    expect(sends(ctx)).toHaveBeenCalledTimes(2);
+    expect(ctx._descriptorFetches.get('dev').revision).toBe(6);
+
+    // Same revision, or no revision, is a re-entrant no-op (lets it finish).
+    ctx._startDescriptorFetch('dev', 6);
+    ctx._startDescriptorFetch('dev');
+    expect(sends(ctx)).toHaveBeenCalledTimes(2);
+  });
+
+  test('an already-applied revision is not re-fetched (ETag skip)', () => {
+    const ctx = makeCtx({ _descriptorRevisions: new Map([['dev', 9]]) });
+    ctx._startDescriptorFetch('dev', 9);
+    expect(sends(ctx)).not.toHaveBeenCalled();
+    expect(ctx._descriptorFetches.has('dev')).toBe(false);
+  });
+
   test('no-op without an output, without a descriptor service, or when already fetching', () => {
     const noOut = makeCtx({ outputs: new Map() });
     noOut._startDescriptorFetch('dev');

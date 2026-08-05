@@ -157,6 +157,10 @@ class DeviceManager {
           this.addOutput(change.name);
         } else if (change.type === 'update') {
           await this.updateDeviceMap();
+          // A hot-plug `update` also fires on removal (ports already closed by
+          // DeviceDiscovery); reconcile our per-device recognition state so a
+          // disconnected device is forgotten and can re-announce on reconnect.
+          this._pruneDisconnectedDeviceState();
           this.broadcastDeviceList();
           this.logger.info(`Device list updated: ${this.devices.size} device(s)`);
         }
@@ -460,7 +464,15 @@ class DeviceManager {
    * @returns {void}
    */
   _startDescriptorFetch(deviceName, revision = null) {
-    if (this._descriptorFetches.has(deviceName)) return;
+    const inFlight = this._descriptorFetches.get(deviceName);
+    if (inFlight) {
+      // §3/§4: a change notification mid-transfer carrying a NEWER revision must
+      // abandon the now-stale in-flight transfer and restart; an equal or absent
+      // revision lets the current transfer finish (re-entrant no-op).
+      if (revision == null || inFlight.revision === revision) return;
+      if (inFlight.timer) clearTimeout(inFlight.timer);
+      this._descriptorFetches.delete(deviceName);
+    }
     // §7 step 4: the revision is an ETag — skip the transfer when the descriptor
     // we last applied for this device is unchanged.
     if (revision != null && this._descriptorRevisions.get(deviceName) === revision) return;
@@ -622,6 +634,39 @@ class DeviceManager {
     const f = notif.changeFlags;
     if (f.identityChanged || f.instrumentsChanged || f.timingChanged) {
       this._startDescriptorFetch(deviceName, notif.revision);
+    }
+  }
+
+  /**
+   * Drop per-device recognition state (announce dedupe, in-flight identity
+   * probes, descriptor transfers, cached descriptor revisions) for devices whose
+   * ports are no longer open. Called on every hot-plug `update` — the removal
+   * path closes ports but carries no per-device detail — so a disconnect both
+   * frees the state and lets a later reconnect re-announce + re-probe instead of
+   * being suppressed by the stale dedupe/ETag entries. Cancels any pending timers
+   * for the pruned devices.
+   *
+   * @returns {void}
+   * @private
+   */
+  _pruneDisconnectedDeviceState() {
+    const isOpen = (name) => this.inputs.has(name) || this.outputs.has(name);
+    for (const name of [...this._announcedDevices]) {
+      if (!isOpen(name)) this._announcedDevices.delete(name);
+    }
+    for (const [name, probe] of this._identityProbes) {
+      if (isOpen(name)) continue;
+      if (probe.debounceTimer) clearTimeout(probe.debounceTimer);
+      if (probe.replyTimer) clearTimeout(probe.replyTimer);
+      this._identityProbes.delete(name);
+    }
+    for (const [name, state] of this._descriptorFetches) {
+      if (isOpen(name)) continue;
+      if (state.timer) clearTimeout(state.timer);
+      this._descriptorFetches.delete(name);
+    }
+    for (const name of [...this._descriptorRevisions.keys()]) {
+      if (!isOpen(name)) this._descriptorRevisions.delete(name);
     }
   }
 
