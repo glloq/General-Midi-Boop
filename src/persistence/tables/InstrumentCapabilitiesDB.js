@@ -18,6 +18,7 @@
  * name. Everywhere else, prefer `Ccs`/`supportedCcs`.
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
+import { parseValidMidiList, serializeValidMidiList } from '../../utils/MidiListParser.js';
 
 /** Parse an optional JSON column → object, or null on absence/parse error. */
 function parseJsonCol(value) {
@@ -100,38 +101,39 @@ class InstrumentCapabilitiesDB {
         }
       }
 
-      // Convert supported_ccs array to JSON string
-      let supportedCcsJson = null;
-      if (capabilities.supported_ccs !== undefined && capabilities.supported_ccs !== null) {
-        if (Array.isArray(capabilities.supported_ccs)) {
-          // Validate each CC is in range 0-127
-          for (const cc of capabilities.supported_ccs) {
-            if (cc < 0 || cc > 127) {
-              throw new Error('CC values must be between 0 and 127');
-            }
-          }
-          supportedCcsJson = JSON.stringify(capabilities.supported_ccs);
-        } else if (typeof capabilities.supported_ccs === 'string') {
-          supportedCcsJson = capabilities.supported_ccs;
-        }
+      // Validate enum columns up-front so an invalid value fails with a clear
+      // message instead of tripping the table CHECK constraint deeper down.
+      if (
+        capabilities.note_selection_mode != null &&
+        capabilities.note_selection_mode !== 'range' &&
+        capabilities.note_selection_mode !== 'discrete'
+      ) {
+        throw new Error("note_selection_mode must be 'range' or 'discrete'");
+      }
+      const ALLOWED_CAP_SOURCES = ['manual', 'sysex', 'auto'];
+      if (
+        capabilities.capabilities_source != null &&
+        !ALLOWED_CAP_SOURCES.includes(capabilities.capabilities_source)
+      ) {
+        throw new Error(`capabilities_source must be one of: ${ALLOWED_CAP_SOURCES.join(', ')}`);
       }
 
-      // Convert selected_notes array to JSON string
+      // Normalise supported_ccs / selected_notes → JSON string of valid MIDI
+      // bytes (0-127) through the shared strict parser, so non-integer or
+      // malformed input can never reach the `json_valid` CHECK. Previously the
+      // primary path let non-integers pass its range loop and stored raw
+      // strings verbatim; this matches the per-voice path (MidiListParser).
+      let supportedCcsJson = null;
+      if (capabilities.supported_ccs !== undefined && capabilities.supported_ccs !== null) {
+        supportedCcsJson = serializeValidMidiList(capabilities.supported_ccs);
+      }
+
       let selectedNotesJson = null;
       if (capabilities.selected_notes !== undefined && capabilities.selected_notes !== null) {
-        if (Array.isArray(capabilities.selected_notes)) {
-          // Validate each note is in range 0-127
-          for (const note of capabilities.selected_notes) {
-            if (note < 0 || note > 127) {
-              throw new Error('Note values must be between 0 and 127');
-            }
-          }
-          // Sort and deduplicate
-          const uniqueNotes = [...new Set(capabilities.selected_notes)].sort((a, b) => a - b);
-          selectedNotesJson = JSON.stringify(uniqueNotes);
-        } else if (typeof capabilities.selected_notes === 'string') {
-          selectedNotesJson = capabilities.selected_notes;
-        }
+        const cleanNotes = parseValidMidiList(capabilities.selected_notes);
+        selectedNotesJson = cleanNotes
+          ? JSON.stringify([...new Set(cleanNotes)].sort((a, b) => a - b))
+          : null;
       }
 
       // Hands_config: accept either an object (stringified here) or an
@@ -204,8 +206,9 @@ class InstrumentCapabilitiesDB {
             id, device_id, channel, name,
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
-            capabilities_source, capabilities_updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            capabilities_source, capabilities_updated_at,
+            hands_config, bagpipe_config, accordion_config, harmonica_config
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const id = `${deviceId}_${channel}`;
@@ -227,7 +230,14 @@ class InstrumentCapabilitiesDB {
             ? parseInt(capabilities.polyphony)
             : 16,
           capabilities.capabilities_source || 'manual',
-          now
+          now,
+          // P1-4: the UPDATE branch persists these via buildDynamicUpdate; the
+          // INSERT branch dropped them, losing configs on the first write for a
+          // device+channel. undefined → null for a fresh row.
+          handsConfigJson ?? null,
+          bagpipeConfigJson ?? null,
+          accordionConfigJson ?? null,
+          harmonicaConfigJson ?? null
         );
 
         return id;
@@ -255,6 +265,7 @@ class InstrumentCapabilitiesDB {
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
+            octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
             custom_sf2_id
@@ -270,6 +281,7 @@ class InstrumentCapabilitiesDB {
             note_range_min, note_range_max, supported_ccs,
             note_selection_mode, selected_notes, polyphony,
             min_note_interval, min_note_duration,
+            octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
             custom_sf2_id
@@ -323,9 +335,12 @@ class InstrumentCapabilitiesDB {
         supported_ccs: supportedCcs,
         note_selection_mode: result.note_selection_mode || 'range',
         selected_notes: selectedNotes,
-        polyphony: result.polyphony || null,
+        polyphony:
+          Number.isInteger(result.polyphony) && result.polyphony > 0 ? result.polyphony : null,
         min_note_interval: result.min_note_interval ?? null,
         min_note_duration: result.min_note_duration ?? null,
+        octave_mode: result.octave_mode ?? 'chromatic',
+        scale_root: Number.isInteger(result.scale_root) ? result.scale_root : 0,
         capabilities_source: result.capabilities_source,
         capabilities_updated_at: result.capabilities_updated_at,
         hands_config: handsConfig,

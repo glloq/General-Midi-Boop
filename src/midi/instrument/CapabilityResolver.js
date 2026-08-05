@@ -81,7 +81,9 @@ export class CapabilityResolver {
       polyphony: null,
       noteRangeMin: null,
       noteRangeMax: null,
-      selectedNotes: null
+      selectedNotes: null,
+      octaveMode: null,
+      scaleRoot: 0
     };
     try {
       const capDB = this._db?.instrumentCapabilitiesDB;
@@ -101,12 +103,17 @@ export class CapabilityResolver {
           constraints = {
             minNoteInterval: instrument.min_note_interval || null,
             minNoteDuration: instrument.min_note_duration || null,
-            polyphony: instrument.polyphony || null,
+            polyphony:
+              Number.isInteger(instrument.polyphony) && instrument.polyphony > 0
+                ? instrument.polyphony
+                : null,
             noteRangeMin:
               instrument.note_range_min === undefined ? null : instrument.note_range_min,
             noteRangeMax:
               instrument.note_range_max === undefined ? null : instrument.note_range_max,
-            selectedNotes: selected && selected.length > 0 ? selected : null
+            selectedNotes: selected && selected.length > 0 ? selected : null,
+            octaveMode: instrument.octave_mode ?? null,
+            scaleRoot: Number.isInteger(instrument.scale_root) ? instrument.scale_root : 0
           };
         }
       }

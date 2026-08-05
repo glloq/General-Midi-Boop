@@ -119,7 +119,9 @@ describe('PlaybackSnapshot', () => {
         polyphony: null,
         noteRangeMin: null,
         noteRangeMax: null,
-        selectedNotes: null
+        selectedNotes: null,
+        octaveMode: null,
+        scaleRoot: 0
       });
     });
 
