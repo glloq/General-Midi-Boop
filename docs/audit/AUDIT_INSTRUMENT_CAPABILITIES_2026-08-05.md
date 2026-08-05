@@ -44,10 +44,12 @@ Plus deux bugs pré-existants confirmés dans la persistance/affichage de l'iden
 | P2-2 pipeline descripteur v2 | ✅ **câblé de bout en bout** : handshake v2 niveau 1 → fetch bloc `0x10` (`DeviceManager`) → `DescriptorProtocol` (réassemblage/validation/diff §6) → `DescriptorService` → capacités + broadcast `instruments_configured` | `feat(instrument)` + `feat(devices)` |
 
 **Restant** (non couvert par cette PR) : P2-2 (**câblé de bout en bout**
-ci-dessus, avec re-fetch à chaud sur bloc `0x11` ; reste : cache DB `revision` /
-descripteur précédent pour le diff §6, persistance des surcharges, chemin HTTP,
-et la valeur `capabilities_source='descriptor'` après la migration de la
-contrainte CHECK — 'auto' est écrit en attendant), P2-4
+ci-dessus, avec re-fetch à chaud sur bloc `0x11` et skip ETag §7 en mémoire ;
+reste — surtout DB/transport, non intégration-testable ici : persistance DB du
+cache descripteur (survie au redémarrage) + descripteur précédent pour alimenter
+le diff §6, persistance des surcharges utilisateur, chemin HTTP, et
+`capabilities_source='descriptor'` après migration de la contrainte CHECK —
+'auto' est écrit en attendant), P2-4
 (`supported_ccs` non filtré — volontairement laissé optionnel), P2-6 (schémas
 d'enveloppe `instrument_*` — le durcissement DB est fait, le schéma déclaratif
 reste), P2-7 (voix secondaires côté moteur), P2-8 (cordes → flux audible), P2-9
