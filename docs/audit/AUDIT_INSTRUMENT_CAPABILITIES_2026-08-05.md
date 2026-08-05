@@ -30,6 +30,31 @@ Plus deux bugs pré-existants confirmés dans la persistance/affichage de l'iden
 
 ---
 
+## Suivi — correctifs livrés dans cette PR
+
+| Point | État | Commit |
+|---|---|---|
+| P1-1 mapping `saveSysExIdentity` | ✅ corrigé | `fix(capabilities)` |
+| P1-2 affichage modal identité | ✅ corrigé | `fix(capabilities)` |
+| P1-4 perte de configs à l'INSERT | ✅ corrigé | `fix(capabilities)` |
+| P1-5 écritures non validées | ✅ durci (enum + `MidiListParser` sur le chemin primaire) | `fix(capabilities)` |
+| P2-1 reconnaissance jamais auto | ✅ sonde debouncée + `device_connected` + timeout/retry | `feat(devices)` |
+| P2-5 `octave_mode`/`scale_root` moteur aveugle | ✅ snap de gamme dans le moteur (`ScaleSnapper`) | `feat(playback)` |
+| P2-3 route-through live sans enforcement | ✅ clamp stateless partagé (`NoteEnforcement`) | `feat(routing)` |
+
+**Restant** (non couvert par cette PR) : P2-2 (pipeline descripteur v2), P2-4
+(`supported_ccs` non filtré — volontairement laissé optionnel), P2-6 (schémas
+d'enveloppe `instrument_*` — le durcissement DB est fait, le schéma déclaratif
+reste), P2-7 (voix secondaires côté moteur), P2-8 (cordes → flux audible), P2-9
+(lecture de `comm_timeout` — le timeout/retry est ajouté mais utilise une valeur
+par défaut, pas encore `comm_timeout`), et les points P3.
+
+Enforcement **stateful** (polyphonie / timing) sur le route-through live : non
+porté (nécessite un état de notes par flux côté routeur) — documenté dans
+`NoteEnforcement`.
+
+---
+
 ## P1 — Défauts fonctionnels (cassés aujourd'hui)
 
 ### P1-1 · `saveSysExIdentity` : mauvais noms de champs → `sysex_family/model/version` toujours `NULL`
