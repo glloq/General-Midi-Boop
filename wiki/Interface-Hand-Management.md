@@ -173,4 +173,4 @@ Avoid these CC numbers in MIDI file automation unless you intend to control the 
 - [[Interface-Instrument-Creation]] — where the hand position subsystem is enabled and configured
 - [[Interface-Virtual-Piano]] — live preview of hand position on the virtual keyboard
 - [[Advanced-Topics]] — deeper technical details: fret-window geometry, longitudinal model, feasibility simulator
-- [[Instrument-Developer-Guide]] — how to declare CC support in SysEx Block 7 so GMBoop can auto-configure the CC wiring
+- [[Instrument-Developer-Guide]] — how to declare CC-based string/fret selection in the descriptor's `physical` block so GMBoop can auto-configure the CC wiring

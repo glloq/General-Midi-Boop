@@ -1,479 +1,270 @@
-# Instrument Developer Guide — GMBoop SysEx Auto-Configuration
+# Instrument Developer Guide — GMBoop Instrument Recognition (v2)
 
-This page is for builders of DIY MIDI instruments (Arduino, Teensy, ESP32, custom firmware, …) who want their device to be **automatically recognised and configured** by Général Midi Boop without any manual setup in the UI.
+This page is for builders of DIY MIDI instruments (Arduino, Teensy, ESP32, RP2040, STM32, custom firmware, …) who want their device to be **recognised** — and optionally **auto-configured** — by Général Midi Boop.
 
-Full technical specification: [`docs/SYSEX_IDENTITY.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md).
+Full technical specification: [`docs/SYSEX_IDENTITY.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md). This guide is the firmware-side companion; the spec is authoritative when the two disagree.
+
+> **This replaces the v1 protocol** (52-byte identity, blocks 5/6/7, feature-flag bitmask). There is no compatibility path — v1 firmware was draft. If you implemented v1, see [Migrating from v1](#migrating-from-v1).
 
 ---
 
-## Overview
+## The idea
 
-When a new device is connected, Général Midi Boop sends a **SysEx Identity Request**. If the device responds correctly, GMBoop reads the response and configures the instrument automatically. The more blocks your firmware implements, the more GMBoop can configure without user intervention.
+GMBoop can already configure an instrument by hand. So the protocol's job is **not** to transmit capabilities — it is to **recognise the instrument reliably**. Everything else is an optimisation.
 
-**Protocol**: Custom SysEx using the MIDI Educational/Development manufacturer ID `0x7D`.
+| Level | Your firmware… | GMBoop… |
+|-------|----------------|---------|
+| **0 — Recognition** | answers block 1 (24 bytes) | matches this exact exemplar to its saved config, or asks once |
+| **1 — Descriptor** | also serves a JSON capability descriptor | auto-configures, and follows live changes |
 
-### Block Summary
+**Level 0 fits any MCU** — a few dozen lines, no JSON, no RAM. **Level 1** is only worth it for instruments whose configuration **changes at runtime** (typically those with an embedded web page).
 
-| Block | ID | What it declares | Required? |
-|-------|----|-----------------|-----------|
-| **1 — Identity** | `0x01` | Device name, firmware version, feature flags | **Yes — minimum requirement** |
-| **5 — Instrument Descriptor** | `0x05` | How many instruments, on which channels, which GM type | Multi-instrument devices |
-| **6 — Instrument Capabilities** | `0x06` | Note range, polyphony, supported CCs, subtype | For auto-config without user input |
-| **7 — String Instrument Config** | `0x07` | String count, fret count, tuning, CC wiring | String instruments only |
+There is no per-model profile library. `model` is a display label; GMBoop derives **no** capability from it.
 
-### Common Message Header
-
-All GMBoop SysEx messages share this header:
+**Protocol**: custom SysEx, MIDI Educational/Development manufacturer ID `0x7D`. Every message shares the header:
 
 ```
 F0 7D 00 <block_id> <direction> [data...] F7
 ```
 
-| Byte | Value | Meaning |
-|------|-------|---------|
-| `F0` | — | SysEx start |
-| `7D` | — | MIDI Educational / Custom SysEx |
-| `00` | — | GMBoop Manufacturer ID |
-| `<block_id>` | 01–07 | Which block |
-| `<direction>` | `00` = request / `01` = response | Direction flag |
+| Block | ID | Purpose |
+|-------|----|---------|
+| Handshake | `0x01` | recognition (24 bytes) — **the only required block** |
+| Descriptor transfer | `0x10` | serve the JSON descriptor in chunks (level 1) |
+| Change notification | `0x11` | tell GMBoop the config changed (level 1, optional) |
 
 ---
 
-## Levels of Auto-Configuration
+## Block 1 — Handshake (24 bytes)
 
-### Level 1 — Identity Only (Block 1)
-
-Minimum effort. GMBoop registers the device and assumes one instrument on channel 0. The user configures capabilities manually via the [[Interface-Instrument-Creation|instrument settings UI]].
-
-```
-GMBoop ──► F0 7D 00 01 00 F7          (Block 1 request)
-       ◄── 52-byte identity response
-       → Device registered, 1 instrument on ch 0, manual config needed
-```
-
-### Level 2 — Single Instrument Auto-Config (Block 1 + Block 6)
-
-GMBoop fully auto-configures the instrument on channel 0 — no user interaction required.
-
-```
-GMBoop ──► Block 1 request
-       ◄── Block 1 response (feature flag bit 4 = INSTRUMENT_CAPABILITIES)
-       ──► Block 6 request (channel 0)
-       ◄── Block 6 response
-       → Instrument auto-configured, capabilities_source = 'sysex'
-```
-
-### Level 3 — Full Multi-Instrument Auto-Config (Block 1 + 5 + 6 + 7)
-
-Every instrument on the device is discovered and fully configured automatically, including string geometry.
-
-```
-GMBoop ──► Block 1 request
-       ◄── Block 1 response (feature flags bits 3, 4, 5)
-       ──► Block 5 request
-       ◄── Block 5 response (N instruments with channels and types)
-       ──► Block 6 request × N (one per channel)
-       ◄── Block 6 responses
-       ──► Block 7 request (for each string instrument)
-       ◄── Block 7 responses
-       → All instruments auto-configured
-```
-
----
-
-## Block 1 — Device Identity
-
-### Request (sent by GMBoop)
+### Request (GMBoop → device)
 
 ```
 F0 7D 00 01 00 F7
 ```
-Fixed size: 6 bytes.
 
-### Response (sent by the instrument)
+### Response (device → GMBoop)
 
 ```
-F0 7D 00 01 01 <version> <deviceId[5]> <name[32]> <firmware[3]> <features[5]> F7
+F0 7D 00 01 01 <proto_ver> <instance_id[5]> <firmware[3]>
+   <descriptor_size[3]> <revision[5]> <flags> F7
 ```
-Fixed size: **52 bytes**.
 
 | Offset | Size | Field | Description |
 |--------|------|-------|-------------|
-| 5 | 1 | Block version | `0x01` |
-| 6–10 | 5 | Device ID | Unique 32-bit ID, 7-bit encoded |
-| 11–42 | 32 | Device name | ASCII, null-terminated, padded to 32 bytes |
-| 43–45 | 3 | Firmware | `[major, minor, patch]` |
-| 46–50 | 5 | Feature flags | 32-bit bitmask, 7-bit encoded |
+| 0–4 | 5 | Header | `F0 7D 00 01 01` |
+| 5 | 1 | `proto_ver` | `0x02` |
+| 6–10 | 5 | `instance_id` | **Unique per physical exemplar**, 32-bit, 7-bit encoded |
+| 11–13 | 3 | `firmware` | `[major, minor, patch]` |
+| 14–16 | 3 | `descriptor_size` | Descriptor size in bytes, 7-bit encoded. `0` = level 0 |
+| 17–21 | 5 | `revision` | 32-bit revision counter (ETag), 7-bit encoded |
+| 22 | 1 | `flags` | bit 0 = HTTP available · bit 1 = push notifications |
+| 23 | 1 | End | `F7` |
 
-### 7-Bit Encoding (for Device ID and Feature Flags)
+Total: **exactly 24 bytes**.
 
-MIDI SysEx requires all data bytes to have MSB = 0 (values 0–127). A 32-bit integer is therefore spread across 5 bytes:
+### `instance_id` — the one field you must get right
+
+`instance_id` is the pivot of the whole protocol: it is what lets GMBoop reattach a **saved configuration** (tuning, calibration, measured latency, overrides) to the correct physical unit.
+
+**Do not hardcode a shared constant.** Two units flashed with the same binary would report the same id, and GMBoop would apply one unit's tuning and calibration to the other. Derive it from a unique hardware source:
+
+| Platform | Source |
+|----------|--------|
+| ESP32 | MAC address |
+| RP2040, STM32 | factory-burned unique id |
+| Teensy | serial number |
+| AVR with no hardware id | 32 random bits drawn on first boot, stored in EEPROM |
+
+`revision` is an ETag: GMBoop only re-fetches the descriptor when it changes. Bump it on **every** configuration change. For level 0, leave it `0`.
+
+### 7-bit encoding
+
+MIDI SysEx requires every data byte to have MSB = 0 (values 0–127). A 32-bit value is spread across 5 bytes; `descriptor_size` uses 3 bytes (21 bits, ample).
 
 ```c
-void encode32BitTo7Bit(uint32_t value, uint8_t* out) {
-    out[0] = (value      ) & 0x7F;
-    out[1] = (value >>  7) & 0x7F;
-    out[2] = (value >> 14) & 0x7F;
-    out[3] = (value >> 21) & 0x7F;
-    out[4] = (value >> 28) & 0x07;
+// instance_id / revision — full 32 bits (the 5th byte carries bits 28–31).
+void enc32(uint32_t v, uint8_t* out) {
+    out[0] = (v      ) & 0x7F;
+    out[1] = (v >>  7) & 0x7F;
+    out[2] = (v >> 14) & 0x7F;
+    out[3] = (v >> 21) & 0x7F;
+    out[4] = (v >> 28) & 0x0F;   // NB: 0x0F (4 bits), not 0x07 — keep bit 31
+}
+// descriptor_size — 21 bits over 3 bytes.
+void enc21(uint32_t v, uint8_t* out) {
+    out[0] = (v      ) & 0x7F;
+    out[1] = (v >>  7) & 0x7F;
+    out[2] = (v >> 14) & 0x7F;
 }
 ```
 
-### Feature Flags
-
-| Bit | Name | Hex | Meaning |
-|-----|------|-----|---------|
-| 0 | `NOTE_MAP` | `0x01` | Supports Block 2 (reserved) |
-| 1 | `VELOCITY_CURVES` | `0x02` | Supports Block 3 (reserved) |
-| 2 | `CC_MAPPING` | `0x04` | Supports Block 4 (reserved) |
-| 3 | `INSTRUMENT_DESCRIPTOR` | `0x08` | Supports Block 5 |
-| 4 | `INSTRUMENT_CAPABILITIES` | `0x10` | Supports Block 6 |
-| 5 | `STRING_CONFIG` | `0x20` | Supports Block 7 |
-
-Common combinations:
+### Arduino / ESP32 example (level 0)
 
 ```c
-0x00000000  // Block 1 only — identity, manual config
-0x00000010  // Block 1 + 6 — single instrument auto-config
-0x00000018  // Block 1 + 5 + 6 — multi-instrument auto-config
-0x00000038  // Block 1 + 5 + 6 + 7 — full auto-config with strings
-```
+#include <WiFi.h>
 
-### Arduino / Teensy Example
+uint32_t instanceId() {                 // derive from the MAC — unique per board
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+    return ((uint32_t)mac[2] << 24) | ((uint32_t)mac[3] << 16) |
+           ((uint32_t)mac[4] << 8)  |  (uint32_t)mac[5];
+}
 
-```c
-void handleIdentityRequest() {
-    uint8_t response[52];
-    int pos = 0;
-
-    response[pos++] = 0xF0;
-    response[pos++] = 0x7D;
-    response[pos++] = 0x00;
-    response[pos++] = 0x01;  // Block 1
-    response[pos++] = 0x01;  // Reply
-    response[pos++] = 0x01;  // Block version
-
-    encode32BitTo7Bit(0x12345678, &response[pos]);  // Device ID
-    pos += 5;
-
-    const char* name = "MyRobotPiano";
-    memset(&response[pos], 0, 32);
-    memcpy(&response[pos], name, strlen(name));
-    pos += 32;
-
-    response[pos++] = 1;  // Firmware major
-    response[pos++] = 0;  // Firmware minor
-    response[pos++] = 0;  // Firmware patch
-
-    encode32BitTo7Bit(0x00000010, &response[pos]);  // Feature: INSTRUMENT_CAPABILITIES
-    pos += 5;
-
-    response[pos++] = 0xF7;
-
-    usbMIDI.sendSysEx(52, response);
+void handleHandshake() {
+    uint8_t r[24];
+    int p = 0;
+    r[p++] = 0xF0; r[p++] = 0x7D; r[p++] = 0x00; r[p++] = 0x01; r[p++] = 0x01;
+    r[p++] = 0x02;                       // proto_ver
+    enc32(instanceId(), &r[p]); p += 5;  // instance_id
+    r[p++] = 1; r[p++] = 0; r[p++] = 0;  // firmware 1.0.0
+    enc21(0, &r[p]); p += 3;             // descriptor_size = 0  → level 0
+    enc32(0, &r[p]); p += 5;             // revision = 0
+    r[p++] = 0x00;                       // flags: no HTTP, no push
+    r[p++] = 0xF7;
+    usbMIDI.sendSysEx(24, r);            // exactly 24 bytes
 }
 ```
 
-### Block 1 Checklist
+For **level 1**, set `descriptor_size` to the byte length of your JSON descriptor, `revision` to its current version, and `flags` bit 0 if you also serve it over HTTP.
+
+### Block 1 checklist
 
 - [ ] Detect `F0 7D 00 01 00 F7` (6 bytes)
-- [ ] Reply header `F0 7D 00 01 01`
-- [ ] Block version = `0x01`
-- [ ] Device ID: 32-bit, 7-bit encoded over 5 bytes
-- [ ] Device name: ASCII printable, null-terminated, padded to exactly 32 bytes
-- [ ] Firmware: 3 bytes `[major, minor, patch]`
-- [ ] Feature flags: 32-bit, 7-bit encoded over 5 bytes
-- [ ] End with `F7`
-- [ ] **Total = exactly 52 bytes**
+- [ ] Reply header `F0 7D 00 01 01`, `proto_ver = 0x02`
+- [ ] `instance_id`: derived from a **unique hardware source**, 7-bit encoded (5 bytes)
+- [ ] `firmware`: 3 bytes `[major, minor, patch]`
+- [ ] `descriptor_size`: 3 bytes (`0` for level 0)
+- [ ] `revision`: 5 bytes (`0` for level 0)
+- [ ] `flags`: 1 byte, end with `F7`
+- [ ] **Total = exactly 24 bytes**
+
+A device that answers only block 1 is fully recognised. The user fills in its capabilities once in the UI, and GMBoop remembers them against `instance_id` for next time.
 
 ---
 
-## Block 5 — Instrument Descriptor
+## Level 1 — serving the descriptor
 
-Use this block if your device hosts more than one instrument on different MIDI channels (e.g. piano on ch 0, drums on ch 9).
+The descriptor is an **ASCII-only** JSON document (escape any non-ASCII as `\uXXXX`, so every byte is already 7-bit safe). A typical descriptor is 1–2 KB. Full field reference: [`docs/SYSEX_IDENTITY.md §5`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md).
 
-### Request
+Minimal shape:
 
-```
-F0 7D 00 05 00 F7
-```
-
-### Response
-
-```
-F0 7D 00 05 01 <version> <num_instruments> [<channel> <gm_program> <type_id>]... F7
-```
-
-Each instrument entry is 3 bytes. Total size = `8 + (3 × N)` bytes.
-
-### Type ID Table
-
-| ID | Type | GM programs |
-|----|------|-------------|
-| `0x00` | unknown | — |
-| `0x01` | piano | 0–7 |
-| `0x02` | chromatic_percussion | 8–15 |
-| `0x03` | organ | 16–23 |
-| `0x04` | guitar | 24–31 |
-| `0x05` | bass | 32–39 |
-| `0x06` | strings | 40–47 |
-| `0x07` | ensemble | 48–55 |
-| `0x08` | brass | 56–63 |
-| `0x09` | reed | 64–71 |
-| `0x0A` | pipe | 72–79 |
-| `0x0B` | synth_lead | 80–87 |
-| `0x0C` | synth_pad | 88–95 |
-| `0x0D` | synth_effects | 96–103 |
-| `0x0E` | ethnic | 104–111 |
-| `0x0F` | drums | 112–119 |
-| `0x10` | sound_effects | 120–127 |
-
-Use `0x7F` for `gm_program` when the program is undefined (typical for drums).
-
-### Example — Piano + Guitar + Drums
-
-```c
-const uint8_t instruments[][3] = {
-    { 0,    0,    0x01 },  // ch 0, GM 0 (Acoustic Grand), piano
-    { 1,    24,   0x04 },  // ch 1, GM 24 (Nylon Guitar), guitar
-    { 9,    0x7F, 0x0F },  // ch 9, no GM, drums
-};
-
-void handleDescriptorRequest() {
-    int N = 3;
-    uint8_t response[8 + N * 3];
-    int pos = 0;
-    response[pos++] = 0xF0;
-    response[pos++] = 0x7D;
-    response[pos++] = 0x00;
-    response[pos++] = 0x05;
-    response[pos++] = 0x01;
-    response[pos++] = 0x01;  // version
-    response[pos++] = N;
-    for (int i = 0; i < N; i++) {
-        response[pos++] = instruments[i][0];
-        response[pos++] = instruments[i][1];
-        response[pos++] = instruments[i][2];
+```json
+{
+  "gmb_descriptor": 2,
+  "revision": 42,
+  "device": { "name": "Atelier — 4-string ukulele", "model": "Servo-Plucked-Strings" },
+  "instruments": [
+    {
+      "channel": 0,
+      "configured": true,
+      "name": "Ukulele",
+      "gm_program": 24,
+      "type": "guitar",
+      "subtype": "nylon",
+      "notes": { "mode": "range", "min": 60, "max": 88 },
+      "physical": { "family": "strings", "string_count": 4, "tuning": [67, 60, 64, 69] }
     }
-    response[pos++] = 0xF7;
-    usbMIDI.sendSysEx(pos, response);
+  ]
 }
 ```
 
----
+Two rules that matter most:
 
-## Block 6 — Instrument Capabilities
+- **Absent field = unknown, never zero.** Declare only what you know; omit the rest and GMBoop leaves that value to the user.
+- **`type` / `subtype`** use the textual keys from `InstrumentTypeConfig.js` (`guitar`/`nylon`, `strings`, `pipe`/`flute`, …) — not numeric ids.
 
-Provides detailed capability data for a single instrument (identified by channel). GMBoop queries this for each channel it discovers.
+### Serving it — two interchangeable ways
 
-### Request (7 bytes)
+**Over HTTP** (set `flags` bit 0): GMBoop does `GET /gmb/descriptor.json`. Simplest if your board already runs a web server.
 
-```
-F0 7D 00 06 00 <channel> F7
-```
-
-### Response (variable length)
+**Over SysEx block 0x10** (chunked, works on any transport):
 
 ```
-F0 7D 00 06 01 <version> <channel>
-  <gm_program> <type_id> <subtype_id>
-  <note_selection_mode> <note_min> <note_max> <polyphony>
-  <num_selected_notes> [<note>...]
-  <num_ccs> [<cc>...]
-  <name_length> [<chars>...]
-F7
+Request:  F0 7D 00 10 00 <chunk_index[2]> F7
+Response: F0 7D 00 10 01 <total_chunks[2]> <chunk_index[2]> <payload...> F7
 ```
 
-| Field | Description |
-|-------|-------------|
-| `note_selection_mode` | `0` = contiguous range, `1` = discrete list of notes |
-| `note_min` / `note_max` | MIDI note numbers 0–127 |
-| `polyphony` | Max simultaneous notes (1–127) |
-| `selected_notes` | Only if discrete mode (`note_selection_mode = 1`) |
-| `supported_ccs` | CC numbers the instrument responds to (affects adaptation and MIDI-learn) |
-| `name` | Instrument display name (ASCII, max 32 chars) |
-
-**Subtype IDs** are relative to the parent type. The complete subtype table (piano subtypes, guitar subtypes, drum kit types, …) is in [`docs/SYSEX_IDENTITY.md §18`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md).
-
-### Example — Grand Piano
-
-```c
-void handleCapabilitiesRequest(uint8_t ch) {
-    if (ch != 0) return;
-
-    const char* name = "Grand Piano";
-    uint8_t ccs[] = { 1, 7, 10, 11, 64 };  // Mod, Vol, Pan, Expr, Sustain
-    int pos = 0;
-    uint8_t buf[64];
-
-    buf[pos++] = 0xF0; buf[pos++] = 0x7D; buf[pos++] = 0x00;
-    buf[pos++] = 0x06; buf[pos++] = 0x01;
-    buf[pos++] = 0x01;          // version
-    buf[pos++] = 0;             // channel
-    buf[pos++] = 0;             // GM program 0 (Acoustic Grand)
-    buf[pos++] = 0x01;          // type: piano
-    buf[pos++] = 0x01;          // subtype: acoustic_grand
-    buf[pos++] = 0;             // range mode
-    buf[pos++] = 21;            // A0
-    buf[pos++] = 108;           // C8
-    buf[pos++] = 88;            // polyphony
-    buf[pos++] = 0;             // no discrete notes
-    buf[pos++] = sizeof(ccs);
-    for (int i = 0; i < sizeof(ccs); i++) buf[pos++] = ccs[i];
-    buf[pos++] = strlen(name);
-    for (int i = 0; i < strlen(name); i++) buf[pos++] = name[i];
-    buf[pos++] = 0xF7;
-
-    usbMIDI.sendSysEx(pos, buf);
-}
-```
-
-### Block 6 Checklist
-
-- [ ] Detect `F0 7D 00 06 00 <channel> F7`
-- [ ] Reply with the capabilities for the requested channel only
-- [ ] `note_selection_mode` = 0 (range) or 1 (discrete)
-- [ ] If discrete: include the full note list
-- [ ] CCs array: only CCs the hardware actually responds to
-- [ ] Name: ASCII, length byte followed by characters (no null terminator)
-- [ ] All byte values 0–127 (7-bit safe)
-- [ ] Feature flag bit 4 set in Block 1
+`payload` ≤ **200 bytes** (keeps the message under the BLE-MIDI reassembly MTU; full message ≤ 210 bytes). You must be able to serve any chunk index on demand — either from a static document in flash/PROGMEM, or rendered in RAM from the active profile. Serve all chunks from a **frozen snapshot**; if `revision` changes mid-transfer, GMBoop restarts the transfer so it never mixes two versions.
 
 ---
 
-## Block 7 — String Instrument Config
+## Block 0x11 — change notification (optional)
 
-Only required for string instruments (guitar, bass, violin, etc.). Declares the physical geometry so GMBoop can run the hand-position planner.
-
-### Request (7 bytes)
+When the configuration changes at runtime, tell GMBoop instead of waiting to be re-polled:
 
 ```
-F0 7D 00 07 00 <channel> F7
+F0 7D 00 11 02 <revision[5]> <change_flags> F7
 ```
 
-### Response
+| Bit | Meaning |
+|-----|---------|
+| 0 | `IDENTITY_CHANGED` |
+| 1 | `INSTRUMENTS_CHANGED` |
+| 2 | `TIMING_CHANGED` |
+| 3 | `RESTART_REQUIRED` |
 
-```
-F0 7D 00 07 01 <version> <channel>
-  <num_strings> <num_frets> <is_fretless> <capo_fret>
-  <cc_enabled> <cc_string> <cc_fret>
-  <tuning[num_strings]>
-F7
-```
-
-Total size = `15 + num_strings` bytes.
-
-| Field | Description |
-|-------|-------------|
-| `num_strings` | Physical string count (1–6) |
-| `num_frets` | Fret count (0 = fretless) |
-| `is_fretless` | `0` fretted, `1` fretless |
-| `capo_fret` | 0 = no capo; 1–36 = capo position |
-| `cc_enabled` | `1` if hardware accepts CC commands for string/fret selection |
-| `cc_string` | CC number for string selection (default 20) |
-| `cc_fret` | CC number for fret position (default 21) |
-| `tuning` | MIDI note per open string, **lowest string first** |
-
-### Standard Tuning Reference
-
-| Instrument | Tuning bytes (hex) |
-|------------|-------------------|
-| Guitar standard | `28 2D 32 37 3B 40` (E2 A2 D3 G3 B3 E4) |
-| Guitar Drop D | `26 2D 32 37 3B 40` (D2 A2 D3 G3 B3 E4) |
-| Bass 4-string | `1C 21 26 2B` (E1 A1 D2 G2) |
-| Violin | `37 3E 45 4C` (G3 D4 A4 E5) |
-| Cello | `24 2B 32 39` (C2 G2 D3 A3) |
-| Ukulele | `43 3C 40 45` (G4 C4 E4 A4) |
-
-### Example — 6-String Guitar
-
-```c
-void handleStringConfigRequest(uint8_t ch) {
-    if (ch != 1) return;
-
-    uint8_t tuning[] = { 40, 45, 50, 55, 59, 64 };  // E2 A2 D3 G3 B3 E4
-    int N = 6;
-    uint8_t buf[15 + N];
-    int pos = 0;
-
-    buf[pos++] = 0xF0; buf[pos++] = 0x7D; buf[pos++] = 0x00;
-    buf[pos++] = 0x07; buf[pos++] = 0x01;
-    buf[pos++] = 0x01;  // version
-    buf[pos++] = 1;     // channel
-    buf[pos++] = N;     // 6 strings
-    buf[pos++] = 22;    // 22 frets
-    buf[pos++] = 0;     // not fretless
-    buf[pos++] = 0;     // no capo
-    buf[pos++] = 1;     // CC enabled
-    buf[pos++] = 20;    // CC20 = string
-    buf[pos++] = 21;    // CC21 = fret
-    for (int i = 0; i < N; i++) buf[pos++] = tuning[i];
-    buf[pos++] = 0xF7;
-
-    usbMIDI.sendSysEx(pos, buf);
-}
-```
+This is only an optimisation. On transports with no reliable return path, GMBoop re-reads block 1 every 30 s and compares `revision` anyway.
 
 ---
 
-## Complete SysEx Dispatch (All Blocks)
+## What the descriptor can declare (summary)
 
-```c
-void checkSysExRequest() {
-    if (!usbMIDI.read() || usbMIDI.getType() != usbMIDI.SystemExclusive) return;
+Point of reference: [`docs/SYSEX_IDENTITY.md §5`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md). Highlights:
 
-    uint8_t* data = usbMIDI.getSysExArray();
-    int len = usbMIDI.getSysExArrayLength();
-
-    // Validate GMBoop header: F0 7D 00 <block> 00
-    if (len < 6 || data[0] != 0xF0 || data[1] != 0x7D || data[2] != 0x00) return;
-    if (data[4] != 0x00) return;  // Not a request
-
-    switch (data[3]) {
-        case 0x01: handleIdentityRequest(); break;
-        case 0x05: handleDescriptorRequest(); break;
-        case 0x06: if (len >= 7) handleCapabilitiesRequest(data[5]); break;
-        case 0x07: if (len >= 7) handleStringConfigRequest(data[5]); break;
-    }
-}
-```
+- **`configured`** — per instrument. `false` means "exists but not defined yet"; GMBoop drops to manual entry without overwriting anything.
+- **`notes`** — `{ "mode": "range", "min", "max" }` or `{ "mode": "discrete", "list": [...] }`, with optional per-note `attributes`.
+- **`voices`** — physical single-note units (a string, a harmonica hole, a pipe).
+- **`polyphony`** — `max` plus `constraints` (`one_note_per_voice`, `same_attribute`, `adjacent_voices`, `max_simultaneous_per_group`).
+- **`timing`** — two phases: `prepare` (slow, silent positioning — GMBoop hides it with lookahead) and `excite` (the audible trigger — the only value feeding `sync_delay`).
+- **`expression`** — CCs, pitch bend, aftertouch, velocity.
+- **`resources`** — consumables (bow, piston reservoir, bellows): capacity + refill behaviour.
+- **`physical`** — per-family namespace (`strings`, `winds`, `percussion`); ignored if unknown.
 
 ---
 
-## Fields NOT Sent via SysEx
+## Transport requirements
 
-These are Général Midi Boop–side settings and are never queried from the instrument:
+| Transport | Auto-recognition | Note |
+|-----------|:----------------:|------|
+| USB-MIDI | yes | bidirectional by nature |
+| BLE-MIDI | yes | descriptor chunks capped at 200 bytes |
+| WiFi RTP-MIDI | yes | prefer the HTTP flag |
+| DIN IN + OUT | yes | |
+| **DIN IN only** | **no** | no return path → user selects it from a list |
+
+No auto-discovery is possible without a return channel: a wired instrument meant to be recognised **must** provide a MIDI OUT.
+
+---
+
+## Fields GMBoop never asks you for
+
+These are GMBoop-side settings, measured or chosen by the user — never put them in your descriptor:
 
 | Field | Source |
 |-------|--------|
-| `sync_delay` | Measured by the microphone calibrator — see [[Interface-Microphone]] |
-| `octave_mode` | User preference (chromatic / diatonic / pentatonic) |
-| `tab_algorithm` | GMBoop tablature processing setting |
-| `capabilities_source` | Set automatically to `'sysex'` after auto-config |
-| MAC address | Discovered by the Bluetooth stack |
-| USB serial number | Discovered by OS USB enumeration |
+| `sync_delay` | measured by GMBoop's microphone calibration |
+| `comm_timeout` | GMBoop internal setting |
+| `octave_mode` | user display preference |
+| `tab_algorithm` | GMBoop tablature preference |
+| MAC address, USB serial number | discovered by the system stack |
+| SoundFont (SF2) | user choice |
 
 ---
 
-## Backward Compatibility
+## Migrating from v1
 
-GMBoop **never requests a block the device does not advertise**. Feature flags in Block 1 are the gate:
+1. **`instance_id` first.** Nothing works without a unique per-exemplar id — a self-contained firmware patch, independent of everything else.
+2. Drop the old 52-byte identity and blocks 5/6/7. Shrink block 1 to the 24-byte handshake above.
+3. If your configuration is dynamic, serialise the descriptor JSON from your active profile (static PROGMEM is fine otherwise).
 
-| Device implements | GMBoop behaviour |
-|-------------------|-----------------|
-| Block 1 only | Identity registered, manual UI config required |
-| Block 1 + 6 | Single instrument auto-configured on ch 0 |
-| Block 1 + 5 | Multi-instrument discovery, manual capability config |
-| Block 1 + 5 + 6 | Full multi-instrument auto-config |
-| Block 1 + 5 + 6 + 7 | Full auto-config including string geometry |
-
-A device that only implements Block 1 remains 100 % compatible with all future versions of GMBoop.
+Full migration plan: [`docs/SYSEX_IDENTITY.md §11`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md).
 
 ---
 
 ## Related Pages
 
-- [[Interface-Instrument-Creation]] — what the UI shows after auto-config completes
-- [[Interface-Hand-Management]] — hand-position planning driven by Block 6 and Block 7 data
+- [[Interface-Instrument-Creation]] — what the UI shows after recognition
+- [[Interface-Hand-Management]] — hand-position planning driven by the `physical` block
 - [[Hardware-Integration]] — physical connection over USB, Bluetooth, and Serial UART
-- [`docs/SYSEX_IDENTITY.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md) — full technical specification with complete subtype tables
+- [`docs/SYSEX_IDENTITY.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md) — full technical specification

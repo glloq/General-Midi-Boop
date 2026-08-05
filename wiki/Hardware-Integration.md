@@ -72,4 +72,4 @@ Some hardware (motorised keyboards, automated pianos) needs explicit hand placem
 
 ## SysEx Identity
 
-`device_identity_request` triggers an `F0 7E 7F 06 01 F7` Universal SysEx Identity Request. The response is parsed into manufacturer / family / member / version fields and stored on the device row, enabling per-model defaults. The full protocol catalogue is in [`docs/SYSEX_IDENTITY.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md) (1 200+ lines).
+`device_identity_request` triggers two SysEx requests: the standard `F0 7E 7F 06 01 F7` Universal Identity Request (parsed into manufacturer / family / member / version) **and** GMBoop's own `F0 7D 00 01 00 F7` v2 handshake for DIY instruments, which returns a per-exemplar `instance_id`. Both are stored on the device row. See the [[Instrument-Developer-Guide]] and the full spec in [`docs/SYSEX_IDENTITY.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/SYSEX_IDENTITY.md).

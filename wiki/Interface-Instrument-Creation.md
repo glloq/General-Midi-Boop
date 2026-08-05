@@ -55,7 +55,7 @@ Click **"Edit capabilities"** to open the Capabilities sub-modal:
 | **Polyphony** | Maximum simultaneous notes the instrument can produce |
 | **Supported CCs** | Control Change numbers the device responds to |
 
-These values determine how MIDI files are adapted to the instrument. When the device sends a Block 6 SysEx response they are filled automatically (`capabilities_source = 'sysex'`).
+These values determine how MIDI files are adapted to the instrument. When the device serves a level-1 capability descriptor (see [[Instrument-Developer-Guide]]) they are filled automatically.
 
 A **unified instrument-preset block** now sits at the top of the *Notes & Capabilities* tab: pick a preset to fill the note range, polyphony and CC set from real GM capabilities (a chord library is included) in one click, then fine-tune. The modal layout has been condensed so the whole instrument fits without excessive scrolling. The **Organs** family has been merged into **Keyboards**, so organ instruments now sit under the keyboard family (and render on the standard piano in the [[Interface-Virtual-Piano]]).
 
@@ -81,7 +81,7 @@ For instruments of type `guitar`, `bass`, `strings`, or ethnic string types, an 
 | **Is fretless** | Enables continuous pitch model |
 | **CC string / fret** | CC numbers used to command string and fret selection on the hardware |
 
-19 standard tuning presets are provided (guitar, bass, violin, ukulele, mandolin, …). When the device sends a Block 7 SysEx response this panel is filled automatically.
+19 standard tuning presets are provided (guitar, bass, violin, ukulele, mandolin, …). When the device serves a level-1 descriptor with a `physical` block, this panel is filled automatically.
 
 ### Family-Specific Configuration
 
@@ -102,7 +102,7 @@ For automated pianos and motorised string instruments, the **"Hand position"** s
 
 ## Multi-Instrument Devices
 
-A single physical device (e.g. a Teensy with piano keys on channel 0 and a drum pad on channel 9) can host multiple virtual instruments. Use the **"Add instrument"** button inside the device card to register additional instruments on different channels. Block 5 SysEx auto-discovery populates this list automatically.
+A single physical device (e.g. a Teensy with piano keys on channel 0 and a drum pad on channel 9) can host multiple virtual instruments. Use the **"Add instrument"** button inside the device card to register additional instruments on different channels. A level-1 descriptor's `instruments` list populates this automatically.
 
 ## Validation & Error Indicators
 
