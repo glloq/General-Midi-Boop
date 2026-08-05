@@ -62,6 +62,33 @@ porté (nécessite un état de notes par flux côté routeur) — documenté dan
 
 ---
 
+## Suivi — audit global (revue adversariale avant merge)
+
+Relecture croisée (4 axes : protocole/mapping, persistance/DB, enforcement/DI,
+DeviceManager) de **tout ce qui a été touché** dans cette PR. La couche DB est
+ressortie **propre** (INSERT 16/16, colonnes présentes, `CHECK` alignés,
+`normalizeSysexIdentity` correct, migration `033` sûre). Neuf défauts confirmés
+corrigés, chacun avec test :
+
+| Point | Sévérité | Correctif | Test |
+|---|---|---|---|
+| Router : note-off/aftertouch reclampés indépendamment → **note bloquée** si les capacités changent pendant qu'une note est tenue | **P2** | mémoire par note (`_activeRoutedNotes`) : le note-off/aftertouch rejoue la hauteur exacte du note-on | `midi-router-capability-clamp` |
+| `gm_program`/`type`/`subtype` du descripteur **jamais persistés** (hors allow-list de `updateInstrumentCapabilities`) | **P2** | `descriptorToSettings` → `updateSettings` | `descriptor-mapping`, `descriptor-service` |
+| `diffOverrides` comparait les descripteurs bruts (imbriqués) alors que les surcharges sont des noms de **colonnes** → un déplacement imbriqué (`notes.min`) n'était jamais purgé | P2 (latent) | `descriptorToOverrideView` : diff sur les vues aplaties | `descriptor-service`, `descriptor-mapping` |
+| Poly-aftertouch live : passait **non clampé** (divergence avec le moteur) | P3 | clampé/redirigé via la mémoire par note | `midi-router-capability-clamp` |
+| `CapabilityResolver` n'invalidait pas son cache après application d'un descripteur → enforcement périmé ≤30 s après un hot-change `0x11` | P3 | écoute aussi `instruments_configured` | `capability-resolver` |
+| Notification `0x11` en cours de transfert `0x10` : `_startDescriptorFetch` sortait tôt → révision plus récente ignorée | P3 | redémarrage du transfert si la révision est plus récente | `devicemanager-descriptor-fetch` |
+| État par appareil (`_announcedDevices`/`_identityProbes`/`_descriptorFetches`/`_descriptorRevisions`) jamais purgé à la déconnexion (fuite + pas de ré-annonce à la reconnexion) | P3 | `_pruneDisconnectedDeviceState` sur `update` hot-plug | `devicemanager-state-pruning` |
+| `descriptorToStringConfig` : `tuning`/`frets_per_string` non validés élément par élément (positionnels) | P3 | rejet du tableau entier si un élément est invalide | `descriptor-strings` |
+| `createStringInstrument` écrasait `num_strings` fourni par la longueur de l'accordage guitare par défaut quand `tuning` était absent | P3 | l'accordage explicite fait autorité ; sinon `num_strings` fourni est respecté et l'accordage de repli est dimensionné en conséquence | (couche native, non testable ici) |
+
+Deux observations P3 **volontaires** (non bloquantes) : CC/notes hors plage
+désormais silencieusement filtrées plutôt que rejetées (aligne le chemin
+per-voix) ; tableau vide explicite `[]` stocké en `NULL` (tous les lecteurs
+null-guardent déjà).
+
+---
+
 ## P1 — Défauts fonctionnels (cassés aujourd'hui)
 
 ### P1-1 · `saveSysExIdentity` : mauvais noms de champs → `sysex_family/model/version` toujours `NULL`
