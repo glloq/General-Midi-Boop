@@ -378,10 +378,6 @@ class Application {
       this._registerService('fileRepository', new FileRepository(this.database));
       this._registerService('routingRepository', new RoutingRepository(this.database));
       this._registerService('instrumentRepository', new InstrumentRepository(this.database));
-      // Applies v2 capability descriptors (block 0x10 / HTTP) to the capability
-      // store. DeviceManager reaches it lazily via `_deps.descriptorService`
-      // (registered after DeviceManager). Needs instrumentRepository (above).
-      this._registerService('descriptorService', new DescriptorService(deps));
       this._registerService('presetRepository', new PresetRepository(this.database));
       this._registerService('sessionRepository', new SessionRepository(this.database));
       this._registerService('playlistRepository', new PlaylistRepository(this.database));
@@ -399,6 +395,10 @@ class Application {
         'stringInstrumentRepository',
         new StringInstrumentRepository(this.database)
       );
+      // Applies v2 capability descriptors (block 0x10 / HTTP) to the capability
+      // and string-instrument stores. DeviceManager reaches it lazily via
+      // `descriptorService`. Registered after both repositories it depends on.
+      this._registerService('descriptorService', new DescriptorService(deps));
       this._registerService('hotspotConfigRepository', new HotspotConfigRepository(this.database));
       this._registerService('hotspotManager', new HotspotManager({ logger: this.logger }));
 

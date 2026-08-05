@@ -285,3 +285,31 @@ export function descriptorLookaheadMs(descriptor) {
   }
   return max;
 }
+
+/**
+ * Map a §5.9 `physical` block of a `strings` instrument onto the
+ * `string_instruments` columns (tuning, fret geometry, CC selection). Only
+ * declared fields are emitted so a partial update never clobbers user-set
+ * fields the descriptor doesn't mention. Booleans are emitted as 0/1 for
+ * SQLite. Returns null when nothing maps.
+ *
+ * @param {Object} physical - a descriptor instrument's `physical` block
+ * @returns {?Object}
+ */
+export function descriptorToStringConfig(physical) {
+  if (!physical || typeof physical !== 'object') return null;
+  const cfg = {};
+  if (Array.isArray(physical.tuning)) cfg.tuning = physical.tuning;
+  if (Number.isInteger(physical.string_count)) cfg.num_strings = physical.string_count;
+  if (Number.isInteger(physical.fret_count)) cfg.num_frets = physical.fret_count;
+  if (Array.isArray(physical.frets_per_string)) cfg.frets_per_string = physical.frets_per_string;
+  if (typeof physical.fretless === 'boolean') cfg.is_fretless = physical.fretless ? 1 : 0;
+  if (Number.isInteger(physical.capo)) cfg.capo_fret = physical.capo;
+  const sel = physical.selection;
+  if (sel && typeof sel === 'object') {
+    if (Number.isInteger(sel.cc_string)) cfg.cc_string_number = sel.cc_string;
+    if (Number.isInteger(sel.cc_fret)) cfg.cc_fret_number = sel.cc_fret;
+    cfg.cc_enabled = 1;
+  }
+  return Object.keys(cfg).length > 0 ? cfg : null;
+}
