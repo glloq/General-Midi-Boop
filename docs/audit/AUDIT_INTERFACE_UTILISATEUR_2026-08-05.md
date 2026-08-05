@@ -52,11 +52,14 @@ En complément de l'audit, quatre correctifs demandés ont été traités :
    `ui.*` ajoutées aux 28 locales (invariant de parité préservé, test `audit-i18n`
    vert).
 4. **Code legacy mort (Fix 2)** — **partiel** : 2 fichiers réellement orphelins
-   supprimés (`SettingsModalContent.js`, `MidiEditorToolbar.js`). La « modale
-   d'instrument legacy de ~1000 lignes » s'est révélée être des **branches mortes
-   entrelacées dans des fonctions vivantes** (et non un bloc isolé) — sa
-   suppression est **reportée** à un refactor délibéré (§7 rectifié). Correction :
-   `PianoRollRenderer.js` **n'est pas** orphelin (classe de base vivante).
+   supprimés (`SettingsModalContent.js`, `MidiEditorToolbar.js`). Un refactor de
+   la « modale d'instrument legacy inline » a été **tenté puis annulé avant tout
+   commit** : la vérification inter-fichiers a montré que ce code est **encore
+   utilisé par le composant vivant `InstrumentSettingsModal`** (17/52 fonctions
+   référencées par des `.js` externes — sélecteur de plage de notes, helpers GM).
+   Le retirer casserait la modale ; `index.html` a été **restauré intégralement**.
+   Nettoyage réel = migrer d'abord le composant hors de ces globals (§7).
+   Correction : `PianoRollRenderer.js` **n'est pas** orphelin (classe de base vivante).
 
 Validation post-correctifs : typecheck ✅, lint ✅ (0 erreur), 1096 tests backend
 ✅, 1411 tests frontend ✅, build ✅, smoke test navigateur ✅.
@@ -286,14 +289,31 @@ la clé de stockage doit être un `deviceId` ; hors périmètre de cet audit UI.
 >   `_instrumentTabs`) sont **interspersés** et partagent de l'état déclaré
 >   hors du « bloc ».
 >
-> **Conclusion** : il ne s'agit pas d'un bloc mort isolé mais de **branches
-> mortes à l'intérieur de fonctions vivantes** + un doublon homonyme. Les
-> retirer proprement demande un **refactor délibéré, revu à part** (extraction
-> branche par branche avec validation), pas une suppression automatisée. Reporté.
-
-> Ces blocs ne causent **aucune régression visible** (une implémentation vivante
-> les remplace intégralement) mais alourdissent `index.html` de ~1000+ lignes et
-> constituent un piège de maintenance. Candidats à suppression.
+> **Un refactor a ensuite été tenté puis ANNULÉ avant tout commit** — la
+> vérification a révélé un fait décisif : le code inline réputé « legacy » est en
+> réalité **encore utilisé par le composant vivant `InstrumentSettingsModal`**
+> (fichiers `InstrumentSettingsModal.js`, `instrument-settings/ISMSections.js`,
+> `ISMListeners.js`) via des **globals inter-fichiers**. La migration
+> inline → composant est **incomplète** : le composant réutilise le sélecteur de
+> plage de notes inline (`initPianoKeyboard`, `renderPianoKeyboard`,
+> `navigatePiano`, `clearPianoRange`, `setNoteSelectionMode`,
+> `setPianoNoteNotation`, `selectAllNotes`, `updatePianoOctaveIndicator`…) et des
+> helpers GM (`onGmProgramChanged`, `gmProgramToSelectValue`, …) — **17 des 52
+> fonctions** du « bloc legacy » sont référencées par des `.js` externes vivants
+> (grep inter-fichiers + `onclick=` dans le HTML rendu par le composant).
+>
+> **Conséquence** : supprimer ce code **casse** le sélecteur de plage de notes et
+> la sélection d'instrument GM de la modale de réglages. La vérification
+> inter-fichiers (grep sur `public/js/**`, pas seulement `index.html`) a rattrapé
+> la casse avant le moindre commit ; `index.html` a été **intégralement restauré**.
+>
+> **Conclusion** : ce n'est ni un bloc mort isolé ni de simples branches mortes,
+> mais de l'**infrastructure inline partagée avec le composant vivant**. Un vrai
+> nettoyage exige d'abord de **migrer `InstrumentSettingsModal` hors de ces
+> globals** (internaliser le piano-picker et les helpers GM dans le composant) —
+> un chantier substantiel touchant du code vivant, **hors de portée d'une
+> suppression automatisée**. Seul le vrai code mort isolé, non partagé, reste
+> retirable (les 2 fichiers-modules du §8).
 
 ### Adjudication commandes (résumé)
 - **WIRED** : `device_get_settings`, `device_update_settings`,
@@ -372,9 +392,11 @@ casse pour gain fonctionnel nul).
 
 ### Priorité basse (hygiène / dette)
 1. ✅ **Clés i18n manquantes** — **fait** (35 + 5 clés `ui.*`, 28 locales).
-2. ⏳ **Code legacy inline** de `index.html` (branches mortes entrelacées, §7
-   rectifié) : à traiter en refactor délibéré. _(2 fichiers orphelins déjà
-   supprimés.)_
+2. ⏳ **Migration `InstrumentSettingsModal` hors des globals inline** (§7) :
+   internaliser dans le composant le sélecteur de plage de notes
+   (`initPianoKeyboard`/`navigatePiano`/…) et les helpers GM encore fournis en
+   global par `index.html`. Prérequis avant tout retrait du « legacy » inline
+   (sinon la modale casse). _(2 fichiers orphelins isolés déjà supprimés.)_
 3. Décider du sort des **sous-systèmes non branchés** (`route_*`, `latency_*`,
    `preset_*` génériques, `session_*`, admin `system_*`) : exposer ou retirer,
    pour clarifier la surface d'API.
