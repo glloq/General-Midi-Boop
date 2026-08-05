@@ -56,7 +56,7 @@ describe('_onChangeNotification', () => {
   test('re-fetches on an instruments/timing/identity change', () => {
     const c = ctx();
     c._onChangeNotification('dev', { revision: 2, changeFlags: { instrumentsChanged: true } });
-    expect(c._startDescriptorFetch).toHaveBeenCalledWith('dev');
+    expect(c._startDescriptorFetch).toHaveBeenCalledWith('dev', 2); // passes the new revision
   });
 
   test('does not re-fetch on a restart-only notification', () => {

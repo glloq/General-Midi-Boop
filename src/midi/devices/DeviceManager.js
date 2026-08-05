@@ -121,6 +121,8 @@ class DeviceManager {
 
     // In-flight block 0x10 descriptor transfers: deviceName -> fetch state.
     this._descriptorFetches = new Map();
+    // Last successfully-applied descriptor revision per device (ETag, §7 step 4).
+    this._descriptorRevisions = new Map();
 
     this.midiAvailable = midiAvailable;
 
@@ -457,8 +459,11 @@ class DeviceManager {
    * @param {string} deviceName
    * @returns {void}
    */
-  _startDescriptorFetch(deviceName) {
+  _startDescriptorFetch(deviceName, revision = null) {
     if (this._descriptorFetches.has(deviceName)) return;
+    // §7 step 4: the revision is an ETag — skip the transfer when the descriptor
+    // we last applied for this device is unchanged.
+    if (revision != null && this._descriptorRevisions.get(deviceName) === revision) return;
     if (!this.outputs.has(deviceName)) return;
     if (!this.descriptorService) return;
     this._descriptorFetches.set(deviceName, {
@@ -466,7 +471,8 @@ class DeviceManager {
       total: null,
       nextIndex: 0,
       attempts: 0,
-      timer: null
+      timer: null,
+      revision
     });
     this._requestNextDescriptorChunk(deviceName);
   }
@@ -558,7 +564,11 @@ class DeviceManager {
       return;
     }
     try {
-      this.descriptorService?.applyDescriptor(deviceName, parsed);
+      const result = this.descriptorService?.applyDescriptor(deviceName, parsed);
+      // Record the applied revision so an unchanged one is not re-fetched (§7).
+      if (result?.applied && state.revision != null) {
+        this._descriptorRevisions.set(deviceName, state.revision);
+      }
     } catch (e) {
       this.logger?.warn?.(`Failed to apply descriptor from ${deviceName}: ${e.message}`);
     }
@@ -611,7 +621,7 @@ class DeviceManager {
     );
     const f = notif.changeFlags;
     if (f.identityChanged || f.instrumentsChanged || f.timingChanged) {
-      this._startDescriptorFetch(deviceName);
+      this._startDescriptorFetch(deviceName, notif.revision);
     }
   }
 
@@ -1275,7 +1285,7 @@ class DeviceManager {
           // A level-1 v2 handshake advertises a capability descriptor — fetch
           // and apply it over block 0x10 (docs/SYSEX_IDENTITY.md §7).
           if (identityInfo.protocol === 'GMB Handshake v2' && identityInfo.level === 1) {
-            this._startDescriptorFetch(deviceName);
+            this._startDescriptorFetch(deviceName, identityInfo.revision);
           }
         } else {
           this.logger.debug(`SysEx message from ${deviceName} is not an Identity Reply`);
@@ -1830,6 +1840,7 @@ class DeviceManager {
       if (state.timer) clearTimeout(state.timer);
     });
     this._descriptorFetches.clear();
+    this._descriptorRevisions.clear();
 
     this.logger.info('DeviceManager closed');
   }
