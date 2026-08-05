@@ -29,11 +29,37 @@ sessions), d'autres sont des fonctionnalités réelles au câblage manquant
 | Intégration commandes UI → backend | ✅ 100 % des appels frontend ont un handler |
 | Fichiers JS chargés / présents | ✅ 190/190, aucun mort, aucun include cassé |
 | Navigation & ouverture des vues/modals | ✅ Toutes câblées et instanciées |
-| i18n (28 langues) | ✅ Ensembles de clés identiques ; ⚠️ ~36 clés utilisées manquantes |
+| i18n (28 langues) | ✅ Ensembles de clés identiques ; ~36 clés manquantes **corrigées** |
 | Capacités backend sans UI | ⚠️ ~84 commandes non exposées |
-| Modules orphelins (poids mort) | ⚠️ 3 fichiers + ~1000 lignes legacy inline |
+| Modules orphelins (poids mort) | ⚠️ 2 fichiers (retirés) ; branches mortes inline entrelacées (reportées) |
 | Événements diffusés sans consommateur | ⚠️ 5 confirmés |
-| Gap fonctionnel vivant | ⚠️ 1 (identité SysEx affichée mais non persistée) |
+| Gap fonctionnel vivant | ✅ Aucun (identité SysEx auto-persistée côté backend — vérifié) |
+
+---
+
+## Correctifs appliqués sur cette branche
+
+En complément de l'audit, quatre correctifs demandés ont été traités :
+
+1. **Identité SysEx (Fix 1)** — **non nécessaire, vérifié** : le backend
+   auto-persiste déjà l'identité à la réception (`DeviceManager.js:934-941`).
+   Aucune modification ; rapport corrigé (§7).
+2. **Contrôles de lecture temps réel (Fix 4)** — **appliqué** : barre de
+   progression seekable + popover 🎛️ (tempo / volume / transposition) câblés aux
+   commandes `playback_seek` / `playback_set_tempo` / `playback_set_volume` /
+   `playback_transpose`. Smoke test navigateur (Chromium) OK, sans exception JS.
+3. **Clés i18n manquantes (Fix 3)** — **appliqué** : 35 clés manquantes + 5 clés
+   `ui.*` ajoutées aux 28 locales (invariant de parité préservé, test `audit-i18n`
+   vert).
+4. **Code legacy mort (Fix 2)** — **partiel** : 2 fichiers réellement orphelins
+   supprimés (`SettingsModalContent.js`, `MidiEditorToolbar.js`). La « modale
+   d'instrument legacy de ~1000 lignes » s'est révélée être des **branches mortes
+   entrelacées dans des fonctions vivantes** (et non un bloc isolé) — sa
+   suppression est **reportée** à un refactor délibéré (§7 rectifié). Correction :
+   `PianoRollRenderer.js` **n'est pas** orphelin (classe de base vivante).
+
+Validation post-correctifs : typecheck ✅, lint ✅ (0 erreur), 1096 tests backend
+✅, 1411 tests frontend ✅, build ✅, smoke test navigateur ✅.
 
 ---
 
@@ -222,32 +248,48 @@ C'est le domaine où se concentrent les constats les plus importants — non pas
 l'UI cassée visible par l'utilisateur, mais **un gros bloc de code legacy mort
 inline dans `index.html`** et **un gap de persistance SysEx**.
 
-### ⚠️ [MOYENNE] Identité SysEx affichée mais non persistée
-Dans la modale **vivante** `DeviceSettingsModal`, `_handleSysExIdentity`
-(`:247-265`) **affiche** l'identité reçue (« ✅ Identité reçue ») mais
-n'appelle **jamais** `device_save_sysex_identity`. Le backend sépare
-explicitement `sysex_identity_request` (émettre la requête MIDI) de
-`device_save_sysex_identity` (persister). Sauf auto-persistance côté backend,
-**l'identité est montrée puis perdue à la fermeture** — le message de succès est
-trompeur. `device_save_sysex_identity` n'a aucun appelant vivant.
+### ✅ [CORRIGÉ — non-problème] Identité SysEx
+Une revue initiale a signalé que la modale vivante `DeviceSettingsModal`
+(`_handleSysExIdentity`, `:247-265`) affiche l'identité reçue sans appeler
+`device_save_sysex_identity`, laissant craindre une perte à la fermeture.
+**Vérification faite, c'est un non-problème** : le backend **auto-persiste**
+l'identité dès réception de l'Identity Reply, *avant* de diffuser
+`device_identity` (`DeviceManager.js:934-941` :
+`this.database.saveSysExIdentity(deviceName, 0, identityInfo)`). La commande
+`device_save_sysex_identity` est donc un **endpoint de sauvegarde explicite
+redondant** (sans appelant vivant), pas un chemin de persistance manquant.
+_Nuance mineure éventuelle_ : l'auto-save utilise `deviceName` + canal `0`, là
+où la commande explicite prendrait `deviceId` + `data.channel` — à vérifier si
+la clé de stockage doit être un `deviceId` ; hors périmètre de cet audit UI.
 
-### 🗑️ [HAUTE — code mort, pas de casse visible] Modale d'instrument legacy inline
-`index.html:11150` `function showInstrumentSettings(device)` + son handler de
-sauvegarde (~`12063-12200`) + `switchInstrumentTab`/`deleteInstrumentTab`/
-`currentDeviceSettings` forment une **modale de réglages d'instrument legacy
-d'environ 1000 lignes**, doublon complet de la classe vivante
-`InstrumentSettingsModal.js`. Son **seul** point d'entrée est
-`settingsBtn.onclick` (`index.html:9536`), lui-même situé dans la branche de
-rendu de `#deviceList` — **elle-même morte** (voir ci-dessous). Ces fonctions
-sont bien *définies* (donc les `onclick` inline résolvent), mais **inatteignables**.
-
-### 🗑️ [HAUTE — code mort] Liste de périphériques inline `#deviceList`
-`index.html:9408-9542` rend une liste de périphériques via
-`document.getElementById('deviceList')`, mais **aucun élément `id="deviceList"`
-n'existe** dans le DOM ; tout le rendu est gardé par `if (deviceList)` et ne
-s'exécute donc jamais. La liste vivante est fournie par
-`InstrumentManagementPage`. `requestIdentity()` (`index.html:11947`) n'est
-elle non plus **jamais appelée** (→ `device_identity_request` inline mort).
+### ⚠️ [RECTIFIÉ] Code legacy inline — branches mortes imbriquées, PAS un bloc propre
+> Une revue initiale a décrit ~1000 lignes de « modale d'instrument legacy
+> morte » supprimables d'un bloc. **Vérification approfondie : cette
+> description est inexacte et la suppression en masse a été écartée comme trop
+> risquée pour un gain fonctionnel nul.** Le code réputé mort est en réalité
+> **entrelacé avec du code vivant** :
+>
+> - `window.showInstrumentSettings` (`index.html:10910`) est un **proxy vivant
+>   de 4 lignes** vers le composant moderne `InstrumentSettingsModal` — c'est
+>   le point d'entrée réellement utilisé. Il **coexiste** (homonymie) avec un
+>   `async function showInstrumentSettings` legacy (~`11329`) qui, lui, n'est
+>   appelé que depuis une branche morte.
+> - `loadDevices()` (`index.html:9471`) est appelé depuis **8 sites vivants**
+>   (7498, 10022, 10031, 12363, 12927, 12936, 14126). C'est une fonction
+>   **vivante** dont seule la *branche de rendu* `#deviceList` est morte
+>   (`if (deviceList)` toujours faux — l'élément n'existe pas).
+> - Le handler `api.on('device_identity')` (~`7679`) **logue en direct** chaque
+>   identité reçue ; seule sa branche de mise à jour de modale (gardée par
+>   `currentDeviceSettings`, jamais assignée) est morte.
+> - Les helpers (`switchInstrumentTab`, `saveInstrumentSettings`,
+>   `navigatePiano`, `clearPianoRange`, l'état `currentDeviceSettings` /
+>   `_instrumentTabs`) sont **interspersés** et partagent de l'état déclaré
+>   hors du « bloc ».
+>
+> **Conclusion** : il ne s'agit pas d'un bloc mort isolé mais de **branches
+> mortes à l'intérieur de fonctions vivantes** + un doublon homonyme. Les
+> retirer proprement demande un **refactor délibéré, revu à part** (extraction
+> branche par branche avec validation), pas une suppression automatisée. Reporté.
 
 > Ces blocs ne causent **aucune régression visible** (une implémentation vivante
 > les remplace intégralement) mais alourdissent `index.html` de ~1000+ lignes et
@@ -291,21 +333,22 @@ appels des modales sont donc valides (pas de bug de nom).
 
 ## 8. Modules orphelins (poids mort chargé)
 
-| Fichier | Constat |
-|---|---|
-| `public/js/features/settings/SettingsModalContent.js` | **Mort auto-documenté** : le fichier déclare lui-même être un « dead legacy module … no longer mixed in or referenced anywhere ». Chargé (`index.html:6190`) uniquement pour exposer un `window.SettingsModalContent = {}` vide. |
-| `public/js/features/midi-editor/MidiEditorToolbar.js` | `class MidiEditorToolbar` **jamais instanciée**. Toutes ses méthodes ont un doublon vivant et câblé (`MidiEditorEditActions`, `MidiEditorViewport`, `MidiEditorChannelOps`). Chargé mort (`index.html:6029`). Contient un bug latent (`this.editActions` non défini) jamais exécuté. |
-| `public/js/features/piano-roll/PianoRollRenderer.js` | `class PianoRollRenderer` **jamais référencée** ; supplantée par `CanvasPianoRollRenderer` (seule utilisée). Chargée morte (`index.html:6025`). |
+| Fichier | Constat | Action |
+|---|---|---|
+| `public/js/features/settings/SettingsModalContent.js` | **Mort auto-documenté** : le fichier déclare lui-même être un « dead legacy module … no longer mixed in or referenced anywhere ». Exposait un `window.SettingsModalContent = {}` vide, référencé nulle part ailleurs que sa balise `<script>`. | ✅ **Supprimé** (fichier + balise) |
+| `public/js/features/midi-editor/MidiEditorToolbar.js` | `class MidiEditorToolbar` **jamais instanciée** ; méthodes toutes dupliquées par des modules vivants (`MidiEditorEditActions`/`Viewport`/`ChannelOps`) ; seules références externes = commentaires. | ✅ **Supprimé** (fichier + balise) |
+| `public/js/features/piano-roll/PianoRollRenderer.js` | ⚠️ **PAS orphelin (correction)** : c'est la **classe de base** dont hérite le renderer vivant — `class CanvasPianoRollRenderer extends PianoRollRenderer` (`CanvasPianoRollRenderer.js:61`). La revue initiale s'était trompée. | ❌ **Conservé** (le retirer casserait le piano-roll) |
 
-Retirer ces 3 scripts (et fichiers) allègerait le chargement sans risque.
+Deux fichiers orphelins retirés ; parité `<script>`/fichiers maintenue (188/188),
+build et 1411 tests frontend verts après retrait.
 
-**Code mort inline (dans `index.html`, pas des fichiers)** — voir §7 :
-- Modale d'instrument legacy `showInstrumentSettings` (~1000 lignes, `~11150-12200`).
-- Liste de périphériques legacy `#deviceList` (`9408-9542`) + `requestIdentity`
-  (`11947`) — élément DOM inexistant, branche jamais exécutée.
-
-Ces blocs sont entièrement supplantés par `InstrumentManagementPage` /
-`InstrumentSettingsModal` et peuvent être supprimés.
+**Branches mortes inline (dans `index.html`)** — voir §7 (rectifié) :
+il existe des branches mortes (rendu `#deviceList`, mise à jour de modale sur
+`device_identity`) et un `async function showInstrumentSettings` legacy dupliqué,
+**mais imbriqués dans des fonctions vivantes** (`loadDevices` a 8 appelants ;
+le proxy `window.showInstrumentSettings` est vivant). **Non supprimés** :
+demande un refactor délibéré et revu, pas une suppression automatisée (risque de
+casse pour gain fonctionnel nul).
 
 ---
 
@@ -315,31 +358,29 @@ Ces blocs sont entièrement supplantés par `InstrumentManagementPage` /
 - **Aucune régression bloquante.** L'UI existante fonctionne.
 
 ### Priorité moyenne (fonctionnalités attendues au câblage manquant)
-1. **Persistance de l'identité SysEx** : dans `DeviceSettingsModal._handleSysExIdentity`,
-   appeler `device_save_sysex_identity` après réception — sinon retirer le message
-   « ✅ Identité reçue » trompeur (seul gap *fonctionnel vivant* de l'audit).
-2. **Contrôles de lecture temps réel** : exposer seek/tempo/volume/transpose/loop
-   dans la barre de transport principale (backend prêt :
-   `PlaybackControlCommands.js:166-235`).
-3. **Persistance des dossiers de fichiers** : brancher `moveFileToFolder` sur la
+1. ✅ **Contrôles de lecture temps réel** — **fait** : seek/tempo/volume/transpose
+   exposés dans la barre de transport (voir « Correctifs appliqués »). Reste
+   optionnel : loop A/B.
+2. **Persistance des dossiers de fichiers** : brancher `moveFileToFolder` sur la
    commande `file_move` au lieu du seul `localStorage`.
-4. **`system_lag`** : ajouter un écouteur + indicateur visuel (le backend fait
+3. **`system_lag`** : ajouter un écouteur + indicateur visuel (le backend fait
    déjà tout le travail de détection et d'envoi).
-5. **`reconnect_exhausted`** : matérialiser l'état « connexion perdue » et
+4. **`reconnect_exhausted`** : matérialiser l'état « connexion perdue » et
    stopper les spinners après abandon.
-6. **`validate_routing_feasibility`** : brancher le bandeau d'avertissement
+5. **`validate_routing_feasibility`** : brancher le bandeau d'avertissement
    prévu, ou documenter le report.
 
 ### Priorité basse (hygiène / dette)
-6. Ajouter les **~36 clés i18n** manquantes (annexe).
-7. Retirer les **3 modules orphelins** + le **code legacy inline** de `index.html`
-   (modale d'instrument ~1000 lignes + liste `#deviceList` morte, §7/§8).
-8. Décider du sort des **sous-systèmes non branchés** (`route_*`, `latency_*`,
+1. ✅ **Clés i18n manquantes** — **fait** (35 + 5 clés `ui.*`, 28 locales).
+2. ⏳ **Code legacy inline** de `index.html` (branches mortes entrelacées, §7
+   rectifié) : à traiter en refactor délibéré. _(2 fichiers orphelins déjà
+   supprimés.)_
+3. Décider du sort des **sous-systèmes non branchés** (`route_*`, `latency_*`,
    `preset_*` génériques, `session_*`, admin `system_*`) : exposer ou retirer,
    pour clarifier la surface d'API.
-9. Nettoyer les **broadcasts redondants** (`midi_event`, `device_connected`,
+4. Nettoyer les **broadcasts redondants** (`midi_event`, `device_connected`,
    `settings_applied`, `playlist_waiting`) ou leur ajouter un consommateur.
-10. `aria-label` sur les boutons purement iconographiques.
+5. `aria-label` sur les boutons purement iconographiques.
 
 ---
 
