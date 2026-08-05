@@ -26,6 +26,13 @@
 import { DEVICE_MSG_TYPES } from '../../core/constants.js';
 import { clampNote } from '../adaptation/NoteEnforcement.js';
 
+// Upper bound on tracked in-flight routed notes (the source→clamped-pitch memory
+// that keeps a note-off/aftertouch on the same pitch as its note-on). A note-on
+// that never receives a note-off would otherwise leak one entry; at this many
+// orphans we drop the whole table (a later note-off then falls back to a
+// stateless clamp — the pre-fix behaviour, only under pathological load).
+const MAX_ACTIVE_ROUTED_NOTES = 4096;
+
 /**
  * Stateful router. One instance per process; registered in the DI
  * container as `midiRouter`.
@@ -66,6 +73,17 @@ class MidiRouter {
     this._maxCompBySource = new Map();
     /** @type {Map<string, ?string>} */
     this._instrumentNameByDevCh = new Map();
+
+    /**
+     * @type {Map<string, number>} `${destination}|${channel}|${sourceNote}` →
+     * the pitch actually sent for that note's note-on, so its note-off and any
+     * poly-aftertouch target the SAME pitch even when the destination's
+     * capabilities change mid-note (else the release lands on a different pitch
+     * and the original one hangs). Added on note-on, removed on note-off.
+     * Deliberately NOT cleared by `_onSettingsChanged` — a settings change is
+     * exactly when a held note must still remember its original pitch.
+     */
+    this._activeRoutedNotes = new Map();
 
     this._onSettingsChanged = () => {
       this._maxCompBySource.clear();
@@ -338,10 +356,15 @@ class MidiRouter {
    * Clamp a live-routed note to the destination instrument's physical
    * capabilities (range fold + discrete/scale snap), so a source keyboard can't
    * send a mechanical instrument pitches it cannot produce — the same clamp the
-   * file-playback engine applies. Stateless only: polyphony / min-note timing
-   * gating needs per-stream note state the live path does not track yet (audit
-   * P2-3). No-op for non-note messages, the GM drum channel (9), and when no
-   * CapabilityResolver is wired.
+   * file-playback engine applies. No-op for non-note messages, the GM drum
+   * channel (9), and when no CapabilityResolver is wired.
+   *
+   * Note-on records the pitch it actually sent; the matching note-off and any
+   * poly-aftertouch reuse that recorded pitch instead of re-clamping, so a
+   * capability change *while a note is held* can't send the release to a
+   * different pitch and strand the original one sounding forever. Polyphony /
+   * min-note timing gating still needs per-stream state the live path does not
+   * track (audit P2-3).
    *
    * @param {string} destination
    * @param {string} type
@@ -350,14 +373,35 @@ class MidiRouter {
    * @private
    */
   _clampToCapabilities(destination, type, mapped) {
-    if (type !== DEVICE_MSG_TYPES.NOTE_ON && type !== DEVICE_MSG_TYPES.NOTE_OFF) return mapped;
+    const isOn = type === DEVICE_MSG_TYPES.NOTE_ON;
+    const isOff = type === DEVICE_MSG_TYPES.NOTE_OFF;
+    const isAftertouch = type === DEVICE_MSG_TYPES.POLY_AFTERTOUCH;
+    if (!isOn && !isOff && !isAftertouch) return mapped;
     if (!mapped || mapped.note == null || mapped.channel === 9) return mapped;
+
+    const key = `${destination}|${mapped.channel}|${mapped.note}`;
+
+    // Release / expression of a note already sounding: target the exact pitch its
+    // note-on was sent on, regardless of any capability change since.
+    if (isOff || isAftertouch) {
+      const held = this._activeRoutedNotes.get(key);
+      if (isOff) this._activeRoutedNotes.delete(key);
+      if (held != null) return held === mapped.note ? mapped : { ...mapped, note: held };
+      // No recorded note-on (router started mid-note) → best-effort stateless clamp.
+    }
+
     const resolver = this._deps.capabilityResolver;
     if (!resolver || typeof resolver.getTimingConstraints !== 'function') return mapped;
     const clamped = clampNote(
       mapped.note,
       resolver.getTimingConstraints(destination, mapped.channel)
     );
+
+    if (isOn) {
+      // Record every held note (even an identity clamp) so its note-off matches.
+      if (this._activeRoutedNotes.size >= MAX_ACTIVE_ROUTED_NOTES) this._activeRoutedNotes.clear();
+      this._activeRoutedNotes.set(key, clamped);
+    }
     return clamped === mapped.note ? mapped : { ...mapped, note: clamped };
   }
 
