@@ -18,6 +18,7 @@ import {
   validateDescriptor,
   diffOverrides,
   descriptorToCapabilities,
+  descriptorToStringConfig,
   descriptorLookaheadMs
 } from './DescriptorProtocol.js';
 
@@ -29,8 +30,9 @@ export class DescriptorService {
    * @param {Object} [deps.eventBus]
    * @param {Object} [deps.logger]
    */
-  constructor({ instrumentRepository, eventBus, logger } = {}) {
+  constructor({ instrumentRepository, stringInstrumentRepository, eventBus, logger } = {}) {
     this._repo = instrumentRepository;
+    this._stringRepo = stringInstrumentRepository ?? null;
     this._eventBus = eventBus ?? null;
     this._logger = logger ?? { info() {}, warn() {}, debug() {} };
     // Spec value is 'descriptor'; kept 'auto' until the instruments_latency
@@ -85,18 +87,26 @@ export class DescriptorService {
       try {
         this._repo.updateCapabilities(deviceId, inst.channel, fields);
         appliedCount += 1;
-        instruments.push({
-          channel: inst.channel,
-          applied: true,
-          purgedOverrides: purge,
-          keptOverrides: keep
-        });
       } catch (e) {
         this._logger.warn(
           `Failed to apply descriptor capabilities for ${deviceId}:${inst.channel}: ${e.message}`
         );
         instruments.push({ channel: inst.channel, applied: false, error: e.message });
+        continue;
       }
+
+      // Strings family (§5.9): also apply the physical geometry as a PARTIAL
+      // update, so user-set fields the descriptor omits (scale length, bow CCs…)
+      // are preserved rather than reset to defaults by a full upsert.
+      const stringConfigApplied = this._applyStringConfig(deviceId, inst);
+
+      instruments.push({
+        channel: inst.channel,
+        applied: true,
+        purgedOverrides: purge,
+        keptOverrides: keep,
+        ...(stringConfigApplied !== undefined ? { stringConfigApplied } : {})
+      });
     }
 
     const lookaheadMs = descriptorLookaheadMs(descriptor);
@@ -108,6 +118,34 @@ export class DescriptorService {
     });
 
     return { applied: true, instruments, lookaheadMs };
+  }
+
+  /**
+   * Upsert the string-instrument geometry for a `strings`-family instrument.
+   * Partial update on an existing row (preserving fields the descriptor omits),
+   * create for a new one. Returns undefined when not applicable (no string repo,
+   * not a strings instrument, or nothing to map), else true/false on success.
+   *
+   * @param {string} deviceId
+   * @param {Object} inst - descriptor instrument
+   * @returns {(boolean|undefined)}
+   * @private
+   */
+  _applyStringConfig(deviceId, inst) {
+    if (!this._stringRepo || !inst.physical || inst.physical.family !== 'strings') return undefined;
+    const cfg = descriptorToStringConfig(inst.physical);
+    if (!cfg) return undefined;
+    try {
+      const existing = this._stringRepo.findByDeviceChannel(deviceId, inst.channel);
+      if (existing) this._stringRepo.update(existing.id, cfg);
+      else this._stringRepo.save({ device_id: deviceId, channel: inst.channel, ...cfg });
+      return true;
+    } catch (e) {
+      this._logger.warn(
+        `Failed to apply string config for ${deviceId}:${inst.channel}: ${e.message}`
+      );
+      return false;
+    }
   }
 }
 
