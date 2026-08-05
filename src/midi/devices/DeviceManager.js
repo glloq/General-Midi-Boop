@@ -565,6 +565,57 @@ class DeviceManager {
   }
 
   /**
+   * Decode a block 0x11 change notification (docs/SYSEX_IDENTITY.md §4):
+   *   F0 7D 00 11 02 <revision[5]> <change_flags> F7
+   * `revision` is a 32-bit value 7-bit-encoded over 5 bytes. Returns null when
+   * the frame is not a 0x11 notification.
+   *
+   * @param {number[]} bytes
+   * @returns {?{revision:number, changeFlags:Object}}
+   */
+  parseChangeNotification(bytes) {
+    if (!Array.isArray(bytes) || bytes.length !== 12) return null;
+    if (bytes[0] !== 0xf0 || bytes[1] !== 0x7d || bytes[2] !== 0x00) return null;
+    if (bytes[3] !== 0x11 || bytes[4] !== 0x02 || bytes[11] !== 0xf7) return null;
+    const revision =
+      ((bytes[5] & 0x7f) |
+        ((bytes[6] & 0x7f) << 7) |
+        ((bytes[7] & 0x7f) << 14) |
+        ((bytes[8] & 0x7f) << 21) |
+        ((bytes[9] & 0x0f) << 28)) >>>
+      0;
+    const flags = bytes[10];
+    return {
+      revision,
+      changeFlags: {
+        identityChanged: (flags & 0x01) !== 0,
+        instrumentsChanged: (flags & 0x02) !== 0,
+        timingChanged: (flags & 0x04) !== 0,
+        restartRequired: (flags & 0x08) !== 0
+      }
+    };
+  }
+
+  /**
+   * React to a runtime change notification (§4): re-fetch and re-apply the
+   * descriptor when the identity, instruments, or timing changed. A
+   * restart-only flag is logged but triggers no re-fetch on its own.
+   *
+   * @param {string} deviceName
+   * @param {{revision:number, changeFlags:Object}} notif
+   * @returns {void}
+   */
+  _onChangeNotification(deviceName, notif) {
+    this.logger?.info?.(
+      `Descriptor change notification from ${deviceName} (revision ${notif.revision})`
+    );
+    const f = notif.changeFlags;
+    if (f.identityChanged || f.instrumentsChanged || f.timingChanged) {
+      this._startDescriptorFetch(deviceName);
+    }
+  }
+
+  /**
    * Reconcile the in-memory `devices` map with the currently-open
    * inputs/outputs/virtual devices and any persisted device-settings
    * rows. Idempotent — produces the canonical snapshot consumed by
@@ -1193,8 +1244,11 @@ class DeviceManager {
       // Block 0x10 descriptor-transfer response (level 1) — fed to the
       // sequential fetch state machine started on the v2 handshake below.
       const chunk = this.parseDescriptorChunk(bytes);
+      const change = chunk ? null : this.parseChangeNotification(bytes);
       if (chunk) {
         this._onDescriptorChunk(deviceName, chunk);
+      } else if (change) {
+        this._onChangeNotification(deviceName, change);
       } else {
         const identityInfo = this.parseIdentityReply(msg);
         if (identityInfo) {
