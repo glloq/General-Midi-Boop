@@ -28,7 +28,10 @@
     "apply": "Apply",
     "name": "Name",
     "on": "On",
-    "off": "Off"
+    "off": "Off",
+    "pleaseWait": "Please wait...",
+    "redo": "Redo",
+    "undo": "Undo"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Sound",
       "buttons": "Interface Buttons",
       "system": "Hardware & System",
-      "wifi": "WiFi Management"
+      "wifi": "WiFi Management",
+      "keyboardGpio": "Keyboard & GPIO"
     },
     "hotspot": {
       "title": "WiFi Hotspot",
@@ -301,7 +305,8 @@
       "warning": "This will remove the pairing with this device."
     },
     "device": "Bluetooth Device",
-    "unknownAddress": "Unknown address"
+    "unknownAddress": "Unknown address",
+    "scanFailed": "Scan failed"
   },
   "network": {
     "title": "Network Instruments Search",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Down-bow (pull)",
     "bowUp": "Up-bow (push)",
-    "bowHint": "Hold the left half for down-bow, the right half for up-bow"
+    "bowHint": "Hold the left half for down-bow, the right half for up-bow",
+    "handMoveLeft": "Move hand left",
+    "handMoveRight": "Move hand right",
+    "listViewLockedFingers": "List view disabled: the instrument has configured fingers"
   },
   "midiEditor": {
     "title": "MIDI Editor",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "File too large. Check the file size.",
     "errorInvalidMidi": "This file does not appear to be a valid MIDI file. Check the format.",
     "errorUploadTimeout": "Upload took too long. Please try again.",
-    "fileCount": "{count} file(s) — {size}"
+    "fileCount": "{count} file(s) — {size}",
+    "playbackSettings": "Playback settings",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transpose",
+    "resetPlayback": "Reset"
   },
   "deviceSettings": {
     "title": "Device Settings",
@@ -757,7 +770,9 @@
     "saveDirty": "Unsaved changes",
     "saveClean": "No changes to save",
     "resetOverrides": "Discard overrides",
-    "noHandsConfig": "No hands configuration on this instrument — preview is disabled."
+    "noHandsConfig": "No hands configuration on this instrument — preview is disabled.",
+    "simulating": "Computing hand positions...",
+    "transportHint": "Playback driven by the channel Preview button and the minimap"
   },
   "keyboardHandEditor": {
     "title": "Hand position editor (keyboard)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Clear this choice",
     "confirmDiscardTitle": "Unsaved changes",
     "confirmDiscard": "Leave without saving?",
-    "discardConfirmBtn": "Leave without saving"
+    "discardConfirmBtn": "Leave without saving",
+    "kbZoomIn": "Keyboard zoom in",
+    "kbZoomOut": "Keyboard zoom out",
+    "mute": "Mute",
+    "nextProblem": "Next problem",
+    "noAudio": "Audio preview unavailable.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Play",
+    "playFailed": "Playback failed",
+    "prevProblem": "Previous problem",
+    "stop": "Stop",
+    "timeZoom": "Time"
   },
   "handPositionEditor": {
     "title": "Hand position editor",
@@ -812,7 +839,8 @@
     "string": "String",
     "fret": "fret",
     "clearAssignment": "Reset this choice",
-    "hint": "Scroll the timeline (wheel = scroll, Ctrl+wheel = zoom, click = seek). Click a note to change its string. Drag the hand band on the preview above to pin a new position."
+    "hint": "Scroll the timeline (wheel = scroll, Ctrl+wheel = zoom, click = seek). Click a note to change its string. Drag the hand band on the preview above to pin a new position.",
+    "openButtonFull": "Edit hand positions"
   },
   "instrumentSettings": {
     "title": "Instrument Settings",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Invalid max note: must be between 0 and 127",
+    "errorNoteMin": "Invalid min note: must be between 0 and 127",
+    "errorNoteMinMax": "Min note cannot be greater than max note",
+    "handsNumFingersAlignedHint": "Fingers aligned on consecutive notes — also determines the playable range without moving.",
+    "handsPreviewLabel": "Finger position preview",
+    "kitUnavailable": "Not in the SF2 — falling back to Standard Kit",
+    "selectCategory": "Select an instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "On"
+    "drumEnabled": "On",
+    "hidden": "hidden"
   },
   "instrumentCapabilities": {
     "title": "Complete Instrument Capabilities",
@@ -2310,7 +2346,8 @@
       "contrabass": "Contrabass (EADG)"
     },
     "configCreated": "String instrument configuration created with default preset.",
-    "configExists": "A string instrument configuration already exists for this device."
+    "configExists": "A string instrument configuration already exists for this device.",
+    "sliderEnabled": "Slide (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Play on a connected MIDI instrument",
     "outputDevice": "Output device",
-    "outputChannel": "Channel"
+    "outputChannel": "Channel",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Loop Manager",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Velocity {velocity} applied to {count} note(s).",
     "tabPianoVirtuel": "🎹 Virtual piano",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Notes overview (display only)"
+    "minimapInfoAria": "Notes overview (display only)",
+    "chooseInstrumentFirst": "Choose an instrument before recording",
+    "confirmDiscardTitle": "Discard changes?"
   },
   "startupUpdate": {
     "newVersionAvailable": "New version v{version} available!",

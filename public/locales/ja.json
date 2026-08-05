@@ -28,7 +28,10 @@
     "apply": "Apply",
     "name": "名前",
     "on": "オン",
-    "off": "オフ"
+    "off": "オフ",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "サウンド",
       "buttons": "インターフェースボタン",
       "system": "ハードウェアとシステム",
-      "wifi": "WiFi 管理"
+      "wifi": "WiFi 管理",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi ホットスポット",
@@ -301,7 +305,8 @@
       "warning": "この操作により、このデバイスとのペアリングが削除されます。"
     },
     "device": "Bluetoothデバイス",
-    "unknownAddress": "不明なアドレス"
+    "unknownAddress": "不明なアドレス",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "ネットワーク楽器の検索",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "ダウンボウ（引く）",
     "bowUp": "アップボウ（押す）",
-    "bowHint": "ダウンボウは左半分、アップボウは右半分を押し続けます"
+    "bowHint": "ダウンボウは左半分、アップボウは右半分を押し続けます",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDIエディター",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "ファイルが大きすぎます。ファイルサイズを確認してください。",
     "errorInvalidMidi": "このファイルは有効なMIDIファイルではないようです。フォーマットを確認してください。",
     "errorUploadTimeout": "アップロードに時間がかかりすぎました。もう一度お試しください。",
-    "fileCount": "{count} ファイル — {size}"
+    "fileCount": "{count} ファイル — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "デバイス設定",
@@ -757,7 +770,9 @@
     "saveDirty": "未保存の変更",
     "saveClean": "保存する変更はありません",
     "resetOverrides": "変更を破棄",
-    "noHandsConfig": "この楽器には手の設定がありません — プレビューは無効です。"
+    "noHandsConfig": "この楽器には手の設定がありません — プレビューは無効です。",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "手の位置エディター（キーボード）",
@@ -773,7 +788,19 @@
     "clearAssignment": "この選択をクリア",
     "confirmDiscardTitle": "未保存の変更",
     "confirmDiscard": "保存せずに離れますか？",
-    "discardConfirmBtn": "保存せずに離れる"
+    "discardConfirmBtn": "保存せずに離れる",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "手の位置エディター",
@@ -812,7 +839,8 @@
     "string": "弦",
     "fret": "フレット",
     "clearAssignment": "この選択をリセット",
-    "hint": "タイムラインをスクロール（ホイール = スクロール、Ctrl+ホイール = ズーム、クリック = シーク）。音符をクリックして弦を変更。上のプレビューの手のバンドをドラッグして新しい位置を固定。"
+    "hint": "タイムラインをスクロール（ホイール = スクロール、Ctrl+ホイール = ズーム、クリック = シーク）。音符をクリックして弦を変更。上のプレビューの手のバンドをドラッグして新しい位置を固定。",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "楽器の設定",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "オン"
+    "drumEnabled": "オン",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "楽器機能の完了",
@@ -2310,7 +2346,8 @@
       "contrabass": "コントラバス (EADG)"
     },
     "configCreated": "デフォルトプリセットで弦楽器設定を作成しました。",
-    "configExists": "このデバイスには既に弦楽器設定が存在します。"
+    "configExists": "このデバイスには既に弦楽器設定が存在します。",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "接続された MIDI 楽器で再生",
     "outputDevice": "出力デバイス",
-    "outputChannel": "チャンネル"
+    "outputChannel": "チャンネル",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "ループマネージャー",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "{count} 個の音符にベロシティ {velocity} を適用しました。",
     "tabPianoVirtuel": "🎹 バーチャルピアノ",
     "tabEditor": "🎼 エディター",
-    "minimapInfoAria": "音符の概要（表示のみ）"
+    "minimapInfoAria": "音符の概要（表示のみ）",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "新しいバージョン v{version} が利用可能です！",

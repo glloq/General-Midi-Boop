@@ -28,7 +28,10 @@
     "apply": "Apply",
     "name": "이름",
     "on": "켜짐",
-    "off": "꺼짐"
+    "off": "꺼짐",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "사운드",
       "buttons": "인터페이스 버튼",
       "system": "하드웨어 및 시스템",
-      "wifi": "WiFi 관리"
+      "wifi": "WiFi 관리",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi 핫스팟",
@@ -301,7 +305,8 @@
       "warning": "이 장치와의 페어링이 제거됩니다."
     },
     "device": "블루투스 장치",
-    "unknownAddress": "알 수 없는 주소"
+    "unknownAddress": "알 수 없는 주소",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "네트워크 악기 검색",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "다운 보우 (당기기)",
     "bowUp": "업 보우 (밀기)",
-    "bowHint": "다운 보우는 왼쪽 절반, 업 보우는 오른쪽 절반을 누르세요"
+    "bowHint": "다운 보우는 왼쪽 절반, 업 보우는 오른쪽 절반을 누르세요",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI 에디터",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "파일이 너무 큽니다. 파일 크기를 확인하세요.",
     "errorInvalidMidi": "이 파일은 유효한 MIDI 파일이 아닌 것 같습니다. 형식을 확인하세요.",
     "errorUploadTimeout": "업로드 시간이 너무 오래 걸렸습니다. 다시 시도해 주세요.",
-    "fileCount": "{count}개 파일 — {size}"
+    "fileCount": "{count}개 파일 — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "장치 설정",
@@ -757,7 +770,9 @@
     "saveDirty": "저장되지 않은 변경 사항",
     "saveClean": "저장할 변경 사항 없음",
     "resetOverrides": "변경 사항 취소",
-    "noHandsConfig": "이 악기에는 손 구성이 없습니다 — 미리보기가 비활성화되었습니다."
+    "noHandsConfig": "이 악기에는 손 구성이 없습니다 — 미리보기가 비활성화되었습니다.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "손 위치 편집기 (키보드)",
@@ -773,7 +788,19 @@
     "clearAssignment": "이 선택 지우기",
     "confirmDiscardTitle": "저장되지 않은 변경 사항",
     "confirmDiscard": "저장하지 않고 나가시겠습니까?",
-    "discardConfirmBtn": "저장하지 않고 나가기"
+    "discardConfirmBtn": "저장하지 않고 나가기",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "손 위치 편집기",
@@ -812,7 +839,8 @@
     "string": "현",
     "fret": "프렛",
     "clearAssignment": "이 선택 초기화",
-    "hint": "타임라인을 스크롤합니다 (휠 = 스크롤, Ctrl+휠 = 확대/축소, 클릭 = 이동). 음표를 클릭하여 현을 변경합니다. 위 미리보기의 손 밴드를 드래그하여 새 위치를 고정합니다."
+    "hint": "타임라인을 스크롤합니다 (휠 = 스크롤, Ctrl+휠 = 확대/축소, 클릭 = 이동). 음표를 클릭하여 현을 변경합니다. 위 미리보기의 손 밴드를 드래그하여 새 위치를 고정합니다.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "악기 설정",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "켜기"
+    "drumEnabled": "켜기",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "악기 기능 완성",
@@ -2310,7 +2346,8 @@
       "contrabass": "콘트라베이스 (EADG)"
     },
     "configCreated": "기본 프리셋으로 현악기 구성을 만들었습니다.",
-    "configExists": "이 장치에 이미 현악기 구성이 있습니다."
+    "configExists": "이 장치에 이미 현악기 구성이 있습니다.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "연결된 MIDI 악기에서 재생",
     "outputDevice": "출력 장치",
-    "outputChannel": "채널"
+    "outputChannel": "채널",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "루프 관리자",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "{count}개의 음표에 벨로시티 {velocity}을(를) 적용했습니다.",
     "tabPianoVirtuel": "🎹 가상 피아노",
     "tabEditor": "🎼 편집기",
-    "minimapInfoAria": "음표 개요 (표시 전용)"
+    "minimapInfoAria": "음표 개요 (표시 전용)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "새 버전 v{version} 사용 가능!",

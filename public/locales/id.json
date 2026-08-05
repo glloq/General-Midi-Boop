@@ -28,7 +28,10 @@
     "apply": "Terapkan",
     "name": "Nama",
     "on": "Aktif",
-    "off": "Nonaktif"
+    "off": "Nonaktif",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Suara",
       "buttons": "Tombol Antarmuka",
       "system": "Perangkat Keras & Sistem",
-      "wifi": "Manajemen WiFi"
+      "wifi": "Manajemen WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "Hotspot WiFi",
@@ -301,7 +305,8 @@
       "warning": "Ini akan menghapus pemasangan dengan perangkat ini."
     },
     "device": "Perangkat Bluetooth",
-    "unknownAddress": "Alamat tidak diketahui"
+    "unknownAddress": "Alamat tidak diketahui",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Pencarian Instrumen Jaringan",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Gesek bawah (tarik)",
     "bowUp": "Gesek atas (dorong)",
-    "bowHint": "Tahan setengah kiri untuk gesek bawah, setengah kanan untuk gesek atas"
+    "bowHint": "Tahan setengah kiri untuk gesek bawah, setengah kanan untuk gesek atas",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "Editor MIDI",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "File terlalu besar. Periksa ukuran file.",
     "errorInvalidMidi": "File ini tampaknya bukan file MIDI yang valid. Periksa formatnya.",
     "errorUploadTimeout": "Unggah memakan waktu terlalu lama. Coba lagi.",
-    "fileCount": "{count} file — {size}"
+    "fileCount": "{count} file — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Pengaturan perangkat",
@@ -757,7 +770,9 @@
     "saveDirty": "Perubahan belum disimpan",
     "saveClean": "Tidak ada perubahan untuk disimpan",
     "resetOverrides": "Buang penggantian",
-    "noHandsConfig": "Tidak ada konfigurasi tangan pada instrumen ini — pratinjau dinonaktifkan."
+    "noHandsConfig": "Tidak ada konfigurasi tangan pada instrumen ini — pratinjau dinonaktifkan.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Editor posisi tangan (keyboard)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Hapus pilihan ini",
     "confirmDiscardTitle": "Perubahan belum disimpan",
     "confirmDiscard": "Keluar tanpa menyimpan?",
-    "discardConfirmBtn": "Keluar tanpa menyimpan"
+    "discardConfirmBtn": "Keluar tanpa menyimpan",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Editor posisi tangan",
@@ -812,7 +839,8 @@
     "string": "Senar",
     "fret": "fret",
     "clearAssignment": "Atur ulang pilihan ini",
-    "hint": "Gulir timeline (roda = gulir, Ctrl+roda = zoom, klik = seek). Klik sebuah not untuk mengubah senarnya. Seret pita tangan pada pratinjau di atas untuk menyematkan posisi baru."
+    "hint": "Gulir timeline (roda = gulir, Ctrl+roda = zoom, klik = seek). Klik sebuah not untuk mengubah senarnya. Seret pita tangan pada pratinjau di atas untuk menyematkan posisi baru.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Pengaturan Instrumen",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Aktif"
+    "drumEnabled": "Aktif",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Lengkapi Kemampuan Instrumen",
@@ -2310,7 +2346,8 @@
       "contrabass": "Kontrabas (EADG)"
     },
     "configCreated": "Konfigurasi instrumen senar dibuat dengan preset default.",
-    "configExists": "Konfigurasi instrumen senar sudah ada untuk perangkat ini."
+    "configExists": "Konfigurasi instrumen senar sudah ada untuk perangkat ini.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Putar di instrumen MIDI yang terhubung",
     "outputDevice": "Perangkat output",
-    "outputChannel": "Channel"
+    "outputChannel": "Channel",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Manajer Loop",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Velocity {velocity} diterapkan ke {count} not.",
     "tabPianoVirtuel": "🎹 Piano virtual",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Ikhtisar not (tampilan saja)"
+    "minimapInfoAria": "Ikhtisar not (tampilan saja)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Versi baru v{version} tersedia!",

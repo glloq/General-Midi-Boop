@@ -28,7 +28,10 @@
     "apply": "Застосувати",
     "name": "Назва",
     "on": "Увімк.",
-    "off": "Вимк."
+    "off": "Вимк.",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Звук",
       "buttons": "Кнопки інтерфейсу",
       "system": "Обладнання та система",
-      "wifi": "Керування WiFi"
+      "wifi": "Керування WiFi",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "Точка доступу WiFi",
@@ -301,7 +305,8 @@
       "warning": "Ця дія видалить сполучення з цим пристроєм."
     },
     "device": "Bluetooth-пристрій",
-    "unknownAddress": "Невідома адреса"
+    "unknownAddress": "Невідома адреса",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Пошук мережевих інструментів",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Смичок вниз (тягнути)",
     "bowUp": "Смичок вгору (штовхати)",
-    "bowHint": "Утримуйте ліву половину для смичка вниз, праву — для смичка вгору"
+    "bowHint": "Утримуйте ліву половину для смичка вниз, праву — для смичка вгору",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI-редактор",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Файл занадто великий. Перевірте розмір файлу.",
     "errorInvalidMidi": "Цей файл не є дійсним MIDI-файлом. Перевірте формат.",
     "errorUploadTimeout": "Завантаження зайняло занадто багато часу. Будь ласка, спробуйте знову.",
-    "fileCount": "{count} файл(ів) — {size}"
+    "fileCount": "{count} файл(ів) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Налаштування пристрою",
@@ -757,7 +770,9 @@
     "saveDirty": "Незбережені зміни",
     "saveClean": "Немає змін для збереження",
     "resetOverrides": "Відхилити зміни",
-    "noHandsConfig": "Для цього інструмента немає налаштування рук — попередній перегляд вимкнено."
+    "noHandsConfig": "Для цього інструмента немає налаштування рук — попередній перегляд вимкнено.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Редактор положення руки (клавіатура)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Очистити цей вибір",
     "confirmDiscardTitle": "Незбережені зміни",
     "confirmDiscard": "Вийти без збереження?",
-    "discardConfirmBtn": "Вийти без збереження"
+    "discardConfirmBtn": "Вийти без збереження",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Редактор положення руки",
@@ -812,7 +839,8 @@
     "string": "Струна",
     "fret": "лад",
     "clearAssignment": "Скинути цей вибір",
-    "hint": "Прокручуйте часову шкалу (колесо = прокрутка, Ctrl+колесо = масштаб, клік = перейти). Клацніть ноту, щоб змінити її струну. Перетягніть смугу руки на попередньому перегляді вище, щоб закріпити нову позицію."
+    "hint": "Прокручуйте часову шкалу (колесо = прокрутка, Ctrl+колесо = масштаб, клік = перейти). Клацніть ноту, щоб змінити її струну. Перетягніть смугу руки на попередньому перегляді вище, щоб закріпити нову позицію.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Налаштування інструмента",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "Увімк."
+    "drumEnabled": "Увімк.",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Доповнити можливості інструмента",
@@ -2310,7 +2346,8 @@
       "contrabass": "Контрабас (EADG)"
     },
     "configCreated": "Конфігурацію струнного інструмента створено зі стандартним пресетом.",
-    "configExists": "Конфігурація струнного інструмента для цього пристрою вже існує."
+    "configExists": "Конфігурація струнного інструмента для цього пристрою вже існує.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Відтворити на підключеному MIDI-інструменті",
     "outputDevice": "Пристрій виводу",
-    "outputChannel": "Канал"
+    "outputChannel": "Канал",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Менеджер циклів",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Силу натискання {velocity} застосовано до {count} нот.",
     "tabPianoVirtuel": "🎹 Віртуальне піаніно",
     "tabEditor": "🎼 Редактор",
-    "minimapInfoAria": "Огляд нот (лише відображення)"
+    "minimapInfoAria": "Огляд нот (лише відображення)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Доступна нова версія v{version}!",

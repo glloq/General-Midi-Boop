@@ -28,7 +28,10 @@
     "apply": "Bruk",
     "name": "Navn",
     "on": "På",
-    "off": "Av"
+    "off": "Av",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Lyd",
       "buttons": "Grensesnittknapper",
       "system": "Maskinvare & system",
-      "wifi": "WiFi-administrasjon"
+      "wifi": "WiFi-administrasjon",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi-hotspot",
@@ -301,7 +305,8 @@
       "warning": "Dette vil fjerne paringen med denne enheten."
     },
     "device": "Bluetooth-enhet",
-    "unknownAddress": "Ukjent adresse"
+    "unknownAddress": "Ukjent adresse",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Nettverksinstrumentsøk",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Nedstrøk (trekk)",
     "bowUp": "Oppstrøk (skyv)",
-    "bowHint": "Hold venstre halvdel for nedstrøk, høyre halvdel for oppstrøk"
+    "bowHint": "Hold venstre halvdel for nedstrøk, høyre halvdel for oppstrøk",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI-redigerer",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Filen er for stor. Sjekk filstørrelsen.",
     "errorInvalidMidi": "Denne filen ser ikke ut til å være en gyldig MIDI-fil. Sjekk formatet.",
     "errorUploadTimeout": "Opplastingen tok for lang tid. Vennligst prøv igjen.",
-    "fileCount": "{count} fil(er) — {size}"
+    "fileCount": "{count} fil(er) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Enhetsinnstillinger",
@@ -757,7 +770,9 @@
     "saveDirty": "Ulagrede endringer",
     "saveClean": "Ingen endringer å lagre",
     "resetOverrides": "Forkast overstyringer",
-    "noHandsConfig": "Ingen håndkonfigurasjon på dette instrumentet — forhåndsvisning er deaktivert."
+    "noHandsConfig": "Ingen håndkonfigurasjon på dette instrumentet — forhåndsvisning er deaktivert.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Håndposisjonseditor (tastatur)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Fjern dette valget",
     "confirmDiscardTitle": "Ulagrede endringer",
     "confirmDiscard": "Forlate uten å lagre?",
-    "discardConfirmBtn": "Forlat uten å lagre"
+    "discardConfirmBtn": "Forlat uten å lagre",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Håndposisjonseditor",
@@ -812,7 +839,8 @@
     "string": "Streng",
     "fret": "bånd",
     "clearAssignment": "Tilbakestill dette valget",
-    "hint": "Rull tidslinjen (hjul = rull, Ctrl+hjul = zoom, klikk = søk). Klikk på en note for å endre strengen. Dra håndbåndet på forhåndsvisningen ovenfor for å feste en ny posisjon."
+    "hint": "Rull tidslinjen (hjul = rull, Ctrl+hjul = zoom, klikk = søk). Klikk på en note for å endre strengen. Dra håndbåndet på forhåndsvisningen ovenfor for å feste en ny posisjon.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Instrumentinnstillinger",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "På"
+    "drumEnabled": "På",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Fullfør instrumentfunksjoner",
@@ -2310,7 +2346,8 @@
       "contrabass": "Kontrabass (EADG)"
     },
     "configCreated": "Strengeinstrumentkonfigurasjon opprettet med standard forhåndsinnstilling.",
-    "configExists": "En strengeinstrumentkonfigurasjon finnes allerede for denne enheten."
+    "configExists": "En strengeinstrumentkonfigurasjon finnes allerede for denne enheten.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Spill på et tilkoblet MIDI-instrument",
     "outputDevice": "Utgangsenhet",
-    "outputChannel": "Kanal"
+    "outputChannel": "Kanal",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Loop-manager",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Anslag {velocity} brukt på {count} note(r).",
     "tabPianoVirtuel": "🎹 Virtuelt piano",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Noteoversikt (kun visning)"
+    "minimapInfoAria": "Noteoversikt (kun visning)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Ny versjon v{version} tilgjengelig!",

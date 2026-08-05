@@ -28,7 +28,10 @@
     "apply": "Apliki",
     "name": "Nomo",
     "on": "Ŝaltita",
-    "off": "Malŝaltita"
+    "off": "Malŝaltita",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI-Orkestriga Sistemo",
@@ -107,7 +110,8 @@
       "sound": "Sono",
       "buttons": "Interfacaj butonoj",
       "system": "Aparataro kaj sistemo",
-      "wifi": "WiFi-administrado"
+      "wifi": "WiFi-administrado",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WiFi-retpunkto",
@@ -301,7 +305,8 @@
       "warning": "Ĉi tiu ago forigos la parigadon kun ĉi tiu aparato."
     },
     "device": "Bludenta aparato",
-    "unknownAddress": "Nekonata adreso"
+    "unknownAddress": "Nekonata adreso",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Serĉo de retaj instrumentoj",
@@ -387,7 +392,10 @@
     "pitchBend": "Tonflekso",
     "bowDown": "Malsupren-arĉo (tiri)",
     "bowUp": "Supren-arĉo (puŝi)",
-    "bowHint": "Tenu la maldekstran duonon por malsupren-arĉo, la dekstran duonon por supren-arĉo"
+    "bowHint": "Tenu la maldekstran duonon por malsupren-arĉo, la dekstran duonon por supren-arĉo",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI-Redaktilo",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Dosiero tro granda. Kontrolu la dosierograndon.",
     "errorInvalidMidi": "Ĉi tiu dosiero ne ŝajnas esti valida MIDI-dosiero. Kontrolu la formaton.",
     "errorUploadTimeout": "Alŝuto daŭris tro longe. Bonvolu reprovi.",
-    "fileCount": "{count} dosiero(j) — {size}"
+    "fileCount": "{count} dosiero(j) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Aparataj agordoj",
@@ -757,7 +770,9 @@
     "saveDirty": "Nekonservitaj ŝanĝoj",
     "saveClean": "Neniaj ŝanĝoj por konservi",
     "resetOverrides": "Forĵeti anstataŭigojn",
-    "noHandsConfig": "Neniu mana agordo por ĉi tiu instrumento — antaŭrigardo estas malŝaltita."
+    "noHandsConfig": "Neniu mana agordo por ĉi tiu instrumento — antaŭrigardo estas malŝaltita.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Mano-pozicia redaktilo (klavaro)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Vakigi ĉi tiun elekton",
     "confirmDiscardTitle": "Nekonservitaj ŝanĝoj",
     "confirmDiscard": "Foriri sen konservi?",
-    "discardConfirmBtn": "Foriri sen konservi"
+    "discardConfirmBtn": "Foriri sen konservi",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Mano-pozicia redaktilo",
@@ -812,7 +839,8 @@
     "string": "Kordo",
     "fret": "freto",
     "clearAssignment": "Restarigi ĉi tiun elekton",
-    "hint": "Rulumu la templinion (rado = rulumi, Ctrl+rado = zomi, alklako = serĉi). Alklaku noton por ŝanĝi ĝian kordon. Trenu la manan bendon sur la supra antaŭrigardo por fiksi novan pozicion."
+    "hint": "Rulumu la templinion (rado = rulumi, Ctrl+rado = zomi, alklako = serĉi). Alklaku noton por ŝanĝi ĝian kordon. Trenu la manan bendon sur la supra antaŭrigardo por fiksi novan pozicion.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Instrument-agordoj",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Ludlistoj",
@@ -1964,7 +1999,8 @@
     "drumSource": "Fonto",
     "drumDest": "Celo",
     "drumType": "Tipo",
-    "drumEnabled": "Ŝaltita"
+    "drumEnabled": "Ŝaltita",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Kompletigi instrumentajn kapablojn",
@@ -2310,7 +2346,8 @@
       "contrabass": "Kontrabaso (EADG)"
     },
     "configCreated": "Kordinstrumenta agordo kreita kun defaŭlta antaŭagordo.",
-    "configExists": "Kordinstrumenta agordo jam ekzistas por ĉi tiu aparato."
+    "configExists": "Kordinstrumenta agordo jam ekzistas por ĉi tiu aparato.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Ludi sur konektita MIDI-instrumento",
     "outputDevice": "Eliga aparato",
-    "outputChannel": "Kanalo"
+    "outputChannel": "Kanalo",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Iteracia administrilo",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Intenso {velocity} aplikita al {count} noto(j).",
     "tabPianoVirtuel": "🎹 Virtuala piano",
     "tabEditor": "🎼 Redaktilo",
-    "minimapInfoAria": "Nota superrigardo (nur montrado)"
+    "minimapInfoAria": "Nota superrigardo (nur montrado)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Nova versio v{version} disponebla!",

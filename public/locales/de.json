@@ -28,7 +28,10 @@
     "apply": "Anwenden",
     "name": "Name",
     "on": "Ein",
-    "off": "Aus"
+    "off": "Aus",
+    "pleaseWait": "Veuillez patienter...",
+    "redo": "Refaire",
+    "undo": "Annuler"
   },
   "app": {
     "title": "GeneralMidiBoop 5.0 - MIDI Orchestration System",
@@ -107,7 +110,8 @@
       "sound": "Sound",
       "buttons": "Oberflächen-Schaltflächen",
       "system": "Hardware & System",
-      "wifi": "WLAN-Verwaltung"
+      "wifi": "WLAN-Verwaltung",
+      "keyboardGpio": "Clavier & GPIO"
     },
     "hotspot": {
       "title": "WLAN-Hotspot",
@@ -301,7 +305,8 @@
       "warning": "Diese Aktion entfernt die Kopplung mit diesem Gerät."
     },
     "device": "Bluetooth-Gerät",
-    "unknownAddress": "Unbekannte Adresse"
+    "unknownAddress": "Unbekannte Adresse",
+    "scanFailed": "Échec du scan"
   },
   "network": {
     "title": "Netzwerk-Instrumente suchen",
@@ -387,7 +392,10 @@
     "pitchBend": "Pitch Bend",
     "bowDown": "Abstrich (ziehen)",
     "bowUp": "Aufstrich (schieben)",
-    "bowHint": "Halte die linke Hälfte für Abstrich, die rechte Hälfte für Aufstrich"
+    "bowHint": "Halte die linke Hälfte für Abstrich, die rechte Hälfte für Aufstrich",
+    "handMoveLeft": "Déplacer la main vers la gauche",
+    "handMoveRight": "Déplacer la main vers la droite",
+    "listViewLockedFingers": "Vue liste désactivée : l'instrument a des doigts configurés"
   },
   "midiEditor": {
     "title": "MIDI-Editor",
@@ -716,7 +724,12 @@
     "errorFileTooLarge": "Datei zu groß. Überprüfen Sie die Dateigröße.",
     "errorInvalidMidi": "Diese Datei scheint keine gültige MIDI-Datei zu sein. Überprüfen Sie das Format.",
     "errorUploadTimeout": "Upload hat zu lange gedauert. Bitte versuchen Sie es erneut.",
-    "fileCount": "{count} Datei(en) — {size}"
+    "fileCount": "{count} Datei(en) — {size}",
+    "playbackSettings": "Réglages de lecture",
+    "tempo": "Tempo",
+    "volume": "Volume",
+    "transpose": "Transposition",
+    "resetPlayback": "Réinitialiser"
   },
   "deviceSettings": {
     "title": "Geräteeinstellungen",
@@ -757,7 +770,9 @@
     "saveDirty": "Nicht gespeicherte Änderungen",
     "saveClean": "Keine Änderungen zu speichern",
     "resetOverrides": "Änderungen verwerfen",
-    "noHandsConfig": "Keine Handkonfiguration für dieses Instrument — Vorschau ist deaktiviert."
+    "noHandsConfig": "Keine Handkonfiguration für dieses Instrument — Vorschau ist deaktiviert.",
+    "simulating": "Calcul des positions de main…",
+    "transportHint": "Lecture pilotée par le bouton Aperçu du canal et la minimap"
   },
   "keyboardHandEditor": {
     "title": "Handpositions-Editor (Tastatur)",
@@ -773,7 +788,19 @@
     "clearAssignment": "Diese Auswahl löschen",
     "confirmDiscardTitle": "Nicht gespeicherte Änderungen",
     "confirmDiscard": "Ohne Speichern verlassen?",
-    "discardConfirmBtn": "Ohne Speichern verlassen"
+    "discardConfirmBtn": "Ohne Speichern verlassen",
+    "kbZoomIn": "Zoom avant clavier",
+    "kbZoomOut": "Zoom arrière clavier",
+    "mute": "Couper le son",
+    "nextProblem": "Problème suivant",
+    "noAudio": "Aperçu audio indisponible.",
+    "pause": "Pause",
+    "pitchZoom": "Notes",
+    "play": "Lecture",
+    "playFailed": "Lecture impossible",
+    "prevProblem": "Problème précédent",
+    "stop": "Stop",
+    "timeZoom": "Temps"
   },
   "handPositionEditor": {
     "title": "Handpositions-Editor",
@@ -812,7 +839,8 @@
     "string": "Saite",
     "fret": "Bund",
     "clearAssignment": "Diese Auswahl zurücksetzen",
-    "hint": "Scrolle die Zeitleiste (Rad = scrollen, Strg+Rad = zoomen, Klick = springen). Klicke auf eine Note, um ihre Saite zu ändern. Ziehe das Handband in der Vorschau oben, um eine neue Position festzulegen."
+    "hint": "Scrolle die Zeitleiste (Rad = scrollen, Strg+Rad = zoomen, Klick = springen). Klicke auf eine Note, um ihre Saite zu ändern. Ziehe das Handband in der Vorschau oben, um eine neue Position festzulegen.",
+    "openButtonFull": "Éditer les positions de main"
   },
   "instrumentSettings": {
     "title": "Instrumenteneinstellungen",
@@ -1123,7 +1151,14 @@
     "lumiereNoDevice": "No lighting device — add one in the Lighting modal",
     "lumiereNoRules": "No rule for this instrument. Add one to drive the lighting.",
     "lumiereUnnamedRule": "Unnamed rule",
-    "lumiereRangeError": "Min must be ≤ Max"
+    "lumiereRangeError": "Min must be ≤ Max",
+    "errorNoteMax": "Note max invalide : doit être entre 0 et 127",
+    "errorNoteMin": "Note min invalide : doit être entre 0 et 127",
+    "errorNoteMinMax": "La note min ne peut pas être supérieure à la note max",
+    "handsNumFingersAlignedHint": "Doigts alignés sur des notes consécutives — détermine aussi la plage jouable sans bouger.",
+    "handsPreviewLabel": "Aperçu de la position des doigts",
+    "kitUnavailable": "Absent du SF2 — bascule sur Standard Kit",
+    "selectCategory": "Sélectionner un instrument"
   },
   "playlist": {
     "title": "Playlists",
@@ -1964,7 +1999,8 @@
     "drumSource": "Source",
     "drumDest": "Destination",
     "drumType": "Type",
-    "drumEnabled": "An"
+    "drumEnabled": "An",
+    "hidden": "masqués"
   },
   "instrumentCapabilities": {
     "title": "Instrumentenfähigkeiten vervollständigen",
@@ -2310,7 +2346,8 @@
       "contrabass": "Kontrabass (EADG)"
     },
     "configCreated": "Saiteninstrument-Konfiguration mit Standard-Preset erstellt.",
-    "configExists": "Es existiert bereits eine Konfiguration für dieses Gerät."
+    "configExists": "Es existiert bereits eine Konfiguration für dieses Gerät.",
+    "sliderEnabled": "Glissement (pitch bend)"
   },
   "windEditor": {
     "icon": "WIND",
@@ -2862,7 +2899,8 @@
     "outDevice": "MIDI",
     "outDeviceTitle": "Auf einem verbundenen MIDI-Instrument abspielen",
     "outputDevice": "Ausgabegerät",
-    "outputChannel": "Kanal"
+    "outputChannel": "Kanal",
+    "instrument": "Instrument"
   },
   "loopManager": {
     "title": "Schleifen-Manager",
@@ -2996,7 +3034,9 @@
     "velocityApplied": "Anschlagstärke {velocity} auf {count} Note(n) angewendet.",
     "tabPianoVirtuel": "🎹 Virtuelles Klavier",
     "tabEditor": "🎼 Editor",
-    "minimapInfoAria": "Notenübersicht (nur Anzeige)"
+    "minimapInfoAria": "Notenübersicht (nur Anzeige)",
+    "chooseInstrumentFirst": "Choisissez un instrument avant d'enregistrer",
+    "confirmDiscardTitle": "Abandonner les modifications ?"
   },
   "startupUpdate": {
     "newVersionAvailable": "Neue Version v{version} verfügbar!",
