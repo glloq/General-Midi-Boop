@@ -22,6 +22,7 @@ import {
   DEVICE_MSG_TYPES
 } from '../../core/constants.js';
 import MidiUtils from '../../utils/MidiUtils.js';
+import { assembleChunks } from '../instrument/DescriptorProtocol.js';
 
 let easymidi;
 /**
@@ -62,6 +63,10 @@ const AUTO_IDENTITY_DEBOUNCE_MS = 750;
 const AUTO_IDENTITY_REPLY_TIMEOUT_MS = 5000;
 const AUTO_IDENTITY_MAX_ATTEMPTS = 3;
 
+// Level-1 descriptor transfer (block 0x10): per-chunk request timeout + retries.
+const DESCRIPTOR_CHUNK_TIMEOUT_MS = 5000;
+const DESCRIPTOR_MAX_ATTEMPTS = 3;
+
 /**
  * Stateful MIDI device manager. Registered as `deviceManager` in the
  * DI container.
@@ -90,7 +95,8 @@ class DeviceManager {
       'networkManager',
       'serialMidiManager',
       'bluetoothManager',
-      'instrumentRepository'
+      'instrumentRepository',
+      'descriptorService'
     ]) {
       Object.defineProperty(this, name, {
         get: () => deps[name],
@@ -112,6 +118,9 @@ class DeviceManager {
     this._autoIdentity = true;
     this._identityProbes = new Map();
     this._announcedDevices = new Set();
+
+    // In-flight block 0x10 descriptor transfers: deviceName -> fetch state.
+    this._descriptorFetches = new Map();
 
     this.midiAvailable = midiAvailable;
 
@@ -415,6 +424,143 @@ class DeviceManager {
     if (probe.replyTimer) {
       clearTimeout(probe.replyTimer);
       probe.replyTimer = null;
+    }
+  }
+
+  /**
+   * Decode a block 0x10 descriptor-transfer response (docs/SYSEX_IDENTITY.md §3):
+   *   F0 7D 00 10 01 <total[2]> <index[2]> <payload...> F7
+   * `total`/`index` are 14-bit little-endian (2×7-bit); `payload` is ASCII.
+   * Returns null when the frame is not a 0x10 response.
+   *
+   * @param {number[]} bytes
+   * @returns {?{total:number, index:number, payload:string}}
+   */
+  parseDescriptorChunk(bytes) {
+    if (!Array.isArray(bytes) || bytes.length < 10) return null;
+    if (bytes[0] !== 0xf0 || bytes[1] !== 0x7d || bytes[2] !== 0x00) return null;
+    if (bytes[3] !== 0x10 || bytes[4] !== 0x01 || bytes[bytes.length - 1] !== 0xf7) return null;
+    const total = (bytes[5] & 0x7f) | ((bytes[6] & 0x7f) << 7);
+    const index = (bytes[7] & 0x7f) | ((bytes[8] & 0x7f) << 7);
+    let payload = '';
+    for (let i = 9; i < bytes.length - 1; i++) payload += String.fromCharCode(bytes[i] & 0x7f);
+    return { total, index, payload };
+  }
+
+  /**
+   * Begin fetching a level-1 capability descriptor over block 0x10 — sequential
+   * per-chunk requests with a per-chunk timeout and bounded retries. No-op when
+   * already fetching this device, when it has no output to request through, or
+   * when no DescriptorService is wired. On completion the reassembled JSON is
+   * validated and applied by DescriptorService (docs/SYSEX_IDENTITY.md §7).
+   *
+   * @param {string} deviceName
+   * @returns {void}
+   */
+  _startDescriptorFetch(deviceName) {
+    if (this._descriptorFetches.has(deviceName)) return;
+    if (!this.outputs.has(deviceName)) return;
+    if (!this.descriptorService) return;
+    this._descriptorFetches.set(deviceName, {
+      chunks: [],
+      total: null,
+      nextIndex: 0,
+      attempts: 0,
+      timer: null
+    });
+    this._requestNextDescriptorChunk(deviceName);
+  }
+
+  /**
+   * Request the next descriptor chunk (or finish once all are in), arming a
+   * retry timeout.
+   *
+   * @param {string} deviceName
+   * @returns {void}
+   */
+  _requestNextDescriptorChunk(deviceName) {
+    const state = this._descriptorFetches.get(deviceName);
+    if (!state) return;
+    if (state.total != null && state.nextIndex >= state.total) {
+      this._finishDescriptorFetch(deviceName);
+      return;
+    }
+    const index = state.nextIndex;
+    try {
+      this.outputs
+        .get(deviceName)
+        ?.send('sysex', [0xf0, 0x7d, 0x00, 0x10, 0x00, index & 0x7f, (index >> 7) & 0x7f, 0xf7]);
+    } catch (e) {
+      this.logger?.debug?.(`Descriptor chunk request failed for ${deviceName}: ${e.message}`);
+    }
+    state.timer = setTimeout(() => {
+      state.timer = null;
+      state.attempts += 1;
+      if (state.attempts < DESCRIPTOR_MAX_ATTEMPTS) {
+        this._requestNextDescriptorChunk(deviceName); // retry same index
+      } else {
+        this.logger?.warn?.(
+          `Descriptor transfer from ${deviceName} timed out; falling back to level 0`
+        );
+        this._descriptorFetches.delete(deviceName);
+      }
+    }, DESCRIPTOR_CHUNK_TIMEOUT_MS);
+    if (typeof state.timer?.unref === 'function') state.timer.unref();
+  }
+
+  /**
+   * Accept a received descriptor chunk, then request the next one.
+   *
+   * @param {string} deviceName
+   * @param {{total:number,index:number,payload:string}} chunk
+   * @returns {void}
+   */
+  _onDescriptorChunk(deviceName, chunk) {
+    const state = this._descriptorFetches.get(deviceName);
+    if (!state) return;
+    if (state.timer) {
+      clearTimeout(state.timer);
+      state.timer = null;
+    }
+    state.total = chunk.total;
+    state.chunks.push({ index: chunk.index, total: chunk.total, payload: chunk.payload });
+    state.attempts = 0;
+    state.nextIndex = chunk.index + 1;
+    this._requestNextDescriptorChunk(deviceName);
+  }
+
+  /**
+   * Reassemble, parse and apply a completed descriptor transfer. Any failure
+   * (incomplete, invalid JSON) falls back to level 0 (§7 step 6).
+   *
+   * @param {string} deviceName
+   * @returns {void}
+   */
+  _finishDescriptorFetch(deviceName) {
+    const state = this._descriptorFetches.get(deviceName);
+    this._descriptorFetches.delete(deviceName);
+    if (!state) return;
+    if (state.timer) clearTimeout(state.timer);
+    const { complete, json } = assembleChunks(state.chunks);
+    if (!complete || !json) {
+      this.logger?.warn?.(
+        `Descriptor transfer from ${deviceName} incomplete; falling back to level 0`
+      );
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(json);
+    } catch (e) {
+      this.logger?.warn?.(
+        `Descriptor JSON from ${deviceName} invalid (${e.message}); falling back to level 0`
+      );
+      return;
+    }
+    try {
+      this.descriptorService?.applyDescriptor(deviceName, parsed);
+    } catch (e) {
+      this.logger?.warn?.(`Failed to apply descriptor from ${deviceName}: ${e.message}`);
     }
   }
 
@@ -1044,29 +1190,42 @@ class DeviceManager {
         `SysEx message received from ${deviceName}: ${bytes.map((b) => '0x' + b.toString(16).toUpperCase()).join(' ')} (${bytes.length} bytes)`
       );
 
-      const identityInfo = this.parseIdentityReply(msg);
-      if (identityInfo) {
-        this._markIdentified(deviceName);
-        this.logger.info(`Identity Reply received from ${deviceName}:`, identityInfo);
-
-        if (this.database) {
-          try {
-            this.database.saveSysExIdentity(deviceName, 0, identityInfo);
-            this.logger.info(`SysEx identity saved for ${deviceName}`);
-          } catch (e) {
-            this.logger.warn(`Failed to save SysEx identity for ${deviceName}: ${e.message}`);
-          }
-        }
-
-        if (this.wsServer) {
-          this.wsServer.broadcast('device_identity', {
-            device: deviceName,
-            identity: identityInfo,
-            timestamp: timestamp
-          });
-        }
+      // Block 0x10 descriptor-transfer response (level 1) — fed to the
+      // sequential fetch state machine started on the v2 handshake below.
+      const chunk = this.parseDescriptorChunk(bytes);
+      if (chunk) {
+        this._onDescriptorChunk(deviceName, chunk);
       } else {
-        this.logger.debug(`SysEx message from ${deviceName} is not an Identity Reply`);
+        const identityInfo = this.parseIdentityReply(msg);
+        if (identityInfo) {
+          this._markIdentified(deviceName);
+          this.logger.info(`Identity Reply received from ${deviceName}:`, identityInfo);
+
+          if (this.database) {
+            try {
+              this.database.saveSysExIdentity(deviceName, 0, identityInfo);
+              this.logger.info(`SysEx identity saved for ${deviceName}`);
+            } catch (e) {
+              this.logger.warn(`Failed to save SysEx identity for ${deviceName}: ${e.message}`);
+            }
+          }
+
+          if (this.wsServer) {
+            this.wsServer.broadcast('device_identity', {
+              device: deviceName,
+              identity: identityInfo,
+              timestamp: timestamp
+            });
+          }
+
+          // A level-1 v2 handshake advertises a capability descriptor — fetch
+          // and apply it over block 0x10 (docs/SYSEX_IDENTITY.md §7).
+          if (identityInfo.protocol === 'GMB Handshake v2' && identityInfo.level === 1) {
+            this._startDescriptorFetch(deviceName);
+          }
+        } else {
+          this.logger.debug(`SysEx message from ${deviceName} is not an Identity Reply`);
+        }
       }
     }
 
@@ -1611,6 +1770,12 @@ class DeviceManager {
       if (probe.replyTimer) clearTimeout(probe.replyTimer);
     });
     this._identityProbes.clear();
+
+    // Cancel any in-flight descriptor-transfer timers
+    this._descriptorFetches.forEach((state) => {
+      if (state.timer) clearTimeout(state.timer);
+    });
+    this._descriptorFetches.clear();
 
     this.logger.info('DeviceManager closed');
   }
