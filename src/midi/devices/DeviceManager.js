@@ -1024,7 +1024,15 @@ class DeviceManager {
       if (universal) return universal;
     }
 
-    // 2) Fall back to the GMB Block 1 custom format (DIY devices)
+    // 2) GMB Handshake v2 (24-byte, proto_ver 0x02) — the current instrument
+    //    recognition protocol. See docs/SYSEX_IDENTITY.md §2.
+    const handshake = this.parseGmbHandshake(bytes);
+    if (handshake) return handshake;
+
+    // 3) Legacy GMB Block 1 v1 (52-byte) — DEPRECATED, retained only for DIY
+    //    devices not yet migrated to the v2 handshake above. No wild devices
+    //    depend on it (v1 firmware was draft); safe to drop once migration
+    //    completes.
     if (bytes.length !== 52) return null;
     if (bytes[0] !== 0xf0) return null;
     if (bytes[1] !== 0x7d) return null;
@@ -1085,6 +1093,76 @@ class DeviceManager {
       features: `0x${features.toString(16).padStart(8, '0').toUpperCase()}`,
       featuresDecimal: features,
       featureFlags: featureFlags,
+      rawBytes: bytes.map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' ')
+    };
+  }
+
+  /**
+   * Decode a GMB v2 Handshake reply (24 bytes) — the current instrument
+   * recognition protocol (docs/SYSEX_IDENTITY.md §2):
+   *
+   *   F0 7D 00 01 01 <proto_ver> <instance_id[5]> <firmware[3]>
+   *      <descriptor_size[3]> <revision[5]> <flags> F7
+   *
+   * `instance_id` and `revision` are 32-bit values 7-bit-encoded over 5 bytes;
+   * `descriptor_size` is a 21-bit value over 3 bytes (`0` ⇒ level 0, no
+   * descriptor). `flags` bit 0 = HTTP available, bit 1 = push notifications.
+   * Returns null when the payload is not a v2 handshake.
+   *
+   * @param {number[]} bytes
+   * @returns {?Object}
+   */
+  parseGmbHandshake(bytes) {
+    if (!Array.isArray(bytes) || bytes.length !== 24) return null;
+    if (bytes[0] !== 0xf0 || bytes[1] !== 0x7d || bytes[2] !== 0x00) return null;
+    if (bytes[3] !== 0x01 || bytes[4] !== 0x01 || bytes[23] !== 0xf7) return null;
+
+    const protoVer = bytes[5];
+    if (protoVer !== 0x02) return null; // not a v2 handshake frame
+
+    // Full 32-bit little-endian 7-bit decode. NB: the shared
+    // decode7BitTo32Bit() masks the 5th byte to 3 bits (0x07), capping it at
+    // 31 bits — fine for the legacy v1 device id but it would silently drop
+    // bit 31 of a per-exemplar instance_id (halving the id space). The v2
+    // handshake carries the full nibble (0x0f ⇒ bits 28-31).
+    const dec32 = (b) =>
+      ((b[0] & 0x7f) |
+        ((b[1] & 0x7f) << 7) |
+        ((b[2] & 0x7f) << 14) |
+        ((b[3] & 0x7f) << 21) |
+        ((b[4] & 0x0f) << 28)) >>>
+      0;
+
+    const instanceId = dec32(bytes.slice(6, 11));
+    const firmwareMajor = bytes[11];
+    const firmwareMinor = bytes[12];
+    const firmwarePatch = bytes[13];
+    const descriptorSize =
+      (bytes[14] & 0x7f) | ((bytes[15] & 0x7f) << 7) | ((bytes[16] & 0x7f) << 14);
+    const revision = dec32(bytes.slice(17, 22));
+    const flags = bytes[22];
+
+    const instanceHex = `0x${instanceId.toString(16).padStart(8, '0').toUpperCase()}`;
+
+    return {
+      protocol: 'GMB Handshake v2',
+      protocolVersion: protoVer,
+      level: descriptorSize === 0 ? 0 : 1,
+      instanceId: instanceHex,
+      instanceIdDecimal: instanceId,
+      // Alias `deviceId` so the existing saveSysExIdentity() path persists the
+      // per-exemplar instance_id into the `sysex_device_id` column unchanged.
+      deviceId: instanceHex,
+      manufacturerName: 'GeneralMidiBoop',
+      firmwareVersion: `${firmwareMajor}.${firmwareMinor}.${firmwarePatch}`,
+      firmware: { major: firmwareMajor, minor: firmwareMinor, patch: firmwarePatch },
+      descriptorSize,
+      revision,
+      revisionHex: `0x${revision.toString(16).padStart(8, '0').toUpperCase()}`,
+      flags: {
+        httpAvailable: (flags & 0x01) !== 0,
+        pushNotifications: (flags & 0x02) !== 0
+      },
       rawBytes: bytes.map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' ')
     };
   }

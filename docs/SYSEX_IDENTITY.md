@@ -518,6 +518,35 @@ du dépôt (branche `main`). Les artefacts firmware cités ailleurs (`GmbSysEx.c
 `Capabilities.h`, `CapabilitySnapshot`, `buildSnapshot()`) vivent dans le dépôt
 firmware séparé et ne sont pas vérifiables ici.
 
+### 12.0 Livré dans cette itération (amorce v2)
+
+- **Parseur handshake v2** — `DeviceManager.parseGmbHandshake()` décode la trame
+  24 octets (`proto_ver 0x02`, `instance_id`, `firmware`, `descriptor_size`,
+  `revision`, `flags` HTTP/push) et est appelé par `parseIdentityReply()`
+  **avant** l'ancien parseur 52 octets, conservé en repli déprécié. `instance_id`
+  est exposé et persisté dans `sysex_device_id` via le chemin
+  `saveSysExIdentity()` existant. Couvert par
+  `tests/devicemanager-handshake-v2.test.js`.
+- **Décodage 32 bits complet** — le parseur v2 décode `instance_id` / `revision`
+  sur 32 bits pleins (nibble haut `0x0f`). Le codec partagé `decode7BitTo32Bit()`
+  masque le 5ᵉ octet à 3 bits (`0x07`, plafond 31 bits) : réutilisé tel quel, il
+  aurait tronqué le bit 31 d'un `instance_id`, divisant par deux l'espace
+  d'identifiants — d'où un décodage dédié.
+- **Migration `033_descriptor_cache.sql`** — ajoute `descriptor_revision` et
+  `descriptor_json` (cache ETag + descripteur pour le diff §6). Additive
+  uniquement.
+
+**Reste à faire** (tranches suivantes) : transfert bloc 0x10 + validateur JSON +
+diff des surcharges (§6) ; écoute bloc 0x11 / relecture 30 s ; base d'association
+`instance_id → configuration` ; UI identité (`flags` / `revision`) ; et
+l'élargissement de `capabilities_source` à la valeur `'descriptor'`. Ce dernier
+impose de **reconstruire** `instruments_latency` (SQLite n'élargit pas une
+contrainte `CHECK` en place) : créer la table cible avec
+`CHECK(... IN ('manual','sysex','auto','descriptor'))`, `INSERT ... SELECT`,
+`DROP` / `RENAME`, dans un environnement où `better-sqlite3` permet de valider la
+migration. Alternative défendable : réutiliser `'sysex'` (le descripteur arrive
+bien par SysEx) et éviter tout rebuild.
+
 ### 12.1 Ce que GMB fait déjà aujourd'hui
 
 - **Émission de la requête.** `DeviceManager.sendIdentityRequest()` envoie déjà
@@ -543,10 +572,10 @@ firmware séparé et ne sont pas vérifiables ici.
 
 | Emplacement | Changement |
 |---|---|
-| `src/midi/devices/DeviceManager.js` · `parseIdentityReply()` | Remplacer le parseur 52 octets par le handshake 24 octets (`proto_ver`, `instance_id`, `firmware`, `descriptor_size`, `revision`, `flags`). Réutiliser `decode7BitTo32Bit()` tel quel. |
+| `src/midi/devices/DeviceManager.js` · `parseIdentityReply()` | ✅ **fait** (§12.0) — `parseGmbHandshake()` décode le handshake 24 octets et prend le pas sur le parseur 52 octets (déprécié). |
 | `src/midi/devices/DeviceManager.js` (nouveau) | Transfert segmenté bloc 0x10 (réassemblage, `comm_timeout`, 3 tentatives), écoute du bloc 0x11, relecture du bloc 1 toutes les 30 s. |
 | Nouveau service | Parseur + validateur JSON du descripteur ; logique de diff des surcharges (§6) ; base d'association `instance_id → configuration`. |
-| Schéma `instruments_latency` | La contrainte `capabilities_source CHECK(... IN ('manual','sysex','auto'))` **rejette `'descriptor'`** (§7 étape 8). → migration `033_*` pour ajouter la valeur `'descriptor'` (ou réutiliser `'sysex'`). Ajouter le stockage de `instance_id` (la colonne `sysex_device_id` peut servir), `revision`, cache descripteur, et surcharges par champ. |
+| Schéma `instruments_latency` | ✅ **partiel** — `033_descriptor_cache.sql` ajoute `descriptor_revision` + `descriptor_json` ; `instance_id` réutilise `sysex_device_id`. ⏳ **Reste** : élargir la contrainte `capabilities_source CHECK(... IN ('manual','sysex','auto'))` pour `'descriptor'` (rebuild de table — voir §12.0), et le stockage des surcharges par champ. |
 | Frontend `DeviceSettingsModal.js` | L'affichage identité lit les 6 `featureFlags` v1 — à adapter au nouveau `flags` (HTTP/push) + `descriptor_size`/`revision`. |
 | `wiki/Instrument-Developer-Guide.md` | Miroir décrivant encore les blocs v1 1/5/6/7 — à retirer / refondre pour rester cohérent avec ce document. |
 
