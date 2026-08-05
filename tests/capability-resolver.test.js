@@ -94,3 +94,42 @@ describe('CapabilityResolver.getTimingConstraints', () => {
     expect(c.noteRangeMax).toBe(88);
   });
 });
+
+describe('CapabilityResolver cache invalidation', () => {
+  function makeBus() {
+    const handlers = new Map();
+    return {
+      on(e, h) {
+        if (!handlers.has(e)) handlers.set(e, []);
+        handlers.get(e).push(h);
+      },
+      off() {},
+      emit(e) {
+        (handlers.get(e) || []).forEach((h) => h());
+      }
+    };
+  }
+
+  test('an applied descriptor (instruments_configured) drops the enforcement cache', () => {
+    // A block 0x11 hot-change re-fetch narrows capabilities via DescriptorService,
+    // which emits `instruments_configured`. Enforcement must see the new values
+    // immediately, not stay stale until the periodic sweep.
+    const getCaps = jest.fn(() => ({ note_range_min: 60, note_range_max: 72 }));
+    const database = {
+      instrumentCapabilitiesDB: { getInstrumentCapabilities: getCaps },
+      stringInstrumentDB: { getStringInstrument: jest.fn(() => null) }
+    };
+    const bus = makeBus();
+    const r = new CapabilityResolver({ database, eventBus: bus });
+    live.push(r);
+
+    r.getTimingConstraints('d', 0);
+    r.getTimingConstraints('d', 0);
+    expect(getCaps).toHaveBeenCalledTimes(1); // second read served from cache
+
+    bus.emit('instruments_configured');
+
+    r.getTimingConstraints('d', 0);
+    expect(getCaps).toHaveBeenCalledTimes(2); // cache dropped → DB re-read
+  });
+});

@@ -18,6 +18,8 @@ import {
   validateDescriptor,
   diffOverrides,
   descriptorToCapabilities,
+  descriptorToSettings,
+  descriptorToOverrideView,
   descriptorToStringConfig,
   descriptorLookaheadMs
 } from './DescriptorProtocol.js';
@@ -78,14 +80,24 @@ export class DescriptorService {
         continue;
       }
       const fields = descriptorToCapabilities(inst, this._source);
+      const settings = descriptorToSettings(inst);
       const overridden = overriddenFieldsByChannel[inst.channel] || [];
+      const prevInst = prevByChannel.get(inst.channel) ?? null;
+      // §6 arbitration compares the flat persisted-field views (stored override
+      // names are column names), not the nested descriptor shapes.
       const { purge, keep } = diffOverrides(
-        prevByChannel.get(inst.channel) ?? null,
-        inst,
+        prevInst ? descriptorToOverrideView(prevInst) : null,
+        descriptorToOverrideView(inst),
         overridden
       );
       try {
         this._repo.updateCapabilities(deviceId, inst.channel, fields);
+        // gm_program / instrument_type / instrument_subtype live on the settings
+        // allow-list — updateCapabilities drops them — so persist them via
+        // updateSettings when the descriptor declares any.
+        if (Object.keys(settings).length > 0 && typeof this._repo.updateSettings === 'function') {
+          this._repo.updateSettings(deviceId, inst.channel, settings);
+        }
         appliedCount += 1;
       } catch (e) {
         this._logger.warn(

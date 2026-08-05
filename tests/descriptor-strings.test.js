@@ -48,6 +48,30 @@ describe('descriptorToStringConfig', () => {
     expect(descriptorToStringConfig({ family: 'strings' })).toBeNull();
     expect(descriptorToStringConfig(null)).toBeNull();
   });
+
+  test('a malformed tuning is dropped whole (positional — never partially stored)', () => {
+    // One out-of-range / non-integer entry invalidates the entire tuning: string
+    // count still maps, but tuning is omitted rather than shifting later strings.
+    const cfg = descriptorToStringConfig({
+      family: 'strings',
+      string_count: 4,
+      tuning: [67, 60, 999, 69]
+    });
+    expect(cfg).toEqual({ num_strings: 4 });
+    expect(cfg.tuning).toBeUndefined();
+    expect(descriptorToStringConfig({ family: 'strings', tuning: [67, 'x', 64] })).toBeNull();
+    expect(descriptorToStringConfig({ family: 'strings', tuning: [] })).toBeNull();
+  });
+
+  test('a malformed frets_per_string is dropped whole', () => {
+    const cfg = descriptorToStringConfig({
+      family: 'strings',
+      fret_count: 12,
+      frets_per_string: [12, -1, 12]
+    });
+    expect(cfg).toEqual({ num_frets: 12 });
+    expect(cfg.frets_per_string).toBeUndefined();
+  });
 });
 
 function makeService(stringRepo) {

@@ -221,10 +221,28 @@ class StringInstrumentDatabase {
    */
   createStringInstrument(config) {
     try {
-      // Ensure num_strings matches tuning array length
-      const tuning = config.tuning || [40, 45, 50, 55, 59, 64];
-      if (Array.isArray(tuning)) {
+      // An explicit tuning array is authoritative — string count follows its
+      // length. When tuning is omitted, honour a provided num_strings instead of
+      // silently forcing it to the 6-string-guitar default's length (a v2
+      // descriptor may declare string_count without a full tuning —
+      // docs/SYSEX_IDENTITY.md §5.9); the fallback tuning is sized to match so
+      // the two stay consistent.
+      let tuning;
+      if (Array.isArray(config.tuning) && config.tuning.length > 0) {
+        tuning = config.tuning;
         config.num_strings = tuning.length;
+      } else {
+        const n =
+          Number.isInteger(config.num_strings) && config.num_strings > 0 ? config.num_strings : 6;
+        const DEFAULT_GUITAR = [40, 45, 50, 55, 59, 64];
+        tuning =
+          n <= DEFAULT_GUITAR.length
+            ? DEFAULT_GUITAR.slice(0, n)
+            : [
+                ...DEFAULT_GUITAR,
+                ...Array(n - DEFAULT_GUITAR.length).fill(DEFAULT_GUITAR[DEFAULT_GUITAR.length - 1])
+              ];
+        config.num_strings = n;
       }
 
       this._validateConfig(config);

@@ -35,8 +35,15 @@ export class CapabilityResolver {
 
     this._cacheTimer = setInterval(() => this.invalidate(), CACHE_TTL_MS).unref();
 
+    // Any write that changes enforcement-relevant capability data must drop the
+    // cache: manual/settings edits (`instrument_settings_changed`) AND an applied
+    // v2 descriptor (`instruments_configured`, including a 0x11 hot re-fetch that
+    // narrows range/scale/polyphony). Without the latter the scheduler/router
+    // kept clamping to stale capabilities for up to CACHE_TTL_MS after a device
+    // hot-changed its own declaration.
     this._onSettingsChanged = () => this.invalidate();
     eventBus?.on('instrument_settings_changed', this._onSettingsChanged);
+    eventBus?.on('instruments_configured', this._onSettingsChanged);
   }
 
   /**
@@ -143,6 +150,7 @@ export class CapabilityResolver {
       this._cacheTimer = null;
     }
     this._eventBus?.off('instrument_settings_changed', this._onSettingsChanged);
+    this._eventBus?.off('instruments_configured', this._onSettingsChanged);
     this.invalidate();
   }
 }
