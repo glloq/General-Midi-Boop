@@ -220,7 +220,7 @@
       }
     }
 
-    _requestSysExIdentity() {
+    async _requestSysExIdentity() {
       if (!this.api || !this.deviceId) return;
       const btn = this.modal.querySelector('#dsm-sysexRequestBtn');
       if (btn) {
@@ -228,7 +228,13 @@
         btn.textContent = '⏳ En attente...';
       }
       try {
-        this.api.sendCommand('sysex_identity_request', { deviceId: this.deviceId });
+        // The handler routes by output-port name (`deviceName`); `deviceId` is
+        // the SysEx target ID (0x7F = broadcast). Sending only `{deviceId}`
+        // left deviceName undefined and the request was never emitted.
+        await this.api.sendCommand('sysex_identity_request', {
+          deviceName: this.deviceId,
+          deviceId: 0x7f
+        });
       } catch (e) {
         console.error('SysEx identity request failed:', e);
         if (btn) {

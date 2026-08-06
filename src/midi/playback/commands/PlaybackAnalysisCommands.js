@@ -122,8 +122,10 @@ function applyScoringOverrides(overrides) {
         Math.min(20, Number(p.transpositionPerOctave))
       );
     if (p.maxTranspositionOctaves !== undefined)
+      // Floor is 0, not 1: the "Transposition" strategy toggle sends 0 to mean
+      // "no transposition at all". Clamping to 1 silently permitted one octave.
       ScoringConfig.penalties.maxTranspositionOctaves = Math.max(
-        1,
+        0,
         Math.min(6, Number(p.maxTranspositionOctaves))
       );
   }

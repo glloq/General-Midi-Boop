@@ -86,23 +86,18 @@
 
         if (!stringInstrument) {
           if (gmMatch) {
-            const createResp = await this.modal.api.sendCommand(
-              'string_instrument_create_from_preset',
-              {
-                device_id: deviceId,
-                channel: activeChannel,
-                preset: gmMatch.preset
-              }
-            );
+            // string_instrument_create_from_preset returns only { success, id },
+            // so the freshly created row is fetched by the lookup below rather
+            // than read off the create response (which never carried it).
+            await this.modal.api.sendCommand('string_instrument_create_from_preset', {
+              device_id: deviceId,
+              channel: activeChannel,
+              preset: gmMatch.preset
+            });
             this.modal.log(
               'info',
               `Synced ${gmMatch.category} preset for channel ${activeChannel + 1}`
             );
-            // Prefer the row returned by the create call to avoid a second lookup
-            // that can miss the freshly inserted record (device_id/channel mismatch).
-            if (createResp?.instrument) {
-              stringInstrument = createResp.instrument;
-            }
           }
 
           if (!stringInstrument) {

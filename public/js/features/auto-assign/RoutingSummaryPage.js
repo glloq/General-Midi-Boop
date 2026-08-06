@@ -300,7 +300,11 @@
                 score: r.compatibility_score || 0,
                 transposition: r.transposition_applied
                   ? { semitones: r.transposition_applied }
-                  : null
+                  : null,
+                // Carry the saved hand-position overrides through so the editor
+                // and preview reload them (read by _extractInitialOverrides).
+                // Without this they were dropped and every editor reopened blank.
+                handPositionOverrides: r.hand_position_overrides || null
               };
               usedChannels.add(r.channel);
             }

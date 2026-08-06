@@ -687,17 +687,17 @@ class PlaylistPage {
     if (!newName || !newName.trim() || newName.trim() === this.selectedPlaylist.name) return;
 
     try {
-      await this.apiClient.sendCommand('playlist_create', {
-        name: newName.trim(),
-        description: this.selectedPlaylist.description
-      });
-      // Delete old and reload — no rename command exists, so recreate
-      // Actually, let's just update the DB directly via a dedicated approach
-      // For now, use delete + create + re-add items pattern
+      // No rename command exists, so recreate: create the new playlist, copy
+      // items/settings over, then delete the old one. (A previous stray first
+      // `playlist_create` here leaked an empty duplicate playlist on every
+      // rename and also dropped the description.)
       const items = [...this.playlistItems];
       const oldId = this.selectedPlaylist.id;
       const loop = this.selectedPlaylist.loop;
-      const res = await this.apiClient.sendCommand('playlist_create', { name: newName.trim() });
+      const res = await this.apiClient.sendCommand('playlist_create', {
+        name: newName.trim(),
+        description: this.selectedPlaylist.description
+      });
       const newId = res.playlistId;
       for (const item of items) {
         await this.apiClient.sendCommand('playlist_add_file', {
