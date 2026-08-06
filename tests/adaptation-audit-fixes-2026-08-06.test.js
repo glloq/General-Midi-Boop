@@ -219,6 +219,31 @@ describe('P2-5 · Matcher drum predicate matches AutoAssigner (no unassignable k
   });
 });
 
+describe('P2-6 · Type score uses the heuristic type for a channel with no Program Change', () => {
+  const m = new InstrumentMatcher(mockLogger);
+  // category 'unknown' (no Program Change) but a heuristic type is still known.
+  const chBass = { category: 'unknown', categorySubtype: null, type: 'bass' };
+
+  test('a bass channel vs a percussive instrument is a real mismatch, not neutral', () => {
+    const res = m.scoreInstrumentType(chBass, {
+      category: 'unknown',
+      subtype: null,
+      type: 'percussive'
+    });
+    expect(res.info).not.toBe('Instrument type not determined');
+    expect(res.score).toBe(0);
+  });
+
+  test('a bass channel vs a melodic instrument scores via the legacy type match', () => {
+    const res = m.scoreInstrumentType(chBass, {
+      category: 'unknown',
+      subtype: null,
+      type: 'melody'
+    });
+    expect(res.info).toMatch(/Legacy type match/);
+  });
+});
+
 describe('P2-11 · Split routes poly-aftertouch to its note segment, not every segment', () => {
   const t = new MidiTransposer(mockLogger);
 

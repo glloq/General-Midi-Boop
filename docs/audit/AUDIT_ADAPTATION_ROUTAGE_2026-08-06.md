@@ -64,6 +64,7 @@ mineurs/documentaires (P3).
 | P2-11 aftertouch polyphonique suit son segment (plus de diffusion à tous) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 | P2-3 sync : routage d'appareil hors-ligne persisté **désactivé** (plus détruit) | ✅ corrigé | `file-routing-sync`, `routing-plan-channel` |
 | P2-9 tablature : fenêtre de corde occupée bornée par la durée max réelle (plus de constante 7680) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P2-6 score de type utilise le type heuristique pour un canal sans Program Change | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 
 **Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
 seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
@@ -72,13 +73,26 @@ seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imb
 suppression de l'orphelin `adaptedFile` en cas d'échec) reste un follow-up, à faire avec les
 tests SQLite exécutables.
 
-**Non encore traités** (volontairement) : **P1-10** et **P2-4**/**P2-6** (changent le
-*comportement de scoring* → modifient quel instrument est auto-assigné : à décider ensemble) ;
-**P2-10** (drop polyphonique `Set`→compteur — restructure la mesure de polyphonie, risque de
-régression, à faire avec plus de tests) ; **P2-1/3/7/8/9** et **P3** ; et l'**axe 6** (parité
-playback/live) — cf. sections dédiées.
+**Différés avec justification** (risque/valeur défavorable dans cette itération) :
 
-Suite backend complète verte après correctifs : **107 suites / 1251 tests**.
+- **P1-10 + P2-4** — refonte du **cœur du scoring note-range** (les deux hard-rejects
+  `span>instSpan` et « aucun shift octave »). Rescorer via octave-wrapping change *quel
+  instrument est auto-assigné* et la pénalité à appliquer (le wrapping crée des doublons de
+  notes) est un **choix de design** à valider contre de vrais fichiers ; risque de régression
+  élevé sur le scoring. À faire dédié.
+- **P2-1** — ajouter des schémas déclaratifs pour `apply_assignments`/`analyze_channel`/… ferait
+  passer le message d'erreur du handler (`"originalFileId is required"`) au format **préfixé**
+  du pipeline (`"Invalid apply_assignments data: …"`), divergeant des fixtures de contrat
+  documentées (`tests/contracts/fixtures/playback/*.contract.json`) — pour une validation que
+  les handlers font déjà. À faire en mettant à jour fixtures + gestion d'erreur frontend.
+- **P2-8** — la transposition par segment du split full-coverage n'est honorée par aucun
+  consommateur, mais le playback fonctionne déjà (le clamp octave-fold du scheduler replie les
+  décalages d'octave) ; c'est de l'**intégrité de reporting**, pas un défaut audible. Propager
+  la transposition jusqu'au runtime (schéma + résolveur + player) est un chantier dédié.
+- **P2-10** (drop polyphonique `Set`→compteur — restructure la mesure de polyphonie),
+  **P2-7** (bornes de faisabilité frettes), **P3**, et l'**axe 6** (parité playback/live).
+
+Suite backend complète verte après correctifs : **107 suites / 1254 tests**.
 
 ---
 

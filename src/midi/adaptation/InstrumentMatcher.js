@@ -1079,9 +1079,13 @@ class InstrumentMatcher {
     }
 
     // Fallback: at least one side has no hierarchical category
-    // Use generic matching (legacy)
-    const channelTypeStr = channelCategory || channelGenericType;
-    const instTypeStr = instCategory || instGenericType;
+    // Use generic matching (legacy). Prefer the heuristic generic type over a
+    // literal 'unknown' category — a channel with no Program Change still has a
+    // detected `type` (e.g. 'bass'), and using 'unknown' here discarded it and
+    // collapsed the score to neutral (audit P2-6).
+    const channelTypeStr =
+      channelCategory && channelCategory !== 'unknown' ? channelCategory : channelGenericType;
+    const instTypeStr = instCategory && instCategory !== 'unknown' ? instCategory : instGenericType;
 
     if (
       !channelTypeStr ||
