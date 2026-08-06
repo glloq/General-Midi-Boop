@@ -1938,6 +1938,18 @@ class MidiPlayer {
    */
   setChannelRouting(channel, deviceId, targetChannel, handOverrides) {
     const target = targetChannel !== undefined && targetChannel !== null ? targetChannel : channel;
+    // Release held notes via the OLD routing before switching, else the file's
+    // note-off is sent to the NEW device and the old device's note hangs
+    // (audit axis6-2). Panic first so All-Notes-Off targets the old destination.
+    const prevRouting = this.channelRouting.get(channel);
+    const routingChanged =
+      !prevRouting ||
+      prevRouting.split ||
+      prevRouting.device !== deviceId ||
+      prevRouting.targetChannel !== target;
+    if (routingChanged && this.playing && !this.paused) {
+      this._panicChannel(channel);
+    }
     this.channelRouting.set(channel, {
       device: deviceId,
       targetChannel: target,
@@ -2015,7 +2027,15 @@ class MidiPlayer {
   }
 
   setChannelNoteRemapping(channel, mapping) {
-    if (mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0) {
+    const willHave =
+      mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0;
+    // Release held notes before the remap changes, else a note turned on under
+    // the old mapping is stranded when its note-off is emitted under the new one
+    // (audit axis6-2).
+    if ((this.channelNoteRemapping.has(channel) || willHave) && this.playing && !this.paused) {
+      this._panicChannel(channel);
+    }
+    if (willHave) {
       this.channelNoteRemapping.set(channel, mapping);
     } else {
       this.channelNoteRemapping.delete(channel);
@@ -2047,6 +2067,13 @@ class MidiPlayer {
         polyphonyShare: seg.split_polyphony_share ?? null
       }))
     };
+
+    // Release held notes via the OLD routing before switching to the split
+    // config, else in-flight notes strand (their note-off would resolve against
+    // the new segments) (audit axis6-2).
+    if (this.playing && !this.paused) {
+      this._panicChannel(channel);
+    }
 
     this.channelRouting.set(channel, splitRouting);
     this.scheduler.invalidateCompensationCache();

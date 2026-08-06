@@ -105,3 +105,52 @@ describe('PlaybackScheduler._routeTo override', () => {
     }, 50);
   });
 });
+
+describe('PlaybackScheduler — velocity-0 note-on routes as a note-off (audit axis6-1)', () => {
+  test('a velocity-0 note-on is passed to routing as "noteOff", not "noteOn"', (done) => {
+    const app = makeApp();
+    const scheduler = new PlaybackScheduler(app);
+    const state = makeState();
+    state.channelRouting.set(0, { device: 'd', targetChannel: 0 });
+
+    const getOutputForChannel = jest.fn(() => ({ device: 'd', targetChannel: 0 }));
+    // Running-status note-off: a note-on with velocity 0.
+    const event = { time: 0.001, type: 'noteOn', channel: 0, note: 60, velocity: 0 };
+
+    scheduler.scheduleEvent(event, 0, getOutputForChannel, state, {});
+
+    setTimeout(() => {
+      try {
+        expect(getOutputForChannel).toHaveBeenCalledWith(0, 60, 'noteOff');
+        scheduler.stopScheduler();
+        done();
+      } catch (e) {
+        scheduler.stopScheduler();
+        done(e);
+      }
+    }, 50);
+  });
+
+  test('a real note-on (velocity > 0) is still passed as "noteOn"', (done) => {
+    const app = makeApp();
+    const scheduler = new PlaybackScheduler(app);
+    const state = makeState();
+    state.channelRouting.set(0, { device: 'd', targetChannel: 0 });
+
+    const getOutputForChannel = jest.fn(() => ({ device: 'd', targetChannel: 0 }));
+    const event = { time: 0.001, type: 'noteOn', channel: 0, note: 60, velocity: 100 };
+
+    scheduler.scheduleEvent(event, 0, getOutputForChannel, state, {});
+
+    setTimeout(() => {
+      try {
+        expect(getOutputForChannel).toHaveBeenCalledWith(0, 60, 'noteOn');
+        scheduler.stopScheduler();
+        done();
+      } catch (e) {
+        scheduler.stopScheduler();
+        done(e);
+      }
+    }, 50);
+  });
+});

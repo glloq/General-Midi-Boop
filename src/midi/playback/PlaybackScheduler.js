@@ -559,11 +559,21 @@ class PlaybackScheduler {
       return;
     }
 
-    // For note events, pass the note and event type to routing for split support
+    // For note events, pass the note and LOGICAL event type to routing for split
+    // support. A velocity-0 note-on is a running-status note-off: route it as a
+    // note-off so stateful split strategies (round_robin/alternate/least_loaded/
+    // overflow) POP the segment its note-on pushed, instead of taking the
+    // note-on path (push + counter increment) and stranding the note on the
+    // wrong segment while dispatch emits an actual note-off (audit axis6-1).
     const isNoteEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
+    const logicalNoteType = isNoteEvent
+      ? event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) === 0
+        ? MIDI_EVENT_TYPES.NOTE_OFF
+        : event.type
+      : null;
     const note = isNoteEvent ? (event.note ?? null) : null;
-    const routing = getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
+    const routing = getOutputForChannel(event.channel, note, logicalNoteType);
 
     if (!routing) {
       if (!this._unroutedChannels.has(event.channel)) {
