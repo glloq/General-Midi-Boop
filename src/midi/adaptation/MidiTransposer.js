@@ -188,8 +188,15 @@ class MidiTransposer {
               }
             }
           }
-        } else if (event.type === 'keyPressure' || event.type === 'polyAftertouch') {
-          // Aftertouch polyphonique - apply same logic
+        } else if (
+          event.type === 'noteAftertouch' ||
+          event.type === 'keyPressure' ||
+          event.type === 'polyAftertouch'
+        ) {
+          // Poly-aftertouch — the `midi-file` parser emits `noteAftertouch`;
+          // `keyPressure`/`polyAftertouch` are kept for any legacy shape.
+          // Apply the same pitch transform as note events so a held note's
+          // pressure follows it to its transposed/remapped pitch.
           const originalNote = event.note ?? event.noteNumber;
           let currentNote = originalNote;
 
@@ -233,10 +240,18 @@ class MidiTransposer {
               newEvent.noteNumber = currentNote;
             }
           }
-        } else if (event.type === 'controlChange' || event.type === 'cc') {
-          // Step 5: CC remapping / suppression (inline, same pass)
+        } else if (
+          event.type === 'controller' ||
+          event.type === 'controlChange' ||
+          event.type === 'cc'
+        ) {
+          // Step 5: CC remapping / suppression (inline, same pass).
+          // The `midi-file` parser emits `type:'controller'` with the CC
+          // number in `controllerType`; `controlChange`/`cc` +
+          // `controllerNumber`/`controller`/`cc` are kept for any legacy shape.
           if (transposition.ccMapping) {
-            const cc = event.controllerNumber ?? event.controller ?? event.cc;
+            const cc =
+              event.controllerType ?? event.controllerNumber ?? event.controller ?? event.cc;
             const targetCC = transposition.ccMapping[cc];
             if (targetCC !== undefined) {
               if (targetCC === -1) {
@@ -248,6 +263,7 @@ class MidiTransposer {
                 newEvent = { ...event };
                 eventModified = true;
               }
+              if (newEvent.controllerType !== undefined) newEvent.controllerType = targetCC;
               if (newEvent.controllerNumber !== undefined) newEvent.controllerNumber = targetCC;
               if (newEvent.controller !== undefined) newEvent.controller = targetCC;
               if (newEvent.cc !== undefined) newEvent.cc = targetCC;
@@ -262,13 +278,31 @@ class MidiTransposer {
         }
       }
 
-      // Remove suppressed/dropped events (in reverse order to preserve indices)
+      // Remove suppressed/dropped events, carrying each removed event's
+      // deltaTime onto the next SURVIVING event so the timeline of the rest of
+      // the track is preserved. A plain splice drops the tick gap the event
+      // occupied, shifting every later event earlier and cumulatively
+      // desyncing the channel (audit P1-1).
       if (eventsToRemove.length > 0) {
-        // Deduplicate and sort descending
-        const uniqueRemove = [...new Set(eventsToRemove)].sort((a, b) => b - a);
-        for (const idx of uniqueRemove) {
-          track.events.splice(idx, 1);
+        const removeSet = new Set(eventsToRemove);
+        const kept = [];
+        let carriedDelta = 0;
+        for (let j = 0; j < track.events.length; j++) {
+          if (removeSet.has(j)) {
+            carriedDelta += track.events[j].deltaTime || 0;
+            continue;
+          }
+          if (carriedDelta > 0) {
+            const ev = track.events[j];
+            // Clone so we never mutate a shared/original event object.
+            track.events[j] = { ...ev, deltaTime: (ev.deltaTime || 0) + carriedDelta };
+            carriedDelta = 0;
+          }
+          kept.push(track.events[j]);
         }
+        // Any deltaTime trailing after the last surviving event is simply
+        // dropped — there is nothing after it to shift.
+        track.events = kept;
       }
     }
 

@@ -878,7 +878,10 @@ class FileManager {
         if (connectedDeviceIds && !connectedDeviceIds.has(r.device_id)) return false;
         return true;
       });
-      const routedCount = enabledRoutings.length;
+      // Count DISTINCT channels, not routing rows: a split channel persists as
+      // several rows sharing the same `channel`, so `.length` over-counts and a
+      // file with an unrouted channel would show as fully playable (audit P1-7).
+      const routedCount = new Set(enabledRoutings.map((r) => r.channel)).size;
 
       if (routedCount > 0 && routedCount < effectiveChannelCount) {
         routingStatus = 'partial';

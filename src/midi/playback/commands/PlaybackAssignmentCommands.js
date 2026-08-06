@@ -289,6 +289,9 @@ async function applyAssignments(app, data) {
       stats.notesChanged > 0 ||
       stats.notesRemapped > 0 ||
       stats.notesSuppressed > 0 ||
+      stats.notesDropped > 0 ||
+      stats.notesShortened > 0 ||
+      stats.ccsRemapped > 0 ||
       splitStats.channelsSplit > 0 ||
       volumeEventsInjected > 0;
 

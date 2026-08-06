@@ -23,13 +23,70 @@ class ChannelAnalyzer {
   }
 
   /**
+   * Derive `{ tempo (BPM), duration (seconds) }` from a parsed MIDI object
+   * when the converters didn't attach them. `JsonMidiConverter.midiToJson`
+   * returns only `{header, tracks}`, so without this `density` is always 0
+   * (every channel looks sparse) and the timing-speed penalty always assumes
+   * 120 BPM regardless of the file's real tempo (audit P1-4 / P1-5). Uses the
+   * first `setTempo` only — an approximation that is ample for note density.
+   * @param {Object} midiData
+   * @returns {{tempo:number, duration:number}}
+   * @private
+   */
+  _deriveTiming(midiData) {
+    const ticksPerBeat = midiData?.header?.ticksPerBeat || 480;
+    let microsPerBeat = 500000; // 120 BPM until the first setTempo
+    let foundTempo = false;
+    let maxAbsTicks = 0;
+    if (Array.isArray(midiData?.tracks)) {
+      for (const track of midiData.tracks) {
+        if (!track?.events) continue;
+        let absTicks = 0;
+        for (const ev of track.events) {
+          absTicks += ev.deltaTime || 0;
+          if (!foundTempo && ev.type === 'setTempo' && ev.microsecondsPerBeat > 0) {
+            microsPerBeat = ev.microsecondsPerBeat;
+            foundTempo = true;
+          }
+        }
+        if (absTicks > maxAbsTicks) maxAbsTicks = absTicks;
+      }
+    }
+    const beats = ticksPerBeat > 0 ? maxAbsTicks / ticksPerBeat : 0;
+    return {
+      tempo: Math.round(60000000 / microsPerBeat),
+      duration: beats * (microsPerBeat / 1000000)
+    };
+  }
+
+  /**
+   * Return `midiData` guaranteed to carry `.tempo` (BPM) and `.duration`
+   * (seconds). Idempotent: returns the input untouched when both are already
+   * present, else a shallow clone with the derived values so the caller's
+   * object is never mutated.
+   * @param {Object} midiData
+   * @returns {Object}
+   * @private
+   */
+  _withDerivedTiming(midiData) {
+    if (!midiData || (midiData.tempo != null && midiData.duration != null)) return midiData;
+    const derived = this._deriveTiming(midiData);
+    return {
+      ...midiData,
+      tempo: midiData.tempo != null ? midiData.tempo : derived.tempo,
+      duration: midiData.duration != null ? midiData.duration : derived.duration
+    };
+  }
+
+  /**
    * Analyzes all active channels in a MIDI file
    * @param {Object} midiData - Parsed MIDI file
    * @returns {Array<ChannelAnalysis>}
    */
   analyzeAllChannels(midiData) {
-    const activeChannels = this.extractActiveChannels(midiData);
-    return activeChannels.map((channel) => this.analyzeChannel(midiData, channel));
+    const md = this._withDerivedTiming(midiData);
+    const activeChannels = this.extractActiveChannels(md);
+    return activeChannels.map((channel) => this.analyzeChannel(md, channel));
   }
 
   /**
@@ -64,6 +121,9 @@ class ChannelAnalyzer {
    * @returns {ChannelAnalysis}
    */
   analyzeChannel(midiData, channel) {
+    // Ensure tempo/duration are present even when called directly (single-channel
+    // analyze_channel path) — idempotent when analyzeAllChannels already derived.
+    midiData = this._withDerivedTiming(midiData);
     const events = this.getChannelEvents(midiData, channel);
     const noteEvents = events.filter((e) => e.type === 'noteOn' || e.type === 'noteOff');
 
