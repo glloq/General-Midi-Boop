@@ -120,6 +120,11 @@ class PlaybackScheduler {
     // Count of noteOns dropped by a constraint, per (device:channel:note),
     // so the matching noteOff can be suppressed exactly once.
     this._droppedNoteOns = new Map(); // key: "device:channel:note" -> count
+    // Monotonic instance id per (device:channel:note), bumped on every accepted
+    // noteOn. A DEFERRED noteOff (min_note_duration) captures the instance and
+    // only fires if it still matches — so a fast same-pitch retrigger within the
+    // defer window isn't cut short by the previous note's late release (P2 axis6-5).
+    this._noteInstance = new Map(); // key: "device:channel:note" -> instance id
 
     // Per-playback timing observability (see getTimingMetrics).
     this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
@@ -171,6 +176,7 @@ class PlaybackScheduler {
     this._activeNotes.clear();
     this._noteOnTimes.clear();
     this._droppedNoteOns.clear();
+    this._noteInstance.clear();
     this._handWarnings = null;
     this._maxHandShiftMs = 0;
     this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
@@ -193,6 +199,7 @@ class PlaybackScheduler {
     this._lastNoteOnTime.clear();
     this._noteOnTimes.clear();
     this._droppedNoteOns.clear();
+    this._noteInstance.clear();
   }
 
   /**
@@ -394,6 +401,9 @@ class PlaybackScheduler {
     counts.set(note, (counts.get(note) || 0) + 1);
     this._lastNoteOnTime.set(noteKey, now); // per-pitch retrigger guard
     this._noteOnTimes.set(noteKey, now);
+    // New sounding instance of this pitch — supersedes any deferred noteOff
+    // still pending from a previous note on the same pitch (axis6-5).
+    this._noteInstance.set(noteKey, (this._noteInstance.get(noteKey) || 0) + 1);
 
     return false; // Allow
   }
@@ -1091,7 +1101,16 @@ class PlaybackScheduler {
     if (deferMs <= EMIT_AHEAD_MS) {
       return send();
     }
-    this._emit(deferMs, send);
+    // Defer to honour min_note_duration, but bind the release to THIS note
+    // instance: if the same pitch is re-struck before the timer fires, a newer
+    // instance id is recorded and this stale release is skipped so it doesn't
+    // cut the retriggered note short — its own noteOff releases it (axis6-5).
+    const noteKey = `${deviceId}:${channel}:${note}`;
+    const instance = this._noteInstance.get(noteKey);
+    this._emit(deferMs, () => {
+      if (this._noteInstance.get(noteKey) !== instance) return;
+      send();
+    });
     return { status: SEND_STATUS.QUEUED };
   }
 

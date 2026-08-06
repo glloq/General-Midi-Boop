@@ -155,37 +155,42 @@ class MidiTransposer {
               event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
 
             if (!activeNotesPerChannel.has(channel)) {
-              activeNotesPerChannel.set(channel, new Map());
-              droppedNotesPerChannel.set(channel, new Set());
+              // Track active voices as a LIST ({note,index}) so simultaneous
+              // same-pitch notes each count toward polyphony, and dropped notes
+              // as a per-note COUNT so each dropped voice's note-off is swallowed
+              // exactly once. The previous Map<note,index> + Set under-counted
+              // unison and could strand a note-off across two drop episodes on
+              // one pitch (audit P2-10).
+              activeNotesPerChannel.set(channel, []); // Array<{ note, index }>
+              droppedNotesPerChannel.set(channel, new Map()); // note -> dropped count
             }
-            const activeNotes = activeNotesPerChannel.get(channel);
+            const activeVoices = activeNotesPerChannel.get(channel);
             const droppedNotes = droppedNotesPerChannel.get(channel);
 
             if (isNoteOn) {
-              activeNotes.set(finalNote, i);
+              activeVoices.push({ note: finalNote, index: i });
 
-              if (activeNotes.size > transposition.maxPolyphony) {
-                // Sort by note number, drop inner voices (keep lowest + highest)
-                const noteEntries = [...activeNotes.entries()].sort((a, b) => a[0] - b[0]);
-                while (noteEntries.length > transposition.maxPolyphony) {
-                  const midIdx = Math.floor(noteEntries.length / 2);
-                  const [droppedNote, droppedIdx] = noteEntries[midIdx];
-                  eventsToRemove.push(droppedIdx);
-                  activeNotes.delete(droppedNote);
-                  droppedNotes.add(droppedNote);
-                  noteEntries.splice(midIdx, 1);
-                  notesDropped++;
-                }
+              // Over the polyphony cap → drop inner voices (keep lowest + highest).
+              while (activeVoices.length > transposition.maxPolyphony) {
+                const sorted = [...activeVoices].sort((a, b) => a.note - b.note);
+                const victim = sorted[Math.floor(sorted.length / 2)];
+                const vi = activeVoices.indexOf(victim);
+                if (vi >= 0) activeVoices.splice(vi, 1);
+                eventsToRemove.push(victim.index);
+                droppedNotes.set(victim.note, (droppedNotes.get(victim.note) || 0) + 1);
+                notesDropped++;
               }
             } else if (isNoteOff) {
-              if (droppedNotes.has(finalNote)) {
-                // Matching noteOff for a dropped noteOn — remove it too
+              const droppedCount = droppedNotes.get(finalNote) || 0;
+              if (droppedCount > 0) {
+                // Matching noteOff for a dropped noteOn — remove it too.
+                droppedNotes.set(finalNote, droppedCount - 1);
                 eventsToRemove.push(i);
-                droppedNotes.delete(finalNote);
                 continue;
-              } else {
-                activeNotes.delete(finalNote);
               }
+              // Release one active voice of this pitch.
+              const ai = activeVoices.findIndex((v) => v.note === finalNote);
+              if (ai >= 0) activeVoices.splice(ai, 1);
             }
           }
         } else if (

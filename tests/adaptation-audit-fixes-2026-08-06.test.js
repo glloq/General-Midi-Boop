@@ -157,6 +157,33 @@ describe('P1-4 / P1-5 · tempo & duration are derived when the converter omits t
   });
 });
 
+describe('P2-10 · Polyphony drop counts unison voices and pairs each dropped note-off', () => {
+  const t = new MidiTransposer(mockLogger);
+
+  test('two unison notes over a 1-voice cap drop exactly one voice, leaving one paired note', () => {
+    const midiData = {
+      header,
+      tracks: [
+        {
+          events: [
+            { type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100, deltaTime: 0 },
+            { type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100, deltaTime: 0 }, // unison
+            { type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0, deltaTime: 100 },
+            { type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0, deltaTime: 100 }
+          ]
+        }
+      ]
+    };
+    // Old Map<note,index> keyed by pitch → the two unison note-ons collapsed to
+    // one, polyphony under-counted, nothing dropped. Now each voice counts.
+    const res = t.transposeChannels(midiData, { 0: { maxPolyphony: 1 } });
+    expect(res.stats.notesDropped).toBe(1);
+    const evs = res.midiData.tracks[0].events;
+    expect(evs.filter((e) => e.type === 'noteOn')).toHaveLength(1);
+    expect(evs.filter((e) => e.type === 'noteOff')).toHaveLength(1);
+  });
+});
+
 describe('P1-9 · Default drumFallback substitutes nice-to-have percussion (no silent drop)', () => {
   const mapper = new DrumNoteMapper(mockLogger);
   const drumNote = (n, v = 80) => ({

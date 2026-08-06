@@ -184,3 +184,57 @@ describe('PlaybackScheduler — controller reset on backward seek/loop (audit ax
     });
   });
 });
+
+describe('PlaybackScheduler — deferred note-off is bound to its note instance (audit axis6-5)', () => {
+  test('a deferred note-off is skipped when the pitch was re-struck before it fires', (done) => {
+    const app = makeApp();
+    const scheduler = new PlaybackScheduler(app);
+    scheduler._noteOffDeferMs = () => 40; // force a real deferral
+    const sends = [];
+    scheduler._send = (deviceId, type, data) => {
+      sends.push({ deviceId, type, data });
+      return { status: 'sent' };
+    };
+
+    const key = 'd:0:60';
+    scheduler._noteInstance.set(key, 1);
+    scheduler._sendNoteOff('d', 0, 60, 0); // captures instance 1, defers
+    scheduler._noteInstance.set(key, 2); // retrigger → new instance supersedes it
+
+    setTimeout(() => {
+      try {
+        expect(sends).toHaveLength(0); // stale release must NOT have fired
+        scheduler.stopScheduler();
+        done();
+      } catch (e) {
+        scheduler.stopScheduler();
+        done(e);
+      }
+    }, 90);
+  });
+
+  test('a deferred note-off fires normally when the pitch is not re-struck', (done) => {
+    const app = makeApp();
+    const scheduler = new PlaybackScheduler(app);
+    scheduler._noteOffDeferMs = () => 40;
+    const sends = [];
+    scheduler._send = (deviceId, type, data) => {
+      sends.push({ deviceId, type, data });
+      return { status: 'sent' };
+    };
+
+    scheduler._noteInstance.set('d:0:60', 1);
+    scheduler._sendNoteOff('d', 0, 60, 0); // not re-struck
+
+    setTimeout(() => {
+      try {
+        expect(sends).toHaveLength(1);
+        scheduler.stopScheduler();
+        done();
+      } catch (e) {
+        scheduler.stopScheduler();
+        done(e);
+      }
+    }, 90);
+  });
+});
