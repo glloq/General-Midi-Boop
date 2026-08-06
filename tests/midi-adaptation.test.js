@@ -357,14 +357,22 @@ describe('InstrumentMatcher', () => {
     expect(result.semitones).toBe(24);
   });
 
-  test('incompatible when span too wide', () => {
+  test('too-wide span is playable with octave wrapping (partial score), not rejected', () => {
     const result = matcher.scoreNoteCompatibility(
       { min: 24, max: 96 }, // 72 semitone span
       { min: 48, max: 72, mode: 'continuous', selected: null } // 24 semitone span
     );
 
-    expect(result.compatible).toBe(false);
-    expect(result.score).toBe(0);
+    // Was 0/incompatible; the engine can octave-fold these notes at playback, so
+    // it is now scored "playable with adaptation" (partial) instead of rejected,
+    // which also makes the channel a split candidate (audit P1-10 / P2-4).
+    expect(result.compatible).toBe(true);
+    expect(result.score).toBeGreaterThan(0);
+    // Partial, not a perfect fit.
+    expect(result.score).toBeLessThan(matcher.config.getBonus('perfectNoteRange'));
+    // The previously-dead octave-wrapping payload is now populated.
+    expect(result.octaveWrapping).not.toBeNull();
+    expect(result.octaveWrappingEnabled).toBe(true);
   });
 
   test('polyphony scoring tiers', () => {

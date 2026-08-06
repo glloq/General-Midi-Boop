@@ -244,6 +244,24 @@ describe('P2-6 · Type score uses the heuristic type for a channel with no Progr
   });
 });
 
+describe('P1-10 / P2-4 · Wide channel scored via octave wrapping (assignable, not rejected)', () => {
+  const m = new InstrumentMatcher(mockLogger);
+
+  test('a channel wider than the instrument is compatible with a partial score + wrapping map', () => {
+    const res = m.scoreNoteCompatibility(
+      { min: 36, max: 84 }, // 48-semitone span
+      { min: 55, max: 79, mode: 'continuous', selected: null } // 24-semitone span
+    );
+    // Was 0/incompatible; now "playable with adaptation".
+    expect(res.compatible).toBe(true);
+    expect(res.score).toBeGreaterThan(0);
+    expect(res.score).toBeLessThan(m.config.getBonus('perfectNoteRange'));
+    // P2-4: the octave-wrapping payload is populated (was always null before).
+    expect(res.octaveWrapping).not.toBeNull();
+    expect(res.octaveWrappingEnabled).toBe(true);
+  });
+});
+
 describe('P2-7 · Hand-feasibility reads num_fingers, not only max_fingers / 5-per-hand', () => {
   const m = new InstrumentMatcher(mockLogger);
 

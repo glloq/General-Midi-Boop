@@ -496,16 +496,14 @@ class InstrumentMatcher {
 
     const instSpan = instrumentCaps.max - instrumentCaps.min;
 
-    // The channel span is too wide for the instrument
+    // The channel span is too wide to fit the instrument even after an octave
+    // shift. Rather than reject a capable instrument outright, score it as
+    // "playable with octave wrapping" (partial, by the fraction of notes that
+    // land in range after a best-effort shift + wrap). Being below the
+    // acceptable threshold, the channel also becomes a split candidate, so the
+    // assigner can prefer a multi-instrument split (audit P1-10 / P2-4).
     if (span > instSpan) {
-      return {
-        compatible: false,
-        score: 0,
-        issue: {
-          type: 'error',
-          message: `Note span too wide (${span} vs ${instSpan} semitones)`
-        }
-      };
+      return this._scoreBestEffortWrapping(channelRange, instrumentCaps, channelAnalysis);
     }
 
     // Calculate optimal octave transposition
@@ -520,14 +518,11 @@ class InstrumentMatcher {
     }
 
     if (!transposition.compatible) {
-      return {
-        compatible: false,
-        score: 0,
-        issue: {
-          type: 'error',
-          message: transposition.reason
-        }
-      };
+      // No octave (or transposing-instrument) shift fits every note. Fall back
+      // to a best-effort center shift + octave wrapping and score by playable
+      // ratio, so the instrument stays assignable and split-eligible instead of
+      // being discarded (audit P1-10 / P2-4).
+      return this._scoreBestEffortWrapping(channelRange, instrumentCaps, channelAnalysis);
     }
 
     // Score based on transposition (use config bonuses/penalties)
@@ -601,6 +596,74 @@ class InstrumentMatcher {
       octaveWrappingInfo: wrapping.info,
       info,
       issues: issues.length > 0 ? issues : undefined
+    };
+  }
+
+  /**
+   * Best-effort note-range score for a channel that does NOT fully fit the
+   * instrument (span too wide, or no octave/transposing shift aligns the
+   * ranges). Applies a center-point octave shift, octave-wraps the notes still
+   * out of range (the same fold the playback engine performs), and scores by
+   * the fraction of notes that end up playable — so a capable instrument is
+   * offered "playable with adaptation" instead of being scored 0/incompatible
+   * (audit P1-10). Also populates the previously-dead octaveWrapping payload
+   * (audit P2-4). The low resulting score keeps the channel below the split
+   * threshold so a multi-instrument split is proposed and can be preferred.
+   *
+   * @param {Object} channelRange - { min, max }
+   * @param {Object} instrumentCaps - { min, max }
+   * @param {?Object} channelAnalysis - provides noteDistribution for the ratio.
+   * @returns {Object} Same shape as the compatible branch of scoreNoteCompatibility.
+   * @private
+   */
+  _scoreBestEffortWrapping(channelRange, instrumentCaps, channelAnalysis) {
+    const channelCenter = (channelRange.min + channelRange.max) / 2;
+    const instCenter = (instrumentCaps.min + instrumentCaps.max) / 2;
+    const octaves = Math.round((instCenter - channelCenter) / 12);
+    const semitones = octaves * 12;
+
+    const wrapping = this.calculateOctaveWrapping(channelRange, instrumentCaps, semitones);
+
+    // Fraction of the channel's notes that land in range after the shift, or
+    // that octave-wrapping can fold back in. Prefer the actual used-note
+    // histogram; fall back to the full contiguous range.
+    let usedNotes;
+    if (
+      channelAnalysis?.noteDistribution &&
+      Object.keys(channelAnalysis.noteDistribution).length > 0
+    ) {
+      usedNotes = Object.keys(channelAnalysis.noteDistribution).map(Number);
+    } else {
+      usedNotes = [];
+      for (let n = channelRange.min; n <= channelRange.max; n++) usedNotes.push(n);
+    }
+    const playableCount = usedNotes.filter((n) => {
+      const shifted = n + semitones;
+      if (shifted >= instrumentCaps.min && shifted <= instrumentCaps.max) return true;
+      return !!(wrapping.mapping && wrapping.mapping[shifted] !== undefined);
+    }).length;
+    const playableRatio = usedNotes.length > 0 ? playableCount / usedNotes.length : 0;
+
+    const perfectNoteScore = this.config.getBonus('perfectNoteRange');
+    const transpositionPenalty = this.config.getPenalty('transpositionPerOctave');
+    const shiftedBase = Math.max(0, perfectNoteScore - Math.abs(octaves) * transpositionPenalty);
+    const score = Math.round(shiftedBase * playableRatio);
+    const pct = Math.round(playableRatio * 100);
+
+    return {
+      compatible: true,
+      score,
+      transposition: { semitones, octaves },
+      octaveWrapping: wrapping.mapping,
+      octaveWrappingEnabled: wrapping.hasWrapping,
+      octaveWrappingInfo: wrapping.info,
+      info: `Playable with octave wrapping (${pct}% of notes playable after adaptation)`,
+      issues: [
+        {
+          type: playableRatio < 0.75 ? 'warning' : 'info',
+          message: `Channel exceeds the instrument range — ${pct}% of notes playable after octave wrapping; a split may preserve more.`
+        }
+      ]
     };
   }
 

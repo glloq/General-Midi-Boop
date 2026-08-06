@@ -69,6 +69,7 @@ mineurs/documentaires (P3).
 | Axe6-2 `setChannelRouting`/`NoteRemapping`/`SplitRouting` relâchent les notes tenues (panic) avant reconfig | ✅ corrigé | couvert par CI |
 | Axe6-4 reset des contrôleurs (CC121) sur seek arrière/boucle → plus de sustain périmé | ✅ corrigé | `playback-scheduler-route-to` |
 | P2-7 (partiel) faisabilité : `num_fingers` lu en frettes (fallback) et par main en semitones | ✅ corrigé (#1/#3) | `adaptation-audit-fixes-2026-08-06` |
+| P1-10 + P2-4 canal large/non-octave scoré « jouable avec wrapping » (partiel) + payload octave-wrapping peuplé, et rendu candidat au split | ✅ corrigé | `midi-adaptation`, `adaptation-audit-fixes-2026-08-06` |
 
 **Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
 seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
@@ -79,11 +80,11 @@ tests SQLite exécutables.
 
 **Différés avec justification** (risque/valeur défavorable dans cette itération) :
 
-- **P1-10 + P2-4** — refonte du **cœur du scoring note-range** (les deux hard-rejects
-  `span>instSpan` et « aucun shift octave »). Rescorer via octave-wrapping change *quel
-  instrument est auto-assigné* et la pénalité à appliquer (le wrapping crée des doublons de
-  notes) est un **choix de design** à valider contre de vrais fichiers ; risque de régression
-  élevé sur le scoring. À faire dédié.
+- **P1-10 + P2-4** — ✅ **corrigé** (décision : *score partiel via ratio jouable + préférer un
+  split*). Les canaux trop larges / non-octave sont désormais scorés « jouables avec octave-
+  wrapping » (score ∝ fraction de notes jouables après repli) au lieu de 0/incompatible ; le
+  payload `octaveWrapping` est peuplé ; et un canal assigné via wrapping devient **candidat au
+  split** (`evaluateChannelSplits`) pour qu'un split multi-instruments soit proposé et préféré.
 - **P2-1** — ajouter des schémas déclaratifs pour `apply_assignments`/`analyze_channel`/… ferait
   passer le message d'erreur du handler (`"originalFileId is required"`) au format **préfixé**
   du pipeline (`"Invalid apply_assignments data: …"`), divergeant des fixtures de contrat
