@@ -720,13 +720,20 @@ class PlaybackScheduler {
     const isNoteEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
     const note = isNoteEvent ? (event.note ?? null) : null;
+    // A velocity-0 note-on is a logical note-off — route it as such so stateful
+    // split strategies pop instead of push (mirror of scheduleEvent, axis6-1).
+    const logicalNoteType = isNoteEvent
+      ? event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) === 0
+        ? MIDI_EVENT_TYPES.NOTE_OFF
+        : event.type
+      : null;
     // Reuse a routing already resolved by scheduleEvent when provided, so the
     // stateful split lookup runs exactly once per event (audit P1). Callers
     // that omit it (direct/test invocations) still resolve it here.
     const routing =
       precomputedRouting !== undefined
         ? precomputedRouting
-        : getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
+        : getOutputForChannel(event.channel, note, logicalNoteType);
 
     // Handle broadcast for split routing (non-note events go to all segments)
     if (Array.isArray(routing)) {

@@ -646,12 +646,23 @@ class InstrumentMatcher {
 
     const perfectNoteScore = this.config.getBonus('perfectNoteRange');
     const transpositionPenalty = this.config.getPenalty('transpositionPerOctave');
-    const shiftedBase = Math.max(0, perfectNoteScore - Math.abs(octaves) * transpositionPenalty);
+    // Octave wrapping is inherently lossy — it folds octaves together, collapsing
+    // distinct pitches to unisons and flattening contour — so a best-effort wrap
+    // must score strictly BELOW any clean fit. The compatible paths subtract a
+    // 5 (octave) / 6 (transposing) base; best-effort subtracts more (WRAP_PENALTY)
+    // before scaling by the playable fraction, so a faithful transpose always
+    // out-ranks a lossy wrap for the same channel (audit review: score inflation).
+    const WRAP_PENALTY = 10;
+    const shiftedBase = Math.max(
+      0,
+      perfectNoteScore - WRAP_PENALTY - Math.abs(octaves) * transpositionPenalty
+    );
     const score = Math.round(shiftedBase * playableRatio);
     const pct = Math.round(playableRatio * 100);
 
     return {
-      compatible: true,
+      // Not compatible when nothing is playable even after wrapping.
+      compatible: playableRatio > 0,
       score,
       transposition: { semitones, octaves },
       octaveWrapping: wrapping.mapping,
@@ -1173,7 +1184,15 @@ class InstrumentMatcher {
     };
 
     const acceptableTypes = typeMapping[channelTypeStr];
-    if (acceptableTypes && acceptableTypes.includes(instTypeStr)) {
+    if (!acceptableTypes) {
+      // The legacy map is keyed by category-ish names and has no `melody` /
+      // `harmony` key; a channel whose only signal is a generic `melody`/
+      // `harmony` type (e.g. no Program Change) is therefore undeterminable
+      // here — return neutral rather than a false 0 mismatch (audit review:
+      // the P2-6 fix must not regress melody/harmony below the old neutral).
+      return { score: Math.round(maxScore * 0.5), info: 'Instrument type not determined' };
+    }
+    if (acceptableTypes.includes(instTypeStr)) {
       const index = acceptableTypes.indexOf(instTypeStr);
       const score = index === 0 ? Math.round(maxScore * 0.5) : Math.round(maxScore * 0.35);
       return {

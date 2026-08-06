@@ -58,9 +58,11 @@ class MidiTransposer {
       if (!track.events) continue;
 
       const eventsToRemove = [];
-      // Per-channel polyphony tracking: channel -> Map(note -> eventIndex)
+      // Per-channel active voices: channel -> Array<{note, index}> (a list so
+      // simultaneous same-pitch notes each count toward polyphony).
       const activeNotesPerChannel = new Map();
-      // Track dropped noteOn notes to also remove their matching noteOff
+      // Dropped noteOns per channel: channel -> Map(note -> count), so each
+      // dropped voice's matching noteOff is removed exactly once.
       const droppedNotesPerChannel = new Map();
 
       for (let i = 0; i < track.events.length; i++) {

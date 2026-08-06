@@ -369,18 +369,20 @@ async function applyAssignments(app, data) {
   const failedChannels = [];
   const targetFileId = adaptedFileId || data.originalFileId;
 
-  // Re-apply replaces this file's whole auto-assigned routing set. Clear the
-  // target file's existing rows first so that (a) switching a channel from
+  // Re-apply replaces this file's ACTIVE auto-assigned routing set. Clear only
+  // the enabled auto-assigned rows first so that (a) switching a channel from
   // split→single doesn't leave orphan split rows behind — the non-split upsert's
   // partial index only matches `split_mode IS NULL`, so it can't overwrite a
   // split row — and (b) a channel removed from the selection doesn't keep a
-  // stale routing (audit P1-6). A freshly created adapted file has no rows yet,
-  // so this is a no-op there. NOTE: the writes below are not yet wrapped in a
-  // single transaction (saveSplit opens its own), so a mid-loop insert failure
-  // is surfaced via `failedChannels` rather than rolled back — full atomicity
-  // is a follow-up (audit P1-8).
+  // stale routing (audit P1-6). Scoping to `enabled=1 AND auto_assigned=1`
+  // preserves manual routings and disabled offline-preserved ones (audit review:
+  // a blanket delete destroyed both, incl. the P2-3 offline-preserved routing).
+  // A freshly created adapted file has no rows yet, so this is a no-op there.
+  // NOTE: the writes below are not yet wrapped in a single transaction
+  // (saveSplit opens its own), so a mid-loop insert failure is surfaced via
+  // `failedChannels` rather than rolled back — full atomicity is a follow-up (P1-8).
   try {
-    app.routingRepository.deleteByFileId(targetFileId);
+    app.routingRepository.deleteActiveAutoByFileId(targetFileId);
   } catch (delErr) {
     app.logger.warn(`Failed to clear prior routings for file ${targetFileId}: ${delErr.message}`);
   }
@@ -443,19 +445,25 @@ async function applyAssignments(app, data) {
           };
           try {
             app.routingRepository.save(routing);
-            if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
-              app.midiPlayer.setChannelRouting(resolvedCh, seg.deviceId, segTargetChannel);
-              if (typeof app.midiPlayer.setChannelTransposition === 'function') {
-                app.midiPlayer.setChannelTransposition(resolvedCh, runtimeSemitones(assignment));
-              }
-            }
             // Only record a routing the DB actually accepted (audit P1-8).
             routings.push(routing);
+            // Live player update is best-effort — a setter throwing must not turn
+            // a persisted routing into a reported failure (audit review).
+            try {
+              if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
+                app.midiPlayer.setChannelRouting(resolvedCh, seg.deviceId, segTargetChannel);
+                if (typeof app.midiPlayer.setChannelTransposition === 'function') {
+                  app.midiPlayer.setChannelTransposition(resolvedCh, runtimeSemitones(assignment));
+                }
+              }
+            } catch (playerErr) {
+              app.logger.warn(`Live routing update failed for ch ${resolvedCh}: ${playerErr.message}`);
+            }
           } catch (dbError) {
             app.logger.warn(
               `Failed to persist routing for split segment ch ${resolvedCh}: ${dbError.message}`
             );
-            failedChannels.push(resolvedCh);
+            failedChannels.push(channelNum);
           }
         }
         app.logger.info(
@@ -496,16 +504,23 @@ async function applyAssignments(app, data) {
 
         try {
           app.routingRepository.saveSplit(targetFileId, channelNum, segments);
-          if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
-            app.midiPlayer.setChannelSplitRouting(channelNum, segments);
-            if (typeof app.midiPlayer.setChannelTransposition === 'function') {
-              app.midiPlayer.setChannelTransposition(channelNum, runtimeSemitones(assignment));
-            }
-          }
           // Only record routings the DB actually accepted (audit P1-8).
           routings.push(
             ...segments.map((s) => ({ ...s, midi_file_id: targetFileId, channel: channelNum }))
           );
+          // Live player update is best-effort (audit review).
+          try {
+            if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
+              app.midiPlayer.setChannelSplitRouting(channelNum, segments);
+              if (typeof app.midiPlayer.setChannelTransposition === 'function') {
+                app.midiPlayer.setChannelTransposition(channelNum, runtimeSemitones(assignment));
+              }
+            }
+          } catch (playerErr) {
+            app.logger.warn(
+              `Live split-routing update failed for ch ${channelNum}: ${playerErr.message}`
+            );
+          }
         } catch (dbError) {
           app.logger.warn(
             `Failed to persist split routings for channel ${channelNum}: ${dbError.message}`
@@ -547,20 +562,26 @@ async function applyAssignments(app, data) {
 
     try {
       app.routingRepository.save(routing);
-      if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
-        app.midiPlayer.setChannelRouting(channelNum, assignment.deviceId, instrumentTargetChannel);
-        if (typeof app.midiPlayer.setChannelTransposition === 'function') {
-          app.midiPlayer.setChannelTransposition(channelNum, runtimeSemitones(assignment));
-        }
-        if (typeof app.midiPlayer.setChannelNoteRemapping === 'function') {
-          app.midiPlayer.setChannelNoteRemapping(
-            channelNum,
-            adaptationBaked ? null : assignment.noteRemapping || null
-          );
-        }
-      }
       // Only record a routing the DB actually accepted (audit P1-8).
       routings.push(routing);
+      // Live player update is best-effort — must not turn a persisted routing
+      // into a reported failure (audit review).
+      try {
+        if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
+          app.midiPlayer.setChannelRouting(channelNum, assignment.deviceId, instrumentTargetChannel);
+          if (typeof app.midiPlayer.setChannelTransposition === 'function') {
+            app.midiPlayer.setChannelTransposition(channelNum, runtimeSemitones(assignment));
+          }
+          if (typeof app.midiPlayer.setChannelNoteRemapping === 'function') {
+            app.midiPlayer.setChannelNoteRemapping(
+              channelNum,
+              adaptationBaked ? null : assignment.noteRemapping || null
+            );
+          }
+        }
+      } catch (playerErr) {
+        app.logger.warn(`Live routing update failed for ch ${channelNum}: ${playerErr.message}`);
+      }
     } catch (dbError) {
       app.logger.warn(`Failed to persist routing for channel ${channelNum}: ${dbError.message}`);
       failedChannels.push(channelNum);

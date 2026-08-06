@@ -318,6 +318,28 @@ class RoutingPersistenceDB {
   }
 
   /**
+   * Delete only the ACTIVE (enabled) auto-assigned routings for a file.
+   * Used by apply_assignments to make re-apply idempotent (clears the previous
+   * auto-assign set, including its split rows) WITHOUT wiping manual routings
+   * (auto_assigned = 0) or disabled offline-preserved routings (enabled = 0)
+   * (audit review: a blanket delete destroyed both).
+   * @param {number} fileId
+   */
+  deleteActiveAutoRoutingsByFile(fileId) {
+    try {
+      this.db
+        .prepare(
+          'DELETE FROM midi_instrument_routings WHERE midi_file_id = ? AND enabled = 1 AND auto_assigned = 1'
+        )
+        .run(fileId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to delete active auto routings for file ${fileId}: ${error.message}`
+      );
+    }
+  }
+
+  /**
    * Delete only the non-split routings for a MIDI file. Split routings
    * are owned by the auto-assigner / routing modal and must survive the
    * editor's simple channel→device sync (regression: a single channel

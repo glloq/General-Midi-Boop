@@ -287,6 +287,33 @@ describe('P1-10 / P2-4 · Wide channel scored via octave wrapping (assignable, n
     expect(res.octaveWrapping).not.toBeNull();
     expect(res.octaveWrappingEnabled).toBe(true);
   });
+
+  test('a lossy octave-wrap fit scores strictly BELOW a clean transposing fit (review: no inflation)', () => {
+    const channel = { min: 60, max: 83 }; // 2-octave span
+    const cleanFit = { min: 48, max: 71, mode: 'continuous', selected: null }; // span 23 → clean −1 octave
+    const wrapFit = { min: 66, max: 77, mode: 'continuous', selected: null }; // span 11 → needs wrapping
+    const clean = m.scoreNoteCompatibility(channel, cleanFit);
+    const wrap = m.scoreNoteCompatibility(channel, wrapFit);
+    expect(clean.compatible).toBe(true);
+    expect(wrap.compatible).toBe(true);
+    // Before the review fix the wrap fit reached 40 and out-scored the clean fit.
+    expect(wrap.score).toBeLessThan(clean.score);
+  });
+});
+
+describe('Review fix · P2-6 must not regress melody/harmony channels below the old neutral', () => {
+  const m = new InstrumentMatcher(mockLogger);
+
+  test('a melody channel with no Program Change gets the neutral type score, not 0', () => {
+    const res = m.scoreInstrumentType(
+      { category: 'unknown', categorySubtype: null, type: 'melody' },
+      { category: 'unknown', subtype: null, type: 'melody' }
+    );
+    // 'melody'/'harmony' are not keys in the legacy typeMapping → undeterminable
+    // → neutral (maxScore*0.5), not a false 0 mismatch.
+    expect(res.score).toBe(Math.round(m.config.getWeight('instrumentType') * 0.5));
+    expect(res.info).toBe('Instrument type not determined');
+  });
 });
 
 describe('P2-7 · Hand-feasibility reads num_fingers, not only max_fingers / 5-per-hand', () => {

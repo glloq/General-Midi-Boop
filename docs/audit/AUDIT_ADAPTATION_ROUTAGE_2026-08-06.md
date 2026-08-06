@@ -75,12 +75,21 @@ mineurs/documentaires (P3).
 | Axe6-6 compensation relative `MidiRouter` figée au note-on et réutilisée au note-off (plus de réordonnancement off-avant-on) | ✅ corrigé | `midi-router-capability-clamp` |
 | Axe6-3 clamp live : skip-batterie clé sur le canal **source** (parité playback) — décision : canal source | ✅ corrigé | `midi-router-capability-clamp` |
 
-**Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
-seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
-échec d'insertion en cours de boucle est donc *remonté* (`failedChannels`) plutôt que
-*annulé*. L'atomicité complète (refactor `saveSplit` en savepoints + transaction englobante,
-suppression de l'orphelin `adaptedFile` en cas d'échec) reste un follow-up, à faire avec les
-tests SQLite exécutables.
+**Réserve P1-6/P1-8** : la purge de ré-apply est scopée à `enabled=1 AND auto_assigned=1`
+(`deleteActiveAutoByFileId`) — elle préserve les routages **manuels** et **désactivés hors-ligne**
+(P2-3). Les écritures ne sont toujours pas dans **une seule** transaction (`saveSplit` ouvre déjà
+la sienne — better-sqlite3 n'imbrique pas) : un échec en cours de boucle est *remonté*
+(`failedChannels`) plutôt qu'*annulé*. L'atomicité complète (savepoints + transaction englobante,
+nettoyage de l'`adaptedFile` orphelin) reste un follow-up.
+
+**Revue adversariale post-implémentation** : les 26 correctifs ont été re-diffés par 4 agents de
+revue indépendants. Elle a confirmé la solidité de l'ensemble et attrapé, entre autres, **2 vrais
+bugs introduits** : (1) `_scoreBestEffortWrapping` pouvait *sur-scorer* un fit propre (pénalité de
+base −5/−6 oubliée) → pénalité de wrapping ajoutée ; (2) le `deleteByFileId` de ré-apply détruisait
+les routages manuels et le routage hors-ligne préservé par P2-3 → scopé aux lignes actives
+auto-assignées. Plus une régression P2-6 (melody/harmony scoré 0 au lieu du neutre) et 7 points
+mineurs (compatible@0%, reporting `failedChannels`, effets de bord live best-effort, panic de split
+idempotent, `sendEvent` type logique, commentaires). Tous corrigés + testés.
 
 **Différés avec justification** (risque/valeur défavorable dans cette itération) :
 
@@ -103,7 +112,7 @@ tests SQLite exécutables.
   `scale_length_mm` hors `hands_config` + conversion non-linéaire approximative), **P3**, et le
   reste de l'**axe 6** (Axe6-3/5/6).
 
-Suite backend complète verte après correctifs : **107 suites / 1254 tests**.
+Suite backend complète verte après correctifs (incl. revue) : **107 suites / 1272 tests**.
 
 ---
 
