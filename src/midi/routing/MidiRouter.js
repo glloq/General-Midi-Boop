@@ -85,6 +85,17 @@ class MidiRouter {
      */
     this._activeRoutedNotes = new Map();
 
+    /**
+     * @type {Map<string, number>} `${destination}|${channel}|${note}` → the
+     * relative compensation delay (ms) used for that note's note-on, reused for
+     * its note-off / poly-aftertouch. Without it, a mid-note change in maxComp
+     * (settings recalibration lowering the delay) could send the release with a
+     * SMALLER delay than its still-pending note-on and reorder them into a stuck
+     * note (audit axis6-6). Like `_activeRoutedNotes`, deliberately NOT cleared
+     * by `_onSettingsChanged` — a held note must keep its note-on delay.
+     */
+    this._activeRoutedComp = new Map();
+
     this._onSettingsChanged = () => {
       this._maxCompBySource.clear();
       this._instrumentNameByDevCh.clear();
@@ -297,11 +308,14 @@ class MidiRouter {
         // Apply channel mapping
         const mapped = this.applyChannelMap(msg, route.channelMap);
 
-        // Apply relative latency compensation: fast devices are delayed so all destinations sync
-        const compensation = this._getRelativeCompensation(
+        // Apply relative latency compensation: fast devices are delayed so all
+        // destinations sync. A note's release reuses the delay latched at its
+        // note-on so a mid-note recalibration can't reorder off before on.
+        const compensation = this._getStableCompensation(
           sourceDevice,
           route.destination,
-          mapped.channel
+          type,
+          mapped
         );
         if (compensation > 0) {
           const timeoutId = setTimeout(() => {
@@ -612,6 +626,47 @@ class MidiRouter {
     }
   }
 
+  /**
+   * Relative compensation for a message, stable across a note's lifetime: for a
+   * note-on the delay is computed and latched (keyed like the pitch latch); the
+   * matching note-off / poly-aftertouch reuses it, so a mid-note change in
+   * maxComp can't send the release with a smaller delay than its still-pending
+   * note-on and reorder them into a stuck note (audit axis6-6). Non-note
+   * messages compute fresh (no ordering constraint).
+   *
+   * @param {string} sourceDevice
+   * @param {string} destDevice
+   * @param {string} type
+   * @param {Object} mapped - Post-channel-map message (channel, note).
+   * @returns {number} Relative delay in ms (≥ 0).
+   * @private
+   */
+  _getStableCompensation(sourceDevice, destDevice, type, mapped) {
+    const isOn = type === DEVICE_MSG_TYPES.NOTE_ON;
+    const isOff = type === DEVICE_MSG_TYPES.NOTE_OFF;
+    const isAftertouch = type === DEVICE_MSG_TYPES.POLY_AFTERTOUCH;
+    if ((!isOn && !isOff && !isAftertouch) || !mapped || mapped.note == null) {
+      return this._getRelativeCompensation(sourceDevice, destDevice, mapped?.channel);
+    }
+
+    const key = `${destDevice}|${mapped.channel}|${mapped.note}`;
+
+    // Release / expression of a sounding note reuses the note-on's delay.
+    if (isOff || isAftertouch) {
+      const latched = this._activeRoutedComp.get(key);
+      if (isOff) this._activeRoutedComp.delete(key);
+      if (latched !== undefined) return latched;
+      // No recorded note-on (router started mid-note) → best-effort fresh value.
+    }
+
+    const comp = this._getRelativeCompensation(sourceDevice, destDevice, mapped.channel);
+    if (isOn) {
+      if (this._activeRoutedComp.size >= MAX_ACTIVE_ROUTED_NOTES) this._activeRoutedComp.clear();
+      this._activeRoutedComp.set(key, comp);
+    }
+    return comp;
+  }
+
   _getRelativeCompensation(sourceDevice, destDevice, channel) {
     const routeIds = this.routesBySource.get(sourceDevice);
     if (!routeIds || routeIds.size <= 1) {
@@ -683,6 +738,8 @@ class MidiRouter {
     }
     this._maxCompBySource.clear();
     this._instrumentNameByDevCh.clear();
+    this._activeRoutedNotes.clear();
+    this._activeRoutedComp.clear();
     this.routes.clear();
     this.routesBySource.clear();
     this.monitors.clear();
