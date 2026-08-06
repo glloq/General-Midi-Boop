@@ -76,6 +76,17 @@ export default class RoutingRepository {
   }
 
   /**
+   * Delete only the file's ACTIVE auto-assigned routings — for an idempotent
+   * re-apply that must not touch manual (auto_assigned=0) or disabled
+   * (enabled=0, offline-preserved) routings.
+   * @param {(string|number)} fileId
+   * @returns {void}
+   */
+  deleteActiveAutoByFileId(fileId) {
+    return this.database.deleteActiveAutoRoutingsByFile(fileId);
+  }
+
+  /**
    * Delete only non-split routings; preserves auto-assign-managed splits.
    * @param {(string|number)} fileId
    * @returns {void}

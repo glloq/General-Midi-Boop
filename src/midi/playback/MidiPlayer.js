@@ -2092,8 +2092,16 @@ class MidiPlayer {
 
     // Release held notes via the OLD routing before switching to the split
     // config, else in-flight notes strand (their note-off would resolve against
-    // the new segments) (audit axis6-2).
-    if (this.playing && !this.paused) {
+    // the new segments) (audit axis6-2). Only when the config actually changes,
+    // so an idempotent re-apply doesn't needlessly cut sounding notes (audit
+    // review) — mirrors the change-guard on setChannelRouting.
+    const prevSplit = this.channelRouting.get(channel);
+    const splitChanged =
+      !prevSplit ||
+      !prevSplit.split ||
+      prevSplit.overlapStrategy !== splitRouting.overlapStrategy ||
+      JSON.stringify(prevSplit.segments) !== JSON.stringify(splitRouting.segments);
+    if (splitChanged && this.playing && !this.paused) {
       this._panicChannel(channel);
     }
 

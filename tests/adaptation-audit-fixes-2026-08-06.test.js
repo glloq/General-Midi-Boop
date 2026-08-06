@@ -15,6 +15,8 @@ import DrumNoteMapper from '../src/midi/adaptation/DrumNoteMapper.js';
 import ScoringConfig from '../src/midi/adaptation/ScoringConfig.js';
 import InstrumentMatcher from '../src/midi/adaptation/InstrumentMatcher.js';
 import TablatureConverter from '../src/midi/adaptation/TablatureConverter.js';
+import ChannelSplitter from '../src/midi/routing/ChannelSplitter.js';
+import InstrumentCapabilitiesValidator from '../src/midi/adaptation/InstrumentCapabilitiesValidator.js';
 
 const mockLogger = { info() {}, warn() {}, error() {}, debug() {} };
 
@@ -287,6 +289,33 @@ describe('P1-10 / P2-4 · Wide channel scored via octave wrapping (assignable, n
     expect(res.octaveWrapping).not.toBeNull();
     expect(res.octaveWrappingEnabled).toBe(true);
   });
+
+  test('a lossy octave-wrap fit scores strictly BELOW a clean transposing fit (review: no inflation)', () => {
+    const channel = { min: 60, max: 83 }; // 2-octave span
+    const cleanFit = { min: 48, max: 71, mode: 'continuous', selected: null }; // span 23 → clean −1 octave
+    const wrapFit = { min: 66, max: 77, mode: 'continuous', selected: null }; // span 11 → needs wrapping
+    const clean = m.scoreNoteCompatibility(channel, cleanFit);
+    const wrap = m.scoreNoteCompatibility(channel, wrapFit);
+    expect(clean.compatible).toBe(true);
+    expect(wrap.compatible).toBe(true);
+    // Before the review fix the wrap fit reached 40 and out-scored the clean fit.
+    expect(wrap.score).toBeLessThan(clean.score);
+  });
+});
+
+describe('Review fix · P2-6 must not regress melody/harmony channels below the old neutral', () => {
+  const m = new InstrumentMatcher(mockLogger);
+
+  test('a melody channel with no Program Change gets the neutral type score, not 0', () => {
+    const res = m.scoreInstrumentType(
+      { category: 'unknown', categorySubtype: null, type: 'melody' },
+      { category: 'unknown', subtype: null, type: 'melody' }
+    );
+    // 'melody'/'harmony' are not keys in the legacy typeMapping → undeterminable
+    // → neutral (maxScore*0.5), not a false 0 mismatch.
+    expect(res.score).toBe(Math.round(m.config.getWeight('instrumentType') * 0.5));
+    expect(res.info).toBe('Instrument type not determined');
+  });
 });
 
 describe('P2-7 · Hand-feasibility reads num_fingers, not only max_fingers / 5-per-hand', () => {
@@ -370,5 +399,132 @@ describe('P2-9 · Tablature keeps a long drone string reserved beyond 7680 ticks
     // Before the fix the drone was pruned at 7680 ticks and the 2nd D3 landed
     // on the same physical string — two pitches on one string.
     expect(d3s[0].string).not.toBe(d3s[1].string);
+  });
+});
+
+describe('P3 · validateInstrument(null) reports instead of throwing', () => {
+  const validator = new InstrumentCapabilitiesValidator();
+
+  test('a null instrument is reported invalid, not thrown', () => {
+    let res;
+    expect(() => {
+      res = validator.validateInstrument(null);
+    }).not.toThrow();
+    expect(res.isValid).toBe(false);
+    expect(res.isComplete).toBe(false);
+    expect(res.missing.some((m) => m.field === 'instrument')).toBe(true);
+  });
+
+  test('a non-object element (array) is also reported, not thrown', () => {
+    const res = validator.validateInstrument([]);
+    expect(res.isValid).toBe(false);
+  });
+
+  test('a null element does not crash the whole validateInstruments() batch', () => {
+    const valid = {
+      name: 'x',
+      note_selection_mode: 'range',
+      note_range_min: 36,
+      note_range_max: 84,
+      polyphony: 8,
+      type: 'melody',
+      supported_ccs: [7]
+    };
+    let result;
+    expect(() => {
+      result = validator.validateInstruments([valid, null]);
+    }).not.toThrow();
+    expect(result.totalCount).toBe(2);
+    expect(result.results[1].isValid).toBe(false); // the null element
+    expect(result.allValid).toBe(false);
+  });
+});
+
+describe('P3 · unused options/data removed (matcher hardcodes polyphony||16)', () => {
+  test('DrumNoteMapper no longer defines the never-read NOTE_PRIORITIES table', () => {
+    const mapper = new DrumNoteMapper(mockLogger);
+    expect(mapper.NOTE_PRIORITIES).toBeUndefined();
+  });
+
+  test('InstrumentMatcher no longer defines the never-read GM_CATEGORIES map', () => {
+    const m = new InstrumentMatcher(mockLogger);
+    expect(m.GM_CATEGORIES).toBeUndefined();
+  });
+});
+
+describe('P3 · empty drum channel is not scored as an excellent mapping', () => {
+  const mapper = new DrumNoteMapper(mockLogger);
+  const drumNote = (n, v = 90) => ({
+    type: 'noteOn',
+    channel: 9,
+    note: n,
+    noteNumber: n,
+    velocity: v
+  });
+
+  test('a channel with no percussion notes scores 0, not ~95', () => {
+    const empty = mapper.classifyDrumNotes([]); // no events at all
+    const result = mapper.generateMapping(empty, [36, 38, 42, 46]);
+    // Before the guard: essential/important/optional defaulted to 100 and
+    // coverageRatio to 1 → ~95, so an empty channel looked like a great kit.
+    expect(result.quality.score).toBe(0);
+    expect(result.quality.totalCount).toBe(0);
+  });
+
+  test('a real kit still scores high (the guard only fires on empty channels)', () => {
+    const midiNotes = mapper.classifyDrumNotes([drumNote(36), drumNote(38), drumNote(42)]);
+    const result = mapper.generateMapping(midiNotes, [36, 38, 42, 46, 48]);
+    expect(result.quality.score).toBeGreaterThan(80);
+  });
+});
+
+describe('P2-8 · Full-coverage split claims only native coverage (no phantom transposition)', () => {
+  const splitter = new ChannelSplitter(mockLogger);
+  const makeInstrument = (id, rangeMin, rangeMax, polyphony = 16) => ({
+    id,
+    device_id: `device_${id}`,
+    channel: 0,
+    name: `Inst ${id}`,
+    custom_name: `Instrument ${id}`,
+    note_range_min: rangeMin,
+    note_range_max: rangeMax,
+    polyphony,
+    gm_program: 0,
+    instrument_type: 'melody'
+  });
+  const makeChannelAnalysis = (channel, noteMin, noteMax) => {
+    const dist = {};
+    for (let n = noteMin; n <= noteMax; n++) dist[n] = 10;
+    return {
+      channel,
+      noteRange: { min: noteMin, max: noteMax },
+      noteDistribution: dist,
+      polyphony: { max: 8, avg: 4 },
+      estimatedType: 'melody',
+      totalNotes: Object.keys(dist).length
+    };
+  };
+
+  test('two native ranges that tile the channel yield a fullCoverage split with no segment transposition', () => {
+    const analysis = makeChannelAnalysis(0, 36, 84);
+    const instruments = [makeInstrument('a', 36, 60), makeInstrument('b', 61, 84)];
+    const result = splitter.calculateFullCoverageSplit(analysis, instruments);
+    expect(result).not.toBeNull();
+    expect(result.type).toBe('fullCoverage');
+    expect(result.segments).toHaveLength(2);
+    for (const seg of result.segments) {
+      expect(seg.transposition).toBeUndefined();
+    }
+  });
+
+  test('a channel that would only "cover" after an octave shift no longer gets a phantom split', () => {
+    // Instruments 60-72 and 73-84 cannot tile 36-59 without an octave shift.
+    // The old transposed search fabricated full coverage + a `transposition`
+    // field that runtime dropped; now it returns null so the caller falls back
+    // to a gap-reporting split.
+    const analysis = makeChannelAnalysis(0, 36, 84);
+    const instruments = [makeInstrument('a', 60, 72), makeInstrument('b', 73, 84)];
+    const result = splitter.calculateFullCoverageSplit(analysis, instruments);
+    expect(result).toBeNull();
   });
 });

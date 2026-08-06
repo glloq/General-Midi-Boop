@@ -701,6 +701,9 @@ class DatabaseManager {
   deleteRoutingsByFile(fileId) {
     return this.instrumentDB.deleteRoutingsByFile(fileId);
   }
+  deleteActiveAutoRoutingsByFile(fileId) {
+    return this.instrumentDB.deleteActiveAutoRoutingsByFile(fileId);
+  }
   deleteNonSplitRoutingsByFile(fileId) {
     return this.instrumentDB.deleteNonSplitRoutingsByFile(fileId);
   }

@@ -38,6 +38,29 @@ class InstrumentCapabilitiesValidator {
     const missing = [];
     const recommended = [];
 
+    // Defensive: a null/undefined or non-object instrument would throw on the
+    // first `instrument[capability]` access below, taking down the whole
+    // `validateInstruments()` batch on a single bad element. Report it as an
+    // invalid instrument instead of throwing so callers get an actionable
+    // result. (audit P3)
+    if (instrument === null || typeof instrument !== 'object' || Array.isArray(instrument)) {
+      return {
+        isValid: false,
+        isComplete: false,
+        missing: [
+          {
+            field: 'instrument',
+            label: 'Instrument',
+            type: 'object',
+            required: true,
+            reason: 'Instrument is missing or is not an object.'
+          }
+        ],
+        recommended: [],
+        instrument
+      };
+    }
+
     // Check required capabilities
     for (const capability of this.requiredCapabilities) {
       const value = instrument[capability];

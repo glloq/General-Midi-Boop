@@ -74,13 +74,26 @@ mineurs/documentaires (P3).
 | Axe6-5 note-off différé (`min_note_duration`) lié à l'instance de note (plus de coupure d'un re-déclenchement rapide) | ✅ corrigé | `playback-scheduler-route-to` |
 | Axe6-6 compensation relative `MidiRouter` figée au note-on et réutilisée au note-off (plus de réordonnancement off-avant-on) | ✅ corrigé | `midi-router-capability-clamp` |
 | Axe6-3 clamp live : skip-batterie clé sur le canal **source** (parité playback) — décision : canal source | ✅ corrigé | `midi-router-capability-clamp` |
+| P2-8 split full-coverage restreint aux plages **natives** — plus de `transposition` par segment fantôme ; `gaps`/`quality` fidèles (option B : cesser de la produire) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P3 `validateInstrument(null)` rapporte au lieu de lever (plus de crash de lot sur un élément null) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P3 code/options morts supprimés (`NOTE_PRIORITIES`, `GM_CATEGORIES`, `preserveEssentials`) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P3 garde-fou : canal batterie **vide** scoré 0 (plus de ~95/100 « excellent » trompeur) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 
-**Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
-seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
-échec d'insertion en cours de boucle est donc *remonté* (`failedChannels`) plutôt que
-*annulé*. L'atomicité complète (refactor `saveSplit` en savepoints + transaction englobante,
-suppression de l'orphelin `adaptedFile` en cas d'échec) reste un follow-up, à faire avec les
-tests SQLite exécutables.
+**Réserve P1-6/P1-8** : la purge de ré-apply est scopée à `enabled=1 AND auto_assigned=1`
+(`deleteActiveAutoByFileId`) — elle préserve les routages **manuels** et **désactivés hors-ligne**
+(P2-3). Les écritures ne sont toujours pas dans **une seule** transaction (`saveSplit` ouvre déjà
+la sienne — better-sqlite3 n'imbrique pas) : un échec en cours de boucle est *remonté*
+(`failedChannels`) plutôt qu'*annulé*. L'atomicité complète (savepoints + transaction englobante,
+nettoyage de l'`adaptedFile` orphelin) reste un follow-up.
+
+**Revue adversariale post-implémentation** : les 26 correctifs ont été re-diffés par 4 agents de
+revue indépendants. Elle a confirmé la solidité de l'ensemble et attrapé, entre autres, **2 vrais
+bugs introduits** : (1) `_scoreBestEffortWrapping` pouvait *sur-scorer* un fit propre (pénalité de
+base −5/−6 oubliée) → pénalité de wrapping ajoutée ; (2) le `deleteByFileId` de ré-apply détruisait
+les routages manuels et le routage hors-ligne préservé par P2-3 → scopé aux lignes actives
+auto-assignées. Plus une régression P2-6 (melody/harmony scoré 0 au lieu du neutre) et 7 points
+mineurs (compatible@0%, reporting `failedChannels`, effets de bord live best-effort, panic de split
+idempotent, `sendEvent` type logique, commentaires). Tous corrigés + testés.
 
 **Différés avec justification** (risque/valeur défavorable dans cette itération) :
 
@@ -94,16 +107,25 @@ tests SQLite exécutables.
   du pipeline (`"Invalid apply_assignments data: …"`), divergeant des fixtures de contrat
   documentées (`tests/contracts/fixtures/playback/*.contract.json`) — pour une validation que
   les handlers font déjà. À faire en mettant à jour fixtures + gestion d'erreur frontend.
-- **P2-8** — la transposition par segment du split full-coverage n'est honorée par aucun
-  consommateur, mais le playback fonctionne déjà (le clamp octave-fold du scheduler replie les
-  décalages d'octave) ; c'est de l'**intégrité de reporting**, pas un défaut audible. Propager
-  la transposition jusqu'au runtime (schéma + résolveur + player) est un chantier dédié.
-- **P2-10** (drop polyphonique `Set`→compteur — restructure la mesure de polyphonie),
-  **P2-7 #2** (conversion `hand_span_mm`→frettes pour l'avertissement de shift — champ
-  `scale_length_mm` hors `hands_config` + conversion non-linéaire approximative), **P3**, et le
-  reste de l'**axe 6** (Axe6-3/5/6).
+- **P2-8** — ✅ **corrigé** (option B : *cesser de produire la transposition et l'annoncer*). Le
+  split full-coverage ne recherche plus que des paires de plages **natives** ; le champ
+  `transposition` par segment (jeté par tous les chemins d'apply/runtime/persistance) n'est plus
+  émis, et `gaps:[]`/`quality` redeviennent fidèles. Un canal qui n'était « couvert » qu'après un
+  décalage d'octave retombe désormais sur les autres stratégies de split (qui rapportent de vrais
+  gaps) ou garde une assignation mono-instrument dont la transposition par **canal** est, elle,
+  réellement appliquée. Propager une transposition *par segment* jusqu'au runtime (schéma +
+  résolveur + player) reste un chantier dédié si le besoin se présente.
+- **P3** — ✅ **partiellement corrigé** (lot sûr) : garde `validateInstrument(null)`, suppression du
+  code/options morts (`NOTE_PRIORITIES`/`GM_CATEGORIES`/`preserveEssentials`), garde-fou du canal
+  batterie **vide** (score 0). Restent, en limitations de conception documentées : égalités
+  `primaryProgram`, bandes d'hystérésis chevauchantes, top-clamp physique périmé, round-robin de
+  split ignorant la plage, canal batterie *exotique* (non vide).
+- **P2-7 #2** (conversion `hand_span_mm`→frettes pour l'avertissement de shift — champ
+  `scale_length_mm` hors `hands_config` + conversion non-linéaire approximative) reste le seul
+  différé « Moyen » restant. *(P2-10 drop polyphonique et l'axe 6 — Axe6-3/5/6 — sont ✅ corrigés,
+  voir la table de suivi.)*
 
-Suite backend complète verte après correctifs : **107 suites / 1254 tests**.
+Suite backend complète verte après correctifs (incl. revue + lot P2-8/P3) : **107 suites / 1281 tests**.
 
 ---
 
@@ -129,11 +151,11 @@ Suite backend complète verte après correctifs : **107 suites / 1254 tests**.
 | P2-5 | Prédicat « instrument batterie » du matcher plus étroit que celui d'`AutoAssigner` → kit bloqué | Moyen | ⚠️ Tracé | `InstrumentMatcher.js:1460-1463` |
 | P2-6 | Score « type d'instrument » s'effondre à neutre pour tout canal sans Program Change | Moyen | ⚠️ Tracé | `InstrumentMatcher.js:1083-1086` |
 | P2-7 | Faisabilité frettes ignore `hand_span_mm`/`num_fingers` → faux « jouable » | Moyen | ⚠️ Tracé | `InstrumentMatcher.js:1262-1308` |
-| P2-8 | Split full-coverage émet une `transposition` par segment qu'aucun chemin d'apply n'honore | Moyen | ⚠️ Tracé | `ChannelSplitter.js:508-524` |
+| P2-8 | Split full-coverage émet une `transposition` par segment qu'aucun chemin d'apply n'honore | Moyen | ✅ Corrigé (option B) | `ChannelSplitter.js:482-497` |
 | P2-9 | Tablature : réservation de corde purgée à 7680 ticks → deux notes sur une corde | Moyen | ⚠️ Tracé | `TablatureConverter.js:1425` |
-| P2-10 | Drop polyphonique : `Set` au lieu de compteur → note-off orphelin possible sur hauteurs superposées | Moyen | ⚠️ Tracé | `MidiTransposer.js:158-185` |
+| P2-10 | Drop polyphonique : `Set` au lieu de compteur → note-off orphelin possible sur hauteurs superposées | Moyen | ✅ Corrigé | `MidiTransposer.js:158-185` |
 | P2-11 | `splitChannelInFile` diffuse l'aftertouch à **tous** les segments | Moyen | ⚠️ Tracé | `MidiTransposer.js:721-777` |
-| P3-* | Points mineurs / documentaires / options mortes | Faible | mixte | *voir §P3* |
+| P3-* | Points mineurs / documentaires / options mortes | Faible | mixte (null-guard, code mort, batterie vide ✅ ; limitations de conception tracées) | *voir §P3* |
 
 Légende : **✅ Vérifié** = tracé par mes soins jusqu'au code source, parseur et converters ;
 **⚠️ Tracé** = tracé par l'agent d'audit avec `fichier:ligne` et scénario, non re-vérifié
@@ -466,17 +488,29 @@ sans PC (canal 9 batterie, exports MIDI rapides). **Reco** :
   robot 2 mains × 3 doigts est compté 10 doigts. Comme la faisabilité pèse ±~15 points dans le
   score, cela peut **changer l'instrument routé**. **Reco** : lire `hand_span_mm`/`num_fingers`.
 
-### P2-8 · Split full-coverage émet une `transposition` par segment qu'aucun apply n'honore · Moyen · ⚠️ Tracé
-`ChannelSplitter.calculateFullCoverageSplit` (`:508-524,553-564`) ne « couvre » une note
-qu'après un décalage d'octave et enregistre `segment.transposition.semitones`. Mais le chemin
-d'apply (`splitChannelInFile` ne réécrit que `channel`), le résolveur runtime
-(`getOutputForChannel` matche sur `noteMin/noteMax` et ne renvoie que `{device,targetChannel}`) et
-le schéma persisté **jettent tous** ce champ. La transposition runtime est par **canal source**
-(`PlaybackScheduler.js:948-957`), donc deux segments à décalages différents sont
-**non représentables**. La note ne joue « correctement » que parce que le clamp octave-fold
-indépendant du scheduler (`clampNote`) la replie par hasard ; le split rapporte `gaps:[]` et une
-haute `quality` **non fidèles** à son propre modèle. **Reco** : soit propager la transposition
-par segment jusqu'au runtime, soit ne pas la produire et l'annoncer.
+### P2-8 · Split full-coverage émettait une `transposition` par segment qu'aucun apply n'honorait · Moyen · ✅ Corrigé (option B)
+`ChannelSplitter.calculateFullCoverageSplit` ne « couvrait » une note qu'après un décalage
+d'octave et enregistrait `segment.transposition.semitones`. Mais le chemin d'apply
+(`splitChannelInFile` ne réécrit que `channel`), le résolveur runtime (`getOutputForChannel` matche
+sur `noteMin/noteMax` et ne renvoie que `{device,targetChannel}`) et le schéma persisté
+**jettent tous** ce champ. La transposition runtime est par **canal source**
+(`PlaybackScheduler.js:948-957`), donc deux segments à décalages différents étaient
+**non représentables**. La note ne jouait « correctement » que parce que le clamp octave-fold
+indépendant du scheduler (`clampNote`) la repliait par hasard ; le split rapportait `gaps:[]` et une
+haute `quality` **non fidèles** à son propre modèle.
+
+**Correctif (option B — cesser de la produire et l'annoncer)** : `calculateFullCoverageSplit`
+(`ChannelSplitter.js:467-585`) ne recherche plus que des paires de plages **natives** (plus de
+boucles `[0,-12,12,-24,24]`). Le champ `transposition` par segment n'est donc plus émis, `gaps:[]`
+et `quality` redeviennent fidèles (couverture réellement native), et `AutoAssigner`
+(`evaluateChannelSplits`, qui lit `seg.transposition` pour préférer un split *sans* transposition)
+reste correct — la condition évalue désormais uniformément « pas de transposition », ce qui est vrai
+par construction. Un canal qui n'était couvert qu'après un décalage d'octave retourne `null` (repli
+sur les autres stratégies de split, qui rapportent de vrais gaps) ou garde une assignation
+mono-instrument dont la transposition **par canal** est, elle, réellement appliquée au runtime.
+Régression : `adaptation-audit-fixes-2026-08-06` (« claims only native coverage (no phantom
+transposition) »). Propager une transposition *par segment* jusqu'au runtime reste un chantier dédié
+si le besoin apparaît.
 
 ### P2-9 · Tablature : réservation de corde purgée à 7680 ticks → deux notes sur une corde · Moyen · ⚠️ Tracé
 `_getOccupiedStrings` parcourt du plus récent au plus ancien et `break` au premier événement
@@ -515,17 +549,26 @@ pile par-note que les note-off.
   splits serrés (le validateur n'impose qu'un ordre strictement croissant, pas de séparation min).
 - **Top-clamp physique avec un span périmé** (`HandPositionPlanner.js:441-457`) — inoffensif en mode
   frettes constantes ; peut sur/sous-estimer d'une fraction de frette en mode physique.
-- **`validateInstrument(null)` lève** au lieu de rapporter (`InstrumentCapabilitiesValidator.js:43`) —
-  défensif ; un élément null dans `validateInstruments()` crashe.
+- ✅ **corrigé** — **`validateInstrument(null)` levait** au lieu de rapporter
+  (`InstrumentCapabilitiesValidator.js:37`). Une garde en tête de méthode renvoie désormais un
+  résultat `isValid:false` (champ `instrument` manquant) pour tout argument null/non-objet, de sorte
+  qu'un élément null dans `validateInstruments()` ne fait plus tomber tout le lot. Régression :
+  `adaptation-audit-fixes-2026-08-06`.
 - **Round-robin de split ignore la plage instrument** (`ChannelSplitter.js:302-303`) — une note peut
   être alternée vers un instrument qui ne l'atteint pas (mord seulement si mêmes types de plages
-  différentes).
-- **Options / données mortes** : `NOTE_PRIORITIES` (`DrumNoteMapper.js:111-168`, jamais lu, présenté
-  comme « Priority Matrix » dans la doc), `preserveEssentials` (`:361`, jamais lu),
-  `GM_CATEGORIES`/`getGmDefaultPolyphony` (calculés, non utilisés par le matcher qui code en dur
-  `polyphony || 16`).
-- **Canal batterie vide/exotique scoré ~95/100** (`DrumNoteMapper.js:895-941`) — `coverageRatio`
-  défaut 1 + sous-scores catégorie défaut 100 → paraît excellent à l'assigneur.
+  différentes). *(Limitation tracée — le clamp final replie de toute façon.)*
+- ✅ **corrigé** — **Options / données mortes supprimées** : `NOTE_PRIORITIES` (jamais lu, présenté
+  comme « Priority Matrix » dans la doc) et l'option `preserveEssentials` (jamais lue) retirés de
+  `DrumNoteMapper` ; le membre `GM_CATEGORIES` (calculé, jamais lu — le matcher code en dur
+  `polyphony || 16`) retiré d'`InstrumentMatcher`. *(`getGmDefaultPolyphony` est **conservé** : il
+  est bien vivant — miroir frontend + test de sync `gm-instrument-capabilities-sync`.)* Régression :
+  `adaptation-audit-fixes-2026-08-06`.
+- **Canal batterie scoré ~95/100** (`DrumNoteMapper.js:calculateMappingQuality`) — `coverageRatio`
+  défaut 1 + sous-scores catégorie défaut 100 → paraît excellent à l'assigneur. ✅ **corrigé pour le
+  canal *vide*** : une garde renvoie score 0 quand `usedNotes` est vide (plus de faux « excellent »
+  sur un canal sans percussion). Le cas *exotique* (percussion non-essentielle réelle, non vide)
+  reste tracé — le neutraliser toucherait le scoring des kits partiels légitimes. Régression :
+  `adaptation-audit-fixes-2026-08-06`.
 - **Dérive doc↔code** ✅ **réalignée** : `docs/AUTO_ASSIGNMENT.md` décrivait des poids
   **30/25/15/15/10/5** et un 6ᵉ critère « Channel Special » ; le code
   (`ScoringConfig.js:13-19`) utilise **22/40/13/5/20** (programMatch/noteRange/polyphony/ccSupport/

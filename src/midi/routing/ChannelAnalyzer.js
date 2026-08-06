@@ -35,7 +35,11 @@ class ChannelAnalyzer {
    */
   _deriveTiming(midiData) {
     const ticksPerBeat = midiData?.header?.ticksPerBeat || 480;
-    let microsPerBeat = 500000; // 120 BPM until the first setTempo
+    // Seed from an already-present tempo (BPM) so, if a caller ever attaches
+    // `tempo` but not `duration`, the derived duration uses that tempo rather
+    // than the 120-BPM default (audit review: keep the two consistent).
+    let microsPerBeat =
+      Number.isFinite(midiData?.tempo) && midiData.tempo > 0 ? 60000000 / midiData.tempo : 500000;
     let foundTempo = false;
     let maxAbsTicks = 0;
     if (Array.isArray(midiData?.tracks)) {
