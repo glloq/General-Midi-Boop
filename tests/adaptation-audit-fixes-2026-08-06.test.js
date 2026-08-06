@@ -13,6 +13,7 @@ import MidiTransposer from '../src/midi/adaptation/MidiTransposer.js';
 import ChannelAnalyzer from '../src/midi/routing/ChannelAnalyzer.js';
 import DrumNoteMapper from '../src/midi/adaptation/DrumNoteMapper.js';
 import ScoringConfig from '../src/midi/adaptation/ScoringConfig.js';
+import InstrumentMatcher from '../src/midi/adaptation/InstrumentMatcher.js';
 
 const mockLogger = { info() {}, warn() {}, error() {}, debug() {} };
 
@@ -186,5 +187,60 @@ describe('P1-9 · Default drumFallback substitutes nice-to-have percussion (no s
     const omitted = new Set((result.omissions || []).map((o) => o.note));
     expect(omitted.has(71)).toBe(false);
     expect(omitted.has(80)).toBe(false);
+  });
+});
+
+describe('P2-5 · Matcher drum predicate matches AutoAssigner (no unassignable kit)', () => {
+  const m = new InstrumentMatcher(mockLogger);
+
+  test('a drums-typed range-mode kit with no GM program is recognised as drums', () => {
+    expect(
+      m.isDrumsInstrument({
+        instrument_type: 'drums',
+        note_selection_mode: 'range',
+        gm_program: null
+      })
+    ).toBe(true);
+    expect(m.isDrumsInstrument({ channel: 9 })).toBe(true);
+    expect(m.isDrumsInstrument({ note_selection_mode: 'discrete' })).toBe(true);
+    expect(m.isDrumsInstrument({ gm_program: 115 })).toBe(true);
+  });
+
+  test('a normal melodic instrument is not treated as drums', () => {
+    expect(
+      m.isDrumsInstrument({
+        instrument_type: 'piano',
+        note_selection_mode: 'range',
+        gm_program: 0,
+        channel: 0
+      })
+    ).toBe(false);
+  });
+});
+
+describe('P2-11 · Split routes poly-aftertouch to its note segment, not every segment', () => {
+  const t = new MidiTransposer(mockLogger);
+
+  test('noteAftertouch on note 40 goes only to the segment that owns 40', () => {
+    const midiData = {
+      header,
+      tracks: [
+        {
+          events: [
+            { type: 'noteOn', channel: 0, noteNumber: 40, velocity: 100, deltaTime: 0 },
+            { type: 'noteAftertouch', channel: 0, noteNumber: 40, amount: 90, deltaTime: 10 },
+            { type: 'noteOff', channel: 0, noteNumber: 40, velocity: 0, deltaTime: 20 }
+          ]
+        }
+      ]
+    };
+    const segments = [
+      { noteMin: 36, noteMax: 59, targetChannel: 0 },
+      { noteMin: 60, noteMax: 84, targetChannel: 2 }
+    ];
+    const res = t.splitChannelInFile(midiData, 0, segments);
+    const at = res.midiData.tracks[0].events.filter((e) => e.type === 'noteAftertouch');
+    expect(at).toHaveLength(1); // not duplicated onto every segment channel
+    expect(at[0].channel).toBe(0); // follows note 40 into the low segment
   });
 });

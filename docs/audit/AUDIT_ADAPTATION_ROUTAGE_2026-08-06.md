@@ -59,6 +59,9 @@ mineurs/documentaires (P3).
 | P1-11 gate `hasModifications` inclut `notesDropped`/`notesShortened`/`ccsRemapped` | ✅ corrigé | couvert par CI |
 | P1-6 ré-apply idempotent : purge `deleteByFileId(targetFileId)` en tête d'apply | ✅ corrigé (voir réserve) | CI SQLite |
 | P1-8 échec partiel remonté (`routings` = lignes persistées, `failedChannels`/`partial`) | ✅ corrigé (voir réserve) | CI SQLite |
+| P2-2 `update_instrument_capabilities` émet `instrument_settings_changed` | ✅ corrigé | CI |
+| P2-5 prédicat batterie du matcher aligné sur `AutoAssigner` | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P2-11 aftertouch polyphonique suit son segment (plus de diffusion à tous) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 
 **Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
 seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
@@ -67,11 +70,13 @@ seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imb
 suppression de l'orphelin `adaptedFile` en cas d'échec) reste un follow-up, à faire avec les
 tests SQLite exécutables.
 
-**Non encore traités** (volontairement, changements de comportement de scoring ou hors P1) :
-P1-10 (rejet note-range vs repli — modifie le scoring d'assignation), tous les **P2** et
-**P3**, et l'**axe 6** (parité playback/live) — cf. sections dédiées.
+**Non encore traités** (volontairement) : **P1-10** et **P2-4**/**P2-6** (changent le
+*comportement de scoring* → modifient quel instrument est auto-assigné : à décider ensemble) ;
+**P2-10** (drop polyphonique `Set`→compteur — restructure la mesure de polyphonie, risque de
+régression, à faire avec plus de tests) ; **P2-1/3/7/8/9** et **P3** ; et l'**axe 6** (parité
+playback/live) — cf. sections dédiées.
 
-Suite backend complète verte après correctifs : **107 suites / 1248 tests**.
+Suite backend complète verte après correctifs : **107 suites / 1251 tests**.
 
 ---
 

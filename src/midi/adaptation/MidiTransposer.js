@@ -795,9 +795,23 @@ class MidiTransposer {
           const segIdx = stack && stack.length > 0 ? stack.pop() : 0;
           if (stack && stack.length === 0) activeNotes.delete(note);
           newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
+        } else if (event.type === 'noteAftertouch' && note !== undefined) {
+          // Poly-aftertouch carries a note → follow that note to ITS segment
+          // (peek the stack; the note is still sounding so we don't pop it),
+          // instead of broadcasting it to every segment's channel and pressing
+          // a note the other instruments aren't playing (audit P2-11).
+          const stack = activeNotes.get(note);
+          let segIdx;
+          if (stack && stack.length > 0) {
+            segIdx = stack[stack.length - 1];
+          } else {
+            const found = segments.findIndex((s) => note >= s.noteMin && note <= s.noteMax);
+            segIdx = found >= 0 ? found : 0;
+          }
+          newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
         } else {
-          // Control events (CC, pitch bend, program change, aftertouch, etc.)
-          // Broadcast to all target channels
+          // Channel-wide control events (CC, pitch bend, program change,
+          // channel aftertouch, etc.) — broadcast to all target channels
           const uniqueChannels = [...new Set(segments.map((s) => s.targetChannel))];
           for (let c = 0; c < uniqueChannels.length; c++) {
             if (c === 0) {

@@ -1459,7 +1459,17 @@ class InstrumentMatcher {
    */
   isDrumsInstrument(instrument) {
     const program = instrument.gm_program;
-    return (program >= 112 && program <= 119) || instrument.note_selection_mode === 'discrete';
+    // Keep this predicate aligned with AutoAssigner.isDrumInstrument: a kit
+    // configured `instrument_type='drums'` (or bound to GM channel 9) must be
+    // recognised as drums even without discrete mode or a 112-119 program,
+    // otherwise the assigner offers it for the drum channel while the matcher
+    // scores it ~0 and flags it incompatible (audit P2-5).
+    return (
+      instrument.instrument_type === 'drums' ||
+      instrument.note_selection_mode === 'discrete' ||
+      instrument.channel === 9 ||
+      (program >= 112 && program <= 119)
+    );
   }
 }
 

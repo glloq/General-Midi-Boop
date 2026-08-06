@@ -788,6 +788,19 @@ async function updateInstrumentCapabilities(app, data) {
       }
 
       updated.push(id);
+      // Refresh runtime caches that key on this event rather than the
+      // capabilities fingerprint — CapabilityResolver, CompensationService,
+      // MidiRouter, PlaybackScheduler, MidiClockGenerator — so mid-session
+      // clamp/compensation reflect the edit immediately (audit P2-2). Matches
+      // the sibling handlers in InstrumentSettingsCommands.
+      if (instrument.device_id) {
+        const affectedChannel =
+          fields.channel !== undefined ? fields.channel : instrument.channel || 0;
+        app.eventBus?.emit('instrument_settings_changed', {
+          deviceId: instrument.device_id,
+          channel: affectedChannel
+        });
+      }
       app.logger.info(
         `Updated capabilities for instrument ${id}: ${Object.keys(fields).join(', ')}`
       );
