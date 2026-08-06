@@ -107,66 +107,6 @@ class DrumNoteMapper {
       68: [67, 76, 77, 56, 75, 81] // Low Agogo → High Agogo, Wood Blocks, Cowbell, Claves, Open Triangle
     };
 
-    // Priority scores for drum notes (0-100)
-    this.NOTE_PRIORITIES = {
-      // Priority 1: Essential (MUST HAVE)
-      36: 100, // Kick
-      35: 100, // Kick
-      38: 100, // Snare
-      40: 100, // Snare (electric)
-      42: 90, // Closed HH
-      49: 70, // Crash
-
-      // Priority 2: Important (SHOULD HAVE)
-      46: 60, // Open HH
-      41: 50, // Tom Low
-      45: 50, // Tom Low
-      48: 50, // Tom High
-      50: 50, // Tom High
-      51: 40, // Ride
-
-      // Priority 3: Optional (NICE TO HAVE)
-      43: 30, // Tom Mid
-      47: 30, // Tom Mid
-      37: 25, // Rim Shot
-      44: 25, // Pedal HH
-      39: 20, // Hand Clap
-      57: 20, // Crash 2
-      55: 20, // Splash
-      59: 20, // Ride 2
-      53: 15, // Ride Bell
-      52: 15, // China
-
-      // Priority 4: Effects/Latin (OPTIONAL)
-      54: 15, // Tambourine
-      56: 15, // Cowbell
-      70: 10, // Maracas
-      // Latin percussion: 60-68
-      60: 10,
-      61: 10,
-      62: 10,
-      63: 10,
-      64: 10,
-      65: 10,
-      66: 10,
-      67: 10,
-      68: 10,
-      // Shakers, woods/metal, pitched, cuicas, triangles: 58, 69, 71-81
-      58: 5,
-      69: 5,
-      71: 5,
-      72: 5,
-      73: 5,
-      74: 5,
-      75: 5,
-      76: 5,
-      77: 5,
-      78: 5,
-      79: 5,
-      80: 5,
-      81: 5
-    };
-
     // Note names for logging
     this.NOTE_NAMES = {
       35: 'Acoustic Bass Drum',
@@ -358,7 +298,6 @@ class DrumNoteMapper {
       allowSubstitution: true,
       allowSharing: true,
       allowOmission: true,
-      preserveEssentials: true,
       categoryDepthLimits: null, // { kicks: 2, snares: -1, hiHats: 3, ... }
       ...options
     };
@@ -900,6 +839,28 @@ class DrumNoteMapper {
       coverageRatio: 10,
       accuracyRatio: 5
     };
+
+    // Guard: a channel with no percussion notes at all has nothing to
+    // preserve. Every category sub-score below falls through to its
+    // `total === 0 → 100` neutral default and `coverageRatio` defaults to 1,
+    // so an empty channel would score ~95 and look like an excellent drum
+    // match to the auto-assigner. Report 0 instead so a content-free drum
+    // channel is never ranked as a strong candidate. (audit P3)
+    const usedNoteCount = midiNotes?.usedNotes?.length ?? 0;
+    if (usedNoteCount === 0) {
+      return {
+        score: 0,
+        essentialScore: 0,
+        importantScore: 0,
+        optionalScore: 0,
+        coverageRatio: 0,
+        accuracyRatio: 0,
+        mappedCount: Object.keys(mapping).length,
+        totalCount: 0,
+        substitutionCount: substitutions.length,
+        omissionCount: omissions.length
+      };
+    }
 
     let score = 0;
 

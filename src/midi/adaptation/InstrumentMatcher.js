@@ -31,16 +31,6 @@ class InstrumentMatcher {
     this.logger = logger;
     this.config = config || ScoringConfig;
     this.drumMapper = new DrumNoteMapper(logger);
-
-    // General MIDI categories — derive the slug→programs map from the
-    // canonical {@link MidiUtils.GM_CATEGORY_SLUGS} so the order, slug
-    // spelling and ranges live in a single source of truth.
-    this.GM_CATEGORIES = Object.fromEntries(
-      MidiUtils.GM_CATEGORY_SLUGS.map((slug, i) => [
-        slug,
-        Array.from({ length: 8 }, (_, j) => i * 8 + j)
-      ])
-    );
   }
 
   /**
@@ -918,7 +908,6 @@ class InstrumentMatcher {
         allowSubstitution: true,
         allowSharing: true,
         allowOmission: true,
-        preserveEssentials: true,
         categoryDepthLimits: categoryDepthLimits || null
       });
 

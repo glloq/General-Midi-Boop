@@ -456,9 +456,12 @@ class ChannelSplitter {
   }
 
   /**
-   * Calculates a "full coverage" split: finds 2 instruments covering 100% of the channel's notes.
-   * Tries without transposition first, then with octave transpositions (+-12, +-24).
-   * Prioritizes pairs requiring the least transposition.
+   * Calculates a "full coverage" split: finds 2 instruments whose NATIVE note
+   * ranges together cover 100% of the channel's notes. No per-segment
+   * transposition is used or emitted — see the block comment in the body for
+   * why a per-segment octave shift is not representable at runtime. Returns
+   * null when no native pair fully tiles the channel, letting the caller fall
+   * back to the other (gap-reporting) split strategies.
    *
    * @param {Object} channelAnalysis
    * @param {Array<Object>} allInstruments - Full instrument pool (not the selected subset)
@@ -480,65 +483,56 @@ class ChannelSplitter {
     if (channelNotes.size === 0) return null;
 
     const totalNotes = channelNotes.size;
-    const transpositions = [0, -12, 12, -24, 24]; // Try no transposition first
-    const penaltyPerOctave = this.config?.penalties?.transpositionPerOctave || 3;
-    // `?? 3` (not `|| 3`): a configured 0 means "no transposition" and must be
-    // honoured, otherwise the falsy fallback would silently allow 3 octaves.
-    const maxOctaves = this.config?.penalties?.maxTranspositionOctaves ?? 3;
 
+    // Full coverage is evaluated on the instruments' NATIVE ranges only — no
+    // per-segment transposition. A per-segment octave shift is not
+    // representable at runtime: playback transposition is keyed on the
+    // *source* channel (PlaybackScheduler), the runtime resolver returns only
+    // {device, targetChannel}, and the persisted routing schema drops any
+    // per-segment transposition. Emitting one produced a `transposition`
+    // segment field that every apply/runtime path silently dropped, together
+    // with a `gaps:[]` / high `quality` that only "worked" because the
+    // scheduler's independent octave-fold clamp happened to fold the note back
+    // into range. We therefore only claim full coverage when two native ranges
+    // genuinely tile the channel; channels that would need octave shifts fall
+    // through to the other split strategies (which report real gaps) or keep a
+    // single-instrument assignment whose per-*channel* transposition IS
+    // applied. (audit P2-8)
     let bestPair = null;
-    let bestPenalty = Infinity;
 
     // Filter instruments with defined ranges
     const viable = allInstruments.filter(
       (inst) => inst.note_range_min != null && inst.note_range_max != null
     );
 
-    for (let a = 0; a < viable.length; a++) {
+    for (let a = 0; a < viable.length && !bestPair; a++) {
       for (let b = a + 1; b < viable.length; b++) {
         const instA = viable[a];
         const instB = viable[b];
 
-        // Try transposition combinations for each instrument
-        for (const trA of transpositions) {
-          if (Math.abs(trA) > maxOctaves * 12) continue;
-          for (const trB of transpositions) {
-            if (Math.abs(trB) > maxOctaves * 12) continue;
+        const aMin = instA.note_range_min;
+        const aMax = instA.note_range_max;
+        const bMin = instB.note_range_min;
+        const bMax = instB.note_range_max;
 
-            const aMin = instA.note_range_min + trA;
-            const aMax = instA.note_range_max + trA;
-            const bMin = instB.note_range_min + trB;
-            const bMax = instB.note_range_max + trB;
-
-            // Count how many channel notes are covered
-            let covered = 0;
-            for (const note of channelNotes) {
-              if ((note >= aMin && note <= aMax) || (note >= bMin && note <= bMax)) {
-                covered++;
-              }
-            }
-
-            if (covered === totalNotes) {
-              // Full coverage! Compute transposition penalty
-              const penalty =
-                Math.abs(trA / 12) * penaltyPerOctave + Math.abs(trB / 12) * penaltyPerOctave;
-              if (penalty < bestPenalty) {
-                bestPenalty = penalty;
-                bestPair = { instA, instB, trA, trB, aMin, aMax, bMin, bMax };
-              }
-            }
+        // Count how many channel notes fall within either native range
+        let covered = 0;
+        for (const note of channelNotes) {
+          if ((note >= aMin && note <= aMax) || (note >= bMin && note <= bMax)) {
+            covered++;
           }
-          // Optimization: if we already have a pair without transposition, no need to search further for this instrument
-          if (bestPair && bestPenalty === 0) break;
         }
-        if (bestPair && bestPenalty === 0) break;
+
+        if (covered === totalNotes) {
+          bestPair = { instA, instB, aMin, aMax, bMin, bMax };
+          break;
+        }
       }
-      if (bestPair && bestPenalty === 0) break;
     }
 
     if (!bestPair) return null;
 
-    const { instA, instB, trA, trB, aMin, aMax, bMin, bMax } = bestPair;
+    const { instA, instB, aMin, aMax, bMin, bMax } = bestPair;
 
     const segments = [
       {
@@ -549,8 +543,7 @@ class ChannelSplitter {
         gmProgram: instA.gm_program,
         noteRange: { min: Math.max(chMin, aMin), max: Math.min(chMax, aMax) },
         fullRange: { min: instA.note_range_min, max: instA.note_range_max },
-        polyphonyShare: instA.polyphony || 16,
-        transposition: trA !== 0 ? { semitones: trA } : undefined
+        polyphonyShare: instA.polyphony || 16
       },
       {
         instrumentId: instB.id,
@@ -560,8 +553,7 @@ class ChannelSplitter {
         gmProgram: instB.gm_program,
         noteRange: { min: Math.max(chMin, bMin), max: Math.min(chMax, bMax) },
         fullRange: { min: instB.note_range_min, max: instB.note_range_max },
-        polyphonyShare: instB.polyphony || 16,
-        transposition: trB !== 0 ? { semitones: trB } : undefined
+        polyphonyShare: instB.polyphony || 16
       }
     ];
 
@@ -589,8 +581,8 @@ class ChannelSplitter {
       channelAnalysis
     };
 
-    // Score: full coverage + 2 instruments = high score, minus transposition penalty
-    proposal.quality = Math.max(50, Math.round(this.scoreSplitQuality(proposal) - bestPenalty));
+    // Score: full coverage on native ranges + 2 instruments = high score.
+    proposal.quality = Math.max(50, Math.round(this.scoreSplitQuality(proposal)));
 
     return proposal;
   }
