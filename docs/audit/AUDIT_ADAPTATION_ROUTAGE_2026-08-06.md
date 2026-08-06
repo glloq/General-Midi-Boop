@@ -73,6 +73,7 @@ mineurs/documentaires (P3).
 | P2-10 drop polyphonique : voix comptées en liste + note tombée en compteur (unissons corrects, plus de note-off orphelin) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 | Axe6-5 note-off différé (`min_note_duration`) lié à l'instance de note (plus de coupure d'un re-déclenchement rapide) | ✅ corrigé | `playback-scheduler-route-to` |
 | Axe6-6 compensation relative `MidiRouter` figée au note-on et réutilisée au note-off (plus de réordonnancement off-avant-on) | ✅ corrigé | `midi-router-capability-clamp` |
+| Axe6-3 clamp live : skip-batterie clé sur le canal **source** (parité playback) — décision : canal source | ✅ corrigé | `midi-router-capability-clamp` |
 
 **Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
 seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
@@ -574,7 +575,7 @@ envoient All-Notes-Off + reset du tracking ; la mémoire de hauteur par-note de 
 |---|--------|----------|--------|
 | Axe6-1 | Split : un **note-on vélocité-0** (note-off en running-status) prend le chemin note-ON de `getOutputForChannel` (`scheduleEvent` passe `event.type` brut) → sur `round_robin`/`alternate`/`least_loaded`/`overflow` le compteur/pile de segments désynchronise → **notes bloquées** sur le mauvais segment. `PlaybackScheduler.js:566`, `MidiPlayer.js:2182` | **Critique** | ✅ corrigé (type logique) |
 | Axe6-2 | `setChannelRouting` / `setChannelNoteRemapping` / `setChannelSplitRouting` ne relâchent **pas** les notes tenues avant de changer la config (contrairement aux setters de transposition) → une ré-assignation en cours de lecture envoie le note-off au **nouvel** appareil/mapping et l'ancienne note **reste bloquée**. Atteint en live via `apply_assignments`. `MidiPlayer.js:1939,2017,2035` | **Élevé** | ✅ corrigé (`_panicChannel` avant reconfig) |
-| Axe6-3 | **Écart de parité clamp** : le skip batterie (ch9) est clé sur le canal **source** au playback (`PlaybackScheduler.js:980`) mais sur le canal **mappé/destination** en live (`MidiRouter.js:380`) → un remap live franchissant le canal 9 clampe (ou pas) à l'inverse du playback. | Moyen | ⚠️ tracé (sémantique d'un remap cross-9 à décider) |
+| Axe6-3 | **Écart de parité clamp** : le skip batterie (ch9) est clé sur le canal **source** au playback (`PlaybackScheduler.js:980`) mais sur le canal **mappé/destination** en live (`MidiRouter.js:380`) → un remap live franchissant le canal 9 clampe (ou pas) à l'inverse du playback. | Moyen | ✅ corrigé (décision : canal **source**, parité playback) |
 | Axe6-4 | **Seek arrière / boucle** ne réinitialise jamais les contrôleurs (`_emitReconstructedState` est set-only) → un CC64 (sustain) tenu en fin de fichier **reste actif** après `seek(0)`/boucle → sur-sustain / notes tenues à l'itération suivante. `MidiPlayer.js:1648-1711`, boucle `:2711` | Moyen | ✅ corrigé (Reset-All-Controllers CC121 sur seek arrière) |
 | Axe6-5 | Note-off différé (`min_note_duration`) non lié à l'instance de note → un re-déclenchement rapide de la même hauteur dans la fenêtre de report est **coupé court**. `PlaybackScheduler.js:1072-1085` | Moyen | ✅ corrigé (compteur d'instance par hauteur) |
 | Axe6-6 | Compensation relative `MidiRouter` : si la compensation baisse en cours de note (≥2 destinations), le note-off peut partir **avant** le note-on encore en attente → note bloquée. `MidiRouter.js:301-320` | Faible-Moyen | ✅ corrigé (délai figé au note-on, réutilisé au note-off) |
@@ -583,9 +584,9 @@ Rappel (déjà tracé, non re-listé) : `globalTranspose` sans latch par voix �
 `setGlobalTranspose` (sendAllNotesOff + reset). Points d'enforcement playback : cf.
 `AUDIT_INSTRUMENT_CAPABILITIES_2026-08-05.md`.
 
-**Reste** : Axe6-3 seul — il demande une **décision produit** sur la sémantique d'un remap live
-franchissant le canal 9 (le playback clé le skip batterie sur le canal source, le live sur le
-canal mappé). Une fois la sémantique tranchée, le correctif est court.
+**Axe 6 : tous les points (Axe6-1 → Axe6-6) corrigés.** Axe6-3 a été tranché en faveur du canal
+**source** (parité playback) : « son de batterie vs hauteur » est une propriété du contenu
+entrant, donc le skip-clamp live se décide sur le canal source comme au playback.
 
 ---
 

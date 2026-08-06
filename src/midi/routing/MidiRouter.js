@@ -323,14 +323,14 @@ class MidiRouter {
             // Skip if route was deleted/disabled while waiting
             const currentRoute = this.routes.get(route.id);
             if (!currentRoute || !currentRoute.enabled) return;
-            this._sendAndEmit(route, sourceDevice, type, mapped);
+            this._sendAndEmit(route, sourceDevice, type, mapped, msg.channel);
           }, compensation);
           this.pendingTimeouts.add(timeoutId);
           continue;
         }
 
         // Send immediately (no compensation needed)
-        this._sendAndEmit(route, sourceDevice, type, mapped);
+        this._sendAndEmit(route, sourceDevice, type, mapped, msg.channel);
       }
     }
 
@@ -349,11 +349,13 @@ class MidiRouter {
    * @param {string} sourceDevice
    * @param {string} type
    * @param {Object} mapped
+   * @param {number} [sourceChannel] - Pre-channel-map source channel; the
+   *   drum-vs-pitch clamp decision keys on it (audit axis6-3).
    * @returns {void}
    * @private
    */
-  _sendAndEmit(route, sourceDevice, type, mapped) {
-    const out = this._clampToCapabilities(route.destination, type, mapped);
+  _sendAndEmit(route, sourceDevice, type, mapped, sourceChannel) {
+    const out = this._clampToCapabilities(route.destination, type, mapped, sourceChannel);
     const success = this._deps.deviceManager.sendMessage(route.destination, type, out);
     if (success) {
       this.eventBus.emit('midi_routed', {
@@ -370,8 +372,10 @@ class MidiRouter {
    * Clamp a live-routed note to the destination instrument's physical
    * capabilities (range fold + discrete/scale snap), so a source keyboard can't
    * send a mechanical instrument pitches it cannot produce — the same clamp the
-   * file-playback engine applies. No-op for non-note messages, the GM drum
-   * channel (9), and when no CapabilityResolver is wired.
+   * file-playback engine applies. No-op for non-note messages, a **source** GM
+   * drum channel (9), and when no CapabilityResolver is wired. Keying the drum
+   * skip on the SOURCE channel (not the mapped destination) matches playback:
+   * "drum sound vs pitch" is a property of the incoming content (audit axis6-3).
    *
    * Note-on records the pitch it actually sent; the matching note-off and any
    * poly-aftertouch reuse that recorded pitch instead of re-clamping, so a
@@ -383,15 +387,22 @@ class MidiRouter {
    * @param {string} destination
    * @param {string} type
    * @param {Object} mapped
+   * @param {number} [sourceChannel] - Pre-channel-map source channel; the drum
+   *   skip keys on it so a remap crossing channel 9 behaves like playback.
    * @returns {Object} `mapped` unchanged, or a shallow copy with a clamped `note`.
    * @private
    */
-  _clampToCapabilities(destination, type, mapped) {
+  _clampToCapabilities(destination, type, mapped, sourceChannel) {
     const isOn = type === DEVICE_MSG_TYPES.NOTE_ON;
     const isOff = type === DEVICE_MSG_TYPES.NOTE_OFF;
     const isAftertouch = type === DEVICE_MSG_TYPES.POLY_AFTERTOUCH;
     if (!isOn && !isOff && !isAftertouch) return mapped;
-    if (!mapped || mapped.note == null || mapped.channel === 9) return mapped;
+    // Drum-vs-pitch is a property of the SOURCE GM channel (9 = drums), matching
+    // file playback — skip the clamp for a drum SOURCE even when it's remapped
+    // onto a melodic channel, and clamp a pitched source even when remapped to
+    // channel 9 (audit axis6-3).
+    const drumSource = (sourceChannel ?? mapped?.channel) === 9;
+    if (!mapped || mapped.note == null || drumSource) return mapped;
 
     const key = `${destination}|${mapped.channel}|${mapped.note}`;
 
