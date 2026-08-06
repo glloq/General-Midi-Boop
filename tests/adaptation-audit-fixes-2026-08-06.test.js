@@ -11,6 +11,8 @@
 import { describe, test, expect } from '@jest/globals';
 import MidiTransposer from '../src/midi/adaptation/MidiTransposer.js';
 import ChannelAnalyzer from '../src/midi/routing/ChannelAnalyzer.js';
+import DrumNoteMapper from '../src/midi/adaptation/DrumNoteMapper.js';
+import ScoringConfig from '../src/midi/adaptation/ScoringConfig.js';
 
 const mockLogger = { info() {}, warn() {}, error() {}, debug() {} };
 
@@ -150,5 +152,39 @@ describe('P1-4 / P1-5 · tempo & duration are derived when the converter omits t
     const withTiming = { ...fourQuarterNotes, tempo: 120, duration: 2 };
     const derived = a._withDerivedTiming(withTiming);
     expect(derived).toBe(withTiming); // no clone when already present
+  });
+});
+
+describe('P1-9 · Default drumFallback substitutes nice-to-have percussion (no silent drop)', () => {
+  const mapper = new DrumNoteMapper(mockLogger);
+  const drumNote = (n, v = 80) => ({
+    type: 'noteOn',
+    channel: 9,
+    note: n,
+    noteNumber: n,
+    velocity: v,
+    time: 0
+  });
+
+  test('whistle/woodblock/cuica/triangle map to available pads under the production defaults', () => {
+    const midiNotes = mapper.classifyDrumNotes([
+      drumNote(71), // Short Whistle → 72
+      drumNote(76), // Hi Wood Block → 77
+      drumNote(78), // Mute Cuica    → 79
+      drumNote(80) // Mute Triangle  → 81
+    ]);
+    // Instrument has ONLY the substitution targets, and we pass the REAL default
+    // drumFallback (the production path). Before the fix these categories were
+    // -1 ("ignore") and every hit was dropped as "category ignored".
+    const result = mapper.generateMapping(midiNotes, [72, 77, 79, 81], {
+      categoryDepthLimits: ScoringConfig.routing.drumFallback
+    });
+    expect(result.mapping[71]).toBe(72);
+    expect(result.mapping[76]).toBe(77);
+    expect(result.mapping[78]).toBe(79);
+    expect(result.mapping[80]).toBe(81);
+    const omitted = new Set((result.omissions || []).map((o) => o.note));
+    expect(omitted.has(71)).toBe(false);
+    expect(omitted.has(80)).toBe(false);
   });
 });

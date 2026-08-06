@@ -46,6 +46,35 @@ mineurs/documentaires (P3).
 
 ---
 
+## Suivi — correctifs livrés dans cette branche
+
+| Point | État | Test de régression |
+|---|---|---|
+| P1-1 redistribution `deltaTime` à la suppression/drop | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P1-2 remap/suppression CC (`type:'controller'`/`controllerType`) | ✅ corrigé | idem |
+| P1-3 aftertouch polyphonique transposé (`noteAftertouch`) | ✅ corrigé | idem |
+| P1-4 / P1-5 dérivation `tempo`/`duration` (density ≠ 0, tempo réel) | ✅ corrigé | idem |
+| P1-7 statut de routage en canaux distincts (`COUNT(DISTINCT channel)` + `getFileMetadata`) | ✅ corrigé | couvert par CI SQLite |
+| P1-9 batterie : défaut `drumFallback` → substitution illimitée (plus d'omission) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P1-11 gate `hasModifications` inclut `notesDropped`/`notesShortened`/`ccsRemapped` | ✅ corrigé | couvert par CI |
+| P1-6 ré-apply idempotent : purge `deleteByFileId(targetFileId)` en tête d'apply | ✅ corrigé (voir réserve) | CI SQLite |
+| P1-8 échec partiel remonté (`routings` = lignes persistées, `failedChannels`/`partial`) | ✅ corrigé (voir réserve) | CI SQLite |
+
+**Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
+seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
+échec d'insertion en cours de boucle est donc *remonté* (`failedChannels`) plutôt que
+*annulé*. L'atomicité complète (refactor `saveSplit` en savepoints + transaction englobante,
+suppression de l'orphelin `adaptedFile` en cas d'échec) reste un follow-up, à faire avec les
+tests SQLite exécutables.
+
+**Non encore traités** (volontairement, changements de comportement de scoring ou hors P1) :
+P1-10 (rejet note-range vs repli — modifie le scoring d'assignation), tous les **P2** et
+**P3**, et l'**axe 6** (parité playback/live) — cf. sections dédiées.
+
+Suite backend complète verte après correctifs : **107 suites / 1248 tests**.
+
+---
+
 ## Synthèse
 
 | # | Défaut | Sévérité | Statut | Réf. principale |

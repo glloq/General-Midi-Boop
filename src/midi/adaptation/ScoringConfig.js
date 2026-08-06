@@ -144,19 +144,22 @@ const ScoringConfig = {
     autoSplitAvoidTransposition: false,
     preferSingleInstrument: true,
     preferSimilarGMType: true,
+    // Per-category substitution depth: 0 = exact only, N = max chain depth,
+    // -1 = ignore (drop the whole category). Categories OMITTED here default to
+    // unlimited substitution (getMaxDepthForNote → Infinity). The nice-to-have
+    // auxiliary percussion below is intentionally left out so it substitutes
+    // onto any available pad — a previous `-1` meant "ignore" and silently
+    // dropped those hits instead of substituting them (audit P1-9). `-1` stays
+    // available for an explicit per-category "ignore" from the settings UI.
     drumFallback: {
       kicks: 2, // Essential: tight substitution (kick -> kick only)
       snares: 3, // Essential: allow rim shot, clap substitution
       hiHats: 3, // Important: allow pedal/open/tambourine
       toms: 5, // Optional: allow more distant toms, congas
       crashes: 4, // Important: allow splash, china, ride
-      rides: 4, // Important: allow bell, crash
-      latin: -1, // Nice-to-have: unlimited substitution
-      shakers: -1, // Nice-to-have: unlimited substitution
-      woodsMetal: -1, // Nice-to-have: unlimited substitution
-      pitched: -1, // Nice-to-have: unlimited substitution
-      cuicas: -1, // Nice-to-have: unlimited substitution
-      triangles: -1 // Nice-to-have: unlimited substitution
+      rides: 4 // Important: allow bell, crash
+      // latin / shakers / woodsMetal / pitched / cuicas / triangles:
+      // omitted → unlimited substitution (nice-to-have percussion).
     }
   },
 
