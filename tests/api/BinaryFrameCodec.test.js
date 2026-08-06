@@ -42,9 +42,13 @@ describe('BinaryFrameCodec', () => {
 
     test('isBinaryEvent reports supported event names', () => {
       expect(isBinaryEvent('playback_position')).toBe(true);
-      expect(isBinaryEvent('tuner:pitch')).toBe(true);
-      expect(isBinaryEvent('calibration:audio_level')).toBe(true);
       expect(isBinaryEvent('system_lag')).toBe(true);
+      // tuner:pitch and calibration:audio_level are sent as JSON (their
+      // payloads don't fit the fixed binary frames — see BinaryFrameCodec
+      // header), so they are NOT binary events even though decode() still
+      // understands legacy 0x03/0x04 frames.
+      expect(isBinaryEvent('tuner:pitch')).toBe(false);
+      expect(isBinaryEvent('calibration:audio_level')).toBe(false);
       expect(isBinaryEvent('monitor_event')).toBe(false);
       expect(isBinaryEvent('arbitrary')).toBe(false);
     });

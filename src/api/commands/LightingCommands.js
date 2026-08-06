@@ -289,12 +289,14 @@ function lightingPresetLoad(app, data) {
   const preset = presets.find((p) => p.id === data.id);
   if (!preset) throw new NotFoundError('LightingPreset', data.id);
 
-  // Guard: only load if rules_snapshot is an array of rules (not a scene object)
+  // A scene is stored in the same table with an OBJECT `rules_snapshot`
+  // (master dimmer + device colors + effects) instead of a rules array.
+  // The presets UI lists scenes and rules together with one "Load" button,
+  // so apply the scene here instead of rejecting it (which left saved scenes
+  // unusable — the only action wired to them errored out).
   if (!Array.isArray(preset.rules_snapshot)) {
-    throw new ValidationError(
-      'This preset is a scene snapshot, not a rules preset. Use scene_apply instead.',
-      'rules_snapshot'
-    );
+    _applySceneObject(app, preset.rules_snapshot);
+    return { success: true, scene_applied: true };
   }
 
   // Delete existing rules and recreate from snapshot
@@ -716,11 +718,17 @@ function lightingSceneSave(app, data) {
  * @returns {{success:true}}
  * @throws {ValidationError|ConfigurationError}
  */
-function lightingSceneApply(app, data) {
-  requireField(data, 'scene', 'scene data is required');
+/**
+ * Apply a scene snapshot object (master dimmer + device colors + effects).
+ * Shared by `lighting_scene_apply` (scene passed in the payload) and by
+ * `lighting_preset_load` when the stored preset is a scene snapshot object
+ * rather than a rules array.
+ * @param {Object} app
+ * @param {Object} scene - `{ masterDimmer?, devices?, effects? }`.
+ * @returns {{success:true}}
+ */
+function _applySceneObject(app, scene) {
   const lm = requireLightingManager(app);
-
-  const scene = data.scene;
 
   // Restore master dimmer
   if (scene.masterDimmer !== undefined) {
@@ -756,6 +764,11 @@ function lightingSceneApply(app, data) {
   }
 
   return { success: true };
+}
+
+function lightingSceneApply(app, data) {
+  requireField(data, 'scene', 'scene data is required');
+  return _applySceneObject(app, data.scene);
 }
 
 // ==================== MIDI LEARN ====================

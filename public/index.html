@@ -7566,59 +7566,15 @@
                     }
                 });
 
-                // Événements de lecture
-                api.on('playback_started', () => {
-                    isPlaying = true;
-                    isPaused = false;
-                    updatePlaybackControls();
-                    updateFileStateDots();
-                    log('▶️ Playback started');
-                    // Émettre pour le piano roll
-                    if (window.eventBus) {
-                        window.eventBus.emit('playback:play', { fileId: currentFileId });
-                    }
-                });
-
-                api.on('playback_stopped', () => {
-                    isPlaying = false;
-                    isPaused = false;
-                    currentDuration = 0;
-                    updatePlaybackControls();
-                    updateFileStateDots();
-                    document.getElementById('headerProgressFill').style.width = '0%';
-                    document.getElementById('headerTime').textContent = '00:00 / 00:00';
-                    // Afficher le fichier sélectionné s'il y en a un, sinon "aucun fichier"
-                    updateHeaderSelectedFile();
-                    log('⏹️ Playback stopped');
-                    // Émettre pour le piano roll (HIGH priority pour arrêt immédiat)
-                    if (window.eventBus) {
-                        const priority = window.EventPriority ? window.EventPriority.HIGH : undefined;
-                        window.eventBus.emit('playback:stop', { fileId: currentFileId }, priority);
-                    }
-                });
-
-                api.on('playback_paused', () => {
-                    isPlaying = false;
-                    isPaused = true;
-                    updatePlaybackControls();
-                    log('⏸️ Playback paused');
-                    // Émettre pour le piano roll (HIGH priority pour arrêt immédiat)
-                    if (window.eventBus) {
-                        const priority = window.EventPriority ? window.EventPriority.HIGH : undefined;
-                        window.eventBus.emit('playback:pause', { fileId: currentFileId }, priority);
-                    }
-                });
-
-                api.on('playback_resumed', () => {
-                    isPlaying = true;
-                    isPaused = false;
-                    updatePlaybackControls();
-                    log('▶️ Playback resumed');
-                    // Émettre pour le piano roll
-                    if (window.eventBus) {
-                        window.eventBus.emit('playback:play', { fileId: currentFileId });
-                    }
-                });
+                // Événements de lecture — NB : le backend ne diffuse PAS
+                // playback_started/_stopped/_paused/_resumed. Seuls playback_status
+                // (état) et playback_position (binaire) sont émis. L'état des
+                // boutons/progression est piloté par le handler playback_status
+                // ci-dessus ; le piano roll est piloté par les émissions locales
+                // window.eventBus 'playback:play'/'pause'/'stop' dans
+                // playFile()/togglePlayPause()/stopPlayback(). Les anciens
+                // abonnements api.on() à ces quatre événements jamais diffusés
+                // ont été retirés (ils ne se déclenchaient jamais).
 
                 // 🎶 Événements playlist
                 api.on('playlist_item_changed', (data) => {
@@ -7717,10 +7673,13 @@
                 const refreshFileList = () => {
                     try { loadFiles(); } catch (e) { /* ignore */ }
                 };
+                // file_list_updated is broadcast by the backend on every file
+                // mutation (upload/delete/write/rename/move), so it is the single
+                // source of truth for refreshing the list. The former
+                // file_uploaded/file_delete/file_write subscriptions were dead —
+                // those names are only emitted on the backend's internal EventBus
+                // and never broadcast over WebSocket.
                 api.on('file_list_updated', refreshFileList);
-                api.on('file_uploaded', refreshFileList);
-                api.on('file_delete', refreshFileList);
-                api.on('file_write', refreshFileList);
 
                 // Upload progress crumbs (received → hashed → parsed →
                 // analyzed → stored). The HTTP POST returns the final
@@ -10282,6 +10241,12 @@
                     // Backend
                     if (isPlaying) {
                         await api.sendCommand('playback_pause');
+                        // Émettre playback:pause pour le piano roll (le backend
+                        // n'émet pas d'événement playback_paused dédié).
+                        if (window.eventBus) {
+                            const priority = window.EventPriority ? window.EventPriority.HIGH : undefined;
+                            window.eventBus.emit('playback:pause', { fileId: currentFileId }, priority);
+                        }
                     } else if (isPaused) {
                         await api.sendCommand('playback_resume');
                         // Émettre playback:play pour ouvrir le piano roll
@@ -12384,7 +12349,7 @@
                                        document.activeElement.tagName === 'SELECT';
 
                 const isModalOpen = document.querySelector('.folder-modal-overlay.show') !== null ||
-                                    document.querySelector('.confirm-modal-overlay.show') !== null;
+                                    document.querySelector('.confirm-modal-overlay.visible') !== null;
 
                 // Ctrl+F : Focus sur la recherche (toujours actif)
                 if (e.ctrlKey && e.key === 'f') {

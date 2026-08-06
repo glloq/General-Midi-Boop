@@ -254,7 +254,12 @@ function _validateSettingsFields(data, { sf2 = false } = {}) {
     data.comm_timeout = timeout;
   }
 
-  for (const field of ['omni_mode', 'lighting_enabled', 'voices_share_notes']) {
+  for (const field of [
+    'omni_mode',
+    'lighting_enabled',
+    'voices_share_notes',
+    'pitch_bend_enabled'
+  ]) {
     if (data[field] !== undefined && data[field] !== null) {
       data[field] = data[field] ? 1 : 0;
     }
@@ -332,7 +337,8 @@ async function instrumentUpdateSettings(app, data) {
     omni_mode: data.omni_mode,
     lighting_enabled: data.lighting_enabled,
     voices_share_notes: data.voices_share_notes,
-    custom_sf2_id: data.custom_sf2_id
+    custom_sf2_id: data.custom_sf2_id,
+    pitch_bend_enabled: data.pitch_bend_enabled
   });
 
   app.eventBus?.emit('instrument_settings_changed', {
@@ -696,7 +702,7 @@ async function instrumentSaveAll(app, data) {
 
   const usbSerialNumber = _resolveUsbSerial(app, data);
   const channel = _resolveChannel(data);
-  _validateSettingsFields(data);
+  _validateSettingsFields(data, { sf2: true });
   _validatePolyphony(data);
 
   // Cross-field range check at the save-all boundary, mirroring the
@@ -731,7 +737,13 @@ async function instrumentSaveAll(app, data) {
       min_note_duration: data.min_note_duration,
       omni_mode: data.omni_mode,
       lighting_enabled: data.lighting_enabled,
-      voices_share_notes: data.voices_share_notes
+      voices_share_notes: data.voices_share_notes,
+      // custom_sf2_id and pitch_bend_enabled were previously dropped here, so
+      // the Advanced-tab SoundFont override and the Pitch-Bend toggle could
+      // never be persisted from the instrument-settings modal (its only save
+      // path is instrument_save_all).
+      custom_sf2_id: data.custom_sf2_id,
+      pitch_bend_enabled: data.pitch_bend_enabled
     });
 
     const capPayload = {

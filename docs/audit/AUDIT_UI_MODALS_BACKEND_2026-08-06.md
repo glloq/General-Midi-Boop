@@ -31,6 +31,9 @@ correspondent tous à un handler enregistré**, et la suite de tests frontend es
 entièrement non opérationnelle** (accordeur, VU-mètre de calibration, rechargement
 des positions de main).
 
+> ✅ **Les 13 défauts ont été corrigés sur cette branche** — voir
+> « Correctifs appliqués » en fin de document (lint/typecheck/tests verts).
+
 | Sévérité | Nb | Effet |
 |---|---|---|
 | 🔴 Haute | 3 | Fonctionnalité affichée mais **non fonctionnelle** (données jamais reliées) |
@@ -253,8 +256,28 @@ bibliothèque de fichiers / upload / dialogues (dossier, renommer, confirmation)
   Raspberry Pi. Les défauts temps réel (H1/H2) ont été confirmés statiquement de bout en
   bout (émission → codec binaire → décodage → consommation).
 
-## Correctifs
+## Correctifs appliqués (sur cette branche)
 
-Ce document est un **audit** ; aucun correctif n'a été appliqué. Les 13 défauts sont
-localisés (fichier:ligne) et un correctif est proposé pour chacun — implémentables sur
-demande.
+**Les 13 défauts confirmés ont été corrigés.** Validation : ESLint **0 erreur**,
+`tsc --noEmit` **OK**, tests frontend **1411/1411 verts**, tests backend **1240/1240
+verts** (suites SQLite auto-ignorées sans le module natif, cf. `CLAUDE.md`).
+
+| # | Correctif | Fichiers |
+|---|---|---|
+| H1/H2 | `tuner:pitch` et `calibration:audio_level` retirés du codec binaire → envoyés en JSON, restaurant les champs `{freq,confidence,rms}` / `{rms,peak}` que les deux côtés partageaient déjà. Décodage 0x03/0x04 conservé (rétro-compat). | `shared/BinaryFrameCodec.js`, `tests/api/BinaryFrameCodec.test.js` |
+| H3 | `hand_position_overrides` recopié dans l'assignment reconstruit → l'éditeur recharge les positions sauvegardées. | `RoutingSummaryPage.js` |
+| M1 | Bouton SysEx : envoie `{deviceName, deviceId:0x7F}` + `await`. | `DeviceSettingsModal.js` |
+| M2 | `instrument_save_all` persiste `custom_sf2_id` (+ validation `sf2`). | `InstrumentSettingsCommands.js` |
+| M3 | `pitch_bend_enabled` câblé de bout en bout : migration 034, allow-list settings, coercition, save-all + update-settings, SELECT + retour capacités, coercition du rendu ISM. | migration `034_*`, `InstrumentSettingsDB.js`, `InstrumentCapabilitiesDB.js`, `InstrumentSettingsCommands.js`, `ISMSections.js` |
+| M4 | `lighting_preset_load` applique les snapshots de scène (helper `_applySceneObject` partagé avec `lighting_scene_apply`) → le bouton « Charger » d'une scène fonctionne. | `LightingCommands.js` |
+| M5 | Renommage de playlist : suppression du `playlist_create` en double + transmission de `description`. | `PlaylistPage.js` |
+| M6 | Clamp `maxTranspositionOctaves` plancher 0 (au lieu de 1) + `?? 3` au lieu de `|| 3` chez le consommateur → « Transposition OFF » = 0 octave. | `PlaybackAnalysisCommands.js`, `ChannelSplitter.js` |
+| B1 | Émission locale `playback:pause` sur pause + retrait des 4 abonnements jamais diffusés. | `index.html` |
+| B2 | Garde de raccourcis : `.confirm-modal-overlay.visible` (au lieu de `.show`). | `index.html` |
+| B3 | Retrait de la branche morte `createResp.instrument`. | `MidiEditorSpecializedEditors.js` |
+| B4 | Retrait des 3 abonnements morts `file_uploaded`/`file_delete`/`file_write`. | `index.html` |
+
+> Note : la migration SQLite `034` n'a pas pu être exécutée dans cet environnement
+> (module natif `better-sqlite3` absent) ; elle reprend à l'identique le patron
+> éprouvé de `006_omni_mode.sql` (ADD COLUMN INTEGER NOT NULL DEFAULT 0 CHECK) et le
+> test `migrations-uniqueness` est vert.

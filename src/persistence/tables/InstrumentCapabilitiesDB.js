@@ -268,7 +268,7 @@ class InstrumentCapabilitiesDB {
             octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
-            custom_sf2_id
+            custom_sf2_id, pitch_bend_enabled
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
         `);
@@ -284,7 +284,7 @@ class InstrumentCapabilitiesDB {
             octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
-            custom_sf2_id
+            custom_sf2_id, pitch_bend_enabled
           FROM instruments_latency
           WHERE device_id = ?
         `);
@@ -347,7 +347,10 @@ class InstrumentCapabilitiesDB {
         bagpipe_config: parseJsonCol(result.bagpipe_config),
         accordion_config: parseJsonCol(result.accordion_config),
         harmonica_config: parseJsonCol(result.harmonica_config),
-        custom_sf2_id: result.custom_sf2_id != null ? result.custom_sf2_id : null
+        custom_sf2_id: result.custom_sf2_id != null ? result.custom_sf2_id : null,
+        // Surfaced so the virtual keyboard's pitch-bend wheel (which gates on
+        // caps.pitch_bend_enabled) reflects the instrument-settings toggle.
+        pitch_bend_enabled: result.pitch_bend_enabled ? 1 : 0
       };
     } catch (error) {
       this.logger.error(`Failed to get instrument capabilities: ${error.message}`);

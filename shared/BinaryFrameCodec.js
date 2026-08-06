@@ -18,24 +18,34 @@
  *
  * Event types supported:
  *   0x01  playback_position     [f64 positionSec][f32 percentage]
- *   0x03  tuner_pitch           [f32 freqHz][f32 cents][i8 noteMidi]
- *   0x04  calibration_audio     [f32 levelDb][f32 peakDb]
  *   0x05  system_lag            [u16 lagMs][u16 thresholdMs]
  *
  * `monitor_event` is intentionally left in JSON for now — its payload
  * carries a variable-length string `deviceId` and is gated behind
  * `monitorAll`, so the gain from binary encoding would be small.
+ *
+ * `tuner:pitch` (0x03) and `calibration:audio_level` (0x04) are sent as
+ * JSON, NOT binary: the tuner payload carries a `confidence` field the
+ * consumer gates on (which the fixed 9-byte frame has no slot for), and
+ * the calibration payload's `rms`/`peak` are linear 0..1 levels, not the
+ * decibels the frame's `levelDb`/`peakDb` names imply. Forcing them through
+ * the binary frame silently dropped `confidence` and mismatched the field
+ * names on both ends, leaving the tuner and the VU meter permanently blank.
+ * They are therefore excluded from `EVENT_TYPES` (so `isBinaryEvent` is
+ * false and `WsOutputQueue` emits JSON). The 0x03/0x04 encode/decode
+ * helpers are retained for backward compatibility with any peer that still
+ * speaks the binary form.
  */
 
 export const FRAME_MAGIC = 0xb0;
 export const HEADER_BYTES = 4;
 
+// NOTE: tuner:pitch (0x03) and calibration:audio_level (0x04) are deliberately
+// NOT listed here — see the file header. Keeping them out routes them to the
+// JSON wire path with their original `{freq,confidence,rms}` / `{rms,peak}`
+// field names intact.
 export const EVENT_TYPES = Object.freeze({
   playback_position: 0x01,
-  'tuner:pitch':     0x03,
-  'tuner_pitch':     0x03,
-  'calibration:audio_level': 0x04,
-  'calibration_audio_level': 0x04,
   system_lag:        0x05
 });
 

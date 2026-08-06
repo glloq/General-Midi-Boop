@@ -482,7 +482,9 @@ class ChannelSplitter {
     const totalNotes = channelNotes.size;
     const transpositions = [0, -12, 12, -24, 24]; // Try no transposition first
     const penaltyPerOctave = this.config?.penalties?.transpositionPerOctave || 3;
-    const maxOctaves = this.config?.penalties?.maxTranspositionOctaves || 3;
+    // `?? 3` (not `|| 3`): a configured 0 means "no transposition" and must be
+    // honoured, otherwise the falsy fallback would silently allow 3 octaves.
+    const maxOctaves = this.config?.penalties?.maxTranspositionOctaves ?? 3;
 
     let bestPair = null;
     let bestPenalty = Infinity;

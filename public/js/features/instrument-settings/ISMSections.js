@@ -1077,7 +1077,7 @@
                         <p class="ism-form-hint" style="margin:4px 0 0 0;">${this.t('instrumentSettings.pitchBendHint') || 'Active la roue de pitch bend et le mode slider (touches égales) dans le clavier virtuel.'}</p>
                     </div>
                     <span class="ism-toggle-switch">
-                        <input type="checkbox" id="pitchBendEnabled" ${settings.pitch_bend_enabled === true ? 'checked' : ''}>
+                        <input type="checkbox" id="pitchBendEnabled" ${settings.pitch_bend_enabled === true || settings.pitch_bend_enabled === 1 ? 'checked' : ''}>
                         <span class="ism-toggle-slider" aria-hidden="true"></span>
                     </span>
                 </label>
