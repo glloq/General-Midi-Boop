@@ -498,6 +498,18 @@ class AutoAssigner {
         continue;
       }
 
+      // Channel assigned to a single instrument only via octave-wrapping (a
+      // lossy fold of out-of-range notes) -> candidate even when the total score
+      // is acceptable: a multi-instrument split can cover the full range without
+      // wrapping, so we surface the split so it can be preferred (audit P1-10).
+      if (assignment && assignment.octaveWrappingEnabled) {
+        candidateChannels.push(analysis);
+        this.logger.debug(
+          `Channel ${ch}: candidate for split (assigned via octave wrapping, score ${assignment.score})`
+        );
+        continue;
+      }
+
       // Channel assigned WITH transposition when autoSplitAvoidTransposition is enabled -> candidate
       // Even if the score is acceptable, a split could avoid transposition
       if (

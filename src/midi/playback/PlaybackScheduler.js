@@ -37,6 +37,7 @@ import { clampNote, foldIntoRange, snapToNearest } from '../adaptation/NoteEnfor
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
+const MIDI_CC_RESET_ALL_CONTROLLERS = MIDI_CC.RESET_ALL_CONTROLLERS;
 const MIDI_CC_STRING_SELECT = MIDI_CC.STRING_SELECT;
 const MIDI_CC_FRET_SELECT = MIDI_CC.FRET_SELECT;
 
@@ -119,6 +120,11 @@ class PlaybackScheduler {
     // Count of noteOns dropped by a constraint, per (device:channel:note),
     // so the matching noteOff can be suppressed exactly once.
     this._droppedNoteOns = new Map(); // key: "device:channel:note" -> count
+    // Monotonic instance id per (device:channel:note), bumped on every accepted
+    // noteOn. A DEFERRED noteOff (min_note_duration) captures the instance and
+    // only fires if it still matches — so a fast same-pitch retrigger within the
+    // defer window isn't cut short by the previous note's late release (P2 axis6-5).
+    this._noteInstance = new Map(); // key: "device:channel:note" -> instance id
 
     // Per-playback timing observability (see getTimingMetrics).
     this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
@@ -170,6 +176,7 @@ class PlaybackScheduler {
     this._activeNotes.clear();
     this._noteOnTimes.clear();
     this._droppedNoteOns.clear();
+    this._noteInstance.clear();
     this._handWarnings = null;
     this._maxHandShiftMs = 0;
     this._metrics = { emitted: 0, earlyCount: 0, maxEarlinessMs: 0, sumEarlinessMs: 0 };
@@ -192,6 +199,7 @@ class PlaybackScheduler {
     this._lastNoteOnTime.clear();
     this._noteOnTimes.clear();
     this._droppedNoteOns.clear();
+    this._noteInstance.clear();
   }
 
   /**
@@ -393,6 +401,9 @@ class PlaybackScheduler {
     counts.set(note, (counts.get(note) || 0) + 1);
     this._lastNoteOnTime.set(noteKey, now); // per-pitch retrigger guard
     this._noteOnTimes.set(noteKey, now);
+    // New sounding instance of this pitch — supersedes any deferred noteOff
+    // still pending from a previous note on the same pitch (axis6-5).
+    this._noteInstance.set(noteKey, (this._noteInstance.get(noteKey) || 0) + 1);
 
     return false; // Allow
   }
@@ -559,11 +570,21 @@ class PlaybackScheduler {
       return;
     }
 
-    // For note events, pass the note and event type to routing for split support
+    // For note events, pass the note and LOGICAL event type to routing for split
+    // support. A velocity-0 note-on is a running-status note-off: route it as a
+    // note-off so stateful split strategies (round_robin/alternate/least_loaded/
+    // overflow) POP the segment its note-on pushed, instead of taking the
+    // note-on path (push + counter increment) and stranding the note on the
+    // wrong segment while dispatch emits an actual note-off (audit axis6-1).
     const isNoteEvent =
       event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF;
+    const logicalNoteType = isNoteEvent
+      ? event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) === 0
+        ? MIDI_EVENT_TYPES.NOTE_OFF
+        : event.type
+      : null;
     const note = isNoteEvent ? (event.note ?? null) : null;
-    const routing = getOutputForChannel(event.channel, note, isNoteEvent ? event.type : null);
+    const routing = getOutputForChannel(event.channel, note, logicalNoteType);
 
     if (!routing) {
       if (!this._unroutedChannels.has(event.channel)) {
@@ -1080,7 +1101,16 @@ class PlaybackScheduler {
     if (deferMs <= EMIT_AHEAD_MS) {
       return send();
     }
-    this._emit(deferMs, send);
+    // Defer to honour min_note_duration, but bind the release to THIS note
+    // instance: if the same pitch is re-struck before the timer fires, a newer
+    // instance id is recorded and this stale release is skipped so it doesn't
+    // cut the retriggered note short — its own noteOff releases it (axis6-5).
+    const noteKey = `${deviceId}:${channel}:${note}`;
+    const instance = this._noteInstance.get(noteKey);
+    this._emit(deferMs, () => {
+      if (this._noteInstance.get(noteKey) !== instance) return;
+      send();
+    });
     return { status: SEND_STATUS.QUEUED };
   }
 
@@ -1091,6 +1121,37 @@ class PlaybackScheduler {
    * @param {Array} channels - MIDI channels from file
    */
   sendAllNotesOff(outputDevice, channelRouting, channels, resolveChannel = null) {
+    this._broadcastCC(outputDevice, channelRouting, channels, resolveChannel, MIDI_CC_ALL_NOTES_OFF);
+  }
+
+  /**
+   * Reset All Controllers (CC121, value 0) on every routed device/channel —
+   * clears sustain (CC64), modulation, expression, etc. to defaults. Sent on a
+   * BACKWARD seek / loop-to-start so stale forward-accumulated controllers (a
+   * held sustain at the old position) don't carry over the jump and hang the
+   * notes played after it (audit axis6-4).
+   * @param {string} outputDevice
+   * @param {Map} channelRouting
+   * @param {Array} channels
+   * @param {?Function} resolveChannel
+   */
+  resetControllers(outputDevice, channelRouting, channels, resolveChannel = null) {
+    this._broadcastCC(
+      outputDevice,
+      channelRouting,
+      channels,
+      resolveChannel,
+      MIDI_CC_RESET_ALL_CONTROLLERS
+    );
+  }
+
+  /**
+   * Send a single CC (value 0) to every channel actually routed to each
+   * destination device. Shared by {@link sendAllNotesOff} and
+   * {@link resetControllers}.
+   * @private
+   */
+  _broadcastCC(outputDevice, channelRouting, channels, resolveChannel, controller) {
     if (!outputDevice) {
       return;
     }
@@ -1147,13 +1208,13 @@ class PlaybackScheduler {
       }
     }
 
-    // Send All Notes Off only on the channels actually routed to each device
+    // Send the CC only on the channels actually routed to each device
     for (const [targetDevice, chSet] of channelsPerDevice) {
       for (const channel of chSet) {
         try {
           device.sendMessage(targetDevice, 'cc', {
             channel: channel,
-            controller: MIDI_CC_ALL_NOTES_OFF,
+            controller,
             value: 0
           });
         } catch (err) {

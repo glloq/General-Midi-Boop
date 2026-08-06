@@ -139,3 +139,58 @@ describe('MidiRouter — live capability clamp', () => {
     expect(deviceManager.sendMessage.mock.calls[1][2].note).toBe(72);
   });
 });
+
+describe('MidiRouter — stable per-note compensation (audit axis6-6)', () => {
+  test('a note-off reuses the compensation delay latched at its note-on', () => {
+    const { router } = makeRouter();
+    let comp = 30;
+    router._getRelativeCompensation = () => comp;
+
+    const onDelay = router._getStableCompensation('kbd', 'robot', DEVICE_MSG_TYPES.NOTE_ON, {
+      channel: 0,
+      note: 60,
+      velocity: 100
+    });
+    expect(onDelay).toBe(30);
+
+    // A settings recalibration lowers the relative delay mid-note.
+    comp = 5;
+    const offDelay = router._getStableCompensation('kbd', 'robot', DEVICE_MSG_TYPES.NOTE_OFF, {
+      channel: 0,
+      note: 60
+    });
+    // Must reuse 30 (the note-on's delay); otherwise the release could outrun a
+    // still-pending note-on and strand the note.
+    expect(offDelay).toBe(30);
+  });
+
+  test('non-note messages compute a fresh compensation each time', () => {
+    const { router } = makeRouter();
+    let comp = 12;
+    router._getRelativeCompensation = () => comp;
+    const cc = { channel: 0, controller: 7, value: 100 };
+    expect(router._getStableCompensation('kbd', 'robot', 'cc', cc)).toBe(12);
+    comp = 20;
+    expect(router._getStableCompensation('kbd', 'robot', 'cc', cc)).toBe(20);
+  });
+});
+
+describe('MidiRouter — drum-skip keys on the SOURCE channel (audit axis6-3)', () => {
+  test('a drum source (ch9) remapped to a melodic channel is NOT clamped', () => {
+    const { router, deviceManager } = makeRouter({ noteRangeMin: 60, noteRangeMax: 72 });
+    router.routes.get('r1').channelMap = { 9: 0 }; // source ch9 → dest ch0
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 9, note: 84, velocity: 100 });
+    const call = deviceManager.sendMessage.mock.calls[0];
+    expect(call[2].channel).toBe(0);
+    expect(call[2].note).toBe(84); // drum sound passes through, not folded to 72
+  });
+
+  test('a pitched source (ch0) remapped onto channel 9 IS clamped', () => {
+    const { router, deviceManager } = makeRouter({ noteRangeMin: 60, noteRangeMax: 72 });
+    router.routes.get('r1').channelMap = { 0: 9 }; // source ch0 → dest ch9
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: 84, velocity: 100 });
+    const call = deviceManager.sendMessage.mock.calls[0];
+    expect(call[2].channel).toBe(9);
+    expect(call[2].note).toBe(72); // pitched source folded into range despite dest ch9
+  });
+});

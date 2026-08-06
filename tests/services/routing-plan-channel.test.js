@@ -43,6 +43,12 @@ describe('planChannelRouting — guards', () => {
     expect(r.deviceId).toBe('unknown-dev');
   });
 
+  test('skip-device still carries the routing payload, disabled (P2-3)', () => {
+    const r = planChannelRouting({ ...baseArgs, routingValue: 'unknown-dev' });
+    expect(r.action).toBe('skip-device');
+    expect(r.routing).toMatchObject({ device_id: 'unknown-dev', enabled: false, channel: 0 });
+  });
+
   test('always accepts virtual-instrument even if not in knownDevices', () => {
     const r = planChannelRouting({
       ...baseArgs,

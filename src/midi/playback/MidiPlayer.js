@@ -1523,6 +1523,7 @@ class MidiPlayer {
     const wasActivelyPlaying = this.playing && !this.paused;
     const wasPaused = this.playing && this.paused;
     const seekPosition = Math.max(0, Math.min(position, this.duration));
+    const prevPosition = this.position;
     const savedOutputDevice = this.outputDevice;
 
     this.stateMachine.tryTransition(PLAYBACK_STATES.SEEKING);
@@ -1530,6 +1531,14 @@ class MidiPlayer {
     if (this.playing) {
       this.scheduler.stopScheduler();
       this.sendAllNotesOff();
+      // On a BACKWARD jump (scrub-back or loop-to-start), reset controllers too:
+      // reconstruction below only re-applies controllers present AT the target,
+      // it never clears a sustain (CC64) or other CC still held from the later
+      // position — which would otherwise carry over and hang/over-sustain the
+      // notes played after the jump (audit axis6-4).
+      if (seekPosition < prevPosition) {
+        this.resetControllers();
+      }
       // Stop the clock only when we will restart it (active-play seek, where
       // start() calls startPlayback() again). For a PAUSED seek the clock is
       // already paused but still `_running`; calling stopPlayback() here clears
@@ -1780,6 +1789,19 @@ class MidiPlayer {
   }
 
   /**
+   * Reset All Controllers (CC121) on every routed device/channel — clears a
+   * held sustain (CC64) and other CCs to defaults. Called on a backward seek /
+   * loop so stale forward-accumulated controllers don't hang the notes played
+   * after the jump (audit axis6-4).
+   * @returns {void}
+   */
+  resetControllers() {
+    this.scheduler.resetControllers(this.outputDevice, this.channelRouting, this.channels, (ch) =>
+      this.getOutputForChannel(ch)
+    );
+  }
+
+  /**
    * @param {boolean} enabled - When true, the file restarts from
    *   position 0 on end-of-file instead of stopping.
    * @returns {boolean}
@@ -1938,6 +1960,18 @@ class MidiPlayer {
    */
   setChannelRouting(channel, deviceId, targetChannel, handOverrides) {
     const target = targetChannel !== undefined && targetChannel !== null ? targetChannel : channel;
+    // Release held notes via the OLD routing before switching, else the file's
+    // note-off is sent to the NEW device and the old device's note hangs
+    // (audit axis6-2). Panic first so All-Notes-Off targets the old destination.
+    const prevRouting = this.channelRouting.get(channel);
+    const routingChanged =
+      !prevRouting ||
+      prevRouting.split ||
+      prevRouting.device !== deviceId ||
+      prevRouting.targetChannel !== target;
+    if (routingChanged && this.playing && !this.paused) {
+      this._panicChannel(channel);
+    }
     this.channelRouting.set(channel, {
       device: deviceId,
       targetChannel: target,
@@ -2015,7 +2049,15 @@ class MidiPlayer {
   }
 
   setChannelNoteRemapping(channel, mapping) {
-    if (mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0) {
+    const willHave =
+      mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0;
+    // Release held notes before the remap changes, else a note turned on under
+    // the old mapping is stranded when its note-off is emitted under the new one
+    // (audit axis6-2).
+    if ((this.channelNoteRemapping.has(channel) || willHave) && this.playing && !this.paused) {
+      this._panicChannel(channel);
+    }
+    if (willHave) {
       this.channelNoteRemapping.set(channel, mapping);
     } else {
       this.channelNoteRemapping.delete(channel);
@@ -2047,6 +2089,13 @@ class MidiPlayer {
         polyphonyShare: seg.split_polyphony_share ?? null
       }))
     };
+
+    // Release held notes via the OLD routing before switching to the split
+    // config, else in-flight notes strand (their note-off would resolve against
+    // the new segments) (audit axis6-2).
+    if (this.playing && !this.paused) {
+      this._panicChannel(channel);
+    }
 
     this.channelRouting.set(channel, splitRouting);
     this.scheduler.invalidateCompensationCache();

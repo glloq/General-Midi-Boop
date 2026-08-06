@@ -155,41 +155,53 @@ class MidiTransposer {
               event.type === 'noteOff' || (event.type === 'noteOn' && (event.velocity ?? 0) === 0);
 
             if (!activeNotesPerChannel.has(channel)) {
-              activeNotesPerChannel.set(channel, new Map());
-              droppedNotesPerChannel.set(channel, new Set());
+              // Track active voices as a LIST ({note,index}) so simultaneous
+              // same-pitch notes each count toward polyphony, and dropped notes
+              // as a per-note COUNT so each dropped voice's note-off is swallowed
+              // exactly once. The previous Map<note,index> + Set under-counted
+              // unison and could strand a note-off across two drop episodes on
+              // one pitch (audit P2-10).
+              activeNotesPerChannel.set(channel, []); // Array<{ note, index }>
+              droppedNotesPerChannel.set(channel, new Map()); // note -> dropped count
             }
-            const activeNotes = activeNotesPerChannel.get(channel);
+            const activeVoices = activeNotesPerChannel.get(channel);
             const droppedNotes = droppedNotesPerChannel.get(channel);
 
             if (isNoteOn) {
-              activeNotes.set(finalNote, i);
+              activeVoices.push({ note: finalNote, index: i });
 
-              if (activeNotes.size > transposition.maxPolyphony) {
-                // Sort by note number, drop inner voices (keep lowest + highest)
-                const noteEntries = [...activeNotes.entries()].sort((a, b) => a[0] - b[0]);
-                while (noteEntries.length > transposition.maxPolyphony) {
-                  const midIdx = Math.floor(noteEntries.length / 2);
-                  const [droppedNote, droppedIdx] = noteEntries[midIdx];
-                  eventsToRemove.push(droppedIdx);
-                  activeNotes.delete(droppedNote);
-                  droppedNotes.add(droppedNote);
-                  noteEntries.splice(midIdx, 1);
-                  notesDropped++;
-                }
+              // Over the polyphony cap → drop inner voices (keep lowest + highest).
+              while (activeVoices.length > transposition.maxPolyphony) {
+                const sorted = [...activeVoices].sort((a, b) => a.note - b.note);
+                const victim = sorted[Math.floor(sorted.length / 2)];
+                const vi = activeVoices.indexOf(victim);
+                if (vi >= 0) activeVoices.splice(vi, 1);
+                eventsToRemove.push(victim.index);
+                droppedNotes.set(victim.note, (droppedNotes.get(victim.note) || 0) + 1);
+                notesDropped++;
               }
             } else if (isNoteOff) {
-              if (droppedNotes.has(finalNote)) {
-                // Matching noteOff for a dropped noteOn — remove it too
+              const droppedCount = droppedNotes.get(finalNote) || 0;
+              if (droppedCount > 0) {
+                // Matching noteOff for a dropped noteOn — remove it too.
+                droppedNotes.set(finalNote, droppedCount - 1);
                 eventsToRemove.push(i);
-                droppedNotes.delete(finalNote);
                 continue;
-              } else {
-                activeNotes.delete(finalNote);
               }
+              // Release one active voice of this pitch.
+              const ai = activeVoices.findIndex((v) => v.note === finalNote);
+              if (ai >= 0) activeVoices.splice(ai, 1);
             }
           }
-        } else if (event.type === 'keyPressure' || event.type === 'polyAftertouch') {
-          // Aftertouch polyphonique - apply same logic
+        } else if (
+          event.type === 'noteAftertouch' ||
+          event.type === 'keyPressure' ||
+          event.type === 'polyAftertouch'
+        ) {
+          // Poly-aftertouch — the `midi-file` parser emits `noteAftertouch`;
+          // `keyPressure`/`polyAftertouch` are kept for any legacy shape.
+          // Apply the same pitch transform as note events so a held note's
+          // pressure follows it to its transposed/remapped pitch.
           const originalNote = event.note ?? event.noteNumber;
           let currentNote = originalNote;
 
@@ -233,10 +245,18 @@ class MidiTransposer {
               newEvent.noteNumber = currentNote;
             }
           }
-        } else if (event.type === 'controlChange' || event.type === 'cc') {
-          // Step 5: CC remapping / suppression (inline, same pass)
+        } else if (
+          event.type === 'controller' ||
+          event.type === 'controlChange' ||
+          event.type === 'cc'
+        ) {
+          // Step 5: CC remapping / suppression (inline, same pass).
+          // The `midi-file` parser emits `type:'controller'` with the CC
+          // number in `controllerType`; `controlChange`/`cc` +
+          // `controllerNumber`/`controller`/`cc` are kept for any legacy shape.
           if (transposition.ccMapping) {
-            const cc = event.controllerNumber ?? event.controller ?? event.cc;
+            const cc =
+              event.controllerType ?? event.controllerNumber ?? event.controller ?? event.cc;
             const targetCC = transposition.ccMapping[cc];
             if (targetCC !== undefined) {
               if (targetCC === -1) {
@@ -248,6 +268,7 @@ class MidiTransposer {
                 newEvent = { ...event };
                 eventModified = true;
               }
+              if (newEvent.controllerType !== undefined) newEvent.controllerType = targetCC;
               if (newEvent.controllerNumber !== undefined) newEvent.controllerNumber = targetCC;
               if (newEvent.controller !== undefined) newEvent.controller = targetCC;
               if (newEvent.cc !== undefined) newEvent.cc = targetCC;
@@ -262,13 +283,31 @@ class MidiTransposer {
         }
       }
 
-      // Remove suppressed/dropped events (in reverse order to preserve indices)
+      // Remove suppressed/dropped events, carrying each removed event's
+      // deltaTime onto the next SURVIVING event so the timeline of the rest of
+      // the track is preserved. A plain splice drops the tick gap the event
+      // occupied, shifting every later event earlier and cumulatively
+      // desyncing the channel (audit P1-1).
       if (eventsToRemove.length > 0) {
-        // Deduplicate and sort descending
-        const uniqueRemove = [...new Set(eventsToRemove)].sort((a, b) => b - a);
-        for (const idx of uniqueRemove) {
-          track.events.splice(idx, 1);
+        const removeSet = new Set(eventsToRemove);
+        const kept = [];
+        let carriedDelta = 0;
+        for (let j = 0; j < track.events.length; j++) {
+          if (removeSet.has(j)) {
+            carriedDelta += track.events[j].deltaTime || 0;
+            continue;
+          }
+          if (carriedDelta > 0) {
+            const ev = track.events[j];
+            // Clone so we never mutate a shared/original event object.
+            track.events[j] = { ...ev, deltaTime: (ev.deltaTime || 0) + carriedDelta };
+            carriedDelta = 0;
+          }
+          kept.push(track.events[j]);
         }
+        // Any deltaTime trailing after the last surviving event is simply
+        // dropped — there is nothing after it to shift.
+        track.events = kept;
       }
     }
 
@@ -761,9 +800,23 @@ class MidiTransposer {
           const segIdx = stack && stack.length > 0 ? stack.pop() : 0;
           if (stack && stack.length === 0) activeNotes.delete(note);
           newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
+        } else if (event.type === 'noteAftertouch' && note !== undefined) {
+          // Poly-aftertouch carries a note → follow that note to ITS segment
+          // (peek the stack; the note is still sounding so we don't pop it),
+          // instead of broadcasting it to every segment's channel and pressing
+          // a note the other instruments aren't playing (audit P2-11).
+          const stack = activeNotes.get(note);
+          let segIdx;
+          if (stack && stack.length > 0) {
+            segIdx = stack[stack.length - 1];
+          } else {
+            const found = segments.findIndex((s) => note >= s.noteMin && note <= s.noteMax);
+            segIdx = found >= 0 ? found : 0;
+          }
+          newEvents.push({ ...event, channel: segments[segIdx].targetChannel });
         } else {
-          // Control events (CC, pitch bend, program change, aftertouch, etc.)
-          // Broadcast to all target channels
+          // Channel-wide control events (CC, pitch bend, program change,
+          // channel aftertouch, etc.) — broadcast to all target channels
           const uniqueChannels = [...new Set(segments.map((s) => s.targetChannel))];
           for (let c = 0; c < uniqueChannels.length; c++) {
             if (c === 0) {

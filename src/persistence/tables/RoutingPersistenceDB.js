@@ -293,7 +293,7 @@ class RoutingPersistenceDB {
       }
 
       const stmt = this.db.prepare(`
-        SELECT midi_file_id, COUNT(*) as count, MIN(compatibility_score) as min_score
+        SELECT midi_file_id, COUNT(DISTINCT channel) as count, MIN(compatibility_score) as min_score
         FROM midi_instrument_routings
         WHERE midi_file_id IN (${filePlaceholders}) AND enabled = 1${deviceFilter}
         GROUP BY midi_file_id

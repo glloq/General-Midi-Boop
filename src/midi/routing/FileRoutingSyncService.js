@@ -70,48 +70,47 @@ export function planChannelRouting({
   const deviceId = parts[0];
   const targetChannel = parts.length > 1 ? parseInt(parts[1], 10) : channel;
 
-  if (
+  const deviceOffline =
     knownDevices &&
     knownDevices.size > 0 &&
     !knownDevices.has(deviceId) &&
-    deviceId !== 'virtual-instrument'
-  ) {
-    return { action: 'skip-device', deviceId };
-  }
+    deviceId !== 'virtual-instrument';
 
   const existing = existingByChannel.get(channel);
   const sameDevice = !!existing && existing.device_id === deviceId;
 
-  return {
-    action: 'insert',
-    routing: {
-      midi_file_id: fileId,
-      channel,
-      target_channel: Number.isNaN(targetChannel) ? channel : targetChannel,
-      device_id: deviceId,
-      instrument_name: sameDevice ? existing.instrument_name : null,
-      compatibility_score: sameDevice ? existing.compatibility_score : null,
-      transposition_applied: sameDevice ? (existing.transposition_applied ?? 0) : 0,
-      auto_assigned: sameDevice ? existing.auto_assigned : false,
-      assignment_reason: sameDevice ? existing.assignment_reason : 'manual',
-      note_remapping:
-        sameDevice && existing.note_remapping ? JSON.stringify(existing.note_remapping) : null,
-      // Hand-position plan is bound to the physical instrument. Keep it
-      // when the device is unchanged (the editor re-syncs the WHOLE
-      // channel map on any single edit, so dropping it here would wipe
-      // hand overrides for every hand-edited channel on an unrelated
-      // change). Clear it when the device changes — the previous
-      // instrument's hand mechanics no longer apply.
-      hand_position_overrides:
-        sameDevice && existing.hand_position_overrides ? existing.hand_position_overrides : null,
-      hand_position_feasibility:
-        sameDevice && existing.hand_position_feasibility
-          ? existing.hand_position_feasibility
-          : null,
-      enabled: true,
-      created_at: now
-    }
+  const routing = {
+    midi_file_id: fileId,
+    channel,
+    target_channel: Number.isNaN(targetChannel) ? channel : targetChannel,
+    device_id: deviceId,
+    instrument_name: sameDevice ? existing.instrument_name : null,
+    compatibility_score: sameDevice ? existing.compatibility_score : null,
+    transposition_applied: sameDevice ? (existing.transposition_applied ?? 0) : 0,
+    auto_assigned: sameDevice ? existing.auto_assigned : false,
+    assignment_reason: sameDevice ? existing.assignment_reason : 'manual',
+    note_remapping:
+      sameDevice && existing.note_remapping ? JSON.stringify(existing.note_remapping) : null,
+    // Hand-position plan is bound to the physical instrument. Keep it
+    // when the device is unchanged (the editor re-syncs the WHOLE
+    // channel map on any single edit, so dropping it here would wipe
+    // hand overrides for every hand-edited channel on an unrelated
+    // change). Clear it when the device changes — the previous
+    // instrument's hand mechanics no longer apply.
+    hand_position_overrides:
+      sameDevice && existing.hand_position_overrides ? existing.hand_position_overrides : null,
+    hand_position_feasibility:
+      sameDevice && existing.hand_position_feasibility ? existing.hand_position_feasibility : null,
+    // Persist DISABLED when the destination device is offline right now, so a
+    // transient dropout doesn't destroy the routing — it re-enables on the next
+    // sync once the device is back (audit P2-3).
+    enabled: !deviceOffline,
+    created_at: now
   };
+
+  // `skip-device` is retained for the caller's invalid-device reporting, but it
+  // now also carries the disabled routing so the caller can persist (not drop) it.
+  return deviceOffline ? { action: 'skip-device', deviceId, routing } : { action: 'insert', routing };
 }
 
 export default class FileRoutingSyncService {
@@ -236,6 +235,16 @@ export default class FileRoutingSyncService {
       }
       if (plan.action === 'skip-device') {
         invalidDeviceIds.add(plan.deviceId);
+        // Preserve the routing DISABLED instead of dropping it (audit P2-3).
+        if (plan.routing) {
+          try {
+            this.routingRepository.save(plan.routing);
+          } catch (error) {
+            this.logger.warn(
+              `[fileRoutingSync] Failed to persist disabled channel ${channel}: ${error.message}`
+            );
+          }
+        }
         continue;
       }
 
@@ -310,6 +319,16 @@ export default class FileRoutingSyncService {
         if (plan.action === 'skip-channel') continue;
         if (plan.action === 'skip-device') {
           invalidDeviceIds.add(plan.deviceId);
+          // Preserve the routing DISABLED instead of dropping it (audit P2-3).
+          if (plan.routing) {
+            try {
+              this.routingRepository.save(plan.routing);
+            } catch (error) {
+              this.logger.warn(
+                `[fileRoutingBulkSync] Failed to persist disabled channel ${channel} for file ${fileIdStr}: ${error.message}`
+              );
+            }
+          }
           continue;
         }
 
