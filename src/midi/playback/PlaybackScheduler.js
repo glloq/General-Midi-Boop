@@ -1128,7 +1128,13 @@ class PlaybackScheduler {
    * @param {Array} channels - MIDI channels from file
    */
   sendAllNotesOff(outputDevice, channelRouting, channels, resolveChannel = null) {
-    this._broadcastCC(outputDevice, channelRouting, channels, resolveChannel, MIDI_CC_ALL_NOTES_OFF);
+    this._broadcastCC(
+      outputDevice,
+      channelRouting,
+      channels,
+      resolveChannel,
+      MIDI_CC_ALL_NOTES_OFF
+    );
   }
 
   /**

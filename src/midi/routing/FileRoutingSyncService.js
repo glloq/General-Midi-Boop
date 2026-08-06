@@ -110,7 +110,9 @@ export function planChannelRouting({
 
   // `skip-device` is retained for the caller's invalid-device reporting, but it
   // now also carries the disabled routing so the caller can persist (not drop) it.
-  return deviceOffline ? { action: 'skip-device', deviceId, routing } : { action: 'insert', routing };
+  return deviceOffline
+    ? { action: 'skip-device', deviceId, routing }
+    : { action: 'insert', routing };
 }
 
 export default class FileRoutingSyncService {

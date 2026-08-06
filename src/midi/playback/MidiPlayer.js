@@ -2049,8 +2049,7 @@ class MidiPlayer {
   }
 
   setChannelNoteRemapping(channel, mapping) {
-    const willHave =
-      mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0;
+    const willHave = mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0;
     // Release held notes before the remap changes, else a note turned on under
     // the old mapping is stranded when its note-off is emitted under the new one
     // (audit axis6-2).
