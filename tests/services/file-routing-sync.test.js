@@ -77,6 +77,17 @@ describe('syncFile', () => {
     expect(result.invalidDevices).toEqual(['unknown-dev']);
   });
 
+  test('persists an offline-device routing DISABLED instead of dropping it (P2-3)', () => {
+    const { svc, routingRepo } = makeDeps({ knownDevices: ['dev-1'] });
+    // dev-2 is offline; channel 1 points at it. It must survive as disabled.
+    const result = svc.syncFile(42, { 0: 'dev-1', 1: 'dev-2' });
+    expect(result.synced).toBe(1); // only the online device counts as synced
+    expect(result.invalidDevices).toEqual(['dev-2']);
+    expect(routingRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 1, device_id: 'dev-2', enabled: false })
+    );
+  });
+
   test('reports invalid channels and skips them', () => {
     const { svc } = makeDeps({ fileChannels: [{ channel: 0 }] });
     const result = svc.syncFile(42, { 0: 'dev-1', 5: 'dev-2' });

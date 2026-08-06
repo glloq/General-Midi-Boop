@@ -62,6 +62,8 @@ mineurs/documentaires (P3).
 | P2-2 `update_instrument_capabilities` émet `instrument_settings_changed` | ✅ corrigé | CI |
 | P2-5 prédicat batterie du matcher aligné sur `AutoAssigner` | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 | P2-11 aftertouch polyphonique suit son segment (plus de diffusion à tous) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
+| P2-3 sync : routage d'appareil hors-ligne persisté **désactivé** (plus détruit) | ✅ corrigé | `file-routing-sync`, `routing-plan-channel` |
+| P2-9 tablature : fenêtre de corde occupée bornée par la durée max réelle (plus de constante 7680) | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 
 **Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
 seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un

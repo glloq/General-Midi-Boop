@@ -14,6 +14,7 @@ import ChannelAnalyzer from '../src/midi/routing/ChannelAnalyzer.js';
 import DrumNoteMapper from '../src/midi/adaptation/DrumNoteMapper.js';
 import ScoringConfig from '../src/midi/adaptation/ScoringConfig.js';
 import InstrumentMatcher from '../src/midi/adaptation/InstrumentMatcher.js';
+import TablatureConverter from '../src/midi/adaptation/TablatureConverter.js';
 
 const mockLogger = { info() {}, warn() {}, error() {}, debug() {} };
 
@@ -242,5 +243,31 @@ describe('P2-11 · Split routes poly-aftertouch to its note segment, not every s
     const at = res.midiData.tracks[0].events.filter((e) => e.type === 'noteAftertouch');
     expect(at).toHaveLength(1); // not duplicated onto every segment channel
     expect(at[0].channel).toBe(0); // follows note 40 into the low segment
+  });
+});
+
+describe('P2-9 · Tablature keeps a long drone string reserved beyond 7680 ticks', () => {
+  const guitarConfig = {
+    tuning: [40, 45, 50, 55, 59, 64],
+    num_strings: 6,
+    num_frets: 24,
+    is_fretless: false,
+    tab_algorithm: 'lowest_fret'
+  };
+  const tabNote = (t, n, g = 240, v = 80, c = 0) => ({ t, n, g, v, c });
+
+  test('a D3 played while a ~40-beat D3 drone still sounds is not put on the drone string', () => {
+    const conv = new TablatureConverter(guitarConfig);
+    const notes = [
+      tabNote(0, 50, 20000), // D3 drone, ~40 beats — takes the open 3rd string
+      tabNote(300, 45, 240), // filler that ends >7680 ticks before the test note
+      tabNote(8000, 50, 240) // D3 again while the drone is still sounding
+    ];
+    const out = conv.convertMidiToTablature(notes, 'lowest_fret');
+    const d3s = out.filter((e) => e.midiNote === 50);
+    expect(d3s).toHaveLength(2);
+    // Before the fix the drone was pruned at 7680 ticks and the 2nd D3 landed
+    // on the same physical string — two pitches on one string.
+    expect(d3s[0].string).not.toBe(d3s[1].string);
   });
 });

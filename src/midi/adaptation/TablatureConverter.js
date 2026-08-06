@@ -171,6 +171,12 @@ class TablatureConverter {
     // additional strings, inflating the chord beyond what the composer wrote.
     const deduped = this._dedupeSimultaneousPitches(notes);
 
+    // Occupied-string lookback bound: no note older than the longest note
+    // duration can still be sounding. A hardcoded 7680-tick window dropped a
+    // still-sounding drone longer than ~16 beats from the occupied set, letting
+    // a second pitch land on the same physical string (audit P2-9).
+    this._maxNoteDuration = deduped.reduce((m, n) => Math.max(m, n.g || 0), 0);
+
     const algo = algorithmOverride || this.algorithm;
 
     let result;
@@ -558,7 +564,8 @@ class TablatureConverter {
    * @private
    */
   _pruneRecentEvents(recentEvents, tick) {
-    return recentEvents.filter((ev) => tick - ev.tick <= 7680);
+    const lookback = this._lookbackTicks();
+    return recentEvents.filter((ev) => tick - ev.tick <= lookback);
   }
 
   // ==========================================================================
@@ -1404,6 +1411,18 @@ class TablatureConverter {
   // ==========================================================================
 
   /**
+   * Lookback window (ticks) for occupied-string checks: the longest note
+   * duration in the current conversion, floored at 7680 ticks. Any event older
+   * than this cannot still be sounding, so it is safe to stop scanning / prune
+   * beyond it — while a still-active long note within it is never missed.
+   * @private
+   * @returns {number}
+   */
+  _lookbackTicks() {
+    return Math.max(7680, this._maxNoteDuration || 0);
+  }
+
+  /**
    * Get the set of strings currently occupied at a given tick by previously
    * assigned tab events whose duration has not yet ended.
    * @private
@@ -1413,16 +1432,16 @@ class TablatureConverter {
    */
   _getOccupiedStrings(tabEvents, tick) {
     const occupied = new Set();
+    const lookback = this._lookbackTicks();
     for (let i = tabEvents.length - 1; i >= 0; i--) {
       const ev = tabEvents[i];
       // Events are sorted by tick; once we go far enough back, stop
       if (ev.tick + ev.duration <= tick) {
-        // This event ended before current tick. Earlier events also ended
-        // (unless they have very long durations), so keep scanning.
-        // We can't break early because a much earlier note could have a very long duration.
-        // But for performance, stop scanning once we're more than a reasonable
-        // duration away (e.g., 4 whole notes at 480 ticks/beat = 7680 ticks).
-        if (tick - ev.tick > 7680) break;
+        // This event ended before current tick. Keep scanning earlier events —
+        // a much earlier note may have a very long duration and still be
+        // sounding. Only stop once we are past the longest possible note
+        // duration, beyond which nothing can still be active (audit P2-9).
+        if (tick - ev.tick > lookback) break;
         continue;
       }
       if (ev.tick < tick) {
