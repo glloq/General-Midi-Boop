@@ -1263,10 +1263,16 @@ class InstrumentMatcher {
 
     if (mode === 'frets') {
       const fretting = hands.hands.find((h) => h && h.id === 'fretting') || hands.hands[0];
+      // Polyphony capacity: `max_fingers` when set, else `num_fingers` — the
+      // validator requires `num_fingers` for `fret_sliding_fingers` mechanisms
+      // and leaves `max_fingers` optional, so keying only on max_fingers gave a
+      // false "feasible" for those effectors (audit P2-7).
       const maxFingers =
         Number.isFinite(fretting?.max_fingers) && fretting.max_fingers > 0
           ? fretting.max_fingers
-          : null;
+          : Number.isFinite(fretting?.num_fingers) && fretting.num_fingers > 0
+            ? fretting.num_fingers
+            : null;
       const handSpanFrets =
         Number.isFinite(fretting?.hand_span_frets) && fretting.hand_span_frets > 0
           ? fretting.hand_span_frets
@@ -1309,7 +1315,13 @@ class InstrumentMatcher {
         (s, h) => s + (Number.isFinite(h?.hand_span_semitones) ? h.hand_span_semitones : 14),
         0
       );
-      const totalFingers = hands.hands.length * 5;
+      // Sum the per-hand finger count (`num_fingers`, fallback 5) instead of a
+      // hardcoded 5/hand, so a 2-hand × 3-finger robot is bounded at 6, not 10
+      // (audit P2-7). The validator documents num_fingers as the polyphony bound.
+      const totalFingers = hands.hands.reduce(
+        (s, h) => s + (Number.isFinite(h?.num_fingers) && h.num_fingers > 0 ? h.num_fingers : 5),
+        0
+      );
       summary.totalSpanSemitones = totalSpan;
       summary.totalFingers = totalFingers;
       summary.polyphonyMax = polyphonyMax;

@@ -67,6 +67,8 @@ mineurs/documentaires (P3).
 | P2-6 score de type utilise le type heuristique pour un canal sans Program Change | ✅ corrigé | `adaptation-audit-fixes-2026-08-06` |
 | Axe6-1 split : note-on vélocité-0 routé comme note-off (plus de note bloquée sur round-robin/alternate) | ✅ corrigé | `playback-scheduler-route-to` |
 | Axe6-2 `setChannelRouting`/`NoteRemapping`/`SplitRouting` relâchent les notes tenues (panic) avant reconfig | ✅ corrigé | couvert par CI |
+| Axe6-4 reset des contrôleurs (CC121) sur seek arrière/boucle → plus de sustain périmé | ✅ corrigé | `playback-scheduler-route-to` |
+| P2-7 (partiel) faisabilité : `num_fingers` lu en frettes (fallback) et par main en semitones | ✅ corrigé (#1/#3) | `adaptation-audit-fixes-2026-08-06` |
 
 **Réserve P1-6/P1-8** : les écritures de routage ne sont pas encore enveloppées dans **une
 seule** transaction (`saveSplit` ouvre déjà la sienne — better-sqlite3 n'imbrique pas). Un
@@ -92,7 +94,9 @@ tests SQLite exécutables.
   décalages d'octave) ; c'est de l'**intégrité de reporting**, pas un défaut audible. Propager
   la transposition jusqu'au runtime (schéma + résolveur + player) est un chantier dédié.
 - **P2-10** (drop polyphonique `Set`→compteur — restructure la mesure de polyphonie),
-  **P2-7** (bornes de faisabilité frettes), **P3**, et l'**axe 6** (parité playback/live).
+  **P2-7 #2** (conversion `hand_span_mm`→frettes pour l'avertissement de shift — champ
+  `scale_length_mm` hors `hands_config` + conversion non-linéaire approximative), **P3**, et le
+  reste de l'**axe 6** (Axe6-3/5/6).
 
 Suite backend complète verte après correctifs : **107 suites / 1254 tests**.
 

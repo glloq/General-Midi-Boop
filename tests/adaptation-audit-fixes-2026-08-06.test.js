@@ -244,6 +244,37 @@ describe('P2-6 · Type score uses the heuristic type for a channel with no Progr
   });
 });
 
+describe('P2-7 · Hand-feasibility reads num_fingers, not only max_fingers / 5-per-hand', () => {
+  const m = new InstrumentMatcher(mockLogger);
+
+  test('frets: a 2-finger fret_sliding_fingers effector (no max_fingers) is infeasible for a 6-note chord', () => {
+    const instrument = {
+      hands_config: { enabled: true, mode: 'frets', hands: [{ id: 'fretting', num_fingers: 2 }] }
+    };
+    const analysis = { polyphony: { max: 6 }, noteRange: { min: 40, max: 52 } };
+    const res = m._scoreHandPositionFeasibility(analysis, instrument);
+    expect(res.summary.maxFingers).toBe(2);
+    expect(res.level).toBe('infeasible');
+  });
+
+  test('semitones: a 2-hand × 3-finger robot is bounded at 6 fingers, not 10', () => {
+    const instrument = {
+      hands_config: {
+        enabled: true,
+        mode: 'semitones',
+        hands: [
+          { id: 'left', num_fingers: 3, hand_span_semitones: 14 },
+          { id: 'right', num_fingers: 3, hand_span_semitones: 14 }
+        ]
+      }
+    };
+    const analysis = { polyphony: { max: 8 }, noteRange: { min: 48, max: 72 } };
+    const res = m._scoreHandPositionFeasibility(analysis, instrument);
+    expect(res.summary.totalFingers).toBe(6);
+    expect(res.level).toBe('infeasible'); // 8 > 6
+  });
+});
+
 describe('P2-11 · Split routes poly-aftertouch to its note segment, not every segment', () => {
   const t = new MidiTransposer(mockLogger);
 
