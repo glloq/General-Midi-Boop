@@ -525,12 +525,13 @@ pile par-note que les note-off.
   `polyphony || 16`).
 - **Canal batterie vide/exotique scoré ~95/100** (`DrumNoteMapper.js:895-941`) — `coverageRatio`
   défaut 1 + sous-scores catégorie défaut 100 → paraît excellent à l'assigneur.
-- **Dérive doc↔code** : `docs/AUTO_ASSIGNMENT.md` décrit des poids **30/25/15/15/10/5** et un 6ᵉ
-  critère « Channel Special » ; le code (`ScoringConfig.js:13-19`) utilise
-  **22/40/13/5/20** (programMatch/noteRange/polyphony/ccSupport/instrumentType) + percussion/timing,
-  sans channelSpecial. Les clés `scoreDetails` de l'exemple doc (`program/controlChanges/type/special`)
-  ne correspondent pas au `scoreBreakdown` réel. Les catégories batterie de la doc (`:275-302`)
-  divergent aussi du code (shakers/woodsMetal/pitched). **Le code fait foi** ; la doc est à réaligner.
+- **Dérive doc↔code** ✅ **réalignée** : `docs/AUTO_ASSIGNMENT.md` décrivait des poids
+  **30/25/15/15/10/5** et un 6ᵉ critère « Channel Special » ; le code
+  (`ScoringConfig.js:13-19`) utilise **22/40/13/5/20** (programMatch/noteRange/polyphony/ccSupport/
+  instrumentType) + ajustements percussion/timing, sans channelSpecial. La section Scoring, le
+  tableau de breakdown, l'exemple d'API (`scoreBreakdown` au lieu de `scoreDetails`), la config des
+  poids et les 12 catégories batterie (`shakers`/`woodsMetal`/`pitched`/`cuicas`/`triangles`) ont
+  été mis à jour pour refléter le code.
 
 ---
 

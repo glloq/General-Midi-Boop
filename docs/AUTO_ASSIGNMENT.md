@@ -127,68 +127,87 @@ The `ChannelAnalyzer` extracts detailed information from each MIDI channel:
 
 ## Scoring Algorithm
 
-Each instrument receives a compatibility score from 0 to 100 based on 6 weighted criteria.
+Each instrument receives a compatibility score from 0 to 100. **Five weighted
+criteria** sum to 100; **two further adjustments** (a percussion bonus/penalty
+and a timing penalty) are applied on top and can push the total up or down. The
+final score is clamped to `[0, 100]`. Weights live in `ScoringConfig.weights`
+and can be tuned without touching algorithmic code.
 
 ### Score Breakdown
 
-| Criterion | Max Points | Weight |
-|-----------|-----------|--------|
-| Program Match | 30 | 30% |
-| Note Range | 25 | 25% |
-| Polyphony | 15 | 15% |
-| Control Changes | 15 | 15% |
-| Instrument Type | 10 | 10% |
-| Channel Special | 5 | 5% |
-| **Total** | **100** | **100%** |
+| Criterion | Max Points | `scoreBreakdown` key |
+|-----------|-----------|----------------------|
+| Note Range | 40 | `noteRange` |
+| Program Match | 22 | `program` |
+| Instrument Type | 20 | `instrumentType` |
+| Polyphony | 13 | `polyphony` |
+| Control Changes | 5 | `ccSupport` |
+| **Weighted total** | **100** | |
+| Percussion (ch 9 ↔ drum kit) | bonus / penalty | `percussion` |
+| Timing (notes too fast for the instrument) | penalty | `timing` |
 
-### 1. Program Match (30 points)
+Note range dominates (40/100): playability on the physical instrument matters
+more than a nominal GM program match. The API `scoreBreakdown` carries all
+seven keys (`program, noteRange, polyphony, ccSupport, instrumentType,
+percussion, timing`).
 
-- **Exact match** (same GM program): 30 points
-- **Category match** (same program family, e.g., both piano programs): 20 points
-- **No match**: 0 points
+### 1. Note Range (40 points)
 
-### 2. Note Range (25 points)
+How well the channel's notes fit the instrument's range:
+- **Direct fit** — all notes already in range → full score.
+- **With transposition** — notes fit after an octave (or transposing-instrument)
+  shift → full score minus a per-octave penalty.
+- **With octave wrapping** — the channel is wider than the instrument, or no
+  shift aligns the ranges: notes still out of range are octave-folded (the same
+  fold the playback engine applies) and the score is scaled by the fraction of
+  notes playable after adaptation. Such a channel is also flagged as a **split
+  candidate** so a lossless multi-instrument split can be preferred.
 
-Evaluates how well the channel's notes fit within the instrument's range.
+For **discrete-mode** instruments (drum pads) scoring checks individual note
+availability rather than a continuous range.
 
-Three evaluation modes:
-- **Direct fit**: All notes within range → full score
-- **With transposition**: Notes fit after shifting by N semitones → partial score minus transposition penalty
-- **With octave wrapping**: Notes wrapped into available range → partial score
+### 2. Program Match (22 points)
 
-For **discrete mode** instruments (drum pads), scoring checks individual note availability rather than continuous range.
+- **Exact GM program match**: full points.
+- **Category match** (same GM family, e.g. both piano programs): partial.
+- **No match**: 0.
 
-### 3. Polyphony (15 points)
+### 3. Instrument Type (20 points)
+
+Compares the detected channel type with the instrument's declared type
+(exact / compatible / partial / none), weighted by the type-detection
+confidence. A channel with no Program Change still uses its heuristic type
+(e.g. `bass`) rather than collapsing to a neutral score.
+
+### 4. Polyphony (13 points)
 
 ```
-score = min(1, instrument.polyphony / channel.maxPolyphony) * 15
+score = min(1, instrument.polyphony / channel.maxPolyphony) * 13
 ```
 
-An instrument with equal or greater polyphony than the channel needs gets full marks.
+An instrument with polyphony ≥ the channel's need gets full marks.
 
-### 4. Control Changes (15 points)
+### 5. Control Changes (5 points)
 
 ```
-supportRatio = supportedCCs.length / usedCCs.length
-score = supportRatio * 15
+score = (supportedCCs ∩ usedCCs).length / usedCCs.length * 5
 ```
 
-Common CCs evaluated: Modulation (1), Volume (7), Pan (10), Expression (11), Sustain (64), Portamento (65), Soft Pedal (67), Reverb (91), Chorus (93), Pitch Bend.
+Common CCs: Modulation (1), Volume (7), Pan (10), Expression (11), Sustain (64),
+Portamento (65), Soft Pedal (67), Reverb (91), Chorus (93), Pitch Bend.
 
-### 5. Instrument Type (10 points)
+### Adjustments (on top of the weighted total)
 
-Compares the detected channel type with the instrument's declared type:
-- **Exact type match**: 10 points
-- **Compatible type** (e.g., `piano` ↔ `keyboard`): 7 points
-- **Partial match**: 3 points
-- **No match**: 0 points
+- **Percussion** — channel 9 (drums) on a drum instrument gets a configurable
+  bonus (`percussion.drumChannelDrumBonus`); a non-drum instrument on the drum
+  channel is penalised.
+- **Timing** — when the channel's inter-note intervals are faster than the
+  instrument's `min_note_interval`, a penalty is subtracted
+  (`timing.tooFastPenalty` / `moderatelyFastPenalty`).
 
-Score is further weighted by the type detection confidence level.
-
-### 6. Channel Special (5 points)
-
-- **Channel 9 (drums)** assigned to a drum instrument: +3 points
-- **Exact GM program match** bonus: +2 points
+> Historical note: an earlier design had a separate 5-point "Channel Special"
+> criterion. It was removed and its weight redistributed (+2 program, +3
+> polyphony); the channel-9 drum bonus is now the `percussion` adjustment.
 
 ---
 
@@ -303,28 +322,35 @@ Drum instruments require special handling because each MIDI note represents a sp
 
 ### Drum Categories
 
-The `DrumNoteMapper` groups notes by musical function for intelligent substitution:
+`DrumNoteMapper.DRUM_CATEGORIES` groups the GM drum notes by musical function.
+This table mirrors the code (the source of truth):
 
-**1. Kick (35-36)** — Rhythmic foundation
-- Substitution order: 36 → 35 → 41 → 43
+| Category | Notes | Role |
+|----------|-------|------|
+| `kicks` | 35, 36 | Rhythmic foundation |
+| `snares` | 37, 38, 40 | Backbeat articulation |
+| `hiHats` | 42, 44, 46 | Groove subdivision |
+| `toms` | 41, 43, 45, 47, 48, 50 | Fills (low → high) |
+| `crashes` | 49, 52, 55, 57 | Section accents (52 = China) |
+| `rides` | 51, 53, 59 | Pattern support |
+| `latin` | 60–68 | Bongos, congas, timbales, agogos |
+| `shakers` | 39, 54, 58, 69, 70 | Hand Clap, Tambourine, Vibraslap, Cabasa, Maracas |
+| `woodsMetal` | 56, 75, 76, 77 | Cowbell, Claves, Wood Blocks |
+| `pitched` | 71, 72, 73, 74 | Whistles, Guiros |
+| `cuicas` | 78, 79 | Mute / Open Cuica |
+| `triangles` | 80, 81 | Mute / Open Triangle |
 
-**2. Snare (37-40)** — Backbeat articulation
-- Substitution order: 38 → 40 → 37 → 39
+Each note has an ordered substitution table (`SUBSTITUTION_TABLES`) tried when
+the exact pad is unavailable. The default per-category substitution **depth** is
+`ScoringConfig.routing.drumFallback` (`0` = exact only, `N` = max chain depth,
+`-1` = ignore the whole category). Categories omitted from `drumFallback`
+default to **unlimited** substitution — which is why the auxiliary categories
+(`latin`, `shakers`, `woodsMetal`, `pitched`, `cuicas`, `triangles`) are left
+out of the default rather than set to `-1`.
 
-**3. Hi-Hat (42, 44, 46)** — Groove subdivision
-- Substitution order: 42 → 44 → 46 → 54 → 70
-
-**4. Toms (41, 43, 45, 47, 48, 50)** — Fills, organized low → high
-- Distributed across available tom pads
-
-**5. Cymbals - Crash (49, 55, 57)** — Section accents
-- Substitution order: 49 → 57 → 55 → 51
-
-**6. Cymbals - Ride (51, 53, 59)** — Pattern support
-- Substitution order: 51 → 59 → 53 → 42
-
-**7. Latin Percussion (54, 56, 60-68)** — Color/ornamentation
-- Cross-category fallbacks to toms or misc
+> The **GM Drum Map** table above keeps the traditional GM "Latin/Misc" labels;
+> the engine's finer categories listed here are the ones that actually drive
+> substitution.
 
 ### Priority Matrix
 
@@ -430,9 +456,14 @@ Generate scored instrument suggestions per channel.
           "deviceId": "usb-midi-1",
           "channel": 0,
           "score": 87,
-          "scoreDetails": {
-            "program": 30, "noteRange": 22, "polyphony": 15,
-            "controlChanges": 10, "type": 8, "special": 2
+          "scoreBreakdown": {
+            "program": { "score": 22, "max": 22 },
+            "noteRange": { "score": 29, "max": 40 },
+            "polyphony": { "score": 13, "max": 13 },
+            "ccSupport": { "score": 3, "max": 5 },
+            "instrumentType": { "score": 20, "max": 20 },
+            "percussion": { "score": 0, "max": 0 },
+            "timing": { "score": 0, "max": 0 }
           },
           "transposition": 0,
           "adaptations": []
@@ -494,10 +525,13 @@ Apply assignments, create adapted file copy, and configure routing.
 
 ```javascript
 {
-  weights: { program: 30, noteRange: 25, polyphony: 15, controlChanges: 15, instrumentType: 10, channelSpecial: 5 },
-  bonuses: { exactProgramMatch: 2, drumChannelMatch: 3 },
-  penalties: { transpositionPerOctave: 3 },
-  thresholds: { minimumScore: 20, goodScore: 60, excellentScore: 85 }
+  // Sum = 100. See src/midi/adaptation/ScoringConfig.js for the source of truth.
+  weights: { programMatch: 22, noteRange: 40, polyphony: 13, ccSupport: 5, instrumentType: 20 },
+  penalties: { transpositionPerOctave: 3, insufficientPolyphony: 20 },
+  // Percussion bonus (ch 9 ↔ drum kit) and timing penalties are applied on top:
+  percussion: { drumChannelDrumBonus: /* … */ },
+  timing: { tooFastPenalty: -10, moderatelyFastPenalty: -5 },
+  scoreThresholds: { acceptable: 60 }
 }
 ```
 
