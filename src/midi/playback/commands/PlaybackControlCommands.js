@@ -10,7 +10,9 @@
  *   - `playback_seek`         — move to absolute position (seconds)
  *   - `playback_status`       — snapshot of player state
  *   - `playback_set_loop`     — toggle loop-on-end behaviour
- *   - `playback_set_tempo` / `_transpose` / `_set_volume` — placeholders
+ *   - `playback_set_tempo`    — rate multiplier + MIDI Clock resync
+ *   - `playback_transpose`    — live global semitone offset (non-destructive)
+ *   - `playback_set_volume`   — CC#7 broadcast to every output channel
  */
 import {
   ValidationError,
@@ -207,10 +209,18 @@ async function playbackSetTempo(app, data) {
 }
 
 /**
- * Placeholder.
- * TODO: implement using {@link MidiAdaptationService#transposeChannels}.
+ * Apply a live GLOBAL transposition (semitones) on top of any
+ * per-channel transposition. Delegates to
+ * {@link MidiPlayer#setGlobalTranspose}, which shifts every scheduled
+ * note at playback time and releases sounding notes so none stick under
+ * the old offset. This is a non-destructive performance control — it
+ * does NOT rewrite the file (unlike the adaptation pipeline's
+ * {@link MidiAdaptationService#transposeChannels}, used at assignment
+ * time), so the offset can be changed on the fly and reset to 0.
  *
- * @returns {Promise<{success:true}>}
+ * @param {Object} app
+ * @param {{semitones:(number|string)}} data - signed; 0 clears.
+ * @returns {Promise<{success:true, semitones:number}>}
  */
 async function playbackTranspose(app, data) {
   const semitones = Number(data?.semitones) || 0;

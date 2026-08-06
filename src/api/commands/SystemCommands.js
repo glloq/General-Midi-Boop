@@ -11,7 +11,7 @@
  *   - `system_check_update`  — git ls-remote vs local HEAD
  *   - `system_update`        — spawn detached `scripts/update.sh`
  *   - `system_backup`        — copy DB to `backups/<filename>.db`
- *   - `system_restore`       — placeholder
+ *   - `system_restore`       — restore DB from a `backups/` file, then restart
  *   - `system_logs`          — tail the active log file (cap {@link LOG_TAIL_MAX_LINES})
  *   - `system_clear_logs`    — truncate the active log file
  *

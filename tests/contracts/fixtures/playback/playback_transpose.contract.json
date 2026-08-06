@@ -1,11 +1,11 @@
 {
   "command": "playback_transpose",
-  "module": "PlaybackCommands.js",
+  "module": "PlaybackControlCommands.js",
   "criticality": "medium",
-  "description": "Stub — future implementation. Handler returns `{ success: true }` unconditionally. Any refactor MUST preserve this behavior until the feature is implemented via ADR.",
+  "description": "Apply a live GLOBAL transposition (semitones) on top of any per-channel transposition. The validator (JsonValidator.validateByCommand → playback.schemas.js) requires `semitones` to be an integer in [-48, 48] before the handler runs. The handler calls `midiPlayer.setGlobalTranspose()` — a non-destructive performance offset applied at scheduling time (0 clears) — and echoes the truncated value. This is NOT a file rewrite (that path is MidiAdaptationService.transposeChannels, used at assignment time).",
   "cases": [
     {
-      "name": "nominal — stub accepts semitones",
+      "name": "nominal — transpose up 3 semitones echoes the value",
       "type": "success",
       "input": {
         "semitones": 3
@@ -13,31 +13,69 @@
       "output_shape": {
         "type": "response",
         "data": {
-          "success": "boolean"
+          "success": "boolean",
+          "semitones": "number"
         }
       },
       "output_snapshot": {
         "type": "response",
         "data": {
-          "success": true
+          "success": true,
+          "semitones": 3
         }
       }
     },
     {
-      "name": "nominal — stub accepts no data",
+      "name": "nominal — 0 clears the global transpose",
       "type": "success",
-      "input": {},
+      "input": {
+        "semitones": 0
+      },
       "output_shape": {
         "type": "response",
         "data": {
-          "success": "boolean"
+          "success": "boolean",
+          "semitones": "number"
         }
       },
       "output_snapshot": {
         "type": "response",
         "data": {
-          "success": true
+          "success": true,
+          "semitones": 0
         }
+      }
+    },
+    {
+      "name": "error — missing semitones (validator)",
+      "type": "error",
+      "input": {},
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid playback_transpose data: semitones is required"
+      }
+    },
+    {
+      "name": "error — semitones out of range (validator)",
+      "type": "error",
+      "input": {
+        "semitones": 60
+      },
+      "output_shape": {
+        "type": "error",
+        "code": "string",
+        "error": "string"
+      },
+      "output_snapshot": {
+        "type": "error",
+        "code": "ERR_VALIDATION",
+        "error": "Invalid playback_transpose data: semitones must be an integer between -48 and 48"
       }
     }
   ]

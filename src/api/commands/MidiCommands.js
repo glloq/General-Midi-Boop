@@ -11,7 +11,7 @@
  *   - `midi_send_pitchbend`  — pitch bend
  *   - `midi_panic`           — All Sound Off + All Notes Off across 16 ch
  *   - `midi_all_notes_off`   — All Notes Off across 16 ch
- *   - `midi_reset`           — placeholder for System Reset
+ *   - `midi_reset`           — System Reset to one device or all outputs
  *   - `midi_clock_toggle`    — start/stop the MIDI clock generator
  */
 import JsonValidator from '../../utils/JsonValidator.js';

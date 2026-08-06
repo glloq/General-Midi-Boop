@@ -557,48 +557,36 @@ async function applyAssignments(app, data) {
   // Bake the hand-position CCs (CC22/CC23/CC24…) into the saved file so
   // the MIDI editor's CC pane can render them and the operator can tweak
   // the curve. See TODO.md "CC main absents de l'éditeur CC après routage"
-  // (option A). The baker reads `file.blob_path` from disk, so the bake is
-  // only correct when `targetFileId`'s blob already reflects the content
-  // the user wants enriched with CCs.
+  // (option A). The baker reads `targetFileId`'s `blob_path` from disk,
+  // which now always reflects the content we want enriched:
+  //   * createAdaptedFile=false (or no modifications): `targetFileId` is
+  //     the original file, whose blob is unchanged — safe to bake CCs
+  //     straight onto it.
+  //   * createAdaptedFile=true with modifications: the adapted bytes were
+  //     already flushed to disk above through FileManager.replaceFileBytes
+  //     / createDerivedFile (both write via BlobStore and update
+  //     `blob_path`), and `targetFileId` resolves to that adapted file
+  //     (`adaptedFileId || originalFileId`). So the bake enriches the
+  //     adapted blob, not the original.
   //
-  // GATE — there is a pre-existing bug in this function: the adapted
-  // buffer is passed as `data: base64` to `fileRepository.update/save`,
-  // but `updateFile`/`insertFile` silently filter that key out
-  // (`buildDynamicUpdate` whitelist in MidiDatabase.js does not include
-  // `data`). Consequence: the adapted buffer is NEVER written to disk
-  // today, the file row keeps its original `blob_path`. If we bake on
-  // top of that, we'd produce a baked-but-NOT-adapted artifact (CCs
-  // applied to the un-transposed bytes), silently regressing playback.
-  //
-  // Until the adapted-buffer persistence is fixed separately, only bake
-  // when we know the on-disk blob matches the in-memory adapted state:
-  //   * createAdaptedFile=false: nothing was meant to change, blob is
-  //     unchanged, safe to bake CCs straight onto it.
-  //   * Otherwise: skip. Live injection in MidiPlayer keeps playback
-  //     working — the editor pane will get empty hand CCs until the
-  //     persistence bug is repaired (tracked as a follow-up).
-  const blobMatchesAdapted = !createAdaptedFile;
+  // This previously had to be gated off for adapted files because the
+  // adapted buffer was handed to the DB layer as a `data: base64` field
+  // that its column whitelist silently dropped — the blob never reached
+  // disk (audit P1). That persistence gap has since been fixed (see the
+  // replaceFileBytes / createDerivedFile calls above), so the gate is
+  // gone and the editor CC pane is populated for adapted files too.
   let bakeStats = null;
-  if (blobMatchesAdapted) {
-    try {
-      const hasHandRouted = await _hasHandConfigRouting(app, routings);
-      if (hasHandRouted && app.fileManager?.bakeAndSave) {
-        const bakeResult = await app.fileManager.bakeAndSave(targetFileId);
-        bakeStats = bakeResult?.stats || null;
-        app.logger.info(
-          `[ApplyAssignments] Baked CCs into file ${targetFileId}: +${bakeStats?.cc_events_added ?? 0} events`
-        );
-      }
-    } catch (bakeErr) {
-      const msg = `CC bake failed for file ${targetFileId}: ${bakeErr.message}`;
-      app.logger.warn(`[ApplyAssignments] ${msg}`);
-      warnings.push(msg);
+  try {
+    const hasHandRouted = await _hasHandConfigRouting(app, routings);
+    if (hasHandRouted && app.fileManager?.bakeAndSave) {
+      const bakeResult = await app.fileManager.bakeAndSave(targetFileId);
+      bakeStats = bakeResult?.stats || null;
+      app.logger.info(
+        `[ApplyAssignments] Baked CCs into file ${targetFileId}: +${bakeStats?.cc_events_added ?? 0} events`
+      );
     }
-  } else if (await _hasHandConfigRouting(app, routings)) {
-    const msg =
-      `Hand-position CCs not baked into file ${targetFileId}: ` +
-      `adapted-blob persistence is incomplete (see PlaybackAssignmentCommands ` +
-      `bake-gate comment). Live playback unaffected; editor CC pane will be empty.`;
+  } catch (bakeErr) {
+    const msg = `CC bake failed for file ${targetFileId}: ${bakeErr.message}`;
     app.logger.warn(`[ApplyAssignments] ${msg}`);
     warnings.push(msg);
   }
