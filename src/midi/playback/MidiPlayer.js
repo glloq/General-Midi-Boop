@@ -1523,6 +1523,7 @@ class MidiPlayer {
     const wasActivelyPlaying = this.playing && !this.paused;
     const wasPaused = this.playing && this.paused;
     const seekPosition = Math.max(0, Math.min(position, this.duration));
+    const prevPosition = this.position;
     const savedOutputDevice = this.outputDevice;
 
     this.stateMachine.tryTransition(PLAYBACK_STATES.SEEKING);
@@ -1530,6 +1531,14 @@ class MidiPlayer {
     if (this.playing) {
       this.scheduler.stopScheduler();
       this.sendAllNotesOff();
+      // On a BACKWARD jump (scrub-back or loop-to-start), reset controllers too:
+      // reconstruction below only re-applies controllers present AT the target,
+      // it never clears a sustain (CC64) or other CC still held from the later
+      // position — which would otherwise carry over and hang/over-sustain the
+      // notes played after the jump (audit axis6-4).
+      if (seekPosition < prevPosition) {
+        this.resetControllers();
+      }
       // Stop the clock only when we will restart it (active-play seek, where
       // start() calls startPlayback() again). For a PAUSED seek the clock is
       // already paused but still `_running`; calling stopPlayback() here clears
@@ -1775,6 +1784,19 @@ class MidiPlayer {
     // instrument's device rather than the default output (audit P3 —
     // otherwise the omni instrument can retain stuck notes on stop/pause/seek).
     this.scheduler.sendAllNotesOff(this.outputDevice, this.channelRouting, this.channels, (ch) =>
+      this.getOutputForChannel(ch)
+    );
+  }
+
+  /**
+   * Reset All Controllers (CC121) on every routed device/channel — clears a
+   * held sustain (CC64) and other CCs to defaults. Called on a backward seek /
+   * loop so stale forward-accumulated controllers don't hang the notes played
+   * after the jump (audit axis6-4).
+   * @returns {void}
+   */
+  resetControllers() {
+    this.scheduler.resetControllers(this.outputDevice, this.channelRouting, this.channels, (ch) =>
       this.getOutputForChannel(ch)
     );
   }

@@ -154,3 +154,33 @@ describe('PlaybackScheduler — velocity-0 note-on routes as a note-off (audit a
     }, 50);
   });
 });
+
+describe('PlaybackScheduler — controller reset on backward seek/loop (audit axis6-4)', () => {
+  test('resetControllers sends Reset-All-Controllers (CC121) to each routed channel', () => {
+    const app = makeApp();
+    const scheduler = new PlaybackScheduler(app);
+    const channelRouting = new Map([[0, { device: 'd', targetChannel: 2 }]]);
+
+    scheduler.resetControllers('out', channelRouting, [], null);
+
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('d', 'cc', {
+      channel: 2,
+      controller: 121,
+      value: 0
+    });
+  });
+
+  test('sendAllNotesOff still sends All-Notes-Off (CC123) after the _broadcastCC refactor', () => {
+    const app = makeApp();
+    const scheduler = new PlaybackScheduler(app);
+    const channelRouting = new Map([[0, { device: 'd', targetChannel: 0 }]]);
+
+    scheduler.sendAllNotesOff('out', channelRouting, [], null);
+
+    expect(app.deviceManager.sendMessage).toHaveBeenCalledWith('d', 'cc', {
+      channel: 0,
+      controller: 123,
+      value: 0
+    });
+  });
+});

@@ -37,6 +37,7 @@ import { clampNote, foldIntoRange, snapToNearest } from '../adaptation/NoteEnfor
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
+const MIDI_CC_RESET_ALL_CONTROLLERS = MIDI_CC.RESET_ALL_CONTROLLERS;
 const MIDI_CC_STRING_SELECT = MIDI_CC.STRING_SELECT;
 const MIDI_CC_FRET_SELECT = MIDI_CC.FRET_SELECT;
 
@@ -1101,6 +1102,37 @@ class PlaybackScheduler {
    * @param {Array} channels - MIDI channels from file
    */
   sendAllNotesOff(outputDevice, channelRouting, channels, resolveChannel = null) {
+    this._broadcastCC(outputDevice, channelRouting, channels, resolveChannel, MIDI_CC_ALL_NOTES_OFF);
+  }
+
+  /**
+   * Reset All Controllers (CC121, value 0) on every routed device/channel —
+   * clears sustain (CC64), modulation, expression, etc. to defaults. Sent on a
+   * BACKWARD seek / loop-to-start so stale forward-accumulated controllers (a
+   * held sustain at the old position) don't carry over the jump and hang the
+   * notes played after it (audit axis6-4).
+   * @param {string} outputDevice
+   * @param {Map} channelRouting
+   * @param {Array} channels
+   * @param {?Function} resolveChannel
+   */
+  resetControllers(outputDevice, channelRouting, channels, resolveChannel = null) {
+    this._broadcastCC(
+      outputDevice,
+      channelRouting,
+      channels,
+      resolveChannel,
+      MIDI_CC_RESET_ALL_CONTROLLERS
+    );
+  }
+
+  /**
+   * Send a single CC (value 0) to every channel actually routed to each
+   * destination device. Shared by {@link sendAllNotesOff} and
+   * {@link resetControllers}.
+   * @private
+   */
+  _broadcastCC(outputDevice, channelRouting, channels, resolveChannel, controller) {
     if (!outputDevice) {
       return;
     }
@@ -1157,13 +1189,13 @@ class PlaybackScheduler {
       }
     }
 
-    // Send All Notes Off only on the channels actually routed to each device
+    // Send the CC only on the channels actually routed to each device
     for (const [targetDevice, chSet] of channelsPerDevice) {
       for (const channel of chSet) {
         try {
           device.sendMessage(targetDevice, 'cc', {
             channel: channel,
-            controller: MIDI_CC_ALL_NOTES_OFF,
+            controller,
             value: 0
           });
         } catch (err) {

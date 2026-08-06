@@ -566,7 +566,7 @@ envoient All-Notes-Off + reset du tracking ; la mémoire de hauteur par-note de 
 | Axe6-1 | Split : un **note-on vélocité-0** (note-off en running-status) prend le chemin note-ON de `getOutputForChannel` (`scheduleEvent` passe `event.type` brut) → sur `round_robin`/`alternate`/`least_loaded`/`overflow` le compteur/pile de segments désynchronise → **notes bloquées** sur le mauvais segment. `PlaybackScheduler.js:566`, `MidiPlayer.js:2182` | **Critique** | ✅ corrigé (type logique) |
 | Axe6-2 | `setChannelRouting` / `setChannelNoteRemapping` / `setChannelSplitRouting` ne relâchent **pas** les notes tenues avant de changer la config (contrairement aux setters de transposition) → une ré-assignation en cours de lecture envoie le note-off au **nouvel** appareil/mapping et l'ancienne note **reste bloquée**. Atteint en live via `apply_assignments`. `MidiPlayer.js:1939,2017,2035` | **Élevé** | ✅ corrigé (`_panicChannel` avant reconfig) |
 | Axe6-3 | **Écart de parité clamp** : le skip batterie (ch9) est clé sur le canal **source** au playback (`PlaybackScheduler.js:980`) mais sur le canal **mappé/destination** en live (`MidiRouter.js:380`) → un remap live franchissant le canal 9 clampe (ou pas) à l'inverse du playback. | Moyen | ⚠️ tracé (sémantique d'un remap cross-9 à décider) |
-| Axe6-4 | **Seek arrière / boucle** ne réinitialise jamais les contrôleurs (`_emitReconstructedState` est set-only) → un CC64 (sustain) tenu en fin de fichier **reste actif** après `seek(0)`/boucle → sur-sustain / notes tenues à l'itération suivante. `MidiPlayer.js:1648-1711`, boucle `:2711` | Moyen | ⚠️ tracé |
+| Axe6-4 | **Seek arrière / boucle** ne réinitialise jamais les contrôleurs (`_emitReconstructedState` est set-only) → un CC64 (sustain) tenu en fin de fichier **reste actif** après `seek(0)`/boucle → sur-sustain / notes tenues à l'itération suivante. `MidiPlayer.js:1648-1711`, boucle `:2711` | Moyen | ✅ corrigé (Reset-All-Controllers CC121 sur seek arrière) |
 | Axe6-5 | Note-off différé (`min_note_duration`) non lié à l'instance de note → un re-déclenchement rapide de la même hauteur dans la fenêtre de report est **coupé court**. `PlaybackScheduler.js:1072-1085` | Moyen | ⚠️ tracé |
 | Axe6-6 | Compensation relative `MidiRouter` : si la compensation baisse en cours de note (≥2 destinations), le note-off peut partir **avant** le note-on encore en attente → note bloquée. `MidiRouter.js:301-320` | Faible-Moyen | ⚠️ tracé |
 
@@ -574,9 +574,9 @@ Rappel (déjà tracé, non re-listé) : `globalTranspose` sans latch par voix �
 `setGlobalTranspose` (sendAllNotesOff + reset). Points d'enforcement playback : cf.
 `AUDIT_INSTRUMENT_CAPABILITIES_2026-08-05.md`.
 
-**Reste** (Axe6-3 → Axe6-6) : Axe6-4 (reset contrôleurs sur seek arrière/boucle) est le plus
-audible et un bon prochain candidat ; Axe6-3 demande une décision sur la sémantique d'un remap
-live franchissant le canal 9 ; Axe6-5/6 sont des courses de timing plus fines.
+**Reste** : Axe6-3 demande une décision sur la sémantique d'un remap live franchissant le canal
+9 ; Axe6-5 (note-off différé lié à l'instance) et Axe6-6 (course de compensation) sont des
+courses de timing plus fines à corriger avec des tests dédiés.
 
 ---
 
