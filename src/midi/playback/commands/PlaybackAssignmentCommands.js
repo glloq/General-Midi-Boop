@@ -457,7 +457,9 @@ async function applyAssignments(app, data) {
                 }
               }
             } catch (playerErr) {
-              app.logger.warn(`Live routing update failed for ch ${resolvedCh}: ${playerErr.message}`);
+              app.logger.warn(
+                `Live routing update failed for ch ${resolvedCh}: ${playerErr.message}`
+              );
             }
           } catch (dbError) {
             app.logger.warn(
@@ -568,7 +570,11 @@ async function applyAssignments(app, data) {
       // into a reported failure (audit review).
       try {
         if (app.midiPlayer && app.midiPlayer.loadedFileId === targetFileId) {
-          app.midiPlayer.setChannelRouting(channelNum, assignment.deviceId, instrumentTargetChannel);
+          app.midiPlayer.setChannelRouting(
+            channelNum,
+            assignment.deviceId,
+            instrumentTargetChannel
+          );
           if (typeof app.midiPlayer.setChannelTransposition === 'function') {
             app.midiPlayer.setChannelTransposition(channelNum, runtimeSemitones(assignment));
           }
