@@ -50,6 +50,7 @@ function createMockApp({
       resume: jest.fn(),
       seek: jest.fn(),
       setLoop: jest.fn(),
+      setGlobalTranspose: jest.fn(),
       getStatus: jest.fn().mockReturnValue({
         playing: false,
         paused: false,
@@ -422,5 +423,80 @@ describe('Contract: playback_set_loop', () => {
     expect(resp.code).toBe('ERR_VALIDATION');
     expect(resp.error).toBe('Invalid playback_set_loop data: enabled must be a boolean');
     expect(app.midiPlayer.setLoop).not.toHaveBeenCalled();
+  });
+});
+
+describe('Contract: playback_transpose', () => {
+  const contract = loadContract('playback_transpose');
+
+  test('contract metadata is well-formed', () => {
+    expect(contract.command).toBe('playback_transpose');
+    expect(contract.cases.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('nominal — transpose forwards to midiPlayer.setGlobalTranspose and echoes value', async () => {
+    const app = createMockApp();
+    const registry = buildRegistry(app);
+    const ws = createMockWs();
+
+    await registry.handle(
+      { id: 'req-1', command: 'playback_transpose', data: { semitones: 3 } },
+      ws
+    );
+
+    const resp = ws._messages[0];
+    expect(resp.type).toBe('response');
+    expect(resp.data).toEqual({ success: true, semitones: 3 });
+    expect(app.midiPlayer.setGlobalTranspose).toHaveBeenCalledWith(3);
+    assertShape(resp.data, contract.cases[0].output_shape.data);
+  });
+
+  test('nominal — 0 clears the global transpose', async () => {
+    const app = createMockApp();
+    const registry = buildRegistry(app);
+    const ws = createMockWs();
+
+    await registry.handle(
+      { id: 'req-2', command: 'playback_transpose', data: { semitones: 0 } },
+      ws
+    );
+
+    const resp = ws._messages[0];
+    expect(resp.type).toBe('response');
+    expect(resp.data).toEqual({ success: true, semitones: 0 });
+    expect(app.midiPlayer.setGlobalTranspose).toHaveBeenCalledWith(0);
+  });
+
+  test('error — missing semitones is blocked by validator', async () => {
+    const app = createMockApp();
+    const registry = buildRegistry(app);
+    const ws = createMockWs();
+
+    await registry.handle({ id: 'req-3', command: 'playback_transpose', data: {} }, ws);
+
+    const resp = ws._messages[0];
+    expect(resp.type).toBe('error');
+    expect(resp.code).toBe('ERR_VALIDATION');
+    expect(resp.error).toBe('Invalid playback_transpose data: semitones is required');
+    expect(app.midiPlayer.setGlobalTranspose).not.toHaveBeenCalled();
+  });
+
+  test('error — out-of-range semitones is blocked by validator', async () => {
+    const app = createMockApp();
+    const registry = buildRegistry(app);
+    const ws = createMockWs();
+
+    await registry.handle(
+      { id: 'req-4', command: 'playback_transpose', data: { semitones: 60 } },
+      ws
+    );
+
+    const resp = ws._messages[0];
+    expect(resp.type).toBe('error');
+    expect(resp.code).toBe('ERR_VALIDATION');
+    expect(resp.error).toBe(
+      'Invalid playback_transpose data: semitones must be an integer between -48 and 48'
+    );
+    expect(app.midiPlayer.setGlobalTranspose).not.toHaveBeenCalled();
   });
 });

@@ -90,6 +90,21 @@ Trade-off documenté de l'option A : les retouches manuelles de la
 courbe hand-position dans l'éditeur sont écrasées au prochain
 `apply_assignments`.
 
+**Complément (gate fichier adapté levé).** Le bake était initialement
+sauté pour les fichiers *adaptés* (`createAdaptedFile=true`) via un gate
+`blobMatchesAdapted = !createAdaptedFile`, parce qu'un bug de
+persistance passait le buffer adapté en `data: base64` que la whitelist
+de colonnes de la DB droppait — le blob adapté n'atteignait jamais le
+disque, donc baker par-dessus aurait produit un artefact baké-mais-non-
+adapté. Ce bug a depuis été corrigé : `applyAssignments` persiste
+maintenant les octets adaptés via `FileManager.replaceFileBytes` /
+`createDerivedFile` (écriture BlobStore + mise à jour `blob_path`) avant
+l'étape de bake, et `targetFileId` (`adaptedFileId || originalFileId`)
+pointe donc toujours sur le blob correct. Le gate est retiré : les CCs
+main sont désormais bakés dans le fichier adapté aussi (le baker lit
+`file.blob_path`, `MidiBaker.bake:41`). Couvert par
+`tests/apply-assignments-bake-adapted-hand-cc.test.js`.
+
 ---
 
 ## Mécanisme `independent_fingers` (V2 — doigts humanoïdes)
@@ -149,18 +164,26 @@ quelqu'un attaque le sujet.
 
 ### MIDI core
 
-- **Somme des poids `ScoringConfig`** : la détection de type d'instrument
-  somme à 130 au lieu de 100. Soit normaliser, soit assumer et
-  documenter.
-- **Wrapping d'octave doublonnant** : plusieurs notes source peuvent
-  wrapper sur la même note cible, créant des collisions silencieuses.
-  Voir `src/midi/adaptation/MidiTransposer.js`. Telemetry ajoutée :
-  `compressChannel().stats.compressionCollisions` compte maintenant le
-  nombre de notes cibles avec plusieurs sources — l'UI peut afficher
-  un avertissement quand `> 0`. Reste à faire : décider si on remap
-  intelligemment vers une note cible libre la plus proche (= éviter la
-  collision) ou si l'on garde le comportement actuel et on affiche
-  juste le warning.
+- ~~**Somme des poids `ScoringConfig`** : la détection de type
+  d'instrument somme à 130 au lieu de 100~~ — **résolu par
+  documentation.** `src/midi/adaptation/ScoringConfig.js:24-33` explicite
+  que `typeDetection` (40+25+20+15+30=130) alimente un argmax : la somme
+  absolue n'a aucun sens, seules les magnitudes relatives comptent, et
+  renormaliser casserait les snapshots de tests. Les vrais poids de score
+  `weights` (`:14-18`) somment bien à 100 (documenté `:6-7`).
+- ~~**Wrapping d'octave doublonnant**~~ — **décision prise : on garde le
+  comportement actuel (warning-only).** Plusieurs notes source peuvent
+  wrapper sur la même note cible ; la télémétrie
+  `compressChannel().stats.compressionCollisions`
+  (`src/midi/adaptation/MidiTransposer.js:443-452`) compte les cibles à
+  sources multiples pour que l'UI avertisse quand `> 0`. Le remap
+  "note libre la plus proche" a été écarté : `compressNoteToRange`
+  (`:374-389`) fait un folding par octave qui **préserve la classe de
+  hauteur** ; rediriger une collision vers la note libre voisine
+  produirait une mauvaise classe de hauteur (dissonance), musicalement
+  pire que la ré-articulation actuelle. Le warning reste la bonne
+  réponse — la vraie correction côté utilisateur est d'élargir la plage
+  de l'instrument, pas de dénaturer la hauteur.
 
 ### Architecture
 
@@ -237,16 +260,21 @@ quelqu'un attaque le sujet.
 
 ### Infrastructure
 
-- **`DelayCalibrator`** : la regex de parsing ALSA utilise le mot-clé
-  français `carte` qui échoue sur un système anglais. Multilinguer
-  ou parser la sortie machine plutôt que humaine.
+- ~~**`DelayCalibrator`** : la regex de parsing ALSA utilise le mot-clé
+  français `carte` qui échoue sur un système anglais~~ — **résolu.**
+  `src/audio/DelayCalibrator.js:562` est désormais bilingue :
+  `/(?:card|carte) (\d+):.*(?:device|périphérique) (\d+):/i`, et la
+  locale C est forcée en amont (`:555-557`) pour garantir la sortie
+  anglaise machine — le français ne sert plus que de défense en
+  profondeur.
 - ~~**Double tracking de migrations**~~ — confirmé résolu. `grep -rn
   "migrations" src/ migrations/*.sql` ne renvoie que `schema_version`
   comme table de tracking ; aucune table `migrations` n'est créée ni
   lue. Le baseline v6.0 (`001_baseline.sql`) a fini la consolidation.
-- **Dépendances datées** : Express 4.x (5.x dispo), `better-sqlite3` 9.x
-  (12.x dispo). Vérifier les breaking changes avant l'upgrade. Voir
-  AUDIT.md §3.13.
+- **Dépendances datées** : Express `^4.18.2` (5.x dispo),
+  `better-sqlite3` `^11.10.0` (12.x dispo — la note « 9.x » d'un audit
+  antérieur était périmée, l'upgrade 9→11 a déjà eu lieu). Vérifier les
+  breaking changes avant l'upgrade. Voir AUDIT.md §3.13.
 
 ---
 
