@@ -47,6 +47,7 @@ import DeviceSettingsRepository from '../repositories/DeviceSettingsRepository.j
 import LightingRepository from '../repositories/LightingRepository.js';
 import StringInstrumentRepository from '../repositories/StringInstrumentRepository.js';
 import HotspotConfigRepository from '../repositories/HotspotConfigRepository.js';
+import FileFoldersRepository from '../repositories/FileFoldersRepository.js';
 import HotspotManager from '../system/HotspotManager.js';
 import FileRoutingSyncService from '../midi/routing/FileRoutingSyncService.js';
 import DeviceReconciliationService from '../midi/devices/DeviceReconciliationService.js';
@@ -400,6 +401,7 @@ class Application {
       // `descriptorService`. Registered after both repositories it depends on.
       this._registerService('descriptorService', new DescriptorService(deps));
       this._registerService('hotspotConfigRepository', new HotspotConfigRepository(this.database));
+      this._registerService('fileFoldersRepository', new FileFoldersRepository(this.database));
       this._registerService('hotspotManager', new HotspotManager({ logger: this.logger }));
 
       // Initialize domain services (Phase 4 — P1-4.1+)

@@ -7498,7 +7498,10 @@
                     connectedCount++;
                     console.log(`🔌 'connected' event triggered (count: ${connectedCount})`);
                     log('✅ Connected to server', 'info');
-                    loadFiles();
+                    // T2.2: pull the shared folder tree before the first render
+                    // so files land in the right folders; loadFiles() runs even
+                    // if the sync fails (offline / older server).
+                    syncFolderStructureFromBackend().finally(() => loadFiles());
                     loadDevices();
                     initFileSearch(); // Initialiser la recherche de fichiers
                     initSortControls(); // Initialiser les contrôles de tri
@@ -7711,9 +7714,42 @@
         // Variable pour stocker la structure des dossiers
         let folderStructure = JSON.parse(localStorage.getItem('midi_folders') || '{}');
 
-        // Sauvegarder la structure des dossiers
+        // Sauvegarder la structure des dossiers.
+        // T2.2: persist to BOTH localStorage (offline fallback) and the server
+        // (settings KV, shared across devices). The server push is
+        // fire-and-forget — a failure never blocks the local UX.
         function saveFolderStructure() {
             localStorage.setItem('midi_folders', JSON.stringify(folderStructure));
+            try {
+                if (window.api && typeof api.sendCommand === 'function') {
+                    // Fire-and-forget; rejects harmlessly when offline (the
+                    // localStorage write above is the offline fallback).
+                    api.sendCommand('file_folders_set', { folders: folderStructure }).catch(() => {});
+                }
+            } catch (_) { /* not connected → localStorage already saved */ }
+        }
+
+        // T2.2: reconcile the folder structure with the server on startup so
+        // organization follows the user across devices/browsers. The server
+        // wins when it has data; otherwise we migrate the existing localStorage
+        // tree up to the server so nothing is lost on first run.
+        let _folderSyncDone = false;
+        async function syncFolderStructureFromBackend() {
+            if (_folderSyncDone) return;
+            if (!window.api || typeof api.sendCommand !== 'function') return;
+            try {
+                const res = await api.sendCommand('file_folders_get', {});
+                const remote = res && res.folders;
+                const remoteHasData = remote && typeof remote === 'object' && Object.keys(remote).length > 0;
+                if (remoteHasData) {
+                    folderStructure = remote;
+                    localStorage.setItem('midi_folders', JSON.stringify(folderStructure));
+                } else if (Object.keys(folderStructure).length > 0) {
+                    // Server empty but we have a local tree → migrate it up.
+                    await api.sendCommand('file_folders_set', { folders: folderStructure }).catch(() => {});
+                }
+                _folderSyncDone = true;
+            } catch (_) { /* keep the localStorage tree on any failure */ }
         }
 
         // Charger les fichiers

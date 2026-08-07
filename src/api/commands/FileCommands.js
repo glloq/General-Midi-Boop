@@ -499,6 +499,38 @@ async function midiCategoriesList(app) {
 }
 
 /**
+ * Return the shared file-manager folder structure (audit T2.2). Persisted in
+ * the settings KV table so folder organization survives across devices and
+ * cache clears, unlike the previous localStorage-only model. The tree is opaque
+ * to the server; `{}` is returned when nothing is stored yet.
+ *
+ * @param {Object} app
+ * @returns {Promise<{folders: Object}>}
+ */
+async function fileFoldersGet(app) {
+  if (!app.fileFoldersRepository) return { folders: {} };
+  return { folders: app.fileFoldersRepository.get() };
+}
+
+/**
+ * Replace the shared folder structure. The client owns the tree and sends the
+ * full map on every change.
+ *
+ * @param {Object} app
+ * @param {{folders?: Object}} data
+ * @returns {Promise<{success:true, folders:Object}>}
+ * @throws {ValidationError}
+ */
+async function fileFoldersSet(app, data) {
+  const folders = data && data.folders;
+  if (folders !== undefined && (typeof folders !== 'object' || folders === null || Array.isArray(folders))) {
+    throw new ValidationError('folders must be an object', 'folders');
+  }
+  if (!app.fileFoldersRepository) return { success: true, folders: folders || {} };
+  return { success: true, folders: app.fileFoldersRepository.set(folders || {}) };
+}
+
+/**
  * @param {import('../CommandRegistry.js').default} registry
  * @param {Object} app
  * @returns {void}
@@ -526,4 +558,6 @@ export function register(registry, app) {
   registry.register('file_routing_status', (data) => fileRoutingStatus(app, data));
   registry.register('midi_instruments_list', () => midiInstrumentsList(app));
   registry.register('midi_categories_list', () => midiCategoriesList(app));
+  registry.register('file_folders_get', () => fileFoldersGet(app));
+  registry.register('file_folders_set', (data) => fileFoldersSet(app, data));
 }
