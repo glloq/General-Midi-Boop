@@ -788,6 +788,28 @@ class InstrumentManagementPage {
           </div>
         </div>
 
+        <!-- Complete capabilities (shown when the instrument is incomplete) -->
+        ${
+          isComplete
+            ? ''
+            : `<button style="font-size: 13px; padding: 4px 7px; flex-shrink: 0; align-self: center; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #d97706; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
+                onclick="event.stopPropagation(); instrumentManagementPageInstance.completeInstrument('${safeId}')"
+                onmouseover="this.style.background='#f59e0b';this.style.color='white';this.style.borderColor='#f59e0b'"
+                onmouseout="this.style.background='rgba(245,158,11,0.1)';this.style.color='#d97706';this.style.borderColor='rgba(245,158,11,0.3)'"
+                title="${i18n.t('instrumentManagement.completeCapabilities') || 'Compléter les capacités'}">
+          ⚙️
+        </button>`
+        }
+
+        <!-- Test (send a note within the instrument's range) -->
+        <button style="font-size: 13px; padding: 4px 7px; flex-shrink: 0; align-self: center; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: #3b82f6; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
+                onclick="event.stopPropagation(); instrumentManagementPageInstance.testInstrument('${safeId}', ${channel})"
+                onmouseover="this.style.background='#3b82f6';this.style.color='white';this.style.borderColor='#3b82f6'"
+                onmouseout="this.style.background='rgba(59,130,246,0.08)';this.style.color='#3b82f6';this.style.borderColor='rgba(59,130,246,0.2)'"
+                title="${i18n.t('instrumentManagement.testInstrument') || 'Tester'}">
+          🔊
+        </button>
+
         <!-- Delete -->
         <button style="font-size: 13px; padding: 4px 7px; flex-shrink: 0; align-self: center; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2); color: #dc2626; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
                 onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
@@ -993,8 +1015,7 @@ class InstrumentManagementPage {
         if (incomplete && window.InstrumentCapabilitiesModal) {
           const capabilitiesModal = new window.InstrumentCapabilitiesModal(this.apiClient);
 
-          capabilitiesModal.show([incomplete], async (updates) => {
-            console.log('Capabilities updated:', updates);
+          capabilitiesModal.show([incomplete], async (_updates) => {
             await this.refresh();
           });
           return;
