@@ -5564,6 +5564,10 @@
                     ⚙️
                 </button>
 
+                <button class="btn-settings-toggle" id="systemAdminBtn" data-i18n-title="systemAdmin.title" title="Administration système & sessions" aria-label="System administration">
+                    🛠️
+                </button>
+
                 <button class="btn-debug-toggle" id="debugToggle" data-i18n-title="ui.toggleLogs" title="Afficher/Masquer les logs" aria-label="Debug console" aria-expanded="false" aria-controls="debugConsole">
                     🐞
                 </button>
@@ -6172,6 +6176,7 @@
     <!-- Auto-initializing toast listener for playback_hand_position_warnings -->
     <script src="js/features/HandPositionWarningsToast.js"></script>
     <script src="js/features/RealtimeStatusToasts.js"></script>
+    <script src="js/features/SystemAdminModal.js"></script>
 
     <!-- Ref-counted toast surfaced by MidiSynthesizer on slow SF2 preset fetches -->
     <script src="js/features/InstrumentLoadingToast.js"></script>
@@ -12777,6 +12782,16 @@
         document.getElementById('calibrationBtn').addEventListener('click', () => {
             calibrationModal.open();
         });
+
+        // System & sessions administration (🛠️) — created lazily on first click
+        const systemAdminBtn = document.getElementById('systemAdminBtn');
+        if (systemAdminBtn && typeof SystemAdminModal !== 'undefined') {
+            let systemAdminModal = null;
+            systemAdminBtn.addEventListener('click', () => {
+                if (!systemAdminModal) systemAdminModal = new SystemAdminModal(api);
+                systemAdminModal.open();
+            });
+        }
 
         // Loop Manager (∞) — created lazily on first click so api is defined
         let loopManagerModal = null;
