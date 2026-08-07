@@ -135,6 +135,50 @@
     return byChannel;
   }
 
+  /**
+   * Format the WARNING / INFEASIBLE entries of a `handPositionWarnings` array
+   * (the one returned by `apply_assignments`) into operator-facing lines, worst
+   * level first per channel. `count` is 0 when every channel is ok/unknown, so
+   * callers can skip interrupting the user. Consumed by RoutingSummaryPage after
+   * an apply so hard/impossible-to-play channels are surfaced (audit O3 / T2.4).
+   *
+   * @param {Array<{channel:number, level:string, message?:string,
+   *   instrumentName?:string}>} warnings
+   * @returns {{count:number, infeasibleCount:number, lines:string[]}}
+   */
+  function summarizeFeasibilityWarnings(warnings) {
+    const t = (key, fallback) => {
+      if (window.i18n && typeof window.i18n.t === 'function') {
+        const v = window.i18n.t(key);
+        if (v && v !== key) return v;
+      }
+      return fallback;
+    };
+    const byChannel = aggregateByChannel(warnings); // worst level per channel
+    // aggregateByChannel keeps level/summary/message; recover a display name.
+    const nameByChannel = new Map();
+    if (Array.isArray(warnings)) {
+      for (const w of warnings) {
+        if (w && typeof w.channel === 'number' && w.instrumentName && !nameByChannel.has(w.channel)) {
+          nameByChannel.set(w.channel, w.instrumentName);
+        }
+      }
+    }
+    const lines = [];
+    let infeasibleCount = 0;
+    const sorted = [...byChannel.entries()].sort((a, b) => a[0] - b[0]);
+    for (const [channel, info] of sorted) {
+      if (info.level !== 'warning' && info.level !== 'infeasible') continue;
+      if (info.level === 'infeasible') infeasibleCount++;
+      const glyph = info.level === 'infeasible' ? '✗' : '⚠';
+      const name = nameByChannel.get(channel);
+      const label = `${t('routingSummary.channel', 'Canal')} ${channel + 1}`;
+      const msg = info.message ? ` — ${info.message}` : '';
+      lines.push(`${glyph} ${label}${name ? ` (${name})` : ''}${msg}`);
+    }
+    return { count: lines.length, infeasibleCount, lines };
+  }
+
   // ====================================================================
   // simulateHandWindows — client-side mirror of the planner's window
   // logic, simplified for visualization in HandsPreviewPanel (E.6.3+).
@@ -1879,6 +1923,7 @@
       classify,
       renderBadge,
       aggregateByChannel,
+      summarizeFeasibilityWarnings,
       simulateHandWindows,
       findStringCandidates
     };

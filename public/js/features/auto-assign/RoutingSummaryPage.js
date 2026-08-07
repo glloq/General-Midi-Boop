@@ -3023,6 +3023,27 @@
           });
         }
 
+        // Hand-position feasibility warnings from the apply response (audit O3 /
+        // T2.4): tell the operator which channels are hard/impossible to play as
+        // routed. Pre-assignment feasibility is already shown via the per-channel
+        // badges (client-side classify()); this covers the post-apply report the
+        // backend computed against the real adapted material.
+        if (
+          result?.handPositionWarnings?.length > 0 &&
+          window.HandPositionFeasibility?.summarizeFeasibilityWarnings &&
+          typeof showAlert === 'function'
+        ) {
+          const fb = window.HandPositionFeasibility.summarizeFeasibilityWarnings(
+            result.handPositionWarnings
+          );
+          if (fb.count > 0) {
+            await showAlert(fb.lines.join('\n'), {
+              title: _t('routingSummary.feasibilityTitle') || 'Faisabilité de jeu',
+              icon: fb.infeasibleCount > 0 ? '❌' : '⚠️'
+            });
+          }
+        }
+
         // Notify other components
         const effectiveFileId = result?.adaptedFileId || this.fileId;
         if (window.eventBus) {
