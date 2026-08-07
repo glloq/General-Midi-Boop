@@ -90,7 +90,8 @@ export class CapabilityResolver {
       noteRangeMax: null,
       selectedNotes: null,
       octaveMode: null,
-      scaleRoot: 0
+      scaleRoot: 0,
+      supportedCcs: null
     };
     try {
       const capDB = this._db?.instrumentCapabilitiesDB;
@@ -120,13 +121,52 @@ export class CapabilityResolver {
               instrument.note_range_max === undefined ? null : instrument.note_range_max,
             selectedNotes: selected && selected.length > 0 ? selected : null,
             octaveMode: instrument.octave_mode ?? null,
-            scaleRoot: Number.isInteger(instrument.scale_root) ? instrument.scale_root : 0
+            scaleRoot: Number.isInteger(instrument.scale_root) ? instrument.scale_root : 0,
+            // Discrete set of CCs the instrument physically responds to. When
+            // declared, the scheduler/router forward only these (+ protocol
+            // safety CCs) so an unsupported controller can't deregulate the
+            // firmware (audit P2-4). Null/empty → forward everything.
+            supportedCcs:
+              Array.isArray(instrument.supported_ccs) && instrument.supported_ccs.length > 0
+                ? instrument.supported_ccs.filter(
+                    (n) => Number.isInteger(n) && n >= 0 && n <= 127
+                  )
+                : null
           };
         }
       }
     } catch {
       // No constraints applied when DB is unavailable
     }
+
+    // Derive the physically playable range from the string geometry when no
+    // explicit note_range is set. `tuning` + `num_frets` otherwise only shaped
+    // the tablature CCs, so a note above the last fret was still emitted at its
+    // original pitch (audit T1.2). Feeding a derived [min,max] here lets the
+    // shared clampNote fold such notes into the reachable range. Only for
+    // FRETTED instruments (a fretless one has no discrete last fret); an
+    // explicit note_range always wins.
+    if (constraints.noteRangeMin == null && constraints.noteRangeMax == null) {
+      try {
+        const s = this._db?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
+        if (s && !s.is_fretless && Array.isArray(s.tuning) && s.tuning.length > 0 && s.num_frets > 0) {
+          const tuning = s.tuning.filter((n) => Number.isInteger(n));
+          if (tuning.length > 0) {
+            const fps = Array.isArray(s.frets_per_string) ? s.frets_per_string : null;
+            let hi = -Infinity;
+            for (let i = 0; i < tuning.length; i++) {
+              const frets = fps && Number.isInteger(fps[i]) ? fps[i] : s.num_frets;
+              hi = Math.max(hi, tuning[i] + frets);
+            }
+            constraints.noteRangeMin = Math.min(...tuning);
+            constraints.noteRangeMax = Math.min(127, hi);
+          }
+        }
+      } catch {
+        // No derived range when the string DB is unavailable
+      }
+    }
+
     this._timingCache.set(key, constraints);
     return constraints;
   }

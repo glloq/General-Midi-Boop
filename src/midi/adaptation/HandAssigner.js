@@ -320,20 +320,35 @@ class HandAssigner {
     if (splits.length === 0) return { hand: ids[0] || null, ambiguous: false, boundary: null };
     const band = this.hysteresis;
 
-    // Find which boundary (if any) the note sits inside the hysteresis band of.
+    // Find the NEAREST boundary whose hysteresis band contains the note. When
+    // adjacent splits sit closer than 2×band their bands overlap and a note can
+    // fall inside two of them; returning the first match made the result depend
+    // on iteration order (audit T6.2). Picking the nearest boundary is
+    // order-independent and identical to the old behaviour when bands don't
+    // overlap (only one band can then contain the note).
+    let nearest = -1;
+    let nearestDist = Infinity;
     for (let i = 0; i < splits.length; i++) {
       const b = splits[i];
       if (note >= b - band && note < b + band) {
-        // Resolve toward the prior hand when we have one and it's adjacent
-        // to this boundary; otherwise use the lower side.
-        let hand;
-        if (lastHand === ids[i] || lastHand === ids[i + 1]) {
-          hand = lastHand;
-        } else {
-          hand = note < b ? ids[i] : ids[i + 1];
+        const dist = Math.abs(note - b);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearest = i;
         }
-        return { hand, ambiguous: true, boundary: b };
       }
+    }
+    if (nearest >= 0) {
+      const b = splits[nearest];
+      // Resolve toward the prior hand when we have one and it's adjacent
+      // to this boundary; otherwise use the lower side.
+      let hand;
+      if (lastHand === ids[nearest] || lastHand === ids[nearest + 1]) {
+        hand = lastHand;
+      } else {
+        hand = note < b ? ids[nearest] : ids[nearest + 1];
+      }
+      return { hand, ambiguous: true, boundary: b };
     }
 
     // Outside any hysteresis band — find the slot.

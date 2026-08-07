@@ -23,8 +23,9 @@
  *     compensation cache.
  */
 
-import { DEVICE_MSG_TYPES } from '../../core/constants.js';
-import { clampNote } from '../adaptation/NoteEnforcement.js';
+import { performance } from 'perf_hooks';
+import { DEVICE_MSG_TYPES, MIDI_CC } from '../../core/constants.js';
+import { clampNote, NoteGate } from '../adaptation/NoteEnforcement.js';
 
 // Upper bound on tracked in-flight routed notes (the source→clamped-pitch memory
 // that keeps a note-off/aftertouch on the same pitch as its note-on). A note-on
@@ -84,6 +85,15 @@ class MidiRouter {
      * exactly when a held note must still remember its original pitch.
      */
     this._activeRoutedNotes = new Map();
+
+    /**
+     * Stateful polyphony + min-note-interval gate for the live route-through so
+     * a physical keyboard can't overrun a mechanical instrument's limits, the
+     * same enforcement file playback applies (audit P2-3). Note-clamp (range/
+     * scale) stays in {@link MidiRouter#_clampToCapabilities}; this adds the
+     * per-stream voice/timing state that clamp can't hold.
+     */
+    this._noteGate = new NoteGate();
 
     /**
      * @type {Map<string, number>} `${destination}|${channel}|${note}` → the
@@ -355,8 +365,12 @@ class MidiRouter {
    * @private
    */
   _sendAndEmit(route, sourceDevice, type, mapped, sourceChannel) {
-    const out = this._clampToCapabilities(route.destination, type, mapped, sourceChannel);
-    const success = this._deps.deviceManager.sendMessage(route.destination, type, out);
+    const dest = route.destination;
+    const out = this._clampToCapabilities(dest, type, mapped, sourceChannel);
+    if (this._enforceLiveLimits(dest, type, out, sourceChannel) === false) {
+      return; // dropped by polyphony / min-note-interval / unsupported-CC gate
+    }
+    const success = this._deps.deviceManager.sendMessage(dest, type, out);
     if (success) {
       this.eventBus.emit('midi_routed', {
         route: route.id,
@@ -366,6 +380,69 @@ class MidiRouter {
         data: out
       });
     }
+  }
+
+  /**
+   * Stateful live-path enforcement, applied after {@link _clampToCapabilities}:
+   * polyphony + min-note-interval gating (via {@link NoteGate}) and
+   * `supported_ccs` filtering, so a live source can't overrun the destination
+   * instrument's physical limits (audit P2-3) or deregulate its firmware with an
+   * unsupported CC (audit P2-4). Skips a drum SOURCE (channel 9 — its "notes"
+   * are voice selectors) and no-ops when no CapabilityResolver is wired.
+   *
+   * @param {string} dest
+   * @param {string} type
+   * @param {Object} out - the clamped message about to be sent
+   * @param {number} [sourceChannel]
+   * @returns {boolean} false → drop the message; true → send it.
+   * @private
+   */
+  _enforceLiveLimits(dest, type, out, sourceChannel) {
+    if (!out) return true;
+    const resolver = this._deps.capabilityResolver;
+    if (!resolver || typeof resolver.getTimingConstraints !== 'function') return true;
+
+    // CC filtering by supported_ccs — channel-mode/safety CCs (>=120) and bank
+    // select always pass; an undeclared set forwards everything.
+    if (type === DEVICE_MSG_TYPES.CC && out.controller != null) {
+      const list = resolver.getTimingConstraints(dest, out.channel)?.supportedCcs;
+      if (Array.isArray(list) && list.length > 0) {
+        const cc = out.controller;
+        const always =
+          cc >= MIDI_CC.ALL_SOUND_OFF ||
+          cc === MIDI_CC.BANK_SELECT ||
+          cc === MIDI_CC.BANK_SELECT_LSB;
+        if (!always && !list.includes(cc)) return false;
+      }
+      return true;
+    }
+
+    // Note gating — drum source excluded.
+    const drumSource = (sourceChannel ?? out.channel) === 9;
+    if (drumSource || out.note == null) return true;
+
+    const isNoteOn = type === DEVICE_MSG_TYPES.NOTE_ON && (out.velocity ?? 0) > 0;
+    const isNoteOff =
+      type === DEVICE_MSG_TYPES.NOTE_OFF ||
+      (type === DEVICE_MSG_TYPES.NOTE_ON && (out.velocity ?? 0) === 0);
+    if (!isNoteOn && !isNoteOff) return true;
+
+    if (isNoteOn) {
+      const constraints = resolver.getTimingConstraints(dest, out.channel);
+      const res = this._noteGate.noteOn(dest, out.channel, out.note, constraints, performance.now());
+      if (res.evictNote != null) {
+        // Release the evicted (median) voice before admitting the new note-on.
+        this._deps.deviceManager.sendMessage(dest, DEVICE_MSG_TYPES.NOTE_OFF, {
+          channel: out.channel,
+          note: res.evictNote,
+          velocity: 0
+        });
+      }
+      return !res.gate;
+    }
+    // note-off (incl. velocity-0 note-on): swallow it if it belonged to a
+    // dropped note-on so it can't cut a still-sounding note of the same pitch.
+    return !this._noteGate.noteOff(dest, out.channel, out.note);
   }
 
   /**
@@ -751,6 +828,7 @@ class MidiRouter {
     this._instrumentNameByDevCh.clear();
     this._activeRoutedNotes.clear();
     this._activeRoutedComp.clear();
+    this._noteGate.clear();
     this.routes.clear();
     this.routesBySource.clear();
     this.monitors.clear();

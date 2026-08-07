@@ -268,7 +268,7 @@ class InstrumentCapabilitiesDB {
             octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
-            custom_sf2_id, pitch_bend_enabled
+            custom_sf2_id, pitch_bend_enabled, voices_share_notes
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
         `);
@@ -284,7 +284,7 @@ class InstrumentCapabilitiesDB {
             octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
-            custom_sf2_id, pitch_bend_enabled
+            custom_sf2_id, pitch_bend_enabled, voices_share_notes
           FROM instruments_latency
           WHERE device_id = ?
         `);
@@ -350,7 +350,11 @@ class InstrumentCapabilitiesDB {
         custom_sf2_id: result.custom_sf2_id != null ? result.custom_sf2_id : null,
         // Surfaced so the virtual keyboard's pitch-bend wheel (which gates on
         // caps.pitch_bend_enabled) reflects the instrument-settings toggle.
-        pitch_bend_enabled: result.pitch_bend_enabled ? 1 : 0
+        pitch_bend_enabled: result.pitch_bend_enabled ? 1 : 0,
+        // Phase 8: when cleared (0), each secondary GM voice declares its own
+        // playable notes, so MidiPlayer's voice injector picks a voice per note.
+        // Default 1 (share) => single primary program, injector is a no-op.
+        voices_share_notes: result.voices_share_notes == null ? 1 : result.voices_share_notes
       };
     } catch (error) {
       this.logger.error(`Failed to get instrument capabilities: ${error.message}`);
@@ -466,6 +470,21 @@ class InstrumentCapabilitiesDB {
       `);
       const results = stmt.all();
 
+      // The physical hand model's scale length lives on `string_instruments`,
+      // not on `instruments_latency`. Attach it per (device, channel) so the
+      // matcher can convert `hand_span_mm` → frets for feasibility scoring
+      // (audit P2-7 #2). One extra read, merged in JS — leaves the main
+      // projection untouched.
+      let scaleByKey = new Map();
+      try {
+        const srows = this.db
+          .prepare('SELECT device_id, channel, scale_length_mm FROM string_instruments')
+          .all();
+        scaleByKey = new Map(srows.map((r) => [`${r.device_id}:${r.channel}`, r.scale_length_mm]));
+      } catch (_) {
+        // string_instruments may be absent in a minimal/partial schema
+      }
+
       // Parse JSON fields and return
       return results.map((result) => {
         let supportedCcs = null;
@@ -524,6 +543,9 @@ class InstrumentCapabilitiesDB {
           bagpipe_config: parseJsonCol(result.bagpipe_config),
           accordion_config: parseJsonCol(result.accordion_config),
           harmonica_config: parseJsonCol(result.harmonica_config),
+          // Physical hand model (from string_instruments) — used by the
+          // feasibility heuristic to convert hand_span_mm → frets.
+          scale_length_mm: scaleByKey.get(`${result.device_id}:${result.channel}`) ?? null,
           // Additional fields for reference
           mac_address: result.mac_address,
           usb_serial_number: result.usb_serial_number,

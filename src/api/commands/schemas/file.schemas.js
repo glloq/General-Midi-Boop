@@ -124,12 +124,28 @@ export const file_write = {
   }
 };
 
+// T2.2 — the shared folder structure is an opaque client-owned tree, so we only
+// gate the top-level type; the contents stay permissive.
+export const file_folders_set = {
+  custom: (data) => {
+    const errors = [];
+    if (
+      data.folders !== undefined &&
+      (typeof data.folders !== 'object' || data.folders === null || Array.isArray(data.folders))
+    ) {
+      errors.push('folders must be an object');
+    }
+    return errors;
+  }
+};
+
 const schemas = {
   file_delete,
   file_export,
   file_rename,
   file_move,
-  file_write
+  file_write,
+  file_folders_set
 };
 
 export default schemas;

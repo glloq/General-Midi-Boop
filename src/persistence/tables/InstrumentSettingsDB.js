@@ -479,6 +479,32 @@ class InstrumentSettingsDB {
   }
 
   /**
+   * Save a device-global SysEx Identity Reply to EVERY channel the device
+   * currently occupies, not just channel 0. A SysEx identity describes the
+   * physical device, so on a multi-channel instrument the auto-persist path
+   * must stamp all of its `instruments_latency` rows — keying it to channel 0
+   * only left the other channels un-identified and repeatedly overwrote the
+   * same row (audit P1-3). Falls back to channel 0 (creating a row) when the
+   * device has no rows yet. All writes run in one transaction.
+   *
+   * @param {string} deviceId
+   * @param {Object} identity - SysEx identity data
+   * @returns {number} Number of channels stamped.
+   */
+  saveSysExIdentityForDevice(deviceId, identity) {
+    const rows = this.getInstrumentsByDevice(deviceId) || [];
+    const channels = rows
+      .map((r) => r.channel)
+      .filter((c) => Number.isInteger(c));
+    const targets = channels.length > 0 ? channels : [0];
+    const apply = this.db.transaction((chs) => {
+      for (const ch of chs) this.saveSysExIdentity(deviceId, ch, identity);
+    });
+    apply(targets);
+    return targets.length;
+  }
+
+  /**
    * Find instrument by MAC address
    */
   findInstrumentByMac(macAddress) {

@@ -194,3 +194,45 @@ describe('MidiRouter — drum-skip keys on the SOURCE channel (audit axis6-3)', 
     expect(call[2].note).toBe(72); // pitched source folded into range despite dest ch9
   });
 });
+
+describe('MidiRouter — live stateful enforcement (P2-3 / P2-4)', () => {
+  test('polyphony gate drops the over-cap note (keep-outer)', () => {
+    const { router, deviceManager } = makeRouter({ polyphony: 1 });
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: 60, velocity: 100 });
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: 72, velocity: 100 });
+    const noteOns = deviceManager.sendMessage.mock.calls.filter(
+      (c) => c[1] === DEVICE_MSG_TYPES.NOTE_ON
+    );
+    expect(noteOns).toHaveLength(1); // 2nd note exceeds polyphony 1 → dropped
+    expect(noteOns[0][2].note).toBe(60);
+  });
+
+  test('polyphony gate evicts the median voice for a new outer note', () => {
+    const { router, deviceManager } = makeRouter({ polyphony: 2 });
+    for (const n of [60, 67]) {
+      router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: n, velocity: 100 });
+    }
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.NOTE_ON, { channel: 0, note: 72, velocity: 100 });
+    // The median voice (67) is released before the new outer note is admitted.
+    const evictOffs = deviceManager.sendMessage.mock.calls.filter(
+      (c) => c[1] === DEVICE_MSG_TYPES.NOTE_OFF && c[2].note === 67
+    );
+    expect(evictOffs).toHaveLength(1);
+  });
+
+  test('supported_ccs filter drops an undeclared CC, forwards a declared one', () => {
+    const { router, deviceManager } = makeRouter({ supportedCcs: [7] });
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.CC, { channel: 0, controller: 7, value: 100 });
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.CC, { channel: 0, controller: 91, value: 100 });
+    const ccs = deviceManager.sendMessage.mock.calls.filter((c) => c[1] === DEVICE_MSG_TYPES.CC);
+    expect(ccs).toHaveLength(1);
+    expect(ccs[0][2].controller).toBe(7);
+  });
+
+  test('channel-mode CC (all notes off) always passes even when not declared', () => {
+    const { router, deviceManager } = makeRouter({ supportedCcs: [7] });
+    router.routeMessage('kbd', DEVICE_MSG_TYPES.CC, { channel: 0, controller: 123, value: 0 });
+    const ccs = deviceManager.sendMessage.mock.calls.filter((c) => c[1] === DEVICE_MSG_TYPES.CC);
+    expect(ccs).toHaveLength(1);
+  });
+});

@@ -5564,6 +5564,10 @@
                     ⚙️
                 </button>
 
+                <button class="btn-settings-toggle" id="systemAdminBtn" data-i18n-title="systemAdmin.title" title="Administration système & sessions" aria-label="System administration">
+                    🛠️
+                </button>
+
                 <button class="btn-debug-toggle" id="debugToggle" data-i18n-title="ui.toggleLogs" title="Afficher/Masquer les logs" aria-label="Debug console" aria-expanded="false" aria-controls="debugConsole">
                     🐞
                 </button>
@@ -6171,6 +6175,8 @@
 
     <!-- Auto-initializing toast listener for playback_hand_position_warnings -->
     <script src="js/features/HandPositionWarningsToast.js"></script>
+    <script src="js/features/RealtimeStatusToasts.js"></script>
+    <script src="js/features/SystemAdminModal.js"></script>
 
     <!-- Ref-counted toast surfaced by MidiSynthesizer on slow SF2 preset fetches -->
     <script src="js/features/InstrumentLoadingToast.js"></script>
@@ -7492,7 +7498,10 @@
                     connectedCount++;
                     console.log(`🔌 'connected' event triggered (count: ${connectedCount})`);
                     log('✅ Connected to server', 'info');
-                    loadFiles();
+                    // T2.2: pull the shared folder tree before the first render
+                    // so files land in the right folders; loadFiles() runs even
+                    // if the sync fails (offline / older server).
+                    syncFolderStructureFromBackend().finally(() => loadFiles());
                     loadDevices();
                     initFileSearch(); // Initialiser la recherche de fichiers
                     initSortControls(); // Initialiser les contrôles de tri
@@ -7705,9 +7714,42 @@
         // Variable pour stocker la structure des dossiers
         let folderStructure = JSON.parse(localStorage.getItem('midi_folders') || '{}');
 
-        // Sauvegarder la structure des dossiers
+        // Sauvegarder la structure des dossiers.
+        // T2.2: persist to BOTH localStorage (offline fallback) and the server
+        // (settings KV, shared across devices). The server push is
+        // fire-and-forget — a failure never blocks the local UX.
         function saveFolderStructure() {
             localStorage.setItem('midi_folders', JSON.stringify(folderStructure));
+            try {
+                if (window.api && typeof api.sendCommand === 'function') {
+                    // Fire-and-forget; rejects harmlessly when offline (the
+                    // localStorage write above is the offline fallback).
+                    api.sendCommand('file_folders_set', { folders: folderStructure }).catch(() => {});
+                }
+            } catch (_) { /* not connected → localStorage already saved */ }
+        }
+
+        // T2.2: reconcile the folder structure with the server on startup so
+        // organization follows the user across devices/browsers. The server
+        // wins when it has data; otherwise we migrate the existing localStorage
+        // tree up to the server so nothing is lost on first run.
+        let _folderSyncDone = false;
+        async function syncFolderStructureFromBackend() {
+            if (_folderSyncDone) return;
+            if (!window.api || typeof api.sendCommand !== 'function') return;
+            try {
+                const res = await api.sendCommand('file_folders_get', {});
+                const remote = res && res.folders;
+                const remoteHasData = remote && typeof remote === 'object' && Object.keys(remote).length > 0;
+                if (remoteHasData) {
+                    folderStructure = remote;
+                    localStorage.setItem('midi_folders', JSON.stringify(folderStructure));
+                } else if (Object.keys(folderStructure).length > 0) {
+                    // Server empty but we have a local tree → migrate it up.
+                    await api.sendCommand('file_folders_set', { folders: folderStructure }).catch(() => {});
+                }
+                _folderSyncDone = true;
+            } catch (_) { /* keep the localStorage tree on any failure */ }
         }
 
         // Charger les fichiers
@@ -11258,11 +11300,11 @@
                                         <span class="range-display" id="pianoRangeDisplay"></span>
                                     </div>
                                     <div class="piano-nav-wrapper">
-                                        <button type="button" class="piano-nav-btn" id="pianoNavLeft" onclick="navigatePiano(-1)">◀</button>
+                                        <button type="button" class="piano-nav-btn" id="pianoNavLeft" onclick="navigatePiano(-1)" title="Clavier vers la gauche" aria-label="Défiler le clavier vers la gauche">◀</button>
                                         <div class="piano-viewport">
                                             <div class="piano-keyboard-mini" id="pianoKeyboardMini"></div>
                                         </div>
-                                        <button type="button" class="piano-nav-btn" id="pianoNavRight" onclick="navigatePiano(1)">▶</button>
+                                        <button type="button" class="piano-nav-btn" id="pianoNavRight" onclick="navigatePiano(1)" title="Clavier vers la droite" aria-label="Défiler le clavier vers la droite">▶</button>
                                     </div>
                                     <div class="piano-octave-indicator" id="pianoOctaveIndicator"></div>
                                     <div class="piano-range-buttons" id="pianoPresetButtons">
@@ -12776,6 +12818,16 @@
         document.getElementById('calibrationBtn').addEventListener('click', () => {
             calibrationModal.open();
         });
+
+        // System & sessions administration (🛠️) — created lazily on first click
+        const systemAdminBtn = document.getElementById('systemAdminBtn');
+        if (systemAdminBtn && typeof SystemAdminModal !== 'undefined') {
+            let systemAdminModal = null;
+            systemAdminBtn.addEventListener('click', () => {
+                if (!systemAdminModal) systemAdminModal = new SystemAdminModal(api);
+                systemAdminModal.open();
+            });
+        }
 
         // Loop Manager (∞) — created lazily on first click so api is defined
         let loopManagerModal = null;

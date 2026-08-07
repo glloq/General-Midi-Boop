@@ -452,20 +452,30 @@ class ChannelAnalyzer {
       return null;
     }
 
-    // Count occurrences
+    // Count occurrences, and remember where each program was last seen in the
+    // stream so ties can be broken deterministically.
     const counts = {};
-    for (const prog of programs) {
+    const lastIndex = {};
+    for (let i = 0; i < programs.length; i++) {
+      const prog = programs[i];
       counts[prog] = (counts[prog] || 0) + 1;
+      lastIndex[prog] = i;
     }
 
-    // Find the most frequent
-    let maxCount = 0;
-    let primaryProgram = programs[0];
-
-    for (const [prog, count] of Object.entries(counts)) {
-      if (count > maxCount) {
+    // Most frequent wins. On a COUNT TIE, prefer the program that appears LATER
+    // in the stream — the instrument the channel most recently switched to is
+    // more representative than the lowest program number (audit T6.1: iterating
+    // `Object.entries` broke ties toward the smallest numeric key, mis-scoring
+    // multi-program channels).
+    let primaryProgram = null;
+    let maxCount = -1;
+    let bestLast = -1;
+    for (const [progStr, count] of Object.entries(counts)) {
+      const prog = parseInt(progStr);
+      if (count > maxCount || (count === maxCount && lastIndex[prog] > bestLast)) {
         maxCount = count;
-        primaryProgram = parseInt(prog);
+        bestLast = lastIndex[prog];
+        primaryProgram = prog;
       }
     }
 

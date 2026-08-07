@@ -35,8 +35,18 @@ describe('CapabilityResolver.getTimingConstraints', () => {
       noteRangeMax: null,
       selectedNotes: null,
       octaveMode: null,
-      scaleRoot: 0
+      scaleRoot: 0,
+      supportedCcs: null
     });
+  });
+
+  test('supported_ccs surface as a sanitized list, else null (P2-4)', () => {
+    expect(
+      makeResolver({ supported_ccs: [1, 7, 10, 200, -1, 64] }).getTimingConstraints('d', 0)
+        .supportedCcs
+    ).toEqual([1, 7, 10, 64]); // out-of-range 200/-1 dropped
+    expect(makeResolver({ supported_ccs: [] }).getTimingConstraints('d', 0).supportedCcs).toBeNull();
+    expect(makeResolver({}).getTimingConstraints('d', 0).supportedCcs).toBeNull();
   });
 
   test('polyphony: a valid positive value passes', () => {
@@ -92,6 +102,58 @@ describe('CapabilityResolver.getTimingConstraints', () => {
     const c = makeResolver({ note_range_min: 55, note_range_max: 88 }).getTimingConstraints('d', 0);
     expect(c.noteRangeMin).toBe(55);
     expect(c.noteRangeMax).toBe(88);
+  });
+});
+
+describe('CapabilityResolver string-geometry range derivation (T1.2)', () => {
+  function makeStringResolver(capRow, stringRow) {
+    const database = {
+      instrumentCapabilitiesDB: { getInstrumentCapabilities: jest.fn(() => capRow) },
+      stringInstrumentDB: { getStringInstrument: jest.fn(() => stringRow) }
+    };
+    const eventBus = { on: jest.fn(), off: jest.fn() };
+    const r = new CapabilityResolver({ database, eventBus });
+    live.push(r);
+    return r;
+  }
+
+  test('fretted instrument with no note_range derives [min tuning, max tuning + num_frets]', () => {
+    const c = makeStringResolver(null, {
+      is_fretless: false,
+      num_frets: 20,
+      tuning: [40, 45, 50, 55, 59, 64]
+    }).getTimingConstraints('d', 0);
+    expect(c.noteRangeMin).toBe(40);
+    expect(c.noteRangeMax).toBe(84); // 64 + 20
+  });
+
+  test('explicit note_range wins over string geometry', () => {
+    const c = makeStringResolver(
+      { note_range_min: 48, note_range_max: 72 },
+      { is_fretless: false, num_frets: 20, tuning: [40, 45, 50, 55, 59, 64] }
+    ).getTimingConstraints('d', 0);
+    expect(c.noteRangeMin).toBe(48);
+    expect(c.noteRangeMax).toBe(72);
+  });
+
+  test('fretless instrument is not clamped by derivation (no discrete last fret)', () => {
+    const c = makeStringResolver(null, {
+      is_fretless: true,
+      num_frets: 0,
+      tuning: [48, 55, 62, 69]
+    }).getTimingConstraints('d', 0);
+    expect(c.noteRangeMin).toBeNull();
+    expect(c.noteRangeMax).toBeNull();
+  });
+
+  test('per-string fret counts raise the upper bound to the highest reach', () => {
+    const c = makeStringResolver(null, {
+      is_fretless: false,
+      num_frets: 12,
+      tuning: [40, 45, 50, 55, 59, 64],
+      frets_per_string: [12, 12, 12, 12, 12, 22]
+    }).getTimingConstraints('d', 0);
+    expect(c.noteRangeMax).toBe(86); // 64 + 22
   });
 });
 

@@ -404,8 +404,34 @@ class DeviceManager {
       } else {
         this.logger?.debug?.(`No identity reply from ${name} after ${probe.attempts} attempt(s)`);
       }
-    }, AUTO_IDENTITY_REPLY_TIMEOUT_MS);
+    }, this._getCommTimeoutMs(name));
     if (typeof probe.replyTimer?.unref === 'function') probe.replyTimer.unref();
+  }
+
+  /**
+   * Resolve the identity-reply timeout for a device from its persisted
+   * `comm_timeout` (audit P1: the per-device value was stored but never read —
+   * recognition always used the 5 s default). Uses the largest `comm_timeout`
+   * across the device's channels so a slow instrument on any channel is given
+   * enough time to answer, and falls back to the default when the device has no
+   * row yet (first contact) or the value is unset/invalid.
+   *
+   * @param {string} name
+   * @returns {number} Milliseconds to wait for an identity reply.
+   */
+  _getCommTimeoutMs(name) {
+    try {
+      const rows = this.database?.getInstrumentsByDevice?.(name);
+      if (Array.isArray(rows) && rows.length > 0) {
+        const timeouts = rows
+          .map((r) => r.comm_timeout)
+          .filter((t) => Number.isInteger(t) && t > 0);
+        if (timeouts.length > 0) return Math.max(...timeouts);
+      }
+    } catch {
+      /* fall through to the default */
+    }
+    return AUTO_IDENTITY_REPLY_TIMEOUT_MS;
   }
 
   /**
@@ -1312,8 +1338,11 @@ class DeviceManager {
 
           if (this.database) {
             try {
-              this.database.saveSysExIdentity(deviceName, 0, identityInfo);
-              this.logger.info(`SysEx identity saved for ${deviceName}`);
+              // Stamp the identity on every channel the device occupies, not
+              // just channel 0, so a multi-channel device is fully identified
+              // (audit P1-3). Falls back to channel 0 when it has no rows yet.
+              const n = this.database.saveSysExIdentityForDevice(deviceName, identityInfo);
+              this.logger.info(`SysEx identity saved for ${deviceName} (${n} channel(s))`);
             } catch (e) {
               this.logger.warn(`Failed to save SysEx identity for ${deviceName}: ${e.message}`);
             }

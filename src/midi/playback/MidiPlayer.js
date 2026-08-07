@@ -29,6 +29,7 @@ import { PlaybackStateMachine, PLAYBACK_STATES } from './state/PlaybackStateMach
 import HandAssigner from '../adaptation/HandAssigner.js';
 import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
 import LongitudinalPlanner from '../adaptation/LongitudinalPlanner.js';
+import { planVoiceProgramChanges } from '../adaptation/VoiceSelector.js';
 import { ConfigurationError, NotFoundError, ValidationError } from '../../core/errors/index.js';
 import { DEFAULT_MICROSECONDS_PER_BEAT, EVENT_ORDER_PRIORITY } from '../../core/constants.js';
 
@@ -877,6 +878,132 @@ class MidiPlayer {
   }
 
   /**
+   * Phase 8 — multi-voice program-change injection. When a destination
+   * instrument has secondary GM voices (`instrument_voices`) AND the user has
+   * cleared `voices_share_notes` (so each voice declares its own playable
+   * notes), pick ONE voice per note-on by declared note capability
+   * ({@link module:midi/adaptation/VoiceSelector}) and inject a Program Change
+   * on the destination just before each note whose voice differs from the one
+   * currently sounding. Mirrors {@link MidiPlayer#_injectHandPositionCCEvents}:
+   * split segments are planned independently and injected events carry a
+   * `_routeTo` so they reach only their destination, and a `_voiceInjected`
+   * marker so a re-routing pass can strip the previous injection.
+   *
+   * Strict NO-OP (returns 0) unless a destination has `voices_share_notes = 0`
+   * and at least one secondary voice declaring per-voice notes — instruments
+   * without an explicit multi-voice configuration play exactly as before.
+   *
+   * NOTE: the audible result (voice switching on hardware) is validated on the
+   * Pi (T9 runtime QA); this method's event planning is unit-tested against a
+   * fake database in tests/midi-player-voice-injection.test.js.
+   *
+   * @returns {number} count of injected program-change events.
+   * @private
+   */
+  _injectVoiceProgramChangeEvents() {
+    if (!this.events || this.events.length === 0) return 0;
+    if (!this.channelRouting || this.channelRouting.size === 0) return 0;
+    if (!this.database?.getInstrumentCapabilities) return 0;
+    if (typeof this.database.listInstrumentVoices !== 'function') return 0;
+
+    // Strip any voice PCs left over from a previous pass (re-routing safety).
+    if (this._voicePCCount) {
+      this.events = this.events.filter((e) => !e._voiceInjected);
+      this._voicePCCount = 0;
+    }
+
+    const injected = [];
+
+    const declaresNotes = (v) =>
+      v &&
+      v.gm_program != null &&
+      ((v.note_selection_mode === 'range' &&
+        Number.isInteger(v.note_range_min) &&
+        Number.isInteger(v.note_range_max)) ||
+        (v.note_selection_mode === 'discrete' &&
+          Array.isArray(v.selected_notes) &&
+          v.selected_notes.length > 0));
+
+    const planForDestination = (srcChannel, device, targetChannel, segmentFilter) => {
+      let capabilities;
+      try {
+        capabilities = this.database.getInstrumentCapabilities(device, targetChannel);
+      } catch (e) {
+        return;
+      }
+      // No-op unless the user opted into per-voice notes (voices_share_notes=0).
+      if (!capabilities || capabilities.voices_share_notes !== 0) return;
+
+      let voices;
+      try {
+        voices = this.database.listInstrumentVoices(device, targetChannel) || [];
+      } catch (e) {
+        return;
+      }
+      if (!voices.some(declaresNotes)) return; // nothing to discriminate on
+
+      const primaryProgram = Number.isInteger(capabilities.gm_program)
+        ? capabilities.gm_program
+        : 0;
+
+      // This destination's note-ons in time order (respecting split filter).
+      const seq = [];
+      for (const e of this.events) {
+        if (e.channel !== srcChannel) continue;
+        if (e.type !== 'noteOn' || (e.velocity ?? 0) === 0) continue;
+        if (segmentFilter && !segmentFilter(e.note)) continue;
+        seq.push(e);
+      }
+      if (seq.length === 0) return;
+
+      const plan = planVoiceProgramChanges(seq, {
+        primaryProgram,
+        voices,
+        sharesNotes: false,
+        startProgram: primaryProgram
+      });
+      for (const change of plan) {
+        const note = seq[change.index];
+        injected.push({
+          time: note.time,
+          tick: note.tick,
+          type: 'programChange',
+          channel: srcChannel,
+          program: change.program,
+          _voiceInjected: true,
+          _routeTo: { device, targetChannel }
+        });
+      }
+    };
+
+    for (const [srcChannel, routing] of this.channelRouting.entries()) {
+      if (!routing) continue;
+      if (routing.split && Array.isArray(routing.segments)) {
+        for (const seg of routing.segments) {
+          if (!seg?.device) continue;
+          const lo = seg.noteMin ?? 0;
+          const hi = seg.noteMax ?? 127;
+          planForDestination(
+            srcChannel,
+            seg.device,
+            seg.targetChannel ?? srcChannel,
+            (n) => n >= lo && n <= hi
+          );
+        }
+        continue;
+      }
+      if (!routing.device) continue;
+      planForDestination(srcChannel, routing.device, routing.targetChannel ?? srcChannel, null);
+    }
+
+    if (injected.length === 0) return 0;
+    this._appendEventsWithSeq(injected);
+    this._voicePCCount = injected.length;
+    this.logger.info(`Injected ${injected.length} voice program-change events`);
+    return injected.length;
+  }
+
+  /**
    * @param {number} srcChannel
    * @param {Set<number>} expectedCcNumbers - controller numbers a given
    *   destination's `hands_config` would inject if not already present.
@@ -1255,6 +1382,15 @@ class MidiPlayer {
       this._injectHandPositionCCEvents();
     } catch (err) {
       this.logger.warn(`Hand-position injection failed: ${err.message}`);
+    }
+
+    // Phase 8: inject per-note voice program-changes for multi-voice
+    // instruments. Same idempotent/no-op contract as hand-position injection —
+    // a strict no-op unless a destination declares per-voice notes.
+    try {
+      this._injectVoiceProgramChangeEvents();
+    } catch (err) {
+      this.logger.warn(`Voice program-change injection failed: ${err.message}`);
     }
 
     if (resumePosition !== null) {

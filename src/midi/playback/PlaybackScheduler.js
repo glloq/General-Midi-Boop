@@ -33,7 +33,12 @@ import {
   DEVICE_MSG_TYPES,
   SEND_STATUS
 } from '../../core/constants.js';
-import { clampNote, foldIntoRange, snapToNearest } from '../adaptation/NoteEnforcement.js';
+import {
+  clampNote,
+  foldIntoRange,
+  snapToNearest,
+  selectPolyphonyVictim
+} from '../adaptation/NoteEnforcement.js';
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
 const MIDI_CC_ALL_NOTES_OFF = MIDI_CC.ALL_NOTES_OFF;
@@ -280,6 +285,30 @@ class PlaybackScheduler {
   }
 
   /**
+   * Whether a Control Change should be forwarded, given the instrument's
+   * declared `supported_ccs`. When the instrument declares a non-empty set,
+   * only those CCs are sent — plus protocol-safety controllers that are never
+   * filtered: channel-mode messages (120-127: all-sound-off, reset, all-notes-
+   * off, omni/mono/poly, local control) and Bank Select (0/32). This keeps an
+   * unsupported expression CC from deregulating the firmware (audit P2-4) while
+   * never dropping the control messages the engine and protocol rely on. When
+   * no set is declared, everything is forwarded (backward-compatible default).
+   * CC 20/21 (string/fret select) are handled by their own gate and never reach
+   * this check.
+   *
+   * @param {number} controller
+   * @param {Object} constraints - from {@link _getTimingConstraints}
+   * @returns {boolean}
+   */
+  _isCCSupported(controller, constraints) {
+    const list = constraints?.supportedCcs;
+    if (!Array.isArray(list) || list.length === 0) return true; // not declared → allow all
+    if (controller >= MIDI_CC.ALL_SOUND_OFF) return true; // 120..127 channel-mode/safety
+    if (controller === MIDI_CC.BANK_SELECT || controller === MIDI_CC.BANK_SELECT_LSB) return true;
+    return list.includes(controller);
+  }
+
+  /**
    * Delegates to the playback snapshot when present, otherwise to the
    * live CapabilityResolver. Returns null-constraint object when neither
    * is wired.
@@ -337,7 +366,9 @@ class PlaybackScheduler {
    * @param {number} channel - Target channel on the device
    * @param {number} note - MIDI note number
    * @param {string} eventType - 'noteOn' or 'noteOff'
-   * @returns {boolean} true if the event should be dropped/gated
+   * @returns {{gate:boolean, evictNote:?number}} `gate` true if the event must
+   *   be dropped; `evictNote` is a still-sounding pitch the caller must release
+   *   first to free a polyphony slot for the admitted note (keep-outer policy).
    */
   _shouldGateNote(deviceId, channel, note, eventType) {
     const cacheKey = `${deviceId}:${channel}`;
@@ -352,7 +383,7 @@ class PlaybackScheduler {
       const dropped = this._droppedNoteOns.get(noteKey) || 0;
       if (dropped > 0) {
         this._droppedNoteOns.set(noteKey, dropped - 1);
-        return true; // suppress: this noteOff belongs to a dropped noteOn
+        return { gate: true, evictNote: null }; // suppress: belongs to a dropped noteOn
       }
       // Decrement the active-note count (Map<note, count>) so overlapping
       // same-pitch notes are released one at a time, not all at once.
@@ -362,36 +393,57 @@ class PlaybackScheduler {
         if (c > 1) counts.set(note, c - 1);
         else counts.delete(note);
       }
-      return false; // Never gate a real noteOff
+      return { gate: false, evictNote: null }; // Never gate a real noteOff
     }
 
     // eventType === MIDI_EVENT_TYPES.NOTE_ON
     const now = performance.now();
 
-    // Check min_note_interval PER PITCH (per actuator), not per channel: a
-    // mechanical actuator can't re-strike the SAME note faster than this, but
-    // DIFFERENT pitches are different actuators and must be free to sound
-    // together. Keying on the channel dropped the 2nd/3rd note of a chord
-    // (audit P2). `_lastNoteOnTime` is keyed by `device:channel:note`.
+    // min_note_interval. A MONOPHONIC instrument (polyphony === 1) has a single
+    // shared actuator, so the re-strike guard applies PER CHANNEL — any two
+    // consecutive strikes, even of different pitches, must respect it (audit
+    // P3-a). A POLYPHONIC instrument has one actuator per pitch, so the guard is
+    // PER PITCH — otherwise chord notes struck together would drop each other
+    // (audit P2). `_lastNoteOnTime` is therefore keyed per-channel or per-pitch.
+    const isMonophonic = constraints.polyphony === 1;
+    const intervalKey = isMonophonic ? cacheKey : noteKey;
     if (constraints.minNoteInterval) {
-      const lastTime = this._lastNoteOnTime.get(noteKey) || 0;
+      const lastTime = this._lastNoteOnTime.get(intervalKey) || 0;
       if (lastTime > 0 && now - lastTime < constraints.minNoteInterval) {
         this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
-        return true; // Gate: too fast for this instrument
+        return { gate: true, evictNote: null }; // Gate: too fast for this instrument
       }
     }
 
-    // Check polyphony limit against the total active voice count. Unlike a
-    // Set, the count Map counts two overlapping same-pitch notes as two
-    // voices (audit P1).
+    // Polyphony limit. When over the cap, mirror the offline adapter's
+    // keep-outer policy (drop the MEDIAN voice, keep lowest+highest) instead of
+    // always dropping the newest note, so live playback drops the same voices as
+    // the baked file (audit P3-b). If the median is the incoming note, gate it;
+    // otherwise evict the sounding median voice and admit the incoming note. The
+    // count Map counts two overlapping same-pitch notes as two voices (audit P1).
+    let evictNote = null;
     if (constraints.polyphony) {
       if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Map());
       const counts = this._activeNotes.get(cacheKey);
       let activeVoices = 0;
       for (const c of counts.values()) activeVoices += c;
       if (activeVoices >= constraints.polyphony) {
-        this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
-        return true; // Gate: polyphony limit reached
+        const sounding = [];
+        for (const [n, cnt] of counts) for (let k = 0; k < cnt; k++) sounding.push(n);
+        sounding.push(note);
+        const victim = selectPolyphonyVictim(sounding);
+        if (victim === note) {
+          this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
+          return { gate: true, evictNote: null }; // Gate: incoming note is the median
+        }
+        // Evict one sounding instance of the victim pitch; its real note-off is
+        // swallowed later (via _droppedNoteOns) so it can't cut a newer note.
+        const vc = counts.get(victim) || 0;
+        if (vc > 1) counts.set(victim, vc - 1);
+        else counts.delete(victim);
+        const victimKey = `${cacheKey}:${victim}`;
+        this._droppedNoteOns.set(victimKey, (this._droppedNoteOns.get(victimKey) || 0) + 1);
+        evictNote = victim;
       }
     }
 
@@ -399,13 +451,13 @@ class PlaybackScheduler {
     if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Map());
     const counts = this._activeNotes.get(cacheKey);
     counts.set(note, (counts.get(note) || 0) + 1);
-    this._lastNoteOnTime.set(noteKey, now); // per-pitch retrigger guard
+    this._lastNoteOnTime.set(intervalKey, now); // retrigger guard (per-pitch, or per-channel if monophonic)
     this._noteOnTimes.set(noteKey, now);
     // New sounding instance of this pitch — supersedes any deferred noteOff
     // still pending from a previous note on the same pitch (axis6-5).
     this._noteInstance.set(noteKey, (this._noteInstance.get(noteKey) || 0) + 1);
 
-    return false; // Allow
+    return { gate: false, evictNote }; // Allow (optionally after evicting a voice)
   }
 
   /**
@@ -1016,7 +1068,13 @@ class PlaybackScheduler {
     if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
       const isNoteOn = event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) > 0;
       const evtType = isNoteOn ? MIDI_EVENT_TYPES.NOTE_ON : MIDI_EVENT_TYPES.NOTE_OFF;
-      if (this._shouldGateNote(routing.device, outChannel, outNote, evtType)) {
+      const gateResult = this._shouldGateNote(routing.device, outChannel, outNote, evtType);
+      if (gateResult.evictNote != null) {
+        // Free a polyphony slot by releasing the evicted (median) voice before
+        // the new note-on, matching the offline keep-outer policy (audit P3-b).
+        this._sendNoteOff(routing.device, outChannel, gateResult.evictNote, 0);
+      }
+      if (gateResult.gate) {
         return null; // Gated: note dropped due to timing or polyphony constraint
       }
     }
@@ -1050,6 +1108,12 @@ class PlaybackScheduler {
         if (!this._isStringCCAllowed(routing.device, outChannel)) {
           return null;
         }
+      } else if (
+        !this._isCCSupported(event.controller, this._getTimingConstraints(routing.device, outChannel))
+      ) {
+        // Drop a CC the instrument does not declare in supported_ccs so an
+        // unsupported controller can't deregulate the firmware (audit P2-4).
+        return null;
       }
       return this._send(routing.device, DEVICE_MSG_TYPES.CC, {
         channel: outChannel,
