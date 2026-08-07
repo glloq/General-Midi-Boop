@@ -1344,10 +1344,31 @@ class InstrumentMatcher {
           : Number.isFinite(fretting?.num_fingers) && fretting.num_fingers > 0
             ? fretting.num_fingers
             : null;
-      const handSpanFrets =
+      let handSpanFrets =
         Number.isFinite(fretting?.hand_span_frets) && fretting.hand_span_frets > 0
           ? fretting.hand_span_frets
           : null;
+      // The canonical/recommended config expresses reach as `hand_span_mm`, not
+      // `hand_span_frets`. Convert it so the shift heuristic below isn't
+      // silently skipped — leaving feasibility falsely "ok" for the common case
+      // (audit P2-7 #2). The mm→fret map is non-linear; use the reach measured
+      // from the nut (position 0, where frets are widest → fewest frets → the
+      // conservative estimate): frets = -12·log2(1 − hand_span_mm/scale_length).
+      // Use the instrument's real scale length when known (joined from
+      // string_instruments), else a standard 648 mm guitar scale.
+      if (
+        handSpanFrets == null &&
+        Number.isFinite(fretting?.hand_span_mm) &&
+        fretting.hand_span_mm > 0
+      ) {
+        const scaleMm =
+          Number.isFinite(instrument.scale_length_mm) && instrument.scale_length_mm > 0
+            ? instrument.scale_length_mm
+            : 648;
+        const ratio = fretting.hand_span_mm / scaleMm;
+        handSpanFrets = ratio >= 1 ? 24 : Math.max(1, Math.round(-12 * Math.log2(1 - ratio)));
+        summary.handSpanFromMm = true;
+      }
       summary.maxFingers = maxFingers;
       summary.handSpanFrets = handSpanFrets;
       summary.polyphonyMax = polyphonyMax;

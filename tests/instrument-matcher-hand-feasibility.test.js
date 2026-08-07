@@ -211,6 +211,52 @@ describe('InstrumentMatcher.handPositionFeasibility — frets mode', () => {
     const r = m.calculateCompatibility(analysis, guitarInstrument({ hands_config: noMaxFingers }));
     expect(r.handPositionFeasibility.level).not.toBe('infeasible');
   });
+
+  // T1.7 / audit P2-7 #2: the canonical config uses hand_span_mm (not
+  // hand_span_frets). The shift heuristic used to skip entirely — leaving
+  // feasibility falsely "ok". hand_span_mm now converts to an approximate fret
+  // count so the warning fires for a wide span.
+  const mmHands = {
+    enabled: true,
+    mode: 'frets',
+    mechanism: 'string_sliding_fingers',
+    hand_move_mm_per_sec: 250,
+    hands: [{ id: 'fretting', cc_position_number: 22, hand_span_mm: 80, max_fingers: 4 }]
+  };
+
+  test('hand_span_mm (no hand_span_frets) still triggers the shift warning', () => {
+    const m = new InstrumentMatcher(silentLogger);
+    const analysis = baseAnalysis({ polyphonyMax: 3, rangeMin: 40, rangeMax: 72, program: 24 });
+    const r = m.calculateCompatibility(analysis, guitarInstrument({ hands_config: mmHands }));
+    expect(r.handPositionFeasibility.level).toBe('warning');
+    expect(r.handPositionFeasibility.summary.handSpanFromMm).toBe(true);
+  });
+
+  test('a comfortable channel configured in hand_span_mm stays "ok"', () => {
+    const m = new InstrumentMatcher(silentLogger);
+    const analysis = baseAnalysis({ polyphonyMax: 2, rangeMin: 52, rangeMax: 55, program: 24 });
+    const r = m.calculateCompatibility(analysis, guitarInstrument({ hands_config: mmHands }));
+    expect(r.handPositionFeasibility.level).toBe('ok');
+  });
+
+  test('a longer scale_length_mm widens the reach in frets (fewer shifts)', () => {
+    const m = new InstrumentMatcher(silentLogger);
+    // Same hand_span_mm but a much longer scale → each fret is wider in mm, so
+    // the hand spans FEWER frets → stricter warning threshold. Verify the real
+    // scale length is used (not just the default) by comparing summaries.
+    const analysis = baseAnalysis({ polyphonyMax: 2, rangeMin: 52, rangeMax: 55, program: 24 });
+    const short = m.calculateCompatibility(
+      analysis,
+      guitarInstrument({ hands_config: mmHands, scale_length_mm: 320 })
+    );
+    const long = m.calculateCompatibility(
+      analysis,
+      guitarInstrument({ hands_config: mmHands, scale_length_mm: 900 })
+    );
+    expect(short.handPositionFeasibility.summary.handSpanFrets).toBeGreaterThan(
+      long.handPositionFeasibility.summary.handSpanFrets
+    );
+  });
 });
 
 describe('InstrumentMatcher.handPositionFeasibility — A.2 scoring contribution', () => {
