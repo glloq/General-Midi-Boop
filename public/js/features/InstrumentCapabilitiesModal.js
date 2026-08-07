@@ -409,6 +409,33 @@
           updates: this.updates
         });
         if (response && response.success) {
+          // The backend returns success:true even when SOME items fail to
+          // persist (it reports them via `failed`/`failedDetails`). Surface
+          // those honestly instead of masking them as a clean success.
+          if (response.failed && response.failed > 0) {
+            const details = Array.isArray(response.failedDetails)
+              ? response.failedDetails
+                  .map(
+                    (f) =>
+                      `• ${f.instrumentId != null ? f.instrumentId : '?'}: ${
+                        f.error || _t('common.unknownError')
+                      }`
+                  )
+                  .join('\n')
+              : '';
+            const msg =
+              (_t('instrumentCapabilities.savedPartial') ||
+                "Certaines capacités n'ont pas pu être enregistrées") +
+              ` (${response.updated != null ? response.updated : 0} OK, ${response.failed} ✗)` +
+              (details ? '\n\n' + details : '');
+            await this._alert(msg);
+            // Keep the modal open so the user can review / retry.
+            if (nextBtn) {
+              nextBtn.disabled = false;
+              nextBtn.textContent = _t('instrumentCapabilities.complete') || 'Terminer';
+            }
+            return;
+          }
           const cb = this.onComplete;
           const updates = { ...this.updates };
           this.close();
