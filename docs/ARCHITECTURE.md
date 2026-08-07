@@ -7,7 +7,7 @@ Général Midi Boop is a real-time MIDI orchestration system for Raspberry Pi. I
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Browser (SPA)                           │
-│  BaseView / BaseModal / AppRegistry                         │
+│  BaseView / BaseModal / EventBus                            │
 │  BackendAPIClient (WebSocket)                               │
 └──────────────────────────┬──────────────────────────────────┘
                            │ WebSocket (JSON)
@@ -108,7 +108,7 @@ General-Midi-Boop/
 ├── public/                    # Frontend SPA
 │   ├── js/
 │   │   ├── core/              # BaseView, BaseModal, EventBus, etc.
-│   │   ├── views/components/  # 35+ UI components
+│   │   ├── features/          # Feature modules (keyboard, midi-editor, loop, …)
 │   │   │   └── midi-editor/   # MIDI editor modal (20 files — see docs/MIDI_EDITOR.md)
 │   │   ├── api/               # BackendAPIClient (WebSocket)
 │   │   ├── audio/             # Synthesizer modules

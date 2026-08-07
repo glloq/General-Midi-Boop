@@ -112,7 +112,7 @@ rewrites the source IP into a private range without enforcing the token.
 ### Frontend
 
 Vanilla-JS SPA under `public/js/` — no framework. Shared base classes in
-`public/js/core/` (BaseView, BaseModal, EventBus, AppRegistry);
+`public/js/core/` (BaseView, BaseModal, EventBus);
 `public/js/api/` holds the WebSocket `BackendAPIClient`. Feature modules live
 under `public/js/features/<feature>/` (keyboard, midi-editor, loop, auto-assign,
 lighting, settings, …). i18n in `public/locales/` (28 languages). The MIDI
