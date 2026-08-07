@@ -862,6 +862,32 @@ class DrumNoteMapper {
       };
     }
 
+    // A channel with notes but ZERO recognized GM-drum notes (every pitch is
+    // exotic / non-percussion) would otherwise let all three category sub-scores
+    // fall through to their `total === 0 → 100` neutral default and score ~85-95
+    // — as misleading as the empty case above. Every category array only ever
+    // holds recognized drum notes, so their combined length is the recognized
+    // count. Report a low score so an unrecognized "drum" channel is never ranked
+    // as a strong candidate. (audit T6.5)
+    const recognizedCount = Object.values(midiNotes.categories || {}).reduce(
+      (n, arr) => n + (Array.isArray(arr) ? arr.length : 0),
+      0
+    );
+    if (recognizedCount === 0) {
+      return {
+        score: 15,
+        essentialScore: 0,
+        importantScore: 0,
+        optionalScore: 0,
+        coverageRatio: 0,
+        accuracyRatio: 0,
+        mappedCount: Object.keys(mapping).length,
+        totalCount: usedNoteCount,
+        substitutionCount: substitutions.length,
+        omissionCount: omissions.length
+      };
+    }
+
     let score = 0;
 
     // 1. Essential notes preserved

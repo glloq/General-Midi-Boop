@@ -438,10 +438,14 @@ class HandPositionPlanner {
         // note itself may still be out-of-range (reported separately).
         // Top-clamp guarantees the bottom of the hand
         // (= anchor + handSpan) never extends past the last fret.
-        const newSpan = this._spanAt(hand, newLow);
         if (instrumentMin != null && newLow < instrumentMin) {
           newLow = instrumentMin;
         }
+        // Span at the (possibly low-clamped) anchor. In physical/frets mode fret
+        // spacing is non-linear, so the reach in semitones depends on the anchor
+        // position — computing newSpan AFTER the low-clamp keeps the top-clamp
+        // below accurate (audit T6.3: newSpan was stale once newLow shifted).
+        const newSpan = this._spanAt(hand, newLow);
         if (instrumentMax != null && newLow + newSpan > instrumentMax) {
           // Slide the window down so its high edge fits inside the
           // playable range. After this point the hand's furthest reach
