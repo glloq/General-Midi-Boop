@@ -4,7 +4,12 @@
 // the octave_mode/scale_root scale). Pure — no DB / MIDI stack.
 
 import { describe, test, expect } from '@jest/globals';
-import { foldIntoRange, snapToNearest, clampNote } from '../src/midi/adaptation/NoteEnforcement.js';
+import {
+  foldIntoRange,
+  snapToNearest,
+  clampNote,
+  selectPolyphonyVictim
+} from '../src/midi/adaptation/NoteEnforcement.js';
 
 describe('foldIntoRange', () => {
   test('folds too-high / too-low by octaves, preserving pitch class', () => {
@@ -61,5 +66,29 @@ describe('clampNote', () => {
     expect(clampNote(61, { octaveMode: 'diatonic', scaleRoot: 0 })).toBe(61); // no range
     expect(clampNote(61, {})).toBe(61);
     expect(clampNote(61)).toBe(61);
+  });
+  test('selected_notes entirely outside the range do not escape it (P3-d)', () => {
+    // Inconsistent config: the only declared playable note (84) sits above
+    // max 72. The result must stay inside [60,72] instead of snapping out to 84.
+    const n = clampNote(61, { noteRangeMin: 60, noteRangeMax: 72, selectedNotes: [84] });
+    expect(n).toBeGreaterThanOrEqual(60);
+    expect(n).toBeLessThanOrEqual(72);
+  });
+  test('snaps only to in-range selected_notes, ignoring out-of-range entries (P3-d)', () => {
+    // selected_notes = [66 (in range), 84 (out of range)]. 79 folds to 67 and
+    // must snap to 66, never to the out-of-range 84.
+    expect(clampNote(79, { noteRangeMin: 60, noteRangeMax: 72, selectedNotes: [66, 84] })).toBe(66);
+  });
+});
+
+describe('selectPolyphonyVictim', () => {
+  test('drops the median voice, keeping the outer pair (matches offline)', () => {
+    expect(selectPolyphonyVictim([60, 72, 67])).toBe(67); // sorted 60,67,72 -> idx1
+    expect(selectPolyphonyVictim([48, 60, 72, 84])).toBe(72); // sorted -> idx2
+  });
+  test('single element returns itself; empty returns null', () => {
+    expect(selectPolyphonyVictim([64])).toBe(64);
+    expect(selectPolyphonyVictim([])).toBeNull();
+    expect(selectPolyphonyVictim(null)).toBeNull();
   });
 });

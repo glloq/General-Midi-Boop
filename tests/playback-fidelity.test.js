@@ -162,10 +162,10 @@ describe('PlaybackScheduler note gating (P1)', () => {
       polyphony: 1
     });
     // First noteOn on note 60 allowed.
-    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOn')).toBe(false);
+    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOn').gate).toBe(false);
     // Second overlapping noteOn on the SAME pitch must be gated (2 > polyphony 1),
     // whereas a Set-based tracker would have wrongly allowed it.
-    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOn')).toBe(true);
+    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOn').gate).toBe(true);
   });
 
   test('a noteOff for a dropped noteOn is suppressed so it cannot cut a live note', () => {
@@ -178,9 +178,65 @@ describe('PlaybackScheduler note gating (P1)', () => {
     scheduler._shouldGateNote('dev', 0, 60, 'noteOn'); // voice 1 (live)
     scheduler._shouldGateNote('dev', 0, 60, 'noteOn'); // gated (dropped)
     // The first noteOff must be swallowed (belongs to the dropped noteOn)...
-    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOff')).toBe(true);
+    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOff').gate).toBe(true);
     // ...and the next noteOff releases the still-live first voice.
-    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOff')).toBe(false);
+    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOff').gate).toBe(false);
+  });
+
+  test('polyphony overflow keeps the outer voices and evicts the median (P3-b)', () => {
+    const scheduler = new PlaybackScheduler(makeSchedulerDeps());
+    scheduler._getTimingConstraints = () => ({
+      minNoteInterval: null,
+      minNoteDuration: null,
+      polyphony: 2
+    });
+    // Two outer voices sound freely.
+    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOn')).toEqual({
+      gate: false,
+      evictNote: null
+    });
+    expect(scheduler._shouldGateNote('dev', 0, 72, 'noteOn')).toEqual({
+      gate: false,
+      evictNote: null
+    });
+    // A third, middle note (67) exceeds the cap. 60,67,72 -> median 67 === the
+    // incoming note, so it is gated and the outer pair 60+72 is kept.
+    expect(scheduler._shouldGateNote('dev', 0, 67, 'noteOn')).toEqual({
+      gate: true,
+      evictNote: null
+    });
+  });
+
+  test('polyphony overflow evicts a sounding inner voice for a new outer note (P3-b)', () => {
+    const scheduler = new PlaybackScheduler(makeSchedulerDeps());
+    scheduler._getTimingConstraints = () => ({
+      minNoteInterval: null,
+      minNoteDuration: null,
+      polyphony: 2
+    });
+    // Sounding: 60 and 67 (inner pair). A new, higher outer note 72 arrives.
+    scheduler._shouldGateNote('dev', 0, 60, 'noteOn');
+    scheduler._shouldGateNote('dev', 0, 67, 'noteOn');
+    // 60,67,72 -> median 67 (a SOUNDING voice, not the incoming) is evicted,
+    // and the new outer note 72 is admitted.
+    const res = scheduler._shouldGateNote('dev', 0, 72, 'noteOn');
+    expect(res.gate).toBe(false);
+    expect(res.evictNote).toBe(67);
+  });
+
+  test('monophonic min_note_interval guards the actuator across different pitches (P3-a)', () => {
+    const scheduler = new PlaybackScheduler(makeSchedulerDeps());
+    scheduler._getTimingConstraints = () => ({
+      minNoteInterval: 100,
+      minNoteDuration: null,
+      polyphony: 1
+    });
+    // First strike on 60 allowed.
+    expect(scheduler._shouldGateNote('dev', 0, 60, 'noteOn').gate).toBe(false);
+    // A DIFFERENT pitch struck immediately after must also be gated for a
+    // single-actuator (monophonic) instrument — the shared striker can't move
+    // that fast, even to another note.
+    expect(scheduler._shouldGateNote('dev', 0, 64, 'noteOn').gate).toBe(true);
   });
 });
 
