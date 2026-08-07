@@ -148,6 +148,10 @@ class InstrumentDatabase {
   saveSysExIdentity(...args) {
     return this._settings.saveSysExIdentity(...args);
   }
+
+  saveSysExIdentityForDevice(...args) {
+    return this._settings.saveSysExIdentityForDevice(...args);
+  }
   findInstrumentByMac(...args) {
     return this._settings.findInstrumentByMac(...args);
   }

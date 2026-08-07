@@ -612,6 +612,9 @@ class DatabaseManager {
   saveSysExIdentity(...args) {
     return this.instrumentDB.saveSysExIdentity(...args);
   }
+  saveSysExIdentityForDevice(...args) {
+    return this.instrumentDB.saveSysExIdentityForDevice(...args);
+  }
   findInstrumentByMac(macAddress) {
     return this.instrumentDB.findInstrumentByMac(macAddress);
   }

@@ -240,6 +240,30 @@ describe('PlaybackScheduler note gating (P1)', () => {
   });
 });
 
+describe('PlaybackScheduler CC filtering by supported_ccs (P2-4)', () => {
+  test('forwards only declared CCs, always allows safety/mode/bank CCs', () => {
+    const scheduler = new PlaybackScheduler(makeSchedulerDeps());
+    const c = { supportedCcs: [7, 10] };
+    expect(scheduler._isCCSupported(7, c)).toBe(true); // volume declared
+    expect(scheduler._isCCSupported(10, c)).toBe(true); // pan declared
+    expect(scheduler._isCCSupported(64, c)).toBe(false); // sustain not declared → dropped
+    expect(scheduler._isCCSupported(91, c)).toBe(false); // reverb not declared → dropped
+    // Channel-mode / safety (120-127) always allowed regardless of the set.
+    expect(scheduler._isCCSupported(123, c)).toBe(true); // all notes off
+    expect(scheduler._isCCSupported(121, c)).toBe(true); // reset all controllers
+    expect(scheduler._isCCSupported(120, c)).toBe(true); // all sound off
+    // Bank select always allowed.
+    expect(scheduler._isCCSupported(0, c)).toBe(true);
+    expect(scheduler._isCCSupported(32, c)).toBe(true);
+  });
+  test('no declared set → all CCs forwarded (backward compatible)', () => {
+    const scheduler = new PlaybackScheduler(makeSchedulerDeps());
+    expect(scheduler._isCCSupported(64, { supportedCcs: null })).toBe(true);
+    expect(scheduler._isCCSupported(64, {})).toBe(true);
+    expect(scheduler._isCCSupported(64, { supportedCcs: [] })).toBe(true);
+  });
+});
+
 describe('PlaybackScheduler disconnect policy uses typed status (P0-6)', () => {
   function runDispatch(status) {
     const dm = {

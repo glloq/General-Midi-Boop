@@ -121,7 +121,8 @@ describe('PlaybackSnapshot', () => {
         noteRangeMax: null,
         selectedNotes: null,
         octaveMode: null,
-        scaleRoot: 0
+        scaleRoot: 0,
+        supportedCcs: null
       });
     });
 

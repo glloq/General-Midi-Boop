@@ -102,7 +102,8 @@ export class PlaybackSnapshot {
           noteRangeMax: null,
           selectedNotes: null,
           octaveMode: null,
-          scaleRoot: 0
+          scaleRoot: 0,
+          supportedCcs: null
         };
     // Defensive freeze so a downstream caller cannot mutate the cached object.
     const frozen = Object.freeze({ ...value });

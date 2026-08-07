@@ -24,6 +24,7 @@ function makeCtx(overrides = {}) {
     _onDevicePortAdded: DeviceManager.prototype._onDevicePortAdded,
     _scheduleAutoIdentityProbe: DeviceManager.prototype._scheduleAutoIdentityProbe,
     _sendAutoIdentity: DeviceManager.prototype._sendAutoIdentity,
+    _getCommTimeoutMs: DeviceManager.prototype._getCommTimeoutMs,
     _markIdentified: DeviceManager.prototype._markIdentified,
     ...overrides
   };

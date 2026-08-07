@@ -285,6 +285,30 @@ class PlaybackScheduler {
   }
 
   /**
+   * Whether a Control Change should be forwarded, given the instrument's
+   * declared `supported_ccs`. When the instrument declares a non-empty set,
+   * only those CCs are sent — plus protocol-safety controllers that are never
+   * filtered: channel-mode messages (120-127: all-sound-off, reset, all-notes-
+   * off, omni/mono/poly, local control) and Bank Select (0/32). This keeps an
+   * unsupported expression CC from deregulating the firmware (audit P2-4) while
+   * never dropping the control messages the engine and protocol rely on. When
+   * no set is declared, everything is forwarded (backward-compatible default).
+   * CC 20/21 (string/fret select) are handled by their own gate and never reach
+   * this check.
+   *
+   * @param {number} controller
+   * @param {Object} constraints - from {@link _getTimingConstraints}
+   * @returns {boolean}
+   */
+  _isCCSupported(controller, constraints) {
+    const list = constraints?.supportedCcs;
+    if (!Array.isArray(list) || list.length === 0) return true; // not declared → allow all
+    if (controller >= MIDI_CC.ALL_SOUND_OFF) return true; // 120..127 channel-mode/safety
+    if (controller === MIDI_CC.BANK_SELECT || controller === MIDI_CC.BANK_SELECT_LSB) return true;
+    return list.includes(controller);
+  }
+
+  /**
    * Delegates to the playback snapshot when present, otherwise to the
    * live CapabilityResolver. Returns null-constraint object when neither
    * is wired.
@@ -1084,6 +1108,12 @@ class PlaybackScheduler {
         if (!this._isStringCCAllowed(routing.device, outChannel)) {
           return null;
         }
+      } else if (
+        !this._isCCSupported(event.controller, this._getTimingConstraints(routing.device, outChannel))
+      ) {
+        // Drop a CC the instrument does not declare in supported_ccs so an
+        // unsupported controller can't deregulate the firmware (audit P2-4).
+        return null;
       }
       return this._send(routing.device, DEVICE_MSG_TYPES.CC, {
         channel: outChannel,

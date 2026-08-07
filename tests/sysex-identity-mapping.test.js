@@ -6,7 +6,9 @@
 // sysex_version were always persisted null.
 
 import { describe, test, expect } from '@jest/globals';
-import { normalizeSysexIdentity } from '../src/persistence/tables/InstrumentSettingsDB.js';
+import InstrumentSettingsDB, {
+  normalizeSysexIdentity
+} from '../src/persistence/tables/InstrumentSettingsDB.js';
 
 const NULLS = {
   manufacturer: null,
@@ -91,5 +93,33 @@ describe('normalizeSysexIdentity', () => {
   test('empty / missing identity → all null (no throw)', () => {
     expect(normalizeSysexIdentity()).toEqual(NULLS);
     expect(normalizeSysexIdentity({})).toEqual(NULLS);
+  });
+});
+
+describe('saveSysExIdentityForDevice stamps every channel (T1.9 / P1-3)', () => {
+  // Exercise the enumeration/fallback logic without a real SQLite handle by
+  // building an instance off the prototype and stubbing its collaborators.
+  function makeStub(rows) {
+    const calls = [];
+    const inst = Object.create(InstrumentSettingsDB.prototype);
+    inst.getInstrumentsByDevice = () => rows;
+    inst.saveSysExIdentity = (deviceId, channel) => calls.push(channel);
+    // db.transaction(fn) returns a function that just runs fn (better-sqlite3 shape).
+    inst.db = { transaction: (fn) => (arg) => fn(arg) };
+    return { inst, calls };
+  }
+
+  test('a multi-channel device is stamped on all of its channels', () => {
+    const { inst, calls } = makeStub([{ channel: 1 }, { channel: 2 }, { channel: 5 }]);
+    const n = inst.saveSysExIdentityForDevice('dev', { manufacturer: 'x' });
+    expect(n).toBe(3);
+    expect(calls).toEqual([1, 2, 5]);
+  });
+
+  test('a device with no rows yet falls back to channel 0', () => {
+    const { inst, calls } = makeStub([]);
+    const n = inst.saveSysExIdentityForDevice('dev', { manufacturer: 'x' });
+    expect(n).toBe(1);
+    expect(calls).toEqual([0]);
   });
 });
