@@ -8,7 +8,8 @@ import {
   foldIntoRange,
   snapToNearest,
   clampNote,
-  selectPolyphonyVictim
+  selectPolyphonyVictim,
+  NoteGate
 } from '../src/midi/adaptation/NoteEnforcement.js';
 
 describe('foldIntoRange', () => {
@@ -90,5 +91,56 @@ describe('selectPolyphonyVictim', () => {
     expect(selectPolyphonyVictim([64])).toBe(64);
     expect(selectPolyphonyVictim([])).toBeNull();
     expect(selectPolyphonyVictim(null)).toBeNull();
+  });
+});
+
+describe('NoteGate — live route-through polyphony + interval (P2-3)', () => {
+  test('polyphony overflow gates the incoming note when it is the median', () => {
+    const g = new NoteGate();
+    const c = { polyphony: 2 };
+    expect(g.noteOn('d', 0, 60, c, 0)).toEqual({ gate: false, evictNote: null });
+    expect(g.noteOn('d', 0, 72, c, 0)).toEqual({ gate: false, evictNote: null });
+    // 60,67,72 → median 67 === incoming → gate, keeping the outer pair.
+    expect(g.noteOn('d', 0, 67, c, 0)).toEqual({ gate: true, evictNote: null });
+  });
+
+  test('polyphony overflow evicts a sounding inner voice for a new outer note', () => {
+    const g = new NoteGate();
+    const c = { polyphony: 2 };
+    g.noteOn('d', 0, 60, c, 0);
+    g.noteOn('d', 0, 67, c, 0);
+    const r = g.noteOn('d', 0, 72, c, 0); // median 67 (sounding) evicted, 72 admitted
+    expect(r.gate).toBe(false);
+    expect(r.evictNote).toBe(67);
+  });
+
+  test('min_note_interval is per-pitch for a polyphonic instrument', () => {
+    const g = new NoteGate();
+    const c = { minNoteInterval: 100, polyphony: 8 };
+    expect(g.noteOn('d', 0, 60, c, 1000).gate).toBe(false);
+    expect(g.noteOn('d', 0, 60, c, 1050).gate).toBe(true); // same pitch too fast
+    expect(g.noteOn('d', 0, 64, c, 1050).gate).toBe(false); // different pitch is free
+  });
+
+  test('min_note_interval is per-channel for a monophonic instrument (shared actuator)', () => {
+    const g = new NoteGate();
+    const c = { minNoteInterval: 100, polyphony: 1 };
+    expect(g.noteOn('d', 0, 60, c, 1000).gate).toBe(false);
+    // A different pitch struck too soon is still gated — one striker.
+    expect(g.noteOn('d', 0, 64, c, 1050).gate).toBe(true);
+  });
+
+  test('a note-off for a dropped note-on is swallowed, the live one releases', () => {
+    const g = new NoteGate();
+    const c = { polyphony: 1 };
+    g.noteOn('d', 0, 60, c, 0); // voice 1
+    g.noteOn('d', 0, 60, c, 0); // gated (dropped)
+    expect(g.noteOff('d', 0, 60)).toBe(true); // swallow the dropped one
+    expect(g.noteOff('d', 0, 60)).toBe(false); // release the live one
+  });
+
+  test('no constraints → never gates', () => {
+    const g = new NoteGate();
+    for (let i = 0; i < 20; i++) expect(g.noteOn('d', 0, 60 + i, {}, i).gate).toBe(false);
   });
 });

@@ -81,6 +81,122 @@ export function selectPolyphonyVictim(soundingNotes) {
 }
 
 /**
+ * Stateful polyphony + min-note-interval gate for the LIVE route-through, so a
+ * physical keyboard can't saturate a mechanical instrument beyond what it can
+ * play (audit P2-3). Mirrors the file-playback policy: a monophonic instrument
+ * (`polyphony === 1`) enforces the re-strike interval per channel (single shared
+ * actuator), a polyphonic one per pitch; polyphony overflow evicts the median
+ * voice (keep-outer) via {@link selectPolyphonyVictim}. Kept separate from the
+ * scheduler's own gate (which additionally defers note-offs for
+ * `min_note_duration`) — the two runtimes track note state differently.
+ */
+export class NoteGate {
+  constructor() {
+    /** @type {Map<string, Map<number, number>>} `dest:ch` → Map<note, count> */
+    this._active = new Map();
+    /** @type {Map<string, number>} interval key → last note-on timestamp (ms) */
+    this._lastOn = new Map();
+    /** @type {Map<string, number>} `dest:ch:note` → dropped-note-on count */
+    this._dropped = new Map();
+  }
+
+  /**
+   * Decide a note-on. Returns `{ gate, evictNote }`: `gate` true → drop it;
+   * `evictNote` (a pitch) → the caller must release that sounding voice first.
+   * @param {string} dest
+   * @param {number} channel
+   * @param {number} note
+   * @param {Object} constraints - `{ polyphony, minNoteInterval }`
+   * @param {number} now - monotonic timestamp (ms)
+   * @returns {{gate:boolean, evictNote:?number}}
+   */
+  noteOn(dest, channel, note, constraints, now) {
+    const cacheKey = `${dest}:${channel}`;
+    const noteKey = `${cacheKey}:${note}`;
+    const c = constraints || {};
+
+    const mono = c.polyphony === 1;
+    const intervalKey = mono ? cacheKey : noteKey;
+    if (c.minNoteInterval) {
+      const last = this._lastOn.get(intervalKey) || 0;
+      if (last > 0 && now - last < c.minNoteInterval) {
+        this._dropped.set(noteKey, (this._dropped.get(noteKey) || 0) + 1);
+        return { gate: true, evictNote: null };
+      }
+    }
+
+    let evictNote = null;
+    if (c.polyphony) {
+      let counts = this._active.get(cacheKey);
+      if (!counts) {
+        counts = new Map();
+        this._active.set(cacheKey, counts);
+      }
+      let voices = 0;
+      for (const v of counts.values()) voices += v;
+      if (voices >= c.polyphony) {
+        const sounding = [];
+        for (const [n, cnt] of counts) for (let k = 0; k < cnt; k++) sounding.push(n);
+        sounding.push(note);
+        const victim = selectPolyphonyVictim(sounding);
+        if (victim === note) {
+          this._dropped.set(noteKey, (this._dropped.get(noteKey) || 0) + 1);
+          return { gate: true, evictNote: null };
+        }
+        const vc = counts.get(victim) || 0;
+        if (vc > 1) counts.set(victim, vc - 1);
+        else counts.delete(victim);
+        const vk = `${cacheKey}:${victim}`;
+        this._dropped.set(vk, (this._dropped.get(vk) || 0) + 1);
+        evictNote = victim;
+      }
+    }
+
+    let counts = this._active.get(cacheKey);
+    if (!counts) {
+      counts = new Map();
+      this._active.set(cacheKey, counts);
+    }
+    counts.set(note, (counts.get(note) || 0) + 1);
+    this._lastOn.set(intervalKey, now);
+    return { gate: false, evictNote };
+  }
+
+  /**
+   * Account a note-off. Returns true when it must be swallowed (it belonged to
+   * a dropped note-on, so sending it would cut a still-sounding earlier note of
+   * the same pitch).
+   * @param {string} dest
+   * @param {number} channel
+   * @param {number} note
+   * @returns {boolean}
+   */
+  noteOff(dest, channel, note) {
+    const cacheKey = `${dest}:${channel}`;
+    const noteKey = `${cacheKey}:${note}`;
+    const dropped = this._dropped.get(noteKey) || 0;
+    if (dropped > 0) {
+      this._dropped.set(noteKey, dropped - 1);
+      return true;
+    }
+    const counts = this._active.get(cacheKey);
+    if (counts) {
+      const c = counts.get(note) || 0;
+      if (c > 1) counts.set(note, c - 1);
+      else counts.delete(note);
+    }
+    return false;
+  }
+
+  /** Drop all tracked state. */
+  clear() {
+    this._active.clear();
+    this._lastOn.clear();
+    this._dropped.clear();
+  }
+}
+
+/**
  * Clamp `note` to what an instrument can physically play, given its resolved
  * timing/capability constraints: octave-fold into range, then snap to the
  * explicit discrete set (`selectedNotes`) if any, else to the diatonic/
