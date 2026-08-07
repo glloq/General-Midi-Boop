@@ -268,7 +268,7 @@ class InstrumentCapabilitiesDB {
             octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
-            custom_sf2_id, pitch_bend_enabled
+            custom_sf2_id, pitch_bend_enabled, voices_share_notes
           FROM instruments_latency
           WHERE device_id = ? AND channel = ?
         `);
@@ -284,7 +284,7 @@ class InstrumentCapabilitiesDB {
             octave_mode, scale_root,
             capabilities_source, capabilities_updated_at, hands_config,
             bagpipe_config, accordion_config, harmonica_config,
-            custom_sf2_id, pitch_bend_enabled
+            custom_sf2_id, pitch_bend_enabled, voices_share_notes
           FROM instruments_latency
           WHERE device_id = ?
         `);
@@ -350,7 +350,11 @@ class InstrumentCapabilitiesDB {
         custom_sf2_id: result.custom_sf2_id != null ? result.custom_sf2_id : null,
         // Surfaced so the virtual keyboard's pitch-bend wheel (which gates on
         // caps.pitch_bend_enabled) reflects the instrument-settings toggle.
-        pitch_bend_enabled: result.pitch_bend_enabled ? 1 : 0
+        pitch_bend_enabled: result.pitch_bend_enabled ? 1 : 0,
+        // Phase 8: when cleared (0), each secondary GM voice declares its own
+        // playable notes, so MidiPlayer's voice injector picks a voice per note.
+        // Default 1 (share) => single primary program, injector is a no-op.
+        voices_share_notes: result.voices_share_notes == null ? 1 : result.voices_share_notes
       };
     } catch (error) {
       this.logger.error(`Failed to get instrument capabilities: ${error.message}`);
