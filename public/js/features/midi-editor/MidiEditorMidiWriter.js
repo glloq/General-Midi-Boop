@@ -56,7 +56,11 @@
           clampStats[kind]++;
           return max;
         }
-        return n;
+        // Round to an integer: every clamped field (note/channel/velocity/cc/
+        // pitchbend/ticks/gate) must be integral or VLQ/byte encoding produces an
+        // invalid .mid — and the server now rejects non-integer events outright,
+        // so a fractional value would otherwise fail the save (audit D MN1).
+        return Math.round(n);
       };
 
       // Convert the sequence into MIDI events
@@ -65,7 +69,16 @@
       // Add tempo events (full tempo map or global tempo)
       if (this.modal.tempoEvents && this.modal.tempoEvents.length > 0) {
         this.modal.tempoEvents.forEach((tempoEvent) => {
-          const usPerBeat = Math.round(60000000 / tempoEvent.tempo);
+          // Preserve the exact source µs/beat for an untouched tempo (its stored
+          // value still round-trips to the same integer BPM); only recompute
+          // from BPM when the tempo was actually edited. Without this, a file
+          // authored at e.g. 100.5 BPM drifts to 100.0 on every save, even when
+          // the user edited an unrelated channel (audit D MD1).
+          const srcUs = tempoEvent.microsecondsPerBeat;
+          const usPerBeat =
+            Number.isFinite(srcUs) && srcUs > 0 && Math.round(60000000 / srcUs) === tempoEvent.tempo
+              ? Math.round(srcUs)
+              : Math.round(60000000 / tempoEvent.tempo);
           events.push({
             absoluteTime: tempoEvent.ticks,
             type: 'setTempo',
@@ -194,12 +207,17 @@
             });
             atCount++;
           } else if (ccEvent.type === 'polyAftertouch') {
+            // The midi-file writer's type is 'noteAftertouch' with fields
+            // {noteNumber, amount}. Emitting 'polyAftertouch'/'pressure' made
+            // writeMidi throw ("Unrecognized event type"), so ANY file that used
+            // poly key-pressure was permanently un-saveable through the editor —
+            // even with no edits (audit D C1).
             events.push({
               absoluteTime: ccTick,
-              type: 'polyAftertouch',
+              type: 'noteAftertouch',
               channel: ccChannel,
-              noteNumber: clamp(ccEvent.note || 0, 0, 127, 'note'),
-              pressure: clamp(ccEvent.value, 0, 127, 'cc')
+              noteNumber: clamp(ccEvent.note ?? ccEvent.noteNumber ?? 0, 0, 127, 'note'),
+              amount: clamp(ccEvent.value, 0, 127, 'cc')
             });
             atCount++;
           }
@@ -239,6 +257,13 @@
           trackEvent.value = event.value;
         } else if (event.type === 'pitchBend') {
           trackEvent.value = event.value;
+        } else if (event.type === 'channelAftertouch') {
+          // Must forward `amount`; without it writeMidi writes undefined→0, so
+          // every channel-pressure value was silently zeroed on save (audit D M1).
+          trackEvent.amount = event.amount;
+        } else if (event.type === 'noteAftertouch') {
+          trackEvent.noteNumber = event.noteNumber;
+          trackEvent.amount = event.amount;
         } else if (event.type === 'setTempo') {
           trackEvent.microsecondsPerBeat = event.microsecondsPerBeat;
           // setTempo events have no channel

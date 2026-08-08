@@ -348,47 +348,58 @@ class FileManager {
       }
     }
 
-    const parsed = parseMidi(buffer);
-    const metadata = this.midiFileParser.extractMetadata(parsed);
-    const tempoMap = this.midiFileParser.extractTempoMap(parsed);
-    const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
-    const { events: textEvents, summary: textSummary } =
-      this.midiFileParser.extractTextEvents(parsed);
-
     const oldBlobPath = file.blob_path;
-    const persist = this.database.transaction(() => {
-      this.database.updateFile(fileId, {
-        blob_path: newBlob.relativePath,
-        size: buffer.length,
-        tracks: parsed.tracks.length,
-        duration: metadata.duration,
-        tempo: metadata.tempo,
-        ppq: parsed.header.ticksPerBeat || 480,
-        ...instrumentMetadata.fileMetadata,
-        title: textSummary.title ?? null,
-        copyright: textSummary.copyright ?? null,
-        has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
+    try {
+      const parsed = parseMidi(buffer);
+      const metadata = this.midiFileParser.extractMetadata(parsed);
+      const tempoMap = this.midiFileParser.extractTempoMap(parsed);
+      const instrumentMetadata = this.midiFileParser.extractInstrumentMetadata(parsed);
+      const { events: textEvents, summary: textSummary } =
+        this.midiFileParser.extractTextEvents(parsed);
+
+      const persist = this.database.transaction(() => {
+        this.database.updateFile(fileId, {
+          blob_path: newBlob.relativePath,
+          size: buffer.length,
+          tracks: parsed.tracks.length,
+          duration: metadata.duration,
+          tempo: metadata.tempo,
+          ppq: parsed.header.ticksPerBeat || 480,
+          ...instrumentMetadata.fileMetadata,
+          title: textSummary.title ?? null,
+          copyright: textSummary.copyright ?? null,
+          has_lyrics: textSummary.lyrics.length > 0 ? 1 : 0
+        });
+        // content_hash is UNIQUE — not in updateFile's allow-list, raw UPDATE.
+        if (newBlob.hash !== file.content_hash) {
+          this.database.db
+            .prepare('UPDATE midi_files SET content_hash = ? WHERE id = ?')
+            .run(newBlob.hash, fileId);
+        }
+        this.database.deleteFileChannels(fileId);
+        if (instrumentMetadata.channelDetails.length > 0) {
+          this.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
+        }
+        this.database.midiDB.deleteFileTempoMap(fileId);
+        if (tempoMap.length > 0) {
+          this.database.midiDB.insertFileTempoMap(fileId, tempoMap);
+        }
+        this.database.midiDB.deleteFileTextEvents(fileId);
+        if (textEvents.length > 0) {
+          this.database.midiDB.insertFileTextEvents(fileId, textEvents);
+        }
       });
-      // content_hash is UNIQUE — not in updateFile's allow-list, raw UPDATE.
-      if (newBlob.hash !== file.content_hash) {
-        this.database.db
-          .prepare('UPDATE midi_files SET content_hash = ? WHERE id = ?')
-          .run(newBlob.hash, fileId);
+      persist();
+    } catch (err) {
+      // The blob was written above (line ~336) before this re-parse/analysis.
+      // If any of it throws, roll the blob back — unless it was deduplicated or
+      // is still the row's current blob — so a rejected save can't leak a
+      // content-addressed orphan (audit D MEDIUM-4; mirrors handleUpload).
+      if (!newBlob.deduplicated && newBlob.relativePath !== oldBlobPath) {
+        this._safeBlobDelete(newBlob.relativePath);
       }
-      this.database.deleteFileChannels(fileId);
-      if (instrumentMetadata.channelDetails.length > 0) {
-        this.database.insertFileChannels(fileId, instrumentMetadata.channelDetails);
-      }
-      this.database.midiDB.deleteFileTempoMap(fileId);
-      if (tempoMap.length > 0) {
-        this.database.midiDB.insertFileTempoMap(fileId, tempoMap);
-      }
-      this.database.midiDB.deleteFileTextEvents(fileId);
-      if (textEvents.length > 0) {
-        this.database.midiDB.insertFileTextEvents(fileId, textEvents);
-      }
-    });
-    persist();
+      throw err;
+    }
 
     // Old blob is now orphaned (UNIQUE(content_hash) ⇒ no other row uses it).
     if (oldBlobPath && oldBlobPath !== newBlob.relativePath) {

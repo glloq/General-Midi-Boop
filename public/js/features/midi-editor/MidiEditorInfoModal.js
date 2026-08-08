@@ -17,11 +17,15 @@
   // ── Helpers ───────────────────────────────────────────────────────────── //
 
   function esc(s) {
+    // Escape the full OWASP set including the apostrophe, matching the sibling
+    // esc() in MidiEditorInfoModalRender.js — removes a single-quoted-attribute
+    // foot-gun if any sink here moves to that context (audit D L1).
     return String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function ticksToSec(tick, ppq, tempoMap, defaultBpm = 120) {

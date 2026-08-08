@@ -60,6 +60,10 @@
             this.modal.tempoEvents.push({
               ticks: currentTick,
               tempo: bpm,
+              // Keep the exact source µs/beat so an untouched tempo is written
+              // back verbatim instead of round-tripping through integer BPM,
+              // which drifts fractional-BPM files on every save (audit D MD1).
+              microsecondsPerBeat: event.microsecondsPerBeat,
               id: `tempo_${currentTick}_${this.modal.tempoEvents.length}`
             });
           }

@@ -90,9 +90,13 @@
         const routedName = this.modal.tablatureOps?.getRoutedInstrumentName(ch.channel) ?? null;
         let routedLine;
         if (isSplit && splitNames && splitNames.length > 1) {
-          routedLine = `<span class="chip-routing-line chip-split-line">🔀 ${splitNames.join(' + ')}</span>`;
+          // routedName / split instrument names come from device descriptors
+          // (attacker-controlled hardware) and the routing DB — escape before
+          // innerHTML (the sibling popover already does; this path did not) —
+          // audit D M1.
+          routedLine = `<span class="chip-routing-line chip-split-line">🔀 ${window.escapeHtml(splitNames.join(' + '))}</span>`;
         } else if (routedName) {
-          routedLine = `<span class="chip-routing-line">→ ${routedName}</span>`;
+          routedLine = `<span class="chip-routing-line">→ ${window.escapeHtml(routedName)}</span>`;
         } else {
           routedLine = '';
         }

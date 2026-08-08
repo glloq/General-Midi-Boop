@@ -354,23 +354,46 @@
     }
 
     setupKeyboardShortcuts() {
+      // Idempotent: a failed show() (initPianoRoll throwing before isOpen=true)
+      // leaves the previous handler attached because doClose() never ran, so a
+      // later open would stack a second handler on the reused singleton and fire
+      // every shortcut twice — drop any existing one first (audit D M3).
+      if (this.modal.keyboardHandler) {
+        document.removeEventListener('keydown', this.modal.keyboardHandler);
+        this.modal.keyboardHandler = null;
+      }
       this.modal.keyboardHandler = (e) => {
-        // Escape closes the modal — but not if a sub-dialog is currently open.
-        // Use .visible for dialogs that fade-out (opacity:0 + pointer-events:none
-        // while fading) so a dismissing dialog doesn't block the editor close.
+        // A blocking sub-dialog/overlay open on top of the editor must swallow
+        // ALL shortcuts, not just Escape: otherwise Delete deletes notes behind
+        // the dialog and Space toggles playback AND preventDefault()s the
+        // dialog's focused button (audit D M2). Use .visible for fade-out
+        // dialogs so a dismissing one doesn't block the editor close.
+        const hasOpenOverlay = !!document.querySelector(
+          '.confirm-modal-overlay.visible, .rename-dialog-overlay, ' +
+            '.unsaved-changes-modal, .file-info-modal-overlay.visible'
+        );
+
+        // Escape closes the modal — but not while a sub-dialog is open.
         if (e.key === 'Escape') {
-          const hasOpenOverlay = document.querySelector(
-            '.confirm-modal-overlay.visible, .rename-dialog-overlay, ' +
-              '.unsaved-changes-modal, .file-info-modal-overlay.visible'
-          );
           if (!hasOpenOverlay) {
             this.modal.close();
           }
           return;
         }
 
-        // Skip remaining shortcuts when focus is inside an input/textarea
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        // Skip remaining shortcuts while typing in a form control (INPUT /
+        // TEXTAREA / SELECT — e.g. the channel/instrument pickers) or a
+        // contentEditable, or while a blocking dialog is open (audit D M2).
+        const tag = e.target && e.target.tagName;
+        if (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          (e.target && e.target.isContentEditable)
+        ) {
+          return;
+        }
+        if (hasOpenOverlay) {
           return;
         }
 
