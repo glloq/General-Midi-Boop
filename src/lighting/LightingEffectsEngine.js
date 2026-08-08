@@ -94,6 +94,16 @@ class LightingEffectsEngine {
 
     const state = { tick: 0, phase: 0 };
     const ledCount = endLed - startLed + 1;
+    // A non-positive range (e.g. led_start > led_end, or garbage indices from
+    // the schemaless command API) makes `speed / ledCount` non-finite → the
+    // `chase` interval coerces to a 1 ms runaway timer, and the loops spin
+    // pointlessly (audit B1). Refuse to start rather than pin the event loop.
+    if (!Number.isInteger(ledCount) || ledCount < 1) {
+      this.logger.warn(
+        `Effect ${effectType} not started: invalid LED range (${startLed}..${endLed})`
+      );
+      return;
+    }
 
     const intervalMap = {
       strobe: Math.max(20, speed / 2),
@@ -124,7 +134,20 @@ class LightingEffectsEngine {
       return;
     }
 
-    const interval = setInterval(fn, intervalMap[effectType]);
+    // Isolate the tick: a synchronous throw from a driver call inside this
+    // interval callback would escape as an uncaughtException and shut the whole
+    // MIDI process down (best-effort lighting must never do that — audit B1). On
+    // a throw, stop this effect and log rather than letting it recur.
+    const safeTick = () => {
+      try {
+        fn();
+      } catch (err) {
+        this.logger.warn(`Effect ${effectType} failed, stopping it: ${err.message}`);
+        this.stopEffect(effectKey);
+      }
+    };
+
+    const interval = setInterval(safeTick, intervalMap[effectType]);
     this.activeEffects.set(effectKey, { interval, driver, config: { effectType, ...config } });
   }
 

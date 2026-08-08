@@ -32,12 +32,42 @@ class SerialLedDriver extends BaseLightingDriver {
         });
       });
 
+      // A serial fault (USB unplugged, adapter reset) emits 'error' on the
+      // stream; with NO listener Node re-throws it as an uncaughtException,
+      // which shuts the whole MIDI process down (audit B1). Absorb it and, on
+      // close, mark the driver offline so the manager can react.
+      this.port.on('error', (err) => {
+        this.logger.warn(
+          `Serial LED driver error on ${config.port || '/dev/ttyUSB0'}: ${err.message}`
+        );
+      });
+      this.port.on('close', () => {
+        this.connected = false;
+        this.emit('disconnected');
+      });
+
       this.connected = true;
       this.logger.info(`Serial LED driver connected on ${config.port || '/dev/ttyUSB0'}`);
       this.emit('connected');
     } catch (error) {
       this.logger.error(`Serial LED driver connect failed: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Guarded serial write: a synchronous failure (e.g. ERR_STREAM_DESTROYED in
+   * the isOpen→write race after a mid-write disconnect) must not propagate out
+   * of a timer-driven effect and crash the app (audit B1).
+   * @param {Buffer} buf
+   * @private
+   */
+  _write(buf) {
+    if (!this.port || !this.port.isOpen) return;
+    try {
+      this.port.write(buf);
+    } catch (err) {
+      this.logger.warn(`Serial LED write failed: ${err.message}`);
     }
   }
 
@@ -66,14 +96,13 @@ class SerialLedDriver extends BaseLightingDriver {
       0x55
     ]);
 
-    this.port.write(buf);
+    this._write(buf);
   }
 
   allOff() {
-    if (!this.port || !this.port.isOpen) return;
     // Special command: [0xAA, 0xFF, 0xFF, 0, 0, 0, 0x55] = all off
     const buf = Buffer.from([0xaa, 0xff, 0xff, 0, 0, 0, 0x55]);
-    this.port.write(buf);
+    this._write(buf);
   }
 }
 

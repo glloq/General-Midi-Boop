@@ -22,6 +22,7 @@ import networkSchemas from '../api/commands/schemas/network.schemas.js';
 import presetSchemas from '../api/commands/schemas/preset.schemas.js';
 import midiSchemas from '../api/commands/schemas/midi.schemas.js';
 import sessionSchemas from '../api/commands/schemas/session.schemas.js';
+import lightingSchemas from '../api/commands/schemas/lighting.schemas.js';
 
 /**
  * Map of command name -> compiled validator (`(data) => string[]`).
@@ -43,7 +44,8 @@ for (const schemas of [
   networkSchemas,
   presetSchemas,
   midiSchemas,
-  sessionSchemas
+  sessionSchemas,
+  lightingSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);

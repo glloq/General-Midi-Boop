@@ -544,13 +544,30 @@ function lightingRulesExport(app, data) {
  * @returns {{success:true, imported:number, skipped:number}}
  * @throws {ValidationError}
  */
+const MAX_IMPORT_RULES = 1000;
+
 function lightingRulesImport(app, data) {
   requireField(data, 'import_data');
-  const importData =
-    typeof data.import_data === 'string' ? JSON.parse(data.import_data) : data.import_data;
+  let importData;
+  if (typeof data.import_data === 'string') {
+    // Wrap the parse: a malformed string would otherwise throw a raw
+    // SyntaxError that surfaces to the client as a masked "Internal server
+    // error" instead of a clean validation failure (audit B1 M3).
+    try {
+      importData = JSON.parse(data.import_data);
+    } catch (err) {
+      throw new ValidationError(`Invalid import data JSON: ${err.message}`, 'import_data');
+    }
+  } else {
+    importData = data.import_data;
+  }
 
-  if (!importData.rules || !Array.isArray(importData.rules))
+  if (!importData || typeof importData !== 'object' || !Array.isArray(importData.rules))
     throw new ValidationError('Invalid import data: missing rules array', 'import_data');
+  // Cap the batch so a huge array can't block the event loop with synchronous
+  // inserts / grow the DB unboundedly on a Pi (audit B1 M3).
+  if (importData.rules.length > MAX_IMPORT_RULES)
+    throw new ValidationError(`Too many rules (max ${MAX_IMPORT_RULES})`, 'import_data');
 
   const devices = app.lightingRepository.findAllDevices();
   let imported = 0;
@@ -609,6 +626,18 @@ async function lightingDeviceScan(app, data) {
   // available without raw sockets.
   if (scanType === 'all' || scanType === 'wled') {
     const subnet = data?.subnet || '192.168.1';
+    // Guard against SSRF / internal port-scan: `subnet` is interpolated into a
+    // fetch() URL, so restrict it to a bare IPv4 /24 prefix (three octets, each
+    // 0-255). A crafted value like "127.0.0" or "10.0.0.1:8080/x?#" would
+    // otherwise let a client probe localhost or arbitrary hosts/ports from the
+    // Pi (audit B1 M4).
+    const octets = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(subnet);
+    if (!octets || octets.slice(1).some((o) => Number(o) > 255)) {
+      throw new ValidationError(
+        'subnet must be a valid IPv4 /24 prefix (e.g. "192.168.1")',
+        'subnet'
+      );
+    }
     const scanPromises = [];
 
     for (let i = 1; i <= 254; i++) {
