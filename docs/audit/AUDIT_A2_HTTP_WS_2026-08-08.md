@@ -133,10 +133,12 @@ qui mérite une décision (rebinding DNS) — est listé plus bas.
   `sec-websocket-protocol` inutilisable depuis un navigateur (pas de
   `handleProtocols`).
 
-**Option pour WS-M1 / CMD-L1 (à arbitrer) :** durcir maintenant (allowlist
-d'Origin configurable + gating hotspot) **vs** rester « LAN de confiance »
-(documenté). Le durcissement demande une config par déploiement (noms d'hôte
-autorisés) pour ne pas casser l'accès légitime.
+**Décision (2026-08-08) : « LAN de confiance » — WS-M1 et CMD-L1 différés.**
+Cohérent avec la décision A1 (RTP). On documente, on ne change pas le
+comportement : ni allowlist d'Origin (durcissement anti-rebinding), ni gating
+token supplémentaire sur hotspot/wifi. Le durcissement demanderait une config
+par déploiement (noms d'hôte autorisés) pour ne pas casser l'accès légitime →
+à ré-arbitrer si la box est un jour exposée à un réseau non fiable.
 
 ---
 
