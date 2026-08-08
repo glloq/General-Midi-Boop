@@ -78,48 +78,71 @@ export const file_move = {
   }
 };
 
-// Bound the parsed-MIDI payload so a malformed or oversized `file_write`
-// (the body is serialised straight to bytes and stored) is rejected at the
-// edge instead of reaching `writeMidi`/BlobStore unchecked (audit P2 —
-// file_write was unvalidated). Caps are generous but finite.
+// Bound the parsed-MIDI payload so a malformed or oversized write (the body is
+// serialised straight to bytes and stored) is rejected at the edge instead of
+// reaching `writeMidi`/BlobStore unchecked (audit P2 — file_write was
+// unvalidated). Caps are generous but finite.
 const MAX_WRITE_TRACKS = 256;
 const MAX_WRITE_EVENTS = 500000;
+
+function validateFileIdField(data, errors) {
+  if (!data.fileId) {
+    errors.push('fileId is required');
+  } else if (!Number.isFinite(Number(data.fileId)) || Number(data.fileId) <= 0) {
+    errors.push('fileId must be a positive number');
+  }
+}
+
+function validateMidiDataField(md, errors) {
+  if (!md || typeof md !== 'object' || Array.isArray(md)) {
+    errors.push('midiData must be an object');
+    return;
+  }
+  if (!md.header || typeof md.header !== 'object') {
+    errors.push('midiData.header must be an object');
+  }
+  if (!Array.isArray(md.tracks)) {
+    errors.push('midiData.tracks must be an array');
+  } else if (md.tracks.length > MAX_WRITE_TRACKS) {
+    errors.push(`midiData.tracks exceeds ${MAX_WRITE_TRACKS} tracks`);
+  } else {
+    let total = 0;
+    for (const track of md.tracks) {
+      if (!Array.isArray(track)) {
+        errors.push('each midiData track must be an array of events');
+        break;
+      }
+      total += track.length;
+      if (total > MAX_WRITE_EVENTS) {
+        errors.push(`midiData exceeds ${MAX_WRITE_EVENTS} events`);
+        break;
+      }
+    }
+  }
+}
 
 export const file_write = {
   custom: (data) => {
     const errors = [];
-    if (!data.fileId) {
-      errors.push('fileId is required');
-    } else if (!Number.isFinite(Number(data.fileId)) || Number(data.fileId) <= 0) {
-      errors.push('fileId must be a positive number');
-    }
+    validateFileIdField(data, errors);
+    validateMidiDataField(data.midiData, errors);
+    return errors;
+  }
+};
 
-    const md = data.midiData;
-    if (!md || typeof md !== 'object' || Array.isArray(md)) {
-      errors.push('midiData must be an object');
-      return errors;
-    }
-    if (!md.header || typeof md.header !== 'object') {
-      errors.push('midiData.header must be an object');
-    }
-    if (!Array.isArray(md.tracks)) {
-      errors.push('midiData.tracks must be an array');
-    } else if (md.tracks.length > MAX_WRITE_TRACKS) {
-      errors.push(`midiData.tracks exceeds ${MAX_WRITE_TRACKS} tracks`);
-    } else {
-      let total = 0;
-      for (const track of md.tracks) {
-        if (!Array.isArray(track)) {
-          errors.push('each midiData track must be an array of events');
-          break;
-        }
-        total += track.length;
-        if (total > MAX_WRITE_EVENTS) {
-          errors.push(`midiData exceeds ${MAX_WRITE_EVENTS} events`);
-          break;
-        }
-      }
-    }
+// `file_save_as` is the twin sink of `file_write`: it serialises `midiData`
+// through `writeMidi` BEFORE any size check (FileManager.saveFileAs), so it
+// needs the same track/event caps or a crafted payload OOMs the Pi. It also
+// persists `newFilename` to the DB (reflected into the UI), so it must run the
+// same filename sanitizer as `file_rename` (audit A2 Serial-cluster M1 — this
+// command shipped with no schema at all).
+export const file_save_as = {
+  custom: (data) => {
+    const errors = [];
+    validateFileIdField(data, errors);
+    const nameErr = validateFilename(data.newFilename);
+    if (nameErr) errors.push(nameErr);
+    validateMidiDataField(data.midiData, errors);
     return errors;
   }
 };
@@ -145,6 +168,7 @@ const schemas = {
   file_rename,
   file_move,
   file_write,
+  file_save_as,
   file_folders_set
 };
 

@@ -63,6 +63,18 @@ describe('ApiTokenManager', () => {
     expect(content).toMatch(/^GMBOOP_API_TOKEN=[0-9a-f]{64}$/m);
   });
 
+  test('appends a real token line when .env has only a similarly-named var (audit A2 N5)', () => {
+    // `includes("GMBOOP_API_TOKEN")` is true for this line, but the anchored
+    // replace matches nothing — the fix must still write a real assignment
+    // rather than leave the file unchanged (which would silently rotate the
+    // token on every restart).
+    writeFileSync(envPath, 'GMBOOP_API_TOKEN_BACKUP=abc\n', 'utf8');
+    new ApiTokenManager(makeLogger(), envPath).ensure();
+    const content = readFileSync(envPath, 'utf8');
+    expect(content).toMatch(/^GMBOOP_API_TOKEN_BACKUP=abc$/m);
+    expect(content).toMatch(/^GMBOOP_API_TOKEN=[0-9a-f]{64}$/m);
+  });
+
   test('replaces the token line when .env already declares it', () => {
     writeFileSync(envPath, 'GMBOOP_API_TOKEN=stale\nOTHER=1\n', 'utf8');
     new ApiTokenManager(makeLogger(), envPath).ensure();

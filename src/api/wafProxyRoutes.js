@@ -44,6 +44,14 @@ const MAX_CACHE_ENTRIES = 1024;
 const cache = new Map(); // filename -> { body: Buffer, status: 200|404 }
 let cacheBytes = 0;
 
+// Robustness bounds for the upstream fetch. The host is pinned to CDN_BASE so
+// this is not SSRF hardening — it stops a stalled TLS connection from pinning
+// the client request open indefinitely, and an oversized/misbehaving upstream
+// from buffering an unbounded body into memory (audit A2 M4). A real WAF file
+// is ≤~80 KB, so 4 MB is a generous ceiling.
+const CDN_FETCH_TIMEOUT_MS = 8000;
+const MAX_CDN_BODY_BYTES = 4 * 1024 * 1024;
+
 function cacheSet(filename, entry) {
   // Drop oldest entries until we fit. Map iteration is insertion order
   // so this gives us a naive FIFO eviction — good enough for WAF files
@@ -65,22 +73,33 @@ function cacheSet(filename, entry) {
 function fetchFromCdn(filename) {
   return new Promise((resolve, reject) => {
     const url = CDN_BASE + filename;
-    https
-      .get(url, { headers: { 'User-Agent': 'gmboop-waf-proxy/1' } }, (res) => {
-        const chunks = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => {
-          if (res.statusCode === 200) {
-            resolve({ status: 200, body: Buffer.concat(chunks) });
-          } else if (res.statusCode === 404) {
-            resolve({ status: 404, body: null });
-          } else {
-            reject(new Error(`CDN responded HTTP ${res.statusCode}`));
-          }
-        });
-        res.on('error', reject);
-      })
-      .on('error', reject);
+    const req = https.get(url, { headers: { 'User-Agent': 'gmboop-waf-proxy/1' } }, (res) => {
+      const chunks = [];
+      let received = 0;
+      res.on('data', (c) => {
+        received += c.length;
+        if (received > MAX_CDN_BODY_BYTES) {
+          // Abort the request; the 'error' handler below rejects the promise.
+          req.destroy(new Error('CDN response exceeds max size'));
+          return;
+        }
+        chunks.push(c);
+      });
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          resolve({ status: 200, body: Buffer.concat(chunks) });
+        } else if (res.statusCode === 404) {
+          resolve({ status: 404, body: null });
+        } else {
+          reject(new Error(`CDN responded HTTP ${res.statusCode}`));
+        }
+      });
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(CDN_FETCH_TIMEOUT_MS, () => {
+      req.destroy(new Error(`CDN fetch timed out after ${CDN_FETCH_TIMEOUT_MS}ms`));
+    });
   });
 }
 
