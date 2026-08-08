@@ -760,13 +760,23 @@ class Application {
       shuttingDown = true;
       this.logger.info(`Received ${signal}, shutting down gracefully...`);
 
+      let code = 0;
       try {
         await this.stop();
-        process.exit(0);
       } catch (error) {
         this.logger.error(`Shutdown error: ${error.message}`);
-        process.exit(1);
+        code = 1;
       }
+      // Flush buffered log lines to disk before exiting. close() is invoked ONLY
+      // here — never inside stop(), which restart() reuses and must keep logging
+      // — so the final lines (including the shutdown/error messages above) are
+      // not lost at exit (audit B3-M3). Best-effort; close() has its own timeout.
+      try {
+        await this.logger.close?.();
+      } catch (_) {
+        /* best-effort */
+      }
+      process.exit(code);
     };
 
     const onSigterm = () => shutdown('SIGTERM');

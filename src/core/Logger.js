@@ -322,14 +322,37 @@ class Logger {
 
   /**
    * Flush and close the file stream. Call on graceful shutdown so buffered
-   * lines are not lost.
-   * @returns {void}
+   * lines are not lost. Resolves once the stream has finished flushing to the
+   * fd (or after a short safety timeout), so callers can `await` it before
+   * `process.exit` — previously it was fire-and-forget and the last lines could
+   * be dropped at exit (audit B3-M3).
+   * @returns {Promise<void>}
    */
   close() {
-    if (this._stream) {
-      this._stream.end();
-      this._stream = null;
-    }
+    const s = this._stream;
+    this._stream = null;
+    if (!s) return Promise.resolve();
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+      // Safety net: never let a stuck stream hang graceful shutdown.
+      const timer = setTimeout(finish, 2000);
+      if (typeof timer.unref === 'function') timer.unref();
+      try {
+        // end(cb) fires on 'finish', after the buffered lines reach the fd.
+        s.end(() => {
+          clearTimeout(timer);
+          finish();
+        });
+      } catch (_) {
+        clearTimeout(timer);
+        finish();
+      }
+    });
   }
 
   /**

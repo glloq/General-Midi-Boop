@@ -137,11 +137,8 @@ describe('Logger', () => {
       const logger = new Logger({ level: 'info', file: logFile });
       logger.info('file test');
 
-      // Wait for the write stream to flush
-      await new Promise((resolve) => {
-        logger.close();
-        setTimeout(resolve, 50);
-      });
+      // close() now resolves once the stream has flushed — await it directly.
+      await logger.close();
 
       const content = fs.readFileSync(logFile, 'utf8');
       expect(content).toContain('file test');
@@ -152,15 +149,31 @@ describe('Logger', () => {
       const logger = new Logger({ level: 'info', file: logFile, jsonFormat: true });
       logger.info('json test');
 
-      // Wait for the write stream to flush
-      await new Promise((resolve) => {
-        logger.close();
-        setTimeout(resolve, 50);
-      });
+      // close() now resolves once the stream has flushed — await it directly.
+      await logger.close();
 
       const content = fs.readFileSync(logFile, 'utf8').trim();
       const parsed = JSON.parse(content);
       expect(parsed.message).toBe('json test');
+    });
+
+    // Audit B3-M3: close() now resolves only AFTER the stream has flushed, so a
+    // graceful shutdown can `await` it and the last lines reach disk.
+    test('close() resolves after flushing buffered lines to disk', async () => {
+      const logFile = path.join(tmpDir, 'flush.log');
+      const logger = new Logger({ level: 'info', file: logFile });
+      logger.info('flush test line');
+
+      await logger.close(); // must resolve AFTER the flush, no external timer
+
+      const content = fs.readFileSync(logFile, 'utf8');
+      expect(content).toContain('flush test line');
+    });
+
+    test('close() is idempotent and resolves when there is no file stream', async () => {
+      const logger = new Logger({ level: 'info' }); // console-only
+      await expect(logger.close()).resolves.toBeUndefined();
+      await expect(logger.close()).resolves.toBeUndefined();
     });
   });
 
@@ -180,12 +193,12 @@ describe('Logger', () => {
 
       // Wait for async stat + rotation to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
-      logger.close();
+      await logger.close();
 
       expect(fs.existsSync(`${logFile}.1`)).toBe(true);
     });
 
-    test('prunes old rotated files', () => {
+    test('prunes old rotated files', async () => {
       const logFile = path.join(tmpDir, 'prune.log');
       const logger = new Logger({
         level: 'debug',
@@ -204,6 +217,10 @@ describe('Logger', () => {
       // old .2 should have been shifted to .3 but max is 2, so .3 should exist
       // and current should be moved to .1
       expect(fs.existsSync(`${logFile}.1`)).toBe(true);
+
+      // Close the reopened stream before afterEach removes tmpDir, otherwise the
+      // open fd errors (ENOENT) asynchronously → "Cannot log after tests" noise.
+      await logger.close();
     });
   });
 });

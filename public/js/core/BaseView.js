@@ -305,6 +305,14 @@ class BaseView {
     }
 
     const unsub = this.eventBus.on(event, handler);
+    // Tag the unsub closure so off(event, handler) can find and drop THIS
+    // tracked subscription instead of leaving a dead closure in
+    // eventSubscriptions that destroy() later calls as a no-op — an unbounded
+    // accumulation across on()/off() cycles within a long-lived view (audit C
+    // minor). The array element type stays a function, so once()/destroy() are
+    // unaffected.
+    unsub._gmEvent = event;
+    unsub._gmHandler = handler;
     this.eventSubscriptions.push(unsub);
 
     return unsub;
@@ -362,6 +370,13 @@ class BaseView {
     }
 
     this.eventBus.off(event, handler);
+
+    // Drop the matching tracked subscription so eventSubscriptions doesn't
+    // accumulate dead unsub closures (matched by the tags on()/attached).
+    const idx = this.eventSubscriptions.findIndex(
+      (u) => u && u._gmEvent === event && u._gmHandler === handler
+    );
+    if (idx !== -1) this.eventSubscriptions.splice(idx, 1);
   }
 
   /**

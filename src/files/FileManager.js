@@ -169,6 +169,22 @@ class FileManager {
     const analysisMs = Date.now() - analysisStart;
     report('analyzed');
 
+    // Enforce the validator's blocking verdict. `validate()` only sets
+    // valid=false for a structurally-unusable file (missing header, or zero
+    // tracks) — everything else (orphan notes, out-of-range values, odd tempo)
+    // is a non-blocking warning. Such a file can't be played or analysed
+    // meaningfully and would choke downstream code that assumes ≥1 track, so
+    // reject it instead of storing it (its result was previously ignored —
+    // audit B2/B3 open item). The blob is orphaned here; clean it up first.
+    if (validation && !validation.valid) {
+      if (!this.database.midiDB.getFileByContentHash(blob.hash)) {
+        this._safeBlobDelete(blob.relativePath);
+      }
+      throw new Error(
+        `Invalid MIDI file: ${validation.errors.join('; ') || 'structurally invalid (no header or no tracks)'}`
+      );
+    }
+
     // Single transaction: file row + channels + tempo map + text events.
     // Either everything commits or nothing does — no orphan rows.
     const dbStart = Date.now();

@@ -84,18 +84,22 @@ SF2), 3 MAJEURS (upload SF2 mort, OOM upload MIDI, teardown non isolé). Le rest
   (suivi 2026-08-08) : recherche binaire `_activeTempoEntry` (map triée par tick
   ET par temps), O(log n) par appel, résultat identique. Tests :
   `tests/midi-baker-tempo-map.test.js`.
-- **MidiFileValidator advisoire** : son résultat `valid/errors` est ignoré par
-  `handleUpload` (seuls `warnings`/`stats` sont lus). Le cap d'events ci-dessus
-  couvre l'OOM ; reste à faire respecter `!valid` (rejeter les shapes dangereuses).
+- **MidiFileValidator advisoire** : son résultat `valid/errors` était ignoré par
+  `handleUpload` (seuls `warnings`/`stats` lus). → ✅ **Corrigé** (suivi 2026-08-08) :
+  `handleUpload` rejette désormais `!valid` (header manquant / 0 piste — les seuls
+  cas bloquants ; orphelins/hors-plage restent des warnings non bloquants), blob
+  orphelin nettoyé. Tests : `tests/midi-file-validator-verdict.test.js`.
 - **SF2 Md1** : `SF2InstanceCache` borne le NOMBRE d'entrées (2), pas les octets
   (~2× taille fichier retenue) → deux SF2 de 160 Mo peuvent OOM un Pi 1 Go. →
   budget d'octets / baisser `MAX_SF2_FILE_SIZE` (décision de tuning).
 - **B2c-M1** : `saveFileAs` dédup silencieusement (UNIQUE content_hash) et renvoie
   un id/nom existant ; le backend expose déjà `status:'duplicate'` — **le frontend
   doit le traiter** (audit C) au lieu d'annoncer « enregistré sous {nom} ».
-- **B3-M3** : `Logger.close()` (flush) n'est jamais appelé en prod → dernières
-  lignes perdues à l'exit. À flusher dans le handler de shutdown (pas dans
-  `stop()`, à cause de `restart()`), avec `stream.end(cb)`.
+- **B3-M3** : `Logger.close()` (flush) n'était jamais appelé en prod → dernières
+  lignes perdues à l'exit. → ✅ **Corrigé** (suivi 2026-08-08) : `close()` renvoie
+  une promesse résolue après le flush (`stream.end(cb)` + timeout de sûreté 2 s) ;
+  `setupShutdownHandlers` l'`await` après `stop()` avant `process.exit` (jamais
+  dans `stop()`, réutilisé par `restart()`). Tests : `tests/logger.test.js`.
 - **Minors** : baker JsonMidiConverter (Format 0→1, SMPTE) ; VLQ 32-bit (lib) ;
   BlobStore dédup existence-only (pas de re-hash) ; `getFileMetadata` note
   double-count (fallback) ; `bakeAndSave` TOCTOU ; 3 bases `channelCount` ;

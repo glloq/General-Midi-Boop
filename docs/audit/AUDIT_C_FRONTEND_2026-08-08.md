@@ -127,10 +127,10 @@ Tests : `tests/frontend/event-bus.test.js` (M2 snapshot/ré-entrance, M3 debounc
   strippent `[<>"'&]`). Recommandé : échapper pour cohérence défensive.
 - **C1 (LOW) — `BluetoothScanModal` `address`/`id` non échappés** : MAC fournies
   par BlueZ (pas de string arbitraire). Faible risque ; échapper par principe.
-- **C2 (minor) — `BaseView.off()` ne purge pas `eventSubscriptions`** : les unsub
-  périmés s'accumulent jusqu'au `destroy()` (fuite mineure de closures ; les unsub
-  restants sont des no-op idempotents). À nettoyer si churn abonnement/désabonnement
-  intra-vue devient réel.
+- **C2 (minor) — `BaseView.off()` ne purge pas `eventSubscriptions`** → ✅ **Corrigé**
+  (suivi 2026-08-08) : `on()` tague la closure unsub (`_gmEvent`/`_gmHandler`) et
+  `off()` retire l'abonnement suivi correspondant, donc les cycles on()/off() ne
+  laissent plus de closures mortes. Tests : `tests/frontend/base-view-off-leak.test.js`.
 - **C3 (minor)** — handlers playback (`getElementById(...).style` sans garde ;
   éléments statiques aujourd'hui) → durcir en `?.` ; champs metadata numériques
   (`durationFormatted`/`tempo`/`channelCount`, serveur-calculés) → échapper en
