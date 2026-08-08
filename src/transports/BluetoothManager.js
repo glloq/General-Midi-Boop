@@ -455,7 +455,16 @@ class BluetoothManager extends EventEmitter {
       const emit = (bytes) => this.emit('midi:data', { address, data: bytes });
 
       // Consume SysEx payload bytes until F7 / interruption / end-of-packet.
+      // Returns 'aborted' when a non-realtime status byte terminates the SysEx
+      // (device sent a new message instead of F7 — MIDI spec): the SysEx is
+      // discarded and `i` is left AT that status byte so the caller parses it as
+      // a new message. `consumedData` tells a high-bit byte apart: with no data
+      // consumed yet, the byte is the content framed by the timestamp the outer
+      // loop just consumed (→ F7 / realtime / abort-status); after data, a
+      // high-bit byte is the framing timestamp before F7/next message and is
+      // left for the outer loop to consume normally.
       const consumeSysExPayload = () => {
+        let consumedData = false;
         while (i < data.length) {
           const b = data[i];
           if (b === 0xf7) {
@@ -465,7 +474,15 @@ class BluetoothManager extends EventEmitter {
             state.sysex = null;
             return;
           }
-          if (b & 0x80) return; // timestamp / status interrupts payload
+          if (b & 0x80) {
+            if (b >= 0xf8) return; // real-time: valid mid-SysEx, outer loop emits it
+            if (!consumedData) {
+              // A status byte immediately after a timestamp aborts the SysEx.
+              state.sysex = null;
+              return 'aborted';
+            }
+            return; // framing timestamp before F7 / next message
+          }
           if (state.sysex.length >= MAX_BLE_SYSEX) {
             // Overflow guard: abandon the frame.
             state.sysex = null;
@@ -474,6 +491,7 @@ class BluetoothManager extends EventEmitter {
           }
           state.sysex.push(b);
           i++;
+          consumedData = true;
         }
       };
 
@@ -496,8 +514,11 @@ class BluetoothManager extends EventEmitter {
 
         // Resume an in-progress SysEx from a previous notification.
         if (state.sysex) {
-          consumeSysExPayload();
-          continue;
+          const r = consumeSysExPayload();
+          // 'aborted' → the SysEx was terminated by a status byte now at `i`;
+          // fall through to parse it as a new message (looping back would
+          // mis-read that status as a timestamp and drop it — audit BLE#1).
+          if (r !== 'aborted') continue;
         }
 
         let status;

@@ -156,11 +156,21 @@ class DeviceManager {
         } else if (change.type === 'addOutput') {
           this.addOutput(change.name);
         } else if (change.type === 'update') {
+          const before = new Set(this.devices.keys());
           await this.updateDeviceMap();
           // A hot-plug `update` also fires on removal (ports already closed by
           // DeviceDiscovery); reconcile our per-device recognition state so a
           // disconnected device is forgotten and can re-announce on reconnect.
           this._pruneDisconnectedDeviceState();
+          // Emit device_disconnected for devices that vanished. Before this the
+          // removal path only refreshed the UI list, so the EventBus event never
+          // fired — leaving the router's note-gate reset, the clock's device
+          // cache, and the WS bridge unaware of disconnects (audit Serial#1).
+          for (const id of before) {
+            if (!this.devices.has(id)) {
+              this.eventBus?.emit('device_disconnected', { device: id });
+            }
+          }
           this.broadcastDeviceList();
           this.logger.info(`Device list updated: ${this.devices.size} device(s)`);
         }
