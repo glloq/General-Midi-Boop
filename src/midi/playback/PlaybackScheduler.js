@@ -305,6 +305,12 @@ class PlaybackScheduler {
     if (!Array.isArray(list) || list.length === 0) return true; // not declared → allow all
     if (controller >= MIDI_CC.ALL_SOUND_OFF) return true; // 120..127 channel-mode/safety
     if (controller === MIDI_CC.BANK_SELECT || controller === MIDI_CC.BANK_SELECT_LSB) return true;
+    // The instrument's OWN hand-position control CCs are actuator control the
+    // engine injects/bakes; always allow them even when omitted from
+    // supported_ccs, otherwise the actuator never moves (audit fix). Covers both
+    // injected (_routeTo) and baked hand CCs, matched by declared cc number.
+    const hand = constraints?.handCcs;
+    if (Array.isArray(hand) && hand.includes(controller)) return true;
     return list.includes(controller);
   }
 

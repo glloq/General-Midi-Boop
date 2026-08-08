@@ -112,6 +112,14 @@ class MidiRouter {
     };
     this.eventBus?.on?.('instrument_settings_changed', this._onSettingsChanged);
 
+    // A disconnected destination strands its live note-gate voice counts
+    // (its held notes will never receive a note-off), so reset the gate when
+    // any device drops — mirrors the scheduler clearing its gate at end of
+    // playback. Full clear is self-healing: the live gate rebuilds from
+    // subsequent traffic within a few notes (audit fix — see resetNoteGate).
+    this._onDeviceDisconnected = () => this.resetNoteGate();
+    this.eventBus?.on?.('device_disconnected', this._onDeviceDisconnected);
+
     this.loadRoutesFromDB();
     this.logger.info('MidiRouter initialized');
   }
@@ -233,7 +241,26 @@ class MidiRouter {
     this._invalidateCompForSource(route.source);
 
     this.routes.delete(routeId);
+    // A removed route's destination may hold live note-gate voice counts that
+    // will never be released (its note-offs won't be routed anymore); reset the
+    // gate so stale voices can't gate/evict future notes (audit fix).
+    this.resetNoteGate();
     this.logger.info(`Route deleted: ${routeId}`);
+  }
+
+  /**
+   * Clear the live note-gate state (polyphony voice counts, dropped-note-on
+   * bookkeeping, min-interval timestamps). Called on panic / all-notes-off,
+   * device disconnect, and route delete/disable — the live analogues of the
+   * scheduler's `resetNoteTracking()`. Without this, a lost note-off (the exact
+   * situation panic exists for) leaves a phantom voice that permanently gates a
+   * low-polyphony instrument or swallows a later real note-off (stuck note).
+   * Full clear is intentional and self-healing: the gate rebuilds from live
+   * traffic within a few notes, which is far safer than leaking stale state.
+   * @returns {void}
+   */
+  resetNoteGate() {
+    this._noteGate.clear();
   }
 
   /**
@@ -251,6 +278,9 @@ class MidiRouter {
     route.enabled = enabled;
     this._invalidateCompForSource(route.source);
     this._routeRepo.update(routeId, { enabled: enabled ? 1 : 0 });
+    // Disabling a route strands its destination's gate voices (as with delete);
+    // reset so they can't gate future notes (audit fix).
+    if (!enabled) this.resetNoteGate();
     this.logger.info(`Route ${routeId} ${enabled ? 'enabled' : 'disabled'}`);
   }
 
@@ -405,13 +435,17 @@ class MidiRouter {
     // CC filtering by supported_ccs — channel-mode/safety CCs (>=120) and bank
     // select always pass; an undeclared set forwards everything.
     if (type === DEVICE_MSG_TYPES.CC && out.controller != null) {
-      const list = resolver.getTimingConstraints(dest, out.channel)?.supportedCcs;
+      const constraints = resolver.getTimingConstraints(dest, out.channel);
+      const list = constraints?.supportedCcs;
       if (Array.isArray(list) && list.length > 0) {
         const cc = out.controller;
         const always =
           cc >= MIDI_CC.ALL_SOUND_OFF ||
           cc === MIDI_CC.BANK_SELECT ||
-          cc === MIDI_CC.BANK_SELECT_LSB;
+          cc === MIDI_CC.BANK_SELECT_LSB ||
+          // The instrument's own hand-position control CCs always pass (audit
+          // fix — a declared supported_ccs must not drop the actuator's CCs).
+          (Array.isArray(constraints.handCcs) && constraints.handCcs.includes(cc));
         if (!always && !list.includes(cc)) return false;
       }
       return true;
@@ -823,6 +857,10 @@ class MidiRouter {
     if (this._onSettingsChanged) {
       this.eventBus?.off?.('instrument_settings_changed', this._onSettingsChanged);
       this._onSettingsChanged = null;
+    }
+    if (this._onDeviceDisconnected) {
+      this.eventBus?.off?.('device_disconnected', this._onDeviceDisconnected);
+      this._onDeviceDisconnected = null;
     }
     this._maxCompBySource.clear();
     this._instrumentNameByDevCh.clear();

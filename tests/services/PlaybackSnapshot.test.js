@@ -122,7 +122,8 @@ describe('PlaybackSnapshot', () => {
         selectedNotes: null,
         octaveMode: null,
         scaleRoot: 0,
-        supportedCcs: null
+        supportedCcs: null,
+        handCcs: null
       });
     });
 

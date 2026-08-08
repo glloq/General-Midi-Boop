@@ -655,17 +655,17 @@ class MidiPlayer {
    * @private
    */
   _injectHandPositionCCEvents() {
+    // Remove any hand CCs left over from a previous pass FIRST, before any
+    // early-return guard, so that re-routings don't accumulate and a replay
+    // hitting a guard can't leave stale `_handInjected` CCs behind. Hand CCs
+    // carry a `_handInjected` marker to make this safe and cheap (audit F6).
+    if (this._handCCCount) {
+      this.events = (this.events || []).filter((e) => !e._handInjected);
+      this._handCCCount = 0;
+    }
     if (!this.events || this.events.length === 0) return 0;
     if (!this.channelRouting || this.channelRouting.size === 0) return 0;
     if (!this.database?.getInstrumentCapabilities) return 0;
-
-    // First, remove any hand CCs left over from a previous pass (so that
-    // re-routings don't accumulate). Hand CCs carry a `_handInjected`
-    // marker to make this safe and cheap.
-    if (this._handCCCount) {
-      this.events = this.events.filter((e) => !e._handInjected);
-      this._handCCCount = 0;
-    }
 
     const allCCs = [];
     const allWarnings = [];
@@ -901,16 +901,18 @@ class MidiPlayer {
    * @private
    */
   _injectVoiceProgramChangeEvents() {
+    // Strip any voice PCs left over from a previous pass FIRST, before any
+    // early-return guard — otherwise a replay that hits a guard (routing
+    // cleared, DB absent) would leave stale _voiceInjected PCs (with an old
+    // _routeTo) in the stream (audit F6).
+    if (this._voicePCCount) {
+      this.events = (this.events || []).filter((e) => !e._voiceInjected);
+      this._voicePCCount = 0;
+    }
     if (!this.events || this.events.length === 0) return 0;
     if (!this.channelRouting || this.channelRouting.size === 0) return 0;
     if (!this.database?.getInstrumentCapabilities) return 0;
     if (typeof this.database.listInstrumentVoices !== 'function') return 0;
-
-    // Strip any voice PCs left over from a previous pass (re-routing safety).
-    if (this._voicePCCount) {
-      this.events = this.events.filter((e) => !e._voiceInjected);
-      this._voicePCCount = 0;
-    }
 
     const injected = [];
 
@@ -2715,6 +2717,7 @@ class MidiPlayer {
   }
 
   _clearGapTimer() {
+    const wasActive = this._gapTimer !== null || this._gapCountdownInterval !== null;
     if (this._gapTimer) {
       clearTimeout(this._gapTimer);
       this._gapTimer = null;
@@ -2724,6 +2727,17 @@ class MidiPlayer {
       this._gapCountdownInterval = null;
     }
     this._gapRemaining = 0;
+    // Emit a terminal 0 so the UI countdown chip clears (audit fix: the client's
+    // `remainingSeconds <= 0` clear branch was never reached — the countdown only
+    // ever broadcast while > 0, then this timer fired silently, leaving the chip
+    // frozen at "1s"). Covers both gap-end (next track starts) and
+    // stop-during-gap, since both go through here.
+    if (wasActive && this._deps.wsServer) {
+      this._deps.wsServer.broadcast('playlist_waiting', {
+        playlistId: this.playlistId,
+        remainingSeconds: 0
+      });
+    }
   }
 
   _startGapDelay(callback) {

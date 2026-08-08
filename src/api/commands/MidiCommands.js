@@ -146,6 +146,10 @@ function _ccAllChannels(app, deviceId, controllers) {
 
 async function midiPanic(app, data) {
   _ccAllChannels(app, data.deviceId, [MIDI_CC.ALL_SOUND_OFF, MIDI_CC.ALL_NOTES_OFF]);
+  // Panic is the stuck-note escape hatch: also clear the live route-through
+  // note-gate so a phantom voice (from a lost note-off) can't keep gating or
+  // stranding notes after the hardware has been silenced (audit fix).
+  app.midiRouter?.resetNoteGate?.();
   return { success: true };
 }
 
@@ -159,6 +163,7 @@ async function midiPanic(app, data) {
  */
 async function midiAllNotesOff(app, data) {
   _ccAllChannels(app, data.deviceId, [MIDI_CC.ALL_NOTES_OFF]);
+  app.midiRouter?.resetNoteGate?.();
   return { success: true };
 }
 
@@ -172,6 +177,9 @@ async function midiAllNotesOff(app, data) {
  * @returns {Promise<{success:boolean, targets:number}>}
  */
 async function midiReset(app, data) {
+  // A System Reset returns the device(s) to power-on state; drop stale live
+  // note-gate voice counts so they don't gate/strand subsequent notes.
+  app.midiRouter?.resetNoteGate?.();
   if (data && data.deviceId) {
     const ok = app.deviceManager.sendMessage(data.deviceId, 'reset', {});
     return { success: ok, targets: ok ? 1 : 0 };

@@ -36,7 +36,8 @@ describe('CapabilityResolver.getTimingConstraints', () => {
       selectedNotes: null,
       octaveMode: null,
       scaleRoot: 0,
-      supportedCcs: null
+      supportedCcs: null,
+      handCcs: null
     });
   });
 
@@ -47,6 +48,25 @@ describe('CapabilityResolver.getTimingConstraints', () => {
     ).toEqual([1, 7, 10, 64]); // out-of-range 200/-1 dropped
     expect(makeResolver({ supported_ccs: [] }).getTimingConstraints('d', 0).supportedCcs).toBeNull();
     expect(makeResolver({}).getTimingConstraints('d', 0).supportedCcs).toBeNull();
+  });
+
+  test('handCcs surface the hands_config cc_position_numbers (audit fix)', () => {
+    // The instrument's own actuator CCs must be exposed so the scheduler/router
+    // never drop them via the supported_ccs filter.
+    const caps = {
+      supported_ccs: [1, 7, 11],
+      hands_config: {
+        enabled: true,
+        hands: [{ id: 'left', cc_position_number: 23 }, { id: 'right', cc_position_number: 24 }]
+      }
+    };
+    expect(makeResolver(caps).getTimingConstraints('d', 0).handCcs).toEqual([23, 24]);
+    // Disabled / absent / no cc → null.
+    expect(
+      makeResolver({ hands_config: { enabled: false, hands: [{ cc_position_number: 23 }] } })
+        .getTimingConstraints('d', 0).handCcs
+    ).toBeNull();
+    expect(makeResolver({}).getTimingConstraints('d', 0).handCcs).toBeNull();
   });
 
   test('polyphony: a valid positive value passes', () => {
