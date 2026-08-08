@@ -167,22 +167,35 @@
     if (!api || typeof api.on !== 'function') return false;
     window.__realtimeStatusToastsInstalled = true;
 
+    // Once reconnection is exhausted (hard fail), the client keeps emitting
+    // `reconnecting` on further attempts. Those must NOT downgrade the hard-fail
+    // banner (which carries the Reload button); a `hardLost` latch keeps it until
+    // `connected` clears everything (audit fix).
+    let hardLost = false;
     api.on('system_lag', (d) => showLag(d && d.lagMs, d && d.thresholdMs));
-    api.on('reconnecting', (d) =>
+    api.on('reconnecting', (d) => {
+      if (hardLost) return; // keep the persistent lost-connection banner
       showBanner(
         t('connection.reconnecting', 'Reconnexion au serveur…') +
           (d && d.attempt ? ` (${d.attempt})` : ''),
         { bg: '#d97706' }
-      )
-    );
-    api.on('reconnect_exhausted', () =>
+      );
+    });
+    api.on('reconnect_exhausted', () => {
+      hardLost = true;
       showBanner(t('connection.lost', 'Connexion au serveur perdue'), {
         showReload: true,
         bg: '#dc2626'
-      })
-    );
-    api.on('connected', clearBanner);
+      });
+    });
+    api.on('connected', () => {
+      hardLost = false;
+      clearBanner();
+    });
     api.on('playlist_waiting', (d) => showCountdown(d && d.remainingSeconds));
+    // Belt-and-suspenders: clear the countdown when the next track actually
+    // starts, in case the terminal remainingSeconds:0 frame is missed.
+    api.on('playlist_item_changed', () => showCountdown(0));
     api.on('settings_applied', () =>
       toast(t('settings.syncedFromAnotherClient', 'Réglages synchronisés'), {
         bg: '#10b981',
