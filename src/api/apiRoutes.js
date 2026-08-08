@@ -155,7 +155,7 @@ export function createApiRouter(app) {
       const code =
         err.code === 'UPLOAD_QUEUE_FULL'
           ? 503
-          : /too large/i.test(err.message)
+          : /too large|too complex/i.test(err.message)
             ? 413
             : /invalid midi/i.test(err.message)
               ? 415

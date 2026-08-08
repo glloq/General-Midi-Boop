@@ -549,6 +549,13 @@ class Application {
    */
   async start() {
     try {
+      // Guard against a double start(): a second call would re-scan devices,
+      // re-bind the HTTP port, and construct NEW backupScheduler/eventLoopMonitor
+      // over the running ones, leaking their timers (audit B3 m8).
+      if (this.running) {
+        this.logger.warn('start() called while already running — ignoring');
+        return;
+      }
       this.logger.info('Starting application...');
 
       // Scan MIDI devices
@@ -616,105 +623,47 @@ class Application {
    * @throws Re-throws after logging if a teardown step throws.
    */
   async stop() {
-    try {
-      this.logger.info('Stopping application...');
-      this.running = false;
+    this.logger.info('Stopping application...');
+    this.running = false;
 
-      // Stop event-loop monitor
-      if (this.eventLoopMonitor) {
-        this.eventLoopMonitor.stop();
+    // Each teardown step is isolated: a throw in one step must NOT skip the
+    // rest. Previously a single failing step (e.g. midiPlayer.destroy) aborted
+    // the whole sequence, so deviceManager.close() [silences instruments — no
+    // stuck notes] and database.close() [WAL checkpoint] never ran (audit
+    // B2/B3 A1). stop() now completes best-effort and does not re-throw; DB
+    // close stays last.
+    const step = async (label, fn) => {
+      try {
+        await fn();
+      } catch (err) {
+        this.logger.error(`Stop step "${label}" failed (continuing): ${err.message}`);
       }
+    };
 
-      // Stop backup scheduler
-      if (this.backupScheduler) {
-        this.backupScheduler.stop();
-      }
+    await step('eventLoopMonitor', () => this.eventLoopMonitor?.stop());
+    await step('backupScheduler', () => this.backupScheduler?.stop());
+    await step('midiPlayer', () => this.midiPlayer?.destroy());
+    // midiClockGenerator.destroy() drops its drift-correction timer + EventBus
+    // listeners; midiRouter.destroy() cancels compensation timers that would
+    // otherwise fire sendMessage on ports closed just below.
+    await step('midiClockGenerator', () => this.midiClockGenerator?.destroy());
+    await step('midiRouter', () => this.midiRouter?.destroy());
+    await step('wsServer', () => this.wsServer?.close());
+    await step('httpServer', () => this.httpServer?.close());
+    await step('deviceManager', () => this.deviceManager?.close());
+    await step('bluetoothManager', () => this.bluetoothManager?.cleanup?.());
+    await step('networkManager', () => this.networkManager?.shutdown?.());
+    await step('serialMidiManager', () => this.serialMidiManager?.shutdown?.());
+    await step('lightingManager', () => this.lightingManager?.shutdown?.());
+    await step('instrumentLightManager', () => this.instrumentLightManager?.shutdown?.());
+    await step('autoAssigner', () => this.autoAssigner?.destroy());
+    await step('compensationService', () => this.compensationService?.destroy());
+    await step('capabilityResolver', () => this.capabilityResolver?.destroy());
+    await step('eventHandlers', () => this.removeEventHandlers());
+    // Database last so its WAL is checkpointed after every writer has stopped.
+    await step('database', () => this.database?.close());
 
-      // Stop and destroy player
-      if (this.midiPlayer) {
-        this.midiPlayer.destroy();
-      }
-
-      // Stop the MIDI clock generator: drops its drift-correction timer and
-      // detaches its EventBus listeners (instrument_settings_changed,
-      // device_connected/disconnected). Without this, a re-initialized
-      // Application accumulates duplicate listeners.
-      if (this.midiClockGenerator) {
-        this.midiClockGenerator.destroy();
-      }
-
-      // Cancel pending compensation timers and drop route indexes.
-      // Without this, setTimeouts from MidiRouter outlive the deviceManager
-      // close below and fire sendMessage on closed ports.
-      if (this.midiRouter) {
-        this.midiRouter.destroy();
-      }
-
-      // Close servers
-      if (this.wsServer) {
-        this.wsServer.close();
-      }
-
-      if (this.httpServer) {
-        this.httpServer.close();
-      }
-
-      // Close MIDI devices
-      if (this.deviceManager) {
-        this.deviceManager.close();
-      }
-
-      // Close Bluetooth
-      if (this.bluetoothManager && typeof this.bluetoothManager.cleanup === 'function') {
-        await this.bluetoothManager.cleanup();
-      }
-
-      // Close Network
-      if (this.networkManager && this.networkManager.shutdown) {
-        await this.networkManager.shutdown();
-      }
-
-      // Close Serial MIDI
-      if (this.serialMidiManager) {
-        await this.serialMidiManager.shutdown();
-      }
-
-      // Close Lighting
-      if (this.lightingManager) {
-        await this.lightingManager.shutdown();
-      }
-      if (this.instrumentLightManager) {
-        await this.instrumentLightManager.shutdown();
-      }
-
-      // Destroy auto-assigner (cleanup intervals and cache)
-      if (this.autoAssigner) {
-        this.autoAssigner.destroy();
-      }
-
-      // Destroy shared compensation cache
-      if (this.compensationService) {
-        this.compensationService.destroy();
-      }
-
-      // Destroy capability resolver (detach eventBus listener)
-      if (this.capabilityResolver) {
-        this.capabilityResolver.destroy();
-      }
-
-      // Remove event handlers to prevent leaks on restart
-      this.removeEventHandlers();
-
-      // Close database
-      if (this.database) {
-        this.database.close();
-      }
-
-      this.logger.info(`=== GeneralMidiBoop ${this.version} Stopped ===`);
-    } catch (error) {
-      this.logger.error(`Stop failed: ${error.message}`);
-      throw error;
-    }
+    this.logger.info(`=== GeneralMidiBoop ${this.version} Stopped ===`);
   }
 
   /**

@@ -204,17 +204,16 @@ class Config {
       'midi.bufferSize': (v) => Number.isInteger(v) && v > 0,
       'midi.sampleRate': (v) => Number.isInteger(v) && v > 0,
       'midi.defaultLatency': (v) => typeof v === 'number' && v >= 0,
+      // Absolute paths ARE allowed here: an operator pointing the DB/log at
+      // external storage (e.g. GMBOOP_DATABASE_PATH=/mnt/ssd/gmboop.db) is a
+      // normal appliance request, and silently ignoring it looked like "data
+      // doesn't persist" (audit B3 M6). Only relative traversal (`..`) is
+      // rejected — these are operator-owned env values.
       'database.path': (v) =>
-        typeof v === 'string' &&
-        v.length > 0 &&
-        !path.isAbsolute(v) &&
-        !path.normalize(v).startsWith('..'),
+        typeof v === 'string' && v.length > 0 && !path.normalize(v).startsWith('..'),
       'logging.level': (v) => ['error', 'warn', 'info', 'debug'].includes(v),
       'logging.file': (v) =>
-        typeof v === 'string' &&
-        v.length > 0 &&
-        !path.isAbsolute(v) &&
-        !path.normalize(v).startsWith('..'),
+        typeof v === 'string' && v.length > 0 && !path.normalize(v).startsWith('..'),
       'playback.defaultTempo': (v) => typeof v === 'number' && v > 0 && v <= 999,
       'playback.defaultVolume': (v) => Number.isInteger(v) && v >= 0 && v <= 127,
       'latency.defaultIterations': (v) => Number.isInteger(v) && v >= 1 && v <= 100,

@@ -44,6 +44,15 @@ async function main() {
       // eslint-disable-next-line no-console
       console.error('Failed to start application:', error);
     }
+    // A caught start() rejection does NOT fire the signal/uncaught handlers, so
+    // without this the DB (opened in initialize()) is left un-checkpointed and
+    // devices scanned in start() are left with no all-notes-off (audit B3 M4).
+    // stop() is best-effort and never throws.
+    try {
+      await app.stop();
+    } catch {
+      /* stop() already isolates its own steps */
+    }
     process.exit(1);
   }
 }

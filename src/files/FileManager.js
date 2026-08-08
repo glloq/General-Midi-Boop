@@ -15,6 +15,15 @@ import MidiFileParser from './MidiFileParser.js';
 import MidiFileValidator from './MidiFileValidator.js';
 import { LIMITS } from '../core/constants.js';
 
+// Cap the parsed event count on the RAW-UPLOAD path. The only bound there was
+// the 10 MB byte cap, but a 10 MB running-status note-on file decodes to
+// millions of event objects that the analysis phase then CLONES ~3× (parse AST
+// + convertMidiToJSON + ChannelAnalyzer) — ~1-2 GB live, OOM-killing the Pi
+// (audit B2). A legit dense multi-track SMF stays well under this; the editor
+// sinks are already capped (MAX_WRITE_EVENTS). Rejecting here, before the deep
+// analysis, prevents the amplification.
+const MAX_UPLOAD_MIDI_EVENTS = 1_000_000;
+
 class FileManager {
   /**
    * @param {Object} deps - Service-container facade. The manager
@@ -125,6 +134,18 @@ class FileManager {
     }
     const parseMs = Date.now() - parseStart;
     report('parsed');
+
+    // Reject a pathologically event-dense file BEFORE the analysis phase clones
+    // the AST ~3× (audit B2). The blob is orphaned at this point — clean it up.
+    const totalEvents = Array.isArray(midi.tracks)
+      ? midi.tracks.reduce((n, t) => n + (Array.isArray(t) ? t.length : 0), 0)
+      : 0;
+    if (totalEvents > MAX_UPLOAD_MIDI_EVENTS) {
+      this._safeBlobDelete(blob.relativePath);
+      throw new Error(
+        `MIDI file too complex: ${totalEvents} events exceeds the ${MAX_UPLOAD_MIDI_EVENTS} limit`
+      );
+    }
 
     // Analysis runs on a parseable-but-possibly-pathological AST. If any
     // extractor throws, the blob written above is orphaned (no DB row will ever
@@ -686,7 +707,13 @@ class FileManager {
     let failed = 0;
     this.logger.info(`Re-analyzing ${allFiles.length} MIDI files...`);
 
+    let processed = 0;
     for (const file of allFiles) {
+      // Yield to the event loop periodically so a large library re-analysis
+      // (readFileSync + parse + analyze + DB write per file, all synchronous)
+      // does not pin the single thread for seconds/minutes and stall WS/HTTP
+      // and MIDI timing (audit B2 M2).
+      if (++processed % 5 === 0) await new Promise((r) => setImmediate(r));
       try {
         if (!file.blob_path) {
           this.logger.warn(`Skipping file ${file.id}: no blob_path`);

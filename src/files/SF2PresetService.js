@@ -466,7 +466,11 @@ export class SF2PresetService {
    * @returns {number}
    */
   getTotalStoredSize() {
+    // Exclude the id=0 built-in-default sentinel: its `size` column is
+    // repurposed to hold the default.sf2 mtime (~1.75e12), so summing it made
+    // `totalStored` exceed MAX_SF2_TOTAL_SIZE (1 GB) forever — every custom
+    // upload was rejected with 413 in the default deployment (audit B2 M1).
     const rows = this.db.customSF2DB.listAll();
-    return rows.reduce((sum, r) => sum + (r.size || 0), 0);
+    return rows.reduce((sum, r) => (r.id > 0 ? sum + (r.size || 0) : sum), 0);
   }
 }

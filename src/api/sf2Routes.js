@@ -14,6 +14,7 @@
 import { Router, raw as expressRaw, json as expressJson } from 'express';
 import { LIMITS } from '../core/constants.js';
 import { encodePreset } from '../files/SF2PresetCodec.js';
+import { validateSf2Structure } from '../files/SF2Converter.js';
 
 // Serialize SF2 uploads. `expressRaw` buffers the ENTIRE body (up to ~160 MB)
 // into memory before the handler runs, and unlike MIDI uploads these are not
@@ -93,7 +94,9 @@ export function createSF2Router(app) {
       const rows = app.sf2PresetService.listAll();
       res.json({
         defaultPresent: app.sf2PresetService.hasDefaultSF2(),
-        banks: rows.map(publicRow)
+        // Exclude the id=0 built-in-default sentinel (its `size` is a repurposed
+        // mtime, and `defaultPresent` already conveys its presence) — audit B2 M1.
+        banks: rows.filter((r) => r.id > 0).map(publicRow)
       });
     } catch (err) {
       app.logger.error(`GET /api/sf2 failed: ${err.message}`);
@@ -138,6 +141,16 @@ export function createSF2Router(app) {
           req.body.slice(8, 12).toString('ascii') !== 'sfbk'
         ) {
           return res.status(415).json({ error: 'Not a valid SF2 file.' });
+        }
+        // Reject a structurally-malformed container at ingest so a poison blob
+        // (oversized RIFF chunk lengths → OOM on parse) never lands on disk as a
+        // content-addressed, re-crashing file (audit B2 C1).
+        try {
+          validateSf2Structure(
+            new Uint8Array(req.body.buffer, req.body.byteOffset, req.body.length)
+          );
+        } catch (structErr) {
+          return res.status(415).json({ error: `Malformed SF2: ${structErr.message}` });
         }
         // L-2: enforce per-server total storage quota (1 GB default)
         const totalStored = app.sf2PresetService.getTotalStoredSize();

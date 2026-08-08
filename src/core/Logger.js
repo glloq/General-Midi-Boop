@@ -134,7 +134,16 @@ class Logger {
       if (data instanceof Error) {
         logMessage += `\n  Error: ${data.message}\n  Stack: ${data.stack}`;
       } else if (typeof data === 'object') {
-        logMessage += `\n  ${JSON.stringify(data, null, 2)}`;
+        // Never let a circular reference / BigInt / throwing toJSON in the
+        // payload crash the caller — logging must be side-effect-safe (audit
+        // B3 M1).
+        let json;
+        try {
+          json = JSON.stringify(data, null, 2);
+        } catch (err) {
+          json = `[unserializable log payload: ${err.message}]`;
+        }
+        logMessage += `\n  ${json}`;
       } else {
         logMessage += ` ${data}`;
       }
@@ -166,7 +175,18 @@ class Logger {
       }
     }
 
-    return JSON.stringify(entry);
+    try {
+      return JSON.stringify(entry);
+    } catch (err) {
+      // Circular/BigInt payload — emit a valid JSON line instead of throwing
+      // into the caller (audit B3 M1).
+      return JSON.stringify({
+        timestamp: entry.timestamp,
+        level,
+        message,
+        data: `[unserializable log payload: ${err.message}]`
+      });
+    }
   }
 
   /**
@@ -284,6 +304,17 @@ class Logger {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Log rotation failed:', error.message);
+      // The stream was already nulled above; if a mid-rotation error (EPERM,
+      // EBUSY, disk full) skipped the reopen, file logging would be silently
+      // dead until restart. Re-open so the file sink survives (audit B3 M2).
+      if (!this._stream) {
+        try {
+          this._openStream();
+        } catch (reopenErr) {
+          // eslint-disable-next-line no-console
+          console.error('Log stream reopen after failed rotation failed:', reopenErr.message);
+        }
+      }
     } finally {
       this._rotating = false;
     }

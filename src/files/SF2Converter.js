@@ -28,6 +28,58 @@ const MAX_SAMPLE_SECS = 30; // max sample duration per zone (seconds)
 const MAX_TOTAL_SAMPLES = (20 * 1024 * 1024) / 4; // ~20 MB of Float32 data total
 
 /**
+ * Structurally validate the RIFF/sfbk container BEFORE handing bytes to the
+ * soundfont2 library. The library iterates records using each chunk's DECLARED
+ * 4-byte length without clamping it to the real buffer, so a crafted file whose
+ * `phdr`/`pgen`/`igen` length claims ~4 GB (in a 1 KB file) drives the library
+ * to allocate objects until it hits a FATAL, uncatchable V8 heap-limit abort —
+ * and because blobs are content-addressed, the poison file re-crashes the box on
+ * every access (audit B2 C1). We walk the tree once and reject any chunk whose
+ * declared length exceeds its container, so no declared length can ever exceed
+ * the buffer (bounding allocation to file-size-proportional).
+ *
+ * @param {Uint8Array} u8
+ * @throws {Error} on a malformed/hostile container
+ */
+export function validateSf2Structure(u8) {
+  const len = u8.length;
+  if (len < 12) throw new Error('SF2 too short');
+  const readU32 = (o) => (u8[o] | (u8[o + 1] << 8) | (u8[o + 2] << 16) | (u8[o + 3] << 24)) >>> 0;
+  const tag = (o) => String.fromCharCode(u8[o], u8[o + 1], u8[o + 2], u8[o + 3]);
+
+  if (tag(0) !== 'RIFF') throw new Error('Not a RIFF file');
+  const riffLen = readU32(4);
+  if (8 + riffLen > len) throw new Error('RIFF length exceeds file size');
+  if (tag(8) !== 'sfbk') throw new Error('Not an sfbk soundfont');
+
+  const end = 8 + riffLen; // guaranteed <= len
+  let pos = 12; // after RIFF/size/sfbk
+  let chunkGuard = 0;
+  while (pos + 8 <= end) {
+    if (++chunkGuard > 100000) throw new Error('SF2 has too many top-level chunks');
+    const id = tag(pos);
+    const size = readU32(pos + 4);
+    const body = pos + 8;
+    if (body + size > end) throw new Error(`SF2 chunk '${id}' length exceeds container`);
+    if (id === 'LIST') {
+      const listEnd = body + size;
+      let sub = body + 4; // skip the 4-byte list type
+      let subGuard = 0;
+      while (sub + 8 <= listEnd) {
+        if (++subGuard > 2000000) throw new Error('SF2 LIST has too many sub-chunks');
+        const subId = tag(sub);
+        const subSize = readU32(sub + 4);
+        if (sub + 8 + subSize > listEnd) {
+          throw new Error(`SF2 sub-chunk '${subId}' length exceeds its LIST`);
+        }
+        sub += 8 + subSize + (subSize & 1); // RIFF word-alignment padding
+      }
+    }
+    pos = body + size + (size & 1);
+  }
+}
+
+/**
  * Parse raw SF2 bytes into a SoundFont2 instance. Expensive (~450 ms for a
  * 30 MB SF2), so callers loading multiple presets from the same file should
  * cache the result and feed it into {@link convertPresetFromSF2}.
@@ -36,7 +88,11 @@ const MAX_TOTAL_SAMPLES = (20 * 1024 * 1024) / 4; // ~20 MB of Float32 data tota
  * @returns {SoundFont2}
  */
 export function parseSoundFont(sf2Buffer) {
-  return new SoundFont2(new Uint8Array(sf2Buffer));
+  const bytes = sf2Buffer instanceof Uint8Array ? sf2Buffer : new Uint8Array(sf2Buffer);
+  // Reject a malformed/hostile container before the library can over-allocate
+  // (audit B2 C1). Throws are caught by the callers' try/catch → graceful.
+  validateSf2Structure(bytes);
+  return new SoundFont2(bytes);
 }
 
 /**

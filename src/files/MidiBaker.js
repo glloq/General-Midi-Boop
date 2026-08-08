@@ -97,7 +97,11 @@ class MidiBaker {
       let absTick = 0;
       for (const ev of track) {
         absTick += ev.deltaTime;
-        if (ev.type === 'setTempo') {
+        // A malformed file can carry `microsecondsPerBeat <= 0` (e.g. FF 51 03
+        // 00 00 00 parses fine); it would make secsPerTick 0 → Infinity/NaN
+        // ticks → corrupted delta-times in the baked output. Skip non-positive
+        // tempos, matching MidiFileParser.extractTempoMap (audit B2 baker).
+        if (ev.type === 'setTempo' && ev.microsecondsPerBeat > 0) {
           tempoEvents.push({ tick: absTick, microsecondsPerBeat: ev.microsecondsPerBeat });
         }
       }
@@ -527,8 +531,19 @@ class MidiBaker {
       });
     }
 
-    // Sort: by tick first; within the same tick, controllers precede noteOns.
-    const typeOrder = { controller: 0, noteOn: 1, noteOff: 1 };
+    // Keep endOfTrack last: an injected CC whose tick is strictly greater than
+    // the original end-of-track tick would otherwise sort AFTER it and be
+    // silently dropped by spec-compliant players — losing the very adaptation
+    // being baked (audit B2 baker). Push endOfTrack to >= the max event tick.
+    const eot = expanded.find((e) => e.type === 'endOfTrack');
+    if (eot) {
+      const maxTick = expanded.reduce((m, e) => (e._absTick > m ? e._absTick : m), 0);
+      eot._absTick = maxTick;
+    }
+
+    // Sort: by tick first; within the same tick, controllers precede noteOns,
+    // and endOfTrack is forced strictly last.
+    const typeOrder = { controller: 0, noteOn: 1, noteOff: 1, endOfTrack: 3 };
     expanded.sort((a, b) => {
       if (a._absTick !== b._absTick) return a._absTick - b._absTick;
       return (typeOrder[a.type] ?? 2) - (typeOrder[b.type] ?? 2);
