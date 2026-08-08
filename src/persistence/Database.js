@@ -863,10 +863,23 @@ class DatabaseManager {
   }
 
   async backup(backupPath) {
+    // Write to a temp path and rename into place only on success. better-sqlite3
+    // writes `db.backup()` straight to its destination, so a mid-backup failure
+    // (disk full on a Pi SD card) would otherwise leave a PARTIAL file at the
+    // canonical `gmboop-<ts>.db` name — which passes the restore header check
+    // and ranks as the "newest" backup, so retention keeps it and prunes good
+    // ones. rename() is atomic within a filesystem (audit A3 M2).
+    const tmpPath = `${backupPath}.tmp`;
     try {
-      await this.db.backup(backupPath);
+      await this.db.backup(tmpPath);
+      fs.renameSync(tmpPath, backupPath);
       this.logger.info(`Database backed up to: ${backupPath}`);
     } catch (error) {
+      try {
+        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      } catch (cleanupErr) {
+        this.logger.warn(`Backup temp cleanup failed: ${cleanupErr.message}`);
+      }
       this.logger.error(`Backup failed: ${error.message}`);
       throw error;
     }
@@ -887,19 +900,30 @@ class DatabaseManager {
     if (!fs.existsSync(backupPath)) {
       throw new Error(`Backup file not found: ${backupPath}`);
     }
-    // Validate the SQLite magic header ("SQLite format 3\0").
-    const fd = fs.openSync(backupPath, 'r');
+    // Validate the source by OPENING it read-only and running an integrity
+    // check. A 15-byte magic-header sniff passes for a truncated/body-corrupt
+    // file (e.g. a partial backup from a disk-full event), which would then be
+    // copied over the live DB and brick the box (audit A3 M1).
+    let integrity;
+    let checkDb = null;
     try {
-      const header = Buffer.alloc(16);
-      fs.readSync(fd, header, 0, 16, 0);
-      if (header.toString('utf8', 0, 15) !== 'SQLite format 3') {
-        throw new Error('Backup file is not a valid SQLite database');
-      }
+      checkDb = new Database(backupPath, { readonly: true, fileMustExist: true });
+      integrity = checkDb.pragma('integrity_check', { simple: true });
+    } catch (err) {
+      throw new Error(`Backup file is not a valid SQLite database: ${err.message}`);
     } finally {
-      fs.closeSync(fd);
+      try {
+        checkDb?.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    if (integrity !== 'ok') {
+      throw new Error(`Backup failed integrity check: ${integrity}`);
     }
 
-    // Close the live connection before overwriting the file on disk.
+    // Close the live connection before swapping the file on disk. A clean close
+    // of the last connection checkpoints and removes the WAL/SHM sidecars.
     try {
       if (this.db) this.db.close();
     } catch (err) {
@@ -907,13 +931,51 @@ class DatabaseManager {
     }
     this.db = null;
 
-    fs.copyFileSync(backupPath, this.dbPath);
-    for (const sidecar of [`${this.dbPath}-wal`, `${this.dbPath}-shm`]) {
-      try {
-        if (fs.existsSync(sidecar)) fs.unlinkSync(sidecar);
-      } catch (err) {
-        this.logger.warn(`Removing ${sidecar} during restore failed: ${err.message}`);
+    // Atomic swap: stage the validated backup beside the live file, preserve the
+    // current live DB as `.prerestore`, then rename the stage into place. A
+    // failure at any step leaves a recoverable DB rather than a half-copied one
+    // (audit A3 M1) — the previous code copied straight over the live file, so a
+    // mid-copy error destroyed it with no fallback.
+    const stagePath = `${this.dbPath}.restore-tmp`;
+    const prevPath = `${this.dbPath}.prerestore`;
+    try {
+      fs.copyFileSync(backupPath, stagePath);
+      // Drop stale WAL/SHM so the swapped-in file opens clean (safe: the close
+      // above already checkpointed them into the old main file).
+      for (const sidecar of [`${this.dbPath}-wal`, `${this.dbPath}-shm`]) {
+        try {
+          if (fs.existsSync(sidecar)) fs.unlinkSync(sidecar);
+        } catch (err) {
+          this.logger.warn(`Removing ${sidecar} during restore failed: ${err.message}`);
+        }
       }
+      if (fs.existsSync(this.dbPath)) fs.renameSync(this.dbPath, prevPath);
+      fs.renameSync(stagePath, this.dbPath);
+      try {
+        if (fs.existsSync(prevPath)) fs.unlinkSync(prevPath);
+      } catch {
+        /* best effort — the restore already succeeded */
+      }
+    } catch (err) {
+      this.logger.error(`Restore swap failed: ${err.message}`);
+      // Roll back the live DB if we already moved it aside.
+      try {
+        if (!fs.existsSync(this.dbPath) && fs.existsSync(prevPath)) {
+          fs.renameSync(prevPath, this.dbPath);
+        }
+      } catch (rollbackErr) {
+        this.logger.error(`Restore rollback failed: ${rollbackErr.message}`);
+      }
+      try {
+        if (fs.existsSync(stagePath)) fs.unlinkSync(stagePath);
+      } catch {
+        /* ignore */
+      }
+      // Reopen whatever DB survived so the manager stays usable, then surface.
+      this.connect();
+      this.runMigrations();
+      this._initSubModules();
+      throw err;
     }
 
     // Reopen the connection and rebuild the sub-modules so this manager is

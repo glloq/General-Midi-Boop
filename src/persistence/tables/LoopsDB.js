@@ -85,6 +85,7 @@ class LoopsDB {
         [...allowed, 'updated_at'],
         { transforms: { midi_data: (v) => (typeof v === 'string' ? v : JSON.stringify(v)) } }
       );
+      if (!result) return; // defensive parity with sibling updaters (audit A3 C4-M2)
       this.db.prepare(result.sql).run(...result.values, id);
     } catch (error) {
       this.logger.error(`LoopsDB.updateLoop: ${error.message}`);

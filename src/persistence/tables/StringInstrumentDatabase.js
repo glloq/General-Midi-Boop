@@ -326,7 +326,15 @@ class StringInstrumentDatabase {
       this.logger.info(
         `String instrument created/updated for ${config.device_id} ch${config.channel}`
       );
-      return result.lastInsertRowid;
+      // `lastInsertRowid` is only updated on a real INSERT — on the ON CONFLICT
+      // UPDATE arm (the common "edit" path) it returns the rowid of some other
+      // table's last insert, so the client would get a wrong id and later
+      // fetch/patch/delete the wrong row (audit A3 M1). Re-read by the conflict
+      // key to return the correct id on both paths.
+      const row = this.db
+        .prepare('SELECT id FROM string_instruments WHERE device_id = ? AND channel = ?')
+        .get(config.device_id, config.channel || 0);
+      return row ? row.id : result.lastInsertRowid;
     } catch (error) {
       this.logger.error(`Failed to create string instrument: ${error.message}`);
       throw error;
@@ -672,7 +680,15 @@ class StringInstrumentDatabase {
 
       const result = stmt.run(midiFileId, channel || 0, stringInstrumentId, dataJson);
       this.logger.info(`Tablature saved for file ${midiFileId} ch${channel}`);
-      return result.lastInsertRowid;
+      // Re-read by the conflict key: `lastInsertRowid` is stale on the ON
+      // CONFLICT UPDATE arm and would return an unrelated table's rowid (audit
+      // A3 M1).
+      const row = this.db
+        .prepare(
+          'SELECT id FROM string_instrument_tablatures WHERE midi_file_id = ? AND channel = ?'
+        )
+        .get(midiFileId, channel || 0);
+      return row ? row.id : result.lastInsertRowid;
     } catch (error) {
       this.logger.error(`Failed to save tablature: ${error.message}`);
       throw error;

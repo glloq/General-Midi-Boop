@@ -117,6 +117,16 @@ class BackupScheduler {
       const referenced = new Set(
         this.database.midiDB.listBlobsForManifest().map((r) => r.blob_path)
       );
+      // Safety floor: an empty referenced set makes gcOrphans treat EVERY blob
+      // as an orphan. A transient/partial query result must never trigger a mass
+      // wipe of every stored MIDI file, so skip GC when nothing is referenced —
+      // a genuinely file-free install has no blobs worth collecting anyway, and
+      // any real orphans are swept on the next run once ≥1 file exists (audit
+      // A3 MED1).
+      if (referenced.size === 0) {
+        this.logger.warn('Blob GC skipped: 0 referenced blobs (guard against mass deletion)');
+        return;
+      }
       const { scanned, deleted } = this.blobStore.gcOrphans((rel) => referenced.has(rel));
       if (deleted > 0) {
         this.logger.info(`Blob GC: removed ${deleted} orphaned blob(s) of ${scanned} scanned`);

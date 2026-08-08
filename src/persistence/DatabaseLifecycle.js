@@ -105,7 +105,14 @@ function runSingleMigration(db, logger, version, filename, migrationsDir) {
     logger.info(`Migration ${version} completed`);
     return;
   } catch (error) {
-    db.exec('ROLLBACK');
+    // Guard the rollback: if SQLite already auto-aborted the transaction, a bare
+    // ROLLBACK throws "no transaction is active" and masks the real migration
+    // error (audit A3 N2).
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* transaction already rolled back */
+    }
     if (!/duplicate column name/i.test(error.message)) {
       logger.error(`Migration ${version} failed: ${error.message}`);
       throw error;
@@ -143,7 +150,11 @@ function runSingleMigration(db, logger, version, filename, migrationsDir) {
     db.exec('COMMIT');
     logger.info(`Migration ${version} completed`);
   } catch (error) {
-    db.exec('ROLLBACK');
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* transaction already rolled back */
+    }
     logger.error(`Migration ${version} failed: ${error.message}`);
     throw error;
   }

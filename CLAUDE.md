@@ -23,6 +23,7 @@ browser SPA over WebSocket. Node.js >= 20, ES modules (`"type": "module"`).
 - `npm run migrate` — apply SQL migrations manually (also auto-applied at startup)
 
 Run a single test:
+
 - Backend: `npm test -- tests/event-bus.test.js` or `npm test -- -t "pattern"`
 - Frontend: `npx vitest run tests/frontend/path/to.test.js`
 
@@ -56,7 +57,7 @@ Services receive an **app-facade Proxy** (`deps`) that resolves names from the
 container, falling back to the `Application` instance. **Registration order in
 `initialize()` is a hard contract**: a service that captures `deps.foo` into
 `this.foo` in its constructor freezes that reference, so `foo` must be
-registered *before* its consumer. Genuinely late-bound services (`wsServer`,
+registered _before_ its consumer. Genuinely late-bound services (`wsServer`,
 `eventLoopMonitor`, `backupScheduler`) must be accessed via `this._deps.X` or a
 getter, never an eager capture. Optional transports/lighting
 (Bluetooth/Network/Serial/Lighting) load inside `try/catch` and are silently
@@ -95,7 +96,8 @@ as "Internal server error".
 
 SQLite via `better-sqlite3` (WAL). `migrations/001_baseline.sql` consolidates
 the historical chain; later changes are added as new numbered
-`migrations/NNN_*.sql` files and applied at startup inside one transaction.
+`migrations/NNN_*.sql` files applied at startup in numeric order, each in its
+own transaction (a failure at file N keeps 1..N-1 committed and retries from N).
 Automated daily backups via `BackupScheduler`.
 
 ### Configuration

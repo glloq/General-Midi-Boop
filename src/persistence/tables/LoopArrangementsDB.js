@@ -54,6 +54,7 @@ class LoopArrangementsDB {
         { ...fields, updated_at: Date.now() },
         [...allowed, 'updated_at']
       );
+      if (!result) return; // defensive parity with sibling updaters (audit A3 C4-M2)
       this.db.prepare(result.sql).run(...result.values, id);
     } catch (e) {
       this.logger.error(`LoopArrangementsDB.updateArrangement: ${e.message}`);
