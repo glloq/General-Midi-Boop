@@ -12,10 +12,11 @@ Le binding natif est absent du sandbox : les suites SQLite s'auto-skippent, donc
 les correctifs qui exigent une vraie DB sont **vérifiés par relecture** et
 exercés en CI ; les autres ont des tests unitaires locaux (stubs/prototype-call).
 
-**Statut :** 10 items corrigés (3 avec tests locaux, le reste vérifié par
-relecture + CI). La couche est globalement disciplinée — **aucune injection SQL,
-aucun `DROP`/rename destructif, FK cascades actives**. Le reste est listé plus
-bas ; un item (upgrade pré-baseline) mérite une **décision**.
+**Statut :** 11 items corrigés (4 avec tests locaux, le reste vérifié par
+relecture + CI), dont l'item MAJEUR d'upgrade pré-baseline (réconciliation
+`schema_version`, décision 2026-08-08). La couche est globalement disciplinée —
+**aucune injection SQL, aucun `DROP`/rename destructif, FK cascades actives**.
+Le reste (minors, D1) est listé plus bas.
 
 ---
 
@@ -66,6 +67,17 @@ bas ; un item (upgrade pré-baseline) mérite une **décision**.
 
 ### Dépôts & runner
 
+- **UPGRADE-M1 (MAJEUR) — DB pré-baseline : migrations 002–034 sautées.**
+  `001_baseline` enregistre la version 1 puis la chaîne post-baseline réutilise
+  les entiers 2..34 ; une DB écrite par l'ancienne chaîne (même table
+  `schema_version` en entiers) les gatait → tables de fonctionnalité absentes →
+  crashes runtime. Corrigé : `reconcileLegacySchemaVersion` détecte une DB
+  pré-baseline (ligne version 1 dont la description n'est pas le marqueur
+  `"Baseline schema …"`) et, dans ce cas seulement, réécrit la version 1 +
+  supprime les lignes ≥ 2 pour que le runner **rejoue** les migrations
+  additives (toutes `CREATE … IF NOT EXISTS` + `ADD COLUMN` toléré → idempotent),
+  exactement une fois. **No-op strict** sur install fraîche / new-baseline.
+  Tests : `tests/migration-legacy-reconcile.test.js`.
 - **C4-M1 (MOYEN) — reset silencieux de la config hotspot**
   `HotspotConfigRepository.update`. Le merge se faisait sur `get()`, qui avale
   toute erreur de lecture et renvoie les DEFAULTS → un patch d'un champ
@@ -84,19 +96,8 @@ bas ; un item (upgrade pré-baseline) mérite une **décision**.
 
 ---
 
-## 🟠 Ouverts — décision / à planifier / documentés
+## 🟠 Ouverts — à planifier / documentés
 
-- **UPGRADE-M1 (MAJEUR, conditionnel) — DB pré-baseline : les migrations
-  002–034 seraient sautées.** `001_baseline` enregistre la version **1** puis la
-  chaîne post-baseline **réutilise les entiers 2..34**. Si une DB pré-0.7.0
-  utilisait la même table `schema_version` (versions 1..40 de l'ancienne
-  chaîne), le runner (`hasMigration(db, version)`) skippe 002..034 → tables
-  manquantes → crashes runtime (pas de corruption). **Fresh install et upgrades
-  intra-0.7.0 non affectés.** Aucun code de réconciliation legacy n'existe.
-  → **DÉCISION** : (a) offsetter la nouvelle chaîne au-dessus du max legacy
-  (ex. démarrer à 100), (b) réconciliation « legacy détecté → rejouer les
-  additifs », ou (c) documenter que les DB pré-baseline ne sont pas
-  upgradables en place. À arbitrer selon l'existence de déploiements pré-baseline.
 - **D1 (MOYEN) — tolérance `duplicate column name` trop large** `DatabaseLifecycle`.
   Masquerait une vraie erreur d'auteur (colonne dupliquée par mégarde).
   → restreindre aux versions de collision connues (6, 19) ou vérifier a

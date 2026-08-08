@@ -56,6 +56,9 @@ export function runMigrations(db, logger) {
     .filter((f) => f.endsWith('.sql'))
     .sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b));
 
+  // Handle the pre-baseline upgrade path before gating on version numbers.
+  reconcileLegacySchemaVersion(db, logger);
+
   for (const file of migrationFiles) {
     const version = parseInt(file.split('_')[0], 10);
     if (!Number.isFinite(version)) continue;
@@ -81,6 +84,52 @@ function hasMigration(db, version) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Reconcile a pre-baseline database before the version-gated loop runs.
+ *
+ * `001_baseline.sql` records version 1; the post-baseline files reuse the
+ * integer versions 2..N. A database written by the OLD migration chain (which
+ * used the same `schema_version` integer table, versions 1..40) would therefore
+ * gate out every post-baseline migration — leaving the new feature tables
+ * absent and crashing at runtime (audit A3 UPGRADE-M1).
+ *
+ * Detection is precise and a strict no-op on fresh / new-baseline databases:
+ * a new baseline stamps version 1 with a `"Baseline schema …"` description, so
+ * we only act when a version-1 row exists whose description is something else
+ * (i.e. written by the legacy chain). In that case we drop the stale rows >= 2
+ * and let the runner re-apply the post-baseline migrations — they are all
+ * `CREATE … IF NOT EXISTS` plus tolerated `ADD COLUMN`, so re-running is
+ * idempotent — while leaving version 1 in place (baseline is NOT idempotent and
+ * the legacy schema already carries its tables). Version 1's description is
+ * rewritten to the baseline marker so this runs exactly once.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {Object} logger
+ * @returns {void}
+ */
+export function reconcileLegacySchemaVersion(db, logger) {
+  let row;
+  try {
+    row = db.prepare('SELECT description FROM schema_version WHERE version = 1').get();
+  } catch {
+    return; // schema_version doesn't exist yet — fresh DB, baseline will create it
+  }
+  if (!row) return; // no version-1 row — baseline will insert it
+  if (String(row.description || '').startsWith('Baseline schema')) return; // new-baseline DB
+
+  logger.warn(
+    'Detected a pre-baseline schema_version table (legacy upgrade path); reconciling by ' +
+      're-applying post-baseline migrations idempotently (audit A3 UPGRADE-M1).'
+  );
+  const reconcile = db.transaction(() => {
+    db.prepare('UPDATE schema_version SET description = ? WHERE version = 1').run(
+      'Baseline schema (reconciled from a legacy pre-baseline database)'
+    );
+    db.prepare('DELETE FROM schema_version WHERE version >= 2').run();
+  });
+  reconcile();
 }
 
 function runSingleMigration(db, logger, version, filename, migrationsDir) {
