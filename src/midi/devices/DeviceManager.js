@@ -1325,6 +1325,17 @@ class DeviceManager {
   handleMidiMessage(deviceName, type, msg) {
     const timestamp = Date.now();
 
+    // Normalize a velocity-0 Note On to a Note Off (MIDI spec §running status).
+    // `handleRawMidi` already does this for BLE/network, but serial and USB
+    // (easymidi) deliver `noteon` with `velocity === 0` verbatim, so the
+    // router's stuck-note latches and the rate-limiter would treat a
+    // note-release as a fresh note-on and could leave a note hanging
+    // (audit A1 Serial#2). Normalize here at the common inbound entry so every
+    // transport routes note-offs identically.
+    if (type === 'noteon' && msg && msg.velocity === 0) {
+      type = 'noteoff';
+    }
+
     // Parse SysEx Identity Reply if applicable
     if (type === 'sysex') {
       const bytes = Array.isArray(msg) ? msg : msg.bytes || [];

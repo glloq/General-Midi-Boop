@@ -434,6 +434,12 @@ class SerialMidiManager extends EventEmitter {
       state.inSysEx = true;
       state.sysExBuffer = [byte];
       state.runningStatus = 0; // SysEx cancels running status
+      // Drop any partially-assembled channel-voice message: on a malformed
+      // stream (e.g. `90 3C` then `F0 … F7`) the stale `[90, 3C]` would
+      // otherwise be completed by the first data byte after the SysEx and emit
+      // a phantom note across the boundary (audit A1 Serial#3).
+      state.buffer = [];
+      state.expectedLength = 0;
       return;
     }
 

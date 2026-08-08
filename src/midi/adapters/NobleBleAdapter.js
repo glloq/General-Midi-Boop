@@ -236,41 +236,61 @@ export default class NobleBleAdapter extends EventEmitter {
     }
 
     await device.connect();
-    const gatt = await device.gatt();
-    const service = await gatt.getPrimaryService(BLE_MIDI_SERVICE_UUID);
-    const characteristic = await service.getCharacteristic(BLE_MIDI_CHARACTERISTIC_UUID);
 
-    const handler = (buffer) => {
-      this.emit(BLE_EVENTS.MIDI_MESSAGE, { address, data: new Uint8Array(buffer) });
-    };
-    characteristic.on('valuechanged', handler);
-    await characteristic.startNotifications();
+    // Everything below runs against the now-open BlueZ link. If any step throws
+    // (GATT discovery, characteristic lookup, enabling notifications) we must
+    // tear the link (and any listener already attached) back down — otherwise a
+    // half-open connection lingers as a zombie and a `valuechanged` listener
+    // leaks, since `_connections` is only populated on full success and the
+    // disconnect() path would never see this address (audit A1 BLE#2).
+    let characteristic = null;
+    let handler = null;
+    try {
+      const gatt = await device.gatt();
+      const service = await gatt.getPrimaryService(BLE_MIDI_SERVICE_UUID);
+      characteristic = await service.getCharacteristic(BLE_MIDI_CHARACTERISTIC_UUID);
 
-    // Detect an UNEXPECTED drop (device out of range / powered off). Without
-    // this the connection entry lingered, isConnected() kept reporting true,
-    // and inbound notes silently stopped (audit P2 — BLE disconnects not
-    // detected). Surfacing DISCONNECTED lets BluetoothManager mark the device
-    // offline. The explicit disconnect() path removes this listener first so
-    // the event is emitted exactly once.
-    const onDisconnect = () => {
-      if (!this._connections.has(address)) return; // already torn down cleanly
+      handler = (buffer) => {
+        this.emit(BLE_EVENTS.MIDI_MESSAGE, { address, data: new Uint8Array(buffer) });
+      };
+      characteristic.on('valuechanged', handler);
+      await characteristic.startNotifications();
+
+      // Detect an UNEXPECTED drop (device out of range / powered off). Without
+      // this the connection entry lingered, isConnected() kept reporting true,
+      // and inbound notes silently stopped (audit P2 — BLE disconnects not
+      // detected). Surfacing DISCONNECTED lets BluetoothManager mark the device
+      // offline. The explicit disconnect() path removes this listener first so
+      // the event is emitted exactly once.
+      const onDisconnect = () => {
+        if (!this._connections.has(address)) return; // already torn down cleanly
+        try {
+          characteristic.off?.('valuechanged', handler);
+          // Remove ourselves too: a device that repeatedly drops and reconnects
+          // reuses the same `device` object, so without this the unexpected-drop
+          // path accumulates one stale 'disconnect' listener per cycle (unbounded
+          // leak that eventually trips Node's MaxListeners warning).
+          device.off?.('disconnect', onDisconnect);
+        } catch {
+          /* ignore */
+        }
+        this._connections.delete(address);
+        this.emit(BLE_EVENTS.DISCONNECTED, { address, unexpected: true });
+      };
+      device.on?.('disconnect', onDisconnect);
+
+      this._connections.set(address, { device, gatt, characteristic, handler, onDisconnect });
+      this.emit(BLE_EVENTS.CONNECTED, { address });
+    } catch (err) {
       try {
-        characteristic.off?.('valuechanged', handler);
-        // Remove ourselves too: a device that repeatedly drops and reconnects
-        // reuses the same `device` object, so without this the unexpected-drop
-        // path accumulates one stale 'disconnect' listener per cycle (unbounded
-        // leak that eventually trips Node's MaxListeners warning).
-        device.off?.('disconnect', onDisconnect);
+        if (characteristic && handler) characteristic.off?.('valuechanged', handler);
+        if (characteristic) await characteristic.stopNotifications?.().catch(() => {});
+        await device.disconnect?.().catch(() => {});
       } catch {
-        /* ignore */
+        /* best-effort teardown; surface the original error */
       }
-      this._connections.delete(address);
-      this.emit(BLE_EVENTS.DISCONNECTED, { address, unexpected: true });
-    };
-    device.on?.('disconnect', onDisconnect);
-
-    this._connections.set(address, { device, gatt, characteristic, handler, onDisconnect });
-    this.emit(BLE_EVENTS.CONNECTED, { address });
+      throw err;
+    }
   }
 
   async disconnect(address) {

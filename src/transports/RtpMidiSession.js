@@ -344,6 +344,9 @@ class RtpMidiSession extends EventEmitter {
 
     let offset = 12 + csrcCount * 4;
     if (extension) {
+      // Bound the extension header read so a malformed/truncated packet returns
+      // null instead of throwing a RangeError (audit RTP-L7).
+      if (offset + 4 > buffer.length) return null;
       const extLength = buffer.readUInt16BE(offset + 2) * 4;
       offset += 4 + extLength;
     }
@@ -384,9 +387,13 @@ class RtpMidiSession extends EventEmitter {
     // when clear the first command has an implicit delta-time of 0. (GMBoop's
     // own encoder sends Z=0 with a single full-status command.)
     const hasFirstDelta = (headerByte & 0x20) !== 0;
+    // Header P bit (0x10): the first command has no status byte and inherits the
+    // running status from the PREVIOUS packet (RFC 6295). Without honouring it,
+    // the first command of a P=1 packet was silently dropped (audit RTP-M4).
+    const hasRunningStatusCarry = (headerByte & 0x10) !== 0;
     const midiEnd = Math.min(midiOffset + midiLength, payload.length);
     let i = midiOffset;
-    let runningStatus = 0;
+    let runningStatus = hasRunningStatusCarry ? this._rtpRunningStatus || 0 : 0;
     let firstCommand = true;
 
     while (i < midiEnd) {
@@ -435,10 +442,17 @@ class RtpMidiSession extends EventEmitter {
       if (i + dataBytes <= midiEnd) {
         commands.push([runningStatus, ...Array.from(payload.slice(i, i + dataBytes))]);
         i += dataBytes;
+        // System Common (0xF1-0xF7) is a one-shot status and CANCELS running
+        // status — without this a following data byte was mis-parsed as another
+        // System Common command (audit RTP-L1).
+        if (runningStatus >= 0xf1 && runningStatus <= 0xf7) runningStatus = 0;
       } else {
         break;
       }
     }
+    // Persist running status for a subsequent P=1 packet (RFC 6295) — see the
+    // header parse above (audit RTP-M4).
+    this._rtpRunningStatus = runningStatus;
     return commands;
   }
 

@@ -4,71 +4,97 @@ Audit adversarial (3 relecteurs parallèles) de la couche transport/I/O :
 BLE, RTP-MIDI/réseau, Serial + intégration `DeviceManager`. Chaque finding a été
 vérifié par relecture ; les correctifs appliqués sont testés.
 
-**Statut global :** 2 bugs de correction corrigés+testés (BLE#1, Serial#1). Le
-reste est listé ci-dessous avec sévérité et recommandation ; plusieurs demandent
-une **décision** (modèle de menace RTP) ou une **QA matérielle**.
+**Statut global :** tous les findings de correction claire (non-sécurité) sont
+**corrigés** (15 items ; 9 avec tests dédiés, 6 couverts par relecture + suite
+complète). Restent uniquement les items **sécurité RTP-MIDI**, volontairement
+**différés** (décision « LAN de confiance » : on documente, on ne change pas le
+comportement).
 
 ---
 
 ## ✅ Corrigés + testés
 
+### BLE
+
 - **BLE#1 (MAJEUR) — SysEx interrompu par un status byte** `BluetoothManager._handleIncomingMidi`.
   Un appareil qui abandonne un SysEx avec un nouveau message (au lieu de `0xF7`)
   faisait manger le status comme timestamp → note perdue + SysEx bloqué ouvert.
   Corrigé : le consommateur SysEx distingue timestamp de framing vs status
-  d'abandon (drapeau `consumedData`). Tests : `tests/ble-midi-decode.test.js`
-  (8 cas : baseline + abandon inter/intra-paquet).
+  d'abandon (drapeau `consumedData`). Tests : `tests/ble-midi-decode.test.js`.
+- **BLE#2 (MAJEUR) — fuite GATT/listener sur échec partiel de connexion**
+  `NobleBleAdapter.connect()`. `_connections` n'était peuplé qu'au succès complet,
+  donc un throw après `device.connect()` laissait un lien BlueZ à moitié ouvert
+  (zombie) + un listener `valuechanged` fuité, sans chemin de nettoyage. Corrigé :
+  `try/catch` autour des étapes post-lien → teardown best-effort (retrait listener,
+  `stopNotifications`, `device.disconnect`) puis rethrow. Tests :
+  `tests/noble-ble-connect-teardown.test.js`.
+- **BLE#3 (MAJEUR, conformité) — encodeur séparait le timestamp du `0xF7`**
+  `BluetoothManager.encodeBleMidiPackets`. Pour certaines longueurs de SysEx
+  (données brutes 18/37/56…) le chunking à plat plaçait `0xF7` en tête de paquet,
+  laissant son timestamp dans le paquet précédent. Corrigé : les `[ts,F0]`/`[ts,F7]`
+  sont des tokens atomiques 2 octets, jamais scindés. Tests :
+  `tests/ble-midi-encode.test.js` (adjacence + MTU + round-trip encode→decode).
+- **BLE#4 (MAJEUR) — garde `startScan` racy** `BluetoothManager.startScan`.
+  Check-then-act à travers un `await` : deux `ble_scan_start` simultanés passaient
+  la garde et racaient `devices.clear()`. Corrigé : `scanning=true` posé
+  **avant** l'`await this._initPromise` (dans le `try`). Couvert par relecture +
+  suite complète.
+- **BLE#6 (MINEUR) — `_scheduleReconnect` écrasait `entry.timer` sans clear**
+  → timer orphelin = reconnexion en trop. Corrigé : `clearTimeout` avant de
+  ré-armer. Couvert par relecture.
+
+### RTP-MIDI / réseau
+
+- **RTP L1 (FAIBLE) — System Common ne réinitialisait pas le running status**
+  `RtpMidiSession.parseMidiPayload` (seul `0xF0` resettait). `F3 05` puis data →
+  commande fabriquée. Corrigé : `0xF1–0xF7` remet `runningStatus=0`. Tests :
+  `tests/rtp-midi-parser-fixes.test.js`.
+- **RTP M4 (MOYEN) — bit P (running status inter-paquets) ignoré**
+  `RtpMidiSession.parseMidiPayload` → 1ʳᵉ commande d'un paquet `P=1` perdue.
+  Corrigé : lecture du bit P + persistance de `_rtpRunningStatus` entre paquets.
+  Tests : `tests/rtp-midi-parser-fixes.test.js`.
+- **RTP L7 (FAIBLE) — `parseRtpPacket` throw sur extension malformée**
+  (`readUInt16BE` hors borne). Corrigé : borne + `return null`. Tests :
+  `tests/rtp-midi-parser-fixes.test.js`.
+- **RTP M2 (MOYEN) — `_ensureSockets()` sans garde in-flight** `NetworkManager`
+  → deux connexions concurrentes racaient le bind (fuite de socket / port 5004 mal
+  bindé). Corrigé : promesse d'init partagée (`_ensureSocketsPromise`), remise à
+  `null` en `finally` pour permettre un re-bind après `shutdown()`. Couvert par
+  relecture + suite complète.
+- **RTP L3 (FAIBLE) — timer connect-timeout jamais `clearTimeout`/`unref`**
+  `NetworkManager.connect` → maintenait la boucle d'events 10 s et rejetait
+  `connectTimeout` après règlement de la course (rejet non géré). Corrigé :
+  capture du handle, `unref()`, `clearTimeout` en `finally`. Couvert par relecture.
+- **RTP L5 (FAIBLE) — `network:disconnected` émis 2×** `NetworkManager.disconnect`
+  (le handler `disconnected` de la session émet déjà + `disconnect()` ré-émettait).
+  Corrigé : le handler de session est l'unique émetteur ; `disconnect()` n'émet que
+  s'il n'y a pas de session vivante. Payload unifié `{ ip, device_id }`. Couvert
+  par relecture. *(Actuellement latent : aucun consommateur backend de l'event.)*
+- **RTP L6 (FAIBLE) — `shutdown()` n'itérait pas les `rtpSessions` pendantes**
+  → sessions responder mi-handshake (jamais entrées dans `connectedDevices`)
+  gardaient leur watchdog actif. Corrigé : fermeture de toute session restante
+  après la boucle `connectedDevices`. Couvert par relecture.
+
+### Serial / USB / intégration DeviceManager
+
 - **Serial#1 (MOYEN-HAUT) — `device_disconnected` jamais émis sur l'EventBus**
-  `DeviceManager` (callback `update`). Le chemin de retrait ne rafraîchissait que
-  l'UI → l'event n'atteignait jamais l'EventBus, rendant **code mort** le reset
-  du note-gate du routeur (fix de la session), l'invalidation du cache d'horloge,
-  et le pont WS. Corrigé : diff avant/après de la map d'appareils → émission par
-  appareil disparu. (Rend enfin actif le fix note-gate-sur-déconnexion.)
+  `DeviceManager` (callback `update`). Corrigé : diff avant/après de la map
+  d'appareils → émission par appareil disparu (rend enfin actif le reset
+  note-gate-sur-déconnexion). Couvert par relecture + suite.
+- **Serial#2 (MOYEN) — vel-0 note-on non normalisé en note-off (serial/USB)**
+  Seul BLE/réseau passait par `handleRawMidi` (qui normalise). Serial/USB
+  livraient `noteon` vel-0 → latches anti-note-bloquée et rate-limiter le
+  traitaient comme un note-on → note potentiellement bloquée. Corrigé : normalisé
+  au point d'entrée commun `DeviceManager.handleMidiMessage`. Tests :
+  `tests/devicemanager-velocity0-noteoff.test.js`.
+- **Serial#3 (FAIBLE) — buffer channel-voice partiel non vidé au démarrage SysEx**
+  `SerialMidiManager._parseByte` → note fantôme sur flux malformé. Corrigé : vidage
+  de `state.buffer`/`expectedLength` au `0xF0`. Tests :
+  `tests/serial-sysex-partial-flush.test.js`.
 
 ---
 
-## 🟠 Ouverts — correction claire, à faire (cheap, bas risque)
-
-- **BLE#4 (MAJEUR) — garde `startScan` racy** `BluetoothManager:249-255`.
-  Check-then-act à travers un `await` : deux `ble_scan_start` simultanés passent
-  la garde, `devices.clear()` concurrents corrompent la map. → poser
-  `scanning=true` **avant** l'await.
-- **RTP L1 (FAIBLE) — System Common ne réinitialise pas le running status**
-  `RtpMidiSession:425-428` (seul `0xF0` reset). `F3 05` puis data → commande
-  fabriquée. → `0xF1–0xF7` doit remettre `runningStatus=0`.
-- **RTP L7 (FAIBLE) — `parseRtpPacket` throw sur extension malformée**
-  `RtpMidiSession:346-349` (`readUInt16BE` hors borne). Contenu (try/catch en
-  amont) → log-spam seulement. → borne + `return null`.
-- **BLE#6 (MINEUR) — `_scheduleReconnect` écrase `entry.timer` sans clear**
-  `BluetoothManager:169` → timer orphelin = reconnexion en trop. → `clearTimeout`.
-- **RTP L3/L5/L6 (FAIBLE) — cycles de vie** : timer connect-timeout jamais
-  `clearTimeout`/`unref` (`NetworkManager:521-534`) ; `network:disconnected` émis
-  2× (`:506-513` + `:660-664`) ; `shutdown()` n'itère pas les `rtpSessions`
-  pendantes (`:1008-1034`).
-- **Serial#3 (FAIBLE) — buffer channel-voice partiel non vidé au démarrage SysEx**
-  `SerialMidiManager:433-438` → note fantôme sur flux malformé.
-
-## 🟠 Ouverts — correction réelle mais plus large (à planifier)
-
-- **Serial#2 (MOYEN) — vel-0 note-on non normalisé en note-off (serial/USB/réseau)**
-  Seul BLE passe par `handleRawMidi` (qui normalise). Serial/USB/réseau livrent
-  `noteon` vel-0 → les latches anti-note-bloquée du routeur (`_clampToCapabilities`,
-  `_getStableCompensation`) et le rate-limiter le traitent comme un note-on → note
-  potentiellement bloquée. → normaliser à un point d'entrée commun.
-- **RTP M2 (MOYEN) — `_ensureSockets()` sans garde in-flight** `NetworkManager:739-770`
-  → deux connexions concurrentes racent le bind (fuite de socket / port 5004 mal
-  bindé). → verrou/promesse d'init partagée.
-- **RTP M4 (MOYEN) — bit P (running status inter-paquets) ignoré** `RtpMidiSession:365-443`
-  → 1ʳᵉ commande d'un paquet `P=1` silencieusement perdue (perte MIDI, dépend du
-  pair). Non couvert par T4.2.
-- **BLE#2 (MAJEUR, matériel) — fuite GATT/listener sur échec partiel de connexion**
-  `NobleBleAdapter.connect():238-247` (pas de try/catch → lien BlueZ à moitié
-  ouvert non libéré ; zombie possible). QA matériel requise pour valider.
-- **BLE#3 (MAJEUR, conformité) — encodeur sépare le timestamp du `0xF7`**
-  `BluetoothManager:614-629` pour certaines longueurs (len brute 18/37/56…). Impact
-  dépend de la tolérance du récepteur. → garder `[ts,F7]` dans le même paquet.
-
-## 🔴 Ouverts — DÉCISION requise (modèle de menace RTP-MIDI)
+## 🔴 Différés — DÉCISION « LAN de confiance » (modèle de menace RTP-MIDI)
 
 Le transport RTP-MIDI écoute sur le LAN et **fait confiance à l'IP source** —
 `remoteSsrc` est assigné mais **jamais validé**, aucun token vérifié.
@@ -82,9 +108,11 @@ Le transport RTP-MIDI écoute sur le LAN et **fait confiance à l'IP source** �
 - **RTP L2/L4 — pas de retransmission d'invitation ; sessions responder non
   limitées.**
 
-→ Ces items exigent de décider le **niveau de confiance réseau** (LAN de
-confiance vs durci). Valider SSRC/token et rejeter les ports non-5004 change le
-comportement avec des pairs légitimes → à arbitrer avant correctif.
+**Décision (2026-08-08) : « LAN de confiance » — différé.** Valider SSRC/token et
+rejeter les ports non-5004 changerait le comportement avec des pairs légitimes.
+Le déploiement cible (Raspberry Pi offline sur LAN de confiance) ne justifie pas
+ce durcissement pour l'instant. Ces items sont **documentés mais non corrigés** ;
+à ré-arbitrer si le box est un jour exposé à un réseau non-fiable.
 
 ---
 
@@ -95,8 +123,9 @@ comportement avec des pairs légitimes → à arbitrer avant correctif.
   parser borne la section MIDI par LEN → **pas de corruption d'état** sur perte.
 - **Note « NobleBleAdapter non câblé en DI » (T5.2) obsolète/fausse** : c'est le
   port de PRODUCTION (`BluetoothManager` délègue à `this._port` = `NobleBleAdapter`
-  par défaut). Rien n'est mort. Le seul manque : la suite de contrat ne teste que
-  `InMemoryBleAdapter` → les chemins matériels (dont BLE#2) sont non exercés.
+  par défaut). Rien n'est mort. La logique de teardown BLE#2 est désormais testée
+  via des fakes injectés (`tests/noble-ble-connect-teardown.test.js`) ; seule la
+  **QA sur matériel réel** (lien BlueZ physique) reste non exécutée.
 - **Parsers crash-hardened** : fuzz 50k paquets RTP → 0 crash/OOB.
 - Vérifié CORRECT (extraits) : décodage BLE canal/running-status/realtime/SysEx
   multi-paquet ; codec AppleMIDI (IN/OK/NO/BY/CK) ; parsing serial realtime/running
