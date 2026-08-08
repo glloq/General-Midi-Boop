@@ -34,7 +34,10 @@
       super({
         id: 'system-admin-modal',
         size: 'lg',
-        title: 'systemAdmin.title',
+        // No systemAdmin.* i18n keys exist yet; pass a literal title so the
+        // header shows real text (i18n.t returns unknown keys verbatim) instead
+        // of the raw key "systemAdmin.title" (audit fix).
+        title: tt('systemAdmin.title', 'Administration système & sessions'),
         closeOnEscape: true,
         closeOnOverlay: true,
         customClass: 'system-admin-modal'
@@ -170,6 +173,14 @@
     _num(v) {
       const n = Number(v);
       return Number.isFinite(n) ? n : v;
+    }
+
+    // BaseModal.update() (fired on an in-app locale change) replaces the modal
+    // body's innerHTML, discarding all click listeners. Re-wire them so the
+    // buttons keep working after a language switch (audit fix — onOpen only
+    // attaches listeners, no fetch, so re-running it is safe).
+    onUpdate() {
+      this.onOpen();
     }
 
     onOpen() {

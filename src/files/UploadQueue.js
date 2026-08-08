@@ -19,14 +19,27 @@
 // a 64 MB byte budget keep the worst case well within a 1 GB envelope.
 const DEFAULT_MAX_PENDING = 8;
 const DEFAULT_MAX_PENDING_BYTES = 64 * 1024 * 1024;
+// Bound each task so an async-wedged step (a parse/analyze/DB op whose promise
+// never settles) cannot stall the single-worker chain forever — which would
+// make every later upload reject with UPLOAD_QUEUE_FULL until restart (audit B2
+// Md2). Generous vs a real MIDI parse+analyze+insert on a Pi.
+const DEFAULT_TASK_TIMEOUT_MS = 60000;
 
 class UploadQueue {
-  constructor({ logger, onProgress, maxPending = DEFAULT_MAX_PENDING, maxPendingBytes } = {}) {
+  constructor({
+    logger,
+    onProgress,
+    maxPending = DEFAULT_MAX_PENDING,
+    maxPendingBytes,
+    taskTimeoutMs
+  } = {}) {
     this.logger = logger || { info() {}, warn() {}, error() {}, debug() {} };
     this.onProgress = typeof onProgress === 'function' ? onProgress : null;
     this._chain = Promise.resolve();
     this._pending = 0;
     this._pendingBytes = 0;
+    this.taskTimeoutMs =
+      Number.isFinite(taskTimeoutMs) && taskTimeoutMs > 0 ? taskTimeoutMs : DEFAULT_TASK_TIMEOUT_MS;
     // Bound the queue depth so a burst of concurrent uploads cannot pin
     // unbounded MIDI buffers in memory while the single worker drains the
     // FIFO (audit P2 — unbounded queue). Overflow rejects with a typed
@@ -85,7 +98,23 @@ class UploadQueue {
       }
     };
 
-    const next = this._chain.then(() => task(report));
+    // Race each task against a timeout so a never-settling task lets the chain
+    // advance (later tasks still run) instead of wedging the queue (audit B2 Md2).
+    const runTask = () => {
+      const work = Promise.resolve().then(() => task(report));
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          const e = new Error(`Upload task timed out after ${this.taskTimeoutMs}ms`);
+          e.code = 'UPLOAD_TIMEOUT';
+          reject(e);
+        }, this.taskTimeoutMs);
+        if (timer.unref) timer.unref();
+      });
+      return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+    };
+
+    const next = this._chain.then(runTask);
     // Swallow errors in the chain so one failure does not poison later tasks.
     this._chain = next.catch(() => {});
     return next.finally(() => {

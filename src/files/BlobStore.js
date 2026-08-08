@@ -111,6 +111,25 @@ class BlobStore {
   }
 
   /**
+   * Join `relativePath` onto the base dir and assert the result stays inside
+   * it. Blob paths are always server-generated from the content hash
+   * (`relativePathFor`), never user input — this is defense-in-depth so a
+   * future caller cannot make a blob op escape `baseDir` via `..` (audit A2 N4).
+   *
+   * @param {string} relativePath
+   * @returns {string} absolute path (not checked for existence)
+   * @private
+   */
+  _safeResolve(relativePath) {
+    const base = path.resolve(this.baseDir);
+    const abs = path.resolve(base, relativePath);
+    if (abs !== base && !abs.startsWith(base + path.sep)) {
+      throw new ConfigurationError(`BlobStore: path escapes base dir: ${relativePath}`);
+    }
+    return abs;
+  }
+
+  /**
    * Resolve a stored relative path into an absolute one and verify it
    * exists. Throws when the blob is missing (DB + filesystem diverged).
    *
@@ -118,7 +137,7 @@ class BlobStore {
    * @returns {string} absolute path
    */
   resolve(relativePath) {
-    const abs = path.join(this.baseDir, relativePath);
+    const abs = this._safeResolve(relativePath);
     if (!fs.existsSync(abs)) {
       throw new ConfigurationError(`BlobStore: blob missing on disk: ${relativePath}`);
     }
@@ -151,7 +170,7 @@ class BlobStore {
    * @returns {boolean}
    */
   delete(relativePath) {
-    const abs = path.join(this.baseDir, relativePath);
+    const abs = this._safeResolve(relativePath);
     try {
       fs.unlinkSync(abs);
       return true;

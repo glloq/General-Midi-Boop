@@ -14,6 +14,15 @@
 import { Router, raw as expressRaw, json as expressJson } from 'express';
 import { LIMITS } from '../core/constants.js';
 import { encodePreset } from '../files/SF2PresetCodec.js';
+import { validateSf2Structure } from '../files/SF2Converter.js';
+
+// Serialize SF2 uploads. `expressRaw` buffers the ENTIRE body (up to ~160 MB)
+// into memory before the handler runs, and unlike MIDI uploads these are not
+// routed through a bounded queue — a handful of concurrent POSTs would spike
+// the heap and OOM-kill the process on a Pi (audit A2 M1). A single in-flight
+// upload at a time is plenty for an admin action and caps the worst-case RAM.
+const MAX_CONCURRENT_SF2_UPLOADS = 1;
+let sf2UploadsInFlight = 0;
 
 // MIME used for the GMBP binary preset payload. The `compression` middleware
 // only compresses content types its `compressible` table marks as
@@ -85,7 +94,9 @@ export function createSF2Router(app) {
       const rows = app.sf2PresetService.listAll();
       res.json({
         defaultPresent: app.sf2PresetService.hasDefaultSF2(),
-        banks: rows.map(publicRow)
+        // Exclude the id=0 built-in-default sentinel (its `size` is a repurposed
+        // mtime, and `defaultPresent` already conveys its presence) — audit B2 M1.
+        banks: rows.filter((r) => r.id > 0).map(publicRow)
       });
     } catch (err) {
       app.logger.error(`GET /api/sf2 failed: ${err.message}`);
@@ -94,37 +105,68 @@ export function createSF2Router(app) {
   });
 
   // ── Upload ───────────────────────────────────────────────────────────────
-  router.post('/', expressRaw({ type: '*/*', limit: uploadLimit }), async (req, res) => {
-    try {
-      if (!req.body || !Buffer.isBuffer(req.body) || req.body.length === 0) {
-        return res.status(400).json({ error: 'Empty body. Send raw SF2 bytes.' });
-      }
-      if (req.body.length > LIMITS.MAX_SF2_FILE_SIZE) {
-        return res
-          .status(413)
-          .json({ error: `File too large. Max ${LIMITS.MAX_SF2_FILE_SIZE / (1024 * 1024)} MB.` });
-      }
-      // H-1: validate both RIFF container header and sfbk type field
-      if (
-        req.body.slice(0, 4).toString('ascii') !== 'RIFF' ||
-        req.body.slice(8, 12).toString('ascii') !== 'sfbk'
-      ) {
-        return res.status(415).json({ error: 'Not a valid SF2 file.' });
-      }
-      // L-2: enforce per-server total storage quota (1 GB default)
-      const totalStored = app.sf2PresetService.getTotalStoredSize();
-      if (totalStored + req.body.length > LIMITS.MAX_SF2_TOTAL_SIZE) {
-        return res.status(413).json({ error: 'Server SF2 storage quota reached.' });
-      }
-      const filename = String(req.query.filename || 'upload.sf2').trim();
-      const result = await app.sf2PresetService.storeUpload(filename, req.body);
-      const status = result.status === 'duplicate' ? 200 : 201;
-      res.status(status).json(result);
-    } catch (err) {
-      app.logger.error(`POST /api/sf2 failed: ${err.message}`);
-      res.status(500).json({ error: 'Internal server error.' });
+  // Concurrency gate runs BEFORE `expressRaw` so a second upload is refused
+  // without buffering its body (audit A2 M1). The counter is released on `close`
+  // so it drops whether the response finishes, errors, or the client aborts.
+  const sf2UploadGate = (req, res, next) => {
+    if (sf2UploadsInFlight >= MAX_CONCURRENT_SF2_UPLOADS) {
+      return res
+        .status(429)
+        .json({ error: 'Another SF2 upload is in progress. Please retry shortly.' });
     }
-  });
+    sf2UploadsInFlight++;
+    res.on('close', () => {
+      sf2UploadsInFlight = Math.max(0, sf2UploadsInFlight - 1);
+    });
+    next();
+  };
+
+  router.post(
+    '/',
+    sf2UploadGate,
+    expressRaw({ type: '*/*', limit: uploadLimit }),
+    async (req, res) => {
+      try {
+        if (!req.body || !Buffer.isBuffer(req.body) || req.body.length === 0) {
+          return res.status(400).json({ error: 'Empty body. Send raw SF2 bytes.' });
+        }
+        if (req.body.length > LIMITS.MAX_SF2_FILE_SIZE) {
+          return res
+            .status(413)
+            .json({ error: `File too large. Max ${LIMITS.MAX_SF2_FILE_SIZE / (1024 * 1024)} MB.` });
+        }
+        // H-1: validate both RIFF container header and sfbk type field
+        if (
+          req.body.slice(0, 4).toString('ascii') !== 'RIFF' ||
+          req.body.slice(8, 12).toString('ascii') !== 'sfbk'
+        ) {
+          return res.status(415).json({ error: 'Not a valid SF2 file.' });
+        }
+        // Reject a structurally-malformed container at ingest so a poison blob
+        // (oversized RIFF chunk lengths → OOM on parse) never lands on disk as a
+        // content-addressed, re-crashing file (audit B2 C1).
+        try {
+          validateSf2Structure(
+            new Uint8Array(req.body.buffer, req.body.byteOffset, req.body.length)
+          );
+        } catch (structErr) {
+          return res.status(415).json({ error: `Malformed SF2: ${structErr.message}` });
+        }
+        // L-2: enforce per-server total storage quota (1 GB default)
+        const totalStored = app.sf2PresetService.getTotalStoredSize();
+        if (totalStored + req.body.length > LIMITS.MAX_SF2_TOTAL_SIZE) {
+          return res.status(413).json({ error: 'Server SF2 storage quota reached.' });
+        }
+        const filename = String(req.query.filename || 'upload.sf2').trim();
+        const result = await app.sf2PresetService.storeUpload(filename, req.body);
+        const status = result.status === 'duplicate' ? 200 : 201;
+        res.status(status).json(result);
+      } catch (err) {
+        app.logger.error(`POST /api/sf2 failed: ${err.message}`);
+        res.status(500).json({ error: 'Internal server error.' });
+      }
+    }
+  );
 
   // ── Delete ───────────────────────────────────────────────────────────────
   router.delete('/:id', (req, res) => {

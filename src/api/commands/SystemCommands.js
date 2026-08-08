@@ -28,6 +28,8 @@ import {
   accessSync,
   openSync,
   closeSync,
+  fstatSync,
+  readSync,
   mkdirSync,
   unlinkSync,
   existsSync,
@@ -41,6 +43,12 @@ import { AuthenticationError, ValidationError } from '../../core/errors/index.js
 const LOG_TAIL_DEFAULT_LINES = 200;
 /** Hard cap on `data.lines` so a large request cannot OOM the server. */
 const LOG_TAIL_MAX_LINES = 5000;
+/** Hard cap on bytes read from the tail of the log file. The line cap alone
+ *  does NOT bound memory — the previous code `readFileSync`'d the whole file
+ *  and sliced afterwards, so a large/un-rotated log could exceed Node's string
+ *  limit and OOM the Pi (audit A2 M3). We read at most this many trailing
+ *  bytes; 2 MB comfortably holds 5000 lines. */
+const LOG_TAIL_MAX_BYTES = 2 * 1024 * 1024;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -701,23 +709,49 @@ async function systemLogs(app, data) {
     return { logs: [], path: logPath, truncated: false };
   }
 
+  // Read only the last LOG_TAIL_MAX_BYTES of the file so memory stays bounded
+  // regardless of log size (audit A2 M3).
   let content;
+  let bytesTruncated = false;
+  let fd;
   try {
-    content = readFileSync(logPath, 'utf8');
+    fd = openSync(logPath, 'r');
+    const size = fstatSync(fd).size;
+    const readBytes = Math.min(size, LOG_TAIL_MAX_BYTES);
+    const start = size - readBytes;
+    bytesTruncated = start > 0;
+    const buf = Buffer.allocUnsafe(readBytes);
+    let offset = 0;
+    while (offset < readBytes) {
+      const n = readSync(fd, buf, offset, readBytes - offset, start + offset);
+      if (n <= 0) break;
+      offset += n;
+    }
+    content = buf.toString('utf8', 0, offset);
   } catch (err) {
     app.logger.warn(`system_logs read failed: ${err.message}`);
     return { logs: [], path: logPath, truncated: false };
+  } finally {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd);
+      } catch {
+        /* already closed */
+      }
+    }
   }
 
-  // Split and drop a trailing empty line (normal when file ends with \n).
   const allLines = content.split('\n');
+  // When we started mid-file the first element is a partial line — drop it.
+  if (bytesTruncated && allLines.length > 0) allLines.shift();
+  // Drop a trailing empty line (normal when the file ends with \n).
   if (allLines.length > 0 && allLines[allLines.length - 1] === '') allLines.pop();
 
   const tail = allLines.slice(-lineLimit);
   return {
     logs: tail,
     path: logPath,
-    truncated: allLines.length > tail.length
+    truncated: bytesTruncated || allLines.length > tail.length
   };
 }
 

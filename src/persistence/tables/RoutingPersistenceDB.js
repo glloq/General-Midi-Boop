@@ -126,7 +126,6 @@ class RoutingPersistenceDB {
           assignment_reason = excluded.assignment_reason,
           note_remapping = excluded.note_remapping,
           enabled = excluded.enabled,
-          created_at = excluded.created_at,
           hand_position_feasibility = excluded.hand_position_feasibility,
           hand_position_overrides = excluded.hand_position_overrides
       `);

@@ -71,12 +71,15 @@ describe('T6.5 — drum mapping quality for content-free / exotic channels', () 
     expect(mapper.calculateMappingQuality({}, midiNotes, [], [], []).score).toBe(0);
   });
 
-  test('a non-empty channel with ZERO recognized GM-drum notes scores low, not ~95', () => {
-    // Notes present (exotic pitches) but none categorized → recognizedCount 0.
-    const midiNotes = { usedNotes: [1, 2, 3, 4], categories: { ...emptyCats } };
-    const q = mapper.calculateMappingQuality({ 1: 1, 2: 2 }, midiNotes, [40], [], []);
-    expect(q.score).toBeLessThan(30);
-    expect(q.score).toBe(15);
+  // NOTE (audit T6.5): an "exotic non-empty" channel (notes present but none
+  // recognized) is unreachable in production — classifyDrumNotes only records
+  // notes in [35,81], which DRUM_CATEGORIES partitions completely, so a
+  // non-empty channel always has recognized notes. The empty-channel guard
+  // above is the only content-free case. Verify that invariant here:
+  test('DRUM_CATEGORIES fully partitions [35,81] (no exotic-non-empty case)', () => {
+    const covered = new Set();
+    for (const arr of Object.values(mapper.DRUM_CATEGORIES)) for (const n of arr) covered.add(n);
+    for (let n = 35; n <= 81; n++) expect(covered.has(n)).toBe(true);
   });
 
   test('a channel WITH recognized drums still scores normally (regression)', () => {

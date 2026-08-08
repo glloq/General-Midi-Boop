@@ -45,6 +45,30 @@ const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
 const RATE_LIMIT_WINDOW_MS = 1000;
 /** Max messages allowed per {@link RATE_LIMIT_WINDOW_MS}. */
 const RATE_LIMIT_MAX_MESSAGES = 60;
+/** Max inbound bytes allowed per {@link RATE_LIMIT_WINDOW_MS}. Generous enough
+ *  for a legitimate large `file_write` (≤16 MB frame) yet far below what a
+ *  60-msg/s flood of max-size frames (~960 MB/s) would push through — that
+ *  volume of `toString()` + `JSON.parse` on the main thread would stall the
+ *  MIDI scheduler the WsOutputQueue was built to protect (audit A2 D2). */
+const RATE_LIMIT_MAX_BYTES = 32 * 1024 * 1024;
+
+/** Keys that pollute `Object.prototype` when copied by a naive merge. */
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * `JSON.parse` reviver that drops prototype-pollution keys during parsing.
+ * `JSON.parse` materializes `__proto__`/`constructor`/`prototype` as plain own
+ * properties (it does not pollute by itself), but any handler that later
+ * merges/mass-assigns the payload could — so we strip them at the edge as
+ * defense-in-depth (audit A2 D1). Returning `undefined` deletes the key.
+ *
+ * @param {string} key
+ * @param {*} value
+ * @returns {*}
+ */
+export function stripDangerousKeys(key, value) {
+  return DANGEROUS_KEYS.has(key) ? undefined : value;
+}
 
 /**
  * `ws`-backed WebSocket server. One instance per process; constructed by
@@ -110,9 +134,9 @@ class WebSocketServer {
     // from the same host still works.
     if (!apiToken) {
       this.logger.warn(
-        'GMBOOP_API_TOKEN is empty — cross-origin clients will be rejected ' +
-          'since timingSafeEqual against an empty key always fails. Verify ' +
-          'ApiTokenManager.ensure() ran successfully.'
+        'GMBOOP_API_TOKEN is empty — cross-origin clients are refused (only the ' +
+          'loopback and same-origin SPA bypasses remain). Verify ' +
+          'ApiTokenManager.ensure() ran successfully to enable authenticated remote access.'
       );
     }
 
@@ -151,10 +175,21 @@ class WebSocketServer {
               done(true);
               return;
             }
-            // Origin must match the URL the browser was told to use.
-            const serverHost = host.split(':')[0];
-            const srvPort = String(host.split(':')[1] || serverPort);
-            if (originHost === serverHost && originPort === srvPort) {
+            // Origin must match the URL the browser was told to use. Parse the
+            // Host header via URL so an IPv6 literal (`[::1]:8080`) splits
+            // correctly — `split(':')` would turn `[::1]` into `[` and force a
+            // legitimate same-origin IPv6 connection to the token gate (audit
+            // A2 N3).
+            let serverHost = '';
+            let srvPort = String(serverPort);
+            try {
+              const hostUrl = new URL(`http://${host}`);
+              serverHost = hostUrl.hostname;
+              srvPort = hostUrl.port || String(serverPort);
+            } catch {
+              /* malformed Host header — no same-origin match */
+            }
+            if (serverHost && originHost === serverHost && originPort === srvPort) {
               done(true);
               return;
             }
@@ -163,7 +198,20 @@ class WebSocketServer {
           }
         }
 
-        // External (cross-origin) connections must present the token.
+        // External (cross-origin) connections must present the token. With no
+        // token configured there is no secret to match — fail CLOSED for
+        // cross-origin clients (the loopback/same-origin bypasses above still
+        // serve the local SPA). Otherwise `timingSafeEqual(Buffer.from(''),
+        // Buffer.from(''))` returns true and the socket is accepted with no
+        // credential (audit A2 C1 — fail-open on empty secret).
+        if (!apiToken) {
+          this.logger.warn(
+            `WebSocket auth rejected (no token configured): ip=${req.socket.remoteAddress} ` +
+              `origin=${req.headers.origin || '(none)'} host=${req.headers.host || '(none)'}`
+          );
+          done(false, 401, 'Unauthorized');
+          return;
+        }
         const url = new URL(req.url, 'http://localhost');
         const token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
         try {
@@ -231,8 +279,8 @@ class WebSocketServer {
 
     this.clients.add(ws);
 
-    // Rate limiting state per client
-    ws._rateLimit = { count: 0, windowStart: Date.now() };
+    // Rate limiting state per client (message count + byte volume per window)
+    ws._rateLimit = { count: 0, bytes: 0, windowStart: Date.now() };
 
     // Send welcome message
     ws.send(
@@ -248,21 +296,29 @@ class WebSocketServer {
 
     // Handle messages with rate limiting
     ws.on('message', (data) => {
-      // Rate limiting check
+      // Rate limiting check — bound BOTH the message count and the byte volume
+      // per window. Counting messages alone lets 60 × 16 MB frames/s through,
+      // saturating the main thread with JSON.parse and stalling MIDI timing
+      // (audit A2 D2).
       const now = Date.now();
       const rl = ws._rateLimit;
       if (now - rl.windowStart > RATE_LIMIT_WINDOW_MS) {
         rl.count = 0;
+        rl.bytes = 0;
         rl.windowStart = now;
       }
-      if (++rl.count > RATE_LIMIT_MAX_MESSAGES) {
+      rl.bytes += data.length || 0;
+      if (++rl.count > RATE_LIMIT_MAX_MESSAGES || rl.bytes > RATE_LIMIT_MAX_BYTES) {
         if (ws.readyState === 1) {
           ws.send(JSON.stringify({ type: 'error', error: 'Rate limit exceeded', timestamp: now }));
         }
         return;
       }
 
-      this.handleMessage(ws, data);
+      // handleMessage has its own try/catch; the only residual reject vector is
+      // a throw inside that catch (e.g. send on a just-closed socket). Swallow
+      // it so it never surfaces as an unhandled rejection (audit A2 N2).
+      this.handleMessage(ws, data).catch(() => {});
     });
 
     // Handle close
@@ -296,7 +352,7 @@ class WebSocketServer {
   async handleMessage(ws, data) {
     let parsedMessage = null;
     try {
-      parsedMessage = JSON.parse(data.toString());
+      parsedMessage = JSON.parse(data.toString(), stripDangerousKeys);
 
       // Per-message debug — gated so the template string is not built when
       // the log level filters it out (60 msg/s rate limit applies upstream).
@@ -323,8 +379,15 @@ class WebSocketServer {
         errorResponse.id = parsedMessage.id;
       }
 
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify(errorResponse));
+      // Guard the send: the socket can transition to CLOSED between the
+      // readyState check and the write, and an unguarded throw here would
+      // reject the (now caught) handleMessage promise (audit A2 N2).
+      try {
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify(errorResponse));
+        }
+      } catch (sendErr) {
+        this.logger.warn(`Failed to send WS error response: ${sendErr.message}`);
       }
     }
   }

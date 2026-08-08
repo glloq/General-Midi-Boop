@@ -65,6 +65,18 @@ class MqttLightDriver extends BaseLightingDriver {
       );
       this.emit('connected');
     } catch (error) {
+      // A failed connect (broker offline / wrong URL — a normal runtime
+      // condition) leaves a live mqtt client with reconnectPeriod=5000 holding
+      // a socket + reconnect timer forever, because _initDriver discards an
+      // unregistered driver WITHOUT calling disconnect(). Editing config against
+      // an unreachable broker would accumulate zombie reconnecting clients
+      // (audit B1). Tear it down here before rethrowing.
+      try {
+        this.client?.end(true);
+      } catch {
+        /* best effort */
+      }
+      this.client = null;
       this.logger.error(`MQTT Light driver connect failed: ${error.message}`);
       throw error;
     }

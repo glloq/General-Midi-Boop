@@ -166,6 +166,10 @@ class BluetoothManager extends EventEmitter {
     }
     entry.attempts += 1;
     const delay = Math.min(30000, 2000 * 2 ** (entry.attempts - 1));
+    // Clear any timer already armed for this address so a duplicate
+    // DISCONNECTED can't orphan the previous one (→ an extra reconnect that
+    // cleanup can no longer cancel) — audit BLE#6.
+    if (entry.timer) clearTimeout(entry.timer);
     entry.timer = setTimeout(() => {
       if (this.connectedDevices.has(address)) {
         this._reconnect.delete(address);
@@ -249,10 +253,13 @@ class BluetoothManager extends EventEmitter {
     if (this.scanning) {
       throw new Error('Scan already in progress');
     }
-    if (this._initPromise) await this._initPromise;
+    // Claim the scan synchronously (before any await) so a near-simultaneous
+    // second startScan is rejected by the guard above instead of both passing
+    // it and racing devices.clear() / discovery start (audit BLE#4).
+    this.scanning = true;
 
     try {
-      this.scanning = true;
+      if (this._initPromise) await this._initPromise;
       this.devices.clear();
 
       const startTime = Date.now();
@@ -455,7 +462,16 @@ class BluetoothManager extends EventEmitter {
       const emit = (bytes) => this.emit('midi:data', { address, data: bytes });
 
       // Consume SysEx payload bytes until F7 / interruption / end-of-packet.
+      // Returns 'aborted' when a non-realtime status byte terminates the SysEx
+      // (device sent a new message instead of F7 — MIDI spec): the SysEx is
+      // discarded and `i` is left AT that status byte so the caller parses it as
+      // a new message. `consumedData` tells a high-bit byte apart: with no data
+      // consumed yet, the byte is the content framed by the timestamp the outer
+      // loop just consumed (→ F7 / realtime / abort-status); after data, a
+      // high-bit byte is the framing timestamp before F7/next message and is
+      // left for the outer loop to consume normally.
       const consumeSysExPayload = () => {
+        let consumedData = false;
         while (i < data.length) {
           const b = data[i];
           if (b === 0xf7) {
@@ -465,7 +481,15 @@ class BluetoothManager extends EventEmitter {
             state.sysex = null;
             return;
           }
-          if (b & 0x80) return; // timestamp / status interrupts payload
+          if (b & 0x80) {
+            if (b >= 0xf8) return; // real-time: valid mid-SysEx, outer loop emits it
+            if (!consumedData) {
+              // A status byte immediately after a timestamp aborts the SysEx.
+              state.sysex = null;
+              return 'aborted';
+            }
+            return; // framing timestamp before F7 / next message
+          }
           if (state.sysex.length >= MAX_BLE_SYSEX) {
             // Overflow guard: abandon the frame.
             state.sysex = null;
@@ -474,6 +498,7 @@ class BluetoothManager extends EventEmitter {
           }
           state.sysex.push(b);
           i++;
+          consumedData = true;
         }
       };
 
@@ -496,8 +521,11 @@ class BluetoothManager extends EventEmitter {
 
         // Resume an in-progress SysEx from a previous notification.
         if (state.sysex) {
-          consumeSysExPayload();
-          continue;
+          const r = consumeSysExPayload();
+          // 'aborted' → the SysEx was terminated by a status byte now at `i`;
+          // fall through to parse it as a new message (looping back would
+          // mis-read that status as a timestamp and drop it — audit BLE#1).
+          if (r !== 'aborted') continue;
         }
 
         let status;
@@ -610,23 +638,32 @@ class BluetoothManager extends EventEmitter {
       return [frame];
     }
 
-    // SysEx: build the body stream with timestamps before F0 and F7.
-    const body = [];
+    // SysEx: a BLE-MIDI timestamp byte must stay in the same packet as the
+    // F0/F7 it prefixes. Model each timestamped F0/F7 as an atomic 2-byte
+    // token and each raw data byte as a 1-byte token, then pack tokens greedily
+    // without ever splitting one. The previous flat-chunking split `[ts, F7]`
+    // across the packet boundary for certain SysEx lengths (raw 18/37/56…),
+    // emitting a lone trailing 0xF7 with no timestamp (audit A1 BLE#3).
+    const tokens = [];
     for (let i = 0; i < data.length; i++) {
       const b = data[i];
-      if (b === 0xf0 || b === 0xf7) body.push(tsByte, b);
-      else body.push(b);
+      tokens.push(b === 0xf0 || b === 0xf7 ? [tsByte, b] : [b]);
     }
-    // Chunk into packets, each prefixed with the header byte.
     const packets = [];
-    const chunkSize = Math.max(1, maxPacket - 1);
-    for (let i = 0; i < body.length; i += chunkSize) {
-      const chunk = body.slice(i, i + chunkSize);
+    const chunkSize = Math.max(2, maxPacket - 1); // room for one 2-byte token
+    let chunk = [];
+    const flush = () => {
       const frame = new Uint8Array(chunk.length + 1);
       frame[0] = header;
       frame.set(chunk, 1);
       packets.push(frame);
+      chunk = [];
+    };
+    for (const token of tokens) {
+      if (chunk.length + token.length > chunkSize) flush();
+      for (const b of token) chunk.push(b);
     }
+    if (chunk.length) flush();
     return packets;
   }
 

@@ -84,8 +84,15 @@ class EventBus {
    */
   once(event, callback) {
     const onceWrapper = (...args) => {
-      callback(...args);
-      this.off(event, onceWrapper);
+      // Detach in `finally` so a throwing callback still auto-removes the
+      // listener — otherwise it stays registered and fires again (no longer
+      // "once"); emit()'s try/catch would just keep swallowing the throw
+      // (audit B3 m1).
+      try {
+        callback(...args);
+      } finally {
+        this.off(event, onceWrapper);
+      }
     };
     this.on(event, onceWrapper);
   }

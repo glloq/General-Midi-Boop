@@ -6,6 +6,9 @@
  */
 import { buildDynamicUpdate } from '../dbHelpers.js';
 
+/** Coerce a JS boolean/number to SQLite's 0/1 (better-sqlite3 rejects a raw bool). */
+const toBit = (v) => (v ? 1 : 0);
+
 /**
  * Map a parsed SysEx identity onto the `sysex_*` columns, tolerant of the three
  * shapes DeviceManager's parsers emit — Universal reply (`family`/`model`/
@@ -89,7 +92,18 @@ class InstrumentSettingsDB {
             'lighting_enabled',
             'pitch_bend_enabled'
           ],
-          { whereClause: 'device_id = ? AND channel = ?' }
+          {
+            // Coerce booleans to 0/1 like the INSERT branch does — better-sqlite3
+            // throws on a raw JS boolean bind, and the two branches must agree on
+            // the same input (audit A3 Md1).
+            transforms: {
+              omni_mode: toBit,
+              voices_share_notes: toBit,
+              lighting_enabled: toBit,
+              pitch_bend_enabled: toBit
+            },
+            whereClause: 'device_id = ? AND channel = ?'
+          }
         );
 
         if (!result) return existing.id;
@@ -334,24 +348,31 @@ class InstrumentSettingsDB {
    */
   updateById(instrumentId, fields) {
     try {
-      const result = buildDynamicUpdate('instruments_latency', fields, [
-        'name',
-        'custom_name',
-        'instrument_type',
-        'instrument_subtype',
-        'sync_delay',
-        'mac_address',
-        'usb_serial_number',
-        'gm_program',
-        'octave_mode',
-        'scale_root',
-        'comm_timeout',
-        'midi_clock_enabled',
-        'min_note_interval',
-        'min_note_duration',
-        'enabled',
-        'custom_sf2_id'
-      ]);
+      const result = buildDynamicUpdate(
+        'instruments_latency',
+        fields,
+        [
+          'name',
+          'custom_name',
+          'instrument_type',
+          'instrument_subtype',
+          'sync_delay',
+          'mac_address',
+          'usb_serial_number',
+          'gm_program',
+          'octave_mode',
+          'scale_root',
+          'comm_timeout',
+          'midi_clock_enabled',
+          'min_note_interval',
+          'min_note_duration',
+          'enabled',
+          'custom_sf2_id'
+        ],
+        // Coerce the boolean columns to 0/1 so a raw JS boolean does not throw
+        // at bind time (audit A3 Md1); these were never coerced on this path.
+        { transforms: { midi_clock_enabled: toBit, enabled: toBit } }
+      );
       if (!result) return;
       this.db.prepare(result.sql).run(...result.values, instrumentId);
     } catch (error) {
@@ -493,9 +514,7 @@ class InstrumentSettingsDB {
    */
   saveSysExIdentityForDevice(deviceId, identity) {
     const rows = this.getInstrumentsByDevice(deviceId) || [];
-    const channels = rows
-      .map((r) => r.channel)
-      .filter((c) => Number.isInteger(c));
+    const channels = rows.map((r) => r.channel).filter((c) => Number.isInteger(c));
     const targets = channels.length > 0 ? channels : [0];
     const apply = this.db.transaction((chs) => {
       for (const ch of chs) this.saveSysExIdentity(deviceId, ch, identity);

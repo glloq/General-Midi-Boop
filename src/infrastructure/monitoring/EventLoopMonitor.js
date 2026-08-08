@@ -13,6 +13,12 @@
 import { performance } from 'perf_hooks';
 
 const TICK_MS = 10;
+// During sustained lag the 10ms probe would otherwise warn+broadcast ~100×/s,
+// and that extra log-write + WS-broadcast work worsens the very lag it measures
+// (positive feedback) and can grow the log stream's buffer unbounded on a slow
+// SD card. Throttle the REPORT (not the measurement) to once per window (audit
+// B3 M5).
+const REPORT_THROTTLE_MS = 5000;
 
 export class EventLoopMonitor {
   /**
@@ -37,11 +43,15 @@ export class EventLoopMonitor {
   start() {
     if (this._interval) return;
     let last = performance.now();
+    let lastReport = 0;
     this._interval = setInterval(() => {
       const now = performance.now();
       const lag = now - last - TICK_MS;
       this.currentLag = lag > 0 ? lag : 0;
-      if (lag > this._threshold) {
+      // Measure every tick (cheap; read by PlaybackScheduler) but throttle the
+      // report so it doesn't amplify the lag (audit B3 M5).
+      if (lag > this._threshold && now - lastReport >= REPORT_THROTTLE_MS) {
+        lastReport = now;
         this._log.warn(`Event loop lag: ${lag.toFixed(1)}ms (threshold: ${this._threshold}ms)`);
         this._ws?.broadcast('system_lag', {
           lagMs: Math.round(lag),

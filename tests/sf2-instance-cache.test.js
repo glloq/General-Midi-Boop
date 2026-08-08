@@ -27,6 +27,12 @@ jest.unstable_mockModule('soundfont2', () => ({
   }
 }));
 
+// Minimal structurally-valid RIFF/sfbk container ('RIFF', len=4, 'sfbk').
+// parseSoundFont now validates the RIFF structure before parsing (audit B2 C1),
+// so fixtures must be well-formed; the cache keys on path+mtime (not content),
+// so identical bytes across files are fine.
+const VALID_SF2 = Buffer.from([0x52, 0x49, 0x46, 0x46, 4, 0, 0, 0, 0x73, 0x66, 0x62, 0x6b]);
+
 const fakeFiles = new Map(); // absPath → { content: Buffer, mtimeMs }
 jest.unstable_mockModule('fs', () => {
   const real = jest.requireActual('fs');
@@ -63,7 +69,7 @@ describe('SF2InstanceCache', () => {
   });
 
   test('parses once and reuses the instance on subsequent reads', () => {
-    fakeFiles.set('/sf2/a.sf2', { content: Buffer.from('A'), mtimeMs: 1000 });
+    fakeFiles.set('/sf2/a.sf2', { content: VALID_SF2, mtimeMs: 1000 });
     const cache = new SF2InstanceCache({ capacity: 3 });
 
     const i1 = cache.getForPath('/sf2/a.sf2');
@@ -76,11 +82,11 @@ describe('SF2InstanceCache', () => {
   });
 
   test('re-parses when the file mtime changes', () => {
-    fakeFiles.set('/sf2/a.sf2', { content: Buffer.from('A'), mtimeMs: 1000 });
+    fakeFiles.set('/sf2/a.sf2', { content: VALID_SF2, mtimeMs: 1000 });
     const cache = new SF2InstanceCache({ capacity: 3 });
 
     const i1 = cache.getForPath('/sf2/a.sf2');
-    fakeFiles.set('/sf2/a.sf2', { content: Buffer.from('A2'), mtimeMs: 2000 });
+    fakeFiles.set('/sf2/a.sf2', { content: VALID_SF2, mtimeMs: 2000 });
     const i2 = cache.getForPath('/sf2/a.sf2');
 
     expect(parseCalls).toBe(2);
@@ -90,9 +96,9 @@ describe('SF2InstanceCache', () => {
   });
 
   test('evicts the LRU entry when capacity is exceeded', () => {
-    fakeFiles.set('/sf2/a.sf2', { content: Buffer.from('A'), mtimeMs: 1 });
-    fakeFiles.set('/sf2/b.sf2', { content: Buffer.from('B'), mtimeMs: 1 });
-    fakeFiles.set('/sf2/c.sf2', { content: Buffer.from('C'), mtimeMs: 1 });
+    fakeFiles.set('/sf2/a.sf2', { content: VALID_SF2, mtimeMs: 1 });
+    fakeFiles.set('/sf2/b.sf2', { content: VALID_SF2, mtimeMs: 1 });
+    fakeFiles.set('/sf2/c.sf2', { content: VALID_SF2, mtimeMs: 1 });
     const cache = new SF2InstanceCache({ capacity: 2 });
 
     cache.getForPath('/sf2/a.sf2'); // parse 1 → [a]
@@ -110,9 +116,9 @@ describe('SF2InstanceCache', () => {
   });
 
   test('LRU touch on hit prevents premature eviction', () => {
-    fakeFiles.set('/sf2/a.sf2', { content: Buffer.from('A'), mtimeMs: 1 });
-    fakeFiles.set('/sf2/b.sf2', { content: Buffer.from('B'), mtimeMs: 1 });
-    fakeFiles.set('/sf2/c.sf2', { content: Buffer.from('C'), mtimeMs: 1 });
+    fakeFiles.set('/sf2/a.sf2', { content: VALID_SF2, mtimeMs: 1 });
+    fakeFiles.set('/sf2/b.sf2', { content: VALID_SF2, mtimeMs: 1 });
+    fakeFiles.set('/sf2/c.sf2', { content: VALID_SF2, mtimeMs: 1 });
     const cache = new SF2InstanceCache({ capacity: 2 });
 
     cache.getForPath('/sf2/a.sf2'); // parse 1 → [a]
@@ -126,8 +132,8 @@ describe('SF2InstanceCache', () => {
   });
 
   test('invalidate(path) drops every entry for that path', () => {
-    fakeFiles.set('/sf2/a.sf2', { content: Buffer.from('A'), mtimeMs: 1 });
-    fakeFiles.set('/sf2/b.sf2', { content: Buffer.from('B'), mtimeMs: 1 });
+    fakeFiles.set('/sf2/a.sf2', { content: VALID_SF2, mtimeMs: 1 });
+    fakeFiles.set('/sf2/b.sf2', { content: VALID_SF2, mtimeMs: 1 });
     const cache = new SF2InstanceCache({ capacity: 3 });
 
     cache.getForPath('/sf2/a.sf2');

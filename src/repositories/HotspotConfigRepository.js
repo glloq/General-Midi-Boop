@@ -55,7 +55,24 @@ export default class HotspotConfigRepository {
    * @returns {{ssid:string, password:string, band:string, channel:number}}
    */
   update(patch) {
-    const merged = { ...this.get(), ...(patch || {}) };
+    // Read the CURRENT stored config directly rather than via get(): get()
+    // swallows a read/parse error and returns DEFAULTS, so merging a one-field
+    // patch (e.g. {password}) onto that would silently reset SSID/PSK/band/
+    // channel and persist the reset, knocking the Pi off its own AP (audit A3
+    // C4-M1). A parse failure must ABORT; only a genuinely absent row (first
+    // write) uses DEFAULTS as the base.
+    let current;
+    const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(KEY);
+    if (!row || !row.value) {
+      current = { ...DEFAULTS };
+    } else {
+      try {
+        current = { ...DEFAULTS, ...JSON.parse(row.value) };
+      } catch (err) {
+        throw new Error(`Refusing to overwrite unreadable hotspot config: ${err.message}`);
+      }
+    }
+    const merged = { ...current, ...(patch || {}) };
     const value = JSON.stringify(merged);
     // Two-statement upsert: the table has a CHECK on `type`, so we set
     // it explicitly when creating the row.

@@ -90,11 +90,15 @@
   }
 
   function esc(s) {
+    // Escape the full OWASP set including the apostrophe: omitting `'` left a
+    // single-quoted-attribute foot-gun if any sink here ever moves to that
+    // context (audit C low). Matches window.escapeHtml.
     return String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function fmt(v, fb = '—') {

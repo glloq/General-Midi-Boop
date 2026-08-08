@@ -152,7 +152,17 @@ class BaseLightingDriver extends EventEmitter {
       this._renderScheduled = true;
       queueMicrotask(() => {
         this._renderScheduled = false;
-        this._doRender();
+        // Isolate the render: a synchronous throw here (e.g. dgram.send on an
+        // out-of-range port, or a serial write on a closed port) would escape
+        // the microtask as an uncaughtException and take the whole MIDI process
+        // down — lighting is best-effort and must never do that (audit B1).
+        try {
+          this._doRender();
+        } catch (err) {
+          this.logger?.warn?.(
+            `[${this.constructor?.name || 'LightingDriver'}] render failed: ${err.message}`
+          );
+        }
       });
     }
   }

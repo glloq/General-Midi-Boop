@@ -19,6 +19,23 @@
 
 const CACHE_TTL_MS = 30_000;
 
+/**
+ * Collect the hand-position control CC numbers declared by a hands_config
+ * (`cc_position_number` per hand). Returns null when hands are absent/disabled
+ * or none declare a CC, so callers can treat null as "no actuator CCs".
+ * @param {Object} handsConfig
+ * @returns {number[]|null}
+ */
+function _extractHandCcs(handsConfig) {
+  if (!handsConfig || handsConfig.enabled === false || !Array.isArray(handsConfig.hands)) {
+    return null;
+  }
+  const ccs = handsConfig.hands
+    .map((h) => (h && Number.isInteger(h.cc_position_number) ? h.cc_position_number : null))
+    .filter((n) => n !== null && n >= 0 && n <= 127);
+  return ccs.length > 0 ? ccs : null;
+}
+
 export class CapabilityResolver {
   /**
    * @param {Object} deps
@@ -91,7 +108,8 @@ export class CapabilityResolver {
       selectedNotes: null,
       octaveMode: null,
       scaleRoot: 0,
-      supportedCcs: null
+      supportedCcs: null,
+      handCcs: null
     };
     try {
       const capDB = this._db?.instrumentCapabilitiesDB;
@@ -131,7 +149,14 @@ export class CapabilityResolver {
                 ? instrument.supported_ccs.filter(
                     (n) => Number.isInteger(n) && n >= 0 && n <= 127
                   )
-                : null
+                : null,
+            // The instrument's OWN hand-position control CCs (cc_position_number
+            // per hand). These are actuator control the engine injects/bakes;
+            // they must never be dropped by the supported_ccs filter even when
+            // the declared supported_ccs list omits them (audit fix: a
+            // descriptor-declared supported_ccs like [1,7,11] otherwise silently
+            // dropped CC22/23/24 and the hand never moved).
+            handCcs: _extractHandCcs(instrument.hands_config)
           };
         }
       }
@@ -150,15 +175,22 @@ export class CapabilityResolver {
       try {
         const s = this._db?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
         if (s && !s.is_fretless && Array.isArray(s.tuning) && s.tuning.length > 0 && s.num_frets > 0) {
-          const tuning = s.tuning.filter((n) => Number.isInteger(n));
-          if (tuning.length > 0) {
-            const fps = Array.isArray(s.frets_per_string) ? s.frets_per_string : null;
-            let hi = -Infinity;
-            for (let i = 0; i < tuning.length; i++) {
-              const frets = fps && Number.isInteger(fps[i]) ? fps[i] : s.num_frets;
-              hi = Math.max(hi, tuning[i] + frets);
-            }
-            constraints.noteRangeMin = Math.min(...tuning);
+          const fps = Array.isArray(s.frets_per_string) ? s.frets_per_string : null;
+          // Iterate the ORIGINAL tuning and skip non-integer entries in place, so
+          // `fps[i]` stays aligned with its string. Filtering the tuning first
+          // would shift indices and pair a string with another string's fret
+          // count on a malformed row (audit F3).
+          let hi = -Infinity;
+          let lo = Infinity;
+          for (let i = 0; i < s.tuning.length; i++) {
+            const open = s.tuning[i];
+            if (!Number.isInteger(open)) continue;
+            const frets = fps && Number.isInteger(fps[i]) ? fps[i] : s.num_frets;
+            hi = Math.max(hi, open + frets);
+            lo = Math.min(lo, open);
+          }
+          if (Number.isFinite(lo)) {
+            constraints.noteRangeMin = lo;
             constraints.noteRangeMax = Math.min(127, hi);
           }
         }

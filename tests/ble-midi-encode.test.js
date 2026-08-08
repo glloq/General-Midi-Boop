@@ -49,3 +49,63 @@ describe('BLE-MIDI packet encoding', () => {
     expect(enc([])).toEqual([]);
   });
 });
+
+// --- Audit BLE#3: the terminating timestamp must never be split from 0xF7 ---
+//
+// Under the old flat chunking, a SysEx whose raw length is 18/37/56/… placed the
+// 0xF7 at the start of a fresh packet, stranding its timestamp in the previous
+// one. Assert same-packet adjacency, MTU compliance, and encode→decode fidelity.
+
+function sysexOfLength(total) {
+  const mid = [];
+  for (let i = 0; i < total - 2; i++) mid.push(i % 0x80);
+  return [0xf0, ...mid, 0xf7];
+}
+
+function makeDecoder() {
+  const emitted = [];
+  const states = new Map();
+  const ctx = {
+    logger: { debug: () => {}, warn: () => {}, error: () => {} },
+    _getBleParseState(addr) {
+      if (!states.has(addr)) states.set(addr, { sysex: null });
+      return states.get(addr);
+    },
+    emit(ev, payload) {
+      if (ev === 'midi:data') emitted.push(payload.data);
+    }
+  };
+  return {
+    feedFrame: (frame) =>
+      BluetoothManager.prototype._handleIncomingMidi.call(ctx, 'AA', Buffer.from(frame)),
+    emitted
+  };
+}
+
+describe('BLE-MIDI encoding — timestamp never split from F7 (audit BLE#3)', () => {
+  for (const len of [17, 18, 19, 36, 37, 38, 55, 56, 57]) {
+    test(`SysEx length ${len}: F7 keeps its timestamp in the same packet`, () => {
+      const packets = enc(sysexOfLength(len), 20);
+      const last = packets[packets.length - 1];
+      expect(last[last.length - 1]).toBe(0xf7);
+      expect(last[last.length - 2] & 0x80).toBe(0x80); // ts immediately before F7
+      expect(last.length).toBeGreaterThanOrEqual(3); // header + ts + F7
+      for (const p of packets) {
+        expect(p.length).toBeLessThanOrEqual(20);
+        // 0xF7 is never the first payload byte (that would strand its timestamp).
+        for (let i = 1; i < p.length; i++) {
+          if (p[i] === 0xf7) expect(i).toBeGreaterThan(1);
+        }
+      }
+    });
+  }
+
+  test('encode→decode round-trips SysEx of many lengths (incl. old split cases)', () => {
+    for (const len of [3, 5, 17, 18, 19, 37, 40, 56, 64]) {
+      const original = sysexOfLength(len);
+      const d = makeDecoder();
+      enc(original, 20).forEach((p) => d.feedFrame(p));
+      expect(d.emitted).toEqual([original]);
+    }
+  });
+});

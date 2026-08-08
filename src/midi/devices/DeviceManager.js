@@ -156,11 +156,21 @@ class DeviceManager {
         } else if (change.type === 'addOutput') {
           this.addOutput(change.name);
         } else if (change.type === 'update') {
+          const before = new Set(this.devices.keys());
           await this.updateDeviceMap();
           // A hot-plug `update` also fires on removal (ports already closed by
           // DeviceDiscovery); reconcile our per-device recognition state so a
           // disconnected device is forgotten and can re-announce on reconnect.
           this._pruneDisconnectedDeviceState();
+          // Emit device_disconnected for devices that vanished. Before this the
+          // removal path only refreshed the UI list, so the EventBus event never
+          // fired — leaving the router's note-gate reset, the clock's device
+          // cache, and the WS bridge unaware of disconnects (audit Serial#1).
+          for (const id of before) {
+            if (!this.devices.has(id)) {
+              this.eventBus?.emit('device_disconnected', { device: id });
+            }
+          }
           this.broadcastDeviceList();
           this.logger.info(`Device list updated: ${this.devices.size} device(s)`);
         }
@@ -1314,6 +1324,17 @@ class DeviceManager {
 
   handleMidiMessage(deviceName, type, msg) {
     const timestamp = Date.now();
+
+    // Normalize a velocity-0 Note On to a Note Off (MIDI spec §running status).
+    // `handleRawMidi` already does this for BLE/network, but serial and USB
+    // (easymidi) deliver `noteon` with `velocity === 0` verbatim, so the
+    // router's stuck-note latches and the rate-limiter would treat a
+    // note-release as a fresh note-on and could leave a note hanging
+    // (audit A1 Serial#2). Normalize here at the common inbound entry so every
+    // transport routes note-offs identically.
+    if (type === 'noteon' && msg && msg.velocity === 0) {
+      type = 'noteoff';
+    }
 
     // Parse SysEx Identity Reply if applicable
     if (type === 'sysex') {

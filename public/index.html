@@ -6317,8 +6317,10 @@
                 // Appliquer la configuration
                 icon.textContent = config.icon;
                 title.textContent = config.title;
-                // Supporter les retours à la ligne \n
-                messageEl.innerHTML = message.replace(/\n/g, '<br>');
+                // Escape first, then honour \n as <br>: callers interpolate
+                // user data (filenames, folder names, error.message) into the
+                // message and none pass intentional HTML (audit C M5).
+                messageEl.innerHTML = escapeHtml(message).replace(/\n/g, '<br>');
                 okBtn.textContent = config.okText;
                 cancelBtn.textContent = config.cancelText;
 
@@ -6402,8 +6404,10 @@
                 // Appliquer la configuration
                 icon.textContent = config.icon;
                 title.textContent = config.title;
-                // Supporter les retours à la ligne \n (showAlert)
-                messageEl.innerHTML = message.replace(/\n/g, '<br>');
+                // Escape first, then honour \n as <br>: callers interpolate
+                // user data (filenames, error.message, server warnings) and none
+                // pass intentional HTML (audit C M5).
+                messageEl.innerHTML = escapeHtml(message).replace(/\n/g, '<br>');
 
                 // Créer un seul bouton OK
                 buttons.innerHTML = `<button class="btn" id="alertOkBtn">${config.okText}</button>`;
@@ -7503,12 +7507,22 @@
                     // if the sync fails (offline / older server).
                     syncFolderStructureFromBackend().finally(() => loadFiles());
                     loadDevices();
-                    initFileSearch(); // Initialiser la recherche de fichiers
-                    initSortControls(); // Initialiser les contrôles de tri
-                    initDisplayModeToggle(); // Initialiser le sélecteur de mode d'affichage
-                    initKeyboardShortcuts(); // Initialiser les raccourcis clavier
-                    initBatchActions(); // Initialiser les actions par lots
-                    initAdvancedFilters(); // Initialiser les filtres avancés
+
+                    // One-time UI wiring only: these init* helpers attach DOM
+                    // listeners (e.g. initKeyboardShortcuts adds a document
+                    // keydown handler) with no idempotency guard, so re-running
+                    // them on every reconnect stacked duplicate listeners —
+                    // Ctrl+A / Escape firing N times, etc. Gate on the first
+                    // connection; data (files/devices) still refreshes on every
+                    // reconnect above (audit C M4).
+                    if (connectedCount === 1) {
+                        initFileSearch(); // Initialiser la recherche de fichiers
+                        initSortControls(); // Initialiser les contrôles de tri
+                        initDisplayModeToggle(); // Initialiser le sélecteur de mode d'affichage
+                        initKeyboardShortcuts(); // Initialiser les raccourcis clavier
+                        initBatchActions(); // Initialiser les actions par lots
+                        initAdvancedFilters(); // Initialiser les filtres avancés
+                    }
 
                     // Re-start MIDI debug monitoring if console was open (reconnect case)
                     const dbgConsole = document.getElementById('debugConsole');
@@ -7711,8 +7725,18 @@
             }
         }
 
-        // Variable pour stocker la structure des dossiers
-        let folderStructure = JSON.parse(localStorage.getItem('midi_folders') || '{}');
+        // Variable pour stocker la structure des dossiers.
+        // Guard the parse: a corrupt 'midi_folders' entry (truncated/edited
+        // localStorage) would throw at this top-level statement and abort the
+        // ENTIRE inline script, bricking the whole SPA on load. Fall back to an
+        // empty tree instead (audit C D1).
+        let folderStructure;
+        try {
+            folderStructure = JSON.parse(localStorage.getItem('midi_folders') || '{}');
+        } catch (_e) {
+            console.warn('Corrupt midi_folders in localStorage; resetting to empty tree');
+            folderStructure = {};
+        }
 
         // Sauvegarder la structure des dossiers.
         // T2.2: persist to BOTH localStorage (offline fallback) and the server
@@ -7830,7 +7854,10 @@
                             headerDiv.className = 'folder-open-header';
 
                             const headerLabel = document.createElement('span');
-                            headerLabel.innerHTML = `📂 ${item.path}`;
+                            // Mirror the closed-folder card (textContent): item.path is a
+                            // shared, server-synced folder name and is not HTML-safe
+                            // server-side (audit C M2).
+                            headerLabel.textContent = `📂 ${item.path}`;
 
                             const closeBtn = document.createElement('button');
                             closeBtn.className = 'btn btn-sm';
@@ -8657,9 +8684,11 @@
                 : `<span>⏳ Chargement...</span>`;
             const displayName = file.filename.replace(/\.(midi|mid)$/i, '');
             const lyricsPrefix = hasLyrics ? '<span class="lyrics-tag" title="Karaoké">🎤</span>' : '';
+            // The filename is user-supplied (from the upload) and shared across
+            // clients — escape it before it enters innerHTML (audit C C1).
             fileNameSpan.innerHTML = `
                 <div class="file-name-text" style="cursor: pointer;" title="Double-cliquer pour renommer (ou F2)">
-                    ${lyricsPrefix}${displayName}
+                    ${lyricsPrefix}${escapeHtml(displayName)}
                 </div>
                 <div class="file-metadata" id="metadata-${file.id}">
                     ${metadataHtml}
@@ -9162,8 +9191,8 @@
                         <button class="folder-modal-close" id="renameFolderClose">&times;</button>
                     </div>
                     <div class="folder-modal-body">
-                        <p>Ancien nom : <strong>${folderPath}</strong></p>
-                        <input type="text" class="folder-modal-input" id="renameFolderInput" value="${folderPath}" />
+                        <p>Ancien nom : <strong>${escapeHtml(folderPath)}</strong></p>
+                        <input type="text" class="folder-modal-input" id="renameFolderInput" value="${escapeHtml(folderPath)}" />
                     </div>
                     <div class="folder-modal-footer">
                         <button class="btn btn-secondary" id="renameFolderCancel">Annuler</button>
@@ -9545,7 +9574,7 @@
                             const deviceInfo = document.createElement('div');
                             deviceInfo.className = 'device-info-section';
                             deviceInfo.innerHTML = `
-                                <div class="device-name">${device.name}</div>
+                                <div class="device-name">${escapeHtml(device.name)}</div>
                                 <div class="device-type">${i18n.t('ui.virtualInstrumentType')}</div>
                             `;
 
@@ -9581,10 +9610,14 @@
 
                         const deviceInfo = document.createElement('div');
                         deviceInfo.className = 'device-info-section';
-                        const serialInfo = device.usbSerialNumber ? ` • 🔢 SN: ${device.usbSerialNumber.substring(0, 8)}${device.usbSerialNumber.length > 8 ? '...' : ''}` : '';
+                        // device.name/custom_name/type/id/usbSerialNumber come from
+                        // hardware descriptors or the shared settings DB (none is
+                        // HTML-sanitized server-side) and land in innerHTML — escape
+                        // every interpolated value (audit C M1).
+                        const serialInfo = device.usbSerialNumber ? ` • 🔢 SN: ${escapeHtml(device.usbSerialNumber.substring(0, 8))}${device.usbSerialNumber.length > 8 ? '...' : ''}` : '';
                         deviceInfo.innerHTML = `
-                            <div class="device-name">${displayName}</div>
-                            <div class="device-type">${device.type} • ${device.id}${serialInfo}</div>
+                            <div class="device-name">${escapeHtml(displayName)}</div>
+                            <div class="device-type">${escapeHtml(device.type)} • ${escapeHtml(device.id)}${serialInfo}</div>
                         `;
 
                         const deviceActions = document.createElement('div');
@@ -9699,7 +9732,7 @@
                 div.innerHTML = `
                     <div class="upload-file-icon">📄</div>
                     <div class="upload-file-info">
-                        <div class="upload-file-name">${file.name}</div>
+                        <div class="upload-file-name">${escapeHtml(file.name)}</div>
                         <div class="upload-file-size">${formatFileSize(file.size)}${isDuplicate ? ' — ' + (i18n.t('ui.duplicateFileWarning') || '⚠️ Fichier déjà existant - sera écrasé') : ''}</div>
                     </div>
                     <div class="upload-file-status">⏳</div>
@@ -11199,15 +11232,15 @@
                         <!-- 2. Custom Name -->
                         <div class="form-group">
                             <label>${i18n.t('instrumentSettings.customName')}</label>
-                            <input type="text" id="customName" value="${settings.custom_name || ''}" placeholder="${i18n.t('instrumentSettings.customNamePlaceholder')}">
+                            <input type="text" id="customName" value="${escapeHtml(settings.custom_name || '')}" placeholder="${i18n.t('instrumentSettings.customNamePlaceholder')}">
                             <small class="form-text">${i18n.t('instrumentSettings.customNameHelp')}</small>
                         </div>
 
                         <!-- 3. Device Info (read-only) -->
                         <div class="form-group">
                             <label>${i18n.t('instrumentSettings.deviceName')}</label>
-                            <input type="text" id="deviceNameDisplay" value="${device.name}" disabled>
-                            ${device.usbSerialNumber ? `<small class="form-text">SN: ${device.usbSerialNumber}</small>` : ''}
+                            <input type="text" id="deviceNameDisplay" value="${escapeHtml(device.name)}" disabled>
+                            ${device.usbSerialNumber ? `<small class="form-text">SN: ${escapeHtml(device.usbSerialNumber)}</small>` : ''}
                         </div>
 
                         <!-- 3b. Canal MIDI -->
@@ -11262,7 +11295,7 @@
                         ${isBleDevice ? `
                         <div class="form-group" id="macAddressGroup">
                             <label>${i18n.t('instrumentSettings.macAddress')}</label>
-                            <input type="text" id="macAddress" value="${settings.mac_address || ''}" placeholder="AA:BB:CC:DD:EE:FF">
+                            <input type="text" id="macAddress" value="${escapeHtml(settings.mac_address || '')}" placeholder="AA:BB:CC:DD:EE:FF">
                             <small class="form-text">${i18n.t('instrumentSettings.macAddressHelp')}</small>
                         </div>
                         ` : '<input type="hidden" id="macAddress" value="">'}
@@ -12096,34 +12129,37 @@
 
         // Rendre les informations d'identité SysEx
         function renderIdentityInfo(settings) {
+            // All sysex_* fields come from a device's SysEx Identity Response
+            // (device-controlled) and land in innerHTML — escape every one so a
+            // crafted response cannot inject markup (audit C M3).
             return `
                 <div class="identity-info">
                     <div class="info-group">
                         <span class="info-label">Fabricant</span>
-                        <span class="info-value">${settings.sysex_manufacturer_name || settings.sysex_manufacturer_id || 'N/A'}</span>
+                        <span class="info-value">${escapeHtml(settings.sysex_manufacturer_name || settings.sysex_manufacturer_id || 'N/A')}</span>
                     </div>
                     <div class="info-group">
                         <span class="info-label">ID Fabricant</span>
-                        <span class="info-value">${settings.sysex_manufacturer_id || 'N/A'}</span>
+                        <span class="info-value">${escapeHtml(settings.sysex_manufacturer_id || 'N/A')}</span>
                     </div>
                     <div class="info-group">
                         <span class="info-label">Famille</span>
-                        <span class="info-value">${settings.sysex_family || 'N/A'}</span>
+                        <span class="info-value">${escapeHtml(settings.sysex_family || 'N/A')}</span>
                     </div>
                     <div class="info-group">
                         <span class="info-label">Modèle</span>
-                        <span class="info-value">${settings.sysex_model || 'N/A'}</span>
+                        <span class="info-value">${escapeHtml(settings.sysex_model || 'N/A')}</span>
                     </div>
                     <div class="info-group">
                         <span class="info-label">Version</span>
-                        <span class="info-value">${settings.sysex_version || 'N/A'}</span>
+                        <span class="info-value">${escapeHtml(settings.sysex_version || 'N/A')}</span>
                     </div>
                     <div class="info-group">
                         <span class="info-label">Device ID</span>
-                        <span class="info-value">${settings.sysex_device_id || 'N/A'}</span>
+                        <span class="info-value">${escapeHtml(settings.sysex_device_id || 'N/A')}</span>
                     </div>
                 </div>
-                ${settings.sysex_raw_response ? `<div style="margin-top: 8px;"><span class="info-label">Réponse brute:</span><br><code style="font-size: 11px; color: #666;">${settings.sysex_raw_response}</code></div>` : ''}
+                ${settings.sysex_raw_response ? `<div style="margin-top: 8px;"><span class="info-label">Réponse brute:</span><br><code style="font-size: 11px; color: #666;">${escapeHtml(settings.sysex_raw_response)}</code></div>` : ''}
             `;
         }
 
@@ -13662,8 +13698,10 @@
 
                 const badge = document.createElement('div');
                 badge.className = 'filter-badge';
+                // filter.label can carry free-text search / folder-derived values
+                // (shared, not HTML-safe) — escape before innerHTML (audit C minor).
                 badge.innerHTML = `
-                    <span>${filter.label}</span>
+                    <span>${escapeHtml(filter.label)}</span>
                     <span class="remove-badge" title="Supprimer ce filtre">×</span>
                 `;
 
@@ -13853,7 +13891,7 @@
                 log(`❌ Filter apply error: ${error.message}`, 'error');
                 const fileList = document.getElementById('fileList');
                 if (fileList) {
-                    fileList.innerHTML = `<li class="info-text">❌ Erreur: ${error.message}</li>`;
+                    fileList.innerHTML = `<li class="info-text">❌ Erreur: ${escapeHtml(error.message)}</li>`;
                 }
             } finally {
                 filterRefreshInProgress = false;

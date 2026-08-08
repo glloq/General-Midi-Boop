@@ -46,7 +46,12 @@ export class ApiTokenManager {
     try {
       if (existsSync(envPath)) {
         const content = readFileSync(envPath, 'utf8');
-        if (content.includes('GMBOOP_API_TOKEN')) {
+        // Anchor the decision to the same pattern as the replace: a substring
+        // match (`includes`) is true for a *different* var like
+        // `GMBOOP_API_TOKEN_BACKUP=`, in which case the replace hits nothing,
+        // the file is written unchanged, and the token silently rotates every
+        // restart (invalidating clients) — audit A2 N5.
+        if (/^GMBOOP_API_TOKEN=/m.test(content)) {
           const updated = content.replace(/^GMBOOP_API_TOKEN=.*$/m, `GMBOOP_API_TOKEN=${token}`);
           writeFileSync(envPath, updated, 'utf8');
         } else {

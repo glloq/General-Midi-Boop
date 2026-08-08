@@ -21,6 +21,8 @@ import bankEffectsSchemas from '../api/commands/schemas/bank_effects.schemas.js'
 import networkSchemas from '../api/commands/schemas/network.schemas.js';
 import presetSchemas from '../api/commands/schemas/preset.schemas.js';
 import midiSchemas from '../api/commands/schemas/midi.schemas.js';
+import sessionSchemas from '../api/commands/schemas/session.schemas.js';
+import lightingSchemas from '../api/commands/schemas/lighting.schemas.js';
 
 /**
  * Map of command name -> compiled validator (`(data) => string[]`).
@@ -41,7 +43,9 @@ for (const schemas of [
   bankEffectsSchemas,
   networkSchemas,
   presetSchemas,
-  midiSchemas
+  midiSchemas,
+  sessionSchemas,
+  lightingSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);
@@ -212,7 +216,16 @@ class JsonValidator {
       errors.push('Command field is required and must be a string');
     }
 
-    if (message.data !== undefined && typeof message.data !== 'object') {
+    // `typeof [] === 'object'` and `typeof null === 'object'`, so an explicit
+    // array/primitive `data` must be rejected here — the dispatcher passes
+    // `message.data` straight to the handler, which expects a plain object
+    // (audit A2 D1). `null`/`undefined` are tolerated (coerced to `{}`
+    // downstream by `message.data || {}`).
+    if (
+      message.data !== undefined &&
+      message.data !== null &&
+      (typeof message.data !== 'object' || Array.isArray(message.data))
+    ) {
       errors.push('Data field must be an object');
     }
 

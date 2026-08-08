@@ -155,12 +155,15 @@ export function createApiRouter(app) {
       const code =
         err.code === 'UPLOAD_QUEUE_FULL'
           ? 503
-          : /too large/i.test(err.message)
+          : /too large|too complex/i.test(err.message)
             ? 413
             : /invalid midi/i.test(err.message)
               ? 415
               : 500;
-      res.status(code).json({ error: err.message });
+      // Expose the message only for the deterministic 4xx/503 client-feedback
+      // cases; a 500 is an unexpected internal error and must not leak its
+      // message (stack/paths) to the client (audit A2 N3).
+      res.status(code).json({ error: code === 500 ? 'Internal server error.' : err.message });
     }
   });
 
@@ -197,7 +200,7 @@ export function createApiRouter(app) {
       });
     } catch (err) {
       app.logger.error(`GET /api/files/${req.params.id}/text-events failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 
@@ -221,10 +224,21 @@ export function createApiRouter(app) {
         const safeName = String(file.filename).replace(/[^\w.-]/g, '_');
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
       }
-      app.blobStore.readStream(file.blob_path).pipe(res);
+      // Destroy the source stream when the response closes (client abort or
+      // normal finish) so `.pipe` cannot leak the file descriptor, and handle a
+      // mid-transfer read error instead of letting it throw unhandled (N6/N3).
+      const stream = app.blobStore.readStream(file.blob_path);
+      res.on('close', () => stream.destroy());
+      stream.on('error', (streamErr) => {
+        app.logger.warn(`blob stream error for file ${fileId}: ${streamErr.message}`);
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error.' });
+        else res.destroy();
+      });
+      stream.pipe(res);
     } catch (err) {
       app.logger.error(`GET /api/files/${req.params.id}/blob failed: ${err.message}`);
-      res.status(500).json({ error: err.message });
+      if (err.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+      res.status(500).json({ error: 'Internal server error.' });
     }
   });
 

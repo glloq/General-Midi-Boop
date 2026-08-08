@@ -502,14 +502,17 @@ class NetworkManager extends EventEmitter {
         this.logger.error(`[NetworkManager] RTP-MIDI error for ${ip}: ${error.message}`);
       });
 
-      // Listen for disconnection
+      // Listen for disconnection. This handler is the single owner of
+      // teardown+notify: it runs whether the peer drops us or we call the
+      // public `disconnect(ip)` (which closes the session), so the public path
+      // must NOT emit again (audit A1 RTP-L5).
       session.on('disconnected', () => {
         this.logger.info(`[NetworkManager] RTP-MIDI session disconnected: ${ip}`);
         this.rtpSessions.delete(ip);
         this.connectedDevices.delete(ip);
 
         // Emit event
-        this.emit('network:disconnected', { ip });
+        this.emit('network:disconnected', { ip, device_id: ip });
       });
 
       // Register the session BEFORE the handshake so inbound OK/CK packets
@@ -517,20 +520,28 @@ class NetworkManager extends EventEmitter {
       this.rtpSessions.set(ip, session);
 
       // The session enforces its own handshake timeout; race a manager-level
-      // timeout too as a backstop.
+      // timeout too as a backstop. Capture the timer so it can be cleared on
+      // success — otherwise it keeps the event loop alive for the full window
+      // and later rejects `connectTimeout` after the race already settled,
+      // producing an unhandled rejection (audit A1 RTP-L3). `unref()` keeps it
+      // from holding the process open in the meantime.
       const RTP_CONNECT_TIMEOUT = 10000;
-      const connectTimeout = new Promise((_, reject) =>
-        setTimeout(
+      let connectTimer = null;
+      const connectTimeout = new Promise((_, reject) => {
+        connectTimer = setTimeout(
           () => reject(new Error(`RTP-MIDI connection timeout after ${RTP_CONNECT_TIMEOUT}ms`)),
           RTP_CONNECT_TIMEOUT
-        )
-      );
+        );
+        if (connectTimer.unref) connectTimer.unref();
+      });
       try {
         await Promise.race([session.connect(ip, controlPort, dataPort), connectTimeout]);
       } catch (err) {
         this.rtpSessions.delete(ip);
         session.close();
         throw err;
+      } finally {
+        if (connectTimer) clearTimeout(connectTimer);
       }
 
       // Connection info
@@ -647,21 +658,21 @@ class NetworkManager extends EventEmitter {
     }
 
     try {
-      // Close the RTP-MIDI session
+      // Close the RTP-MIDI session. Its `disconnected` handler deletes the maps
+      // and emits `network:disconnected` exactly once, so we must NOT emit again
+      // here (audit A1 RTP-L5). Only emit ourselves when there is no live
+      // session to fire that handler.
       const session = this.rtpSessions.get(ip);
       if (session) {
         await session.disconnect();
-        this.rtpSessions.delete(ip);
+        this.rtpSessions.delete(ip); // idempotent safety net
+        this.connectedDevices.delete(ip);
+      } else {
+        this.connectedDevices.delete(ip);
+        this.emit('network:disconnected', { ip, device_id: ip });
       }
 
-      this.connectedDevices.delete(ip);
       this.logger.info(`[NetworkManager] ✅ Disconnected from ${ip}`);
-
-      // Emit event
-      this.emit('network:disconnected', {
-        ip: ip,
-        device_id: ip
-      });
 
       return {
         ip: ip,
@@ -739,6 +750,12 @@ class NetworkManager extends EventEmitter {
   async _ensureSockets() {
     if (this._controlSocket && this._dataSocket) return;
 
+    // Concurrent callers (two simultaneous connect()s) would both pass the
+    // check above and race the bind — double-binding the same UDP port leaks a
+    // socket and can leave 5004 mis-bound. Share one in-flight init promise so
+    // late callers await the same bind (audit A1 RTP-M2).
+    if (this._ensureSocketsPromise) return this._ensureSocketsPromise;
+
     const bindOrEphemeral = async (port, label) => {
       try {
         const s = await this._bindSocket(port);
@@ -753,19 +770,28 @@ class NetworkManager extends EventEmitter {
       }
     };
 
-    if (!this._controlSocket) {
-      this._controlSocket = await bindOrEphemeral(this.rtpMidiPort, 'control');
-      this._controlSocket.on('message', (msg, rinfo) => this._handleControlInbound(msg, rinfo));
-      this._controlSocket.on('error', (err) =>
-        this.logger.error(`[NetworkManager] RTP-MIDI control socket error: ${err.message}`)
-      );
-    }
-    if (!this._dataSocket) {
-      this._dataSocket = await bindOrEphemeral(this.rtpMidiPort + 1, 'data');
-      this._dataSocket.on('message', (msg, rinfo) => this._handleDataInbound(msg, rinfo));
-      this._dataSocket.on('error', (err) =>
-        this.logger.error(`[NetworkManager] RTP-MIDI data socket error: ${err.message}`)
-      );
+    this._ensureSocketsPromise = (async () => {
+      if (!this._controlSocket) {
+        this._controlSocket = await bindOrEphemeral(this.rtpMidiPort, 'control');
+        this._controlSocket.on('message', (msg, rinfo) => this._handleControlInbound(msg, rinfo));
+        this._controlSocket.on('error', (err) =>
+          this.logger.error(`[NetworkManager] RTP-MIDI control socket error: ${err.message}`)
+        );
+      }
+      if (!this._dataSocket) {
+        this._dataSocket = await bindOrEphemeral(this.rtpMidiPort + 1, 'data');
+        this._dataSocket.on('message', (msg, rinfo) => this._handleDataInbound(msg, rinfo));
+        this._dataSocket.on('error', (err) =>
+          this.logger.error(`[NetworkManager] RTP-MIDI data socket error: ${err.message}`)
+        );
+      }
+    })();
+
+    try {
+      await this._ensureSocketsPromise;
+    } finally {
+      // Clear so a later re-init (after shutdown() nulls the sockets) rebinds.
+      this._ensureSocketsPromise = null;
     }
   }
 
@@ -844,7 +870,7 @@ class NetworkManager extends EventEmitter {
     session.on('disconnected', () => {
       this.rtpSessions.delete(ip);
       this.connectedDevices.delete(ip);
-      this.emit('network:disconnected', { ip });
+      this.emit('network:disconnected', { ip, device_id: ip });
     });
     session.on('error', (error) =>
       this.logger.error(`[NetworkManager] RTP-MIDI error for ${ip}: ${error.message}`)
@@ -1022,6 +1048,20 @@ class NetworkManager extends EventEmitter {
     }
 
     await Promise.all(disconnectPromises);
+
+    // Close any sessions still pending: responder sessions mid-handshake are
+    // registered in `rtpSessions` but never entered `connectedDevices`, so the
+    // loop above misses them — leaving their establishment watchdog timers
+    // holding the process open (audit A1 RTP-L6). close() emits 'disconnected',
+    // whose handler removes them from the map as we iterate (safe for Map).
+    for (const session of this.rtpSessions.values()) {
+      try {
+        session.close();
+      } catch (err) {
+        this.logger.error(`Error closing pending RTP-MIDI session: ${err.message}`);
+      }
+    }
+    this.rtpSessions.clear();
 
     // Close the shared control + data sockets last, after all sessions are gone.
     const closeSocket = (sock) =>
