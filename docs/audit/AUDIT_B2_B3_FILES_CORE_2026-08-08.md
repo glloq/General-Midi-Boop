@@ -79,9 +79,11 @@ SF2), 3 MAJEURS (upload SF2 mort, OOM upload MIDI, teardown non isolé). Le rest
 
 ## 🟠 Ouverts — perf / misbehavior / documentés
 
-- **Baker O(N²)** `_ticksToSeconds`/`_secondsToTicks` scannent la tempo-map par
-  note → gel possible sur un fichier à nombreux `setTempo`. → index cumulatif /
-  recherche binaire (à planifier).
+- **Baker O(N²)** `_ticksToSeconds`/`_secondsToTicks` scannaient la tempo-map par
+  note → gel possible sur un fichier à nombreux `setTempo`. → ✅ **Corrigé**
+  (suivi 2026-08-08) : recherche binaire `_activeTempoEntry` (map triée par tick
+  ET par temps), O(log n) par appel, résultat identique. Tests :
+  `tests/midi-baker-tempo-map.test.js`.
 - **MidiFileValidator advisoire** : son résultat `valid/errors` est ignoré par
   `handleUpload` (seuls `warnings`/`stats` sont lus). Le cap d'events ci-dessus
   couvre l'OOM ; reste à faire respecter `!valid` (rejeter les shapes dangereuses).

@@ -100,11 +100,13 @@ MD1 préservé/recalculé, arrondi MN1).
   de kit de batterie (canal 9) **perdus** au round-trip : l'éditeur ne modélise
   qu'un programme par canal (émis à tick 0). Altération silencieuse par conception
   — à traiter si l'édition multi-programme devient un objectif.
-- **N1 (D3)** — `disposeSynthesizer` vide le compteur GLOBAL `SoundBankLoadingIndicator`
-  à 0 : peut masquer un spinner d'une autre feature en cours de chargement. Ne
-  défaire que les `begin()` propres à l'éditeur.
-- **N2 (D3)** — l'`input` tempo mute l'état à chaque frappe (dirty + toast répétés).
-  Débouncer ou n'écouter que `change`.
+- **N1 (D3)** — ✅ **Corrigé** (suivi 2026-08-08) : `disposeSynthesizer` ne
+  draine plus le compteur GLOBAL `SoundBankLoadingIndicator` (masquait le spinner
+  d'une autre feature) ; un compteur de refs propre à l'éditeur (`editorIndicatorRefs`,
+  tenu par `withLoadingIndicator`) est le seul défait au teardown.
+- **N2 (D3)** — ✅ **Corrigé** (suivi 2026-08-08) : `setTempo(newTempo, { silent })`
+  ; le handler `input` (temps réel) applique le tempo sans toast/log, seul le
+  `change` (commit) notifie une fois. Tests : `tests/frontend/midi-editor-tempo-silent.test.js`.
 - **N3/N4 (D3)** — diff de feedback de notes clé par index (feedback audio erroné
   après insert/delete) ; refresh du bouton undo/redo sauté après paste/delete
   spécialisé (choix historique).

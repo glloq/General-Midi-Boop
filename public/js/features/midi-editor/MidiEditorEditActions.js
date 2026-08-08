@@ -184,7 +184,7 @@
       );
     }
 
-    setTempo(newTempo) {
+    setTempo(newTempo, { silent = false } = {}) {
       if (!newTempo || isNaN(newTempo) || newTempo < 20 || newTempo > 300) {
         this.modal.log('warn', `Invalid tempo value: ${newTempo}`);
         return;
@@ -204,11 +204,17 @@
         this.modal.synthesizer.tempo = newTempo;
       }
 
-      this.modal.log('info', `Tempo changed to ${newTempo} BPM`);
-      this.modal.showNotification(
-        this.modal.t('midiEditor.tempoChanged', { tempo: newTempo }),
-        'info'
-      );
+      // `silent` = the real-time `input` handler firing while the user is still
+      // typing: apply the tempo for immediate piano-roll/synth feedback but skip
+      // the log + toast, which otherwise stacked on every keystroke (audit D N2).
+      // The committing `change` handler calls setTempo() non-silent for one toast.
+      if (!silent) {
+        this.modal.log('info', `Tempo changed to ${newTempo} BPM`);
+        this.modal.showNotification(
+          this.modal.t('midiEditor.tempoChanged', { tempo: newTempo }),
+          'info'
+        );
+      }
     }
 
     setEditMode(mode) {

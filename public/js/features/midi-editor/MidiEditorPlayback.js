@@ -41,17 +41,31 @@
   const HELD_NOTE_SAFETY_MS = 8000; // hard cap so a stuck pointer never sustains forever
   const HELD_NOTE_DURATION_S = 9999; // "play until cancel()" sentinel for MidiSynthesizer.playNote
 
+  // Count only the EDITOR's own outstanding indicator refs. The global
+  // SoundBankLoadingIndicator is a shared refcount used by other features too,
+  // so teardown must unwind only what the editor still holds — never drain the
+  // global to 0, which would hide another feature's in-progress spinner
+  // (audit D N1). withLoadingIndicator keeps this balanced via try/finally;
+  // the counter is the safety net for disposeSynthesizer.
+  let editorIndicatorRefs = 0;
+
   /**
    * Run an async loader while the global SoundBank loading indicator is
    * shown, guaranteeing `end()` even if the loader throws.
    */
   async function withLoadingIndicator(loader) {
     const hasIndicator = typeof SoundBankLoadingIndicator !== 'undefined';
-    if (hasIndicator) SoundBankLoadingIndicator.begin();
+    if (hasIndicator) {
+      SoundBankLoadingIndicator.begin();
+      editorIndicatorRefs++;
+    }
     try {
       await loader();
     } finally {
-      if (hasIndicator) SoundBankLoadingIndicator.end();
+      if (hasIndicator) {
+        SoundBankLoadingIndicator.end();
+        editorIndicatorRefs = Math.max(0, editorIndicatorRefs - 1);
+      }
     }
   }
 
@@ -524,12 +538,15 @@
       // cached instruments no longer exist).
       this._feedbackInstrumentsLoaded = false;
       this._warmupPromise = null;
-      // Defensive: ensure the global indicator counter doesn't leak a stuck
-      // reference if a load promise was rejected without `end()` running.
+      // Unwind ONLY the editor's own outstanding indicator refs — never drain
+      // the shared global counter to 0, which would hide another feature's
+      // in-progress spinner (audit D N1). end() floors the global count at 0, so
+      // a race with an in-flight loader's finally is harmless.
       if (typeof SoundBankLoadingIndicator !== 'undefined') {
         try {
-          while (SoundBankLoadingIndicator._count > 0) {
+          while (editorIndicatorRefs > 0) {
             SoundBankLoadingIndicator.end();
+            editorIndicatorRefs--;
           }
         } catch (_) {
           /* best-effort */

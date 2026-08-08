@@ -223,8 +223,10 @@
         tempoInput.addEventListener('input', (e) => {
           const newTempo = parseInt(e.target.value);
           if (!isNaN(newTempo) && newTempo >= 20 && newTempo <= 300) {
-            // Real-time update (optional — can be removed if too chatty)
-            this.modal.setTempo(newTempo);
+            // Real-time feedback while typing, but SILENT: the toast/log fire
+            // once on commit via the `change` handler above, not per keystroke
+            // (audit D N2).
+            this.modal.setTempo(newTempo, { silent: true });
           }
         });
       }

@@ -145,23 +145,41 @@ class MidiBaker {
     return map;
   }
 
+  /**
+   * Rightmost tempo-map entry whose `key` ('tick' or 'time') is ≤ value. The
+   * map is built sorted ascending in BOTH tick and cumulative time, so a binary
+   * search returns exactly what the previous linear scan did (default to entry
+   * 0 when none qualify) in O(log n). The conversions below are called once per
+   * event during hand-position CC generation, so the linear scan was
+   * O(events × tempo-changes) and could freeze the bake on a file with a dense
+   * tempo map (audit B2/B3 open item).
+   * @private
+   */
+  _activeTempoEntry(tempoMap, key, value) {
+    let lo = 0;
+    let hi = tempoMap.length - 1;
+    let ans = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (tempoMap[mid][key] <= value) {
+        ans = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return tempoMap[ans];
+  }
+
   /** @private Ticks → seconds (same algorithm as MidiPlayer._ticksToSecondsWithTempoMap). */
   _ticksToSeconds(ticks, tempoMap, ppq) {
-    let active = tempoMap[0];
-    for (const entry of tempoMap) {
-      if (entry.tick <= ticks) active = entry;
-      else break;
-    }
+    const active = this._activeTempoEntry(tempoMap, 'tick', ticks);
     return active.time + (ticks - active.tick) * (active.microsecondsPerBeat / (ppq * 1e6));
   }
 
   /** @private Seconds → ticks (inverse of above). */
   _secondsToTicks(seconds, tempoMap, ppq) {
-    let active = tempoMap[0];
-    for (const entry of tempoMap) {
-      if (entry.time <= seconds) active = entry;
-      else break;
-    }
+    const active = this._activeTempoEntry(tempoMap, 'time', seconds);
     const secsPerTick = active.microsecondsPerBeat / (ppq * 1e6);
     return Math.round(active.tick + (seconds - active.time) / secsPerTick);
   }
