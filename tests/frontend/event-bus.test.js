@@ -130,4 +130,71 @@ describe('Frontend EventBus', () => {
       expect(handler).toHaveBeenCalledWith({ type: 'go' });
     });
   });
+
+  // Audit C M2: processEvent iterates a SNAPSHOT and removes fired `once`
+  // listeners from the live array by identity, so a callback that mutates the
+  // listener set mid-dispatch can no longer skip listeners or splice the wrong
+  // one.
+  describe('snapshot iteration under re-entrant mutation (audit C M2)', () => {
+    it('removes only the fired once-listeners and leaves the rest intact', () => {
+      const h1 = vi.fn();
+      const h2 = vi.fn();
+      const h3 = vi.fn();
+      bus.once('e', h1); // once
+      bus.on('e', h2); // normal
+      bus.once('e', h3); // once
+      bus.emit('e', 'x', window.EventPriority.HIGH);
+
+      expect(h1).toHaveBeenCalledTimes(1);
+      expect(h2).toHaveBeenCalledTimes(1);
+      expect(h3).toHaveBeenCalledTimes(1);
+      // Both once-listeners gone (removed by identity, not by stale index);
+      // the normal listener survives.
+      expect(bus.getListenerCount('e')).toBe(1);
+
+      bus.emit('e', 'y', window.EventPriority.HIGH);
+      expect(h1).toHaveBeenCalledTimes(1);
+      expect(h3).toHaveBeenCalledTimes(1);
+      expect(h2).toHaveBeenCalledTimes(2);
+    });
+
+    it('a listener that unsubscribes another mid-dispatch does not skip listeners', () => {
+      const calls = [];
+      const h2 = vi.fn(() => calls.push('h2'));
+      const h1 = vi.fn(() => {
+        calls.push('h1');
+        bus.off('e', h2); // remove a later listener during dispatch
+      });
+      const h3 = vi.fn(() => calls.push('h3'));
+      bus.on('e', h1);
+      bus.on('e', h2);
+      bus.on('e', h3);
+      bus.emit('e', {}, window.EventPriority.HIGH);
+
+      // All three still fire this round (h2 is in the snapshot), and h3 is not
+      // skipped by the mid-iteration removal.
+      expect(calls).toEqual(['h1', 'h2', 'h3']);
+      // h2 is gone for the next round.
+      expect(bus.getListenerCount('e')).toBe(2);
+    });
+  });
+
+  // Audit C M3: off(event) with no callback must cancel pending debounce timers
+  // for the listeners it removes, or a debounced callback fires after teardown.
+  describe('off() without callback cancels pending debounce timers (audit C M3)', () => {
+    it('a debounced callback does not fire after bulk off()', () => {
+      vi.useFakeTimers();
+      try {
+        const handler = vi.fn();
+        bus.on('e', handler, { debounce: 100 });
+        // HIGH priority → synchronous processEvent → arms the debounce timer.
+        bus.emit('e', 'a', window.EventPriority.HIGH);
+        bus.off('e'); // bulk-remove; must clear the pending timer
+        vi.advanceTimersByTime(500);
+        expect(handler).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });

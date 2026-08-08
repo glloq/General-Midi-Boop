@@ -99,6 +99,17 @@ class EventBus {
     if (!this.listeners.has(event)) return;
 
     if (!callback) {
+      // Bulk-removing every listener for this event must also cancel their
+      // pending debounce timers; otherwise a debounced callback still fires
+      // after the caller detached all of them (e.g. a view torn down within
+      // the debounce window), touching state it already released (audit C M3).
+      for (const l of this.listeners.get(event)) {
+        const key = `${event}_${l.id}`;
+        if (this.debounceTimers.has(key)) {
+          clearTimeout(this.debounceTimers.get(key));
+          this.debounceTimers.delete(key);
+        }
+      }
       this.listeners.delete(event);
       return;
     }
@@ -192,12 +203,15 @@ class EventBus {
 
     if (!this.listeners.has(event)) return;
 
-    const listeners = this.listeners.get(event);
-    const toRemove = [];
+    // Iterate a SNAPSHOT: a callback may add/remove listeners for this same
+    // event during dispatch (re-entrant on()/off(), or a synchronous HIGH-
+    // priority re-emit). Iterating the live array and removing `once` listeners
+    // by post-hoc index skipped listeners and spliced the WRONG ones once the
+    // array shifted (audit C M2).
+    const listeners = [...this.listeners.get(event)];
+    const onceFired = [];
 
-    for (let i = 0; i < listeners.length; i++) {
-      const listener = listeners[i];
-
+    for (const listener of listeners) {
       try {
         if (listener.filter && !listener.filter(data)) {
           continue;
@@ -243,19 +257,24 @@ class EventBus {
         this.executeCallback(listener, data);
 
         if (listener.once) {
-          toRemove.push(i);
+          onceFired.push(listener);
         }
       } catch (error) {
         console.error(`EventBus: Error in listener for ${event}:`, error);
       }
     }
 
-    for (let i = toRemove.length - 1; i >= 0; i--) {
-      listeners.splice(toRemove[i], 1);
-    }
-
-    if (listeners.length === 0) {
-      this.listeners.delete(event);
+    // Remove fired `once` listeners from the LIVE array by identity (not by the
+    // snapshot index, which no longer maps after any re-entrant mutation).
+    if (onceFired.length) {
+      const live = this.listeners.get(event);
+      if (live) {
+        for (const l of onceFired) {
+          const idx = live.indexOf(l);
+          if (idx !== -1) live.splice(idx, 1);
+        }
+        if (live.length === 0) this.listeners.delete(event);
+      }
     }
 
     this.metrics.eventsProcessed++;

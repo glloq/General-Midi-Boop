@@ -18,6 +18,14 @@
  */
 const RECONNECT_UI_GIVEUP_ATTEMPTS = 12;
 
+/**
+ * Abort a connection attempt whose WebSocket handshake stalls (TCP up, upgrade
+ * never completes). Without this the `connect()` promise never settles and the
+ * reconnect chain — which relies on onclose / connect().catch — dies silently,
+ * requiring a manual reload to recover.
+ */
+const CONNECT_TIMEOUT_MS = 15000;
+
 /** Binary frame magic byte (matches `shared/BinaryFrameCodec.js`). */
 const _BIN_FRAME_MAGIC = 0xb0;
 
@@ -88,6 +96,7 @@ class BackendAPIClient {
     this._reconnectExhaustedEmitted = false;
     this._closed = false;
     this._connectionPromise = null;
+    this._connectTimer = null;
   }
 
   /**
@@ -101,6 +110,14 @@ class BackendAPIClient {
 
     this._connectionPromise = new Promise((resolve, reject) => {
       try {
+        // Cancel a stale connect-timeout from a previous attempt whose socket
+        // we are about to replace (its onclose was nulled below, so it will not
+        // clear the timer itself).
+        if (this._connectTimer) {
+          clearTimeout(this._connectTimer);
+          this._connectTimer = null;
+        }
+
         // Fermer l'ancienne connexion proprement
         if (this.ws) {
           try {
@@ -117,17 +134,47 @@ class BackendAPIClient {
         // promise round-trip.
         this.ws.binaryType = 'arraybuffer';
 
+        // Fail a stalled handshake so the reconnect chain keeps moving. Force-
+        // closing a still-CONNECTING socket fires onerror→onclose, which reject
+        // the initial connect() and reschedule a reconnect respectively.
+        this._connectTimer = setTimeout(() => {
+          this._connectTimer = null;
+          if (this.connected) return;
+          console.warn('WebSocket connection attempt timed out; forcing close to retry');
+          try {
+            this.ws.close();
+          } catch (e) {
+            /* ignore */
+          }
+        }, CONNECT_TIMEOUT_MS);
+
         this.ws.onopen = () => {
+          if (this._connectTimer) {
+            clearTimeout(this._connectTimer);
+            this._connectTimer = null;
+          }
           this.connected = true;
           this.reconnectAttempts = 0;
           this._reconnecting = false;
           this._reconnectExhaustedEmitted = false;
           this._connectionPromise = null;
-          this.emit('connected');
+          // Do NOT emit 'connected' here. The server sends a welcome frame
+          // ({type:'event', event:'connected', data:{version}}) immediately on
+          // open, and handleMessage() re-emits that as 'connected'. Emitting
+          // here too fired the event TWICE per connection, so every consumer
+          // ran its handler twice — doubling data loads and, for non-idempotent
+          // init, accumulating listeners (audit C M1). The welcome frame is now
+          // the single 'connected' source; the connect() promise still resolves
+          // here so `await connect()` is unaffected, and every consumer registers
+          // before connect() runs, so none can miss the frame.
           resolve();
         };
 
         this.ws.onclose = (_event) => {
+          if (this._connectTimer) {
+            clearTimeout(this._connectTimer);
+            this._connectTimer = null;
+          }
           const wasConnected = this.connected;
           this.connected = false;
           this._connectionPromise = null;
@@ -151,9 +198,13 @@ class BackendAPIClient {
         };
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          const errorMessage = error.message || error.type || 'WebSocket connection failed';
-          this.emit('error', { message: errorMessage, error: error });
+          // Log/propagate only a sanitized string, never the raw event: its
+          // `.target` is the WebSocket whose `.url` carries the auth-token query
+          // param, so logging the event object (or forwarding it to 'error'
+          // consumers) leaks the token into console output (audit C N1).
+          const errorMessage = error?.message || error?.type || 'WebSocket connection failed';
+          console.error('WebSocket error:', errorMessage);
+          this.emit('error', { message: errorMessage });
           // Ne pas reject ici - onclose sera appele ensuite
           // Seulement reject si c'est la connexion initiale (pas un reconnect)
           if (!this._reconnecting) {
@@ -277,6 +328,16 @@ class BackendAPIClient {
     // Handle event broadcasts
     if (message.event) {
       this.emit(message.event, message.data);
+      return;
+    }
+
+    // Uncorrelated error frame (no id, no event) — e.g. the server's rate-limit
+    // notice {type:'error', error:'…'}. Previously dropped silently, so the UI
+    // had no signal that its commands were being throttled (audit C N2). Guard
+    // on a missing id so a command response whose pending request already timed
+    // out is not re-surfaced as a spurious global error.
+    if (message.error && message.id == null) {
+      this.emit('error', { message: message.error, code: message.code });
     }
   }
 
@@ -421,6 +482,10 @@ class BackendAPIClient {
     if (this._reconnectTimer) {
       clearTimeout(this._reconnectTimer);
       this._reconnectTimer = null;
+    }
+    if (this._connectTimer) {
+      clearTimeout(this._connectTimer);
+      this._connectTimer = null;
     }
     this._rejectPendingRequests('Connection closed');
     this.eventHandlers.clear();

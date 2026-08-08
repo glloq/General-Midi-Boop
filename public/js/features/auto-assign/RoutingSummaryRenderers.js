@@ -133,14 +133,17 @@
    * @param {object} opts
    * @param {number|null} opts.selectedChannel  - currently selected channel (null → disabled)
    * @param {string}      opts.filename         - full filename (truncated to 30 chars for display)
-   * @param {(s:string) => string} [opts.escape] - HTML-escape helper ; defaults to identity
+   * @param {(s:string) => string} [opts.escape] - HTML-escape helper ; defaults to window.escapeHtml
    */
   function renderHeaderButtons(opts) {
     const ch = opts.selectedChannel;
     const chLabel = ch !== null && ch !== undefined ? ch + 1 : '?';
     const fnDisplay = opts.filename || '';
     const fnShort = fnDisplay.length > 30 ? fnDisplay.slice(0, 27) + '\u2026' : fnDisplay;
-    const escape = opts.escape || ((s) => s);
+    // Default to the shared escaper, not identity: filenames flow through here and
+    // a caller that forgets to pass one must not get raw injection (audit C).
+    const escape =
+      opts.escape || (typeof window !== 'undefined' && window.escapeHtml) || ((s) => s);
     return `
       <div class="rs-hdr-prev-btns">
         <button class="btn btn-sm rs-prev-btn rs-prev-btn-label" id="rsPreviewAllBtn" title="${_t('routingSummary.previewAll')}">

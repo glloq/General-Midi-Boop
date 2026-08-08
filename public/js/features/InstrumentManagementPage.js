@@ -587,6 +587,36 @@ class InstrumentManagementPage {
         }
       });
     });
+
+    // Instrument sub-card actions (audit C): device / instrument ids come from
+    // MIDI port names and are attacker-influenced, so they are carried in
+    // data-* attributes and read here rather than interpolated into inline
+    // onclick JS-strings. The per-button stopPropagation() preserves the old
+    // behaviour where a button click does not also trigger the card's edit.
+    const inst = () => window.instrumentManagementPageInstance;
+    content.querySelectorAll('[data-action="edit-instrument"]').forEach((card) => {
+      card.addEventListener('click', () => {
+        inst()?.editInstrument(card.dataset.deviceId, Number(card.dataset.channel));
+      });
+    });
+    content.querySelectorAll('[data-action="complete-instrument"]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        inst()?.completeInstrument(btn.dataset.instrumentId);
+      });
+    });
+    content.querySelectorAll('[data-action="test-instrument"]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        inst()?.testInstrument(btn.dataset.instrumentId, Number(btn.dataset.channel));
+      });
+    });
+    content.querySelectorAll('[data-action="delete-instrument"]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        inst()?.deleteInstrument(btn.dataset.instrumentId, Number(btn.dataset.channel));
+      });
+    });
   }
 
   /**
@@ -666,6 +696,15 @@ class InstrumentManagementPage {
     const channelColor = this.getChannelColor(channel);
     const displayName = instrument.custom_name || instrument.displayName || instrument.name;
     const safeId = esc(instrument.id);
+    // Device id used by editInstrument(); kept distinct from the instrument id
+    // used by complete/test/delete. Both flow into data-* attributes (safe,
+    // quoted-attribute context) and are read back via a delegated listener,
+    // instead of inline onclick JS-strings where escapeHtml is NOT a valid
+    // defense: the HTML parser decodes the entity back to a quote before the
+    // handler's JS is compiled, so an id derived from a crafted MIDI port name
+    // (or a virtual_create deviceId, validated only for presence) breaks out
+    // and executes. See the delegated wiring in renderContent() — audit C.
+    const editDeviceId = esc(instrument._deviceId || instrument.device_id || instrument.id);
 
     // Resolve the SVG of the main voice (gm_program) for this channel.
     // Drum kit programs are encoded with the GM_DRUM_KIT_OFFSET so the
@@ -735,7 +774,9 @@ class InstrumentManagementPage {
         transition: all 0.15s ease;
         box-shadow: 0 1px 4px rgba(0,0,0,0.06);
       "
-        onclick="instrumentManagementPageInstance.editInstrument('${esc(instrument._deviceId || instrument.device_id || instrument.id)}', ${channel})"
+        data-action="edit-instrument"
+        data-device-id="${editDeviceId}"
+        data-channel="${channel}"
         onmouseover="this.style.background='rgba(${this._hexToRgb(channelColor)}, 0.12)';this.style.boxShadow='0 3px 10px rgba(0,0,0,0.1)';this.style.transform='translateY(-1px)'"
         onmouseout="this.style.background='${cardBg}';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)';this.style.transform='translateY(0)'"
       >
@@ -793,7 +834,8 @@ class InstrumentManagementPage {
           isComplete
             ? ''
             : `<button style="font-size: 13px; padding: 4px 7px; flex-shrink: 0; align-self: center; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #d97706; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
-                onclick="event.stopPropagation(); instrumentManagementPageInstance.completeInstrument('${safeId}')"
+                data-action="complete-instrument"
+                data-instrument-id="${safeId}"
                 onmouseover="this.style.background='#f59e0b';this.style.color='white';this.style.borderColor='#f59e0b'"
                 onmouseout="this.style.background='rgba(245,158,11,0.1)';this.style.color='#d97706';this.style.borderColor='rgba(245,158,11,0.3)'"
                 title="${i18n.t('instrumentManagement.completeCapabilities') || 'Compléter les capacités'}">
@@ -803,7 +845,9 @@ class InstrumentManagementPage {
 
         <!-- Test (send a note within the instrument's range) -->
         <button style="font-size: 13px; padding: 4px 7px; flex-shrink: 0; align-self: center; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: #3b82f6; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
-                onclick="event.stopPropagation(); instrumentManagementPageInstance.testInstrument('${safeId}', ${channel})"
+                data-action="test-instrument"
+                data-instrument-id="${safeId}"
+                data-channel="${channel}"
                 onmouseover="this.style.background='#3b82f6';this.style.color='white';this.style.borderColor='#3b82f6'"
                 onmouseout="this.style.background='rgba(59,130,246,0.08)';this.style.color='#3b82f6';this.style.borderColor='rgba(59,130,246,0.2)'"
                 title="${i18n.t('instrumentManagement.testInstrument') || 'Tester'}">
@@ -812,7 +856,9 @@ class InstrumentManagementPage {
 
         <!-- Delete -->
         <button style="font-size: 13px; padding: 4px 7px; flex-shrink: 0; align-self: center; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2); color: #dc2626; border-radius: 7px; cursor: pointer; transition: all 0.15s ease;"
-                onclick="event.stopPropagation(); instrumentManagementPageInstance.deleteInstrument('${safeId}', ${channel})"
+                data-action="delete-instrument"
+                data-instrument-id="${safeId}"
+                data-channel="${channel}"
                 onmouseover="this.style.background='#dc2626';this.style.color='white';this.style.borderColor='#dc2626'"
                 onmouseout="this.style.background='rgba(220,38,38,0.08)';this.style.color='#dc2626';this.style.borderColor='rgba(220,38,38,0.2)'"
                 title="${i18n.t('common.delete') || 'Supprimer'}">
