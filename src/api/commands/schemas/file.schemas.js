@@ -85,6 +85,122 @@ export const file_move = {
 const MAX_WRITE_TRACKS = 256;
 const MAX_WRITE_EVENTS = 500000;
 
+// The `midi-file` writer serialises text/sysEx metas via Buffer.concat per
+// event — O(n²) within a track. `file_write`/`file_save_as` are editor-only and
+// the editor emits ZERO such metas, so this cap is pure DoS defence (audit D
+// CRITICAL-2: ~50 000 marker events froze the single Node thread ~85 s).
+const MAX_WRITE_META_EVENTS = 5000;
+
+// SMF variable-length quantities are 28-bit. A `deltaTime` ≥ 2³¹ makes the
+// library's writeVarInt spin forever (Int32 sign flip) and grow an array toward
+// 2³² entries — a single event OOM-kills the Pi (audit D CRITICAL-1). Reject
+// anything outside the legal VLQ range. deltaTimes are gaps between events, so
+// legitimate values are tiny; this only rejects corrupt/malicious payloads.
+const MIDI_VLQ_MAX = 0x0fffffff;
+
+// Event types the `midi-file` writer recognises. An unknown/absent `type` makes
+// it throw a bare STRING, which surfaces to the client as a generic
+// "Internal server error" with `Command failed: undefined` in the log (audit D
+// MEDIUM-3); reject it here as a clean ValidationError instead.
+const KNOWN_EVENT_TYPES = new Set([
+  'sequenceNumber',
+  'text',
+  'copyrightNotice',
+  'trackName',
+  'instrumentName',
+  'lyrics',
+  'marker',
+  'cuePoint',
+  'channelPrefix',
+  'portPrefix',
+  'endOfTrack',
+  'setTempo',
+  'smpteOffset',
+  'timeSignature',
+  'keySignature',
+  'sequencerSpecific',
+  'unknownMeta',
+  'sysEx',
+  'endSysEx',
+  'noteOff',
+  'noteOn',
+  'noteAftertouch',
+  'controller',
+  'programChange',
+  'channelAftertouch',
+  'pitchBend'
+]);
+
+// The subset serialised through the O(n²) writeBytes/writeString path.
+const META_HEAVY_TYPES = new Set([
+  'text',
+  'copyrightNotice',
+  'trackName',
+  'instrumentName',
+  'lyrics',
+  'marker',
+  'cuePoint',
+  'sequencerSpecific',
+  'unknownMeta',
+  'sysEx',
+  'endSysEx'
+]);
+
+const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+
+// Validate one decoded event's ranges. The frontend clamps every value, but a
+// LAN peer / older / malicious client bypasses it (HTTP auth is waived on the
+// LAN), and `writeMidi` masks values with `& 0xFF` / `0x90 | channel` — so an
+// out-of-nibble channel (e.g. 112 → status byte 0xF0) injects a sysEx marker
+// mid-stream and corrupts the file, and out-of-range notes are stored wrong
+// (audit D MEDIUM-5). Returns an error string, or null when the event is valid.
+function validateWriteEvent(ev) {
+  if (!ev || typeof ev !== 'object') return 'event must be an object';
+  if (!isInt(ev.deltaTime, 0, MIDI_VLQ_MAX)) {
+    return `event deltaTime must be an integer in [0, ${MIDI_VLQ_MAX}]`;
+  }
+  if (typeof ev.type !== 'string' || !KNOWN_EVENT_TYPES.has(ev.type)) {
+    return `unknown event type: ${ev.type}`;
+  }
+  switch (ev.type) {
+    case 'noteOn':
+    case 'noteOff':
+      return isInt(ev.channel, 0, 15) && isInt(ev.noteNumber, 0, 127) && isInt(ev.velocity, 0, 127)
+        ? null
+        : `${ev.type} channel/noteNumber/velocity out of range`;
+    case 'noteAftertouch':
+      return isInt(ev.channel, 0, 15) && isInt(ev.noteNumber, 0, 127) && isInt(ev.amount, 0, 127)
+        ? null
+        : 'noteAftertouch channel/noteNumber/amount out of range';
+    case 'controller':
+      return isInt(ev.channel, 0, 15) && isInt(ev.controllerType, 0, 127) && isInt(ev.value, 0, 127)
+        ? null
+        : 'controller channel/controllerType/value out of range';
+    case 'programChange':
+      return isInt(ev.channel, 0, 15) && isInt(ev.programNumber, 0, 127)
+        ? null
+        : 'programChange channel/programNumber out of range';
+    case 'channelAftertouch':
+      return isInt(ev.channel, 0, 15) && isInt(ev.amount, 0, 127)
+        ? null
+        : 'channelAftertouch channel/amount out of range';
+    case 'pitchBend':
+      return isInt(ev.channel, 0, 15) && isInt(ev.value, -8192, 8191)
+        ? null
+        : 'pitchBend channel/value out of range';
+    case 'setTempo':
+      return Number.isFinite(ev.microsecondsPerBeat) &&
+        ev.microsecondsPerBeat >= 1 &&
+        ev.microsecondsPerBeat <= 0xffffff
+        ? null
+        : 'setTempo microsecondsPerBeat out of range';
+    default:
+      // Meta / sysEx structural types: deltaTime is bounded above and the count
+      // is capped separately; their content is frame-size-bounded.
+      return null;
+  }
+}
+
 function validateFileIdField(data, errors) {
   if (!data.fileId) {
     errors.push('fileId is required');
@@ -103,19 +219,36 @@ function validateMidiDataField(md, errors) {
   }
   if (!Array.isArray(md.tracks)) {
     errors.push('midiData.tracks must be an array');
-  } else if (md.tracks.length > MAX_WRITE_TRACKS) {
+    return;
+  }
+  if (md.tracks.length > MAX_WRITE_TRACKS) {
     errors.push(`midiData.tracks exceeds ${MAX_WRITE_TRACKS} tracks`);
-  } else {
-    let total = 0;
-    for (const track of md.tracks) {
-      if (!Array.isArray(track)) {
-        errors.push('each midiData track must be an array of events');
-        break;
-      }
-      total += track.length;
-      if (total > MAX_WRITE_EVENTS) {
+    return;
+  }
+  // Validate EVERY event: total count, meta-heavy count, deltaTime range, known
+  // type, and per-type value ranges — so nothing dangerous reaches writeMidi
+  // (audit D). O(total events), itself bounded by the count cap. Bail on the
+  // first offending event to keep the error message and the cost bounded.
+  let total = 0;
+  let metaCount = 0;
+  for (const track of md.tracks) {
+    if (!Array.isArray(track)) {
+      errors.push('each midiData track must be an array of events');
+      return;
+    }
+    for (const ev of track) {
+      if (++total > MAX_WRITE_EVENTS) {
         errors.push(`midiData exceeds ${MAX_WRITE_EVENTS} events`);
-        break;
+        return;
+      }
+      if (ev && META_HEAVY_TYPES.has(ev.type) && ++metaCount > MAX_WRITE_META_EVENTS) {
+        errors.push(`midiData exceeds ${MAX_WRITE_META_EVENTS} text/sysEx meta events`);
+        return;
+      }
+      const evErr = validateWriteEvent(ev);
+      if (evErr) {
+        errors.push(`invalid midiData event: ${evErr}`);
+        return;
       }
     }
   }

@@ -921,13 +921,25 @@
     _rebuildBuckets() {
       this._buckets.clear();
       const B = this._bucketTicks;
+      // Bound how many buckets a single note may span. A corrupt/malicious file
+      // can encode a note with a multi-million-tick gate (28-bit VLQ), which
+      // would register it into ~140k buckets and freeze the main thread when the
+      // editor opens (setSequence → _rebuildBuckets) — a DoS (audit D M2). No
+      // real note spans thousands of measures, so capping the index span is
+      // safe; only pathological gates lose far-end bucket coverage.
+      const MAX_BUCKETS_PER_NOTE = 4096;
+      let capped = 0;
       for (let i = 0; i < this._sequence.length; i++) {
         const n = this._sequence[i];
         if (!n) continue;
-        const t0 = n.t;
-        const t1 = n.t + (n.g || 0);
-        const b0 = Math.floor(t0 / B);
-        const b1 = Math.floor(t1 / B);
+        const b0 = Math.floor(n.t / B);
+        if (!Number.isFinite(b0)) continue;
+        let b1 = Math.floor((n.t + (n.g || 0)) / B);
+        if (!Number.isFinite(b1) || b1 < b0) b1 = b0;
+        if (b1 - b0 > MAX_BUCKETS_PER_NOTE) {
+          b1 = b0 + MAX_BUCKETS_PER_NOTE;
+          capped++;
+        }
         for (let b = b0; b <= b1; b++) {
           let set = this._buckets.get(b);
           if (!set) {
@@ -936,6 +948,11 @@
           }
           set.add(i);
         }
+      }
+      if (capped > 0) {
+        console.warn(
+          `PianoRoll: clamped bucket span for ${capped} note(s) with an implausibly long gate`
+        );
       }
       this._bucketsDirty = false;
     }

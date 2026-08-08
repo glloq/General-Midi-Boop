@@ -186,6 +186,67 @@ describe('convertSequenceToMidi', () => {
     expect(cc.controllerType).toBe(7);
   });
 
+  it('serialises channel aftertouch WITH its amount (audit D M1)', () => {
+    const modal = makeModal({
+      fullSequence: [{ t: 0, g: 120, n: 60, c: 0, v: 100 }],
+      ccEvents: [{ ticks: 10, channel: 0, type: 'aftertouch', value: 77 }]
+    });
+    const trk = run(modal).tracks[0];
+    const at = trk.find((e) => e.type === 'channelAftertouch');
+    expect(at).toBeDefined();
+    // Was silently written as 0 before the delta-map forwarded `amount`.
+    expect(at.amount).toBe(77);
+  });
+
+  it('serialises poly aftertouch as noteAftertouch with amount, never the invalid polyAftertouch type (audit D C1)', () => {
+    const modal = makeModal({
+      fullSequence: [{ t: 0, g: 120, n: 60, c: 0, v: 100 }],
+      ccEvents: [{ ticks: 10, channel: 0, type: 'polyAftertouch', note: 64, value: 55 }]
+    });
+    const trk = run(modal).tracks[0];
+    // 'polyAftertouch' is not a midi-file type — emitting it made writeMidi throw
+    // and broke the whole save.
+    expect(trk.some((e) => e.type === 'polyAftertouch')).toBe(false);
+    const na = trk.find((e) => e.type === 'noteAftertouch');
+    expect(na).toBeDefined();
+    expect(na.noteNumber).toBe(64);
+    expect(na.amount).toBe(55);
+    expect(na.pressure).toBeUndefined();
+  });
+
+  it('preserves the exact source microsecondsPerBeat for an UNTOUCHED tempo (audit D MD1)', () => {
+    // ~100.5 BPM: rounds to integer BPM 100 but must be written back verbatim.
+    const srcUs = 597015;
+    const bpm = Math.round(60_000_000 / srcUs);
+    const modal = makeModal({
+      fullSequence: [{ t: 0, g: 120, n: 60, c: 0, v: 100 }],
+      tempoEvents: [{ ticks: 0, tempo: bpm, microsecondsPerBeat: srcUs }]
+    });
+    const tempo = run(modal).tracks[0].find((e) => e.type === 'setTempo');
+    expect(tempo.microsecondsPerBeat).toBe(srcUs);
+    // NOT the lossy round-trip value.
+    expect(tempo.microsecondsPerBeat).not.toBe(Math.round(60_000_000 / bpm));
+  });
+
+  it('recomputes microsecondsPerBeat from BPM for an EDITED tempo (stale µs ignored)', () => {
+    const modal = makeModal({
+      fullSequence: [{ t: 0, g: 120, n: 60, c: 0, v: 100 }],
+      // tempo edited to 140 but µs still reflects the original 100 BPM.
+      tempoEvents: [{ ticks: 0, tempo: 140, microsecondsPerBeat: 600000 }]
+    });
+    const tempo = run(modal).tracks[0].find((e) => e.type === 'setTempo');
+    expect(tempo.microsecondsPerBeat).toBe(Math.round(60_000_000 / 140));
+  });
+
+  it('rounds fractional values to integers so the stream is always valid (audit D MN1)', () => {
+    const modal = makeModal({
+      fullSequence: [{ t: 0.4, g: 119.6, n: 60.5, c: 0, v: 100.2 }]
+    });
+    const on = run(modal).tracks[0].find((e) => e.type === 'noteOn');
+    expect(Number.isInteger(on.noteNumber)).toBe(true);
+    expect(Number.isInteger(on.velocity)).toBe(true);
+  });
+
   it('normalises a missing gate (g) to at least 1 tick', () => {
     const modal = makeModal({
       fullSequence: [{ t: 0, g: 0, n: 60, c: 0, v: 100 }]

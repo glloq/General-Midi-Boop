@@ -190,186 +190,201 @@
       }
       this.modal._isClosing = true;
 
+      // Isolate every teardown step: a throw in one (an editor destroy, the
+      // popover close, …) must NOT skip the steps after it — above all the synth
+      // teardown, which is what actually breaks the app if skipped (notes ring,
+      // the transport tick loop leaks, the AudioContext is orphaned, and the
+      // singleton keeps isPlaying=true so the next open is broken). Previously
+      // all steps shared one try-block, so the first throw jumped past
+      // disposeSynthesizer() and the beforeunload removal (audit D M1).
+      const m = this.modal;
+      const step = (label, fn) => {
+        try {
+          fn();
+        } catch (err) {
+          this.log('warn', `Editor cleanup step "${label}" failed (continuing):`, err);
+        }
+      };
+
       try {
-        // Clean up channel settings popover (now in document.body)
-        this.modal.tablatureOps._closeChannelSettingsPopover();
+        step('closeChannelSettingsPopover', () => m.tablatureOps._closeChannelSettingsPopover());
 
-        // Unsubscribe from locale changes
-        if (this.modal.localeUnsubscribe) {
-          this.modal.localeUnsubscribe();
-          this.modal.localeUnsubscribe = null;
-        }
-
-        // Stop viewport synchronization
-        if (this.modal.pianoRollRenderer && this.modal._viewportChangeHandler) {
-          this.modal.pianoRollRenderer.off('viewportchange', this.modal._viewportChangeHandler);
-          this.modal._viewportChangeHandler = null;
-        }
-        // Fallback: clear legacy polling interval if still present
-        if (this.modal.syncInterval) {
-          clearInterval(this.modal.syncInterval);
-          this.modal.syncInterval = null;
-        }
-
-        // Nettoyer le piano roll
-        if (this.modal.pianoRollRenderer) {
-          this.modal.pianoRollRenderer.destroy();
-          this.modal.pianoRollRenderer = null;
-          this.modal.pianoRoll = null;
-        }
-
-        // Nettoyer la barre de navigation overview
-        if (this.modal.navigationBar) {
-          this.modal.navigationBar.destroy();
-          this.modal.navigationBar = null;
-        }
-
-        // Tear down the piano-roll container ResizeObserver
-        if (this.modal._pianoRollContainerObs) {
-          try {
-            this.modal._pianoRollContainerObs.disconnect();
-          } catch (_) {
-            /* best-effort */
+        step('localeUnsubscribe', () => {
+          if (m.localeUnsubscribe) {
+            m.localeUnsubscribe();
+            m.localeUnsubscribe = null;
           }
-          this.modal._pianoRollContainerObs = null;
-        }
+        });
+
+        step('viewportSync', () => {
+          if (m.pianoRollRenderer && m._viewportChangeHandler) {
+            m.pianoRollRenderer.off('viewportchange', m._viewportChangeHandler);
+            m._viewportChangeHandler = null;
+          }
+          // Fallback: clear legacy polling interval if still present
+          if (m.syncInterval) {
+            clearInterval(m.syncInterval);
+            m.syncInterval = null;
+          }
+        });
+
+        step('pianoRollRenderer', () => {
+          if (m.pianoRollRenderer) {
+            m.pianoRollRenderer.destroy();
+            m.pianoRollRenderer = null;
+            m.pianoRoll = null;
+          }
+        });
+
+        step('navigationBar', () => {
+          if (m.navigationBar) {
+            m.navigationBar.destroy();
+            m.navigationBar = null;
+          }
+        });
+
+        step('pianoRollContainerObs', () => {
+          if (m._pianoRollContainerObs) {
+            m._pianoRollContainerObs.disconnect();
+            m._pianoRollContainerObs = null;
+          }
+        });
 
         // Cancel a still-pending background synth warm-up (audit P1.1) so it
         // can't run after teardown and re-create an orphan AudioContext.
-        if (this.modal._warmupIdleHandle != null && this.modal._warmupIdleCancel) {
-          try {
-            this.modal._warmupIdleCancel(this.modal._warmupIdleHandle);
-          } catch (_) {
-            /* best-effort */
+        step('warmupCancel', () => {
+          if (m._warmupIdleHandle != null && m._warmupIdleCancel) {
+            m._warmupIdleCancel(m._warmupIdleHandle);
+            m._warmupIdleHandle = null;
           }
-          this.modal._warmupIdleHandle = null;
-        }
+        });
 
-        // Nettoyer la barre de timeline
-        if (this.modal.timelineBar) {
-          this.modal.timelineBar.destroy();
-          this.modal.timelineBar = null;
-        }
+        step('timelineBar', () => {
+          if (m.timelineBar) {
+            m.timelineBar.destroy();
+            m.timelineBar = null;
+          }
+        });
 
-        // Clean up the CC/pitch-bend editor
-        if (this.modal.ccEditor) {
-          this.modal.ccEditor.destroy();
-          this.modal.ccEditor = null;
-        }
-        this.modal.ccEvents = [];
-        this.modal.ccSectionExpanded = false;
-        this.modal.currentCCType = 'cc1';
-        this.modal._ccChannelDelegationAttached = false;
+        step('ccEditor', () => {
+          if (m.ccEditor) {
+            m.ccEditor.destroy();
+            m.ccEditor = null;
+          }
+        });
+        m.ccEvents = [];
+        m.ccSectionExpanded = false;
+        m.currentCCType = 'cc1';
+        m._ccChannelDelegationAttached = false;
 
-        // Clean up the velocity editor
-        if (this.modal.velocityEditor) {
-          this.modal.velocityEditor.destroy();
-          this.modal.velocityEditor = null;
-        }
+        step('velocityEditor', () => {
+          if (m.velocityEditor) {
+            m.velocityEditor.destroy();
+            m.velocityEditor = null;
+          }
+        });
 
-        // Clean up the tempo editor
-        if (this.modal.tempoEditor) {
-          this.modal.tempoEditor.destroy();
-          this.modal.tempoEditor = null;
-        }
-        this.modal.tempoEvents = [];
+        step('tempoEditor', () => {
+          if (m.tempoEditor) {
+            m.tempoEditor.destroy();
+            m.tempoEditor = null;
+          }
+        });
+        m.tempoEvents = [];
 
-        // Clean up the tablature editor
-        if (this.modal.tablatureEditor) {
-          this.modal.tablatureEditor.destroy();
-          this.modal.tablatureEditor = null;
-        }
+        step('tablatureEditor', () => {
+          if (m.tablatureEditor) {
+            m.tablatureEditor.destroy();
+            m.tablatureEditor = null;
+          }
+        });
 
-        // Clean up the drum-pattern editor
-        if (this.modal.drumPatternEditor) {
-          this.modal.drumPatternEditor.destroy();
-          this.modal.drumPatternEditor = null;
-        }
+        step('drumPatternEditor', () => {
+          if (m.drumPatternEditor) {
+            m.drumPatternEditor.destroy();
+            m.drumPatternEditor = null;
+          }
+        });
 
-        // Clean up the wind-instrument editor
-        if (this.modal.windInstrumentEditor) {
-          this.modal.windInstrumentEditor.destroy();
-          this.modal.windInstrumentEditor = null;
-        }
+        step('windInstrumentEditor', () => {
+          if (m.windInstrumentEditor) {
+            m.windInstrumentEditor.destroy();
+            m.windInstrumentEditor = null;
+          }
+        });
 
-        // Stop playback BEFORE disposing the synth so any in-flight preview
-        // (transport tick loop, scheduler) is halted on a known-good code path
-        // even if the dispose chain later throws.
-        try {
-          this.modal.playbackStop?.();
-        } catch (_) {
-          /* best-effort */
-        }
+        // Audio teardown — the steps that actually break the app if skipped.
+        // Now self-isolated so they run regardless of any editor-destroy throw.
+        step('playbackStop', () => m.playbackStop?.());
+        step('disposeSynthesizer', () => m.disposeSynthesizer());
 
-        // Clean up the synthesizer
-        this.modal.disposeSynthesizer();
+        // Resize-drag listeners (mousemove/mouseup on document) are normally
+        // detached via the AbortController in detachEvents(); this fallback
+        // covers the rare init-order case where attachEvents() hadn't run.
+        step('resizeListeners', () => {
+          if (m._resizeDoResize) {
+            document.removeEventListener('mousemove', m._resizeDoResize);
+            document.removeEventListener('mouseup', m._resizeStopResize);
+            m._resizeDoResize = null;
+            m._resizeStopResize = null;
+          }
+        });
 
-        // Resize-drag listeners (mousemove/mouseup on document) are now
-        // detached automatically via the AbortController signal in
-        // MidiEditorEvents.detachEvents() (audit §7.1). The fallback path
-        // below only fires when attachEvents() hadn't run yet (very rare
-        // init ordering edge-case) — keep the manual removal for safety.
-        if (this.modal._resizeDoResize) {
-          document.removeEventListener('mousemove', this.modal._resizeDoResize);
-          document.removeEventListener('mouseup', this.modal._resizeStopResize);
-          this.modal._resizeDoResize = null;
-          this.modal._resizeStopResize = null;
-        }
+        step('beforeUnloadHandler', () => this.removeBeforeUnloadHandler());
 
-        // Retirer le gestionnaire beforeunload
-        this.removeBeforeUnloadHandler();
+        step('externalRoutingUnsub', () => {
+          if (m.eventBus && m._onExternalRoutingChanged) {
+            m.eventBus.off('routing:changed', m._onExternalRoutingChanged);
+            m._onExternalRoutingChanged = null;
+          }
+        });
 
-        // Unsubscribe from external routing changes
-        if (this.modal.eventBus && this.modal._onExternalRoutingChanged) {
-          this.modal.eventBus.off('routing:changed', this.modal._onExternalRoutingChanged);
-          this.modal._onExternalRoutingChanged = null;
-        }
-
-        // Abort the session-scoped AbortController so any `document`/`window`
-        // listener registered through MidiEditorEvents.getAbortSignal() is
-        // detached. Catches popover close handlers that survived past the
-        // modal lifetime (audit §7.1).
-        try {
-          this.modal.events?.detachEvents?.();
-        } catch (_) {
-          /* best-effort */
-        }
-      } catch (err) {
-        this.log('error', 'Error during editor cleanup (container will still be removed):', err);
+        // Abort the session-scoped AbortController so any document/window
+        // listener registered through getAbortSignal() is detached.
+        step('detachEvents', () => m.events?.detachEvents?.());
       } finally {
-        // ALWAYS remove the keyboard shortcut handler, the container, and reset
-        // isOpen — even if any cleanup step above threw. This prevents the
-        // "close twice" symptom where a partial cleanup leaves the modal visible.
-        if (this.modal.keyboardHandler) {
-          document.removeEventListener('keydown', this.modal.keyboardHandler);
-          this.modal.keyboardHandler = null;
+        // ALWAYS remove the keyboard handler + container and reset ALL session
+        // state — including the playback flags, whose omission left the reused
+        // singleton showing the wrong transport button next open (audit D M1).
+        if (m.keyboardHandler) {
+          document.removeEventListener('keydown', m.keyboardHandler);
+          m.keyboardHandler = null;
         }
 
-        if (this.modal.container) {
-          this.modal.container.remove();
-          this.modal.container = null;
+        if (m.container) {
+          m.container.remove();
+          m.container = null;
         }
 
-        this.modal.isOpen = false;
-        this.modal._isClosing = false;
-        this.modal.currentFile = null;
-        this.modal.currentFilename = null;
-        this.modal.midiData = null;
-        this.modal.isDirty = false;
-        this.modal.sequence = [];
-        this.modal.fullSequence = [];
-        this.modal.activeChannels.clear();
-        this.modal.channels = [];
-        this.modal.clipboard = [];
+        m.isOpen = false;
+        m._isClosing = false;
+        m.isPlaying = false;
+        m.isPaused = false;
+        m.playbackStartTick = 0;
+        m.playbackEndTick = 0;
+        m.currentFile = null;
+        m.currentFilename = null;
+        m.midiData = null;
+        m.isDirty = false;
+        m.sequence = [];
+        m.fullSequence = [];
+        m.activeChannels.clear();
+        m.channels = [];
+        m.clipboard = [];
 
         // Emit event
-        if (this.modal.eventBus) {
-          this.modal.eventBus.emit('midi_editor:closed', {});
+        if (m.eventBus) {
+          m.eventBus.emit('midi_editor:closed', {});
         }
       }
     }
 
     setupBeforeUnloadHandler() {
+      // Idempotent: drop any prior handler first. A throwing doClose() can skip
+      // its removeBeforeUnloadHandler(), so without this the next show() would
+      // stack a second window 'beforeunload' listener on the reused singleton
+      // (audit D M3).
+      this.removeBeforeUnloadHandler();
       this.modal.beforeUnloadHandler = (e) => {
         if (this.modal.isDirty) {
           // Message standard du navigateur

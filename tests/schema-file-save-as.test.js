@@ -79,7 +79,18 @@ describe('file_save_as schema (audit A2 M1)', () => {
   });
 
   test('oversized midiData is rejected before it reaches writeMidi (DoS cap)', () => {
-    const tracks = [Array.from({ length: 500001 }, () => ({ type: 'noteOn' }))];
+    // Use well-formed events so the COUNT cap is what trips (audit D added
+    // per-event validation that would otherwise reject a malformed placeholder
+    // event first).
+    const tracks = [
+      Array.from({ length: 500001 }, () => ({
+        deltaTime: 0,
+        type: 'noteOn',
+        channel: 0,
+        noteNumber: 60,
+        velocity: 1
+      }))
+    ];
     errs(
       JsonValidator.validateByCommand('file_save_as', {
         fileId: 1,
