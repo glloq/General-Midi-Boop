@@ -512,8 +512,7 @@
             num_strings: p.strings,
             num_frets: p.frets,
             tuning: p.tuning,
-            is_fretless: p.fretless || false,
-            capo_fret: 0
+            is_fretless: p.fretless || false
           });
           this._showStringBanner(false);
         }

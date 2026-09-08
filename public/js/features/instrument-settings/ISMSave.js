@@ -206,6 +206,17 @@
         typeof isGmStringInstrument === 'function' && isGmStringInstrument(gmProgram);
       let stringInstrumentPayload = null;
       let effectivePolyphony = polyphony;
+      // R15 / F-73 — when no polyphony was typed (and the Notes section may
+      // never have been rendered, so the pre-filled input isn't there to
+      // read), fall back to the shared GM capability reference. Without this
+      // a flute/trumpet/violin-solo row keeps `polyphony = NULL` and the
+      // engine sends it the whole chord: that is the "monophonie des vents
+      // que personne ne fait respecter" of L06 F-73. Drum kits are exempt.
+      if (!effectivePolyphony && !isStringInst && window.ISMSections?._gmDefaultPolyphony) {
+        const isDrumTab = gmDecoded.isDrumKit || this.activeChannel === 9;
+        const gmDefault = window.ISMSections._gmDefaultPolyphony(gmProgram, isDrumTab);
+        if (gmDefault) effectivePolyphony = gmDefault;
+      }
       let stringNoteSelectionMode, stringNoteRangeMin, stringNoteRangeMax, stringSelectedNotes;
       if (isStringInst) {
         const numStrings = parseInt(this.$('#siNumStrings')?.value) || 6;
@@ -234,6 +245,11 @@
         };
         const ccEnabled = this.$('#ism-cc-enabled')?.checked ?? true;
         const tab = this._getActiveTab();
+        // Fretless: live checkbox first, in-memory config second.
+        const fretlessCb = this.$('#ismIsFretless');
+        const isFretlessFlag = fretlessCb
+          ? !!fretlessCb.checked
+          : !!tab?.stringInstrumentConfig?.is_fretless;
         const fretsPerStringData = this._neckDiagram
           ? this._neckDiagram.getFretsPerString()
           : tab?.stringInstrumentConfig?.frets_per_string || null;
@@ -263,8 +279,19 @@
           num_strings: numStrings,
           num_frets: maxFrets,
           tuning,
-          is_fretless: 0,
-          capo_fret: 0,
+          // R14 — `is_fretless` used to be hard-coded to 0 here, which
+          // destroyed the flag on every save even though the engine reads
+          // it (TablatureConverter, MidiPlayer, CapabilityResolver). The
+          // checkbox is the primary source; when the Strings subsection
+          // was never rendered we fall back to the in-memory config (which
+          // presets and the backend row both write) so a save from another
+          // tab can never clear it.
+          //
+          // NOTE — `capo_fret` is deliberately NOT sent. The capo feature
+          // is abandoned (removed from the converter in 2026-04, see
+          // TablatureConverter.js header); the column survives only as
+          // documented dead schema and keeps its DEFAULT 0.
+          is_fretless: isFretlessFlag ? 1 : 0,
           cc_enabled: ccEnabled,
           cc_string_number: _int(this.$('#ism-cc-str-num')?.value, 20),
           cc_string_min: _int(this.$('#ism-cc-str-min')?.value, 1),

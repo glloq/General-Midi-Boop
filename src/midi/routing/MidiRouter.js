@@ -25,7 +25,7 @@
 
 import { performance } from 'perf_hooks';
 import { DEVICE_MSG_TYPES, MIDI_CC } from '../../core/constants.js';
-import { clampNote, NoteGate } from '../adaptation/NoteEnforcement.js';
+import { clampNote, NoteGate, isCCAllowed } from '../adaptation/NoteEnforcement.js';
 
 // Upper bound on tracked in-flight routed notes (the source→clamped-pitch memory
 // that keeps a note-off/aftertouch on the same pitch as its note-on). A note-on
@@ -447,20 +447,11 @@ class MidiRouter {
         if (typeof resolver.isStringCCAllowed !== 'function') return true;
         return resolver.isStringCCAllowed(dest, out.channel) === true;
       }
+      // Single implementation shared with PlaybackScheduler (file playback) and
+      // MidiTransposer (offline bake) — channel-mode/bank-select/hand CCs always
+      // pass, an undeclared set forwards everything (R16 axis 6 / F-60).
       const constraints = resolver.getTimingConstraints(dest, out.channel);
-      const list = constraints?.supportedCcs;
-      if (Array.isArray(list) && list.length > 0) {
-        const cc = out.controller;
-        const always =
-          cc >= MIDI_CC.ALL_SOUND_OFF ||
-          cc === MIDI_CC.BANK_SELECT ||
-          cc === MIDI_CC.BANK_SELECT_LSB ||
-          // The instrument's own hand-position control CCs always pass (audit
-          // fix — a declared supported_ccs must not drop the actuator's CCs).
-          (Array.isArray(constraints.handCcs) && constraints.handCcs.includes(cc));
-        if (!always && !list.includes(cc)) return false;
-      }
-      return true;
+      return isCCAllowed(out.controller, constraints);
     }
 
     // Note gating — drum source excluded.

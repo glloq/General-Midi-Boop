@@ -357,7 +357,6 @@ Espace de noms libre, ignoré si inconnu. Remplace le bloc 7 et ses versions.
   "fret_count": 12,
   "frets_per_string": [12, 12, 12, 12],
   "fretless": false,
-  "capo": 0,
   "tuning": [67, 60, 64, 69],
   "string_order": "normal",
   "selection": {

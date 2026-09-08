@@ -10,6 +10,11 @@ import { parseMidi, writeMidi } from 'midi-file';
 import HandAssigner from '../midi/adaptation/HandAssigner.js';
 import HandPositionPlanner from '../midi/adaptation/HandPositionPlanner.js';
 import LongitudinalPlanner from '../midi/adaptation/LongitudinalPlanner.js';
+import {
+  indexHandOverrides,
+  isNoteDisabled,
+  plannerAnchors
+} from '../midi/adaptation/HandOverrides.js';
 
 const MICROSECONDS_PER_MINUTE = 60_000_000;
 
@@ -63,21 +68,121 @@ class MidiBaker {
     } catch (e) {
       this.logger.debug(`MidiBaker: no routings for file ${id}: ${e.message}`);
     }
-    const handCCs = this._generateHandPositionCCs(id, midi, tempoMap, ppq, routings);
+    // Operator overrides per source channel, indexed exactly like the live
+    // player does (shared HandOverrides module) so both chains plan and strip
+    // from identical inputs (R13 / F-139).
+    const overridesByChannel = this._indexRoutingOverrides(routings);
+
+    const handCCs = this._generateHandPositionCCs(
+      id,
+      midi,
+      tempoMap,
+      ppq,
+      routings,
+      overridesByChannel
+    );
     for (const [trackIdx, events] of handCCs) addCCs(trackIdx, events);
 
+    // 3. Notes the operator disabled in the hand-position editor: they are
+    // REMOVED from the baked bytes, mirroring the live path where
+    // PlaybackScheduler skips the `_handDisabled` events. Without this the
+    // baked file still contains a note that live playback would not emit.
+    const disabledCount = this._countDisabled(overridesByChannel);
+
     let totalAdded = 0;
+    let totalRemoved = 0;
     const newTracks = midi.tracks.map((track, idx) => {
-      const newCCs = ccByTrack.get(idx);
-      if (!newCCs || newCCs.length === 0) return track;
+      const newCCs = ccByTrack.get(idx) || [];
+      const removals =
+        disabledCount > 0 ? this._collectDisabledEvents(track, overridesByChannel) : null;
+      if (newCCs.length === 0 && (!removals || removals.size === 0)) return track;
       totalAdded += newCCs.length;
-      return this._mergeEventsIntoTrack(track, newCCs);
+      totalRemoved += removals ? removals.size : 0;
+      return this._mergeEventsIntoTrack(track, newCCs, removals);
     });
 
     const newBuffer = Buffer.from(writeMidi({ header: midi.header, tracks: newTracks }));
-    this.logger.info(`MidiBaker: baked ${totalAdded} CC events into file ${id}`);
+    this.logger.info(
+      `MidiBaker: baked ${totalAdded} CC events into file ${id}` +
+        (totalRemoved > 0 ? ` (removed ${totalRemoved} operator-disabled note events)` : '')
+    );
 
-    return { buffer: newBuffer, stats: { cc_events_added: totalAdded } };
+    return {
+      buffer: newBuffer,
+      stats: { cc_events_added: totalAdded, note_events_removed: totalRemoved }
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Operator overrides (hand_position_overrides — R13 / F-139)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Index every enabled routing's `hand_position_overrides` by source channel.
+   * @private
+   * @param {Array<Object>} routings
+   * @returns {Map<number, import('../midi/adaptation/HandOverrides.js').HandOverrideIndex>}
+   */
+  _indexRoutingOverrides(routings) {
+    const out = new Map();
+    for (const routing of routings || []) {
+      if (!routing || routing.enabled === false) continue;
+      if (routing.hand_position_overrides == null) continue;
+      const index = indexHandOverrides(routing.hand_position_overrides);
+      if (index.isEmpty) continue;
+      // Split routings share one source channel; merging is unnecessary because
+      // the editors write one override blob per (file, channel) — last wins,
+      // same rule as `indexHandOverrides` applies to duplicate pins.
+      out.set(routing.channel, index);
+    }
+    return out;
+  }
+
+  /** @private @returns {number} total disabled entries across all channels. */
+  _countDisabled(overridesByChannel) {
+    let n = 0;
+    for (const idx of overridesByChannel.values()) n += idx.disabled.size;
+    return n;
+  }
+
+  /**
+   * Indices of the raw track events belonging to an operator-disabled note —
+   * the note-on AND its matching note-off — using the same one-at-a-time
+   * pairing rule as `MidiPlayer._applyDisabledNotes`, so overlapping same-pitch
+   * notes release correctly.
+   *
+   * @private
+   * @param {Array<Object>} track - raw midi-file events (deltaTime based)
+   * @param {Map<number, Object>} overridesByChannel
+   * @returns {Set<number>} indices to drop
+   */
+  _collectDisabledEvents(track, overridesByChannel) {
+    const drop = new Set();
+    if (overridesByChannel.size === 0) return drop;
+    const pendingOff = new Map();
+    let absTick = 0;
+    for (let i = 0; i < track.length; i++) {
+      const ev = track[i];
+      absTick += ev.deltaTime;
+      const isNoteOn = ev.type === 'noteOn' && (ev.velocity ?? 0) > 0;
+      const isNoteOff = ev.type === 'noteOff' || (ev.type === 'noteOn' && (ev.velocity ?? 0) === 0);
+      if (!isNoteOn && !isNoteOff) continue;
+      const key = `${ev.channel}:${ev.noteNumber}`;
+      if (isNoteOn) {
+        const index = overridesByChannel.get(ev.channel);
+        if (index && isNoteDisabled(index, absTick, ev.noteNumber)) {
+          drop.add(i);
+          pendingOff.set(key, (pendingOff.get(key) || 0) + 1);
+        }
+        continue;
+      }
+      const waiting = pendingOff.get(key) || 0;
+      if (waiting > 0) {
+        drop.add(i);
+        pendingOff.set(key, waiting - 1);
+      }
+    }
+    return drop;
   }
 
   // ---------------------------------------------------------------------------
@@ -177,11 +282,36 @@ class MidiBaker {
     return active.time + (ticks - active.tick) * (active.microsecondsPerBeat / (ppq * 1e6));
   }
 
-  /** @private Seconds → ticks (inverse of above). */
-  _secondsToTicks(seconds, tempoMap, ppq) {
+  /** @private Seconds → ticks, unrounded. */
+  _secondsToTicksExact(seconds, tempoMap, ppq) {
     const active = this._activeTempoEntry(tempoMap, 'time', seconds);
     const secsPerTick = active.microsecondsPerBeat / (ppq * 1e6);
-    return Math.round(active.tick + (seconds - active.time) / secsPerTick);
+    return active.tick + (seconds - active.time) / secsPerTick;
+  }
+
+  /** @private Seconds → ticks (inverse of above). */
+  _secondsToTicks(seconds, tempoMap, ppq) {
+    return Math.round(this._secondsToTicksExact(seconds, tempoMap, ppq));
+  }
+
+  /**
+   * Tick for a planner CC event, honouring its `placement`.
+   *
+   * The planners emit a shift CC at `previous_note_on + 0.1 ms` ("as early as
+   * possible") and the very first placement at `first_note − 0.1 ms`. That
+   * epsilon is far below one tick (≈1 ms at 480 ppq / 120 BPM), so plain
+   * rounding collapsed a shift CC onto the previous note's tick — where
+   * `_mergeEventsIntoTrack` sorts controllers BEFORE note-ons and the baked
+   * file moved the hand one note too early, while live playback moved it just
+   * after. Rounding away from the reference note keeps both chains on the same
+   * side of it (R16 — hand-CC ordering parity).
+   *
+   * @private
+   */
+  _ccEventTick(cc, tempoMap, ppq) {
+    const raw = this._secondsToTicksExact(cc.time, tempoMap, ppq);
+    const tick = cc.placement === 'post' ? Math.ceil(raw) : Math.round(raw);
+    return Math.max(0, tick);
   }
 
   // ---------------------------------------------------------------------------
@@ -274,7 +404,7 @@ class MidiBaker {
    * @private
    * @returns {Map<number, Array<{absTick, channel, controllerType, value}>>}
    */
-  _generateHandPositionCCs(fileId, midi, tempoMap, ppq, routings) {
+  _generateHandPositionCCs(fileId, midi, tempoMap, ppq, routings, overridesByChannel = new Map()) {
     const result = new Map();
     if (!routings || routings.length === 0) return result;
 
@@ -316,6 +446,7 @@ class MidiBaker {
       if (!Array.isArray(handsCfg.hands) || handsCfg.hands.length === 0) continue;
 
       const trackIdx = this._findTrackForChannel(midi, srcCh);
+      const overrideIndex = overridesByChannel.get(srcCh) || indexHandOverrides(null);
 
       if (handsCfg.mode === 'frets') {
         const events = this._planFretsMode(
@@ -327,7 +458,8 @@ class MidiBaker {
           ppq,
           handsCfg,
           capabilities,
-          getTab
+          getTab,
+          overrideIndex
         );
         if (events.length > 0) {
           const existing = result.get(trackIdx) || [];
@@ -341,7 +473,8 @@ class MidiBaker {
           tempoMap,
           ppq,
           handsCfg,
-          capabilities
+          capabilities,
+          overrideIndex
         );
         if (events.length > 0) {
           const existing = result.get(trackIdx) || [];
@@ -358,7 +491,18 @@ class MidiBaker {
    * Mirrors MidiPlayer._planFretsForDestination.
    * @private
    */
-  _planFretsMode(srcCh, trackIdx, fileId, midi, tempoMap, ppq, handsCfg, capabilities, getTab) {
+  _planFretsMode(
+    srcCh,
+    trackIdx,
+    fileId,
+    midi,
+    tempoMap,
+    ppq,
+    handsCfg,
+    capabilities,
+    getTab,
+    overrideIndex = null
+  ) {
     const tab = getTab(srcCh);
     if (!tab || !Array.isArray(tab.tablature_data) || tab.tablature_data.length === 0) return [];
 
@@ -397,9 +541,12 @@ class MidiBaker {
     const notes = [];
     for (const ev of tab.tablature_data) {
       if (!Number.isFinite(ev.fret) || ev.fret <= 0) continue;
+      // Same exclusion as MidiPlayer._planFretsForDestination (R13 / F-139).
+      if (isNoteDisabled(overrideIndex, ev.tick, ev.midiNote)) continue;
       const time = this._ticksToSeconds(ev.tick, tempoMap, ppq);
       notes.push({
         time,
+        tick: ev.tick,
         note: ev.midiNote,
         fretPosition: ev.fret,
         string: ev.string,
@@ -427,7 +574,9 @@ class MidiBaker {
       ? new LongitudinalPlanner(handsCfg, plannerCtx)
       : new HandPositionPlanner(handsCfg, plannerCtx);
 
-    const { ccEvents, warnings } = planner.plan(notes);
+    const { ccEvents, warnings } = planner.plan(notes, {
+      anchors: plannerAnchors(overrideIndex)
+    });
     if (warnings.length > 0) {
       this.logger.debug(
         `MidiBaker: ${warnings.length} hand-position warnings for ch ${srcCh + 1} (frets mode)`
@@ -435,7 +584,7 @@ class MidiBaker {
     }
 
     return ccEvents.map((cc) => ({
-      absTick: this._secondsToTicks(cc.time, tempoMap, ppq),
+      absTick: this._ccEventTick(cc, tempoMap, ppq),
       channel: srcCh,
       controllerType: cc.controller,
       value: cc.value
@@ -446,7 +595,16 @@ class MidiBaker {
    * Plan hand-position CCs for a keyboard instrument (semitones mode).
    * @private
    */
-  _planSemitonesMode(srcCh, trackIdx, midi, tempoMap, ppq, handsCfg, capabilities) {
+  _planSemitonesMode(
+    srcCh,
+    trackIdx,
+    midi,
+    tempoMap,
+    ppq,
+    handsCfg,
+    capabilities,
+    overrideIndex = null
+  ) {
     // Collect all note-ons for this channel from every track.
     const notes = [];
     for (const track of midi.tracks) {
@@ -454,8 +612,12 @@ class MidiBaker {
       for (const ev of track) {
         absTick += ev.deltaTime;
         if (ev.type === 'noteOn' && ev.channel === srcCh && (ev.velocity ?? 0) > 0) {
+          // Operator-disabled notes are stripped from the baked bytes, so they
+          // must not shape the hand plan either (R13 / F-139).
+          if (isNoteDisabled(overrideIndex, absTick, ev.noteNumber)) continue;
           notes.push({
             time: this._ticksToSeconds(absTick, tempoMap, ppq),
+            tick: absTick,
             note: ev.noteNumber,
             channel: srcCh,
             velocity: ev.velocity
@@ -467,7 +629,13 @@ class MidiBaker {
     notes.sort((a, b) => a.time - b.time);
 
     const assigner = new HandAssigner(handsCfg);
-    const { assignments } = assigner.assign(notes, {});
+    // Operator hand pins from the keyboard editor — the same list
+    // MidiPlayer._injectHandPositionCCEvents feeds the assigner.
+    const handPins = overrideIndex ? overrideIndex.handPins : [];
+    const { assignments } = assigner.assign(
+      notes,
+      handPins.length > 0 ? { noteAssignments: handPins } : {}
+    );
     const tagged = notes.map((n, i) => ({ ...n, hand: assignments[i]?.hand }));
 
     const planner = new HandPositionPlanner(handsCfg, {
@@ -475,10 +643,10 @@ class MidiBaker {
       noteRangeMax: capabilities?.note_range_max ?? null,
       minNoteIntervalMs: capabilities?.min_note_interval ?? 0
     });
-    const { ccEvents } = planner.plan(tagged);
+    const { ccEvents } = planner.plan(tagged, { anchors: plannerAnchors(overrideIndex) });
 
     return ccEvents.map((cc) => ({
-      absTick: this._secondsToTicks(cc.time, tempoMap, ppq),
+      absTick: this._ccEventTick(cc, tempoMap, ppq),
       channel: srcCh,
       controllerType: cc.controller,
       value: cc.value
@@ -510,9 +678,12 @@ class MidiBaker {
    * @private
    * @param {Array<Object>} track - Raw midi-file events (with deltaTime).
    * @param {Array<{absTick:number, channel:number, controllerType:number, value:number}>} newCCEvents
+   * @param {?Set<number>} [dropIndices] - Track-event indices to remove
+   *   (operator-disabled notes, R13). Their tick gap is preserved because the
+   *   rebuild works in absolute ticks.
    * @returns {Array<Object>} New track with recomputed delta times.
    */
-  _mergeEventsIntoTrack(track, newCCEvents) {
+  _mergeEventsIntoTrack(track, newCCEvents, dropIndices = null) {
     // Build the set of (channel, controllerType) pairs the bake is about
     // to (re)emit. Strip any pre-existing events on the same pairs so
     // that re-applying assignments does NOT stack new CCs on top of the
@@ -531,8 +702,10 @@ class MidiBaker {
     // bake is about to re-emit.
     const expanded = [];
     let absTick = 0;
-    for (const ev of track) {
+    for (let i = 0; i < track.length; i++) {
+      const ev = track[i];
       absTick += ev.deltaTime;
+      if (dropIndices && dropIndices.has(i)) continue;
       if (stripPreviousBake(ev)) continue;
       expanded.push({ ...ev, _absTick: absTick });
     }

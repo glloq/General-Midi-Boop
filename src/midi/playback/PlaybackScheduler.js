@@ -37,7 +37,9 @@ import {
   clampNote,
   foldIntoRange,
   snapToNearest,
-  selectPolyphonyVictim
+  selectPolyphonyVictim,
+  isCCAllowed,
+  isOutOfRange
 } from '../adaptation/NoteEnforcement.js';
 
 const { SCHEDULER_TICK_MS, LOOKAHEAD_SECONDS, EMIT_AHEAD_MS } = TIMING;
@@ -301,17 +303,10 @@ class PlaybackScheduler {
    * @returns {boolean}
    */
   _isCCSupported(controller, constraints) {
-    const list = constraints?.supportedCcs;
-    if (!Array.isArray(list) || list.length === 0) return true; // not declared → allow all
-    if (controller >= MIDI_CC.ALL_SOUND_OFF) return true; // 120..127 channel-mode/safety
-    if (controller === MIDI_CC.BANK_SELECT || controller === MIDI_CC.BANK_SELECT_LSB) return true;
-    // The instrument's OWN hand-position control CCs are actuator control the
-    // engine injects/bakes; always allow them even when omitted from
-    // supported_ccs, otherwise the actuator never moves (audit fix). Covers both
-    // injected (_routeTo) and baked hand CCs, matched by declared cc number.
-    const hand = constraints?.handCcs;
-    if (Array.isArray(hand) && hand.includes(controller)) return true;
-    return list.includes(controller);
+    // Single implementation shared with MidiRouter (live) and MidiTransposer
+    // (offline bake) so the three chains can never disagree on which CCs an
+    // instrument receives — the divergence R16 axis 6 / F-60 closed.
+    return isCCAllowed(controller, constraints);
   }
 
   /**
@@ -590,6 +585,13 @@ class PlaybackScheduler {
    * @param {Object} state - Player state (for playing check in sendEvent)
    */
   scheduleEvent(event, currentPosition, getOutputForChannel, state, callbacks) {
+    // Operator-disabled note (`hand_position_overrides.disabled_notes`, marked
+    // by MidiPlayer._applyDisabledNotes). Both the note-on and its matching
+    // note-off are marked, so skipping here removes the note completely: no
+    // strike, no release, no polyphony slot — exactly what MidiBaker strips
+    // from the baked bytes (R13 / audit F-139).
+    if (event._handDisabled) return;
+
     // Handle tempo change events (for MIDI clock synchronization)
     if (event.type === MIDI_EVENT_TYPES.SET_TEMPO) {
       const rate = state.playbackRate > 0 ? state.playbackRate : 1;
@@ -1065,6 +1067,24 @@ class PlaybackScheduler {
         if (remapped !== undefined && remapped !== null) {
           outNote = Math.max(0, Math.min(127, remapped));
         }
+      }
+    }
+
+    // Out-of-range POLICY (R16 axis 4 / F-60). The offline chain deletes an
+    // out-of-range note when the operator picked "supprimer" (`oorHandling`),
+    // while the runtime only ever folded it: the same file played live and
+    // baked produced [52,60,72] vs [60]. The runtime now honours the same
+    // choice, carried per source channel exactly like `channelTransposition`
+    // and `channelNoteRemapping`. Evaluated AFTER transpose+remap and BEFORE
+    // the fold, mirroring `MidiTransposer.transposeChannels` step order, and
+    // applied to note-ons AND note-offs so no note is left hanging.
+    if (isNoteTypeEvent && state.channelOutOfRangePolicy) {
+      const policy = state.channelOutOfRangePolicy.get(event.channel);
+      if (
+        policy === 'suppress' &&
+        isOutOfRange(outNote, this._getTimingConstraints(routing.device, outChannel))
+      ) {
+        return null;
       }
     }
 

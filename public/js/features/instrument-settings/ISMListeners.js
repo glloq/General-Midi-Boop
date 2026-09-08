@@ -59,6 +59,30 @@
   // ========== NECK DIAGRAM ==========
 
   ISMListeners._attachStringsSectionListeners = function () {
+    // Fretless toggle (R14). Mirrors into `tab.stringInstrumentConfig`
+    // — the single source of truth the save path now reads — and
+    // re-renders the subsection so the neck canvas is rebuilt with the
+    // right `isFretless` option.
+    const ismIsFretless = this.$('#ismIsFretless');
+    if (ismIsFretless) {
+      ismIsFretless.addEventListener(
+        'change',
+        function (e) {
+          const tab = this._getActiveTab();
+          if (!tab) return;
+          if (!tab.stringInstrumentConfig) tab.stringInstrumentConfig = {};
+          tab.stringInstrumentConfig.is_fretless = !!e.target.checked;
+          const stringsSubsection = this.$('#stringsSubsection');
+          if (stringsSubsection) {
+            const titleHtml = stringsSubsection.querySelector('.ism-subsection-title');
+            const titleOuter = titleHtml ? titleHtml.outerHTML : '';
+            stringsSubsection.innerHTML = titleOuter + this._renderStringsContent();
+            this._attachStringsSectionListeners();
+          }
+        }.bind(this)
+      );
+    }
+
     // CC toggle
     const ismCcEnabled = this.$('#ism-cc-enabled');
     if (ismCcEnabled) {
@@ -93,7 +117,6 @@
               num_frets: 24,
               tuning: [40, 45, 50, 55, 59, 64],
               is_fretless: false,
-              capo_fret: 0,
               cc_enabled: true
             };
           }
@@ -149,7 +172,6 @@
               num_frets: 24,
               tuning: [40, 45, 50, 55, 59, 64],
               is_fretless: false,
-              capo_fret: 0,
               cc_enabled: true
             };
           }

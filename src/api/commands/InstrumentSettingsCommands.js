@@ -775,7 +775,6 @@ async function instrumentSaveAll(app, data) {
         num_frets: si.num_frets,
         tuning: si.tuning,
         is_fretless: si.is_fretless,
-        capo_fret: si.capo_fret,
         cc_enabled: si.cc_enabled,
         cc_string_number: si.cc_string_number,
         cc_string_min: si.cc_string_min,

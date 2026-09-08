@@ -2205,3 +2205,235 @@ body.dark-mode .midi-editor-modal .channel-edit-btn.active {
 @keyframes sound-loading-spin {
     to { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   Live MIDI routing modal (R12 / F-138)
+   Surface for the route_* / filter_* / channel_map commands.
+   ============================================================ */
+
+.live-routing-modal.modal-dialog {
+    max-width: 940px;
+    width: 96%;
+}
+
+.live-routing-modal .modal-body {
+    max-height: 72vh;
+    overflow-y: auto;
+}
+
+.lrt-intro {
+    margin: 0 0 10px;
+    font-size: 12px;
+    color: var(--text-muted, #6b7280);
+}
+
+.lrt-section {
+    margin-bottom: 14px;
+}
+
+.lrt-heading {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.lrt-create-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.lrt-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 150px;
+}
+
+.lrt-field-block {
+    min-width: 100%;
+}
+
+.lrt-label {
+    font-size: 11px;
+    color: var(--text-muted, #6b7280);
+}
+
+.lrt-arrow {
+    align-self: center;
+    padding-bottom: 6px;
+    font-size: 16px;
+}
+
+.lrt-select,
+.lrt-input,
+.lrt-textarea {
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #d1d5db);
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #1f2937);
+    font-size: 12px;
+    max-width: 100%;
+}
+
+.lrt-textarea {
+    width: 100%;
+    font-family: monospace;
+    resize: vertical;
+}
+
+.lrt-select-sm {
+    padding: 2px 4px;
+    font-size: 11px;
+}
+
+.lrt-btn {
+    padding: 5px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--border-color, #d1d5db);
+    background: var(--bg-secondary, #f3f4f6);
+    color: var(--text-primary, #1f2937);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.lrt-btn:hover {
+    filter: brightness(0.97);
+}
+
+.lrt-btn-sm {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.lrt-btn-primary {
+    border-color: var(--accent-color, #2563eb);
+    background: var(--accent-color, #2563eb);
+    color: #fff;
+}
+
+.lrt-btn-danger {
+    border-color: rgba(220, 38, 38, 0.4);
+    background: rgba(220, 38, 38, 0.08);
+    color: #dc2626;
+}
+
+.lrt-routes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.lrt-route {
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 8px;
+    padding: 6px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lrt-route-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.lrt-route-path {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.lrt-route-meta,
+.lrt-hint,
+.lrt-empty,
+.lrt-editing {
+    font-size: 11px;
+    color: var(--text-muted, #6b7280);
+}
+
+.lrt-enabled-label {
+    font-size: 11px;
+}
+
+.lrt-route-actions,
+.lrt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.lrt-actions {
+    margin-top: 6px;
+}
+
+.lrt-fieldset {
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin: 0 0 10px;
+}
+
+.lrt-fieldset legend {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 4px;
+}
+
+.lrt-chmap {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 5px;
+}
+
+.lrt-chmap-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.lrt-filter-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 11px;
+}
+
+.lrt-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.lrt-filter-ranges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.lrt-status {
+    min-height: 16px;
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--text-primary, #1f2937);
+}
+
+body.theme-dark .lrt-select,
+body.theme-dark .lrt-input,
+body.theme-dark .lrt-textarea,
+body.theme-dark .lrt-btn {
+    background: var(--bg-secondary, #1f2937);
+    color: var(--text-primary, #e5e7eb);
+    border-color: var(--border-color, #374151);
+}
+
+body.theme-dark .lrt-btn-primary {
+    background: var(--accent-color, #2563eb);
+    color: #fff;
+}

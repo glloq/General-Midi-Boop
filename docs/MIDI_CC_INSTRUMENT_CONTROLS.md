@@ -49,7 +49,7 @@ Guitare, basse, ukulele, banjo, violon, alto, violoncelle, contrebasse, mandolin
 | CC24 | Palm Mute | 0 (ouvert) - 127 (completement etouffe) | Intensite de l'etouffement |
 | CC25 | Slide Type | 0=off, 1=slide up into, 2=slide down into, 3=slide up out, 4=slide down out, 5=legato slide | Type de glissando |
 | CC26 | Bend Range | 0-24 (demi-tons) | Etendue du pitch bend pour la note courante |
-| CC27 | Capo Position | 0=pas de capo, 1-24=position frette | Position du capo virtuel |
+| CC27 | Capo Position | — | **Abandonne (R15, 2026-09)** - le capo n'est plus une fonctionnalite du projet : ni colonne ecrite, ni UI, ni CC emis. Transposer le canal source a la place. Numero reserve, ne pas reutiliser. |
 | CC28 | Bow Technique | 0=arco, 1=pizzicato, 2=col legno, 3=spiccato, 4=tremolo, 5=sul ponticello, 6=sul tasto, 7=martele | Techniques specifiques cordes frottees |
 | CC29 | Playing Technique | 0=pick down, 1=pick up, 2=finger, 3=slap, 4=tap, 5=hammer-on, 6=pull-off, 7=harmonique naturelle, 8=harmonique artificielle | Technique de jeu / type d'attaque (reloge depuis CC22, qui porte desormais la position de main) |
 

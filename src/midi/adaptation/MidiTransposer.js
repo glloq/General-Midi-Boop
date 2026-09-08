@@ -17,6 +17,7 @@
  * JSDoc.
  */
 import InstrumentMatcher from './InstrumentMatcher.js';
+import { foldIntoRange, isActuatorCC, isCCAllowed } from './NoteEnforcement.js';
 
 /** Lower MIDI note bound. */
 const MIDI_NOTE_MIN = 0;
@@ -33,8 +34,11 @@ class MidiTransposer {
    * Handles transposition, note remapping, out-of-range suppression,
    * CC remapping, and polyphony reduction in one pass per track.
    * @param {Object} midiData - Parsed MIDI file
-   * @param {Object} transpositions - { channel: { semitones, noteRemapping, suppressOutOfRange, noteRangeMin, noteRangeMax, ccMapping, maxPolyphony, polyStrategy } }
-   *   polyStrategy: 'drop' (default, remove inner voices) or 'shorten' (shorten NoteOff to reduce overlap)
+   * @param {Object} transpositions - { channel: { semitones, noteRemapping, suppressOutOfRange, noteRangeMin, noteRangeMax, ccMapping, supportedCcs, handCcs, stringCCAllowed, maxPolyphony, polyStrategy } }
+   *   polyStrategy: 'drop' (default, evict inner voices — see below) or 'shorten' (shorten NoteOff to reduce overlap)
+   *   supportedCcs/handCcs/stringCCAllowed: destination capability snapshot; when
+   *   supplied, CCs the instrument does not declare are REMOVED from the output,
+   *   exactly as the runtime drops them (R16 axis 6 / audit F-60).
    * @returns {Object} - { midiData, stats }
    */
   transposeChannels(midiData, transpositions) {
@@ -52,12 +56,17 @@ class MidiTransposer {
     let notesSuppressed = 0;
     let notesDropped = 0;
     let ccsRemapped = 0;
+    let ccsFiltered = 0;
     const totalNotes = this.countAllNotes(midiData);
 
     for (const track of modifiedData.tracks) {
       if (!track.events) continue;
 
       const eventsToRemove = [];
+      // Polyphony evictions: a Note Off to insert immediately BEFORE the event
+      // at index `at` (same absolute tick) so an already-sounding voice is
+      // released exactly where the runtime releases it (R16 axis 7b).
+      const evictions = [];
       // Per-channel active voices: channel -> Array<{note, index}> (a list so
       // simultaneous same-pitch notes each count toward polyphony).
       const activeNotesPerChannel = new Map();
@@ -172,15 +181,35 @@ class MidiTransposer {
             if (isNoteOn) {
               activeVoices.push({ note: finalNote, index: i });
 
-              // Over the polyphony cap → drop inner voices (keep lowest + highest).
+              // Over the polyphony cap → shed inner voices (keep lowest + highest).
+              //
+              // R16 axis 7b (audit F-60): the victim is the median of the
+              // ACTIVE voices, so it is usually a note that started EARLIER and
+              // is already sounding. The runtime cannot un-strike it — it sends
+              // a Note Off just before the incoming note (T3.1) — while this
+              // pass used to delete its Note On outright, so the same file gave
+              // a short median voice live and no median voice at all baked.
+              // The offline pass now reproduces the runtime exactly:
+              //   * victim === the incoming note → never struck (deleted), which
+              //     is what the runtime's gate does;
+              //   * victim already sounding      → kept, and released at the
+              //     evicting note's tick (Note Off inserted just before it).
+              // Either way the voice count respects the cap and the emitted
+              // bytes are identical to live playback.
               while (activeVoices.length > transposition.maxPolyphony) {
                 const sorted = [...activeVoices].sort((a, b) => a.note - b.note);
                 const victim = sorted[Math.floor(sorted.length / 2)];
                 const vi = activeVoices.indexOf(victim);
                 if (vi >= 0) activeVoices.splice(vi, 1);
-                eventsToRemove.push(victim.index);
+                // Either way the victim's own (later) Note Off is removed: the
+                // voice is released here, not there.
                 droppedNotes.set(victim.note, (droppedNotes.get(victim.note) || 0) + 1);
                 notesDropped++;
+                if (victim.index === i) {
+                  eventsToRemove.push(i);
+                } else {
+                  evictions.push({ at: i, note: victim.note, channel });
+                }
               }
             } else if (isNoteOff) {
               const droppedCount = droppedNotes.get(finalNote) || 0;
@@ -277,6 +306,37 @@ class MidiTransposer {
               ccsRemapped++;
             }
           }
+
+          // Step 5b: `supported_ccs` filter — the offline half of R16 axis 6
+          // (audit F-60). The runtime (PlaybackScheduler / MidiRouter) drops a
+          // CC the destination does not declare; the offline chain only ever
+          // RENUMBERED, so an unsupported CC 74 survived into the baked bytes
+          // and the exported file no longer described what the instrument
+          // receives. Applied AFTER the renumber, on the final controller
+          // number, with the same shared predicate the runtime uses.
+          if (transposition.supportedCcs || transposition.stringCCAllowed !== undefined) {
+            const src = eventModified ? newEvent : event;
+            const finalCC = src.controllerType ?? src.controllerNumber ?? src.controller ?? src.cc;
+            if (Number.isFinite(finalCC)) {
+              let allowed;
+              if (isActuatorCC(finalCC)) {
+                // CC 20/21 are the string/fret actuator protocol: gated by the
+                // destination being a string instrument with `cc_enabled`,
+                // never by supported_ccs (same rule as MidiRouter, audit F-64).
+                allowed = transposition.stringCCAllowed !== false;
+              } else {
+                allowed = isCCAllowed(finalCC, {
+                  supportedCcs: transposition.supportedCcs,
+                  handCcs: transposition.handCcs
+                });
+              }
+              if (!allowed) {
+                eventsToRemove.push(i);
+                ccsFiltered++;
+                continue;
+              }
+            }
+          }
         }
 
         // Replace the event if modified
@@ -290,22 +350,47 @@ class MidiTransposer {
       // the track is preserved. A plain splice drops the tick gap the event
       // occupied, shifting every later event earlier and cumulatively
       // desyncing the channel (audit P1-1).
-      if (eventsToRemove.length > 0) {
+      if (eventsToRemove.length > 0 || evictions.length > 0) {
         const removeSet = new Set(eventsToRemove);
+        // index → synthetic Note Offs to emit at that event's tick, just before it.
+        const insertAt = new Map();
+        for (const ev of evictions) {
+          const arr = insertAt.get(ev.at) || [];
+          arr.push({
+            deltaTime: 0,
+            type: 'noteOff',
+            channel: ev.channel,
+            noteNumber: ev.note,
+            note: ev.note,
+            velocity: 0
+          });
+          insertAt.set(ev.at, arr);
+        }
         const kept = [];
         let carriedDelta = 0;
         for (let j = 0; j < track.events.length; j++) {
-          if (removeSet.has(j)) {
-            carriedDelta += track.events[j].deltaTime || 0;
+          const ev = track.events[j];
+          const delta = (ev.deltaTime || 0) + carriedDelta;
+          const inserts = insertAt.get(j);
+          if (inserts) {
+            // The first inserted Note Off carries the whole gap so it lands on
+            // the anchor's tick; the anchor then follows at delta 0.
+            inserts[0].deltaTime = delta;
+            for (let k = 1; k < inserts.length; k++) inserts[k].deltaTime = 0;
+            kept.push(...inserts);
+            carriedDelta = 0;
+            if (removeSet.has(j)) continue; // gap already consumed by the inserts
+            kept.push({ ...ev, deltaTime: 0 });
             continue;
           }
-          if (carriedDelta > 0) {
-            const ev = track.events[j];
-            // Clone so we never mutate a shared/original event object.
-            track.events[j] = { ...ev, deltaTime: (ev.deltaTime || 0) + carriedDelta };
-            carriedDelta = 0;
+          if (removeSet.has(j)) {
+            carriedDelta = delta;
+            continue;
           }
-          kept.push(track.events[j]);
+          // Clone only when the delta actually moved, so untouched events keep
+          // their original object identity (and are never mutated).
+          kept.push(carriedDelta > 0 ? { ...ev, deltaTime: delta } : ev);
+          carriedDelta = 0;
         }
         // Any deltaTime trailing after the last surviving event is simply
         // dropped — there is nothing after it to shift.
@@ -338,6 +423,7 @@ class MidiTransposer {
         notesDropped,
         notesShortened,
         ccsRemapped,
+        ccsFiltered,
         totalNotes,
         transpositions
       }
@@ -413,20 +499,13 @@ class MidiTransposer {
    * @returns {number}
    */
   compressNoteToRange(note, min, max) {
-    if (note >= min && note <= max) return note;
+    // Delegates to the SHARED fold used by the runtime (`NoteEnforcement`,
+    // consumed by PlaybackScheduler and MidiRouter). The two implementations
+    // were byte-identical over 128 notes x 5 windows but maintained in
+    // parallel, so the next fix on one side would have re-opened the
+    // divergence (audit F-59). One algorithm now, three chains.
     if (max - min <= 0) return min;
-
-    // True octave folding: shift by whole octaves toward the range so the
-    // pitch CLASS is preserved. The previous reflection math
-    // (`min + diff % range`) mapped e.g. note 49 (C#) into [60,72] as 71 (B)
-    // instead of the correct 61 (C#); only exact octaves of a boundary landed
-    // right. Folding in 12-semitone steps keeps the note's pitch class.
-    let n = note;
-    while (n < min) n += 12;
-    while (n > max) n -= 12;
-    // Instruments narrower than an octave can't hold every pitch class; the
-    // octave shift may overshoot, so clamp to the nearest boundary.
-    return Math.max(min, Math.min(max, n));
+    return foldIntoRange(note, min, max);
   }
 
   /**

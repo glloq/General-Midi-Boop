@@ -357,7 +357,12 @@ export function descriptorToStringConfig(physical) {
   if (_isNonNegIntArray(physical.frets_per_string))
     cfg.frets_per_string = physical.frets_per_string;
   if (typeof physical.fretless === 'boolean') cfg.is_fretless = physical.fretless ? 1 : 0;
-  if (Number.isInteger(physical.capo)) cfg.capo_fret = physical.capo;
+  // `physical.capo` is deliberately NOT mapped (R15). The capo feature is
+  // abandoned: the converter dropped it in 2026-04 and the UI/schema/writer
+  // dropped it in 2026-09, so mapping it would resurrect the exact
+  // divergence L06/F-72 warned about (a descriptor writing a value the
+  // engine ignores but the client simulator used to apply). A descriptor
+  // that ships a capo must transpose at the source instead.
   const sel = physical.selection;
   if (sel && typeof sel === 'object') {
     if (Number.isInteger(sel.cc_string)) cfg.cc_string_number = sel.cc_string;

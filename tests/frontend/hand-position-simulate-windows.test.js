@@ -860,24 +860,35 @@ describe('simulateHandWindows — auto-resolves string/fret from MIDI when missi
     expect(outOfWindow).toBeUndefined();
   });
 
-  it('respects the capo offset when resolving', () => {
-    // Capo on fret 5 → open D (50) is no longer string 3 fret 0;
-    // it's now string 4 fret 0 (G open + capo = D open) … wait no.
-    // With capo 5, string 3 (open D=50) sounds at fret 0 but the
-    // RESOLVED fret should be 0 since (midi − open − capo) = 0.
-    // Pick: 50 = string 3 fret 0 still (50 − 50 − 5 = -5 invalid),
-    // try string 1: 50 − 40 − 5 = 5, valid. String 2: 50 − 45 − 5 =
-    // 0, valid. Picks the lowest → string 2 fret 0.
-    const out = window.HandPositionFeasibility.simulateHandWindows([{ tick: 0, note: 50 }], {
+  // INVERTED BY R15 (was: "respects the capo offset when resolving").
+  // The capo feature is abandoned project-wide: the backend converter
+  // dropped it in 2026-04 and the simulator dropped it in 2026-09, so
+  // `capo_fret` is now inert on BOTH sides — which is exactly what L06
+  // F-72 asked for (client and server must resolve the same fret).
+  // D3 (50) is the open 3rd string: 50 − 50 = 0 → string 3, fret 0.
+  // With the old capo-5 code this same input resolved to string 2 fret 0.
+  it('ignores capo_fret entirely — the frontend resolves frets exactly like the engine', () => {
+    const withCapo = window.HandPositionFeasibility.simulateHandWindows([{ tick: 0, note: 50 }], {
       hands_config: fretsHands,
       scale_length_mm: 650,
       tuning: [40, 45, 50, 55, 59, 64],
       num_frets: 22,
       capo_fret: 5
     });
-    const note = out.find((e) => e.type === 'chord').notes[0];
-    expect(note.string).toBe(2);
-    expect(note.fret).toBe(0);
+    const withoutCapo = window.HandPositionFeasibility.simulateHandWindows(
+      [{ tick: 0, note: 50 }],
+      {
+        hands_config: fretsHands,
+        scale_length_mm: 650,
+        tuning: [40, 45, 50, 55, 59, 64],
+        num_frets: 22
+      }
+    );
+    const a = withCapo.find((e) => e.type === 'chord').notes[0];
+    const b = withoutCapo.find((e) => e.type === 'chord').notes[0];
+    expect(a.string).toBe(3);
+    expect(a.fret).toBe(0);
+    expect({ string: a.string, fret: a.fret }).toEqual({ string: b.string, fret: b.fret });
   });
 });
 

@@ -1,18 +1,97 @@
 /**
  * @file src/midi/adaptation/NoteEnforcement.js
- * @description Stateless note-clamping shared by the file-playback engine
- * ({@link PlaybackScheduler}) and the live route-through ({@link MidiRouter}).
- * Folds an out-of-range pitch into the instrument's window and snaps it to the
- * instrument's physically playable set — the explicit `selected_notes` when
- * present, otherwise the diatonic/pentatonic scale derived from
- * `octave_mode` + `scale_root`.
+ * @description Stateless enforcement shared by the three chains that talk to an
+ * instrument, so none of them can drift from the others (audit L05/L06
+ * recommendation, F-59/F-60):
+ *
+ *   - {@link PlaybackScheduler} — file playback (live and baked alike);
+ *   - {@link MidiRouter}        — live route-through from a physical source;
+ *   - {@link MidiTransposer}    — the offline adaptation / bake chain.
+ *
+ * What lives here:
+ *   - `foldIntoRange` / `clampNote` — fold an out-of-range pitch into the
+ *     instrument's window and snap it to the physically playable set (explicit
+ *     `selected_notes`, else the `octave_mode` + `scale_root` scale);
+ *   - `isOutOfRange` + the `suppress` out-of-range policy (R16 axis 4) — the
+ *     runtime counterpart of the offline `suppressOutOfRange` knob;
+ *   - `isCCAllowed` (R16 axis 6) — the `supported_ccs` filter, previously
+ *     duplicated in the scheduler and the router and absent offline, which let
+ *     unsupported CCs survive into the baked bytes;
+ *   - `selectPolyphonyVictim` — the keep-outer polyphony policy.
  *
  * Stateful enforcement (polyphony gating, min-note interval/duration) lives in
- * the scheduler and is NOT part of this module — it needs per-stream note
- * state that the live router does not yet track (audit P2-3).
+ * the scheduler and in {@link NoteGate} — it needs per-stream note state.
  */
 
 import { scaleNotes, restrictsScale } from './ScaleSnapper.js';
+
+/** First channel-mode CC (120..127: all-sound-off, reset, all-notes-off, …). */
+const CHANNEL_MODE_CC_MIN = 120;
+/** Bank Select MSB / LSB. */
+const BANK_SELECT_MSB = 0;
+const BANK_SELECT_LSB = 32;
+/** String/fret actuator protocol — gated by `isStringCCAllowed`, not by supported_ccs. */
+export const STRING_SELECT_CC = 20;
+export const FRET_SELECT_CC = 21;
+
+/**
+ * True for the string/fret actuator CCs, which have their own gate (a string
+ * instrument with `cc_enabled`) and are exempt from the `supported_ccs` filter
+ * in every chain (audit L06 F-64).
+ *
+ * @param {number} controller
+ * @returns {boolean}
+ */
+export function isActuatorCC(controller) {
+  return controller === STRING_SELECT_CC || controller === FRET_SELECT_CC;
+}
+
+/**
+ * Whether a Control Change may be forwarded to an instrument given its declared
+ * `supported_ccs`. When the instrument declares a non-empty set, only those CCs
+ * pass — plus controllers that are never filtered:
+ *
+ *   - channel-mode messages (120..127): all-sound-off, reset all controllers,
+ *     all-notes-off, omni/mono/poly, local control — the protocol's safety net;
+ *   - Bank Select (0 / 32), which selects the voice a Program Change latches;
+ *   - the instrument's OWN hand-position CCs (`hands_config[].cc_position_number`),
+ *     which are actuator control the engine injects or bakes: a descriptor
+ *     declaring `supported_ccs:[1,7,11]` must not freeze the mechanical hand.
+ *
+ * An undeclared/empty set forwards everything (backward-compatible default).
+ * CC 20/21 must be routed through {@link isActuatorCC} + the string gate BEFORE
+ * calling this.
+ *
+ * @param {number} controller
+ * @param {?{supportedCcs?:?number[], handCcs?:?number[]}} constraints
+ * @returns {boolean}
+ */
+export function isCCAllowed(controller, constraints) {
+  const list = constraints?.supportedCcs;
+  if (!Array.isArray(list) || list.length === 0) return true;
+  if (controller >= CHANNEL_MODE_CC_MIN) return true;
+  if (controller === BANK_SELECT_MSB || controller === BANK_SELECT_LSB) return true;
+  const hand = constraints?.handCcs;
+  if (Array.isArray(hand) && hand.includes(controller)) return true;
+  return list.includes(controller);
+}
+
+/**
+ * True when `note` falls outside the declared `[noteRangeMin, noteRangeMax]`
+ * window. Returns false when the instrument declares no range (nothing to be
+ * outside of) — the same guard the offline `suppressOutOfRange` step uses,
+ * which requires BOTH bounds to be set.
+ *
+ * @param {number} note
+ * @param {?{noteRangeMin?:?number, noteRangeMax?:?number}} constraints
+ * @returns {boolean}
+ */
+export function isOutOfRange(note, constraints) {
+  const min = constraints?.noteRangeMin;
+  const max = constraints?.noteRangeMax;
+  if (min == null || max == null) return false;
+  return note < min || note > max;
+}
 
 /**
  * Fold `note` into `[min,max]` by whole octaves (pitch-class preserving). When

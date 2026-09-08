@@ -174,21 +174,30 @@ class LongitudinalPlanner {
 
   /**
    * Plan CC events for the given note-on stream.
-   * @param {Array<{time:number, note:number, channel:number,
+   * @param {Array<{time:number, note:number, channel:number, tick?:number,
    *                velocity?:number, hand?:string,
    *                fretPosition:number, string?:number,
    *                duration?:number}>} notes
+   * @param {Object} [options]
+   * @param {?Map<string, Map<number, number>>} [options.anchors] - Operator
+   *   anchors pinned in the hand-position editor, `handId → (tick → fret)`.
+   *   A pin forces the hand position P onto that fret for the group, bypassing
+   *   the hysteresis / look-ahead pick (R13 / audit F-139). Null keeps the
+   *   pre-R13 output byte-for-byte.
    * @returns {{ccEvents:Array, warnings:Array, stats:Object}}
    */
-  plan(notes) {
+  plan(notes, options = {}) {
     const ccEvents = [];
     const warnings = [];
     const stats = {
       shifts: 0,
+      pinned: 0,
       anchors_kept: 0,
       anchors_released_forced: 0,
       anchors_released_natural: 0
     };
+    const anchorsByHand = options && options.anchors instanceof Map ? options.anchors : null;
+    const pinsByTick = anchorsByHand ? anchorsByHand.get(this.hand.id) || null : null;
 
     if (!Array.isArray(notes) || notes.length === 0) {
       return { ccEvents, warnings, stats };
@@ -295,6 +304,63 @@ class LongitudinalPlanner {
       }
       if (band == null) continue;
 
+      // 4b. Operator pin (R13 / F-139): the hand-position editor stores an
+      // absolute fret for this tick. It supersedes the speed/hysteresis pick
+      // below — the operator has decided where the hand sits. The band is
+      // still computed above so an impossible pin is reported rather than
+      // silently ignored.
+      const pinnedFret = this._pinnedFretFor(pinsByTick, g, notes);
+      if (pinnedFret != null) {
+        const clampedFret = Math.max(this.noteRangeMin, Math.min(this.noteRangeMax, pinnedFret));
+        if (clampedFret !== pinnedFret) {
+          warnings.push({
+            time: g.time,
+            code: 'anchor_out_of_reach',
+            requested: pinnedFret,
+            applied: clampedFret,
+            message: `Pinned anchor fret ${pinnedFret} outside [${this.noteRangeMin},${this.noteRangeMax}] — clamped to ${clampedFret}`
+          });
+        }
+        const P_pinned = this.fretToMm(clampedFret) - this.minOffsetMm;
+        if (P_pinned < band[0] - 1e-6 || P_pinned > band[1] + 1e-6) {
+          warnings.push({
+            time: g.time,
+            code: 'anchor_unplayable',
+            anchor: clampedFret,
+            message: `Pinned anchor fret ${clampedFret} (P=${P_pinned.toFixed(1)} mm) outside the feasible band [${band[0].toFixed(1)},${band[1].toFixed(1)}] mm for this chord`
+          });
+        }
+        stats.pinned++;
+        this._promoteAnchors(anchors, reqs, stats);
+        const emitted = this._emitIfChanged(
+          ccEvents,
+          notes,
+          g,
+          P,
+          P_pinned,
+          firstCCEmitted,
+          lastNoteOnTime
+        );
+        if (emitted) {
+          if (P != null) stats.shifts++;
+          firstCCEmitted = true;
+        }
+        P = P_pinned;
+        if (g.notes.length === 1 && this.minNoteIntervalMs > 0 && lastSingleNoteOnTime != null) {
+          const deltaMs = (g.time - lastSingleNoteOnTime) * 1000;
+          if (deltaMs < this.minNoteIntervalMs) {
+            warnings.push({
+              time: g.time,
+              code: 'finger_interval_violated',
+              message: `Gap ${deltaMs.toFixed(0)} ms < min ${this.minNoteIntervalMs} ms between notes`
+            });
+          }
+        }
+        if (g.notes.length === 1) lastSingleNoteOnTime = g.time;
+        lastNoteOnTime = g.time;
+        continue;
+      }
+
       // 5. Speed constraint relative to previous P. With at least one
       // finger anchored, the hand can move no faster than the slowest
       // of (hand speed, finger speed) — because each anchored finger's
@@ -361,45 +427,12 @@ class LongitudinalPlanner {
       //    natural release time is the actual note-off (t_on + duration);
       //    the conflict path (`_tryReleaseConflict`) may release an
       //    anchor before its natural end to make room for an incoming note.
-      for (const r of reqs) {
-        const durMs = (r.note.duration ?? 0) * 1000;
-        if (durMs >= this.minAnchorMs) {
-          const t_off = r.note.duration != null ? r.note.time + r.note.duration : null;
-          anchors.set(r.fingerId, {
-            fingerId: r.fingerId,
-            finger: r.finger,
-            note: r.note,
-            posMm: r.posMm,
-            t_on: r.note.time,
-            t_off,
-            velocity: r.note.velocity ?? 64
-          });
-          stats.anchors_kept++;
-        }
-      }
+      this._promoteAnchors(anchors, reqs, stats);
 
       // 8. Emit CC if P changed (or first emission).
-      const fretValue = Math.round(this.mmToFret(P_new + this.minOffsetMm));
-      const prevFret = P != null ? Math.round(this.mmToFret(P + this.minOffsetMm)) : null;
-      const needEmit = !firstCCEmitted || prevFret !== fretValue;
-      if (needEmit) {
-        // CC timing follows the V1 "as early as possible" rule: emit
-        // just before the first note (initial placement), and right
-        // after the previous note-on for subsequent shifts so the hand
-        // has the maximum mechanical travel time available.
-        const ccTime = !firstCCEmitted
-          ? g.time - EPSILON_SECONDS
-          : (lastNoteOnTime ?? g.time) + EPSILON_SECONDS;
-        ccEvents.push({
-          time: ccTime,
-          type: 'controller',
-          channel: notes[g.notes[0]].channel,
-          controller: this.hand.cc_position_number,
-          value: clamp7bit(fretValue),
-          hand: this.hand.id
-        });
-        firstCCEmitted = true;
+      if (this._emitIfChanged(ccEvents, notes, g, P, P_new, firstCCEmitted, lastNoteOnTime)) {
         if (P != null) stats.shifts++;
+        firstCCEmitted = true;
       }
 
       P = P_new;
@@ -420,6 +453,76 @@ class LongitudinalPlanner {
     }
 
     return { ccEvents, warnings, stats };
+  }
+
+  /**
+   * Step 7 — promote sufficiently long notes of `reqs` to anchored fingers.
+   * The anchor's natural release time is the actual note-off
+   * (`t_on + duration`); `_tryReleaseConflict` may release it earlier.
+   * @private
+   */
+  _promoteAnchors(anchors, reqs, stats) {
+    for (const r of reqs) {
+      const durMs = (r.note.duration ?? 0) * 1000;
+      if (durMs < this.minAnchorMs) continue;
+      const t_off = r.note.duration != null ? r.note.time + r.note.duration : null;
+      anchors.set(r.fingerId, {
+        fingerId: r.fingerId,
+        finger: r.finger,
+        note: r.note,
+        posMm: r.posMm,
+        t_on: r.note.time,
+        t_off,
+        velocity: r.note.velocity ?? 64
+      });
+      stats.anchors_kept++;
+    }
+  }
+
+  /**
+   * Step 8 — emit the position CC when the rounded fret value changes (or on
+   * the very first emission). CC timing follows the V1 "as early as possible"
+   * rule: just before the first note for the initial placement, and right
+   * after the previous note-on for subsequent shifts so the hand has the
+   * maximum mechanical travel time available.
+   *
+   * @returns {boolean} true when a CC was pushed.
+   * @private
+   */
+  _emitIfChanged(ccEvents, notes, g, P, P_new, firstCCEmitted, lastNoteOnTime) {
+    const fretValue = Math.round(this.mmToFret(P_new + this.minOffsetMm));
+    const prevFret = P != null ? Math.round(this.mmToFret(P + this.minOffsetMm)) : null;
+    if (firstCCEmitted && prevFret === fretValue) return false;
+    const ccTime = !firstCCEmitted
+      ? g.time - EPSILON_SECONDS
+      : (lastNoteOnTime ?? g.time) + EPSILON_SECONDS;
+    ccEvents.push({
+      time: ccTime,
+      type: 'controller',
+      channel: notes[g.notes[0]].channel,
+      controller: this.hand.cc_position_number,
+      value: clamp7bit(fretValue),
+      hand: this.hand.id,
+      // Which side of the reference note this CC sits on — see the same field
+      // in HandPositionPlanner (tick-grid ordering parity with MidiBaker).
+      placement: firstCCEmitted ? 'post' : 'pre'
+    });
+    return true;
+  }
+
+  /**
+   * Operator-pinned fret for a chord group, or null. Pins are keyed on the
+   * exact MIDI tick while groups use a 2 ms chord tolerance, so every tick in
+   * the group is probed in the group's own order — first match wins.
+   * @private
+   */
+  _pinnedFretFor(pinsByTick, group, notes) {
+    if (!pinsByTick || pinsByTick.size === 0) return null;
+    for (const idx of group.notes) {
+      const t = notes[idx]?.tick;
+      if (Number.isFinite(t) && pinsByTick.has(t)) return pinsByTick.get(t);
+    }
+    return null;
   }
 
   /** @private */

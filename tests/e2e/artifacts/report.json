@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-09-08T02:10:12.626Z",
-  "baseUrl": "http://127.0.0.1:8301",
+  "generatedAt": "2026-09-08T03:26:19.503Z",
+  "baseUrl": "http://127.0.0.1:8401",
   "playwright": "/opt/node22/lib/node_modules/playwright/index.mjs",
   "chromium": "141.0.7390.37",
   "node": "v22.22.2",
   "health": {
     "status": "ok",
     "version": "0.8.1",
-    "gitHash": "ea55489",
-    "uptime": 11.757074598,
-    "timestamp": 1788833412624,
+    "gitHash": "adc7c09",
+    "uptime": 30.466202103,
+    "timestamp": 1788837979498,
     "capabilitiesOverall": "degraded",
     "capabilities": {
       "database": {
@@ -40,136 +40,196 @@
     }
   },
   "summary": {
-    "passed": 3,
+    "passed": 1,
     "failed": 0,
-    "total": 3
+    "total": 1
   },
   "results": [
     {
-      "suite": "01 · boot",
-      "name": "the SPA boots, connects, and reaches an interactive state",
+      "suite": "05 · live MIDI routing (F-138)",
+      "name": "a route created from the UI reaches the router and survives a reload",
       "status": "PASS",
-      "ms": 5429,
+      "ms": 29503,
       "steps": [
         {
-          "label": "navigate and wait for #app + WebSocket",
+          "label": "1 · boot the SPA",
           "status": "PASS",
-          "ms": 5182
+          "ms": 10604
         },
         {
-          "label": "the splash is gone and the file panel is present",
+          "label": "2 · create two virtual instruments through the UI",
           "status": "PASS",
-          "ms": 5
+          "ms": 3327
         },
         {
-          "label": "the WebSocket is OPEN",
+          "label": "3 · the router starts with no route at all",
           "status": "PASS",
-          "ms": 2
+          "ms": 4
         },
         {
-          "label": "no uncaught page exception during boot",
+          "label": "4 · the header carries a live-routing button",
+          "status": "PASS",
+          "ms": 16
+        },
+        {
+          "label": "5 · a real click opens the routing modal",
+          "status": "PASS",
+          "ms": 5393
+        },
+        {
+          "label": "6 · create a route from the two selects",
+          "status": "PASS",
+          "ms": 316
+        },
+        {
+          "label": "7 · the backend router really holds it",
+          "status": "PASS",
+          "ms": 6
+        },
+        {
+          "label": "8 · Escape closes the modal without leaving an overlay",
+          "status": "PASS",
+          "ms": 101
+        },
+        {
+          "label": "9 · after a full reload the route is still there",
+          "status": "PASS",
+          "ms": 7652
+        },
+        {
+          "label": "10 · disabling it from the UI reaches route_enable",
+          "status": "PASS",
+          "ms": 332
+        },
+        {
+          "label": "11 · the settings panel edits the channel map",
+          "status": "PASS",
+          "ms": 374
+        },
+        {
+          "label": "12 · deleting it from the UI empties the router",
+          "status": "PASS",
+          "ms": 183
+        },
+        {
+          "label": "13 · no uncaught page error during the journey",
           "status": "PASS",
           "ms": 0
         }
       ],
       "evidence": [
         {
-          "label": "time to interactive (ms)",
-          "value": 5182
-        },
-        {
-          "label": "screenshot",
-          "value": "/home/user/General-Midi-Boop/tests/e2e/artifacts/01-boot-home.png"
-        },
-        {
-          "label": "console errors at boot",
+          "label": "devices",
           "value": [
-            "[error] Failed to load resource: the server responded with a status of 404 (Not Found)",
-            "[error] Refused to execute script from 'http://127.0.0.1:8301/lib/WebAudioFontPlayer.js' because its MIME type ('text/plain') is not executable, and strict MIME type checking is enabled."
+            "virtual_1788837961084_27dhlt · Virtual Piano · virtual",
+            "virtual_1788837962657_t5yxd4 · Virtual Organ · virtual"
           ]
         },
         {
-          "label": "failed requests at boot",
+          "label": "route_list before",
+          "value": []
+        },
+        {
+          "label": "button accessible name",
+          "value": "Live MIDI routing"
+        },
+        {
+          "label": "source options",
           "value": [
-            "http://127.0.0.1:8301/lib/WebAudioFontPlayer.js :: net::ERR_ABORTED"
+            {
+              "value": "virtual_1788837961084_27dhlt",
+              "label": "Virtual Piano"
+            },
+            {
+              "value": "virtual_1788837962657_t5yxd4",
+              "label": "Virtual Organ"
+            }
           ]
         },
         {
-          "label": "http >=400 at boot",
+          "label": "screenshot · routing modal",
+          "value": "/home/user/General-Midi-Boop/tests/e2e/artifacts/05-01-modal.png"
+        },
+        {
+          "label": "rows rendered by the modal",
           "value": [
-            "404 http://127.0.0.1:8301/lib/WebAudioFontPlayer.js"
+            {
+              "id": "route_1788837970037_ujjiuovu6",
+              "label": "Virtual Piano → Virtual Organ",
+              "enabled": true
+            }
           ]
-        }
-      ]
-    },
-    {
-      "suite": "01 · boot",
-      "name": "a missing static asset is a 404, not the SPA shell (F-119)",
-      "status": "PASS",
-      "ms": 5,
-      "steps": [],
-      "evidence": [
-        {
-          "label": "GET /lib/WebAudioFontPlayer.js",
-          "value": "404 text/plain; charset=utf-8 9 bytes"
-        }
-      ]
-    },
-    {
-      "suite": "01 · boot",
-      "name": "boot with the CDN unreachable — measures the real blocking time (F-14)",
-      "status": "PASS",
-      "ms": 5470,
-      "steps": [
-        {
-          "label": "the CDN is never requested at all",
-          "status": "PASS",
-          "ms": 0
         },
         {
-          "label": "the audio preview degrades explicitly instead",
-          "status": "PASS",
-          "ms": 3
+          "label": "route_list after create",
+          "value": [
+            {
+              "id": "route_1788837970037_ujjiuovu6",
+              "source": "virtual_1788837961084_27dhlt",
+              "destination": "virtual_1788837962657_t5yxd4",
+              "channelMap": {},
+              "filter": {},
+              "enabled": true
+            }
+          ]
         },
         {
-          "label": "document parsing is not blocked by the unreachable CDN (< 8000ms)",
-          "status": "PASS",
-          "ms": 0
+          "label": "screenshot · route created",
+          "value": "/home/user/General-Midi-Boop/tests/e2e/artifacts/05-02-created.png"
         },
         {
-          "label": "and it is decoupled from it, not merely faster (< 4000ms)",
-          "status": "PASS",
-          "ms": 0
-        }
-      ],
-      "evidence": [
-        {
-          "label": "CDN stall injected (ms)",
-          "value": 8000
+          "label": "route_list after reload",
+          "value": [
+            {
+              "id": "route_1788837970037_ujjiuovu6",
+              "source": "virtual_1788837961084_27dhlt",
+              "destination": "virtual_1788837962657_t5yxd4",
+              "channelMap": {},
+              "filter": {},
+              "enabled": true
+            }
+          ]
         },
         {
-          "label": "CDN request intercepted",
-          "value": 0
+          "label": "rows after reload",
+          "value": [
+            {
+              "id": "route_1788837970037_ujjiuovu6",
+              "label": "Virtual Piano → Virtual Organ",
+              "enabled": true
+            }
+          ]
         },
         {
-          "label": "DOMContentLoaded (ms)",
-          "value": 813
+          "label": "screenshot · after reload",
+          "value": "/home/user/General-Midi-Boop/tests/e2e/artifacts/05-03-after-reload.png"
         },
         {
-          "label": "time to interactive (ms)",
-          "value": 5213
+          "label": "route_list after disable",
+          "value": [
+            {
+              "id": "route_1788837970037_ujjiuovu6",
+              "source": "virtual_1788837961084_27dhlt",
+              "destination": "virtual_1788837962657_t5yxd4",
+              "channelMap": {},
+              "filter": {},
+              "enabled": false
+            }
+          ]
         },
         {
-          "label": "screenshot",
-          "value": "/home/user/General-Midi-Boop/tests/e2e/artifacts/01-boot-offline.png"
+          "label": "channelMap after save",
+          "value": {
+            "0": 9
+          }
         },
         {
-          "label": "typeof WebAudioFontPlayer",
-          "value": "undefined"
+          "label": "route_list after delete",
+          "value": []
         },
         {
-          "label": "degradation notice",
-          "value": "lib/WebAudioFontPlayer.js absent ou invalide — relancez `npm run install-default-sf2` puis `npm run build`. L'aperçu audio est désactivé ; le reste de l'application fonctionne."
+          "label": "page errors",
+          "value": []
         }
       ]
     }
