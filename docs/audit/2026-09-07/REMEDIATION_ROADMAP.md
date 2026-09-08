@@ -107,6 +107,25 @@ nulle part. C'est le correctif au meilleur rapport effort/impact de tout l'audit
 
 ---
 
+## Vague 2 — en cours (2026-09-08)
+
+| # | État | Résultat |
+|---|---|---|
+| **R8** | ✅ **livré** | `mqtt` déclaré en `optionalDependencies` ; les 2 tests témoins de F-34 **inversés** (le second exerce enfin le teardown, qu'il ne touchait jamais). |
+| **R9** | ✅ **livré** | Point de restauration armé **avant** toute action ; classification **critique vs cosmétique** ; `config.json` protégé, prouvé dans 6 scénarios. 60 tests. |
+| **R10** | ✅ **livré** | `LICENSE` MIT créé ; 7 SVG tracés (4 en CC BY sans attribution), **57 inscrits « inconnu » sans rien inventer** ; 271 paquets runtime sans copyleft. |
+| **R6 / R11** | en cours | |
+| **R7** | en cours | |
+
+> 🔴 **Découvert par R10, hors périmètre et plus lourd que F-158 :**
+> `public/lib/WebAudioFontPlayer.js` est **GPL-3.0-or-later** (MIT jusqu'à
+> 2.5.48, GPL-3 depuis 2.5.49). Il est téléchargé au `postinstall` et servi à
+> chaque navigateur : **un build d'aujourd'hui distribue du GPL-3 dans un
+> produit annoncé MIT.** Décision produit à trancher — remplacer le player,
+> isoler la distribution, ou changer la licence du projet.
+
+---
+
 ## Vague 2 — le produit doit démarrer et se livrer
 
 ### R6 · Réparer l'offline-first — F-14, F-87, F-119
