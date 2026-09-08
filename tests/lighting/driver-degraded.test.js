@@ -25,27 +25,34 @@ const device = (over = {}) => ({
   ...over
 });
 
-describe('L02 F-34 — MqttLightDriver can never connect: `mqtt` is not a dependency', () => {
-  test('neither package.json nor node_modules provides `mqtt`', async () => {
+// R8 / F-156 — these two tests were the witnesses of a dead capability: `mqtt`
+// was imported by the driver and declared nowhere, so MQTT lighting could not
+// work on any installation while the README, the wiki and the UI promised it.
+// The dependency is now declared, so the tests are INVERTED rather than
+// deleted: they lock the fix instead of the defect.
+describe('L02 F-34 / R8 — MqttLightDriver: `mqtt` is declared and the driver degrades cleanly', () => {
+  test('R8 — `mqtt` is declared as an optional dependency and resolves', async () => {
     const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
-    const declared = {
-      ...pkg.dependencies,
-      ...pkg.optionalDependencies,
-      ...pkg.devDependencies
-    };
-    expect(declared).not.toHaveProperty('mqtt');
-    await expect(import('mqtt')).rejects.toThrow(/Cannot find (package|module) 'mqtt'/);
+    // Optional, like the other hardware-adjacent modules (pigpio,
+    // rpi-ws281x-native): an installation without it must still boot.
+    expect(pkg.optionalDependencies).toHaveProperty('mqtt');
+    const mod = await import('mqtt');
+    expect(typeof (mod.default?.connect ?? mod.connect)).toBe('function');
   });
 
-  test("connect() on a device of type 'mqtt' rejects with a module-resolution error", async () => {
+  test('connect() against an unreachable broker fails cleanly and leaves no zombie client', async () => {
     const logger = makeLogger();
     const d = new MqttLightDriver(
-      device({ type: 'mqtt', connection_config: { broker_url: 'mqtt://127.0.0.1:1883' } }),
+      // Port 1 is reserved and never listening: ECONNREFUSED, no 10 s timeout.
+      device({ type: 'mqtt', connection_config: { broker_url: 'mqtt://127.0.0.1:1' } }),
       logger
     );
-    await expect(d.connect()).rejects.toThrow(/Cannot find (package|module) 'mqtt'/);
+    await expect(d.connect()).rejects.toThrow();
     expect(d.isConnected()).toBe(false);
-    expect(d.client).toBeNull(); // no zombie client left reconnecting
+    // The property that actually matters: a failed connect must not leave a
+    // live client holding a socket and a reconnectPeriod=5000 timer, because
+    // _initDriver discards an unregistered driver without calling disconnect().
+    expect(d.client).toBeNull();
     expect(logger._rec.error.join(' ')).toMatch(/MQTT Light driver connect failed/);
   });
 
