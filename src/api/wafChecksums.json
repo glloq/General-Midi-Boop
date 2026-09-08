@@ -1,0 +1,32 @@
+{
+  "_README": [
+    "Pinned SHA-256 digests for the files GET /api/waf/:filename is allowed to replay.",
+    "",
+    "WHY THIS FILE EXISTS. /api/waf/ serves third-party JavaScript from OUR origin, at",
+    "runtime, on every legacy-bank preset load. That is same-origin code execution in the",
+    "operator's browser on a box whose WebSocket exposes system_update — and a",
+    "`script-src 'self'` CSP cannot see it, because /api/waf/ IS 'self'. Audit L10 F-109.",
+    "",
+    "The proxy is fail-closed: with this table empty, GMBOOP_WAF_PROXY=pinned (the",
+    "default) refuses every file, without making any outbound request. The built-in",
+    "sf2:default bank and every imported SF2 bank are unaffected — they never go through",
+    "this route. Only the opt-in legacy WAF CDN banks do.",
+    "",
+    "HOW TO FILL IT IN. Do NOT paste the digest of whatever the CDN served during a",
+    "build: that pins the attack, not the artefact. Fetch each file over a channel whose",
+    "provenance you have checked, then:",
+    "",
+    "  curl -fsSL https://surikov.github.io/webaudiofontdata/sound/<name>.js -o /tmp/<name>.js",
+    "  sha256sum /tmp/<name>.js",
+    "",
+    "and add \"<name>.js\": \"<64 hex chars>\" below, in a commit that says where the bytes",
+    "came from. Keys starting with an underscore are documentation and are ignored.",
+    "",
+    "The file set is large (128 melodic entries per bank suffix, plus 47 drum notes per",
+    "kit), so pin the banks you actually ship rather than all of them.",
+    "",
+    "ESCAPE HATCH. GMBOOP_WAF_PROXY=open restores the pre-audit behaviour (replay",
+    "anything the CDN returns, no integrity check) and logs a warning at startup.",
+    "GMBOOP_WAF_PROXY=off disables the route entirely."
+  ]
+}

@@ -5999,16 +5999,31 @@
     <!-- Tempo Editor Component -->
     <script src="js/features/TempoEditor.js"></script>
 
-    <!-- WebAudioFont Library (SoundFont player). Loaded from the local
-         vendored copy first (created by scripts/install-default-sf2.js),
-         with a synchronous CDN fallback so installs that never ran the
-         postinstall still get audio. The fallback uses document.write to
-         keep the load synchronous — every script that follows depends on
-         `WebAudioFontPlayer` being defined globally. -->
+    <!-- WebAudioFont Library (SoundFont player), vendored locally by
+         scripts/install-default-sf2.js and copied into dist/ by
+         vite.config.js (copyStaticTree).
+
+         NO NETWORK FALLBACK ON PURPOSE. This appliance is offline-first: an
+         offline Pi cannot reach any CDN, and the previous fallback (a
+         synchronous document write of a CDN script tag) was parser-blocking —
+         it suspended HTML parsing for exactly as long as the network took to
+         give up (measured: 8000 ms of injected latency => 8421 ms of blocked
+         parsing), with the 174 script tags below it not even requested until
+         then. And the wait bought nothing: WebAudioFontPlayer stayed undefined
+         anyway. Audit L11 F-14 / L08 F-87 / L11 F-119.
+
+         Degradation is already handled downstream: MidiSynthesizer.initialize()
+         throws 'WebAudioFontPlayer not loaded' and the rest of the app works.
+         The flag below lets a diagnostic view surface the cause, and the
+         console line tells the operator exactly what to re-run. -->
     <script src="lib/WebAudioFontPlayer.js"></script>
     <script>
       if (typeof WebAudioFontPlayer === 'undefined') {
-        document.write('<scr' + 'ipt src="https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js"><' + '/scr' + 'ipt>');
+        window.__GMBOOP_AUDIO_PREVIEW_UNAVAILABLE__ =
+          'lib/WebAudioFontPlayer.js absent ou invalide — relancez ' +
+          '`npm run install-default-sf2` puis `npm run build`. ' +
+          "L'aperçu audio est désactivé ; le reste de l'application fonctionne.";
+        console.warn('[GMBoop] ' + window.__GMBOOP_AUDIO_PREVIEW_UNAVAILABLE__);
       }
     </script>
 

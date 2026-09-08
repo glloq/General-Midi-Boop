@@ -1,24 +1,83 @@
+# Général Midi Boop — single-container deployment.
+#
+#   docker compose up -d --build
+#   docker compose logs -f
+#   curl http://localhost:8080/api/health
+#
+# ── WHAT THIS COMPOSE FILE CANNOT DO ───────────────────────────────────────
+# No hardware MIDI. No /dev/snd is mapped, no serial device is passed through
+# and no D-Bus socket is shared, so USB MIDI, BLE MIDI and GPIO/serial MIDI
+# are structurally out of reach — /api/health reports them as `failed` or
+# `disabled`, which is the truth, not a defect. What works here: the web UI,
+# file management, playback over RTP-MIDI (network) and the lighting drivers
+# that speak over the network. For real instrument hardware, install on the
+# Pi itself (scripts/Install.sh) — see docs/INSTALLATION.md.
+#
+# ── ARCHITECTURE ───────────────────────────────────────────────────────────
+# `build: .` builds for the platform of the daemon running it. An image built
+# on an x86_64 laptop will NOT run on a Raspberry Pi: cross-build it with
+# `docker buildx build --platform linux/arm64 …` (see Dockerfile header).
+
 services:
   gmboop:
-    build: .
+    build:
+      context: .
+      args:
+        # Pin the base image for a reproducible build, e.g.
+        #   NODE_IMAGE: node:20.20.2-slim@sha256:<digest>
+        # or point at a mirror / CA-augmented base behind a TLS-inspecting proxy.
+        NODE_IMAGE: ${NODE_IMAGE:-node:20-slim}
+        # 1 (default): fetch the ~30 MB default soundfont and the vendored
+        # WebAudioFontPlayer at build time, so the browser synth works offline.
+        # 0: skip both — a ~30 MB smaller image with no audio preview.
+        WITH_RUNTIME_ASSETS: ${WITH_RUNTIME_ASSETS:-1}
+    image: gmboop:local
     ports:
+      # Host port is configurable; the container always listens on 8080.
       - "${PORT:-8080}:8080"
     volumes:
+      # gmboop-data holds data/gmboop.db (SQLite + WAL) plus uploaded MIDI
+      # files and imported soundfonts. Destroy this volume and you destroy
+      # every instrument, route, playlist and setting. It is THE thing to back
+      # up — `docker compose down` keeps it, `docker compose down -v` does not.
       - gmboop-data:/app/data
       - gmboop-logs:/app/logs
       - gmboop-backups:/app/backups
+      # OPTIONAL — persist the auto-generated API token across `--force-recreate`.
+      # Compose already reads ./.env on the host for ${...} interpolation, so
+      # an installation that ran scripts/Install.sh (which writes a token
+      # there) gets a stable token for free. With NO host .env, the token is
+      # minted inside the container and written to /app/.env in the writable
+      # layer — which a recreate throws away, invalidating every stored client
+      # credential. Fix it by setting GMBOOP_API_TOKEN in ./.env, or by
+      # uncommenting this bind mount (create an empty ./.env first).
+      # - ./.env:/app/.env
     environment:
       - NODE_ENV=production
+      # The container's own listen port. Change the host side above, not this.
       - PORT=8080
+      # V8 heap cap, in MiB. This number and the memory limit below MOVE
+      # TOGETHER: RSS = V8 heap + native heap (better-sqlite3 page cache, ws
+      # send buffers, zlib) + code + stacks. Setting the heap cap equal to the
+      # container limit — as this file used to — means the OOM killer fires
+      # before V8 ever reaches the pressure that would trigger its final GC.
+      # Rule of thumb: heap cap ≈ 60-65 % of the container limit.
+      - NODE_HEAP_MB=${NODE_HEAP_MB:-320}
       - GMBOOP_LOG_LEVEL=${GMBOOP_LOG_LEVEL:-info}
-      # Set GMBOOP_API_TOKEN in .env to enable authentication.
-      # WARNING: If unset, API and WebSocket have no authentication.
+      # trusted-lan (default) lets same-origin / RFC1918 clients through
+      # without a token. `secure` demands the token on every request — the SPA
+      # has no way to present one, so `secure` is API-access-only today.
+      - GMBOOP_SECURITY_MODE=${GMBOOP_SECURITY_MODE:-trusted-lan}
+      # Set GMBOOP_API_TOKEN in .env to pin the token.
+      # WARNING: if unset, a random one is generated at every container
+      # recreation (see the .env bind mount above).
       - GMBOOP_API_TOKEN=${GMBOOP_API_TOKEN:-}
     deploy:
       resources:
         limits:
           cpus: '2'
-          memory: 512M
+          # Must stay comfortably above NODE_HEAP_MB — see the note there.
+          memory: ${MEMORY_LIMIT:-512M}
     restart: unless-stopped
     logging:
       driver: json-file

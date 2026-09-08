@@ -6,9 +6,14 @@
  * Without this file the offline synth has no samples to render and every
  * call to /api/sf2/default/preset/* returns 404. The file is downloaded once
  * from a known mirror, then re-used across upgrades. The script is
- * idempotent (skips when the target file is non-empty) and non-fatal:
- * a network error during `npm install` does NOT fail the install, it just
- * prints a warning so the user can re-run it later.
+ * idempotent and non-fatal ON NETWORK ERRORS: a mirror being unreachable
+ * during `npm install` does NOT fail the install, it just prints a warning so
+ * the user can re-run it later.
+ *
+ * It IS fatal on an integrity mismatch. When an artefact has a pinned SHA-256
+ * and the bytes that arrive do not match it, the file is deleted and the
+ * script exits non-zero — a divergence is a supply-chain signal, not a hiccup
+ * (audit L10 F-109). See PINNED_SHA256 below for how to fill the pins in.
  *
  * Usage:
  *   node scripts/install-default-sf2.js          # one-shot, used by postinstall
@@ -20,9 +25,63 @@
 import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 import https from 'https';
 import http from 'http';
 import zlib from 'zlib';
+
+// ---------------------------------------------------------------------------
+// Supply-chain integrity (audit L10 F-109 / F-15)
+// ---------------------------------------------------------------------------
+// Both artefacts below are downloaded from third-party mirrors, and one of
+// them (WebAudioFontPlayer.js) is then EXECUTED by the SPA on every page load,
+// same-origin, on a box that exposes system_update. Size thresholds and
+// RIFF/sfbk magic bytes only catch an error page: a mirror serving a valid but
+// different file passes them without a fight.
+//
+// PINNED_SHA256 is the real gate. A pinned artefact whose digest diverges is
+// deleted and the install FAILS LOUDLY (non-zero exit) — never a silent warn,
+// because a divergence is a supply-chain signal, not a network hiccup.
+//
+// HOW TO POPULATE (must be done from a trusted, verified download — do NOT
+// paste the digest of whatever a mirror happened to serve you today):
+//
+//   1. Obtain the artefact from upstream over a channel you trust and check
+//      its provenance by hand (release page, signature, known-good machine).
+//   2. sha256sum assets/sf2/default.sf2
+//      sha256sum public/lib/WebAudioFontPlayer.js
+//   3. Paste the digests below, in the same commit, with the upstream
+//      version they correspond to.
+//
+// Until then the constants stay null and the script says so, out loud, on
+// every run: "integrity NOT verified". That is the honest state — it is not a
+// verification, and nothing here pretends otherwise.
+//
+// Per-run override (CI, air-gapped mirrors, a build that pins its own copy):
+//   GMBOOP_SF2_SHA256=…  GMBOOP_WAF_PLAYER_SHA256=…
+// Hardened builds can additionally refuse to install anything unpinned:
+//   GMBOOP_REQUIRE_PINNED_ASSETS=1
+const PINNED_SHA256 = {
+  // GeneralUser GS v1.471 — not pinned yet, see above.
+  sf2: null,
+  // WebAudioFontPlayer.js (surikov/webaudiofont) — not pinned yet, see above.
+  player: null
+};
+
+const EXPECTED_SHA256 = {
+  sf2: process.env.GMBOOP_SF2_SHA256 || PINNED_SHA256.sf2 || null,
+  player: process.env.GMBOOP_WAF_PLAYER_SHA256 || PINNED_SHA256.player || null
+};
+
+const REQUIRE_PINNED = process.env.GMBOOP_REQUIRE_PINNED_ASSETS === '1'
+                    || process.env.GMBOOP_REQUIRE_PINNED_ASSETS === 'true';
+
+/** True once an artefact failed its integrity check: main() then exits non-zero. */
+let integrityFailed = false;
+
+function sha256File(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TARGET_DIR  = resolve(__dirname, '..', 'assets', 'sf2');
@@ -36,8 +95,12 @@ const TARGET_PATH = join(TARGET_DIR, 'default.sf2');
 //
 // Mirrors die over time; set GMBOOP_SF2_URL to point at your own mirror
 // (raw .sf2 or .zip) if every public one is blocked from your network.
-const SF2_MIRRORS = [
-  process.env.GMBOOP_SF2_URL,
+//
+// An explicit override is EXCLUSIVE (audit L10 F-109): an operator who names a
+// mirror has pinned their supply chain, and silently falling back to a public
+// CDN when theirs is unreachable is exactly the substitution they were trying
+// to prevent. Better to fail and say so.
+const SF2_MIRRORS = process.env.GMBOOP_SF2_URL ? [process.env.GMBOOP_SF2_URL] : [
   // GitHub raw mirrors of the official 1.471 release. These serve the .sf2
   // directly (Content-Type: application/octet-stream) with no archive to
   // extract and no Cloudflare interstitial, so they are the most reliable
@@ -48,7 +111,7 @@ const SF2_MIRRORS = [
   // /soundfonts/<file>.zip path returns the HTML index instead of the
   // archive, so this is kept only as a last-ditch attempt.
   'https://schristiancollins.com/soundfonts/GeneralUser_GS_v1.471.zip',
-].filter(Boolean);
+];
 
 // WebAudioFontPlayer library — vendored locally so the browser never hits a
 // public CDN at runtime. The file is small (~120 KB) but its license is
@@ -60,13 +123,24 @@ const PLAYER_TARGET_PATH = join(PLAYER_TARGET_DIR, 'WebAudioFontPlayer.js');
 // unreachable from corporate / NATed networks. jsDelivr and unpkg are
 // well-known CDNs that re-serve GitHub + npm content with high uptime.
 // Override with GMBOOP_WAF_PLAYER_URL to point at your own mirror.
-const PLAYER_MIRRORS = [
-  process.env.GMBOOP_WAF_PLAYER_URL,
+//
+// URL PINNING (audit L10 F-109). A jsDelivr mirror of the form
+// `cdn.jsdelivr.net/gh/<user>/<repo>@<branch>/…` used to sit in this list. It
+// follows a MOVING BRANCH, so its content changes without a single line of
+// this repository changing. That is not an attack scenario, it is its nominal
+// behaviour — it is gone.
+// Set GMBOOP_WAF_PLAYER_VERSION to an npm version (e.g. `3.0.4`) to pin the
+// npm-backed mirrors to an immutable URL; unset, they resolve to `latest`, and
+// the SHA-256 pin above is then the only thing standing between a mirror and
+// the browser. Pin both if you can.
+// GMBOOP_WAF_PLAYER_URL is likewise EXCLUSIVE — see SF2_MIRRORS.
+const PLAYER_VERSION = process.env.GMBOOP_WAF_PLAYER_VERSION || '';
+const PLAYER_NPM_SPEC = PLAYER_VERSION ? `webaudiofont@${PLAYER_VERSION}` : 'webaudiofont';
+const PLAYER_MIRRORS = process.env.GMBOOP_WAF_PLAYER_URL ? [process.env.GMBOOP_WAF_PLAYER_URL] : [
   'https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js',
-  'https://cdn.jsdelivr.net/gh/surikov/webaudiofont@master/npm/dist/WebAudioFontPlayer.js',
-  'https://cdn.jsdelivr.net/npm/webaudiofont/dist/WebAudioFontPlayer.js',
-  'https://unpkg.com/webaudiofont/dist/WebAudioFontPlayer.js',
-].filter(Boolean);
+  `https://cdn.jsdelivr.net/npm/${PLAYER_NPM_SPEC}/dist/WebAudioFontPlayer.js`,
+  `https://unpkg.com/${PLAYER_NPM_SPEC}/dist/WebAudioFontPlayer.js`,
+];
 const MIN_PLAYER_SIZE = 50 * 1024; // 50 KB — anything smaller is an error page
 
 const MIN_SF2_SIZE = 1024 * 1024; // 1 MB — anything smaller is almost certainly an error page
@@ -86,9 +160,58 @@ function warn(msg) {
   process.stderr.write(`[install-default-sf2] WARN: ${msg}\n`);
 }
 
+/**
+ * Refuse an artefact whose digest does not match the pin. LOUD failure: the
+ * file is deleted, the run is marked failed, and main() exits non-zero so
+ * `npm install` stops. Never swallowed the way network errors are.
+ *
+ * With no pin configured, says so explicitly on every run — the absence of a
+ * check is reported, not hidden. `GMBOOP_REQUIRE_PINNED_ASSETS=1` turns that
+ * warning into a refusal for hardened builds.
+ *
+ * @param {string} filePath - artefact on disk
+ * @param {string|null} expected - pinned lowercase hex SHA-256, or null
+ * @param {string} label - artefact name used in messages
+ * @returns {boolean} true when the artefact may be kept
+ */
+function assertChecksum(filePath, expected, label) {
+  if (!expected) {
+    const msg = `${label}: no pinned SHA-256 — integrity NOT verified. `
+      + 'Fill PINNED_SHA256 in scripts/install-default-sf2.js (or set '
+      + 'GMBOOP_SF2_SHA256 / GMBOOP_WAF_PLAYER_SHA256) from a download whose '
+      + 'provenance you checked by hand.';
+    if (REQUIRE_PINNED) {
+      integrityFailed = true;
+      try { unlinkSync(filePath); } catch {}
+      warn(`REFUSED — ${msg} (GMBOOP_REQUIRE_PINNED_ASSETS=1)`);
+      return false;
+    }
+    warn(msg);
+    return true;
+  }
+  const actual = sha256File(filePath);
+  if (actual !== expected) {
+    integrityFailed = true;
+    try { unlinkSync(filePath); } catch {}
+    warn(
+      `${label}: SHA-256 MISMATCH — expected ${expected}, got ${actual}. `
+      + 'The mirror served content that is NOT the pinned artefact. The file '
+      + 'has been deleted and the install is failing on purpose. Do not update '
+      + 'the pin to make this go away: verify where those bytes came from.'
+    );
+    return false;
+  }
+  log(`${label}: SHA-256 verified (${actual.slice(0, 16)}…).`);
+  return true;
+}
+
 function alreadyPresent() {
   try {
-    return statSync(TARGET_PATH).size >= MIN_SF2_SIZE;
+    if (statSync(TARGET_PATH).size < MIN_SF2_SIZE) return false;
+    // Size alone would let an already-tampered file live forever, never
+    // re-checked (audit L10 F-109). With a pin, the digest decides.
+    if (!EXPECTED_SHA256.sf2) return true;
+    return sha256File(TARGET_PATH) === EXPECTED_SHA256.sf2;
   } catch {
     return false;
   }
@@ -248,6 +371,13 @@ async function installPlayerLib() {
   try {
     const size = statSync(PLAYER_TARGET_PATH).size;
     if (!FORCE && size >= MIN_PLAYER_SIZE) {
+      // This file is EXECUTED by the SPA on every page load, so an already
+      // installed copy is re-checked rather than trusted on sight (audit L10
+      // F-109). A mismatch deletes it and fails the run; no pin at all prints
+      // the "integrity NOT verified" notice on every run instead of hiding it.
+      if (!assertChecksum(PLAYER_TARGET_PATH, EXPECTED_SHA256.player, 'WebAudioFontPlayer.js')) {
+        return;
+      }
       log(`WebAudioFontPlayer already present at ${PLAYER_TARGET_PATH}.`);
       return;
     }
@@ -259,6 +389,11 @@ async function installPlayerLib() {
     try {
       log(`  trying ${url}`);
       const size = await fetchVerified(url, PLAYER_TARGET_PATH, MIN_PLAYER_SIZE);
+      if (!assertChecksum(PLAYER_TARGET_PATH, EXPECTED_SHA256.player, 'WebAudioFontPlayer.js')) {
+        // Integrity failure: stop here. Trying the next mirror would just
+        // shop around for bytes that pass, which is the opposite of the point.
+        return;
+      }
       log(`✓ Installed WebAudioFontPlayer.js (${(size / 1024).toFixed(0)} KB).`);
       return;
     } catch (err) {
@@ -273,6 +408,11 @@ async function installDefaultSF2() {
   mkdirSync(TARGET_DIR, { recursive: true });
 
   if (!FORCE && alreadyPresent()) {
+    // Re-assert on the skip path too, so `GMBOOP_REQUIRE_PINNED_ASSETS=1`
+    // means something for a file that is already on disk, and so the "not
+    // verified" notice is printed on every run rather than only after a
+    // download.
+    if (!assertChecksum(TARGET_PATH, EXPECTED_SHA256.sf2, 'default.sf2')) return;
     log(`default.sf2 already present at ${TARGET_PATH} — nothing to do.`);
     return;
   }
@@ -288,6 +428,11 @@ async function installDefaultSF2() {
       // step decides whether it is a valid SF2 or a zip we can extract).
       await fetchVerified(url, downloadPath, 1024);
       const size = await materialiseSF2(downloadPath, TARGET_PATH);
+      if (!assertChecksum(TARGET_PATH, EXPECTED_SHA256.sf2, 'default.sf2')) {
+        // See installPlayerLib(): a mismatch stops the run, it does not move
+        // on to the next mirror.
+        return;
+      }
       log(`✓ Installed default soundfont (${(size / (1024 * 1024)).toFixed(1)} MB).`);
       return;
     } catch (err) {
@@ -307,13 +452,20 @@ async function main() {
   }
   await installPlayerLib();
   await installDefaultSF2();
+  if (integrityFailed) {
+    // The ONLY non-zero exit of this script. An unreachable mirror is not
+    // worth failing an install over; bytes that do not match the pin are
+    // (audit L10 F-109).
+    warn('INTEGRITY CHECK FAILED — see the message(s) above. Aborting install.');
+    return 1;
+  }
   // Exit 0 so an offline `npm install` does not abort the whole install.
   return 0;
 }
 
 // Named exports so a Jest test can exercise the parsers without triggering
 // any network I/O. Keep these in sync with the local helpers above.
-export { isSF2Buffer, isZipBuffer, extractSf2FromZip, materialiseSF2 };
+export { isSF2Buffer, isZipBuffer, extractSf2FromZip, materialiseSF2, sha256File, assertChecksum };
 
 // Only run main() when invoked as a script (node scripts/install-default-sf2.js),
 // not when imported by tests.

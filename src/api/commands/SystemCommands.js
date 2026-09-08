@@ -38,6 +38,7 @@ import {
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { AuthenticationError, ValidationError } from '../../core/errors/index.js';
+import { parseUpdateStep, isTerminalStep } from '../../system/UpdateStatus.js';
 
 /** Default number of log lines returned when `data.lines` is absent. */
 const LOG_TAIL_DEFAULT_LINES = 200;
@@ -53,6 +54,11 @@ const LOG_TAIL_MAX_BYTES = 2 * 1024 * 1024;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = resolve(__dirname, '../../..');
+/** Backup destination. Anchored on the project root rather than the process
+ *  cwd so `system_backup`/`system_restore` and `BackupScheduler` agree on one
+ *  directory, and so the `pre-update-*.db` snapshots that `scripts/update.sh`
+ *  writes before migrating are restorable from the UI (audit L11). */
+const BACKUPS_DIR = join(PROJECT_ROOT, 'backups');
 const pkg = JSON.parse(readFileSync(join(PROJECT_ROOT, 'package.json'), 'utf8'));
 const APP_VERSION = pkg.version;
 
@@ -433,8 +439,9 @@ async function systemUpdate(app, data = {}) {
     const statusFilePath = join(PROJECT_ROOT, 'logs', 'update-status');
     let stale = false;
     try {
-      const lastStatus = readFileSync(statusFilePath, 'utf8').trim().split(' ')[0].replace(':', '');
-      if (lastStatus === 'done' || lastStatus === 'failed') {
+      // `done`, `failed` — including the `failed: <reason> (rolled back to …)`
+      // an aborted update writes (audit F-120).
+      if (isTerminalStep(parseUpdateStep(readFileSync(statusFilePath, 'utf8')))) {
         stale = true;
       }
     } catch {
@@ -580,11 +587,23 @@ async function systemUpdate(app, data = {}) {
   const statusFilePath = join(PROJECT_ROOT, 'logs', 'update-status');
   const safetyPoll = setInterval(() => {
     try {
-      const status = readFileSync(statusFilePath, 'utf8').trim().split(' ')[0];
+      const raw = readFileSync(statusFilePath, 'utf8').trim();
+      const status = parseUpdateStep(raw);
       if (status === 'restarting' || status === 'done') {
         clearInterval(safetyPoll);
         app.logger.info(`Update safety net: status="${status}", triggering self-exit for restart`);
         setTimeout(() => process.exit(0), 2000);
+      } else if (status === 'failed') {
+        // The script rolled back and restarted the server itself: do NOT
+        // self-exit on top of it, just stop watching and release the guard so
+        // the operator can retry (audit F-120).
+        clearInterval(safetyPoll);
+        _updateInProgress = false;
+        if (_updateInProgressTimer) {
+          clearTimeout(_updateInProgressTimer);
+          _updateInProgressTimer = null;
+        }
+        app.logger.warn(`Update failed and was rolled back: ${raw}`);
       }
     } catch {
       /* file doesn't exist yet, ignore */
@@ -611,7 +630,7 @@ async function systemUpdate(app, data = {}) {
  */
 async function systemBackup(app, data) {
   const { resolve, basename } = await import('path');
-  const backupsDir = resolve('./backups');
+  const backupsDir = BACKUPS_DIR;
 
   let filename;
   if (data.path) {
@@ -647,7 +666,7 @@ async function systemBackup(app, data) {
 async function systemRestore(app, data) {
   requireTokenConfigured();
   const { resolve, basename } = await import('path');
-  const backupsDir = resolve('./backups');
+  const backupsDir = BACKUPS_DIR;
 
   if (!data || !data.path) {
     throw new ValidationError('A backup filename is required', 'path');

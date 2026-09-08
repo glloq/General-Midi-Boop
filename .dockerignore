@@ -1,14 +1,67 @@
+# Build context for the runtime image.
+#
+# Two reasons to keep this tight, and both are load-bearing:
+#
+#  1. `node_modules/` holds native bindings (better-sqlite3, serialport)
+#     compiled for the BUILD HOST. Letting them into the context means an
+#     x86_64 workstation can silently ship its own .node files into an image
+#     meant for a Raspberry Pi. The image installs and rebuilds its own
+#     (see Dockerfile, stage `builder`); the host's must never leak in.
+#  2. Context size is transfer time on every single build.
+#
+# The Dockerfile COPYs each path explicitly, so a new top-level directory is
+# opt-in rather than opt-out — but keep this list honest anyway.
+
+# --- never, under any circumstance ---
 node_modules
+**/node_modules
 .git
+.env
+.env.*
+
+# --- runtime state: lives in a volume, never in the image ---
+data
+logs
+backups
+dist
+
+# --- machine-local runtime assets (gitignored, fetched by the postinstall) ---
+# The builder stage fetches its own copy so the image is a function of the
+# repo + the network, not of whatever happens to be lying around on the
+# developer's disk. Leaving them in the context would also push a 30 MB
+# soundfont through the daemon on every build — and, as observed during the
+# R7 work, could ship a truncated stub straight into the image.
+public/lib
+assets/sf2/*.sf2
+assets/sf2/*.partial
+assets/sf2/*.download
+
+# --- development / CI only, not needed to run the server ---
 .github
 .husky
 coverage
-logs
-backups
-data
-*.md
-.env
+tests
+docs
+wiki
+images-a-faire
+scripts/audit
 .eslintrc.json
 .prettierrc
 .editorconfig
-tests
+jest.config.cjs
+vitest.config.js
+vite.config.js
+tsconfig.json
+ecosystem.config.cjs
+*.log
+
+# --- the packaging files themselves ---
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# --- markdown at the root, except the notice the image must redistribute ---
+# (`*.md` only matches the context root; assets/sf2/README.md, which carries
+#  the soundfont's licence and provenance, is kept on purpose.)
+*.md
+!README.md

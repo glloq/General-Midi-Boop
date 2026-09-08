@@ -15,6 +15,13 @@
 //        (conséquence directe de `npm ci --ignore-scripts`)
 //   4. + `npm rebuild better-sqlite3`          -> Up, GET /api/health = 200
 //      image 456 MB, build 11 s à chaud / ~75 s à froid.
+//
+// MISE À JOUR — vague 2, R7 (2026-09-08). Le correctif est APPLIQUÉ. Les tests
+// §B04 ci-dessous, que ce fichier annonçait lui-même « à inverser après
+// correctif », assertent désormais l'état CORRIGÉ : chaque inversion garde en
+// commentaire ce qui était caractérisé. §B03 (PM2/systemd, F-127) reste ouvert
+// et ses tests sont inchangés. Les vérifications ajoutées par R7 vivent dans
+// tests/audit/r7-packaging.test.js.
 
 import { describe, test, expect } from '@jest/globals';
 import { readFileSync, existsSync } from 'fs';
@@ -25,70 +32,111 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..');
 const dockerfile = readFileSync(join(ROOT, 'Dockerfile'), 'utf8');
 
-/** Chemins sources de chaque `COPY <src> <dst>` hors `COPY --from=`. */
+/**
+ * Chemins sources de chaque `COPY <src> <dst>` hors `COPY --from=`.
+ *
+ * Les drapeaux (`--chown=`, `--chmod=`) sont retirés avant l'analyse : depuis
+ * R7 chaque COPY porte `--chown=appuser:appuser`, et l'ancienne expression
+ * rationnelle ne reconnaissait plus AUCUN de ces COPY — les assertions
+ * `not.toContain(...)` passaient alors à vide, ce qui est un faux vert.
+ */
 function copySources(text) {
   const out = [];
   for (const line of text.split('\n')) {
-    const m = line.match(/^COPY\s+(?!--from=)(\S+)\s+\S+\s*$/);
-    if (m) out.push(m[1]);
+    if (!/^COPY\s/.test(line)) continue;
+    const parts = line.trim().split(/\s+/).slice(1);
+    if (parts.some((p) => p.startsWith('--from='))) continue;
+    const args = parts.filter((p) => !p.startsWith('--'));
+    if (args.length >= 2) out.push(...args.slice(0, -1));
   }
   return out;
 }
 
-describe('L11 §B04 — le Dockerfile ne se construit pas', () => {
+describe('L11 §B04 — le Dockerfile se construit (corrigé par R7)', () => {
   const sources = copySources(dockerfile);
 
-  test("COPY locales/ désigne un répertoire qui n'existe pas (build FAIL, F-118)", () => {
-    expect(sources).toContain('locales/');
-    // Les locales vivent sous public/locales/ — déjà copiées par COPY public/.
+  test('aucun COPY ne pointe dans le vide (F-118 / F-157 — corrigé)', () => {
+    // CARACTÉRISÉ AVANT R7 : `expect(sources).toContain('locales/')`, un
+    // répertoire racine qui n'a jamais existé -> `"/locales": not found`,
+    // et donc `docker build` en échec systématique.
+    expect(sources).not.toContain('locales/');
     expect(existsSync(join(ROOT, 'locales'))).toBe(false);
+    // Les locales vivent sous public/locales/ — déjà copiées par COPY public/.
     expect(existsSync(join(ROOT, 'public/locales'))).toBe(true);
-    // À INVERSER après correctif : plus aucun COPY ne doit pointer dans le vide.
+    expect(sources).toContain('public/');
+
+    // La garde générale : chaque source de COPY existe réellement dans l'arbre.
+    for (const src of sources) {
+      const bare = src.replace(/\/$/, '');
+      if (bare.includes('*')) continue;
+      expect({ src, exists: existsSync(join(ROOT, bare)) }).toEqual({ src, exists: true });
+    }
   });
 
-  test('shared/ est importé par le runtime mais jamais copié (crash au boot, F-118)', () => {
+  test("shared/ est importé par le runtime ET copié dans l'image (F-157 — corrigé)", () => {
+    // CARACTÉRISÉ AVANT R7 : `expect(sources).not.toContain('shared/')`.
+    // Conséquence mesurée : Exited(1) avec ERR_MODULE_NOT_FOUND sur
+    // file:///app/shared/BinaryFrameCodec.js — reproduit à nouveau en R7 en
+    // retirant la ligne, puis vert avec elle.
     const wsQueue = readFileSync(join(ROOT, 'src/api/WsOutputQueue.js'), 'utf8');
     expect(wsQueue).toMatch(/from '\.\.\/\.\.\/shared\/BinaryFrameCodec\.js'/);
     expect(existsSync(join(ROOT, 'shared/BinaryFrameCodec.js'))).toBe(true);
-    expect(sources).not.toContain('shared/');
+    expect(sources).toContain('shared/');
   });
 
-  test('assets/ (soundfont), scripts/ (update.sh, hotspot.sh) et config.json ne sont pas copiés', () => {
+  test("scripts/ et config.json sont copiés, assets/ vient de l'étage builder (corrigé)", () => {
+    // CARACTÉRISÉ AVANT R7 : aucun des trois n'était copié. Conséquences :
+    // pas de soundfont par défaut, `system_update` renvoyait « Update script
+    // not found », et la configuration livrée était silencieusement remplacée
+    // par getDefaultConfig().
+    expect(sources).toContain('scripts/');
+    expect(sources).toContain('config.json');
+    // assets/ n'est PAS copié depuis le contexte : le soundfont est
+    // gitignoré et récupéré dans l'étage builder, d'où il est repris par
+    // `COPY --from=builder /app/assets` — l'image ne dépend donc pas de ce
+    // qui traîne sur le disque du développeur.
     expect(sources).not.toContain('assets/');
-    expect(sources).not.toContain('scripts/');
-    expect(sources).not.toContain('config.json');
-    // Conséquences : pas de soundfont par défaut, `system_update` renvoie
-    // « Update script not found », `hotspot.sh` absent, et la configuration
-    // livrée est silencieusement remplacée par getDefaultConfig().
+    expect(dockerfile).toMatch(/COPY --from=builder[^\n]*\/app\/assets \.\/assets/);
     const sysCmds = readFileSync(join(ROOT, 'src/api/commands/SystemCommands.js'), 'utf8');
     expect(sysCmds).toMatch(/Update script not found or not executable/);
   });
 
-  test("`npm ci --ignore-scripts` prive l'image des bindings better-sqlite3 (F-119)", () => {
+  test('le binding better-sqlite3 est reconstruit après --ignore-scripts (F-118 — corrigé)', () => {
+    // CARACTÉRISÉ AVANT R7 : `expect(dockerfile).not.toMatch(/npm rebuild/)`.
+    // --ignore-scripts reste nécessaire (l'étage builder n'a ni Python ni
+    // toolchain, `midi` ferait échouer tout le npm ci), mais il prive AUSSI
+    // better-sqlite3 de son install script. Sans le rebuild ciblé, le build
+    // réussit et le conteneur meurt au boot sur « Could not locate the
+    // bindings file » — reproduit à nouveau en R7 : Exited(1).
     expect(dockerfile).toMatch(/npm ci --omit=dev --ignore-scripts/);
-    // Aucune étape ne recompile ni ne télécharge le binding ensuite.
-    expect(dockerfile).not.toMatch(/npm rebuild/);
-    expect(dockerfile).not.toMatch(/prebuild-install/);
+    expect(dockerfile).toMatch(/npm rebuild better-sqlite3/);
     // Et le paquet est bien une dépendance de production obligatoire.
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
     expect(pkg.dependencies['better-sqlite3']).toBeDefined();
   });
 
-  test("l'étage runtime installe libasound2 alors qu'aucun module natif MIDI n'est compilé", () => {
-    expect(dockerfile).toMatch(/libasound2/);
-    // libasound2 (runtime) est inutile sans le module `midi`, qui n'est jamais
-    // bâti à cause de --ignore-scripts : ~30 Mo de couche pour rien.
+  test("l'étage runtime n'installe plus libasound2 (couche inutile — corrigé)", () => {
+    // CARACTÉRISÉ AVANT R7 : `RUN apt-get install … libasound2`. Inutile sans
+    // le module natif `midi`, que --ignore-scripts ne bâtit jamais — et la
+    // couche faisait dépendre chaque build d'un miroir Debian joignable.
+    // libasound2 n'apparaît plus que dans le commentaire qui explique
+    // comment réactiver le MIDI USB matériel : plus aucun apt-get.
+    expect(dockerfile).not.toMatch(/^\s*RUN\s+apt-get/m);
   });
 });
 
 describe('L11 §B04 — cohérence docker-compose ↔ Dockerfile', () => {
   const compose = readFileSync(join(ROOT, 'docker-compose.yml'), 'utf8');
 
-  test('la limite mémoire du conteneur égale le plafond de tas V8 (F-120)', () => {
-    expect(compose).toMatch(/memory:\s*512M/);
-    expect(dockerfile).toMatch(/ENV NODE_HEAP_MB=512/);
+  test('le plafond de tas V8 est strictement sous la limite mémoire du conteneur (corrigé)', () => {
+    // CARACTÉRISÉ AVANT R7 : `memory: 512M` face à `ENV NODE_HEAP_MB=512`.
     // 512 Mo de tas V8 DANS 512 Mo de conteneur : RSS = tas + heap natif +
-    // buffers + code. L'OOM-killer arrive avant la limite V8.
+    // buffers + code. L'OOM-killer arrivait avant la limite V8.
+    const heap = Number(compose.match(/NODE_HEAP_MB:-(\d+)/)[1]);
+    const limit = Number(compose.match(/MEMORY_LIMIT:-(\d+)M/)[1]);
+    expect(heap).toBeLessThan(limit);
+    // Marge : RSS = tas V8 + heap natif + buffers + code. Viser ~60-65 %.
+    expect(heap / limit).toBeLessThanOrEqual(0.7);
   });
 
   test('aucun volume ne persiste dist/ ni public/lib : le repli CDN survit aux redémarrages', () => {

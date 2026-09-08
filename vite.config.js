@@ -16,12 +16,29 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * bundling is a separate, larger effort and intentionally out of scope here.
  */
 function copyStaticTree() {
-  const dirs = ['js', 'locales', 'assets', 'styles'];
+  // 'lib' holds the WebAudioFont player vendored by
+  // scripts/install-default-sf2.js at postinstall. It used to be missing from
+  // this list, and that single omission broke the product's offline-first
+  // promise: HttpServer.js serves dist/ as soon as NODE_ENV=production and
+  // dist/index.html exists (exactly what scripts/Install.sh + the systemd unit
+  // produce), so lib/WebAudioFontPlayer.js was absent from EVERY production
+  // install even when the postinstall had succeeded — audio preview dead, and
+  // the page reaching for a CDN an offline Pi can never hit (audit L11 F-14 /
+  // L08 F-87). A regression here is invisible in dev (which serves public/).
+  const dirs = ['js', 'locales', 'assets', 'styles', 'lib'];
+  // Resolved from the build config rather than hard-coded to ./dist, so
+  // `vite build --outDir <path>` copies the static trees where the rest of the
+  // build actually went (a hard-coded dist/ silently split the output in two).
+  let outDir = resolve(__dirname, 'dist');
   return {
     name: 'gmboop-copy-static-tree',
+    configResolved(resolved) {
+      if (resolved?.build?.outDir) {
+        outDir = resolve(resolved.root || __dirname, resolved.build.outDir);
+      }
+    },
     // Run after the bundle (and Vite's emptyOutDir) so the copies survive.
     closeBundle() {
-      const outDir = resolve(__dirname, 'dist');
       for (const d of dirs) {
         const src = resolve(__dirname, 'public', d);
         if (existsSync(src)) {

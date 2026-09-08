@@ -34,6 +34,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * A request path that looks like a file (last segment carries an extension) is
+ * an asset request, never an SPA route — this SPA has no client-side history
+ * routing, so every navigable URL is extension-less. Used by the catch-all to
+ * answer 404 instead of the index shell (audit L11 F-119 / L08 F-88).
+ *
+ * Exported for the regression test in `tests/audit/r6-static-asset-404.test.js`.
+ */
+export const ASSET_PATH = /\.[a-z0-9]{1,12}$/i;
+
+/**
  * Return true when the request originates from a private network (RFC 1918,
  * link-local 169.254/16, loopback, IPv6 ULA fc00::/7 or ::1). Used to bypass
  * the Bearer-token check for trusted LAN/loopback clients when no header-
@@ -255,6 +265,21 @@ class HttpServer {
 
     // Fallback to index.html for SPA
     this.expressApp.get('*', (req, res) => {
+      // A path that carries a file extension is an ASSET request, not an SPA
+      // route: this SPA has no client-side history routing at all (nothing
+      // calls pushState), so every navigable URL is extension-less.
+      //
+      // Answering such a request with index.html produced HTTP 200 +
+      // `text/html` where the browser expected JS/CSS — 615 KB of shell under
+      // the identity of a script. That turned a missing file into a SILENT
+      // failure: no 404 ever reached the logs, and the SPA's
+      // `typeof WebAudioFontPlayer === 'undefined'` guard was unconditionally
+      // true, so the offline-first box always reached for a CDN
+      // (audit L11 F-119 / L08 F-88). Same class as F-10 on /api/*, fixed
+      // above.
+      if (ASSET_PATH.test(req.path)) {
+        return res.status(404).type('text/plain').send('Not found');
+      }
       res.sendFile(path.join(publicPath, 'index.html'));
     });
   }

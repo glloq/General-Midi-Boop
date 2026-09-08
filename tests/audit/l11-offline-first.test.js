@@ -1,19 +1,23 @@
 // tests/audit/l11-offline-first.test.js
 //
-// Lot L11 — §AG / F-14. « Offline-first » au démarrage de la SPA.
+// Lot L11 — §AG / F-14, F-119. « Offline-first » au démarrage de la SPA.
 //
-// NATURE DE CE FICHIER : tests de CARACTÉRISATION. Ils décrivent le
-// comportement ACTUEL, prouvé, du dépôt à HEAD — pas le comportement
-// souhaité. Chaque assertion porte en commentaire ce qu'il faudra en
-// faire quand le correctif F-14 sera appliqué (`public/index.html` est
-// un fichier partagé : le lot L11 propose le diff, il ne l'applique pas).
+// NATURE DE CE FICHIER. Il a été écrit comme un test de CARACTÉRISATION : il
+// décrivait le comportement PROUVÉ du dépôt, pas le comportement souhaité,
+// parce que `public/index.html` était un fichier partagé que L11 n'avait pas le
+// droit de modifier. Les assertions marquées « À INVERSER » l'ont été par la
+// vague 2 / R6, qui a appliqué les trois correctifs. Ce fichier atteste
+// désormais l'état corrigé ; la couverture détaillée est dans
+// `r6-offline-first.test.js` et `r6-static-asset-404.test.js`.
 //
-// Preuve d'exécution associée (serveur vivant, port 8111, 2026-09-07) :
+// Preuve d'exécution d'origine (serveur vivant, port 8111, 2026-09-07) :
 //   GET /lib/WebAudioFontPlayer.js
 //     -> HTTP 200, Content-Type: text/html, 615825 octets (le shell SPA)
-//   c.-à-d. le fichier manquant ne renvoie JAMAIS 404 : le navigateur
-//   reçoit index.html à la place du script, échoue à le parser, et le
-//   repli `document.write` vers le CDN s'exécute donc TOUJOURS.
+//   c.-à-d. le fichier manquant ne renvoyait JAMAIS 404 : le navigateur
+//   recevait index.html à la place du script, échouait à le parser, et le
+//   repli `document.write` vers le CDN s'exécutait donc TOUJOURS.
+// Mesure navigateur associée (L08 / F-87, 2026-09-07) : 8 000 ms de latence
+//   réseau injectée => DOMContentLoaded à 8 421 ms.
 
 import { describe, test, expect } from '@jest/globals';
 import { readFileSync, existsSync } from 'fs';
@@ -25,72 +29,58 @@ const ROOT = resolve(__dirname, '../..');
 
 const indexHtml = readFileSync(join(ROOT, 'public/index.html'), 'utf8');
 
-describe('L11 §AG — F-14 : le repli CDN bloquant de public/index.html', () => {
-  test('le repli synchrone vers surikov.github.io est toujours présent (F-14 ouvert)', () => {
-    // À INVERSER quand F-14 est corrigé : plus aucun document.write, plus
-    // aucune URL externe dans index.html.
-    expect(indexHtml).toContain('surikov.github.io');
-    expect(indexHtml).toMatch(/document\.write\(\s*'<scr'\s*\+\s*'ipt src="https:/);
+describe('L11 §AG — F-14 : le repli CDN bloquant de public/index.html (CORRIGÉ, R6)', () => {
+  test('le repli synchrone vers surikov.github.io a disparu', () => {
+    // Assertion inversée par R6 : c'était `expect(...).toContain(...)`.
+    expect(indexHtml).not.toContain('surikov.github.io');
+    expect(indexHtml).not.toMatch(/document\s*\.\s*write/);
   });
 
-  test('le repli est déclenché par une simple absence du fichier vendorisé', () => {
-    // La garde est `typeof WebAudioFontPlayer === 'undefined'`. Elle est
-    // vraie non seulement quand le fichier est absent, mais aussi quand le
-    // serveur renvoie le shell SPA à sa place (cas réel : voir en-tête).
+  test("la garde subsiste, mais elle n'appelle plus le réseau", () => {
+    // `typeof WebAudioFontPlayer === 'undefined'` reste vrai quand l'asset est
+    // absent ; ce qui change, c'est ce qu'on en fait : un drapeau global et un
+    // avertissement console, zéro requête, zéro blocage de l'analyseur.
     expect(indexHtml).toMatch(/typeof WebAudioFontPlayer === 'undefined'/);
+    expect(indexHtml).toContain('__GMBOOP_AUDIO_PREVIEW_UNAVAILABLE__');
   });
 
-  test("l'asset vendorisé n'est pas versionné : le chemin de repli est le cas nominal d'un dépôt frais", () => {
+  test("l'asset vendorisé n'est toujours pas versionné : le cas nominal d'un dépôt frais reste son absence", () => {
     const gitignore = readFileSync(join(ROOT, '.gitignore'), 'utf8');
     expect(gitignore).toMatch(/^public\/lib\/WebAudioFontPlayer\.js$/m);
+    // C'est précisément pourquoi les deux autres correctifs (404 sur asset
+    // absent, copie de lib/ dans dist/) comptent autant que la suppression du
+    // repli : l'absence est un état normal, pas un accident.
   });
 
   test("un dépôt installé avec --ignore-scripts n'a pas public/lib/ (chemin documenté par CLAUDE.md)", () => {
-    // Ce test décrit l'environnement d'audit du 2026-09-07 : L00 a installé
-    // avec `npm install --ignore-scripts`, donc `postinstall` n'a jamais
-    // tourné. Si un jour le player est committé, ce test devra sauter.
     const vendored = join(ROOT, 'public/lib/WebAudioFontPlayer.js');
-    if (existsSync(vendored)) {
-      // Installation ayant réellement exécuté le postinstall : rien à prouver.
-      expect(existsSync(vendored)).toBe(true);
-      return;
-    }
-    expect(existsSync(vendored)).toBe(false);
+    // Les deux états sont légitimes ; ce qui compte est que l'application
+    // fonctionne dans les deux (aperçu audio en moins dans le second).
+    expect(typeof existsSync(vendored)).toBe('boolean');
   });
 
-  test('174 des 191 balises <script src> sont situées APRÈS le repli : toute la SPA est derrière lui', () => {
-    const lines = indexHtml.split('\n');
-    const fallbackLine = lines.findIndex((l) => l.includes('surikov.github.io'));
-    expect(fallbackLine).toBeGreaterThan(0);
-
-    const total = (indexHtml.match(/<script src=/g) || []).length;
-    const after = (
-      lines
-        .slice(fallbackLine + 1)
-        .join('\n')
-        .match(/<script src=/g) || []
-    ).length;
-
-    expect(total).toBe(191);
-    expect(after).toBe(174);
-    // Autrement dit : `document.write` étant bloquant pour l'analyseur HTML,
-    // 174 scripts — c'est-à-dire l'application entière — attendent la
-    // résolution réseau du CDN avant d'être seulement demandés.
+  test("les 191 balises <script src> sont désormais toutes locales : plus rien n'est derrière un appel réseau", () => {
+    const srcs = [...indexHtml.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+    expect(srcs.length).toBe(191);
+    // Avant R6 : 174 d'entre elles attendaient la résolution réseau du CDN
+    // avant d'être seulement demandées, `document.write` étant bloquant pour
+    // l'analyseur HTML.
+    expect(srcs.filter((s) => /^(?:https?:)?\/\//.test(s))).toEqual([]);
   });
 
-  test('le seul consommateur du global échoue proprement — mais seulement si le parseur y arrive', () => {
+  test('le seul consommateur du global échoue proprement — et le parseur y arrive maintenant', () => {
     const synth = readFileSync(join(ROOT, 'public/js/audio/MidiSynthesizer.js'), 'utf8');
     expect(synth).toMatch(/throw new Error\('WebAudioFontPlayer not loaded'\)/);
-    // La dégradation « pas d'aperçu audio, le reste fonctionne » EXISTE déjà
-    // (MidiSynthesizer.js). Le repli `document.write` est donc inutile à la
-    // robustesse : il ne fait qu'ajouter un point de blocage réseau.
+    // La dégradation « pas d'aperçu audio, le reste fonctionne » EXISTAIT déjà.
+    // Le repli `document.write` n'apportait donc aucune robustesse : il ne
+    // faisait qu'ajouter un point de blocage réseau devant elle.
   });
 });
 
-describe('L11 §AG — F-14 (aggravation) : dist/ ne peut jamais contenir lib/', () => {
+describe('L11 §AG — F-14 (aggravation) : dist/ contient maintenant lib/', () => {
   const viteConfig = readFileSync(join(ROOT, 'vite.config.js'), 'utf8');
 
-  test("copyStaticTree ne copie pas 'lib' : même un postinstall réussi est annulé en production", () => {
+  test("copyStaticTree copie 'lib' : un postinstall réussi survit à la production", () => {
     const m = viteConfig.match(/const dirs = \[([^\]]*)\]/);
     expect(m).not.toBeNull();
     const dirs = m[1]
@@ -98,17 +88,22 @@ describe('L11 §AG — F-14 (aggravation) : dist/ ne peut jamais contenir lib/',
       .map((s) => s.trim().replace(/^'|'$/g, ''))
       .filter(Boolean);
 
-    expect(dirs).toEqual(['js', 'locales', 'assets', 'styles']);
-    // À INVERSER quand le correctif est appliqué : 'lib' doit être présent.
-    expect(dirs).not.toContain('lib');
+    // Assertion inversée par R6 : c'était `expect(dirs).not.toContain('lib')`.
+    expect(dirs).toEqual(['js', 'locales', 'assets', 'styles', 'lib']);
   });
 
-  test('HttpServer sert dist/ en production dès que dist/index.html existe', () => {
+  test('HttpServer sert toujours dist/ en production dès que dist/index.html existe', () => {
     const http = readFileSync(join(ROOT, 'src/api/HttpServer.js'), 'utf8');
     expect(http).toMatch(/isProduction && existsSync\(path\.join\(distPath, 'index\.html'\)\)/);
-    // Conjonction fatale : Install.sh lance `npm run build`, le service
-    // systemd pose NODE_ENV=production, donc la production sert dist/ —
-    // qui ne contient pas lib/ — donc le repli CDN s'exécute même sur une
-    // installation dont le postinstall a parfaitement réussi.
+    // La conjonction reste (Install.sh lance `npm run build`, le service
+    // systemd pose NODE_ENV=production) — elle n'est simplement plus fatale,
+    // puisque dist/ embarque désormais lib/.
+  });
+
+  test('F-119 : un asset absent ne renvoie plus le shell SPA', () => {
+    const http = readFileSync(join(ROOT, 'src/api/HttpServer.js'), 'utf8');
+    expect(http).toMatch(/ASSET_PATH/);
+    expect(http).toMatch(/status\(404\)\.type\('text\/plain'\)/);
+    // Comportement vérifié sur un serveur réel dans r6-static-asset-404.test.js.
   });
 });
