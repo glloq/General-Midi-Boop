@@ -49,6 +49,13 @@ The same applies to `public/lib/WebAudioFontPlayer.js`, which the same script
 downloads and which the SPA *executes* on every page load
 (`PINNED_SHA256.player`, `GMBOOP_WAF_PLAYER_SHA256`).
 
+> **Pick the player's version before pinning its digest.** Upstream relicensed
+> `webaudiofont` from MIT to GPL-3.0-or-later at 2.5.49, so pinning whatever
+> `latest` serves today would freeze a GPL-3 file inside an MIT-announced
+> product *and* make the question look answered. `GMBOOP_WAF_PLAYER_VERSION`
+> pins the version; the choice itself is a maintainer decision — see
+> `docs/audit/2026-09-07/WAVE2_R10.md` §3.5.
+
 If the file is missing at runtime, the synth keeps booting but every preset
 request to `/api/sf2/default/preset/...` returns 404 — the UI surfaces a toast
 asking the user to run `npm run install-default-sf2` (or restart `npm install`).

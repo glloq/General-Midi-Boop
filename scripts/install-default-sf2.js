@@ -64,7 +64,14 @@ import zlib from 'zlib';
 const PINNED_SHA256 = {
   // GeneralUser GS v1.471 — not pinned yet, see above.
   sf2: null,
-  // WebAudioFontPlayer.js (surikov/webaudiofont) — not pinned yet, see above.
+  // WebAudioFontPlayer.js (surikov/webaudiofont) — not pinned yet, and the
+  // ORDER MATTERS HERE: pick the VERSION before pinning a digest. Upstream
+  // relicensed the package from MIT to GPL-3.0-or-later at 2.5.49, so pinning
+  // the digest of whatever `latest` serves today would silently freeze a
+  // GPL-3 file inside a product announced as MIT — and make it look settled.
+  // See docs/audit/2026-09-07/WAVE2_R10.md §3.5; the decision (pin 2.5.48,
+  // accept GPL-3, or replace the library) is the maintainer's, not this
+  // script's. Record the chosen version and its licence next to the digest.
   player: null
 };
 
@@ -129,10 +136,13 @@ const PLAYER_TARGET_PATH = join(PLAYER_TARGET_DIR, 'WebAudioFontPlayer.js');
 // follows a MOVING BRANCH, so its content changes without a single line of
 // this repository changing. That is not an attack scenario, it is its nominal
 // behaviour — it is gone.
-// Set GMBOOP_WAF_PLAYER_VERSION to an npm version (e.g. `3.0.4`) to pin the
-// npm-backed mirrors to an immutable URL; unset, they resolve to `latest`, and
-// the SHA-256 pin above is then the only thing standing between a mirror and
-// the browser. Pin both if you can.
+// Set GMBOOP_WAF_PLAYER_VERSION to an npm version to pin the npm-backed
+// mirrors to an immutable URL; unset, they resolve to `latest`, and the
+// SHA-256 pin above is then the only thing standing between a mirror and the
+// browser. Pin both if you can.
+// A version pin also freezes the LICENCE: webaudiofont is MIT up to 2.5.48 and
+// GPL-3.0-or-later from 2.5.49 (audit WAVE2_R10 §3.5). No default version is
+// set here on purpose — choosing one is a licensing decision.
 // GMBOOP_WAF_PLAYER_URL is likewise EXCLUSIVE — see SF2_MIRRORS.
 const PLAYER_VERSION = process.env.GMBOOP_WAF_PLAYER_VERSION || '';
 const PLAYER_NPM_SPEC = PLAYER_VERSION ? `webaudiofont@${PLAYER_VERSION}` : 'webaudiofont';

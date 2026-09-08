@@ -31,7 +31,15 @@
 import { describe, test, expect } from '@jest/globals';
 import { spawnSync } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -277,7 +285,9 @@ describe('R11 / F-109 — assets/sf2/README.md tells the truth', () => {
 
   test('it no longer claims an idempotency check "matches the expected SHA-256"', () => {
     // The exact sentence that was false: the script compared file SIZE.
-    expect(readme).not.toMatch(/no re-download if the file already exists\s*\n?\s*and matches the expected SHA-256/);
+    expect(readme).not.toMatch(
+      /no re-download if the file already exists\s*\n?\s*and matches the expected SHA-256/
+    );
   });
 
   test('it states plainly that no reference digest is pinned yet', () => {

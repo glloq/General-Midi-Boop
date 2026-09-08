@@ -96,11 +96,15 @@ describe('R6 / F-14 · a Vite build carries lib/ into dist/', () => {
     writeFileSync(probePath, 'r6\n');
     outDir = mkdtempSync(join(tmpdir(), 'gmboop-r6-dist-'));
     try {
-      execFileSync(process.execPath, [viteBin, 'build', '--outDir', outDir, '--logLevel', 'error'], {
-        cwd: ROOT,
-        stdio: 'pipe',
-        timeout: 180000
-      });
+      execFileSync(
+        process.execPath,
+        [viteBin, 'build', '--outDir', outDir, '--logLevel', 'error'],
+        {
+          cwd: ROOT,
+          stdio: 'pipe',
+          timeout: 180000
+        }
+      );
       built = true;
     } catch (err) {
       buildError = err;

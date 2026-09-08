@@ -107,6 +107,38 @@ nulle part. C'est le correctif au meilleur rapport effort/impact de tout l'audit
 
 ---
 
+## ✅ Vague 2 — LIVRÉE (2026-09-08)
+
+État à l'issue : **207 suites / 2 821 tests backend · 86 / 1 560 frontend ·
+0 erreur lint · `tsc` clean.**
+
+| # | Finding | Résultat mesuré |
+|---|---|---|
+| **R6** | F-14, F-87, F-119 | Blocage du démarrage **8 388 ms → 813 ms**, requêtes CDN **1 → 0**. Les 3 défauts corrigés : `lib/` arrive dans `dist/`, un asset absent répond **404 (9 o)** au lieu de 615 825 o de shell SPA, et le `document.write` est supprimé. |
+| **R7** | F-118, F-157 | Build **12,6 s à froid**, conteneur `Up (healthy)`, `/api/health` 200 **et honnête**. Image **449 Mo** — moins que les 456 Mo de la recette prouvée, en embarquant 30 Mo de soundfont en plus. |
+| **R8** | F-156 | `mqtt` déclaré en `optionalDependencies` ; les 2 tests témoins **inversés**. |
+| **R9** | F-120, F-121, F-122 | Point de restauration armé **avant** toute action ; classification **critique vs cosmétique** ; `config.json` protégé, prouvé dans 6 scénarios. |
+| **R10** | F-158 | `LICENSE` MIT créé ; 7 SVG tracés (4 en CC BY sans attribution), **57 inscrits « inconnu » sans rien inventer**. |
+| **R11** | F-109, F-15 | Mécanisme d'intégrité *fail-closed* livré ; `/api/waf` refuse tout nom non épinglé **avant toute requête sortante** ; les 2 affirmations fausses du README **nommées**, pas effacées. |
+
+> ⚠️ **R11 — ce qui n'est pas fait, et c'est délibéré.** Aucun digest de
+> référence n'est épinglé : sans réseau ici, hacher ce qu'un miroir sert
+> aujourd'hui **épinglerait l'attaque** au lieu de s'en protéger. Le script
+> imprime `integrity NOT verified` à chaque exécution. L'ordre correct
+> — choisir la version, *puis* épingler son digest — est documenté.
+
+> 🔴 **Découvert par R10, hors périmètre et plus lourd que F-158 :**
+> `public/lib/WebAudioFontPlayer.js` est **GPL-3.0-or-later** (MIT jusqu'à
+> 2.5.48, GPL-3 depuis 2.5.49). Il est téléchargé au `postinstall` et servi à
+> chaque navigateur : **un build d'aujourd'hui distribue du GPL-3 dans un
+> produit annoncé MIT.** R6/R11 s'est abstenu de le vendoriser pour ne pas
+> aggraver le cas. Décision produit à trancher — remplacer le player, isoler la
+> distribution, ou changer la licence du projet.
+
+Comptes rendus : `WAVE2_R6_R11.md`, `WAVE2_R7.md`, `WAVE2_R9.md`, `WAVE2_R10.md`.
+
+---
+
 ## Vague 2 — le produit doit démarrer et se livrer
 
 ### R6 · Réparer l'offline-first — F-14, F-87, F-119
