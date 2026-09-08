@@ -130,13 +130,16 @@ réutilisé, pas réécrit.
 | 6 | **Filtrage CC (`supported_ccs`)** | ❌ **NON** — runtime seulement ; `ccMapping` renumérote sans filtrer, le CC 74 reste dans les octets | ✅ **FERMÉ** — prédicat unique `NoteEnforcement.isCCAllowed`, appliqué aussi hors-ligne | `r16` §axe 6 (6 tests) |
 | 7 | Polyphonie — choix de la victime (T3.1) | ✅ identique (helper partagé) | ✅ **inchangé** | §T3.1 |
 | 7b | **Polyphonie — effet audible** | ❌ **NON** — la voix médiane sonne puis est coupée en live, n'est jamais émise en baké | ✅ **FERMÉ** — l'offline reproduit l'éviction du runtime au lieu d'effacer rétroactivement un Note On | `r16` §axe 7b (4 tests) + `l05-live-vs-baked` inversé |
-| 8 | `min_note_interval` (T3.4) | ⚠️ runtime seulement, converge | ⚠️ **DIVERGENCE ASSUMÉE** (§3.2) | `r16` §assumées |
+| 8 | `min_note_interval` (T3.4) | ⚠️ runtime seulement, converge | ⚠️ **RUNTIME-SEULEMENT, ASSUMÉ** (§3.2 — **raison révisée par la vague 4 / R23**) | `r16` §assumées · `r23` §F-61a |
 | 8b | T3.4 mono vs poly | ✅ fermé | ✅ **inchangé** | §T3.4 |
-| 9 | `min_note_duration` | ⚠️ runtime seulement | ⚠️ **DIVERGENCE ASSUMÉE** (§3.2) | `r16` §assumées |
+| 9 | `min_note_duration` | ⚠️ runtime seulement | ⚠️ **RUNTIME-SEULEMENT, ASSUMÉ** (§3.2 — **raison révisée par la vague 4 / R23**) | `r16` §assumées · `r23` §min_note_duration |
 | **10** | **Ordre des CC de main sur la grille de ticks** — *non répertorié par l'audit* | ❌ trouvé par ce lot | ✅ **FERMÉ** (§2.4) | `r16` §hors-table |
 
 **Bilan : 3 divergences ouvertes → 0. Une divergence nouvelle trouvée → fermée.
 Trois axes restent runtime-seulement, assumés et documentés au §3.**
+*(Axes 8 et 9 : la raison écrite au §3.2 a été révisée par la vague 4 / R23 —
+ces gardes ne dépendent plus du temps réel. Voir l'encadré du §3.2 et
+`WAVE4_R21_R23.md` §6.)*
 
 ### 2.1 Axe 4 — `suppressOutOfRange`
 
@@ -304,6 +307,34 @@ une destination — et rendrait le fichier faux dès que l'un des deux change.
 > aujourd'hui **1 note sur 8** dans certaines configurations. Tant que R23 n'a pas
 > tranché la grandeur de référence (temps musical vs temps mur), les graver dans
 > le fichier fixerait une décision qu'on sait discutable.
+
+> ### ⚠️ Mise à jour vague 4 (R23) — la justification ci-dessus est en partie caduque
+>
+> R23 (`WAVE4_R21_R23.md` §3 et §6) a tranché la grandeur de référence, et le
+> paragraphe qui précède **n'est plus exact sur son point central** : ces gardes
+> **ne dépendent plus du temps réel**.
+>
+> - `min_note_interval` est évalué sur `event.time` divisé par `playbackRate`.
+>   Ni la gigue, ni la compensation de latence par destination, ni le retard du
+>   downbeat (F-55, corrigé) n'entrent plus dans la décision. Mesuré : **12,5 %
+>   de notes supprimées → 0 %**, et **0 % sous cinq modèles de gigue**.
+> - `min_note_duration` : la **décision** (« faut-il étirer cette note ? ») est
+>   musicale et reproductible ; seule la **quantité** d'étirement reste mesurée
+>   sur l'instant réel de la frappe, pour que le solénoïde reste engagé la durée
+>   promise.
+>
+> **Ce qui reste vrai**, et qui devient la seule raison de les laisser hors du
+> fichier : ils dépendent de `playbackRate` **et de la destination**
+> (`min_note_interval` / `min_note_duration` sont des capacités d'instrument).
+> Les graver figerait le fichier adapté sur un taux de lecture et un instrument.
+> La classification passe donc de « divergence assumée parce que dépendante du
+> temps réel » à **« runtime-seulement, assumé parce que dépendant du taux et de
+> la destination »** — plus étroit, et vérifiable.
+>
+> **Ce qui est levé :** l'avertissement « tant que R23 n'a pas tranché… ». La
+> convergence live ↔ baké prouvée ici tient toujours, et tient désormais **par
+> construction** plutôt que parce que les deux rejeux voyaient la même horloge
+> virtuelle.
 
 ---
 

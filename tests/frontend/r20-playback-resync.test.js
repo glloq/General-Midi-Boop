@@ -114,7 +114,9 @@ describe('R20 · PlaybackResync — the note this browser leaves about what it s
   });
 
   it('survives corrupted, empty and hostile storage', () => {
-    expect(PlaybackResync.read({ storage: fakeStorage({ gmboop_now_playing: '{oops' }) })).toBeNull();
+    expect(
+      PlaybackResync.read({ storage: fakeStorage({ gmboop_now_playing: '{oops' }) })
+    ).toBeNull();
     expect(PlaybackResync.read({ storage: fakeStorage({ gmboop_now_playing: '{}' }) })).toBeNull();
     expect(PlaybackResync.read({ storage: hostileStorage })).toBeNull();
     expect(PlaybackResync.remember({ fileId: 1 }, { storage: hostileStorage })).toBeNull();

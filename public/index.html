@@ -7555,7 +7555,9 @@
                     // serveur n'a jamais arrêtée (rechargement, onglet rouvert,
                     // reconnexion). Fait à chaque connexion, pas seulement à la
                     // première : après une coupure Wi-Fi l'état a pu changer.
-                    resyncTransportFromBackend();
+                    resyncTransportFromBackend().catch((error) => {
+                        log(`Transport resync failed: ${error.message}`, 'warning');
+                    });
 
                     // Re-start MIDI debug monitoring if console was open (reconnect case)
                     const dbgConsole = document.getElementById('debugConsole');

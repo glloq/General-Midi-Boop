@@ -172,15 +172,18 @@ suite('04 · resilience', () => {
           expect(header.playDisabled).toBeFalsy('Pause must be reachable too');
         });
 
-        await ctx.step('Stop, clicked in the reloaded page, really stops the orchestra', async () => {
-          await app.clickStop();
-          await page.waitForTimeout(2000);
-          const after = await app.playbackStatus();
-          ctx.evidenceAdd('backend playback_status after clicking Stop', after);
-          expect(after.playing).toBeFalsy(
-            'the reloaded UI must be able to silence the instruments'
-          );
-        });
+        await ctx.step(
+          'Stop, clicked in the reloaded page, really stops the orchestra',
+          async () => {
+            await app.clickStop();
+            await page.waitForTimeout(2000);
+            const after = await app.playbackStatus();
+            ctx.evidenceAdd('backend playback_status after clicking Stop', after);
+            expect(after.playing).toBeFalsy(
+              'the reloaded UI must be able to silence the instruments'
+            );
+          }
+        );
 
         await ctx.step('and the button goes back to inert once it has stopped', async () => {
           const idle = await app.transportState();

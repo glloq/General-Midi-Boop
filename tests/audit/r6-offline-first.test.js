@@ -64,13 +64,14 @@ describe('R6 / F-14 · public/index.html no longer reaches for a CDN', () => {
     expect(indexHtml).toContain('npm run install-default-sf2');
   });
 
-  test('the 193 script tags are all local and none is behind a network call', () => {
+  test('the 194 script tags are all local and none is behind a network call', () => {
     const srcs = [...indexHtml.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
-    // 191 at R6; +2 in wave 3 / R12 (the live-routing modal and its launcher,
-    // both relative paths). The count is deliberately exact so that adding a
-    // script is a conscious edit here; the invariant being protected is the
-    // loop below — no tag may point at a remote origin.
-    expect(srcs.length).toBe(193);
+    // 191 at R6; +2 in wave 3 / R12 (the live-routing modal and its launcher);
+    // +1 in wave 4 / R20 (features/transport/PlaybackResync.js) — all relative
+    // paths. The count is deliberately exact so that adding a script is a
+    // conscious edit here; the invariant being protected is the loop below —
+    // no tag may point at a remote origin.
+    expect(srcs.length).toBe(194);
     for (const s of srcs) {
       expect(s).not.toMatch(/^(?:https?:)?\/\//);
     }
