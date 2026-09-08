@@ -254,6 +254,45 @@ médiane **sonne puis est coupée en live**, et n'est **jamais émise en baké**
 
 ---
 
+## ✅ Vague 4 — LIVRÉE (2026-09-08)
+
+État à l'issue : **217 suites / 3 034 tests backend · 91 / 1 637 frontend ·
+E2E 10 réussis / 5 échoués (contre 6/8) · 0 erreur lint · `tsc` clean.**
+
+| # | Finding | Résultat mesuré |
+|---|---|---|
+| **R17** | F-28 *(dernier P1)* | Driver bloquant 120 ms : **122,2 ms → 0,11 ms** de dispatch MIDI. 16 règles : 404 ms → **0,04 ms, plat** — la multiplication par le nombre de règles a disparu. File bornée à 512, éviction **préservant les note-off**. |
+| **R18** | F-45 | Panic complet `120 → 121 → 123` sur 16 canaux, et **panic global** en une trame. Ordre **délibérément différent** de celui proposé par l'audit (voir ci-dessous). |
+| **R19** | F-47 | Extinction avant fermeture du port, ré-extinction au retour, déluge de logs borné (1 000 messages → **1 ligne + 999 comptés**). Parité prouvée sur les 4 transports. |
+| **R20** | F-94, F-90 | Transport **repris après rechargement**, prouvé en navigateur : Stop actif, vrai clic → `playing:false`. F-86 corrigé (2 lignes). |
+| **R21** | F-43, F-44 | `Stop → SPP → Continue` au seek. Rafale post-gel **240 → ≤ 1** tick. Complété par **R21b** : sans lui le SPP n'atteignait **que l'USB**. |
+| **R22** | F-31 | Une règle qui allume une note **possède son relâchement** ; vaut aussi pour les règles déjà en base. |
+| **R23** | F-55, F-61 | Notes supprimées **12,5 % → 0 %**, et **50 % → 0 %** sur l'agrégation. 0/40 sous 5 modèles de gigue. |
+
+**Deux diffs proposés par l'audit se sont révélés faux à l'implémentation** — les
+deux corrigés avec justification écrite :
+- **Panic** : l'audit proposait `120/123/121`. Or **CC 123 est ignoré tant que la
+  pédale forte est enfoncée** : envoyé en premier il est jeté, et le 121 final
+  relâche une pédale dont les note-off ont disparu — **le panic reste un no-op**.
+  `120 → 121 → 123` est correct sous les deux lectures de MIDI 1.0.
+- **SPP** : la formule `secondes × tempo` **comptait `playbackRate` deux fois** et
+  cassait sur tempo variable. Remplacée par ticks + carte de tempo.
+
+**Restent rouges en E2E (5), tous hors périmètre de cette vague :** F-95 ×4
+(fuites de modales) et l'étape 10d du parcours canonique, **pour une cause
+requalifiée** — la `TypeError` est corrigée, mais `MidiEditorMidiWriter`
+reconstruit le tempo depuis la carte de tempo et ignore le champ d'en-tête :
+arbitrage produit sur le chemin de sauvegarde, deux options documentées, **non
+tranché**.
+
+**Notes de version :** CC 121 réinitialise aussi modulation et pitch bend · la
+SPA n'a toujours **aucun bouton « panic global »** alors que le backend le sait
+faire en une trame.
+
+Comptes rendus : `WAVE4_R17_R22.md`, `WAVE4_R18_R19.md`, `WAVE4_R20.md`, `WAVE4_R21_R23.md`.
+
+---
+
 ## Vague 4 — robustesse de scène
 
 | # | Finding | Pourquoi ça compte en concert |
