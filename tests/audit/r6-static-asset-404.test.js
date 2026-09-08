@@ -49,9 +49,22 @@ beforeAll(async () => {
     wsServer: { getStats: () => ({ clients: 0 }) }
   });
   front = createServer(app.expressApp);
-  await new Promise((r, j) => {
-    front.once('error', j);
-    front.listen(PORT, '127.0.0.1', r);
+  // Bind the workstream's assigned port, but fall back to an ephemeral one so
+  // a stray process (or a parallel run) turns into a slightly different port
+  // rather than a red suite: nothing here depends on the number.
+  await new Promise((done, fail) => {
+    const onError = (err) => {
+      if (err && err.code === 'EADDRINUSE') {
+        front.listen(0, '127.0.0.1', done);
+        return;
+      }
+      fail(err);
+    };
+    front.once('error', onError);
+    front.listen(PORT, '127.0.0.1', () => {
+      front.removeListener('error', onError);
+      done();
+    });
   });
   base = `http://127.0.0.1:${front.address().port}`;
 });
