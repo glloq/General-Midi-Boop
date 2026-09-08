@@ -321,7 +321,7 @@ node --experimental-vm-modules node_modules/jest/bin/jest.js \
 
 # Non-régression backend complète
 node --experimental-vm-modules node_modules/jest/bin/jest.js
-#   → Test Suites: 212 passed, 2 failed*, 214 total · Tests: 2 992 passed, 2 failed*
+#   → Test Suites: 214 passed, 2 failed*, 216 total · Tests: 3 025 passed, 2 failed*
 #     * `r6-offline-first` / `l11-offline-first` : « 193 balises <script> » → 194.
 #       public/index.html a gagné une balise du fait d'un autre lot de la vague 4.
 #       Hors périmètre R18/R19 (aucun fichier public/** touché ici).
@@ -333,8 +333,10 @@ npx prettier --check <fichiers touchés>  # → clean
 ```
 
 Départ de vague : 210 suites / 2 904 tests backend · 88 / 1 604 frontend.
-Arrivée après R18 + R19 : **214 suites / 2 994 tests backend** (les autres lots
-de la vague ont aussi ajouté des suites en parallèle), **90 / 1 634 frontend**.
+Arrivée (mesurée en fin de lot, les autres agents de la vague 4 ayant ajouté
+leurs suites en parallèle) : **216 suites / 3 027 tests backend**,
+**90 fichiers / 1 634 tests frontend**. Apport propre à R18 + R19 :
+**2 suites, 48 tests** neufs, plus 28 tests d'audit inversés.
 
 ---
 
