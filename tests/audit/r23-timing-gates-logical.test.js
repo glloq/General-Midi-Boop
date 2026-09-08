@@ -42,6 +42,7 @@ import PlaybackScheduler from '../../src/midi/playback/PlaybackScheduler.js';
 import { SEND_STATUS } from '../../src/core/constants.js';
 import {
   replay,
+  buildPlayer,
   buildNoteTrack,
   serializeTrace,
   serializeBytes,
@@ -426,9 +427,7 @@ describe('R23/F-55 — le premier événement part à l’heure', () => {
       { ppq: PPQ }
     );
     const clock = new VirtualClock(1000);
-    const { player, deviceManager } = await import('./l05-replay-harness.test.js').then((m) =>
-      m.buildPlayer({ buffer, clock })
-    );
+    const { player, deviceManager } = await buildPlayer({ buffer, clock });
     player.channelRouting = new Map([[0, ROUTING[0]]]);
     const inst = installVirtualClock(clock);
     try {

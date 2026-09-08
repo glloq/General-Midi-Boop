@@ -17,15 +17,14 @@
 | **R23 / F-61** | `min_note_interval` et `min_note_duration` étaient évalués sur `performance.now()` — une décision sur le **contenu musical** prise sur l'**horloge murale**. Mesuré : **1 note sur 8 supprimée** sans raison musicale. | `min_note_interval` est évalué sur **`event.time`** (temps logique), divisé par `playbackRate`. `min_note_duration` : **décision musicale, étirement physique**. Taux de notes supprimées **12,5 % → 0 %**, et **identique sous 5 modèles de gigue**. |
 | **R23 / F-55** | `start()` ancrait `startTime` puis laissait la première passe d'ordonnancement au `setInterval` : tout `[0, 10 ms[` — le downbeat — partait **un tick en retard**. | `start()` **et** `resume()` exécutent une première passe **synchrone**, après le message de transport d'horloge. Premier onset **1010 → 1000 ms**, premier intervalle inter-onset **490 → 500 ms**. |
 
-**État à l'issue :** **214 suites / 3 025 tests backend** · **90 fichiers /
-1 634 tests frontend** · `eslint src/ public/js/ tests/` **0 erreur** ·
-`tsc --noEmit` **clean** · `prettier --check` vert sur les fichiers touchés.
+**État à l'issue :** **216 suites / 3 027 tests backend** · **91 fichiers /
+1 637 tests frontend** · **tout vert** · `eslint src/ public/js/ tests/`
+**0 erreur** · `tsc --noEmit` **clean** · `npm run format:check` vert.
 
-> Deux suites sont rouges à l'issue du run — `tests/audit/r6-offline-first.test.js`
-> et `tests/audit/l11-offline-first.test.js`, toutes deux sur le **compte de
-> balises `<script src>` de `public/index.html`** (193 attendues, 194 trouvées).
-> `public/js/**` et `public/index.html` sont **hors périmètre de ce lot** et
-> tenus par un autre agent de la vague ; aucun fichier de ce lot n'y touche.
+> Les totaux incluent le travail des autres lots de la vague, menés en parallèle
+> dans le même arbre. La contribution de ce lot : **+2 suites** (`r21`, `r23`),
+> **+32 tests neufs**, **+4 tests ajoutés** dans `l03-midi-clock`, et **8 tests
+> inversés** répartis sur 4 suites (§5).
 
 ---
 
