@@ -193,6 +193,38 @@ rejoue du JS tiers **au runtime en same-origin** — donc immunisé à toute CSP
 
 ---
 
+## ✅ Vague 3 — LIVRÉE (2026-09-08)
+
+État à l'issue : **210 suites / 2 904 tests backend · 88 / 1 604 frontend ·
+0 erreur lint · `tsc` clean.**
+
+| # | Finding | Résultat |
+|---|---|---|
+| **R12** | F-138 | Routage live **atteignable** : nouvelle modale + lanceur, **13 des 15 commandes** câblées (les 2 restantes refusées avec argument). Preuve E2E en Chromium réel : création → **rechargement complet** → même route, même id. |
+| **R13** | F-139 | `hand_anchors`, `disabled_notes` **et** `note_assignments` lus par le lecteur live **et** par `MidiBaker`, via un module de normalisation unique. **Cause racine** : `buildEventList()` ne posait aucun `tick`, donc la clé `(tick, note)` ne matchait jamais — même `note_assignments`, réputé câblé, était mort. |
+| **R14** | F-140 | `is_fretless` n'est plus détruit à chaque sauvegarde ; case à cocher réelle (la clé i18n existait déjà dans les 28 locales). |
+| **R15** | — | **10 capacités mortes sur 12 réglées.** `gm-instrument-capabilities.json` alimente enfin le défaut de polyphonie → **les vents sont monophoniques par défaut**. 5 restent, nommées, avec test de caractérisation et correctif écrit. |
+| **R16** | F-60 | **4 axes T3 fermés** + un **10ᵉ axe non répertorié** trouvé (les CC de main tombaient du mauvais côté de la note dans le baké). Preuves **octet à octet**. |
+
+**Capo — décision du mainteneur : abandonné.** Retiré sur 12 surfaces, dont le
+seul endroit qui l'appliquait réellement (`HandPositionFeasibility`, ce qui
+referme **F-72**). Colonne conservée et marquée `ABANDONED COLUMN` ; SQL de
+suppression fourni **non appliqué** — un rebuild de table ne vaut pas le risque
+pour une colonne inerte.
+
+**Divergences T3 assumées, avec raison écrite :** axe 5 (snap de gamme — le
+graver figerait le fichier sur un seul instrument), axes 8 et 9
+(`min_note_interval` / `min_note_duration` — propriétés de l'**émission**, pas
+du contenu). Les trois **convergent au rejeu**, c'est prouvé.
+
+**Suite immédiate identifiée :** colonne `out_of_range_policy` (migration 010 +
+`RoutingPersistenceDB`), sans laquelle l'axe 4 ne survit pas à un rechargement.
+Le côté lecture est déjà en place, le diff est fourni.
+
+Comptes rendus : `WAVE3_R12.md`, `WAVE3_R13_R16.md`, `WAVE3_R14_R15.md`.
+
+---
+
 ## Vague 3 — tenir la promesse « 100 % fonctionnel »
 
 Ces trois-là ne sont pas des manques, ce sont des **régressions actives**.
