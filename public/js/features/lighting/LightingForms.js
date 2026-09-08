@@ -717,9 +717,15 @@
           <hr style="border:none;border-top:1px solid ${t.border};margin:14px 0;">
           <h4 style="margin:0 0 10px;font-size:13px;color:${t.textSec};">🎯 ${i18n.t('lighting.condition') || 'Condition'}</h4>
 
+          <!-- R22 / audit F-31: the default of a new rule is "Note On" and it is
+               now selected EXPLICITLY instead of relying on the browser picking
+               the first <option>. It is a safe default again: the rule engine
+               pairs the release of a note this rule lit, whatever the trigger
+               filter says, so the "Relachement" setting below (Instant / Fondu /
+               Maintenir) is what actually decides when the fixture goes dark. -->
           <div style="margin-bottom:10px;"><label ${lb}>${i18n.t('lighting.triggerType') || 'Type'}</label>
             <select id="lrFormTrigger" ${is}>
-              <option value="noteon" ${cond.trigger === 'noteon' ? 'selected' : ''}>${i18n.t('lighting.triggerNoteOn') || 'Note On'}</option>
+              <option value="noteon" ${cond.trigger === 'noteon' || !cond.trigger ? 'selected' : ''}>${i18n.t('lighting.triggerNoteOn') || 'Note On'}</option>
               <option value="noteoff" ${cond.trigger === 'noteoff' ? 'selected' : ''}>${i18n.t('lighting.triggerNoteOff') || 'Note Off'}</option>
               <option value="cc" ${cond.trigger === 'cc' ? 'selected' : ''}>${i18n.t('lighting.triggerCc') || 'CC'}</option>
               <option value="any" ${cond.trigger === 'any' ? 'selected' : ''}>${i18n.t('lighting.triggerAny') || 'Tous'}</option>

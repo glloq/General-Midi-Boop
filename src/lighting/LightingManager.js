@@ -15,6 +15,7 @@
  * and public entry points carry full JSDoc per the plan.
  */
 import EventEmitter from 'events';
+import { performance } from 'perf_hooks';
 import LightingEffectsEngine from '../lighting/LightingEffectsEngine.js';
 import BaseLightingDriver from '../lighting/BaseLightingDriver.js';
 import { hexToRgb, hsvToRgb } from '../utils/ColorUtils.js';
@@ -68,6 +69,40 @@ class LightingManager extends EventEmitter {
     this._healthCheckInterval = null;
     this._reloading = false;
 
+    // ---- R17 / audit F-28: the lights must never run on the MIDI stack ----
+    // `DeviceManager` emits `midi_message` BEFORE the router sends the note and
+    // `EventBus.emit()` is a synchronous loop, so every driver write issued
+    // from the listener was charged to the MIDI dispatch itself (measured: a
+    // driver blocking 120 ms delayed the dispatch by 120.1 ms, and the cost was
+    // multiplied by the number of matching rules). The listeners below now do
+    // nothing but snapshot the event into this bounded FIFO; `_drain()` does
+    // the matching and the driver writes from a `setImmediate`, off the
+    // real-time path. Lighting is best-effort: it may be late, and under a
+    // flood it may be dropped -- it may never cost the MIDI path a millisecond.
+    /** @type {Array<?Object>} Pending events; `_queueHead` is the read cursor. */
+    this._queue = [];
+    this._queueHead = 0;
+    /** Hard bound (F-36: an unbounded queue under a dense MIDI flood is a leak). */
+    this._queueLimit = 512;
+    /** Wall-clock budget for one drain tick; the remainder waits for the next. */
+    this._drainBudgetMs = 8;
+    /** One event costing more than this earns a (throttled) warning. */
+    this._slowEventMs = 20;
+    this._drainTimer = null;
+    this._boundDrain = () => this._drain();
+    this._lastQueueWarnAt = 0;
+    this._dispatchStats = {
+      queued: 0,
+      processed: 0,
+      dropped: 0,
+      droppedReleases: 0,
+      discarded: 0,
+      errors: 0,
+      slowEvents: 0,
+      maxDepth: 0,
+      lastDrainMs: 0
+    };
+
     // Effects engine
     this.effectsEngine = new LightingEffectsEngine(this.logger);
 
@@ -97,6 +132,21 @@ class LightingManager extends EventEmitter {
       for (const [deviceId, notes] of this.activeNotes) {
         if (notes.size > 16) {
           notes.clear();
+          // R22 safety net: the note-off path keys on `activeNotes`, so
+          // forgetting the held notes used to leave the fixture lit with
+          // nobody left to switch it off -- the very "LED on for ever" failure
+          // F-31 is about. Darken the device as we drop its tracking.
+          try {
+            const driver = this.drivers.get(deviceId);
+            if (driver && driver.isConnected()) {
+              this._stopEffectsForDevice(deviceId);
+              driver.allOff();
+            }
+          } catch (error) {
+            // A timer callback must never throw: it would be an unhandled
+            // exception, i.e. the process.
+            this.logger.warn(`Stale-note blackout failed for device ${deviceId}: ${error.message}`);
+          }
           this.logger.warn(`Cleared stale activeNotes for device ${deviceId}`);
         }
       }
@@ -229,33 +279,240 @@ class LightingManager extends EventEmitter {
   }
 
   // ==================== RULE EVALUATION ENGINE ====================
+  //
+  // R17 / audit F-28 -- the two entry points below are called from
+  // `EventBus.emit()`, i.e. from the MIDI dispatch stack itself. They must
+  // therefore stay O(1) and touch no driver: all they do is snapshot the event
+  // into the bounded queue and arm one `setImmediate`. The matching, the colour
+  // maths and the driver writes happen in `_drain()`, one event-loop turn later
+  // and after the note has already been sent to the instrument.
 
+  /** MIDI event routed to an instrument -- queued, never executed inline. */
   _evaluateRoutedEvent(event) {
+    this._enqueueMidiEvent('routed', event);
+  }
+
+  /** Raw MIDI input (wildcard rules) -- queued, never executed inline. */
+  _evaluateWildcardEvent(event) {
+    this._enqueueMidiEvent('wildcard', event);
+  }
+
+  /**
+   * Hot path. Same short-circuits as before (system off / no rule / no
+   * wildcard rule), then a snapshot + a push. No driver is touched here.
+   * @param {'routed'|'wildcard'} kind
+   * @param {Object} event
+   */
+  _enqueueMidiEvent(kind, event) {
     if (!this._systemEnabled) return;
     if (this.allRules.length === 0) return;
+    if (kind === 'wildcard') {
+      const wildcardRules = this.rulesByInstrument.get('*');
+      if (!wildcardRules || wildcardRules.length === 0) return;
+    }
 
-    const instrumentId = event.destination;
-    const midiData = this._normalizeMidiData(event);
+    // Snapshot: the emitter is free to reuse or mutate its payload once emit()
+    // returns, and this entry can sit in the queue for several ticks.
+    this._pushLightingEvent({
+      kind,
+      midiData: this._normalizeMidiData(event),
+      instrumentId: kind === 'routed' ? event.destination : null,
+      ts: event.timestamp || Date.now()
+    });
+  }
 
-    // KNOWN LIMITATION (audit P3, deferred): this dedup between `midi_message`
-    // (raw device input, carries a device timestamp) and `midi_routed` (no
-    // timestamp; `data` is the channel-mapped/transposed value) does not
-    // reliably match, so `*` wildcard rules can fire more than once per logical
-    // input event. A correct fix needs a shared per-event id plumbed from
-    // DeviceManager through the router (and dedup across multi-destination
-    // fan-out), which is out of scope for a minimal change without rule-engine
-    // test coverage. Left as-is intentionally.
-    // Mark this event as routed so _evaluateWildcardEvent skips wildcard rules for it
-    const evtKey = `${midiData.type}_${midiData.channel}_${midiData.note ?? ''}_${midiData.controller ?? ''}_${event.timestamp || Date.now()}`;
+  /**
+   * Append to the bounded queue and make sure a drain is armed.
+   * @param {Object} entry
+   */
+  _pushLightingEvent(entry) {
+    const stats = this._dispatchStats;
+    if (this._queue.length - this._queueHead >= this._queueLimit) {
+      this._dropOldestEvent();
+    }
+    this._queue.push(entry);
+    stats.queued++;
+    const depth = this._queue.length - this._queueHead;
+    if (depth > stats.maxDepth) stats.maxDepth = depth;
+    this._scheduleDrain();
+  }
+
+  _scheduleDrain() {
+    if (this._drainTimer) return;
+    this._drainTimer = setImmediate(this._boundDrain);
+  }
+
+  /**
+   * Overflow policy (F-36). The queue is bounded, so something has to go; we
+   * drop the oldest event that is NOT a release, because dropping a release is
+   * exactly how a fixture stays lit for ever (R22 / F-31). Only when the queue
+   * holds nothing but releases does the oldest release go.
+   */
+  _dropOldestEvent() {
+    const stats = this._dispatchStats;
+    for (let i = this._queueHead; i < this._queue.length; i++) {
+      if (!this._isReleaseEvent(this._queue[i].midiData)) {
+        if (i === this._queueHead) {
+          this._queue[this._queueHead++] = null;
+        } else {
+          this._queue.splice(i, 1);
+        }
+        stats.dropped++;
+        this._compactQueue();
+        this._warnThrottled(
+          `Lighting queue full (${this._queueLimit} events) - dropping lighting events (${stats.dropped} so far). The MIDI path is unaffected.`
+        );
+        return;
+      }
+    }
+    this._queue[this._queueHead++] = null;
+    stats.dropped++;
+    stats.droppedReleases++;
+    this._compactQueue();
+    this._warnThrottled(
+      `Lighting queue full (${this._queueLimit} events) and holds only note-offs - dropping the oldest release (${stats.droppedReleases} so far).`
+    );
+  }
+
+  /**
+   * Keep the backing array from growing behind the read cursor. Called from the
+   * drain and from the overflow path (a burst can overflow many times inside a
+   * single tick, before any drain gets to run), never from the nominal hot
+   * path: one `slice` every `_queueLimit` drops is amortised O(1).
+   */
+  _compactQueue() {
+    if (this._queueHead >= this._queue.length) {
+      this._queue.length = 0;
+      this._queueHead = 0;
+    } else if (this._queueHead >= this._queueLimit) {
+      this._queue = this._queue.slice(this._queueHead);
+      this._queueHead = 0;
+    }
+  }
+
+  /**
+   * Process queued events until the queue is empty or the time budget is
+   * spent; re-arm a `setImmediate` if anything is left, so a slow driver
+   * yields the event loop back instead of monopolising it.
+   * @param {number} [budgetMs] `Infinity` drains everything in one go.
+   */
+  _drain(budgetMs = this._drainBudgetMs) {
+    this._drainTimer = null;
+    const stats = this._dispatchStats;
+    const startedAt = performance.now();
+
+    while (this._queueHead < this._queue.length) {
+      const entry = this._queue[this._queueHead];
+      this._queue[this._queueHead++] = null;
+      const eventStart = performance.now();
+      try {
+        if (entry.kind === 'routed') {
+          this._applyRoutedEvent(entry);
+        } else {
+          this._applyWildcardEvent(entry);
+        }
+      } catch (error) {
+        // Nothing above us catches any more: `EventBus.emit()` used to swallow
+        // driver faults, but we no longer run inside emit(). An escaping throw
+        // here would be an unhandled exception in a `setImmediate` callback,
+        // i.e. the process.
+        stats.errors++;
+        this._warnThrottled(`Lighting rule dispatch failed: ${error.message}`);
+      }
+      stats.processed++;
+
+      const spent = performance.now() - eventStart;
+      if (spent > this._slowEventMs) {
+        stats.slowEvents++;
+        this._warnThrottled(
+          `A lighting driver spent ${spent.toFixed(1)} ms on a single MIDI event ` +
+            `(budget ${this._drainBudgetMs} ms/tick). The lights are late; the MIDI path is not.`
+        );
+      }
+      if (performance.now() - startedAt >= budgetMs) break;
+    }
+
+    this._compactQueue();
+
+    stats.lastDrainMs = performance.now() - startedAt;
+    if (this._queueHead < this._queue.length) this._scheduleDrain();
+  }
+
+  /**
+   * Drain everything pending, synchronously and without a budget. Never called
+   * from the MIDI path: it exists for deterministic tests and for callers that
+   * need the queue settled before doing something else.
+   * @returns {number} events processed
+   */
+  flushLightingQueue() {
+    const before = this._dispatchStats.processed;
+    if (this._drainTimer) {
+      clearImmediate(this._drainTimer);
+      this._drainTimer = null;
+    }
+    this._drain(Infinity);
+    return this._dispatchStats.processed - before;
+  }
+
+  /**
+   * Throw away everything still queued. Called before every blackout /
+   * all-off / shutdown, so a note-on that was queued milliseconds before the
+   * operator hit blackout can never re-light the rig behind it.
+   * @returns {number} events discarded
+   */
+  _discardPendingEvents() {
+    const pending = this._queue.length - this._queueHead;
+    this._queue.length = 0;
+    this._queueHead = 0;
+    if (this._drainTimer) {
+      clearImmediate(this._drainTimer);
+      this._drainTimer = null;
+    }
+    if (pending > 0) this._dispatchStats.discarded += pending;
+    return pending;
+  }
+
+  /** Queue health, for tests and for whoever wants to observe the bound. */
+  getDispatchStats() {
+    return {
+      ...this._dispatchStats,
+      depth: this._queue.length - this._queueHead,
+      limit: this._queueLimit,
+      budgetMs: this._drainBudgetMs
+    };
+  }
+
+  /** At most one queue/driver warning every 5 s: a flood must not flood the log. */
+  _warnThrottled(message) {
+    const now = Date.now();
+    if (now - this._lastQueueWarnAt < 5000) return;
+    this._lastQueueWarnAt = now;
+    this.logger.warn(message);
+  }
+
+  // ---- the deferred half: everything below runs off the MIDI path ----
+
+  _applyRoutedEvent(entry) {
+    const midiData = entry.midiData;
+
+    // KNOWN LIMITATION (audit F-32, deferred): this dedup between
+    // `midi_message` (raw device input, carries a device timestamp) and
+    // `midi_routed` (no timestamp; `data` is the channel-mapped/transposed
+    // value) does not reliably match, so `*` wildcard rules can fire more than
+    // once per logical input event. A correct fix needs a shared per-event id
+    // plumbed from DeviceManager through the router (and dedup across
+    // multi-destination fan-out), which is out of scope here. Left as-is
+    // intentionally -- but note it is now paid off the MIDI path.
+    const evtKey = this._eventKey(entry);
     this._recentRoutedEvents.add(evtKey);
     // Clean up after a short delay to prevent memory buildup
     setTimeout(() => this._recentRoutedEvents.delete(evtKey), 50);
 
     // Check rules for this specific instrument
-    const instrumentRules = this.rulesByInstrument.get(instrumentId);
+    const instrumentRules = this.rulesByInstrument.get(entry.instrumentId);
     if (instrumentRules) {
       for (const rule of instrumentRules) {
-        if (this._matchesCondition(rule.condition_config, midiData)) {
+        if (this._ruleMatches(rule, midiData)) {
           this._executeAction(rule, midiData);
         }
       }
@@ -265,31 +522,30 @@ class LightingManager extends EventEmitter {
     const wildcardRules = this.rulesByInstrument.get('*');
     if (wildcardRules) {
       for (const rule of wildcardRules) {
-        if (this._matchesCondition(rule.condition_config, midiData)) {
+        if (this._ruleMatches(rule, midiData)) {
           this._executeAction(rule, midiData);
         }
       }
     }
   }
 
-  _evaluateWildcardEvent(event) {
-    if (!this._systemEnabled) return;
-    if (this.allRules.length === 0) return;
-
+  _applyWildcardEvent(entry) {
     const wildcardRules = this.rulesByInstrument.get('*');
     if (!wildcardRules || wildcardRules.length === 0) return;
 
-    const midiData = this._normalizeMidiData(event);
-
-    // Skip if this event was already processed by _evaluateRoutedEvent (which includes wildcards)
-    const evtKey = `${midiData.type}_${midiData.channel}_${midiData.note ?? ''}_${midiData.controller ?? ''}_${event.timestamp || Date.now()}`;
-    if (this._recentRoutedEvents.has(evtKey)) return;
+    // Skip if this event was already processed by _applyRoutedEvent (which includes wildcards)
+    if (this._recentRoutedEvents.has(this._eventKey(entry))) return;
 
     for (const rule of wildcardRules) {
-      if (this._matchesCondition(rule.condition_config, midiData)) {
-        this._executeAction(rule, midiData);
+      if (this._ruleMatches(rule, entry.midiData)) {
+        this._executeAction(rule, entry.midiData);
       }
     }
+  }
+
+  _eventKey(entry) {
+    const m = entry.midiData;
+    return `${m.type}_${m.channel}_${m.note ?? ''}_${m.controller ?? ''}_${entry.ts}`;
   }
 
   _normalizeMidiData(event) {
@@ -343,6 +599,71 @@ class LightingManager extends EventEmitter {
     return true;
   }
 
+  /**
+   * Is this MIDI event a note release? Note On with velocity 0 is the running-
+   * status form of Note Off (DeviceManager already normalises the ones it
+   * sees, but rules can be fed from anywhere).
+   * @param {Object} midi normalised MIDI data
+   * @returns {boolean}
+   */
+  _isReleaseEvent(midi) {
+    return midi.type === 'noteoff' || (midi.type === 'noteon' && midi.velocity === 0);
+  }
+
+  /**
+   * Does `rule` react to `midi`?
+   *
+   * R22 / audit F-31 -- `_matchesCondition()` filters on the trigger type
+   * first, so a rule with `trigger: 'noteon'` never saw the release and the
+   * whole note-off half of `_executeAction()` was dead code for it: the fixture
+   * lit on the first note and stayed lit until the system stopped. That was the
+   * configuration the UI offers first, i.e. the default of every new rule. The
+   * same happened to an `any` rule with a velocity floor (F-31b): the release
+   * carries velocity 0 and fails the floor.
+   *
+   * Semantics chosen: **a rule that lit a note owns its release.** A release is
+   * matched against the filters that say *where* the rule applies (instrument,
+   * channel, note range, CC) but not against the ones that describe *how the
+   * note was struck* (trigger type, velocity window) -- and only while that
+   * note is actually being held on the rule's device. Rules that cannot light
+   * on an attack (`trigger: 'cc'`, `trigger: 'noteoff'`) are untouched, and an
+   * unpaired release still changes nothing.
+   *
+   * @param {Object} rule persisted lighting rule
+   * @param {Object} midi normalised MIDI data
+   * @returns {boolean}
+   */
+  _ruleMatches(rule, midi) {
+    const condition = rule.condition_config || {};
+    if (this._matchesCondition(condition, midi)) return true;
+    return this._matchesPairedRelease(rule, condition, midi);
+  }
+
+  /**
+   * The release half of {@link LightingManager#_ruleMatches}.
+   * @param {Object} rule
+   * @param {Object} condition
+   * @param {Object} midi
+   * @returns {boolean}
+   */
+  _matchesPairedRelease(rule, condition, midi) {
+    if (!this._isReleaseEvent(midi) || midi.note === null) return false;
+
+    // Only a rule that can light on an attack owns a release.
+    const trigger = condition.trigger;
+    if (trigger && trigger !== 'any' && trigger !== 'noteon') return false;
+
+    // ...and only for a note it is actually holding on that device.
+    const held = this.activeNotes.get(rule.device_id);
+    if (!held || !held.has(midi.note)) return false;
+
+    // Everything that is not "how the note was struck" must still hold.
+    return this._matchesCondition(
+      { ...condition, trigger: 'any', velocity_min: undefined, velocity_max: undefined },
+      midi
+    );
+  }
+
   // ==================== ACTION EXECUTION ====================
 
   _executeAction(rule, midiData) {
@@ -377,7 +698,7 @@ class LightingManager extends EventEmitter {
     const endLed = rawEnd === -1 ? -1 : Math.max(startLed, Math.min(rawEnd, ledCount - 1));
 
     // Handle note-off: turn off LEDs or fade out
-    if (midiData.type === 'noteoff' || (midiData.type === 'noteon' && midiData.velocity === 0)) {
+    if (this._isReleaseEvent(midiData)) {
       if (action.off_action === 'hold') {
         return;
       }
@@ -1032,6 +1353,10 @@ class LightingManager extends EventEmitter {
   // ==================== BLACKOUT ====================
 
   blackout() {
+    // R17: drop what the queue still holds FIRST. A note-on queued a
+    // millisecond before the operator hit blackout must not re-light the rig
+    // one tick after it went dark.
+    this._discardPendingEvents();
     this.effectsEngine.stopAllEffects();
     for (const [, fade] of this.activeFades) {
       clearInterval(fade.interval);
@@ -1044,6 +1369,9 @@ class LightingManager extends EventEmitter {
   }
 
   allOff() {
+    // R17: same ordering guarantee as blackout() -- nothing queued may be
+    // written after the fixtures have been told to go dark.
+    this._discardPendingEvents();
     // Stop all effects
     this.effectsEngine.stopAllEffects();
     // Clear all active fades
@@ -1087,6 +1415,16 @@ class LightingManager extends EventEmitter {
   async shutdown() {
     // Remove event listeners to prevent memory leaks
     this._removeEventListeners();
+
+    // R17: no listener left to feed the queue, so drop what is still in it
+    // BEFORE allOff() below. The blackout frame stays the last thing written
+    // to every driver, and disconnectDevice() still awaits each driver's own
+    // flush (the UDP drivers drain their socket before close, F-30b).
+    // Guarded: `Application.stop()` and one audit suite call shutdown() on a
+    // hand-built instance that never ran the constructor.
+    if (typeof this._discardPendingEvents === 'function' && this._queue) {
+      this._discardPendingEvents();
+    }
 
     if (this._healthCheckInterval) {
       clearInterval(this._healthCheckInterval);
