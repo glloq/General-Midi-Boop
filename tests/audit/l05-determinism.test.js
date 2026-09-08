@@ -186,7 +186,13 @@ describe('L05 · §BN — déterminisme « physique » : sensibilité à la gigu
     return (a / 4294967296) * maxMs;
   };
 
-  test('le tout premier événement part UN TICK EN RETARD (downbeat à +10 ms)', async () => {
+  // INVERSÉ par la vague 4 / R23 (F-55 corrigé). L'audit mesurait le premier
+  // onset à 1010 pour un fichier qui demande 1000 : `start()` ancrait
+  // `startTime` puis laissait la PREMIÈRE passe d'ordonnancement au
+  // `setInterval`, donc tout ce qui tombe dans [0, 10 ms[ partait d'un bloc à
+  // +10 ms et le premier intervalle inter-onset valait 490 au lieu de 500.
+  // `start()` exécute désormais une passe synchrone (après le Start d'horloge).
+  test('F-55 corrigé — le downbeat part à l’heure, pas un tick plus tard', async () => {
     const buffer = buildNoteTrack(
       [
         { tick: 0, note: 60, dur: 48 },
@@ -200,12 +206,10 @@ describe('L05 · §BN — déterminisme « physique » : sensibilité à la gigu
       startNow: 1000
     });
     const ons = trace.filter((e) => (e.status & 0xf0) === 0x90 && e.data2 > 0);
-    // start() ancre startTime = 1000 ; le premier tick tombe à 1010.
-    expect(ons[0].t).toBe(1010); // attendu : 1000
-    expect(ons[1].t).toBe(1500); // celui-ci est à l’heure
-    // Conséquence directe : l’intervalle réel entre les deux onsets vaut
-    // 490 ms alors que le fichier en demande 500.
-    expect(ons[1].t - ons[0].t).toBe(490);
+    expect(ons[0].t).toBe(1000); // était 1010
+    expect(ons[1].t).toBe(1500);
+    // L'intervalle inter-onset est enfin celui du fichier.
+    expect(ons[1].t - ons[0].t).toBe(500); // était 490
     expect(clock.pending).toBe(0);
   });
 
@@ -226,10 +230,13 @@ describe('L05 · §BN — déterminisme « physique » : sensibilité à la gigu
     expect(sortLines(jittered.trace)).toBe(sortLines(ideal.trace));
   });
 
-  test('min_note_interval est évalué en TEMPS MUR : le retard du downbeat coupe une note', async () => {
+  // INVERSÉ par la vague 4 / R23 (F-61 corrigé). Le garde était comparé à
+  // `performance.now()` : le retard d'un tick du downbeat ramenait le premier
+  // intervalle de 100 à 90 ms et supprimait la 2e note — 1 note sur 8 perdue
+  // sans aucune raison musicale. Il est désormais évalué sur `event.time`.
+  test('F-61 corrigé — min_note_interval est évalué en TEMPS MUSICAL : rien n’est coupé', async () => {
     // 8 notes espacées de 100 ms EXACTEMENT dans le fichier ; garde à 95 ms.
-    // Rien ne devrait être coupé. Le retard d’un tick sur la 1re note ramène
-    // le 1er intervalle à 90 ms → la 2e note est éliminée.
+    // Rien ne doit être coupé, quelle que soit la gigue.
     const buffer = buildNoteTrack(
       Array.from({ length: 8 }, (_, i) => ({ tick: i * 96, note: 60, dur: 48 })),
       { ppq: PPQ } // 96 ticks @120 bpm/480 ppq = 100 ms
@@ -240,10 +247,8 @@ describe('L05 · §BN — déterminisme « physique » : sensibilité à la gigu
     const gated = await replay({ buffer, routing, capabilities });
     const ons = (t) => t.filter((e) => (e.status & 0xf0) === 0x90 && e.data2 > 0);
     expect(ons(free.trace)).toHaveLength(8);
-    expect(ons(gated.trace)).toHaveLength(7); // une note perdue sans raison musicale
-    // La note manquante est bien la 2e (t = 1100 ms attendu).
-    expect(ons(free.trace).map((e) => e.t)).toContain(1100);
-    expect(ons(gated.trace).map((e) => e.t)).not.toContain(1100);
+    expect(ons(gated.trace)).toHaveLength(8); // était 7
+    expect(ons(gated.trace).map((e) => e.t)).toContain(1100);
   });
 
   test('EMIT_AHEAD_MS agrège des événements distincts sur le MÊME instant mur', async () => {
@@ -262,14 +267,36 @@ describe('L05 · §BN — déterminisme « physique » : sensibilité à la gigu
     expect(ons).toHaveLength(2);
     expect(ons[0].t).toBe(ons[1].t); // écart mur = 0 alors que le fichier dit 3 ms
 
-    // Conséquence : un garde de 2 ms (< écart réel du fichier) coupe la note.
+    // INVERSÉ par la vague 4 / R23 : le garde ne lit plus l'instant mur agrégé
+    // mais `event.time`, donc un garde de 2 ms — INFÉRIEUR à l'écart réel du
+    // fichier (3,1 ms) — ne supprime plus rien. `polyphony: 8` pour isoler le
+    // garde d'intervalle de l'éviction polyphonique.
     const gated = await replay({
       buffer,
       routing,
-      capabilities: { 'devA:0': { polyphony: 1, minNoteInterval: 2 } }
+      capabilities: { 'devA:0': { polyphony: 8, minNoteInterval: 2 } }
     });
     const gatedOns = gated.trace.filter((e) => (e.status & 0xf0) === 0x90 && e.data2 > 0);
-    expect(gatedOns).toHaveLength(1);
+    expect(gatedOns).toHaveLength(2); // était 1
+
+    // …et un garde SUPÉRIEUR à l'écart du fichier coupe toujours, lui : deux
+    // frappes de la MÊME hauteur (le garde est par hauteur en polyphonique)
+    // à 3,1 ms d'écart, garde à 10 ms.
+    const samePitch = buildNoteTrack(
+      [
+        { tick: 0, note: 60, dur: 1 },
+        { tick: 3, note: 60, dur: 48 }
+      ],
+      { ppq: PPQ }
+    );
+    const reallyGated = await replay({
+      buffer: samePitch,
+      routing,
+      capabilities: { 'devA:0': { polyphony: 8, minNoteInterval: 10 } }
+    });
+    expect(reallyGated.trace.filter((e) => (e.status & 0xf0) === 0x90 && e.data2 > 0)).toHaveLength(
+      1
+    );
   });
 });
 

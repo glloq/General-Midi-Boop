@@ -159,8 +159,91 @@ suite('04 · resilience', () => {
           }
         });
 
+        // Showing the state is half of R20; the other half is that the
+        // restored controls are wired to the playback that is actually
+        // running. Both are asserted from the *reloaded* page only.
+        await ctx.step('the reloaded UI shows where the piece is, not 0:00', () => {
+          expect(st.playing).toBeTruthy('precondition: the backend is still playing');
+          expect(header.time).toMatch(/\d+:\d{2}\s*\/\s*\d+:\d{2}/);
+          const total = (header.time.split('/')[1] || '').trim();
+          expect(total === '0:00' || total === '').toBeFalsy(
+            `the header must show the piece duration, got "${header.time}"`
+          );
+          expect(header.playDisabled).toBeFalsy('Pause must be reachable too');
+        });
+
+        await ctx.step('Stop, clicked in the reloaded page, really stops the orchestra', async () => {
+          await app.clickStop();
+          await page.waitForTimeout(2000);
+          const after = await app.playbackStatus();
+          ctx.evidenceAdd('backend playback_status after clicking Stop', after);
+          expect(after.playing).toBeFalsy(
+            'the reloaded UI must be able to silence the instruments'
+          );
+        });
+
+        await ctx.step('and the button goes back to inert once it has stopped', async () => {
+          const idle = await app.transportState();
+          ctx.evidenceAdd('header transport after the Stop click', idle);
+          expect(idle.stopDisabled).toBeTruthy();
+        });
+        ctx.evidenceAdd(
+          'screenshot after stopping from the reloaded page',
+          await shoot(page, deps.artifactsDir, '04-reload-stopped')
+        );
+
         await app.command('playback_stop', {}).catch(() => {});
       } finally {
+        await page.context().close();
+      }
+    },
+    { timeoutMs: 300000 }
+  );
+
+  test(
+    'a browser that never started the playback still gets a working Stop',
+    async (ctx, deps) => {
+      // The reload case above can legitimately name the file: the same browser
+      // started it. This one is the stage reality the first one cannot cover —
+      // the tablet died and someone opens the SPA on a *fresh* profile while
+      // the orchestra is playing. The name may be unknown; the control may not.
+      const { page, rec } = await newInstrumentedPage(deps.browser);
+      const app = new AppPage(page, rec, deps.server.baseUrl);
+      let second = null;
+      try {
+        await ctx.step('prepare a routed, playable file', () => prepare(page, app, deps));
+        await ctx.step('start playback', async () => {
+          await app.fileAction(FILENAME, 'play');
+          await page.waitForTimeout(1200);
+          expect((await app.playbackStatus()).playing).toBeTruthy();
+        });
+
+        // A brand-new context: no localStorage, no memory of the file, exactly
+        // like a second operator's tablet.
+        second = await newInstrumentedPage(deps.browser);
+        const other = new AppPage(second.page, second.rec, deps.server.baseUrl);
+        await ctx.step('open the SPA in a fresh browser profile', () => other.open());
+
+        const header = await other.transportState();
+        ctx.evidenceAdd('header transport on the fresh profile', header);
+        ctx.evidenceAdd(
+          'screenshot of the fresh profile',
+          await shoot(second.page, deps.artifactsDir, '04-second-client')
+        );
+
+        await ctx.step('the fresh profile offers Stop for a playback it did not start', () => {
+          expect(header.stopDisabled).toBeFalsy();
+        });
+
+        await ctx.step('and clicking it stops the orchestra', async () => {
+          await other.clickStop();
+          await second.page.waitForTimeout(2000);
+          const after = await other.playbackStatus();
+          ctx.evidenceAdd('backend playback_status after the fresh profile stopped it', after);
+          expect(after.playing).toBeFalsy();
+        });
+      } finally {
+        if (second) await second.page.context().close();
         await page.context().close();
       }
     },

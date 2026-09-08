@@ -217,7 +217,11 @@
         tempoInput.addEventListener('change', (e) => {
           const newTempo = parseInt(e.target.value);
           if (!isNaN(newTempo) && newTempo >= 20 && newTempo <= 300) {
-            this.modal.setTempo(newTempo);
+            // The tempo lives on the editActions sub-component since the mixin
+            // rewrite; `modal.setTempo` has not existed for a while and every
+            // keystroke here threw an uncaught TypeError, so the control looked
+            // alive and applied nothing (audit L08 F-86).
+            this.modal.editActions?.setTempo(newTempo);
           } else {
             // Restore the previous value when invalid
             e.target.value = this.modal.tempo || 120;
@@ -230,7 +234,7 @@
             // Real-time feedback while typing, but SILENT: the toast/log fire
             // once on commit via the `change` handler above, not per keystroke
             // (audit D N2).
-            this.modal.setTempo(newTempo, { silent: true });
+            this.modal.editActions?.setTempo(newTempo, { silent: true });
           }
         });
       }

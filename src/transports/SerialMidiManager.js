@@ -18,7 +18,8 @@ import EventEmitter from 'events';
 import fs from 'fs';
 import path from 'path';
 import MidiUtils from '../utils/MidiUtils.js';
-import { SYSTEM_MESSAGE_LENGTH } from '../core/constants.js';
+import { SYSTEM_MESSAGE_LENGTH, PRIORITY_MSG_TYPES } from '../core/constants.js';
+import { silenceSequenceBytes } from '../midi/messages/SilenceSequence.js';
 
 // MIDI Serial constants
 const MIDI_BAUD_RATE = 31250;
@@ -357,6 +358,10 @@ class SerialMidiManager extends EventEmitter {
       throw new Error(`Port not open: ${portPath}`);
     }
 
+    // Release whatever the instrument is holding while the port is still
+    // open — after `close()` there is no way left to reach it (F-47).
+    this._flushSilenceBeforeClose(portInfo);
+
     // Remove from map BEFORE closing to prevent the 'close' event handler
     // from emitting a spurious 'serial:disconnected' event
     this.openPorts.delete(portPath);
@@ -633,13 +638,43 @@ class SerialMidiManager extends EventEmitter {
    * @private
    */
   _isPrioritySerial(type, data) {
-    if (type === 'noteoff' || type === 'reset' || type === 'stop') return true;
+    // Same set the DeviceManager rate limiter exempts, imported rather than
+    // re-listed: `noteoff`, `reset`, `clock`, `start`, `stop`, `continue`.
+    if (PRIORITY_MSG_TYPES.has(type)) return true;
     if (type === 'cc' && data) {
-      const cc = data.controller;
-      // 120 All Sound Off, 121 Reset All Controllers, 123 All Notes Off.
-      return cc === 120 || cc === 121 || cc === 123;
+      // Every Channel Mode message (controller >= 120: All Sound Off 120,
+      // Reset All Controllers 121, Local Control 122, All Notes Off 123,
+      // Omni/Mono/Poly 124-127). Previously a fixed list of 120/121/123, while
+      // the DeviceManager rate limiter exempted everything >= 120 — two
+      // policies for the same class of message (audit L03 §D05). Same rule
+      // both sides now, so a Channel Mode CC behaves identically whichever
+      // transport carries it.
+      return (data.controller ?? -1) >= 120;
     }
     return false;
+  }
+
+  /**
+   * Best-effort silencing burst written straight to a port that is about to
+   * close. Bypasses the write queue on purpose: the queue drains
+   * asynchronously and the port will not be there any more (audit L04 F-47 —
+   * an unplugged self-powered synth keeps sounding its held notes forever).
+   * Identical bytes to the panic sent on every other transport.
+   *
+   * @param {Object} portInfo
+   * @returns {boolean} True when the bytes reached the driver.
+   * @private
+   */
+  _flushSilenceBeforeClose(portInfo) {
+    if (!portInfo || portInfo.direction === 'in') return false;
+    try {
+      portInfo.port.write(Buffer.from(silenceSequenceBytes()));
+      return true;
+    } catch {
+      // Cable already gone — nothing can be done, and nothing must throw
+      // out of a teardown path.
+      return false;
+    }
   }
 
   /**
@@ -793,6 +828,10 @@ class SerialMidiManager extends EventEmitter {
     for (const portPath of removedPorts) {
       this.logger.info(`Serial port disconnected: ${portPath}`);
       const portInfo = this.openPorts.get(portPath);
+      // The /dev node is already gone so this usually writes into the void —
+      // but a UART whose device file vanished while the wire is still live
+      // does take it, and it costs one failed write when it does not (F-47).
+      this._flushSilenceBeforeClose(portInfo);
       // Remove from maps first to prevent concurrent access
       this.openPorts.delete(portPath);
       this.knownPorts.delete(portPath);
@@ -905,9 +944,11 @@ class SerialMidiManager extends EventEmitter {
   async shutdown() {
     this.stopHotPlugMonitoring();
 
-    // Close all ports
+    // Close all ports — silencing each one first so a shutdown mid-chord does
+    // not leave a self-powered instrument sounding (F-47).
     const closePromises = [];
     for (const [portPath, portInfo] of this.openPorts) {
+      this._flushSilenceBeforeClose(portInfo);
       closePromises.push(
         new Promise((resolve) => {
           portInfo.port.close((err) => {

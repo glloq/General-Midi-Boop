@@ -23,10 +23,7 @@ import {
 } from '../../core/constants.js';
 import MidiUtils from '../../utils/MidiUtils.js';
 import { assembleChunks } from '../instrument/DescriptorProtocol.js';
-import {
-  PANIC_CONTROLLERS,
-  buildSilenceSequence
-} from '../messages/SilenceSequence.js';
+import { PANIC_CONTROLLERS, buildSilenceSequence } from '../messages/SilenceSequence.js';
 
 let easymidi;
 /**
@@ -229,6 +226,10 @@ class DeviceManager {
       }
     );
 
+    // Optional transports may not be registered yet at construction time;
+    // this is idempotent and re-run on every scan (see `scanDevices`).
+    this._attachTransportLifecycleHandlers();
+
     if (!midiAvailable) {
       this.logger.warn(
         'DeviceManager initialized WITHOUT hardware MIDI support (native library not available)'
@@ -247,6 +248,9 @@ class DeviceManager {
    * @returns {Promise<Object[]>} Snapshot of the device list after the scan.
    */
   async scanDevices() {
+    // Optional transports load after DeviceManager (or not at all); catch up
+    // on their connect/disconnect events now that they may exist.
+    this._attachTransportLifecycleHandlers();
     await this.discovery.scanAndReopen(
       this.inputs,
       this.outputs,
@@ -391,7 +395,179 @@ class DeviceManager {
       this._announcedDevices.add(name);
       this.eventBus?.emit('device_connected', { device: name, kind });
     }
+    // A device whose output port comes back after a hot-unplug may still be
+    // holding notes from before the cable went (audit L04 F-47). Silence it
+    // once, and only when we actually saw it disappear — a first open at boot
+    // must not cut an instrument that was already playing.
+    if (kind === 'output') this._onDeviceOutputRestored(name);
     this._scheduleAutoIdentityProbe(name);
+  }
+
+  // ─── Hot-unplug silencing (audit L04 F-47) ────────────────────────────
+
+  /**
+   * Send the full panic burst (120 → 121 → 123 on all 16 channels) to one
+   * device through the normal dispatch path. Going through
+   * {@link DeviceManager#sendMessageEx} is deliberate: it is the single place
+   * that knows how to reach a USB port, a BLE peripheral, an RTP-MIDI session
+   * or a serial UART, so the four transports receive the *same* messages with
+   * no per-transport special case (audit L03 §3 — transport parity).
+   *
+   * Every controller in the burst is >= 120, so none of it can be dropped by
+   * the per-device rate limiter or deprioritised by the serial write queue.
+   *
+   * @param {string} deviceName
+   * @param {Object} [options]
+   * @param {ReadonlyArray<number>} [options.controllers=PANIC_CONTROLLERS]
+   * @param {string} [options.reason] - Logged context ('reconnect', 'shutdown', …).
+   * @returns {{sent:number, total:number, statuses:string[]}}
+   */
+  silenceDevice(deviceName, options = {}) {
+    const controllers = options.controllers || PANIC_CONTROLLERS;
+    const sequence = buildSilenceSequence(controllers);
+    const statuses = [];
+    let sent = 0;
+    for (const { type, data } of sequence) {
+      const result = this.sendMessageEx(deviceName, type, data);
+      statuses.push(result.status);
+      if (result.status === SEND_STATUS.SENT || result.status === SEND_STATUS.QUEUED) sent++;
+    }
+    if (sent > 0) {
+      this.logger.info(
+        `Silenced ${deviceName}: ${sent}/${sequence.length} Channel Mode message(s)` +
+          (options.reason ? ` (${options.reason})` : '')
+      );
+    }
+    return { sent, total: sequence.length, statuses };
+  }
+
+  /**
+   * An output port is about to be closed because the device vanished. This is
+   * the very last instant the hardware may still be reachable — a cable pulled
+   * out is unreachable and the writes throw, but a port that disappeared from
+   * the enumeration while the link survives (hub renumbering, driver reload,
+   * an ALSA client going away) still takes the burst. Best effort by
+   * definition: the first throw ends the attempt instead of raising 48 times.
+   *
+   * Either way the device is remembered so the burst is replayed when it
+   * comes back.
+   *
+   * @param {string} name
+   * @param {Object} [port] - The still-open easymidi Output.
+   * @returns {number} Messages actually written before the port went silent.
+   * @private
+   */
+  _onOutputPortLost(name, port) {
+    this._disconnectedOutputs.add(name);
+    if (!port || typeof port.send !== 'function') return 0;
+    let written = 0;
+    for (const { type, data } of buildSilenceSequence()) {
+      try {
+        this._sendToOutput(port, type, data);
+        written++;
+      } catch {
+        // The hardware is already gone — expected on a yanked cable.
+        break;
+      }
+    }
+    this.logger.info(
+      written > 0
+        ? `Output ${name} disappeared: flushed ${written} silencing message(s) before closing the port`
+        : `Output ${name} disappeared: unreachable, nothing could be flushed (notes may hang until it returns)`
+    );
+    return written;
+  }
+
+  /**
+   * An output we previously saw disappear is back. Replay the panic burst so
+   * the instrument starts from silence instead of from whatever it was holding
+   * when the cable went, and close out the bounded "device not found" log.
+   *
+   * @param {string} name
+   * @returns {boolean} True when a burst was sent.
+   * @private
+   */
+  _onDeviceOutputRestored(name) {
+    this._flushMissingOutputLog(name);
+    if (!this._disconnectedOutputs.has(name)) return false;
+    this._disconnectedOutputs.delete(name);
+    this.silenceDevice(name, { reason: 'reconnect after hot-unplug' });
+    return true;
+  }
+
+  /**
+   * Subscribe to the connect/disconnect events of the optional transports so
+   * BLE, RTP-MIDI and serial devices get exactly the same treatment as a USB
+   * port (audit L03 §3 — one behaviour, four transports, not four
+   * behaviours). Idempotent: safe to call on every scan, and a no-op for a
+   * transport that never loaded on this host.
+   *
+   * @returns {void}
+   * @private
+   */
+  _attachTransportLifecycleHandlers() {
+    /** @type {Array<[any, string, string, string]>} */
+    const wiring = [
+      [this.bluetoothManager, 'bluetooth:connected', 'bluetooth:disconnected', 'address'],
+      [this.networkManager, 'network:connected', 'network:disconnected', 'ip'],
+      [this.serialMidiManager, 'serial:connected', 'serial:disconnected', 'path']
+    ];
+    for (const [transport, connected, disconnected, idField] of wiring) {
+      if (!transport || typeof transport.on !== 'function') continue;
+      if (this._transportLifecycleAttached.has(transport)) continue;
+      this._transportLifecycleAttached.add(transport);
+      transport.on(disconnected, (payload) => {
+        const id = payload?.[idField] || payload?.device_id;
+        if (id) this._disconnectedOutputs.add(id);
+      });
+      transport.on(connected, (payload) => {
+        const id = payload?.[idField] || payload?.device_id;
+        if (id) this._onDeviceOutputRestored(id);
+      });
+    }
+  }
+
+  /**
+   * Bounded logging for a send to a device that is not (or no longer) there.
+   * One warn the first time, a silent counter afterwards (audit L04 F-48 —
+   * 200 messages produced 200 identical lines; a dense file produces
+   * thousands and buries every other diagnostic at the exact moment one is
+   * needed).
+   *
+   * @param {string} deviceName
+   * @returns {void}
+   * @private
+   */
+  _noteMissingOutput(deviceName) {
+    const dropped = this._missingOutputDrops.get(deviceName);
+    if (dropped === undefined) {
+      this._missingOutputDrops.set(deviceName, 0);
+      this.logger.warn(
+        `Output device not found: ${deviceName} (further drops counted, not logged)`
+      );
+      return;
+    }
+    this._missingOutputDrops.set(deviceName, dropped + 1);
+  }
+
+  /**
+   * Emit the one summary line that closes a bounded "device not found" run,
+   * and reset the counter so a later disappearance warns again.
+   *
+   * @param {string} deviceName
+   * @returns {number} Messages dropped while the device was missing.
+   * @private
+   */
+  _flushMissingOutputLog(deviceName) {
+    const dropped = this._missingOutputDrops.get(deviceName);
+    if (dropped === undefined) return 0;
+    this._missingOutputDrops.delete(deviceName);
+    if (dropped > 0) {
+      this.logger.warn(
+        `Output device ${deviceName} is reachable again: ${dropped} further message(s) were dropped while it was gone`
+      );
+    }
+    return dropped;
   }
 
   /**
@@ -1139,7 +1315,9 @@ class DeviceManager {
       return { status: SEND_STATUS.SENT };
     }
 
-    this.logger.warn(`Output device not found: ${deviceName}`);
+    // Bounded: one warn, then a counter (audit L04 F-48 — one line per
+    // message turned a mid-file unplug into thousands of identical warns).
+    this._noteMissingOutput(deviceName);
     return { status: SEND_STATUS.DISCONNECTED };
   }
 
@@ -2033,6 +2211,35 @@ class DeviceManager {
     // Stop hot-plug monitoring
     this.discovery.stopHotPlugMonitoring();
 
+    // Silence before closing. Application.stop() has always described this
+    // step as "silences instruments — no stuck notes", but nothing was ever
+    // sent: shutting the server down mid-chord left every self-powered
+    // instrument sounding with no way left to reach it (same family as the
+    // hot-unplug hole, audit L03 F-45 / L04 F-47). Best effort, port by port.
+    this.outputs.forEach((output, name) => {
+      let written = 0;
+      for (const { type, data } of buildSilenceSequence()) {
+        try {
+          this._sendToOutput(output, type, data);
+          written++;
+        } catch {
+          break;
+        }
+      }
+      if (written < 1) {
+        this.logger.warn(`Could not silence ${name} before shutdown (port already unreachable)`);
+      }
+    });
+    this.virtualDevices.forEach((vdev) => {
+      for (const { type, data } of buildSilenceSequence()) {
+        try {
+          this._sendToOutput(vdev.output, type, data);
+        } catch {
+          break;
+        }
+      }
+    });
+
     // Close all inputs (remove listeners first to prevent callbacks during close)
     this.inputs.forEach((input) => {
       try {
@@ -2076,6 +2283,8 @@ class DeviceManager {
     });
     this._descriptorFetches.clear();
     this._descriptorRevisions.clear();
+    this._disconnectedOutputs.clear();
+    this._missingOutputDrops.clear();
 
     this.logger.info('DeviceManager closed');
   }

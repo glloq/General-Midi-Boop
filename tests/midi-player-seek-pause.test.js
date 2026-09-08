@@ -77,7 +77,8 @@ describe('MidiPlayer.seek — pause preservation', () => {
       stopPlayback: jest.fn(),
       startPlayback: jest.fn(),
       pausePlayback: jest.fn(),
-      resumePlayback: jest.fn()
+      resumePlayback: jest.fn(),
+      sendSongPosition: jest.fn()
     };
     player.playing = true;
     player.paused = true;
@@ -86,6 +87,10 @@ describe('MidiPlayer.seek — pause preservation', () => {
 
     expect(player.midiClockGenerator.stopPlayback).not.toHaveBeenCalled();
     expect(player.paused).toBe(true);
+    // …but the slaves are still relocated: the clock already sent Stop when
+    // the operator paused, and resume() will send Continue — without an SPP in
+    // between, that Continue resumes them from the PRE-seek position (F-43).
+    expect(player.midiClockGenerator.sendSongPosition).toHaveBeenCalledTimes(1);
   });
 
   test('seeking while actively playing stops the clock (it is restarted by start())', () => {

@@ -1438,6 +1438,60 @@ class MidiPlayer {
   }
 
   /**
+   * Inverse of {@link MidiPlayer#_ticksToSecondsWithTempoMap}: absolute
+   * seconds → absolute MIDI ticks, honouring every tempo change before the
+   * target. Needed by the Song Position Pointer, which is expressed in
+   * musical time, not seconds.
+   *
+   * @param {number} seconds
+   * @param {Array<{tick:number,time:number,microsecondsPerBeat:number}>} tempoMap
+   * @returns {number} Absolute ticks (fractional).
+   * @private
+   */
+  _secondsToTicksWithTempoMap(seconds, tempoMap) {
+    let activeEntry = {
+      tick: 0,
+      time: 0,
+      microsecondsPerBeat: DEFAULT_MICROSECONDS_PER_BEAT
+    };
+
+    for (const entry of tempoMap) {
+      if (entry.time <= seconds) {
+        activeEntry = entry;
+      } else {
+        break;
+      }
+    }
+
+    const secondsPerTick = activeEntry.microsecondsPerBeat / (this.ppq * 1000000);
+    if (!(secondsPerTick > 0)) return activeEntry.tick;
+    return activeEntry.tick + (seconds - activeEntry.time) / secondsPerTick;
+  }
+
+  /**
+   * Convert an absolute playback position into the **MIDI beats** carried by a
+   * Song Position Pointer: sixteenth notes, six clock pulses each.
+   *
+   * Derived from the tick position rather than from `seconds × BPM / 60 × 4`
+   * because ticks are the file's own musical time: the conversion stays exact
+   * across tempo changes, and it is immune to `playbackRate` (SPP counts
+   * sixteenths of the score, not of the wall clock — playing at 2× traverses
+   * twice as many sixteenths per second, which is exactly what the slave must
+   * also do since it follows our clock pulses).
+   *
+   * @param {number} positionSeconds
+   * @returns {number} Position in MIDI beats (>= 0, fractional part rounded by
+   *   the clock generator).
+   * @private
+   */
+  _songPositionBeats(positionSeconds) {
+    if (!(positionSeconds > 0)) return 0;
+    const ppq = this.ppq > 0 ? this.ppq : 480;
+    const ticks = this._secondsToTicksWithTempoMap(positionSeconds, this._buildTempoMap());
+    return Math.max(0, (ticks / ppq) * 4);
+  }
+
+  /**
    * Linear approximation: convert MIDI ticks to seconds using the
    * single tempo captured at file load. Use the tempo-map-aware
    * variant {@link MidiPlayer#_ticksToSecondsWithTempoMap} when the
@@ -1562,11 +1616,27 @@ class MidiPlayer {
     // Start MIDI clock if enabled, at the EFFECTIVE tempo (file tempo at the
     // current position × playbackRate) so external gear tracks the operator's
     // playback speed rather than the notated BPM (audit P2).
+    //
+    // When we are resuming at a non-zero position (a seek), hand the clock the
+    // musical position so it locates the slaves with Song Position Pointer +
+    // Continue instead of a bare Start, which MIDI 1.0 defines as "from bar 1"
+    // — every slave used to rewind to the top of the song whenever the
+    // operator moved the playhead (audit F-43).
     if (this.midiClockGenerator) {
       const tempoAtPosition = this._getTempoAtPosition(this.position);
       const rate = this.playbackRate > 0 ? this.playbackRate : 1;
-      this.midiClockGenerator.startPlayback(tempoAtPosition * rate);
+      const songPositionBeats = this.position > 0 ? this._songPositionBeats(this.position) : null;
+      this.midiClockGenerator.startPlayback(tempoAtPosition * rate, songPositionBeats);
     }
+
+    // Run the first scheduler pass NOW instead of waiting for the interval.
+    // `startTime` was just anchored on `performance.now()`, so leaving the
+    // first pass to `setInterval` put every event in [0, SCHEDULER_TICK_MS[ —
+    // the downbeat — 10 ms late, shrinking the first inter-onset interval by
+    // a full tick (audit F-55: 1010/1500 for a file asking 1000/1500). Placed
+    // AFTER the clock start so slaves still receive Start/Continue before the
+    // first note. Everything the tick reads is already set up above.
+    this._schedulerTick();
 
     this.broadcastStatus();
 
@@ -1704,6 +1774,11 @@ class MidiPlayer {
     if (this.midiClockGenerator) {
       this.midiClockGenerator.resumePlayback();
     }
+
+    // Same reasoning as in start(): the first pass has to be synchronous or
+    // everything inside the first SCHEDULER_TICK_MS after the resume goes out
+    // a tick late (audit F-55).
+    this._schedulerTick();
 
     this.broadcastStatus();
 
@@ -1851,6 +1926,15 @@ class MidiPlayer {
       }
       this.playing = false;
       this.paused = false;
+    }
+
+    // Relocate the slaves. For an ACTIVE seek start() emits the full
+    // Stop → SPP → Continue below (the Stop just went out); for a PAUSED seek
+    // the clock already sent Stop when the operator paused and will send
+    // Continue on resume(), so the SPP has to go out here or that Continue
+    // resumes the slaves from the pre-seek position (audit F-43).
+    if (wasPaused && this.midiClockGenerator) {
+      this.midiClockGenerator.sendSongPosition?.(this._songPositionBeats(seekPosition));
     }
 
     this.position = seekPosition;

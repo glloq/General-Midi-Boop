@@ -63,7 +63,7 @@ intercalé **ne l'annule pas**. Aucun correctif nécessaire. D02 passe
 | F-41 | **P2** | RTP-MIDI : **aucun réassemblage** d'un SysEx réparti sur plusieurs paquets → trame tronquée livrée comme complète | **L04** |
 | F-43 | **P2** | **Aucun Song Position Pointer nulle part** : un seek renvoie `Start`, donc l'esclave repart à la mesure 1 | L03 + L05 |
 | F-44 | P3 | Après un gel de la boucle d'événements, l'horloge rejoue **tous** les ticks manqués en une rafale instantanée | Décision de politique |
-| F-45 | **P2** | Le panic n'envoie **jamais** CC 121 : une pédale de sustain verrouillée survit au panic | L01 (schéma) + vague 2 |
+| ~~F-45~~ | **P2** | ~~Le panic n'envoie **jamais** CC 121 : une pédale de sustain verrouillée survit au panic~~ — **CORRIGÉ (vague 4, R18)**, voir `WAVE4_R18_R19.md` | L01 (schéma) + vague 2 |
 
 ### 1.4 Niveaux de validation
 
@@ -73,7 +73,7 @@ intercalé **ne l'annule pas**. Aucun correctif nécessaire. D02 passe
 | D02 — running status | PARTIAL · 0 | **PASS** | **4** |
 | D03 — SysEx | PARTIAL | **PARTIAL** (F-41, RTP) | **4** |
 | D04 — 16 canaux | PASS | **PASS** | **4** |
-| D05 — panic | PARTIAL | **PARTIAL** (F-45) | **4** |
+| D05 — panic | PARTIAL | **PASS** (F-45 corrigé en vague 4 / R18) | **4** |
 | BK — conformité MIDI 1.0 | PARTIAL | **PARTIAL** (F-41, F-43) | **4** |
 | Horloge MIDI (`MidiClockGenerator`) | HW REQUIRED · 0 | **PASS** (dérive) / **PARTIAL** (SPP, rafale) | **4** |
 
@@ -99,7 +99,7 @@ portée de cet environnement et est renvoyé à L15.
 | `0xB0` 0/32 | Bank Select MSB/LSB + Program Change | ✅ | ✅ ordre préservé | ✅ | passe-plat, aucun état agrégé |
 | `0xB0` 6/38/98/99/100/101 | RPN / NRPN (séquence complète) | ✅ | ✅ | ✅ | passe-plat : **aucun agrégateur RPN dans le produit** |
 | `0xB0` n / n+32 | CC 14 bits (MSB/LSB) | ✅ | ✅ | ✅ | passe-plat, les deux moitiés arrivent dans l'ordre |
-| `0xB0` ≥ 120 | Channel Mode (120/121/123) | ✅ | ✅ | ✅ | exempté du limiteur de débit ; voir F-45 |
+| `0xB0` ≥ 120 | Channel Mode (120/121/122/123/124-127) | ✅ | ✅ | ✅ | exempté du limiteur **et** prioritaire en série sur `>= 120` des deux côtés (R18) |
 | `0xC0` | Program Change | ✅ | ✅ 16 canaux | ✅ | |
 | `0xD0` | Channel Pressure | ✅ | ✅ 16 canaux | ✅ | |
 | `0xE0` | Pitch Bend 14 bits (`msb<<7\|lsb`) | ✅ | ✅ 0 / 8192 / 16383 / 1 / 16255 | ✅ | **clés uniformisées** — F-40 corrigé |
@@ -403,7 +403,19 @@ ordonnanceur naïf type `setInterval` aurait perdu ≈ 4,3 s, soit ≈ 200 ticks
 
 ---
 
-### F-45 — P2 — Le panic ne réinitialise jamais les contrôleurs : un sustain verrouillé y survit — **OUVERT**
+### F-45 — P2 — Le panic ne réinitialise jamais les contrôleurs : un sustain verrouillé y survit — **CORRIGÉ (vague 4, R18)**
+
+> **Statut au 2026-09-08.** Corrigé. Le panic envoie désormais **120 → 121 → 123**
+> sur les 16 canaux (48 messages), et `midi_panic` / `midi_all_notes_off`
+> **diffusent à toutes les sorties** quand `deviceId` est omis, comme
+> `midi_reset`. L'ordre retenu place **121 avant 123** — et non 120/123/121
+> comme le proposait le diff §6.5 : voir `WAVE4_R18_R19.md` pour le
+> raisonnement et la preuve de parité sur les quatre transports. Les trois
+> tests `F-45` de `l03-panic-conformance.test.js` ont été inversés ; la preuve
+> vit maintenant dans `tests/audit/r18-panic-complete.test.js` (23 tests).
+
+Le texte ci-dessous décrit l'état **avant** le correctif.
+
 
 `midi_panic` envoie, sur les 16 canaux d'**un** appareil :
 **CC 120 (All Sound Off)** puis **CC 123 (All Notes Off)**. Trente-deux messages.

@@ -5976,6 +5976,10 @@
     <script src="js/utils/FilterManager.js"></script>
     <script src="js/api/BackendAPIClient.js"></script>
 
+    <!-- Transport resynchronisation (R20 / F-94): decides what the header must
+         show when the SPA (re)connects to a server that never stopped playing. -->
+    <script src="js/features/transport/PlaybackResync.js"></script>
+
     <!-- i18n - Internationalization (must be loaded before components) -->
     <script src="js/i18n/I18n.js"></script>
 
@@ -6486,6 +6490,10 @@
 
         let api;
         let currentFileId = null;
+        // Nom du fichier en cours de lecture. Sert au rappel local qui permet
+        // de renommer le transport après un rechargement (R20 / F-94) : le
+        // backend sait qu'il joue, il ne dit pas encore QUOI.
+        let currentFileName = null;
         let isPlaying = false;
         let isPaused = false; // Nouveau: tracker si on est en pause
         let activePlaylistId = null; // ID de la playlist en cours, null si lecture simple
@@ -7543,6 +7551,12 @@
                         initAdvancedFilters(); // Initialiser les filtres avancés
                     }
 
+                    // R20 / F-94 : reprendre le contrôle d'une lecture que le
+                    // serveur n'a jamais arrêtée (rechargement, onglet rouvert,
+                    // reconnexion). Fait à chaque connexion, pas seulement à la
+                    // première : après une coupure Wi-Fi l'état a pu changer.
+                    resyncTransportFromBackend();
+
                     // Re-start MIDI debug monitoring if console was open (reconnect case)
                     const dbgConsole = document.getElementById('debugConsole');
                     if (dbgConsole && !dbgConsole.classList.contains('hidden')) {
@@ -7578,6 +7592,66 @@
                     }
                 }
 
+                // R20 / F-94 — Resynchronisation du transport à chaque
+                // (re)connexion.
+                //
+                // La lecture vit dans le backend : recharger la page (ou
+                // rouvrir l'onglet, ou perdre le Wi-Fi une minute) ne coupe pas
+                // l'orchestre — et c'est une qualité pour un appareil de scène.
+                // Ce qui n'en est pas une, mesuré par le harnais navigateur
+                // avant R20 : l'UI revenait en croyant que rien ne jouait,
+                // Stop désactivé, aucun moyen d'arrêter le son autrement qu'en
+                // tuant le service. On demande donc au serveur ce qu'il fait,
+                // et le transport est rétabli sur SA réponse.
+                //
+                // Le nom du fichier vient du rappel local (PlaybackResync) tant
+                // que `playback_status` ne porte pas l'identité du fichier ; il
+                // n'est retenu que s'il concorde avec la durée annoncée par le
+                // serveur. Faute d'identité fiable, on rétablit quand même les
+                // commandes : pouvoir arrêter prime sur pouvoir nommer.
+                async function resyncTransportFromBackend() {
+                    if (!api || !window.PlaybackResync) return null;
+                    let status = null;
+                    try {
+                        status = await api.getPlaybackStatus();
+                    } catch (error) {
+                        log(`Transport resync failed: ${error.message}`, 'warning');
+                        return null;
+                    }
+                    const plan = window.PlaybackResync.plan(status, window.PlaybackResync.read());
+
+                    if (!plan.active) {
+                        // Le serveur ne joue rien : l'UI ne doit pas prétendre
+                        // le contraire (F-90 — Stop qui reste cliquable).
+                        isPlaying = false;
+                        isPaused = false;
+                        updatePlaybackControls();
+                        return plan;
+                    }
+
+                    isPlaying = plan.playing;
+                    isPaused = plan.paused;
+                    currentDuration = plan.duration;
+                    if (plan.tempo) currentTempo = plan.tempo;
+                    if (plan.fileId !== null) currentFileId = plan.fileId;
+                    if (plan.filename) currentFileName = plan.filename;
+
+                    const headerFileName = document.getElementById('headerFileName');
+                    if (headerFileName) {
+                        const label = plan.filename || currentFileName || i18n.t('common.unknown');
+                        headerFileName.textContent = '🎵 ' + label;
+                        headerFileName.classList.add('header-file-ready');
+                    }
+                    updatePlaybackControls();
+                    const percent = plan.duration > 0 ? (plan.position / plan.duration) * 100 : 0;
+                    setHeaderProgress(
+                        percent,
+                        `${formatTime(plan.position * 1000)} / ${formatTime(plan.duration * 1000)}`
+                    );
+                    log(`▶️ Playback in progress on the server, transport restored (${plan.identity})`, 'info');
+                    return plan;
+                }
+
                 // Événement de statut de lecture (contient la durée et l'état)
                 api.on('playback_status', (data) => {
                     if (data && data.duration !== undefined) {
@@ -7588,6 +7662,19 @@
                         isPlaying = data.playing && !data.paused;
                         isPaused = data.paused || false;
                         updatePlaybackControls();
+                    }
+                    // R20 / F-94 : tenir à jour le rappel local « ce navigateur
+                    // a lancé CE fichier ». C'est ce qui permet de renommer le
+                    // transport après un rechargement ; il est écrit ici plutôt
+                    // qu'au clic pour capturer la durée réelle annoncée par le
+                    // serveur, qui est ensuite la garantie qu'on ne colle pas
+                    // ce nom sur une lecture lancée depuis une autre tablette.
+                    if (data && data.playing === true && currentFileId !== null && window.PlaybackResync) {
+                        window.PlaybackResync.remember({
+                            fileId: currentFileId,
+                            filename: currentFileName,
+                            duration: currentDuration
+                        });
                     }
                     if (data && data.position !== undefined) {
                         const percent = currentDuration > 0 ? (data.position / currentDuration) * 100 : 0;
@@ -7635,6 +7722,7 @@
                     currentFileId = data.fileId || currentFileId;
                     isPlaying = true;
                     isPaused = false;
+                    currentFileName = data.filename || currentFileName;
                     document.getElementById('headerFileName').textContent = data.filename || '';
                     const playlistInfo = document.getElementById('headerPlaylistInfo');
                     if (playlistInfo) {
@@ -10218,8 +10306,14 @@
             // Le backend charge le fichier, applique les routages depuis la DB, et envoie les messages MIDI aux instruments
             try {
                 currentFileId = fileId;
+                currentFileName = filename;
                 document.getElementById('headerFileName').textContent = filename;
                 updatePlaybackControls();
+                // R20 / F-94 : noter tout de suite ce qu'on lance. La durée
+                // arrive avec le premier playback_status et complète le rappel.
+                if (window.PlaybackResync) {
+                    window.PlaybackResync.remember({ fileId, filename });
+                }
 
                 // Charger les données MIDI pour le piano roll (même en mode backend)
                 try {
@@ -10323,10 +10417,13 @@
                 return;
             }
 
-            if (!currentFileId) {
-                log('Select a file from the file list', 'warning');
-                return;
-            }
+            // R20 / F-94 : le garde « pas de fileId → on refuse » qui se
+            // trouvait ici a sauté. Après un rechargement en pleine lecture, le
+            // transport peut être vivant sans qu'aucun fichier ne soit connu de
+            // CE navigateur ; pause et reprise n'ont besoin d'aucune identité
+            // de fichier côté backend, et refuser ici retirait à l'opérateur la
+            // seule pause dont il disposait. Le cas « rien ne joue et rien
+            // n'est sélectionné » est déjà traité au-dessus.
 
             try {
                 // Vérifier si on utilise le player virtuel
@@ -10403,15 +10500,24 @@
             const nextBtn = document.getElementById('headerNextBtn');
             const playlistInfo = document.getElementById('headerPlaylistInfo');
 
-            // Désactiver si aucun fichier sélectionné
-            playPauseBtn.disabled = !currentFileId;
-            stopBtn.disabled = !currentFileId;
+            // Un transport « vivant » = quelque chose joue ou est en pause.
+            // C'est l'état du TRANSPORT, pas celui de la sélection de fichier :
+            //  - après un rechargement en pleine lecture, la SPA peut n'avoir
+            //    aucun fileId et devoir quand même offrir Stop (F-94) ;
+            //  - après un Stop (ou une fin de morceau), le fichier reste
+            //    sélectionné pour pouvoir relancer, mais il n'y a plus rien à
+            //    arrêter : Stop doit redevenir inerte (F-90). Un bouton qui
+            //    ment sur son état est un bouton auquel on ne se fie plus.
+            const transportActive = isPlaying || isPaused;
+
+            playPauseBtn.disabled = !currentFileId && !transportActive;
+            stopBtn.disabled = !transportActive;
 
             // Bouton "Réglages de lecture" (tempo/volume/transposition)
             const ctrlBtn = document.getElementById('headerPlaybackCtrlBtn');
             if (ctrlBtn) {
-                ctrlBtn.disabled = !currentFileId;
-                if (!currentFileId) {
+                ctrlBtn.disabled = !currentFileId && !transportActive;
+                if (ctrlBtn.disabled) {
                     const pop = document.getElementById('playbackControlsPopover');
                     if (pop && !pop.hidden) {
                         pop.hidden = true;
@@ -10428,12 +10534,19 @@
                 playlistInfo.classList.toggle('hidden', !showPlaylistNav);
             }
 
-            // Changer le texte et le style du bouton selon l'état
+            // Changer le texte et le style du bouton selon l'état.
+            // Le libellé passe par i18n : la chaîne « Lecture » codée en dur
+            // écrasait la traduction dès la première lecture (F-91), et ce
+            // bouton est justement celui qu'on regarde pour savoir si le son
+            // tourne encore.
+            const playLabel = (typeof i18n !== 'undefined' && i18n && typeof i18n.t === 'function')
+                ? i18n.t('ui.play')
+                : 'Play';
             if (isPlaying) {
                 playPauseBtn.textContent = '⏸️ Pause';
                 playPauseBtn.className = 'btn btn-secondary';
             } else {
-                playPauseBtn.textContent = '▶️ Lecture';
+                playPauseBtn.textContent = '▶️ ' + (playLabel === 'ui.play' ? 'Play' : playLabel);
                 playPauseBtn.className = 'btn';
             }
 
@@ -10465,7 +10578,9 @@
 
             // Seek en cliquant sur la barre de progression du header.
             progress.addEventListener('click', (e) => {
-                if (!currentFileId || !(currentDuration > 0)) return;
+                // Idem : chercher une position n'a besoin que d'une durée
+                // connue, pas d'un fileId local (R20 / F-94).
+                if ((!currentFileId && !isPlaying && !isPaused) || !(currentDuration > 0)) return;
                 const rect = progress.getBoundingClientRect();
                 if (rect.width <= 0) return;
                 const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));

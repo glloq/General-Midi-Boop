@@ -28,7 +28,7 @@ sur seize et injecte un faux message temps réel à sa place.
 | **K.3** | Ouverture réelle d'un port ALSA, latence, duplex, saturation | **HW REQUIRED** | 0 | — |
 | **G04.1** | Hot-plug : apparition / disparition / renommage / port fantôme | **PASS** | 4 | F-48 (obs.) |
 | **G04.2** | Débranchement **pendant la lecture** : statut de send, `device_disconnected` | **PASS** | 4 | — |
-| **G04.3** | Notes tenues à la déconnexion / reconnexion (notes orphelines) | **FAIL** | 4 | **F-47** |
+| **G04.3** | Notes tenues à la déconnexion / reconnexion (notes orphelines) | **FAIL → corrigé (vague 4, R19)** | 4 | **F-47** |
 | **G04.4** | Fuite d'état / de handles après 50 cycles | **PASS** | 4 | — |
 | **L.1** | Décodage des trames BLE-MIDI entrantes (horodatage, multi-messages, running status) | **FAIL → corrigé** | 4 | **F-48** |
 | **L.2** | Machine à états : refus, expiration 15 s, coupure en plein flux | **PASS** | 4 | F-53 |
@@ -145,7 +145,19 @@ réglages d'un instrument rebranché, mais il n'entre pas dans la clef. Le
 corriger touche `DeviceManager`, le routage, la persistance et l'UI — hors
 périmètre d'un correctif « petit et local ». **Laissé ouvert, documenté.**
 
-### 3.3 F-47 — débranchement pendant la lecture : les notes restent orphelines
+### 3.3 F-47 — débranchement pendant la lecture : les notes restent orphelines — **CORRIGÉ (vague 4, R19)**
+
+> **Statut au 2026-09-08.** Corrigé. Le port de sortie encore ouvert reçoit la
+> rafale de silence **avant** `close()` ; un device dont la sortie avait
+> disparu est silencé **à sa réapparition** (et seulement dans ce cas) ; le
+> `logger.warn('Output device not found')` est borné à **une ligne par device**
+> suivie d'un compteur et d'une ligne de synthèse au retour (F-48, volet
+> observabilité). Même traitement sur les quatre transports. Les trois tests
+> « F-47 » / « F-48 » de `l04-hotplug-during-playback.test.js` ont été inversés ;
+> la preuve complète est dans `tests/audit/r19-hotplug-silence.test.js`
+> (25 tests). Détail : `WAVE4_R18_R19.md`.
+
+Le texte ci-dessous décrit l'état **avant** le correctif.
 
 Scénario de scène, jamais testé jusqu'ici : trois notes sont envoyées et
 tenues, puis le câble est arraché au milieu du morceau.

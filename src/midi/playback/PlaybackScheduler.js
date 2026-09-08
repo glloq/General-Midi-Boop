@@ -117,13 +117,22 @@ class PlaybackScheduler {
     this._unroutedChannels = new Set(); // Track channels with no routing (notify once per playback)
     this._maxCompensationMs = 0; // Cached max compensation across all active routings
 
-    // Timing constraint enforcement: track last noteOn timestamp per (device:channel)
-    this._lastNoteOnTime = new Map(); // key: "device:channel" -> timestamp (ms)
+    // Timing constraint enforcement: track the last noteOn's MUSICAL instant
+    // per (device:channel) — milliseconds on the file timeline, NOT
+    // `performance.now()`. See _shouldGateNote for why (audit F-61).
+    this._lastNoteOnTime = new Map(); // key: "device:channel" -> logical ms
     // Polyphony enforcement: track active notes per (device:channel) as a
     // count map so overlapping same-pitch notes are counted separately.
     this._activeNotes = new Map(); // key: "device:channel" -> Map<note, count>
-    // noteOn timestamps per (device:channel:note) for min_note_duration.
-    this._noteOnTimes = new Map(); // key: "device:channel:note" -> timestamp (ms)
+    // noteOn MUSICAL instants per (device:channel:note): the notated duration
+    // is what DECIDES whether min_note_duration has to stretch a note
+    // (audit F-61).
+    this._noteOnTimes = new Map(); // key: "device:channel:note" -> logical ms
+    // noteOn WALL instants for the same keys: once the decision is taken, the
+    // release has to land a real `min_note_duration` after the real strike —
+    // that is a physical property of the actuator, so the AMOUNT of the
+    // deferral is measured on the wall clock. See _noteOffDeferMs.
+    this._noteOnWallTimes = new Map(); // key: "device:channel:note" -> wall ms
     // Count of noteOns dropped by a constraint, per (device:channel:note),
     // so the matching noteOff can be suppressed exactly once.
     this._droppedNoteOns = new Map(); // key: "device:channel:note" -> count
@@ -182,6 +191,7 @@ class PlaybackScheduler {
     this._lastNoteOnTime.clear();
     this._activeNotes.clear();
     this._noteOnTimes.clear();
+    this._noteOnWallTimes.clear();
     this._droppedNoteOns.clear();
     this._noteInstance.clear();
     this._handWarnings = null;
@@ -205,6 +215,7 @@ class PlaybackScheduler {
     this._activeNotes.clear();
     this._lastNoteOnTime.clear();
     this._noteOnTimes.clear();
+    this._noteOnWallTimes.clear();
     this._droppedNoteOns.clear();
     this._noteInstance.clear();
   }
@@ -363,15 +374,40 @@ class PlaybackScheduler {
   /**
    * Check if a noteOn should be gated (dropped) due to timing or polyphony constraints.
    * Also tracks active notes for polyphony enforcement.
+   *
+   * **`min_note_interval` is measured on MUSICAL time, not on the wall clock**
+   * (audit F-61 / R23). The guard decides what the instrument *plays*, so its
+   * reference has to be the score, not the moment the tick happened to run.
+   * Evaluating `performance.now()` deltas made two scheduler artefacts change
+   * the music:
+   *   - the downbeat left one tick late (F-55) shortened the first interval by
+   *     10 ms, so eight notes spaced 100 ms apart with a 95 ms guard lost the
+   *     second one — **one note in eight, with no musical reason**;
+   *   - the `EMIT_AHEAD_MS` window fires everything within 5 ms from the same
+   *     tick, i.e. at the *same* `performance.now()`, so two notes genuinely
+   *     3 ms apart measured 0 ms and a 2 ms guard — smaller than the real gap —
+   *     dropped the second.
+   * Both artefacts are jitter, so the number of notes played depended on the
+   * machine's load. `event.time` is exact, so the decision is now reproducible:
+   * the same file plus the same capabilities always plays the same notes.
+   *
+   * The delta is divided by `playbackRate` because the constraint is physical
+   * (a solenoid's re-strike time) while `event.time` is notated: at 2× speed
+   * two notes a notated 100 ms apart really do reach the actuator 50 ms apart.
+   *
    * @param {string} deviceId
    * @param {number} channel - Target channel on the device
    * @param {number} note - MIDI note number
    * @param {string} eventType - 'noteOn' or 'noteOff'
+   * @param {number} [logicalMs] - The event's instant on the file timeline, in
+   *   milliseconds (`event.time * 1000`). Defaults to 0, which makes repeated
+   *   calls read as "same musical instant".
+   * @param {number} [rate] - Active `playbackRate` (1 = notated speed).
    * @returns {{gate:boolean, evictNote:?number}} `gate` true if the event must
    *   be dropped; `evictNote` is a still-sounding pitch the caller must release
    *   first to free a polyphony slot for the admitted note (keep-outer policy).
    */
-  _shouldGateNote(deviceId, channel, note, eventType) {
+  _shouldGateNote(deviceId, channel, note, eventType, logicalMs = 0, rate = 1) {
     const cacheKey = `${deviceId}:${channel}`;
     const noteKey = `${cacheKey}:${note}`;
     const constraints = this._getTimingConstraints(deviceId, channel);
@@ -398,7 +434,8 @@ class PlaybackScheduler {
     }
 
     // eventType === MIDI_EVENT_TYPES.NOTE_ON
-    const now = performance.now();
+    const now = Number.isFinite(logicalMs) ? logicalMs : 0;
+    const speed = rate > 0 ? rate : 1;
 
     // min_note_interval. A MONOPHONIC instrument (polyphony === 1) has a single
     // shared actuator, so the re-strike guard applies PER CHANNEL — any two
@@ -408,9 +445,15 @@ class PlaybackScheduler {
     // (audit P2). `_lastNoteOnTime` is therefore keyed per-channel or per-pitch.
     const isMonophonic = constraints.polyphony === 1;
     const intervalKey = isMonophonic ? cacheKey : noteKey;
-    if (constraints.minNoteInterval) {
-      const lastTime = this._lastNoteOnTime.get(intervalKey) || 0;
-      if (lastTime > 0 && now - lastTime < constraints.minNoteInterval) {
+    if (constraints.minNoteInterval && this._lastNoteOnTime.has(intervalKey)) {
+      // `has()`, not `|| 0`: a logical instant is legitimately 0 (the file's
+      // very first event), which the old `lastTime > 0` guard silently treated
+      // as "no previous note".
+      const elapsed = (now - this._lastNoteOnTime.get(intervalKey)) / speed;
+      // A negative delta means the timeline was re-anchored under us (seek,
+      // loop) without a tracking reset; treat it as "no constraint" rather
+      // than gating everything after the jump.
+      if (elapsed >= 0 && elapsed < constraints.minNoteInterval) {
         this._droppedNoteOns.set(noteKey, (this._droppedNoteOns.get(noteKey) || 0) + 1);
         return { gate: true, evictNote: null }; // Gate: too fast for this instrument
       }
@@ -448,12 +491,14 @@ class PlaybackScheduler {
       }
     }
 
-    // Accept: register the active voice and timestamps.
+    // Accept: register the active voice and the MUSICAL instant of the strike
+    // (both maps hold logical ms, never `performance.now()` — audit F-61).
     if (!this._activeNotes.has(cacheKey)) this._activeNotes.set(cacheKey, new Map());
     const counts = this._activeNotes.get(cacheKey);
     counts.set(note, (counts.get(note) || 0) + 1);
     this._lastNoteOnTime.set(intervalKey, now); // retrigger guard (per-pitch, or per-channel if monophonic)
     this._noteOnTimes.set(noteKey, now);
+    this._noteOnWallTimes.set(noteKey, performance.now());
     // New sounding instance of this pitch — supersedes any deferred noteOff
     // still pending from a previous note on the same pitch (axis6-5).
     this._noteInstance.set(noteKey, (this._noteInstance.get(noteKey) || 0) + 1);
@@ -467,22 +512,45 @@ class PlaybackScheduler {
    * solenoid/actuator needs the note to stay physically engaged for a
    * minimum time; releasing it too soon can miss the strike entirely.
    *
+   * **The decision is musical, the amount is physical** (audit F-61 / R23).
+   * Whether a note has to be stretched at all is read off the score — the
+   * notated duration, rate-adjusted — so it no longer depends on whether the
+   * note-on and the note-off happened to land in the same `EMIT_AHEAD_MS`
+   * batch (they read 0 ms apart when the file says 3 ms). Once the answer is
+   * "stretch it", the *length* of the stretch is measured against the instant
+   * the strike really left, so the release still lands a full
+   * `min_note_duration` after it: the constraint models a solenoid that has to
+   * stay engaged, and 5 ms of scheduler earliness must not be shaved off its
+   * travel.
+   *
    * @param {string} deviceId
    * @param {number} channel
    * @param {number} note
+   * @param {number} [logicalMs] - The note-off's instant on the file timeline
+   *   in milliseconds (`event.time * 1000`).
+   * @param {number} [rate] - Active `playbackRate`.
    * @returns {number} Milliseconds to defer the noteOff (0 = send now).
    * @private
    */
-  _noteOffDeferMs(deviceId, channel, note) {
+  _noteOffDeferMs(deviceId, channel, note, logicalMs = 0, rate = 1) {
     const constraints = this._getTimingConstraints(deviceId, channel);
     const minDur = constraints.minNoteDuration;
     if (!minDur) return 0;
     const noteKey = `${deviceId}:${channel}:${note}`;
     const startedAt = this._noteOnTimes.get(noteKey);
     if (startedAt === undefined) return 0;
-    const held = performance.now() - startedAt;
-    if (held >= minDur) return 0;
-    return minDur - held;
+    const speed = rate > 0 ? rate : 1;
+
+    // Decision — notated duration.
+    const notatedHeld = ((Number.isFinite(logicalMs) ? logicalMs : 0) - startedAt) / speed;
+    if (!(notatedHeld >= 0)) return 0; // timeline re-anchored (seek / loop)
+    if (notatedHeld >= minDur) return 0;
+
+    // Amount — real time engaged so far. Falls back to the notated figure if
+    // the wall anchor is missing (tracking reset between the two halves).
+    const wallStartedAt = this._noteOnWallTimes.get(noteKey);
+    const wallHeld = wallStartedAt === undefined ? notatedHeld : performance.now() - wallStartedAt;
+    return Math.max(0, minDur - Math.max(0, wallHeld));
   }
 
   /**
@@ -1043,6 +1111,12 @@ class PlaybackScheduler {
   _dispatchToDevice(event, routing, state) {
     const outChannel = routing.targetChannel;
 
+    // Musical instant of this event and the speed it is being played at — the
+    // reference the timing guards use instead of `performance.now()` so their
+    // verdict depends on the score and not on scheduler jitter (audit F-61).
+    const logicalMs = (event.time ?? 0) * 1000;
+    const rate = state && state.playbackRate > 0 ? state.playbackRate : 1;
+
     const transposeSemis =
       (state.channelTransposition ? state.channelTransposition.get(event.channel) || 0 : 0) +
       (state.globalTranspose || 0); // live global performance offset (audit P2)
@@ -1104,11 +1178,18 @@ class PlaybackScheduler {
     if (event.type === MIDI_EVENT_TYPES.NOTE_ON || event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
       const isNoteOn = event.type === MIDI_EVENT_TYPES.NOTE_ON && (event.velocity ?? 0) > 0;
       const evtType = isNoteOn ? MIDI_EVENT_TYPES.NOTE_ON : MIDI_EVENT_TYPES.NOTE_OFF;
-      const gateResult = this._shouldGateNote(routing.device, outChannel, outNote, evtType);
+      const gateResult = this._shouldGateNote(
+        routing.device,
+        outChannel,
+        outNote,
+        evtType,
+        logicalMs,
+        rate
+      );
       if (gateResult.evictNote != null) {
         // Free a polyphony slot by releasing the evicted (median) voice before
         // the new note-on, matching the offline keep-outer policy (audit P3-b).
-        this._sendNoteOff(routing.device, outChannel, gateResult.evictNote, 0);
+        this._sendNoteOff(routing.device, outChannel, gateResult.evictNote, 0, logicalMs, rate);
       }
       if (gateResult.gate) {
         return null; // Gated: note dropped due to timing or polyphony constraint
@@ -1121,7 +1202,7 @@ class PlaybackScheduler {
         // by the block above (it maps velocity-0 to NOTE_OFF), so do NOT
         // call _shouldGateNote again here (that double-decremented the
         // active-note count).
-        return this._sendNoteOff(routing.device, outChannel, outNote, 0);
+        return this._sendNoteOff(routing.device, outChannel, outNote, 0, logicalMs, rate);
       }
       return this._send(routing.device, DEVICE_MSG_TYPES.NOTE_ON, {
         channel: outChannel,
@@ -1130,7 +1211,14 @@ class PlaybackScheduler {
       });
     }
     if (event.type === MIDI_EVENT_TYPES.NOTE_OFF) {
-      return this._sendNoteOff(routing.device, outChannel, outNote, event.velocity);
+      return this._sendNoteOff(
+        routing.device,
+        outChannel,
+        outNote,
+        event.velocity,
+        logicalMs,
+        rate
+      );
     }
     if (event.type === MIDI_EVENT_TYPES.PROGRAM_CHANGE) {
       return this._send(routing.device, DEVICE_MSG_TYPES.PROGRAM, {
@@ -1196,12 +1284,15 @@ class PlaybackScheduler {
    * @param {number} channel
    * @param {number} note
    * @param {number} velocity
+   * @param {number} [logicalMs] - Musical instant of the release, in ms on the
+   *   file timeline; used to measure the notated duration (audit F-61).
+   * @param {number} [rate] - Active `playbackRate`.
    * @returns {{status:string}|null} Send result, or a queued marker when
    *   the release was deferred.
    * @private
    */
-  _sendNoteOff(deviceId, channel, note, velocity) {
-    const deferMs = this._noteOffDeferMs(deviceId, channel, note);
+  _sendNoteOff(deviceId, channel, note, velocity, logicalMs = 0, rate = 1) {
+    const deferMs = this._noteOffDeferMs(deviceId, channel, note, logicalMs, rate);
     const send = () =>
       this._send(deviceId, DEVICE_MSG_TYPES.NOTE_OFF, {
         channel,

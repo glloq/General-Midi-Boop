@@ -343,16 +343,30 @@ export class AppPage {
   // ── Playback ──────────────────────────────────────────────────────────────
 
   /**
-   * @returns {Promise<{playing:boolean, label:string, file:string}>} what the
-   * header transport currently shows.
+   * @returns {Promise<{playing:boolean, label:string, file:string,
+   *   stopDisabled:boolean, playDisabled:boolean, time:string,
+   *   progressWidth:string}>} what the header transport currently shows.
    */
   async transportState() {
     return this.page.evaluate(() => ({
       playing: !!document.querySelector('#headerStopBtn:not([disabled])'),
       label: (document.querySelector('#headerPlayPauseBtn')?.textContent || '').trim(),
       file: (document.querySelector('#headerFileName')?.textContent || '').trim(),
-      stopDisabled: !!document.querySelector('#headerStopBtn')?.disabled
+      stopDisabled: !!document.querySelector('#headerStopBtn')?.disabled,
+      playDisabled: !!document.querySelector('#headerPlayPauseBtn')?.disabled,
+      time: (document.querySelector('#headerTime')?.textContent || '').trim(),
+      progressWidth: document.querySelector('#headerProgressFill')?.style.width || ''
     }));
+  }
+
+  /**
+   * Stop playback the way the operator does it: a real click on the header's
+   * Stop button. Never `playback_stop` through the socket — the whole point of
+   * F-94 is whether the *button* is there and works.
+   * @returns {Promise<void>}
+   */
+  async clickStop() {
+    await this.page.click('#headerStopBtn', { timeout: 15000 });
   }
 
   /** @returns {Promise<any>} the backend's own playback status. */

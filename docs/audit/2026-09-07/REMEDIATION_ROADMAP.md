@@ -259,8 +259,8 @@ médiane **sonne puis est coupée en live**, et n'est **jamais émise en baké**
 | # | Finding | Pourquoi ça compte en concert |
 |---|---|---|
 | R17 | **F-28** — un driver lighting synchrone lent bloque le MIDI (+120 ms × règles) | Le son s'arrête parce qu'une LED est lente |
-| R18 | **F-45** — le panic n'envoie **jamais** CC 121, et il n'existe **aucun panic global** | Un sustain verrouillé survit au panic |
-| R19 | **F-47** — aucun note-off ni panic à la déconnexion **ni au rebranchement** | Notes bloquées à chaque câble arraché |
+| ✅ R18 | **F-45** — le panic n'envoie **jamais** CC 121, et il n'existe **aucun panic global** | Un sustain verrouillé survit au panic — **LIVRÉ** (`WAVE4_R18_R19.md`) |
+| ✅ R19 | **F-47** — aucun note-off ni panic à la déconnexion **ni au rebranchement** | Notes bloquées à chaque câble arraché — **LIVRÉ** (`WAVE4_R18_R19.md`) |
 | R20 | **F-94** — rechargement en lecture : l'orchestre continue, l'UI perd tout contrôle | Plus aucun moyen d'arrêter le son |
 | R21 | **F-43** — aucun Song Position Pointer : un seek envoie `Start` | L'esclave repart mesure 1 |
 | R22 | **F-31** — règle `noteon` par défaut de l'UI : LED allumée pour toujours | Projecteur resté allumé |
