@@ -361,18 +361,29 @@ class RoutingPersistenceDB {
    * Delete all routings for a device (optionally scoped to one channel).
    * Encapsulates raw `DELETE FROM midi_instrument_routings` SQL previously
    * duplicated in handlers (P0-2.5n).
+   *
+   * Rethrows on failure (audit F-81): this delete is one leg of the
+   * `instrument_delete` cascade, which now runs in a single transaction — an
+   * error that is only logged would let the caller commit a half-deleted
+   * instrument and report `success: true`.
+   *
+   * @param {string} deviceId
+   * @param {?number} [channel]
+   * @returns {number} Rows removed.
    */
   deleteRoutingsByDevice(deviceId, channel) {
     try {
       if (channel !== undefined && channel !== null) {
-        this.db
+        return this.db
           .prepare('DELETE FROM midi_instrument_routings WHERE device_id = ? AND channel = ?')
-          .run(deviceId, channel);
-      } else {
-        this.db.prepare('DELETE FROM midi_instrument_routings WHERE device_id = ?').run(deviceId);
+          .run(deviceId, channel).changes;
       }
+      return this.db
+        .prepare('DELETE FROM midi_instrument_routings WHERE device_id = ?')
+        .run(deviceId).changes;
     } catch (error) {
       this.logger.error(`Failed to delete routings for device ${deviceId}: ${error.message}`);
+      throw error;
     }
   }
 

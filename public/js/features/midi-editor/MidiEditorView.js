@@ -63,7 +63,7 @@
                             🎯 ${this.modal.t('midiEditor.autoAssign')}
                         </button>
                     </div>
-                    <button class="modal-close" data-action="close">&times;</button>
+                    <button class="modal-close" data-action="close" aria-label="${this.modal.t('common.close')}">&times;</button>
                 </div>`;
 
       const channelsToolbarHtml = loop

@@ -4,11 +4,13 @@
  *
  * Pipeline applied to every incoming message:
  *   1. Envelope validation via {@link JsonValidator.validateCommand}.
- *   2. Per-command payload validation via
+ *   2. Handler lookup — an unknown command is an ERR_NOT_FOUND, never a
+ *      validation error.
+ *   3. Per-command payload validation via
  *      {@link JsonValidator.validateByCommand}, which reads the
- *      precompiled schema registry built from `schemas/*.schemas.js`.
- *   3. Handler lookup (versioned handlers take priority when the client
- *      sends `version`; falls back to the v1 handler otherwise).
+ *      precompiled schema registry built from `schemas/*.schemas.js` and is
+ *      **fail-closed**: no schema and no exemption means the frame is
+ *      refused (`schemas/validation-policy.js`).
  *   4. Async handler execution; result and `duration` are sent back to
  *      the client and a `ws.command.completed` metric is emitted on the
  *      EventBus.
@@ -164,19 +166,26 @@ class CommandRegistry {
         throw new ValidationError(`Invalid message: ${validation.errors.join(', ')}`);
       }
 
-      // Per-command payload validation via the schema registry. Commands
-      // without a registered schema get the permissive default — they
-      // may still rely on imperative checks inside the handler.
-      const cmdValidation = JsonValidator.validateByCommand(message.command, message.data || {});
+      // Handler lookup comes FIRST so an unknown command name still answers
+      // ERR_NOT_FOUND rather than the fail-closed validation error below —
+      // the two failures mean different things to a client.
+      const handler = this.handlers[message.command];
+      if (!handler) {
+        throw new NotFoundError('command', message.command);
+      }
+
+      // Per-command payload validation via the schema registry. Fail-closed
+      // since the F-19 remediation: a command with no schema is refused unless
+      // `schemas/validation-policy.js` exempts it, or its handler takes no
+      // payload argument at all (`() => fn(app)`) — in which case no payload
+      // can reach anything and there is nothing to validate.
+      const cmdValidation = JsonValidator.validateByCommand(message.command, message.data || {}, {
+        payloadBlind: handler.length === 0
+      });
       if (!cmdValidation.valid) {
         throw new ValidationError(
           `Invalid ${message.command} data: ${cmdValidation.errors.join(', ')}`
         );
-      }
-
-      const handler = this.handlers[message.command];
-      if (!handler) {
-        throw new NotFoundError('command', message.command);
       }
 
       // Execute handler

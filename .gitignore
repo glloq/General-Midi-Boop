@@ -71,3 +71,6 @@ public/lib/WebAudioFontPlayer.js
 
 # Local i18n translation build scaffolding (not part of the deliverable)
 .i18n-work/
+
+# E2E run output (screenshots, throwaway server workspace: db, logs)
+tests/e2e/artifacts/

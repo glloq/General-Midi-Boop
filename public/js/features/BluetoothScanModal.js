@@ -280,21 +280,22 @@ class BluetoothScanModal {
 
     const deviceName = device.name || t('bluetooth.device');
     const deviceNameEscaped = escapeHtml(deviceName);
-    const deviceAddress = device.address || device.id || t('bluetooth.unknownAddress');
+    const deviceAddress = escapeHtml(device.address || device.id || t('bluetooth.unknownAddress'));
+    const deviceKey = escapeHtml(device.id || device.address);
 
     return `
-            <div class="device-card bluetooth-device" data-device-id="${device.id || device.address}">
+            <div class="device-card bluetooth-device" data-device-id="${deviceKey}">
                 <div class="device-icon">📡</div>
                 <div class="device-info">
                     <div class="device-name">${deviceNameEscaped}</div>
                     <div class="device-address">${deviceAddress}</div>
-                    ${device.signal ? `<div class="device-signal">📶 ${t('bluetooth.signal')}: ${device.signal}%</div>` : ''}
-                    ${device.rssi ? `<div class="device-signal">📡 ${t('bluetooth.rssi')}: ${device.rssi} dBm</div>` : ''}
+                    ${device.signal ? `<div class="device-signal">📶 ${t('bluetooth.signal')}: ${escapeHtml(device.signal)}%</div>` : ''}
+                    ${device.rssi ? `<div class="device-signal">📡 ${t('bluetooth.rssi')}: ${escapeHtml(device.rssi)} dBm</div>` : ''}
                 </div>
                 <div class="device-actions">
                     <button class="btn-pair" data-action="pair"
-                            data-device-id="${device.id || device.address}"
-                            data-device-name="${deviceName}">
+                            data-device-id="${deviceKey}"
+                            data-device-name="${deviceNameEscaped}">
                         🔗 ${t('common.pair')}
                     </button>
                 </div>
@@ -326,14 +327,15 @@ class BluetoothScanModal {
     const t = this._t;
 
     const deviceName = escapeHtml(device.name || device.address);
+    const deviceAddress = escapeHtml(device.address);
     const isConnected = device.connected === true;
 
     return `
-            <div class="device-card bluetooth-device paired ${isConnected ? 'connected' : ''}" data-device-address="${device.address}">
+            <div class="device-card bluetooth-device paired ${isConnected ? 'connected' : ''}" data-device-address="${deviceAddress}">
                 <div class="device-icon">${isConnected ? '🟢' : '✓'}</div>
                 <div class="device-info">
                     <div class="device-name">${deviceName}</div>
-                    <div class="device-address">${device.address}</div>
+                    <div class="device-address">${deviceAddress}</div>
                     <div class="device-status">
                         <span class="status-badge ${isConnected ? 'connected' : 'paired'}">
                             ${isConnected ? `🟢 ${t('bluetooth.connected')}` : `✓ ${t('bluetooth.paired')}`}
@@ -345,19 +347,19 @@ class BluetoothScanModal {
                       isConnected
                         ? `
                         <button class="btn-disconnect" data-action="disconnect"
-                                data-device-address="${device.address}">
+                                data-device-address="${deviceAddress}">
                             🔌 ${t('common.disconnect')}
                         </button>
                     `
                         : `
                         <button class="btn-connect" data-action="connect"
-                                data-device-address="${device.address}">
+                                data-device-address="${deviceAddress}">
                             🔌 ${t('common.connect')}
                         </button>
                     `
                     }
                     <button class="btn-unpair" data-action="unpair"
-                            data-device-address="${device.address}">
+                            data-device-address="${deviceAddress}">
                         ${t('common.forget')}
                     </button>
                 </div>
@@ -451,7 +453,9 @@ class BluetoothScanModal {
 
     // Disable the button during pairing WITHOUT changing the text
     // (avoids the purple background issue)
-    const deviceCard = this.container.querySelector(`[data-device-id="${deviceId}"]`);
+    const deviceCard = [...this.container.querySelectorAll('[data-device-id]')].find(
+      (el) => el.dataset.deviceId === String(deviceId)
+    );
     if (deviceCard) {
       const button = deviceCard.querySelector('.btn-pair');
       if (button) {
@@ -483,7 +487,9 @@ class BluetoothScanModal {
 
     // Disable the button during connection to prevent multiple clicks
     // BUT do not change the text to avoid the purple background issue
-    const deviceCard = this.container.querySelector(`[data-device-address="${deviceAddress}"]`);
+    const deviceCard = [...this.container.querySelectorAll('[data-device-address]')].find(
+      (el) => el.dataset.deviceAddress === String(deviceAddress)
+    );
     if (deviceCard) {
       const button = deviceCard.querySelector('.btn-connect');
       if (button) {

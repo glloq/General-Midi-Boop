@@ -14,12 +14,11 @@ function makeApp({ remainingByDevice = {} } = {}) {
     database: {},
     logger: { warn: jest.fn() },
     instrumentRepository: {
-      deleteSettingsByDevice: jest.fn(),
-      deleteVoicesByInstrument: jest.fn(),
+      // R4/F-81: the four auxiliary deletes now run as ONE transactional
+      // cascade inside InstrumentRepository instead of four loose calls here.
+      deleteInstrumentCascade: jest.fn(() => ({ deleted: {}, skippedTables: [] })),
       findByDevice: jest.fn((id) => remainingByDevice[id] || [])
     },
-    stringInstrumentRepository: { deleteByDevice: jest.fn() },
-    routingRepository: { deleteByDevice: jest.fn() },
     deviceManager: { removeVirtualDevice },
     eventBus: { emit: jest.fn() }
   };
@@ -33,7 +32,7 @@ describe('instrumentDelete — virtual device eviction', () => {
     const res = await instrumentDelete(app, { deviceId: 'virtual_123_abc', channel: 0 });
 
     expect(res).toEqual({ success: true });
-    expect(app.instrumentRepository.deleteSettingsByDevice).toHaveBeenCalledWith(
+    expect(app.instrumentRepository.deleteInstrumentCascade).toHaveBeenCalledWith(
       'virtual_123_abc',
       0
     );

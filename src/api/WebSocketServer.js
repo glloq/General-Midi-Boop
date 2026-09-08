@@ -13,8 +13,11 @@
  *   - ping/pong heartbeat that terminates dead sockets after a missed
  *     beat.
  *
- * Auth: same `GMBOOP_API_TOKEN` as the HTTP layer; same-origin browsers
- * connect without a token because the SPA is served from the same host.
+ * Auth: same `GMBOOP_API_TOKEN` and same `security.mode` as the HTTP layer
+ * (resolved once in {@link ../api/securityPolicy.js}). In `trusted-lan`
+ * (default) a same-origin browser connects without a token because the SPA is
+ * served from the same host; in `secure` the token is required for every
+ * connection, loopback included (audit L10 F-108).
  */
 import { WebSocketServer as WSServer } from 'ws';
 import { timingSafeEqual } from 'crypto';
@@ -24,6 +27,7 @@ import { dirname, join } from 'path';
 import { ApplicationError } from '../core/errors/index.js';
 import { TIMING } from '../core/constants.js';
 import { WsOutputQueue } from './WsOutputQueue.js';
+import { isSecureMode, isLoopbackAddress } from './securityPolicy.js';
 
 const __wsFilename = fileURLToPath(import.meta.url);
 const __wsDirname = dirname(__wsFilename);
@@ -51,6 +55,84 @@ const RATE_LIMIT_MAX_MESSAGES = 60;
  *  volume of `toString()` + `JSON.parse` on the main thread would stall the
  *  MIDI scheduler the WsOutputQueue was built to protect (audit A2 D2). */
 const RATE_LIMIT_MAX_BYTES = 32 * 1024 * 1024;
+/** Extra frames allowed per window for {@link PRIORITY_COMMANDS} once the
+ *  normal budget is spent. Deliberately small: the exemption exists so an
+ *  operator can always silence the rig, not so a flood can bypass the
+ *  limiter (audit L01 F-07). */
+const RATE_LIMIT_MAX_PRIORITY = 10;
+/** A priority frame is a bare control command; anything larger is not one and
+ *  gets no exemption (keeps the 16 MB frame path fully rate-limited). */
+const PRIORITY_FRAME_MAX_BYTES = 4096;
+/** Bytes of the frame head scanned by {@link peekFrameHead}. */
+const FRAME_HEAD_PEEK_BYTES = 192;
+
+/**
+ * Commands that must never be dropped by the rate limiter: the operator's
+ * "make it stop" controls. This mirrors the exemption the transport layer
+ * already implements (`DeviceManager.sendMessageEx` lets Note Off, reset and
+ * Channel Mode CCs >= 120 bypass the per-device limiter) — without it, a dense
+ * passage on the virtual keyboard (one WS frame per note event) spends the
+ * whole window budget and the panic frame that follows is silently discarded.
+ * Measured 2026-09-07: under a 200 msg/s flood on one socket, 13 of 19 panic
+ * attempts never reached a handler (audit L01 F-07).
+ * @type {Set<string>}
+ */
+const PRIORITY_COMMANDS = new Set([
+  'midi_panic',
+  'midi_all_notes_off',
+  'midi_reset',
+  'playback_stop',
+  'playback_pause',
+  'lighting_all_off',
+  'lighting_blackout'
+]);
+
+/**
+ * Anchored head scan for the envelope's `id` / `command`, used ONLY on the
+ * rate-limit path — the full parse still happens in {@link
+ * WebSocketServer#handleMessage} for frames that pass.
+ *
+ * The regex is anchored on the opening brace and only reads the first two
+ * key/value pairs, so it can never bind a *nested* `"id"` or `"command"`: when
+ * the envelope is not shaped that way it simply matches nothing and the caller
+ * degrades to today's behaviour (no id echoed, no exemption). `BackendAPIClient`
+ * always serialises `{id, command, data, timestamp}` in that order, so in
+ * practice it is exact. Cost is one bounded `toString()` plus one anchored
+ * regex — cheap enough to stay on the reject path of a flood, unlike a full
+ * `JSON.parse` of a 16 MB frame (audit L01 F-06).
+ */
+const _HEAD_PAIR = '"(id|command)"\\s*:\\s*(?:"([^"\\\\]{0,64})"|(-?\\d+(?:\\.\\d+)?))';
+const FRAME_HEAD_RE = new RegExp(`^\\s*\\{\\s*${_HEAD_PAIR}(?:\\s*,\\s*${_HEAD_PAIR})?`);
+
+/**
+ * @param {Buffer|string} data - Raw inbound frame.
+ * @returns {{id?:(string|number), command?:string}} Empty object when the head
+ *   does not match the expected envelope shape.
+ */
+export function peekFrameHead(data) {
+  try {
+    const head =
+      typeof data === 'string'
+        ? data.slice(0, FRAME_HEAD_PEEK_BYTES)
+        : data.subarray(0, FRAME_HEAD_PEEK_BYTES).toString('utf8');
+    const m = FRAME_HEAD_RE.exec(head);
+    if (!m) return {};
+    const out = {};
+    const put = (key, str, num) => {
+      if (key === 'id') {
+        if (str !== undefined) out.id = str;
+        else if (num !== undefined) out.id = Number(num);
+      } else if (key === 'command' && str !== undefined) {
+        out.command = str;
+      }
+    };
+    put(m[1], m[2], m[3]);
+    put(m[4], m[5], m[6]);
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 /** Keys that pollute `Object.prototype` when copied by a naive merge. */
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -124,6 +206,14 @@ class WebSocketServer {
     const apiToken = process.env.GMBOOP_API_TOKEN;
     const serverPort = this.config?.server?.port || 8080;
 
+    // The security mode must cover the WHOLE API surface, not HTTP alone: the
+    // WebSocket carries the 270 commands, `system_update` and
+    // `system_shutdown` included, with no further authorisation check. Read
+    // through the shared resolver so HTTP and WS can never drift apart again
+    // (audit L10 F-108).
+    const secureMode = isSecureMode(this.config);
+    this.logger.info(`WebSocket security mode: ${secureMode ? 'secure' : 'trusted-lan'}`);
+
     // Soft-warn rather than fail-closed when the token is missing.
     // ApiTokenManager.ensure() runs during boot and is supposed to
     // populate this env, but a misconfigured deployment (token forced
@@ -134,9 +224,13 @@ class WebSocketServer {
     // from the same host still works.
     if (!apiToken) {
       this.logger.warn(
-        'GMBOOP_API_TOKEN is empty — cross-origin clients are refused (only the ' +
-          'loopback and same-origin SPA bypasses remain). Verify ' +
-          'ApiTokenManager.ensure() ran successfully to enable authenticated remote access.'
+        secureMode
+          ? 'GMBOOP_API_TOKEN is empty while security.mode=secure — every WebSocket ' +
+              'connection will be refused, including the local SPA. Verify ' +
+              'ApiTokenManager.ensure() ran successfully.'
+          : 'GMBOOP_API_TOKEN is empty — cross-origin clients are refused (only the ' +
+              'loopback and same-origin SPA bypasses remain). Verify ' +
+              'ApiTokenManager.ensure() ran successfully to enable authenticated remote access.'
       );
     }
 
@@ -153,16 +247,27 @@ class WebSocketServer {
       maxPayload: MAX_PAYLOAD_BYTES,
       perMessageDeflate: false,
       verifyClient: ({ req }, done) => {
-        // Same-origin bypass. The server typically binds 0.0.0.0 so the
-        // SPA can be reached over LAN (http://192.168.1.42:8080) as well
-        // as locally — we cannot pre-enumerate every LAN interface, so
-        // we accept the request when the Origin matches the inbound Host
-        // header (the URL the browser was actually told to use). Both
-        // headers are browser-set, so JS in a third-party page cannot
-        // forge them — XSS-style attacks therefore still hit the token
-        // gate below. A determined attacker with a custom HTTP client
-        // can match both, but at that point they can also just include
-        // the token, so the bypass adds no extra surface.
+        // `secure` mode: no bypass at all. The token is required for every
+        // connection, same-origin and loopback included. This is the mode the
+        // documentation points operators to for shared/untrusted networks, and
+        // until now it hardened HTTP only (audit L10 F-108).
+        if (secureMode) {
+          this._verifyToken(req, apiToken, serverPort, done);
+          return;
+        }
+
+        // Same-origin bypass (trusted-lan mode only). The server typically
+        // binds 0.0.0.0 so the SPA can be reached over LAN
+        // (http://192.168.1.42:8080) as well as locally — we cannot
+        // pre-enumerate every LAN interface, so we accept the request when the
+        // Origin matches the inbound Host header (the URL the browser was
+        // actually told to use). Both headers are browser-set, so JS in a
+        // third-party page cannot forge them — XSS-style attacks therefore
+        // still hit the token gate below.
+        //
+        // A non-browser client CAN match both, so this bypass hands full
+        // command access to anything that reaches the port. That is what
+        // `trusted-lan` means, and it is exactly what `secure` above closes.
         const origin = req.headers.origin || '';
         const host = req.headers.host || '';
         if (origin) {
@@ -170,8 +275,15 @@ class WebSocketServer {
             const originUrl = new URL(origin);
             const originHost = originUrl.hostname;
             const originPort = originUrl.port || (originUrl.protocol === 'https:' ? '443' : '80');
-            // Loopback short-circuit (no Host needed).
-            if (loopbackHosts.has(originHost) && originPort === String(serverPort)) {
+            // Loopback short-circuit (no Host needed) — but only when the
+            // connection REALLY comes from the loopback interface. `Origin` is
+            // forgeable by any non-browser client; the peer address of an
+            // accepted TCP connection is not (audit L10 F-108).
+            if (
+              isLoopbackAddress(req.socket?.remoteAddress) &&
+              loopbackHosts.has(originHost) &&
+              originPort === String(serverPort)
+            ) {
               done(true);
               return;
             }
@@ -198,41 +310,8 @@ class WebSocketServer {
           }
         }
 
-        // External (cross-origin) connections must present the token. With no
-        // token configured there is no secret to match — fail CLOSED for
-        // cross-origin clients (the loopback/same-origin bypasses above still
-        // serve the local SPA). Otherwise `timingSafeEqual(Buffer.from(''),
-        // Buffer.from(''))` returns true and the socket is accepted with no
-        // credential (audit A2 C1 — fail-open on empty secret).
-        if (!apiToken) {
-          this.logger.warn(
-            `WebSocket auth rejected (no token configured): ip=${req.socket.remoteAddress} ` +
-              `origin=${req.headers.origin || '(none)'} host=${req.headers.host || '(none)'}`
-          );
-          done(false, 401, 'Unauthorized');
-          return;
-        }
-        const url = new URL(req.url, 'http://localhost');
-        const token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
-        try {
-          const tokenBuf = Buffer.from(token);
-          const apiTokenBuf = Buffer.from(apiToken);
-          if (tokenBuf.length !== apiTokenBuf.length || !timingSafeEqual(tokenBuf, apiTokenBuf)) {
-            // Include the headers we just compared so operators can tell
-            // apart "running the old build" from "headers don't actually
-            // match" without instrumenting the runtime.
-            this.logger.warn(
-              `WebSocket auth rejected: ip=${req.socket.remoteAddress} ` +
-                `origin=${req.headers.origin || '(none)'} host=${req.headers.host || '(none)'} ` +
-                `expectedPort=${serverPort}`
-            );
-            done(false, 401, 'Unauthorized');
-          } else {
-            done(true);
-          }
-        } catch {
-          done(false, 401, 'Unauthorized');
-        }
+        // External (cross-origin) connections must present the token.
+        this._verifyToken(req, apiToken, serverPort, done);
       }
     });
 
@@ -248,6 +327,59 @@ class WebSocketServer {
     this.logger.info(
       `WebSocket server attached to HTTP server (max clients: ${MAX_WS_CLIENTS}, max payload: ${MAX_PAYLOAD_BYTES / 1024 / 1024}MB)`
     );
+  }
+
+  /**
+   * Constant-time bearer-token check for the WebSocket upgrade. The token
+   * travels either as the `token` query parameter or as the
+   * `Sec-WebSocket-Protocol` header. Calls `done(true)` on success and
+   * `done(false, 401, 'Unauthorized')` on every failure — including the
+   * "no token configured" case, where there is no secret to match and
+   * `timingSafeEqual(Buffer.from(''), Buffer.from(''))` would otherwise
+   * return true and accept a credential-less socket (audit A2 C1).
+   *
+   * @param {import('http').IncomingMessage} req
+   * @param {?string} apiToken - Expected token (`GMBOOP_API_TOKEN`).
+   * @param {number|string} serverPort - Logged so operators can tell a stale
+   *   build from a genuine header mismatch.
+   * @param {Function} done - `ws` verifyClient callback.
+   * @returns {void}
+   * @private
+   */
+  _verifyToken(req, apiToken, serverPort, done) {
+    const describe = () =>
+      `ip=${req.socket?.remoteAddress} origin=${req.headers.origin || '(none)'} ` +
+      `host=${req.headers.host || '(none)'}`;
+
+    if (!apiToken) {
+      this.logger.warn(`WebSocket auth rejected (no token configured): ${describe()}`);
+      done(false, 401, 'Unauthorized');
+      return;
+    }
+
+    let token = '';
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'] || '';
+    } catch {
+      token = req.headers['sec-websocket-protocol'] || '';
+    }
+
+    try {
+      const tokenBuf = Buffer.from(token);
+      const apiTokenBuf = Buffer.from(apiToken);
+      if (tokenBuf.length !== apiTokenBuf.length || !timingSafeEqual(tokenBuf, apiTokenBuf)) {
+        // Include the headers we just compared so operators can tell
+        // apart "running the old build" from "headers don't actually
+        // match" without instrumenting the runtime.
+        this.logger.warn(`WebSocket auth rejected: ${describe()} expectedPort=${serverPort}`);
+        done(false, 401, 'Unauthorized');
+      } else {
+        done(true);
+      }
+    } catch {
+      done(false, 401, 'Unauthorized');
+    }
   }
 
   /**
@@ -280,7 +412,7 @@ class WebSocketServer {
     this.clients.add(ws);
 
     // Rate limiting state per client (message count + byte volume per window)
-    ws._rateLimit = { count: 0, bytes: 0, windowStart: Date.now() };
+    ws._rateLimit = { count: 0, bytes: 0, priority: 0, windowStart: Date.now() };
 
     // Send welcome message
     ws.send(
@@ -305,14 +437,37 @@ class WebSocketServer {
       if (now - rl.windowStart > RATE_LIMIT_WINDOW_MS) {
         rl.count = 0;
         rl.bytes = 0;
+        rl.priority = 0;
         rl.windowStart = now;
       }
       rl.bytes += data.length || 0;
       if (++rl.count > RATE_LIMIT_MAX_MESSAGES || rl.bytes > RATE_LIMIT_MAX_BYTES) {
-        if (ws.readyState === 1) {
-          ws.send(JSON.stringify({ type: 'error', error: 'Rate limit exceeded', timestamp: now }));
+        // Over budget. Peek at the envelope head once and use it for both the
+        // panic exemption (F-07) and the correlation id (F-06).
+        const head = peekFrameHead(data);
+        const isPriority =
+          head.command !== undefined &&
+          PRIORITY_COMMANDS.has(head.command) &&
+          (data.length || 0) <= PRIORITY_FRAME_MAX_BYTES &&
+          ++rl.priority <= RATE_LIMIT_MAX_PRIORITY;
+
+        if (!isPriority) {
+          if (ws.readyState === 1) {
+            // Echo the request id so the client can settle THAT promise instead
+            // of waiting out its 10 s timeout. Measured before the fix: 40 of
+            // 100 commands hung 9 999-10 000 ms each (audit L01 F-06).
+            ws.send(
+              JSON.stringify({
+                ...(head.id !== undefined ? { id: head.id } : {}),
+                type: 'error',
+                error: 'Rate limit exceeded',
+                code: 'ERR_RATE_LIMITED',
+                timestamp: now
+              })
+            );
+          }
+          return;
         }
-        return;
       }
 
       // handleMessage has its own try/catch; the only residual reject vector is

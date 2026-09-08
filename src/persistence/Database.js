@@ -22,7 +22,11 @@ import LoopsDB from './tables/LoopsDB.js';
 import LoopArrangementsDB from './tables/LoopArrangementsDB.js';
 import BluetoothDB from './tables/BluetoothDB.js';
 import { buildDynamicUpdate } from './dbHelpers.js';
-import { runMigrations as runSchemaMigrations } from './DatabaseLifecycle.js';
+import {
+  runMigrations as runSchemaMigrations,
+  applyConnectionPragmas
+} from './DatabaseLifecycle.js';
+import { runWithBusyRetry } from './busyRetry.js';
 
 /**
  * Top-level database manager. One instance per process; registered as
@@ -96,9 +100,16 @@ class DatabaseManager {
   connect() {
     try {
       this.db = new Database(this.dbPath);
-      this.db.pragma('journal_mode = WAL');
-      this.db.pragma('foreign_keys = ON');
-      this.logger.info(`Connected to database: ${this.dbPath}`);
+      // busy_timeout is the worst-case FREEZE of this process, not just of the
+      // query: better-sqlite3 is synchronous, so the SQLite busy handler blocks
+      // the event loop — and with it the MIDI scheduler (F-78 / F-130). It is
+      // set explicitly here instead of inheriting the driver's 5 s default.
+      this.busyTimeoutMs = applyConnectionPragmas(this.db, {
+        busyTimeoutMs: this.config?.database?.busyTimeoutMs
+      });
+      this.logger.info(
+        `Connected to database: ${this.dbPath} (busy_timeout=${this.busyTimeoutMs}ms)`
+      );
     } catch (error) {
       this.logger.error(`Failed to connect to database: ${error.message}`);
       throw error;
@@ -489,6 +500,24 @@ class DatabaseManager {
     return this.db.transaction(fn);
   }
 
+  /**
+   * Run a synchronous write, retrying `SQLITE_BUSY` **across `await` points**
+   * so the event loop — and the MIDI scheduler — runs between attempts.
+   *
+   * `busy_timeout` alone only bounds ONE freeze (F-78/F-130); this bounds the
+   * freeze *and* keeps a write from being lost to a transient external lock.
+   * Callers get a named {@link DatabaseBusyError} when every attempt failed,
+   * never a silent no-op.
+   *
+   * @template T
+   * @param {() => T} fn - Re-runnable synchronous write.
+   * @param {{attempts?:number, backoffMs?:number, operation?:string}} [options]
+   * @returns {Promise<T>}
+   */
+  runWriteWithRetry(fn, options = {}) {
+    return runWithBusyRetry(fn, { logger: this.logger, ...options });
+  }
+
   // ==================== DELEGATE TO SUB-MODULES ====================
 
   // MIDI Files
@@ -809,6 +838,17 @@ class DatabaseManager {
   }
   deleteStringInstrumentByDeviceChannel(deviceId, channel) {
     return this.stringInstrumentDB.deleteStringInstrumentByDeviceChannel(deviceId, channel);
+  }
+  /**
+   * Delete a device's string-instrument rows (optionally one channel).
+   * Exposed on the facade so the `instrument_delete` cascade can run every leg
+   * through a single object inside one transaction (F-81).
+   * @param {string} deviceId
+   * @param {?number} [channel]
+   * @returns {number} Rows removed.
+   */
+  deleteStringInstrumentsByDevice(deviceId, channel) {
+    return this.stringInstrumentDB.deleteByDevice(deviceId, channel);
   }
 
   // Tablature Data

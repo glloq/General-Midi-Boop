@@ -111,7 +111,7 @@
                             </div>
                         </div>
                     </div>
-                    <button class="modal-close" id="keyboard-close-btn">&times;</button>
+                    <button class="modal-close" id="keyboard-close-btn" aria-label="${this.t('common.close')}">&times;</button>
                 </div>
 
                 <!-- Minimap navigation row -->

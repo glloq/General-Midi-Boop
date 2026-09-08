@@ -11,6 +11,16 @@
  * double-error pattern (`"X is required, X must be Y"`) preserves
  * historical behaviour where missing fields also fail the type check.
  */
+import {
+  fieldRules,
+  isIdLike,
+  isIntLike,
+  isNumLike,
+  isBoolLike,
+  isChannel,
+  isPlainObject,
+  isNonEmptyStr
+} from './helpers.js';
 
 export const playback_start = {
   custom: (data) => {
@@ -125,6 +135,89 @@ export const get_file_routings = {
 
 // Indexed by command name — consumed by JsonValidator.validatePlaybackCommand
 // which now first looks up this map before falling back to the legacy switch.
+// ── F-19 / F-20 backfill ─────────────────────────────────────────────
+// `PlaybackControlCommands` accepted 42 of 42 hostile frames. Measured on the
+// live server (01_API_CONTRACT.md §9.1):
+//   set_tempo {bpm:1e308}  -> ACCEPTED and memorised
+//   set_tempo {}           -> {"success":false,"bpm":1e+308}   (state poisoned)
+//   playback_status        -> {"tempo":1e+308, ...}            (served to the UI)
+// `setPlaybackTempo` clamps the derived RATE, not the BPM it reports, so the
+// tempo shown by the UI stayed wrong until someone sent a sane value.
+
+export const playback_set_tempo = {
+  custom: (data) => {
+    const raw = data.bpm !== undefined && data.bpm !== null ? data.bpm : data.tempo;
+    if (raw === undefined || raw === null) return 'bpm is required';
+    if (!isNumLike(raw)) return 'bpm must be a number';
+    if (!isNumLike(raw, 20, 400)) return 'bpm must be between 20 and 400';
+    return null;
+  }
+};
+
+// `playbackSetVolume` already clamps to 0-127 and falls back to 100 — the
+// schema exists to REJECT nonsense instead of silently correcting it.
+export const playback_set_volume = {
+  custom: fieldRules([
+    [
+      'volume',
+      (v) => isIntLike(v, 0, 127),
+      'volume must be an integer between 0 and 127',
+      { required: true }
+    ]
+  ])
+};
+
+export const playback_mute_channel = {
+  custom: fieldRules([
+    ['channel', isChannel, 'Invalid channel (must be 0-15)', { required: true }],
+    ['muted', isBoolLike, 'muted must be a boolean']
+  ])
+};
+
+export const playback_set_channel_routing = {
+  custom: fieldRules([
+    ['channel', isChannel, 'channel must be between 0 and 15'],
+    ['deviceId', isIdLike, 'deviceId must be a number or non-empty string'],
+    ['targetChannel', isChannel, 'targetChannel must be between 0 and 15']
+  ])
+};
+
+export const playback_set_disconnect_policy = {
+  custom: fieldRules([
+    ['policy', (v) => isNonEmptyStr(v, 32), 'policy must be a string', { required: true }]
+  ])
+};
+
+export const playback_validate_routing = {
+  custom: fieldRules([['fileId', isIdLike, 'fileId must be a number or non-empty string']])
+};
+
+export const get_instrument_defaults = {
+  custom: fieldRules([
+    [
+      'instrumentId',
+      isIdLike,
+      'instrumentId must be a number or non-empty string',
+      { required: true }
+    ]
+  ])
+};
+
+export const update_instrument_capabilities = {
+  custom: fieldRules([
+    [
+      'updates',
+      isPlainObject,
+      'updates must be an object keyed by instrument id',
+      { required: true }
+    ]
+  ])
+};
+
+// Takes no payload at all (`(_data) => validateInstrumentCapabilities(app)`),
+// but is declared so the command appears as covered rather than exempt.
+export const validate_instrument_capabilities = {};
+
 const schemas = {
   playback_start,
   playback_seek,
@@ -133,7 +226,16 @@ const schemas = {
   apply_assignments,
   analyze_channel,
   generate_assignment_suggestions,
-  get_file_routings
+  get_file_routings,
+  playback_set_tempo,
+  playback_set_volume,
+  playback_mute_channel,
+  playback_set_channel_routing,
+  playback_set_disconnect_policy,
+  playback_validate_routing,
+  get_instrument_defaults,
+  update_instrument_capabilities,
+  validate_instrument_capabilities
 };
 
 export default schemas;

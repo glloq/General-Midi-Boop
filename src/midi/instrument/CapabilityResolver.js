@@ -146,9 +146,7 @@ export class CapabilityResolver {
             // firmware (audit P2-4). Null/empty → forward everything.
             supportedCcs:
               Array.isArray(instrument.supported_ccs) && instrument.supported_ccs.length > 0
-                ? instrument.supported_ccs.filter(
-                    (n) => Number.isInteger(n) && n >= 0 && n <= 127
-                  )
+                ? instrument.supported_ccs.filter((n) => Number.isInteger(n) && n >= 0 && n <= 127)
                 : null,
             // The instrument's OWN hand-position control CCs (cc_position_number
             // per hand). These are actuator control the engine injects/bakes;
@@ -174,7 +172,13 @@ export class CapabilityResolver {
     if (constraints.noteRangeMin == null && constraints.noteRangeMax == null) {
       try {
         const s = this._db?.stringInstrumentDB?.getStringInstrument(deviceId, channel);
-        if (s && !s.is_fretless && Array.isArray(s.tuning) && s.tuning.length > 0 && s.num_frets > 0) {
+        if (
+          s &&
+          !s.is_fretless &&
+          Array.isArray(s.tuning) &&
+          s.tuning.length > 0 &&
+          s.num_frets > 0
+        ) {
           const fps = Array.isArray(s.frets_per_string) ? s.frets_per_string : null;
           // Iterate the ORIGINAL tuning and skip non-integer entries in place, so
           // `fps[i]` stays aligned with its string. Filtering the tuning first

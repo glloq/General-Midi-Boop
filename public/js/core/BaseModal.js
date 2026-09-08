@@ -302,9 +302,17 @@ class BaseModal {
     // Focus trap
     this._focusTrapHandler = (e) => {
       if (e.key === 'Tab' && this.dialog) {
-        const focusable = this.dialog.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
+        // Disabled / hidden controls are NOT focusable: if the last node of this
+        // list is one of them, `document.activeElement === last` never becomes
+        // true and Tab walks straight out of the dialog — the trap silently
+        // stops trapping (audit L09, F-100). Filter them out, same predicate as
+        // _focusFirst().
+        const focusable = [
+          ...this.dialog.querySelectorAll(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ].filter((el) => !el.hasAttribute('hidden') && el.getAttribute('aria-hidden') !== 'true');
+        if (focusable.length === 0) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
 

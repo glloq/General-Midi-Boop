@@ -160,3 +160,67 @@ export class DatabaseError extends ApplicationError {
     };
   }
 }
+
+/**
+ * Thrown when SQLite refuses a write because another **process** holds the
+ * lock and every retry attempt failed. Maps to HTTP 503 (retry later) rather
+ * than 500: nothing was written, the request is safe to replay.
+ *
+ * Exists so a contended write surfaces to the client as a named, actionable
+ * error instead of the masked "Internal server error" the audit observed
+ * (F-130). See {@link module:src/persistence/busyRetry}.
+ */
+export class DatabaseBusyError extends ApplicationError {
+  /**
+   * @param {string} message
+   * @param {?string} [operation=null] - Symbolic operation name.
+   * @param {{cause?:Error}} [options]
+   */
+  constructor(message, operation = null, options = {}) {
+    super(message, 'ERR_DATABASE_BUSY', 503);
+    this.name = 'DatabaseBusyError';
+    this.operation = operation;
+    if (options.cause) this.cause = options.cause;
+  }
+
+  /** @returns {Object} Base JSON plus `operation`. */
+  toJSON() {
+    return {
+      ...super.toJSON(),
+      operation: this.operation
+    };
+  }
+}
+
+/**
+ * Thrown when a write would silently clobber a concurrent one — optimistic
+ * concurrency control failed because the resource changed between the moment
+ * the caller read it and the moment it tried to write.
+ *
+ * Maps to HTTP 409. `expected` / `actual` carry the version tokens
+ * (`content_hash`, routing fingerprint…) so the client can tell the operator
+ * *what* moved and reload before retrying (F-76 / F-77).
+ */
+export class ConflictError extends ApplicationError {
+  /**
+   * @param {string} message
+   * @param {{resource?:string, expected?:*, actual?:*}} [details]
+   */
+  constructor(message, details = {}) {
+    super(message, 'ERR_CONFLICT', 409);
+    this.name = 'ConflictError';
+    this.resource = details.resource ?? null;
+    this.expected = details.expected ?? null;
+    this.actual = details.actual ?? null;
+  }
+
+  /** @returns {Object} Base JSON plus the version tokens. */
+  toJSON() {
+    return {
+      ...super.toJSON(),
+      resource: this.resource,
+      expected: this.expected,
+      actual: this.actual
+    };
+  }
+}

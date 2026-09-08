@@ -479,6 +479,22 @@ class NetworkManager extends EventEmitter {
     }
 
     try {
+      // Reconnecting to an IP that already has a session: close the old one
+      // first. Without this the previous session object was simply dropped
+      // from `rtpSessions` — its clock-sync interval and receiver watchdog
+      // kept running, `shutdown()` could no longer reach it, and the peer was
+      // never told (no BY) so it kept a half-open session (audit L04 F-49).
+      const previous = this.rtpSessions.get(ip);
+      if (previous) {
+        this.logger.info(`[NetworkManager] Closing previous RTP-MIDI session for ${ip}`);
+        this.rtpSessions.delete(ip);
+        try {
+          previous.close();
+        } catch (err) {
+          this.logger.warn(`[NetworkManager] Error closing previous session: ${err.message}`);
+        }
+      }
+
       // AppleMIDI uses a control port (default 5004) and a data port (P+1).
       // We bind ONE control socket and ONE data socket, shared by every
       // session, and demux inbound by sender IP. A second remote no longer
@@ -806,7 +822,12 @@ class NetworkManager extends EventEmitter {
   _handleControlInbound(msg, rinfo) {
     let session = this.rtpSessions.get(rinfo.address);
     if (!session && isControlPacket(msg) && commandOf(msg) === CMD.INVITATION) {
-      session = this._createResponderSession(rinfo.address);
+      // Answer on the port the invitation actually came FROM. An AppleMIDI
+      // initiator picks its own control port (macOS/iOS advertise a dynamic
+      // one over Bonjour); replying to our own `rtpMidiPort` only ever worked
+      // when the peer happened to use the same number, so inbound sessions
+      // from a real device silently never completed (audit L04 F-50).
+      session = this._createResponderSession(rinfo.address, rinfo.port);
     }
     if (!session) return;
     try {
@@ -839,11 +860,14 @@ class NetworkManager extends EventEmitter {
    * Create a session that ACCEPTS an inbound invitation from `ip` (we are the
    * responder). Wired identically to an initiated session.
    * @param {string} ip
+   * @param {number} [remoteControlPort] - Source port of the invitation; the
+   *   peer's data port is assumed to be `remoteControlPort + 1` (the AppleMIDI
+   *   two-port convention). Defaults to our own `rtpMidiPort`.
    * @returns {RtpMidiSession}
    * @private
    */
-  _createResponderSession(ip) {
-    const controlPort = this.rtpMidiPort;
+  _createResponderSession(ip, remoteControlPort = this.rtpMidiPort) {
+    const controlPort = Number(remoteControlPort) || this.rtpMidiPort;
     const dataPort = controlPort + 1;
     const session = new RtpMidiSession({
       localName: 'GeneralMidiBoop',

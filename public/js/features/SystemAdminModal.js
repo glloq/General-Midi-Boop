@@ -118,7 +118,7 @@
         return res;
       } catch (err) {
         this._setResult(
-          (tt('systemAdmin.error', 'Erreur') + ': ' + (err && err.message ? err.message : err))
+          tt('systemAdmin.error', 'Erreur') + ': ' + (err && err.message ? err.message : err)
         );
         return null;
       }
@@ -147,16 +147,20 @@
           </div>`;
         })
         .join('');
-      listEl.querySelectorAll('[data-sam-load]').forEach((b) =>
-        b.addEventListener('click', () =>
-          this._run('session_load', { sessionId: this._num(b.getAttribute('data-sam-load')) })
-        )
-      );
-      listEl.querySelectorAll('[data-sam-export]').forEach((b) =>
-        b.addEventListener('click', () =>
-          this._run('session_export', { sessionId: this._num(b.getAttribute('data-sam-export')) })
-        )
-      );
+      listEl
+        .querySelectorAll('[data-sam-load]')
+        .forEach((b) =>
+          b.addEventListener('click', () =>
+            this._run('session_load', { sessionId: this._num(b.getAttribute('data-sam-load')) })
+          )
+        );
+      listEl
+        .querySelectorAll('[data-sam-export]')
+        .forEach((b) =>
+          b.addEventListener('click', () =>
+            this._run('session_export', { sessionId: this._num(b.getAttribute('data-sam-export')) })
+          )
+        );
       listEl.querySelectorAll('[data-sam-delete]').forEach((b) =>
         b.addEventListener('click', () =>
           this._run(
@@ -217,7 +221,10 @@
         this._run(
           'system_restore',
           { path },
-          tt('systemAdmin.confirmRestore', 'Restaurer cette sauvegarde ? Les données actuelles seront remplacées.')
+          tt(
+            'systemAdmin.confirmRestore',
+            'Restaurer cette sauvegarde ? Les données actuelles seront remplacées.'
+          )
         );
       });
       on('sam-session-save', () => {

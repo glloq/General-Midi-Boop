@@ -279,6 +279,18 @@ class Application {
       // Initialize Bluetooth (optional - may not be available on all systems)
       try {
         this._registerService('bluetoothManager', new BluetoothManager(deps));
+        // BLE initialisation is asynchronous and best-effort: the constructor
+        // returns before `_initializePort()` has settled, and a failure there
+        // is only logged. Capture the reason so /api/health can report a
+        // *failed* BLE transport instead of a truthy-object `ready`
+        // (audit 2026-09-07 L12, F-02).
+        this.bluetoothManager.on?.('bluetooth:powered_off', (payload) => {
+          this._capabilityErrors.ble =
+            payload?.error || payload?.reason || 'BLE adapter powered off';
+        });
+        this.bluetoothManager.on?.('bluetooth:powered_on', () => {
+          delete this._capabilityErrors.ble;
+        });
         this.logger.info('Bluetooth initialized');
       } catch (error) {
         this._capabilityErrors.ble = error.message;
@@ -700,6 +712,11 @@ class Application {
    * one of: `ready`, `degraded`, `failed` (load error) or `disabled`
    * (absent / not configured).
    *
+   * **A capability is `ready` only when it is actually operational.** Object
+   * existence is not readiness: every optional transport constructs even when
+   * its runtime is missing, so each one is cross-checked against a runtime
+   * predicate (audit 2026-09-07 L12, findings F-01/F-02/F-128).
+   *
    * @returns {{overall:string, capabilities:Object<string,{status:string, detail?:string}>}}
    */
   getCapabilityStatus() {
@@ -710,12 +727,75 @@ class Application {
       }
       return errored(key) ? { status: 'failed', detail: errored(key) } : { status: 'disabled' };
     };
+    /** Never let a misbehaving transport take /api/health down with it. */
+    const runtimeStatus = (service) => {
+      try {
+        return service?.getStatus?.() ?? null;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    // usb — F-01. DeviceManager ALWAYS constructs: when `easymidi` cannot be
+    // imported the module substitutes a no-op stub and flips `midiAvailable`
+    // to false (DeviceManager.js). `this.deviceManager ?` therefore never
+    // reported a failure, and a host with no ALSA bindings answered
+    // `usb: ready` while logging "MIDI scan skipped". Read the runtime flag.
+    let usb;
+    if (!this.deviceManager) {
+      usb = { status: 'failed', detail: 'DeviceManager was not constructed' };
+    } else if (this.deviceManager.midiAvailable === false) {
+      usb = {
+        status: 'failed',
+        detail:
+          'Native MIDI library unavailable (easymidi/ALSA bindings missing) — USB MIDI ports cannot be opened'
+      };
+    } else {
+      usb = { status: 'ready' };
+    }
+
+    // ble — F-02. BluetoothManager's constructor succeeds on a host with no
+    // Bluetooth stack at all; the failure happens later and asynchronously in
+    // `_initializePort()`, which logs and swallows it. `getStatus().available`
+    // mirrors the port's real readiness, so consult it. A recorded error
+    // (constructor throw, or a `bluetooth:powered_off` reason) is a hard
+    // `failed`; "not ready and no reason yet" is `degraded`, which also covers
+    // the short boot window before the adapter has finished coming up.
+    let ble = optional(this.bluetoothManager, 'ble');
+    if (ble.status === 'ready') {
+      const bleRuntime = runtimeStatus(this.bluetoothManager);
+      if (bleRuntime && bleRuntime.available === false) {
+        ble = errored('ble')
+          ? { status: 'failed', detail: errored('ble') }
+          : {
+              status: 'degraded',
+              detail: 'BLE adapter not ready (initialising, powered off, or no BlueZ/D-Bus)'
+            };
+      }
+    }
+
+    // serial — F-128. SerialMidiManager also always constructs. `enabled`
+    // reflects the operator's configuration choice, `available` whether the
+    // `serialport` module loaded; neither was consulted, so a UART disabled in
+    // config answered `serial: ready`.
+    let serial = optional(this.serialMidiManager, 'serial');
+    if (serial.status === 'ready') {
+      const serialRuntime = runtimeStatus(this.serialMidiManager);
+      if (serialRuntime && serialRuntime.enabled === false) {
+        serial = { status: 'disabled', detail: 'Serial MIDI disabled in configuration' };
+      } else if (serialRuntime && serialRuntime.available === false) {
+        serial = {
+          status: 'failed',
+          detail: 'serialport module unavailable — UART MIDI cannot be opened'
+        };
+      }
+    }
 
     const capabilities = {
       database: { status: this.database ? 'ready' : 'failed' },
       playback: { status: this.midiPlayer ? 'ready' : 'failed' },
-      usb: this.deviceManager ? { status: 'ready' } : { status: 'failed' },
-      ble: optional(this.bluetoothManager, 'ble'),
+      usb,
+      ble,
       // RTP-MIDI is a simplified, non-conformant AppleMIDI implementation —
       // report it as degraded even when loaded so operators aren't misled.
       network: optional(this.networkManager, 'network', {
@@ -723,7 +803,7 @@ class Application {
         degradedDetail:
           'RTP-MIDI is a simplified AppleMIDI implementation (no IN/OK, CK sync or journal)'
       }),
-      serial: optional(this.serialMidiManager, 'serial'),
+      serial,
       lighting: optional(this.lightingManager, 'lighting')
     };
 

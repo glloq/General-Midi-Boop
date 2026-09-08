@@ -11,9 +11,9 @@ const v = (cmd, data) => JsonValidator.validateByCommand(cmd, data);
 
 describe('T5.4 — apply_assignments', () => {
   test('valid payload passes (channels 0-15)', () => {
-    expect(v('apply_assignments', { originalFileId: 1, assignments: { 0: {}, 15: {} } }).valid).toBe(
-      true
-    );
+    expect(
+      v('apply_assignments', { originalFileId: 1, assignments: { 0: {}, 15: {} } }).valid
+    ).toBe(true);
   });
   test('missing originalFileId is rejected', () => {
     const r = v('apply_assignments', { assignments: {} });

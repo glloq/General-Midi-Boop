@@ -31,7 +31,11 @@ import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
 import LongitudinalPlanner from '../adaptation/LongitudinalPlanner.js';
 import { planVoiceProgramChanges } from '../adaptation/VoiceSelector.js';
 import { ConfigurationError, NotFoundError, ValidationError } from '../../core/errors/index.js';
-import { DEFAULT_MICROSECONDS_PER_BEAT, EVENT_ORDER_PRIORITY } from '../../core/constants.js';
+import {
+  DEFAULT_MICROSECONDS_PER_BEAT,
+  EVENT_ORDER_PRIORITY,
+  TIMING
+} from '../../core/constants.js';
 
 /** Used to convert MIDI `microsecondsPerBeat` into BPM. */
 const MICROSECONDS_PER_MINUTE = 60000000;
@@ -1474,11 +1478,28 @@ class MidiPlayer {
     state.disconnectedPolicy = this.disconnectedPolicy;
     state._lastBroadcastPosition = this._lastBroadcastPosition;
 
+    // A callback invoked from INSIDE tick() can re-anchor the timeline
+    // synchronously: end-of-file → single-file loop (`seek(0)` → `start()`),
+    // end-of-file → `stop()`, or the `pause` disconnect policy. tick()
+    // returns the index it entered with in those branches, so blindly
+    // writing it back restored the cursor to the end of the file and the
+    // loop's second pass emitted nothing at all (audit L05 F-56). Only sync
+    // back when nothing re-anchored the player during the tick.
+    const indexBefore = this.currentEventIndex;
+    const startTimeBefore = this.startTime;
+    const playingBefore = this.playing;
+
     const newIndex = this.scheduler.tick(
       state,
       this._getOutputForChannelBound,
       this._schedulerCallbacks
     );
+
+    const reAnchored =
+      this.currentEventIndex !== indexBefore ||
+      this.startTime !== startTimeBefore ||
+      this.playing !== playingBefore;
+    if (reAnchored) return;
 
     // Sync mutable state back
     this.position = state.position;
@@ -1500,6 +1521,11 @@ class MidiPlayer {
     this.stateMachine.tryTransition(PLAYBACK_STATES.PAUSED);
     this.paused = true;
     this.pauseTime = performance.now();
+    // Freeze the EXACT position rather than the last tick's (up to one
+    // SCHEDULER_TICK_MS stale). resume() rewinds the event cursor against
+    // this value, so it has to be the real pause instant.
+    const pauseRate = this.playbackRate > 0 ? this.playbackRate : 1;
+    this.position = Math.min(this.duration, ((this.pauseTime - this.startTime) * pauseRate) / 1000);
     this.scheduler.stopScheduler();
     this.sendAllNotesOff();
     // All Notes Off just released every sounding voice; reset the scheduler's
@@ -1532,6 +1558,23 @@ class MidiPlayer {
     this.paused = false;
     const pauseDuration = performance.now() - this.pauseTime;
     this.startTime += pauseDuration;
+    // pause() cancelled every event the scheduler had already queued inside
+    // its lookahead window, but `currentEventIndex` still points PAST them —
+    // so resuming skipped up to LOOKAHEAD_SECONDS of timeline: notes vanished
+    // and a note-off could arrive with no matching note-on (audit L05 F-57).
+    // Rewind the cursor to just after what was actually emitted. Everything
+    // with `time <= position + EMIT_AHEAD_MS` already went out (the tickless
+    // window fires those synchronously), so starting strictly after that
+    // bound replays the cancelled events without duplicating any. The cursor
+    // can only move BACKWARDS here.
+    const emittedThrough = this.position + TIMING.EMIT_AHEAD_MS / 1000;
+    let rewound = this.findEventIndexAtTime(emittedThrough);
+    while (rewound < this.events.length && this.events[rewound].time <= emittedThrough) {
+      rewound++;
+    }
+    if (rewound < this.currentEventIndex) {
+      this.currentEventIndex = rewound;
+    }
     this.scheduler.startScheduler(() => {
       this._schedulerTick();
     });

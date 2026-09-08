@@ -25,7 +25,8 @@ function makeDecoder() {
     }
   };
   return {
-    feed: (bytes) => BluetoothManager.prototype._handleIncomingMidi.call(ctx, 'AA', Buffer.from(bytes)),
+    feed: (bytes) =>
+      BluetoothManager.prototype._handleIncomingMidi.call(ctx, 'AA', Buffer.from(bytes)),
     emitted,
     sysex: () => states.get('AA')?.sysex ?? null
   };

@@ -45,6 +45,10 @@ class OscLightDriver extends BaseLightingDriver {
   async _doDisconnect() {
     this.allOff();
     if (this.socket) {
+      // Let the queued "off" datagrams leave before closing the socket,
+      // otherwise they are discarded and the fixtures stay lit
+      // (audit L02 F-30b).
+      await this._drainSocket();
       this.socket.close();
       this.socket = null;
     }

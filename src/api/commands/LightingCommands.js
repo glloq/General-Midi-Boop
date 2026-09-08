@@ -818,7 +818,13 @@ function lightingMidiLearnStart(app, _data) {
   // Set up a one-shot MIDI listener that captures the next MIDI event.
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      app.eventBus.removeListener('midi_message', handler);
+      // EventBus (src/core/EventBus.js) exposes `off()`, NOT the Node
+      // EventEmitter `removeListener()`. Calling the latter threw a TypeError
+      // from inside a timer callback — unreachable by the dispatcher's
+      // try/catch, so it escalated to `uncaughtException` and Application's
+      // handler shut the entire server down. One `lighting_midi_learn` frame
+      // was therefore a remote kill switch (audit L01 F-18).
+      app.eventBus.off('midi_message', handler);
       resolve({
         success: false,
         error: 'timeout',
@@ -828,7 +834,10 @@ function lightingMidiLearnStart(app, _data) {
 
     const handler = (event) => {
       clearTimeout(timeout);
-      app.eventBus.removeListener('midi_message', handler);
+      // Same trap on the happy path: the TypeError was swallowed by
+      // EventBus.emit's per-listener try/catch, leaving the listener attached
+      // forever on the MIDI hot path and the promise unresolved (audit L01 F-18).
+      app.eventBus.off('midi_message', handler);
 
       const midiData = event.data || event;
       resolve({

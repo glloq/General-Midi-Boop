@@ -7,6 +7,16 @@
  * (audit B1). These schemas bound the fields that flow into hardware/DB/timers;
  * purely string/id commands keep their imperative `requireField` checks.
  */
+import {
+  fieldRules,
+  isIdLike,
+  isIntLike,
+  isBoolLike,
+  isStr,
+  isNonEmptyStr,
+  isPlainObject,
+  MAX_NAME_LEN
+} from './helpers.js';
 
 const DEVICE_TYPES = new Set([
   'gpio',
@@ -150,6 +160,161 @@ export const lighting_bpm_set = {
   }
 };
 
+// ── F-19 / F-37 backfill: the 21 remaining payload-taking commands ──
+// Measured: `LightingCommands` accepted 122 of 203 hostile frames, the largest
+// count in the project, on a surface that drives GPIO, DMX/Art-Net, sACN, MQTT
+// and a rules engine evaluated synchronously on every MIDI message
+// (02_LIGHTING.md §F-37, 01_API_CONTRACT.md §3.3).
+
+/** A saved scene replays one effect per entry; bound the list. */
+const MAX_SCENE_ENTRIES = 512;
+
+const idRule = ['id', isIdLike, 'id must be a number or non-empty string', { required: true }];
+const optionalDeviceIdRule = [
+  'device_id',
+  isIdLike,
+  'device_id must be a number or non-empty string'
+];
+
+/** Rule columns, shared by add (device_id required) and update (id required). */
+const ruleColumnRules = [
+  ['instrument_id', isIdLike, 'instrument_id must be a number or non-empty string'],
+  [
+    'name',
+    (v) => isStr(v, MAX_NAME_LEN),
+    `name must be a string of at most ${MAX_NAME_LEN} characters`
+  ],
+  [
+    'priority',
+    (v) => isIntLike(v, -1000, 1000),
+    'priority must be an integer between -1000 and 1000'
+  ],
+  ['enabled', isBoolLike, 'enabled must be a boolean'],
+  ['condition_config', isPlainObject, 'condition_config must be an object'],
+  ['action_config', isPlainObject, 'action_config must be an object']
+];
+
+export const lighting_rule_add = {
+  custom: fieldRules([
+    ['device_id', isIdLike, 'device_id must be a number or non-empty string', { required: true }],
+    ...ruleColumnRules
+  ])
+};
+
+// `updateRule(data.id, data)` forwards the WHOLE envelope to the repository,
+// so every column has to be gated here, not only the ones the UI edits.
+export const lighting_rule_update = {
+  custom: fieldRules([idRule, optionalDeviceIdRule, ...ruleColumnRules])
+};
+
+export const lighting_rule_delete = { custom: fieldRules([idRule]) };
+export const lighting_rule_test = { custom: fieldRules([idRule]) };
+export const lighting_device_delete = { custom: fieldRules([idRule]) };
+export const lighting_device_test = { custom: fieldRules([idRule]) };
+export const lighting_preset_load = { custom: fieldRules([idRule]) };
+export const lighting_preset_delete = { custom: fieldRules([idRule]) };
+
+export const lighting_rule_list = { custom: fieldRules([optionalDeviceIdRule]) };
+export const lighting_rules_export = { custom: fieldRules([optionalDeviceIdRule]) };
+
+export const lighting_rules_import = {
+  custom: fieldRules([
+    [
+      'import_data',
+      (v) => isPlainObject(v) || isStr(v, 4 * 1024 * 1024),
+      'import_data must be an object or a JSON string',
+      { required: true }
+    ],
+    ['default_device_id', isIdLike, 'default_device_id must be a number or non-empty string']
+  ])
+};
+
+export const lighting_device_scan = {
+  custom: fieldRules([
+    ['type', (v) => isNonEmptyStr(v, 32), 'type must be a string'],
+    // Format (an IPv4 /24 prefix) is enforced by the handler's SSRF guard.
+    ['subnet', (v) => isNonEmptyStr(v, 64), 'subnet must be a string']
+  ])
+};
+
+export const lighting_preset_save = {
+  custom: fieldRules([
+    [
+      'name',
+      (v) => isNonEmptyStr(v, MAX_NAME_LEN),
+      `name must be a non-empty string of at most ${MAX_NAME_LEN} characters`,
+      { required: true }
+    ]
+  ])
+};
+
+export const lighting_effect_stop = {
+  custom: fieldRules([
+    [
+      'effect_key',
+      (v) => isNonEmptyStr(v, MAX_NAME_LEN),
+      'effect_key must be a non-empty string',
+      { required: true }
+    ]
+  ])
+};
+
+const groupNameSchema = {
+  custom: fieldRules([
+    [
+      'name',
+      (v) => isNonEmptyStr(v, MAX_NAME_LEN),
+      'name must be a non-empty string',
+      { required: true }
+    ]
+  ])
+};
+export const lighting_group_delete = groupNameSchema;
+export const lighting_group_off = groupNameSchema;
+
+// `lighting_scene_save` accepted deepNest (600 levels), bigArray (50 000) and
+// bigString (200 000 chars) as-is; the snapshot is replayed later by
+// `_applySceneObject`, which starts one effect per entry.
+export const lighting_scene_save = {
+  custom: fieldRules([
+    [
+      'name',
+      (v) => isNonEmptyStr(v, MAX_NAME_LEN),
+      `name must be a non-empty string of at most ${MAX_NAME_LEN} characters`,
+      { required: true }
+    ],
+    ['device_colors', isPlainObject, 'device_colors must be an object']
+  ])
+};
+
+export const lighting_scene_apply = {
+  custom: fieldRules(
+    [['scene', isPlainObject, 'scene data is required', { required: true }]],
+    (data, errors) => {
+      const effects = data.scene && data.scene.effects;
+      if (Array.isArray(effects) && effects.length > MAX_SCENE_ENTRIES) {
+        errors.push(`scene.effects must hold at most ${MAX_SCENE_ENTRIES} entries`);
+      }
+    }
+  )
+};
+
+// `data?.enabled !== false` means ANY value other than `false` switches these
+// on — including `0`, `"no"` and `{}`. Require a real boolean-ish value so the
+// caller cannot enable a continuous LED broadcast (or the whole lighting
+// system) by accident or by typo.
+export const lighting_led_broadcast = {
+  custom: fieldRules([['enabled', isBoolLike, 'enabled must be a boolean', { required: true }]])
+};
+
+export const lighting_set_enabled = {
+  custom: fieldRules([['enabled', isBoolLike, 'enabled must be a boolean', { required: true }]])
+};
+
+// `lightingMidiLearnStart(app, _data)` never reads its payload — declared so
+// the command counts as covered rather than exempt.
+export const lighting_midi_learn = {};
+
 const schemas = {
   lighting_device_add,
   lighting_device_update,
@@ -157,7 +322,28 @@ const schemas = {
   lighting_effect_start,
   lighting_group_create,
   lighting_group_color,
-  lighting_bpm_set
+  lighting_bpm_set,
+  lighting_rule_add,
+  lighting_rule_update,
+  lighting_rule_delete,
+  lighting_rule_test,
+  lighting_rule_list,
+  lighting_rules_export,
+  lighting_rules_import,
+  lighting_device_delete,
+  lighting_device_test,
+  lighting_device_scan,
+  lighting_preset_save,
+  lighting_preset_load,
+  lighting_preset_delete,
+  lighting_effect_stop,
+  lighting_group_delete,
+  lighting_group_off,
+  lighting_scene_save,
+  lighting_scene_apply,
+  lighting_led_broadcast,
+  lighting_set_enabled,
+  lighting_midi_learn
 };
 
 export default schemas;

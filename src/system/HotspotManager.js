@@ -83,11 +83,12 @@ class HotspotManager {
       stderr = result.stderr || '';
     } catch (err) {
       // execFile throws when exit code != 0; the script still wrote its
-      // JSON error envelope to stdout — try to parse it before giving up.
+      // JSON error envelope to stdout — parse it so the caller gets the
+      // script's own message instead of a bare "Command failed".
       stdout = err.stdout || '';
       stderr = err.stderr || err.message || '';
       const parsed = this._tryParse(stdout);
-      if (parsed) return parsed;
+      if (parsed) return this._assertOk(parsed);
       const hint = /password is required|sudo:.*not allowed/i.test(stderr)
         ? ' (sudoers rule missing — see scripts/Install.sh)'
         : '';
@@ -97,6 +98,30 @@ class HotspotManager {
     const parsed = this._tryParse(stdout);
     if (!parsed) {
       throw new Error(`hotspot.sh produced unparseable output: ${stdout.slice(0, 200)}`);
+    }
+    return this._assertOk(parsed);
+  }
+
+  /**
+   * Reject the script's own failure envelope. `hotspot.sh` exits non-zero
+   * AND prints `{"success":false,"error":"..."}`; the previous code returned
+   * that object from the catch branch, so `enable()` recorded the hotspot as
+   * active (and `wifiConnect()` logged a connection) after a failed nmcli
+   * call. `isActive()` drives the captive-portal middleware, so a false
+   * "active" silently hijacks DNS while wlan0 is still a WiFi client
+   * (audit L11 F-121).
+   *
+   * Payloads without a `success` field are passed through unchanged so the
+   * contract stays backward compatible.
+   *
+   * @param {Object} parsed
+   * @returns {Object} `parsed`, when it does not denote a failure.
+   * @throws {Error} With the script's own error message.
+   * @private
+   */
+  _assertOk(parsed) {
+    if (parsed && parsed.success === false) {
+      throw new Error(parsed.error ? String(parsed.error) : 'hotspot.sh reported failure');
     }
     return parsed;
   }

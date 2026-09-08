@@ -17,23 +17,68 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /**
+ * How long a contended write waits for the lock before giving up with
+ * `SQLITE_BUSY`.
+ *
+ * `better-sqlite3` is **synchronous**: the SQLite busy handler never yields to
+ * the Node event loop, so this value is *literally* the worst-case freeze of
+ * the whole process — WebSocket I/O and the MIDI scheduler included. Leaving it
+ * unset inherits the driver default of 5 000 ms; the audit measured a 5 015 ms
+ * event-loop gap (L07 §X05) and a 10 095 ms `/api/health` (L12 F-130, two
+ * contended writes back to back).
+ *
+ * 250 ms is the trade-off: long enough to ride out a normal commit from a
+ * second process (a `npm run migrate`, the backup job, an `sqlite3` shell),
+ * short enough that a MIDI scheduler tick is late by an audible hiccup rather
+ * than by a lost song. Anything longer than a bar at 120 BPM (2 000 ms) is a
+ * stage failure, not a slow query. Callers that must survive a longer lock use
+ * {@link module:src/persistence/busyRetry.runWithBusyRetry}, which retries
+ * across `await` points so the event loop keeps running between attempts.
+ */
+export const DEFAULT_BUSY_TIMEOUT_MS = 250;
+
+/**
+ * Apply the pragmas every connection in this process must carry.
+ *
+ * Kept in one place so the server connection ({@link Database.connect}), the
+ * one-shot migration CLI and the test harness cannot drift apart — the audit
+ * found `busy_timeout` configured in *neither* of the two open sites.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {{busyTimeoutMs?:number}} [options]
+ * @returns {number} The busy timeout actually applied, in ms.
+ */
+export function applyConnectionPragmas(db, { busyTimeoutMs } = {}) {
+  const timeout =
+    Number.isFinite(busyTimeoutMs) && busyTimeoutMs >= 0
+      ? Math.floor(busyTimeoutMs)
+      : DEFAULT_BUSY_TIMEOUT_MS;
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  // Explicit contract instead of the driver's implicit 5 s default (F-78/F-130).
+  db.pragma(`busy_timeout = ${timeout}`);
+  return timeout;
+}
+
+/**
  * Open and return a configured SQLite database connection. Runs
  * migrations automatically and ensures the schema is up to date.
  *
  * @param {string} dbPath - Path to the SQLite database file
  * @param {Object} logger - Logger instance
+ * @param {{busyTimeoutMs?:number}} [options] - Connection tuning; see
+ *   {@link DEFAULT_BUSY_TIMEOUT_MS}.
  * @returns {import('better-sqlite3').Database}
  */
-export function openDatabase(dbPath, logger) {
+export function openDatabase(dbPath, logger, options = {}) {
   const dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
   const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  logger.info(`Connected to database: ${dbPath}`);
+  const timeout = applyConnectionPragmas(db, options);
+  logger.info(`Connected to database: ${dbPath} (busy_timeout=${timeout}ms)`);
 
   runMigrations(db, logger);
   return db;

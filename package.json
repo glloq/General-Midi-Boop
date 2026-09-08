@@ -54,6 +54,7 @@
     "ws": "^8.14.2"
   },
   "optionalDependencies": {
+    "mqtt": "^5.15.2",
     "pigpio": "^3.3.1",
     "rpi-ws281x-native": "^1.0.0"
   },

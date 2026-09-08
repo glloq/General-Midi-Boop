@@ -32,6 +32,25 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
 
+  # Ratchet for the fail-closed WebSocket payload validation (audit F-19,
+  # wave 1 / R3). Fails when schema coverage drops, when either exemption list
+  # in src/api/commands/schemas/validation-policy.js grows, when a schema file
+  # stops being imported by JsonValidator (it would then validate nothing), or
+  # when a newly registered command is left with neither a schema nor an
+  # exemption — that command would be refused at runtime. Needs no native
+  # module: the registry loads with stub dependencies.
+  schema-coverage:
+    name: WS schema coverage ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: node scripts/audit/command-inventory.mjs --check
+
   audit:
     name: Security Audit
     runs-on: ubuntu-latest

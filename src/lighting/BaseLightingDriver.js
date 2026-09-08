@@ -175,6 +175,22 @@ class BaseLightingDriver extends EventEmitter {
   }
 
   /**
+   * Yield one event-loop turn so datagrams already handed to `socket.send()`
+   * reach the OS before the caller tears the socket down.
+   *
+   * `dgram.send()` is asynchronous: closing the socket in the same tick
+   * discards the packet. Measured on this repo's UDP drivers, the *blackout*
+   * frame emitted by `_doDisconnect()` was lost 20 times out of 20 — so a
+   * clean shutdown or a device reconfiguration left the DMX/OSC fixtures at
+   * their last colour (audit L02 F-30b).
+   *
+   * @returns {Promise<void>}
+   */
+  _drainSocket() {
+    return new Promise((resolve) => setImmediate(resolve));
+  }
+
+  /**
    * Apply brightness to a color component.
    * @param {number} colorValue - Color value 0-255
    * @param {number} brightness - Brightness 0-255

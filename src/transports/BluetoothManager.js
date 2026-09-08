@@ -111,6 +111,11 @@ class BluetoothManager extends EventEmitter {
 
     this._port.on(BLE_EVENTS.DISCONNECTED, ({ address, unexpected }) => {
       this.connectedDevices.delete(address);
+      // Drop any half-assembled SysEx for that device: the link is gone, so
+      // the frame can never be completed. Kept across the drop, its bytes were
+      // glued to the first packet of the NEXT session and emitted as one
+      // fabricated SysEx that was never sent on the wire (audit L04 F-53).
+      this._bleParseState?.delete(address);
       const existing = this.pairedDevices.find((d) => d.address === address);
       if (existing) existing.connected = false;
       this.emit('bluetooth:disconnected', { address, device_id: address });
@@ -503,12 +508,22 @@ class BluetoothManager extends EventEmitter {
       };
 
       while (i < data.length) {
-        // A high-bit byte here is a BLE timestamp, a status byte, or a
-        // System Real-Time message.
+        // A high-bit byte here is the per-message BLE TIMESTAMP byte
+        // (0x80 | (ts & 0x7F)) — including when its low bits make it look like
+        // a System Real-Time status: the Apple BLE-MIDI spec precedes every
+        // message, real-time ones included, by its own timestamp byte, so a
+        // real byte >= 0xF8 is read one position later by the status branch
+        // below. Treating it as real-time HERE dropped the message that
+        // followed and injected a phantom 0xF8-0xFF (Clock / Active Sensing /
+        // System Reset) for every packet whose millisecond timestamp ended in
+        // 0x78-0x7F — 8 values out of 128, i.e. ~6 % of all inbound packets
+        // (audit L04 F-48). The shortcut is kept only INSIDE a SysEx, where
+        // `consumeSysExPayload` deliberately hands an interleaved real-time
+        // byte back to this loop to emit.
         if (data[i] & 0x80) {
           const b = data[i];
-          if (b >= 0xf8) {
-            // System Real-Time — valid anywhere, including inside a SysEx.
+          if (state.sysex && b >= 0xf8) {
+            // System Real-Time interleaved in a SysEx — valid, emit it as is.
             emit([b]);
             i++;
             continue;

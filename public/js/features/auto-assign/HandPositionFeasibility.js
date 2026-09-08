@@ -159,7 +159,12 @@
     const nameByChannel = new Map();
     if (Array.isArray(warnings)) {
       for (const w of warnings) {
-        if (w && typeof w.channel === 'number' && w.instrumentName && !nameByChannel.has(w.channel)) {
+        if (
+          w &&
+          typeof w.channel === 'number' &&
+          w.instrumentName &&
+          !nameByChannel.has(w.channel)
+        ) {
           nameByChannel.set(w.channel, w.instrumentName);
         }
       }

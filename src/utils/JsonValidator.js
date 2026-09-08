@@ -5,8 +5,13 @@
  * CommandRegistry); the per-category helpers are backward-compat shims
  * (defined in a loop below). Data-only validators (validateMidiMessage,
  * validateSession, validatePlaylist, validateInstrument) use their own
- * compiled schemas. Commands without a schema return the permissive
- * `{valid:true, errors:[]}` default.
+ * compiled schemas.
+ *
+ * Since the F-19 remediation the per-command default is **fail-closed**: a
+ * command with no compiled schema is refused unless `validation-policy.js`
+ * exempts it (or the dispatcher reports that its handler never binds a
+ * payload). The exemption lists are the visible, shrink-only ledger of what
+ * is still unvalidated.
  */
 import { compileSchema } from './SchemaCompiler.js';
 import playbackSchemas from '../api/commands/schemas/playback.schemas.js';
@@ -23,6 +28,11 @@ import presetSchemas from '../api/commands/schemas/preset.schemas.js';
 import midiSchemas from '../api/commands/schemas/midi.schemas.js';
 import sessionSchemas from '../api/commands/schemas/session.schemas.js';
 import lightingSchemas from '../api/commands/schemas/lighting.schemas.js';
+import playlistSchemas from '../api/commands/schemas/playlist.schemas.js';
+import instrumentSchemas from '../api/commands/schemas/instrument.schemas.js';
+import stringInstrumentSchemas from '../api/commands/schemas/string_instrument.schemas.js';
+import serialSchemas from '../api/commands/schemas/serial.schemas.js';
+import { isExemptFromSchema, NO_SCHEMA_ERROR } from '../api/commands/schemas/validation-policy.js';
 
 /**
  * Map of command name -> compiled validator (`(data) => string[]`).
@@ -45,7 +55,11 @@ for (const schemas of [
   presetSchemas,
   midiSchemas,
   sessionSchemas,
-  lightingSchemas
+  lightingSchemas,
+  playlistSchemas,
+  instrumentSchemas,
+  stringInstrumentSchemas,
+  serialSchemas
 ]) {
   for (const [cmd, schema] of Object.entries(schemas)) {
     COMPILED_SCHEMAS[cmd] = compileSchema(schema);
@@ -236,21 +250,41 @@ class JsonValidator {
   }
 
   /**
-   * Canonical command-payload validator. Looks up `command` in the
-   * global compiled-schema registry and runs it; returns the permissive
-   * `{valid:true, errors:[]}` default when no schema is registered.
+   * Canonical command-payload validator, **fail-closed** since the F-19
+   * remediation. Looks up `command` in the global compiled-schema registry and
+   * runs it. When no schema is registered the payload is REFUSED, unless the
+   * command is listed in `validation-policy.js` or the caller states that the
+   * handler never binds its payload.
    *
    * This is the single entry point consumed by
    * {@link CommandRegistry#handle}.
    *
    * @param {string} command
    * @param {Object} data
+   * @param {{payloadBlind?:boolean}} [options] - `payloadBlind` is set by the
+   *   dispatcher when the resolved handler takes no payload argument
+   *   (`handler.length === 0`). Such a handler cannot be reached through its
+   *   payload, so there is nothing to validate; this also keeps commands
+   *   registered at runtime (tests, future plugins) working as long as they
+   *   ignore their payload. A runtime command that DOES read a payload is
+   *   refused like any other schema-less command.
    * @returns {{valid:boolean, errors:string[]}}
    */
-  static validateByCommand(command, data) {
+  static validateByCommand(command, data, options = {}) {
     const compiled = COMPILED_SCHEMAS[command];
-    if (!compiled) return { valid: true, errors: [] };
-    return _run(compiled, data);
+    if (compiled) return _run(compiled, data);
+    if (options.payloadBlind === true || isExemptFromSchema(command)) {
+      return { valid: true, errors: [] };
+    }
+    return { valid: false, errors: [NO_SCHEMA_ERROR] };
+  }
+
+  /**
+   * @returns {string[]} Every command name that carries a compiled schema.
+   *   Consumed by the CI coverage ratchet and by the fail-closed tests.
+   */
+  static listSchemaCommands() {
+    return Object.keys(COMPILED_SCHEMAS).sort();
   }
 
   /**

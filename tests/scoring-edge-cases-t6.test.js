@@ -62,8 +62,18 @@ describe('T6.2 — overlapping hysteresis bands resolve to the nearest boundary'
 describe('T6.5 — drum mapping quality for content-free / exotic channels', () => {
   const mapper = new DrumNoteMapper(noopLogger);
   const emptyCats = {
-    kicks: [], snares: [], hiHats: [], toms: [], crashes: [], rides: [],
-    latin: [], shakers: [], woodsMetal: [], pitched: [], cuicas: [], triangles: []
+    kicks: [],
+    snares: [],
+    hiHats: [],
+    toms: [],
+    crashes: [],
+    rides: [],
+    latin: [],
+    shakers: [],
+    woodsMetal: [],
+    pitched: [],
+    cuicas: [],
+    triangles: []
   };
 
   test('a channel with no notes scores 0 (existing P3 guard)', () => {

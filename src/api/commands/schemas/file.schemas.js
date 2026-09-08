@@ -6,6 +6,16 @@
  * Note: `file_upload` is no longer a WebSocket command — uploads go through
  * `POST /api/files` (HTTP multipart-style raw body). See `apiRoutes.js`.
  */
+import {
+  fieldRules,
+  isIdLike,
+  isIntLike,
+  isNumLike,
+  isBoolLike,
+  isStr,
+  isNonEmptyStr,
+  isArrayMax
+} from './helpers.js';
 
 const requireFileId = {
   custom: (data) => (!data.fileId ? 'fileId is required' : null)
@@ -295,6 +305,107 @@ export const file_folders_set = {
   }
 };
 
+// ── F-19 backfill: the reads and the filter ─────────────────────────
+// Seven `file_*` commands turned `{fileId:{}}` into a masked "Internal server
+// error" straight from the SQLite driver ("Too few parameter values were
+// provided"), and `FileCommands` produced 34 of the campaign's 138 internal
+// errors — the worst ratio after `DeviceCommands`
+// (docs/audit/2026-09-07/01_API_CONTRACT.md §3.3). One identifier rule closes
+// all of them.
+
+const requireFileIdTyped = {
+  custom: fieldRules([
+    ['fileId', isIdLike, 'fileId must be a number or non-empty string', { required: true }]
+  ])
+};
+
+export const file_read = requireFileIdTyped;
+export const file_metadata = requireFileIdTyped;
+export const file_channels = requireFileIdTyped;
+export const file_tempo_map = requireFileIdTyped;
+export const file_routing_status = requireFileIdTyped;
+export const file_duplicate = requireFileIdTyped;
+export const file_bake_cc = requireFileIdTyped;
+
+export const file_text_events = {
+  custom: fieldRules([
+    ['fileId', isIdLike, 'fileId must be a number or non-empty string', { required: true }],
+    ['eventType', (v) => isNonEmptyStr(v, 64), 'eventType must be a non-empty string']
+  ])
+};
+
+// `file_list` defaults to '/' when `folder` is absent or empty, so an empty
+// string stays legal; only the type and the length are gated.
+export const file_list = {
+  custom: fieldRules([
+    [
+      'folder',
+      // eslint-disable-next-line no-control-regex -- control bytes are exactly what we reject
+      (v) => isStr(v, 512) && !/[\x00-\x1f]/.test(v),
+      'folder must be a string of at most 512 characters without control bytes'
+    ]
+  ])
+};
+
+export const file_search = {
+  custom: fieldRules([
+    [
+      'query',
+      (v) => isNonEmptyStr(v, 256),
+      'query must be a non-empty string of at most 256 characters',
+      { required: true }
+    ]
+  ])
+};
+
+// `file_filter` mirrors `FilterManager.getDefaultFilters()` field for field.
+// Every entry is optional and `null` is the UI's "inactive" marker, which the
+// compiler skips — so this schema only has to keep objects, arrays and
+// oversized strings out of the query builder.
+const MAX_FILTER_LIST = 512;
+const filterList = isArrayMax(MAX_FILTER_LIST);
+const filterText = (v) => isStr(v, 256);
+const filterNum = (v) => isNumLike(v);
+
+export const file_filter = {
+  custom: fieldRules([
+    ['filename', filterText, 'filename must be a string'],
+    ['folder', filterText, 'folder must be a string'],
+    ['includeSubfolders', isBoolLike, 'includeSubfolders must be a boolean'],
+    ['durationMin', filterNum, 'durationMin must be a number'],
+    ['durationMax', filterNum, 'durationMax must be a number'],
+    ['tempoMin', filterNum, 'tempoMin must be a number'],
+    ['tempoMax', filterNum, 'tempoMax must be a number'],
+    ['tracksMin', filterNum, 'tracksMin must be a number'],
+    ['tracksMax', filterNum, 'tracksMax must be a number'],
+    ['uploadedAfter', filterText, 'uploadedAfter must be a date string'],
+    ['uploadedBefore', filterText, 'uploadedBefore must be a date string'],
+    ['instrumentTypes', filterList, 'instrumentTypes must be an array'],
+    ['instrumentMode', filterText, 'instrumentMode must be a string'],
+    ['channelCountMin', filterNum, 'channelCountMin must be a number'],
+    ['channelCountMax', filterNum, 'channelCountMax must be a number'],
+    ['hasRouting', isBoolLike, 'hasRouting must be a boolean'],
+    ['isOriginal', isBoolLike, 'isOriginal must be a boolean'],
+    ['minCompatibilityScore', filterNum, 'minCompatibilityScore must be a number'],
+    ['gmInstruments', filterList, 'gmInstruments must be an array'],
+    ['gmCategories', filterList, 'gmCategories must be an array'],
+    ['gmPrograms', filterList, 'gmPrograms must be an array'],
+    ['gmMode', filterText, 'gmMode must be a string'],
+    ['routingStatus', filterText, 'routingStatus must be a string'],
+    ['routingStatuses', filterList, 'routingStatuses must be an array'],
+    ['playableOnInstruments', filterList, 'playableOnInstruments must be an array'],
+    ['playableMode', filterText, 'playableMode must be a string'],
+    ['hasDrums', isBoolLike, 'hasDrums must be a boolean'],
+    ['hasMelody', isBoolLike, 'hasMelody must be a boolean'],
+    ['hasBass', isBoolLike, 'hasBass must be a boolean'],
+    ['hasLyrics', isBoolLike, 'hasLyrics must be a boolean'],
+    ['sortBy', filterText, 'sortBy must be a string'],
+    ['sortOrder', filterText, 'sortOrder must be a string'],
+    ['limit', (v) => isIntLike(v, 0, 100000), 'limit must be an integer'],
+    ['offset', (v) => isIntLike(v, 0, 10000000), 'offset must be an integer']
+  ])
+};
+
 const schemas = {
   file_delete,
   file_export,
@@ -302,7 +413,18 @@ const schemas = {
   file_move,
   file_write,
   file_save_as,
-  file_folders_set
+  file_folders_set,
+  file_read,
+  file_metadata,
+  file_channels,
+  file_tempo_map,
+  file_routing_status,
+  file_duplicate,
+  file_bake_cc,
+  file_text_events,
+  file_list,
+  file_search,
+  file_filter
 };
 
 export default schemas;

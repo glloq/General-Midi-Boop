@@ -518,8 +518,18 @@ class PlaybackScheduler {
     const elapsed = ((performance.now() - state.startTime) * rate) / 1000;
     state.position = elapsed;
 
-    // Check if reached end
-    if (state.position >= state.duration) {
+    // Check if reached end.
+    //
+    // STRICTLY greater, not `>=`: `duration` IS the timestamp of the last
+    // event, and that event's `setTimeout` expires at the exact same instant
+    // as the tick that observes `position === duration`. The interval was
+    // armed first, so it won the tie and `stopScheduler()` cancelled the
+    // pending sends — the final chord's Note Offs were never emitted and only
+    // the All Notes Off fallback released them (audit L05 F-54; hits every
+    // file whose last event lands on a whole 10 ms, i.e. most beat-aligned
+    // endings at 120/100/60 BPM). Ending one tick later lets those timers
+    // fire first; the extra 10 ms is below the scheduler's own resolution.
+    if (state.position > state.duration) {
       if (callbacks.onFileEnd) {
         callbacks.onFileEnd();
       } else if (state.loop) {
@@ -1115,7 +1125,10 @@ class PlaybackScheduler {
           return null;
         }
       } else if (
-        !this._isCCSupported(event.controller, this._getTimingConstraints(routing.device, outChannel))
+        !this._isCCSupported(
+          event.controller,
+          this._getTimingConstraints(routing.device, outChannel)
+        )
       ) {
         // Drop a CC the instrument does not declare in supported_ccs so an
         // unsupported controller can't deregulate the firmware (audit P2-4).

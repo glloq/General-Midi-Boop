@@ -385,7 +385,10 @@ class PlaylistPage {
       return;
     }
 
-    if (title) title.textContent = this._escapeHtml(this.selectedPlaylist.name);
+    // textContent is an HTML-inert sink: pre-escaping here double-escapes and a
+    // playlist named `Rock & Roll` renders literally as `Rock &amp; Roll`
+    // (audit L09, F-98). Assign the raw name — textContent cannot inject markup.
+    if (title) title.textContent = this.selectedPlaylist.name;
     if (actions) actions.style.display = 'flex';
 
     // Update play button state

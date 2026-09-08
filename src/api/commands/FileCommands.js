@@ -523,7 +523,10 @@ async function fileFoldersGet(app) {
  */
 async function fileFoldersSet(app, data) {
   const folders = data && data.folders;
-  if (folders !== undefined && (typeof folders !== 'object' || folders === null || Array.isArray(folders))) {
+  if (
+    folders !== undefined &&
+    (typeof folders !== 'object' || folders === null || Array.isArray(folders))
+  ) {
     throw new ValidationError('folders must be an object', 'folders');
   }
   if (!app.fileFoldersRepository) return { success: true, folders: folders || {} };

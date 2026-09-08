@@ -574,14 +574,25 @@ async function instrumentListConnected(app) {
 /**
  * Delete an instrument row. When `channel` is supplied, only that
  * channel is removed; otherwise every channel for the device is wiped.
- * Cascades to the auxiliary tables (string instruments, routings,
- * device settings, lighting rules) so referential integrity is
- * preserved without relying on FK declarations.
+ *
+ * The four tables that hang off an instrument — `instruments_latency`,
+ * `string_instruments`, `instrument_voices` and `midi_instrument_routings` —
+ * are cleared in **one transaction** by
+ * {@link InstrumentRepository#deleteInstrumentCascade}: either all four go or
+ * none does, and a failure surfaces to the client instead of being logged under
+ * a `success: true` (audit F-81).
+ *
+ * Not cleaned up here — and deliberately no longer promised by this doc
+ * comment: `instrument_light_state`, `instrument_light_config` and
+ * `lighting_rules` carry no FK to `devices` and no handler removes them
+ * (audit F-79, still open).
  *
  * @param {Object} app
  * @param {{deviceId:string, channel?:number}} data
- * @returns {Promise<{success:boolean, errors?:string[]}>}
- * @throws {ConfigurationError|ValidationError}
+ * @returns {Promise<{success:true}>} Only ever returned when all four deletes
+ *   committed.
+ * @throws {ConfigurationError|ValidationError|Error} Rethrows a failed cascade
+ *   after rollback — nothing was deleted.
  */
 export async function instrumentDelete(app, data) {
   _requireDatabase(app);
@@ -589,7 +600,6 @@ export async function instrumentDelete(app, data) {
     throw new ValidationError('deviceId is required', 'deviceId');
   }
 
-  const errors = [];
   const hasChannel = data.channel !== undefined && data.channel !== null;
   const channel = hasChannel ? parseInt(data.channel) : null;
 
@@ -599,34 +609,13 @@ export async function instrumentDelete(app, data) {
 
   const scopedChannel = hasChannel ? channel : undefined;
 
-  try {
-    app.instrumentRepository.deleteSettingsByDevice(data.deviceId, scopedChannel);
-  } catch (e) {
-    errors.push(`instruments_latency: ${e.message}`);
-  }
-
-  // string_instruments / midi_instrument_routings tables may not exist —
-  // their absence must not fail the delete.
-  try {
-    app.stringInstrumentRepository.deleteByDevice(data.deviceId, scopedChannel);
-  } catch (e) {
-    /* table may not exist */
-  }
-
-  try {
-    app.instrumentRepository.deleteVoicesByInstrument(data.deviceId, scopedChannel);
-  } catch (e) {
-    errors.push(`instrument_voices: ${e.message}`);
-  }
-
-  try {
-    app.routingRepository.deleteByDevice(data.deviceId, scopedChannel);
-  } catch (e) {
-    /* table may not exist */
-  }
-
-  if (errors.length > 0) {
-    app.logger.warn(`[instrumentDelete] Partial errors for ${data.deviceId}: ${errors.join(', ')}`);
+  // Atomic cascade (F-81). Any real error propagates: the transaction rolled
+  // back, so the instrument is intact and the client is told so.
+  const cascade = app.instrumentRepository.deleteInstrumentCascade(data.deviceId, scopedChannel);
+  if (cascade?.skippedTables?.length) {
+    app.logger.warn(
+      `[instrumentDelete] ${data.deviceId}: absent table(s) skipped: ${cascade.skippedTables.join(', ')}`
+    );
   }
 
   // Virtual devices also live in the in-memory DeviceManager registry,

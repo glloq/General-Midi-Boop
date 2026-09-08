@@ -70,6 +70,9 @@ class SacnDriver extends BaseLightingDriver {
     if (this.dmxData) {
       this.dmxData.fill(0);
       this._sendPacket();
+      // Let the blackout datagram leave before closing the socket, otherwise
+      // it is discarded and the fixtures stay lit (audit L02 F-30b).
+      await this._drainSocket();
     }
     if (this.socket) {
       this.socket.close();

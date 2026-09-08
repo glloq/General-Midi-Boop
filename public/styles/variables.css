@@ -164,6 +164,11 @@
 /* ===== THÈME SOMBRE ===== */
 body.dark-mode {
     --bg-primary: #1a1a1a;
+    /* audit L09 (F-102) — --bg-primary-flat was defined only in :root, so the
+     * piano-roll view and the lyrics ribbon kept the light lavender #eae4f7
+     * under the dark theme while --text-primary flipped to #e0e0e0:
+     * contrast 1.06:1, text invisible. */
+    --bg-primary-flat: #1a1a1a;
     --bg-secondary: #2d3748;
     --bg-tertiary: #4a5568;
 
@@ -220,6 +225,7 @@ body.dark-mode {
 @media (prefers-color-scheme: dark) {
     body:not(.dark-mode):not(.theme-colored) {
         --bg-primary: #1a1a1a;
+        --bg-primary-flat: #1a1a1a;
         --bg-secondary: #2d3748;
         --bg-tertiary: #4a5568;
         --text-primary: #e0e0e0;

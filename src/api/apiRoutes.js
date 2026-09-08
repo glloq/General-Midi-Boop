@@ -8,6 +8,7 @@
  * Public (no auth) endpoints:
  *   - `GET /health` — liveness probe with version + git hash + uptime.
  *   - `GET /update-status` — polled by the SPA during in-place updates.
+ *     Bounded and time-boxed: see `src/system/UpdateStatus.js`.
  *
  * Authenticated endpoints (gated by the bearer middleware in HttpServer):
  *   - `GET /status` — counts of devices/routes/files plus memory/uptime.
@@ -21,11 +22,12 @@ import { Router, raw as expressRaw } from 'express';
 import { randomBytes } from 'crypto';
 import { createSF2Router } from './sf2Routes.js';
 import { createWafProxyRouter } from './wafProxyRoutes.js';
-import { readFileSync, existsSync, statSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { LIMITS } from '../core/constants.js';
+import { readUpdateStatus } from '../system/UpdateStatus.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -250,34 +252,21 @@ export function createApiRouter(app) {
   // were the visible victim; see src/api/wafProxyRoutes.js).
   router.use('/waf', createWafProxyRouter(app));
 
-  // Update status (public — no auth, used by frontend during update)
+  // Update status (public — no auth, polled by the SPA during an in-place
+  // update, when the server is restarting under it and no token round-trip is
+  // available). Public means BOUNDED and TEMPORARY: `readUpdateStatus` reads
+  // only the tail of the files, serves the log transcript only while an update
+  // is genuinely running, and closes the endpoint once the update window has
+  // passed instead of replaying the last update forever
+  // (audit L10 F-115 / L11 F-122 — see src/system/UpdateStatus.js).
   router.get('/update-status', (_req, res) => {
     const projectRoot = join(__dirname, '../..');
-    const statusFile = join(projectRoot, 'logs', 'update-status');
-    const logFile = join(projectRoot, 'logs', 'update.log');
-
-    let status = null;
-    let logTail = null;
-
-    if (existsSync(statusFile)) {
-      try {
-        status = readFileSync(statusFile, 'utf8').trim();
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (existsSync(logFile)) {
-      try {
-        const full = readFileSync(logFile, 'utf8');
-        const lines = full.split('\n');
-        logTail = lines.slice(-30).join('\n');
-      } catch {
-        /* ignore */
-      }
-    }
-
-    res.json({ status, logTail });
+    res.json(
+      readUpdateStatus({
+        statusFile: join(projectRoot, 'logs', 'update-status'),
+        logFile: join(projectRoot, 'logs', 'update.log')
+      })
+    );
   });
 
   return router;

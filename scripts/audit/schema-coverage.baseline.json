@@ -1,0 +1,7 @@
+{
+  "_comment": "Ratchet baseline for the fail-closed WS payload validation (audit F-19, wave 1 / R3). `node scripts/audit/command-inventory.mjs --check` fails when schema coverage drops below `withSchema`, when either exemption list grows, or when a registered command is left uncovered. Raise `withSchema` (and lower `payloadBlind`/`pendingSchema`) whenever the real numbers improve — never the other way round.",
+  "registered": 270,
+  "withSchema": 198,
+  "payloadBlind": 72,
+  "pendingSchema": 0
+}

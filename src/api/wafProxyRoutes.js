@@ -17,19 +17,103 @@
  * no cross-origin script load, no ORB.
  *
  * Falls back gracefully:
- *   - CDN reachable, file exists  → 200 with JS body
- *   - CDN reachable, 404          → 404 (synth fallback chain handles it)
- *   - CDN unreachable             → 502 (synth tries next candidate)
+ *   - pinned file, digest matches  → 200 with JS body
+ *   - filename not pinned          → 403, no outbound request (see INTEGRITY)
+ *   - digest mismatch              → 502, not cached (see INTEGRITY)
+ *   - CDN reachable, 404           → 404 (synth fallback chain handles it)
+ *   - CDN unreachable              → 502 (synth tries next candidate)
+ * Every refusal reaches the synth as a script load error, i.e. exactly what an
+ * offline box already sees; the local SF2 banks are untouched.
  *
  * The whole frontend reaches surikov.github.io through this proxy now;
  * the public CDN is never script-tagged directly. See MidiSynthesizer.js
  * `_buildDrumPresetEntry`, `createGMInstrumentMap`, and `_legacyJCLiveEntry`.
+ *
+ * ---------------------------------------------------------------------------
+ * INTEGRITY (audit L10 F-109) — read before loosening anything here.
+ * ---------------------------------------------------------------------------
+ * Working around ORB has a price nobody had priced in: this route replays
+ * third-party JavaScript **from our own origin**, at runtime, on every preset
+ * load, for the whole life of the box. ORB was the boundary; removing it turns
+ * a cross-origin script into a same-origin one. A `script-src 'self'` CSP is
+ * therefore powerless on this path — `/api/waf/…` *is* `'self'` — on an
+ * appliance whose WebSocket exposes `system_update` and `hotspot_enable`.
+ *
+ * So the proxy is FAIL-CLOSED by default: it only replays bytes whose SHA-256
+ * matches a pin committed in `wafChecksums.json`. Anything else is refused,
+ * loudly, and never cached.
+ *
+ * Modes — `GMBOOP_WAF_PROXY`:
+ *   `pinned` (default) only pinned filenames are fetched, and the body must
+ *                      match the pinned digest. An unpinned name is refused
+ *                      without any outbound request at all.
+ *   `open`             pre-audit behaviour: replay whatever the CDN returns.
+ *                      Logged as a warning at startup. Only for an operator
+ *                      who has decided, explicitly, to accept that.
+ *   `off`              the route answers 404 and never touches the network.
+ *
+ * The pin table ships empty on purpose: the digests must come from a download
+ * whose provenance a human checked, not from whatever a mirror served during a
+ * build. `wafChecksums.json` documents how to fill it. Empty table + default
+ * mode = legacy WAF banks unavailable; the built-in `sf2:default` bank and
+ * every imported SF2 are unaffected (they never come through here), and a
+ * refusal surfaces exactly like an unreachable CDN, which is what an
+ * offline-first box sees anyway.
  */
 
 import { Router } from 'express';
 import https from 'https';
+import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const CDN_BASE = 'https://surikov.github.io/webaudiofontdata/sound/';
+
+/** Where the pinned digests live. Overridable so tests can supply their own. */
+const CHECKSUMS_PATH = process.env.GMBOOP_WAF_CHECKSUMS || path.join(__dirname, 'wafChecksums.json');
+
+/** @returns {'pinned'|'open'|'off'} */
+function resolveMode() {
+  const raw = String(process.env.GMBOOP_WAF_PROXY || '').trim().toLowerCase();
+  return raw === 'open' || raw === 'off' ? raw : 'pinned';
+}
+
+/**
+ * Read the pinned digest table. Keys starting with `_` are documentation, not
+ * filenames. A missing or malformed file yields an EMPTY table — which, in the
+ * default mode, refuses everything. Failing closed on a broken pin file is the
+ * only safe reading of "I could not tell whether these bytes are the right
+ * ones".
+ *
+ * @param {Object} [logger]
+ * @param {string} [filePath]
+ * @returns {Record<string,string>}
+ */
+function loadChecksums(logger, filePath = CHECKSUMS_PATH) {
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+    const out = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (k.startsWith('_')) continue;
+      if (typeof v === 'string' && /^[0-9a-f]{64}$/i.test(v)) out[k] = v.toLowerCase();
+    }
+    return out;
+  } catch (err) {
+    logger?.warn?.(
+      `WAF proxy: could not read pinned checksums at ${filePath} (${err.message}) — ` +
+        'treating the table as empty, so every file is refused in `pinned` mode.'
+    );
+    return {};
+  }
+}
+
+/** @param {Buffer} buf */
+function sha256(buf) {
+  return createHash('sha256').update(buf).digest('hex');
+}
 
 // Allowlist: only WAF data files. Anything else (relative paths, query
 // strings, %-encoded slashes, …) is rejected before we hit the CDN.
@@ -105,15 +189,49 @@ function fetchFromCdn(filename) {
 
 /**
  * @param {{ logger: Object }} app
+ * @param {Object} [options] - test seams only (mode, fetchImpl, checksums)
  * @returns {import('express').Router}
  */
-export function createWafProxyRouter(app) {
+export function createWafProxyRouter(app, options = {}) {
   const router = Router();
+  // `options` exists so the tests can drive the integrity path without a
+  // network round-trip; production callers pass nothing.
+  const mode = options.mode || resolveMode();
+  const fetchImpl = options.fetchImpl || fetchFromCdn;
+  const pins = options.checksums || (mode === 'open' ? {} : loadChecksums(app?.logger));
+
+  if (mode === 'open') {
+    app?.logger?.warn?.(
+      'WAF proxy: GMBOOP_WAF_PROXY=open — third-party JavaScript is replayed from this ' +
+        'origin with NO integrity check. A `script-src \'self\'` CSP does not cover it ' +
+        '(audit L10 F-109).'
+    );
+  } else if (mode === 'pinned' && Object.keys(pins).length === 0) {
+    app?.logger?.info?.(
+      `WAF proxy: no pinned checksums in ${CHECKSUMS_PATH} — legacy WAF CDN banks are ` +
+        'refused. The built-in sf2:default bank and imported SF2 banks are unaffected.'
+    );
+  }
 
   router.get('/:filename', async (req, res) => {
     const filename = req.params.filename;
     if (!SAFE_FILENAME.test(filename)) {
       return res.status(400).json({ error: 'Invalid WAF filename' });
+    }
+
+    if (mode === 'off') {
+      return res.status(404).json({ error: 'WAF proxy disabled' });
+    }
+
+    const expected = pins[filename];
+    if (mode === 'pinned' && !expected) {
+      // Refused BEFORE any outbound request: nothing unpinned is ever fetched,
+      // let alone replayed same-origin. Also means an offline box answers
+      // instantly instead of hanging for the 8 s CDN timeout.
+      app.logger?.warn?.(
+        `WAF proxy: refusing ${filename} — no pinned SHA-256 (GMBOOP_WAF_PROXY=pinned).`
+      );
+      return res.status(403).json({ error: 'WAF file is not pinned' });
     }
 
     const hit = cache.get(filename);
@@ -125,7 +243,20 @@ export function createWafProxyRouter(app) {
     }
 
     try {
-      const result = await fetchFromCdn(filename);
+      const result = await fetchImpl(filename);
+      if (result.status === 200 && expected) {
+        const digest = sha256(result.body);
+        if (digest !== expected) {
+          // Loud, and NOT cached: a poisoned response must not become the
+          // answer everyone gets for the next 30 days.
+          app.logger?.error?.(
+            `WAF proxy: SHA-256 mismatch for ${filename} (expected ${expected}, got ${digest}) ` +
+              '— refusing to replay it. The upstream CDN served content that is not the ' +
+              'pinned artefact.'
+          );
+          return res.status(502).json({ error: 'Upstream integrity check failed' });
+        }
+      }
       cacheSet(filename, result);
       if (result.status === 404) return res.status(404).end();
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -141,4 +272,12 @@ export function createWafProxyRouter(app) {
 }
 
 // Exposed for unit tests.
-export const _internal = { cache, fetchFromCdn, SAFE_FILENAME };
+export const _internal = {
+  cache,
+  fetchFromCdn,
+  SAFE_FILENAME,
+  resolveMode,
+  loadChecksums,
+  sha256,
+  CHECKSUMS_PATH
+};

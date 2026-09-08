@@ -10,7 +10,8 @@
     "defaultLatency": 10
   },
   "database": {
-    "path": "./data/gmboop.db"
+    "path": "./data/gmboop.db",
+    "busyTimeoutMs": 250
   },
   "logging": {
     "level": "info",

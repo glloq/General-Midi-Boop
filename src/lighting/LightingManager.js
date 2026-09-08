@@ -211,11 +211,20 @@ class LightingManager extends EventEmitter {
   }
 
   _removeEventListeners() {
+    // EventBus (src/core/EventBus.js) exposes `off()`, NOT the Node
+    // EventEmitter `removeListener()`. Calling the latter threw a TypeError on
+    // the FIRST statement of shutdown(), so `allOff()` and the per-driver
+    // disconnect below it were never reached: Application.stop() logged one
+    // "Stop step lightingManager failed (continuing)" line and left every
+    // fixture at its last value — a projector still lit after the show
+    // (audit L02 F-30).
     if (this._onMidiRouted) {
-      this.eventBus.removeListener('midi_routed', this._onMidiRouted);
+      this.eventBus.off('midi_routed', this._onMidiRouted);
+      this._onMidiRouted = null;
     }
     if (this._onMidiMessage) {
-      this.eventBus.removeListener('midi_message', this._onMidiMessage);
+      this.eventBus.off('midi_message', this._onMidiMessage);
+      this._onMidiMessage = null;
     }
   }
 

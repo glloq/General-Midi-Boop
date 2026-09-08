@@ -5,7 +5,10 @@
 // per-voice note capability => always the primary program).
 
 import { describe, test, expect } from '@jest/globals';
-import { selectVoiceProgram, planVoiceProgramChanges } from '../src/midi/adaptation/VoiceSelector.js';
+import {
+  selectVoiceProgram,
+  planVoiceProgramChanges
+} from '../src/midi/adaptation/VoiceSelector.js';
 
 const primary = 32; // e.g. acoustic bass (primary voice)
 
@@ -33,7 +36,12 @@ describe('selectVoiceProgram — no-op safety (zero regression)', () => {
   test('voices that do not declare notes → primary (cannot discriminate)', () => {
     const shareless = [{ gm_program: 36 }, { gm_program: 40, note_selection_mode: null }];
     expect(
-      selectVoiceProgram({ note: 30, primaryProgram: primary, voices: shareless, sharesNotes: false })
+      selectVoiceProgram({
+        note: 30,
+        primaryProgram: primary,
+        voices: shareless,
+        sharesNotes: false
+      })
     ).toBe(primary);
   });
 
@@ -93,8 +101,20 @@ describe('selectVoiceProgram — by discrete selection', () => {
 describe('selectVoiceProgram — overlap resolution', () => {
   test('most specific (narrower span) voice wins an overlap', () => {
     const voices = [
-      { gm_program: 10, note_selection_mode: 'range', note_range_min: 0, note_range_max: 127, display_order: 0 },
-      { gm_program: 20, note_selection_mode: 'range', note_range_min: 60, note_range_max: 64, display_order: 1 }
+      {
+        gm_program: 10,
+        note_selection_mode: 'range',
+        note_range_min: 0,
+        note_range_max: 127,
+        display_order: 0
+      },
+      {
+        gm_program: 20,
+        note_selection_mode: 'range',
+        note_range_min: 60,
+        note_range_max: 64,
+        display_order: 1
+      }
     ];
     // 62 is in both; the tight [60,64] wins over the full-range voice.
     expect(
@@ -108,8 +128,20 @@ describe('selectVoiceProgram — overlap resolution', () => {
 
   test('equal span → lowest display_order wins (stable)', () => {
     const voices = [
-      { gm_program: 20, note_selection_mode: 'range', note_range_min: 60, note_range_max: 64, display_order: 5 },
-      { gm_program: 21, note_selection_mode: 'range', note_range_min: 60, note_range_max: 64, display_order: 2 }
+      {
+        gm_program: 20,
+        note_selection_mode: 'range',
+        note_range_min: 60,
+        note_range_max: 64,
+        display_order: 5
+      },
+      {
+        gm_program: 21,
+        note_selection_mode: 'range',
+        note_range_min: 60,
+        note_range_max: 64,
+        display_order: 2
+      }
     ];
     expect(
       selectVoiceProgram({ note: 62, primaryProgram: primary, voices, sharesNotes: false })
@@ -119,7 +151,13 @@ describe('selectVoiceProgram — overlap resolution', () => {
 
 describe('planVoiceProgramChanges', () => {
   const voices = [
-    { gm_program: 36, note_selection_mode: 'range', note_range_min: 28, note_range_max: 40, display_order: 0 }
+    {
+      gm_program: 36,
+      note_selection_mode: 'range',
+      note_range_min: 28,
+      note_range_max: 40,
+      display_order: 0
+    }
   ];
 
   test('no-op when sharesNotes (default) → empty plan', () => {

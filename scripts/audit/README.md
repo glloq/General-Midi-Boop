@@ -83,6 +83,35 @@ be refused with 401.
 
 Prints `PASS`/`FAIL` plus the observed value for each check.
 
+## `licenses.mjs` — §BS, F-158
+
+Inventories the licences of everything the project redistributes, and generates the
+notice file the MIT/Apache/BSD licences of those packages oblige us to convey.
+
+```bash
+node scripts/audit/licenses.mjs            # summary by licence
+node scripts/audit/licenses.mjs --json     # per-package matrix
+node scripts/audit/licenses.mjs --emit     # (re)write THIRD-PARTY-NOTICES.md
+node scripts/audit/licenses.mjs --assets   # shipped-asset registration report
+node scripts/audit/licenses.mjs --check    # CI gate, exit 1 on a problem
+```
+
+The runtime closure comes from `package-lock.json` — every entry npm has **not**
+flagged `"dev": true`, i.e. exactly what `npm ci --omit=dev` installs — so it cannot
+drift from what actually ships. `node_modules/` is read only for licence texts, so run
+`npm install --ignore-scripts` first or every package reports `NOT-INSTALLED`.
+
+A licence is never guessed: declared field, then the deprecated `{type}`/array forms,
+then detection from the licence text (reported as `source = file`), then `UNKNOWN` —
+which fails the gate rather than being assumed permissive.
+
+`--check` fails when a runtime dependency is copyleft, when one has no establishable
+licence, when `THIRD-PARTY-NOTICES.md` is stale, or when a shipped asset is missing
+from `assets/ASSET-LICENSES.md`. That last check is what keeps the asset inventory
+alive: a new icon cannot ship without someone recording where it came from.
+
+**Suggested CI use:** a `licenses` job running `--check`.
+
 ## Related test suites
 
 - `tests/audit/midi-core-conformance.test.js` — §D01–D05, BK

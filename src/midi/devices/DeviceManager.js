@@ -56,6 +56,28 @@ try {
   };
 }
 
+/**
+ * Total byte length (status + data) of every message {@link
+ * DeviceManager#handleRawMidi} accepts. Keyed by the status high nibble for
+ * channel-voice messages and by the full status byte for System Common; System
+ * Real-Time and SysEx are excluded (single byte / self-framing). Mirrors
+ * `SYSTEM_MESSAGE_LENGTH` and `MIDI_MESSAGE_LENGTHS` in the serial parser so a
+ * short frame is withheld identically whatever the transport (audit L03 F-42).
+ */
+const RAW_MESSAGE_LENGTH = Object.freeze({
+  0x80: 3,
+  0x90: 3,
+  0xa0: 3,
+  0xb0: 3,
+  0xc0: 2,
+  0xd0: 2,
+  0xe0: 3,
+  0xf1: 2,
+  0xf2: 3,
+  0xf3: 2,
+  0xf6: 1
+});
+
 // Automatic recognition tuning. On connect GMBoop probes each device once
 // (debounced to coalesce a device's input+output ports), then re-probes on no
 // reply up to a small cap.
@@ -295,23 +317,7 @@ class DeviceManager {
       });
 
       // Handle MIDI messages
-      input.on('noteon', (msg) => this.handleMidiMessage(name, 'noteon', msg));
-      input.on('noteoff', (msg) => this.handleMidiMessage(name, 'noteoff', msg));
-      input.on('cc', (msg) => this.handleMidiMessage(name, 'cc', msg));
-      input.on('program', (msg) => this.handleMidiMessage(name, 'program', msg));
-      // easymidi emits pitch bend as `'pitch'` with a raw 14-bit `value`
-      // (0..16383, center 8192) — NOT `'pitchbend'`, so the old listener never
-      // fired and USB pitch-bend INPUT was silently dropped (audit P0). Map it
-      // to the canonical `'pitchbend'` type with an unambiguous `value14` so
-      // every downstream encoder (BLE/net/serial + USB out) reproduces it.
-      input.on('pitch', (msg) =>
-        this.handleMidiMessage(name, 'pitchbend', { channel: msg.channel, value14: msg.value })
-      );
-      input.on('poly aftertouch', (msg) => this.handleMidiMessage(name, 'poly aftertouch', msg));
-      input.on('channel aftertouch', (msg) =>
-        this.handleMidiMessage(name, 'channel aftertouch', msg)
-      );
-      input.on('sysex', (msg) => this.handleMidiMessage(name, 'sysex', msg));
+      this._wireInputListeners(input, name);
 
       this.inputs.set(name, input);
       this._onDevicePortAdded(name, 'input');
@@ -1242,6 +1248,79 @@ class DeviceManager {
    * @returns {void}
    */
   /**
+   * Subscribe every easymidi input event GMBoop understands and translate it
+   * into the canonical `(type, data)` vocabulary the rest of the app speaks.
+   *
+   * Shared by {@link DeviceManager#addInput} and
+   * {@link DeviceManager#createVirtualDevice} so a USB port and a virtual port
+   * can never drift apart.
+   *
+   * **Why the System messages are here (audit L03 F-38, the F-08 class).**
+   * easymidi only *emits* events; an event with no listener is not "ignored",
+   * it never reaches the application at all. The previous wiring subscribed to
+   * the eight channel-voice/SysEx events only, so every System Real-Time
+   * (`clock` 0xF8, `start` 0xFA, `continue` 0xFB, `stop` 0xFC, `activesense`
+   * 0xFE, `reset` 0xFF) and every System Common (`mtc` 0xF1, `position` 0xF2,
+   * `select` 0xF3, `tune` 0xF6) message arriving on USB was dropped — while
+   * SerialMidiManager, the BLE parser and the RTP parser all forwarded the
+   * same wire bytes. A USB sequencer's MIDI Clock / Start / Song Position was
+   * invisible; the identical device on DIN, BLE or RTP-MIDI worked.
+   *
+   * easymidi's System Common payloads are re-encoded back to the `{bytes}`
+   * shape the other three transports emit (`SerialMidiManager#_emitSystemCommon`
+   * / {@link DeviceManager#handleRawMidi}) so the same bytes on the wire
+   * produce a byte-identical event whatever the cable.
+   *
+   * @param {Object} input - easymidi Input (or an equivalent EventEmitter).
+   * @param {string} name - Device id used as the routing source key.
+   * @returns {void}
+   * @private
+   */
+  _wireInputListeners(input, name) {
+    const to = (type, msg) => this.handleMidiMessage(name, type, msg);
+
+    input.on('noteon', (msg) => to('noteon', msg));
+    input.on('noteoff', (msg) => to('noteoff', msg));
+    input.on('cc', (msg) => to('cc', msg));
+    input.on('program', (msg) => to('program', msg));
+    // easymidi emits pitch bend as `'pitch'` with a raw 14-bit `value`
+    // (0..16383, center 8192) — NOT `'pitchbend'`, so the old listener never
+    // fired and USB pitch-bend INPUT was silently dropped (audit P0). Map it
+    // to the canonical `'pitchbend'` type with an unambiguous `value14` so
+    // every downstream encoder (BLE/net/serial + USB out) reproduces it.
+    input.on('pitch', (msg) => to('pitchbend', { channel: msg.channel, value14: msg.value }));
+    input.on('poly aftertouch', (msg) => to('poly aftertouch', msg));
+    input.on('channel aftertouch', (msg) => to('channel aftertouch', msg));
+    input.on('sysex', (msg) => to('sysex', msg));
+
+    // ── System Real-Time (no data bytes) ──────────────────────────────
+    input.on('clock', () => to('clock', {}));
+    input.on('start', () => to('start', {}));
+    input.on('continue', () => to('continue', {}));
+    input.on('stop', () => to('stop', {}));
+    // easymidi names 0xFE `activesense`; the canonical type is `sensing`.
+    input.on('activesense', () => to('sensing', {}));
+    input.on('reset', () => to('reset', {}));
+
+    // ── System Common (re-encoded to the shared `{bytes}` payload) ─────
+    // 0xF1 quarter frame: easymidi splits the single data byte into
+    // `{type, value}` (message type in bits 6..4, value in bits 3..0).
+    input.on('mtc', (msg) =>
+      to('mtc', { bytes: [(((msg?.type ?? 0) & 0x07) << 4) | ((msg?.value ?? 0) & 0x0f)] })
+    );
+    // 0xF2 Song Position Pointer: easymidi assembles the 14-bit position into
+    // `{value}`; split it back into LSB/MSB.
+    input.on('position', (msg) => {
+      const v = (msg?.value ?? 0) & 0x3fff;
+      to('position', { bytes: [v & 0x7f, (v >> 7) & 0x7f] });
+    });
+    // 0xF3 Song Select: easymidi exposes the song number as `{song}`.
+    input.on('select', (msg) => to('select', { bytes: [(msg?.song ?? 0) & 0x7f] }));
+    // 0xF6 Tune Request: no data bytes.
+    input.on('tune', () => to('tune', { bytes: [] }));
+  }
+
+  /**
    * Parse a single complete raw-MIDI message (status byte + data bytes)
    * into an easymidi-style `(type, data)` pair and route it through
    * {@link DeviceManager#handleMidiMessage}. This is the common entry
@@ -1265,46 +1344,60 @@ class DeviceManager {
 
     const high = status & 0xf0;
     const channel = status & 0x0f;
+
+    // A frame shorter than its status byte requires is INCOMPLETE, not a
+    // message with missing fields. Every other parser (serial buffers it, BLE
+    // and RTP `break` out of the packet) withholds it; this one used to emit
+    // `{velocity: undefined}`, which `MidiUtils.convertToMidiBytes` then
+    // re-encodes as `(undefined ?? 127) & 0x7f` — turning a truncated frame
+    // into a full-velocity note on every re-encoding transport (audit L03
+    // F-42). Data bytes are also 7-bit-masked here, as the wire guarantees and
+    // as every other transport enforces.
+    const required = RAW_MESSAGE_LENGTH[high] ?? RAW_MESSAGE_LENGTH[status];
+    if (required !== undefined && bytes.length < required) return;
+    const d1 = bytes[1] & 0x7f;
+    const d2 = bytes[2] & 0x7f;
+
     switch (high) {
       case 0x80:
         this.handleMidiMessage(deviceName, 'noteoff', {
           channel,
-          note: bytes[1],
-          velocity: bytes[2]
+          note: d1,
+          velocity: d2
         });
         return;
       case 0x90:
         // Running-status / velocity-0 Note On is a Note Off.
-        this.handleMidiMessage(deviceName, bytes[2] === 0 ? 'noteoff' : 'noteon', {
+        this.handleMidiMessage(deviceName, d2 === 0 ? 'noteoff' : 'noteon', {
           channel,
-          note: bytes[1],
-          velocity: bytes[2]
+          note: d1,
+          velocity: d2
         });
         return;
       case 0xa0:
         this.handleMidiMessage(deviceName, 'poly aftertouch', {
           channel,
-          note: bytes[1],
-          pressure: bytes[2]
+          note: d1,
+          pressure: d2
         });
         return;
       case 0xb0:
         this.handleMidiMessage(deviceName, 'cc', {
           channel,
-          controller: bytes[1],
-          value: bytes[2]
+          controller: d1,
+          value: d2
         });
         return;
       case 0xc0:
-        this.handleMidiMessage(deviceName, 'program', { channel, number: bytes[1] });
+        this.handleMidiMessage(deviceName, 'program', { channel, number: d1 });
         return;
       case 0xd0:
-        this.handleMidiMessage(deviceName, 'channel aftertouch', { channel, pressure: bytes[1] });
+        this.handleMidiMessage(deviceName, 'channel aftertouch', { channel, pressure: d1 });
         return;
       case 0xe0:
         this.handleMidiMessage(deviceName, 'pitchbend', {
           channel,
-          value: (bytes[2] << 7) | bytes[1]
+          value: (d2 << 7) | d1
         });
         return;
       default: {
@@ -1352,6 +1445,20 @@ class DeviceManager {
     // transport routes note-offs identically.
     if (type === 'noteon' && msg && msg.velocity === 0) {
       type = 'noteoff';
+    }
+
+    // Pitch bend reached this funnel with a transport-dependent key: USB
+    // (easymidi) delivers `value14`, while the serial / BLE / RTP parsers
+    // deliver `value`. Both name the same raw 14-bit number, but the
+    // `midi_message` EventBus event, the `midi_event` WS broadcast and the
+    // router's filters forward `msg` verbatim — so a consumer reading one key
+    // saw `undefined` on half the transports (audit L03 F-40). Publish BOTH,
+    // always equal, so the payload no longer depends on the cable.
+    if (type === 'pitchbend' && msg && typeof msg === 'object' && !Array.isArray(msg)) {
+      const raw = MidiUtils.pitchBendRaw14(msg);
+      if (msg.value !== raw || msg.value14 !== raw) {
+        msg = { ...msg, value: raw, value14: raw };
+      }
     }
 
     // Parse SysEx Identity Reply if applicable
@@ -1749,22 +1856,11 @@ class DeviceManager {
     const input = new easymidi.Input(name, true);
     const output = new easymidi.Output(name, true);
 
-    // Subscribe to the FULL channel-voice + sysex set, matching addInput —
-    // the old virtual port wired only noteon/noteoff/cc, silently dropping
-    // program change, pitch bend, aftertouch and SysEx (incl. Identity Reply)
-    // for anything routed through it (audit P2).
-    input.on('noteon', (msg) => this.handleMidiMessage(name, 'noteon', msg));
-    input.on('noteoff', (msg) => this.handleMidiMessage(name, 'noteoff', msg));
-    input.on('cc', (msg) => this.handleMidiMessage(name, 'cc', msg));
-    input.on('program', (msg) => this.handleMidiMessage(name, 'program', msg));
-    input.on('pitch', (msg) =>
-      this.handleMidiMessage(name, 'pitchbend', { channel: msg.channel, value14: msg.value })
-    );
-    input.on('poly aftertouch', (msg) => this.handleMidiMessage(name, 'poly aftertouch', msg));
-    input.on('channel aftertouch', (msg) =>
-      this.handleMidiMessage(name, 'channel aftertouch', msg)
-    );
-    input.on('sysex', (msg) => this.handleMidiMessage(name, 'sysex', msg));
+    // Subscribe to the FULL message set, matching addInput — the old virtual
+    // port wired only noteon/noteoff/cc, silently dropping program change,
+    // pitch bend, aftertouch and SysEx (incl. Identity Reply) for anything
+    // routed through it (audit P2).
+    this._wireInputListeners(input, name);
 
     this.virtualDevices.set(name, { input, output });
     await this.updateDeviceMap();

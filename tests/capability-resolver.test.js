@@ -46,7 +46,9 @@ describe('CapabilityResolver.getTimingConstraints', () => {
       makeResolver({ supported_ccs: [1, 7, 10, 200, -1, 64] }).getTimingConstraints('d', 0)
         .supportedCcs
     ).toEqual([1, 7, 10, 64]); // out-of-range 200/-1 dropped
-    expect(makeResolver({ supported_ccs: [] }).getTimingConstraints('d', 0).supportedCcs).toBeNull();
+    expect(
+      makeResolver({ supported_ccs: [] }).getTimingConstraints('d', 0).supportedCcs
+    ).toBeNull();
     expect(makeResolver({}).getTimingConstraints('d', 0).supportedCcs).toBeNull();
   });
 
@@ -57,14 +59,18 @@ describe('CapabilityResolver.getTimingConstraints', () => {
       supported_ccs: [1, 7, 11],
       hands_config: {
         enabled: true,
-        hands: [{ id: 'left', cc_position_number: 23 }, { id: 'right', cc_position_number: 24 }]
+        hands: [
+          { id: 'left', cc_position_number: 23 },
+          { id: 'right', cc_position_number: 24 }
+        ]
       }
     };
     expect(makeResolver(caps).getTimingConstraints('d', 0).handCcs).toEqual([23, 24]);
     // Disabled / absent / no cc → null.
     expect(
-      makeResolver({ hands_config: { enabled: false, hands: [{ cc_position_number: 23 }] } })
-        .getTimingConstraints('d', 0).handCcs
+      makeResolver({
+        hands_config: { enabled: false, hands: [{ cc_position_number: 23 }] }
+      }).getTimingConstraints('d', 0).handCcs
     ).toBeNull();
     expect(makeResolver({}).getTimingConstraints('d', 0).handCcs).toBeNull();
   });

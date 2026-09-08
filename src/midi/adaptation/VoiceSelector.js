@@ -118,7 +118,9 @@ export function selectVoiceProgram({ note, primaryProgram, voices, sharesNotes =
       s < bs ||
       // tie → lowest display_order, then lowest gm_program, for stable output.
       (s === bs && (v.display_order ?? 0) < (best.display_order ?? 0)) ||
-      (s === bs && (v.display_order ?? 0) === (best.display_order ?? 0) && v.gm_program < best.gm_program)
+      (s === bs &&
+        (v.display_order ?? 0) === (best.display_order ?? 0) &&
+        v.gm_program < best.gm_program)
     ) {
       best = v;
     }

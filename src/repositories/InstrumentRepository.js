@@ -119,6 +119,64 @@ export default class InstrumentRepository {
     return this.database.replaceInstrumentVoices(deviceId, channel, voices);
   }
 
+  /**
+   * Remove an instrument and everything hanging off it, **atomically**.
+   *
+   * Audit F-81: `instrument_delete` used to fire four independent deletes in
+   * four separate `try/catch` blocks, outside any transaction — a failure in the
+   * middle left a half-deleted instrument and the handler answered
+   * `{ success: true }` anyway, with the errors buried in a `logger.warn`.
+   * Here the four legs share one SQLite transaction: either the instrument is
+   * gone from all four tables or nothing changed, and any real error propagates
+   * so the caller can tell the client the delete failed.
+   *
+   * A genuinely absent table (`string_instruments` / `midi_instrument_routings`
+   * are optional on old installs) is still tolerated — but it is *reported* in
+   * `skippedTables` instead of being silently swallowed like every other error.
+   *
+   * ADR-002 §Conventions: the composite write lives in the repository, not in
+   * the handler.
+   *
+   * @param {string} deviceId
+   * @param {?number} [channel] - Restrict to one channel; omit for the whole
+   *   device.
+   * @returns {{deleted:Object<string,number>, skippedTables:string[]}}
+   * @throws {Error} Any non-"missing table" SQLite error, after rollback.
+   */
+  deleteInstrumentCascade(deviceId, channel) {
+    const scoped = channel === undefined || channel === null ? undefined : channel;
+    const deleted = {};
+    const skippedTables = [];
+
+    // Tables that legitimately may not exist on an old install. Anything else
+    // is a real failure and must abort the transaction.
+    const legs = [
+      { table: 'instruments_latency', optional: false, run: 'deleteInstrumentSettingsByDevice' },
+      { table: 'string_instruments', optional: true, run: 'deleteStringInstrumentsByDevice' },
+      { table: 'instrument_voices', optional: false, run: 'deleteInstrumentVoicesByInstrument' },
+      { table: 'midi_instrument_routings', optional: true, run: 'deleteRoutingsByDevice' }
+    ];
+
+    const cascade = this.database.transaction(() => {
+      for (const leg of legs) {
+        try {
+          const changes = this.database[leg.run](deviceId, scoped);
+          deleted[leg.table] = Number.isFinite(changes) ? changes : 0;
+        } catch (error) {
+          if (leg.optional && /no such table/i.test(String(error.message || ''))) {
+            skippedTables.push(leg.table);
+            deleted[leg.table] = 0;
+            continue;
+          }
+          throw error;
+        }
+      }
+    });
+
+    cascade();
+    return { deleted, skippedTables };
+  }
+
   // Wrap a synchronous function in a SQLite transaction. Returns the
   // better-sqlite3 wrapper so callers can invoke it with their own arguments
   // (ADR-002 §Conventions — composite writes belong in the Repository layer).

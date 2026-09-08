@@ -256,7 +256,14 @@ class InstrumentLightManager {
   }
 
   async shutdown() {
-    this.eventBus?.removeListener?.('instrument_settings_changed', this._onReload);
+    // EventBus (src/core/EventBus.js) exposes `off()`, NOT the Node
+    // EventEmitter `removeListener()`. The optional call `?.removeListener?.()`
+    // made this fail SILENTLY — no throw, no log — so the
+    // `instrument_settings_changed` listener registered in initialize() was
+    // never released: every Application.restart() cycle leaked one more, until
+    // EventBus started warning about a listener leak (audit L02 F-30c,
+    // 4th site of the class reported by L01 F-27).
+    this.eventBus?.off?.('instrument_settings_changed', this._onReload);
     this.controllers.clear();
   }
 }

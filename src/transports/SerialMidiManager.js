@@ -327,15 +327,24 @@ class SerialMidiManager extends EventEmitter {
       });
     });
 
-    // Wrap with timeout to prevent indefinite hang on hardware issues
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(
+    // Wrap with timeout to prevent indefinite hang on hardware issues. The
+    // timer MUST be cleared once the race is settled: left armed it keeps the
+    // event loop alive for the full 10 s after every successful open, so an
+    // `openPort` followed by `shutdown()` (or a hot-plug re-open at the end of
+    // a run) delays process exit by 10 s per port (audit L04 F-52).
+    let timeoutHandle = null;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutHandle = setTimeout(
         () => reject(new Error(`Port ${portPath} open timeout after ${PORT_OPEN_TIMEOUT_MS}ms`)),
         PORT_OPEN_TIMEOUT_MS
-      )
-    );
+      );
+    });
 
-    return Promise.race([openPromise, timeoutPromise]);
+    try {
+      return await Promise.race([openPromise, timeoutPromise]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
   }
 
   /**
@@ -866,7 +875,15 @@ class SerialMidiManager extends EventEmitter {
       // Try to load serialport - update promise so scanPorts awaits correctly
       this._initPromise = this._initialize();
       await this._initPromise;
-    } else if (!enabled) {
+    } else if (enabled) {
+      // Re-enabling after a `setEnabled(false)`. `shutdown()` closed every port
+      // and stopped hot-plug monitoring, but the serialport library stays
+      // loaded — so the branch above was skipped and re-enabling did nothing at
+      // all: serial MIDI stayed dark until the server was restarted, while the
+      // UI reported it as enabled (audit L04 F-52).
+      await this._openConfiguredPorts();
+      this.startHotPlugMonitoring();
+    } else {
       // Close all ports
       await this.shutdown();
     }

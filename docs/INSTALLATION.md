@@ -307,29 +307,149 @@ No additional configuration is required beyond having network connectivity betwe
 
 ## Docker Deployment
 
-Général Midi Boop can be deployed using Docker for simplified setup and isolation.
+Docker gives you the web UI, file management, playback over the network and
+the network-based lighting drivers, in an isolated container. It does **not**
+give you hardware MIDI — see [Limitations](#docker-limitations) before you
+choose it over a native install.
 
-### Quick Start
+> **Verify before you trust it.** `scripts/verify-docker.sh` builds the image,
+> starts it, waits for `/api/health` and checks that the health payload is
+> honest. Run it after any change to `Dockerfile`, `docker-compose.yml` or
+> `.dockerignore` — the packaging was silently broken for months precisely
+> because nothing ever built the image.
 
-```bash
-docker-compose up -d
-```
-
-This uses the provided `Dockerfile` and `docker-compose.yml` in the project root.
-
-### Data Persistence
-
-The Docker Compose configuration includes volume mounts to persist data between container restarts:
-
-- `./data` - SQLite database
-- `./uploads` - Uploaded MIDI files
-- `./logs` - Application logs
-
-To stop the container:
+### Quick start
 
 ```bash
-docker-compose down
+docker compose up -d
+docker compose logs -f
+curl http://localhost:8080/api/health
 ```
+
+`docker compose up` builds from the `Dockerfile` in the project root. First
+build takes about a minute (it downloads the base image, installs production
+dependencies and fetches the ~30 MB default soundfont); rebuilds after a code
+change take a couple of seconds.
+
+### Build options
+
+Both are `--build-arg`s on the `Dockerfile` and Compose variables in
+`docker-compose.yml`:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `NODE_IMAGE` | `node:20-slim` | Base image. Pin a digest (`node:20.20.2-slim@sha256:…`) for a reproducible build, or point at a mirror / CA-augmented base if you build behind a TLS-inspecting proxy. |
+| `WITH_RUNTIME_ASSETS` | `1` | Fetch the default soundfont and the vendored `WebAudioFontPlayer.js` at build time so the browser synth works offline. Set to `0` for a ~30 MB smaller image with no audio preview. |
+
+```bash
+WITH_RUNTIME_ASSETS=0 docker compose build
+# or, without Compose:
+docker build --build-arg WITH_RUNTIME_ASSETS=0 -t gmboop .
+```
+
+The asset download is **non-fatal**: a build on a machine with no egress still
+produces a working image, it just logs a warning and ships without the audio
+preview. Set `GMBOOP_SF2_URL` / `GMBOOP_WAF_PLAYER_URL` to reach an internal
+mirror.
+
+### Runtime configuration
+
+`docker-compose.yml` reads these from the host `.env` (Compose loads it
+automatically) or from your shell:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `PORT` | `8080` | Host port. The container always listens on 8080. |
+| `NODE_HEAP_MB` | `320` | V8 heap cap, in MiB. |
+| `MEMORY_LIMIT` | `512M` | Container memory limit. |
+| `GMBOOP_LOG_LEVEL` | `info` | |
+| `GMBOOP_SECURITY_MODE` | `trusted-lan` | `secure` demands a bearer token on every request; the SPA cannot present one, so `secure` is API-access-only today. |
+| `GMBOOP_API_TOKEN` | *(empty)* | See [API token](#docker-api-token). |
+
+**`NODE_HEAP_MB` and `MEMORY_LIMIT` move together.** Resident memory is the V8
+heap *plus* the native heap (better-sqlite3 page cache, WebSocket send
+buffers, zlib), plus code and stacks. Setting the heap cap equal to the
+container limit — as this file used to — means the OOM killer fires before V8
+ever reaches the pressure that triggers its final GC. Keep the heap cap at
+roughly 60-65 % of the limit.
+
+### Data persistence
+
+Three **named volumes**, created and managed by Compose:
+
+| Volume | Mounted at | Contents |
+|---|---|---|
+| `gmboop-data` | `/app/data` | `gmboop.db` (SQLite + WAL), uploaded MIDI files, imported soundfonts |
+| `gmboop-logs` | `/app/logs` | Application logs |
+| `gmboop-backups` | `/app/backups` | Automatic daily database backups |
+
+`gmboop-data` is the one that matters: destroy it and you destroy every
+instrument, route, playlist and setting.
+
+```bash
+docker compose down       # stops the container, KEEPS the volumes
+docker compose down -v    # stops the container and DELETES the volumes
+```
+
+<a id="docker-api-token"></a>
+### API token
+
+If `GMBOOP_API_TOKEN` is unset, the server mints a random token at startup and
+writes it to `/app/.env` **inside the container's writable layer**, which any
+recreation (`docker compose up --force-recreate`, an image rebuild, an upgrade)
+throws away — a new token is minted and every stored client credential stops
+working. Two ways to make it stable:
+
+1. Put `GMBOOP_API_TOKEN=<value>` in the host `.env`. Compose interpolates it
+   into the container's environment; the server then leaves it alone. This is
+   the recommended option, and it is what an installation that has already run
+   `scripts/Install.sh` gets for free.
+2. Uncomment the `./.env:/app/.env` bind mount in `docker-compose.yml` (create
+   an empty `./.env` first) so the generated token survives on the host.
+
+<a id="docker-limitations"></a>
+### Limitations
+
+**No hardware MIDI.** The image maps no `/dev/snd`, passes through no serial
+device and shares no D-Bus socket, so USB MIDI, BLE MIDI and GPIO/serial MIDI
+are structurally out of reach. `/api/health` says so plainly:
+
+```json
+"usb":    { "status": "failed",   "detail": "Native MIDI library unavailable (easymidi/ALSA bindings missing) — USB MIDI ports cannot be opened" },
+"ble":    { "status": "failed",   "detail": "D-Bus system bus not available" },
+"serial": { "status": "disabled", "detail": "Serial MIDI disabled in configuration" }
+```
+
+That is the truth, not a defect — but it does mean **Docker is not the way to
+run the box that drives your instruments**. Install natively on the Pi
+(`scripts/Install.sh`) for that. To build a container that *does* drive USB
+MIDI, the Dockerfile header lists the four changes required (compile the
+native `midi` module, reinstate `libasound2`, map `/dev/snd`, join the `audio`
+group).
+
+**No in-place update.** `system_update` (which shells out to
+`scripts/update.sh`: `git pull`, `npm install`, restart a systemd/PM2 service)
+is meaningless inside a container. Update by rebuilding the image:
+
+```bash
+git pull && docker compose up -d --build
+```
+
+**Architecture.** `docker compose build` builds for the platform of the Docker
+daemon that runs it. An image built on an x86_64 laptop will **not** run on a
+Raspberry Pi: `npm rebuild better-sqlite3` downloads a prebuilt binding for the
+*build* platform. Cross-build with buildx + QEMU:
+
+```bash
+docker run --privileged --rm tonistiigi/binfmt --install arm64   # once per host
+docker buildx build --platform linux/arm64 -t gmboop:arm64 --load .
+```
+
+### Image size
+
+About 450 MB on disk (≈ 330 MB of layers), of which 219 MB is the
+`node:20-slim` base and 30 MB the default soundfont. `WITH_RUNTIME_ASSETS=0`
+brings it to about 390 MB.
 
 ---
 

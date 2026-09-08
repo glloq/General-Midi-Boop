@@ -169,9 +169,15 @@
         hasSelection
       } = options;
 
+      // `details` is injected raw into innerHTML by showConfirmModal (it is
+      // deliberately an HTML fragment), so every value that is NOT already an
+      // escaped tHtml() result must be escaped here. GM instrument names come
+      // from the trusted locale table today, but a custom-bank / user-entered
+      // label reaching this path would otherwise inject (audit L10 F-111).
+      const esc = (s) => window.escapeHtml(s);
       const instrumentRows =
-        this._detailRow(m.t('midiEditor.currentInstrument'), currentInstrument) +
-        this._detailRow(m.t('midiEditor.newInstrumentLabel'), newInstrument);
+        this._detailRow(m.t('midiEditor.currentInstrument'), esc(currentInstrument)) +
+        this._detailRow(m.t('midiEditor.newInstrumentLabel'), esc(newInstrument));
 
       if (hasSelection && noteCount > 0) {
         return this.showConfirmModal({

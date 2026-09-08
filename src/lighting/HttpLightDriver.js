@@ -55,7 +55,11 @@ class HttpLightDriver extends BaseLightingDriver {
   }
 
   async _doDisconnect() {
-    this.allOff();
+    // Await the "off" request: `_sendRequest` is a fire-and-forget fetch, so
+    // without this the process could exit (Application.stop() → database.close()
+    // → exit) with the request still in flight and the fixture still lit
+    // (audit L02 F-30b).
+    await this.allOff();
     if (this._batchTimer) clearTimeout(this._batchTimer);
     this._pendingUpdates.clear();
   }
@@ -77,6 +81,12 @@ class HttpLightDriver extends BaseLightingDriver {
     this._scheduleBatch();
   }
 
+  /**
+   * Turn every light off. Returns the in-flight request promise so callers
+   * that must not race the shutdown (see `_doDisconnect`) can await it;
+   * fire-and-forget callers may ignore it — `_sendRequest` never rejects.
+   * @returns {Promise<void>}
+   */
   allOff() {
     this._pendingUpdates.clear();
     if (this._batchTimer) {
@@ -86,13 +96,11 @@ class HttpLightDriver extends BaseLightingDriver {
 
     switch (this.firmware) {
       case 'wled':
-        this._sendRequest('POST', '/json/state', { on: false });
-        break;
+        return this._sendRequest('POST', '/json/state', { on: false });
       case 'hue':
-        this._sendHueAllOff();
-        break;
+        return this._sendHueAllOff();
       default:
-        this._sendRequest('POST', '/off', { state: 'OFF' });
+        return this._sendRequest('POST', '/off', { state: 'OFF' });
     }
   }
 
@@ -158,9 +166,13 @@ class HttpLightDriver extends BaseLightingDriver {
   }
 
   async _sendHueAllOff() {
+    const pending = [];
     for (let i = 0; i < this.device.led_count; i++) {
-      this._sendRequest('PUT', `/api/${this.apiKey}/lights/${i + 1}/state`, { on: false });
+      pending.push(
+        this._sendRequest('PUT', `/api/${this.apiKey}/lights/${i + 1}/state`, { on: false })
+      );
     }
+    await Promise.all(pending);
   }
 
   async _sendRequest(method, path, body) {

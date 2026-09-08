@@ -223,9 +223,7 @@ export function clampNote(note, constraints) {
     // note rather than escaping the range.
     const pool =
       hasRange && (c.noteRangeMin != null || c.noteRangeMax != null)
-        ? c.selectedNotes.filter(
-            (x) => x >= (c.noteRangeMin ?? 0) && x <= (c.noteRangeMax ?? 127)
-          )
+        ? c.selectedNotes.filter((x) => x >= (c.noteRangeMin ?? 0) && x <= (c.noteRangeMax ?? 127))
         : c.selectedNotes;
     if (pool.length > 0) n = snapToNearest(n, pool);
   } else if (restrictsScale(c.octaveMode) && hasRange) {

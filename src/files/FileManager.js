@@ -288,6 +288,13 @@ class FileManager {
   async exportFile(fileId) {
     const file = this.database.getFile(fileId);
     if (!file) throw new Error(`File not found: ${fileId}`);
+    // Verify the bytes are actually there BEFORE handing the client a download
+    // URL. Without this, a DB↔blobstore divergence (blob GC'd, partial restore,
+    // SD-card loss) produced a successful `file_export` whose URL then failed
+    // with an opaque 404/500 — the operator had no way to tell an export bug
+    // from a missing file (audit 2026-09-07 L07, F-83). `loadFile` already
+    // resolved the blob; this makes the two read paths agree.
+    this.blobStore.resolve(file.blob_path);
     return {
       filename: file.filename,
       contentHash: file.content_hash,
@@ -405,7 +412,7 @@ class FileManager {
           this.database.midiDB.insertFileTextEvents(fileId, textEvents);
         }
       });
-      persist();
+      await this._persistWithRetry(persist, 'saveFile');
     } catch (err) {
       // The blob was written above (line ~336) before this re-parse/analysis.
       // If any of it throws, roll the blob back — unless it was deduplicated or
@@ -496,7 +503,7 @@ class FileManager {
         this.database.midiDB.insertFileTextEvents(fileId, textEvents);
       }
     });
-    persist();
+    await this._persistWithRetry(persist, 'bakeAndSave');
 
     if (oldBlobPath && oldBlobPath !== newBlob.relativePath) {
       this._safeBlobDelete(oldBlobPath);
@@ -587,7 +594,7 @@ class FileManager {
         this.database.midiDB.insertFileTextEvents(fileId, textEvents);
       }
     });
-    persist();
+    await this._persistWithRetry(persist, 'replaceFileBytes');
 
     if (oldBlobPath && oldBlobPath !== newBlob.relativePath) {
       this._safeBlobDelete(oldBlobPath);
@@ -666,7 +673,7 @@ class FileManager {
 
     let fileId;
     try {
-      fileId = persist();
+      fileId = await this._persistWithRetry(persist, 'createDerivedFile');
     } catch (err) {
       if (
         err.code !== 'DUPLICATE_CONTENT' &&
@@ -1047,6 +1054,31 @@ class FileManager {
     } catch (err) {
       this.logger.warn(`BlobStore delete failed for ${relativePath}: ${err.message}`);
     }
+  }
+
+  /**
+   * Commit a `db.transaction(...)` wrapper, retrying `SQLITE_BUSY` across
+   * `await` points.
+   *
+   * `better-sqlite3` is synchronous, so a contended write freezes the whole
+   * process — the MIDI scheduler included — for the entire `busy_timeout`.
+   * The timeout is now short (250 ms, F-78/F-130); this restores the tolerance
+   * that short timeout gives up, without ever holding the event loop for more
+   * than one attempt. A transaction that failed to take its lock wrote nothing,
+   * so re-running it is safe.
+   *
+   * @template T
+   * @param {() => T} persist - The transaction wrapper.
+   * @param {string} operation - Symbolic name for logs / DatabaseBusyError.
+   * @returns {Promise<T>}
+   * @private
+   */
+  async _persistWithRetry(persist, operation) {
+    if (typeof this.database?.runWriteWithRetry === 'function') {
+      return this.database.runWriteWithRetry(persist, { operation });
+    }
+    // Test doubles / older facades: behave exactly as before.
+    return persist();
   }
 }
 

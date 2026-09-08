@@ -435,6 +435,18 @@ class MidiRouter {
     // CC filtering by supported_ccs — channel-mode/safety CCs (>=120) and bank
     // select always pass; an undeclared set forwards everything.
     if (type === DEVICE_MSG_TYPES.CC && out.controller != null) {
+      // CC20/21 (string/fret select) are the tablature actuator protocol: they
+      // have their OWN gate (a string instrument with `cc_enabled`) and are
+      // exempt from `supported_ccs`, exactly as in PlaybackScheduler. Without
+      // this branch the live path diverged from file playback in both
+      // directions: it dropped the actuator CCs whenever the instrument
+      // declared a supported_ccs list that omitted them (mechanical fingers
+      // frozen in live play), and it forwarded them to non-string destinations
+      // that playback filters out (audit L06 F-64).
+      if (out.controller === MIDI_CC.STRING_SELECT || out.controller === MIDI_CC.FRET_SELECT) {
+        if (typeof resolver.isStringCCAllowed !== 'function') return true;
+        return resolver.isStringCCAllowed(dest, out.channel) === true;
+      }
       const constraints = resolver.getTimingConstraints(dest, out.channel);
       const list = constraints?.supportedCcs;
       if (Array.isArray(list) && list.length > 0) {
@@ -463,7 +475,13 @@ class MidiRouter {
 
     if (isNoteOn) {
       const constraints = resolver.getTimingConstraints(dest, out.channel);
-      const res = this._noteGate.noteOn(dest, out.channel, out.note, constraints, performance.now());
+      const res = this._noteGate.noteOn(
+        dest,
+        out.channel,
+        out.note,
+        constraints,
+        performance.now()
+      );
       if (res.evictNote != null) {
         // Release the evicted (median) voice before admitting the new note-on.
         this._deps.deviceManager.sendMessage(dest, DEVICE_MSG_TYPES.NOTE_OFF, {

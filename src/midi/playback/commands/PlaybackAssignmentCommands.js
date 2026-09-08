@@ -12,8 +12,14 @@
  */
 import InstrumentCapabilitiesValidator from '../../adaptation/InstrumentCapabilitiesValidator.js';
 import InstrumentMatcher from '../../adaptation/InstrumentMatcher.js';
-import { ValidationError, NotFoundError, MidiError } from '../../../core/errors/index.js';
+import {
+  ValidationError,
+  NotFoundError,
+  MidiError,
+  ConflictError
+} from '../../../core/errors/index.js';
 import { getMidiConverter } from './midiConverterCache.js';
+import { getFileWriteLock } from '../../../files/FileWriteLock.js';
 import { computeRoutingStatus } from '../../files/FileRoutingStatusService.js';
 
 /**
@@ -108,10 +114,135 @@ export function buildHandPositionWarnings(app, midiData, assignments) {
 }
 
 /**
+ * Locate the adapted child previously produced for `originalFileId`, if any.
+ *
+ * Extracted so the optimistic-concurrency snapshot and the write path agree on
+ * *exactly* which row is the adapted file — a disagreement between the two
+ * would either miss a conflict or invent one.
+ *
+ * @param {Object} app
+ * @param {Object} originalFile - Row of the original (for its folder).
+ * @param {(string|number)} originalFileId
+ * @returns {?Object} The adapted row, or `null`.
+ */
+function findExistingAdaptedFile(app, originalFile, originalFileId) {
+  if (!originalFile) return null;
+  try {
+    const siblings = app.fileRepository.findByFolder(originalFile.folder) || [];
+    return siblings.find((f) => f.parent_file_id === originalFileId && f.is_original === 0) || null;
+  } catch (e) {
+    app.logger?.debug?.('Could not check for existing adapted file', e);
+    return null;
+  }
+}
+
+/**
+ * Stable fingerprint of the routing rows an apply would REPLACE for `fileId`
+ * (`deleteActiveAutoByFileId` clears exactly `enabled=1 AND auto_assigned=1`).
+ *
+ * Volatile columns (`id`, `created_at`) are excluded so re-reading an unchanged
+ * set always yields the same token. Manual and disabled routings are excluded
+ * because apply never touches them — including them would raise conflicts for
+ * edits that cannot collide.
+ *
+ * @param {Object} app
+ * @param {(string|number)} fileId
+ * @returns {string}
+ */
+function routingFingerprint(app, fileId) {
+  let rows;
+  try {
+    rows = app.routingRepository.findByFileId(fileId) || [];
+  } catch (e) {
+    app.logger?.debug?.(`Could not fingerprint routings for file ${fileId}: ${e.message}`);
+    return 'unavailable';
+  }
+  const parts = rows
+    .filter((r) => r.auto_assigned && r.enabled)
+    .map((r) =>
+      [
+        r.channel,
+        r.target_channel,
+        r.device_id,
+        r.transposition_applied ?? 0,
+        r.split_mode ?? '',
+        r.split_note_min ?? '',
+        r.split_note_max ?? '',
+        r.split_polyphony_share ?? '',
+        r.note_remapping ? JSON.stringify(r.note_remapping) : ''
+      ].join('|')
+    )
+    .sort();
+  return `${parts.length}:${parts.join(';')}`;
+}
+
+/**
+ * Version token covering everything one `apply_assignments` may overwrite for a
+ * given original file: the original's bytes, the adapted child's identity and
+ * bytes, and the auto-assigned routing set of whichever of the two is the write
+ * target.
+ *
+ * @param {Object} app
+ * @param {(string|number)} originalFileId
+ * @returns {{originalHash:?string, adaptedFileId:?(string|number),
+ *   adaptedHash:?string, routings:string}}
+ */
+function snapshotApplyTargets(app, originalFileId) {
+  let originalFile = null;
+  try {
+    originalFile = app.fileRepository.findById(originalFileId) || null;
+  } catch (e) {
+    app.logger?.debug?.(`Could not snapshot file ${originalFileId}: ${e.message}`);
+  }
+  const adapted = findExistingAdaptedFile(app, originalFile, originalFileId);
+  return {
+    originalHash: originalFile ? originalFile.content_hash : null,
+    adaptedFileId: adapted ? adapted.id : null,
+    adaptedHash: adapted ? adapted.content_hash : null,
+    routings: routingFingerprint(app, adapted ? adapted.id : originalFileId)
+  };
+}
+
+/**
+ * Name the first field that moved between two snapshots, or `null` when they
+ * are identical.
+ *
+ * @param {Object} before
+ * @param {Object} after
+ * @returns {?string}
+ */
+function snapshotDrift(before, after) {
+  for (const key of ['originalHash', 'adaptedFileId', 'adaptedHash', 'routings']) {
+    if (before[key] !== after[key]) return key;
+  }
+  return null;
+}
+
+/**
  * Apply a user-selected auto-assignment plan: optionally produce an
  * adapted MIDI file (transpose / remap / compress / poly-reduce / CC
  * remap) and persist a routing row per channel so future playbacks
  * pick the same destinations.
+ *
+ * **Concurrency (audit F-76 / F-77).** The body below is a read-modify-write
+ * with `await` points in the middle, so two clients — the perfectly banal "two
+ * browser tabs" case — used to interleave: the audit measured `+5` and `+7`
+ * producing a file at `+12`, with `success: true` returned to *both*, and
+ * `+5` / `−5` silently restoring the original. Two mechanisms close it here:
+ *
+ *   1. a **per-file mutex**: the whole read→transform→write→routings sequence
+ *      is one critical section, so nothing can slip between the read and the
+ *      write;
+ *   2. **optimistic version control**: the version token of everything this
+ *      call may overwrite is snapshotted *before* the lock (synchronously, i.e.
+ *      before any other apply can have written) and re-checked once the lock is
+ *      held. If it moved, this call's plan was computed from bytes that no
+ *      longer exist — it is refused with a {@link ConflictError} and writes
+ *      nothing, instead of stacking its transform on someone else's output.
+ *
+ * A conflict can only fire between applies that were *both in flight*: a
+ * sequential re-apply snapshots after the previous one finished, so it sees no
+ * drift and proceeds exactly as before.
  *
  * @param {Object} app
  * @param {{originalFileId:(string|number),
@@ -120,7 +251,7 @@ export function buildHandPositionWarnings(app, midiData, assignments) {
  *   overwriteOriginal?:boolean}} data
  * @returns {Promise<Object>} Operation summary including any warnings,
  *   the adapted file id (when generated), and applied routing count.
- * @throws {ValidationError|NotFoundError|MidiError}
+ * @throws {ValidationError|NotFoundError|MidiError|ConflictError}
  */
 async function applyAssignments(app, data) {
   if (!data.originalFileId) {
@@ -130,6 +261,29 @@ async function applyAssignments(app, data) {
     throw new ValidationError('assignments is required', 'assignments');
   }
 
+  // Snapshot SYNCHRONOUSLY, before the first `await`. This is the whole point:
+  // a concurrent apply cannot have written yet, so a stale plan is provably
+  // stale by the time we hold the lock.
+  const baseline = snapshotApplyTargets(app, data.originalFileId);
+
+  const release = await getFileWriteLock(app).acquire(data.originalFileId);
+  try {
+    return await applyAssignmentsLocked(app, data, baseline);
+  } finally {
+    release();
+  }
+}
+
+/**
+ * The apply itself, executed while holding the per-file write lock.
+ *
+ * @param {Object} app
+ * @param {Object} data - Same payload as {@link applyAssignments}.
+ * @param {Object} baseline - Version token captured before the lock.
+ * @returns {Promise<Object>}
+ * @throws {ValidationError|NotFoundError|MidiError|ConflictError}
+ */
+async function applyAssignmentsLocked(app, data, baseline) {
   const createAdaptedFile = data.createAdaptedFile !== false;
   const overwriteOriginal = data.overwriteOriginal === true;
   const warnings = [];
@@ -138,6 +292,19 @@ async function applyAssignments(app, data) {
   const originalFile = app.fileRepository.findById(data.originalFileId);
   if (!originalFile) {
     throw new NotFoundError('File', data.originalFileId);
+  }
+
+  // Compare-and-swap: refuse rather than write on top of a concurrent apply.
+  // Nothing has been written at this point, so the caller can safely reload and
+  // retry — and, crucially, it LEARNS instead of receiving a success that lies.
+  const current = snapshotApplyTargets(app, data.originalFileId);
+  const drift = snapshotDrift(baseline, current);
+  if (drift) {
+    throw new ConflictError(
+      `File ${data.originalFileId} was modified by a concurrent assignment apply ` +
+        `(${drift} changed); nothing was written. Reload the file and apply again.`,
+      { resource: `midi_file:${data.originalFileId}`, expected: baseline, actual: current }
+    );
   }
 
   let midiData;
@@ -323,16 +490,10 @@ async function applyAssignments(app, data) {
       } else {
         const adaptedFilename = originalFile.filename.replace(/\.mid$/i, '_adapted.mid');
 
-        let existingAdaptedId = null;
-        try {
-          const existingFiles = app.fileRepository.findByFolder(originalFile.folder);
-          const existingAdapted = existingFiles.find(
-            (f) => f.parent_file_id === data.originalFileId && f.is_original === 0
-          );
-          if (existingAdapted) existingAdaptedId = existingAdapted.id;
-        } catch (e) {
-          app.logger.debug('Could not check for existing adapted file', e);
-        }
+        // Same lookup the concurrency snapshot uses — they MUST agree on which
+        // row is "the adapted file" or the conflict check would be blind to it.
+        const existingAdapted = findExistingAdaptedFile(app, originalFile, data.originalFileId);
+        const existingAdaptedId = existingAdapted ? existingAdapted.id : null;
 
         try {
           if (existingAdaptedId) {
