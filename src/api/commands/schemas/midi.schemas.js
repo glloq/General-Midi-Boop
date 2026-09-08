@@ -59,21 +59,21 @@ export const midi_send_pitchbend = {
   }
 };
 
-const requireDeviceId = {
-  fields: {
-    deviceId: { type: 'string', required: true, minLength: 1 }
-  }
-};
-
-export const midi_panic = requireDeviceId;
-export const midi_all_notes_off = requireDeviceId;
-
-// midi_reset accepts an optional deviceId (broadcast when absent).
-export const midi_reset = {
+// The three silencing commands all take an OPTIONAL deviceId and broadcast to
+// every enabled output when it is absent. `midi_reset` always did; `midi_panic`
+// and `midi_all_notes_off` used to require one, so silencing an orchestra cost
+// N WebSocket frames through a limiter capped at 60 frames/s — and a frame that
+// omitted deviceId was rejected here rather than being treated as "everything"
+// (audit L03 F-45, second half: there was no global panic).
+const optionalDeviceId = {
   fields: {
     deviceId: { type: 'string', minLength: 1 }
   }
 };
+
+export const midi_panic = optionalDeviceId;
+export const midi_all_notes_off = optionalDeviceId;
+export const midi_reset = optionalDeviceId;
 
 export const midi_clock_toggle = {
   fields: {

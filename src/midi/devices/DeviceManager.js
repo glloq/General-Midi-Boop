@@ -23,6 +23,10 @@ import {
 } from '../../core/constants.js';
 import MidiUtils from '../../utils/MidiUtils.js';
 import { assembleChunks } from '../instrument/DescriptorProtocol.js';
+import {
+  PANIC_CONTROLLERS,
+  buildSilenceSequence
+} from '../messages/SilenceSequence.js';
 
 let easymidi;
 /**
@@ -152,6 +156,25 @@ class DeviceManager {
     this._rateLimitCounters = new Map(); // deviceId -> { count, windowStart }
     this._rateLimitCache = new Map(); // deviceId -> limit (0 = unlimited)
 
+    // ── Hot-unplug silencing state (audit L04 F-47) ──────────────────────
+    // Device ids whose OUTPUT vanished while it was open. A self-powered
+    // instrument keeps sounding whatever it was holding when the cable went:
+    // no note-off can reach it any more, and nothing was sent before the port
+    // closed. We remember it so the burst can be replayed the moment it comes
+    // back, and so the first open at boot stays silent (we must not cut an
+    // instrument that was already playing before this process existed).
+    /** @type {Set<string>} */
+    this._disconnectedOutputs = new Set();
+    // "Output device not found" used to be logged once PER MESSAGE: a device
+    // that vanished mid-file produced thousands of identical warns and buried
+    // everything else (audit L04 F-48 / L12 F-132 — 53 % of log volume). One
+    // warn per device, then a silent counter, then one summary line when it
+    // comes back. deviceId -> messages dropped since the warn.
+    /** @type {Map<string, number>} */
+    this._missingOutputDrops = new Map();
+    /** Transport EventEmitters we already subscribed to (idempotency guard). */
+    this._transportLifecycleAttached = new WeakSet();
+
     // Listen for device settings changes to refresh rate limit cache
     this.eventBus?.on('device_settings_changed', ({ deviceId }) => {
       this._rateLimitCache.delete(deviceId);
@@ -170,6 +193,9 @@ class DeviceManager {
 
     // Delegate discovery, hot-plug monitoring, and USB serial detection
     this.discovery = new DeviceDiscovery(deps, easymidi, midiAvailable);
+    // Last chance to talk to a port that is about to be closed: the discovery
+    // layer owns the close, we own what gets said before it (audit L04 F-47).
+    this.discovery.setOutputPreCloseHook((name, port) => this._onOutputPortLost(name, port));
     this.discovery.setChangeCallbacks(
       async (change) => {
         // Handle individual device changes from hot-plug monitoring
