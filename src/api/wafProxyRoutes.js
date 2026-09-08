@@ -73,11 +73,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CDN_BASE = 'https://surikov.github.io/webaudiofontdata/sound/';
 
 /** Where the pinned digests live. Overridable so tests can supply their own. */
-const CHECKSUMS_PATH = process.env.GMBOOP_WAF_CHECKSUMS || path.join(__dirname, 'wafChecksums.json');
+const CHECKSUMS_PATH =
+  process.env.GMBOOP_WAF_CHECKSUMS || path.join(__dirname, 'wafChecksums.json');
 
 /** @returns {'pinned'|'open'|'off'} */
 function resolveMode() {
-  const raw = String(process.env.GMBOOP_WAF_PROXY || '').trim().toLowerCase();
+  const raw = String(process.env.GMBOOP_WAF_PROXY || '')
+    .trim()
+    .toLowerCase();
   return raw === 'open' || raw === 'off' ? raw : 'pinned';
 }
 
@@ -203,7 +206,7 @@ export function createWafProxyRouter(app, options = {}) {
   if (mode === 'open') {
     app?.logger?.warn?.(
       'WAF proxy: GMBOOP_WAF_PROXY=open — third-party JavaScript is replayed from this ' +
-        'origin with NO integrity check. A `script-src \'self\'` CSP does not cover it ' +
+        "origin with NO integrity check. A `script-src 'self'` CSP does not cover it " +
         '(audit L10 F-109).'
     );
   } else if (mode === 'pinned' && Object.keys(pins).length === 0) {
