@@ -505,15 +505,18 @@ qu'elles ne sont :
 ## 10. État de l'arbre
 
 ```
-$ npm test        → 206/207 suites, 2800/2821 tests
-                    Seul rouge : tests/audit/r6-static-asset-404.test.js
-                    (21 tests) — travail en cours de R6 sur F-119,
-                    hors périmètre R7. Toutes les suites de packaging
-                    (l11-packaging 10/10, r7-packaging 23/23) sont vertes.
+$ npm test        → 207 suites / 2821 tests — TOUS VERTS
+                    (dont l11-packaging 10/10 et r7-packaging 23/23)
 $ npx vitest run  → 86 fichiers / 1560 tests — TOUS VERTS
 $ npx eslint tests/audit/{r7,l11}-packaging.test.js   → 0 erreur, 0 warning
 $ npx prettier --check …                              → conforme
 ```
+
+Le compte de la vague 1 était 199 suites / 2 677 tests ; les 8 suites et
+144 tests supplémentaires viennent des autres chantiers de la vague 2 menés en
+parallèle, plus les 23 tests ajoutés ici. À un moment de ce lot,
+`tests/audit/r6-static-asset-404.test.js` était rouge (21 tests) — c'était le
+rouge en cours de R6 sur F-119, hors périmètre R7 ; il est vert à la clôture.
 
 ## 11. Fichiers touchés
 

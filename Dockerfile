@@ -115,7 +115,10 @@ COPY --chown=appuser:appuser public/ ./public/
 COPY --chown=appuser:appuser migrations/ ./migrations/
 COPY --chown=appuser:appuser scripts/ ./scripts/
 
-# Fetched assets go on top of public/ so they survive the COPY above.
+# Assets fetched in the builder. They come from there and ONLY from there:
+# `public/lib/` and `assets/sf2/*.sf2` are gitignored and excluded from the
+# build context (.dockerignore), so the image is a function of the repo plus
+# the network, never of what happens to be lying around on the build host.
 COPY --from=builder --chown=appuser:appuser /app/assets ./assets
 COPY --from=builder --chown=appuser:appuser /app/public/lib ./public/lib
 
