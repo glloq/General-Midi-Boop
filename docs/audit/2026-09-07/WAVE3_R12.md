@@ -345,3 +345,12 @@ un script demeure une modification consciente.
   d'ADR-003 : 13 sont maintenant de l'API *interne appelée par la SPA*, 2
   restent de l'API *externe*. Écrire cette distinction dans `docs/API.md` est un
   item L01/L14.
+
+### Effet de bord à connaître
+
+Lancer le harnais réécrit `tests/e2e/artifacts/` (`report.json`,
+`01-boot-*.png`). Ce répertoire est dans `.gitignore` **mais cinq de ses
+fichiers sont suivis par git depuis avant cette règle** : ils apparaissent donc
+modifiés après tout run. Le `report.json` présent porte le résultat du scénario
+05 (§3) ; s'il faut restaurer les fichiers d'origine, c'est un
+`git checkout -- tests/e2e/artifacts/`.
