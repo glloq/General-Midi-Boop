@@ -97,7 +97,7 @@ function makeClock({ devices = ['out-a'], compensations = {} } = {}) {
     },
     deviceManager: {
       outputs: new Map(devices.map((d) => [d, {}])),
-      sendMessage: (device, type) => sent.push({ device, type, at: performance.now() })
+      sendMessage: (device, type, data) => sent.push({ device, type, data, at: performance.now() })
     }
   };
   const clock = new MidiClockGenerator(deps);
@@ -309,10 +309,13 @@ describe('L03/D06 — MidiClockGenerator: long-run drift (injected clock)', () =
     expect(clocksOf(sent)).toHaveLength((300_000 / 60000) * 240 * 24);
   });
 
-  // Documented behaviour (finding F-44): after an event-loop stall the
-  // generator does NOT drop the missed ticks — it replays them all back to
-  // back at delay 0 until the tick counter catches up with wall time.
-  test('F-44 — after a 5 s stall every missed tick is replayed in one burst', () => {
+  // INVERTED by wave 4 / R21 (finding F-44 fixed). The audit measured 240
+  // `0xF8` messages on a single virtual instant after a 5 s stall — the whole
+  // backlog replayed at delay 0 down every output port. The generator now
+  // re-anchors the tick grid on the current instant beyond two intervals of
+  // lateness, so the stall costs the slaves the position they really lost and
+  // nothing else.
+  test('F-44 (corrigé) — after a 5 s stall the clock re-anchors instead of bursting', () => {
     const { clock, sent } = makeClock();
     clock.setEnabled(true);
     clock.startPlayback(120);
@@ -321,14 +324,31 @@ describe('L03/D06 — MidiClockGenerator: long-run drift (injected clock)', () =
     vc.stall(5000); // event loop blocked for 5 s
     vc.flush();
     const burst = clocksOf(sent).length - before;
-    // 5 s at 120 BPM = 240 ticks; every one of them is emitted, and they all
-    // land on the SAME instant — a 240-message burst down every output port.
-    expect(burst).toBeGreaterThanOrEqual(239);
-    expect(burst).toBeLessThanOrEqual(242);
-    const at = clocksOf(sent)
-      .slice(-burst)
-      .map((t) => t.at);
-    expect(new Set(at).size).toBe(1);
+    // Was 239-242; now at most the single tick that was already due.
+    expect(burst).toBeLessThanOrEqual(2);
+    // The re-anchor is reported, with the number of ticks it chose to drop.
+    const metrics = clock.getSyncMetrics();
+    expect(metrics.resyncCount).toBe(1);
+    expect(metrics.skippedTicks).toBeGreaterThanOrEqual(239);
+    // …and the cadence resumes immediately at the right interval.
+    const resumed = clocksOf(sent).length;
+    vc.advance(1000);
+    expect(clocksOf(sent).length - resumed).toBeGreaterThanOrEqual(47);
+    clock.stopPlayback();
+  });
+
+  test('F-44 (corrigé) — ordinary jitter never triggers a re-anchor', () => {
+    const { clock, sent } = makeClock();
+    clock.setEnabled(true);
+    clock.startPlayback(120);
+    // 3 ms of deterministic lateness on every timer: well under the two-tick
+    // (41.7 ms at 120 BPM) threshold, so the drift correction must still be
+    // the only mechanism at work — no tick dropped, exact count preserved.
+    const interval = 60000 / (120 * 24);
+    vc.advance(60_000 + interval / 2, () => 3);
+    expect(clock.getSyncMetrics().resyncCount).toBe(0);
+    expect(clock.getSyncMetrics().skippedTicks).toBe(0);
+    expect(clocksOf(sent)).toHaveLength(2880);
     clock.stopPlayback();
   });
 });
@@ -414,10 +434,12 @@ describe('L03/D06 — MidiClockGenerator: device targeting & compensation', () =
 });
 
 // ---------------------------------------------------------------------------
-// F-43 — Song Position Pointer is entirely absent.
+// F-43 — Song Position Pointer. INVERTED by wave 4 / R21: the generator used
+// to have no locate API at all, so a seek re-sent Start and every slave went
+// back to bar 1. Both tests below now assert the spec-correct behaviour.
 // ---------------------------------------------------------------------------
-describe('L03/F-43 — Song Position Pointer', () => {
-  test('the generator has no SPP API and never emits 0xF2', () => {
+describe('L03/F-43 (corrigé) — Song Position Pointer', () => {
+  test('an ordinary play/pause/resume run still emits only the four realtime messages', () => {
     const { clock, sent } = makeClock();
     clock.setEnabled(true);
     clock.startPlayback(120);
@@ -429,29 +451,54 @@ describe('L03/F-43 — Song Position Pointer', () => {
     vc.advance(500);
     clock.stopPlayback();
 
-    // The complete vocabulary the master clock can ever put on the wire.
+    // No locate happened, so no SPP: playing from the top is still Start.
     expect(new Set(typesOf(sent))).toEqual(new Set(['start', 'clock', 'stop', 'continue']));
-    // No entry point exists to locate a slave either.
-    for (const name of ['sendSongPosition', 'setSongPosition', 'locate', 'seek']) {
-      expect([name, typeof clock[name]]).toEqual([name, 'undefined']);
-    }
+    // The locate entry point now exists.
+    expect(typeof clock.sendSongPosition).toBe('function');
   });
 
-  test('a seek therefore re-sends Start (= "from bar 1"), never Stop+SPP+Continue', () => {
-    // MidiPlayer.seek() on an actively-playing file calls stopPlayback() then
-    // start() → startPlayback(), which is exactly this sequence. MIDI 1.0 says
-    // 0xFA Start means "play from the beginning": a slave follows the operator
-    // back to bar 1 instead of to the seek target. The spec-correct sequence is
-    // Stop (0xFC) → Song Position Pointer (0xF2) → Continue (0xFB).
+  test('a seek emits Stop → Song Position Pointer → Continue, never a second Start', () => {
+    // MIDI 1.0: 0xFA Start means "play from the beginning", so re-sending it
+    // after a seek dragged every synced slave back to bar 1. The conformant
+    // locate sequence is Stop (0xFC) → SPP (0xF2) → Continue (0xFB).
     const { clock, sent } = makeClock();
     clock.setEnabled(true);
     clock.startPlayback(120);
     vc.advance(30_000); // playing at 00:30
     clock.stopPlayback(); // seek()
-    clock.startPlayback(120); // start() after the seek
+    // 00:30 at 120 BPM = 60 quarter notes = 240 sixteenths (MIDI beats).
+    clock.startPlayback(120, 240); // start() after the seek
     vc.advance(100);
     const transport = typesOf(sent).filter((t) => t !== 'clock');
-    expect(transport).toEqual(['start', 'stop', 'start']);
-    expect(transport).not.toContain('position');
+    expect(transport).toEqual(['start', 'stop', 'position', 'continue']);
+  });
+
+  test('the SPP payload is the 14-bit beat count, LSB first', () => {
+    const { clock, sent } = makeClock();
+    clock.setEnabled(true);
+    clock.setDeviceClockEnabled('out-a', true);
+    // 1234 = 0b0001001_1010010 -> LSB 82, MSB 9 (LSB first, 7 bits each).
+    expect(clock.sendSongPosition(1234)).toBe(1234);
+    const spp = sent.filter((s) => s.type === 'position');
+    expect(spp).toHaveLength(1);
+    expect(spp[0].data.bytes).toEqual([1234 & 0x7f, 1234 >> 7]);
+    expect(spp[0].data.value).toBe(1234);
+    expect(clock.getSyncMetrics().lastSongPosition).toBe(1234);
+  });
+
+  test('the SPP value is clamped to the 14-bit domain and never negative', () => {
+    const { clock, sent } = makeClock();
+    clock.setEnabled(true);
+    expect(clock.sendSongPosition(-5)).toBe(0);
+    expect(clock.sendSongPosition(99_999)).toBe(0x3fff);
+    expect(clock.sendSongPosition(10.4)).toBe(10);
+    const spp = sent.filter((s) => s.type === 'position');
+    expect(spp.map((s) => s.data.value)).toEqual([0, 0x3fff, 10]);
+  });
+
+  test('a disabled clock emits no SPP at all', () => {
+    const { clock, sent } = makeClock();
+    expect(clock.sendSongPosition(240)).toBeNull();
+    expect(sent).toEqual([]);
   });
 });

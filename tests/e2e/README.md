@@ -70,6 +70,7 @@ PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node tests/e2e/run.mjs
 | Variable | Default | Meaning |
 |---|---|---|
 | `E2E_PORT` | `8108` | HTTP/WS port for the disposable server |
+| `E2E_WORKSPACE` | `tests/e2e/artifacts/workspace` | where the run's database, logs and uploads go (wiped on every run) |
 | `E2E_HEADED` | unset | `1` runs a visible browser |
 | `E2E_MODAL_CYCLES` | `50` | open/close cycles in the leak spec |
 | `E2E_CDN_STALL_MS` | `8000` | how long the offline-boot spec stalls the CDN request |

@@ -2,8 +2,9 @@
  * @file src/midi/playback/MidiClockGenerator.js
  * @description Master MIDI clock generator. Emits 24 pulses per quarter
  * note (industry standard) plus the Start / Stop / Continue transport
- * messages. Uses a drift-correcting `setTimeout` schedule so the long-
- * term tempo stays accurate despite per-tick jitter.
+ * messages and the Song Position Pointer used to relocate slaves.
+ * Uses a drift-correcting `setTimeout` schedule so the long-term tempo
+ * stays accurate despite per-tick jitter.
  *
  * Per-device latency compensation: the slowest target sends its tick
  * immediately, every other target is delayed by `(slowest - this)` ms.
@@ -22,6 +23,25 @@ import { TIMING } from '../../core/constants.js';
 
 /** 24 pulses per quarter note — MIDI 1.0 standard. */
 const MIDI_CLOCK_PPQ = TIMING.MIDI_CLOCK_PPQ;
+
+/**
+ * Song Position Pointer is a 14-bit value (two 7-bit data bytes), so the
+ * highest addressable position is 16383 MIDI beats — 4095 quarter notes,
+ * about 34 minutes at 120 BPM. Beyond that the spec has nothing to say and
+ * the value is clamped.
+ */
+const MAX_SONG_POSITION_BEATS = 0x3fff;
+
+/**
+ * How many tick intervals of lateness are treated as "the event loop was
+ * blocked" rather than ordinary jitter. Beyond this the clock re-anchors on
+ * the current instant instead of replaying every missed tick at delay 0
+ * (audit F-44). Two intervals is ~42 ms at 120 BPM and ~21 ms at 240 BPM —
+ * an order of magnitude above the few ms of libuv jitter measured under
+ * load, and far below any real stall (L07 measured 5 015 ms on a contended
+ * SQLite write, wave 1 brought it down to 257 ms).
+ */
+const CLOCK_RESYNC_TICKS = 2;
 
 class MidiClockGenerator {
   /**
@@ -63,6 +83,16 @@ class MidiClockGenerator {
     // Drift-correcting timer state
     this._timer = null;
     this._expectedTime = 0;
+
+    // Last Song Position Pointer put on the wire, in MIDI beats (sixteenth
+    // notes). `null` until a locate happens. Exposed through getSyncMetrics()
+    // so an operator can see where the slaves were told to go.
+    this._lastSongPosition = null;
+
+    // F-44 observability: how many times the clock re-anchored after an
+    // event-loop stall, and how many ticks were dropped doing so.
+    this._resyncCount = 0;
+    this._skippedTicks = 0;
 
     // Devices that receive clock (deviceId -> true/false). Unset = default (true).
     this._deviceClockEnabled = new Map();
@@ -171,10 +201,25 @@ class MidiClockGenerator {
 
   /**
    * Start MIDI clock with playback.
-   * Sends MIDI Start (0xFA) then begins clock ticks.
+   *
+   * With no song position (or position 0) this sends MIDI **Start** (0xFA),
+   * which MIDI 1.0 defines as "play from the beginning" — correct for a fresh
+   * play or a loop back to bar 1.
+   *
+   * With a non-zero `songPositionBeats` it sends the spec-correct **locate**
+   * sequence instead: **Song Position Pointer (0xF2)** followed by
+   * **Continue (0xFB)**. Sending Start after a seek made every slave synced to
+   * this clock jump back to bar 1 while the operator had just moved the
+   * playhead to the middle of the song (audit F-43). The caller is expected to
+   * have sent Stop (0xFC) beforehand — {@link MidiPlayer#seek} does — so the
+   * full sequence on the wire is `FC → F2 → FB`.
+   *
    * @param {number} tempo - BPM
+   * @param {?number} [songPositionBeats] - Target position in MIDI beats
+   *   (sixteenth notes = 6 clock ticks). `null`/0 ⇒ Start from bar 1.
+   * @returns {void}
    */
-  startPlayback(tempo) {
+  startPlayback(tempo, songPositionBeats = null) {
     if (!this._enabled) return;
 
     // Stop any existing clock to avoid timer leaks (e.g., during seek)
@@ -191,12 +236,86 @@ class MidiClockGenerator {
     this._invalidateDeviceCache();
     this._ensureDeviceCache();
 
-    this._sendTransportToAll('start');
+    const beats = this._normalizeSongPosition(songPositionBeats);
+    if (beats > 0) {
+      this.sendSongPosition(beats);
+      this._sendTransportToAll('continue');
+    } else {
+      // Start means "from the beginning": the slaves' song position IS 0.
+      this._lastSongPosition = 0;
+      this._sendTransportToAll('start');
+    }
     this._startClockTimer();
 
     this.logger.info(
-      `MIDI Clock started at ${tempo.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`
+      `MIDI Clock ${beats > 0 ? `continued at SPP ${beats}` : 'started'} at ${tempo.toFixed(1)} BPM (tick every ${this._tickIntervalMs.toFixed(2)}ms)`
     );
+  }
+
+  /**
+   * Emit a **Song Position Pointer** (0xF2) to every clock target.
+   *
+   * SPP carries a 14-bit count of *MIDI beats* — sixteenth notes, i.e. 6 clock
+   * pulses each — split LSB-first into two 7-bit data bytes. MIDI 1.0 says a
+   * slave must be **stopped** when it receives one, and resumes at that
+   * position on the next Continue; that is the whole point of the
+   * Stop → SPP → Continue locate sequence (audit F-43).
+   *
+   * The payload carries the position twice on purpose: `value` is the 14-bit
+   * form easymidi expects on the USB path, `bytes` the pre-split pair the
+   * byte-level transports (BLE / serial / RTP) consume.
+   *
+   * @param {number} songPositionBeats - Position in MIDI beats. Clamped to
+   *   the 14-bit range and rounded to the nearest sixteenth.
+   * @returns {?number} The beat value actually sent, or `null` when the clock
+   *   is disabled (nothing was emitted).
+   */
+  sendSongPosition(songPositionBeats) {
+    if (!this._enabled) return null;
+
+    const beats = this._normalizeSongPosition(songPositionBeats);
+    this._lastSongPosition = beats;
+    this._dispatchToBuckets((deviceId) =>
+      this._sendTransportToDevice(deviceId, 'position', {
+        value: beats,
+        bytes: [beats & 0x7f, (beats >> 7) & 0x7f]
+      })
+    );
+    return beats;
+  }
+
+  /**
+   * Clamp/round an arbitrary caller value into the 14-bit SPP domain.
+   * @param {*} beats
+   * @returns {number} 0 … 16383
+   * @private
+   */
+  _normalizeSongPosition(beats) {
+    const n = Number(beats);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.min(MAX_SONG_POSITION_BEATS, Math.round(n));
+  }
+
+  /** @returns {?number} Last SPP emitted, in MIDI beats (null if never). */
+  getLastSongPosition() {
+    return this._lastSongPosition;
+  }
+
+  /**
+   * Observability for the two policies this generator implements: where the
+   * slaves were last told to locate (F-43) and how often the tick grid had to
+   * be re-anchored after an event-loop stall (F-44).
+   *
+   * @returns {{lastSongPosition: ?number, resyncCount: number,
+   *   skippedTicks: number, tickIntervalMs: number}}
+   */
+  getSyncMetrics() {
+    return {
+      lastSongPosition: this._lastSongPosition,
+      resyncCount: this._resyncCount,
+      skippedTicks: this._skippedTicks,
+      tickIntervalMs: this._tickIntervalMs
+    };
   }
 
   /**
@@ -298,10 +417,34 @@ class MidiClockGenerator {
 
   /**
    * Schedule the next clock tick with drift correction.
+   *
+   * Drift correction accumulates the ideal grid (`_expectedTime`) rather than
+   * chaining `setInterval`, so ordinary jitter never shifts the tempo. Past
+   * `CLOCK_RESYNC_TICKS` intervals of lateness that is no longer jitter: the
+   * event loop was blocked, and replaying every missed tick at delay 0 fired
+   * the whole backlog on a single instant — 240 `0xF8` messages down every
+   * output port after a 5 s stall (audit F-44). A burst like that is inaudible
+   * as tempo but saturates the ports and, on a slave, arrives as an
+   * instantaneous jump. Re-anchor on the current instant instead: the slaves'
+   * musical position drifts by exactly the stall, which is what actually
+   * happened, and the tick stream resumes at the right cadence immediately.
    */
   _scheduleNextTick() {
     const now = performance.now();
     this._expectedTime += this._tickIntervalMs;
+
+    const lateness = now - this._expectedTime;
+    if (lateness > this._tickIntervalMs * CLOCK_RESYNC_TICKS) {
+      const skipped = Math.round(lateness / this._tickIntervalMs);
+      this._resyncCount++;
+      this._skippedTicks += skipped;
+      this._expectedTime = now + this._tickIntervalMs;
+      this.logger.warn(
+        `MIDI Clock re-anchored after a ${lateness.toFixed(0)}ms event-loop stall ` +
+          `(${skipped} tick(s) dropped instead of replayed as a burst)`
+      );
+    }
+
     const delay = Math.max(0, this._expectedTime - now);
 
     this._timer = setTimeout(() => {
@@ -388,11 +531,12 @@ class MidiClockGenerator {
   /**
    * Send a transport message to a device.
    * @param {string} deviceId
-   * @param {string} type - 'start', 'stop', or 'continue'
+   * @param {string} type - 'start', 'stop', 'continue' or 'position'
+   * @param {Object} [data] - Payload; only Song Position Pointer carries one.
    */
-  _sendTransportToDevice(deviceId, type) {
+  _sendTransportToDevice(deviceId, type, data = {}) {
     try {
-      this.deviceManager.sendMessage(deviceId, type, {});
+      this.deviceManager.sendMessage(deviceId, type, data);
     } catch (err) {
       this.logger.debug(`Failed to send ${type} to ${deviceId}: ${err.message}`);
     }
@@ -547,6 +691,7 @@ class MidiClockGenerator {
    */
   destroy() {
     this.stopPlayback();
+    this._lastSongPosition = null;
     this._compensationCache.clear();
     this._deviceClockEnabled.clear();
     this._cachedTargetDevices = null;

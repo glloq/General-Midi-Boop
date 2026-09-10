@@ -261,19 +261,112 @@ export class AppPage {
     }));
   }
 
+  // ── Live MIDI routing (R12 / F-138) ───────────────────────────────────────
+
+  /**
+   * Open the live-routing modal from its header button.
+   *
+   * A **real** click on `#liveRoutingBtn`: the whole point of F-138 is that the
+   * commands existed but no affordance reached them, so the scenario must go
+   * through the same pixel a user would.
+   * @returns {Promise<void>}
+   */
+  async openLiveRouting() {
+    await this.page.click('#liveRoutingBtn', { timeout: 15000 });
+    await this.page.waitForSelector('#live-routing-modal-overlay', { timeout: 15000 });
+    // The modal issues device_list + route_list on open; wait for the list to
+    // have rendered (either rows or the "no route" placeholder).
+    await this.page.waitForSelector('#lrt-routes .lrt-route, #lrt-routes .lrt-empty', {
+      timeout: 15000
+    });
+  }
+
+  /** Close the live-routing modal with Escape (BaseModal handles it). */
+  async closeLiveRouting() {
+    if (!(await this.page.locator('#live-routing-modal-overlay').count())) return;
+    await this.page.keyboard.press('Escape');
+    await this.page
+      .locator('#live-routing-modal-overlay')
+      .waitFor({ state: 'detached', timeout: 10000 });
+  }
+
+  /**
+   * Create a route through the modal's two selects and its Create button.
+   * @param {string} sourceId      device id for the source select
+   * @param {string} destinationId device id for the destination select
+   * @returns {Promise<number>} the number of route rows after the click
+   */
+  async createRouteViaUi(sourceId, destinationId) {
+    const before = await this.page.locator('#lrt-routes .lrt-route').count();
+    await this.page.selectOption('#lrt-source', sourceId);
+    await this.page.selectOption('#lrt-destination', destinationId);
+    await this.page.click('#lrt-create', { timeout: 10000 });
+    await this.page.waitForFunction(
+      (n) => document.querySelectorAll('#lrt-routes .lrt-route').length > n,
+      before,
+      { timeout: 15000 }
+    );
+    return this.page.locator('#lrt-routes .lrt-route').count();
+  }
+
+  /**
+   * The routes as the **modal** renders them (not as the backend reports them).
+   * @returns {Promise<Array<{id:string,label:string,enabled:boolean}>>}
+   */
+  async routeRows() {
+    return this.page.$$eval('#lrt-routes .lrt-route', (rows) =>
+      rows.map((r) => ({
+        id: r.getAttribute('data-lrt-route'),
+        label: (r.querySelector('.lrt-route-path')?.textContent || '').trim(),
+        enabled: !!r.querySelector('.lrt-enabled')?.checked
+      }))
+    );
+  }
+
+  /** The routes as the backend knows them. @returns {Promise<Object[]>} */
+  async backendRoutes() {
+    const res = await this.command('route_list', {});
+    return (res && res.routes) || [];
+  }
+
+  /**
+   * Options currently offered by one of the modal's device selects.
+   * @param {'source'|'destination'} which
+   * @returns {Promise<Array<{value:string,label:string}>>}
+   */
+  async routingSelectOptions(which) {
+    return this.page.$$eval(`#lrt-${which} option`, (opts) =>
+      opts.map((o) => ({ value: o.value, label: (o.textContent || '').trim() }))
+    );
+  }
+
   // ── Playback ──────────────────────────────────────────────────────────────
 
   /**
-   * @returns {Promise<{playing:boolean, label:string, file:string}>} what the
-   * header transport currently shows.
+   * @returns {Promise<{playing:boolean, label:string, file:string,
+   *   stopDisabled:boolean, playDisabled:boolean, time:string,
+   *   progressWidth:string}>} what the header transport currently shows.
    */
   async transportState() {
     return this.page.evaluate(() => ({
       playing: !!document.querySelector('#headerStopBtn:not([disabled])'),
       label: (document.querySelector('#headerPlayPauseBtn')?.textContent || '').trim(),
       file: (document.querySelector('#headerFileName')?.textContent || '').trim(),
-      stopDisabled: !!document.querySelector('#headerStopBtn')?.disabled
+      stopDisabled: !!document.querySelector('#headerStopBtn')?.disabled,
+      playDisabled: !!document.querySelector('#headerPlayPauseBtn')?.disabled,
+      time: (document.querySelector('#headerTime')?.textContent || '').trim(),
+      progressWidth: document.querySelector('#headerProgressFill')?.style.width || ''
     }));
+  }
+
+  /**
+   * Stop playback the way the operator does it: a real click on the header's
+   * Stop button. Never `playback_stop` through the socket — the whole point of
+   * F-94 is whether the *button* is there and works.
+   * @returns {Promise<void>}
+   */
+  async clickStop() {
+    await this.page.click('#headerStopBtn', { timeout: 15000 });
   }
 
   /** @returns {Promise<any>} the backend's own playback status. */

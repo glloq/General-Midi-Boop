@@ -78,7 +78,7 @@ Définie dans [`migrations/001_baseline.sql`](../migrations/001_baseline.sql)
 | `num_strings` | int 1..12 | Nombre de cordes (= longueur de `tuning`) |
 | `num_frets` | int 0..36 | 0 = fretless |
 | `is_fretless` | bool | Active la résolution flottante des frettes |
-| `capo_fret` | int 0..36 | **Désactivé (2026-04)** — la colonne survit pour la compatibilité ascendante mais n'est plus appliquée par le convertisseur ni les vues. Pour décaler la tonalité, transposer le canal source à la place. |
+| `capo_fret` | int 0..36 | **Abandonné (2026-04 moteur, 2026-09 UI — R15)** — plus aucun writer ni lecteur : ni le convertisseur, ni les vues, ni le simulateur de main, ni le schéma WS, ni le mapping descripteur. La colonne survit uniquement comme schéma mort (son `DEFAULT 0` s'applique) ; le SQL de suppression est écrit, non appliqué, dans `docs/audit/2026-09-07/WAVE3_R14_R15.md`. Pour décaler la tonalité, transposer le canal source. |
 | `frets_per_string` | JSON `[int]?` | Cap individuel par corde, sinon `num_frets` partout |
 | `scale_length_mm` | int 100..2000 | Longueur de diapason, pour le modèle physique |
 | `tab_algorithm` | text | `min_movement` \| `lowest_fret` \| `highest_fret` \| `zone` \| `hand_aware` |

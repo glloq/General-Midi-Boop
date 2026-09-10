@@ -59,9 +59,14 @@ describe('L11 §AG — F-14 : le repli CDN bloquant de public/index.html (CORRIG
     expect(typeof existsSync(vendored)).toBe('boolean');
   });
 
-  test("les 191 balises <script src> sont désormais toutes locales : plus rien n'est derrière un appel réseau", () => {
+  test("les 194 balises <script src> sont désormais toutes locales : plus rien n'est derrière un appel réseau", () => {
     const srcs = [...indexHtml.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
-    expect(srcs.length).toBe(191);
+    // 191 à R6 ; +2 en vague 3 / R12 (modale de routage live + son lanceur) ;
+    // +1 en vague 4 / R20 (features/transport/PlaybackResync.js), toutes en
+    // chemin relatif. Le compte reste exact pour qu'ajouter un script soit une
+    // modification consciente de ce test ; l'invariant protégé est l'assertion
+    // ci-dessous : aucune balise ne vise une origine distante.
+    expect(srcs.length).toBe(194);
     // Avant R6 : 174 d'entre elles attendaient la résolution réseau du CDN
     // avant d'être seulement demandées, `document.write` étant bloquant pour
     // l'analyseur HTML.

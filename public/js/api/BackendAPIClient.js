@@ -686,6 +686,20 @@ class BackendAPIClient {
   }
 
   /**
+   * Snapshot of the server's playback state: `playing` / `paused`,
+   * `position`, `duration`, `tempo`, `outputDevice`.
+   *
+   * The SPA calls it on every (re)connection: playback lives in the backend,
+   * so a page reload must ask what is going on rather than assume silence
+   * (R20 / F-94).
+   *
+   * @returns {Promise<Object>}
+   */
+  async getPlaybackStatus() {
+    return this.sendCommand('playback_status');
+  }
+
+  /**
    * Seek playback to an absolute position.
    * @param {number} position - Position in seconds (>= 0).
    */

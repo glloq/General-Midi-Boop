@@ -431,7 +431,7 @@ classique.
 | Tablature pinned manuellement | Le pin précède toute auto-résolution ; jamais réassigné |
 | Override de l'ancrage | La logique automatique est court-circuitée pour ce tick |
 | Note hors `num_frets` | Filtrée par le résolveur, jamais émise |
-| Capo configuré | (en cours) — actuellement le résolveur ne soustrait pas le capo. Test `respects the capo offset when resolving` en échec connu, antérieur à ce document. |
+| Capo configuré | Sans objet — **le capo est abandonné** (R15, 2026-09). Le résolveur ne le soustrait plus et `capo_fret` n'est plus ni écrit ni lu ; le test correspondant a été inversé en `ignores capo_fret entirely`. Pour décaler la tonalité, transposer le canal source. |
 
 ---
 
@@ -459,9 +459,13 @@ classique.
   `unplayableKeys` ajouté dans `HandsPreviewPanel` et
   `HandPositionEditorModal` ; 2ᵉ passe du résolveur après shift
   dans `HandPositionFeasibility._simulateFrets`.
+- **2026-09 (R15)** — Capo **abandonné** : le simulateur
+  `HandPositionFeasibility` ne soustrait plus `capo_fret`, la surface UI
+  / schéma WS / mapping descripteur a été retirée et le test
+  `respects the capo offset` inversé en `ignores capo_fret entirely`.
+  Client et moteur résolvent désormais la même frette (F-72 refermé).
 - **2026-04** — `capo_fret` désactivé côté planner ; transposition
-  recommandée à la place. Le test `respects the capo offset` reste
-  en échec en attendant suppression ou refactor.
+  recommandée à la place.
 - **2026-04** — Modèle multi-mains généralisé pour les claviers
   (ids `h1..h4`). Côté frets, un seul `id: "fretting"`.
 - **2025** — Migration `008` : ajout `scale_length_mm` ; mode

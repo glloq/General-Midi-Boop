@@ -2,10 +2,22 @@
  * @file src/persistence/tables/StringInstrumentDatabase.js
  * @description SQLite access layer for guitar/bass/violin configuration
  * and tablature data. Owns the `string_instruments` (tuning, fret
- * count, capo, CC mapping) and `string_instrument_tablatures` tables,
+ * count, CC mapping) and `string_instrument_tablatures` tables,
  * plus an in-memory tuning-preset catalogue. Sub-module of
  * {@link Database}; consumed via `StringInstrumentRepository` and the
  * {@link TablatureConverter} workflow.
+ *
+ * ABANDONED COLUMN — `string_instruments.capo_fret`
+ * (`migrations/001_baseline.sql:466`, `NOT NULL DEFAULT 0
+ * CHECK(capo_fret BETWEEN 0 AND 36)`). The capo feature was removed from
+ * the converter in 2026-04 (`TablatureConverter.js` header) and, as of
+ * R15 (2026-09), from the UI, the WS schema, the descriptor mapping and
+ * this writer as well: nothing reads it and nothing writes it any more.
+ * The column is intentionally left in place — a table rebuild to drop an
+ * inert column is not worth the risk on a live Pi — and new rows simply
+ * take its `DEFAULT 0`. The drop SQL is written out, unapplied, in
+ * `docs/audit/2026-09-07/WAVE3_R14_R15.md`. Do not re-wire it: capo is a
+ * product decision, not a missing feature.
  */
 
 /**
@@ -216,7 +228,6 @@ class StringInstrumentDatabase {
    * @param {number} [config.num_frets] - Number of frets (0=fretless, 1-36)
    * @param {number[]} [config.tuning] - MIDI note numbers per string (low to high)
    * @param {boolean} [config.is_fretless] - Whether the instrument is fretless
-   * @param {number} [config.capo_fret] - Capo position (0=none)
    * @returns {number} Inserted row ID
    */
   createStringInstrument(config) {
@@ -262,20 +273,19 @@ class StringInstrumentDatabase {
       const stmt = this.db.prepare(`
         INSERT INTO string_instruments (
           device_id, channel, instrument_name, num_strings, num_frets,
-          tuning, is_fretless, capo_fret, cc_enabled, tab_algorithm,
+          tuning, is_fretless, cc_enabled, tab_algorithm,
           cc_string_number, cc_string_min, cc_string_max, cc_string_offset,
           cc_fret_number, cc_fret_min, cc_fret_max, cc_fret_offset,
           frets_per_string, scale_length_mm, string_slider_enabled,
           string_sliding_system_enabled,
           cc_bow_direction_number, cc_bow_down_value, cc_bow_up_value
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(device_id, channel) DO UPDATE SET
           instrument_name = excluded.instrument_name,
           num_strings = excluded.num_strings,
           num_frets = excluded.num_frets,
           tuning = excluded.tuning,
           is_fretless = excluded.is_fretless,
-          capo_fret = excluded.capo_fret,
           cc_enabled = excluded.cc_enabled,
           tab_algorithm = excluded.tab_algorithm,
           cc_string_number = excluded.cc_string_number,
@@ -303,7 +313,6 @@ class StringInstrumentDatabase {
         config.num_frets !== undefined ? config.num_frets : 24,
         tuningJson,
         config.is_fretless ? 1 : 0,
-        config.capo_fret || 0,
         config.cc_enabled !== undefined ? (config.cc_enabled ? 1 : 0) : 1,
         config.tab_algorithm || 'min_movement',
         config.cc_string_number !== undefined ? config.cc_string_number : 20,
@@ -456,13 +465,6 @@ class StringInstrumentDatabase {
       if (updates.is_fretless !== undefined) {
         fields.push('is_fretless = ?');
         values.push(updates.is_fretless ? 1 : 0);
-      }
-      if (updates.capo_fret !== undefined) {
-        if (updates.capo_fret < 0 || updates.capo_fret > 36) {
-          throw new Error('capo_fret must be between 0 and 36');
-        }
-        fields.push('capo_fret = ?');
-        values.push(updates.capo_fret);
       }
       if (updates.cc_enabled !== undefined) {
         fields.push('cc_enabled = ?');
@@ -815,7 +817,6 @@ class StringInstrumentDatabase {
       num_frets: row.num_frets,
       tuning,
       is_fretless: !!row.is_fretless,
-      capo_fret: row.capo_fret,
       cc_enabled: row.cc_enabled !== undefined ? !!row.cc_enabled : true,
       tab_algorithm: row.tab_algorithm || 'min_movement',
       // CC configuration
@@ -894,12 +895,6 @@ class StringInstrumentDatabase {
         if (note < 0 || note > 127) {
           throw new Error('Tuning note values must be between 0 and 127');
         }
-      }
-    }
-
-    if (config.capo_fret !== undefined) {
-      if (config.capo_fret < 0 || config.capo_fret > 36) {
-        throw new Error('capo_fret must be between 0 and 36');
       }
     }
   }

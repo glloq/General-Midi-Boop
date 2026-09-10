@@ -130,6 +130,30 @@ export function rule(overrides = {}) {
   };
 }
 
+/**
+ * R17 (F-28): the rule engine no longer runs inside `EventBus.emit()` -- the
+ * listeners queue the event and a `setImmediate` drains it, so the MIDI path
+ * never pays for a driver write. Suites that assert on driver calls right after
+ * `bus.emit(...)` wrap their bus once with this helper: the emit itself stays
+ * exactly as cheap as in production, and the queue is drained synchronously
+ * right after, so `bus.emit(...)` still reads as "the light has reacted".
+ *
+ * Do NOT use it in a suite that measures the dispatch cost -- that is the whole
+ * point of the fix.
+ *
+ * @param {import('../../src/core/EventBus.js').default} bus
+ * @param {Object} manager LightingManager under test
+ * @returns {Object} the same bus, with a draining `emit`
+ */
+export function drainOnEmit(bus, manager) {
+  const emit = bus.emit.bind(bus);
+  bus.emit = (event, data) => {
+    emit(event, data);
+    if (event === 'midi_message' || event === 'midi_routed') manager.flushLightingQueue();
+  };
+  return bus;
+}
+
 /** Canonical `midi_message` envelope as emitted by DeviceManager. */
 export function midiMessage(type, data, extra = {}) {
   return { device: 'fake-in', type, data, timestamp: Date.now(), ...extra };
@@ -137,6 +161,7 @@ export function midiMessage(type, data, extra = {}) {
 
 /** Free the health-check interval a LightingManager starts in its constructor. */
 export function hardStop(manager) {
+  manager._discardPendingEvents?.();
   if (manager._healthCheckInterval) {
     clearInterval(manager._healthCheckInterval);
     manager._healthCheckInterval = null;

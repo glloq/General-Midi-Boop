@@ -37,7 +37,9 @@ describe('L05 · F01 — carte de tempo', () => {
     const { trace, player } = await replay({ buffer, routing: ROUTING });
     expect(player.tempo).toBe(120);
     const ons = trace.filter((e) => (e.status & 0xf0) === 0x90 && e.data2 > 0);
-    expect(ons[1].t - ons[0].t).toBeCloseTo(490, 3); // 500 ms – 1 tick (F-55)
+    // Était 490 (500 ms – 1 tick) tant que F-55 laissait le downbeat partir
+    // un tick en retard ; corrigé par la vague 4 / R23.
+    expect(ons[1].t - ons[0].t).toBeCloseTo(500, 3);
   });
 
   test('changements de tempo multiples : chaque segment est converti au bon tempo', async () => {
@@ -151,8 +153,8 @@ describe('L05 · F01 — carte de tempo', () => {
       const ons = t.filter((e) => (e.status & 0xf0) === 0x90 && e.data2 > 0);
       return ons[1].t - ons[0].t;
     };
-    expect(gap(base.trace)).toBeCloseTo(490, 3);
-    expect(gap(fast.trace)).toBeCloseTo(240, 3); // ≈ moitié
+    expect(gap(base.trace)).toBeCloseTo(500, 3); // était 490 avant le correctif F-55
+    expect(gap(fast.trace)).toBeCloseTo(250, 3); // exactement la moitié
   });
 });
 

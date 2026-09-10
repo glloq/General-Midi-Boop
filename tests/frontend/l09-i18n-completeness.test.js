@@ -1,7 +1,7 @@
 // tests/frontend/l09-i18n-completeness.test.js
 //
 // Audit L09 — §AS. `tests/audit-i18n.test.js` already proves STRUCTURAL parity
-// (2 737 keys × 28 locales, 0 missing, 0 extra). Structural parity is not
+// (2 804 keys × 28 locales, 0 missing, 0 extra). Structural parity is not
 // translation: a key whose value is byte-identical to the English reference is
 // shipped untranslated even though it "exists".
 //
@@ -458,9 +458,16 @@ const RATCHET = {
 };
 
 describe('L09 · i18n — reference corpus', () => {
-  it('measures 28 locales against a 2 737-key English reference', () => {
+  // Ce compteur est un simple garde-fou de dérive : il bouge chaque fois
+  // qu'une fonctionnalité ajoute ou retire des clés, et doit être remis à
+  // jour EN CONNAISSANCE DE CAUSE. Historique récent : 2 737 mesurées par
+  // L09 → 2 734 après le retrait par R15 des trois clés capo orphelines
+  // (`stringInstrument.capoFret`, `stringInstrument.noCapo`,
+  // `tablature.capo`, cf. docs/audit/2026-09-07/WAVE3_R14_R15.md) → 2 804
+  // avec les clés ajoutées par les lots livrés en parallèle.
+  it('measures 28 locales against a 2 804-key English reference', () => {
     expect(locales).toHaveLength(28);
-    expect(keys.length).toBe(2737);
+    expect(keys.length).toBe(2804);
   });
 });
 
@@ -499,7 +506,7 @@ describe('L09 · i18n — the lighting feature ships untranslated (F-96)', () =>
     (k) => k.startsWith('lighting.') || k.startsWith('instrumentSettings.lumiere')
   );
 
-  it('accounts for 358 of the 2 737 keys (13.1 % of the interface)', () => {
+  it('accounts for 358 of the 2 804 keys (12.8 % of the interface)', () => {
     expect(lightingKeys.length).toBe(358);
   });
 

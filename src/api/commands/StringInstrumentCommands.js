@@ -1,7 +1,7 @@
 /**
  * @file src/api/commands/StringInstrumentCommands.js
  * @description WebSocket commands for string-instrument configuration
- * (guitar/bass/violin per-channel mapping: tuning, fret count, capo,
+ * (guitar/bass/violin per-channel mapping: tuning, fret count,
  * CC mappings) and tablature CRUD/conversion.
  *
  * Registered commands:
@@ -24,7 +24,7 @@ import { ValidationError, NotFoundError } from '../../core/errors/index.js';
  * @param {Object} app
  * @param {Object} data - Full config payload (device_id, channel,
  *   instrument_name, num_strings, num_frets, tuning, is_fretless,
- *   capo_fret, CC mapping fields, frets_per_string).
+ *   CC mapping fields, frets_per_string).
  * @returns {Promise<{success:true, id:(string|number)}>}
  */
 async function stringInstrumentCreate(app, data) {
@@ -47,7 +47,6 @@ async function stringInstrumentCreate(app, data) {
     num_frets: data.num_frets,
     tuning: data.tuning,
     is_fretless: data.is_fretless,
-    capo_fret: data.capo_fret,
     cc_enabled: data.cc_enabled,
     tab_algorithm: data.tab_algorithm,
     cc_string_number: data.cc_string_number,
@@ -86,7 +85,6 @@ async function stringInstrumentUpdate(app, data) {
     num_frets: data.num_frets,
     tuning: data.tuning,
     is_fretless: data.is_fretless,
-    capo_fret: data.capo_fret,
     cc_enabled: data.cc_enabled,
     tab_algorithm: data.tab_algorithm,
     cc_string_number: data.cc_string_number,
@@ -227,8 +225,7 @@ async function stringInstrumentCreateFromPreset(app, data) {
     num_strings: preset.strings,
     num_frets: preset.frets,
     tuning: preset.tuning,
-    is_fretless: preset.fretless || false,
-    capo_fret: 0
+    is_fretless: preset.fretless || false
   });
   return { success: true, id };
 }

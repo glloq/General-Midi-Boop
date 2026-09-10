@@ -50,12 +50,13 @@ describe('L03/D05 — midi_panic content', () => {
     call = makeRegistry(app);
   });
 
-  test('sends All Sound Off (120) + All Notes Off (123) on all 16 channels', async () => {
+  // R18 (vague 4) — inverted: the burst is now 120 → 121 → 123.
+  test('sends 120 + 121 + 123, in that order, on all 16 channels', async () => {
     await call('midi_panic', { deviceId: 'usb-a' });
-    expect(sent).toHaveLength(32);
+    expect(sent).toHaveLength(48);
     for (let ch = 0; ch < 16; ch++) {
       const forCh = sent.filter((m) => m.channel === ch);
-      expect([ch, forCh.map((m) => m.controller)]).toEqual([ch, [120, 123]]);
+      expect([ch, forCh.map((m) => m.controller)]).toEqual([ch, [120, 121, 123]]);
       expect(forCh.every((m) => m.type === 'cc' && m.value === 0)).toBe(true);
       expect(forCh.every((m) => m.device === 'usb-a')).toBe(true);
     }
@@ -66,28 +67,39 @@ describe('L03/D05 — midi_panic content', () => {
     expect(app.midiRouter.resetNoteGate).toHaveBeenCalledTimes(1);
   });
 
-  // F-45 — the panic burst has no Reset All Controllers (CC 121).
-  test('F-45 — panic does NOT send Reset All Controllers (121): a latched sustain survives', async () => {
+  // F-45 — FIXED by R18. The burst now carries Reset All Controllers (121),
+  // and it carries it BEFORE All Notes Off (123).
+  test('F-45 — panic sends Reset All Controllers (121) on every channel', async () => {
     await call('midi_panic', { deviceId: 'usb-a' });
     const controllers = new Set(sent.map((m) => m.controller));
-    expect(controllers.has(120)).toBe(true);
-    expect(controllers.has(123)).toBe(true);
-    // MIDI 1.0 recommended practice for a panic is 123 + 121 (+ 120): without
-    // 121 a held CC64 (sustain) stays latched. On an instrument that
-    // implements All Notes Off but not All Sound Off — the common case for the
-    // DIY instruments this project targets — 123 is defined to be IGNORED
-    // while sustain is on, so the panic is a no-op and the notes keep sounding.
-    expect(controllers.has(121)).toBe(false);
+    expect(controllers).toEqual(new Set([120, 121, 123]));
+    expect(sent.filter((m) => m.controller === 121)).toHaveLength(16);
   });
 
-  test('F-45 — the sustain that hangs the notes is never cleared by the panic', async () => {
+  test('F-45 — 121 precedes 123 on every channel, which is what makes 123 land', async () => {
+    await call('midi_panic', { deviceId: 'usb-a' });
+    for (let ch = 0; ch < 16; ch++) {
+      const forCh = sent.filter((m) => m.channel === ch).map((m) => m.controller);
+      // MIDI 1.0 defines All Notes Off as ignored (or deferred) while the
+      // damper pedal is latched. A 123 sent while CC 64 is down does nothing,
+      // and a 121 sent afterwards only releases a pedal whose note-offs were
+      // already discarded — which is exactly why the old 120 + 123 burst was a
+      // no-op on instruments implementing 123 but not 120 (the common DIY /
+      // microcontroller case). 121 first, so 123 is honoured.
+      expect([ch, forCh.indexOf(121) < forCh.indexOf(123)]).toEqual([ch, true]);
+    }
+  });
+
+  test('F-45 — the sustain that hung the notes IS released by the panic', async () => {
     // A pedal-down arrives, then the operator hits panic.
     await call('midi_send_cc', { deviceId: 'usb-a', channel: 0, controller: 64, value: 127 });
     sent.length = 0;
     await call('midi_panic', { deviceId: 'usb-a' });
-    // Nothing in the burst releases CC64, and nothing resets controllers.
-    expect(sent.some((m) => m.controller === 64 && m.value === 0)).toBe(false);
-    expect(sent.some((m) => m.controller === 121)).toBe(false);
+    // CC 64 is not released by name — Reset All Controllers is the standard
+    // (and rate-limiter-exempt) way to unlatch it, and it is now sent on the
+    // channel the pedal was pressed on, before the All Notes Off.
+    const ch0 = sent.filter((m) => m.channel === 0).map((m) => m.controller);
+    expect(ch0).toEqual([120, 121, 123]);
   });
 
   test('midi_all_notes_off is the gentle variant: 123 only, still all 16 channels', async () => {
@@ -97,15 +109,41 @@ describe('L03/D05 — midi_panic content', () => {
     expect(sent.map((m) => m.channel)).toEqual([...Array(16).keys()]);
   });
 
-  // F-45 (second half) — no "panic everything" exists.
-  test('F-45 — panic targets ONE device; there is no all-devices panic', async () => {
+  // F-45 (second half) — FIXED by R18: omitting deviceId panics everything.
+  test('F-45 — panic with no deviceId reaches EVERY enabled output', async () => {
     // `midi_reset` broadcasts when deviceId is omitted…
     const res = await call('midi_reset', {});
     expect(res.targets).toBe(2); // the two output devices
     sent.length = 0;
-    // …but `midi_panic` does not: with no deviceId it addresses `undefined`.
+    // …and `midi_panic` now does the same, instead of addressing `undefined`.
+    const panic = await call('midi_panic', {});
+    expect(panic).toEqual({ success: true, targets: 2 });
+    expect(new Set(sent.map((m) => m.device))).toEqual(new Set(['usb-a', 'ble-b']));
+    expect(sent).toHaveLength(96); // 2 devices × 16 channels × 3 controllers
+    // The input-only device is never addressed, and nothing goes to `undefined`.
+    expect(sent.some((m) => m.device === 'in-only' || m.device === undefined)).toBe(false);
+  });
+
+  test('F-45 — all_notes_off with no deviceId is global too', async () => {
+    const res = await call('midi_all_notes_off', {});
+    expect(res).toEqual({ success: true, targets: 2 });
+    expect(sent).toHaveLength(32); // 2 devices × 16 channels × 1 controller
+    expect(new Set(sent.map((m) => m.controller))).toEqual(new Set([123]));
+  });
+
+  test('F-45 — a global panic still clears the router note-gate exactly once', async () => {
     await call('midi_panic', {});
-    expect(new Set(sent.map((m) => m.device))).toEqual(new Set([undefined]));
+    expect(app.midiRouter.resetNoteGate).toHaveBeenCalledTimes(1);
+  });
+
+  test('F-45 — a disabled output is skipped by the global panic', async () => {
+    app.deviceManager.getDeviceList = () => [
+      { id: 'usb-a', output: true, enabled: true },
+      { id: 'muted', output: true, enabled: false }
+    ];
+    const res = await call('midi_panic', {});
+    expect(res.targets).toBe(1);
+    expect(new Set(sent.map((m) => m.device))).toEqual(new Set(['usb-a']));
   });
 
   test('midi_reset broadcasts System Reset to every enabled output, skipping inputs', async () => {
@@ -153,20 +191,20 @@ describe('L03/D05 — panic under load (device rate limiter)', () => {
     expect(limited).toBeGreaterThan(150);
   });
 
-  test('every message of a 32-message panic burst lands while the limiter is saturated', () => {
+  test('every message of the 48-message panic burst lands while the limiter is saturated', () => {
     const { dm, out } = saturated();
     for (let i = 0; i < 500; i++) {
       dm.sendMessageEx('dev', 'noteon', { channel: 0, note: 60, velocity: 100 });
     }
     const before = out.length;
     for (let ch = 0; ch < 16; ch++) {
-      for (const controller of [120, 123]) {
+      for (const controller of [120, 121, 123]) {
         expect(dm.sendMessageEx('dev', 'cc', { channel: ch, controller, value: 0 }).status).toBe(
           'sent'
         );
       }
     }
-    expect(out.length - before).toBe(32);
+    expect(out.length - before).toBe(48);
   });
 
   test('Note Off, reset and transport are exempt too, so nothing can hang', () => {
@@ -180,8 +218,8 @@ describe('L03/D05 — panic under load (device rate limiter)', () => {
         dm.sendMessageEx('dev', type, { channel: 0, note: 60, velocity: 0 }).status
       ]).toEqual([type, 'sent']);
     }
-    // CC 121 would be exempt as well IF the panic ever sent it (see F-45):
-    // the exemption keys on `controller >= 120`, not on a fixed list.
+    // CC 121 is exempt too — the exemption keys on `controller >= 120`, not on
+    // a fixed list, so the R18 burst is covered without touching the limiter.
     expect(dm.sendMessageEx('dev', 'cc', { channel: 0, controller: 121, value: 0 }).status).toBe(
       'sent'
     );
@@ -226,11 +264,19 @@ describe('L03/D05 — panic on every transport', () => {
     }
     expect(mgr._isPrioritySerial('cc', { controller: 7 })).toBe(false);
     expect(mgr._isPrioritySerial('noteoff', {})).toBe(true);
-    // Documented gap: 122 (Local Control) / 124–127 (Omni/Mono/Poly) are also
-    // Channel Mode messages and are NOT prioritised here, while the
-    // DeviceManager limiter exempts everything >= 120. Harmless today (nothing
-    // sends them) — noted so the two lists can be reconciled.
-    expect(mgr._isPrioritySerial('cc', { controller: 126 })).toBe(false);
+    // R18 — the documented gap is closed: 122 (Local Control) and 124–127
+    // (Omni/Mono/Poly) are Channel Mode messages too, and the serial queue now
+    // keys on `controller >= 120` exactly like the DeviceManager limiter, so
+    // one Channel Mode CC cannot be prioritised on USB and deprioritised on
+    // the UART.
+    for (const controller of [122, 124, 125, 126, 127]) {
+      expect([controller, mgr._isPrioritySerial('cc', { controller })]).toEqual([controller, true]);
+    }
+    expect(mgr._isPrioritySerial('cc', { controller: 119 })).toBe(false);
+    // The typed priorities are the very same set the limiter exempts.
+    for (const type of ['noteoff', 'reset', 'clock', 'start', 'stop', 'continue']) {
+      expect([type, mgr._isPrioritySerial(type, {})]).toEqual([type, true]);
+    }
   });
 
   test('USB re-encodes the panic CCs through easymidi with the same values', async () => {

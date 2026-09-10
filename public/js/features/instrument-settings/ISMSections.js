@@ -700,6 +700,30 @@
         </div>`;
   };
 
+  /**
+   * Default polyphony for a GM program, from the shared GM capability
+   * reference (`shared/gm-instrument-capabilities.json`, mirrored in
+   * `public/js/features/GmInstrumentCapabilities.js`). Monophonic
+   * families answer 1, which is exactly the constraint F-73 reported as
+   * unenforced. Returns null for drum kits (a kit is polyphonic by
+   * nature and its "program" is a kit id, not a GM melodic program),
+   * for an out-of-range program, or when the reference isn't loaded.
+   *
+   * @param {?number} gmProgram
+   * @param {boolean} [isDrum]
+   * @returns {?number}
+   */
+  ISMSections._gmDefaultPolyphony = function (gmProgram, isDrum) {
+    if (isDrum) return null;
+    if (!Number.isFinite(gmProgram) || gmProgram < 0 || gmProgram > 127) return null;
+    const ref = typeof window !== 'undefined' ? window.GmInstrumentCapabilities : null;
+    if (!ref || typeof ref.get !== 'function') return null;
+    const entry = ref.get(gmProgram);
+    if (!entry) return null;
+    if (entry.monophonic) return 1;
+    return Number.isFinite(entry.polyphony) && entry.polyphony > 0 ? entry.polyphony : null;
+  };
+
   ISMSections._renderNotesSection = function () {
     const tab = this._getActiveTab();
     if (!tab) return '';
@@ -769,8 +793,18 @@
     if (isString) {
       const cfgStrings = tab.stringInstrumentConfig?.num_strings;
       polyphonyVal = Number.isFinite(cfgStrings) && cfgStrings > 0 ? cfgStrings : 6;
+    } else if (settings.polyphony) {
+      polyphonyVal = settings.polyphony;
     } else {
-      polyphonyVal = settings.polyphony || '';
+      // R15 / F-73 — the GM reference table (shared/gm-instrument-capabilities.json,
+      // mirrored in GmInstrumentCapabilities.js) used to be dead data: only
+      // `name` was ever read, so a wind instrument saved without a hand-typed
+      // polyphony kept `polyphony = NULL` and the engine happily sent it the
+      // whole chord. The reference now SEEDS the field, so the family default
+      // (1 for every monophonic program: winds, brass, solo strings, lead
+      // synths…) is what the user sees and what gets persisted. It is a
+      // pre-filled default, not a lock: the field stays editable.
+      polyphonyVal = ISMSections._gmDefaultPolyphony(gmProgram, isDrum) || '';
     }
 
     // 3 octave mode toggle buttons
@@ -1238,6 +1272,13 @@
     const ccFretOff = config?.cc_fret_offset ?? 0;
     const ccCollapsed = ccEnabled ? '' : 'si-collapsed';
 
+    // Fretless flag. It is a REAL engine capability (TablatureConverter,
+    // MidiPlayer, CapabilityResolver all read `is_fretless`), so it must
+    // have a visible control: before R14 the save path hard-coded it to
+    // 0 and silently destroyed the value a preset (violin, cello,
+    // fretless bass) had set. See docs/audit/2026-09-07/WAVE3_R14_R15.md.
+    const isFretless = !!(config && config.is_fretless);
+
     // Per-string fret mode
     const fretsPerString = config?.frets_per_string || null;
     const numFrets = config?.num_frets ?? 24;
@@ -1299,6 +1340,13 @@
                         <canvas id="ism-neck-canvas" width="400" height="350"></canvas>
                     </div>
                     <div style="display:none">${hiddenFretInputs}</div>
+                </div>
+
+                <div class="si-cc-toggle-row" style="margin-top:8px">
+                    <div class="si-field si-checkbox-field">
+                        <input type="checkbox" id="ismIsFretless" ${isFretless ? 'checked' : ''}>
+                        <label for="ismIsFretless">${this.t('stringInstrument.isFretless') || 'Sans frettes'}</label>
+                    </div>
                 </div>
 
                 <div class="si-cc-toggle-row" style="margin-top:8px">
@@ -2174,7 +2222,7 @@
                     <label>${t('instrumentSettings.handsCcPosition', 'CC position')}</label>
                     <input type="number" class="ism-hand-cc" data-hand="fretting" data-field="cc_position_number"
                            value="${hand.cc_position_number}" min="0" max="127">
-                    <span class="ism-form-hint">${t('instrumentSettings.handsFretsCcPositionHint', 'CC envoyé. Valeur = frette absolue la plus basse (capo inclus).')}</span>
+                    <span class="ism-form-hint">${t('instrumentSettings.handsFretsCcPositionHint', 'CC envoyé. Valeur = frette absolue la plus basse.')}</span>
                 </div>
                 <div></div>
             </div>

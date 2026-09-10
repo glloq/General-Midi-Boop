@@ -9,22 +9,18 @@
  *   - `midi_send_note`       — note on (with optional auto-noteOff)
  *   - `midi_send_cc`         — control change
  *   - `midi_send_pitchbend`  — pitch bend
- *   - `midi_panic`           — All Sound Off + All Notes Off across 16 ch
- *   - `midi_all_notes_off`   — All Notes Off across 16 ch
+ *   - `midi_panic`           — 120 + 121 + 123 across 16 ch, one device or ALL
+ *   - `midi_all_notes_off`   — All Notes Off across 16 ch, one device or ALL
  *   - `midi_reset`           — System Reset to one device or all outputs
  *   - `midi_clock_toggle`    — start/stop the MIDI clock generator
  */
 import JsonValidator from '../../utils/JsonValidator.js';
 import { ValidationError } from '../../core/errors/index.js';
-
-/**
- * Standard MIDI Channel Mode CC numbers used by panic / silence helpers.
- * @see https://midi.org/expanded-midi-1-0-messages-list
- */
-const MIDI_CC = {
-  ALL_SOUND_OFF: 120,
-  ALL_NOTES_OFF: 123
-};
+import {
+  PANIC_CONTROLLERS,
+  ALL_NOTES_OFF_CONTROLLERS,
+  buildSilenceSequence
+} from '../../midi/messages/SilenceSequence.js';
 
 /**
  * Generic MIDI dispatch. Validates the message body via
@@ -123,48 +119,86 @@ async function midiSendPitchbend(app, data) {
 }
 
 /**
- * MIDI Panic: send All Sound Off + All Notes Off on every channel.
- * Useful when stuck notes occur after a crashed sequence or device
- * disconnect.
+ * Send one or more Channel Mode CCs on every one of the 16 MIDI channels.
+ * The burst itself comes from `SilenceSequence` so the panic button, the
+ * hot-unplug silencer and the shutdown silencer all emit the same bytes on
+ * every transport (audit L03 §3 — transport parity).
  *
  * @param {Object} app
- * @param {{deviceId:string}} data
- * @returns {Promise<{success:true}>}
- */
-/**
- * Send one or more Channel Mode CCs on every one of the 16 MIDI
- * channels. Controllers are emitted in order per channel (preserving the
- * exact on-wire sequence the panic/silence helpers always produced).
+ * @param {string} deviceId
+ * @param {ReadonlyArray<number>} controllers
+ * @returns {void}
  */
 function _ccAllChannels(app, deviceId, controllers) {
-  for (let channel = 0; channel < 16; channel++) {
-    for (const controller of controllers) {
-      app.deviceManager.sendMessage(deviceId, 'cc', { channel, controller, value: 0 });
-    }
+  for (const { type, data } of buildSilenceSequence(controllers)) {
+    app.deviceManager.sendMessage(deviceId, type, data);
   }
 }
 
+/**
+ * Resolve the devices a silencing command applies to.
+ *
+ * With a `deviceId`, exactly that device. **Without one, every enabled
+ * output** — the global panic that F-45 found missing. Silencing an orchestra
+ * used to cost N WebSocket commands through a limiter capped at 60 frames/s,
+ * so the emergency button scaled badly with the number of instruments, which
+ * is precisely the situation it exists for. `midi_reset` already broadcast on
+ * a missing `deviceId`; panic and all-notes-off now match it, and the
+ * enumeration goes through `getDeviceList()` so USB, BLE, RTP-MIDI and serial
+ * devices are all reached by the same code path.
+ *
+ * @param {Object} app
+ * @param {string} [deviceId]
+ * @returns {string[]}
+ */
+function _silenceTargets(app, deviceId) {
+  if (deviceId) return [deviceId];
+  const devices = app.deviceManager.getDeviceList?.() || [];
+  return devices.filter((d) => d.output && d.enabled !== false).map((d) => d.id);
+}
+
+/**
+ * MIDI Panic — the emergency stop. Sends All Sound Off (120), Reset All
+ * Controllers (121) and All Notes Off (123) on all 16 channels; see
+ * `SilenceSequence` for why 121 sits in the middle and why it has to be there
+ * at all (a latched sustain pedal used to survive the panic — F-45).
+ *
+ * Omitting `deviceId` panics **every enabled output at once**.
+ *
+ * @param {Object} app
+ * @param {{deviceId?:string}} [data]
+ * @returns {Promise<{success:true, targets:number}>}
+ */
 async function midiPanic(app, data) {
-  _ccAllChannels(app, data.deviceId, [MIDI_CC.ALL_SOUND_OFF, MIDI_CC.ALL_NOTES_OFF]);
+  const targets = _silenceTargets(app, data?.deviceId);
+  for (const deviceId of targets) {
+    _ccAllChannels(app, deviceId, PANIC_CONTROLLERS);
+  }
   // Panic is the stuck-note escape hatch: also clear the live route-through
   // note-gate so a phantom voice (from a lost note-off) can't keep gating or
   // stranding notes after the hardware has been silenced (audit fix).
   app.midiRouter?.resetNoteGate?.();
-  return { success: true };
+  return { success: true, targets: targets.length };
 }
 
 /**
  * Send All Notes Off across every channel — gentler than panic; lets
  * sustained notes fade naturally on synths that respect note-off envelopes.
+ * Controllers are left untouched on purpose (that is the whole difference
+ * from the panic), so a held sustain pedal still holds. Omitting `deviceId`
+ * targets every enabled output.
  *
  * @param {Object} app
- * @param {{deviceId:string}} data
- * @returns {Promise<{success:true}>}
+ * @param {{deviceId?:string}} [data]
+ * @returns {Promise<{success:true, targets:number}>}
  */
 async function midiAllNotesOff(app, data) {
-  _ccAllChannels(app, data.deviceId, [MIDI_CC.ALL_NOTES_OFF]);
+  const targets = _silenceTargets(app, data?.deviceId);
+  for (const deviceId of targets) {
+    _ccAllChannels(app, deviceId, ALL_NOTES_OFF_CONTROLLERS);
+  }
   app.midiRouter?.resetNoteGate?.();
-  return { success: true };
+  return { success: true, targets: targets.length };
 }
 
 /**

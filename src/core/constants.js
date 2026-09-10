@@ -248,7 +248,10 @@ const EVENT_ORDER_PRIORITY = Object.freeze({
 // rate limiter: silencing / reset / emergency-stop traffic must never be
 // dropped by rate limiting, otherwise a panic burst can leave stuck notes.
 const PRIORITY_MSG_TYPES = Object.freeze(
-  new Set(['noteoff', 'reset', 'clock', 'start', 'stop', 'continue'])
+  // 'position' (Song Position Pointer): a seek emits exactly one, and the
+  // Continue that follows lands in the wrong place if it is dropped — which
+  // would reintroduce through the rate limiter the very bug R21 fixes.
+  new Set(['noteoff', 'reset', 'clock', 'start', 'stop', 'continue', 'position'])
 );
 
 /**

@@ -242,18 +242,28 @@ class HandPositionPlanner {
   /**
    * Produce hand-position CC events for a sequence of note events.
    *
-   * @param {Array<{time:number, note:number, channel:number,
+   * @param {Array<{time:number, note:number, channel:number, tick?:number,
    *                velocity?:number, hand:string, fretPosition?:number}>} notes
    *   Note-ons only, sorted by `time`. `velocity === 0` notes are
    *   ignored (they are logical note-offs). In 'frets' mode each note
-   *   must carry `fretPosition`; events without it are skipped.
+   *   must carry `fretPosition`; events without it are skipped. `tick` is
+   *   required only to match operator-pinned anchors (see `options.anchors`).
+   * @param {Object} [options]
+   * @param {?Map<string, Map<number, number>>} [options.anchors] - Operator
+   *   anchors pinned in the hand-position editor, as
+   *   `handId → (tick → anchor)` (see
+   *   {@link module:midi/adaptation/HandOverrides}). When a chord's tick
+   *   carries a pin for its hand, the window is forced onto that anchor
+   *   instead of the auto-computed one — the engine's half of R13/F-139.
+   *   Omitted/null keeps the pre-R13 output byte-for-byte.
    * @returns {{ ccEvents: Array<Object>, warnings: Array<Object>,
-   *             stats: { shifts: Record<string, number> } }}
+   *             stats: { shifts: Record<string, number>, pinned: number } }}
    */
-  plan(notes) {
+  plan(notes, options = {}) {
     const ccEvents = [];
     const warnings = [];
-    const stats = { shifts: {} };
+    const stats = { shifts: {}, pinned: 0 };
+    const anchorsByHand = options && options.anchors instanceof Map ? options.anchors : null;
 
     if (!Array.isArray(notes) || notes.length === 0) {
       return { ccEvents, warnings, stats };
@@ -405,12 +415,51 @@ class HandPositionPlanner {
         }
       }
 
+      // Operator-pinned anchor for this (hand, tick), if any. A pin overrides
+      // the auto window decision entirely: the hand goes exactly where the
+      // operator put it on screen, which is the whole point of R13/F-139.
+      const pinnedRaw = this._pinnedAnchorFor(anchorsByHand, g, notes);
+      let pinned = null;
+      if (pinnedRaw != null) {
+        // Clamp only into the addressable range so the emitted CC is a
+        // position the actuator can physically reach; do NOT slide the window
+        // down to make the chord fit (that would silently move the operator's
+        // pin). An unreachable chord is reported instead.
+        pinned = pinnedRaw;
+        if (instrumentMin != null && pinned < instrumentMin) pinned = instrumentMin;
+        if (instrumentMax != null && pinned > instrumentMax) pinned = instrumentMax;
+        if (pinned !== pinnedRaw) {
+          warnings.push({
+            time: g.time,
+            hand: g.hand,
+            note: null,
+            code: 'anchor_out_of_reach',
+            requested: pinnedRaw,
+            applied: pinned,
+            message: `Pinned anchor ${pinnedRaw} outside instrument range [${instrumentMin ?? 0},${instrumentMax ?? 127}] — clamped to ${pinned}`
+          });
+        }
+        const pinnedSpan = this._spanAt(hand, pinned);
+        if (groupLow < pinned || groupHigh > pinned + pinnedSpan) {
+          warnings.push({
+            time: g.time,
+            hand: g.hand,
+            note: null,
+            code: 'anchor_unplayable',
+            anchor: pinned,
+            message: `Pinned anchor ${pinned} does not cover [${groupLow},${groupHigh}] (span ${pinnedSpan} ${unitLabel})`
+          });
+        }
+      }
+
       // Need a shift if: no window yet, or any note falls outside current window.
       const currentSpan = s.windowLowest != null ? this._spanAt(hand, s.windowLowest) : null;
       const needShift =
-        s.windowLowest == null ||
-        groupLow < s.windowLowest ||
-        groupHigh > s.windowLowest + currentSpan;
+        pinned != null
+          ? s.windowLowest == null || s.windowLowest !== pinned
+          : s.windowLowest == null ||
+            groupLow < s.windowLowest ||
+            groupHigh > s.windowLowest + currentSpan;
 
       if (needShift) {
         // Anchor the new window. The PREFERRED anchor sits 10 mm behind
@@ -423,7 +472,11 @@ class HandPositionPlanner {
         // possible.
         const idealLow = this._anchorBehindFret(groupLow);
         let newLow;
-        if (s.windowLowest == null) {
+        if (pinned != null) {
+          // Operator pin: already range-clamped above, and deliberately NOT
+          // re-fitted around the chord.
+          newLow = pinned;
+        } else if (s.windowLowest == null) {
           newLow = idealLow;
         } else if (groupLow < s.windowLowest) {
           newLow = idealLow;
@@ -438,7 +491,7 @@ class HandPositionPlanner {
         // note itself may still be out-of-range (reported separately).
         // Top-clamp guarantees the bottom of the hand
         // (= anchor + handSpan) never extends past the last fret.
-        if (instrumentMin != null && newLow < instrumentMin) {
+        if (pinned == null && instrumentMin != null && newLow < instrumentMin) {
           newLow = instrumentMin;
         }
         // Span at the (possibly low-clamped) anchor. In physical/frets mode fret
@@ -446,7 +499,7 @@ class HandPositionPlanner {
         // position — computing newSpan AFTER the low-clamp keeps the top-clamp
         // below accurate (audit T6.3: newSpan was stale once newLow shifted).
         const newSpan = this._spanAt(hand, newLow);
-        if (instrumentMax != null && newLow + newSpan > instrumentMax) {
+        if (pinned == null && instrumentMax != null && newLow + newSpan > instrumentMax) {
           // Slide the window down so its high edge fits inside the
           // playable range. After this point the hand's furthest reach
           // sits exactly on the last fret.
@@ -460,7 +513,12 @@ class HandPositionPlanner {
           }
         }
 
-        // Emit CC as early as possible.
+        // Emit CC as early as possible. `placement` records WHICH side of the
+        // reference note the CC sits on, because a sub-millisecond epsilon is
+        // not representable on a MIDI tick grid: the offline baker needs the
+        // intent, not the float, to land the CC on the same side of the note
+        // as live playback does (R16 — hand-CC ordering parity).
+        const placement = s.firstCCEmitted ? 'post' : 'pre';
         let ccTime;
         if (!s.firstCCEmitted) {
           // Initial placement: just before the first note of this hand.
@@ -512,12 +570,15 @@ class HandPositionPlanner {
           channel: notes[g.notes[0]].channel,
           controller: hand.cc_position_number,
           value: clamp7bit(newLow),
-          hand: g.hand
+          hand: g.hand,
+          placement,
+          source: pinned != null ? 'override' : 'auto'
         });
 
         s.windowLowest = newLow;
         s.firstCCEmitted = true;
         stats.shifts[g.hand]++;
+        if (pinned != null) stats.pinned++;
       }
 
       // Finger-interval check between consecutive single-note events on
@@ -543,6 +604,29 @@ class HandPositionPlanner {
     }
 
     return { ccEvents, warnings, stats };
+  }
+
+  /**
+   * Operator-pinned anchor for a chord group, or null. Chord grouping uses a
+   * 2 ms time tolerance while pins are keyed on the exact MIDI tick, so every
+   * tick present in the group is probed, in the group's own (time-sorted)
+   * order — the first match wins, which is deterministic.
+   *
+   * @param {?Map<string, Map<number, number>>} anchorsByHand
+   * @param {{hand:string, notes:number[]}} group
+   * @param {Array<Object>} notes
+   * @returns {?number}
+   * @private
+   */
+  _pinnedAnchorFor(anchorsByHand, group, notes) {
+    if (!anchorsByHand) return null;
+    const byTick = anchorsByHand.get(group.hand);
+    if (!byTick || byTick.size === 0) return null;
+    for (const idx of group.notes) {
+      const t = notes[idx]?.tick;
+      if (Number.isFinite(t) && byTick.has(t)) return byTick.get(t);
+    }
+    return null;
   }
 
   /**

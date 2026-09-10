@@ -36,8 +36,13 @@ export class AppServer {
    */
   constructor(opts = {}) {
     this.port = opts.port ?? DEFAULT_PORT;
+    // `E2E_WORKSPACE` lets a run put its database, logs and uploads outside the
+    // repository entirely (a scratch directory, a tmpfs, a per-agent sandbox)
+    // without touching the harness. Default is unchanged.
     this.workspace =
-      opts.workspace ?? path.join(REPO_ROOT, 'tests', 'e2e', 'artifacts', 'workspace');
+      opts.workspace ??
+      process.env.E2E_WORKSPACE ??
+      path.join(REPO_ROOT, 'tests', 'e2e', 'artifacts', 'workspace');
     this.keepDb = !!opts.keepDb;
     this.readyTimeoutMs = opts.readyTimeoutMs ?? 45000;
     this.extraEnv = opts.env ?? {};

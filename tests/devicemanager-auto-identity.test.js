@@ -21,6 +21,15 @@ function makeCtx(overrides = {}) {
     eventBus: { emit: jest.fn() },
     logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn() },
     sendIdentityRequest: jest.fn(),
+    // R19 — `_onDevicePortAdded` now also replays the silencing burst on a
+    // device whose output comes back after a hot-unplug. Nothing here ever
+    // disappeared, so the set stays empty and no burst is sent; the
+    // collaborators are wired in so the borrowed prototype method is complete.
+    _disconnectedOutputs: new Set(),
+    _missingOutputDrops: new Map(),
+    silenceDevice: jest.fn(() => ({ sent: 0, total: 0, statuses: [] })),
+    _onDeviceOutputRestored: DeviceManager.prototype._onDeviceOutputRestored,
+    _flushMissingOutputLog: DeviceManager.prototype._flushMissingOutputLog,
     _onDevicePortAdded: DeviceManager.prototype._onDevicePortAdded,
     _scheduleAutoIdentityProbe: DeviceManager.prototype._scheduleAutoIdentityProbe,
     _sendAutoIdentity: DeviceManager.prototype._sendAutoIdentity,

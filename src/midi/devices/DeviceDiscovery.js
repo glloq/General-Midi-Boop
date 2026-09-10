@@ -39,6 +39,13 @@ class DeviceDiscovery {
     this.knownInputs = new Set();
     this.knownOutputs = new Set();
     this.hotPlugFailures = 0;
+    /**
+     * Called with `(name, port)` immediately before a *disconnected* output
+     * port is closed — the last instant the hardware may still hear anything.
+     * Set by DeviceManager, which owns what gets said (audit L04 F-47).
+     * @type {?(name: string, port: Object) => void}
+     */
+    this._outputPreCloseHook = null;
   }
 
   /**
@@ -343,6 +350,19 @@ class DeviceDiscovery {
   }
 
   /**
+   * Register the hook invoked just before a disconnected OUTPUT port is
+   * closed. Deliberately not called by `scanAndReopen`, which closes healthy
+   * ports only to reopen them: a `device_refresh` in the middle of a piece
+   * must not cut the sound.
+   *
+   * @param {?(name: string, port: Object) => void} hook
+   * @returns {void}
+   */
+  setOutputPreCloseHook(hook) {
+    this._outputPreCloseHook = hook;
+  }
+
+  /**
    * Detect MIDI device changes using /proc/asound/ (Linux) to avoid
    * leaking ALSA sequencer clients. Falls back to easymidi.
    */
@@ -429,6 +449,13 @@ class DeviceDiscovery {
     this.logger.info(`🔌 MIDI output disconnected: ${name}`);
     const output = outputs.get(name);
     if (output) {
+      if (this._outputPreCloseHook) {
+        try {
+          this._outputPreCloseHook(name, output);
+        } catch (error) {
+          this.logger.warn(`Pre-close silencing of ${name} failed: ${error.message}`);
+        }
+      }
       try {
         output.close();
       } catch (error) {

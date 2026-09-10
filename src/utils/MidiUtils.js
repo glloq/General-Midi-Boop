@@ -210,6 +210,20 @@ class MidiUtils {
         return [0xfc];
       case 'reset':
         return [0xff];
+      // System Common / System Real-Time out. Without these, `position`,
+      // `select`, `mtc`, `tune` and `sensing` — now received identically on
+      // every transport (F-38) and emitted by the master clock on seek
+      // (F-43) — are dropped the moment they are routed to BLE, serial or RTP.
+      case 'position':
+        return [0xf2, (data.bytes?.[0] ?? 0) & 0x7f, (data.bytes?.[1] ?? 0) & 0x7f];
+      case 'select':
+        return [0xf3, (data.bytes?.[0] ?? 0) & 0x7f];
+      case 'mtc':
+        return [0xf1, (data.bytes?.[0] ?? 0) & 0x7f];
+      case 'tune':
+        return [0xf6];
+      case 'sensing':
+        return [0xfe];
       default:
         return null;
     }

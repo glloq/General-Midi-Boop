@@ -253,6 +253,87 @@ function snapshotDrift(before, after) {
  *   the adapted file id (when generated), and applied routing count.
  * @throws {ValidationError|NotFoundError|MidiError|ConflictError}
  */
+/**
+ * Destination CC capabilities for one assignment, as the offline adaptation
+ * chain needs them (R16 axis 6 / audit F-60).
+ *
+ * The runtime drops a Control Change the destination does not declare in
+ * `supported_ccs` (plus the CC 20/21 string-actuator gate); the offline chain
+ * only ever renumbered, so an unsupported CC survived into the baked bytes and
+ * the same file diverged live vs baked. Reading the SAME `CapabilityResolver`
+ * the scheduler and the router read guarantees the three chains agree.
+ *
+ * Split assignments have one destination per segment while `transposeChannels`
+ * is per source channel, so the filter is only applied when every segment
+ * agrees — otherwise nothing is filtered offline (the runtime still filters
+ * per destination, which is strictly safer than baking one segment's set).
+ *
+ * @param {Object} app
+ * @param {Object} assignment
+ * @param {number} channelNum
+ * @returns {{supportedCcs:?number[], handCcs:?number[], stringCCAllowed:(boolean|undefined)}}
+ */
+function destinationCCCapabilities(app, assignment, channelNum) {
+  const none = { supportedCcs: null, handCcs: null, stringCCAllowed: undefined };
+  const resolver = app.capabilityResolver;
+  if (!resolver || typeof resolver.getTimingConstraints !== 'function') return none;
+
+  const destinations = [];
+  if (assignment.split && Array.isArray(assignment.segments) && assignment.segments.length > 0) {
+    for (const seg of assignment.segments) {
+      if (!seg?.deviceId) return none;
+      destinations.push({
+        device: seg.deviceId,
+        channel:
+          seg.instrumentChannel !== undefined
+            ? Math.max(0, Math.min(15, parseInt(seg.instrumentChannel) || 0))
+            : channelNum
+      });
+    }
+  } else {
+    if (!assignment.deviceId) return none;
+    destinations.push({
+      device: assignment.deviceId,
+      channel:
+        assignment.instrumentChannel !== undefined
+          ? Math.max(0, Math.min(15, parseInt(assignment.instrumentChannel) || 0))
+          : channelNum
+    });
+  }
+
+  let out = null;
+  for (const d of destinations) {
+    let c;
+    try {
+      c = resolver.getTimingConstraints(d.device, d.channel);
+    } catch {
+      return none;
+    }
+    let stringCCAllowed;
+    try {
+      stringCCAllowed =
+        typeof resolver.isStringCCAllowed === 'function'
+          ? resolver.isStringCCAllowed(d.device, d.channel) === true
+          : undefined;
+    } catch {
+      stringCCAllowed = undefined;
+    }
+    const here = {
+      supportedCcs:
+        Array.isArray(c?.supportedCcs) && c.supportedCcs.length > 0 ? c.supportedCcs : null,
+      handCcs: Array.isArray(c?.handCcs) && c.handCcs.length > 0 ? c.handCcs : null,
+      stringCCAllowed
+    };
+    if (out === null) {
+      out = here;
+      continue;
+    }
+    // Segments disagree → do not bake a filter that would be wrong for one of them.
+    if (JSON.stringify(out) !== JSON.stringify(here)) return none;
+  }
+  return out || none;
+}
+
 async function applyAssignments(app, data) {
   if (!data.originalFileId) {
     throw new ValidationError('originalFileId is required', 'originalFileId');
@@ -330,6 +411,11 @@ async function applyAssignmentsLocked(app, data, baseline) {
     const postProcessing = [];
     for (const [channel, assignment] of Object.entries(data.assignments)) {
       const channelNum = parseInt(channel);
+      // Destination capability snapshot, so the offline pass filters CCs the
+      // same way the runtime does. Without it the baked bytes kept CCs the
+      // instrument never receives, and the exported file no longer described
+      // what would actually be played (R16 axis 6 / audit F-60).
+      const ccCaps = destinationCCCapabilities(app, assignment, channelNum);
       transpositions[channelNum] = {
         semitones: assignment.transposition?.semitones || 0,
         noteRemapping: assignment.noteRemapping || null,
@@ -342,7 +428,10 @@ async function applyAssignmentsLocked(app, data, baseline) {
         ccMapping:
           assignment.ccRemapping && Object.keys(assignment.ccRemapping).length > 0
             ? assignment.ccRemapping
-            : null
+            : null,
+        supportedCcs: ccCaps.supportedCcs,
+        handCcs: ccCaps.handCcs,
+        stringCCAllowed: ccCaps.stringCCAllowed
       };
       if (
         assignment.noteCompression &&
@@ -743,6 +832,16 @@ async function applyAssignmentsLocked(app, data, baseline) {
             app.midiPlayer.setChannelNoteRemapping(
               channelNum,
               adaptationBaked ? null : assignment.noteRemapping || null
+            );
+          }
+          // Out-of-range policy: same rule as transposition/remap — applied at
+          // runtime only when it was NOT baked into the file, so the operator's
+          // "supprimer les notes hors plage" choice reaches the instrument in
+          // both cases and live/baked stay identical (R16 axis 4 / F-60).
+          if (typeof app.midiPlayer.setChannelOutOfRangePolicy === 'function') {
+            app.midiPlayer.setChannelOutOfRangePolicy(
+              channelNum,
+              !adaptationBaked && assignment.suppressOutOfRange ? 'suppress' : null
             );
           }
         }

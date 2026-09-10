@@ -54,7 +54,10 @@ const instrumentColumnRules = [
     'tuning must be an array of at most 12 MIDI note numbers'
   ],
   ['is_fretless', isBoolLike, 'is_fretless must be a boolean'],
-  ['capo_fret', (v) => isIntLike(v, 0, 36), 'capo_fret must be an integer 0-36'],
+  // `capo_fret` is deliberately absent: the capo feature is abandoned
+  // (R15). The column still exists but no writer accepts it, so an
+  // incoming value is ignored rather than validated. See
+  // docs/audit/2026-09-07/WAVE3_R14_R15.md.
   ['cc_enabled', isBoolLike, 'cc_enabled must be a boolean'],
   ['tab_algorithm', (v) => isStr(v, MAX_NAME_LEN), 'tab_algorithm must be a string'],
   ['cc_string_number', (v) => isIntLike(v, 0, 127), 'cc_string_number must be an integer 0-127'],

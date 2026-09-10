@@ -9,7 +9,11 @@ import { descriptorToStringConfig } from '../src/midi/instrument/DescriptorProto
 import { DescriptorService } from '../src/midi/instrument/DescriptorService.js';
 
 describe('descriptorToStringConfig', () => {
-  test('maps declared fields; booleans as 0/1; selection → cc fields', () => {
+  // `capo: 2` is present in the input on purpose: R15 retired the capo
+  // surface project-wide, so the mapper must now DROP it instead of
+  // producing `capo_fret` (which no writer would accept any more). The
+  // assertion below is the inverted form of the pre-R15 expectation.
+  test('maps declared fields; booleans as 0/1; selection → cc fields; drops capo', () => {
     const cfg = descriptorToStringConfig({
       family: 'strings',
       string_count: 4,
@@ -25,12 +29,12 @@ describe('descriptorToStringConfig', () => {
       num_frets: 12,
       frets_per_string: [12, 12, 12, 12],
       is_fretless: 0,
-      capo_fret: 2,
       tuning: [67, 60, 64, 69],
       cc_string_number: 20,
       cc_fret_number: 21,
       cc_enabled: 1
     });
+    expect(cfg).not.toHaveProperty('capo_fret');
   });
 
   test('fretless true → is_fretless 1; no selection → no cc fields', () => {

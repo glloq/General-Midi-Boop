@@ -189,7 +189,13 @@ describe('L05 · T3.2 — repli de plage', () => {
 // ---------------------------------------------------------------------------
 
 describe('L05 · T3 — cas 4 : suppressOutOfRange (offline) vs repli (live)', () => {
-  test('DIVERGENCE : l’offline SUPPRIME la note, le live la REPLIE dans la plage', async () => {
+  // Inversé par R16 (vague 3). Le défaut n'était pas que les deux chemins
+  // calculaient différemment, c'est que le choix « supprimer les notes hors
+  // plage » n'atteignait QUE la chaîne hors-ligne : le runtime n'avait pas de
+  // politique et repliait toujours. `MidiPlayer.setChannelOutOfRangePolicy`
+  // porte désormais ce choix côté runtime, et `applyAssignments` l'y installe
+  // quand la transformation n'est pas bakée.
+  test('choix appliqué d’un SEUL côté ⇒ divergence (la forme historique de F-60)', async () => {
     const buffer = scaleFile([40, 60, 96]);
     const caps = { 'devA:0': { noteRangeMin: 48, noteRangeMax: 72 } };
     const live = await replay({ buffer, routing: ROUTING, capabilities: caps });
@@ -205,6 +211,29 @@ describe('L05 · T3 — cas 4 : suppressOutOfRange (offline) vs repli (live)', (
     expect(ons(live.trace)).toEqual([52, 60, 72]); // 40→52, 96→72 (repli d'octave)
     expect(ons(baked.trace)).toEqual([60]); // 40 et 96 supprimées
     expect(serializeBytes(baked.trace)).not.toBe(serializeBytes(live.trace));
+  });
+
+  test('FERMÉ (R16 axe 4) : même choix des deux côtés ⇒ sorties identiques octet à octet', async () => {
+    const buffer = scaleFile([40, 60, 96]);
+    const caps = { 'devA:0': { noteRangeMin: 48, noteRangeMax: 72 } };
+    const live = await replay({
+      buffer,
+      routing: ROUTING,
+      capabilities: caps,
+      mutate: (p) => p.setChannelOutOfRangePolicy(0, 'suppress')
+    });
+    const baked = await replay({
+      buffer: bakeOffline(buffer, {
+        0: { suppressOutOfRange: true, noteRangeMin: 48, noteRangeMax: 72 }
+      }).buffer,
+      routing: ROUTING,
+      capabilities: caps
+    });
+    const ons = (t) =>
+      t.filter((e) => (e.status & 0xf0) === 0x90 && e.data2 > 0).map((e) => e.data1);
+    expect(ons(live.trace)).toEqual([60]);
+    expect(ons(baked.trace)).toEqual([60]);
+    expect(serializeBytes(baked.trace)).toBe(serializeBytes(live.trace));
   });
 });
 
@@ -253,7 +282,10 @@ describe('L05 · T3.3 — snap sur selected_notes / gamme', () => {
 // ---------------------------------------------------------------------------
 
 describe('L05 · T3 — cas 6 : filtrage des CC', () => {
-  test('DIVERGENCE : `supported_ccs` filtre au runtime, l’offline ne le connaît pas', async () => {
+  // Inversé par R16 (vague 3) : `transposeChannels` accepte désormais
+  // `supportedCcs` / `handCcs` / `stringCCAllowed` et applique EXACTEMENT le
+  // prédicat partagé du runtime (`NoteEnforcement.isCCAllowed`).
+  test('sans capacités hors-ligne, `ccMapping` RENUMÉROTE et ne filtre pas', async () => {
     const track = [
       { deltaTime: 0, type: 'controller', channel: 0, controllerType: 1, value: 40 },
       { deltaTime: 0, type: 'controller', channel: 0, controllerType: 74, value: 90 },
@@ -283,6 +315,34 @@ describe('L05 · T3 — cas 6 : filtrage des CC', () => {
       .map((e) => e.controllerType);
     expect(bakedCcs).toEqual([11, 74, 7]); // 74 toujours présent dans les octets
   });
+
+  test('FERMÉ (R16 axe 6) : `supportedCcs` hors-ligne ⇒ sorties identiques octet à octet', async () => {
+    const track = [
+      { deltaTime: 0, type: 'controller', channel: 0, controllerType: 1, value: 40 },
+      { deltaTime: 0, type: 'controller', channel: 0, controllerType: 74, value: 90 },
+      { deltaTime: 0, type: 'controller', channel: 0, controllerType: 7, value: 100 },
+      { deltaTime: 240, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
+      { deltaTime: 240, type: 'noteOff', channel: 0, noteNumber: 60, velocity: 0 }
+    ];
+    const buffer = buildMidi({ ppq: PPQ, tracks: [track] });
+    // LIVE : filtre au runtime depuis les capacités de l'instrument.
+    const live = await replay({
+      buffer,
+      routing: ROUTING,
+      capabilities: { 'devA:0': { supportedCcs: [7] } }
+    });
+    // BAKÉ : même filtre appliqué hors-ligne, rejeu sans contrainte runtime.
+    const baked = await replay({
+      buffer: bakeOffline(buffer, { 0: { supportedCcs: [7] } }).buffer,
+      routing: ROUTING
+    });
+    const parsed = parseMidi(bakeOffline(buffer, { 0: { supportedCcs: [7] } }).buffer);
+    const bakedCcs = parsed.tracks[0]
+      .filter((e) => e.type === 'controller')
+      .map((e) => e.controllerType);
+    expect(bakedCcs).toEqual([7]); // CC 1 et 74 retirés DES OCTETS
+    expect(serializeBytes(baked.trace)).toBe(serializeBytes(live.trace));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -304,7 +364,14 @@ describe('L05 · T3.1 — politique de polyphonie live vs offline', () => {
     }
   });
 
-  test('DIVERGENCE RÉSIDUELLE : l’offline supprime la note, le live la fait sonner puis la coupe', async () => {
+  // Inversé par R16 (vague 3). Ce test encodait la divergence mesurée pendant
+  // l'audit — l'offline SUPPRIMAIT la voix médiane, le live la faisait sonner
+  // puis la coupait. Le défaut est corrigé : `MidiTransposer` reproduit
+  // désormais l'éviction du runtime (Note Off inséré au tick de la note
+  // évinçante) au lieu d'effacer rétroactivement un Note On déjà écrit — la
+  // seule alignement possible, le chemin live ne pouvant pas dé-frapper une
+  // note déjà partie. Les deux sorties sont maintenant identiques OCTET À OCTET.
+  test('FERMÉ (R16 axe 7b) : l’offline reproduit l’éviction du runtime — octet à octet', async () => {
     const track = [
       { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 60, velocity: 100 },
       { deltaTime: 0, type: 'noteOn', channel: 0, noteNumber: 64, velocity: 100 },
@@ -334,13 +401,20 @@ describe('L05 · T3.1 — politique de polyphonie live vs offline', () => {
         .filter((e) => (e.status & 0xf0) === 0x90 || (e.status & 0xf0) === 0x80)
         .map((e) => `${(e.status & 0xf0) === 0x90 ? 'on' : 'off'}${e.data1}`);
 
-    // Le live ÉMET la note 64 puis la coupe pour libérer une voix ;
-    // l'offline ne l'émet jamais. Les deux respectent le plafond, mais la
-    // sortie MIDI diffère : 64 sonne ~0,25 s dans un cas, pas dans l'autre.
-    expect(seq(live.trace)).toContain('on64');
-    expect(seq(live.trace)).toContain('off64');
-    expect(seq(baked.trace)).not.toContain('on64');
-    expect(serializeBytes(baked.trace)).not.toBe(serializeBytes(live.trace));
+    // Les deux chemins frappent 64, puis la relâchent exactement au moment où
+    // 67 arrive (la voix médiane est évincée, pas effacée), puis jouent 67.
+    expect(seq(live.trace)).toEqual([
+      'on60',
+      'on64',
+      'off64',
+      'on67',
+      'off60',
+      'off67',
+      'on36',
+      'off36'
+    ]);
+    expect(seq(baked.trace)).toEqual(seq(live.trace));
+    expect(serializeBytes(baked.trace)).toBe(serializeBytes(live.trace));
   });
 });
 

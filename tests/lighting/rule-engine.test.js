@@ -17,7 +17,8 @@ import {
   makeLogger,
   rule,
   midiMessage,
-  hardStop
+  hardStop,
+  drainOnEmit
 } from './l02-fakes.js';
 
 const DEV = (id = 1) => ({ id, name: `d${id}`, type: 'fake', led_count: 8, enabled: true });
@@ -36,6 +37,9 @@ function build(rules, deviceIds = [1]) {
     drivers.set(id, d);
   }
   managers.push(manager);
+  // R17: the engine now runs off the MIDI stack (bounded queue + setImmediate).
+  // This suite is about SEMANTICS, not latency, so drain on every emit.
+  drainOnEmit(bus, manager);
   return { manager, bus, logger, driver: drivers.get(deviceIds[0]), drivers };
 }
 
@@ -69,8 +73,14 @@ describe('L02 — trigger type', () => {
   });
 });
 
-describe('L02 F-31 — a `noteon` rule never sees the release: the light stays lit', () => {
-  test('trigger:noteon (the UI default for a new rule) lights the LED and never clears it', () => {
+describe('R22 / L02 F-31 — a rule that lit a note now owns its release', () => {
+  // WAS RED, NOW INVERTED (R22). These two tests documented the defect: a
+  // `trigger:'noteon'` rule — the configuration the UI offers first, i.e. the
+  // default of every new rule — never saw the release, so the whole note-off
+  // half of `_executeAction()` was dead code and the fixture stayed lit until
+  // the system stopped. `_ruleMatches()` now pairs the release of a note the
+  // rule is holding, whatever the trigger / velocity filters say.
+  test('trigger:noteon (the UI default for a new rule) lights the LED AND clears it', () => {
     const { bus, driver } = build([
       rule({
         condition_config: { trigger: 'noteon' },
@@ -86,12 +96,12 @@ describe('L02 F-31 — a `noteon` rule never sees the release: the light stays l
     // BEFORE emitting, so this is the only release the engine can ever see.
     bus.emit('midi_message', midiMessage('noteoff', { channel: 0, note: 60, velocity: 0 }));
 
-    // No second write at all → the LED is still red. Light stuck ON.
-    expect(driver.of('setRange').length).toBe(1);
-    expect(driver.of('allOff').length).toBe(0);
+    const writes = driver.of('setRange');
+    expect(writes.length).toBe(2);
+    expect(writes[1]).toMatchObject({ r: 0, g: 0, b: 0, brightness: 0 });
   });
 
-  test("trigger:'any' does clear it — the note-off path is only reachable that way", () => {
+  test("trigger:'any' still clears it too", () => {
     const { bus, driver } = build([
       rule({
         condition_config: { trigger: 'any' },
@@ -105,15 +115,27 @@ describe('L02 F-31 — a `noteon` rule never sees the release: the light stays l
     expect(writes[1]).toMatchObject({ r: 0, g: 0, b: 0, brightness: 0 });
   });
 
-  test('F-31b: a velocity floor on an `any` rule re-creates the stuck light', () => {
+  test('F-31b: a velocity floor no longer strands the light', () => {
     // "Only react to notes played at velocity >= 64" — a natural rule. The
-    // release carries velocity 0, so it fails the SAME velocity filter.
+    // release carries velocity 0 and used to fail that same velocity filter;
+    // the pairing neutralises velocity_min/max for a paired release only.
     const { bus, driver } = build([
       rule({ condition_config: { trigger: 'any', velocity_min: 64 } })
     ]);
     bus.emit('midi_message', midiMessage('noteon', { channel: 0, note: 60, velocity: 100 }));
     bus.emit('midi_message', midiMessage('noteoff', { channel: 0, note: 60, velocity: 0 }));
-    expect(driver.of('setRange').length).toBe(1); // lit, never cleared
+    const writes = driver.of('setRange');
+    expect(writes.length).toBe(2);
+    expect(writes[1]).toMatchObject({ brightness: 0 });
+  });
+
+  test('a soft note the velocity floor rejected is NOT lit, and its release is inert', () => {
+    const { bus, driver } = build([
+      rule({ condition_config: { trigger: 'any', velocity_min: 64 } })
+    ]);
+    bus.emit('midi_message', midiMessage('noteon', { channel: 0, note: 60, velocity: 10 }));
+    bus.emit('midi_message', midiMessage('noteoff', { channel: 0, note: 60, velocity: 0 }));
+    expect(driver.calls.length).toBe(0);
   });
 });
 

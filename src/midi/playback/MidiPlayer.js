@@ -29,6 +29,7 @@ import { PlaybackStateMachine, PLAYBACK_STATES } from './state/PlaybackStateMach
 import HandAssigner from '../adaptation/HandAssigner.js';
 import HandPositionPlanner from '../adaptation/HandPositionPlanner.js';
 import LongitudinalPlanner from '../adaptation/LongitudinalPlanner.js';
+import { indexHandOverrides, isNoteDisabled, plannerAnchors } from '../adaptation/HandOverrides.js';
 import { planVoiceProgramChanges } from '../adaptation/VoiceSelector.js';
 import { ConfigurationError, NotFoundError, ValidationError } from '../../core/errors/index.js';
 import {
@@ -183,6 +184,12 @@ class MidiPlayer {
     this.channelTransposition = new Map(); // channel -> semitones (signed integer)
     this.globalTranspose = 0; // live performance offset added to every channel
     this.channelNoteRemapping = new Map(); // channel -> { [srcNote]: destNote } (e.g. drum remap)
+    // channel -> 'fold' | 'suppress'. Runtime counterpart of the offline
+    // `suppressOutOfRange` adaptation knob, so playing the ORIGINAL file with
+    // an assignment set to "supprimer les notes hors plage" produces the same
+    // audible result as playing its baked copy (R16 axis 4 / audit F-60).
+    // Absent entry === 'fold' (the historical behaviour).
+    this.channelOutOfRangePolicy = new Map();
     this.mutedChannels = new Set(); // Muted channels
 
     // Queue / Playlist state
@@ -230,6 +237,7 @@ class MidiPlayer {
       loop: false,
       channelRouting: null,
       channelTransposition: null,
+      channelOutOfRangePolicy: null,
       mutedChannels: null,
       disconnectedPolicy: 'skip',
       _lastBroadcastPosition: undefined
@@ -476,6 +484,13 @@ class MidiPlayer {
           // Tag the source track so downstream passes (hand-position
           // planner, split router) can use track identity when available.
           built.track = track.index;
+          // Absolute MIDI tick. Operator overrides (`hand_position_overrides`:
+          // pinned anchors, disabled notes, per-note hand pins) are serialised
+          // in TICKS for tempo independence, so the engine cannot match a
+          // single one of them without this field. It was never stamped, which
+          // is why `note_assignments` looked wired but silently fell back to
+          // `ev.time` in HandAssigner (audit F-139 / R13).
+          built.tick = trackTicks;
           built._seq = seq++;
           this.events.push(built);
         }
@@ -643,6 +658,77 @@ class MidiPlayer {
   }
 
   /**
+   * Apply the operator's `disabled_notes` (migration 009) to the timeline.
+   *
+   * Every note the operator switched off in a hand-position editor is marked
+   * `_handDisabled` — both its note-on and the matching note-off — so
+   * {@link PlaybackScheduler#scheduleEvent} skips it entirely: no strike, no
+   * release, no polyphony slot. Before R13 the list was persisted, redrawn and
+   * honoured by the client simulation only; the engine never read it and the
+   * note played anyway (audit F-139).
+   *
+   * Idempotent: previous marks are cleared first, so a re-routing (or a routing
+   * whose overrides were removed) restores the notes. Mirrors
+   * {@link MidiPlayer#_injectHandPositionCCEvents}'s clear-then-rebuild
+   * contract, and {@link module:files/MidiBaker} removes exactly the same
+   * events from the baked bytes so live and baked stay identical.
+   *
+   * @returns {number} Number of note-on events disabled.
+   * @private
+   */
+  _applyDisabledNotes() {
+    if (this._disabledNoteCount) {
+      for (const e of this.events || []) {
+        if (e._handDisabled) delete e._handDisabled;
+      }
+      this._disabledNoteCount = 0;
+    }
+    if (!this.events || this.events.length === 0) return 0;
+    if (!this.channelRouting || this.channelRouting.size === 0) return 0;
+
+    // channel → override index, only for channels that actually disable something.
+    const byChannel = new Map();
+    for (const [srcChannel, routing] of this.channelRouting.entries()) {
+      if (!routing?.handOverrides) continue;
+      const index = indexHandOverrides(routing.handOverrides);
+      if (index.disabled.size > 0) byChannel.set(srcChannel, index);
+    }
+    if (byChannel.size === 0) return 0;
+
+    // Pending note-offs to swallow, keyed `channel:note`, counted so that
+    // overlapping same-pitch notes release one at a time (same rule as the
+    // scheduler's `_droppedNoteOns`).
+    const pendingOff = new Map();
+    let disabled = 0;
+    for (const e of this.events) {
+      const isNoteOn = e.type === 'noteOn' && (e.velocity ?? 0) > 0;
+      const isNoteOff = e.type === 'noteOff' || (e.type === 'noteOn' && (e.velocity ?? 0) === 0);
+      if (!isNoteOn && !isNoteOff) continue;
+      const key = `${e.channel}:${e.note}`;
+      if (isNoteOn) {
+        const index = byChannel.get(e.channel);
+        if (index && isNoteDisabled(index, e.tick, e.note)) {
+          e._handDisabled = true;
+          pendingOff.set(key, (pendingOff.get(key) || 0) + 1);
+          disabled++;
+        }
+        continue;
+      }
+      const waiting = pendingOff.get(key) || 0;
+      if (waiting > 0) {
+        e._handDisabled = true;
+        pendingOff.set(key, waiting - 1);
+      }
+    }
+
+    this._disabledNoteCount = disabled;
+    if (disabled > 0) {
+      this.logger.info(`Disabled ${disabled} operator-muted note(s) from hand_position_overrides`);
+    }
+    return disabled;
+  }
+
+  /**
    * Inject hand-position CC events (e.g. CC23 left / CC24 right) for
    * every source channel whose destination instrument declares a
    * `hands_config`. Destinations without the feature are skipped, so an
@@ -699,6 +785,19 @@ class MidiPlayer {
       return tabByChannel.get(srcChannel) || null;
     };
 
+    // Operator overrides (pinned anchors / disabled notes / note pins) are
+    // indexed once per source channel — the same normalisation MidiBaker uses,
+    // so live and baked plan from identical inputs (R13 / F-139).
+    const overridesByChannel = new Map();
+    const getOverrides = (srcChannel) => {
+      let idx = overridesByChannel.get(srcChannel);
+      if (idx === undefined) {
+        idx = indexHandOverrides(this.channelRouting.get(srcChannel)?.handOverrides);
+        overridesByChannel.set(srcChannel, idx);
+      }
+      return idx;
+    };
+
     /**
      * Plan hand CCs for one destination. `segmentFilter` is used by split
      * routings to restrict the notes that this destination actually plays
@@ -745,6 +844,7 @@ class MidiPlayer {
           handsCfg,
           capabilities,
           getTabsForChannel,
+          overrideIndex: getOverrides(srcChannel),
           allCCs,
           allWarnings,
           markHadAny: () => {
@@ -754,11 +854,16 @@ class MidiPlayer {
         return;
       }
 
+      const overrideIndex = getOverrides(srcChannel);
+
       const notes = [];
       for (let i = 0; i < this.events.length; i++) {
         const e = this.events[i];
         if (e.channel !== srcChannel) continue;
         if (e.type !== 'noteOn' || (e.velocity ?? 0) === 0) continue;
+        // Operator-disabled notes are not played, so they must not shape the
+        // hand plan either (R13 / F-139).
+        if (e._handDisabled) continue;
         if (segmentFilter && !segmentFilter(e.note)) continue;
         notes.push({
           time: e.time,
@@ -779,10 +884,7 @@ class MidiPlayer {
       // a `handId` (vs the strings shape with `string`/`fret`). The
       // assigner's optional `noteAssignments` arg honours them so the
       // operator's choice survives the auto/track/pitch_split decision.
-      const routing = this.channelRouting.get(srcChannel);
-      const handPins = (routing?.handOverrides?.note_assignments || []).filter(
-        (a) => a && typeof a.handId === 'string' && a.handId.length > 0
-      );
+      const handPins = overrideIndex.handPins;
       const {
         assignments,
         warnings: assignWarnings,
@@ -799,7 +901,9 @@ class MidiPlayer {
         noteRangeMax: capabilities?.note_range_max ?? null,
         minNoteIntervalMs: capabilities?.min_note_interval ?? 0
       });
-      const { ccEvents, warnings: planWarnings } = planner.plan(tagged);
+      const { ccEvents, warnings: planWarnings } = planner.plan(tagged, {
+        anchors: plannerAnchors(overrideIndex)
+      });
       for (const w of planWarnings) {
         allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
       }
@@ -1057,6 +1161,7 @@ class MidiPlayer {
       handsCfg,
       capabilities,
       getTabsForChannel,
+      overrideIndex,
       allCCs,
       allWarnings,
       markHadAny
@@ -1112,6 +1217,9 @@ class MidiPlayer {
     for (const ev of tablature.tablature_data) {
       if (!Number.isFinite(ev.fret)) continue;
       if (ev.fret <= 0) continue; // open string: no fretting-hand constraint
+      // Operator-disabled notes never reach the instrument, so they must not
+      // constrain the fretting hand either (R13 / F-139).
+      if (isNoteDisabled(overrideIndex, ev.tick, ev.midiNote)) continue;
       if (segmentFilter && ev.midiNote != null && !segmentFilter(ev.midiNote)) continue;
       const time = this._ticksToSecondsWithTempoMap(ev.tick, tempoMap);
       const endTime =
@@ -1120,6 +1228,7 @@ class MidiPlayer {
           : null;
       notes.push({
         time,
+        tick: ev.tick,
         note: ev.midiNote,
         fretPosition: ev.fret,
         string: ev.string,
@@ -1165,7 +1274,9 @@ class MidiPlayer {
     const planner = useLongitudinal
       ? new LongitudinalPlanner(handsCfg, plannerCtx)
       : new HandPositionPlanner(handsCfg, plannerCtx);
-    const { ccEvents, warnings: planWarnings } = planner.plan(notes);
+    const { ccEvents, warnings: planWarnings } = planner.plan(notes, {
+      anchors: plannerAnchors(overrideIndex)
+    });
     for (const w of planWarnings) {
       allWarnings.push({ ...w, channel: srcChannel, segment: segmentLabel });
     }
@@ -1327,6 +1438,60 @@ class MidiPlayer {
   }
 
   /**
+   * Inverse of {@link MidiPlayer#_ticksToSecondsWithTempoMap}: absolute
+   * seconds → absolute MIDI ticks, honouring every tempo change before the
+   * target. Needed by the Song Position Pointer, which is expressed in
+   * musical time, not seconds.
+   *
+   * @param {number} seconds
+   * @param {Array<{tick:number,time:number,microsecondsPerBeat:number}>} tempoMap
+   * @returns {number} Absolute ticks (fractional).
+   * @private
+   */
+  _secondsToTicksWithTempoMap(seconds, tempoMap) {
+    let activeEntry = {
+      tick: 0,
+      time: 0,
+      microsecondsPerBeat: DEFAULT_MICROSECONDS_PER_BEAT
+    };
+
+    for (const entry of tempoMap) {
+      if (entry.time <= seconds) {
+        activeEntry = entry;
+      } else {
+        break;
+      }
+    }
+
+    const secondsPerTick = activeEntry.microsecondsPerBeat / (this.ppq * 1000000);
+    if (!(secondsPerTick > 0)) return activeEntry.tick;
+    return activeEntry.tick + (seconds - activeEntry.time) / secondsPerTick;
+  }
+
+  /**
+   * Convert an absolute playback position into the **MIDI beats** carried by a
+   * Song Position Pointer: sixteenth notes, six clock pulses each.
+   *
+   * Derived from the tick position rather than from `seconds × BPM / 60 × 4`
+   * because ticks are the file's own musical time: the conversion stays exact
+   * across tempo changes, and it is immune to `playbackRate` (SPP counts
+   * sixteenths of the score, not of the wall clock — playing at 2× traverses
+   * twice as many sixteenths per second, which is exactly what the slave must
+   * also do since it follows our clock pulses).
+   *
+   * @param {number} positionSeconds
+   * @returns {number} Position in MIDI beats (>= 0, fractional part rounded by
+   *   the clock generator).
+   * @private
+   */
+  _songPositionBeats(positionSeconds) {
+    if (!(positionSeconds > 0)) return 0;
+    const ppq = this.ppq > 0 ? this.ppq : 480;
+    const ticks = this._secondsToTicksWithTempoMap(positionSeconds, this._buildTempoMap());
+    return Math.max(0, (ticks / ppq) * 4);
+  }
+
+  /**
    * Linear approximation: convert MIDI ticks to seconds using the
    * single tempo captured at file load. Use the tempo-map-aware
    * variant {@link MidiPlayer#_ticksToSecondsWithTempoMap} when the
@@ -1380,6 +1545,15 @@ class MidiPlayer {
     this.outputDevice = outputDevice;
     this.playing = true;
     this.paused = false;
+
+    // Apply the operator's disabled notes BEFORE planning hand positions, so
+    // the planner never anchors the hand on a note that will not be played
+    // (R13 / F-139). Same idempotent contract as the injection below.
+    try {
+      this._applyDisabledNotes();
+    } catch (err) {
+      this.logger.warn(`Disabled-note pass failed: ${err.message}`);
+    }
 
     // Inject hand-position CC events now that routings are known. Safe to
     // call every start: the method is idempotent (removes prior injections
@@ -1442,11 +1616,27 @@ class MidiPlayer {
     // Start MIDI clock if enabled, at the EFFECTIVE tempo (file tempo at the
     // current position × playbackRate) so external gear tracks the operator's
     // playback speed rather than the notated BPM (audit P2).
+    //
+    // When we are resuming at a non-zero position (a seek), hand the clock the
+    // musical position so it locates the slaves with Song Position Pointer +
+    // Continue instead of a bare Start, which MIDI 1.0 defines as "from bar 1"
+    // — every slave used to rewind to the top of the song whenever the
+    // operator moved the playhead (audit F-43).
     if (this.midiClockGenerator) {
       const tempoAtPosition = this._getTempoAtPosition(this.position);
       const rate = this.playbackRate > 0 ? this.playbackRate : 1;
-      this.midiClockGenerator.startPlayback(tempoAtPosition * rate);
+      const songPositionBeats = this.position > 0 ? this._songPositionBeats(this.position) : null;
+      this.midiClockGenerator.startPlayback(tempoAtPosition * rate, songPositionBeats);
     }
+
+    // Run the first scheduler pass NOW instead of waiting for the interval.
+    // `startTime` was just anchored on `performance.now()`, so leaving the
+    // first pass to `setInterval` put every event in [0, SCHEDULER_TICK_MS[ —
+    // the downbeat — 10 ms late, shrinking the first inter-onset interval by
+    // a full tick (audit F-55: 1010/1500 for a file asking 1000/1500). Placed
+    // AFTER the clock start so slaves still receive Start/Continue before the
+    // first note. Everything the tick reads is already set up above.
+    this._schedulerTick();
 
     this.broadcastStatus();
 
@@ -1474,6 +1664,7 @@ class MidiPlayer {
     state.channelTransposition = this.channelTransposition;
     state.globalTranspose = this.globalTranspose;
     state.channelNoteRemapping = this.channelNoteRemapping;
+    state.channelOutOfRangePolicy = this.channelOutOfRangePolicy;
     state.mutedChannels = this.mutedChannels;
     state.disconnectedPolicy = this.disconnectedPolicy;
     state._lastBroadcastPosition = this._lastBroadcastPosition;
@@ -1583,6 +1774,11 @@ class MidiPlayer {
     if (this.midiClockGenerator) {
       this.midiClockGenerator.resumePlayback();
     }
+
+    // Same reasoning as in start(): the first pass has to be synchronous or
+    // everything inside the first SCHEDULER_TICK_MS after the resume goes out
+    // a tick late (audit F-55).
+    this._schedulerTick();
 
     this.broadcastStatus();
 
@@ -1732,6 +1928,15 @@ class MidiPlayer {
       this.paused = false;
     }
 
+    // Relocate the slaves. For an ACTIVE seek start() emits the full
+    // Stop → SPP → Continue below (the Stop just went out); for a PAUSED seek
+    // the clock already sent Stop when the operator paused and will send
+    // Continue on resume(), so the SPP has to go out here or that Continue
+    // resumes the slaves from the pre-seek position (audit F-43).
+    if (wasPaused && this.midiClockGenerator) {
+      this.midiClockGenerator.sendSongPosition?.(this._songPositionBeats(seekPosition));
+    }
+
     this.position = seekPosition;
     this.currentEventIndex = this.findEventIndexAtTime(seekPosition);
     // Reset split routing counters on seek (stale note assignments)
@@ -1845,6 +2050,7 @@ class MidiPlayer {
       channelTransposition: this.channelTransposition,
       globalTranspose: this.globalTranspose,
       channelNoteRemapping: this.channelNoteRemapping,
+      channelOutOfRangePolicy: this.channelOutOfRangePolicy,
       mutedChannels: new Set()
     };
 
@@ -2245,6 +2451,40 @@ class MidiPlayer {
   }
 
   /**
+   * Set (or clear) the per-channel out-of-range policy applied at runtime by
+   * the scheduler, right after transposition/remap and before the range fold.
+   *
+   * `'suppress'` reproduces, on the ORIGINAL file, what
+   * `MidiTransposer.transposeChannels({suppressOutOfRange:true})` bakes into an
+   * adapted copy: the note is not played at all instead of being folded into
+   * the instrument's window. Anything else (including `'fold'`, `null`,
+   * `undefined`) clears the entry and restores the historical fold.
+   *
+   * This closes R16 axis 4 / audit F-60: before it, the same assignment gave
+   * `[52,60,72]` live and `[60]` baked.
+   *
+   * @param {number} channel
+   * @param {?('fold'|'suppress')} policy
+   * @returns {void}
+   */
+  setChannelOutOfRangePolicy(channel, policy) {
+    const next = policy === 'suppress' ? 'suppress' : null;
+    const prev = this.channelOutOfRangePolicy.get(channel) || null;
+    if (next === prev) return;
+    if (next) {
+      this.channelOutOfRangePolicy.set(channel, next);
+    } else {
+      this.channelOutOfRangePolicy.delete(channel);
+    }
+    // A policy flip changes which pitches are emitted; release what is sounding
+    // so a note admitted under the old policy cannot be stranded by a note-off
+    // dropped under the new one (same rule as transposition/remap changes).
+    if (this.playing && !this.paused) {
+      this._panicChannel(channel);
+    }
+  }
+
+  /**
    * Split a channel across multiple destinations based on note range
    * (e.g. low notes → bass amp, high notes → guitar amp).
    *
@@ -2306,6 +2546,7 @@ class MidiPlayer {
     this.channelRouting.clear();
     this.channelTransposition.clear();
     this.channelNoteRemapping.clear();
+    this.channelOutOfRangePolicy.clear();
     this.scheduler.invalidateCompensationCache();
     this.invalidateOmniFallback();
     this.channels.forEach((c) => (c.assignedDevice = null));
@@ -3053,6 +3294,14 @@ class MidiPlayer {
             } else {
               this.setChannelNoteRemapping(routing.channel, null);
             }
+            // Out-of-range policy — the third runtime adaptation parameter,
+            // alongside transposition and note remapping (R16 axe 4 / F-60).
+            // The routing table has no `out_of_range_policy` column yet (the
+            // writer half is an out-of-scope persistence diff, see
+            // docs/audit/2026-09-07/WAVE3_R13_R16.md), so this resolves to
+            // 'fold' today and starts honouring the operator's choice across
+            // reloads the moment the column lands.
+            this.setChannelOutOfRangePolicy(routing.channel, routing.out_of_range_policy ?? null);
             loadedCount++;
           }
         }

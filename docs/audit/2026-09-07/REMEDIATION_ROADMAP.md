@@ -193,6 +193,38 @@ rejoue du JS tiers **au runtime en same-origin** — donc immunisé à toute CSP
 
 ---
 
+## ✅ Vague 3 — LIVRÉE (2026-09-08)
+
+État à l'issue : **210 suites / 2 904 tests backend · 88 / 1 604 frontend ·
+0 erreur lint · `tsc` clean.**
+
+| # | Finding | Résultat |
+|---|---|---|
+| **R12** | F-138 | Routage live **atteignable** : nouvelle modale + lanceur, **13 des 15 commandes** câblées (les 2 restantes refusées avec argument). Preuve E2E en Chromium réel : création → **rechargement complet** → même route, même id. |
+| **R13** | F-139 | `hand_anchors`, `disabled_notes` **et** `note_assignments` lus par le lecteur live **et** par `MidiBaker`, via un module de normalisation unique. **Cause racine** : `buildEventList()` ne posait aucun `tick`, donc la clé `(tick, note)` ne matchait jamais — même `note_assignments`, réputé câblé, était mort. |
+| **R14** | F-140 | `is_fretless` n'est plus détruit à chaque sauvegarde ; case à cocher réelle (la clé i18n existait déjà dans les 28 locales). |
+| **R15** | — | **10 capacités mortes sur 12 réglées.** `gm-instrument-capabilities.json` alimente enfin le défaut de polyphonie → **les vents sont monophoniques par défaut**. 5 restent, nommées, avec test de caractérisation et correctif écrit. |
+| **R16** | F-60 | **4 axes T3 fermés** + un **10ᵉ axe non répertorié** trouvé (les CC de main tombaient du mauvais côté de la note dans le baké). Preuves **octet à octet**. |
+
+**Capo — décision du mainteneur : abandonné.** Retiré sur 12 surfaces, dont le
+seul endroit qui l'appliquait réellement (`HandPositionFeasibility`, ce qui
+referme **F-72**). Colonne conservée et marquée `ABANDONED COLUMN` ; SQL de
+suppression fourni **non appliqué** — un rebuild de table ne vaut pas le risque
+pour une colonne inerte.
+
+**Divergences T3 assumées, avec raison écrite :** axe 5 (snap de gamme — le
+graver figerait le fichier sur un seul instrument), axes 8 et 9
+(`min_note_interval` / `min_note_duration` — propriétés de l'**émission**, pas
+du contenu). Les trois **convergent au rejeu**, c'est prouvé.
+
+**Suite immédiate identifiée :** colonne `out_of_range_policy` (migration 010 +
+`RoutingPersistenceDB`), sans laquelle l'axe 4 ne survit pas à un rechargement.
+Le côté lecture est déjà en place, le diff est fourni.
+
+Comptes rendus : `WAVE3_R12.md`, `WAVE3_R13_R16.md`, `WAVE3_R14_R15.md`.
+
+---
+
 ## Vague 3 — tenir la promesse « 100 % fonctionnel »
 
 Ces trois-là ne sont pas des manques, ce sont des **régressions actives**.
@@ -222,13 +254,52 @@ médiane **sonne puis est coupée en live**, et n'est **jamais émise en baké**
 
 ---
 
+## ✅ Vague 4 — LIVRÉE (2026-09-08)
+
+État à l'issue : **217 suites / 3 034 tests backend · 91 / 1 637 frontend ·
+E2E 10 réussis / 5 échoués (contre 6/8) · 0 erreur lint · `tsc` clean.**
+
+| # | Finding | Résultat mesuré |
+|---|---|---|
+| **R17** | F-28 *(dernier P1)* | Driver bloquant 120 ms : **122,2 ms → 0,11 ms** de dispatch MIDI. 16 règles : 404 ms → **0,04 ms, plat** — la multiplication par le nombre de règles a disparu. File bornée à 512, éviction **préservant les note-off**. |
+| **R18** | F-45 | Panic complet `120 → 121 → 123` sur 16 canaux, et **panic global** en une trame. Ordre **délibérément différent** de celui proposé par l'audit (voir ci-dessous). |
+| **R19** | F-47 | Extinction avant fermeture du port, ré-extinction au retour, déluge de logs borné (1 000 messages → **1 ligne + 999 comptés**). Parité prouvée sur les 4 transports. |
+| **R20** | F-94, F-90 | Transport **repris après rechargement**, prouvé en navigateur : Stop actif, vrai clic → `playing:false`. F-86 corrigé (2 lignes). |
+| **R21** | F-43, F-44 | `Stop → SPP → Continue` au seek. Rafale post-gel **240 → ≤ 1** tick. Complété par **R21b** : sans lui le SPP n'atteignait **que l'USB**. |
+| **R22** | F-31 | Une règle qui allume une note **possède son relâchement** ; vaut aussi pour les règles déjà en base. |
+| **R23** | F-55, F-61 | Notes supprimées **12,5 % → 0 %**, et **50 % → 0 %** sur l'agrégation. 0/40 sous 5 modèles de gigue. |
+
+**Deux diffs proposés par l'audit se sont révélés faux à l'implémentation** — les
+deux corrigés avec justification écrite :
+- **Panic** : l'audit proposait `120/123/121`. Or **CC 123 est ignoré tant que la
+  pédale forte est enfoncée** : envoyé en premier il est jeté, et le 121 final
+  relâche une pédale dont les note-off ont disparu — **le panic reste un no-op**.
+  `120 → 121 → 123` est correct sous les deux lectures de MIDI 1.0.
+- **SPP** : la formule `secondes × tempo` **comptait `playbackRate` deux fois** et
+  cassait sur tempo variable. Remplacée par ticks + carte de tempo.
+
+**Restent rouges en E2E (5), tous hors périmètre de cette vague :** F-95 ×4
+(fuites de modales) et l'étape 10d du parcours canonique, **pour une cause
+requalifiée** — la `TypeError` est corrigée, mais `MidiEditorMidiWriter`
+reconstruit le tempo depuis la carte de tempo et ignore le champ d'en-tête :
+arbitrage produit sur le chemin de sauvegarde, deux options documentées, **non
+tranché**.
+
+**Notes de version :** CC 121 réinitialise aussi modulation et pitch bend · la
+SPA n'a toujours **aucun bouton « panic global »** alors que le backend le sait
+faire en une trame.
+
+Comptes rendus : `WAVE4_R17_R22.md`, `WAVE4_R18_R19.md`, `WAVE4_R20.md`, `WAVE4_R21_R23.md`.
+
+---
+
 ## Vague 4 — robustesse de scène
 
 | # | Finding | Pourquoi ça compte en concert |
 |---|---|---|
 | R17 | **F-28** — un driver lighting synchrone lent bloque le MIDI (+120 ms × règles) | Le son s'arrête parce qu'une LED est lente |
-| R18 | **F-45** — le panic n'envoie **jamais** CC 121, et il n'existe **aucun panic global** | Un sustain verrouillé survit au panic |
-| R19 | **F-47** — aucun note-off ni panic à la déconnexion **ni au rebranchement** | Notes bloquées à chaque câble arraché |
+| ✅ R18 | **F-45** — le panic n'envoie **jamais** CC 121, et il n'existe **aucun panic global** | Un sustain verrouillé survit au panic — **LIVRÉ** (`WAVE4_R18_R19.md`) |
+| ✅ R19 | **F-47** — aucun note-off ni panic à la déconnexion **ni au rebranchement** | Notes bloquées à chaque câble arraché — **LIVRÉ** (`WAVE4_R18_R19.md`) |
 | R20 | **F-94** — rechargement en lecture : l'orchestre continue, l'UI perd tout contrôle | Plus aucun moyen d'arrêter le son |
 | R21 | **F-43** — aucun Song Position Pointer : un seek envoie `Start` | L'esclave repart mesure 1 |
 | R22 | **F-31** — règle `noteon` par défaut de l'UI : LED allumée pour toujours | Projecteur resté allumé |
