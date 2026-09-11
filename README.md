@@ -169,6 +169,32 @@ Deployment options: direct Node.js (`npm start`), **PM2** for production with au
 - [Contributing](./CONTRIBUTING.md)
 - [Changelog](./CHANGELOG.md)
 
+## compatible instruments/code for ESP32
+
+- [Servo Flute GMB](https://github.com/glloq/Servo-Flute-GMB)
+- [Drums Engine GMB](https://github.com/glloq/Drums-Engine-GMB)
+- [Servo Plucked Strings GMB](https://github.com/glloq/Servo-Plucked-Strings-GMB)
+- [Stepper Plucked Strings GMB](https://github.com/glloq/Stepper-Plucked-Strings-GMB)
+
+### soon to come
+
+- [PlayMode-GMB](https://github.com/glloq/PlayMode-GMB)
+- [Accordion-servo-midi](https://github.com/glloq/Accordion-servo-midi)
+- [harmonica_Midi](https://github.com/glloq/harmonica_Midi)
+- [trumpet](https://github.com/glloq/Orchestrion_trumpet)
+- [servo-Melodica-GMB](https://github.com/glloq/servo-Melodica-GMB)
+- [slide_Whistle-GMB](https://github.com/glloq/slide_Whistle-GMB)
+
+## compatible instruments/code for Arduino (kind of deprecated/not really fully done)
+
+- [Ukuletron](https://github.com/glloq/ukuletron)
+- [stepper-midi-4-cords-instrument](https://github.com/glloq/stepper-midi-4-cords-instrument)
+- [16-cords-lyre-midi](https://github.com/glloq/16-cords-lyre-midi)
+- [servo-midi-music](https://github.com/glloq/servo-midi-music)
+- [Orchestrion_Piano](https://github.com/glloq/Orchestrion_Piano)
+- [Orchestrion_FlutePan](https://github.com/glloq/Orchestrion_FlutePan)
+
+
 ## License
 
 The source code is released under the **MIT License** — see [`LICENSE`](./LICENSE).
