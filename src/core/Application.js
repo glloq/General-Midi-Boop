@@ -59,6 +59,7 @@ import { EventLoopMonitor } from '../infrastructure/monitoring/EventLoopMonitor.
 import { CapabilityResolver } from '../midi/instrument/CapabilityResolver.js';
 import DescriptorService from '../midi/instrument/DescriptorService.js';
 import { SuggestionCacheService } from '../midi/adaptation/SuggestionCacheService.js';
+import TranscriptionBackendRegistry from '../transcription/TranscriptionBackendRegistry.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -97,6 +98,7 @@ class Application {
     this.instrumentLightManager = null;
     this.midiClockGenerator = null;
     this.autoAssigner = null;
+    this.transcriptionBackendRegistry = null;
     this.wsServer = null;
     this.httpServer = null;
     this.commandHandler = null;
@@ -441,6 +443,26 @@ class Application {
         })
       );
 
+      // Audio -> MIDI transcription (optional). The registry itself has no
+      // native dependency and always constructs; the ENGINES are optional and
+      // installed separately, so an empty registry is the normal state of a
+      // fresh install. Wrapped anyway: a failure here must degrade the
+      // feature, never stop the MIDI server from booting (§44).
+      if (this.config.get('transcription.enabled', true)) {
+        try {
+          this._registerService(
+            'transcriptionBackendRegistry',
+            new TranscriptionBackendRegistry(deps)
+          );
+          await this.transcriptionBackendRegistry.loadBuiltinBackends();
+        } catch (error) {
+          this._capabilityErrors.transcription = error.message;
+          this.logger.warn(`Audio transcription not available: ${error.message}`);
+        }
+      } else {
+        this.logger.info('Audio transcription disabled by configuration');
+      }
+
       // Initialize API
       this._registerService('commandHandler', new CommandHandler(deps));
       this._registerService('httpServer', new HttpServer(deps));
@@ -669,6 +691,7 @@ class Application {
     await step('lightingManager', () => this.lightingManager?.shutdown?.());
     await step('instrumentLightManager', () => this.instrumentLightManager?.shutdown?.());
     await step('autoAssigner', () => this.autoAssigner?.destroy());
+    await step('transcriptionBackendRegistry', () => this.transcriptionBackendRegistry?.destroy());
     await step('compensationService', () => this.compensationService?.destroy());
     await step('capabilityResolver', () => this.capabilityResolver?.destroy());
     await step('eventHandlers', () => this.removeEventHandlers());

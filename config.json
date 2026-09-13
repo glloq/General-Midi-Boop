@@ -43,5 +43,19 @@
   },
   "security": {
     "mode": "trusted-lan"
+  },
+  "transcription": {
+    "enabled": true,
+    "dataDir": "./data/transcription",
+    "maxAudioFileBytes": 104857600,
+    "maxAudioDurationSeconds": 600,
+    "maxParallelJobs": 1,
+    "maxTempDiskBytes": 2147483648,
+    "jobTimeoutMs": 900000,
+    "keepOriginalAudio": false,
+    "keepTempFiles": false,
+    "postProcessingPreset": "balanced",
+    "availabilityCacheMs": 60000,
+    "autoImportToLibrary": true
   }
 }

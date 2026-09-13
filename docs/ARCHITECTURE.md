@@ -101,6 +101,14 @@ General-Midi-Boop/
 │   │   └── MqttLightDriver.js # MQTT
 │   ├── audio/
 │   │   └── DelayCalibrator.js # Microphone-based latency calibration
+│   ├── transcription/         # Audio → MIDI (optional; engines installed separately)
+│   │   ├── TranscriptionResult.js           # Rich intermediate representation
+│   │   ├── TranscriptionBackend.js          # Abstract engine contract
+│   │   ├── TranscriptionBackendRegistry.js  # Discovery + availability + auto pick
+│   │   ├── TranscriptionCapabilities.js     # Status / capability / licence vocabulary
+│   │   ├── TranscriptionError.js            # Typed user-facing failures
+│   │   ├── TranscriptionConfig.js           # Resolved limits + on-disk layout
+│   │   └── backends/          # Concrete engines (auto-discovered)
 │   ├── core/                  # Application framework (incl. Config)
 │   │   └── Config.js          # Consolidated config with env-var overrides
 │   ├── types/                 # Ambient TypeScript type definitions
@@ -124,6 +132,7 @@ Feature-specific docs:
 [`MIDI_EDITOR.md`](MIDI_EDITOR.md) — MIDI editor modal architecture ·
 [`AUTO_ASSIGNMENT.md`](AUTO_ASSIGNMENT.md) — channel-to-instrument auto-assignment ·
 [`MIDI_CC_INSTRUMENT_CONTROLS.md`](MIDI_CC_INSTRUMENT_CONTROLS.md) — reserved CC ranges ·
+[`AUDIO_TRANSCRIPTION.md`](AUDIO_TRANSCRIPTION.md) — audio → MIDI transcription ·
 [`API.md`](API.md) — WebSocket command reference.
 
 ## Key Design Patterns
