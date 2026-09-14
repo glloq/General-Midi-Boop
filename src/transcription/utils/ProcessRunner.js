@@ -59,6 +59,64 @@ const INHERITED_ENV_KEYS = Object.freeze([
 ]);
 
 /**
+ * Variables a PACKAGE INSTALLER may additionally inherit — and nothing else
+ * may.
+ *
+ * The strict list above is right for everything that runs during a
+ * transcription: FFmpeg reads a local file and the engine runs a local model,
+ * so neither has any business reaching the network. Installing an engine is
+ * the one operation that must. Without these, an installer behind a proxy or
+ * a private CA fails with a TLS or DNS error while the very same `pip` run
+ * from the operator's own shell succeeds — a difference nothing in the error
+ * explains.
+ *
+ * Both cases of the proxy variables are listed because the tools disagree
+ * about which they read.
+ *
+ * These carry secrets of their own (a proxy URL routinely embeds
+ * `user:password`), which is exactly why they are opt-in per call site rather
+ * than added to the list above: see {@link networkEnv}.
+ */
+export const NETWORK_ENV_KEYS = Object.freeze([
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'NO_PROXY',
+  'http_proxy',
+  'https_proxy',
+  'no_proxy',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
+  'REQUESTS_CA_BUNDLE',
+  'CURL_CA_BUNDLE',
+  'PIP_CERT',
+  'PIP_CLIENT_CERT',
+  'PIP_CONFIG_FILE',
+  'PIP_INDEX_URL',
+  'PIP_EXTRA_INDEX_URL',
+  'PIP_TRUSTED_HOST',
+  'PIP_RETRIES',
+  'PIP_TIMEOUT'
+]);
+
+/**
+ * The proxy, CA and index settings present in this process's environment.
+ *
+ * Merge it into the `env` of a package install and nothing else. It is a
+ * function rather than a constant so that a variable exported after startup
+ * is still picked up, and so that the call sites that grant it are greppable.
+ *
+ * @returns {Object<string,string>} Only the variables that are actually set.
+ */
+export function networkEnv() {
+  const env = {};
+  for (const key of NETWORK_ENV_KEYS) {
+    const value = process.env[key];
+    if (typeof value === 'string' && value.length > 0) env[key] = value;
+  }
+  return env;
+}
+
+/**
  * Build the child environment: the allow-list above, plus explicit extras,
  * plus the locale pinning that keeps FFmpeg/ffprobe output parseable.
  *

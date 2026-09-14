@@ -8,6 +8,8 @@ import { describe, test, expect, jest } from '@jest/globals';
 import {
   ProcessRunner,
   buildChildEnv,
+  networkEnv,
+  NETWORK_ENV_KEYS,
   isMissingBinaryError,
   tail,
   PROCESS_DEFAULTS
@@ -67,6 +69,64 @@ describe('environment filtering', () => {
     const env = buildChildEnv({ VIRTUAL_ENV: '/opt/venv', NOTHING: null });
     expect(env.VIRTUAL_ENV).toBe('/opt/venv');
     expect(env).not.toHaveProperty('NOTHING');
+  });
+
+  // The allow-list starves a package installer behind a proxy or a private
+  // CA: pip fails on TLS or DNS while the operator's own shell works, and
+  // nothing in the error says why. `networkEnv()` is the narrow, opt-in
+  // answer — see its doc comment.
+  describe('networkEnv (installers only)', () => {
+    // The whole list, not a sample: a CI box or a dev container may have
+    // any of these set for its own reasons, and the test must describe
+    // `networkEnv()` rather than the machine it runs on.
+    let saved;
+
+    beforeEach(() => {
+      saved = NETWORK_ENV_KEYS.map((k) => [k, process.env[k]]);
+      for (const k of NETWORK_ENV_KEYS) delete process.env[k];
+    });
+    afterEach(() => {
+      for (const [k, v] of saved) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    });
+
+    test('passes through the proxy, CA and index settings that are set', () => {
+      process.env.HTTPS_PROXY = 'http://proxy.example:3128';
+      process.env.REQUESTS_CA_BUNDLE = '/etc/ssl/corp.pem';
+      process.env.no_proxy = 'localhost';
+      expect(networkEnv()).toEqual({
+        HTTPS_PROXY: 'http://proxy.example:3128',
+        REQUESTS_CA_BUNDLE: '/etc/ssl/corp.pem',
+        no_proxy: 'localhost'
+      });
+    });
+
+    test('omits what is unset or empty rather than passing an empty string', () => {
+      process.env.PIP_INDEX_URL = '';
+      expect(networkEnv()).toEqual({});
+    });
+
+    test('carries nothing beyond network settings — a token never rides along', () => {
+      process.env.HTTPS_PROXY = 'http://proxy.example:3128';
+      const previous = process.env.GMBOOP_API_TOKEN;
+      process.env.GMBOOP_API_TOKEN = 'secret';
+      try {
+        expect(Object.keys(networkEnv())).toEqual(['HTTPS_PROXY']);
+      } finally {
+        if (previous === undefined) delete process.env.GMBOOP_API_TOKEN;
+        else process.env.GMBOOP_API_TOKEN = previous;
+      }
+    });
+
+    test('is NOT part of the default child environment', () => {
+      process.env.HTTPS_PROXY = 'http://proxy.example:3128';
+      // FFmpeg and the transcription runner read local files and a local
+      // model. Neither has any business reaching the network, so neither
+      // learns how to.
+      expect(buildChildEnv()).not.toHaveProperty('HTTPS_PROXY');
+    });
   });
 
   test('the child receives the filtered environment, not process.env', async () => {

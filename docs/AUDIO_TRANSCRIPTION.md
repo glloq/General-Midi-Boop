@@ -272,6 +272,20 @@ then re-probes the engine for real — "Ready" means it imports, not that the
 installer exited 0. A failed install is rolled back so the next attempt
 starts clean.
 
+**Python version.** The pinned TensorFlow publishes wheels for CPython 3.9,
+3.10 and 3.11 and nothing newer, so that is the range this engine installs
+on. Raspberry Pi OS Bookworm ships 3.11 and needs nothing done. On a newer
+distribution, install one of those alongside the system Python; the installer
+checks the interpreter first and refuses immediately, naming what it found,
+rather than failing after a long download.
+
+**Behind a proxy or a private CA.** The installer passes the usual
+`HTTP(S)_PROXY`, `NO_PROXY`, `REQUESTS_CA_BUNDLE` / `SSL_CERT_FILE`,
+`PIP_CERT` and `PIP_INDEX_URL` settings through to `pip`, so a box that can
+already `pip install` from a shell can install an engine. Those settings go
+to the package installer alone — transcription itself never reaches the
+network, so nothing else in the pipeline receives them.
+
 **By hand**, if you prefer, or to script a deployment — it installs into its
 own Python environment, never the system Python:
 
@@ -352,6 +366,8 @@ the environment" rather than producing silently wrong results.
 | "FFmpeg is not installed" | FFmpeg absent from `PATH` | `sudo apt install ffmpeg` |
 | Engine shows *Can be installed* | No virtual environment yet | Follow the install steps above |
 | Engine shows *Installed but unusable* | The venv exists but does not import | Re-run the `pip install`; the Settings detail line carries the Python error |
+| "This engine needs Python 3.9 – 3.11" | The interpreter has no TensorFlow wheel | Install a supported Python and make it `python3` on `PATH` |
+| Install fails on a TLS or DNS error | `pip` cannot reach PyPI | Check the proxy/CA variables are exported to the GMB process, not only to your shell |
 | Engine shows a protocol mismatch | The environment predates this GMB version | Delete the venv and reinstall |
 | `OUT_OF_MEMORY` on a Pi | The model ran out of RAM | Shorter file, or the *Fast* quality setting |
 | `AUDIO_TOO_LONG` / `FILE_TOO_LARGE` | Resource guards | Raise `transcription.maxAudioDurationSeconds` / `maxAudioFileBytes`, knowing what it costs |

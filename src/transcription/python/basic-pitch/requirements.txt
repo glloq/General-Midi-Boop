@@ -16,12 +16,27 @@
 # basic-pitch package — nothing is downloaded at transcription time, and
 # nothing is committed to this repository.
 #
+# PYTHON VERSION: TensorFlow 2.15 publishes wheels for CPython 3.9, 3.10 and
+# 3.11 only. A newer interpreter has no wheel and pip would fail late, after
+# a long download, with a message about no matching distribution. The
+# installer checks the interpreter BEFORE creating the environment
+# (`_findSystemPython` in BasicPitchBackend.js) so the refusal is immediate
+# and says what to do.
+#
+# One TensorFlow line, deliberately: `tensorflow` publishes
+# `manylinux_2_17_aarch64` wheels, so the Pi is served by the same pin as
+# everything else. (`tensorflow-aarch64` on PyPI is an unrelated package
+# stuck at 1.2 — it is not the ARM build of TensorFlow.)
+#
 # Licences: basic-pitch is Apache-2.0 (code AND weights); TensorFlow is
 # Apache-2.0; librosa is ISC. See docs/AUDIO_TRANSCRIPTION.md.
+#
+# Verified as a resolvable set — basic-pitch 0.4.0 requires
+# `tensorflow<2.15.1` and `resampy<0.4.3`, so those two are pinned one
+# release below the bound, not at it.
 
 basic-pitch==0.4.0
-tensorflow==2.15.1 ; platform_machine != "aarch64"
-tensorflow-aarch64==2.15.1 ; platform_machine == "aarch64"
+tensorflow==2.15.0
 librosa==0.10.2.post1
 numpy==1.26.4
-resampy==0.4.3
+resampy==0.4.2

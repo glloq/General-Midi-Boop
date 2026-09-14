@@ -24,7 +24,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import TranscriptionBackend from '../TranscriptionBackend.js';
 import { BACKEND_STATUS, QUALITY_PROFILE } from '../TranscriptionCapabilities.js';
-import { ProcessRunner, tail } from '../utils/ProcessRunner.js';
+import { ProcessRunner, networkEnv, tail } from '../utils/ProcessRunner.js';
 import { resolveTranscriptionConfig, transcriptionPaths } from '../TranscriptionConfig.js';
 import { TranscriptionError, TRANSCRIPTION_REASONS } from '../TranscriptionError.js';
 
@@ -40,6 +40,16 @@ export const REQUIREMENTS_FILE = path.join(RUNNER_DIR, 'requirements.txt');
 
 /** Directory name of this engine's virtual environment. */
 export const VENV_NAME = 'basic-pitch';
+
+/**
+ * CPython versions the pinned requirements have wheels for.
+ *
+ * TensorFlow 2.15 ships cp39/cp310/cp311 and nothing newer. Checked before
+ * the environment is created, because pip only discovers it after minutes of
+ * downloading and then blames "no matching distribution", which sends the
+ * operator looking for a network problem they do not have.
+ */
+export const SUPPORTED_PYTHON = Object.freeze({ min: [3, 9], belowExclusive: [3, 12] });
 
 /** A self-check loads TensorFlow; generous, but not unbounded. */
 const SELF_CHECK_TIMEOUT_MS = 120 * 1000;
@@ -417,7 +427,11 @@ export class BasicPitchBackend extends TranscriptionBackend {
         // TensorFlow on a Pi is a long download and a longer install.
         timeoutMs: 60 * 60 * 1000,
         signal,
-        env: pythonEnv(this.venvDir),
+        // The one subprocess in this file that is SUPPOSED to reach the
+        // network, so the one that gets the proxy and CA settings. The
+        // transcription runner below deliberately does not: it reads a local
+        // file and a local model.
+        env: { ...pythonEnv(this.venvDir), ...networkEnv() },
         maxStdoutBytes: 512 * 1024,
         onStdoutLine: (line) => {
           const match = /^(Collecting|Downloading|Installing collected packages)\s*(.*)$/.exec(
@@ -472,21 +486,33 @@ export class BasicPitchBackend extends TranscriptionBackend {
    * @private
    */
   async _findSystemPython(signal) {
+    /** @type {string[]} Interpreters found but too new or too old, for the error. */
+    const rejected = [];
+
     for (const candidate of ['python3', 'python']) {
+      let result;
       try {
-        const result = await this.runner.run(candidate, ['--version'], {
-          timeoutMs: 15000,
-          signal
-        });
-        if (result.code === 0) return candidate;
+        result = await this.runner.run(candidate, ['--version'], { timeoutMs: 15000, signal });
       } catch {
-        /* try the next one */
+        continue; // not on PATH — try the next name
       }
+      if (result.code !== 0) continue;
+
+      // `python --version` writes to stdout on 3.4+ and to stderr on 2.x;
+      // read both rather than assume which Python answered.
+      const version = parsePythonVersion(`${result.stdout} ${result.stderr}`);
+      if (!version) continue;
+      if (isSupportedPython(version)) return candidate;
+      rejected.push(`${candidate} is ${version.join('.')}`);
     }
+
+    const range = `${SUPPORTED_PYTHON.min.join('.')} – ${SUPPORTED_PYTHON.belowExclusive[0]}.${SUPPORTED_PYTHON.belowExclusive[1] - 1}`;
     throw new TranscriptionError(
       TRANSCRIPTION_REASONS.BACKEND_NOT_INSTALLED,
-      'Python 3 is required to install this engine, and was not found',
-      {},
+      rejected.length > 0
+        ? `This engine needs Python ${range} (${rejected.join(', ')}). Install one and make it available as "python3".`
+        : `Python ${range} is required to install this engine, and was not found`,
+      { supported: range, found: rejected },
       { backendId: 'basic-pitch' }
     );
   }
@@ -495,6 +521,33 @@ export class BasicPitchBackend extends TranscriptionBackend {
   destroy() {
     this._selfCheck = null;
   }
+}
+
+/**
+ * `[major, minor]` from whatever `python --version` printed.
+ *
+ * @param {string} output
+ * @returns {?number[]} Null when the text holds no version.
+ */
+export function parsePythonVersion(output) {
+  const match = /Python\s+(\d+)\.(\d+)/i.exec(String(output || ''));
+  return match ? [Number(match[1]), Number(match[2])] : null;
+}
+
+/**
+ * Is this interpreter one the pinned wheels exist for?
+ *
+ * @param {?number[]} version - `[major, minor]`.
+ * @returns {boolean}
+ */
+export function isSupportedPython(version) {
+  if (!Array.isArray(version) || version.length < 2) return false;
+  const [major, minor] = version;
+  const [minMajor, minMinor] = SUPPORTED_PYTHON.min;
+  const [maxMajor, maxMinor] = SUPPORTED_PYTHON.belowExclusive;
+  if (major < minMajor || (major === minMajor && minor < minMinor)) return false;
+  if (major > maxMajor || (major === maxMajor && minor >= maxMinor)) return false;
+  return true;
 }
 
 /**

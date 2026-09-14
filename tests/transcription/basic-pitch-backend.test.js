@@ -14,10 +14,13 @@ import {
   BasicPitchBackend,
   normalizeRunnerOutput,
   pythonEnv,
+  parsePythonVersion,
+  isSupportedPython,
   lastJsonLine,
   RUNNER_PROTOCOL_VERSION,
   RUNNER_SCRIPT,
-  REQUIREMENTS_FILE
+  REQUIREMENTS_FILE,
+  SUPPORTED_PYTHON
 } from '../../src/transcription/backends/BasicPitchBackend.js';
 import {
   BACKEND_STATUS,
@@ -439,6 +442,72 @@ describe('child environment', () => {
   });
 });
 
+// The pinned wheels exist for CPython 3.9–3.11 and no further. Discovered
+// by pip only after minutes of downloading, and reported as "no matching
+// distribution", which reads like a network fault. The check moves that to
+// the first second of the install and says what is wrong.
+describe('interpreter pre-flight', () => {
+  test('reads the version out of whatever python printed', () => {
+    expect(parsePythonVersion('Python 3.11.15\n')).toEqual([3, 11]);
+    expect(parsePythonVersion('Python 2.7.18')).toEqual([2, 7]);
+    expect(parsePythonVersion('not a version')).toBeNull();
+    expect(parsePythonVersion('')).toBeNull();
+  });
+
+  test('accepts the versions the wheels exist for, and no others', () => {
+    expect(isSupportedPython([3, 9])).toBe(true);
+    expect(isSupportedPython([3, 11])).toBe(true);
+    expect(isSupportedPython([3, 8])).toBe(false);
+    expect(isSupportedPython([3, 12])).toBe(false);
+    expect(isSupportedPython([4, 0])).toBe(false);
+    expect(isSupportedPython([2, 7])).toBe(false);
+    expect(isSupportedPython(null)).toBe(false);
+  });
+
+  test('refuses an interpreter that is too new, naming it and the range', async () => {
+    const { backend, runner } = makeBackend([
+      { code: 0, stdout: 'Python 3.13.1\n' },
+      { code: 0, stdout: 'Python 3.13.1\n' }
+    ]);
+    await expect(backend.install({})).rejects.toThrow(TranscriptionError);
+
+    // Nothing was created: the refusal comes before `python -m venv`.
+    expect(runner.calls.every((call) => !call.args.includes('venv'))).toBe(true);
+    await expect(fs.access(path.join(dataDir, 'venvs', 'basic-pitch'))).rejects.toThrow();
+  });
+
+  test('the refusal says which interpreter was found and what is needed', async () => {
+    const { backend } = makeBackend([
+      { code: 0, stdout: 'Python 3.13.1\n' },
+      { code: 0, stdout: 'Python 3.13.1\n' }
+    ]);
+    const error = await backend.install({}).catch((e) => e);
+    expect(error.message).toContain('3.13');
+    expect(error.message).toContain(`${SUPPORTED_PYTHON.min.join('.')}`);
+    expect(error.details.found.length).toBeGreaterThan(0);
+  });
+
+  test('a supported interpreter proceeds to build the environment', async () => {
+    const { backend, runner } = makeBackend([
+      { code: 0, stdout: 'Python 3.11.9\n' },
+      { code: 1, stderr: 'venv refused, and that is where this test stops' }
+    ]);
+    await expect(backend.install({})).rejects.toThrow(/Python environment/);
+    expect(runner.calls[1].args).toContain('venv');
+  });
+
+  test('an interpreter that is absent is skipped, not treated as too old', async () => {
+    const { backend } = makeBackend([
+      new Error('spawn python3 ENOENT'),
+      { code: 0, stdout: 'Python 3.10.4\n' },
+      { code: 1, stderr: 'stop here' }
+    ]);
+    const error = await backend.install({}).catch((e) => e);
+    // It found a usable `python`, so the failure is the venv step, not the search.
+    expect(error.message).toMatch(/Python environment/);
+  });
+});
+
 describe('shipped files', () => {
   test('the runner and its pinned requirements are in the repository', async () => {
     await expect(fs.access(RUNNER_SCRIPT)).resolves.toBeUndefined();
@@ -454,6 +523,31 @@ describe('shipped files', () => {
     expect(lines.length).toBeGreaterThan(0);
     const unpinned = lines.filter((line) => !/==\s*[\w.]+/.test(line));
     expect(unpinned).toEqual([]);
+  });
+
+  // Both pins were once set AT an exclusive upper bound rather than below
+  // it (`tensorflow==2.15.1` against `tensorflow<2.15.1`), which made the
+  // requirements unresolvable — an install that could never have succeeded
+  // for anyone, and that no unit test could see.
+  test('nothing is pinned to a version basic-pitch excludes', async () => {
+    const text = await fs.readFile(REQUIREMENTS_FILE, 'utf8');
+    expect(text).toContain('tensorflow==2.15.0');
+    expect(text).toContain('resampy==0.4.2');
+    expect(text).not.toMatch(/^tensorflow==2\.15\.1/m);
+    expect(text).not.toMatch(/^resampy==0\.4\.3/m);
+  });
+
+  // `tensorflow-aarch64` on PyPI is an unrelated package stuck at 1.2; the
+  // real ARM wheels are published under `tensorflow`. A marker split sent
+  // every Raspberry Pi — the primary target — to the wrong package.
+  test('the Raspberry Pi installs the same TensorFlow as everything else', async () => {
+    const lines = (await fs.readFile(REQUIREMENTS_FILE, 'utf8'))
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'));
+
+    expect(lines.filter((line) => line.startsWith('tensorflow'))).toEqual(['tensorflow==2.15.0']);
+    expect(lines.some((line) => line.includes('platform_machine'))).toBe(false);
   });
 
   test('the runner speaks the protocol version this backend expects', async () => {

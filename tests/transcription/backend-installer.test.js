@@ -452,7 +452,9 @@ describe('Basic Pitch install steps', () => {
       const { engine } = await makeBasicPitch([new Error('ENOENT'), new Error('ENOENT')], dataDir);
       const error = await engine.install({}).catch((e) => e);
       expect(error.reason).toBe('BACKEND_NOT_INSTALLED');
-      expect(error.message).toMatch(/Python 3 is required/);
+      // Says what is needed, not just that something is missing.
+      expect(error.message).toMatch(/Python 3\.9 . 3\.11 is required/);
+      expect(error.message).toMatch(/not found/);
     } finally {
       await fs.rm(dataDir, { recursive: true, force: true });
     }
