@@ -102,12 +102,21 @@ General-Midi-Boop/
 │   ├── audio/
 │   │   └── DelayCalibrator.js # Microphone-based latency calibration
 │   ├── transcription/         # Audio → MIDI (optional; engines installed separately)
+│   │   ├── AudioTranscriptionService.js     # Pipeline: audio → engine → MIDI → library
+│   │   ├── TranscriptionJobManager.js       # Queue, progress, cancellation, retention
+│   │   ├── AudioPreprocessor.js             # FFmpeg decode/normalise to the engine's format
+│   │   ├── MidiPostProcessor.js             # Dedupe / merge / overlaps / velocities (presets)
+│   │   ├── MidiEncoder.js                   # Notes + curves → standard MIDI file
+│   │   ├── BackendInstaller.js              # Consent, disk check, rollback, re-probe
 │   │   ├── TranscriptionResult.js           # Rich intermediate representation
 │   │   ├── TranscriptionBackend.js          # Abstract engine contract
 │   │   ├── TranscriptionBackendRegistry.js  # Discovery + availability + auto pick
 │   │   ├── TranscriptionCapabilities.js     # Status / capability / licence vocabulary
 │   │   ├── TranscriptionError.js            # Typed user-facing failures
 │   │   ├── TranscriptionConfig.js           # Resolved limits + on-disk layout
+│   │   ├── gm/                # General MIDI class + drum mapping tables
+│   │   ├── utils/             # ProcessRunner, TempFileManager, AudioProbe
+│   │   ├── python/            # Engine runners (isolated venv; never system Python)
 │   │   └── backends/          # Concrete engines (auto-discovered)
 │   ├── core/                  # Application framework (incl. Config)
 │   │   └── Config.js          # Consolidated config with env-var overrides
@@ -163,6 +172,19 @@ MIDI Device → DeviceManager → EventBus → MidiRouter → Output Device
                                   └→ Logger
 ```
 
+Audio → MIDI joins that flow at the library, deliberately: everything
+downstream of `FileManager` is the existing pipeline, unchanged.
+
+```
+Audio upload → AudioPreprocessor (FFmpeg) → TranscriptionBackend (subprocess)
+                                                      │
+                                         TranscriptionResult (notes + curves)
+                                                      │
+                              MidiPostProcessor → MidiEncoder → .mid buffer
+                                                      │
+                                    FileManager.handleUpload() → library
+```
+
 ## Database
 
 - **Engine**: SQLite (better-sqlite3) with WAL mode
@@ -192,11 +214,19 @@ See `.env.example` for all supported variables.
   and same-host Origin. When the box is reachable through a tunnel that
   rewrites client IPs into a private range, the token must be enforced.
 - **Command payload validation** is precompiled at startup from
-  `src/api/commands/schemas/*.schemas.js`. Coverage is **partial** (≈ 44
-  schemas vs 267 registered commands); commands without a schema receive a
-  permissive `{valid:true}` pass-through. New command modules should ship
-  with a matching schema — see `docs/audit/ROADMAP_DI_2026-05-21.md` for the
-  current gap list.
+  `src/api/commands/schemas/*.schemas.js` and is **fail-closed**: a command
+  with no schema is refused, unless it is listed in
+  `schemas/validation-policy.js` as payload-blind (its handler takes no
+  payload argument, which `tests/audit/r3-fail-closed.test.js` verifies
+  against the real registry). A new command module must therefore ship with
+  its schema. `scripts/audit/command-inventory.mjs --check` holds the line in
+  CI.
+- **Subprocesses** (FFmpeg, transcription engines) are spawned with separate
+  argv and never `shell: true`, under a filtered environment, in their own
+  process group so a cancellation kills the whole tree. Uploaded audio is
+  treated as hostile: extension and magic-byte checks, a size and duration
+  ceiling, a per-job scratch directory that paths are asserted to stay
+  inside, and a timeout.
 
 ## CI/CD
 
