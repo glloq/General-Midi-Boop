@@ -60,6 +60,9 @@ import { CapabilityResolver } from '../midi/instrument/CapabilityResolver.js';
 import DescriptorService from '../midi/instrument/DescriptorService.js';
 import { SuggestionCacheService } from '../midi/adaptation/SuggestionCacheService.js';
 import TranscriptionBackendRegistry from '../transcription/TranscriptionBackendRegistry.js';
+import TranscriptionJobManager from '../transcription/TranscriptionJobManager.js';
+import AudioTranscriptionService from '../transcription/AudioTranscriptionService.js';
+import { resolveTranscriptionConfig } from '../transcription/TranscriptionConfig.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -99,6 +102,8 @@ class Application {
     this.midiClockGenerator = null;
     this.autoAssigner = null;
     this.transcriptionBackendRegistry = null;
+    this.transcriptionJobManager = null;
+    this.audioTranscriptionService = null;
     this.wsServer = null;
     this.httpServer = null;
     this.commandHandler = null;
@@ -450,11 +455,23 @@ class Application {
       // feature, never stop the MIDI server from booting (§44).
       if (this.config.get('transcription.enabled', true)) {
         try {
+          // Registry first: the service resolves it lazily, but the job
+          // manager's settings and the service's own construction both read
+          // the resolved transcription config, so it is computed once here.
           this._registerService(
             'transcriptionBackendRegistry',
             new TranscriptionBackendRegistry(deps)
           );
           await this.transcriptionBackendRegistry.loadBuiltinBackends();
+          this._registerService(
+            'transcriptionJobManager',
+            new TranscriptionJobManager({
+              logger: this.logger,
+              eventBus: this.eventBus,
+              settings: resolveTranscriptionConfig(this.config)
+            })
+          );
+          this._registerService('audioTranscriptionService', new AudioTranscriptionService(deps));
         } catch (error) {
           this._capabilityErrors.transcription = error.message;
           this.logger.warn(`Audio transcription not available: ${error.message}`);
@@ -624,6 +641,15 @@ class Application {
       this.logger.info(`=== GeneralMidiBoop ${this.version} Running ===`);
       this.logger.info(`HTTP/WebSocket server: http://localhost:${this.config.server.port}`);
 
+      // Sweep transcription scratch directories abandoned by a previous run
+      // (a crash, a power cut). Best-effort: a full temp disk must never stop
+      // the MIDI server from serving (§21).
+      try {
+        await this.audioTranscriptionService?.cleanupStaleWorkspaces();
+      } catch (error) {
+        this.logger.warn(`Transcription scratch sweep failed (non-critical): ${error.message}`);
+      }
+
       // Auto-reanalyze files missing channel data (needed for GM instrument filters)
       try {
         const missingCount = this.database.countFilesWithoutChannels();
@@ -691,6 +717,12 @@ class Application {
     await step('lightingManager', () => this.lightingManager?.shutdown?.());
     await step('instrumentLightManager', () => this.instrumentLightManager?.shutdown?.());
     await step('autoAssigner', () => this.autoAssigner?.destroy());
+    // Jobs first: a running transcription holds a backend and a subprocess,
+    // and cancelling it is what stops FFmpeg/Python (§18).
+    await step('transcriptionJobManager', () => this.transcriptionJobManager?.destroy());
+    await step('transcriptionProcesses', () =>
+      this.audioTranscriptionService?.processRunner?.killAll()
+    );
     await step('transcriptionBackendRegistry', () => this.transcriptionBackendRegistry?.destroy());
     await step('compensationService', () => this.compensationService?.destroy());
     await step('capabilityResolver', () => this.capabilityResolver?.destroy());
