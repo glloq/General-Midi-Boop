@@ -90,7 +90,19 @@ function makeStack(backendOptions = {}) {
   registry.register(backend);
   deps.transcriptionBackendRegistry = registry;
 
-  return { installer: new BackendInstaller(deps), registry, backend, events };
+  const broadcasts = [];
+  return {
+    installer: new BackendInstaller(deps),
+    registry,
+    backend,
+    events,
+    broadcasts,
+    // `wsServer` registers after this service, so it appears on the facade
+    // only when asked for — never captured at construction.
+    attachWs: () => {
+      deps.wsServer = { broadcast: (name, payload) => broadcasts.push({ name, payload }) };
+    }
+  };
 }
 
 let installer;
@@ -497,5 +509,40 @@ describe('Basic Pitch install steps', () => {
     } finally {
       await fs.rm(dataDir, { recursive: true, force: true });
     }
+  });
+});
+
+// Without this the Settings panel shows an install that never starts and
+// never finishes: the EventBus never reaches a browser.
+describe('reaching the browser', () => {
+  test('install progress and completion are broadcast, not only emitted', async () => {
+    const stack = makeStack();
+    stack.attachWs();
+
+    await stack.installer.install('fake-engine', { acceptLicense: true });
+
+    const names = stack.broadcasts.map((b) => b.name);
+    expect(names).toContain('transcription_install_progress');
+    expect(names).toContain('transcription_install_complete');
+    expect(stack.broadcasts.at(-1).payload.outcome).toBe('installed');
+  });
+
+  test('a failed install says so to the browser', async () => {
+    const stack = makeStack({ installError: new Error('pip fell over') });
+    stack.attachWs();
+
+    await expect(stack.installer.install('fake-engine', { acceptLicense: true })).rejects.toThrow();
+
+    const finished = stack.broadcasts.filter((b) => b.name === 'transcription_install_complete');
+    expect(finished).toHaveLength(1);
+    expect(finished[0].payload.outcome).toBe('failed');
+  });
+
+  test('installs fine with no WebSocket server attached', async () => {
+    const stack = makeStack();
+    await expect(
+      stack.installer.install('fake-engine', { acceptLicense: true })
+    ).resolves.toBeDefined();
+    expect(stack.events.map((e) => e.name)).toContain('transcription_install_complete');
   });
 });

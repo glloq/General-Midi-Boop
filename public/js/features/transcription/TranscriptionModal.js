@@ -398,9 +398,8 @@ class TranscriptionModal extends BaseModal {
    * @private
    */
   _renderOptionsStep() {
-    const selected = this._selectedBackend();
     const rows = TranscriptionModal.OPTION_FLAGS.map((flag) => {
-      const supported = !selected || selected.capabilities?.[flag.capability] !== false;
+      const supported = this._supportsCapability(flag.capability);
       const checked = supported && this.flags[flag.key];
       return `
         <label class="tr-option${supported ? '' : ' is-unsupported'}"
@@ -771,6 +770,32 @@ class TranscriptionModal extends BaseModal {
   _selectedBackend() {
     if (this.selectedBackendId === 'auto') return null;
     return this.backends.find((backend) => backend.id === this.selectedBackendId) || null;
+  }
+
+  /**
+   * Can the engine that will run this job honour `capability`?
+   *
+   * In `auto` there is no chosen engine yet, but there IS a known set it will
+   * be chosen from — so the answer is whether ANY installed engine can do it.
+   * With one engine installed (the normal case on a Pi) that is simply that
+   * engine's answer, which is the point: offering "Detect drums" for an
+   * engine that finds no drums produces a silently empty result, and §15 is
+   * explicit that no precision may be invented along the way.
+   *
+   * An unknown capability counts as supported: a backend that declares
+   * nothing is trusted rather than stripped of its options.
+   *
+   * @param {string} capability
+   * @returns {boolean}
+   * @private
+   */
+  _supportsCapability(capability) {
+    const selected = this._selectedBackend();
+    if (selected) return selected.capabilities?.[capability] !== false;
+
+    const installed = this.backends.filter((backend) => backend.available);
+    if (installed.length === 0) return true;
+    return installed.some((backend) => backend.capabilities?.[capability] !== false);
   }
 }
 

@@ -42,6 +42,13 @@ export const REQUIREMENTS_FILE = path.join(RUNNER_DIR, 'requirements.txt');
 export const VENV_NAME = 'basic-pitch';
 
 /**
+ * Where the environment lives, as told to a CLIENT: relative to the install,
+ * matching what `docs/AUDIO_TRANSCRIPTION.md` prints. The absolute path is an
+ * accident of this host and stays server-side (§40).
+ */
+export const RELATIVE_VENV_HINT = `data/transcription/venvs/${VENV_NAME}`;
+
+/**
  * CPython versions the pinned requirements have wheels for.
  *
  * TensorFlow 2.15 ships cp39/cp310/cp311 and nothing newer. Checked before
@@ -176,9 +183,14 @@ export class BasicPitchBackend extends TranscriptionBackend {
     try {
       await fs.access(this.pythonPath);
     } catch {
+      // `detail` reaches the browser, so it names the path relative to the
+      // install and never the absolute one (§40): the server's directory
+      // layout, and the account it runs under, are not the client's
+      // business. The operator gets the absolute path in the log below.
+      this.logger.debug?.(`Basic Pitch is not installed at ${this.venvDir}`);
       this._selfCheck = {
         status: BACKEND_STATUS.INSTALLABLE,
-        detail: `Not installed — create the environment in ${this.venvDir} (see docs/AUDIO_TRANSCRIPTION.md)`
+        detail: `Not installed — install it from Settings, or create the environment in ${RELATIVE_VENV_HINT} (see docs/AUDIO_TRANSCRIPTION.md)`
       };
       return this._selfCheck;
     }

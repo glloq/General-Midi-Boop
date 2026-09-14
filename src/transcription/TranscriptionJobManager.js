@@ -24,6 +24,7 @@
  */
 import { randomUUID } from 'crypto';
 import { TranscriptionError, TRANSCRIPTION_REASONS, isCancellation } from './TranscriptionError.js';
+import { resolveTranscriptionConfig } from './TranscriptionConfig.js';
 
 /** Used when no logger is injected. */
 const NULL_LOGGER = Object.freeze({ debug() {}, info() {}, warn() {}, error() {} });
@@ -93,15 +94,19 @@ export const JOB_MANAGER_DEFAULTS = Object.freeze({
 export class TranscriptionJobManager {
   /**
    * @param {Object} [deps] - Service-container facade: `logger`, `eventBus`,
-   *   and `settings` (resolved transcription config) are read.
-   * @param {Object} [deps.settings]
+   *   `config` and the late-bound `wsServer` are read. Pass the facade, not a
+   *   hand-built object: `wsServer` registers later and is resolved through
+   *   it on every use.
+   * @param {Object} [deps.settings] - Pre-resolved transcription config.
+   *   Optional: without it the config is resolved from `deps.config`, so the
+   *   facade alone is enough (as it is for AudioTranscriptionService).
    */
   constructor(deps = {}) {
     this._deps = deps;
     this.logger = deps.logger || NULL_LOGGER;
     this.eventBus = deps.eventBus || null;
 
-    const settings = deps.settings || {};
+    const settings = deps.settings || resolveTranscriptionConfig(deps.config);
     this.maxParallelJobs = positive(settings.maxParallelJobs, 1);
     this.jobTimeoutMs = positive(settings.jobTimeoutMs, 15 * 60 * 1000);
     this.progressThrottleMs = positive(
@@ -567,6 +572,28 @@ export class TranscriptionJobManager {
   }
 
   /**
+   * The WebSocket server, resolved late.
+   *
+   * It registers after this service, so capturing it in the constructor
+   * freezes a `null` and every broadcast silently goes nowhere — which is
+   * exactly what happened: jobs ran to completion server-side while the
+   * modal sat on its first stage forever.
+   *
+   * @returns {?Object}
+   */
+  get wsServer() {
+    return this._deps.wsServer ?? null;
+  }
+
+  /**
+   * Announce a job event to both audiences.
+   *
+   * The EventBus reaches the rest of the server; `wsServer.broadcast` is what
+   * reaches the browser. GMB has no generic bridge between the two — a
+   * service that wants the UI to know says so itself (FileManager does the
+   * same for `file_list_updated`) — so emitting on the bus alone is emitting
+   * into the void as far as the interface is concerned.
+   *
    * @param {string} event
    * @param {Object} payload
    * @returns {void}
@@ -574,6 +601,7 @@ export class TranscriptionJobManager {
    */
   _emit(event, payload) {
     this.eventBus?.emit?.(event, payload);
+    this.wsServer?.broadcast?.(event, payload);
   }
 }
 

@@ -63,7 +63,6 @@ import TranscriptionBackendRegistry from '../transcription/TranscriptionBackendR
 import TranscriptionJobManager from '../transcription/TranscriptionJobManager.js';
 import AudioTranscriptionService from '../transcription/AudioTranscriptionService.js';
 import BackendInstaller from '../transcription/BackendInstaller.js';
-import { resolveTranscriptionConfig } from '../transcription/TranscriptionConfig.js';
 
 /**
  * Application root. One instance per process — see `server.js`.
@@ -465,14 +464,12 @@ class Application {
             new TranscriptionBackendRegistry(deps)
           );
           await this.transcriptionBackendRegistry.loadBuiltinBackends();
-          this._registerService(
-            'transcriptionJobManager',
-            new TranscriptionJobManager({
-              logger: this.logger,
-              eventBus: this.eventBus,
-              settings: resolveTranscriptionConfig(this.config)
-            })
-          );
+          // The facade, not a hand-built object: the job manager broadcasts
+          // job progress to the browser through `wsServer`, which registers
+          // further down. A literal freezes what exists now, and every
+          // broadcast then goes nowhere — the modal sits on its first stage
+          // while the job runs to completion.
+          this._registerService('transcriptionJobManager', new TranscriptionJobManager(deps));
           this._registerService('audioTranscriptionService', new AudioTranscriptionService(deps));
           this._registerService('transcriptionBackendInstaller', new BackendInstaller(deps));
         } catch (error) {

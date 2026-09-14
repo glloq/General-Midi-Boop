@@ -60,13 +60,17 @@ class FakeBackend extends TranscriptionBackend {
 /** Registry with a deterministic, non-caching availability window. */
 function makeRegistry(extraDeps = {}) {
   const events = [];
-  const registry = new TranscriptionBackendRegistry({
+  // The deps object is returned as well as used, so a test can add a service
+  // that registers LATER (as `wsServer` really does) and check that the
+  // registry reads it at use rather than having captured it.
+  const deps = {
     logger: silentLogger,
     eventBus: { emit: (name, payload) => events.push({ name, payload }) },
     config: { transcription: { availabilityCacheMs: 0 } },
     ...extraDeps
-  });
-  return { registry, events };
+  };
+  const registry = new TranscriptionBackendRegistry(deps);
+  return { registry, events, deps };
 }
 
 describe('registration', () => {
@@ -214,6 +218,31 @@ describe('availability detection', () => {
   test('refresh() on an unknown id is a no-op', async () => {
     const { registry } = makeRegistry();
     await expect(registry.refresh('ghost')).resolves.toEqual([]);
+  });
+
+  test('a status change reaches the browser, not only the bus', async () => {
+    const broadcasts = [];
+    const { registry, deps } = makeRegistry();
+    // Attached AFTER construction on purpose: `wsServer` registers after the
+    // registry, so it must be read at use, never captured in the constructor.
+    deps.wsServer = { broadcast: (name, payload) => broadcasts.push({ name, payload }) };
+    registry.register(new FakeBackend({ id: 'alpha', status: BACKEND_STATUS.AVAILABLE }));
+
+    await registry.detectAvailable();
+
+    expect(broadcasts).toHaveLength(1);
+    expect(broadcasts[0].name).toBe('transcription_backend_changed');
+    expect(broadcasts[0].payload).toMatchObject({
+      backendId: 'alpha',
+      status: BACKEND_STATUS.AVAILABLE
+    });
+  });
+
+  test('probes fine with no WebSocket server attached', async () => {
+    const { registry, events } = makeRegistry();
+    registry.register(new FakeBackend({ id: 'alpha', status: BACKEND_STATUS.AVAILABLE }));
+    await expect(registry.detectAvailable()).resolves.toHaveLength(1);
+    expect(events.map((e) => e.name)).toContain('transcription_backend_changed');
   });
 
   test('emits transcription_backend_changed only on a status transition', async () => {

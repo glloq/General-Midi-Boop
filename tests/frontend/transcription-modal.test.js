@@ -186,9 +186,6 @@ describe('engine and options (§30)', () => {
     const api = makeApi();
     const modal = await openModal(api);
 
-    // In `auto` nothing is known yet, so nothing is pre-disabled.
-    expect(modal.dialog.querySelector('[data-flag="detectDrums"]').disabled).toBe(false);
-
     const select = document.getElementById('tr-backend');
     select.value = 'mock-engine';
     select.dispatchEvent(new window.Event('change'));
@@ -197,6 +194,60 @@ describe('engine and options (§30)', () => {
     expect(modal.dialog.querySelector('[data-flag="preserveDynamics"]').disabled).toBe(false);
     expect(modal.dialog.querySelector('[data-flag="detectDrums"]').disabled).toBe(true);
     expect(modal.dialog.querySelector('[data-flag="detectDrums"]').checked).toBe(false);
+    modal.close();
+  });
+
+  // `auto` is the default, so this is what almost every user sees. Leaving
+  // every option enabled there let someone tick "Detect drums" for an engine
+  // that finds none and get a silently empty result — the invented precision
+  // §15 forbids.
+  it('gates the options in auto mode on what the installed engines can do', async () => {
+    const api = makeApi();
+    const modal = await openModal(api);
+
+    expect(document.getElementById('tr-backend').value).toBe('auto');
+    expect(modal.dialog.querySelector('[data-flag="preserveDynamics"]').disabled).toBe(false);
+    expect(modal.dialog.querySelector('[data-flag="detectDrums"]').disabled).toBe(true);
+    expect(modal.dialog.querySelector('[data-flag="detectInstruments"]').disabled).toBe(true);
+    modal.close();
+  });
+
+  it('keeps an option in auto mode when any installed engine could honour it', async () => {
+    const api = makeApi();
+    api.backendList = [
+      backend(),
+      backend({
+        id: 'drum-engine',
+        name: 'Drum Engine',
+        capabilities: { ...backend().capabilities, drums: true }
+      })
+    ];
+    const modal = await openModal(api);
+
+    // The auto-picker may choose the one that can, so the option stays open.
+    expect(modal.dialog.querySelector('[data-flag="detectDrums"]').disabled).toBe(false);
+    // Neither engine does instruments, so that one is still closed.
+    expect(modal.dialog.querySelector('[data-flag="detectInstruments"]').disabled).toBe(true);
+    modal.close();
+  });
+
+  it('ignores an engine that is not installed when deciding what to offer', async () => {
+    const api = makeApi();
+    api.backendList = [
+      backend(),
+      backend({
+        id: 'drum-engine',
+        name: 'Drum Engine',
+        status: 'installable',
+        available: false,
+        capabilities: { ...backend().capabilities, drums: true }
+      })
+    ];
+    const modal = await openModal(api);
+
+    // It could do drums, but it cannot run: offering the option would
+    // promise something no engine on this box can deliver.
+    expect(modal.dialog.querySelector('[data-flag="detectDrums"]').disabled).toBe(true);
     modal.close();
   });
 

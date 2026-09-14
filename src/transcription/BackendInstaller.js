@@ -60,6 +60,26 @@ export class BackendInstaller {
     return this._deps.transcriptionBackendRegistry ?? null;
   }
 
+  /** @returns {?Object} Late-bound: it registers after this service. */
+  get wsServer() {
+    return this._deps.wsServer ?? null;
+  }
+
+  /**
+   * Announce an install event to the server AND to the browser. The EventBus
+   * alone never reaches the UI — GMB has no generic bridge — so a Settings
+   * install would otherwise show no progress and never say it finished.
+   *
+   * @param {string} event
+   * @param {Object} payload
+   * @returns {void}
+   * @private
+   */
+  _announce(event, payload) {
+    this.eventBus?.emit?.(event, payload);
+    this.wsServer?.broadcast?.(event, payload);
+  }
+
   /** @returns {boolean} True while an install or removal is running. */
   get busy() {
     return this._current !== null;
@@ -331,7 +351,7 @@ export class BackendInstaller {
    * @private
    */
   _emitProgress(stage, progress) {
-    this.eventBus?.emit?.('transcription_install_progress', {
+    this._announce('transcription_install_progress', {
       backendId: this._current?.backendId ?? null,
       stage: stage ?? null,
       progress: Number.isFinite(progress) ? progress : null
@@ -346,7 +366,7 @@ export class BackendInstaller {
    * @private
    */
   _emitFinished(outcome, backendId, message) {
-    this.eventBus?.emit?.('transcription_install_complete', { backendId, outcome, message });
+    this._announce('transcription_install_complete', { backendId, outcome, message });
   }
 }
 

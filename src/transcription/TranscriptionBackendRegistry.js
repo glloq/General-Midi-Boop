@@ -448,14 +448,18 @@ export class TranscriptionBackendRegistry {
       this.logger.info(
         `Transcription backend "${id}": ${previous ? previous.status : 'unknown'} → ${record.status}${record.detail ? ` (${record.detail})` : ''}`
       );
-      // The UI mirrors backend availability; PR 6 bridges this bus event to
-      // a WebSocket broadcast.
-      this.eventBus?.emit?.('transcription_backend_changed', {
+      // The UI mirrors backend availability, so this goes to the browser as
+      // well as the bus — an engine that breaks mid-session should not need
+      // a reopened panel to show it. `wsServer` registers after this
+      // service, hence the lazy read rather than a captured reference.
+      const payload = {
         backendId: id,
         status: record.status,
         previousStatus: previous ? previous.status : null,
         detail: record.detail
-      });
+      };
+      this.eventBus?.emit?.('transcription_backend_changed', payload);
+      this._deps?.wsServer?.broadcast?.('transcription_backend_changed', payload);
     }
     return record;
   }

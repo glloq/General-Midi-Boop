@@ -69,7 +69,10 @@ const SettingsTranscription = {
     if (client?.on && !this._transcriptionInstallHandlers) {
       this._transcriptionInstallHandlers = {
         transcription_install_progress: (data) => this._onInstallProgress(data),
-        transcription_install_complete: (data) => this._onInstallComplete(data, client)
+        transcription_install_complete: (data) => this._onInstallComplete(data, client),
+        // An engine can change status without an install: a manual venv, a
+        // broken environment found on the next probe.
+        transcription_backend_changed: () => this._loadTranscriptionEngines(client, false)
       };
       for (const [event, handler] of Object.entries(this._transcriptionInstallHandlers)) {
         client.on(event, handler);

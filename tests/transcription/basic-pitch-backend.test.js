@@ -20,7 +20,8 @@ import {
   RUNNER_PROTOCOL_VERSION,
   RUNNER_SCRIPT,
   REQUIREMENTS_FILE,
-  SUPPORTED_PYTHON
+  SUPPORTED_PYTHON,
+  RELATIVE_VENV_HINT
 } from '../../src/transcription/backends/BasicPitchBackend.js';
 import {
   BACKEND_STATUS,
@@ -446,6 +447,32 @@ describe('child environment', () => {
 // by pip only after minutes of downloading, and reported as "no matching
 // distribution", which reads like a network fault. The check moves that to
 // the first second of the install and says what is wrong.
+// §40: the API must not hand a client arbitrary filesystem paths. `detail`
+// is rendered verbatim in the modal and in Settings, so it is the one string
+// here that a browser sees.
+describe('what the client is told (§40)', () => {
+  test('the "not installed" detail carries no absolute path', async () => {
+    const { backend } = makeBackend();
+    const availability = await backend.checkAvailability({ force: true });
+
+    expect(availability.status).toBe(BACKEND_STATUS.INSTALLABLE);
+    expect(availability.detail).toContain(RELATIVE_VENV_HINT);
+    expect(availability.detail).not.toContain(dataDir);
+    expect(availability.detail).not.toMatch(/(^|\s)[/~]/);
+  });
+
+  test('the hint is relative and points where the docs point', () => {
+    expect(RELATIVE_VENV_HINT).toBe('data/transcription/venvs/basic-pitch');
+    expect(path.isAbsolute(RELATIVE_VENV_HINT)).toBe(false);
+  });
+
+  test('no descriptor field leaks the install root', async () => {
+    const { backend } = makeBackend();
+    const described = backend.describe(await backend.checkAvailability({ force: true }));
+    expect(JSON.stringify(described)).not.toContain(dataDir);
+  });
+});
+
 describe('interpreter pre-flight', () => {
   test('reads the version out of whatever python printed', () => {
     expect(parsePythonVersion('Python 3.11.15\n')).toEqual([3, 11]);

@@ -18,12 +18,26 @@ const silentLogger = { debug() {}, info() {}, warn() {}, error() {} };
 /** Manager plus the events it emitted. */
 function makeManager(settings = {}) {
   const events = [];
-  const manager = new TranscriptionJobManager({
+  const broadcasts = [];
+  // `wsServer` registers AFTER this service, so the deps facade answers with
+  // whatever is in the container at the moment it is asked — never a value
+  // captured at construction. The double mirrors that: the property appears
+  // only once `attachWs` has been called.
+  const deps = {
     logger: silentLogger,
     eventBus: { emit: (name, payload) => events.push({ name, payload }) },
     settings: { maxParallelJobs: 1, progressThrottleMs: 0, ...settings }
-  });
-  return { manager, events, names: () => events.map((e) => e.name) };
+  };
+  const manager = new TranscriptionJobManager(deps);
+  return {
+    manager,
+    events,
+    broadcasts,
+    attachWs: () => {
+      deps.wsServer = { broadcast: (name, payload) => broadcasts.push({ name, payload }) };
+    },
+    names: () => events.map((e) => e.name)
+  };
 }
 
 /** A promise plus its resolve/reject handles. */
@@ -536,5 +550,65 @@ describe('toPublicJob', () => {
       'summary',
       'warnings'
     ]);
+  });
+});
+
+// The EventBus reaches the server; only `wsServer.broadcast` reaches the
+// browser, and GMB has no generic bridge between them. Emitting on the bus
+// alone left the modal sitting on its first stage while the job ran to
+// completion and the file landed in the library.
+describe('reaching the browser', () => {
+  test('every job event is broadcast as well as emitted', async () => {
+    const { manager, attachWs, broadcasts, names } = makeManager();
+    attachWs();
+
+    const job = manager.create({
+      sourceName: 'song.wav',
+      run: async ({ progress }) => {
+        progress?.({ stage: 'transcribing', progress: 0.5 });
+        return { summary: {} };
+      }
+    });
+    await settled(manager, job.id);
+
+    const broadcast = broadcasts.map((b) => b.name);
+    expect(broadcast).toContain('transcription_created');
+    expect(broadcast).toContain('transcription_complete');
+    // Neither audience is served at the other's expense.
+    expect(new Set(broadcast)).toEqual(new Set(names()));
+  });
+
+  test('a failure reaches the browser too, or the modal waits forever', async () => {
+    const { manager, attachWs, broadcasts } = makeManager();
+    attachWs();
+
+    const job = manager.create({
+      sourceName: 'bad.wav',
+      run: async () => {
+        throw new Error('engine exploded');
+      }
+    });
+    await settled(manager, job.id);
+
+    expect(broadcasts.map((b) => b.name)).toContain('transcription_failed');
+  });
+
+  test('works when the WebSocket server registers after this service', async () => {
+    // The real registration order: the job manager is constructed first, so
+    // an eager capture would freeze `null` here and broadcast nothing.
+    const { manager, attachWs, broadcasts } = makeManager();
+
+    const job = manager.create({ sourceName: 'late.wav', run: async () => ({ summary: {} }) });
+    attachWs();
+    await settled(manager, job.id);
+
+    expect(broadcasts.map((b) => b.name)).toContain('transcription_complete');
+  });
+
+  test('runs without a WebSocket server at all', async () => {
+    const { manager, names } = makeManager();
+    const job = manager.create({ sourceName: 'headless.wav', run: async () => ({ summary: {} }) });
+    await expect(settled(manager, job.id)).resolves.toBeDefined();
+    expect(names()).toContain('transcription_complete');
   });
 });

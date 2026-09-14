@@ -46,6 +46,27 @@ def progress(stage, value=None):
     emit({"type": "progress", "stage": stage, "progress": value})
 
 
+def package_version():
+    """The installed basic-pitch version, however it can be found.
+
+    The package exposes no `__version__` attribute, so reading one always
+    answered "unknown" and the engine's version was never shown anywhere.
+    The distribution metadata is the reliable source; the attribute is kept
+    as a fallback in case a future release adds one.
+    """
+    try:
+        from importlib.metadata import version
+
+        return version("basic-pitch")
+    except Exception:  # noqa: BLE001 - a missing version is not a failure
+        try:
+            import basic_pitch
+
+            return getattr(basic_pitch, "__version__", "unknown")
+        except Exception:  # noqa: BLE001
+            return "unknown"
+
+
 def self_check():
     """Describe the environment: version, model presence, protocol."""
     report = {"protocolVersion": PROTOCOL_VERSION, "ok": False}
@@ -53,7 +74,7 @@ def self_check():
         import basic_pitch  # noqa: F401
         from basic_pitch import ICASSP_2022_MODEL_PATH  # noqa: F401
 
-        report["version"] = getattr(basic_pitch, "__version__", "unknown")
+        report["version"] = package_version()
         report["modelVersion"] = "ICASSP_2022"
         report["ok"] = True
     except Exception as exc:  # noqa: BLE001 - any import failure is an answer
