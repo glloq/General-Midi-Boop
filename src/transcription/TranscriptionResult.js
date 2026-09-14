@@ -39,6 +39,9 @@ export const RESULT_LIMITS = Object.freeze({
   MAX_WARNINGS: 200
 });
 
+/** Longest per-note / per-track label kept from an engine. */
+const MAX_LABEL_LENGTH = 64;
+
 /**
  * @typedef {Object} CurvePoint
  * @property {number} t - Seconds, absolute (same clock as note start/end).
@@ -59,6 +62,12 @@ export const RESULT_LIMITS = Object.freeze({
  * @property {number} pitch - MIDI note number 0..127.
  * @property {number} velocity - 1..127.
  * @property {?number} confidence - 0..1, or null when not reported.
+ * @property {?string} label - What the engine called THIS hit — a drum name
+ *   (`"kick"`, `"closed hi-hat"`) or an articulation. Carried because a
+ *   percussion model names its outputs rather than numbering them in GM
+ *   order, and that naming is the only thing the drum mapper can work from
+ *   (§16); dropping it here would make drum transcription impossible
+ *   downstream. null when the engine named nothing.
  * @property {?NoteExpression} expression - null when the backend reports none.
  */
 
@@ -216,12 +225,19 @@ function normalizeNote(raw, path, errors) {
   const pitch = clamp(Math.round(raw.pitch), 0, 127);
   // Velocity 0 is a Note Off in MIDI, so an audible note can never carry it.
   const velocity = isFiniteNumber(raw.velocity) ? clamp(Math.round(raw.velocity), 1, 127) : 64;
+  // `drum` is accepted as an alias because several percussion models spell it
+  // that way; one normalised field downstream.
+  const rawLabel = raw.label ?? raw.drum;
   return {
     start: raw.start,
     end: raw.end,
     pitch,
     velocity,
     confidence: normalizeConfidence(raw.confidence),
+    label:
+      typeof rawLabel === 'string' && rawLabel.length > 0
+        ? rawLabel.slice(0, MAX_LABEL_LENGTH)
+        : null,
     expression: normalizeExpression(raw.expression, `${path}.expression`, errors)
   };
 }

@@ -44,7 +44,15 @@ describe('TranscriptionResult — normalisation', () => {
     });
     expect(result.backend).toEqual({ id: 'fake', version: '1.0.0', protocolVersion: null });
     expect(result.tracks[0].notes).toEqual([
-      { start: 1, end: 1.5, pitch: 64, velocity: 92, confidence: 0.94, expression: null }
+      {
+        start: 1,
+        end: 1.5,
+        pitch: 64,
+        velocity: 92,
+        confidence: 0.94,
+        label: null,
+        expression: null
+      }
     ]);
     expect(result.warnings).toEqual([]);
     expect(typeof result.createdAt).toBe('string');
@@ -198,6 +206,29 @@ describe('TranscriptionResult — normalisation', () => {
       { time: 10, bpm: 140 }
     ]);
     expect(result.timeSignatures).toEqual([{ time: 0, numerator: 4, denominator: 4 }]);
+  });
+
+  test('keeps the per-note label a percussion engine attached to each hit', () => {
+    // Without this the drum mapper has nothing to work from: a percussion
+    // model names its outputs, it does not number them in GM order (§16).
+    const result = createTranscriptionResult({
+      tracks: [
+        {
+          instrument: { isDrums: true },
+          notes: [
+            { start: 0, end: 0.1, pitch: 1, label: 'kick' },
+            { start: 1, end: 1.1, pitch: 2, drum: 'snare' },
+            { start: 2, end: 2.1, pitch: 3 },
+            { start: 3, end: 3.1, pitch: 4, label: 'x'.repeat(200) }
+          ]
+        }
+      ]
+    });
+    const labels = result.tracks[0].notes.map((n) => n.label);
+    expect(labels[0]).toBe('kick');
+    expect(labels[1]).toBe('snare');
+    expect(labels[2]).toBeNull();
+    expect(labels[3]).toHaveLength(64);
   });
 
   test('isDrums is only ever true when the backend explicitly said so', () => {
