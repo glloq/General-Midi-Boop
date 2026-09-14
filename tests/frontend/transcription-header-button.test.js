@@ -15,7 +15,6 @@ import { resolve } from 'path';
 
 const ROOT = resolve(__dirname, '..', '..');
 const INDEX = readFileSync(resolve(ROOT, 'public', 'index.html'), 'utf8');
-const evalFile = (p) => new Function(readFileSync(resolve(ROOT, p), 'utf8'))();
 
 beforeEach(() => {
   document.body.innerHTML = '';

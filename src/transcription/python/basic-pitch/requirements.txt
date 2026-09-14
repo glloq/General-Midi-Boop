@@ -1,0 +1,27 @@
+# Basic Pitch — pinned environment for Général Midi Boop (§35).
+#
+# Every version is exact. An engine that silently changes version changes the
+# transcriptions it produces, and "it worked last month" is not a bug report
+# anyone can act on.
+#
+# Install into an ISOLATED environment, never the system Python:
+#
+#   python3 -m venv data/transcription/venvs/basic-pitch
+#   data/transcription/venvs/basic-pitch/bin/pip install --upgrade pip
+#   data/transcription/venvs/basic-pitch/bin/pip install \
+#       -r src/transcription/python/basic-pitch/requirements.txt
+#
+# On a Raspberry Pi (aarch64) TensorFlow is the long pole: expect a few
+# hundred MB and several minutes. The model weights ship inside the
+# basic-pitch package — nothing is downloaded at transcription time, and
+# nothing is committed to this repository.
+#
+# Licences: basic-pitch is Apache-2.0 (code AND weights); TensorFlow is
+# Apache-2.0; librosa is ISC. See docs/AUDIO_TRANSCRIPTION.md.
+
+basic-pitch==0.4.0
+tensorflow==2.15.1 ; platform_machine != "aarch64"
+tensorflow-aarch64==2.15.1 ; platform_machine == "aarch64"
+librosa==0.10.2.post1
+numpy==1.26.4
+resampy==0.4.3

@@ -351,10 +351,25 @@ describe('auto selection (§36)', () => {
 });
 
 describe('built-in discovery', () => {
-  test('loads the backends directory without registering anything in PR 1', async () => {
+  test('registers every engine shipped under backends/', async () => {
     const { registry } = makeRegistry();
-    await expect(registry.loadBuiltinBackends()).resolves.toEqual([]);
-    expect(registry.size).toBe(0);
+    const loaded = await registry.loadBuiltinBackends();
+    // Basic Pitch is the engine in the tree today; the assertion is on
+    // "discovery works and every module it found registered", not on a
+    // hard-coded list that would have to be edited for each new engine.
+    expect(loaded).toContain('basic-pitch');
+    expect(registry.size).toBe(loaded.length);
+  });
+
+  test('a discovered engine is NOT assumed to be installed', async () => {
+    const { registry } = makeRegistry();
+    await registry.loadBuiltinBackends();
+    // Shipping the adapter is not shipping the model: until the operator
+    // installs the environment, the engine is listed and unavailable (§44).
+    for (const entry of registry.list()) {
+      expect(entry.available).toBe(false);
+      expect(entry.status).toBe(BACKEND_STATUS.NOT_INSTALLED);
+    }
   });
 });
 

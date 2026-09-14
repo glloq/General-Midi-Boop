@@ -1,9 +1,12 @@
 # Audio → MIDI transcription
 
-> **Status: architecture only (PR 1 of 15).** The contracts described here are
-> implemented and tested. No transcription engine, no FFmpeg integration, no
-> API command and no UI exist yet — see [Roadmap](#roadmap). GMB behaves
-> exactly as before: the feature is inert until a backend is installed.
+> **Status: usable (PR 1–10 of 15).** The pipeline runs end to end: upload
+> audio, watch it convert, and find the MIDI in your library. One engine
+> (Basic Pitch) is supported and is installed separately — see
+> [Installing an engine](#installing-an-engine). On a server with no engine
+> GMB behaves exactly as before and says so plainly. Automated installation,
+> a multi-instrument engine and the Pi benchmarks are still to come — see
+> [Roadmap](#roadmap).
 
 Turning a recording into a MIDI file GMB can route to real instruments is a
 long pipeline with one strict rule: **it ends where the existing MIDI pipeline
@@ -57,7 +60,7 @@ audio file
 | `TranscriptionJobManager.js` | Queue, progress, cancellation, cleanup | PR 3 |
 | `MidiPostProcessor.js`, `MidiEncoder.js`, GM/drum mapping | Result → valid SMF | PR 4 |
 | `AudioTranscriptionService.js` | Orchestration + import into the library | PR 5 |
-| `backends/BasicPitchBackend.js` | First engine (solo / lightweight polyphonic) | PR 7 |
+| `backends/BasicPitchBackend.js` + `python/basic-pitch/` | First engine (solo / lightweight polyphonic) | PR 7 |
 
 ## The intermediate representation
 
@@ -228,21 +231,108 @@ filesystem paths stay in the logs, they do not reach the browser.
 | PR | Content | Status |
 | --- | --- | --- |
 | 1 | Contracts: result format, backend interface, registry, errors, config | ✅ done |
-| 2 | `ProcessRunner`, `AudioProbe`, `AudioPreprocessor`, temp files, limits | planned |
-| 3 | `TranscriptionJobManager`: queue, progress, cancellation, cleanup | planned |
-| 4 | `MidiPostProcessor`, `MidiEncoder`, GM mapping, drum mapping | planned |
-| 5 | Import through `FileManager.handleUpload()` | planned |
-| 6 | WebSocket commands + schemas | planned |
-| 7 | Basic Pitch backend (isolated venv, pinned versions) | planned |
-| 8–9 | UI: Convert Audio, engine/quality choice, progress, results | planned |
-| 10 | Capability / health / Settings integration | planned |
+| 2 | `ProcessRunner`, `AudioProbe`, `AudioPreprocessor`, temp files, limits | ✅ done |
+| 3 | `TranscriptionJobManager`: queue, progress, cancellation, cleanup | ✅ done |
+| 4 | `MidiPostProcessor`, `MidiEncoder`, GM mapping, drum mapping | ✅ done |
+| 5 | Import through `FileManager.handleUpload()` | ✅ done |
+| 6 | WebSocket commands + schemas | ✅ done |
+| 7 | Basic Pitch backend (isolated venv, pinned versions) | ✅ done |
+| 8–9 | UI: Convert Audio, engine/quality choice, progress, results | ✅ done |
+| 10 | Capability / health / Settings integration | ✅ done |
 | 11 | Backend installer (consent, checksum, smoke test, rollback) | planned |
 | 12 | Multi-instrument engine, after licence verification | planned |
 | 13 | Advanced expression (pitch contours, CC11, simplification) | planned |
 | 14 | Raspberry Pi benchmarks and limit tuning | planned |
 | 15 | Documentation and hardening | planned |
 
+## Installing an engine
+
+### Prerequisite: FFmpeg
+
+Everything goes through FFmpeg, whichever engine you use:
+
+```bash
+sudo apt install ffmpeg          # Debian / Raspberry Pi OS
+```
+
+Without it the feature reports `degraded` and every conversion fails with
+`FFMPEG_MISSING` — nothing else breaks.
+
+### Basic Pitch (solo / lightweight polyphonic)
+
+Basic Pitch is Spotify's note-detection model, published under Apache-2.0
+**including its weights**. It hears several notes at once and does it well on
+a solo instrument or a clean voice. It does **not** separate instruments, does
+**not** name them, and does **not** detect drums — the UI disables those
+options when it is selected, because its metadata says so.
+
+It installs into its own Python environment, never the system Python:
+
+```bash
+cd /path/to/General-Midi-Boop
+python3 -m venv data/transcription/venvs/basic-pitch
+data/transcription/venvs/basic-pitch/bin/pip install --upgrade pip
+data/transcription/venvs/basic-pitch/bin/pip install     -r src/transcription/python/basic-pitch/requirements.txt
+```
+
+Then open **Settings → Audio → MIDI engines** and press Refresh: Basic Pitch
+should turn from *Can be installed* to *Ready*. The server checks this by
+running the engine's own self-check, so "Ready" means the environment really
+imports — not merely that a directory exists.
+
+What to expect:
+
+| | Pi 3B+ | Pi 4 (4 GB) | Pi 5 / desktop |
+| --- | --- | --- | --- |
+| Install size | ~700 MB | ~700 MB | ~700 MB |
+| 1 min of audio | very slow, not recommended | ~1–3 min | < 1 min |
+| RAM while running | at the limit | comfortable | comfortable |
+
+TensorFlow is the heavy part of that install. The transcription runs at two
+threads (`OMP_NUM_THREADS=2`) so the MIDI side of GMB keeps its cores while a
+conversion is going on.
+
+To remove it, delete the directory:
+
+```bash
+rm -rf data/transcription/venvs/basic-pitch
+```
+
+Nothing else is left behind: no system package, no cache outside
+`data/transcription/`.
+
+## How Node talks to an engine
+
+A plain subprocess, one job at a time, speaking JSON Lines on stdout
+(protocol version 1):
+
+```
+{"type":"progress","stage":"loading","progress":0.05}
+{"type":"progress","stage":"transcribing","progress":0.42}
+{"type":"complete","output":"/…/result.json"}
+```
+
+stderr carries diagnostics only. The runner never prints the payload to
+stdout; it writes a result file whose path Node chose. Options travel through
+a file too, so no user-influenced value ever reaches the command line.
+
+Both sides carry the protocol version and refuse each other on a mismatch —
+an environment installed against an older GMB reports `broken` with "reinstall
+the environment" rather than producing silently wrong results.
+
 ## Troubleshooting
 
-Nothing to troubleshoot yet — no engine can run. This section is filled in
-with PR 7 (Basic Pitch installation) and PR 15.
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The Convert Audio button is missing | Hidden by default | Settings → Interface buttons → Audio → MIDI |
+| "FFmpeg is not installed" | FFmpeg absent from `PATH` | `sudo apt install ffmpeg` |
+| Engine shows *Can be installed* | No virtual environment yet | Follow the install steps above |
+| Engine shows *Installed but unusable* | The venv exists but does not import | Re-run the `pip install`; the Settings detail line carries the Python error |
+| Engine shows a protocol mismatch | The environment predates this GMB version | Delete the venv and reinstall |
+| `OUT_OF_MEMORY` on a Pi | The model ran out of RAM | Shorter file, or the *Fast* quality setting |
+| `AUDIO_TOO_LONG` / `FILE_TOO_LARGE` | Resource guards | Raise `transcription.maxAudioDurationSeconds` / `maxAudioFileBytes`, knowing what it costs |
+| The job never leaves *queued* | Another transcription is running | `maxParallelJobs` is 1 by design on a Pi |
+
+Logs: every stage is logged through GMB's own logger (`logs/gmboop.log`).
+Subprocess output is never logged verbatim — only the tail of stderr on a
+failure (§38).
