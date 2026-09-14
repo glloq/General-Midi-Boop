@@ -32,6 +32,7 @@ Then open `http://<Raspberry-Pi-IP>:8080`. Full instructions in [[Installation]]
 | [[Interface-Lighting-Control]] | Configure drivers, fixtures, effects and MIDI-triggered cues |
 | [[Interface-Playlist]] | Upload, organise, search and queue MIDI files |
 | [[Interface-Microphone]] | Microphone-based latency calibration and chromatic tuner |
+| [[Interface-Audio-To-Midi]] | Turn a recording into a MIDI file, offline, on the Pi |
 | [[Interface-Settings]] | Theme, language, keyboard preferences |
 | [[Interface-Hand-Management]] | Plan and visualise hand/actuator positions for piano and string robots |
 

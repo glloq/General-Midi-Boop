@@ -47,6 +47,7 @@ A high-level orientation. The full design is in [`docs/ARCHITECTURE.md`](https:/
 | [`src/core/Logger.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/core/Logger.js) | JSON logging with rotation |
 | [`src/core/Config.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/core/Config.js) | Layered config (file → `.env` → env vars) |
 | [`src/core/errors/`](https://github.com/glloq/General-Midi-Boop/tree/main/src/core/errors) | Structured error hierarchy |
+| [`src/transcription/`](https://github.com/glloq/General-Midi-Boop/tree/main/src/transcription) | Audio → MIDI: engines, job queue, post-processing, SMF encoding (optional) |
 
 ## Patterns Used
 
@@ -55,6 +56,7 @@ A high-level orientation. The full design is in [`docs/ARCHITECTURE.md`](https:/
 - **Repository pattern** — domain code talks to `*Repository` classes; the SQLite schema is hidden behind per-table managers in [`src/persistence/tables/`](https://github.com/glloq/General-Midi-Boop/tree/main/src/persistence/tables).
 - **Observer / EventBus** — decouples command handlers from real-time fan-out (UI updates, MIDI input echoes, lifecycle hooks).
 - **Driver pattern** — lighting backends extend [`BaseLightingDriver`](https://github.com/glloq/General-Midi-Boop/blob/main/src/lighting/BaseLightingDriver.js); transports follow the same shape (`BluetoothManager`, `NetworkManager`, `SerialMidiManager`).
+- **Interchangeable engines over a process boundary** — an audio → MIDI engine is an external program, run for one job and then gone. It extends [`TranscriptionBackend`](https://github.com/glloq/General-Midi-Boop/blob/main/src/transcription/TranscriptionBackend.js), is auto-discovered from `backends/`, and speaks versioned JSON Lines over `stdout`. A crashing engine is an exit code, not a dead server; its memory is returned to the system when the job ends. See [`ADR-005`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/adr/ADR-005-audio-transcription.md).
 
 ## Request Flow
 

@@ -27,6 +27,7 @@ Each tile links to a dedicated area:
 | Playlist | [[Interface-Playlist]] — upload and organise MIDI files |
 | Lighting | [[Interface-Lighting-Control]] — configure stage lighting |
 | Microphone | [[Interface-Microphone]] — latency calibration and tuner |
+| Audio → MIDI | [[Interface-Audio-To-Midi]] — drop a recording to convert it |
 | Settings | [[Interface-Settings]] — theme, language, preferences |
 | MIDI Editor | [[MIDI-Editor]] — piano roll, tablature, drums, wind |
 | Auto-assign | [[Auto-Assignment]] — intelligent channel routing |

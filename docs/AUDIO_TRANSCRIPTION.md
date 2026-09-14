@@ -219,6 +219,35 @@ back to its default, so a typo can never *disable* a guard.
 | `availabilityCacheMs` | `60000` | How long an availability probe is trusted |
 | `autoImportToLibrary` | `true` | Import the generated MIDI automatically |
 
+### Choosing a preset
+
+`postProcessingPreset` decides how much the engine's raw output is tidied
+before it becomes MIDI. What each one is for, from measurement rather than
+taste:
+
+| Preset | Does | Pick it when |
+| --- | --- | --- |
+| `raw` | Nothing at all | You want to see exactly what the engine heard, detune included |
+| `balanced` | Drops sub-30 ms notes and duplicates, repairs overlaps, removes pitch bend below the engine's own resolution | Most material. The default |
+| `clean` | Also filters by confidence, merges note fragments, normalises velocities | Repeated notes, noisy recordings, anything `balanced` leaves ragged |
+
+The one case where the choice really matters: **the engine does not always
+re-onset a repeated note.** Six 300 ms notes on the same pitch come back as
+one unbroken stream of fragments until the silence between them reaches
+about 180 ms. `balanced` keeps every fragment as its own Note On — eleven
+strikes for six notes — while `clean` reconstructs 6 out of 6 from about
+80 ms upward. No quality setting changes what the engine reports.
+
+| Silence between the notes | Engine | `balanced` | `clean` | Truth |
+| --- | --- | --- | --- | --- |
+| 50 ms | 11 fragments | 11 | 1 | 6 |
+| 80 ms | 11 | 11 | **6** | 6 |
+| 120 ms | 12 | 12 | **6** | 6 |
+| 180 ms | 6 | **6** | **6** | 6 |
+
+When it happens, the result screen says so and names the preset to try, so
+this does not have to be discovered the hard way.
+
 On-disk layout (nothing is created until a service actually writes):
 
 ```

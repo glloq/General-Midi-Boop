@@ -12,9 +12,11 @@ Source: [`public/js/features/PlaylistPage.js`](https://github.com/glloq/General-
 
 Drag one or more `.mid` / `.midi` files onto the page. They are queued, validated, hashed (SHA-256), and stored. Uploading the same file twice is free — the content-addressable store deduplicates automatically.
 
+Drop an **audio** file instead and it opens [[Interface-Audio-To-Midi]] with that file ready to convert, rather than being refused — provided this server has a transcription engine installed.
+
 ### Upload Button
 
-Click **"Upload"** to open a file picker. Multiple files can be selected at once.
+Click **"Upload"** to open a file picker. Multiple files can be selected at once. It offers audio formats too once a transcription engine is ready.
 
 ### Progress Indicator
 

@@ -34,10 +34,13 @@ When `GMBOOP_API_TOKEN` is set:
 | GET | `/api/metrics` | Yes | Prometheus-compatible metrics |
 | POST | `/api/files` | Yes | Upload MIDI file (raw binary body) |
 | GET | `/api/files/:id/blob` | Yes | Download MIDI file by content hash |
+| POST | `/api/transcription` | Yes | Queue an audio → MIDI job (raw binary body); replies `202` with the job |
 
 (File upload/download moved to HTTP in v6; the legacy `file_upload` WebSocket command is gone.)
 
-## Command Modules (146 commands across 15 modules)
+## Command Modules
+
+**280 commands across 25 modules** (`node scripts/audit/command-inventory.mjs` prints the live count). The table below is a guide to the main groups, not an exhaustive list.
 
 | Module | Count | Examples |
 |---|---|---|
@@ -56,6 +59,7 @@ When `GMBOOP_API_TOKEN` is set:
 | **Bank Effects** | 5 | `bank_list`, `bank_select` |
 | **Virtual Instruments** | 6 | `virtual_create`, `virtual_delete`, `virtual_list` |
 | **Instrument Voices** | 4 | `instrument_voice_list`, `instrument_voice_select` |
+| **Audio → MIDI** | 10 | `transcription_capabilities`, `transcription_backends`, `transcription_create`, `transcription_status`, `transcription_cancel`, `transcription_install_backend` |
 
 Source modules: [`src/api/commands/`](https://github.com/glloq/General-Midi-Boop/tree/main/src/api/commands).
 
@@ -67,7 +71,11 @@ Common events broadcast to subscribed WebSocket clients:
 - `device_connected`, `device_disconnected`
 - `playback_started`, `playback_stopped`, `playback_position`
 - `file_uploaded`
+- `transcription_created`, `transcription_progress`, `transcription_complete`, `transcription_failed`, `transcription_cancelled`
+- `transcription_backend_changed`, `transcription_install_progress`, `transcription_install_complete`
 - `error`
+
+Note that GMB has no generic EventBus → WebSocket bridge: a service that wants the interface to know broadcasts explicitly, the way `FileManager` does for `file_list_updated`.
 
 ## Adding a Command
 

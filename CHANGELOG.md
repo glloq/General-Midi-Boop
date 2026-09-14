@@ -2,6 +2,78 @@
 
 All notable changes to Général Midi Boop are documented in this file.
 
+## [Unreleased] — Audio → MIDI transcription
+
+### Added — Turn a recording into a MIDI file, offline
+
+- New optional domain `src/transcription/`: an audio file goes through
+  FFmpeg, an interchangeable transcription engine, musical post-processing
+  and an SMF encoder, and arrives in the library through
+  `FileManager.handleUpload()` — the same path as any upload. No second
+  library, no parallel storage, no duplicated MIDI parsing.
+- **No button.** Dropping an audio file anywhere on the interface — or
+  picking one from the file browser — opens the conversion with that file
+  ready to go. A `.mid` still goes straight to the library. The drop zone
+  only advertises audio when this server actually has an engine ready, and
+  switches live when one is installed.
+- **Basic Pitch** (Apache-2.0, code and weights) as the first engine,
+  installed on demand from Settings into its own Python environment — never
+  the system Python. Nothing is downloaded until the licence is shown and
+  accepted; a failed install is rolled back; "Ready" means the engine really
+  starts, verified by re-running its self-check.
+- 10 WebSocket commands, `POST /api/transcription`, an `audioTranscription`
+  health capability, a Settings panel for the engines, and 66 UI strings in
+  all 28 locales.
+- Documented in [`docs/AUDIO_TRANSCRIPTION.md`](docs/AUDIO_TRANSCRIPTION.md)
+  and [`ADR-005`](docs/adr/ADR-005-audio-transcription.md).
+
+### Changed — What the transcription hands to the rest of GMB
+
+- Pitch bend below the engine's own resolution is removed in the `balanced`
+  and `clean` presets. Basic Pitch estimates pitch in steps of ⅓ semitone
+  and reports one step sharp on a perfectly in-tune note, so every
+  transcription used to play 33 cents high on any instrument that honours
+  pitch bend. Real vibrato and slides keep every point; `raw` is unchanged.
+  The encoded file halves in size as a side effect.
+- The result screen now reports when the engine has split a sustained or
+  repeated note into fragments, and points at the preset that recovers them.
+
+### Fixed
+
+- The Basic Pitch requirements were unsatisfiable: `tensorflow` and
+  `resampy` were pinned *at* the exclusive upper bounds the package
+  declares, so the install could never succeed for anyone. The aarch64
+  branch also installed `tensorflow-aarch64`, an unrelated PyPI package
+  stuck at 1.2 — plain `tensorflow` ships ARM wheels, so the Raspberry Pi
+  now uses the same pin as everything else.
+- Engine installs behind a proxy or a private CA failed on TLS or DNS: the
+  subprocess environment allow-list, correct for everything that runs during
+  a transcription, also starved `pip`. The proxy and CA settings are now
+  granted to the package installer alone.
+- The installer accepted any Python and failed minutes later with "no
+  matching distribution"; it now checks for CPython 3.9–3.11 up front and
+  names what it found.
+- No transcription event reached the browser: the job manager, the installer
+  and the registry emitted only on the EventBus, and the job manager was
+  constructed with a literal instead of the deps facade so `wsServer` could
+  never resolve. The modal sat on its first stage while jobs ran to
+  completion.
+- Settings' **Refresh** never re-checked an engine — the registry called
+  `checkAvailability()` without asking for a real check, so a backend that
+  caches its own answer replied the same thing forever.
+- A registry probe capped at 8 s reported a working engine as `broken`,
+  because loading TensorFlow takes longer than that on a Pi. A backend now
+  declares its own probe budget.
+- An out-of-memory kill reported "exit code null": the kernel's OOM killer
+  sends SIGKILL to a process that writes nothing, which the message-based
+  test could not see. The advisory RAM floor was also wrong — the engine
+  peaks at a measured 725 MB, so a 1 GB board is killed, not slow.
+- Options the chosen engine cannot honour are now greyed out in `auto` mode
+  too, instead of being offered and silently ignored.
+- `POST /api/transcription` answered Express's HTML error page for an
+  oversized body; it now answers JSON like every other endpoint.
+- The modal's hidden file input was visible under the styled drop zone.
+
 ## [0.8.2] - 2026-05-17
 
 ### Added — Dedicated virtual-piano instrument views
