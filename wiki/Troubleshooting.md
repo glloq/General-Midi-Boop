@@ -54,6 +54,18 @@ Logs go to stdout and (if configured) to `GMBOOP_LOG_FILE` with rotation.
 - Lower the detection threshold if onsets are missed; raise it if false positives are detected.
 - Source: [`src/audio/DelayCalibrator.js`](https://github.com/glloq/General-Midi-Boop/blob/main/src/audio/DelayCalibrator.js).
 
+## Audio → MIDI Conversion Fails or Disappoints
+
+- **The drop zone only mentions MIDI** — this server has no engine ready. Settings → *Audio → MIDI engines* → Install.
+- **`FFMPEG_MISSING`** — `sudo apt install ffmpeg`. GMB reads no audio itself.
+- **"This engine needs Python 3.9 – 3.11"** — the pinned TensorFlow publishes no wheel for newer interpreters. Install a supported Python and make it `python3` on `PATH`.
+- **The install fails on a TLS or DNS error** — `pip` cannot reach PyPI. The proxy and CA variables must be exported to the GMB *process*, not only to your shell.
+- **`OUT_OF_MEMORY`** — the engine peaks around 725 MB; a 1 GB board is killed by the kernel. Use a shorter file, the Fast quality, or a bigger Pi.
+- **Far more notes than the music has** — the engine split a sustained or repeated note into fragments. Switch the preset to `clean`, which reconstructs them.
+- **Every note sounds slightly sharp** — you are on the `raw` preset, which keeps the engine's own ±1/3-semitone quantisation. `balanced` removes it.
+- **The Refresh button seems to do nothing** — it re-checks for real, but the check starts Python and can take tens of seconds on a Pi.
+- Detail and measurements in [`docs/AUDIO_TRANSCRIPTION.md`](https://github.com/glloq/General-Midi-Boop/blob/main/docs/AUDIO_TRANSCRIPTION.md), page [[Interface-Audio-To-Midi]].
+
 ## Auto-Assignment Picks the Wrong Instrument
 
 - Check that each connected instrument has accurate **note range** and **polyphony** in the Instruments panel — bad capabilities lead to bad scores.

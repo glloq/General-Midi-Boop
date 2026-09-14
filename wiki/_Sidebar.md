@@ -13,6 +13,7 @@
 - [[Interface-Lighting-Control]]
 - [[Interface-Playlist]]
 - [[Interface-Microphone]]
+- [[Interface-Audio-To-Midi]]
 - [[Interface-Settings]]
 - [[Interface-Hand-Management]]
 

@@ -46,6 +46,16 @@ The note-name format affects the [[Interface-Microphone|tuner]], the [[MIDI-Edit
 | **Keyboard feedback** | Highlight keys on the virtual keyboard as computer keyboard keys are pressed |
 | **Drag feedback** | Show ghost element during drag-and-drop operations in the playlist and editor |
 
+## Audio → MIDI Engines
+
+Lists every transcription engine GMB knows about and what each one can do, with its licence and its status: *Ready*, *Can be installed*, *Installed but unusable*, or *Not supported on this platform*.
+
+**Install** creates the engine's own isolated Python environment and installs its pinned dependencies, then re-runs the engine's self-check before claiming success — "Ready" means it really starts, not that an installer exited cleanly. A failed install is rolled back so the next attempt starts from a clean state. **Refresh** re-checks an engine for real, which is what you want after creating an environment by hand.
+
+An engine whose licence requires it shows that licence and will not install until you accept it. Nothing is downloaded before that.
+
+See [[Interface-Audio-To-Midi]] for what the engines are for and what to expect from them.
+
 ## Persistence
 
 Settings are stored in:
@@ -68,3 +78,4 @@ Clearing localStorage (browser developer tools → Application → Local Storage
 - [[Interface-Virtual-Piano]] — the keyboard octave count and keyboard feedback settings apply here
 - [[Interface-Microphone]] — note-name locale affects tuner display
 - [[Advanced-Topics]] — adding a new language (copy en.json, translate, register)
+- [[Interface-Audio-To-Midi]] — the transcription engines installed from this page

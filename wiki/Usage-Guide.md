@@ -25,6 +25,7 @@ USB devices appear automatically. Bluetooth and serial devices need the correspo
 ![Files](https://github.com/glloq/General-Midi-Boop/blob/main/docs/images/playlist.png?raw=true)
 
 - Drag-and-drop or upload `.mid` files
+- Drop an **audio** file to convert it to MIDI first — see [[Interface-Audio-To-Midi]]
 - Organise into folders, multi-select for batch actions
 - Search and filter by duration, tempo, track count, instrument type, channel count, compatibility
 - Save filter presets, sort by any column
