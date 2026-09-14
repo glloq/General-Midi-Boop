@@ -465,12 +465,12 @@ describe('L09 · i18n — reference corpus', () => {
   // (`stringInstrument.capoFret`, `stringInstrument.noCapo`,
   // `tablature.capo`, cf. docs/audit/2026-09-07/WAVE3_R14_R15.md) → 2 804
   // avec les clés ajoutées par les lots livrés en parallèle → 2 862 avec les
-  // 60 clés de la modal Audio → MIDI (`transcription.*`,
-  // `settings.transcriptionButton.title` et `settings.transcription.*`),
-  // traduites dans les 28 locales.
-  it('measures 28 locales against a 2 864-key English reference', () => {
+  // 66 clés de la modal Audio → MIDI (`transcription.*`,
+  // `settings.transcriptionButton.title` et `settings.transcription.*`,
+  // installation des moteurs comprise), traduites dans les 28 locales.
+  it('measures 28 locales against a 2 870-key English reference', () => {
     expect(locales).toHaveLength(28);
-    expect(keys.length).toBe(2864);
+    expect(keys.length).toBe(2870);
   });
 });
 

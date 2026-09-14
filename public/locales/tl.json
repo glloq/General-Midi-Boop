@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Mga Audio → MIDI engine",
-      "refresh": "I-refresh"
+      "refresh": "I-refresh",
+      "install": "I-install",
+      "uninstall": "I-uninstall",
+      "repair": "Ayusin",
+      "installing": "Ini-install…",
+      "consent": "I-install ang {name}?\n\nLisensya ng modelo: {model}\nKailangan mo itong tanggapin bago may ma-download.",
+      "confirmUninstall": "Alisin ang {name} at ang environment nito?"
     }
   },
   "bluetooth": {

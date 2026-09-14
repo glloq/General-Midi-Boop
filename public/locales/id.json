@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Mesin Audio → MIDI",
-      "refresh": "Segarkan"
+      "refresh": "Segarkan",
+      "install": "Pasang",
+      "uninstall": "Copot",
+      "repair": "Perbaiki",
+      "installing": "Memasang…",
+      "consent": "Pasang {name}?\n\nLisensi model: {model}\nAnda harus menyetujuinya sebelum ada yang diunduh.",
+      "confirmUninstall": "Hapus {name} dan lingkungannya?"
     }
   },
   "bluetooth": {

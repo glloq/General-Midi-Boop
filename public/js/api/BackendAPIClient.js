@@ -816,6 +816,50 @@ class BackendAPIClient {
     return this.sendCommand('transcription_result', { jobId });
   }
 
+  /**
+   * Install a transcription engine.
+   *
+   * `acceptedModelLicense` is the licence the UI actually SHOWED the user:
+   * the server refuses the install if the engine's licence has changed since,
+   * so a page left open cannot consent to terms nobody read (§8).
+   *
+   * @param {string} backendId
+   * @param {{acceptLicense?: boolean, acceptedModelLicense?: ?string}} [options]
+   * @returns {Promise<Object>} `{backend}` — the refreshed descriptor.
+   */
+  async installTranscriptionBackend(backendId, options = {}) {
+    return this.sendCommand(
+      'transcription_install_backend',
+      {
+        backendId,
+        acceptLicense: options.acceptLicense === true,
+        ...(options.acceptedModelLicense
+          ? { acceptedModelLicense: options.acceptedModelLicense }
+          : {})
+      },
+      // Installing TensorFlow on a Pi is measured in minutes, not seconds.
+      60 * 60 * 1000
+    );
+  }
+
+  /**
+   * @param {string} backendId
+   * @returns {Promise<Object>} `{backend}`.
+   */
+  async uninstallTranscriptionBackend(backendId) {
+    return this.sendCommand('transcription_uninstall_backend', { backendId }, 5 * 60 * 1000);
+  }
+
+  /**
+   * One engine's descriptor plus any install currently running.
+   * @param {string} backendId
+   * @param {boolean} [refresh=false]
+   * @returns {Promise<Object>} `{backend, install}`.
+   */
+  async getTranscriptionBackendStatus(backendId, refresh = false) {
+    return this.sendCommand('transcription_backend_status', { backendId, refresh });
+  }
+
   // ========================================================================
   // UTILITIES
   // ========================================================================

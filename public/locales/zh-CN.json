@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "音频 → MIDI 引擎",
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "install": "安装",
+      "uninstall": "卸载",
+      "repair": "修复",
+      "installing": "正在安装…",
+      "consent": "安装 {name}？\n\n模型许可：{model}\n必须先接受许可才会开始下载。",
+      "confirmUninstall": "删除 {name} 及其环境？"
     }
   },
   "bluetooth": {

@@ -427,3 +427,16 @@
   font-weight: 600;
   color: var(--status-warning, #f39c12);
 }
+
+.tr-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+  margin-top: var(--spacing-sm, 8px);
+}
+
+.tr-settings-engine-status {
+  font-size: 12px;
+  color: var(--danger-color, #e8365d);
+}

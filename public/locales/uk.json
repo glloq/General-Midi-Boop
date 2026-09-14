@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Рушії Аудіо → MIDI",
-      "refresh": "Оновити"
+      "refresh": "Оновити",
+      "install": "Встановити",
+      "uninstall": "Видалити",
+      "repair": "Відновити",
+      "installing": "Встановлення…",
+      "consent": "Встановити {name}?\n\nЛіцензія моделі: {model}\nЇї потрібно прийняти до початку завантаження.",
+      "confirmUninstall": "Видалити {name} і його середовище?"
     }
   },
   "bluetooth": {

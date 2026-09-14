@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "オーディオ → MIDI エンジン",
-      "refresh": "更新"
+      "refresh": "更新",
+      "install": "インストール",
+      "uninstall": "アンインストール",
+      "repair": "修復",
+      "installing": "インストール中…",
+      "consent": "{name} をインストールしますか？\n\nモデルのライセンス: {model}\nダウンロード前に同意が必要です。",
+      "confirmUninstall": "{name} とその環境を削除しますか？"
     }
   },
   "bluetooth": {

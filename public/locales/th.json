@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "เอนจินเสียง → MIDI",
-      "refresh": "รีเฟรช"
+      "refresh": "รีเฟรช",
+      "install": "ติดตั้ง",
+      "uninstall": "ถอนการติดตั้ง",
+      "repair": "ซ่อมแซม",
+      "installing": "กำลังติดตั้ง…",
+      "consent": "ติดตั้ง {name} หรือไม่?\n\nสัญญาอนุญาตของโมเดล: {model}\nคุณต้องยอมรับก่อนจึงจะเริ่มดาวน์โหลด",
+      "confirmUninstall": "ลบ {name} และสภาพแวดล้อมของมันหรือไม่?"
     }
   },
   "bluetooth": {

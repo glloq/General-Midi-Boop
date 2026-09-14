@@ -431,6 +431,10 @@ class SettingsModal {
       document.removeEventListener('keydown', this._escHandler);
     }
 
+    // Release the transcription install listeners: the modal is rebuilt on
+    // every open, so keeping them would accumulate one set per open.
+    this.unbindTranscriptionSection?.();
+
     // Only cancel update polling if no update is in progress
     // (when an update is running, the confirm modal handles status display)
     if (!this._updateInProgress) {

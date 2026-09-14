@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "ऑडियो → MIDI इंजन",
-      "refresh": "ताज़ा करें"
+      "refresh": "ताज़ा करें",
+      "install": "स्थापित करें",
+      "uninstall": "हटाएँ",
+      "repair": "मरम्मत करें",
+      "installing": "स्थापित हो रहा है…",
+      "consent": "{name} स्थापित करें?\n\nमॉडल लाइसेंस: {model}\nकुछ भी डाउनलोड होने से पहले आपको इसे स्वीकार करना होगा।",
+      "confirmUninstall": "{name} और उसका परिवेश हटाएँ?"
     }
   },
   "bluetooth": {

@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Движки Аудио → MIDI",
-      "refresh": "Обновить"
+      "refresh": "Обновить",
+      "install": "Установить",
+      "uninstall": "Удалить",
+      "repair": "Восстановить",
+      "installing": "Установка…",
+      "consent": "Установить {name}?\n\nЛицензия модели: {model}\nЕё нужно принять до начала загрузки.",
+      "confirmUninstall": "Удалить {name} и его окружение?"
     }
   },
   "bluetooth": {

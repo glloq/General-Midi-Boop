@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "অডিও → MIDI ইঞ্জিন",
-      "refresh": "রিফ্রেশ"
+      "refresh": "রিফ্রেশ",
+      "install": "ইনস্টল করুন",
+      "uninstall": "সরান",
+      "repair": "মেরামত করুন",
+      "installing": "ইনস্টল হচ্ছে…",
+      "consent": "{name} ইনস্টল করবেন?\n\nমডেল লাইসেন্স: {model}\nকিছু ডাউনলোড হওয়ার আগে আপনাকে এটি গ্রহণ করতে হবে।",
+      "confirmUninstall": "{name} এবং তার পরিবেশ মুছে ফেলবেন?"
     }
   },
   "bluetooth": {

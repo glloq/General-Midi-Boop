@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Ljud → MIDI-motorer",
-      "refresh": "Uppdatera"
+      "refresh": "Uppdatera",
+      "install": "Installera",
+      "uninstall": "Avinstallera",
+      "repair": "Reparera",
+      "installing": "Installerar…",
+      "consent": "Installera {name}?\n\nModellicens: {model}\nDu måste godkänna den innan något laddas ner.",
+      "confirmUninstall": "Ta bort {name} och dess miljö?"
     }
   },
   "bluetooth": {

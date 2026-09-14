@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Bộ máy Âm thanh → MIDI",
-      "refresh": "Làm mới"
+      "refresh": "Làm mới",
+      "install": "Cài đặt",
+      "uninstall": "Gỡ cài đặt",
+      "repair": "Sửa chữa",
+      "installing": "Đang cài đặt…",
+      "consent": "Cài đặt {name}?\n\nGiấy phép mô hình: {model}\nBạn phải chấp nhận trước khi tải bất kỳ thứ gì.",
+      "confirmUninstall": "Xóa {name} và môi trường của nó?"
     }
   },
   "bluetooth": {

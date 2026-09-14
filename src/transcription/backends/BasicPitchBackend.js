@@ -347,9 +347,148 @@ export class BasicPitchBackend extends TranscriptionBackend {
 
   /** @override */
   supportsInstall() {
-    // The installer lands with PR 11; until then the Settings page points at
-    // the documented manual procedure rather than offering a dead button.
-    return false;
+    return true;
+  }
+
+  /**
+   * Rough size of the installed environment — TensorFlow is the bulk of it.
+   * The installer refuses to start when the disk cannot hold this plus
+   * headroom (§34).
+   * @returns {number}
+   */
+  get estimatedInstallBytes() {
+    return 900 * 1024 * 1024;
+  }
+
+  /** @returns {string} What `uninstall()` removes and disk checks target. */
+  get installRoot() {
+    return this.venvDir;
+  }
+
+  /**
+   * Create the isolated environment and install the pinned requirements.
+   *
+   * Every step is a subprocess with a timeout and a cancellation signal; a
+   * failure at any point leaves the caller to roll back (the installer does,
+   * by calling {@link uninstall}).
+   *
+   * @param {{signal?: AbortSignal, onProgress?: Function}} [context]
+   * @returns {Promise<Object>} An availability report.
+   * @override
+   */
+  async install(context = {}) {
+    const { signal, onProgress } = context;
+    const report = (stage, progress = null) => onProgress?.({ stage, progress });
+
+    // 1. Is there a Python to build the environment with?
+    report('checking');
+    const python = await this._findSystemPython(signal);
+
+    // 2. The environment itself. A leftover from a failed attempt is removed
+    //    first: `venv` on top of a broken tree produces a subtler mess.
+    report('creating_environment');
+    await fs.rm(this.venvDir, { recursive: true, force: true });
+    await fs.mkdir(path.dirname(this.venvDir), { recursive: true });
+
+    const created = await this.runner.run(python, ['-m', 'venv', this.venvDir], {
+      timeoutMs: 5 * 60 * 1000,
+      signal
+    });
+    if (created.code !== 0) {
+      throw new TranscriptionError(
+        TRANSCRIPTION_REASONS.BACKEND_FAILED,
+        `Could not create the Python environment: ${tail(created.stderr, 2) || `exit ${created.code}`}`,
+        {},
+        { backendId: 'basic-pitch' }
+      );
+    }
+
+    // 3. The packages. pip gives no usable progress fraction, so the stage
+    //    is reported and the bar stays indeterminate rather than invented.
+    report('downloading');
+    const pip = path.join(
+      path.dirname(this.pythonPath),
+      process.platform === 'win32' ? 'pip.exe' : 'pip'
+    );
+    const installed = await this.runner.run(
+      pip,
+      ['install', '--no-input', '--disable-pip-version-check', '-r', REQUIREMENTS_FILE],
+      {
+        // TensorFlow on a Pi is a long download and a longer install.
+        timeoutMs: 60 * 60 * 1000,
+        signal,
+        env: pythonEnv(this.venvDir),
+        maxStdoutBytes: 512 * 1024,
+        onStdoutLine: (line) => {
+          const match = /^(Collecting|Downloading|Installing collected packages)\s*(.*)$/.exec(
+            line.trim()
+          );
+          if (match) this.logger.debug?.(`basic-pitch install: ${match[0]}`);
+        }
+      }
+    );
+    if (installed.code !== 0) {
+      throw new TranscriptionError(
+        TRANSCRIPTION_REASONS.BACKEND_FAILED,
+        `Installing the Python packages failed: ${tail(installed.stderr, 3) || `exit ${installed.code}`}`,
+        { exitCode: installed.code },
+        { backendId: 'basic-pitch' }
+      );
+    }
+
+    // 4. Prove it works before claiming it does.
+    report('verifying');
+    const availability = await this.checkAvailability({ force: true });
+    if (availability.status !== BACKEND_STATUS.AVAILABLE) {
+      throw new TranscriptionError(
+        TRANSCRIPTION_REASONS.BACKEND_FAILED,
+        availability.detail || 'The environment installed but does not import Basic Pitch',
+        {},
+        { backendId: 'basic-pitch' }
+      );
+    }
+    return availability;
+  }
+
+  /**
+   * Remove the environment. Idempotent, and it never touches anything
+   * outside `data/transcription/venvs/basic-pitch/`.
+   *
+   * @param {Object} [_context]
+   * @returns {Promise<void>}
+   * @override
+   */
+  async uninstall(_context = {}) {
+    await fs.rm(this.venvDir, { recursive: true, force: true });
+    this._selfCheck = null;
+  }
+
+  /**
+   * Find a Python that can build a virtual environment.
+   *
+   * @param {?AbortSignal} signal
+   * @returns {Promise<string>}
+   * @throws {TranscriptionError} When there is none.
+   * @private
+   */
+  async _findSystemPython(signal) {
+    for (const candidate of ['python3', 'python']) {
+      try {
+        const result = await this.runner.run(candidate, ['--version'], {
+          timeoutMs: 15000,
+          signal
+        });
+        if (result.code === 0) return candidate;
+      } catch {
+        /* try the next one */
+      }
+    }
+    throw new TranscriptionError(
+      TRANSCRIPTION_REASONS.BACKEND_NOT_INSTALLED,
+      'Python 3 is required to install this engine, and was not found',
+      {},
+      { backendId: 'basic-pitch' }
+    );
   }
 
   /** @override */

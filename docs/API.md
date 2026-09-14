@@ -303,7 +303,7 @@ know the gap on the UI side:
 | `tablature_convert_from_midi` | MIDI → tablature | `notes`, instrument config |
 | `tablature_convert_to_midi` | Tablature → MIDI | `tab_events`, instrument config |
 
-### Audio → MIDI transcription (7 commands)
+### Audio → MIDI transcription (10 commands)
 
 Optional feature — see [AUDIO_TRANSCRIPTION.md](AUDIO_TRANSCRIPTION.md). On a
 server with no engine installed every command still answers: capabilities
@@ -319,6 +319,9 @@ report `disabled`/`degraded` and the others fail with a typed
 | `transcription_cancel` | Stop a queued or running job | `jobId` |
 | `transcription_result` | Rich result: notes, confidence, expression curves | `jobId` |
 | `transcription_delete` | Forget a finished job | `jobId` |
+| `transcription_install_backend` | Install an engine — refused without consent when its licence requires it | `backendId`, `acceptLicense?`, `acceptedModelLicense?` |
+| `transcription_uninstall_backend` | Remove an engine and its environment | `backendId` |
+| `transcription_backend_status` | One engine, plus any install currently running | `backendId`, `refresh?` |
 
 #### HTTP upload
 
@@ -339,6 +342,8 @@ the same split the MIDI library uses.
 | `transcription_failed` | `{jobId, reason, message, retryable}` | `reason` is one of the `TRANSCRIPTION_REASONS` values |
 | `transcription_cancelled` | `{jobId}` | The user stopped it |
 | `transcription_backend_changed` | `{backendId, status, previousStatus, detail}` | An engine became available, broke, or was installed |
+| `transcription_install_progress` | `{backendId, stage, progress}` | Stages: `checking`, `creating_environment`, `downloading`, `verifying`. `progress` is `null` — pip gives no usable fraction |
+| `transcription_install_complete` | `{backendId, outcome, message}` | `outcome`: `installed` \| `removed` \| `failed` \| `cancelled` |
 
 Job stages, in order: `queued` → `preprocessing` → `transcribing` →
 `postprocessing` → `generating_midi` → `importing` → `complete`, or

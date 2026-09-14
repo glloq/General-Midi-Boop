@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Silniki Audio → MIDI",
-      "refresh": "Odśwież"
+      "refresh": "Odśwież",
+      "install": "Zainstaluj",
+      "uninstall": "Odinstaluj",
+      "repair": "Napraw",
+      "installing": "Instalowanie…",
+      "consent": "Zainstalować {name}?\n\nLicencja modelu: {model}\nMusisz ją zaakceptować przed pobraniem czegokolwiek.",
+      "confirmUninstall": "Usunąć {name} i jego środowisko?"
     }
   },
   "bluetooth": {

@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Motoroj Sono → MIDI",
-      "refresh": "Aktualigi"
+      "refresh": "Aktualigi",
+      "install": "Instali",
+      "uninstall": "Malinstali",
+      "repair": "Ripari",
+      "installing": "Instalado…",
+      "consent": "Ĉu instali {name}?\n\nPermesilo de la modelo: {model}\nVi devas akcepti ĝin antaŭ ol io estas elŝutata.",
+      "confirmUninstall": "Ĉu forigi {name} kaj ĝian medion?"
     }
   },
   "bluetooth": {

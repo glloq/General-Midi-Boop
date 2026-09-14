@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Ääni → MIDI -moottorit",
-      "refresh": "Päivitä"
+      "refresh": "Päivitä",
+      "install": "Asenna",
+      "uninstall": "Poista",
+      "repair": "Korjaa",
+      "installing": "Asennetaan…",
+      "consent": "Asennetaanko {name}?\n\nMallin lisenssi: {model}\nSe on hyväksyttävä ennen kuin mitään ladataan.",
+      "confirmUninstall": "Poistetaanko {name} ja sen ympäristö?"
     }
   },
   "bluetooth": {

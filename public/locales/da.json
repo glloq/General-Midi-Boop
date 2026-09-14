@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Lyd → MIDI-motorer",
-      "refresh": "Opdatér"
+      "refresh": "Opdatér",
+      "install": "Installér",
+      "uninstall": "Afinstallér",
+      "repair": "Reparér",
+      "installing": "Installerer…",
+      "consent": "Installér {name}?\n\nModellicens: {model}\nDu skal acceptere den, før noget hentes.",
+      "confirmUninstall": "Fjern {name} og dens miljø?"
     }
   },
   "bluetooth": {

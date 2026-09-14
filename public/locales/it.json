@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Motori Audio → MIDI",
-      "refresh": "Aggiorna"
+      "refresh": "Aggiorna",
+      "install": "Installa",
+      "uninstall": "Disinstalla",
+      "repair": "Ripara",
+      "installing": "Installazione…",
+      "consent": "Installare {name}?\n\nLicenza del modello: {model}\nDevi accettarla prima di scaricare qualsiasi cosa.",
+      "confirmUninstall": "Rimuovere {name} e il suo ambiente?"
     }
   },
   "bluetooth": {

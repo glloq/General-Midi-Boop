@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "오디오 → MIDI 엔진",
-      "refresh": "새로 고침"
+      "refresh": "새로 고침",
+      "install": "설치",
+      "uninstall": "제거",
+      "repair": "복구",
+      "installing": "설치 중…",
+      "consent": "{name}을(를) 설치할까요?\n\n모델 라이선스: {model}\n내려받기 전에 동의해야 합니다.",
+      "confirmUninstall": "{name}과(와) 해당 환경을 삭제할까요?"
     }
   },
   "bluetooth": {

@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Ses → MIDI motorları",
-      "refresh": "Yenile"
+      "refresh": "Yenile",
+      "install": "Kur",
+      "uninstall": "Kaldır",
+      "repair": "Onar",
+      "installing": "Kuruluyor…",
+      "consent": "{name} kurulsun mu?\n\nModel lisansı: {model}\nHerhangi bir indirmeden önce kabul etmelisiniz.",
+      "confirmUninstall": "{name} ve ortamı kaldırılsın mı?"
     }
   },
   "bluetooth": {

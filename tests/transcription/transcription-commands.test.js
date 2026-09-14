@@ -77,13 +77,16 @@ beforeEach(() => {
 describe('registration', () => {
   test('registers exactly the documented commands', () => {
     expect(Object.keys(handlers).sort()).toEqual([
+      'transcription_backend_status',
       'transcription_backends',
       'transcription_cancel',
       'transcription_capabilities',
       'transcription_create',
       'transcription_delete',
+      'transcription_install_backend',
       'transcription_result',
-      'transcription_status'
+      'transcription_status',
+      'transcription_uninstall_backend'
     ]);
   });
 
@@ -241,6 +244,104 @@ describe('transcription_status / result / cancel / delete', () => {
   });
 });
 
+describe('engine installation (§34)', () => {
+  /** An app whose installer records what it was asked to do. */
+  function makeInstallerApp(overrides = {}) {
+    const { app: base } = makeApp();
+    const installer = {
+      calls: [],
+      current: null,
+      install: async (backendId, options) => {
+        installer.calls.push({ backendId, options });
+        if (installer.error) throw installer.error;
+        return { id: backendId, status: 'available' };
+      },
+      uninstall: async (backendId) => {
+        installer.calls.push({ backendId, uninstall: true });
+        return { id: backendId, status: 'installable' };
+      },
+      getCurrent: () => installer.current,
+      ...overrides
+    };
+    return { app: { ...base, transcriptionBackendInstaller: installer }, installer };
+  }
+
+  test('forwards the consent exactly as the client sent it', async () => {
+    const { app: installerApp, installer } = makeInstallerApp();
+    const answer = await collect(installerApp).transcription_install_backend({
+      backendId: 'basic-pitch',
+      acceptLicense: true,
+      acceptedModelLicense: 'CC-BY-NC-4.0'
+    });
+
+    expect(answer.backend).toMatchObject({ id: 'basic-pitch', status: 'available' });
+    expect(installer.calls[0]).toEqual({
+      backendId: 'basic-pitch',
+      options: { acceptLicense: true, acceptedModelLicense: 'CC-BY-NC-4.0' }
+    });
+  });
+
+  test('a missing consent flag is false, never assumed', async () => {
+    const { app: installerApp, installer } = makeInstallerApp();
+    await collect(installerApp).transcription_install_backend({ backendId: 'basic-pitch' });
+    expect(installer.calls[0].options).toEqual({
+      acceptLicense: false,
+      acceptedModelLicense: null
+    });
+  });
+
+  test('surfaces the installer refusal, licence details included', async () => {
+    const { app: installerApp, installer } = makeInstallerApp();
+    installer.error = new TranscriptionError(
+      'BACKEND_NOT_INSTALLED',
+      'Requires accepting its licence',
+      { requiresConsent: true, licensing: { modelLicense: 'CC-BY-NC-4.0' } }
+    );
+    const error = await collect(installerApp)
+      .transcription_install_backend({ backendId: 'x' })
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(TranscriptionError);
+    expect(error.details.licensing.modelLicense).toBe('CC-BY-NC-4.0');
+  });
+
+  test('uninstall goes through the installer', async () => {
+    const { app: installerApp, installer } = makeInstallerApp();
+    const answer = await collect(installerApp).transcription_uninstall_backend({
+      backendId: 'basic-pitch'
+    });
+    expect(answer.backend.status).toBe('installable');
+    expect(installer.calls[0].uninstall).toBe(true);
+  });
+
+  test('backend_status reports the engine and any running install', async () => {
+    const { app: installerApp, installer } = makeInstallerApp();
+    installerApp.transcriptionBackendRegistry.has = () => true;
+    installer.current = { backendId: 'mock-engine', stage: 'downloading' };
+
+    const answer = await collect(installerApp).transcription_backend_status({
+      backendId: 'mock-engine'
+    });
+    expect(answer.backend).toMatchObject({ id: 'mock-engine' });
+    expect(answer.install).toEqual({ backendId: 'mock-engine', stage: 'downloading' });
+  });
+
+  test('an unknown engine is a NotFoundError', async () => {
+    const { app: installerApp } = makeInstallerApp();
+    installerApp.transcriptionBackendRegistry.has = () => false;
+    await expect(
+      collect(installerApp).transcription_backend_status({ backendId: 'ghost' })
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test('a server without an installer says so, and never crashes', async () => {
+    const { app: bare } = makeApp({ transcriptionBackendInstaller: null });
+    await expect(
+      collect(bare).transcription_install_backend({ backendId: 'x' })
+    ).rejects.toMatchObject({ reason: 'BACKEND_NOT_INSTALLED' });
+  });
+});
+
 describe('payload schemas', () => {
   const validate = (name, payload) => compileSchema(schemas[name])(payload);
 
@@ -301,6 +402,34 @@ describe('payload schemas', () => {
     ).not.toEqual([]);
     const wide = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`k${i}`, true]));
     expect(validate('transcription_create', { ...base, options: wide })).not.toEqual([]);
+  });
+
+  test('an engine id must look like an engine id, never a path', () => {
+    for (const command of [
+      'transcription_install_backend',
+      'transcription_uninstall_backend',
+      'transcription_backend_status'
+    ]) {
+      expect(validate(command, { backendId: 'basic-pitch' })).toEqual([]);
+      expect(validate(command, {})).toEqual(['backendId is required']);
+      for (const bad of ['../../etc/passwd', 'Basic Pitch', '/abs', 'x', 42, null]) {
+        expect(validate(command, { backendId: bad })).not.toEqual([]);
+      }
+    }
+  });
+
+  test('consent fields are typed', () => {
+    const base = { backendId: 'basic-pitch' };
+    expect(validate('transcription_install_backend', { ...base, acceptLicense: true })).toEqual([]);
+    expect(
+      validate('transcription_install_backend', { ...base, acceptLicense: 'yes' })
+    ).not.toEqual([]);
+    expect(
+      validate('transcription_install_backend', {
+        ...base,
+        acceptedModelLicense: 'x'.repeat(500)
+      })
+    ).not.toEqual([]);
   });
 
   test('refresh must be a real boolean', () => {

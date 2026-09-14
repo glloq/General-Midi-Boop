@@ -62,6 +62,7 @@ import { SuggestionCacheService } from '../midi/adaptation/SuggestionCacheServic
 import TranscriptionBackendRegistry from '../transcription/TranscriptionBackendRegistry.js';
 import TranscriptionJobManager from '../transcription/TranscriptionJobManager.js';
 import AudioTranscriptionService from '../transcription/AudioTranscriptionService.js';
+import BackendInstaller from '../transcription/BackendInstaller.js';
 import { resolveTranscriptionConfig } from '../transcription/TranscriptionConfig.js';
 
 /**
@@ -104,6 +105,7 @@ class Application {
     this.transcriptionBackendRegistry = null;
     this.transcriptionJobManager = null;
     this.audioTranscriptionService = null;
+    this.transcriptionBackendInstaller = null;
     this.wsServer = null;
     this.httpServer = null;
     this.commandHandler = null;
@@ -472,6 +474,7 @@ class Application {
             })
           );
           this._registerService('audioTranscriptionService', new AudioTranscriptionService(deps));
+          this._registerService('transcriptionBackendInstaller', new BackendInstaller(deps));
         } catch (error) {
           this._capabilityErrors.transcription = error.message;
           this.logger.warn(`Audio transcription not available: ${error.message}`);
@@ -720,6 +723,9 @@ class Application {
     await step('lightingManager', () => this.lightingManager?.shutdown?.());
     await step('instrumentLightManager', () => this.instrumentLightManager?.shutdown?.());
     await step('autoAssigner', () => this.autoAssigner?.destroy());
+    // An install in flight holds a pip subprocess; stop it before the
+    // registry it would write into goes away.
+    await step('transcriptionBackendInstaller', () => this.transcriptionBackendInstaller?.cancel());
     // Jobs first: a running transcription holds a backend and a subprocess,
     // and cancelling it is what stops FFmpeg/Python (§18).
     await step('transcriptionJobManager', () => this.transcriptionJobManager?.destroy());

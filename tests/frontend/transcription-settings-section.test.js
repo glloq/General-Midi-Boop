@@ -226,3 +226,209 @@ describe('escaping', () => {
     expect(html).toContain('&lt;img');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Installing and removing engines (§34). The property that matters: a licence
+// requiring consent is never installed until the user has SEEN it and said
+// yes, and the acceptance names the licence that was actually displayed.
+
+describe('install actions', () => {
+  /** Engines with an installer, plus the client calls they trigger. */
+  function installableApi(backends, overrides = {}) {
+    return {
+      installed: [],
+      removed: [],
+      getTranscriptionCapabilities: vi.fn(async () => ({
+        status: 'degraded',
+        detail: null,
+        ffmpeg: { available: true, version: '6.1.1' },
+        backends: []
+      })),
+      listTranscriptionBackends: vi.fn(async () => backends),
+      installTranscriptionBackend: vi.fn(async function (id, options) {
+        this.installed.push({ id, options });
+        return { backend: null };
+      }),
+      uninstallTranscriptionBackend: vi.fn(async function (id) {
+        this.removed.push(id);
+        return { backend: null };
+      }),
+      ...overrides
+    };
+  }
+
+  const permissive = {
+    id: 'basic-pitch',
+    name: 'Basic Pitch',
+    status: 'installable',
+    available: false,
+    licensing: {
+      codeLicense: 'Apache-2.0',
+      modelLicense: 'Apache-2.0',
+      commercialUse: true,
+      requiresConsent: false
+    }
+  };
+
+  const restricted = {
+    id: 'restricted',
+    name: 'Restricted Engine',
+    status: 'license_restricted',
+    available: false,
+    licensing: {
+      codeLicense: 'Apache-2.0',
+      modelLicense: 'CC-BY-NC-4.0',
+      commercialUse: false,
+      requiresConsent: true,
+      notice: 'Weights are non-commercial',
+      licenseUrl: 'https://example.invalid/licence'
+    }
+  };
+
+  it('offers Install for an installable engine', async () => {
+    const api = installableApi([permissive]);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+    expect(host.modal.querySelector('[data-install="basic-pitch"]')).not.toBeNull();
+    expect(host.modal.querySelector('[data-uninstall="basic-pitch"]')).toBeNull();
+  });
+
+  it('offers Uninstall for a ready one, Repair + Uninstall for a broken one', async () => {
+    const api = installableApi([
+      { ...permissive, status: 'available', available: true },
+      { ...permissive, id: 'broken-one', name: 'Broken', status: 'broken' }
+    ]);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+
+    expect(host.modal.querySelector('[data-uninstall="basic-pitch"]')).not.toBeNull();
+    expect(host.modal.querySelector('[data-install="basic-pitch"]')).toBeNull();
+    expect(host.modal.querySelector('[data-install="broken-one"]')).not.toBeNull();
+    expect(host.modal.querySelector('[data-uninstall="broken-one"]')).not.toBeNull();
+  });
+
+  it('offers no button at all for an engine with no automated installer', async () => {
+    const api = installableApi([{ ...permissive, status: 'not_installed' }]);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+    expect(host.modal.querySelectorAll('[data-install], [data-uninstall]')).toHaveLength(0);
+  });
+
+  it('installs a permissive engine without prompting', async () => {
+    const api = installableApi([permissive]);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+
+    host.modal.querySelector('[data-install="basic-pitch"]').click();
+    await settle();
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(api.installed).toHaveLength(1);
+    expect(api.installed[0].options.acceptLicense).toBe(true);
+  });
+
+  it('shows the licence and only installs on a yes', async () => {
+    const api = installableApi([restricted]);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+
+    host.modal.querySelector('[data-install="restricted"]').click();
+    await settle();
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const shown = confirm.mock.calls[0][0];
+    expect(shown).toContain('CC-BY-NC-4.0');
+    expect(shown).toContain('Weights are non-commercial');
+    expect(shown).toContain('https://example.invalid/licence');
+    // Refused: nothing is installed.
+    expect(api.installed).toHaveLength(0);
+  });
+
+  it('sends the licence it displayed, so a stale page cannot consent', async () => {
+    const api = installableApi([restricted]);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+
+    host.modal.querySelector('[data-install="restricted"]').click();
+    await settle();
+
+    expect(api.installed[0].options).toEqual({
+      acceptLicense: true,
+      acceptedModelLicense: 'CC-BY-NC-4.0'
+    });
+  });
+
+  it('confirms before removing an engine', async () => {
+    const api = installableApi([{ ...permissive, status: 'available', available: true }]);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+
+    host.modal.querySelector('[data-uninstall="basic-pitch"]').click();
+    await settle();
+    expect(confirm).toHaveBeenCalled();
+    expect(api.removed).toHaveLength(0);
+
+    confirm.mockReturnValue(true);
+    host.modal.querySelector('[data-uninstall="basic-pitch"]').click();
+    await settle();
+    expect(api.removed).toEqual(['basic-pitch']);
+  });
+
+  it('shows a refusal from the server instead of swallowing it', async () => {
+    const api = installableApi([permissive], {
+      installTranscriptionBackend: vi.fn(async () => {
+        throw new Error('Not enough free space: 120 MB available');
+      })
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+
+    host.modal.querySelector('[data-install="basic-pitch"]').click();
+    await settle();
+    expect(host.modal.querySelector('[data-install-status="basic-pitch"]').textContent).toContain(
+      'Not enough free space'
+    );
+  });
+
+  it('follows an install started elsewhere, and releases its listeners', async () => {
+    const listeners = new Map();
+    const api = installableApi([permissive], {
+      on: (event, handler) => {
+        if (!listeners.has(event)) listeners.set(event, []);
+        listeners.get(event).push(handler);
+      },
+      off: (event, handler) => {
+        const list = listeners.get(event) || [];
+        const index = list.indexOf(handler);
+        if (index !== -1) list.splice(index, 1);
+      }
+    });
+    const host = makeHost();
+    host.bindTranscriptionSection(api);
+    await settle();
+
+    for (const handler of listeners.get('transcription_install_progress') || []) {
+      handler({ backendId: 'basic-pitch', stage: 'downloading' });
+    }
+    expect(host.modal.querySelector('[data-install-status="basic-pitch"]').textContent).toContain(
+      'downloading'
+    );
+
+    host.unbindTranscriptionSection();
+    const remaining = [...listeners.values()].reduce((n, l) => n + l.length, 0);
+    expect(remaining).toBe(0);
+  });
+});

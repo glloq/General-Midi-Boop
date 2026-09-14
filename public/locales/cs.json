@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Enginy Audio → MIDI",
-      "refresh": "Obnovit"
+      "refresh": "Obnovit",
+      "install": "Nainstalovat",
+      "uninstall": "Odinstalovat",
+      "repair": "Opravit",
+      "installing": "Instalace…",
+      "consent": "Nainstalovat {name}?\n\nLicence modelu: {model}\nMusíte ji přijmout před jakýmkoli stahováním.",
+      "confirmUninstall": "Odebrat {name} a jeho prostředí?"
     }
   },
   "bluetooth": {

@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Audio → MIDI-engines",
-      "refresh": "Vernieuwen"
+      "refresh": "Vernieuwen",
+      "install": "Installeren",
+      "uninstall": "Verwijderen",
+      "repair": "Repareren",
+      "installing": "Bezig met installeren…",
+      "consent": "{name} installeren?\n\nModellicentie: {model}\nJe moet die accepteren voordat er iets wordt gedownload.",
+      "confirmUninstall": "{name} en de omgeving verwijderen?"
     }
   },
   "bluetooth": {

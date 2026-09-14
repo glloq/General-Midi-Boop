@@ -10,6 +10,9 @@
  *   - `transcription_cancel`       — stop a queued or running job
  *   - `transcription_result`       — the rich result of a finished job
  *   - `transcription_delete`       — forget a finished job
+ *   - `transcription_install_backend`   — install an engine (consent-gated)
+ *   - `transcription_uninstall_backend` — remove an engine
+ *   - `transcription_backend_status`    — one engine, plus any running install
  *
  * **Large files do not come through here.** A WebSocket frame is capped at
  * 16 MB and base64 inflates by a third, so `transcription_create` accepts
@@ -219,6 +222,78 @@ async function transcriptionDelete(app, data) {
 }
 
 /**
+ * @param {Object} app
+ * @returns {Object}
+ * @throws {TranscriptionError}
+ */
+function requireInstaller(app) {
+  const installer = app.transcriptionBackendInstaller;
+  if (!installer) {
+    throw new TranscriptionError(
+      TRANSCRIPTION_REASONS.BACKEND_NOT_INSTALLED,
+      'Engine installation is not available on this server'
+    );
+  }
+  return installer;
+}
+
+/**
+ * Install an engine.
+ *
+ * The licence gate lives in the installer, not here: refusing without
+ * consent must hold for every caller, not just this command. A refusal
+ * carries the licence in its `details`, so the UI can show exactly what
+ * needs accepting (§8/§34).
+ *
+ * @param {Object} app
+ * @param {{backendId: string, acceptLicense?: boolean,
+ *   acceptedModelLicense?: string}} data
+ * @returns {Promise<{backend: Object}>}
+ */
+async function transcriptionInstallBackend(app, data) {
+  const installer = requireInstaller(app);
+  const backend = await installer.install(data.backendId, {
+    acceptLicense: data.acceptLicense === true,
+    acceptedModelLicense: data.acceptedModelLicense ?? null
+  });
+  return { backend };
+}
+
+/**
+ * @param {Object} app
+ * @param {{backendId: string}} data
+ * @returns {Promise<{backend: ?Object}>}
+ */
+async function transcriptionUninstallBackend(app, data) {
+  const installer = requireInstaller(app);
+  return { backend: await installer.uninstall(data.backendId) };
+}
+
+/**
+ * One engine's descriptor, plus whatever install is running — so a UI that
+ * reconnects mid-install sees it instead of an idle button.
+ *
+ * @param {Object} app
+ * @param {{backendId: string, refresh?: boolean}} data
+ * @returns {Promise<{backend: ?Object, install: ?Object}>}
+ * @throws {NotFoundError}
+ */
+async function transcriptionBackendStatus(app, data) {
+  const registry = app.transcriptionBackendRegistry;
+  if (!registry || !registry.has(data.backendId)) {
+    throw new NotFoundError('transcription backend', data.backendId);
+  }
+  const [descriptor] = data.refresh
+    ? await registry.refresh(data.backendId)
+    : [registry.list().find((entry) => entry.id === data.backendId) ?? null];
+
+  return {
+    backend: descriptor ?? null,
+    install: app.transcriptionBackendInstaller?.getCurrent?.() ?? null
+  };
+}
+
+/**
  * @param {import('../CommandRegistry.js').default} registry
  * @param {Object} app - Application facade.
  * @returns {void}
@@ -231,4 +306,13 @@ export function register(registry, app) {
   registry.register('transcription_cancel', (data) => transcriptionCancel(app, data));
   registry.register('transcription_result', (data) => transcriptionResult(app, data));
   registry.register('transcription_delete', (data) => transcriptionDelete(app, data));
+  registry.register('transcription_install_backend', (data) =>
+    transcriptionInstallBackend(app, data)
+  );
+  registry.register('transcription_uninstall_backend', (data) =>
+    transcriptionUninstallBackend(app, data)
+  );
+  registry.register('transcription_backend_status', (data) =>
+    transcriptionBackendStatus(app, data)
+  );
 }

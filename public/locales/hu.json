@@ -277,7 +277,13 @@
     },
     "transcription": {
       "title": "Hang → MIDI motorok",
-      "refresh": "Frissítés"
+      "refresh": "Frissítés",
+      "install": "Telepítés",
+      "uninstall": "Eltávolítás",
+      "repair": "Javítás",
+      "installing": "Telepítés…",
+      "consent": "Telepíti a következőt: {name}?\n\nModell licenc: {model}\nEl kell fogadnia, mielőtt bármi letöltődne.",
+      "confirmUninstall": "Eltávolítja a(z) {name} elemet és a környezetét?"
     }
   },
   "bluetooth": {

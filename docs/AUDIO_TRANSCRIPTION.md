@@ -239,7 +239,7 @@ filesystem paths stay in the logs, they do not reach the browser.
 | 7 | Basic Pitch backend (isolated venv, pinned versions) | ✅ done |
 | 8–9 | UI: Convert Audio, engine/quality choice, progress, results | ✅ done |
 | 10 | Capability / health / Settings integration | ✅ done |
-| 11 | Backend installer (consent, checksum, smoke test, rollback) | planned |
+| 11 | Backend installer (consent, smoke test, rollback) | ✅ done |
 | 12 | Multi-instrument engine, after licence verification | planned |
 | 13 | Advanced expression (pitch contours, CC11, simplification) | planned |
 | 14 | Raspberry Pi benchmarks and limit tuning | planned |
@@ -266,7 +266,14 @@ a solo instrument or a clean voice. It does **not** separate instruments, does
 **not** name them, and does **not** detect drums — the UI disables those
 options when it is selected, because its metadata says so.
 
-It installs into its own Python environment, never the system Python:
+**From the interface:** Settings → *Audio → MIDI engines* → **Install**. The
+server creates the environment, installs the pinned requirements, and only
+then re-probes the engine for real — "Ready" means it imports, not that the
+installer exited 0. A failed install is rolled back so the next attempt
+starts clean.
+
+**By hand**, if you prefer, or to script a deployment — it installs into its
+own Python environment, never the system Python:
 
 ```bash
 cd /path/to/General-Midi-Boop
@@ -292,7 +299,7 @@ TensorFlow is the heavy part of that install. The transcription runs at two
 threads (`OMP_NUM_THREADS=2`) so the MIDI side of GMB keeps its cores while a
 conversion is going on.
 
-To remove it, delete the directory:
+To remove it: Settings → *Audio → MIDI engines* → **Uninstall**, or by hand:
 
 ```bash
 rm -rf data/transcription/venvs/basic-pitch
@@ -300,6 +307,23 @@ rm -rf data/transcription/venvs/basic-pitch
 
 Nothing else is left behind: no system package, no cache outside
 `data/transcription/`.
+
+### What the installer guarantees
+
+For every engine, whoever wrote it (§34):
+
+1. **Consent before download.** An engine whose licence requires acceptance
+   is never installed until the user has seen that licence and confirmed it —
+   and the confirmation names the licence that was displayed, so a page left
+   open since before the terms changed cannot consent on their behalf.
+2. **One install at a time.** These are hundreds of megabytes and pin the
+   CPU; two at once is how a Pi falls over.
+3. **Room to land.** Free disk is checked against the engine's own estimate,
+   plus headroom, before anything is fetched.
+4. **Rollback.** A failure removes what was created, so a retry starts from a
+   clean tree rather than on top of a half-built environment.
+5. **Verified, not assumed.** The engine is re-probed after the install; if it
+   does not start, the install is a failure and is rolled back.
 
 ## How Node talks to an engine
 

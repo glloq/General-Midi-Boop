@@ -119,6 +119,36 @@ export const transcription_create = {
   ])
 };
 
+/**
+ * Installation is consent-gated and destructive; the id must be an engine
+ * identifier, not an arbitrary string that will be joined into a path.
+ */
+const backendIdRule = [
+  'backendId',
+  (v) => typeof v === 'string' && /^[a-z0-9][a-z0-9-]{1,63}$/.test(v),
+  'backendId must be an engine identifier',
+  { required: true }
+];
+
+export const transcription_install_backend = {
+  custom: fieldRules([
+    backendIdRule,
+    ['acceptLicense', (v) => typeof v === 'boolean', 'acceptLicense must be a boolean'],
+    ['acceptedModelLicense', (v) => isStr(v, 256), 'acceptedModelLicense must be a short string']
+  ])
+};
+
+export const transcription_uninstall_backend = {
+  custom: fieldRules([backendIdRule])
+};
+
+export const transcription_backend_status = {
+  custom: fieldRules([
+    backendIdRule,
+    ['refresh', (v) => typeof v === 'boolean', 'refresh must be a boolean']
+  ])
+};
+
 const schemas = {
   transcription_capabilities,
   transcription_backends,
@@ -126,7 +156,10 @@ const schemas = {
   transcription_status,
   transcription_cancel,
   transcription_result,
-  transcription_delete
+  transcription_delete,
+  transcription_install_backend,
+  transcription_uninstall_backend,
+  transcription_backend_status
 };
 
 export default schemas;
