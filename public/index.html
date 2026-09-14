@@ -5373,6 +5373,7 @@
     <link rel="stylesheet" href="styles/loop-creator-modal.css">
     <link rel="stylesheet" href="styles/loop-editor-modal.css">
     <link rel="stylesheet" href="styles/settings-modal.css">
+    <link rel="stylesheet" href="styles/transcription-modal.css">
     <link rel="stylesheet" href="styles/keyboard-hand-position-editor.css">
     <!-- WCAG 2.4.7 fallback focus ring — must be loaded LAST so it wins
          the cascade against every component-level `:focus { outline:none }`.
@@ -5558,6 +5559,13 @@
 
                 <button class="btn-calibration-toggle" id="calibrationBtn" data-i18n-title="ui.calibrationDelay" title="Calibration des délais (Microphone)" aria-label="Delay calibration">
                     🎤
+                </button>
+
+                <!-- Audio -> MIDI. Hidden by default: the feature needs an
+                     engine installed separately, so it is opt-in from
+                     Réglages > Boutons d'interface. -->
+                <button class="btn-transcription-toggle" id="transcriptionBtn" style="display:none;" data-i18n-title="transcription.headerButton" title="Convertir un audio en MIDI" aria-label="Convert audio to MIDI">
+                    🎧
                 </button>
 
                 <button class="btn-settings-toggle" id="settingsToggle" data-i18n-title="ui.settings" title="Réglages" aria-label="Settings">
@@ -6287,6 +6295,7 @@
     <script src="js/features/settings/SettingsHotspot.js"></script>
     <script src="js/features/settings/SettingsSF2.js"></script>
     <script src="js/features/SettingsModal.js"></script>
+    <script src="js/features/transcription/TranscriptionModal.js"></script>
 
     <!-- Piano Roll View Component -->
     <script src="js/features/PianoRollView.js"></script>
@@ -6530,6 +6539,7 @@
 
         // 🆕 Instance du modal de réglages
         let settingsModal = null;
+        let transcriptionModal = null;
 
         // 🆕 Instance du piano roll view
         let pianoRollView = null;
@@ -13100,6 +13110,28 @@
             }
 
             settingsModal.open();
+        });
+
+        // Audio -> MIDI : la modal de transcription. Le bouton est masqué par
+        // défaut (voir Réglages > Boutons d'interface) ; la modal elle-même
+        // interroge le serveur et explique proprement si la fonctionnalité
+        // n'est pas disponible.
+        document.getElementById('transcriptionBtn').addEventListener('click', () => {
+            if (!transcriptionModal) {
+                log('Initializing audio transcription modal...', 'info');
+                transcriptionModal = new TranscriptionModal(api, {
+                    logger: {
+                        info: (msg, data) => log(msg, 'info', data),
+                        error: (msg, data) => log(msg, 'error', data)
+                    },
+                    // Réutilise les composants existants (§32) : pas de second
+                    // éditeur, pas de seconde bibliothèque.
+                    onOpenEditor: (fileId, filename) => editFile(fileId, filename),
+                    onUseFile: (fileId) => selectFile(fileId),
+                    onImported: () => loadFiles()
+                });
+            }
+            transcriptionModal.open();
         });
 
         // Écouter les événements de réglages via le EventBus global

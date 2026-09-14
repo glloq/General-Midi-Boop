@@ -271,6 +271,9 @@
       "description": "แสดงแผงเนื้อร้องที่ซิงค์สำหรับไฟล์ MIDI คาราโอเกะ",
       "enabled": "เปิดเนื้อร้อง",
       "disabled": "ปิดเนื้อร้อง"
+    },
+    "transcriptionButton": {
+      "title": "เสียง → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "อินพุต MIDI",
     "groupOutputs": "เอาต์พุต MIDI",
     "groupOther": "อุปกรณ์อื่น"
+  },
+  "transcription": {
+    "title": "เสียง → MIDI",
+    "headerButton": "แปลงเสียงเป็น MIDI",
+    "step": {
+      "file": "เลือกไฟล์เสียง",
+      "engine": "เอนจิน",
+      "quality": "คุณภาพ"
+    },
+    "file": {
+      "name": "ไฟล์",
+      "size": "ขนาด",
+      "duration": "ความยาว"
+    },
+    "dropzone": {
+      "hint": "ลากและวางไฟล์เสียง หรือ",
+      "browse": "เลือกไฟล์ของคุณ",
+      "aria": "เลือกไฟล์เสียงที่จะแปลง"
+    },
+    "engine": {
+      "auto": "อัตโนมัติ",
+      "autoHint": "ระบบจะเลือกเอนจินที่ติดตั้งไว้ซึ่งเหมาะที่สุดกับไฟล์นี้",
+      "licence": "สัญญาอนุญาตของโค้ด: {code} · สัญญาอนุญาตของโมเดล: {model}",
+      "nonCommercial": "ใช้เพื่อการไม่แสวงหากำไรเท่านั้น"
+    },
+    "quality": {
+      "fast": "เร็ว",
+      "balanced": "สมดุล",
+      "maximum": "สูงสุด"
+    },
+    "options": {
+      "title": "ตัวเลือก",
+      "preserveDynamics": "รักษาความดังเบา",
+      "preservePitchBends": "รักษาพิตช์เบนด์",
+      "detectTempo": "ตรวจจับการเปลี่ยนจังหวะ",
+      "detectDrums": "ตรวจจับกลอง",
+      "detectInstruments": "ตรวจจับเครื่องดนตรี",
+      "unsupported": "เอนจินนี้ไม่รองรับ"
+    },
+    "status": {
+      "available": "พร้อมใช้งาน",
+      "not_installed": "ยังไม่ได้ติดตั้ง",
+      "installable": "ติดตั้งได้",
+      "license_restricted": "ต้องยอมรับสัญญาอนุญาต",
+      "unsupported_platform": "ไม่รองรับแพลตฟอร์มนี้",
+      "broken": "ติดตั้งแล้วแต่ใช้งานไม่ได้"
+    },
+    "stage": {
+      "preprocessing": "กำลังเตรียมเสียง",
+      "transcribing": "กำลังถอดโน้ต",
+      "postprocessing": "กำลังจัดระเบียบโน้ต",
+      "generating_midi": "กำลังสร้าง MIDI",
+      "importing": "กำลังเพิ่มลงคลัง"
+    },
+    "progress": {
+      "title": "กำลังแปลง {name}",
+      "working": "กำลังทำงาน…"
+    },
+    "result": {
+      "complete": "ถอดโน้ตเสร็จแล้ว",
+      "failed": "ถอดโน้ตไม่สำเร็จ",
+      "detected": "ตรวจพบ",
+      "warnings": "คำเตือน",
+      "noWarnings": "ไม่มีคำเตือน",
+      "notes": "โน้ต",
+      "duplicate": "ไฟล์นี้มีอยู่ในคลังแล้ว — ใช้ไฟล์เดิมแทน",
+      "unknownInstrument": "เครื่องดนตรีที่ไม่รู้จัก"
+    },
+    "actions": {
+      "start": "แปลง",
+      "cancel": "ยกเลิก",
+      "openEditor": "เปิดตัวแก้ไข MIDI",
+      "useFile": "ใช้ไฟล์นี้",
+      "newConversion": "แปลงใหม่"
+    },
+    "unavailable": {
+      "title": "เซิร์ฟเวอร์นี้ไม่รองรับการแปลงเสียง → MIDI",
+      "ffmpeg": "ยังไม่ได้ติดตั้ง FFmpeg",
+      "noEngine": "ยังไม่ได้ติดตั้งเอนจินถอดโน้ต",
+      "generic": "ฟีเจอร์นี้ยังไม่พร้อม",
+      "engines": "เอนจินที่รู้จัก:",
+      "help": "ดู docs/AUDIO_TRANSCRIPTION.md เพื่อติดตั้งเอนจิน"
+    }
   }
 }

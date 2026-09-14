@@ -271,6 +271,9 @@
       "description": "为卡拉 OK MIDI 文件显示同步歌词面板",
       "enabled": "歌词已启用",
       "disabled": "歌词已禁用"
+    },
+    "transcriptionButton": {
+      "title": "音频 → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI 输入",
     "groupOutputs": "MIDI 输出",
     "groupOther": "其他设备"
+  },
+  "transcription": {
+    "title": "音频 → MIDI",
+    "headerButton": "将音频转换为 MIDI",
+    "step": {
+      "file": "选择音频文件",
+      "engine": "引擎",
+      "quality": "质量"
+    },
+    "file": {
+      "name": "文件",
+      "size": "大小",
+      "duration": "时长"
+    },
+    "dropzone": {
+      "hint": "拖放音频文件，或",
+      "browse": "浏览文件",
+      "aria": "选择要转换的音频文件"
+    },
+    "engine": {
+      "auto": "自动",
+      "autoHint": "将为该文件选择最合适的已安装引擎。",
+      "licence": "代码许可：{code} · 模型许可：{model}",
+      "nonCommercial": "仅限非商业用途"
+    },
+    "quality": {
+      "fast": "快速",
+      "balanced": "平衡",
+      "maximum": "最高"
+    },
+    "options": {
+      "title": "选项",
+      "preserveDynamics": "保留力度变化",
+      "preservePitchBends": "保留弯音",
+      "detectTempo": "检测速度变化",
+      "detectDrums": "检测鼓组",
+      "detectInstruments": "检测乐器",
+      "unsupported": "此引擎不支持"
+    },
+    "status": {
+      "available": "就绪",
+      "not_installed": "未安装",
+      "installable": "可安装",
+      "license_restricted": "需要接受许可协议",
+      "unsupported_platform": "平台不受支持",
+      "broken": "已安装但无法使用"
+    },
+    "stage": {
+      "preprocessing": "准备音频",
+      "transcribing": "转录中",
+      "postprocessing": "清理音符",
+      "generating_midi": "生成 MIDI",
+      "importing": "添加到曲库"
+    },
+    "progress": {
+      "title": "正在转换 {name}",
+      "working": "处理中…"
+    },
+    "result": {
+      "complete": "转录完成",
+      "failed": "转录失败",
+      "detected": "检测到",
+      "warnings": "警告",
+      "noWarnings": "没有警告",
+      "notes": "个音符",
+      "duplicate": "该文件已存在于曲库中 — 已复用现有文件。",
+      "unknownInstrument": "未知乐器"
+    },
+    "actions": {
+      "start": "转换",
+      "cancel": "取消",
+      "openEditor": "打开 MIDI 编辑器",
+      "useFile": "使用该文件",
+      "newConversion": "新的转换"
+    },
+    "unavailable": {
+      "title": "此服务器不支持音频 → MIDI 转换。",
+      "ffmpeg": "未安装 FFmpeg。",
+      "noEngine": "未安装任何转录引擎。",
+      "generic": "该功能尚未就绪。",
+      "engines": "已知引擎：",
+      "help": "请参阅 docs/AUDIO_TRANSCRIPTION.md 安装引擎。"
+    }
   }
 }

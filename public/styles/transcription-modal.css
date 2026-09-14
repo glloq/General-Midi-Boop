@@ -1,0 +1,358 @@
+/* ============================================================================
+   Fichier: public/styles/transcription-modal.css
+   ============================================================================
+   Description: Styles de la modal Audio → MIDI (TranscriptionModal).
+   Les couleurs viennent toutes de variables.css afin que les deux thèmes
+   (coloré / sombre) suivent sans règle dédiée.
+   ============================================================================ */
+
+.transcription-modal .modal-body {
+  display: block;
+}
+
+/* ============================================================================
+   ÉTAPES
+   ============================================================================ */
+
+.tr-step {
+  margin-bottom: var(--spacing-lg, 24px);
+}
+
+.tr-step:last-child {
+  margin-bottom: 0;
+}
+
+.tr-step-title {
+  margin: 0 0 var(--spacing-sm, 8px);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+.tr-lead {
+  margin: 0 0 var(--spacing-md, 16px);
+  font-size: 15px;
+  color: var(--text-primary, #333);
+}
+
+.tr-muted {
+  color: var(--text-muted, #999);
+  font-size: 12px;
+}
+
+.tr-hint {
+  margin-top: var(--spacing-md, 16px);
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.tr-loading {
+  padding: var(--spacing-lg, 24px);
+  text-align: center;
+  color: var(--text-secondary, #666);
+}
+
+/* ============================================================================
+   ZONE DE DÉPÔT
+   ============================================================================ */
+
+.tr-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs, 4px);
+  padding: var(--spacing-lg, 24px);
+  border: 2px dashed var(--border-color, #ccc);
+  border-radius: var(--border-radius-lg, 8px);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.75));
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color var(--transition-fast, 0.15s ease),
+    background var(--transition-fast, 0.15s ease);
+}
+
+.tr-dropzone:hover,
+.tr-dropzone:focus-visible,
+.tr-dropzone.is-over {
+  border-color: var(--accent-primary, #667eea);
+  background: var(--bg-tertiary, #eee);
+}
+
+.tr-dropzone-icon {
+  font-size: 28px;
+}
+
+.tr-dropzone strong {
+  color: var(--accent-primary, #667eea);
+}
+
+.tr-hidden-input {
+  display: none;
+}
+
+.tr-file-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md, 16px);
+  margin: var(--spacing-sm, 8px) 0 0;
+  font-size: 13px;
+}
+
+.tr-file-details dt {
+  font-weight: 600;
+  color: var(--text-muted, #999);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.tr-file-details dd {
+  margin: 0;
+  color: var(--text-primary, #333);
+  word-break: break-all;
+}
+
+/* ============================================================================
+   MOTEUR / QUALITÉ / OPTIONS
+   ============================================================================ */
+
+.tr-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs, 4px);
+}
+
+.tr-field-label {
+  font-size: 12px;
+  color: var(--text-muted, #999);
+}
+
+.tr-select-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: var(--border-radius, 4px);
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  font-size: 14px;
+}
+
+.tr-licence {
+  margin: var(--spacing-xs, 4px) 0 0;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+.tr-quality-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm, 8px);
+}
+
+.tr-quality {
+  flex: 1 1 100px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: var(--border-radius, 4px);
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.tr-quality:hover:not(:disabled) {
+  border-color: var(--accent-primary, #667eea);
+}
+
+.tr-quality.is-active {
+  border-color: var(--accent-primary, #667eea);
+  background: var(--accent-gradient, #667eea);
+  color: #fff;
+  font-weight: 600;
+}
+
+.tr-quality:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tr-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs, 4px);
+}
+
+.tr-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+  font-size: 14px;
+  color: var(--text-primary, #333);
+  cursor: pointer;
+}
+
+.tr-option.is-unsupported {
+  color: var(--text-disabled, #bbb);
+  cursor: not-allowed;
+}
+
+.tr-option em {
+  font-style: normal;
+}
+
+/* ============================================================================
+   PROGRESSION
+   ============================================================================ */
+
+.tr-stages {
+  list-style: none;
+  margin: 0 0 var(--spacing-md, 16px);
+  padding: 0;
+}
+
+.tr-stage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+  padding: 4px 0;
+  font-size: 14px;
+  color: var(--text-muted, #999);
+}
+
+.tr-stage-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-color, #ccc);
+  flex: 0 0 auto;
+}
+
+.tr-stage.is-done {
+  color: var(--text-secondary, #666);
+}
+
+.tr-stage.is-done .tr-stage-dot {
+  background: var(--success-color, #00c896);
+}
+
+.tr-stage.is-active {
+  color: var(--text-primary, #333);
+  font-weight: 600;
+}
+
+.tr-stage.is-active .tr-stage-dot {
+  background: var(--accent-primary, #667eea);
+  animation: tr-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tr-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.tr-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+}
+
+.tr-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary, #eee);
+  overflow: hidden;
+}
+
+.tr-bar-fill {
+  height: 100%;
+  background: var(--accent-gradient, #667eea);
+  transition: width var(--transition-normal, 0.3s ease);
+}
+
+/* Barre indéterminée : le moteur ne fournit aucune progression (§31). */
+.tr-bar.is-indeterminate .tr-bar-fill {
+  width: 35%;
+  animation: tr-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes tr-slide {
+  0% {
+    margin-left: -35%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+
+.tr-progress-text {
+  min-width: 56px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+
+/* ============================================================================
+   RÉSULTAT
+   ============================================================================ */
+
+.tr-result h4 {
+  margin: var(--spacing-md, 16px) 0 var(--spacing-xs, 4px);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted, #999);
+}
+
+.tr-instruments,
+.tr-warnings,
+.tr-reasons,
+.tr-engines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tr-instruments li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm, 8px);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-light, #eee);
+  font-size: 14px;
+}
+
+.tr-instrument-name {
+  flex: 1;
+  color: var(--text-primary, #333);
+}
+
+.tr-instrument-confidence {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent-primary, #667eea);
+}
+
+.tr-warnings li,
+.tr-reasons li,
+.tr-engines li {
+  padding: 3px 0;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+}
+
+.tr-result-error .tr-error-message {
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+  border-left: 3px solid var(--danger-color, #e8365d);
+  background: var(--status-critical-bg, rgba(232, 54, 93, 0.12));
+  color: var(--text-primary, #333);
+  font-size: 14px;
+}

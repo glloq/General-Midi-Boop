@@ -271,6 +271,9 @@
       "description": "Hiển thị bảng lời bài hát đồng bộ cho tệp MIDI karaoke",
       "enabled": "Lời bài hát đã bật",
       "disabled": "Lời bài hát đã tắt"
+    },
+    "transcriptionButton": {
+      "title": "Âm thanh → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "Đầu vào MIDI",
     "groupOutputs": "Đầu ra MIDI",
     "groupOther": "Thiết bị khác"
+  },
+  "transcription": {
+    "title": "Âm thanh → MIDI",
+    "headerButton": "Chuyển âm thanh sang MIDI",
+    "step": {
+      "file": "Chọn tệp âm thanh",
+      "engine": "Bộ máy",
+      "quality": "Chất lượng"
+    },
+    "file": {
+      "name": "Tệp",
+      "size": "Kích thước",
+      "duration": "Thời lượng"
+    },
+    "dropzone": {
+      "hint": "Kéo và thả tệp âm thanh, hoặc",
+      "browse": "duyệt tệp của bạn",
+      "aria": "Chọn tệp âm thanh để chuyển đổi"
+    },
+    "engine": {
+      "auto": "Tự động",
+      "autoHint": "Bộ máy đã cài đặt tốt nhất sẽ được chọn cho tệp này.",
+      "licence": "Giấy phép mã: {code} · Giấy phép mô hình: {model}",
+      "nonCommercial": "Chỉ dùng phi thương mại"
+    },
+    "quality": {
+      "fast": "Nhanh",
+      "balanced": "Cân bằng",
+      "maximum": "Cao nhất"
+    },
+    "options": {
+      "title": "Tùy chọn",
+      "preserveDynamics": "Giữ sắc thái cường độ",
+      "preservePitchBends": "Giữ pitch bend",
+      "detectTempo": "Phát hiện thay đổi nhịp độ",
+      "detectDrums": "Phát hiện trống",
+      "detectInstruments": "Phát hiện nhạc cụ",
+      "unsupported": "Bộ máy này không hỗ trợ"
+    },
+    "status": {
+      "available": "Sẵn sàng",
+      "not_installed": "Chưa cài đặt",
+      "installable": "Có thể cài đặt",
+      "license_restricted": "Cần chấp nhận giấy phép",
+      "unsupported_platform": "Nền tảng không được hỗ trợ",
+      "broken": "Đã cài nhưng không dùng được"
+    },
+    "stage": {
+      "preprocessing": "Chuẩn bị âm thanh",
+      "transcribing": "Đang chuyển soạn",
+      "postprocessing": "Dọn dẹp nốt nhạc",
+      "generating_midi": "Tạo tệp MIDI",
+      "importing": "Thêm vào thư viện"
+    },
+    "progress": {
+      "title": "Đang chuyển đổi {name}",
+      "working": "Đang xử lý…"
+    },
+    "result": {
+      "complete": "Chuyển soạn hoàn tất",
+      "failed": "Chuyển soạn thất bại",
+      "detected": "Đã phát hiện",
+      "warnings": "Cảnh báo",
+      "noWarnings": "Không có cảnh báo",
+      "notes": "nốt",
+      "duplicate": "Tệp này đã có trong thư viện — đã dùng lại tệp hiện có.",
+      "unknownInstrument": "Nhạc cụ không xác định"
+    },
+    "actions": {
+      "start": "Chuyển đổi",
+      "cancel": "Hủy",
+      "openEditor": "Mở trình soạn MIDI",
+      "useFile": "Dùng tệp này",
+      "newConversion": "Chuyển đổi mới"
+    },
+    "unavailable": {
+      "title": "Máy chủ này không hỗ trợ chuyển Âm thanh → MIDI.",
+      "ffmpeg": "FFmpeg chưa được cài đặt.",
+      "noEngine": "Chưa cài đặt bộ máy chuyển soạn nào.",
+      "generic": "Tính năng chưa sẵn sàng.",
+      "engines": "Các bộ máy đã biết:",
+      "help": "Xem docs/AUDIO_TRANSCRIPTION.md để cài đặt một bộ máy."
+    }
   }
 }

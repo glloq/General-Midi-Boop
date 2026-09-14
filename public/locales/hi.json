@@ -271,6 +271,9 @@
       "description": "karaoke MIDI फ़ाइलों के लिए सिंक किया lyrics पैनल दिखाता है",
       "enabled": "Lyrics सक्षम",
       "disabled": "Lyrics अक्षम"
+    },
+    "transcriptionButton": {
+      "title": "ऑडियो → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI इनपुट",
     "groupOutputs": "MIDI आउटपुट",
     "groupOther": "अन्य डिवाइस"
+  },
+  "transcription": {
+    "title": "ऑडियो → MIDI",
+    "headerButton": "ऑडियो को MIDI में बदलें",
+    "step": {
+      "file": "ऑडियो फ़ाइल चुनें",
+      "engine": "इंजन",
+      "quality": "गुणवत्ता"
+    },
+    "file": {
+      "name": "फ़ाइल",
+      "size": "आकार",
+      "duration": "अवधि"
+    },
+    "dropzone": {
+      "hint": "ऑडियो फ़ाइल यहाँ खींचें, या",
+      "browse": "अपनी फ़ाइलें चुनें",
+      "aria": "बदलने के लिए ऑडियो फ़ाइल चुनें"
+    },
+    "engine": {
+      "auto": "स्वचालित",
+      "autoHint": "इस फ़ाइल के लिए सबसे उपयुक्त स्थापित इंजन चुना जाता है।",
+      "licence": "कोड लाइसेंस: {code} · मॉडल लाइसेंस: {model}",
+      "nonCommercial": "केवल ग़ैर-व्यावसायिक उपयोग"
+    },
+    "quality": {
+      "fast": "तेज़",
+      "balanced": "संतुलित",
+      "maximum": "अधिकतम"
+    },
+    "options": {
+      "title": "विकल्प",
+      "preserveDynamics": "तीव्रता बनाए रखें",
+      "preservePitchBends": "पिच बेंड बनाए रखें",
+      "detectTempo": "लय परिवर्तन पहचानें",
+      "detectDrums": "ड्रम पहचानें",
+      "detectInstruments": "वाद्ययंत्र पहचानें",
+      "unsupported": "यह इंजन इसे समर्थित नहीं करता"
+    },
+    "status": {
+      "available": "तैयार",
+      "not_installed": "स्थापित नहीं",
+      "installable": "स्थापित किया जा सकता है",
+      "license_restricted": "लाइसेंस स्वीकृति आवश्यक",
+      "unsupported_platform": "असमर्थित प्लेटफ़ॉर्म",
+      "broken": "स्थापित है पर काम नहीं करता"
+    },
+    "stage": {
+      "preprocessing": "ऑडियो तैयार किया जा रहा है",
+      "transcribing": "स्वरलेखन हो रहा है",
+      "postprocessing": "स्वरों की सफ़ाई",
+      "generating_midi": "MIDI बनाया जा रहा है",
+      "importing": "लाइब्रेरी में जोड़ा जा रहा है"
+    },
+    "progress": {
+      "title": "{name} बदला जा रहा है",
+      "working": "कार्य जारी…"
+    },
+    "result": {
+      "complete": "स्वरलेखन पूर्ण",
+      "failed": "स्वरलेखन विफल",
+      "detected": "पहचाना गया",
+      "warnings": "चेतावनियाँ",
+      "noWarnings": "कोई चेतावनी नहीं",
+      "notes": "स्वर",
+      "duplicate": "यह फ़ाइल पहले से लाइब्रेरी में थी — मौजूदा का पुनः उपयोग किया गया।",
+      "unknownInstrument": "अज्ञात वाद्ययंत्र"
+    },
+    "actions": {
+      "start": "बदलें",
+      "cancel": "रद्द करें",
+      "openEditor": "MIDI संपादक खोलें",
+      "useFile": "फ़ाइल उपयोग करें",
+      "newConversion": "नया रूपांतरण"
+    },
+    "unavailable": {
+      "title": "इस सर्वर पर ऑडियो → MIDI रूपांतरण उपलब्ध नहीं है।",
+      "ffmpeg": "FFmpeg स्थापित नहीं है।",
+      "noEngine": "कोई स्वरलेखन इंजन स्थापित नहीं है।",
+      "generic": "यह सुविधा तैयार नहीं है।",
+      "engines": "ज्ञात इंजन:",
+      "help": "इंजन स्थापित करने के लिए docs/AUDIO_TRANSCRIPTION.md देखें।"
+    }
   }
 }

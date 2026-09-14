@@ -271,6 +271,9 @@
       "description": "কারাওকে MIDI ফাইলের জন্য সিঙ্ক করা কথার প্যানেল দেখায়",
       "enabled": "কথা সক্ষম",
       "disabled": "কথা নিষ্ক্রিয়"
+    },
+    "transcriptionButton": {
+      "title": "অডিও → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI ইনপুট",
     "groupOutputs": "MIDI আউটপুট",
     "groupOther": "অন্যান্য ডিভাইস"
+  },
+  "transcription": {
+    "title": "অডিও → MIDI",
+    "headerButton": "অডিওকে MIDI-তে রূপান্তর করুন",
+    "step": {
+      "file": "একটি অডিও ফাইল বাছুন",
+      "engine": "ইঞ্জিন",
+      "quality": "গুণমান"
+    },
+    "file": {
+      "name": "ফাইল",
+      "size": "আকার",
+      "duration": "দৈর্ঘ্য"
+    },
+    "dropzone": {
+      "hint": "একটি অডিও ফাইল টেনে আনুন, অথবা",
+      "browse": "আপনার ফাইল বাছুন",
+      "aria": "রূপান্তরের জন্য অডিও ফাইল বাছুন"
+    },
+    "engine": {
+      "auto": "স্বয়ংক্রিয়",
+      "autoHint": "এই ফাইলের জন্য সবচেয়ে উপযুক্ত ইনস্টল করা ইঞ্জিন বেছে নেওয়া হয়।",
+      "licence": "কোড লাইসেন্স: {code} · মডেল লাইসেন্স: {model}",
+      "nonCommercial": "শুধুমাত্র অবাণিজ্যিক ব্যবহার"
+    },
+    "quality": {
+      "fast": "দ্রুত",
+      "balanced": "ভারসাম্যপূর্ণ",
+      "maximum": "সর্বোচ্চ"
+    },
+    "options": {
+      "title": "বিকল্প",
+      "preserveDynamics": "ধ্বনিমাত্রা বজায় রাখুন",
+      "preservePitchBends": "পিচ বেন্ড বজায় রাখুন",
+      "detectTempo": "গতির পরিবর্তন শনাক্ত করুন",
+      "detectDrums": "ড্রাম শনাক্ত করুন",
+      "detectInstruments": "বাদ্যযন্ত্র শনাক্ত করুন",
+      "unsupported": "এই ইঞ্জিন এটি সমর্থন করে না"
+    },
+    "status": {
+      "available": "প্রস্তুত",
+      "not_installed": "ইনস্টল করা নেই",
+      "installable": "ইনস্টল করা যায়",
+      "license_restricted": "লাইসেন্স গ্রহণ প্রয়োজন",
+      "unsupported_platform": "অসমর্থিত প্ল্যাটফর্ম",
+      "broken": "ইনস্টল করা আছে কিন্তু কাজ করে না"
+    },
+    "stage": {
+      "preprocessing": "অডিও প্রস্তুত করা হচ্ছে",
+      "transcribing": "স্বরলিপি করা হচ্ছে",
+      "postprocessing": "স্বর পরিষ্কার করা হচ্ছে",
+      "generating_midi": "MIDI তৈরি হচ্ছে",
+      "importing": "লাইব্রেরিতে যোগ করা হচ্ছে"
+    },
+    "progress": {
+      "title": "{name} রূপান্তর করা হচ্ছে",
+      "working": "চলছে…"
+    },
+    "result": {
+      "complete": "স্বরলিপি সম্পন্ন",
+      "failed": "স্বরলিপি ব্যর্থ",
+      "detected": "শনাক্ত হয়েছে",
+      "warnings": "সতর্কতা",
+      "noWarnings": "কোনো সতর্কতা নেই",
+      "notes": "স্বর",
+      "duplicate": "এই ফাইলটি ইতিমধ্যেই লাইব্রেরিতে ছিল — বিদ্যমানটি ব্যবহার করা হয়েছে।",
+      "unknownInstrument": "অজানা বাদ্যযন্ত্র"
+    },
+    "actions": {
+      "start": "রূপান্তর করুন",
+      "cancel": "বাতিল",
+      "openEditor": "MIDI সম্পাদক খুলুন",
+      "useFile": "ফাইলটি ব্যবহার করুন",
+      "newConversion": "নতুন রূপান্তর"
+    },
+    "unavailable": {
+      "title": "এই সার্ভারে অডিও → MIDI রূপান্তর উপলব্ধ নয়।",
+      "ffmpeg": "FFmpeg ইনস্টল করা নেই।",
+      "noEngine": "কোনো স্বরলিপি ইঞ্জিন ইনস্টল করা নেই।",
+      "generic": "বৈশিষ্ট্যটি প্রস্তুত নয়।",
+      "engines": "পরিচিত ইঞ্জিন:",
+      "help": "ইঞ্জিন ইনস্টল করতে docs/AUDIO_TRANSCRIPTION.md দেখুন।"
+    }
   }
 }

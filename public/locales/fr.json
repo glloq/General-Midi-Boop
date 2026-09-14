@@ -271,6 +271,9 @@
       "description": "Affiche un panneau de paroles synchronisées pour les fichiers karaoké",
       "enabled": "Paroles activées",
       "disabled": "Paroles désactivées"
+    },
+    "transcriptionButton": {
+      "title": "Audio → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "Entrées MIDI",
     "groupOutputs": "Sorties MIDI",
     "groupOther": "Autres appareils"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "headerButton": "Convertir un audio en MIDI",
+    "step": {
+      "file": "Choisir un fichier audio",
+      "engine": "Moteur",
+      "quality": "Qualité"
+    },
+    "file": {
+      "name": "Fichier",
+      "size": "Taille",
+      "duration": "Durée"
+    },
+    "dropzone": {
+      "hint": "Glissez-déposez un fichier audio, ou",
+      "browse": "parcourez vos fichiers",
+      "aria": "Choisir un fichier audio à convertir"
+    },
+    "engine": {
+      "auto": "Automatique",
+      "autoHint": "Le meilleur moteur installé est choisi pour ce fichier.",
+      "licence": "Licence du code : {code} · Licence du modèle : {model}",
+      "nonCommercial": "Usage non commercial uniquement"
+    },
+    "quality": {
+      "fast": "Rapide",
+      "balanced": "Équilibrée",
+      "maximum": "Maximale"
+    },
+    "options": {
+      "title": "Options",
+      "preserveDynamics": "Préserver les nuances",
+      "preservePitchBends": "Préserver les pitch bends",
+      "detectTempo": "Détecter les changements de tempo",
+      "detectDrums": "Détecter la batterie",
+      "detectInstruments": "Détecter les instruments",
+      "unsupported": "Non pris en charge par ce moteur"
+    },
+    "status": {
+      "available": "Prêt",
+      "not_installed": "Non installé",
+      "installable": "Installable",
+      "license_restricted": "Acceptation de licence requise",
+      "unsupported_platform": "Plateforme non supportée",
+      "broken": "Installé mais inutilisable"
+    },
+    "stage": {
+      "preprocessing": "Préparation de l'audio",
+      "transcribing": "Transcription",
+      "postprocessing": "Nettoyage des notes",
+      "generating_midi": "Génération du MIDI",
+      "importing": "Ajout à la bibliothèque"
+    },
+    "progress": {
+      "title": "Conversion de {name}",
+      "working": "En cours…"
+    },
+    "result": {
+      "complete": "Transcription terminée",
+      "failed": "Échec de la transcription",
+      "detected": "Détecté",
+      "warnings": "Avertissements",
+      "noWarnings": "Aucun avertissement",
+      "notes": "notes",
+      "duplicate": "Ce fichier était déjà dans la bibliothèque — celui existant a été réutilisé.",
+      "unknownInstrument": "Instrument inconnu"
+    },
+    "actions": {
+      "start": "Convertir",
+      "cancel": "Annuler",
+      "openEditor": "Ouvrir l'éditeur MIDI",
+      "useFile": "Utiliser le fichier",
+      "newConversion": "Nouvelle conversion"
+    },
+    "unavailable": {
+      "title": "La conversion Audio → MIDI n'est pas disponible sur ce serveur.",
+      "ffmpeg": "FFmpeg n'est pas installé.",
+      "noEngine": "Aucun moteur de transcription n'est installé.",
+      "generic": "La fonctionnalité n'est pas prête.",
+      "engines": "Moteurs connus :",
+      "help": "Voir docs/AUDIO_TRANSCRIPTION.md pour installer un moteur."
+    }
   }
 }

@@ -271,6 +271,9 @@
       "description": "Zeigt ein synchronisiertes Liedtext-Panel für Karaoke-MIDI-Dateien",
       "enabled": "Liedtext aktiviert",
       "disabled": "Liedtext deaktiviert"
+    },
+    "transcriptionButton": {
+      "title": "Audio → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI-Eingänge",
     "groupOutputs": "MIDI-Ausgänge",
     "groupOther": "Andere Geräte"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "headerButton": "Audio in MIDI umwandeln",
+    "step": {
+      "file": "Audiodatei auswählen",
+      "engine": "Engine",
+      "quality": "Qualität"
+    },
+    "file": {
+      "name": "Datei",
+      "size": "Größe",
+      "duration": "Dauer"
+    },
+    "dropzone": {
+      "hint": "Audiodatei hierher ziehen, oder",
+      "browse": "Dateien durchsuchen",
+      "aria": "Audiodatei zum Umwandeln auswählen"
+    },
+    "engine": {
+      "auto": "Automatisch",
+      "autoHint": "Die beste installierte Engine wird für diese Datei gewählt.",
+      "licence": "Code-Lizenz: {code} · Modell-Lizenz: {model}",
+      "nonCommercial": "Nur nicht-kommerzielle Nutzung"
+    },
+    "quality": {
+      "fast": "Schnell",
+      "balanced": "Ausgewogen",
+      "maximum": "Maximal"
+    },
+    "options": {
+      "title": "Optionen",
+      "preserveDynamics": "Dynamik erhalten",
+      "preservePitchBends": "Pitch-Bends erhalten",
+      "detectTempo": "Tempowechsel erkennen",
+      "detectDrums": "Schlagzeug erkennen",
+      "detectInstruments": "Instrumente erkennen",
+      "unsupported": "Von dieser Engine nicht unterstützt"
+    },
+    "status": {
+      "available": "Bereit",
+      "not_installed": "Nicht installiert",
+      "installable": "Installierbar",
+      "license_restricted": "Lizenzzustimmung erforderlich",
+      "unsupported_platform": "Plattform nicht unterstützt",
+      "broken": "Installiert, aber unbrauchbar"
+    },
+    "stage": {
+      "preprocessing": "Audio wird vorbereitet",
+      "transcribing": "Transkription läuft",
+      "postprocessing": "Noten werden bereinigt",
+      "generating_midi": "MIDI wird erzeugt",
+      "importing": "Wird zur Bibliothek hinzugefügt"
+    },
+    "progress": {
+      "title": "{name} wird umgewandelt",
+      "working": "Läuft…"
+    },
+    "result": {
+      "complete": "Transkription abgeschlossen",
+      "failed": "Transkription fehlgeschlagen",
+      "detected": "Erkannt",
+      "warnings": "Warnungen",
+      "noWarnings": "Keine Warnungen",
+      "notes": "Noten",
+      "duplicate": "Diese Datei war bereits in der Bibliothek — die vorhandene wurde verwendet.",
+      "unknownInstrument": "Unbekanntes Instrument"
+    },
+    "actions": {
+      "start": "Umwandeln",
+      "cancel": "Abbrechen",
+      "openEditor": "MIDI-Editor öffnen",
+      "useFile": "Datei verwenden",
+      "newConversion": "Neue Umwandlung"
+    },
+    "unavailable": {
+      "title": "Die Audio → MIDI-Umwandlung ist auf diesem Server nicht verfügbar.",
+      "ffmpeg": "FFmpeg ist nicht installiert.",
+      "noEngine": "Es ist keine Transkriptions-Engine installiert.",
+      "generic": "Die Funktion ist nicht bereit.",
+      "engines": "Bekannte Engines:",
+      "help": "Siehe docs/AUDIO_TRANSCRIPTION.md, um eine Engine zu installieren."
+    }
   }
 }

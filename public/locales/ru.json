@@ -271,6 +271,9 @@
       "description": "Отображает синхронизированную панель текста для караоке-MIDI-файлов",
       "enabled": "Текст включён",
       "disabled": "Текст отключён"
+    },
+    "transcriptionButton": {
+      "title": "Аудио → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "Входы MIDI",
     "groupOutputs": "Выходы MIDI",
     "groupOther": "Другие устройства"
+  },
+  "transcription": {
+    "title": "Аудио → MIDI",
+    "headerButton": "Преобразовать аудио в MIDI",
+    "step": {
+      "file": "Выберите аудиофайл",
+      "engine": "Движок",
+      "quality": "Качество"
+    },
+    "file": {
+      "name": "Файл",
+      "size": "Размер",
+      "duration": "Длительность"
+    },
+    "dropzone": {
+      "hint": "Перетащите аудиофайл или",
+      "browse": "выберите файл",
+      "aria": "Выбрать аудиофайл для преобразования"
+    },
+    "engine": {
+      "auto": "Автоматически",
+      "autoHint": "Для этого файла выбирается лучший установленный движок.",
+      "licence": "Лицензия кода: {code} · Лицензия модели: {model}",
+      "nonCommercial": "Только некоммерческое использование"
+    },
+    "quality": {
+      "fast": "Быстро",
+      "balanced": "Сбалансированно",
+      "maximum": "Максимум"
+    },
+    "options": {
+      "title": "Параметры",
+      "preserveDynamics": "Сохранять динамику",
+      "preservePitchBends": "Сохранять pitch bend",
+      "detectTempo": "Определять смену темпа",
+      "detectDrums": "Определять ударные",
+      "detectInstruments": "Определять инструменты",
+      "unsupported": "Не поддерживается этим движком"
+    },
+    "status": {
+      "available": "Готов",
+      "not_installed": "Не установлен",
+      "installable": "Можно установить",
+      "license_restricted": "Требуется принятие лицензии",
+      "unsupported_platform": "Платформа не поддерживается",
+      "broken": "Установлен, но не работает"
+    },
+    "stage": {
+      "preprocessing": "Подготовка аудио",
+      "transcribing": "Распознавание",
+      "postprocessing": "Очистка нот",
+      "generating_midi": "Создание MIDI",
+      "importing": "Добавление в библиотеку"
+    },
+    "progress": {
+      "title": "Преобразование {name}",
+      "working": "Выполняется…"
+    },
+    "result": {
+      "complete": "Распознавание завершено",
+      "failed": "Ошибка распознавания",
+      "detected": "Обнаружено",
+      "warnings": "Предупреждения",
+      "noWarnings": "Нет предупреждений",
+      "notes": "нот",
+      "duplicate": "Этот файл уже был в библиотеке — использован существующий.",
+      "unknownInstrument": "Неизвестный инструмент"
+    },
+    "actions": {
+      "start": "Преобразовать",
+      "cancel": "Отмена",
+      "openEditor": "Открыть MIDI-редактор",
+      "useFile": "Использовать файл",
+      "newConversion": "Новое преобразование"
+    },
+    "unavailable": {
+      "title": "Преобразование Аудио → MIDI недоступно на этом сервере.",
+      "ffmpeg": "FFmpeg не установлен.",
+      "noEngine": "Не установлен ни один движок распознавания.",
+      "generic": "Функция не готова.",
+      "engines": "Известные движки:",
+      "help": "См. docs/AUDIO_TRANSCRIPTION.md, чтобы установить движок."
+    }
   }
 }

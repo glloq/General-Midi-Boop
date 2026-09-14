@@ -271,6 +271,9 @@
       "description": "Visar en synkroniserad sångtextpanel för karaoke-MIDI-filer",
       "enabled": "Sångtext aktiverad",
       "disabled": "Sångtext inaktiverad"
+    },
+    "transcriptionButton": {
+      "title": "Ljud → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI-ingångar",
     "groupOutputs": "MIDI-utgångar",
     "groupOther": "Andra enheter"
+  },
+  "transcription": {
+    "title": "Ljud → MIDI",
+    "headerButton": "Konvertera ljud till MIDI",
+    "step": {
+      "file": "Välj en ljudfil",
+      "engine": "Motor",
+      "quality": "Kvalitet"
+    },
+    "file": {
+      "name": "Fil",
+      "size": "Storlek",
+      "duration": "Längd"
+    },
+    "dropzone": {
+      "hint": "Dra och släpp en ljudfil, eller",
+      "browse": "bläddra bland dina filer",
+      "aria": "Välj en ljudfil att konvertera"
+    },
+    "engine": {
+      "auto": "Automatiskt",
+      "autoHint": "Den bästa installerade motorn väljs för den här filen.",
+      "licence": "Kodlicens: {code} · Modellicens: {model}",
+      "nonCommercial": "Endast icke-kommersiell användning"
+    },
+    "quality": {
+      "fast": "Snabb",
+      "balanced": "Balanserad",
+      "maximum": "Maximal"
+    },
+    "options": {
+      "title": "Alternativ",
+      "preserveDynamics": "Behåll dynamiken",
+      "preservePitchBends": "Behåll pitch bends",
+      "detectTempo": "Identifiera tempoändringar",
+      "detectDrums": "Identifiera trummor",
+      "detectInstruments": "Identifiera instrument",
+      "unsupported": "Stöds inte av den här motorn"
+    },
+    "status": {
+      "available": "Klar",
+      "not_installed": "Inte installerad",
+      "installable": "Kan installeras",
+      "license_restricted": "Kräver godkänd licens",
+      "unsupported_platform": "Plattformen stöds inte",
+      "broken": "Installerad men oanvändbar"
+    },
+    "stage": {
+      "preprocessing": "Förbereder ljudet",
+      "transcribing": "Transkriberar",
+      "postprocessing": "Rensar noter",
+      "generating_midi": "Genererar MIDI",
+      "importing": "Lägger till i biblioteket"
+    },
+    "progress": {
+      "title": "Konverterar {name}",
+      "working": "Arbetar…"
+    },
+    "result": {
+      "complete": "Transkriberingen är klar",
+      "failed": "Transkriberingen misslyckades",
+      "detected": "Hittade",
+      "warnings": "Varningar",
+      "noWarnings": "Inga varningar",
+      "notes": "noter",
+      "duplicate": "Filen fanns redan i biblioteket — den befintliga återanvändes.",
+      "unknownInstrument": "Okänt instrument"
+    },
+    "actions": {
+      "start": "Konvertera",
+      "cancel": "Avbryt",
+      "openEditor": "Öppna MIDI-editorn",
+      "useFile": "Använd filen",
+      "newConversion": "Ny konvertering"
+    },
+    "unavailable": {
+      "title": "Ljud → MIDI-konvertering är inte tillgänglig på den här servern.",
+      "ffmpeg": "FFmpeg är inte installerat.",
+      "noEngine": "Ingen transkriberingsmotor är installerad.",
+      "generic": "Funktionen är inte redo.",
+      "engines": "Kända motorer:",
+      "help": "Se docs/AUDIO_TRANSCRIPTION.md för att installera en motor."
+    }
   }
 }

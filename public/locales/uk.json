@@ -271,6 +271,9 @@
       "description": "Показує синхронізовану панель тексту для караоке-MIDI-файлів",
       "enabled": "Текст увімкнено",
       "disabled": "Текст вимкнено"
+    },
+    "transcriptionButton": {
+      "title": "Аудіо → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "Входи MIDI",
     "groupOutputs": "Виходи MIDI",
     "groupOther": "Інші пристрої"
+  },
+  "transcription": {
+    "title": "Аудіо → MIDI",
+    "headerButton": "Перетворити аудіо на MIDI",
+    "step": {
+      "file": "Виберіть аудіофайл",
+      "engine": "Рушій",
+      "quality": "Якість"
+    },
+    "file": {
+      "name": "Файл",
+      "size": "Розмір",
+      "duration": "Тривалість"
+    },
+    "dropzone": {
+      "hint": "Перетягніть аудіофайл або",
+      "browse": "виберіть файл",
+      "aria": "Вибрати аудіофайл для перетворення"
+    },
+    "engine": {
+      "auto": "Автоматично",
+      "autoHint": "Для цього файлу обирається найкращий встановлений рушій.",
+      "licence": "Ліцензія коду: {code} · Ліцензія моделі: {model}",
+      "nonCommercial": "Лише некомерційне використання"
+    },
+    "quality": {
+      "fast": "Швидко",
+      "balanced": "Збалансовано",
+      "maximum": "Максимум"
+    },
+    "options": {
+      "title": "Параметри",
+      "preserveDynamics": "Зберігати динаміку",
+      "preservePitchBends": "Зберігати pitch bend",
+      "detectTempo": "Визначати зміни темпу",
+      "detectDrums": "Визначати ударні",
+      "detectInstruments": "Визначати інструменти",
+      "unsupported": "Не підтримується цим рушієм"
+    },
+    "status": {
+      "available": "Готовий",
+      "not_installed": "Не встановлено",
+      "installable": "Можна встановити",
+      "license_restricted": "Потрібне прийняття ліцензії",
+      "unsupported_platform": "Платформа не підтримується",
+      "broken": "Встановлено, але не працює"
+    },
+    "stage": {
+      "preprocessing": "Підготовка аудіо",
+      "transcribing": "Розпізнавання",
+      "postprocessing": "Очищення нот",
+      "generating_midi": "Створення MIDI",
+      "importing": "Додавання до бібліотеки"
+    },
+    "progress": {
+      "title": "Перетворення {name}",
+      "working": "Виконується…"
+    },
+    "result": {
+      "complete": "Розпізнавання завершено",
+      "failed": "Помилка розпізнавання",
+      "detected": "Виявлено",
+      "warnings": "Попередження",
+      "noWarnings": "Немає попереджень",
+      "notes": "нот",
+      "duplicate": "Цей файл уже був у бібліотеці — використано наявний.",
+      "unknownInstrument": "Невідомий інструмент"
+    },
+    "actions": {
+      "start": "Перетворити",
+      "cancel": "Скасувати",
+      "openEditor": "Відкрити редактор MIDI",
+      "useFile": "Використати файл",
+      "newConversion": "Нове перетворення"
+    },
+    "unavailable": {
+      "title": "Перетворення Аудіо → MIDI недоступне на цьому сервері.",
+      "ffmpeg": "FFmpeg не встановлено.",
+      "noEngine": "Не встановлено жодного рушія розпізнавання.",
+      "generic": "Функція не готова.",
+      "engines": "Відомі рушії:",
+      "help": "Див. docs/AUDIO_TRANSCRIPTION.md, щоб установити рушій."
+    }
   }
 }

@@ -55,6 +55,11 @@ class SettingsModal {
       settingKey: 'showLoopCreatorButton',
       elementId: 'loopCreatorBtn',
       event: 'settings:loop_creator_button_changed'
+    },
+    {
+      settingKey: 'showTranscriptionButton',
+      elementId: 'transcriptionBtn',
+      event: 'settings:transcription_button_changed'
     }
   ];
 
@@ -97,6 +102,9 @@ class SettingsModal {
       showKeyboardButton: true,
       showInstrumentsButton: true,
       showLoopCreatorButton: true,
+      // Off by default: audio → MIDI needs a transcription engine installed
+      // separately, so the button only appears once the operator asks for it.
+      showTranscriptionButton: false,
       midiClockEnabled: false,
       serialMidiEnabled: false,
       showLoadingAnimation: true,
@@ -357,6 +365,9 @@ class SettingsModal {
     const loopCreatorButtonToggle = this.modal.querySelector('#showLoopCreatorButtonToggle');
     if (loopCreatorButtonToggle)
       loopCreatorButtonToggle.checked = this.settings.showLoopCreatorButton;
+    const transcriptionButtonReset = this.modal.querySelector('#showTranscriptionButtonToggle');
+    if (transcriptionButtonReset)
+      transcriptionButtonReset.checked = this.settings.showTranscriptionButton;
 
     const keyboardLayoutSelect = this.modal.querySelector('#keyboardLayoutSelect');
     if (keyboardLayoutSelect) keyboardLayoutSelect.value = this.settings.keyboardLayout || 'azerty';
@@ -444,6 +455,7 @@ class SettingsModal {
     const keyboardLayoutSelect = this.modal.querySelector('#keyboardLayoutSelect');
     const instrumentsButtonToggle = this.modal.querySelector('#showInstrumentsButtonToggle');
     const loopCreatorButtonToggle = this.modal.querySelector('#showLoopCreatorButtonToggle');
+    const transcriptionButtonToggle = this.modal.querySelector('#showTranscriptionButtonToggle');
     const serialMidiToggle = this.modal.querySelector('#serialMidiToggle');
     const midiClockToggle = this.modal.querySelector('#midiClockToggle');
     const loadingAnimationToggle = this.modal.querySelector('#showLoadingAnimationToggle');
@@ -497,6 +509,9 @@ class SettingsModal {
       showLoopCreatorButton: loopCreatorButtonToggle
         ? loopCreatorButtonToggle.checked
         : this.settings.showLoopCreatorButton,
+      showTranscriptionButton: transcriptionButtonToggle
+        ? transcriptionButtonToggle.checked
+        : this.settings.showTranscriptionButton,
       midiClockEnabled: midiClockToggle ? midiClockToggle.checked : this.settings.midiClockEnabled,
       serialMidiEnabled: serialMidiToggle
         ? serialMidiToggle.checked

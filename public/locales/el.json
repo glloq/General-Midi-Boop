@@ -271,6 +271,9 @@
       "description": "Εμφανίζει έναν συγχρονισμένο πίνακα στίχων για αρχεία MIDI καραόκε",
       "enabled": "Στίχοι ενεργοί",
       "disabled": "Στίχοι απενεργοποιημένοι"
+    },
+    "transcriptionButton": {
+      "title": "Ήχος → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "Είσοδοι MIDI",
     "groupOutputs": "Έξοδοι MIDI",
     "groupOther": "Άλλες συσκευές"
+  },
+  "transcription": {
+    "title": "Ήχος → MIDI",
+    "headerButton": "Μετατροπή ήχου σε MIDI",
+    "step": {
+      "file": "Επιλέξτε αρχείο ήχου",
+      "engine": "Μηχανή",
+      "quality": "Ποιότητα"
+    },
+    "file": {
+      "name": "Αρχείο",
+      "size": "Μέγεθος",
+      "duration": "Διάρκεια"
+    },
+    "dropzone": {
+      "hint": "Σύρετε ένα αρχείο ήχου ή",
+      "browse": "περιηγηθείτε στα αρχεία σας",
+      "aria": "Επιλέξτε αρχείο ήχου για μετατροπή"
+    },
+    "engine": {
+      "auto": "Αυτόματα",
+      "autoHint": "Επιλέγεται η καλύτερη εγκατεστημένη μηχανή για αυτό το αρχείο.",
+      "licence": "Άδεια κώδικα: {code} · Άδεια μοντέλου: {model}",
+      "nonCommercial": "Μόνο μη εμπορική χρήση"
+    },
+    "quality": {
+      "fast": "Γρήγορη",
+      "balanced": "Ισορροπημένη",
+      "maximum": "Μέγιστη"
+    },
+    "options": {
+      "title": "Επιλογές",
+      "preserveDynamics": "Διατήρηση δυναμικής",
+      "preservePitchBends": "Διατήρηση pitch bend",
+      "detectTempo": "Ανίχνευση αλλαγών τέμπο",
+      "detectDrums": "Ανίχνευση κρουστών",
+      "detectInstruments": "Ανίχνευση οργάνων",
+      "unsupported": "Δεν υποστηρίζεται από αυτή τη μηχανή"
+    },
+    "status": {
+      "available": "Έτοιμη",
+      "not_installed": "Μη εγκατεστημένη",
+      "installable": "Μπορεί να εγκατασταθεί",
+      "license_restricted": "Απαιτείται αποδοχή άδειας",
+      "unsupported_platform": "Μη υποστηριζόμενη πλατφόρμα",
+      "broken": "Εγκατεστημένη αλλά μη λειτουργική"
+    },
+    "stage": {
+      "preprocessing": "Προετοιμασία ήχου",
+      "transcribing": "Μεταγραφή",
+      "postprocessing": "Καθαρισμός νοτών",
+      "generating_midi": "Δημιουργία MIDI",
+      "importing": "Προσθήκη στη βιβλιοθήκη"
+    },
+    "progress": {
+      "title": "Μετατροπή του {name}",
+      "working": "Σε εξέλιξη…"
+    },
+    "result": {
+      "complete": "Η μεταγραφή ολοκληρώθηκε",
+      "failed": "Η μεταγραφή απέτυχε",
+      "detected": "Εντοπίστηκαν",
+      "warnings": "Προειδοποιήσεις",
+      "noWarnings": "Καμία προειδοποίηση",
+      "notes": "νότες",
+      "duplicate": "Το αρχείο υπήρχε ήδη στη βιβλιοθήκη — χρησιμοποιήθηκε το υπάρχον.",
+      "unknownInstrument": "Άγνωστο όργανο"
+    },
+    "actions": {
+      "start": "Μετατροπή",
+      "cancel": "Ακύρωση",
+      "openEditor": "Άνοιγμα επεξεργαστή MIDI",
+      "useFile": "Χρήση του αρχείου",
+      "newConversion": "Νέα μετατροπή"
+    },
+    "unavailable": {
+      "title": "Η μετατροπή Ήχος → MIDI δεν είναι διαθέσιμη σε αυτόν τον διακομιστή.",
+      "ffmpeg": "Το FFmpeg δεν είναι εγκατεστημένο.",
+      "noEngine": "Δεν έχει εγκατασταθεί καμία μηχανή μεταγραφής.",
+      "generic": "Η λειτουργία δεν είναι έτοιμη.",
+      "engines": "Γνωστές μηχανές:",
+      "help": "Δείτε το docs/AUDIO_TRANSCRIPTION.md για να εγκαταστήσετε μια μηχανή."
+    }
   }
 }

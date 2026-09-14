@@ -271,6 +271,9 @@
       "description": "Displays a synced lyrics panel for karaoke MIDI files",
       "enabled": "Lyrics enabled",
       "disabled": "Lyrics disabled"
+    },
+    "transcriptionButton": {
+      "title": "Audio → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI inputs",
     "groupOutputs": "MIDI outputs",
     "groupOther": "Other devices"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "headerButton": "Convert audio to MIDI",
+    "step": {
+      "file": "Choose an audio file",
+      "engine": "Engine",
+      "quality": "Quality"
+    },
+    "file": {
+      "name": "File",
+      "size": "Size",
+      "duration": "Duration"
+    },
+    "dropzone": {
+      "hint": "Drag and drop an audio file, or",
+      "browse": "browse your files",
+      "aria": "Choose an audio file to convert"
+    },
+    "engine": {
+      "auto": "Automatic",
+      "autoHint": "The best installed engine is chosen for this file.",
+      "licence": "Code licence: {code} · Model licence: {model}",
+      "nonCommercial": "Non-commercial use only"
+    },
+    "quality": {
+      "fast": "Fast",
+      "balanced": "Balanced",
+      "maximum": "Maximum"
+    },
+    "options": {
+      "title": "Options",
+      "preserveDynamics": "Preserve dynamics",
+      "preservePitchBends": "Preserve pitch bends",
+      "detectTempo": "Detect tempo changes",
+      "detectDrums": "Detect drums",
+      "detectInstruments": "Detect instruments",
+      "unsupported": "Not supported by this engine"
+    },
+    "status": {
+      "available": "Ready",
+      "not_installed": "Not installed",
+      "installable": "Can be installed",
+      "license_restricted": "Licence acceptance required",
+      "unsupported_platform": "Unsupported platform",
+      "broken": "Installed but unusable"
+    },
+    "stage": {
+      "preprocessing": "Preparing audio",
+      "transcribing": "Transcribing",
+      "postprocessing": "Cleaning notes",
+      "generating_midi": "Generating MIDI",
+      "importing": "Adding to library"
+    },
+    "progress": {
+      "title": "Converting {name}",
+      "working": "Working…"
+    },
+    "result": {
+      "complete": "Transcription complete",
+      "failed": "Transcription failed",
+      "detected": "Detected",
+      "warnings": "Warnings",
+      "noWarnings": "No warnings",
+      "notes": "notes",
+      "duplicate": "This file was already in the library — the existing one was reused.",
+      "unknownInstrument": "Unknown instrument"
+    },
+    "actions": {
+      "start": "Convert",
+      "cancel": "Cancel",
+      "openEditor": "Open MIDI editor",
+      "useFile": "Use file",
+      "newConversion": "New conversion"
+    },
+    "unavailable": {
+      "title": "Audio → MIDI conversion is not available on this server.",
+      "ffmpeg": "FFmpeg is not installed.",
+      "noEngine": "No transcription engine is installed.",
+      "generic": "The feature is not ready.",
+      "engines": "Known engines:",
+      "help": "See docs/AUDIO_TRANSCRIPTION.md to install an engine."
+    }
   }
 }

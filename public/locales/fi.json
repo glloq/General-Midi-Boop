@@ -271,6 +271,9 @@
       "description": "Näyttää synkronoidun sanoituspaneelin karaoke-MIDI-tiedostoille",
       "enabled": "Sanoitukset käytössä",
       "disabled": "Sanoitukset pois käytöstä"
+    },
+    "transcriptionButton": {
+      "title": "Ääni → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI-tulot",
     "groupOutputs": "MIDI-lähdöt",
     "groupOther": "Muut laitteet"
+  },
+  "transcription": {
+    "title": "Ääni → MIDI",
+    "headerButton": "Muunna ääni MIDI-tiedostoksi",
+    "step": {
+      "file": "Valitse äänitiedosto",
+      "engine": "Moottori",
+      "quality": "Laatu"
+    },
+    "file": {
+      "name": "Tiedosto",
+      "size": "Koko",
+      "duration": "Kesto"
+    },
+    "dropzone": {
+      "hint": "Vedä ja pudota äänitiedosto tai",
+      "browse": "selaa tiedostoja",
+      "aria": "Valitse muunnettava äänitiedosto"
+    },
+    "engine": {
+      "auto": "Automaattinen",
+      "autoHint": "Tälle tiedostolle valitaan paras asennettu moottori.",
+      "licence": "Koodin lisenssi: {code} · Mallin lisenssi: {model}",
+      "nonCommercial": "Vain ei-kaupallinen käyttö"
+    },
+    "quality": {
+      "fast": "Nopea",
+      "balanced": "Tasapainoinen",
+      "maximum": "Paras"
+    },
+    "options": {
+      "title": "Asetukset",
+      "preserveDynamics": "Säilytä dynamiikka",
+      "preservePitchBends": "Säilytä pitch bendit",
+      "detectTempo": "Tunnista tempon vaihdokset",
+      "detectDrums": "Tunnista rummut",
+      "detectInstruments": "Tunnista soittimet",
+      "unsupported": "Tämä moottori ei tue tätä"
+    },
+    "status": {
+      "available": "Valmis",
+      "not_installed": "Ei asennettu",
+      "installable": "Voidaan asentaa",
+      "license_restricted": "Lisenssin hyväksyntä vaaditaan",
+      "unsupported_platform": "Alustaa ei tueta",
+      "broken": "Asennettu mutta ei toimi"
+    },
+    "stage": {
+      "preprocessing": "Valmistellaan ääntä",
+      "transcribing": "Nuotinnetaan",
+      "postprocessing": "Siistitään nuotteja",
+      "generating_midi": "Luodaan MIDI",
+      "importing": "Lisätään kirjastoon"
+    },
+    "progress": {
+      "title": "Muunnetaan {name}",
+      "working": "Käynnissä…"
+    },
+    "result": {
+      "complete": "Nuotinnus valmis",
+      "failed": "Nuotinnus epäonnistui",
+      "detected": "Tunnistettu",
+      "warnings": "Varoitukset",
+      "noWarnings": "Ei varoituksia",
+      "notes": "nuottia",
+      "duplicate": "Tiedosto oli jo kirjastossa — käytettiin olemassa olevaa.",
+      "unknownInstrument": "Tuntematon soitin"
+    },
+    "actions": {
+      "start": "Muunna",
+      "cancel": "Peruuta",
+      "openEditor": "Avaa MIDI-editori",
+      "useFile": "Käytä tiedostoa",
+      "newConversion": "Uusi muunnos"
+    },
+    "unavailable": {
+      "title": "Ääni → MIDI -muunnos ei ole käytettävissä tällä palvelimella.",
+      "ffmpeg": "FFmpeg ei ole asennettu.",
+      "noEngine": "Yhtään nuotinnusmoottoria ei ole asennettu.",
+      "generic": "Ominaisuus ei ole valmis.",
+      "engines": "Tunnetut moottorit:",
+      "help": "Katso docs/AUDIO_TRANSCRIPTION.md moottorin asentamiseksi."
+    }
   }
 }

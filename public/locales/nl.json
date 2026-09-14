@@ -271,6 +271,9 @@
       "description": "Toont een gesynchroniseerd songtekstpaneel voor karaoke-MIDI-bestanden",
       "enabled": "Songtekst ingeschakeld",
       "disabled": "Songtekst uitgeschakeld"
+    },
+    "transcriptionButton": {
+      "title": "Audio → MIDI"
     }
   },
   "bluetooth": {
@@ -3125,5 +3128,88 @@
     "groupInputs": "MIDI-ingangen",
     "groupOutputs": "MIDI-uitgangen",
     "groupOther": "Andere apparaten"
+  },
+  "transcription": {
+    "title": "Audio → MIDI",
+    "headerButton": "Audio naar MIDI omzetten",
+    "step": {
+      "file": "Kies een audiobestand",
+      "engine": "Engine",
+      "quality": "Kwaliteit"
+    },
+    "file": {
+      "name": "Bestand",
+      "size": "Grootte",
+      "duration": "Duur"
+    },
+    "dropzone": {
+      "hint": "Sleep een audiobestand hierheen, of",
+      "browse": "blader door je bestanden",
+      "aria": "Kies een audiobestand om om te zetten"
+    },
+    "engine": {
+      "auto": "Automatisch",
+      "autoHint": "De beste geïnstalleerde engine wordt voor dit bestand gekozen.",
+      "licence": "Codelicentie: {code} · Modellicentie: {model}",
+      "nonCommercial": "Alleen niet-commercieel gebruik"
+    },
+    "quality": {
+      "fast": "Snel",
+      "balanced": "Gebalanceerd",
+      "maximum": "Maximaal"
+    },
+    "options": {
+      "title": "Opties",
+      "preserveDynamics": "Dynamiek behouden",
+      "preservePitchBends": "Pitch bends behouden",
+      "detectTempo": "Tempowijzigingen detecteren",
+      "detectDrums": "Drums detecteren",
+      "detectInstruments": "Instrumenten detecteren",
+      "unsupported": "Niet ondersteund door deze engine"
+    },
+    "status": {
+      "available": "Klaar",
+      "not_installed": "Niet geïnstalleerd",
+      "installable": "Installeerbaar",
+      "license_restricted": "Licentieacceptatie vereist",
+      "unsupported_platform": "Platform niet ondersteund",
+      "broken": "Geïnstalleerd maar onbruikbaar"
+    },
+    "stage": {
+      "preprocessing": "Audio voorbereiden",
+      "transcribing": "Transcriberen",
+      "postprocessing": "Noten opschonen",
+      "generating_midi": "MIDI genereren",
+      "importing": "Toevoegen aan bibliotheek"
+    },
+    "progress": {
+      "title": "{name} omzetten",
+      "working": "Bezig…"
+    },
+    "result": {
+      "complete": "Transcriptie voltooid",
+      "failed": "Transcriptie mislukt",
+      "detected": "Gedetecteerd",
+      "warnings": "Waarschuwingen",
+      "noWarnings": "Geen waarschuwingen",
+      "notes": "noten",
+      "duplicate": "Dit bestand stond al in de bibliotheek — het bestaande is hergebruikt.",
+      "unknownInstrument": "Onbekend instrument"
+    },
+    "actions": {
+      "start": "Omzetten",
+      "cancel": "Annuleren",
+      "openEditor": "MIDI-editor openen",
+      "useFile": "Bestand gebruiken",
+      "newConversion": "Nieuwe conversie"
+    },
+    "unavailable": {
+      "title": "Audio → MIDI-conversie is niet beschikbaar op deze server.",
+      "ffmpeg": "FFmpeg is niet geïnstalleerd.",
+      "noEngine": "Er is geen transcriptie-engine geïnstalleerd.",
+      "generic": "De functie is niet gereed.",
+      "engines": "Bekende engines:",
+      "help": "Zie docs/AUDIO_TRANSCRIPTION.md om een engine te installeren."
+    }
   }
 }
